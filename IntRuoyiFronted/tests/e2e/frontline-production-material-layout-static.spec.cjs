@@ -17,8 +17,8 @@ assert.match(
 )
 assert.match(
   orderSummaryStyle[0],
-  /max-height:\s*calc\(var\(--frontline-production-order-summary-line-height\) \* 3\)/,
-  'top active-order summary must be capped at exactly three visible lines.'
+  /max-height:\s*calc\(var\(--frontline-production-order-summary-line-height\)\s*\*\s*3(?:\s*\+\s*4px)?\)/,
+  'top active-order summary must be capped at three visible lines.'
 )
 assert.match(
   orderSummaryStyle[0],

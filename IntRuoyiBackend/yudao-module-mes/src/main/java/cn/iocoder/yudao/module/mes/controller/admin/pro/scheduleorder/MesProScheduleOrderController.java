@@ -47,6 +47,9 @@ import cn.iocoder.yudao.module.mes.service.pro.process.MesProProcessService;
 import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteService;
 import cn.iocoder.yudao.module.mes.service.pro.scheduleorder.MesProScheduleOrderService;
 import cn.iocoder.yudao.module.mes.service.pro.workorder.MesProWorkOrderService;
+import cn.iocoder.yudao.module.mes.service.pro.workorder.MesProWorkOrderErpCleanupService;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.scheduleorder.vo.MesProWorkOrderErpCleanupPreviewRespVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.scheduleorder.vo.MesProWorkOrderErpCleanupReqVO;
 import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
 import cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO;
 import io.swagger.v3.oas.annotations.Operation;
@@ -121,6 +124,8 @@ public class MesProScheduleOrderController {
     private MesProProcessService processService;
     @Resource
     private MesProWorkOrderService workOrderService;
+    @Resource
+    private MesProWorkOrderErpCleanupService workOrderErpCleanupService;
     @Resource
     private MesKingdeeProductionMaterialListMapper productionMaterialListMapper;
     @Resource
@@ -259,6 +264,21 @@ public class MesProScheduleOrderController {
         MesProScheduleOrderAdmissionDiffPageRespVO result = scheduleOrderService.getAdmissionDiff(pageReqVO);
         enrichAdmissionDiffProducts(result.getList());
         return success(result);
+    }
+
+    @GetMapping("/erp-missing-work-orders")
+    @Operation(summary = "分析当前 ERP 环境不存在的生产工单")
+    @PreAuthorize("@ss.hasPermission('mes:pro-schedule-order:admission-diff') && @ss.hasPermission('mes:pro-work-order:delete')")
+    public CommonResult<MesProWorkOrderErpCleanupPreviewRespVO> analyzeErpMissingWorkOrders() {
+        return success(workOrderErpCleanupService.analyze());
+    }
+
+    @PostMapping("/delete-erp-missing-work-orders")
+    @Operation(summary = "确认删除 ERP 不存在且未进入生产流程的工单")
+    @ApiAccessLog(operateType = cn.iocoder.yudao.framework.apilog.core.enums.OperateTypeEnum.DELETE)
+    @PreAuthorize("@ss.hasPermission('mes:pro-schedule-order:admission-diff') && @ss.hasPermission('mes:pro-work-order:delete')")
+    public CommonResult<Integer> deleteErpMissingWorkOrders(@Valid @RequestBody MesProWorkOrderErpCleanupReqVO reqVO) {
+        return success(workOrderErpCleanupService.deleteMissing(reqVO));
     }
 
     @PostMapping("/preflight")

@@ -10,6 +10,7 @@ import lombok.Data;
 
 import java.time.LocalDateTime;
 import java.util.Set;
+import java.util.List;
 
 @Schema(description = "管理后台 - 用户信息 Response VO")
 @Data
@@ -39,6 +40,12 @@ public class UserRespVO{
 
     @Schema(description = "岗位编号数组", example = "1")
     private Set<Long> postIds;
+
+    @Schema(description = "当前列表用户的岗位名称，包含已停用的既有岗位")
+    private List<String> postNames;
+
+    @Schema(description = "当前列表用户的已分配角色名称，包含已停用角色")
+    private List<String> roleNames;
 
     @Schema(description = "用户邮箱", example = "yudao@iocoder.cn")
     @ExcelProperty("用户邮箱")

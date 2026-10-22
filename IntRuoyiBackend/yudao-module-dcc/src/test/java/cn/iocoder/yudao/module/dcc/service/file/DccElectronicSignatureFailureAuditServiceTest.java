@@ -8,6 +8,11 @@ import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccElectronicSignatureAuthoriz
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccElectronicSignatureFailureAuditMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccElectronicSignaturePolicyMapper;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.AfterEach;
+import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
+import cn.iocoder.yudao.module.system.api.permission.ApprovalAuthorityApi;
+import cn.iocoder.yudao.module.system.api.permission.dto.ApprovalAuthorityRevisionDTO;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
@@ -34,9 +39,15 @@ class DccElectronicSignatureFailureAuditServiceTest extends BaseMockitoUnitTest 
     private DccElectronicSignatureAuthorizationMapper authorizationMapper;
     @Mock
     private DccElectronicSignaturePolicyMapper policyMapper;
+    @Mock private ApprovalAuthorityApi authority;
 
     @InjectMocks
     private DccElectronicSignatureFailureAuditServiceImpl service;
+    @BeforeEach void authorityFixture() {
+        TenantContextHolder.setTenantId(7L);
+        when(authority.lockTenantApprovalAuthority(7L)).thenReturn(new ApprovalAuthorityRevisionDTO(7L, 3L));
+    }
+    @AfterEach void clearTenant() { TenantContextHolder.clear(); }
 
     @Test
     void recordPasswordFailure_persistsAuditWithoutPasswordAndLocksAfterFiveFailuresInFifteenMinutes() {
@@ -49,7 +60,7 @@ class DccElectronicSignatureFailureAuditServiceTest extends BaseMockitoUnitTest 
                 .hashAlgorithm("HMAC_SHA256")
                 .status(0)
                 .build());
-        when(authorizationMapper.selectByUserId(99L)).thenReturn(DccElectronicSignatureAuthorizationDO.builder()
+        when(authorizationMapper.selectByUserIdForUpdate(99L)).thenReturn(DccElectronicSignatureAuthorizationDO.builder()
                 .id(5L)
                 .userId(99L)
                 .electronicSignatureEnabled(Boolean.TRUE)
@@ -102,7 +113,7 @@ class DccElectronicSignatureFailureAuditServiceTest extends BaseMockitoUnitTest 
                 .hashAlgorithm("HMAC_SHA256")
                 .status(0)
                 .build());
-        when(authorizationMapper.selectByUserId(99L)).thenReturn(DccElectronicSignatureAuthorizationDO.builder()
+        when(authorizationMapper.selectByUserIdForUpdate(99L)).thenReturn(DccElectronicSignatureAuthorizationDO.builder()
                 .id(5L)
                 .userId(99L)
                 .electronicSignatureEnabled(Boolean.TRUE)

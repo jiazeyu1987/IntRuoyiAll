@@ -21,6 +21,12 @@ public class ProcessPoolProductionReportCorrectionReqVO {
     @NotNull(message = "提交事件不能为空")
     private Long eventId;
 
+    // Ordinary corrections require this baseline in MesCorrectionBaselineGuard.
+    // Own-return corrections use the outer rejected-review baseline instead.
+    @jakarta.validation.constraints.Min(0)
+    private Long expectedRevisionId;
+    private String expectedPayloadHash;
+
     @NotNull(message = "完成数量不能为空")
     @DecimalMin(value = "0.001", message = "完成数量必须大于 0")
     private BigDecimal outputQuantity;
@@ -45,6 +51,8 @@ public class ProcessPoolProductionReportCorrectionReqVO {
     public MesProcessPoolProductionReportCorrectionCommand toCommand() {
         return new MesProcessPoolProductionReportCorrectionCommand()
                 .setEventId(eventId)
+                .setExpectedRevisionId(expectedRevisionId)
+                .setExpectedPayloadHash(expectedPayloadHash)
                 .setOutputQuantity(outputQuantity)
                 .setMaterialDetails((materialDetails == null ? List.<MaterialDetailReqVO>of()
                         : materialDetails).stream()

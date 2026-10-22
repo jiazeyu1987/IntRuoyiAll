@@ -15,6 +15,7 @@ import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdh
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrWorkTaskStatsRespVO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionTaskDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionOriginDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrProcessFormPermissionRuleDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrReleaseTransactionDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrWorkTaskAssignmentRuleDO;
@@ -25,6 +26,7 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteFlowProce
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteProcessDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionTaskMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionOriginMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrProcessFormPermissionRuleMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrReleaseTransactionMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrWorkTaskAssignmentRuleMapper;
@@ -84,9 +86,16 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-@Import({MesProEdhrWorkTaskServiceImpl.class, MesProEdhrCandidateResolver.class})
+@Import({MesProEdhrWorkTaskServiceImpl.class, MesProEdhrCandidateResolver.class, MesProEdhrWorkTaskServiceImplTest.SqlDialect.class})
 class MesProEdhrWorkTaskServiceImplTest extends BaseDbUnitTest {
 
+    @org.springframework.boot.test.context.TestConfiguration
+    static class SqlDialect {
+        @org.springframework.context.annotation.Bean
+        org.apache.ibatis.plugin.Interceptor mysqlBitsForIsolatedH2() { return new MesNcrScopeAuditTransactionTest.MysqlBitsForH2(); }
+    }
+    @MockitoBean private MesProEdhrNonconformanceReviewService nonconformanceReviewService;
+    @Resource private cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesProWorkOrderMapper workOrders;
     @Resource
     private MesProEdhrWorkTaskService workTaskService;
     @Resource
@@ -122,10 +131,20 @@ class MesProEdhrWorkTaskServiceImplTest extends BaseDbUnitTest {
     private MesProRouteProcessService routeProcessService;
     @MockitoBean
     private MesProEdhrOperationAuditService operationAuditService;
+    @MockitoBean
+    private MesProEdhrBatchExecutionOriginMapper batchExecutionOriginMapper;
+    // Domain/task regression: auxiliary audit is a collaborator; its callbacks must execute.
+    @MockitoBean private MesWorkTaskAuxiliaryAudit auxiliaryAudit;
 
+    @MockitoBean private cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService sourceLedger;
+    @MockitoBean private cn.iocoder.yudao.module.system.api.permission.ApprovalAuthorityApi sourceAuthority;
     @BeforeEach
     void setTenant() {
         TenantContextHolder.setTenantId(122L);
+        org.mockito.Mockito.doAnswer(call -> { call.getArgument(3, Runnable.class).run(); return null; })
+                .when(auxiliaryAudit).entitlements(any(), any(), any(), any());
+        org.mockito.Mockito.doAnswer(call -> { call.getArgument(1, java.util.function.Supplier.class).get(); return null; })
+                .when(auxiliaryAudit).notifications(any(), any());
         lenient().when(routeProcessService.resolveCurrentRouteProcess(any(), any(), any()))
                 .thenAnswer(invocation -> MesProRouteProcessDO.builder()
                         .id(invocation.getArgument(0))
@@ -908,6 +927,40 @@ class MesProEdhrWorkTaskServiceImplTest extends BaseDbUnitTest {
     }
 
     @Test
+    void completeReviewAndCreateRework_recordsActiveOrderOperationFact() {
+        MesProEdhrWorkTaskDO reviewTask = insertCandidateReviewTask(9001L, 9901L, "R1C1",
+                177L, "177", "rework-audit")
+                .setRouteId(5504L)
+                .setRouteProcessId(5504L)
+                .setProcessId(6001L);
+        workTaskMapper.updateById(reviewTask);
+        insertAssignmentRule(5504L, MesProEdhrWorkTaskService.TASK_TYPE_FILL, 120, "USER", 188L, 188L);
+        insertAssignmentRule(5504L, MesProEdhrWorkTaskService.TASK_TYPE_REWORK, 120, "USER", 188L, 188L);
+        when(batchExecutionOriginMapper.selectListByBatchExecutionId(1001L))
+                .thenReturn(List.of(new MesProEdhrBatchExecutionOriginDO()
+                        .setBatchExecutionId(1001L)
+                        .setActiveOrderId(8101L)
+                        .setOriginKey("ACTIVE_ORDER:8101")));
+
+        try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(177L);
+            security.when(SecurityFrameworkUtils::getLoginUserNickname).thenReturn("审核人");
+            MesProEdhrWorkTaskDO reworkTask = workTaskService.completeReviewAndCreateRework(
+                    reviewTask.getId(), 9001L, 9002L, "批记录复核不通过");
+
+            assertEquals(MesProEdhrWorkTaskService.TASK_TYPE_REWORK, reworkTask.getTaskType());
+            assertEquals(9002L, reworkTask.getExecutionId());
+        }
+
+        verify(operationAuditService).record(org.mockito.ArgumentMatchers.argThat(command -> {
+            JSONObject metadata = JSON.parseObject(command.getMetadataJson());
+            return "REWORK_TASK_CREATED".equals(command.getOperationType())
+                    && metadata != null
+                    && Objects.equals(8101L, metadata.getLong("activeOrderId"));
+        }));
+    }
+
+    @Test
     void createNextFillAfterReview_pendingPeerReviewDoesNotCreateNextFill() {
         insertBatch(batchForInitialFill(3020L, 4120L));
         MesProEdhrBatchExecutionTaskDO currentTask = batchTask(3020L, 9120L, 5120L,
@@ -1242,21 +1295,29 @@ class MesProEdhrWorkTaskServiceImplTest extends BaseDbUnitTest {
         assertNotNull(fills.get(0).getAssigneeUserId());
     }
 
-    @Test
-    void createNextFillAfterReview_allPrerequisitesMetCreatesNextFillOnce() {
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    void createNextFillAfterReview_allPrerequisitesMetCreatesNextFillOnce(boolean pendingReleaseReport) {
         insertBatch(batchForInitialFill(3050L, 4150L));
         MesProEdhrBatchExecutionTaskDO currentTask = batchTask(3050L, 9150L, 5150L,
                 "REPORT-CURRENT", "ROUTE_FORM", "称量", 10)
                 .setStatus(MesProEdhrBatchExecutionServiceImpl.TASK_STATUS_APPROVED);
         MesProEdhrBatchExecutionTaskDO specialTask = batchTask(3050L, 9151L, null,
-                null, "STERILIZATION_REPORT", "灭菌报告", 15)
-                .setStatus(MesProEdhrBatchExecutionServiceImpl.TASK_STATUS_SKIPPED);
-        MesProEdhrBatchExecutionTaskDO nextTask = batchTask(3050L, 9152L, 5152L,
+                null, "INCOMING_INSPECTION_REPORT", "来料检验报告", 0)
+                .setStatus(pendingReleaseReport ? MesProEdhrBatchExecutionServiceImpl.TASK_STATUS_WAITING
+                        : MesProEdhrBatchExecutionServiceImpl.TASK_STATUS_SKIPPED);
+        MesProEdhrBatchExecutionTaskDO nextTask = batchTask(3050L, 9152L, (pendingReleaseReport ? 5153L : 5152L),
                 "REPORT-NEXT", "ROUTE_FORM", "包装", 20);
         batchTaskMapper.insert(currentTask);
         batchTaskMapper.insert(specialTask);
         batchTaskMapper.insert(nextTask);
-        insertAssignmentRule(5152L, MesProEdhrWorkTaskService.TASK_TYPE_FILL, 120);
+        if (pendingReleaseReport) {
+            var reportTodo = insertFillTask(8051L, specialTask.getId(), "independent-release-report")
+                    .setBatchExecutionId(3050L).setBusinessScopeType("RELEASE_REPORT_NODE")
+                    .setBusinessScopeId(specialTask.getId());
+            workTaskMapper.updateById(reportTodo);
+        }
+        insertAssignmentRule((pendingReleaseReport ? 5153L : 5152L), MesProEdhrWorkTaskService.TASK_TYPE_FILL, 120);
         MesProEdhrWorkTaskDO reviewTask = completedReviewTask(8050L, currentTask, 4150L);
 
         try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
@@ -1634,6 +1695,77 @@ class MesProEdhrWorkTaskServiceImplTest extends BaseDbUnitTest {
 
             assertEquals(1L, page.getTotal());
             assertEquals(fillTask.getId(), page.getList().get(0).getId());
+        }
+    }
+
+    @Test
+    void getMyPage_includeOverdueKeepsDefaultAndSingleStatusQueries() {
+        MesProEdhrWorkTaskDO todo = insertFillTask(5301L, 2301L, "profile-todo");
+        MesProEdhrWorkTaskDO overdue = insertFillTask(5302L, 2302L, "profile-overdue")
+                .setStatus(MesProEdhrWorkTaskStatus.OVERDUE);
+        workTaskMapper.updateById(overdue);
+        for (String status : List.of(MesProEdhrWorkTaskStatus.DOING,
+                MesProEdhrWorkTaskStatus.DONE, MesProEdhrWorkTaskStatus.CANCELED)) {
+            MesProEdhrWorkTaskDO excluded = insertFillTask(5303L, 2303L, "profile-" + status).setStatus(status);
+            workTaskMapper.updateById(excluded);
+        }
+        MesProEdhrWorkTaskPageReqVO req = new MesProEdhrWorkTaskPageReqVO();
+        req.setPageSize(10);
+        try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(99L);
+            assertEquals(List.of(todo.getId()), workTaskService.getMyPage(req).getList().stream()
+                    .map(MesProEdhrWorkTaskRespVO::getId).toList());
+            req.setStatus(MesProEdhrWorkTaskStatus.OVERDUE);
+            assertEquals(List.of(overdue.getId()), workTaskService.getMyPage(req).getList().stream()
+                    .map(MesProEdhrWorkTaskRespVO::getId).toList());
+            req.setStatus(null);
+            req.setIncludeOverdue(true);
+            PageResult<MesProEdhrWorkTaskRespVO> combined = workTaskService.getMyPage(req);
+            assertEquals(2L, combined.getTotal());
+            assertEquals(List.of(overdue.getId(), todo.getId()), combined.getList().stream()
+                    .map(MesProEdhrWorkTaskRespVO::getId).toList());
+            req.setPageSize(1);
+            assertEquals(2L, workTaskService.getMyPage(req).getTotal());
+            assertEquals(1, workTaskService.getMyPage(req).getList().size());
+            req.setStatus(MesProEdhrWorkTaskStatus.TODO);
+            ServiceException conflict = assertThrows(ServiceException.class, () -> workTaskService.getMyPage(req));
+            assertEquals(PRO_EDHR_WORK_TASK_STATUS_INVALID.getCode(), conflict.getCode());
+        }
+    }
+
+    @Test
+    void getMyPage_includeOverduePreservesCandidateAndBatchVisibility() {
+        MesProEdhrWorkTaskDO candidate = insertFillTask(5310L, 2310L, "profile-candidate")
+                .setAssigneeUserId(288L).setCandidateUserSnapshot("288,99")
+                .setStatus(MesProEdhrWorkTaskStatus.OVERDUE);
+        workTaskMapper.updateById(candidate);
+        MesProEdhrWorkTaskDO other = insertFillTask(5311L, 2311L, "profile-other")
+                .setAssigneeUserId(288L).setCandidateUserSnapshot("288,199")
+                .setStatus(MesProEdhrWorkTaskStatus.OVERDUE);
+        workTaskMapper.updateById(other);
+        MesProEdhrWorkTaskDO archive = null;
+        for (int status : List.of(30, 40, 50, 60)) {
+            Long batchId = 1000L + status;
+            insertBatch(batchForInitialFill(batchId, 4101L).setStatus(status));
+            MesProEdhrWorkTaskDO terminal = insertFillTask(batchId, batchId, "profile-terminal-" + status)
+                    .setBatchExecutionId(batchId).setStatus(MesProEdhrWorkTaskStatus.OVERDUE);
+            workTaskMapper.updateById(terminal);
+            MesProEdhrWorkTaskDO archiveTask = insertFillTask(batchId + 100L, batchId + 100L,
+                            "profile-archive-" + status)
+                    .setBatchExecutionId(batchId).setTaskType(MesProEdhrWorkTaskService.TASK_TYPE_ARCHIVE)
+                    .setStatus(MesProEdhrWorkTaskStatus.OVERDUE);
+            workTaskMapper.updateById(archiveTask);
+            if (status == 30) archive = archiveTask;
+        }
+        MesProEdhrWorkTaskPageReqVO req = new MesProEdhrWorkTaskPageReqVO();
+        req.setPageSize(20);
+        req.setIncludeOverdue(true);
+        try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(99L);
+            PageResult<MesProEdhrWorkTaskRespVO> page = workTaskService.getMyPage(req);
+            assertEquals(2L, page.getTotal());
+            assertEquals(Set.of(candidate.getId(), archive.getId()), page.getList().stream()
+                    .map(MesProEdhrWorkTaskRespVO::getId).collect(java.util.stream.Collectors.toSet()));
         }
     }
 
@@ -2136,6 +2268,12 @@ class MesProEdhrWorkTaskServiceImplTest extends BaseDbUnitTest {
             assertNotNull(canceled.getCompletedAt());
         }
         assertEquals(MesProEdhrWorkTaskStatus.DONE, workTaskMapper.selectById(done.getId()).getStatus());
+        ArgumentCaptor<SystemEntitlementRevokeReqDTO> revoked = ArgumentCaptor.forClass(SystemEntitlementRevokeReqDTO.class);
+        verify(permissionApi, times(3)).revokeEntitlementSource(revoked.capture());
+        assertEquals(Set.of("WORK_TASK|"+todo.getId(), "WORK_TASK|"+doing.getId(), "WORK_TASK|"+overdue.getId()),
+                revoked.getAllValues().stream().map(SystemEntitlementRevokeReqDTO::getSourceKey).collect(java.util.stream.Collectors.toSet()));
+        assertTrue(revoked.getAllValues().stream().allMatch(row -> "EDHR_WORK_TASK_ASSIGNEE".equals(row.getSourceType())
+                && "MES_EDHR_FILLER_MINIMAL".equals(row.getPolicyCode())));
     }
 
     @Test
@@ -2217,6 +2355,42 @@ class MesProEdhrWorkTaskServiceImplTest extends BaseDbUnitTest {
     }
 
     @Test
+    void reassignFillTaskRecordsActiveOrderOperationFact() {
+        MesProEdhrBatchExecutionTaskDO batchTask = batchTask(3093L, 9193L, 5193L,
+                "REPORT-REASSIGN-004", "ROUTE_FORM", "光固I", 10)
+                .setBatchRecordVersionId(78093L);
+        batchTaskMapper.insert(batchTask);
+        MesProEdhrWorkTaskDO fillTask = insertFillTask(8093L, batchTask.getId(), "reassign-active-order")
+                .setBatchExecutionId(3093L)
+                .setRouteProcessId(5193L)
+                .setCandidateSourceType("USERS")
+                .setCandidateUserSnapshot("288")
+                .setAssigneeUserId(288L);
+        workTaskMapper.updateById(fillTask);
+        insertProcessFormFillRule(5193L, "REPORT-REASSIGN-004", 78093L, "USERS", "389,390", 90);
+        when(adminUserApi.getUserList(List.of(389L, 390L))).thenReturn(List.of(
+                adminUser(389L, CommonStatusEnum.ENABLE.getStatus()),
+                adminUser(390L, CommonStatusEnum.ENABLE.getStatus())));
+        when(batchExecutionOriginMapper.selectListByBatchExecutionId(3093L))
+                .thenReturn(List.of(new MesProEdhrBatchExecutionOriginDO()
+                        .setBatchExecutionId(3093L)
+                        .setActiveOrderId(8101L)
+                        .setOriginKey("ACTIVE_ORDER")));
+
+        try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(99L);
+            security.when(SecurityFrameworkUtils::getLoginUserNickname).thenReturn("aoteman");
+            workTaskService.reassignFillTask(fillTask.getId(), "规则变更后重新派发");
+        }
+
+        ArgumentCaptor<MesProEdhrOperationAuditCommand> captor =
+                ArgumentCaptor.forClass(MesProEdhrOperationAuditCommand.class);
+        verify(operationAuditService).record(captor.capture());
+        assertEquals("FILL_TASK_REASSIGN", captor.getValue().getOperationType());
+        assertTrue(captor.getValue().getMetadataJson().contains("\"activeOrderId\":8101"));
+    }
+
+    @Test
     void reassignFillTask_rejectsCompletedTaskAndKeepsSnapshot() {
         MesProEdhrBatchExecutionTaskDO batchTask = batchTask(3091L, 9191L, 5191L,
                 "REPORT-REASSIGN-002", "ROUTE_FORM", "光固I", 10)
@@ -2263,8 +2437,9 @@ class MesProEdhrWorkTaskServiceImplTest extends BaseDbUnitTest {
         assertEquals("MES_EDHR_FILLER_MINIMAL", captor.getValue().getPolicyCode());
     }
 
-    @Test
-    void completeFillAndCreateNextFill_doesNotAdvanceWhenInspectionFillerExistsAndActorIsOnlyMainFiller() {
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    void completeFillAndCreateNextFill_respectsManualInspectionButAdvancesAfterAutomaticInspection(boolean automaticInspection) {
         insertBatch(batchForInitialFill(3075L, 4175L));
         MesProEdhrBatchExecutionTaskDO mainTask = batchTask(3075L, 9175L, 5175L,
                 "REPORT-MAIN-ADVANCE", "ROUTE_FORM", "灭菌主记录", 10)
@@ -2309,7 +2484,8 @@ class MesProEdhrWorkTaskServiceImplTest extends BaseDbUnitTest {
                 .setAssigneeUserId(300L)
                 .setCandidateSourceType("USERS")
                 .setCandidateUserSnapshot("300,301")
-                .setStatus(MesProEdhrWorkTaskStatus.DONE);
+                .setStatus(MesProEdhrWorkTaskStatus.DONE)
+                .setReason(automaticInspection ? "AUTOMATIC_BACKFILL:生产放行正式证据自动回填" : "FORM_CENTER_SUBMIT:人工填写");
         workTaskMapper.updateById(inspectionFillTask);
 
         try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
@@ -2318,8 +2494,8 @@ class MesProEdhrWorkTaskServiceImplTest extends BaseDbUnitTest {
         }
 
         assertEquals(MesProEdhrWorkTaskStatus.DONE, workTaskMapper.selectById(mainFillTask.getId()).getStatus());
-        assertTrue(workTaskMapper.selectList().stream()
-                .noneMatch(task -> MesProEdhrWorkTaskService.TASK_TYPE_FILL.equals(task.getTaskType())
+        assertEquals(automaticInspection, workTaskMapper.selectList().stream()
+                .anyMatch(task -> MesProEdhrWorkTaskService.TASK_TYPE_FILL.equals(task.getTaskType())
                         && nextTask.getId().equals(task.getBatchTaskId())));
     }
 
@@ -2505,6 +2681,12 @@ class MesProEdhrWorkTaskServiceImplTest extends BaseDbUnitTest {
     }
 
     private MesProEdhrWorkTaskDO insertFillTask(Long executionId, Long batchTaskId, String suffix) {
+        if (batchExecutionMapper.selectById(1001L) == null) insertBatch(batchForInitialFill(1001L, 4001L).setStatus(10).setTenantId(122L));
+        if (workOrders.selectById(3001L) == null) {
+            var order = cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesProWorkOrderDO.builder().id(3001L).code("WO-001").name("Fill fixture").status(1).build();
+            order.setTenantId(122L);
+            workOrders.insert(order);
+        }
         MesProEdhrWorkTaskDO task = new MesProEdhrWorkTaskDO()
                 .setTaskCode("EDHRT-FILL-" + suffix)
                 .setTaskType(MesProEdhrWorkTaskService.TASK_TYPE_FILL)

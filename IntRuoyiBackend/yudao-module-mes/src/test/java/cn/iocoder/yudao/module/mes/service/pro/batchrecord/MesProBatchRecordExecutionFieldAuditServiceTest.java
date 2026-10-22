@@ -68,6 +68,7 @@ import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrWork
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.argThat;
@@ -85,11 +86,19 @@ import static org.mockito.Mockito.when;
         MesProEdhrPreReleaseEditabilityService.class,
         MesProEdhrWorkTaskServiceImpl.class,
         MesProBatchRecordExecutionAttachmentServiceImpl.class,
-        MesProEdhrGoldenFingerPermissionService.class})
+        MesProEdhrGoldenFingerPermissionService.class, MesProEdhrWorkTaskServiceImplTest.SqlDialect.class})
 class MesProBatchRecordExecutionFieldAuditServiceTest extends BaseDbUnitTest {
 
     private static final Long TENANT_ID = 122L;
     private static final String FIELD_PATH = "sheet[0].rows[1].cells[2].temperature";
+    @MockitoBean private MesProEdhrNonconformanceReviewService nonconformanceReviewService;
+    @MockitoBean private MesWorkTaskAuxiliaryAudit auxiliaryAudit;
+    @Resource private cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesProWorkOrderMapper workOrders;
+    @Resource private cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrNonconformanceReviewMapper ncrRows;
+    @Resource private MesProEdhrWorkTaskService workTaskService;
+    @Resource private javax.sql.DataSource dataSource;
+    @Resource private com.baomidou.mybatisplus.extension.plugins.MybatisPlusInterceptor mybatisPlusInterceptor;
+    @Resource private cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrOperationAuditEventMapper operationAuditEventMapper;
 
     @Resource
     private MesProBatchRecordExecutionFieldAuditService fieldAuditService;
@@ -159,6 +168,22 @@ class MesProBatchRecordExecutionFieldAuditServiceTest extends BaseDbUnitTest {
             securityMock.close();
         }
         TenantContextHolder.clear();
+    }
+
+    @Test
+    void saveChanges_rejectsManualClaimOfFormalCompletionSourceBeforeWriting() {
+        MesProBatchRecordExecutionDO execution = insertDraftExecution("[]");
+        MesProBatchRecordExecutionFieldAuditSaveChangesCommand command = saveCommand(execution,
+                MesProBatchRecordExecutionFieldAuditHasher.hashCellValues("[]"), "a".repeat(64),
+                null, MesProBatchRecordExecutionFieldAuditHasher.hashCanonicalTypedValue("null"))
+                .setReasonText(MesProEdhrCompletionSourceBackfillService.AUDIT_REASON_PREFIX + "receipt=400");
+
+        assertServiceException(() -> fieldAuditService.saveChanges(command),
+                MesProBatchRecordExecutionErrorCodeConstants.PRO_BATCH_RECORD_EXECUTION_FIELD_AUDIT_IDEMPOTENCY_CONFLICT);
+        assertEquals("[]", executionMapper.selectById(execution.getId()).getCellValuesJson());
+        assertTrue(batchMapper.selectListByExecutionId(execution.getId()).isEmpty());
+        verifyNoInteractions(signatureService);
+        verify(gxpAuditService, never()).append(any());
     }
 
     @Test
@@ -241,6 +266,7 @@ class MesProBatchRecordExecutionFieldAuditServiceTest extends BaseDbUnitTest {
         assertEquals("MES_PRO_BATCH_RECORD_EXECUTION:" + execution.getId(), audit.getSubjectId());
         assertEquals(String.valueOf(result.getFieldAuditRevision()), audit.getSubjectVersion());
         assertEquals("CORRECTION:operator correction", audit.getReason());
+        assertEquals("USER", audit.getReasonSource());
         assertEquals("idem-gxp-ledger-001", audit.getIdempotencyKey());
         assertEquals("501", audit.getSignatureRecordId());
         assertNotNull(audit.getSignatureContentHash());
@@ -250,6 +276,8 @@ class MesProBatchRecordExecutionFieldAuditServiceTest extends BaseDbUnitTest {
         assertEquals("HEAD_HASH", audit.getAfterState().getState());
         assertEquals(result.getFieldAuditHeadHash(), audit.getAfterState().getObjectVersion());
         assertTrue(audit.getAfterState().getCanonicalJson().contains("\"changedFieldCount\":1"));
+        assertTrue(audit.getLinks().stream().anyMatch(link -> "BATCH_RECORD_EXECUTION".equals(link.objectType())
+                && String.valueOf(execution.getId()).equals(link.objectId())));
     }
 
     @Test
@@ -303,8 +331,54 @@ class MesProBatchRecordExecutionFieldAuditServiceTest extends BaseDbUnitTest {
         assertEquals(MesProBatchRecordExecutionSignatureService.SIGNATURE_MODE_DRAFT_SESSION,
                 signature.getSignatureMode());
         assertEquals(Boolean.FALSE, signature.getPasswordVerified());
+        assertSignatureProjectionMatchesPersistedEvidence(result, "USER");
         verify(signatureService).recordFieldChangeDraftSave(any());
         verify(signatureService, never()).recordFieldChangeSignature(any());
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings={"open", "frozen", "pendingNcr", "closedVoid", "temporary", "completed", "archived", "rejected", "voided", "canceled", "foreignBatch", "foreignWork"})
+    void ordinaryDraftSaveUsesRealWritableTaskAndFormalFreezeGateBeforeAnyWrite(String state) {
+        String beforeJson = JsonUtils.toJsonString(List.of(Map.of("rowIndex",1,"columnIndex",2,"value","36.6")));
+        var execution = insertDraftExecution(beforeJson);
+        var command = saveCommand(execution, MesProBatchRecordExecutionFieldAuditHasher.hashCellValues(beforeJson),
+                "ordinary-draft-"+state, new BigDecimal("36.6"), MesProBatchRecordExecutionFieldAuditHasher.hashTypedValue(
+                        MesProBatchRecordExecutionFieldAuditValueType.NUMBER,new BigDecimal("36.6"))).setSignature(null);
+        var actualFreeze = new MesProEdhrNonconformanceReviewServiceImpl();
+        org.springframework.test.util.ReflectionTestUtils.setField(actualFreeze,"reviewMapper",ncrRows);
+        org.springframework.test.util.ReflectionTestUtils.setField(actualFreeze,"workOrderMapper",workOrders);
+        Object taskTarget = org.springframework.test.util.AopTestUtils.getUltimateTargetObject(workTaskService);
+        org.springframework.test.util.ReflectionTestUtils.setField(taskTarget,"nonconformanceReviewService",actualFreeze);
+        try {
+            if (state.equals("pendingNcr") || state.equals("closedVoid")) ncrRows.insert(new cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrNonconformanceReviewDO()
+                    .setReviewCode("SA25-"+state).setSourceType("ACTIVE_ORDER").setSourceId(8101L).setActiveOrderId(8101L)
+                    .setWorkOrderId(execution.getWorkOrderId()).setReviewStatus(state.equals("pendingNcr")?"pending_review":"closed")
+                    .setDisposition(state.equals("closedVoid")?"void":null).setFrozenAt(LocalDateTime.now())
+                    .setNonconformanceReason("formal freeze").setTenantId(TENANT_ID));
+            if (state.equals("temporary")) workOrders.updateById(cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesProWorkOrderDO.builder().id(execution.getWorkOrderId()).temporaryFrozen(true).build());
+            if (state.equals("canceled")) workOrders.updateById(cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesProWorkOrderDO.builder().id(execution.getWorkOrderId()).status(3).build());
+            Integer batchStatus = switch(state) { case "frozen"->15;case "completed"->30;case "archived"->40;case "rejected"->50;case "voided"->60;default->null;};
+            if(batchStatus!=null) batchExecutionMapper.updateById(new MesProEdhrBatchExecutionDO().setId(7001L).setStatus(batchStatus));
+            if(state.equals("foreignBatch")||state.equals("foreignWork")) {
+                var jdbc = new org.springframework.jdbc.core.JdbcTemplate(dataSource);
+                jdbc.update("UPDATE "+(state.equals("foreignBatch")?"mes_pro_edhr_batch_execution":"mes_pro_work_order")+" SET tenant_id=123 WHERE id=?",state.equals("foreignBatch")?7001L:execution.getWorkOrderId());
+            }
+            if (state.equals("open")) {
+                mockFieldChangeDraftSave();
+                var result = fieldAuditService.saveChanges(command);
+                assertEquals(1L, result.getFieldAuditRevision());
+                assertEquals(1, batchMapper.selectList().size());
+                assertEquals(1, itemMapper.selectList().size());
+                verify(signatureService).recordFieldChangeDraftSave(any());
+                return;
+            }
+            assertThrows(RuntimeException.class,()->fieldAuditService.saveChanges(command));
+            assertEquals(beforeJson,executionMapper.selectById(execution.getId()).getCellValuesJson());
+            assertTrue(batchMapper.selectList().isEmpty()); assertTrue(itemMapper.selectList().isEmpty());
+            assertTrue(signatureMapper.selectListByExecutionId(execution.getId()).isEmpty());
+            verifyNoInteractions(signatureService);
+            verify(gxpAuditService, never()).append(any());
+        } finally { org.springframework.test.util.ReflectionTestUtils.setField(taskTarget,"nonconformanceReviewService",nonconformanceReviewService); }
     }
 
     @Test
@@ -351,6 +425,51 @@ class MesProBatchRecordExecutionFieldAuditServiceTest extends BaseDbUnitTest {
         verify(signatureService).recordFieldChangeDraftSave(any());
         verify(signatureService).attachFieldChangeSignature(any());
         verifyNoInteractions(candidateResolver, responsibilityService);
+    }
+
+    @Test
+    void saveSystemCellLinkChanges_recordsExplicitFormalZeroEvenWhenTemplateDefaultIsZero() {
+        MesProBatchRecordExecutionDO execution = insertDraftExecutionWithSnapshotDefault("[]", "0");
+        mockFieldChangeDraftSave();
+        var result = fieldAuditService.saveSystemCellLinkChanges(defaultZeroSystemCommand(execution,
+                MesProEdhrCompletionSourceBackfillService.AUDIT_REASON_PREFIX + "receipt=400|task=200|source=hash|mapping=hash"));
+
+        assertNotNull(result.getAuditBatchId());
+        assertEquals(1, result.getChangedFieldCount());
+        assertSignatureProjectionMatchesPersistedEvidence(result, "SYSTEM");
+        var savedItems = itemMapper.selectListByBatchId(result.getAuditBatchId());
+        assertEquals(1, savedItems.size());
+        assertEquals("0", savedItems.get(0).getOldValueJson());
+        assertEquals("0", savedItems.get(0).getNewValueJson());
+        assertEquals("0", JsonUtils.parseTree(executionMapper.selectById(execution.getId())
+                .getCellValuesJson()).get(0).path("value").asText());
+        assertEquals("VALID", fieldAuditService.verifyChain(execution.getId()).getStatus().name());
+    }
+
+    @Test
+    void saveSystemCellLinkChanges_keepsOrdinaryDefaultEqualWriteAsNoChange() {
+        MesProBatchRecordExecutionDO execution = insertDraftExecutionWithSnapshotDefault("[]", "0");
+        var result = fieldAuditService.saveSystemCellLinkChanges(defaultZeroSystemCommand(execution,
+                "系统根据单元格链接自动预填"));
+        assertNull(result.getAuditBatchId());
+        assertEquals(0, result.getChangedFieldCount());
+        assertEquals("[]", executionMapper.selectById(execution.getId()).getCellValuesJson());
+        assertTrue(batchMapper.selectListByExecutionId(execution.getId()).isEmpty());
+        verifyNoInteractions(signatureService);
+    }
+
+    private MesProBatchRecordExecutionFieldAuditSaveChangesCommand defaultZeroSystemCommand(
+            MesProBatchRecordExecutionDO execution, String reason) {
+        return new MesProBatchRecordExecutionFieldAuditSaveChangesCommand()
+                .setExecutionId(execution.getId()).setIdempotencyKey("source-explicit-zero")
+                .setBaseCellValuesHash(execution.getCellValuesHash()).setBaseFieldAuditRevision(0L)
+                .setBaseFieldAuditHeadHash(MesProBatchRecordExecutionFieldAuditHasher.GENESIS_HEAD_HASH)
+                .setReasonCategory("OTHER").setReasonText(reason)
+                .setChanges(List.of(new MesProBatchRecordExecutionFieldAuditChange()
+                        .setFieldPath(FIELD_PATH).setFieldKey("temperature").setRowIndex(1).setColumnIndex(2)
+                        .setValueType(MesProBatchRecordExecutionFieldAuditValueType.NUMBER)
+                        .setNewValueJson(BigDecimal.ZERO).setNewValueDisplay("0")
+                        .setExpectedOldValueHash(MesProBatchRecordExecutionFieldAuditHasher.hashCanonicalTypedValue("0"))));
     }
 
     @Test
@@ -416,11 +535,36 @@ class MesProBatchRecordExecutionFieldAuditServiceTest extends BaseDbUnitTest {
         assertEquals("字段变更按纸面更正时间显示", signature.getSelectedTimeReason());
         assertEquals("EDHR_SIGNATURE_TIME_V1", signature.getSelectedTimePolicyVersion());
         assertNotNull(signature.getSelectedTimeAuditHash());
-        verify(operationAuditService).record(argThat(audit ->
+        verify(operationAuditService).recordInCallerTransaction(argThat(audit ->
                 "FIELD_CHANGE".equals(audit.getOperationType())
                         && "FIELD_AUDIT_BATCH".equals(audit.getObjectType())
                         && String.valueOf(result.getAuditBatchId()).equals(audit.getObjectId())
                         && "SUCCESS".equals(audit.getResultStatus())));
+    }
+
+    @Test
+    void saveChanges_recordsOwningBatchExecutionIdInsteadOfFormExecutionId() {
+        String beforeJson = JsonUtils.toJsonString(List.of(Map.of(
+                "rowIndex", 1,
+                "columnIndex", 2,
+                "value", "36.6"
+        )));
+        MesProBatchRecordExecutionDO execution = insertDraftExecution(beforeJson)
+                .setBatchExecutionId(8301L);
+        executionMapper.updateById(execution);
+        String beforeHash = MesProBatchRecordExecutionFieldAuditHasher.hashCellValues(beforeJson);
+        mockFieldChangeSignature();
+
+        MesProBatchRecordExecutionFieldAuditSaveResult result = fieldAuditService.saveChanges(
+                saveCommand(execution, beforeHash, "idem-audit-batch-owner-001",
+                        new BigDecimal("36.6"), MesProBatchRecordExecutionFieldAuditHasher.hashTypedValue(
+                                MesProBatchRecordExecutionFieldAuditValueType.NUMBER, new BigDecimal("36.6"))));
+
+        verify(operationAuditService).recordInCallerTransaction(argThat(audit ->
+                "FIELD_AUDIT_BATCH".equals(audit.getObjectType())
+                        && String.valueOf(result.getAuditBatchId()).equals(audit.getObjectId())
+                        && Long.valueOf(8301L).equals(audit.getBatchExecutionId())
+                        && !Long.valueOf(execution.getId()).equals(audit.getBatchExecutionId())));
     }
 
     @Test
@@ -808,7 +952,7 @@ class MesProBatchRecordExecutionFieldAuditServiceTest extends BaseDbUnitTest {
         assertEquals(1, result.getChangedFieldCount());
         assertNotEquals(beforeHash, result.getCellValuesHash());
         verify(signatureService).attachFieldChangeSignature(any());
-        verify(operationAuditService).record(argThat(audit ->
+        verify(operationAuditService).recordInCallerTransaction(argThat(audit ->
                 "FIELD_CHANGE".equals(audit.getOperationType())
                         && MesProEdhrGoldenFingerPermissionService.PERMISSION.equals(audit.getPermissionCode())
                         && "ALLOW_GOLDEN_FINGER".equals(audit.getPermissionDecision())
@@ -849,7 +993,7 @@ class MesProBatchRecordExecutionFieldAuditServiceTest extends BaseDbUnitTest {
         assertNotNull(result.getAuditBatchId());
         assertEquals(1, result.getChangedFieldCount());
         verify(signatureService).attachFieldChangeSignature(any());
-        verify(operationAuditService).record(argThat(audit ->
+        verify(operationAuditService).recordInCallerTransaction(argThat(audit ->
                 "FIELD_CHANGE".equals(audit.getOperationType())
                         && MesProEdhrGoldenFingerPermissionService.PERMISSION.equals(audit.getPermissionCode())
                         && "ALLOW_GOLDEN_FINGER".equals(audit.getPermissionDecision())
@@ -1075,7 +1219,7 @@ class MesProBatchRecordExecutionFieldAuditServiceTest extends BaseDbUnitTest {
                 .get(0);
         assertEquals("101", savedCell.get("value").decimalValue().stripTrailingZeros().toPlainString());
         verify(signatureService).recordFieldChangeSignature(any());
-        verify(operationAuditService).record(argThat(audit ->
+        verify(operationAuditService).recordInCallerTransaction(argThat(audit ->
                 "FIELD_CHANGE".equals(audit.getOperationType())
                         && "FIELD_AUDIT_BATCH".equals(audit.getObjectType())
                         && String.valueOf(result.getAuditBatchId()).equals(audit.getObjectId())
@@ -1150,7 +1294,7 @@ class MesProBatchRecordExecutionFieldAuditServiceTest extends BaseDbUnitTest {
         assertEquals("30", item.getBatchRecordValueDisplay());
         assertEquals("30", item.getNewValueJson());
         assertEquals("30", item.getNewValueDisplay());
-        verify(operationAuditService).record(argThat(audit ->
+        verify(operationAuditService).recordInCallerTransaction(argThat(audit ->
                 "FIELD_CHANGE".equals(audit.getOperationType())
                         && "BATCH_RECORD".equals(audit.getRecordCategory())
                         && !audit.getMetadataJson().contains("nonBlockingLimitWarnings")));
@@ -1648,6 +1792,198 @@ class MesProBatchRecordExecutionFieldAuditServiceTest extends BaseDbUnitTest {
         assertEquals(beforeHash, unchanged.getCellValuesHash());
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    void formalQuantityThreeCellAuditRemainsDraftAndJoinsCallerRollback(boolean failCaller) {
+        var execution = insertDraftExecution("[]");
+        String[] names = {"productionQuantity", "qualifiedQuantity", "lossQuantity"};
+        var fields = new java.util.ArrayList<Map<String, Object>>();
+        var changes = new java.util.ArrayList<MesProBatchRecordExecutionFieldAuditChange>();
+        for (int i = 0; i < names.length; i++) {
+            fields.add(Map.of("fieldPath", names[i], "fieldKey", names[i], "rowIndex", 8, "columnIndex", 5 + i,
+                    "component", "input-number", "valueType", "NUMBER", "defaultValue", "0"));
+            var value = i == 2 ? BigDecimal.ZERO : BigDecimal.TEN;
+            changes.add(new MesProBatchRecordExecutionFieldAuditChange().setFieldPath(names[i]).setFieldKey(names[i])
+                    .setRowIndex(8).setColumnIndex(5 + i).setValueType(MesProBatchRecordExecutionFieldAuditValueType.NUMBER)
+                    .setNewValueJson(value).setNewValueDisplay(value.toPlainString())
+                    .setExpectedOldValueHash(MesProBatchRecordExecutionFieldAuditHasher.hashCanonicalTypedValue("0")));
+        }
+        executionMapper.updateById(new MesProBatchRecordExecutionDO().setId(execution.getId())
+                .setExecutionSnapshotJson(JsonUtils.toJsonString(Map.of("fields", fields))));
+        mockFieldChangeDraftSave();
+        var command = new MesProBatchRecordExecutionFieldAuditSaveChangesCommand().setExecutionId(execution.getId())
+                .setIdempotencyKey("formal-quantity-three-cells").setBaseCellValuesHash(execution.getCellValuesHash())
+                .setBaseFieldAuditRevision(0L).setBaseFieldAuditHeadHash(execution.getFieldAuditHeadHash())
+                .setReasonCategory("OTHER").setReasonText(MesProEdhrCompletionSourceBackfillService.AUDIT_REASON_PREFIX
+                        + "scope=QUANTITY|receipt=400|task=200|source=hash|mapping=hash").setChanges(changes);
+        var result = new java.util.concurrent.atomic.AtomicReference<MesProBatchRecordExecutionFieldAuditSaveResult>();
+        var tx = new org.springframework.transaction.support.TransactionTemplate(
+                new org.springframework.jdbc.datasource.DataSourceTransactionManager(dataSource));
+        Object serviceTarget = org.springframework.test.util.AopTestUtils.getTargetObject(fieldAuditService);
+        var originalInterceptors = installOperationAuditTenantInterceptor();
+        org.springframework.test.util.ReflectionTestUtils.setField(serviceTarget, "operationAuditService",
+                realTransactionalOperationAuditService());
+        try {
+        Runnable save = () -> tx.executeWithoutResult(status -> {
+            result.set(fieldAuditService.saveSystemCellLinkChanges(command));
+            assertEquals(3, itemMapper.selectListByBatchId(result.get().getAuditBatchId()).size());
+            assertEquals(1, signatureMapper.selectListByExecutionId(execution.getId()).size());
+            if (failCaller) throw new IllegalStateException("later report in Tx-B failed");
+        });
+        if (failCaller) {
+            assertThrows(IllegalStateException.class, save::run);
+            assertEquals("[]", executionMapper.selectById(execution.getId()).getCellValuesJson());
+            assertTrue(batchMapper.selectListByExecutionId(execution.getId()).isEmpty());
+            assertTrue(itemMapper.selectListByExecutionId(execution.getId()).isEmpty());
+            assertTrue(signatureMapper.selectListByExecutionId(execution.getId()).isEmpty());
+            assertTrue(operationAuditEventMapper.selectListByObject("FIELD_AUDIT_BATCH",
+                    String.valueOf(result.get().getAuditBatchId())).isEmpty());
+        } else {
+            save.run();
+            var operations = operationAuditEventMapper.selectListByObject("FIELD_AUDIT_BATCH",
+                    String.valueOf(result.get().getAuditBatchId()));
+            assertEquals(1, operations.size());
+            assertEquals("FIELD_CHANGE", operations.get(0).getOperationType());
+            assertEquals("SUCCESS", operations.get(0).getResultStatus());
+            assertEquals(execution.getId(), operations.get(0).getExecutionId());
+            assertEquals(TENANT_ID, new org.springframework.jdbc.core.JdbcTemplate(dataSource)
+                    .queryForObject("SELECT tenant_id FROM mes_pro_edhr_operation_audit_event WHERE id = ?",
+                            Long.class, operations.get(0).getId()));
+            assertEquals(64, operations.get(0).getAuditHash().length());
+            assertNotEquals(operations.get(0).getPreviousAuditHash(), operations.get(0).getAuditHash());
+            assertEquals(Map.of(5, "10", 6, "10", 7, "0"), itemMapper.selectListByBatchId(result.get().getAuditBatchId())
+                    .stream().collect(java.util.stream.Collectors.toMap(
+                            MesProBatchRecordExecutionFieldAuditItemDO::getColumnIndex,
+                            MesProBatchRecordExecutionFieldAuditItemDO::getNewValueJson)));
+            assertSignatureProjectionMatchesPersistedEvidence(result.get(), "SYSTEM");
+            assertEquals(0, executionMapper.selectById(execution.getId()).getStatus());
+            assertEquals(Boolean.FALSE, signatureMapper.selectById(result.get().getSignatureId()).getPasswordVerified());
+            verify(signatureService, never()).recordFieldChangeSignature(any());
+        }
+        verifyNoInteractions(candidateResolver, responsibilityService);
+        } finally {
+            mybatisPlusInterceptor.setInterceptors(originalInterceptors);
+            org.springframework.test.util.ReflectionTestUtils.setField(serviceTarget, "operationAuditService",
+                    operationAuditService);
+        }
+    }
+
+    @Test
+    void successOperationAuditFailureRollsBackSystemFieldValuesAndSignatureEvidence() {
+        var execution = insertDraftExecutionWithSnapshotDefault("[]", "0");
+        mockFieldChangeDraftSave();
+        doThrow(new IllegalStateException("operation audit storage failed"))
+                .when(operationAuditService).recordInCallerTransaction(any());
+
+        assertThrows(IllegalStateException.class, () -> fieldAuditService.saveSystemCellLinkChanges(
+                defaultZeroSystemCommand(execution,
+                        MesProEdhrCompletionSourceBackfillService.AUDIT_REASON_PREFIX + "receipt=400")));
+
+        assertEquals("[]", executionMapper.selectById(execution.getId()).getCellValuesJson());
+        assertEquals(execution.getCellValuesHash(), executionMapper.selectById(execution.getId()).getCellValuesHash());
+        assertEquals(0L, executionMapper.selectById(execution.getId()).getFieldAuditRevision());
+        assertTrue(batchMapper.selectListByExecutionId(execution.getId()).isEmpty());
+        assertTrue(itemMapper.selectListByExecutionId(execution.getId()).isEmpty());
+        assertTrue(signatureMapper.selectListByExecutionId(execution.getId()).isEmpty());
+        verify(operationAuditService, never()).record(any());
+    }
+
+    @Test
+    void deniedOperationAuditRemainsIndependentOfCallerRollback() {
+        var tx = new org.springframework.transaction.support.TransactionTemplate(
+                new org.springframework.jdbc.datasource.DataSourceTransactionManager(dataSource));
+        var realAudit = realTransactionalOperationAuditService();
+        var originalInterceptors = installOperationAuditTenantInterceptor();
+        try {
+        assertThrows(IllegalStateException.class, () -> tx.executeWithoutResult(status -> {
+            realAudit.record(new MesProEdhrOperationAuditCommand().setRequestId("denied-field-change")
+                    .setObjectType("FIELD_AUDIT_BATCH").setObjectId("denied-no-business-batch")
+                    .setOperationType("FIELD_CHANGE").setActorUserId(99L).setPermissionDecision("DENY")
+                    .setResultStatus("FAILED").setFailureCode("FIELD_CHANGE_DENIED"));
+            throw new IllegalStateException("business caller failed");
+        }));
+        var events = operationAuditEventMapper.selectListByObject("FIELD_AUDIT_BATCH", "denied-no-business-batch");
+        assertEquals(1, events.size());
+        assertEquals("FAILED", events.get(0).getResultStatus());
+        assertEquals("DENY", events.get(0).getPermissionDecision());
+        assertEquals("FIELD_CHANGE_DENIED", events.get(0).getFailureCode());
+        assertEquals(TENANT_ID, new org.springframework.jdbc.core.JdbcTemplate(dataSource)
+                .queryForObject("SELECT tenant_id FROM mes_pro_edhr_operation_audit_event WHERE id = ?",
+                        Long.class, events.get(0).getId()));
+        } finally {
+            mybatisPlusInterceptor.setInterceptors(originalInterceptors);
+        }
+    }
+
+    private List<com.baomidou.mybatisplus.extension.plugins.inner.InnerInterceptor> installOperationAuditTenantInterceptor() {
+        var original = List.copyOf(mybatisPlusInterceptor.getInterceptors());
+        var handler = new cn.iocoder.yudao.framework.tenant.core.db.TenantDatabaseInterceptor(
+                new cn.iocoder.yudao.framework.tenant.config.TenantProperties()) {
+            @Override
+            public boolean ignoreTable(String tableName) {
+                return !"mes_pro_edhr_operation_audit_event".equalsIgnoreCase(
+                        com.baomidou.mybatisplus.extension.toolkit.SqlParserUtils.removeWrapperSymbol(tableName))
+                        || super.ignoreTable(tableName);
+            }
+        };
+        cn.iocoder.yudao.framework.mybatis.core.util.MyBatisUtils.addInterceptor(mybatisPlusInterceptor,
+                new com.baomidou.mybatisplus.extension.plugins.inner.TenantLineInnerInterceptor(handler), 0);
+        return original;
+    }
+
+    private MesProEdhrOperationAuditService realTransactionalOperationAuditService() {
+        var target = new MesProEdhrOperationAuditServiceImpl();
+        org.springframework.test.util.ReflectionTestUtils.setField(target, "auditEventMapper", operationAuditEventMapper);
+        var factory = new org.springframework.aop.framework.ProxyFactory(target);
+        factory.setInterfaces(MesProEdhrOperationAuditService.class);
+        factory.addAdvice(new org.springframework.transaction.interceptor.TransactionInterceptor(
+                new org.springframework.jdbc.datasource.DataSourceTransactionManager(dataSource),
+                new org.springframework.transaction.annotation.AnnotationTransactionAttributeSource()));
+        return (MesProEdhrOperationAuditService) factory.getProxy();
+    }
+
+    @Test
+    void draftEvidenceWithMissingVerificationMetadataFailsWithoutImplicitPasswordVerification() {
+        var execution = insertDraftExecutionWithSnapshotDefault("[]", "0");
+        when(signatureService.recordFieldChangeDraftSave(any())).thenReturn(
+                new MesProBatchRecordExecutionFieldAuditSignatureResult().setSignatureId(601L)
+                        .setActorId(99L).setActorName("QA"));
+        assertServiceException(() -> fieldAuditService.saveSystemCellLinkChanges(defaultZeroSystemCommand(execution,
+                MesProEdhrCompletionSourceBackfillService.AUDIT_REASON_PREFIX + "receipt=400")),
+                MesProBatchRecordExecutionErrorCodeConstants.PRO_BATCH_RECORD_EXECUTION_FIELD_AUDIT_SIGNATURE_BIND_FAILED);
+        assertTrue(batchMapper.selectListByExecutionId(execution.getId()).isEmpty());
+        assertEquals("[]", executionMapper.selectById(execution.getId()).getCellValuesJson());
+        verify(gxpAuditService, never()).append(any());
+    }
+
+    private void assertSignatureProjectionMatchesPersistedEvidence(
+            MesProBatchRecordExecutionFieldAuditSaveResult result, String reasonSource) {
+        var signature = signatureMapper.selectById(result.getSignatureId());
+        var projection = new MesProBatchRecordExecutionFieldAuditSignatureProjection()
+                .setId(signature.getId()).setExecutionId(signature.getExecutionId())
+                .setActionType(signature.getActionType()).setActorId(signature.getActorId())
+                .setActorName(signature.getActorName()).setSignatureMode(signature.getSignatureMode())
+                .setPasswordVerified(signature.getPasswordVerified()).setSignedAt(signature.getSignedAt())
+                .setSelectedSignedAt(signature.getSelectedSignedAt()).setSignatureDisplayAt(signature.getSignatureDisplayAt())
+                .setSignatureTimeMode(signature.getSignatureTimeMode()).setSelectedTimeZone(signature.getSelectedTimeZone())
+                .setSelectedTimeReason(signature.getSelectedTimeReason())
+                .setSelectedTimePolicyVersion(signature.getSelectedTimePolicyVersion())
+                .setSelectedTimeAuditHash(signature.getSelectedTimeAuditHash())
+                .setReasonCategory(signature.getReasonCategory()).setReasonText(signature.getReason())
+                .setAuditBatchId(signature.getAuditBatchId()).setSignatureChallengeHash(signature.getSignatureChallengeHash())
+                .setFieldAuditRevision(signature.getFieldAuditRevision()).setCellValuesHash(signature.getCellValuesHash());
+        String hash = MesProBatchRecordExecutionFieldAuditHasher.hashSignatureProjection(projection);
+        assertEquals(hash, batchMapper.selectById(result.getAuditBatchId()).getSignatureProjectionHash());
+        assertTrue(itemMapper.selectListByBatchId(result.getAuditBatchId()).stream()
+                .allMatch(item -> hash.equals(item.getSignatureProjectionHash())));
+        var gxp = ArgumentCaptor.forClass(GxpAuditCommand.class);
+        verify(gxpAuditService).append(gxp.capture());
+        assertEquals(hash, gxp.getValue().getSignatureContentHash());
+        assertEquals(reasonSource, gxp.getValue().getReasonSource());
+        assertEquals("FIELD_CHANGE", signature.getActionType());
+        assertEquals("VALID", fieldAuditService.verifyChain(signature.getExecutionId()).getStatus().name());
+    }
+
     private void mockFieldChangeDraftSave() {
         when(signatureService.recordFieldChangeDraftSave(any()))
                 .thenAnswer(invocation -> {
@@ -1677,6 +2013,8 @@ class MesProBatchRecordExecutionFieldAuditServiceTest extends BaseDbUnitTest {
                             .setSignatureId(601L)
                             .setActorId(99L)
                             .setActorName("QA")
+                            .setSignatureMode(MesProBatchRecordExecutionSignatureService.SIGNATURE_MODE_DRAFT_SESSION)
+                            .setPasswordVerified(Boolean.FALSE)
                             .setSignedAt(signedAt)
                             .setSignatureDisplayAt(signedAt)
                             .setSignatureTimeMode(MesProBatchRecordExecutionSignatureService.SIGNATURE_TIME_MODE_SERVER)
@@ -1756,6 +2094,8 @@ class MesProBatchRecordExecutionFieldAuditServiceTest extends BaseDbUnitTest {
                             .setSignatureId(signatureId)
                             .setActorId(actorId)
                             .setActorName(actorName)
+                            .setSignatureMode(MesProBatchRecordExecutionSignatureService.SIGNATURE_MODE_PASSWORD)
+                            .setPasswordVerified(Boolean.TRUE)
                             .setSignedAt(signedAt)
                             .setSelectedSignedAt(selectedSignedAt)
                             .setSignatureDisplayAt(displayAt)
@@ -1833,6 +2173,15 @@ class MesProBatchRecordExecutionFieldAuditServiceTest extends BaseDbUnitTest {
 
     private MesProEdhrWorkTaskDO insertFillWorkTask(MesProBatchRecordExecutionDO execution, Long assigneeUserId,
                                                     String status) {
+        if (batchExecutionMapper.selectById(7001L) == null) batchExecutionMapper.insert(new MesProEdhrBatchExecutionDO()
+                .setId(7001L).setBatchExecutionCode("FIELD-DRAFT").setWorkOrderId(execution.getWorkOrderId())
+                .setBatchCode(execution.getBatchCode()).setRouteId(4001L).setStatus(10).setTenantId(TENANT_ID));
+        if (workOrders.selectById(execution.getWorkOrderId()) == null) {
+            var order = cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesProWorkOrderDO.builder()
+                    .id(execution.getWorkOrderId()).code("FIELD-WORK").name("Ordinary draft work").status(1).temporaryFrozen(false).build();
+            order.setTenantId(TENANT_ID);
+            workOrders.insert(order);
+        }
         MesProEdhrWorkTaskDO workTask = new MesProEdhrWorkTaskDO()
                 .setTaskCode("EDHRT-T6-" + execution.getId())
                 .setTaskType(MesProEdhrWorkTaskService.TASK_TYPE_FILL)

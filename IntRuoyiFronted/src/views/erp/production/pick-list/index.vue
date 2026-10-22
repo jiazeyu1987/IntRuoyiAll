@@ -26,6 +26,7 @@
           :loading="syncLoading"
           @click="handleKingdeeSync"
           v-hasPermi="['erp:kingdee-sync:query']"
+          data-production-pick-list-sync-kingdee
         >
           <Icon icon="ep:refresh-right" class="mr-5px" />增量同步
         </el-button>

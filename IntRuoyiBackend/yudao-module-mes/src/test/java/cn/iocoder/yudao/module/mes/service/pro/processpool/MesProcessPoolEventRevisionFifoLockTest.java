@@ -48,6 +48,7 @@ class MesProcessPoolEventRevisionFifoLockTest {
     void setUp() {
         service = new MesProcessPoolEventRevisionServiceImpl(eventMapper, revisionMapper,
                 revisionDiffMapper, fifoAllocationService, submissionReviewMapper, signatureService);
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "nonconformanceReviewService", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrNonconformanceReviewService.class));
     }
 
     @Test

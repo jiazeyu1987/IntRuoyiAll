@@ -12,4 +12,6 @@ public class MesPqcProductionReleasePageQuery {
     private String viewStatus;
     private String workOrderCode;
     private String batchCode;
+    private Long applicationId;
+    private Long pqcReleaseWorkTaskId;
 }

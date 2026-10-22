@@ -17,6 +17,8 @@ import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowFailureR
 import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowStage;
 import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowStatus;
 import cn.iocoder.yudao.module.mes.service.pro.productionrelease.role.MesProductionReleaseRoleCandidates;
+import cn.iocoder.yudao.module.mes.service.pro.productionrelease.notification.MesReleaseTaskNotificationService;
+import jakarta.annotation.Resource;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -34,6 +36,7 @@ public class MesTeamLeaderActiveOrderReleaseApplicationPersistenceService {
     private final MesProcessPoolActiveOrderReleaseApplicationMapper applicationMapper;
     private final MesProEdhrWorkTaskMapper workTaskMapper;
     private final MesReleaseFlowAuditRecorder auditRecorder;
+    @Resource private MesReleaseTaskNotificationService notificationService;
 
     public MesTeamLeaderActiveOrderReleaseApplicationPersistenceService(
             MesProcessPoolActiveOrderReleaseApplicationMapper applicationMapper,
@@ -57,6 +60,11 @@ public class MesTeamLeaderActiveOrderReleaseApplicationPersistenceService {
         if (workTaskMapper.insert(task) != 1 || task.getId() == null) {
             throw new IllegalStateException("PQC production release work task insert failed");
         }
+        task.setActionUrl(task.getActionUrl() + "&workTaskId=" + task.getId());
+        if (workTaskMapper.updateById(new MesProEdhrWorkTaskDO().setId(task.getId())
+                .setActionUrl(task.getActionUrl())) != 1) {
+            throw new IllegalStateException("PQC production release work task navigation binding failed");
+        }
         MesProcessPoolActiveOrderReleaseApplicationDO binding =
                 new MesProcessPoolActiveOrderReleaseApplicationDO()
                         .setId(application.getId())
@@ -72,6 +80,7 @@ public class MesTeamLeaderActiveOrderReleaseApplicationPersistenceService {
                 .setIdempotencyKey(application.getRequestIdempotencyKey())
                 .setTenantId(TenantContextHolder.getTenantId())
                 .setApplicationId(application.getId())
+                .setActiveOrderId(application.getActiveOrderId())
                 .setWorkTaskId(task.getId())
                 .setToStatus(MesReleaseFlowStatus.PQC_RELEASE_PENDING)
                 .setVersion(application.getVersion())
@@ -79,6 +88,7 @@ public class MesTeamLeaderActiveOrderReleaseApplicationPersistenceService {
                 .setOccurredAt(application.getAppliedAt())
                 .setSourceSnapshotHash(application.getSourceSnapshotHash())
                 .setResultStatus("SUCCESS"));
+        notificationService.scheduleAssigned(task, application.getAppliedBy());
         return toResult(application);
     }
 
@@ -89,12 +99,14 @@ public class MesTeamLeaderActiveOrderReleaseApplicationPersistenceService {
         }
         return new MesTeamLeaderActiveOrderReleaseApplicationResult()
                 .setApplicationId(application.getId())
+                .setRequestIdempotencyKey(application.getRequestIdempotencyKey())
                 .setActiveOrderId(application.getActiveOrderId())
                 .setWorkOrderId(application.getWorkOrderId())
                 .setWorkOrderCode(application.getWorkOrderCode())
                 .setBatchCode(application.getBatchCode())
                 .setRouteId(application.getRouteId())
                 .setRouteVersionId(application.getRouteVersionId())
+                .setBatchExecutionId(application.getBatchExecutionId())
                 .setPqcReleaseWorkTaskId(application.getPqcReleaseWorkTaskId())
                 .setStatus(application.getApplicationStatus())
                 .setSourceSnapshotHash(application.getSourceSnapshotHash())

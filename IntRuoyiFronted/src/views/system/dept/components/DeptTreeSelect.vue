@@ -10,7 +10,7 @@
     reset() — 清空选中状态（供外部重置按钮调用）
 -->
 <template>
-  <div class="h-full">
+  <div class="h-full" :class="{ 'with-supervisors': showSupervisor }">
     <div class="flex items-center gap-8px p-[15px]">
       <el-input v-model="filterText" class="flex-1" clearable :placeholder="filterPlaceholder">
         <template #prefix>
@@ -30,7 +30,14 @@
         highlight-current
         node-key="id"
         @node-click="handleNodeClick"
-      />
+      >
+        <template #default="{ data }">
+          <span class="dept-tree-node">
+            <span>{{ data.name }}</span>
+            <DeptSupervisorLabel v-if="showSupervisor" :supervisor="data.supervisor" />
+          </span>
+        </template>
+      </el-tree>
     </el-scrollbar>
   </div>
 </template>
@@ -38,15 +45,18 @@
 <script setup lang="ts">
 import { ElTree } from 'element-plus'
 import * as DeptApi from '@/api/system/dept'
+import DeptSupervisorLabel from './DeptSupervisorLabel.vue'
 import { defaultProps, handleTree } from '@/utils/tree'
 import TreeExpandActions from '@/components/TreeExpandActions/index.vue'
 import { setElementTreeExpandState } from '@/utils/treeExpand'
 
 defineOptions({ name: 'DeptTreeSelect' })
 
-withDefaults(
+const props = withDefaults(
   defineProps<{
     filterPlaceholder?: string // 搜索输入框占位文字
+    departments?: DeptApi.DeptVO[]
+    showSupervisor?: boolean
   }>(),
   {
     filterPlaceholder: '请输入部门名称'
@@ -64,9 +74,13 @@ let currentNodeId: number | null = null // 当前选中的节点 ID
 
 /** 加载部门树 */
 const loadTree = async () => {
-  const res = await DeptApi.getSimpleDeptList()
+  const res = props.departments !== undefined ? props.departments : await DeptApi.getSimpleDeptList()
   deptList.value = handleTree(res)
 }
+
+watch(() => props.departments, (value) => {
+  if (value !== undefined) deptList.value = handleTree(value)
+})
 
 /** 基于名字过滤 */
 const filterNode = (name: string, data: Tree) => {
@@ -119,3 +133,8 @@ onMounted(async () => {
   await loadTree()
 })
 </script>
+
+<style scoped>
+.with-supervisors .dept-tree-node { display: flex; flex-direction: column; padding: 5px 0; line-height: 20px; }
+.with-supervisors :deep(.el-tree-node__content) { height: auto; min-height: 30px; }
+</style>

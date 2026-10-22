@@ -6,6 +6,7 @@ import cn.iocoder.yudao.module.bpm.approval.service.ApprovalTaskReviewCommand;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
 import lombok.Data;
 import lombok.experimental.Accessors;
 
@@ -35,12 +36,19 @@ public class ApprovalTaskReviewReqVO {
     @NotNull(message = "审核结果不能为空")
     private ApprovalTaskReviewResult result;
 
-    @Schema(description = "审核意见或驳回原因")
+    @Schema(description = "审核意见或驳回原因", requiredMode = Schema.RequiredMode.REQUIRED)
+    @NotBlank(message = "审核意见不能为空")
+    @Pattern(regexp = "(?s).*[^\\p{javaWhitespace}\\p{javaSpaceChar}\\x00-\\x20\\uFEFF].*", message = "审核意见不能为空")
     private String reason;
 
     @Schema(description = "电子签名密码", requiredMode = Schema.RequiredMode.REQUIRED)
     @NotBlank(message = "电子签名密码不能为空")
     private String signaturePassword;
+    private String prepareId;
+    private String idempotencyKey;
+    private String expectedSubjectVersion;
+    private String expectedContentHash;
+    private String contentPolicyVersion;
 
     public ApprovalTaskReviewCommand toCommand() {
         return new ApprovalTaskReviewCommand()
@@ -51,6 +59,8 @@ public class ApprovalTaskReviewReqVO {
                 .setProcessInstanceId(processInstanceId)
                 .setResult(result)
                 .setReason(reason)
-                .setSignaturePassword(signaturePassword);
+                .setSignaturePassword(signaturePassword).setPrepareId(prepareId).setIdempotencyKey(idempotencyKey)
+                .setExpectedSubjectVersion(expectedSubjectVersion).setExpectedContentHash(expectedContentHash)
+                .setContentPolicyVersion(contentPolicyVersion);
     }
 }

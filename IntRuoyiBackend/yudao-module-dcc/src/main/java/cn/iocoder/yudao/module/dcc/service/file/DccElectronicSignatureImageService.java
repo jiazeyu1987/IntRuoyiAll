@@ -16,6 +16,10 @@ public interface DccElectronicSignatureImageService {
 
     DccElectronicSignatureImageSnapshot requireActiveSnapshot(Long userId);
 
+    DccElectronicSignatureImageSnapshot requireActiveSnapshotLocked(Long userId);
+
+    void markReferencedLocked(Long userId, Long imageId);
+
     DccElectronicSignatureImageSnapshot verifySignatureSnapshot(DccControlledFileSignatureDO signature);
 
     DccElectronicSignatureImageSnapshot verifySignatureSnapshot(DccElectronicSignatureImageSnapshot signature);

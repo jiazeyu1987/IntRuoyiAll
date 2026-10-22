@@ -90,11 +90,11 @@ class MesTeamLeaderActiveOrderReleaseProcessInspectionDynamicFormPortImplTest {
             FormInstanceDraftReqVO request = invocation.getArgument(1);
             written.set(new LinkedHashMap<>(request.getFormData()));
             return null;
-        }).when(runtimeService).saveDraft(eq(9801L), any(), eq(149L));
+        }).when(runtimeService).saveDraft(eq(9801L), any(), eq(177L));
         FormInstanceRespVO submitted = new FormInstanceRespVO();
         submitted.setId(9801L);
         submitted.setStatus("EFFECTIVE");
-        when(runtimeService.submitInstance(eq(9801L), any(FormInstanceSubmitReqVO.class), eq(149L)))
+        when(runtimeService.submitVerifiedBackfillInstance(eq(9801L), any(FormInstanceSubmitReqVO.class), eq(177L), eq("MES_EDHR_ROUTE_FORM_FILL"), any(String.class)))
                 .thenReturn(submitted);
         when(runtimeService.getInstanceSnapshots(9801L)).thenAnswer(invocation -> {
             FormInstanceSnapshotRespVO snapshot = new FormInstanceSnapshotRespVO();
@@ -110,7 +110,7 @@ class MesTeamLeaderActiveOrderReleaseProcessInspectionDynamicFormPortImplTest {
                 field(rules.get(1), "fieldReviewedAt", "2026-08-10 10:11:12", "field-hash-2"));
         MesTeamLeaderActiveOrderReleaseProcessInspectionDynamicFormPort.WriteCommand command =
                 new MesTeamLeaderActiveOrderReleaseProcessInspectionDynamicFormPort.WriteCommand()
-                        .setTenantId(1L).setBatchExecutionId(901L).setBatchTask(task).setBinding(binding)
+                        .setActorUserId(177L).setTenantId(1L).setBatchExecutionId(901L).setBatchTask(task).setBinding(binding)
                         .setTarget(target).setFields(fields).setSourceSnapshotHash("source-snapshot")
                         .setEvidenceHash("inspection-evidence")
                         .setSignatureEvidence(List.of(
@@ -130,7 +130,7 @@ class MesTeamLeaderActiveOrderReleaseProcessInspectionDynamicFormPortImplTest {
         assertFalse(JsonUtils.toJsonString(written.get()).contains("rawPayload"));
         ArgumentCaptor<FormInstanceSubmitReqVO> submitCaptor =
                 ArgumentCaptor.forClass(FormInstanceSubmitReqVO.class);
-        verify(runtimeService).submitInstance(eq(9801L), submitCaptor.capture(), eq(149L));
+        verify(runtimeService).submitVerifiedBackfillInstance(eq(9801L), submitCaptor.capture(), eq(177L), eq("MES_EDHR_ROUTE_FORM_FILL"), any(String.class));
         assertEquals(written.get(), submitCaptor.getValue().getFormData());
     }
 
@@ -171,7 +171,7 @@ class MesTeamLeaderActiveOrderReleaseProcessInspectionDynamicFormPortImplTest {
                 field(rules.get(1), "fieldReviewedAt", "2026-08-10 10:11:12", "new-field-hash-2"));
         MesTeamLeaderActiveOrderReleaseProcessInspectionDynamicFormPort.WriteCommand command =
                 new MesTeamLeaderActiveOrderReleaseProcessInspectionDynamicFormPort.WriteCommand()
-                        .setTenantId(1L).setBatchExecutionId(901L).setBatchTask(task).setBinding(binding)
+                        .setActorUserId(177L).setTenantId(1L).setBatchExecutionId(901L).setBatchTask(task).setBinding(binding)
                         .setTarget(target).setFields(fields).setSourceSnapshotHash("new-source")
                         .setEvidenceHash("new-evidence")
                         .setSignatureEvidence(List.of(
@@ -183,7 +183,7 @@ class MesTeamLeaderActiveOrderReleaseProcessInspectionDynamicFormPortImplTest {
 
         assertTrue(exception.getMessage().contains("已生效过程检验 FormCenter instance 与本次正式来源不一致"));
         verify(runtimeService, never()).saveDraft(any(), any(), any());
-        verify(runtimeService, never()).submitInstance(any(), any(), any());
+        verify(runtimeService, never()).submitVerifiedBackfillInstance(any(), any(), any(), any(), any());
     }
 
     @Test
@@ -228,7 +228,7 @@ class MesTeamLeaderActiveOrderReleaseProcessInspectionDynamicFormPortImplTest {
         assertEquals("PROCESS_INSPECTION_DYNAMIC_FORM_TEMPLATE_REQUIRED", target.getBlockerType());
         verify(instanceMapper, never()).selectById(any());
         verify(runtimeService, never()).saveDraft(any(), any(), any());
-        verify(runtimeService, never()).submitInstance(any(), any(), any());
+        verify(runtimeService, never()).submitVerifiedBackfillInstance(any(), any(), any(), any(), any());
     }
 
     @Test
@@ -247,7 +247,7 @@ class MesTeamLeaderActiveOrderReleaseProcessInspectionDynamicFormPortImplTest {
         assertTrue(target.getBlockerMessage().contains("actual=[IDPR]"));
         verify(instanceMapper, never()).selectById(any());
         verify(runtimeService, never()).saveDraft(any(), any(), any());
-        verify(runtimeService, never()).submitInstance(any(), any(), any());
+        verify(runtimeService, never()).submitVerifiedBackfillInstance(any(), any(), any(), any(), any());
     }
 
     private static MesProRouteFlowProcessBatchRecordDO binding() {

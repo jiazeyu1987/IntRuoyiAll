@@ -53,6 +53,24 @@
 - Forbidden action: 禁止把每日全量改名为增量，禁止只停前端冒充无写入窗口，禁止用 API-only/mock 代替恢复演练，禁止为了赶时间省略载荷校验，禁止生成空 ZIP、默认 PASS、明文 secret 或把完整长期归档平台预埋成首版 fallback。
 - Evidence: `docs/changes/20260907-backup-minimal-closure.md` 与 `doc/tasks/20260907-backup-full-incremental-recovery-plan/minimal-development-plan.md`。
 
+### 按钮化备份恢复入口门禁
+
+- Trigger: 设计或实现 ChatGPT 网页、管理后台或运行控制台中的“立即备份”“选择备份包恢复”“恢复演练”“恢复数据”按钮。
+- Preflight check: 先确认唯一执行源是后端 operation gateway / runtime-control / `E:\IntRuoyi\IntRuoyiBackend\script\backup-ops`，不得直接绑定浏览器、ChatGPT 网页或 `.bat` 入口执行 SSH/shell。`backup-now` 请求必须显式传入 `FULL` 或 `INCREMENTAL`，并从前端表单、后端 action 参数、linux-local `--backup-kind` / PowerShell `-BackupKind` 一路贯通到实际脚本；linux-local 配置的 MySQL 备份策略必须与请求备份类型一致，不一致必须阻断，不得静默改全量或增量。候选必须区分 `REHEARSAL`（允许 `COMPLETE + NOT_RUN`）与 `CONTROLLED_RESTORE`（绑定当前目标 `PASSED` 证明），不可变 manifest 与可变演练/兼容证据分离，候选 API 和 `rehearsal-report.json` 必须显式写出并校验 `manifestDigest`、`chainDigest`、`sourceFingerprint`、`targetFingerprint`，不能只用 `backupId` 或目录名授权恢复，并在 preview 中核对签名、全载荷 hash、chain digest、runtime `IMAGE_TAG`、schema 指纹、DB/MinIO/DCC/Redis policy、目标 host、容量、隔离副作用和候选失效时间。现状介绍必须区分静态已知配置与实时恢复就绪状态。
+- Blocker: `BackupKind` 缺失、候选不是服务端签发或已过期、备份集未 `COMPLETE`、checksum/签名/DCC manifest 缺失、`NOT_RUN` 候选尝试覆盖、演练证明与目标 fingerprint/chain digest 不匹配、外部 writer 或隔离副作用未处理、pre-restore snapshot/空目标证明不可创建、源账号可删除全部备份、或只读实时 preflight 未执行时，不得启用恢复数据按钮或宣称当前测试服可恢复。
+- Verification: 记录按钮请求体、operationId、targetEnvironment、backupKind、candidateType、candidateId、backupId、manifest/chain digest、source/target fingerprint、preview blockers、互斥租约、签名/全载荷 hash、rehearsal/restore report、目标模式、backend health、frontend HTTP、登录、样本文件 hash 和关键业务路径验证结果；静态验证至少覆盖候选类型拒绝、backupKind 参数链、digest/fingerprint 出参和前端按动作过滤；验证 `UNKNOWN` 终态保持写保护。静态设计任务只能标注“方案已形成”，不能标注“恢复演练成功”。
+- Forbidden action: 禁止让前端或 ChatGPT 网页传任意 host/path/命令；禁止把 `.bat` 控制台成功等同于网页接口契约成功；禁止缺少 `BackupKind` 时默认全量或增量；禁止把 `NOT_RUN` 强行标成 `PASSED`、让前端绕过候选状态、在隔离演练中连接真实外部系统、未演练包直接覆盖测试服、让源账号删除受保护副本，或用历史报告冒充当前实时就绪。
+- Evidence: `D:\ProjectPackage\Int\IntRuoyiMaintance\doc\tasks\20260918-test-backup-restore-design\verification-report.md`、`D:\ProjectPackage\Int\IntRuoyiMaintance\doc\tasks\20260919-backup-restore-implementation-static\verification-report.md` 与 `docs/recovery/backup-disaster-recovery.md`。
+
+### 大数据量备份恢复首版里程碑顺序门禁
+
+- Trigger: 规划或评审几百 GB 数据量的备份恢复首版，尤其出现“先做按钮、增量后续再做”“全量成功即可上线”或“整链恢复后续优化”等拆分方案。
+- Preflight check: 先完成数据、对象、数据库、配置、秘密引用、外部依赖、owner、共同恢复点 RPO、演练/覆盖 RTO、容量和停写窗口盘点；在实际数据规模上选定并实测数据库全量主方案；确认恢复控制平面、镜像/工具、密钥 escrow 和备份仓库不依赖被恢复的业务后端或源账号；定义 `FULL -> INCREMENTAL -> chain restore` 的统一恢复点、对象 tombstone、最大链年龄和日志保留契约。
+- Blocker: 只有文件生成没有全量隔离恢复、只有数据库增量没有对象增删改、增量链缺 parent/base/position 或所需 binlog 已 purge、恢复控制平面随业务后端一起不可用、隔离演练会触发外部副作用、备份仓库与源系统共用可删除权限、数据库主方案未按实际规模验证、或只能依赖用户电脑中转几百 GB 数据时，不能进入按钮化放行。
+- Verification: M2 记录实际规模 FULL 和隔离全量恢复；M3 连续生成至少三个真实增量并恢复中间点和最新点，验证数据库与对象新增/修改/删除，并注入中间增量损坏、日志提前清理和对象并发修改；M4 区分演练候选与受控恢复候选、演练与覆盖恢复；M5 完成支持矩阵与换机/不兼容验证；M6 完成一个完整调度周期、依赖图保留模拟、最大链恢复、独立副本删除权限和故障注入。
+- Forbidden action: 禁止把真实增量、整链恢复、跨存储一致性和大数据容量验证推迟到按钮上线后；禁止用小样本成功外推几百 GB；禁止把“增量包小”当成“恢复只需传增量”；禁止把升级、降级、换机承诺写成任意环境自动兼容。
+- Evidence: `D:\ProjectPackage\Int\IntRuoyiMaintance\doc\tasks\20260918-backup-restore-milestone-review\verification-report.md`。
+
 ### 本机数据迁移包恢复门禁
 
 - Trigger: 用户要求把当前电脑的本机 IntRuoyi 数据打包给另一台电脑、保持两台开发电脑数据一致、或生成给 Codex 使用的恢复 README。
@@ -112,3 +130,12 @@
 - 后端验证至少包含 health 状态。
 - 前端验证至少包含 HTTP 200 或真实页面打开证据。
 - 记录备份/恢复产物、manifest 和必要校验结果。
+
+## Docker隔离副本的物理容量门禁
+
+- Trigger：本机Docker/WSL内复制MySQL、MinIO、创建隔离测试库或生成大文件导出。
+- Preflight check：先确定Docker实际VHDX/数据目录所在物理盘，同时核对容器df、VHDX文件大小和宿主机卷空闲容量。预算必须覆盖数据库恢复后物理数据、hex-blob等导出放大、对象副本及版本、导出/复制暂存、构建依赖和增长余量；空闲容量以实际承载写入的物理卷为准，不能用其它盘空闲量代替。大对象锁副本还要预先确认保留期内不可删除及容量回收路径。
+- Blocker：物理卷无法唯一映射、任一承载卷峰值空间不足、无法暂停任务写入、共享Docker不可用或目标盘容纳不下现有VHDX加增长空间时，必须在复制前停止，不能只凭虚拟机df显示充足就继续。
+- Verification：记录输入规模、导出倍率估算、复制峰值预算、物理卷空闲量及安全余量，并在每阶段重新检查；故障时只停止已核实任务写入，清理精确任务临时文件，不能把停止Windows Docker客户端等同于停止容器内进程。共享Docker恢复/重启须另行授权。
+- Forbidden action：禁止原库/原桶写入来完成隔离验收、删除其它任务资产腾空间、绕过WORM保留、直接修改已挂载共享VHDX，或搬迁前遗漏目标卷容量证明。
+- Evidence：doc/tasks/20260930-edhr-four-test-accounts/execution-log.md。

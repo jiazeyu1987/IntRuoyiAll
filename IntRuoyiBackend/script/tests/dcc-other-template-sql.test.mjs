@@ -3,7 +3,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import test from 'node:test'
 
-const root = process.cwd()
+const root = path.resolve(import.meta.dirname, '..', '..')
 const sqlPath = path.join(root, 'sql', 'mysql', '20260526_dcc_other_template_category.sql')
 
 const readSql = () => fs.readFileSync(sqlPath, 'utf8')

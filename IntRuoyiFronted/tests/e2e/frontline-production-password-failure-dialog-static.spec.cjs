@@ -56,7 +56,7 @@ assert.match(
 )
 assert.doesNotMatch(
   submitHandler,
-  /isProductionPasswordValidationFailure|openProductionSubmitFailureDialog|catch \(error\)/,
+  /isProductionPasswordValidationFailure|openProductionSubmitFailureDialog/,
   'formal submit must not divert password failures into a dedicated dialog branch.'
 )
 

@@ -1,6 +1,7 @@
 package cn.iocoder.yudao.module.mes.service.pro.processpool.team;
 
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
+import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.feedback.MesProFeedbackDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcInspectionTaskDO;
@@ -20,13 +21,20 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_ACTIVE_ORDER_COMPLETION_SOURCE_MISSING;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
@@ -48,14 +56,31 @@ class MesTeamLeaderActiveOrderCompletionBackfillPortImplTest {
     @Mock private MesWmProductIssueDetailMapper productIssueDetailMapper;
     @Mock private MesProcessPoolActiveOrderPickListBindingMapper pickListBindingMapper;
     @Mock private MesProcessPoolActiveOrderPickListBindingItemMapper pickListBindingItemMapper;
+    @Mock private cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventMapper eventMapper;
+    @Mock private MesProcessPoolSubmissionReviewMapper reviewMapper;
 
     private MesTeamLeaderActiveOrderCompletionBackfillPortImpl port;
 
     @BeforeEach
     void setUp() {
+        org.springframework.transaction.support.TransactionSynchronizationManager.setActualTransactionActive(true);
         port = new MesTeamLeaderActiveOrderCompletionBackfillPortImpl(snapshotMapper, allocationMapper,
                 completionMapper, taskMapper, detailMapper, workOrderMapper, lossSourceReader, backfillMapper,
-                productIssueMapper, productIssueDetailMapper, pickListBindingMapper, pickListBindingItemMapper);
+                productIssueMapper, productIssueDetailMapper, pickListBindingMapper, pickListBindingItemMapper,
+                eventMapper, reviewMapper);
+        var event = new MesProProcessPoolEventDO().setId(401L).setWorkOrderId(30L).setRouteId(40L)
+                .setRouteProcessId(101L).setProcessId(1L).setEventType("PRODUCTION_SUBMIT").setRawPayload("{}")
+                .setDeviceAccountId(341L).setActualEmployeeId(342L).setSignatureUserId(342L);
+        event.setTenantId(1L);
+        var review = new MesProcessPoolSubmissionReviewDO().setReviewRound(0).setId(601L).setEventId(401L).setLeaderUserId(20L)
+                .setLeaderType("PRODUCTION").setReviewStatus("APPROVED").setReviewedAt(java.time.LocalDateTime.of(2026, 9, 24, 9, 0))
+                .setReviewSignatureId(602L).setReviewSignatureUserId(20L)
+                .setReviewSignatureSnapshotJson("{\"signatureId\":602,\"actorId\":20,\"processPoolEventId\":401,"
+                        + "\"actionType\":\"TEAM_LEADER_REVIEW\",\"eventType\":\"PRODUCTION_SUBMIT\","
+                        + "\"leaderType\":\"PRODUCTION\",\"reviewStatus\":\"APPROVED\"}");
+        review.setTenantId(1L);
+        org.mockito.Mockito.lenient().when(eventMapper.selectByIdForUpdateNowait(401L)).thenReturn(event);
+        org.mockito.Mockito.lenient().when(reviewMapper.selectByIdForUpdateNowait(601L)).thenReturn(review);
         org.mockito.Mockito.lenient().when(pickListBindingMapper.selectListByActiveOrderId(10L))
                 .thenReturn(List.of(MesProcessPoolActiveOrderPickListBindingDO.builder().id(8801L)
                         .activeOrderId(10L).workOrderId(30L).pickListId(9901L).sourceSnapshotHash("pick-hash").build()));
@@ -89,6 +114,104 @@ class MesTeamLeaderActiveOrderCompletionBackfillPortImplTest {
                 });
     }
 
+    @org.junit.jupiter.api.AfterEach
+    void clearTransaction() {
+        org.springframework.transaction.support.TransactionSynchronizationManager.clear();
+    }
+
+    @Test
+    void releaseCompletionReplaysExistingReceiptAfterItsOwnBackfillWrites() {
+        when(lossSourceReader.read(any())).thenReturn(lossSources(BigDecimal.ZERO));
+        var activeOrders = org.mockito.Mockito.mock(MesProcessPoolActiveOrderMapper.class);
+        var receipts = org.mockito.Mockito.mock(MesProcessPoolActiveOrderCompletionReceiptMapper.class);
+        var progress = org.mockito.Mockito.mock(MesTeamLeaderActiveOrderCompletionProgressPort.class);
+        var pickLists = org.mockito.Mockito.mock(MesTeamLeaderActiveOrderPickListCompletionSourceService.class);
+        var trace = org.mockito.Mockito.mock(MesActiveOrderTransferTraceService.class);
+        var aggregation = org.mockito.Mockito.mock(MesPqcProcessInspectionAggregationService.class);
+        var service = new MesTeamLeaderActiveOrderCompletionServiceImpl(activeOrders, receipts, progress,
+                port, pickLists, trace, aggregation);
+        { org.springframework.test.util.ReflectionTestUtils.setField(service, "handoffService", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffService.class)); }
+        var audits = org.mockito.Mockito.mock(cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService.class);
+        List<cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditCommand> auditCommands = new ArrayList<>();
+        List<cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditAppendResult> auditBindings = new ArrayList<>();
+        when(audits.append(any())).thenAnswer(call -> {
+            var command = call.<cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditCommand>getArgument(0);
+            assertEquals("mes.active-order.complete", command.getOperationId());
+            long sequence = auditCommands.size() + 1L;
+            var binding = new cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditAppendResult(
+                    8000L + sequence, sequence, cn.hutool.crypto.digest.DigestUtil.sha256Hex(JsonUtils.toJsonString(command)), false);
+            auditCommands.add(command); auditBindings.add(binding); return binding;
+        });
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "gxpAuditService", audits);
+        var affected = org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.productionrelease.MesReleaseAffectedStateCollector.class);
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "affectedStateCollector", affected);
+        var activeOrder = order().setVersion(2).setActiveStatus("ACTIVE");
+        var stored = new java.util.concurrent.atomic.AtomicReference<MesProcessPoolActiveOrderCompletionReceiptDO>();
+        // Unit boundary for receipt creation; actual audit/readback closure is exercised
+        // by the isolated real-source producer. Tie this proof to the captured main binding.
+        var creationVerifier = org.mockito.Mockito.mock(
+                cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesEdhrSourceCreationVerificationService.class);
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "creationVerifier", creationVerifier);
+        when(creationVerifier.requireCompletionCreation(1L, 177L)).thenAnswer(call -> {
+            var receipt = stored.get();
+            assertNotNull(receipt);
+            var main = auditBindings.get(auditBindings.size() - 1);
+            return new cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesEdhrSourceCreationEvidence(
+                    "COMPLETION_V1", receipt.getId(), receipt.getId().toString(),
+                    receipt.getCompletedVersion().toString(), receipt.getReceiptHash(),
+                    main.eventId(), main.eventHash());
+        });
+        when(creationVerifier.requireCompletionTransactionId(1L, 177L))
+                .thenReturn("unit-completion-main-transaction");
+        when(receipts.selectByIdAndTenantId(177L, 1L)).thenAnswer(call -> stored.get());
+        when(affected.captureCompletion(10L, 30L)).thenAnswer(call -> java.util.Map.of(
+                "completionReceipts", stored.get() == null ? List.of() : List.of(stored.get())));
+        when(activeOrders.selectByIdForUpdate(10L)).thenReturn(activeOrder);
+        when(receipts.selectByActiveOrderIdForUpdate(10L)).thenAnswer(call -> stored.get());
+        when(receipts.selectByIdempotencyKeyForUpdate(any())).thenAnswer(call -> stored.get());
+        when(progress.read(20L, activeOrder)).thenReturn(new MesTeamLeaderActiveOrderCompletionProgress()
+                .setProductionProgressPercent(BigDecimal.valueOf(100))
+                .setInspectionProgressPercent(BigDecimal.valueOf(100)));
+        when(activeOrders.markCompleted(10L, 2, 20L)).thenAnswer(call -> {
+            activeOrder.setVersion(3); return 1;
+        });
+        when(receipts.insert(any(MesProcessPoolActiveOrderCompletionReceiptDO.class))).thenAnswer(call -> {
+            var receipt = call.<MesProcessPoolActiveOrderCompletionReceiptDO>getArgument(0);
+            receipt.setId(177L); stored.set(receipt); return 1;
+        });
+        var first = service.completeForRelease(20L, 10L, "release-round-1", true);
+        String receiptHash = stored.get().getReceiptHash();
+        assertEquals(2, auditCommands.size());
+        var part = JsonUtils.parseTree(auditCommands.get(1).getAfterState().getCanonicalJson())
+                .path("affectedRowAuditManifest").path("parts").path(0);
+        assertEquals(auditBindings.get(0).eventId().longValue(), part.path("eventId").asLong());
+        assertEquals(auditBindings.get(0).ledgerSequence().longValue(), part.path("ledgerSequence").asLong());
+        assertEquals(auditBindings.get(0).eventHash(), part.path("eventHash").asText());
+        // Models MyBatis audit-field writeback when Tx-A updates the completion rows.
+        var completion = completionMapper.selectListByWorkOrderIdsForUpdate(List.of(30L)).get(0);
+        completion.setUpdateTime(java.time.LocalDateTime.of(2026, 9, 22, 13, 41));
+        completion.setUpdater("20");
+        var second = service.completeForRelease(20L, 10L, "release-round-2", null);
+        assertEquals(first.getCompletionReceiptId(), second.getCompletionReceiptId());
+        assertEquals(receiptHash, second.getReceiptHash());
+        verify(audits, org.mockito.Mockito.times(2)).append(any());
+        verify(receipts, org.mockito.Mockito.times(1)).insert(any(MesProcessPoolActiveOrderCompletionReceiptDO.class));
+        verify(activeOrders, org.mockito.Mockito.times(1)).markCompleted(10L, 2, 20L);
+        verify(backfillMapper, org.mockito.Mockito.times(2)).insert(any(MesProcessPoolActiveOrderCompletionBackfillDO.class));
+
+        var changed = productIssueDetail();
+        changed.setBatchCode("REAL-SOURCE-CHANGE");
+        when(productIssueDetailMapper.selectListByIssueIdForUpdate(901L)).thenReturn(List.of(changed));
+        assertThrows(ServiceException.class, () -> service.completeForRelease(20L, 10L, "release-round-3", null));
+        when(productIssueDetailMapper.selectListByIssueIdForUpdate(901L)).thenReturn(List.of(productIssueDetail()));
+        completion.setBackfillExecutionId(999999L);
+        assertThrows(ServiceException.class, () -> service.completeForRelease(20L, 10L, "wrong-backfill-binding", null));
+        completion.setBackfillExecutionId(stored.get().getBatchRecordId());
+        stored.get().setReceiptHash("tampered");
+        assertThrows(ServiceException.class, () -> service.completeForRelease(20L, 10L, "tampered-receipt", null));
+        verify(receipts, org.mockito.Mockito.times(1)).insert(any(MesProcessPoolActiveOrderCompletionReceiptDO.class));
+    }
+
     @Test
     void noLossMaterializesOnlyBatchAndInspectionRows() {
         when(lossSourceReader.read(any())).thenReturn(lossSources(BigDecimal.ZERO));
@@ -119,6 +242,73 @@ class MesTeamLeaderActiveOrderCompletionBackfillPortImplTest {
     }
 
     @Test
+    void writerProducesCanonicalSourceJsonThatSurvivesJsonDatabaseFormatting() throws Exception {
+        when(lossSourceReader.read(any())).thenReturn(lossSources(BigDecimal.ZERO));
+
+        MesTeamLeaderActiveOrderCompletionBackfillDraft draft = port.prepare(20L, order(), command());
+        String formalJson = draft.getFormalSourceSnapshotJson();
+        String lossJson = draft.getLossConditionFactsJson();
+
+        assertEquals(MesTeamLeaderActiveOrderCompletionSourceSnapshotCanonicalizer.canonicalize(formalJson),
+                formalJson);
+        assertEquals(MesTeamLeaderActiveOrderCompletionSourceSnapshotCanonicalizer.canonicalize(lossJson),
+                lossJson);
+        assertEquals(MesTeamLeaderActiveOrderCompletionSourceSnapshotCanonicalizer.sourceSnapshotHash(
+                        formalJson, lossJson), draft.getSourceSnapshotHash());
+        assertTrue(JsonUtils.getObjectMapper().readTree(formalJson).path("activeOrderBinding").path("id")
+                .isIntegralNumber());
+
+        String equivalentFormalJson = "  " + reverseObjectOrder(formalJson) + "  ";
+        assertEquals(draft.getSourceSnapshotHash(),
+                MesTeamLeaderActiveOrderCompletionSourceSnapshotCanonicalizer.sourceSnapshotHash(
+                        equivalentFormalJson, "  " + lossJson + "  "));
+    }
+
+    private String reverseObjectOrder(String json) throws Exception {
+        return reverseObjectOrder(JsonUtils.getObjectMapper().readTree(json)).toString();
+    }
+
+    private JsonNode reverseObjectOrder(JsonNode node) {
+        if (node.isObject()) {
+            ObjectNode result = JsonNodeFactory.instance.objectNode();
+            List<String> names = new ArrayList<>();
+            node.fieldNames().forEachRemaining(names::add);
+            names.sort(Comparator.reverseOrder());
+            for (String name : names) {
+                result.set(name, reverseObjectOrder(node.get(name)));
+            }
+            return result;
+        }
+        if (node.isArray()) {
+            ArrayNode result = JsonNodeFactory.instance.arrayNode();
+            node.elements().forEachRemaining(child -> result.add(reverseObjectOrder(child)));
+            return result;
+        }
+        return node;
+    }
+
+    @Test
+    void noReplenishmentConfirmationIsPassedAndRecordedWithTheLeader() {
+        when(lossSourceReader.read(any())).thenReturn(lossSources(BigDecimal.ZERO));
+        var draft = port.prepare(20L, order(), command().setConfirmNoReplenishmentInfo(true));
+        verify(lossSourceReader).read(org.mockito.ArgumentMatchers.argThat(cmd ->
+                Boolean.TRUE.equals(cmd.getRequireNoReplenishmentConfirmation())
+                        && Boolean.TRUE.equals(cmd.getConfirmNoReplenishmentInfo())));
+        assertTrue(draft.getZeroLossConfirmationSnapshot().contains("\"confirmedBy\":20"));
+        assertTrue(draft.getZeroLossConfirmationSnapshot().contains("\"confirmNoReplenishmentInfo\":true"));
+    }
+
+    @Test
+    void missingReplenishmentPreservesTheConfirmationErrorAndWritesNothing() {
+        when(lossSourceReader.read(any())).thenReturn(new MesTeamLeaderActiveOrderReleaseLossSourceReadResult()
+                .setProcessSources(List.of()).setBlockers(List.of(new MesTeamLeaderActiveOrderReleaseBlocker()
+                        .setBlockerType("NO_REPLENISHMENT_CONFIRMATION_REQUIRED"))));
+        var error = assertThrows(ServiceException.class, () -> port.prepare(20L, order(), command()));
+        assertTrue(error.getMessage().contains("NO_REPLENISHMENT_CONFIRMATION_REQUIRED"));
+        org.mockito.Mockito.verifyNoInteractions(backfillMapper);
+    }
+
+    @Test
     void positiveLossMaterializesLossRowAndFormalLossRecord() {
         when(lossSourceReader.read(any())).thenReturn(lossSources(BigDecimal.ONE));
 
@@ -129,6 +319,7 @@ class MesTeamLeaderActiveOrderCompletionBackfillPortImplTest {
         assertTrue(draft.getHasActualLoss());
         assertEquals(BigDecimal.ONE, draft.getLossQuantity());
         assertEquals(1103L, draft.getLossRecordId());
+        assertEquals("[9101]", draft.getLossSourceIdsJson());
         ArgumentCaptor<MesProcessPoolActiveOrderCompletionBackfillDO> captor =
                 ArgumentCaptor.forClass(MesProcessPoolActiveOrderCompletionBackfillDO.class);
         verify(backfillMapper, org.mockito.Mockito.times(3)).insert(captor.capture());
@@ -176,6 +367,25 @@ class MesTeamLeaderActiveOrderCompletionBackfillPortImplTest {
     }
 
     @Test
+    void formalSnapshotFreezesAuthenticatedOperatorSeparatelyFromEmployeeAndSignature() {
+        when(lossSourceReader.read(any())).thenReturn(lossSources(BigDecimal.ZERO));
+        var first = port.prepare(20L, order(), command());
+        var event = JsonUtils.parseTree(first.getFormalSourceSnapshotJson())
+                .path("productionFacts").path("events").get(0);
+        assertEquals(341L, event.path("deviceAccountId").asLong());
+        assertEquals(342L, event.path("actualEmployeeId").asLong());
+        assertEquals(342L, event.path("signatureUserId").asLong());
+        var changed = new MesProProcessPoolEventDO().setId(401L)
+                .setWorkOrderId(30L).setRouteId(40L).setRouteProcessId(101L).setProcessId(1L)
+                .setEventType("PRODUCTION_SUBMIT").setRawPayload("{}").setDeviceAccountId(345L)
+                .setActualEmployeeId(342L).setSignatureUserId(342L);
+        changed.setTenantId(1L);
+        when(eventMapper.selectByIdForUpdateNowait(401L)).thenReturn(changed);
+        var second = port.prepare(20L, order(), command());
+        org.junit.jupiter.api.Assertions.assertNotEquals(first.getSourceSnapshotHash(), second.getSourceSnapshotHash());
+    }
+
+    @Test
     void formalSourceValueChangeMustChangeSnapshotHash() {
         when(lossSourceReader.read(any())).thenReturn(lossSources(BigDecimal.ZERO));
         MesTeamLeaderActiveOrderCompletionBackfillDraft before = port.prepare(20L, order(), command());
@@ -203,7 +413,7 @@ class MesTeamLeaderActiveOrderCompletionBackfillPortImplTest {
     }
 
     @Test
-    void productionProcessWithoutConfiguredPqcTaskDoesNotBlockInspectionBackfill() {
+    void wholeOrderInspectionBackfillDoesNotRequireProductionProcessAssociation() {
         MesProcessPoolActiveOrderProcessSnapshotDO secondSnapshot = snapshot(102L, 1L);
         when(snapshotMapper.selectListByActiveOrderIdForUpdate(10L))
                 .thenReturn(List.of(snapshot(101L, 1L), secondSnapshot));
@@ -211,8 +421,8 @@ class MesTeamLeaderActiveOrderCompletionBackfillPortImplTest {
                 .thenReturn(List.of(allocation(201L, 101L), allocation(202L, 102L)));
         when(completionMapper.selectListByWorkOrderIdsForUpdate(List.of(30L)))
                 .thenReturn(List.of(completion(301L, 101L, 201L), completion(302L, 102L, 202L)));
-        when(taskMapper.selectListByActiveOrderIdForUpdate(10L)).thenReturn(List.of(task(701L, 101L)));
-        when(detailMapper.selectListByActiveOrderIdForUpdate(10L)).thenReturn(List.of(detail(801L, 701L, 101L)));
+        when(taskMapper.selectListByActiveOrderIdForUpdate(10L)).thenReturn(List.of(task()));
+        when(detailMapper.selectListByActiveOrderIdForUpdate(10L)).thenReturn(List.of(detail()));
         when(lossSourceReader.read(any())).thenReturn(lossSources(BigDecimal.ZERO,
                 List.of(snapshot(101L, 1L), secondSnapshot)));
 
@@ -237,8 +447,8 @@ class MesTeamLeaderActiveOrderCompletionBackfillPortImplTest {
     @Test
     void multipleInspectionDetailsForOneConfirmedTaskMustBeAccepted() {
         when(detailMapper.selectListByActiveOrderIdForUpdate(10L))
-                .thenReturn(List.of(detail(801L, 701L, 101L, 2), detail(802L, 701L, 101L, 2)));
-        when(taskMapper.selectListByActiveOrderIdForUpdate(10L)).thenReturn(List.of(task(701L, 101L, 2)));
+                .thenReturn(List.of(detail(801L, 701L, 1, 2), detail(802L, 701L, 2, 2)));
+        when(taskMapper.selectListByActiveOrderIdForUpdate(10L)).thenReturn(List.of(task(701L, 2)));
         when(lossSourceReader.read(any())).thenReturn(lossSources(BigDecimal.ZERO));
 
         MesTeamLeaderActiveOrderCompletionBackfillDraft draft = port.prepare(20L, order(), command());
@@ -250,7 +460,7 @@ class MesTeamLeaderActiveOrderCompletionBackfillPortImplTest {
 
     @Test
     void inspectionDetailWithoutFormalPieceSourceMustBeRejectedBeforeBackfill() {
-        MesPqcProcessInspectionAggregateDetailDO invalid = detail(801L, 701L, 101L)
+        MesPqcProcessInspectionAggregateDetailDO invalid = detail()
                 .setSourcePieceDetailId(null);
         when(detailMapper.selectListByActiveOrderIdForUpdate(10L)).thenReturn(List.of(invalid));
 
@@ -258,6 +468,85 @@ class MesTeamLeaderActiveOrderCompletionBackfillPortImplTest {
                 () -> port.prepare(20L, order(), command()));
 
         assertEquals(PRO_PROCESS_POOL_ACTIVE_ORDER_COMPLETION_SOURCE_MISSING.getCode(), ex.getCode());
+    }
+
+    @Test
+    void mixedItemSamplingUsesFrozenItemQuantitiesInsteadOfTotalDetailCount() {
+        when(taskMapper.selectListByActiveOrderIdForUpdate(10L)).thenReturn(List.of(task(701L, 2)
+                .setInspectionItemPlanJson("{\"I1\":2,\"I2\":1}")));
+        when(detailMapper.selectListByActiveOrderIdForUpdate(10L)).thenReturn(List.of(
+                detail(801L, 701L, 1, 2), detail(802L, 701L, 2, 2),
+                detail(803L, 701L, 1, 2).setItemCode("I2")));
+        when(lossSourceReader.read(any())).thenReturn(lossSources(BigDecimal.ZERO));
+
+        var draft = port.prepare(20L, order(), command());
+
+        assertEquals(List.of(701L, 801L, 802L, 803L),
+                JsonUtils.parseArray(draft.getProcessInspectionSourceIdsJson(), Long.class));
+    }
+
+    @Test
+    void sevenQaProcessesAcrossThreeStagesProduceTwentyOneBackfillTasks() {
+        List<MesPqcInspectionTaskDO> tasks = new ArrayList<>();
+        List<MesPqcProcessInspectionAggregateDetailDO> details = new ArrayList<>();
+        for (long qaProcess = 1; qaProcess <= 7; qaProcess++) {
+            for (String stage : List.of("FIRST", "PATROL_AM", "PATROL_PM")) {
+                long index = tasks.size();
+                tasks.add(task(701L + index, 1).setQaProcessId(1700L + qaProcess).setInspectionRuleKey(stage));
+                details.add(detail(801L + index, 701L + index, 1, 1));
+            }
+        }
+        when(taskMapper.selectListByActiveOrderIdForUpdate(10L)).thenReturn(tasks);
+        when(detailMapper.selectListByActiveOrderIdForUpdate(10L)).thenReturn(details);
+        when(lossSourceReader.read(any())).thenReturn(lossSources(BigDecimal.ZERO));
+
+        var draft = port.prepare(20L, order(), command());
+
+        assertEquals(42, JsonUtils.parseArray(draft.getProcessInspectionSourceIdsJson(), Long.class).size());
+    }
+
+    @Test
+    void productionBoundQaTaskCannotBeUsedAsWholeOrderInspectionEvidence() {
+        when(taskMapper.selectListByActiveOrderIdForUpdate(10L))
+                .thenReturn(List.of(task().setRouteProcessId(101L).setProcessId(1L)));
+
+        assertMissingInspectionSource();
+    }
+
+    @Test
+    void missingInspectionItemCannotBeHiddenByAnotherItemsSampleCount() {
+        when(taskMapper.selectListByActiveOrderIdForUpdate(10L)).thenReturn(List.of(task(701L, 2)
+                .setInspectionItemPlanJson("{\"I1\":2,\"I2\":1}")));
+        when(detailMapper.selectListByActiveOrderIdForUpdate(10L)).thenReturn(List.of(
+                detail(801L, 701L, 1, 2), detail(802L, 701L, 2, 2)));
+
+        assertMissingInspectionSource();
+    }
+
+    @Test
+    void duplicateSampleNumberCannotSatisfyFrozenItemSamplingPlan() {
+        when(taskMapper.selectListByActiveOrderIdForUpdate(10L)).thenReturn(List.of(task(701L, 2)));
+        when(detailMapper.selectListByActiveOrderIdForUpdate(10L)).thenReturn(List.of(
+                detail(801L, 701L, 1, 2), detail(802L, 701L, 1, 2)));
+
+        assertMissingInspectionSource();
+    }
+
+    @Test
+    void wrongQaVersionAndOrphanTaskDetailsAreRejected() {
+        when(detailMapper.selectListByActiveOrderIdForUpdate(10L))
+                .thenReturn(List.of(detail().setRegulationVersionId(1502L)));
+        assertMissingInspectionSource();
+
+        when(detailMapper.selectListByActiveOrderIdForUpdate(10L))
+                .thenReturn(List.of(detail(), detail(802L, 999L, 1, 1)));
+        assertMissingInspectionSource();
+    }
+
+    private void assertMissingInspectionSource() {
+        var error = assertThrows(ServiceException.class, () -> port.prepare(20L, order(), command()));
+        assertEquals(PRO_PROCESS_POOL_ACTIVE_ORDER_COMPLETION_SOURCE_MISSING.getCode(), error.getCode());
+        verify(backfillMapper, org.mockito.Mockito.never()).insert(any(MesProcessPoolActiveOrderCompletionBackfillDO.class));
     }
 
     private MesTeamLeaderActiveOrderReleaseLossSourceReadResult lossSources(BigDecimal loss) {
@@ -275,7 +564,13 @@ class MesTeamLeaderActiveOrderCompletionBackfillPortImplTest {
                 .setProcessSources(snapshots.stream().map(snapshot ->
                         new MesTeamLeaderActiveOrderReleaseLossSourceReadResult.ProcessLossSource()
                                 .setSnapshot(snapshot).setFeedback(feedback).setEvent(event)
-                                .setAllocation(allocation()).setReview(MesProcessPoolSubmissionReviewDO.builder()
+                                .setFormalLossQuantity(loss).setHasActualLoss(loss.signum() > 0)
+                                .setZeroLossConfirmed(loss.signum() == 0).setLossDecision(loss.signum() > 0 ? "REQUIRED" : "NO_LOSS")
+                                .setReplenishmentSources(loss.signum() == 0 ? List.of() : List.of(
+                                        new MesTeamLeaderActiveOrderReleaseLossSourceReadResult.ReplenishmentSource()
+                                                .setHeaderId(91L).setItemId(9101L).setSourceBillNo("BL-91")
+                                                .setMaterialCode("MAT-1").setMaterialName("材料一").setActualQuantity(loss)))
+                                .setAllocation(allocation()).setReview(MesProcessPoolSubmissionReviewDO.builder().reviewRound(0)
                                         .id(601L).build()).setLossDetails(List.of())).toList());
     }
 
@@ -296,9 +591,11 @@ class MesTeamLeaderActiveOrderCompletionBackfillPortImplTest {
     }
 
     private MesProcessPoolActiveOrderProcessSnapshotDO snapshot(Long routeProcessId, Long processId) {
-        return MesProcessPoolActiveOrderProcessSnapshotDO.builder().id(routeProcessId).activeOrderId(10L)
+        var row = MesProcessPoolActiveOrderProcessSnapshotDO.builder().id(routeProcessId).activeOrderId(10L)
                 .workOrderId(30L).routeId(40L).routeVersionId(41L).routeProcessId(routeProcessId).processId(processId)
                 .plannedQuantitySnapshot(BigDecimal.TEN).build();
+        row.setTenantId(1L);
+        return row;
     }
 
     private MesProcessPoolReportAllocationDO allocation() {
@@ -306,8 +603,11 @@ class MesTeamLeaderActiveOrderCompletionBackfillPortImplTest {
     }
 
     private MesProcessPoolReportAllocationDO allocation(Long id, Long routeProcessId) {
-        return MesProcessPoolReportAllocationDO.builder().id(id).activeOrderId(10L).workOrderId(30L)
+        var row = MesProcessPoolReportAllocationDO.builder().id(id).activeOrderId(10L).workOrderId(30L)
+                .eventId(401L).reviewId(601L).leaderUserId(20L)
                 .routeProcessId(routeProcessId).processId(1L).allocatedQuantity(BigDecimal.TEN).build();
+        row.setTenantId(1L);
+        return row;
     }
 
     private MesProcessPoolOrderProcessCompletionDO completion() {
@@ -323,33 +623,28 @@ class MesTeamLeaderActiveOrderCompletionBackfillPortImplTest {
     }
 
     private MesPqcInspectionTaskDO task() {
-        return task(701L, 101L);
+        return task(701L, 1);
     }
 
-    private MesPqcInspectionTaskDO task(Long id, Long routeProcessId) {
-        return task(id, routeProcessId, 1);
-    }
-
-    private MesPqcInspectionTaskDO task(Long id, Long routeProcessId, Integer actualInspectionQuantity) {
+    private MesPqcInspectionTaskDO task(Long id, Integer actualInspectionQuantity) {
         return MesPqcInspectionTaskDO.builder().id(id).activeOrderId(10L).workOrderId(30L).routeId(40L)
-                .routeVersionId(41L).routeProcessId(routeProcessId).processId(1L)
+                .routeVersionId(41L).qaProcessId(1701L).regulationVersionId(1501L)
+                .inspectionRuleKey("FIRST").inspectionItemPlanJson("{\"I1\":" + actualInspectionQuantity + "}")
+                .plannedInspectionQuantity(actualInspectionQuantity)
                 .actualInspectionQuantity(actualInspectionQuantity).submittedEventId(401L)
                 .taskStatus("CONFIRMED").build();
     }
 
     private MesPqcProcessInspectionAggregateDetailDO detail() {
-        return detail(801L, 701L, 101L);
+        return detail(801L, 701L, 1, 1);
     }
 
-    private MesPqcProcessInspectionAggregateDetailDO detail(Long id, Long taskId, Long routeProcessId) {
-        return detail(id, taskId, routeProcessId, 1);
-    }
-
-    private MesPqcProcessInspectionAggregateDetailDO detail(Long id, Long taskId, Long routeProcessId,
+    private MesPqcProcessInspectionAggregateDetailDO detail(Long id, Long taskId, Integer sampleNo,
                                                             Integer actualInspectionQuantity) {
         return MesPqcProcessInspectionAggregateDetailDO.builder().id(id).activeOrderId(10L)
-                .workOrderId(30L).routeId(40L).routeVersionId(41L).routeProcessId(routeProcessId).processId(1L)
+                .workOrderId(30L).routeId(40L).routeVersionId(41L).regulationVersionId(1501L)
                 .sourcePqcRecordId(901L).sourcePieceDetailId(id + 1000L).eventId(401L).reviewId(601L)
+                .itemCode("I1").sampleNo(sampleNo)
                 .actualInspectionQuantity(actualInspectionQuantity).pqcTaskId(taskId).build();
     }
 

@@ -134,8 +134,8 @@ public class MesTeamLeaderActiveOrderReleaseSourceSnapshotHasher {
 
     private List<Map<String, Object>> inspectionTasks(List<MesPqcInspectionTaskDO> tasks) {
         return List.copyOf(tasks).stream()
-                .sorted(Comparator.comparing(MesPqcInspectionTaskDO::getRouteProcessId)
-                        .thenComparing(MesPqcInspectionTaskDO::getProcessId)
+                .sorted(Comparator.comparing(MesPqcInspectionTaskDO::getRegulationVersionId)
+                        .thenComparing(MesPqcInspectionTaskDO::getQaProcessId)
                         .thenComparing(MesPqcInspectionTaskDO::getId))
                 .map(task -> {
                     Map<String, Object> value = map();
@@ -146,6 +146,9 @@ public class MesTeamLeaderActiveOrderReleaseSourceSnapshotHasher {
                     value.put("routeVersionId", task.getRouteVersionId());
                     value.put("routeProcessId", task.getRouteProcessId());
                     value.put("processId", task.getProcessId());
+                    value.put("qaProcessId", task.getQaProcessId());
+                    value.put("regulationVersionId", task.getRegulationVersionId());
+                    value.put("inspectionItemPlanJson", task.getInspectionItemPlanJson());
                     value.put("taskStatus", task.getTaskStatus());
                     return value;
                 }).toList();
@@ -154,8 +157,8 @@ public class MesTeamLeaderActiveOrderReleaseSourceSnapshotHasher {
     private List<Map<String, Object>> inspectionDetails(
             List<MesPqcProcessInspectionAggregateDetailDO> details) {
         return List.copyOf(details).stream()
-                .sorted(Comparator.comparing(MesPqcProcessInspectionAggregateDetailDO::getRouteProcessId)
-                        .thenComparing(MesPqcProcessInspectionAggregateDetailDO::getProcessId)
+                .sorted(Comparator.comparing(MesPqcProcessInspectionAggregateDetailDO::getPqcTaskId)
+                        .thenComparing(MesPqcProcessInspectionAggregateDetailDO::getItemCode)
                         .thenComparing(MesPqcProcessInspectionAggregateDetailDO::getId))
                 .map(detail -> {
                     Map<String, Object> value = map();

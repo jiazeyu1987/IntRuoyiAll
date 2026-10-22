@@ -59,20 +59,11 @@ assert.match(
 
 assert.match(
   profileWorkbench,
-  /edhrWorkTask\?:\s*EdhrWorkTaskRespVO/,
-  '个人工作台待办行必须保留原始 eDHR 工作任务，便于点击时打开真实填写任务。'
+  /await openWorkbenchAction\(router, row\.sourceId, row\.action, callerCurrent\)/,
+  'workbench must dispatch opaque actions to the module registry'
 )
-
-assert.match(
-  profileWorkbench,
-  /edhrWorkTask:\s*item/,
-  '个人工作台映射 eDHR 待办时必须保留工作任务上下文。'
-)
-
-assert.match(
-  profileWorkbench,
-  /if\s*\(\s*row\.edhrWorkTask\s*\)[\s\S]*await\s+navigateToEdhrWorkTask\(router,\s*row\.edhrWorkTask\)/,
-  '个人工作台点击 eDHR 填写任务必须调用统一跳转函数，而不是仅 router.push 静态 actionUrl。'
-)
-
+const queryApi = readSource('src/api/system/profileWorkbenchTodo/index.ts')
+assert.match(readSource('src/workbench-sources/mes/registration.ts'), /navigateToEdhrWorkTask\(router, payload, window\.location\.origin, isCurrent\)/)
+assert.doesNotMatch(queryApi, /EdhrWorkTaskRouteLike/)
+assert.match(queryApi, /typeof value !== 'string'/, 'navigation IDs stay strings')
 console.log('PASS: eDHR work task notify and workbench fill navigation static contract')

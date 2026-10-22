@@ -1,0 +1,964 @@
+{
+  "changes": [
+    {
+      "source": "IntRuoyiFronted/src/views/approval-center/ApprovalHistoryMaintenance.vue",
+      "kind": "permission",
+      "value": "bpm:task:query",
+      "reason": "审批中心内部历史归属核验弹窗，无独立菜单或路由，复用现有 bpm:task:query 查看权限；入口及服务仅允许当前租户超级管理员，后端仍要求显式启用维护开关，不新增角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/approval-center/ApprovalHistoryMaintenance.vue",
+      "kind": "permission",
+      "value": "bpm:task:update",
+      "reason": "审批中心内部历史归属修复按钮，复用已有修复接口 bpm:task:update 权限，服务另校验超级管理员、批次、原始证据与核验摘要；不新增权限、菜单、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/infra/config/basic/index.vue",
+      "kind": "permission",
+      "value": "infra:job:query",
+      "reason": "基础配置快捷导航复用自动同步配置既有查看权限，仅控制跳转按钮可见性，不新增权限、菜单或角色/租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/infra/config/basic/index.vue",
+      "kind": "permission",
+      "value": "erp:kingdee-sync:query",
+      "reason": "基础配置快捷导航复用自动同步配置既有查看权限，仅控制跳转按钮可见性，不新增权限、菜单或角色/租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/infra/config/basic/index.vue",
+      "kind": "permission",
+      "value": "dcc:registration-certificate:config:query",
+      "reason": "基础配置快捷导航复用注册证配置既有查看权限，仅控制跳转按钮可见性，不新增权限、菜单或角色/租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccDistributionWorkbenchSource.java",
+      "kind": "permission",
+      "value": "dcc:controlled-file:query",
+      "reason": "工作台来源适配器/投影导出复用业务模块已有 dcc:controlled-file:query 权限，只读取当前授权决定可见任务；不新增权限、办理入口或角色/租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccTrainingWorkbenchSource.java",
+      "kind": "permission",
+      "value": "dcc:controlled-file:training:mine",
+      "reason": "工作台来源适配器/投影导出复用业务模块已有 dcc:controlled-file:training:mine 权限，只读取当前授权决定可见任务；不新增权限、办理入口或角色/租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/workbench/DccProjectionExport.java",
+      "kind": "permission",
+      "value": "dcc:controlled-file:query",
+      "reason": "工作台来源适配器/投影导出复用业务模块已有 dcc:controlled-file:query 权限，只读取当前授权决定可见任务；不新增权限、办理入口或角色/租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/workbench/DccProjectionExport.java",
+      "kind": "permission",
+      "value": "dcc:controlled-file:training:mine",
+      "reason": "工作台来源适配器/投影导出复用业务模块已有 dcc:controlled-file:training:mine 权限，只读取当前授权决定可见任务；不新增权限、办理入口或角色/租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesEdhrWorkbenchSource.java",
+      "kind": "permission",
+      "value": "mes:pro-edhr-batch-execution:query",
+      "reason": "工作台来源适配器/投影导出复用业务模块已有 mes:pro-edhr-batch-execution:query 权限，只读取当前授权决定可见任务；不新增权限、办理入口或角色/租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesEdhrWorkbenchSource.java",
+      "kind": "permission",
+      "value": "mes:pro-edhr-work-task:query",
+      "reason": "工作台来源适配器/投影导出复用业务模块已有 mes:pro-edhr-work-task:query 权限，只读取当前授权决定可见任务；不新增权限、办理入口或角色/租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/workorder/MesWorkOrderWorkbenchSource.java",
+      "kind": "permission",
+      "value": "mes:pro-work-order:query",
+      "reason": "工作台来源适配器/投影导出复用业务模块已有 mes:pro-work-order:query 权限，只读取当前授权决定可见任务；不新增权限、办理入口或角色/租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/workbench/MesProjectionExport.java",
+      "kind": "permission",
+      "value": "mes:pro-edhr-batch-execution:query",
+      "reason": "工作台来源适配器/投影导出复用业务模块已有 mes:pro-edhr-batch-execution:query 权限，只读取当前授权决定可见任务；不新增权限、办理入口或角色/租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/workbench/MesProjectionExport.java",
+      "kind": "permission",
+      "value": "mes:pro-edhr-work-task:query",
+      "reason": "工作台来源适配器/投影导出复用业务模块已有 mes:pro-edhr-work-task:query 权限，只读取当前授权决定可见任务；不新增权限、办理入口或角色/租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/workbench/MesProjectionExport.java",
+      "kind": "permission",
+      "value": "mes:pro-work-order:query",
+      "reason": "工作台来源适配器/投影导出复用业务模块已有 mes:pro-work-order:query 权限，只读取当前授权决定可见任务；不新增权限、办理入口或角色/租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/utils/businessConfigAccess.ts",
+      "kind": "permission",
+      "value": "mes:pro-batch-record-execution:golden-finger",
+      "reason": "配置组件迁移或显式跳转复用既有 mes:pro-batch-record-execution:golden-finger 权限和对应后端接口；不新增该权限，不扩大角色/租户套餐授权。配置菜单另见本文件 page/router 项及 S1 授权例外。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/dcc/registration-certificate/config/ReminderConfigDialog.vue",
+      "kind": "permission",
+      "value": "dcc:registration-certificate:config:query",
+      "reason": "配置组件迁移或显式跳转复用既有 dcc:registration-certificate:config:query 权限和对应后端接口；不新增该权限，不扩大角色/租户套餐授权。配置菜单另见本文件 page/router 项及 S1 授权例外。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/dcc/registration-certificate/config/index.vue",
+      "kind": "permission",
+      "value": "dcc:registration-certificate:config:query",
+      "reason": "配置组件迁移或显式跳转复用既有 dcc:registration-certificate:config:query 权限和对应后端接口；不新增该权限，不扩大角色/租户套餐授权。配置菜单另见本文件 page/router 项及 S1 授权例外。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/dcc/registration-certificate/config/index.vue",
+      "kind": "permission",
+      "value": "dcc:registration-certificate:config:update",
+      "reason": "配置组件迁移或显式跳转复用既有 dcc:registration-certificate:config:update 权限和对应后端接口；不新增该权限，不扩大角色/租户套餐授权。配置菜单另见本文件 page/router 项及 S1 授权例外。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/erp/sync/config/components/TableAutoSyncSetting.vue",
+      "kind": "permission",
+      "value": "HH:mm:ss",
+      "reason": "时间选择器的时分秒格式字符串，并非权限标识，无菜单或授权变更。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/erp/sync/config/components/TableAutoSyncSetting.vue",
+      "kind": "permission",
+      "value": "erp:kingdee-sync:query",
+      "reason": "配置组件迁移或显式跳转复用既有 erp:kingdee-sync:query 权限和对应后端接口；不新增该权限，不扩大角色/租户套餐授权。配置菜单另见本文件 page/router 项及 S1 授权例外。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/erp/sync/config/components/TableAutoSyncSetting.vue",
+      "kind": "permission",
+      "value": "infra:job:query",
+      "reason": "配置组件迁移或显式跳转复用既有 infra:job:query 权限和对应后端接口；不新增该权限，不扩大角色/租户套餐授权。配置菜单另见本文件 page/router 项及 S1 授权例外。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/erp/sync/config/components/TableAutoSyncSetting.vue",
+      "kind": "permission",
+      "value": "infra:job:update",
+      "reason": "配置组件迁移或显式跳转复用既有 infra:job:update 权限和对应后端接口；不新增该权限，不扩大角色/租户套餐授权。配置菜单另见本文件 page/router 项及 S1 授权例外。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/erp/sync/config/index.vue",
+      "kind": "permission",
+      "value": "erp:kingdee-sync:query",
+      "reason": "配置组件迁移或显式跳转复用既有 erp:kingdee-sync:query 权限和对应后端接口；不新增该权限，不扩大角色/租户套餐授权。配置菜单另见本文件 page/router 项及 S1 授权例外。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/erp/sync/config/index.vue",
+      "kind": "permission",
+      "value": "infra:job:query",
+      "reason": "配置组件迁移或显式跳转复用既有 infra:job:query 权限和对应后端接口；不新增该权限，不扩大角色/租户套餐授权。配置菜单另见本文件 page/router 项及 S1 授权例外。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/erp/sync/index.vue",
+      "kind": "permission",
+      "value": "infra:job:query",
+      "reason": "配置组件迁移或显式跳转复用既有 infra:job:query 权限和对应后端接口；不新增该权限，不扩大角色/租户套餐授权。配置菜单另见本文件 page/router 项及 S1 授权例外。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/infra/config/basic/index.vue",
+      "kind": "permission",
+      "value": "infra:config:query",
+      "reason": "配置组件迁移或显式跳转复用既有 infra:config:query 权限和对应后端接口；不新增该权限，不扩大角色/租户套餐授权。配置菜单另见本文件 page/router 项及 S1 授权例外。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/infra/config/basic/index.vue",
+      "kind": "permission",
+      "value": "infra:config:update",
+      "reason": "配置组件迁移或显式跳转复用既有 infra:config:update 权限和对应后端接口；不新增该权限，不扩大角色/租户套餐授权。配置菜单另见本文件 page/router 项及 S1 授权例外。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/infra/config/index.vue",
+      "kind": "permission",
+      "value": "infra:config:query",
+      "reason": "配置组件迁移或显式跳转复用既有 infra:config:query 权限和对应后端接口；不新增该权限，不扩大角色/租户套餐授权。配置菜单另见本文件 page/router 项及 S1 授权例外。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/mes/pro/edhr-config/components/RecordbookGlobalSetting.vue",
+      "kind": "permission",
+      "value": "mes:pro-batch-record-execution:golden-finger",
+      "reason": "配置组件迁移或显式跳转复用既有 mes:pro-batch-record-execution:golden-finger 权限和对应后端接口；不新增该权限，不扩大角色/租户套餐授权。配置菜单另见本文件 page/router 项及 S1 授权例外。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/system/config-migration/BusinessConfigMigrationNotice.vue",
+      "kind": "permission",
+      "value": "dcc:registration-certificate:config:query",
+      "reason": "配置组件迁移或显式跳转复用既有 dcc:registration-certificate:config:query 权限和对应后端接口；不新增该权限，不扩大角色/租户套餐授权。配置菜单另见本文件 page/router 项及 S1 授权例外。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/system/config-migration/BusinessConfigMigrationNotice.vue",
+      "kind": "permission",
+      "value": "erp:kingdee-sync:query",
+      "reason": "配置组件迁移或显式跳转复用既有 erp:kingdee-sync:query 权限和对应后端接口；不新增该权限，不扩大角色/租户套餐授权。配置菜单另见本文件 page/router 项及 S1 授权例外。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/system/config-migration/BusinessConfigMigrationNotice.vue",
+      "kind": "permission",
+      "value": "infra:config:query",
+      "reason": "配置组件迁移或显式跳转复用既有 infra:config:query 权限和对应后端接口；不新增该权限，不扩大角色/租户套餐授权。配置菜单另见本文件 page/router 项及 S1 授权例外。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/system/config-migration/BusinessConfigMigrationNotice.vue",
+      "kind": "permission",
+      "value": "infra:job:query",
+      "reason": "配置组件迁移或显式跳转复用既有 infra:job:query 权限和对应后端接口；不新增该权限，不扩大角色/租户套餐授权。配置菜单另见本文件 page/router 项及 S1 授权例外。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/mes/pro/edhr-config/index.vue",
+      "kind": "page",
+      "value": "mes/pro/edhr-config/index",
+      "reason": "用户于2026-10-21明确批准本任务保留已评审的正式命令授权方案，例外于 SQL 直写角色/套餐要求；不修改门禁脚本。菜单定义由 IntRuoyiBackend/sql/mysql/20261008_profile_business_config_menus.sql 发布，角色/套餐必须按 doc/tasks/20261008-profile-architecture-implementation/menu-migration-runbook-s1.md 使用正式权限命令、真实差集及审计完成。当前仅融合静态候选，不表示迁移执行、真实菜单可见或授权验收通过。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/erp/sync/config/index.vue",
+      "kind": "page",
+      "value": "erp/sync/config/index",
+      "reason": "用户于2026-10-21明确批准本任务保留已评审的正式命令授权方案，例外于 SQL 直写角色/套餐要求；不修改门禁脚本。菜单定义由 IntRuoyiBackend/sql/mysql/20261008_profile_business_config_menus.sql 发布，角色/套餐必须按 doc/tasks/20261008-profile-architecture-implementation/menu-migration-runbook-s1.md 使用正式权限命令、真实差集及审计完成。当前仅融合静态候选，不表示迁移执行、真实菜单可见或授权验收通过。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/dcc/registration-certificate/config/index.vue",
+      "kind": "page",
+      "value": "dcc/registration-certificate/config/index",
+      "reason": "用户于2026-10-21明确批准本任务保留已评审的正式命令授权方案，例外于 SQL 直写角色/套餐要求；不修改门禁脚本。菜单定义由 IntRuoyiBackend/sql/mysql/20261008_profile_business_config_menus.sql 发布，角色/套餐必须按 doc/tasks/20261008-profile-architecture-implementation/menu-migration-runbook-s1.md 使用正式权限命令、真实差集及审计完成。当前仅融合静态候选，不表示迁移执行、真实菜单可见或授权验收通过。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/infra/config/basic/index.vue",
+      "kind": "page",
+      "value": "infra/config/basic/index",
+      "reason": "用户于2026-10-21明确批准本任务保留已评审的正式命令授权方案，例外于 SQL 直写角色/套餐要求；不修改门禁脚本。菜单定义由 IntRuoyiBackend/sql/mysql/20261008_profile_business_config_menus.sql 发布，角色/套餐必须按 doc/tasks/20261008-profile-architecture-implementation/menu-migration-runbook-s1.md 使用正式权限命令、真实差集及审计完成。当前仅融合静态候选，不表示迁移执行、真实菜单可见或授权验收通过。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/router/modules/businessConfig.ts",
+      "kind": "router",
+      "value": "c3f80e3f0e9c150c06be22408e7de8174b0d217300fe7737c7728359ecaf3387",
+      "reason": "四个配置命名路由仅供显式跳转，运行时权限仍由原业务权限及服务端菜单控制，不据隐藏路由宣称菜单验收通过。用户于2026-10-21明确批准本任务保留已评审的正式命令授权方案，例外于 SQL 直写角色/套餐要求；不修改门禁脚本。菜单定义由 IntRuoyiBackend/sql/mysql/20261008_profile_business_config_menus.sql 发布，角色/套餐必须按 doc/tasks/20261008-profile-architecture-implementation/menu-migration-runbook-s1.md 使用正式权限命令、真实差集及审计完成。当前仅融合静态候选，不表示迁移执行、真实菜单可见或授权验收通过。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/router/modules/remaining.ts",
+      "kind": "router",
+      "value": "0d4f1a7ae64e78d37025ad9460b95ca23d8a6c1ff90506988563d30438f9f47d",
+      "reason": "四个配置命名路由仅供显式跳转，运行时权限仍由原业务权限及服务端菜单控制，不据隐藏路由宣称菜单验收通过。用户于2026-10-21明确批准本任务保留已评审的正式命令授权方案，例外于 SQL 直写角色/套餐要求；不修改门禁脚本。菜单定义由 IntRuoyiBackend/sql/mysql/20261008_profile_business_config_menus.sql 发布，角色/套餐必须按 doc/tasks/20261008-profile-architecture-implementation/menu-migration-runbook-s1.md 使用正式权限命令、真实差集及审计完成。当前仅融合静态候选，不表示迁移执行、真实菜单可见或授权验收通过。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-bpm/src/main/java/cn/iocoder/yudao/module/bpm/controller/admin/task/BpmSupervisorHandoverController.java",
+      "kind": "permission",
+      "value": "bpm:task:manager-query",
+      "reason": "主管待办查询复用现有审批任务管理查询权限 bpm:task:manager-query，入口位于已有用户管理页面，不新增菜单、权限标识、角色授权或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-bpm/src/main/java/cn/iocoder/yudao/module/bpm/controller/admin/task/BpmSupervisorHandoverController.java",
+      "kind": "permission",
+      "value": "bpm:task:update",
+      "reason": "主管待办交接同时校验已有 bpm:task:manager-query 和 bpm:task:update 权限，复用既有任务操作授权，不新增菜单、权限标识、角色授权或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/system/user/SupervisorHandoverDialog.vue",
+      "kind": "permission",
+      "value": "bpm:task:update",
+      "reason": "用户管理内部交接弹窗复用既有 bpm:task:update 权限控制选择接收人操作，不新增页面路由、菜单、权限标识、角色授权或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/system/user/index.vue",
+      "kind": "permission",
+      "value": "bpm:task:manager-query",
+      "reason": "已有用户管理页面的主管待办交接入口复用既有 bpm:task:manager-query 权限，不新增页面路由、菜单、权限标识、角色授权或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/infra/config/ConfigForm.vue",
+      "kind": "permission",
+      "value": "infra:config:update",
+      "reason": "密码有效期复用已有 infra/config/index 配置管理菜单和 infra:config:query/update 权限；仅增加参数编辑提示与校验，无新增菜单、权限或角色/租户套餐授权。配置数据由 20261021_system_password_max_age_config.sql 初始化。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/infra/config/basic/components/IdleLogoutSetting.vue",
+      "kind": "permission",
+      "value": "infra:config:update",
+      "reason": "密码有效期组件由个人中心基础配置迁至 infra/config/basic/index；沿用父页面已有 infra:config:query/update 权限及 canUpdate 属性，不新增权限或扩大角色/租户套餐授权。配置数据仍由 20261021_system_password_max_age_config.sql 初始化。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/craft/MesProCraftController.java",
+      "kind": "permission",
+      "value": "mes:pro-craft:create",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261021_mes_craft_library.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/craft/MesProCraftController.java",
+      "kind": "permission",
+      "value": "mes:pro-craft:initialize",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261021_mes_craft_library.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/craft/MesProCraftController.java",
+      "kind": "permission",
+      "value": "mes:pro-craft:query",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261021_mes_craft_library.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/craft/MesProCraftController.java",
+      "kind": "permission",
+      "value": "mes:pro-craft:update",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261021_mes_craft_library.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/craft/MesProCraftController.java",
+      "kind": "permission",
+      "value": "mes:pro-route:version-query",
+      "reason": "复用既有工艺流程版本查询及编辑权限，不新增授权；工艺库绑定操作仍受 mes:pro-route:version-update 控制"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/craft/MesProCraftController.java",
+      "kind": "permission",
+      "value": "mes:pro-route:version-update",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261021_mes_craft_library.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/mes/pro/craft/index.vue",
+      "kind": "permission",
+      "value": "mes:pro-craft:create",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261021_mes_craft_library.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/mes/pro/craft/index.vue",
+      "kind": "permission",
+      "value": "mes:pro-craft:initialize",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261021_mes_craft_library.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/mes/pro/craft/index.vue",
+      "kind": "permission",
+      "value": "mes:pro-craft:update",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261021_mes_craft_library.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/mes/pro/craft/index.vue",
+      "kind": "page",
+      "value": "mes/pro/craft/index",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261021_mes_craft_library.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/mes/pro/route/components/RouteCraftBinding.vue",
+      "kind": "permission",
+      "value": "mes:pro-route:version-update",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261021_mes_craft_library.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/craft/MesProCraftController.java",
+      "kind": "permission",
+      "value": "mes:pro-route:version-create",
+      "reason": "整批工艺升级同时校验既有工艺流程版本新建、编辑、提交权限，复用既有授权，不新增权限"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/craft/MesProCraftController.java",
+      "kind": "permission",
+      "value": "mes:pro-route:version-submit",
+      "reason": "整批工艺升级同时校验既有工艺流程版本新建、编辑、提交权限，复用既有授权，不新增权限"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/directory/DccDirectoryController.java",
+      "kind": "permission",
+      "value": "dcc:controlled-file:category:manage",
+      "reason": "复用主干既有 dcc:controlled-file:category:manage 权限（菜单定义依据：IntRuoyiBackend/sql/mysql/20260513_dcc_base_schema.sql）；当前文件仅增加内部使用或校验，不新增权限标识、独立菜单或角色/套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/distribution/DccDistributionTaskController.java",
+      "kind": "permission",
+      "value": "dcc:controlled-file:distribute",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261022_qms_menu_package_integration.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/file/DccControlledFileWorkflowController.java",
+      "kind": "permission",
+      "value": "dcc:controlled-file:approve",
+      "reason": "复用主干既有 dcc:controlled-file:approve 权限（菜单定义依据：IntRuoyiBackend/sql/mysql/20260807_test_tenant1_all_role_permission_sync.sql）；当前文件仅增加内部使用或校验，不新增权限标识、独立菜单或角色/套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/file/DccControlledFileWorkflowController.java",
+      "kind": "permission",
+      "value": "dcc:controlled-file:query",
+      "reason": "复用主干既有 dcc:controlled-file:query 权限（菜单定义依据：IntRuoyiBackend/sql/mysql/20260513_dcc_base_schema.sql）；当前文件仅增加内部使用或校验，不新增权限标识、独立菜单或角色/套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/file/DccLifecycleProjectionRepairController.java",
+      "kind": "permission",
+      "value": "dcc:controlled-file:category:manage",
+      "reason": "复用主干既有 dcc:controlled-file:category:manage 权限（菜单定义依据：IntRuoyiBackend/sql/mysql/20260513_dcc_base_schema.sql）；当前文件仅增加内部使用或校验，不新增权限标识、独立菜单或角色/套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/file/DccLifecycleProjectionRepairController.java",
+      "kind": "permission",
+      "value": "dcc:controlled-file:query",
+      "reason": "复用主干既有 dcc:controlled-file:query 权限（菜单定义依据：IntRuoyiBackend/sql/mysql/20260513_dcc_base_schema.sql）；当前文件仅增加内部使用或校验，不新增权限标识、独立菜单或角色/套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/file/DccLifecycleProjectionRepairController.java",
+      "kind": "permission",
+      "value": "dcc:controlled-file:update",
+      "reason": "复用主干既有 dcc:controlled-file:update 权限（菜单定义依据：IntRuoyiBackend/sql/mysql/20260707_dcc_ai_category_permission_menu.sql）；当前文件仅增加内部使用或校验，不新增权限标识、独立菜单或角色/套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/file/DccWorkflowLifecycleController.java",
+      "kind": "permission",
+      "value": "dcc:controlled-file:distribute",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261022_qms_menu_package_integration.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/file/DccWorkflowLifecycleController.java",
+      "kind": "permission",
+      "value": "dcc:controlled-file:review",
+      "reason": "复用主干既有 dcc:controlled-file:review 权限（菜单定义依据：IntRuoyiBackend/sql/mysql/20260807_test_tenant1_all_role_permission_sync.sql）；当前文件仅增加内部使用或校验，不新增权限标识、独立菜单或角色/套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/filepreview/DccPreviewReadingSessionController.java",
+      "kind": "permission",
+      "value": "dcc:controlled-file:query",
+      "reason": "复用主干既有 dcc:controlled-file:query 权限（菜单定义依据：IntRuoyiBackend/sql/mysql/20260513_dcc_base_schema.sql）；当前文件仅增加内部使用或校验，不新增权限标识、独立菜单或角色/套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/filepreview/DccPreviewReadingSessionController.java",
+      "kind": "permission",
+      "value": "mes:pro-edhr-batch-execution:query",
+      "reason": "复用主干既有 mes:pro-edhr-batch-execution:query 权限（菜单定义依据：IntRuoyiBackend/sql/mysql/20260526_edhr_approval_archive_schema_contract.sql）；当前文件仅增加内部使用或校验，不新增权限标识、独立菜单或角色/套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/filepreview/DccPreviewReadingSessionController.java",
+      "kind": "permission",
+      "value": "mes:pro-edhr-batch-execution:update",
+      "reason": "复用主干既有 mes:pro-edhr-batch-execution:update 权限（菜单定义依据：IntRuoyiBackend/sql/mysql/20260608_edhr_batch_execution_schema.sql）；当前文件仅增加内部使用或校验，不新增权限标识、独立菜单或角色/套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/internuser/DccInternUserTimeMaintenanceController.java",
+      "kind": "permission",
+      "value": "intern-user:time-maintenance:dcc-obsoleted-time-audit:query",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261022_qms_menu_package_integration.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/internuser/DccInternUserTimeMaintenanceController.java",
+      "kind": "permission",
+      "value": "intern-user:time-maintenance:dcc-obsoleted-time:update",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261022_qms_menu_package_integration.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/internuser/DccInternUserTimeMaintenanceController.java",
+      "kind": "permission",
+      "value": "intern-user:time-maintenance:dcc-published-time-audit:query",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261022_qms_menu_package_integration.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/internuser/DccInternUserTimeMaintenanceController.java",
+      "kind": "permission",
+      "value": "intern-user:time-maintenance:dcc-published-time:update",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261022_qms_menu_package_integration.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/projectcode/DccFolderTemplateController.java",
+      "kind": "permission",
+      "value": "dcc:project-code:query",
+      "reason": "复用主干既有 dcc:project-code:query 权限（菜单定义依据：IntRuoyiBackend/sql/mysql/20260513_dcc_base_schema.sql）；当前文件仅增加内部使用或校验，不新增权限标识、独立菜单或角色/套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/projectcode/DccFolderTemplateController.java",
+      "kind": "permission",
+      "value": "dcc:project-code:update",
+      "reason": "复用主干既有 dcc:project-code:update 权限（菜单定义依据：IntRuoyiBackend/sql/mysql/20260513_dcc_base_schema.sql）；当前文件仅增加内部使用或校验，不新增权限标识、独立菜单或角色/套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/projectcode/DccProjectApplicationSnapshotController.java",
+      "kind": "permission",
+      "value": "dcc:controlled-file:query",
+      "reason": "复用主干既有 dcc:controlled-file:query 权限（菜单定义依据：IntRuoyiBackend/sql/mysql/20260513_dcc_base_schema.sql）；当前文件仅增加内部使用或校验，不新增权限标识、独立菜单或角色/套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/projectcode/DccProjectApplicationSnapshotController.java",
+      "kind": "permission",
+      "value": "dcc:controlled-file:submit",
+      "reason": "复用主干既有 dcc:controlled-file:submit 权限（菜单定义依据：IntRuoyiBackend/sql/mysql/20260513_dcc_base_schema.sql）；当前文件仅增加内部使用或校验，不新增权限标识、独立菜单或角色/套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/projectcode/DccProjectApplicationSnapshotController.java",
+      "kind": "permission",
+      "value": "dcc:project-code:query",
+      "reason": "复用主干既有 dcc:project-code:query 权限（菜单定义依据：IntRuoyiBackend/sql/mysql/20260513_dcc_base_schema.sql）；当前文件仅增加内部使用或校验，不新增权限标识、独立菜单或角色/套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/projectcode/DccProjectAttributesController.java",
+      "kind": "permission",
+      "value": "dcc:controlled-file:query",
+      "reason": "复用主干既有 dcc:controlled-file:query 权限（菜单定义依据：IntRuoyiBackend/sql/mysql/20260513_dcc_base_schema.sql）；当前文件仅增加内部使用或校验，不新增权限标识、独立菜单或角色/套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/projectcode/DccProjectAttributesController.java",
+      "kind": "permission",
+      "value": "dcc:controlled-file:submit",
+      "reason": "复用主干既有 dcc:controlled-file:submit 权限（菜单定义依据：IntRuoyiBackend/sql/mysql/20260513_dcc_base_schema.sql）；当前文件仅增加内部使用或校验，不新增权限标识、独立菜单或角色/套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/projectcode/DccProjectAttributesController.java",
+      "kind": "permission",
+      "value": "dcc:project-code:query",
+      "reason": "复用主干既有 dcc:project-code:query 权限（菜单定义依据：IntRuoyiBackend/sql/mysql/20260513_dcc_base_schema.sql）；当前文件仅增加内部使用或校验，不新增权限标识、独立菜单或角色/套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/projectcode/DccProjectAttributesController.java",
+      "kind": "permission",
+      "value": "dcc:project-code:update",
+      "reason": "复用主干既有 dcc:project-code:update 权限（菜单定义依据：IntRuoyiBackend/sql/mysql/20260513_dcc_base_schema.sql）；当前文件仅增加内部使用或校验，不新增权限标识、独立菜单或角色/套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/projectcode/DccProjectFolderMaintenanceController.java",
+      "kind": "permission",
+      "value": "dcc:project-code:update",
+      "reason": "复用主干既有 dcc:project-code:update 权限（菜单定义依据：IntRuoyiBackend/sql/mysql/20260513_dcc_base_schema.sql）；当前文件仅增加内部使用或校验，不新增权限标识、独立菜单或角色/套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/projectcode/DccProjectProductCreateController.java",
+      "kind": "permission",
+      "value": "dcc:project-code:create",
+      "reason": "复用主干既有 dcc:project-code:create 权限（菜单定义依据：IntRuoyiBackend/sql/mysql/20260513_dcc_base_schema.sql）；当前文件仅增加内部使用或校验，不新增权限标识、独立菜单或角色/套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/projectcode/DccProjectProductCreateController.java",
+      "kind": "permission",
+      "value": "dcc:project-code:query",
+      "reason": "复用主干既有 dcc:project-code:query 权限（菜单定义依据：IntRuoyiBackend/sql/mysql/20260513_dcc_base_schema.sql）；当前文件仅增加内部使用或校验，不新增权限标识、独立菜单或角色/套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/projectcode/DccProjectProductCreateController.java",
+      "kind": "permission",
+      "value": "dcc:project-code:review",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261022_qms_menu_package_integration.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/projectcode/DccProjectProductCreateController.java",
+      "kind": "permission",
+      "value": "dcc:project-code:update",
+      "reason": "复用主干既有 dcc:project-code:update 权限（菜单定义依据：IntRuoyiBackend/sql/mysql/20260513_dcc_base_schema.sql）；当前文件仅增加内部使用或校验，不新增权限标识、独立菜单或角色/套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccApprovalMatrixCanonicalizer.java",
+      "kind": "permission",
+      "value": "HH:mm:ss",
+      "reason": "时间格式字符串 HH:mm:ss 用于事件时间显示，不是菜单或权限标识。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccApprovalMatrixSourceService.java",
+      "kind": "permission",
+      "value": "HH:mm:ss",
+      "reason": "时间格式字符串 HH:mm:ss 用于事件时间显示，不是菜单或权限标识。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccDistributionTaskServiceImpl.java",
+      "kind": "permission",
+      "value": "dcc:controlled-file:distribute",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261022_qms_menu_package_integration.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccLegacySourceNameRegistrationService.java",
+      "kind": "permission",
+      "value": "dcc:controlled-file:update",
+      "reason": "复用主干既有 dcc:controlled-file:update 权限（菜单定义依据：IntRuoyiBackend/sql/mysql/20260707_dcc_ai_category_permission_menu.sql）；当前文件仅增加内部使用或校验，不新增权限标识、独立菜单或角色/套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccLifecycleProjectionRepairService.java",
+      "kind": "permission",
+      "value": "dcc:controlled-file:category:manage",
+      "reason": "复用主干既有 dcc:controlled-file:category:manage 权限（菜单定义依据：IntRuoyiBackend/sql/mysql/20260513_dcc_base_schema.sql）；当前文件仅增加内部使用或校验，不新增权限标识、独立菜单或角色/套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccLifecycleProjectionRepairService.java",
+      "kind": "permission",
+      "value": "dcc:controlled-file:query",
+      "reason": "复用主干既有 dcc:controlled-file:query 权限（菜单定义依据：IntRuoyiBackend/sql/mysql/20260513_dcc_base_schema.sql）；当前文件仅增加内部使用或校验，不新增权限标识、独立菜单或角色/套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccLifecycleProjectionRepairService.java",
+      "kind": "permission",
+      "value": "dcc:controlled-file:update",
+      "reason": "复用主干既有 dcc:controlled-file:update 权限（菜单定义依据：IntRuoyiBackend/sql/mysql/20260707_dcc_ai_category_permission_menu.sql）；当前文件仅增加内部使用或校验，不新增权限标识、独立菜单或角色/套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccOfflineTrainingRecordService.java",
+      "kind": "permission",
+      "value": "dcc:controlled-file:query",
+      "reason": "复用主干既有 dcc:controlled-file:query 权限（菜单定义依据：IntRuoyiBackend/sql/mysql/20260513_dcc_base_schema.sql）；当前文件仅增加内部使用或校验，不新增权限标识、独立菜单或角色/套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccOfflineTrainingRecordService.java",
+      "kind": "permission",
+      "value": "dcc:project-code-assignment:execute",
+      "reason": "复用主干既有 dcc:project-code-assignment:execute 权限（菜单定义依据：IntRuoyiBackend/sql/mysql/20260712_dcc_project_code_assignment_audit.sql）；当前文件仅增加内部使用或校验，不新增权限标识、独立菜单或角色/套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccOfflineTrainingRecordService.java",
+      "kind": "permission",
+      "value": "dcc:project-code:scope:all",
+      "reason": "复用主干既有 dcc:project-code:scope:all 权限（菜单定义依据：IntRuoyiBackend/sql/mysql/20260813_dcc_explicit_data_scope_permissions.sql）；当前文件仅增加内部使用或校验，不新增权限标识、独立菜单或角色/套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/relations/DccRelationNotificationRecoveryService.java",
+      "kind": "permission",
+      "value": "dcc:controlled-file:approve",
+      "reason": "复用主干既有 dcc:controlled-file:approve 权限（菜单定义依据：IntRuoyiBackend/sql/mysql/20260807_test_tenant1_all_role_permission_sync.sql）；当前文件仅增加内部使用或校验，不新增权限标识、独立菜单或角色/套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/relations/DccRelationNotificationRecoveryService.java",
+      "kind": "permission",
+      "value": "dcc:controlled-file:publication-followup:manage",
+      "reason": "复用主干既有 dcc:controlled-file:publication-followup:manage 权限（菜单定义依据：IntRuoyiBackend/sql/mysql/20260907_dcc_publication_notification.sql）；当前文件仅增加内部使用或校验，不新增权限标识、独立菜单或角色/套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/projectcode/access/DccProjectAccessServiceImpl.java",
+      "kind": "permission",
+      "value": "dcc:project-code-assignment:execute",
+      "reason": "复用主干既有 dcc:project-code-assignment:execute 权限（菜单定义依据：IntRuoyiBackend/sql/mysql/20260712_dcc_project_code_assignment_audit.sql）；当前文件仅增加内部使用或校验，不新增权限标识、独立菜单或角色/套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/projectcode/access/DccProjectAccessServiceImpl.java",
+      "kind": "permission",
+      "value": "dcc:project-code:scope:all",
+      "reason": "复用主干既有 dcc:project-code:scope:all 权限（菜单定义依据：IntRuoyiBackend/sql/mysql/20260813_dcc_explicit_data_scope_permissions.sql）；当前文件仅增加内部使用或校验，不新增权限标识、独立菜单或角色/套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/projectcode/folder/DccFolderTemplateService.java",
+      "kind": "permission",
+      "value": "dcc:project-code:update",
+      "reason": "复用主干既有 dcc:project-code:update 权限（菜单定义依据：IntRuoyiBackend/sql/mysql/20260513_dcc_base_schema.sql）；当前文件仅增加内部使用或校验，不新增权限标识、独立菜单或角色/套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/projectcode/folder/DccProjectFolderMaintenanceService.java",
+      "kind": "permission",
+      "value": "dcc:project-code:update",
+      "reason": "复用主干既有 dcc:project-code:update 权限（菜单定义依据：IntRuoyiBackend/sql/mysql/20260513_dcc_base_schema.sql）；当前文件仅增加内部使用或校验，不新增权限标识、独立菜单或角色/套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/projectcode/productcreate/DccProjectProductActorSupport.java",
+      "kind": "permission",
+      "value": "dcc:project-code:query",
+      "reason": "复用主干既有 dcc:project-code:query 权限（菜单定义依据：IntRuoyiBackend/sql/mysql/20260513_dcc_base_schema.sql）；当前文件仅增加内部使用或校验，不新增权限标识、独立菜单或角色/套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/projectcode/productcreate/DccProjectProductActorSupport.java",
+      "kind": "permission",
+      "value": "dcc:project-code:update",
+      "reason": "复用主干既有 dcc:project-code:update 权限（菜单定义依据：IntRuoyiBackend/sql/mysql/20260513_dcc_base_schema.sql）；当前文件仅增加内部使用或校验，不新增权限标识、独立菜单或角色/套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/projectcode/productcreate/DccProjectReviewerConfigurationService.java",
+      "kind": "permission",
+      "value": "dcc:project-code:update",
+      "reason": "复用主干既有 dcc:project-code:update 权限（菜单定义依据：IntRuoyiBackend/sql/mysql/20260513_dcc_base_schema.sql）；当前文件仅增加内部使用或校验，不新增权限标识、独立菜单或角色/套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/projectcode/productcreate/DccProjectReviewerRoleService.java",
+      "kind": "permission",
+      "value": "dcc:project-code:query",
+      "reason": "复用主干既有 dcc:project-code:query 权限（菜单定义依据：IntRuoyiBackend/sql/mysql/20260513_dcc_base_schema.sql）；当前文件仅增加内部使用或校验，不新增权限标识、独立菜单或角色/套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/projectcode/productcreate/DccProjectReviewerRoleService.java",
+      "kind": "permission",
+      "value": "dcc:project-code:review",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261022_qms_menu_package_integration.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-infra/src/main/java/cn/iocoder/yudao/module/infra/controller/admin/internuser/InternUserTimeMaintenanceController.java",
+      "kind": "permission",
+      "value": "intern-user:time-maintenance:file-upload-time-audit:query",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261022_qms_menu_package_integration.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-infra/src/main/java/cn/iocoder/yudao/module/infra/controller/admin/internuser/InternUserTimeMaintenanceController.java",
+      "kind": "permission",
+      "value": "intern-user:time-maintenance:file-upload-time:update",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261022_qms_menu_package_integration.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/service/user/AdminUserDirectSupervisorService.java",
+      "kind": "permission",
+      "value": "system:user:query",
+      "reason": "复用主干既有 system:user:query 权限（菜单定义依据：IntRuoyiBackend/sql/mysql/20260728_user_list_access_role.sql）；当前文件仅增加内部使用或校验，不新增权限标识、独立菜单或角色/套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/service/user/AdminUserDirectSupervisorService.java",
+      "kind": "permission",
+      "value": "system:user:update",
+      "reason": "复用主干既有 system:user:update 权限（菜单定义依据：IntRuoyiBackend/sql/mysql/20260807_test_tenant1_all_role_permission_sync.sql）；当前文件仅增加内部使用或校验，不新增权限标识、独立菜单或角色/套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/router/modules/remaining.ts",
+      "kind": "router",
+      "value": "60ad02045f9bceb9fb03ddfb795f4081d23357949c7f14cecffb5e84bfc6773a",
+      "reason": "现有 DCC 详情路由补充历史追溯、项目及工作台上下文识别，仍进入同一受控文件详情；无新增独立菜单，沿用业务权限和精确对象校验。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/store/modules/approvalTodoBadge.ts",
+      "kind": "permission",
+      "value": "bpm:task:query",
+      "reason": "复用主干既有 bpm:task:query 权限（菜单定义依据：IntRuoyiBackend/sql/mysql/20260714_approval_center_workflow_menu_consolidation.sql）；当前文件仅增加内部使用或校验，不新增权限标识、独立菜单或角色/套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/bpm/model/BpmModelXmlImport.vue",
+      "kind": "permission",
+      "value": "bpm:model:query",
+      "reason": "复用主干既有 bpm:model:query 权限（菜单定义依据：IntRuoyiBackend/sql/mysql/20260807_test_tenant1_all_role_permission_sync.sql）；当前文件仅增加内部使用或校验，不新增权限标识、独立菜单或角色/套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/bpm/model/BpmModelXmlImport.vue",
+      "kind": "permission",
+      "value": "bpm:model:update",
+      "reason": "复用主干既有 bpm:model:update 权限（菜单定义依据：IntRuoyiBackend/sql/mysql/20260807_test_tenant1_all_role_permission_sync.sql）；当前文件仅增加内部使用或校验，不新增权限标识、独立菜单或角色/套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/dcc/controlled-file/basic-data/components/FolderTemplateLibraryEditor.vue",
+      "kind": "permission",
+      "value": "dcc:project-code:update",
+      "reason": "复用主干既有 dcc:project-code:update 权限（菜单定义依据：IntRuoyiBackend/sql/mysql/20260513_dcc_base_schema.sql）；当前文件仅增加内部使用或校验，不新增权限标识、独立菜单或角色/套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/dcc/controlled-file/basic-data/components/ProductCatalogTabPanel.vue",
+      "kind": "permission",
+      "value": "dcc:project-code:query",
+      "reason": "复用主干既有 dcc:project-code:query 权限（菜单定义依据：IntRuoyiBackend/sql/mysql/20260513_dcc_base_schema.sql）；当前文件仅增加内部使用或校验，不新增权限标识、独立菜单或角色/套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/dcc/controlled-file/basic-data/components/ProductCatalogTabPanel.vue",
+      "kind": "permission",
+      "value": "dcc:project-code:review",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261022_qms_menu_package_integration.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/dcc/controlled-file/basic-data/components/ProjectAttributeConfigurationDialog.vue",
+      "kind": "permission",
+      "value": "dcc:project-code:update",
+      "reason": "复用主干既有 dcc:project-code:update 权限（菜单定义依据：IntRuoyiBackend/sql/mysql/20260513_dcc_base_schema.sql）；当前文件仅增加内部使用或校验，不新增权限标识、独立菜单或角色/套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/dcc/controlled-file/basic-data/components/ProjectCodeTabPanel.vue",
+      "kind": "permission",
+      "value": "dcc:controlled-file:category:manage",
+      "reason": "复用主干既有 dcc:controlled-file:category:manage 权限（菜单定义依据：IntRuoyiBackend/sql/mysql/20260513_dcc_base_schema.sql）；当前文件仅增加内部使用或校验，不新增权限标识、独立菜单或角色/套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/dcc/controlled-file/basic-data/components/ProjectCodeTabPanel.vue",
+      "kind": "permission",
+      "value": "dcc:project-code:query",
+      "reason": "复用主干既有 dcc:project-code:query 权限（菜单定义依据：IntRuoyiBackend/sql/mysql/20260513_dcc_base_schema.sql）；当前文件仅增加内部使用或校验，不新增权限标识、独立菜单或角色/套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/dcc/controlled-file/basic-data/components/ProjectFolderEditor.vue",
+      "kind": "permission",
+      "value": "dcc:project-code:update",
+      "reason": "复用主干既有 dcc:project-code:update 权限（菜单定义依据：IntRuoyiBackend/sql/mysql/20260513_dcc_base_schema.sql）；当前文件仅增加内部使用或校验，不新增权限标识、独立菜单或角色/套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/dcc/controlled-file/basic-data/components/ProjectFolderTreePanel.vue",
+      "kind": "permission",
+      "value": "dcc:project-code:update",
+      "reason": "复用主干既有 dcc:project-code:update 权限（菜单定义依据：IntRuoyiBackend/sql/mysql/20260513_dcc_base_schema.sql）；当前文件仅增加内部使用或校验，不新增权限标识、独立菜单或角色/套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/dcc/controlled-file/basic-data/components/ProjectReviewerConfiguration.vue",
+      "kind": "permission",
+      "value": "dcc:project-code:update",
+      "reason": "复用主干既有 dcc:project-code:update 权限（菜单定义依据：IntRuoyiBackend/sql/mysql/20260513_dcc_base_schema.sql）；当前文件仅增加内部使用或校验，不新增权限标识、独立菜单或角色/套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/dcc/controlled-file/browser/ProjectBrowserPanel.vue",
+      "kind": "permission",
+      "value": "dcc:project-code:update",
+      "reason": "复用主干既有 dcc:project-code:update 权限（菜单定义依据：IntRuoyiBackend/sql/mysql/20260513_dcc_base_schema.sql）；当前文件仅增加内部使用或校验，不新增权限标识、独立菜单或角色/套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/dcc/controlled-file/browser/index.vue",
+      "kind": "permission",
+      "value": "intern-user:time-maintenance:dcc-obsoleted-time-audit:query",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261022_qms_menu_package_integration.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/dcc/controlled-file/browser/index.vue",
+      "kind": "permission",
+      "value": "intern-user:time-maintenance:dcc-obsoleted-time:update",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261022_qms_menu_package_integration.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/dcc/controlled-file/browser/index.vue",
+      "kind": "permission",
+      "value": "intern-user:time-maintenance:dcc-published-time-audit:query",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261022_qms_menu_package_integration.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/dcc/controlled-file/browser/index.vue",
+      "kind": "permission",
+      "value": "intern-user:time-maintenance:dcc-published-time:update",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261022_qms_menu_package_integration.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/dcc/controlled-file/categories/components/CategoryPermissionRulesTab.vue",
+      "kind": "permission",
+      "value": "dcc:controlled-file:category:manage",
+      "reason": "复用主干既有 dcc:controlled-file:category:manage 权限（菜单定义依据：IntRuoyiBackend/sql/mysql/20260513_dcc_base_schema.sql）；当前文件仅增加内部使用或校验，不新增权限标识、独立菜单或角色/套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/dcc/controlled-file/components/DirectoryAuthorizationTabPanel.vue",
+      "kind": "permission",
+      "value": "dcc:controlled-file:category:manage",
+      "reason": "复用主干既有 dcc:controlled-file:category:manage 权限（菜单定义依据：IntRuoyiBackend/sql/mysql/20260513_dcc_base_schema.sql）；当前文件仅增加内部使用或校验，不新增权限标识、独立菜单或角色/套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/dcc/controlled-file/detail/index.vue",
+      "kind": "permission",
+      "value": "bpm:task:query",
+      "reason": "复用主干既有 bpm:task:query 权限（菜单定义依据：IntRuoyiBackend/sql/mysql/20260714_approval_center_workflow_menu_consolidation.sql）；当前文件仅增加内部使用或校验，不新增权限标识、独立菜单或角色/套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/dcc/controlled-file/detail/index.vue",
+      "kind": "permission",
+      "value": "dcc:controlled-file:category:manage",
+      "reason": "复用主干既有 dcc:controlled-file:category:manage 权限（菜单定义依据：IntRuoyiBackend/sql/mysql/20260513_dcc_base_schema.sql）；当前文件仅增加内部使用或校验，不新增权限标识、独立菜单或角色/套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/dcc/controlled-file/detail/index.vue",
+      "kind": "permission",
+      "value": "dcc:controlled-file:distribute",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261022_qms_menu_package_integration.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/dcc/controlled-file/detail/index.vue",
+      "kind": "permission",
+      "value": "dcc:controlled-file:query",
+      "reason": "复用主干既有 dcc:controlled-file:query 权限（菜单定义依据：IntRuoyiBackend/sql/mysql/20260513_dcc_base_schema.sql）；当前文件仅增加内部使用或校验，不新增权限标识、独立菜单或角色/套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/dcc/controlled-file/detail/index.vue",
+      "kind": "permission",
+      "value": "dcc:controlled-file:review",
+      "reason": "复用主干既有 dcc:controlled-file:review 权限（菜单定义依据：IntRuoyiBackend/sql/mysql/20260807_test_tenant1_all_role_permission_sync.sql）；当前文件仅增加内部使用或校验，不新增权限标识、独立菜单或角色/套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/dcc/controlled-file/detail/index.vue",
+      "kind": "permission",
+      "value": "dcc:controlled-file:submit",
+      "reason": "复用主干既有 dcc:controlled-file:submit 权限（菜单定义依据：IntRuoyiBackend/sql/mysql/20260513_dcc_base_schema.sql）；当前文件仅增加内部使用或校验，不新增权限标识、独立菜单或角色/套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/dcc/controlled-file/detail/index.vue",
+      "kind": "permission",
+      "value": "dcc:controlled-file:update",
+      "reason": "复用主干既有 dcc:controlled-file:update 权限（菜单定义依据：IntRuoyiBackend/sql/mysql/20260707_dcc_ai_category_permission_menu.sql）；当前文件仅增加内部使用或校验，不新增权限标识、独立菜单或角色/套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/dcc/controlled-file/workbench/index.vue",
+      "kind": "permission",
+      "value": "bpm:process-instance:query",
+      "reason": "复用主干既有 bpm:process-instance:query 权限（菜单定义依据：IntRuoyiBackend/sql/mysql/20260807_test_tenant1_all_role_permission_sync.sql）；当前文件仅增加内部使用或校验，不新增权限标识、独立菜单或角色/套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/dcc/controlled-file/workbench/index.vue",
+      "kind": "permission",
+      "value": "bpm:task:query",
+      "reason": "复用主干既有 bpm:task:query 权限（菜单定义依据：IntRuoyiBackend/sql/mysql/20260714_approval_center_workflow_menu_consolidation.sql）；当前文件仅增加内部使用或校验，不新增权限标识、独立菜单或角色/套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/dcc/controlled-file/workbench/index.vue",
+      "kind": "permission",
+      "value": "dcc:controlled-file:distribute",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261022_qms_menu_package_integration.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/dcc/controlled-file/workbench/index.vue",
+      "kind": "permission",
+      "value": "dcc:controlled-file:query",
+      "reason": "复用主干既有 dcc:controlled-file:query 权限（菜单定义依据：IntRuoyiBackend/sql/mysql/20260513_dcc_base_schema.sql）；当前文件仅增加内部使用或校验，不新增权限标识、独立菜单或角色/套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/dcc/controlled-file/workbench/index.vue",
+      "kind": "permission",
+      "value": "dcc:controlled-file:training:mine",
+      "reason": "复用主干既有 dcc:controlled-file:training:mine 权限（菜单定义依据：IntRuoyiBackend/sql/mysql/20260513_dcc_base_schema.sql）；当前文件仅增加内部使用或校验，不新增权限标识、独立菜单或角色/套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/infra/file/index.vue",
+      "kind": "permission",
+      "value": "intern-user:time-maintenance:file-upload-time-audit:query",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261022_qms_menu_package_integration.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/infra/file/index.vue",
+      "kind": "permission",
+      "value": "intern-user:time-maintenance:file-upload-time:update",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261022_qms_menu_package_integration.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/system/user/UserDirectSupervisorDialog.vue",
+      "kind": "permission",
+      "value": "system:user:update",
+      "reason": "复用主干既有 system:user:update 权限（菜单定义依据：IntRuoyiBackend/sql/mysql/20260807_test_tenant1_all_role_permission_sync.sql）；当前文件仅增加内部使用或校验，不新增权限标识、独立菜单或角色/套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-bpm/src/main/java/cn/iocoder/yudao/module/bpm/service/definition/BpmUnmanagedModelClaimService.java",
+      "kind": "permission",
+      "value": "bpm:model:update",
+      "reason": "无管理员模型的显式认领服务复用既有 bpm:model:update 权限，仍校验模型状态及操作人；未新增权限标识、菜单或角色/套餐授权。"
+    }
+  ]
+}

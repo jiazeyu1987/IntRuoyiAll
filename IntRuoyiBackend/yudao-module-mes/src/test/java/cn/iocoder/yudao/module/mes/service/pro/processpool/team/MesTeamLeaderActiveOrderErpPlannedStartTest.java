@@ -61,6 +61,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegula
 import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaCommonRegulationProductBindingMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaCommonRegulationSetVersionMemberMapper;
 import cn.iocoder.yudao.module.mes.service.pro.workorder.MesProWorkOrderService;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrNonconformanceReviewService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -178,8 +179,11 @@ class MesTeamLeaderActiveOrderErpPlannedStartTest {
     @Mock private MesProEdhrBatchExecutionMapper batchExecutionMapper;
     @Mock private MesWmProductIssueMapper productIssueMapper;
     @Mock private MesProcessPoolWorkOrderAbnormalMapper workOrderAbnormalMapper;
+    @Mock private MesRouteStartProductionLeaderAuthorizationService routeStartAuthorizationService;
+    @Mock private MesProEdhrNonconformanceReviewService nonconformanceReviewService;
 
     private MesTeamLeaderActiveOrderService service;
+    @Mock private cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService gxpAuditService;
 
     @BeforeEach
     void setUp() {
@@ -200,7 +204,11 @@ class MesTeamLeaderActiveOrderErpPlannedStartTest {
                 abnormalStateService, releaseApplicationMapper, dccProjectCodeMapper,
                 reportAllocationOrderChangeService,
                 pickListBindingMapper, pickListBindingItemMapper, workOrderBomMapper,
-                batchExecutionMapper, productIssueMapper, workOrderAbnormalMapper);
+                batchExecutionMapper, productIssueMapper, workOrderAbnormalMapper,
+                routeStartAuthorizationService, nonconformanceReviewService);
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "gxpAuditService", gxpAuditService);
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "handoffService",
+                org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffService.class));
         lenient().when(itemMapper.selectListByCodeOrNameLike(any(), eq(20))).thenReturn(List.of());
         lenient().when(reportAllocationMapper.selectListByActiveOrderIds(any())).thenReturn(List.of());
         lenient().when(routeDccProjectBindingMapper.selectCurrentByRouteId(922119L))
@@ -222,19 +230,22 @@ class MesTeamLeaderActiveOrderErpPlannedStartTest {
                 .id(922119L)
                 .code("ROUTE-922119")
                 .build()));
-        lenient().when(routeVersionMapper.selectListByRouteIds(List.of(922119L))).thenReturn(List.of(
-                MesProRouteVersionDO.builder()
-                        .id(448L)
-                        .routeId(922119L)
-                        .active(Boolean.TRUE)
-                        .lifecycleStatus("ACTIVE")
-                        .routeSnapshotJson(activeRouteSnapshotJson())
-                        .build()));
+        MesProRouteVersionDO activeRouteVersion = MesProRouteVersionDO.builder()
+                .id(448L)
+                .routeId(922119L)
+                .active(Boolean.TRUE)
+                .lifecycleStatus("ACTIVE")
+                .routeSnapshotJson(activeRouteSnapshotJson())
+                .build();
+        lenient().when(routeVersionMapper.selectListByRouteIds(List.of(922119L)))
+                .thenReturn(List.of(activeRouteVersion));
+        lenient().when(routeVersionMapper.selectById(448L)).thenReturn(activeRouteVersion);
         List<MesMdItemDO> routeItems = List.of(
                 MesMdItemDO.builder().id(1001L).code("WO-PRODUCT").name("生产工单产品")
                         .productMasterId(11L).build(),
                 MesMdItemDO.builder().id(924005L).code("ID").name("球囊扩张压力泵")
                         .productMasterId(11L).build());
+        lenient().when(itemMapper.selectById(1001L)).thenReturn(routeItems.get(0));
         lenient().when(itemMapper.selectBatchIds(any())).thenReturn(routeItems);
         lenient().when(itemMapper.selectListByIds(any())).thenReturn(routeItems);
         lenient().when(dccProjectCodeMapper.selectById(147L)).thenReturn(DccProjectCodeDO.builder()
@@ -435,6 +446,14 @@ class MesTeamLeaderActiveOrderErpPlannedStartTest {
                         "enabled": true,
                         "productionQuantityFactor": 1.000000
                       }
+                    ],
+                    "productionProcessConfigSchemaVersion": 1,
+                    "productionProcessConfigs": [
+                      {"routeProcessId":928609,"processId":6001,"overagePercent":0,
+                       "lossReasons":[],"deviceSelectionGroups":[],"parameterRules":[]}
+                    ],
+                    "batchUseConfigs": [
+                      {"routeProcessId":928609,"inputMaterialIds":[],"outputMaterialIds":[1001]}
                     ]
                   }
                 }

@@ -15,6 +15,7 @@ import cn.iocoder.yudao.module.mes.service.pro.process.MesProProcessService;
 import cn.iocoder.yudao.module.mes.service.pro.workorder.MesProWorkOrderService;
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.annotation.Validated;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
@@ -42,12 +43,13 @@ public class MesProAndonRecordServiceImpl implements MesProAndonRecordService {
     private MesProAndonConfigService andonConfigService;
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public Long createAndonRecord(MesProAndonRecordCreateReqVO createReqVO) {
         // 1. 校验关联数据存在
         MesProAndonConfigDO config = andonConfigService.validateAndonConfigExists(createReqVO.getConfigId());
         workstationService.validateWorkstationExists(createReqVO.getWorkstationId());
         if (createReqVO.getWorkOrderId() != null) {
-            workOrderService.validateWorkOrderConfirmed(createReqVO.getWorkOrderId());
+            workOrderService.validateWorkOrderConfirmedForUpdate(createReqVO.getWorkOrderId());
         }
         if (createReqVO.getProcessId() != null) {
             processService.validateProcessExistsAndEnable(createReqVO.getProcessId());

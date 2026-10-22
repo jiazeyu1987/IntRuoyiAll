@@ -25,6 +25,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegula
 import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationVersionMapper;
 import cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrWorkTaskService;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrNonconformanceReviewService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -42,6 +43,11 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.inOrder;
+import org.mockito.InOrder;
+import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_NONCONFORMANCE_REVIEW_FROZEN_ACTION_LOCKED;
 
 @ExtendWith(MockitoExtension.class)
 class MesTeamLeaderActiveOrderVersionUpgradeServiceImplTest {
@@ -72,6 +78,8 @@ class MesTeamLeaderActiveOrderVersionUpgradeServiceImplTest {
     @Mock private MesQaInspectionRegulationMapper regulationMapper;
     @Mock private MesQaInspectionRegulationVersionMapper regulationVersionMapper;
     @Mock private ObjectProvider<BusinessApprovalOrchestrator> approvalOrchestratorProvider;
+    @Mock private BusinessApprovalOrchestrator approvalOrchestrator;
+    @Mock private MesProEdhrNonconformanceReviewService nonconformanceReviewService;
 
     private MesTeamLeaderActiveOrderVersionUpgradeServiceImpl service;
 
@@ -82,7 +90,7 @@ class MesTeamLeaderActiveOrderVersionUpgradeServiceImplTest {
                 pickListBindingItemMapper, releaseApplicationMapper, auditMapper, batchExecutionMapper,
                 workTaskService, reportAllocationOrderChangeService, activeOrderService, workOrderMapper,
                 routeMapper, routeVersionMapper, regulationMapper, regulationVersionMapper,
-                approvalOrchestratorProvider);
+                approvalOrchestratorProvider, nonconformanceReviewService);
     }
 
     @Test
@@ -126,12 +134,157 @@ class MesTeamLeaderActiveOrderVersionUpgradeServiceImplTest {
                 any(MesProcessPoolActiveOrderVersionUpgradeRequestDO.class));
     }
 
+    @Test
+    void submitAllowsUnfrozenChangedVersionThroughExistingPath() {
+        stubPreviewSources();
+        when(releaseApplicationMapper.selectListByActiveOrderIds(List.of(ACTIVE_ORDER_ID)))
+                .thenReturn(List.of());
+        when(versionUpgradeRequestMapper.selectByIdempotencyKey(ACTIVE_ORDER_ID, "upgrade-normal"))
+                .thenReturn(null);
+        when(versionUpgradeRequestMapper.selectOngoingBySourceActiveOrderId(ACTIVE_ORDER_ID))
+                .thenReturn(null);
+        when(activeOrderMapper.selectByIdForUpdate(ACTIVE_ORDER_ID)).thenReturn(activeOrder());
+        when(releaseApplicationMapper.selectListByActiveOrderIdsForUpdate(List.of(ACTIVE_ORDER_ID)))
+                .thenReturn(List.of());
+        when(activeOrderMapper.freezeForVersionUpgrade(any(), any(), any(), any())).thenReturn(1);
+        when(approvalOrchestratorProvider.getObject()).thenReturn(approvalOrchestrator);
+
+        MesTeamLeaderActiveOrderVersionUpgradeSubmitResult result = service.submit(
+                LEADER_USER_ID,
+                new MesTeamLeaderActiveOrderVersionUpgradeSubmitCommand()
+                        .setActiveOrderId(ACTIVE_ORDER_ID)
+                        .setIdempotencyKey("upgrade-normal")
+                        .setUpgradeReason("正式版本升级")
+                        .setConfirmRestartFromBeginning(true));
+
+        assertEquals("PENDING", result.getApprovalStatus());
+        assertEquals("OLD_ORDER_FROZEN", result.getFreezeStatus());
+        verify(activeOrderMapper).freezeForVersionUpgrade(any(), any(), any(), any());
+        verify(versionUpgradeRequestMapper).insert(any(MesProcessPoolActiveOrderVersionUpgradeRequestDO.class));
+    }
+
+    @Test
+    void previewRejectsPendingNonconformanceBeforeVersionUpgrade() {
+        when(activeOrderMapper.selectById(ACTIVE_ORDER_ID)).thenReturn(activeOrder());
+        doThrow(new ServiceException(PRO_EDHR_NONCONFORMANCE_REVIEW_FROZEN_ACTION_LOCKED))
+                .when(nonconformanceReviewService)
+                .ensureWorkOrderNotFrozen(WORK_ORDER_ID, "活跃订单版本升级预览");
+
+        ServiceException ex = assertThrows(ServiceException.class,
+                () -> service.preview(LEADER_USER_ID, ACTIVE_ORDER_ID));
+
+        assertEquals(PRO_EDHR_NONCONFORMANCE_REVIEW_FROZEN_ACTION_LOCKED.getCode(), ex.getCode());
+        verify(routeMapper, never()).selectById(ROUTE_ID);
+    }
+
+    @Test
+    void submitRechecksPendingNonconformanceAfterSourceOrderLock() {
+        stubPreviewSources();
+        when(versionUpgradeRequestMapper.selectByIdempotencyKey(ACTIVE_ORDER_ID, "upgrade-ncr-race"))
+                .thenReturn(null);
+        when(versionUpgradeRequestMapper.selectOngoingBySourceActiveOrderId(ACTIVE_ORDER_ID))
+                .thenReturn(null);
+        when(activeOrderMapper.selectByIdForUpdate(ACTIVE_ORDER_ID)).thenReturn(activeOrder());
+        when(releaseApplicationMapper.selectListByActiveOrderIdsForUpdate(List.of(ACTIVE_ORDER_ID)))
+                .thenReturn(List.of());
+        doNothing().when(nonconformanceReviewService)
+                .ensureWorkOrderNotFrozen(WORK_ORDER_ID, "活跃订单版本升级预览");
+        doThrow(new ServiceException(PRO_EDHR_NONCONFORMANCE_REVIEW_FROZEN_ACTION_LOCKED))
+                .when(nonconformanceReviewService)
+                .ensureWorkOrderNotFrozen(WORK_ORDER_ID, "活跃订单版本升级提交");
+
+        ServiceException ex = assertThrows(ServiceException.class, () -> service.submit(
+                LEADER_USER_ID,
+                new MesTeamLeaderActiveOrderVersionUpgradeSubmitCommand()
+                        .setActiveOrderId(ACTIVE_ORDER_ID)
+                        .setIdempotencyKey("upgrade-ncr-race")
+                        .setUpgradeReason("正式版本升级")
+                        .setConfirmRestartFromBeginning(true)));
+
+        assertEquals(PRO_EDHR_NONCONFORMANCE_REVIEW_FROZEN_ACTION_LOCKED.getCode(), ex.getCode());
+        verify(activeOrderMapper, never()).freezeForVersionUpgrade(any(), any(), any(), any());
+        verify(versionUpgradeRequestMapper, never()).insert(
+                any(MesProcessPoolActiveOrderVersionUpgradeRequestDO.class));
+        InOrder lockOrder = inOrder(activeOrderMapper, nonconformanceReviewService);
+        lockOrder.verify(activeOrderMapper).selectByIdForUpdate(ACTIVE_ORDER_ID);
+        lockOrder.verify(activeOrderMapper).selectById(ACTIVE_ORDER_ID);
+        lockOrder.verify(nonconformanceReviewService)
+                .ensureWorkOrderNotFrozen(WORK_ORDER_ID, "活跃订单版本升级预览");
+        lockOrder.verify(nonconformanceReviewService)
+                .ensureWorkOrderNotFrozen(WORK_ORDER_ID, "活跃订单版本升级提交");
+    }
+
+    @Test
+    void applyApprovedUpgradeRejectsPendingNonconformanceBeforeRemovingSource() {
+        MesProcessPoolActiveOrderVersionUpgradeRequestDO request =
+                MesProcessPoolActiveOrderVersionUpgradeRequestDO.builder()
+                        .id(7701L)
+                        .sourceActiveOrderId(ACTIVE_ORDER_ID)
+                        .sourceWorkOrderId(WORK_ORDER_ID)
+                        .requestedBy(LEADER_USER_ID)
+                        .requestStatus("PENDING_APPROVAL")
+                        .approvalStatus("PENDING")
+                        .freezeStatus("OLD_ORDER_FROZEN")
+                        .build();
+        when(versionUpgradeRequestMapper.selectByIdForUpdate(7701L)).thenReturn(request);
+        when(activeOrderMapper.selectByIdForUpdate(ACTIVE_ORDER_ID)).thenReturn(activeOrder()
+                .setActiveStatus("VERSION_UPGRADE_PENDING"));
+        doThrow(new ServiceException(PRO_EDHR_NONCONFORMANCE_REVIEW_FROZEN_ACTION_LOCKED))
+                .when(nonconformanceReviewService)
+                .ensureWorkOrderNotFrozen(WORK_ORDER_ID, "活跃订单版本升级审批应用");
+
+        ServiceException ex = assertThrows(ServiceException.class,
+                () -> service.applyApprovedUpgrade(7701L, 4001L));
+
+        assertEquals(PRO_EDHR_NONCONFORMANCE_REVIEW_FROZEN_ACTION_LOCKED.getCode(), ex.getCode());
+        verify(batchExecutionMapper, never()).voidForVersionUpgrade(any(), any(), any());
+        verify(activeOrderMapper, never()).removePendingVersionUpgradeOrder(any(), any(), any(), any(), any());
+        verify(activeOrderService, never()).addActiveOrder(any());
+    }
+
+    @Test
+    void applyApprovedUpgradeWithoutNonconformanceCompletesExistingPath() {
+        MesProcessPoolActiveOrderVersionUpgradeRequestDO request =
+                MesProcessPoolActiveOrderVersionUpgradeRequestDO.builder()
+                        .id(7702L)
+                        .requestCode("AOVU-8101-NORMAL")
+                        .sourceActiveOrderId(ACTIVE_ORDER_ID)
+                        .sourceWorkOrderId(WORK_ORDER_ID)
+                        .requestedBy(LEADER_USER_ID)
+                        .requestStatus("PENDING_APPROVAL")
+                        .approvalStatus("PENDING")
+                        .freezeStatus("OLD_ORDER_FROZEN")
+                        .targetSnapshotJson("{\"targetVersions\":["
+                                + "{\"objectType\":\"PROCESS_ROUTE\",\"targetVersionId\":448},"
+                                + "{\"objectType\":\"QA_INSPECTION_REGULATION\",\"targetVersionId\":9903}]}")
+                        .build();
+        when(versionUpgradeRequestMapper.selectByIdForUpdate(7702L)).thenReturn(request);
+        when(activeOrderMapper.selectByIdForUpdate(ACTIVE_ORDER_ID)).thenReturn(activeOrder()
+                .setActiveStatus("VERSION_UPGRADE_PENDING"));
+        when(workOrderMapper.selectById(WORK_ORDER_ID)).thenReturn(workOrder());
+        when(activeOrderMapper.removePendingVersionUpgradeOrder(any(), any(), any(), any(), any())).thenReturn(1);
+        when(pickListBindingMapper.selectListByActiveOrderId(ACTIVE_ORDER_ID)).thenReturn(List.of());
+        when(activeOrderService.addActiveOrder(any())).thenReturn(MesTeamLeaderActiveOrderAddResult.builder()
+                .activeOrderId(8202L).build());
+        when(versionUpgradeRequestMapper.markApplied(any(), any(), any(), any(), any(), any())).thenReturn(1);
+
+        MesTeamLeaderActiveOrderVersionUpgradeApplyResult result =
+                service.applyApprovedUpgrade(7702L, 4001L);
+
+        assertEquals("APPLIED", result.getRequestStatus());
+        assertEquals("APPROVED", result.getApprovalStatus());
+        assertEquals("APPLIED", result.getFreezeStatus());
+        assertEquals(8202L, result.getTargetActiveOrderId());
+        verify(nonconformanceReviewService).ensureWorkOrderNotFrozen(
+                WORK_ORDER_ID, "活跃订单版本升级审批应用");
+        verify(reportAllocationOrderChangeService).invalidateActiveOrder(
+                ACTIVE_ORDER_ID, 4001L, "活跃订单版本升级审批通过，旧订单作废");
+        verify(activeOrderService).addActiveOrder(any());
+    }
+
     private void stubPreviewSources() {
         when(activeOrderMapper.selectById(ACTIVE_ORDER_ID)).thenReturn(activeOrder());
-        when(workOrderMapper.selectById(WORK_ORDER_ID)).thenReturn(MesProWorkOrderDO.builder()
-                .id(WORK_ORDER_ID)
-                .code("WO-9001")
-                .build());
+        when(workOrderMapper.selectById(WORK_ORDER_ID)).thenReturn(workOrder());
         when(routeMapper.selectById(ROUTE_ID)).thenReturn(MesProRouteDO.builder()
                 .id(ROUTE_ID)
                 .name("按压式球囊扩充压力泵")
@@ -148,6 +301,13 @@ class MesTeamLeaderActiveOrderVersionUpgradeServiceImplTest {
                 CURRENT_QA_VERSION_ID, "A/1"));
         when(regulationVersionMapper.selectLatestPublishedByRegulationId(REGULATION_ID)).thenReturn(qaVersion(
                 TARGET_QA_VERSION_ID, "A/2"));
+    }
+
+    private MesProWorkOrderDO workOrder() {
+        return MesProWorkOrderDO.builder()
+                .id(WORK_ORDER_ID)
+                .code("WO-9001")
+                .build();
     }
 
     private MesProcessPoolActiveOrderDO activeOrder() {

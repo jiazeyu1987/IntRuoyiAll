@@ -3,6 +3,8 @@ package cn.iocoder.yudao.module.mes.service.pro.feedback;
 import cn.hutool.core.collection.ListUtil;
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.framework.test.core.ut.BaseDbUnitTest;
+import cn.iocoder.yudao.module.mes.approval.MesFeedbackFormalReviewProjection;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrNonconformanceReviewService;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.vo.MesProFeedbackSaveReqVO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.md.workstation.MesMdWorkstationDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.feedback.MesProFeedbackDO;
@@ -58,6 +60,10 @@ public class MesProFeedbackServiceImplTest extends BaseDbUnitTest {
     private MesProScheduleOrderMapper scheduleOrderMapper;
     @MockitoBean
     private MesProScheduleOrderProcessMapper scheduleOrderProcessMapper;
+    @MockitoBean
+    private MesFeedbackFormalReviewProjection formalReviewProjection;
+    @MockitoBean
+    private MesProEdhrNonconformanceReviewService nonconformanceReviewService;
 
     @MockitoBean
     private MesProWorkOrderService workOrderService;
@@ -126,7 +132,7 @@ public class MesProFeedbackServiceImplTest extends BaseDbUnitTest {
         when(routeProcessService.resolveCurrentRouteProcess(null, routeId, processId))
                 .thenReturn(MesProRouteProcessDO.builder().routeId(routeId).processId(processId)
                         .checkFlag(Boolean.FALSE).build());
-        when(workOrderService.validateWorkOrderConfirmed(workOrderId))
+        when(workOrderService.validateWorkOrderConfirmedForUpdate(workOrderId))
                 .thenReturn(MesProWorkOrderDO.builder().id(workOrderId).productId(itemId).build());
         when(taskService.validateTaskNotFinished(taskId)).thenReturn(MesProTaskDO.builder()
                 .id(taskId)
@@ -197,7 +203,7 @@ public class MesProFeedbackServiceImplTest extends BaseDbUnitTest {
                         .build());
         when(workstationService.validateWorkstationExists(workstationId))
                 .thenReturn(MesMdWorkstationDO.builder().id(workstationId).processId(frozenProcessId).build());
-        when(workOrderService.validateWorkOrderConfirmed(workOrderId))
+        when(workOrderService.validateWorkOrderConfirmedForUpdate(workOrderId))
                 .thenReturn(MesProWorkOrderDO.builder().id(workOrderId).productId(itemId).build());
         when(taskService.validateTaskNotFinished(taskId)).thenReturn(MesProTaskDO.builder()
                 .id(taskId)
@@ -272,7 +278,7 @@ public class MesProFeedbackServiceImplTest extends BaseDbUnitTest {
                         .build());
         when(workstationService.validateWorkstationExists(workstationId))
                 .thenReturn(MesMdWorkstationDO.builder().id(workstationId).processId(routeProcessProcessId).build());
-        when(workOrderService.validateWorkOrderConfirmed(workOrderId))
+        when(workOrderService.validateWorkOrderConfirmedForUpdate(workOrderId))
                 .thenReturn(MesProWorkOrderDO.builder().id(workOrderId).productId(itemId).build());
         when(taskService.validateTaskNotFinished(taskId)).thenReturn(MesProTaskDO.builder()
                 .id(taskId)
@@ -343,7 +349,7 @@ public class MesProFeedbackServiceImplTest extends BaseDbUnitTest {
         when(routeProcessService.resolveCurrentRouteProcess(null, routeId, processId))
                 .thenReturn(MesProRouteProcessDO.builder().routeId(routeId).processId(processId)
                         .checkFlag(Boolean.FALSE).build());
-        when(workOrderService.validateWorkOrderConfirmed(workOrderId))
+        when(workOrderService.validateWorkOrderConfirmedForUpdate(workOrderId))
                 .thenReturn(MesProWorkOrderDO.builder().id(workOrderId).productId(itemId).build());
         when(taskService.validateTaskNotFinished(taskId)).thenReturn(MesProTaskDO.builder()
                 .id(taskId)
@@ -413,7 +419,7 @@ public class MesProFeedbackServiceImplTest extends BaseDbUnitTest {
         when(routeProcessService.resolveCurrentRouteProcess(null, routeId, processId))
                 .thenReturn(MesProRouteProcessDO.builder().routeId(routeId).processId(processId)
                         .checkFlag(Boolean.FALSE).build());
-        when(workOrderService.validateWorkOrderConfirmed(workOrderId))
+        when(workOrderService.validateWorkOrderConfirmedForUpdate(workOrderId))
                 .thenReturn(MesProWorkOrderDO.builder().id(workOrderId).productId(itemId).build());
         when(taskService.validateTaskNotFinished(taskId)).thenReturn(MesProTaskDO.builder()
                 .id(taskId)
@@ -482,7 +488,7 @@ public class MesProFeedbackServiceImplTest extends BaseDbUnitTest {
                         .build());
         when(workstationService.validateWorkstationExists(workstationId))
                 .thenReturn(MesMdWorkstationDO.builder().id(workstationId).processId(processId).build());
-        when(workOrderService.validateWorkOrderConfirmed(workOrderId))
+        when(workOrderService.validateWorkOrderConfirmedForUpdate(workOrderId))
                 .thenReturn(MesProWorkOrderDO.builder().id(workOrderId).productId(itemId).build());
         when(taskService.validateTaskNotFinished(taskId)).thenReturn(MesProTaskDO.builder()
                 .id(taskId)
@@ -795,7 +801,7 @@ public class MesProFeedbackServiceImplTest extends BaseDbUnitTest {
                         .build());
         when(workstationService.validateWorkstationExists(workstationId))
                 .thenReturn(MesMdWorkstationDO.builder().id(workstationId).processId(processId).build());
-        when(workOrderService.validateWorkOrderConfirmed(workOrderId))
+        when(workOrderService.validateWorkOrderConfirmedForUpdate(workOrderId))
                 .thenReturn(MesProWorkOrderDO.builder().id(workOrderId).productId(itemId).build());
         when(taskService.validateTaskNotFinished(taskId)).thenReturn(MesProTaskDO.builder()
                 .id(taskId)

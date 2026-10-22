@@ -27,6 +27,8 @@ public class MesProRouteVersionApprovalServiceImpl implements MesProRouteVersion
     private static final String DUPLICATE = "DUPLICATE";
 
     @Resource
+    private cn.iocoder.yudao.module.mes.service.pro.craft.MesProCraftService craftService;
+    @Resource
     private MesProRouteVersionMapper routeVersionMapper;
     @Resource
     private MesProRouteVersionLifecycleService lifecycleService;
@@ -40,6 +42,7 @@ public class MesProRouteVersionApprovalServiceImpl implements MesProRouteVersion
                                                                    String approvalResult,
                                                                    String rejectReason,
                                                                    Long actorUserId) {
+        craftService.lockCatalog();
         String normalizedApprovalResult = normalizeApprovalResult(approvalResult);
         MesProRouteVersionDO candidate = routeVersionMapper.selectByApprovalProcessInstanceId(approvalProcessInstanceId);
         if (candidate == null) {
@@ -47,6 +50,9 @@ public class MesProRouteVersionApprovalServiceImpl implements MesProRouteVersion
                 return result(null, approvalEventId, normalizedApprovalResult, DUPLICATE);
             }
             throw exception(PRO_ROUTE_VERSION_APPROVAL_NOT_EXISTS, approvalProcessInstanceId);
+        }
+        if (craftService.cancelledBatch(candidate)) {
+            return result(candidate, approvalEventId, normalizedApprovalResult, DUPLICATE);
         }
         if (APPROVED.equals(normalizedApprovalResult)) {
             return approveCandidate(candidate, approvalEventId, normalizedApprovalResult, actorUserId);
@@ -93,6 +99,7 @@ public class MesProRouteVersionApprovalServiceImpl implements MesProRouteVersion
         candidate.setLifecycleStatus(MesProRouteVersionLifecycleServiceImpl.STATUS_REJECTED);
         candidate.setRemark(update.getRemark());
         platformAdapter.recordRejected(candidate, actorUserId, update.getRemark(), approvalEventId);
+        craftService.abortRoute(candidate, actorUserId);
         return result(candidate, approvalEventId, approvalResult, PROCESSED);
     }
 
@@ -110,6 +117,7 @@ public class MesProRouteVersionApprovalServiceImpl implements MesProRouteVersion
         requirePendingApproval(candidate);
         routeVersionMapper.updateApprovalFieldsToDraft(candidate.getId());
         platformAdapter.recordWithdrawn(candidate, actorUserId);
+        craftService.abortRoute(candidate, actorUserId);
         candidate.setLifecycleStatus(MesProRouteVersionLifecycleServiceImpl.STATUS_DRAFT);
         candidate.setSubmittedBy(null);
         candidate.setSubmittedTime(null);

@@ -33,6 +33,7 @@ class MesProductionReleaseApplyControllerJsonTest {
                         .setBatchCode("BATCH-001")
                         .setRouteId(4001L)
                         .setRouteVersionId(4002L)
+                        .setBatchExecutionId(9001L)
                         .setPqcReleaseWorkTaskId(8001L)
                         .setStatus("PQC_RELEASE_PENDING")
                         .setSourceSnapshotHash("source-hash")
@@ -41,14 +42,14 @@ class MesProductionReleaseApplyControllerJsonTest {
         JsonNode json = new ObjectMapper().readTree(new ObjectMapper().writeValueAsString(response));
 
         assertEquals(Set.of("activeOrderId", "applicationId", "appliedAt", "batchCode",
+                        "batchExecutionId",
                         "pqcReleaseWorkTaskId", "routeId", "routeVersionId", "sourceSnapshotHash",
                         "status", "version", "workOrderCode", "workOrderId"),
                 new TreeSet<>(json.properties().stream().map(java.util.Map.Entry::getKey).toList()));
         for (String idField : Set.of("applicationId", "activeOrderId", "workOrderId", "routeId",
-                "routeVersionId", "pqcReleaseWorkTaskId")) {
+                "routeVersionId", "batchExecutionId", "pqcReleaseWorkTaskId")) {
             assertTrue(json.get(idField).isTextual(), idField + " must be serialized as a string");
         }
-        assertFalse(json.has("batchExecutionId"));
         assertFalse(json.has("releaseTransactionId"));
         assertFalse(json.has("releaseApprovalWorkTaskId"));
     }

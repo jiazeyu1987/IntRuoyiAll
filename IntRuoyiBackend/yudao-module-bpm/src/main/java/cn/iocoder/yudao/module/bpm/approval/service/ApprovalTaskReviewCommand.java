@@ -24,4 +24,9 @@ public class ApprovalTaskReviewCommand {
     private String reason;
 
     private String signaturePassword;
+    private String prepareId;
+    private String idempotencyKey;
+    private String expectedSubjectVersion;
+    private String expectedContentHash;
+    private String contentPolicyVersion;
 }

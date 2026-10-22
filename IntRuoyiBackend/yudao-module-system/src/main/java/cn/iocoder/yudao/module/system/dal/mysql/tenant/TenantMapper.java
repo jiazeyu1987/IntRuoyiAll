@@ -13,6 +13,11 @@ import java.util.List;
 @Mapper
 public interface TenantMapper extends BaseMapperX<TenantDO> {
 
+    default TenantDO selectByIdForUpdate(Long id) {
+        return selectOne(new LambdaQueryWrapperX<TenantDO>()
+                .eq(TenantDO::getId, id).last("FOR UPDATE"));
+    }
+
     default PageResult<TenantDO> selectPage(TenantPageReqVO reqVO) {
         return selectPage(reqVO, new LambdaQueryWrapperX<TenantDO>()
                 .likeIfPresent(TenantDO::getName, reqVO.getName())

@@ -9,6 +9,7 @@ import cn.iocoder.yudao.module.mes.service.pro.feedback.MesProFeedbackService;
 import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineSubmitAuthorizationService;
 import cn.iocoder.yudao.module.mes.service.pro.frontline.ActiveOrderSnapshotResolver;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.MesProcessPoolSubmitEventService;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -52,11 +53,13 @@ class MesProFrontlineFeedbackSubmitDetailContractTest {
     @Mock
     private MesMdAutoCodeRecordService autoCodeRecordService;
     @Mock
-    private MesProBatchRecordExecutionSignatureService signatureService;
+    private MesProductionAuthenticatedSignatureService signatureService;
     @Mock
     private ActiveOrderSnapshotResolver activeOrderSnapshotResolver;
+    @Mock
+    private GxpAuditService gxpAuditService;
 
-    private MesProFrontlineFeedbackSubmitService submitService;
+    private MesProFrontlineFeedbackSubmitServiceImpl submitService;
 
     @BeforeEach
     void setUp() {
@@ -69,14 +72,21 @@ class MesProFrontlineFeedbackSubmitDetailContractTest {
                 new MesProFrontlineFeedbackMaterialSubmissionValidator(lossReasonValidator),
                 new MesProFrontlineFeedbackPayloadSplitter(),
                 autoCodeRecordService,
-                signatureService,
-                activeOrderSnapshotResolver);
+                null,
+                activeOrderSnapshotResolver,
+                gxpAuditService);
+        { org.springframework.test.util.ReflectionTestUtils.setField(submitService, "handoffService", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffService.class)); }
+        MesProFrontlineFeedbackSubmitSnapshotTestSupport.stubAuditIdentity(submitService);
+        MesProFrontlineFeedbackSubmitSnapshotTestSupport.stubAuthenticatedResources(submitService, signatureService);
         MesProFrontlineFeedbackSubmitSnapshotTestSupport.stubAuthorization(submitAuthorizationService);
         MesProFrontlineFeedbackSubmitTestData.stubLossReasonValidator(lossReasonValidator);
         MesProFrontlineFeedbackSubmitTestData.stubActiveOrderSnapshot(activeOrderSnapshotResolver);
         org.mockito.Mockito.lenient().when(parameterAuditService.resolveAndApply(any()))
                 .thenReturn(MesFrontlineParameterAuditResult.empty());
-        org.mockito.Mockito.lenient().when(signatureService.recordProductionSubmitSignature(any(), any(), any()))
+        org.mockito.Mockito.lenient().when(parameterAuditService.resolveAndApplyMaterial(
+                        any(), any(), any(), any(), any()))
+                .thenReturn(MesFrontlineParameterAuditResult.empty());
+        org.mockito.Mockito.lenient().when(signatureService.record(any(), any(cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProductionSubmitSignatureContext.class)))
                 .thenReturn(4001L);
     }
 
@@ -106,7 +116,7 @@ class MesProFrontlineFeedbackSubmitDetailContractTest {
 
         try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
             security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(9001L);
-            assertThrows(RuntimeException.class, () -> submitService.submit(reqVO));
+            assertThrows(RuntimeException.class, () -> MesProFrontlineFeedbackSubmitSnapshotTestSupport.submit(submitService, reqVO));
         }
 
         verify(submitAuthorizationService).authorize(any());
@@ -146,7 +156,7 @@ class MesProFrontlineFeedbackSubmitDetailContractTest {
 
         try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
             security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(9001L);
-            assertEquals(801L, submitService.submit(reqVO).getProcessPoolEventId());
+            assertEquals(801L, MesProFrontlineFeedbackSubmitSnapshotTestSupport.submit(submitService, reqVO).getProcessPoolEventId());
         }
 
         verify(processPoolSubmitEventService).createSubmitEvent(argThat(payload -> {
@@ -163,8 +173,8 @@ class MesProFrontlineFeedbackSubmitDetailContractTest {
                     ? reading.get("textValue")
                     : ((MesProFrontlineFeedbackPayloadReqVO.DeviceParameterReadingReqVO) firstReading)
                     .getTextValue();
-            assertEquals("NORMAL", parameterStatus);
-            assertEquals("符合要求", textValue);
+            assertEquals("ABOVE_UPPER", parameterStatus);
+            assertEquals(null, textValue);
             return true;
         }));
     }

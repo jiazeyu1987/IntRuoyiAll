@@ -9,9 +9,31 @@ import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Mapper
 public interface OAuth2RefreshTokenMapper extends BaseMapperX<OAuth2RefreshTokenDO> {
+
+    default OAuth2RefreshTokenDO selectCurrentForRefresh(Long tenantId, Long id, String refreshToken,
+                                                        Long userId, Integer userType) {
+        return selectOne(new LambdaQueryWrapperX<OAuth2RefreshTokenDO>()
+                .eq(OAuth2RefreshTokenDO::getTenantId, tenantId)
+                .eq(OAuth2RefreshTokenDO::getId, id)
+                .eq(OAuth2RefreshTokenDO::getRefreshToken, refreshToken)
+                .eq(OAuth2RefreshTokenDO::getUserId, userId)
+                .eq(OAuth2RefreshTokenDO::getUserType, userType)
+                .eq(OAuth2RefreshTokenDO::getDeleted, false).last("FOR UPDATE"));
+    }
+
+    default List<OAuth2RefreshTokenDO> selectListForUserRevocation(Long tenantId, Long userId, Integer userType) {
+        return selectList(new LambdaQueryWrapperX<OAuth2RefreshTokenDO>()
+                .eq(OAuth2RefreshTokenDO::getTenantId, tenantId)
+                .eq(OAuth2RefreshTokenDO::getUserId, userId)
+                .eq(OAuth2RefreshTokenDO::getUserType, userType)
+                .eq(OAuth2RefreshTokenDO::getDeleted, false)
+                .orderByAsc(OAuth2RefreshTokenDO::getId)
+                .last("FOR UPDATE"));
+    }
 
     default int deleteByRefreshToken(String refreshToken) {
         return delete(new LambdaQueryWrapperX<OAuth2RefreshTokenDO>()

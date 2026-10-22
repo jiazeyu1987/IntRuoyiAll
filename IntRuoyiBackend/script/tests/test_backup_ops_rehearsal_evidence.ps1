@@ -126,6 +126,43 @@ function Send-BackupFileOverSsh {
     }
 }
 
+function Invoke-BackupSshCommand {
+    param([hashtable]$Request)
+    if ([string]$Request.Command -like '*dcc-backup-manifest.json*') {
+        return [pscustomobject]@{ output = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb' }
+    }
+    if ([string]$Request.Command -like '*manifest.json*') {
+        return [pscustomobject]@{ output = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' }
+    }
+    return [pscustomobject]@{ output = '' }
+}
+
+function ConvertTo-BackupBashSingleQuotedString {
+    param([string]$Value)
+    return "'" + $Value.Replace("'", "'\''") + "'"
+}
+
+function Get-BackupOpsRemoteFileText {
+    param([hashtable]$SshRequest, [string]$Path)
+    if ($Path -like '*/manifest.json') {
+        return @'
+{
+  "targetEnvironment": "test",
+  "targetHost": "172.30.30.58",
+  "source": {
+    "serverHost": "172.30.30.58",
+    "appDir": "/opt/intruoyi/runtime",
+    "minioBucket": "yudao"
+  },
+  "deploy": {
+    "imageTag": "registry.example/int-ruoyi:20260526"
+  }
+}
+'@
+    }
+    return ''
+}
+
 function Write-BackupOpsLog {
     param([object]$Session, [string]$Message, [string]$Level = 'INFO')
 }
@@ -232,6 +269,10 @@ try {
     $report = $jsonUpload.Text | ConvertFrom-Json
     Assert-True -Condition ($report.status -eq 'PASSED') -Message 'Expected PASSED status in rehearsal-report.json.'
     Assert-True -Condition (-not [string]::IsNullOrWhiteSpace([string]$report.lastVerifiedAt)) -Message 'Expected lastVerifiedAt in rehearsal-report.json.'
+    Assert-True -Condition ($report.manifestDigest -eq 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa') -Message 'Expected manifestDigest in rehearsal-report.json.'
+    Assert-True -Condition ($report.chainDigest -eq 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb') -Message 'Expected chainDigest in rehearsal-report.json.'
+    Assert-True -Condition ($report.sourceFingerprint -like 'serverHost=172.30.30.58;*') -Message 'Expected sourceFingerprint in rehearsal-report.json.'
+    Assert-True -Condition ($report.targetFingerprint -eq 'environment=test;host=172.30.30.58;imageTag=registry.example/int-ruoyi:20260526') -Message 'Expected targetFingerprint in rehearsal-report.json.'
     Assert-True -Condition ($snapshotUpload.Text.Contains('演练对象: 恢复演练')) -Message 'Expected rehearsal object in snapshot.'
     Assert-True -Condition ($snapshotUpload.Text.Contains('备份点: backup-20260526-010000')) -Message 'Expected backup id in snapshot.'
     Assert-True -Condition ($snapshotUpload.Text.Contains('backend: OK')) -Message 'Expected check summary in snapshot.'

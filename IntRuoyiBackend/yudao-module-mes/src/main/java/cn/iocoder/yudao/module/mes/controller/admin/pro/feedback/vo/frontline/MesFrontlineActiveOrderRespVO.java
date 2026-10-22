@@ -10,6 +10,11 @@ import java.time.LocalDateTime;
 @Data
 public class MesFrontlineActiveOrderRespVO {
 
+    /** 当前记录数据不可用于业务操作；保留身份和诊断供处理。 */
+    private Boolean readBlocked;
+    private String readBlockReason;
+
+
     @Schema(description = "活跃订单编号", requiredMode = Schema.RequiredMode.REQUIRED)
     private Long activeOrderId;
     @Schema(description = "生产工单编号")

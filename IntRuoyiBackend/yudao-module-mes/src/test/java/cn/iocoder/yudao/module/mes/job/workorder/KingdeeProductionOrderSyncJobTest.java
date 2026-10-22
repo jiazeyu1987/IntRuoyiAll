@@ -71,4 +71,29 @@ class KingdeeProductionOrderSyncJobTest {
         Assertions.assertThrows(IllegalStateException.class, () -> job.execute(""));
     }
 
+    @Test
+    void executeFullSync_refreshesExistingOrdersAndReportsUpdatedCount() {
+        MesKingdeeProductionOrderSyncService syncService = mock(MesKingdeeProductionOrderSyncService.class);
+        ErpKingdeeSyncRuntimeService runtimeService = mock(ErpKingdeeSyncRuntimeService.class);
+        MesKingdeeProductionOrderSyncResult result = new MesKingdeeProductionOrderSyncResult();
+        result.addUpdated(501L);
+        when(syncService.syncWorkOrdersFull()).thenReturn(result);
+        when(runtimeService.executeSync(any(), any())).thenAnswer(invocation -> {
+            ErpKingdeeSyncTask task = invocation.getArgument(1);
+            var runResult = task.run(ErpKingdeeSyncContext.builder()
+                    .windowEnd(java.time.LocalDateTime.of(2026, 10, 10, 10, 0)).build());
+            assertEquals(1, runResult.getUpdatedCount());
+            return runResult;
+        });
+
+        String output = new KingdeeProductionOrderSyncJob(syncService, runtimeService).executeFullSync();
+
+        assertTrue(output.contains("updated=1"));
+        assertTrue(output.contains("skipped=0"));
+        verify(syncService).syncWorkOrdersFull();
+        var commandCaptor = ArgumentCaptor.forClass(ErpKingdeeSyncCommand.class);
+        verify(runtimeService).executeSync(commandCaptor.capture(), any());
+        assertEquals(ErpKingdeeSyncTriggerTypeEnum.FULL, commandCaptor.getValue().getTriggerType());
+    }
+
 }

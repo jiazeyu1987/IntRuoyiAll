@@ -2,7 +2,11 @@ param(
     [ValidateSet('frontend', 'backend', 'full', 'website')]
     [string]$Component,
     [string]$WorktreeName,
-    [string]$OperationRecordPath
+    [string]$OperationRecordPath,
+    [string]$PrebuiltBackendJar,
+    [string]$PrebuiltBackendSha256,
+    [switch]$BackendSchemaReadOnly,
+    [switch]$LocalDevelopmentAuditPolicy
 )
 
 $ErrorActionPreference = 'Stop'
@@ -43,6 +47,41 @@ $ShowroomMediaSampleObjects = @(
 )
 $RequiredLocalMySqlMigrations = @(
     [PSCustomObject]@{
+        Name = 'eDHR approval and signature V2 runtime schema'
+        ProbeSql = @'
+SELECT CASE WHEN (
+  SELECT COUNT(*) FROM information_schema.TABLES
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME IN (
+    'system_approval_authority_revision', 'system_signature_authentication_event',
+    'mes_employee_signature_password_history', 'bpm_approval_review_prepare',
+    'bpm_approval_review_receipt', 'bpm_approval_process_ownership',
+    'bpm_approval_selected_candidate', 'mes_edhr_source_creation_binding',
+    'mes_edhr_release_submission_material_association', 'mes_edhr_managed_handoff_material_association'
+  )
+) = 10 AND (
+  SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND (
+    (TABLE_NAME = 'system_users' AND COLUMN_NAME IN ('signature_credential_generation', 'signature_credential_version') AND IS_NULLABLE = 'NO')
+    OR (TABLE_NAME = 'system_electronic_signature' AND COLUMN_NAME IN ('evidence_format_version', 'command_hash_version'))
+    OR (TABLE_NAME = 'mes_pro_process_pool_team_employee_profile' AND COLUMN_NAME IN (
+      'signature_credential_generation', 'signature_credential_version', 'signature_credential_status',
+      'signature_failure_count', 'signature_failure_window_start_at', 'signature_locked_until'
+    ))
+  )
+) = 10 AND (
+  SELECT COUNT(*) FROM information_schema.TRIGGERS
+  WHERE TRIGGER_SCHEMA = DATABASE() AND TRIGGER_NAME IN (
+    'system_users_signature_identity_insert', 'system_users_signature_identity_update',
+    'system_signature_authentication_event_no_update', 'system_signature_authentication_event_no_delete',
+    'mes_employee_signature_generation_insert', 'mes_employee_signature_generation_update',
+    'trg_approval_owner_no_update', 'trg_approval_owner_no_delete',
+    'trg_approval_candidate_no_update', 'trg_approval_candidate_no_delete'
+  )
+) = 10 THEN 1 ELSE 0 END;
+'@
+        ScriptPath = Join-Path $RepoRoot 'sql\mysql\20261011_edhr_approval_runtime_v2.sql'
+    },
+    [PSCustomObject]@{
         Name = 'System NAS management menu titles'
         ProbeSql = @'
 SELECT CASE WHEN (
@@ -59,6 +98,21 @@ SELECT CASE WHEN (
 ) = 4 THEN 1 ELSE 0 END;
 '@
         ScriptPath = Join-Path $RepoRoot 'sql\mysql\20260520_system_nas_management_menu.sql'
+    },
+    [PSCustomObject]@{
+        Name = 'Infra idle logout config seed'
+        ProbeSql = @'
+SELECT CASE WHEN (
+  SELECT COUNT(*)
+  FROM infra_config
+  WHERE config_key = 'system.login.idle-timeout-minutes'
+    AND deleted = b'0'
+    AND visible = b'1'
+    AND value REGEXP '^[1-9][0-9]{0,3}$'
+    AND CAST(value AS UNSIGNED) BETWEEN 1 AND 1440
+) = 1 THEN 1 ELSE 0 END;
+'@
+        ScriptPath = Join-Path $RepoRoot 'sql\mysql\20260921_infra_idle_logout_config.sql'
     },
     [PSCustomObject]@{
         Name = 'MES route use config enabled column'
@@ -676,6 +730,31 @@ THEN 1 ELSE 0 END;
         ScriptPath = Join-Path $RepoRoot 'sql\mysql\20260822_mes_edhr_release_final_state_trace.sql'
     },
     [PSCustomObject]@{
+        Name = 'MES eDHR batch traceability capacity schema'
+        ProbeSql = @'
+SELECT CASE WHEN
+  EXISTS (
+    SELECT 1
+    FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'mes_pro_edhr_batch_execution_origin'
+      AND COLUMN_NAME = 'batch_provision_status'
+      AND DATA_TYPE = 'varchar'
+      AND CHARACTER_MAXIMUM_LENGTH >= 32
+  )
+  AND EXISTS (
+    SELECT 1
+    FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'mes_pro_edhr_batch_trace_outbox_event'
+      AND COLUMN_NAME = 'reason'
+      AND DATA_TYPE = 'longtext'
+  )
+THEN 1 ELSE 0 END;
+'@
+        ScriptPath = Join-Path $RepoRoot 'sql\mysql\20260917_mes_edhr_batch_traceability_capacity.sql'
+    },
+    [PSCustomObject]@{
         Name = 'System user lifecycle deactivation schema'
         ProbeSql = @'
 SELECT CASE WHEN
@@ -1036,6 +1115,9 @@ function Ensure-RequiredLocalMySqlSchema {
         if ($probePassed) {
             continue
         }
+        if ($BackendSchemaReadOnly) {
+            Fail "Required local schema/seed missing in read-only mode: $($migration.Name)"
+        }
         Invoke-LocalSqlScript $migration.ScriptPath
         if ($migration.PSObject.Properties.Name -contains 'ProbeTable') {
             $probePassed = Test-LocalTableExists $migration.ProbeTable
@@ -1167,10 +1249,13 @@ function Assert-LocalDockerRuntimePortRoute {
         [int]$Port
     )
 
-    $connection = Test-NetConnection -ComputerName $LocalDockerRuntimeHost -Port $Port -WarningAction SilentlyContinue
-    if (-not $connection.TcpTestSucceeded) {
-        Fail "LOCAL_DOCKER_PORT_SHADOWED: $Name port $Port is not reachable on $LocalDockerRuntimeHost. Local backend must use the unshadowed Docker loopback host instead of 127.0.0.1."
-    }
+    $client = [Net.Sockets.TcpClient]::new()
+    try {
+        $connect = $client.ConnectAsync($LocalDockerRuntimeHost, $Port)
+        if (-not $connect.Wait(5000)) { throw 'Local Docker TCP connection timed out' }
+        $null = $connect.GetAwaiter().GetResult()
+        if (-not $client.Connected) { throw 'Local Docker TCP connection failed' }
+    } finally { $client.Dispose() }
 }
 
 function Start-Frontend {
@@ -1204,42 +1289,314 @@ pnpm dev -- --strictPort
       -WindowStyle Hidden
 }
 
-function Start-Backend {
-    Require-Command 'java'
-    Require-Command 'mvn'
-    if (-not (Test-Path -LiteralPath (Join-Path $BackendDir 'pom.xml'))) {
-        Fail "Missing backend workspace: $BackendDir"
+function Assert-OwnedBackendProcess($Process) {
+    if ($Process.Name -ine 'java.exe' -or -not $Process.CommandLine) {
+        throw 'Backend port is occupied by an unowned process'
     }
+    $command = $Process.CommandLine
+    $jarMatch = [regex]::Match($command, '(?i)(?:^|\s)-jar\s+(?:"([^"]+)"|([^\s"]+))')
+    $portMatch = [regex]::Match($command, '(?:^|\s)"?--server\.port=(\d+)"?(?=\s|$)')
+    $repoMatch = [regex]::Match($command, '(?:^|\s)(?:"--yudao\.runtime-control\.repo-root=([^"]+)"|--yudao\.runtime-control\.repo-root=(?:"([^"]+)"|([^\s"]+)))(?=\s|$)')
+    if (-not $jarMatch.Success -or -not $portMatch.Success -or -not $repoMatch.Success) {
+        throw 'Backend process lacks exact runtime jar/port/repo ownership arguments'
+    }
+    $jarValue = if ($jarMatch.Groups[1].Success) { $jarMatch.Groups[1].Value } else { $jarMatch.Groups[2].Value }
+    $repoValue = @($repoMatch.Groups | Select-Object -Skip 1 | Where-Object Success | Select-Object -First 1 -ExpandProperty Value)[0]
+    $jarPath = [IO.Path]::GetFullPath($jarValue.Replace('/', '\'))
+    $expectedRuntime = [IO.Path]::GetFullPath($RuntimeDir).TrimEnd('\')
+    $actualRepo = [IO.Path]::GetFullPath($repoValue.Replace('/', '\')).TrimEnd('\')
+    $expectedRepo = [IO.Path]::GetFullPath($RepoRoot).TrimEnd('\')
+    if ([IO.Path]::GetDirectoryName($jarPath) -ine $expectedRuntime -or
+        [IO.Path]::GetFileName($jarPath) -notmatch '^backend-runtime-control-[a-zA-Z0-9-]+\.jar$' -or
+        [int]$portMatch.Groups[1].Value -ne $BackendPort -or $actualRepo -ine $expectedRepo) {
+        throw 'Backend process belongs to another runtime profile or repository'
+    }
+}
+
+function Initialize-NativeBackendOwnership {
+    if (-not ('IntRuoyiNativeBackendOwnership' -as [type])) {
+        Add-Type -TypeDefinition @'
+using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.IO;
+using System.Runtime.InteropServices;
+using System.Text;
+
+public sealed class IntRuoyiNativeBackendProcess {
+    public int ProcessId; public string Name; public string CommandLine;
+    public long CreationDate;
+}
+public static class IntRuoyiNativeBackendOwnership {
+    [DllImport("iphlpapi.dll", SetLastError=true)] static extern uint GetExtendedTcpTable(IntPtr table, ref int size, bool order, int family, int tableClass, uint reserved);
+    [DllImport("kernel32.dll", SetLastError=true)] static extern IntPtr OpenProcess(uint access, bool inherit, int pid);
+    [DllImport("kernel32.dll", SetLastError=true)] static extern bool CloseHandle(IntPtr handle);
+    [DllImport("kernel32.dll", SetLastError=true)] static extern bool GetProcessTimes(IntPtr process, out long creation, out long exit, out long kernel, out long user);
+    [DllImport("kernel32.dll", SetLastError=true)] static extern uint WaitForSingleObject(IntPtr handle, uint milliseconds);
+    [DllImport("kernel32.dll", CharSet=CharSet.Unicode, SetLastError=true)] static extern bool QueryFullProcessImageName(IntPtr process, uint flags, StringBuilder image, ref int size);
+    [DllImport("ntdll.dll")] static extern int NtQueryInformationProcess(IntPtr process, int infoClass, IntPtr data, int size, out int needed);
+    public static int[] ListenerPids(int port) {
+        if (port < 1 || port > 65535) throw new ArgumentOutOfRangeException("port");
+        var owners = new HashSet<int>();
+        foreach (int family in new int[] { 2, 23 }) {
+            int size=0; uint status=GetExtendedTcpTable(IntPtr.Zero,ref size,false,family,3,0);
+            if (status!=122) throw new Win32Exception((int)status,"TCP inventory unavailable");
+            IntPtr buffer=Marshal.AllocHGlobal(size);
+            try {
+                status=GetExtendedTcpTable(buffer,ref size,false,family,3,0);
+                if (status!=0) throw new Win32Exception((int)status,"TCP inventory unavailable");
+                int count=Marshal.ReadInt32(buffer); int rowSize=family==2?24:56;
+                if (count<0 || 4L+(long)count*rowSize>size) throw new InvalidOperationException("Invalid TCP inventory");
+                for (int i=0;i<count;i++) {
+                    IntPtr row=IntPtr.Add(buffer,4+i*rowSize);
+                    int state=Marshal.ReadInt32(row,family==2?0:48);
+                    int portOffset=family==2?8:20;
+                    int localPort=(Marshal.ReadByte(row,portOffset)<<8)|Marshal.ReadByte(row,portOffset+1);
+                    if (state==2 && localPort==port) {
+                        int pid=Marshal.ReadInt32(row,family==2?20:52);
+                        if (pid<=0) throw new InvalidOperationException("Invalid TCP owner");
+                        owners.Add(pid);
+                    }
+                }
+            } finally { Marshal.FreeHGlobal(buffer); }
+        }
+        var result=new int[owners.Count]; owners.CopyTo(result); Array.Sort(result); return result;
+    }
+    public static IntPtr OpenVerifiedWaitHandle(int pid, long expectedCreation) {
+        IntPtr process=OpenProcess(0x100000|0x1000,false,pid);
+        if (process==IntPtr.Zero) throw new Win32Exception(Marshal.GetLastWin32Error(),"Process wait identity unavailable");
+        long creation,exit,kernel,user;
+        if (!GetProcessTimes(process,out creation,out exit,out kernel,out user)) {
+            int error=Marshal.GetLastWin32Error(); CloseHandle(process); throw new Win32Exception(error);
+        }
+        if (creation!=expectedCreation) { CloseHandle(process); throw new InvalidOperationException("Backend process identity changed before stop"); }
+        return process;
+    }
+    public static void WaitForExit(IntPtr process) {
+        uint result=WaitForSingleObject(process,10000);
+        if (result==258) throw new TimeoutException("Owned backend did not exit after stop");
+        if (result!=0) throw new Win32Exception(Marshal.GetLastWin32Error(),"Owned backend exit wait failed");
+    }
+    public static void CloseWaitHandle(IntPtr process) { if (process!=IntPtr.Zero) CloseHandle(process); }
+    public static IntRuoyiNativeBackendProcess Process(int pid) {
+        IntPtr process=OpenProcess(0x1000,false,pid);
+        if (process==IntPtr.Zero) {
+            int error=Marshal.GetLastWin32Error();
+            if (error==87) return null;
+            throw new Win32Exception(error,"Process identity unavailable");
+        }
+        try {
+            long creation,exit,kernel,user;
+            if (!GetProcessTimes(process,out creation,out exit,out kernel,out user)) throw new Win32Exception(Marshal.GetLastWin32Error());
+            var image=new StringBuilder(32768); int imageSize=image.Capacity;
+            if (!QueryFullProcessImageName(process,0,image,ref imageSize)) throw new Win32Exception(Marshal.GetLastWin32Error());
+            int size; int status=NtQueryInformationProcess(process,60,IntPtr.Zero,0,out size);
+            if (size<IntPtr.Size+4 || (status!=unchecked((int)0xc0000004) && status!=unchecked((int)0xc0000023))) throw new InvalidOperationException("Process command line size unavailable");
+            IntPtr buffer=Marshal.AllocHGlobal(size);
+            try {
+                status=NtQueryInformationProcess(process,60,buffer,size,out size);
+                if (status!=0) throw new InvalidOperationException("Process command line unavailable");
+                int length=(ushort)Marshal.ReadInt16(buffer); IntPtr text=Marshal.ReadIntPtr(buffer,IntPtr.Size==8?8:4);
+                long start=buffer.ToInt64(),address=text.ToInt64();
+                if (length==0 || length%2!=0 || address<start || address+length>start+size) throw new InvalidOperationException("Invalid process command line");
+                return new IntRuoyiNativeBackendProcess { ProcessId=pid,Name=Path.GetFileName(image.ToString()),CreationDate=creation,CommandLine=Marshal.PtrToStringUni(text,length/2) };
+            } finally { Marshal.FreeHGlobal(buffer); }
+        } finally { CloseHandle(process); }
+    }
+}
+
+'@
+    }
+}
+
+function Stop-OwnedBackendListener {
+    Initialize-NativeBackendOwnership
+    $owners = @([IntRuoyiNativeBackendOwnership]::ListenerPids($BackendPort))
+    $verified = @()
+    foreach ($owner in $owners) {
+        if ($owner -eq $PID) { throw 'Backend listener process identity is unavailable' }
+        $process = [IntRuoyiNativeBackendOwnership]::Process($owner)
+        if ($null -eq $process) { throw 'Backend listener process identity is unavailable' }
+        Assert-OwnedBackendProcess $process
+        $verified += $process
+    }
+    foreach ($process in $verified) {
+        $current = [IntRuoyiNativeBackendOwnership]::Process($process.ProcessId)
+        if ($null -eq $current) { continue }
+        if ($current.CreationDate -ne $process.CreationDate -or
+            $current.CommandLine -cne $process.CommandLine) {
+            throw 'Backend process identity changed before stop'
+        }
+        Assert-OwnedBackendProcess $current
+        $waitHandle = [IntRuoyiNativeBackendOwnership]::OpenVerifiedWaitHandle($process.ProcessId, $process.CreationDate)
+        try {
+            Stop-Process -Id ([int]$process.ProcessId) -Force -ErrorAction Stop
+            [IntRuoyiNativeBackendOwnership]::WaitForExit($waitHandle)
+        } finally { [IntRuoyiNativeBackendOwnership]::CloseWaitHandle($waitHandle) }
+    }
+    if (@([IntRuoyiNativeBackendOwnership]::ListenerPids($BackendPort)).Count -ne 0) {
+        throw 'Backend port became occupied before launch; no additional process stopped'
+    }
+}
+
+function Get-BackendJarSha256([string]$Path) {
+    $stream = [IO.File]::OpenRead($Path)
+    $sha256 = [Security.Cryptography.SHA256]::Create()
+    try {
+        return [BitConverter]::ToString($sha256.ComputeHash($stream)).Replace('-', '')
+    } finally {
+        $sha256.Dispose()
+        $stream.Dispose()
+    }
+}
+
+function Assert-BackendExecutableJar {
+    param(
+        [string]$Path,
+        [string]$ExpectedSha256
+    )
+    if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) {
+        Fail "Missing executable backend jar: $Path"
+    }
+    $resolvedPath = (Resolve-Path -LiteralPath $Path).ProviderPath
+    if ([IO.Path]::GetExtension($resolvedPath) -ine '.jar') {
+        Fail 'Executable backend artifact must be a .jar file'
+    }
+    if ($ExpectedSha256 -cnotmatch '\A[0-9a-fA-F]{64}\z') {
+        Fail 'Expected backend SHA256 must contain exactly 64 hexadecimal characters'
+    }
+    $actualSha256 = Get-BackendJarSha256 -Path $resolvedPath
+    if ($actualSha256 -ine $ExpectedSha256) {
+        Fail "Backend jar SHA256 mismatch: $resolvedPath"
+    }
+    Add-Type -AssemblyName System.IO.Compression
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    try {
+        $archive = [IO.Compression.ZipFile]::OpenRead($resolvedPath)
+    } catch {
+        Fail 'Invalid executable backend jar archive'
+    }
+    try {
+        $manifestEntry = $archive.GetEntry('META-INF/MANIFEST.MF')
+        if ($null -eq $manifestEntry) {
+            Fail 'Executable backend jar is missing its manifest'
+        }
+        $reader = [IO.StreamReader]::new($manifestEntry.Open())
+        try { $manifest = $reader.ReadToEnd() } finally { $reader.Dispose() }
+        # JAR manifests fold long attributes onto lines beginning with one space.
+        $mainSection = (($manifest -replace '\r?\n ', '') -split '\r?\n\r?\n', 2)[0]
+        $attributes = @{}
+        foreach ($line in ($mainSection -split '\r?\n')) {
+            if ($line -match '^([^:]+): (.*)$') {
+                if ($attributes.ContainsKey($Matches[1])) {
+                    Fail 'Executable backend jar has duplicate manifest attributes'
+                }
+                $attributes[$Matches[1]] = $Matches[2]
+            }
+        }
+        foreach ($name in @('Main-Class', 'Start-Class')) {
+            if ($attributes[$name] -cnotmatch '\A[A-Za-z_$][A-Za-z0-9_.$]*\z') {
+                Fail "Executable backend jar is missing a valid $name"
+            }
+        }
+        if ($attributes['Spring-Boot-Classes'] -cne 'BOOT-INF/classes/' -or
+            $attributes['Spring-Boot-Lib'] -cne 'BOOT-INF/lib/') {
+            Fail 'Executable backend jar must have the full Spring Boot classes/lib layout'
+        }
+        $classPaths = @(
+            ($attributes['Main-Class'].Replace('.', '/') + '.class'),
+            ('BOOT-INF/classes/' + $attributes['Start-Class'].Replace('.', '/') + '.class')
+        )
+        foreach ($classPath in $classPaths) {
+            $entry = $archive.GetEntry($classPath)
+            if ($null -eq $entry -or $entry.Length -lt 8) {
+                Fail 'Executable backend jar is missing its launcher or application class'
+            }
+            $reader = [IO.BinaryReader]::new($entry.Open())
+            try { $magic = [BitConverter]::ToString($reader.ReadBytes(4)) } finally { $reader.Dispose() }
+            if ($magic -cne 'CA-FE-BA-BE') {
+                Fail 'Executable backend jar contains an invalid launcher or application class'
+            }
+        }
+        $libraries = @($archive.Entries | Where-Object { $_.FullName -clike 'BOOT-INF/lib/*.jar' })
+        if ($libraries.Count -eq 0) {
+            Fail 'Executable backend jar is missing its dependency libraries'
+        }
+        foreach ($library in $libraries) {
+            if ($library.Length -lt 4 -or $library.CompressedLength -ne $library.Length) {
+                Fail 'Executable backend jar dependencies must be nonempty stored JAR entries'
+            }
+            $reader = [IO.BinaryReader]::new($library.Open())
+            try { $magic = [BitConverter]::ToString($reader.ReadBytes(4)) } finally { $reader.Dispose() }
+            if ($magic -cne '50-4B-03-04') {
+                Fail 'Executable backend jar contains an invalid dependency library'
+            }
+        }
+    } finally {
+        $archive.Dispose()
+    }
+    return [pscustomobject]@{ Path = $resolvedPath; Sha256 = $actualSha256 }
+}
+
+function Assert-BackendLaunchConfiguration {
+    foreach ($name in @('OnlyOfficeBaseUrl', 'OnlyOfficePublicFileBaseUrl',
+            'DccSignatureEvidenceHmacSecret', 'DccSignatureEvidenceKeyVersion')) {
+        if ([string]::IsNullOrWhiteSpace((Get-Variable -Name $name -ValueOnly))) {
+            Fail "Missing required backend launch configuration: $name"
+        }
+    }
+}
+
+function Start-Backend {
+    $hasPrebuiltJar = -not [string]::IsNullOrEmpty($PrebuiltBackendJar)
+    $hasPrebuiltHash = -not [string]::IsNullOrEmpty($PrebuiltBackendSha256)
+    if ($hasPrebuiltJar -ne $hasPrebuiltHash) {
+        Fail 'PrebuiltBackendJar and PrebuiltBackendSha256 must be supplied together'
+    }
+    Assert-BackendLaunchConfiguration
+    Require-Command 'java'
+    if ($hasPrebuiltJar) {
+        $artifact = Assert-BackendExecutableJar -Path $PrebuiltBackendJar -ExpectedSha256 $PrebuiltBackendSha256
+    } else {
+        Require-Command 'mvn'
+        if (-not (Test-Path -LiteralPath (Join-Path $BackendDir 'pom.xml') -PathType Leaf)) {
+            Fail "Missing backend workspace: $BackendDir"
+        }
+        Push-Location -LiteralPath $RepoRoot
+        try {
+            & mvn -pl yudao-server -am '-DskipTests' package
+            if ($LASTEXITCODE -ne 0) {
+                Fail 'Backend package failed'
+            }
+        } finally {
+            Pop-Location
+        }
+        $sourceJar = Join-Path $BackendDir 'target\yudao-server-exec.jar'
+        if (-not (Test-Path -LiteralPath $sourceJar -PathType Leaf)) {
+            Fail "Missing executable backend jar after package: $sourceJar"
+        }
+        $sourceSha256 = Get-BackendJarSha256 -Path $sourceJar
+        $artifact = Assert-BackendExecutableJar -Path $sourceJar -ExpectedSha256 $sourceSha256
+    }
+    # Prepare and verify the stable runtime copy before any schema or process action.
     if (-not (Test-Path -LiteralPath $RuntimeDir)) {
         New-Item -ItemType Directory -Force -Path $RuntimeDir | Out-Null
     }
+    $timestamp = (Get-Date -Format 'yyyyMMdd-HHmmss-fff') + '-' + [guid]::NewGuid().ToString('N')
+    $runtimeJar = Join-Path $RuntimeDir "backend-runtime-control-$timestamp.jar"
+    Copy-Item -LiteralPath $artifact.Path -Destination $runtimeJar
+    $null = Assert-BackendExecutableJar -Path $runtimeJar -ExpectedSha256 $artifact.Sha256
+    Write-Host 'Backend stage: verify local schema'
     Ensure-RequiredLocalMySqlSchema
+    Write-Host 'Backend stage: verify protected media configuration'
     Assert-LocalShowroomFileConfigProtected
     Assert-LocalShowroomMediaBucketConsistency
+    Write-Host 'Backend stage: verify dependency TCP routes'
     Assert-LocalDockerRuntimePortRoute -Name 'MySQL' -Port 23306
     Assert-LocalDockerRuntimePortRoute -Name 'Redis' -Port 26379
-    Stop-MatchingProcesses 'backend' $RuntimeDir
-    Stop-Port $BackendPort
-    Push-Location -LiteralPath $RepoRoot
-    try {
-        & mvn -pl yudao-server -am -DskipTests package
-        if ($LASTEXITCODE -ne 0) {
-            Fail 'Backend package failed'
-        }
-    } finally {
-        Pop-Location
-    }
-    $sourceJar = Join-Path $BackendDir 'target\yudao-server-exec.jar'
-    if (-not (Test-Path -LiteralPath $sourceJar)) {
-        Fail "Missing executable backend jar after package: $sourceJar"
-    }
-    $timestamp = Get-Date -Format 'yyyyMMdd-HHmmss'
-    $runtimeJar = Join-Path $RuntimeDir "backend-runtime-control-$timestamp.jar"
     $backendLogDir = Join-Path $RuntimeDir 'logs'
     $backendLogFile = Join-Path $backendLogDir 'yudao-server.log'
     New-Item -ItemType Directory -Force -Path $backendLogDir | Out-Null
-    Copy-Item -LiteralPath $sourceJar -Destination $runtimeJar -Force
-    Stop-Port $BackendPort
     $backendScript = @"
 `$env:DCC_ONLYOFFICE_BASE_URL = '$OnlyOfficeBaseUrl'
 `$env:DCC_ONLYOFFICE_PUBLIC_FILE_BASE_URL = '$OnlyOfficePublicFileBaseUrl'
@@ -1251,6 +1608,11 @@ Remove-Item -Path 'Env:\CODEX_TEST_RUNNER_TOKEN' -ErrorAction SilentlyContinue
   "$runtimeJar"
   "--server.port=$BackendPort"
   "--spring.profiles.active=local"
+  "--yudao.gxp-audit.local-development-policy=$($LocalDevelopmentAuditPolicy.IsPresent.ToString().ToLowerInvariant())"
+  "--yudao.dcc.preview.onlyoffice.base-url=`$env:DCC_ONLYOFFICE_BASE_URL"
+  "--yudao.dcc.preview.onlyoffice.public-file-base-url=`$env:DCC_ONLYOFFICE_PUBLIC_FILE_BASE_URL"
+  "--dcc.signature.evidence.hmac-secret=`$env:DCC_SIGNATURE_EVIDENCE_HMAC_SECRET"
+  "--dcc.signature.evidence.key-version=`$env:DCC_SIGNATURE_EVIDENCE_KEY_VERSION"
   "--spring.datasource.dynamic.datasource.master.url=jdbc:mysql://${LocalDockerRuntimeHost}:23306/ruoyi-vue-pro?useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&nullCatalogMeansCurrent=true"
   "--spring.datasource.dynamic.datasource.master.username=root"
   "--spring.datasource.dynamic.datasource.master.password=123456"
@@ -1267,6 +1629,8 @@ Remove-Item -Path 'Env:\CODEX_TEST_RUNNER_TOKEN' -ErrorAction SilentlyContinue
 & java @backendArgs
 "@
     $backendEncoded = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($backendScript))
+    Write-Host 'Backend stage: stop verified owned listener'
+    Stop-OwnedBackendListener
     Start-Process -FilePath 'powershell.exe' -ArgumentList @(
         '-NoProfile',
         '-ExecutionPolicy', 'Bypass',

@@ -98,6 +98,80 @@ class MesReportAllocationQuantityFragmentServiceTest {
         verify(fragmentMapper, never()).updateById(any(MesProProcessPoolQuantityFragmentDO.class));
     }
 
+    @Test
+    void retainedAHasSameIdsVersionAndQuantityWhileBUsesOnlyRemainingFragments() {
+        var fragments=List.of(fragment(6101L,"60"),fragment(6102L,"50"));
+        var oldA=MesProcessPoolFifoAllocationLineDO.builder().id(6201L).sourceEventId(1001L)
+                .reportAllocationId(7101L).targetActiveOrderId(8101L).sourceQuantityFragmentId(6101L).targetWorkOrderId(9001L).targetRouteProcessId(5101L)
+                .targetProcessId(6001L).allocatedQuantity(new BigDecimal("40"))
+                .reportAllocationVersion(1).lifecycleStatus("CURRENT").build();
+        String original=cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(oldA);
+        var oldB=MesProcessPoolFifoAllocationLineDO.builder().id(6202L).sourceEventId(1001L)
+                .reportAllocationId(7102L).targetActiveOrderId(8103L).sourceQuantityFragmentId(6101L).targetWorkOrderId(9003L).targetRouteProcessId(5301L)
+                .targetProcessId(6001L).allocatedQuantity(new BigDecimal("20"))
+                .reportAllocationVersion(1).lifecycleStatus("CURRENT").build();
+        when(fragmentMapper.selectOutputListByProductionSubmitEventIdForUpdate(1001L)).thenReturn(fragments);
+        when(lineMapper.selectListBySourceEventIdForUpdate(1001L)).thenReturn(List.of(oldA,oldB));
+        when(workOrderMapper.selectListByIds(List.of(9003L))).thenReturn(List.of(workOrder(9003L,"B")));
+        when(lineMapper.supersedeCurrentRows(List.of(6202L),2)).thenReturn(1);
+        when(lineMapper.insertBatch(anyCollection())).thenReturn(true);
+        when(fragmentMapper.updateById(any(MesProProcessPoolQuantityFragmentDO.class))).thenReturn(1);
+        service.rebuildPreservingAllocations(event(),2,List.of(allocation(7103L,8103L,9003L,5301L,"60")),
+                List.of(allocation(7101L,8101L,9001L,5101L,"40")));
+        assertEquals(original,cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(oldA));
+        ArgumentCaptor<Collection<MesProcessPoolFifoAllocationLineDO>> captured=ArgumentCaptor.forClass(Collection.class);
+        verify(lineMapper).insertBatch(captured.capture());
+        var saved=List.copyOf(captured.getValue());
+        assertEquals(2,saved.size());assertLine(saved.get(0),6101L,9003L,"20");assertLine(saved.get(1),6102L,9003L,"40");
+        assertAmount("60",fragments.get(0).getAllocatedQuantity());assertAmount("40",fragments.get(1).getAllocatedQuantity());
+        assertAmount("10",fragments.get(1).getAvailableQuantity());
+    }
+
+    @Test
+    void missingRetainedFragmentEvidenceRejectsBeforeWrites() {
+        when(fragmentMapper.selectOutputListByProductionSubmitEventIdForUpdate(1001L)).thenReturn(List.of(fragment(6101L,"110")));
+        when(lineMapper.selectListBySourceEventIdForUpdate(1001L)).thenReturn(List.of());
+        assertThrows(ServiceException.class,()->service.rebuildPreservingAllocations(event(),2,List.of(),
+                List.of(allocation(7101L,8101L,9001L,5101L,"40"))));
+        verify(lineMapper,never()).supersedeCurrentRows(anyCollection(),any());
+        verify(lineMapper,never()).insertBatch(anyCollection());
+        verify(fragmentMapper,never()).updateById(any(MesProProcessPoolQuantityFragmentDO.class));
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings={"30","10","0","20"})
+    void reworkSameWorkOrderAndProcessKeepsOldFortyWhileNewCycleChanges(String quantity) {
+        var fragment=fragment(6101L,"100");
+        var old=MesProcessPoolFifoAllocationLineDO.builder().id(6201L).sourceEventId(1001L)
+                .reportAllocationId(7101L).targetActiveOrderId(8101L).targetWorkOrderId(9001L)
+                .targetRouteProcessId(5101L).targetProcessId(6001L).sourceQuantityFragmentId(6101L)
+                .allocatedQuantity(new BigDecimal("40")).reportAllocationVersion(1).lifecycleStatus("CURRENT").build();
+        var current=MesProcessPoolFifoAllocationLineDO.builder().id(6202L).sourceEventId(1001L)
+                .reportAllocationId(7102L).targetActiveOrderId(8102L).targetWorkOrderId(9001L)
+                .targetRouteProcessId(5101L).targetProcessId(6001L).sourceQuantityFragmentId(6101L)
+                .allocatedQuantity(new BigDecimal("20")).reportAllocationVersion(2).lifecycleStatus("CURRENT").build();
+        var before=cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(old);
+        when(fragmentMapper.selectOutputListByProductionSubmitEventIdForUpdate(1001L)).thenReturn(List.of(fragment));
+        when(lineMapper.selectListBySourceEventIdForUpdate(1001L)).thenReturn(List.of(old,current));
+        when(lineMapper.supersedeCurrentRows(List.of(6202L),3)).thenReturn(1);
+        when(fragmentMapper.updateById(any(MesProProcessPoolQuantityFragmentDO.class))).thenReturn(1);
+        var next="0".equals(quantity)?List.<MesProcessPoolReportAllocationDO>of():List.of(allocation(7103L,8102L,9001L,5101L,quantity));
+        if(!next.isEmpty()) {
+            when(workOrderMapper.selectListByIds(List.of(9001L))).thenReturn(List.of(workOrder(9001L,"A")));
+            when(lineMapper.insertBatch(anyCollection())).thenReturn(true);
+        }
+        service.rebuildPreservingAllocations(event(),3,next,List.of(allocation(7101L,8101L,9001L,5101L,"40")));
+        assertEquals(before,cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(old));
+        assertAmount(new BigDecimal("40").add(new BigDecimal(quantity)).toPlainString(),fragment.getAllocatedQuantity());
+        if(!next.isEmpty()) {
+            ArgumentCaptor<Collection<MesProcessPoolFifoAllocationLineDO>> captured=ArgumentCaptor.forClass(Collection.class);
+            verify(lineMapper).insertBatch(captured.capture());
+            var saved=captured.getValue().iterator().next();
+            assertEquals(7103L,saved.getReportAllocationId());assertEquals(8102L,saved.getTargetActiveOrderId());
+            assertEquals(3,saved.getReportAllocationVersion());assertAmount(quantity,saved.getAllocatedQuantity());
+        }
+    }
+
     private static MesProProcessPoolEventDO event() {
         return MesProProcessPoolEventDO.builder().id(1001L).poolId(2001L).routeProcessId(5001L)
                 .processId(6001L).build();

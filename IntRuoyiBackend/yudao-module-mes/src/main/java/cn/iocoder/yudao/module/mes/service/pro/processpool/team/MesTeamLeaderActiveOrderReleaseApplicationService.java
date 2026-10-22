@@ -6,4 +6,7 @@ public interface MesTeamLeaderActiveOrderReleaseApplicationService {
             Long leaderUserId, MesTeamLeaderActiveOrderReleaseApplyCommand command);
 
     MesTeamLeaderActiveOrderReleaseApplicationResult get(Long userId, Long activeOrderId);
+
+    MesTeamLeaderActiveOrderReleaseApplicationResult applyGenerated(
+            Long leaderUserId, MesTeamLeaderActiveOrderReleaseApplyCommand command);
 }

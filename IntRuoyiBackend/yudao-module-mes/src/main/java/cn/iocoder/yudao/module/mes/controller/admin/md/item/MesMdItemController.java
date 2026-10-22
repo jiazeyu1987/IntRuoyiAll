@@ -115,6 +115,17 @@ public class MesMdItemController {
         return success(buildItemVO(item));
     }
 
+    @GetMapping("/names")
+    @Operation(summary = "批量获得物料名称")
+    @PreAuthorize("@ss.hasPermission('mes:md-item:query')")
+    public CommonResult<Map<Long, String>> getItemNames(@RequestParam("ids") List<Long> ids) {
+        Map<Long, String> names = new LinkedHashMap<>();
+        for (MesMdItemDO item : itemService.getItemList(ids)) {
+            names.put(item.getId(), item.getName());
+        }
+        return success(names);
+    }
+
     @GetMapping("/get-by-code")
     @Operation(summary = "按产品编号获得物料产品")
     @Parameter(name = "code", description = "产品编号", required = true, example = "ITEM001")

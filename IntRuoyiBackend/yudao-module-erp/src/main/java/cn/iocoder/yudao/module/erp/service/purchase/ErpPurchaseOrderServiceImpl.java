@@ -7,7 +7,9 @@ import cn.iocoder.yudao.framework.common.util.number.MoneyUtils;
 import cn.iocoder.yudao.framework.common.util.object.BeanUtils;
 import cn.iocoder.yudao.module.erp.controller.admin.purchase.vo.order.ErpPurchaseOrderPageReqVO;
 import cn.iocoder.yudao.module.erp.controller.admin.purchase.vo.order.ErpPurchaseOrderSaveReqVO;
-import cn.iocoder.yudao.module.erp.dal.dataobject.product.ErpProductDO;
+import cn.iocoder.yudao.module.erp.dal.dataobject.product.ErpProductUnitDO;
+import cn.iocoder.yudao.module.erp.service.product.ErpProductUnitService;
+import cn.iocoder.yudao.module.erp.service.purchase.sync.ErpKingdeeOrderAmounts;
 import cn.iocoder.yudao.module.erp.dal.dataobject.purchase.ErpPurchaseOrderDO;
 import cn.iocoder.yudao.module.erp.dal.dataobject.purchase.ErpPurchaseOrderItemDO;
 import cn.iocoder.yudao.module.erp.dal.mysql.purchase.ErpPurchaseOrderItemMapper;
@@ -53,6 +55,8 @@ public class ErpPurchaseOrderServiceImpl implements ErpPurchaseOrderService {
     @Resource
     private ErpProductService productService;
     @Resource
+    private ErpProductUnitService productUnitService;
+    @Resource
     private ErpSupplierService supplierService;
     @Resource
     private ErpAccountService accountService;
@@ -61,7 +65,7 @@ public class ErpPurchaseOrderServiceImpl implements ErpPurchaseOrderService {
     @Transactional(rollbackFor = Exception.class)
     public Long createPurchaseOrder(ErpPurchaseOrderSaveReqVO createReqVO) {
         // 1.1 校验订单项的有效性
-        List<ErpPurchaseOrderItemDO> purchaseOrderItems = validatePurchaseOrderItems(createReqVO.getItems());
+        List<ErpPurchaseOrderItemDO> purchaseOrderItems = validatePurchaseOrderItems(createReqVO);
         // 1.2 校验供应商
         supplierService.validateSupplier(createReqVO.getSupplierId());
         // 1.3 校验结算账户
@@ -77,7 +81,7 @@ public class ErpPurchaseOrderServiceImpl implements ErpPurchaseOrderService {
         // 2.1 插入订单
         ErpPurchaseOrderDO purchaseOrder = BeanUtils.toBean(createReqVO, ErpPurchaseOrderDO.class, in -> in
                 .setNo(no).setStatus(ErpAuditStatus.PROCESS.getStatus()));
-        calculateTotalPrice(purchaseOrder, purchaseOrderItems);
+        calculateTotalPrice(purchaseOrder, purchaseOrderItems, createReqVO.getKingdeeAmounts());
         purchaseOrderMapper.insert(purchaseOrder);
         // 2.2 插入订单项
         purchaseOrderItems.forEach(o -> o.setOrderId(purchaseOrder.getId()));
@@ -100,21 +104,30 @@ public class ErpPurchaseOrderServiceImpl implements ErpPurchaseOrderService {
             accountService.validateAccount(updateReqVO.getAccountId());
         }
         // 1.4 校验订单项的有效性
-        List<ErpPurchaseOrderItemDO> purchaseOrderItems = validatePurchaseOrderItems(updateReqVO.getItems());
+        List<ErpPurchaseOrderItemDO> purchaseOrderItems = validatePurchaseOrderItems(updateReqVO);
 
         // 2.1 更新订单
         ErpPurchaseOrderDO updateObj = BeanUtils.toBean(updateReqVO, ErpPurchaseOrderDO.class);
-        calculateTotalPrice(updateObj, purchaseOrderItems);
+        calculateTotalPrice(updateObj, purchaseOrderItems, updateReqVO.getKingdeeAmounts());
         purchaseOrderMapper.updateById(updateObj);
         // 2.2 更新订单项
         updatePurchaseOrderItemList(updateReqVO.getId(), purchaseOrderItems);
     }
 
-    private void calculateTotalPrice(ErpPurchaseOrderDO purchaseOrder, List<ErpPurchaseOrderItemDO> purchaseOrderItems) {
+    private void calculateTotalPrice(ErpPurchaseOrderDO purchaseOrder, List<ErpPurchaseOrderItemDO> purchaseOrderItems, ErpKingdeeOrderAmounts source) {
         purchaseOrder.setTotalCount(getSumValue(purchaseOrderItems, ErpPurchaseOrderItemDO::getCount, BigDecimal::add));
         purchaseOrder.setTotalProductPrice(getSumValue(purchaseOrderItems, ErpPurchaseOrderItemDO::getTotalPrice, BigDecimal::add, BigDecimal.ZERO));
         purchaseOrder.setTotalTaxPrice(getSumValue(purchaseOrderItems, ErpPurchaseOrderItemDO::getTaxPrice, BigDecimal::add, BigDecimal.ZERO));
         purchaseOrder.setTotalPrice(purchaseOrder.getTotalProductPrice().add(purchaseOrder.getTotalTaxPrice()));
+        if (source != null) {
+            source.validate(purchaseOrderItems.size());
+            purchaseOrder.setTotalProductPrice(source.getProductAmount());
+            purchaseOrder.setTotalTaxPrice(source.getTaxAmount());
+            purchaseOrder.setTotalPrice(source.getTotalAmount());
+            purchaseOrder.setDiscountPrice(source.getDiscountAmount());
+            purchaseOrder.setDiscountPercent(source.discountPercent());
+            return;
+        }
         // 计算优惠价格
         if (purchaseOrder.getDiscountPercent() == null) {
             purchaseOrder.setDiscountPercent(BigDecimal.ZERO);
@@ -150,14 +163,22 @@ public class ErpPurchaseOrderServiceImpl implements ErpPurchaseOrderService {
         }
     }
 
-    private List<ErpPurchaseOrderItemDO> validatePurchaseOrderItems(List<ErpPurchaseOrderSaveReqVO.Item> list) {
+    private List<ErpPurchaseOrderItemDO> validatePurchaseOrderItems(ErpPurchaseOrderSaveReqVO req) {
+        List<ErpPurchaseOrderSaveReqVO.Item> list = req.getItems();
+        if (req.getKingdeeAmounts() != null) { req.getKingdeeAmounts().validate(list.size()); }
+        Map<Long, ErpProductUnitDO> units =
+                productUnitService.getProductUnitMap(convertSet(list, ErpPurchaseOrderSaveReqVO.Item::getProductUnitId));
+        for (ErpPurchaseOrderSaveReqVO.Item item : list) {
+            if (item.getProductUnitId() == null || !units.containsKey(item.getProductUnitId())) {
+                throw exception(PRODUCT_UNIT_NOT_EXISTS);
+            }
+        }
         // 1. 校验产品存在
-        List<ErpProductDO> productList = productService.validProductList(
+        productService.validProductList(
                 convertSet(list, ErpPurchaseOrderSaveReqVO.Item::getProductId));
-        Map<Long, ErpProductDO> productMap = convertMap(productList, ErpProductDO::getId);
         // 2. 转化为 ErpPurchaseOrderItemDO 列表
-        return convertList(list, o -> BeanUtils.toBean(o, ErpPurchaseOrderItemDO.class, item -> {
-            item.setProductUnitId(productMap.get(item.getProductId()).getUnitId());
+        List<ErpPurchaseOrderItemDO> result = convertList(list, o -> BeanUtils.toBean(o, ErpPurchaseOrderItemDO.class, item -> {
+            item.setProductUnitId(o.getProductUnitId());
             item.setTotalPrice(MoneyUtils.priceMultiply(item.getProductPrice(), item.getCount()));
             if (item.getTotalPrice() == null) {
                 return;
@@ -166,6 +187,14 @@ public class ErpPurchaseOrderServiceImpl implements ErpPurchaseOrderService {
                 item.setTaxPrice(MoneyUtils.priceMultiplyPercent(item.getTotalPrice(), item.getTaxPercent()));
             }
         }));
+        if (req.getKingdeeAmounts() != null) {
+            for (int i = 0; i < result.size(); i++) {
+                var amount = req.getKingdeeAmounts().getLines().get(i);
+                result.get(i).setTotalPrice(amount.getNetAmount());
+                result.get(i).setTaxPrice(amount.getTaxAmount());
+            }
+        }
+        return result;
     }
 
     private void updatePurchaseOrderItemList(Long id, List<ErpPurchaseOrderItemDO> newList) {

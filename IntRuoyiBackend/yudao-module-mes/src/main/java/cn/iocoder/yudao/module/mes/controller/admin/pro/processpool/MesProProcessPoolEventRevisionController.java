@@ -67,7 +67,7 @@ public class MesProProcessPoolEventRevisionController {
 
     @PostMapping("/correct-pqc-inspection")
     @Operation(summary = "按业务字段修改 PQC 表单并使用当前登录人重新电子签名")
-    @PreAuthorize("@ss.hasPermission('mes:pro-process-pool:event-revision:update')")
+    @PreAuthorize("@ss.hasPermission('mes:pro-process-pool:event-revision:update') and @ss.hasAnyRoles('pqc_permission', 'pqc_leader_permission')")
     public CommonResult<Long> correctPqcInspection(
             @Valid @RequestBody ProcessPoolPqcInspectionCorrectionReqVO reqVO) {
         return success(pqcInspectionCorrectionService.correct(

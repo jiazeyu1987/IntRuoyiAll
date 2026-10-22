@@ -39,7 +39,8 @@ assertIncludes(executionPage, "case 'FORM_REVIEW'", '真实执行页签名格 FO
 assertIncludes(executionPage, '签名格必须通过电子签名完成，不支持手动输入。', '真实执行页签名格必须明确禁止手动输入')
 assertNotIncludes(executionPage, "v-else-if=\"field.componentKind === 'signature'\"\n                    :model-value", '真实执行页签名格不得继续渲染禁用输入框作为签名值')
 
-assertIncludes(historyPage, ':signature-records="selectedExecution.signatureRecords"', '历史页必须把单表签名记录传入模板组件')
+assertIncludes(historyPage, 'ActiveOrderSubmissionDetailPanel', '历史页必须复用活跃订单详情面板')
+assertIncludes(historyPage, 'getEdhrBatchActiveOrderDetail', '历史页必须按批次执行正式来源读取详情单据')
 assertNotIncludes(historyPage, 'edhr-batch-history__signature-section', '历史页不得默认把模板外电子签名明细作为主视图')
 
 assertIncludes(formListPage, '签名', '电子批记录表单列表必须提供签名位入口')

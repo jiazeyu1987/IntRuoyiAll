@@ -1,0 +1,25 @@
+# Test-owned operation proposal fragment; not an approved runtime policy bundle.
+proposalType: GXP_AUDIT_OPERATION_FRAGMENT
+status: DRAFT
+approvalReference: null
+runtimeLoad: false
+operation:
+  operationId: mes.pqc-release.bind-batch
+  sourceType: SERVICE_METHOD
+  sourceLocator: cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderReleaseApplicationServiceImpl#apply
+  domain: MES
+  subjectType: PRODUCTION_RELEASE_APPLICATION
+  actionType: UPDATE
+  reasonPolicy: SYSTEM_WITH_OPTIONAL_TEXT
+  signaturePolicy: NONE
+  statePolicy: PRESENT_TO_PRESENT
+  snapshotProfile: APPLICATION
+  retentionClass: GXP_MES_RELEASE
+  testIds:
+    - MesTeamLeaderActiveOrderReleaseApplicationBindingTransactionTest#existingBindingPersistsTruthfulBeforeAfterAudit
+    - MesTeamLeaderActiveOrderReleaseApplicationBindingTransactionTest#auditFailureRollsBackBindingAndVersionInDatabase
+    - MesTeamLeaderActiveOrderReleaseApplicationBindingTransactionTest#alreadyBoundReplayDoesNotWriteAgain
+  ownerRole: mes-owner
+  applicability: GXP
+additionalSourceLocators:
+  - cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderReleaseApplicationServiceImpl#applyGenerated

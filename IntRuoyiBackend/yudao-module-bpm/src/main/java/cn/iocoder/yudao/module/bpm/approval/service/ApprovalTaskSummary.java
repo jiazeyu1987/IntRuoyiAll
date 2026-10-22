@@ -72,9 +72,27 @@ public class ApprovalTaskSummary {
 
     private LocalDateTime taskCompletedAt;
 
+    /** Persisted business-task completer; independent of an approval decision actor. */
+    private Long taskCompletedByUserId;
+
+    /** Whether the current view lacks its formal primary sort timestamp. */
+    private Boolean sortTimeMissing;
+
     private ApprovalTaskReviewResult approvalResult;
 
     private String approvalRemark;
+
+    /** Completion and persisted decision are separate facts; absent evidence stays unknown. */
+    private String taskOutcome;
+    private String sourceStatus;
+    private String decisionState;
+    private String decisionSourceStatus;
+    private String sourceRemark;
+    private String terminationReason;
+    private Long decisionActorUserId;
+    private LocalDateTime decisionAt;
+    private String evidenceType;
+    private String evidenceId;
 
     private Boolean requiresSignature;
 

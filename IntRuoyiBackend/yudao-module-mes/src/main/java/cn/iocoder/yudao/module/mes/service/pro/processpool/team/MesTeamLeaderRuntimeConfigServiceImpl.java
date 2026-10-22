@@ -21,7 +21,9 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteProcessMapper;
 import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
 import cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.annotation.Validated;
 
 import java.math.BigDecimal;
@@ -42,12 +44,15 @@ import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_P
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_TEAM_EMPLOYEE_PROFILE_NOT_EXISTS;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_TEAM_EMPLOYEE_DISPLAY_NAME_DUPLICATE;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_TEAM_FORMAL_EMPLOYEE_DUPLICATE;
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_TEAM_FORMAL_EMPLOYEE_OWNER_CONFLICT;
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_TEAM_FORMAL_EMPLOYEE_OWNER_CHANGED;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_TEAM_FORMAL_SIGNATURE_PASSWORD_MANAGED_BY_USER;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_TEAM_SCOPE_REQUIRED;
 
 @Service
 @Validated
 public class MesTeamLeaderRuntimeConfigServiceImpl implements MesTeamLeaderRuntimeConfigService {
+    @jakarta.annotation.Resource private cn.iocoder.yudao.module.system.api.permission.ApprovalAuthorityApi qualificationAuthority;
 
     static final String DEVICE_STATUS_ENABLED = "ENABLED";
     static final String DEVICE_STATUS_REPAIRING = "REPAIRING";
@@ -127,11 +132,13 @@ public class MesTeamLeaderRuntimeConfigServiceImpl implements MesTeamLeaderRunti
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public Long createTemporaryEmployee(MesTeamTemporaryEmployeeCreateReqBO reqBO) {
         if (reqBO == null || reqBO.getLeaderUserId() == null || isBlank(reqBO.getDisplayName())
                 || isBlank(reqBO.getSignaturePassword())) {
             throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "temporaryEmployee");
         }
+        requireStrongSignatureCredential(reqBO.getSignaturePassword());
         String displayName = reqBO.getDisplayName().trim();
         assertDisplayNameAvailable(reqBO.getLeaderUserId(), displayName, null);
         MesProcessPoolTeamEmployeeProfileDO profile = MesProcessPoolTeamEmployeeProfileDO.builder()
@@ -142,10 +149,15 @@ public class MesTeamLeaderRuntimeConfigServiceImpl implements MesTeamLeaderRunti
                 .employeeType("TEMPORARY")
                 .signaturePasswordHash(passwordEncoder.encode(reqBO.getSignaturePassword()))
                 .signaturePasswordUpdatedAt(LocalDateTime.now())
+                .signatureCredentialStatus("INITIAL")
                 .enabled(Boolean.TRUE)
                 .build();
-        employeeProfileMapper.insert(profile);
+        if(employeeProfileMapper.insert(profile)!=1) throw new IllegalStateException("SIGNATURE_PROFILE_CREATE_FAILED");
+        profile=employeeProfileMapper.selectSignatureIdentityForUpdate(cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId(),profile.getId());
+        if(profile==null || profile.getSignatureCredentialVersion()==null || profile.getSignatureCredentialGeneration()==null) throw new IllegalStateException("SIGNATURE_CREDENTIAL_METADATA_MISSING");
+        var authorityRevision=qualificationAuthority.lockTenantApprovalAuthority(profile.getTenantId());
         syncProductionEmployeeScope(profile);
+        qualificationAuthority.incrementLockedAuthorityRevision(authorityRevision.tenantId(),authorityRevision.revision());
         TeamMaintenanceAuditSupport.insertAudit(auditMapper, reqBO.getLeaderUserId(), reqBO.getLeaderUserId(),
                 "CREATE_TEMPORARY_EMPLOYEE", "TEAM_EMPLOYEE_PROFILE", profile.getId(), "SUCCESS",
                 "新增临时工：" + displayName, null, profile.toString());
@@ -153,12 +165,16 @@ public class MesTeamLeaderRuntimeConfigServiceImpl implements MesTeamLeaderRunti
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public Long linkFormalEmployee(MesTeamFormalEmployeeLinkReqBO reqBO) {
         if (reqBO == null || reqBO.getLeaderUserId() == null || reqBO.getSystemUserId() == null) {
             throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "formalEmployee");
         }
+        adminUserApi.lockSignatureIdentity(reqBO.getSystemUserId());
+        var authorityRevision = qualificationAuthority.lockTenantApprovalAuthority(cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId());
         AdminUserRespDTO user = requireFormalUser(reqBO.getSystemUserId());
         assertFormalUserNotLinked(reqBO.getLeaderUserId(), reqBO.getSystemUserId());
+        assertEnabledFormalOwnerAvailable(reqBO.getSystemUserId(), null);
         String displayName = normalizeText(reqBO.getDisplayName());
         if (displayName == null) {
             displayName = resolveUserDisplayName(user);
@@ -176,8 +192,9 @@ public class MesTeamLeaderRuntimeConfigServiceImpl implements MesTeamLeaderRunti
                 .employeeType("FORMAL")
                 .enabled(Boolean.TRUE)
                 .build();
-        employeeProfileMapper.insert(profile);
+        insertEmployeeProfileWithOwnerGuard(profile);
         syncProductionEmployeeScope(profile);
+        qualificationAuthority.incrementLockedAuthorityRevision(authorityRevision.tenantId(), authorityRevision.revision());
         TeamMaintenanceAuditSupport.insertAudit(auditMapper, reqBO.getLeaderUserId(), reqBO.getLeaderUserId(),
                 "LINK_FORMAL_EMPLOYEE", "TEAM_EMPLOYEE_PROFILE", profile.getId(), "SUCCESS",
                 "关联正式工：" + displayName, null, profile.toString());
@@ -185,11 +202,15 @@ public class MesTeamLeaderRuntimeConfigServiceImpl implements MesTeamLeaderRunti
     }
 
     @Override
+    @org.springframework.transaction.annotation.Transactional(rollbackFor = Exception.class)
     public void renameEmployee(MesTeamEmployeeDisplayNameUpdateReqBO reqBO) {
         if (reqBO == null || reqBO.getLeaderUserId() == null || reqBO.getEmployeeProfileId() == null
                 || isBlank(reqBO.getDisplayName())) {
             throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "employeeDisplayName");
         }
+        var lockedIdentity = employeeProfileMapper.selectSignatureIdentityForUpdate(cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId(), reqBO.getEmployeeProfileId());
+        if (lockedIdentity == null) throw new IllegalStateException("SIGNATURE_PROFILE_IDENTITY_MISSING");
+        var authorityRevision = qualificationAuthority.lockTenantApprovalAuthority(lockedIdentity.getTenantId());
         MesProcessPoolTeamEmployeeProfileDO profile = requireEmployeeProfile(reqBO.getLeaderUserId(),
                 reqBO.getEmployeeProfileId());
         String displayName = reqBO.getDisplayName().trim();
@@ -199,36 +220,52 @@ public class MesTeamLeaderRuntimeConfigServiceImpl implements MesTeamLeaderRunti
                 .displayName(displayName)
                 .employeeName(displayName)
                 .build();
-        employeeProfileMapper.updateById(update);
+        if (employeeProfileMapper.updateById(update) != 1) throw new IllegalStateException("SIGNATURE_PROFILE_RENAME_WRITE_FAILED");
+        qualificationAuthority.incrementLockedAuthorityRevision(authorityRevision.tenantId(), authorityRevision.revision());
         TeamMaintenanceAuditSupport.insertAudit(auditMapper, reqBO.getLeaderUserId(), reqBO.getLeaderUserId(),
                 "RENAME_EMPLOYEE", "TEAM_EMPLOYEE_PROFILE", profile.getId(), "SUCCESS",
                 "修改生产人员显示名：" + displayName, profile.toString(), update.toString());
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void updateEmployeeEnabled(MesTeamEmployeeStatusUpdateReqBO reqBO) {
         if (reqBO == null || reqBO.getLeaderUserId() == null || reqBO.getEmployeeProfileId() == null
                 || reqBO.getEnabled() == null) {
             throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "employeeStatus");
         }
+        var lockedIdentity = employeeProfileMapper.selectSignatureIdentityForUpdate(cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId(), reqBO.getEmployeeProfileId());
+        if (lockedIdentity == null) throw new IllegalStateException("SIGNATURE_PROFILE_IDENTITY_MISSING");
+        var authorityRevision = qualificationAuthority.lockTenantApprovalAuthority(lockedIdentity.getTenantId());
         MesProcessPoolTeamEmployeeProfileDO profile = requireEmployeeProfile(reqBO.getLeaderUserId(),
                 reqBO.getEmployeeProfileId());
         boolean enabled = Boolean.TRUE.equals(reqBO.getEnabled());
+        if (enabled) {
+            assertEnabledFormalOwnerAvailable(profile.getSystemUserId(), profile.getId());
+        }
         MesProcessPoolTeamEmployeeProfileDO update = MesProcessPoolTeamEmployeeProfileDO.builder()
                 .id(profile.getId())
                 .enabled(enabled)
                 .disabledAt(enabled ? null : LocalDateTime.now())
                 .build();
-        employeeProfileMapper.updateById(update);
+        try {
+            if (employeeProfileMapper.updateById(update) != 1) {
+                throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "employeeProfileStatusWrite");
+            }
+        } catch (DuplicateKeyException error) {
+            throw translateEnabledOwnerConflict(error, profile.getSystemUserId());
+        }
         syncProductionEmployeeScopeEnabled(profile, enabled);
         String actionType = enabled ? "ENABLE_EMPLOYEE" : "DISABLE_EMPLOYEE";
         String actionName = enabled ? "启用生产人员：" : "禁用生产人员：";
+        qualificationAuthority.incrementLockedAuthorityRevision(authorityRevision.tenantId(), authorityRevision.revision());
         TeamMaintenanceAuditSupport.insertAudit(auditMapper, reqBO.getLeaderUserId(), reqBO.getLeaderUserId(),
                 actionType, "TEAM_EMPLOYEE_PROFILE", profile.getId(), "SUCCESS",
                 actionName + resolveProfileDisplayName(profile), profile.toString(), update.toString());
     }
 
     @Override
+    @org.springframework.transaction.annotation.Transactional(rollbackFor = Exception.class)
     public void resetTemporaryEmployeeSignaturePassword(MesTeamTempSignaturePasswordResetReqBO reqBO) {
         if (reqBO == null || reqBO.getLeaderUserId() == null || reqBO.getEmployeeProfileId() == null
                 || isBlank(reqBO.getSignaturePassword())) {
@@ -240,15 +277,23 @@ public class MesTeamLeaderRuntimeConfigServiceImpl implements MesTeamLeaderRunti
             throw exception(PRO_PROCESS_POOL_TEAM_FORMAL_SIGNATURE_PASSWORD_MANAGED_BY_USER,
                     resolveProfileDisplayName(profile));
         }
+        requireStrongSignatureCredential(reqBO.getSignaturePassword());
+        profile = employeeProfileMapper.selectSignatureIdentityForUpdate(cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId(), profile.getId());
+        if(profile == null || !Objects.equals(profile.getLeaderUserId(), reqBO.getLeaderUserId())) throw new IllegalStateException("SIGNATURE_PROFILE_OWNER_CHANGED");
+        if(passwordEncoder.matches(reqBO.getSignaturePassword(), profile.getSignaturePasswordHash()) || employeeProfileMapper.selectSignaturePasswordHistory(profile.getTenantId(),profile.getId()).stream().anyMatch(hash -> passwordEncoder.matches(reqBO.getSignaturePassword(),hash))) throw new IllegalArgumentException("SIGNATURE_PASSWORD_HISTORY_REUSED");
+        if(employeeProfileMapper.insertSignaturePasswordHistory(profile.getTenantId(),profile.getId(),profile.getSignaturePasswordHash(),LocalDateTime.now())!=1) throw new IllegalStateException("SIGNATURE_PASSWORD_HISTORY_WRITE_FAILED");
         MesProcessPoolTeamEmployeeProfileDO update = MesProcessPoolTeamEmployeeProfileDO.builder()
                 .id(profile.getId())
+                .signatureCredentialStatus("RESET_REQUIRED")
                 .signaturePasswordHash(passwordEncoder.encode(reqBO.getSignaturePassword()))
                 .signaturePasswordUpdatedAt(LocalDateTime.now())
                 .build();
-        employeeProfileMapper.updateById(update);
+        if(employeeProfileMapper.updateById(update)!=1 || employeeProfileMapper.writeSignatureFailures(profile.getTenantId(),profile.getId(),0,null,null)!=1) throw new IllegalStateException("SIGNATURE_CREDENTIAL_RESET_FAILED");
+        var stored=employeeProfileMapper.selectSignatureIdentityForUpdate(profile.getTenantId(),profile.getId());
+        if(stored==null || !"RESET_REQUIRED".equals(stored.getSignatureCredentialStatus()) || stored.getSignatureCredentialVersion()==null || stored.getSignatureCredentialVersion()<=profile.getSignatureCredentialVersion()) throw new IllegalStateException("SIGNATURE_CREDENTIAL_RESET_READBACK_FAILED");
         TeamMaintenanceAuditSupport.insertAudit(auditMapper, reqBO.getLeaderUserId(), reqBO.getLeaderUserId(),
                 "RESET_TEMP_SIGNATURE_PASSWORD", "TEAM_EMPLOYEE_PROFILE", profile.getId(), "SUCCESS",
-                "重置临时工签名密码：" + resolveProfileDisplayName(profile), profile.toString(), update.toString());
+                "重置临时工签名密码：" + resolveProfileDisplayName(profile), profile.toString(), stored.toString());
     }
 
     @Override
@@ -265,11 +310,15 @@ public class MesTeamLeaderRuntimeConfigServiceImpl implements MesTeamLeaderRunti
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public Long createEmployee(MesTeamEmployeeProfileSaveReqBO reqBO) {
         if (reqBO == null || reqBO.getLeaderUserId() == null || isBlank(reqBO.getEmployeeCode())
                 || isBlank(reqBO.getEmployeeName()) || isBlank(reqBO.getEmployeeType())) {
             throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "employeeProfile");
         }
+        if (reqBO.getSystemUserId() != null) adminUserApi.lockSignatureIdentity(reqBO.getSystemUserId());
+        var authorityRevision = qualificationAuthority.lockTenantApprovalAuthority(cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId());
+        assertEnabledFormalOwnerAvailable(reqBO.getSystemUserId(), null);
         MesProcessPoolTeamEmployeeProfileDO profile = MesProcessPoolTeamEmployeeProfileDO.builder()
                 .leaderUserId(reqBO.getLeaderUserId())
                 .systemUserId(reqBO.getSystemUserId())
@@ -279,8 +328,9 @@ public class MesTeamLeaderRuntimeConfigServiceImpl implements MesTeamLeaderRunti
                 .employeeType(reqBO.getEmployeeType())
                 .enabled(Boolean.TRUE)
                 .build();
-        employeeProfileMapper.insert(profile);
+        insertEmployeeProfileWithOwnerGuard(profile);
         syncProductionEmployeeScope(profile);
+        qualificationAuthority.incrementLockedAuthorityRevision(authorityRevision.tenantId(), authorityRevision.revision());
         TeamMaintenanceAuditSupport.insertAudit(auditMapper, reqBO.getLeaderUserId(), "CREATE_EMPLOYEE_PROFILE",
                 "TEAM_EMPLOYEE_PROFILE", profile.getId(), null, profile.toString());
         return profile.getId();
@@ -538,6 +588,7 @@ public class MesTeamLeaderRuntimeConfigServiceImpl implements MesTeamLeaderRunti
         }
     }
 
+    private static void requireStrongSignatureCredential(String credential) { if(!cn.iocoder.yudao.module.system.service.signature.SignatureCredentialPolicy.isStrong(credential)) throw new IllegalArgumentException("SIGNATURE_PASSWORD_TOO_WEAK"); }
     private MesProcessPoolTeamEmployeeProfileDO requireEmployeeProfile(Long leaderUserId, Long employeeProfileId) {
         MesProcessPoolTeamEmployeeProfileDO profile = employeeProfileMapper.selectById(employeeProfileId);
         if (profile == null || !Objects.equals(profile.getLeaderUserId(), leaderUserId)) {
@@ -553,6 +604,42 @@ public class MesTeamLeaderRuntimeConfigServiceImpl implements MesTeamLeaderRunti
             throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "formalEmployeeUser");
         }
         return user;
+    }
+
+    private void assertEnabledFormalOwnerAvailable(Long systemUserId, Long excludedProfileId) {
+        if (systemUserId == null) {
+            return;
+        }
+        List<MesProcessPoolTeamEmployeeProfileDO> owners = employeeProfileMapper.selectList(
+                new LambdaQueryWrapperX<MesProcessPoolTeamEmployeeProfileDO>()
+                        .eq(MesProcessPoolTeamEmployeeProfileDO::getSystemUserId, systemUserId)
+                        .eq(MesProcessPoolTeamEmployeeProfileDO::getEnabled, Boolean.TRUE));
+        for (MesProcessPoolTeamEmployeeProfileDO owner : owners) {
+            if (!Objects.equals(owner.getId(), excludedProfileId)) {
+                throw exception(PRO_PROCESS_POOL_TEAM_FORMAL_EMPLOYEE_OWNER_CONFLICT,
+                        systemUserId, owner.getLeaderUserId());
+            }
+        }
+    }
+
+    private void insertEmployeeProfileWithOwnerGuard(MesProcessPoolTeamEmployeeProfileDO profile) {
+        try {
+            if (employeeProfileMapper.insert(profile) != 1 || profile.getId() == null) {
+                throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "employeeProfileInsert");
+            }
+        } catch (DuplicateKeyException error) {
+            throw translateEnabledOwnerConflict(error, profile.getSystemUserId());
+        }
+    }
+
+    private RuntimeException translateEnabledOwnerConflict(DuplicateKeyException error, Long systemUserId) {
+        for (Throwable cause = error; cause != null; cause = cause.getCause()) {
+            if (cause.getMessage() != null && cause.getMessage().toLowerCase(java.util.Locale.ROOT)
+                    .contains("uk_mes_pp_employee_enabled_user")) {
+                return exception(PRO_PROCESS_POOL_TEAM_FORMAL_EMPLOYEE_OWNER_CHANGED, systemUserId);
+            }
+        }
+        return error;
     }
 
     private void assertFormalUserNotLinked(Long leaderUserId, Long systemUserId) {

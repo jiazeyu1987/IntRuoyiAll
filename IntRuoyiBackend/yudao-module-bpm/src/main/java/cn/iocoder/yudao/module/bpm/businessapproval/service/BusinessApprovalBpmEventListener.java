@@ -66,11 +66,14 @@ public class BusinessApprovalBpmEventListener implements ApplicationListener<Bpm
     }
 
     private void validateEventMatchesRequest(BpmProcessInstanceStatusEvent event, BusinessApprovalRequest request) {
-        if (request.getProcessDefinitionKey() != null
-                && !request.getProcessDefinitionKey().isBlank()
-                && !Objects.equals(request.getProcessDefinitionKey(), event.getProcessDefinitionKey())) {
+        if (request.getRequestId() == null || request.getRequestId() <= 0
+                || !Objects.equals(BUSINESS_KEY_PREFIX + request.getRequestId(), event.getBusinessKey())
+                || request.getProcessInstanceId() == null || request.getProcessInstanceId().isBlank()
+                || !Objects.equals(request.getProcessInstanceId(), event.getId())
+                || request.getProcessDefinitionKey() == null || request.getProcessDefinitionKey().isBlank()
+                || !Objects.equals(request.getProcessDefinitionKey(), event.getProcessDefinitionKey())) {
             throw new BusinessApprovalException(BusinessApprovalErrorCode.BUSINESS_APPROVAL_EVENT_MISMATCH,
-                    "BPM process definition key mismatched for approval request " + request.getRequestId());
+                    "BPM event request/process/definition identity mismatched for approval request " + request.getRequestId());
         }
     }
 

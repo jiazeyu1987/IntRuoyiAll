@@ -6,6 +6,7 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProces
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Select;
 import org.apache.ibatis.annotations.Update;
 
 import java.time.LocalDateTime;
@@ -15,6 +16,14 @@ import java.util.Objects;
 
 @Mapper
 public interface MesProcessPoolActiveOrderMapper extends BaseMapperX<MesProcessPoolActiveOrderDO> {
+    @Update("UPDATE mes_pro_process_pool_active_order SET dossier_revision=dossier_revision+1 WHERE id=#{id} AND dossier_revision=#{revision} AND deleted=0")
+    int advanceDossierRevision(@Param("id") Long id, @Param("revision") Long revision);
+
+
+    @Update("UPDATE mes_pro_process_pool_active_order SET active_status = 'REMOVED', business_status = 'CANCELED', "
+            + "removed_at = #{at}, version = version + 1 WHERE id = #{id} AND version = #{version} "
+            + "AND active_status = 'ACTIVE' AND business_status = 'ACTIVE' AND deleted = 0")
+    int cancelActiveCycle(@Param("id") Long id, @Param("version") Integer version, @Param("at") LocalDateTime at);
 
     @Update("UPDATE mes_pro_process_pool_active_order " +
             "SET simulated = #{simulated}, simulation_stage = #{simulationStage}, " +
@@ -32,6 +41,15 @@ public interface MesProcessPoolActiveOrderMapper extends BaseMapperX<MesProcessP
                 .orderByAsc(MesProcessPoolActiveOrderDO::getSortOrder)
                 .orderByAsc(MesProcessPoolActiveOrderDO::getJoinedAt)
                 .orderByAsc(MesProcessPoolActiveOrderDO::getId));
+    }
+
+    default List<MesProcessPoolActiveOrderDO> selectVoidedVersionUpgradedListByLeader(Long leaderUserId) {
+        return selectList(new LambdaQueryWrapperX<MesProcessPoolActiveOrderDO>()
+                .eq(MesProcessPoolActiveOrderDO::getLeaderUserId, leaderUserId)
+                .eq(MesProcessPoolActiveOrderDO::getActiveStatus, "REMOVED")
+                .eq(MesProcessPoolActiveOrderDO::getBusinessStatus, "VERSION_UPGRADED")
+                .orderByDesc(MesProcessPoolActiveOrderDO::getRemovedAt)
+                .orderByDesc(MesProcessPoolActiveOrderDO::getId));
     }
 
     default List<MesProcessPoolActiveOrderDO> selectActiveListByLeaderForUpdate(Long leaderUserId) {
@@ -82,6 +100,33 @@ public interface MesProcessPoolActiveOrderMapper extends BaseMapperX<MesProcessP
                 .last("FOR UPDATE"));
     }
 
+    @Update("""
+            UPDATE mes_pro_process_pool_active_order
+            SET udi_control_document_no = #{udiControlDocumentNo},
+                updater = CAST(#{actorUserId} AS CHAR),
+                update_time = NOW(),
+                version = version + 1
+            WHERE id = #{activeOrderId}
+              AND deleted = b'0'
+              AND version = #{expectedVersion}
+              AND udi_control_document_no IS NULL
+            """)
+    int writeUdiControlDocumentNo(@Param("activeOrderId") Long activeOrderId,
+                                  @Param("expectedVersion") Integer expectedVersion,
+                                  @Param("udiControlDocumentNo") String udiControlDocumentNo,
+                                  @Param("actorUserId") Long actorUserId);
+
+    @Select("SELECT * FROM mes_pro_process_pool_active_order WHERE id = #{activeOrderId} LIMIT 1")
+    MesProcessPoolActiveOrderDO selectByIdIgnoreDeleted(@Param("activeOrderId") Long activeOrderId);
+
+    @Update("UPDATE mes_pro_process_pool_active_order " +
+            "SET udi_control_document_no = #{udiControlDocumentNo}, " +
+            "updater = CAST(#{actorUserId} AS CHAR), update_time = NOW(), version = version + 1 " +
+            "WHERE id = #{activeOrderId} AND deleted = 0")
+    int updateUdiControlDocumentNo(@Param("activeOrderId") Long activeOrderId,
+                                   @Param("udiControlDocumentNo") String udiControlDocumentNo,
+                                   @Param("actorUserId") Long actorUserId);
+
     default int markCompleted(Long activeOrderId, Integer expectedVersion, Long leaderUserId) {
         if (activeOrderId == null || expectedVersion == null || leaderUserId == null) {
             return 0;
@@ -94,6 +139,31 @@ public interface MesProcessPoolActiveOrderMapper extends BaseMapperX<MesProcessP
                 .set(MesProcessPoolActiveOrderDO::getUpdateTime, LocalDateTime.now())
                 .set(MesProcessPoolActiveOrderDO::getUpdater, leaderUserId.toString())
                 .setSql("version = version + 1"));
+    }
+
+    default MesProcessPoolActiveOrderDO selectByReworkReviewId(Long reviewId) {
+        return selectOne(new LambdaQueryWrapperX<MesProcessPoolActiveOrderDO>()
+                .eq(MesProcessPoolActiveOrderDO::getReworkReviewId, reviewId));
+    }
+
+    default int retireForRework(Long id, Integer version, LocalDateTime at) {
+        return update(null, new LambdaUpdateWrapper<MesProcessPoolActiveOrderDO>()
+                .eq(MesProcessPoolActiveOrderDO::getId, id)
+                .eq(MesProcessPoolActiveOrderDO::getVersion, version)
+                .in(MesProcessPoolActiveOrderDO::getActiveStatus, "ACTIVE", "CLOSED")
+                .in(MesProcessPoolActiveOrderDO::getBusinessStatus, "ACTIVE", "COMPLETED", "RELEASED")
+                .set(MesProcessPoolActiveOrderDO::getActiveStatus, "REMOVED")
+                .set(MesProcessPoolActiveOrderDO::getBusinessStatus, "REWORKED")
+                .set(MesProcessPoolActiveOrderDO::getRemovedAt, at)
+                .setSql("version = version + 1"));
+    }
+
+    /** Serialize ERP identity changes with completion, including completed/reworked/archived histories. */
+    default List<MesProcessPoolActiveOrderDO> selectAllByWorkOrderIdForUpdate(Long workOrderId) {
+        return selectList(new LambdaQueryWrapperX<MesProcessPoolActiveOrderDO>()
+                .eq(MesProcessPoolActiveOrderDO::getWorkOrderId, workOrderId)
+                .orderByAsc(MesProcessPoolActiveOrderDO::getId)
+                .last("FOR UPDATE"));
     }
 
     default List<MesProcessPoolActiveOrderDO> selectListByWorkOrderIdForUpdate(Long workOrderId) {

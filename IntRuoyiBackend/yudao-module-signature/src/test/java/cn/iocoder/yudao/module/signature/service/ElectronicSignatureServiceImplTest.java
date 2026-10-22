@@ -25,9 +25,12 @@ import cn.iocoder.yudao.module.signature.dal.mysql.ElectronicSignatureRecordMapp
 import cn.iocoder.yudao.module.signature.dal.mysql.ElectronicSignatureSealMapper;
 import cn.iocoder.yudao.module.signature.dal.mysql.ElectronicSignatureTimeEvidenceMapper;
 import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
+import cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO;
 import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditAppendResult;
 import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditCommand;
 import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService;
+import cn.iocoder.yudao.module.system.service.gxpaudit.SignatureCreationVerificationService;
+import cn.iocoder.yudao.module.system.dal.mysql.gxpaudit.GxpAuditEventMapper;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.MockedStatic;
@@ -47,6 +50,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 @Import({ElectronicSignatureServiceImpl.class, ElectronicSignatureQueryServiceImpl.class,
+        SignatureCreationVerificationService.class,
         ElectronicSignatureComplianceReviewService.class, ElectronicSignatureTrustedTimeService.class, ElectronicSignatureSealService.class, ElectronicSignaturePrivilegedAuditService.class, ElectronicSignatureArchiveRecoveryService.class, ElectronicSignatureServiceImplTest.TestAdapterConfiguration.class})
 public class ElectronicSignatureServiceImplTest extends BaseDbUnitTest {
 
@@ -80,6 +84,62 @@ public class ElectronicSignatureServiceImplTest extends BaseDbUnitTest {
     private AdminUserApi adminUserApi;
     @MockitoBean
     private GxpAuditService gxpAuditService;
+    // The writer's mocked append does not create an audit fact. These query checks must report INCOMPLETE.
+    @MockitoBean
+    private GxpAuditEventMapper auditEventMapper;
+
+    @org.junit.jupiter.api.BeforeEach
+    void noCreationFactWasPersistedByTheMockedAppend() {
+        when(auditEventMapper.selectSignatureCreationEvents(anyLong(), anyString())).thenReturn(java.util.List.of());
+    }
+
+    @Test
+    void selectedSignerAuthenticatesOwnPasswordAndRetainsLoginOperator() {
+        var identity = new cn.iocoder.yudao.module.signature.api.dto.AuthorizedSignatureIdentity("SYSTEM_USER", 202L, "员工B");
+        try (var security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(101L);
+            var result = signatureService.signAuthorized(buildCommand("selected-202", "V1", "production"), identity, null);
+            verify(adminUserApi).reauthenticateForSignature(202L, "Signer@2026");
+            verify(adminUserApi, never()).reauthenticateForSignature(eq(101L), anyString());
+            var evidence = signatureQueryService.getById(result.signatureId());
+            assertEquals(202L, evidence.actorId());
+            var persisted = com.alibaba.fastjson.JSON.parseObject(evidence.canonicalContentJson()).getJSONObject("signatureIdentity");
+            assertEquals(101L, persisted.getLong("operatorId"));
+            assertEquals("SYSTEM_USER", persisted.getString("domain"));
+            assertEquals("INCOMPLETE", signatureQueryService.verifyEvidence(result.signatureId()).verificationStatus());
+            assertEquals(result.signatureId(), signatureService.signAuthorized(buildCommand("selected-202", "V1", "production"), identity, null).signatureId());
+        }
+    }
+
+    @Test
+    void profileIdentityUsesOwnCredentialDomainAndVerifiesPersistedEvidence() {
+        try (var security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(101L);
+            var profile = new cn.iocoder.yudao.module.signature.api.dto.AuthorizedSignatureIdentity("MES_EMPLOYEE_PROFILE", 202L, "临时工");
+            var authenticate = mock(Runnable.class);
+            var result = signatureService.signAuthorized(buildCommand("profile-202", "V1", "production"), profile, authenticate);
+            verify(authenticate).run();
+            verifyNoInteractions(adminUserApi);
+            assertEquals("临时工", signatureQueryService.getById(result.signatureId()).actorDisplayName());
+            assertEquals("INCOMPLETE", signatureQueryService.verifyEvidence(result.signatureId()).verificationStatus());
+            var system = new cn.iocoder.yudao.module.signature.api.dto.AuthorizedSignatureIdentity("SYSTEM_USER", 202L, "系统员工");
+            assertServiceException(() -> signatureService.signAuthorized(buildCommand("profile-202", "V1", "production"), system, null), ESIGN_DUPLICATE_IDEMPOTENCY_KEY);
+        }
+    }
+
+    @Test
+    void selectedSignerWrongCredentialAndProfileAuthenticationFailureLeaveNoRecord() {
+        try (var security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(101L);
+            doThrow(new IllegalArgumentException("wrong password")).when(adminUserApi).reauthenticateForSignature(202L, "Signer@2026");
+            var system = new cn.iocoder.yudao.module.signature.api.dto.AuthorizedSignatureIdentity("SYSTEM_USER", 202L, "员工B");
+            assertThrows(IllegalArgumentException.class, () -> signatureService.signAuthorized(buildCommand("bad-202", "V1", "production"), system, null));
+            var profile = new cn.iocoder.yudao.module.signature.api.dto.AuthorizedSignatureIdentity("MES_EMPLOYEE_PROFILE", 202L, "临时工");
+            assertThrows(IllegalStateException.class, () -> signatureService.signAuthorized(buildCommand("bad-profile", "V1", "production"), profile, () -> { throw new IllegalStateException("profile forbidden"); }));
+            assertEquals(0L, signatureRecordMapper.selectCount(null));
+            verify(gxpAuditService, never()).append(any());
+        }
+    }
 
     @Test
     public void testSign_successBindsActorServerTimeAndContentHash() {
@@ -113,7 +173,8 @@ public class ElectronicSignatureServiceImplTest extends BaseDbUnitTest {
             assertEquals("TEST_RECORD:R001", auditCommand.getSubjectId());
             assertEquals("V1", auditCommand.getSubjectVersion());
             assertEquals("审批通过", auditCommand.getReason());
-            assertEquals("idem-001", auditCommand.getIdempotencyKey());
+            assertEquals("SIGNATURE:" + cn.hutool.crypto.digest.DigestUtil.sha256Hex("idem-001"),
+                    auditCommand.getIdempotencyKey());
             assertEquals(String.valueOf(result.signatureId()), auditCommand.getSignatureRecordId());
             assertEquals(result.contentHash(), auditCommand.getSignatureContentHash());
             assertEquals("NO_SIGNATURE_RECORD", auditCommand.getBeforeState().getState());
@@ -152,6 +213,33 @@ public class ElectronicSignatureServiceImplTest extends BaseDbUnitTest {
             assertEquals(first.signatureId(), second.signatureId());
             verify(adminUserApi, times(1)).reauthenticateForSignature(101L, "Signer@2026");
             assertEquals(1L, signatureRecordMapper.selectCount(null));
+        }
+    }
+
+    @Test
+    public void testSign_longBusinessKeyProducesBoundedDistinctAuditKeysAndReplays() {
+        String prefix = "MES|101|PQC_RELEASE|" + "x".repeat(110);
+        when(gxpAuditService.append(any())).thenAnswer(invocation -> {
+            GxpAuditCommand audit = invocation.getArgument(0);
+            assertTrue(audit.getIdempotencyKey().length() <= 96,
+                    "Signature audit key must satisfy the GxP V2 limit");
+            return new GxpAuditAppendResult(9001L, 1L, "a".repeat(64), false);
+        });
+        try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(101L);
+            ElectronicSignatureCommand firstCommand = buildCommand(prefix + "A", "V1", "审批通过");
+            ElectronicSignatureResult first = signatureService.sign(firstCommand);
+            assertEquals(first.signatureId(), signatureService.sign(firstCommand).signatureId());
+            signatureService.sign(buildCommand(prefix + "B", "V1", "审批通过"));
+            ArgumentCaptor<GxpAuditCommand> audits = ArgumentCaptor.forClass(GxpAuditCommand.class);
+            verify(gxpAuditService, times(2)).append(audits.capture());
+            assertEquals("SIGNATURE:" + cn.hutool.crypto.digest.DigestUtil.sha256Hex(prefix + "A"),
+                    audits.getAllValues().get(0).getIdempotencyKey());
+            assertEquals("SIGNATURE:" + cn.hutool.crypto.digest.DigestUtil.sha256Hex(prefix + "B"),
+                    audits.getAllValues().get(1).getIdempotencyKey());
+            assertNotEquals(audits.getAllValues().get(0).getIdempotencyKey(),
+                    audits.getAllValues().get(1).getIdempotencyKey());
+            assertEquals(prefix + "A", signatureRecordMapper.selectById(first.signatureId()).getIdempotencyKey());
         }
     }
 
@@ -196,6 +284,7 @@ public class ElectronicSignatureServiceImplTest extends BaseDbUnitTest {
     @Test
     public void testQueryEvidence_listsSubjectAndVerifiesStoredHashes() {
         ElectronicSignatureCommand command = buildCommand("idem-006", "V1", "审批通过");
+        when(adminUserApi.getUser(101L)).thenReturn(new AdminUserRespDTO().setId(101L).setNickname("张三"));
 
         try (MockedStatic<SecurityFrameworkUtils> mockedSecurity = mockStatic(SecurityFrameworkUtils.class)) {
             mockedSecurity.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(101L);
@@ -206,12 +295,49 @@ public class ElectronicSignatureServiceImplTest extends BaseDbUnitTest {
             ElectronicSignatureEvidenceDTO item = evidence.get(0);
             assertEquals(signed.signatureId(), item.id());
             assertEquals("APPROVE", item.actionCode());
+            assertNull(item.actorDisplayName());
+            assertEquals("MISSING", item.identitySnapshotStatus());
+            verify(adminUserApi, never()).getUser(101L);
             assertEquals("{\"name\":\"record\",\"version\":\"V1\"}", item.canonicalContentJson());
 
             ElectronicSignatureVerificationDTO verification = signatureQueryService.verifyEvidence(signed.signatureId());
-            assertEquals("VALID", verification.verificationStatus());
+            assertEquals("INCOMPLETE", verification.verificationStatus());
+            assertEquals("MISSING", verification.auditBindingStatus());
             assertEquals(verification.storedContentHash(), verification.calculatedContentHash());
             assertEquals(verification.storedEvidenceHash(), verification.calculatedEvidenceHash());
+        }
+    }
+
+    @Test
+    public void testQueryEvidence_acceptsDatabaseJsonFormattingWhenSemanticsMatch() {
+        ElectronicSignatureCommand command = buildCommand("idem-json-format", "V1", "审批通过");
+
+        try (MockedStatic<SecurityFrameworkUtils> mockedSecurity = mockStatic(SecurityFrameworkUtils.class)) {
+            mockedSecurity.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(101L);
+            ElectronicSignatureResult signed = signatureService.sign(command);
+            signatureRecordMapper.updateById(new ElectronicSignatureRecordDO()
+                    .setId(signed.signatureId())
+                    .setCanonicalContentJson("{\"version\": \"V1\", \"name\": \"record\"}"));
+
+            ElectronicSignatureVerificationDTO verification = signatureQueryService.verifyEvidence(signed.signatureId());
+            assertEquals("INCOMPLETE", verification.verificationStatus());
+            assertEquals(verification.storedContentHash(), verification.calculatedContentHash());
+            assertEquals(verification.storedEvidenceHash(), verification.calculatedEvidenceHash());
+        }
+    }
+
+    @Test
+    public void testSign_hashesJsonSemanticCanonicalForm() {
+        ElectronicSignatureCommand command = buildCommand("idem-json-canonical", "V1", "审批通过");
+
+        try (MockedStatic<SecurityFrameworkUtils> mockedSecurity = mockStatic(SecurityFrameworkUtils.class)) {
+            mockedSecurity.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(101L);
+
+            ElectronicSignatureResult result = signatureService.sign(command);
+
+            assertEquals(
+                    "3384dfd06702cb579f9488985d8fc899340d06626fc28f18a1cbf9acfe68ef2f",
+                    result.contentHash());
         }
     }
 
@@ -352,7 +478,7 @@ public class ElectronicSignatureServiceImplTest extends BaseDbUnitTest {
 
                 @Override
                 public SignatureSubjectSnapshot loadAndAuthorize(SignatureSubjectCommand command) {
-                    assertEquals(101L, command.actorId());
+                    assertTrue(Set.of(101L, 202L).contains(command.actorId()));
                     return new SignatureSubjectSnapshot("TEST_RECORD", command.subjectId(), "V1",
                             "{\"name\":\"record\",\"version\":\"V1\"}",
                             null, null, null, "PI001", "TASK001", "APPROVE_NODE", 1);

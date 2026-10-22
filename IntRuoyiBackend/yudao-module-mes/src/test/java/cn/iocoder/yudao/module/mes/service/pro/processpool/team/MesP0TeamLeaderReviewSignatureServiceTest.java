@@ -6,6 +6,7 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessP
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcInspectionPieceDetailDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcInspectionTaskDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolReportAllocationDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolSubmissionReviewDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamLeaderScopeDO;
@@ -16,12 +17,16 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolQu
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.pqc.MesPqcInspectionPieceDetailMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.pqc.MesPqcInspectionTaskMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolReportAllocationMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolSubmissionReviewMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesProWorkOrderMapper;
 import cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionSignatureService;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionFieldAuditHasher;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesTeamLeaderReviewSignatureContext;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.MesProcessPoolFifoAllocationService;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -38,6 +43,7 @@ import java.util.List;
 import java.util.stream.IntStream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
@@ -64,6 +70,8 @@ class MesP0TeamLeaderReviewSignatureServiceTest {
     @Mock
     private MesProProcessPoolEventMapper eventMapper;
     @Mock
+    private cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventRevisionMapper revisionMapper;
+    @Mock
     private MesProcessPoolSubmissionReviewMapper reviewMapper;
     @Mock
     private MesProcessPoolActiveOrderMapper activeOrderMapper;
@@ -71,6 +79,8 @@ class MesP0TeamLeaderReviewSignatureServiceTest {
     private MesProWorkOrderMapper workOrderMapper;
     @Mock
     private MesProcessPoolReportAllocationMapper allocationMapper;
+    @Mock
+    private MesProcessPoolActiveOrderProcessSnapshotMapper snapshotMapper;
     @Mock
     private MesProProcessPoolQuantityFragmentMapper quantityFragmentMapper;
     @Mock
@@ -93,26 +103,64 @@ class MesP0TeamLeaderReviewSignatureServiceTest {
     private MesProductionReportManagementSummaryService reportManagementSummaryService;
     @Mock
     private MesProBatchRecordExecutionSignatureService signatureService;
+    @Mock
+    private GxpAuditService gxpAuditService;
 
     private MesTeamLeaderSubmissionReviewService submissionReviewService;
     private MesTeamLeaderReportConfirmationService reportConfirmationService;
 
     @BeforeEach
     void setUp() {
+        org.mockito.Mockito.lenient().when(snapshotMapper.selectListByActiveOrderAndProcessForUpdate(
+                org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.anyLong()))
+                .thenAnswer(invocation -> List.of(MesProcessPoolActiveOrderProcessSnapshotDO.builder()
+                        .activeOrderId(invocation.getArgument(0)).routeProcessId(5001L)
+                        .processId(invocation.getArgument(1)).overagePercentSnapshot(BigDecimal.ZERO)
+                        .productionConfigSnapshotJson("{\"outputMaterialIds\":[]}").build()));
+        org.mockito.Mockito.lenient().when(snapshotMapper.selectByActiveOrderAndProcess(
+                org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.anyLong(),
+                org.mockito.ArgumentMatchers.anyLong())).thenAnswer(invocation ->
+                MesProcessPoolActiveOrderProcessSnapshotDO.builder()
+                        .activeOrderId(invocation.getArgument(0)).routeProcessId(invocation.getArgument(1))
+                        .processId(invocation.getArgument(2))
+                        .productionConfigSnapshotJson("{\"outputMaterialIds\":[]}").build());
         submissionReviewService = new MesTeamLeaderSubmissionReviewServiceImpl(scopeService, eventMapper, reviewMapper,
                 processInspectionAggregationService);
+        // Actual open freeze authority; persistence reads are boundaries for this signature/transaction fixture.
+        var openFreeze = new cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrNonconformanceReviewServiceImpl();
+        org.springframework.test.util.ReflectionTestUtils.setField(openFreeze,"reviewMapper",org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrNonconformanceReviewMapper.class));
+        var openOrders = org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesProWorkOrderMapper.class);
+        org.mockito.Mockito.lenient().when(openOrders.selectByIdForUpdate(org.mockito.ArgumentMatchers.anyLong())).thenAnswer(call ->
+                cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesProWorkOrderDO.builder().id(call.getArgument(0)).temporaryFrozen(false).build());
+        org.springframework.test.util.ReflectionTestUtils.setField(openFreeze,"workOrderMapper",openOrders);
+        org.springframework.test.util.ReflectionTestUtils.setField(submissionReviewService,"nonconformanceReviewService",openFreeze);
+        { org.springframework.test.util.ReflectionTestUtils.setField(submissionReviewService, "handoffService", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffService.class)); }
+        { org.springframework.test.util.ReflectionTestUtils.setField(submissionReviewService, "returnCorrectionResolver", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.handoff.MesSignedReturnCorrectionResolver.class)); }
         ReflectionTestUtils.setField(submissionReviewService, "signatureService", signatureService);
+        ReflectionTestUtils.setField(submissionReviewService, "revisionMapper", revisionMapper);
+        ReflectionTestUtils.setField(submissionReviewService, "gxpAuditService", gxpAuditService);
+        ReflectionTestUtils.setField(submissionReviewService, "affectedStateCollector",
+                org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.productionrelease.MesReleaseAffectedStateCollector.class));
+        ReflectionTestUtils.setField(submissionReviewService, "pqcTaskMapper", pqcTaskMapper);
+        lenient().when(pqcTaskMapper.selectById(5101L)).thenReturn(MesPqcInspectionTaskDO.builder()
+                .id(5101L).activeOrderId(8101L).build());
         MesTeamLeaderFifoAllocationService fifoAllocationService =
                 new MesTeamLeaderFifoAllocationService(activeOrderMapper, workOrderMapper, allocationMapper,
-                        orderProcessTargetService, abnormalStateService);
+                        orderProcessTargetService, abnormalStateService, eventMapper, snapshotMapper);
         reportConfirmationService = new MesTeamLeaderReportConfirmationServiceImpl(scopeService, eventMapper,
                 activeOrderMapper, workOrderMapper, reviewMapper, allocationMapper, quantityFragmentMapper,
                 pqcRecordMapper, fifoAllocationService, processPoolFifoAllocationService, pqcTaskMapper,
                 pqcPieceDetailMapper, orderProcessTargetService, orderProcessCompletionService,
                 abnormalStateService, reportManagementSummaryService);
         ReflectionTestUtils.setField(reportConfirmationService, "signatureService", signatureService);
-        lenient().when(signatureService.recordTeamLeaderReviewSignature(anyLong(), any(), any()))
+        ReflectionTestUtils.setField(reportConfirmationService, "snapshotMapper", snapshotMapper);
+        lenient().when(signatureService.recordTeamLeaderReviewSignature(anyLong(), any(), any(),
+                eq("PROCESS_POOL_EVENT"), eq(1001L), any()))
                 .thenReturn(REVIEW_SIGNATURE_ID);
+        lenient().when(signatureService.recordTeamLeaderReviewSignature(anyLong(), any(), any(), any(), any(), any()))
+                .thenReturn(REVIEW_SIGNATURE_ID);
+        lenient().when(signatureService.recordTeamLeaderReviewSignature(anyLong(), any(), any(),
+                any(MesTeamLeaderReviewSignatureContext.class))).thenReturn(REVIEW_SIGNATURE_ID);
     }
 
     @Test
@@ -129,6 +177,7 @@ class MesP0TeamLeaderReviewSignatureServiceTest {
     void reviewSubmissionShouldUseLeaderIdentityForServerSignature() {
         MesTeamLeaderSubmissionReviewReqBO reqBO = signedReviewReq();
         set(reqBO, "setLeaderType", String.class, MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PQC);
+        reqBO.setExpectedReviews(List.of(firstDisplayedPqcContext()));
         set(reqBO, "setReviewSignatureUserId", Long.class, 3999L);
         when(eventMapper.selectByIdForUpdate(EVENT_ID)).thenReturn(pqcReviewEvent());
         when(reviewMapper.insert(any(MesProcessPoolSubmissionReviewDO.class))).thenAnswer(invocation -> {
@@ -139,8 +188,19 @@ class MesP0TeamLeaderReviewSignatureServiceTest {
         Long reviewId = submissionReviewService.reviewSubmission(reqBO);
 
         assertEquals(7001L, reviewId);
+        ArgumentCaptor<MesTeamLeaderReviewSignatureContext> context =
+                ArgumentCaptor.forClass(MesTeamLeaderReviewSignatureContext.class);
         verify(signatureService).recordTeamLeaderReviewSignature(eq(LEADER_USER_ID),
-                eq(SIGNATURE_PASSWORD), any());
+                eq(SIGNATURE_PASSWORD), eq("组长复核:PQC:1001:APPROVED"), context.capture());
+        assertEquals(EVENT_ID, context.getValue().eventId());
+        assertEquals(MesProcessPoolSubmissionReviewDO.STATUS_APPROVED, context.getValue().reviewStatus());
+        assertEquals(MesProBatchRecordExecutionFieldAuditHasher.hashCellValues(pqcReviewEvent().getRawPayload()),
+                context.getValue().payloadHash());
+        assertNull(context.getValue().revisionId());
+        assertNull(context.getValue().revisionSignatureId());
+        assertNull(context.getValue().supersededReviewId());
+        verify(signatureService, never()).recordTeamLeaderReviewSignature(
+                anyLong(), any(), any(), any(), any(), any());
     }
 
     @Test
@@ -173,6 +233,7 @@ class MesP0TeamLeaderReviewSignatureServiceTest {
     void reviewSubmissionShouldPersistStructuredReviewSignature() {
         MesTeamLeaderSubmissionReviewReqBO reqBO = signedReviewReq();
         set(reqBO, "setLeaderType", String.class, MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PQC);
+        reqBO.setExpectedReviews(List.of(firstDisplayedPqcContext()));
         when(eventMapper.selectByIdForUpdate(EVENT_ID)).thenReturn(pqcReviewEvent());
         when(reviewMapper.insert(any(MesProcessPoolSubmissionReviewDO.class))).thenAnswer(invocation -> {
             invocation.getArgument(0, MesProcessPoolSubmissionReviewDO.class).setId(7001L);
@@ -191,6 +252,8 @@ class MesP0TeamLeaderReviewSignatureServiceTest {
         assertTrue(review.getReviewSignatureSnapshotJson().contains("\"signatureId\":" + REVIEW_SIGNATURE_ID));
         assertTrue(review.getReviewSignatureSnapshotJson().contains("\"actorId\":" + LEADER_USER_ID));
         assertTrue(review.getReviewSignatureSnapshotJson().contains("\"actionType\":\"TEAM_LEADER_REVIEW\""));
+        assertTrue(review.getReviewSignatureSnapshotJson().contains("\"payloadHash\":\""
+                + MesProBatchRecordExecutionFieldAuditHasher.hashCellValues(pqcReviewEvent().getRawPayload()) + "\""));
     }
 
     @Test
@@ -249,6 +312,7 @@ class MesP0TeamLeaderReviewSignatureServiceTest {
     @Test
     void confirmSubmissionShouldPersistReviewSignatureOnApprovalReview() {
         when(eventMapper.selectByIdForUpdate(EVENT_ID)).thenReturn(event("{\"outputQuantity\":80}"));
+        org.mockito.Mockito.lenient().when(eventMapper.selectById(EVENT_ID)).thenReturn(event("{\"outputQuantity\":80}"));
         when(allocationMapper.selectListByEventIdForUpdate(EVENT_ID)).thenReturn(List.of());
         when(pqcRecordMapper.selectListByProductionSubmitEventId(EVENT_ID)).thenReturn(List.of(
                 pqcRecord(MesProProcessPoolPqcRecordDO.INSPECTION_RESULT_SUCCESS)));
@@ -280,8 +344,22 @@ class MesP0TeamLeaderReviewSignatureServiceTest {
         assertTrue(review.getReviewSignatureSnapshotJson().contains("\"actorId\":" + LEADER_USER_ID));
         assertTrue(review.getReviewSignatureSnapshotJson().contains("\"actionType\":\"TEAM_LEADER_REVIEW\""));
         verify(allocationMapper).insertBatch(anyCollection());
-        verify(orderProcessCompletionService, never()).applyConfirmedAllocations(any(MesProProcessPoolEventDO.class),
-                anyCollection());
+        ArgumentCaptor<MesProProcessPoolEventDO> eventCaptor =
+                ArgumentCaptor.forClass(MesProProcessPoolEventDO.class);
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<Collection<MesProcessPoolReportAllocationDO>> allocationCaptor =
+                ArgumentCaptor.forClass(Collection.class);
+        verify(orderProcessCompletionService).applyConfirmedAllocations(eventCaptor.capture(),
+                allocationCaptor.capture());
+        assertEquals(1001L, eventCaptor.getValue().getId());
+        List<MesProcessPoolReportAllocationDO> confirmedAllocations = List.copyOf(allocationCaptor.getValue());
+        assertEquals(1, confirmedAllocations.size());
+        MesProcessPoolReportAllocationDO confirmedAllocation = confirmedAllocations.get(0);
+        assertEquals(1001L, confirmedAllocation.getEventId());
+        assertEquals(0, new BigDecimal("80").compareTo(confirmedAllocation.getAllocatedQuantity()));
+        assertEquals(8101L, confirmedAllocation.getActiveOrderId());
+        assertEquals(9001L, confirmedAllocation.getWorkOrderId());
+        assertEquals(7002L, confirmedAllocation.getReviewId());
     }
 
     private static MesTeamLeaderSubmissionReviewReqBO unsignedReviewReq() {
@@ -358,6 +436,12 @@ class MesP0TeamLeaderReviewSignatureServiceTest {
                 .build();
     }
 
+    private static MesSubmissionReviewExpectedContext firstDisplayedPqcContext() {
+        return new MesSubmissionReviewExpectedContext().setEventId(EVENT_ID)
+                .setPayloadHash(MesProBatchRecordExecutionFieldAuditHasher.sha256(pqcReviewEvent().getRawPayload()))
+                .setRevisionId(0L).setReviewId(0L).setReviewRound(0);
+    }
+
     private static MesProProcessPoolPqcRecordDO pqcRecord(String inspectionResult) {
         return MesProProcessPoolPqcRecordDO.builder()
                 .id(1201L)
@@ -412,6 +496,7 @@ class MesP0TeamLeaderReviewSignatureServiceTest {
                 .id(8101L)
                 .leaderUserId(LEADER_USER_ID)
                 .workOrderId(9001L)
+                .routeId(4001L)
                 .activeStatus("ACTIVE")
                 .joinedAt(LocalDateTime.of(2026, 8, 3, 8, 0))
                 .build();

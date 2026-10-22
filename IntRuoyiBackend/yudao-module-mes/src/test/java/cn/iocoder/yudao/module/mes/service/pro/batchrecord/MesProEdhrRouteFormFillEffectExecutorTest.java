@@ -35,6 +35,30 @@ class MesProEdhrRouteFormFillEffectExecutorTest extends BaseMockitoUnitTest {
     private MesProEdhrRouteFormFillEffectExecutor executor;
 
     @Test
+    void verifiedAutomaticEvidenceDoesNotWaitForAManualFillTodo() {
+        when(batchTaskMapper.selectByIdForUpdate(700L)).thenReturn(writableTask().setFormSlotType("PROCESS_INSPECTION"));
+        var instance = routeFormInstance();
+        instance.setExecutionContext(cn.iocoder.yudao.module.bpm.formcenter.model.FormActionExecutionContext
+                .verifiedBackfill(77L, MesProEdhrRouteFormFillEffectExecutor.EXECUTOR_CODE, "a".repeat(64)));
+        org.mockito.Mockito.lenient().when(workTaskService.completeRouteFormFillAndCreateNextFill(700L, 99L))
+                .thenThrow(new IllegalStateException("downstream manual fill task does not exist"));
+        var result = executor.execute(instance, "automatic-evidence");
+        assertTrue(result.isSuccess(), result.getFailureReason());
+        verify(workTaskService).completeVerifiedRouteFormBackfill(700L, 77L, "a".repeat(64));
+        verify(workTaskService, never()).completeRouteFormFillAndCreateNextFill(700L, 99L);
+    }
+
+    @Test
+    void manualCompletionUsesActualSubmitterRatherThanCreator() {
+        when(batchTaskMapper.selectByIdForUpdate(700L)).thenReturn(writableTask());
+        var instance = routeFormInstance();
+        instance.setExecutionContext(cn.iocoder.yudao.module.bpm.formcenter.model.FormActionExecutionContext.manual(77L));
+        var result = executor.execute(instance, "manual-submit");
+        assertTrue(result.isSuccess());
+        verify(workTaskService).completeRouteFormFillAndCreateNextFill(700L, 77L);
+    }
+
+    @Test
     void executeCompletesRouteFormWorkTaskAndAdvances() {
         MesProEdhrBatchExecutionTaskDO task = writableTask();
         when(batchTaskMapper.selectByIdForUpdate(700L)).thenReturn(task);
@@ -91,7 +115,9 @@ class MesProEdhrRouteFormFillEffectExecutorTest extends BaseMockitoUnitTest {
     }
 
     private FormActionInstance routeFormInstance() {
-        return instance("EDHR_ROUTE_FORM", "EDHR_RF_100_FB-DYNAMIC-1");
+        var instance = instance("EDHR_ROUTE_FORM", "EDHR_RF_100_FB-DYNAMIC-1");
+        instance.setExecutionContext(cn.iocoder.yudao.module.bpm.formcenter.model.FormActionExecutionContext.manual(99L));
+        return instance;
     }
 
     private FormActionInstance instance(String objectType, String actionCode) {

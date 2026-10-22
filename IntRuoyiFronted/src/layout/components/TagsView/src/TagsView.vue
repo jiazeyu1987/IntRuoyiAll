@@ -300,7 +300,8 @@ const loadApprovalTodoBadge = () => {
 }
 
 const reportProfileWorkbenchTodoBadgeError = (error: unknown) => {
-  console.error('个人工作台待处理数量加载失败', error)
+  const code = (error as { code?: unknown } | null)?.code
+  console.error('个人工作台待处理数量加载失败', Number.isSafeInteger(code) ? code : 'WORKBENCH_REQUEST_FAILED')
 }
 
 const loadProfileWorkbenchTodoBadge = () => {

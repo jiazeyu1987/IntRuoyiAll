@@ -41,9 +41,8 @@ class ErpKingdeePurchaseOrderClientImplTest {
                         containsString("FPurchaseOrgId.FNumber"),
                         containsString("FCreateDate"))))
                 .andRespond(withSuccess("""
-                        [[10001,"PO20260512001","2026-05-12T09:30:00","C","A","A","881","SUP-001","Supplier A","MAT-001","Material A",3.5,15.2,13,"Line remark"],
-                         [10001,"PO20260512001","2026-05-12T09:30:00","C","A","A","881","SUP-001","Supplier A","MAT-002","Material B",1,20,0,"Second line"]]
-                        """, MediaType.APPLICATION_JSON));
+[[10001, "PO20260512001", "2026-05-12T09:30:00", "C", "A", "A", "881", "SUP-001", "Supplier A", "MAT-001", "Material A", 3.5, 15.2, 13, "Line remark", "PCS", 6.92, 53.2, 60.12, 0, 0, 53.2, 6.92, 60.12, "100", "PCS", 3.5], [10001, "PO20260512001", "2026-05-12T09:30:00", "C", "A", "A", "881", "SUP-001", "Supplier A", "MAT-002", "Material B", 1, 20, 0, "Second line", "PCS", 6.92, 53.2, 60.12, 0, 0, 53.2, 6.92, 60.12, "101", "PCS", 1]]
+""", MediaType.APPLICATION_JSON));
 
         List<ErpKingdeePurchaseOrder> orders = client.fetchPurchaseOrders(properties);
 
@@ -101,8 +100,8 @@ class ErpKingdeePurchaseOrderClientImplTest {
                 .andExpect(content().string(containsString("FModifyDate+ASC")))
                 .andExpect(content().string(containsString("FPurchaseOrgId.FNumber+%3D+%27881%27")))
                 .andRespond(withSuccess("""
-                        [[10001,"PO20260512001","2026-05-12T09:30:00","C","B","A","881","SUP-001","Supplier A","MAT-001","Material A",3.5,15.2,13,"Line remark","2026-01-01 09:00:00"]]
-                        """, MediaType.APPLICATION_JSON));
+[[10001, "PO20260512001", "2026-05-12T09:30:00", "C", "B", "A", "881", "SUP-001", "Supplier A", "MAT-001", "Material A", 3.5, 15.2, 13, "Line remark", "PCS", 6.92, 53.2, 60.12, 0, 0, 53.2, 6.92, 60.12, "100", "PCS", 3.5, "2026-01-01 09:00:00"]]
+""", MediaType.APPLICATION_JSON));
 
         List<ErpKingdeePurchaseOrder> orders = client.fetchPurchaseOrdersModifiedBetween(properties,
                 LocalDateTime.of(2026, 1, 1, 8, 30, 0),
@@ -132,4 +131,48 @@ class ErpKingdeePurchaseOrderClientImplTest {
         return properties;
     }
 
+
+    @Test
+    void incrementalReadsAllPagesWhenConfiguredLimitFallsInsideOneDocument() {
+        RestTemplate rest = new RestTemplate();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(rest).build();
+        var properties = buildConfiguredProperties(); properties.getPurchaseOrder().setQueryLimit(1);
+        server.expect(requestTo("https://k3.example.com/K3Cloud/Kingdee.BOS.WebApi.ServicesStub.AuthService.ValidateUser.common.kdsvc"))
+                .andRespond(withSuccess("{\"LoginResultType\":1}", MediaType.APPLICATION_JSON)
+                        .header(HttpHeaders.SET_COOKIE, "session=test"));
+        String url = "https://k3.example.com/K3Cloud/Kingdee.BOS.WebApi.ServicesStub.DynamicFormService.ExecuteBillQuery.common.kdsvc";
+        server.expect(requestTo(url)).andExpect(content().string(containsString("%22StartRow%22%3A0")))
+                .andRespond(withSuccess("[[10001, \"PO20260512001\", \"2026-05-12T09:30:00\", \"C\", \"B\", \"A\", \"881\", \"SUP-001\", \"Supplier A\", \"MAT-001\", \"Material A\", 3.5, 15.2, 13, \"Line remark\", \"PCS\", 6.92, 53.2, 60.12, 0, 0, 53.2, 6.92, 60.12, \"101\", \"PCS\", 3.5, \"2026-01-01 09:00:00\"]]",MediaType.APPLICATION_JSON));
+        server.expect(requestTo(url)).andExpect(content().string(containsString("%22StartRow%22%3A1")))
+                .andRespond(withSuccess("[[10001, \"PO20260512001\", \"2026-05-12T09:30:00\", \"C\", \"B\", \"A\", \"881\", \"SUP-001\", \"Supplier A\", \"MAT-001\", \"Material A\", 3.5, 15.2, 13, \"Line remark\", \"PCS\", 6.92, 53.2, 60.12, 0, 0, 53.2, 6.92, 60.12, \"102\", \"PCS\", 3.5, \"2026-01-01 09:00:00\"]]",MediaType.APPLICATION_JSON));
+        server.expect(requestTo(url)).andExpect(content().string(containsString("%22StartRow%22%3A2")))
+                .andRespond(withSuccess("[]",MediaType.APPLICATION_JSON));
+        var rows = new ErpKingdeePurchaseOrderClientImpl(rest).fetchPurchaseOrdersModifiedBetween(properties,
+                LocalDateTime.of(2026,1,1,0,0),LocalDateTime.of(2026,1,2,0,0));
+        assertEquals(1, rows.size());
+        assertEquals(2, rows.get(0).getLines().size());
+        assertEquals("102", rows.get(0).getLines().get(1).getEntryId());
+        server.verify();
+    }
+
+    @Test void fullSyncReadsRemainingEntriesBeyondConfiguredPageSize() {
+        var rest = new RestTemplate();
+        var server = MockRestServiceServer.bindTo(rest).build();
+        var properties = buildConfiguredProperties();
+        properties.getPurchaseOrder().setQueryLimit(1);
+        server.expect(requestTo("https://k3.example.com/K3Cloud/Kingdee.BOS.WebApi.ServicesStub.AuthService.ValidateUser.common.kdsvc"))
+                .andRespond(withSuccess("{\"LoginResultType\":1}", MediaType.APPLICATION_JSON)
+                        .header(HttpHeaders.SET_COOKIE, "session=test"));
+        String url = "https://k3.example.com/K3Cloud/Kingdee.BOS.WebApi.ServicesStub.DynamicFormService.ExecuteBillQuery.common.kdsvc";
+        server.expect(requestTo(url)).andExpect(content().string(containsString("%22StartRow%22%3A0")))
+                .andRespond(withSuccess("[[10001, \"PO20260512001\", \"2026-05-12T09:30:00\", \"C\", \"A\", \"A\", \"881\", \"SUP-001\", \"Supplier A\", \"MAT-001\", \"Material A\", 3.5, 15.2, 13, \"Line remark\", \"PCS\", 6.92, 53.2, 60.12, 0, 0, 53.2, 6.92, 60.12, \"101\", \"PCS\", 3.5]]", MediaType.APPLICATION_JSON));
+        server.expect(requestTo(url)).andExpect(content().string(containsString("%22StartRow%22%3A1")))
+                .andRespond(withSuccess("[[10001, \"PO20260512001\", \"2026-05-12T09:30:00\", \"C\", \"A\", \"A\", \"881\", \"SUP-001\", \"Supplier A\", \"MAT-001\", \"Material A\", 3.5, 15.2, 13, \"Line remark\", \"PCS\", 6.92, 53.2, 60.12, 0, 0, 53.2, 6.92, 60.12, \"102\", \"PCS\", 3.5]]", MediaType.APPLICATION_JSON));
+        server.expect(requestTo(url)).andExpect(content().string(containsString("%22StartRow%22%3A2")))
+                .andRespond(withSuccess("[]", MediaType.APPLICATION_JSON));
+        var orders = new ErpKingdeePurchaseOrderClientImpl(rest).fetchPurchaseOrders(properties);
+        assertEquals(1, orders.size());
+        assertEquals(2, orders.get(0).getLines().size());
+        server.verify();
+    }
 }

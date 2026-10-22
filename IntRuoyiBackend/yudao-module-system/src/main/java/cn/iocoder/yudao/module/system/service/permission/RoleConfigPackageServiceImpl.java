@@ -40,6 +40,11 @@ import static cn.iocoder.yudao.module.system.enums.ErrorCodeConstants.CONFIG_PAC
 @Slf4j
 public class RoleConfigPackageServiceImpl implements RoleConfigPackageService {
 
+    @Resource
+    private cn.iocoder.yudao.module.system.api.permission.ApprovalAuthorityApi approvalAuthority;
+    @Resource
+    private cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService gxpAuditService;
+
     private static final String PACKAGE_VERSION = "3";
     private static final String MENU_KEY_PERMISSION_PREFIX = "permission:";
     private static final String MENU_KEY_ROUTE_PREFIX = "route:";
@@ -78,6 +83,11 @@ public class RoleConfigPackageServiceImpl implements RoleConfigPackageService {
         validatePayload(payload);
         payload.getCategories().forEach(this::validateCategoryItem);
         payload.getRoles().forEach(this::validateItem);
+        // Nested permission commands append GxP facts; acquire ledger before the authority/role locks.
+        gxpAuditService.acquireLedgerLock();
+        var authority = approvalAuthority.lockTenantApprovalAuthority(
+                cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId());
+        approvalAuthority.incrementLockedAuthorityRevision(authority.tenantId(), authority.revision());
         Map<String, Long> menuIdByKey = buildMenuIdByKey();
         Map<String, Long> categoryIdByCode = resolveCategories(payload.getCategories());
         for (RoleConfigItem item : payload.getRoles()) {

@@ -9,7 +9,7 @@ import lombok.experimental.Accessors;
 @Accessors(chain = true)
 public class MesWorkOrderAbnormalReportReqBO {
 
-    private Long workOrderId;
+    private Long activeOrderId;
     private Long markerUserId;
     private String abnormalDescription;
 }

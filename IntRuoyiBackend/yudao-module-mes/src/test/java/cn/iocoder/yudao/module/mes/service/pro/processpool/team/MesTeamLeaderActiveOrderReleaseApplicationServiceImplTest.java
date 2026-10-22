@@ -1,15 +1,21 @@
 package cn.iocoder.yudao.module.mes.service.pro.processpool.team;
 
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditCommand;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -21,35 +27,187 @@ class MesTeamLeaderActiveOrderReleaseApplicationServiceImplTest {
     private MesTeamLeaderActiveOrderCompletionService completionService;
     @Mock
     private MesTeamLeaderActiveOrderReleaseGenerationService generationService;
+    @Mock
+    private cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderCompletionReceiptMapper receiptMapper;
+    @Mock
+    private cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionMapper batchMapper;
+    @Mock
+    private cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationMapper applicationMapper;
+    @Mock
+    private MesTeamLeaderActiveOrderCompletionBatchExecutionService completionBatchExecutionService;
+    @Mock
+    private GxpAuditService gxpAuditService;
+    @Mock
+    private cn.iocoder.yudao.module.mes.service.pro.productionrelease.MesReleaseAffectedStateCollector affectedStates;
+
+    @Mock
+    private cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionOriginMapper originMapper;
 
     private MesTeamLeaderActiveOrderReleaseApplicationServiceImpl service;
 
     @BeforeEach
     void setUp() {
         service = new MesTeamLeaderActiveOrderReleaseApplicationServiceImpl(
-                generationService, completionService);
+                generationService, completionService, receiptMapper, batchMapper, applicationMapper,
+                completionBatchExecutionService, originMapper);
+        { org.springframework.test.util.ReflectionTestUtils.setField(service, "handoffService", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffService.class)); }
+        ReflectionTestUtils.setField(service, "gxpAuditService", gxpAuditService);
+        ReflectionTestUtils.setField(service, "affectedStates", affectedStates);
+    }
+
+    @Test
+    void pushGeneratedNeverBindsPreviousCycleBatchAfterRework() {
+        var command = new MesTeamLeaderActiveOrderReleaseApplyCommand()
+                .setActiveOrderId(11L).setIdempotencyKey("P3-11");
+        var receipt = cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderCompletionReceiptDO.builder()
+                .id(89L).activeOrderId(11L).leaderUserId(20L).workOrderId(90L).batchCode("B90").routeId(30L)
+                .receiptStatus("BACKFILL_SUCCEEDED").batchRecordStatus("SUCCESS").processInspectionStatus("SUCCESS")
+                .batchRecordId(94L).processInspectionId(95L).routeVersionId(31L).build();
+        when(receiptMapper.selectByActiveOrderIdForUpdate(11L)).thenReturn(receipt);
+        org.mockito.Mockito.lenient().when(batchMapper.selectByContext(90L, "B90", 30L)).thenReturn(
+                cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionDO.builder()
+                        .id(93L).status(0).build());
+        org.mockito.Mockito.lenient().when(originMapper.selectListByTraceFilter(11L, 90L, null, "ACTIVE_ORDER_COMPLETION"))
+                .thenReturn(java.util.List.of(new cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionOriginDO()
+                        .setActiveOrderId(11L).setWorkOrderId(90L).setEntryType("ACTIVE_ORDER_COMPLETION")
+                        .setCompletionBackfillReceiptId(89L).setBatchExecutionId(96L)));
+        org.mockito.Mockito.lenient().when(batchMapper.selectById(96L)).thenReturn(
+                cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionDO.builder()
+                        .id(96L).workOrderId(90L).batchCode("B90").routeId(30L).routeVersionId(31L).status(0).build());
+        var generated = new MesTeamLeaderActiveOrderReleaseApplicationResult().setApplicationId(100L).setVersion(1);
+        when(generationService.generate(20L, command)).thenReturn(generated);
+        when(applicationMapper.bindP3BatchExecution(org.mockito.ArgumentMatchers.eq(100L),
+                org.mockito.ArgumentMatchers.eq(1), org.mockito.ArgumentMatchers.any())).thenReturn(1);
+
+        var result = service.applyGenerated(20L, command);
+
+        org.junit.jupiter.api.Assertions.assertEquals(96L, result.getBatchExecutionId(),
+                "The release must use the current active-order completion origin, not another cycle's batch");
+    }
+    @Test
+    void pushGeneratedRejectsMissingP2WithoutBackfill() {
+        var command = new MesTeamLeaderActiveOrderReleaseApplyCommand().setActiveOrderId(10L).setIdempotencyKey("P3-10");
+        assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,
+                () -> service.applyGenerated(20L, command));
+        org.mockito.Mockito.verifyNoInteractions(completionService);
+        verify(generationService, never()).generate(20L, command);
+    }
+
+    @Test
+    void pushGeneratedUsesPersistedP2WithoutBackfill() {
+        var command = new MesTeamLeaderActiveOrderReleaseApplyCommand().setActiveOrderId(10L).setIdempotencyKey("P3-10");
+        var receipt = cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderCompletionReceiptDO.builder()
+                .id(88L).activeOrderId(10L).leaderUserId(20L).workOrderId(90L).batchCode("B90").routeId(30L)
+                .receiptStatus("BACKFILL_SUCCEEDED").batchRecordStatus("SUCCESS").processInspectionStatus("SUCCESS")
+                .batchRecordId(91L).processInspectionId(92L).routeVersionId(31L).build();
+        when(receiptMapper.selectByActiveOrderIdForUpdate(10L)).thenReturn(receipt);
+        stubPersistedOrigin();
+        var expected = new MesTeamLeaderActiveOrderReleaseApplicationResult().setApplicationId(99L).setVersion(1);
+        when(generationService.generate(20L, command)).thenReturn(expected);
+        when(applicationMapper.bindP3BatchExecution(99L, 1, 93L)).thenReturn(1);
+        assertSame(expected, service.applyGenerated(20L, command));
+        verify(applicationMapper).bindP3BatchExecution(99L, 1, 93L);
+        org.mockito.Mockito.verifyNoInteractions(completionService);
+        verify(gxpAuditService).acquireLedgerLock();
+        ArgumentCaptor<GxpAuditCommand> auditCaptor = ArgumentCaptor.forClass(GxpAuditCommand.class);
+        verify(gxpAuditService).append(auditCaptor.capture());
+        org.junit.jupiter.api.Assertions.assertEquals("mes.pqc-release.apply", auditCaptor.getValue().getOperationId());
+        org.junit.jupiter.api.Assertions.assertEquals("PQC_RELEASE_APPLY:99", auditCaptor.getValue().getIdempotencyKey());
+        org.junit.jupiter.api.Assertions.assertTrue(
+                auditCaptor.getValue().getSourceLocator().endsWith("#applyGenerated"));
+    }
+
+    @Test
+    void pushGeneratedBindsExistingPendingApplicationToPersistedP2Batch() {
+        var command = new MesTeamLeaderActiveOrderReleaseApplyCommand()
+                .setActiveOrderId(10L).setIdempotencyKey("P3-10");
+        var existing = new MesTeamLeaderActiveOrderReleaseApplicationResult()
+                .setApplicationId(99L).setVersion(1);
+        when(generationService.replayExisting(20L, command)).thenReturn(existing);
+        var receipt = cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderCompletionReceiptDO.builder()
+                .id(88L).activeOrderId(10L).leaderUserId(20L).workOrderId(90L).batchCode("B90").routeId(30L)
+                .receiptStatus("BACKFILL_SUCCEEDED").batchRecordStatus("SUCCESS").processInspectionStatus("SUCCESS")
+                .batchRecordId(91L).processInspectionId(92L).routeVersionId(31L).build();
+        when(receiptMapper.selectByActiveOrderIdForUpdate(10L)).thenReturn(receipt);
+        stubPersistedOrigin();
+        when(applicationMapper.bindP3BatchExecution(99L, 1, 93L)).thenReturn(1);
+
+        var actual = service.applyGenerated(20L, command);
+
+        org.junit.jupiter.api.Assertions.assertEquals(93L, actual.getBatchExecutionId());
+        org.junit.jupiter.api.Assertions.assertEquals(2, actual.getVersion());
+        verify(applicationMapper).bindP3BatchExecution(99L, 1, 93L);
+        verify(generationService, never()).generate(20L, command);
+        verify(gxpAuditService).acquireLedgerLock();
+        verify(gxpAuditService).append(any(GxpAuditCommand.class));
+    }
+
+    @Test
+    void pushGeneratedReplaysWithoutGeneratingAgain() {
+        var command = new MesTeamLeaderActiveOrderReleaseApplyCommand().setActiveOrderId(10L).setIdempotencyKey("P3-10");
+        var expected = new MesTeamLeaderActiveOrderReleaseApplicationResult()
+                .setApplicationId(99L).setVersion(2).setBatchExecutionId(93L);
+        when(generationService.replayExisting(20L, command)).thenReturn(expected);
+        assertSame(expected, service.applyGenerated(20L, command));
+        org.mockito.Mockito.verifyNoInteractions(completionService, receiptMapper, batchMapper);
+        verify(generationService, never()).generate(20L, command);
     }
 
     @Test
     void applyCompletesAndBackfillsActiveOrderBeforeGeneratingPqcReleaseApplication() {
         MesTeamLeaderActiveOrderReleaseApplyCommand command = new MesTeamLeaderActiveOrderReleaseApplyCommand()
-                .setActiveOrderId(10L)
+                .setActiveOrderId(10L).setConfirmNoReplenishmentInfo(true)
                 .setIdempotencyKey("release-key")
                 .setApplyRemark("生产组长申请放行");
         MesTeamLeaderActiveOrderReleaseApplicationResult expected =
-                new MesTeamLeaderActiveOrderReleaseApplicationResult().setApplicationId(99L);
+                new MesTeamLeaderActiveOrderReleaseApplicationResult().setApplicationId(99L).setVersion(1);
         when(generationService.replayExisting(20L, command)).thenReturn(null);
-        when(completionService.completeForRelease(20L, 10L, "release-key"))
+        when(completionService.completeForRelease(20L, 10L, "release-key", true))
                 .thenReturn(new MesTeamLeaderActiveOrderCompletionResult().setCompletionReceiptId(88L));
         when(generationService.generate(20L, command)).thenReturn(expected);
+        when(completionBatchExecutionService.openOrCreate(20L, 10L, 88L, "release-key")).thenReturn(93L);
+        when(applicationMapper.bindP3BatchExecution(99L, 1, 93L)).thenReturn(1);
 
         MesTeamLeaderActiveOrderReleaseApplicationResult actual = service.apply(20L, command);
 
         assertSame(expected, actual);
+        org.junit.jupiter.api.Assertions.assertEquals(93L, actual.getBatchExecutionId());
+        org.junit.jupiter.api.Assertions.assertEquals(2, actual.getVersion());
         InOrder order = inOrder(completionService, generationService);
         order.verify(generationService).replayExisting(20L, command);
-        order.verify(completionService).completeForRelease(20L, 10L, "release-key");
+        order.verify(completionService).completeForRelease(20L, 10L, "release-key", true);
         order.verify(generationService).generate(20L, command);
+        verify(completionBatchExecutionService).openOrCreate(20L, 10L, 88L, "release-key");
+        verify(applicationMapper).bindP3BatchExecution(99L, 1, 93L);
+        verify(gxpAuditService).acquireLedgerLock();
+        ArgumentCaptor<GxpAuditCommand> auditCaptor = ArgumentCaptor.forClass(GxpAuditCommand.class);
+        verify(gxpAuditService).append(auditCaptor.capture());
+        org.junit.jupiter.api.Assertions.assertEquals("mes.pqc-release.apply", auditCaptor.getValue().getOperationId());
+        org.junit.jupiter.api.Assertions.assertEquals("PQC_RELEASE_APPLY:99", auditCaptor.getValue().getIdempotencyKey());
+        org.junit.jupiter.api.Assertions.assertEquals("PQC_RELEASE_PENDING", auditCaptor.getValue().getAfterState().getState());
+    }
+
+    @Test
+    void applyAuditFailureMustPropagateAfterApplicationBinding() {
+        MesTeamLeaderActiveOrderReleaseApplyCommand command = new MesTeamLeaderActiveOrderReleaseApplyCommand()
+                .setActiveOrderId(10L).setConfirmNoReplenishmentInfo(true)
+                .setIdempotencyKey("release-key");
+        MesTeamLeaderActiveOrderReleaseApplicationResult expected =
+                new MesTeamLeaderActiveOrderReleaseApplicationResult().setApplicationId(99L).setVersion(1);
+        when(generationService.replayExisting(20L, command)).thenReturn(null);
+        when(completionService.completeForRelease(20L, 10L, "release-key", true))
+                .thenReturn(new MesTeamLeaderActiveOrderCompletionResult().setCompletionReceiptId(88L));
+        when(completionBatchExecutionService.openOrCreate(20L, 10L, 88L, "release-key")).thenReturn(93L);
+        when(generationService.generate(20L, command)).thenReturn(expected);
+        when(applicationMapper.bindP3BatchExecution(99L, 1, 93L)).thenReturn(1);
+        doThrow(new IllegalStateException("gxp append failed"))
+                .when(gxpAuditService).append(any(GxpAuditCommand.class));
+
+        assertThrows(IllegalStateException.class, () -> service.apply(20L, command));
+
+        verify(gxpAuditService).acquireLedgerLock();
+        verify(gxpAuditService).append(any(GxpAuditCommand.class));
+        verify(applicationMapper).bindP3BatchExecution(99L, 1, 93L);
     }
 
     @Test
@@ -59,14 +217,18 @@ class MesTeamLeaderActiveOrderReleaseApplicationServiceImplTest {
                 .setIdempotencyKey("release-key")
                 .setApplyRemark("生产组长重试申请放行");
         MesTeamLeaderActiveOrderReleaseApplicationResult expected =
-                new MesTeamLeaderActiveOrderReleaseApplicationResult().setApplicationId(99L);
+                new MesTeamLeaderActiveOrderReleaseApplicationResult()
+                        .setApplicationId(99L)
+                        .setVersion(2)
+                        .setBatchExecutionId(93L);
         when(generationService.replayExisting(20L, command)).thenReturn(expected);
 
         MesTeamLeaderActiveOrderReleaseApplicationResult actual = service.apply(20L, command);
 
         assertSame(expected, actual);
-        verify(completionService, never()).completeForRelease(20L, 10L, "release-key");
+        verify(completionService, never()).completeForRelease(20L, 10L, "release-key", null);
         verify(generationService, never()).generate(20L, command);
+        verify(gxpAuditService, never()).append(any(GxpAuditCommand.class));
     }
 
     @Test
@@ -75,11 +237,20 @@ class MesTeamLeaderActiveOrderReleaseApplicationServiceImplTest {
                 .setActiveOrderId(10L)
                 .setIdempotencyKey("release-key");
         when(generationService.replayExisting(20L, command)).thenReturn(null);
-        when(completionService.completeForRelease(20L, 10L, "release-key"))
+        when(completionService.completeForRelease(20L, 10L, "release-key", null))
                 .thenThrow(new IllegalStateException("template rules are not confirmed"));
 
         assertThrows(IllegalStateException.class, () -> service.apply(20L, command));
 
         verify(generationService, never()).generate(20L, command);
+    }
+    private void stubPersistedOrigin() {
+        when(originMapper.selectListByTraceFilter(10L, 90L, null, "ACTIVE_ORDER_COMPLETION"))
+                .thenReturn(java.util.List.of(new cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionOriginDO()
+                        .setActiveOrderId(10L).setWorkOrderId(90L).setEntryType("ACTIVE_ORDER_COMPLETION")
+                        .setCompletionBackfillReceiptId(88L).setBatchExecutionId(93L)));
+        when(batchMapper.selectById(93L)).thenReturn(
+                cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionDO.builder()
+                        .id(93L).workOrderId(90L).batchCode("B90").routeId(30L).routeVersionId(31L).status(0).build());
     }
 }

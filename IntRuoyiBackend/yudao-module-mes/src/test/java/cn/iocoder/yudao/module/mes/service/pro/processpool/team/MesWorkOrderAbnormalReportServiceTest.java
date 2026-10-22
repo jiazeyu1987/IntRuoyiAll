@@ -41,11 +41,12 @@ class MesWorkOrderAbnormalReportServiceTest {
     @Test
     void shouldMarkAndReportCurrentLeaderActiveOrderWithDescriptionOnly() {
         whenInsertId(8101L);
-        when(activeOrderMapper.selectActiveByLeaderAndWorkOrderForUpdate(3001L, 5001L)).thenReturn(
-                MesProcessPoolActiveOrderDO.builder().id(7001L).leaderUserId(3001L).workOrderId(5001L).build());
+        when(activeOrderMapper.selectByIdForUpdate(7001L)).thenReturn(
+                MesProcessPoolActiveOrderDO.builder().id(7001L).leaderUserId(3001L).workOrderId(5001L)
+                        .activeStatus("ACTIVE").build());
 
         Long abnormalId = service.markAndReport(MesWorkOrderAbnormalReportReqBO.builder()
-                .workOrderId(5001L)
+                .activeOrderId(7001L)
                 .markerUserId(3001L)
                 .abnormalDescription("设备停机，影响工单交付")
                 .build());
@@ -70,18 +71,34 @@ class MesWorkOrderAbnormalReportServiceTest {
 
     @Test
     void shouldRejectDuplicateOpenAbnormalForActiveOrder() {
-        when(activeOrderMapper.selectActiveByLeaderAndWorkOrderForUpdate(3001L, 5001L)).thenReturn(
-                MesProcessPoolActiveOrderDO.builder().id(7001L).leaderUserId(3001L).workOrderId(5001L).build());
+        when(activeOrderMapper.selectByIdForUpdate(7001L)).thenReturn(
+                MesProcessPoolActiveOrderDO.builder().id(7001L).leaderUserId(3001L).workOrderId(5001L)
+                        .activeStatus("ACTIVE").build());
         when(abnormalStateService.hasOpenAbnormal(5001L)).thenReturn(true);
 
         ServiceException ex = assertThrows(ServiceException.class, () -> service.markAndReport(
                 MesWorkOrderAbnormalReportReqBO.builder()
-                        .workOrderId(5001L)
+                        .activeOrderId(7001L)
                         .markerUserId(3001L)
                         .abnormalDescription("设备停机")
                         .build()));
 
         assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_WORK_ORDER_ABNORMAL_OPEN_EXISTS.getCode(), ex.getCode());
+    }
+
+    @Test
+    void shouldRejectStaleActiveOrderIdBeforeUsingWorkOrderIdentity() {
+        when(activeOrderMapper.selectByIdForUpdate(7001L)).thenReturn(null);
+
+        ServiceException ex = assertThrows(ServiceException.class, () -> service.markAndReport(
+                MesWorkOrderAbnormalReportReqBO.builder()
+                        .activeOrderId(7001L)
+                        .markerUserId(3001L)
+                        .abnormalDescription("设备停机")
+                        .build()));
+
+        assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_ACTIVE_ORDER_NOT_EXISTS.getCode(), ex.getCode());
+        assertEquals("班组活跃订单不存在：7001", ex.getMessage());
     }
 
     private void whenInsertId(Long id) {

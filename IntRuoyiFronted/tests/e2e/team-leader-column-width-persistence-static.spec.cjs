@@ -41,11 +41,11 @@ const submissionTableMarker = 'data-user-table-column-explicit'
 const submissionTableMarkerIndex = vueSource.indexOf(submissionTableMarker)
 assert.ok(submissionTableMarkerIndex >= 0, 'missing standard submission table marker')
 const submissionTableStart = vueSource.lastIndexOf('<el-table', submissionTableMarkerIndex)
-const submissionTableEnd = vueSource.indexOf('</el-table>', submissionTableMarkerIndex)
+const submissionTableEnd = vueSource.indexOf('</UnifiedListTemplate>', submissionTableMarkerIndex)
 assert.ok(submissionTableStart >= 0 && submissionTableEnd > submissionTableStart)
 const submissionTableSource = vueSource.slice(
   submissionTableStart,
-  submissionTableEnd + '</el-table>'.length
+  submissionTableEnd
 )
 
 const columnBlocks = [

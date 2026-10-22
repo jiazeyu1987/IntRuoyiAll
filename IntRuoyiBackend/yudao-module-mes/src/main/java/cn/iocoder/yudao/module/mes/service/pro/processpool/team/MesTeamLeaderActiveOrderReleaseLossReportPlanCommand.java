@@ -18,5 +18,7 @@ public class MesTeamLeaderActiveOrderReleaseLossReportPlanCommand {
     private Long productId;
     private String batchCode;
     private String sourceSnapshotHash;
+    private Boolean confirmNoReplenishmentInfo;
+    private Boolean requireNoReplenishmentConfirmation;
     private List<MesProcessPoolActiveOrderProcessSnapshotDO> processSnapshots;
 }

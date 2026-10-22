@@ -25,6 +25,9 @@ const stage1Service = read(
 const activeOrderSimulationService = read(
   'IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesTeamLeaderActiveOrderSimulationService.java'
 );
+const activeOrderDetailService = read(
+  'IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesTeamLeaderActiveOrderDetailServiceImpl.java'
+);
 const stage1Migration = read(
   'IntRuoyiBackend/sql/mysql/20260825_mes_stage1_simulation_metadata.sql'
 );
@@ -47,8 +50,16 @@ assert.match(stage1Service, /resolveTemplateBindings[\s\S]*Boolean\.TRUE\.equals
   'Stage1 rerun must accept a prior simulated order and read its persisted pick-list binding');
 assert.match(stage1Service, /bindingMapper\s*\.\s*selectListByActiveOrderId\(activeOrder\.getId\(\)\)/,
   'Stage1 rerun must read all persisted pick-list bindings before cleanup');
-assert.doesNotMatch(stage1Service, /createSyntheticPickList|SYNTHETIC_PICK_LIST_SOURCE_PREFIX/,
-  'Stage1 must not fabricate a pick-list source when formal production pick lists are absent');
+assert.match(stage1Service, /if \(sourceItems == null \|\| sourceItems\.isEmpty\(\)\) \{\s*return createSimulatedPickListFromAvailableSources\(workOrder,\s*command\);/s,
+  'Stage1 may create an explicit simulated pick-list only after formal production pick-list lookup is empty');
+assert.match(stage1Service, /productionMaterialListMapper\.selectListByProductionOrderNo\(workOrder\.getCode\(\)\)[\s\S]*createSimulatedPickListFromProductionMaterialList/s,
+  'Stage1 must prefer a real production material list as the seed before using local BOM for simulated pick-list data');
+assert.match(stage1Service, /MES_STAGE1_SIMULATED_PICK_LIST_FROM_MATERIAL_LIST[\s\S]*MES_STAGE1_SIMULATED_PICK_LIST_FROM_WORK_ORDER_BOM/s,
+  'Stage1 simulated pick-list sources must be marked with their seed source type');
+assert.match(stage1Service, /resolveFormalPickListWorkOrder[\s\S]*hasCurrentProductionSourceForWorkOrder\(workOrder\)[\s\S]*return workOrder[\s\S]*sourceActiveOrderIdFromMarker/s,
+  'Stage1 simulated copies must use current work-order real sources before falling back to sourceActiveOrderId');
+assert.match(stage1Service, /hasCurrentProductionSourceForWorkOrder[\s\S]*pickListItemMapper\s*\.\s*selectListByProductionOrderNo\(workOrder\.getCode\(\)\)[\s\S]*productionMaterialListMapper\.selectListByProductionOrderNo\(workOrder\.getCode\(\)\)/s,
+  'Stage1 current-source detection must cover both real pick lists and real production material lists');
 assert.doesNotMatch(stage1Service, /headers\.get\(0\)|模拟汇集全部生产领料单/,
   'Stage1 must not merge multiple formal pick lists into the first header');
 assert.doesNotMatch(stage1Service, /bindingMapper\.selectByActiveOrderId\(/,
@@ -77,6 +88,16 @@ assert.match(stage1Service, /simulateActiveOrderCompletion[\s\S]*?STAGE/,
   'Stage1 must reuse the formal active-order simulation service');
 assert.match(stage1Service, /calculateStage1PersistedProgress/,
   'Stage1 must recompute persisted progress after writing formal facts and before returning success');
+assert.match(activeOrderSimulationService, /deduplicatePqcSimulationTasks[\s\S]*PqcSimulationTaskIdentity/,
+  'Stage1 PQC simulation must deduplicate copied tasks by the formal QA inspection identity');
+assert.match(activeOrderSimulationService, /pqcSimulationTaskStatusPriority[\s\S]*TASK_STATUS_CONFIRMED[\s\S]*TASK_STATUS_SUBMITTED[\s\S]*TASK_STATUS_PENDING/,
+  'Stage1 PQC simulation must prefer existing confirmed/submitted facts before creating a new simulated submit');
+assert.match(stage1Service, /calculateStage1InspectionProgressPercent[\s\S]*PqcStage1ProgressIdentity/,
+  'Stage1 persisted inspection progress must use the same PQC identity cardinality as simulated submissions');
+assert.match(activeOrderDetailService, /isStage1Simulation[\s\S]*PqcStage1SubmissionDisplayIdentity[\s\S]*displayedStage1Identities/,
+  'Stage1 active-order detail must collapse copied PQC submissions across production processes for display');
+assert.doesNotMatch(activeOrderDetailService, /isStage1Simulation[\s\S]*PqcSubmissionIdentity\(new ProcessIdentity/s,
+  'Stage1 PQC display deduplication must run before process-scoped submission identity aggregation');
 assert.doesNotMatch(stage1Service, /\.setProductionProgress100\(true\)|\.setInspectionProgress100\(true\)/,
   'Stage1 must not hardcode progress booleans to true in the response');
 assert.doesNotMatch(stage1Service, /"productionPercent",\s*100[\s\S]*"inspectionPercent",\s*100/,
@@ -174,8 +195,11 @@ assert.doesNotMatch(workbench, /生产和检验进度均为100%/,
   'Stage1 success message must not hardcode 100%; it must display persisted response progress');
 assert.match(workbench, /formatActiveOrderProgressPercent\(result\.productionProgressPercent\)[\s\S]*formatActiveOrderProgressPercent\(result\.inspectionProgressPercent\)/,
   'Stage1 success message must display the recomputed persisted progress values');
-assert.match(workbench, /const activeOrderId = requirePositiveNumber\(row\.id[\s\S]*simulateStage1ActiveOrderCompletion\(\{[\s\S]*activeOrderId[\s\S]*navigateActiveOrderSubmissionDetail\(activeOrderId\)/,
-  'Stage1 completion must open the clicked active order detail so production and PQC submissions are read from the order that the user clicked');
+const p1Handler = workbench.match(/const\s+handleSimulateStage1\s*=\s*async\s*\(row:[\s\S]*?\r?\n}\r?\n\r?\nconst\s+handleGenerateStage1Forms/)?.[0] || '';
+assert.match(p1Handler, /const activeOrderId = requirePositiveNumber\(row\.id[\s\S]*simulateStage1ActiveOrderCompletion\(\{[\s\S]*activeOrderId[\s\S]*await loadActiveOrders\(\)/,
+  'P1 completion must refresh the clicked active order state without opening P2 batch-record detail');
+assert.doesNotMatch(p1Handler, /navigateActiveOrderSubmissionDetail|router\.push/,
+  'P1 must not navigate to generated details or batch-record pages before P2 runs');
 assert.doesNotMatch(workbench, /stage1GeneratedDetailTargets|resolveStage1GeneratedDetailTarget/,
   'Stage1 detail routing must not redirect the clicked source order to a generated active order');
 

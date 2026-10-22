@@ -3,19 +3,19 @@
 ## 门禁摘要
 
 - Trigger: Windows PowerShell 5.1、中文文本、here-string、管道、SSH、MySQL、外部命令退出码或运行控制台脚本任务。
-- Preflight check: 先读取权威共同规则 `E:\IntRuoyi\docs\powershell-memory.md`，再读取本文的维护仓专项增量；设置 UTF-8 编码并设计后置断言。
-- Blocker: 共同规则未读取、中文编码链路不明确、命令依赖 `&&`、只看 stderr 或进程退出而没有结果断言。
+- Preflight check: 按需查阅共同规则及本文件相关段落；采用 UTF-8，检查实际命令退出码和目标结果，不重复读取已知且未变化的规则。
+- Blocker: 中文编码链路不明确、命令依赖 `&&`、只看 stderr 或进程退出而没有结果断言。
 - Verification: UTF-8 回读、`$LASTEXITCODE`、结构化响应、目标文件/数据库/远端状态后置校验。
 - Forbidden action: 不得把本文当作另一套共同 PowerShell 标准，不得用管道乱码、静默 warning 或默认编码继续长链路操作。
 - Evidence: 命令、stdout/stderr、字节或文本回读、任务 execution-log 和目标状态断言。
 
 ## 适用范围
 
-当任务涉及 Windows PowerShell 5.1 命令执行、脚本排查、中文文件读取、中文日志输出或多条命令串联时，先读本文。
+Windows PowerShell 5.1 命令、脚本或编码问题按需查阅本文，不要求每次操作前重新阅读。
 
-PowerShell 共同基础规则以 `E:\IntRuoyi\docs\powershell-memory.md` 为唯一权威来源；本文只沉淀维护仓、运行控制台和构建发布专项增量。若文字重复，以共同规则为准；维护仓更严格的专项门禁继续叠加执行。具体业务发布、备份、恢复和 E2E 规则仍以对应业务文档为准。
+PowerShell 共同基础规则以 `E:\IntRuoyi\docs\powershell-memory.md` 为唯一权威来源；本文只沉淀维护仓、运行控制台和构建发布专项增量。若文字重复，以共同规则为准；专项技术检查仅在实际适用时执行，不叠加已取消的默认建档和预检流程。具体业务发布、备份、恢复和 E2E 规则仍以对应业务文档为准。
 
-启动时允许且只允许一条固定的只读 bootstrap 命令：先设置 UTF-8，仅用于读取适用的 `AGENTS.md`、上一任务状态、经验索引和 `powershell-memory.md`。该 bootstrap 是 task-doc-first 的唯一前置例外；不得写文件、调用外部服务、执行构建/测试/发布或通过管道传递业务文本；完成读取后必须立即创建或更新任务文档并摘取经验门禁，后续 PowerShell 命令全部按权威共同规则执行。
+普通 PowerShell 任务可直接执行已授权且前提明确的操作；不限制为单条 bootstrap，不要求先建任务目录、追查上一任务状态或摘录经验门禁。中文读写、真实退出码、目标状态及任务归属要求仍须遵守。
 
 ## 必做预检
 

@@ -7,6 +7,8 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessP
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventRevisionDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventRevisionDiffDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolSubmissionReviewDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcInspectionTaskDO;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.pqc.MesPqcInspectionTaskMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventRevisionDiffMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventRevisionMapper;
@@ -45,6 +47,10 @@ public class MesProcessPoolEventRevisionServiceImpl implements MesProcessPoolEve
     private final MesProcessPoolFifoAllocationService fifoAllocationService;
     private final MesProcessPoolSubmissionReviewMapper submissionReviewMapper;
     private final MesProBatchRecordExecutionSignatureService signatureService;
+    @jakarta.annotation.Resource
+    private MesPqcInspectionTaskMapper pqcTaskMapper;
+    @jakarta.annotation.Resource
+    private cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrNonconformanceReviewService nonconformanceReviewService;
 
     public MesProcessPoolEventRevisionServiceImpl(MesProProcessPoolEventMapper eventMapper,
                                                   MesProProcessPoolEventRevisionMapper revisionMapper,
@@ -85,8 +91,24 @@ public class MesProcessPoolEventRevisionServiceImpl implements MesProcessPoolEve
         if (event == null) {
             throw exception(PRO_PROCESS_POOL_REVISION_EVENT_NOT_EXISTS, reqBO.getEventId());
         }
+        if (revisionPolicy == RevisionPolicy.REJECTED_REVIEW_REQUIRED
+                && ("PRODUCTION_SUBMIT".equals(event.getEventType()) || "PQC_INSPECTION".equals(event.getEventType()))) {
+            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED,
+                    "正式生产报工或PQC检验记录必须通过对应业务补正入口修改");
+        }
+        if (MesProProcessPoolEventDO.EVENT_TYPE_PRODUCTION_SUBMIT.equals(event.getEventType())) {
+            nonconformanceReviewService.ensureWorkOrderNotFrozen(event.getWorkOrderId(), "生产报工版本更正");
+        }
         validateJsonPayload(event.getRawPayload(), "rawPayload");
         validateRevisionPolicy(event, revisionPolicy);
+        Long routeProcessId = event.getRouteProcessId();
+        Long processId = event.getProcessId();
+        if (RevisionPolicy.PQC_INSPECTION_CORRECTION.equals(revisionPolicy)) {
+            // QA submission events carry QA identity; production context belongs to their formal task.
+            MesPqcInspectionTaskDO task = requirePqcRevisionTask(event);
+            routeProcessId = task.getRouteProcessId();
+            processId = task.getProcessId();
+        }
         validateDiffAndFifoLocks(reqBO);
         RevisionSignatureEvidence signature = generateSignature
                 ? recordRevisionSignature(reqBO, event)
@@ -98,8 +120,8 @@ public class MesProcessPoolEventRevisionServiceImpl implements MesProcessPoolEve
                 .poolId(event.getPoolId())
                 .workOrderId(event.getWorkOrderId())
                 .routeId(event.getRouteId())
-                .routeProcessId(event.getRouteProcessId())
-                .processId(event.getProcessId())
+                .routeProcessId(routeProcessId)
+                .processId(processId)
                 .beforePayload(event.getRawPayload())
                 .afterPayload(reqBO.getAfterPayload())
                 .changeReason(reqBO.getChangeReason().trim())
@@ -120,6 +142,29 @@ public class MesProcessPoolEventRevisionServiceImpl implements MesProcessPoolEve
                 .setId(event.getId())
                 .setRawPayload(reqBO.getAfterPayload()));
         return revision.getId();
+    }
+
+    private MesPqcInspectionTaskDO requirePqcRevisionTask(MesProProcessPoolEventDO event) {
+        if (!"MES_PQC_INSPECTION_TASK".equals(event.getFeedbackSourceType())
+                || !"MES_PQC_INSPECTION_TASK".equals(event.getRecordbookSourceType())
+                || event.getFeedbackSourceId() == null
+                || !Objects.equals(event.getFeedbackSourceId(), event.getRecordbookSourceId())) {
+            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "pqcInspectionRevision.taskSource");
+        }
+        MesPqcInspectionTaskDO task = pqcTaskMapper.selectByIdForUpdate(event.getFeedbackSourceId());
+        if (task == null || task.getTenantId() == null
+                || !Objects.equals(task.getId(), event.getFeedbackSourceId())
+                || !Objects.equals(task.getTenantId(), event.getTenantId())
+                || !Objects.equals(task.getWorkOrderId(), event.getWorkOrderId())
+                || !Objects.equals(task.getRouteId(), event.getRouteId())
+                || task.getQaProcessId() == null || task.getQaProcessId() <= 0
+                || !Objects.equals(task.getQaProcessId(), event.getQaProcessId())
+                || !Objects.equals(task.getSubmittedEventId(), event.getId())
+                || task.getRouteProcessId() != null || task.getProcessId() != null
+                || event.getRouteProcessId() != null || event.getProcessId() != null) {
+            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "pqcInspectionRevision.taskIdentity");
+        }
+        return task;
     }
 
     private void validateRevisionPolicy(MesProProcessPoolEventDO event, RevisionPolicy revisionPolicy) {

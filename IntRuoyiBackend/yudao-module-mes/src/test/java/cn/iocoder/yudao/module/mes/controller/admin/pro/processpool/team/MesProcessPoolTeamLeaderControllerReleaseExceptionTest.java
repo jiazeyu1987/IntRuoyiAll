@@ -4,6 +4,7 @@ import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowBlockerE
 import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowBlockerType;
 import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowFailureRespVO;
 import cn.iocoder.yudao.framework.common.pojo.CommonResult;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditQueryService;
 import org.junit.jupiter.api.Test;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 
@@ -36,8 +37,10 @@ class MesProcessPoolTeamLeaderControllerReleaseExceptionTest {
                                 .setObjectId("45")
                                 .setReason("production release application does not exist"))));
         MesProcessPoolTeamLeaderController controller = new MesProcessPoolTeamLeaderController(
-                null, null, null, null, null, null, null, null, null, null,
-                null, null, null, null, null, null, null, null);
+                null, null, null, null, null, null,
+                null, null, null, null, null, null,
+                null, null, null, null, null, null,
+                (GxpAuditQueryService) null);
         CommonResult<MesReleaseFlowFailureRespVO> result = controller.handleReleaseFlowBlocker(exception);
         assertTrue(result.getCode() != 0);
         assertEquals("SP_1", result.getData().getStage());

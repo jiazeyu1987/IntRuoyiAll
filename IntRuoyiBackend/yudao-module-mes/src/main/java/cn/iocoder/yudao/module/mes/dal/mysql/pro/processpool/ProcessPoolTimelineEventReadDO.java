@@ -53,6 +53,9 @@ public class ProcessPoolTimelineEventReadDO {
     private LocalDate pqcBusinessDate;
     private String pqcShiftCode;
     private Integer roundNo;
+    private String pqcSubmissionGroupId;
+    private java.util.List<Long> groupedEventIds;
+    private java.util.List<String> groupedOriginalPayloadJsons;
     private Long sourceFeedbackId;
     private Long sourceRecordbookEntryId;
     private Long sourceRecordbookEventId;
@@ -65,6 +68,13 @@ public class ProcessPoolTimelineEventReadDO {
     private String reportReleaseStatus;
     private String submittedSummary;
     private String originalPayloadJson;
+    private Long displayedRevisionId;
+    private Long displayedReviewId;
+    private Integer displayedReviewRound;
+    private Integer displayedAllocationVersion;
+    // Formal latest decision; the page may separately project a signed correction as pending.
+    private String displayedReviewStatus;
+    private java.util.List<cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesSubmissionReviewExpectedContext> expectedReviews;
     private String pqcResult;
     private String pqcSummary;
     private String processInspectionAggregationStatus;

@@ -6,6 +6,7 @@ import cn.hutool.core.util.StrUtil;
 import cn.iocoder.yudao.framework.common.enums.CommonStatusEnum;
 import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.process.MesProProcessDO;
+import cn.iocoder.yudao.module.mes.service.pro.process.MesProProcessCreationService;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteProcessDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteProcessFlowEdgeDO;
@@ -15,6 +16,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteProcessFlowEdg
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteProcessMapper;
 import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteOwnerPermissionService;
 import com.fasterxml.jackson.core.type.TypeReference;
+import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.annotation.Validated;
@@ -34,6 +36,9 @@ import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.*;
 @Service
 @Validated
 public class IntGyRouteMarkdownImportServiceImpl implements IntGyRouteMarkdownImportService {
+
+    @Resource
+    private MesProProcessCreationService processCreationService;
 
     private final IntGyRouteMarkdownParser parser;
     private final MesProRouteMapper routeMapper;
@@ -83,10 +88,9 @@ public class IntGyRouteMarkdownImportServiceImpl implements IntGyRouteMarkdownIm
                 continue;
             }
             MesProProcessDO process = new MesProProcessDO();
-            process.setCode(entry.getKey());
             process.setName(entry.getValue());
             process.setStatus(processStatus);
-            processMapper.insert(process);
+            processCreationService.create(process);
             processIdByCode.put(entry.getKey(), process.getId());
             processCreatedCount++;
         }
@@ -245,18 +249,9 @@ public class IntGyRouteMarkdownImportServiceImpl implements IntGyRouteMarkdownIm
     private Map<String, MesProProcessDO> validateProcesses(LinkedHashMap<String, String> processNameByCode) {
         Map<String, MesProProcessDO> existingProcessByCode = new LinkedHashMap<>();
         for (Map.Entry<String, String> entry : processNameByCode.entrySet()) {
-            MesProProcessDO existingByCode = processMapper.selectByCode(entry.getKey());
-            if (existingByCode != null) {
-                if (!Objects.equals(existingByCode.getName(), entry.getValue())) {
-                    throw exception(PRO_ROUTE_IMPORT_PROCESS_CONFLICT,
-                            entry.getKey(), existingByCode.getName(), entry.getValue());
-                }
-                existingProcessByCode.put(entry.getKey(), existingByCode);
-                continue;
-            }
             MesProProcessDO existingByName = processMapper.selectByName(entry.getValue());
-            if (existingByName != null && !Objects.equals(existingByName.getCode(), entry.getKey())) {
-                throw exception(PRO_ROUTE_IMPORT_PROCESS_NAME_EXISTS, entry.getValue());
+            if (existingByName != null) {
+                existingProcessByCode.put(entry.getKey(), existingByName);
             }
         }
         return existingProcessByCode;

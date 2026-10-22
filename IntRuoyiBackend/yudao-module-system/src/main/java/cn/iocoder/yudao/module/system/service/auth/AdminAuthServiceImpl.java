@@ -8,6 +8,8 @@ import cn.iocoder.yudao.framework.common.util.object.BeanUtils;
 import cn.iocoder.yudao.framework.common.util.servlet.ServletUtils;
 import cn.iocoder.yudao.framework.common.util.validation.ValidationUtils;
 import cn.iocoder.yudao.framework.datapermission.core.annotation.DataPermission;
+import cn.iocoder.yudao.module.infra.api.config.ConfigApi;
+import cn.iocoder.yudao.module.infra.enums.config.PasswordMaxAgeConfig;
 import cn.iocoder.yudao.module.system.api.logger.dto.LoginLogCreateReqDTO;
 import cn.iocoder.yudao.module.system.api.sms.SmsCodeApi;
 import cn.iocoder.yudao.module.system.api.sms.dto.code.SmsCodeUseReqDTO;
@@ -24,6 +26,8 @@ import cn.iocoder.yudao.module.system.enums.sms.SmsSceneEnum;
 import cn.iocoder.yudao.module.system.service.logger.LoginLogService;
 import cn.iocoder.yudao.module.system.service.member.MemberService;
 import cn.iocoder.yudao.module.system.service.oauth2.OAuth2TokenService;
+import cn.iocoder.yudao.module.system.service.oauth2.AdminPasswordAuthenticationSnapshot;
+import cn.iocoder.yudao.module.system.service.oauth2.AdminSessionToken;
 import cn.iocoder.yudao.module.system.service.social.SocialUserService;
 import cn.iocoder.yudao.module.system.service.user.AdminUserService;
 import cn.iocoder.yudao.module.system.service.user.AdminUserServiceImpl;
@@ -59,6 +63,8 @@ public class AdminAuthServiceImpl implements AdminAuthService {
 
     @Resource
     private AdminUserService userService;
+    @Resource
+    private ConfigApi configApi;
     @Resource
     private LoginLogService loginLogService;
     @Resource
@@ -103,13 +109,6 @@ public class AdminAuthServiceImpl implements AdminAuthService {
             createLoginLog(user.getId(), username, logTypeEnum, LoginResultEnum.USER_LOCKED);
             throw exception(preLoginPasswordChange ? AUTH_LOGIN_BAD_CREDENTIALS : AUTH_LOGIN_USER_LOCKED);
         }
-        if (Objects.equals(user.getLoginLocked(), 1)) {
-            userService.resetUserLoginFailure(user.getId());
-            user.setLoginFailureCount(0);
-            user.setLoginFailureWindowStartTime(null);
-            user.setLoginLocked(0);
-            user.setLoginLockedTime(null);
-        }
         if (!userService.isPasswordMatch(password, user.getPassword())) {
             userService.recordUserLoginFailure(user.getId());
             createLoginLog(user.getId(), username, logTypeEnum, LoginResultEnum.BAD_CREDENTIALS);
@@ -117,7 +116,8 @@ public class AdminAuthServiceImpl implements AdminAuthService {
         }
         boolean initialOrResetRequired = Objects.equals(user.getPasswordCredentialStatus(), "INITIAL")
                 || Objects.equals(user.getPasswordCredentialStatus(), "RESET_REQUIRED");
-        boolean passwordExpired = AdminUserPasswordPolicy.isExpired(user.getPasswordUpdateTime(), LocalDateTime.now());
+        boolean passwordExpired = AdminUserPasswordPolicy.isExpired(user.getPasswordUpdateTime(), LocalDateTime.now(),
+                configApi.getConfigValueByKey(PasswordMaxAgeConfig.KEY));
         if (preLoginPasswordChange) {
             if (!initialOrResetRequired && !passwordExpired) {
                 createLoginLog(user.getId(), username, logTypeEnum, LoginResultEnum.PASSWORD_CHANGE_NOT_ALLOWED);
@@ -151,6 +151,7 @@ public class AdminAuthServiceImpl implements AdminAuthService {
     public AuthLoginRespVO login(AuthLoginReqVO reqVO) {
         // 使用账号密码，进行登录；账号登录已移除图形验证码要求
         AdminUserDO user = authenticate(reqVO.getUsername(), reqVO.getPassword());
+        AdminPasswordAuthenticationSnapshot snapshot = AdminPasswordAuthenticationSnapshot.from(user);
 
         // 如果 socialType 非空，说明需要绑定社交用户
         if (reqVO.getSocialType() != null) {
@@ -158,7 +159,9 @@ public class AdminAuthServiceImpl implements AdminAuthService {
                     reqVO.getSocialType(), reqVO.getSocialCode(), reqVO.getSocialState()));
         }
         // 创建 Token 令牌，记录登录日志
-        return createTokenAfterLoginSuccess(user.getId(), reqVO.getUsername(), LoginLogTypeEnum.LOGIN_USERNAME);
+        AdminSessionToken issued = oauth2TokenService.createPasswordAccessToken(snapshot,
+                OAuth2ClientConstants.CLIENT_ID_DEFAULT, null);
+        return createResponseAfterLoginSuccess(issued, user.getId(), reqVO.getUsername(), LoginLogTypeEnum.LOGIN_USERNAME);
     }
 
     @Override
@@ -191,7 +194,9 @@ public class AdminAuthServiceImpl implements AdminAuthService {
         }
 
         // 创建 Token 令牌，记录登录日志
-        return createTokenAfterLoginSuccess(user.getId(), reqVO.getMobile(), LoginLogTypeEnum.LOGIN_MOBILE);
+        AdminSessionToken issued = oauth2TokenService.createMobileAccessToken(user.getId(), reqVO.getMobile(),
+                OAuth2ClientConstants.CLIENT_ID_DEFAULT, null);
+        return createResponseAfterLoginSuccess(issued, user.getId(), reqVO.getMobile(), LoginLogTypeEnum.LOGIN_MOBILE);
     }
 
     private void createLoginLog(Long userId, String username,
@@ -255,21 +260,27 @@ public class AdminAuthServiceImpl implements AdminAuthService {
     }
 
     private AuthLoginRespVO createTokenAfterLoginSuccess(Long userId, String username, LoginLogTypeEnum logType) {
-        // 清空登录失败次数
-        userService.resetUserLoginFailure(userId);
-        // 插入登陆日志
-        createLoginLog(userId, username, logType, LoginResultEnum.SUCCESS);
-        // 创建访问令牌
-        OAuth2AccessTokenDO accessTokenDO = oauth2TokenService.createAccessToken(userId, getUserType().getValue(),
+        AdminSessionToken issued = oauth2TokenService.createAdminAccessToken(userId,
                 OAuth2ClientConstants.CLIENT_ID_DEFAULT, null);
-        // 构建返回结果
-        return BeanUtils.toBean(accessTokenDO, AuthLoginRespVO.class);
+        return createResponseAfterLoginSuccess(issued, userId, username, logType);
+    }
+
+    private AuthLoginRespVO createResponseAfterLoginSuccess(AdminSessionToken issued, Long userId,
+                                                          String username, LoginLogTypeEnum logType) {
+        createLoginLog(userId, username, logType, LoginResultEnum.SUCCESS);
+        return buildLoginResponse(issued);
+    }
+
+    private AuthLoginRespVO buildLoginResponse(AdminSessionToken issued) {
+        AuthLoginRespVO response = BeanUtils.toBean(issued.getAccessToken(), AuthLoginRespVO.class);
+        response.setPasswordChangeRequired(issued.isPasswordChangeRequired());
+        return response;
     }
 
     @Override
     public AuthLoginRespVO refreshToken(String refreshToken) {
-        OAuth2AccessTokenDO accessTokenDO = oauth2TokenService.refreshAccessToken(refreshToken, OAuth2ClientConstants.CLIENT_ID_DEFAULT);
-        return BeanUtils.toBean(accessTokenDO, AuthLoginRespVO.class);
+        return buildLoginResponse(oauth2TokenService.refreshAdminAccessToken(refreshToken,
+                OAuth2ClientConstants.CLIENT_ID_DEFAULT));
     }
 
     @Override

@@ -13,6 +13,7 @@ import cn.iocoder.yudao.module.system.controller.admin.user.vo.user.UserImportRe
 import cn.iocoder.yudao.module.system.controller.admin.user.vo.user.UserLifecycleDeactivateReqVO;
 import cn.iocoder.yudao.module.system.controller.admin.user.vo.user.UserPageReqVO;
 import cn.iocoder.yudao.module.system.controller.admin.user.vo.user.UserSaveReqVO;
+import cn.iocoder.yudao.module.system.controller.admin.user.vo.user.UserEditRespVO;
 import cn.iocoder.yudao.module.system.dal.dataobject.user.AdminUserDO;
 import jakarta.validation.Valid;
 
@@ -184,6 +185,19 @@ public interface AdminUserService {
      * @return 用户对象信息
      */
     AdminUserDO getUser(Long id);
+
+    /** 同事务锁定并核验用户 JSON 与正式岗位绑定，仅用于编辑。 */
+    UserEditRespVO getUserForUpdate(Long id);
+
+    /**
+     * 在调用方现有的可写 Spring 事务中锁定用户，再执行会话相关变更。
+     * 只校验用户存在；禁用和登录锁定状态由具体业务入口判断。
+     *
+     * @param tenantId 显式目标租户，必须与当前租户上下文一致
+     * @param userId 正式人员用户编号
+     * @return 当前锁定读取的用户
+     */
+    AdminUserDO lockUserForSessionMutation(Long tenantId, Long userId);
 
     /**
      * 获得指定部门的用户数组

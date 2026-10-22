@@ -53,6 +53,7 @@ class MesProcessPoolEventRevisionServiceTest {
     void setUp() {
         service = new MesProcessPoolEventRevisionServiceImpl(eventMapper, revisionMapper,
                 revisionDiffMapper, fifoAllocationService, submissionReviewMapper, signatureService);
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "nonconformanceReviewService", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrNonconformanceReviewService.class));
     }
 
     @Test
@@ -311,4 +312,15 @@ class MesProcessPoolEventRevisionServiceTest {
                 .reviewedAt(LocalDateTime.of(2026, 8, 3, 11, 30))
                 .build();
     }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings={"PRODUCTION_SUBMIT","PQC_INSPECTION"})
+    void publicFormalRecordRequiresDedicatedCorrectionBeforeAnySignatureOrWrite(String type) {
+        when(eventMapper.selectByIdForUpdate(1001L)).thenReturn(event().setEventType(type));
+        var failure=assertThrows(ServiceException.class,()->service.updateOriginalRecord(updateReq()));
+        org.junit.jupiter.api.Assertions.assertTrue(failure.getMessage().contains("对应业务补正入口"));
+        org.mockito.Mockito.verifyNoInteractions(signatureService,revisionMapper,revisionDiffMapper,submissionReviewMapper);
+        verify(eventMapper,never()).updateById(any(MesProProcessPoolEventDO.class));
+    }
+
 }

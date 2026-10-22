@@ -48,6 +48,7 @@ public class MesFlow6CompletionBackfillReceipt {
     private Long batchRecordId;
     private Long processInspectionId;
     private Boolean hasActualLoss;
+    private String lossConditionFactsJson;
     private BigDecimal lossQuantity;
     private String lossReportStatus;
     private Long lossRecordId;

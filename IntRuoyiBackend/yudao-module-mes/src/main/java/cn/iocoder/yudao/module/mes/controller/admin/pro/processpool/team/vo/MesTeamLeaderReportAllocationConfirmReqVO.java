@@ -17,6 +17,8 @@ public class MesTeamLeaderReportAllocationConfirmReqVO {
     @Schema(description = "工序池提交事件编号", requiredMode = Schema.RequiredMode.REQUIRED, example = "1001")
     @NotNull
     private Long eventId;
+    @NotNull
+    private cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesSubmissionReviewExpectedContext expectedReview;
 
     @Schema(description = "班组长类型", requiredMode = Schema.RequiredMode.REQUIRED, example = "PRODUCTION")
     @NotBlank

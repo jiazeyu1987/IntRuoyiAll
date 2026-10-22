@@ -1,0 +1,160 @@
+{
+  "status": "PASS",
+  "run_id": "um0520261007023542",
+  "task_account": "um0520261007023542",
+  "tenant": "芋道源码",
+  "business_actions_by": "Playwright real frontend only",
+  "credentials_recorded": false,
+  "observed": [
+    {
+      "phase": "UI create",
+      "dialog_closed": true,
+      "toast": "新增成功",
+      "password_input_type": "password"
+    },
+    {
+      "phase": "Initial forced self change",
+      "forced_password_tab_selected": true,
+      "input_types": [
+        "password",
+        "password",
+        "password"
+      ],
+      "toast": "密码已修改，请重新登录",
+      "final_path": "/login",
+      "outcome": "BUSINESS_SUCCESS_WITH_DUPLICATE_WRITE_DEFECT",
+      "writes": [
+        {
+          "http_status": 200,
+          "business_code": 0
+        },
+        {
+          "http_status": 200,
+          "business_code": 1002003005
+        }
+      ]
+    },
+    {
+      "phase": "Independent sessions login",
+      "browsers": [
+        "um05-user1",
+        "um05-user2"
+      ],
+      "identity_dom": "UM05会话撤销验证",
+      "path": "/user/profile",
+      "forced_password_tab": false
+    },
+    {
+      "phase": "Negative admin reset",
+      "masked_input": true,
+      "cancel_put_count": 0,
+      "weak_no_special_character_put_count": 0,
+      "weak_ui_message": "密码至少 8 位且必须包含大写字母、小写字母、数字和特殊字符"
+    },
+    {
+      "phase": "Admin reset",
+      "toast": "密码已重置",
+      "admin_identity_dom": "瑛泰管理员",
+      "single_put": {
+        "http_status": 200,
+        "business_code": 0
+      },
+      "targetRequestEvidenceFlushed": true
+    },
+    {
+      "phase": "Two revoked sessions",
+      "both_final_path": "/login?redirect=%2Fuser%2Fprofile",
+      "both_login_input_visible": true,
+      "protected_access_business_code": 401,
+      "refresh_business_code": 401
+    },
+    {
+      "phase": "Reset credential forced login",
+      "browsers": [
+        "um05-user1",
+        "um05-user2"
+      ],
+      "password_tab_selected": true,
+      "identity_dom": "UM05会话撤销验证"
+    },
+    {
+      "phase": "Final self change after local submitting guard",
+      "password_input_types": [
+        "password",
+        "password",
+        "password"
+      ],
+      "successful_put_request_id": 2,
+      "put_count": 1,
+      "http_status": 200,
+      "business_code": 0,
+      "toast": "密码已修改，请重新登录",
+      "final_path": "/login",
+      "login_input_visible": true,
+      "page_errors_during_action": []
+    },
+    {
+      "phase": "Final fresh login",
+      "browser": "um05-user1",
+      "identity_dom": "UM05会话撤销验证",
+      "path": "/user/profile",
+      "password_tab_forced": false
+    },
+    {
+      "phase": "Second independent final login",
+      "browser": "um05-user2",
+      "identity_dom": "UM05会话撤销验证",
+      "path": "/user/profile?tab=resetPwd",
+      "note": "Preserved redirect query selects password tab; tab selection alone is not a credential-status oracle."
+    },
+    {
+      "phase": "MySQL witness second reset",
+      "old_access_rows": 4,
+      "old_refresh_rows": 4,
+      "single_put_business_code": 0,
+      "toast": "密码已重置",
+      "production_service_old_rr": "PASS",
+      "mapper_dml_attempts": 0
+    },
+    {
+      "phase": "Second old-session rejection",
+      "browsers": [
+        "um05-user1",
+        "um05-user2"
+      ],
+      "both_login_dom_visible": true,
+      "natural_access_code": 401,
+      "natural_refresh_code": 401,
+      "note": "Navigation aborts produced response parse Error and rejected-request pageerrors; these were retained, no success claimed for those requests. Both sessions actually reached login DOM."
+    },
+    {
+      "phase": "Task fixture deletion",
+      "ui_entry": "unique filtered user row → 删除 → 确定",
+      "toast": "删除成功",
+      "row_visible": false,
+      "readonly_active_user_count": 0,
+      "readonly_active_access_count": 0,
+      "readonly_active_refresh_count": 0
+    },
+    {
+      "phase": "Owned admin browser logout",
+      "actual_login_dom_visible": true,
+      "path": "/login?redirect=/user/profile",
+      "shared_credential_changed": false
+    }
+  ],
+  "harness_failures_preserved": [
+    "Wrong assumption of direct 新增 button: real entry is 高级→新增",
+    "Hidden password placeholder caused strict mode; corrected to visible input",
+    "Weak-password wording expectation corrected to exact source UI text",
+    "Old-session dialog assumption timeout: actual UI auto-navigates to login",
+    "Login tenant label was visible but model not committed; selected actual tenant through UI before successful login.",
+    "Second final login retained original redirect tab query; exact path/password-tab oracle was too narrow. No API or injected credential-status fields used."
+  ],
+  "remaining": [],
+  "completed_at": "2026-10-07T04:44:45+08:00",
+  "known_outside_scope": [
+    "Common XButton/login double event can issue two login requests; only password form guarded within UM05.",
+    "Baseline full TypeScript TS2677 remains unchanged."
+  ]
+}

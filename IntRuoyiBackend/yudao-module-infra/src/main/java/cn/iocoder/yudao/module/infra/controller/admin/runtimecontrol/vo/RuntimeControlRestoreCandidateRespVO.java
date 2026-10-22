@@ -13,6 +13,9 @@ public class RuntimeControlRestoreCandidateRespVO {
     @Schema(description = "服务端生成候选编号", requiredMode = Schema.RequiredMode.REQUIRED)
     private String candidateId;
 
+    @Schema(description = "候选用途：REHEARSAL/CONTROLLED_RESTORE", requiredMode = Schema.RequiredMode.REQUIRED)
+    private String candidateType;
+
     @Schema(description = "备份点编号", requiredMode = Schema.RequiredMode.REQUIRED)
     private String backupId;
 
@@ -40,6 +43,18 @@ public class RuntimeControlRestoreCandidateRespVO {
     @Schema(description = "恢复集 manifest SHA-256")
     private String recoverySetManifestHash;
 
+    @Schema(description = "备份 manifest SHA-256")
+    private String manifestDigest;
+
+    @Schema(description = "DCC 链 manifest SHA-256")
+    private String chainDigest;
+
+    @Schema(description = "备份源指纹")
+    private String sourceFingerprint;
+
+    @Schema(description = "候选评估目标指纹")
+    private String targetFingerprint;
+
     @Schema(description = "恢复集组件摘要")
     private Map<String, String> componentSummary;
 
@@ -60,6 +75,12 @@ public class RuntimeControlRestoreCandidateRespVO {
 
     @Schema(description = "恢复演练报告路径")
     private String rehearsalReportPath;
+
+    @Schema(description = "恢复演练状态：NOT_RUN/PASSED/FAILED/PENDING_REVIEW")
+    private String rehearsalStatus;
+
+    @Schema(description = "最近一次演练完成时间")
+    private String lastRehearsedAt;
 
     @Schema(description = "现场快照路径")
     private String snapshotPath;

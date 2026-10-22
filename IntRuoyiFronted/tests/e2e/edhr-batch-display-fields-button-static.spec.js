@@ -46,11 +46,7 @@ assert.doesNotMatch(
   'eDHR batch execution toolbar must remove the reset action from the highlighted toolbar.'
 )
 
-assert.match(
-  actionsSource,
-  /openCreateDialog[\s\S]*打开\/创建/,
-  'eDHR batch execution toolbar must keep the create action.'
-)
+assert(!actionsSource.includes('openCreateDialog'), 'Manual create action must be removed.')
 
 assert.doesNotMatch(
   actionsSource,

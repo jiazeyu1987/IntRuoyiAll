@@ -4,8 +4,10 @@
     class="team-leader-workbench__active-order-detail"
     :class="{
       'is-embedded': embedded,
-      'is-single-mode': displayMode !== 'full'
+      'is-single-mode': displayMode !== 'full',
+      'is-source-detail-record': recordScope === 'FORMAL_BATCH_SOURCE_DETAIL'
     }"
+    :data-active-order-detail-record-scope="recordScope"
   >
     <el-alert
       v-if="error"
@@ -20,6 +22,14 @@
       </template>
     </el-alert>
     <template v-else-if="detail">
+      <ActiveOrderReworkSourcePanel
+        :active-order-id="detail.activeOrderId"
+        :source="detail.reworkSource"
+      />
+      <ActiveOrderCorrectionHistoryPanel
+        :context="signatureEvidenceContext"
+        @signature="signatureEvidenceViewer.open"
+      />
       <div
         v-if="!embedded"
         class="team-leader-workbench__active-order-detail-summary"
@@ -35,6 +45,22 @@
         <div>
           <span>工序数</span>
           <strong>{{ detail.processes.length }}</strong>
+        </div>
+      </div>
+
+      <div
+        class="team-leader-workbench__active-order-detail-record-boundary"
+        data-active-order-detail-record-boundary
+      >
+        <strong>批记录状态</strong>
+        <div
+          v-if="detail.activeOrderStatus?.statusLabel"
+          class="team-leader-workbench__active-order-current-status"
+          data-active-order-current-status
+        >
+          <el-tag :type="activeOrderStatusTagType">
+            {{ detail.activeOrderStatus.statusLabel }}
+          </el-tag>
         </div>
       </div>
 
@@ -74,7 +100,7 @@
                 </tr>
                 <tr>
                   <th>生产指令</th>
-                  <td>{{ blankSummaryField }}</td>
+                  <td>{{ activeOrderWorkOrderDisplay.demandBillNo }}</td>
                   <th>生产订单号</th>
                   <td>{{ activeOrderWorkOrderDisplay.workOrderCode }}</td>
                 </tr>
@@ -83,6 +109,12 @@
                   <td>{{ activeOrderWorkOrderDisplay.drawingNumber }}</td>
                   <th>生产周期</th>
                   <td>{{ summaryProductionCycleText }}</td>
+                </tr>
+                <tr>
+                  <th>UDI编号</th>
+                  <td colspan="3" data-active-order-udi-control-document-no>
+                    {{ detail.udiControlDocumentNo || '未填写' }}
+                  </td>
                 </tr>
               </tbody>
             </table>
@@ -93,7 +125,7 @@
             >
               <tbody>
                 <tr>
-                  <th colspan="6" class="team-leader-workbench__active-order-summary-title">
+                  <th colspan="4" class="team-leader-workbench__active-order-summary-title">
                     生产零配件批号信息
                   </th>
                 </tr>
@@ -140,18 +172,327 @@
                   :key="pair.key"
                 >
                   <td>{{ pair.left?.processName || blankSummaryField }}</td>
-                  <td>{{ pair.left?.operatorText || blankSummaryField }}</td>
-                  <td>{{ pair.left?.assemblyDateText || blankSummaryField }}</td>
+                  <td>
+                    <button
+                      type="button"
+                      class="team-leader-workbench__signature-link"
+                      data-active-order-summary-process-operator-signature
+                      :disabled="!pair.left?.signature?.signatureId"
+                      @click="openActiveOrderSignatureRecord(pair.left?.signature)"
+                    >
+                      {{ pair.left?.operatorText || blankSummaryField }}
+                    </button>
+                  </td>
+                  <td>
+                    <button
+                      type="button"
+                      class="team-leader-workbench__signature-link"
+                      data-active-order-summary-process-assembly-date-signature
+                      :disabled="!pair.left?.signature?.signatureId"
+                      @click="openActiveOrderSignatureRecord(pair.left?.signature)"
+                    >
+                      {{ pair.left?.assemblyDateText || blankSummaryField }}
+                    </button>
+                  </td>
                   <td>{{ pair.right?.processName || blankSummaryField }}</td>
-                  <td>{{ pair.right?.operatorText || blankSummaryField }}</td>
-                  <td>{{ pair.right?.assemblyDateText || blankSummaryField }}</td>
+                  <td>
+                    <button
+                      type="button"
+                      class="team-leader-workbench__signature-link"
+                      data-active-order-summary-process-operator-signature
+                      :disabled="!pair.right?.signature?.signatureId"
+                      @click="openActiveOrderSignatureRecord(pair.right?.signature)"
+                    >
+                      {{ pair.right?.operatorText || blankSummaryField }}
+                    </button>
+                  </td>
+                  <td>
+                    <button
+                      type="button"
+                      class="team-leader-workbench__signature-link"
+                      data-active-order-summary-process-assembly-date-signature
+                      :disabled="!pair.right?.signature?.signatureId"
+                      @click="openActiveOrderSignatureRecord(pair.right?.signature)"
+                    >
+                      {{ pair.right?.assemblyDateText || blankSummaryField }}
+                    </button>
+                  </td>
                 </tr>
                 <tr v-if="!summaryProcessPersonnelPairs.length">
                   <td colspan="6">{{ blankSummaryField }}</td>
                 </tr>
               </tbody>
             </table>
+
+            <table
+              v-if="summaryPqcProductionRelease"
+              class="team-leader-workbench__active-order-summary-table"
+              data-active-order-summary-pqc-release-table
+            >
+              <tbody>
+                <tr>
+                  <th colspan="4" class="team-leader-workbench__active-order-summary-title">
+                    PQC生产放行
+                  </th>
+                </tr>
+                <tr>
+                  <th>生产放行状态</th>
+                  <td>{{ summaryPqcProductionRelease.statusLabel }}</td>
+                  <th>生产放行电子签名</th>
+                  <td>
+                    <el-button
+                      link
+                      type="primary"
+                      class="team-leader-workbench__signature-link"
+                      data-active-order-summary-pqc-release-signature
+                      :disabled="!summaryPqcProductionRelease.signature?.signatureId"
+                      @click="openActiveOrderSignatureRecord(summaryPqcProductionRelease.signature)"
+                    >
+                      {{ formatActiveOrderSignatureCellText(summaryPqcProductionRelease.signature) }}
+                    </el-button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+
+            <table
+              v-if="summaryMarketRelease"
+              class="team-leader-workbench__active-order-summary-table"
+              data-active-order-summary-market-release-table
+            >
+              <tbody>
+                <tr>
+                  <th colspan="4" class="team-leader-workbench__active-order-summary-title">
+                    上市放行
+                  </th>
+                </tr>
+                <tr>
+                  <th>上市放行状态</th>
+                  <td>{{ summaryMarketRelease.statusLabel }}</td>
+                  <th>上市放行电子签名</th>
+                  <td>
+                    <el-button
+                      link
+                      type="primary"
+                      class="team-leader-workbench__signature-link"
+                      data-active-order-summary-market-release-signature
+                      :disabled="!summaryMarketRelease.signature?.signatureId"
+                      @click="openActiveOrderSignatureRecord(summaryMarketRelease.signature)"
+                    >
+                      {{ formatMarketReleaseSignatureCellText(summaryMarketRelease) }}
+                    </el-button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+
+            <table
+              v-if="detail.operationFacts?.length"
+              class="team-leader-workbench__active-order-summary-table"
+              data-active-order-summary-operation-facts-table
+            >
+              <tbody>
+                <tr>
+                  <th colspan="4" class="team-leader-workbench__active-order-summary-title">
+                    活跃订单操作事实
+                  </th>
+                </tr>
+                <tr>
+                  <th>操作</th>
+                  <th>操作人</th>
+                  <th>结果</th>
+                  <th>发生时间</th>
+                </tr>
+                <template v-for="fact in detail.operationFacts" :key="fact.id">
+                  <tr
+                    data-active-order-operation-fact
+                    :data-active-order-operation-type="fact.operationType"
+                  >
+                    <td>{{ formatActiveOrderOperationType(fact) }}</td>
+                    <td>{{ fact.actorName }}</td>
+                    <td>{{ formatActiveOrderOperationResultStatus(fact.resultStatus) }}</td>
+                    <td>{{ formatDateTime(fact.occurredAt) }}</td>
+                  </tr>
+                  <tr v-if="hasNonconformanceEvidence(fact)" data-active-order-operation-ncr-trace>
+                    <td colspan="4">
+                      <div
+                        class="team-leader-workbench__operation-fact-evidence"
+                        data-active-order-operation-ncr-evidence
+                      >
+                        <div class="team-leader-workbench__operation-fact-evidence-grid">
+                          <div class="team-leader-workbench__operation-fact-evidence-item">
+                            <span class="team-leader-workbench__operation-fact-evidence-label">
+                              不合格原因
+                            </span>
+                            <span class="team-leader-workbench__operation-fact-evidence-value">
+                              {{ fact.nonconformanceReason || '--' }}
+                            </span>
+                          </div>
+                          <div
+                            v-if="fact.operationType !== 'NONCONFORMANCE_REVIEW_CREATE'"
+                            class="team-leader-workbench__operation-fact-evidence-item"
+                          >
+                            <span class="team-leader-workbench__operation-fact-evidence-label">
+                              评审意见
+                            </span>
+                            <span class="team-leader-workbench__operation-fact-evidence-value">
+                              {{ fact.reviewOpinion || '--' }}
+                            </span>
+                          </div>
+                          <div
+                            v-if="fact.operationType !== 'NONCONFORMANCE_REVIEW_CREATE'"
+                            class="team-leader-workbench__operation-fact-evidence-item"
+                          >
+                            <span class="team-leader-workbench__operation-fact-evidence-label">
+                              处置结果
+                            </span>
+                            <span class="team-leader-workbench__operation-fact-evidence-value">
+                              {{ resolveNonconformanceDispositionLabel(fact.disposition) }}
+                            </span>
+                          </div>
+                          <div class="team-leader-workbench__operation-fact-evidence-item">
+                            <span class="team-leader-workbench__operation-fact-evidence-label">
+                              电子签名
+                            </span>
+                            <button
+                              type="button"
+                              class="team-leader-workbench__signature-link team-leader-workbench__operation-fact-evidence-value"
+                              data-active-order-summary-operation-signature
+                              :disabled="!fact.signatureId"
+                              @click="openActiveOrderSignatureRecord(toOperationFactSignature(fact))"
+                            >
+                              {{ formatOperationFactSignatureText(fact) }}
+                            </button>
+                          </div>
+                          <div
+                            v-if="
+                              fact.operationType !== 'NONCONFORMANCE_REVIEW_CREATE' &&
+                              resolveNonconformanceReviewMaterials(fact).length
+                            "
+                            class="team-leader-workbench__operation-fact-evidence-item"
+                          >
+                            <span class="team-leader-workbench__operation-fact-evidence-label">
+                              评审材料
+                            </span>
+                            <div
+                              class="team-leader-workbench__operation-fact-evidence-value"
+                            >
+                              <div
+                                v-for="(material, materialIndex) in resolveNonconformanceReviewMaterials(fact)"
+                                :key="materialIndex"
+                              >
+                                <el-button
+                                  link
+                                  type="primary"
+                                  class="team-leader-workbench__operation-fact-evidence-value"
+                                  data-active-order-ncr-review-material-preview
+                                  @click="previewNonconformanceReviewMaterial(material)"
+                                >
+                                  {{ material.fileName }}
+                                </el-button>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                  </tr>
+                </template>
+              </tbody>
+            </table>
+            <section
+              v-if="showSummaryTab"
+              class="team-leader-workbench__active-order-gxp-audit"
+              data-active-order-gxp-audit
+            >
+              <div class="team-leader-workbench__active-order-summary-title">
+                统一 GxP 审计追踪
+              </div>
+              <el-alert
+                v-if="gxpAuditError"
+                :title="gxpAuditError"
+                type="error"
+                :closable="false"
+                show-icon
+                data-active-order-gxp-audit-error
+              />
+              <el-table
+                v-else
+                v-loading="gxpAuditLoading"
+                :data="gxpAuditEvents"
+                size="small"
+                stripe
+                data-active-order-gxp-audit-table
+              >
+                <el-table-column label="操作" min-width="220">
+                  <template #default="{ row }">
+                    {{ formatGxpAuditOperation(row) }}
+                  </template>
+                </el-table-column>
+                <el-table-column label="实际执行人 / 认证账号" min-width="140">
+                  <template #default="{ row }">
+                    <div>执行人：{{ formatGxpAuditActorSnapshot(row.performedByJson, '执行人') }}</div>
+                    <div>认证账号：{{ formatGxpAuditActorSnapshot(row.authenticatedActorJson, '认证账号') }}</div>
+                  </template>
+                </el-table-column>
+                <el-table-column label="结果" width="110">
+                  <template #default="{ row }">
+                    {{ formatGxpAuditResult(row.resultStatus) }}
+                  </template>
+                </el-table-column>
+                <el-table-column label="发生时间" min-width="170">
+                  <template #default="{ row }">
+                    {{ formatDateTime(row.serverOccurredAt) }}
+                  </template>
+                </el-table-column>
+                <el-table-column label="完整性" width="120">
+                  <template #default="{ row }">
+                    {{ formatGxpAuditIntegrity(row.integrityStatus) }}
+                  </template>
+                </el-table-column>
+                <el-table-column label="详情" width="90" fixed="right">
+                  <template #default="{ row }">
+                    <el-button
+                      link
+                      type="primary"
+                      data-active-order-gxp-audit-detail
+                      @click="openGxpAuditEvent(row)"
+                    >
+                      查看
+                    </el-button>
+                  </template>
+                </el-table-column>
+              </el-table>
+              <el-pagination
+                v-if="!gxpAuditError && gxpAuditTotal > gxpAuditPageSize"
+                v-model:current-page="gxpAuditPageNo"
+                :page-size="gxpAuditPageSize"
+                :total="gxpAuditTotal"
+                layout="total, prev, pager, next"
+                background
+                data-active-order-gxp-audit-pagination
+                @current-change="loadGxpAudit"
+              />
+              <el-empty
+                v-if="!gxpAuditLoading && !gxpAuditError && !gxpAuditEvents.length"
+                :image-size="48"
+                description="当前对象暂无统一 GxP 审计记录"
+              />
+            </section>
           </section>
+        </el-tab-pane>
+        <el-tab-pane v-if="showSummaryTab" label="偏差" name="deviation" data-active-order-deviation-tab>
+          <el-skeleton v-if="deviationLoading" :rows="4" animated />
+          <el-alert v-else-if="deviationError" :title="deviationError" type="error" :closable="false">
+            <el-button link type="primary" @click="loadDeviationBatches">重试</el-button>
+          </el-alert>
+          <template v-else-if="deviationBatches.length">
+            <section v-for="batch in deviationBatches" :key="batch.batchExecutionId">
+              <h3 v-if="deviationBatches.length > 1">{{ batch.batchExecutionCode }}</h3>
+              <DeviationTracePane :batch-execution-id="batch.batchExecutionId" />
+            </section>
+          </template>
+          <el-empty v-else description="暂无正式批记录，无法查看偏差" data-active-order-deviation-empty />
         </el-tab-pane>
         <el-tab-pane
           v-if="showSummaryTab"
@@ -204,16 +545,63 @@
                   <td>{{ row.unqualifiedQuantityText }}</td>
                   <td>{{ row.unqualifiedReasonText }}</td>
                   <td>{{ row.disposalMethodText }}</td>
-                  <td>{{ row.productionOperatorDateText }}</td>
-                  <td>{{ row.inspectorConfirmationDateText }}</td>
-                  <td>{{ row.approverDateText }}</td>
+                  <td>
+                    <template
+                      v-for="signature in row.productionOperatorSignatures"
+                      :key="signature.signatureId"
+                    >
+                      <button
+                        type="button"
+                        class="team-leader-workbench__signature-link"
+                        data-active-order-pqc-loss-production-signature
+                        @click="openActiveOrderSignatureRecord(signature)"
+                      >
+                        {{ formatLossReportSignatureDateText(signature) }}
+                      </button>
+                    </template>
+                    <span v-if="!row.productionOperatorSignatures.length">
+                      {{ blankSummaryField }}
+                    </span>
+                  </td>
+                  <td>
+                    <template
+                      v-for="signature in row.inspectorSignatures"
+                      :key="signature.signatureId"
+                    >
+                      <button
+                        type="button"
+                        class="team-leader-workbench__signature-link"
+                        data-active-order-pqc-loss-inspector-signature
+                        @click="openActiveOrderSignatureRecord(signature)"
+                      >
+                        {{ formatLossReportSignatureDateText(signature) }}
+                      </button>
+                    </template>
+                    <span v-if="!row.inspectorSignatures.length">
+                      {{ blankSummaryField }}
+                    </span>
+                  </td>
+                  <td>
+                    <template
+                      v-for="signature in row.approverSignatures"
+                      :key="signature.signatureId"
+                    >
+                      <button
+                        type="button"
+                        class="team-leader-workbench__signature-link"
+                        data-active-order-pqc-loss-approver-signature
+                        @click="openActiveOrderSignatureRecord(signature)"
+                      >
+                        {{ formatLossReportSignatureDateText(signature) }}
+                      </button>
+                    </template>
+                    <span v-if="!row.approverSignatures.length">
+                      {{ blankSummaryField }}
+                    </span>
+                  </td>
                 </tr>
                 <tr v-if="!pqcLossReportRows.length">
                   <td colspan="8">暂无生产过程损耗记录</td>
-                </tr>
-                <tr>
-                  <th colspan="2">批准人/日期：</th>
-                  <td colspan="6">{{ pqcLossReportApprovalText }}</td>
                 </tr>
               </tbody>
             </table>
@@ -221,7 +609,7 @@
         </el-tab-pane>
         <el-tab-pane
           v-if="showProductionSubmissionTab"
-          label="生产提交"
+          label="生产表单"
           name="productionSubmissions"
         >
           <el-tabs
@@ -257,16 +645,6 @@
                   >
                     {{ process.keyFlag ? '关键工序' : '非关键工序' }}
                   </span>
-                  <el-button
-                    v-if="!embedded"
-                    size="small"
-                    type="primary"
-                    plain
-                    data-active-order-open-batch-execution-production-form
-                    @click="emit('open-batch-execution-production-form', process)"
-                  >
-                    打开批次执行生产表单
-                  </el-button>
                 </div>
                 <div class="team-leader-workbench__production-record-meta">
                   <div>
@@ -279,7 +657,7 @@
                   </div>
                   <div>
                     <span>产品规格</span>
-                    <strong>{{ detail.productSpecification || '未记录' }}</strong>
+                    <strong>{{ activeOrderProductSpecificationText }}</strong>
                   </div>
                   <div>
                     <span>生产订单</span>
@@ -313,11 +691,17 @@
                       <template #default="{ row }">{{ row.materialSpecification || '未记录' }}</template>
                     </el-table-column>
                     <el-table-column label="批号" width="170">
-                      <template #default="{ row }">{{ formatActiveOrderBatchCodes(row.batchCodes) }}</template>
+                      <template #default="{ row }">
+                        <span data-active-order-production-record-input-material-batch>
+                          {{ formatActiveOrderBatchCodes(row.batchCodes) }}
+                        </span>
+                      </template>
                     </el-table-column>
                     <el-table-column label="领料单号" width="190">
                       <template #default="{ row }">
-                        {{ formatProductionInputMaterialPickListEvidence(row) }}
+                        <span data-active-order-production-record-input-material-pick-list>
+                          {{ formatProductionInputMaterialPickListEvidence(row) }}
+                        </span>
                       </template>
                     </el-table-column>
                     <el-table-column label="实发数量" width="105">
@@ -474,9 +858,166 @@
         </el-tab-pane>
         <el-tab-pane
           v-if="showPqcSubmissionTab"
-          label="PQC提交"
+          label="过程检表单"
           name="pqcSubmissions"
         >
+          <el-tabs
+            v-model="pqcInnerActiveTab"
+            data-team-leader-active-order-detail-pqc-inner-tabs
+            class="team-leader-workbench__active-order-detail-inner-tabs"
+          >
+            <el-tab-pane label="原始提交" name="originalSubmissions">
+              <el-tabs
+                v-if="pqcProcessGroups.length"
+                v-model="pqcActiveTab"
+                data-team-leader-active-order-detail-pqc-process-tabs
+                class="team-leader-workbench__active-order-detail-inner-tabs"
+              >
+                <el-tab-pane
+                  v-for="(pqcProcess, pqcProcessIndex) in pqcProcessGroups"
+                  :key="pqcProcess.key"
+                  :name="resolveActiveOrderPqcProcessTabName(pqcProcess, pqcProcessIndex)"
+                >
+                  <template #label>
+                    <span
+                      data-team-leader-active-order-detail-pqc-process-tab
+                      :title="pqcProcess.qaProcessName"
+                    >
+                      {{ pqcProcessIndex + 1 }}. {{ pqcProcess.qaProcessName }}
+                    </span>
+                  </template>
+                  <section class="team-leader-workbench__production-record-form">
+                    <div class="team-leader-workbench__production-record-form-title">
+                      <h3 class="team-leader-workbench__production-record-process-title">
+                        {{ pqcProcess.qaProcessName }}
+                      </h3>
+                      <span>{{ detail.routeName }}</span>
+                    </div>
+                    <div class="team-leader-workbench__production-record-meta">
+                      <div>
+                        <span>生产订单</span>
+                        <strong>{{ detail.workOrderCode }}</strong>
+                      </div>
+                      <div>
+                        <span>生产批号</span>
+                        <strong>{{ detail.batchCode || '未记录' }}</strong>
+                      </div>
+                      <div>
+                        <span>产品规格</span>
+                        <strong>{{ activeOrderProductSpecificationText }}</strong>
+                      </div>
+                      <div>
+                        <span>PQC提交</span>
+                        <strong>{{ pqcProcess.submissions.length }} 次</strong>
+                      </div>
+                    </div>
+                    <div
+                      v-for="submission in pqcProcess.submissions"
+                      :key="`pqc-original-${submission.pqcTaskId}-${submission.submittedEventId}`"
+                      class="team-leader-workbench__pqc-original-submission-block"
+                      data-active-order-pqc-original-submission-block
+                    >
+                      <div class="team-leader-workbench__production-record-section-title">
+                        {{ resolvePqcInspectionTypeText(submission) }}
+                        <span>提交事件：{{ formatPqcSubmissionEventIds(submission) }}</span>
+                      </div>
+                      <div class="team-leader-workbench__production-record-meta">
+                        <div>
+                          <span>检验日期</span>
+                          <strong>{{ submission.businessDate || '未记录' }}</strong>
+                        </div>
+                        <div>
+                          <span>检验数量</span>
+                          <strong>{{ formatPqcSubmissionQuantity(submission.submittedInspectionQuantity) }}</strong>
+                        </div>
+                        <div>
+                          <span>损耗数量</span>
+                          <strong>{{ formatPqcSubmissionQuantity(submission.submittedScrapQuantity) }}</strong>
+                        </div>
+                        <div>
+                          <span>提交人</span>
+                          <strong>
+                            <template
+                              v-for="signature in submission.submitterSignatures ?? []"
+                              :key="signature.signatureId"
+                            >
+                              <button
+                                type="button"
+                                class="team-leader-workbench__signature-link"
+                                data-active-order-pqc-original-submitter-signature
+                                @click="openActiveOrderSignatureRecord(signature)"
+                              >
+                                {{ formatActiveOrderSignatureCellText(signature) }}
+                              </button>
+                            </template>
+                            <span v-if="!(submission.submitterSignatures ?? []).length">
+                              {{ submission.submitterName || '未记录' }}
+                            </span>
+                          </strong>
+                        </div>
+                        <div>
+                          <span>复核人</span>
+                          <strong>
+                            <template
+                              v-for="signature in submission.reviewerSignatures ?? []"
+                              :key="signature.signatureId"
+                            >
+                              <button
+                                type="button"
+                                class="team-leader-workbench__signature-link"
+                                data-active-order-pqc-original-reviewer-signature
+                                @click="openActiveOrderSignatureRecord(signature)"
+                              >
+                                {{ formatActiveOrderSignatureCellText(signature) }}
+                              </button>
+                            </template>
+                            <span v-if="!(submission.reviewerSignatures ?? []).length">
+                              {{ submission.reviewerName || '未复核' }}
+                            </span>
+                          </strong>
+                        </div>
+                      </div>
+                      <table
+                        v-if="buildActiveOrderPqcSubmittedItemRows(submission).length"
+                        class="team-leader-workbench__pqc-original-submission-table"
+                        data-active-order-pqc-original-submission-table
+                      >
+                        <thead>
+                          <tr>
+                            <th>检验类型</th>
+                            <th>检测数量</th>
+                            <th>检验项目</th>
+                            <th>检验方法</th>
+                            <th>接收标准</th>
+                            <th>检测结果</th>
+                            <th>检验设备</th>
+                            <th>判定</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr
+                            v-for="row in buildActiveOrderPqcSubmittedItemRows(submission)"
+                            :key="row.key"
+                          >
+                            <td>{{ row.inspectionTypeText }}</td>
+                            <td>{{ row.sampleCountText }}</td>
+                            <td>{{ row.itemNameText }}</td>
+                            <td>{{ row.inspectionMethodText }}</td>
+                            <td>{{ row.standardText }}</td>
+                            <td>{{ row.resultSummaryText }}</td>
+                            <td>{{ row.equipmentText }}</td>
+                            <td>{{ row.judgementText }}</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                      <el-empty v-else :image-size="56" description="暂无PQC原始提交明细" />
+                    </div>
+                  </section>
+                </el-tab-pane>
+              </el-tabs>
+              <el-empty v-else :image-size="56" description="暂无一线PQC提交" />
+            </el-tab-pane>
+            <el-tab-pane label="过程检验记录" name="processInspectionRecord">
           <section
             v-if="pqcProcessGroups.length"
             class="team-leader-workbench__pqc-inspection-record-form"
@@ -484,16 +1025,6 @@
             <div class="team-leader-workbench__production-record-form-title">
               <h3>过程检验记录</h3>
               <span>{{ detail.routeName }}</span>
-              <el-button
-                v-if="!embedded"
-                size="small"
-                type="primary"
-                plain
-                data-active-order-open-batch-execution-pqc-form
-                @click="emit('open-batch-execution-pqc-form')"
-              >
-                打开批次执行过程检验记录
-              </el-button>
             </div>
             <div class="team-leader-workbench__production-record-meta">
               <div>
@@ -506,7 +1037,7 @@
               </div>
               <div>
                 <span>产品规格</span>
-                <strong>{{ detail.productSpecification || '未记录' }}</strong>
+                <strong>{{ activeOrderProductSpecificationText }}</strong>
               </div>
               <div>
                 <span>检验数量</span>
@@ -672,6 +1203,8 @@
             <el-empty v-else :image-size="56" description="暂无PQC检验记录" />
           </section>
           <el-empty v-else :image-size="56" description="暂无一线PQC提交" />
+            </el-tab-pane>
+          </el-tabs>
         </el-tab-pane>
         <el-tab-pane
           v-if="displayMode === 'full'"
@@ -680,32 +1213,50 @@
           data-team-leader-active-order-detail-material-tab
         >
           <div
-            v-if="pickListMaterials.length"
-            class="team-leader-workbench__active-order-detail-table-shell"
+            v-if="pickListDocuments.length"
+            class="team-leader-workbench__pick-list-documents"
+            data-active-order-pick-list-documents
           >
-            <el-table
-              :data="pickListMaterials"
-              size="small"
-              border
-              :fit="true"
-              table-layout="fixed"
-              class="team-leader-workbench__active-order-submission-table"
+            <section
+              v-for="document in pickListDocuments"
+              :key="document.key"
+              class="team-leader-workbench__pick-list-document"
+              data-active-order-pick-list-document
             >
-              <el-table-column label="领料单" width="180">
-                <template #default="{ row: material }">
+              <h3>生产领料单</h3>
+              <div class="team-leader-workbench__pick-list-head">
+                <div>
+                  <span>生产领料单号：</span>
                   <template
-                    v-for="link in renderActiveOrderDocumentLinks(material.sourcePickListNos, material.sourcePickListIds, 'pick')"
+                    v-for="link in renderActiveOrderDocumentLinks([document.billNo], [document.id], 'pick')"
                     :key="link.key"
                   >
                     <el-button link type="primary" @click="openActiveOrderDocument(link)">
                       {{ link.no }}
                     </el-button>
                   </template>
-                  <span v-if="!renderActiveOrderDocumentLinks(material.sourcePickListNos, material.sourcePickListIds, 'pick').length">
-                    -
-                  </span>
-                </template>
-              </el-table-column>
+                </div>
+                <div>
+                  <span>单据状态：</span>
+                  <strong>{{ document.documentStatus || '-' }}</strong>
+                </div>
+                <div>
+                  <span>单据日期：</span>
+                  <strong>{{ formatDate(document.billDate) }}</strong>
+                </div>
+                <div>
+                  <span>生产订单编号：</span>
+                  <strong>{{ document.productionOrderNos.join('、') || '-' }}</strong>
+                </div>
+              </div>
+            <el-table
+              :data="document.rows"
+              size="small"
+              border
+              :fit="true"
+              table-layout="fixed"
+              class="team-leader-workbench__active-order-submission-table"
+            >
               <el-table-column label="物料编码" prop="materialCode" width="140" />
               <el-table-column label="物料名称" prop="materialName" />
               <el-table-column label="规格型号" width="150">
@@ -729,6 +1280,7 @@
                 </template>
               </el-table-column>
             </el-table>
+            </section>
           </div>
           <el-empty v-else :image-size="56" description="暂无领料单物料批号" />
         </el-tab-pane>
@@ -800,7 +1352,13 @@
           label="生产用料清单"
           name="productionMaterialLists"
           data-team-leader-active-order-detail-production-material-list-tab
+          :data-active-order-production-material-list-state="
+            productionMaterialListLoading ? 'loading' : productionMaterialListError ? 'error' : 'success'
+          "
         >
+          <p data-active-order-production-material-list-scope>
+            当前活跃订单生产用料清单 · 生产工单：{{ detail.workOrderCode }}
+          </p>
           <el-alert
             v-if="productionMaterialListError"
             :title="productionMaterialListError"
@@ -808,7 +1366,12 @@
             :closable="false"
             show-icon
             class="team-leader-workbench__production-material-list-error"
-          />
+            data-active-order-production-material-list-error
+          >
+            <el-button link type="primary" @click="$emit('retry')">
+              重新加载生产用料清单
+            </el-button>
+          </el-alert>
           <div
             v-else-if="productionMaterialListDocuments.length"
             v-loading="productionMaterialListLoading"
@@ -917,6 +1480,7 @@
             v-loading="productionMaterialListLoading"
             :image-size="56"
             description="暂无生产用料清单"
+            data-active-order-production-material-list-empty
           />
         </el-tab-pane>
         <el-tab-pane
@@ -1024,6 +1588,119 @@
             </el-table>
           </div>
         </el-tab-pane>
+        <el-tab-pane
+          v-for="category in dossierFileTabDefinitions"
+          :key="category.key"
+          :label="category.label"
+          :name="buildDossierFileTabName(category.key)"
+          data-active-order-dossier-file-tab
+        >
+          <section
+            class="team-leader-workbench__dossier-file-panel"
+            :data-active-order-dossier-file-category="category.key"
+          >
+            <div class="team-leader-workbench__dossier-file-toolbar">
+              <div>
+                <strong>{{ category.label }}</strong>
+                <span>资料归属：当前活跃订单</span>
+              </div>
+              <el-upload
+                :disabled="activeOrderDossierMutationLocked"
+                :show-file-list="false"
+                :http-request="(options) => uploadDossierFile(category.key, options)"
+                v-hasPermi="[
+                  'mes:pro-process-pool-team-leader:maintain',
+                  'mes:pro-production-release:pqc-approve',
+                  'mes:pro-edhr-batch-execution:upload'
+                ]"
+                data-active-order-dossier-file-upload
+              >
+                <el-button
+                  type="primary"
+                  :disabled="activeOrderDossierMutationLocked"
+                  :loading="dossierFileUploadingKey === category.key"
+                  :title="activeOrderDossierMutationLockReason"
+                >
+                  上传文件
+                </el-button>
+              </el-upload>
+            </div>
+            <el-alert
+              v-if="auditScopeTypeValue === 'BATCH' && detail?.activeOrderStatus?.status === 'NOT_APPLIED'"
+              title="尚未申请放行，资料暂不可查询"
+              type="info"
+              :closable="false"
+              show-icon
+              data-active-order-dossier-application-pending
+            />
+            <el-alert
+              v-if="dossierFileError"
+              :title="dossierFileError"
+              type="error"
+              :closable="false"
+              show-icon
+            />
+            <el-table
+              v-if="auditScopeTypeValue !== 'BATCH' || detail?.activeOrderStatus?.status !== 'NOT_APPLIED'"
+              v-loading="dossierFileLoading"
+              :data="resolveDossierFileCategory(category.key).files"
+              size="small"
+              border
+              :fit="true"
+              table-layout="fixed"
+              row-key="attachmentId"
+              class="team-leader-workbench__active-order-submission-table"
+            >
+              <el-table-column label="文件名" width="220">
+                <template #default="{ row }">
+                  <el-button
+                    link
+                    type="primary"
+                    data-active-order-dossier-file-preview
+                    @click="previewDossierFile(row)"
+                  >
+                    {{ row.fileName || '-' }}
+                  </el-button>
+                </template>
+              </el-table-column>
+              <el-table-column label="大小" width="120">
+                <template #default="{ row }">{{ formatDossierFileSize(row.fileSize) }}</template>
+              </el-table-column>
+              <el-table-column label="上传人" width="140">
+                <template #default="{ row }">{{ row.operatorName || row.operatorId || '-' }}</template>
+              </el-table-column>
+              <el-table-column label="上传时间" width="180">
+                <template #default="{ row }">{{ formatDateTime(row.operatedAt) }}</template>
+              </el-table-column>
+              <el-table-column label="操作" width="120" fixed="right">
+                <template #default="{ row }">
+                  <el-button
+                    link
+                    type="danger"
+                    v-hasPermi="[
+                      'mes:pro-process-pool-team-leader:maintain',
+                      'mes:pro-production-release:pqc-approve'
+                    ]"
+                    data-active-order-dossier-file-delete
+                    :disabled="activeOrderDossierMutationLocked"
+                    :title="activeOrderDossierMutationLockReason"
+                    @click="deleteDossierFile(category.key, row)"
+                  >
+                    删除
+                  </el-button>
+                </template>
+              </el-table-column>
+            </el-table>
+            <el-empty
+              v-if="
+                (auditScopeTypeValue !== 'BATCH' || detail?.activeOrderStatus?.status !== 'NOT_APPLIED') &&
+                !dossierFileLoading && !resolveDossierFileCategory(category.key).files.length
+              "
+              :image-size="56"
+              description="暂无文件"
+            />
+          </section>
+        </el-tab-pane>
       </el-tabs>
       <el-dialog
         v-model="productionRecordFormVisible"
@@ -1062,7 +1739,7 @@
             </div>
             <div>
               <span>产品规格</span>
-              <strong>{{ detail.productSpecification || '未记录' }}</strong>
+              <strong>{{ activeOrderProductSpecificationText }}</strong>
             </div>
             <div>
               <span>生产订单</span>
@@ -1096,11 +1773,17 @@
                 <template #default="{ row }">{{ row.materialSpecification || '未记录' }}</template>
               </el-table-column>
               <el-table-column label="批号" width="170">
-                <template #default="{ row }">{{ formatActiveOrderBatchCodes(row.batchCodes) }}</template>
+                <template #default="{ row }">
+                  <span data-active-order-production-record-input-material-batch>
+                    {{ formatActiveOrderBatchCodes(row.batchCodes) }}
+                  </span>
+                </template>
               </el-table-column>
               <el-table-column label="领料单号" width="190">
                 <template #default="{ row }">
-                  {{ formatProductionInputMaterialPickListEvidence(row) }}
+                  <span data-active-order-production-record-input-material-pick-list>
+                    {{ formatProductionInputMaterialPickListEvidence(row) }}
+                  </span>
                 </template>
               </el-table-column>
               <el-table-column label="实发数量" width="105">
@@ -1270,7 +1953,7 @@
             </div>
             <div>
               <span>产品规格</span>
-              <strong>{{ detail.productSpecification || '未记录' }}</strong>
+              <strong>{{ activeOrderProductSpecificationText }}</strong>
             </div>
             <div>
               <span>检验数量</span>
@@ -1436,19 +2119,126 @@
           <el-empty v-else :image-size="56" description="暂无PQC检验记录" />
         </section>
       </el-dialog>
+      <Dialog
+        :title="selectedDossierPreviewTitle || '附件在线预览'"
+        v-model="dossierPreviewDialogVisible"
+        width="1120px"
+        destroy-on-close
+      >
+        <ProtectedPdfViewer
+          v-if="selectedDossierPreviewSource"
+          :preview-source="selectedDossierPreviewSource"
+          :title="selectedDossierPreviewTitle || '附件在线预览'"
+        />
+        <el-empty v-else description="暂无可预览附件" />
+      </Dialog>
+      <Dialog
+        title="统一 GxP 审计详情"
+        v-model="gxpAuditDetailVisible"
+        width="900px"
+        destroy-on-close
+      >
+        <el-alert
+          v-if="gxpAuditDetailError"
+          :title="gxpAuditDetailError"
+          type="error"
+          :closable="false"
+          show-icon
+        />
+        <el-skeleton v-else-if="gxpAuditDetailLoading" :rows="8" animated />
+        <template v-else-if="selectedGxpAuditEvent">
+          <el-descriptions :column="2" border size="small">
+            <el-descriptions-item label="操作编号">
+              {{ selectedGxpAuditEvent.operationId || '--' }}
+            </el-descriptions-item>
+            <el-descriptions-item label="事件编号">
+              {{ selectedGxpAuditEvent.id }}
+            </el-descriptions-item>
+            <el-descriptions-item label="对象">
+              {{ selectedGxpAuditEvent.subjectType || '--' }} / {{ selectedGxpAuditEvent.subjectId || '--' }}
+            </el-descriptions-item>
+            <el-descriptions-item label="原因">
+              {{ selectedGxpAuditEvent.reason || selectedGxpAuditEvent.reasonCode || '--' }}
+            </el-descriptions-item>
+            <el-descriptions-item label="实际执行人">
+              {{ formatGxpAuditActorSnapshot(selectedGxpAuditEvent.performedByJson, '执行人') }}
+            </el-descriptions-item>
+            <el-descriptions-item label="认证账号">
+              {{ formatGxpAuditActorSnapshot(selectedGxpAuditEvent.authenticatedActorJson, '认证账号') }}
+            </el-descriptions-item>
+            <el-descriptions-item label="变更前" :span="2">
+              <pre class="team-leader-workbench__gxp-audit-json">{{ formatGxpAuditJson(selectedGxpAuditEvent.beforeStateJson) }}</pre>
+            </el-descriptions-item>
+            <el-descriptions-item label="变更后" :span="2">
+              <pre class="team-leader-workbench__gxp-audit-json">{{ formatGxpAuditJson(selectedGxpAuditEvent.afterStateJson) }}</pre>
+            </el-descriptions-item>
+          </el-descriptions>
+        </template>
+      </Dialog>
+      <Dialog
+        title="业务签名证据"
+        v-model="signatureEvidenceViewer.state.visible"
+        width="900px"
+        destroy-on-close
+        @close="signatureEvidenceViewer.close"
+      >
+        <el-alert
+          v-if="signatureEvidenceViewer.state.error"
+          :title="signatureEvidenceViewer.state.error" type="error" :closable="false" show-icon
+          data-active-order-signature-error />
+        <el-skeleton v-else-if="signatureEvidenceViewer.state.loading" :rows="8" animated />
+        <el-descriptions
+          v-else-if="signatureEvidenceViewer.state.selected" :column="2" border size="small"
+          data-active-order-signature-evidence>
+          <el-descriptions-item label="签名编号">{{ signatureEvidenceViewer.state.selected.evidence.id }}</el-descriptions-item>
+          <el-descriptions-item label="业务动作">{{ signatureEvidenceViewer.state.selected.evidence.actionCode }}</el-descriptions-item>
+          <el-descriptions-item label="业务记录签名人">{{ signatureEvidenceViewer.state.selected.signerName || '未记录' }}</el-descriptions-item>
+          <el-descriptions-item label="原签时姓名快照">
+            {{ signatureEvidenceViewer.state.selected.evidence.actorDisplayName || '未记录' }}
+            <span v-if="signatureEvidenceViewer.state.selected.evidence.actorDisplayName && signatureEvidenceViewer.state.selected.verification.verificationStatus !== 'VALID'">（未核验）</span>
+          </el-descriptions-item>
+          <el-descriptions-item label="签署账号编号">{{ signatureEvidenceViewer.state.selected.evidence.actorId }}</el-descriptions-item>
+          <el-descriptions-item label="签署时间">{{ signatureEvidenceViewer.state.selected.evidence.signedAt == null ? '签署时间未记录' : formatDateTime(signatureEvidenceViewer.state.selected.evidence.signedAt) }}</el-descriptions-item>
+          <el-descriptions-item label="业务时区">{{ signatureEvidenceViewer.state.selected.evidence.timeZone || '未记录' }}</el-descriptions-item>
+          <el-descriptions-item label="签名含义">{{ signatureEvidenceViewer.state.selected.evidence.meaningLabel || '未记录' }}</el-descriptions-item>
+          <el-descriptions-item label="认证方式">{{ signatureEvidenceViewer.state.selected.evidence.authenticationMethod || '未记录' }}</el-descriptions-item>
+          <el-descriptions-item label="签署原因" :span="2">{{ signatureEvidenceViewer.state.selected.evidence.reason || '未记录' }}</el-descriptions-item>
+          <el-descriptions-item label="原记录完整性状态">{{ signatureEvidenceViewer.state.selected.evidence.verificationStatus || '未记录' }}</el-descriptions-item>
+          <el-descriptions-item label="本次完整性核验">
+            <el-tag :type="signatureVerificationDisplay(signatureEvidenceViewer.state.selected.verification).type">
+              {{ signatureVerificationDisplay(signatureEvidenceViewer.state.selected.verification).label }}
+            </el-tag>
+          </el-descriptions-item>
+          <el-descriptions-item label="本地摘要核验">{{ signatureVerificationDisplay(signatureEvidenceViewer.state.selected.verification).digest }}</el-descriptions-item>
+          <el-descriptions-item label="时间值核验">{{ signatureVerificationDisplay(signatureEvidenceViewer.state.selected.verification).time }}</el-descriptions-item>
+          <el-descriptions-item label="创建审计绑定">{{ signatureVerificationDisplay(signatureEvidenceViewer.state.selected.verification).audit }}</el-descriptions-item>
+          <el-descriptions-item label="核验范围">{{ signatureVerificationDisplay(signatureEvidenceViewer.state.selected.verification).scope }}</el-descriptions-item>
+          <el-descriptions-item label="时间来源">{{ signatureVerificationDisplay(signatureEvidenceViewer.state.selected.verification).timeSource }}</el-descriptions-item>
+          <el-descriptions-item label="时间信任">{{ signatureVerificationDisplay(signatureEvidenceViewer.state.selected.verification).timeTrust }}</el-descriptions-item>
+          <el-descriptions-item label="核验原因" :span="2">{{ signatureVerificationDisplay(signatureEvidenceViewer.state.selected.verification).reasons }}</el-descriptions-item>
+          <el-descriptions-item label="内容摘要" :span="2"><pre class="team-leader-workbench__gxp-audit-json">{{ signatureEvidenceViewer.state.selected.evidence.contentHash }}</pre></el-descriptions-item>
+          <el-descriptions-item label="证据摘要" :span="2"><pre class="team-leader-workbench__gxp-audit-json">{{ signatureEvidenceViewer.state.selected.evidence.evidenceHash }}</pre></el-descriptions-item>
+          <el-descriptions-item label="原签署内容快照" :span="2"><pre class="team-leader-workbench__gxp-audit-json">{{ formatGxpAuditJson(signatureEvidenceViewer.state.selected.evidence.canonicalContentJson) }}</pre></el-descriptions-item>
+        </el-descriptions>
+      </Dialog>
     </template>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
+import { ElMessage, ElMessageBox, type UploadRequestOptions } from 'element-plus'
 import type {
+  ActiveOrderDossierFileCategoryVO,
+  ActiveOrderDossierFileItemVO,
+  ActiveOrderDossierFilesRespVO,
   TeamLeaderActiveOrderDetailRespVO,
   TeamLeaderActiveOrderInputMaterialDetailRespVO,
   TeamLeaderActiveOrderPqcSubmissionDetailRespVO,
   TeamLeaderActiveOrderPqcSubmissionItemDetailRespVO,
   TeamLeaderActiveOrderProcessDetailRespVO,
+  TeamLeaderActiveOrderOperationFactRespVO,
   TeamLeaderActiveOrderClearanceConfirmationRespVO,
   TeamLeaderActiveOrderSubmissionDetailRespVO,
   TeamLeaderActiveOrderSubmissionDeviceDetailRespVO,
@@ -1457,9 +2247,40 @@ import type {
   TeamLeaderActiveOrderSignatureDetailRespVO,
   TeamLeaderActiveOrderSupplementMaterialDetailRespVO
 } from '@/api/mes/pro/processpool/teamLeader'
+import {
+  getEdhrBatchActiveOrderDossierFiles,
+  type EdhrBatchActiveOrderDossierQuery
+} from '@/api/mes/pro/edhr/batchExecution'
+import {
+  deleteActiveOrderDossierFile,
+  getActiveOrderDossierFiles,
+  uploadActiveOrderDossierFile
+} from '@/api/mes/pro/processpool/teamLeader'
+import {
+  getActiveOrderGxpAuditEvent,
+  getActiveOrderGxpAuditPage,
+  type ActiveOrderAuditScope,
+  type ActiveOrderAuditIdentity,
+  type GxpAuditEventRespVO
+} from '@/api/mes/pro/edhr/activeOrderAudit'
 import type { ProWorkOrderVO } from '@/api/mes/pro/workorder'
 import type { ErpProductionMaterialListVO } from '@/api/erp/production/material-list'
+import {
+  buildMesEdhrNonconformanceReviewMaterialPreviewSource,
+  buildMesActiveOrderDossierFilePreviewSource,
+  type OnlineFilePreviewSource
+} from '@/api/common/filePreview'
 import { formatDateTimeValue } from '@/utils/formatTime'
+import { getActiveOrderSignatureEvidence } from '@/api/mes/pro/edhr/activeOrderSignature'
+import { signatureVerificationDisplay } from './activeOrderSignatureVerificationDisplay'
+import { createActiveOrderSignatureEvidenceViewer, type SignatureBusinessContext } from './activeOrderSignatureEvidenceViewer'
+import ActiveOrderCorrectionHistoryPanel from './ActiveOrderCorrectionHistoryPanel.vue'
+import ActiveOrderReworkSourcePanel from './ActiveOrderReworkSourcePanel.vue'
+import { resolveUrlPathFileName } from '@/utils/fileName'
+import { parseExactIntegerJson } from '@/utils/exactIntegerJson'
+import ProtectedPdfViewer from '@/views/dcc/controlled-file/view/index.vue'
+import DeviationTracePane from '@/views/mes/pro/edhr/components/DeviationTracePane.vue'
+import { getDeviationBatchOptionsByActiveOrder, type DeviationBatchOptionRespVO } from '@/api/mes/pro/edhr/deviation'
 
 const props = defineProps<{
   detail?: TeamLeaderActiveOrderDetailRespVO
@@ -1470,26 +2291,141 @@ const props = defineProps<{
   loading?: boolean
   error?: string
   embedded?: boolean
+  readOnly?: boolean
   displayMode?: 'full' | 'production' | 'pqc'
+  recordScope?: 'DETAIL_RECORD' | 'FORMAL_BATCH_SOURCE_DETAIL'
   productionRouteProcessId?: number | string
+  pqcReleaseApplicationId?: number | string
+  auditScopeType?: ActiveOrderAuditScope
+  auditScopeId?: ActiveOrderAuditIdentity
+  initialActiveTab?: string
 }>()
 
-const emit = defineEmits<{
+defineEmits<{
   retry: []
-  'open-batch-execution-production-form': [process: TeamLeaderActiveOrderProcessDetailRespVO]
-  'open-batch-execution-pqc-form': []
 }>()
 
 const activeTab = ref('')
 const productionActiveTab = ref('')
+const pqcInnerActiveTab = ref('originalSubmissions')
 const pqcActiveTab = ref('')
 const productionRecordFormVisible = ref(false)
 const selectedProductionRecordProcess = ref<TeamLeaderActiveOrderProcessDetailRespVO>()
 const pqcInspectionRecordFormVisible = ref(false)
+const dossierFiles = ref<ActiveOrderDossierFilesRespVO>()
+const dossierFileLoading = ref(false)
+const dossierFileError = ref('')
+const dossierFileUploadingKey = ref('')
+const dossierPreviewDialogVisible = ref(false)
+const selectedDossierPreviewSource = ref<OnlineFilePreviewSource | null>(null)
+const selectedDossierPreviewTitle = ref('')
+const gxpAuditLoading = ref(false)
+const gxpAuditError = ref('')
+const gxpAuditEvents = ref<GxpAuditEventRespVO[]>([])
+const gxpAuditPageNo = ref(1)
+const gxpAuditPageSize = 50
+const gxpAuditTotal = ref(0)
+const gxpAuditDetailVisible = ref(false)
+const gxpAuditDetailLoading = ref(false)
+const gxpAuditDetailError = ref('')
+const selectedGxpAuditEvent = ref<GxpAuditEventRespVO>()
+let gxpAuditRequestId = 0
+let gxpAuditDetailRequestId = 0
+
+type DossierContextIdentity = {
+  activeOrderId: number | string
+  applicationId?: number | string
+  scope?: 'BATCH'
+  batchExecutionId?: number | string
+}
+
+type DossierContextToken = {
+  key: string
+  generation: number
+  requestSequence: number
+  contextChanged: boolean
+}
+
+const createDossierRequestContext = () => {
+  let mounted = true
+  let generation = 0
+  let requestSequence = 0
+  let currentKey = 'none'
+
+  const resolveKey = (identity?: DossierContextIdentity) => JSON.stringify([
+    identity?.activeOrderId == null ? null : String(identity.activeOrderId),
+    identity?.applicationId == null ? null : String(identity.applicationId),
+    identity?.scope ?? null,
+    identity?.batchExecutionId == null ? null : String(identity.batchExecutionId)
+  ])
+
+  const begin = (identity?: DossierContextIdentity): DossierContextToken => {
+    const key = resolveKey(identity)
+    const contextChanged = key !== currentKey
+    if (contextChanged) {
+      generation += 1
+      currentKey = key
+    }
+    requestSequence += 1
+    return { key, generation, requestSequence, contextChanged }
+  }
+
+  const capture = (identity: DossierContextIdentity): DossierContextToken | undefined => {
+    const key = resolveKey(identity)
+    return mounted && key === currentKey
+      ? { key, generation, requestSequence, contextChanged: false }
+      : undefined
+  }
+
+  const isCurrentContext = (token: DossierContextToken) =>
+    mounted && token.generation === generation && token.key === currentKey
+
+  const isCurrentRequest = (token: DossierContextToken) =>
+    isCurrentContext(token) && token.requestSequence === requestSequence
+
+  const invalidate = () => {
+    mounted = false
+    generation += 1
+    requestSequence += 1
+    currentKey = 'none'
+  }
+
+  return { begin, capture, isCurrentContext, isCurrentRequest, invalidate }
+}
+
+const dossierRequestContext = createDossierRequestContext()
 const router = useRouter()
 
 const displayMode = computed(() => props.displayMode || 'full')
+const recordScope = computed(() => props.recordScope || 'DETAIL_RECORD')
 const embedded = computed(() => Boolean(props.embedded))
+const auditScopeTypeValue = computed<ActiveOrderAuditScope>(() => {
+  if (props.auditScopeType) return props.auditScopeType
+  if (props.pqcReleaseApplicationId !== undefined) return 'PQC'
+  if (recordScope.value === 'FORMAL_BATCH_SOURCE_DETAIL') return 'BATCH'
+  return 'TEAM'
+})
+const auditScopeIdValue = computed<ActiveOrderAuditIdentity | undefined>(() => {
+  if (props.auditScopeId !== undefined) return props.auditScopeId
+  if (auditScopeTypeValue.value === 'BATCH') return undefined
+  if (auditScopeTypeValue.value === 'PQC') return props.pqcReleaseApplicationId
+  return props.detail?.activeOrderId
+})
+const signatureEvidenceContext = computed<SignatureBusinessContext | undefined>(() => {
+  if (!props.detail?.activeOrderId || props.loading || props.error) return undefined
+  const scope = auditScopeTypeValue.value
+  // Embedded formal batch panels have the explicit active-order identity of their authorized detail.
+  const identity = scope === 'BATCH'
+    ? props.auditScopeId ?? { activeOrderId: props.detail.activeOrderId }
+    : auditScopeIdValue.value
+  if (identity === undefined) return undefined
+  return { scope, identity, activeOrderId: props.detail.activeOrderId }
+})
+const signatureEvidenceViewer = createActiveOrderSignatureEvidenceViewer(
+  () => signatureEvidenceContext.value, getActiveOrderSignatureEvidence
+)
+watch(signatureEvidenceContext, () => signatureEvidenceViewer.close())
+onBeforeUnmount(() => signatureEvidenceViewer.close())
 const showProductionSubmissionTab = computed(
   () => displayMode.value === 'full' || displayMode.value === 'production'
 )
@@ -1497,9 +2433,354 @@ const showPqcSubmissionTab = computed(
   () => displayMode.value === 'full' || displayMode.value === 'pqc'
 )
 const showSummaryTab = computed(() => !embedded.value)
+const deviationLoading = ref(false)
+const deviationError = ref('')
+const deviationBatches = ref<DeviationBatchOptionRespVO[]>([])
+let deviationSequence = 0
+const loadDeviationBatches = async () => {
+  const sequence = ++deviationSequence
+  const activeOrderId = props.detail?.activeOrderId
+  deviationBatches.value = []
+  deviationError.value = ''
+  if (!(typeof activeOrderId === 'string' ? /^[1-9]\d*$/.test(activeOrderId) : Number.isSafeInteger(activeOrderId) && Number(activeOrderId) > 0)) {
+    deviationError.value = '缺少有效活跃订单编号，无法查询偏差'
+    deviationLoading.value = false
+    return
+  }
+  deviationLoading.value = true
+  try {
+    const batches = await getDeviationBatchOptionsByActiveOrder(activeOrderId!)
+    if (sequence !== deviationSequence) return
+    deviationBatches.value = batches
+  } catch (cause: any) {
+    if (sequence !== deviationSequence) return
+    deviationError.value = cause?.response?.data?.msg || '偏差关联批记录加载失败，请重试'
+  } finally {
+    if (sequence === deviationSequence) deviationLoading.value = false
+  }
+}
+watch(() => [props.detail?.activeOrderId, activeTab.value], () => {
+  deviationSequence++
+  deviationBatches.value = []
+  deviationError.value = ''
+  deviationLoading.value = false
+  if (activeTab.value === 'deviation') void loadDeviationBatches()
+}, { immediate: true })
+const activeOrderStatusTagType = computed(() => {
+  const status = props.detail?.activeOrderStatus?.status
+  if (status === 'RELEASED') return 'success'
+  if (status === 'PQC_RELEASE_REJECTED') return 'warning'
+  if (status === 'PQC_RELEASE_PENDING') return 'warning'
+  if (status === 'REPORT_UPLOAD_PENDING' || status === 'MANAGER_RELEASE_PENDING') return 'primary'
+  return 'info'
+})
+const activeOrderDossierMutationLockReason = computed(() => {
+  if (props.readOnly) return '已办任务详情仅可查看，不能修改资料文件'
+  const status = props.detail?.activeOrderStatus?.status
+  if (auditScopeTypeValue.value === 'BATCH' && status === 'NOT_APPLIED')
+    return '尚未申请放行，资料暂不可查询'
+  if (status === 'RELEASED') return '已上市放行，资料文件仅可查看'
+  if (status === 'VOIDED') return '已作废，资料文件仅可查看'
+  return ''
+})
+const activeOrderDossierMutationLocked = computed(() =>
+  Boolean(activeOrderDossierMutationLockReason.value)
+)
 const blankSummaryField = ''
+const dossierFileTabDefinitions = [
+  { key: 'INCOMING_INSPECTION_FILE', label: '来料检文件' },
+  { key: 'STERILIZATION_FILE', label: '灭菌文件' },
+  { key: 'FINISHED_PRODUCT_FILE', label: '成品检文件' },
+  { key: 'OTHER_FILE', label: '其他文件' }
+]
+type UploadError = Parameters<UploadRequestOptions['onError']>[0]
+
+interface ActiveOrderMarketReleaseSummary {
+  statusLabel: string
+  signature?: TeamLeaderActiveOrderSignatureDetailRespVO
+  actorName?: string
+  occurredAt?: string | number
+}
+
+const resolveInitialActiveTab = () => {
+  const requestedTab = props.initialActiveTab?.trim()
+  if (!requestedTab) return ''
+  const allowedDossierTabNames = dossierFileTabDefinitions.map((category) =>
+    buildDossierFileTabName(category.key)
+  )
+  return allowedDossierTabNames.includes(requestedTab) ? requestedTab : ''
+}
 
 const formatDateTime = (value?: string | number | Date) => formatDateTimeValue(value)
+
+const formatGxpAuditOperation = (event: GxpAuditEventRespVO) =>
+  event.operationId || event.action || '未识别操作'
+
+const formatGxpAuditActorSnapshot = (value: string | undefined, label: string) => {
+  if (!value?.trim()) return '未记录'
+  let snapshot: unknown
+  try {
+    snapshot = JSON.parse(value)
+  } catch {
+    return `${label}快照损坏`
+  }
+  if (!snapshot || typeof snapshot !== 'object' || Array.isArray(snapshot)) {
+    return `${label}快照损坏`
+  }
+  const displayName = (snapshot as Record<string, unknown>).displayName
+  if (displayName === undefined || displayName === null) return '未记录'
+  if (typeof displayName !== 'string') return `${label}快照损坏`
+  return displayName.trim() || '未记录'
+}
+
+const formatGxpAuditResult = (resultStatus?: string) => {
+  if (resultStatus === 'SUCCESS') return '成功'
+  if (resultStatus === 'FAILED') return '失败'
+  if (resultStatus === 'DENIED') return '拒绝'
+  return resultStatus || '未记录'
+}
+
+const formatGxpAuditIntegrity = (status?: string) => {
+  if (status === 'NOT_VERIFIED') return '待核验'
+  if (status === 'INVALID') return '无效'
+  return status || '未记录'
+}
+
+const formatGxpAuditJson = (value?: string) => {
+  if (!value) return '未记录'
+  try {
+    return JSON.stringify(JSON.parse(value), null, 2)
+  } catch {
+    return value
+  }
+}
+
+const resetGxpAuditDetail = () => {
+  gxpAuditDetailRequestId += 1
+  selectedGxpAuditEvent.value = undefined
+  gxpAuditDetailError.value = ''
+  gxpAuditDetailLoading.value = false
+}
+
+const gxpAuditScopeIsValid = (value: unknown): value is ActiveOrderAuditIdentity => {
+  const validId = (id: unknown) => typeof id === 'number'
+    ? Number.isSafeInteger(id) && id > 0
+    : typeof id === 'string' && /^[1-9]\d*$/.test(id)
+  if (auditScopeTypeValue.value !== 'BATCH') return validId(value)
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false
+  const keys = Object.keys(value)
+  return keys.length === 1 && ['activeOrderId', 'batchExecutionId'].includes(keys[0]) &&
+    validId((value as Record<string, unknown>)[keys[0]])
+}
+
+const loadGxpAudit = async () => {
+  const requestId = ++gxpAuditRequestId
+  const scopeType = auditScopeTypeValue.value
+  const scopeId = auditScopeIdValue.value
+  const pageNo = gxpAuditPageNo.value
+  const isCurrent = () => requestId === gxpAuditRequestId &&
+    scopeType === auditScopeTypeValue.value && scopeId === auditScopeIdValue.value &&
+    pageNo === gxpAuditPageNo.value && showSummaryTab.value && !props.loading && !props.error
+  gxpAuditEvents.value = []
+  gxpAuditTotal.value = 0
+  gxpAuditError.value = ''
+  if (!showSummaryTab.value || props.loading || props.error) {
+    gxpAuditLoading.value = false
+    return
+  }
+  if (!gxpAuditScopeIsValid(scopeId)) {
+    gxpAuditLoading.value = false
+    gxpAuditError.value = '缺少有效的审计查询身份，无法加载统一 GxP 审计记录。'
+    return
+  }
+  gxpAuditLoading.value = true
+  gxpAuditError.value = ''
+  try {
+    const page = await getActiveOrderGxpAuditPage(scopeType, scopeId, {
+      pageNo,
+      pageSize: gxpAuditPageSize
+    })
+    if (!isCurrent()) return
+    gxpAuditEvents.value = Array.isArray(page?.list) ? page.list : []
+    gxpAuditTotal.value = Number(page?.total || 0)
+  } catch (error) {
+    if (!isCurrent()) return
+    gxpAuditEvents.value = []
+    gxpAuditTotal.value = 0
+    gxpAuditError.value = error instanceof Error && error.message
+      ? error.message
+      : '统一 GxP 审计查询失败，请重试。'
+  } finally {
+    if (isCurrent()) gxpAuditLoading.value = false
+  }
+}
+
+const openGxpAuditEvent = async (event: GxpAuditEventRespVO) => {
+  const requestId = ++gxpAuditDetailRequestId
+  const scopeType = auditScopeTypeValue.value
+  const scopeId = auditScopeIdValue.value
+  if (!showSummaryTab.value || props.loading || props.error || !gxpAuditScopeIsValid(scopeId)) return
+  const isCurrent = () => requestId === gxpAuditDetailRequestId &&
+    scopeType === auditScopeTypeValue.value && scopeId === auditScopeIdValue.value &&
+    showSummaryTab.value && !props.loading && !props.error && gxpAuditDetailVisible.value
+  selectedGxpAuditEvent.value = undefined
+  gxpAuditDetailVisible.value = true
+  gxpAuditDetailLoading.value = true
+  gxpAuditDetailError.value = ''
+  try {
+    const detail = await getActiveOrderGxpAuditEvent(scopeType, scopeId, event.id)
+    if (!isCurrent()) return
+    if (!detail) throw new Error('统一 GxP 审计事件不存在或不属于当前对象。')
+    selectedGxpAuditEvent.value = detail
+  } catch (error) {
+    if (!isCurrent()) return
+    gxpAuditDetailError.value = error instanceof Error && error.message
+      ? error.message
+      : '统一 GxP 审计详情加载失败。'
+  } finally {
+    if (isCurrent()) gxpAuditDetailLoading.value = false
+  }
+}
+
+const activeOrderOperationTypeLabels: Record<string, string> = {
+  RESET_FIXED_TEST_ORDER: '重置指定测试订单',
+  ADD_ACTIVE_ORDER: '加入活跃订单',
+  APPROVE: '审批中心批准放行',
+  ARCHIVE: '生成电子批记录归档',
+  CANDIDATE_SIGNATURE_COMPLETE: '完成候选签名任务',
+  CLOSE_ACTIVE_ORDER_BY_RELEASE: '按上市放行关闭活跃订单',
+  CLOSE: '关闭电子批记录批次',
+  COMPLETE: '完成电子批记录特殊工序',
+  COMPLETE_PRE_RELEASE_DOSSIER: '完成电子批记录预放行资料节点',
+  COMPLETE_RELEASE_REPORT: '完成生产放行报告节点',
+  DOSSIER_DELETE: '活跃订单资料删除',
+  DOSSIER_UPLOAD: '活跃订单资料上传',
+  DOWNLOAD: '下载电子批记录归档',
+  EXPORT: '导出电子批记录审计',
+  FIELD_CHANGE: '保存字段审计变更',
+  FILL_TASK_REASSIGN: '重新派发电子批记录填写任务',
+  GOLDEN_FINGER_SUBMIT: '批记录金手指提交执行',
+  LOCAL_STATE_SAMPLE_CREATE: '创建电子批记录本地状态样本',
+  NONCONFORMANCE_REVIEW_CREATE: '创建不合格评审',
+  NONCONFORMANCE_REVIEW_DISPOSE: '不合格评审处置',
+  OPEN: '打开电子批记录对象',
+  PERMISSION_EVALUATE: '计算电子批记录对象级权限',
+  PERMISSION_RULE_SAVE: '保存电子批记录对象级权限规则',
+  PRECHECK: '执行电子批记录放行预检',
+  QUALITY_REJECT: '质量终态拒收电子批记录批次',
+  QUERY: '查询电子批记录审计信息',
+  REJECT: '放行退回',
+  REEXECUTE: '质量拒收后创建同批号新执行',
+  REWORK_TASK_CREATED: '创建电子批记录返工任务',
+  REBUILD_ACTIVE_ORDER: '重建活跃订单',
+  REMOVE_ACTIVE_ORDER: '移除活跃订单',
+  SKIP: '跳过电子批记录节点',
+  SUBMIT: '放行负责人电子签名放行',
+  SYNC: '同步电子批记录状态',
+  VERIFIED_BACKFILL: '生产放行正式证据自动回填',
+  VERIFY: '校验电子批记录审计链',
+  VIEW: '查看电子批记录对象',
+  WITHDRAW: '撤回放行审批',
+  WORK_TASK_RULE_SAVE: '保存电子批记录工作任务规则',
+  UPDATE_DOSSIER_REQUIREMENT_SETTING: '更新电子批记录放行资料限制设置',
+  UPDATE_GLOBAL_SETTING: '更新电子批记录全局设置',
+  MOVE_ACTIVE_ORDER: '调整活跃订单顺序',
+  BATCH_EXECUTION_CREATED_FROM_RELEASE: '创建生产放行批次执行',
+  BATCH_RECORD_RELEASE_APPROVED: '批记录上市放行',
+  MANAGER_RELEASE_TASK_CREATED: '创建管理者代表放行任务',
+  PQC_PRODUCTION_RELEASE_APPLIED: '推送生产放行',
+  PQC_PRODUCTION_RELEASE_APPROVED: '生产放行通过',
+  PQC_PRODUCTION_RELEASE_REJECTED: '生产放行退回',
+  RELEASE_REPORT_NODE_COMPLETED: '生产放行报告节点完成',
+  RELEASE_REPORT_UPLOAD_COMPLETED: '生产放行报告上传完成',
+  UPLOAD_ACTIVE_ORDER_DOSSIER_FILE: '活跃订单资料上传',
+  DELETE_ACTIVE_ORDER_DOSSIER_FILE: '活跃订单资料删除'
+}
+
+const activeOrderOperationNameLabels: Record<string, string> = {
+  '查看 eDHR 批次详情': '查看电子批记录批次详情',
+  '创建并打开 eDHR 批次': '创建并打开电子批记录批次',
+  '打开 eDHR 工序任务': '打开电子批记录工序任务',
+  '同步 eDHR 批次状态': '同步电子批记录批次状态',
+  '关闭 eDHR 批次': '关闭电子批记录批次',
+  '质量终态拒收 eDHR 批次': '质量终态拒收电子批记录批次',
+  '跳过 eDHR 特殊工序': '跳过电子批记录特殊工序',
+  '跳过 eDHR 可选路线表单': '跳过电子批记录可选路线表单',
+  '完成 eDHR 特殊工序': '完成电子批记录特殊工序',
+  '完成 eDHR 预放行资料节点': '完成电子批记录预放行资料节点',
+  '生成 eDHR 批次最终归档': '生成电子批记录批次最终归档',
+  '下载 eDHR 批次最终归档': '下载电子批记录批次最终归档',
+  '执行 eDHR 放行预检': '执行电子批记录放行预检',
+  '保存 eDHR 工作任务规则': '保存电子批记录工作任务规则',
+  '重新派发 eDHR 填写任务': '重新派发电子批记录填写任务',
+  '创建 eDHR 返工任务': '创建电子批记录返工任务',
+  'P3推送PQC生产放行': '第三阶段推送生产放行',
+  'PQC生产放行': '生产放行',
+  'PQC生产放行退回': '生产放行退回',
+  '生产放行批次执行创建': '创建生产放行批次执行',
+  '管理者代表放行任务创建': '创建管理者代表放行任务'
+}
+
+const activeOrderOperationResultStatusLabels: Record<string, string> = {
+  BLOCKED: '已阻断',
+  CANCELED: '已取消',
+  FAILED: '失败',
+  PENDING: '处理中',
+  REJECTED: '已拒绝',
+  SUCCESS: '成功'
+}
+
+const isReadableChineseOperationText = (value?: string) => {
+  const normalized = String(value || '').trim()
+  if (!normalized) return false
+  if (normalized.includes('_')) return false
+  return /[\u4e00-\u9fa5]/.test(normalized)
+}
+
+const formatActiveOrderOperationType = (fact: TeamLeaderActiveOrderOperationFactRespVO) => {
+  const operationName = String(fact.operationName || '').trim()
+  if (activeOrderOperationNameLabels[operationName]) {
+    return activeOrderOperationNameLabels[operationName]
+  }
+  const operationType = String(fact.operationType || '').trim()
+  if (activeOrderOperationTypeLabels[operationType]) {
+    return activeOrderOperationTypeLabels[operationType]
+  }
+  if (isReadableChineseOperationText(operationName)) {
+    return operationName
+  }
+  throw new Error(
+    `ACTIVE_ORDER_OPERATION_LABEL_UNMAPPED: ${operationType || operationName || '<empty>'}`
+  )
+}
+
+const formatActiveOrderOperationResultStatus = (resultStatus?: string) => {
+  const normalized = String(resultStatus || '').trim()
+  if (activeOrderOperationResultStatusLabels[normalized]) {
+    return activeOrderOperationResultStatusLabels[normalized]
+  }
+  return '未知结果'
+}
+
+const hasNonconformanceEvidence = (fact: TeamLeaderActiveOrderOperationFactRespVO) => {
+  return Boolean(
+    fact.nonconformanceReason ||
+      fact.reviewMaterialsJson ||
+      fact.reviewMaterialUrl ||
+      fact.reviewMaterialFileId ||
+      fact.reviewOpinion ||
+      fact.disposition ||
+      fact.qaSignature ||
+      fact.signatureId
+  )
+}
+
+const resolveNonconformanceDispositionLabel = (disposition?: string) => {
+  if (disposition === 'concession_release') return '让步放行'
+  if (disposition === 'rework') return '返工'
+  if (disposition === 'void') return '作废'
+  return disposition || '--'
+}
 
 const formatIntegerQuantity = (value: number | string | undefined) => {
   if (value === undefined || value === null || value === '') return '-'
@@ -1573,6 +2854,7 @@ const activeOrderWorkOrderDisplay = computed(() => {
       batchCode: source.batchCode || '-',
       workOrderCode: source.code || '-',
       quantity: formatTraceQuantity(source.quantity),
+      demandBillNo: source.demandBillNo || '-',
       drawingNumber: source.drawingNumber || '-',
       productSpecification: source.productSpecification || '-',
       productCode: source.productCode || '-',
@@ -1586,6 +2868,7 @@ const activeOrderWorkOrderDisplay = computed(() => {
     batchCode: detail?.batchCode || '-',
     workOrderCode: detail?.workOrderCode || '-',
     quantity: formatTraceQuantity(detail?.workOrderQuantity),
+    demandBillNo: detail?.demandBillNo || '-',
     drawingNumber: detail?.drawingNumber || '-',
     productSpecification: detail?.productSpecification || '-',
     productCode: detail?.productCode || '-',
@@ -1594,6 +2877,11 @@ const activeOrderWorkOrderDisplay = computed(() => {
     workshopName: '',
     createTime: formatDateTime(detail?.workOrderCreateTime)
   }
+})
+
+const activeOrderProductSpecificationText = computed(() => {
+  const specification = activeOrderWorkOrderDisplay.value.productSpecification
+  return specification === '-' ? '未记录' : specification
 })
 
 interface ProductionMaterialListDocument {
@@ -1629,11 +2917,32 @@ const readProductionMaterialListText = (
   return ''
 }
 
-const formatProductionMaterialListQuantity = (value: number | string | undefined) => {
-  if (value === undefined || value === null || value === '') return ''
-  const parsed = Number(value)
-  return Number.isFinite(parsed) ? String(Math.round(parsed)) : String(value)
+const normalizeProductionMaterialCode = (value: string | number | undefined | null) => {
+  if (value === undefined || value === null) return ''
+  return String(value).trim()
 }
+
+const parseProductionMaterialListQuantity = (value: number | string | undefined | null) => {
+  if (value === undefined || value === null || value === '') return undefined
+  const parsed = Number(String(value).replace(/,/g, '').trim())
+  return Number.isFinite(parsed) ? parsed : undefined
+}
+
+const productionMaterialListActualUsageByCode = computed(() => {
+  const usageByCode = new Map<string, number>()
+  for (const process of props.detail?.processes ?? []) {
+    for (const material of process.inputMaterials ?? []) {
+      const materialCode = normalizeProductionMaterialCode(material.materialCode)
+      const actualQuantity = parseProductionMaterialListQuantity(material.actualQuantity)
+      if (!materialCode || actualQuantity === undefined) continue
+      const existingQuantity = usageByCode.get(materialCode)
+      if (existingQuantity === undefined || actualQuantity > existingQuantity) {
+        usageByCode.set(materialCode, actualQuantity)
+      }
+    }
+  }
+  return usageByCode
+})
 
 const formatDate = (value?: string | number | Date) => {
   const text = formatDateTime(value)
@@ -1644,10 +2953,12 @@ const formatDate = (value?: string | number | Date) => {
 const resolveProductionMaterialListDrawingNo = (row: ErpProductionMaterialListVO) =>
   readProductionMaterialListText(row, ['drawingNumber', 'drawingNo', 'blueprintNo', 'figureNo'])
 
-const resolveProductionMaterialListActualUsage = (row: ErpProductionMaterialListVO) =>
-  formatProductionMaterialListQuantity(
-    readProductionMaterialListText(row, ['actualQuantity', 'actualUsageQuantity', 'actualUsage'])
+const resolveProductionMaterialListActualUsage = (row: ErpProductionMaterialListVO) => {
+  const quantity = productionMaterialListActualUsageByCode.value.get(
+    normalizeProductionMaterialCode(row.childMaterialCode)
   )
+  return quantity === undefined ? '' : String(quantity)
+}
 
 const resolveProductionMaterialListWarehouse = (row: ErpProductionMaterialListVO) =>
   readProductionMaterialListText(row, ['warehouseName', 'stockName', 'warehouse'])
@@ -1705,6 +3016,18 @@ interface ActiveOrderPqcItemAggregateRow {
   resultSummaryText: string
   judgementSummaryText: string
   equipmentSummaryText: string
+}
+
+interface ActiveOrderPqcSubmittedItemRow {
+  key: string
+  inspectionTypeText: string
+  sampleCountText: string
+  itemNameText: string
+  inspectionMethodText: string
+  standardText: string
+  resultSummaryText: string
+  equipmentText: string
+  judgementText: string
 }
 
 interface ActiveOrderPqcInspectionRecordRow {
@@ -1833,25 +3156,43 @@ const toActiveOrderProductionEventSubmissionRow = (
 const formatActiveOrderSignatureCellText = (
   signature?: TeamLeaderActiveOrderSignatureDetailRespVO
 ) => {
-  if (!signature?.signatureId) return '未签名'
+  const simulated = signature?.role === 'SIMULATION_SESSION'
+  if (!signature || (!signature.signatureId && !simulated)) return '未签名'
   const signerName = String(signature.signerName || '').trim() || '签名人未记录'
-  const signedAt = formatDateTime(signature.signedAt)
+  const signedAt = signature.signedAt == null ? '-' : formatDateTime(signature.signedAt)
   const signedAtText = signedAt && signedAt !== '-' ? signedAt : '签名时间未记录'
-  return `${signerName}（${signedAtText}）`
+  const status = signature.verification ? `；${signatureVerificationDisplay(signature.verification).label}` : ''
+  const nameState = signature.signerNameStatus === 'UNVERIFIED_SNAPSHOT' ? '；签时姓名未核验'
+    : signature.signerNameStatus === 'NOT_RECORDED' ? '；签时姓名未记录' : ''
+  return `${simulated ? '模拟记录：' : ''}${signerName}（${signedAtText}）${status}${nameState}`
 }
 
 const openActiveOrderSignatureRecord = (
   signature?: TeamLeaderActiveOrderSignatureDetailRespVO
 ) => {
   if (!signature?.signatureId) return
-  router.push({
-    path: '/signature-governance/signature-records',
-    query: {
-      quickFilterField: 'keyword',
-      quickFilterValue: String(signature.signatureId)
-    }
-  })
+  void signatureEvidenceViewer.open(signature.signatureId)
 }
+
+const toOperationFactSignature = (
+  fact?: TeamLeaderActiveOrderOperationFactRespVO
+): TeamLeaderActiveOrderSignatureDetailRespVO | undefined => {
+  if (!fact?.signatureId) return undefined
+  return {
+    signatureId: fact.signatureId,
+    signerName: fact.actorName,
+    signedAt: fact.occurredAt,
+    role: fact.operationType
+  }
+}
+
+const formatOperationFactSignatureText = (
+  fact?: TeamLeaderActiveOrderOperationFactRespVO
+) => formatActiveOrderSignatureCellText(toOperationFactSignature(fact))
+
+const formatMarketReleaseSignatureCellText = (
+  summary?: ActiveOrderMarketReleaseSummary
+) => formatActiveOrderSignatureCellText(summary?.signature)
 
 const toNumberOrUndefined = (value?: number | string) => {
   if (value === undefined || value === null || value === '') return undefined
@@ -2172,7 +3513,7 @@ const formatActiveOrderPqcEquipmentSummary = (
 }
 
 const buildActiveOrderPqcItemRows = (
-  pqcSubmission: TeamLeaderActiveOrderPqcSubmissionDetailRespVO
+  items: TeamLeaderActiveOrderPqcSubmissionItemDetailRespVO[]
 ): ActiveOrderPqcItemAggregateRow[] => {
   const rowsByItem = new Map<
     string,
@@ -2182,7 +3523,7 @@ const buildActiveOrderPqcItemRows = (
       items: TeamLeaderActiveOrderPqcSubmissionItemDetailRespVO[]
     }
   >()
-  for (const item of pqcSubmission.items ?? []) {
+  for (const item of items) {
     const itemCode = normalizeActiveOrderPqcText(item.itemCode)
     const itemName = normalizeActiveOrderPqcText(item.itemName)
     const key = resolveActiveOrderPqcItemIdentityKey(item)
@@ -2203,6 +3544,80 @@ const buildActiveOrderPqcItemRows = (
     judgementSummaryText: formatActiveOrderPqcItemJudgementSummary(row.items),
     equipmentSummaryText: formatActiveOrderPqcEquipmentSummary(row.items)
   }))
+}
+
+const buildActiveOrderPqcProcessInspectionItemRows = (
+  submission: TeamLeaderActiveOrderPqcSubmissionDetailRespVO
+) => buildActiveOrderPqcItemRows(submission.processInspectionItems ?? [])
+
+const formatPqcSubmissionQuantity = (value?: number | string) => {
+  const text = normalizeActiveOrderPqcText(value)
+  return text ? `${text} 件` : '未记录'
+}
+
+const formatPqcSubmissionEventIds = (
+  submission: TeamLeaderActiveOrderPqcSubmissionDetailRespVO
+) => {
+  const eventIds = (submission.submittedEventIds?.length
+    ? submission.submittedEventIds
+    : [submission.submittedEventId]
+  )
+    .map((eventId) => normalizeActiveOrderPqcText(eventId))
+    .filter(Boolean)
+  return eventIds.length ? eventIds.join('、') : '未记录'
+}
+
+const buildActiveOrderPqcSubmittedItemRows = (
+  submission: TeamLeaderActiveOrderPqcSubmissionDetailRespVO
+): ActiveOrderPqcSubmittedItemRow[] => {
+  const rowsByItem = new Map<string, TeamLeaderActiveOrderPqcSubmissionItemDetailRespVO[]>()
+  for (const item of submission.submittedItems ?? []) {
+    const key = resolveActiveOrderPqcSubmittedItemIdentityKey(item)
+    const items = rowsByItem.get(key)
+    if (items) {
+      items.push(item)
+      continue
+    }
+    rowsByItem.set(key, [item])
+  }
+  return Array.from(rowsByItem.entries()).map(([key, items]) => ({
+    key: [submission.pqcTaskId, submission.submittedEventId, key].join('::'),
+    inspectionTypeText: resolvePqcInspectionTypeText(submission),
+    sampleCountText: formatActiveOrderPqcSubmittedSampleCount(items),
+    itemNameText: formatActiveOrderPqcItemUniqueSummary(
+      items.map((item) => normalizeActiveOrderPqcText(item.itemName || item.itemCode))
+    ),
+    inspectionMethodText: formatActiveOrderPqcItemUniqueSummary(
+      items.map((item) => normalizeActiveOrderPqcText(item.inspectionMethod))
+    ),
+    standardText: formatActiveOrderPqcItemUniqueSummary(
+      items.map((item) => normalizeActiveOrderPqcText(item.standardText))
+    ),
+    resultSummaryText: formatPqcInspectionMeasuredValues(items),
+    equipmentText: formatPqcInspectionRecordEquipmentText(items),
+    judgementText: summarizePqcInspectionJudgements(items)
+  }))
+}
+
+const resolveActiveOrderPqcSubmittedItemIdentityKey = (
+  item: TeamLeaderActiveOrderPqcSubmissionItemDetailRespVO
+) => {
+  const itemCode = normalizeActiveOrderPqcText(item.itemCode)
+  if (itemCode) return `item-code:${itemCode}`
+  throw new Error('PQC原始提交缺少正式检验项目身份，无法展示原始提交明细')
+}
+
+const formatActiveOrderPqcSubmittedSampleCount = (
+  items: TeamLeaderActiveOrderPqcSubmissionItemDetailRespVO[]
+) => {
+  const sampleNos = Array.from(
+    new Set(
+      items
+        .map((item) => Number(item.sampleNo))
+        .filter((sampleNo) => Number.isFinite(sampleNo) && sampleNo > 0)
+    )
+  )
+  return String(sampleNos.length || items.length)
 }
 
 const resolveActiveOrderPqcItemIdentityKey = (
@@ -2310,7 +3725,7 @@ const buildPqcInspectionRecordRows = (): ActiveOrderPqcInspectionRecordRow[] => 
   for (const [pqcProcessIndex, pqcProcess] of pqcProcessGroups.value.entries()) {
     const groupedItemsByIdentity = new Map<string, ActiveOrderPqcItemAggregateRow>()
     for (const submission of pqcProcess.submissions) {
-      for (const groupedItem of buildActiveOrderPqcItemRows(submission)) {
+      for (const groupedItem of buildActiveOrderPqcProcessInspectionItemRows(submission)) {
         if (!groupedItemsByIdentity.has(groupedItem.itemIdentityKey)) {
           groupedItemsByIdentity.set(groupedItem.itemIdentityKey, groupedItem)
         }
@@ -2319,7 +3734,7 @@ const buildPqcInspectionRecordRows = (): ActiveOrderPqcInspectionRecordRow[] => 
     const groupedItems = Array.from(groupedItemsByIdentity.values())
     for (const groupedItem of groupedItems) {
       for (const submission of pqcProcess.submissions) {
-        const sourceItems = (submission.items ?? []).filter((item) => {
+        const sourceItems = (submission.processInspectionItems ?? []).filter((item) => {
           const key = resolveActiveOrderPqcItemIdentityKey(item)
           return key === groupedItem.key
         })
@@ -2448,7 +3863,7 @@ const pqcInspectionRecordSummary = computed(() => {
       : '-',
     batchQuantityText: batchQuantity === '-' ? '-' : `${batchQuantity} 件`,
     judgementText: summarizePqcInspectionJudgements(
-      submissions.flatMap((submission) => submission.items ?? [])
+      submissions.flatMap((submission) => submission.processInspectionItems ?? [])
     )
   }
 })
@@ -2463,6 +3878,7 @@ interface ActiveOrderDetailPqcProcessGroup {
   qaProcessId: number
   qaProcessCode?: string
   qaProcessName: string
+  qaProcessSort: number
   submissions: TeamLeaderActiveOrderPqcSubmissionDetailRespVO[]
 }
 
@@ -2471,19 +3887,30 @@ const resolveActiveOrderPqcProcessTabName = (
   index: number
 ) => `pqc-process-${pqcProcess.qaProcessId}-${index}`
 
+const compareActiveOrderPqcProcessGroups = (
+  left: ActiveOrderDetailPqcProcessGroup,
+  right: ActiveOrderDetailPqcProcessGroup
+) => left.qaProcessSort - right.qaProcessSort || left.qaProcessId - right.qaProcessId
+
 const pqcProcessGroups = computed<ActiveOrderDetailPqcProcessGroup[]>(() => {
   const detailResult = props.detail
-  if (!detailResult?.processes?.length) return []
+  if (!detailResult) return []
   const groupsByQaProcessId = new Map<number, ActiveOrderDetailPqcProcessGroup>()
-  for (const process of detailResult.processes) {
-    for (const submission of process.pqcSubmissions ?? []) {
+  for (const submission of detailResult.pqcSubmissions ?? []) {
       const qaProcessId = Number(submission.qaProcessId)
+      const qaProcessSort = Number(submission.qaProcessSort)
       const qaProcessName = normalizeActiveOrderPqcText(submission.qaProcessName)
       if (!Number.isFinite(qaProcessId) || qaProcessId <= 0 || !qaProcessName) {
         throw new Error('PQC提交缺少正式检验工序身份，无法按PQC工序展示')
       }
+      if (!Number.isFinite(qaProcessSort) || qaProcessSort <= 0) {
+        throw new Error('PQC提交缺少正式检验工序排序，无法按一线PQC顺序展示')
+      }
       const existed = groupsByQaProcessId.get(qaProcessId)
       if (existed) {
+        if (existed.qaProcessSort !== qaProcessSort) {
+          throw new Error('PQC提交检验工序排序不一致，无法按一线PQC顺序展示')
+        }
         existed.submissions.push(submission)
         continue
       }
@@ -2492,15 +3919,25 @@ const pqcProcessGroups = computed<ActiveOrderDetailPqcProcessGroup[]>(() => {
         qaProcessId,
         qaProcessCode: submission.qaProcessCode,
         qaProcessName,
+        qaProcessSort,
         submissions: [submission]
       })
-    }
   }
-  return Array.from(groupsByQaProcessId.values())
+  return Array.from(groupsByQaProcessId.values()).sort(compareActiveOrderPqcProcessGroups)
 })
 
 type ActiveOrderDetailPickListMaterialRow = TeamLeaderActiveOrderInputMaterialDetailRespVO & {
   sourceProcessNames: string[]
+}
+
+interface ActiveOrderPickListDocument {
+  key: string
+  id: number
+  billNo: string
+  documentStatus: string
+  billDate: string
+  productionOrderNos: string[]
+  rows: ActiveOrderDetailPickListMaterialRow[]
 }
 
 interface ActiveOrderSummaryPair<T> {
@@ -2514,6 +3951,7 @@ interface ActiveOrderSummaryProcessPersonnelRow {
   processName: string
   operatorText: string
   assemblyDateText: string
+  signature?: TeamLeaderActiveOrderSignatureDetailRespVO
 }
 
 interface ActiveOrderPqcLossReportRow {
@@ -2526,6 +3964,9 @@ interface ActiveOrderPqcLossReportRow {
   productionOperatorDateText: string
   inspectorConfirmationDateText: string
   approverDateText: string
+  productionOperatorSignatures: TeamLeaderActiveOrderSignatureDetailRespVO[]
+  inspectorSignatures: TeamLeaderActiveOrderSignatureDetailRespVO[]
+  approverSignatures: TeamLeaderActiveOrderSignatureDetailRespVO[]
 }
 
 const buildActiveOrderSummaryPairs = <T,>(
@@ -2585,6 +4026,32 @@ const pickListMaterials = computed<ActiveOrderDetailPickListMaterialRow[]>(() =>
     }
   }
   return Array.from(rowsByKey.values())
+})
+
+const pickListDocuments = computed<ActiveOrderPickListDocument[]>(() => {
+  const grouped = new Map<number, ActiveOrderPickListDocument>()
+  for (const material of pickListMaterials.value) {
+    for (const sourceDocument of material.sourcePickListDocuments ?? []) {
+      if (!grouped.has(sourceDocument.id)) {
+        grouped.set(sourceDocument.id, {
+          key: String(sourceDocument.id),
+          id: sourceDocument.id,
+          billNo: sourceDocument.billNo,
+          documentStatus: sourceDocument.documentStatus,
+          billDate: sourceDocument.billDate,
+          productionOrderNos: sourceDocument.productionOrderNos,
+          rows: []
+        })
+      }
+      grouped.get(sourceDocument.id)?.rows.push({
+        ...material,
+        sourcePickListIds: [sourceDocument.id],
+        sourcePickListNos: [sourceDocument.billNo],
+        sourcePickListDocuments: [sourceDocument]
+      })
+    }
+  }
+  return Array.from(grouped.values())
 })
 
 const formatSummaryMaterialBatchCodes = (
@@ -2680,7 +4147,7 @@ const formatSummarySignatureDate = (
   signature?: TeamLeaderActiveOrderSignatureDetailRespVO
 ) => {
   if (!signature?.signatureId) return blankSummaryField
-  return formatSummaryDate(signature.signedAt)
+  return signature.signedAt == null ? blankSummaryField : formatSummaryDate(signature.signedAt)
 }
 
 const summaryProcessPersonnelRows = computed<ActiveOrderSummaryProcessPersonnelRow[]>(() => {
@@ -2695,7 +4162,8 @@ const summaryProcessPersonnelRows = computed<ActiveOrderSummaryProcessPersonnelR
       ].join('::'),
       processName: process.processName || blankSummaryField,
       operatorText: formatSummarySignatureOperator(latestSubmitterSignature),
-      assemblyDateText: formatSummarySignatureDate(latestSubmitterSignature)
+      assemblyDateText: formatSummarySignatureDate(latestSubmitterSignature),
+      signature: latestSubmitterSignature
     }
   })
 })
@@ -2706,6 +4174,31 @@ const summaryProcessPersonnelPairs = computed(() =>
     (process, index) => `${index}::${process.key}`
   )
 )
+
+const summaryPqcProductionRelease = computed(() => props.detail?.pqcProductionRelease)
+
+const summaryMarketRelease = computed<ActiveOrderMarketReleaseSummary | undefined>(() => {
+  const marketReleaseFact = (props.detail?.operationFacts ?? []).find(
+    (fact) =>
+      fact.operationType === 'BATCH_RECORD_RELEASE_APPROVED' &&
+      (fact.operationName || fact.operationType) === '批记录上市放行' &&
+      fact.resultStatus === 'SUCCESS'
+  )
+  if (!marketReleaseFact) return undefined
+  return {
+    statusLabel: '已上市放行',
+    actorName: marketReleaseFact.actorName,
+    occurredAt: marketReleaseFact.occurredAt,
+    signature: marketReleaseFact.signatureId
+      ? {
+          signatureId: marketReleaseFact.signatureId,
+          signerName: marketReleaseFact.actorName,
+          signedAt: marketReleaseFact.occurredAt,
+          role: 'BATCH_RECORD_RELEASE_APPROVED'
+        }
+      : undefined
+  }
+})
 
 const resolveLatestSignature = (
   signatures: TeamLeaderActiveOrderSignatureDetailRespVO[] = []
@@ -2741,10 +4234,11 @@ const formatLossReportSignaturesDateText = (
 const formatPqcLossReason = (
   submission: TeamLeaderActiveOrderPqcSubmissionDetailRespVO
 ) => {
-  const negativeItems = (submission.items ?? []).filter(
+  const processInspectionItems = submission.processInspectionItems ?? []
+  const negativeItems = processInspectionItems.filter(
     (item) => normalizePqcPassFailText(item.judgement || item.itemResult || item.measuredValue) === '不通过'
   )
-  const sourceItems = negativeItems.length ? negativeItems : submission.items ?? []
+  const sourceItems = negativeItems.length ? negativeItems : processInspectionItems
   const reasons = sourceItems
     .map((item) => {
       const itemName = normalizeActiveOrderPqcText(item.itemName || item.itemCode)
@@ -2758,8 +4252,7 @@ const formatPqcLossReason = (
 
 const pqcLossReportRows = computed<ActiveOrderPqcLossReportRow[]>(() => {
   const rows: ActiveOrderPqcLossReportRow[] = []
-  for (const process of props.detail?.processes ?? []) {
-    for (const submission of process.pqcSubmissions ?? []) {
+  for (const submission of props.detail?.pqcSubmissions ?? []) {
       const scrapQuantity = Number(submission.scrapQuantity)
       if (!Number.isFinite(scrapQuantity) || scrapQuantity <= 0) {
         continue
@@ -2768,33 +4261,29 @@ const pqcLossReportRows = computed<ActiveOrderPqcLossReportRow[]>(() => {
       const productionOperatorDateText = formatLossReportSignaturesDateText(productionSignatures)
       const latestPqcSubmitterSignature = resolveLatestSignature(submission.submitterSignatures)
       const latestPqcReviewerSignature = resolveLatestSignature(submission.reviewerSignatures)
+      const inspectorSignatures = latestPqcSubmitterSignature ? [latestPqcSubmitterSignature] : []
+      const approverSignatures = latestPqcReviewerSignature ? [latestPqcReviewerSignature] : []
       rows.push({
         key: [
-          process.routeProcessId,
-          process.processId,
+          submission.qaProcessId,
           submission.pqcTaskId,
           submission.submittedEventId,
           rows.length
         ].join('::'),
         unqualifiedDateText: formatSummaryCycleDate(submission.businessDate) || blankSummaryField,
-        processNameText: submission.qaProcessName || process.processName || blankSummaryField,
+        processNameText: submission.qaProcessName || blankSummaryField,
         unqualifiedQuantityText: formatTraceQuantity(scrapQuantity),
         unqualifiedReasonText: formatPqcLossReason(submission),
         disposalMethodText: '☑ 报废　☐ 其他：',
         productionOperatorDateText,
         inspectorConfirmationDateText: formatLossReportSignatureDateText(latestPqcSubmitterSignature),
-        approverDateText: formatLossReportSignatureDateText(latestPqcReviewerSignature)
+        approverDateText: formatLossReportSignatureDateText(latestPqcReviewerSignature),
+        productionOperatorSignatures: productionSignatures,
+        inspectorSignatures,
+        approverSignatures
       })
-    }
   }
   return rows
-})
-
-const pqcLossReportApprovalText = computed(() => {
-  const approvalTexts = Array.from(
-    new Set(pqcLossReportRows.value.map((row) => row.approverDateText).filter(Boolean))
-  )
-  return approvalTexts.length ? approvalTexts.join('；') : blankSummaryField
 })
 
 type ActiveOrderDetailReplenishmentMaterialRow =
@@ -2852,14 +4341,298 @@ const resolvePqcInspectionTypeText = (pqcSubmission: TeamLeaderActiveOrderPqcSub
   return inspectionType || '检验'
 }
 
+const buildDossierFileTabName = (categoryKey: string) => `dossierFile:${categoryKey}`
+
+const emptyDossierCategory = (categoryKey: string): ActiveOrderDossierFileCategoryVO => {
+  const definition = dossierFileTabDefinitions.find((item) => item.key === categoryKey)
+  return {
+    key: categoryKey,
+    label: definition?.label || categoryKey,
+    files: []
+  }
+}
+
+const resolveDossierFileCategory = (categoryKey: string) => {
+  return dossierFiles.value?.categories.find((category) => category.key === categoryKey)
+    || emptyDossierCategory(categoryKey)
+}
+
+const formatDossierFileSize = (value?: number | string) => {
+  const numeric = Number(value)
+  if (!Number.isFinite(numeric) || numeric < 0) return '-'
+  const units = ['B', 'KB', 'MB', 'GB']
+  let size = numeric
+  let unitIndex = 0
+  while (size >= 1024 && unitIndex < units.length - 1) {
+    size /= 1024
+    unitIndex += 1
+  }
+  return `${Number(size.toFixed(size >= 10 || unitIndex === 0 ? 0 : 1))} ${units[unitIndex]}`
+}
+
+const resolveDossierReadContext = (): {
+  identity: DossierContextIdentity
+  batchQuery?: EdhrBatchActiveOrderDossierQuery
+} | undefined => {
+  const activeOrderId = props.detail?.activeOrderId
+  const applicationId = props.pqcReleaseApplicationId
+  if (!activeOrderId || props.loading || props.error) return undefined
+  if (auditScopeTypeValue.value !== 'BATCH') {
+    return { identity: { activeOrderId, applicationId } }
+  }
+  const scopeId = auditScopeIdValue.value
+  if (!scopeId || typeof scopeId !== 'object' || Array.isArray(scopeId)) {
+    throw new Error('批次资料查询缺少明确的批次或活跃订单身份。')
+  }
+  const hasBatchId = scopeId.batchExecutionId !== undefined
+  const hasActiveOrderId = scopeId.activeOrderId !== undefined
+  if (hasBatchId === hasActiveOrderId) {
+    throw new Error('批次资料查询必须且只能提供一种正式身份。')
+  }
+  const queryId = hasBatchId ? scopeId.batchExecutionId : scopeId.activeOrderId
+  if (!(typeof queryId === 'string'
+    ? /^[1-9]\d*$/.test(queryId)
+    : Number.isSafeInteger(queryId) && Number(queryId) > 0)) {
+    throw new Error('批次资料查询身份无效。')
+  }
+  if (hasActiveOrderId && String(queryId) !== String(activeOrderId)) {
+    throw new Error('批次资料查询与当前详情的活跃订单身份不一致。')
+  }
+  if (props.detail?.activeOrderStatus?.status === 'NOT_APPLIED') return undefined
+  const batchQuery: EdhrBatchActiveOrderDossierQuery = hasBatchId
+    ? { batchExecutionId: queryId as number | string }
+    : { activeOrderId: queryId as number | string }
+  return {
+    identity: { activeOrderId, scope: 'BATCH', batchExecutionId: batchQuery.batchExecutionId },
+    batchQuery
+  }
+}
+
+const loadDossierFiles = async () => {
+  let readContext: ReturnType<typeof resolveDossierReadContext> = undefined
+  let contextError = ''
+  try {
+    readContext = resolveDossierReadContext()
+  } catch (error) {
+    contextError = error instanceof Error ? error.message : String(error)
+  }
+  if (!readContext) {
+    dossierRequestContext.begin()
+    dossierFiles.value = undefined
+    dossierFileLoading.value = false
+    dossierFileError.value = contextError
+    dossierFileUploadingKey.value = ''
+    dossierPreviewDialogVisible.value = false
+    selectedDossierPreviewSource.value = null
+    selectedDossierPreviewTitle.value = ''
+    return
+  }
+  const requestToken = dossierRequestContext.begin(readContext.identity)
+  if (requestToken.contextChanged) {
+    dossierFiles.value = undefined
+    dossierFileUploadingKey.value = ''
+    dossierPreviewDialogVisible.value = false
+    selectedDossierPreviewSource.value = null
+    selectedDossierPreviewTitle.value = ''
+  }
+  dossierFileLoading.value = true
+  dossierFileError.value = ''
+  try {
+    const response = readContext.batchQuery
+      ? await getEdhrBatchActiveOrderDossierFiles(readContext.batchQuery)
+      : await getActiveOrderDossierFiles({
+          activeOrderId: readContext.identity.activeOrderId as number,
+          applicationId: readContext.identity.applicationId
+        })
+    if (dossierRequestContext.isCurrentRequest(requestToken)) {
+      dossierFiles.value = response
+    }
+  } catch (error) {
+    if (!dossierRequestContext.isCurrentRequest(requestToken)) return
+    const message = error instanceof Error ? error.message : String(error || '资料文件加载失败')
+    dossierFiles.value = undefined
+    dossierFileError.value = message
+  } finally {
+    if (dossierRequestContext.isCurrentRequest(requestToken)) {
+      dossierFileLoading.value = false
+    }
+  }
+}
+
+const uploadDossierFile = async (categoryKey: string, options: UploadRequestOptions) => {
+  if (activeOrderDossierMutationLocked.value) {
+    const error = new Error(activeOrderDossierMutationLockReason.value)
+    dossierFileError.value = error.message
+    options.onError?.(error as UploadError)
+    return
+  }
+  const activeOrderId = props.detail?.activeOrderId
+  if (!activeOrderId) {
+    ElMessage.error('缺少活跃订单ID，不能上传资料文件。')
+    options.onError?.(new Error('缺少活跃订单ID') as UploadError)
+    return
+  }
+  let operationIdentity: DossierContextIdentity | undefined
+  try {
+    operationIdentity = resolveDossierReadContext()?.identity
+  } catch (error) {
+    const failure = error instanceof Error ? error : new Error(String(error))
+    dossierFileError.value = failure.message
+    options.onError?.(failure as UploadError)
+    return
+  }
+  const operationToken = operationIdentity && dossierRequestContext.capture(operationIdentity)
+  if (!operationToken) {
+    options.onError?.(new Error('资料上下文已切换，不能继续上传。') as UploadError)
+    return
+  }
+  dossierFileUploadingKey.value = categoryKey
+  try {
+    await uploadActiveOrderDossierFile(
+      {
+        activeOrderId,
+        applicationId: dossierFiles.value?.applicationId,
+        categoryKey,
+        file: options.file
+      },
+      options.onProgress
+    )
+    if (!dossierRequestContext.isCurrentContext(operationToken)) {
+      options.onSuccess?.({})
+      return
+    }
+    options.onSuccess?.({})
+    ElMessage.success('资料文件已上传')
+    if (!dossierRequestContext.isCurrentContext(operationToken)) return
+    await loadDossierFiles()
+  } catch (error) {
+    if (!dossierRequestContext.isCurrentContext(operationToken)) {
+      options.onError?.((error instanceof Error ? error : new Error(String(error))) as UploadError)
+      return
+    }
+    const message = error instanceof Error ? error.message : String(error || '资料文件上传失败')
+    dossierFileError.value = message
+    options.onError?.((error instanceof Error ? error : new Error(message)) as UploadError)
+  } finally {
+    if (dossierRequestContext.isCurrentContext(operationToken)) {
+      dossierFileUploadingKey.value = ''
+    }
+  }
+}
+
+const previewDossierFile = (file: ActiveOrderDossierFileItemVO) => {
+  if (!file.fileId) {
+    ElMessage.error('附件缺少文件编号，无法在线预览。')
+    return
+  }
+  selectedDossierPreviewSource.value = buildMesActiveOrderDossierFilePreviewSource(file.fileId)
+  selectedDossierPreviewTitle.value = file.fileName || '资料文件预览'
+  dossierPreviewDialogVisible.value = true
+}
+
+type NonconformanceReviewMaterialDisplay = {
+  fileId?: number
+  fileName: string
+}
+
+const resolveNonconformanceReviewMaterials = (
+  fact: TeamLeaderActiveOrderOperationFactRespVO
+): NonconformanceReviewMaterialDisplay[] => {
+  let materials: { fileId?: number; fileName?: string; url?: string }[]
+  if (fact.reviewMaterialsJson) {
+    const payload = parseExactIntegerJson(fact.reviewMaterialsJson)
+    if (!Array.isArray(payload?.activeMaterials)) {
+      throw new Error('评审材料清单格式无效，无法显示。')
+    }
+    materials = payload.activeMaterials
+  } else if (fact.reviewMaterialUrl) {
+    materials = [{ fileId: fact.reviewMaterialFileId, url: fact.reviewMaterialUrl }]
+  } else if (fact.reviewMaterialFileId) {
+    throw new Error('评审材料缺少名称和路径，无法显示。')
+  } else {
+    return []
+  }
+  return materials.map((material) => {
+    const persistedName = material.fileName
+    let fileName: string
+    if (persistedName?.trim()) {
+      fileName = persistedName
+    } else {
+      if (!material.url) throw new Error('评审材料缺少名称和路径，无法显示。')
+      fileName = resolveUrlPathFileName(material.url)
+    }
+    return { fileId: material.fileId, fileName }
+  })
+}
+
+const previewNonconformanceReviewMaterial = (material: NonconformanceReviewMaterialDisplay) => {
+  if (!material.fileId) {
+    ElMessage.error('评审材料缺少文件编号，无法在线查看。')
+    return
+  }
+  selectedDossierPreviewSource.value = buildMesEdhrNonconformanceReviewMaterialPreviewSource(
+    material.fileId
+  )
+  selectedDossierPreviewTitle.value = material.fileName
+  dossierPreviewDialogVisible.value = true
+}
+
+const deleteDossierFile = async (categoryKey: string, file: ActiveOrderDossierFileItemVO) => {
+  if (activeOrderDossierMutationLocked.value) {
+    dossierFileError.value = activeOrderDossierMutationLockReason.value
+    return
+  }
+  const activeOrderId = props.detail?.activeOrderId
+  if (!activeOrderId || !file.attachmentId) {
+    ElMessage.error('缺少资料文件来源，不能删除。')
+    return
+  }
+  let operationIdentity: DossierContextIdentity | undefined
+  try {
+    operationIdentity = resolveDossierReadContext()?.identity
+  } catch (error) {
+    dossierFileError.value = error instanceof Error ? error.message : String(error)
+    return
+  }
+  const operationToken = operationIdentity && dossierRequestContext.capture(operationIdentity)
+  if (!operationToken) return
+  await ElMessageBox.confirm(`确认删除资料文件“${file.fileName || file.attachmentId}”？`, '删除确认', {
+    confirmButtonText: '删除',
+    cancelButtonText: '取消',
+    type: 'warning'
+  })
+  if (!dossierRequestContext.isCurrentContext(operationToken)) return
+  if (activeOrderDossierMutationLocked.value) {
+    dossierFileError.value = activeOrderDossierMutationLockReason.value
+    return
+  }
+  try {
+    await deleteActiveOrderDossierFile({
+      activeOrderId,
+      applicationId: dossierFiles.value?.applicationId,
+      categoryKey,
+      attachmentId: file.attachmentId
+    })
+    if (!dossierRequestContext.isCurrentContext(operationToken)) return
+    ElMessage.success('资料文件已删除')
+    if (!dossierRequestContext.isCurrentContext(operationToken)) return
+    await loadDossierFiles()
+  } catch (error) {
+    if (!dossierRequestContext.isCurrentContext(operationToken)) return
+    dossierFileError.value = error instanceof Error ? error.message : String(error || '资料文件删除失败')
+  }
+}
+
 const resetTabs = async () => {
   await nextTick()
   const firstProcess = visibleProductionProcesses.value[0]
-  activeTab.value = showSummaryTab.value
+  const requestedTab = resolveInitialActiveTab()
+  activeTab.value = requestedTab || (showSummaryTab.value
     ? 'summary'
     : displayMode.value === 'pqc'
       ? 'pqcSubmissions'
-      : 'productionSubmissions'
+      : 'productionSubmissions')
+  pqcInnerActiveTab.value = 'originalSubmissions'
   productionActiveTab.value = firstProcess ? activeOrderDetailProcessTabName(firstProcess, 0) : ''
   const firstPqcProcess = pqcProcessGroups.value[0]
   pqcActiveTab.value = firstPqcProcess
@@ -2868,12 +4641,54 @@ const resetTabs = async () => {
 }
 
 watch(
-  () => [props.detail, props.displayMode, props.productionRouteProcessId],
+  () => [props.detail, props.displayMode, props.productionRouteProcessId, props.initialActiveTab],
   () => {
     void resetTabs()
   },
   { immediate: true }
 )
+
+watch(
+  () => [
+    props.detail?.activeOrderId,
+    props.detail?.activeOrderStatus?.status,
+    props.pqcReleaseApplicationId,
+    auditScopeTypeValue.value,
+    auditScopeIdValue.value,
+    props.loading,
+    props.error
+  ],
+  () => {
+    void loadDossierFiles()
+  },
+  { immediate: true, deep: true, flush: 'sync' }
+)
+
+watch(
+  () => [auditScopeTypeValue.value, auditScopeIdValue.value, showSummaryTab.value, props.loading, props.error],
+  () => {
+    resetGxpAuditDetail()
+    gxpAuditDetailVisible.value = false
+    gxpAuditPageNo.value = 1
+    void loadGxpAudit()
+  },
+  { immediate: true, flush: 'sync' }
+)
+
+watch(gxpAuditDetailVisible, (visible) => {
+  if (!visible) resetGxpAuditDetail()
+}, { flush: 'sync' })
+
+onBeforeUnmount(() => {
+  dossierRequestContext.invalidate()
+  dossierFiles.value = undefined
+  dossierFileLoading.value = false
+  dossierFileError.value = ''
+  dossierFileUploadingKey.value = ''
+  dossierPreviewDialogVisible.value = false
+  selectedDossierPreviewSource.value = null
+  selectedDossierPreviewTitle.value = ''
+})
 </script>
 <style scoped>
 .team-leader-workbench__active-order-detail {
@@ -2882,6 +4697,22 @@ watch(
   min-height: 180px;
   max-width: 100%;
   overflow-x: hidden;
+}
+
+.team-leader-workbench__active-order-detail-record-boundary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 32px;
+  padding: 8px 12px;
+  color: #172033;
+  background: #f8fafc;
+  border-left: 3px solid #0f9f95;
+}
+
+.team-leader-workbench__active-order-detail-record-boundary span {
+  color: #64748b;
+  font-size: 12px;
 }
 
 .team-leader-workbench__active-order-detail-tabs,
@@ -2924,6 +4755,26 @@ watch(
   overflow-x: hidden;
 }
 
+.team-leader-workbench__active-order-gxp-audit {
+  display: grid;
+  gap: 10px;
+  margin-top: 16px;
+  padding: 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 4px;
+  background: #ffffff;
+}
+
+.team-leader-workbench__gxp-audit-json {
+  max-height: 260px;
+  margin: 0;
+  padding: 10px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  background: #f8fafc;
+}
+
 .team-leader-workbench__active-order-summary-table {
   width: 100%;
   table-layout: fixed;
@@ -2951,6 +4802,62 @@ watch(
 .team-leader-workbench__active-order-summary-title {
   font-size: 16px;
   letter-spacing: 0.04em;
+}
+
+.team-leader-workbench__operation-fact-evidence {
+  width: 100%;
+  min-width: 0;
+  padding: 2px 0;
+  text-align: left;
+}
+
+.team-leader-workbench__operation-fact-evidence-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 18px;
+  min-width: 0;
+}
+
+.team-leader-workbench__operation-fact-evidence-item {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 6px 10px;
+  align-items: start;
+  min-width: 0;
+  text-align: left;
+}
+
+.team-leader-workbench__operation-fact-evidence-label {
+  color: var(--el-text-color-secondary);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.team-leader-workbench__operation-fact-evidence-value {
+  min-width: 0;
+  color: var(--el-text-color-primary);
+  white-space: normal;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+.team-leader-workbench__signature-link.team-leader-workbench__operation-fact-evidence-value {
+  justify-self: start;
+}
+
+.team-leader-workbench__active-order-detail-record-boundary {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+}
+
+.team-leader-workbench__active-order-current-status {
+  display: inline-flex;
+  align-items: center;
+  justify-self: center;
+  gap: 8px;
+  color: var(--el-text-color-regular);
+  font-size: 14px;
 }
 
 .team-leader-workbench__active-order-detail-summary {
@@ -3257,6 +5164,100 @@ watch(
 .team-leader-workbench__production-material-list-footer {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.team-leader-workbench__pick-list-documents {
+  display: grid;
+  gap: 18px;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+.team-leader-workbench__pick-list-document {
+  display: grid;
+  gap: 0;
+  max-width: 100%;
+  overflow: hidden;
+  border: 1px solid var(--el-border-color);
+  background: var(--el-bg-color);
+}
+
+.team-leader-workbench__pick-list-document h3 {
+  margin: 0;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--el-border-color);
+  background: var(--el-fill-color-lighter);
+  text-align: center;
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.team-leader-workbench__pick-list-head {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  border-bottom: 1px solid var(--el-border-color);
+}
+
+.team-leader-workbench__pick-list-head > div {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  min-height: 36px;
+  padding: 6px 10px;
+  border-right: 1px solid var(--el-border-color);
+  border-bottom: 1px solid var(--el-border-color);
+}
+
+.team-leader-workbench__pick-list-head > div:nth-child(2n) {
+  border-right: 0;
+}
+
+.team-leader-workbench__pick-list-head > div:nth-last-child(-n + 2) {
+  border-bottom: 0;
+}
+
+.team-leader-workbench__pick-list-head span {
+  flex: 0 0 auto;
+  font-weight: 700;
+}
+
+.team-leader-workbench__pick-list-head strong {
+  min-width: 0;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+.team-leader-workbench__dossier-file-panel {
+  display: grid;
+  gap: 12px;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+.team-leader-workbench__dossier-file-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.team-leader-workbench__dossier-file-toolbar > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  align-items: baseline;
+  min-width: 0;
+}
+
+.team-leader-workbench__dossier-file-toolbar strong {
+  color: var(--el-text-color-primary);
+  font-size: 14px;
+}
+
+.team-leader-workbench__dossier-file-toolbar span {
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
 }
 
 .team-leader-workbench__active-order-pqc-card {
@@ -3667,8 +5668,43 @@ watch(
 }
 
 .team-leader-workbench__production-record-section-title {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  align-items: baseline;
   color: var(--el-text-color-primary);
   font-size: 14px;
+  font-weight: 600;
+}
+
+.team-leader-workbench__pqc-original-submission-block {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.team-leader-workbench__pqc-original-submission-table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+  background: var(--el-bg-color);
+  font-size: 13px;
+}
+
+.team-leader-workbench__pqc-original-submission-table th,
+.team-leader-workbench__pqc-original-submission-table td {
+  min-height: 40px;
+  padding: 8px;
+  border: 1px solid var(--el-border-color);
+  text-align: center;
+  vertical-align: middle;
+  white-space: normal;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+.team-leader-workbench__pqc-original-submission-table th {
+  background: var(--el-fill-color-light);
   font-weight: 600;
 }
 
@@ -3701,6 +5737,10 @@ watch(
   }
 
   .team-leader-workbench__production-record-meta {
+    grid-template-columns: 1fr;
+  }
+
+  .team-leader-workbench__operation-fact-evidence-grid {
     grid-template-columns: 1fr;
   }
 }

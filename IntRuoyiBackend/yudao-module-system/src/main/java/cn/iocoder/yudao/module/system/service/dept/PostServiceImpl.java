@@ -31,40 +31,58 @@ import static cn.iocoder.yudao.module.system.enums.ErrorCodeConstants.*;
 public class PostServiceImpl implements PostService {
 
     @Resource
+    private cn.iocoder.yudao.module.system.service.permission.GlobalApprovalAuthorityCoordinator approvalAuthority;
+
+    @Resource
     private PostMapper postMapper;
 
     @Override
+    @org.springframework.transaction.annotation.Transactional(rollbackFor = Exception.class)
     public Long createPost(PostSaveReqVO createReqVO) {
+        var authority = approvalAuthority.lockGlobalRoleTenants();
         // 校验正确性
         validatePostForCreateOrUpdate(null, createReqVO.getName(), createReqVO.getCode());
 
         // 插入岗位
         PostDO post = BeanUtils.toBean(createReqVO, PostDO.class);
-        postMapper.insert(post);
+        if (postMapper.insert(post) != 1) throw new IllegalStateException("APPROVAL_POST_CREATE_ROW_COUNT");
+        approvalAuthority.incrementLockedTenants(authority);
         return post.getId();
     }
 
     @Override
+    @org.springframework.transaction.annotation.Transactional(rollbackFor = Exception.class)
     public void updatePost(PostSaveReqVO updateReqVO) {
+        var authority = approvalAuthority.lockGlobalRoleTenants();
         // 校验正确性
         validatePostForCreateOrUpdate(updateReqVO.getId(), updateReqVO.getName(), updateReqVO.getCode());
 
         // 更新岗位
         PostDO updateObj = BeanUtils.toBean(updateReqVO, PostDO.class);
-        postMapper.updateById(updateObj);
+        if (postMapper.updateById(updateObj) != 1) throw new IllegalStateException("APPROVAL_POST_UPDATE_ROW_COUNT");
+        approvalAuthority.incrementLockedTenants(authority);
     }
 
     @Override
+    @org.springframework.transaction.annotation.Transactional(rollbackFor = Exception.class)
     public void deletePost(Long id) {
+        var authority = approvalAuthority.lockGlobalRoleTenants();
         // 校验是否存在
         validatePostExists(id);
         // 删除岗位
-        postMapper.deleteById(id);
+        if (postMapper.deleteById(id) != 1) throw new IllegalStateException("APPROVAL_POST_DELETE_ROW_COUNT");
+        approvalAuthority.incrementLockedTenants(authority);
     }
 
     @Override
+    @org.springframework.transaction.annotation.Transactional(rollbackFor = Exception.class)
     public void deletePostList(List<Long> ids) {
-        postMapper.deleteByIds(ids);
+        var authority = approvalAuthority.lockGlobalRoleTenants();
+        if (ids == null || ids.isEmpty() || new java.util.HashSet<>(ids).size() != ids.size()) {
+            throw new IllegalArgumentException("APPROVAL_POST_DELETE_IDENTITIES_REQUIRED");
+        }
+        if (postMapper.deleteByIds(ids) != ids.size()) throw new IllegalStateException("APPROVAL_POST_DELETE_ROW_COUNT");
+        approvalAuthority.incrementLockedTenants(authority);
     }
 
     private void validatePostForCreateOrUpdate(Long id, String name, String code) {

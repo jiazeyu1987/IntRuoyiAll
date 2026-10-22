@@ -1,5 +1,7 @@
 package cn.iocoder.yudao.module.system.service.user;
 
+import cn.iocoder.yudao.module.infra.enums.config.PasswordMaxAgeConfig;
+
 import java.time.LocalDateTime;
 
 /**
@@ -8,7 +10,6 @@ import java.time.LocalDateTime;
 public final class AdminUserPasswordPolicy {
 
     public static final int MIN_LENGTH = 8;
-    public static final int MAX_AGE_DAYS = 90;
     private static final String SPECIAL_CHARACTERS = "!@#$%^&*()_+-=[]{};':\"\\|,.<>/?`~";
 
     private AdminUserPasswordPolicy() {
@@ -35,8 +36,9 @@ public final class AdminUserPasswordPolicy {
         return false;
     }
 
-    public static boolean isExpired(LocalDateTime passwordUpdateTime, LocalDateTime now) {
-        return passwordUpdateTime == null || !passwordUpdateTime.plusDays(MAX_AGE_DAYS).isAfter(now);
+    public static boolean isExpired(LocalDateTime passwordUpdateTime, LocalDateTime now, String configuredMaxAgeDays) {
+        int maxAgeDays = PasswordMaxAgeConfig.parseRequired(configuredMaxAgeDays);
+        return passwordUpdateTime == null || !passwordUpdateTime.plusDays(maxAgeDays).isAfter(now);
     }
 
     private static boolean isAsciiUppercaseLetter(char ch) {

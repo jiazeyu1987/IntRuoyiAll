@@ -320,7 +320,11 @@ public class MesProcessPoolEventServiceImpl implements MesProcessPoolEventServic
     }
 
     private MesProcessPoolSubmitEventResult toSubmitEventResult(MesProProcessPoolEventDO event) {
+        Map<?, ?> payload = StrUtil.isBlank(event.getRawPayload()) ? null
+                : JsonUtils.parseObject(event.getRawPayload(), Map.class);
+        Object identityDomain = payload == null ? null : payload.get("signatureIdentityDomain");
         return new MesProcessPoolSubmitEventResult()
+                .setSignatureIdentityDomain(identityDomain instanceof String ? (String) identityDomain : null)
                 .setFeedbackId(event.getFeedbackSourceId())
                 .setRecordbookEntryId(event.getRecordbookEntryId())
                 .setRecordbookEventId(event.getRecordbookSourceId())
@@ -405,8 +409,11 @@ public class MesProcessPoolEventServiceImpl implements MesProcessPoolEventServic
     }
 
     private void requirePqcDeviceContext(MesProcessPoolCreatePqcInspectionReqDTO reqDTO) {
-        boolean hasAnyDeviceContext = reqDTO.getDeviceAccountId() != null
-                || reqDTO.getDeviceId() != null
+        // Task-based PQC records the authenticated operator without a production device/workstation.
+        if (reqDTO.getDeviceAccountId() != null) {
+            requirePositive(reqDTO.getDeviceAccountId(), "deviceAccountId");
+        }
+        boolean hasAnyDeviceContext = reqDTO.getDeviceId() != null
                 || reqDTO.getWorkstationId() != null;
         if (!hasAnyDeviceContext) {
             return;

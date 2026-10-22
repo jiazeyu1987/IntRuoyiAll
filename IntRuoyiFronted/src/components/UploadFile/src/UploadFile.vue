@@ -72,17 +72,19 @@ import type { UploadInstance, UploadProps, UploadRawFile, UploadUserFile } from 
 import { isString } from '@/utils/is'
 import { useUpload } from '@/components/UploadFile/src/useUpload'
 import { UploadFile } from 'element-plus/es/components/upload/src/upload'
+import { resolveUrlPathFileName } from '@/utils/fileName'
 
 defineOptions({ name: 'UploadFile' })
 
 const message = useMessage() // 消息弹窗
-const emit = defineEmits(['update:modelValue'])
+const emit = defineEmits(['update:modelValue', 'update:fileNames'])
 
 const props = defineProps({
   modelValue: propTypes.oneOfType<string | string[]>([String, Array<String>]).isRequired,
   fileType: propTypes.array.def(['doc', 'xls', 'ppt', 'txt', 'pdf']), // 文件类型, 例如['png', 'jpg', 'jpeg']
   fileSize: propTypes.number.def(5), // 大小限制(MB)
   limit: propTypes.number.def(5), // 数量限制
+  fileNames: propTypes.object.def({}), // 文件原始名称，按文件地址索引
   autoUpload: propTypes.bool.def(true), // 自动上传
   drag: propTypes.bool.def(false), // 拖拽上传
   isShowTip: propTypes.bool.def(true), // 是否显示提示
@@ -96,9 +98,23 @@ const uploadRef = ref<UploadInstance>()
 const uploadList = ref<UploadUserFile[]>([])
 const fileList = ref<UploadUserFile[]>([])
 const uploadNumber = ref<number>(0)
+const fileNameByUrl = new Map<string, string>()
 
 const { uploadUrl, httpRequest: defaultHttpRequest } = useUpload(props.directory)
 const httpRequest = computed(() => props.httpRequest || defaultHttpRequest)
+
+const resolveUploadFileName = (url: string) => resolveUrlPathFileName(url)
+
+const syncProvidedFileNames = () => {
+  Object.entries(props.fileNames || {}).forEach(([url, name]) => {
+    if (typeof name === 'string' && name.trim()) fileNameByUrl.set(url, name)
+  })
+}
+
+const resolveModelFileName = (url: string) => {
+  const originalName = fileNameByUrl.get(url)
+  return originalName !== undefined ? originalName : resolveUploadFileName(url)
+}
 
 // 文件上传之前判断
 const beforeUpload: UploadProps['beforeUpload'] = (file: UploadRawFile) => {
@@ -133,12 +149,18 @@ const beforeUpload: UploadProps['beforeUpload'] = (file: UploadRawFile) => {
 //   uploadRef.value.data.path = uploadFile.name
 // }
 // 文件上传成功
-const handleFileSuccess: UploadProps['onSuccess'] = (res: any): void => {
+const handleFileSuccess: UploadProps['onSuccess'] = (res: any, uploadFile): void => {
+  if (typeof res?.data !== 'string' || !res.data.trim()) {
+    throw new Error('上传成功响应缺少文件地址')
+  }
   message.success('上传成功')
   // 删除自身
-  const index = fileList.value.findIndex((item: any) => item.response?.data === res.data)
-  fileList.value.splice(index, 1)
-  uploadList.value.push({ name: res.data, url: res.data })
+  const index = fileList.value.findIndex((item: any) => item.uid === uploadFile.uid)
+  if (index >= 0) {
+    fileList.value.splice(index, 1)
+  }
+  fileNameByUrl.set(res.data, uploadFile.name)
+  uploadList.value.push({ name: uploadFile.name, url: res.data })
   if (uploadList.value.length == uploadNumber.value) {
     fileList.value.push(...uploadList.value)
     uploadList.value = []
@@ -158,10 +180,16 @@ const excelUploadError: UploadProps['onError'] = (): void => {
 }
 // 删除上传文件
 const handleRemove = (file: UploadFile) => {
-  const index = fileList.value.map((f) => f.name).indexOf(file.name)
+  const index = fileList.value.findIndex((item) => {
+    if (file.uid !== undefined && item.uid !== undefined) return item.uid === file.uid
+    if (file.url) return item.url === file.url
+    return item === file
+  })
   if (index > -1) {
+    const removedUrl = fileList.value[index].url
     fileList.value.splice(index, 1)
-    emitUpdateModelValue()
+    emitUpdateModelValue(false)
+    if (removedUrl) fileNameByUrl.delete(removedUrl)
   }
 }
 const handlePreview: UploadProps['onPreview'] = (uploadFile) => {
@@ -174,33 +202,58 @@ watch(
   (val: string | string[]) => {
     if (!val) {
       fileList.value = [] // fix：处理掉缓存，表单重置后上传组件的内容并没有重置
+      fileNameByUrl.clear()
       return
     }
 
     fileList.value = [] // 保障数据为空
+    syncProvidedFileNames()
     // 情况1：字符串
     if (isString(val)) {
       fileList.value.push(
-        ...val.split(',').map((url) => ({ name: url.substring(url.lastIndexOf('/') + 1), url }))
+        ...val.split(',').map((url) => ({ name: resolveModelFileName(url), url }))
       )
       return
     }
     // 情况2：数组
     fileList.value.push(
-      ...(val as string[]).map((url) => ({ name: url.substring(url.lastIndexOf('/') + 1), url }))
+      ...(val as string[]).map((url) => ({ name: resolveModelFileName(url), url }))
     )
   },
   { immediate: true, deep: true }
 )
+
+watch(
+  () => props.fileNames,
+  () => {
+    syncProvidedFileNames()
+    fileList.value = fileList.value.map((file) =>
+      file.url ? { ...file, name: resolveModelFileName(file.url) } : file
+    )
+  },
+  { deep: true }
+)
 // 发送文件链接列表更新
-const emitUpdateModelValue = () => {
+const emitFileNames = () => {
+  const fileNames = Object.fromEntries(
+    fileList.value.flatMap((file) => {
+      const name = file.url ? fileNameByUrl.get(file.url) : undefined
+      return file.url && name !== undefined ? [[file.url, name]] : []
+    })
+  )
+  emit('update:fileNames', fileNames)
+}
+
+const emitUpdateModelValue = (emitNamesFirst = true) => {
   // 情况1：数组结果
   let result: string | string[] = fileList.value.map((file) => file.url!)
   // 情况2：逗号分隔的字符串
   if (props.limit === 1 || isString(props.modelValue)) {
     result = result.join(',')
   }
+  if (emitNamesFirst) emitFileNames()
   emit('update:modelValue', result)
+  if (!emitNamesFirst) emitFileNames()
 }
 </script>
 <style lang="scss" scoped>

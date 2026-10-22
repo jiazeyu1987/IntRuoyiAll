@@ -62,7 +62,7 @@ final class MesProFrontlineFeedbackSubmitTestData {
                 .setFrontlineSessionSnapshotId("frontline-session-snapshot-001")
                 .setFrontlineSessionSnapshotHash("frontline-session-snapshot-hash-001")
                 .setActualEmployeeId(9001L)
-                .setSignatureEmployeeId(9001L)
+                .setSignatureIdentityDomain("SYSTEM_USER").setSignatureEmployeeId(9001L)
                 .setSignaturePassword("sign-123")
                 .setMaterialDetails(List.of(
                         new MesProFrontlineFeedbackMaterialReqVO()

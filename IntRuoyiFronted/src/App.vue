@@ -1,5 +1,8 @@
 <script lang="ts" setup>
 import { useAppStore } from '@/store/modules/app'
+import { ElMessage } from 'element-plus'
+import { useUserStore } from '@/store/modules/user'
+import { useTestModeStore } from '@/store/modules/testMode'
 import { useDesign } from '@/hooks/web/useDesign'
 import routerSearch from '@/components/RouterSearch/index.vue'
 import UserTableColumnGlobalEnhancer from '@/components/UserTableColumnGlobalEnhancer/index.vue'
@@ -9,6 +12,21 @@ defineOptions({ name: 'APP' })
 const { getPrefixCls } = useDesign()
 const prefixCls = getPrefixCls('app')
 const appStore = useAppStore()
+const userStore = useUserStore()
+const testModeStore = useTestModeStore()
+watch(
+  () => userStore.user.id,
+  async (userId) => {
+    testModeStore.apply(null)
+    if (!userId) return
+    try {
+      await testModeStore.load()
+    } catch (error) {
+      ElMessage.error(error instanceof Error ? error.message : '测试模式配置读取失败。')
+    }
+  },
+  { immediate: true }
+)
 const currentSize = computed(() => appStore.getCurrentSize)
 const greyMode = computed(() => appStore.getGreyMode)
 

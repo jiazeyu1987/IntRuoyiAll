@@ -42,7 +42,7 @@ assert.doesNotMatch(
 const taskItemBlock = blockBetween(
   panelSource,
   'const pqcTaskInspectionItems = computed<PqcInspectionItem[]>',
-  'const pqcInspectionItemMap = computed'
+  'const pqcTaskInspectionItemMap = computed'
 )
 assert.match(
   taskItemBlock,
@@ -55,31 +55,12 @@ const typeTabsBlock = blockBetween(
   'const pqcInspectionTypeTabs = computed',
   'const activePqcTaskOption = computed'
 )
-assert.match(
-  typeTabsBlock,
-  /getPqcTaskOptionsForInspectionItem\(process, activePqcTabKey\.value\)/,
-  'PQC inspection type tabs must be filtered by the selected inspection method.'
-)
-
-const visibleRoundsBlock = blockBetween(
-  panelSource,
-  'const pqcVisibleRounds = computed',
-  'const templateModeMismatch = computed'
-)
-assert.match(
-  visibleRoundsBlock,
-  /pqcTaskOptionIncludesItem\(option, activePqcTabKey\.value\)/,
-  'PQC round tabs must only show tasks belonging to the selected inspection method.'
-)
-assert.doesNotMatch(
-  panelSource,
-  /gridTemplateColumns:\s*`repeat\(\$\{pqcVisibleRounds\.length\}/,
-  'PQC round tabs must not force all tasks into one fixed row.'
-)
+assert.match(typeTabsBlock, /PQC_INSPECTION_RULE_ORDER[\s\S]*hasExecutablePqcTaskForRule\(process, ruleKey\)/, 'Rule tabs must represent executable formal task rules.')
+assert.match(panelSource, /data-pqc-inspection-rule-selector[\s\S]*@click="selectPqcInspectionRule\(tab.ruleKey\)"/, 'Visible rule controls must invoke the rule handler.')
 
 const selectMethodBlock = blockBetween(
   panelSource,
-  'const selectPqcInspectionTab = (itemKey: PqcInspectionItemKey) => {',
+  'const selectPqcInspectionTab = async (itemKey: PqcInspectionItemKey) => {',
   'const getPqcSelectedEquipmentLabel = (item: PqcInspectionItem) => {'
 )
 assert.match(
@@ -98,25 +79,25 @@ assert.match(
   'Selecting a method tab must compare against the raw selected task id so the draft quantity is refreshed.'
 )
 
-const selectTypeBlock = blockBetween(
-  panelSource,
-  'const selectPqcInspectionType = (inspectionType: InspectionType) => {',
-  'const selectPqcInspectionTaskOption = (pqcTaskId: number) => {'
-)
-assert.match(
-  selectTypeBlock,
-  /findPqcTaskOption\(process, inspectionType, itemKey\)/,
-  'Selecting FIRST/PATROL/FINAL must stay inside the selected method context.'
-)
+assert.match(selectMethodBlock, /applyPqcTaskOptionToSelectedProcess\(option\)[\s\S]*await switchPqcCurrentLoginEmployeeForActiveTask\(\)/, 'Method switching must rebind the employee to the selected formal task.')
+const selectRuleBlock = blockBetween(panelSource, 'const selectPqcInspectionRule = async', 'const updatePqcQuantity')
+assert.match(selectRuleBlock, /persistCurrentPqcTaskDraft\(\)[\s\S]*selectedPqcInspectionRuleKey\.value = ruleKey/, 'Changing rules must preserve the outgoing draft.')
+assert.match(selectRuleBlock, /getPqcTaskOptionForRule\(currentProcess, ruleKey, activePqcTabKey\.value\)/, 'Rule selection must prefer a task for the current method.')
+assert.match(selectRuleBlock, /applyPqcTaskOptionToSelectedProcess\(currentRuleOption\)[\s\S]*await switchPqcCurrentLoginEmployeeForActiveTask\(\)/, 'Same-process rule switching must rebind the employee.')
+assert.match(selectRuleBlock, /findFirstPqcProcessForInspectionRule\(\s*allSwitchablePqcProcessOptions\.value,\s*ruleKey\s*\)[\s\S]*if \(!targetProcess\)[\s\S]*showFrontlineError[\s\S]*await handleSelectProcess\(targetProcess\)/, 'Cross-process rules must resolve an executable process and explicitly reject missing tasks.')
+
+const selectProcessBlock = blockBetween(panelSource, 'const handleSelectProcess = async', 'const handlePickerProcessClick = async')
+assert.match(selectProcessBlock, /clearPqcExecutionSelection\(\)[\s\S]*await selectFrontlinePqcProcess\(deviceState, selectedProcess\)/, 'Cross-process switching must clear old execution and select the formal process.')
+assert.match(selectProcessBlock, /applyPqcTaskSnapshotToDraft\(selectedProcess\)[\s\S]*const initialEmployee = findInitialEmployee\(\)[\s\S]*await handleSelectEmployee\(initialEmployee\)/, 'Cross-process switching must bind the new task before selecting its employee.')
 
 const submitItemsBlock = blockBetween(
   panelSource,
-  'const buildPqcItemResultsPayload = (): FrontlinePqcItemResultSubmitReqVO[] =>',
+  'const buildPqcItemResultsPayload = (',
   'const getPqcCurrentChoiceValues = (itemKey: PqcInspectionItemKey) =>'
 )
 assert.match(
   submitItemsBlock,
-  /pqcTaskInspectionItems\.value\.map/,
+  /taskOption: PqcTaskOptionSnapshot \| undefined = activePqcTaskOption\.value[\s\S]*\(taskOption\?\.inspectionItems \|\| \[\]\)\.map\(mapPqcInspectionItem\)\.map/,
   'PQC submit payload must still use the active task expected item list.'
 )
 assert.doesNotMatch(
@@ -132,7 +113,7 @@ assert.match(
 )
 assert.match(
   panelSource,
-  /\.frontline-pqc-round-tabs\s*\{[\s\S]*grid-template-columns:\s*repeat\(auto-fit, minmax\(136px, 1fr\)\)[\s\S]*overflow-wrap:\s*anywhere/,
+  /\.frontline-pqc-type-tabs\s*\{[\s\S]*grid-template-columns:\s*repeat\(auto-fit, minmax\(136px, 1fr\)\)[\s\S]*overflow-wrap:\s*anywhere/,
   'PQC task buttons must keep a readable wrapping layout.'
 )
 

@@ -18,6 +18,9 @@ import org.springframework.validation.annotation.Validated;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Set;
+import java.util.HashSet;
+import java.util.LinkedHashSet;
 
 @Service
 @Validated
@@ -40,7 +43,7 @@ public class MesKingdeeBomListServiceImpl implements MesKingdeeBomListService {
     public int syncAll() {
         ErpKingdeeProperties properties = kingdeeConfigService.getEffectiveProperties();
         List<ErpKingdeeBomLine> lines = bomClient.fetchBomLines(properties);
-        return syncLines(lines, false);
+        return syncLines(lines);
     }
 
     @Override
@@ -51,8 +54,13 @@ public class MesKingdeeBomListServiceImpl implements MesKingdeeBomListService {
         List<ErpKingdeeBomLine> lines = bomClient.fetchBomLines(properties);
         MesKingdeeBomListSyncResult result = new MesKingdeeBomListSyncResult();
         LocalDateTime now = LocalDateTime.now();
+        Set<String> existingFids = new HashSet<>();
+        for (String fid : validateSnapshot(lines)) {
+            if (bomListMapper.countBySourceFid(fid) > 0) { existingFids.add(fid); }
+        }
         for (int i = 0; i < lines.size(); i++) {
-            if (upsert(lines.get(i), i + 1, now, true)) {
+            if (!existingFids.contains(lines.get(i).getFid())) {
+                insertRow(lines.get(i), now);
                 result.addCreated();
             } else {
                 result.addSkipped();
@@ -69,32 +77,47 @@ public class MesKingdeeBomListServiceImpl implements MesKingdeeBomListService {
         }
         ErpKingdeeProperties properties = kingdeeConfigService.getEffectiveProperties();
         List<ErpKingdeeBomLine> lines = bomClient.fetchBomLinesModifiedBetween(properties, windowStart, windowEnd);
-        return syncLines(lines, false);
+        return syncLines(lines);
     }
 
-    private int syncLines(List<ErpKingdeeBomLine> lines, boolean skipExisting) {
+    private Set<String> validateSnapshot(List<ErpKingdeeBomLine> lines) {
+        Set<String> keys = new HashSet<>();
+        Set<String> fids = new LinkedHashSet<>();
+        for (ErpKingdeeBomLine line : lines) {
+            if (line.getFid() == null || line.getFid().isBlank() || line.getEntryId() == null
+                    || line.getEntryId().isBlank() || !keys.add(line.getFid() + "|" + line.getEntryId())) {
+                throw new IllegalStateException("BOM snapshot has missing or duplicate ERP entry identity");
+            }
+            fids.add(line.getFid());
+        }
+        return fids;
+    }
+
+    private int syncLines(List<ErpKingdeeBomLine> lines) {
         LocalDateTime now = LocalDateTime.now();
+        Set<String> fids = validateSnapshot(lines);
+        // 仅替换本次完整读取的 BOM；一并清除旧用量组成的历史键和 ERP 已删除分录。
+        fids.forEach(bomListMapper::deleteBySourceFid);
         for (int i = 0; i < lines.size(); i++) {
-            upsert(lines.get(i), i + 1, now, skipExisting);
+            insertRow(lines.get(i), now);
         }
         return lines.size();
     }
 
-    private boolean upsert(ErpKingdeeBomLine line, int lineNo, LocalDateTime now, boolean skipExisting) {
-        String lineKey = line.getChildMaterialNumber() + "|" + line.getNumerator() + "|" + line.getDenominator();
-        MesKingdeeBomListDO existing = bomListMapper.selectBySourceLine(line.getFid(), lineKey);
+    private void insertRow(ErpKingdeeBomLine line, LocalDateTime now) {
+        String lineKey = line.getEntryId();
         MesKingdeeBomListDO row = MesKingdeeBomListDO.builder()
                 .sourceFormId(ErpKingdeeBomLine.FORM_ID)
                 .sourceFid(line.getFid())
                 .sourceLineKey(lineKey)
                 .bomNumber(line.getBomVersion())
-                .bomType("标准BOM")
+                .bomType(line.getBomType())
                 .documentStatus("已审核")
                 .parentMaterialCode(line.getParentMaterialNumber())
                 .parentMaterialName(line.getParentMaterialName())
                 .parentMaterialSpecification(line.getParentMaterialSpecification())
-                .parentQuantity(null)
-                .lineNo(lineNo)
+                .parentQuantity(line.getParentQuantity())
+                .lineNo(line.getLineNo())
                 .childMaterialCode(line.getChildMaterialNumber())
                 .childMaterialName(line.getChildMaterialName())
                 .childMaterialSpecification(line.getChildMaterialSpecification())
@@ -105,16 +128,7 @@ public class MesKingdeeBomListServiceImpl implements MesKingdeeBomListService {
                 .lastSyncTime(now)
                 .rawPayload(JsonUtils.toJsonString(line))
                 .build();
-        if (existing == null) {
-            bomListMapper.insert(row);
-            return true;
-        }
-        if (skipExisting) {
-            return false;
-        }
-        row.setId(existing.getId());
-        bomListMapper.updateById(row);
-        return true;
+        bomListMapper.insert(row);
     }
 
 }

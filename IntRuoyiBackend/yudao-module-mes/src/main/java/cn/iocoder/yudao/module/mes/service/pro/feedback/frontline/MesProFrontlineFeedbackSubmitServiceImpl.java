@@ -19,10 +19,16 @@ import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineProcessMate
 import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineTeamDeviceOption;
 import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineSubmitIdentityCommand;
 import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineSubmitIdentityTrace;
+import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineAuditIdentity;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.MesProcessPoolSubmitEventCreateReqBO;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.MesProcessPoolSubmitEventService;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesDeviceParameterSnapshotCodec;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolDeviceParameterRuleDO;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditCommand;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditEvidence;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditRelation;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditStateEnvelope;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.annotation.Validated;
@@ -33,6 +39,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -47,7 +54,14 @@ import static cn.iocoder.yudao.module.mes.service.pro.feedback.frontline.MesProF
 
 @Service
 @Validated
-public class MesProFrontlineFeedbackSubmitServiceImpl implements MesProFrontlineFeedbackSubmitService {
+public class MesProFrontlineFeedbackSubmitServiceImpl {
+    @jakarta.annotation.Resource
+    private cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffService handoffService;
+
+    private static final String GXP_PRODUCTION_SUBMIT_OPERATION = "mes.production.submit";
+    private static final String GXP_SOURCE_LOCATOR =
+            "cn.iocoder.yudao.module.mes.service.pro.feedback.frontline."
+                    + "MesProFrontlineFeedbackSubmitServiceImpl#submitAuthenticated";
 
     private final MesProFeedbackService feedbackService;
     private final MesProFeedbackMaterialService feedbackMaterialService;
@@ -59,6 +73,13 @@ public class MesProFrontlineFeedbackSubmitServiceImpl implements MesProFrontline
     private final MesMdAutoCodeRecordService autoCodeRecordService;
     private final MesProBatchRecordExecutionSignatureService signatureService;
     private final ActiveOrderSnapshotResolver activeOrderSnapshotResolver;
+    private final GxpAuditService gxpAuditService;
+    @jakarta.annotation.Resource
+    private MesFrontlineAuditIdentity auditIdentity;
+    @jakarta.annotation.Resource private java.util.List<cn.iocoder.yudao.module.system.api.signature.SignatureAuthenticationApi> signatureIdentities;
+    @jakarta.annotation.Resource private cn.iocoder.yudao.module.system.api.permission.ApprovalAuthorityApi signatureAuthority;
+    @jakarta.annotation.Resource private java.time.Clock signatureClock;
+    @jakarta.annotation.Resource private MesProductionAuthenticatedSignatureService productionSignatures;
 
     public MesProFrontlineFeedbackSubmitServiceImpl(MesProFeedbackService feedbackService,
                                                     MesProFeedbackMaterialService feedbackMaterialService,
@@ -68,8 +89,9 @@ public class MesProFrontlineFeedbackSubmitServiceImpl implements MesProFrontline
                                                     MesProFrontlineFeedbackMaterialSubmissionValidator materialSubmissionValidator,
                                                     MesProFrontlineFeedbackPayloadSplitter payloadSplitter,
                                                     MesMdAutoCodeRecordService autoCodeRecordService,
-                                                    MesProBatchRecordExecutionSignatureService signatureService,
-                                                    ActiveOrderSnapshotResolver activeOrderSnapshotResolver) {
+                                                     MesProBatchRecordExecutionSignatureService signatureService,
+                                                     ActiveOrderSnapshotResolver activeOrderSnapshotResolver,
+                                                     GxpAuditService gxpAuditService) {
         this.feedbackService = feedbackService;
         this.feedbackMaterialService = feedbackMaterialService;
         this.processPoolSubmitEventService = processPoolSubmitEventService;
@@ -80,12 +102,13 @@ public class MesProFrontlineFeedbackSubmitServiceImpl implements MesProFrontline
         this.autoCodeRecordService = autoCodeRecordService;
         this.signatureService = signatureService;
         this.activeOrderSnapshotResolver = activeOrderSnapshotResolver;
+        this.gxpAuditService = gxpAuditService;
     }
 
-    @Override
     @Transactional(rollbackFor = Exception.class)
-    public MesProFrontlineFeedbackSubmitRespVO submit(MesProFrontlineFeedbackSubmitReqVO reqVO) {
+    public MesProFrontlineFeedbackSubmitRespVO submitAuthenticated(MesProFrontlineFeedbackSubmitReqVO reqVO,cn.iocoder.yudao.module.system.api.signature.dto.AuthenticatedSigner signer) {
         validateSubmitContext(reqVO);
+        String originalRequestHash = MesProductionSubmitRequestIdentity.hash(reqVO);
         Long loginUserId = SecurityFrameworkUtils.getLoginUserId();
         if (loginUserId == null) {
             throw exception(PRO_FRONTLINE_FEEDBACK_LOGIN_USER_REQUIRED);
@@ -94,6 +117,12 @@ public class MesProFrontlineFeedbackSubmitServiceImpl implements MesProFrontline
         if (!Objects.equals(deviceAccountUserId, loginUserId)) {
             throw exception(PRO_FRONTLINE_FEEDBACK_DEVICE_ACCOUNT_MISMATCH, deviceAccountUserId);
         }
+        gxpAuditService.acquireLedgerLock();
+        var committedReplay = findVerifiedReplay(reqVO);
+        if (committedReplay != null) return committedReplay;
+        if(!Objects.equals(signer.actorId(),reqVO.getSignatureEmployeeId()) || !Objects.equals(signer.operatorId(),loginUserId) || !Objects.equals(signer.domain(),reqVO.getSignatureIdentityDomain()) || !Objects.equals(signer.requestIdentity(),cn.hutool.crypto.digest.DigestUtil.sha256Hex(reqVO.getProcessPoolSubmissionIdempotencyKey()))) throw new IllegalArgumentException("PRODUCTION_SIGNER_REQUEST_MISMATCH");
+        signatureIdentities.stream().filter(p->p.identityDomain().equals(signer.domain())).findFirst().orElseThrow().lockAndRevalidate(signer,signatureClock.instant());
+        signatureAuthority.lockTenantApprovalAuthority(signer.tenantId());
         MesFrontlineSubmitIdentityTrace identityTrace = submitAuthorizationService.authorize(
                 buildSubmitIdentityCommand(reqVO, loginUserId));
         validateSelectedActiveOrderContext(reqVO);
@@ -136,18 +165,28 @@ public class MesProFrontlineFeedbackSubmitServiceImpl implements MesProFrontline
         Optional<cn.iocoder.yudao.module.mes.service.pro.processpool.MesProcessPoolSubmitEventResult> existing =
                 processPoolSubmitEventService.findExistingSubmitEvent(splitPayload.getProcessPoolEventPayload());
         if (existing.isPresent()) {
-            return toSubmitResp(existing.get());
+            if (!Objects.equals(reqVO.getSignatureIdentityDomain(), existing.get().getSignatureIdentityDomain())) {
+                throw exception(PRO_FRONTLINE_FEEDBACK_SUBMIT_CONTEXT_REQUIRED, "signatureIdentityDomain replay mismatch");
+            }
+            throw new IllegalStateException("PRODUCTION_REPLAY_APPEARED_AFTER_LEDGER_LOCK");
         }
 
+        submitAuthorizationService.authorizeNewSubmission(reqVO.getSignatureEmployeeId(), reqVO.getSignatureIdentityDomain());
         authorizeSelectedActiveOrder(reqVO, loginUserId);
         ActiveOrderSnapshotResolver.ActiveOrderSnapshot activeOrderSnapshot =
                 requireActiveOrderSnapshot(reqVO);
         MesFrontlineParameterAuditResult parameterAuditResult = resolveParameterAudit(reqVO, materialSubmission);
         attachParameterAudit(reqVO, parameterAuditResult);
         applyServerResolvedFeedbackIdentity(reqVO);
-        Long signatureId = signatureService.recordProductionSubmitSignature(reqVO.getSignatureEmployeeId(),
-                reqVO.getSignaturePassword(), "一线生产报工提交");
+        String performedBy = auditIdentity.production(identityTrace, reqVO.getSignatureIdentityDomain());
+        Long signatureId = productionSignatures.record(signer,
+                new cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProductionSubmitSignatureContext(
+                        reqVO.getProcessPoolContext().getActiveOrderId(),
+                        reqVO.getProcessPoolContext().getRouteProcessId(),
+                        reqVO.getProcessPoolContext().getProcessId(),
+                        reqVO.getProcessPoolSubmissionIdempotencyKey()));
         reqVO.setSignatureId(signatureId);
+        submittedAt=LocalDateTime.ofInstant(signatureClock.instant(),java.time.ZoneId.of("Asia/Shanghai")).truncatedTo(ChronoUnit.SECONDS);
         splitPayload = payloadSplitter.split(reqVO, loginUserId, submittedAt, lossReasonSnapshot);
         if (materialSubmission != null) {
             applyFormalFeedbackAggregate(splitPayload, materialSubmission);
@@ -166,6 +205,8 @@ public class MesProFrontlineFeedbackSubmitServiceImpl implements MesProFrontline
                 .setFeedbackId(feedbackId)
                 .setRecordbookEntryId(null)
                 .setRecordbookEventId(null);
+        eventPayload.getRawPayload().put(MesProductionSubmitRequestIdentity.RAW_KEY,
+                Map.of("version", MesProductionSubmitRequestIdentity.VERSION, "hash", originalRequestHash));
         Long processPoolEventId = processPoolSubmitEventService.createSubmitEvent(eventPayload);
         MesProFrontlineProcessPoolContextReqVO context = reqVO.getProcessPoolContext();
         BigDecimal allocationQuantity = materialSubmission == null
@@ -175,12 +216,117 @@ public class MesProFrontlineFeedbackSubmitServiceImpl implements MesProFrontline
                     context.getActiveOrderId(), allocationQuantity);
         }
 
+        appendProductionSubmitGxpAudit(eventPayload, processPoolEventId, identityTrace, parameterAuditResult, performedBy);
+        handoffService.productionSubmitted(context.getActiveOrderId(), processPoolEventId, reqVO.getSignatureEmployeeId());
+
         MesProFrontlineFeedbackSubmitRespVO response = new MesProFrontlineFeedbackSubmitRespVO()
                 .setFeedbackId(feedbackId)
                 .setRecordbookEntryId(null)
                 .setRecordbookEventId(null)
                 .setProcessPoolEventId(processPoolEventId);
         return applyParameterAudit(response, parameterAuditResult);
+    }
+    @org.springframework.transaction.annotation.Transactional(propagation=org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED,readOnly=true)
+    public MesProFrontlineFeedbackSubmitRespVO findVerifiedReplay(MesProFrontlineFeedbackSubmitReqVO request) {
+        validateSubmitContext(request);Long login=SecurityFrameworkUtils.getLoginUserId();
+        if(login==null || !Objects.equals(login,request.getProcessPoolContext().getDeviceAccountUserId())) throw new IllegalArgumentException("PRODUCTION_REPLAY_OPERATOR_MISMATCH");
+        var lookup=payloadSplitter.split(request,login,null).getProcessPoolEventPayload();
+        var found=processPoolSubmitEventService.findExistingSubmitEvent(lookup);
+        if(found.isEmpty()) return null;
+        if(!Objects.equals(request.getSignatureIdentityDomain(),found.get().getSignatureIdentityDomain())) throw new IllegalArgumentException("PRODUCTION_REPLAY_IDENTITY_MISMATCH");
+        var event=productionReplayEvents.selectById(found.get().getProcessPoolEventId());
+        if(event==null || !productionReplayEvidence.isValidForEvent(event)) throw new IllegalStateException("PRODUCTION_REPLAY_EVIDENCE_INVALID");
+        MesProductionSubmitRequestIdentity.requireMatches(MesProductionSubmitRequestIdentity.hash(request),
+                JsonUtils.parseTree(event.getRawPayload()).get(MesProductionSubmitRequestIdentity.RAW_KEY));
+        return toSubmitResp(found.get());
+    }
+    @jakarta.annotation.Resource private cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventMapper productionReplayEvents;
+    @jakarta.annotation.Resource private cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProductionSignatureEvidenceService productionReplayEvidence;
+
+    private void appendProductionSubmitGxpAudit(MesProcessPoolSubmitEventCreateReqBO eventPayload,
+                                                Long processPoolEventId,
+                                                MesFrontlineSubmitIdentityTrace identityTrace,
+                                                MesFrontlineParameterAuditResult parameterAuditResult,
+                                                String performedBy) {
+        String afterJson = buildProductionSubmitAfterStateJson(eventPayload, processPoolEventId,
+                identityTrace, parameterAuditResult);
+        gxpAuditService.append(GxpAuditCommand.builder()
+                .eventSchemaVersion(2)
+                .operationId(GXP_PRODUCTION_SUBMIT_OPERATION)
+                .performedBy(performedBy)
+                .subjectId("MES_PROCESS_POOL_EVENT:" + processPoolEventId)
+                .subjectVersion(String.valueOf(processPoolEventId))
+                .reason("生产提交已通过正式校验并完成持久化")
+                .reasonCode("MES_PRODUCTION_SUBMIT")
+                .reasonSource("SYSTEM")
+                .beforeState(GxpAuditStateEnvelope.builder()
+                        .state("ABSENT")
+                        .canonicalJson("{\"state\":\"ABSENT\"}")
+                        .build())
+                .afterState(GxpAuditStateEnvelope.builder()
+                        .state("PRESENT")
+                        .objectVersion(String.valueOf(processPoolEventId))
+                        .canonicalJson(afterJson)
+                        .build())
+                .idempotencyKey("PRODUCTION_SUBMIT_EVENT:" + processPoolEventId)
+                .requestId("MES-PRODUCTION-SUBMIT:" + processPoolEventId)
+                .resultStatus("SUCCESS")
+                .sourceType("SERVICE_METHOD")
+                .sourceLocator(GXP_SOURCE_LOCATOR)
+                .signatureRecordId(String.valueOf(Objects.requireNonNull(
+                        eventPayload.getSignatureId(), "formal production signature id")))
+                .links(List.of(
+                        new GxpAuditRelation("SUBJECT", "ACTIVE_ORDER",
+                                String.valueOf(eventPayload.getActiveOrderId()), null, null),
+                        new GxpAuditRelation("SOURCE", "FEEDBACK",
+                                String.valueOf(eventPayload.getFeedbackId()), null, null),
+                        new GxpAuditRelation("SOURCE", "PROCESS_POOL_EVENT",
+                                String.valueOf(processPoolEventId), String.valueOf(processPoolEventId), null),
+                        new GxpAuditRelation("SIGNATURE", "SIGNATURE",
+                                String.valueOf(eventPayload.getSignatureId()), null, null)))
+                .evidences(List.of(new GxpAuditEvidence("FORMAL_SOURCE_SNAPSHOT",
+                        identityTrace.frontlineSessionSnapshotId(), null,
+                        identityTrace.frontlineSessionSnapshotHash(), "PRODUCTION")))
+                .build());
+    }
+
+    private String buildProductionSubmitAfterStateJson(MesProcessPoolSubmitEventCreateReqBO eventPayload,
+                                                        Long processPoolEventId,
+                                                        MesFrontlineSubmitIdentityTrace identityTrace,
+                                                        MesFrontlineParameterAuditResult parameterAuditResult) {
+        Map<String, Object> rawPayload = Objects.requireNonNull(eventPayload.getRawPayload(),
+                "formal production submit raw payload");
+        Map<String, Object> formalSourceSnapshot = new LinkedHashMap<>();
+        formalSourceSnapshot.put("snapshotId", identityTrace.frontlineSessionSnapshotId());
+        formalSourceSnapshot.put("snapshotHash", identityTrace.frontlineSessionSnapshotHash());
+        formalSourceSnapshot.put("content", identityTrace.sessionSnapshot().content());
+        Map<String, Object> clearanceFacts = new LinkedHashMap<>();
+        clearanceFacts.put("sourceField", "clearanceConfirmations");
+        clearanceFacts.put("captured", rawPayload.containsKey("clearanceConfirmations"));
+        clearanceFacts.put("value", rawPayload.get("clearanceConfirmations"));
+
+        Map<String, Object> after = new LinkedHashMap<>();
+        after.put("profile", "PRODUCTION");
+        after.put("feedbackId", eventPayload.getFeedbackId());
+        after.put("eventId", processPoolEventId);
+        after.put("activeOrderId", eventPayload.getActiveOrderId());
+        after.put("routeProcessId", eventPayload.getRouteProcessId());
+        after.put("processId", eventPayload.getProcessId());
+        after.put("actualEmployeeId", eventPayload.getActualEmployeeId());
+        after.put("signatureEmployeeId", eventPayload.getSignatureEmployeeId());
+        after.put("signatureId", eventPayload.getSignatureId());
+        after.put("outputQuantity", eventPayload.getOutputQuantity());
+        after.put("lossQuantity", eventPayload.getLossQuantity());
+        after.put("materialDetails", rawPayload.get("materialDetails"));
+        after.put("devices", eventPayload.getSelectedDevices());
+        after.put("parameterReadings", eventPayload.getDeviceParameterReadings());
+        after.put("equipmentParameters", eventPayload.getEquipmentParameters());
+        after.put("clearanceFacts", clearanceFacts);
+        after.put("parameterAudit", parameterAuditResult);
+        after.put("formalSourceSnapshot", formalSourceSnapshot);
+        after.put("formalSourceSnapshotHash", identityTrace.frontlineSessionSnapshotHash());
+        after.put(MesProductionSubmitRequestIdentity.RAW_KEY, rawPayload.get(MesProductionSubmitRequestIdentity.RAW_KEY));
+        return JsonUtils.toJsonString(after);
     }
 
     private void validateSelectedActiveOrderContext(MesProFrontlineFeedbackSubmitReqVO reqVO) {
@@ -415,13 +561,10 @@ public class MesProFrontlineFeedbackSubmitServiceImpl implements MesProFrontline
             item.put("materialId", material.materialId());
             item.put("materialCode", material.materialCode());
             item.put("materialName", material.materialName());
-            item.put("batchCodes", material.batchCodes());
-            item.put("requestedQuantity", material.requestedQuantity());
-            item.put("actualQuantity", material.actualQuantity());
-            item.put("baseActualQuantity", material.baseActualQuantity());
-            item.put("sourcePickListIds", material.sourcePickListIds());
-            item.put("sourcePickListItemIds", material.sourcePickListItemIds());
-            item.put("sourceSnapshotHash", material.sourceSnapshotHash());
+            item.put("batchEvidenceStatus", "PENDING_COMPLETION");
+            item.put("batchCodes", List.of());
+            item.put("sourcePickListIds", List.of());
+            item.put("sourcePickListItemIds", List.of());
             return Map.copyOf(item);
         }).toList();
         Map<String, Object> rawPayload = new java.util.LinkedHashMap<>(reqVO.getRawPayload());
@@ -649,7 +792,7 @@ public class MesProFrontlineFeedbackSubmitServiceImpl implements MesProFrontline
                 context.getProcessId(),
                 context.getTemplateType(),
                 reqVO.getFrontlineSessionSnapshotId(),
-                reqVO.getFrontlineSessionSnapshotHash());
+                reqVO.getFrontlineSessionSnapshotHash(), reqVO.getSignatureIdentityDomain());
     }
 
 }

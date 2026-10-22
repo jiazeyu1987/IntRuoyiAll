@@ -1026,6 +1026,14 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
         Long processId = processConfig.getLong("processId");
         MesProProcessDO process = processId == null ? null : processMapper.selectById(processId);
         return new MesProRouteProcessDeviceParameterRespVO()
+                .setCraftId(processConfig.getLong("craftId"))
+                .setCraftCode(processConfig.getString("craftCode"))
+                .setCraftBindings(cn.iocoder.yudao.module.mes.service.pro.craft.MesProCraftParameters.bindings(processConfig)
+                        .stream().map(binding -> {
+                            JSONObject result = new JSONObject(true);
+                            for (String key : List.of("craftId", "craftCode", "craftDeviceIds")) result.put(key, binding.get(key));
+                            return result;
+                        }).toList())
                 .setRouteVersionId(context.version().getId())
                 .setRouteSnapshotSha256(context.version().getRouteSnapshotSha256())
                 .setRouteProcessId(routeProcessId)
@@ -1048,6 +1056,9 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
         String parameterCode = requireNormalizedParameterCode(saveReqVO.getParameterCode());
         String originalParameterCode = StrUtil.isBlank(saveReqVO.getOriginalParameterCode())
                 ? parameterCode : requireNormalizedParameterCode(saveReqVO.getOriginalParameterCode());
+        if (context.processConfig().getLong("craftId") != null) {
+            throw cn.iocoder.yudao.module.mes.service.pro.craft.MesProCraftParameters.invalid("已关联工艺，请在工艺库统一修改参数");
+        }
         JSONArray rules = context.processConfig().getJSONArray("parameterRules");
         JSONObject existing = null;
         JSONArray retained = new JSONArray();

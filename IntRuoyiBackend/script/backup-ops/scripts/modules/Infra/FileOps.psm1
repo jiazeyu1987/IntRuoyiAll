@@ -519,6 +519,100 @@ function Assert-BackupOpsRemoteRetentionRoot {
     }
 }
 
+function New-BackupOpsRemoteRepositoryResetPythonScript {
+    return @'
+import json
+import os
+import re
+import shutil
+import sys
+from pathlib import Path
+
+EXPECTED_ROOT = "/mnt/nas/Backup/BackupPackage"
+BACKUP_POINT_RE = re.compile(r"^\d{8}-\d{6}(\.creating)?$")
+RESET_SPECIAL_DIRS = {"object-store", ".restore-stage"}
+
+def emit(payload, exit_code=0):
+    print(json.dumps(payload, ensure_ascii=False, sort_keys=True))
+    sys.exit(exit_code)
+
+def blocked(message):
+    emit({
+        "operation": "remote-repository-reset",
+        "status": "blocked",
+        "code": "INTBK-2003",
+        "message": message
+    }, 2)
+
+root = Path(os.environ["BACKUP_ROOT"]).resolve()
+if str(root) != EXPECTED_ROOT:
+    blocked(f"Remote repository reset root must be {EXPECTED_ROOT}; got {root}")
+if not root.is_dir():
+    blocked(f"Remote repository reset root does not exist or is not a directory: {root}")
+
+deleted = []
+skipped = []
+for item in sorted(root.iterdir(), key=lambda path: path.name):
+    if item.is_symlink():
+        blocked(f"Refuse to delete symlink under BackupPackage: {item}")
+    if not item.is_dir():
+        skipped.append(item.name)
+        continue
+    if BACKUP_POINT_RE.match(item.name) or item.name in RESET_SPECIAL_DIRS:
+        shutil.rmtree(item)
+        deleted.append(item.name)
+        continue
+    skipped.append(item.name)
+
+emit({
+    "operation": "remote-repository-reset",
+    "status": "success",
+    "code": "INTBK-0000",
+    "rootPath": str(root),
+    "deleted": deleted,
+    "skipped": skipped
+})
+'@
+}
+
+function Invoke-BackupOpsRemoteRepositoryReset {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [object]$Config,
+        [Parameter(Mandatory = $true)]
+        [object]$LogSession
+    )
+
+    $backupPointsRoot = [string](Get-BackupOpsRequiredFileConfigValue -Config $Config -Path @('servers', 'test', 'backupPointsRoot') -Code 'INTBK-2003' -Reason '缺少测试服务器备份根目录配置。' -Action '请先补齐 servers.test.backupPointsRoot 后再执行备份仓库重置。')
+    Assert-BackupOpsRemoteRetentionRoot -RootPath $backupPointsRoot
+    $pythonScript = New-BackupOpsRemoteRepositoryResetPythonScript
+    $encodedScript = [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes($pythonScript))
+    $command = @(
+        'set -eu',
+        "command -v python3 >/dev/null || { echo 'python3 is required for BackupPackage repository reset' >&2; exit 70; }",
+        "command -v base64 >/dev/null || { echo 'base64 is required for BackupPackage repository reset' >&2; exit 70; }",
+        "find '$backupPointsRoot' -mindepth 1 -maxdepth 1 -type d -print >/dev/null",
+        "export BACKUP_ROOT=$backupPointsRoot",
+        "printf %s $encodedScript | base64 -d | python3 -"
+    ) -join "`n"
+
+    Import-BackupOpsSshDependency
+    $testRequest = Get-BackupOpsFileSshRequest -Config $Config -Environment 'test' -Code 'INTBK-2003'
+    $resetResult = Invoke-BackupSshCommand -Request ($testRequest + @{
+        Command = $command
+        TimeoutSeconds = 43200
+    })
+    try {
+        $result = $resetResult.output | ConvertFrom-Json
+    }
+    catch {
+        throw (New-BackupOpsInfraBlockedException -Code 'INTBK-2003' -Message (New-BackupOpsOperatorBlockedMessage -Reason "远端备份仓库重置未返回合法 JSON 证据：$($_.Exception.Message)" -Action '停止备份；请先确认测试服务器 python3、BackupPackage 权限和目录结构。'))
+    }
+    Write-BackupOpsLog -Session $LogSession -Message "Remote repository reset on test BackupPackage completed: deleted=$(@($result.deleted).Count), root=$backupPointsRoot."
+    return $result
+}
+
 function New-BackupOpsRemoteRetentionPythonScript {
     return @'
 import json
@@ -1779,4 +1873,4 @@ function Invoke-BackupOpsRemoteRetentionInternal {
     return $result
 }
 
-Export-ModuleMember -Function New-BackupDirectoryLayout, New-BackupWorkingDirectory, New-BackupChecksumsText, New-BackupChecksumsFile, Remove-ExpiredBackupDirectories, Assert-BackupOpsRemoteNasMounted, New-BackupOpsBackupWorkspace, Save-BackupOpsDeployMetadata, Read-BackupOpsObjectInventoryMarker, New-BackupOpsManifest, New-BackupOpsDccBackupManifest, Assert-BackupOpsDccBackupManifestReady, New-BackupOpsChecksums, Sync-BackupOpsBackupToTestServer, Sync-BackupOpsManifestToTestServer, Invoke-BackupOpsLocalRetention, Invoke-BackupOpsRemoteRetention
+Export-ModuleMember -Function New-BackupDirectoryLayout, New-BackupWorkingDirectory, New-BackupChecksumsText, New-BackupChecksumsFile, Remove-ExpiredBackupDirectories, Assert-BackupOpsRemoteNasMounted, New-BackupOpsBackupWorkspace, Save-BackupOpsDeployMetadata, Read-BackupOpsObjectInventoryMarker, New-BackupOpsManifest, New-BackupOpsDccBackupManifest, Assert-BackupOpsDccBackupManifestReady, New-BackupOpsChecksums, Sync-BackupOpsBackupToTestServer, Sync-BackupOpsManifestToTestServer, Invoke-BackupOpsLocalRetention, Invoke-BackupOpsRemoteRetention, Invoke-BackupOpsRemoteRepositoryReset

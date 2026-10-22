@@ -39,6 +39,27 @@ public interface OAuth2AccessTokenMapper extends BaseMapperX<OAuth2AccessTokenDO
                 OAuth2AccessTokenDO::getUserType, userType);
     }
 
+    default List<OAuth2AccessTokenDO> selectListForUserRevocation(Long tenantId, Long userId, Integer userType) {
+        return selectList(new LambdaQueryWrapperX<OAuth2AccessTokenDO>()
+                .eq(OAuth2AccessTokenDO::getTenantId, tenantId)
+                .eq(OAuth2AccessTokenDO::getUserId, userId)
+                .eq(OAuth2AccessTokenDO::getUserType, userType)
+                .eq(OAuth2AccessTokenDO::getDeleted, false)
+                .orderByAsc(OAuth2AccessTokenDO::getId)
+                .last("FOR UPDATE"));
+    }
+
+    default List<OAuth2AccessTokenDO> selectListForRefresh(Long tenantId, Long userId, Integer userType,
+                                                        String refreshToken) {
+        return selectList(new LambdaQueryWrapperX<OAuth2AccessTokenDO>()
+                .eq(OAuth2AccessTokenDO::getTenantId, tenantId)
+                .eq(OAuth2AccessTokenDO::getUserId, userId)
+                .eq(OAuth2AccessTokenDO::getUserType, userType)
+                .eq(OAuth2AccessTokenDO::getRefreshToken, refreshToken)
+                .eq(OAuth2AccessTokenDO::getDeleted, false)
+                .orderByAsc(OAuth2AccessTokenDO::getId).last("FOR UPDATE"));
+    }
+
     /**
      * 物理删除指定过期时间之前的访问令牌
      *

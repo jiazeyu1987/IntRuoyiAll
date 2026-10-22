@@ -11,6 +11,7 @@ import cn.iocoder.yudao.module.mes.service.pro.workorder.MesProWorkOrderService;
 import jakarta.annotation.Resource;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.annotation.Validated;
 
 import java.util.List;
@@ -39,6 +40,7 @@ public class MesWmPackageLineServiceImpl implements MesWmPackageLineService {
     private MesProWorkOrderService workOrderService;
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public Long createPackageLine(MesWmPackageLineSaveReqVO createReqVO) {
         // 校验数据
         validateLineSaveData(createReqVO);
@@ -50,6 +52,7 @@ public class MesWmPackageLineServiceImpl implements MesWmPackageLineService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void updatePackageLine(MesWmPackageLineSaveReqVO updateReqVO) {
         // 校验存在
         MesWmPackageLineDO line = validatePackageLineExists(updateReqVO.getId());
@@ -103,7 +106,7 @@ public class MesWmPackageLineServiceImpl implements MesWmPackageLineService {
         // 校验产品物料存在
         itemService.validateItemExistsAndEnable(reqVO.getItemId());
         // 校验工单已确认
-        workOrderService.validateWorkOrderConfirmed(reqVO.getWorkOrderId());
+        workOrderService.validateWorkOrderConfirmedForUpdate(reqVO.getWorkOrderId());
     }
 
     private MesWmPackageLineDO validatePackageLineExists(Long id) {

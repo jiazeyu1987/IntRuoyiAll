@@ -44,14 +44,75 @@
       <el-tag v-if="!canOperate" type="warning" effect="light">无运维操作权限</el-tag>
     </div>
 
+    <section class="release-workflow-panel">
+      <div class="release-workflow-toolbar">
+        <div class="panel-title">程序包发布工作流</div>
+        <el-input v-model="workflowReason" maxlength="200" placeholder="发布原因" clearable />
+        <el-button type="primary" :disabled="!canOperate || workflowBusy || !workflowReason.trim()"
+          :loading="workflowBusy" @click="createReleaseWorkflow">
+          <Icon icon="ep:box" class="mr-5px" />构建发布包
+        </el-button>
+        <el-button :loading="workflowLoading" @click="loadReleaseWorkflows">
+          <Icon icon="ep:refresh" class="mr-5px" />刷新
+        </el-button>
+      </div>
+      <el-table :data="releaseWorkflows" row-key="workflowId" v-loading="workflowLoading" size="small">
+        <el-table-column label="发布包" prop="releaseTag" min-width="250" show-overflow-tooltip />
+        <el-table-column label="阶段" prop="state" width="160" />
+        <el-table-column label="操作" prop="operationId" min-width="230" show-overflow-tooltip />
+        <el-table-column label="动作" min-width="280" fixed="right">
+          <template #default="{ row }">
+            <el-button v-if="row.state === 'READY'" link type="primary"
+              :disabled="!canOperate || workflowBusy || !workflowReason.trim()"
+              @click="publishWorkflowToTest(row)">部署测试服</el-button>
+            <el-button v-if="row.state === 'TEST_DEPLOYED'" link type="success"
+              :disabled="!canOperate || workflowBusy || !workflowReason.trim()"
+              @click="acceptWorkflowTest(row)">标记测试通过</el-button>
+            <el-button v-if="row.state === 'TESTED'" link type="warning"
+              :disabled="!canPromoteProd || workflowBusy || !workflowReason.trim()"
+              @click="previewProductionPromotion(row)">晋级正式服</el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+    </section>
+
+    <el-dialog v-model="productionDialog.visible" title="晋级正式服" width="640px"
+      @closed="clearProductionPreview">
+      <template v-if="productionPreview">
+        <el-descriptions :column="1" border size="small">
+          <el-descriptions-item label="发布包">{{ productionPreview.releaseTag }}</el-descriptions-item>
+          <el-descriptions-item label="目标">{{ productionPreview.targetDisplayName }}</el-descriptions-item>
+          <el-descriptions-item label="当前版本">{{ productionPreview.currentProdReleaseTag || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="包摘要">{{ productionPreview.packageDigest }}</el-descriptions-item>
+          <el-descriptions-item label="测试操作">{{ productionPreview.testOperationId }}</el-descriptions-item>
+        </el-descriptions>
+        <el-alert v-if="productionPreview.blockers.length" type="error" :closable="false"
+          :title="productionPreview.blockers.join('；')" class="mt-12px" />
+        <el-input v-model="productionDialog.confirmText" class="mt-12px"
+          placeholder="输入 PROD 确认" autocomplete="off" />
+      </template>
+      <template #footer>
+        <el-button @click="productionDialog.visible = false">取消</el-button>
+        <el-button type="danger" :loading="workflowBusy"
+          :disabled="!productionPreview?.eligible || productionDialog.confirmText !== 'PROD'"
+          @click="confirmProductionPromotion">确认晋级</el-button>
+      </template>
+    </el-dialog>
+
     <div class="release-status-panel" v-loading="opsLoading.releaseStatus">
       <div class="release-status-panel__head">
         <div>
           <div class="panel-title">发布状态</div>
           <div class="release-status-panel__meta">
-            <span>测试服：{{ releaseStatus?.testCurrentReleaseTag || currentReleaseTagText('test') }}</span>
+            <span
+              >测试服：{{
+                releaseStatus?.testCurrentReleaseTag || currentReleaseTagText('test')
+              }}</span
+            >
             <span>已验证：{{ releaseStatus?.latestTestedReleaseTag || '-' }}</span>
-            <span>候选包：{{ releaseStatus?.releasePackages?.length || releasePackages.length }}</span>
+            <span
+              >候选包：{{ releaseStatus?.releasePackages?.length || releasePackages.length }}</span
+            >
           </div>
         </div>
         <el-button :loading="opsLoading.releaseStatus" @click="loadReleaseStatus">
@@ -74,12 +135,20 @@
             <td>{{ environmentLabel(environment) }}</td>
             <td>{{ releaseStatusCurrentTag(environment) }}</td>
             <td>
-              <el-tag :type="statusTagType(releaseStatusComponent(environment, 'intruoyi-backend')?.status)">
+              <el-tag
+                :type="
+                  statusTagType(releaseStatusComponent(environment, 'intruoyi-backend')?.status)
+                "
+              >
                 {{ statusText(releaseStatusComponent(environment, 'intruoyi-backend')?.status) }}
               </el-tag>
             </td>
             <td>
-              <el-tag :type="statusTagType(releaseStatusComponent(environment, 'intruoyi-frontend')?.status)">
+              <el-tag
+                :type="
+                  statusTagType(releaseStatusComponent(environment, 'intruoyi-frontend')?.status)
+                "
+              >
                 {{ statusText(releaseStatusComponent(environment, 'intruoyi-frontend')?.status) }}
               </el-tag>
             </td>
@@ -112,7 +181,10 @@
               <div class="component-name">{{ component.label }}</div>
               <div class="component-key">{{ component.key }}</div>
             </td>
-            <td v-for="environment in displayEnvironments" :key="`${environment.key}-${component.key}`">
+            <td
+              v-for="environment in displayEnvironments"
+              :key="`${environment.key}-${component.key}`"
+            >
               <div class="status-block">
                 <div class="status-line">
                   <el-tag :type="statusTagType(statusOf(environment.key, component.key)?.status)">
@@ -171,11 +243,7 @@
     </div>
 
     <div class="ops-grid">
-      <OpsProbeStatusPanel
-        :latest="probeLatest"
-        :loading="opsLoading.probes"
-        @run="runProbes"
-      />
+      <OpsProbeStatusPanel :latest="probeLatest" :loading="opsLoading.probes" @run="runProbes" />
       <OpsLogDiskRiskPanel :capacity="capacityStatus" :loading="opsLoading.capacity" />
     </div>
 
@@ -270,7 +338,9 @@
           <div class="panel-title">远程根分区</div>
           <div class="remote-root-panel__meta">
             <span>targetEnvironment={{ remoteRootTargetEnvironment }}</span>
-            <span>{{ remoteRootDiskStatus?.serverHost || selectedRootDiskTarget?.host || '-' }}</span>
+            <span>{{
+              remoteRootDiskStatus?.serverHost || selectedRootDiskTarget?.host || '-'
+            }}</span>
             <span>{{ formatRuntimeDate(remoteRootDiskStatus?.sampledAt) }}</span>
           </div>
         </div>
@@ -284,7 +354,10 @@
               {{ item.label }}
             </el-radio-button>
           </el-radio-group>
-          <el-button :loading="opsLoading.remoteRootDisk" @click="() => loadRemoteRootDiskStatus(true)">
+          <el-button
+            :loading="opsLoading.remoteRootDisk"
+            @click="() => loadRemoteRootDiskStatus(true)"
+          >
             <Icon icon="ep:refresh" class="mr-5px" />
             刷新根分区
           </el-button>
@@ -363,7 +436,9 @@
         </el-table-column>
         <el-table-column label="DCC 链" width="120">
           <template #default="{ row }">
-            <el-tag :type="statusTagType(row.dccChainStatus)">{{ row.dccChainStatus || '-' }}</el-tag>
+            <el-tag :type="statusTagType(row.dccChainStatus)">{{
+              row.dccChainStatus || '-'
+            }}</el-tag>
           </template>
         </el-table-column>
         <el-table-column label="新增" width="90">
@@ -380,12 +455,16 @@
         </el-table-column>
         <el-table-column label="演练" width="110">
           <template #default="{ row }">
-            <el-tag :type="statusTagType(row.rehearsalStatus)">{{ rehearsalStatusText(row.rehearsalStatus) }}</el-tag>
+            <el-tag :type="statusTagType(row.rehearsalStatus)">{{
+              rehearsalStatusText(row.rehearsalStatus)
+            }}</el-tag>
           </template>
         </el-table-column>
         <el-table-column label="状态" width="120">
           <template #default="{ row }">
-            <el-tag :type="statusTagType(row.recoverabilityStatus)">{{ row.recoverabilityStatus || '-' }}</el-tag>
+            <el-tag :type="statusTagType(row.recoverabilityStatus)">{{
+              row.recoverabilityStatus || '-'
+            }}</el-tag>
           </template>
         </el-table-column>
         <el-table-column label="不可恢复原因" min-width="180" show-overflow-tooltip>
@@ -403,7 +482,9 @@
           </template>
         </el-table-column>
         <el-table-column label="环境" width="90">
-          <template #default="{ row }">{{ operationHistoryEnvironmentText(row.environment) }}</template>
+          <template #default="{ row }">{{
+            operationHistoryEnvironmentText(row.environment)
+          }}</template>
         </el-table-column>
         <el-table-column label="动作" min-width="140">
           <template #default="{ row }">
@@ -458,7 +539,11 @@
             show-word-limit
           />
         </el-form-item>
-        <el-form-item v-if="operationEnvironmentRequiresProdConfirm(restartDialog.environment)" label="生产确认" required>
+        <el-form-item
+          v-if="operationEnvironmentRequiresProdConfirm(restartDialog.environment)"
+          label="生产确认"
+          required
+        >
           <el-input v-model="restartDialog.prodConfirmText" placeholder="输入 PROD" />
         </el-form-item>
       </el-form>
@@ -497,13 +582,29 @@
         <el-form-item v-if="operationTargetDirectoryText(operationDialog.action)" label="目标目录">
           <el-input :model-value="operationTargetDirectoryText(operationDialog.action)" disabled />
         </el-form-item>
-        <el-form-item v-if="operationDialog.action === 'apply-test-db-sql'" label="SQL 文件" required>
-          <el-input
-            v-model="operationDialog.sqlPath"
-            placeholder="输入本机 SQL 文件绝对路径"
-          />
+        <el-form-item v-if="operationDialog.action === 'backup-now'" label="备份类型" required>
+          <el-radio-group v-model="operationDialog.backupKind">
+            <el-radio-button
+              v-for="item in backupKindOptions"
+              :key="item.value"
+              :label="item.value"
+            >
+              {{ item.label }}
+            </el-radio-button>
+          </el-radio-group>
         </el-form-item>
-        <el-form-item v-if="operationSupportsPublishScope(operationDialog.action)" label="发布范围" required>
+        <el-form-item
+          v-if="operationDialog.action === 'apply-test-db-sql'"
+          label="SQL 文件"
+          required
+        >
+          <el-input v-model="operationDialog.sqlPath" placeholder="输入本机 SQL 文件绝对路径" />
+        </el-form-item>
+        <el-form-item
+          v-if="operationSupportsPublishScope(operationDialog.action)"
+          label="发布范围"
+          required
+        >
           <div class="publish-scope-field">
             <el-radio-group v-model="operationDialog.publishScope">
               <el-radio-button label="code-only">只发代码</el-radio-button>
@@ -521,16 +622,25 @@
             </div>
           </div>
         </el-form-item>
-        <el-form-item v-if="operationSupportsSmartReleaseReport(operationDialog.action)" label="Smart Release">
+        <el-form-item
+          v-if="operationSupportsSmartReleaseReport(operationDialog.action)"
+          label="Smart Release"
+        >
           <div class="smart-release-field">
-            <el-checkbox v-model="operationDialog.enableSmartReleaseReport">report-only 报告/预检</el-checkbox>
+            <el-checkbox v-model="operationDialog.enableSmartReleaseReport"
+              >report-only 报告/预检</el-checkbox
+            >
             <el-button :loading="operationPreview.loading" @click="previewOperationCommand">
               <Icon icon="ep:view" class="mr-5px" />
               预览命令
             </el-button>
           </div>
         </el-form-item>
-        <el-form-item v-if="operationUsesReleaseTag(operationDialog.action)" label="发布包" required>
+        <el-form-item
+          v-if="operationUsesReleaseTag(operationDialog.action)"
+          label="发布包"
+          required
+        >
           <el-select
             v-if="operationUsesReleaseTagSelector(operationDialog.action)"
             v-model="operationDialog.releaseTag"
@@ -538,7 +648,11 @@
             clearable
             filterable
             :loading="opsLoading.releasePackages"
-            :placeholder="operationRequiresTestedReleasePackage(operationDialog.action) ? '选择已测试通过发布包' : '选择 ReleasePackage 发布包'"
+            :placeholder="
+              operationRequiresTestedReleasePackage(operationDialog.action)
+                ? '选择已测试通过发布包'
+                : '选择 ReleasePackage 发布包'
+            "
           >
             <el-option
               v-for="item in selectableReleasePackages"
@@ -551,7 +665,10 @@
                 :class="releasePackageUsageClass(item.releaseTag)"
               >
                 <span class="release-package-option__name">{{ item.releaseTag }}</span>
-                <span v-if="releasePackageUsageText(item.releaseTag)" class="release-package-option__status">
+                <span
+                  v-if="releasePackageUsageText(item.releaseTag)"
+                  class="release-package-option__status"
+                >
                   {{ releasePackageUsageText(item.releaseTag) }}
                 </span>
                 <span class="release-package-option__status">
@@ -579,7 +696,11 @@
         >
           <el-input :model-value="testCurrentReleaseTag || '无'" disabled />
         </el-form-item>
-        <el-form-item v-if="operationDialog.action === 'mark-release-tested'" label="验证结论" required>
+        <el-form-item
+          v-if="operationDialog.action === 'mark-release-tested'"
+          label="验证结论"
+          required
+        >
           <el-input
             v-model="operationDialog.testConclusion"
             type="textarea"
@@ -596,7 +717,7 @@
           <OpsCandidatePicker
             v-model="operationDialog.selectedRecoverySetCandidateId"
             mode="restore"
-            :restore-candidates="restoreCandidates"
+            :restore-candidates="operationRestoreCandidates"
           />
         </el-form-item>
         <el-form-item label="原因" required>
@@ -623,13 +744,17 @@
           <OpsCandidatePicker
             v-model="operationDialog.selectedRecoverySetCandidateId"
             mode="restore"
-            :restore-candidates="restoreCandidates"
+            :restore-candidates="operationRestoreCandidates"
           />
         </el-form-item>
         <el-form-item v-if="operationRequiresOwner(operationDialog.action)" label="责任人" required>
           <el-input :model-value="operationRequiredOwnerText || '未配置'" disabled />
         </el-form-item>
-        <el-form-item v-if="operationRequiresProd(operationDialog.action)" label="生产确认" required>
+        <el-form-item
+          v-if="operationRequiresProd(operationDialog.action)"
+          label="生产确认"
+          required
+        >
           <el-input v-model="operationDialog.prodConfirmText" placeholder="输入 PROD" />
         </el-form-item>
         <el-form-item v-if="operationExpectedResultText(operationDialog.action)" label="预期结果">
@@ -661,7 +786,11 @@
       </template>
     </el-dialog>
 
-    <el-dialog v-model="remoteRootCleanupDialog.visible" title="清理远程根分区临时目录" width="520px">
+    <el-dialog
+      v-model="remoteRootCleanupDialog.visible"
+      title="清理远程根分区临时目录"
+      width="520px"
+    >
       <el-form label-width="100px">
         <el-form-item label="目标环境">
           <el-input :model-value="rootDiskTargetText(remoteRootTargetEnvironment)" disabled />
@@ -694,13 +823,22 @@
       </el-form>
       <template #footer>
         <el-button @click="remoteRootCleanupDialog.visible = false">取消</el-button>
-        <el-button type="danger" :loading="remoteRootCleanupSubmitting" @click="submitRemoteRootCleanup">
+        <el-button
+          type="danger"
+          :loading="remoteRootCleanupSubmitting"
+          @click="submitRemoteRootCleanup"
+        >
           确认清理
         </el-button>
       </template>
     </el-dialog>
 
-    <el-dialog v-model="logDialog.visible" :title="logDialog.title" width="820px" class="runtime-log-dialog">
+    <el-dialog
+      v-model="logDialog.visible"
+      :title="logDialog.title"
+      width="820px"
+      class="runtime-log-dialog"
+    >
       <div class="log-toolbar">
         <el-tag :type="statusTagType(logDialog.status)">{{ statusText(logDialog.status) }}</el-tag>
         <el-tag v-if="logDialog.truncated" type="warning" effect="light">已截取尾部</el-tag>
@@ -728,10 +866,7 @@
 <script lang="ts" setup>
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import * as RuntimeControlApi from '@/api/infra/runtimeControl'
-import type {
-  RuntimeControlOperationVO,
-  RuntimeControlStatusVO
-} from '@/api/infra/runtimeControl'
+import type { RuntimeControlOperationVO, RuntimeControlStatusVO } from '@/api/infra/runtimeControl'
 import { formatDate } from '@/utils/formatTime'
 import { checkPermi } from '@/utils/permission'
 import { useMessage } from '@/hooks/web/useMessage'
@@ -744,6 +879,8 @@ import { bytesText, formatRuntimeDate, percentText } from './components/shared'
 type OperationPublishScope = RuntimeControlApi.RuntimeControlPublishScope
 type OperationTargetEnvironment = RuntimeControlApi.RuntimeControlTargetEnvironment
 type RootDiskTargetEnvironment = RuntimeControlApi.RuntimeControlRootDiskTargetEnvironment
+type BackupKind = RuntimeControlApi.RuntimeControlBackupKind
+type RestoreCandidateType = RuntimeControlApi.RuntimeControlRestoreCandidateType
 
 defineOptions({ name: 'InfraRuntimeControl' })
 
@@ -756,12 +893,21 @@ const connected = ref(true)
 const lastError = ref('')
 const overview = ref<RuntimeControlApi.RuntimeControlOverviewVO>()
 const operations = ref<RuntimeControlOperationVO[]>([])
-const incidentPage = ref<PageResult<RuntimeControlApi.RuntimeControlIncidentVO[]>>({ list: [], total: 0 })
+const incidentPage = ref<PageResult<RuntimeControlApi.RuntimeControlIncidentVO[]>>({
+  list: [],
+  total: 0
+})
 const ownerMatrix = ref<RuntimeControlApi.RuntimeControlOwnerMatrixVO[]>([])
 const rollbackCandidates = ref<RuntimeControlApi.RuntimeControlRollbackCandidateVO[]>([])
 const restoreCandidates = ref<RuntimeControlApi.RuntimeControlRestoreCandidateVO[]>([])
 const releasePackages = ref<RuntimeControlApi.RuntimeControlReleasePackageVO[]>([])
 const releaseStatus = ref<RuntimeControlApi.RuntimeControlReleaseStatusVO>()
+const releaseWorkflows = ref<RuntimeControlApi.RuntimeControlReleaseWorkflowVO[]>([])
+const workflowLoading = ref(false)
+const workflowBusy = ref(false)
+const workflowReason = ref('')
+const productionPreview = ref<RuntimeControlApi.RuntimeControlReleaseWorkflowProductionPreviewVO>()
+const productionDialog = reactive({ visible: false, confirmText: '', workflowId: '', idempotencyKey: '' })
 const backupPoints = ref<RuntimeControlApi.RuntimeControlBackupPointVO[]>([])
 const probeLatest = ref<RuntimeControlApi.RuntimeControlProbeLatestVO>()
 const capacityStatus = ref<RuntimeControlApi.RuntimeControlCapacityStatusVO>()
@@ -803,12 +949,7 @@ const displayComponentRows = [
 const releaseStatusEnvironments = ['test', 'prod', 'backup']
 
 const operationActions = [
-  { action: 'build-release', label: '构建发布包', icon: 'ep:box', type: 'primary' },
-  { action: 'publish-test', label: '部署发布包到测试服', icon: 'ep:upload', type: 'primary' },
   { action: 'apply-test-db-sql', label: '测试服数据库快应用', icon: 'ep:coin', type: 'warning' },
-  { action: 'mark-release-tested', label: '标记测试通过', icon: 'ep:circle-check', type: 'success' },
-  { action: 'promote-prod', label: '上线已验证发布包', icon: 'ep:promotion', type: 'warning' },
-  { action: 'promote-backup', label: '上线审查服', icon: 'ep:connection', type: 'warning' },
   { action: 'backup-now', label: '立即备份', icon: 'ep:folder-checked', type: 'success' },
   { action: 'rehearsal', label: '恢复演练', icon: 'ep:video-play', type: 'warning' },
   { action: 'rollback-app', label: '回滚版本', icon: 'ep:refresh-left', type: 'warning' },
@@ -822,9 +963,14 @@ const DEFAULT_PUBLISH_TEST_REASON = '默认备份'
 const DEFAULT_APPLY_TEST_DB_SQL_REASON = '测试服数据库 SQL 快应用'
 const DEFAULT_PROMOTE_PROD_REASON = '默认发布'
 const DEFAULT_PROMOTE_BACKUP_REASON = '默认发布'
-const backupTargetEnvironmentOptions = [
-  { label: '测试服', value: 'test' }
-] satisfies Array<{ label: string; value: OperationTargetEnvironment }>
+const backupTargetEnvironmentOptions = [{ label: '测试服', value: 'test' }] satisfies Array<{
+  label: string
+  value: OperationTargetEnvironment
+}>
+const backupKindOptions = [
+  { label: '全量备份', value: 'FULL' },
+  { label: '增量备份', value: 'INCREMENTAL' }
+] satisfies Array<{ label: string; value: BackupKind }>
 const restoreTargetEnvironmentOptions = [
   { label: '测试服', value: 'test' },
   { label: '审查服', value: 'backup' }
@@ -869,6 +1015,7 @@ const operationDialog = reactive<{
   includeShowroomBuildPackage: boolean
   enableSmartReleaseReport: boolean
   targetEnvironment: OperationTargetEnvironment
+  backupKind: BackupKind
   releaseTag: string
   testConclusion: string
   sqlPath: string
@@ -886,6 +1033,7 @@ const operationDialog = reactive<{
   includeShowroomBuildPackage: false,
   enableSmartReleaseReport: false,
   targetEnvironment: 'test',
+  backupKind: 'INCREMENTAL',
   releaseTag: '',
   testConclusion: '',
   sqlPath: '',
@@ -917,6 +1065,7 @@ const remoteRootCleanupDialog = reactive({
 })
 
 const canOperate = computed(() => checkPermi(['infra:runtime-control:operate']))
+const canPromoteProd = computed(() => checkPermi(['infra:runtime-control:promote-prod']))
 const selectedRootDiskTarget = computed(() =>
   rootDiskTargetOptions.find((item) => item.value === remoteRootTargetEnvironment.value)
 )
@@ -981,6 +1130,18 @@ const selectableReleasePackages = computed(() => {
     return availablePackages
   }
   return availablePackages.filter((item) => item.tested)
+})
+
+const requiredRestoreCandidateType = computed<RestoreCandidateType | ''>(() =>
+  restoreCandidateTypeForAction(operationDialog.action)
+)
+
+const operationRestoreCandidates = computed(() => {
+  const requiredType = requiredRestoreCandidateType.value
+  if (!requiredType) {
+    return restoreCandidates.value
+  }
+  return restoreCandidates.value.filter((candidate) => candidate.candidateType === requiredType)
 })
 
 const operationRequiredOwnerText = computed(() => {
@@ -1135,6 +1296,112 @@ const loadReleaseStatus = async () => {
   }
 }
 
+const loadReleaseWorkflows = async () => {
+  workflowLoading.value = true
+  try {
+    releaseWorkflows.value = await RuntimeControlApi.getRuntimeControlReleaseWorkflows()
+  } catch (error) {
+    reportActionError(error)
+  } finally {
+    workflowLoading.value = false
+  }
+}
+
+const createReleaseWorkflow = async () => {
+  if (!workflowReason.value.trim() || !canOperate.value) return
+  workflowBusy.value = true
+  try {
+    const context = await RuntimeControlApi.getRuntimeControlReleaseWorkflowCreationContext()
+    await RuntimeControlApi.createRuntimeControlReleaseWorkflow({
+      reason: workflowReason.value.trim(), sourceSelectionId: context.sourceSelectionId
+    })
+    await loadReleaseWorkflows()
+  } catch (error) {
+    reportActionError(error)
+  } finally {
+    workflowBusy.value = false
+  }
+}
+
+const publishWorkflowToTest = async (workflow: RuntimeControlApi.RuntimeControlReleaseWorkflowVO) => {
+  if (!workflowReason.value.trim() || workflow.state !== 'READY') return
+  workflowBusy.value = true
+  try {
+    await RuntimeControlApi.publishRuntimeControlReleaseWorkflowToTest(
+      workflow.workflowId, workflowReason.value.trim()
+    )
+    await loadReleaseWorkflows()
+  } catch (error) {
+    reportActionError(error)
+  } finally {
+    workflowBusy.value = false
+  }
+}
+
+const acceptWorkflowTest = async (workflow: RuntimeControlApi.RuntimeControlReleaseWorkflowVO) => {
+  if (!workflowReason.value.trim() || workflow.state !== 'TEST_DEPLOYED') return
+  workflowBusy.value = true
+  try {
+    await RuntimeControlApi.acceptRuntimeControlReleaseWorkflowTest(
+      workflow.workflowId, workflowReason.value.trim()
+    )
+    await loadReleaseWorkflows()
+  } catch (error) {
+    reportActionError(error)
+  } finally {
+    workflowBusy.value = false
+  }
+}
+
+const clearProductionPreview = () => {
+  productionPreview.value = undefined
+  productionDialog.confirmText = ''
+  productionDialog.workflowId = ''
+  productionDialog.idempotencyKey = ''
+}
+
+const previewProductionPromotion = async (workflow: RuntimeControlApi.RuntimeControlReleaseWorkflowVO) => {
+  if (!workflowReason.value.trim() || workflow.state !== 'TESTED' || !canPromoteProd.value) return
+  workflowBusy.value = true
+  try {
+    productionPreview.value = await RuntimeControlApi.previewRuntimeControlReleaseWorkflowProduction(
+      workflow.workflowId, workflow.stateVersion, workflowReason.value.trim()
+    )
+    productionDialog.workflowId = workflow.workflowId
+    productionDialog.idempotencyKey = crypto.randomUUID()
+    productionDialog.visible = true
+  } catch (error) {
+    reportActionError(error)
+  } finally {
+    workflowBusy.value = false
+  }
+}
+
+const confirmProductionPromotion = async () => {
+  const preview = productionPreview.value
+  if (!preview?.eligible || productionDialog.confirmText !== 'PROD' || !productionDialog.workflowId) return
+  workflowBusy.value = true
+  try {
+    const authorization = await RuntimeControlApi.authorizeRuntimeControlReleaseWorkflowProduction(
+      productionDialog.workflowId, preview.previewId, preview.expectedStateVersion,
+      workflowReason.value.trim()
+    )
+    await RuntimeControlApi.promoteRuntimeControlReleaseWorkflowProduction(
+      productionDialog.workflowId, {
+        reason: workflowReason.value.trim(), authorizationGrantId: authorization.grantId,
+        previewId: preview.previewId, expectedStateVersion: preview.expectedStateVersion,
+        idempotencyKey: productionDialog.idempotencyKey, prodConfirmText: productionDialog.confirmText
+      }
+    )
+    productionDialog.visible = false
+    await loadReleaseWorkflows()
+  } catch (error) {
+    reportActionError(error)
+  } finally {
+    workflowBusy.value = false
+  }
+}
+
 const latestBackupPoint = computed(() => backupPoints.value[0])
 
 const retentionPolicyText = computed(() => {
@@ -1143,7 +1410,8 @@ const retentionPolicyText = computed(() => {
   const parts: string[] = []
   if (latest.retentionKeepLast != null) parts.push(`最近 ${latest.retentionKeepLast} 个`)
   if (latest.retentionKeepDays != null) parts.push(`${latest.retentionKeepDays} 天`)
-  if (latest.retentionMaxNasUsedPercent != null) parts.push(`NAS <= ${latest.retentionMaxNasUsedPercent}%`)
+  if (latest.retentionMaxNasUsedPercent != null)
+    parts.push(`NAS <= ${latest.retentionMaxNasUsedPercent}%`)
   return parts.length ? parts.join(' / ') : '-'
 })
 
@@ -1349,7 +1617,10 @@ const currentReleaseTagText = (environment: string) => {
 }
 
 const releaseStatusComponent = (environment: string, component: string) => {
-  return releaseStatus.value?.targetStates?.[environment]?.[component] || statusOf(environment, component)
+  return (
+    releaseStatus.value?.targetStates?.[environment]?.[component] ||
+    statusOf(environment, component)
+  )
 }
 
 const releaseStatusCurrentTag = (environment: string) => {
@@ -1363,7 +1634,9 @@ const releaseStatusCurrentTag = (environment: string) => {
 }
 
 const releaseStatusOperationText = (environment: string) => {
-  const operation = releaseStatus.value?.recentOperations?.find((item) => item.environment === environment)
+  const operation = releaseStatus.value?.recentOperations?.find(
+    (item) => item.environment === environment
+  )
   if (!operation) return '-'
   return `${operationActionLabel(operation.action || '')} / ${statusText(operation.status)} / ${formatRuntimeDate(operation.requestedAt)}`
 }
@@ -1395,7 +1668,10 @@ const shouldShowAccessPath = (component: string) => {
 }
 
 const canRestart = (environment: string, component: string) => {
-  return Boolean(statusOf(environment, component)?.actionEnabled) && checkPermi(['infra:runtime-control:restart'])
+  return (
+    Boolean(statusOf(environment, component)?.actionEnabled) &&
+    checkPermi(['infra:runtime-control:restart'])
+  )
 }
 
 const operationRequiresProd = (action: string) => {
@@ -1429,8 +1705,10 @@ const operationOwnerRoleText = (action: string) => {
 
 const operationEnvironmentKey = (action: string) => {
   if (action === 'build-release') return 'release'
-  if (['publish-test', 'apply-test-db-sql', 'mark-release-tested', 'rehearsal'].includes(action)) return 'test'
-  if (action === 'backup-now' || action === 'rollback-app' || action === 'restore-data') return operationDialog.targetEnvironment
+  if (['publish-test', 'apply-test-db-sql', 'mark-release-tested', 'rehearsal'].includes(action))
+    return 'test'
+  if (action === 'backup-now' || action === 'rollback-app' || action === 'restore-data')
+    return operationDialog.targetEnvironment
   if (action === 'promote-backup') return 'backup'
   return 'prod'
 }
@@ -1447,6 +1725,12 @@ const operationSupportsPublishScope = (action: string) => {
 
 const operationSupportsSmartReleaseReport = (action: string) => {
   return ['build-release', 'publish-test', 'promote-prod', 'promote-backup'].includes(action)
+}
+
+function restoreCandidateTypeForAction(action: string): RestoreCandidateType | '' {
+  if (action === 'rehearsal') return 'REHEARSAL'
+  if (['restore-data', 'mark-release-tested'].includes(action)) return 'CONTROLLED_RESTORE'
+  return ''
 }
 
 const operationSupportsTargetEnvironment = (action: string) => {
@@ -1492,8 +1776,13 @@ const assertRemoteRootStatusProof = (
   if (!status || !expected) {
     throw new Error('远程根分区状态缺少目标证明')
   }
-  if (status.targetEnvironment !== remoteRootTargetEnvironment.value || status.serverHost !== expected.host) {
-    throw new Error(`远程根分区状态目标证明不匹配：${status.targetEnvironment}/${status.serverHost}`)
+  if (
+    status.targetEnvironment !== remoteRootTargetEnvironment.value ||
+    status.serverHost !== expected.host
+  ) {
+    throw new Error(
+      `远程根分区状态目标证明不匹配：${status.targetEnvironment}/${status.serverHost}`
+    )
   }
   if (status.mountPoint !== '/') {
     throw new Error(`远程根分区状态挂载点不正确：${status.mountPoint}`)
@@ -1507,8 +1796,13 @@ const assertRemoteRootCleanupProof = (
   if (!result || !expected) {
     throw new Error('远程根分区清理结果缺少目标证明')
   }
-  if (result.targetEnvironment !== remoteRootTargetEnvironment.value || result.serverHost !== expected.host) {
-    throw new Error(`远程根分区清理目标证明不匹配：${result.targetEnvironment}/${result.serverHost}`)
+  if (
+    result.targetEnvironment !== remoteRootTargetEnvironment.value ||
+    result.serverHost !== expected.host
+  ) {
+    throw new Error(
+      `远程根分区清理目标证明不匹配：${result.targetEnvironment}/${result.serverHost}`
+    )
   }
   if (result.cleanupPaths?.join('|') !== '/opt/intruoyi/ops/backup/tmp|/tmp') {
     throw new Error(`远程根分区清理目录不在允许列表：${result.cleanupPaths?.join(',') || '空'}`)
@@ -1677,8 +1971,11 @@ const openOperation = async (actionValue: string) => {
   operationDialog.includeOnlyOffice = false
   operationDialog.includeShowroomBuildPackage = false
   operationDialog.enableSmartReleaseReport = false
+  operationDialog.backupKind = 'INCREMENTAL'
   operationDialog.targetEnvironment =
-    action.action === 'backup-now' || action.action === 'rollback-app' || action.action === 'restore-data'
+    action.action === 'backup-now' ||
+    action.action === 'rollback-app' ||
+    action.action === 'restore-data'
       ? 'test'
       : 'prod'
   operationDialog.releaseTag = action.action === 'build-release' ? formatDefaultReleaseTag() : ''
@@ -1691,11 +1988,11 @@ const openOperation = async (actionValue: string) => {
         ? DEFAULT_PUBLISH_TEST_REASON
         : action.action === 'apply-test-db-sql'
           ? DEFAULT_APPLY_TEST_DB_SQL_REASON
-        : action.action === 'promote-prod'
-          ? DEFAULT_PROMOTE_PROD_REASON
-          : action.action === 'promote-backup'
-            ? DEFAULT_PROMOTE_BACKUP_REASON
-          : ''
+          : action.action === 'promote-prod'
+            ? DEFAULT_PROMOTE_PROD_REASON
+            : action.action === 'promote-backup'
+              ? DEFAULT_PROMOTE_BACKUP_REASON
+              : ''
   operationDialog.sqlPath = ''
   operationDialog.prodConfirmText = ''
   operationDialog.selectedImageCandidateId = ''
@@ -1719,16 +2016,20 @@ const openOperation = async (actionValue: string) => {
     }
   }
 
-  if (['rollback-app', 'rehearsal', 'restore-data', 'mark-release-tested'].includes(action.action)) {
+  if (
+    ['rollback-app', 'rehearsal', 'restore-data', 'mark-release-tested'].includes(action.action)
+  ) {
     try {
       await loadCandidates()
       if (action.action === 'rollback-app') {
         operationDialog.selectedImageCandidateId =
-          rollbackCandidates.value.find((candidate) => candidate.status === 'AVAILABLE')?.candidateId || ''
+          rollbackCandidates.value.find((candidate) => candidate.status === 'AVAILABLE')
+            ?.candidateId || ''
       }
       if (['rehearsal', 'restore-data', 'mark-release-tested'].includes(action.action)) {
         operationDialog.selectedRecoverySetCandidateId =
-          restoreCandidates.value.find((candidate) => candidate.status === 'AVAILABLE')?.candidateId || ''
+          operationRestoreCandidates.value.find((candidate) => candidate.status === 'AVAILABLE')
+            ?.candidateId || ''
       }
     } catch (error) {
       reportActionError(error)
@@ -1757,8 +2058,15 @@ const submitOperation = async () => {
     message.warning('生产相关操作必须输入 PROD')
     return
   }
-  if (operationRequiresTargetEnvironment(operationDialog.action) && !operationDialog.targetEnvironment) {
+  if (
+    operationRequiresTargetEnvironment(operationDialog.action) &&
+    !operationDialog.targetEnvironment
+  ) {
     message.warning(operationDialog.action === 'restore-data' ? '请选择恢复目标' : '请选择备份环境')
+    return
+  }
+  if (operationDialog.action === 'backup-now' && !operationDialog.backupKind) {
+    message.warning('请选择备份类型')
     return
   }
   const releaseTag = operationDialog.releaseTag.trim()
@@ -1816,8 +2124,11 @@ const buildOperationActionRequest = (reason: string, releaseTag: string) => ({
   enableSmartReleaseReport: operationSupportsSmartReleaseReport(operationDialog.action)
     ? operationDialog.enableSmartReleaseReport
     : undefined,
-  releaseTag: operationUsesReleaseTag(operationDialog.action) && releaseTag ? releaseTag : undefined,
-  sqlPath: operationDialog.action === 'apply-test-db-sql' ? operationDialog.sqlPath.trim() : undefined,
+  releaseTag:
+    operationUsesReleaseTag(operationDialog.action) && releaseTag ? releaseTag : undefined,
+  sqlPath:
+    operationDialog.action === 'apply-test-db-sql' ? operationDialog.sqlPath.trim() : undefined,
+  backupKind: operationDialog.action === 'backup-now' ? operationDialog.backupKind : undefined,
   testConclusion:
     operationDialog.action === 'mark-release-tested'
       ? operationDialog.testConclusion.trim()
@@ -1826,10 +2137,11 @@ const buildOperationActionRequest = (reason: string, releaseTag: string) => ({
     operationDialog.action === 'rollback-app'
       ? operationDialog.selectedImageCandidateId
       : undefined,
-  selectedRecoverySetCandidateId:
-    ['rehearsal', 'restore-data', 'mark-release-tested'].includes(operationDialog.action)
-      ? operationDialog.selectedRecoverySetCandidateId
-      : undefined
+  selectedRecoverySetCandidateId: ['rehearsal', 'restore-data', 'mark-release-tested'].includes(
+    operationDialog.action
+  )
+    ? operationDialog.selectedRecoverySetCandidateId
+    : undefined
 })
 
 const previewOperationCommand = async () => {
@@ -1888,9 +2200,13 @@ const candidateBlockReason = (action: string) => {
   }
   if (['rehearsal', 'restore-data', 'mark-release-tested'].includes(action)) {
     return candidateReason(
-      restoreCandidates.value,
+      operationRestoreCandidates.value,
       operationDialog.selectedRecoverySetCandidateId,
-      action === 'mark-release-tested' ? '标记测试通过' : action === 'rehearsal' ? '恢复演练' : '恢复数据',
+      action === 'mark-release-tested'
+        ? '标记测试通过'
+        : action === 'rehearsal'
+          ? '恢复演练'
+          : '恢复数据',
       'selectedRecoverySetCandidateId'
     )
   }
@@ -1980,7 +2296,9 @@ const openRestart = async (environment: string, component: string) => {
   }
 
   try {
-    await message.confirm(`确认重启 ${environmentLabel(environment)} / ${componentLabel(component)}？`)
+    await message.confirm(
+      `确认重启 ${environmentLabel(environment)} / ${componentLabel(component)}？`
+    )
     restartDialog.reason = '控制台手动重启'
     await submitRestart()
   } catch (error) {
@@ -2036,7 +2354,8 @@ const statusTagType = (status?: string) => {
   ) {
     return 'success'
   }
-  if (status === 'degraded' || status === 'WARN' || status === 'not-run' || status === 'PARTIAL') return 'warning'
+  if (status === 'degraded' || status === 'WARN' || status === 'not-run' || status === 'PARTIAL')
+    return 'warning'
   if (
     status === 'stopped' ||
     status === 'failed' ||
@@ -2090,6 +2409,7 @@ const reportActionError = (error: unknown) => {
 
 onMounted(() => {
   loadOverview()
+  loadReleaseWorkflows()
   pollingTimer = window.setInterval(loadOverview, 60000)
 })
 
@@ -2116,6 +2436,30 @@ watch(
   padding: 16px;
   background: #f7f9fc;
   color: #172033;
+}
+
+.release-workflow-panel {
+  background: #fff;
+  border: 1px solid #dbe3ef;
+  margin-bottom: 12px;
+}
+
+.release-workflow-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-bottom: 1px solid #e5ebf3;
+}
+
+.release-workflow-toolbar .el-input {
+  width: min(380px, 100%);
+}
+
+@media (max-width: 700px) {
+  .release-workflow-toolbar {
+    flex-wrap: wrap;
+  }
 }
 
 .runtime-toolbar {

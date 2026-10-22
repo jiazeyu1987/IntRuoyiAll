@@ -1,5 +1,8 @@
 package cn.iocoder.yudao.module.mes.service.pro.batchrecord;
 
+import cn.hutool.crypto.digest.DigestUtil;
+import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.JSONObject;
 import cn.iocoder.yudao.framework.common.enums.CommonStatusEnum;
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils;
@@ -28,10 +31,13 @@ import cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO;
 import jakarta.annotation.Resource;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.MockedStatic;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -44,6 +50,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mockStatic;
@@ -87,10 +94,27 @@ class MesProEdhrWorkTaskOwnershipTransferTest extends BaseDbUnitTest {
     private MesProRouteMapper routeMapper;
     @MockitoBean
     private MesProEdhrOperationAuditService operationAuditService;
+    // Ownership regression keeps auxiliary auditing as a collaborator, without skipping its business callbacks.
+    @MockitoBean
+    private MesWorkTaskAuxiliaryAudit auxiliaryAudit;
+
+    @MockitoBean private cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService sourceLedger;
+    @MockitoBean private cn.iocoder.yudao.module.system.api.permission.ApprovalAuthorityApi sourceAuthority;
+    @MockitoBean private MesProEdhrNonconformanceReviewService nonconformanceReviewService;
 
     @BeforeEach
     void setTenant() {
         TenantContextHolder.setTenantId(122L);
+        // Auxiliary persistence/audit is a port boundary in this ownership unit suite.
+        // Execute the actual domain callbacks so entitlement/notification failures remain observable.
+        org.mockito.Mockito.doAnswer(call -> {
+            call.getArgument(3, Runnable.class).run();
+            return null;
+        }).when(auxiliaryAudit).entitlements(any(), any(), any(), any());
+        org.mockito.Mockito.doAnswer(call -> {
+            call.getArgument(1, java.util.function.Supplier.class).get();
+            return null;
+        }).when(auxiliaryAudit).notifications(any(), any());
         lenient().when(routeProcessService.resolveCurrentRouteProcess(any(), any(), any()))
                 .thenAnswer(invocation -> MesProRouteProcessDO.builder()
                         .id(invocation.getArgument(0))
@@ -103,6 +127,30 @@ class MesProEdhrWorkTaskOwnershipTransferTest extends BaseDbUnitTest {
                         .routeId(invocation.getArgument(1))
                         .processId(invocation.getArgument(2))
                         .build());
+    }
+
+    @Test
+    void auxiliaryAuditFixture_executesBothBusinessCallbacksAndPropagatesFailures() {
+        java.util.concurrent.atomic.AtomicBoolean entitlementExecuted = new java.util.concurrent.atomic.AtomicBoolean();
+        java.util.concurrent.atomic.AtomicBoolean notificationExecuted = new java.util.concurrent.atomic.AtomicBoolean();
+        MesProEdhrWorkTaskDO task = new MesProEdhrWorkTaskDO().setId(19000L);
+        auxiliaryAudit.entitlements(task, FILLER_POLICY, Set.of(501L), () -> entitlementExecuted.set(true));
+        auxiliaryAudit.notifications(task, () -> {
+            notificationExecuted.set(true);
+            return List.of(29000L);
+        });
+        assertTrue(entitlementExecuted.get());
+        assertTrue(notificationExecuted.get());
+        IllegalStateException entitlementFailure = assertThrows(IllegalStateException.class,
+                () -> auxiliaryAudit.entitlements(task, FILLER_POLICY, Set.of(501L), () -> {
+                    throw new IllegalStateException("entitlement callback failed");
+                }));
+        assertEquals("entitlement callback failed", entitlementFailure.getMessage());
+        IllegalStateException notificationFailure = assertThrows(IllegalStateException.class,
+                () -> auxiliaryAudit.notifications(task, () -> {
+                    throw new IllegalStateException("notification callback failed");
+                }));
+        assertEquals("notification callback failed", notificationFailure.getMessage());
     }
 
     @Test
@@ -144,6 +192,7 @@ class MesProEdhrWorkTaskOwnershipTransferTest extends BaseDbUnitTest {
         ArgumentCaptor<SystemEntitlementSyncReqDTO> captor =
                 ArgumentCaptor.forClass(SystemEntitlementSyncReqDTO.class);
         verify(permissionApi).syncEntitlementClaims(captor.capture());
+        verify(auxiliaryAudit).entitlements(any(), any(), any(), any());
         SystemEntitlementSyncReqDTO request = captor.getValue();
         assertEquals(122L, request.getTenantId());
         assertEquals(WORK_TASK_SOURCE_TYPE, request.getSourceType());
@@ -151,6 +200,185 @@ class MesProEdhrWorkTaskOwnershipTransferTest extends BaseDbUnitTest {
         assertEquals(FILLER_POLICY, request.getPolicyCode());
         assertEquals(Set.of(502L, 503L), request.getResolvedUserIds());
         assertTrue(request.getSourceDigest().contains("responsibilitySourceKey=" + sourceKey));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"FILL", "REWORK"})
+    void reconcileProcessFormFillTaskOwnership_refreshesAssistScopeForNewCandidatesOnly(String taskType) {
+        String reportId = "REPORT-OWN-SCOPE";
+        String sourceKey = "FORM|" + reportId + "|88160";
+        insertBatchTask(19160L, 39160L, 5960L, reportId, 88160L);
+        MesProEdhrWorkTaskDO task = insertFillTask(39160L, 19160L, 5960L, 501L, "501")
+                .setTaskType(taskType)
+                .setResponsibilitySourceType(FILLER_SOURCE_TYPE)
+                .setResponsibilitySourceKey(sourceKey).setResponsibilitySourceVersion("88160")
+                .setResponsibilityScopeJson("{\"schemaVersion\":2,\"scopes\":[{\"scopeKey\":\"ALL\","
+                        + "\"candidateSourceType\":\"ROLE\",\"candidateSourceIds\":[910415],"
+                        + "\"resolvedUserIds\":[501],\"fillableScope\":" + ownershipFillableScope() + "}]}")
+                .setOwnershipLocked(false);
+        workTaskMapper.updateById(task);
+        insertBatchTask(19161L, 39161L, 5960L, reportId, 88161L);
+        MesProEdhrWorkTaskDO otherVersion = insertFillTask(39161L, 19161L, 5960L, 501L, "501")
+                .setResponsibilitySourceType(FILLER_SOURCE_TYPE)
+                .setResponsibilitySourceKey(sourceKey).setResponsibilitySourceVersion("88160")
+                .setResponsibilityScopeJson(task.getResponsibilityScopeJson());
+        workTaskMapper.updateById(otherVersion);
+        when(adminUserApi.getUserList(List.of(502L, 503L))).thenReturn(List.of(adminUser(502L), adminUser(503L)));
+
+        workTaskService.reconcileProcessFormFillTaskOwnership(sourceKey,
+                processFormRule(0L, reportId, 88160L, "502,503"), "保留现有填写范围");
+
+        MesProEdhrWorkTaskDO updated = workTaskMapper.selectById(task.getId());
+        JSONObject snapshot = JSON.parseObject(updated.getResponsibilityScopeJson());
+        JSONObject scope = snapshot.getJSONArray("scopes").getJSONObject(0);
+        assertEquals(2, snapshot.getIntValue("schemaVersion"));
+        assertEquals(FILLER_SOURCE_TYPE, snapshot.getString("sourceType"));
+        assertEquals(sourceKey, snapshot.getString("sourceKey"));
+        assertEquals("88160", snapshot.getString("sourceVersion"));
+        assertEquals("USERS", scope.getString("candidateSourceType"));
+        assertEquals(List.of(502L, 503L), scope.getJSONArray("candidateSourceIds").toJavaList(Long.class));
+        assertEquals(List.of(502L, 503L), scope.getJSONArray("resolvedUserIds").toJavaList(Long.class));
+        assertEquals(JSON.parseObject(ownershipFillableScope()), scope.getJSONObject("fillableScope"));
+        assertEquals("scopes-sha256=" + DigestUtil.sha256Hex(updated.getResponsibilityScopeJson()),
+                updated.getResponsibilitySourceDigest());
+        assertEquals(taskType, updated.getTaskType());
+        assertEquals(task.getBatchTaskId(), updated.getBatchTaskId());
+        MesProEdhrBatchExecutionServiceImpl executionService = new MesProEdhrBatchExecutionServiceImpl();
+        List<?> visible = ReflectionTestUtils.invokeMethod(executionService, "resolveVisibleAssistScopes", updated, 502L);
+        assertEquals(1, visible.size());
+        List<?> otherCandidateVisible = ReflectionTestUtils.invokeMethod(
+                executionService, "resolveVisibleAssistScopes", updated, 503L);
+        assertEquals(1, otherCandidateVisible.size());
+        assertThrows(ServiceException.class, () -> ReflectionTestUtils.invokeMethod(
+                executionService, "resolveVisibleAssistScopes", updated, 501L));
+        MesProEdhrWorkTaskDO unchanged = workTaskMapper.selectById(otherVersion.getId());
+        assertEquals("501", unchanged.getCandidateUserSnapshot());
+        assertEquals(otherVersion.getResponsibilityScopeJson(), unchanged.getResponsibilityScopeJson());
+    }
+
+    @Test
+    void reconcileProcessFormFillTaskOwnership_preservesEveryAssistRowAndItsCandidateIsolation() {
+        String reportId = "REPORT-OWN-ASSIST";
+        String sourceKey = "FORM|" + reportId + "|88170";
+        insertBatchTask(19170L, 39170L, 5970L, reportId, 88170L);
+        MesProEdhrWorkTaskDO task = insertFillTask(39170L, 19170L, 5970L, 501L, "501")
+                .setResponsibilitySourceType(FILLER_SOURCE_TYPE)
+                .setResponsibilitySourceKey(sourceKey).setResponsibilitySourceVersion("88170")
+                .setOwnershipLocked(false);
+        workTaskMapper.updateById(task);
+        MesProEdhrProcessFormPermissionRuleDO equipment = processFormRule(0L, reportId, 88170L, "502")
+                .setRuleType("EQUIPMENT_FILL").setScopeKey("EQUIPMENT-ROW");
+        MesProEdhrProcessFormPermissionRuleDO quality = processFormRule(0L, reportId, 88170L, "503")
+                .setRuleType("QUALITY_FILL").setScopeKey("QUALITY-ROW")
+                .setFillableScopeJson("{\"cells\":[{\"sourceTableIndex\":1,\"rowIndex\":8,\"columnIndex\":3}]}");
+        when(processFormPermissionRuleMapper.selectEnabledFillRules(0L, reportId, 88170L))
+                .thenReturn(List.of(equipment, quality));
+        when(adminUserApi.getUserList(List.of(502L))).thenReturn(List.of(adminUser(502L)));
+        when(adminUserApi.getUserList(List.of(503L))).thenReturn(List.of(adminUser(503L)));
+
+        workTaskService.reconcileProcessFormFillTaskOwnership(sourceKey, equipment, "辅助行候选更新");
+
+        MesProEdhrWorkTaskDO updated = workTaskMapper.selectById(task.getId());
+        assertEquals("ASSIST_ROWS", updated.getCandidateSourceType());
+        assertEquals("502,503", updated.getCandidateUserSnapshot());
+        JSONObject snapshot = JSON.parseObject(updated.getResponsibilityScopeJson());
+        assertEquals(2, snapshot.getJSONArray("scopes").size());
+        JSONObject first = snapshot.getJSONArray("scopes").getJSONObject(0);
+        JSONObject second = snapshot.getJSONArray("scopes").getJSONObject(1);
+        assertEquals("EQUIPMENT-ROW", first.getString("scopeKey"));
+        assertEquals(List.of(502L), first.getJSONArray("resolvedUserIds").toJavaList(Long.class));
+        assertEquals(JSON.parseObject(equipment.getFillableScopeJson()), first.getJSONObject("fillableScope"));
+        assertEquals("QUALITY-ROW", second.getString("scopeKey"));
+        assertEquals(List.of(503L), second.getJSONArray("resolvedUserIds").toJavaList(Long.class));
+        assertEquals(JSON.parseObject(quality.getFillableScopeJson()), second.getJSONObject("fillableScope"));
+        MesProEdhrBatchExecutionServiceImpl executionService = new MesProEdhrBatchExecutionServiceImpl();
+        List<?> equipmentVisible = ReflectionTestUtils.invokeMethod(
+                executionService, "resolveVisibleAssistScopes", updated, 502L);
+        List<?> qualityVisible = ReflectionTestUtils.invokeMethod(
+                executionService, "resolveVisibleAssistScopes", updated, 503L);
+        assertEquals(1, equipmentVisible.size());
+        assertEquals(1, qualityVisible.size());
+        assertEquals("EQUIPMENT-ROW", ReflectionTestUtils.invokeMethod(equipmentVisible.get(0), "scopeKey"));
+        assertEquals("QUALITY-ROW", ReflectionTestUtils.invokeMethod(qualityVisible.get(0), "scopeKey"));
+        assertThrows(ServiceException.class, () -> ReflectionTestUtils.invokeMethod(
+                executionService, "resolveVisibleAssistScopes", updated, 501L));
+        verify(processFormPermissionRuleMapper).selectEnabledFillRules(0L, reportId, 88170L);
+        verify(processFormPermissionRuleMapper, never()).selectEnabledFillRules(5970L, reportId, 88170L);
+        verify(processFormPermissionRuleMapper, never()).selectEnabledFillRules(0L, reportId, 88171L);
+    }
+
+    @Test
+    void reconcileProcessFormFillTaskOwnership_explicitDisabledFormalRuleKeepsExistingTaskResponsibility() {
+        String reportId = "REPORT-OWN-DISABLED";
+        String sourceKey = "FORM|" + reportId + "|88180";
+        insertBatchTask(19180L, 39180L, 5980L, reportId, 88180L);
+        MesProEdhrWorkTaskDO task = insertFillTask(39180L, 19180L, 5980L, 501L, "501")
+                .setResponsibilitySourceType(FILLER_SOURCE_TYPE)
+                .setResponsibilitySourceKey(sourceKey).setResponsibilitySourceVersion("88180")
+                .setResponsibilitySourceDigest("existing-frozen-digest")
+                .setResponsibilityScopeJson("{\"existingFrozenResponsibility\":true}")
+                .setOwnershipLocked(false);
+        workTaskMapper.updateById(task);
+        MesProEdhrProcessFormPermissionRuleDO disabled = processFormRule(0L, reportId, 88180L, "502")
+                .setId(19180L).setEnabled(false);
+        when(adminUserApi.getUserList(List.of(502L))).thenReturn(List.of(adminUser(502L)));
+        when(processFormPermissionRuleMapper.selectEnabledFillRules(0L, reportId, 88180L)).thenReturn(List.of());
+        when(processFormPermissionRuleMapper.selectListByRouteProcessReportAndVersion(0L, reportId, 88180L))
+                .thenReturn(List.of(disabled));
+
+        workTaskService.reconcileProcessFormFillTaskOwnership(sourceKey, disabled, "显式禁用配置");
+
+        MesProEdhrWorkTaskDO unchanged = workTaskMapper.selectById(task.getId());
+        assertEquals(501L, unchanged.getAssigneeUserId());
+        assertEquals("501", unchanged.getCandidateUserSnapshot());
+        assertEquals(task.getResponsibilityScopeJson(), unchanged.getResponsibilityScopeJson());
+        assertEquals(task.getResponsibilitySourceDigest(), unchanged.getResponsibilitySourceDigest());
+        verify(permissionApi, never()).syncEntitlementClaims(any(SystemEntitlementSyncReqDTO.class));
+        verify(notifyMessageSendApi, never()).sendSingleMessageToAdmin(any());
+
+        when(processFormPermissionRuleMapper.selectListByRouteProcessReportAndVersion(0L, reportId, 88180L))
+                .thenReturn(List.of());
+        ServiceException missing = assertThrows(ServiceException.class,
+                () -> workTaskService.reconcileProcessFormFillTaskOwnership(sourceKey, disabled, "不存在的正式规则"));
+        assertEquals(PRO_EDHR_WORK_TASK_OWNERSHIP_SOURCE_MISSING.getCode(), missing.getCode());
+        disabled.setEnabled(true);
+        ServiceException enabledMissing = assertThrows(ServiceException.class,
+                () -> workTaskService.reconcileProcessFormFillTaskOwnership(sourceKey, disabled, "启用来源缺失"));
+        assertEquals(PRO_EDHR_WORK_TASK_OWNERSHIP_SOURCE_MISSING.getCode(), enabledMissing.getCode());
+    }
+
+    @Test
+    void reconcileProcessFormFillTaskOwnership_disabledAnchorStillRefreshesRemainingEnabledAssistRows() {
+        String reportId = "REPORT-OWN-PARTIAL-DISABLE";
+        String sourceKey = "FORM|" + reportId + "|88190";
+        insertBatchTask(19190L, 39190L, 5990L, reportId, 88190L);
+        MesProEdhrWorkTaskDO task = insertFillTask(39190L, 19190L, 5990L, 501L, "501")
+                .setResponsibilitySourceType(FILLER_SOURCE_TYPE)
+                .setResponsibilitySourceKey(sourceKey).setResponsibilitySourceVersion("88190")
+                .setOwnershipLocked(false);
+        workTaskMapper.updateById(task);
+        MesProEdhrProcessFormPermissionRuleDO disabled = processFormRule(0L, reportId, 88190L, "502")
+                .setId(19190L).setRuleType("EQUIPMENT_FILL").setScopeKey("EQUIPMENT-ROW").setEnabled(false);
+        MesProEdhrProcessFormPermissionRuleDO remaining = processFormRule(0L, reportId, 88190L, "503")
+                .setRuleType("QUALITY_FILL").setScopeKey("QUALITY-ROW");
+        when(adminUserApi.getUserList(List.of(502L))).thenReturn(List.of(adminUser(502L)));
+        when(adminUserApi.getUserList(List.of(503L))).thenReturn(List.of(adminUser(503L)));
+        when(processFormPermissionRuleMapper.selectEnabledFillRules(0L, reportId, 88190L))
+                .thenReturn(List.of(remaining));
+
+        workTaskService.reconcileProcessFormFillTaskOwnership(sourceKey, disabled, "禁用部分辅助行");
+
+        MesProEdhrWorkTaskDO updated = workTaskMapper.selectById(task.getId());
+        assertEquals("503", updated.getCandidateUserSnapshot());
+        JSONObject snapshot = JSON.parseObject(updated.getResponsibilityScopeJson());
+        assertEquals(1, snapshot.getJSONArray("scopes").size());
+        assertEquals("QUALITY-ROW", snapshot.getJSONArray("scopes").getJSONObject(0).getString("scopeKey"));
+        MesProEdhrBatchExecutionServiceImpl executionService = new MesProEdhrBatchExecutionServiceImpl();
+        List<?> visible = ReflectionTestUtils.invokeMethod(executionService, "resolveVisibleAssistScopes", updated, 503L);
+        assertEquals(1, visible.size());
+        assertThrows(ServiceException.class, () -> ReflectionTestUtils.invokeMethod(
+                executionService, "resolveVisibleAssistScopes", updated, 502L));
+        verify(processFormPermissionRuleMapper, never()).selectListByRouteProcessReportAndVersion(0L, reportId, 88190L);
     }
 
     @Test
@@ -331,6 +559,91 @@ class MesProEdhrWorkTaskOwnershipTransferTest extends BaseDbUnitTest {
     }
 
     @Test
+    void reconcileProcessFormFillTaskOwnership_migratesExactRouteFillerToFormAndRuntimeClaim() {
+        String reportId = "REPORT-OWN-MIGRATE";
+        Long versionId = 88130L;
+        String formKey = "FORM|" + reportId + "|" + versionId;
+        insertBatchTask(19130L, 39130L, 5930L, reportId, versionId);
+        MesProEdhrWorkTaskDO task = insertFillTask(39130L, 19130L, 5930L, 501L, "501")
+                .setResponsibilitySourceType(FILLER_SOURCE_TYPE)
+                .setResponsibilitySourceKey("ROUTE|5930|" + reportId + "|" + versionId)
+                .setResponsibilitySourceVersion(String.valueOf(versionId)).setOwnershipLocked(false);
+        workTaskMapper.updateById(task);
+        when(adminUserApi.getUserList(List.of(502L, 503L))).thenReturn(List.of(adminUser(502L), adminUser(503L)));
+        try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(113L);
+            security.when(SecurityFrameworkUtils::getLoginUserNickname).thenReturn("aoteman");
+            workTaskService.reconcileProcessFormFillTaskOwnership(formKey,
+                    processFormRule(0L, reportId, versionId, "502,503"), "表单填写人统一配置");
+        }
+        MesProEdhrWorkTaskDO updated = workTaskMapper.selectById(task.getId());
+        assertEquals(formKey, updated.getResponsibilitySourceKey());
+        assertEquals(FILLER_SOURCE_TYPE, updated.getResponsibilitySourceType());
+        assertEquals("88130", updated.getResponsibilitySourceVersion());
+        assertEquals(502L, updated.getAssigneeUserId());
+        assertEquals("502,503", updated.getCandidateUserSnapshot());
+        assertEquals("USERS", updated.getCandidateSourceType());
+        ArgumentCaptor<SystemEntitlementSyncReqDTO> captor = ArgumentCaptor.forClass(SystemEntitlementSyncReqDTO.class);
+        verify(permissionApi).syncEntitlementClaims(captor.capture());
+        assertEquals("WORK_TASK|" + task.getId(), captor.getValue().getSourceKey());
+        assertEquals(Set.of(502L, 503L), captor.getValue().getResolvedUserIds());
+        assertTrue(captor.getValue().getSourceDigest().contains("responsibilitySourceKey=" + formKey));
+    }
+
+    @Test
+    void reconcileProcessFormFillTaskOwnership_doesNotMigrateOtherRouteSourcesOrTargets() {
+        String reportId = "REPORT-OWN-MIGRATE-BOUNDARY";
+        Long versionId = 88131L;
+        List<MesProEdhrWorkTaskDO> tasks = new java.util.ArrayList<>();
+        for (int index = 0; index < 5; index++) {
+            long routeProcessId = 5940L + index;
+            String taskReportId = index == 3 ? "OTHER-REPORT" : reportId;
+            Long taskVersionId = index == 4 ? 88132L : versionId;
+            insertBatchTask(19140L + index, 39140L + index, routeProcessId, taskReportId, taskVersionId);
+            String sourceKey = "ROUTE|" + routeProcessId + "|" + taskReportId + "|" + taskVersionId;
+            if (index == 1) sourceKey = "ROUTE|9999|" + reportId + "|" + versionId;
+            if (index == 2) sourceKey = "ROUTE|" + routeProcessId + "|" + reportId + "|88132";
+            MesProEdhrWorkTaskDO task = insertFillTask(39140L + index, 19140L + index, routeProcessId, 501L, "501")
+                    .setResponsibilitySourceType(index == 0 ? "OTHER_SOURCE" : FILLER_SOURCE_TYPE)
+                    .setResponsibilitySourceKey(sourceKey).setOwnershipLocked(false);
+            workTaskMapper.updateById(task);
+            tasks.add(task);
+        }
+        when(adminUserApi.getUserList(List.of(502L))).thenReturn(List.of(adminUser(502L)));
+        workTaskService.reconcileProcessFormFillTaskOwnership("FORM|" + reportId + "|" + versionId,
+                processFormRule(0L, reportId, versionId, "502"), "统一配置");
+        for (MesProEdhrWorkTaskDO task : tasks) {
+            MesProEdhrWorkTaskDO unchanged = workTaskMapper.selectById(task.getId());
+            assertEquals(501L, unchanged.getAssigneeUserId());
+            assertEquals(task.getResponsibilitySourceKey(), unchanged.getResponsibilitySourceKey());
+            assertEquals("501", unchanged.getCandidateUserSnapshot());
+        }
+        verify(permissionApi, never()).syncEntitlementClaims(any(SystemEntitlementSyncReqDTO.class));
+    }
+
+    @Test
+    void reconcileProcessFormFillTaskOwnership_rejectsLockedRouteToFormMigration() {
+        String reportId = "REPORT-OWN-MIGRATE-LOCKED";
+        insertBatchTask(19150L, 39150L, 5950L, reportId, 88150L);
+        String routeKey = "ROUTE|5950|" + reportId + "|88150";
+        MesProEdhrWorkTaskDO task = insertFillTask(39150L, 19150L, 5950L, 501L, "501")
+                .setResponsibilitySourceType(FILLER_SOURCE_TYPE).setResponsibilitySourceKey(routeKey)
+                .setOwnershipLocked(true);
+        workTaskMapper.updateById(task);
+        when(adminUserApi.getUserList(List.of(502L))).thenReturn(List.of(adminUser(502L)));
+        ServiceException exception = assertThrows(ServiceException.class,
+                () -> workTaskService.reconcileProcessFormFillTaskOwnership("FORM|" + reportId + "|88150",
+                        processFormRule(0L, reportId, 88150L, "502"), "统一配置"));
+        assertEquals(PRO_EDHR_WORK_TASK_OWNERSHIP_TRANSFER_LOCKED.getCode(), exception.getCode());
+        MesProEdhrWorkTaskDO unchanged = workTaskMapper.selectById(task.getId());
+        assertEquals(501L, unchanged.getAssigneeUserId());
+        assertEquals(routeKey, unchanged.getResponsibilitySourceKey());
+        assertEquals("501", unchanged.getCandidateUserSnapshot());
+        assertEquals(task.getResponsibilityScopeJson(), unchanged.getResponsibilityScopeJson());
+        verify(permissionApi, never()).syncEntitlementClaims(any(SystemEntitlementSyncReqDTO.class));
+    }
+
+    @Test
     void reconcileProcessFormFillTaskOwnership_rejectsLockedTaskAndKeepsOwner() {
         String sourceKey = "ROUTE|5903|REPORT-OWN-003|88004";
         insertBatchTask(19003L, 39003L, 5903L, "REPORT-OWN-003", 88004L);
@@ -338,6 +651,7 @@ class MesProEdhrWorkTaskOwnershipTransferTest extends BaseDbUnitTest {
                 .setResponsibilitySourceType(FILLER_SOURCE_TYPE)
                 .setResponsibilitySourceKey(sourceKey)
                 .setResponsibilitySourceVersion("88004")
+                .setResponsibilityScopeJson("{\"lockedEvidence\":true}")
                 .setOwnershipLocked(true);
         workTaskMapper.updateById(task);
         when(adminUserApi.getUserList(List.of(502L))).thenReturn(List.of(adminUser(502L)));
@@ -350,6 +664,7 @@ class MesProEdhrWorkTaskOwnershipTransferTest extends BaseDbUnitTest {
 
         assertEquals(PRO_EDHR_WORK_TASK_OWNERSHIP_TRANSFER_LOCKED.getCode(), exception.getCode());
         assertEquals(501L, workTaskMapper.selectById(task.getId()).getAssigneeUserId());
+        assertEquals(task.getResponsibilityScopeJson(), workTaskMapper.selectById(task.getId()).getResponsibilityScopeJson());
         verify(permissionApi, never()).syncEntitlementClaims(any(SystemEntitlementSyncReqDTO.class));
     }
 
@@ -402,17 +717,22 @@ class MesProEdhrWorkTaskOwnershipTransferTest extends BaseDbUnitTest {
 
     private MesProEdhrProcessFormPermissionRuleDO processFormRule(Long routeProcessId, String reportId,
                                                                   Long versionId, String candidateSourceIds) {
-        return new MesProEdhrProcessFormPermissionRuleDO()
+        MesProEdhrProcessFormPermissionRuleDO rule = new MesProEdhrProcessFormPermissionRuleDO()
                 .setRouteProcessId(routeProcessId)
                 .setBatchRecordReportId(reportId)
                 .setBatchRecordVersionId(versionId)
                 .setRuleType("FILL")
+                .setScopeKey("ALL")
+                .setFillableScopeJson(ownershipFillableScope())
                 .setSignatureCellKey("")
                 .setCandidateSourceType("USERS")
                 .setCandidateSourceIds(candidateSourceIds)
                 .setCompletionPolicy("ANY_ONE")
                 .setDueMinutes(90)
                 .setEnabled(true);
+        lenient().when(processFormPermissionRuleMapper.selectEnabledFillRules(routeProcessId, reportId, versionId))
+                .thenReturn(List.of(rule));
+        return rule;
     }
 
     private AdminUserRespDTO adminUser(Long userId) {
@@ -420,5 +740,9 @@ class MesProEdhrWorkTaskOwnershipTransferTest extends BaseDbUnitTest {
         user.setId(userId);
         user.setStatus(CommonStatusEnum.ENABLE.getStatus());
         return user;
+    }
+
+    private String ownershipFillableScope() {
+        return "{\"ranges\":[{\"sourceTableIndex\":0,\"startRow\":2,\"endRow\":6}]}";
     }
 }

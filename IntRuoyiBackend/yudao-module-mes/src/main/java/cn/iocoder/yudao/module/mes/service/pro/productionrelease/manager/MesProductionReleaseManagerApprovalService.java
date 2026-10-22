@@ -4,6 +4,12 @@ import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdh
 
 public interface MesProductionReleaseManagerApprovalService {
 
+    /** Validate the formal manager task graph without locking or consuming signature evidence. */
+    void preflightApprovalCenterReview(Long actorUserId,
+            cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrWorkTaskDO task,
+            cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrReleaseTransactionDO transaction,
+            cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionDO batch);
+
     boolean isManagedReleaseTransaction(Long releaseTransactionId);
 
     /**

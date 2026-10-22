@@ -13,6 +13,7 @@ import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.scheduleconfig.
 import cn.iocoder.yudao.module.mes.dal.dataobject.dv.machinery.MesDvMachineryDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.dv.machinery.MesDvMachineryProcessDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.dv.repair.MesDvRepairDO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.process.vo.MesProProcessCreateReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.process.vo.MesProProcessSaveReqVO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.md.workstation.MesMdWorkstationDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecordreport.MesProBatchRecordReportDO;
@@ -71,6 +72,8 @@ public class MesProProcessServiceImpl implements MesProProcessService {
     @Resource
     private MesProProcessMapper processMapper;
     @Resource
+    private MesProProcessCreationService processCreationService;
+    @Resource
     private MesDvMachineryProcessMapper machineryProcessMapper;
     @Resource
     private MesDvMachineryMapper machineryMapper;
@@ -106,14 +109,10 @@ public class MesProProcessServiceImpl implements MesProProcessService {
     private static final BigDecimal DEFAULT_PRODUCTION_QUANTITY_FACTOR = new BigDecimal("1.000000");
 
     @Override
-    public Long createProcess(MesProProcessSaveReqVO createReqVO) {
-        // 1. 校验编码、名称唯一
-        validateProcessSaveData(createReqVO);
-
-        // 2. 插入工序
+    public Long createProcess(MesProProcessCreateReqVO createReqVO) {
         MesProProcessDO process = BeanUtils.toBean(createReqVO, MesProProcessDO.class);
-        processMapper.insert(process);
-        return process.getId();
+        process.setId(null);
+        return processCreationService.create(process);
     }
 
     @Override

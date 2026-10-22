@@ -36,7 +36,6 @@ export const RELEASE_COVERAGE_EXCLUDED_EDHR_SOURCE_FILES = Object.freeze([
   'src/api/mes/pro/edhr/form.ts',
   'src/api/mes/pro/edhr/formFillLog.ts',
   'src/api/mes/pro/edhr/initBatch.ts',
-  'src/api/mes/pro/edhr/labelPrint.ts',
   'src/api/mes/pro/edhr/operationAudit.ts',
   'src/api/mes/pro/edhr/oqPq.ts',
   'src/api/mes/pro/edhr/permission.ts',
@@ -519,7 +518,7 @@ export const RELEASE_E2E_COVERAGE_MATRIX = Object.freeze([
     sourceFiles: [
       'src/api/mes/pro/edhr/releaseDossierRequirementSetting.ts',
       'src/views/Profile/Index.vue',
-      'src/views/Profile/components/EdhrReleaseDossierRequirementSetting.vue',
+      'src/views/mes/pro/edhr-config/components/ReleaseDossierRequirements.vue',
       'src/views/Profile/components/index.ts',
       'src/views/mes/pro/edhr/shared/releaseCheckPresentation.ts'
     ],

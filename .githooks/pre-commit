@@ -1,4 +1,5 @@
 #!/bin/sh
+python scripts/preflight/check-menu-migrations.py --staged || exit $?
 if command -v pwsh >/dev/null 2>&1; then
   exec pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/preflight/branch-runtime-port-guard.ps1
 fi

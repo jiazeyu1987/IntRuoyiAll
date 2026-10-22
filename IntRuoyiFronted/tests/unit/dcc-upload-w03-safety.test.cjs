@@ -108,7 +108,7 @@ test('cleanup uses the captured old tickets across asynchronous context changes'
 test('stale body upload does not proceed after its asynchronous cleanup finishes', async () => {
   const wait = deferred(), uploaded = []
   const c = evaluate(declaration('handleFileChange') + '\nexports.run=handleFileChange', {
-    sourceUploadRequestSeq: 0, validateControlledFileSelection: () => ({ valid: true }),
+    sourceUploadRequestSeq: 0, validateSingleUploadFileSelection: () => ({ valid: true }),
     cleanupCurrentUploadSession: () => wait.promise, uploadRef: ref({ clearFiles() {} }),
     resetSelectedPreview() {}, resetDrawingPdfUpload() {}, resetAttachmentUploads() {},
     clearSubmitFieldErrors() {}, submitFieldErrors: {}, uploadPreviewError: ref(''), fileList: ref([]), previewUpload: ref(), previewFileBlob: ref(), uploadPreviewLoading: ref(false),

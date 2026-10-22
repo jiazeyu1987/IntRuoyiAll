@@ -1431,7 +1431,7 @@ function Ensure-BackupOpsRehearsalImageAvailable {
 
     $probeCommand = "set -e; command -v docker >/dev/null; if $inspectCommand; then printf 'READY\n'; else printf 'MISSING\n'; fi"
     $inspectResult = Invoke-BackupSshCommand -Request ($testSshRequest + @{ Command = $probeCommand })
-    $probeStatus = ([string]$inspectResult.output).Trim()
+    $probeStatus = ([string]$inspectResult.output).Trim() -replace '\\[rn]+$', ''
     if ($probeStatus -eq 'READY') {
         Write-BackupOpsLog -Session $LogSession -Message "Rehearsal IMAGE_TAG $($Metadata.ImageTag) already exists on test server."
         return
@@ -2056,4 +2056,4 @@ function Test-BackupOpsRehearsalValidation {
         })
 }
 
-Export-ModuleMember -Function Get-BackupDockerComposeStatus, Get-BackupDockerImageTag, Invoke-BackupDockerCompose, Stop-BackupAppServices, Start-BackupAppServices, Restart-BackupAppServices, Get-BackupOpsCurrentImageTag, Get-BackupOpsRollbackTags, Save-BackupOpsRuntimeEnvBackup, Set-BackupOpsImageTag, Restart-BackupOpsFrontendBackend, Test-BackupOpsFrontendBackendHealth, Get-BackupOpsRestoreCandidates, New-BackupOpsPreRestoreSnapshot, Stop-BackupOpsFrontendBackend, Assert-BackupOpsWriteWindowQuiesced, Restore-BackupOpsDependentAssets, Start-BackupOpsFrontendBackend, Test-BackupOpsRestoreValidation, Get-BackupOpsLatestBackup, Get-BackupOpsRehearsalCandidate, Set-BackupOpsRehearsalVerificationState, Restore-BackupOpsRehearsalRuntime, Test-BackupOpsRehearsalValidation
+Export-ModuleMember -Function Get-BackupDockerComposeStatus, Get-BackupDockerImageTag, Invoke-BackupDockerCompose, Stop-BackupAppServices, Start-BackupAppServices, Restart-BackupAppServices, Get-BackupOpsCurrentImageTag, Get-BackupOpsRollbackTags, Save-BackupOpsRuntimeEnvBackup, Set-BackupOpsImageTag, Restart-BackupOpsFrontendBackend, Test-BackupOpsFrontendBackendHealth, Test-BackupOpsRemoteFileExists, Get-BackupOpsRemoteFileText, Get-BackupOpsRestoreCandidates, New-BackupOpsPreRestoreSnapshot, Stop-BackupOpsFrontendBackend, Assert-BackupOpsWriteWindowQuiesced, Restore-BackupOpsDependentAssets, Start-BackupOpsFrontendBackend, Test-BackupOpsRestoreValidation, Get-BackupOpsLatestBackup, Get-BackupOpsRehearsalCandidate, Set-BackupOpsRehearsalVerificationState, Restore-BackupOpsRehearsalRuntime, Test-BackupOpsRehearsalValidation

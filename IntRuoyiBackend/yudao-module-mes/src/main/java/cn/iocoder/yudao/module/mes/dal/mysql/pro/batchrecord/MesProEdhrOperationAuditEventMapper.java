@@ -40,6 +40,17 @@ public interface MesProEdhrOperationAuditEventMapper extends BaseMapperX<MesProE
                 .orderByDesc(MesProEdhrOperationAuditEventDO::getId));
     }
 
+    default List<MesProEdhrOperationAuditEventDO> selectRevisionListByObject(String objectType,
+                                                                              String objectId) {
+        return selectList(new LambdaQueryWrapperX<MesProEdhrOperationAuditEventDO>()
+                .eq(MesProEdhrOperationAuditEventDO::getObjectType, objectType)
+                .eq(MesProEdhrOperationAuditEventDO::getObjectId, objectId)
+                .eq(MesProEdhrOperationAuditEventDO::getOperationType, "UPDATE")
+                .eq(MesProEdhrOperationAuditEventDO::getResultStatus, "SUCCESS")
+                .orderByAsc(MesProEdhrOperationAuditEventDO::getOccurredAt)
+                .orderByAsc(MesProEdhrOperationAuditEventDO::getId));
+    }
+
     default List<MesProEdhrOperationAuditEventDO> selectSuccessfulListByBatchExecutionIdAndOperation(
             Long batchExecutionId, String operationType) {
         return selectList(new LambdaQueryWrapperX<MesProEdhrOperationAuditEventDO>()
@@ -57,7 +68,20 @@ public interface MesProEdhrOperationAuditEventMapper extends BaseMapperX<MesProE
         return selectList(new LambdaQueryWrapperX<MesProEdhrOperationAuditEventDO>()
                 .eq(MesProEdhrOperationAuditEventDO::getOperationType, "OPEN")
                 .eq(MesProEdhrOperationAuditEventDO::getResultStatus, "SUCCESS")
-                .like(MesProEdhrOperationAuditEventDO::getMetadataJson, "\"activeOrderId\":" + activeOrderId)
+                .apply("JSON_UNQUOTE(JSON_EXTRACT(metadata_json, '$.activeOrderId')) = {0}",
+                        String.valueOf(activeOrderId))
+                .orderByDesc(MesProEdhrOperationAuditEventDO::getOccurredAt)
+                .orderByDesc(MesProEdhrOperationAuditEventDO::getId));
+    }
+
+    default List<MesProEdhrOperationAuditEventDO> selectSuccessfulListByActiveOrderId(Long activeOrderId) {
+        if (activeOrderId == null) {
+            return List.of();
+        }
+        return selectList(new LambdaQueryWrapperX<MesProEdhrOperationAuditEventDO>()
+                .eq(MesProEdhrOperationAuditEventDO::getResultStatus, "SUCCESS")
+                .apply("JSON_UNQUOTE(JSON_EXTRACT(metadata_json, '$.activeOrderId')) = {0}",
+                        String.valueOf(activeOrderId))
                 .orderByDesc(MesProEdhrOperationAuditEventDO::getOccurredAt)
                 .orderByDesc(MesProEdhrOperationAuditEventDO::getId));
     }

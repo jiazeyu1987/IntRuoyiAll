@@ -2,14 +2,22 @@ package cn.iocoder.yudao.module.mes.service.pro.batchrecord;
 
 import cn.hutool.core.util.StrUtil;
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
+import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionRespVO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionOriginDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionTaskDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrProcessFormPermissionRuleDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecordreport.MesProBatchRecordReportDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionTaskMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionOriginMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrProcessFormPermissionRuleMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrReleaseTransactionMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrWorkTaskMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecordreport.MesProBatchRecordReportMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationMapper;
 import cn.iocoder.yudao.module.system.api.permission.PermissionApi;
 import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
 import cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO;
@@ -45,6 +53,16 @@ public class MesProEdhrBatchExecutionVisibilityService {
     private MesProBatchRecordReportMapper reportMapper;
     @Resource
     private MesProEdhrCandidateResolver candidateResolver;
+    @Resource
+    private MesProEdhrWorkTaskMapper workTaskMapper;
+    @Resource
+    private MesProEdhrReleaseTransactionMapper releaseTransactionMapper;
+    @Resource
+    private MesProEdhrBatchExecutionOriginMapper batchOriginMapper;
+    @Resource
+    private MesProcessPoolActiveOrderMapper activeOrderMapper;
+    @Resource
+    private MesProcessPoolActiveOrderReleaseApplicationMapper releaseApplicationMapper;
 
     public boolean hasOverviewPermission(Long currentUserId) {
         return currentUserId == null || currentUserId <= 0
@@ -59,6 +77,16 @@ public class MesProEdhrBatchExecutionVisibilityService {
                                 List<MesProEdhrBatchExecutionTaskDO> tasks,
                                 Long currentUserId) {
         if (hasOverviewPermission(currentUserId)) {
+            return true;
+        }
+        if (isCurrentManagerReleaseCandidate(batch, currentUserId)) {
+            return true;
+        }
+        MesProcessPoolActiveOrderDO active = resolveFormalActiveOrder(batch);
+        if (active != null && Objects.equals(active.getLeaderUserId(), currentUserId)) {
+            return true;
+        }
+        if (active != null && isFormalPqcReleaseCandidate(batch, active, currentUserId)) {
             return true;
         }
         MesProEdhrBatchExecutionTaskDO currentProcessTask = resolveCurrentProcessTask(tasks);
@@ -77,6 +105,104 @@ public class MesProEdhrBatchExecutionVisibilityService {
         return fillerUserIdMap.values().stream()
                 .flatMap(List::stream)
                 .anyMatch(userId -> Objects.equals(userId, currentUserId));
+    }
+
+    private MesProcessPoolActiveOrderDO resolveFormalActiveOrder(MesProEdhrBatchExecutionDO batch) {
+        if (batch == null || batch.getId() == null || batch.getId() <= 0
+                || batch.getTenantId() == null
+                || !Objects.equals(batch.getTenantId(), TenantContextHolder.getTenantId())
+                || batch.getWorkOrderId() == null || batch.getWorkOrderId() <= 0
+                || batch.getRouteId() == null || batch.getRouteId() <= 0
+                || batch.getRouteVersionId() == null || batch.getRouteVersionId() <= 0
+                || Boolean.TRUE.equals(batch.getDeleted())) {
+            return null;
+        }
+        List<MesProEdhrBatchExecutionOriginDO> origins = Objects.requireNonNull(
+                batchOriginMapper.selectListByBatchExecutionId(batch.getId()),
+                "EDHR_BATCH_OWNER_ORIGINS_REQUIRED: batchId=" + batch.getId());
+        if (origins.isEmpty()) {
+            return null;
+        }
+        MesProEdhrBatchExecutionOriginDO first = origins.get(0);
+        Long activeOrderId = first == null ? null : first.getActiveOrderId();
+        // Multiple material origins may share one active order; every association must agree.
+        if (activeOrderId == null || activeOrderId <= 0 || origins.stream().anyMatch(origin ->
+                origin == null || origin.getId() == null || origin.getId() <= 0
+                        || Boolean.TRUE.equals(origin.getDeleted())
+                        || !Objects.equals(origin.getTenantId(), batch.getTenantId())
+                        || !Objects.equals(origin.getBatchExecutionId(), batch.getId())
+                        || !Objects.equals(origin.getWorkOrderId(), batch.getWorkOrderId())
+                        || !Objects.equals(origin.getActiveOrderId(), activeOrderId))) {
+            return null;
+        }
+        var active = activeOrderMapper.selectById(activeOrderId);
+        // The persisted holder owns this batch's read scope, including after completion/release.
+        // Current route candidates, creators and form/task assignments are separate contracts.
+        return active != null && !Boolean.TRUE.equals(active.getDeleted())
+                && Objects.equals(active.getId(), activeOrderId)
+                && Objects.equals(active.getTenantId(), batch.getTenantId())
+                && Objects.equals(active.getWorkOrderId(), batch.getWorkOrderId())
+                && Objects.equals(active.getRouteId(), batch.getRouteId())
+                && Objects.equals(active.getRouteVersionId(), batch.getRouteVersionId()) ? active : null;
+    }
+
+    private boolean isFormalPqcReleaseCandidate(MesProEdhrBatchExecutionDO batch,
+                                               MesProcessPoolActiveOrderDO active, Long userId) {
+        var application = releaseApplicationMapper.selectByBatchExecutionId(batch.getId());
+        if (application == null || application.getId() == null || application.getId() <= 0
+                || Boolean.TRUE.equals(application.getDeleted())
+                || !Objects.equals(application.getTenantId(), batch.getTenantId())
+                || !Objects.equals(application.getBatchExecutionId(), batch.getId())
+                || !Objects.equals(application.getActiveOrderId(), active.getId())
+                || !Objects.equals(application.getWorkOrderId(), batch.getWorkOrderId())
+                || !Objects.equals(application.getRouteId(), batch.getRouteId())
+                || !Objects.equals(application.getRouteVersionId(), batch.getRouteVersionId())
+                || application.getPqcReleaseWorkTaskId() == null || application.getPqcReleaseWorkTaskId() <= 0) {
+            return false;
+        }
+        var task = workTaskMapper.selectById(application.getPqcReleaseWorkTaskId());
+        if (task == null || Boolean.TRUE.equals(task.getDeleted())
+                || !Objects.equals(task.getId(), application.getPqcReleaseWorkTaskId())
+                || task.getBatchExecutionId() != null && !Objects.equals(task.getBatchExecutionId(), batch.getId())
+                || !Objects.equals(task.getWorkOrderId(), batch.getWorkOrderId())
+                || !Objects.equals(task.getRouteId(), batch.getRouteId())
+                || !"PQC_PRODUCTION_RELEASE".equals(task.getTaskType())
+                || !"RELEASE_APPLICATION".equals(task.getBusinessScopeType())
+                || !Objects.equals(task.getBusinessScopeId(), application.getId())
+                || !Boolean.TRUE.equals(task.getOwnershipLocked())
+                || !MesProEdhrWorkTaskAuthorization.containsCandidate(task.getCandidateUserSnapshot(), userId)) {
+            return false;
+        }
+        if ("PQC_RELEASE_PENDING".equals(application.getApplicationStatus())) {
+            return "TODO".equals(task.getStatus()) || "DOING".equals(task.getStatus())
+                    || "OVERDUE".equals(task.getStatus());
+        }
+        // The original frozen responsibility remains readable after approval, including history.
+        // This grants no upload, decision, form-fill or task-completion authority.
+        return Objects.equals(task.getBatchExecutionId(), batch.getId())
+                && "DONE".equals(task.getStatus()) && "APPROVE".equals(task.getReason())
+                && "APPROVE".equals(application.getPqcDecision())
+                && ("REPORT_UPLOAD_PENDING".equals(application.getApplicationStatus())
+                    || "MANAGER_RELEASE_PENDING".equals(application.getApplicationStatus())
+                    || "RELEASED".equals(application.getApplicationStatus()));
+    }
+
+    private boolean isCurrentManagerReleaseCandidate(MesProEdhrBatchExecutionDO batch, Long userId) {
+        var transaction = releaseTransactionMapper.selectByBatchExecutionId(batch.getId());
+        if (transaction == null || transaction.getId() == null
+                || !Objects.equals(transaction.getBatchExecutionId(), batch.getId())) {
+            return false;
+        }
+        return workTaskMapper.selectTimelineListByBatchExecutionId(batch.getId()).stream()
+                .filter(task -> Objects.equals(task.getBatchExecutionId(), batch.getId()))
+                .filter(task -> "RELEASE_APPROVE".equals(task.getTaskType()))
+                .filter(task -> "RELEASE_TRANSACTION".equals(task.getBusinessScopeType()))
+                .filter(task -> Objects.equals(task.getBusinessScopeId(), transaction.getId()))
+                .filter(task -> Boolean.TRUE.equals(task.getOwnershipLocked()))
+                .filter(task -> "TODO".equals(task.getStatus()) || "DOING".equals(task.getStatus())
+                        || "DONE".equals(task.getStatus()))
+                .anyMatch(task -> MesProEdhrWorkTaskAuthorization.containsCandidate(
+                        task.getCandidateUserSnapshot(), userId));
     }
 
     private boolean isDefaultReportRequired(ServiceException ex) {

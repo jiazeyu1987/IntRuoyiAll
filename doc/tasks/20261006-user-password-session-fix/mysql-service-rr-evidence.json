@@ -1,0 +1,15 @@
+{
+  "isolation": "REPEATABLE-READ",
+  "old_access_rows": 4,
+  "boundary": "Real Spring-proxied production token service, real production user-lock body and Mappers, actual MySQL; business reset by UI; Redis/client fail if consulted. Web/security/department policies are verified separately.",
+  "old_refresh_rows": 4,
+  "status": "PASS",
+  "username": "um0520261007023542",
+  "current_history_rows": 4,
+  "mapper_dml_attempts": 0,
+  "business_writes": 0,
+  "session": 57463,
+  "exit_code": 0,
+  "actual_ui_reset": "one PUT business0 + 密码已重置 + operator remains authenticated",
+  "observed_at": "2026-10-07T04:44:45+08:00"
+}

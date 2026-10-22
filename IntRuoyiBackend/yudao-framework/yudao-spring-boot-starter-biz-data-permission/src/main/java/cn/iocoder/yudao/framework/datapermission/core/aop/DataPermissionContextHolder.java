@@ -17,7 +17,13 @@ public class DataPermissionContextHolder {
      * 使用 List 的原因，可能存在方法的嵌套调用
      */
     private static final ThreadLocal<LinkedList<DataPermission>> DATA_PERMISSIONS =
-            TransmittableThreadLocal.withInitial(LinkedList::new);
+            TransmittableThreadLocal.withInitialAndCopier(LinkedList::new,
+                    DataPermissionContextHolder::copyDataPermissions,
+                    DataPermissionContextHolder::copyDataPermissions);
+
+    private static LinkedList<DataPermission> copyDataPermissions(LinkedList<DataPermission> dataPermissions) {
+        return dataPermissions == null ? null : new LinkedList<>(dataPermissions);
+    }
 
     /**
      * 获得当前的 DataPermission 注解

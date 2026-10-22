@@ -936,7 +936,7 @@ function Export-BackupObjectSnapshotToRemoteNas {
         $metadataTimeoutSeconds = 300
         $shortSshTimeoutSeconds = 60
         $metadataUploadTimeoutSeconds = 300
-        $objectCopyTimeoutSeconds = 7200
+        $objectCopyTimeoutSeconds = 43200
         $localScriptPath = New-BackupOpsTempScriptPath -Prefix 'backup-ops-object-backup'
         $localCopyScriptPath = New-BackupOpsTempScriptPath -Prefix 'backup-ops-object-copy'
         $remoteScriptPath = '/tmp/' + [System.IO.Path]::GetFileName($localScriptPath)

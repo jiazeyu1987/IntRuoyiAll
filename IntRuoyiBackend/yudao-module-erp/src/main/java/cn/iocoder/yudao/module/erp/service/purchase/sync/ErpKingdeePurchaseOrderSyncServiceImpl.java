@@ -160,9 +160,26 @@ public class ErpKingdeePurchaseOrderSyncServiceImpl implements ErpKingdeePurchas
         ErpPurchaseOrderSaveReqVO createReqVO = new ErpPurchaseOrderSaveReqVO();
         createReqVO.setSupplierId(resolveSupplierId(kingdeeProperties, kingdeeOrder));
         createReqVO.setOrderTime(kingdeeOrder.getBillDate());
+        createReqVO.setDepositPrice(kingdeeOrder.getDepositAmount());
         createReqVO.setDiscountPercent(BigDecimal.ZERO);
         createReqVO.setRemark("Kingdee K3Cloud采购订单：" + kingdeeOrder.getBillNo());
         createReqVO.setItems(buildItems(kingdeeProperties, kingdeeOrder, materialDetails));
+        ErpKingdeeOrderAmounts amounts = new ErpKingdeeOrderAmounts();
+        amounts.setProductAmount(kingdeeOrder.getTotalProductAmount());
+        amounts.setTaxAmount(kingdeeOrder.getTotalTaxAmount());
+        amounts.setTotalAmount(kingdeeOrder.getTotalAmount());
+        amounts.setDiscountAmount(kingdeeOrder.getDiscountAmount());
+        amounts.setLines(new ArrayList<>());
+        for (var line : kingdeeOrder.getLines()) {
+            var amount = new ErpKingdeeOrderAmounts.Line();
+            amount.setNetAmount(line.getNetAmount());
+            amount.setTaxAmount(line.getTaxAmount());
+            amount.setTotalAmount(line.getTotalAmount());
+            amounts.getLines().add(amount);
+        }
+        amounts.validate(createReqVO.getItems().size());
+        createReqVO.setDiscountPercent(amounts.discountPercent());
+        createReqVO.setKingdeeAmounts(amounts);
         return createReqVO;
     }
 
@@ -176,7 +193,9 @@ public class ErpKingdeePurchaseOrderSyncServiceImpl implements ErpKingdeePurchas
         for (ErpKingdeePurchaseOrder.Line line : kingdeeOrder.getLines()) {
             ErpPurchaseOrderSaveReqVO.Item item = new ErpPurchaseOrderSaveReqVO.Item();
             item.setProductId(resolveProductId(kingdeeProperties, line, materialDetails));
-            item.setProductPrice(line.getPrice());
+            item.setProductUnitId(ensureOrderUnit(line.getUnitName()));
+            item.setProductPrice(ErpKingdeeOrderAmounts.transactionUnitPrice(line.getPrice(), line.getQuantity(),
+                    line.getPriceUnitQuantity(), line.getUnitName(), line.getPriceUnitName()));
             item.setCount(line.getQuantity());
             item.setTaxPercent(line.getTaxPercent());
             item.setRemark(line.getRemark());
@@ -277,6 +296,18 @@ public class ErpKingdeePurchaseOrderSyncServiceImpl implements ErpKingdeePurchas
         category.setStatus(CommonStatusEnum.ENABLE.getStatus());
         productCategoryMapper.insert(category);
         return category.getId();
+    }
+
+    private Long ensureOrderUnit(String name) {
+        if (StrUtil.isBlank(name)) { throw exception(KINGDEE_PURCHASE_ORDER_RESPONSE_INVALID, "ERP order unit is blank"); }
+        ErpProductUnitDO unit = productUnitMapper.selectByName(name);
+        if (unit == null) {
+            unit = new ErpProductUnitDO();
+            unit.setName(name);
+            unit.setStatus(CommonStatusEnum.ENABLE.getStatus());
+            productUnitMapper.insert(unit);
+        }
+        return unit.getId();
     }
 
     private Long ensureProductUnit(ErpKingdeeMaterialDetail detail) {

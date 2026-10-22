@@ -43,6 +43,8 @@ final class ProcessPoolTimelineTestSupport {
         Long routeProcessId = processId == null ? null : 5000L + processId;
         return new ProcessPoolTimelineEventReadDO()
                 .setId(id)
+                .setDisplayedReviewId(9000L+id).setDisplayedReviewRound(0).setDisplayedRevisionId(0L)
+                .setDisplayedAllocationVersion(0).setDisplayedReviewStatus("REJECTED")
                 .setProcessPoolId(10L)
                 .setSubmittedAt(LocalDateTime.parse(submittedAt))
                 .setLoginUserId(100L)
@@ -155,6 +157,14 @@ final class ProcessPoolTimelineTestSupport {
                     .filter(event -> Objects.equals(event.getId(), id))
                     .findFirst()
                     .orElse(null);
+        }
+
+        @Override
+        public List<ProcessPoolTimelineEventReadDO> selectPqcSubmissionGroupPayloadsByGroupIds(List<String> groupIds) {
+            return events.stream()
+                    .filter(event -> event.getPqcSubmissionGroupId() != null)
+                    .filter(event -> groupIds.contains(event.getPqcSubmissionGroupId()))
+                    .toList();
         }
 
         @Override

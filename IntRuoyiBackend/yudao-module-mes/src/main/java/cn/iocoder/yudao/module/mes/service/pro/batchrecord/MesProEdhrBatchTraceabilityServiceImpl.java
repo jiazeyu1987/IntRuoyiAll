@@ -41,6 +41,10 @@ import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatc
 @RequiredArgsConstructor
 public class MesProEdhrBatchTraceabilityServiceImpl implements MesProEdhrBatchTraceabilityService {
 
+    private static final Set<String> REPEATABLE_TRACE_LINK_TYPES = Set.of(
+            MesProEdhrBatchTraceLinkType.MATERIAL_ISSUE,
+            MesProEdhrBatchTraceLinkType.MATERIAL_ISSUE_LINE);
+
     private final MesProEdhrBatchExecutionMapper batchExecutionMapper;
     private final MesProEdhrBatchExecutionOriginMapper originMapper;
     private final MesProEdhrBatchExecutionTraceLinkMapper traceLinkMapper;
@@ -53,7 +57,7 @@ public class MesProEdhrBatchTraceabilityServiceImpl implements MesProEdhrBatchTr
         requireBatch(command == null ? null : command.getBatchExecutionId());
         MesProEdhrBatchTraceValidationResult validation = validator.validate(command);
         if (!validation.valid()) {
-            throw exception(TRACE_CAPTURE_BLOCKED, validation.blockerCode());
+            throw exception(TRACE_CAPTURE_BLOCKED, validation.blockerCode() + ":" + validation.blockerScope());
         }
         Long batchExecutionId = command.getBatchExecutionId();
         String entryType = MesProEdhrBatchTraceFormalSourceResolver.isActiveOrderEntryType(command.getEntryType())
@@ -233,7 +237,7 @@ public class MesProEdhrBatchTraceabilityServiceImpl implements MesProEdhrBatchTr
                 .filter(Objects::nonNull)
                 .filter(link -> Objects.equals(command.getBatchExecutionId(), link.getBatchExecutionId()))
                 .filter(link -> MesProEdhrBatchTraceLinkType.BATCH_PROVISION_RECEIPT.equals(link.getLinkType()))
-                .filter(link -> "CAPTURED".equalsIgnoreCase(link.getRelationStatus()))
+                .filter(link -> isFlow8PrecheckRelationReady(link.getRelationStatus()))
                 .filter(MesProEdhrBatchTraceabilityServiceImpl::isTraceLinkIntegrityValid)
                 .filter(link -> origins.stream().anyMatch(origin ->
                         Objects.equals(origin.getId(), link.getOriginId())
@@ -249,6 +253,10 @@ public class MesProEdhrBatchTraceabilityServiceImpl implements MesProEdhrBatchTr
                 .filter(candidate -> Objects.equals(candidate.getId(), link.getOriginId()))
                 .findFirst().orElse(null);
         return resolveSourcePrecheck(command.setOriginLinkId(link.getId()), origin, link, readAt);
+    }
+
+    private static boolean isFlow8PrecheckRelationReady(String relationStatus) {
+        return "CAPTURED".equalsIgnoreCase(relationStatus) || "BOUND".equalsIgnoreCase(relationStatus);
     }
 
     static MesProEdhrBatchTraceSourcePrecheckRespVO resolveSourcePrecheck(
@@ -344,7 +352,7 @@ public class MesProEdhrBatchTraceabilityServiceImpl implements MesProEdhrBatchTr
                 return false;
             }
             Set<String> linkTypes = linkTypesByOrigin.computeIfAbsent(link.getOriginId(), ignored -> new HashSet<>());
-            if (!linkTypes.add(link.getLinkType())) {
+            if (!linkTypes.add(link.getLinkType()) && !REPEATABLE_TRACE_LINK_TYPES.contains(link.getLinkType())) {
                 return false;
             }
         }

@@ -3,6 +3,8 @@ package cn.iocoder.yudao.module.mes.service.pro.processpool.team;
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolOrderProcessCompletionDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolReportAllocationDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.scheduleorder.MesProScheduleOrderDO;
@@ -56,6 +58,7 @@ class MesTeamLeaderOrderProcessCompletionServiceTest {
     private MesProcessPoolActiveOrderProcessSnapshotMapper processSnapshotMapper;
     @Mock
     private MesProProcessPoolEventMapper eventMapper;
+    @Mock private MesProcessPoolActiveOrderMapper activeOrderMapper;
 
     private MesTeamLeaderOrderProcessCompletionService service;
 
@@ -63,7 +66,7 @@ class MesTeamLeaderOrderProcessCompletionServiceTest {
     void setUp() {
         service = new MesTeamLeaderOrderProcessCompletionService(allocationMapper, workOrderMapper,
                 completionMapper, orderProcessTargetService, scheduleOrderMapper, scheduleOrderProcessMapper,
-                processSnapshotMapper, eventMapper);
+                processSnapshotMapper, eventMapper, activeOrderMapper);
     }
 
     @Test
@@ -129,6 +132,22 @@ class MesTeamLeaderOrderProcessCompletionServiceTest {
         assertEquals(MesProcessPoolOrderProcessCompletionDO.BACKFILL_STATUS_NOT_REQUIRED,
                 saved.getBackfillStatus());
         assertEquals(null, saved.getBackfillExecutionId());
+    }
+
+    @Test
+    void recalculationKeepsLastEventWithinTheRemainingAllocatedSources() {
+        var trigger = event();
+        var remainingEvent = event().setId(1002L);
+        var line = allocation(9001L, "100").setEventId(1002L);
+        when(workOrderMapper.selectListByIdsForUpdate(List.of(9001L))).thenReturn(List.of(workOrder("100")));
+        when(allocationMapper.selectListByWorkOrderIdsAndProcessForUpdate(List.of(9001L), 5001L, 6001L))
+                .thenReturn(List.of(line));
+        when(orderProcessTargetService.requireTarget(8101L, 9001L, 5001L, 6001L)).thenReturn(target("100"));
+        stubSingleOutputProgress(8101L, 9001L, 5001L, 6001L, remainingEvent, List.of(line));
+        service.reconcileAffectedAllocations(trigger, List.of(line));
+        var captor = ArgumentCaptor.forClass(MesProcessPoolOrderProcessCompletionDO.class);
+        verify(completionMapper).insert(captor.capture());
+        assertEquals(1002L, captor.getValue().getLastEventId());
     }
 
     @Test
@@ -507,6 +526,9 @@ class MesTeamLeaderOrderProcessCompletionServiceTest {
     private void stubSingleOutputProgress(Long activeOrderId, Long workOrderId, Long routeProcessId,
                                           Long processId, MesProProcessPoolEventDO triggerEvent,
                                           List<MesProcessPoolReportAllocationDO> sourceAllocations) {
+        when(activeOrderMapper.selectAllByWorkOrderIdForUpdate(workOrderId)).thenReturn(List.of(
+                MesProcessPoolActiveOrderDO.builder().id(activeOrderId).workOrderId(workOrderId)
+                        .routeId(triggerEvent.getRouteId()).activeStatus("ACTIVE").build()));
         when(processSnapshotMapper.selectByActiveOrderAndProcess(activeOrderId, routeProcessId, processId))
                 .thenReturn(MesProcessPoolActiveOrderProcessSnapshotDO.builder()
                         .activeOrderId(activeOrderId)
@@ -539,6 +561,7 @@ class MesTeamLeaderOrderProcessCompletionServiceTest {
                         .routeId(triggerEvent.getRouteId())
                         .routeProcessId(routeProcessId)
                         .processId(processId)
+                        .reportOutputQuantity(entry.getValue())
                         .rawPayload("{\"materialDetails\":[{\"materialId\":501,\"outputQuantity\":"
                                 + entry.getValue().stripTrailingZeros().toPlainString() + "}]}")
                         .serverSubmitTime(triggerEvent.getServerSubmitTime())
@@ -666,6 +689,7 @@ class MesTeamLeaderOrderProcessCompletionServiceTest {
                 .routeId(7001L)
                 .routeProcessId(routeProcessId)
                 .processId(6001L)
+                .reportOutputQuantity(new BigDecimal(outputQuantity))
                 .rawPayload("{\"materialDetails\":[{\"materialId\":501,\"outputQuantity\":"
                         + outputQuantity + "}]}")
                 .build();

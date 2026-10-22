@@ -1,6 +1,6 @@
 <template>
   <ContentWrap>
-    <div class="edhr-work-task-page">
+    <div class="edhr-work-task-page" data-edhr-work-task-page>
       <div class="edhr-work-task-page__summary">
         <div class="edhr-work-task-page__metric">
           <span>待处理</span>
@@ -48,7 +48,12 @@
           </el-select>
         </el-form-item>
         <el-form-item label="工单">
-          <el-input v-model="queryParams.workOrderCode" clearable class="!w-170px" />
+          <el-input
+            v-model="queryParams.workOrderCode"
+            clearable
+            class="!w-170px"
+            data-edhr-work-task-work-order-filter
+          />
         </el-form-item>
         <el-form-item label="批次">
           <el-input v-model="queryParams.batchCode" clearable class="!w-150px" />
@@ -57,7 +62,7 @@
           <el-input v-model="queryParams.processName" clearable class="!w-150px" />
         </el-form-item>
         <el-form-item>
-          <el-button type="primary" @click="handleQuery">查询</el-button>
+          <el-button type="primary" data-edhr-work-task-query @click="handleQuery">查询</el-button>
           <el-button @click="resetQuery">重置</el-button>
           <el-button
             v-hasPermi="['mes:pro-edhr-work-task-rule:update']"
@@ -144,18 +149,23 @@
         </el-table-column>
         <el-table-column label="任务" min-width="210">
           <template #default="{ row }">
-            <div class="edhr-work-task-page__task-title">
+            <div
+              class="edhr-work-task-page__task-title"
+              :data-edhr-work-task-row-type="row.taskType"
+            >
               <el-tag :type="resolveTaskTypeTag(row.taskType)">{{
                 resolveTaskTypeLabel(row.taskType)
               }}</el-tag>
-              <span>{{ row.taskCode || row.id }}</span>
+              <span data-edhr-work-task-code>{{ row.taskCode || row.id }}</span>
             </div>
             <div class="edhr-work-task-page__muted">{{ resolveStatusLabel(row.status) }}</div>
           </template>
         </el-table-column>
         <el-table-column label="生产上下文" min-width="260">
           <template #default="{ row }">
-            <div class="edhr-work-task-page__strong">{{ row.workOrderCode || '--' }}</div>
+            <div class="edhr-work-task-page__strong" data-edhr-work-task-row-work-order>
+              {{ row.workOrderCode || '--' }}
+            </div>
             <div class="edhr-work-task-page__muted">批次：{{ row.batchCode || '--' }}</div>
             <div class="edhr-work-task-page__muted">工序：{{ row.processName || '--' }}</div>
           </template>
@@ -233,6 +243,11 @@
                 v-else
                 link
                 type="primary"
+                :data-edhr-work-task-open="row.id"
+                :data-edhr-work-task-open-type="row.taskType"
+                :data-edhr-archive-task-open="
+                  row.taskType === EDHR_WORK_TASK_TYPE_ARCHIVE ? row.id : undefined
+                "
                 :disabled="row.status === EDHR_WORK_TASK_STATUS_DONE"
                 @click="openTask(row)"
               >
@@ -248,14 +263,13 @@
         :total="total"
         v-model:page="queryParams.pageNo"
         v-model:limit="queryParams.pageSize"
-        @pagination="getList"
+        @pagination="getList()"
       />
 
       <Dialog
         v-model="pqcDecisionDialogVisible"
         :title="pqcDecisionDialogTitle"
         width="720px"
-        @closed="resetPqcDecisionDialog"
       >
         <div v-loading="pqcDecisionLoading" class="edhr-work-task-page__pqc-dialog">
           <el-alert
@@ -300,6 +314,14 @@
             label-width="96px"
           >
             <template v-if="pqcDecisionAction === 'APPROVE'">
+              <el-form-item label="UDI编号" prop="udiControlDocumentNo">
+                <el-input
+                  v-model="pqcDecisionForm.udiControlDocumentNo"
+                  maxlength="128"
+                  show-word-limit
+                  placeholder="请输入UDI编号"
+                />
+              </el-form-item>
               <el-form-item label="电子签名" prop="signaturePassword">
                 <el-input
                   v-model="pqcDecisionForm.signaturePassword"
@@ -378,9 +400,14 @@
         v-model="managerReleaseDialogVisible"
         title="管理者代表最终放行"
         width="720px"
-        @closed="resetManagerReleaseDialog"
+        data-manager-release-dialog
       >
         <div v-loading="managerReleaseLoading" class="edhr-work-task-page__pqc-dialog">
+          <section v-if="managerReleaseApprovalPreview">
+            <h3>{{ managerReleaseApprovalPreview.content.scopeText }}</h3>
+            <pre class="edhr-work-task-page__approval-content">{{ JSON.stringify(JSON.parse(managerReleaseApprovalPreview.content.canonicalBusinessContentJson), null, 2) }}</pre>
+            <a v-for="attachment in managerReleaseApprovalPreview.content.attachments" :key="attachment.fileId" :href="attachment.readUrl" target="_blank" rel="noopener noreferrer">{{ attachment.fileName }}</a>
+          </section>
           <el-alert
             v-if="managerReleaseUncertainMessage"
             :title="managerReleaseUncertainMessage"
@@ -411,7 +438,9 @@
               {{ managerReleaseReceipt?.version ?? managerReleaseTask.version }}
             </el-descriptions-item>
             <el-descriptions-item label="状态">
-              {{ resolveManagerReleaseStatusLabel(managerReleaseReceipt?.releaseStatus) }}
+              <span data-manager-release-status>
+                {{ resolveManagerReleaseStatusLabel(managerReleaseReceipt?.releaseStatus) }}
+              </span>
             </el-descriptions-item>
           </el-descriptions>
 
@@ -426,6 +455,7 @@
               <el-input
                 v-model="managerReleaseForm.signaturePassword"
                 type="password"
+                data-manager-release-signature-password
                 show-password
                 autocomplete="current-password"
                 placeholder="请输入当前账号电子签名密码"
@@ -435,6 +465,7 @@
               <el-input
                 v-model="managerReleaseForm.approvalOpinion"
                 type="textarea"
+                data-manager-release-approval-opinion
                 :rows="3"
                 maxlength="500"
                 show-word-limit
@@ -473,6 +504,7 @@
               Boolean(managerReleaseUncertainMessage) ||
               Boolean(managerReleaseBlockers.length)
             "
+            data-manager-release-confirm
             @click="submitManagerReleaseApproval"
           >
             确认最终放行
@@ -599,7 +631,11 @@ import {
   getEdhrRelease,
   type EdhrReleaseRowVO
 } from '@/api/mes/pro/edhr/release'
-import { reviewApprovalTask } from '@/api/approval-center'
+import { reviewApprovalTask, getApprovalReviewPreview, type ApprovalReviewPreview } from '@/api/approval-center'
+import { useApprovalCenterInvalidationStore } from '@/store/modules/approvalCenterInvalidation'
+import { completeApprovalWrite } from '@/store/modules/approvalCenterInvalidationState'
+import CryptoJS from 'crypto-js'
+const approvalInvalidation = useApprovalCenterInvalidationStore()
 import { getEdhrStage5ReleaseSnapshot } from '@/api/mes/pro/edhr/batchExecution'
 import { ProRouteApi, type ProRouteVO } from '@/api/mes/pro/route'
 import { getSimpleUserList, type UserVO } from '@/api/system/user'
@@ -629,6 +665,8 @@ const pqcDecisionIdempotencyKey = ref('')
 const pqcDecisionLockedApplicationIds = reactive(new Set<string>())
 const pqcDecisionFormRef = ref<FormInstance>()
 const managerReleaseDialogVisible = ref(false)
+const managerReleaseApprovalPreview = ref<ApprovalReviewPreview>()
+const managerReleaseRequestKey = ref('')
 const managerReleaseLoading = ref(false)
 const managerReleaseSubmitting = ref(false)
 const managerReleaseTask = ref<EdhrWorkTaskRespVO | null>(null)
@@ -665,11 +703,16 @@ const queryParams = reactive({
   processName: ''
 })
 const pqcDecisionForm = reactive({
+  udiControlDocumentNo: '',
   signaturePassword: '',
   approvalOpinion: '',
   rejectReason: ''
 })
 const pqcDecisionRules: FormRules<typeof pqcDecisionForm> = {
+  udiControlDocumentNo: [
+    { required: true, message: '请输入UDI编号', trigger: 'blur' },
+    { max: 128, message: 'UDI编号长度不能超过128个字符', trigger: 'blur' }
+  ],
   signaturePassword: [{ required: true, message: '请输入电子签名密码', trigger: 'blur' }],
   rejectReason: [
     { required: true, message: '请输入拒绝原因', trigger: 'blur' },
@@ -1050,36 +1093,45 @@ const resolveTaskActionUrl = (row: EdhrWorkTaskRespVO) => {
   return url
 }
 
-const refreshStats = async () => {
-  const data = await getEdhrWorkTaskStats()
+const refreshStats = async (isCurrent: () => boolean = () => true) => {
+  const data = await getEdhrWorkTaskStats({ ignoreErrorMessage: true, isRequestContextCurrent: isCurrent })
+  if (!isCurrent()) return
   Object.assign(stats, data)
 }
 
-const getList = async () => {
+let workTaskListSequence = 0
+const getList = async (isCurrent: () => boolean = () => true) => {
+  const sequence = ++workTaskListSequence
+  const scope = JSON.stringify([approvalInvalidation.syncSession().key, route.fullPath, activeTab.value, buildQuery()])
+  const current = () => sequence === workTaskListSequence && isCurrent() && scope ===
+    JSON.stringify([approvalInvalidation.syncSession().key, route.fullPath, activeTab.value, buildQuery()])
   loading.value = true
   loadError.value = ''
   try {
     const data =
       activeTab.value === 'done'
-        ? await getEdhrWorkTaskDonePage(buildQuery())
+        ? await getEdhrWorkTaskDonePage(buildQuery(), { ignoreErrorMessage: true, isRequestContextCurrent: current })
         : activeTab.value === 'candidate'
           ? await getEdhrWorkTaskCandidateTodoPage({
               ...buildQuery(),
               status: resolveMyPageStatus()
-            })
+            }, { ignoreErrorMessage: true, isRequestContextCurrent: current })
           : await getEdhrWorkTaskMyPage({
               ...buildQuery(),
               status: resolveMyPageStatus()
-            })
+            }, { ignoreErrorMessage: true, isRequestContextCurrent: current })
+    if (!current()) return
     list.value = data.list || []
     total.value = data.total || 0
-    await refreshStats()
+    await refreshStats(current)
+    if (!current()) return
   } catch (error) {
+    if (!current()) return
     list.value = []
     total.value = 0
     loadError.value = resolveErrorMessage(error, 'eDHR 工作任务加载失败。')
   } finally {
-    loading.value = false
+    if (current()) loading.value = false
   }
 }
 
@@ -1255,7 +1307,33 @@ const submitArchiveRule = async () => {
   }
 }
 
+let pqcDecisionDialogGeneration = 0
+const pqcDecisionContextKey = () => {
+  const session = approvalInvalidation.syncSession()
+  const task = pqcDecisionTask.value
+  const receipt = pqcDecisionReceipt.value
+  return JSON.stringify([
+    session.key, session.tenantId, session.loginUserId, route.fullPath,
+    pqcDecisionAction.value, task?.id, task?.taskType, task?.businessScopeType,
+    task?.businessScopeId, task?.version, task?.batchExecutionId, task?.batchTaskId,
+    task?.executionId, task?.sourceExecutionId, task?.workOrderId, task?.routeProcessId,
+    receipt?.applicationId, receipt?.pqcReleaseWorkTaskId, receipt?.version, receipt?.status
+  ])
+}
+const capturePqcDecisionContext = () => {
+  const generation = pqcDecisionDialogGeneration
+  const key = pqcDecisionContextKey()
+  return () => pqcDecisionDialogVisible.value && generation === pqcDecisionDialogGeneration &&
+    key === pqcDecisionContextKey()
+}
+const invalidatePqcDecisionContext = () => {
+  pqcDecisionDialogGeneration++
+  pqcDecisionLoading.value = false
+  pqcDecisionSubmitting.value = false
+  pqcDecisionForm.signaturePassword = ''
+}
 const resetPqcDecisionDialog = () => {
+  invalidatePqcDecisionContext()
   pqcDecisionLoading.value = false
   pqcDecisionSubmitting.value = false
   pqcDecisionAction.value = 'APPROVE'
@@ -1264,11 +1342,24 @@ const resetPqcDecisionDialog = () => {
   pqcDecisionBlockers.value = []
   pqcDecisionUncertainMessage.value = ''
   pqcDecisionIdempotencyKey.value = ''
+  pqcDecisionForm.udiControlDocumentNo = ''
   pqcDecisionForm.signaturePassword = ''
   pqcDecisionForm.approvalOpinion = ''
   pqcDecisionForm.rejectReason = ''
   pqcDecisionFormRef.value?.clearValidate()
 }
+
+watch(pqcDecisionDialogVisible, (visible) => {
+  if (visible) invalidatePqcDecisionContext()
+  else resetPqcDecisionDialog()
+}, { flush: 'sync' })
+watch(pqcDecisionContextKey, invalidatePqcDecisionContext, { flush: 'sync' })
+watch(() => [route.fullPath, approvalInvalidation.syncSession().key], () => {
+  pqcDecisionDialogVisible.value = false
+  resetPqcDecisionDialog()
+}, { flush: 'sync' })
+onDeactivated(() => { pqcDecisionDialogVisible.value = false; resetPqcDecisionDialog() })
+onBeforeUnmount(resetPqcDecisionDialog)
 
 const requirePqcDecisionTaskContext = (row: EdhrWorkTaskRespVO) => ({
   applicationId: requireJsonLongId(row.businessScopeId, '生产放行申请编号'),
@@ -1321,43 +1412,97 @@ const assertPqcDecisionResult = (
 }
 
 const openPqcProductionReleasePage = (row: EdhrWorkTaskRespVO) => {
-  requirePqcDecisionTaskContext(row)
-  router.push({ name: 'MesPqcProductionRelease' })
+  const context = requirePqcDecisionTaskContext(row)
+  router.push({
+    name: 'MesPqcProductionRelease',
+    query: {
+      applicationId: context.applicationId,
+      workTaskId: context.workTaskId
+    }
+  })
 }
 
+// The persisted decision contract uses signed big-endian lengths and UTF-8, null=-1.
+const pqcDecisionPayloadHash = (parts: ReadonlyArray<string | null>) => {
+  const encoder = new TextEncoder()
+  const encoded = parts.map(part => part === null ? null : encoder.encode(part))
+  const bytes = new Uint8Array(encoded.reduce((total, part) => total + 4 + (part?.length ?? 0), 0))
+  const view = new DataView(bytes.buffer)
+  let offset = 0
+  for (const part of encoded) {
+    view.setInt32(offset, part === null ? -1 : part.length, false)
+    offset += 4
+    if (part !== null) { bytes.set(part, offset); offset += part.length }
+  }
+  return CryptoJS.SHA256(CryptoJS.lib.WordArray.create(bytes)).toString(CryptoJS.enc.Hex)
+}
+const freezePqcDecisionRequest = (row: EdhrWorkTaskRespVO) => {
+  const context = requirePqcDecisionTaskContext(row)
+  const receipt = pqcDecisionReceipt.value!
+  assertPqcDecisionReceiptMatchesTask(receipt, row)
+  const session = approvalInvalidation.syncSession()
+  const actorId = requireJsonLongId(session.loginUserId, 'PQC决定账号')
+  const action = pqcDecisionAction.value
+  const expectedVersion = requirePositiveVersion(receipt.version, '生产放行权威版本')
+  const idempotencyKey = pqcDecisionIdempotencyKey.value || createPqcDecisionIdempotencyKey(action, context.applicationId)
+  pqcDecisionIdempotencyKey.value = idempotencyKey
+  const detail = action === 'APPROVE' ? pqcDecisionForm.approvalOpinion.trim() || null : pqcDecisionForm.rejectReason.trim()
+  const udiControlDocumentNo = action === 'APPROVE' ? pqcDecisionForm.udiControlDocumentNo.trim() : null
+  return Object.freeze({
+    ...context, expectedVersion, actorId, action, idempotencyKey, detail, udiControlDocumentNo,
+    row: Object.freeze({ ...row }), session: Object.freeze({ ...session }),
+    signaturePassword: pqcDecisionForm.signaturePassword,
+    payloadHash: pqcDecisionPayloadHash([action, context.applicationId, context.workTaskId,
+      String(expectedVersion), actorId, detail, udiControlDocumentNo]),
+    event: approvalInvalidation.captureEdhrSuccess({ sourceTaskType: 'EDHR_WORK_TASK', sourceTaskId: context.workTaskId })
+  })
+}
+type FrozenPqcDecisionRequest = ReturnType<typeof freezePqcDecisionRequest>
+const assertPqcDecisionRequestReceipt = (result: MesPqcProductionReleaseDecisionRespVO, request: FrozenPqcDecisionRequest) => {
+  assertPqcDecisionResult(result, request.row, request.action)
+  if (result.decisionIdempotencyKey !== request.idempotencyKey ||
+    result.decisionPayloadHash !== request.payloadHash || String(result.decidedBy) !== request.actorId ||
+    (request.action === 'APPROVE' && result.udiControlDocumentNo !== request.udiControlDocumentNo) ||
+    (request.action === 'REJECT' && result.rejectReason !== request.detail)) {
+    throw new Error('正式PQC回执与本次请求键、账号或载荷不一致，不能确认本次决定成功。')
+  }
+}
+const isPqcDecisionTransportTimeout = (error: unknown) => {
+  const value = error as { code?: unknown; response?: unknown } | null
+  return value?.code === 'ECONNABORTED' && value.response == null
+}
 const recoverUncertainPqcProductionReleaseDecision = async (
-  row: EdhrWorkTaskRespVO,
-  action: 'APPROVE' | 'REJECT',
-  writeError: unknown
-) => {
-  const { applicationId } = requirePqcDecisionTaskContext(row)
+  request: FrozenPqcDecisionRequest,
+  writeError: unknown,
+  isCurrent: () => boolean
+): Promise<MesPqcProductionReleaseDecisionRespVO | undefined> => {
+  if (!isCurrent()) return
+  if (!isPqcDecisionTransportTimeout(writeError)) throw writeError
   try {
-    const receipt = await getPqcProductionRelease(applicationId)
-    assertPqcDecisionReceiptMatchesTask(receipt, row)
-    const expectedStatus = action === 'APPROVE' ? 'REPORT_UPLOAD_PENDING' : 'PQC_RELEASE_REJECTED'
-    if (receipt.status !== expectedStatus) {
-      throw new Error(`权威回执仍为${resolvePqcReleaseStatusLabel(receipt.status)}。`)
-    }
-    assertPqcDecisionResult(receipt, row, action)
-    pqcDecisionReceipt.value = receipt
-    pqcDecisionIdempotencyKey.value = ''
-    message.warning(
-      `决定响应异常，但权威回执已确认：${resolvePqcReleaseStatusLabel(receipt.status)}`
-    )
-    return true
+    const receipt = await getPqcProductionRelease(request.applicationId, {
+      ignoreErrorMessage: true, isRequestContextCurrent: isCurrent,
+      isSuccessReceiptContextCurrent: () => approvalInvalidation.isCurrent(request.session.key)
+    })
+    assertPqcDecisionRequestReceipt(receipt, request)
+    approvalInvalidation.publishEdhrSuccess(request.event)
+    return receipt
   } catch (confirmationError) {
-    pqcDecisionLockedApplicationIds.add(applicationId)
+    if (!isCurrent()) return
+    pqcDecisionLockedApplicationIds.add(request.applicationId)
     pqcDecisionUncertainMessage.value =
       `PQC决定结果不确定，请人工核对后刷新页面：写入错误 ` +
       `${resolveErrorMessage(writeError, '请求响应异常')}；回执错误 ` +
       resolveErrorMessage(confirmationError, '权威回执确认失败')
     message.error(pqcDecisionUncertainMessage.value)
-    return false
+    return
   }
 }
 
 const submitPqcProductionReleaseDecision = async () => {
-  const row = pqcDecisionTask.value
+  if (!pqcDecisionDialogVisible.value || pqcDecisionSubmitting.value || pqcDecisionUncertainMessage.value) return
+  const isCurrent = capturePqcDecisionContext()
+  let finishCurrent = isCurrent
+  const row = pqcDecisionTask.value ? { ...pqcDecisionTask.value } : null
   if (!row || !pqcDecisionReceipt.value) {
     message.error('PQC决定缺少权威申请回执，无法提交。')
     return
@@ -1366,77 +1511,96 @@ const submitPqcProductionReleaseDecision = async () => {
     message.error('该生产放行申请已不是待PQC处理状态。')
     return
   }
-  await pqcDecisionFormRef.value?.validate()
-  const context = requirePqcDecisionTaskContext(row)
-  const expectedVersion = requirePositiveVersion(
-    pqcDecisionReceipt.value.version,
-    '生产放行权威版本'
-  )
-  if (!pqcDecisionIdempotencyKey.value) {
-    pqcDecisionIdempotencyKey.value = createPqcDecisionIdempotencyKey(
-      pqcDecisionAction.value,
-      context.applicationId
-    )
-  }
-  pqcDecisionSubmitting.value = true
-  pqcDecisionBlockers.value = []
-  let result: MesPqcProductionReleaseDecisionRespVO
+  let writeSucceeded = false
   try {
-    result =
-      pqcDecisionAction.value === 'APPROVE'
-        ? await approvePqcProductionRelease({
-            applicationId: context.applicationId,
-            pqcReleaseWorkTaskId: context.workTaskId,
-            expectedVersion,
-            idempotencyKey: pqcDecisionIdempotencyKey.value,
-            signaturePassword: pqcDecisionForm.signaturePassword,
-            approvalOpinion: pqcDecisionForm.approvalOpinion.trim() || undefined
-          })
-        : await rejectPqcProductionRelease({
-            applicationId: context.applicationId,
-            pqcReleaseWorkTaskId: context.workTaskId,
-            expectedVersion,
-            idempotencyKey: pqcDecisionIdempotencyKey.value,
-            rejectReason: pqcDecisionForm.rejectReason.trim()
-          })
-  } catch (writeError) {
-    pqcDecisionForm.signaturePassword = ''
-    const failure = resolvePqcProductionReleaseFailure(writeError)
-    if (failure) {
-      pqcDecisionBlockers.value = failure.blockers
-      message.error(resolveErrorMessage(writeError, failure.blockers[0].reason))
-    } else {
-      await recoverUncertainPqcProductionReleaseDecision(row, pqcDecisionAction.value, writeError)
+    await pqcDecisionFormRef.value?.validate()
+    if (!isCurrent()) return
+    const request = freezePqcDecisionRequest(row)
+    if (!isCurrent()) return
+    pqcDecisionSubmitting.value = true
+    pqcDecisionBlockers.value = []
+    const options = {
+      ignoreErrorMessage: true, isRequestContextCurrent: isCurrent,
+      isSuccessReceiptContextCurrent: () => approvalInvalidation.isCurrent(request.session.key)
     }
-    pqcDecisionSubmitting.value = false
-    return
-  }
-
-  try {
-    assertPqcDecisionResult(result, row, pqcDecisionAction.value)
-  } catch (receiptError) {
+    let result: MesPqcProductionReleaseDecisionRespVO | undefined
+    let recovered = false
+    try {
+      result = request.action === 'APPROVE'
+        ? await approvePqcProductionRelease({
+            applicationId: request.applicationId,
+            pqcReleaseWorkTaskId: request.workTaskId,
+            expectedVersion: request.expectedVersion,
+            idempotencyKey: request.idempotencyKey,
+            signaturePassword: request.signaturePassword,
+            udiControlDocumentNo: request.udiControlDocumentNo!,
+            approvalOpinion: request.detail || undefined
+          }, options)
+        : await rejectPqcProductionRelease({
+            applicationId: request.applicationId,
+            pqcReleaseWorkTaskId: request.workTaskId,
+            expectedVersion: request.expectedVersion,
+            idempotencyKey: request.idempotencyKey,
+            rejectReason: request.detail!
+          }, options)
+    } catch (writeError) {
+      if (!isCurrent()) return
+      if (!isPqcDecisionTransportTimeout(writeError)) throw writeError
+      result = await recoverUncertainPqcProductionReleaseDecision(request, writeError, isCurrent)
+      recovered = true
+    }
+    if (!result) return
+    assertPqcDecisionRequestReceipt(result, request)
+    approvalInvalidation.publishEdhrSuccess(request.event)
+    writeSucceeded = true
+    if (!isCurrent()) return
+    pqcDecisionReceipt.value = result
     pqcDecisionForm.signaturePassword = ''
-    await recoverUncertainPqcProductionReleaseDecision(row, pqcDecisionAction.value, receiptError)
-    pqcDecisionSubmitting.value = false
-    return
+    pqcDecisionIdempotencyKey.value = ''
+    // Applying the verified receipt changes the visible version/status. Only this action
+    // may capture the new read context; its write options retain the old immutable guard.
+    finishCurrent = capturePqcDecisionContext()
+    recovered ? message.warning('决定响应异常，但正式回执已确认本次PQC决定。') : message.success(
+      request.action === 'APPROVE'
+        ? `PQC已通过，批次 ${result.batchExecutionId} 已创建，${result.reportUploadTasks.length} 个报告任务待上传。`
+        : 'PQC已拒绝，申请已终止。'
+    )
+    await getList(finishCurrent)
+    if (!finishCurrent()) return
+    if (loadError.value) message.warning(`PQC决定已确认，但待办列表刷新失败：${loadError.value}`)
+  } catch (error) {
+    if (!finishCurrent()) return
+    pqcDecisionForm.signaturePassword = ''
+    const failure = resolvePqcProductionReleaseFailure(error)
+    if (failure) pqcDecisionBlockers.value = failure.blockers
+    message.error(writeSucceeded
+      ? `PQC决定已确认，但列表刷新失败：${resolveErrorMessage(error, '请刷新核对。')}`
+      : resolveErrorMessage(error, 'PQC决定失败，请核对正式错误信息。'))
+  } finally {
+    if (finishCurrent()) pqcDecisionSubmitting.value = false
   }
-
-  pqcDecisionReceipt.value = result
-  pqcDecisionForm.signaturePassword = ''
-  pqcDecisionIdempotencyKey.value = ''
-  message.success(
-    pqcDecisionAction.value === 'APPROVE'
-      ? `PQC已通过，批次 ${result.batchExecutionId} 已创建，${result.reportUploadTasks.length} 个报告任务待上传。`
-      : 'PQC已拒绝，申请已终止。'
-  )
-  await getList()
-  if (loadError.value) {
-    message.warning(`PQC决定已确认，但待办列表刷新失败：${loadError.value}`)
-  }
-  pqcDecisionSubmitting.value = false
 }
 
+let managerReleaseDialogGeneration = 0
+const captureManagerReleaseContext = () => {
+  const generation = managerReleaseDialogGeneration
+  const sessionKey = approvalInvalidation.syncSession().key
+  const routeKey = route.fullPath
+  const taskId = managerReleaseTask.value?.id
+  return () => approvalInvalidation.isCurrent(sessionKey) && routeKey === route.fullPath && managerReleaseDialogVisible.value && generation === managerReleaseDialogGeneration && managerReleaseTask.value?.id === taskId
+}
+watch(managerReleaseDialogVisible, (visible) => {
+  if (!visible) resetManagerReleaseDialog()
+}, { flush: 'sync' })
+onBeforeUnmount(() => { managerReleaseDialogGeneration++ })
+onDeactivated(() => resetManagerReleaseDialog())
+watch(() => [route.fullPath, approvalInvalidation.syncSession().key], () => {
+  managerReleaseDialogVisible.value = false
+  resetManagerReleaseDialog()
+}, { flush: 'sync' })
+
 const resetManagerReleaseDialog = () => {
+  managerReleaseDialogGeneration++
   managerReleaseForm.signaturePassword = ''
   managerReleaseLoading.value = false
   managerReleaseSubmitting.value = false
@@ -1491,24 +1655,33 @@ const assertManagerReleaseApprovalResult = (
 }
 
 const openManagerReleaseDialog = async (row: EdhrWorkTaskRespVO) => {
+  managerReleaseApprovalPreview.value = undefined
+  managerReleaseRequestKey.value = crypto.randomUUID()
   resetManagerReleaseDialog()
   managerReleaseTask.value = row
   managerReleaseDialogVisible.value = true
+  const isCurrent = captureManagerReleaseContext()
   managerReleaseLoading.value = true
   try {
     if (!canHandleManagerRelease(row)) {
       throw new Error(resolveInactionReasonLabel(row))
     }
     const { releaseTransactionId } = requireManagerReleaseTaskContext(row)
-    const receipt = await getEdhrRelease(releaseTransactionId)
+    const receipt = await getEdhrRelease(releaseTransactionId, { ignoreErrorMessage: true, isRequestContextCurrent: isCurrent })
+    if (!isCurrent()) return
     assertManagerReleaseReceiptMatchesTask(receipt, row)
     managerReleaseReceipt.value = receipt
+    const preview = await getApprovalReviewPreview({ moduleCode: 'EDHR', sourceTaskType: 'EDHR_WORK_TASK', sourceTaskId: String(row.id) })
+    if (!isCurrent()) return
+    if (!preview.prepareId || !preview.content.allowedActions.includes('APPROVE')) throw new Error('正式审批正文不支持当前放行动作')
+    managerReleaseApprovalPreview.value = preview
     if (receipt.releaseStatus !== 'PENDING_APPROVAL') {
       message.warning(
         `该事务当前状态为${resolveManagerReleaseStatusLabel(receipt.releaseStatus)}，不能重复处理。`
       )
     }
   } catch (error) {
+    if (!isCurrent()) return
     const failure = resolvePqcProductionReleaseFailure(error)
     if (failure) {
       managerReleaseBlockers.value = failure.blockers
@@ -1521,27 +1694,46 @@ const openManagerReleaseDialog = async (row: EdhrWorkTaskRespVO) => {
       message.error(managerReleaseUncertainMessage.value)
     }
   } finally {
-    managerReleaseLoading.value = false
+    if (isCurrent()) managerReleaseLoading.value = false
   }
+}
+
+const isManagerReleaseTransportTimeout = (error: unknown) => {
+  if (!error || typeof error !== 'object') return false
+  const candidate = error as { isAxiosError?: unknown; code?: unknown; request?: unknown; response?: unknown }
+  return candidate.isAxiosError === true && candidate.request != null && candidate.response == null &&
+    (candidate.code === 'ECONNABORTED' || candidate.code === 'ETIMEDOUT')
+}
+
+const isDefinitiveManagerReleaseFailure = (error: unknown) => {
+  if (!error || typeof error !== 'object') return false
+  const candidate = error as { code?: unknown; response?: unknown }
+  return candidate.response != null || (typeof candidate.code === 'number' && Number.isFinite(candidate.code))
 }
 
 const recoverUncertainManagerReleaseApproval = async (
   row: EdhrWorkTaskRespVO,
-  writeError: unknown
+  writeError: unknown,
+  isCurrent: () => boolean
 ) => {
+  if (!isManagerReleaseTransportTimeout(writeError)) {
+    throw new Error('当前错误不符合无服务端响应的传输超时回执核对条件。')
+  }
   const { releaseTransactionId } = requireManagerReleaseTaskContext(row)
+  managerReleaseLockedTransactionIds.add(releaseTransactionId)
   try {
-    const receipt = await getEdhrRelease(releaseTransactionId)
+    const receipt = await getEdhrRelease(releaseTransactionId, { ignoreErrorMessage: true, isRequestContextCurrent: isCurrent })
+    if (!isCurrent()) return false
     assertManagerReleaseReceiptMatchesTask(receipt, row)
     if (receipt.releaseStatus !== 'RELEASED') {
       throw new Error(`权威回执仍为${resolveManagerReleaseStatusLabel(receipt.releaseStatus)}。`)
     }
     assertManagerReleaseApprovalResult(receipt, row)
-    await loadStage5ReleaseSnapshot(receipt)
-    managerReleaseReceipt.value = receipt
-    message.warning('最终放行响应异常，但权威回执已确认事务为已放行。')
-    return true
+    // The approval-center adapter uses a task/action key, not a unique attempt or
+    // persisted payload identity. Even RELEASED cannot prove this timed-out write.
+    throw new Error('正式回执缺少本次唯一请求及冻结意见、签名载荷证明，已放行历史不能证明本次请求成功。')
   } catch (confirmationError) {
+    if (!isCurrent()) return false
     managerReleaseLockedTransactionIds.add(releaseTransactionId)
     managerReleaseUncertainMessage.value =
       `最终放行结果不确定，请人工核对后刷新页面：写入错误 ` +
@@ -1552,18 +1744,20 @@ const recoverUncertainManagerReleaseApproval = async (
   }
 }
 
-const refreshManagerReleaseListAfterSuccess = async () => {
-  await getList()
+const refreshManagerReleaseListAfterSuccess = async (isCurrent: () => boolean) => {
+  await getList(isCurrent)
+  if (!isCurrent()) return
   if (loadError.value) {
     message.warning(`最终放行已确认，但待办列表刷新失败：${loadError.value}`)
   }
 }
 
-const loadStage5ReleaseSnapshot = async (receipt: EdhrReleaseRowVO) => {
+const loadStage5ReleaseSnapshot = async (receipt: EdhrReleaseRowVO, isCurrent: () => boolean) => {
   const simulationRunId =
     typeof route.query.simulationRunId === 'string' ? route.query.simulationRunId.trim() : ''
   if (!simulationRunId) return
-  const snapshot = await getEdhrStage5ReleaseSnapshot(simulationRunId, receipt.batchExecutionId)
+  const snapshot = await getEdhrStage5ReleaseSnapshot(simulationRunId, receipt.batchExecutionId, { ignoreErrorMessage: true, isRequestContextCurrent: isCurrent })
+  if (!isCurrent()) return
   const evidence = snapshot.fourMaterialEvidence
   if (
     snapshot.releaseStatus !== 'RELEASED' ||
@@ -1578,10 +1772,20 @@ const loadStage5ReleaseSnapshot = async (receipt: EdhrReleaseRowVO) => {
 }
 
 const submitManagerReleaseApproval = async () => {
+  if (!managerReleaseDialogVisible.value || managerReleaseSubmitting.value) return
+  const isCurrent = captureManagerReleaseContext()
   const row = managerReleaseTask.value
   const currentReceipt = managerReleaseReceipt.value
   if (!row || !currentReceipt) {
     message.error('最终放行缺少权威事务回执，无法提交。')
+    return
+  }
+  if (!managerReleaseApprovalPreview.value || !managerReleaseApprovalPreview.value.content.allowedActions.includes('APPROVE')) {
+    message.error('请先完成正式审批正文预览。')
+    return
+  }
+  if (managerReleaseLockedTransactionIds.has(requireManagerReleaseTaskContext(row).releaseTransactionId)) {
+    message.error('本次事务已提交或结果尚未确认，请只读核对正式回执；禁止重复提交。')
     return
   }
   if (currentReceipt.releaseStatus !== 'PENDING_APPROVAL') {
@@ -1589,63 +1793,92 @@ const submitManagerReleaseApproval = async () => {
     return
   }
   await managerReleaseFormRef.value?.validate()
+  if (!isCurrent() || managerReleaseSubmitting.value) return
   const context = requireManagerReleaseTaskContext(row)
+  const event = approvalInvalidation.captureEdhrSuccess({ sourceTaskType: 'EDHR_WORK_TASK', sourceTaskId: context.workTaskId })
+  const publishSuccess = () => approvalInvalidation.publishEdhrSuccess(event)
   managerReleaseSubmitting.value = true
   managerReleaseBlockers.value = []
   let result: EdhrReleaseRowVO
+  let writeSucceeded = false
   try {
-    await reviewApprovalTask({
+    const submitted = await reviewApprovalTask({
       moduleCode: 'EDHR',
       sourceTaskType: 'EDHR_WORK_TASK',
       sourceTaskId: context.workTaskId,
       businessKey: context.workTaskId,
       result: 'APPROVE',
       signaturePassword: managerReleaseForm.signaturePassword,
-      reason: managerReleaseForm.approvalOpinion.trim()
-    })
+      reason: managerReleaseForm.approvalOpinion.trim(),
+      prepareId: managerReleaseApprovalPreview.value?.prepareId,
+      idempotencyKey: managerReleaseRequestKey.value,
+      expectedSubjectVersion: managerReleaseApprovalPreview.value?.content.subjectVersion,
+      expectedContentHash: managerReleaseApprovalPreview.value?.content.contentHash,
+      contentPolicyVersion: managerReleaseApprovalPreview.value?.content.contentPolicyVersion
+    }, { ignoreErrorMessage: true, isRequestContextCurrent: isCurrent , isSuccessReceiptContextCurrent: (() => { const receiptSessionKey = approvalInvalidation.syncSession().key; return () => approvalInvalidation.isCurrent(receiptSessionKey) })()})
+    if (!submitted || typeof submitted !== 'object' || submitted.idempotencyKey !== managerReleaseRequestKey.value || submitted.prepareId !== managerReleaseApprovalPreview.value?.prepareId || !submitted.receiptId || !submitted.signatureId) throw new Error('最终放行接口未确认本次正式回执，请核对结果。')
+    writeSucceeded = true
+    managerReleaseLockedTransactionIds.add(context.releaseTransactionId)
+    publishSuccess()
+    if (!isCurrent()) return
     managerReleaseForm.signaturePassword = ''
-    result = await getEdhrRelease(context.releaseTransactionId)
+    result = await getEdhrRelease(context.releaseTransactionId, { ignoreErrorMessage: true, isRequestContextCurrent: isCurrent })
+    if (!isCurrent()) return
   } catch (writeError) {
+    if (!writeSucceeded && !isDefinitiveManagerReleaseFailure(writeError)) {
+      managerReleaseLockedTransactionIds.add(context.releaseTransactionId)
+    }
+    if (!isCurrent()) return
     managerReleaseForm.signaturePassword = ''
+    if (writeSucceeded) {
+      managerReleaseUncertainMessage.value = `最终放行已成功，回执刷新失败：${resolveErrorMessage(writeError, '请刷新查看回执。')}`
+      message.warning(managerReleaseUncertainMessage.value)
+      managerReleaseSubmitting.value = false
+      return
+    }
     const failure = resolvePqcProductionReleaseFailure(writeError)
     if (failure) {
       managerReleaseBlockers.value = failure.blockers
       message.error(resolveErrorMessage(writeError, failure.blockers[0].reason))
-    } else if (await recoverUncertainManagerReleaseApproval(row, writeError)) {
-      await refreshManagerReleaseListAfterSuccess()
+    } else if (isManagerReleaseTransportTimeout(writeError)) {
+      await recoverUncertainManagerReleaseApproval(row, writeError, isCurrent)
+    } else {
+      managerReleaseUncertainMessage.value = isDefinitiveManagerReleaseFailure(writeError)
+        ? resolveErrorMessage(writeError, '最终放行失败。')
+        : `最终放行结果无法确认，请只读核对正式回执；禁止重复提交：${resolveErrorMessage(writeError, '响应异常')}`
+      message.error(managerReleaseUncertainMessage.value)
     }
-    managerReleaseSubmitting.value = false
+    if (isCurrent()) managerReleaseSubmitting.value = false
     return
   }
 
   try {
     assertManagerReleaseApprovalResult(result, row)
   } catch (receiptError) {
-    if (await recoverUncertainManagerReleaseApproval(row, receiptError)) {
-      await refreshManagerReleaseListAfterSuccess()
-    }
-    managerReleaseSubmitting.value = false
+    if (!isCurrent()) return
+    managerReleaseUncertainMessage.value = `最终放行已成功，权威回执读取异常：${resolveErrorMessage(receiptError, '请刷新核对。')}`
+    message.warning(managerReleaseUncertainMessage.value)
+    if (isCurrent()) managerReleaseSubmitting.value = false
     return
   }
 
   managerReleaseReceipt.value = result
   try {
-    await loadStage5ReleaseSnapshot(result)
+    await loadStage5ReleaseSnapshot(result, isCurrent)
+    if (!isCurrent()) return
   } catch (snapshotError) {
+    if (!isCurrent()) return
     managerReleaseUncertainMessage.value = `最终放行已确认，但 Stage5 追溯回执读取失败：${resolveErrorMessage(
       snapshotError,
       '请人工核对后刷新页面'
     )}`
     message.error(managerReleaseUncertainMessage.value)
-    managerReleaseSubmitting.value = false
+    if (isCurrent()) managerReleaseSubmitting.value = false
     return
   }
   message.success(`最终放行已确认，生产批次 ${result.batchExecutionId} 已进入可追溯列表。`)
-  await getList()
-  if (loadError.value) {
-    message.warning(`最终放行已确认，但待办列表刷新失败：${loadError.value}`)
-  }
-  managerReleaseSubmitting.value = false
+  await refreshManagerReleaseListAfterSuccess(isCurrent)
+  if (isCurrent()) managerReleaseSubmitting.value = false
 }
 
 const openTask = async (row: EdhrWorkTaskRespVO) => {
@@ -1691,21 +1924,65 @@ const openProductionReleaseReportTask = async (row: EdhrWorkTaskRespVO) => {
   }
 }
 
+const candidateSignatureWrites = new Set<string>()
+let candidateSignatureGeneration = 0
+const invalidateCandidateSignatureContext = () => { candidateSignatureGeneration++ }
+const candidateSignatureContextKey = () => JSON.stringify([
+  route.fullPath, approvalInvalidation.syncSession().key, activeTab.value, queryParams
+])
+watch(candidateSignatureContextKey, invalidateCandidateSignatureContext, { flush: 'sync' })
+onBeforeUnmount(invalidateCandidateSignatureContext)
+onDeactivated(invalidateCandidateSignatureContext)
+const candidateSignatureTaskIdentity = (row: EdhrWorkTaskRespVO) => JSON.stringify([
+  row.id, row.executionId, row.taskType, row.status, row.version, row.batchExecutionId,
+  row.batchTaskId, row.businessScopeType, row.businessScopeId, row.bpmTaskId,
+  row.signatureCellKey, row.signatureRowIndex, row.signatureColumnIndex,
+  row.reviewSourceType, row.reviewSourceId, row.reviewSourceIds, row.candidateUserSnapshot
+])
+
 const handleCompleteCandidateSignature = async (row: EdhrWorkTaskRespVO) => {
   if (!row.executionId) {
     message.error('候选审核任务缺少执行记录，无法完成签名。')
     return
   }
+  const taskId = row.id
+  const executionId = row.executionId
+  const event = approvalInvalidation.captureEdhrSuccess({ sourceTaskType: 'EDHR_WORK_TASK', sourceTaskId: String(taskId) })
+  const routeKey = candidateSignatureContextKey()
+  const generation = candidateSignatureGeneration
+  const taskIdentity = candidateSignatureTaskIdentity(row)
+  const lockKey = JSON.stringify([event.session.key, taskId])
+  if (candidateSignatureWrites.has(lockKey)) return
+  candidateSignatureWrites.add(lockKey)
+  const isCurrent = () => approvalInvalidation.isCurrent(event.session.key)
+    && candidateSignatureContextKey() === routeKey && generation === candidateSignatureGeneration
+    && candidateSignatureTaskIdentity(row) === taskIdentity
   try {
     await message.confirm(
       `确认完成「${row.processName || row.taskCode || row.id}」的候选审核签名？`
     )
-    await completeEdhrCandidateSignatureTask(row.id, row.executionId)
-    message.success('签名完成')
-    await getList()
+    if (!isCurrent()) return
+    await completeApprovalWrite({
+      write: async () => {
+        const result = await completeEdhrCandidateSignatureTask(taskId, executionId, { ignoreErrorMessage: true, isRequestContextCurrent: isCurrent , isSuccessReceiptContextCurrent: (() => { const receiptSessionKey = approvalInvalidation.syncSession().key; return () => approvalInvalidation.isCurrent(receiptSessionKey) })()})
+        if (result !== true) throw new Error('候选审核签名接口未确认成功，请核对正式结果。')
+        return result
+      },
+      publish: () => approvalInvalidation.publishEdhrSuccess(event),
+      success: () => { if (isCurrent()) message.success('签名完成') },
+      refresh: async () => {
+        if (!isCurrent()) return
+        await getList(isCurrent)
+        if (!isCurrent()) return
+        if (loadError.value) throw new Error(loadError.value)
+      },
+      refreshFailed: (error) => { if (isCurrent()) message.warning(`签名已成功，列表刷新失败：${resolveErrorMessage(error, '刷新失败。')}`) }
+    })
   } catch (error) {
-    if (error === 'cancel') return
+    if (!isCurrent() || error === 'cancel') return
     message.error(resolveErrorMessage(error, '候选审核签名失败。'))
+  } finally {
+    candidateSignatureWrites.delete(lockKey)
   }
 }
 

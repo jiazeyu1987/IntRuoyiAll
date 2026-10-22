@@ -16,12 +16,16 @@ public class MesPqcProductionReleaseDecisionResult {
     private String decision;
     private String status;
     private String rejectReason;
+    private String udiControlDocumentNo;
     private Long batchExecutionId;
     private Long signatureId;
     private List<Long> batchRecordEvidenceIds;
     private List<Long> processInspectionEvidenceIds;
     private List<Long> processInspectionFormCenterInstanceIds;
     private List<Long> lossReportEvidenceIds;
+    private List<Long> lossReportFormCenterInstanceIds;
+    private List<Long> lossReportFieldAuditIds;
+    private List<String> lossReportFieldAuditHeadHashes;
     private String lossReportStatus;
     private Boolean hasActualLoss;
     private BigDecimal lossQuantity;

@@ -1,5 +1,6 @@
 package cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecordreport;
 
+import com.alibaba.fastjson.JSON;
 import cn.iocoder.yudao.framework.common.pojo.CommonResult;
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
 import cn.iocoder.yudao.framework.common.util.object.BeanUtils;
@@ -16,10 +17,13 @@ import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecordreport.vo.Bat
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecordreport.vo.BatchRecordReportRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecordreport.vo.BatchRecordReportSignatureCellMarkersReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecordreport.vo.BatchRecordReportSignatureCellMarkersRespVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecordreport.vo.BatchRecordTotalRecognitionPublishReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecordreport.vo.BatchRecordTotalRecognitionPublishRespVO;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecordreport.MesProBatchRecordImportResult;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecordreport.MesProBatchRecordImportPreflightResult;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecordreport.MesProBatchRecordReportService;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecordreport.MesProBatchRecordReportView;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecordreport.MesProBatchRecordTotalRecognitionPublishResult;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecordreport.MesProBatchRecordVersionApprovalResult;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -75,6 +79,17 @@ public class MesProBatchRecordReportController {
             @RequestParam("file") MultipartFile file) {
         batchRecordReportService.importTotalRecognitionJson(dccProjectCodeId, file);
         return success(true);
+    }
+
+    @PostMapping("/total-recognition-json/publish")
+    @Operation(summary = "发布当前生产批记录总识别 JSON 到工艺路线")
+    @PreAuthorize("@ss.hasPermission('form:parser:production-batch-record:publish')")
+    public CommonResult<BatchRecordTotalRecognitionPublishRespVO> publishTotalRecognitionJson(
+            @Valid @RequestBody BatchRecordTotalRecognitionPublishReqVO reqVO) {
+        MesProBatchRecordTotalRecognitionPublishResult result =
+                batchRecordReportService.publishTotalRecognitionJson(
+                        reqVO.getDccProjectCodeId(), JSON.toJSONString(reqVO.getRecognitionJson()));
+        return success(toPublishRespVO(result));
     }
 
     @PostMapping("/import-image")
@@ -324,6 +339,27 @@ public class MesProBatchRecordReportController {
         response.setSkippedProductNames(result.skippedProductNames());
         response.setReports(toRespVOList(result.reports()));
         response.setTotalRecognitionJson(result.totalRecognitionJson());
+        return response;
+    }
+
+    private BatchRecordTotalRecognitionPublishRespVO toPublishRespVO(
+            MesProBatchRecordTotalRecognitionPublishResult result) {
+        BatchRecordTotalRecognitionPublishRespVO response = new BatchRecordTotalRecognitionPublishRespVO();
+        response.setAction(result.action());
+        response.setDccProjectCodeId(result.dccProjectCodeId());
+        response.setProjectCode(result.projectCode());
+        response.setProjectName(result.projectName());
+        response.setRouteId(result.routeId());
+        response.setRouteCode(result.routeCode());
+        response.setRouteName(result.routeName());
+        response.setRouteVersionId(result.routeVersionId());
+        response.setRouteVersionNo(result.routeVersionNo());
+        response.setRouteCandidateVersionId(result.routeCandidateVersionId());
+        response.setRouteCandidateVersionNo(result.routeCandidateVersionNo());
+        response.setProcessCount(result.processCount());
+        response.setUpdatedProcessCount(result.updatedProcessCount());
+        response.setRecognitionJsonSha256(result.recognitionJsonSha256());
+        response.setUpdateTime(result.updateTime());
         return response;
     }
 

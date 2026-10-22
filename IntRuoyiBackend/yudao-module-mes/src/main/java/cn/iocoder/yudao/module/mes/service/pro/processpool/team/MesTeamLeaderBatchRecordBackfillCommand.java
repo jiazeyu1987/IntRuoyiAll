@@ -5,6 +5,7 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProces
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolSubmissionReviewDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteFlowProcessBatchRecordDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesProWorkOrderDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProBatchRecordCellLinkRuleDO;
 import lombok.Data;
 import lombok.experimental.Accessors;
 
@@ -44,4 +45,13 @@ public class MesTeamLeaderBatchRecordBackfillCommand {
     private Long batchExecutionId;
 
     private Long batchExecutionTaskId;
+
+    /** Exact production source rules validated by the completion-source adapter. */
+    private List<MesProBatchRecordCellLinkRuleDO> mappingRules;
+
+    /** Frozen source provenance persisted in the existing field audit. */
+    private String sourceAuditReasonText;
+
+    /** Completion materialization must not overwrite an unsigned manual value. */
+    private boolean requireEmptyTargets;
 }

@@ -44,12 +44,28 @@ public interface MesProcessPoolActiveOrderReleaseApplicationMapper
     @Select("""
             SELECT *
             FROM mes_pro_process_pool_active_order_release_application
-            WHERE batch_execution_id = #{batchExecutionId}
+            WHERE current_batch_execution_id = #{batchExecutionId}
               AND deleted = b'0'
             FOR UPDATE
             """)
     MesProcessPoolActiveOrderReleaseApplicationDO selectByBatchExecutionIdForUpdate(
             @Param("batchExecutionId") Long batchExecutionId);
+
+    default List<MesProcessPoolActiveOrderReleaseApplicationDO> selectListByBoundBatchForUpdate(Long batchExecutionId) {
+        return selectList(new LambdaQueryWrapperX<MesProcessPoolActiveOrderReleaseApplicationDO>()
+                .eq(MesProcessPoolActiveOrderReleaseApplicationDO::getBatchExecutionId, batchExecutionId).last("FOR UPDATE"));
+    }
+
+    @Update("""
+            UPDATE mes_pro_process_pool_active_order_release_application
+            SET application_status = 'BATCH_VOIDED', dossier_summary_json = #{dossierSummaryJson}, version = version + 1
+            WHERE id = #{id} AND tenant_id = #{tenantId} AND deleted = 0
+              AND version = #{expectedVersion} AND application_status = 'PQC_RELEASE_PENDING'
+              AND batch_execution_id = #{batchExecutionId} AND pqc_release_work_task_id = #{pqcReleaseWorkTaskId}
+            """)
+    int closeFromBatchVoid(@Param("id") Long id, @Param("tenantId") Long tenantId,
+            @Param("expectedVersion") Integer expectedVersion, @Param("batchExecutionId") Long batchExecutionId,
+            @Param("pqcReleaseWorkTaskId") Long pqcReleaseWorkTaskId, @Param("dossierSummaryJson") String dossierSummaryJson);
 
     @Select("""
             SELECT *
@@ -77,6 +93,20 @@ public interface MesProcessPoolActiveOrderReleaseApplicationMapper
 
     @Update("""
             UPDATE mes_pro_process_pool_active_order_release_application
+            SET batch_execution_id = #{batchExecutionId},
+                version = version + 1
+            WHERE id = #{id}
+              AND deleted = 0
+              AND version = #{expectedVersion}
+              AND application_status = 'PQC_RELEASE_PENDING'
+              AND batch_execution_id IS NULL
+            """)
+    int bindP3BatchExecution(@Param("id") Long id,
+                             @Param("expectedVersion") Integer expectedVersion,
+                             @Param("batchExecutionId") Long batchExecutionId);
+
+    @Update("""
+            UPDATE mes_pro_process_pool_active_order_release_application
             SET version = version + 1
             WHERE id = #{id}
               AND deleted = b'0'
@@ -99,7 +129,7 @@ public interface MesProcessPoolActiveOrderReleaseApplicationMapper
             WHERE id = #{id}
               AND deleted = b'0'
               AND version = #{expectedVersion}
-              AND application_status = 'REPORT_UPLOAD_PENDING'
+              AND application_status IN ('REPORT_UPLOAD_PENDING', 'MANAGER_RELEASE_PENDING')
             """)
     int handoffReportsToManager(@Param("id") Long id,
                                 @Param("expectedVersion") Integer expectedVersion,
@@ -128,7 +158,7 @@ public interface MesProcessPoolActiveOrderReleaseApplicationMapper
 
     @Update("""
             UPDATE mes_pro_process_pool_active_order_release_application
-            SET application_status = 'REPORT_UPLOAD_PENDING',
+            SET application_status = 'MANAGER_RELEASE_PENDING',
                 batch_execution_id = #{batchExecutionId},
                 pqc_decision = 'APPROVE',
                 pqc_decided_by = #{decidedBy},
@@ -171,27 +201,12 @@ public interface MesProcessPoolActiveOrderReleaseApplicationMapper
                           @Param("rejectReason") String rejectReason,
                           @Param("dossierSummaryJson") String dossierSummaryJson);
 
-    @Update("""
-            UPDATE mes_pro_process_pool_active_order_release_application
-            SET application_status = 'PQC_RELEASE_REJECTED',
-                pqc_decision = #{pqcDecision},
-                pqc_decided_by = #{decidedBy},
-                pqc_decided_at = #{decidedAt},
-                pqc_reject_reason = #{rejectReason},
-                dossier_summary_json = #{dossierSummaryJson},
-                version = version + 1
-            WHERE id = #{id}
-              AND deleted = b'0'
-              AND version = #{expectedVersion}
-              AND application_status = 'PQC_RELEASE_PENDING'
-            """)
-    int closeFromNonconformance(@Param("id") Long id,
-                                @Param("expectedVersion") Integer expectedVersion,
-                                @Param("pqcDecision") String pqcDecision,
-                                @Param("decidedBy") Long decidedBy,
-                                @Param("decidedAt") LocalDateTime decidedAt,
-                                @Param("rejectReason") String rejectReason,
-                                @Param("dossierSummaryJson") String dossierSummaryJson);
+    @Update("UPDATE mes_pro_process_pool_active_order_release_application SET application_status = #{closureStatus}, qa_closure_review_id = #{reviewId}, "
+            + "version = version + 1 WHERE id = #{id} AND deleted = 0 AND version = #{expectedVersion} "
+            + "AND #{reviewId} > 0 AND #{closureStatus} IN ('NONCONFORMANCE_REWORK','NONCONFORMANCE_VOID') "
+            + "AND application_status IN ('PQC_RELEASE_PENDING','REPORT_UPLOAD_PENDING','MANAGER_RELEASE_PENDING','RELEASED')")
+    int closeLifecycleFromNonconformance(@Param("id") Long id, @Param("expectedVersion") Integer expectedVersion,
+                                         @Param("closureStatus") String closureStatus, @Param("reviewId") Long reviewId);
 
     default MesProcessPoolActiveOrderReleaseApplicationDO selectByRequestIdempotencyKey(
             Long activeOrderId, String requestIdempotencyKey) {
@@ -217,6 +232,14 @@ public interface MesProcessPoolActiveOrderReleaseApplicationMapper
                 .last("LIMIT 1"));
     }
 
+    default MesProcessPoolActiveOrderReleaseApplicationDO selectByBatchExecutionId(Long batchExecutionId) {
+        if (batchExecutionId == null || batchExecutionId <= 0) {
+            throw new IllegalArgumentException("正式批次编号无效");
+        }
+        return selectOne(new LambdaQueryWrapperX<MesProcessPoolActiveOrderReleaseApplicationDO>()
+                .eq(MesProcessPoolActiveOrderReleaseApplicationDO::getBatchExecutionId, batchExecutionId));
+    }
+
     default MesProcessPoolActiveOrderReleaseApplicationDO selectLatestByActiveOrderId(Long activeOrderId) {
         if (activeOrderId == null) {
             return null;
@@ -225,6 +248,30 @@ public interface MesProcessPoolActiveOrderReleaseApplicationMapper
                 .eq(MesProcessPoolActiveOrderReleaseApplicationDO::getActiveOrderId, activeOrderId)
                 .orderByDesc(MesProcessPoolActiveOrderReleaseApplicationDO::getId)
                 .last("LIMIT 1"));
+    }
+
+    default MesProcessPoolActiveOrderReleaseApplicationDO selectLatestReworkClosedByActiveOrderId(Long activeOrderId) {
+        if (activeOrderId == null) {
+            return null;
+        }
+        return selectLatestReworkClosedByActiveOrderIdInternal(activeOrderId);
+    }
+
+    @Select("""
+            SELECT * FROM mes_pro_process_pool_active_order_release_application
+            WHERE active_order_id = #{activeOrderId} AND deleted = b'0'
+              AND application_status = 'NONCONFORMANCE_REWORK'
+            ORDER BY id DESC LIMIT 1
+            """)
+    MesProcessPoolActiveOrderReleaseApplicationDO selectLatestReworkClosedByActiveOrderIdInternal(
+            @Param("activeOrderId") Long activeOrderId);
+
+    default List<Long> selectReworkClosedApplicationIds(Collection<Long> applicationIds) {
+        if (applicationIds == null || applicationIds.isEmpty()) return List.of();
+        return selectList(new LambdaQueryWrapperX<MesProcessPoolActiveOrderReleaseApplicationDO>()
+                .in(MesProcessPoolActiveOrderReleaseApplicationDO::getId, applicationIds)
+                .eq(MesProcessPoolActiveOrderReleaseApplicationDO::getApplicationStatus, "NONCONFORMANCE_REWORK"))
+                .stream().map(MesProcessPoolActiveOrderReleaseApplicationDO::getId).toList();
     }
 
     default List<MesProcessPoolActiveOrderReleaseApplicationDO> selectLatestByActiveOrderIds(
@@ -276,9 +323,9 @@ public interface MesProcessPoolActiveOrderReleaseApplicationMapper
         if (batchExecutionIds == null || batchExecutionIds.isEmpty()) {
             return Collections.emptyList();
         }
-        return selectList(new LambdaQueryWrapperX<MesProcessPoolActiveOrderReleaseApplicationDO>()
-                .in(MesProcessPoolActiveOrderReleaseApplicationDO::getBatchExecutionId, batchExecutionIds)
-                .orderByDesc(MesProcessPoolActiveOrderReleaseApplicationDO::getId));
+        return selectList(new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<MesProcessPoolActiveOrderReleaseApplicationDO>()
+                .in("current_batch_execution_id", batchExecutionIds)
+                .orderByDesc("id"));
     }
 
     default List<MesProcessPoolActiveOrderReleaseApplicationDO> selectListForPqcReleasePage(
@@ -291,13 +338,14 @@ public interface MesProcessPoolActiveOrderReleaseApplicationMapper
 
     default PageResult<MesProcessPoolActiveOrderReleaseApplicationDO> selectPqcReleasePage(
             PageParam pageParam, Long tenantId, Long actorUserId, String viewStatus,
-            String workOrderCode, String batchCode) {
+            String workOrderCode, String batchCode, Long applicationId, Long pqcReleaseWorkTaskId) {
         if (pageParam == null || tenantId == null || actorUserId == null || viewStatus == null) {
             throw new IllegalArgumentException("PQC release page query is incomplete");
         }
         IPage<MesProcessPoolActiveOrderReleaseApplicationDO> page =
                 new Page<>(pageParam.getPageNo(), pageParam.getPageSize());
-        selectPqcReleasePage(page, tenantId, actorUserId, viewStatus, workOrderCode, batchCode);
+        selectPqcReleasePage(page, tenantId, actorUserId, viewStatus, workOrderCode, batchCode,
+                applicationId, pqcReleaseWorkTaskId);
         return new PageResult<>(page.getRecords(), page.getTotal());
     }
 
@@ -312,30 +360,53 @@ public interface MesProcessPoolActiveOrderReleaseApplicationMapper
             "       a.release_approval_work_task_id, a.pqc_release_work_task_id, a.pqc_decision, a.pqc_decided_by,",
             "       a.pqc_decided_at, a.pqc_reject_reason, a.application_status, a.source_snapshot_hash,",
             "       a.report_snapshot_hash, a.version, a.applied_by, a.applied_at, a.last_precheck_at, a.remark,",
-            "       a.creator, a.create_time, a.updater, a.update_time, a.deleted, a.tenant_id",
+            "       a.dossier_summary_json, a.creator, a.create_time, a.updater, a.update_time, a.deleted, a.tenant_id",
             "FROM mes_pro_process_pool_active_order_release_application a",
             "INNER JOIN mes_pro_edhr_work_task t",
             "        ON t.id = a.pqc_release_work_task_id",
             "       AND t.tenant_id = #{tenantId}",
-            "       AND t.deleted = b'0'",
+            "       AND t.deleted = 0",
             "       AND t.task_type = 'PQC_PRODUCTION_RELEASE'",
             "       AND t.business_scope_type = 'RELEASE_APPLICATION'",
             "       AND t.business_scope_id = a.id",
-            "LEFT JOIN (",
-            "       SELECT r1.id, r1.source_id, r1.review_status, r1.disposition,",
-            "              r1.nonconformance_reason, r1.closed_at",
-            "       FROM mes_pro_edhr_nonconformance_review r1",
-            "       INNER JOIN (",
-            "              SELECT source_id, MAX(id) AS id",
-            "              FROM mes_pro_edhr_nonconformance_review",
-            "              WHERE source_type = 'PQC_RELEASE' AND deleted = b'0' AND tenant_id = #{tenantId}",
-            "              GROUP BY source_id",
-            "       ) latest ON latest.source_id = r1.source_id AND latest.id = r1.id",
-            "       WHERE r1.source_type = 'PQC_RELEASE' AND r1.deleted = b'0' AND r1.tenant_id = #{tenantId}",
-            ") r ON r.source_id = a.id",
-            "WHERE a.tenant_id = #{tenantId} AND a.deleted = b'0'",
+            "LEFT JOIN mes_pro_edhr_nonconformance_review r",
+            "       ON r.source_type = 'ACTIVE_ORDER'",
+            "      AND r.source_id = a.active_order_id",
+            "      AND r.active_order_id = a.active_order_id",
+            "      AND r.deleted = 0 AND r.tenant_id = #{tenantId}",
+            "      AND r.frozen_at &gt;= a.applied_at",
+            "      AND NOT EXISTS (",
+            "          SELECT 1 FROM mes_pro_process_pool_active_order_release_application next_a",
+            "          WHERE next_a.active_order_id = a.active_order_id",
+            "            AND next_a.deleted = 0 AND next_a.tenant_id = #{tenantId}",
+            "            AND next_a.applied_at &gt; a.applied_at",
+            "            AND next_a.applied_at &lt;= r.frozen_at",
+            "      )",
+            "      AND NOT EXISTS (",
+            "          SELECT 1 FROM mes_pro_edhr_nonconformance_review newer_r",
+            "          WHERE newer_r.source_type = 'ACTIVE_ORDER'",
+            "            AND newer_r.source_id = a.active_order_id",
+            "            AND newer_r.active_order_id = a.active_order_id",
+            "            AND newer_r.deleted = 0 AND newer_r.tenant_id = #{tenantId}",
+            "            AND newer_r.frozen_at &gt;= a.applied_at",
+            "            AND NOT EXISTS (",
+            "                SELECT 1 FROM mes_pro_process_pool_active_order_release_application newer_a",
+            "                WHERE newer_a.active_order_id = a.active_order_id",
+            "                  AND newer_a.deleted = 0 AND newer_a.tenant_id = #{tenantId}",
+            "                  AND newer_a.applied_at &gt; a.applied_at",
+            "                  AND newer_a.applied_at &lt;= newer_r.frozen_at",
+            "            )",
+            "            AND newer_r.id &gt; r.id",
+            "      )",
+            "WHERE a.tenant_id = #{tenantId} AND a.deleted = 0",
             "  AND CONCAT(',', REPLACE(COALESCE(t.candidate_user_snapshot, ''), ' ', ''), ',')",
             "      LIKE CONCAT('%,', #{actorUserId}, ',%')",
+            "<if test='applicationId != null'>",
+            "  AND a.id = #{applicationId}",
+            "</if>",
+            "<if test='pqcReleaseWorkTaskId != null'>",
+            "  AND a.pqc_release_work_task_id = #{pqcReleaseWorkTaskId}",
+            "</if>",
             "<if test='workOrderCode != null and workOrderCode != \"\"'>",
             "  AND a.work_order_code LIKE CONCAT('%', #{workOrderCode}, '%')",
             "</if>",
@@ -345,22 +416,28 @@ public interface MesProcessPoolActiveOrderReleaseApplicationMapper
             "<choose>",
             "  <when test='viewStatus == \"PENDING\"'>",
             "    AND a.application_status = 'PQC_RELEASE_PENDING'",
-            "    AND (r.id IS NULL OR r.review_status &lt;&gt; 'closed'",
+            "    AND (r.id IS NULL OR r.review_status &lt;&gt; 'closed' OR r.closed_at &lt; a.applied_at",
             "         OR (r.review_status = 'closed' AND r.disposition = 'concession_release'))",
             "  </when>",
             "  <when test='viewStatus == \"RELEASED\"'>",
             "    AND a.application_status IN ('REPORT_UPLOAD_PENDING', 'MANAGER_RELEASE_PENDING', 'RELEASED')",
-            "    AND (r.id IS NULL OR r.review_status &lt;&gt; 'closed')",
+            "    AND (r.id IS NULL OR r.review_status &lt;&gt; 'closed' OR r.closed_at &lt; a.applied_at)",
             "  </when>",
             "  <when test='viewStatus == \"VOIDED\"'>",
-            "    AND r.review_status = 'closed' AND r.disposition = 'void'",
+            "    AND ((r.review_status = 'closed' AND r.disposition = 'void' AND r.closed_at &gt;= a.applied_at)",
+            "      OR (a.application_status = 'BATCH_VOIDED' AND EXISTS (",
+            "          SELECT 1 FROM mes_pro_edhr_record_change_event v",
+            "          WHERE v.tenant_id = a.tenant_id AND v.deleted = 0 AND v.batch_execution_id = a.batch_execution_id",
+            "            AND v.change_type = 'VOID' AND v.target_scope = 'BATCH' AND v.change_status = 'EFFECTIVE'",
+            "            AND v.id = CAST(JSON_UNQUOTE(JSON_EXTRACT(a.dossier_summary_json, '$.batchVoid.changeEventId')) AS UNSIGNED)",
+            "      )))",
             "  </when>",
             "  <when test='viewStatus == \"REWORKED\"'>",
-            "    AND r.review_status = 'closed' AND r.disposition = 'rework'",
+            "    AND r.review_status = 'closed' AND r.disposition = 'rework' AND r.closed_at &gt;= a.applied_at",
             "  </when>",
             "  <when test='viewStatus == \"CONCESSION_RELEASED\"'>",
             "    AND a.application_status IN ('REPORT_UPLOAD_PENDING', 'MANAGER_RELEASE_PENDING', 'RELEASED')",
-            "    AND r.review_status = 'closed' AND r.disposition = 'concession_release'",
+            "    AND r.review_status = 'closed' AND r.disposition = 'concession_release' AND r.closed_at &gt;= a.applied_at",
             "  </when>",
             "</choose>",
             "ORDER BY a.id DESC",
@@ -372,7 +449,9 @@ public interface MesProcessPoolActiveOrderReleaseApplicationMapper
             @Param("actorUserId") Long actorUserId,
             @Param("viewStatus") String viewStatus,
             @Param("workOrderCode") String workOrderCode,
-            @Param("batchCode") String batchCode);
+            @Param("batchCode") String batchCode,
+            @Param("applicationId") Long applicationId,
+            @Param("pqcReleaseWorkTaskId") Long pqcReleaseWorkTaskId);
 
     default int deleteByActiveOrderId(Long activeOrderId) {
         return activeOrderId == null ? 0 : physicalDeleteByActiveOrderId(activeOrderId);

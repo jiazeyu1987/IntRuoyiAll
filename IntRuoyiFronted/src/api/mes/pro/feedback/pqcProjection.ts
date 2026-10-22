@@ -62,15 +62,66 @@ const comparePqcTaskOptions = (left: FrontlinePqcTaskOptionVO, right: FrontlineP
   left.roundNo - right.roundNo ||
   left.pqcTaskId - right.pqcTaskId
 
+const normalizePqcProcessDisplayName = (process: FrontlinePqcProcessResponseVO) => {
+  if (process.regulationSourceType !== 'COMMON_PACKAGING') {
+    return process.qaProcessName
+  }
+  const normalized = process.qaProcessName.trim()
+  if (normalized === '初包装' || normalized === '初包装过程检验规程') {
+    return '小包装'
+  }
+  if (normalized === '大中包装' || normalized === '大中包装过程检验规程') {
+    return '中大包装'
+  }
+  return process.qaProcessName
+}
+
+const resolvePqcProcessSourceSort = (process: FrontlinePqcProcessVO) =>
+  process.regulationSourceType === 'COMMON_PACKAGING' ? 1 : 0
+
+const resolveCommonPackagingProcessSort = (process: FrontlinePqcProcessVO) => {
+  if (process.qaProcessName === '小包装') {
+    return 1
+  }
+  if (process.qaProcessName === '中大包装') {
+    return 2
+  }
+  return process.qaProcessSort
+}
+
+const comparePqcProcesses = (left: FrontlinePqcProcessVO, right: FrontlinePqcProcessVO) => {
+  const sourceSort = resolvePqcProcessSourceSort(left) - resolvePqcProcessSourceSort(right)
+  if (sourceSort !== 0) {
+    return sourceSort
+  }
+  if (left.regulationSourceType === 'COMMON_PACKAGING') {
+    return (
+      resolveCommonPackagingProcessSort(left) - resolveCommonPackagingProcessSort(right) ||
+      left.qaProcessId - right.qaProcessId
+    )
+  }
+  return left.qaProcessSort - right.qaProcessSort || left.qaProcessId - right.qaProcessId
+}
+
 export const projectFrontlinePqcProcesses = (
   processes: FrontlinePqcProcessResponseVO[]
-): FrontlinePqcProcessVO[] =>
-  processes
-    .map((process) => ({
+): FrontlinePqcProcessVO[] => {
+  const orderedProcesses = processes
+    .map<FrontlinePqcProcessVO>((process) => ({
       ...process,
+      qaProcessName: normalizePqcProcessDisplayName(process),
       pqcTaskOptions: process.pqcTaskOptions.map(normalizePqcTaskOption).sort(comparePqcTaskOptions)
     }))
-    .sort(
-      (left, right) =>
-        left.qaProcessSort - right.qaProcessSort || left.qaProcessId - right.qaProcessId
-    )
+    .sort(comparePqcProcesses)
+  let nextCommonPackagingSort = Math.max(
+    0,
+    ...orderedProcesses
+      .filter((process) => process.regulationSourceType !== 'COMMON_PACKAGING')
+      .map((process) => process.qaProcessSort)
+  )
+  return orderedProcesses.map((process) =>
+    process.regulationSourceType === 'COMMON_PACKAGING'
+      ? { ...process, qaProcessSort: ++nextCommonPackagingSort }
+      : process
+  )
+}

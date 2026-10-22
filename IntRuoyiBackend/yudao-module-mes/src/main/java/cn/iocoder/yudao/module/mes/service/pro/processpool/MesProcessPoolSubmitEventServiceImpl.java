@@ -5,6 +5,9 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessP
 import cn.iocoder.yudao.module.mes.service.pro.processpool.dto.MesProcessPoolCreateEventReqDTO;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.dto.MesProcessPoolQuantityFragmentCreateDTO;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesReportAllocationCommandService;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProductionSignatureEvidenceService;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProductionSubmitSignatureContext;
+import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
 import org.springframework.validation.annotation.Validated;
 
@@ -26,6 +29,9 @@ public class MesProcessPoolSubmitEventServiceImpl implements MesProcessPoolSubmi
 
     private final MesProcessPoolEventService eventService;
     private final MesReportAllocationCommandService reportAllocationCommandService;
+
+    @Resource
+    private MesProductionSignatureEvidenceService productionSignatureEvidenceService;
 
     public MesProcessPoolSubmitEventServiceImpl(MesProcessPoolEventService eventService,
                                                 MesReportAllocationCommandService reportAllocationCommandService) {
@@ -92,6 +98,10 @@ public class MesProcessPoolSubmitEventServiceImpl implements MesProcessPoolSubmi
                 .clientSubmitTime(reqBO.getSubmittedAt())
                 .signatureId(reqBO.getSignatureId())
                 .signatureUserId(reqBO.getSignatureEmployeeId())
+                .signatureSnapshot(productionSignatureEvidenceService.snapshotForSubmission(
+                        reqBO.getSignatureEmployeeId(), reqBO.getSignatureId(),
+                        new MesProductionSubmitSignatureContext(reqBO.getActiveOrderId(), reqBO.getRouteProcessId(),
+                                reqBO.getProcessId(), reqBO.getProcessPoolSubmissionIdempotencyKey())))
                 .quantityFragments(buildQuantityFragments(reqBO))
                 .build();
     }

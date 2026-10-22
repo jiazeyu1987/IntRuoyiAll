@@ -54,14 +54,28 @@ assert.match(
 )
 assert.match(
   submitOptionsBlock,
-  /for \(const item of pqcInspectionItems\.value\)[\s\S]*pqcTaskOptionIncludesItem\(option, item\.key\)/,
-  'Submit scope must require a matching task for every inspection method in the current process.'
+  /for \(const item of scopeInspectionItems\)[\s\S]*pqcTaskOptionIncludesItem\(option, item\.key\)/,
+  'Submit scope must require a matching task for every inspection method assigned to the current formal task scope.'
 )
 assert.match(
   submitOptionsBlock,
   /throw new Error\(`\$\{item\.label\}缺少\$\{formatPqcTaskOptionLabel\(activeOption\)\}PQC任务。`\)/,
   'Missing method task must fail fast with the exact inspection method.'
 )
+
+// Scope follows formal type-specific QA tasks: FIRST must not require PATROL-only items.
+const pendingScopeBlock = blockBetween(submitOptionsBlock, 'const scopeOptions =', 'const completedScopeOptions =')
+const completedScopeBlock = blockBetween(submitOptionsBlock, 'const completedScopeOptions =', 'const scopeItemKeys =')
+for (const scope of [pendingScopeBlock, completedScopeBlock]) {
+  for (const field of ['inspectionType', 'businessDate', 'shiftCode', 'roundNo']) {
+    assert.ok(scope.includes(`option.${field} === activeOption.${field}`), `Both pending and completed tasks must match current ${field}.`)
+  }
+}
+assert.match(completedScopeBlock, /option\.taskStatus !== 'PENDING'/, 'Only completed scope tasks may satisfy an already-submitted method.')
+assert.match(submitOptionsBlock, /const scopeItemKeys = new Set\(\s*\[\.\.\.scopeOptions, \.\.\.completedScopeOptions\]\s*\.flatMap\(\(option\) => option\.inspectionItems\.map\(\(item\) => item\.itemCode\)\.filter\(Boolean\)\)/, 'Required method identities must come from current pending and completed task snapshots.')
+assert.match(submitOptionsBlock, /const scopeInspectionItems = pqcInspectionItems\.value\.filter\(\(item\) => scopeItemKeys\.has\(item\.key\)\)/, 'Do not require process items that are not configured for this task scope.')
+assert.match(submitOptionsBlock, /if \(!option\) \{\s*if \(completedScopeOptions\.some\(\(completedOption\) =>\s*pqcTaskOptionIncludesItem\(completedOption, item\.key\)\s*\)\) \{\s*continue\s*\}\s*throw new Error/, 'A missing pending task is skipped only when a completed task covers that method; otherwise reject it.')
+assert.match(submitOptionsBlock, /const submittedTaskIds = new Set<number>\(\)[\s\S]*if \(!submittedTaskIds\.has\(option\.pqcTaskId\)\) \{\s*submittedTaskIds\.add\(option\.pqcTaskId\)\s*submitOptions\.push\(option\)/, 'Methods sharing one task must submit that task once.')
 
 const submitPayloadsBlock = blockBetween(
   panelSource,

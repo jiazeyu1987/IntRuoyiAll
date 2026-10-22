@@ -35,6 +35,7 @@ CREATE TABLE IF NOT EXISTS `mes_pro_edhr_release_transaction` (
   `approved_by` bigint DEFAULT NULL COMMENT '批准人',
   `approved_at` datetime DEFAULT NULL COMMENT '批准时间',
   `approval_signoff_evidence_hash` char(64) DEFAULT NULL COMMENT '批准签核证据摘要',
+  `approval_signature_id` bigint DEFAULT NULL COMMENT '批准电子签名ID',
   `approval_opinion` varchar(500) DEFAULT NULL COMMENT '审批意见',
   `rejected_by` bigint DEFAULT NULL COMMENT '驳回人',
   `rejected_at` datetime DEFAULT NULL COMMENT '驳回时间',

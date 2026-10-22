@@ -3,6 +3,9 @@ package cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team;
 import cn.iocoder.yudao.framework.common.pojo.CommonResult;
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
 import cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils;
+import cn.iocoder.yudao.module.system.controller.admin.gxpaudit.vo.GxpAuditEventPageReqVO;
+import cn.iocoder.yudao.module.system.controller.admin.gxpaudit.vo.GxpAuditEventRespVO;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditQueryService;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamDeviceSaveReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamDeviceRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamDeviceStatusUpdateReqVO;
@@ -32,6 +35,7 @@ import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesT
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderSimulationRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderSimulationCopyReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderSimulationCopyRespVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderTestResetRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesStage6IdiSimulationReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesStage6IdiSimulationRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesStage2_5BackfillBatchExecutionSimulationReqVO;
@@ -41,10 +45,14 @@ import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesS
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderCompletionReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderCompletionRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderRemoveReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderDataCleanupExecuteReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderDataCleanupPreviewRespVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderDataCleanupResultRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderReleaseApplyReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderReleaseApplyRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderTransferTraceRespVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderVoidedActiveOrderPageReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderAllocationTraceRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderBatchRecordTraceRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderOrderProcessTraceRespVO;
@@ -61,6 +69,7 @@ import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesT
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamTemporaryEmployeeCreateReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamTemporarySignaturePasswordResetReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesWorkOrderAbnormalReportReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.gxpaudit.MesGxpAuditControllerSupport;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.vo.ProcessPoolTimelineDetailRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.vo.ProcessPoolTimelineEventRespVO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO;
@@ -87,6 +96,9 @@ import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderAct
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderRebuildResult;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderSimulationResult;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderSimulationCopyResult;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderTestResetResult;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderDataCleanupPreview;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderDataCleanupResult;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderSimulationService;
 import cn.iocoder.yudao.module.mes.service.pro.simulation.stage6.MesStage6IdiSimulationCommand;
 import cn.iocoder.yudao.module.mes.service.pro.simulation.stage6.MesStage6IdiSimulationResult;
@@ -179,6 +191,7 @@ public class MesProcessPoolTeamLeaderController {
     private final MesStage6IdiSimulationService stage6IdiSimulationService;
     private final MesStage2_5BackfillBatchExecutionSimulationService stage2_5SimulationService;
     private final MesStage1ActiveOrderCompleteSimulationService stage1SimulationService;
+    private final GxpAuditQueryService gxpAuditQueryService;
 
     public MesProcessPoolTeamLeaderController(MesTeamLeaderWorkbenchService workbenchService,
                                               MesTeamLeaderSubmissionReviewService submissionReviewService,
@@ -197,7 +210,8 @@ public class MesProcessPoolTeamLeaderController {
                                               MesTeamLeaderActiveOrderCompletionService activeOrderCompletionService,
                                               MesStage6IdiSimulationService stage6IdiSimulationService,
                                               MesStage2_5BackfillBatchExecutionSimulationService stage2_5SimulationService,
-                                              MesStage1ActiveOrderCompleteSimulationService stage1SimulationService) {
+                                              MesStage1ActiveOrderCompleteSimulationService stage1SimulationService,
+                                              GxpAuditQueryService gxpAuditQueryService) {
         this.workbenchService = workbenchService;
         this.submissionReviewService = submissionReviewService;
         this.abnormalReportService = abnormalReportService;
@@ -216,6 +230,7 @@ public class MesProcessPoolTeamLeaderController {
         this.stage6IdiSimulationService = stage6IdiSimulationService;
         this.stage2_5SimulationService = stage2_5SimulationService;
         this.stage1SimulationService = stage1SimulationService;
+        this.gxpAuditQueryService = gxpAuditQueryService;
     }
 
     @ExceptionHandler(MesReleaseFlowBlockerException.class)
@@ -250,6 +265,8 @@ public class MesProcessPoolTeamLeaderController {
                 .eventId(reqVO.getEventId())
                 .leaderUserId(SecurityFrameworkUtils.getLoginUserId())
                 .leaderType(reqVO.getLeaderType())
+                .expectedReviews(reqVO.getExpectedReviews())
+                .expectedReview(reqVO.getExpectedReview())
                 .reviewStatus(reqVO.getReviewStatus())
                 .reviewRemark(reqVO.getReviewRemark())
                 .signaturePassword(reqVO.getSignaturePassword())
@@ -262,7 +279,7 @@ public class MesProcessPoolTeamLeaderController {
     public CommonResult<Long> markAndReportWorkOrderAbnormal(@Valid @RequestBody MesWorkOrderAbnormalReportReqVO reqVO) {
         return success(abnormalReportService.markAndReport(
                 cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesWorkOrderAbnormalReportReqBO.builder()
-                .workOrderId(reqVO.getWorkOrderId())
+                .activeOrderId(reqVO.getActiveOrderId())
                 .markerUserId(SecurityFrameworkUtils.getLoginUserId())
                 .abnormalDescription(reqVO.getAbnormalDescription())
                 .build()));
@@ -300,6 +317,23 @@ public class MesProcessPoolTeamLeaderController {
                 .setWorkOrderId(String.valueOf(result.getWorkOrderId())));
     }
 
+    @PostMapping("/active-order/simulation/test-reset")
+    @Operation(summary = "重置固定活跃订单测试数据并重新加入")
+    @PreAuthorize("@ss.hasPermission('mes:pro-process-pool-team-leader:maintain')")
+    public CommonResult<MesTeamLeaderActiveOrderTestResetRespVO> resetFixedSimulationActiveOrder() {
+        MesTeamLeaderActiveOrderTestResetResult result = activeOrderService
+                .resetFixedSimulationActiveOrder(SecurityFrameworkUtils.getLoginUserId());
+        return success(new MesTeamLeaderActiveOrderTestResetRespVO()
+                .setWorkOrderCode(result.getWorkOrderCode())
+                .setWorkOrderId(result.getWorkOrderId())
+                .setPreviousActiveOrderCount(result.getPreviousActiveOrderCount())
+                .setActiveOrderId(result.getActiveOrderId())
+                .setAction(result.getAction())
+                .setDeletedEventCount(result.getDeletedEventCount())
+                .setDeletedBatchExecutionCount(result.getDeletedBatchExecutionCount())
+                .setDeletedRecordExecutionCount(result.getDeletedRecordExecutionCount()));
+    }
+
     @PutMapping("/active-order/remove")
     @Operation(summary = "移除生产组长活跃订单")
     @PreAuthorize("@ss.hasPermission('mes:pro-process-pool-team-leader:maintain')")
@@ -309,6 +343,48 @@ public class MesProcessPoolTeamLeaderController {
                 .activeOrderId(reqVO.getActiveOrderId())
                 .build());
         return success(Boolean.TRUE);
+    }
+
+    @GetMapping("/active-order/data-cleanup/preview")
+    @Operation(summary = "预检生产组长运行数据清理范围")
+    @PreAuthorize("@ss.hasPermission('mes:pro-process-pool-team-leader:maintain')")
+    public CommonResult<MesTeamLeaderDataCleanupPreviewRespVO> previewDataCleanup() {
+        MesTeamLeaderDataCleanupPreview preview = activeOrderService.previewDataCleanup(
+                SecurityFrameworkUtils.getLoginUserId());
+        return success(new MesTeamLeaderDataCleanupPreviewRespVO()
+                .setLeaderUserId(preview.getLeaderUserId())
+                .setOrderIds(preview.getOrderIds())
+                .setOrderVersions(preview.getOrderVersions())
+                .setWorkOrderIds(preview.getWorkOrderIds())
+                .setBatchExecutionIds(preview.getBatchExecutionIds())
+                .setActiveOrderCount(preview.getActiveOrderCount())
+                .setReportEventCount(preview.getReportEventCount())
+                .setBatchExecutionCount(preview.getBatchExecutionCount())
+                .setReleaseApplicationCount(preview.getReleaseApplicationCount())
+                .setReleaseTransactionCount(preview.getReleaseTransactionCount()));
+    }
+
+    @PostMapping("/active-order/data-cleanup/execute")
+    @Operation(summary = "执行生产组长运行数据清理")
+    @PreAuthorize("@ss.hasPermission('mes:pro-process-pool-team-leader:maintain')")
+    public CommonResult<MesTeamLeaderDataCleanupResultRespVO> executeDataCleanup(
+            @Valid @RequestBody MesTeamLeaderDataCleanupExecuteReqVO reqVO) {
+        if (!Boolean.TRUE.equals(reqVO.getConfirm())) {
+            throw new IllegalArgumentException("必须确认清理全部生产组长运行数据");
+        }
+        MesTeamLeaderDataCleanupPreview expectedScope = MesTeamLeaderDataCleanupPreview.builder()
+                .orderIds(reqVO.getOrderIds())
+                .orderVersions(reqVO.getOrderVersions())
+                .build();
+        MesTeamLeaderDataCleanupResult result = activeOrderService.executeDataCleanup(
+                SecurityFrameworkUtils.getLoginUserId(), expectedScope);
+        return success(new MesTeamLeaderDataCleanupResultRespVO()
+                .setActiveOrderCount(result.getActiveOrderCount())
+                .setReportEventCount(result.getReportEventCount())
+                .setBatchExecutionCount(result.getBatchExecutionCount())
+                .setBatchRecordExecutionCount(result.getBatchRecordExecutionCount())
+                .setReleaseApplicationCount(result.getReleaseApplicationCount())
+                .setReleaseTransactionCount(result.getReleaseTransactionCount()));
     }
 
     @PutMapping("/active-order/move")
@@ -496,6 +572,7 @@ public class MesProcessPoolTeamLeaderController {
             @Valid @RequestBody MesTeamLeaderActiveOrderCompletionReqVO reqVO) {
         MesTeamLeaderActiveOrderCompletionResult result = activeOrderCompletionService.complete(
                 SecurityFrameworkUtils.getLoginUserId(), new MesTeamLeaderActiveOrderCompletionCommand()
+                        .setConfirmNoReplenishmentInfo(reqVO.getConfirmNoReplenishmentInfo())
                         .setActiveOrderId(reqVO.getActiveOrderId())
                         .setExpectedVersion(reqVO.getExpectedVersion())
                         .setIdempotencyKey(reqVO.getIdempotencyKey()));
@@ -525,6 +602,20 @@ public class MesProcessPoolTeamLeaderController {
                 .toList());
     }
 
+    @GetMapping("/active-order/voided-page")
+    @Operation(summary = "分页查询已作废活跃订单")
+    @PreAuthorize("@ss.hasPermission('mes:pro-process-pool-team-leader:query')")
+    public CommonResult<PageResult<MesTeamLeaderActiveOrderRespVO>> getVoidedActiveOrderPage(
+            MesTeamLeaderVoidedActiveOrderPageReqVO reqVO) {
+        PageResult<MesTeamLeaderActiveOrderRow> page =
+                activeOrderService.pageVoidedActiveOrders(SecurityFrameworkUtils.getLoginUserId(), reqVO);
+        return success(new PageResult<>(
+                page.getList().stream()
+                        .map(MesProcessPoolTeamLeaderController::toActiveOrderRespVO)
+                        .toList(),
+                page.getTotal()));
+    }
+
     @GetMapping("/active-order/detail")
     @Operation(summary = "查询生产组长活跃订单逐工序提交详情")
     @PreAuthorize("@ss.hasPermission('mes:pro-process-pool-team-leader:query')")
@@ -532,6 +623,35 @@ public class MesProcessPoolTeamLeaderController {
             @RequestParam("activeOrderId") Long activeOrderId) {
         return success(toActiveOrderDetailRespVO(activeOrderDetailService.getDetail(
                 SecurityFrameworkUtils.getLoginUserId(), activeOrderId)));
+    }
+
+    @GetMapping("/active-order/audit/page")
+    @Operation(summary = "查询活跃订单统一 GxP 审计")
+    @PreAuthorize("@ss.hasPermission('mes:pro-process-pool-team-leader:query')")
+    public CommonResult<PageResult<GxpAuditEventRespVO>> getActiveOrderAuditPage(
+            @Valid GxpAuditEventPageReqVO reqVO,
+            @RequestParam("activeOrderId") Long activeOrderId) {
+        activeOrderDetailService.getDetail(SecurityFrameworkUtils.getLoginUserId(), activeOrderId);
+        return success(MesGxpAuditControllerSupport.toPage(gxpAuditQueryService.page(
+                MesGxpAuditControllerSupport.toQuery(reqVO, "ACTIVE_ORDER", activeOrderId))));
+    }
+
+    @GetMapping("/active-order/audit/get")
+    @Operation(summary = "查询活跃订单统一 GxP 审计详情")
+    @PreAuthorize("@ss.hasPermission('mes:pro-process-pool-team-leader:query')")
+    public CommonResult<GxpAuditEventRespVO> getActiveOrderAudit(
+            @RequestParam("activeOrderId") Long activeOrderId,
+            @RequestParam("eventId") Long eventId) {
+        activeOrderDetailService.getDetail(SecurityFrameworkUtils.getLoginUserId(), activeOrderId);
+        var event = gxpAuditQueryService.get(eventId);
+        if (event == null) {
+            return success(null);
+        }
+        var relations = gxpAuditQueryService.listRelations(eventId);
+        if (!MesGxpAuditControllerSupport.containsRelation(relations, "ACTIVE_ORDER", activeOrderId)) {
+            return success(null);
+        }
+        return success(MesGxpAuditControllerSupport.toResponse(event, relations));
     }
 
     @PostMapping("/active-order/release/apply")
@@ -542,10 +662,24 @@ public class MesProcessPoolTeamLeaderController {
         MesTeamLeaderActiveOrderReleaseApplicationResult result = releaseApplicationService.apply(
                 SecurityFrameworkUtils.getLoginUserId(),
                 new MesTeamLeaderActiveOrderReleaseApplyCommand()
+                        .setConfirmNoReplenishmentInfo(reqVO.getConfirmNoReplenishmentInfo())
                         .setActiveOrderId(reqVO.getActiveOrderId())
                         .setIdempotencyKey(reqVO.getIdempotencyKey())
                         .setApplyRemark(reqVO.getApplyRemark()));
         return success(toActiveOrderReleaseApplyRespVO(result));
+    }
+
+    @PostMapping("/active-order/release/push-generated")
+    @Operation(summary = "P3推送P2生成记录至PQC生产放行")
+    @PreAuthorize("@ss.hasPermission('mes:pro-process-pool-team-leader:release-apply')")
+    public CommonResult<MesTeamLeaderActiveOrderReleaseApplyRespVO> pushGeneratedActiveOrderRelease(
+            @Valid @RequestBody MesTeamLeaderActiveOrderReleaseApplyReqVO reqVO) {
+        return success(toActiveOrderReleaseApplyRespVO(releaseApplicationService.applyGenerated(
+                SecurityFrameworkUtils.getLoginUserId(),
+                new MesTeamLeaderActiveOrderReleaseApplyCommand()
+                        .setActiveOrderId(reqVO.getActiveOrderId())
+                        .setIdempotencyKey(reqVO.getIdempotencyKey())
+                        .setApplyRemark(reqVO.getApplyRemark()))));
     }
 
     @GetMapping("/active-order/release/get")
@@ -614,6 +748,7 @@ public class MesProcessPoolTeamLeaderController {
                 MesReportAllocationSaveCommand.builder().eventId(reqVO.getEventId())
                         .leaderUserId(SecurityFrameworkUtils.getLoginUserId()).leaderType(reqVO.getLeaderType())
                         .expectedVersion(reqVO.getExpectedVersion()).idempotencyKey(reqVO.getIdempotencyKey())
+                        .expectedReview(reqVO.getExpectedReview())
                         .allocationMode(reqVO.getAllocationMode()).reason(reqVO.getReviewRemark())
                         .signaturePassword(reqVO.getSignaturePassword())
                         .allocations(reqVO.getAllocations().stream().map(line -> MesReportAllocationSaveLine.builder()
@@ -764,6 +899,7 @@ public class MesProcessPoolTeamLeaderController {
                 .build());
         return success(Boolean.TRUE);
     }
+
 
     @GetMapping("/employee-profile/audit/list")
     @Operation(summary = "查询当前生产组长生产人员档案操作追溯")
@@ -941,6 +1077,8 @@ public class MesProcessPoolTeamLeaderController {
                 .setJoinedAt(activeOrder.getJoinedAt())
                 .setRemovedAt(activeOrder.getRemovedAt())
                 .setVersion(activeOrder.getVersion())
+                .setReadBlocked(activeOrder.getReadBlocked())
+                .setReadBlockReason(activeOrder.getReadBlockReason())
                 .setAbnormal(activeOrder.getAbnormal())
                 .setAbnormalReason(activeOrder.getAbnormalReason())
                 .setAbnormalReportedAt(activeOrder.getAbnormalReportedAt())
@@ -975,24 +1113,56 @@ public class MesProcessPoolTeamLeaderController {
                 .toList();
     }
 
-    private static MesTeamLeaderActiveOrderDetailRespVO toActiveOrderDetailRespVO(
+    public static MesTeamLeaderActiveOrderDetailRespVO toActiveOrderDetailRespVO(
             MesTeamLeaderActiveOrderDetail detail) {
         return new MesTeamLeaderActiveOrderDetailRespVO()
                 .setActiveOrderId(detail.getActiveOrderId())
                 .setVersion(detail.getVersion())
+                .setUdiControlDocumentNo(detail.getUdiControlDocumentNo())
                 .setWorkOrderId(detail.getWorkOrderId())
                 .setWorkOrderCode(detail.getWorkOrderCode())
                 .setBatchCode(detail.getBatchCode())
                 .setWorkOrderQuantity(detail.getWorkOrderQuantity())
+                .setDemandBillNo(detail.getDemandBillNo())
                 .setDrawingNumber(detail.getDrawingNumber())
                 .setProductCode(detail.getProductCode())
                 .setProductName(detail.getProductName())
                 .setProductSpecification(detail.getProductSpecification())
                 .setWorkOrderCreateTime(detail.getWorkOrderCreateTime())
                 .setRouteName(detail.getRouteName())
+                .setInputMaterialUsages(detail.getInputMaterialUsages().stream()
+                        .map(MesProcessPoolTeamLeaderController::toActiveOrderInputMaterialDetailRespVO)
+                        .toList())
                 .setProcesses(detail.getProcesses().stream()
                         .map(MesProcessPoolTeamLeaderController::toActiveOrderProcessDetailRespVO)
+                        .toList())
+                .setPqcSubmissions(detail.getPqcSubmissions().stream()
+                        .map(MesProcessPoolTeamLeaderController::toActiveOrderPqcSubmissionDetailRespVO).toList())
+                .setActiveOrderStatus(toActiveOrderStatusSummaryRespVO(detail.getActiveOrderStatus()))
+                .setPqcProductionRelease(toActiveOrderPqcProductionReleaseSummaryRespVO(
+                        detail.getPqcProductionRelease()))
+                .setReworkSource(toActiveOrderReworkSourceRespVO(detail.getReworkSource()))
+                .setOperationFacts(detail.getOperationFacts().stream()
+                        .map(MesProcessPoolTeamLeaderController::toActiveOrderOperationFactRespVO)
                         .toList());
+    }
+
+
+    private static MesTeamLeaderActiveOrderDetailRespVO.ReworkSourceDetail toActiveOrderReworkSourceRespVO(
+            MesTeamLeaderActiveOrderDetail.ReworkSourceDetail source) {
+        if (source == null) {
+            return null;
+        }
+        return new MesTeamLeaderActiveOrderDetailRespVO.ReworkSourceDetail()
+                .setCurrentActiveOrderId(source.getCurrentActiveOrderId())
+                .setSourceActiveOrderId(source.getSourceActiveOrderId())
+                .setSourceBusinessStatus(source.getSourceBusinessStatus())
+                .setReviewId(source.getReviewId()).setReviewCode(source.getReviewCode())
+                .setNonconformanceReason(source.getNonconformanceReason()).setReviewOpinion(source.getReviewOpinion())
+                .setQaUserId(source.getQaUserId()).setDisposedAt(source.getDisposedAt())
+                .setQaSignature(toActiveOrderSignatureDetailRespVO(source.getQaSignature()))
+                .setQaSignatureEvidence(source.getQaSignatureEvidence())
+                .setQaSignatureVerification(source.getQaSignatureVerification());
     }
 
     private static MesTeamLeaderActiveOrderDetailRespVO.ProcessDetail toActiveOrderProcessDetailRespVO(
@@ -1035,6 +1205,14 @@ public class MesProcessPoolTeamLeaderController {
                 .setSourcePickListIds(material.getSourcePickListIds())
                 .setSourcePickListNos(material.getSourcePickListNos())
                 .setSourcePickListItemIds(material.getSourcePickListItemIds())
+                .setSourcePickListDocuments(material.getSourcePickListDocuments().stream()
+                        .map(document -> new MesTeamLeaderActiveOrderDetailRespVO.SourcePickListDocument()
+                                .setId(document.getId())
+                                .setBillNo(document.getBillNo())
+                                .setDocumentStatus(document.getDocumentStatus())
+                                .setBillDate(document.getBillDate())
+                                .setProductionOrderNos(document.getProductionOrderNos()))
+                        .toList())
                 .setSourceSnapshotHash(material.getSourceSnapshotHash());
     }
 
@@ -1148,6 +1326,7 @@ public class MesProcessPoolTeamLeaderController {
                 .setQaProcessId(submission.getQaProcessId())
                 .setQaProcessCode(submission.getQaProcessCode())
                 .setQaProcessName(submission.getQaProcessName())
+                .setQaProcessSort(submission.getQaProcessSort())
                 .setQaItemCode(submission.getQaItemCode())
                 .setInspectionRuleKey(submission.getInspectionRuleKey())
                 .setInspectionType(submission.getInspectionType())
@@ -1156,6 +1335,8 @@ public class MesProcessPoolTeamLeaderController {
                 .setRoundNo(submission.getRoundNo())
                 .setActualInspectionQuantity(submission.getActualInspectionQuantity())
                 .setScrapQuantity(submission.getScrapQuantity())
+                .setSubmittedInspectionQuantity(submission.getSubmittedInspectionQuantity())
+                .setSubmittedScrapQuantity(submission.getSubmittedScrapQuantity())
                 .setTaskStatus(submission.getTaskStatus())
                 .setSubmitterName(submission.getSubmitterName())
                 .setReviewerName(submission.getReviewerName())
@@ -1165,7 +1346,10 @@ public class MesProcessPoolTeamLeaderController {
                 .setReviewerSignatures(submission.getReviewerSignatures().stream()
                         .map(MesProcessPoolTeamLeaderController::toActiveOrderSignatureDetailRespVO)
                         .toList())
-                .setItems(submission.getItems().stream()
+                .setSubmittedItems(submission.getSubmittedItems().stream()
+                        .map(MesProcessPoolTeamLeaderController::toActiveOrderPqcSubmissionItemDetailRespVO)
+                        .toList())
+                .setProcessInspectionItems(submission.getProcessInspectionItems().stream()
                         .map(MesProcessPoolTeamLeaderController::toActiveOrderPqcSubmissionItemDetailRespVO)
                         .toList());
     }
@@ -1179,7 +1363,56 @@ public class MesProcessPoolTeamLeaderController {
                 .setSignatureId(signature.getSignatureId())
                 .setSignerName(signature.getSignerName())
                 .setSignedAt(signature.getSignedAt())
-                .setRole(signature.getRole());
+                .setRole(signature.getRole())
+                .setSignerNameStatus(signature.getSignerNameStatus())
+                .setVerification(signature.getVerification());
+    }
+
+    private static MesTeamLeaderActiveOrderDetailRespVO.PqcProductionReleaseSummary
+            toActiveOrderPqcProductionReleaseSummaryRespVO(
+            MesTeamLeaderActiveOrderDetail.PqcProductionReleaseSummary summary) {
+        if (summary == null) {
+            return null;
+        }
+        return new MesTeamLeaderActiveOrderDetailRespVO.PqcProductionReleaseSummary()
+                .setStatus(summary.getStatus())
+                .setStatusLabel(summary.getStatusLabel())
+                .setSignature(toActiveOrderSignatureDetailRespVO(summary.getSignature()));
+    }
+
+    private static MesTeamLeaderActiveOrderDetailRespVO.ActiveOrderStatusSummary
+            toActiveOrderStatusSummaryRespVO(
+            MesTeamLeaderActiveOrderDetail.ActiveOrderStatusSummary summary) {
+        if (summary == null) {
+            return null;
+        }
+        return new MesTeamLeaderActiveOrderDetailRespVO.ActiveOrderStatusSummary()
+                .setStatus(summary.getStatus())
+                .setStatusLabel(summary.getStatusLabel());
+    }
+
+    private static MesTeamLeaderActiveOrderDetailRespVO.OperationFact toActiveOrderOperationFactRespVO(
+            MesTeamLeaderActiveOrderDetail.OperationFact fact) {
+        return new MesTeamLeaderActiveOrderDetailRespVO.OperationFact()
+                .setId(fact.getId())
+                .setOperationType(fact.getOperationType())
+                .setOperationName(fact.getOperationName())
+                .setSourceType(fact.getSourceType())
+                .setSourceId(fact.getSourceId())
+                .setActorUserId(fact.getActorUserId())
+                .setActorName(fact.getActorName())
+                .setSignatureId(fact.getSignatureId())
+                .setNonconformanceReason(fact.getNonconformanceReason())
+                .setReviewMaterialUrl(fact.getReviewMaterialUrl())
+                .setReviewMaterialFileId(fact.getReviewMaterialFileId())
+                .setReviewMaterialsJson(fact.getReviewMaterialsJson())
+                .setReviewOpinion(fact.getReviewOpinion())
+                .setDisposition(fact.getDisposition())
+                .setQaSignature(fact.getQaSignature())
+                .setQaUserId(fact.getQaUserId())
+                .setResultStatus(fact.getResultStatus())
+                .setOccurredAt(fact.getOccurredAt())
+                .setSourceSnapshotHash(fact.getSourceSnapshotHash());
     }
 
     private static MesTeamLeaderActiveOrderDetailRespVO.PqcSubmissionItemDetail toActiveOrderPqcSubmissionItemDetailRespVO(
@@ -1202,12 +1435,14 @@ public class MesProcessPoolTeamLeaderController {
             MesTeamLeaderActiveOrderReleaseApplicationResult result) {
         return new MesTeamLeaderActiveOrderReleaseApplyRespVO()
                 .setApplicationId(result.getApplicationId())
+                .setRequestIdempotencyKey(result.getRequestIdempotencyKey())
                 .setActiveOrderId(result.getActiveOrderId())
                 .setWorkOrderId(result.getWorkOrderId())
                 .setWorkOrderCode(result.getWorkOrderCode())
                 .setBatchCode(result.getBatchCode())
                 .setRouteId(result.getRouteId())
                 .setRouteVersionId(result.getRouteVersionId())
+                .setBatchExecutionId(result.getBatchExecutionId())
                 .setPqcReleaseWorkTaskId(result.getPqcReleaseWorkTaskId())
                 .setStatus(result.getStatus())
                 .setSourceSnapshotHash(result.getSourceSnapshotHash())

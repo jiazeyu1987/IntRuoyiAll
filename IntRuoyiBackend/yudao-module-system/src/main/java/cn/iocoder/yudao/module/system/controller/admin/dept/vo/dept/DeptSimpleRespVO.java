@@ -23,4 +23,6 @@ public class DeptSimpleRespVO {
     @Schema(description = "部门负责人用户编号", example = "562")
     private Long leaderUserId;
 
+    private cn.iocoder.yudao.module.system.api.dept.dto.DeptSupervisorRespDTO supervisor;
+
 }

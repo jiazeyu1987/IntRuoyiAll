@@ -255,7 +255,11 @@ const tryLogin = async () => {
     const res = await LoginApi.socialLogin(type, code, state)
     authUtil.setToken(res)
 
-    router.push({ path: redirect || '/' })
+    await router.push(
+      res.passwordChangeRequired
+        ? { path: '/user/profile', query: { tab: 'resetPwd' } }
+        : { path: redirect || '/' }
+    )
   } catch (err) {}
 }
 
@@ -303,8 +307,9 @@ const handleLogin = async (params) => {
     if (!redirect) {
       redirect = '/'
     }
-    // 判断是否为SSO登录
-    if (redirect.indexOf('sso') !== -1) {
+    if (res.passwordChangeRequired) {
+      await push({ path: '/user/profile', query: { tab: 'resetPwd' } })
+    } else if (redirect.indexOf('sso') !== -1) {
       window.location.href = window.location.href.replace('/login?redirect=', '')
     } else {
       push({ path: redirect || permissionStore.addRouters[0]?.path || '/srm/portal/application' })

@@ -9,6 +9,9 @@ import org.apache.ibatis.annotations.Mapper;
 
 @Mapper
 public interface MesProEdhrRecordChangeEventMapper extends BaseMapperX<MesProEdhrRecordChangeEventDO> {
+    @org.apache.ibatis.annotations.Select("SELECT * FROM mes_pro_edhr_record_change_event WHERE id = #{id} AND tenant_id = #{tenantId} AND deleted = 0 FOR UPDATE")
+    MesProEdhrRecordChangeEventDO selectByIdAndTenantForUpdate(@org.apache.ibatis.annotations.Param("id") Long id,
+            @org.apache.ibatis.annotations.Param("tenantId") Long tenantId);
 
     default PageResult<MesProEdhrRecordChangeEventDO> selectPage(EdhrRecordChangePageReqVO reqVO) {
         return selectPage(reqVO, new LambdaQueryWrapperX<MesProEdhrRecordChangeEventDO>()

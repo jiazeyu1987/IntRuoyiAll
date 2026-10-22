@@ -92,8 +92,13 @@ assert.doesNotMatch(
 const initialize = extractFunction(panel, 'initializeProductionSelection')
 assert.match(
   initialize,
-  /loadFrontlineProductionActiveOrders\(deviceState\)[\s\S]*requestedActiveOrder\s*\|\|\s*activeOrders\[0\]/,
-  'entering production must choose the first formal work order when no requested order matches.'
+  /loadFrontlineProductionActiveOrders\(deviceState\)[\s\S]*const\s+initialActiveOrder\s*=\s*activeOrders\.find\(\(order\) => !order\.readBlocked\)/,
+  'entering production must choose the current selectable work order from the realtime active-order list.'
+)
+assert.doesNotMatch(
+  initialize,
+  /requestedActiveOrder|context\.workOrderId|order\.workOrderId\s*===/,
+  'production startup must not use URL workOrderId to select the active order.'
 )
 assert.match(
   initialize,

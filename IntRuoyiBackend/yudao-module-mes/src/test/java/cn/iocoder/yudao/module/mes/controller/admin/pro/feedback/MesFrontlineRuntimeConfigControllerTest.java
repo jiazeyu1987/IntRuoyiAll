@@ -66,12 +66,13 @@ class MesFrontlineRuntimeConfigControllerTest {
                 new MesFrontlineProductionSubmitContext(41L, "WO-F2-001", "F2正式工单",
                         51L, 101L, 1001L, 201L, 301L, 61L, 9001L, 901L,
                         new BigDecimal("300.000"), LocalDateTime.of(2026, 8, 30, 0, 0),
-                        5101L, "parameter-sha", "FROZEN", "[{\"deviceGroupKey\":\"G1\"}]", "device-sha"),
+                        5101L, "parameter-sha", "FROZEN", "[{\"deviceGroupKey\":\"G1\"}]", "device-sha",
+                        "{\"routeProcessId\":1001}", "config-sha"),
                 List.of(
                         new MesFrontlineEmployeeSwitchResult(9001L, 8801L, 101L, 1001L, 201L, false,
-                                new MesFrontlineTemplateDescriptor("FRONTLINE-PROD", "PRODUCTION", 1001L, 201L, 8801L)),
+                                new MesFrontlineTemplateDescriptor("FRONTLINE-PROD", "PRODUCTION", 1001L, 201L, 8801L), "SYSTEM_USER"),
                         new MesFrontlineEmployeeSwitchResult(9001L, 10002L, 101L, 1001L, 201L, false,
-                                new MesFrontlineTemplateDescriptor("FRONTLINE-PROD", "PRODUCTION", 1001L, 201L, 10002L)))
+                                new MesFrontlineTemplateDescriptor("FRONTLINE-PROD", "PRODUCTION", 1001L, 201L, 10002L), "SYSTEM_USER"))
                 , "snapshot-001", "hash-001"
         );
         when(runtimeConfigService.getRuntimeConfig(9001L, 8101L, 101L, 1001L, 201L)).thenReturn(runtimeConfig);
@@ -114,6 +115,9 @@ class MesFrontlineRuntimeConfigControllerTest {
         assertEquals("[{\"deviceGroupKey\":\"G1\"}]",
                 data.getProductionSubmitContext().getDeviceSelectionSnapshotJson());
         assertEquals("device-sha", data.getProductionSubmitContext().getDeviceSelectionSnapshotSha256());
+        assertEquals("{\"routeProcessId\":1001}",
+                data.getProductionSubmitContext().getProductionConfigSnapshotJson());
+        assertEquals("config-sha", data.getProductionSubmitContext().getProductionConfigSnapshotSha256());
         assertEquals(2, data.getEmployeeSwitchSnapshots().size());
         assertEquals(8801L, data.getEmployeeSwitchSnapshots().get(0).getActualEmployeeId());
         assertEquals(1001L, data.getEmployeeSwitchSnapshots().get(0).getRouteProcessId());

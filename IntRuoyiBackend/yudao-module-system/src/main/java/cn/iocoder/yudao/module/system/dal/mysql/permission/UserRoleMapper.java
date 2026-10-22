@@ -16,6 +16,12 @@ import java.util.stream.Collectors;
 @Mapper
 public interface UserRoleMapper extends BaseMapperX<UserRoleDO> {
 
+    default List<UserRoleDO> selectPermissionRowsForUpdate(Long tenantId, Long userId) {
+        return selectList(new LambdaQueryWrapper<UserRoleDO>()
+                .eq(UserRoleDO::getTenantId, tenantId).eq(UserRoleDO::getUserId, userId)
+                .orderByAsc(UserRoleDO::getId).last("FOR UPDATE"));
+    }
+
     default List<UserRoleDO> selectListByUserId(Long userId) {
         return selectList(UserRoleDO::getUserId, userId);
     }

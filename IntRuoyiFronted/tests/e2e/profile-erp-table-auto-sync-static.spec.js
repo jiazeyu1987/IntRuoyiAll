@@ -10,7 +10,7 @@ const readWorkspace = (relativePath) =>
 
 const profileIndex = read('src/views/Profile/Index.vue')
 const componentIndex = read('src/views/Profile/components/index.ts')
-const component = read('src/views/Profile/components/ProfileErpTableAutoSyncSetting.vue')
+const component = read('src/views/erp/sync/config/components/TableAutoSyncSetting.vue')
 const syncApi = read('src/api/erp/sync/index.ts')
 const configApi = read('src/api/erp/config/index.ts')
 const jobApi = read('src/api/infra/job/index.ts')
@@ -24,27 +24,13 @@ const runPageReqVo = readWorkspace(
 const runMapper = readWorkspace(
   'IntRuoyiBackend/yudao-module-erp/src/main/java/cn/iocoder/yudao/module/erp/dal/mysql/sync/ErpKingdeeSyncRunMapper.java'
 )
-
-assert.match(
-  profileIndex,
-  /const GOLDEN_FINGER_PERMISSION = 'mes:pro-batch-record-execution:golden-finger'/,
-  '个人工作台配置页签必须继续复用 golden-finger 权限边界。'
-)
-assert.match(
-  profileIndex,
-  /<el-tabs[\s\S]*ERP表格自动同步/,
-  '配置页签内部必须新增 ERP 表格自动同步 tab。'
-)
-assert.match(
-  profileIndex,
-  /<ProfileErpTableAutoSyncSetting\s*\/>/,
-  '配置页签必须渲染 ERP 表格自动同步组件。'
-)
-assert.match(
-  componentIndex,
-  /ProfileErpTableAutoSyncSetting/,
-  'Profile 组件导出必须包含 ERP 表格自动同步组件。'
-)
+const erpPage = read('src/views/erp/sync/config/index.vue')
+assert.match(erpPage, /TableAutoSyncSetting v-if="canQuery"/, 'ERP config requires authorized query capability')
+assert.match(erpPage, /infra:job:query/, 'ERP query includes Job permission')
+assert.match(erpPage, /erp:kingdee-sync:query/, 'ERP query includes ERP permission')
+assert.doesNotMatch(profileIndex, /ProfileErpTableAutoSyncSetting|GOLDEN_FINGER_PERMISSION/, 'Profile carries no ERP configuration or business permission')
+assert.doesNotMatch(componentIndex, /ProfileErpTableAutoSyncSetting/, 'Profile barrel carries no ERP configuration')
+assert.match(read('src/views/erp/sync/index.vue'), /name: 'ErpTableAutoSyncConfig'/, 'sync manager offers named configuration route')
 
 for (const token of [
   '/erp/kingdee-sync/run/page',

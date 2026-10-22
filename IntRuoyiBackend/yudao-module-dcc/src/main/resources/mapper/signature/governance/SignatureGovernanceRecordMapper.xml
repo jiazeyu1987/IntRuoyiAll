@@ -255,6 +255,10 @@
                     OR merged.business_record_name LIKE CONCAT('%', #{reqVO.keyword}, '%')
                 )
             </if>
+            <if test="reqVO.signatureId != null and reqVO.signatureId != ''">
+                AND merged.source_code = 'BATCH_RECORD'
+                AND merged.source_record_id = CAST(#{reqVO.signatureId} AS UNSIGNED)
+            </if>
             <if test="reqVO.signerUserId != null">
                 AND merged.signer_user_id = #{reqVO.signerUserId}
             </if>

@@ -1,6 +1,7 @@
 package cn.iocoder.yudao.module.mes.service.pro.batchrecord;
 
 import cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils;
+import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.framework.test.core.ut.BaseMockitoUnitTest;
 import cn.iocoder.yudao.module.dcc.service.file.DccElectronicSignatureAuthorizationService;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProBatchRecordExecutionSignatureDO;
@@ -9,8 +10,14 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProBatchRecordEx
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolTeamEmployeeProfileMapper;
 import cn.iocoder.yudao.module.signature.api.ElectronicSignatureService;
 import cn.iocoder.yudao.module.signature.api.dto.ElectronicSignatureCommand;
+import cn.iocoder.yudao.module.signature.api.dto.AuthorizedSignatureIdentity;
 import cn.iocoder.yudao.module.signature.api.dto.ElectronicSignatureResult;
+import cn.iocoder.yudao.module.signature.api.dto.SignatureSubjectCommand;
+import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditCommand;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService;
+import com.baomidou.mybatisplus.core.conditions.Wrapper;
 import cn.iocoder.yudao.module.system.dal.dataobject.dept.DeptDO;
 import cn.iocoder.yudao.module.system.dal.dataobject.dept.PostDO;
 import cn.iocoder.yudao.module.system.dal.dataobject.permission.RoleDO;
@@ -28,6 +35,8 @@ import org.mockito.MockedStatic;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.time.LocalDateTime;
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 import java.util.List;
 import java.util.Set;
 
@@ -74,9 +83,106 @@ class MesProBatchRecordExecutionSignatureServiceTest extends BaseMockitoUnitTest
     private AdminUserApi adminUserApi;
     @Mock
     private ElectronicSignatureService electronicSignatureService;
+    @Mock
+    private GxpAuditService gxpAuditService;
 
     @InjectMocks
     private MesProBatchRecordExecutionSignatureService signatureService;
+
+    @Test
+    void pqcAndFinalApprovalWritersPreserveLegalOpinionThroughActualAdapterAndCanonicalizer() throws Exception {
+        when(authorizationService.isElectronicSignatureEnabled(99L)).thenReturn(true);
+        when(adminUserService.getUser(99L)).thenReturn(snapshotUser("正式审批人"));
+        stubActorSnapshot();
+        when(electronicSignatureService.sign(any(ElectronicSignatureCommand.class)))
+                .thenReturn(unifiedSignatureResult(7001L));
+        when(electronicSignatureService.signAuthorized(any(ElectronicSignatureCommand.class), any(), org.mockito.ArgumentMatchers.isNull()))
+                .thenReturn(unifiedSignatureResult(7001L));
+        var opinions = java.util.Arrays.asList("普通中文", "第一行\n第二行", "第一行\r\n第二行", "第一段\t第二段",
+                "意见\"引号\"\\原路径", "PQC_RELEASE", "APPROVE", null);
+        try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(99L);
+            for (String opinion : opinions) {
+                signatureService.recordPqcReleaseSignature(99L, 900L, 700L, "secret", opinion);
+                signatureService.recordApprovalSignature(new MesProBatchRecordExecutionApprovalSignatureCommand()
+                        .setExecutionId(900L).setPassword("secret").setComment(opinion)
+                        .setProcessInstanceId("pi-900").setBpmTaskId("task-900")
+                        .setApprovalResult("APPROVE"));
+            }
+        }
+        var captor = ArgumentCaptor.forClass(ElectronicSignatureCommand.class);
+        verify(electronicSignatureService, times(opinions.size())).sign(captor.capture());
+        var pqcCommands = ArgumentCaptor.forClass(ElectronicSignatureCommand.class);
+        var identities = ArgumentCaptor.forClass(AuthorizedSignatureIdentity.class);
+        verify(electronicSignatureService, times(opinions.size())).signAuthorized(pqcCommands.capture(), identities.capture(), org.mockito.ArgumentMatchers.isNull());
+        var allCommands = new java.util.ArrayList<ElectronicSignatureCommand>();
+        for (int index = 0; index < opinions.size(); index++) {
+            allCommands.add(pqcCommands.getAllValues().get(index));
+            allCommands.add(captor.getAllValues().get(index));
+            assertEquals(new AuthorizedSignatureIdentity(AuthorizedSignatureIdentity.SYSTEM_USER, 99L, "正式审批人"), identities.getAllValues().get(index));
+        }
+        // Invoke the actual production canonicalizer; it is intentionally package-private.
+        var canonicalizer = Class.forName("cn.iocoder.yudao.module.signature.service.ElectronicSignatureJsonCanonicalizer")
+                .getDeclaredMethod("canonicalize", String.class);
+        canonicalizer.setAccessible(true);
+        for (int index = 0; index < allCommands.size(); index++) {
+            var command = allCommands.get(index);
+            String input = opinions.get(index / 2);
+            String reason = input == null ? command.actionCode() : input;
+            assertEquals(reason, command.reason());
+            var content = new MesBatchRecordSignatureSubjectAdapter().loadAndAuthorize(new SignatureSubjectCommand(
+                    99L, command.moduleCode(), command.actionCode(), command.subjectType(), command.subjectId(),
+                    command.expectedSubjectVersion(), command.reason()));
+            String canonical = (String) canonicalizer.invoke(null, content.canonicalContentJson());
+            assertEquals(reason, JsonUtils.parseTree(canonical).path("reason").asText());
+            assertEquals(input == null ? "SYSTEM" : "USER", JsonUtils.parseTree(canonical).path("opinionSource").asText());
+            assertEquals(input, MesBatchRecordSignatureSubjectAdapter.verifiedUserOpinion(command.subjectId(), command.actionCode(), reason));
+            assertTrue(command.idempotencyKey().length() <= 191);
+        }
+    }
+
+    @Test
+    void productionSigningIdentitySeparatesSubmissionsAndIsStableForReplay() {
+        when(authorizationService.isElectronicSignatureEnabled(99L)).thenReturn(true);
+        when(adminUserService.getUser(99L)).thenReturn(snapshotUser("生产员工"));
+        stubActorSnapshot();
+        when(electronicSignatureService.signAuthorized(any(ElectronicSignatureCommand.class), any(), org.mockito.ArgumentMatchers.isNull()))
+                .thenReturn(unifiedSignatureResult(7001L));
+        var first = new MesProductionSubmitSignatureContext(409L, 520L, 985L, "submit-1");
+        var secondProcess = new MesProductionSubmitSignatureContext(409L, 521L, 986L, "submit-2");
+        var nextSubmission = new MesProductionSubmitSignatureContext(409L, 520L, 985L, "submit-3");
+        var nextOrder = new MesProductionSubmitSignatureContext(410L, 520L, 985L, "submit-1");
+        for (var context : List.of(first, first, secondProcess, nextSubmission, nextOrder)) {
+            signatureService.recordProductionSubmitSignature(99L, "secret", "一线生产报工提交", context);
+        }
+
+        var commands = ArgumentCaptor.forClass(ElectronicSignatureCommand.class);
+        verify(electronicSignatureService, times(5)).signAuthorized(commands.capture(), any(), org.mockito.ArgumentMatchers.isNull());
+        var values = commands.getAllValues();
+        assertEquals(values.get(0).subjectId(), values.get(1).subjectId());
+        assertEquals(values.get(0).expectedSubjectVersion(), values.get(1).expectedSubjectVersion());
+        assertEquals(values.get(0).idempotencyKey(), values.get(1).idempotencyKey());
+        for (int i = 2; i < values.size(); i++) {
+            assertNotEquals(values.get(0).subjectId(), values.get(i).subjectId());
+            assertNotEquals(values.get(0).idempotencyKey(), values.get(i).idempotencyKey());
+            assertTrue(values.get(i).idempotencyKey().length() <= 191);
+        }
+        String[] identity = new String(Base64.getUrlDecoder().decode(values.get(0).subjectId()),
+                StandardCharsets.UTF_8).split("\n", -1);
+        assertEquals("MES_PRODUCTION_SUBMISSION", identity[9]);
+        assertEquals("409", identity[10]);
+        assertEquals(first.sourceName(), identity[11]);
+        assertEquals("PRODUCTION_SUBMIT", values.get(0).actionCode());
+        verify(signatureMapper, never()).insert(any(MesProBatchRecordExecutionSignatureDO.class));
+    }
+
+    @Test
+    void missingProductionSigningContextFailsBeforeAuthenticationOrWrites() {
+        assertServiceException(() -> signatureService.recordProductionSubmitSignature(
+                99L, "secret", "submit", null), MesProductionSubmitSignatureContext.CONTEXT_INVALID);
+        org.mockito.Mockito.verifyNoInteractions(adminUserService, authorizationService,
+                adminUserApi, electronicSignatureService, signatureMapper, gxpAuditService);
+    }
 
     @Test
     void recordSubmitSignature_success() {
@@ -106,6 +212,140 @@ class MesProBatchRecordExecutionSignatureServiceTest extends BaseMockitoUnitTest
     }
 
     @Test
+    void recordMarketReleaseSignature_usesFormalTransactionScopedAction() {
+        when(authorizationService.isElectronicSignatureEnabled(99L)).thenReturn(true);
+        when(adminUserService.getUser(99L)).thenReturn(snapshotUser("上市放行人"));
+        stubActorSnapshot();
+        when(electronicSignatureService.signAuthorized(any(ElectronicSignatureCommand.class), any(), org.mockito.ArgumentMatchers.isNull()))
+                .thenReturn(unifiedSignatureResult(7301L));
+
+        Long signatureId = signatureService.recordMarketReleaseSignature(
+                99L, 900L, 700L, "secret", "上市放行");
+
+        ArgumentCaptor<ElectronicSignatureCommand> captor =
+                ArgumentCaptor.forClass(ElectronicSignatureCommand.class);
+        verify(adminUserApi).reauthenticateForSignature(99L, "secret");
+        var identity = ArgumentCaptor.forClass(AuthorizedSignatureIdentity.class);
+        verify(electronicSignatureService).signAuthorized(captor.capture(), identity.capture(), org.mockito.ArgumentMatchers.isNull());
+        assertEquals(new AuthorizedSignatureIdentity(AuthorizedSignatureIdentity.SYSTEM_USER, 99L, "上市放行人"), identity.getValue());
+        verify(electronicSignatureService, never()).sign(any());
+        assertEquals(7301L, signatureId);
+        assertEquals("MARKET_RELEASE", captor.getValue().actionCode());
+        assertEquals("MES_BATCH_RECORD", captor.getValue().subjectType());
+        assertEquals("上市放行", captor.getValue().reason());
+        assertTrue(captor.getValue().idempotencyKey().startsWith("MES|99|MARKET_RELEASE|"));
+        String subjectPayload = new String(
+                Base64.getUrlDecoder().decode(captor.getValue().subjectId()),
+                StandardCharsets.UTF_8);
+        assertTrue(subjectPayload.contains("\nMARKET_RELEASE\n"));
+        assertTrue(subjectPayload.contains("\nEDHR_MARKET_RELEASE\n700\n上市放行\n"));
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"PQC_RELEASE", "MARKET_RELEASE", "QA_DISPOSITION"})
+    void releaseSignaturePersistsFrozenIdentityThroughRealKernelAndQuery(String action) {
+        var records = org.mockito.Mockito.mock(cn.iocoder.yudao.module.signature.dal.mysql.ElectronicSignatureRecordMapper.class);
+        var kernel = new cn.iocoder.yudao.module.signature.service.ElectronicSignatureServiceImpl();
+        org.springframework.test.util.ReflectionTestUtils.setField(kernel, "adminUserApi", adminUserApi);
+        org.springframework.test.util.ReflectionTestUtils.setField(kernel, "signatureRecordMapper", records);
+        org.springframework.test.util.ReflectionTestUtils.setField(kernel, "gxpAuditService", gxpAuditService);
+        org.springframework.test.util.ReflectionTestUtils.setField(kernel, "subjectAdapters", List.of(new MesBatchRecordSignatureSubjectAdapter()));
+        String originalName = "PQC_RELEASE".equals(action) ? "eDHR测试PQC放行" : "eDHR测试上市放行";
+        var signer = snapshotUser(originalName);
+        when(authorizationService.isElectronicSignatureEnabled(99L)).thenReturn(true);
+        when(adminUserService.getUser(99L)).thenReturn(signer);
+        stubActorSnapshot();
+        var saved = new java.util.concurrent.atomic.AtomicReference<cn.iocoder.yudao.module.signature.dal.dataobject.ElectronicSignatureRecordDO>();
+        when(records.insert(any(cn.iocoder.yudao.module.signature.dal.dataobject.ElectronicSignatureRecordDO.class))).thenAnswer(call -> {
+            var record = (cn.iocoder.yudao.module.signature.dal.dataobject.ElectronicSignatureRecordDO) call.getArgument(0);
+            record.setId(7501L);
+            saved.set(record);
+            return 1;
+        });
+        when(records.selectById(7501L)).thenAnswer(call -> saved.get());
+        when(electronicSignatureService.signAuthorized(any(), any(), org.mockito.ArgumentMatchers.isNull()))
+                .thenAnswer(call -> kernel.signAuthorized(call.getArgument(0), call.getArgument(1), null));
+        TenantContextHolder.setTenantId(1L);
+        try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(99L);
+            Long id = "QA_DISPOSITION".equals(action)
+                    ? signatureService.recordQaDispositionSignature(99L, 90L, "unit-only-credential", "符合要求", "a".repeat(64))
+                    : "PQC_RELEASE".equals(action)
+                    ? signatureService.recordPqcReleaseSignature(99L, 900L, 700L, "unit-only-credential", "符合要求")
+                    : signatureService.recordMarketReleaseSignature(99L, 900L, 700L, "unit-only-credential", "符合要求");
+            assertEquals(7501L, id);
+            var record = saved.get();
+            assertNotNull(record);
+            var identity = JsonUtils.parseTree(record.getCanonicalContentJson()).path("signatureIdentity");
+            assertEquals(5, identity.size());
+            assertEquals("SYSTEM_USER", identity.path("domain").asText());
+            assertEquals(99L, identity.path("signerId").asLong());
+            assertEquals(99L, identity.path("operatorId").asLong());
+            assertEquals(1L, identity.path("tenantId").asLong());
+            assertEquals(originalName, identity.path("displayName").asText());
+            assertEquals("SESSION_PLUS_SELECTED_USER_PASSWORD", record.getAuthenticationMethod());
+            assertEquals(cn.hutool.crypto.digest.DigestUtil.sha256Hex(record.getCanonicalContentJson()), record.getContentHash());
+            String frozenJson = record.getCanonicalContentJson(), frozenEvidenceHash = record.getEvidenceHash();
+            signer.setNickname("改名后的当前账号");
+            var query = new cn.iocoder.yudao.module.signature.service.ElectronicSignatureQueryServiceImpl();
+            org.springframework.test.util.ReflectionTestUtils.setField(query, "signatureRecordMapper", records);
+            var evidence = query.getById(id);
+            assertEquals(originalName, evidence.actorDisplayName(), "Trace reads the signed snapshot instead of current personnel names");
+            assertEquals("SNAPSHOT", evidence.identitySnapshotStatus());
+            assertEquals(frozenJson, evidence.canonicalContentJson());
+            assertEquals(frozenEvidenceHash, evidence.evidenceHash());
+            if ("PQC_RELEASE".equals(action)) {
+                cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesActiveOrderSignatureEvidenceService.requirePqcCanonical(evidence);
+            }
+            verify(adminUserApi, times(2)).reauthenticateForSignature(99L, "unit-only-credential");
+            verify(records, times(1)).insert(any(cn.iocoder.yudao.module.signature.dal.dataobject.ElectronicSignatureRecordDO.class));
+            verify(gxpAuditService).append(any(GxpAuditCommand.class));
+            verify(signatureMapper, never()).insert(any(MesProBatchRecordExecutionSignatureDO.class));
+        } finally { TenantContextHolder.clear(); }
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"PQC_RELEASE", "MARKET_RELEASE", "QA_DISPOSITION"})
+    void releaseSignatureRejectsMissingNameBeforeKernelWrite(String action) {
+        when(authorizationService.isElectronicSignatureEnabled(99L)).thenReturn(true);
+        when(adminUserService.getUser(99L)).thenReturn(snapshotUser(" "));
+        assertServiceException(() -> {
+            if ("QA_DISPOSITION".equals(action)) signatureService.recordQaDispositionSignature(99L, 90L, "unit-only-credential", "符合要求", "a".repeat(64));
+            else if ("PQC_RELEASE".equals(action)) signatureService.recordPqcReleaseSignature(99L, 900L, 700L, "unit-only-credential", "符合要求");
+            else signatureService.recordMarketReleaseSignature(99L, 900L, 700L, "unit-only-credential", "符合要求");
+        }, PRO_BATCH_RECORD_EXECUTION_SIGNATURE_PERSIST_FAILED);
+        org.mockito.Mockito.verifyNoInteractions(electronicSignatureService, signatureMapper);
+    }
+
+    @Test
+    void recordDeviationInitiationSignature_bindsCanonicalDeviationToElectronicSignature() {
+        when(authorizationService.isElectronicSignatureEnabled(99L)).thenReturn(true);
+        when(adminUserService.getUser(99L)).thenReturn(snapshotUser("偏差发起人"));
+        stubActorSnapshot();
+        when(electronicSignatureService.sign(any(ElectronicSignatureCommand.class)))
+                .thenReturn(unifiedSignatureResult(7401L));
+
+        Long signatureId = signatureService.recordDeviationInitiationSignature(
+                99L, 900L, 501L, "PC-202609-0001", "BATCH-900", "secret", "deviation-content-hash");
+
+        ArgumentCaptor<ElectronicSignatureCommand> captor =
+                ArgumentCaptor.forClass(ElectronicSignatureCommand.class);
+        verify(adminUserApi).reauthenticateForSignature(99L, "secret");
+        verify(electronicSignatureService).sign(captor.capture());
+        assertEquals(7401L, signatureId);
+        assertEquals("DEVIATION_INITIATION", captor.getValue().actionCode());
+        assertEquals("MES_BATCH_RECORD", captor.getValue().subjectType());
+        assertEquals("发起偏差 PC-202609-0001，批记录 BATCH-900", captor.getValue().reason());
+        assertTrue(captor.getValue().idempotencyKey().startsWith("MES|99|DEVIATION_INITIATION|"));
+        String subjectPayload = new String(
+                Base64.getUrlDecoder().decode(captor.getValue().subjectId()),
+                StandardCharsets.UTF_8);
+        assertTrue(subjectPayload.contains("\nDEVIATION_INITIATION\n"));
+        assertTrue(subjectPayload.contains("\nEDHR_DEVIATION\n501\n"));
+        assertTrue(subjectPayload.contains("deviation-content-hash"));
+    }
+
+    @Test
     void recordProductionSubmitSignature_usesSelectedEmployeeActorInsteadOfLoginUser() {
         try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
             security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(9001L);
@@ -119,20 +359,20 @@ class MesProBatchRecordExecutionSignatureServiceTest extends BaseMockitoUnitTest
                     .password("selected-password-hash")
                     .build());
             stubActorSnapshotForUser(9102L);
-            when(electronicSignatureService.sign(any(ElectronicSignatureCommand.class)))
+            when(electronicSignatureService.signAuthorized(any(ElectronicSignatureCommand.class), any(), org.mockito.ArgumentMatchers.isNull()))
                     .thenReturn(unifiedSignatureResult(7102L));
 
-            Long signatureId = signatureService.recordProductionSubmitSignature(9102L, "selected-secret", "一线生产报工提交");
+            Long signatureId = signatureService.recordProductionSubmitSignature(9102L, "selected-secret", "一线生产报工提交", new MesProductionSubmitSignatureContext(409L, 520L, 985L, "production-submit-1"));
 
             ArgumentCaptor<ElectronicSignatureCommand> captor =
                     ArgumentCaptor.forClass(ElectronicSignatureCommand.class);
             verify(adminUserApi).reauthenticateForSignature(9102L, "selected-secret");
-            verify(electronicSignatureService).sign(captor.capture());
+            verify(electronicSignatureService).signAuthorized(captor.capture(), any(), org.mockito.ArgumentMatchers.isNull());
             assertEquals(7102L, signatureId);
             assertEquals("PRODUCTION_SUBMIT", captor.getValue().actionCode());
             assertEquals("一线生产报工提交", captor.getValue().reason());
             verify(authorizationService).isElectronicSignatureEnabled(9102L);
-            verify(adminUserService).getUser(9102L);
+            verify(adminUserService, org.mockito.Mockito.times(2)).getUser(9102L);
             verify(adminUserService, never()).getUser(9001L);
             verify(signatureMapper, never()).insert(any(MesProBatchRecordExecutionSignatureDO.class));
         }
@@ -150,7 +390,7 @@ class MesProBatchRecordExecutionSignatureServiceTest extends BaseMockitoUnitTest
                 .password("encoded-password")
                 .build());
         stubActorSnapshotForUser(9102L);
-        when(electronicSignatureService.sign(any(ElectronicSignatureCommand.class)))
+        when(electronicSignatureService.signAuthorized(any(ElectronicSignatureCommand.class), any(), org.mockito.ArgumentMatchers.isNull()))
                 .thenReturn(unifiedSignatureResult(7201L), unifiedSignatureResult(7202L));
 
         signatureService.recordPqcSubmitSignature(9102L, 10001L, "secret", "PQC任务10001正式提交");
@@ -158,7 +398,7 @@ class MesProBatchRecordExecutionSignatureServiceTest extends BaseMockitoUnitTest
 
         ArgumentCaptor<ElectronicSignatureCommand> captor =
                 ArgumentCaptor.forClass(ElectronicSignatureCommand.class);
-        verify(electronicSignatureService, times(2)).sign(captor.capture());
+        verify(electronicSignatureService, times(2)).signAuthorized(captor.capture(), any(), org.mockito.ArgumentMatchers.isNull());
         assertNotEquals(captor.getAllValues().get(0).subjectId(), captor.getAllValues().get(1).subjectId());
         assertNotEquals(captor.getAllValues().get(0).idempotencyKey(),
                 captor.getAllValues().get(1).idempotencyKey());
@@ -167,49 +407,30 @@ class MesProBatchRecordExecutionSignatureServiceTest extends BaseMockitoUnitTest
     }
 
     @Test
-    void recordProductionSubmitSignature_acceptsTemporaryEmployeeProfilePasswordHash() {
-        when(adminUserService.getUser(8801L)).thenReturn(null);
-        when(employeeProfileMapper.selectById(8801L)).thenReturn(MesProcessPoolTeamEmployeeProfileDO.builder()
-                .id(8801L)
-                .leaderUserId(3001L)
-                .employeeCode("TMP-8801")
-                .employeeName("临时工甲")
-                .displayName("临时工甲")
-                .employeeType("TEMPORARY")
-                .signaturePasswordHash("bcrypt-temp-sign")
-                .enabled(Boolean.TRUE)
-                .build());
+    void temporaryProfileWritesUnifiedEvidenceEvenWhenSystemUserHasSameId() {
+        var profile = MesProcessPoolTeamEmployeeProfileDO.builder()
+                .id(8801L).employeeCode("TMP-8801").employeeName("临时工甲").enabled(true)
+                .signaturePasswordHash("bcrypt-temp-sign").build();
+        profile.setTenantId(1L);
+        when(employeeProfileMapper.selectById(8801L)).thenReturn(profile);
         when(passwordEncoder.matches("tmp-secret", "bcrypt-temp-sign")).thenReturn(true);
-        when(signatureMapper.insert(any(MesProBatchRecordExecutionSignatureDO.class))).thenAnswer(invocation -> {
-            invocation.getArgument(0, MesProBatchRecordExecutionSignatureDO.class).setId(880100L);
-            return 1;
+        when(electronicSignatureService.signAuthorized(any(), any(), any())).thenAnswer(call -> {
+            call.getArgument(2, Runnable.class).run();
+            assertEquals("MES_EMPLOYEE_PROFILE", call.getArgument(1,
+                    cn.iocoder.yudao.module.signature.api.dto.AuthorizedSignatureIdentity.class).domain());
+            return unifiedSignatureResult(880100L);
         });
-
-        Long signatureId = signatureService.recordProductionSubmitSignature(8801L, "tmp-secret", "一线生产报工提交");
-
-        assertEquals(880100L, signatureId);
-        ArgumentCaptor<MesProBatchRecordExecutionSignatureDO> captor =
-                ArgumentCaptor.forClass(MesProBatchRecordExecutionSignatureDO.class);
-        verify(passwordEncoder).matches("tmp-secret", "bcrypt-temp-sign");
-        verify(authorizationService, never()).isElectronicSignatureEnabled(8801L);
-        verify(electronicSignatureService, never()).sign(any(ElectronicSignatureCommand.class));
-        verify(signatureMapper).insert(captor.capture());
-        MesProBatchRecordExecutionSignatureDO signature = captor.getValue();
-        assertEquals(0L, signature.getExecutionId());
-        assertEquals(8801L, signature.getActorId());
-        assertEquals("PRODUCTION_SUBMIT", signature.getActionType());
-        assertEquals("PASSWORD", signature.getSignatureMode());
-        assertTrue(Boolean.TRUE.equals(signature.getPasswordVerified()));
-        assertEquals("临时工甲", signature.getActorName());
-        assertEquals("TMP-8801", signature.getActorUsernameSnapshot());
-        assertEquals("临时工甲", signature.getActorNicknameSnapshot());
-        assertEquals("生产人员档案电子签名密码已验证", signature.getAuthorizationBasis());
-        assertEquals("CAPTURED_PARTIAL_ORG", signature.getSnapshotStatus());
+        TenantContextHolder.setTenantId(1L);
+        try {
+            assertEquals(880100L, signatureService.recordProductionSubmitSignature(8801L, "MES_EMPLOYEE_PROFILE",
+                    "tmp-secret", "production", new MesProductionSubmitSignatureContext(409L, 520L, 985L, "submission-1")));
+        } finally { TenantContextHolder.clear(); }
+        verify(adminUserService, never()).getUser(8801L);
+        verify(signatureMapper, never()).insert(any(MesProBatchRecordExecutionSignatureDO.class));
     }
 
     @Test
     void recordProductionSubmitSignature_rejectsTemporaryEmployeeProfileWrongPassword() {
-        when(adminUserService.getUser(8801L)).thenReturn(null);
         when(employeeProfileMapper.selectById(8801L)).thenReturn(MesProcessPoolTeamEmployeeProfileDO.builder()
                 .id(8801L)
                 .leaderUserId(3001L)
@@ -222,12 +443,12 @@ class MesProBatchRecordExecutionSignatureServiceTest extends BaseMockitoUnitTest
                 .build());
         when(passwordEncoder.matches("bad-secret", "bcrypt-temp-sign")).thenReturn(false);
 
-        assertServiceException(() -> signatureService.recordProductionSubmitSignature(8801L, "bad-secret", "一线生产报工提交"),
+        assertServiceException(() -> signatureService.recordProductionSubmitSignature(8801L, "MES_EMPLOYEE_PROFILE", "bad-secret", "一线生产报工提交", new MesProductionSubmitSignatureContext(409L, 520L, 985L, "production-submit-1")),
                 PRO_BATCH_RECORD_EXECUTION_SIGNATURE_PASSWORD_INVALID);
 
         verify(passwordEncoder).matches("bad-secret", "bcrypt-temp-sign");
         verify(authorizationService, never()).isElectronicSignatureEnabled(8801L);
-        verify(electronicSignatureService, never()).sign(any(ElectronicSignatureCommand.class));
+        verify(electronicSignatureService, never()).signAuthorized(any(ElectronicSignatureCommand.class), any(), org.mockito.ArgumentMatchers.isNull());
         verify(signatureMapper, never()).insert(any(MesProBatchRecordExecutionSignatureDO.class));
     }
 
@@ -263,6 +484,28 @@ class MesProBatchRecordExecutionSignatureServiceTest extends BaseMockitoUnitTest
         assertEquals("SIMULATION_SESSION", signature.getAuthenticationMethod());
         assertTrue(signature.getAuthorizationBasis().contains("Stage1模拟"));
         assertTrue(!signature.getAuthorizationBasis().contains("正式签名记录"));
+        var eventMapper = org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventMapper.class);
+        var unified = org.mockito.Mockito.mock(cn.iocoder.yudao.module.signature.api.ElectronicSignatureQueryService.class);
+        var event = new cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventDO()
+                .setId(7001L).setEventType("PRODUCTION_SUBMIT").setTemplateType("SIMULATED_PRODUCTION_SUBMIT")
+                .setActualEmployeeId(99L).setSignatureUserId(99L).setSignatureId(signatureId)
+                .setRawPayload("{\"simulated\":true,\"simulationStage\":\"stage1\",\"simulationRunId\":\"run-001\"}")
+                .setSignatureSnapshot("{\"simulated\":true,\"signatureId\":10001,\"actorId\":99,\"objectId\":8101,\"actionType\":\"PRODUCTION_SUBMIT\"}");
+        cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.setTenantId(1L);
+        try {
+            event.setTenantId(1L);
+            org.mockito.Mockito.when(eventMapper.selectById(7001L)).thenReturn(event);
+            org.mockito.Mockito.when(signatureMapper.selectById(signatureId)).thenReturn(signature);
+            var display = new cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesSubmissionSignatureIdentityReader(
+                    unified,eventMapper,signatureMapper,null).read(signatureId,7001L,8101L,"PRODUCTION_SUBMIT");
+            assertEquals("签名人（模拟）",display.getSignerName());
+            assertEquals("SIMULATION_SESSION",display.getRole());
+            org.junit.jupiter.api.Assertions.assertNull(display.getSignatureId());
+            org.mockito.Mockito.verifyNoInteractions(unified);
+        } finally {
+            cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.clear();
+        }
+
         assertNotNull(signature.getSignedAt());
         verify(adminUserService, never()).isPasswordMatch(any(), any());
         verify(authorizationService, never()).isElectronicSignatureEnabled(any());
@@ -373,6 +616,36 @@ class MesProBatchRecordExecutionSignatureServiceTest extends BaseMockitoUnitTest
     }
 
     @Test
+    void recordFieldChangeDraftSaveReturnsActualSessionEvidenceWithoutPasswordOrSubmitSignature() {
+        try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(99L);
+            when(adminUserService.getUser(99L)).thenReturn(snapshotUser("QA"));
+            stubActorSnapshot();
+            var saved = new java.util.concurrent.atomic.AtomicReference<MesProBatchRecordExecutionSignatureDO>();
+            when(signatureMapper.insert(any(MesProBatchRecordExecutionSignatureDO.class))).thenAnswer(invocation -> {
+                var row = invocation.getArgument(0, MesProBatchRecordExecutionSignatureDO.class);
+                row.setId(779L);
+                saved.set(row);
+                return 1;
+            });
+            when(signatureMapper.selectById(779L)).thenAnswer(invocation -> saved.get());
+            var result = signatureService.recordFieldChangeDraftSave(
+                    new MesProBatchRecordExecutionFieldAuditSignatureCommand().setExecutionId(900L)
+                            .setReasonCategory("OTHER").setReasonText("正式数量来源")
+                            .setSignatureChallengeHash("a".repeat(64)));
+            assertEquals("DRAFT_SESSION", result.getSignatureMode());
+            assertEquals(Boolean.FALSE, result.getPasswordVerified());
+            assertEquals("DRAFT_SESSION", saved.get().getSignatureMode());
+            assertEquals(Boolean.FALSE, saved.get().getPasswordVerified());
+            assertEquals("FIELD_CHANGE", saved.get().getActionType());
+            assertEquals("登录会话保存；未执行电子签名", saved.get().getAuthorizationBasis());
+            org.mockito.Mockito.verifyNoInteractions(adminUserApi, electronicSignatureService, passwordEncoder);
+            verify(gxpAuditService).acquireLedgerLock();
+            verify(gxpAuditService).append(any());
+        }
+    }
+
+    @Test
     void recordFieldChangeSignature_success() {
         try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
             security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(99L);
@@ -393,6 +666,8 @@ class MesProBatchRecordExecutionSignatureServiceTest extends BaseMockitoUnitTest
             assertEquals(777L, result.getSignatureId());
             assertEquals(99L, result.getActorId());
             assertEquals("QA", result.getActorName());
+            assertEquals("PASSWORD", result.getSignatureMode());
+            assertEquals(Boolean.TRUE, result.getPasswordVerified());
             ArgumentCaptor<ElectronicSignatureCommand> captor =
                     ArgumentCaptor.forClass(ElectronicSignatureCommand.class);
             verify(adminUserApi).reauthenticateForSignature(99L, "secret");
@@ -503,12 +778,17 @@ class MesProBatchRecordExecutionSignatureServiceTest extends BaseMockitoUnitTest
 
     @Test
     void attachFieldChangeSignature_updatesFieldAuditBinding() {
-        when(signatureMapper.selectById(777L)).thenReturn(MesProBatchRecordExecutionSignatureDO.builder()
+        when(signatureMapper.selectOne(org.mockito.ArgumentMatchers.<Wrapper<MesProBatchRecordExecutionSignatureDO>>any()))
+                .thenReturn(MesProBatchRecordExecutionSignatureDO.builder()
                 .id(777L)
                 .executionId(900L)
                 .actionType("FIELD_CHANGE")
                 .build());
         when(signatureMapper.updateById(any(MesProBatchRecordExecutionSignatureDO.class))).thenReturn(1);
+        when(signatureMapper.selectById(777L)).thenReturn(MesProBatchRecordExecutionSignatureDO.builder()
+                .id(777L).executionId(900L).actionType("FIELD_CHANGE").auditBatchId(888L)
+                .signatureChallengeHash("b".repeat(64)).fieldAuditRevision(2L)
+                .fieldAuditHeadHash("c".repeat(64)).cellValuesHash("d".repeat(64)).build());
 
         signatureService.attachFieldChangeSignature(new MesProBatchRecordExecutionFieldAuditSignatureAttachCommand()
                 .setSignatureId(777L)

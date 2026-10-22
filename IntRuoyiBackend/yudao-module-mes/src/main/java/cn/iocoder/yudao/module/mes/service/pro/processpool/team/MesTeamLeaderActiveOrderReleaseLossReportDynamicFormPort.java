@@ -34,6 +34,7 @@ public interface MesTeamLeaderActiveOrderReleaseLossReportDynamicFormPort {
     @Data
     @Accessors(chain = true)
     class WriteCommand {
+        private Long actorUserId;
         private Long tenantId;
         private Long batchExecutionId;
         private MesProEdhrBatchExecutionTaskDO batchTask;

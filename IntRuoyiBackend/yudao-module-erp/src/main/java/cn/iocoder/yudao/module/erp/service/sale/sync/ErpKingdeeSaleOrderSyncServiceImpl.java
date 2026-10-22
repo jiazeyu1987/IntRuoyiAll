@@ -23,6 +23,7 @@ import cn.iocoder.yudao.module.erp.dal.mysql.product.ErpProductUnitMapper;
 import cn.iocoder.yudao.module.erp.enums.ErpAuditStatus;
 import cn.iocoder.yudao.module.erp.service.purchase.sync.ErpKingdeeMaterialDetail;
 import cn.iocoder.yudao.module.erp.service.purchase.sync.ErpKingdeeProperties;
+import cn.iocoder.yudao.module.erp.service.purchase.sync.ErpKingdeeOrderAmounts;
 import cn.iocoder.yudao.module.erp.service.purchase.sync.ErpKingdeePurchaseOrderClient;
 import cn.iocoder.yudao.module.erp.service.purchase.sync.ErpKingdeeSaleOrder;
 import cn.iocoder.yudao.module.erp.service.purchase.sync.ErpKingdeeSaleOrderClient;
@@ -168,9 +169,25 @@ public class ErpKingdeeSaleOrderSyncServiceImpl implements ErpKingdeeSaleOrderSy
         reqVO.setCustomerId(resolveCustomerId(saleOrder));
         reqVO.setOrderTime(saleOrder.getBillDate());
         reqVO.setDiscountPercent(BigDecimal.ZERO);
-        reqVO.setDepositPrice(BigDecimal.ZERO);
-        reqVO.setRemark("Kingdee K3Cloud sale order: " + saleOrder.getBillNo());
+        reqVO.setDepositPrice(saleOrder.getDepositAmount());
+        reqVO.setRemark(saleOrder.getRemark());
         reqVO.setItems(buildItems(kingdeeProperties, saleOrder, materialDetails));
+        ErpKingdeeOrderAmounts amounts = new ErpKingdeeOrderAmounts();
+        amounts.setProductAmount(saleOrder.getTotalProductAmount());
+        amounts.setTaxAmount(saleOrder.getTotalTaxAmount());
+        amounts.setTotalAmount(saleOrder.getTotalAmount());
+        amounts.setDiscountAmount(saleOrder.getDiscountAmount());
+        amounts.setLines(new ArrayList<>());
+        for (var line : saleOrder.getLines()) {
+            var amount = new ErpKingdeeOrderAmounts.Line();
+            amount.setNetAmount(line.getNetAmount());
+            amount.setTaxAmount(line.getTaxAmount());
+            amount.setTotalAmount(line.getTotalAmount());
+            amounts.getLines().add(amount);
+        }
+        amounts.validate(reqVO.getItems().size());
+        reqVO.setDiscountPercent(amounts.discountPercent());
+        reqVO.setKingdeeAmounts(amounts);
         return reqVO;
     }
 
@@ -184,13 +201,13 @@ public class ErpKingdeeSaleOrderSyncServiceImpl implements ErpKingdeeSaleOrderSy
         for (ErpKingdeeSaleOrder.Line line : saleOrder.getLines()) {
             ErpSaleOrderSaveReqVO.Item item = new ErpSaleOrderSaveReqVO.Item();
             Long productId = resolveProductId(kingdeeProperties, line, materialDetails);
-            ErpProductDO product = productMapper.selectById(productId);
             item.setProductId(productId);
-            item.setProductUnitId(product.getUnitId());
-            item.setProductPrice(line.getPrice());
+            item.setProductUnitId(ensureOrderUnit(line.getUnitName()));
+            item.setProductPrice(ErpKingdeeOrderAmounts.transactionUnitPrice(line.getPrice(), line.getQuantity(),
+                    line.getPriceUnitQuantity(), line.getUnitName(), line.getPriceUnitName()));
             item.setCount(line.getQuantity());
             item.setTaxPercent(line.getTaxPercent());
-            item.setRemark(null);
+            item.setRemark(line.getRemark());
             items.add(item);
         }
         return items;
@@ -261,6 +278,18 @@ public class ErpKingdeeSaleOrderSyncServiceImpl implements ErpKingdeeSaleOrderSy
         category.setStatus(CommonStatusEnum.ENABLE.getStatus());
         productCategoryMapper.insert(category);
         return category.getId();
+    }
+
+    private Long ensureOrderUnit(String name) {
+        if (StrUtil.isBlank(name)) { throw exception(KINGDEE_PURCHASE_ORDER_RESPONSE_INVALID, "ERP order unit is blank"); }
+        ErpProductUnitDO unit = productUnitMapper.selectByName(name);
+        if (unit == null) {
+            unit = new ErpProductUnitDO();
+            unit.setName(name);
+            unit.setStatus(CommonStatusEnum.ENABLE.getStatus());
+            productUnitMapper.insert(unit);
+        }
+        return unit.getId();
     }
 
     private Long ensureProductUnit(ErpKingdeeMaterialDetail detail) {

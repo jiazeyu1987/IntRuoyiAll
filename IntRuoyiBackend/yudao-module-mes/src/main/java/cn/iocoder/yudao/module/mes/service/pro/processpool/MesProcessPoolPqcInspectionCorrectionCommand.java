@@ -10,6 +10,8 @@ import java.util.List;
 public class MesProcessPoolPqcInspectionCorrectionCommand {
 
     private Long eventId;
+    private Long expectedRevisionId;
+    private String expectedPayloadHash;
     private Long actorUserId;
     private Integer actualInspectionQuantity;
     private Integer scrapQuantity;

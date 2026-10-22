@@ -34,8 +34,15 @@ public class MesProcessPoolTeamEmployeeProfileDO extends TenantBaseDO {
     private String employeeName;
     private String displayName;
     private String employeeType;
+    @ToString.Exclude
     private String signaturePasswordHash;
     private LocalDateTime signaturePasswordUpdatedAt;
+    private String signatureCredentialGeneration;
+    private Long signatureCredentialVersion;
+    private String signatureCredentialStatus;
+    private Integer signatureFailureCount;
+    private LocalDateTime signatureFailureWindowStartAt;
+    private LocalDateTime signatureLockedUntil;
     private Boolean enabled;
     private LocalDateTime disabledAt;
 }

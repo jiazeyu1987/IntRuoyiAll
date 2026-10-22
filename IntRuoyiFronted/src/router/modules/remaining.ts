@@ -1,4 +1,5 @@
 import { Layout } from '@/utils/routerHelper'
+import businessConfigRoutes from './businessConfig'
 
 const { t } = useI18n()
 const signatureGovernanceView = () => import('@/views/signature-governance/index.vue')
@@ -34,6 +35,30 @@ const signatureGovernanceView = () => import('@/views/signature-governance/index
  }
  **/
 const remainingRouter: AppRouteRecordRaw[] = [
+  ...businessConfigRoutes,
+  {
+    path: '/ai/codex',
+    component: Layout,
+    name: 'AiCodexWebCompatibility',
+    meta: {
+      hidden: true
+    },
+    children: [
+      {
+        path: '',
+        component: () => import('@/views/ai/codex/index.vue'),
+        name: 'AiCodexWeb',
+        meta: {
+          hidden: true,
+          canTo: true,
+          noCache: false,
+          title: 'Codex Web',
+          icon: 'tabler:ai',
+          activeMenu: '/ai/chat'
+        }
+      }
+    ]
+  },
   {
     path: '/redirect',
     component: Layout,
@@ -50,6 +75,29 @@ const remainingRouter: AppRouteRecordRaw[] = [
       hidden: true,
       noTagsView: true
     }
+  },
+  {
+    path: '/mes/production-release/pqc',
+    component: Layout,
+    name: 'MesPqcProductionReleaseActionUrlRoot',
+    meta: {
+      hidden: true
+    },
+    children: [
+      {
+        path: '',
+        component: () => import('@/views/mes/pro/production-release/PqcProductionReleasePage.vue'),
+        name: 'MesPqcProductionReleaseActionUrl',
+        meta: {
+          noCache: true,
+          hidden: true,
+          canTo: true,
+          icon: '',
+          title: 'PQC生产放行',
+          activeMenu: '/mes/production-release/pqc'
+        }
+      }
+    ]
   },
   {
     path: '/',
@@ -1697,6 +1745,20 @@ const remainingRouter: AppRouteRecordRaw[] = [
         }
       },
       {
+        path: 'production-release/pqc',
+        component: () => import('@/views/mes/pro/production-release/PqcProductionReleasePage.vue'),
+        name: 'MesPqcProductionRelease',
+        meta: {
+          noCache: true,
+          hidden: true,
+          canTo: true,
+          icon: '',
+          title: 'PQC生产放行',
+          activeMenu: '/mes/production-release/pqc',
+          permission: ['mes:pro-production-release:query']
+        }
+      },
+      {
         path: 'pro/feedback/edhr-execution/form',
         component: () => import('@/views/mes/pro/edhr/ExecutionPage.vue'),
         name: 'MesProFeedbackEdhrExecutionForm',
@@ -1866,6 +1928,20 @@ const remainingRouter: AppRouteRecordRaw[] = [
         }
       },
       {
+        path: 'pro/feedback/edhr-deviation',
+        component: () => import('@/views/mes/pro/edhr-deviation/index.vue'),
+        name: 'MesProEdhrDeviation',
+        meta: {
+          noCache: true,
+          hidden: true,
+          canTo: true,
+          icon: '',
+          title: '偏差管理',
+          activeMenu: '/mes/pro/feedback/edhr-deviation',
+          permission: ['mes:pro-edhr-deviation:query']
+        }
+      },
+      {
         path: 'pro/feedback/edhr-batch-execution',
         component: () => import('@/views/mes/pro/edhr-batch/BatchExecutionListPage.vue'),
         name: 'MesProEdhrBatchExecutionListPage',
@@ -1889,6 +1965,20 @@ const remainingRouter: AppRouteRecordRaw[] = [
           canTo: true,
           icon: '',
           title: 'eDHR批次详情',
+          activeMenu: '/mes/pro/feedback/edhr-batch-execution',
+          permission: ['mes:pro-edhr-batch-execution:query']
+        }
+      },
+      {
+        path: 'pro/feedback/edhr-batch-execution/active-order-detail',
+        component: () => import('@/views/mes/pro/edhr-batch/BatchExecutionActiveOrderDetailPage.vue'),
+        name: 'MesProEdhrBatchExecutionActiveOrderDetail',
+        meta: {
+          noCache: false,
+          hidden: true,
+          canTo: true,
+          icon: '',
+          title: '活跃订单详情批记录',
           activeMenu: '/mes/pro/feedback/edhr-batch-execution',
           permission: ['mes:pro-edhr-batch-execution:query']
         }
@@ -2006,6 +2096,19 @@ const remainingRouter: AppRouteRecordRaw[] = [
         }
       },
       {
+        path: 'pro/feedback/edhr-batch-voided',
+        component: () => import('@/views/mes/pro/edhr-batch/BatchVoidedPage.vue'),
+        name: 'MesProEdhrBatchVoided',
+        meta: {
+          noCache: true,
+          hidden: true,
+          canTo: true,
+          title: '作废批次',
+          activeMenu: '/mes/pro/feedback/edhr-batch-execution',
+          permission: ['mes:pro-edhr-batch-execution:query']
+        }
+      },
+      {
         path: 'pro/feedback/edhr-batch-page-graph',
         component: () => import('@/views/mes/pro/edhr-batch/BatchPageGraphPage.vue'),
         name: 'MesProEdhrBatchPageGraph',
@@ -2031,20 +2134,6 @@ const remainingRouter: AppRouteRecordRaw[] = [
           title: 'eDHR签名记录',
           activeMenu: '/mes/pro/feedback/edhr-signatures',
           permission: ['mes:pro-batch-record-execution:signature-query']
-        }
-      },
-      {
-        path: 'pro/feedback/edhr-label',
-        component: () => import('@/views/mes/pro/edhr-label-print/LabelPrintQueuePage.vue'),
-        name: 'MesProFeedbackEdhrLabel',
-        meta: {
-          noCache: true,
-          hidden: true,
-          canTo: true,
-          icon: '',
-          title: 'eDHR标签管理',
-          activeMenu: '/mes/pro/feedback/edhr-label',
-          permission: ['mes:pro-edhr-label:query']
         }
       },
       {

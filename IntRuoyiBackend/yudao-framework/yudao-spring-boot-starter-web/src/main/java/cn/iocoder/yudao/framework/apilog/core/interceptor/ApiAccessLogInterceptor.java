@@ -6,10 +6,12 @@ import cn.hutool.core.io.resource.ResourceUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.iocoder.yudao.framework.common.util.servlet.ServletUtils;
 import cn.iocoder.yudao.framework.common.util.spring.SpringUtils;
+import cn.iocoder.yudao.framework.apilog.core.annotation.ApiAccessLog;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.util.StopWatch;
+import org.springframework.util.Assert;
 import org.springframework.web.method.HandlerMethod;
 import org.springframework.web.servlet.HandlerInterceptor;
 
@@ -30,6 +32,25 @@ import java.util.stream.IntStream;
 public class ApiAccessLogInterceptor implements HandlerInterceptor {
 
     public static final String ATTRIBUTE_HANDLER_METHOD = "HANDLER_METHOD";
+    public static final String ATTRIBUTE_PROTECTED_REQUEST_URI = "ApiAccessLogInterceptor.ProtectedRequestUri";
+
+    public static boolean isRequestLoggingDisabled(HttpServletRequest request) {
+        if (request == null || !(request.getAttribute(ATTRIBUTE_HANDLER_METHOD) instanceof HandlerMethod handler)) {
+            return false;
+        }
+        ApiAccessLog annotation = handler.getMethodAnnotation(ApiAccessLog.class);
+        return annotation != null && !annotation.requestEnable();
+    }
+
+    public static String getLogRequestUri(HttpServletRequest request) {
+        if (!isRequestLoggingDisabled(request)) {
+            return request.getRequestURI();
+        }
+        Object uri = request.getAttribute(ATTRIBUTE_PROTECTED_REQUEST_URI);
+        Assert.state(uri instanceof String && StrUtil.isNotBlank((String) uri),
+                "Protected request logging requires its fixed endpoint URI");
+        return (String) uri;
+    }
 
     private static final String ATTRIBUTE_STOP_WATCH = "ApiAccessLogInterceptor.StopWatch";
 
@@ -43,13 +64,19 @@ public class ApiAccessLogInterceptor implements HandlerInterceptor {
 
         // 打印 request 日志
         if (!SpringUtils.isProd()) {
-            Map<String, String> queryString = ServletUtils.getParamMap(request);
-            String requestBody = ServletUtils.isJsonRequest(request) ? ServletUtils.getBody(request) : null;
-            if (CollUtil.isEmpty(queryString) && StrUtil.isEmpty(requestBody)) {
-                log.info("[preHandle][开始请求 URL({}) 无参数]", request.getRequestURI());
+            ApiAccessLog accessLogAnnotation = handlerMethod != null
+                    ? handlerMethod.getMethodAnnotation(ApiAccessLog.class) : null;
+            if (accessLogAnnotation != null && !accessLogAnnotation.requestEnable()) {
+                log.info("[preHandle][开始请求 URL({}) 参数禁止记录]", getLogRequestUri(request));
             } else {
-                log.info("[preHandle][开始请求 URL({}) 参数({})]", request.getRequestURI(),
-                        StrUtil.blankToDefault(requestBody, queryString.toString()));
+                Map<String, String> queryString = ServletUtils.getParamMap(request);
+                String requestBody = ServletUtils.isJsonRequest(request) ? ServletUtils.getBody(request) : null;
+                if (CollUtil.isEmpty(queryString) && StrUtil.isEmpty(requestBody)) {
+                    log.info("[preHandle][开始请求 URL({}) 无参数]", request.getRequestURI());
+                } else {
+                    log.info("[preHandle][开始请求 URL({}) 参数({})]", request.getRequestURI(),
+                            StrUtil.blankToDefault(requestBody, queryString.toString()));
+                }
             }
             // 计时
             StopWatch stopWatch = new StopWatch();
@@ -68,7 +95,7 @@ public class ApiAccessLogInterceptor implements HandlerInterceptor {
             StopWatch stopWatch = (StopWatch) request.getAttribute(ATTRIBUTE_STOP_WATCH);
             stopWatch.stop();
             log.info("[afterCompletion][完成请求 URL({}) 耗时({} ms)]",
-                    request.getRequestURI(), stopWatch.getTotalTimeMillis());
+                    getLogRequestUri(request), stopWatch.getTotalTimeMillis());
         }
     }
 

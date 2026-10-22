@@ -34,6 +34,9 @@ public class YudaoAiProperties {
         private String model;
         private String openAiApiKey;
         private String openAiBaseUrl;
+        private boolean mcpServerEnabled;
+        private String mcpServerName = "intruoyi";
+        private String mcpServerUrl;
 
     }
 

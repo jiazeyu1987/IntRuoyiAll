@@ -85,6 +85,9 @@ class MesProductionReleaseApplySp1Test {
     @Mock private MesProductionReleaseRequiredCandidateResolver candidateResolver;
     @Mock private MesReleaseFlowAuditRecorder auditRecorder;
     @Mock private MesProcessPoolActiveOrderPickListBindingMapper pickListBindingMapper;
+    @Mock private cn.iocoder.yudao.module.mes.service.pro.productionrelease.notification.MesReleaseTaskNotificationService notificationService;
+
+    @Mock private cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrNonconformanceReviewMapper reviewMapper;
 
     private MesTeamLeaderActiveOrderReleaseGenerationService generationService;
 
@@ -94,11 +97,16 @@ class MesProductionReleaseApplySp1Test {
         MesTeamLeaderActiveOrderReleaseApplicationPersistenceService persistenceService =
                 new MesTeamLeaderActiveOrderReleaseApplicationPersistenceService(
                         applicationMapper, workTaskMapper, auditRecorder);
+        org.springframework.test.util.ReflectionTestUtils.setField(persistenceService,"notificationService",notificationService);
+        var freezeService = new cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrNonconformanceReviewServiceImpl();
+        { org.springframework.test.util.ReflectionTestUtils.setField(freezeService, "handoffService", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffService.class)); }
+        org.springframework.test.util.ReflectionTestUtils.setField(freezeService, "reviewMapper", reviewMapper);
+        org.springframework.test.util.ReflectionTestUtils.setField(freezeService, "workOrderMapper", workOrderMapper);
         generationService = new MesTeamLeaderActiveOrderReleaseGenerationService(
                 activeOrderMapper, workOrderMapper, processSnapshotMapper, completionMapper,
                 pqcTaskMapper, aggregateDetailMapper, allocationMapper, applicationMapper, workTaskMapper,
                 persistenceService, candidateResolver, new MesTeamLeaderActiveOrderReleaseSourceSnapshotHasher(),
-                pickListBindingMapper);
+                pickListBindingMapper, freezeService);
 
         lenient().when(activeOrderMapper.selectByIdForUpdate(ACTIVE_ORDER_ID)).thenReturn(activeOrder());
         lenient().when(pickListBindingMapper.selectListByActiveOrderId(ACTIVE_ORDER_ID)).thenReturn(List.of(
@@ -129,6 +137,12 @@ class MesProductionReleaseApplySp1Test {
             task.setId(WORK_TASK_ID);
             return 1;
         }).when(workTaskMapper).insert(any(MesProEdhrWorkTaskDO.class));
+        lenient().doAnswer(invocation -> {
+            MesProEdhrWorkTaskDO binding=invocation.getArgument(0);
+            assertEquals(WORK_TASK_ID,binding.getId());
+            assertTrue(binding.getActionUrl().endsWith("&workTaskId="+WORK_TASK_ID));
+            return 1;
+        }).when(workTaskMapper).updateById(any(MesProEdhrWorkTaskDO.class));
         lenient().when(applicationMapper.updateById(any(MesProcessPoolActiveOrderReleaseApplicationDO.class)))
                 .thenReturn(1);
     }
@@ -136,6 +150,49 @@ class MesProductionReleaseApplySp1Test {
     @AfterEach
     void tearDown() {
         TenantContextHolder.clear();
+    }
+
+    @Test
+    void frozenWorkOrderCannotCreateNewReleaseApplicationOrTask() {
+        when(workOrderMapper.selectByIdForUpdate(WORK_ORDER_ID))
+                .thenReturn(workOrder().setTemporaryFrozen(true));
+
+        assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,
+                () -> generationService.generate(LEADER_USER_ID, command("frozen-p3")));
+
+        verify(applicationMapper, never()).insert(any(MesProcessPoolActiveOrderReleaseApplicationDO.class));
+        verify(workTaskMapper, never()).insert(any(MesProEdhrWorkTaskDO.class));
+        verify(auditRecorder, never()).record(any());
+    }
+
+    @Test
+    void blockingNcrCannotCreateReleaseEvenIfTemporaryFlagIsFalse() {
+        when(reviewMapper.selectFirstBlockingByWorkOrderId(WORK_ORDER_ID)).thenReturn(
+                new cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrNonconformanceReviewDO()
+                        .setId(998L).setWorkOrderId(WORK_ORDER_ID).setReviewStatus("PENDING_REVIEW"));
+
+        assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,
+                () -> generationService.generate(LEADER_USER_ID, command("frozen-ncr-p3")));
+
+        verify(applicationMapper, never()).insert(any(MesProcessPoolActiveOrderReleaseApplicationDO.class));
+        verify(workTaskMapper, never()).insert(any(MesProEdhrWorkTaskDO.class));
+        verify(auditRecorder, never()).record(any());
+    }
+
+    @Test
+    void frozenWorkOrderCanReplaySuccessfulApplicationWithoutNewWrites() {
+        var existing = existingApplication().setRequestIdempotencyKey("completed-before-freeze");
+        when(workOrderMapper.selectByIdForUpdate(WORK_ORDER_ID))
+                .thenReturn(workOrder().setTemporaryFrozen(true));
+        when(applicationMapper.selectByRequestIdempotencyKey(ACTIVE_ORDER_ID, "completed-before-freeze"))
+                .thenReturn(existing);
+
+        var replay = generationService.generate(LEADER_USER_ID, command("completed-before-freeze"));
+
+        assertEquals(APPLICATION_ID, replay.getApplicationId());
+        verify(applicationMapper, never()).insert(any(MesProcessPoolActiveOrderReleaseApplicationDO.class));
+        verify(workTaskMapper, never()).insert(any(MesProEdhrWorkTaskDO.class));
+        verify(auditRecorder, never()).record(any());
     }
 
     @Test
@@ -154,6 +211,7 @@ class MesProductionReleaseApplySp1Test {
 
         MesProcessPoolActiveOrderReleaseApplicationDO application = applicationCaptor.getValue();
         MesProEdhrWorkTaskDO task = taskCaptor.getValue();
+        verify(notificationService).scheduleAssigned(task,LEADER_USER_ID);
         String expectedBusinessKey = DigestUtil.sha256Hex(
                 "PQC_RELEASE|1|2001|3001|BATCH-001|4001|4002");
         assertAll(
@@ -301,6 +359,51 @@ class MesProductionReleaseApplySp1Test {
         verify(applicationMapper, never()).insert(any(MesProcessPoolActiveOrderReleaseApplicationDO.class));
         verify(workTaskMapper, never()).insert(any(MesProEdhrWorkTaskDO.class));
         verify(auditRecorder, never()).record(any());
+    }
+
+    @Test
+    void reworkClosedApplicationStartsNewReleaseCycleInsteadOfReplayingOldApplication() {
+        MesProcessPoolActiveOrderReleaseApplicationDO reworkClosed = existingApplication()
+                .setId(6901L)
+                .setPqcReleaseWorkTaskId(7901L)
+                .setApplicationStatus(MesReleaseFlowStatus.NONCONFORMANCE_REWORK)
+                .setQaClosureReviewId(8901L)
+                .setRequestIdempotencyKey("previous-release-request");
+        when(applicationMapper.selectLatestReworkClosedByActiveOrderId(ACTIVE_ORDER_ID))
+                .thenReturn(reworkClosed);
+        when(applicationMapper.selectByBusinessIdempotencyKey(
+                ACTIVE_ORDER_ID,
+                DigestUtil.sha256Hex("PQC_RELEASE|1|2001|3001|BATCH-001|4001|4002|REWORK:6901")))
+                .thenReturn(null);
+
+        MesTeamLeaderActiveOrderReleaseApplicationResult result =
+                generationService.generate(LEADER_USER_ID, command("release-request-after-rework"));
+
+        assertEquals(APPLICATION_ID, result.getApplicationId());
+        verify(applicationMapper).insert(any(MesProcessPoolActiveOrderReleaseApplicationDO.class));
+        verify(workTaskMapper).insert(any(MesProEdhrWorkTaskDO.class));
+        verify(auditRecorder).record(any());
+    }
+
+    @Test
+    void inconsistentReworkProjectionFailsBeforeCreatingAnotherApplication() {
+        var inconsistent = existingApplication().setId(6902L)
+                .setApplicationStatus(MesReleaseFlowStatus.PQC_RELEASE_PENDING).setPqcDecision(null);
+        when(applicationMapper.selectLatestReworkClosedByActiveOrderId(ACTIVE_ORDER_ID)).thenReturn(inconsistent);
+        assertThrows(IllegalStateException.class,
+                () -> generationService.generate(LEADER_USER_ID, command("new-request")));
+        verify(applicationMapper, never()).insert(any(MesProcessPoolActiveOrderReleaseApplicationDO.class));
+    }
+
+    @Test
+    void retryOfOldRequestKeepsItsOriginalRoundIdentity() {
+        var old = existingApplication().setId(6902L)
+                .setApplicationStatus(MesReleaseFlowStatus.NONCONFORMANCE_REWORK)
+                .setQaClosureReviewId(8902L).setRequestIdempotencyKey("old-request");
+        when(applicationMapper.selectLatestReworkClosedByActiveOrderId(ACTIVE_ORDER_ID)).thenReturn(old);
+        when(applicationMapper.selectByRequestIdempotencyKey(ACTIVE_ORDER_ID, "old-request")).thenReturn(old);
+        assertEquals(6902L, generationService.generate(LEADER_USER_ID, command("old-request")).getApplicationId());
+        verify(applicationMapper, never()).insert(any(MesProcessPoolActiveOrderReleaseApplicationDO.class));
     }
 
     @Test

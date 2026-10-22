@@ -545,13 +545,24 @@
                   作废审计
                 </el-button>
                 <el-button
-                  v-if="getBrowserRowActionState(getSelectedVersion(row)).canDownload"
+                  v-if="getBrowserRowActionState(getSelectedVersion(row)).canDownloadReadOnly"
+                  v-hasPermi="['dcc:controlled-file:download-read-only']"
                   link
                   type="primary"
                   :loading="downloadLoadingId === getSelectedVersion(row).id"
-                  @click="openDownload(getSelectedVersion(row).id)"
+                  @click="openDownload(getSelectedVersion(row).id, 'read-only')"
                 >
-                  下载
+                  下载不可编辑版
+                </el-button>
+                <el-button
+                  v-if="getBrowserRowActionState(getSelectedVersion(row)).canDownloadEditable"
+                  v-hasPermi="['dcc:controlled-file:download-editable']"
+                  link
+                  type="primary"
+                  :loading="downloadLoadingId === getSelectedVersion(row).id"
+                  @click="openDownload(getSelectedVersion(row).id, 'editable')"
+                >
+                  下载可编辑版
                 </el-button>
                 <el-button
                   v-if="getBrowserRowActionState(getSelectedVersion(row)).canPrint"
@@ -1172,6 +1183,8 @@ import {
   previewControlledFileRecognitionMigrationImport,
   previewControlledFileMetadataImport,
   saveControlledFileBrowserExtensionBlacklist,
+  submitControlledFileWorkingIteration,
+  triggerControlledFileVariantDownload,
   triggerControlledFileDownload,
   uploadControlledFilePreview,
   type ControlledFileBatchRecognitionCreateReqVO,
@@ -1442,6 +1455,8 @@ type ControlledFileBrowserVersion = ControlledFileVersionHistoryVO &
     | 'actionProjection'
     | 'canPreview'
     | 'canDownload'
+    | 'canDownloadReadOnly'
+    | 'canDownloadEditable'
     | 'canPrint'
     | 'publishedArtifactAvailable'
     | 'stampedArtifactAvailable'
@@ -1702,6 +1717,8 @@ const buildCurrentVersionOption = (row: ControlledFileVO): ControlledFileBrowser
   directoryId: row.directoryId,
   canPreview: row.canPreview,
   canDownload: row.canDownload,
+  canDownloadReadOnly: row.canDownloadReadOnly,
+  canDownloadEditable: row.canDownloadEditable,
   canPrint: row.canPrint,
   modifying: row.modifying,
   actionProjection: row.actionProjection,
@@ -1731,6 +1748,8 @@ const hydrateCurrentBrowserVersionActionState = (
     needTraining: version.needTraining ?? row.needTraining,
     canPreview: version.canPreview ?? row.canPreview,
     canDownload: version.canDownload ?? row.canDownload,
+    canDownloadReadOnly: version.canDownloadReadOnly ?? row.canDownloadReadOnly,
+    canDownloadEditable: version.canDownloadEditable ?? row.canDownloadEditable,
     canPrint: version.canPrint ?? row.canPrint,
     actionProjection: version.actionProjection ?? row.actionProjection,
     checkedOut: version.checkedOut ?? row.checkedOut,
@@ -2392,6 +2411,8 @@ const mergeCheckinResult = (updatedFile: ControlledFileVO, baseId: number | stri
     fileNumber: updatedFile.fileNumber || targetRow.fileNumber || '',
     versionNo: updatedFile.versionNo,
     status: updatedFile.status,
+    canDownloadReadOnly: updatedFile.canDownloadReadOnly,
+    canDownloadEditable: updatedFile.canDownloadEditable,
     currentActiveVersionNo: targetRow.currentActiveVersionNo,
     checkedOut: updatedFile.checkedOut,
     checkedOutBy: updatedFile.checkedOutBy,
@@ -3867,11 +3888,11 @@ const copyFileNumber = async (fileNumber?: string) => {
   }
 }
 
-const openDownload = async (id: number | string) => {
+const openDownload = async (id: number | string, variant: 'read-only' | 'editable') => {
   const normalizedId = Number(id)
   downloadLoadingId.value = Number.isFinite(normalizedId) ? normalizedId : undefined
   try {
-    await triggerControlledFileDownload(id)
+    await triggerControlledFileVariantDownload(id, variant)
   } catch (error) {
     message.error(resolveBrowserErrorMessage(error, '下载失败，请查看错误提示后重试。'))
   } finally {

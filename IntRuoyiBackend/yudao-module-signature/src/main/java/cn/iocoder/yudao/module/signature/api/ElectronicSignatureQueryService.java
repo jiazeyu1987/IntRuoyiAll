@@ -7,6 +7,8 @@ import java.util.List;
 
 public interface ElectronicSignatureQueryService {
 
+    ElectronicSignatureEvidenceDTO getById(Long signatureId);
+
     List<ElectronicSignatureEvidenceDTO> listBySubject(String moduleCode, String subjectType, String subjectId);
 
     ElectronicSignatureVerificationDTO verifyEvidence(Long signatureId);

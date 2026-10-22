@@ -102,6 +102,14 @@ def test_linux_runtime_rehearsal_writes_manifest_evidence_after_success(tmp_path
             {
                 "backupId": backup_id,
                 "status": "success",
+                "targetEnvironment": "test",
+                "targetHost": "172.30.30.58",
+                "source": {
+                    "serverHost": "172.30.30.58",
+                    "appDir": "/opt/intruoyi/runtime",
+                    "minioBucket": "yudao",
+                },
+                "deploy": {"imageTag": "release-test"},
                 "validation": {
                     "mysqlDumpCreated": True,
                     "objectBackupCreated": True,
@@ -112,6 +120,10 @@ def test_linux_runtime_rehearsal_writes_manifest_evidence_after_success(tmp_path
             },
             ensure_ascii=False,
         ),
+        encoding="utf-8",
+    )
+    (manifest_dir / "dcc-backup-manifest.json").write_text(
+        '{"schemaVersion":"dcc-backup-manifest-v1","chainStatus":"COMPLETE"}',
         encoding="utf-8",
     )
 
@@ -133,6 +145,10 @@ def test_linux_runtime_rehearsal_writes_manifest_evidence_after_success(tmp_path
     assert manifest["validation"]["rehearsalChecks"] == checks
     assert report["status"] == "PASSED"
     assert report["verifiedAt"] == verified_at
+    assert len(report["manifestDigest"]) == 64
+    assert len(report["chainDigest"]) == 64
+    assert report["sourceFingerprint"].startswith("serverHost=172.30.30.58;")
+    assert report["targetFingerprint"] == "environment=test;host=172.30.30.58;imageTag=release-test"
     assert f"备份点: {backup_id}" in snapshot
     assert "fileDownloadSample: pass" in snapshot
 

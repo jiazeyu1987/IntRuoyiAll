@@ -9,6 +9,10 @@
           <div class="qa-parser-panel-subtitle">{{ qaLastDownloadName }}</div>
         </div>
         <div class="qa-parser-panel-actions">
+          <el-button @click="handleQaPublishPlaceholder">
+            <Icon icon="ep:promotion" />
+            发布
+          </el-button>
           <el-button type="primary" @click="applyQaEditedJson">
             <Icon icon="ep:check" />
             应用
@@ -244,6 +248,7 @@
       </template>
     </div>
   </el-dialog>
+
 </template>
 
 <script setup lang="ts">
@@ -339,11 +344,7 @@ const parseWordFile = async (file: File): Promise<boolean> => {
     qaLastDownloadName.value = buildQaJsonDownloadName(file.name)
     resetQaJsonSearchPosition()
     initializeQaPreviewState(mapping)
-    download.json(
-      new Blob([qaEditableJson.value], { type: 'application/json;charset=utf-8' }),
-      qaLastDownloadName.value
-    )
-    message.success('QA 检验规程解析完成，已下载 JSON 文件')
+    message.success('QA 检验规程解析完成')
     return true
   } catch (error) {
     message.error(resolveQaParseErrorMessage(error, 'QA 检验规程解析失败，请检查 DOCX 内容'))
@@ -362,6 +363,10 @@ const applyQaEditedJson = () => {
   } catch (error) {
     message.error(resolveQaParseErrorMessage(error, 'QA JSON 应用失败'))
   }
+}
+
+const handleQaPublishPlaceholder = () => {
+  message.info('QA检验规程发布功能待实现')
 }
 
 const downloadQaCurrentJson = () => {

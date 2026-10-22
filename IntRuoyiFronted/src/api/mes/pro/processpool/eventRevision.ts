@@ -50,6 +50,8 @@ export interface ProcessPoolProductionReportCorrectionParameterReqVO {
 }
 
 export interface ProcessPoolProductionReportCorrectionReqVO {
+  expectedRevisionId: number
+  expectedPayloadHash: string
   eventId: number
   outputQuantity: number
   materialDetails: ProcessPoolProductionReportCorrectionMaterialDetailReqVO[]
@@ -67,6 +69,8 @@ export interface ProcessPoolPqcInspectionCorrectionItemReqVO {
 }
 
 export interface ProcessPoolPqcInspectionCorrectionReqVO {
+  expectedRevisionId: number
+  expectedPayloadHash: string
   eventId: number
   actualInspectionQuantity: number
   scrapQuantity: number

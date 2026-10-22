@@ -30,9 +30,10 @@ public class BpmTaskCandidateDeptLeaderStrategyTest extends BaseMockitoUnitTest 
         // 准备参数
         String param = "10,20";
         // mock 方法
-        when(deptApi.getDeptList(eq(SetUtils.asSet(10L, 20L)))).thenReturn(asList(
-                randomPojo(DeptRespDTO.class, o -> o.setId(10L).setParentId(10L).setLeaderUserId(11L)),
-                randomPojo(DeptRespDTO.class, o -> o.setId(20L).setParentId(20L).setLeaderUserId(21L))));
+        when(deptApi.requireSupervisor(10L, null)).thenReturn(
+                new cn.iocoder.yudao.module.system.api.dept.dto.DeptSupervisorRespDTO().setUserId(11L));
+        when(deptApi.requireSupervisor(20L, null)).thenReturn(
+                new cn.iocoder.yudao.module.system.api.dept.dto.DeptSupervisorRespDTO().setUserId(21L));
 
         // 调用
         Set<Long> userIds = strategy.calculateUsers(param);

@@ -3,6 +3,7 @@ package cn.iocoder.yudao.framework.security.core.handler;
 import cn.iocoder.yudao.framework.common.exception.enums.GlobalErrorCodeConstants;
 import cn.iocoder.yudao.framework.common.pojo.CommonResult;
 import cn.iocoder.yudao.framework.common.util.servlet.ServletUtils;
+import cn.iocoder.yudao.framework.web.core.util.WebFrameworkUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.web.AuthenticationEntryPoint;
@@ -13,6 +14,8 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 import static cn.iocoder.yudao.framework.common.exception.enums.GlobalErrorCodeConstants.UNAUTHORIZED;
+import static cn.iocoder.yudao.framework.apilog.core.interceptor.ApiAccessLogInterceptor.isRequestLoggingDisabled;
+import static cn.iocoder.yudao.framework.apilog.core.interceptor.ApiAccessLogInterceptor.getLogRequestUri;
 
 /**
  * 访问一个需要认证的 URL 资源，但是此时自己尚未认证（登录）的情况下，返回 {@link GlobalErrorCodeConstants#UNAUTHORIZED} 错误码，从而使前端重定向到登录页
@@ -27,9 +30,17 @@ public class AuthenticationEntryPointImpl implements AuthenticationEntryPoint {
 
     @Override
     public void commence(HttpServletRequest request, HttpServletResponse response, AuthenticationException e) {
-        log.debug("[commence][访问 URL({}) 时，没有登录]", request.getRequestURI(), e);
+        if (isRequestLoggingDisabled(request)) {
+            log.debug("[commence][访问 URL({}) 时，没有登录][参数禁止记录]", getLogRequestUri(request));
+        } else {
+            log.debug("[commence][访问 URL({}) 时，没有登录]", request.getRequestURI(), e);
+        }
         // 返回 401
-        ServletUtils.writeJSON(response, CommonResult.error(UNAUTHORIZED));
+        CommonResult<?> result = CommonResult.error(UNAUTHORIZED);
+        if (isRequestLoggingDisabled(request)) {
+            WebFrameworkUtils.setCommonResult(request, result);
+        }
+        ServletUtils.writeJSON(response, result);
     }
 
 }

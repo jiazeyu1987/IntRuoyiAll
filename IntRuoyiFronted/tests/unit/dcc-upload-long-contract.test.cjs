@@ -15,7 +15,7 @@ for (const statement of node.statements) {
 const context = { exports: {}, Error, JSON, BigInt, Number, String, Object, Array }
 vm.runInNewContext(ts.transpileModule(declarations.join('\n') + '\nexports.validate=assertControlledFileSubmitRequest',
   { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText, context)
-const request = { sessionId: 'upload', originalUploadTicket: 'ticket', changeType: 'NEW', processType: 'CONTROLLED_FILE',
+const request = { sessionId: 'upload', readOnlyUploadTicket: 'ticket', changeType: 'NEW', processType: 'CONTROLLED_FILE',
   dccProjectCodeId: '9007199254740993', fileTypeTaxonomyId: 6, projectFolderId: '9223372036854775807',
   projectFolderChangeReason: '归入项目文件夹', relatedControlledFileIds: ['9007199254740997'] }
 test('formal submit contract accepts exact project folder and relation Long strings without conversion', () => {

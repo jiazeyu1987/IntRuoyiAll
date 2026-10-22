@@ -62,6 +62,7 @@ public class MesWmProductReceiptServiceImpl implements MesWmProductReceiptServic
     private MesWmWarehouseAreaService areaService;
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public Long createProductReceipt(MesWmProductReceiptSaveReqVO createReqVO) {
         // 1. 校验关联数据
         MesProWorkOrderDO workOrder = validateProductReceiptSaveData(createReqVO);
@@ -77,6 +78,7 @@ public class MesWmProductReceiptServiceImpl implements MesWmProductReceiptServic
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void updateProductReceipt(MesWmProductReceiptSaveReqVO updateReqVO) {
         // 1.1 校验存在 + 草稿状态
         validateProductReceiptExistsAndDraft(updateReqVO.getId());
@@ -265,7 +267,7 @@ public class MesWmProductReceiptServiceImpl implements MesWmProductReceiptServic
         validateCodeUnique(reqVO.getId(), reqVO.getCode());
         // 校验工单存在
         return reqVO.getWorkOrderId() != null ?
-                workOrderService.validateWorkOrderConfirmed(reqVO.getWorkOrderId()) : null;
+                workOrderService.validateWorkOrderConfirmedForUpdate(reqVO.getWorkOrderId()) : null;
     }
 
     private void validateCodeUnique(Long id, String code) {

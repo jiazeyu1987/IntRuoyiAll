@@ -131,6 +131,29 @@ export interface BatchRecordVersionApprovalResultVO {
   processedResult?: string
 }
 
+export interface BatchRecordTotalRecognitionPublishReqVO {
+  dccProjectCodeId: number
+  recognitionJson: Record<string, unknown>
+}
+
+export interface BatchRecordTotalRecognitionPublishResultVO {
+  action: 'CREATED_ROUTE' | 'UPDATED_ROUTE'
+  dccProjectCodeId: number
+  projectCode?: string
+  projectName?: string
+  routeId?: number
+  routeCode?: string
+  routeName?: string
+  routeVersionId?: number
+  routeVersionNo?: string
+  routeCandidateVersionId?: number
+  routeCandidateVersionNo?: string
+  processCount: number
+  updatedProcessCount: number
+  recognitionJsonSha256: string
+  updateTime: string
+}
+
 export type BatchRecordFormSlotType = 'MAIN' | 'FORM' | 'LOSS_REPORT' | 'PROCESS_INSPECTION' | 'PARAMETER_RECORD'
 
 export interface BatchRecordReportDeleteAllRespVO {
@@ -290,6 +313,14 @@ export const BatchRecordReportApi = {
     return result.data
   },
 
+  publishTotalRecognitionJson: async (data: BatchRecordTotalRecognitionPublishReqVO) => {
+    return await request.post<BatchRecordTotalRecognitionPublishResultVO>({
+      url: '/mes/pro/batch-record-report/total-recognition-json/publish',
+      data,
+      timeout: WORD_IMPORT_REQUEST_TIMEOUT
+    })
+  },
+
   importImage: async (data: FormData) => {
     const result = await request.upload<{ data: BatchRecordReportImportResultVO }>({
       url: '/mes/pro/batch-record-report/import-image',
@@ -377,10 +408,14 @@ export const BatchRecordReportApi = {
     })
   },
 
-  submitBatchRecordVersionApproval: async (versionId: number) => {
+  submitBatchRecordVersionApproval: async (
+    versionId: number | string,
+    options: { ignoreErrorMessage?: boolean } = {}
+  ) => {
     return await request.post<BatchRecordVersionApprovalResultVO>({
       url: '/mes/pro/batch-record-report/version-approval/submit',
-      params: { versionId }
+      params: { versionId },
+      ignoreErrorMessage: options.ignoreErrorMessage
     })
   },
 
@@ -415,8 +450,15 @@ export const BatchRecordReportApi = {
     })
   },
 
-  getGeneratedReportPage: async (params: BatchRecordReportPageReqVO) => {
-    return await request.get({ url: '/mes/pro/batch-record-report/page', params })
+  getGeneratedReportPage: async (
+    params: BatchRecordReportPageReqVO,
+    options: { ignoreErrorMessage?: boolean } = {}
+  ) => {
+    return await request.get({
+      url: '/mes/pro/batch-record-report/page',
+      params,
+      ignoreErrorMessage: options.ignoreErrorMessage
+    })
   },
 
   getDesignerPath: async (reportId: string) => {

@@ -72,8 +72,8 @@ assert.ok(
 
 assert.match(
   processBlock,
-  /const selectedProcess = isPqcMode\.value[\s\S]*withPqcTaskOption\(process, getDefaultPqcTaskOption\(process\)\)/,
-  'PQC process selection must keep the formal default PQC task snapshot selection.'
+  /const selectedRuleKey = selectedPqcInspectionRuleKey\.value[\s\S]*hasExecutablePqcTaskForRule\(process, selectedRuleKey\)/,
+  'PQC process selection must reject a process that does not support the independent selected inspection rule.'
 )
 assert.match(
   processBlock,

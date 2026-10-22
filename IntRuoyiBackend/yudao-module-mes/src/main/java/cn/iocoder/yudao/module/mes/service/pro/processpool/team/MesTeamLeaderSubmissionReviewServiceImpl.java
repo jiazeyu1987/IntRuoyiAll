@@ -2,19 +2,35 @@ package cn.iocoder.yudao.module.mes.service.pro.processpool.team;
 
 import cn.hutool.core.util.StrUtil;
 import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
+import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventRevisionDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcInspectionTaskDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolSubmissionReviewDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamLeaderScopeDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventRevisionMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.pqc.MesPqcInspectionTaskMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolSubmissionReviewMapper;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionSignatureService;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesTeamLeaderReviewSignatureContext;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionFieldAuditHasher;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionFieldAuditSignatureResult;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditCommand;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditEvidence;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditRelation;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditStateEnvelope;
 import jakarta.annotation.Resource;
+import cn.iocoder.yudao.module.mes.service.pro.productionrelease.MesReleaseAffectedStateCollector;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.annotation.Validated;
 
 import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -47,6 +63,23 @@ public class MesTeamLeaderSubmissionReviewServiceImpl implements MesTeamLeaderSu
     @Resource
     private MesProBatchRecordExecutionSignatureService signatureService;
 
+    @Resource
+    private MesProProcessPoolEventRevisionMapper revisionMapper;
+
+    @Resource
+    private GxpAuditService gxpAuditService;
+
+    @Resource
+    private MesReleaseAffectedStateCollector affectedStateCollector;
+
+    @Resource
+    private MesPqcInspectionTaskMapper pqcTaskMapper;
+    @Resource
+    private cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrNonconformanceReviewService nonconformanceReviewService;
+    @Resource
+    private cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffService handoffService;
+    @Resource
+    private cn.iocoder.yudao.module.mes.service.pro.handoff.MesSignedReturnCorrectionResolver returnCorrectionResolver;
     public MesTeamLeaderSubmissionReviewServiceImpl(MesTeamLeaderScopeService scopeService,
                                                     MesProProcessPoolEventMapper eventMapper,
                                                     MesProcessPoolSubmissionReviewMapper reviewMapper,
@@ -61,39 +94,170 @@ public class MesTeamLeaderSubmissionReviewServiceImpl implements MesTeamLeaderSu
     @Transactional(rollbackFor = Exception.class)
     public Long reviewSubmission(MesTeamLeaderSubmissionReviewReqBO reqBO) {
         validateReq(reqBO);
+        gxpAuditService.acquireLedgerLock();
         if (MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PRODUCTION.equals(reqBO.getLeaderType())
                 && MesProcessPoolSubmissionReviewDO.STATUS_REJECTED.equals(reqBO.getReviewStatus())) {
             return reportAllocationCommandService.rejectProductionSubmission(
                     reqBO.getEventId(), reqBO.getLeaderUserId(), reqBO.getReviewRemark(),
-                    reqBO.getSignaturePassword());
+                    reqBO.getSignaturePassword(), reqBO.getExpectedReview());
         }
         MesProProcessPoolEventDO event = eventMapper.selectByIdForUpdate(reqBO.getEventId());
         if (event == null) {
             throw exception(PRO_PROCESS_POOL_REVISION_EVENT_NOT_EXISTS, reqBO.getEventId());
         }
+        List<MesProProcessPoolEventDO> members = resolveReviewMembers(event);
+        if (MesProProcessPoolEventDO.EVENT_TYPE_PQC_INSPECTION.equals(event.getEventType())) {
+            validateDisplayedContexts(reqBO, members);
+        }
+        // Validate the whole group before creating any signature, review or aggregate.
+        List<ReviewContext> contexts = new ArrayList<>();
+        for (MesProProcessPoolEventDO member : members) {
+            contexts.add(prepareReview(reqBO, member));
+        }
+        for (ReviewContext context : contexts) {
+            if (context.existingReview() != null && context.correction() == null) continue;
+            if (MesProProcessPoolEventDO.EVENT_TYPE_PQC_INSPECTION.equals(context.event().getEventType())) {
+                var task = resolvePqcInspectionTask(context.event());
+                nonconformanceReviewService.ensurePqcSubmissionNotFrozen(
+                        task.getActiveOrderId(), task.getWorkOrderId(), "PQC组长复核");
+                nonconformanceReviewService.ensureWorkOrderNotFrozen(task.getWorkOrderId(), "PQC组长复核");
+            }
+        }
+        Long requestedReviewId = null;
+        for (ReviewContext context : contexts) {
+            Long reviewId = reviewMember(reqBO, context);
+            if (Objects.equals(context.event().getId(), reqBO.getEventId())) {
+                requestedReviewId = reviewId;
+            }
+        }
+        return requestedReviewId;
+    }
+
+    private void validateDisplayedContexts(MesTeamLeaderSubmissionReviewReqBO request, List<MesProProcessPoolEventDO> members) {
+        var expected=request.getExpectedReviews();
+        if(expected==null || expected.size()!=members.size()) throw new IllegalStateException("PQC审核上下文缺失，请刷新后重新复核");
+        var indexed=new java.util.HashMap<Long,MesSubmissionReviewExpectedContext>();
+        for(var value:expected) {
+            if(value==null || value.getEventId()==null || value.getPayloadHash()==null
+                    ||value.getRevisionId()==null||value.getReviewId()==null||value.getReviewRound()==null
+                    ||indexed.put(value.getEventId(),value)!=null) throw new IllegalStateException("PQC审核上下文无效，请刷新后重新复核");
+        }
+        for(var event:members) {
+            var value=indexed.get(event.getId());
+            var review=reviewMapper.selectLatestByEventIdForUpdate(event.getId());
+            var revisions=revisionMapper.selectListByEventIdForUpdate(event.getId());
+            Long revisionId=revisions.isEmpty()?0L:revisions.get(0).getId();
+            if(value==null ||!Objects.equals(value.getPayloadHash(),MesProBatchRecordExecutionFieldAuditHasher.sha256(event.getRawPayload()))
+                    ||!Objects.equals(value.getRevisionId(),revisionId)
+                    ||(!isExactDisplayedReplay(request,review)
+                    &&(!Objects.equals(value.getReviewId(),review==null?0L:review.getId())
+                    ||!Objects.equals(value.getReviewRound(),review==null?0:review.getReviewRound()))))
+                throw new IllegalStateException("PQC提交正文或审核轮次已变化，请刷新后重新复核");
+        }
+    }
+
+    private boolean isExactDisplayedReplay(MesTeamLeaderSubmissionReviewReqBO request, MesProcessPoolSubmissionReviewDO review) {
+        if(review==null||!isIdempotentReplay(request,review)||review.getReviewSignatureId()==null
+                ||review.getReviewSignatureId()<=0||!Objects.equals(review.getLeaderUserId(),review.getReviewSignatureUserId())
+                ||StrUtil.isBlank(review.getReviewSignatureSnapshotJson()))return false;
+        var snapshot=JsonUtils.parseTree(review.getReviewSignatureSnapshotJson());
+        return snapshot.has("expectedReviews")&&snapshot.get("expectedReviews").equals(
+                JsonUtils.parseTree(JsonUtils.toJsonString(request.getExpectedReviews())));
+    }
+
+    private List<MesProProcessPoolEventDO> resolveReviewMembers(MesProProcessPoolEventDO event) {
+        String groupId = submissionGroupId(event);
+        if (groupId == null) {
+            return List.of(event);
+        }
+        if (event.getTenantId() == null || event.getWorkOrderId() == null
+                || event.getRouteId() == null || event.getQaProcessId() == null) {
+            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "pqcReview.submissionGroup.context");
+        }
+        List<MesProProcessPoolEventDO> members = eventMapper.selectList(
+                new LambdaQueryWrapperX<MesProProcessPoolEventDO>()
+                        .eq(MesProProcessPoolEventDO::getTenantId, event.getTenantId())
+                        .eq(MesProProcessPoolEventDO::getEventType, MesProProcessPoolEventDO.EVENT_TYPE_PQC_INSPECTION)
+                        .apply("JSON_UNQUOTE(JSON_EXTRACT(raw_payload, '$.pqcSubmissionGroupId')) = {0}", groupId)
+                        .orderByAsc(MesProProcessPoolEventDO::getId).last("FOR UPDATE"));
+        if (members.isEmpty() || members.stream().noneMatch(member -> Objects.equals(event.getId(), member.getId()))) {
+            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "pqcReview.submissionGroup.members");
+        }
+        Long activeOrderId = resolvePqcInspectionTask(event).getActiveOrderId();
+        for (MesProProcessPoolEventDO member : members) {
+            if (!Objects.equals(event.getTenantId(), member.getTenantId())
+                    || !Objects.equals(groupId, submissionGroupId(member))
+                    || !Objects.equals(event.getWorkOrderId(), member.getWorkOrderId())
+                    || !Objects.equals(event.getRouteId(), member.getRouteId())
+                    || !Objects.equals(event.getQaProcessId(), member.getQaProcessId())
+                    || !Objects.equals(event.getActualEmployeeId(), member.getActualEmployeeId())
+                    || !Objects.equals(event.getFeedbackSourceType(), member.getFeedbackSourceType())
+                    || !Objects.equals(activeOrderId, resolvePqcInspectionTask(member).getActiveOrderId())) {
+                throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "pqcReview.submissionGroup.memberContext");
+            }
+        }
+        return members;
+    }
+
+    private String submissionGroupId(MesProProcessPoolEventDO event) {
+        if (!MesProProcessPoolEventDO.EVENT_TYPE_PQC_INSPECTION.equals(event.getEventType())
+                || StrUtil.isBlank(event.getRawPayload())) {
+            return null;
+        }
+        var group = JsonUtils.parseTree(event.getRawPayload()).path("pqcSubmissionGroupId");
+        if (group.isMissingNode() || group.isNull() || (group.isTextual() && StrUtil.isBlank(group.textValue()))) {
+            return null;
+        }
+        if (!group.isTextual()) {
+            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "pqcReview.submissionGroup.id");
+        }
+        return group.textValue();
+    }
+
+    private ReviewContext prepareReview(MesTeamLeaderSubmissionReviewReqBO reqBO, MesProProcessPoolEventDO event) {
         if (MesProProcessPoolEventDO.EVENT_TYPE_PQC_INSPECTION.equals(event.getEventType())
                 && !MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PQC.equals(reqBO.getLeaderType())) {
             throw exception(PRO_PROCESS_POOL_SUBMISSION_REVIEW_PQC_LEADER_REQUIRED,
                     reqBO.getEventId(), reqBO.getLeaderType());
         }
-        scopeService.assertCanAccessEmployee(reqBO.getLeaderUserId(), reqBO.getLeaderType(),
-                event.getActualEmployeeId());
+        if (!MesProProcessPoolEventDO.EVENT_TYPE_PQC_INSPECTION.equals(event.getEventType())) {
+            scopeService.assertCanAccessEmployee(reqBO.getLeaderUserId(), reqBO.getLeaderType(),
+                    event.getActualEmployeeId());
+        }
         MesProcessPoolSubmissionReviewDO existingReview =
-                reviewMapper.selectLatestByEventIdForUpdate(reqBO.getEventId());
-        if (existingReview != null) {
-            if (isIdempotentReplay(reqBO, existingReview)) {
-                return existingReview.getId();
+                reviewMapper.selectLatestByEventIdForUpdate(event.getId());
+        MesProProcessPoolEventRevisionDO correction = findSignedCorrection(event, existingReview);
+        if (MesProProcessPoolEventDO.EVENT_TYPE_PQC_INSPECTION.equals(event.getEventType())) {
+            Long sourceRevisionId = correction != null ? correction.getId()
+                    : existingReview == null ? null : existingReview.getSourceRevisionId();
+            handoffService.assertCanReviewPqcEvent(event.getId(), sourceRevisionId, reqBO.getLeaderUserId());
+        }
+        if (existingReview != null && correction == null) {
+            boolean alreadyApprovedGroupMember = !Objects.equals(reqBO.getEventId(), event.getId())
+                    && MesProcessPoolSubmissionReviewDO.STATUS_APPROVED.equals(existingReview.getReviewStatus());
+            if (alreadyApprovedGroupMember || isIdempotentReplay(reqBO, existingReview)) {
+                return new ReviewContext(event, existingReview, null);
             }
             throw exception(PRO_PROCESS_POOL_SUBMISSION_REVIEW_TERMINAL_EXISTS,
-                    reqBO.getEventId(), existingReview.getReviewStatus());
+                    event.getId(), existingReview.getReviewStatus());
         }
         if (MesProcessPoolSubmissionReviewDO.STATUS_APPROVED.equals(reqBO.getReviewStatus())
                 && MesProProcessPoolEventDO.EVENT_TYPE_PRODUCTION_SUBMIT.equals(event.getEventType())) {
             throw exception(PRO_PROCESS_POOL_PRODUCTION_REVIEW_ALLOCATION_REQUIRED, reqBO.getEventId());
         }
-        ReviewSignaturePayload reviewSignature = recordReviewSignature(reqBO, event);
+        return new ReviewContext(event, existingReview, correction);
+    }
+
+    private Long reviewMember(MesTeamLeaderSubmissionReviewReqBO reqBO, ReviewContext context) {
+        MesProProcessPoolEventDO event = context.event();
+        if (context.existingReview() != null && context.correction() == null) {
+            return context.existingReview().getId();
+        }
+        String affectedRowsBefore = JsonUtils.toJsonString(affectedStateCollector.capturePqcSubmission(
+                event.getId(), event.getFeedbackSourceId()));
+        ReviewSignaturePayload reviewSignature = recordReviewSignature(reqBO, event, context.correction());
         MesProcessPoolSubmissionReviewDO review = MesProcessPoolSubmissionReviewDO.builder()
-                .eventId(reqBO.getEventId())
+                .eventId(event.getId())
                 .leaderUserId(reqBO.getLeaderUserId())
                 .leaderType(reqBO.getLeaderType())
                 .reviewStatus(reqBO.getReviewStatus())
@@ -102,15 +266,141 @@ public class MesTeamLeaderSubmissionReviewServiceImpl implements MesTeamLeaderSu
                 .reviewSignatureId(reviewSignature.reviewSignatureId())
                 .reviewSignatureUserId(reviewSignature.reviewSignatureUserId())
                 .reviewSignatureSnapshotJson(reviewSignature.reviewSignatureSnapshotJson())
+                .reviewRound(context.existingReview() == null ? 0 : requiredReviewRound(context.existingReview()) + 1)
+                .sourceRevisionId(context.correction() == null ? null : context.correction().getId())
+                .supersededReviewId(context.existingReview() == null ? null : context.existingReview().getId())
                 .build();
         reviewMapper.insert(review);
         if (MesProcessPoolSubmissionReviewDO.STATUS_APPROVED.equals(reqBO.getReviewStatus())
                 && MesProProcessPoolEventDO.EVENT_TYPE_PQC_INSPECTION.equals(event.getEventType())) {
-            processInspectionAggregationService.aggregateApprovedPqcSubmission(reqBO.getEventId(), review.getId());
+            processInspectionAggregationService.aggregateApprovedPqcSubmission(event.getId(), review.getId());
         }
+        appendPqcReviewGxpAudit(event, review, affectedRowsBefore);
+        handoffService.reviewed(event.getId(), review.getId());
         return review.getId();
     }
+    private int requiredReviewRound(MesProcessPoolSubmissionReviewDO review) {
+        cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffContract.require(
+                review.getReviewRound() != null && review.getReviewRound() >= 0, "正式复核轮次缺失，请核对迁移");
+        return review.getReviewRound();
+    }
 
+    private record ReviewContext(MesProProcessPoolEventDO event,
+                                 MesProcessPoolSubmissionReviewDO existingReview,
+                                 MesProProcessPoolEventRevisionDO correction) { }
+
+    private MesProProcessPoolEventRevisionDO findSignedCorrection(
+            MesProProcessPoolEventDO event, MesProcessPoolSubmissionReviewDO previous) {
+        return returnCorrectionResolver.find(event, previous);
+    }
+
+    private void appendPqcReviewGxpAudit(MesProProcessPoolEventDO event,
+                                         MesProcessPoolSubmissionReviewDO review,
+                                         String affectedRowsBefore) {
+        if (review.getId() == null) {
+            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "submissionReview.reviewId");
+        }
+        boolean approved = MesProcessPoolSubmissionReviewDO.STATUS_APPROVED.equals(review.getReviewStatus());
+        String operationId = approved ? "mes.pqc.review.approve" : "mes.pqc.review.reject";
+        Map<String, Object> before = new LinkedHashMap<>();
+        before.put("eventId", event.getId());
+        before.put("state", "ABSENT");
+        before.put("affectedRows", JsonUtils.parseObject(affectedRowsBefore, Map.class));
+        Map<String, Object> after = new LinkedHashMap<>();
+        after.put("event", pqcReviewEventSnapshot(event));
+        after.put("review", pqcReviewSnapshot(review));
+        after.put("aggregationState", approved ? "AGGREGATED" : "NOT_APPLICABLE");
+        after.put("affectedRows", affectedStateCollector.capturePqcSubmission(
+                event.getId(), event.getFeedbackSourceId()));
+        MesPqcInspectionTaskDO pqcTask = resolvePqcInspectionTask(event);
+        List<GxpAuditRelation> links = new ArrayList<>();
+        links.add(new GxpAuditRelation("SUBJECT", "PROCESS_POOL_EVENT",
+                String.valueOf(event.getId()), String.valueOf(review.getId()), null));
+        links.add(new GxpAuditRelation("REVIEW", "PQC_REVIEW",
+                String.valueOf(review.getId()), String.valueOf(review.getId()), null));
+        links.add(new GxpAuditRelation("SOURCE", "PQC_INSPECTION_TASK",
+                String.valueOf(pqcTask.getId()), null, null));
+        links.add(new GxpAuditRelation("SUBJECT", "ACTIVE_ORDER",
+                String.valueOf(pqcTask.getActiveOrderId()), null, null));
+        links.add(new GxpAuditRelation("SIGNATURE", "SIGNATURE",
+                String.valueOf(review.getReviewSignatureId()), null, null));
+        gxpAuditService.append(GxpAuditCommand.builder()
+                .eventSchemaVersion(2)
+                .operationId(operationId)
+                .subjectId("MES_PROCESS_POOL_EVENT:" + event.getId())
+                .subjectVersion(String.valueOf(review.getId()))
+                .reason(approved ? "PQC复核已通过" : review.getReviewRemark())
+                .reasonCode(approved ? "MES_PQC_REVIEW_APPROVE" : "MES_PQC_REVIEW_REJECT")
+                .reasonSource(approved ? "SYSTEM" : "USER")
+                .beforeState(GxpAuditStateEnvelope.builder()
+                        .state("ABSENT")
+                        .objectVersion(String.valueOf(event.getId()))
+                        .canonicalJson(JsonUtils.toJsonString(before))
+                        .build())
+                .afterState(GxpAuditStateEnvelope.builder()
+                        .state(approved ? "PQC_REVIEW_APPROVED" : "PQC_REVIEW_REJECTED")
+                        .objectVersion(String.valueOf(review.getId()))
+                        .canonicalJson(JsonUtils.toJsonString(after))
+                        .build())
+                .idempotencyKey("PQC_REVIEW:" + review.getId())
+                .requestId("MES-PQC-REVIEW:" + event.getId() + ":" + review.getId())
+                .resultStatus("SUCCESS")
+                .sourceType("SERVICE_METHOD")
+                .sourceLocator("cn.iocoder.yudao.module.mes.service.pro.processpool.team."
+                        + "MesTeamLeaderSubmissionReviewServiceImpl#reviewSubmission")
+                .signatureRecordId(String.valueOf(review.getReviewSignatureId()))
+                .links(links)
+                .evidences(List.of(new GxpAuditEvidence("FORMAL_PQC_REVIEW_SOURCE",
+                        String.valueOf(event.getId()), String.valueOf(review.getId()), null, "PQC_REVIEW")))
+                .build());
+    }
+
+    private MesPqcInspectionTaskDO resolvePqcInspectionTask(MesProProcessPoolEventDO event) {
+        Long feedbackSourceId = event.getFeedbackSourceId();
+        if (feedbackSourceId == null) {
+            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "pqcReview.feedbackSourceId");
+        }
+        MesPqcInspectionTaskDO pqcTask = pqcTaskMapper.selectById(feedbackSourceId);
+        if (pqcTask == null || !Objects.equals(feedbackSourceId, pqcTask.getId())
+                || pqcTask.getActiveOrderId() == null) {
+            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED,
+                    "pqcReview.pqcInspectionTask.activeOrderId");
+        }
+        return pqcTask;
+    }
+
+    private Map<String, Object> pqcReviewEventSnapshot(MesProProcessPoolEventDO event) {
+        Map<String, Object> snapshot = new LinkedHashMap<>();
+        snapshot.put("eventId", event.getId());
+        snapshot.put("eventType", event.getEventType());
+        snapshot.put("workOrderId", event.getWorkOrderId());
+        snapshot.put("routeId", event.getRouteId());
+        snapshot.put("routeProcessId", event.getRouteProcessId());
+        snapshot.put("processId", event.getProcessId());
+        snapshot.put("qaProcessId", event.getQaProcessId());
+        snapshot.put("feedbackSourceType", event.getFeedbackSourceType());
+        snapshot.put("feedbackSourceId", event.getFeedbackSourceId());
+        snapshot.put("actualEmployeeId", event.getActualEmployeeId());
+        snapshot.put("signatureId", event.getSignatureId());
+        snapshot.put("serverSubmitTime", event.getServerSubmitTime());
+        snapshot.put("rawPayload", event.getRawPayload());
+        return snapshot;
+    }
+
+    private Map<String, Object> pqcReviewSnapshot(MesProcessPoolSubmissionReviewDO review) {
+        Map<String, Object> snapshot = new LinkedHashMap<>();
+        snapshot.put("reviewId", review.getId());
+        snapshot.put("eventId", review.getEventId());
+        snapshot.put("leaderUserId", review.getLeaderUserId());
+        snapshot.put("leaderType", review.getLeaderType());
+        snapshot.put("reviewStatus", review.getReviewStatus());
+        snapshot.put("reviewRemark", review.getReviewRemark());
+        snapshot.put("reviewedAt", review.getReviewedAt());
+        snapshot.put("reviewSignatureId", review.getReviewSignatureId());
+        snapshot.put("reviewSignatureUserId", review.getReviewSignatureUserId());
+        snapshot.put("reviewSignatureSnapshotJson", review.getReviewSignatureSnapshotJson());
+        return snapshot;
+    }
     private boolean isIdempotentReplay(MesTeamLeaderSubmissionReviewReqBO reqBO,
                                        MesProcessPoolSubmissionReviewDO existingReview) {
         return existingReview.getId() != null
@@ -143,15 +433,23 @@ public class MesTeamLeaderSubmissionReviewServiceImpl implements MesTeamLeaderSu
     }
 
     private ReviewSignaturePayload recordReviewSignature(MesTeamLeaderSubmissionReviewReqBO reqBO,
-                                                         MesProProcessPoolEventDO event) {
+                                                         MesProProcessPoolEventDO event,
+                                                         MesProProcessPoolEventRevisionDO correction) {
         Long signatureId = signatureService.recordTeamLeaderReviewSignature(
                 reqBO.getLeaderUserId(),
                 reqBO.getSignaturePassword(),
-                buildReviewSignatureComment(reqBO, event));
+                buildReviewSignatureComment(reqBO, event),
+                new MesTeamLeaderReviewSignatureContext(
+                        event.getId(), reqBO.getReviewStatus(),
+                        MesProBatchRecordExecutionFieldAuditHasher.hashCellValues(event.getRawPayload()),
+                        correction == null ? null : correction.getId(),
+                        correction == null ? null : correction.getRevisionSignatureId(),
+                        correction == null ? null : JsonUtils.parseTree(correction.getAfterPayload())
+                                .path("supersededReviewId").longValue()));
         return new ReviewSignaturePayload(
                 signatureId,
                 reqBO.getLeaderUserId(),
-                buildReviewSignatureSnapshot(reqBO, event, signatureId));
+                buildReviewSignatureSnapshot(reqBO, event, signatureId, correction));
     }
 
     private String buildReviewSignatureComment(MesTeamLeaderSubmissionReviewReqBO reqBO,
@@ -161,7 +459,8 @@ public class MesTeamLeaderSubmissionReviewServiceImpl implements MesTeamLeaderSu
 
     private String buildReviewSignatureSnapshot(MesTeamLeaderSubmissionReviewReqBO reqBO,
                                                 MesProProcessPoolEventDO event,
-                                                Long signatureId) {
+                                                Long signatureId,
+                                                MesProProcessPoolEventRevisionDO correction) {
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("signatureId", signatureId);
         payload.put("actorId", reqBO.getLeaderUserId());
@@ -170,6 +469,14 @@ public class MesTeamLeaderSubmissionReviewServiceImpl implements MesTeamLeaderSu
         payload.put("eventType", event.getEventType());
         payload.put("leaderType", reqBO.getLeaderType());
         payload.put("reviewStatus", reqBO.getReviewStatus());
+        payload.put("payloadHash", MesProBatchRecordExecutionFieldAuditHasher.hashCellValues(event.getRawPayload()));
+        if("PQC_INSPECTION".equals(event.getEventType())) payload.put("expectedReviews",reqBO.getExpectedReviews());
+        if (correction != null) {
+            payload.put("revisionId", correction.getId());
+            payload.put("revisionSignatureId", correction.getRevisionSignatureId());
+            payload.put("supersededReviewId", JsonUtils.parseTree(correction.getAfterPayload())
+                    .path("supersededReviewId").longValue());
+        }
         return JsonUtils.toJsonString(payload);
     }
 

@@ -124,6 +124,16 @@ public final class MesDeviceParameterSnapshotCodec {
         return JsonUtils.toJsonString(normalizedRules);
     }
 
+    public static boolean matchesCanonicalSnapshot(String canonicalSnapshotJson, String candidateSnapshotJson,
+                                                    Long routeProcessId, Long processId) {
+        if (canonicalSnapshotJson == null || candidateSnapshotJson == null) {
+            return false;
+        }
+        String expectedCanonical = canonicalizeSnapshotRules(parse(canonicalSnapshotJson), routeProcessId, processId);
+        String candidateCanonical = canonicalizeSnapshotRules(parse(candidateSnapshotJson), routeProcessId, processId);
+        return Objects.equals(expectedCanonical, candidateCanonical);
+    }
+
     public static String sha256(String snapshotJson) {
         return DigestUtil.sha256Hex(snapshotJson);
     }

@@ -9,13 +9,15 @@ public final class MesReleaseFlowStatus {
     public static final String REPORT_UPLOAD_PENDING = "REPORT_UPLOAD_PENDING";
     public static final String MANAGER_RELEASE_PENDING = "MANAGER_RELEASE_PENDING";
     public static final String RELEASED = "RELEASED";
+    public static final String NONCONFORMANCE_REWORK = "NONCONFORMANCE_REWORK";
+    public static final String NONCONFORMANCE_VOID = "NONCONFORMANCE_VOID";
 
     private static final Set<String> PERSISTENT_STATUSES = Set.of(
             PQC_RELEASE_PENDING,
             PQC_RELEASE_REJECTED,
             REPORT_UPLOAD_PENDING,
             MANAGER_RELEASE_PENDING,
-            RELEASED);
+            RELEASED, NONCONFORMANCE_REWORK, NONCONFORMANCE_VOID);
 
     private MesReleaseFlowStatus() {
     }

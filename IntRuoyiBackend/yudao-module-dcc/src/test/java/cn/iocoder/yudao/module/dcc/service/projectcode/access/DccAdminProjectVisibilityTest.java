@@ -15,7 +15,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 class DccAdminProjectVisibilityTest {
-    @Test void adminReadsAllEnabledTenantProjectsButDoesNotGainWriteAccess() {
+    @Test void adminReadsEnabledTenantProjectsAndOwnsTenantProjects() {
         TenantContextHolder.setTenantId(1L);
         try {
             var service = new DccProjectAccessServiceImpl();
@@ -43,8 +43,8 @@ class DccAdminProjectVisibilityTest {
             assertDoesNotThrow(()->service.assertProjectViewerOrAbove(99L,10L));
             assertThrows(RuntimeException.class,()->service.assertProjectViewerOrAbove(99L,11L));
             assertThrows(RuntimeException.class,()->service.assertProjectViewerOrAbove(99L,12L));
-            assertFalse(service.hasProjectEditorOrOwner(99L,10L));
-            assertFalse(service.hasProjectOwner(99L,10L));
+            assertTrue(service.hasProjectEditorOrOwner(99L,10L));
+            assertTrue(service.hasProjectOwner(99L,10L));
             when(permissions.hasAnyRoles(99L,"super_admin")).thenReturn(false);
             assertEquals(List.of(),service.listReadableProjectIds(99L));
             assertThrows(RuntimeException.class,()->service.assertProjectViewerOrAbove(99L,10L));

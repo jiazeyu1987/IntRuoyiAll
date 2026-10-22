@@ -4,6 +4,7 @@ import cn.hutool.core.util.ArrayUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.iocoder.yudao.framework.common.enums.CommonStatusEnum;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.process.MesProProcessDO;
+import cn.iocoder.yudao.module.mes.service.pro.process.MesProProcessCreationService;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteProcessDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteProcessFlowEdgeDO;
@@ -12,6 +13,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteProcessFlowEdgeMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteProcessMapper;
 import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteOwnerPermissionService;
+import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.annotation.Validated;
@@ -35,8 +37,10 @@ import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_ROUTE_IMP
 @Validated
 public class Sheet1RouteExcelImportServiceImpl implements Sheet1RouteExcelImportService {
 
+    @Resource
+    private MesProProcessCreationService processCreationService;
+
     private static final String ROUTE_CODE_PREFIX = "ROUTE-XLSX-";
-    private static final String PROCESS_CODE_PREFIX = "PROC-XLSX-";
     private static final Pattern FIVE_DIGIT_SUFFIX_PATTERN = Pattern.compile("\\d{5}");
 
     private final Sheet1RouteExcelParser parser;
@@ -69,8 +73,6 @@ public class Sheet1RouteExcelImportServiceImpl implements Sheet1RouteExcelImport
 
         AtomicInteger nextRouteSequence = new AtomicInteger(
                 maxSuffix(routeMapper.selectListByCodePrefix(ROUTE_CODE_PREFIX), ROUTE_CODE_PREFIX) + 1);
-        AtomicInteger nextProcessSequence = new AtomicInteger(
-                maxSuffix(processMapper.selectListByCodePrefix(PROCESS_CODE_PREFIX), PROCESS_CODE_PREFIX) + 1);
 
         LinkedHashSet<String> uniqueProcessNames = collectProcessNames(parseResult.routes());
         Map<String, Long> processIdByName = new LinkedHashMap<>();
@@ -84,10 +86,9 @@ public class Sheet1RouteExcelImportServiceImpl implements Sheet1RouteExcelImport
                 continue;
             }
             MesProProcessDO process = new MesProProcessDO();
-            process.setCode(formatCode(PROCESS_CODE_PREFIX, nextProcessSequence.getAndIncrement()));
             process.setName(processName);
             process.setStatus(processStatus);
-            processMapper.insert(process);
+            processCreationService.create(process);
             processIdByName.put(processName, process.getId());
             processCreatedCount++;
         }
@@ -183,11 +184,10 @@ public class Sheet1RouteExcelImportServiceImpl implements Sheet1RouteExcelImport
         }
     }
 
-    private int maxSuffix(List<?> items, String prefix) {
+    private int maxSuffix(List<MesProRouteDO> items, String prefix) {
         int max = 0;
-        for (Object item : items) {
-            String code = item instanceof MesProRouteDO route ? route.getCode()
-                    : item instanceof MesProProcessDO process ? process.getCode() : null;
+        for (MesProRouteDO item : items) {
+            String code = item.getCode();
             if (code == null || !code.startsWith(prefix)) {
                 continue;
             }

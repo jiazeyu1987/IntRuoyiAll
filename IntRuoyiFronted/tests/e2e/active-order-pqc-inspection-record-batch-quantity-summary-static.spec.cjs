@@ -8,22 +8,20 @@ const panel = fs.readFileSync(
   'utf8'
 )
 
-const pqcTabStart = panel.indexOf('<el-tab-pane label="PQC提交" name="pqcSubmissions">')
+const pqcTabStart = panel.search(/<el-tab-pane\b[^>]*label="过程检表单"[^>]*name="pqcSubmissions"[^>]*>/)
 assert.ok(pqcTabStart > 0, '必须存在 PQC提交页签。')
-const metaStart = panel.indexOf('<div class="team-leader-workbench__production-record-meta">', pqcTabStart)
-assert.ok(metaStart > 0, '过程检验记录必须存在顶部汇总信息区。')
-const metaEnd = panel.indexOf('<table', metaStart)
-assert.ok(metaEnd > metaStart, '必须能定位过程检验记录顶部汇总信息区边界。')
-const meta = panel.slice(metaStart, metaEnd)
+const materialTabStart = panel.indexOf('data-team-leader-active-order-detail-material-tab', pqcTabStart)
+assert.ok(materialTabStart > pqcTabStart, '必须能定位 PQC提交页签边界。')
+const pqcTab = panel.slice(pqcTabStart, materialTabStart)
 
 assert.match(
-  meta,
+  pqcTab,
   /<span>批次数量<\/span>[\s\S]*pqcInspectionRecordSummary\.batchQuantityText/,
   '过程检验记录顶部汇总必须把原“检验设备”改为“批次数量”，并显示生产订单总数量。'
 )
 
 assert.doesNotMatch(
-  meta,
+  pqcTab,
   /<span>检验设备<\/span>/,
   '过程检验记录顶部汇总不得再显示“检验设备”。'
 )

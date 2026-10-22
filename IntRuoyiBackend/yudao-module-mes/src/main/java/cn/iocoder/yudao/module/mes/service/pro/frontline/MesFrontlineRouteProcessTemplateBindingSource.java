@@ -11,9 +11,8 @@ import java.util.Objects;
 /**
  * Formal template binding source for fixed frontline pages.
  *
- * <p>The route process `checkFlag` is the configured process-level quality-inspection marker:
- * quality-check route processes use the PQC simplified template; all other formal route processes
- * use the production simplified template.</p>
+ * <p>MES route processes execute production reporting, including processes marked for quality
+ * inspection. QA task execution resolves its own PQC template independently.</p>
  */
 @Service
 public class MesFrontlineRouteProcessTemplateBindingSource implements MesFrontlineTemplateBindingSource {
@@ -31,24 +30,22 @@ public class MesFrontlineRouteProcessTemplateBindingSource implements MesFrontli
         }
         if (request.routeProcessCheckFlag() != null) {
             return toTemplateDescriptor(request.routeProcessId(), request.processId(),
-                    request.actualEmployeeId(), request.routeProcessCheckFlag());
+                    request.actualEmployeeId());
         }
         MesProRouteProcessDO routeProcess = routeProcessMapper.selectByIdIgnoreDeleted(request.routeProcessId());
         if (routeProcess == null || !matchesRequest(routeProcess, request)) {
             return null;
         }
         return toTemplateDescriptor(routeProcess.getId(), routeProcess.getProcessId(),
-                request.actualEmployeeId(), routeProcess.getCheckFlag());
+                request.actualEmployeeId());
     }
 
     private static MesFrontlineTemplateDescriptor toTemplateDescriptor(Long routeProcessId,
                                                                        Long processId,
-                                                                       Long actualEmployeeId,
-                                                                       Boolean checkFlag) {
-        boolean pqcProcess = Boolean.TRUE.equals(checkFlag);
+                                                                       Long actualEmployeeId) {
         return new MesFrontlineTemplateDescriptor(
-                pqcProcess ? FrontlineTemplateCodes.PQC_SIMPLIFIED : FrontlineTemplateCodes.PRODUCTION_SIMPLIFIED,
-                pqcProcess ? FrontlineTemplateTypes.PQC : FrontlineTemplateTypes.PRODUCTION,
+                FrontlineTemplateCodes.PRODUCTION_SIMPLIFIED,
+                FrontlineTemplateTypes.PRODUCTION,
                 routeProcessId,
                 processId,
                 actualEmployeeId);

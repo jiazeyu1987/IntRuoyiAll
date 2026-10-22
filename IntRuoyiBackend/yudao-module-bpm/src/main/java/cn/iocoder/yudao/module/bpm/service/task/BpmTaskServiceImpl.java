@@ -1,5 +1,8 @@
 package cn.iocoder.yudao.module.bpm.service.task;
 
+import cn.iocoder.yudao.module.bpm.approval.service.ownership.NativeApprovalOwnership;
+import cn.iocoder.yudao.module.bpm.approval.service.ownership.NativeApprovalOwnershipPolicy;
+
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.convert.Convert;
 import cn.hutool.core.lang.Assert;
@@ -58,6 +61,7 @@ import org.flowable.task.api.history.HistoricTaskInstanceQuery;
 import org.flowable.task.service.impl.persistence.entity.TaskEntity;
 import org.flowable.task.service.impl.persistence.entity.TaskEntityImpl;
 import org.springframework.stereotype.Service;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
@@ -92,6 +96,10 @@ public class BpmTaskServiceImpl implements BpmTaskService {
     private RuntimeService runtimeService;
     @Resource
     private ManagementService managementService;
+
+    @Resource
+    @Lazy
+    private NativeApprovalOwnershipPolicy nativeApprovalOwnershipPolicy;
 
     @Resource
     private BpmProcessInstanceService processInstanceService;
@@ -1462,7 +1470,7 @@ public class BpmTaskServiceImpl implements BpmTaskService {
 
     @Override
     @DataPermission(enable = false) // 忽略数据权限，避免因为过滤，导致找不到候选人
-    public void processTaskAssigned(Task task) {
+    public void processTaskAssigned(Task eventTask) {
         // 发送通知。在事务提交时，批量执行操作，所以直接查询会无法查询到 ProcessInstance，所以这里是通过监听事务的提交来实现。
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
 
@@ -1477,6 +1485,8 @@ public class BpmTaskServiceImpl implements BpmTaskService {
                 if (ObjectUtil.equal(transactionStatus, TransactionSynchronization.STATUS_ROLLED_BACK)) {
                     return;
                 }
+                Task task = getTask(eventTask.getId());
+                if (task == null) return;
                 // 特殊情况：第一个 task 【自动通过】时，第二个任务设置审批人时 transactionStatus 会为 STATUS_UNKNOWN，不知道啥原因
                 if (ObjectUtil.equal(transactionStatus, TransactionSynchronization.STATUS_UNKNOWN)
                         && getTask(task.getId()) == null) {
@@ -1493,9 +1503,33 @@ public class BpmTaskServiceImpl implements BpmTaskService {
                 }
 
                 // 自动去重，通过自动审批的方式
+                if (!Objects.equals(task.getTenantId(), processInstance.getTenantId())
+                        || !Objects.equals(task.getProcessDefinitionId(), processInstance.getProcessDefinitionId())) {
+                    throw new IllegalStateException("EDHR_ASSIGNMENT_EVENT_PROCESS_TENANT_MISMATCH");
+                }
+                NativeApprovalOwnership domainOwnership = FlowableUtils.execute(processInstance.getTenantId(),
+                        () -> nativeApprovalOwnershipPolicy.inspect(task, Long.valueOf(task.getAssignee())));
+                if (domainOwnership.owner() == NativeApprovalOwnership.Owner.EDHR_EXECUTION) {
+                    FlowableUtils.execute(processInstance.getTenantId(), () -> {
+                        AdminUserRespDTO startUser = adminUserApi.getUser(Long.valueOf(processInstance.getStartUserId()));
+                        messageService.sendMessageWhenTaskAssigned(BpmTaskConvert.INSTANCE.convert(processInstance, startUser, task));
+                    });
+                    return;
+                }
+                if (domainOwnership.owner() == NativeApprovalOwnership.Owner.UNCLAIMED_EDHR) {
+                    throw exception(TASK_APPROVAL_REQUIRES_EDHR_SIGNATURE);
+                }
                 BpmProcessDefinitionInfoDO processDefinitionInfo = bpmProcessDefinitionService.getProcessDefinitionInfo(task.getProcessDefinitionId());
                 if (processDefinitionInfo == null) {
                     log.error("[processTaskAssigned][taskId({}) 没有找到流程定义({})]", task.getId(), task.getProcessDefinitionId());
+                    return;
+                }
+                if (Boolean.TRUE.equals(taskService.getVariableLocal(task.getId(),
+                        BpmSupervisorHandoverService.HANDOVER_VARIABLE))) {
+                    FlowableUtils.execute(processInstance.getTenantId(), () -> {
+                        AdminUserRespDTO startUser = adminUserApi.getUser(Long.valueOf(processInstance.getStartUserId()));
+                        messageService.sendMessageWhenTaskAssigned(BpmTaskConvert.INSTANCE.convert(processInstance, startUser, task));
+                    });
                     return;
                 }
                 if (processDefinitionInfo.getAutoApprovalType() != null) {
@@ -1567,21 +1601,11 @@ public class BpmTaskServiceImpl implements BpmTaskService {
                             Assert.notNull(startUser, "提交人({})信息为空", processInstance.getStartUserId());
                             DeptRespDTO dept = startUser.getDeptId() != null ? deptApi.getDept(startUser.getDeptId()) : null;
                             Assert.notNull(dept, "提交人({})部门({})信息为空", processInstance.getStartUserId(), startUser.getDeptId());
-                            // 找不到部门负责人的情况下，自动审批通过
-                            // noinspection DataFlowIssue
-                            if (dept.getLeaderUserId() == null) {
-                                getSelf().approveTask(Long.valueOf(task.getAssignee()), new BpmTaskApproveReqVO().setId(task.getId())
-                                        .setReason(BpmReasonEnum.ASSIGN_START_USER_APPROVE_WHEN_DEPT_LEADER_NOT_FOUND.getReason()));
-                                return;
-                            }
-                            // 找得到部门负责人的情况下，修改负责人
-                            if (ObjectUtil.notEqual(dept.getLeaderUserId(), startUser.getId())) {
-                                getSelf().transferTask(Long.valueOf(task.getAssignee()), new BpmTaskTransferReqVO()
-                                        .setId(task.getId()).setAssigneeUserId(dept.getLeaderUserId())
-                                        .setReason(BpmReasonEnum.ASSIGN_START_USER_TRANSFER_DEPT_LEADER.getReason()));
-                                return;
-                            }
-                            // 如果部门负责人是自己，还是自己审批吧~
+                            Long supervisorId = deptApi.requireSupervisor(dept.getId(), startUser.getId()).getUserId();
+                            getSelf().transferTask(Long.valueOf(task.getAssignee()), new BpmTaskTransferReqVO()
+                                    .setId(task.getId()).setAssigneeUserId(supervisorId)
+                                    .setReason(BpmReasonEnum.ASSIGN_START_USER_TRANSFER_DEPT_LEADER.getReason()));
+                            return;
                         }
                     }
                 }

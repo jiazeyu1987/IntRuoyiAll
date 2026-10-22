@@ -30,6 +30,9 @@ public class DeptController {
 
     @Resource
     private DeptService deptService;
+    @Resource
+    private cn.iocoder.yudao.module.system.service.dept.DeptSupervisorService supervisorService;
+
 
     @PostMapping("create")
     @Operation(summary = "创建部门")
@@ -70,7 +73,10 @@ public class DeptController {
     @PreAuthorize("@ss.hasPermission('system:dept:query')")
     public CommonResult<List<DeptRespVO>> getDeptList(DeptListReqVO reqVO) {
         List<DeptDO> list = deptService.getDeptList(reqVO);
-        return success(BeanUtils.toBean(list, DeptRespVO.class));
+        List<DeptRespVO> result = BeanUtils.toBean(list, DeptRespVO.class);
+        var supervisors = supervisorService.describe(list);
+        result.forEach(dept -> dept.setSupervisor(supervisors.get(dept.getId())));
+        return success(result);
     }
 
     @GetMapping(value = {"/list-all-simple", "/simple-list"})
@@ -86,7 +92,10 @@ public class DeptController {
     @PreAuthorize("@ss.hasPermission('system:dept:query')")
     public CommonResult<DeptRespVO> getDept(@RequestParam("id") Long id) {
         DeptDO dept = deptService.getDept(id);
-        return success(BeanUtils.toBean(dept, DeptRespVO.class));
+        if (dept == null) return success(null);
+        DeptRespVO result = BeanUtils.toBean(dept, DeptRespVO.class);
+        result.setSupervisor(supervisorService.describe(List.of(dept)).get(id));
+        return success(result);
     }
 
 }

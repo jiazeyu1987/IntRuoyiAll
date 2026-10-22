@@ -31,6 +31,9 @@ import static org.mockito.ArgumentMatchers.any;
 @ExtendWith(MockitoExtension.class)
 class MesProRouteVersionLifecycleServiceTest {
 
+    @Mock
+    private cn.iocoder.yudao.module.mes.service.pro.craft.MesProCraftService craftService;
+
     @InjectMocks
     private MesProRouteVersionLifecycleServiceImpl lifecycleService;
 
@@ -413,9 +416,12 @@ class MesProRouteVersionLifecycleServiceTest {
                     "products": [],
                     "scheduleConfigs": [],
                     "batchUseConfigs": [],
-                    "scheduleUseConfigs": []
+                    "scheduleUseConfigs": [],
+                    "productionProcessConfigSchemaVersion": 1,
+                    "productionProcessConfigs": [{"routeProcessId": %d, "processId": 20,
+                      "overagePercent": 0, "lossReasons": [], "deviceSelectionGroups": [], "parameterRules": []}]
                   }
                 }
-                """.formatted(routeId, routeCode, routeName, routeProcessId);
+                """.formatted(routeId, routeCode, routeName, routeProcessId, routeProcessId);
     }
 }

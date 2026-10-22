@@ -40,6 +40,9 @@ public class MesProcessPoolSubmissionReviewDO extends TenantBaseDO {
     private Long reviewSignatureId;
     private Long reviewSignatureUserId;
     private String reviewSignatureSnapshotJson;
+    private Integer reviewRound;
+    private Long sourceRevisionId;
+    private Long supersededReviewId;
     private Boolean simulated;
     private String simulationStage;
     private String simulationRunId;

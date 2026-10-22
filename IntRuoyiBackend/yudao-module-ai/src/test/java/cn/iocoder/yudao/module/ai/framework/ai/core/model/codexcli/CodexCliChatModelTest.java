@@ -79,6 +79,38 @@ class CodexCliChatModelTest {
         }
     }
 
+    @Test
+    void buildCommandShouldConfigureIntRuoyiMcp() {
+        YudaoAiProperties.CodexCli properties = new YudaoAiProperties.CodexCli();
+        properties.setMcpServerEnabled(true);
+        properties.setMcpServerName("intruoyi");
+        properties.setMcpServerUrl("http://127.0.0.1:48081/mcp");
+
+        CodexCliChatModel model = new CodexCliChatModel(properties);
+
+        List<String> command = model.buildCommand(Path.of("output.txt"));
+
+        int configIndex = command.indexOf("-c");
+        assertTrue(configIndex >= 0);
+        assertTrue(model.isMcpConfigured());
+        assertEquals("mcp_servers.intruoyi.url=\"http://127.0.0.1:48081/mcp\"",
+                command.get(configIndex + 1));
+    }
+
+    @Test
+    void buildCommandShouldOmitMcpWhenServerIsDisabled() {
+        YudaoAiProperties.CodexCli properties = new YudaoAiProperties.CodexCli();
+        properties.setMcpServerName("intruoyi");
+        properties.setMcpServerUrl("http://127.0.0.1:48081/mcp");
+
+        CodexCliChatModel model = new CodexCliChatModel(properties);
+
+        List<String> command = model.buildCommand(Path.of("output.txt"));
+
+        assertTrue(command.indexOf("-c") < 0);
+        assertTrue(!model.isMcpConfigured());
+    }
+
     private Path writeSlowFakeCodexCommand(Path tempDir) throws IOException {
         boolean windows = System.getProperty("os.name", "").toLowerCase().contains("win");
         Path command = tempDir.resolve(windows ? "fake-codex-timeout.cmd" : "fake-codex-timeout.sh");

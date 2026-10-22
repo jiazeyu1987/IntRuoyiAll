@@ -32,6 +32,7 @@
             @sort-change="handleCurrentSortChange"
           >
             <template #actions>
+              <el-button v-hasPermi="['dcc:registration-certificate:config:query']" @click="configRouter.push({ name: 'DccRegistrationCertificateConfig' })">注册证配置</el-button>
               <el-button
                 v-hasPermi="['dcc:registration-certificate:config:query']"
                 @click="openReminderConfig"
@@ -425,6 +426,7 @@
 </template>
 
 <script setup lang="ts">
+const configRouter = useRouter()
 import { computed, onActivated, onMounted, reactive, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useRoute, useRouter } from 'vue-router'

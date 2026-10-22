@@ -31,6 +31,9 @@ import static org.mockito.ArgumentMatchers.any;
 @ExtendWith(MockitoExtension.class)
 class MesProRouteCandidateConfigServiceTest {
 
+    @Mock
+    private cn.iocoder.yudao.module.mes.service.pro.craft.MesProCraftService craftService;
+
     @InjectMocks
     private MesProRouteCandidateConfigServiceImpl service;
 

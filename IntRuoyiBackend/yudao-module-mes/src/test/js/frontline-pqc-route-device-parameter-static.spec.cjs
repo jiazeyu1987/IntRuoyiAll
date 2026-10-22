@@ -30,8 +30,8 @@ assert.match(
 )
 assert.match(
   service,
-  /Collectors\.groupingBy\(MesDeviceParameterSnapshotRule::getDeviceId[\s\S]*routeDeviceContext\.deviceCodes\(\)\.contains\([\s\S]*normalizeEquipmentCode\(option\.getEquipmentCode\(\)\)/,
-  'Frontline PQC parameters must be grouped by route deviceId and QA equipment must intersect frozen route devices by formal device code.'
+  /Collectors\.groupingBy\(MesDeviceParameterSnapshotRule::getDeviceId[\s\S]*copyEquipmentOptionWithParameters\([\s\S]*routeDeviceContext\.parametersByDeviceCode\(\)/,
+  'Frontline PQC parameters must be grouped by route deviceId and attached to configured PQC equipment only when formal device codes match.'
 )
 assert.doesNotMatch(
   service,

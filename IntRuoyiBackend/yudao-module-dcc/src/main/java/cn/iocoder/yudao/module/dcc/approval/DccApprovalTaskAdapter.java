@@ -142,6 +142,15 @@ public class DccApprovalTaskAdapter implements ApprovalTaskProvider {
 
     @Override
     public PageResult<ApprovalTaskSummary> page(ApprovalTaskQueryContext context) {
+        List<ApprovalTaskSummary> nativeTasks = new ArrayList<>(projectApplications.list(context));
+        nativeTasks.addAll(offlineTraining.list(context));
+        if (nativeTasks.isEmpty()) {
+            return switch (context.getViewType()) {
+                case TODO -> pageTodo(context);
+                case DONE -> pageDone(context);
+                default -> throw new IllegalArgumentException("APPROVAL_VIEW_TYPE_UNSUPPORTED: " + context.getViewType());
+            };
+        }
         ApprovalTaskQueryContext fullContext = ApprovalTaskQueryContext.of(context.getLoginUserId(), context.getViewType(),
                 context.getModuleCode(), context.getKeyword(), 1, Integer.MAX_VALUE, context.isGlobalView());
         PageResult<ApprovalTaskSummary> files = switch (context.getViewType()) {
@@ -151,8 +160,10 @@ public class DccApprovalTaskAdapter implements ApprovalTaskProvider {
                     + context.getViewType());
         };
         List<ApprovalTaskSummary> combined = new ArrayList<>(files.getList());
-        combined.addAll(projectApplications.list(context));
-        combined.addAll(offlineTraining.list(context));
+        if (files.getTotal() != files.getList().size()) {
+            throw new IllegalStateException("APPROVAL_ADAPTER_SOURCE_PAGE_INCONSISTENT: incomplete DCC merge source");
+        }
+        combined.addAll(nativeTasks);
         combined.sort(java.util.Comparator.comparing((ApprovalTaskSummary row) -> row.getTaskCreatedAt() == null
                         ? row.getInitiatedAt() : row.getTaskCreatedAt(), java.util.Comparator.nullsLast(java.util.Comparator.reverseOrder()))
                 .thenComparing(ApprovalTaskSummary::getId));
@@ -179,122 +190,34 @@ public class DccApprovalTaskAdapter implements ApprovalTaskProvider {
                 .toList();
     }
 
+    @jakarta.annotation.Resource
+    private cn.iocoder.yudao.module.bpm.approval.service.ApprovalFlowableTaskQueryService centerQuery;
+
+    @Override
+    public PageResult<ApprovalTaskSummary> window(ApprovalTaskQueryContext context,
+            cn.iocoder.yudao.module.bpm.approval.service.ApprovalQueryWindow window) {
+        return page(context.withWindow(window));
+    }
+
     private PageResult<ApprovalTaskSummary> pageTodo(ApprovalTaskQueryContext context) {
-        VisibleWindow window = visibleWindow(context);
-        List<ApprovalTaskSummary> summaries = new ArrayList<>();
-        Set<String> seenTaskIds = new HashSet<>();
-        long visibleTotal = 0L;
-        for (String processDefinitionKey : DCC_PROCESS_DEFINITION_KEYS) {
-            long sourceOffset = 0L;
-            int sourcePageNo = 1;
-            while (true) {
-                PageResult<Task> page = requireSourcePage(
-                        bpmTaskService.getTaskTodoPage(resolveQueryUserId(context),
-                                toBpmTaskPageReqVO(context, sourcePageNo, SOURCE_PAGE_SIZE, processDefinitionKey)),
-                        "TODO", sourcePageNo);
-                if (page.getList().isEmpty()) {
-                    if (sourceOffset < page.getTotal()) {
-                        throw sourcePageInconsistent("TODO", sourcePageNo, sourceOffset, page.getTotal());
-                    }
-                    break;
-                }
-                Map<String, ProcessInstance> processInstanceMap = processInstanceService.getProcessInstanceMap(
-                        toProcessInstanceIds(page.getList(), Task::getProcessInstanceId));
-                for (Task task : page.getList()) {
-                    if (task.getId() != null && !seenTaskIds.add(task.getId())) {
-                        continue;
-                    }
-                    ProcessInstance processInstance = requireProcessInstance(processInstanceMap,
-                            task.getProcessInstanceId());
-                    if (!isDccControlledFileBusinessKey(resolveControlledFileBusinessKey(processInstance))) {
-                        continue;
-                    }
-                    DccControlledFileDO fileSnapshot = requireControlledFileSnapshotForTodo(
-                            resolveControlledFileBusinessKey(processInstance));
-                    if (isCompletedNativeFinalizationTask(processInstance, task, fileSnapshot)) {
-                        continue;
-                    }
-                    ApprovalTaskSummary summary = toSummary(task, processInstance);
-                    if (!matchesKeyword(summary, context.getKeyword())) {
-                        continue;
-                    }
-                    if (window.contains(visibleTotal)) {
-                        summaries.add(summary);
-                    }
-                    visibleTotal++;
-                }
-                sourceOffset += page.getList().size();
-                if (sourceOffset >= page.getTotal()) {
-                    break;
-                }
-                sourcePageNo++;
-            }
+        var page=centerQuery.todo(context,"DCC_TASK");
+        if (page.getList().isEmpty()) {
+            return new PageResult<>(List.of(), page.getTotal());
         }
-        return new PageResult<>(summaries, visibleTotal);
+        var processes=processInstanceService.getProcessInstanceMap(toProcessInstanceIds(page.getList(),Task::getProcessInstanceId));
+        var rows=page.getList().stream().map(task->Objects.requireNonNull(toSummary(task,
+                requireProcessInstance(processes,task.getProcessInstanceId())),"APPROVAL_DCC_FORMAL_PROJECTION_MISMATCH")).toList();
+        return new PageResult<>(rows,page.getTotal());
     }
-
-    private static boolean isCompletedNativeFinalizationTask(ProcessInstance processInstance,
-                                                             Task task,
-                                                             DccControlledFileDO file) {
-        return file != null
-                && Set.of(
-                        DccControlledFileStatusEnum.ACTIVE.getStatus(),
-                        DccControlledFileStatusEnum.SUPERSEDED.getStatus(),
-                        DccControlledFileStatusEnum.OBSOLETE.getStatus()
-                ).contains(file.getStatus())
-                && (DccControlledFileProcessDefinitionKeys.UPLOAD.equals(processInstance.getProcessDefinitionKey())
-                || DccControlledFileProcessDefinitionKeys.REVISION.equals(processInstance.getProcessDefinitionKey()))
-                && DccControlledFileStageCodeEnum.DOC_CONTROL_REVIEW.getCode().equals(task.getTaskDefinitionKey());
-    }
-
     private PageResult<ApprovalTaskSummary> pageDone(ApprovalTaskQueryContext context) {
-        VisibleWindow window = visibleWindow(context);
-        List<ApprovalTaskSummary> summaries = new ArrayList<>();
-        Set<String> seenTaskIds = new HashSet<>();
-        long visibleTotal = 0L;
-        for (String processDefinitionKey : DCC_PROCESS_DEFINITION_KEYS) {
-            long sourceOffset = 0L;
-            int sourcePageNo = 1;
-            while (true) {
-            PageResult<HistoricTaskInstance> page = requireSourcePage(
-                    bpmTaskService.getTaskDonePage(resolveQueryUserId(context),
-                            toBpmTaskPageReqVO(context, sourcePageNo, SOURCE_PAGE_SIZE, processDefinitionKey)),
-                    "DONE", sourcePageNo);
-            if (page.getList().isEmpty()) {
-                if (sourceOffset < page.getTotal()) {
-                    throw sourcePageInconsistent("DONE", sourcePageNo, sourceOffset, page.getTotal());
-                }
-                break;
-            }
-                Map<String, HistoricProcessInstance> processInstanceMap =
-                        processInstanceService.getHistoricProcessInstanceMap(
-                                toProcessInstanceIds(page.getList(), HistoricTaskInstance::getProcessInstanceId));
-                for (HistoricTaskInstance task : page.getList()) {
-                    if (task.getId() != null && !seenTaskIds.add(task.getId())) {
-                        continue;
-                    }
-                    HistoricProcessInstance processInstance = requireHistoricProcessInstance(processInstanceMap,
-                        task.getProcessInstanceId());
-                if (!isDccControlledFileBusinessKey(resolveControlledFileBusinessKey(processInstance))) {
-                    continue;
-                }
-                ApprovalTaskSummary summary = toSummary(task, processInstance);
-                if (!matchesKeyword(summary, context.getKeyword())) {
-                    continue;
-                }
-                if (window.contains(visibleTotal)) {
-                    summaries.add(summary);
-                }
-                visibleTotal++;
-            }
-            sourceOffset += page.getList().size();
-            if (sourceOffset >= page.getTotal()) {
-                break;
-            }
-                sourcePageNo++;
-            }
+        var page=centerQuery.done(context,"DCC_TASK");
+        if (page.getList().isEmpty()) {
+            return new PageResult<>(List.of(), page.getTotal());
         }
-        return new PageResult<>(summaries, visibleTotal);
+        var processes=processInstanceService.getHistoricProcessInstanceMap(toProcessInstanceIds(page.getList(),HistoricTaskInstance::getProcessInstanceId));
+        var rows=page.getList().stream().map(task->Objects.requireNonNull(toSummary(task,
+                requireHistoricProcessInstance(processes,task.getProcessInstanceId())),"APPROVAL_DCC_FORMAL_PROJECTION_MISMATCH")).toList();
+        return new PageResult<>(rows,page.getTotal());
     }
 
     private BpmTaskPageReqVO toBpmTaskPageReqVO(ApprovalTaskQueryContext context, int pageNo, int pageSize,
@@ -812,10 +735,8 @@ public class DccApprovalTaskAdapter implements ApprovalTaskProvider {
     }
 
     private static VisibleWindow visibleWindow(ApprovalTaskQueryContext context) {
-        int pageNo = context.getPageNo() == null || context.getPageNo() < 1 ? 1 : context.getPageNo();
-        int pageSize = context.getPageSize() == null || context.getPageSize() < 1 ? 10 : context.getPageSize();
-        long fromIndex = (long) (pageNo - 1) * pageSize;
-        return new VisibleWindow(fromIndex, fromIndex + pageSize);
+        var window = cn.iocoder.yudao.module.bpm.approval.service.ApprovalQueryWindow.from(context);
+        return new VisibleWindow(window.offset(), Math.addExact(window.offset(), window.limit()));
     }
 
     private static Long parseLong(String value) {

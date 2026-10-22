@@ -36,6 +36,8 @@ public class MesMdAutoCodeSerialNumberPartStrategyTest extends BaseRedisUnitTest
     private StringRedisTemplate stringRedisTemplate;
     @MockitoBean
     private MesMdAutoCodeRecordMapper recordMapper;
+    @MockitoBean
+    private cn.iocoder.yudao.module.mes.dal.mysql.pro.process.MesProProcessMapper processMapper;
 
     @BeforeEach
     public void resetAutoCodeCounters() {
@@ -140,6 +142,108 @@ public class MesMdAutoCodeSerialNumberPartStrategyTest extends BaseRedisUnitTest
         assertEquals("0009", result2);
         assertEquals(9, context2.getSerialNo());
         verify(recordMapper, atLeastOnce()).selectLatestSerialRecord(eq(6L), isNull(), eq(false), isNull(), isNull());
+    }
+
+    @Test
+    public void routeCodes_resumeBeyondDeletedHistoryAndExpandPastFourDigits() {
+        cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.setTenantId(21L);
+        try {
+            MesMdAutoCodePartDO part = new MesMdAutoCodePartDO().setLength(4).setSerialStartNo(1)
+                    .setSerialStep(1).setCycleFlag(false);
+            MesMdAutoCodeRuleDO rule = new MesMdAutoCodeRuleDO().setId(99001L).setCode("PRO_ROUTE_CODE");
+            when(recordMapper.selectRouteCodeHighWatermark(21L)).thenReturn(9999L);
+            assertEquals("10000", strategy.generate(part, new MesMdAutoCodeContext().setRule(rule)));
+            assertEquals("10001", strategy.generate(part, new MesMdAutoCodeContext().setRule(rule)));
+            verify(recordMapper, times(2)).selectRouteCodeHighWatermark(21L);
+        } finally {
+            cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.clear();
+        }
+    }
+
+    @Test
+    public void routeCodes_concurrentCallsNeverReuseSerial() throws Exception {
+        MesMdAutoCodePartDO part = new MesMdAutoCodePartDO().setLength(4).setSerialStartNo(1)
+                .setSerialStep(1).setCycleFlag(false);
+        MesMdAutoCodeRuleDO rule = new MesMdAutoCodeRuleDO().setId(99002L).setCode("PRO_ROUTE_CODE");
+        when(recordMapper.selectRouteCodeHighWatermark(21L)).thenReturn(200L);
+        java.util.concurrent.ExecutorService executor = java.util.concurrent.Executors.newFixedThreadPool(8);
+        try {
+            java.util.List<java.util.concurrent.Callable<String>> calls = new java.util.ArrayList<>();
+            for (int i = 0; i < 64; i++) calls.add(() -> {
+                cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.setTenantId(21L);
+                try {
+                    return strategy.generate(part, new MesMdAutoCodeContext().setRule(rule));
+                } finally {
+                    cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.clear();
+                }
+            });
+            Set<String> codes = new java.util.HashSet<>();
+            for (java.util.concurrent.Future<String> future : executor.invokeAll(calls)) codes.add(future.get());
+            assertEquals(64, codes.size());
+            assertTrue(codes.stream().allMatch(code -> Long.parseLong(code) > 200L));
+        } finally {
+            executor.shutdownNow();
+        }
+    }
+
+    @Test
+    public void routeCodes_missingHistoryResultFailsExplicitly() {
+        cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.setTenantId(21L);
+        try {
+            MesMdAutoCodePartDO part = new MesMdAutoCodePartDO().setLength(4).setSerialStartNo(1)
+                    .setSerialStep(1).setCycleFlag(false);
+            MesMdAutoCodeRuleDO rule = new MesMdAutoCodeRuleDO().setId(99003L).setCode("PRO_ROUTE_CODE");
+            when(recordMapper.selectRouteCodeHighWatermark(21L)).thenReturn(null);
+            assertThrows(IllegalStateException.class,
+                    () -> strategy.generate(part, new MesMdAutoCodeContext().setRule(rule)));
+        } finally {
+            cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.clear();
+        }
+    }
+
+    @Test
+    public void processGxSequence_isTenantScopedAndContinuesPastFourDigits() {
+        MesMdAutoCodePartDO part = new MesMdAutoCodePartDO().setLength(4).setSerialStartNo(1)
+                .setSerialStep(1).setCycleFlag(false);
+        MesMdAutoCodeRuleDO firstRule = new MesMdAutoCodeRuleDO().setId(101L).setCode("PRO_PROCESS_GX_CODE");
+        MesMdAutoCodeRuleDO secondRule = new MesMdAutoCodeRuleDO().setId(102L).setCode("PRO_PROCESS_GX_CODE");
+        when(processMapper.selectProcessCodeHighWatermark(1L)).thenReturn(9999L);
+        when(processMapper.selectProcessCodeHighWatermark(2L)).thenReturn(0L);
+        try {
+            cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.setTenantId(1L);
+            assertEquals("10000", strategy.generate(part, new MesMdAutoCodeContext().setRule(firstRule)));
+            cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.setTenantId(2L);
+            assertEquals("0001", strategy.generate(part, new MesMdAutoCodeContext().setRule(secondRule)));
+            assertEquals("0002", strategy.generate(part, new MesMdAutoCodeContext().setRule(secondRule)));
+            cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.setTenantId(1L);
+            assertEquals("10001", strategy.generate(part, new MesMdAutoCodeContext().setRule(firstRule)));
+        } finally {
+            cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.clear();
+        }
+    }
+
+    @Test
+    public void processGxSequence_concurrentRequestsAllocateDistinctNumbers() throws Exception {
+        when(processMapper.selectProcessCodeHighWatermark(3L)).thenReturn(0L);
+        MesMdAutoCodePartDO part = new MesMdAutoCodePartDO().setLength(4).setSerialStartNo(1)
+                .setSerialStep(1).setCycleFlag(false);
+        MesMdAutoCodeRuleDO rule = new MesMdAutoCodeRuleDO().setId(103L).setCode("PRO_PROCESS_GX_CODE");
+        var executor = java.util.concurrent.Executors.newFixedThreadPool(8);
+        try {
+            var tasks = new java.util.ArrayList<java.util.concurrent.Callable<String>>();
+            for (int i = 0; i < 40; i++) {
+                tasks.add(() -> {
+                    cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.setTenantId(3L);
+                    try { return strategy.generate(part, new MesMdAutoCodeContext().setRule(rule)); }
+                    finally { cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.clear(); }
+                });
+            }
+            Set<String> codes = new java.util.HashSet<>();
+            for (var result : executor.invokeAll(tasks)) codes.add(result.get());
+            assertEquals(40, codes.size());
+            assertTrue(codes.contains("0001"));
+            assertTrue(codes.contains("0040"));
+        } finally { executor.shutdownNow(); }
     }
 
 }

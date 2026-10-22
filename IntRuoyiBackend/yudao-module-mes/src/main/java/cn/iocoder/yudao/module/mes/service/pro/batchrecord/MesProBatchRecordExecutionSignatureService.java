@@ -2,8 +2,10 @@ package cn.iocoder.yudao.module.mes.service.pro.batchrecord;
 
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.crypto.digest.DigestUtil;
+import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.framework.common.util.servlet.ServletUtils;
 import cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils;
+import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.dcc.service.file.DccElectronicSignatureAuthorizationService;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProBatchRecordExecutionSignatureDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamEmployeeProfileDO;
@@ -11,6 +13,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProBatchRecordEx
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolTeamEmployeeProfileMapper;
 import cn.iocoder.yudao.module.signature.api.ElectronicSignatureService;
 import cn.iocoder.yudao.module.signature.api.dto.ElectronicSignatureCommand;
+import cn.iocoder.yudao.module.signature.api.dto.AuthorizedSignatureIdentity;
 import cn.iocoder.yudao.module.signature.api.dto.ElectronicSignatureResult;
 import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
 import cn.iocoder.yudao.module.system.dal.dataobject.dept.DeptDO;
@@ -22,6 +25,11 @@ import cn.iocoder.yudao.module.system.service.dept.PostService;
 import cn.iocoder.yudao.module.system.service.permission.PermissionService;
 import cn.iocoder.yudao.module.system.service.permission.RoleService;
 import cn.iocoder.yudao.module.system.service.user.AdminUserService;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditCommand;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditRelation;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditStateEnvelope;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -31,7 +39,10 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.Comparator;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -54,13 +65,23 @@ public class MesProBatchRecordExecutionSignatureService {
     public static final String ACTION_PRODUCTION_SUBMIT = "PRODUCTION_SUBMIT";
     public static final String ACTION_PQC_SUBMIT = "PQC_SUBMIT";
     public static final String ACTION_PQC_RELEASE = "PQC_RELEASE";
+    public static final String ACTION_MARKET_RELEASE = "MARKET_RELEASE";
     public static final String ACTION_TEAM_LEADER_REVIEW = "TEAM_LEADER_REVIEW";
     public static final String ACTION_BATCH_VOID_REQUEST = "BATCH_VOID_REQUEST";
     public static final String ACTION_BATCH_CLOSE = "BATCH_CLOSE";
     public static final String ACTION_QUALITY_REJECT = "QUALITY_REJECT";
+    public static final String ACTION_NONCONFORMANCE_REJECT = "NONCONFORMANCE_REJECT";
     public static final String ACTION_SPECIAL_NODE_SKIP = "SPECIAL_NODE_SKIP";
     public static final String ACTION_ROUTE_FORM_OPTIONAL_SKIP = "ROUTE_FORM_OPTIONAL_SKIP";
     public static final String ACTION_QA_DISPOSITION = "QA_DISPOSITION";
+    public static final String ACTION_NONCONFORMANCE_REVIEW_CREATE = "NONCONFORMANCE_REVIEW_CREATE";
+    public static final String ACTION_DEVIATION_INITIATION = "DEVIATION_INITIATION";
+    public static final String ACTION_DEVIATION_HANDLING_PREPARE = "DEVIATION_HANDLING_PREPARE";
+    public static final String ACTION_DEVIATION_HANDLING_VERIFY = "DEVIATION_HANDLING_VERIFY";
+    public static final String ACTION_DEVIATION_HANDLING_DEPARTMENT = "DEVIATION_HANDLING_DEPARTMENT";
+    public static final String ACTION_DEVIATION_HANDLING_QA = "DEVIATION_HANDLING_QA";
+    public static final String ACTION_DEVIATION_HANDLING_QUALITY = "DEVIATION_HANDLING_QUALITY";
+    public static final String ACTION_DEVIATION_HANDLING_MANAGEMENT = "DEVIATION_HANDLING_MANAGEMENT";
     public static final String SIGNATURE_MODE_PASSWORD = "PASSWORD";
     public static final String SIGNATURE_MODE_DRAFT_SESSION = "DRAFT_SESSION";
     public static final String SIGNATURE_MODE_SIMULATION_SESSION = "SIMULATION_SESSION";
@@ -96,6 +117,8 @@ public class MesProBatchRecordExecutionSignatureService {
     private AdminUserApi adminUserApi;
     @Resource
     private ElectronicSignatureService electronicSignatureService;
+    @Resource
+    private GxpAuditService gxpAuditService;
 
     @Transactional(rollbackFor = Exception.class)
     public Long recordSubmitSignature(Long executionId, String password, String comment) {
@@ -118,13 +141,29 @@ public class MesProBatchRecordExecutionSignatureService {
     }
 
     @Transactional(rollbackFor = Exception.class)
-    public Long recordPqcReleaseSignature(Long actorId, Long executionId, String password, String comment) {
+    public Long recordPqcReleaseSignature(Long actorId, Long executionId, Long releaseApplicationId,
+                                          String password, String comment) {
         if (executionId == null || executionId <= 0) {
             throw exception(PRO_BATCH_RECORD_EXECUTION_APPROVAL_CONTEXT_MISSING);
         }
+        if (releaseApplicationId == null || releaseApplicationId <= 0) {
+            throw exception(PRO_BATCH_RECORD_EXECUTION_APPROVAL_CONTEXT_MISSING);
+        }
         return recordSignatureForActor(actorId, executionId, password, comment, ACTION_PQC_RELEASE,
-                null, null, null, null, null, null, null, "PQC_RELEASE_APPLICATION", null,
+                null, null, null, null, null, null, null, "PQC_RELEASE_APPLICATION", releaseApplicationId,
                 "PQC生产放行", ACTION_PQC_RELEASE, null, null, null, null, null);
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public Long recordMarketReleaseSignature(Long actorId, Long executionId, Long releaseTransactionId,
+                                             String password, String comment) {
+        if (executionId == null || executionId <= 0 || releaseTransactionId == null || releaseTransactionId <= 0) {
+            throw exception(PRO_BATCH_RECORD_EXECUTION_APPROVAL_CONTEXT_MISSING);
+        }
+        return recordSignatureForActor(actorId, executionId, password, comment, ACTION_MARKET_RELEASE,
+                null, null, null, null, null, null, null,
+                "EDHR_MARKET_RELEASE", releaseTransactionId, "上市放行",
+                ACTION_MARKET_RELEASE, comment, null, null, null, null);
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -160,6 +199,59 @@ public class MesProBatchRecordExecutionSignatureService {
                 "eDHR不合格评审处置", ACTION_QA_DISPOSITION, comment, null, null, aggregateHash, null);
     }
 
+    @Transactional(rollbackFor = Exception.class)
+    public Long recordNonconformanceReviewCreateSignature(Long actorId, Long reviewId, String password,
+                                                          String comment, String aggregateHash) {
+        if (reviewId == null || reviewId <= 0) {
+            throw exception(PRO_BATCH_RECORD_EXECUTION_APPROVAL_CONTEXT_MISSING);
+        }
+        return recordSignatureForActor(actorId, 0L, password, comment, ACTION_NONCONFORMANCE_REVIEW_CREATE,
+                null, null, null, null, null, null, null, "EDHR_NONCONFORMANCE_REVIEW", reviewId,
+                "eDHR不合格评审创建", ACTION_NONCONFORMANCE_REVIEW_CREATE, comment, null, null, aggregateHash, null);
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public Long recordDeviationInitiationSignature(Long actorId, Long batchExecutionId,
+                                                   Long deviationId, String deviationCode,
+                                                   String batchExecutionCode, String password,
+                                                   String contentHash) {
+        if (batchExecutionId == null || batchExecutionId <= 0
+                || deviationId == null || deviationId <= 0
+                || StrUtil.isBlank(deviationCode) || StrUtil.isBlank(contentHash)) {
+            throw exception(PRO_BATCH_RECORD_EXECUTION_APPROVAL_CONTEXT_MISSING);
+        }
+        String intent = "发起偏差 " + deviationCode + "，批记录 " + batchExecutionCode;
+        return recordSignatureForActor(actorId, 0L, password, intent, ACTION_DEVIATION_INITIATION,
+                null, null, null, null, null, null, null,
+                "EDHR_DEVIATION", deviationId, intent, ACTION_DEVIATION_INITIATION,
+                intent, null, null, contentHash, null);
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public Long recordDeviationHandlingSignature(Long actorId, Long deviationId, Long handlingId,
+                                                 String deviationCode, String node, Integer contentVersion,
+                                                 String contentHash, String password, String comment) {
+        if (deviationId == null || deviationId <= 0 || handlingId == null || handlingId <= 0
+                || StrUtil.isBlank(deviationCode) || StrUtil.isBlank(node)
+                || contentVersion == null || contentVersion <= 0 || StrUtil.isBlank(contentHash)) {
+            throw exception(PRO_BATCH_RECORD_EXECUTION_APPROVAL_CONTEXT_MISSING);
+        }
+        String actionType = switch (node) {
+            case "PREPARER" -> ACTION_DEVIATION_HANDLING_PREPARE;
+            case "VERIFIER" -> ACTION_DEVIATION_HANDLING_VERIFY;
+            case "DEPARTMENT_OWNER" -> ACTION_DEVIATION_HANDLING_DEPARTMENT;
+            case "QA" -> ACTION_DEVIATION_HANDLING_QA;
+            case "QUALITY_OWNER" -> ACTION_DEVIATION_HANDLING_QUALITY;
+            case "MANAGEMENT_REP" -> ACTION_DEVIATION_HANDLING_MANAGEMENT;
+            default -> throw exception(PRO_BATCH_RECORD_EXECUTION_APPROVAL_CONTEXT_MISSING);
+        };
+        String intent = "偏差 " + deviationCode + " 处理节点 " + node;
+        return recordSignatureForActor(actorId, 0L, password, intent, actionType,
+                null, null, null, null, null, null, null,
+                "EDHR_DEVIATION_HANDLING", handlingId, intent, node, comment,
+                (long) contentVersion, contentHash, contentHash, null);
+    }
+
     public void validatePqcSubmitSignature(Long actorId, String password) {
         if (actorId == null) {
             throw exception(PRO_BATCH_RECORD_EXECUTION_SIGNATURE_NOT_AUTHORIZED);
@@ -173,6 +265,13 @@ public class MesProBatchRecordExecutionSignatureService {
 
     @Transactional(rollbackFor = Exception.class)
     public Long recordTeamLeaderReviewSignature(Long actorId, String password, String comment) {
+        return recordTeamLeaderReviewSignature(actorId, password, comment, null, null, null);
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public Long recordTeamLeaderReviewSignature(Long actorId, String password, String comment,
+                                                String reviewSourceType, Long reviewSourceId,
+                                                String reviewSourceName) {
         if (actorId == null) {
             throw exception(PRO_BATCH_RECORD_EXECUTION_SIGNATURE_NOT_AUTHORIZED);
         }
@@ -181,24 +280,61 @@ public class MesProBatchRecordExecutionSignatureService {
             throw exception(PRO_BATCH_RECORD_EXECUTION_SIGNATURE_NOT_AUTHORIZED);
         }
         return recordSignatureForSystemUser(actorId, user, 0L, password, comment, ACTION_TEAM_LEADER_REVIEW,
-                null, null, null, null, null, null, null, null, null, null, null, null, null, null, null,
+                null, null, null, null, null, null, null, reviewSourceType, reviewSourceId, reviewSourceName,
+                null, null, null, null, null,
                 null);
     }
 
     @Transactional(rollbackFor = Exception.class)
-    public Long recordProductionSubmitSignature(Long actorId, String password, String comment) {
+    public Long recordTeamLeaderReviewSignature(Long actorId, String password, String comment,
+                                                MesTeamLeaderReviewSignatureContext context) {
+        if (context == null) {
+            throw new IllegalArgumentException("Formal review signature context is required");
+        }
         if (actorId == null) {
             throw exception(PRO_BATCH_RECORD_EXECUTION_SIGNATURE_NOT_AUTHORIZED);
         }
         AdminUserDO user = adminUserService.getUser(actorId);
-        if (user == null) {
-            return recordProductionSubmitSignatureForEmployeeProfile(actorId, password, comment);
+        if (user == null || !authorizationService.isElectronicSignatureEnabled(actorId)) {
+            throw exception(PRO_BATCH_RECORD_EXECUTION_SIGNATURE_NOT_AUTHORIZED);
         }
+        return recordSignatureForSystemUser(actorId, user, 0L, password, comment, ACTION_TEAM_LEADER_REVIEW,
+                null, null, null, null, null, null, null,
+                MesTeamLeaderReviewSignatureContext.SOURCE_TYPE, context.eventId(), context.sourceName(),
+                context.reviewStatus(), null, context.revisionId(), null, context.payloadHash(), null);
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public Long recordProductionSubmitSignature(Long actorId, String password, String comment,
+                                                MesProductionSubmitSignatureContext context) {
+        if (context == null) {
+            throw exception(MesProductionSubmitSignatureContext.CONTEXT_INVALID);
+        }
+        if (actorId == null) {
+            throw exception(PRO_BATCH_RECORD_EXECUTION_SIGNATURE_NOT_AUTHORIZED);
+        }
+        return recordProductionSubmitSignature(actorId, AuthorizedSignatureIdentity.SYSTEM_USER, password, comment, context);
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public Long recordProductionSubmitSignature(Long actorId, String identityDomain, String password, String comment,
+                                                MesProductionSubmitSignatureContext context) {
+        if (context == null || actorId == null) throw exception(PRO_BATCH_RECORD_EXECUTION_SIGNATURE_NOT_AUTHORIZED);
+        if (AuthorizedSignatureIdentity.EMPLOYEE_PROFILE.equals(identityDomain)) {
+            return recordProductionSubmitSignatureForEmployeeProfile(actorId, password, comment, context);
+        }
+        if (!AuthorizedSignatureIdentity.SYSTEM_USER.equals(identityDomain)) {
+            throw exception(PRO_BATCH_RECORD_EXECUTION_SIGNATURE_NOT_AUTHORIZED);
+        }
+        AdminUserDO user = adminUserService.getUser(actorId);
+        if (user == null) throw exception(PRO_BATCH_RECORD_EXECUTION_SIGNATURE_NOT_AUTHORIZED);
         if (!authorizationService.isElectronicSignatureEnabled(actorId)) {
             throw exception(PRO_BATCH_RECORD_EXECUTION_SIGNATURE_NOT_AUTHORIZED);
         }
         return recordSignatureForSystemUser(actorId, user, 0L, password, comment, ACTION_PRODUCTION_SUBMIT,
-                null, null, null, null, null, null, null, null, null, null, null, null, null, null, null,
+                null, null, null, null, null, null, null,
+                MesProductionSubmitSignatureContext.SOURCE_TYPE, context.activeOrderId(), context.sourceName(),
+                null, null, null, null, null,
                 null);
     }
 
@@ -432,6 +568,8 @@ public class MesProBatchRecordExecutionSignatureService {
                 .setSignatureId(unifiedSignature.signatureId())
                 .setActorId(actorId)
                 .setActorName(user.getNickname())
+                .setSignatureMode(SIGNATURE_MODE_PASSWORD)
+                .setPasswordVerified(Boolean.TRUE)
                 .setSignedAt(unifiedSignature.signedAt())
                 .setSelectedSignedAt(signatureTimeEvidence.selectedSignedAt())
                 .setSignatureDisplayAt(unifiedSignature.signedAt())
@@ -456,6 +594,7 @@ public class MesProBatchRecordExecutionSignatureService {
         if (user == null) {
             throw exception(PRO_BATCH_RECORD_EXECUTION_SIGNATURE_PERSIST_FAILED);
         }
+        gxpAuditService.acquireLedgerLock();
         LocalDateTime signedAt = nowAtDatabasePrecision();
         SignatureTimeEvidence signatureTimeEvidence =
                 buildSignatureTimeEvidence(command.getExecutionId(), ACTION_FIELD_CHANGE, actorId, signedAt, null);
@@ -494,13 +633,17 @@ public class MesProBatchRecordExecutionSignatureService {
                 .signatureChallengeHash(command.getSignatureChallengeHash())
                 .build();
         int inserted = signatureMapper.insert(signature);
-        if (inserted <= 0) {
+        if (inserted <= 0 || signature.getId() == null) {
             throw exception(PRO_BATCH_RECORD_EXECUTION_SIGNATURE_PERSIST_FAILED);
         }
+        appendProjectionAudit("edhr.field-save-evidence.create", "recordFieldChangeDraftSave", null,
+                requirePersistedProjection(signature.getId()), false);
         return new MesProBatchRecordExecutionFieldAuditSignatureResult()
                 .setSignatureId(signature.getId())
                 .setActorId(actorId)
                 .setActorName(user.getNickname())
+                .setSignatureMode(SIGNATURE_MODE_DRAFT_SESSION)
+                .setPasswordVerified(Boolean.FALSE)
                 .setSignedAt(signedAt)
                 .setSignatureDisplayAt(signatureTimeEvidence.signatureDisplayAt())
                 .setSignatureTimeMode(signatureTimeEvidence.signatureTimeMode())
@@ -518,11 +661,16 @@ public class MesProBatchRecordExecutionSignatureService {
                 || StrUtil.isBlank(command.getCellValuesHash())) {
             throw exception(PRO_BATCH_RECORD_EXECUTION_SIGNATURE_PERSIST_FAILED);
         }
-        MesProBatchRecordExecutionSignatureDO signature = signatureMapper.selectById(command.getSignatureId());
+        gxpAuditService.acquireLedgerLock();
+        MesProBatchRecordExecutionSignatureDO signature = signatureMapper.selectOne(
+                new LambdaQueryWrapper<MesProBatchRecordExecutionSignatureDO>()
+                        .eq(MesProBatchRecordExecutionSignatureDO::getId, command.getSignatureId())
+                        .last("FOR UPDATE"));
         if (signature == null || !command.getExecutionId().equals(signature.getExecutionId())
                 || !StrUtil.equals(ACTION_FIELD_CHANGE, signature.getActionType())) {
             throw exception(PRO_BATCH_RECORD_EXECUTION_SIGNATURE_PERSIST_FAILED);
         }
+        String beforeJson = JsonUtils.toJsonString(signature);
         int updated = signatureMapper.updateById(new MesProBatchRecordExecutionSignatureDO()
                 .setId(command.getSignatureId())
                 .setAuditBatchId(command.getAuditBatchId())
@@ -533,6 +681,8 @@ public class MesProBatchRecordExecutionSignatureService {
         if (updated <= 0) {
             throw exception(PRO_BATCH_RECORD_EXECUTION_SIGNATURE_PERSIST_FAILED);
         }
+        appendProjectionAudit("edhr.field-save-evidence.bind", "attachFieldChangeSignature", beforeJson,
+                requirePersistedProjection(command.getSignatureId()), false);
     }
 
     private Long recordSignature(Long executionId, String password, String comment, String actionType) {
@@ -677,7 +827,12 @@ public class MesProBatchRecordExecutionSignatureService {
                 processInstanceId, bpmTaskId, bpmTaskDefinitionKey, bpmTaskName, signatureCellKey,
                 signatureRowIndex, signatureColumnIndex, reviewSourceType, reviewSourceId, reviewSourceName,
                 approvalResult, fieldAuditRevision, fieldAuditHeadHash, cellValuesHash, signatureChallengeHash);
-        return electronicSignatureService.sign(new ElectronicSignatureCommand(
+        boolean hasOpinionSource = ACTION_PQC_RELEASE.equals(actionType) || ACTION_APPROVE.equals(actionType);
+        String userOpinion = StrUtil.blankToDefault(StrUtil.trim(reason), StrUtil.trim(comment));
+        if (hasOpinionSource) {
+            subjectId = MesBatchRecordSignatureSubjectAdapter.withOpinionSource(subjectId, userOpinion);
+        }
+        ElectronicSignatureCommand command = new ElectronicSignatureCommand(
                 MesBatchRecordSignatureSubjectAdapter.MODULE_CODE,
                 actionType,
                 MesBatchRecordSignatureSubjectAdapter.SUBJECT_TYPE,
@@ -685,9 +840,27 @@ public class MesProBatchRecordExecutionSignatureService {
                 MesBatchRecordSignatureSubjectAdapter.subjectVersion(subjectId),
                 password,
                 StrUtil.blankToDefault(StrUtil.trim(reason), StrUtil.blankToDefault(StrUtil.trim(comment), actionType)),
-                "MES|" + actorId + "|" + actionType + "|" + subjectId,
+                hasOpinionSource ? "MES_OPINION_V1|" + actorId + "|" + actionType + "|"
+                        + DigestUtil.sha256Hex(cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(
+                            java.util.Arrays.asList(subjectId, userOpinion)))
+                : (ACTION_PRODUCTION_SUBMIT.equals(actionType)
+                        || (ACTION_TEAM_LEADER_REVIEW.equals(actionType)
+                            && MesTeamLeaderReviewSignatureContext.SOURCE_TYPE.equals(reviewSourceType)
+                            && approvalResult != null && cellValuesHash != null))
+                        ? "MES|" + actorId + "|" + actionType + "|" + DigestUtil.sha256Hex(subjectId)
+                        : "MES|" + actorId + "|" + actionType + "|" + subjectId,
                 businessOccurredAt(signatureTimeEvidence),
-                businessTimeZone(signatureTimeEvidence)));
+                businessTimeZone(signatureTimeEvidence));
+        if (!Set.of(ACTION_PRODUCTION_SUBMIT, ACTION_PQC_SUBMIT, ACTION_PQC_RELEASE, ACTION_QA_DISPOSITION,
+                ACTION_MARKET_RELEASE).contains(actionType)) {
+            return electronicSignatureService.sign(command);
+        }
+        AdminUserDO signer = adminUserService.getUser(actorId);
+        if (signer == null || StrUtil.isBlank(signer.getNickname())) {
+            throw exception(PRO_BATCH_RECORD_EXECUTION_SIGNATURE_NOT_AUTHORIZED);
+        }
+        return electronicSignatureService.signAuthorized(command, new AuthorizedSignatureIdentity(AuthorizedSignatureIdentity.SYSTEM_USER, actorId,
+                        signer.getNickname()), null);
     }
 
     private String businessOccurredAt(SignatureTimeEvidence signatureTimeEvidence) {
@@ -700,7 +873,8 @@ public class MesProBatchRecordExecutionSignatureService {
                 ? null : signatureTimeEvidence.selectedTimeZone();
     }
 
-    private Long recordProductionSubmitSignatureForEmployeeProfile(Long actorId, String password, String comment) {
+    private Long recordProductionSubmitSignatureForEmployeeProfile(Long actorId, String password, String comment,
+                                                                   MesProductionSubmitSignatureContext context) {
         if (StrUtil.isBlank(password)) {
             throw exception(PRO_BATCH_RECORD_EXECUTION_SIGNATURE_PASSWORD_INVALID);
         }
@@ -720,39 +894,31 @@ public class MesProBatchRecordExecutionSignatureService {
         if (StrUtil.hasBlank(employeeCode, employeeName, actorName)) {
             throw exception(PRO_BATCH_RECORD_EXECUTION_SIGNATURE_NOT_AUTHORIZED);
         }
-        LocalDateTime signedAt = nowAtDatabasePrecision();
-        SignatureTimeEvidence signatureTimeEvidence =
-                buildSignatureTimeEvidence(0L, ACTION_PRODUCTION_SUBMIT, actorId, signedAt, null);
-        MesProBatchRecordExecutionSignatureDO signature = MesProBatchRecordExecutionSignatureDO.builder()
-                .executionId(0L)
-                .actorId(actorId)
-                .actionType(ACTION_PRODUCTION_SUBMIT)
-                .signatureMode(SIGNATURE_MODE_PASSWORD)
-                .passwordVerified(Boolean.TRUE)
-                .comment(StrUtil.blankToDefault(StrUtil.trim(comment), null))
-                .signedAt(signedAt)
-                .selectedSignedAt(signatureTimeEvidence.selectedSignedAt())
-                .signatureDisplayAt(signatureTimeEvidence.signatureDisplayAt())
-                .signatureTimeMode(signatureTimeEvidence.signatureTimeMode())
-                .selectedTimeZone(signatureTimeEvidence.selectedTimeZone())
-                .selectedTimeReason(signatureTimeEvidence.selectedTimeReason())
-                .selectedTimePolicyVersion(signatureTimeEvidence.selectedTimePolicyVersion())
-                .selectedTimeAuditHash(signatureTimeEvidence.selectedTimeAuditHash())
-                .actorName(actorName)
-                .actorUsernameSnapshot(employeeCode)
-                .actorNicknameSnapshot(employeeName)
-                .signaturePurpose(resolveSignaturePurpose(ACTION_PRODUCTION_SUBMIT))
-                .authorizationBasis(AUTHORIZATION_BASIS_EMPLOYEE_PROFILE)
-                .authenticationMethod(SIGNATURE_MODE_PASSWORD)
-                .clientIpSnapshot(resolveClientIpSnapshot())
-                .userAgentSnapshot(resolveUserAgentSnapshot())
-                .snapshotStatus(SNAPSHOT_STATUS_CAPTURED_PARTIAL_ORG)
-                .build();
-        int inserted = signatureMapper.insert(signature);
-        if (inserted <= 0 || signature.getId() == null) {
-            throw exception(PRO_BATCH_RECORD_EXECUTION_SIGNATURE_PERSIST_FAILED);
+        if (!Objects.equals(profile.getTenantId(), TenantContextHolder.getRequiredTenantId())) {
+            throw exception(PRO_BATCH_RECORD_EXECUTION_SIGNATURE_NOT_AUTHORIZED);
         }
-        return signature.getId();
+        String subjectId = MesBatchRecordSignatureSubjectAdapter.encodeSubjectId(0L, ACTION_PRODUCTION_SUBMIT,
+                null, null, null, null, null, null, null, MesProductionSubmitSignatureContext.SOURCE_TYPE,
+                context.activeOrderId(), context.sourceName(), null, null, null, null, null);
+        ElectronicSignatureCommand command = new ElectronicSignatureCommand(
+                MesBatchRecordSignatureSubjectAdapter.MODULE_CODE, ACTION_PRODUCTION_SUBMIT,
+                MesBatchRecordSignatureSubjectAdapter.SUBJECT_TYPE, subjectId,
+                MesBatchRecordSignatureSubjectAdapter.subjectVersion(subjectId), password, comment,
+                "MES|MES_EMPLOYEE_PROFILE|" + actorId + "|PRODUCTION_SUBMIT|" + DigestUtil.sha256Hex(subjectId),
+                null, null);
+        return electronicSignatureService.signAuthorized(command,
+                new AuthorizedSignatureIdentity(AuthorizedSignatureIdentity.EMPLOYEE_PROFILE, actorId, actorName),
+                () -> {
+                    MesProcessPoolTeamEmployeeProfileDO current = employeeProfileMapper.selectById(actorId);
+                    if (current == null || !Boolean.TRUE.equals(current.getEnabled()) || current.getSystemUserId() != null
+                            || !Objects.equals(current.getTenantId(), TenantContextHolder.getRequiredTenantId())
+                            || StrUtil.isBlank(current.getSignaturePasswordHash())) {
+                        throw exception(PRO_BATCH_RECORD_EXECUTION_SIGNATURE_NOT_AUTHORIZED);
+                    }
+                    if (!passwordEncoder.matches(password, current.getSignaturePasswordHash())) {
+                        throw exception(PRO_BATCH_RECORD_EXECUTION_SIGNATURE_PASSWORD_INVALID);
+                    }
+                }).signatureId();
     }
 
     private String resolveEmployeeProfileDisplayName(MesProcessPoolTeamEmployeeProfileDO profile) {
@@ -761,6 +927,60 @@ public class MesProBatchRecordExecutionSignatureService {
             return displayName;
         }
         return StrUtil.blankToDefault(StrUtil.trim(profile.getEmployeeName()), null);
+    }
+
+    private MesProBatchRecordExecutionSignatureDO requirePersistedProjection(Long signatureId) {
+        MesProBatchRecordExecutionSignatureDO persisted = signatureMapper.selectById(signatureId);
+        if (persisted == null) {
+            throw exception(PRO_BATCH_RECORD_EXECUTION_SIGNATURE_PERSIST_FAILED);
+        }
+        return persisted;
+    }
+
+    private void appendProjectionAudit(String operationId, String sourceMethod, String beforeJson,
+                                       MesProBatchRecordExecutionSignatureDO persisted, boolean employeeProfile) {
+        String afterJson = JsonUtils.toJsonString(persisted);
+        String afterHash = DigestUtil.sha256Hex(afterJson);
+        String beforeHash = beforeJson == null ? null : DigestUtil.sha256Hex(beforeJson);
+        List<GxpAuditRelation> relations = new ArrayList<>();
+        relations.add(new GxpAuditRelation("SUBJECT", "MES_SIGNATURE_PROJECTION",
+                String.valueOf(persisted.getId()), afterHash, afterHash));
+        if (persisted.getExecutionId() != null && persisted.getExecutionId() > 0) {
+            relations.add(new GxpAuditRelation("SOURCE", "BATCH_RECORD_EXECUTION",
+                    String.valueOf(persisted.getExecutionId()), null, null));
+        }
+        if (employeeProfile) {
+            relations.add(new GxpAuditRelation("PERFORMED_BY", "MES_EMPLOYEE_PROFILE",
+                    String.valueOf(persisted.getActorId()), null, null));
+        }
+        String source = MesProBatchRecordExecutionSignatureService.class.getName() + "#" + sourceMethod;
+        GxpAuditCommand command = GxpAuditCommand.builder()
+                .operationId(operationId)
+                .subjectId("MES_SIGNATURE_PROJECTION:" + persisted.getId())
+                .subjectVersion(afterHash)
+                .reason(beforeJson == null ? "Persist MES signature projection" : "Bind field-save evidence")
+                .reasonSource("SYSTEM")
+                .beforeState(GxpAuditStateEnvelope.builder()
+                        .state(beforeJson == null ? "ABSENT" : "PRESENT")
+                        .objectVersion(beforeHash)
+                        .canonicalJson(beforeJson == null ? "{}" : beforeJson).build())
+                .afterState(GxpAuditStateEnvelope.builder().state("PRESENT")
+                        .objectVersion(afterHash).canonicalJson(afterJson).build())
+                .idempotencyKey("MES-SIG:" + DigestUtil.sha256Hex(JsonUtils.toJsonString(
+                        List.of(operationId, persisted.getId(), beforeJson == null ? "ABSENT" : beforeJson, afterJson))))
+                .requestId("MES-SIG:" + persisted.getId())
+                .source(source).sourceLocator(source).sourceType("SERVICE_METHOD")
+                .links(relations).build();
+        // A MES employee-profile projection is not a system-user unified electronic signature.
+        // Its signer is separate from the authenticated device account supplied by the audit kernel.
+        if (employeeProfile) {
+            command.setPerformedBy(JsonUtils.toJsonString(Map.of(
+                    "identityDomain", "MES_EMPLOYEE_PROFILE", "id", persisted.getActorId(),
+                    "tenantId", TenantContextHolder.getRequiredTenantId(),
+                    "employeeCode", persisted.getActorUsernameSnapshot(),
+                    "displayName", persisted.getActorName())));
+        }
+        gxpAuditService.append(command);
     }
 
     private SignatureActorSnapshot buildActorSnapshot(AdminUserDO user, String actionType,
@@ -845,8 +1065,18 @@ public class MesProBatchRecordExecutionSignatureService {
             case ACTION_PRODUCTION_SUBMIT -> "一线生产报工提交";
             case ACTION_PQC_SUBMIT -> "PQC检验提交";
             case ACTION_PQC_RELEASE -> "PQC生产放行";
+            case ACTION_MARKET_RELEASE -> "上市放行";
             case ACTION_TEAM_LEADER_REVIEW -> "组长复核";
+            case ACTION_NONCONFORMANCE_REJECT -> "发起eDHR不合格评审";
             case ACTION_QA_DISPOSITION -> "QA不合格评审处置";
+            case ACTION_NONCONFORMANCE_REVIEW_CREATE -> "创建eDHR不合格评审";
+            case ACTION_DEVIATION_INITIATION -> "发起eDHR偏差";
+            case ACTION_DEVIATION_HANDLING_PREPARE -> "偏差处理编制";
+            case ACTION_DEVIATION_HANDLING_VERIFY -> "偏差处理验证";
+            case ACTION_DEVIATION_HANDLING_DEPARTMENT -> "偏差部门负责人确认";
+            case ACTION_DEVIATION_HANDLING_QA -> "偏差QA关闭确认";
+            case ACTION_DEVIATION_HANDLING_QUALITY -> "偏差质量负责人批准";
+            case ACTION_DEVIATION_HANDLING_MANAGEMENT -> "关键偏差管理者代表批准";
             default -> actionType;
         };
     }

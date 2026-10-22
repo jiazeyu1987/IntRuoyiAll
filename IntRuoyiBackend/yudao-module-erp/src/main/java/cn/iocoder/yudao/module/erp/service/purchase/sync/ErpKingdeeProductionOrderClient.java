@@ -22,6 +22,10 @@ public interface ErpKingdeeProductionOrderClient {
 
     ErpKingdeeProductionOrder getProductionOrderByBillNo(ErpKingdeeProperties properties, String billNo);
 
+    /** 查询当前账套实际存在的订单编号，不按日期、物料或单据状态过滤。 */
+    java.util.Set<String> findExistingProductionOrderBillNos(ErpKingdeeProperties properties,
+                                                            Collection<String> billNos);
+
     ErpKingdeeProductionOrderCreateResult createAndSubmitProductionOrder(
             ErpKingdeeProperties properties, ErpKingdeeProductionOrderCreateRequest request);
 

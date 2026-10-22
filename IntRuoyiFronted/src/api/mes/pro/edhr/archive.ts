@@ -92,14 +92,15 @@ export const getEdhrExecutionArchivePage = async (params: ProFeedbackEdhrArchive
   })
 }
 
-export const getLatestEdhrExecutionArchive = async (executionId: number, artifactType: string) => {
+export const getLatestEdhrExecutionArchive = async (executionId: number, artifactType: string, options: { ignoreErrorMessage?: boolean; isRequestContextCurrent?: () => boolean } = { ignoreErrorMessage: true }) => {
   return await request.get<ProFeedbackEdhrExecutionArchiveRespVO>({
+    ignoreErrorMessage: options?.ignoreErrorMessage,
+    isRequestContextCurrent: options?.isRequestContextCurrent,
     url: `/mes/pro/batch-record-execution-archive/latest`,
     params: {
       executionId,
       artifactType
-    },
-    ignoreErrorMessage: true
+    }
   })
 }
 

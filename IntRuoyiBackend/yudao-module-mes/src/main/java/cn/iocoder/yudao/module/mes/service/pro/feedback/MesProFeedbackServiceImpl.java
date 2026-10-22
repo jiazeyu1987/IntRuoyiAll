@@ -3,6 +3,7 @@ package cn.iocoder.yudao.module.mes.service.pro.feedback;
 import cn.hutool.core.util.ObjUtil;
 import cn.hutool.core.util.ObjectUtil;
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
+import cn.iocoder.yudao.module.mes.approval.MesFeedbackFormalReviewProjection;
 import cn.iocoder.yudao.framework.common.util.object.BeanUtils;
 import cn.iocoder.yudao.module.mes.dal.dataobject.md.workstation.MesMdWorkstationDO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.vo.MesProFeedbackPageReqVO;
@@ -53,6 +54,9 @@ import static cn.iocoder.yudao.module.mes.service.pro.feedback.frontline.MesProF
 public class MesProFeedbackServiceImpl implements MesProFeedbackService {
 
     @Resource
+    private MesFeedbackFormalReviewProjection formalReviewProjection;
+
+    @Resource
     private MesProFeedbackMapper feedbackMapper;
     @Resource
     private MesProScheduleOrderMapper scheduleOrderMapper;
@@ -83,16 +87,19 @@ public class MesProFeedbackServiceImpl implements MesProFeedbackService {
     private MesWmProductProduceLineService produceLineService;
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public Long createFeedback(MesProFeedbackSaveReqVO createReqVO) {
         return createFeedbackInternal(createReqVO, false);
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public Long createFeedbackWithScheduleSnapshot(MesProFeedbackSaveReqVO createReqVO) {
         return createFeedbackInternal(createReqVO, true);
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public Long createFrontlineFeedback(MesProFeedbackSaveReqVO createReqVO) {
         validateFrontlineFeedbackData(createReqVO);
         MesProFeedbackDO feedback = BeanUtils.toBean(createReqVO, MesProFeedbackDO.class)
@@ -116,6 +123,7 @@ public class MesProFeedbackServiceImpl implements MesProFeedbackService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void updateFeedback(MesProFeedbackSaveReqVO updateReqVO) {
         // 1.1 校验存在 + 草稿状态
         MesProFeedbackDO existing = validateFeedbackStatusPrepare(updateReqVO.getId());
@@ -175,12 +183,15 @@ public class MesProFeedbackServiceImpl implements MesProFeedbackService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void rejectFeedback(Long id) {
         rejectFeedback(id, null);
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void rejectFeedback(Long id, String reason) {
+        formalReviewProjection.assertLegacyOperationAllowed(id);
         // 1. 校验存在 + 审批中状态
         validateFeedbackStatusApproving(id);
 
@@ -193,6 +204,7 @@ public class MesProFeedbackServiceImpl implements MesProFeedbackService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public boolean approveFeedback(Long id) {
+        formalReviewProjection.assertLegacyOperationAllowed(id);
         // 1.1 校验存在 + 审批中状态
         MesProFeedbackDO feedback = validateFeedbackStatusApproving(id);
         nonconformanceReviewService.ensureWorkOrderNotFrozen(feedback.getWorkOrderId(), "PQC提交");
@@ -335,7 +347,7 @@ public class MesProFeedbackServiceImpl implements MesProFeedbackService {
         validateFeedbackQuantity(reqVO, routeProcess);
 
         // 3. 校验工单已确认
-        MesProWorkOrderDO workOrder = workOrderService.validateWorkOrderConfirmed(reqVO.getWorkOrderId());
+        MesProWorkOrderDO workOrder = workOrderService.validateWorkOrderConfirmedForUpdate(reqVO.getWorkOrderId());
         if (ObjUtil.notEqual(workOrder.getProductId(), reqVO.getItemId())) {
             throw exception(PRO_WORK_ORDER_PRODUCT_MISMATCH);
         }

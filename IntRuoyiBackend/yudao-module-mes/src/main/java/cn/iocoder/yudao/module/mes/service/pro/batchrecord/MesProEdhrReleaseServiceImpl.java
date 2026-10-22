@@ -2,8 +2,11 @@ package cn.iocoder.yudao.module.mes.service.pro.batchrecord;
 
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.crypto.digest.DigestUtil;
+import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
 import cn.iocoder.yudao.framework.common.util.object.BeanUtils;
+import cn.iocoder.yudao.module.bpm.approval.core.ApprovalModuleCode;
+import cn.iocoder.yudao.module.bpm.approval.service.ApprovalIdentity;
 import cn.iocoder.yudao.module.bpm.dal.dataobject.signature.BpmApprovalSignatureRecordDO;
 import cn.iocoder.yudao.module.bpm.dal.dataobject.formcenter.FormActionInstanceDO;
 import cn.iocoder.yudao.module.bpm.dal.mysql.signature.BpmApprovalSignatureRecordMapper;
@@ -25,6 +28,7 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProBatchRec
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProBatchRecordExecutionDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProBatchRecordExecutionSignatureDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionOriginDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionTaskDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrReleaseCheckItemDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrReleaseTransactionDO;
@@ -36,12 +40,14 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProBatchRecordEx
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProBatchRecordExecutionMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProBatchRecordExecutionSignatureMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionOriginMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionTaskMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrReleaseCheckItemMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrReleaseTransactionMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrReleaseTransactionEventMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrReleaseDecisionMapper;
 import cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils;
+import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrWorkTaskAssignmentRuleMapper;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationDO;
@@ -50,8 +56,15 @@ import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesProductionReportManagementSummaryService;
 import cn.iocoder.yudao.module.mes.service.pro.productionrelease.manager.MesProductionReleaseManagerApprovalResult;
 import cn.iocoder.yudao.module.mes.service.pro.productionrelease.manager.MesProductionReleaseManagerApprovalService;
+import cn.iocoder.yudao.module.mes.service.pro.productionrelease.role.MesProductionReleaseRoleCodes;
 import cn.iocoder.yudao.module.mes.service.pro.productionrelease.MesReleaseUpstreamClosureCommand;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditCommand;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditEvidence;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditRelation;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditStateEnvelope;
 import cn.iocoder.yudao.module.mes.service.pro.productionrelease.MesReleaseUpstreamStatePort;
+import cn.iocoder.yudao.module.mes.service.pro.productionrelease.manager.MesProductionReleaseFormalFactSnapshots;
 import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFinalizationCommand;
 import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFinalizationAction;
 import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFinalizationValidator;
@@ -97,6 +110,19 @@ import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatc
 
 @Service
 public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
+    @jakarta.annotation.Resource private cn.iocoder.yudao.module.system.api.permission.ApprovalAuthorityApi approvalAuthority;
+    @Resource private MesEdhrReleaseSubmissionMaterialAssociationStore submissionMaterials;
+    @Resource private cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseMaterialGateReceiptPort materialReceipts;
+    @Resource private MesEdhrSourceCreationVerificationService sourceCreation;
+    @Resource private cn.iocoder.yudao.module.signature.service.ElectronicSignatureVerifiedFactService centerSignatureFacts;
+    @Resource private MesEdhrReleaseMaterialSelectionRegistry materialSelection;
+    @Resource private cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper approvalActiveOrders;
+    @Resource private cn.iocoder.yudao.module.system.service.gxpaudit.GxpCreationAuditVerificationService approvalCreationEvents;
+
+    @jakarta.annotation.Resource private cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesEdhrBatchLifecycleGuard lifecycleGuard;
+
+    @Resource
+    private cn.iocoder.yudao.module.mes.service.pro.productionrelease.MesReleaseAffectedStateCollector affectedStates;
 
     public static final String STATUS_PRECHECK_REQUIRED = "PRECHECK_REQUIRED";
     public static final String STATUS_PRECHECK_FAILED = "PRECHECK_FAILED";
@@ -150,6 +176,8 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
     @Resource
     private MesProEdhrBatchExecutionMapper batchExecutionMapper;
     @Resource
+    private MesProEdhrBatchExecutionOriginMapper batchExecutionOriginMapper;
+    @Resource
     private MesProcessPoolActiveOrderReleaseApplicationMapper releaseApplicationMapper;
     @Resource
     private MesProEdhrBatchExecutionTaskMapper batchExecutionTaskMapper;
@@ -167,8 +195,11 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
     private MesProEdhrReleaseTransactionEventMapper releaseTransactionEventMapper;
     @Resource
     private MesProEdhrReleaseDecisionMapper releaseDecisionMapper;
+    @jakarta.annotation.Resource private cn.iocoder.yudao.module.mes.approval.content.EdhrSignedDossierReader signedDossierReader;
     @Resource
     private MesProEdhrWorkTaskAssignmentRuleMapper workTaskAssignmentRuleMapper;
+    @Resource
+    private cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrWorkTaskMapper workTaskMapper;
     @Resource
     private BpmApprovalSignatureRecordMapper approvalSignatureRecordMapper;
     @Resource
@@ -197,6 +228,12 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
     private MesProEdhrFourMaterialGateService fourMaterialGateService;
     @Resource
     private MesProEdhrNonconformanceReviewService nonconformanceReviewService;
+    @Resource
+    private GxpAuditService gxpAuditService;
+    @Resource
+    private MesProEdhrDeviationService deviationService;
+    @Resource
+    private MesProBatchRecordExecutionSignatureService executionSignatureService;
 
     @Override
     public PageResult<MesProEdhrReleaseRespVO> getPage(MesProEdhrReleasePageReqVO reqVO) {
@@ -278,21 +315,29 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
             throw exception(PRO_EDHR_BATCH_EXECUTION_NOT_EXISTS);
         }
         MesProEdhrBatchExecutionDO batch = requireBatchExecution(transaction.getBatchExecutionId());
-        return toResp(batch, transaction);
+        var result = toResp(batch, transaction);
+        if (transaction.getReleaseDecisionId() != null) {
+            var decision = releaseDecisionMapper.selectById(transaction.getReleaseDecisionId());
+            result.setSignedDossierManifestJson(signedDossierReader.read(decision, transaction.getId(), batch.getId(),
+                    cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId()));
+        }
+        return result;
     }
 
     private MesProEdhrReleaseRespVO finalizeReject(MesReleaseFinalizationCommand command) {
+        requireTransactionForUpdate(command.getReleaseTransactionId());
         managerApprovalService.assertActionSupported(command.getReleaseTransactionId(), EVENT_TYPE_REJECT);
         String idempotencyKey = requireIdempotencyKey(command.getIdempotencyKey());
         String reason = requireReason(command.getDecisionReason());
         Long actorUserId = requireFinalizationActor(command);
         String finalizationPayloadHash = finalizationPayloadHash(command);
         MesProEdhrReleaseTransactionEventDO existingEvent =
-                releaseTransactionEventMapper.selectByReleaseTransactionIdAndEventTypeAndIdempotencyKey(
+                releaseTransactionEventMapper.selectByReleaseTransactionIdAndEventTypeAndIdempotencyKeyForUpdate(
                         command.getReleaseTransactionId(), EVENT_TYPE_REJECT, idempotencyKey);
         if (existingEvent != null) {
             requireSameFinalizationPayload(existingEvent, finalizationPayloadHash);
-            return get(command.getReleaseTransactionId());
+            MesProEdhrReleaseTransactionDO replay = requireTransactionForUpdate(command.getReleaseTransactionId());
+            return toResp(requireBatchExecution(replay.getBatchExecutionId()), replay);
         }
 
         reportManagementSummaryService.lockProductionEventsByReleaseTransactionId(
@@ -315,6 +360,7 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
             throw exception(PRO_EDHR_RELEASE_STATUS_INVALID);
         }
 
+        GxpAuditStateEnvelope auditBefore = releaseTerminalState(transaction);
         releaseTransactionMapper.updateById(new MesProEdhrReleaseTransactionDO()
                 .setId(transaction.getId())
                 .setReleaseStatus(STATUS_REJECTED)
@@ -337,21 +383,25 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
                 actorUserId, reason, null, idempotencyKey, null, occurredAt, finalizationPayloadHash);
         recordTerminalOperationAudit(batch, transaction, EVENT_TYPE_REJECT, fromStatus, STATUS_REJECTED,
                 actorUserId, reason, null, idempotencyKey, null, occurredAt);
+        appendReleaseTerminalAudit(batch, transaction, decision, auditBefore,
+                "mes.market-release.reject", "finalizeReject", reason);
         return toResp(batch, transaction);
     }
 
     private MesProEdhrReleaseRespVO finalizeWithdraw(MesReleaseFinalizationCommand command) {
+        requireTransactionForUpdate(command.getReleaseTransactionId());
         managerApprovalService.assertActionSupported(command.getReleaseTransactionId(), EVENT_TYPE_WITHDRAW);
         String idempotencyKey = requireIdempotencyKey(command.getIdempotencyKey());
         String reason = requireReason(command.getDecisionReason());
         Long actorUserId = requireFinalizationActor(command);
         String finalizationPayloadHash = finalizationPayloadHash(command);
         MesProEdhrReleaseTransactionEventDO existingEvent =
-                releaseTransactionEventMapper.selectByReleaseTransactionIdAndEventTypeAndIdempotencyKey(
+                releaseTransactionEventMapper.selectByReleaseTransactionIdAndEventTypeAndIdempotencyKeyForUpdate(
                         command.getReleaseTransactionId(), EVENT_TYPE_WITHDRAW, idempotencyKey);
         if (existingEvent != null) {
             requireSameFinalizationPayload(existingEvent, finalizationPayloadHash);
-            return get(command.getReleaseTransactionId());
+            MesProEdhrReleaseTransactionDO replay = requireTransactionForUpdate(command.getReleaseTransactionId());
+            return toResp(requireBatchExecution(replay.getBatchExecutionId()), replay);
         }
 
         reportManagementSummaryService.lockProductionEventsByReleaseTransactionId(
@@ -362,6 +412,7 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
         String fromStatus = transaction.getReleaseStatus();
         LocalDateTime occurredAt = now();
 
+        GxpAuditStateEnvelope auditBefore = releaseTerminalState(transaction);
         releaseTransactionMapper.updateById(new MesProEdhrReleaseTransactionDO()
                 .setId(transaction.getId())
                 .setReleaseStatus(STATUS_WITHDRAWN)
@@ -383,6 +434,8 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
         MesProEdhrBatchExecutionDO batch = requireBatchExecution(transaction.getBatchExecutionId());
         recordTerminalOperationAudit(batch, transaction, EVENT_TYPE_WITHDRAW, fromStatus, STATUS_WITHDRAWN,
                 actorUserId, reason, null, idempotencyKey, null, occurredAt);
+        appendReleaseTerminalAudit(batch, transaction, decision, auditBefore,
+                "mes.market-release.withdraw", "finalizeWithdraw", reason);
         return toResp(batch, transaction);
     }
 
@@ -396,21 +449,32 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public MesProEdhrReleaseRespVO precheck(MesProEdhrReleasePrecheckReqVO reqVO) {
+        gxpAuditService.acquireLedgerLock();
+        approvalAuthority.lockTenantApprovalAuthority(cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId());
         MesProEdhrReleaseTransactionDO existingTransaction = null;
         if (reqVO.getReleaseTransactionId() != null) {
-            existingTransaction = releaseTransactionMapper.selectById(reqVO.getReleaseTransactionId());
+            existingTransaction = requireTransaction(reqVO.getReleaseTransactionId());
             if (existingTransaction == null) {
                 throw exception(PRO_EDHR_BATCH_EXECUTION_NOT_EXISTS);
             }
         }
         Long batchExecutionId = existingTransaction == null ? reqVO.getBatchExecutionId() : existingTransaction.getBatchExecutionId();
-        MesProEdhrBatchExecutionDO batch = requireBatchExecution(batchExecutionId);
+        MesProEdhrBatchExecutionDO batch = lockBatchForContentMutation(batchExecutionId);
         nonconformanceReviewService.ensureBatchNotFrozen(batch.getId(), "PQC放行");
         MesProEdhrReleaseTransactionDO transaction = existingTransaction == null
-                ? releaseTransactionMapper.selectByBatchExecutionId(batch.getId()) : existingTransaction;
+                || STATUS_REJECTED.equals(existingTransaction.getReleaseStatus())
+                ? releaseTransactionMapper.selectCurrentByBatchExecutionId(batch.getId()) : existingTransaction;
         if (transaction != null) {
+            if (transaction != null) {
+                transaction = releaseTransactionMapper.selectByIdForUpdate(transaction.getId());
+                if (transaction == null) {
+                    throw exception(PRO_EDHR_BATCH_EXECUTION_NOT_EXISTS);
+                }
+            }
             requirePrecheckEditable(transaction);
         }
+        GxpAuditStateEnvelope auditBefore = releasePreparationState(transaction);
+        boolean firstPrecheck = transaction == null;
         if (transaction == null) {
             transaction = buildInitialTransaction(batch);
             releaseTransactionMapper.insert(transaction);
@@ -420,9 +484,7 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
         releaseCheckItemMapper.closeOpenByReleaseTransactionId(transaction.getId());
         LocalDateTime checkedAt = now();
         MesProEdhrFourMaterialGateResult fourMaterialGate = fourMaterialGateService.evaluate(batch.getId());
-        List<MesProEdhrReleaseCheckItemDO> checkItems =
-                buildCheckItems(transaction.getId(), batch, checkedAt, fourMaterialGate);
-        checkItems.forEach(releaseCheckItemMapper::insert);
+        List<MesProEdhrReleaseCheckItemDO> checkItems = persistFormalPrecheckItems(transaction.getId(), batch, checkedAt, fourMaterialGate);
 
         int failedCount = (int) checkItems.stream()
                 .filter(this::isFailedCheck)
@@ -459,17 +521,23 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
                 precheckSnapshotHash, checkItems, checkedAt);
         recordPrecheckOperationAudit(batch, updatedTransaction, fromStatus, releaseStatus, actorUserId,
                 idempotencyKey, precheckSnapshotHash, checkItems, precheckSnapshotJson, checkedAt);
+        appendReleasePreparationAudit(batch, updatedTransaction, auditBefore,
+                firstPrecheck ? "mes.market-release.precheck-create" : "mes.market-release.precheck",
+                "precheck", idempotencyKey, "放行预检");
         return toResp(batch, updatedTransaction);
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public MesProEdhrReleaseRespVO submit(MesProEdhrReleaseSubmitReqVO reqVO) {
+        gxpAuditService.acquireLedgerLock();
+        approvalAuthority.lockTenantApprovalAuthority(cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId());
         String idempotencyKey = requireIdempotencyKey(reqVO.getIdempotencyKey());
         MesProEdhrReleaseTransactionEventDO existingEvent =
                 releaseTransactionEventMapper.selectByReleaseTransactionIdAndEventTypeAndIdempotencyKey(
                         reqVO.getReleaseTransactionId(), EVENT_TYPE_SUBMIT, idempotencyKey);
         if (existingEvent != null) {
+            submissionMaterials.requireReplay(TenantContextHolder.getRequiredTenantId(), reqVO.getReleaseTransactionId(), idempotencyKey, "submit", SecurityFrameworkUtils.getLoginUserId(), existingEvent, StrUtil.blankToDefault(StrUtil.trim(reqVO.getSubmitReason()), "负责人电子签名放行"));
             return get(reqVO.getReleaseTransactionId());
         }
 
@@ -482,6 +550,7 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
         LocalDateTime occurredAt = now();
         Long actorUserId = SecurityFrameworkUtils.getLoginUserId();
         requireReleaseOwner(batch, actorUserId);
+        GxpAuditStateEnvelope auditBefore = releaseSubmissionState(transaction);
         String password = requireReleaseSignaturePassword(reqVO.getPassword());
         adminUserApi.reauthenticateForSignature(actorUserId, password);
         String reason = StrUtil.blankToDefault(StrUtil.trim(reqVO.getSubmitReason()), "负责人电子签名放行");
@@ -497,16 +566,200 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
                 .setSubmittedBy(actorUserId)
                 .setSubmittedAt(occurredAt));
         transaction = releaseTransactionMapper.selectById(transaction.getId());
-        recordTransactionEvent(transaction, EVENT_TYPE_SUBMIT, fromStatus, STATUS_PENDING_APPROVAL,
+        MesProEdhrReleaseTransactionEventDO submission = recordTransactionEvent(transaction, EVENT_TYPE_SUBMIT, fromStatus, STATUS_PENDING_APPROVAL,
                 actorUserId, reason, null, idempotencyKey, null, occurredAt);
         recordTerminalOperationAudit(batch, transaction, EVENT_TYPE_SUBMIT, fromStatus, STATUS_PENDING_APPROVAL,
                 actorUserId, reason, null, idempotencyKey, null, occurredAt);
+        appendSubmissionMaterialAudit(batch, transaction, auditBefore, submission, approvalTask.getId(), "submit", idempotencyKey, reason);
         return toResp(batch, transaction).setReleaseApprovalWorkTaskId(approvalTask.getId());
+    }
+
+    @Override
+    public void preflightApprovalCenterReview(Long actorUserId, Long workTaskId) {
+        readApprovalReviewGraph(actorUserId, workTaskId);
+    }
+
+    @Override
+    public ApprovalIdentity resolveApprovalContentIdentity(Long actorUserId, Long workTaskId) {
+        ApprovalReviewGraph graph = readApprovalReviewGraph(actorUserId, workTaskId);
+        // Only this new return contract requires a positive tenant; legacy preflight is unchanged.
+        if (graph.tenantId() <= 0) {
+            throw exception(PRO_EDHR_BATCH_EXECUTION_NOT_EXISTS);
+        }
+        return new ApprovalIdentity(graph.tenantId(), ApprovalModuleCode.EDHR.name(), "EDHR_WORK_TASK",
+                String.valueOf(graph.task().getId()), null, graph.task().getBusinessScopeType(),
+                String.valueOf(graph.transaction().getId()));
+    }
+
+    /** One checked graph per call, never reused as a later submission authorization. */
+    private ApprovalReviewGraph readApprovalReviewGraph(Long actorUserId, Long workTaskId) {
+        Long tenantId = TenantContextHolder.getRequiredTenantId();
+        if (TenantContextHolder.isIgnore()) {
+            throw new IllegalStateException("APPROVAL_REVIEW_TENANT_REQUIRED: EDHR");
+        }
+        if (actorUserId == null || !Objects.equals(actorUserId, SecurityFrameworkUtils.getLoginUserId())) {
+            throw exception(UNAUTHORIZED);
+        }
+        if (workTaskId == null || workTaskId <= 0) {
+            throw exception(PRO_EDHR_BATCH_EXECUTION_NOT_EXISTS);
+        }
+        // These mapper reads remain subject to the required tenant interceptor.
+        MesProEdhrWorkTaskDO task = workTaskService.validateReleaseApprovalTask(workTaskId, null);
+        if (task == null || task.getId() == null || task.getId() <= 0
+                || !Objects.equals(task.getId(), workTaskId)
+                || task.getBusinessScopeId() == null || task.getBusinessScopeId() <= 0
+                || task.getBatchExecutionId() == null || task.getBatchExecutionId() <= 0
+                || task.getWorkOrderId() == null || task.getWorkOrderId() <= 0) {
+            throw exception(PRO_EDHR_BATCH_EXECUTION_NOT_EXISTS);
+        }
+        MesProEdhrReleaseTransactionDO transaction = requireTransaction(task.getBusinessScopeId());
+        if (transaction.getId() == null || transaction.getId() <= 0
+                || !Objects.equals(transaction.getId(), task.getBusinessScopeId())
+                || transaction.getBatchExecutionId() == null || transaction.getBatchExecutionId() <= 0
+                || !Objects.equals(transaction.getBatchExecutionId(), task.getBatchExecutionId())
+                || transaction.getWorkOrderId() == null || transaction.getWorkOrderId() <= 0
+                || !Objects.equals(transaction.getWorkOrderId(), task.getWorkOrderId())) {
+            throw exception(PRO_EDHR_BATCH_EXECUTION_NOT_EXISTS);
+        }
+        MesProEdhrBatchExecutionDO batch = requireBatchExecution(transaction.getBatchExecutionId());
+        if (batch.getId() == null || batch.getId() <= 0
+                || !Objects.equals(batch.getTenantId(), tenantId)
+                || !Objects.equals(batch.getId(), transaction.getBatchExecutionId())
+                || !Objects.equals(batch.getId(), task.getBatchExecutionId())
+                || batch.getWorkOrderId() == null || batch.getWorkOrderId() <= 0
+                || !Objects.equals(task.getWorkOrderId(), batch.getWorkOrderId())) {
+            throw exception(PRO_EDHR_BATCH_EXECUTION_NOT_EXISTS);
+        }
+        requirePendingApproval(transaction);
+        lifecycleGuard.requireReleaseAllowed(batch.getId());
+        nonconformanceReviewService.ensureBatchNotFrozen(batch.getId(), "上市放行");
+        if (MesProductionReleaseRoleCodes.MANAGEMENT_REPRESENTATIVE.equals(task.getResponsibilitySourceKey())
+                || managerApprovalService.isManagedReleaseTransaction(transaction.getId())) {
+            managerApprovalService.preflightApprovalCenterReview(actorUserId, task, transaction, batch);
+        }
+        return new ApprovalReviewGraph(tenantId, task, transaction, batch);
+    }
+
+    private record ApprovalReviewGraph(Long tenantId, MesProEdhrWorkTaskDO task,
+            MesProEdhrReleaseTransactionDO transaction, MesProEdhrBatchExecutionDO batch) {}
+
+    @Override
+    public cn.iocoder.yudao.module.mes.approval.content.MesEdhrApprovalFinalizationGraph readForApproval(Long workTaskId, Long actorId, boolean locked) {
+        ApprovalReviewGraph observed = readApprovalReviewGraph(actorId, workTaskId);
+        if (locked) {
+            gxpAuditService.acquireLedgerLock();
+        approvalAuthority.lockTenantApprovalAuthority(cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId());
+            batchExecutionMapper.selectByTenantIdAndIdForUpdate(observed.tenantId(), observed.batch().getId());
+            requireTransactionForUpdate(observed.transaction().getId());
+            workTaskMapper.selectByIdAndTenantForUpdate(workTaskId, observed.tenantId());
+            observed = readApprovalReviewGraph(actorId, workTaskId);
+        }
+        boolean managed = managerApprovalService.isManagedReleaseTransaction(observed.transaction().getId());
+        var origins = batchExecutionOriginMapper.selectListByBatchExecutionId(observed.batch().getId());
+        if (origins == null || origins.size() != 1) throw new IllegalStateException("APPROVAL_SOURCE_ORIGIN_NOT_UNIQUE");
+        var origin = origins.get(0);
+        var source = batchTraceabilityService.resolveSourcePrecheck(new MesProEdhrBatchTraceSourcePrecheckCommand().setBatchExecutionId(observed.batch().getId()));
+        if (!Objects.equals(origin.getTenantId(), observed.tenantId()) || !Objects.equals(origin.getSourceSnapshotHash(), source.getSourceSnapshotHash()))
+            throw new IllegalStateException("APPROVAL_SOURCE_ORIGIN_MISMATCH");
+        MesEdhrSourceCreationEvidence provenance = "ACTIVE_ORDER_COMPLETION".equals(origin.getEntryType())
+                ? sourceCreation.requireCompletionCreation(observed.tenantId(), origin.getCompletionBackfillReceiptId())
+                : sourceCreation.requireIndependentCreation(observed.tenantId(), origin.getSourceCredentialId());
+        var selection = materialSelection.requireCurrentVerified(observed.tenantId(), observed.transaction(), observed.task(), managed);
+        var applications = releaseApplicationMapper.selectListByReleaseTransactionId(observed.transaction().getId());
+        if (managed && (applications == null || applications.size() != 1)) throw new IllegalStateException("MANAGED_APPLICATION_REQUIRED");
+        Long applicationId = managed ? applications.get(0).getId() : null;
+        var active = origin.getActiveOrderId() == null ? null : approvalActiveOrders.selectById(origin.getActiveOrderId());
+        if (origin.getActiveOrderId() != null && (active == null || active.getVersion() == null || !Objects.equals(active.getTenantId(), observed.tenantId())))
+            throw new IllegalStateException("APPROVAL_ACTIVE_ORDER_REQUIRED");
+        return new cn.iocoder.yudao.module.mes.approval.content.MesEdhrApprovalFinalizationGraph(observed.tenantId(), observed.task(),
+                observed.transaction(), observed.batch(), managed, origin, source, selection.materialFact(), provenance,
+                applicationId, active == null ? null : active.getVersion().longValue(), selection.activeOrderFact());
+    }
+
+    @Override
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.MANDATORY, rollbackFor = Exception.class)
+    public MesProEdhrReleaseRespVO approveFromCenter(cn.iocoder.yudao.module.mes.approval.content.EdhrCenterReviewCommand c) {
+        if (c == null || c.getSignatureId() == null || c.getSignatureId() <= 0 || c.getCenterReceiptId() == null || c.getCenterReceiptId() <= 0
+                || c.getSignatureCreationEventId() == null || c.getPrepareId() == null || c.getPrepareId().isBlank()
+                || c.getCanonicalHash() == null || !c.getCanonicalHash().matches("[0-9a-f]{64}")
+                || c.getReason() == null || c.getReason().isBlank()) throw new IllegalStateException("CENTER_TRUSTED_SIGNATURE_REQUIRED");
+        var graph = readForApproval(c.getWorkTaskId(), c.getActorId(), true);
+        if (!Objects.equals(graph.transaction().getVersion(), c.getExpectedVersion())) throw new IllegalStateException("CENTER_RELEASE_VERSION_CHANGED");
+        var signatureEvent = approvalCreationEvents.requireVerifiedEvent(graph.tenantId(), c.getSignatureCreationEventId());
+        if (!Objects.equals(signatureEvent.eventHash(), c.getSignatureCreationEventHash())
+                || !"signature.record.create".equals(signatureEvent.columns().operationId())
+                || !Objects.equals(signatureEvent.columns().actorId(), c.getActorId())) throw new IllegalStateException("CENTER_SIGNATURE_CREATION_MISMATCH");
+        var signature = centerSignatureFacts.requireVerifiedFact(c.getSignatureId());
+        if (!Objects.equals(signature.auditEventId(), c.getSignatureCreationEventId())
+                || !Objects.equals(signature.tenantId(), graph.tenantId()) || !Objects.equals(signature.actorId(), c.getActorId())
+                || !Objects.equals(signature.subjectId(), "EDHR_RELEASE:" + graph.transaction().getId())
+                || !Objects.equals(signature.subjectId(), c.getSubjectId()) || !Objects.equals(signature.subjectVersion(), c.getSubjectVersion())
+                || !Objects.equals(signature.taskId(), c.getWorkTaskId().toString()) || !Objects.equals(signature.evidenceHash(), c.getEvidenceHash())
+                || !"BPM".equals(signature.moduleCode()) || !"APPROVE".equals(signature.actionCode())
+                || !"BPM_APPROVAL_TASK".equals(signature.subjectType()) || !"V2".equals(signature.verification().evidenceFormatVersion())
+                || !Objects.equals(signature.reason(), c.getReason())) throw new IllegalStateException("CENTER_TYPED_SIGNATURE_MISMATCH");
+        var signedContent = MesEdhrSourceOwnerIntegrity.strict(signature.canonicalContentJson());
+        if (!signedContent.has("approvalContent") || !"APPROVE".equals(signedContent.path("action").asText())
+                || !Objects.equals(signedContent.path("reason").asText(), c.getReason())) throw new IllegalStateException("CENTER_SIGNED_CONTENT_MISMATCH");
+        String actualPreviewHash = cn.iocoder.yudao.module.bpm.approval.content.ApprovalContentJson.hash(
+                cn.iocoder.yudao.module.bpm.approval.content.ApprovalContentJson.canonical(signedContent.get("approvalContent")));
+        if (!Objects.equals(actualPreviewHash, c.getCanonicalHash())) throw new IllegalStateException("CENTER_PREPARE_CONTENT_MISMATCH");
+        var origin = graph.origin();
+        var approvalContent = signedContent.get("approvalContent");
+        var command = new MesReleaseFinalizationCommand().setAction(MesReleaseFinalizationAction.APPROVE)
+                .setReleaseTransactionId(graph.transaction().getId()).setBatchExecutionId(graph.batch().getId())
+                .setWorkOrderId(graph.batch().getWorkOrderId()).setReleaseApplicationId(graph.applicationId())
+                .setActorUserId(c.getActorId()).setWorkTaskId(c.getWorkTaskId()).setExpectedVersion(c.getExpectedVersion())
+                .setIdempotencyKey(c.getIdempotencyKey()).setSignatureId(c.getSignatureId()).setSignoffEvidenceHash(c.getEvidenceHash())
+                .setSignoffSubjectId(c.getSubjectId()).setApprovalOpinion(c.getReason()).setPasswordReauthenticated(true)
+                .setMaterialGateRequired(graph.activeOrderFact()==null)
+                .setSourceSnapshotHash(origin.getSourceSnapshotHash()).setEntryType(origin.getEntryType());
+        command.setApprovalContentPolicyVersion(approvalContent.path("contentPolicyVersion").asText());
+        if ("approval-content-active-order-v2".equals(command.getApprovalContentPolicyVersion())) {
+            command.setSignedDossierManifestJson(cn.iocoder.yudao.module.bpm.approval.content.ApprovalContentJson.canonical(
+                    approvalContent.at("/finalization/materialManifest")));
+        }
+        if(graph.materialFact()!=null) command.setMaterialGateReceipt(graph.materialFact().ownerReceipt())
+                .setMaterialGateReceiptId(graph.materialFact().ownerReceipt().getReceiptId())
+                .setMaterialGateManifestHash(graph.materialFact().ownerReceipt().getManifestHash())
+                .setMaterialGateSourceSnapshotHash(graph.materialFact().ownerReceipt().getSourceSnapshotHash());
+        if ("ACTIVE_ORDER_COMPLETION".equals(origin.getEntryType())) command.setOrigin(MesReleaseOrigin.ACTIVE_ORDER)
+                .setActiveOrderId(origin.getActiveOrderId()).setActiveOrderExpectedVersion(graph.activeOrderVersion().intValue())
+                .setCompletionBackfillReceiptId(origin.getCompletionBackfillReceiptId().toString());
+        else command.setOrigin(MesReleaseOrigin.valueOf(origin.getEntryType())).setIndependentPrerequisiteReceiptId(origin.getSourceCredentialId());
+        return finalizeRelease(command);
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public MesProEdhrReleaseRespVO approve(MesProEdhrReleaseApproveReqVO reqVO) {
+        gxpAuditService.acquireLedgerLock();
+        approvalAuthority.lockTenantApprovalAuthority(cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId());
+        String password = requireReleaseSignaturePassword(reqVO.getPassword());
+        Long actorUserId = SecurityFrameworkUtils.getLoginUserId();
+        if (actorUserId == null) {
+            throw exception(UNAUTHORIZED);
+        }
+        MesProEdhrReleaseTransactionDO transaction = requireTransaction(reqVO.getReleaseTransactionId());
+        MesProEdhrBatchExecutionDO batch = requireBatchExecution(transaction.getBatchExecutionId());
+        lifecycleGuard.requireReleaseAllowed(batch.getId());
+        nonconformanceReviewService.ensureBatchNotFrozen(batch.getId(), "上市放行");
+        String idempotencyKey = requireIdempotencyKey(reqVO.getIdempotencyKey());
+        String signoffEvidenceHash = StrUtil.blankToDefault(
+                StrUtil.trim(reqVO.getSignoffEvidenceHash()),
+                DigestUtil.sha256Hex(String.join("|",
+                        "MES_MARKET_RELEASE_SIGNATURE",
+                        String.valueOf(reqVO.getReleaseTransactionId()),
+                        String.valueOf(actorUserId),
+                        idempotencyKey)));
+        Long signatureId = null;
+        if (isInlineMarketReleaseSignature(actorUserId, reqVO, signoffEvidenceHash)) {
+            signatureId = executionSignatureService.recordMarketReleaseSignature(
+                    actorUserId, transaction.getBatchExecutionId(), transaction.getId(),
+                    password, reqVO.getApprovalOpinion());
+        } else {
+            adminUserApi.reauthenticateForSignature(actorUserId, password);
+        }
         return finalizeRelease(new MesReleaseFinalizationCommand()
                 .setReleaseTransactionId(reqVO.getReleaseTransactionId())
                 .setAction(MesReleaseFinalizationAction.APPROVE)
@@ -529,14 +782,33 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
                 .setThreeBackfillsSucceeded(reqVO.getThreeBackfillsSucceeded())
                 .setSourceRelation(reqVO.getSourceRelation())
                 .setSourceSnapshotHash(reqVO.getSourceSnapshotHash())
-                .setIdempotencyKey(reqVO.getIdempotencyKey())
+                .setIdempotencyKey(idempotencyKey)
                 .setWorkTaskId(reqVO.getWorkTaskId())
                 .setExpectedVersion(reqVO.getExpectedVersion())
-                .setSignoffEvidenceHash(reqVO.getSignoffEvidenceHash())
+                .setSignoffEvidenceHash(signoffEvidenceHash)
                 .setSignoffSubjectId(reqVO.getSignoffSubjectId())
+                .setSignatureId(signatureId)
                 .setApprovalOpinion(reqVO.getApprovalOpinion())
+                .setPasswordReauthenticated(true)
                 .setIndependentPrerequisiteReceipt(reqVO.getIndependentPrerequisiteReceipt())
-                .setMaterialGateReceipt(reqVO.getMaterialGateReceipt()));
+                .setMaterialGateReceipt(reqVO.getMaterialGateReceipt())
+                .setMaterialGateRequired(false));
+    }
+
+    private boolean isInlineMarketReleaseSignature(
+            Long actorUserId, MesProEdhrReleaseApproveReqVO reqVO, String signoffEvidenceHash) {
+        if (actorUserId == null || reqVO == null || reqVO.getReleaseTransactionId() == null
+                || StrUtil.isNotBlank(reqVO.getSignoffSubjectId())
+                || StrUtil.isBlank(signoffEvidenceHash)
+                || StrUtil.isBlank(reqVO.getIdempotencyKey())) {
+            return false;
+        }
+        String expectedHash = DigestUtil.sha256Hex(String.join("|",
+                "MES_MARKET_RELEASE_SIGNATURE",
+                String.valueOf(reqVO.getReleaseTransactionId()),
+                String.valueOf(actorUserId),
+                reqVO.getIdempotencyKey()));
+        return Objects.equals(expectedHash, signoffEvidenceHash);
     }
 
     @Override
@@ -552,10 +824,16 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
         if (authenticatedActorUserId == null) {
             throw exception(UNAUTHORIZED);
         }
+        gxpAuditService.acquireLedgerLock();
+        approvalAuthority.lockTenantApprovalAuthority(cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId());
         command.setActorUserId(authenticatedActorUserId);
         if (command.getAction() == MesReleaseFinalizationAction.APPROVE) {
             hydrateBatchExecutionIdFromReleaseTransaction(command);
-            MesProEdhrReleaseTransactionDO current = requireTransactionForUpdate(command.getReleaseTransactionId());
+            // This read only identifies an already-completed manager replay. Mutating approval is locked in
+            // finalizeApproval after it locks the batch row, preserving the batch -> release lock order shared
+            // with deviation creation.
+            MesProEdhrReleaseTransactionDO current = requireTransaction(command.getReleaseTransactionId());
+            nonconformanceReviewService.ensureBatchNotFrozen(command.getBatchExecutionId(), "上市放行");
             if (STATUS_RELEASED.equals(current.getReleaseStatus())
                     && managerApprovalService.isManagedReleaseTransaction(current.getId())) {
                 var replay = managerApprovalService.prepareForFinalization(authenticatedActorUserId,
@@ -565,14 +843,19 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
                 }
                 return toResp(replay.getBatchExecution(), replay.getReleaseTransaction());
             }
-            MesProEdhrFourMaterialGateResult currentGate =
-                    fourMaterialGateService.requireMaterialsReady(command.getBatchExecutionId());
-            MesReleaseFinalizationEvidence evidence = authoritativeContextPort.require(command);
+            lifecycleGuard.requireReleaseAllowed(command.getBatchExecutionId());
+            MesProEdhrFourMaterialGateResult currentGate = command.isMaterialGateRequired()
+                    ? fourMaterialGateService.requireMaterialsReady(command.getBatchExecutionId()) : null;
+            MesReleaseFinalizationEvidence evidence = command.isMaterialGateRequired()
+                    ? authoritativeContextPort.require(command)
+                    : authoritativeContextPort.require(command);
             hydrateFromAuthoritativeEvidence(command, evidence);
-            if (!Objects.equals(currentGate.manifestHash(), command.getMaterialGateManifestHash())) {
+            if (currentGate != null
+                    && !Objects.equals(currentGate.manifestHash(), command.getMaterialGateManifestHash())) {
                 throw exception(PRO_EDHR_RELEASE_MATERIAL_MANIFEST_STALE);
             }
-            MesReleaseFinalizationValidator.validate(command, evidence, java.time.Clock.systemUTC());
+            MesReleaseFinalizationValidator.validate(command, evidence, java.time.Clock.systemUTC(),
+                    command.isMaterialGateRequired());
             return finalizeApproval(command, evidence);
         }
         return switch (command.getAction()) {
@@ -620,7 +903,9 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
                 .setIdempotencyKey(command.getIdempotencyKey())
                 .setSignoffEvidenceHash(command.getSignoffEvidenceHash())
                 .setSignoffSubjectId(command.getSignoffSubjectId())
+                .setSignatureId(command.getSignatureId())
                 .setApprovalOpinion(command.getApprovalOpinion())
+                .setPasswordReauthenticated(command.isPasswordReauthenticated())
                 .setIndependentPrerequisiteReceipt(command.getIndependentPrerequisiteReceipt())
                 .setMaterialGateReceipt(command.getMaterialGateReceipt());
     }
@@ -648,11 +933,23 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
     private MesProEdhrReleaseRespVO finalizeApproval(
             MesReleaseFinalizationCommand command,
             MesReleaseFinalizationEvidence evidence) {
-        MesProEdhrReleaseTransactionDO transaction = requireTransactionForUpdate(command.getReleaseTransactionId());
-        if (!Objects.equals(transaction.getBatchExecutionId(), command.getBatchExecutionId())) {
+        Long tenantId = TenantContextHolder.getRequiredTenantId();
+        MesProEdhrReleaseTransactionDO observed = requireTransaction(command.getReleaseTransactionId());
+        Long batchExecutionId = observed.getBatchExecutionId();
+        MesProEdhrBatchExecutionDO batch = batchExecutionMapper.selectByTenantIdAndIdForUpdate(
+                tenantId, batchExecutionId);
+        if (batch == null || !Objects.equals(batch.getTenantId(), tenantId)
+                || !Objects.equals(batch.getId(), batchExecutionId)) {
             throw exception(PRO_EDHR_BATCH_EXECUTION_NOT_EXISTS);
         }
-        MesProEdhrBatchExecutionDO batch = requireBatchExecution(command.getBatchExecutionId());
+        MesProEdhrReleaseTransactionDO transaction = requireTransactionForUpdate(command.getReleaseTransactionId());
+        if (!Objects.equals(transaction.getBatchExecutionId(), batchExecutionId)
+                || !Objects.equals(transaction.getBatchExecutionId(), command.getBatchExecutionId())) {
+            throw exception(PRO_EDHR_BATCH_EXECUTION_NOT_EXISTS);
+        }
+        lifecycleGuard.requireReleaseAllowed(batchExecutionId);
+        // Both deviation creation and final market release lock the batch first, then the release transaction.
+        deviationService.ensureNoOpenDeviationForMarketRelease(tenantId, batchExecutionId);
         if (managerApprovalService.isManagedReleaseTransaction(command.getReleaseTransactionId())) {
             MesProEdhrReleaseApproveReqVO approve = new MesProEdhrReleaseApproveReqVO()
                     .setReleaseTransactionId(command.getReleaseTransactionId())
@@ -675,17 +972,29 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
                     .setIdempotencyKey(command.getIdempotencyKey())
                     .setSignoffEvidenceHash(command.getSignoffEvidenceHash())
                     .setSignoffSubjectId(command.getSignoffSubjectId())
-                    .setApprovalOpinion(command.getApprovalOpinion());
+                    .setSignatureId(command.getSignatureId())
+                    .setApprovalOpinion(command.getApprovalOpinion())
+                    .setPasswordReauthenticated(command.isPasswordReauthenticated());
             MesProductionReleaseManagerApprovalResult prepared = managerApprovalService.prepareForFinalization(
                     command.getActorUserId(), approve);
+            // The authoritative verifier resolves BPM's record ID into the approval command.
+            // All finalization writes and downstream audit links consume this same verified ID.
+            command.setSignatureId(approve.getSignatureId());
             if (prepared.isReplayed()) {
                 return toResp(prepared.getBatchExecution(), prepared.getReleaseTransaction());
             }
+            if (command.getOrigin() == MesReleaseOrigin.ACTIVE_ORDER
+                    && (!"approval-content-active-order-v2".equals(command.getApprovalContentPolicyVersion())
+                    || StrUtil.isBlank(command.getSignedDossierManifestJson()))) {
+                throw new IllegalStateException("请在审批中心或上市放行待办中预览资料后签署放行");
+            }
+            Map<String, Object> auditBefore = marketReleaseBefore(command, transaction);
             String managerPayloadHash = finalizationPayloadHash(command, evidence);
             LocalDateTime occurredAt = now();
             if (releaseTransactionMapper.approveProductionRelease(
                     transaction.getId(), command.getExpectedVersion(), command.getActorUserId(),
                     command.getIdempotencyKey(), command.getSignoffEvidenceHash(),
+                    command.getSignatureId(),
                     StrUtil.trim(command.getApprovalOpinion()), occurredAt) != 1) {
                 throw exception(PRO_EDHR_RELEASE_STATUS_INVALID);
             }
@@ -707,6 +1016,7 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
             appendReleaseDecision(command, decision);
             closeUpstreamAfterRelease(command, released, decision);
             reportManagementSummaryService.refreshByReleaseTransactionId(command.getReleaseTransactionId());
+            appendMarketReleaseGxpAudit(command, released, decision, auditBefore);
             return toResp(result.getBatchExecution(), released);
         }
         String finalizationPayloadHash = finalizationPayloadHash(command, evidence);
@@ -717,21 +1027,28 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
             requireSameFinalizationPayload(existingEvent, finalizationPayloadHash);
             return get(command.getReleaseTransactionId());
         }
+        if (command.getOrigin() == MesReleaseOrigin.ACTIVE_ORDER
+                && (!"approval-content-active-order-v2".equals(command.getApprovalContentPolicyVersion())
+                || StrUtil.isBlank(command.getSignedDossierManifestJson()))) {
+            throw new IllegalStateException("请在审批中心或上市放行待办中预览资料后签署放行");
+        }
         requirePendingApproval(transaction);
         nonconformanceReviewService.ensureBatchNotFrozen(transaction.getBatchExecutionId(), "PQC放行");
-        MesProEdhrWorkTaskDO approvalTask = workTaskService.validateReleaseApprovalTask(
-                command.getWorkTaskId(), transaction.getId());
-        if (approvalTask == null || approvalTask.getId() == null) {
-            throw exception(PRO_EDHR_RELEASE_SIGNOFF_REQUIRED);
+        MesProEdhrWorkTaskDO approvalTask = null;
+        if (command.getWorkTaskId() != null) {
+            approvalTask = workTaskService.validateReleaseApprovalTask(
+                    command.getWorkTaskId(), transaction.getId());
+            if (approvalTask != null && approvalTask.getId() != null) {
+                command.setWorkTaskId(approvalTask.getId());
+            }
         }
-        command.setWorkTaskId(approvalTask.getId());
-        requireApprovalCenterSignoffEvidence(approvalTask, command.getActorUserId(),
-                command.getSignoffEvidenceHash());
+        Map<String, Object> auditBefore = marketReleaseBefore(command, transaction);
         LocalDateTime occurredAt = now();
         String opinion = StrUtil.trim(command.getApprovalOpinion());
         if (releaseTransactionMapper.approveProductionRelease(
                 transaction.getId(), command.getExpectedVersion(), command.getActorUserId(),
-                command.getIdempotencyKey(), command.getSignoffEvidenceHash(), opinion, occurredAt) != 1) {
+                command.getIdempotencyKey(), command.getSignoffEvidenceHash(),
+                command.getSignatureId(), opinion, occurredAt) != 1) {
             throw exception(PRO_EDHR_RELEASE_STATUS_INVALID);
         }
         transaction = releaseTransactionMapper.selectById(transaction.getId());
@@ -745,13 +1062,17 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
                 .setFinalizationPayloadHash(finalizationPayloadHash);
         closeBatchAfterFinalRelease(batch, transaction, command, occurredAt);
         closeUpstreamAfterRelease(command, transaction, decision);
-        workTaskService.completeReleaseApprovalTask(approvalTask.getId(), transaction.getId(), EVENT_TYPE_APPROVE, opinion);
+        if (approvalTask != null && approvalTask.getId() != null) {
+            workTaskService.completeReleaseApprovalTask(approvalTask.getId(), transaction.getId(),
+                    EVENT_TYPE_APPROVE, opinion);
+        }
         recordTransactionEvent(transaction, EVENT_TYPE_APPROVE, STATUS_PENDING_APPROVAL, STATUS_RELEASED,
                 command.getActorUserId(), null, opinion, command.getIdempotencyKey(),
                 command.getSignoffEvidenceHash(), occurredAt, finalizationPayloadHash);
         recordTerminalOperationAudit(batch, transaction, EVENT_TYPE_APPROVE, STATUS_PENDING_APPROVAL, STATUS_RELEASED,
                 command.getActorUserId(), null, opinion, command.getIdempotencyKey(),
                 command.getSignoffEvidenceHash(), occurredAt);
+        appendMarketReleaseGxpAudit(command, transaction, decision, auditBefore);
         return toResp(batch, transaction);
     }
 
@@ -762,19 +1083,53 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
         if (Objects.equals(batch.getStatus(), MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_CLOSED)) {
             return;
         }
-        if (!Objects.equals(batch.getStatus(), MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_READY_TO_CLOSE)) {
+        boolean managedActiveOrderFinalRelease = isManagedActiveOrderFinalRelease(transaction, command);
+        if (!Objects.equals(batch.getStatus(), MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_READY_TO_CLOSE)
+                && !isManagedActiveOrderOpenBatchFinalRelease(batch, transaction, command)) {
             throw exception(PRO_EDHR_BATCH_EXECUTION_STATUS_INVALID);
         }
         String aggregateHash = DigestUtil.sha256Hex(String.join(":",
                 String.valueOf(batch.getAggregateHash()),
                 String.valueOf(transaction.getId()),
                 String.valueOf(command.getSignoffEvidenceHash())));
-        batch.setStatus(MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_CLOSED)
+        batch.setStatus(managedActiveOrderFinalRelease
+                        ? MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_ARCHIVED
+                        : MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_CLOSED)
                 .setClosedBy(command.getActorUserId())
                 .setClosedAt(occurredAt)
                 .setAggregateHash(aggregateHash);
         batchExecutionMapper.updateById(batch);
-        workTaskService.createArchiveTaskAfterBatchClose(batch);
+        if (!managedActiveOrderFinalRelease) {
+            workTaskService.createArchiveTaskAfterBatchClose(batch);
+        }
+    }
+
+    private boolean isManagedActiveOrderOpenBatchFinalRelease(MesProEdhrBatchExecutionDO batch,
+                                                               MesProEdhrReleaseTransactionDO transaction,
+                                                               MesReleaseFinalizationCommand command) {
+        if (batch == null || !isManagedActiveOrderFinalRelease(transaction, command)) {
+            return false;
+        }
+        if (Objects.equals(batch.getStatus(), MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_CREATED)) {
+            return true;
+        }
+        // Quantity materialization starts the evidence tasks; production release remains governed by formal facts.
+        if (!Objects.equals(batch.getStatus(), MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_IN_PROGRESS)) {
+            return false;
+        }
+        MesProcessPoolActiveOrderReleaseApplicationDO application = resolveReleaseApplication(transaction);
+        return application != null
+                && MesProductionReleaseFormalFactSnapshots.isActiveOrderFactsSnapshot(application.getReportSnapshotHash());
+    }
+
+    private boolean isManagedActiveOrderFinalRelease(MesProEdhrReleaseTransactionDO transaction,
+                                                     MesReleaseFinalizationCommand command) {
+        return transaction != null
+                && command != null
+                && managerApprovalService.isManagedReleaseTransaction(transaction.getId())
+                && command.getOrigin() == MesReleaseOrigin.ACTIVE_ORDER
+                && MesProEdhrBatchTraceFormalSourceResolver.isActiveOrderEntryType(command.getEntryType())
+                && command.getActiveOrderId() != null;
     }
 
     @Override
@@ -873,9 +1228,19 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
         return transaction;
     }
 
+    private MesProEdhrBatchExecutionDO lockBatchForContentMutation(Long batchId) {
+        Long tenantId = TenantContextHolder.getRequiredTenantId();
+        MesProEdhrBatchExecutionDO batch = batchExecutionMapper.selectByTenantIdAndIdForUpdate(tenantId, batchId);
+        if (batch == null || !Objects.equals(batch.getTenantId(), tenantId) || !Objects.equals(batch.getId(), batchId)) {
+            throw exception(PRO_EDHR_BATCH_EXECUTION_NOT_EXISTS);
+        }
+        return batch;
+    }
     private MesProEdhrReleaseTransactionDO requireTransactionForUpdate(Long releaseTransactionId) {
+        MesProEdhrReleaseTransactionDO observed = requireTransaction(releaseTransactionId);
+        lockBatchForContentMutation(observed.getBatchExecutionId());
         MesProEdhrReleaseTransactionDO transaction = releaseTransactionMapper.selectByIdForUpdate(releaseTransactionId);
-        if (transaction == null) {
+        if (transaction == null || !Objects.equals(transaction.getBatchExecutionId(), observed.getBatchExecutionId())) {
             throw exception(PRO_EDHR_BATCH_EXECUTION_NOT_EXISTS);
         }
         return transaction;
@@ -1464,7 +1829,7 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
                 idempotencyKey,
                 precheckSnapshotHash,
                 eventSnapshotJson));
-        releaseTransactionEventMapper.insert(MesProEdhrReleaseTransactionEventDO.builder()
+        MesProEdhrReleaseTransactionEventDO event = MesProEdhrReleaseTransactionEventDO.builder()
                 .releaseTransactionId(transaction.getId())
                 .eventType(EVENT_TYPE_PRECHECK)
                 .fromStatus(fromStatus)
@@ -1475,7 +1840,9 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
                 .eventSnapshotJson(eventSnapshotJson)
                 .evidenceHash(evidenceHash)
                 .occurredAt(occurredAt)
-                .build());
+                .build();
+        if (releaseTransactionEventMapper.insert(event) != 1 || event.getId() == null || event.getId() <= 0)
+            throw new IllegalStateException("RELEASE_TRANSACTION_EVENT_INSERT_FAILED");
     }
 
     private void recordPrecheckOperationAudit(MesProEdhrBatchExecutionDO batch,
@@ -1513,6 +1880,7 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
         metadata.put("permissionDecision", "ALLOW");
         metadata.put("resultStatus", "SUCCESS");
         metadata.put("batchExecutionId", batch.getId());
+        metadata.put("activeOrderId", resolveSingleActiveOrderId(batch.getId()));
         metadata.put("releaseTransactionId", transaction.getId());
         metadata.put("fromStatus", fromStatus);
         metadata.put("toStatus", toStatus);
@@ -1529,7 +1897,7 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
         metadata.put("checkItems", checkItems.stream().map(this::toPrecheckAuditItemPayload).toList());
         metadata.put("precheckSnapshotHash", precheckSnapshotHash);
         metadata.put("precheckSnapshotJson", precheckSnapshotJson);
-        operationAuditService.record(new MesProEdhrOperationAuditCommand()
+        operationAuditService.recordInCallerTransaction(new MesProEdhrOperationAuditCommand()
                 .setRequestId(idempotencyKey)
                 .setObjectType("RELEASE_TRANSACTION")
                 .setObjectId(String.valueOf(transaction.getId()))
@@ -1581,11 +1949,12 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
         metadata.put("permissionDecision", "ALLOW");
         metadata.put("resultStatus", "SUCCESS");
         metadata.put("batchExecutionId", batch.getId());
+        metadata.put("activeOrderId", resolveSingleActiveOrderId(batch.getId()));
         metadata.put("releaseTransactionId", transaction.getId());
         metadata.put("fromStatus", fromStatus);
         metadata.put("toStatus", toStatus);
 
-        operationAuditService.record(new MesProEdhrOperationAuditCommand()
+        MesProEdhrOperationAuditCommand auditCommand = new MesProEdhrOperationAuditCommand()
                 .setRequestId(idempotencyKey)
                 .setObjectType("RELEASE_TRANSACTION")
                 .setObjectId(String.valueOf(transaction.getId()))
@@ -1601,7 +1970,29 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
                 .setBeforeSummaryHash(hashReleaseAuditPayload(beforePayload))
                 .setAfterSummaryHash(hashReleaseAuditPayload(afterPayload))
                 .setMetadataJson(JSON.toJSONString(metadata))
-                .setOccurredAt(occurredAt));
+                .setOccurredAt(occurredAt);
+        if (EVENT_TYPE_SUBMIT.equals(eventType) || EVENT_TYPE_REJECT.equals(eventType)
+                || EVENT_TYPE_WITHDRAW.equals(eventType)) {
+            operationAuditService.recordInCallerTransaction(auditCommand);
+        } else {
+            operationAuditService.record(auditCommand);
+        }
+    }
+
+    private Long resolveSingleActiveOrderId(Long batchExecutionId) {
+        if (batchExecutionId == null) {
+            return null;
+        }
+        List<Long> activeOrderIds = batchExecutionOriginMapper.selectListByBatchExecutionId(batchExecutionId).stream()
+                .map(MesProEdhrBatchExecutionOriginDO::getActiveOrderId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+        if (activeOrderIds.size() > 1) {
+            throw new IllegalStateException("release transaction has multiple active order origins: "
+                    + batchExecutionId);
+        }
+        return activeOrderIds.isEmpty() ? null : activeOrderIds.get(0);
     }
 
     private String resolveTerminalAuditActionName(String eventType) {
@@ -1788,6 +2179,9 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
         snapshot.put("sourceRelation", command.getSourceRelation());
         snapshot.put("sourceSnapshotHash", command.getSourceSnapshotHash());
         snapshot.put("signoffSubjectId", command.getSignoffSubjectId());
+        snapshot.put("signatureId", command.getSignatureId());
+        snapshot.put("approvalContentPolicyVersion", command.getApprovalContentPolicyVersion());
+        snapshot.put("signedDossierManifestJson", command.getSignedDossierManifestJson());
         snapshot.put("signoffEvidenceHash", command.getSignoffEvidenceHash());
         snapshot.put("materialGateReceiptId", gate == null ? null : gate.getReceiptId());
         snapshot.put("materialGateManifestHash", gate == null ? null : gate.getManifestHash());
@@ -1845,7 +2239,157 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
                 .setActiveOrderId(command.getActiveOrderId())
                 .setActiveOrderExpectedVersion(command.getActiveOrderExpectedVersion())
                 .setWorkOrderId(transaction.getWorkOrderId())
-                .setActorUserId(command.getActorUserId()));
+                .setActorUserId(command.getActorUserId())
+                .setParentSignatureRecordId(command.getSignatureId() == null
+                        ? null : String.valueOf(command.getSignatureId())));
+    }
+
+    private GxpAuditStateEnvelope releaseTerminalState(MesProEdhrReleaseTransactionDO transaction) {
+        Map<String, Object> data = new LinkedHashMap<>();
+        data.put("releaseTransactionId", transaction.getId());
+        data.put("batchExecutionId", transaction.getBatchExecutionId());
+        data.put("releaseStatus", transaction.getReleaseStatus());
+        data.put("version", transaction.getVersion());
+        data.put("releaseDecisionId", transaction.getReleaseDecisionId());
+        data.put("submittedBy", transaction.getSubmittedBy());
+        data.put("submittedAt", transaction.getSubmittedAt());
+        data.put("approvedBy", transaction.getApprovedBy());
+        data.put("approvedAt", transaction.getApprovedAt());
+        data.put("rejectedBy", transaction.getRejectedBy());
+        data.put("rejectedAt", transaction.getRejectedAt());
+        data.put("rejectReason", transaction.getRejectReason());
+        data.put("withdrawnBy", transaction.getWithdrawnBy());
+        data.put("withdrawnAt", transaction.getWithdrawnAt());
+        data.put("withdrawReason", transaction.getWithdrawReason());
+        data.put("finalizationPayloadHash", transaction.getFinalizationPayloadHash());
+        data.put("affectedState", affectedStates.capture(transaction.getBatchExecutionId(), null,
+                transaction.getId(), null, false));
+        return GxpAuditStateEnvelope.builder()
+                .state("PRESENT")
+                .objectVersion(String.valueOf(transaction.getVersion()))
+                .canonicalJson(JsonUtils.toJsonString(data))
+                .build();
+    }
+
+    private void appendReleaseTerminalAudit(MesProEdhrBatchExecutionDO batch,
+            MesProEdhrReleaseTransactionDO transaction, MesProEdhrReleaseDecisionDO decision,
+            GxpAuditStateEnvelope before, String operationId, String sourceMethod, String reason) {
+        List<GxpAuditRelation> links = new java.util.ArrayList<>();
+        links.add(new GxpAuditRelation("SUBJECT", "RELEASE_TRANSACTION", String.valueOf(transaction.getId()),
+                String.valueOf(transaction.getVersion()), null));
+        links.add(new GxpAuditRelation("SOURCE", "BATCH_EXECUTION", String.valueOf(batch.getId()), null, null));
+        Long activeOrderId = resolveSingleActiveOrderId(batch.getId());
+        if (activeOrderId != null) {
+            links.add(new GxpAuditRelation("SOURCE", "ACTIVE_ORDER", String.valueOf(activeOrderId), null, null));
+        }
+        if (decision.getReleaseApplicationId() != null) {
+            links.add(new GxpAuditRelation("SOURCE", "RELEASE_APPLICATION",
+                    String.valueOf(decision.getReleaseApplicationId()), null, decision.getSourceSnapshotHash()));
+        }
+        links.add(new GxpAuditRelation("DECISION", "RELEASE_DECISION", String.valueOf(decision.getId()),
+                String.valueOf(decision.getVersion()), decision.getPayloadHash()));
+        gxpAuditService.append(GxpAuditCommand.builder().eventSchemaVersion(2)
+                .operationId(operationId).subjectId("RELEASE_TRANSACTION:" + transaction.getId())
+                .subjectVersion(String.valueOf(transaction.getVersion()))
+                .beforeState(before).afterState(releaseTerminalState(transaction))
+                .reason(reason).reasonSource("USER")
+                .idempotencyKey("RELEASE_TERMINAL:" + DigestUtil.sha256Hex(JsonUtils.toJsonString(
+                        List.of(operationId, transaction.getId(), decision.getId()))))
+                .requestId(decision.getIdempotencyKey()).resultStatus("SUCCESS").sourceType("SERVICE_METHOD")
+                .sourceLocator("cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrReleaseServiceImpl#" + sourceMethod)
+                .links(links)
+                .evidences(List.of(new GxpAuditEvidence("FORMAL_MARKET_RELEASE_DECISION",
+                        String.valueOf(decision.getId()), String.valueOf(decision.getVersion()),
+                        decision.getPayloadHash(), "MARKET_RELEASE")))
+                .build());
+    }
+
+    private Map<String, Object> marketReleaseBefore(MesReleaseFinalizationCommand command,
+                                                     MesProEdhrReleaseTransactionDO transaction) {
+        Map<String, Object> before = new LinkedHashMap<>();
+        before.put("releaseTransactionId", transaction.getId());
+        before.put("releaseStatus", transaction.getReleaseStatus());
+        before.put("version", transaction.getVersion());
+        before.put("affectedState", marketReleaseAffected(command, transaction));
+        return before;
+    }
+
+    private Map<String, Object> marketReleaseAffected(MesReleaseFinalizationCommand command,
+                                                       MesProEdhrReleaseTransactionDO transaction) {
+        return affectedStates.capture(transaction.getBatchExecutionId(), command.getReleaseApplicationId(),
+                transaction.getId(), command.getOrigin() == MesReleaseOrigin.ACTIVE_ORDER
+                        ? transaction.getWorkOrderId() : null, false);
+    }
+
+    private void appendMarketReleaseGxpAudit(MesReleaseFinalizationCommand command,
+                                             MesProEdhrReleaseTransactionDO transaction,
+                                             MesProEdhrReleaseDecisionDO decision, Map<String, Object> before) {
+        Map<String, Object> after = new java.util.LinkedHashMap<>();
+        after.put("releaseTransactionId", transaction.getId());
+        after.put("releaseDecisionId", decision.getId());
+        after.put("batchExecutionId", transaction.getBatchExecutionId());
+        after.put("activeOrderId", command.getActiveOrderId());
+        after.put("releaseStatus", STATUS_RELEASED);
+        after.put("decisionStatus", decision.getDecisionStatus());
+        after.put("approvalOpinion", decision.getApprovalOpinion());
+        after.put("actorUserId", command.getActorUserId());
+        after.put("signoffEvidenceHash", decision.getSignoffEvidenceHash());
+        after.put("auditSnapshotJson", decision.getAuditSnapshotJson());
+        after.put("affectedState", marketReleaseAffected(command, transaction));
+        String signatureRecordId = command.getSignatureId() == null
+                ? null : String.valueOf(command.getSignatureId());
+        List<GxpAuditRelation> links = new java.util.ArrayList<>();
+        if (command.getActiveOrderId() != null) {
+            links.add(new GxpAuditRelation("SUBJECT", "ACTIVE_ORDER",
+                    String.valueOf(command.getActiveOrderId()), null, null));
+        }
+        links.add(new GxpAuditRelation("SUBJECT", "RELEASE_TRANSACTION",
+                String.valueOf(transaction.getId()), String.valueOf(transaction.getVersion()), null));
+        if (decision.getReleaseApplicationId() != null) {
+            links.add(new GxpAuditRelation("SOURCE", "RELEASE_APPLICATION",
+                    String.valueOf(decision.getReleaseApplicationId()), null, decision.getSourceSnapshotHash()));
+        }
+        if (transaction.getBatchExecutionId() != null) {
+            links.add(new GxpAuditRelation("SOURCE", "BATCH_EXECUTION",
+                    String.valueOf(transaction.getBatchExecutionId()), null, null));
+        }
+        if (decision.getId() != null) {
+            links.add(new GxpAuditRelation("DECISION", "RELEASE_DECISION",
+                    String.valueOf(decision.getId()), String.valueOf(decision.getVersion()), decision.getPayloadHash()));
+        }
+        if (StrUtil.isNotBlank(signatureRecordId)) {
+            links.add(new GxpAuditRelation("SIGNATURE", "SIGNATURE", signatureRecordId, null, null));
+        }
+        gxpAuditService.append(GxpAuditCommand.builder()
+                .eventSchemaVersion(2)
+                .operationId("mes.market-release.approve")
+                .subjectId("RELEASE_TRANSACTION:" + transaction.getId())
+                .subjectVersion(String.valueOf(decision.getVersion()))
+                .reason("上市放行已完成正式审批")
+                .reasonCode("MES_MARKET_RELEASE_APPROVE")
+                .reasonSource("SYSTEM")
+                .beforeState(GxpAuditStateEnvelope.builder()
+                        .state(String.valueOf(before.get("releaseStatus")))
+                        .objectVersion(String.valueOf(before.get("version")))
+                        .canonicalJson(JsonUtils.toJsonString(before))
+                        .build())
+                .afterState(GxpAuditStateEnvelope.builder()
+                        .state(STATUS_RELEASED)
+                        .objectVersion(String.valueOf(decision.getVersion()))
+                        .canonicalJson(JsonUtils.toJsonString(after))
+                        .build())
+                .idempotencyKey("MARKET_RELEASE:" + transaction.getId() + ":" + decision.getId())
+                .requestId("MES-MARKET-RELEASE:" + transaction.getId() + ":" + decision.getId())
+                .resultStatus("SUCCESS")
+                .sourceType("SERVICE_METHOD")
+                .sourceLocator("cn.iocoder.yudao.module.mes.service.pro.batchrecord."
+                        + "MesProEdhrReleaseServiceImpl#finalizeRelease")
+                .signatureRecordId(signatureRecordId)
+                .links(links)
+                .evidences(List.of(new GxpAuditEvidence("FORMAL_MARKET_RELEASE_DECISION",
+                        String.valueOf(decision.getId()), String.valueOf(decision.getVersion()),
+                        decision.getPayloadHash(), "MARKET_RELEASE")))
+                .build());
     }
 
     private void appendReleaseDecision(MesReleaseFinalizationCommand command, MesProEdhrReleaseDecisionDO decision) {
@@ -1885,7 +2429,7 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
         }
     }
 
-    private void recordTransactionEvent(MesProEdhrReleaseTransactionDO transaction,
+    private MesProEdhrReleaseTransactionEventDO recordTransactionEvent(MesProEdhrReleaseTransactionDO transaction,
                                         String eventType,
                                         String fromStatus,
                                         String toStatus,
@@ -1895,11 +2439,11 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
                                         String idempotencyKey,
                                         String signoffEvidenceHash,
                                         LocalDateTime occurredAt) {
-        recordTransactionEvent(transaction, eventType, fromStatus, toStatus, actorUserId, reason, opinion,
+        return recordTransactionEvent(transaction, eventType, fromStatus, toStatus, actorUserId, reason, opinion,
                 idempotencyKey, signoffEvidenceHash, occurredAt, null);
     }
 
-    private void recordTransactionEvent(MesProEdhrReleaseTransactionDO transaction,
+    private MesProEdhrReleaseTransactionEventDO recordTransactionEvent(MesProEdhrReleaseTransactionDO transaction,
                                         String eventType,
                                         String fromStatus,
                                         String toStatus,
@@ -1939,7 +2483,7 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
                 idempotencyKey,
                 StrUtil.nullToEmpty(signoffEvidenceHash),
                 eventSnapshotJson));
-        releaseTransactionEventMapper.insert(MesProEdhrReleaseTransactionEventDO.builder()
+        MesProEdhrReleaseTransactionEventDO event = MesProEdhrReleaseTransactionEventDO.builder()
                 .releaseTransactionId(transaction.getId())
                 .eventType(eventType)
                 .fromStatus(fromStatus)
@@ -1952,7 +2496,10 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
                 .eventSnapshotJson(eventSnapshotJson)
                 .evidenceHash(evidenceHash)
                 .occurredAt(occurredAt)
-                .build());
+                .build();
+        if (releaseTransactionEventMapper.insert(event) != 1 || event.getId() == null || event.getId() <= 0)
+            throw new IllegalStateException("RELEASE_TRANSACTION_EVENT_INSERT_FAILED");
+        return event;
     }
 
     private String resultOf(List<MesProEdhrReleaseCheckItemDO> checkItems, String checkCode) {
@@ -1971,6 +2518,8 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
                 .setReleaseTransactionId(transaction == null ? null : transaction.getId())
                 .setReleaseCode(transaction == null ? null : transaction.getReleaseCode())
                 .setBatchExecutionId(batch.getId())
+                .setActiveOrderId(releaseApplication == null
+                        ? resolveSingleActiveOrderId(batch.getId()) : releaseApplication.getActiveOrderId())
                 .setBatchExecutionCode(batch.getBatchExecutionCode())
                 .setWorkOrderId(batch.getWorkOrderId())
                 .setWorkOrderCode(batch.getWorkOrderCode())
@@ -2067,11 +2616,14 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public MesProEdhrReleaseRespVO submitForApproval(MesProEdhrReleaseSubmitForApprovalCommand command) {
+        gxpAuditService.acquireLedgerLock();
+        approvalAuthority.lockTenantApprovalAuthority(cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId());
         String idempotencyKey = requireIdempotencyKey(command.getIdempotencyKey());
         MesProEdhrReleaseTransactionEventDO existingEvent =
                 releaseTransactionEventMapper.selectByReleaseTransactionIdAndEventTypeAndIdempotencyKey(
                         command.getReleaseTransactionId(), EVENT_TYPE_SUBMIT, idempotencyKey);
         if (existingEvent != null) {
+            submissionMaterials.requireReplay(TenantContextHolder.getRequiredTenantId(), command.getReleaseTransactionId(), idempotencyKey, "submitForApproval", SecurityFrameworkUtils.getLoginUserId(), existingEvent, StrUtil.blankToDefault(StrUtil.trim(command.getSubmitReason()), "生产组长申请生成放行资料，提交负责人审批"));
             return get(command.getReleaseTransactionId());
         }
 
@@ -2079,6 +2631,7 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
         requirePrecheckPassed(transaction);
         requirePrecheckMaterialManifestCurrent(transaction);
         MesProEdhrBatchExecutionDO batch = requireBatchExecution(transaction.getBatchExecutionId());
+        GxpAuditStateEnvelope auditBefore = releaseSubmissionState(transaction);
         String fromStatus = transaction.getReleaseStatus();
         LocalDateTime occurredAt = now();
         Long actorUserId = SecurityFrameworkUtils.getLoginUserId();
@@ -2096,10 +2649,149 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
                 .setSubmittedBy(actorUserId)
                 .setSubmittedAt(occurredAt));
         transaction = releaseTransactionMapper.selectById(transaction.getId());
-        recordTransactionEvent(transaction, EVENT_TYPE_SUBMIT, fromStatus, STATUS_PENDING_APPROVAL,
+        MesProEdhrReleaseTransactionEventDO submission = recordTransactionEvent(transaction, EVENT_TYPE_SUBMIT, fromStatus, STATUS_PENDING_APPROVAL,
                 actorUserId, reason, null, idempotencyKey, null, occurredAt);
         recordTerminalOperationAudit(batch, transaction, EVENT_TYPE_SUBMIT, fromStatus, STATUS_PENDING_APPROVAL,
                 actorUserId, reason, null, idempotencyKey, null, occurredAt);
+        appendSubmissionMaterialAudit(batch, transaction, auditBefore, submission, approvalTask.getId(), "submitForApproval", idempotencyKey, reason);
         return toResp(batch, transaction).setReleaseApprovalWorkTaskId(approvalTask.getId());
+    }
+
+    private GxpAuditStateEnvelope releaseSubmissionState(MesProEdhrReleaseTransactionDO transaction) {
+        return affectedStates.withAffected(releasePreparationState(transaction),
+                affectedStates.capture(transaction.getBatchExecutionId(), null, transaction.getId(), null, false));
+    }
+
+    private GxpAuditStateEnvelope releasePreparationState(MesProEdhrReleaseTransactionDO transaction) {
+        Map<String, Object> snapshot = new LinkedHashMap<>();
+        snapshot.put("transaction", transaction);
+        snapshot.put("checkItems", transaction == null ? List.of() : releaseCheckItemMapper.selectList(
+                new LambdaQueryWrapperX<MesProEdhrReleaseCheckItemDO>()
+                        .eq(MesProEdhrReleaseCheckItemDO::getReleaseTransactionId, transaction.getId())
+                        .orderByAsc(MesProEdhrReleaseCheckItemDO::getId)));
+        return GxpAuditStateEnvelope.builder()
+                .state(transaction == null ? "ABSENT" : transaction.getReleaseStatus())
+                .objectVersion(transaction == null ? null : String.valueOf(transaction.getVersion()))
+                .canonicalJson(JsonUtils.toJsonString(snapshot)).build();
+    }
+
+    private cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditAppendResult appendReleasePreparationAudit(MesProEdhrBatchExecutionDO batch,
+            MesProEdhrReleaseTransactionDO transaction, GxpAuditStateEnvelope before,
+            String operationId, String sourceMethod, String idempotencyKey, String reason) {
+        List<GxpAuditRelation> links = new java.util.ArrayList<>();
+        links.add(new GxpAuditRelation("SOURCE", "BATCH_EXECUTION", String.valueOf(batch.getId()), null, null));
+        Long activeOrderId = resolveSingleActiveOrderId(batch.getId());
+        if (activeOrderId != null) {
+            links.add(new GxpAuditRelation("SOURCE", "ACTIVE_ORDER", String.valueOf(activeOrderId), null, null));
+        }
+        return gxpAuditService.append(GxpAuditCommand.builder().eventSchemaVersion(2)
+                .operationId(operationId).subjectId("RELEASE_TRANSACTION:" + transaction.getId())
+                .subjectVersion(String.valueOf(transaction.getVersion()))
+                .beforeState(before).afterState("mes.market-release.submit".equals(operationId)
+                        ? releaseSubmissionState(transaction) : releasePreparationState(transaction))
+                .reason(reason).reasonCode("MES_RELEASE_PREPARATION").reasonSource("SYSTEM")
+                .idempotencyKey("RELEASE_PREP:" + DigestUtil.sha256Hex(JsonUtils.toJsonString(
+                        List.of(operationId, transaction.getId(), idempotencyKey))))
+                .requestId(idempotencyKey).resultStatus("SUCCESS").sourceType("SERVICE_METHOD")
+                .sourceLocator("cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrReleaseServiceImpl#" + sourceMethod)
+                .links(links).build());
+    }
+
+    private MesEdhrVerifiedMaterialGateFact requireReadyMaterialFact(MesProEdhrBatchExecutionDO batch) {
+        var source = batchTraceabilityService.resolveSourcePrecheck(new MesProEdhrBatchTraceSourcePrecheckCommand().setBatchExecutionId(batch.getId()));
+        var receipt = materialReceipts.getLatestVerified(TenantContextHolder.getRequiredTenantId(), batch.getId(), source.getSourceSnapshotHash());
+        if (receipt == null) throw new IllegalStateException("MATERIAL_GATE_RECEIPT_REQUIRED");
+        return materialReceipts.getCreationVerifiedByReceiptId(TenantContextHolder.getRequiredTenantId(), batch.getId(),
+                receipt.getReceiptId(), source.getSourceSnapshotHash());
+    }
+
+    private List<MesProEdhrReleaseCheckItemDO> persistFormalPrecheckItems(Long releaseId, MesProEdhrBatchExecutionDO batch,
+            LocalDateTime checkedAt, MesProEdhrFourMaterialGateResult gate) {
+        List<MesProEdhrReleaseCheckItemDO> items = buildCheckItems(releaseId, batch, checkedAt, gate);
+        if (items.size() != 10 || items.stream().map(MesProEdhrReleaseCheckItemDO::getCheckCode).distinct().count() != 10)
+            throw new IllegalStateException("FORMAL_PRECHECK_TEN_FACTS_REQUIRED");
+        for (var item : items) if (releaseCheckItemMapper.insert(item) != 1 || item.getId() == null || item.getId() <= 0)
+            throw new IllegalStateException("FORMAL_PRECHECK_ITEM_INSERT_FAILED");
+        return items;
+    }
+    /** Shared real owner kernel used by normal precheck and the formal manager handoff. */
+    public MesProEdhrReleaseTransactionDO produceManagerPrecheck(MesProEdhrReleaseTransactionDO transaction,
+            MesProEdhrBatchExecutionDO batch) {
+        releaseCheckItemMapper.closeOpenByReleaseTransactionId(transaction.getId());
+        LocalDateTime checkedAt = now();
+        MesProEdhrFourMaterialGateResult gate = fourMaterialGateService.requireMaterialsReady(batch.getId());
+        List<MesProEdhrReleaseCheckItemDO> items = persistFormalPrecheckItems(transaction.getId(), batch, checkedAt, gate);
+        int failed = (int) items.stream().filter(this::isFailedCheck).count();
+        int blocking = (int) items.stream().filter(item -> CHECK_RESULT_BLOCKER.equals(item.getCheckResult()) || SEVERITY_BLOCKER.equals(item.getSeverity())).count();
+        if (failed != 0 || blocking != 0) throw exception(PRO_EDHR_RELEASE_PRECHECK_REQUIRED);
+        transaction.setDhrStatus(resultOf(items, CHECK_DHR_COMPLETENESS)).setInspectionStatus(resultOf(items, CHECK_INSPECTION_RESULT))
+                .setDeviationStatus(resultOf(items, CHECK_DEVIATION_CLOSED)).setReworkStatus(resultOf(items, CHECK_REWORK_CLOSED))
+                .setScrapStatus(resultOf(items, CHECK_SCRAP_RECORDED)).setInventoryStatus(resultOf(items, CHECK_INVENTORY_CONSISTENCY))
+                .setRequiredCheckCount(10).setFailedCheckCount(0).setBlockingCheckCount(0).setLastPrecheckAt(checkedAt)
+                .setPrecheckSnapshotJson(JSON.toJSONString(buildSnapshot(batch, items, STATUS_PRECHECK_PASSED, checkedAt, gate.manifestHash())))
+                .setReleaseStatus(STATUS_PRECHECK_PASSED);
+        if (releaseTransactionMapper.updateById(transaction) != 1) throw new IllegalStateException("MANAGER_PRECHECK_UPDATE_FAILED");
+        return transaction;
+    }
+
+    /** Active-order readiness is backed by its frozen completion and PQC facts; reports are a later user action. */
+    public MesProEdhrReleaseTransactionDO produceActiveOrderManagerPrecheck(MesProEdhrReleaseTransactionDO transaction,
+            MesProEdhrBatchExecutionDO batch,
+            cn.iocoder.yudao.module.mes.service.pro.productionrelease.manager.MesProductionReleaseBusinessReadiness readiness,
+            cn.iocoder.yudao.module.mes.service.pro.productionrelease.manager.MesEdhrVerifiedActiveOrderReleaseFact fact) {
+        if (readiness.hasBlockingChecks() || readiness.checks().size()!=6 || !Objects.equals(fact.batchExecutionId(),batch.getId()))
+            throw exception(PRO_EDHR_RELEASE_PRECHECK_REQUIRED);
+        releaseCheckItemMapper.closeOpenByReleaseTransactionId(transaction.getId());
+        LocalDateTime checkedAt=now();
+        var items=readiness.checks().stream().map(check -> buildCompletenessSourceItem(transaction.getId(),batch,checkedAt,check)
+                .setSourceObjectId(fact.applicationId().toString()).setSourceObjectCode(fact.formalFactsHash())
+                .setEvidenceHash(DigestUtil.sha256Hex(check.checkCode()+"|"+fact.formalFactsHash()+"|"+fact.pqcEvidenceHash()))).toList();
+        if(items.stream().map(MesProEdhrReleaseCheckItemDO::getCheckCode).distinct().count()!=6)
+            throw new IllegalStateException("ACTIVE_ORDER_PRECHECK_SIX_FACTS_REQUIRED");
+        for(var item:items) if(releaseCheckItemMapper.insert(item)!=1 || item.getId()==null || item.getId()<=0)
+            throw new IllegalStateException("ACTIVE_ORDER_PRECHECK_ITEM_INSERT_FAILED");
+        var snapshot=buildSnapshot(batch,items,STATUS_PRECHECK_PASSED,checkedAt,null);
+        snapshot.put("evidencePolicy","ACTIVE_ORDER_FORMAL_FACTS_V1");
+        snapshot.put("formalFactsHash",fact.formalFactsHash());
+        transaction.setRequiredCheckCount(6).setFailedCheckCount(0).setBlockingCheckCount(0).setLastPrecheckAt(checkedAt)
+                .setPrecheckSnapshotJson(JSON.toJSONString(snapshot)).setReleaseStatus(STATUS_PRECHECK_PASSED);
+        if(releaseTransactionMapper.updateById(transaction)!=1) throw new IllegalStateException("ACTIVE_ORDER_MANAGER_PRECHECK_UPDATE_FAILED");
+        return transaction;
+    }
+
+    public MesEdhrVerifiedMaterialGateFact requireManagerReadyMaterialFact(MesProEdhrBatchExecutionDO batch) {
+        return requireReadyMaterialFact(batch);
+    }
+
+    public String captureManagerPriorPrecheck(MesProEdhrReleaseTransactionDO transaction) {
+        return JsonUtils.toJsonString(Map.of("transaction", transaction, "checkItems", releaseCheckItemMapper.selectList(
+                new LambdaQueryWrapperX<MesProEdhrReleaseCheckItemDO>().eq(MesProEdhrReleaseCheckItemDO::getReleaseTransactionId, transaction.getId())
+                        .eq(MesProEdhrReleaseCheckItemDO::getItemStatus, ITEM_STATUS_OPEN).orderByAsc(MesProEdhrReleaseCheckItemDO::getId))));
+    }
+
+    private void appendSubmissionMaterialAudit(MesProEdhrBatchExecutionDO batch, MesProEdhrReleaseTransactionDO transaction,
+            GxpAuditStateEnvelope before, MesProEdhrReleaseTransactionEventDO submission, Long taskId,
+            String sourceMethod, String idempotencyKey, String reason) {
+        var material = requireReadyMaterialFact(batch);
+        var association = submissionMaterials.build(TenantContextHolder.getRequiredTenantId(), transaction, submission, taskId, sourceMethod, material);
+        var proof = material.provenance();
+        List<GxpAuditRelation> links = new java.util.ArrayList<>();
+        links.add(new GxpAuditRelation("SOURCE", "BATCH_EXECUTION", batch.getId().toString(), null, null));
+        Long activeOrderId = resolveSingleActiveOrderId(batch.getId());
+        if (activeOrderId != null) links.add(new GxpAuditRelation("SOURCE", "ACTIVE_ORDER", activeOrderId.toString(), null, null));
+        links.add(new GxpAuditRelation("SOURCE", "RELEASE_SUBMISSION_EVENT", submission.getId().toString(), null, submission.getEvidenceHash()));
+        links.add(MesEdhrReleaseSubmissionMaterialAssociationStore.associationRelation(association));
+        links.add(new GxpAuditRelation("SOURCE", "EDHR_MATERIAL_GATE_RECEIPT", proof.sourceRowId().toString(), proof.sourceVersion(), proof.sourceHash()));
+        links.add(new GxpAuditRelation("SOURCE", "GXP_AUDIT_EVENT", proof.creationEventId().toString(), null, proof.creationEventHash()));
+        var result = gxpAuditService.append(GxpAuditCommand.builder().eventSchemaVersion(2).operationId("mes.market-release.submit")
+                .subjectId("RELEASE_TRANSACTION:" + transaction.getId()).subjectVersion(transaction.getVersion().toString())
+                .beforeState(before).afterState(releaseSubmissionState(transaction)).reason(reason).reasonCode("MES_RELEASE_PREPARATION")
+                .reasonSource("SYSTEM").idempotencyKey("RELEASE_PREP:" + DigestUtil.sha256Hex(JsonUtils.toJsonString(
+                        List.of("mes.market-release.submit", transaction.getId(), idempotencyKey))))
+                .requestId(idempotencyKey).resultStatus("SUCCESS").sourceType("SERVICE_METHOD")
+                .sourceLocator("cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrReleaseServiceImpl#" + sourceMethod)
+                .links(links).evidences(List.of(new GxpAuditEvidence("RELEASE_SUBMISSION_MATERIAL_ASSOCIATION",
+                        association.getAssociationId(), "1", association.getAssociationHash(), "SUBMISSION_MATERIAL"))).build());
+        submissionMaterials.insert(association, result);
     }
 }

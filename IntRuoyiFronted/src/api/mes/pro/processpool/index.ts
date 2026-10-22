@@ -80,7 +80,20 @@ export interface ProcessPoolTimelineReportAllocationVO {
   editable: boolean
 }
 
+export interface SubmissionReviewExpectedContext {
+  eventId: number
+  payloadHash: string
+  revisionId: number
+  reviewId: number
+  reviewRound: number
+  reviewStatus?: string
+  allocationVersion?: number
+}
+
 export interface ProcessPoolTimelineEventVO {
+  displayedRevisionId?: number
+  displayedPayloadHash?: string
+  expectedReviews?: SubmissionReviewExpectedContext[]
   id: number
   processPoolEventId?: number
   processPoolId?: number
@@ -120,6 +133,11 @@ export interface ProcessPoolTimelineEventVO {
   pqcBusinessDate?: string
   pqcShiftCode?: string
   roundNo?: number
+  pqcSubmissionGroupId?: string
+  groupedEventIds?: number[]
+  groupedOriginalPayloadJsons?: string[]
+  submittedEventId?: number
+  submittedEventIds?: number[]
   sourceFeedbackId?: number
   sourceRecordbookEntryId?: number
   sourceRecordbookEventId?: number

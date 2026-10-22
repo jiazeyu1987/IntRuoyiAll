@@ -18,6 +18,18 @@ import java.util.List;
 @Mapper
 public interface MesMdItemMapper extends BaseMapperX<MesMdItemDO> {
 
+    default int updateErpMaterialSnapshot(MesMdItemDO row) {
+        return update(new MesMdItemDO(), new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<MesMdItemDO>()
+                .eq(MesMdItemDO::getId, row.getId())
+                .set(MesMdItemDO::getCode, row.getCode())
+                .set(MesMdItemDO::getName, row.getName())
+                .set(MesMdItemDO::getSpecification, row.getSpecification())
+                .set(MesMdItemDO::getUnitMeasureId, row.getUnitMeasureId())
+                .set(MesMdItemDO::getItemTypeId, row.getItemTypeId())
+                .set(MesMdItemDO::getStatus, row.getStatus()));
+    }
+
+
     default MesMdItemDO selectByIdForUpdate(Long id) {
         if (id == null) {
             return null;

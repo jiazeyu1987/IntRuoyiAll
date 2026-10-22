@@ -1,0 +1,643 @@
+{
+  "baseCommit": "476ec5322ab2b8d76ad67308a50eb6c08f980533",
+  "backendCompile": {
+    "scope": "compile",
+    "exit": 0,
+    "buildSuccess": true,
+    "baseCommit": "11a701bb573ad46c49cac57122522499217e0324",
+    "log": "D:\\IntRuoyiTaskRuntime\\profile-remaining-fixes\\verification\\final476-backend-compile.log",
+    "sourceMirror": "D:\\ir-profile476\\IntRuoyiBackend",
+    "completedAt": "2026-10-08T12:56:26+0800"
+  },
+  "systemTests": {
+    "scope": "system",
+    "exit": 0,
+    "buildSuccess": true,
+    "baseCommit": "476ec5322ab2b8d76ad67308a50eb6c08f980533",
+    "log": "D:\\IntRuoyiTaskRuntime\\profile-remaining-fixes\\verification\\final476-backend-system.log",
+    "sourceMirror": "D:\\ir-profile476\\IntRuoyiBackend",
+    "completedAt": "2026-10-08T12:28:48+0800",
+    "suites": [
+      {
+        "name": "cn.iocoder.yudao.module.system.controller.admin.oauth2.OAuth2UserProfileUpdateContractTest",
+        "tests": "7",
+        "failures": "0",
+        "errors": "0",
+        "skipped": "0"
+      },
+      {
+        "name": "cn.iocoder.yudao.module.system.controller.admin.user.UserProfileControllerContractTest",
+        "tests": "7",
+        "failures": "0",
+        "errors": "0",
+        "skipped": "0"
+      },
+      {
+        "name": "cn.iocoder.yudao.module.system.service.profileworkbench.ProfileWorkbenchTaskVisibilityServiceImplTest",
+        "tests": "3",
+        "failures": "0",
+        "errors": "0",
+        "skipped": "0"
+      },
+      {
+        "name": "cn.iocoder.yudao.module.system.service.user.AdminUserServiceImplTest",
+        "tests": "80",
+        "failures": "0",
+        "errors": "0",
+        "skipped": "0"
+      },
+      {
+        "name": "cn.iocoder.yudao.module.system.service.user.UserProfileUpdateReqVOValidationTest",
+        "tests": "1",
+        "failures": "0",
+        "errors": "0",
+        "skipped": "0"
+      }
+    ],
+    "totalTests": 98,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "validityAfterRebase": "No system/F03/F04 source token changes; original98 at476 retained, not rerun at11a"
+  },
+  "frontendBehavior": {
+    "exit": 0,
+    "nativeTests": 55,
+    "failures": 0,
+    "skipped": 0,
+    "log": "upstream-frontend-behavior.log",
+    "all16TaskSourceFingerprintsUnchanged": true,
+    "validityAfterRebase": "No frontend source token changes; original55 retained; line endings normalized identical"
+  },
+  "lint": {
+    "exit": 0,
+    "files": 8,
+    "log": "upstream-scoped-lint.log",
+    "taskSourceUnchanged": true
+  },
+  "sfcCompile": {
+    "exit": 0,
+    "components": 5,
+    "log": "upstream-sfc.log",
+    "taskSourceUnchanged": true
+  },
+  "types": {
+    "baseCommit": "476ec5322ab2b8d76ad67308a50eb6c08f980533",
+    "baselineExit": 2,
+    "currentExit": 2,
+    "fullTypeCheck": "FAIL_existing_baseline_errors",
+    "baselineComparison": "PASS",
+    "newDiagnostics": 0,
+    "diagnosticsEqual": true,
+    "diagnostics": [
+      "src/utils/notifyMessageNavigation.ts(197,25): error TS2677: A type predicate's type must be assignable to its parameter's type.",
+      "src/views/mes/pro/processpool/components/activeOrderReworkSourceLocation.ts(1,62): error TS1149: File name '<SOURCE>/IntRuoyiFronted/src/api/mes/pro/processPool/teamLeader.ts' differs from already included file name '<SOURCE>/IntRuoyiFronted/src/api/mes/pro/processpool/teamLeader.ts' only in casing.",
+      "src/views/mes/pro/processpool/components/ActiveOrderReworkSourcePanel.vue(27,62): error TS1149: File name '<SOURCE>/IntRuoyiFronted/src/api/mes/pro/processPool/teamLeader.ts' differs from already included file name '<SOURCE>/IntRuoyiFronted/src/api/mes/pro/processpool/teamLeader.ts' only in casing."
+    ],
+    "allNormalizedDiagnosticText": "src/utils/notifyMessageNavigation.ts(197,25): error TS2677: A type predicate's type must be assignable to its parameter's type.\n  Type 'NotifyMessageTarget' is not assignable to type 'ShowroomProductNotifyTarget | BpmApprovalNotifyTarget | EdhrWorkTaskNotifyTarget | DccPublicationNotifyTarget'.\n    Type 'ActiveOrderHandoffTarget' is not assignable to type 'ShowroomProductNotifyTarget | BpmApprovalNotifyTarget | EdhrWorkTaskNotifyTarget | DccPublicationNotifyTarget'.\n      Type 'ActiveOrderHandoffTarget' is not assignable to type 'EdhrWorkTaskNotifyTarget'.\n        Types of property 'type' are incompatible.\n          Type '\"activeOrderHandoff\"' is not assignable to type '\"edhrWorkTask\"'.\nsrc/views/mes/pro/processpool/components/activeOrderReworkSourceLocation.ts(1,62): error TS1149: File name '<SOURCE>/IntRuoyiFronted/src/api/mes/pro/processPool/teamLeader.ts' differs from already included file name '<SOURCE>/IntRuoyiFronted/src/api/mes/pro/processpool/teamLeader.ts' only in casing.\n  The file is in the program because:\n    Imported via '@/api/mes/pro/processpool/teamLeader' from file '<SOURCE>/IntRuoyiFronted/src/api/mes/pro/edhr/batchExecution.ts'\n    Imported via '@/api/mes/pro/processpool/teamLeader' from file '<SOURCE>/IntRuoyiFronted/src/views/mes/pro/processpool/components/ActiveOrderSubmissionDetailPanel.vue'\n    Imported via '@/api/mes/pro/processpool/teamLeader' from file '<SOURCE>/IntRuoyiFronted/src/views/mes/pro/processpool/components/ActiveOrderSubmissionDetailPanel.vue'\n    Imported via '@/api/mes/pro/processPool/teamLeader' from file '<SOURCE>/IntRuoyiFronted/src/views/mes/pro/processpool/components/ActiveOrderReworkSourcePanel.vue'\n    Imported via '@/api/mes/pro/processPool/teamLeader' from file '<SOURCE>/IntRuoyiFronted/src/views/mes/pro/processpool/components/activeOrderReworkSourceLocation.ts'\n    Imported via '@/api/mes/pro/processpool/teamLeader' from file '<SOURCE>/IntRuoyiFronted/src/api/mes/pro/edhr/nonconformanceReview.ts'\n    Imported via '@/api/mes/pro/processpool/teamLeader' from file '<SOURCE>/IntRuoyiFronted/src/api/mes/pro/productionRelease/index.ts'\n    Imported via '@/api/mes/pro/processpool/teamLeader' from file '<SOURCE>/IntRuoyiFronted/src/api/mes/pro/feedback/index.ts'\n    Imported via '@/api/mes/pro/processpool/teamLeader' from file '<SOURCE>/IntRuoyiFronted/src/views/mes/pro/edhr/form-trace/BatchExecutionTraceDrawer.vue'\n    Imported via '@/api/mes/pro/processpool/teamLeader' from file '<SOURCE>/IntRuoyiFronted/src/views/mes/pro/edhr-batch/BatchExecutionDetailPage.vue'\n    Imported via '@/api/mes/pro/processpool/teamLeader' from file '<SOURCE>/IntRuoyiFronted/src/views/mes/pro/edhr-batch/BatchExecutionActiveOrderDetailPage.vue'\n    Imported via '@/api/mes/pro/processpool/teamLeader' from file '<SOURCE>/IntRuoyiFronted/src/views/mes/pro/processpool/TeamLeaderWorkbenchPage.vue'\n    Imported via '@/api/mes/pro/processpool/teamLeader' from file '<SOURCE>/IntRuoyiFronted/src/views/mes/pro/processpool/ActiveOrderSubmissionDetailPage.vue'\n    Matched by include pattern 'src' in 'tsconfig.relaxed.json'\nsrc/views/mes/pro/processpool/components/ActiveOrderReworkSourcePanel.vue(27,62): error TS1149: File name '<SOURCE>/IntRuoyiFronted/src/api/mes/pro/processPool/teamLeader.ts' differs from already included file name '<SOURCE>/IntRuoyiFronted/src/api/mes/pro/processpool/teamLeader.ts' only in casing.\n  The file is in the program because:\n    Imported via '@/api/mes/pro/processpool/teamLeader' from file '<SOURCE>/IntRuoyiFronted/src/api/mes/pro/edhr/batchExecution.ts'\n    Imported via '@/api/mes/pro/processpool/teamLeader' from file '<SOURCE>/IntRuoyiFronted/src/views/mes/pro/processpool/components/ActiveOrderSubmissionDetailPanel.vue'\n    Imported via '@/api/mes/pro/processpool/teamLeader' from file '<SOURCE>/IntRuoyiFronted/src/views/mes/pro/processpool/components/ActiveOrderSubmissionDetailPanel.vue'\n    Imported via '@/api/mes/pro/processPool/teamLeader' from file '<SOURCE>/IntRuoyiFronted/src/views/mes/pro/processpool/components/ActiveOrderReworkSourcePanel.vue'\n    Imported via '@/api/mes/pro/processPool/teamLeader' from file '<SOURCE>/IntRuoyiFronted/src/views/mes/pro/processpool/components/activeOrderReworkSourceLocation.ts'\n    Imported via '@/api/mes/pro/processpool/teamLeader' from file '<SOURCE>/IntRuoyiFronted/src/api/mes/pro/edhr/nonconformanceReview.ts'\n    Imported via '@/api/mes/pro/processpool/teamLeader' from file '<SOURCE>/IntRuoyiFronted/src/api/mes/pro/productionRelease/index.ts'\n    Imported via '@/api/mes/pro/processpool/teamLeader' from file '<SOURCE>/IntRuoyiFronted/src/api/mes/pro/feedback/index.ts'\n    Imported via '@/api/mes/pro/processpool/teamLeader' from file '<SOURCE>/IntRuoyiFronted/src/views/mes/pro/edhr/form-trace/BatchExecutionTraceDrawer.vue'\n    Imported via '@/api/mes/pro/processpool/teamLeader' from file '<SOURCE>/IntRuoyiFronted/src/views/mes/pro/edhr-batch/BatchExecutionDetailPage.vue'\n    Imported via '@/api/mes/pro/processpool/teamLeader' from file '<SOURCE>/IntRuoyiFronted/src/views/mes/pro/edhr-batch/BatchExecutionActiveOrderDetailPage.vue'\n    Imported via '@/api/mes/pro/processpool/teamLeader' from file '<SOURCE>/IntRuoyiFronted/src/views/mes/pro/processpool/TeamLeaderWorkbenchPage.vue'\n    Imported via '@/api/mes/pro/processpool/teamLeader' from file '<SOURCE>/IntRuoyiFronted/src/views/mes/pro/processpool/ActiveOrderSubmissionDetailPage.vue'\n    Matched by include pattern 'src' in 'tsconfig.relaxed.json'"
+  },
+  "F02Runtime": "NOT_RUN_UNVERIFIED",
+  "realE2E": "NOT_RUN",
+  "priorInterruptedCompiles": "NOT_PASS",
+  "evidenceSha256": {
+    "final476-backend-system.log": "88e18c90d9e66c8c6dd851e6010b295bce5dbc640a1a01b4d6a702b0691ccc29",
+    "final476-backend-compile.log": "edffed0ef3944208c15682a50e2b63ef295673cf579e5243b44121a105097a64",
+    "upstream-frontend-behavior.log": "dcd2a57d88592dd61235b555da8b6fd853c0b47edd42af71c2b9b10c747ce2df",
+    "upstream-scoped-lint.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "upstream-sfc.log": "3851b4bca675d698ee51afac929746673ddecc399ff891cd4c3091911f4f2bbb",
+    "baseline476-types.log": "11c572fb97c83e1f2dab98edba378d2222d88fa8a1bd0eb6d78b02f86b4a343e",
+    "current476-types.log": "91c9559be7902a7f867e7e71f9593d2f0289533a590268005a1d65ae18a465c8",
+    "final476-backend-manifest.json": "efa2702f1e84d3461dfc473ccd9e74c2148828446d85082ee1e29874d168a084",
+    "verified476-frontend-upstream-manifest.json": "8231484552b7deb506c9e1c4d02fd649834e54cb40d72aaf5b3aaa445d4d523e",
+    "surefire-98-summary.json": "29d3963d53888b19879ff2668c7b01121ba2bfc2a8c50c65a1670ddaed310b99",
+    "integration-result.json": "438a3943229e9ca0a984af744c24d1e8fa1f46a403d53bc68ca0ac1d6c8526c2",
+    "archive-preflight.json": "cf255044f2c83e6cf18d1b7e98cc1b004b5bdfefd01267159e744403d5f75403",
+    "managed-archive-artifacts.json": "d5914e1d00a9cb454f8639a91a1b00783c4dd349625d4a39e326d79374ef9c28",
+    "release-slots-f01-preview.log": "e335c49ad90e484397e9c38985dfad318f6288fc1b1f8afa7201991746d72c5a",
+    "release-slots-f01-apply.log": "a7b659f1c97949f4f871241761ba3dfadeaaa93d7a2c4a61d9c4ec87411789e7",
+    "20261006-profile-f01-overdue-main-cleanup-preview.log": "e2cb71160152fb614abd9916923e79136cb761a547fc6531b88da201d9ee2912",
+    "20261006-profile-f01-overdue-main-cleanup-apply.log": "6708ef0d024cc60eda5e7bcf634e50a85685cf555f4c1611d6628f3b4638c31a",
+    "20261006-profile-remaining-fixes-main-cleanup-preview.log": "cd6b51d927df25181415943b41c6933502e528db1c3a87dc6143e0b28f89c1f7",
+    "20261006-profile-remaining-fixes-main-cleanup-apply.log": "b97f96425a6f54e3015b277fc5eec05cafce0786571dbe6371472e8a5a0c680f",
+    "independent-runtime-preflight.json": "ea25708fbba35482ff0f66e34951eef15591283b33b97d16bb50180339c9ab46",
+    "runtime-cleanup-independent-preview.log": "bcdb4872b551acfea1ad8b3c31708504aac5d030c7104958afe10d10bc5d0778",
+    "runtime-cleanup-independent-apply.log": "712b45aa7d2c7d41f2839747ea0c99190c678f8af30f70e83f2c0c7f36ceabca",
+    "runtime-closeout-preflight.json": "5b7a8c61319597ef2dbdbc67d9a40a3a7d850d042cff178d9c8284b85869bb1f",
+    "archive-physical-check.json": "1e72b472649defd4008154a216739a97182dbf30667e60e3fe4131f2c4a025b6",
+    "release-slots-preview.log": "ac7be38a889edb4d6c5a569bf86278ccdeddb5e1510042edc59b7683a07b7364",
+    "release-slots-apply.log": "f763a7ad65905306aefe754930b4540317413cb2769682632542ba4a65bb016b",
+    "runtime-cleanup-preview.log": "e8f47710343c8aefe90a411c254ba90047ff27c95e2b9620df62404d44d2d19b",
+    "runtime-cleanup-apply.log": "60badc63ee2907edfdb33c13c8c0ec428216eee880d0a76448e6a6d1bf5cd689"
+  },
+  "formatNormalization": {
+    "count": 21,
+    "tokenAndCommentPreserved": true,
+    "changes": [
+      {
+        "file": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/dal/mysql/file/DccWorkbenchTodoMapper.java",
+        "originalSha256": "9fed5daa505559e86229d0c2dbda7a05a8d93977f816ae3f50b7c524e412635a",
+        "newSha256": "0ae4dc6e829bb76c798681edc8c888d8896b9d688c2e528e8a25dd44ae4352c9",
+        "onlyWhitespace": true
+      },
+      {
+        "file": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccDistributionWorkbenchSource.java",
+        "originalSha256": "e9a81854b2399df2df5a8f6b97deec8b7406d93ae6065c23c1a255e600bc484b",
+        "newSha256": "ac554f215c067bc0bced93ba8aca9a5620ef0bd86c61409f33454d06019d8a65",
+        "onlyWhitespace": true
+      },
+      {
+        "file": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccTrainingWorkbenchSource.java",
+        "originalSha256": "259f55137b86ebe56a918ac12a6d8b947071e334e5e626e8b763e41bfefe5d50",
+        "newSha256": "c56d44ba8d7585597751e022439d0a90884702ec8eb5b3d39ccd5d376d17fb08",
+        "onlyWhitespace": true
+      },
+      {
+        "file": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/dal/mysql/pro/MesWorkbenchTodoMapper.java",
+        "originalSha256": "d76df25693e35930a436e5a21648dde6b34390bc048f394ba7c062eb1b3c0b09",
+        "newSha256": "cc3fade344298dba325244c61343f9478dd214c6bda3e92feb809e870886d33b",
+        "onlyWhitespace": true
+      },
+      {
+        "file": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesEdhrWorkbenchSource.java",
+        "originalSha256": "ad4da2dd5973f798d7d251516bfba045b7ed49f5618890e9aa92882c4943e7b0",
+        "newSha256": "d618f8c3691b4bf4045b187c4b492291432dca76c30b0536c5682a92a4ea4a42",
+        "onlyWhitespace": true
+      },
+      {
+        "file": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/workorder/MesWorkOrderWorkbenchSource.java",
+        "originalSha256": "631009ccef3fee729099b5898d38d022b3ce2c5c6b32c966a4a3f2f08485fc95",
+        "newSha256": "bf4f767b3bb8292133d7c3ccd51f8cb9564e725ae0b227fb33e0177d720da89b",
+        "onlyWhitespace": true
+      },
+      {
+        "file": "IntRuoyiBackend/yudao-module-showroom/src/main/java/cn/iocoder/yudao/module/showroom/dal/mysql/workflow/ShowroomWorkbenchTodoMapper.java",
+        "originalSha256": "74fc83020ae146eda547c9172a604ba2394645f04db714fdf24af0b3bf04b493",
+        "newSha256": "04754e8ded5a1b1878b086d082507c67f188a152039596095a1371be8820fcbe",
+        "onlyWhitespace": true
+      },
+      {
+        "file": "IntRuoyiBackend/yudao-module-showroom/src/main/java/cn/iocoder/yudao/module/showroom/workflow/service/ShowroomAssignmentWorkbenchSource.java",
+        "originalSha256": "1d09f15c1bd0c626063d060c36d3cc531bab11015b12c7220acd2aada7b673b2",
+        "newSha256": "e3e4deebf51afad4c1864805b20e4f70457aa79e36abd9f0db8810212ad55b2b",
+        "onlyWhitespace": true
+      },
+      {
+        "file": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/api/profileworkbench/ProfileWorkbenchTodoChunkDTO.java",
+        "originalSha256": "32b2085002b8efdb6457cfdd4931532b022e8de3f0babb5eed2704e29a5fba68",
+        "newSha256": "acc6c8eee3eef116e3c75626f2668d3ed21d9b91030c04fa0d6d471db3eee124",
+        "onlyWhitespace": true
+      },
+      {
+        "file": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/api/profileworkbench/ProfileWorkbenchTodoChunks.java",
+        "originalSha256": "86a873a41eacfcee341403560eadc02c36a42f044798b7ad0f7bff03400400fb",
+        "newSha256": "6680fe5b59efad393bc3baa56462e5c38dc04fa96752d8137b5bbd26fde1f6dd",
+        "onlyWhitespace": true
+      },
+      {
+        "file": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/api/profileworkbench/ProfileWorkbenchTodoQueryDTO.java",
+        "originalSha256": "1e986580b8b6bf39d82dbf866cb5de2a4fe88180f8df6d62d561b50bab0d207d",
+        "newSha256": "6ea69909693a1fb5a8fe331396e67f45b0a2d129627544c88673df99e6168e2b",
+        "onlyWhitespace": true
+      },
+      {
+        "file": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/api/profileworkbench/ProfileWorkbenchTodoRowDTO.java",
+        "originalSha256": "19e841625aaee881baba6190de62ceedec7d811271f3d77632789f99428ac678",
+        "newSha256": "aba2e73e47f0ee68ad93086e775c09a49c10e72c12d978c17bba055b480b8c46",
+        "onlyWhitespace": true
+      },
+      {
+        "file": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/api/profileworkbench/ProfileWorkbenchTodoSortContract.java",
+        "originalSha256": "289ae4af1c902d4c0305545fd1c86396792bdeb175adbbc8f0fff422754cb482",
+        "newSha256": "50c7b9655c84ea5398f49c372e730016ef29de4bce90e329924d62059a539228",
+        "onlyWhitespace": true
+      },
+      {
+        "file": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/api/profileworkbench/ProfileWorkbenchTodoSource.java",
+        "originalSha256": "23203d49ee558f825d88026da5d26ab230c2a267270b3f86cdf6a400765308b9",
+        "newSha256": "dde603e67fd7bb14556f130912f9f688f95bde916405606000809831a7df9441",
+        "onlyWhitespace": true
+      },
+      {
+        "file": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/api/profileworkbench/ProfileWorkbenchTodoSourceId.java",
+        "originalSha256": "d1949fb1db9cdc91051dd74c60268d48ccac371e11de3a93c8a6fa9da5cea2a8",
+        "newSha256": "06a345876ab100d6f953b02cead4b0be7e39de97a184fd40ec67c117fbfb0205",
+        "onlyWhitespace": true
+      },
+      {
+        "file": "IntRuoyiBackend/yudao-module-system/src/main/resources/mapper/profileworkbench/ProfileWorkbenchTodoSql.xml",
+        "originalSha256": "bf5da81cb75d98df5ff1f2300dbbed0107b9270b00c09b05c3227be3f4ff1398",
+        "newSha256": "b2555d4d1eed6ce795a48e4f1080a7d573239bfa8b84314f47b8e2bfc3feac19",
+        "onlyWhitespace": true
+      },
+      {
+        "file": "IntRuoyiBackend/yudao-server/src/main/java/cn/iocoder/yudao/server/profileworkbench/ProfileWorkbenchTodoCountReqVO.java",
+        "originalSha256": "bb5eff84766447a8b47379d19e06e86aeedc725b1e71716d90fbe253904b4762",
+        "newSha256": "fc834675a29e4df203e1544c45de18d2c3d84d77b9f1549a164985bb6ddbc27a",
+        "onlyWhitespace": true
+      },
+      {
+        "file": "IntRuoyiBackend/yudao-server/src/main/java/cn/iocoder/yudao/server/profileworkbench/ProfileWorkbenchTodoCountRespVO.java",
+        "originalSha256": "67f33112db7f3f90e9a406c6d5742e4d2f632be1075c79a7bf05e2fcb7b065b4",
+        "newSha256": "e15c08fe2e6e51a436192df421510664e457a5b4a7e66d191c989bcc15253cc5",
+        "onlyWhitespace": true
+      },
+      {
+        "file": "IntRuoyiBackend/yudao-server/src/main/java/cn/iocoder/yudao/server/profileworkbench/ProfileWorkbenchTodoPageReqVO.java",
+        "originalSha256": "9f2254332ef1378b624fe40cce7785cd857524010afbbf3cd2aca94ebf9c2337",
+        "newSha256": "5b04f307a4099c5551c9a682e9cfb6ba6d20b14a54781d84cc1f47cc5ad9bb8f",
+        "onlyWhitespace": true
+      },
+      {
+        "file": "IntRuoyiBackend/yudao-server/src/main/java/cn/iocoder/yudao/server/profileworkbench/ProfileWorkbenchTodoPageRespVO.java",
+        "originalSha256": "e89f6674aa1d72400b05ea58a5ec8a36ebf32920582a88f793d81dce9c664746",
+        "newSha256": "023cdb0a3bca9f736bbcf09a38d04406aff8d2dbe1869fe9a5c911a8982891a2",
+        "onlyWhitespace": true
+      },
+      {
+        "file": "IntRuoyiBackend/yudao-server/src/main/java/cn/iocoder/yudao/server/profileworkbench/ProfileWorkbenchTodoReadTransaction.java",
+        "originalSha256": "f5cafb1eff31e8cb9c7e0bace4aa1bdd44c3ebae7fdafb009e363e7ce9354ff2",
+        "newSha256": "378e49f2b9fbe56105ca20ff85985fcb44293aac69cb16c7de8d672ea1edbe0b",
+        "onlyWhitespace": true
+      }
+    ]
+  },
+  "latestCompileBase": "11a701bb573ad46c49cac57122522499217e0324",
+  "latestSharedBoundaryStaticReview": "f02-static-11a-supplement.md PASS",
+  "integration": {
+    "implementationCommit": "6c22418e788d98d31add1c79c8d61d1514aadf97",
+    "cleanupCommit": "dafa665637246f0041a251251b93647c9a1bcef6",
+    "approvalCommit": "3fbce57e92339c55e3ba5988c692ee7d67a8d7fd",
+    "mainHead": "3fbce57e92339c55e3ba5988c692ee7d67a8d7fd",
+    "mainPrior": "30038aecaf54a8214ef86e0e683c50c585335d56",
+    "sourceCompileBase": "11a701bb573ad46c49cac57122522499217e0324",
+    "mainAdvanceSinceCompile": "documentation_only",
+    "ffOnly": "PASS",
+    "protectedParallelFiles": 6,
+    "allParallelSHA256Preserved": true,
+    "allParallelIndexEntriesPreserved": true,
+    "all50TaskSourceNormalizedMatch": true
+  },
+  "actualSurefireXmlSummary": {
+    "status": "PASS",
+    "originalRunBase": "476ec5322ab2b8d76ad67308a50eb6c08f980533",
+    "retainedAfterRebase": "No system/test source token changes; not rerun",
+    "tests": 98,
+    "suites": [
+      {
+        "file": "TEST-cn.iocoder.yudao.module.system.controller.admin.oauth2.OAuth2UserProfileUpdateContractTest.xml",
+        "sha256": "f1ae9285aa373796146191762255ce948beb63fd90f901fc7075ffd6888b1cbe",
+        "tests": 7,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      {
+        "file": "TEST-cn.iocoder.yudao.module.system.controller.admin.user.UserProfileControllerContractTest.xml",
+        "sha256": "dae0d231263e1466559d6a653324cf5fc3a1780a4000710377b79a6f22dedc6c",
+        "tests": 7,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      {
+        "file": "TEST-cn.iocoder.yudao.module.system.service.profileworkbench.ProfileWorkbenchTaskVisibilityServiceImplTest.xml",
+        "sha256": "8df52b54a9c1f6b0f076a8c0265f0ff011089eb78ddec0cd6574a69c8bb4cd5b",
+        "tests": 3,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      {
+        "file": "TEST-cn.iocoder.yudao.module.system.service.user.AdminUserServiceImplTest.xml",
+        "sha256": "7ac87ee65019b9f3717afdecec87e42d3a9bec1fcee16cffd946fac75c718cf0",
+        "tests": 80,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      {
+        "file": "TEST-cn.iocoder.yudao.module.system.service.user.UserProfileUpdateReqVOValidationTest.xml",
+        "sha256": "41462baa2058b00cf9e075e3f3b351dac3e1fde82d4f8ea1a7e4906f9c54d23a",
+        "tests": 1,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      }
+    ],
+    "purpose": "Preserve actual XML counts/fingerprints before temporary build directory deletion"
+  },
+  "closeout": {
+    "completedAt": "2026-10-08T14:41:02.477747+08:00",
+    "managedArchive": "PASS_artifact_archived_checkout_and_metadata_absent",
+    "managedArtifactEvidence": {
+      "status": "PASS",
+      "artifacts": [
+        {
+          "id": "01a11183-4466-7322-b7b0-09b5785d5a79",
+          "attachmentType": "archived_worktree",
+          "identityKey": "E:\\IntRuoyiWorktree\\profile-f01-overdue\\IntRuoyi",
+          "payload": {
+            "worktree": {
+              "root": "E:\\IntRuoyiWorktree\\profile-f01-overdue\\IntRuoyi",
+              "workspaceRoot": "E:\\IntRuoyiWorktree\\profile-f01-overdue\\IntRuoyi",
+              "sourceCwd": "E:\\IntRuoyi",
+              "sourceGitRoot": "E:/IntRuoyi",
+              "worktreesRoot": "E:\\IntRuoyiWorktree"
+            },
+            "pullRequests": []
+          },
+          "createdAt": 1791295177
+        },
+        {
+          "id": "01a119e9-c173-7c93-876d-e1f966b2b5e9",
+          "attachmentType": "archived_worktree",
+          "identityKey": "E:\\IntRuoyiWorktree\\profile-remaining-fixes\\IntRuoyi",
+          "payload": {
+            "worktree": {
+              "root": "E:\\IntRuoyiWorktree\\profile-remaining-fixes\\IntRuoyi",
+              "workspaceRoot": "E:\\IntRuoyiWorktree\\profile-remaining-fixes\\IntRuoyi",
+              "sourceCwd": "E:\\IntRuoyi",
+              "sourceGitRoot": "E:/IntRuoyi",
+              "worktreesRoot": "E:\\IntRuoyiWorktree"
+            },
+            "pullRequests": []
+          },
+          "createdAt": 1791436112
+        }
+      ]
+    },
+    "physicalEvidence": {
+      "checkedAt": "2026-10-08T14:39:38.613354+08:00",
+      "checkouts": {
+        "F01": {
+          "path": "E:\\IntRuoyiWorktree\\profile-f01-overdue\\IntRuoyi",
+          "exists": false,
+          "gitMetadata": []
+        },
+        "remaining": {
+          "path": "E:\\IntRuoyiWorktree\\profile-remaining-fixes\\IntRuoyi",
+          "exists": false,
+          "gitMetadata": []
+        }
+      },
+      "abortedF01DependencyExists": false,
+      "physicalArchiveComplete": true
+    },
+    "slotRelease": {
+      "mode": "apply",
+      "status": "PASS",
+      "changes": [
+        {
+          "path": "E:\\IntRuoyiWorktree\\profile-f01-overdue\\IntRuoyi",
+          "slot": 7,
+          "branch": "codex/profile-f01-overdue",
+          "previousActive": false,
+          "newActive": false
+        },
+        {
+          "path": "E:\\IntRuoyiWorktree\\profile-remaining-fixes\\IntRuoyi",
+          "slot": 11,
+          "branch": "codex/profile-remaining-fixes",
+          "previousActive": true,
+          "newActive": false
+        }
+      ],
+      "unrelatedEntriesPreserved": true,
+      "registry": "E:\\IntRuoyi\\.git\\intrruoyi-runtime\\worktree-ports.json",
+      "checkedAt": "2026-10-08T14:40:11.9140867+08:00"
+    },
+    "runtimeCleanup": {
+      "mode": "apply",
+      "phase": "all",
+      "status": "PASS",
+      "targets": [
+        {
+          "path": "D:\\IntRuoyiTaskRuntime\\profile-remaining-fixes\\backend-targets",
+          "action": "delete_task_owned_temporary_runtime"
+        },
+        {
+          "path": "D:\\IntRuoyiTaskRuntime\\profile-remaining-fixes\\frontend-virtual-store",
+          "action": "delete_task_owned_temporary_runtime"
+        }
+      ],
+      "kept": [
+        "D:\\IntRuoyiTaskRuntime\\profile-remaining-fixes\\verification",
+        "D:\\IntRuoyiTaskRuntime\\profile-f01-overdue\\maven-repository",
+        "D:\\IntRuoyiTaskRuntime\\profile-f01-overdue\\store"
+      ],
+      "checkedAt": "2026-10-08T14:40:30.7855808+08:00"
+    },
+    "independentRuntimeCleanup": {
+      "mode": "apply",
+      "phase": "independent",
+      "status": "PASS",
+      "targets": [
+        {
+          "path": "D:\\IntRuoyiTaskRuntime\\profile-remaining-fixes\\baseline-source",
+          "action": "delete_task_owned_temporary_runtime"
+        },
+        {
+          "path": "D:\\IntRuoyiTaskRuntime\\profile-remaining-fixes\\baseline033-source",
+          "action": "delete_task_owned_temporary_runtime"
+        },
+        {
+          "path": "D:\\IntRuoyiTaskRuntime\\profile-remaining-fixes\\drafts",
+          "action": "delete_task_owned_temporary_runtime"
+        },
+        {
+          "path": "D:\\IntRuoyiTaskRuntime\\profile-remaining-fixes\\final476-source",
+          "action": "delete_task_owned_temporary_runtime"
+        },
+        {
+          "path": "D:\\IntRuoyiTaskRuntime\\profile-remaining-fixes\\pre-upstream-source",
+          "action": "delete_task_owned_temporary_runtime"
+        },
+        {
+          "path": "D:\\IntRuoyiTaskRuntime\\profile-remaining-fixes\\reconcile",
+          "action": "delete_task_owned_temporary_runtime"
+        },
+        {
+          "path": "D:\\IntRuoyiTaskRuntime\\profile-remaining-fixes\\verified033-source",
+          "action": "delete_task_owned_temporary_runtime"
+        },
+        {
+          "path": "D:\\IntRuoyiTaskRuntime\\profile-remaining-fixes\\verified476-source",
+          "action": "delete_task_owned_temporary_runtime"
+        },
+        {
+          "path": "D:\\IntRuoyiTaskRuntime\\profile-remaining-fixes\\baseline-virtual-store",
+          "action": "delete_task_owned_temporary_runtime"
+        },
+        {
+          "path": "D:\\IntRuoyiTaskRuntime\\profile-remaining-fixes\\baseline033-virtual-store",
+          "action": "delete_task_owned_temporary_runtime"
+        },
+        {
+          "path": "D:\\IntRuoyiTaskRuntime\\profile-remaining-fixes\\verified033-frontend-virtual-store",
+          "action": "delete_task_owned_temporary_runtime"
+        },
+        {
+          "path": "D:\\ir-profile476",
+          "action": "delete_task_owned_temporary_runtime"
+        }
+      ],
+      "kept": [
+        "D:\\IntRuoyiTaskRuntime\\profile-remaining-fixes\\verification",
+        "D:\\IntRuoyiTaskRuntime\\profile-f01-overdue\\maven-repository",
+        "D:\\IntRuoyiTaskRuntime\\profile-f01-overdue\\store"
+      ],
+      "checkedAt": "2026-10-08T14:15:26.3880091+08:00"
+    },
+    "runtimeDirectoriesRemoved": 14,
+    "mainTaskCleanup": "PASS_keep8_delete10_blocked0_warnings0",
+    "F01RecordCleanup": "PASS_keep6_delete0_blocked0_warnings0",
+    "pushed": false,
+    "deployed": false,
+    "mainServiceRestarted": false
+  },
+  "checkpointCommit": {
+    "status": "PASS_exact_owned_commit_and_parallel_index_preserved",
+    "commit": "282607c2f0ba06e5b9149cd49c6d4c52a2fa187a",
+    "paths": [
+      ".review-fix-loop/runs/20261006-profile-remaining-fixes/run.json",
+      "doc/tasks/20261006-profile-f01-overdue/execution-log.md",
+      "doc/tasks/20261006-profile-f01-overdue/task-state.json",
+      "doc/tasks/20261006-profile-f01-overdue/task.md",
+      "doc/tasks/20261006-profile-f01-overdue/verification-report.md",
+      "doc/tasks/20261006-profile-remaining-fixes/execution-log.md",
+      "doc/tasks/20261006-profile-remaining-fixes/integration-manifest.json",
+      "doc/tasks/20261006-profile-remaining-fixes/task-state.json",
+      "doc/tasks/20261006-profile-remaining-fixes/task.md",
+      "doc/tasks/20261006-profile-remaining-fixes/verification-evidence.json",
+      "doc/tasks/20261006-profile-remaining-fixes/verification-report.md"
+    ],
+    "taskOwnedRecordsOnly": true,
+    "protectedParallelPaths": 8,
+    "allParallelIndexEntriesPreserved": true,
+    "allParallelSHA256Preserved": false,
+    "parallelWritesObservedDuringCommit": [
+      {
+        "path": "doc/tasks/20261006-user-password-session-fix/execution-log.md",
+        "beforeSha256": "0b2af80e31d66a799b5e77dbfab7fa6a1a161a220dfd17add4c42c178a6735bc",
+        "afterSha256": "ac9822a1c224ee2d18e5eeb17e35f4fb46fce1f254acc72492545958889b97b6",
+        "mtime": 1791438829.3611171
+      },
+      {
+        "path": "doc/tasks/20261006-user-password-session-fix/task-state.json",
+        "beforeSha256": "a4b480598cc52fa83c7fc33bb01784578f5986ca5f0992d5f890731486c6ac46",
+        "afterSha256": "c45170a3423c1585f4d9e776e7afeeb857e99c56ae2f31adba88fc5fec469241",
+        "mtime": 1791439119.9811628
+      },
+      {
+        "path": "doc/tasks/20261006-user-password-session-fix/verification-report.md",
+        "beforeSha256": "078e57c80cba1512acfb59975258a3d3464098f52a411d609d19242e6ddba897",
+        "afterSha256": "d43b636004d14f4c225b7b399684751e6a2ecc508c9986cb725fd1b7d554b10c",
+        "mtime": 1791438984.9939058
+      },
+      {
+        "path": "docs/worktree-memory.md",
+        "beforeSha256": "e584cadebe9168ba2ce61f8530d693a3f406aa8c0b9f50978e50d8e613802b61",
+        "afterSha256": "2ff9e9a2691b2f9b55c9a778e539aa25958c89966f81b6539e19960a81c0f3b8",
+        "mtime": 1791438823.61325
+      }
+    ],
+    "interpretation": "Original byte-stability guard FAILED; actual commit contains exactly 11 owned records, unrelated index entries match. Concurrently changed files are left untouched; no claim all unrelated bytes stayed constant.",
+    "sourceGuard": "50 exact normalized fingerprints verified before commit",
+    "recordStatus": "ready_for_closeout",
+    "pushed": false
+  },
+  "completionEvidenceAudit": {
+    "approvedImplementationGate": "PASS",
+    "scope": [
+      "F02",
+      "F04",
+      "F03"
+    ],
+    "acceptanceRows": [
+      "| F02-AC1 完整集合及筛选 | ProfileWorkbench.buildPageQuery/loadWorkbench→新wrapper重复enabledSources+点参数→admin package Controller allowlist/@Valid→QueryService标准权限/当前user+tenant→DCC/MES/Showroom五源base/count/chunk共有projection/where→完整server total/page；旧first-page本地slice已删除 | 静态通过；未证明运行集合 |",
+      "| F02-AC2 隐藏恢复 | ProfileWorkbench.runVisibilityAction→原正式visibility端点/service当前用户和租户→新共享SQL在limit前按tenant/user/taskKey EXISTS→business/hidden/request三种count→写成功后刷新并区分刷新失败；只隐藏当前可用来源，完成任务不从历史制造出来 | 静态通过；未执行F02写入 |",
+      "| F02-AC3 排序和页码 | UnifiedListTemplate custom sort/statusLabel映射→VO固定键→共享SQL ORDER BY/after完整tuple→UTF8 unsigned comparator+source ordinal→ReadTransaction heap前缀与count钳制effectivePageNo→前端更新接受token query key | 静态通过；未测实际排序/容量 |",
+      "| F02-AC4 异常和竞争 | adapter严格count/chunk→budget及SQL10秒timeout→非法行/数量/游标/溢出全请求失败→page generation+身份/来源/query全写入守卫→共享badge单调epoch/当前scope/pending复用→写入前失效及卸载守卫 | 静态通过；未执行F02并发/超时 |",
+      "| F02-AC5 权限、租户及导航 | PermissionApi真实动态权限包括临时USE审计先于读事务；eDHR双权限OR；展厅tenant+当前assignee+OPEN；DCC正式关系和工单共享口径；MesOpenWorkTaskVisibility保持F01本人/候选及批次终态ARCHIVE例外；各source字符串正式ID→原处理route；展厅query.assignmentId传入目标组件，直接正式get并精确身份校验，脱离旧首20 | 静态通过；未执行正式处理页面 |",
+      "| F02-AC6 同快照和资源 | @DS master外层QueryService拒绝既有事务→不同bean的公开@Transactional readOnly/RR方法→同线程五源Mapper无切库/异步→count/chunk/merge；每源100行、101探测、至多100响应，深页成本随已消费前缀增长 | 静态设计通过；实际数据源、表引擎/RR/性能未验证 |",
+      "| F03-AC1 无联系方式可改昵称 | Profile Index→真实Form expose model→BasicInfo可选空联系方式/trim/已有非空清空提示零请求→白名单省略空值→profile wrapper→两个Controller当前user/@Valid→updateUserProfile nonnull set | 定向受控行为、实际Validator/HTTP/H2通过；纳入后端98项、前端55项及主Agent复核 |",
+      "| F03-AC2 非空校验/旧共享合同 | BasicInfo原手机号pattern/email/长度→原共享VO不新增trim/NotBlank→原unique及same-user/blank分支→显式五字段更新，不含身份/角色/部门/password→GET/readback昵称cache | Validator/H2及原服务回归通过；后续基点未改变该行为源码 |",
+      "| F03-AC3 更新与回读 | new AdminUserDO作为真实填充实体→DefaultDBFieldHandler updateTime/updater→实际Mapper→两Controller回读；missing/null preserve与blank/empty旧合同、{}全null和保护字段均有断言 | 真实H2通过；安全filters/method proxy NOT RUN |",
+      "| F04-AC1 单次提交 | ResetPwd校验前锁→三个InputPassword及XButton disabled/loading→await validate→snapshot一致→唯一update-password→finally解锁；reset期间零操作 | 当前组件行为及原会话回归通过，纳入55项前端测试；独立review及主Agent复核通过 |",
+      "| F04-AC2 失败可修正重试 | 字段拒绝零请求/控件恢复；真实Axios business/500/network受控adapter保留reject，组件本地一次固定安全消息/保留输入；两参wrapper固定ignoreErrorMessage=true保留 | 当前异常与重试定向验证通过；未执行真实账号写入或安全filter链 |",
+      "| F04-AC3 成功清敏感字段 | request成功→三字段清空→实际clearSession→clearValidate→成功提示及login导航；清理或导航失败提示已修改须登录，无二次写入 | 当前组件、实际Pinia/router会话回归通过；保留上游会话撤销策略 |"
+    ],
+    "sourceFingerprints": {
+      "count": 50,
+      "allMatch": true
+    },
+    "evidenceHashesAllMatch": true,
+    "backendCompiledModules": 31,
+    "backendTests": 98,
+    "frontendTests": 55,
+    "fullTypes": "FAIL_existing_baseline_errors_new0",
+    "F02Runtime": "NOT_RUN_UNVERIFIED_per_approved_amendment",
+    "reviewReports": {
+      "f02-static-round-3.md": {
+        "sha256": "8d11c245ba71571877a754e208b3dc75876458cabb848274ca06ff06562bbab2",
+        "length": 14683
+      },
+      "f02-static-round-4.md": {
+        "sha256": "114c8176c08c2265a4498b7c3ac78cda7af50c7c79ed7e93a1dd07f5a0033fb8",
+        "length": 11544
+      },
+      "f02-static-476-supplement.md": {
+        "sha256": "e2aea294dae123875f06be9b789172e5c5dfcec320efd811974855f658dab931",
+        "length": 6268
+      },
+      "f02-static-11a-supplement.md": {
+        "sha256": "01e7efe62131c18aaaef2e44459c5fce43fef150dab879428429a9b95b6fa044",
+        "length": 4905
+      },
+      "f03-f04-release-round-4.md": {
+        "sha256": "02499d112beede197d3df37e9755d9568359c8a2e5da720aed981c6aa5a1604c",
+        "length": 8158
+      }
+    },
+    "integration": {
+      "implementationCommit": "6c22418e788d98d31add1c79c8d61d1514aadf97",
+      "cleanupCommit": "dafa665637246f0041a251251b93647c9a1bcef6",
+      "approvalCommit": "3fbce57e92339c55e3ba5988c692ee7d67a8d7fd",
+      "mainHead": "3fbce57e92339c55e3ba5988c692ee7d67a8d7fd",
+      "mainPrior": "30038aecaf54a8214ef86e0e683c50c585335d56",
+      "sourceCompileBase": "11a701bb573ad46c49cac57122522499217e0324",
+      "mainAdvanceSinceCompile": "documentation_only",
+      "ffOnly": "PASS",
+      "protectedParallelFiles": 6,
+      "allParallelSHA256Preserved": true,
+      "allParallelIndexEntriesPreserved": true,
+      "all50TaskSourceNormalizedMatch": true
+    },
+    "closeout": {
+      "status": "ready_for_closeout",
+      "mainTaskCleanup": "PASS_keep8_delete10_blocked0_warnings0",
+      "managedSnapshot": "archived_worktree",
+      "physicalRemoval": "RUNNING_checkout_still_exists",
+      "slot11": "active_retained",
+      "F01Slot7": {
+        "mode": "apply",
+        "status": "PASS",
+        "changes": [
+          {
+            "path": "E:\\IntRuoyiWorktree\\profile-f01-overdue\\IntRuoyi",
+            "slot": 7,
+            "branch": "codex/profile-f01-overdue",
+            "previousActive": true,
+            "newActive": false
+          }
+        ],
+        "unrelatedEntriesPreserved": true,
+        "registry": "E:\\IntRuoyi\\.git\\intrruoyi-runtime\\worktree-ports.json",
+        "checkedAt": "2026-10-08T13:49:24.3122312+08:00"
+      },
+      "checkedAt": "2026-10-08T13:51:00.679290+08:00"
+    },
+    "goalComplete": false,
+    "auditStage": "approved_gate_before_physical_closeout"
+  }
+}

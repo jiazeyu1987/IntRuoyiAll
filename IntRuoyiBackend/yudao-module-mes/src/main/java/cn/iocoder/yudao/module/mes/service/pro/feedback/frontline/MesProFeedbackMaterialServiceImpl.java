@@ -70,9 +70,6 @@ public class MesProFeedbackMaterialServiceImpl implements MesProFeedbackMaterial
         }
         requireNonNegative(entry.outputQuantity(), "完成数量不能小于 0");
         requireNonNegative(entry.lossQuantity(), "损耗数量不能小于 0");
-        if (entry.lossQuantity().compareTo(entry.outputQuantity()) > 0) {
-            throw invalid("损耗数量不能大于完成数量：" + entry.materialId());
-        }
         requireText(entry.lossDetailsJson(), "lossDetailsJson");
         requireText(entry.deviceParameterReadingsJson(), "deviceParameterReadingsJson");
     }

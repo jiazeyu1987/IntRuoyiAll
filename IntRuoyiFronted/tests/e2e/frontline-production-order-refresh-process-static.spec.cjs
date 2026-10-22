@@ -73,8 +73,13 @@ assert.doesNotMatch(
 const initialize = extractFunction(panel, 'const initializeProductionSelection =')
 assert.match(
   initialize,
-  /loadFrontlineProductionActiveOrders\(deviceState\)[\s\S]*(?:requestedActiveOrder\s*\|\|\s*activeOrders\[0\]|initialActiveOrder)[\s\S]*await handleSelectActiveOrder\(/,
-  'initialization must choose the requested or first order and use the same refresh workflow.'
+  /loadFrontlineProductionActiveOrders\(deviceState\)[\s\S]*const\s+initialActiveOrder\s*=\s*activeOrders\.find\(\(order\) => !order\.readBlocked\)[\s\S]*await handleSelectActiveOrder\(/,
+  'initialization must choose the current selectable realtime order and use the same refresh workflow.'
+)
+assert.doesNotMatch(
+  initialize,
+  /requestedActiveOrder|context\.workOrderId|order\.workOrderId\s*===/,
+  'production initialization must ignore URL workOrderId.'
 )
 assert.doesNotMatch(
   initialize,

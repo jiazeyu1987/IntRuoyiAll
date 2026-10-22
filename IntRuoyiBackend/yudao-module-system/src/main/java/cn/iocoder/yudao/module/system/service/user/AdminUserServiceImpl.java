@@ -15,6 +15,7 @@ import cn.iocoder.yudao.framework.common.util.validation.ValidationUtils;
 import cn.iocoder.yudao.framework.datapermission.core.util.DataPermissionUtils;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.infra.api.config.ConfigApi;
+import cn.iocoder.yudao.module.infra.enums.config.PasswordMaxAgeConfig;
 import cn.iocoder.yudao.module.system.controller.admin.auth.vo.AuthRegisterReqVO;
 import cn.iocoder.yudao.module.system.controller.admin.user.vo.profile.UserProfileUpdatePasswordReqVO;
 import cn.iocoder.yudao.module.system.controller.admin.user.vo.profile.UserProfileUpdateReqVO;
@@ -25,12 +26,16 @@ import cn.iocoder.yudao.module.system.controller.admin.user.vo.user.UserImportRe
 import cn.iocoder.yudao.module.system.controller.admin.user.vo.user.UserLifecycleDeactivateReqVO;
 import cn.iocoder.yudao.module.system.controller.admin.user.vo.user.UserPageReqVO;
 import cn.iocoder.yudao.module.system.controller.admin.user.vo.user.UserSaveReqVO;
+import cn.iocoder.yudao.module.system.controller.admin.user.vo.user.UserEditRespVO;
+import cn.iocoder.yudao.module.system.convert.user.UserConvert;
 import cn.iocoder.yudao.module.system.dal.dataobject.dept.DeptDO;
 import cn.iocoder.yudao.module.system.dal.dataobject.dept.UserPostDO;
+import cn.iocoder.yudao.module.system.dal.dataobject.dept.PostDO;
 import cn.iocoder.yudao.module.system.dal.dataobject.user.AdminUserDO;
 import cn.iocoder.yudao.module.system.dal.dataobject.user.AdminUserPasswordHistoryDO;
 import cn.iocoder.yudao.module.system.dal.mysql.dept.DeptMapper;
 import cn.iocoder.yudao.module.system.dal.mysql.dept.UserPostMapper;
+import cn.iocoder.yudao.module.system.dal.mysql.dept.PostMapper;
 import cn.iocoder.yudao.module.system.dal.mysql.user.AdminUserMapper;
 import cn.iocoder.yudao.module.system.dal.mysql.user.AdminUserPasswordHistoryMapper;
 import cn.iocoder.yudao.module.system.enums.user.UserLifecycleDocumentTypeEnum;
@@ -41,17 +46,24 @@ import cn.iocoder.yudao.module.system.service.permission.PermissionService;
 import cn.iocoder.yudao.module.system.service.tenant.TenantService;
 import com.google.common.annotations.VisibleForTesting;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
+import com.fasterxml.jackson.core.JsonFactory;
+import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.JsonToken;
 import com.mzt.logapi.context.LogRecordContext;
 import com.mzt.logapi.service.impl.DiffParseFunction;
 import com.mzt.logapi.starter.annotation.LogRecord;
 import jakarta.annotation.Resource;
 import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.ibatis.executor.result.ResultMapException;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
+import java.io.IOException;
 import java.text.Normalizer;
 import java.time.LocalDateTime;
 import java.util.*;
@@ -70,6 +82,15 @@ import static cn.iocoder.yudao.module.system.enums.LogRecordConstants.*;
 @Service("adminUserService")
 @Slf4j
 public class AdminUserServiceImpl implements AdminUserService {
+
+    @Resource
+    private cn.iocoder.yudao.module.system.api.permission.ApprovalAuthorityApi approvalAuthority;
+
+    private AdminUserDO lockSignatureIdentity(Long userId) {
+        AdminUserDO user = lockUserForSessionMutation(TenantContextHolder.getRequiredTenantId(), userId);
+        if (user == null || Boolean.TRUE.equals(user.getDeleted())) throw exception(USER_NOT_EXISTS);
+        return user;
+    }
 
     static final String USER_INIT_PASSWORD_KEY = "system.user.init-password";
 
@@ -108,15 +129,22 @@ public class AdminUserServiceImpl implements AdminUserService {
     private UserPostMapper userPostMapper;
 
     @Resource
+    private PostMapper postMapper;
+
+    @Resource
     private ConfigApi configApi;
     @Resource
     private DeptMapper deptMapper;
+    @Resource
+    private cn.iocoder.yudao.module.system.service.dept.DeptSupervisorService supervisorService;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     @LogRecord(type = SYSTEM_USER_TYPE, subType = SYSTEM_USER_CREATE_SUB_TYPE, bizNo = "{{#user.id}}",
             success = SYSTEM_USER_CREATE_SUCCESS)
     public Long createUser(UserSaveReqVO createReqVO) {
+        validatePostIds(createReqVO.getPostIds(), false);
+        var authority = approvalAuthority.lockTenantApprovalAuthority(TenantContextHolder.getRequiredTenantId());
         // 1.1 校验账户配合
         tenantService.handleTenantInfo(tenant -> {
             long count = userMapper.selectCount();
@@ -135,7 +163,9 @@ public class AdminUserServiceImpl implements AdminUserService {
         user.setPassword(encodePassword(createReqVO.getPassword())); // 加密密码
         user.setPasswordUpdateTime(LocalDateTime.now());
         user.setPasswordCredentialStatus("RESET_REQUIRED");
-        userMapper.insert(user);
+        if (userMapper.insert(user) != 1 || user.getId() == null || user.getId() <= 0) {
+            throw new IllegalStateException("APPROVAL_USER_CREATE_ROW_COUNT");
+        }
         // 2.2 插入关联岗位
         if (CollectionUtil.isNotEmpty(user.getPostIds())) {
             userPostMapper.insertBatch(convertList(user.getPostIds(),
@@ -143,11 +173,13 @@ public class AdminUserServiceImpl implements AdminUserService {
         }
 
         // 3. 记录操作日志上下文
+        approvalAuthority.incrementLockedAuthorityRevision(authority.tenantId(), authority.revision());
         LogRecordContext.putVariable("user", user);
         return user.getId();
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public Long registerUser(AuthRegisterReqVO registerReqVO) {
         // 1.1 校验是否开启注册
         if (ObjUtil.notEqual(configApi.getConfigValueByKey(USER_REGISTER_ENABLED_KEY), "true")) {
@@ -180,20 +212,31 @@ public class AdminUserServiceImpl implements AdminUserService {
     @LogRecord(type = SYSTEM_USER_TYPE, subType = SYSTEM_USER_UPDATE_SUB_TYPE, bizNo = "{{#updateReqVO.id}}",
             success = SYSTEM_USER_UPDATE_SUCCESS)
     public void updateUser(UserSaveReqVO updateReqVO) {
+        validateEditUserId(updateReqVO.getId());
+        validatePostIds(updateReqVO.getPostIds(), true);
         updateReqVO.setPassword(null); // 特殊：此处不更新密码
-        // 1. 校验正确性
-        AdminUserDO oldUser = validateUserForCreateOrUpdate(updateReqVO.getId(), updateReqVO.getUsername(),
-                updateReqVO.getMobile(), updateReqVO.getEmail(), updateReqVO.getDeptId(), updateReqVO.getPostIds());
+        Set<Long> targetPostIds = new TreeSet<>(updateReqVO.getPostIds());
+        // 用户、有效关联、正式岗位依次取当前锁定读，禁止混用外层事务旧快照。
+        AdminUserDO oldUser = lockUserForPostEdit(updateReqVO.getId());
+        var authority = approvalAuthority.lockTenantApprovalAuthority(TenantContextHolder.getRequiredTenantId());
+        UserPostSnapshot snapshot = lockAndValidateUserPosts(oldUser, targetPostIds);
+        // 既有停用岗位由编辑快照校验；通用新增岗位启用校验保持原合同。
+        validateUserForCreateOrUpdate(updateReqVO.getId(), updateReqVO.getUsername(),
+                updateReqVO.getMobile(), updateReqVO.getEmail(), updateReqVO.getDeptId(), null);
 
         // 2.1 更新用户
         AdminUserDO updateObj = BeanUtils.toBean(updateReqVO, AdminUserDO.class);
+        updateObj.setPostIds(targetPostIds);
         updateObj.setCanonicalUsername(canonicalizeUsername(updateReqVO.getUsername()));
-        userMapper.update(updateObj, Wrappers.<AdminUserDO>lambdaUpdate()
+        if (userMapper.update(updateObj, Wrappers.<AdminUserDO>lambdaUpdate()
                 .eq(AdminUserDO::getId, updateReqVO.getId())
                 .set(updateReqVO.isDeptIdSpecified() && updateReqVO.getDeptId() == null,
-                        AdminUserDO::getDeptId, null));
+                        AdminUserDO::getDeptId, null)) != 1) {
+            throw exception(USER_POST_WRITE_FAILED, oldUser.getId(), "用户资料更新异常");
+        }
         // 2.2 更新岗位
-        updateUserPost(updateReqVO, updateObj);
+        updateUserPost(oldUser.getId(), snapshot.postIds(), targetPostIds);
+        approvalAuthority.incrementLockedAuthorityRevision(authority.tenantId(), authority.revision());
 
         // 3. 记录操作日志上下文
         // 省略部门表示保留；持久化后补齐实际值，避免审计将省略误记为清空。
@@ -204,21 +247,148 @@ public class AdminUserServiceImpl implements AdminUserService {
         LogRecordContext.putVariable("user", oldUser);
     }
 
-    private void updateUserPost(UserSaveReqVO reqVO, AdminUserDO updateObj) {
-        Long userId = reqVO.getId();
-        Set<Long> dbPostIds = convertSet(userPostMapper.selectListByUserId(userId), UserPostDO::getPostId);
+    private void updateUserPost(Long userId, Set<Long> dbPostIds, Set<Long> postIds) {
         // 计算新增和删除的岗位编号
-        Set<Long> postIds = CollUtil.emptyIfNull(updateObj.getPostIds());
         Collection<Long> createPostIds = CollUtil.subtract(postIds, dbPostIds);
         Collection<Long> deletePostIds = CollUtil.subtract(dbPostIds, postIds);
         // 执行新增和删除。对于已经授权的岗位，不用做任何处理
         if (!CollectionUtil.isEmpty(createPostIds)) {
-            userPostMapper.insertBatch(convertList(createPostIds,
-                    postId -> new UserPostDO().setUserId(userId).setPostId(postId)));
+            if (!Boolean.TRUE.equals(userPostMapper.insertBatch(convertList(createPostIds,
+                    postId -> new UserPostDO().setUserId(userId).setPostId(postId))))) {
+                throw exception(USER_POST_WRITE_FAILED, userId, "新增岗位关联失败");
+            }
         }
         if (!CollectionUtil.isEmpty(deletePostIds)) {
-            userPostMapper.deleteByUserIdAndPostId(userId, deletePostIds);
+            if (userPostMapper.deleteByUserIdAndPostId(userId, deletePostIds) != deletePostIds.size()) {
+                throw exception(USER_POST_WRITE_FAILED, userId, "移除岗位关联行数异常");
+            }
         }
+    }
+
+    private static void validateEditUserId(Long id) {
+        if (id == null || id <= 0) {
+            throw exception(USER_EDIT_ID_INVALID);
+        }
+    }
+
+    private static void validatePostIds(Set<Long> postIds, boolean required) {
+        if (postIds == null) {
+            if (required) {
+                throw exception(USER_POST_IDS_REQUIRED);
+            }
+            return;
+        }
+        for (Object id : postIds) {
+            if (!(id instanceof Long value) || value <= 0) {
+                throw exception(USER_POST_IDS_INVALID);
+            }
+        }
+    }
+
+    private UserPostSnapshot lockAndValidateUserPosts(AdminUserDO user, Set<Long> targetPostIds) {
+        Long userId = user.getId();
+        // Set<Long> 的全局 handler 会丢失小数和重复 token 信息，须校验同一锁内的原始 JSON。
+        Set<Long> jsonPostIds = parseStoredPostIds(userId, userMapper.selectPostIdsForUpdate(
+                TenantContextHolder.getRequiredTenantId(), userId));
+        Set<Long> boundPostIds = new TreeSet<>();
+        for (UserPostDO binding : userPostMapper.selectListByUserIdForUpdate(userId)) {
+            if (!Objects.equals(binding.getUserId(), userId) || binding.getPostId() == null
+                    || binding.getPostId() <= 0 || !boundPostIds.add(binding.getPostId())) {
+                throw exception(USER_POST_BINDING_INCONSISTENT, userId, "有效关联编号非法或重复");
+            }
+        }
+        if (!jsonPostIds.equals(boundPostIds)) {
+            throw exception(USER_POST_BINDING_INCONSISTENT, userId, "JSON 岗位集合与有效关联不一致");
+        }
+        Set<Long> allPostIds = new TreeSet<>(boundPostIds);
+        allPostIds.addAll(targetPostIds);
+        Map<Long, PostDO> posts = convertMap(postMapper.selectListByIdsForUpdate(allPostIds), PostDO::getId);
+        // 包括将被移除的绑定：普通编辑不得顺带治理已删或跨租户的正式绑定。
+        List<PostDO> assignedPosts = new ArrayList<>();
+        for (Long postId : boundPostIds) {
+            PostDO post = posts.get(postId);
+            if (post == null) {
+                throw exception(USER_POST_BINDING_INCONSISTENT, userId, "既有岗位 " + postId + " 不存在于当前租户有效岗位中");
+            }
+            validatePostMetadata(userId, post);
+            assignedPosts.add(post);
+        }
+        for (Long postId : targetPostIds) {
+            if (boundPostIds.contains(postId)) {
+                continue;
+            }
+            PostDO post = posts.get(postId);
+            if (post == null) {
+                throw exception(POST_NOT_FOUND);
+            }
+            validatePostMetadata(userId, post);
+            if (!CommonStatusEnum.ENABLE.getStatus().equals(post.getStatus())) {
+                throw exception(POST_NOT_ENABLE, post.getName());
+            }
+        }
+        return new UserPostSnapshot(boundPostIds, assignedPosts);
+    }
+
+    private AdminUserDO lockUserForPostEdit(Long userId) {
+        try {
+            return lockUserForSessionMutation(TenantContextHolder.getRequiredTenantId(), userId);
+        } catch (RuntimeException failure) {
+            boolean postIdsMappingFailure = false;
+            boolean jsonFailure = false;
+            for (Throwable cause = failure; cause != null; cause = cause.getCause()) {
+                postIdsMappingFailure |= cause instanceof ResultMapException && cause.getMessage() != null
+                        && cause.getMessage().contains("column 'post_ids'");
+                jsonFailure |= cause instanceof JsonProcessingException;
+            }
+            // 只归类明确的岗位列 JSON 映射错误，其他数据库/权限/事务异常保持原样。
+            if (postIdsMappingFailure && jsonFailure) {
+                ServiceException integrity = exception(USER_POST_BINDING_INCONSISTENT, userId, "JSON 岗位列无法解析");
+                integrity.initCause(failure);
+                throw integrity;
+            }
+            throw failure;
+        }
+    }
+
+    private static Set<Long> parseStoredPostIds(Long userId, String rawPostIds) {
+        // CREATE/注册既有合法未绑定表示；只有与空有效关联精确相等时才能通过后续校验。
+        if (rawPostIds == null) {
+            return Collections.emptySet();
+        }
+        Set<Long> ids = new TreeSet<>();
+        try (JsonParser parser = new JsonFactory().createParser(rawPostIds)) {
+            if (parser.nextToken() != JsonToken.START_ARRAY) {
+                throw exception(USER_POST_BINDING_INCONSISTENT, userId, "JSON 岗位集合必须为数组");
+            }
+            while (parser.nextToken() != JsonToken.END_ARRAY) {
+                JsonToken token = parser.currentToken();
+                if (token != JsonToken.VALUE_NUMBER_INT && token != JsonToken.VALUE_STRING
+                        || !parser.getText().matches("[1-9][0-9]*")) {
+                    throw exception(USER_POST_BINDING_INCONSISTENT, userId, "JSON 岗位编号非法");
+                }
+                if (!ids.add(Long.parseLong(parser.getText()))) {
+                    throw exception(USER_POST_BINDING_INCONSISTENT, userId, "JSON 岗位编号重复");
+                }
+            }
+            if (parser.nextToken() != null) {
+                throw exception(USER_POST_BINDING_INCONSISTENT, userId, "JSON 岗位集合有多余内容");
+            }
+            return ids;
+        } catch (IOException | NumberFormatException failure) {
+            ServiceException integrity = exception(USER_POST_BINDING_INCONSISTENT, userId, "JSON 岗位编号非法或超出 Long 范围");
+            integrity.initCause(failure);
+            throw integrity;
+        }
+    }
+
+    private static void validatePostMetadata(Long userId, PostDO post) {
+        if (StrUtil.isBlank(post.getName()) || (!CommonStatusEnum.ENABLE.getStatus().equals(post.getStatus())
+                && !CommonStatusEnum.DISABLE.getStatus().equals(post.getStatus()))) {
+            throw exception(USER_POST_BINDING_INCONSISTENT, userId, "岗位 " + post.getId() + " 名称或状态非法");
+        }
+    }
+
+    private record UserPostSnapshot(Set<Long> postIds, List<PostDO> assignedPosts) {
     }
 
     @Override
@@ -227,8 +397,9 @@ public class AdminUserServiceImpl implements AdminUserService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void recordUserLoginFailure(Long id) {
-        AdminUserDO user = validateUserExists(id);
+        AdminUserDO user = lockSignatureIdentity(id);
         LocalDateTime now = LocalDateTime.now();
         LocalDateTime windowStartTime = user.getLoginFailureWindowStartTime();
         int failureCount = Optional.ofNullable(user.getLoginFailureCount()).orElse(0);
@@ -249,8 +420,9 @@ public class AdminUserServiceImpl implements AdminUserService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void resetUserLoginFailure(Long id) {
-        validateUserExists(id);
+        lockSignatureIdentity(id);
         userMapper.update(null, Wrappers.lambdaUpdate(AdminUserDO.class)
                 .eq(AdminUserDO::getId, id)
                 .set(AdminUserDO::getLoginFailureCount, 0)
@@ -260,13 +432,14 @@ public class AdminUserServiceImpl implements AdminUserService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     @LogRecord(type = SYSTEM_USER_TYPE, subType = SYSTEM_USER_UNLOCK_SUB_TYPE, bizNo = "{{#id}}",
             success = SYSTEM_USER_UNLOCK_SUCCESS)
     public void resetUserLoginFailure(Long id, String reason) {
         if (StrUtil.isBlank(reason)) {
             throw exception(USER_UNLOCK_REASON_REQUIRED);
         }
-        AdminUserDO user = validateUserExists(id);
+        AdminUserDO user = lockSignatureIdentity(id);
         resetUserLoginFailure(id);
         LogRecordContext.putVariable("user", user);
     }
@@ -299,7 +472,8 @@ public class AdminUserServiceImpl implements AdminUserService {
                 || Objects.equals(user.getPasswordCredentialStatus(), "RESET_REQUIRED")) {
             throw exception(ESIGN_CREDENTIAL_CHANGE_REQUIRED);
         }
-        if (AdminUserPasswordPolicy.isExpired(user.getPasswordUpdateTime(), LocalDateTime.now())) {
+        if (AdminUserPasswordPolicy.isExpired(user.getPasswordUpdateTime(), LocalDateTime.now(),
+                configApi.getConfigValueByKey(PasswordMaxAgeConfig.KEY))) {
             throw exception(ESIGN_CREDENTIAL_EXPIRED);
         }
         resetUserLoginFailure(id);
@@ -307,23 +481,32 @@ public class AdminUserServiceImpl implements AdminUserService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void updateUserProfile(Long id, UserProfileUpdateReqVO reqVO) {
+        lockSignatureIdentity(id);
         // 校验正确性
         validateUserExists(id);
         validateEmailUnique(id, reqVO.getEmail());
         validateMobileUnique(id, reqVO.getMobile());
         // 执行更新
-        userMapper.updateById(BeanUtils.toBean(reqVO, AdminUserDO.class).setId(id));
+        if (userMapper.update(new AdminUserDO(), Wrappers.<AdminUserDO>lambdaUpdate()
+                .eq(AdminUserDO::getId, id)
+                .set(reqVO.getNickname() != null, AdminUserDO::getNickname, reqVO.getNickname())
+                .set(reqVO.getEmail() != null, AdminUserDO::getEmail, reqVO.getEmail())
+                .set(reqVO.getMobile() != null, AdminUserDO::getMobile, reqVO.getMobile())
+                .set(reqVO.getSex() != null, AdminUserDO::getSex, reqVO.getSex())
+                .set(reqVO.getAvatar() != null, AdminUserDO::getAvatar, reqVO.getAvatar())) != 1) {
+            throw new IllegalStateException("SIGNATURE_USER_PROFILE_UPDATE_ROW_COUNT");
+        }
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void updateUserPassword(Long id, UserProfileUpdatePasswordReqVO reqVO) {
-        AdminUserDO user = userMapper.selectByIdForUpdate(id);
-        if (user == null) {
-            throw exception(USER_NOT_EXISTS);
+        AdminUserDO user = lockUserForSessionMutation(TenantContextHolder.getRequiredTenantId(), id);
+        if (!isPasswordMatch(reqVO.getOldPassword(), user.getPassword())) {
+            throw exception(USER_PASSWORD_FAILED);
         }
-        validateOldPassword(user, reqVO.getOldPassword());
         validatePasswordStrength(reqVO.getNewPassword());
         validatePasswordNotReused(user, reqVO.getNewPassword());
         // 执行更新
@@ -332,17 +515,18 @@ public class AdminUserServiceImpl implements AdminUserService {
         updateObj.setPassword(encodePassword(reqVO.getNewPassword())); // 加密密码
         updateObj.setPasswordUpdateTime(LocalDateTime.now());
         updateObj.setPasswordCredentialStatus("ACTIVE");
-        userMapper.updateById(updateObj);
+        if (userMapper.updateById(updateObj) != 1) throw new IllegalStateException("SIGNATURE_PASSWORD_UPDATE_ROW_COUNT");
+        oauth2TokenService.removeAccessToken(id, UserTypeEnum.ADMIN.getValue());
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     @LogRecord(type = SYSTEM_USER_TYPE, subType = SYSTEM_USER_UPDATE_PASSWORD_SUB_TYPE, bizNo = "{{#id}}",
             success = SYSTEM_USER_UPDATE_PASSWORD_SUCCESS)
     public void updateUserPassword(Long id, String password) {
         // 1. 校验用户存在
-        AdminUserDO user = validateUserExists(id);
+        AdminUserDO user = lockUserForSessionMutation(TenantContextHolder.getRequiredTenantId(), id);
         validatePasswordStrength(password);
-        validatePasswordNotReused(user, password);
 
         // 2. 更新密码
         AdminUserDO updateObj = new AdminUserDO();
@@ -351,17 +535,19 @@ public class AdminUserServiceImpl implements AdminUserService {
         updateObj.setPassword(encodePassword(password)); // 加密密码
         updateObj.setPasswordUpdateTime(LocalDateTime.now());
         updateObj.setPasswordCredentialStatus("RESET_REQUIRED");
-        userMapper.updateById(updateObj);
+        if (userMapper.updateById(updateObj) != 1) throw new IllegalStateException("SIGNATURE_PASSWORD_UPDATE_ROW_COUNT");
+        oauth2TokenService.removeAccessToken(id, UserTypeEnum.ADMIN.getValue());
 
         // 3. 记录操作日志上下文
-        LogRecordContext.putVariable("user", user);
-        LogRecordContext.putVariable("newPassword", updateObj.getPassword());
+        LogRecordContext.putVariable("targetNickname", user.getNickname());
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void updateUserStatus(Long id, Integer status) {
         // 校验用户存在
-        AdminUserDO user = validateUserExists(id);
+        AdminUserDO user = lockUserForSessionMutation(TenantContextHolder.getRequiredTenantId(), id);
+        var authority = approvalAuthority.lockTenantApprovalAuthority(TenantContextHolder.getRequiredTenantId());
         if (CommonStatusEnum.isEnable(status) && user.getLifecycleDeactivatedTime() != null) {
             throw exception(USER_LIFECYCLE_DEACTIVATED_ENABLE_FORBIDDEN, user.getLifecycleDocumentNo());
         }
@@ -369,10 +555,13 @@ public class AdminUserServiceImpl implements AdminUserService {
         AdminUserDO updateObj = new AdminUserDO();
         updateObj.setId(id);
         updateObj.setStatus(status);
-        userMapper.updateById(updateObj);
+        if (userMapper.updateById(updateObj) != 1) throw new IllegalStateException("APPROVAL_USER_UPDATE_ROW_COUNT");
+
+        approvalAuthority.incrementLockedAuthorityRevision(authority.tenantId(), authority.revision());
 
         // 如果是禁用用户，则删除其 Token 信息
         if (CommonStatusEnum.isDisable(status)) {
+            supervisorService.releaseAssignments(List.of(id), "账号停用");
             oauth2TokenService.removeAccessToken(id, UserTypeEnum.ADMIN.getValue());
         }
     }
@@ -380,7 +569,8 @@ public class AdminUserServiceImpl implements AdminUserService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void recordUserLifecycleDeactivation(UserLifecycleDeactivateReqVO reqVO) {
-        AdminUserDO user = validateUserExists(reqVO.getId());
+        AdminUserDO user = lockUserForSessionMutation(TenantContextHolder.getRequiredTenantId(), reqVO.getId());
+        var authority = approvalAuthority.lockTenantApprovalAuthority(TenantContextHolder.getRequiredTenantId());
         if (user.getLifecycleDeactivatedTime() != null) {
             throw exception(USER_LIFECYCLE_ALREADY_DEACTIVATED, user.getLifecycleDocumentNo());
         }
@@ -401,7 +591,9 @@ public class AdminUserServiceImpl implements AdminUserService {
         if (due) {
             updateWrapper.set(AdminUserDO::getStatus, CommonStatusEnum.DISABLE.getStatus());
         }
-        userMapper.update(null, updateWrapper);
+        if (userMapper.update(null, updateWrapper) != 1) throw new IllegalStateException("USER_LIFECYCLE_UPDATE_ROW_COUNT");
+        if (due) supervisorService.releaseAssignments(List.of(user.getId()), "离职/转岗生效：" + documentNo);
+        approvalAuthority.incrementLockedAuthorityRevision(authority.tenantId(), authority.revision());
         if (due && !CommonStatusEnum.isDisable(user.getStatus())) {
             oauth2TokenService.removeAccessToken(user.getId(), UserTypeEnum.ADMIN.getValue());
         }
@@ -416,14 +608,44 @@ public class AdminUserServiceImpl implements AdminUserService {
         if (limit <= 0) {
             throw exception(USER_LIFECYCLE_PROCESS_LIMIT_INVALID);
         }
-        List<AdminUserDO> users = userMapper.selectListByPendingLifecycleDeactivation(now, limit);
+        List<AdminUserDO> users = userMapper.selectListByPendingLifecycleDeactivation(now, limit).stream()
+                .sorted(Comparator.comparing(AdminUserDO::getId)).map(user -> lockSignatureIdentity(user.getId())).toList();
+        if (users.isEmpty()) return 0;
+        var authority = approvalAuthority.lockTenantApprovalAuthority(TenantContextHolder.getRequiredTenantId());
         int processedCount = 0;
         for (AdminUserDO user : users) {
+            if (user.getLifecycleDeactivatedTime() != null
+                    || user.getLifecycleDocumentType() == null || user.getLifecycleDocumentNo() == null
+                    || user.getLifecycleEffectiveTime() == null || user.getLifecycleEffectiveTime().isAfter(now)) {
+                continue;
+            }
             if (applyLifecycleDeactivation(user)) {
                 processedCount++;
             }
         }
+        if (processedCount > 0) {
+            approvalAuthority.incrementLockedAuthorityRevision(authority.tenantId(), authority.revision());
+        }
         return processedCount;
+    }
+
+    @Override
+    public AdminUserDO lockUserForSessionMutation(Long tenantId, Long userId) {
+        if (!TransactionSynchronizationManager.isActualTransactionActive()
+                || TransactionSynchronizationManager.isCurrentTransactionReadOnly()) {
+            throw new IllegalStateException("User session mutation requires an existing writable Spring transaction");
+        }
+        if (tenantId == null || !Objects.equals(tenantId, TenantContextHolder.getTenantId())) {
+            throw new IllegalStateException("User session mutation requires a matching explicit tenant");
+        }
+        if (userId == null || userId <= 0) {
+            throw new IllegalArgumentException("User session mutation requires a positive user ID");
+        }
+        AdminUserDO user = userMapper.selectPermissionSubjectForUpdate(tenantId, userId);
+        if (user == null) {
+            throw exception(USER_NOT_EXISTS);
+        }
+        return user;
     }
 
     private boolean applyLifecycleDeactivation(AdminUserDO user) {
@@ -436,6 +658,7 @@ public class AdminUserServiceImpl implements AdminUserService {
         if (updatedCount <= 0) {
             return false;
         }
+        supervisorService.releaseAssignments(List.of(user.getId()), "离职/转岗定时生效：" + user.getLifecycleDocumentNo());
         if (!CommonStatusEnum.isDisable(user.getStatus())) {
             oauth2TokenService.removeAccessToken(user.getId(), UserTypeEnum.ADMIN.getValue());
         }
@@ -448,14 +671,18 @@ public class AdminUserServiceImpl implements AdminUserService {
             success = SYSTEM_USER_DELETE_SUCCESS)
     public void deleteUser(Long id) {
         // 1. 校验用户存在
-        AdminUserDO user = validateUserExists(id);
+        AdminUserDO user = lockSignatureIdentity(id);
+        var authority = approvalAuthority.lockTenantApprovalAuthority(TenantContextHolder.getRequiredTenantId());
 
+        // 与删除账号同一事务解除所有主管配置，不转移已有审批。
+        supervisorService.releaseAssignments(List.of(id), "删除账号");
         // 2.1 删除用户
         userMapper.deleteById(id);
         // 2.2 删除用户关联数据
         permissionService.processUserDeleted(id);
         // 2.2 删除用户岗位
         userPostMapper.deleteByUserId(id);
+        approvalAuthority.incrementLockedAuthorityRevision(authority.tenantId(), authority.revision());
 
         // 3. 记录操作日志上下文
         LogRecordContext.putVariable("user", user);
@@ -467,6 +694,9 @@ public class AdminUserServiceImpl implements AdminUserService {
         if (CollUtil.isEmpty(ids)) {
             throw exception(USER_DELETE_LIST_IS_EMPTY);
         }
+        ids.stream().distinct().sorted().forEach(this::lockSignatureIdentity);
+        var authority = approvalAuthority.lockTenantApprovalAuthority(TenantContextHolder.getRequiredTenantId());
+        supervisorService.releaseAssignments(ids, "批量删除账号");
         // 1. 批量删除用户
         userMapper.deleteByIds(ids);
 
@@ -475,6 +705,7 @@ public class AdminUserServiceImpl implements AdminUserService {
             permissionService.processUserDeleted(id);
             userPostMapper.deleteByUserId(id);
         });
+        approvalAuthority.incrementLockedAuthorityRevision(authority.tenantId(), authority.revision());
     }
 
     @Override
@@ -516,6 +747,20 @@ public class AdminUserServiceImpl implements AdminUserService {
     @Override
     public AdminUserDO getUser(Long id) {
         return userMapper.selectById(id);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public UserEditRespVO getUserForUpdate(Long id) {
+        validateEditUserId(id);
+        AdminUserDO user = lockUserForPostEdit(id);
+        UserPostSnapshot snapshot = lockAndValidateUserPosts(user, Collections.emptySet());
+        UserEditRespVO response = UserConvert.INSTANCE.convertForUpdate(user, snapshot.assignedPosts());
+        DeptDO dept = deptService.getDept(user.getDeptId());
+        if (dept != null) {
+            response.setDeptName(dept.getName());
+        }
+        return response;
     }
 
     @Override
@@ -776,7 +1021,7 @@ public class AdminUserServiceImpl implements AdminUserService {
             throw exception(USER_PASSWORD_REUSE_FORBIDDEN);
         }
         List<AdminUserPasswordHistoryDO> historyList =
-                passwordHistoryMapper.selectLatestListByUserId(user.getId(), PASSWORD_HISTORY_REUSE_LIMIT);
+                passwordHistoryMapper.selectLatestListForUpdate(user.getTenantId(), user.getId(), PASSWORD_HISTORY_REUSE_LIMIT);
         for (AdminUserPasswordHistoryDO history : historyList) {
             if (isPasswordMatch(password, history.getPasswordHash())) {
                 throw exception(USER_PASSWORD_REUSE_FORBIDDEN);
@@ -837,6 +1082,12 @@ public class AdminUserServiceImpl implements AdminUserService {
         validatePasswordStrength(initPassword);
 
         // 2. 遍历，逐个创建 or 更新
+        importUsers.stream().map(row -> userMapper.selectByCanonicalUsernameIncludingDeleted(
+                        TenantContextHolder.getRequiredTenantId(), canonicalizeUsername(row.getUsername())))
+                .filter(Objects::nonNull).filter(row -> !Boolean.TRUE.equals(row.getDeleted()))
+                .map(AdminUserDO::getId).distinct().sorted().forEach(this::lockSignatureIdentity);
+        var authority = approvalAuthority.lockTenantApprovalAuthority(TenantContextHolder.getRequiredTenantId());
+        approvalAuthority.incrementLockedAuthorityRevision(authority.tenantId(), authority.revision());
         UserImportRespVO respVO = UserImportRespVO.builder().createUsernames(new ArrayList<>())
                 .updateUsernames(new ArrayList<>()).failureUsernames(new LinkedHashMap<>()).build();
         AtomicInteger index = new AtomicInteger(1);
@@ -885,7 +1136,11 @@ public class AdminUserServiceImpl implements AdminUserService {
             AdminUserDO updateUser = BeanUtils.toBean(importUser, AdminUserDO.class);
             updateUser.setId(existUser.getId());
             updateUser.setCanonicalUsername(canonicalizeUsername(importUser.getUsername()));
-            userMapper.updateById(updateUser);
+            if (userMapper.updateById(updateUser) != 1) throw new IllegalStateException("USER_IMPORT_UPDATE_ROW_COUNT");
+            if (CommonStatusEnum.isDisable(updateUser.getStatus())) {
+                supervisorService.releaseAssignments(List.of(updateUser.getId()), "导入更新停用账号");
+                oauth2TokenService.removeAccessToken(updateUser.getId(), UserTypeEnum.ADMIN.getValue());
+            }
             respVO.getUpdateUsernames().add(importUser.getUsername());
         });
         return respVO;
@@ -902,6 +1157,8 @@ public class AdminUserServiceImpl implements AdminUserService {
             throw exception(USER_IMPORT_INIT_PASSWORD);
         }
         validatePasswordStrength(initPassword);
+        var authority = approvalAuthority.lockTenantApprovalAuthority(TenantContextHolder.getRequiredTenantId());
+        approvalAuthority.incrementLockedAuthorityRevision(authority.tenantId(), authority.revision());
 
         UserDingTalkImportRespVO respVO = UserDingTalkImportRespVO.builder()
                 .createUsernames(new ArrayList<>())
@@ -1017,7 +1274,9 @@ public class AdminUserServiceImpl implements AdminUserService {
             DeptDO updateObj = new DeptDO();
             updateObj.setId(dept.getId());
             updateObj.setLeaderUserId(leaderUser.getId());
-            deptMapper.updateById(updateObj);
+            supervisorService.validateSupervisor(leaderUser.getId());
+            if (deptMapper.updateById(updateObj) != 1) throw new IllegalStateException("DEPT_IMPORT_SUPERVISOR_ROW_COUNT");
+            supervisorService.recordChange(dept, leaderUser.getId(), "钉钉导入设置主管");
             respVO.getLeaderAssignedDeptPaths().put(deptPath, leaderUser.getUsername());
         }
         return respVO;

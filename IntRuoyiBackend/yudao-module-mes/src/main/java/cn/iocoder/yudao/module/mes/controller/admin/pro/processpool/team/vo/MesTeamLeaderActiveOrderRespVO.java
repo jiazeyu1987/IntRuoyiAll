@@ -15,6 +15,11 @@ import java.util.List;
 @Accessors(chain = true)
 public class MesTeamLeaderActiveOrderRespVO {
 
+    /** 当前记录数据不可用于业务操作；保留身份和诊断供处理。 */
+    private Boolean readBlocked;
+    private String readBlockReason;
+
+
     @Schema(description = "活跃订单记录编号", example = "8101")
     private Long id;
 

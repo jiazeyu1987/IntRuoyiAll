@@ -122,7 +122,7 @@
               <template #default="{ row }">
                 <div>评审材料：{{ row.reviewMaterialUrl || '--' }}</div>
                 <div class="edhr-domain-trace-detail__muted">评审意见：{{ row.reviewOpinion || '--' }}</div>
-                <div class="edhr-domain-trace-detail__muted">QA签名：{{ row.qaSignature || '--' }}</div>
+                <div class="edhr-domain-trace-detail__muted">电子签名：{{ row.qaSignature || '--' }}</div>
               </template>
             </el-table-column>
             <el-table-column label="时间" min-width="220">

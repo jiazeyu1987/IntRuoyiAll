@@ -23,6 +23,10 @@ public class FormActionInstance {
     private FormInstanceStatus status = FormInstanceStatus.DRAFT;
     private FormBpmBinding bpmBinding;
     private Map<String, Object> formData = Map.of();
+    private FormActionExecutionContext executionContext;
+
+    public FormActionExecutionContext getExecutionContext() { return executionContext; }
+    public void setExecutionContext(FormActionExecutionContext executionContext) { this.executionContext = executionContext; }
 
     public FormActionInstance(String instanceCode, FormActionResolution resolution,
             BusinessActionContext businessContext, Long applicantUserId, String idempotencyKey) {

@@ -2083,6 +2083,7 @@ class ShowroomHttpApiIntegrationTest extends BaseDbUnitTest {
             publicityViewer = new cn.iocoder.yudao.module.system.dal.dataobject.user.AdminUserDO();
             publicityViewer.setId(500L);
             publicityViewer.setUsername("showroom-unrelated");
+            publicityViewer.setCanonicalUsername("showroom-unrelated");
             publicityViewer.setPassword("pwd");
             publicityViewer.setNickname("无关用户");
             publicityViewer.setStatus(ENABLE.getStatus());
@@ -2577,6 +2578,7 @@ class ShowroomHttpApiIntegrationTest extends BaseDbUnitTest {
         var otherLeader = new cn.iocoder.yudao.module.system.dal.dataobject.user.AdminUserDO();
         otherLeader.setId(201L);
         otherLeader.setUsername("other-leader");
+        otherLeader.setCanonicalUsername("other-leader");
         otherLeader.setPassword("pwd");
         otherLeader.setNickname("其他部门负责人");
         otherLeader.setDeptId(11L);
@@ -2587,6 +2589,7 @@ class ShowroomHttpApiIntegrationTest extends BaseDbUnitTest {
         var otherAssignee = new cn.iocoder.yudao.module.system.dal.dataobject.user.AdminUserDO();
         otherAssignee.setId(701L);
         otherAssignee.setUsername("other-editor");
+        otherAssignee.setCanonicalUsername("other-editor");
         otherAssignee.setPassword("pwd");
         otherAssignee.setNickname("其他编辑");
         otherAssignee.setDeptId(11L);
@@ -3990,6 +3993,7 @@ class ShowroomHttpApiIntegrationTest extends BaseDbUnitTest {
         var leader = new cn.iocoder.yudao.module.system.dal.dataobject.user.AdminUserDO();
         leader.setId(200L);
         leader.setUsername("leader");
+        leader.setCanonicalUsername("leader");
         leader.setPassword("pwd");
         leader.setNickname("部门负责人");
         leader.setDeptId(10L);
@@ -4000,6 +4004,7 @@ class ShowroomHttpApiIntegrationTest extends BaseDbUnitTest {
         var assignee = new cn.iocoder.yudao.module.system.dal.dataobject.user.AdminUserDO();
         assignee.setId(700L);
         assignee.setUsername("editor");
+        assignee.setCanonicalUsername("editor");
         assignee.setPassword("pwd");
         assignee.setNickname("编辑");
         assignee.setDeptId(10L);
@@ -4044,6 +4049,7 @@ class ShowroomHttpApiIntegrationTest extends BaseDbUnitTest {
             user = new cn.iocoder.yudao.module.system.dal.dataobject.user.AdminUserDO();
             user.setId(userId);
             user.setUsername("publicity-" + userId);
+            user.setCanonicalUsername("publicity-" + userId);
             user.setPassword("pwd");
             user.setNickname("企宣审批人");
             user.setDeptId(20L);

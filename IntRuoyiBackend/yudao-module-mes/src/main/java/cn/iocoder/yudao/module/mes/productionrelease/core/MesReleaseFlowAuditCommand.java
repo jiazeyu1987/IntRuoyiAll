@@ -15,9 +15,11 @@ public class MesReleaseFlowAuditCommand {
     private String idempotencyKey;
     private Long tenantId;
     private Long applicationId;
+    private Long activeOrderId;
     private Long workTaskId;
     private Long batchExecutionId;
     private Long releaseTransactionId;
+    private Long signatureId;
     private String fromStatus;
     private String toStatus;
     private Integer version;

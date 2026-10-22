@@ -14,4 +14,6 @@ public interface RuntimeOpsCandidateService {
     RuntimeControlRollbackCandidateRespVO requireAvailableRollbackCandidate(String candidateId);
 
     RuntimeControlRestoreCandidateRespVO requireAvailableRestoreCandidate(String candidateId);
+
+    RuntimeControlRestoreCandidateRespVO requireAvailableRestoreCandidate(String candidateId, String candidateType);
 }

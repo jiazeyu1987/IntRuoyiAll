@@ -12,6 +12,8 @@ class MesReleaseFinalizationRequestContractTest {
 
     @Test
     void clientReceiptPayloadsAreIgnoredAndOwnerPortRemainsAuthoritative() throws Exception {
+        assertJsonIgnored(MesReleaseFinalizationCommand.class, "approvalContentPolicyVersion");
+        assertJsonIgnored(MesReleaseFinalizationCommand.class, "signedDossierManifestJson");
         assertJsonIgnored(MesReleaseFinalizationCommand.class, "independentPrerequisiteReceipt");
         assertJsonIgnored(MesReleaseFinalizationCommand.class, "materialGateReceipt");
         assertJsonIgnored(MesProEdhrReleaseApproveReqVO.class, "independentPrerequisiteReceipt");

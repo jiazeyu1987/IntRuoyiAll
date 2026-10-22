@@ -40,6 +40,11 @@ public class MesReleaseFinalizationCommand {
     private Integer expectedVersion;
     private String signoffEvidenceHash;
     private String signoffSubjectId;
+    /** Server-created formal market-release signature identity. */
+    @JsonIgnore
+    private Long signatureId;
+    @JsonIgnore private String approvalContentPolicyVersion;
+    @JsonIgnore private String signedDossierManifestJson;
     private String approvalOpinion;
     private String decisionReason;
     /** HTTP callers may submit only receipt identifiers; authoritative payloads come from the owner port. */
@@ -48,6 +53,16 @@ public class MesReleaseFinalizationCommand {
 
     @JsonIgnore
     private MesReleaseMaterialGateReceipt materialGateReceipt;
+
+    /**
+     * Only the server-created manager signature path may disable the material-upload gate.
+     * HTTP finalization callers cannot set this field because it is ignored by Jackson.
+     */
+    @JsonIgnore
+    private boolean materialGateRequired = true;
+
+    @JsonIgnore
+    private boolean passwordReauthenticated;
 
     public boolean isIndependentOrigin() {
         return origin == MesReleaseOrigin.MANUAL

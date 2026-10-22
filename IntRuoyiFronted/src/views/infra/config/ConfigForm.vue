@@ -14,11 +14,32 @@
         <el-input v-model="formData.name" placeholder="请输入参数名称" />
       </el-form-item>
       <el-form-item label="参数键名" prop="key">
-        <el-input v-model="formData.key" placeholder="请输入参数键名" />
+        <el-input
+          v-model="formData.key"
+          :disabled="passwordMaxAgeKeyLocked"
+          placeholder="请输入参数键名"
+        />
       </el-form-item>
-      <el-form-item label="参数键值" prop="value">
-        <el-input v-model="formData.value" placeholder="请输入参数键值" />
+      <el-form-item :label="isPasswordMaxAge ? '有效期' : '参数键值'" prop="value">
+        <el-input
+          v-if="isPasswordMaxAge"
+          v-model="formData.value"
+          placeholder="请输入正整数天数"
+          inputmode="numeric"
+        >
+          <template #append>天</template>
+        </el-input>
+        <el-input v-else v-model="formData.value" placeholder="请输入参数键值" />
       </el-form-item>
+      <el-alert
+        v-if="isPasswordMaxAge"
+        class="mb-4"
+        title="适用于所有租户的系统账号"
+        description="从上次修改密码的时间计算，保存后在后续登录和系统账号电子签名校验时生效。缩短有效期可能使部分账号立即过期；首次或重置后的改密要求仍然保留。"
+        type="warning"
+        :closable="false"
+        show-icon
+      />
       <el-form-item label="是否可见" prop="visible">
         <el-radio-group v-model="formData.visible">
           <el-radio
@@ -53,6 +74,8 @@ const dialogVisible = ref(false) // 弹窗的是否展示
 const dialogTitle = ref('') // 弹窗的标题
 const formLoading = ref(false) // 表单的加载中：1）修改时的数据加载；2）提交的按钮禁用
 const formType = ref('') // 表单的类型：create - 新增；update - 修改
+const PASSWORD_MAX_AGE_KEY = 'system.user.password-max-age-days'
+const passwordMaxAgeKeyLocked = ref(false)
 const formData = ref({
   id: undefined,
   category: '',
@@ -62,11 +85,27 @@ const formData = ref({
   visible: true,
   remark: ''
 })
+const isPasswordMaxAge = computed(() => formData.value.key === PASSWORD_MAX_AGE_KEY)
 const formRules = reactive({
   category: [{ required: true, message: '参数分类不能为空', trigger: 'blur' }],
   name: [{ required: true, message: '参数名称不能为空', trigger: 'blur' }],
   key: [{ required: true, message: '参数键名不能为空', trigger: 'blur' }],
-  value: [{ required: true, message: '参数键值不能为空', trigger: 'blur' }],
+  value: [
+    { required: true, message: '参数键值不能为空', trigger: 'blur' },
+    {
+      validator: (_rule: unknown, value: string, callback: (error?: Error) => void) => {
+        if (
+          isPasswordMaxAge.value &&
+          (!/^[1-9][0-9]{0,9}$/.test(value) || value.trim() !== value || Number(value) > 2147483647)
+        ) {
+          callback(new Error('请输入正整数天数，且不能超过 2147483647 天'))
+          return
+        }
+        callback()
+      },
+      trigger: 'blur'
+    }
+  ],
   visible: [{ required: true, message: '是否可见不能为空', trigger: 'blur' }]
 })
 const formRef = ref() // 表单 Ref
@@ -82,6 +121,7 @@ const open = async (type: string, id?: number) => {
     formLoading.value = true
     try {
       formData.value = await ConfigApi.getConfig(id)
+      passwordMaxAgeKeyLocked.value = formData.value.key === PASSWORD_MAX_AGE_KEY
     } finally {
       formLoading.value = false
     }
@@ -117,6 +157,7 @@ const submitForm = async () => {
 
 /** 重置表单 */
 const resetForm = () => {
+  passwordMaxAgeKeyLocked.value = false
   formData.value = {
     id: undefined,
     category: '',

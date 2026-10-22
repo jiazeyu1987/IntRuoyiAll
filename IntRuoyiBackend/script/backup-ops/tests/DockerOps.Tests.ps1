@@ -35,3 +35,12 @@ Describe 'Wait-BackupOpsRemoteHttpOk' {
         }
     }
 }
+
+Describe 'Ensure-BackupOpsRehearsalImageAvailable' {
+    It 'normalizes a literal escaped newline returned by the remote probe' {
+        $source = Get-Content -Raw -Encoding utf8 (Join-Path $PSScriptRoot '..\scripts\modules\Infra\DockerOps.psm1')
+
+        $source | Should Match '\$probeStatus = .*Trim\(\).*replace'
+        $source | Should Match '\\\\\[rn\]'
+    }
+}

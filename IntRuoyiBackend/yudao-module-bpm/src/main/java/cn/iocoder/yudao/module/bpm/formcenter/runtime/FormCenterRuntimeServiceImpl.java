@@ -671,17 +671,37 @@ public class FormCenterRuntimeServiceImpl implements FormCenterRuntimeService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public FormInstanceRespVO submitInstance(Long instanceId, FormInstanceSubmitReqVO reqVO, Long userId) {
+        return submitWithContext(instanceId, reqVO, FormActionExecutionContext.manual(userId));
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public FormInstanceRespVO submitVerifiedBackfillInstance(Long instanceId, FormInstanceSubmitReqVO reqVO,
+            Long actorUserId, String expectedExecutorCode, String evidenceHash) {
+        return submitWithContext(instanceId, reqVO,
+                FormActionExecutionContext.verifiedBackfill(actorUserId, expectedExecutorCode, evidenceHash));
+    }
+
+    private FormInstanceRespVO submitWithContext(Long instanceId, FormInstanceSubmitReqVO reqVO,
+                                                FormActionExecutionContext executionContext) {
+        Long userId = executionContext.getActorUserId();
         FormActionInstanceDO instance = requireInstance(instanceId);
         requireStatus(instance, FormInstanceStatus.DRAFT, FormInstanceStatus.REWORKING);
         BusinessApprovalPolicyDO policy = requireBusinessApprovalPolicy(instance.getPolicyId());
         FormActionPolicy resolvedPolicy = toPolicy(policy);
         FormApprovalMode approvalMode = resolvedPolicy.getApprovalMode();
+        if (executionContext.getKind() == FormActionExecutionContext.Kind.VERIFIED_BACKFILL
+                && (approvalMode != FormApprovalMode.DIRECT
+                || !Objects.equals(executionContext.getExpectedExecutorCode(), resolvedPolicy.getEffectExecutorCode()))) {
+            throw new IllegalArgumentException("Verified backfill must match its DIRECT business effect executor");
+        }
         if (approvalMode == FormApprovalMode.BPM_REQUIRED
                 && (resolvedPolicy.getBpmProcessKey() == null || resolvedPolicy.getBpmProcessKey().isBlank())) {
             throw new FormCenterException(FormCenterErrorCode.BPM_BINDING_MISSING,
                     "BPM process key is required before form action submit");
         }
         FormActionInstance domainInstance = toDomainInstance(instance, resolvedPolicy);
+        domainInstance.setExecutionContext(executionContext);
         domainInstance.setFormData(reqVO.getFormData());
         FormControlledActionLifecycleAdapter lifecycleAdapter = requireLifecycleAdapter(domainInstance);
         cn.iocoder.yudao.module.bpm.formcenter.service.FormExactBpmSubmissionAdapter.VerifiedSubmission exactSubmission = null;
@@ -743,7 +763,7 @@ public class FormCenterRuntimeServiceImpl implements FormCenterRuntimeService {
             instance.setFormDataJson(JsonUtils.toJsonString(reqVO.getFormData()));
             actionInstanceMapper.updateById(instance);
             recordSnapshot(instance, FormSnapshotType.SUBMIT, instance.getFormDataJson());
-            FormEffectExecutionRespVO response = applyBusinessEffect(instance, resolvedPolicy);
+            FormEffectExecutionRespVO response = applyBusinessEffect(instance, resolvedPolicy, executionContext);
             FormControlledActionApprovalOutcome outcome = FormEffectStatus.APPLIED.name().equals(response.getStatus())
                     ? FormControlledActionApprovalOutcome.EFFECTIVE
                     : FormControlledActionApprovalOutcome.EFFECT_FAILED_PENDING;
@@ -759,7 +779,7 @@ public class FormCenterRuntimeServiceImpl implements FormCenterRuntimeService {
             instance.setStatus(FormInstanceStatus.IN_APPROVAL.name());
             if (exactSubmission == null) instance.setFormDataJson(JsonUtils.toJsonString(reqVO.getFormData()));
             instance.setBpmProcessInstanceId(processInstanceId);
-            actionInstanceMapper.updateById(instance);
+            if (actionInstanceMapper.updateById(instance) != 1) throw new IllegalStateException("APPROVAL_FORMAL_SOURCE_ATTACHMENT_FAILED");
             recordSnapshot(instance, FormSnapshotType.SUBMIT, instance.getFormDataJson());
             persistCurrentActiveTaskPermissions(instance);
             domainInstance.setStatus(FormInstanceStatus.IN_APPROVAL);
@@ -1145,6 +1165,7 @@ public class FormCenterRuntimeServiceImpl implements FormCenterRuntimeService {
         BpmProcessInstanceCreateReqDTO reqDTO = new BpmProcessInstanceCreateReqDTO();
         reqDTO.setProcessDefinitionKey(policy.getBpmProcessKey());
         reqDTO.setBusinessKey(BUSINESS_KEY_PREFIX + instance.getInstanceCode());
+        reqDTO.setApprovalAuthority(new cn.iocoder.yudao.module.bpm.api.task.dto.ApprovalProcessAuthorityDTO(cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId(),"NATIVE_FORM","FORM_ACTION",instance.getId().toString(),instance.getObjectVersion(),"FORM_ACTION_SUBMIT",reqDTO.getBusinessKey()));
         Map<String, Object> variables = new LinkedHashMap<>();
         variables.put("formInstanceId", instance.getId());
         variables.put("objectId", instance.getObjectId());
@@ -1568,6 +1589,11 @@ public class FormCenterRuntimeServiceImpl implements FormCenterRuntimeService {
     }
 
     private FormEffectExecutionRespVO applyBusinessEffect(FormActionInstanceDO instance, FormActionPolicy policy) {
+        return applyBusinessEffect(instance, policy, null);
+    }
+
+    private FormEffectExecutionRespVO applyBusinessEffect(FormActionInstanceDO instance, FormActionPolicy policy,
+                                                          FormActionExecutionContext executionContext) {
         FormEffectExecutionDO existingExecution = effectExecutionMapper.selectByInstanceIdAndIdempotencyKey(
                 instance.getTenantId(), instance.getId(), instance.getIdempotencyKey());
         if (existingExecution != null && FormEffectStatus.APPLIED.name().equals(existingExecution.getStatus())) {
@@ -1577,7 +1603,9 @@ public class FormCenterRuntimeServiceImpl implements FormCenterRuntimeService {
         }
 
         FormBusinessEffectExecutor executor = requireEffectExecutor(policy.getEffectExecutorCode());
-        FormBusinessEffectResult result = executor.execute(toDomainInstance(instance, policy), instance.getIdempotencyKey());
+        FormActionInstance domain = toDomainInstance(instance, policy);
+        domain.setExecutionContext(executionContext);
+        FormBusinessEffectResult result = executor.execute(domain, instance.getIdempotencyKey());
 
         FormEffectExecutionDO execution = existingExecution == null ? FormEffectExecutionDO.builder()
                 .tenantId(instance.getTenantId())

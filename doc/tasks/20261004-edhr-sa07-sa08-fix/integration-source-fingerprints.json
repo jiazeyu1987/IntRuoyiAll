@@ -1,0 +1,140 @@
+{
+  "baseline": "d3f1793c8831cc4d070b786553e3a2c002e17ca9",
+  "branch": "codex/edhr-sa07-sa08-fix",
+  "encoding": "UTF-8 without BOM, LF",
+  "files": [
+    {
+      "path": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProEdhrReleaseServiceImpl.java",
+      "category": "production",
+      "bytes": 151258,
+      "sha256_utf8_lf": "6CFF903558045ECC6E773E4A74DA0DDA65368E6502A1ABF71EB47683E51E453B"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesActiveOrderSignatureEvidenceService.java",
+      "category": "production",
+      "bytes": 33373,
+      "sha256_utf8_lf": "CFA3C2E68A66B4FB6035A406DDE7EBB80E95DD2BC7F1AB5DF70B9D91AC67CC8D"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesProductionSubmissionReadBinding.java",
+      "category": "production",
+      "bytes": 5595,
+      "sha256_utf8_lf": "219B6D781F5954F421A1CEF57F34AC73D168E05DD37B0CD479E10E65FC2E6F8C"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesSubmissionSignatureIdentityReader.java",
+      "category": "production",
+      "bytes": 9657,
+      "sha256_utf8_lf": "6CD424B5E8ACB938337C4995D336F8846E3DD0D3D84762FA105097197DA6D91E"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/productionrelease/manager/MesProductionReleaseManagerApprovalServiceImpl.java",
+      "category": "production",
+      "bytes": 34954,
+      "sha256_utf8_lf": "3AB79F3899EF8791D7C3801C3D57F5F1389DA794389559E9AB994DB3CD63332E"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/productionrelease/manager/MesProductionReleaseSignoffService.java",
+      "category": "production",
+      "bytes": 7247,
+      "sha256_utf8_lf": "F1A7DB5B7540CF64457D9F008D1F764C86C626A3330B06AB7434C5D1DD3EC764"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProBatchRecordExecutionSignatureServiceTest.java",
+      "category": "test",
+      "bytes": 37682,
+      "sha256_utf8_lf": "403AB61B5B1562760B06249D70F668936F5D7126E8779698194DAA35C261C9B3"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProEdhrReleaseServiceImplTest.java",
+      "category": "test",
+      "bytes": 172758,
+      "sha256_utf8_lf": "F0993CBFCF044AB6341BF09E4B6EA0CB5AEE5406814AA160A3CBBC57C3049C6A"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes/service/pro/frontline/MesFrontlinePqcSignatureContractTest.java",
+      "category": "test",
+      "bytes": 23545,
+      "sha256_utf8_lf": "011EECCA36FB2F216C474C71585B2A1FD170C7338B5FED965F50CA62FBC4CD9F"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesActiveOrderSignatureEvidenceServiceTest.java",
+      "category": "test",
+      "bytes": 16964,
+      "sha256_utf8_lf": "33B11D6D06D2118D135FBB99E5FC17069FF67116551679BD518D0B827AB035CF"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesSa06IdentityMapperTest.java",
+      "category": "test",
+      "bytes": 11762,
+      "sha256_utf8_lf": "2428E7175E44A3A08BE0DEBB8BD37BD67557B0D037DAC7EA28535A90600E007E"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesSa07Sa08SignatureContractTest.java",
+      "category": "test",
+      "bytes": 20419,
+      "sha256_utf8_lf": "9DD6C10D4BC5974C4D581BC9C8E621AB52214302015A99ADF44F8A02A2D64705"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesSignatureDetailFixture.java",
+      "category": "test",
+      "bytes": 3497,
+      "sha256_utf8_lf": "7057839DA08D2FAB3AE71116B471162C8B7024FC69108B39CCFC13C686486A30"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesSignatureH2DialectConfiguration.java",
+      "category": "test",
+      "bytes": 1163,
+      "sha256_utf8_lf": "2E8BD2CF25F54FB9E515F8FA65721C33D647FD40B2CC3EB2FD3F57045D91FE4C"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesSignaturePersistenceFixture.java",
+      "category": "test",
+      "bytes": 2904,
+      "sha256_utf8_lf": "9FF71319B45DB528B90C4376D578E0088897C68A95EB3192B0AA493456BEF73F"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesSubmissionSignatureIdentityReaderTest.java",
+      "category": "test",
+      "bytes": 9869,
+      "sha256_utf8_lf": "C2B5DAB9523BF11760119C22D2BA8AA52F67145350A207333E40512C65B43152"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesTeamLeaderActiveOrderSimulationServiceTest.java",
+      "category": "test",
+      "bytes": 45096,
+      "sha256_utf8_lf": "852689F165A1A22E26BCF7964FE9A5C751D4F2241DF8D8AB0F8B8B60B6DF5363"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes/service/pro/productionrelease/manager/MesProductionReleaseManagerApprovalServiceTest.java",
+      "category": "test",
+      "bytes": 26653,
+      "sha256_utf8_lf": "75B093BA54052EDC39B0F3CF93D722DF3E20070E08142604F2CC9E08390B4953"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes/service/pro/productionrelease/manager/MesProductionReleaseSignoffServiceTest.java",
+      "category": "test",
+      "bytes": 3435,
+      "sha256_utf8_lf": "F59138638C56804B0EDB0EF6ADA99016E72A022174CB9C9A439BBCD6D7F001AB"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-mes/src/test/resources/sql/sa07-read-contract-clean.sql",
+      "category": "test",
+      "bytes": 219,
+      "sha256_utf8_lf": "00AE73CDBA93A9B08B71F3DADCA1BF93CD0FB5D9B0AF58CF35B454D3EA0EE839"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-mes/src/test/resources/sql/sa07-read-contract.sql",
+      "category": "test",
+      "bytes": 3071,
+      "sha256_utf8_lf": "5F399114A54AAED015EA493EEEAC8F3256C691511BEB9A41CF152ACA9CC61ACB"
+    },
+    {
+      "path": "docs/backend-development.md",
+      "category": "existing_document",
+      "bytes": 370234,
+      "sha256_utf8_lf": "A3571AE5AA7747AFCE3D7A0A0D20F6221DF7FA469052997B28BA0D1C664FE7F1"
+    }
+  ],
+  "revision": "integration fixture adjustment only; original manifest preserved"
+}

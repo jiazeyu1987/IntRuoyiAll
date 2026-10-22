@@ -101,6 +101,8 @@ public class DccControlledFileUploadServiceImpl implements DccControlledFileUplo
             validatePreviewCategory(userId, reqVO.getCategoryId(), !(approvalPdf || trainingRecord));
             if(trainingRecord) workflowService.validateTrainingRecordUpload(userId,reqVO.getControlledFileId(),reqVO.getCategoryId(),ticketSessionId);
             if (DccControlledFileUploadTypePolicy.PURPOSE_SOURCE.equals(purpose)
+                    || DccControlledFileUploadTypePolicy.PURPOSE_READ_ONLY_VIEW.equals(purpose)
+                    || DccControlledFileUploadTypePolicy.PURPOSE_EDITABLE_SOURCE.equals(purpose)
                     || DccControlledFileUploadTypePolicy.PURPOSE_DRAWING_PDF.equals(purpose)
                     || DccControlledFileUploadTypePolicy.PURPOSE_ATTACHMENT.equals(purpose)) {
                 if (StrUtil.isBlank(reqVO.getUploadContext())) {
@@ -242,8 +244,13 @@ public class DccControlledFileUploadServiceImpl implements DccControlledFileUplo
             throw exception(CONTROLLED_FILE_UPLOAD_PURPOSE_INVALID);
         }
         String normalizedPurpose = DccControlledFileUploadTypePolicy.normalizePurpose(purpose);
-        if (DccControlledFileUploadTypePolicy.isSourcePurpose(normalizedPurpose)
+        if ((DccControlledFileUploadTypePolicy.isSourcePurpose(normalizedPurpose)
+                || DccControlledFileUploadTypePolicy.isEditableSourcePurpose(normalizedPurpose))
                 && !DccControlledFileUploadTypePolicy.isAllowedEditableSourceName(fileName)) {
+            throw exception(CONTROLLED_FILE_SOURCE_FILE_TYPE_INVALID);
+        }
+        if (DccControlledFileUploadTypePolicy.isReadOnlyViewPurpose(normalizedPurpose)
+                && !DccControlledFileUploadTypePolicy.isPdfName(fileName)) {
             throw exception(CONTROLLED_FILE_SOURCE_FILE_TYPE_INVALID);
         }
         return normalizedPurpose;
@@ -259,6 +266,10 @@ public class DccControlledFileUploadServiceImpl implements DccControlledFileUplo
         }
         if (DccControlledFileUploadTypePolicy.isSourcePurpose(purpose)
                 && DccControlledFileUploadTypePolicy.isPdfName(fileName)
+                && !DccControlledFileUploadTypePolicy.isRealPdfFile(fileName, content)) {
+            throw exception(CONTROLLED_FILE_SOURCE_FILE_TYPE_INVALID);
+        }
+        if (DccControlledFileUploadTypePolicy.isReadOnlyViewPurpose(purpose)
                 && !DccControlledFileUploadTypePolicy.isRealPdfFile(fileName, content)) {
             throw exception(CONTROLLED_FILE_SOURCE_FILE_TYPE_INVALID);
         }

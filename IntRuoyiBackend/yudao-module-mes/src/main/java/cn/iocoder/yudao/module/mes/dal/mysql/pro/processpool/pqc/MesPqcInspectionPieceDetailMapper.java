@@ -57,6 +57,14 @@ public interface MesPqcInspectionPieceDetailMapper extends BaseMapperX<MesPqcIns
                 .eq(MesPqcInspectionPieceDetailDO::getTaskId, taskId));
     }
 
+    default List<MesPqcInspectionPieceDetailDO> selectListByTaskIdForUpdate(Long taskId) {
+        return selectList(new LambdaQueryWrapperX<MesPqcInspectionPieceDetailDO>()
+                .eq(MesPqcInspectionPieceDetailDO::getTaskId, taskId)
+                .orderByAsc(MesPqcInspectionPieceDetailDO::getSampleNo)
+                .orderByAsc(MesPqcInspectionPieceDetailDO::getId)
+                .last("FOR UPDATE"));
+    }
+
     default int deleteByTaskIds(Collection<Long> taskIds) {
         return taskIds == null || taskIds.isEmpty() ? 0 : physicalDeleteByTaskIds(taskIds);
     }

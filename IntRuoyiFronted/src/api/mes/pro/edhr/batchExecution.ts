@@ -2,6 +2,10 @@ import request from '@/config/axios'
 import { downloadByData } from '@/utils/filt'
 import type { TableQuickFilterValue } from '@/hooks/web/useTableQuickFilter'
 import type { FormRecognizedFieldVO } from '@/api/form-center/template'
+import type {
+  ActiveOrderDossierFilesRespVO,
+  TeamLeaderActiveOrderDetailRespVO
+} from '@/api/mes/pro/processpool/teamLeader'
 
 export const EDHR_BATCH_ARCHIVE_ARTIFACT_FINAL_PDF = 'BATCH_FINAL_PDF'
 export const EDHR_BATCH_STATUS_CREATED = 0
@@ -63,12 +67,15 @@ export interface EdhrBatchExecutionPageReqVO extends PageParam {
   workOrderCode?: string
   batchCode?: string
   productCode?: string
+  productName?: string
   routeCode?: string
   status?: number
   excludeStatuses?: number[]
   excludeReleased?: boolean
+  releasedOnly?: boolean
   completedTraceOnly?: boolean
   createTime?: string[]
+  releaseApprovedTime?: string[]
   quickFilter?: TableQuickFilterValue
 }
 
@@ -76,13 +83,6 @@ export interface EdhrBatchExecutionOpenOrCreateReqVO {
   workOrderId: number
   batchCode: string
   routeId?: number
-  remark?: string
-}
-
-export interface EdhrBatchExecutionManualOpenOrCreateReqVO {
-  workOrderId: number
-  batchCode: string
-  routeId: number
   remark?: string
 }
 
@@ -262,9 +262,9 @@ export interface EdhrProductionReleaseReportNodeCompleteReqVO {
 }
 
 export interface EdhrBatchExecutionTaskOpenRespVO {
-  taskId: number
-  executionId?: number
-  workTaskId?: number
+  taskId: EdhrRouteId
+  executionId?: EdhrRouteId
+  workTaskId?: EdhrRouteId
   assistUserId?: number
   routeProcessId?: number
   batchRecordReportId?: string
@@ -471,6 +471,8 @@ export interface EdhrBatchExecutionRespVO {
   closeBlockers?: string[]
   releaseActionLocked?: boolean
   releaseActionLockReason?: string
+  productionActionLocked?: boolean
+  productionActionLockReason?: string
   pendingVoidChangeEventId?: number
   pendingVoidChangeCode?: string
   pendingVoidChangeStatus?: string
@@ -486,6 +488,10 @@ export interface EdhrBatchExecutionRespVO {
   rejectedAt?: string
   rejectReason?: string
   aggregateHash?: string
+  releaseTransactionId?: number
+  releaseStatus?: string
+  releaseApprovedBy?: number
+  releaseApprovedAt?: string
   createTime?: string
   updateTime?: string
   tasks?: EdhrBatchExecutionTaskRespVO[]
@@ -542,6 +548,7 @@ export interface EdhrBatchReviewTimelineRespVO {
   signatureRecords?: EdhrBatchExecutionReviewSignatureRecord[]
   approvalRecords?: EdhrBatchExecutionReviewApprovalRecord[]
   flowEvents?: EdhrBatchExecutionReviewFlowEvent[]
+  releaseEvents?: EdhrBatchExecutionReviewReleaseEvent[]
   archiveVersions?: EdhrBatchExecutionArchiveRespVO[]
   dossierItems?: EdhrBatchExecutionDossierItemRespVO[]
   executionReviews?: EdhrBatchExecutionReviewExecutionRespVO[]
@@ -620,6 +627,20 @@ export interface EdhrBatchExecutionReviewFlowEvent {
   occurredAt?: string
 }
 
+export interface EdhrBatchExecutionReviewReleaseEvent {
+  id?: number
+  eventType?: string
+  fromStatus?: string
+  toStatus?: string
+  actorUserId?: number
+  actorName?: string
+  reason?: string
+  opinion?: string
+  signoffEvidenceHash?: string
+  evidenceHash?: string
+  occurredAt?: string | number
+}
+
 export interface EdhrBatchExecutionDossierItemRespVO {
   id?: number
   itemType?: string
@@ -687,6 +708,20 @@ export interface EdhrBatchExecutionTaskPreviewRespVO {
   taskStatus?: number
   executionCreated?: boolean
   formViewModel?: EdhrBatchExecutionReviewFormViewModel
+  completionSourceMaterialization?: EdhrCompletionSourceMaterialization
+}
+
+export interface EdhrCompletionSourceMaterialization {
+  status: 'APPLIED' | 'PENDING' | 'CONFIGURATION_MISSING'
+  message?: string
+  receiptId?: string
+  executionId?: string
+  auditBatchId?: string
+  executionStatus?: number
+  sourceSnapshotHash?: string
+  mappingHash?: string
+  fieldAuditHeadHash?: string
+  appliedFieldCount?: number
 }
 
 export interface EdhrBatchExecutionReviewFieldAuditSummary {
@@ -817,21 +852,58 @@ const resolveBatchArchiveDownloadName = (
   return `edhr-batch-archive-${batchExecutionId}.${suffix}`
 }
 
-export const getEdhrBatchExecutionPage = async (params: EdhrBatchExecutionPageReqVO) => {
+export const getEdhrBatchExecutionPage = async (
+  params: EdhrBatchExecutionPageReqVO,
+  options?: { ignoreErrorMessage?: boolean; isRequestContextCurrent?: () => boolean }
+) => {
   return await request.get<PageResult<EdhrBatchExecutionRespVO[]>>({
     url: `${BATCH_EXECUTION_BASE_URL}/page`,
-    params
+    params,
+    ignoreErrorMessage: options?.ignoreErrorMessage,
+    isRequestContextCurrent: options?.isRequestContextCurrent
   })
 }
 
-export const getEdhrBatchExecution = async (id: EdhrRouteId) => {
+export const getEdhrBatchExecution = async (id: EdhrRouteId, options?: { ignoreErrorMessage?: boolean; isRequestContextCurrent?: () => boolean; isSuccessReceiptContextCurrent?: () => boolean }) => {
   return await request.get<EdhrBatchExecutionRespVO>({
+    ignoreErrorMessage: options?.ignoreErrorMessage,
+    isRequestContextCurrent: options?.isRequestContextCurrent,
+    isSuccessReceiptContextCurrent: options?.isSuccessReceiptContextCurrent,
     url: `${BATCH_EXECUTION_BASE_URL}/get?id=${id}`
   })
 }
 
-export const getEdhrBatchWorkbench = async (id: EdhrRouteId) => {
+export const getEdhrBatchActiveOrderDetail = async (params: {
+  batchExecutionId?: EdhrRouteId
+  activeOrderId?: EdhrRouteId
+}, options?: { ignoreErrorMessage?: boolean; isRequestContextCurrent?: () => boolean; isSuccessReceiptContextCurrent?: () => boolean }) => {
+  return await request.get<TeamLeaderActiveOrderDetailRespVO>({
+    ignoreErrorMessage: options?.ignoreErrorMessage,
+    isRequestContextCurrent: options?.isRequestContextCurrent,
+    isSuccessReceiptContextCurrent: options?.isSuccessReceiptContextCurrent,
+    url: `${BATCH_EXECUTION_BASE_URL}/active-order-detail`,
+    params
+  })
+}
+
+export type EdhrBatchActiveOrderDossierQuery =
+  | { batchExecutionId: EdhrRouteId; activeOrderId?: undefined }
+  | { activeOrderId: EdhrRouteId; batchExecutionId?: undefined }
+
+export const getEdhrBatchActiveOrderDossierFiles = async (
+  params: EdhrBatchActiveOrderDossierQuery
+) => {
+  return await request.get<ActiveOrderDossierFilesRespVO>({
+    url: `${BATCH_EXECUTION_BASE_URL}/active-order-dossier-files`,
+    params
+  })
+}
+
+export const getEdhrBatchWorkbench = async (id: EdhrRouteId, options?: { ignoreErrorMessage?: boolean; isRequestContextCurrent?: () => boolean; isSuccessReceiptContextCurrent?: () => boolean }) => {
   return await request.get<EdhrBatchWorkbenchRespVO>({
+    ignoreErrorMessage: options?.ignoreErrorMessage,
+    isRequestContextCurrent: options?.isRequestContextCurrent,
+    isSuccessReceiptContextCurrent: options?.isSuccessReceiptContextCurrent,
     url: `${BATCH_EXECUTION_BASE_URL}/workbench`,
     params: { id }
   })
@@ -872,15 +944,6 @@ export const simulateEdhrStage4DossierUpload = async (
   })
 }
 
-export const openOrCreateManualEdhrBatchExecution = async (
-  data: EdhrBatchExecutionManualOpenOrCreateReqVO
-) => {
-  return await request.post<EdhrBatchExecutionRespVO>({
-    url: BATCH_EXECUTION_BASE_URL + '/open-or-create-manual',
-    data
-  })
-}
-
 export const simulateEdhrStage5FinalRelease = async (
   simulationRunId: string,
   batchExecutionId: string | number,
@@ -895,10 +958,14 @@ export const simulateEdhrStage5FinalRelease = async (
 
 export const getEdhrStage5ReleaseSnapshot = async (
   simulationRunId: string,
-  batchExecutionId?: string
+  batchExecutionId?: string,
+  options?: { ignoreErrorMessage?: boolean; isRequestContextCurrent?: () => boolean; isSuccessReceiptContextCurrent?: () => boolean }
 ) => {
   return await request.get<Record<string, unknown>>({
     url: BATCH_EXECUTION_BASE_URL + '/simulation/stage5/release-snapshot',
+    ignoreErrorMessage: options?.ignoreErrorMessage,
+    isRequestContextCurrent: options?.isRequestContextCurrent,
+    isSuccessReceiptContextCurrent: options?.isSuccessReceiptContextCurrent,
     params: { simulationRunId, batchExecutionId }
   })
 }
@@ -919,9 +986,11 @@ export const openEdhrBatchTask = async (data: EdhrBatchExecutionTaskOpenReqVO) =
 
 export const getEdhrBatchTaskPreview = async (
   batchExecutionId: EdhrRouteId,
-  taskId: EdhrRouteId
-) => {
+  taskId: EdhrRouteId, options?: { ignoreErrorMessage?: boolean; isRequestContextCurrent?: () => boolean; isSuccessReceiptContextCurrent?: () => boolean }) => {
   return await request.get<EdhrBatchExecutionTaskPreviewRespVO>({
+    ignoreErrorMessage: options?.ignoreErrorMessage,
+    isRequestContextCurrent: options?.isRequestContextCurrent,
+    isSuccessReceiptContextCurrent: options?.isSuccessReceiptContextCurrent,
     url: `${BATCH_EXECUTION_BASE_URL}/task/preview`,
     params: { batchExecutionId, taskId }
   })
@@ -1053,8 +1122,11 @@ export const goldenFingerBulkVoidEdhrBatchExecutions = async (
     data
   })
 }
-export const getEdhrBatchReviewTimeline = async (id: EdhrRouteId) => {
+export const getEdhrBatchReviewTimeline = async (id: EdhrRouteId, options?: { ignoreErrorMessage?: boolean; isRequestContextCurrent?: () => boolean; isSuccessReceiptContextCurrent?: () => boolean }) => {
   return await request.get<EdhrBatchReviewTimelineRespVO>({
+    ignoreErrorMessage: options?.ignoreErrorMessage,
+    isRequestContextCurrent: options?.isRequestContextCurrent,
+    isSuccessReceiptContextCurrent: options?.isSuccessReceiptContextCurrent,
     url: `${BATCH_EXECUTION_BASE_URL}/review-timeline`,
     params: { id }
   })
@@ -1067,8 +1139,11 @@ export const generateEdhrBatchArchive = async (data: EdhrBatchExecutionArchiveGe
   })
 }
 
-export const getLatestEdhrBatchArchive = async (batchExecutionId: EdhrRouteId) => {
+export const getLatestEdhrBatchArchive = async (batchExecutionId: EdhrRouteId, options?: { ignoreErrorMessage?: boolean; isRequestContextCurrent?: () => boolean; isSuccessReceiptContextCurrent?: () => boolean }) => {
   return await request.get<EdhrBatchExecutionArchiveRespVO>({
+    ignoreErrorMessage: options?.ignoreErrorMessage,
+    isRequestContextCurrent: options?.isRequestContextCurrent,
+    isSuccessReceiptContextCurrent: options?.isSuccessReceiptContextCurrent,
     url: `${BATCH_ARCHIVE_BASE_URL}/latest`,
     params: { batchExecutionId }
   })

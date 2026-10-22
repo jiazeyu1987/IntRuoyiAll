@@ -133,11 +133,13 @@ public class MesTeamLeaderActiveOrderReleaseLossReportDynamicFormPortImpl
         formData.put(AUDIT_KEY, auditMetadata(command, auditHeadHash));
         FormInstanceDraftReqVO draft = new FormInstanceDraftReqVO();
         draft.setFormData(formData);
-        runtimeService.saveDraft(instance.getId(), draft, instance.getApplicantUserId());
+        runtimeService.saveDraft(instance.getId(), draft, command.getActorUserId());
         FormInstanceSubmitReqVO submit = new FormInstanceSubmitReqVO();
         submit.setFormData(formData);
-        FormInstanceRespVO submitted = runtimeService.submitInstance(instance.getId(), submit,
-                instance.getApplicantUserId());
+        FormInstanceRespVO submitted = runtimeService.submitVerifiedBackfillInstance(instance.getId(), submit,
+                command.getActorUserId(),
+                cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrRouteFormFillEffectExecutor.EXECUTOR_CODE,
+                auditHeadHash);
         if (submitted == null || !Objects.equals(instance.getId(), submitted.getId())
                 || !INSTANCE_STATUS_EFFECTIVE.equals(submitted.getStatus())) {
             throw sourceRequired("损耗单 FormCenter instance 未进入 EFFECTIVE，instanceId=" + instance.getId());
@@ -146,7 +148,8 @@ public class MesTeamLeaderActiveOrderReleaseLossReportDynamicFormPortImpl
     }
 
     private void validateWriteCommand(WriteCommand command) {
-        if (command == null || command.getTenantId() == null || command.getBatchExecutionId() == null
+        if (command == null || command.getActorUserId() == null || command.getActorUserId() <= 0
+                || command.getTenantId() == null || command.getBatchExecutionId() == null
                 || command.getBatchTask() == null || command.getBinding() == null
                 || command.getTarget() == null || !command.getTarget().isValid()
                 || command.getFields() == null || command.getFields().isEmpty()

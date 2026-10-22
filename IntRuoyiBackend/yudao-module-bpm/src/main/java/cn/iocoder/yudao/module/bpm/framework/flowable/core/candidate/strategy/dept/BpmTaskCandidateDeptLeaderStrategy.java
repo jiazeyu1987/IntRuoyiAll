@@ -1,45 +1,36 @@
 package cn.iocoder.yudao.module.bpm.framework.flowable.core.candidate.strategy.dept;
 
 import cn.iocoder.yudao.framework.common.util.string.StrUtils;
-import cn.iocoder.yudao.module.bpm.framework.flowable.core.candidate.BpmTaskCandidateStrategy;
 import cn.iocoder.yudao.module.bpm.framework.flowable.core.enums.BpmTaskCandidateStrategyEnum;
-import cn.iocoder.yudao.module.system.api.dept.DeptApi;
-import cn.iocoder.yudao.module.system.api.dept.dto.DeptRespDTO;
+import cn.iocoder.yudao.module.bpm.service.task.BpmProcessInstanceService;
 import jakarta.annotation.Resource;
+import org.flowable.bpmn.model.BpmnModel;
+import org.flowable.engine.delegate.DelegateExecution;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Component;
+import java.util.*;
 
-import java.util.List;
-import java.util.Set;
-
-import static cn.iocoder.yudao.framework.common.util.collection.CollectionUtils.convertSet;
-
-/**
- * 部门的负责人 {@link BpmTaskCandidateStrategy} 实现类
- *
- * @author kyle
- */
 @Component
-public class BpmTaskCandidateDeptLeaderStrategy implements BpmTaskCandidateStrategy {
-
-    @Resource
-    private DeptApi deptApi;
-
-    @Override
-    public BpmTaskCandidateStrategyEnum getStrategy() {
-        return BpmTaskCandidateStrategyEnum.DEPT_LEADER;
+public class BpmTaskCandidateDeptLeaderStrategy extends AbstractBpmTaskCandidateDeptLeaderStrategy {
+    @Resource @Lazy private BpmProcessInstanceService processInstanceService;
+    @Override public BpmTaskCandidateStrategyEnum getStrategy() { return BpmTaskCandidateStrategyEnum.DEPT_LEADER; }
+    @Override public void validateParam(String param) { deptApi.validateDeptList(StrUtils.splitToLongSet(param)); }
+    @Override public Set<Long> calculateUsers(String param) { return resolve(param, null); }
+    private Set<Long> resolve(String param, Long startUserId) {
+        Set<Long> result = new LinkedHashSet<>();
+        for (Long deptId : StrUtils.splitToLongSet(param)) {
+            result.add(deptApi.requireSupervisor(deptId, startUserId).getUserId());
+        }
+        cn.hutool.core.lang.Assert.notEmpty(result, "未指定部门，无法确定审批主管");
+        return result;
     }
-
-    @Override
-    public void validateParam(String param) {
-        Set<Long> deptIds = StrUtils.splitToLongSet(param);
-        deptApi.validateDeptList(deptIds);
+    @Override public Set<Long> calculateUsersByTask(DelegateExecution execution, String param) {
+        var process = processInstanceService.getProcessInstance(execution.getProcessInstanceId());
+        cn.hutool.core.lang.Assert.notNull(process, "流程实例不存在");
+        return resolve(param, Long.valueOf(process.getStartUserId()));
     }
-
-    @Override
-    public Set<Long> calculateUsers(String param) {
-        Set<Long> deptIds = StrUtils.splitToLongSet(param);
-        List<DeptRespDTO> depts = deptApi.getDeptList(deptIds);
-        return convertSet(depts, DeptRespDTO::getLeaderUserId);
+    @Override public Set<Long> calculateUsersByActivity(BpmnModel model, String activityId, String param,
+            Long startUserId, String definitionId, Map<String, Object> variables) {
+        return resolve(param, startUserId);
     }
-
 }

@@ -57,8 +57,6 @@ import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_FRONTLINE
 @Service
 public class MesFrontlineDeviceAccountContextServiceImpl implements MesFrontlineDeviceAccountContextService {
 
-    public static final String PRESSURE_PUMP_ALL_PROCESS_PERMISSION =
-            "mes:pro-feedback:frontline-pressure-pump:all-processes";
     private static final String CANDIDATE_SOURCE_TYPE_USERS = "USERS";
     private static final String CANDIDATE_SOURCE_TYPE_ROLE = "ROLE";
 
@@ -455,19 +453,11 @@ public class MesFrontlineDeviceAccountContextServiceImpl implements MesFrontline
         if (activeVersionByRouteId.isEmpty()) {
             return Set.of();
         }
-        boolean allProcessPermissionGranted = permissionApi.hasAnyPermissions(loginUserId,
-                PRESSURE_PUMP_ALL_PROCESS_PERMISSION);
         Set<Long> userRoleIds = null;
         Set<Long> authorizedRouteIds = new LinkedHashSet<>();
         for (MesProRouteVersionDO routeVersion : activeVersionByRouteId.values()) {
             List<RouteStartProductionLeaderSnapshot> snapshots =
                     parseRouteStartProductionLeaderSnapshots(routeVersion);
-            if (allProcessPermissionGranted
-                    && isPressurePumpRoute(routeMap.get(routeVersion.getRouteId()))
-                    && !snapshots.isEmpty()) {
-                authorizedRouteIds.add(routeVersion.getRouteId());
-                continue;
-            }
             for (RouteStartProductionLeaderSnapshot snapshot : snapshots) {
                 if (CANDIDATE_SOURCE_TYPE_USERS.equals(snapshot.candidateSourceType())
                         && snapshot.candidateSourceIds().contains(loginUserId)) {
@@ -487,12 +477,6 @@ public class MesFrontlineDeviceAccountContextServiceImpl implements MesFrontline
             }
         }
         return authorizedRouteIds;
-    }
-
-    private boolean isPressurePumpRoute(MesProRouteDO route) {
-        return route != null
-                && route.getName() != null
-                && route.getName().contains("压力泵");
     }
 
     private List<RouteStartProductionLeaderSnapshot> parseRouteStartProductionLeaderSnapshots(

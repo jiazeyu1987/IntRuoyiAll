@@ -10,6 +10,7 @@ import cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectCodeMapper;
 import cn.iocoder.yudao.module.dcc.enums.DccProjectCodeStatusConstants;
 import cn.iocoder.yudao.module.mes.dal.dataobject.md.item.MesMdItemDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.process.MesProProcessDO;
+import cn.iocoder.yudao.module.mes.service.pro.process.MesProProcessCreationService;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteProductDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteProcessDO;
@@ -74,6 +75,9 @@ import static cn.iocoder.yudao.module.mes.service.pro.batchrecordreport.MesProBa
 @Validated
 public class MesProBatchRecordRouteGenerationServiceImpl implements MesProBatchRecordRouteGenerationService {
 
+    @Resource
+    private MesProProcessCreationService processCreationService;
+
     private static final String PRODUCT_INFO_KEYWORD = "产品信息";
     private static final String USE_TYPE_BATCH = MesProRouteFlowConfigTypeEnum.BATCH.getType();
     private static final String EXECUTION_MODE_SEQUENTIAL = "SEQUENTIAL";
@@ -82,7 +86,6 @@ public class MesProBatchRecordRouteGenerationServiceImpl implements MesProBatchR
     private static final String REQUIRED_POLICY_REQUIRED = "REQUIRED";
     private static final String ARCHIVE_VISIBILITY_FINAL_DHR = "FINAL_DHR";
     private static final String OWNER_ROLE_PRODUCTION = "PRODUCTION";
-    private static final String PROCESS_CODE_PREFIX = "ER";
     private static final String STATUS_DRAFT = "DRAFT";
     private static final String STATUS_ACTIVE = "ACTIVE";
     private static final String OBJECT_TYPE_ROUTE_PROCESS_BATCH_RECORD = "ROUTE_PROCESS_BATCH_RECORD";
@@ -1795,23 +1798,12 @@ public class MesProBatchRecordRouteGenerationServiceImpl implements MesProBatchR
         if (existing != null) {
             return existing;
         }
-        String processCode = PROCESS_CODE_PREFIX
-                + DigestUtil.sha256Hex(processName).substring(0, 12).toUpperCase(Locale.ROOT);
-        MesProProcessDO existingByCode = processMapper.selectByCode(processCode);
-        if (existingByCode != null) {
-            if (processName.equals(existingByCode.getName())) {
-                return existingByCode;
-            }
-            throw exception(PRO_BATCH_RECORD_REPORT_ROUTE_GENERATION_FAILED,
-                    "工序编码冲突：" + processCode + " / " + processName);
-        }
         MesProProcessDO process = MesProProcessDO.builder()
-                .code(processCode)
                 .name(processName)
                 .status(CommonStatusEnum.ENABLE.getStatus())
                 .remark("eDHR Word导入自动补齐")
                 .build();
-        processMapper.insert(process);
+        processCreationService.create(process);
         return process;
     }
 

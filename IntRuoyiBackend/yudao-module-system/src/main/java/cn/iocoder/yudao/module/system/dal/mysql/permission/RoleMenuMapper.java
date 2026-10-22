@@ -11,6 +11,12 @@ import java.util.List;
 @Mapper
 public interface RoleMenuMapper extends BaseMapperX<RoleMenuDO> {
 
+    default List<RoleMenuDO> selectPermissionRowsForUpdate(Long tenantId, Long roleId) {
+        return selectList(new LambdaQueryWrapper<RoleMenuDO>()
+                .eq(RoleMenuDO::getTenantId, tenantId).eq(RoleMenuDO::getRoleId, roleId)
+                .orderByAsc(RoleMenuDO::getId).last("FOR UPDATE"));
+    }
+
     default List<RoleMenuDO> selectListByRoleId(Long roleId) {
         return selectList(RoleMenuDO::getRoleId, roleId);
     }

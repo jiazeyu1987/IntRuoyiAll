@@ -35,16 +35,16 @@ assert.match(
   'PQC mounted initialization must load the formal pending active-order list.'
 )
 
-assert.match(
+assert.doesNotMatch(
   mountedPqcBlock,
-  /const requestedActiveOrder = context\.workOrderId[\s\S]*activeOrders\.find/,
-  'PQC mounted initialization must still prefer a route-requested active order when provided.'
+  /requestedActiveOrder|context\.workOrderId|order\.workOrderId\s*===/,
+  'PQC mounted initialization must not match or branch on a URL workOrderId.'
 )
 
 assert.match(
   mountedPqcBlock,
-  /const initialActiveOrder = requestedActiveOrder \|\| activeOrders\[0\]/,
-  'PQC mounted initialization must default to the first pending active order when no route request matches.'
+  /const initialActiveOrder = activeOrders\[0\]/,
+  'PQC mounted initialization must select the current first pending active order from the realtime list.'
 )
 
 assert.match(

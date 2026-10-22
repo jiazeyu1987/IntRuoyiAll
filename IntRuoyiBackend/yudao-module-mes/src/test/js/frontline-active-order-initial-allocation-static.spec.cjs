@@ -76,7 +76,7 @@ test('P1-AC2 selected order is validated by exact activeOrderId', () => {
 test('P1-AC3 transactional submit persists full initial allocation before success', () => {
   assert.match(
     submitService,
-    /@Transactional\(rollbackFor\s*=\s*Exception\.class\)[\s\S]{0,200}submit\(/,
+    /@Transactional\(rollbackFor\s*=\s*Exception\.class\)[\s\S]{0,200}submitAuthenticated\(/,
     '一线正式提交必须保留事务边界。'
   )
   const eventCreation = submitService.indexOf('createSubmitEvent(eventPayload)')

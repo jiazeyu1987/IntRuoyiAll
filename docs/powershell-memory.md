@@ -1,10 +1,9 @@
 # IntRuoyi PowerShell / Git 共同前置经验
 
-## 触发场景
+## 适用场景
 
-- PowerShell 中编排 Git、提交、推送、清理、长链路命令或多行脚本前，先读本文件。
-- 任务要求提交、推送、基线保存、远端同步、处理脏工作区或检查 `origin` 前，先读本文件。
-- 本文件是共同门禁；涉及中文读写时还必须读取 `docs\powershell-encoding.md`，涉及任务收尾时还必须读取 `docs\task-closeout-rules.md`。
+- PowerShell、Git、提交推送或清理问题按需查阅本文件，已读且未变化的规则不重复读取。
+- 中文编码及收尾问题按需查阅相关说明；不要求固定读取顺序、任务目录或额外预检回执。
 
 ## Git 提交与推送门禁
 
@@ -17,14 +16,12 @@
 - Forbidden action: 禁止用文件夹名判断分支、用本地远端跟踪引用冒充已查询远端、批量选择一侧冲突而丢失修复，或把基线保存误称为全部功能完成。
 - Evidence: `doc/tasks/20260914-dcc-20-remediation/execution-log.md`。
 
-### 任务提交推送前置门禁
+### 按授权执行 Git 操作
 
-- Trigger: 任何任务进入实现提交、收尾提交、`git push`、处理 `ahead` 状态或保存脏工作区基线。
-- Preflight check: 运行 `git status --short --branch`、`git branch --show-current`、`git remote -v`，并在提交前检查 staged 文件清单。
-- Blocker: 当前目录不是 Git 仓库、当前分支不是预期分支、缺少可用 `origin`、存在无法解释的冲突、推送凭据/网络不可用、或 staged 文件混入不应提交的秘密文件。
-- Verification: 记录每个提交的 commit hash、文件清单和 `git status --short --branch` 结果；推送后必须确认本地分支不再领先 `origin`。
-- Forbidden action: 禁止用 force push、历史重写、destructive reset、丢弃脏改动、跳过 push、或把基线提交与当前任务提交混在一起作为绕过。
-- Evidence: `doc\tasks\<task-id>\execution-log.md`、`docs\task-closeout-rules.md`、当前 Git 命令输出。
+- 仅在用户已授权范围内提交、推送或保存基线；不要求每个任务推送或拆分基线、实现、收尾提交。
+- 执行前核对当前仓库、分支和暂存文件；仅推送任务才要求可用远端、凭据及网络，本地提交不因缺少 origin 阻塞。
+- 只纳入本任务改动，不能混入其他任务、临时产物或秘密文件；不通过强制推送、破坏性重置或丢弃他人改动绕过失败。
+- 实际命令失败如实报告；所要求的推送完成后核对目标远端结果，不强制固定记录文件或额外收尾提交。
 
 ### Git index.lock 陈旧锁恢复门禁
 
@@ -229,11 +226,11 @@
 ### PowerShell Maven -D 参数引号门禁
 
 - Trigger: 在 PowerShell 中运行 Maven 且参数包含带点属性名或方法选择符的 `-D`，例如 `-Dsurefire.failIfNoSpecifiedTests=false`、`-Dtest=ClassName#methodName`。
-- Preflight check: 将每个 Maven `-D...` 参数整体加引号，单引号或双引号均可，例如 `'-Dtest=CodexTestCaseServiceImplTest'`、`"-Dtest=MesTeamLeaderActiveOrderSimulationServiceTest#numericSimulationParameterTextShouldUseGeneratedValueInsteadOfStandardRange"` 与 `'-Dsurefire.failIfNoSpecifiedTests=false'`；多模块目标测试继续保留 `-pl <module> -am`。
+- Preflight check: 将每个 Maven `-D...` 参数整体加引号，单引号或双引号均可，例如 `'-Dtest=CodexTestCaseServiceImplTest'`、`"-Dtest=MesTeamLeaderActiveOrderSimulationServiceTest#numericSimulationParameterTextShouldUseGeneratedValueInsteadOfStandardRange"` 与 `'-Dsurefire.failIfNoSpecifiedTests=false'`；多模块目标测试继续保留 `-pl <module> -am`。不要把 PowerShell `--%` 与带引号的 `'-D...'` 同用，否则引号会原样传给 Maven 并触发 `Unknown lifecycle phase "'-D...'"`。
 - Blocker: Maven 报 `Unknown lifecycle phase ".<property>=..."`、未进入期望 Surefire 目标测试，或未加引号命令疑似造成 testCompile 误报时，必须先按 PowerShell 参数解析问题复跑，不得直接归因于 Java 代码、Mapper 缺失或业务逻辑。
 - Verification: 复跑加引号后的 Maven 命令，记录原失败与复跑 PASS、Surefire 实际执行的测试类/方法数量、Failures/Errors/Skipped 摘要；若上游 reactor 模块不含目标测试类，同时记录 `surefire.failIfNoSpecifiedTests=false` 的依据。
 - Forbidden action: 禁止把 PowerShell 参数拆分或 `#` 注释截断误判为产品编译失败；禁止移除 `-am`、跳过目标 JUnit 或改成更宽测试作为绕过。
-- Evidence: `doc\tasks\20260726-codex-test-case-project-column\execution-log.md`，目标 JUnit 首次因 PowerShell 拆分 `-Dsurefire.failIfNoSpecifiedTests=false` 失败，整体加引号后通过；`doc\tasks\20260726-work-order-field-cell-link\execution-log.md`，目标 MES JUnit 需同时整体加引号 `"-Dtest=MesProBatchRecordCellLinkServiceImplTest,MesProBatchRecordCellLinkSchemaTest"` 与 `"-Dsurefire.failIfNoSpecifiedTests=false"`，并保留 `-am` 编译依赖模块源码；`doc\tasks\20260830-system-user-generic-account-governance\execution-log.md`，System 用户服务目标测试首次因未引用 `-Dsurefire.failIfNoSpecifiedTests=false` 被拆成 Maven lifecycle phase，改用单引号包裹 `'-Dtest=AdminUserServiceImplTest'` 与 `'-Dsurefire.failIfNoSpecifiedTests=false'` 后进入真实 RED/GREEN；`doc/tasks/20260906-mes-testcompile-replenishment-mapper-blocker/execution-log.md`，Stage1 参数定向 Java 测试中未加引号的 `-Dtest=...#...` 造成误判，加引号后目标测试执行 1 个用例并 PASS。
+- Evidence: `doc\tasks\20260726-codex-test-case-project-column\execution-log.md`，目标 JUnit 首次因 PowerShell 拆分 `-Dsurefire.failIfNoSpecifiedTests=false` 失败，整体加引号后通过；`doc\tasks\20260726-work-order-field-cell-link\execution-log.md`，目标 MES JUnit 需同时整体加引号 `"-Dtest=MesProBatchRecordCellLinkServiceImplTest,MesProBatchRecordCellLinkSchemaTest"` 与 `"-Dsurefire.failIfNoSpecifiedTests=false"`，并保留 `-am` 编译依赖模块源码；`doc\tasks\20260830-system-user-generic-account-governance\execution-log.md`，System 用户服务目标测试首次因未引用 `-Dsurefire.failIfNoSpecifiedTests=false` 被拆成 Maven lifecycle phase，改用单引号包裹 `'-Dtest=AdminUserServiceImplTest'` 与 `'-Dsurefire.failIfNoSpecifiedTests=false'` 后进入真实 RED/GREEN；`doc/tasks/20260906-mes-testcompile-replenishment-mapper-blocker/execution-log.md`，Stage1 参数定向 Java 测试中未加引号的 `-Dtest=...#...` 造成误判，加引号后目标测试执行 1 个用例并 PASS；`doc/tasks/bulk-clear-production-test-data/execution-log.md`，MES 编译命令中 `--%` 与 `'-DskipTests'` 同用导致 Maven 把带引号参数当 lifecycle phase，移除 `--%` 后同命令 compile PASS。
 
 ### Maven 编译结论与行为测试失败分层门禁
 
@@ -261,6 +258,7 @@
 - Verification: 使用带 `-am` 的 reactor 命令复跑，确认目标测试进入 Surefire 且 PASS/FAIL 反映真实业务行为；任务日志记录原单模块失败原因和最终 reactor 验证命令。
 - Forbidden action: 禁止把本地 `.m2` 陈旧产物导致的编译失败误判为产品逻辑失败；禁止删除 `-am` 来节省时间后宣称目标 JUnit 已验证；禁止用旧 surefire 报告冒充当前命令结果。
 - Evidence: `doc\tasks\20260806-schedule-default-shift-hours\execution-log.md`，排产班次小时默认值修复中不带 `-am` 的单模块 Maven 因本地 `system` API 依赖陈旧在测试前失败，最终使用 `-pl yudao-module-mes -am` 的目标 JUnit 命令通过 4 个用例。
+- Evidence: `doc\tasks\20260915-mes-bpm-interface-compile-fix\execution-log.md`，MES clean testCompile 因未带 `-am` 无法解析同仓 BPM 的 `FormActionExecutionContext`，而 `-pl yudao-module-mes -am clean test-compile` 重建 BPM 后 562 个 MES 测试源文件全部通过；后续接口定向测试 20/20 与 BPM 上下文回归 1/1 通过。
 
 ### Pytest 任务自有 basetemp 门禁
 
@@ -269,6 +267,13 @@
 - Blocker: 指定 basetemp 后仍失败、失败进入业务断言、或临时目录不属于当前任务可清理范围时，不得写成 GREEN。
 - Verification: 记录同一测试集的最终 `passed` 数量，并在 cleanup candidates 中列出任务自有 `.pytest-tmp`。
 - Forbidden action: 禁止把默认临时目录权限错误写成产品回归失败；禁止改用更少测试或删除系统临时目录来绕过。
+
+### PowerShell 测试报告路径与本次执行证据
+
+- 构造嵌套仓库和带完整类名、随机后缀的报告前，计算最长绝对路径；PowerShell 5.1 夹具使用短编号目录并显式校验路径预算。超限应在写入前说明前置条件，不静默换目录或吞掉文件异常。
+- 同一测试须覆盖 PowerShell 5.1 与 7；保留首次路径失败和修复后的相同测试集结果，不把夹具初始化失败记为业务 RED，也不以单项通过替代组合失败。
+- Surefire 报告归档可能混有历史 XML；总数仅统计本次日志实际运行的目标及对应报告。自动门禁使用本次唯一报告后缀，逐目标核对报告身份、执行数、失败和跳过数；零执行、缺报告及全跳过不得判通过。
+- 脚本替身测试仅证明调用及结果处理；真实 Maven、覆盖扫描与生产审批必须分别验证，不能互相替代。
 
 ### yudao-server reactor unpack 测试门禁
 
@@ -342,6 +347,15 @@
 - Evidence: `doc/tasks/20260826-edhr-pdf-signature-compliance/verification-report.md`，eDHR PDF 签名修复中一次 `mvn -pl yudao-module-mes -am ... test` 在主编译阶段报 JVM native memory allocation failure；后续仅记录窄范围补充验证 PASS，标准 lifecycle 仍保持 blocked。
 ## 执行顺序
 
+### 主机缓存删除多次复核门禁
+
+- 触发：用户授权清理主机缓存，尤其要求避免大范围误删或排除某应用数据。
+- 规则：先固定绝对路径白名单和排除项，再保存逐文件路径、字节、修改时间与清单指纹；删除前再次核对路径祖先无 reparse point、文件仍在白名单且未变化。通配符只用于只读筛选，删除命令仅用 LiteralPath 普通文件，不递归删除目录。
+- 运行依赖不能仅凭 cache 目录名判可删除；用户后续排除某应用时，连该应用的运行环境、旧安装残留、日志和崩溃转储都必须排除。
+- 占用、修改、目录链接和权限异常须明确保留或阻塞；重复个人资料须核对内容指纹并保留另一份。
+- 安全策略若拒绝删除或 WhatIf，不得改用脚本 Apply、其它 shell/语言/工具规避；记录具体拒绝和实际零删除，不把预览字节当作已释放空间。
+- 验证：逐文件结果和卷可用空间分别记录；运行中的应用会再生成缓存，不能把外部变化算作本任务删除量。
+
 1. 阶段 1：任务提交/推送预检
    必查项: 当前分支、remote、工作区脏状态、staged 文件清单、用户授权边界。
    推荐命令: `git status --short --branch`、`git branch --show-current`、`git remote -v`。
@@ -377,3 +391,11 @@
 - Verification: 复跑引用后的标准 Maven 命令，必须到达 Surefire 并记录测试计数。
 - Forbidden action: 禁止把未引用 `-D` 导致的 Maven 参数解析失败当作产品测试失败，禁止改 POM 或测试名绕过参数问题。
 - Evidence: `doc/tasks/20260914-edhr-static-021-inventory-evidence-chain/execution-log.md`，EDHR-STATIC-021 首次未引用 `-Dsurefire.failIfNoSpecifiedTests=false` 被 PowerShell 截断，随后用单引号包裹 `-Dtest` 与 `-Dsurefire...` 后目标 Maven 进入 Surefire 并通过 19 个测试。
+
+### 本机 Codex 历史清理门禁
+
+- Trigger: 用户要求删除 Codex 已归档会话或清理本机历史以释放磁盘空间。
+- Preflight check: 先核对运行中桌面后端的 ExecutablePath 与版本，不能默认全局 npm CLI 和桌面版本一致；只读核对归档索引、历史文件元数据、spawn 后代及 fork history_base 引用。迁移文件末尾 UUID 可能是 rollout ID，不能直接当稳定会话 ID。引用核验应遍历当前与旧版 rollout 文件，仅读取索引中的当前 rollout_path 会漏掉旧版历史引用；先用 session_meta 确认文件归属，再将 rollout ID 映射回稳定会话 ID。
+- Safe strategy: 按明确授权冻结归档清单与未归档保护清单，优先用匹配版本的原生删除 API；有未归档引用的源历史必须保留。共享名称索引使用固定临时文件和进程内锁，多客户端删除存在竞争；出现名称索引冲突或 SQLite 锁竞争，应停止任务客户端的新请求并核查结果，不得显示默认成功。
+- Verification: 分别核对桌面归档列表、索引、历史文件与受保护会话；删除文件字节数和卷空闲量分开报告，不把其他任务产生的空间变化算成本任务释放量。
+- Evidence: `doc/tasks/20261008-codex-archived-sessions-cleanup/execution-log.md`，全局 CLI 0.147.0 与桌面 0.158.0-alpha.2.1 不一致，改用桌面配套二进制处理迁移历史；发现两条归档源历史被未归档会话引用。

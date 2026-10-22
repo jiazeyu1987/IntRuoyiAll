@@ -22,7 +22,7 @@ assert.equal(
 assert.match(
   axiosService,
   /const\s+refreshTokenPayload\s*=\s*refreshTokenRes\.data/,
-  'refresh-token response must be normalized before calling setRefreshedToken'
+  'refresh-token response must be normalized before persisting renewed tokens'
 )
 assert.match(
   axiosService,
@@ -57,4 +57,4 @@ assert.ok(
   'business failure validation must run before setRefreshedToken'
 )
 
-console.log('PASS: refresh-token business failures route to re-login before setRefreshedToken')
+console.log('PASS: refresh-token business failures route to re-login before renewed token persistence')

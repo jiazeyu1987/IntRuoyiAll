@@ -32,6 +32,7 @@ public class DccProjectAccessServiceImpl implements DccProjectAccessService {
 
     private static final Set<String> SUBJECT_TYPES = Set.of("USER", "DEPT", "ROLE", "POSITION");
     private static final Set<String> ACCESS_LEVELS = Set.of("OWNER", "EDIT", "VIEW");
+    private static final String SUPER_ADMIN_ROLE_CODE = "super_admin";
 
     @Resource
     private DccProjectAccessRuleMapper accessRuleMapper;
@@ -127,9 +128,9 @@ public class DccProjectAccessServiceImpl implements DccProjectAccessService {
         var project = projectCodeId == null || projectCodeId <= 0 ? null : projectCodeMapper.selectById(projectCodeId);
         if (project == null || !java.util.Objects.equals(project.getTenantId(), tenant)
                 || !"ENABLE".equals(project.getStatus())
-                || (!isEnabledTenantSuperAdmin(userId)
-                    && (!hasProjectAccess(userId, projectCodeId, Set.of("VIEW", "EDIT", "OWNER"), tenant)
-                        || !withinAssignedProjectScope(userId, projectCodeId, tenant)))) {
+                || !hasProjectAccess(userId, projectCodeId, Set.of("VIEW", "EDIT", "OWNER"), tenant)
+                || (!isProjectAdministrator(userId)
+                    && !withinAssignedProjectScope(userId, projectCodeId, tenant))) {
             throw exception(DCC_PROJECT_ACCESS_DENIED);
         }
     }
@@ -139,7 +140,7 @@ public class DccProjectAccessServiceImpl implements DccProjectAccessService {
         Long tenant = cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId();
         AdminUserRespDTO user = userId == null ? null : adminUserApi.getUser(userId);
         if (!DccAccessUserIdentity.isEnabledTenantUser(userId, user)) throw exception(DCC_PROJECT_ACCESS_DENIED);
-        if (permissionApi.hasAnyRoles(userId, "super_admin")) {
+        if (isProjectAdministrator(userId)) {
             return projectCodeMapper.selectEnabledList().stream()
                     .filter(project -> java.util.Objects.equals(project.getTenantId(), tenant)
                             && "ENABLE".equals(project.getStatus()))
@@ -157,12 +158,6 @@ public class DccProjectAccessServiceImpl implements DccProjectAccessService {
         List<Long> hardScope = assignedProjectScope(userId, tenant);
         if (hardScope != null) allowed.retainAll(hardScope);
         return List.copyOf(allowed);
-    }
-
-    private boolean isEnabledTenantSuperAdmin(Long userId) {
-        AdminUserRespDTO user = userId == null ? null : adminUserApi.getUser(userId);
-        return DccAccessUserIdentity.isEnabledTenantUser(userId, user)
-                && permissionApi.hasAnyRoles(userId, "super_admin");
     }
 
     private boolean withinAssignedProjectScope(Long userId, Long projectId, Long tenant) {
@@ -197,6 +192,10 @@ public class DccProjectAccessServiceImpl implements DccProjectAccessService {
         if (!DccAccessUserIdentity.isEnabledTenantUser(userId, user)) {
             return false;
         }
+        if (isProjectAdministrator(userId)) {
+            var project = projectCodeMapper.selectById(projectCodeId);
+            return project != null && java.util.Objects.equals(project.getTenantId(), requiredTenant);
+        }
         LocalDateTime now = LocalDateTime.now();
         Set<Long> roleIds = permissionApi.getUserRoleIdListByUserId(userId);
         Set<Long> deptIds = collectDeptIds(user.getDeptId());
@@ -205,6 +204,11 @@ public class DccProjectAccessServiceImpl implements DccProjectAccessService {
                 .filter(rule -> rule.getAccessLevel() != null
                         && allowedAccessLevels.stream().anyMatch(level -> level.equalsIgnoreCase(rule.getAccessLevel())))
                 .anyMatch(rule -> matches(rule, userId, user, roleIds, deptIds));
+    }
+
+    /** Super administrators own all projects in their tenant, including newly created projects. */
+    private boolean isProjectAdministrator(Long userId) {
+        return permissionApi.hasAnyRoles(userId, SUPER_ADMIN_ROLE_CODE);
     }
 
     private boolean matches(DccProjectAccessRuleDO rule, Long userId, AdminUserRespDTO user,

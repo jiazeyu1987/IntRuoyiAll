@@ -3,6 +3,7 @@
     <!-- 左侧：对话列表 -->
     <ConversationList
       :active-id="activeConversationId?.toString() || ''"
+      :create-conversation="isCodexWeb ? createCodexConversation : undefined"
       ref="conversationListRef"
       @on-conversation-create="handleConversationCreateSuccess"
       @on-conversation-click="handleConversationClick"
@@ -14,26 +15,49 @@
       <el-header
         class="flex flex-row items-center justify-between bg-[var(--el-bg-color-page)] shadow-[0_0_0_0_var(--el-border-color-light)]"
       >
-        <div class="text-18px font-bold">
-          {{ activeConversation?.title ? activeConversation?.title : '对话' }}
+        <div class="flex items-center gap-10px">
+          <div class="text-18px font-bold">
+            {{
+              isCodexWeb
+                ? 'Codex Web'
+                : activeConversation?.title
+                  ? activeConversation?.title
+                  : '对话'
+            }}
+          </div>
           <span v-if="activeMessageList.length">({{ activeMessageList.length }})</span>
+          <el-tag
+            v-if="isCodexWeb"
+            size="small"
+            :type="codexStatus.enabled && codexStatus.mcpConfigured ? 'success' : 'danger'"
+          >
+            IntRuoyi MCP
+          </el-tag>
+          <el-text v-if="isCodexWeb" size="small" type="info">
+            {{ codexStatus.message }}
+          </el-text>
         </div>
-        <div class="flex w-300px flex-row justify-end" v-if="activeConversation">
-          <el-button type="primary" bg plain size="small" @click="openChatConversationUpdateForm">
-            <span v-html="activeConversation?.modelName"></span>
-            <Icon icon="ep:setting" class="ml-10px" />
-          </el-button>
-          <el-button size="small" class="p-10px" @click="handlerMessageClear">
-            <Icon
-              icon="heroicons-outline:archive-box-x-mark"
-              color="var(--el-text-color-placeholder)"
-            />
-          </el-button>
-          <el-button size="small" class="p-10px">
-            <Icon icon="ep:download" color="var(--el-text-color-placeholder)" />
-          </el-button>
-          <el-button size="small" class="p-10px" @click="handleGoTopMessage">
-            <Icon icon="ep:top" color="var(--el-text-color-placeholder)" />
+        <div class="flex w-300px flex-row justify-end">
+          <template v-if="activeConversation">
+            <el-button type="primary" bg plain size="small" @click="openChatConversationUpdateForm">
+              <span v-html="activeConversation?.modelName"></span>
+              <Icon icon="ep:setting" class="ml-10px" />
+            </el-button>
+            <el-button size="small" class="p-10px" @click="handlerMessageClear">
+              <Icon
+                icon="heroicons-outline:archive-box-x-mark"
+                color="var(--el-text-color-placeholder)"
+              />
+            </el-button>
+            <el-button size="small" class="p-10px">
+              <Icon icon="ep:download" color="var(--el-text-color-placeholder)" />
+            </el-button>
+            <el-button size="small" class="p-10px" @click="handleGoTopMessage">
+              <Icon icon="ep:top" color="var(--el-text-color-placeholder)" />
+            </el-button>
+          </template>
+          <el-button v-if="!isCodexWeb" size="small" @click="router.push('/ai/codex')">
+            Codex Web
           </el-button>
         </div>
       </el-header>
@@ -82,7 +106,11 @@
             @input="handlePromptInput"
             @compositionstart="onCompositionstart"
             @compositionend="onCompositionend"
-            placeholder="问我任何问题...（Shift+Enter 换行，按下 Enter 发送）"
+            :placeholder="
+              isCodexWeb
+                ? '向 Codex 描述任务...（Shift+Enter 换行，按下 Enter 运行）'
+                : '问我任何问题...（Shift+Enter 换行，按下 Enter 发送）'
+            "
           >
           </textarea>
           <div class="flex justify-between pb-0 pt-5px">
@@ -90,8 +118,10 @@
               <MessageFileUpload v-model="uploadFiles" :limit="5" :max-size="10" class="mr-10px" />
               <el-switch v-model="enableContext" />
               <span class="ml-5px mr-15px text-14px text-#8f8f8f">上下文</span>
-              <el-switch v-model="enableWebSearch" />
-              <span class="ml-5px text-14px text-#8f8f8f">联网搜索</span>
+              <template v-if="!isCodexWeb">
+                <el-switch v-model="enableWebSearch" />
+                <span class="ml-5px text-14px text-#8f8f8f">联网搜索</span>
+              </template>
             </div>
             <el-button
               type="primary"
@@ -100,7 +130,7 @@
               :loading="conversationInProgress"
               v-if="conversationInProgress == false"
             >
-              {{ conversationInProgress ? '进行中' : '发送' }}
+              {{ conversationInProgress ? '进行中' : isCodexWeb ? '运行' : '发送' }}
             </el-button>
             <el-button
               type="danger"
@@ -124,6 +154,7 @@
 </template>
 
 <script setup lang="ts">
+import { CodexWebApi, CodexWebStatusVO } from '@/api/ai/codex'
 import { ChatMessageApi, ChatMessageVO } from '@/api/ai/chat/message'
 import { ChatConversationApi, ChatConversationVO } from '@/api/ai/chat/conversation'
 import ConversationList from './components/conversation/ConversationList.vue'
@@ -138,7 +169,16 @@ import MessageFileUpload from './components/message/MessageFileUpload.vue'
 defineOptions({ name: 'AiChat' })
 
 const route = useRoute() // 路由
+const router = useRouter()
 const message = useMessage() // 消息弹窗
+const isCodexWeb = computed(() => route.path === '/ai/codex' || route.query.mode === 'codex')
+const codexStatus = ref<CodexWebStatusVO>({
+  enabled: false,
+  mcpServerEnabled: false,
+  mcpConfigured: false,
+  mcpServerName: 'intruoyi',
+  message: '正在读取 Codex Web 状态'
+})
 
 // 聊天对话
 const conversationListRef = ref()
@@ -242,6 +282,33 @@ const handleConversationUpdateSuccess = async () => {
 const handleConversationCreate = async () => {
   // 创建对话
   await conversationListRef.value.createConversation()
+}
+
+const createCodexConversation = async () => {
+  if (!isCodexWeb.value) {
+    return await ChatConversationApi.createChatConversationMy(
+      {} as unknown as ChatConversationVO
+    )
+  }
+  return await CodexWebApi.createConversation()
+}
+
+const loadCodexStatus = async () => {
+  if (!isCodexWeb.value) {
+    return
+  }
+  try {
+    codexStatus.value = await CodexWebApi.getStatus()
+  } catch (error) {
+    codexStatus.value = {
+      enabled: false,
+      mcpServerEnabled: false,
+      mcpConfigured: false,
+      mcpServerName: 'intruoyi',
+      message: '无法读取 Codex Web 状态'
+    }
+    throw error
+  }
 }
 /** 处理聊天对话的创建成功 */
 const handleConversationCreateSuccess = async () => {
@@ -524,7 +591,8 @@ const doSendMessageStream = async (userMessage: ChatMessageVO) => {
       () => {
         stopStream()
       },
-      userMessage.attachmentUrls
+      userMessage.attachmentUrls,
+      isCodexWeb.value
     )
   } catch {}
 }
@@ -616,6 +684,7 @@ const textRoll = async () => {
 
 /** 初始化 **/
 onMounted(async () => {
+  await loadCodexStatus()
   // 如果有 conversationId 参数，则默认选中
   if (route.query.conversationId) {
     const id = route.query.conversationId as unknown as number

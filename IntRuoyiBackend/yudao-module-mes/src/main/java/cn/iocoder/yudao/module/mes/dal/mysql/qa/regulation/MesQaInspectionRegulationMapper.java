@@ -11,6 +11,11 @@ import java.util.List;
 @Mapper
 public interface MesQaInspectionRegulationMapper extends BaseMapperX<MesQaInspectionRegulationDO> {
 
+    default MesQaInspectionRegulationDO selectByIdForUpdate(Long id) {
+        return selectOne(new LambdaQueryWrapperX<MesQaInspectionRegulationDO>()
+                .eq(MesQaInspectionRegulationDO::getId, id).last("FOR UPDATE"));
+    }
+
     default MesQaInspectionRegulationDO selectByDccProjectCodeId(Long dccProjectCodeId) {
         return selectByDccProjectCodeId(dccProjectCodeId, MesQaInspectionRegulationDO.OWNER_MODULE_MES_QA);
     }

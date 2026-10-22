@@ -458,7 +458,7 @@
             <el-upload
               ref="uploadRef"
               action="#"
-              accept=".doc,.docx,.xls,.xlsx,.pdf,.dwg,.sldprt,.sldasm,.slddrw"
+              accept=".pdf,application/pdf"
               :auto-upload="false"
               :disabled="submitLoading || projectAttributesLoading"
               :limit="1"
@@ -474,7 +474,7 @@
               </el-button>
               <template #tip>
                 <div class="mt-8px text-12px text-[var(--el-text-color-secondary)]">
-                  {{ EDITABLE_SOURCE_MESSAGE }}；图纸源文件需同步上传 PDF。
+                  必须上传不可编辑 PDF，在线浏览固定使用该版本。
                 </div>
               </template>
             </el-upload>
@@ -509,6 +509,43 @@
                 :title="previewUpload?.fileName || previewFileBlob?.name || '受控文件预览'"
                 :watermark="previewUpload?.watermark || null"
               />
+            </div>
+          </div>
+        </el-form-item>
+        <el-form-item label="可编辑版本">
+          <div class="w-full">
+            <el-upload
+              ref="editableUploadRef"
+              action="#"
+              :accept="EDITABLE_SOURCE_ACCEPT"
+              :auto-upload="false"
+              :limit="1"
+              :file-list="editableFileList"
+              :on-change="handleEditableFileChange"
+              :before-remove="handleBeforeEditableFileRemove"
+              :on-remove="handleEditableFileRemove"
+              :on-exceed="handleFileExceed"
+            >
+              <el-button plain :loading="editableUploadLoading">
+                <Icon icon="ep:edit" class="mr-5px" />
+                选择可编辑文件
+              </el-button>
+              <template #tip>
+                <div class="mt-8px text-12px text-[var(--el-text-color-secondary)]">
+                  非必填；仅拥有可编辑版本下载权限的用户可获取。
+                </div>
+              </template>
+            </el-upload>
+            <div
+              v-if="editableUpload"
+              class="mt-12px rounded-8px border border-[var(--el-border-color-light)] bg-[#fafcff] px-12px py-10px text-13px"
+            >
+              <div class="font-600 text-[var(--el-text-color-primary)]">
+                可编辑文件：{{ editableUpload.fileName }}
+              </div>
+              <div class="mt-4px text-[var(--el-text-color-secondary)]">
+                {{ editableUpload.contentType }} · {{ formatPreviewFileSize(editableUpload.fileSize) }}
+              </div>
             </div>
           </div>
         </el-form-item>
@@ -695,6 +732,7 @@ import {
   buildSubmitFailureFeedback,
   clearSubmitFieldErrors,
   createUploadSubmitterService,
+  EDITABLE_SOURCE_ACCEPT,
   buildUploadConfirmationSummary,
   EDITABLE_SOURCE_MESSAGE,
   formatPreviewFileSize,
@@ -745,6 +783,7 @@ const acceptedProjectCodeOption = ref<DccDiscoveredProject>()
 const projectAttributesLoading = ref(false)
 let projectAttributesSelectionSequence = 0
 const uploadRef = ref()
+const editableUploadRef = ref()
 const drawingPdfUploadRef = ref()
 const attachmentUploadRef = ref()
 const categories = ref<ControlledFileCategoryVO[]>([])
@@ -775,9 +814,11 @@ const uploadDirectoryTree = ref<ControlledFileUploadDirectoryTreeVO>()
 const currentVersionInfo = ref<ControlledFileCurrentVersionRespVO>()
 const selectedHistoryVersion = ref<string | null>()
 const fileList = ref<UploadUserFile[]>([])
+const editableFileList = ref<UploadUserFile[]>([])
 const drawingPdfFileList = ref<UploadUserFile[]>([])
 const attachmentFileList = ref<UploadUserFile[]>([])
 const previewUpload = ref<ControlledFileUploadRespVO>()
+const editableUpload = ref<ControlledFileUploadRespVO>()
 const drawingPdfUpload = ref<ControlledFileUploadRespVO>()
 type AttachmentUploadState = ControlledFileUploadRespVO & { uid: string | number }
 const attachmentUploads = ref<AttachmentUploadState[]>([])
@@ -790,6 +831,7 @@ type AttachmentUploadAttempt = {
 const attachmentUploadAttempts = ref<AttachmentUploadAttempt[]>([])
 const attachmentUploadGenerations = new Map<string, number>()
 let sourceUploadRequestSeq = 0
+let editableUploadRequestSeq = 0
 let drawingPdfUploadRequestSeq = 0
 let uploadDirectoryRequestSeq = 0
 const previewFileBlob = ref<File | null>(null)
@@ -802,6 +844,7 @@ const projectProduct = ref<ControlledFileProjectProduct>()
 let projectProductRequestSequence = 0
 let projectProductMounted = true
 const uploadPreviewLoading = ref(false)
+const editableUploadLoading = ref(false)
 const uploadDrawingPdfLoading = ref(false)
 const uploadAttachmentLoading = ref(false)
 const uploadNameOptionsLoading = ref(false)
@@ -1229,6 +1272,7 @@ const resetUploadDirectoryContext = () => {
 }
 
 const resetSelectedPreview = () => {
+  resetEditableUpload()
   sourceUploadRequestSeq++
   uploadPreviewLoading.value = false
   uploadSessionBinding.value = undefined
@@ -1236,6 +1280,13 @@ const resetSelectedPreview = () => {
   fileList.value = []
   previewFileBlob.value = null
   uploadPreviewError.value = ''
+}
+
+const resetEditableUpload = () => {
+  editableUploadRequestSeq++
+  editableUploadLoading.value = false
+  editableUpload.value = undefined
+  editableFileList.value = []
 }
 
 const resetDrawingPdfUpload = () => {
@@ -1296,19 +1347,19 @@ const syncAutoCategoryFromSelectedFileTypeTaxonomy = async () => {
 
 const hasTemporaryUploadState = () =>
   Boolean(
-    previewUpload.value?.uploadTicket ||
+    previewUpload.value?.uploadTicket || editableUpload.value?.uploadTicket ||
       drawingPdfUpload.value?.uploadTicket ||
       attachmentUploads.value.some((upload) => upload.uploadTicket)
   )
 
 const resolveCurrentUploadCleanupRequestId = () =>
-  previewUpload.value?.requestId || drawingPdfUpload.value?.requestId
+  previewUpload.value?.requestId || editableUpload.value?.requestId || drawingPdfUpload.value?.requestId
 
 const cleanupCurrentUploadSession = async (showSuccess = false) => {
   if (uploadSubmitted.value || !hasTemporaryUploadState()) {
     return true
   }
-  const source = previewUpload.value || drawingPdfUpload.value
+  const source = previewUpload.value || editableUpload.value || drawingPdfUpload.value
   const requestId = resolveCurrentUploadCleanupRequestId()
   const attachments = [...attachmentUploads.value]
   try {
@@ -2359,14 +2410,13 @@ const handleFileChange: UploadProps['onChange'] = async (file, uploadFiles) => {
   const requestSeq = ++sourceUploadRequestSeq
   const selectionContext = captureUploadSelectionContext()
   const selectedUid = file.uid
-  const validation = validateControlledFileSelection(
-    uploadFiles.map((item) => ({
-      name: item.name,
-      type: item.raw?.type
-    }))
-  )
+  const validation = validateSingleUploadFileSelection(uploadFiles.map((item) => ({
+    name: item.name,
+    type: item.raw?.type
+  })))
+  const isPdf = file.raw && (file.raw.type === 'application/pdf' || /\.pdf$/i.test(file.name))
 
-  if (!validation.valid) {
+  if (!validation.valid || (!isExternalReview.value && !isPdf)) {
     const errorMessage = validation.message || '文件校验失败'
     uploadRef.value?.clearFiles()
     resetSelectedPreview()
@@ -2384,6 +2434,7 @@ const handleFileChange: UploadProps['onChange'] = async (file, uploadFiles) => {
   if (requestSeq !== sourceUploadRequestSeq || selectionContext !== captureUploadSelectionContext()) return
   uploadSessionId = createControlledFileUploadSessionId()
   const clientSessionId = uploadSessionId
+  resetEditableUpload()
   resetDrawingPdfUpload()
   resetAttachmentUploads()
 
@@ -2398,7 +2449,7 @@ const handleFileChange: UploadProps['onChange'] = async (file, uploadFiles) => {
   try {
     const uploaded = await uploadSubmitterService.uploadPreview(
       file.raw as File,
-      'SOURCE',
+      isExternalReview.value ? 'SOURCE' : 'READ_ONLY_VIEW',
       buildUploadPreviewContext()
     )
     const isCurrentSelection =
@@ -2431,6 +2482,56 @@ const handleFileChange: UploadProps['onChange'] = async (file, uploadFiles) => {
       uploadPreviewLoading.value = false
     }
   }
+}
+
+const handleEditableFileChange: UploadProps['onChange'] = async (file, uploadFiles) => {
+  if (submitLoading.value || uploadSubmitted.value || projectAttributesLoading.value) return
+  const requestSeq = ++editableUploadRequestSeq
+  const session = uploadSessionId
+  const context = captureUploadSelectionContext()
+  const current = () => requestSeq === editableUploadRequestSeq && session === uploadSessionId && context === captureUploadSelectionContext()
+  const validation = validateControlledFileSelection(uploadFiles.map((item) => ({
+    name: item.name,
+    type: item.raw?.type
+  })))
+  if (!validation.valid || !file.raw) {
+    const errorMessage = validation.message || '可编辑文件校验失败'
+    editableUploadRef.value?.clearFiles()
+    resetEditableUpload()
+    message.error(errorMessage)
+    return
+  }
+  if (!(await cleanupTemporaryUploadTicket(editableUpload.value))) {
+    editableUploadRef.value?.clearFiles()
+    return
+  }
+  if (!current()) return
+  editableFileList.value = uploadFiles.slice(-1)
+  editableUpload.value = undefined
+  editableUploadLoading.value = true
+  try {
+    const uploaded = await uploadSubmitterService.uploadPreview(
+      file.raw as File,
+      'EDITABLE_SOURCE',
+      buildUploadPreviewContext()
+    )
+    if (!current()) { await cleanupStaleUploadResponse(uploaded, '可编辑文件'); return }
+    validateUploadPreviewResponse(uploaded, file.raw.name, false)
+    editableUpload.value = uploaded
+  } catch (error) {
+    if (!current()) return
+    editableUpload.value = undefined
+    message.error(resolveUploadPreviewErrorMessage(error, '可编辑文件上传失败，请查看错误提示后重试'))
+  } finally {
+    if (current()) editableUploadLoading.value = false
+  }
+}
+
+const handleBeforeEditableFileRemove: UploadProps['beforeRemove'] = async () =>
+  await cleanupTemporaryUploadTicket(editableUpload.value, true)
+
+const handleEditableFileRemove: UploadProps['onRemove'] = () => {
+  resetEditableUpload()
 }
 
 const handleBeforeFileRemove: UploadProps['beforeRemove'] = async () => {
@@ -2663,7 +2764,7 @@ const freezeUploadApplicationDraft = (savingDraft = false): UploadFormDraft => {
 
 const captureUploadSubmissionContext = () => JSON.stringify({
   actor: uploadApplicationActorKey(userStore.getUser, getVisitTenantId() ?? getTenantId()),
-  form: Object.fromEntries(Object.entries(formData).filter(([key]) => key !== 'approvalMatrixSelection')), preview: previewUpload.value, drawingPdf: drawingPdfUpload.value,
+  form: Object.fromEntries(Object.entries(formData).filter(([key]) => key !== 'approvalMatrixSelection')), preview: previewUpload.value, editable: editableUpload.value, drawingPdf: drawingPdfUpload.value,
   attachments: resolveReadyAttachmentUploads(), relations: selectedUploadRelations.value,
   attributes: isExternalReview.value ? undefined : projectAttributesPanel.value?.getSnapshot(),
   project: selectedProjectCode.value, product: projectProduct.value, folder: selectedProjectFolder.value,
@@ -2686,7 +2787,7 @@ const confirmUploadApplication = (rows: UploadConfirmationRow[]) => ElMessageBox
 
 const saveUploadDraft = async () => {
   if (isExternalReview.value || submitLoading.value || uploadSubmitted.value || projectAttributesLoading.value
-    || uploadPreviewLoading.value || uploadDrawingPdfLoading.value || hasUnreadyAttachmentUploads.value) return
+    || uploadPreviewLoading.value || editableUploadLoading.value || uploadDrawingPdfLoading.value || hasUnreadyAttachmentUploads.value) return
   submitLoading.value = true
   try {
     const clickedContext = captureUploadSubmissionContext()
@@ -2709,7 +2810,7 @@ const saveUploadDraft = async () => {
     const draft = freezeUploadApplicationDraft(true)
     const id = await uploadSubmitterService.saveDraft(draft,
       JSON.parse(JSON.stringify(previewUpload.value)), drawingPdfUpload.value ? JSON.parse(JSON.stringify(drawingPdfUpload.value)) : undefined,
-      JSON.parse(JSON.stringify(attachments)))
+      JSON.parse(JSON.stringify(attachments)), editableUpload.value ? JSON.parse(JSON.stringify(editableUpload.value)) : undefined)
     uploadSubmitted.value = true
     const exactId = referenceIdentity(id)
     message.success('申请工作稿已保存')
@@ -2727,7 +2828,7 @@ const saveUploadDraft = async () => {
 }
 
 const submitForm = async () => {
-  if (submitLoading.value || uploadSubmitted.value || projectAttributesLoading.value || uploadPreviewLoading.value || uploadDrawingPdfLoading.value) {
+  if (submitLoading.value || uploadSubmitted.value || projectAttributesLoading.value || uploadPreviewLoading.value || editableUploadLoading.value || uploadDrawingPdfLoading.value) {
     message.warning('请等待当前项目属性读取或提交完成')
     return
   }
@@ -2796,7 +2897,7 @@ const submitForm = async () => {
     return
   }
   if (!previewUpload.value) {
-    message.warning('请先选择并完成文件预览上传')
+    message.warning('请先选择并完成不可编辑 PDF 上传')
     return
   }
   const productCodeValidation = validateDccProjectProductCode(
@@ -2843,8 +2944,9 @@ const submitForm = async () => {
     const draft = freezeUploadApplicationDraft()
     const preview = JSON.parse(JSON.stringify(previewUpload.value))
     const drawingPdf = drawingPdfUpload.value ? JSON.parse(JSON.stringify(drawingPdfUpload.value)) : undefined
+    const editable = editableUpload.value ? JSON.parse(JSON.stringify(editableUpload.value)) : undefined
     const attachments = JSON.parse(JSON.stringify(attachmentSnapshot))
-    validateUploadTickets(preview, drawingPdf, attachments)
+    validateUploadTickets(preview, drawingPdf, attachments, editable)
     const approvers = resolvedUploadApprovers(routeReadiness.value, approvalUsers.value)
     const people = isExternalReview.value ? undefined : resolvedUploadApplicationPeople(routeReadiness.value, userStore.getUser, approvalUsers.value)
     const summary = buildUploadConfirmationSummary(draft, preview, {
@@ -2859,7 +2961,7 @@ const submitForm = async () => {
       documentControl: isCustomApprovalSource.value
         ? approvalUsers.value.find(account => account.id === draft.applicationCustomMatrix?.documentControlUserId) : undefined,
       runtimeCapabilityLimitations: approvers.capabilityLimitations,
-      drawingPdf, attachments
+      drawingPdf, attachments, editable
     })
     const currentContext = () => JSON.stringify({ context: captureUploadSubmissionContext(),
       route: routeReadiness.value, routeKey: routeReadinessSelectionKey.value })
@@ -2878,12 +2980,13 @@ const submitForm = async () => {
     if (!isExternalReview.value && JSON.stringify(draft.approvalMatrixSelection)
       !== JSON.stringify(ensureUploadApprovalMatrix().selection('SUBMIT')))
       throw new Error('直属主管来源或审批准备已变化，请重新核对并确认')
-    validateUploadTickets(preview, drawingPdf, attachments)
+    validateUploadTickets(preview, drawingPdf, attachments, editable)
     await uploadSubmitterService.submit(
       draft,
       preview,
       drawingPdf,
-      attachments
+      attachments,
+      editable
     )
     uploadSubmitted.value = true
     message.success(isExternalReview.value ? '外来文件评审已提交审批' : '受控文件已提交审批')

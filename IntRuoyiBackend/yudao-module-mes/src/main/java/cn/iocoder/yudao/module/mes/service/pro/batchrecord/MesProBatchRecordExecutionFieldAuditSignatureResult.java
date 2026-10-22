@@ -15,6 +15,10 @@ public class MesProBatchRecordExecutionFieldAuditSignatureResult {
 
     private String actorName;
 
+    private String signatureMode;
+
+    private Boolean passwordVerified;
+
     private LocalDateTime signedAt;
 
     private LocalDateTime selectedSignedAt;

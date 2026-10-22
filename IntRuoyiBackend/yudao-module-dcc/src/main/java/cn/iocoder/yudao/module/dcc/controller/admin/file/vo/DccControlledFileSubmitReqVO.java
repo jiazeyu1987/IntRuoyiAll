@@ -33,6 +33,12 @@ public class DccControlledFileSubmitReqVO {
     @Schema(hidden = true)
     private String creationPayloadHash;
 
+    /** Required PDF used for online read-only browsing. */
+    private String readOnlyUploadTicket;
+
+    /** Optional editable source used only by the editable download endpoint. */
+    private String editableUploadTicket;
+
     private String originalUploadTicket;
 
     private String sourceUploadTicket;
@@ -44,6 +50,14 @@ public class DccControlledFileSubmitReqVO {
     @JsonIgnore
     @Schema(hidden = true)
     private Long originalFileId;
+
+    @JsonIgnore
+    @Schema(hidden = true)
+    private Long readOnlyFileId;
+
+    @JsonIgnore
+    @Schema(hidden = true)
+    private Long editableFileId;
 
     @JsonIgnore
     @Schema(hidden = true)

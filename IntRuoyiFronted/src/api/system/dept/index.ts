@@ -1,20 +1,32 @@
 import request from '@/config/axios'
 
+export interface DeptSupervisorVO {
+  configuredUserId?: number
+  configuredUserName?: string
+  configuredUserInvalid: boolean
+  status: 'DIRECT' | 'INHERITED' | 'MISSING' | 'INVALID_HIERARCHY'
+  userId?: number
+  userName?: string
+  deptId?: number
+  deptName?: string
+}
+
 export interface DeptVO {
   id: number
   name: string
   parentId: number
   status: number
   sort: number
-  leaderUserId: number
+  leaderUserId: number | null
+  supervisor?: DeptSupervisorVO
   phone: string
   email: string
   createTime: Date
 }
 
 // 查询部门（精简)列表
-export const getSimpleDeptList = (): Promise<DeptVO[]> => {
-  return request.get({ url: '/system/dept/simple-list' })
+export const getSimpleDeptList = (options?: { ignoreErrorMessage?: boolean }): Promise<DeptVO[]> => {
+  return request.get({ url: '/system/dept/simple-list', ignoreErrorMessage: options?.ignoreErrorMessage })
 }
 
 // 查询部门列表

@@ -23,10 +23,16 @@ public class MesProEdhrReleaseApproveReqVO {
     @NotBlank(message = "批准幂等键不能为空")
     private String idempotencyKey;
 
-    @NotBlank(message = "签核证据不能为空")
     private String signoffEvidenceHash;
 
+    @NotBlank(message = "负责人电子密码不能为空")
+    private String password;
+
     private String signoffSubjectId;
+
+    /** Server-created formal market-release signature identity; never accepted from HTTP. */
+    @JsonIgnore
+    private Long signatureId;
 
     private String approvalOpinion;
 
@@ -76,6 +82,9 @@ public class MesProEdhrReleaseApproveReqVO {
     @JsonIgnore
     private MesReleaseMaterialGateReceipt materialGateReceipt;
 
+    @JsonIgnore
+    private boolean passwordReauthenticated;
+
     public MesProEdhrReleaseApproveReqVO setReleaseTransactionId(Long releaseTransactionId) {
         this.releaseTransactionId = releaseTransactionId;
         return this;
@@ -98,6 +107,11 @@ public class MesProEdhrReleaseApproveReqVO {
 
     public MesProEdhrReleaseApproveReqVO setSignoffEvidenceHash(String signoffEvidenceHash) {
         this.signoffEvidenceHash = signoffEvidenceHash;
+        return this;
+    }
+
+    public MesProEdhrReleaseApproveReqVO setSignatureId(Long signatureId) {
+        this.signatureId = signatureId;
         return this;
     }
 

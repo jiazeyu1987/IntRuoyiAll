@@ -130,11 +130,42 @@ public class ErpKingdeeInventoryClientImpl implements ErpKingdeeInventoryClient 
                 .collect(Collectors.joining("; "));
     }
 
+    @Override
+    public List<ErpKingdeeInventoryRow> fetchInventoryGroup(ErpKingdeeProperties properties,
+            String materialNumber, String stockOrgNumber, String warehouseNumber) {
+        properties.validateBaseConfig();
+        for (String key : List.of(materialNumber, stockOrgNumber, warehouseNumber)) {
+            if (StrUtil.isBlank(key) || key.contains("'")) {
+                throw exception(KINGDEE_PURCHASE_ORDER_RESPONSE_INVALID, "invalid inventory group key");
+            }
+        }
+        String filter = "FMATERIALID.FNumber = '" + materialNumber + "' and FStockOrgId.FNumber = '"
+                + stockOrgNumber + "' and FStockId.FNumber = '" + warehouseNumber + "'";
+        String cookie = login(properties);
+        List<ErpKingdeeInventoryRow> result = new ArrayList<>();
+        int offset = 0;
+        while (true) {
+            JsonNode rows = executeBillQuery(properties, cookie, offset, filter);
+            if (!rows.isArray()) {
+                throw exception(KINGDEE_PURCHASE_ORDER_RESPONSE_INVALID, "STK_Inventory response is not an array");
+            }
+            if (rows.isEmpty()) { break; }
+            for (JsonNode row : rows) { result.add(buildRow(row)); }
+            offset += rows.size();
+        }
+        return result;
+    }
+
     private JsonNode executeBillQuery(ErpKingdeeProperties properties, String cookieHeader, int startRow) {
+        return executeBillQuery(properties, cookieHeader, startRow, "FBaseQty > 0");
+    }
+
+    private JsonNode executeBillQuery(ErpKingdeeProperties properties, String cookieHeader, int startRow,
+                                      String filter) {
         Map<String, Object> query = new LinkedHashMap<>();
         query.put("FormId", ErpKingdeeInventoryRow.FORM_ID);
         query.put("FieldKeys", FIELD_KEYS);
-        query.put("FilterString", "FBaseQty > 0");
+        query.put("FilterString", filter);
         query.put("OrderString", "FID DESC");
         query.put("StartRow", startRow);
         query.put("Limit", PAGE_LIMIT);

@@ -18,7 +18,7 @@ for (const pagePath of [productionPagePath, tabsPath]) {
 const productionPage = read(productionPagePath)
 const tabs = read(tabsPath)
 
-for (const tabName of ['批次执行', '批记录页面关系图']) {
+for (const tabName of ['批次执行', '作废']) {
   assert.match(tabs, new RegExp(tabName), `eDHR batch tabs must include ${tabName}.`)
 }
 assert.doesNotMatch(

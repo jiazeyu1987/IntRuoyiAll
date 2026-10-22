@@ -1,6 +1,7 @@
 package cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.Data;
 import lombok.experimental.Accessors;
 
@@ -16,17 +17,43 @@ public class MesTeamLeaderActiveOrderDetailRespVO {
 
     private Long activeOrderId;
     private Integer version;
+    private String udiControlDocumentNo;
     private Long workOrderId;
     private String workOrderCode;
     private String batchCode;
     private BigDecimal workOrderQuantity;
+    private String demandBillNo;
     private String drawingNumber;
     private String productCode;
     private String productName;
     private String productSpecification;
     private LocalDateTime workOrderCreateTime;
     private String routeName;
+    private List<InputMaterialDetail> inputMaterialUsages;
     private List<ProcessDetail> processes;
+    private List<PqcSubmissionDetail> pqcSubmissions;
+    private ActiveOrderStatusSummary activeOrderStatus;
+    private PqcProductionReleaseSummary pqcProductionRelease;
+    private ReworkSourceDetail reworkSource;
+    private List<OperationFact> operationFacts;
+
+
+    @Data
+    @Accessors(chain = true)
+    public static class ReworkSourceDetail {
+        private Long currentActiveOrderId;
+        private Long sourceActiveOrderId;
+        private String sourceBusinessStatus;
+        private Long reviewId;
+        private String reviewCode;
+        private String nonconformanceReason;
+        private String reviewOpinion;
+        private Long qaUserId;
+        private LocalDateTime disposedAt;
+        private SignatureDetail qaSignature;
+        private cn.iocoder.yudao.module.signature.api.dto.ElectronicSignatureEvidenceDTO qaSignatureEvidence;
+        private cn.iocoder.yudao.module.signature.api.dto.ElectronicSignatureVerificationDTO qaSignatureVerification;
+    }
 
     @Data
     @Accessors(chain = true)
@@ -61,7 +88,18 @@ public class MesTeamLeaderActiveOrderDetailRespVO {
         private List<Long> sourcePickListIds;
         private List<String> sourcePickListNos;
         private List<Long> sourcePickListItemIds;
+        private List<SourcePickListDocument> sourcePickListDocuments;
         private String sourceSnapshotHash;
+    }
+
+    @Data
+    @Accessors(chain = true)
+    public static class SourcePickListDocument {
+        private Long id;
+        private String billNo;
+        private String documentStatus;
+        private LocalDateTime billDate;
+        private List<String> productionOrderNos;
     }
 
     @Data
@@ -158,20 +196,25 @@ public class MesTeamLeaderActiveOrderDetailRespVO {
         private Long qaProcessId;
         private String qaProcessCode;
         private String qaProcessName;
+        private Integer qaProcessSort;
         private String qaItemCode;
         private String inspectionRuleKey;
         private String inspectionType;
+        @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd")
         private LocalDate businessDate;
         private String shiftCode;
         private Integer roundNo;
         private Integer actualInspectionQuantity;
         private Integer scrapQuantity;
+        private Integer submittedInspectionQuantity;
+        private Integer submittedScrapQuantity;
         private String taskStatus;
         private String submitterName;
         private String reviewerName;
         private List<SignatureDetail> submitterSignatures;
         private List<SignatureDetail> reviewerSignatures;
-        private List<PqcSubmissionItemDetail> items;
+        private List<PqcSubmissionItemDetail> submittedItems;
+        private List<PqcSubmissionItemDetail> processInspectionItems;
     }
 
     @Data
@@ -181,6 +224,47 @@ public class MesTeamLeaderActiveOrderDetailRespVO {
         private String signerName;
         private LocalDateTime signedAt;
         private String role;
+        private String signerNameStatus;
+        private cn.iocoder.yudao.module.signature.api.dto.ElectronicSignatureVerificationDTO verification;
+    }
+
+    @Data
+    @Accessors(chain = true)
+    public static class PqcProductionReleaseSummary {
+        private String status;
+        private String statusLabel;
+        private SignatureDetail signature;
+    }
+
+    @Data
+    @Accessors(chain = true)
+    public static class ActiveOrderStatusSummary {
+        private String status;
+        private String statusLabel;
+    }
+
+    @Data
+    @Accessors(chain = true)
+    public static class OperationFact {
+        private Long id;
+        private String operationType;
+        private String operationName;
+        private String sourceType;
+        private String sourceId;
+        private Long actorUserId;
+        private String actorName;
+        private Long signatureId;
+        private String nonconformanceReason;
+        private String reviewMaterialUrl;
+        private Long reviewMaterialFileId;
+        private String reviewMaterialsJson;
+        private String reviewOpinion;
+        private String disposition;
+        private String qaSignature;
+        private Long qaUserId;
+        private String resultStatus;
+        private LocalDateTime occurredAt;
+        private String sourceSnapshotHash;
     }
 
     @Data

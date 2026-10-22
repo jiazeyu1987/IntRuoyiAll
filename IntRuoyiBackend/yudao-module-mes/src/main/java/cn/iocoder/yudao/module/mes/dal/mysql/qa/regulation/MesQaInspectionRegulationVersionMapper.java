@@ -11,6 +11,12 @@ import java.util.List;
 public interface MesQaInspectionRegulationVersionMapper
         extends BaseMapperX<MesQaInspectionRegulationVersionDO> {
 
+    default MesQaInspectionRegulationVersionDO selectByRegulationIdAndVersionNoForUpdate(Long regulationId, String versionNo) {
+        return selectOne(new LambdaQueryWrapperX<MesQaInspectionRegulationVersionDO>()
+                .eq(MesQaInspectionRegulationVersionDO::getRegulationId, regulationId)
+                .eq(MesQaInspectionRegulationVersionDO::getVersionNo, versionNo).last("FOR UPDATE"));
+    }
+
     default MesQaInspectionRegulationVersionDO selectByRegulationIdAndVersionNo(Long regulationId, String versionNo) {
         return selectOne(new LambdaQueryWrapperX<MesQaInspectionRegulationVersionDO>()
                 .eq(MesQaInspectionRegulationVersionDO::getRegulationId, regulationId)

@@ -6,6 +6,7 @@ import type {ConfigEnv, UserConfig} from 'vite'
 import {loadEnv} from 'vite'
 import {createVitePlugins} from './build/vite'
 import {exclude, include} from "./build/vite/optimize"
+import { installWindowsReadFileLimit } from './build/vite/windowsReadFileLimit.mjs'
 
 gracefulify(fs)
 // 当前执行node命令时文件夹的地址(工作目录)
@@ -68,6 +69,9 @@ export default ({command, mode}: ConfigEnv): UserConfig => {
     const useSameOriginApiProxy = !isBuild && !isBatchRecordPreviewMode && !!env.VITE_PROXY_TARGET
     const enableJmreportProxy = isBatchRecordPreviewMode || !!env.VITE_PROXY_TARGET
     const useWindowsSafeOptimize = !isBuild && env.VITE_OPTIMIZE_PROFILE === 'windows-safe'
+    if (process.platform === 'win32' && useWindowsSafeOptimize) {
+        installWindowsReadFileLimit(8)
+    }
     const windowsSafeOptimizeInclude = [
         'qs',
         'url',
@@ -150,6 +154,8 @@ export default ({command, mode}: ConfigEnv): UserConfig => {
             port: effectiveDevPortNumber,
             host: "0.0.0.0",
             open: env.VITE_OPEN === 'true',
+            // Windows-safe 模式按实际请求编译，避免静态导入递归预热耗尽文件句柄。
+            preTransformRequests: !useWindowsSafeOptimize,
             // 避免生成产物、任务证据和依赖备份耗尽 Windows 文件句柄。
             watch: {
               ignored: devWatchIgnored

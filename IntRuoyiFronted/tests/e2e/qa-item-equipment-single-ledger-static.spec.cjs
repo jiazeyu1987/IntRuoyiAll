@@ -21,7 +21,7 @@ assert.match(qaApi, /interface QaInspectionRegulationItemEquipmentVO[\s\S]*equip
 assert.match(qaApi, /type QaInspectionRegulationSaveItemVO = Omit</)
 const saveItemTypeBlock = qaApi.slice(
   qaApi.indexOf('export type QaInspectionRegulationSaveItemVO'),
-  qaApi.indexOf('export interface QaInspectionRegulationSaveRespVO')
+  qaApi.indexOf('export interface QaCommonRegulationSetItemsUpgradeItemReqVO')
 )
 assert.doesNotMatch(saveItemTypeBlock, /equipmentOptions\s*:/)
 assert.match(qaApi, /processes: QaInspectionRegulationProcessVO\[\]/)

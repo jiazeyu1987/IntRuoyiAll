@@ -1,17 +1,24 @@
 package cn.iocoder.yudao.module.mes.service.pro.frontline;
 
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolReportAllocationDO;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventMapper;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteVersionDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolReportAllocationMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteVersionMapper;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesOutputMaterialProgressCalculator;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -34,14 +41,20 @@ public class MesFrontlineActiveOrderProcessServiceImpl implements MesFrontlineAc
     private final MesProcessPoolActiveOrderMapper activeOrderMapper;
     private final MesProcessPoolActiveOrderProcessSnapshotMapper processSnapshotMapper;
     private final MesProRouteVersionMapper routeVersionMapper;
+    private final MesProcessPoolReportAllocationMapper reportAllocationMapper;
+    private final MesProProcessPoolEventMapper processPoolEventMapper;
 
     public MesFrontlineActiveOrderProcessServiceImpl(
             MesProcessPoolActiveOrderMapper activeOrderMapper,
             MesProcessPoolActiveOrderProcessSnapshotMapper processSnapshotMapper,
-            MesProRouteVersionMapper routeVersionMapper) {
+            MesProRouteVersionMapper routeVersionMapper,
+            MesProcessPoolReportAllocationMapper reportAllocationMapper,
+            MesProProcessPoolEventMapper processPoolEventMapper) {
         this.activeOrderMapper = activeOrderMapper;
         this.processSnapshotMapper = processSnapshotMapper;
         this.routeVersionMapper = routeVersionMapper;
+        this.reportAllocationMapper = reportAllocationMapper;
+        this.processPoolEventMapper = processPoolEventMapper;
     }
 
     @Override
@@ -69,10 +82,14 @@ public class MesFrontlineActiveOrderProcessServiceImpl implements MesFrontlineAc
         if (!snapshotIdentities.equals(nodes.keySet())) {
             throw snapshotInvalid(activeOrderId, "逐工序目标快照与锁定工艺版本工序不一致");
         }
+        Map<ProcessIdentity, BigDecimal> submittedQuantities =
+                resolveSubmittedQuantities(activeOrder, processSnapshots);
         String routeCode = normalize(routeSnapshot.getString("routeCode"));
         String routeName = normalize(routeSnapshot.getString("routeName"));
         return processSnapshots.stream()
-                .map(snapshot -> toProcess(activeOrder, routeVersion, routeCode, routeName, nodes, snapshot))
+                .map(snapshot -> toProcess(activeOrder, routeVersion, routeCode, routeName, nodes, snapshot,
+                        submittedQuantities.get(new ProcessIdentity(snapshot.getRouteProcessId(),
+                                snapshot.getProcessId()))))
                 .sorted(Comparator
                         .comparing(MesFrontlineActiveOrderProcess::sort,
                                 Comparator.nullsLast(Integer::compareTo))
@@ -158,7 +175,8 @@ public class MesFrontlineActiveOrderProcessServiceImpl implements MesFrontlineAc
             String routeCode,
             String routeName,
             Map<ProcessIdentity, JSONObject> nodes,
-            MesProcessPoolActiveOrderProcessSnapshotDO snapshot) {
+            MesProcessPoolActiveOrderProcessSnapshotDO snapshot,
+            BigDecimal submittedQuantity) {
         if (snapshot == null || !Objects.equals(snapshot.getActiveOrderId(), activeOrder.getId())
                 || !Objects.equals(snapshot.getRouteId(), activeOrder.getRouteId())
                 || !Objects.equals(snapshot.getRouteVersionId(), routeVersion.getId())
@@ -177,6 +195,9 @@ public class MesFrontlineActiveOrderProcessServiceImpl implements MesFrontlineAc
         if (processCode == null || processName == null) {
             throw snapshotInvalid(activeOrder.getId(), "流程工序缺少冻结编码或名称");
         }
+        if (submittedQuantity == null) {
+            throw snapshotInvalid(activeOrder.getId(), "缺少工序已提交数量");
+        }
         Long workstationId = node.getLong("routeProcessWorkstationId");
         if (workstationId == null || workstationId <= 0) {
             throw exception(PRO_FRONTLINE_ROUTE_PROCESS_WORKSTATION_REQUIRED,
@@ -186,7 +207,58 @@ public class MesFrontlineActiveOrderProcessServiceImpl implements MesFrontlineAc
                 routeCode, routeName, snapshot.getRouteProcessId(), snapshot.getProcessId(), processCode, processName,
                 node.getInteger("sort"), workstationId, normalize(node.getString("workstationCode")),
                 normalize(node.getString("workstationName")), snapshot.getProductionQuantityFactorSnapshot(),
-                snapshot.getPlannedQuantitySnapshot(), Boolean.TRUE.equals(node.getBoolean("checkFlag")));
+                snapshot.getPlannedQuantitySnapshot(), submittedQuantity,
+                Boolean.TRUE.equals(node.getBoolean("checkFlag")));
+    }
+
+    private Map<ProcessIdentity, BigDecimal> resolveSubmittedQuantities(
+            MesProcessPoolActiveOrderDO activeOrder,
+            List<MesProcessPoolActiveOrderProcessSnapshotDO> processSnapshots) {
+        List<MesProcessPoolReportAllocationDO> currentAllocations =
+                reportAllocationMapper.selectListByActiveOrderIds(List.of(activeOrder.getId()));
+        Map<ProcessIdentity, BigDecimal> result = new LinkedHashMap<>();
+        if (currentAllocations == null || currentAllocations.isEmpty()) {
+            for (MesProcessPoolActiveOrderProcessSnapshotDO snapshot : processSnapshots) {
+                result.put(new ProcessIdentity(snapshot.getRouteProcessId(), snapshot.getProcessId()),
+                        zeroSubmittedQuantity(snapshot));
+            }
+            return result;
+        }
+        List<Long> eventIds = currentAllocations.stream()
+                .map(MesProcessPoolReportAllocationDO::getEventId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+        List<MesProProcessPoolEventDO> productionEvents = eventIds.isEmpty()
+                ? List.of() : processPoolEventMapper.selectBatchIds(eventIds);
+        for (MesProcessPoolActiveOrderProcessSnapshotDO snapshot : processSnapshots) {
+            ProcessIdentity identity = new ProcessIdentity(snapshot.getRouteProcessId(), snapshot.getProcessId());
+            if (!hasSubmittedAllocation(identity, currentAllocations)) {
+                result.put(identity, zeroSubmittedQuantity(snapshot));
+                continue;
+            }
+            result.put(new ProcessIdentity(snapshot.getRouteProcessId(), snapshot.getProcessId()),
+                    MesOutputMaterialProgressCalculator.calculateConservativeProcessProgress(activeOrder, snapshot,
+                            productionEvents, currentAllocations));
+        }
+        return result;
+    }
+
+    private static boolean hasSubmittedAllocation(
+            ProcessIdentity identity,
+            List<MesProcessPoolReportAllocationDO> currentAllocations) {
+        return currentAllocations.stream().anyMatch(allocation ->
+                allocation != null
+                        && Objects.equals(identity.routeProcessId(), allocation.getRouteProcessId())
+                        && Objects.equals(identity.processId(), allocation.getProcessId())
+                        && allocation.getAllocatedQuantity() != null
+                        && allocation.getAllocatedQuantity().signum() > 0);
+    }
+
+    private static BigDecimal zeroSubmittedQuantity(MesProcessPoolActiveOrderProcessSnapshotDO snapshot) {
+        BigDecimal plannedQuantity = snapshot == null ? null : snapshot.getPlannedQuantitySnapshot();
+        int scale = plannedQuantity == null ? 6 : Math.max(6, plannedQuantity.scale());
+        return BigDecimal.ZERO.setScale(scale, RoundingMode.HALF_UP);
     }
 
     private static ServiceException snapshotInvalid(Long activeOrderId, String detail) {

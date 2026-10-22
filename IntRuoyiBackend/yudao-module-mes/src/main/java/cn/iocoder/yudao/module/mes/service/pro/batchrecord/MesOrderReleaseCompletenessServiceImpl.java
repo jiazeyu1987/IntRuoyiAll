@@ -86,7 +86,9 @@ public class MesOrderReleaseCompletenessServiceImpl implements MesOrderReleaseCo
     @Resource
     private MesPqcInspectionTaskMapper pqcInspectionTaskMapper;
     @Resource
-    private MesProcessPoolActiveOrderProcessSnapshotMapper processSnapshotMapper;
+    private cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationProcessMapper qaProcessMapper;
+    @Resource
+    private cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationItemMapper qaItemMapper;
     @Resource
     private MesQaInspectionRegulationVersionMapper regulationVersionMapper;
     @Resource
@@ -317,22 +319,64 @@ public class MesOrderReleaseCompletenessServiceImpl implements MesOrderReleaseCo
 
     private List<String> missingExpectedPqcTaskIdentities(MesProcessPoolActiveOrderDO activeOrder,
                                                           List<MesPqcInspectionTaskDO> tasks) {
-        List<MesProcessPoolActiveOrderProcessSnapshotDO> snapshots =
-                processSnapshotMapper.selectListByActiveOrderId(activeOrder.getId());
-        if (CollUtil.isEmpty(snapshots)) {
-            return List.of("activeOrderId=" + activeOrder.getId() + " 缺少工序快照，无法证明预期 PQC 任务集合完整");
-        }
         List<String> missing = new ArrayList<>(invalidOrDuplicatePqcTaskIdentities(tasks));
-        for (MesProcessPoolActiveOrderProcessSnapshotDO snapshot : snapshots) {
-            List<MesPqcInspectionTaskDO> snapshotTasks = tasks.stream()
-                    .filter(task -> Objects.equals(snapshot.getRouteProcessId(), task.getRouteProcessId())
-                            && Objects.equals(snapshot.getProcessId(), task.getProcessId()))
-                    .toList();
-            requirePqcTaskCoverage(snapshotTasks, snapshot, "FIRST", "FIRST", missing);
-            requirePqcTaskCoverage(snapshotTasks, snapshot, "PATROL", "AM", missing);
-            requirePqcTaskCoverage(snapshotTasks, snapshot, "PATROL", "PM", missing);
-            if (isFinalInspectionApplicableForSnapshot(snapshotTasks, snapshot, missing)) {
-                requirePqcTaskCoverage(snapshotTasks, snapshot, "FINAL", "FINAL", missing);
+        if (!missing.isEmpty()) return missing;
+        if (activeOrder.getQaRegulationVersionId() == null) {
+            return List.of("活跃订单缺少冻结QA规程版本");
+        }
+        Set<Long> versions = new LinkedHashSet<>();
+        versions.add(activeOrder.getQaRegulationVersionId());
+        tasks.forEach(task -> versions.add(task.getRegulationVersionId()));
+        Set<String> expected = new LinkedHashSet<>();
+        for (Long versionId : versions) {
+            var version = regulationVersionMapper.selectById(versionId);
+            List<cn.iocoder.yudao.module.mes.service.pro.processpool.pqc.MesPqcInspectionRulePlan.Stage> stages;
+            try {
+                stages = cn.iocoder.yudao.module.mes.service.pro.processpool.pqc.MesPqcInspectionRulePlan.require(version);
+            } catch (IllegalArgumentException ex) {
+                missing.add("regulationVersionId=" + versionId + " " + ex.getMessage());
+                continue;
+            }
+            var processes = qaProcessMapper.selectListByVersionIds(List.of(versionId));
+            var items = qaItemMapper.selectListByVersionId(versionId);
+            if (CollUtil.isEmpty(processes) || CollUtil.isEmpty(items)) {
+                missing.add("regulationVersionId=" + versionId + " 冻结QA工序或检验项目缺失");
+                continue;
+            }
+            for (var process : processes) {
+                for (var stage : stages) {
+                    if (!stage.required() || items.stream().noneMatch(item ->
+                            Objects.equals(process.getId(), item.getQaProcessId())
+                            && Objects.equals(stage.inspectionType(),
+                            cn.iocoder.yudao.module.mes.service.pro.processpool.pqc.MesPqcInspectionRulePlan.normalizeType(item.getInspectionType())))) {
+                        continue;
+                    }
+                    String identity = versionId + "|" + process.getId() + "|" + stage.ruleKey();
+                    expected.add(identity);
+                    var matches = tasks.stream().filter(task -> Objects.equals(versionId, task.getRegulationVersionId())
+                            && Objects.equals(process.getId(), task.getQaProcessId())
+                            && Objects.equals(stage.ruleKey(), task.getInspectionRuleKey())
+                            && Objects.equals(stage.inspectionType(), task.getInspectionType())
+                            && Objects.equals(stage.shiftCode(), task.getShiftCode())
+                            && Objects.equals(PQC_DEFAULT_ROUND_NO, task.getRoundNo())
+                            && Objects.equals(activeOrder.getId(), task.getActiveOrderId())
+                            && Objects.equals(activeOrder.getWorkOrderId(), task.getWorkOrderId())).toList();
+                    if (matches.size() != 1) missing.add(identity + " 未找到唯一整单QA阶段任务");
+                    else {
+                        Set<String> expectedItems = items.stream().filter(item ->
+                                Objects.equals(process.getId(), item.getQaProcessId())
+                                && Objects.equals(stage.inspectionType(),
+                                cn.iocoder.yudao.module.mes.service.pro.processpool.pqc.MesPqcInspectionRulePlan.normalizeType(item.getInspectionType())))
+                                .map(item -> item.getItemCode().trim()).collect(Collectors.toSet());
+                        if (!cn.iocoder.yudao.module.mes.service.pro.processpool.pqc.MesPqcInspectionItemPlan.require(matches.get(0))
+                                .keySet().equals(expectedItems)) missing.add(identity + " 冻结检验项目集合不完整");
+                    }
+                }
+            }
+        }
+        for (var task : tasks) {
+            if (!expected.contains(task.getRegulationVersionId() + "|" + task.getQaProcessId() + "|" + task.getInspectionRuleKey())) {
+                missing.add(fullPqcTaskIdentity(task) + " 不属于冻结QA阶段任务集合");
             }
         }
         return missing;
@@ -358,77 +402,19 @@ public class MesOrderReleaseCompletenessServiceImpl implements MesOrderReleaseCo
 
     private String invalidPqcTaskIdentityReason(MesPqcInspectionTaskDO task) {
         if (task == null || task.getId() == null || task.getActiveOrderId() == null
-                || task.getRouteProcessId() == null || task.getProcessId() == null
+                || task.getRouteProcessId() != null || task.getProcessId() != null
                 || task.getRegulationVersionId() == null || task.getQaProcessId() == null
-                || StrUtil.isBlank(task.getQaItemCode()) || StrUtil.isBlank(task.getInspectionRuleKey())
+                || StrUtil.isNotBlank(task.getQaItemCode()) || StrUtil.isBlank(task.getInspectionRuleKey())
                 || StrUtil.isBlank(task.getInspectionType()) || task.getBusinessDate() == null
                 || StrUtil.isBlank(task.getShiftCode()) || task.getRoundNo() == null) {
             return "taskId=" + (task == null ? null : task.getId()) + " PQC 任务真实身份字段不完整";
         }
+        try {
+            cn.iocoder.yudao.module.mes.service.pro.processpool.pqc.MesPqcInspectionItemPlan.require(task);
+        } catch (IllegalStateException ex) {
+            return "taskId=" + task.getId() + " " + ex.getMessage();
+        }
         return null;
-    }
-
-    private boolean isFinalInspectionApplicableForSnapshot(List<MesPqcInspectionTaskDO> tasks,
-                                                           MesProcessPoolActiveOrderProcessSnapshotDO snapshot,
-                                                           List<String> missing) {
-        List<Long> versionIds = tasks.stream()
-                .filter(task -> Objects.equals(snapshot.getRouteProcessId(), task.getRouteProcessId())
-                        && Objects.equals(snapshot.getProcessId(), task.getProcessId())
-                        && task.getRegulationVersionId() != null)
-                .map(MesPqcInspectionTaskDO::getRegulationVersionId)
-                .distinct()
-                .toList();
-        if (versionIds.isEmpty()) {
-            missing.add("routeProcessId=" + snapshot.getRouteProcessId()
-                    + ", processId=" + snapshot.getProcessId()
-                    + " 缺少发布规程版本，无法证明末检是否适用");
-            return true;
-        }
-        boolean finalRequired = false;
-        for (Long versionId : versionIds) {
-            MesQaInspectionRegulationVersionDO version = regulationVersionMapper.selectById(versionId);
-            if (version == null) {
-                missing.add("routeProcessId=" + snapshot.getRouteProcessId()
-                        + ", processId=" + snapshot.getProcessId()
-                        + ", regulationVersionId=" + versionId + " 发布规程版本不存在");
-                finalRequired = true;
-                continue;
-            }
-            if (Boolean.FALSE.equals(version.getFinalInspectionApplicable())) {
-                if (StrUtil.isBlank(version.getFinalInspectionNotApplicableReason())) {
-                    missing.add("routeProcessId=" + snapshot.getRouteProcessId()
-                            + ", processId=" + snapshot.getProcessId()
-                            + ", regulationVersionId=" + version.getId() + " 末检不适用但缺少明确依据");
-                    finalRequired = true;
-                }
-                continue;
-            }
-            if (Boolean.TRUE.equals(version.getFinalInspectionApplicable())) {
-                finalRequired = true;
-            }
-        }
-        return finalRequired;
-    }
-
-    private void requirePqcTaskCoverage(List<MesPqcInspectionTaskDO> tasks,
-                                        MesProcessPoolActiveOrderProcessSnapshotDO snapshot,
-                                        String inspectionType, String shiftCode, List<String> missing) {
-        boolean exists = tasks.stream().anyMatch(task ->
-                Objects.equals(inspectionType, task.getInspectionType())
-                        && Objects.equals(shiftCode, task.getShiftCode())
-                        && Objects.equals(PQC_DEFAULT_ROUND_NO, task.getRoundNo()));
-        if (!exists) {
-            missing.add(requiredPqcTaskCoverageText(snapshot, inspectionType, shiftCode));
-        }
-    }
-
-    private String requiredPqcTaskCoverageText(MesProcessPoolActiveOrderProcessSnapshotDO snapshot,
-                                               String inspectionType, String shiftCode) {
-        return "routeProcessId=" + snapshot.getRouteProcessId()
-                + ", processId=" + snapshot.getProcessId()
-                + ", inspectionType=" + inspectionType
-                + ", shiftCode=" + shiftCode
-                + ", roundNo=" + PQC_DEFAULT_ROUND_NO;
     }
 
     private List<String> missingFormalPqcInspectionResultEvidence(List<MesPqcInspectionTaskDO> tasks) {
@@ -518,15 +504,17 @@ public class MesOrderReleaseCompletenessServiceImpl implements MesOrderReleaseCo
         if (CollUtil.isEmpty(pieceDetails)) {
             return "缺少逐件判定明细";
         }
-        List<Integer> expectedSamples = IntStream.rangeClosed(1, task.getActualInspectionQuantity()).boxed().toList();
-        List<Integer> actualSamples = pieceDetails.stream()
-                .map(MesPqcInspectionPieceDetailDO::getSampleNo)
-                .filter(Objects::nonNull)
-                .distinct()
-                .sorted()
-                .toList();
-        if (!expectedSamples.equals(actualSamples)) {
-            return "逐件判定样本号不完整，expected=" + expectedSamples + ", actual=" + actualSamples;
+        Map<String, Integer> plan = cn.iocoder.yudao.module.mes.service.pro.processpool.pqc.MesPqcInspectionItemPlan.require(task);
+        Set<String> actualItems = pieceDetails.stream().map(MesPqcInspectionPieceDetailDO::getItemCode).collect(Collectors.toSet());
+        if (!plan.keySet().equals(actualItems) || !Objects.equals(task.getActualInspectionQuantity(), task.getPlannedInspectionQuantity())) {
+            return "逐件判定项目或检验数量与冻结计划不一致";
+        }
+        for (var entry : plan.entrySet()) {
+            var samples = pieceDetails.stream().filter(detail -> Objects.equals(entry.getKey(), detail.getItemCode()))
+                    .map(MesPqcInspectionPieceDetailDO::getSampleNo).sorted().toList();
+            if (!IntStream.rangeClosed(1, entry.getValue()).boxed().toList().equals(samples)) {
+                return "逐件判定样本号不完整，itemCode=" + entry.getKey();
+            }
         }
         Set<String> pieceKeys = new LinkedHashSet<>();
         for (MesPqcInspectionPieceDetailDO detail : pieceDetails) {

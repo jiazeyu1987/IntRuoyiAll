@@ -8,6 +8,7 @@ import lombok.experimental.Accessors;
 public class MesTeamLeaderActiveOrderReleaseApplyCommand {
 
     private Long activeOrderId;
+    private Boolean confirmNoReplenishmentInfo;
     private String idempotencyKey;
     private String applyRemark;
 }

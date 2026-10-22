@@ -56,6 +56,9 @@ public class MesFrontlinePqcProcessRespVO {
     @Data
     public static class PqcTaskOption {
         private Long pqcTaskId;
+        private Long routeProcessId;
+        private Long processId;
+        private String productionProcessName;
         private Long regulationVersionId;
         private Long qaProcessId;
         private String qaItemCode;
@@ -97,6 +100,7 @@ public class MesFrontlinePqcProcessRespVO {
 
     @Data
     public static class PqcInspectionItem {
+        private Integer plannedInspectionQuantity;
         private Integer itemSort;
         private String itemCode;
         private String itemName;

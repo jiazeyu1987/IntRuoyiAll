@@ -201,11 +201,14 @@ spring:
       rerank: false # 是否开启“通义千问”的 Rerank 模型，填写 dashscope 开启
     mcp:
       server:
-        enabled: false
+        enabled: ${INTRUOYI_MCP_SERVER_ENABLED:false}
         name: yudao-mcp-server
         version: 1.0.0
         instructions: 一个 MCP 示例服务
+        protocol: ${INTRUOYI_MCP_PROTOCOL:STREAMABLE}
         sse-endpoint: /sse
+        streamable-http:
+          mcp-endpoint: ${INTRUOYI_MCP_STREAMABLE_ENDPOINT:/mcp}
       client:
         enabled: false
         name: mcp
@@ -219,6 +222,10 @@ spring:
 
 yudao:
   ai:
+    codex-cli:
+      mcp-server-enabled: ${INTRUOYI_MCP_SERVER_ENABLED:false}
+      mcp-server-name: ${INTRUOYI_CODEX_MCP_SERVER_NAME:intruoyi}
+      mcp-server-url: ${INTRUOYI_CODEX_MCP_SERVER_URL:}
     tts:
       enable: true
       provider: windows

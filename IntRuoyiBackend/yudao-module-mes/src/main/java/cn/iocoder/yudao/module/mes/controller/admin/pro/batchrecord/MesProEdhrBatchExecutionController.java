@@ -7,13 +7,13 @@ import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatch
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionGoldenFingerBulkVoidReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionGoldenFingerBulkVoidRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionOpenOrCreateReqVO;
-import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionManualOpenOrCreateReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionPageReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionQualityRejectReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionReexecuteReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionRouteOptionRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionReviewTimelineRespVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.gxpaudit.MesGxpAuditControllerSupport;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionSpecialNodeAttachmentPrepareUploadReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionSpecialNodeAttachmentPrepareUploadRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionSpecialNodeAttachmentDeletePendingReqVO;
@@ -34,8 +34,12 @@ import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrLocal
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrLocalStateSampleRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrStage4DossierUploadSimulationReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrStage5FinalReleaseSimulationReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.MesProcessPoolTeamLeaderController;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderDetailRespVO;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchActiveOrderDetailService;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionService;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchTraceabilityService;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderDetail;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchTraceSourcePrecheckCommand;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchTraceTxCProducer;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchWorkbenchService;
@@ -46,6 +50,7 @@ import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrRehearsalRe
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrSpecialNodeAttachment;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrSpecialNodeAttachmentPrepareUploadCommand;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrSpecialNodeAttachmentPrepareUploadResult;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderDetail;
 import cn.iocoder.yudao.module.mes.service.pro.simulation.stage4.MesStage4DossierUploadSimulationCommand;
 import cn.iocoder.yudao.module.mes.service.pro.simulation.stage4.MesStage4DossierUploadSimulationResult;
 import cn.iocoder.yudao.module.mes.service.pro.simulation.stage4.MesStage4DossierUploadSimulationService;
@@ -56,6 +61,9 @@ import cn.iocoder.yudao.module.mes.service.pro.productionrelease.report.MesProdu
 import cn.iocoder.yudao.module.mes.service.pro.productionrelease.report.MesProductionReleaseReportAttachmentPrepareResult;
 import cn.iocoder.yudao.module.mes.service.pro.productionrelease.report.MesProductionReleaseReportNodeCompleteCommand;
 import cn.iocoder.yudao.module.mes.service.pro.productionrelease.report.MesProductionReleaseReportService;
+import cn.iocoder.yudao.module.system.controller.admin.gxpaudit.vo.GxpAuditEventPageReqVO;
+import cn.iocoder.yudao.module.system.controller.admin.gxpaudit.vo.GxpAuditEventRespVO;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditQueryService;
 import jakarta.annotation.Resource;
 import jakarta.validation.Valid;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -82,6 +90,8 @@ public class MesProEdhrBatchExecutionController {
     @Resource
     private MesProEdhrBatchExecutionService batchExecutionService;
     @Resource
+    private MesProEdhrBatchActiveOrderDetailService batchActiveOrderDetailService;
+    @Resource
     private MesProEdhrBatchTraceabilityService batchTraceabilityService;
     @Resource
     private MesProEdhrBatchTraceTxCProducer batchTraceTxCProducer;
@@ -97,6 +107,18 @@ public class MesProEdhrBatchExecutionController {
     private MesStage5FinalReleaseSimulationService stage5FinalReleaseSimulationService;
     @Resource
     private MesProductionReleaseReportService productionReleaseReportService;
+    @Resource
+    private GxpAuditQueryService gxpAuditQueryService;
+    @Resource
+    private cn.iocoder.yudao.module.mes.service.pro.productionrelease.pqc.MesActiveOrderDossierFileService dossierFileService;
+
+    @GetMapping("/active-order-dossier-files")
+    @PreAuthorize("@ss.hasPermission('mes:pro-edhr-batch-execution:query')")
+    public CommonResult<cn.iocoder.yudao.module.mes.service.pro.productionrelease.pqc.MesActiveOrderDossierFileService.Result> getActiveOrderDossierFiles(
+            @RequestParam(value = "batchExecutionId", required = false) Long batchExecutionId,
+            @RequestParam(value = "activeOrderId", required = false) Long activeOrderId) {
+        return success(dossierFileService.listForBatchScope(SecurityFrameworkUtils.getLoginUserId(), batchExecutionId, activeOrderId));
+    }
 
     @GetMapping("/page")
     @PreAuthorize("@ss.hasPermission('mes:pro-edhr-batch-execution:query')")
@@ -108,6 +130,52 @@ public class MesProEdhrBatchExecutionController {
     @PreAuthorize("@ss.hasPermission('mes:pro-edhr-batch-execution:query')")
     public CommonResult<EdhrBatchExecutionRespVO> get(@RequestParam("id") Long id) {
         return success(batchExecutionService.get(id));
+    }
+
+    @GetMapping("/active-order-detail")
+    @PreAuthorize("@ss.hasPermission('mes:pro-edhr-batch-execution:query')")
+    public CommonResult<MesTeamLeaderActiveOrderDetailRespVO> getActiveOrderDetail(
+            @RequestParam(value = "batchExecutionId", required = false) Long batchExecutionId,
+            @RequestParam(value = "activeOrderId", required = false) Long activeOrderId) {
+        MesTeamLeaderActiveOrderDetail detail = activeOrderId != null
+                ? batchActiveOrderDetailService.getDetailByActiveOrderId(activeOrderId)
+                : batchActiveOrderDetailService.getDetail(batchExecutionId);
+        return success(MesProcessPoolTeamLeaderController.toActiveOrderDetailRespVO(
+                detail));
+    }
+
+    @GetMapping("/audit/page")
+    @PreAuthorize("@ss.hasPermission('mes:pro-edhr-batch-execution:query')")
+    public CommonResult<PageResult<GxpAuditEventRespVO>> auditPage(
+            @Valid GxpAuditEventPageReqVO reqVO,
+            @RequestParam(value = "batchExecutionId", required = false) Long batchExecutionId,
+            @RequestParam(value = "activeOrderId", required = false) Long activeOrderId) {
+        MesTeamLeaderActiveOrderDetail detail = activeOrderId != null
+                ? batchActiveOrderDetailService.getDetailByActiveOrderId(activeOrderId)
+                : batchActiveOrderDetailService.getDetail(batchExecutionId);
+        return success(MesGxpAuditControllerSupport.toPage(gxpAuditQueryService.page(
+                MesGxpAuditControllerSupport.toQuery(reqVO, "ACTIVE_ORDER", detail.getActiveOrderId()))));
+    }
+
+    @GetMapping("/audit/get")
+    @PreAuthorize("@ss.hasPermission('mes:pro-edhr-batch-execution:query')")
+    public CommonResult<GxpAuditEventRespVO> auditGet(
+            @RequestParam(value = "batchExecutionId", required = false) Long batchExecutionId,
+            @RequestParam("eventId") Long eventId,
+            @RequestParam(value = "activeOrderId", required = false) Long activeOrderId) {
+        MesTeamLeaderActiveOrderDetail detail = activeOrderId != null
+                ? batchActiveOrderDetailService.getDetailByActiveOrderId(activeOrderId)
+                : batchActiveOrderDetailService.getDetail(batchExecutionId);
+        var event = gxpAuditQueryService.get(eventId);
+        if (event == null) {
+            return success(null);
+        }
+        var relations = gxpAuditQueryService.listRelations(eventId);
+        if (!MesGxpAuditControllerSupport.containsRelation(
+                relations, "ACTIVE_ORDER", detail.getActiveOrderId())) {
+            return success(null);
+        }
+        return success(MesGxpAuditControllerSupport.toResponse(event, relations));
     }
 
     @GetMapping("/workbench")
@@ -127,13 +195,6 @@ public class MesProEdhrBatchExecutionController {
     @PreAuthorize("@ss.hasPermission('mes:pro-edhr-batch-execution:create')")
     public CommonResult<EdhrBatchExecutionRespVO> openOrCreate(@Valid @RequestBody EdhrBatchExecutionOpenOrCreateReqVO reqVO) {
         return success(batchExecutionService.openOrCreate(reqVO));
-    }
-
-    @PostMapping("/open-or-create-manual")
-    @PreAuthorize("@ss.hasPermission('mes:pro-edhr-batch-execution:create')")
-    public CommonResult<EdhrBatchExecutionRespVO> openOrCreateManual(
-            @Valid @RequestBody EdhrBatchExecutionManualOpenOrCreateReqVO reqVO) {
-        return success(batchExecutionService.openOrCreateManual(reqVO));
     }
 
     @PostMapping("/reexecute-rejected-batch")

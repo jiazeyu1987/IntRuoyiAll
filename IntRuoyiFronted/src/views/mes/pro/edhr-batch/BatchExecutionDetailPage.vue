@@ -1,7 +1,21 @@
 <template>
   <ContentWrap class="edhr-batch-detail__content-wrap">
-    <div v-loading="loading" class="edhr-batch-detail">
+    <div v-loading="loading" class="edhr-batch-detail" data-edhr-batch-detail-page>
+      <el-tabs v-model="mainViewTab" class="edhr-batch-detail__main-tabs" aria-label="正式批记录详情主视图">
+        <el-tab-pane label="批记录" name="execution" />
+        <el-tab-pane label="偏差" name="deviation" />
+      </el-tabs>
+      <section v-if="mainViewTab === 'deviation'" class="edhr-batch-detail__main-deviation-pane">
+        <DeviationTracePane
+          v-if="traceRecordBatchExecutionId"
+          :batch-execution-id="traceRecordBatchExecutionId"
+        />
+        <el-empty v-else description="当前批次不存在，暂无偏差" />
+      </section>
       <el-alert v-if="loadError" :title="loadError" type="error" :closable="false" show-icon />
+      <el-alert v-if="releaseSubmitReadPending" :title="releaseSignatureError || '放行申请已提交，详情尚未读取完成。'" type="warning" :closable="false">
+        <el-button :loading="releaseSignatureSubmitting" @click="retryReleaseSubmitRead">重试读取结果</el-button>
+      </el-alert>
       <el-alert
         v-if="releaseActionError"
         :title="releaseActionError"
@@ -17,8 +31,8 @@
         :closable="false"
         show-icon
       />
-      <div class="edhr-batch-detail__simulation-toolbar" aria-label="模拟操作">
-        <el-button
+      <div v-if="testModeEnabled" class="edhr-batch-detail__simulation-toolbar" aria-label="模拟操作">
+        <el-button class="app-test-button"
           v-hasPermi="['mes:pro-edhr-batch-execution:update']"
           type="warning"
           :loading="stage4SimulationLoading"
@@ -27,7 +41,7 @@
         >
           批次执行四份材料上传模拟
         </el-button>
-        <el-button
+        <el-button class="app-test-button"
           v-hasPermi="['mes:pro-edhr-batch-execution:update']"
           type="danger"
           :loading="stage5SimulationLoading"
@@ -36,7 +50,7 @@
         >
           最终放行模拟准备
         </el-button>
-        <el-button
+        <el-button class="app-test-button"
           v-hasPermi="['mes:pro-edhr-batch-execution:update']"
           type="success"
           :loading="stage6SimulationLoading"
@@ -230,7 +244,7 @@
                 'is-recordbook': currentProcessFillCarrier === 'RECORDBOOK'
               }"
             >
-              <div class="edhr-batch-detail__preview-context" aria-label="当前批记录上下文">
+              <div class="edhr-batch-detail__preview-context" aria-label="当前正式批记录上下文">
                 <span :title="detail?.workOrderCode || ''">{{
                   detail?.workOrderCode || '--'
                 }}</span>
@@ -238,7 +252,7 @@
                   resolveCurrentBatchRecordNo()
                 }}</span>
               </div>
-              <div class="edhr-batch-detail__preview-actions" aria-label="批记录操作">
+              <div class="edhr-batch-detail__preview-actions" aria-label="正式批记录操作">
                 <button
                   type="button"
                   class="edhr-batch-detail__preview-route-link"
@@ -287,7 +301,7 @@
                       aria-label="选择批记录填写"
                       @click.stop="selectFillCarrier('FORM')"
                     >
-                      批记录
+                      正式批记录
                     </button>
                     <button
                       v-if="isRecordbookEnabledForCurrentTask"
@@ -497,7 +511,18 @@
               </section>
             </div>
             <div v-else class="edhr-batch-detail__review-card">
-              <div class="edhr-batch-detail__form-surface" aria-label="已填写批记录">
+              <div
+                class="edhr-batch-detail__form-surface"
+                aria-label="已填写正式批记录"
+                data-edhr-formal-batch-record
+              >
+                <el-alert
+                  v-if="selectedCompletionSourceMessage"
+                  :title="selectedCompletionSourceMessage"
+                  :type="selectedTaskPreview?.completionSourceMaterialization?.status === 'CONFIGURATION_MISSING' ? 'error' : 'info'"
+                  :closable="false"
+                  show-icon
+                />
                 <section
                   v-if="effectiveDetailPreviewAssistMode"
                   class="edhr-batch-detail__assist-preview"
@@ -565,17 +590,6 @@
                     :image-size="52"
                   />
                 </section>
-                <component
-                  v-else-if="selectedInlineSubmissionFormMode"
-                  :is="ActiveOrderSubmissionDetailPanel"
-                  :detail="inlineActiveOrderSubmissionDetail"
-                  :loading="inlineActiveOrderSubmissionDetailLoading"
-                  :error="inlineActiveOrderSubmissionDetailError"
-                  embedded
-                  :display-mode="selectedInlineSubmissionFormMode"
-                  :production-route-process-id="selectedInlineProductionRouteProcessId"
-                  @retry="reloadInlineActiveOrderSubmissionDetail"
-                />
                 <EdhrExecutionReadonlyForm
                   v-else-if="selectedPreviewFormViewModel"
                   :form-view-model="selectedPreviewFormViewModel"
@@ -590,8 +604,35 @@
                   :closable="false"
                   show-icon
                 />
-                <el-empty v-else description="当前节点没有可预览的批记录表单" />
+                <el-empty v-else description="当前节点没有可预览的正式批记录表单" />
               </div>
+              <section
+                v-if="selectedInlineSubmissionFormMode"
+                class="edhr-batch-detail__source-detail-record"
+                aria-label="详情批记录"
+                data-edhr-source-detail-record
+              >
+                <div class="edhr-batch-detail__source-detail-record-head">
+                  <div>
+                    <div class="edhr-batch-detail__section-title">详情批记录</div>
+                    <div class="edhr-batch-detail__muted">正式批记录来源详情</div>
+                  </div>
+                  <el-tag type="info" effect="plain">来源详情</el-tag>
+                </div>
+                <component
+                  :is="ActiveOrderSubmissionDetailPanel"
+                  :detail="inlineActiveOrderSubmissionDetail"
+                  :loading="inlineActiveOrderSubmissionDetailLoading"
+                  :error="inlineActiveOrderSubmissionDetailError"
+                  embedded
+                  :display-mode="selectedInlineSubmissionFormMode"
+                  :record-scope="'FORMAL_BATCH_SOURCE_DETAIL'"
+                  audit-scope-type="BATCH"
+                  :audit-scope-id="detail?.id ? { batchExecutionId: detail.id } : undefined"
+                  :production-route-process-id="selectedInlineProductionRouteProcessId"
+                  @retry="reloadInlineActiveOrderSubmissionDetail"
+                />
+              </section>
             </div>
           </div>
 
@@ -635,6 +676,7 @@
                     v-if="action.permission"
                     v-hasPermi="action.permission"
                     type="button"
+                    :data-edhr-release-action="action.key"
                     class="edhr-batch-detail__release-image-action"
                     :class="[
                       `is-${action.key}`,
@@ -1108,7 +1150,12 @@
       </template>
     </Dialog>
 
-    <Dialog title="完成特殊节点" v-model="specialNodeCompleteDialogVisible" width="520px">
+    <Dialog
+      title="完成特殊节点"
+      v-model="specialNodeCompleteDialogVisible"
+      width="520px"
+      data-production-release-report-complete-dialog
+    >
       <el-alert
         v-if="specialNodeCompleteError"
         :title="specialNodeCompleteError"
@@ -1132,6 +1179,7 @@
         <el-form-item v-if="isSterilizationNode(currentSpecialNode)" label="灭菌批次" required>
           <el-input
             v-model="specialNodeCompleteForm.sterilizationBatchNo"
+            data-production-release-sterilization-batch
             placeholder="请输入灭菌批次"
             @keyup.enter="submitSpecialNodeComplete"
           />
@@ -1160,6 +1208,7 @@
         <el-button
           type="primary"
           :loading="specialNodeCompleteLoading"
+          data-production-release-report-complete-confirm
           @click="submitSpecialNodeComplete"
         >
           {{ isProductionReleaseReportNode(currentSpecialNode) ? '完成报告' : '确 认' }}
@@ -1167,10 +1216,18 @@
       </template>
     </Dialog>
 
-    <el-drawer v-model="archivePrintDrawerVisible" title="归档打印" size="520px">
+    <el-drawer
+      v-model="archivePrintDrawerVisible"
+      title="归档打印"
+      size="520px"
+      data-edhr-archive-drawer
+    >
       <el-descriptions v-if="latestBatchArchive" :column="1" border class="mb-16px">
         <el-descriptions-item label="归档版本">
-          V{{ latestBatchArchive.archiveVersion || '--' }}
+          <span data-edhr-archive-version>V{{ latestBatchArchive.archiveVersion || '--' }}</span>
+        </el-descriptions-item>
+        <el-descriptions-item label="归档状态">
+          <span data-edhr-archive-status>{{ latestBatchArchive.archiveStatus || '--' }}</span>
         </el-descriptions-item>
         <el-descriptions-item label="长期归档格式">
           <el-tag v-if="latestBatchArchivePdfAValid" type="success">
@@ -1188,6 +1245,7 @@
           type="primary"
           :loading="archiveGenerationLoading"
           :disabled="isViewedReleaseStageReadonly || !canGenerateArchive || archiveGenerationLoading"
+          data-edhr-archive-generate
           @click="handleGenerateArchive"
           >生成归档</el-button
         >
@@ -1195,12 +1253,14 @@
           v-hasPermi="['mes:pro-edhr-batch-execution-archive:create']"
           :loading="archiveGenerationLoading"
           :disabled="isViewedReleaseStageReadonly || !canGenerateArchive || archiveGenerationLoading"
+          data-edhr-archive-regenerate
           @click="handleGenerateArchive"
           >重新生成</el-button
         >
         <el-button
           v-hasPermi="['mes:pro-edhr-batch-execution-archive:download']"
           :disabled="isViewedReleaseStageReadonly || archiveGenerationLoading || !latestBatchArchive?.id"
+          data-edhr-archive-print
           @click="handlePrintArchive"
         >
           打印
@@ -1229,6 +1289,32 @@
         class="edhr-batch-detail__dialog-alert"
       />
       <el-tabs v-model="traceRecordTab">
+        <el-tab-pane label="批次信息" name="batch">
+          <el-skeleton v-if="reviewLoading" :rows="6" animated />
+          <el-alert v-else-if="reviewError" :title="reviewError" type="error" :closable="false" show-icon />
+          <template v-else-if="reviewTimeline?.batchEvents?.length">
+            <el-descriptions
+              v-for="(event, index) in reviewTimeline.batchEvents"
+              :key="index"
+              :column="1"
+              border
+            >
+              <el-descriptions-item label="批次执行编号">{{ event.batchExecutionCode || '未记录' }}</el-descriptions-item>
+              <el-descriptions-item label="批次执行ID">{{ event.batchExecutionId ?? '未记录' }}</el-descriptions-item>
+              <el-descriptions-item label="状态">{{ event.status == null ? '未记录' : resolveBatchStatusLabel(event.status) }}</el-descriptions-item>
+              <el-descriptions-item label="创建时间">{{ event.createTime == null || event.createTime === '' ? '未记录' : formatReviewTime(event.createTime) }}</el-descriptions-item>
+              <el-descriptions-item label="聚合摘要">{{ event.aggregateHash || '未记录' }}</el-descriptions-item>
+              <el-descriptions-item label="关闭人员编号">{{ event.closedBy ?? '未记录' }}</el-descriptions-item>
+              <el-descriptions-item label="关闭时间">{{ event.closedAt == null || event.closedAt === '' ? '未记录' : formatReviewTime(event.closedAt) }}</el-descriptions-item>
+              <el-descriptions-item label="关闭签名编号">{{ event.closeSignatureId ?? '未记录' }}</el-descriptions-item>
+              <el-descriptions-item label="拒收人员编号">{{ event.rejectedBy ?? '未记录' }}</el-descriptions-item>
+              <el-descriptions-item label="拒收时间">{{ event.rejectedAt == null || event.rejectedAt === '' ? '未记录' : formatReviewTime(event.rejectedAt) }}</el-descriptions-item>
+              <el-descriptions-item label="拒收签名编号">{{ event.rejectSignatureId ?? '未记录' }}</el-descriptions-item>
+              <el-descriptions-item label="拒收原因">{{ event.rejectReason || '未记录' }}</el-descriptions-item>
+            </el-descriptions>
+          </template>
+          <el-empty v-else description="暂无批次信息" />
+        </el-tab-pane>
         <el-tab-pane label="放行事件" name="release">
           <ReleaseEventListPane
             v-if="traceRecordReleaseTransactionId"
@@ -1254,6 +1340,13 @@
             :hide-recordbook-mode="!isRecordbookEnabledForCurrentTask"
           />
           <el-empty v-else description="当前批次不存在，暂无操作审计记录" />
+        </el-tab-pane>
+        <el-tab-pane label="偏差" name="deviation">
+          <DeviationTracePane
+            v-if="traceRecordBatchExecutionId"
+            :batch-execution-id="traceRecordBatchExecutionId"
+          />
+          <el-empty v-else description="当前批次不存在，暂无偏差" />
         </el-tab-pane>
         <el-tab-pane v-if="showFieldResponsibilityTab" label="字段责任" name="fieldResponsibility">
           <div class="edhr-batch-detail__trace-field-responsibility">
@@ -1434,6 +1527,8 @@
 </template>
 
 <script setup lang="ts">
+import { useTestMode } from '@/store/modules/testMode'
+
 import { ElMessageBox, type UploadInstance, type UploadRequestOptions } from 'element-plus'
 import {
   EDHR_BATCH_ARCHIVE_ARTIFACT_FINAL_PDF,
@@ -1462,6 +1557,7 @@ import {
   completeEdhrBatchSpecialNode,
   completeEdhrProductionReleaseReportNode,
   generateEdhrBatchArchive,
+  getEdhrBatchActiveOrderDetail,
   getLatestEdhrBatchArchive,
   getEdhrBatchExecution,
   getEdhrBatchReviewTimeline,
@@ -1491,7 +1587,7 @@ import {
   type EdhrStage4DossierUploadSimulationRespVO,
   type MesProductionReleaseReportNodeCompleteRespVO
 } from '@/api/mes/pro/edhr/batchExecution'
-import { SOURCE_TYPE_PQC_RELEASE } from '@/api/mes/pro/edhr/nonconformanceReview'
+import { resolveCompletionSourceDraftPreview } from './completionSourcePreview'
 import {
   EDHR_PRODUCTION_RELEASE_REPORT_NODE_TYPES,
   EDHR_WORK_TASK_STATUS_TODO,
@@ -1506,8 +1602,10 @@ import {
   submitEdhrRelease,
   type EdhrReleaseCheckItemVO
 } from '@/api/mes/pro/edhr/release'
+import { useApprovalCenterInvalidationStore } from '@/store/modules/approvalCenterInvalidation'
+import { createFormalActionGuard, createFormalWriteReceiptState } from '@/store/modules/approvalCenterInvalidationState'
+const approvalInvalidation = useApprovalCenterInvalidationStore()
 import {
-  getTeamLeaderActiveOrderDetail,
   simulateStage6IdiData,
   type TeamLeaderActiveOrderDetailRespVO
 } from '@/api/mes/pro/processpool/teamLeader'
@@ -1524,6 +1622,7 @@ import DomainTraceListPane from '@/views/mes/pro/edhr/components/DomainTraceList
 import OperationAuditListPane from '@/views/mes/pro/edhr/components/OperationAuditListPane.vue'
 import ReleaseEventListPane from '@/views/mes/pro/edhr/components/ReleaseEventListPane.vue'
 import FormTraceChangeTab from '@/views/mes/pro/edhr/form-trace/FormTraceChangeTab.vue'
+import DeviationTracePane from '@/views/mes/pro/edhr/components/DeviationTracePane.vue'
 import ActionFormPanel from '@/views/form-center/business-action/ActionFormPanel.vue'
 import {
   resolveReleaseCheckCategoryLabel,
@@ -1545,6 +1644,8 @@ import { stringifyEdhrExecutionPageQuery } from '@/utils/edhrWorkTaskNavigation'
 import { parsePositiveRouteQueryId, sameRouteQueryId } from '@/utils/routeQueryId'
 import { useUserStore } from '@/store/modules/user'
 
+const testModeEnabled = useTestMode()
+
 defineOptions({ name: 'MesProEdhrBatchExecutionDetail' })
 
 const RELEASE_VIRTUAL_PROCESS = {
@@ -1564,6 +1665,11 @@ const route = useRoute()
 const router = useRouter()
 const message = useMessage()
 const userStore = useUserStore()
+const canQueryProductionReleaseReportCandidates = computed(
+  () =>
+    userStore.permissions.has('mes:pro-edhr-work-task:query') ||
+    userStore.permissions.has('*:*:*')
+)
 const BATCH_DETAIL_PAGE_BODY_CLASS = 'edhr-batch-detail-page'
 const GOLDEN_FINGER_PERMISSION = 'mes:pro-batch-record-execution:golden-finger'
 const FLOW_TRANSFER_PERMISSION = 'mes:pro-edhr-flow-intervention:transfer'
@@ -1579,7 +1685,7 @@ const canUseFlowTransferIntervention = computed(
     FLOW_TRANSFER_ADMIN_ROLES.some((role) => userStore.roles.includes(role))
 )
 type EdhrBatchExecutionDetailFocus = 'process' | 'precheck' | 'approval'
-type TraceRecordTab = 'release' | 'change' | 'audit' | 'domain' | 'fieldResponsibility'
+type TraceRecordTab = 'batch' | 'release' | 'change' | 'audit' | 'deviation' | 'domain' | 'fieldResponsibility'
 
 const loading = ref(false)
 const syncLoading = ref(false)
@@ -1659,6 +1765,7 @@ const releaseReturnSubmitting = ref(false)
 const releaseReturnError = ref('')
 const releaseCheckLoading = ref(false)
 const traceRecordTab = ref<TraceRecordTab>('release')
+const mainViewTab = ref<'execution' | 'deviation'>('execution')
 const processDetailDialogVisible = ref(false)
 const reviewLoading = ref(false)
 const reviewError = ref('')
@@ -1901,11 +2008,23 @@ const selectedExecution = computed(() => {
   )
 })
 const EMPTY_FORM_CELL_VALUES_JSON = '[]'
+const selectedCompletionSourceDraftPreview = computed(() =>
+  resolveCompletionSourceDraftPreview(selectedTaskPreview.value)
+)
+const selectedCompletionSourceMessage = computed(() => {
+  if (selectedExecution.value) return ''
+  const evidence = selectedTaskPreview.value?.completionSourceMaterialization
+  if (evidence?.status === 'CONFIGURATION_MISSING') return evidence.message || '缺少正式生产来源映射'
+  if (selectedCompletionSourceDraftPreview.value) return '生产事实已回填，表单尚未提交'
+  if (evidence?.status === 'PENDING') return evidence.message || '正式生产来源尚未回填'
+  return ''
+})
 const selectedEmptyTaskPreviewFormViewModel = computed<
   EdhrBatchExecutionReviewFormViewModel | undefined
 >(() => {
   const formViewModel = selectedTaskPreview.value?.formViewModel
   if (!formViewModel) return undefined
+  if (selectedCompletionSourceDraftPreview.value) return selectedCompletionSourceDraftPreview.value
   return {
     ...formViewModel,
     cellValuesJson: EMPTY_FORM_CELL_VALUES_JSON,
@@ -2557,7 +2676,7 @@ const edhrVoidActionProjection = computed(() =>
 const NONCONFORMANCE_FROZEN_ACTION_LOCKED_MESSAGE =
   '不合格评审待处理，冻结后禁止报工、PQC提交、PQC放行。'
 const nonconformanceFrozenActionLocked = computed(
-  () => batchStatus.value === EDHR_BATCH_STATUS_FROZEN
+  () => detail.value?.productionActionLocked === true
 )
 const batchActionLocked = computed(
   () =>
@@ -2569,7 +2688,7 @@ const batchActionLockMessage = computed(() =>
   pendingVoidActionLocked.value
     ? edhrVoidActionProjection.value.blockerMessage
     : nonconformanceFrozenActionLocked.value
-      ? NONCONFORMANCE_FROZEN_ACTION_LOCKED_MESSAGE
+      ? detail.value?.productionActionLockReason || NONCONFORMANCE_FROZEN_ACTION_LOCKED_MESSAGE
       : edhrReleaseActionProjection.value.blockerMessage || releaseActionLockMessage.value
 )
 const resolveEdhrBatchActionProjection = (
@@ -2936,7 +3055,7 @@ function buildReleaseDecisionActionItems(): ReleaseStageActionItem[] {
       type: 'danger',
       permission: ['mes:pro-edhr-nonconformance-review:create'],
       disabled: !canOpenNonconformanceReview.value,
-      onClick: () => openNonconformanceReviewEntry(SOURCE_TYPE_PQC_RELEASE)
+      onClick: openNonconformanceReviewEntry
     },
     {
       key: 'release-signature',
@@ -3484,7 +3603,8 @@ const resolveBatchStatusLabel = (status?: number) => {
     [EDHR_BATCH_STATUS_REWORK_REQUIRED]: '需返工/需修订',
     [EDHR_BATCH_STATUS_CLOSED]: '已关闭',
     [EDHR_BATCH_STATUS_ARCHIVED]: '已归档',
-    [EDHR_BATCH_STATUS_REJECTED]: '质量已拒收'
+    [EDHR_BATCH_STATUS_REJECTED]: '质量已拒收',
+    [EDHR_BATCH_STATUS_VOIDED]: '已作废'
   }
   return status == null ? '--' : labels[status] || String(status)
 }
@@ -3523,7 +3643,8 @@ const isProductionReleaseReportNode = (row?: EdhrBatchExecutionTaskRespVO) =>
   Boolean(row?.nodeType && productionReleaseReportNodeTypeSet.has(row.nodeType))
 
 const resolveProductionReleaseReportWorkTask = (row?: EdhrBatchExecutionTaskRespVO) => {
-  if (!row || !isProductionReleaseReportNode(row)) return undefined
+  if (!canQueryProductionReleaseReportCandidates.value || !row || !isProductionReleaseReportNode(row))
+    return undefined
   return productionReleaseReportWorkTasks.value.find(
     (workTask) =>
       workTask.businessScopeType === 'RELEASE_REPORT_NODE' &&
@@ -3636,6 +3757,8 @@ const normalizeTaskAccessReason = (reason?: string | null) => {
 
 const resolveTaskGateText = (row: EdhrBatchExecutionTaskRespVO) => {
   if (isProductionReleaseReportNode(row)) {
+    if (!canQueryProductionReleaseReportCandidates.value)
+      return '当前账号没有报告候选任务查询权限'
     if (productionReleaseReportCandidateLoading.value) return '正在核对当前报告候选权限'
     if (productionReleaseReportCandidateError.value)
       return productionReleaseReportCandidateError.value
@@ -4211,6 +4334,7 @@ const resolveArchiveStatusSummary = () => {
 
 let taskPreviewRequestSerial = 0
 let taskPreviewFrameId: number | undefined
+let batchTaskSelectionChanged = false
 
 const cancelDeferredTaskPreviewLoad = () => {
   if (taskPreviewFrameId === undefined) return
@@ -4241,18 +4365,21 @@ const loadTaskPreview = async (task: EdhrBatchExecutionTaskRespVO) => {
   clearTaskPreview()
   if (!shouldLoadTaskPreview(task)) return
   const requestSerial = taskPreviewRequestSerial
+  const batchRequestSerial = batchDetailRequestSerial
+  const contextKey = releaseUiContextKey()
+  const isCurrent = () => requestSerial === taskPreviewRequestSerial && !isStaleBatchDetailRequest(batchRequestSerial) && contextKey === releaseUiContextKey() && selectedTaskId.value === String(task.id)
   taskPreviewLoading.value = true
   try {
-    const preview = await getEdhrBatchTaskPreview(assertBatchExecutionId(), task.id)
-    if (requestSerial === taskPreviewRequestSerial && selectedTaskId.value === String(task.id)) {
+    const preview = await getEdhrBatchTaskPreview(assertBatchExecutionId(), task.id, { ignoreErrorMessage: true, isRequestContextCurrent: isCurrent })
+    if (isCurrent()) {
       selectedTaskPreview.value = preview
     }
   } catch (error) {
-    if (requestSerial === taskPreviewRequestSerial && selectedTaskId.value === String(task.id)) {
+    if (isCurrent()) {
       taskPreviewError.value = resolveErrorMessage(error, '表单只读预览加载失败。')
     }
   } finally {
-    if (requestSerial === taskPreviewRequestSerial) {
+    if (isCurrent()) {
       taskPreviewLoading.value = false
     }
   }
@@ -4270,6 +4397,7 @@ const deferTaskPreviewLoad = (task: EdhrBatchExecutionTaskRespVO) => {
 }
 
 const selectProcessTask = (task: EdhrBatchExecutionTaskRespVO) => {
+  batchTaskSelectionChanged = true
   clearTaskPreview()
   selectedReleaseStep.value = false
   viewedReleaseStageKey.value = undefined
@@ -4283,13 +4411,18 @@ const selectProcessTask = (task: EdhrBatchExecutionTaskRespVO) => {
   }
 }
 
-const selectReleaseProcess = () => {
+const applyReleaseProcessSelection = () => {
   clearTaskPreview()
   selectedReleaseStep.value = true
   viewedReleaseStageKey.value = undefined
   selectedTaskId.value = ''
   selectedExecutionId.value = ''
   void loadReleaseCheckItems()
+}
+
+const selectReleaseProcess = () => {
+  batchTaskSelectionChanged = true
+  applyReleaseProcessSelection()
 }
 
 watch(actualReleaseStageKey, (_nextStageKey, previousStageKey) => {
@@ -4321,13 +4454,15 @@ const hasBatchLevelWorkTaskRouteContext = () =>
   Boolean(parsePositiveRouteQueryId(route.query.workTaskId)) && !resolveRouteQueryTaskSelection()
 
 const applyRouteFocus = () => {
+  if (batchTaskSelectionChanged) return
   const focus = resolveDetailFocus()
   if (focus === 'process') {
     processDetailDialogVisible.value = true
     return
   }
   if (focus === 'precheck' || focus === 'approval') {
-    void openReleaseCheckGroup()
+    applyReleaseProcessSelection()
+    viewedReleaseStageKey.value = focus === 'precheck' ? 'precheck' : 'release-approval'
   }
 }
 
@@ -4339,7 +4474,7 @@ const resolveDefaultTaskSelection = () =>
 const applyInitialBatchTaskSelection = () => {
   const focus = resolveDetailFocus()
   if (focus === 'precheck' || focus === 'approval' || hasBatchLevelWorkTaskRouteContext()) {
-    selectReleaseProcess()
+    applyReleaseProcessSelection()
     viewedReleaseStageKey.value =
       focus === 'precheck' ? 'precheck' : focus === 'approval' ? 'release-approval' : undefined
     return
@@ -4369,6 +4504,7 @@ const resolveRouteFormAssistUserId = (row: EdhrBatchExecutionTaskRespVO) => {
 }
 
 const autoOpenRouteFormFromRoute = async () => {
+  if (batchTaskSelectionChanged) return
   if (parseRouteQueryText(route.query.openRouteForm) !== '1') return
   const routeQueryTask = resolveRouteQueryTaskSelection()
   if (!routeQueryTask || !canAutoOpenRouteFormTask(routeQueryTask)) return
@@ -4378,18 +4514,20 @@ const autoOpenRouteFormFromRoute = async () => {
   await handleOpenTask(routeQueryTask)
 }
 
-const loadReviewTimeline = async (requestSerial?: number) => {
+const loadReviewTimeline = async (requestSerial = batchDetailRequestSerial) => {
   if (isStaleBatchDetailRequest(requestSerial)) return
   reviewLoading.value = true
   reviewError.value = ''
   const previousSelectedExecutionId = selectedExecutionId.value
   try {
-    const nextReviewTimeline = await getEdhrBatchReviewTimeline(assertBatchExecutionId())
+    const nextReviewTimeline = await getEdhrBatchReviewTimeline(assertBatchExecutionId(), { ignoreErrorMessage: true, isRequestContextCurrent: () => !isStaleBatchDetailRequest(requestSerial) })
     if (isStaleBatchDetailRequest(requestSerial)) return
     reviewTimeline.value = nextReviewTimeline
+    // 辅助查询晚返回时，保留用户已选择的工序或放行步骤。
+    if (batchTaskSelectionChanged) return
     const focus = resolveDetailFocus()
     if (focus === 'precheck' || focus === 'approval' || hasBatchLevelWorkTaskRouteContext()) {
-      selectReleaseProcess()
+      applyReleaseProcessSelection()
       viewedReleaseStageKey.value =
         focus === 'precheck' ? 'precheck' : focus === 'approval' ? 'release-approval' : undefined
       return
@@ -4419,11 +4557,13 @@ const loadReviewTimeline = async (requestSerial?: number) => {
     }
   } catch (error) {
     if (isStaleBatchDetailRequest(requestSerial)) return
+    reviewError.value = resolveErrorMessage(error, '电子批记录批次复盘时间线加载失败。')
     reviewTimeline.value = undefined
+    if (batchTaskSelectionChanged) return
     selectedExecutionId.value = ''
     const focus = resolveDetailFocus()
     if (focus === 'precheck' || focus === 'approval' || hasBatchLevelWorkTaskRouteContext()) {
-      selectReleaseProcess()
+      applyReleaseProcessSelection()
       viewedReleaseStageKey.value =
         focus === 'precheck' ? 'precheck' : focus === 'approval' ? 'release-approval' : undefined
       return
@@ -4433,7 +4573,6 @@ const loadReviewTimeline = async (requestSerial?: number) => {
     )
     selectedReleaseStep.value = !selectedTaskId.value
     clearTaskPreview()
-    reviewError.value = resolveErrorMessage(error, '电子批记录批次复盘时间线加载失败。')
   } finally {
     if (isStaleBatchDetailRequest(requestSerial)) return
     reviewLoading.value = false
@@ -4449,7 +4588,7 @@ const cancelDeferredBatchDetailSecondaryLoad = () => {
 const loadBatchDetailSecondaryData = async (id: string | number, requestSerial: number) => {
   secondaryLoadError.value = ''
   try {
-    const nextWorkbench = await getEdhrBatchWorkbench(id)
+    const nextWorkbench = await getEdhrBatchWorkbench(id, { ignoreErrorMessage: true, isRequestContextCurrent: () => !isStaleBatchDetailRequest(requestSerial) })
     if (isStaleBatchDetailRequest(requestSerial)) return
     workbench.value = nextWorkbench
     await loadReviewTimeline(requestSerial)
@@ -4458,12 +4597,13 @@ const loadBatchDetailSecondaryData = async (id: string | number, requestSerial: 
     if (selectedReleaseStep.value) {
       await loadReleaseCheckItems()
     }
+    if (isStaleBatchDetailRequest(requestSerial)) return
     await autoOpenRouteFormFromRoute()
   } catch (error) {
     if (isStaleBatchDetailRequest(requestSerial)) return
     workbench.value = undefined
     reviewTimeline.value = undefined
-    clearTaskPreview()
+    if (!batchTaskSelectionChanged) clearTaskPreview()
     secondaryLoadError.value = resolveErrorMessage(error, '电子批记录批次辅助数据加载失败。')
   }
 }
@@ -4481,7 +4621,7 @@ const loadInlineActiveOrderSubmissionDetail = async (
   }
   inlineActiveOrderSubmissionDetailLoading.value = true
   try {
-    const nextDetail = await getTeamLeaderActiveOrderDetail(batch.activeOrderId)
+    const nextDetail = await getEdhrBatchActiveOrderDetail({ batchExecutionId: batch.id }, { ignoreErrorMessage: true, isRequestContextCurrent: () => !isStaleBatchDetailRequest(requestSerial) })
     if (isStaleBatchDetailRequest(requestSerial)) return
     if (!nextDetail.processes?.length) {
       throw new Error('活跃订单缺少正式工序目标，无法展示一线提交表单')
@@ -4519,9 +4659,10 @@ const loadProductionReleaseReportCandidates = async (
   requestSerial = batchDetailRequestSerial
 ) => {
   const hasReportNodes = (detail.value?.tasks || []).some(isProductionReleaseReportNode)
-  if (!hasReportNodes) {
+  if (!canQueryProductionReleaseReportCandidates.value || !hasReportNodes) {
     productionReleaseReportWorkTasks.value = []
     productionReleaseReportCandidateError.value = ''
+    productionReleaseReportCandidateLoading.value = false
     return
   }
   productionReleaseReportCandidateLoading.value = true
@@ -4535,7 +4676,7 @@ const loadProductionReleaseReportCandidates = async (
       status: EDHR_WORK_TASK_STATUS_TODO,
       nodeTypes: [...EDHR_PRODUCTION_RELEASE_REPORT_NODE_TYPES],
       batchExecutionId: normalizedBatchExecutionId
-    })
+    }, { ignoreErrorMessage: true, isRequestContextCurrent: () => !isStaleBatchDetailRequest(requestSerial) })
     if (isStaleBatchDetailRequest(requestSerial)) return
     const candidates = (page.list || []).filter(
       (workTask) => workTask.businessScopeType === 'RELEASE_REPORT_NODE'
@@ -4572,6 +4713,7 @@ const loadProductionReleaseReportCandidates = async (
 
 const loadDetail = async () => {
   const requestSerial = ++batchDetailRequestSerial
+  batchTaskSelectionChanged = false
   cancelDeferredBatchDetailSecondaryLoad()
   clearTaskPreview()
   loading.value = true
@@ -4581,7 +4723,7 @@ const loadDetail = async () => {
     const id = assertBatchExecutionId()
     workbench.value = undefined
     reviewTimeline.value = undefined
-    const nextDetail = await getEdhrBatchExecution(id)
+    const nextDetail = await getEdhrBatchExecution(id, { ignoreErrorMessage: true, isRequestContextCurrent: () => !isStaleBatchDetailRequest(requestSerial) })
     if (isStaleBatchDetailRequest(requestSerial)) return
     detail.value = nextDetail
     void loadInlineActiveOrderSubmissionDetail(nextDetail, requestSerial)
@@ -4948,8 +5090,13 @@ const handleReleasePrecheck = async () => {
   }
 }
 
+let releaseCheckReadGeneration = 0
 const loadReleaseCheckItems = async () => {
+  const generation = ++releaseCheckReadGeneration
+  const requestSerial = batchDetailRequestSerial
+  const contextKey = releaseUiContextKey()
   const releaseTransactionId = workbench.value?.releaseSummary?.releaseTransactionId
+  const isCurrent = () => generation === releaseCheckReadGeneration && !isStaleBatchDetailRequest(requestSerial) && contextKey === releaseUiContextKey() && releaseTransactionId === workbench.value?.releaseSummary?.releaseTransactionId
   if (!releaseTransactionId) {
     releaseCheckItems.value = []
     return
@@ -4963,21 +5110,18 @@ const loadReleaseCheckItems = async () => {
       releaseTransactionId,
       itemStatus: 'OPEN',
       checkResult: ''
-    })
+    }, { ignoreErrorMessage: true, isRequestContextCurrent: isCurrent })
+    if (!isCurrent()) return
     releaseCheckItems.value = page.list || []
   } catch (error) {
+    if (!isCurrent()) return
     releaseCheckItems.value = []
     const errorText = resolveErrorMessage(error, '放行预检项加载失败。')
     showReleaseActionError(errorText)
     message.error(errorText)
   } finally {
-    releaseCheckLoading.value = false
+    if (isCurrent()) releaseCheckLoading.value = false
   }
-}
-
-const openReleaseCheckGroup = async () => {
-  selectReleaseProcess()
-  await loadReleaseCheckItems()
 }
 
 const openTraceRecordGroup = () => {
@@ -5003,7 +5147,55 @@ const openFieldResponsibility = async (entry: TraceRecordFieldResponsibilityEntr
   })
 }
 
+const releaseActionContextKey = () => JSON.stringify([approvalInvalidation.syncSession().key, route.query.id])
+const releaseUiContextKey = () => JSON.stringify([releaseActionContextKey(), route.fullPath])
+const releaseSignatureGuard = createFormalActionGuard(releaseUiContextKey)
+const releaseReturnGuard = createFormalActionGuard(releaseUiContextKey)
+const releaseSubmitReceipts = createFormalWriteReceiptState<Awaited<ReturnType<typeof submitEdhrRelease>>>()
+const releaseSubmitReceiptRevision = ref(0)
+const resetReleaseActionContexts = () => {
+  releaseSignatureGuard.invalidate(); releaseReturnGuard.invalidate()
+  releaseSignatureSubmitting.value = false; releaseReturnSubmitting.value = false
+  releaseSignatureForm.password = ''; releaseTransactionForm.password = ''
+}
+watch(releaseSignatureConfirmVisible, () => { releaseSignatureGuard.invalidate(); releaseSignatureSubmitting.value = false; releaseSignatureForm.password = '' }, { flush: 'sync' })
+watch(releaseReturnDialogVisible, () => { releaseReturnGuard.invalidate(); releaseReturnSubmitting.value = false }, { flush: 'sync' })
+watch(() => route.fullPath, () => { resetReleaseActionContexts(); releaseSignatureConfirmVisible.value = false; releaseReturnDialogVisible.value = false }, { flush: 'sync' })
+watch(() => approvalInvalidation.syncSession().key, () => { batchDetailRequestSerial++; resetReleaseActionContexts(); releaseSignatureConfirmVisible.value = false; releaseReturnDialogVisible.value = false }, { flush: 'sync' })
+watch(() => route.fullPath, () => { batchDetailRequestSerial++ }, { flush: 'sync' })
+onDeactivated(() => { batchDetailRequestSerial++; resetReleaseActionContexts() })
+onBeforeUnmount(() => { batchDetailRequestSerial++; resetReleaseActionContexts() })
+const releaseSubmitReadPending = computed(() => { void releaseSubmitReceiptRevision.value; return releaseSubmitReceipts.has(releaseActionContextKey()) })
+const reconcileReleaseSubmitRead = async (isCurrent: () => boolean) => {
+  await loadDetail()
+  if (!isCurrent()) return false
+  if (loadError.value) throw new Error(loadError.value)
+  cancelDeferredBatchDetailSecondaryLoad()
+  await loadBatchDetailSecondaryData(assertBatchExecutionId(), batchDetailRequestSerial)
+  if (!isCurrent()) return false
+  if (secondaryLoadError.value) throw new Error(secondaryLoadError.value)
+  const receipt = releaseSubmitReceipts.get(releaseActionContextKey())
+  if (!receipt?.releaseTransactionId || String(workbench.value?.releaseSummary?.releaseTransactionId) !== String(receipt.releaseTransactionId)) throw new Error('放行事务读取与已提交回执不一致，请重试读取。')
+  return true
+}
+const retryReleaseSubmitRead = async () => {
+  if (releaseSignatureSubmitting.value || !releaseSubmitReadPending.value) return
+  const key = releaseActionContextKey()
+  const isCurrent = releaseSignatureGuard.capture()
+  releaseSignatureSubmitting.value = true
+  try {
+    if (!(await reconcileReleaseSubmitRead(isCurrent))) return
+    releaseSubmitReceipts.reconcile(key); releaseSubmitReceiptRevision.value++
+    releaseSignatureError.value = ''
+  } catch (error) {
+    if (isCurrent()) releaseSignatureError.value = `放行申请已提交，详情刷新失败：${resolveErrorMessage(error, '请重试读取。')}`
+  } finally { if (isCurrent()) releaseSignatureSubmitting.value = false }
+}
+
 const openReleaseSignatureConfirmDialog = async () => {
+  if (releaseSubmitReceipts.isWriting(releaseActionContextKey())) return
+  if (releaseSubmitReadPending.value) { await retryReleaseSubmitRead(); return }
+  releaseSignatureGuard.invalidate()
   releaseSignatureError.value = ''
   if (!ensureViewedReleaseStageWritable('放行')) return
   if (!canSubmitRelease.value) {
@@ -5012,8 +5204,9 @@ const openReleaseSignatureConfirmDialog = async () => {
     message.error(releaseSignatureError.value)
     return
   }
+  const isCurrent = releaseSignatureGuard.capture()
   const pendingAttachmentsSaved = await ensurePendingSpecialNodeAttachmentsSavedBeforeRelease()
-  if (!pendingAttachmentsSaved) return
+  if (!isCurrent() || !pendingAttachmentsSaved) return
   const releaseTransactionId = workbench.value?.releaseSummary?.releaseTransactionId
   if (!releaseTransactionId) {
     releaseSignatureError.value = '当前批次缺少放行事务，无法执行放行动作。'
@@ -5034,18 +5227,35 @@ const runReleaseSignatureConfirmAction = async (
   action: () => Promise<unknown>,
   successText: string
 ) => {
+  if (releaseSignatureSubmitting.value || releaseSubmitReadPending.value) return
+  const key = releaseActionContextKey()
+  let isCurrent = releaseSignatureGuard.capture()
+  const event = approvalInvalidation.captureEdhrSuccess({ sourceTaskType: 'EDHR_WORK_TASK', businessSourceType: 'RELEASE_TRANSACTION', businessSourceId: String(workbench.value!.releaseSummary!.releaseTransactionId) })
+  if (!releaseSubmitReceipts.begin(key)) return
+  releaseSubmitReceiptRevision.value++
+  let writeSucceeded = false
   releaseSignatureSubmitting.value = true
   releaseSignatureError.value = ''
   try {
-    await action()
+    const receipt = await action()
+    writeSucceeded = true
+    approvalInvalidation.publishEdhrSuccess(event)
+    releaseSubmitReceipts.complete(key, receipt as Awaited<ReturnType<typeof submitEdhrRelease>>)
+    releaseSubmitReceiptRevision.value++
+    if (!isCurrent()) return
     releaseSignatureConfirmVisible.value = false
+    isCurrent = releaseSignatureGuard.capture()
+    releaseSignatureSubmitting.value = true
     message.success(successText)
-    await loadDetail()
+    if (await reconcileReleaseSubmitRead(isCurrent)) { releaseSubmitReceipts.reconcile(key); releaseSubmitReceiptRevision.value++ }
   } catch (error) {
-    releaseSignatureError.value = resolveErrorMessage(error, '当前批次放行失败。')
+    if (!isCurrent()) return
+    releaseSignatureError.value = writeSucceeded ? `放行申请已提交，详情刷新失败：${resolveErrorMessage(error, '请重试读取。')}` : resolveErrorMessage(error, '当前批次放行申请失败。')
     message.error(releaseSignatureError.value)
   } finally {
-    releaseSignatureSubmitting.value = false
+    releaseSubmitReceipts.settle(key)
+    releaseSubmitReceiptRevision.value++
+    if (isCurrent()) releaseSignatureSubmitting.value = false
   }
 }
 
@@ -5054,15 +5264,17 @@ const submitReleaseByOwnerSignature = async (releaseTransactionId: string) => {
   if (!password) {
     throw new Error('负责人电子签名密码不能为空。')
   }
-  await submitEdhrRelease({
+  return await submitEdhrRelease({
     releaseTransactionId,
     idempotencyKey: releaseTransactionForm.idempotencyKey.trim(),
     password,
     submitReason: releaseTransactionForm.approvalOpinion.trim() || '负责人电子签名放行'
-  })
+  }, { ignoreErrorMessage: true, isRequestContextCurrent: releaseSignatureGuard.capture() , isSuccessReceiptContextCurrent: (() => { const receiptSessionKey = approvalInvalidation.syncSession().key; return () => approvalInvalidation.isCurrent(receiptSessionKey) })()})
 }
 
 const confirmReleaseSignatureSubmit = async () => {
+  if (releaseSubmitReadPending.value) { await retryReleaseSubmitRead(); return }
+  if (releaseSignatureSubmitting.value) return
   if (!ensureViewedReleaseStageWritable('放行确认')) return
   releaseSignatureError.value = ''
   const releaseTransactionId = workbench.value?.releaseSummary?.releaseTransactionId
@@ -5088,11 +5300,13 @@ const confirmReleaseSignatureSubmit = async () => {
   releaseTransactionForm.withdrawReason = ''
   await runReleaseSignatureConfirmAction(
     () => submitReleaseByOwnerSignature(releaseTransactionId),
-    '放行已完成'
+    '放行申请已提交'
   )
 }
 
 const openReleaseReturnDialog = () => {
+  releaseReturnGuard.invalidate()
+  releaseReturnSubmitting.value = false
   releaseReturnError.value = ''
   if (!ensureViewedReleaseStageWritable('放行退回')) return
   if (!canReturnRelease.value) {
@@ -5111,6 +5325,7 @@ const openReleaseReturnDialog = () => {
 }
 
 const submitReleaseReturn = async () => {
+  if (releaseReturnSubmitting.value) return
   if (!ensureViewedReleaseStageWritable('放行退回')) return
   releaseReturnError.value = ''
   if (!canReturnRelease.value) {
@@ -5129,24 +5344,33 @@ const submitReleaseReturn = async () => {
     return
   }
   releaseReturnSubmitting.value = true
+  const event = approvalInvalidation.captureEdhrSuccess({ sourceTaskType: 'EDHR_WORK_TASK', businessSourceType: 'RELEASE_TRANSACTION', businessSourceId: String(releaseTransactionId) })
+  let isCurrent = releaseReturnGuard.capture()
+  let writeSucceeded = false
   try {
     await rejectEdhrRelease({
       releaseTransactionId,
       idempotencyKey: buildReleaseIdempotencyKey('reject'),
       rejectReason: releaseReturnForm.rejectReason.trim()
-    })
+    }, { ignoreErrorMessage: true, isRequestContextCurrent: isCurrent , isSuccessReceiptContextCurrent: (() => { const receiptSessionKey = approvalInvalidation.syncSession().key; return () => approvalInvalidation.isCurrent(receiptSessionKey) })()})
+    writeSucceeded = true
+    approvalInvalidation.publishEdhrSuccess(event)
+    if (!isCurrent()) return
     releaseReturnDialogVisible.value = false
+    isCurrent = releaseReturnGuard.capture()
     message.success('放行已退回')
     await loadDetail()
+    if (isCurrent() && loadError.value) throw new Error(loadError.value)
   } catch (error) {
-    releaseReturnError.value = resolveErrorMessage(error, '放行退回失败。')
+    if (!isCurrent()) return
+    releaseReturnError.value = writeSucceeded ? `放行退回已成功，详情刷新失败：${resolveErrorMessage(error, '请刷新核对。')}` : resolveErrorMessage(error, '放行退回失败。')
     message.error(releaseReturnError.value)
   } finally {
-    releaseReturnSubmitting.value = false
+    if (isCurrent()) releaseReturnSubmitting.value = false
   }
 }
 
-const openNonconformanceReviewEntry = (sourceType = SOURCE_TYPE_PQC_RELEASE) => {
+const openNonconformanceReviewEntry = () => {
   if (!ensureViewedReleaseStageWritable('不合格审查')) return
   if (!canOpenNonconformanceReview.value) {
     message.error(
@@ -5154,15 +5378,16 @@ const openNonconformanceReviewEntry = (sourceType = SOURCE_TYPE_PQC_RELEASE) => 
     )
     return
   }
+  const activeOrderId = detail.value?.activeOrderId
+  if (!activeOrderId) {
+    message.error('当前批次缺少正式活跃订单ID，无法发起不合格审查。')
+    return
+  }
   router.push({
     name: 'MesProFeedbackEdhrNonconformanceReview',
     query: {
-      sourceType,
-      sourceId:
-        sourceType === SOURCE_TYPE_PQC_RELEASE && traceRecordReleaseTransactionId.value
-          ? String(traceRecordReleaseTransactionId.value)
-          : String(assertBatchExecutionId()),
-      batchExecutionId: String(assertBatchExecutionId())
+      activeOrderId: String(activeOrderId),
+      autoCreate: '1'
     }
   })
 }
@@ -7302,6 +7527,27 @@ watch(
   max-width: 100%;
   min-width: 0;
   min-height: 0;
+}
+
+.edhr-batch-detail__source-detail-record {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  padding: 12px;
+  background: #f8fafc;
+  border: 1px solid #dbe3ef;
+  border-radius: 8px;
+}
+
+.edhr-batch-detail__source-detail-record-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
 }
 
 .edhr-batch-detail__release-stage-next {

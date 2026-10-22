@@ -5,6 +5,7 @@ import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.vo.ProcessPo
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.vo.ProcessPoolTimelinePageReqVO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.feedback.MesProFeedbackMaterialDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventDO;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolTimelineReadMapper;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
@@ -14,8 +15,34 @@ import static cn.iocoder.yudao.module.mes.service.pro.processpool.ProcessPoolTim
 import static cn.iocoder.yudao.module.mes.service.pro.processpool.ProcessPoolTimelineTestSupport.pageReq;
 import static cn.iocoder.yudao.module.mes.service.pro.processpool.ProcessPoolTimelineTestSupport.service;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class ProcessPoolTimelineQueryTest {
+
+    @Test
+    void frozenPqcPageRequiresTheWholeRealGroupBeforeExposingPayloads() {
+        var read = org.mockito.Mockito.mock(MesProProcessPoolTimelineReadMapper.class);
+        var first = event(101L, "2026-07-30T08:30:00", 2001L, 6001L, 9001L, "PQC_SIMPLIFIED", 30001L)
+                .setPqcSubmissionGroupId("g").setEventType("PQC_INSPECTION");
+        var second = event(102L, "2026-07-30T08:31:00", 2001L, 6001L, 9001L, "PQC_SIMPLIFIED", 30001L)
+                .setPqcSubmissionGroupId("g").setEventType("PQC_INSPECTION");
+        var req = pageReq().setEventType("PQC_INSPECTION").setEventIds(java.util.Set.of(101L));
+        org.mockito.Mockito.when(read.selectTimelineCount(req)).thenReturn(1L);
+        org.mockito.Mockito.when(read.selectTimelinePage(req)).thenReturn(java.util.List.of(first));
+        org.mockito.Mockito.when(read.selectPqcSubmissionGroupPayloadsByGroupIds(java.util.List.of("g")))
+                .thenReturn(java.util.List.of(first, second));
+        var actual = new ProcessPoolTimelineServiceImpl(read);
+        assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,
+                () -> actual.getTimelinePage(req));
+        req.setEventIds(java.util.Set.of(101L, 102L));
+        var authorized = actual.getTimelinePage(req).getList().get(0);
+        assertEquals(java.util.List.of(101L, 102L), authorized.getGroupedEventIds());
+        assertEquals(2, authorized.getExpectedReviews().size());
+        org.mockito.Mockito.when(read.selectPqcSubmissionGroupPayloadsByGroupIds(java.util.List.of("g")))
+                .thenReturn(java.util.List.of(second));
+        assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,
+                () -> actual.getTimelinePage(req));
+    }
 
     @Test
     void shouldReturnDailyEventsOrderedByServerSubmittedAtDesc() {

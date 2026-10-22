@@ -55,7 +55,8 @@ class ProcessPoolTimelineDateFilterTest {
         var page = service(mapper).getTimelinePage(reqVO);
 
         assertEquals(2L, page.getTotal());
-        assertEquals(1002L, page.getList().get(0).getId());
-        assertEquals(1003L, page.getList().get(1).getId());
+        // Timeline pages order by submitted time descending, within the selected half-open day window.
+        assertEquals(1003L, page.getList().get(0).getId());
+        assertEquals(1002L, page.getList().get(1).getId());
     }
 }

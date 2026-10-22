@@ -28,6 +28,12 @@ public interface AdminUserApi {
     AdminUserDirectSupervisorRespDTO getDirectSupervisorRelation(Long userId);
 
     /**
+     * 在调用方事务内锁定当前租户的正式人员身份，用于后续资格变更。
+     * 不执行密码认证，不过滤禁用账号，也不读取岗位关系。
+     */
+    AdminUserRespDTO lockSignatureIdentity(Long id);
+
+    /**
      * 通过用户 ID 查询用户下属
      *
      * @param id 用户编号

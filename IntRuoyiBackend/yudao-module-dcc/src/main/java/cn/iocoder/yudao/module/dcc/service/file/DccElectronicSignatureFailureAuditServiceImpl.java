@@ -1,6 +1,8 @@
 package cn.iocoder.yudao.module.dcc.service.file;
 
 import cn.hutool.core.util.StrUtil;
+import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
+import cn.iocoder.yudao.module.system.api.permission.ApprovalAuthorityApi;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccElectronicSignatureAuthorizationDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccElectronicSignatureFailureAuditDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccElectronicSignaturePolicyDO;
@@ -33,15 +35,18 @@ public class DccElectronicSignatureFailureAuditServiceImpl implements DccElectro
     private DccElectronicSignatureAuthorizationMapper authorizationMapper;
     @Resource
     private DccElectronicSignaturePolicyMapper policyMapper;
+    @Resource
+    private ApprovalAuthorityApi authority;
 
     @Override
     @Transactional(propagation = Propagation.REQUIRES_NEW, rollbackFor = Exception.class)
     public boolean recordPasswordFailure(DccElectronicSignatureFailureAuditCommand command) {
+        var revision = authority.lockTenantApprovalAuthority(TenantContextHolder.getRequiredTenantId());
         DccElectronicSignaturePolicyDO policy = policyMapper.selectEnabledPolicy();
         if (!isValidPolicy(policy)) {
             throw exception(CONTROLLED_FILE_SIGNATURE_POLICY_MISSING);
         }
-        DccElectronicSignatureAuthorizationDO authorization = authorizationMapper.selectByUserId(command.getTargetUserId());
+        DccElectronicSignatureAuthorizationDO authorization = authorizationMapper.selectByUserIdForUpdate(command.getTargetUserId());
         if (authorization == null) {
             throw exception(CONTROLLED_FILE_SIGNATURE_NOT_AUTHORIZED);
         }
@@ -61,7 +66,9 @@ public class DccElectronicSignatureFailureAuditServiceImpl implements DccElectro
                 .build()) <= 0) {
             throw exception(CONTROLLED_FILE_SIGNATURE_PERSIST_FAILED);
         }
-        return updateFailureLockState(authorization, policy, failedAt);
+        boolean locked = updateFailureLockState(authorization, policy, failedAt);
+        authority.incrementLockedAuthorityRevision(revision.tenantId(), revision.revision());
+        return locked;
     }
 
     private boolean updateFailureLockState(DccElectronicSignatureAuthorizationDO authorization,
@@ -83,7 +90,7 @@ public class DccElectronicSignatureFailureAuditServiceImpl implements DccElectro
             update.setLockedUntil(failedAt.plusMinutes(policy.getLockMinutes()));
             update.setLockReason(LOCK_REASON_PASSWORD_FAILURE_THRESHOLD);
         }
-        if (authorizationMapper.updateById(update) <= 0) {
+        if (authorizationMapper.updateById(update) != 1) {
             throw exception(CONTROLLED_FILE_SIGNATURE_PERSIST_FAILED);
         }
         return locked;

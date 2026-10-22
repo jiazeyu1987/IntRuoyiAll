@@ -6,5 +6,5 @@ public record MesFrontlineEmployeeSwitchResult(Long loginUserId,
                                                Long routeProcessId,
                                                Long processId,
                                                boolean extraVerificationRequired,
-                                               MesFrontlineTemplateDescriptor template) {
+                                               MesFrontlineTemplateDescriptor template, String identityDomain) {
 }

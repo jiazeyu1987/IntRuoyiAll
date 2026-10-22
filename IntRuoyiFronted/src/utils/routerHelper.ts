@@ -57,6 +57,7 @@ const MES_PRO_SCHEDULE_ORDER_ROUTE_PATHS = new Set([
 ])
 const MES_FEEDBACK_ROUTE_COMPONENTS = new Set(['mes/pro/feedback', 'mes/pro/feedback/index'])
 const MES_FEEDBACK_ROUTE_PATHS = new Set(['mes/pro/feedback', 'pro/feedback'])
+const FORM_CENTER_PARSER_ROUTE_COMPONENT = 'form-center/parser/index'
 const APPROVAL_CENTER_REDIRECT_SHELL_ROUTE_COMPONENTS = new Set([
   'mes/pro/edhr/ApprovalPage',
   'dcc/controlled-file/approval-tasks',
@@ -100,6 +101,25 @@ const applyRouteMetaOverrides = (
 ) => {
   const routePath = normalizeInternalRoutePath(route.path)
   const componentPath = normalizeInternalComponentPath(route.component)
+  const configActiveMenus: Record<string, string> = {
+    'mes/pro/edhr-config/index': '/mes/pro/edhr-config',
+    'erp/sync/config/index': '/erp/sync/config',
+    'dcc/registration-certificate/config/index': '/dcc/registration-certificate/config',
+    'infra/config/basic/index': '/infra/config/basic'
+  }
+  if (configActiveMenus[componentPath]) {
+    meta.activeMenu = configActiveMenus[componentPath]
+    meta.noCache = true
+  }
+  if (
+    routePath === 'mes/pro/feedback/edhr-nonconformance-review' ||
+    routePath === 'pro/feedback/edhr-nonconformance-review' ||
+    componentPath === 'mes/pro/edhr-nonconformance/NonconformanceReviewPage'
+  ) {
+    if (meta.hidden) {
+      meta.activeMenu = '/mes/pro/feedback/edhr-batch-execution'
+    }
+  }
   if (
     DCC_UPLOAD_BROWSER_CACHE_ROUTE_PATHS.has(routePath) ||
     DCC_UPLOAD_BROWSER_CACHE_ROUTE_COMPONENTS.has(componentPath) ||
@@ -134,6 +154,9 @@ const applyRouteMetaOverrides = (
     MES_PRO_SCHEDULE_ORDER_ROUTE_PATHS.has(routePath) ||
     MES_PRO_SCHEDULE_ORDER_ROUTE_COMPONENTS.has(componentPath)
   ) {
+    meta.hideFooter = true
+  }
+  if (FORM_CENTER_PARSER_ROUTE_COMPONENT === componentPath) {
     meta.hideFooter = true
   }
 }

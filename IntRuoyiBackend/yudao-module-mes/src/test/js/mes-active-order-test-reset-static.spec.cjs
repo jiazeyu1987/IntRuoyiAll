@@ -1,0 +1,92 @@
+const assert = require('node:assert/strict')
+const fs = require('node:fs')
+const path = require('node:path')
+
+const repoRoot = path.resolve(__dirname, '../../../../..')
+const read = (relativePath) => fs.readFileSync(path.join(repoRoot, relativePath), 'utf8')
+
+const controller = read('IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/processpool/team/MesProcessPoolTeamLeaderController.java')
+const serviceApi = read('IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesTeamLeaderActiveOrderService.java')
+const service = read('IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesTeamLeaderActiveOrderServiceImpl.java')
+const cleanupMapper = read('IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/dal/mysql/pro/processpool/team/MesTeamLeaderDataCleanupMapper.java')
+const api = read('IntRuoyiFronted/src/api/mes/pro/processpool/teamLeader.ts')
+const workbench = read('IntRuoyiFronted/src/views/mes/pro/processpool/TeamLeaderWorkbenchPage.vue')
+
+const targetCode = 'SIM-COPY-CODX-PQC-20260807-SP-WO-05-OPYAO451788352161891'
+const reset = service.split('public MesTeamLeaderActiveOrderTestResetResult resetFixedSimulationActiveOrder(')[1]
+  .split('public MesTeamLeaderActiveOrderSimulationCopyResult copyLatestSimulationActiveOrder(')[0]
+
+assert.match(serviceApi, /resetFixedSimulationActiveOrder\s*\(/)
+assert.match(controller, /active-order\/simulation\/test-reset/)
+assert.match(controller, /mes:pro-process-pool-team-leader:maintain/)
+assert.match(service, new RegExp(targetCode.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
+assert.match(service, /TenantContextHolder\.getTenantId\(\)/)
+assert.match(service, /@Transactional\(rollbackFor = Exception\.class\)/)
+assert.match(reset, /selectByTenantIdAndCodeForUpdate\(\s*tenantId, FIXED_TEST_WORK_ORDER_CODE\)/,
+  'special reset must lock the exact fixed fixture in the current tenant')
+assert.match(reset, /fixedTestOrderDownstreamCleanupService\.cleanup\(/,
+  'special reset must close downstream deviation and approval runtime before readding the fixture')
+assert.doesNotMatch(reset, /createWorkOrder\(|copyLatestSimulationActiveOrder\(/,
+  'reset must reuse the fixed work-order master, not create another work order')
+for (const preservedAudit of [
+  'deleteExecutionSignatures', 'deleteBatchSignatures', 'deleteBatchArchives',
+  'deleteOperationAuditEvents', 'deleteRecordChangeEvents', 'deleteActiveOrderAudits'
+]) {
+  assert.doesNotMatch(reset, new RegExp(`dataCleanupMapper\\.${preservedAudit}\\(`),
+    `fixed reset must retain immutable evidence: ${preservedAudit}`)
+}
+assert.match(
+  service,
+  /\.eq\(MesProcessPoolActiveOrderDO::getWorkOrderId, workOrder\.getId\(\)\)/,
+  'fixed test reset must collect every non-deleted active-order row for the fixed work order, including CLOSED/RELEASED rows'
+)
+assert.match(
+  service,
+  /workOrder\.setStatus\(MesProWorkOrderStatusEnum\.CONFIRMED\.getStatus\(\)\)/,
+  'fixed test reset must restore the fixed work order to CONFIRMED before the next real flow'
+)
+assert.doesNotMatch(
+  service,
+  /\.in\(MesProcessPoolActiveOrderDO::getActiveStatus, List\.of\(STATUS_ACTIVE, STATUS_REMOVED\)\)/,
+  'fixed test reset must not leave released rows outside the reset scope'
+)
+for (const required of [
+  'deleteFeedbacks',
+  'deleteOrderProcessCompletions',
+  'deleteFifoAllocationLines',
+  'deleteProcessPoolRows',
+  'deleteBatchExecutions',
+  'deleteExecutions',
+  'deleteRecordbooks',
+  'deleteFormInstances',
+  'deleteEvents',
+  'deleteNonconformanceReviewsByActiveOrderIds',
+  'deleteActiveOrders',
+  'addActiveOrder'
+]) {
+  assert.match(service, new RegExp(required), `reset must include ${required}`)
+}
+assert.match(cleanupMapper, /deleteNonconformanceReviewsByActiveOrderIds\(/)
+assert.match(cleanupMapper, /DELETE FROM mes_pro_edhr_nonconformance_review WHERE tenant_id = #\{tenantId\}/)
+assert.match(cleanupMapper, /AND active_order_id IN/)
+for (const appendOnlyDeleteCall of [
+  'deleteBatchOrigins',
+  'deleteTraceLinks',
+  'deleteTraceManifests',
+  'deleteTraceOutboxEvents'
+]) {
+  assert.doesNotMatch(
+    service,
+    new RegExp(`dataCleanupMapper\\.${appendOnlyDeleteCall}\\(`),
+    `${appendOnlyDeleteCall} must not be invoked by fixed test reset because the target table is append-only/WORM evidence`
+  )
+}
+assert.doesNotMatch(cleanupMapper, /selectEventIdsByWorkOrderIds[\s\S]*?deleted\s*=\s*b'0'[\s\S]*?List<Long> selectEventIdsByWorkOrderIds/)
+
+assert.match(api, /resetFixedSimulationActiveOrder/)
+assert.match(api, /active-order\/simulation\/test-reset/)
+assert.match(workbench, /data-team-leader-reset-fixed-active-order/)
+assert.match(workbench, /重置指定测试订单/)
+assert.doesNotMatch(workbench.split("const handleResetFixedSimulationActiveOrder = async () => {")[1].split("const handleActiveOrderWorkOrderKeywordChange")[0], /ElMessageBox/)
+
+console.log('mes-active-order-test-reset-static: PASS')

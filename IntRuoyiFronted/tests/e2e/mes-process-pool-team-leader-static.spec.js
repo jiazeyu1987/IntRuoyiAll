@@ -115,9 +115,10 @@ const abnormalRequestType = api.slice(
   api.indexOf('export interface TeamDefectReasonSaveReqVO')
 )
 assert(
-  /workOrderId:\s*number/.test(abnormalRequestType) &&
+  /activeOrderId:\s*number/.test(abnormalRequestType) &&
+    !/workOrderId:\s*number/.test(abnormalRequestType) &&
     /abnormalDescription:\s*string/.test(abnormalRequestType),
-  '异常上报请求类型必须只包含订单号和异常原因。'
+  '异常上报请求类型必须只包含活跃订单编号和异常原因。'
 )
 for (const removedField of ['routeProcessId', 'processId', 'sourceEventId', 'abnormalReasonCode']) {
   assert(!abnormalRequestType.includes(removedField), `异常上报请求类型不应包含 ${removedField}。`)
@@ -127,8 +128,19 @@ assert(submitAbnormalStart >= 0, '必须保留异常上报提交函数。')
 const submitAbnormalEnd = page.indexOf('const resetActiveOrderForm', submitAbnormalStart)
 assert(submitAbnormalEnd > submitAbnormalStart, '异常上报提交函数必须在活跃订单表单函数前结束。')
 const submitAbnormalBlock = page.slice(submitAbnormalStart, submitAbnormalEnd)
+const realtimeRefreshIndex = submitAbnormalBlock.indexOf('await loadActiveOrders()')
+const abnormalSubmitApiIndex = submitAbnormalBlock.indexOf('await markAndReportWorkOrderAbnormal')
 assert(
-  /markAndReportWorkOrderAbnormal\(\{\s*workOrderId:\s*abnormalForm\.workOrderId,\s*abnormalDescription:\s*abnormalForm\.abnormalDescription\.trim\(\)\s*\}\)/.test(submitAbnormalBlock),
+  realtimeRefreshIndex >= 0 && abnormalSubmitApiIndex > realtimeRefreshIndex,
+  '异常上报提交前必须先刷新实时活跃订单列表。'
+)
+assert(
+  submitAbnormalBlock.includes('activeOrderOptions.value.find') &&
+    submitAbnormalBlock.includes('Number(order.id) === activeOrderId'),
+  '异常上报提交前必须从实时活跃订单列表确认当前活跃订单存在。'
+)
+assert(
+  /markAndReportWorkOrderAbnormal\(\{\s*activeOrderId,\s*abnormalDescription:\s*abnormalForm\.abnormalDescription\.trim\(\)\s*\}\)/.test(submitAbnormalBlock),
   '异常上报提交 payload 必须锁定当前活跃订单并只包含异常原因。'
 )
 for (const removedField of ['routeProcessId', 'processId', 'sourceEventId', 'abnormalReasonCode']) {

@@ -14,4 +14,11 @@ public class MesProductionReleaseManagerStageInitializationCommand {
     private String reportSnapshotHash;
     private List<MesProductionReleaseReportNodeEvidence> reportEvidences;
     private Integer expectedApplicationVersion;
+    private Boolean activeOrderFormalFacts;
+    private String sourceMethod;
+    private Long sourceWorkTaskId;
+    private Long sourceActorId;
+    private Integer sourceExpectedApplicationVersion;
+    private String sourceIdempotencyKey;
+    private String sourcePayloadHash;
 }

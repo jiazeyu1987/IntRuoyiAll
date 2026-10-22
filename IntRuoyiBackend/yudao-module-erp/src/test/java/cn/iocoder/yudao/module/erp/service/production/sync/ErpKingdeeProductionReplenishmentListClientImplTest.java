@@ -105,11 +105,7 @@ class ErpKingdeeProductionReplenishmentListClientImplTest {
                 .andExpect(content().string(containsString(
                         "FModifyDate+%3C+%272026-08-13+09%3A00%3A00%27")))
                 .andRespond(withSuccess("""
-                        [[1001,"FEED001","2026-08-13 07:30:00","C","881","库存组织",
-                        "881","生产组织","OWNER","货主","备注",2001,
-                        "MAT001","物料一","规格一","支",6,6,8,"WH1","原料仓","LOC1",
-                        "库位一","LOT1","MO001",1,"PPBOM001","WS1","组装车间",
-                        "AVL","可用","08/13/2026 08:30:00"]]
+[[1001, "FEED001", "2026-08-13 07:30:00", "C", "881", "库存组织", "881", "生产组织", "OWNER", "货主", "备注", 2001, "MAT001", "物料一", "规格一", "支", 6, 6, 8, "WH1", "原料仓", "LOC1", "库位一", "LOT1", "MO001", 1, "PPBOM001", "WS1", "组装车间", "AVL", "可用", null, "08/13/2026 08:30:00"]]
                         """, MediaType.APPLICATION_JSON));
 
         List<ErpKingdeeProductionReplenishmentList> rows =
@@ -175,8 +171,7 @@ class ErpKingdeeProductionReplenishmentListClientImplTest {
         expectLogin(server);
         server.expect(requestTo(queryUrl()))
                 .andRespond(withSuccess("""
-                        [[{"Result":{"ResponseStatus":{"IsSuccess":false,
-                        "Errors":[{"Message":"元数据中字段不存在"}]}}}]]
+[[{"Result": {"ResponseStatus": {"IsSuccess": false, "Errors": [{"Message": "元数据中字段不存在"}]}}}]]
                         """, MediaType.APPLICATION_JSON));
 
         cn.iocoder.yudao.framework.common.exception.ServiceException exception =

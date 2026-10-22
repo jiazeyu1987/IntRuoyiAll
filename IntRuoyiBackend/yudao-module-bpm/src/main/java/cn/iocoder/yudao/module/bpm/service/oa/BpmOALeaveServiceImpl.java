@@ -57,10 +57,12 @@ public class BpmOALeaveServiceImpl implements BpmOALeaveService {
         String processInstanceId = processInstanceApi.createProcessInstance(userId,
                 new BpmProcessInstanceCreateReqDTO().setProcessDefinitionKey(PROCESS_KEY)
                         .setVariables(processInstanceVariables).setBusinessKey(String.valueOf(leave.getId()))
+                        .setApprovalAuthority(new cn.iocoder.yudao.module.bpm.api.task.dto.ApprovalProcessAuthorityDTO(cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId(),"NATIVE_BUSINESS","OA_LEAVE",leave.getId().toString(),cn.hutool.crypto.digest.DigestUtil.sha256Hex(cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(leave)),"OA_LEAVE_SUBMIT",leave.getId().toString()))
                         .setStartUserSelectAssignees(createReqVO.getStartUserSelectAssignees()));
 
         // 将工作流的编号，更新到 OA 请假单中
-        leaveMapper.updateById(new BpmOALeaveDO().setId(leave.getId()).setProcessInstanceId(processInstanceId));
+        if (leaveMapper.updateById(new BpmOALeaveDO().setId(leave.getId()).setProcessInstanceId(processInstanceId)) != 1)
+            throw new IllegalStateException("APPROVAL_FORMAL_SOURCE_ATTACHMENT_FAILED");
         return leave.getId();
     }
 

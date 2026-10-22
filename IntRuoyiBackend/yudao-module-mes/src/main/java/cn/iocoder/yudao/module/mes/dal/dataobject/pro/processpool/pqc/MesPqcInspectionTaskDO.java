@@ -38,15 +38,22 @@ public class MesPqcInspectionTaskDO extends TenantBaseDO {
     private Long routeVersionId;
     private Long routeProcessId;
     private Long processId;
+    private Long dccProjectCodeId;
+    private String dccProjectCode;
+    private String dccProjectName;
+    private Long qaRegulationId;
     private Long qaProcessId;
     private String qaItemCode;
     private Long regulationVersionId;
+    private String qaRegulationVersionNo;
     private String inspectionType;
     private String inspectionRuleKey;
     private LocalDate businessDate;
     private String shiftCode;
     private Integer roundNo;
     private Integer plannedInspectionQuantity;
+    /** Frozen sampling quantities by QA item; one task covers one QA process and inspection stage. */
+    private String inspectionItemPlanJson;
     private Integer actualInspectionQuantity;
     private String taskStatus;
     private String submittedContentHash;

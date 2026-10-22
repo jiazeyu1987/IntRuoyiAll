@@ -5,14 +5,19 @@ import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesFlow6Completi
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderCompletionFlow6ReceiptPort;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderPickListBindingDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderPickListBindingMapper;
+import com.alibaba.fastjson.JSON;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_BATCH_ENTRY_SOURCE_RELATION_REQUIRED;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.*;
 
 class MesBatchExecutionAuthoritativeContextResolverTest {
@@ -24,7 +29,7 @@ class MesBatchExecutionAuthoritativeContextResolverTest {
     private final MesProcessPoolActiveOrderPickListBindingMapper pickListBindingMapper =
             mock(MesProcessPoolActiveOrderPickListBindingMapper.class);
     private final MesBatchExecutionAuthoritativeContextResolver resolver =
-            new MesBatchExecutionAuthoritativeContextResolver(completionPort, independentService, pickListBindingMapper);
+            new MesBatchExecutionAuthoritativeContextResolver(completionPort, pickListBindingMapper);
 
     @Test
     void forgedNestedCompletionReceiptWithoutServerCredentialIsBlocked() {
@@ -120,6 +125,77 @@ class MesBatchExecutionAuthoritativeContextResolverTest {
     }
 
     @Test
+    void activeEntrySourceBundleMustPassTxCValidationAfterFlow6AddsProvisionReceipt() {
+        MesFlow6CompletionBackfillReceipt receipt = validActiveReceipt(81L, 14L, 24L, "B-81", "source-81");
+        MesProcessPoolActiveOrderPickListBindingDO binding = binding(14L, 24L)
+                .setId(8805L).setPickListId(9905L).setSourceSnapshotHash("pick-source-81");
+        when(completionPort.getByReceiptId(81L, 1L)).thenReturn(receipt);
+        when(pickListBindingMapper.selectListByActiveOrderId(14L)).thenReturn(List.of(binding));
+
+        MesBatchExecutionProvisionCommand resolved = resolver.resolve(new MesBatchExecutionProvisionCommand()
+                .setEntryType("ACTIVE_ORDER_COMPLETION").setEntryBusinessId("completion-81")
+                .setSourceCredentialType("CompletionBackfillReceipt").setSourceCredentialId("81")
+                .setSourceSnapshotHash("source-81"), 1L).getProvisionCommand();
+
+        List<MesProEdhrBatchTraceSource> sources = new ArrayList<>(resolved.getSourceEvidence().stream()
+                .map(this::toTraceSource).toList());
+        Long provisioningReceiptId = 7001L;
+        Map<String, Object> provisionSnapshot = new LinkedHashMap<>();
+        provisionSnapshot.put("sourceType", "BATCH_PROVISION_RECEIPT");
+        provisionSnapshot.put("sourceId", provisioningReceiptId);
+        provisionSnapshot.put("witnessHash", resolved.getSourceSnapshotHash());
+        provisionSnapshot.put("sourceSnapshotHash", resolved.getSourceSnapshotHash());
+        String provisionSnapshotJson = JSON.toJSONString(provisionSnapshot);
+        sources.add(new MesProEdhrBatchTraceSource()
+                .setLinkType(MesProEdhrBatchTraceLinkType.BATCH_PROVISION_RECEIPT)
+                .setSourceObjectType("BATCH_PROVISIONING_RECORD")
+                .setSourceObjectId(provisioningReceiptId)
+                .setSourceVersion(1)
+                .setSourceIdentityKey("BATCH_PROVISION_RECEIPT:BATCH_PROVISIONING_RECORD:7001::")
+                .setSnapshotJson(provisionSnapshotJson)
+                .setSnapshotHash(resolved.getSourceSnapshotHash())
+                .setRelationStatus("BOUND"));
+
+        MesProEdhrBatchTraceCaptureCommand capture = new MesProEdhrBatchTraceCaptureCommand()
+                .setBatchExecutionId(101L)
+                .setEntryType("ACTIVE_ORDER_COMPLETION")
+                .setOriginKey("ACTIVE_ORDER:14")
+                .setActiveOrderId(resolved.getActiveOrderId())
+                .setWorkOrderId(resolved.getWorkOrderId())
+                .setCompletionTransactionId(resolved.getCompletionTransactionId())
+                .setCompletionVersion(resolved.getCompletionVersion().intValue())
+                .setCompletionBackfillReceiptId(Long.valueOf(resolved.getCompletionBackfillReceiptId()))
+                .setCompletionBackfillReceiptHash(resolved.getCompletionBackfillReceiptHash())
+                .setPickListSources(resolved.getPickListSources())
+                .setPickListBindingVersion(resolved.getBindingVersion().intValue())
+                .setSourceSnapshotHash(resolved.getSourceSnapshotHash())
+                .setBatchProvisionReceiptId(provisioningReceiptId)
+                .setBatchProvisionStatus(MesBatchProvisioningStatus.BATCH_PROVISIONING.name())
+                .setSourceBundleHash(resolved.getSourceBundleHash())
+                .setIdempotencyKey("p2-81")
+                .setHasActualLoss(resolved.getCompletionBackfillReceipt().getHasActualLoss())
+                .setSources(sources);
+
+        MesProEdhrBatchTraceValidationResult validation = new MesProEdhrBatchTraceabilityValidator()
+                .validate(capture);
+
+        assertTrue(validation.valid(), validation.blockerCode() + ":" + validation.blockerScope());
+    }
+
+    private MesProEdhrBatchTraceSource toTraceSource(MesBatchExecutionSourceEvidence evidence) {
+        return new MesProEdhrBatchTraceSource()
+                .setLinkType(evidence.getSourceType())
+                .setSourceObjectType(evidence.getSourceObjectType())
+                .setSourceObjectId(Long.valueOf(evidence.getSourceObjectId()))
+                .setSourceVersion(Integer.valueOf(evidence.getSourceVersion()))
+                .setSourceIdentityKey(evidence.getSourceIdentityKey())
+                .setSnapshotJson(evidence.getSnapshotJson())
+                .setSnapshotHash(evidence.getSourceSnapshotHash())
+                .setRelationStatus(evidence.getRelationStatus())
+                .setRelationReason(evidence.getRelationReason());
+    }
+
+    @Test
     void independentEntryRejectsNestedClientReceiptBeforeFlow9() {
         MesBatchExecutionProvisionCommand request = new MesBatchExecutionProvisionCommand()
                 .setEntryType("MANUAL").setEntryBusinessId("manual-1").setSourceCredentialId("ind-1")
@@ -132,56 +208,14 @@ class MesBatchExecutionAuthoritativeContextResolverTest {
     }
 
     @Test
-    void independentEntryUsesFlow9VerifiedReceiptAsCanonicalSource() {
-        MesIndependentBatchPrerequisiteReceipt verified = independentReceipt();
-        when(independentService.verify(any(), eq(1L))).thenReturn(verified);
-        MesBatchExecutionProvisionCommand request = new MesBatchExecutionProvisionCommand()
-                .setEntryType("MANUAL").setEntryBusinessId("manual-1")
-                .setSourceCredentialType("IndependentBatchPrerequisiteReceipt")
-                .setSourceCredentialId("ind-1").setSourceSnapshotHash("source-1");
-
-        MesBatchExecutionAuthoritativeContext resolved = resolver.resolve(request, 1L);
-
-        assertEquals("B-20", resolved.getProvisionCommand().getBatchCode());
-        assertEquals(verified, resolved.getProvisionCommand().getIndependentReceipt());
-        verify(independentService).verify(argThat(command ->
-                        "ind-1".equals(command.getReceiptId()) && "MANUAL".equals(command.getEntryType())), eq(1L));
-    }
-
-    @Test
-    void independentEntryRejectsEvidenceWithoutExplicitRelationStatus() {
-        MesIndependentBatchPrerequisiteReceipt verified = independentReceipt();
-        verified.getSourceEvidence().get(0).setRelationStatus(null);
-        when(independentService.verify(any(), eq(1L))).thenReturn(verified);
-        MesBatchExecutionProvisionCommand request = new MesBatchExecutionProvisionCommand()
-                .setEntryType("MANUAL").setEntryBusinessId("manual-1")
-                .setSourceCredentialType("IndependentBatchPrerequisiteReceipt")
-                .setSourceCredentialId("ind-1").setSourceSnapshotHash("source-1");
-
-        assertThrows(RuntimeException.class, () -> resolver.resolve(request, 1L));
-    }
-
-    @Test
-    void independentEntryBlocksCrossTenantVerifiedReceipt() {
-        MesIndependentBatchPrerequisiteReceipt receipt = independentReceipt().setTenantId(2L);
-        when(independentService.verify(any(), eq(1L))).thenReturn(receipt);
-        MesBatchExecutionProvisionCommand request = new MesBatchExecutionProvisionCommand()
-                .setEntryType("MANUAL").setEntryBusinessId("manual-1")
-                .setSourceCredentialId("ind-1").setSourceSnapshotHash("source-1");
-
-        assertThrows(RuntimeException.class, () -> resolver.resolve(request, 1L));
-    }
-
-    @Test
-    void everyIndependentEntryTypeUsesFlow9VerifiedService() {
-        for (String entryType : java.util.List.of("MANUAL", "SCHEDULED", "PQC_INDEPENDENT")) {
-            MesIndependentBatchPrerequisiteReceipt verified = independentReceipt().setEntryType(entryType);
-            when(independentService.verify(any(), eq(1L))).thenReturn(verified);
-            resolver.resolve(new MesBatchExecutionProvisionCommand()
-                    .setEntryType(entryType).setEntryBusinessId(entryType)
-                    .setSourceCredentialId("ind-1").setSourceSnapshotHash("source-1"), 1L);
+    void independentCreationIsRejectedBeforeReceiptLookup() {
+        for (String entryType : List.of("MANUAL", "SCHEDULED", "PQC_INDEPENDENT")) {
+            ServiceException error = assertThrows(ServiceException.class, () -> resolver.resolve(
+                    new MesBatchExecutionProvisionCommand().setEntryType(entryType)
+                            .setEntryBusinessId(entryType).setSourceCredentialId("ind-1"), 1L));
+            assertEquals("批次只能通过活跃订单正式流程生成，不支持独立或手动创建", error.getMessage());
         }
-        verify(independentService, times(3)).verify(any(), eq(1L));
+        verifyNoInteractions(completionPort, independentService, pickListBindingMapper);
     }
 
     private MesFlow6CompletionBackfillReceipt validActiveReceipt(Long receiptId, Long activeOrderId,

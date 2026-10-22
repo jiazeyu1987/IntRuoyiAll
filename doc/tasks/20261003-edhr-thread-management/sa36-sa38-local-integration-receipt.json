@@ -1,0 +1,82 @@
+{
+  "status": "PASS",
+  "phase": "exact_local_one_baseline_nine_delta_integration_verified",
+  "observedAt": "2026-10-06T06:00:46.630699+08:00",
+  "authorization": {
+    "status": "APPROVED",
+    "approvedBaselineCount": 1,
+    "approvedTaskDeltaCount": 9,
+    "approvedEvidenceRecordCount": 5,
+    "localOnly": true,
+    "push": false,
+    "databaseWrites": false,
+    "services": false,
+    "e2e": false,
+    "explicitUserAnswerEvidence": "sa36-sa38-explicit-local-integration-approval.json"
+  },
+  "mainHeadBefore": "81d69a63fa82e1f5ac600e62d446349181ec5874",
+  "workerHeadBefore": "b876124a822935161847e1a9266660f45675c9d8",
+  "baselineCount": 1,
+  "implementationCount": 9,
+  "implementationPaths": [
+    "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesPqcLeaderPersonnelServiceImpl.java",
+    "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesReportAllocationCommandService.java",
+    "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesTeamLeaderOrderProcessCompletionService.java",
+    "IntRuoyiBackend/yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes/service/pro/MesSa36Sa38MapperFixture.java",
+    "IntRuoyiBackend/yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes/service/pro/frontline/MesFrontlinePqcContextServiceTest.java",
+    "IntRuoyiBackend/yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesReportAllocationCommandServiceTest.java",
+    "IntRuoyiBackend/yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesSa37ReworkReleaseTransactionTest.java",
+    "IntRuoyiBackend/yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesTeamLeaderOrderProcessCompletionServiceTest.java",
+    "docs/backend-development.md"
+  ],
+  "baselinePath": "docs/backend-development.md",
+  "managerClasses": 40,
+  "managerTests": 777,
+  "completeBuildInputs": 12120,
+  "currentMainCombinationEvidence": {
+    "status": "PASS_CURRENT_MAIN_COMBINATION",
+    "runDirectory": "C:\\Users\\BJB110\\.codex\\worktrees\\a37a\\IntRuoyi\\doc\\tasks\\20261006-sa36-sa38-combination-review\\current-main-collation-r1",
+    "sourceRebind": "C:\\Users\\BJB110\\.codex\\worktrees\\a37a\\IntRuoyi\\doc\\tasks\\20261006-sa36-sa38-combination-review\\current-main-collation-r1\\source-rebind.json",
+    "nonownedPaths": [
+      "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/dal/mysql/pro/batchrecord/MesProEdhrWorkTaskMapper.java",
+      "IntRuoyiBackend/yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesMarketReleaseDoneVisibilityTest.java"
+    ],
+    "committedScopeUnchanged": true,
+    "regressionEvidence": "C:\\Users\\BJB110\\.codex\\worktrees\\a37a\\IntRuoyi\\doc\\tasks\\20261006-sa36-sa38-combination-review\\current-main-collation-r1\\regression-evidence.json",
+    "regressionSha256": "1F0921B367965C918FFA65117EA986BC11CCBC57D6A6897F310A8C6D3B4736BF",
+    "classes": 40,
+    "tests": 777,
+    "completeBuildInputs": 12120
+  },
+  "nonownedReviewedMainPaths": [
+    "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/dal/mysql/pro/batchrecord/MesProEdhrWorkTaskMapper.java",
+    "IntRuoyiBackend/yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesMarketReleaseDoneVisibilityTest.java"
+  ],
+  "nonownedPathsCommitted": false,
+  "push": false,
+  "databaseWrites": false,
+  "services": false,
+  "e2e": false,
+  "managerAuthoredBusinessCode": false,
+  "baselineCommit": "fb82e021d1e08c8ada4ad370ede0732addc25c29",
+  "workerImplementationCommit": "d5ca77b3474b7e38bb88058c3e79a991f6a5f681",
+  "mainIntegrationCommit": "a1ff60b41adbb5dde8f87d442fd50e8bf8e71620",
+  "mainHeadAfter": "a1ff60b41adbb5dde8f87d442fd50e8bf8e71620",
+  "workerHeadAfter": "d5ca77b3474b7e38bb88058c3e79a991f6a5f681",
+  "unrelatedMainDrift": 0,
+  "unrelatedWorkerDrift": 0,
+  "realIndexesStagedEmpty": true,
+  "stashesPreserved": true,
+  "otherRefsPreserved": true,
+  "fastForward": true,
+  "evidenceRecordsCommitPending": true,
+  "completedAt": "2026-10-06T06:09:52.832578+08:00",
+  "evidenceCommitScope": [
+    "doc/tasks/20261003-edhr-thread-management/sa36-sa38-local-integration-plan.json",
+    "doc/tasks/20261003-edhr-thread-management/sa36-sa38-local-integration-plan.md",
+    "doc/tasks/20261003-edhr-thread-management/sa36-sa38-local-integration-receipt.json",
+    "doc/tasks/20261003-edhr-thread-management/sa36-sa38-manager-review-result.json",
+    "doc/tasks/20261003-edhr-thread-management/sa36-sa38-manager-verification-report.md"
+  ],
+  "evidenceCommitBoundary": "This receipt seals implementation fusion; the following five-record commit is independently sealed outside its committed content."
+}

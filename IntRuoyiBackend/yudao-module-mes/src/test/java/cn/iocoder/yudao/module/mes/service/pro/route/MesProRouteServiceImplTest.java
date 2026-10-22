@@ -5,6 +5,11 @@ import cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils;
 import cn.iocoder.yudao.framework.test.core.util.AssertUtils;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.MesProRouteSaveReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.MesProRouteCreateReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flow.MesProRouteProcessFlowSaveReqVO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.process.MesProProcessDO;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.process.MesProProcessMapper;
+import cn.iocoder.yudao.module.mes.service.md.autocode.MesMdAutoCodeRecordService;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flow.MesProRouteProcessFlowGraphRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flow.MesProRouteProcessFlowNodeRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.schedulerworkbench.vo.MesProSchedulerWorkbenchPolicySettingsRespVO;
@@ -113,6 +118,188 @@ class MesProRouteServiceImplTest {
     private MesProRouteControlledContentAdapter platformAdapter;
     @Mock
     private MesProEdhrPermissionScopeService permissionScopeService;
+    @Mock
+    private MesProProcessMapper processMapper;
+    @Mock
+    private MesMdAutoCodeRecordService autoCodeRecordService;
+
+    private MesProRouteCreateReqVO creationRequest(List<Long> processIds) {
+        MesProRouteCreateReqVO request = new MesProRouteCreateReqVO();
+        request.setName("  新建流程  ");
+        request.setProcessIds(processIds);
+        return request;
+    }
+
+    @Test
+    void createWithProcesses_rejectsTrimmedDuplicateBeforeGeneratingCode() {
+        when(routeMapper.selectByName("新建流程")).thenReturn(MesProRouteDO.builder().id(20L).build());
+        AssertUtils.assertServiceException(() -> routeService.createRouteWithProcesses(creationRequest(List.of(8L))),
+                ErrorCodeConstants.PRO_ROUTE_NAME_DUPLICATE);
+        org.mockito.Mockito.verifyNoInteractions(autoCodeRecordService);
+        verify(routeMapper, never()).insert(any(MesProRouteDO.class));
+    }
+
+    @Test
+    void createWithProcesses_rejectsEmptyRepeatedAndMissingProcessesWithoutWriting() {
+        AssertUtils.assertServiceException(() -> routeService.createRouteWithProcesses(creationRequest(List.of())),
+                ErrorCodeConstants.PRO_ROUTE_ENABLE_NO_PROCESS);
+        AssertUtils.assertServiceException(() -> routeService.createRouteWithProcesses(creationRequest(List.of(8L, 8L))),
+                ErrorCodeConstants.PRO_ROUTE_PROCESS_DUPLICATE);
+        AssertUtils.assertServiceException(() -> routeService.createRouteWithProcesses(creationRequest(List.of(999L))),
+                ErrorCodeConstants.PRO_ROUTE_PROCESS_NOT_EXISTS);
+        org.mockito.Mockito.verifyNoInteractions(autoCodeRecordService);
+        verify(routeMapper, never()).insert(any(MesProRouteDO.class));
+    }
+
+    @Test
+    void createWithProcesses_concurrentNameConflictReturnsBusinessError() {
+        when(processMapper.selectById(8L)).thenReturn(new MesProProcessDO());
+        when(autoCodeRecordService.generateAutoCode("PRO_ROUTE_CODE")).thenReturn("GYLC-0001");
+        when(routeMapper.insert(any(MesProRouteDO.class))).thenThrow(
+                new org.springframework.dao.DuplicateKeyException("Duplicate uk_mes_pro_route_name_live"));
+        AssertUtils.assertServiceException(() -> routeService.createRouteWithProcesses(creationRequest(List.of(8L))),
+                ErrorCodeConstants.PRO_ROUTE_NAME_DUPLICATE);
+        verify(routeProcessMapper, never()).insert(any(MesProRouteProcessDO.class));
+        org.mockito.Mockito.verifyNoInteractions(platformAdapter);
+    }
+
+    @Test
+    void createWithProcesses_buildsOrderedGraphAndCompleteV1() {
+        assertInitialCreation(List.of(8L, 3L, 12L));
+    }
+
+    @Test
+    void createWithProcesses_singleProcessHasBothBoundariesAndNoMiddleEdge() {
+        assertInitialCreation(List.of(8L));
+    }
+
+    private void assertInitialCreation(List<Long> processIds) {
+        java.util.List<MesProRouteProcessDO> insertedProcesses = new java.util.ArrayList<>();
+        java.util.List<MesProRouteScheduleConfigDO> scheduleConfigs = new java.util.ArrayList<>();
+        java.util.List<MesProRouteFlowProcessConfigDO> useConfigs = new java.util.ArrayList<>();
+        MesProRouteVersionDO[] storedVersion = new MesProRouteVersionDO[1];
+        for (Long id : processIds) {
+            when(processMapper.selectById(id)).thenReturn(new MesProProcessDO());
+        }
+        when(autoCodeRecordService.generateAutoCode("PRO_ROUTE_CODE")).thenReturn("GYLC-10000");
+        org.mockito.Mockito.doAnswer(invocation -> {
+            ((MesProRouteDO) invocation.getArgument(0)).setId(500L);
+            return 1;
+        }).when(routeMapper).insert(any(MesProRouteDO.class));
+        org.mockito.Mockito.doAnswer(invocation -> {
+            MesProRouteProcessDO process = invocation.getArgument(0);
+            process.setId(600L + insertedProcesses.size());
+            insertedProcesses.add(process);
+            return 1;
+        }).when(routeProcessMapper).insert(any(MesProRouteProcessDO.class));
+        org.mockito.Mockito.doAnswer(invocation -> {
+            storedVersion[0] = invocation.getArgument(0);
+            storedVersion[0].setId(700L);
+            return 1;
+        }).when(routeVersionMapper).insert(any(MesProRouteVersionDO.class));
+        when(routeVersionMapper.selectActiveByRouteId(500L)).thenAnswer(invocation -> storedVersion[0]);
+        when(routeVersionMapper.selectById(700L)).thenAnswer(invocation -> storedVersion[0]);
+        org.mockito.Mockito.doAnswer(invocation -> {
+            MesProRouteVersionDO update = invocation.getArgument(0);
+            storedVersion[0].setRouteSnapshotJson(update.getRouteSnapshotJson());
+            storedVersion[0].setRouteSnapshotSha256(update.getRouteSnapshotSha256());
+            return 1;
+        }).when(routeVersionMapper).updateById(any(MesProRouteVersionDO.class));
+        MesProSchedulerWorkbenchPolicySettingsRespVO defaults = new MesProSchedulerWorkbenchPolicySettingsRespVO();
+        defaults.setDefaultNightShiftEnabled(false);
+        defaults.setDefaultScheduleUseEnabled(false);
+        when(schedulerWorkbenchService.getPolicySettings()).thenReturn(defaults);
+        MesProRouteFlowConfigDO flowConfig = MesProRouteFlowConfigDO.builder().id(800L).routeId(500L).useType("SCHEDULE").build();
+        when(routeFlowConfigMapper.selectByRouteIdAndUseType(500L, "SCHEDULE")).thenReturn(flowConfig);
+        org.mockito.Mockito.doAnswer(invocation -> {
+            scheduleConfigs.add(invocation.getArgument(0));
+            return 1;
+        }).when(routeScheduleConfigMapper).insert(any(MesProRouteScheduleConfigDO.class));
+        org.mockito.Mockito.doAnswer(invocation -> {
+            useConfigs.add(invocation.getArgument(0));
+            return 1;
+        }).when(routeFlowProcessConfigMapper).insert(any(MesProRouteFlowProcessConfigDO.class));
+        when(routeScheduleConfigMapper.selectListByRouteVersionId(700L)).thenReturn(scheduleConfigs);
+        when(routeFlowProcessConfigMapper.selectListByRouteIdAndUseType(500L, "SCHEDULE")).thenReturn(useConfigs);
+        MesProRouteProcessFlowGraphRespVO graph = new MesProRouteProcessFlowGraphRespVO();
+        when(routeProcessFlowService.getGraph(500L)).thenReturn(graph);
+        org.mockito.Mockito.doAnswer(invocation -> {
+            MesProRouteProcessFlowSaveReqVO request = invocation.getArgument(0);
+            graph.setEdges(JSON.parseArray(JSON.toJSONString(request.getEdges()),
+                    cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flow.MesProRouteProcessFlowEdgeRespVO.class));
+            graph.setBoundaryEdges(JSON.parseArray(JSON.toJSONString(request.getBoundaryEdges()),
+                    cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flow.MesProRouteProcessFlowBoundaryEdgeRespVO.class));
+            for (MesProRouteProcessDO process : insertedProcesses) {
+                MesProRouteProcessFlowNodeRespVO node = new MesProRouteProcessFlowNodeRespVO();
+                node.setRouteProcessId(process.getId());
+                node.setProcessId(process.getProcessId());
+                graph.getNodes().add(node);
+            }
+            return null;
+        }).when(routeProcessFlowService).saveGraph(any(MesProRouteProcessFlowSaveReqVO.class));
+
+        assertEquals(500L, routeService.createRouteWithProcesses(creationRequest(processIds)));
+        ArgumentCaptor<MesProRouteDO> route = ArgumentCaptor.forClass(MesProRouteDO.class);
+        verify(routeMapper).insert(route.capture());
+        assertEquals("新建流程", route.getValue().getName());
+        assertEquals("GYLC-10000", route.getValue().getCode());
+        assertNull(route.getValue().getRemark());
+        assertEquals(processIds, insertedProcesses.stream().map(MesProRouteProcessDO::getProcessId).toList());
+        for (int i = 0; i < processIds.size(); i++) assertEquals(i + 1, insertedProcesses.get(i).getSort());
+        assertEquals(processIds.size() - 1, graph.getEdges().size());
+        for (int i = 0; i < graph.getEdges().size(); i++) {
+            assertEquals(insertedProcesses.get(i).getId(), graph.getEdges().get(i).getSourceRouteProcessId());
+            assertEquals(insertedProcesses.get(i + 1).getId(), graph.getEdges().get(i).getTargetRouteProcessId());
+        }
+        assertEquals("START", graph.getBoundaryEdges().get(0).getBoundaryType());
+        assertEquals(insertedProcesses.get(0).getId(), graph.getBoundaryEdges().get(0).getRouteProcessId());
+        assertEquals("END", graph.getBoundaryEdges().get(1).getBoundaryType());
+        assertEquals(insertedProcesses.get(processIds.size() - 1).getId(), graph.getBoundaryEdges().get(1).getRouteProcessId());
+        JSONObject snapshot = JSON.parseObject(storedVersion[0].getRouteSnapshotJson());
+        JSONObject configs = snapshot.getJSONObject("configSnapshots");
+        assertTrue(MesProRouteVersionSnapshotValidator.hasCompleteConfigSnapshot(storedVersion[0].getRouteSnapshotJson()));
+        assertEquals(processIds.size(), configs.getJSONArray("productionProcessConfigs").size());
+        assertEquals(processIds, configs.getJSONArray("productionProcessConfigs").stream()
+                .map(value -> ((JSONObject) value).getLong("processId")).toList());
+        assertEquals(processIds.size(), configs.getJSONObject("flowGraph").getJSONArray("nodes").size());
+        assertEquals(processIds.size(), configs.getJSONArray("scheduleConfigs").size());
+        assertEquals(processIds.size(), configs.getJSONArray("scheduleUseConfigs").size());
+        assertEquals("V1", storedVersion[0].getVersionNo());
+        verify(routeVersionMapper).insert(any(MesProRouteVersionDO.class));
+        verify(platformAdapter).recordActiveRegistered(eq(storedVersion[0]), eq(null), any());
+    }
+
+    @Test
+    void createWithProcesses_graphFailureRollsBackRouteAndProcesses() {
+        org.springframework.jdbc.datasource.DriverManagerDataSource dataSource = new org.springframework.jdbc.datasource.DriverManagerDataSource(
+                "jdbc:h2:mem:route_creation_rollback;DB_CLOSE_DELAY=-1", "sa", "");
+        org.springframework.jdbc.core.JdbcTemplate jdbc = new org.springframework.jdbc.core.JdbcTemplate(dataSource);
+        jdbc.execute("CREATE TABLE route_create_test(id BIGINT PRIMARY KEY)");
+        jdbc.execute("CREATE TABLE route_process_create_test(id BIGINT PRIMARY KEY)");
+        when(processMapper.selectById(8L)).thenReturn(new MesProProcessDO());
+        when(autoCodeRecordService.generateAutoCode("PRO_ROUTE_CODE")).thenReturn("GYLC-0001");
+        org.mockito.Mockito.doAnswer(invocation -> {
+            ((MesProRouteDO) invocation.getArgument(0)).setId(500L);
+            return jdbc.update("INSERT INTO route_create_test VALUES(500)");
+        }).when(routeMapper).insert(any(MesProRouteDO.class));
+        org.mockito.Mockito.doAnswer(invocation -> {
+            ((MesProRouteProcessDO) invocation.getArgument(0)).setId(600L);
+            return jdbc.update("INSERT INTO route_process_create_test VALUES(600)");
+        }).when(routeProcessMapper).insert(any(MesProRouteProcessDO.class));
+        org.mockito.Mockito.doThrow(new IllegalStateException("graph initialization failed"))
+                .when(routeProcessFlowService).saveGraph(any(MesProRouteProcessFlowSaveReqVO.class));
+        org.springframework.aop.framework.ProxyFactory factory = new org.springframework.aop.framework.ProxyFactory(routeService);
+        factory.setProxyTargetClass(true);
+        factory.addAdvice(new org.springframework.transaction.interceptor.TransactionInterceptor(
+                new org.springframework.jdbc.datasource.DataSourceTransactionManager(dataSource),
+                new org.springframework.transaction.annotation.AnnotationTransactionAttributeSource()));
+        MesProRouteService transactionalService = (MesProRouteService) factory.getProxy();
+        org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException.class,
+                () -> transactionalService.createRouteWithProcesses(creationRequest(List.of(8L))));
+        assertEquals(0, jdbc.queryForObject("SELECT COUNT(*) FROM route_create_test", Integer.class));
+        assertEquals(0, jdbc.queryForObject("SELECT COUNT(*) FROM route_process_create_test", Integer.class));
+        org.mockito.Mockito.verifyNoInteractions(platformAdapter);
+    }
 
     @BeforeEach
     void stubCurrentRouteProcessIdentity() {
@@ -345,6 +532,7 @@ class MesProRouteServiceImplTest {
         when(routeMapper.selectByCode(reqVO.getCode())).thenReturn(oldRoute);
         when(routeMapper.selectByName(reqVO.getName())).thenReturn(null);
         when(routeVersionMapper.selectActiveByRouteId(reqVO.getId())).thenReturn(activeVersion);
+        when(routeVersionMapper.selectById(activeVersion.getId())).thenReturn(activeVersion);
         when(routeVersionMapper.selectMaxVersionNoByRouteId(reqVO.getId())).thenReturn("V1");
         MesProRouteProcessFlowGraphRespVO graph = new MesProRouteProcessFlowGraphRespVO();
         graph.setRouteId(reqVO.getId());
@@ -1188,6 +1376,11 @@ class MesProRouteServiceImplTest {
                     ],
                     "scheduleUseConfigs": [
                       { "id": 9002, "routeId": %d, "routeProcessId": 3001, "useType": "SCHEDULE" }
+                    ],
+                    "productionProcessConfigSchemaVersion": 1,
+                    "productionProcessConfigs": [
+                      { "routeProcessId": 3001, "processId": 4001, "overagePercent": 0,
+                        "lossReasons": [], "deviceSelectionGroups": [], "parameterRules": [] }
                     ]
                   }
                 }

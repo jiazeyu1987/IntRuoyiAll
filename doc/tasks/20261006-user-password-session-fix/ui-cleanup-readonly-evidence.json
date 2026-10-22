@@ -1,0 +1,11 @@
+{
+  "status": "PASS",
+  "username": "um0520261007023542",
+  "user_id": 9908090348,
+  "ui_deleted": true,
+  "active_users": 0,
+  "active_access_tokens": 0,
+  "active_refresh_tokens": 0,
+  "business_writes": 0,
+  "boundary": "SELECT-only final verification after real UI reset and deletion; audit/history retained"
+}

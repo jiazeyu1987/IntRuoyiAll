@@ -129,8 +129,6 @@ public interface MesPqcInspectionTaskMapper extends BaseMapperX<MesPqcInspection
                                                       Integer roundNo) {
         return selectOne(new LambdaQueryWrapperX<MesPqcInspectionTaskDO>()
                 .eq(MesPqcInspectionTaskDO::getActiveOrderId, activeOrderId)
-                .eq(MesPqcInspectionTaskDO::getRouteProcessId, routeProcessId)
-                .eq(MesPqcInspectionTaskDO::getProcessId, processId)
                 .eq(MesPqcInspectionTaskDO::getRegulationVersionId, regulationVersionId)
                 .eq(MesPqcInspectionTaskDO::getQaProcessId, qaProcessId)
                 .eq(MesPqcInspectionTaskDO::getQaItemCode, qaItemCode)
@@ -174,6 +172,14 @@ public interface MesPqcInspectionTaskMapper extends BaseMapperX<MesPqcInspection
                 .eq(MesPqcInspectionTaskDO::getId, id)
                 .eq(MesPqcInspectionTaskDO::getTaskStatus, MesPqcInspectionTaskDO.TASK_STATUS_SUBMITTED)
                 .isNull(MesPqcInspectionTaskDO::getSubmittedEventId));
+    }
+
+    default MesPqcInspectionTaskDO selectBySubmittedEventId(Long submittedEventId) {
+        if (submittedEventId == null) {
+            return null;
+        }
+        return selectOne(new LambdaQueryWrapperX<MesPqcInspectionTaskDO>()
+                .eq(MesPqcInspectionTaskDO::getSubmittedEventId, submittedEventId));
     }
 
     default int updateConfirmedIfSubmitted(Long id, String submittedStatus, String confirmedStatus) {

@@ -324,6 +324,7 @@
 - SQL 发布契约检查失败，或数据库迁移风险级别/环境范围不可判定。
 - 测试服发布后任一项失败：operation != SUCCESS、远端 `.env IMAGE_TAG` 不等于 releaseTag、实际镜像 tag 不一致、容器未运行、后端 health 不是 UP、前端 HTTP 不是 200、运行控制台版本号或变更说明不匹配。
 - 发现 PowerShell 编码、数组匹配或 API 路径造成误判时，必须改为结构化/原始 UTF-8 校验后再下结论，不得降级跳过验证。
+- Windows Python读取rg等工具输出时显式指定subprocess的encoding="utf-8"，向工具管道输出中文JSON时也固定UTF-8；默认GBK解码失败先修工具编码，不能忽略坏路径或把失败扫描记作零命中。文件内容、子进程输出和终端输出的编码分别核对。
 '
 
 ## 2026-07-09 build-release 预览请求不得携带 targetEnvironment
@@ -881,3 +882,15 @@
 - Verification: 记录标准重启失败证据、手动打包 PASS、生成 jar 路径、启动命令、健康检查和后续真实前端 E2E PASS；最终报告必须说明完整标准重启/发布构建仍受无关测试源码阻塞。
 - Forbidden action: 不得吞掉 `testCompile` 失败、删除或绕开无关测试后宣称标准构建通过、让旧 jar 冒充新代码、把本地 `maven.test.skip` 经验推广到正式发布链路，或用 API/DB 动作替代真实前端 E2E。
 - Evidence: `doc/tasks/20260909-common-qa-frontline-pqc-fix/execution-log.md`；本地 `int_main` 通用检验规程 E2E 中标准重启被 DCC 测试缺类阻塞，随后以定向 compile、显式跳过 testCompile 的本地 jar 和 Playwright 真实页面完成验证。
+
+## 回归负例输入独立性
+
+- 校验嵌套明细与汇总是否矛盾时，测试夹具必须独立构造两份对象。JSON库可能保留共享对象引用；只改汇总也会改明细，造成并未矛盾的无效负例。先断言两对象不同，再执行正式拒绝断言。
+- 构造带来源哈希的正式回执时，采用生产端相同的规范化算法。夹具哈希错误导致的前置拒绝不能作为目标逻辑RED；保留原失败并修正夹具后重新验证。
+- 编译JDK、测试JVM与实际服务JVM分别核对。标准启动脚本使用PATH时，在调用脚本的同一进程显式设置预期Java环境，并从新进程可执行文件确认，不能只凭class版本判定运行JDK。
+
+## Reactor 定向测试的产物前置
+
+- Maven 在 process-classes 解包同 reactor 兄弟 artifact 报 MDEP-98 时，先核对插件真实 phase/goal 与 artifact 生成阶段；仅 compile/test 可能尚未产生其要求的 package 产物。
+- 使用同一 reactor、同一目标测试类和配置的 package 生命周期满足正式产物前置，核对实际 Surefire 用例/失败/错误/跳过数；产物生成与测试执行分开记录。依赖已正确生成后的 test 是否可用以实际结果为准。
+- 不跳过解包插件、不 install 或复制陈旧 Jar 掩盖依赖，也不把第一次工具前置失败记作目标业务测试失败或通过。

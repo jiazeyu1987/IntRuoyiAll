@@ -3,11 +3,16 @@ package cn.iocoder.yudao.module.mes.service.pro.processpool;
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.pqc.MesPqcInspectionItemPlan;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolPqcRecordDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcInspectionPieceDetailDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcInspectionTaskDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamLeaderScopeDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolSubmissionReviewDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolSubmissionReviewMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolPqcRecordMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.pqc.MesPqcInspectionPieceDetailMapper;
@@ -18,12 +23,20 @@ import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExec
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionSignatureService;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrNonconformanceReviewService;
 import cn.iocoder.yudao.module.mes.service.pro.frontline.PqcResultValueValidator;
+import cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffService;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.pqc.MesPqcProcessInspectionAggregateDetailMapper;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditCommand;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditStateEnvelope;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditRelation;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditEvidence;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesPqcProcessInspectionAggregationService;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesReportAllocationReleaseStateService;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderScopeService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -62,6 +75,21 @@ public class MesProcessPoolPqcInspectionCorrectionService {
     private final MesPqcProcessInspectionAggregationService aggregationService;
     private final MesProEdhrNonconformanceReviewService nonconformanceReviewService;
 
+    @Resource
+    private MesProcessPoolSubmissionReviewMapper reviewMapper;
+    @Resource
+    private MesProcessPoolActiveOrderMapper activeOrderMapper;
+    @Resource
+    private GxpAuditService gxpAuditService;
+    @Resource
+    private MesPqcProcessInspectionAggregateDetailMapper aggregateDetailMapper;
+    @Resource
+    private cn.iocoder.yudao.module.signature.api.ElectronicSignatureQueryService electronicSignatureQueryService;
+    @Resource
+    private MesFrontlineReturnCorrectionService ownReturnService;
+    @Resource
+    private MesActiveOrderHandoffService handoffService;
+
     public MesProcessPoolPqcInspectionCorrectionService(
             MesProProcessPoolEventMapper eventMapper,
             MesProProcessPoolPqcRecordMapper pqcRecordMapper,
@@ -85,44 +113,125 @@ public class MesProcessPoolPqcInspectionCorrectionService {
         this.nonconformanceReviewService = nonconformanceReviewService;
     }
 
+    @jakarta.annotation.Resource
+    private MesCorrectionBaselineGuard baselineGuard;
+
     @Transactional(rollbackFor = Exception.class)
     public Long correct(MesProcessPoolPqcInspectionCorrectionCommand command) {
+        return correctInternal(command, null);
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public MesFrontlineReturnCorrectionService.CorrectionResult correctOwnReturned(MesProcessPoolPqcInspectionCorrectionCommand command,
+                                   Long activeOrderId, Long rejectedReviewId, Long expectedRevisionId) {
         validateCommand(command);
+        gxpAuditService.acquireLedgerLock();
+        var context = ownReturnService.requireOwnReturned(command.getEventId(), activeOrderId,
+                rejectedReviewId, expectedRevisionId, command.getActorUserId(), "PQC");
+        Long revisionId = correctInternal(command, context);
+        return ownReturnService.complete(context, revisionId, command.getActorUserId());
+    }
+
+    private Long correctInternal(MesProcessPoolPqcInspectionCorrectionCommand command,
+                                 MesFrontlineReturnCorrectionService.ReturnContext ownReturn) {
+        validateCommand(command);
+        gxpAuditService.acquireLedgerLock();
+        MesProProcessPoolEventDO source = eventMapper.selectById(command.getEventId());
+        if (source == null) {
+            throw exception(PRO_PROCESS_POOL_REVISION_EVENT_NOT_EXISTS, command.getEventId());
+        }
+        validatePqcEvent(source);
+        MesPqcInspectionTaskDO sourceTask = pqcTaskMapper.selectById(source.getFeedbackSourceId());
+        validateTask(source, sourceTask);
+        if (ownReturn == null) {
+            scopeService.assertCanAccessEmployee(command.getActorUserId(),
+                    MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PQC, source.getActualEmployeeId());
+        }
+        MesProcessPoolActiveOrderDO activeOrder = activeOrderMapper.selectByIdForUpdate(sourceTask.getActiveOrderId());
+        if (activeOrder == null || !Objects.equals(activeOrder.getTenantId(), sourceTask.getTenantId())
+                || !Objects.equals(activeOrder.getWorkOrderId(), sourceTask.getWorkOrderId())
+                || !"ACTIVE".equals(activeOrder.getActiveStatus())
+                || !"ACTIVE".equals(activeOrder.getBusinessStatus())) {
+            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "pqcInspectionCorrection.activeCycleRequired");
+        }
+        nonconformanceReviewService.ensureWorkOrderNotFrozen(sourceTask.getWorkOrderId(), "PQC检验更正");
         MesProProcessPoolEventDO event = eventMapper.selectByIdForUpdate(command.getEventId());
         if (event == null) {
             throw exception(PRO_PROCESS_POOL_REVISION_EVENT_NOT_EXISTS, command.getEventId());
         }
         validatePqcEvent(event);
-        scopeService.assertCanAccessEmployee(command.getActorUserId(),
-                MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PQC, event.getActualEmployeeId());
+        if (ownReturn == null) baselineGuard.requireCurrent(event, command.getExpectedRevisionId(), command.getExpectedPayloadHash());
+        if (ownReturn == null) {
+            scopeService.assertCanAccessEmployee(command.getActorUserId(),
+                    MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PQC, event.getActualEmployeeId());
+        } else if (!Objects.equals(ownReturn.event().getId(), event.getId())) {
+            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "ownReturn.eventChanged");
+        }
         MesPqcInspectionTaskDO task = pqcTaskMapper.selectByIdForUpdate(event.getFeedbackSourceId());
         validateTask(event, task);
-        nonconformanceReviewService.ensureWorkOrderNotFrozen(task.getWorkOrderId(), "PQC检验更正");
+        if (!Objects.equals(task.getActiveOrderId(), activeOrder.getId())
+                || !Objects.equals(task.getWorkOrderId(), sourceTask.getWorkOrderId())) {
+            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "pqcInspectionCorrection.cycleChanged");
+        }
         if (releaseStateService.findReleasedActiveOrderIdsForUpdate(List.of(task.getActiveOrderId()))
-                .contains(task.getActiveOrderId())) {
+                .contains(task.getActiveOrderId())
+                || releaseStateService.isReleaseApplicationLockedForUpdate(task.getActiveOrderId())) {
             throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "releasedPqcInspectionForm");
         }
 
-        MesProProcessPoolPqcRecordDO record = pqcRecordMapper.selectByEventId(event.getId());
+        // Identity pre-reads may establish an older snapshot; correction decisions require current facts.
+        MesProProcessPoolPqcRecordDO record = pqcRecordMapper.selectByEventIdForUpdate(event.getId());
         if (record == null || !Objects.equals(record.getTenantId(), event.getTenantId())
                 || !Objects.equals(record.getEventId(), event.getId())) {
             throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "pqcRecord");
         }
-        List<MesPqcInspectionPieceDetailDO> existingDetails = pieceDetailMapper.selectListByTaskId(task.getId());
+        List<MesPqcInspectionPieceDetailDO> existingDetails = pieceDetailMapper.selectListByTaskIdForUpdate(task.getId());
         validateExistingDetails(task, existingDetails);
+        if (ownReturn != null) {
+            validateOwnReturnedFrozenFields(command, task, existingDetails);
+        }
         List<MesPqcInspectionPieceDetailDO> updatedDetails = buildUpdatedDetails(command, task, existingDetails);
         validateScrapQuantityAgainstPieceDetails(command, updatedDetails);
         String inspectionResult = resolveInspectionResult(command.getScrapQuantity(), updatedDetails);
         ObjectNode afterPayload = buildAfterPayload(event, task, command, updatedDetails, inspectionResult);
+        MesProcessPoolSubmissionReviewDO previousReview = reviewMapper.selectLatestByEventIdForUpdate(event.getId());
+        boolean leaderReturnedCorrection = ownReturn == null && previousReview != null
+                && MesProcessPoolSubmissionReviewDO.STATUS_REJECTED.equals(previousReview.getReviewStatus());
+        if (leaderReturnedCorrection && (previousReview.getId() == null || previousReview.getId() <= 0
+                || !Objects.equals(previousReview.getEventId(), event.getId())
+                || !Objects.equals(previousReview.getTenantId(), event.getTenantId())
+                || !MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PQC.equals(previousReview.getLeaderType()))) {
+            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "pqcInspectionCorrection.rejectedLeaderRound");
+        }
+        // Never inherit an earlier correction's review link from the previous payload.
+        afterPayload.remove("supersededReviewId");
+        if (previousReview != null) {
+            afterPayload.put("supersededReviewId", previousReview.getId());
+        }
+        boolean alreadyAggregated = MesProProcessPoolPqcRecordDO.PROCESS_INSPECTION_AGGREGATION_STATUS_AGGREGATED
+                .equals(record.getProcessInspectionAggregationStatus());
+        if (ownReturn != null && (alreadyAggregated || previousReview == null
+                || !Objects.equals(previousReview.getId(), ownReturn.review().getId()))) {
+            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "ownReturn.rejectedPqcRoundChanged");
+        }
+        if (alreadyAggregated && (previousReview == null
+                || !Objects.equals(record.getProcessInspectionReviewId(), previousReview.getId())
+                || !MesProcessPoolSubmissionReviewDO.STATUS_APPROVED.equals(previousReview.getReviewStatus())
+                || !MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PQC.equals(previousReview.getLeaderType()))) {
+            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "pqcInspectionCorrection.currentReview");
+        }
         List<MesProcessPoolEventRevisionFieldChangeBO> changes = buildChanges(
                 event, task, command, existingDetails, updatedDetails, inspectionResult);
         if (changes.isEmpty()) {
             throw exception(PRO_PROCESS_POOL_REVISION_DIFF_REQUIRED);
         }
 
+        GxpAuditStateEnvelope before = correctionAuditState(event, task, record, existingDetails, previousReview);
         String afterPayloadJson = JsonUtils.toJsonString(afterPayload);
+        String signedChallenge = MesCorrectionBaselineGuard.challenge(event.getId(), event.getRawPayload(), afterPayloadJson, command.getChangeReason());
         MesProBatchRecordExecutionFieldAuditSignatureResult signature =
-                recordCorrectionSignature(command, event.getId(), afterPayloadJson);
+                recordCorrectionSignature(command, event, afterPayloadJson);
+        String signatureContentHash = verifyCorrectionSignature(command, event, afterPayloadJson, signature);
         Long revisionId = revisionService.updatePqcInspectionRecord(
                 MesProcessPoolEventRevisionUpdateReqBO.builder()
                         .eventId(event.getId())
@@ -136,14 +245,229 @@ public class MesProcessPoolPqcInspectionCorrectionService {
                         .build());
 
         updateFormalPqcTables(record, task, command, updatedDetails, afterPayloadJson, inspectionResult);
-        if (MesProProcessPoolPqcRecordDO.PROCESS_INSPECTION_AGGREGATION_STATUS_AGGREGATED.equals(
-                record.getProcessInspectionAggregationStatus())) {
-            if (record.getProcessInspectionReviewId() == null) {
-                throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "processInspectionReviewId");
-            }
-            aggregationService.aggregateApprovedPqcSubmission(event.getId(), record.getProcessInspectionReviewId());
+        if (alreadyAggregated) {
+            Long reviewId = createCorrectionReview(event, previousReview, signature, revisionId,
+                    command.getChangeReason(), afterPayloadJson);
+            aggregationService.refreshCorrectedPqcSubmission(event.getId(), previousReview.getId(), reviewId);
+        }
+        MesProProcessPoolEventDO finalEvent = eventMapper.selectByIdForUpdate(event.getId());
+        MesPqcInspectionTaskDO finalTask = pqcTaskMapper.selectByIdForUpdate(task.getId());
+        MesProProcessPoolPqcRecordDO finalRecord = pqcRecordMapper.selectByEventIdForUpdate(event.getId());
+        MesProcessPoolSubmissionReviewDO finalReview = reviewMapper.selectLatestByEventIdForUpdate(event.getId());
+        GxpAuditStateEnvelope after = correctionAuditState(finalEvent, finalTask, finalRecord,
+                pieceDetailMapper.selectListByTaskIdForUpdate(task.getId()), finalReview);
+        appendCorrectionAudit(command, event, task, revisionId, signature, previousReview, finalReview,
+                before, after, afterPayloadJson, signatureContentHash, signedChallenge);
+        if (leaderReturnedCorrection) {
+            handoffService.completeLeaderPqcCorrectionAndScheduleReview(event.getId(), previousReview.getId(),
+                    revisionId, command.getActorUserId());
         }
         return revisionId;
+    }
+
+    private void appendCorrectionAudit(MesProcessPoolPqcInspectionCorrectionCommand command,
+                                       MesProProcessPoolEventDO event, MesPqcInspectionTaskDO task,
+                                       Long revisionId, MesProBatchRecordExecutionFieldAuditSignatureResult signature,
+                                       MesProcessPoolSubmissionReviewDO previous, MesProcessPoolSubmissionReviewDO current,
+                                       GxpAuditStateEnvelope before, GxpAuditStateEnvelope after,
+                                       String signedPayload, String signatureContentHash, String challenge) {
+        if (revisionId == null || revisionId <= 0) {
+            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "pqcInspectionCorrection.revisionId");
+        }
+        List<GxpAuditRelation> links = new ArrayList<>();
+        links.add(new GxpAuditRelation("SUBJECT", "PROCESS_POOL_EVENT", event.getId().toString(), null, null));
+        links.add(new GxpAuditRelation("SOURCE", "PQC_INSPECTION_TASK", task.getId().toString(), null, null));
+        links.add(new GxpAuditRelation("SOURCE", "ACTIVE_ORDER", task.getActiveOrderId().toString(), null, null));
+        links.add(new GxpAuditRelation("SOURCE", "WORK_ORDER", task.getWorkOrderId().toString(), null, null));
+        links.add(new GxpAuditRelation("REVISION", "REVISION", revisionId.toString(), null, null));
+        links.add(new GxpAuditRelation("SIGNATURE", "SIGNATURE", signature.getSignatureId().toString(), null, null));
+        if (previous != null) links.add(new GxpAuditRelation("PREVIOUS_REVIEW", "PQC_REVIEW",
+                previous.getId().toString(), null, null));
+        if (current != null && (previous == null || !Objects.equals(previous.getId(), current.getId()))) {
+            links.add(new GxpAuditRelation("CORRECTION_REVIEW", "PQC_REVIEW", current.getId().toString(), null, null));
+        }
+        String operation = "mes.pqc-inspection.correct";
+        ObjectNode identity = auditObject("tenantId", event.getTenantId(), "operationId", operation,
+                "identity", List.of(event.getId().toString(), revisionId.toString()));
+        gxpAuditService.append(GxpAuditCommand.builder().eventSchemaVersion(2).operationId(operation)
+                .subjectId("MES_PROCESS_POOL_EVENT:" + event.getId()).subjectVersion(after.getObjectVersion())
+                .beforeState(before).afterState(after).reasonSource("USER")
+                .reasonCode("MES_PQC_INSPECTION_CORRECT").reason(command.getChangeReason().trim())
+                .idempotencyKey("GXP2:" + MesProBatchRecordExecutionFieldAuditHasher.sha256(canonicalAudit(identity)))
+                .requestId("MES-PQC-CORRECTION:" + revisionId).resultStatus("SUCCESS")
+                .sourceType("SERVICE_METHOD").sourceLocator(MesProcessPoolPqcInspectionCorrectionService.class.getName() + "#correct")
+                .signatureRecordId(signature.getSignatureId().toString()).signatureContentHash(signatureContentHash).links(links)
+                .evidences(List.of(new GxpAuditEvidence("SIGNATURE", signature.getSignatureId().toString(),
+                                null, signatureContentHash, "PQC_INSPECTION_CORRECTION"),
+                        // The challenge binds the signed request; it is not the signature record content hash.
+                        new GxpAuditEvidence("SIGNATURE_CHALLENGE", signature.getSignatureId().toString(),
+                                null, challenge, "SIGNED_CORRECTION_REQUEST_V2"),
+                        new GxpAuditEvidence("REVISION", revisionId.toString(), null,
+                                MesProBatchRecordExecutionFieldAuditHasher.hashCellValues(signedPayload), "CORRECTED_PAYLOAD")))
+                .build());
+    }
+
+    private String verifyCorrectionSignature(MesProcessPoolPqcInspectionCorrectionCommand command,
+                                            MesProProcessPoolEventDO event, String payload,
+                                            MesProBatchRecordExecutionFieldAuditSignatureResult signature) {
+        if (!Objects.equals(event.getTenantId(),
+                cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId())) {
+            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "correctionSignature.tenant");
+        }
+        var evidence = electronicSignatureQueryService.getById(signature.getSignatureId());
+        String challenge = MesCorrectionBaselineGuard.challenge(event.getId(), event.getRawPayload(), payload, command.getChangeReason());
+        String subject = cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesBatchRecordSignatureSubjectAdapter
+                .encodeSubjectId(0L, MesProBatchRecordExecutionSignatureService.ACTION_FIELD_CHANGE,
+                        null, null, null, null, null, null, null, null, null, null, null, null, null, null, challenge);
+        if (evidence == null || !Objects.equals(signature.getSignatureId(), evidence.id())
+                || !Objects.equals(command.getActorUserId(), evidence.actorId())
+                || !"MES".equals(evidence.moduleCode()) || !"FIELD_CHANGE".equals(evidence.actionCode())
+                || !"MES_BATCH_RECORD".equals(evidence.subjectType()) || !subject.equals(evidence.subjectId())
+                || !MesProBatchRecordExecutionFieldAuditHasher.sha256(subject).equals(evidence.subjectVersion())
+                || !command.getChangeReason().trim().equals(evidence.reason())
+                || StrUtil.isBlank(evidence.contentHash()) || StrUtil.isBlank(evidence.evidenceHash())) {
+            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "correctionSignature.binding");
+        }
+        var verified = electronicSignatureQueryService.verifyEvidence(signature.getSignatureId());
+        var expected = new cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesBatchRecordSignatureSubjectAdapter()
+                .loadAndAuthorize(new cn.iocoder.yudao.module.signature.api.dto.SignatureSubjectCommand(
+                        command.getActorUserId(), "MES", "FIELD_CHANGE", "MES_BATCH_RECORD", subject,
+                        evidence.subjectVersion(), command.getChangeReason().trim()));
+        if (verified == null || !Objects.equals(signature.getSignatureId(), verified.signatureId())
+                || !"VALID".equals(verified.verificationStatus())
+                || !evidence.contentHash().equals(verified.storedContentHash())
+                || !evidence.contentHash().equals(verified.calculatedContentHash())
+                || !evidence.evidenceHash().equals(verified.storedEvidenceHash())
+                || !evidence.evidenceHash().equals(verified.calculatedEvidenceHash())
+                || !JsonUtils.parseTree(expected.canonicalContentJson()).equals(JsonUtils.parseTree(evidence.canonicalContentJson()))) {
+            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "correctionSignature.content");
+        }
+        return evidence.contentHash();
+    }
+
+    private GxpAuditStateEnvelope correctionAuditState(MesProProcessPoolEventDO event, MesPqcInspectionTaskDO task,
+                                                      MesProProcessPoolPqcRecordDO record,
+                                                      List<MesPqcInspectionPieceDetailDO> pieces,
+                                                      MesProcessPoolSubmissionReviewDO review) {
+        if (event == null || task == null || record == null || pieces == null) {
+            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "pqcInspectionCorrection.auditFacts");
+        }
+        ObjectNode payload = requireObject(event.getRawPayload(), "pqcInspectionCorrection.auditPayload");
+        ObjectNode data = auditObject("eventId", event.getId(), "submittedEventId", event.getId(),
+                "tenantId", event.getTenantId(), "taskId", task.getId(), "pqcTaskId", task.getId(),
+                "recordId", record.getId(), "activeOrderId", task.getActiveOrderId(), "workOrderId", task.getWorkOrderId(),
+                "routeId", task.getRouteId(), "routeVersionId", task.getRouteVersionId(),
+                "routeProcessId", task.getRouteProcessId(), "processId", task.getProcessId(),
+                "regulationVersionId", task.getRegulationVersionId(), "qaProcessId", task.getQaProcessId(),
+                "inspectionType", task.getInspectionType(), "shiftCode", task.getShiftCode(), "roundNo", task.getRoundNo(),
+                "actualEmployeeId", event.getActualEmployeeId(), "actualInspectionQuantity", task.getActualInspectionQuantity(),
+                "scrapQuantity", payload.get("scrapQuantity"), "inspectionResult", record.getInspectionResult(),
+                "aggregationStatus", record.getProcessInspectionAggregationStatus(),
+                "currentReviewId", review == null ? null : review.getId(),
+                "aggregationReviewId", record.getProcessInspectionReviewId(),
+                "submissionSignatureId", event.getSignatureId(), "submissionSignatureUserId", event.getSignatureUserId());
+        data.set("review", review == null ? com.fasterxml.jackson.databind.node.NullNode.instance : auditObject(
+                "reviewId", review.getId(), "reviewStatus", review.getReviewStatus(), "reason", review.getReviewRemark(),
+                "signatureId", review.getReviewSignatureId(), "signatureUserId", review.getReviewSignatureUserId()));
+        ArrayNode pieceRows = data.putArray("pieces");
+        pieces.stream().sorted(java.util.Comparator.comparing(MesPqcInspectionPieceDetailDO::getSampleNo)
+                .thenComparing(MesPqcInspectionPieceDetailDO::getItemCode)).forEach(p -> pieceRows.add(auditObject(
+                "id", p.getId(), "taskId", p.getTaskId(), "sampleNo", p.getSampleNo(), "itemCode", p.getItemCode(),
+                "itemName", p.getItemName(), "inspectionMethod", p.getInspectionMethod(), "standardText", p.getStandardText(),
+                "resultType", p.getResultType(), "itemResult", p.getItemResult(), "measuredValue", p.getMeasuredValue(),
+                "judgement", p.getJudgement(), "standardLowerLimit", p.getStandardLowerLimit(),
+                "standardUpperLimit", p.getStandardUpperLimit(), "standardPrecision", p.getStandardPrecision(),
+                "standardUnit", p.getStandardUnit(), "selectedEquipmentId", p.getSelectedEquipmentId(),
+                "selectedEquipmentCode", p.getSelectedEquipmentCode(), "selectedEquipmentName", p.getSelectedEquipmentName(),
+                "selectedEquipmentNumber", p.getSelectedEquipmentNumber())));
+        ArrayNode aggregateRows = data.putArray("aggregateRows");
+        // Current-read collection: the earlier identity read may have established an RR snapshot.
+        aggregateDetailMapper.selectListByActiveOrderIdForUpdate(task.getActiveOrderId()).stream()
+                .filter(row -> Objects.equals(event.getId(), row.getEventId()))
+                .forEach(row -> aggregateRows.add(auditObject("id", row.getId(), "eventId", row.getEventId(),
+                        "reviewId", row.getReviewId(), "sourcePqcRecordId", row.getSourcePqcRecordId(),
+                        "sourcePieceDetailId", row.getSourcePieceDetailId(), "pqcTaskId", row.getPqcTaskId(),
+                        "activeOrderId", row.getActiveOrderId(), "workOrderId", row.getWorkOrderId(),
+                        "routeId", row.getRouteId(), "routeVersionId", row.getRouteVersionId(),
+                        "routeProcessId", row.getRouteProcessId(), "processId", row.getProcessId(),
+                        "regulationVersionId", row.getRegulationVersionId(), "inspectionType", row.getInspectionType(),
+                        "shiftCode", row.getShiftCode(), "roundNo", row.getRoundNo(),
+                        "actualInspectionQuantity", row.getActualInspectionQuantity(), "sampleNo", row.getSampleNo(),
+                        "itemCode", row.getItemCode(), "itemName", row.getItemName(), "inspectionMethod", row.getInspectionMethod(),
+                        "standardText", row.getStandardText(), "resultType", row.getResultType(),
+                        "itemResult", row.getItemResult(), "measuredValue", row.getMeasuredValue(), "judgement", row.getJudgement(),
+                        "standardLowerLimit", row.getStandardLowerLimit(), "standardUpperLimit", row.getStandardUpperLimit(),
+                        "standardPrecision", row.getStandardPrecision(), "standardUnit", row.getStandardUnit(),
+                        "selectedEquipmentId", row.getSelectedEquipmentId(), "selectedEquipmentCode", row.getSelectedEquipmentCode(),
+                        "selectedEquipmentName", row.getSelectedEquipmentName(), "selectedEquipmentNumber", row.getSelectedEquipmentNumber())));
+        String json = canonicalAudit(data);
+        return GxpAuditStateEnvelope.builder().state("PRESENT").canonicalJson(json)
+                .objectVersion("sha256:" + MesProBatchRecordExecutionFieldAuditHasher.sha256(json)).build();
+    }
+
+    private static ObjectNode auditObject(Object... fields) {
+        ObjectNode node = com.fasterxml.jackson.databind.node.JsonNodeFactory.instance.objectNode();
+        for (int i = 0; i < fields.length; i += 2) {
+            Object value = fields[i + 1];
+            String key = (String) fields[i];
+            if (value == null) node.putNull(key);
+            else if (value instanceof JsonNode json) node.set(key, normalizeAudit(json));
+            else if (value instanceof List<?> list) {
+                ArrayNode array = node.putArray(key);
+                list.forEach(item -> array.add(item.toString()));
+            } else if (value instanceof BigDecimal number) node.put(key, number.stripTrailingZeros().toPlainString());
+            else node.put(key, value.toString());
+        }
+        return node;
+    }
+
+    private static JsonNode normalizeAudit(JsonNode node) {
+        if (node.isObject()) {
+            ObjectNode sorted = com.fasterxml.jackson.databind.node.JsonNodeFactory.instance.objectNode();
+            java.util.TreeSet<String> keys = new java.util.TreeSet<>();
+            node.fieldNames().forEachRemaining(keys::add);
+            keys.forEach(key -> sorted.set(key, normalizeAudit(node.get(key))));
+            return sorted;
+        }
+        if (node.isArray()) {
+            ArrayNode array = com.fasterxml.jackson.databind.node.JsonNodeFactory.instance.arrayNode();
+            node.forEach(value -> array.add(normalizeAudit(value)));
+            return array;
+        }
+        if (node.isNumber()) return com.fasterxml.jackson.databind.node.TextNode.valueOf(
+                node.decimalValue().stripTrailingZeros().toPlainString());
+        return node;
+    }
+
+    private static String canonicalAudit(JsonNode node) {
+        return JsonUtils.toJsonString(normalizeAudit(node));
+    }
+
+    private Long createCorrectionReview(MesProProcessPoolEventDO event,
+                                        MesProcessPoolSubmissionReviewDO previousReview,
+                                        MesProBatchRecordExecutionFieldAuditSignatureResult signature,
+                                        Long revisionId, String reason, String afterPayloadJson) {
+        Map<String, Object> evidence = new LinkedHashMap<>();
+        evidence.put("actionType", "PQC_INSPECTION_CORRECTION");
+        evidence.put("processPoolEventId", event.getId());
+        evidence.put("revisionId", revisionId);
+        evidence.put("supersededReviewId", previousReview.getId());
+        evidence.put("signatureId", signature.getSignatureId());
+        evidence.put("actorId", signature.getActorId());
+        evidence.put("payloadHash", MesProBatchRecordExecutionFieldAuditHasher.hashCellValues(afterPayloadJson));
+        evidence.put("signature", signature);
+        MesProcessPoolSubmissionReviewDO review = MesProcessPoolSubmissionReviewDO.builder()
+                .eventId(event.getId()).leaderUserId(signature.getActorId())
+                .leaderType(MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PQC)
+                .reviewStatus(MesProcessPoolSubmissionReviewDO.STATUS_APPROVED)
+                .reviewRemark(reason.trim()).reviewedAt(signature.getSignedAt())
+                .reviewSignatureId(signature.getSignatureId()).reviewSignatureUserId(signature.getActorId())
+                .reviewSignatureSnapshotJson(JsonUtils.toJsonString(evidence)).build();
+        review.setTenantId(event.getTenantId());
+        if (reviewMapper.insert(review) != 1 || review.getId() == null) {
+            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "pqcInspectionCorrection.reviewInsert");
+        }
+        return review.getId();
     }
 
     private void validateCommand(MesProcessPoolPqcInspectionCorrectionCommand command) {
@@ -189,8 +513,11 @@ public class MesProcessPoolPqcInspectionCorrectionService {
                 || !Objects.equals(event.getFeedbackSourceId(), task.getId())
                 || !Objects.equals(event.getWorkOrderId(), task.getWorkOrderId())
                 || !Objects.equals(event.getRouteId(), task.getRouteId())
-                || !Objects.equals(event.getRouteProcessId(), task.getRouteProcessId())
-                || !Objects.equals(event.getProcessId(), task.getProcessId())
+                || task.getRouteProcessId() != null || task.getProcessId() != null
+                || event.getRouteProcessId() != null || event.getProcessId() != null
+                || task.getQaProcessId() == null || task.getQaProcessId() <= 0
+                || !Objects.equals(event.getQaProcessId(), task.getQaProcessId())
+                || !Objects.equals(event.getId(), task.getSubmittedEventId())
                 || !(MesPqcInspectionTaskDO.TASK_STATUS_SUBMITTED.equals(task.getTaskStatus())
                 || MesPqcInspectionTaskDO.TASK_STATUS_CONFIRMED.equals(task.getTaskStatus()))) {
             throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "pqcInspectionTask");
@@ -206,6 +533,22 @@ public class MesProcessPoolPqcInspectionCorrectionService {
                     || !Objects.equals(task.getId(), detail.getTaskId()) || detail.getSampleNo() == null
                     || StrUtil.isBlank(detail.getItemCode()) || StrUtil.isBlank(detail.getMeasuredValue())) {
                 throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "pqcInspectionPieceDetails");
+            }
+        }
+    }
+
+    private void validateOwnReturnedFrozenFields(MesProcessPoolPqcInspectionCorrectionCommand command,
+                                                MesPqcInspectionTaskDO task,
+                                                List<MesPqcInspectionPieceDetailDO> details) {
+        if (!Objects.equals(command.getActualInspectionQuantity(), task.getActualInspectionQuantity())) {
+            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "ownReturn.frozenInspectionQuantity");
+        }
+        for (var requested : command.getItemResults()) {
+            var original = details.stream().filter(d -> Objects.equals(d.getItemCode(), requested.getItemCode()))
+                    .findFirst().orElseThrow(() -> exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "itemResults.itemCode"));
+            if (!Objects.equals(original.getSelectedEquipmentId(), requested.getSelectedEquipmentId())
+                    || !Objects.equals(original.getSelectedEquipmentNumber(), requested.getSelectedEquipmentNumber())) {
+                throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "ownReturn.frozenEquipment");
             }
         }
     }
@@ -229,11 +572,15 @@ public class MesProcessPoolPqcInspectionCorrectionService {
         if (!existingByItem.keySet().equals(requestedByItem.keySet())) {
             throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "itemResults.itemCode");
         }
+        if (!MesPqcInspectionItemPlan.require(task).keySet().equals(existingByItem.keySet())
+                || !Objects.equals(command.getActualInspectionQuantity(), task.getPlannedInspectionQuantity())) {
+            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "frozenInspectionItemPlan");
+        }
         List<MesPqcInspectionPieceDetailDO> updated = new ArrayList<>();
         for (Map.Entry<String, List<MesPqcInspectionPieceDetailDO>> entry : existingByItem.entrySet()) {
             MesProcessPoolPqcInspectionCorrectionCommand.ItemResultCommand requested = requestedByItem.get(entry.getKey());
             List<String> values = requested.getSampleValues();
-            if (values == null || values.size() != command.getActualInspectionQuantity()) {
+            if (values == null || values.size() != MesPqcInspectionItemPlan.require(task).get(entry.getKey())) {
                 throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "itemResults.sampleValues");
             }
             MesPqcInspectionPieceDetailDO template = entry.getValue().get(0);
@@ -386,9 +733,8 @@ public class MesProcessPoolPqcInspectionCorrectionService {
     }
 
     private MesProBatchRecordExecutionFieldAuditSignatureResult recordCorrectionSignature(
-            MesProcessPoolPqcInspectionCorrectionCommand command, Long eventId, String afterPayloadJson) {
-        String challengeHash = MesProBatchRecordExecutionFieldAuditHasher.sha256(
-                eventId + "|" + afterPayloadJson + "|" + command.getChangeReason().trim());
+            MesProcessPoolPqcInspectionCorrectionCommand command, MesProProcessPoolEventDO event, String afterPayloadJson) {
+        String challengeHash = MesCorrectionBaselineGuard.challenge(event.getId(), event.getRawPayload(), afterPayloadJson, command.getChangeReason());
         MesProBatchRecordExecutionFieldAuditSignatureResult signature =
                 signatureService.recordFieldChangeSignature(
                         new MesProBatchRecordExecutionFieldAuditSignatureCommand()
@@ -397,6 +743,10 @@ public class MesProcessPoolPqcInspectionCorrectionService {
                                 .setReasonCategory("PQC_INSPECTION_CORRECTION")
                                 .setReasonText(command.getChangeReason().trim())
                                 .setSignatureChallengeHash(challengeHash));
+        if (signature == null || signature.getSignatureId() == null || signature.getSignatureId() <= 0
+                || signature.getSignedAt() == null) {
+            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "pqcInspectionCorrection.signature");
+        }
         if (!Objects.equals(signature.getActorId(), command.getActorUserId())) {
             throw exception(PRO_PROCESS_POOL_SIGNATURE_EMPLOYEE_MISMATCH);
         }

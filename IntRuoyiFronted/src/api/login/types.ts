@@ -15,6 +15,7 @@ export type TokenType = {
   userType: number //用户类型
   clientId: string //客户端编号
   expiresTime: number //过期时间
+  passwordChangeRequired?: boolean // 首次或重置后必须修改密码
 }
 
 export type UserVO = {

@@ -26,6 +26,14 @@ public interface AiChatConversationService {
     Long createChatConversationMy(AiChatConversationCreateMyReqVO createReqVO, Long userId);
 
     /**
+     * 创建 Codex Web 专用聊天对话。
+     *
+     * @param userId 用户编号
+     * @return 编号
+     */
+    Long createCodexChatConversationMy(Long userId);
+
+    /**
      * 更新【我的】聊天对话
      *
      * @param updateReqVO 更新信息

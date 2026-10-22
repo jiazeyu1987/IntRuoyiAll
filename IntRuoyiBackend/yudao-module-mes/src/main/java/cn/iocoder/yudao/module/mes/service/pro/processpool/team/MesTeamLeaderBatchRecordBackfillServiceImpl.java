@@ -21,6 +21,7 @@ import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExec
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionFieldAuditService;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionFieldAuditValueType;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionService;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrCompletionSourceBackfillService;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecordcelllink.MesProductionPickListSourceService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.BooleanNode;
@@ -98,8 +99,10 @@ public class MesTeamLeaderBatchRecordBackfillServiceImpl implements MesTeamLeade
         List<MesProcessPoolSubmissionReviewDO> reviews = reviews(command);
         validateSources(event, allocation, sourceEvents, allocations);
         MesProRouteFlowProcessBatchRecordDO binding = requireFormalBinding(command);
-        List<MesProBatchRecordCellLinkRuleDO> rules = ruleMapper.selectEnabledListByScopeAndTargetReport(
-                SCOPE_TYPE_ROUTE_VERSION, binding.getBatchRecordVersionId(), binding.getBatchRecordReportId());
+        List<MesProBatchRecordCellLinkRuleDO> rules = command.getMappingRules() == null
+                ? ruleMapper.selectEnabledListByScopeAndTargetReport(
+                        SCOPE_TYPE_ROUTE_VERSION, binding.getBatchRecordVersionId(), binding.getBatchRecordReportId())
+                : List.copyOf(command.getMappingRules());
         if (rules.isEmpty()) {
             throw exception(PRO_PROCESS_POOL_BATCH_RECORD_FIELD_MAPPING_REQUIRED,
                     allocation.getRouteProcessId(), binding.getBatchRecordReportId(), "*");
@@ -109,8 +112,20 @@ public class MesTeamLeaderBatchRecordBackfillServiceImpl implements MesTeamLeade
         String aggregateHash = aggregateHash(command, sourceEvents, allocations);
         String idempotencyKey = idempotencyKey(command, event, allocation, aggregateHash, pickListValues);
 
-        MesProBatchRecordExecutionOpenOrCreateByContextRespVO opened =
-                executionService.openOrCreateByContext(toOpenReq(command, workOrder, binding));
+        // Only the frozen-source adapter supplies this internal, empty-target command contract.
+        // Audit text is its evidence label, not the selector of this system opening path.
+        boolean frozenCompletionSource = command.isRequireEmptyTargets();
+        if (frozenCompletionSource && (command.getBatchExecutionId() == null
+                || command.getBatchExecutionTaskId() == null || command.getRouteBinding() == null
+                || command.getMappingRules() == null || command.getAggregateHash() == null
+                || !command.getAggregateHash().matches("[a-f0-9]{64}")
+                || command.getIdempotencyKey() == null || command.getSourceAuditReasonText() == null
+                || !command.getSourceAuditReasonText().startsWith(MesProEdhrCompletionSourceBackfillService.AUDIT_REASON_PREFIX))) {
+            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "completionSourceBackfill");
+        }
+        MesProBatchRecordExecutionOpenOrCreateByContextRespVO opened = frozenCompletionSource
+                        ? executionService.openOrCreateForCompletionSource(toOpenReq(command, workOrder, binding))
+                        : executionService.openOrCreateByContext(toOpenReq(command, workOrder, binding));
         if (opened == null || opened.getId() == null) {
             throw exception(PRO_PROCESS_POOL_BATCH_RECORD_EXECUTION_REQUIRED, binding.getBatchRecordReportId());
         }
@@ -121,6 +136,17 @@ public class MesTeamLeaderBatchRecordBackfillServiceImpl implements MesTeamLeade
         validateExecutionContext(command, workOrder, binding, execution);
         Map<String, SnapshotField> fields = snapshotFields(execution.getExecutionSnapshotJson());
         Map<String, JsonNode> currentValues = currentValues(execution.getCellValuesJson());
+        if (command.isRequireEmptyTargets()) {
+            for (MesProBatchRecordCellLinkRuleDO rule : rules) {
+                JsonNode current = currentValues.get(cellKey(rule.getTargetRowIndex(), rule.getTargetColumnIndex()));
+                if (current != null && !current.isNull() && !current.isMissingNode()
+                        && !(current.isTextual() && current.textValue().isBlank())) {
+                    throw exception(PRO_PROCESS_POOL_BATCH_RECORD_FIELD_MAPPING_REQUIRED,
+                            binding.getRouteProcessId(), binding.getBatchRecordReportId(),
+                            "目标单元格已有填写值，禁止自动覆盖：" + rule.getTargetCellKey());
+                }
+            }
+        }
         Map<Long, MesProProcessPoolEventDO> sourceEventMap = sourceEventMap(sourceEvents);
         Map<Long, MesProcessPoolSubmissionReviewDO> reviewMap = reviewMap(reviews);
         Map<Long, JsonNode> payloadCache = new LinkedHashMap<>();
@@ -136,7 +162,8 @@ public class MesTeamLeaderBatchRecordBackfillServiceImpl implements MesTeamLeade
                         .setBaseFieldAuditRevision(execution.getFieldAuditRevision())
                         .setBaseFieldAuditHeadHash(execution.getFieldAuditHeadHash())
                         .setReasonCategory("OTHER")
-                        .setReasonText("生产组长确认报工后自动回填正式批记录")
+                        .setReasonText(command.getSourceAuditReasonText() == null
+                                ? "生产组长确认报工后自动回填正式批记录" : command.getSourceAuditReasonText())
                         .setChanges(changes));
         return new MesTeamLeaderBatchRecordBackfillResult()
                 .setExecutionId(execution.getId())
@@ -150,7 +177,6 @@ public class MesTeamLeaderBatchRecordBackfillServiceImpl implements MesTeamLeade
 
     private void validate(MesTeamLeaderBatchRecordBackfillCommand command) {
         if (command == null || command.getEvent() == null || command.getAllocation() == null
-                || command.getPickListBindingId() == null
                 || command.getWorkOrder() == null || command.getEvent().getId() == null
                 || command.getEvent().getProcessId() == null
                 || command.getAllocation().getId() == null || command.getAllocation().getWorkOrderId() == null
@@ -398,6 +424,10 @@ public class MesTeamLeaderBatchRecordBackfillServiceImpl implements MesTeamLeade
         if (eventContextValue != null) {
             return eventContextValue;
         }
+        if (Set.of("operatorUserId", "actualEmployeeId").contains(resolvedSourceFieldCode)) {
+            throw exception(PRO_PROCESS_POOL_BATCH_RECORD_SOURCE_VALUE_REQUIRED,
+                    sourceEvent.getId(), resolvedSourceFieldCode);
+        }
         if (payload == null) {
             payload = payloadCache.computeIfAbsent(sourceEvent.getId(), ignored -> rawPayload(sourceEvent));
         }
@@ -521,7 +551,8 @@ public class MesTeamLeaderBatchRecordBackfillServiceImpl implements MesTeamLeade
             MesProWorkOrderDO workOrder,
             MesProRouteFlowProcessBatchRecordDO binding,
             List<MesProBatchRecordCellLinkRuleDO> rules) {
-        if (command.getPickListBindingId() == null) {
+        if (command.getPickListBindingId() == null && rules.stream().anyMatch(rule ->
+                SOURCE_TYPE_PRODUCTION_PICK_LIST.equals(StrUtil.trim(rule.getSourceType())))) {
             throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "batchRecordBackfill.pickListBindingId");
         }
         Map<String, MesProductionPickListSourceService.ResolvedValue> result = new LinkedHashMap<>();
@@ -548,6 +579,7 @@ public class MesTeamLeaderBatchRecordBackfillServiceImpl implements MesTeamLeade
 
     private Object eventContextSourceValue(MesProProcessPoolEventDO sourceEvent, String sourceFieldCode) {
         return switch (sourceFieldCode) {
+            case "operatorUserId" -> sourceEvent.getDeviceAccountId();
             case "actualEmployeeId" -> sourceEvent.getActualEmployeeId();
             case "deviceAccountId" -> sourceEvent.getDeviceAccountId();
             case "deviceId" -> sourceEvent.getDeviceId();
@@ -746,6 +778,11 @@ public class MesTeamLeaderBatchRecordBackfillServiceImpl implements MesTeamLeade
                     rule.getSourceFieldCode());
         }
         String strategy = StrUtil.trim(rule.getAggregationStrategy());
+        if (Set.of("operatorUserId", "actualEmployeeId").contains(StrUtil.trim(rule.getSourceFieldCode()))
+                && StrUtil.isNotBlank(strategy) && !Set.of("FIRST", "LAST").contains(strategy.toUpperCase())) {
+            throw exception(PRO_PROCESS_POOL_BATCH_RECORD_FIELD_MAPPING_REQUIRED,
+                    binding.getRouteProcessId(), binding.getBatchRecordReportId(), rule.getSourceFieldCode());
+        }
         if (StrUtil.isBlank(strategy)) {
             if (values.size() == 1) {
                 return values.get(0);
@@ -1052,6 +1089,13 @@ public class MesTeamLeaderBatchRecordBackfillServiceImpl implements MesTeamLeade
                 + ":" + allocation.getProcessId()
                 + ":" + aggregateHash;
         String canonical = base;
+        // This adapter key already includes the entire frozen receipt and exact mapping identity.
+        if (command.getSourceAuditReasonText() != null) {
+            if (!isSha256Hex(base)) {
+                throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "completionBackfill.idempotencyKey");
+            }
+            return base;
+        }
         if (!pickListValues.isEmpty()) {
             String pickEvidence = pickListValues.entrySet().stream()
                 .sorted(Map.Entry.comparingByKey())

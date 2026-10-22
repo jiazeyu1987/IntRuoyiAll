@@ -1,5 +1,6 @@
 package cn.iocoder.yudao.module.mes.service.pro.processpool.team;
 
+import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotDO;
@@ -9,7 +10,9 @@ import org.junit.jupiter.api.Test;
 import java.math.BigDecimal;
 import java.util.List;
 
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_ACTIVE_ORDER_COMPLETION_SOURCE_MISSING;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class MesOutputMaterialProgressCalculatorTest {
 
@@ -37,6 +40,18 @@ class MesOutputMaterialProgressCalculatorTest {
                         allocation(202L, 11L, 31L, 401L, "60")));
 
         assertEquals(BigDecimal.valueOf(40).setScale(6), progress);
+    }
+
+    @Test
+    void crossWorkOrderAllocationUsesSourceEventAndTargetAllocation() {
+        BigDecimal progress = MesOutputMaterialProgressCalculator.calculateConservativeProcessProgress(
+                activeOrder(11L, 31L),
+                snapshot(11L, 31L, "{\"outputMaterialIds\":[501]}"),
+                List.of(productionSubmit(401L, 30L,
+                        "{\"materialDetails\":[{\"materialId\":501,\"outputQuantity\":100}]}")),
+                List.of(allocation(202L, 11L, 31L, 401L, "60")));
+
+        assertEquals(BigDecimal.valueOf(60).setScale(6), progress);
     }
 
     @Test
@@ -94,6 +109,31 @@ class MesOutputMaterialProgressCalculatorTest {
         assertEquals(splitProgress, combinedProgress);
     }
 
+    @Test
+    void emptyOutputMaterialIdsUseFormalAllocationProgressWithoutMaterialDetails() {
+        BigDecimal progress = MesOutputMaterialProgressCalculator.calculateConservativeProcessProgress(
+                activeOrder(10L, 30L),
+                snapshot(10L, 30L, "{\"outputMaterialIds\":[]}"),
+                List.of(productionSubmit(401L, 30L, "{}")),
+                List.of(allocation(201L, 10L, 30L, 401L, "40")));
+
+        assertEquals(BigDecimal.valueOf(40).setScale(6), progress);
+    }
+
+    @Test
+    void missingOutputMaterialIdsStillFailsFast() {
+        ServiceException ex = assertThrows(ServiceException.class,
+                () -> MesOutputMaterialProgressCalculator.calculateConservativeProcessProgress(
+                        activeOrder(10L, 30L),
+                        snapshot(10L, 30L, "{\"inputMaterialIds\":[]}"),
+                        List.of(productionSubmit(401L, 30L, "{}")),
+                        List.of(allocation(201L, 10L, 30L, 401L, "40"))));
+
+        assertEquals(PRO_PROCESS_POOL_ACTIVE_ORDER_COMPLETION_SOURCE_MISSING.getCode(), ex.getCode());
+        assertEquals("活跃订单完成缺少正式三类回填来源：activeOrderId=10，blocker=PRODUCTION_OUTPUT_MATERIAL_IDS_REQUIRED",
+                ex.getMessage());
+    }
+
     private MesProcessPoolActiveOrderDO activeOrder(Long activeOrderId, Long workOrderId) {
         return MesProcessPoolActiveOrderDO.builder()
                 .id(activeOrderId)
@@ -123,6 +163,10 @@ class MesOutputMaterialProgressCalculatorTest {
                 .routeId(40L)
                 .routeProcessId(101L)
                 .processId(1L)
+                .reportOutputQuantity(com.alibaba.fastjson.JSON.parseObject(rawPayload).containsKey("materialDetails")
+                        ? com.alibaba.fastjson.JSON.parseObject(rawPayload).getJSONArray("materialDetails").stream()
+                        .map(detail -> ((com.alibaba.fastjson.JSONObject) detail).getBigDecimal("outputQuantity"))
+                        .min(BigDecimal::compareTo).orElseThrow() : new BigDecimal("100"))
                 .rawPayload(rawPayload)
                 .build();
     }

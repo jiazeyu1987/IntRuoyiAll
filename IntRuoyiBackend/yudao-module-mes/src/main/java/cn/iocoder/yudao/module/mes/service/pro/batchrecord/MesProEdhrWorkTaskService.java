@@ -42,6 +42,12 @@ public interface MesProEdhrWorkTaskService {
 
     Long countApprovalCenterTodoDuplicateTasks(MesProEdhrWorkTaskPageReqVO reqVO, boolean globalView);
 
+    PageResult<MesProEdhrWorkTaskRespVO> getApprovalCenterPrefix(MesProEdhrWorkTaskPageReqVO filters,
+                                                               boolean globalView, boolean done, long limit);
+
+    PageResult<cn.iocoder.yudao.module.mes.approval.MesEdhrAuthorizedTaskProjection> getApprovalCenterAuthorizedPrefix(
+            MesProEdhrWorkTaskPageReqVO filters, boolean globalView, boolean done, long limit);
+
     MesProEdhrWorkTaskStatsRespVO getStats();
 
     MesProEdhrWorkTaskAssignmentRuleRespVO getArchiveRuleByRoute(Long routeId);
@@ -91,6 +97,8 @@ public interface MesProEdhrWorkTaskService {
 
     void cancelReleaseApprovalTask(Long releaseTransactionId, String reason);
 
+    void cancelReleaseApprovalTaskById(Long workTaskId, String reason);
+
     void bindExecution(Long batchTaskId, Long executionId);
 
     void completeOptionalFillTaskBySkip(Long workTaskId, String reason);
@@ -101,6 +109,9 @@ public interface MesProEdhrWorkTaskService {
     MesProEdhrWorkTaskDO completeFillAndCreateNextFillAfterOrdinarySubmit(Long workTaskId, Long executionId);
 
     MesProEdhrWorkTaskDO completeRouteFormFillAndCreateNextFill(Long batchTaskId, Long actorUserId);
+
+    /** Internal completion of verified inspection/loss evidence during PQC production release. */
+    void completeVerifiedRouteFormBackfill(Long batchTaskId, Long actorUserId, String evidenceHash);
 
     MesProEdhrWorkTaskDO completeFillAndCreateNextFillAfterGoldenFingerSubmit(Long workTaskId, Long executionId);
 
@@ -124,6 +135,15 @@ public interface MesProEdhrWorkTaskService {
     void cancelPendingReviewTasks(Long executionId, Long excludingWorkTaskId, String reason);
 
     void cancelActiveTasksByBatch(Long batchExecutionId, String reason);
+
+    void cancelActiveFillTasksByBatch(Long batchExecutionId, String reason);
+
+    void cancelPqcReleaseTaskForBatchVoid(
+            cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationDO application,
+            Long changeEventId, String reason);
+
+    /** Internal fixed-test reset: cancel current tasks and revoke even terminal tasks' grants. */
+    void cancelTasksForTestReset(List<Long> workTaskIds, String reason);
 
     MesProEdhrWorkTaskDO reassignFillTask(Long workTaskId, String reason);
 

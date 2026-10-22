@@ -32,6 +32,11 @@ assert.match(
   /不合格日期[\s\S]*工序名称[\s\S]*不合格数量[\s\S]*不合格原因[\s\S]*处置方式[\s\S]*生产人员\/日期[\s\S]*检验人员确认日期[\s\S]*批准人\/日期/,
   '损耗报告单明细列必须符合纸质单据字段。'
 )
+assert.doesNotMatch(
+  component,
+  /<tr>\s*<th colspan="2">批准人\/日期：<\/th>[\s\S]*data-active-order-pqc-loss-approval-signature/,
+  '损耗报告单底部不应再显示独立的批准人/日期汇总行。'
+)
 assert.match(
   component,
   /const pqcLossReportRows = computed[\s\S]*scrapQuantity[\s\S]*Number\(submission\.scrapQuantity\)/,

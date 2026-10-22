@@ -86,7 +86,7 @@ public class MesProBatchRecordTotalRecognitionExtractor {
                 }
             }
         }
-        throw new IllegalStateException("product name was not found in parsed Word tables");
+        return "";
     }
 
     private String extractProductCode(String sourceFileName) {
@@ -358,6 +358,9 @@ public class MesProBatchRecordTotalRecognitionExtractor {
         if (equipmentName.contains("硅油")) {
             return "硅油";
         }
+        if (equipmentName.contains("热合")) {
+            return "热合";
+        }
         return equipmentName;
     }
 
@@ -370,6 +373,9 @@ public class MesProBatchRecordTotalRecognitionExtractor {
         }
         if (parameterName.startsWith("硅油") || parameterName.startsWith("硅化")) {
             return "硅油";
+        }
+        if (parameterName.startsWith("热合")) {
+            return "热合";
         }
         return parameterName;
     }

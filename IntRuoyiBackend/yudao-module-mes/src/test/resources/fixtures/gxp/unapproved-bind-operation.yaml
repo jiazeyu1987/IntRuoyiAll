@@ -1,0 +1,13 @@
+# Synthetic negative-test fixture only. This is not a recovered or approved policy.
+# Kept outside META-INF/gxp so it cannot replace the runtime policy bundle.
+proposalType: GXP_AUDIT_OPERATION_FRAGMENT
+status: DRAFT
+approvalReference: null
+runtimeLoad: false
+operation:
+  operationId: mes.pqc-release.bind-batch
+  actionType: UPDATE
+  statePolicy: PRESENT_TO_PRESENT
+  sourceLocator: cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderReleaseApplicationServiceImpl#apply
+additionalSourceLocators:
+  - cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderReleaseApplicationServiceImpl#applyGenerated

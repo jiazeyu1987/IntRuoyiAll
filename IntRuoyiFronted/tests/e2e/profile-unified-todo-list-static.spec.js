@@ -96,31 +96,16 @@ for (const taskType of ['文控', '批记录', '排产', '展厅', '行政']) {
   assert.match(workbench, new RegExp(`['"]${taskType}['"]`), `任务类型筛选必须包含：${taskType}`)
 }
 
-for (const apiToken of [
-  'getMyDistributionTaskPage',
-  'getMyTrainingTaskPage',
-  'getEdhrWorkTaskMyPage',
-  'ProWorkOrderApi.getWorkOrderPage',
-  '/showroom/assignment/page'
-]) {
-  assert.match(workbench, new RegExp(apiToken.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), `待办来源必须接入真实接口：${apiToken}`)
-}
+assert.match(workbench, /getProfileWorkbenchTodoPage\(query\)/, 'workbench uses server paging')
+assert.doesNotMatch(workbench, /getMyDistributionTaskPage|getMyTrainingTaskPage|getEdhrWorkTaskMyPage|TODO_PAGE_SIZE|filteredRows|\.slice\(/, 'no first-batch client paging')
+assert.match(workbench, /v-model:sort-state="sortState"/)
+assert.match(workbench, /sortProp: 'statusLabel'/)
+assert.equal((workbench.match(/sortable: 'custom'/g) || []).length, 4)
 
 assert.doesNotMatch(
   workbench,
   /getTaskTodoPage|getTaskDonePage|getProcessInstanceMyPage|\/approval-center|moduleCode|viewType/,
   '个人工作台不得接入 BPM/OA/审批中心待办或跳转审批中心。'
-)
-
-assert.doesNotMatch(
-  workbench,
-  /const\s+requirePageList\s*=\s*<T>/,
-  'ProfileWorkbench 的 PageResult 校验助手不得使用会触发 Vue ESLint 解析错误的泛型箭头函数。'
-)
-assert.match(
-  workbench,
-  /function\s+requirePageList<T>\(/,
-  'ProfileWorkbench 的 PageResult 校验助手应使用普通泛型函数，确保 Vite ESLint 可解析。'
 )
 
 assert.match(

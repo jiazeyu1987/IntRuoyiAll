@@ -10,6 +10,16 @@ import org.apache.ibatis.annotations.Mapper;
 @Mapper
 public interface BusinessApprovalRequestMapper extends BaseMapperX<BusinessApprovalRequestDO> {
 
+    default java.util.List<BusinessApprovalRequestDO> selectOwnershipByTenantAndProcessId(Long tenantId, String processId) {
+        return selectList(new QueryWrapperX<BusinessApprovalRequestDO>()
+                .eq("tenant_id", tenantId).eq("process_instance_id", processId).eq("deleted", false));
+    }
+
+    default java.util.List<BusinessApprovalRequestDO> selectOwnershipByTenantAndProcessIdForUpdate(Long tenantId, String processId) {
+        return selectList(new QueryWrapperX<BusinessApprovalRequestDO>()
+                .eq("tenant_id", tenantId).eq("process_instance_id", processId).eq("deleted", false).last("FOR UPDATE"));
+    }
+
     default BusinessApprovalRequestDO selectPendingByBusinessAction(BusinessApprovalContext context) {
         return selectOne(new QueryWrapperX<BusinessApprovalRequestDO>()
                 .eq("tenant_id", context.getTenantId())

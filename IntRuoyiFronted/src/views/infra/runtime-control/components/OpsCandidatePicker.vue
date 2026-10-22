@@ -21,7 +21,18 @@
           <div class="candidate-row__main">
             <div class="candidate-row__title">
               <span>{{ candidate.candidateId }}</span>
-              <el-tag :type="opsTagType(candidate.status)">{{ opsStatusText(candidate.status) }}</el-tag>
+              <el-tag
+                v-if="
+                  props.mode === 'restore' &&
+                  'candidateType' in candidate &&
+                  candidate.candidateType
+                "
+              >
+                {{ restoreCandidateTypeText(candidate.candidateType) }}
+              </el-tag>
+              <el-tag :type="opsTagType(candidate.status)">{{
+                opsStatusText(candidate.status)
+              }}</el-tag>
             </div>
             <div class="candidate-row__meta">
               <span>{{ sourceLabel(candidate) }}</span>
@@ -35,7 +46,9 @@
                 兼容性状态：{{ candidate.compatibilityStatus }}
               </div>
               <div
-                v-if="'compatibilityEvidencePath' in candidate && candidate.compatibilityEvidencePath"
+                v-if="
+                  'compatibilityEvidencePath' in candidate && candidate.compatibilityEvidencePath
+                "
                 class="candidate-row__path"
               >
                 兼容性证据：{{ candidate.compatibilityEvidencePath }}
@@ -57,23 +70,38 @@
               {{ candidate.manifestPath }}
             </div>
             <div
-              v-if="props.mode === 'rollback' && 'prodHistoryPath' in candidate && candidate.prodHistoryPath"
+              v-if="
+                props.mode === 'rollback' &&
+                'prodHistoryPath' in candidate &&
+                candidate.prodHistoryPath
+              "
               class="candidate-row__path"
             >
               正式服发布历史：{{ candidate.prodHistoryPath }}
             </div>
             <template v-if="props.mode === 'restore'">
-              <div v-if="'recoverySetId' in candidate && candidate.recoverySetId" class="candidate-row__path">
+              <div
+                v-if="'recoverySetId' in candidate && candidate.recoverySetId"
+                class="candidate-row__path"
+              >
                 恢复集：{{ candidate.recoverySetId }} / {{ candidate.recoverySetStatus || '-' }}
               </div>
-              <div v-if="'programVersion' in candidate && candidate.programVersion" class="candidate-row__path">
+              <div
+                v-if="'programVersion' in candidate && candidate.programVersion"
+                class="candidate-row__path"
+              >
                 程序版本：{{ candidate.programVersion }}
               </div>
-              <div v-if="'redisPolicy' in candidate && candidate.redisPolicy" class="candidate-row__path">
+              <div
+                v-if="'redisPolicy' in candidate && candidate.redisPolicy"
+                class="candidate-row__path"
+              >
                 Redis 策略：{{ candidate.redisPolicy }}
               </div>
               <div
-                v-if="'configurationManifestPath' in candidate && candidate.configurationManifestPath"
+                v-if="
+                  'configurationManifestPath' in candidate && candidate.configurationManifestPath
+                "
                 class="candidate-row__path"
               >
                 配置清单：{{ candidate.configurationManifestPath }}
@@ -85,13 +113,28 @@
                 manifest hash：{{ candidate.recoverySetManifestHash }}
               </div>
               <div
+                v-if="'chainDigest' in candidate && candidate.chainDigest"
+                class="candidate-row__path"
+              >
+                链 digest：{{ candidate.chainDigest }}
+              </div>
+              <div
+                v-if="'targetFingerprint' in candidate && candidate.targetFingerprint"
+                class="candidate-row__path"
+              >
+                目标指纹：{{ candidate.targetFingerprint }}
+              </div>
+              <div
                 v-if="'componentSummary' in candidate && candidate.componentSummary"
                 class="candidate-row__path"
               >
                 组件摘要：{{ componentSummaryText(candidate.componentSummary) }}
               </div>
               <div
-                v-if="'dccBackupMode' in candidate && (candidate.dccBackupMode || candidate.dccChainStatus)"
+                v-if="
+                  'dccBackupMode' in candidate &&
+                  (candidate.dccBackupMode || candidate.dccChainStatus)
+                "
                 class="candidate-row__path"
               >
                 DCC：{{ dccSummaryText(candidate) }}
@@ -102,7 +145,10 @@
               >
                 DCC 变更：{{ dccChangeSummaryText(candidate.dccChangeSummary) }}
               </div>
-              <div v-if="'checksumPath' in candidate && candidate.checksumPath" class="candidate-row__path">
+              <div
+                v-if="'checksumPath' in candidate && candidate.checksumPath"
+                class="candidate-row__path"
+              >
                 checksum：{{ candidate.checksumPath }}
               </div>
               <div
@@ -111,7 +157,20 @@
               >
                 演练报告：{{ candidate.rehearsalReportPath }}
               </div>
-              <div v-if="'snapshotPath' in candidate && candidate.snapshotPath" class="candidate-row__path">
+              <div
+                v-if="
+                  'rehearsalStatus' in candidate &&
+                  (candidate.rehearsalStatus || candidate.lastRehearsedAt)
+                "
+                class="candidate-row__path"
+              >
+                演练状态：{{ candidate.rehearsalStatus || '-' }} /
+                {{ candidate.lastRehearsedAt || '-' }}
+              </div>
+              <div
+                v-if="'snapshotPath' in candidate && candidate.snapshotPath"
+                class="candidate-row__path"
+              >
                 现场快照：{{ candidate.snapshotPath }}
               </div>
             </template>
@@ -159,7 +218,9 @@ const availableCandidates = computed(() =>
   candidates.value.filter((candidate) => candidate.status === 'AVAILABLE')
 )
 
-const sourceLabel = (candidate: RuntimeControlRollbackCandidateVO | RuntimeControlRestoreCandidateVO) => {
+const sourceLabel = (
+  candidate: RuntimeControlRollbackCandidateVO | RuntimeControlRestoreCandidateVO
+) => {
   if (props.mode === 'rollback') {
     return `发布包 ${candidate.releaseTag || candidate.backupId || '-'}`
   }
@@ -173,6 +234,9 @@ const componentSummaryText = (summary: Record<string, string>) =>
 
 const dccSummaryText = (candidate: RuntimeControlRestoreCandidateVO) =>
   `${candidate.dccBackupMode || '-'} / ${candidate.dccChainStatus || '-'}`
+
+const restoreCandidateTypeText = (candidateType: string) =>
+  candidateType === 'REHEARSAL' ? '演练候选' : '正式恢复候选'
 
 const DCC_CHANGE_LABELS: Record<string, string> = {
   addedRecords: '新增记录',

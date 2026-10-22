@@ -24,6 +24,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
@@ -282,6 +283,149 @@ class MesFrontlineRuntimeConfigServiceTest {
     }
 
     @Test
+    void getRuntimeConfig_carriesFrozenProductionConfigSnapshotIntoSubmitContext() {
+        when(activeOrderProcessService.requireProcess(LOGIN_USER_ID, 8101L, ROUTE_ID, ROUTE_PROCESS_ID, PROCESS_ID))
+                .thenReturn(new MesFrontlineActiveOrderProcess(8101L, ROUTE_ID, 627L, "R-101", "Route 101",
+                        ROUTE_PROCESS_ID, PROCESS_ID, "P-201", "精洗", 10,
+                        301L, "WS-301", "精洗工位",
+                        new BigDecimal("1.000000"), new BigDecimal("100.000000"), Boolean.FALSE));
+        when(employeeProfileMapper.selectList(any())).thenReturn(List.of(
+                employeeProfile(8801L, LOGIN_USER_ID, 10001L, "LOGIN-001",
+                        "当前组长人员", "当前组长人员", "FORMAL", true)));
+        String productionConfigJson = "{\"routeProcessId\":1001,\"processId\":201,"
+                + "\"overagePercent\":0,\"inputMaterialIds\":[],\"outputMaterialIds\":[],"
+                + "\"lossReasons\":[],\"deviceSelectionGroups\":[],\"parameterRules\":[]}";
+        MesProcessPoolActiveOrderProcessSnapshotDO snapshot = new MesProcessPoolActiveOrderProcessSnapshotDO()
+                .setId(5102L)
+                .setActiveOrderId(8101L)
+                .setRouteId(ROUTE_ID)
+                .setRouteProcessId(ROUTE_PROCESS_ID)
+                .setProcessId(PROCESS_ID)
+                .setParameterSnapshotJson("[]")
+                .setParameterSnapshotSha256(MesDeviceParameterSnapshotCodec.sha256("[]"))
+                .setDeviceSelectionSnapshotJson("[]")
+                .setDeviceSelectionSnapshotSha256(MesDeviceSelectionSnapshotCodec.sha256("[]"))
+                .setParameterSnapshotState(MesDeviceParameterSnapshotCodec.STATE_FROZEN)
+                .setLossReasonSnapshotJson("[]")
+                .setLossReasonSnapshotSha256(cn.hutool.crypto.digest.DigestUtil.sha256Hex("[]"))
+                .setOveragePercentSnapshot(new BigDecimal("0.000000"))
+                .setProductionConfigSnapshotJson(productionConfigJson)
+                .setProductionConfigSnapshotSha256(cn.hutool.crypto.digest.DigestUtil.sha256Hex(productionConfigJson))
+                .setProductionConfigMigrationSource("ROUTE_VERSION")
+                .setProductionConfigMigratedAt(LocalDateTime.of(2026, 9, 16, 10, 0));
+        when(processSnapshotMapper.selectByActiveOrderAndProcess(8101L, ROUTE_PROCESS_ID, PROCESS_ID))
+                .thenReturn(snapshot);
+
+        MesFrontlineRuntimeConfig config = service.getRuntimeConfig(LOGIN_USER_ID, 8101L, ROUTE_ID,
+                ROUTE_PROCESS_ID, PROCESS_ID);
+
+        assertEquals(productionConfigJson, config.productionSubmitContext().productionConfigSnapshotJson());
+        assertEquals(cn.hutool.crypto.digest.DigestUtil.sha256Hex(productionConfigJson),
+                config.productionSubmitContext().productionConfigSnapshotSha256());
+    }
+
+    @Test
+    void getRuntimeConfig_acceptsProductionConfigParameterRulesOmittingNullFields() {
+        when(activeOrderProcessService.requireProcess(LOGIN_USER_ID, 8101L, ROUTE_ID, ROUTE_PROCESS_ID, PROCESS_ID))
+                .thenReturn(new MesFrontlineActiveOrderProcess(8101L, ROUTE_ID, 627L, "R-101", "Route 101",
+                        ROUTE_PROCESS_ID, PROCESS_ID, "P-201", "精洗", 10,
+                        301L, "WS-301", "精洗工位",
+                        new BigDecimal("1.000000"), new BigDecimal("100.000000"), Boolean.FALSE));
+        when(employeeProfileMapper.selectList(any())).thenReturn(List.of(
+                employeeProfile(8801L, LOGIN_USER_ID, 10001L, "LOGIN-001",
+                        "当前组长人员", "当前组长人员", "FORMAL", true)));
+        String parameterJson = JsonUtils.toJsonString(List.of(MesDeviceParameterSnapshotRule.builder()
+                .routeProcessId(ROUTE_PROCESS_ID)
+                .processId(PROCESS_ID)
+                .deviceId(7001L)
+                .parameterCode("pressure")
+                .parameterName("压力")
+                .unit("MPa")
+                .lowerLimit(BigDecimal.ONE)
+                .defaultValue(new BigDecimal("2"))
+                .valueType("INTEGER")
+                .standardText("2")
+                .build()));
+        String productionConfigJson = "{\"routeProcessId\":1001,\"processId\":201,"
+                + "\"overagePercent\":10,\"inputMaterialIds\":[],\"outputMaterialIds\":[],"
+                + "\"lossReasons\":[],\"deviceSelectionGroups\":[],\"parameterRules\":[{"
+                + "\"routeProcessId\":1001,\"processId\":201,\"deviceId\":7001,"
+                + "\"parameterCode\":\"pressure\",\"parameterName\":\"压力\",\"unit\":\"MPa\","
+                + "\"lowerLimit\":1,\"defaultValue\":2,\"valueType\":\"INTEGER\",\"standardText\":\"2\"}]}";
+        when(processSnapshotMapper.selectByActiveOrderAndProcess(8101L, ROUTE_PROCESS_ID, PROCESS_ID))
+                .thenReturn(new MesProcessPoolActiveOrderProcessSnapshotDO()
+                        .setId(5103L)
+                        .setActiveOrderId(8101L)
+                        .setRouteId(ROUTE_ID)
+                        .setRouteProcessId(ROUTE_PROCESS_ID)
+                        .setProcessId(PROCESS_ID)
+                        .setParameterSnapshotJson(parameterJson)
+                        .setParameterSnapshotSha256(MesDeviceParameterSnapshotCodec.sha256(parameterJson))
+                        .setDeviceSelectionSnapshotJson("[]")
+                        .setDeviceSelectionSnapshotSha256(MesDeviceSelectionSnapshotCodec.sha256("[]"))
+                        .setParameterSnapshotState(MesDeviceParameterSnapshotCodec.STATE_FROZEN)
+                        .setLossReasonSnapshotJson("[]")
+                        .setLossReasonSnapshotSha256(cn.hutool.crypto.digest.DigestUtil.sha256Hex("[]"))
+                        .setOveragePercentSnapshot(new BigDecimal("10.000000"))
+                        .setProductionConfigSnapshotJson(productionConfigJson)
+                        .setProductionConfigSnapshotSha256(cn.hutool.crypto.digest.DigestUtil.sha256Hex(productionConfigJson))
+                        .setProductionConfigMigrationSource("STAGE1_TEMPLATE_PROCESS_SNAPSHOT")
+                        .setProductionConfigMigratedAt(LocalDateTime.of(2026, 9, 16, 17, 36)));
+
+        MesFrontlineRuntimeConfig config = assertDoesNotThrow(() -> service.getRuntimeConfig(LOGIN_USER_ID, 8101L,
+                ROUTE_ID, ROUTE_PROCESS_ID, PROCESS_ID));
+
+        assertEquals(productionConfigJson, config.productionSubmitContext().productionConfigSnapshotJson());
+        verify(parameterRuleMapper, never()).selectList(any());
+    }
+
+    @Test
+    void getRuntimeConfig_acceptsStoredFrozenParameterSnapshotWithExplicitNullFields() {
+        when(activeOrderProcessService.requireProcess(LOGIN_USER_ID, 8101L, ROUTE_ID, ROUTE_PROCESS_ID, PROCESS_ID))
+                .thenReturn(new MesFrontlineActiveOrderProcess(8101L, ROUTE_ID, 627L, "R-101", "Route 101",
+                        ROUTE_PROCESS_ID, PROCESS_ID, "P-201", "精洗", 10,
+                        301L, "WS-301", "精洗工位",
+                        new BigDecimal("1.000000"), new BigDecimal("100.000000"), Boolean.FALSE));
+        when(employeeProfileMapper.selectList(any())).thenReturn(List.of(
+                employeeProfile(8801L, LOGIN_USER_ID, 10001L, "LOGIN-001",
+                        "当前组长人员", "当前组长人员", "FORMAL", true)));
+        String storedParameterJson = """
+                [{"routeProcessId":1001,"processId":201,"deviceId":7001,"parameterCode":"pressure","parameterName":"压力","unit":"MPa","lowerLimit":1,"upperLimit":null,"defaultValue":2,"valueType":"INTEGER","standardText":"2","optionValuesJson":null,"defaultText":null,"decimalScale":null}]
+                """;
+        String productionConfigJson = "{\"routeProcessId\":1001,\"processId\":201,"
+                + "\"overagePercent\":10,\"inputMaterialIds\":[],\"outputMaterialIds\":[],"
+                + "\"lossReasons\":[],\"deviceSelectionGroups\":[],\"parameterRules\":[{"
+                + "\"routeProcessId\":1001,\"processId\":201,\"deviceId\":7001,"
+                + "\"parameterCode\":\"pressure\",\"parameterName\":\"压力\",\"unit\":\"MPa\","
+                + "\"lowerLimit\":1,\"defaultValue\":2,\"valueType\":\"INTEGER\",\"standardText\":\"2\"}]}";
+        when(processSnapshotMapper.selectByActiveOrderAndProcess(8101L, ROUTE_PROCESS_ID, PROCESS_ID))
+                .thenReturn(new MesProcessPoolActiveOrderProcessSnapshotDO()
+                        .setId(5104L)
+                        .setActiveOrderId(8101L)
+                        .setRouteId(ROUTE_ID)
+                        .setRouteProcessId(ROUTE_PROCESS_ID)
+                        .setProcessId(PROCESS_ID)
+                        .setParameterSnapshotJson(storedParameterJson)
+                        .setParameterSnapshotSha256(MesDeviceParameterSnapshotCodec.sha256(storedParameterJson))
+                        .setDeviceSelectionSnapshotJson("[]")
+                        .setDeviceSelectionSnapshotSha256(MesDeviceSelectionSnapshotCodec.sha256("[]"))
+                        .setParameterSnapshotState(MesDeviceParameterSnapshotCodec.STATE_FROZEN)
+                        .setLossReasonSnapshotJson("[]")
+                        .setLossReasonSnapshotSha256(cn.hutool.crypto.digest.DigestUtil.sha256Hex("[]"))
+                        .setOveragePercentSnapshot(new BigDecimal("10.000000"))
+                        .setProductionConfigSnapshotJson(productionConfigJson)
+                        .setProductionConfigSnapshotSha256(cn.hutool.crypto.digest.DigestUtil.sha256Hex(productionConfigJson))
+                        .setProductionConfigMigrationSource("ROUTE_VERSION")
+                        .setProductionConfigMigratedAt(LocalDateTime.of(2026, 9, 16, 19, 50)));
+
+        MesFrontlineRuntimeConfig config = assertDoesNotThrow(() -> service.getRuntimeConfig(LOGIN_USER_ID, 8101L,
+                ROUTE_ID, ROUTE_PROCESS_ID, PROCESS_ID));
+
+        assertEquals(productionConfigJson, config.productionSubmitContext().productionConfigSnapshotJson());
+        verify(parameterRuleMapper, never()).selectList(any());
+    }
+
+    @Test
     void getRuntimeConfig_usesFrozenActiveOrderDeviceAndLossReasonSnapshotsWithoutCurrentProcessConfig() {
         when(activeOrderProcessService.requireProcess(LOGIN_USER_ID, 8101L, ROUTE_ID, ROUTE_PROCESS_ID, PROCESS_ID))
                 .thenReturn(new MesFrontlineActiveOrderProcess(8101L, ROUTE_ID, 627L, "R-101", "Route 101",
@@ -363,7 +507,15 @@ class MesFrontlineRuntimeConfigServiceTest {
                         .setRouteId(ROUTE_ID)
                         .setRouteVersionId(627L)
                         .setRouteProcessId(frozenRouteProcessId)
-                        .setProcessId(PROCESS_ID));
+                        .setProcessId(PROCESS_ID)
+                        .setParameterSnapshotState(MesDeviceParameterSnapshotCodec.STATE_FROZEN)
+                        .setParameterSnapshotJson("[]")
+                        .setParameterSnapshotSha256(MesDeviceParameterSnapshotCodec.sha256("[]"))
+                        .setDeviceSelectionSnapshotJson(MesDeviceSelectionSnapshotCodec.canonicalize(List.of(), PROCESS_ID))
+                        .setDeviceSelectionSnapshotSha256(MesDeviceSelectionSnapshotCodec.sha256(
+                                MesDeviceSelectionSnapshotCodec.canonicalize(List.of(), PROCESS_ID)))
+                        .setLossReasonSnapshotJson("[]")
+                        .setLossReasonSnapshotSha256(cn.hutool.crypto.digest.DigestUtil.sha256Hex("[]")));
         when(processMaterialService.listFrozenMaterials(activeOrderId, ROUTE_ID, frozenRouteProcessId, PROCESS_ID))
                 .thenReturn(List.of(
                         new MesFrontlineProcessMaterial(501L, "A001", "弹簧", null, BigDecimal.ONE),

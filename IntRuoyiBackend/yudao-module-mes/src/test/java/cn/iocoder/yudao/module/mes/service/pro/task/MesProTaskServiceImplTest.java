@@ -1,6 +1,9 @@
 package cn.iocoder.yudao.module.mes.service.pro.task;
 
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.task.vo.MesProTaskSaveReqVO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.md.item.MesMdItemDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesProWorkOrderDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.schedule.MesProTaskScheduleExtDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.task.MesProTaskDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.schedule.MesProTaskScheduleExtMapper;
@@ -29,6 +32,9 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.inOrder;
+import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_WORK_ORDER_NOT_EXISTS;
 
 @ExtendWith(MockitoExtension.class)
 class MesProTaskServiceImplTest {
@@ -54,6 +60,46 @@ class MesProTaskServiceImplTest {
     private MesProRouteService routeService;
     @Mock
     private MesMdAutoCodeRecordService autoCodeRecordService;
+
+    @Test
+    void createTask_locksWorkOrderBeforeWritingTask() {
+        MesProTaskSaveReqVO request = new MesProTaskSaveReqVO();
+        request.setWorkOrderId(7L);
+        request.setItemId(8L);
+        request.setQuantity(BigDecimal.TEN);
+        when(workOrderService.validateWorkOrderExistsForUpdate(7L))
+                .thenReturn(new MesProWorkOrderDO().setClientId(9L));
+        when(itemService.validateItemExists(8L)).thenReturn(new MesMdItemDO().setName("产品"));
+        taskService.createTask(request);
+        var order = inOrder(workOrderService, taskMapper);
+        order.verify(workOrderService).validateWorkOrderExistsForUpdate(7L);
+        ArgumentCaptor<MesProTaskDO> taskCaptor = ArgumentCaptor.forClass(MesProTaskDO.class);
+        order.verify(taskMapper).insert(taskCaptor.capture());
+        assertEquals(7L, taskCaptor.getValue().getWorkOrderId());
+        assertEquals(9L, taskCaptor.getValue().getClientId());
+    }
+
+    @Test
+    void createTask_rejectsWorkOrderDeletedByCleanup() {
+        MesProTaskSaveReqVO request = new MesProTaskSaveReqVO();
+        request.setWorkOrderId(7L);
+        when(workOrderService.validateWorkOrderExistsForUpdate(7L))
+                .thenThrow(exception(PRO_WORK_ORDER_NOT_EXISTS));
+        assertThrows(ServiceException.class, () -> taskService.createTask(request));
+        verify(taskMapper, never()).insert(any(MesProTaskDO.class));
+    }
+
+    @Test
+    void updateTask_rejectsReassignmentToDeletedWorkOrder() {
+        MesProTaskSaveReqVO request = new MesProTaskSaveReqVO();
+        request.setId(1L);
+        request.setWorkOrderId(7L);
+        when(taskMapper.selectById(1L)).thenReturn(new MesProTaskDO().setId(1L));
+        when(workOrderService.validateWorkOrderExistsForUpdate(7L))
+                .thenThrow(exception(PRO_WORK_ORDER_NOT_EXISTS));
+        assertThrows(ServiceException.class, () -> taskService.updateTask(request));
+        verify(taskMapper, never()).updateById(any(MesProTaskDO.class));
+    }
 
     @Test
     void lockTask_shouldCreateScheduleExtWhenMissing() {

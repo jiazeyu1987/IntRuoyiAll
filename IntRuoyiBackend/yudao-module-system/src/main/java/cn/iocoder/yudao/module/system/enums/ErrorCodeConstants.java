@@ -81,6 +81,11 @@ public interface ErrorCodeConstants {
     ErrorCode GXP_AUDIT_IDEMPOTENCY_CONFLICT = new ErrorCode(1_002_032_005, "GxP 审计幂等键载荷冲突：{}");
     ErrorCode GXP_AUDIT_APPEND_FAILED = new ErrorCode(1_002_032_006, "GxP 审计写入失败，业务已回滚：{}");
     ErrorCode GXP_AUDIT_COVERAGE_GAP = new ErrorCode(1_002_032_007, "GxP 审计覆盖登记存在缺口：{}");
+    ErrorCode GXP_AUDIT_V2_CONTRACT_INVALID = new ErrorCode(1_002_032_008, "GxP V2 审计契约无效：{}");
+    ErrorCode GXP_AUDIT_POLICY_BUNDLE_INVALID = new ErrorCode(1_002_032_009, "GxP 审计策略包无效：{}");
+    ErrorCode GXP_AUDIT_POLICY_ACTIVATION_INVALID = new ErrorCode(1_002_032_010, "GxP 审计策略激活无效：{}");
+    ErrorCode GXP_AUDIT_ATTEMPT_INVALID = new ErrorCode(1_002_032_011, "GxP 审计失败尝试无效：{}");
+    ErrorCode GXP_AUDIT_RECEIPT_MISSING = new ErrorCode(1_002_032_012, "GXP_AUDIT_RECEIPT_MISSING：缺少原审计回执，须历史治理：{}");
 
     // ========== 用户模块 1-002-003-000 ==========
     ErrorCode USER_USERNAME_EXISTS = new ErrorCode(1_002_003_000, "用户账号已经存在");
@@ -121,6 +126,11 @@ public interface ErrorCodeConstants {
     ErrorCode ESIGN_CREDENTIAL_EXPIRED = new ErrorCode(1_002_003_036, "签名凭据已过期");
     ErrorCode ESIGN_IDENTITY_DISABLED = new ErrorCode(1_002_003_037, "电子签名账号已禁用");
     ErrorCode USER_UNLOCK_REASON_REQUIRED = new ErrorCode(1_002_003_038, "管理员解锁原因不能为空");
+    ErrorCode USER_EDIT_ID_INVALID = new ErrorCode(1_002_003_039, "编辑用户编号必须是正整数");
+    ErrorCode USER_POST_IDS_REQUIRED = new ErrorCode(1_002_003_040, "修改用户必须提交完整岗位编号数组，清空请提交空数组");
+    ErrorCode USER_POST_IDS_INVALID = new ErrorCode(1_002_003_041, "岗位编号集合必须只包含正 Long 编号");
+    ErrorCode USER_POST_BINDING_INCONSISTENT = new ErrorCode(1_002_003_042, "用户({})岗位绑定数据完整性异常：{}，请先处理正式绑定数据");
+    ErrorCode USER_POST_WRITE_FAILED = new ErrorCode(1_002_003_043, "用户({})岗位资料保存失败：{}，本次修改已撤销");
 
     // ========== 临时角色授权 1-002-003-100 ==========
     ErrorCode TEMPORARY_ROLE_GRANT_EXPIRE_TIME_INVALID = new ErrorCode(1_002_003_100, "临时角色授权有效期必须晚于当前时间");
@@ -137,6 +147,11 @@ public interface ErrorCodeConstants {
     ErrorCode DEPT_PARENT_ERROR = new ErrorCode(1_002_004_004, "不能设置自己为父部门");
     ErrorCode DEPT_NOT_ENABLE = new ErrorCode(1_002_004_006, "部门({})不处于开启状态，不允许选择");
     ErrorCode DEPT_PARENT_IS_CHILD = new ErrorCode(1_002_004_007, "不能设置自己的子部门为父部门");
+    ErrorCode DEPT_SUPERVISOR_REQUIRED = new ErrorCode(1_002_004_009, "部门（{}）及其上级部门均无可用主管，请先配置主管");
+    ErrorCode DEPT_SUPERVISOR_INVALID = new ErrorCode(1_002_004_010, "用户（{}）不存在、已停用或已离职，不能设为主管");
+    ErrorCode DEPT_HIERARCHY_INVALID = new ErrorCode(1_002_004_011, "部门（{}）的上级关系缺失或存在循环，请修复组织关系");
+    ErrorCode DEPT_DELETE_HAS_USERS = new ErrorCode(1_002_004_012, "部门（{}）仍有员工（含停用员工），本次删除未执行");
+    ErrorCode DEPT_DELETE_HAS_CHILDREN = new ErrorCode(1_002_004_013, "部门（{}）仍有子部门，本次批量删除未执行");
     ErrorCode DEPT_EXITS_USERS = new ErrorCode(1_002_004_008, "当前公司或部门下仍存在员工，请先删除员工后再删除组织");
 
     // ========== 岗位模块 1-002-005-000 ==========

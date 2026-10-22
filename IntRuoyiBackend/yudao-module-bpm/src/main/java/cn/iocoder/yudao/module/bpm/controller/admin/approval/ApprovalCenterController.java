@@ -29,6 +29,10 @@ import static cn.iocoder.yudao.framework.web.core.util.WebFrameworkUtils.getLogi
 public class ApprovalCenterController {
 
     private final ApprovalCenterService approvalCenterService;
+    @jakarta.annotation.Resource
+    private cn.iocoder.yudao.module.bpm.approval.content.ApprovalReviewPreviewService reviewPreviewService;
+    @jakarta.annotation.Resource
+    private cn.iocoder.yudao.module.bpm.approval.content.ApprovalCenterReviewFacade reviewFacade;
 
     public ApprovalCenterController(ApprovalCenterService approvalCenterService) {
         this.approvalCenterService = approvalCenterService;
@@ -58,8 +62,18 @@ public class ApprovalCenterController {
     @PostMapping("/tasks/review")
     @Operation(summary = "统一审批中心提交审核")
     @PreAuthorize("@ss.hasPermission('bpm:task:update')")
-    public CommonResult<Boolean> reviewTask(@Valid @RequestBody ApprovalTaskReviewReqVO reqVO) {
+    public CommonResult<Object> reviewTask(@Valid @RequestBody ApprovalTaskReviewReqVO reqVO) {
+        if (reqVO.getModuleCode() == cn.iocoder.yudao.module.bpm.approval.core.ApprovalModuleCode.EDHR)
+            return success(reviewFacade.review(getLoginUserId(), reqVO.toCommand()));
         approvalCenterService.reviewTask(getLoginUserId(), reqVO.toCommand());
         return success(true);
+    }
+
+    @PostMapping("/tasks/review-preview")
+    @PreAuthorize("@ss.hasPermission('bpm:task:query')")
+    public CommonResult<cn.iocoder.yudao.module.bpm.approval.content.ApprovalReviewPreviewService.ApprovalReviewPreview> reviewPreview(
+            @Valid @RequestBody ApprovalTaskReviewPreviewReqVO request) {
+        return success(reviewPreviewService.preview(getLoginUserId(), request.getModuleCode(),
+                request.getSourceTaskType(), request.getSourceTaskId(), request.getProcessInstanceId()));
     }
 }

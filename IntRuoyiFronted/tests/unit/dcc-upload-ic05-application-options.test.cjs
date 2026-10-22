@@ -223,7 +223,7 @@ test('durable working draft creation allows an unfilled choice and retains all c
   const payload = helpers.buildWorkingDraftPayload(unfilled, uploaded)
   assert.equal(payload.effectiveMode == null, true); assert.equal(payload.effectiveDate, null)
   assert.deepEqual(Array.from(payload.selectedDistributionDepartmentIds), [long])
-  assert.equal(payload.sourceUploadTicket, 'UT1'); assert.equal(payload.projectFolderId, '5'); assert.equal(payload.remark, '草稿说明')
+  assert.equal(payload.readOnlyUploadTicket, 'UT1'); assert.equal(payload.sourceUploadTicket, undefined); assert.equal(payload.projectFolderId, '5'); assert.equal(payload.remark, '草稿说明')
   const calls = []
   const service = helpers.createUploadSubmitterService({ createWorking: async value => { calls.push(value); return 11 }, submit: async () => { throw Error('must not submit') } })
   assert.equal(await service.saveDraft(unfilled, uploaded), 11)
@@ -266,4 +266,18 @@ test('IC31 actual payload builders preserve native source pairs and allow absent
   assert.throws(()=>helpers.buildSubmitPayload({...draft,approvalMatrixSelection:absent},uploaded),/主管.*来源/)
   const partial={...selection,supervisorSourceToken:undefined}
   assert.throws(()=>helpers.buildWorkingDraftPayload({...draft,approvalMatrixSelection:partial},uploaded),/主管.*来源/)
+})
+
+ test('dual versions retain attachments and bind the editable source in both submit and working drafts', () => {
+  const editable = { ...uploaded, uploadTicket: 'EDITABLE', fileName: 'source.docx' }
+  const attachment = { ...uploaded, uploadTicket: 'ATTACHMENT', sessionId: 'attachment-session', fileName: 'evidence.pdf' }
+  for (const build of [helpers.buildSubmitPayload, helpers.buildWorkingDraftPayload]) {
+    const result = build(draft, uploaded, undefined, [attachment], editable)
+    assert.equal(result.readOnlyUploadTicket, uploaded.uploadTicket)
+    assert.equal(result.editableUploadTicket, 'EDITABLE')
+    assert.equal(result.sourceFileName, 'source.docx')
+    assert.equal(result.originalUploadTicket, undefined)
+    assert.equal(result.attachmentUploadTickets[0].uploadTicket, 'ATTACHMENT')
+    assert.throws(() => build(draft, uploaded, undefined, [], { ...editable, sessionId: 'other' }), /会话/)
+  }
 })

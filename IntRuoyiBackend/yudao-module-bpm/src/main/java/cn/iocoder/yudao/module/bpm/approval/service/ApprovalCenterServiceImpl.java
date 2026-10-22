@@ -2,7 +2,8 @@ package cn.iocoder.yudao.module.bpm.approval.service;
 
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
 import cn.iocoder.yudao.module.bpm.approval.core.ApprovalTaskCapability;
-import cn.iocoder.yudao.module.bpm.approval.core.ApprovalTaskReviewResult;
+import cn.iocoder.yudao.module.bpm.approval.core.ApprovalModuleCode;
+import cn.iocoder.yudao.module.bpm.approval.service.provider.ApprovalCenterReviewPreflight;
 import cn.iocoder.yudao.module.bpm.approval.core.ApprovalTaskViewType;
 import cn.iocoder.yudao.module.bpm.approval.service.signature.ApprovalSignatureRecordResult;
 import cn.iocoder.yudao.module.bpm.approval.service.signature.ApprovalSignatureRecordService;
@@ -16,6 +17,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -60,42 +63,26 @@ public class ApprovalCenterServiceImpl implements ApprovalCenterService {
     }
 
     @Override
+    @Transactional(readOnly=true,isolation=org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
     public PageResult<ApprovalTaskSummary> getTaskPage(Long loginUserId, ApprovalTaskQuery query) {
         Objects.requireNonNull(loginUserId, "APPROVAL_LOGIN_USER_REQUIRED");
         boolean globalView = hasApprovalAdminRole(loginUserId);
         ApprovalTaskQuery safeQuery = query == null ? new ApprovalTaskQuery() : query;
         ApprovalTaskViewType viewType = Objects.requireNonNull(safeQuery.getViewType(),
                 "APPROVAL_VIEW_TYPE_REQUIRED");
-        if (safeQuery.getModuleCode() != null) {
-            ApprovalTaskProvider provider = providerRegistry.requireProvider(safeQuery.getModuleCode());
-            assertProviderVisible(provider, loginUserId);
-            assertViewSupported(provider, viewType);
-            ApprovalTaskQueryContext context = toContext(loginUserId, provider, safeQuery, globalView);
-            return enrichTaskUserNames(requireConsistentPage(provider, context, provider.page(context)));
+        queryWindowSize(safeQuery);
+        var context=ApprovalTaskQueryContext.of(loginUserId,viewType,safeQuery.getModuleCode(),safeQuery.getKeyword(),
+                safeQuery.getPageNo(),safeQuery.getPageSize(),globalView);
+        List<ApprovalTaskProvider> providers;
+        if(safeQuery.getModuleCode()!=null) {
+            var provider=providerRegistry.requireProvider(safeQuery.getModuleCode());
+            assertProviderVisible(provider,loginUserId);assertViewSupported(provider,viewType);providers=List.of(provider);
+        } else {
+            providers=providerRegistry.listProviders().stream().filter(p->p.isVisibleTo(loginUserId))
+                    .filter(p->p.getSupportedViewTypes().contains(viewType)).toList();
+            if(providers.isEmpty()) throw exception(APPROVAL_VIEW_TYPE_UNSUPPORTED,"全部可见模块",viewType);
         }
-
-        List<ApprovalTaskProvider> matchedProviders = providerRegistry.listProviders().stream()
-                .filter(provider -> provider.isVisibleTo(loginUserId))
-                .filter(provider -> provider.getSupportedViewTypes().contains(viewType))
-                .toList();
-        if (matchedProviders.isEmpty()) {
-            throw exception(APPROVAL_VIEW_TYPE_UNSUPPORTED, "全部可见模块", viewType);
-        }
-        ApprovalTaskQuery globalWindowQuery = toGlobalWindowQuery(safeQuery);
-        List<PageResult<ApprovalTaskSummary>> providerPages = matchedProviders.stream()
-                .map(provider -> {
-                    ApprovalTaskQueryContext context = toContext(loginUserId, provider, globalWindowQuery,
-                            globalView);
-                    return requireConsistentPage(provider, context, provider.page(context));
-                })
-                .toList();
-        List<ApprovalTaskSummary> rows = providerPages.stream()
-                .flatMap(page -> page.getList().stream())
-                .sorted(Comparator.comparing(ApprovalCenterServiceImpl::sortTime,
-                        Comparator.nullsLast(Comparator.reverseOrder())))
-                .toList();
-        enrichTaskUserNames(rows);
-        return pageRows(rows, safeQuery.getPageNo(), safeQuery.getPageSize(), sumTotal(providerPages));
+        return enrichTaskUserNames(ApprovalTaskWindowMerge.read(providers,context,ApprovalQueryWindow.from(context)));
     }
 
     @Override
@@ -130,9 +117,11 @@ public class ApprovalCenterServiceImpl implements ApprovalCenterService {
         Objects.requireNonNull(command.getModuleCode(), "APPROVAL_MODULE_REQUIRED");
         requireText(command.getSourceTaskType(), "APPROVAL_SOURCE_TASK_TYPE_REQUIRED");
         Objects.requireNonNull(command.getResult(), "APPROVAL_REVIEW_RESULT_REQUIRED");
-        if (command.getResult() == ApprovalTaskReviewResult.REJECT
-                && (command.getReason() == null || command.getReason().isBlank())) {
-            throw new IllegalArgumentException("APPROVAL_REJECT_REASON_REQUIRED");
+        String reason = command.getReason() == null ? null
+                : command.getReason().replaceAll(
+                        "^[\\p{javaWhitespace}\\p{javaSpaceChar}\\x00-\\x20\\uFEFF]+|[\\p{javaWhitespace}\\p{javaSpaceChar}\\x00-\\x20\\uFEFF]+$", "");
+        if (reason == null || reason.isEmpty()) {
+            throw new IllegalArgumentException("APPROVAL_REVIEW_REASON_REQUIRED");
         }
         String signaturePassword = command.getSignaturePassword();
         if (signaturePassword == null || signaturePassword.isBlank()) {
@@ -145,8 +134,17 @@ public class ApprovalCenterServiceImpl implements ApprovalCenterService {
         ApprovalTaskReviewContext reviewContext = ApprovalTaskReviewContext.of(loginUserId, command.getModuleCode(),
                 command.getSourceTaskType(),
                 command.getSourceTaskId(), command.getBusinessKey(), command.getProcessInstanceId(),
-                command.getResult(), command.getReason() == null ? null : command.getReason().trim(),
+                command.getResult(), reason,
                 signaturePassword, globalView);
+        if (command.getModuleCode() == ApprovalModuleCode.EDHR) {
+            if (!(provider instanceof ApprovalCenterReviewPreflight preflight)) {
+                throw new IllegalStateException("APPROVAL_REVIEW_PREFLIGHT_REQUIRED: EDHR");
+            }
+            preflight.preflightReview(reviewContext);
+        }
+        if (command.getModuleCode() == ApprovalModuleCode.BPM && provider instanceof ApprovalCenterReviewPreflight preflight) {
+            preflight.preflightReview(reviewContext);
+        }
         ApprovalSignatureRecordResult signatureRecord =
                 Objects.requireNonNull(signatureRecordService.recordReviewSignature(reviewContext),
                         "APPROVAL_SIGNATURE_RECORD_RESULT_REQUIRED");
@@ -223,17 +221,16 @@ public class ApprovalCenterServiceImpl implements ApprovalCenterService {
         return requiredPage;
     }
 
-    private static ApprovalTaskQuery toGlobalWindowQuery(ApprovalTaskQuery query) {
-        int safePageNo = safePageNo(query.getPageNo());
-        int safePageSize = safePageSize(query.getPageSize());
-        long requestedRows = (long) safePageNo * safePageSize;
-        int globalWindowSize = requestedRows > Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) requestedRows;
-        return new ApprovalTaskQuery()
-                .setViewType(query.getViewType())
-                .setModuleCode(query.getModuleCode())
-                .setKeyword(query.getKeyword())
-                .setPageNo(1)
-                .setPageSize(globalWindowSize);
+    private static ApprovalTaskQueryContext toGlobalWindowQuery(Long loginUserId, ApprovalTaskQuery query,
+                                                                boolean globalView, long window) {
+        // Internal context carries K independently of the HTTP request's pageSize <= 200 validation.
+        return ApprovalTaskQueryContext.of(loginUserId,query.getViewType(),null,query.getKeyword(),1,10,globalView)
+                .setWindow(new ApprovalQueryWindow(0,window));
+    }
+
+    private static long queryWindowSize(ApprovalTaskQuery query) {
+        long window = Math.multiplyExact((long)safePageNo(query.getPageNo()),safePageSize(query.getPageSize()));
+        return window;
     }
 
     private static PageResult<ApprovalTaskSummary> pageRows(List<ApprovalTaskSummary> rows,
@@ -245,21 +242,23 @@ public class ApprovalCenterServiceImpl implements ApprovalCenterService {
                                                             Integer pageNo, Integer pageSize, Long total) {
         int safePageNo = safePageNo(pageNo);
         int safePageSize = safePageSize(pageSize);
-        int fromIndex = Math.min((safePageNo - 1) * safePageSize, rows.size());
-        int toIndex = Math.min(fromIndex + safePageSize, rows.size());
+        int fromIndex = (int)Math.min(Math.multiplyExact((long)safePageNo - 1,safePageSize),rows.size());
+        int toIndex = (int)Math.min((long)fromIndex + safePageSize,rows.size());
         return new PageResult<>(rows.subList(fromIndex, toIndex), total);
     }
 
     private static int safePageNo(Integer pageNo) {
-        return pageNo == null || pageNo < 1 ? 1 : pageNo;
+        if (pageNo != null && pageNo < 1) throw new IllegalArgumentException("QUERY_WINDOW_RANGE_UNSUPPORTED");
+        return pageNo == null ? 1 : pageNo;
     }
 
     private static int safePageSize(Integer pageSize) {
-        return pageSize == null || pageSize < 1 ? 10 : pageSize;
+        if (pageSize != null && pageSize < 1) throw new IllegalArgumentException("QUERY_WINDOW_RANGE_UNSUPPORTED");
+        return pageSize == null ? 10 : pageSize;
     }
 
     private static long sumTotal(List<PageResult<ApprovalTaskSummary>> pages) {
-        return pages.stream().mapToLong(PageResult::getTotal).sum();
+        long total=0; for(var page:pages) total=Math.addExact(total,page.getTotal()); return total;
     }
 
     private PageResult<ApprovalTaskSummary> enrichTaskUserNames(PageResult<ApprovalTaskSummary> page) {
@@ -316,10 +315,31 @@ public class ApprovalCenterServiceImpl implements ApprovalCenterService {
         return value != null && value.matches(".*\\?{2,}.*");
     }
 
-    private static LocalDateTime sortTime(ApprovalTaskSummary summary) {
-        if (summary.getTaskCreatedAt() != null) {
-            return summary.getTaskCreatedAt();
-        }
-        return summary.getInitiatedAt();
+    public static List<ApprovalTaskSummary> sortRows(List<ApprovalTaskSummary> rows,ApprovalTaskViewType view) {
+        rows.forEach(row->row.setSortTimeMissing(sortTime(row,view)==null));
+        return rows.stream().sorted((left,right)->compareRows(left,right,view)).toList();
+    }
+    public static int compareRows(ApprovalTaskSummary left,ApprovalTaskSummary right,ApprovalTaskViewType view) {
+        int time=Comparator.nullsLast(Comparator.<LocalDateTime>reverseOrder()).compare(sortTime(left,view),sortTime(right,view));
+        if(time!=0) return time;
+        int module=compareUtf8(Objects.requireNonNull(left.getModuleCode()).name(),Objects.requireNonNull(right.getModuleCode()).name());
+        if(module!=0) return module;
+        int type=compareUtf8(requireText(left.getSourceTaskType(),"APPROVAL_SORT_SOURCE_TYPE_REQUIRED"),
+                requireText(right.getSourceTaskType(),"APPROVAL_SORT_SOURCE_TYPE_REQUIRED"));
+        if(type!=0) return type;
+        return compareUtf8(requireText(left.getSourceTaskId(),"APPROVAL_SORT_SOURCE_ID_REQUIRED"),
+                requireText(right.getSourceTaskId(),"APPROVAL_SORT_SOURCE_ID_REQUIRED"));
+    }
+
+    private static int compareUtf8(String left,String right) {
+        return Arrays.compareUnsigned(left.getBytes(StandardCharsets.UTF_8),right.getBytes(StandardCharsets.UTF_8));
+    }
+
+    private static LocalDateTime sortTime(ApprovalTaskSummary summary,ApprovalTaskViewType view) {
+        return switch (view) {
+            case TODO, CC -> summary.getTaskCreatedAt();
+            case DONE -> summary.getTaskCompletedAt();
+            case MY_INITIATED -> summary.getInitiatedAt();
+        };
     }
 }

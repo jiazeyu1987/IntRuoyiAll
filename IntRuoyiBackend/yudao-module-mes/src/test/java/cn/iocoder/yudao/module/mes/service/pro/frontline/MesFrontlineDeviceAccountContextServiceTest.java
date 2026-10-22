@@ -25,6 +25,8 @@ import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.beans.factory.ObjectProvider;
@@ -45,11 +47,14 @@ import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_FRONTLINE_DEVICE_ACCOUNT_ROUTE_EMPTY;
 
 @ExtendWith(MockitoExtension.class)
 class MesFrontlineDeviceAccountContextServiceTest {
 
     private static final Long LOGIN_USER_ID = 9001L;
+    private static final String LEGACY_ALL_PROCESS_PERMISSION =
+            "mes:pro-feedback:frontline-pressure-pump:all-processes";
 
     @Mock
     private ObjectProvider<MesFrontlineDeviceAccountRouteBindingSource> routeBindingSourceProvider;
@@ -152,7 +157,7 @@ class MesFrontlineDeviceAccountContextServiceTest {
     @Test
     void shouldNotGrantPressurePumpProcessesByMenuPermissionWithoutRouteStartLeaderConfig() {
         lenient().when(permissionApi.hasAnyPermissions(eq(LOGIN_USER_ID),
-                eq(MesFrontlineDeviceAccountContextServiceImpl.PRESSURE_PUMP_ALL_PROCESS_PERMISSION)))
+                eq(LEGACY_ALL_PROCESS_PERMISSION)))
                 .thenReturn(true);
         when(routeService.getRouteListByStatus(CommonStatusEnum.ENABLE.getStatus())).thenReturn(List.of(
                 route(922119L, "RT000028", "球囊扩张压力泵")));
@@ -175,11 +180,13 @@ class MesFrontlineDeviceAccountContextServiceTest {
         verify(routeProcessMapper, never()).selectListByRouteIds(Set.of(922119L));
     }
 
-    @Test
-    void shouldAuthorizeRouteStartProcessesByStandardPermissionWithoutRoleIdMatch() {
-        when(permissionApi.hasAnyPermissions(eq(LOGIN_USER_ID),
-                eq(MesFrontlineDeviceAccountContextServiceImpl.PRESSURE_PUMP_ALL_PROCESS_PERMISSION)))
+    @ParameterizedTest
+    @ValueSource(strings = {"ROLE", "USERS"})
+    void shouldRejectLegacyAllProcessPermissionWhenFormalRouteOwnerDoesNotMatch(String candidateSourceType) {
+        lenient().when(permissionApi.hasAnyPermissions(eq(LOGIN_USER_ID),
+                eq(LEGACY_ALL_PROCESS_PERMISSION)))
                 .thenReturn(true);
+        lenient().when(permissionApi.getUserRoleIdListByUserId(LOGIN_USER_ID)).thenReturn(Set.of());
         when(routeService.getRouteListByStatus(CommonStatusEnum.ENABLE.getStatus())).thenReturn(List.of(
                 route(922119L, "RT000028", "球囊扩张压力泵")));
         when(routeVersionMapper.selectListByRouteIds(Set.of(922119L))).thenReturn(List.of(activeRouteVersion(
@@ -192,42 +199,42 @@ class MesFrontlineDeviceAccountContextServiceTest {
                             "routeStartProductionLeaders": [
                               {
                                 "productionLineId": 922119,
-                                "candidateSourceType": "ROLE",
+                                "candidateSourceType": "%s",
                                 "candidateSourceIds": [77],
                                 "candidateSourceNames": ["压力泵生产组长"]
                               }
                             ]
                           }
                         }
-                        """)));
-        when(routeProcessMapper.selectListByRouteIds(Set.of(922119L))).thenReturn(List.of(
+                        """.formatted(candidateSourceType))));
+        lenient().when(routeProcessMapper.selectListByRouteIds(Set.of(922119L))).thenReturn(List.of(
                 routeProcess(923100L, 922119L, 922985L, 980010L, 10)));
-        when(processService.getProcessMap(Set.of(922985L))).thenReturn(Map.of(
+        lenient().when(processService.getProcessMap(Set.of(922985L))).thenReturn(Map.of(
                 922985L, enabledProcess(922985L, "P-922985", "粗洗工序")));
-        when(workstationService.getWorkstationMap(Set.of(980010L))).thenReturn(Map.of(
+        lenient().when(workstationService.getWorkstationMap(Set.of(980010L))).thenReturn(Map.of(
                 980010L, workstation(980010L, "WS-CX")));
-        when(workstationMachineService.getWorkstationMachineListByWorkstationIds(Set.of(980010L)))
+        lenient().when(workstationMachineService.getWorkstationMachineListByWorkstationIds(Set.of(980010L)))
                 .thenReturn(List.of());
+        lenient().when(routeBindingSourceProvider.getIfAvailable()).thenReturn(routeBindingSource);
+        lenient().when(routeBindingSource.listEnabledRouteBindings(LOGIN_USER_ID)).thenReturn(List.of());
 
-        List<MesFrontlineRouteProcessCandidate> candidates = contextService.listSwitchableProcesses(LOGIN_USER_ID);
+        ServiceException exception = assertThrows(ServiceException.class,
+                () -> contextService.listSwitchableProcesses(LOGIN_USER_ID));
 
-        assertEquals(List.of(923100L),
-                candidates.stream().map(MesFrontlineRouteProcessCandidate::routeProcessId).toList());
-        assertEquals(List.of(922985L),
-                candidates.stream().map(MesFrontlineRouteProcessCandidate::processId).toList());
-        verify(routeBindingSourceProvider, never()).getIfAvailable();
-        verify(permissionApi, never()).getUserRoleIdListByUserId(LOGIN_USER_ID);
+        assertEquals(PRO_FRONTLINE_DEVICE_ACCOUNT_ROUTE_EMPTY.getCode(), exception.getCode());
+        verify(routeProcessMapper, never()).selectListByRouteIds(Set.of(922119L));
+        verify(permissionApi, never()).hasAnyPermissions(LOGIN_USER_ID, LEGACY_ALL_PROCESS_PERMISSION);
     }
 
     @Test
-    void shouldNotExpandPressurePumpPermissionToNonPressurePumpRouteStartRoutes() {
-        when(permissionApi.hasAnyPermissions(eq(LOGIN_USER_ID),
-                eq(MesFrontlineDeviceAccountContextServiceImpl.PRESSURE_PUMP_ALL_PROCESS_PERMISSION)))
+    void shouldKeepFormalOwnerScopeWhenLegacyAllProcessPermissionIsAlsoGranted() {
+        lenient().when(permissionApi.hasAnyPermissions(eq(LOGIN_USER_ID),
+                eq(LEGACY_ALL_PROCESS_PERMISSION)))
                 .thenReturn(true);
         when(routeService.getRouteListByStatus(CommonStatusEnum.ENABLE.getStatus())).thenReturn(List.of(
                 route(922119L, "RT000028", "球囊扩张压力泵"),
                 route(930000L, "RT-CLEAN", "普通清洗路线")));
-        when(permissionApi.getUserRoleIdListByUserId(LOGIN_USER_ID)).thenReturn(Set.of());
+        when(permissionApi.getUserRoleIdListByUserId(LOGIN_USER_ID)).thenReturn(Set.of(77L));
         when(routeVersionMapper.selectListByRouteIds(Set.of(922119L, 930000L))).thenReturn(List.of(
                 activeRouteVersion(9901L, 922119L, """
                         {
@@ -276,6 +283,7 @@ class MesFrontlineDeviceAccountContextServiceTest {
                 candidates.stream().map(MesFrontlineRouteProcessCandidate::processId).toList());
         verify(routeProcessMapper).selectListByRouteIds(Set.of(922119L));
         verify(permissionApi).getUserRoleIdListByUserId(LOGIN_USER_ID);
+        verify(permissionApi, never()).hasAnyPermissions(LOGIN_USER_ID, LEGACY_ALL_PROCESS_PERMISSION);
     }
 
     @Test

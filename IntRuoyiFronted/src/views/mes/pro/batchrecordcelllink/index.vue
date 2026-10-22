@@ -675,8 +675,11 @@ const canCreateRule = computed(() => Boolean(
 ))
 const availableAggregationOptions = computed(() => {
   const sourceValueType = (selectedSourceCell.value?.valueType || 'STRING') as ProcessPoolSourceValueType
+  const fieldCode = String(selectedSourceCell.value?.sourceFieldCode || selectedSourceCell.value?.cellKey || '')
+  const identityField = fieldCode === 'operatorUserId' || fieldCode === 'actualEmployeeId'
   return PROCESS_POOL_REPORT_AGGREGATION_OPTIONS.filter((option) =>
-    option.sourceValueTypes.includes(sourceValueType)
+    option.sourceValueTypes.includes(sourceValueType) &&
+    (!identityField || option.value === 'FIRST' || option.value === 'LAST')
   )
 })
 

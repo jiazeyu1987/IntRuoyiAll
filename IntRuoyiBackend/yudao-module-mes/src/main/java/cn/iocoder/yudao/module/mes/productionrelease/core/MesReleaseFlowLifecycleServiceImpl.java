@@ -51,6 +51,7 @@ public class MesReleaseFlowLifecycleServiceImpl {
                 .setIdempotencyKey(command.getIdempotencyKey())
                 .setTenantId(application.getTenantId())
                 .setApplicationId(application.getId())
+                .setActiveOrderId(application.getActiveOrderId())
                 .setWorkTaskId(command.getWorkTaskId())
                 .setBatchExecutionId(application.getBatchExecutionId())
                 .setReleaseTransactionId(command.getReleaseTransactionId())

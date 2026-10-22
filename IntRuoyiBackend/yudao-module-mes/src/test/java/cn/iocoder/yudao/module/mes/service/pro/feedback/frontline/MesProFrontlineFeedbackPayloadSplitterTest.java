@@ -30,8 +30,8 @@ class MesProFrontlineFeedbackPayloadSplitterTest {
                 new MesProFrontlineFeedbackPayloadSplitter().split(reqVO, 9001L, submittedAt, lossReasonSnapshot);
 
         MesProFeedbackSaveReqVO feedbackPayload = splitPayload.getFeedbackPayload();
-        assertEquals(new BigDecimal("100.500"), feedbackPayload.getFeedbackQuantity());
-        assertEquals(new BigDecimal("98.000"), feedbackPayload.getQualifiedQuantity());
+        assertEquals(new BigDecimal("103.000"), feedbackPayload.getFeedbackQuantity());
+        assertEquals(new BigDecimal("100.500"), feedbackPayload.getQualifiedQuantity());
         assertEquals(new BigDecimal("2.500"), feedbackPayload.getUnqualifiedQuantity());
         assertEquals(new BigDecimal("1.000"), feedbackPayload.getLaborScrapQuantity());
         assertEquals(new BigDecimal("1.500"), feedbackPayload.getMaterialScrapQuantity());
@@ -93,6 +93,23 @@ class MesProFrontlineFeedbackPayloadSplitterTest {
         assertEquals(new BigDecimal("50"), eventRawPayload.get("temperature"));
         assertEquals(new BigDecimal("10"), eventRawPayload.get("pressure"));
         assertEquals(submittedAt, eventPayload.getSubmittedAt());
+    }
+
+    @Test
+    void independentLossDoesNotReduceQualifiedOutputOrChangeSignedSourcePayload() {
+        MesProFrontlineFeedbackSubmitReqVO request = MesProFrontlineFeedbackSubmitTestData.buildSubmitReq();
+        request.getFeedbackPayload().setOutputQuantity(new BigDecimal("10"));
+        request.getFeedbackPayload().setLossQuantity(new BigDecimal("12"));
+        Map<String, Object> originalRaw = new LinkedHashMap<>(request.getRawPayload());
+        var result = new MesProFrontlineFeedbackPayloadSplitter().split(request, 9001L, LocalDateTime.now());
+        assertEquals(new BigDecimal("22"), result.getFeedbackPayload().getFeedbackQuantity());
+        assertEquals(new BigDecimal("10"), result.getFeedbackPayload().getQualifiedQuantity());
+        assertEquals(new BigDecimal("12"), result.getFeedbackPayload().getUnqualifiedQuantity());
+        assertEquals(new BigDecimal("10"), result.getProcessPoolEventPayload().getOutputQuantity());
+        assertEquals(new BigDecimal("12"), result.getProcessPoolEventPayload().getLossQuantity());
+        assertEquals(new BigDecimal("10"), result.getProcessPoolEventPayload().getRawPayload().get("outputQuantity"));
+        assertEquals(new BigDecimal("12"), result.getProcessPoolEventPayload().getRawPayload().get("lossQuantity"));
+        assertEquals(originalRaw, request.getRawPayload());
     }
 
     @Test

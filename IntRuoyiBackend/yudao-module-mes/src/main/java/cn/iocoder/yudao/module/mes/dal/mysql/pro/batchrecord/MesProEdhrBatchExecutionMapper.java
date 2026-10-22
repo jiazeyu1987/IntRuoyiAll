@@ -1,6 +1,7 @@
 package cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord;
 
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
+import cn.iocoder.yudao.framework.common.pojo.PageParam;
 import cn.iocoder.yudao.framework.mybatis.core.mapper.BaseMapperX;
 import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
 import cn.iocoder.yudao.framework.mybatis.core.query.QuickFilterUtils;
@@ -8,10 +9,16 @@ import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatch
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionDO;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Select;
 import org.apache.ibatis.annotations.Update;
+import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Select;
 
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
+import cn.hutool.core.util.StrUtil;
 
 @Mapper
 public interface MesProEdhrBatchExecutionMapper extends BaseMapperX<MesProEdhrBatchExecutionDO> {
@@ -20,15 +27,76 @@ public interface MesProEdhrBatchExecutionMapper extends BaseMapperX<MesProEdhrBa
     int BATCH_STATUS_FROZEN = 15;
     int BATCH_STATUS_REJECTED = 50;
     int BATCH_STATUS_VOIDED = 60;
+    DateTimeFormatter SQL_DATETIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
     @Update("UPDATE mes_pro_edhr_batch_execution SET active_context_key = NULL WHERE id = #{id}")
     void clearActiveContextKey(@Param("id") Long id);
+
+    @Select("SELECT * FROM mes_pro_edhr_batch_execution WHERE id = #{id} "
+            + "AND deleted = b'0' FOR UPDATE")
+    MesProEdhrBatchExecutionDO selectByIdForUpdate(@Param("id") Long id);
+
+    default MesProEdhrBatchExecutionDO selectByTenantIdAndIdForUpdate(Long tenantId, Long id) {
+        return selectOne(new LambdaQueryWrapperX<MesProEdhrBatchExecutionDO>()
+                .eq(MesProEdhrBatchExecutionDO::getTenantId, tenantId)
+                .eq(MesProEdhrBatchExecutionDO::getId, id)
+                .eq(MesProEdhrBatchExecutionDO::getDeleted, false)
+                .last("FOR UPDATE"));
+    }
+
+    default MesProEdhrBatchExecutionDO selectByTenantIdAndId(Long tenantId, Long id) {
+        return selectOne(new LambdaQueryWrapperX<MesProEdhrBatchExecutionDO>()
+                .eq(MesProEdhrBatchExecutionDO::getTenantId, tenantId)
+                .eq(MesProEdhrBatchExecutionDO::getId, id));
+    }
+
+    default PageResult<MesProEdhrBatchExecutionDO> selectDeviationOptionsPage(
+            PageParam pageParam, Long tenantId, String search) {
+        LambdaQueryWrapperX<MesProEdhrBatchExecutionDO> query = new LambdaQueryWrapperX<>();
+        query.eq(MesProEdhrBatchExecutionDO::getTenantId, tenantId)
+                .ne(MesProEdhrBatchExecutionDO::getStatus, BATCH_STATUS_VOIDED)
+                .notExists("SELECT 1 FROM mes_pro_edhr_release_transaction rt "
+                        + "WHERE rt.tenant_id = mes_pro_edhr_batch_execution.tenant_id "
+                        + "AND rt.batch_execution_id = mes_pro_edhr_batch_execution.id "
+                        + "AND rt.deleted = 0 AND rt.release_status = 'RELEASED'");
+        // Deviations must be traceable from the active-order detail. Exclude legacy/manual
+        // batches that have no formal active-order origin from the initiation selector.
+        query.exists("SELECT 1 FROM mes_pro_edhr_batch_execution_origin origin "
+                + "WHERE origin.tenant_id = mes_pro_edhr_batch_execution.tenant_id "
+                + "AND origin.batch_execution_id = mes_pro_edhr_batch_execution.id "
+                + "AND origin.deleted = 0 AND origin.active_order_id IS NOT NULL "
+                + "AND origin.entry_type IN ('ACTIVE_ORDER_COMPLETION','ACTIVE_ORDER_SCHEDULED',"
+                + "'ACTIVE_ORDER_PQC','MANUAL_CONTROLLED_RETRY')");
+        if (StrUtil.isNotBlank(search)) {
+            query.and(wrapper -> wrapper
+                    .like(MesProEdhrBatchExecutionDO::getBatchExecutionCode, search)
+                    .or()
+                    .like(MesProEdhrBatchExecutionDO::getBatchCode, search));
+        }
+        query.orderByDesc(MesProEdhrBatchExecutionDO::getId);
+        return selectPage(pageParam, query);
+    }
 
     @Update("UPDATE mes_pro_edhr_batch_execution SET provisioning_status = #{status} "
             + "WHERE tenant_id = #{tenantId} AND id = #{id}")
     int updateProvisioningStatus(@Param("tenantId") Long tenantId,
                                  @Param("id") Long id,
                                  @Param("status") String status);
+
+    @Update("""
+            UPDATE mes_pro_edhr_batch_execution
+            SET status = 20,
+                provisioning_status = 'BATCH_READY',
+                updater = CAST(#{actorUserId} AS CHAR),
+                update_time = NOW()
+            WHERE tenant_id = #{tenantId}
+              AND id = #{id}
+              AND deleted = b'0'
+              AND status IN (0, 10, 20)
+            """)
+    int markActiveOrderPqcReleasedReadyForMarketRelease(@Param("tenantId") Long tenantId,
+                                                        @Param("id") Long id,
+                                                        @Param("actorUserId") Long actorUserId);
 
     @Update("""
             UPDATE mes_pro_edhr_batch_execution
@@ -88,6 +156,7 @@ public interface MesProEdhrBatchExecutionMapper extends BaseMapperX<MesProEdhrBa
                 .likeIfPresent(MesProEdhrBatchExecutionDO::getWorkOrderCode, reqVO.getWorkOrderCode())
                 .likeIfPresent(MesProEdhrBatchExecutionDO::getBatchCode, reqVO.getBatchCode())
                 .likeIfPresent(MesProEdhrBatchExecutionDO::getProductCode, reqVO.getProductCode())
+                .likeIfPresent(MesProEdhrBatchExecutionDO::getProductName, reqVO.getProductName())
                 .eqIfPresent(MesProEdhrBatchExecutionDO::getRouteId, reqVO.getRouteId())
                 .likeIfPresent(MesProEdhrBatchExecutionDO::getRouteCode, reqVO.getRouteCode())
                 .eqIfPresent(MesProEdhrBatchExecutionDO::getStatus, reqVO.getStatus())
@@ -105,6 +174,9 @@ public interface MesProEdhrBatchExecutionMapper extends BaseMapperX<MesProEdhrBa
                     + "AND rt.deleted = 0 "
                     + "AND rt.release_status = 'RELEASED'");
         }
+        if (Boolean.TRUE.equals(reqVO.getReleasedOnly())) {
+            queryWrapper.exists(releasedTransactionExistsSql(reqVO.getReleaseApprovedTime()));
+        }
         if (Boolean.TRUE.equals(reqVO.getCompletedTraceOnly())) {
             queryWrapper.and(wrapper -> wrapper
                     .in(MesProEdhrBatchExecutionDO::getStatus,
@@ -119,6 +191,7 @@ public interface MesProEdhrBatchExecutionMapper extends BaseMapperX<MesProEdhrBa
                 "workOrderCode", QuickFilterUtils.QuickFilterField.text(MesProEdhrBatchExecutionDO::getWorkOrderCode),
                 "batchCode", QuickFilterUtils.QuickFilterField.text(MesProEdhrBatchExecutionDO::getBatchCode),
                 "product", QuickFilterUtils.QuickFilterField.text(MesProEdhrBatchExecutionDO::getProductCode),
+                "productName", QuickFilterUtils.QuickFilterField.text(MesProEdhrBatchExecutionDO::getProductName),
                 "status", QuickFilterUtils.QuickFilterField.integerSelect(MesProEdhrBatchExecutionDO::getStatus),
                 "createTime", QuickFilterUtils.QuickFilterField.localDateTimeRange(MesProEdhrBatchExecutionDO::getCreateTime)
         ));
@@ -126,11 +199,27 @@ public interface MesProEdhrBatchExecutionMapper extends BaseMapperX<MesProEdhrBa
     }
 
     private String releasedTransactionExistsSql() {
-        return "SELECT 1 FROM mes_pro_edhr_release_transaction rt "
+        return releasedTransactionExistsSql(null);
+    }
+
+    private String releasedTransactionExistsSql(LocalDateTime[] releaseApprovedTime) {
+        String sql = "SELECT 1 FROM mes_pro_edhr_release_transaction rt "
                 + "WHERE rt.tenant_id = mes_pro_edhr_batch_execution.tenant_id "
                 + "AND rt.batch_execution_id = mes_pro_edhr_batch_execution.id "
                 + "AND rt.deleted = 0 "
                 + "AND rt.release_status = 'RELEASED'";
+        if (releaseApprovedTime == null || releaseApprovedTime.length == 0) {
+            return sql;
+        }
+        LocalDateTime start = releaseApprovedTime.length > 0 ? releaseApprovedTime[0] : null;
+        LocalDateTime end = releaseApprovedTime.length > 1 ? releaseApprovedTime[1] : null;
+        if (start != null) {
+            sql += " AND rt.approved_at >= TIMESTAMP '" + SQL_DATETIME_FORMATTER.format(start) + "'";
+        }
+        if (end != null) {
+            sql += " AND rt.approved_at <= TIMESTAMP '" + SQL_DATETIME_FORMATTER.format(end) + "'";
+        }
+        return sql;
     }
 
     default List<MesProEdhrBatchExecutionDO> selectUnarchivedListByBatchCode(String batchCode) {

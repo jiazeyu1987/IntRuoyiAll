@@ -44,6 +44,12 @@ class ProcessPoolTimelineReportAllocationProjectionTest {
             }
 
             @Override
+            public List<ProcessPoolTimelineEventReadDO> selectPqcSubmissionGroupPayloadsByGroupIds(
+                    List<String> groupIds) {
+                return List.of();
+            }
+
+            @Override
             public List<ProcessPoolTimelineReportAllocationReadDO> selectReportAllocationsByEventIds(
                     List<Long> eventIds) {
                 assertEquals(List.of(1001L), eventIds);
@@ -150,6 +156,12 @@ class ProcessPoolTimelineReportAllocationProjectionTest {
             }
 
             @Override
+            public List<ProcessPoolTimelineEventReadDO> selectPqcSubmissionGroupPayloadsByGroupIds(
+                    List<String> groupIds) {
+                return List.of();
+            }
+
+            @Override
             public List<ProcessPoolTimelineReportAllocationReadDO> selectReportAllocationsByEventIds(
                     List<Long> eventIds) {
                 return List.of();
@@ -202,6 +214,12 @@ class ProcessPoolTimelineReportAllocationProjectionTest {
             @Override
             public ProcessPoolTimelineEventReadDO selectTimelineDetailById(Long id) {
                 return event;
+            }
+
+            @Override
+            public List<ProcessPoolTimelineEventReadDO> selectPqcSubmissionGroupPayloadsByGroupIds(
+                    List<String> groupIds) {
+                return List.of();
             }
 
             @Override

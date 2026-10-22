@@ -49,5 +49,7 @@ public class ElectronicSignatureRecordDO extends TenantBaseDO {
     private String taskId;
     private String nodeCode;
     private Integer nodeOrder;
+    private String evidenceFormatVersion;
+    private String commandHashVersion;
 
 }

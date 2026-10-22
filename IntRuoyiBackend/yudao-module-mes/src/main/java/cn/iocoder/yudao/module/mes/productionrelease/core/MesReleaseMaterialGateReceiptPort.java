@@ -5,6 +5,8 @@ package cn.iocoder.yudao.module.mes.productionrelease.core;
  * MATERIALS_READY receipt; Flow 10 never derives or accepts its payload from HTTP.
  */
 public interface MesReleaseMaterialGateReceiptPort {
+    cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesEdhrVerifiedMaterialGateFact getCreationVerifiedByReceiptId(
+            Long tenantId, Long batchExecutionId, String receiptId, String sourceSnapshotHash);
 
     MesReleaseMaterialGateReceipt getVerifiedByReceiptId(Long tenantId, Long batchExecutionId,
                                                           String receiptId, String sourceSnapshotHash);

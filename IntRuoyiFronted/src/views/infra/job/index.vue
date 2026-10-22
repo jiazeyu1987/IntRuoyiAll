@@ -309,7 +309,12 @@ const handleRun = async (row: JobApi.JobVO) => {
     await message.confirm('确认要立即执行一次' + row.name + '?', t('common.reminder'))
     // 提交执行
     await JobApi.runJob(row.id)
-    message.success('执行成功')
+    message.success(
+      row.handlerName === 'workbenchProjectionRetentionJob' ||
+        row.handlerName === 'workbenchProjectionHistoryJob'
+        ? '调度已提交，请在执行日志核对实际结果'
+        : '执行成功'
+    )
     // 刷新列表
     await getList()
   } catch {}

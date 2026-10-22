@@ -63,6 +63,8 @@ class MesProProcessServiceImplTest {
     @Mock
     private MesProProcessMapper processMapper;
     @Mock
+    private MesProProcessCreationService processCreationService;
+    @Mock
     private MesDvMachineryProcessMapper machineryProcessMapper;
     @Mock
     private MesDvMachineryMapper machineryMapper;
@@ -129,34 +131,22 @@ class MesProProcessServiceImplTest {
     }
 
     @Test
-    void createProcess_shouldAllowDuplicateNameWhenCodeIsUnique() {
-        MesProProcessSaveReqVO reqVO = baseReq("Balloon", "PROC-CLEAN-002", "清洗");
-        when(processMapper.selectByProductNameAndCode("Balloon", "PROC-CLEAN-002")).thenReturn(null);
-
-        assertDoesNotThrow(() -> processService.createProcess(reqVO));
-
-        ArgumentCaptor<MesProProcessDO> processCaptor = ArgumentCaptor.forClass(MesProProcessDO.class);
-        verify(processMapper).insert(processCaptor.capture());
-        assertEquals("PROC-CLEAN-002", processCaptor.getValue().getCode());
-        assertEquals("清洗", processCaptor.getValue().getName());
-        verify(processMapper, never()).selectByProductNameAndName("Balloon", "清洗");
+    void createProcess_delegatesAllocationAndDoesNotValidateIncomingCode() {
+        MesProProcessSaveReqVO reqVO = baseReq("Balloon", "OLD-CODE", "清洗");
+        when(processCreationService.create(org.mockito.ArgumentMatchers.any())).thenReturn(10L);
+        assertEquals(10L, processService.createProcess(reqVO));
+        ArgumentCaptor<MesProProcessDO> captor = ArgumentCaptor.forClass(MesProProcessDO.class);
+        verify(processCreationService).create(captor.capture());
+        assertEquals("清洗", captor.getValue().getName());
+        org.mockito.Mockito.verifyNoInteractions(processMapper);
     }
 
     @Test
-    void createProcess_shouldRejectDuplicateCodeEvenWhenNameDiffers() {
-        MesProProcessSaveReqVO reqVO = baseReq("Balloon", "PROC-CLEAN-001", "终检");
-        when(processMapper.selectByProductNameAndCode("Balloon", "PROC-CLEAN-001"))
-                .thenReturn(MesProProcessDO.builder()
-                        .id(1L)
-                        .productName("Balloon")
-                        .code("PROC-CLEAN-001")
-                        .name("清洗")
-                        .build());
-
-        ServiceException exception = assertThrows(ServiceException.class, () -> processService.createProcess(reqVO));
-
-        assertEquals(PRO_PROCESS_CODE_EXISTS.getCode(), exception.getCode());
-        verify(processMapper, never()).insert(org.mockito.ArgumentMatchers.any(MesProProcessDO.class));
+    void createProcess_acceptsMissingCode() {
+        MesProProcessSaveReqVO reqVO = baseReq("Balloon", null, "终检");
+        when(processCreationService.create(org.mockito.ArgumentMatchers.any())).thenReturn(11L);
+        assertEquals(11L, processService.createProcess(reqVO));
+        org.mockito.Mockito.verifyNoInteractions(processMapper);
     }
 
     @Test

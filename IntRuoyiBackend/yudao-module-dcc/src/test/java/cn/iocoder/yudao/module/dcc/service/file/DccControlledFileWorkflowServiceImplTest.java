@@ -753,6 +753,7 @@ class DccControlledFileWorkflowServiceImplTest extends BaseMockitoUnitTest {
         lenient().doAnswer(invocation -> controlledFileMapper.selectListByMasterId(invocation.<Long>getArgument(0)))
                 .when(controlledFileMapper).selectListByMasterIdForUpdate(anyLong());
         TenantContextHolder.setTenantId(1L);
+        lenient().when(controlledFileMapper.updateById(any(DccControlledFileDO.class))).thenReturn(1);
         cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils.setLoginUser(new cn.iocoder.yudao.framework.security.core.LoginUser().setId(99L).setTenantId(1L).setUserType(2),new org.springframework.mock.web.MockHttpServletRequest());
         nativeFixtureTokens=new DccApprovalMatrixTokenService();var nativeKey=new DccApprovalMatrixTokenProperties();nativeKey.setSigningSecret("workflow-unit-native-supervisor-HMAC");ReflectionTestUtils.setField(nativeFixtureTokens,"properties",nativeKey);
         var nativeSource=mock(org.springframework.beans.factory.ObjectProvider.class);lenient().when(nativeSource.getIfAvailable()).thenReturn((DccDirectSupervisorSource)context->new DccDirectSupervisorSource.Evidence(context.tenantId(),context.requesterId(),88L,"TASK_UNIT_ORGANIZATION","actor-99","v1"));

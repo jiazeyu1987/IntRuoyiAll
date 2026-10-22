@@ -60,8 +60,12 @@ export interface ErpProductionMaterialListDetailVO {
 // ERP 生产用料清单 API
 export const ErpProductionMaterialListApi = {
   // 查询 ERP 生产用料清单分页
-  getPage: async (params: any) => {
-    return await request.get({ url: `/erp/production-material-list/page`, params })
+  getPage: async (params: any, options: { ignoreErrorMessage?: boolean } = {}) => {
+    return await request.get({
+      url: `/erp/production-material-list/page`,
+      params,
+      ignoreErrorMessage: options.ignoreErrorMessage
+    })
   },
 
   // 查询 ERP 生产用料清单单据汇总分页

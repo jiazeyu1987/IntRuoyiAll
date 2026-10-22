@@ -39,6 +39,25 @@ public class RuntimeControlActionReqVO {
     @Schema(description = "发布包编号", example = "20260528_220000")
     private String releaseTag;
 
+    @Schema(description = "服务端发布工作流编号，客户端直接调用通用动作时不可伪造")
+    private String releaseWorkflowId;
+
+    @Schema(description = "发布工作流预期状态版本")
+    private Long releaseWorkflowExpectedStateVersion;
+
+    @Schema(description = "服务端预分配 operationId")
+    private String preassignedOperationId;
+
+    private String expectedMaintenanceCommit;
+    private String expectedApplicationCommit;
+    private String expectedFrontendCommit;
+    private String sourceSelectionId;
+    private String testResult;
+    private String testOperationId;
+    private String testOperationEvidencePath;
+    private String expectedPackageDigest;
+    private String expectedManifestDigest;
+
     @Schema(description = "测试验证结论；标记测试通过必填")
     private String testConclusion;
 

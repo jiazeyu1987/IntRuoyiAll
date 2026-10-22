@@ -196,6 +196,7 @@ export interface ProFrontlineFeedbackSubmitReqVO {
   actualEmployeeId: number
   signatureId?: number
   signatureEmployeeId: number
+  signatureIdentityDomain: 'SYSTEM_USER' | 'MES_EMPLOYEE_PROFILE'
   signaturePassword: string
   frontlineSessionSnapshotId: string
   frontlineSessionSnapshotHash: string
@@ -249,6 +250,7 @@ export interface FrontlineDeviceRouteProcessVO {
   workstationId?: number | null
   workstationCode?: string
   workstationName?: string
+  submittedQuantity: number
   productionSubmitCandidates?: FrontlinePqcProductionSubmitCandidateVO[]
 }
 
@@ -298,6 +300,9 @@ export interface FrontlinePqcProcessVO {
 
 export interface FrontlinePqcTaskOptionVO {
   pqcTaskId: number
+  routeProcessId?: number | null
+  processId?: number | null
+  productionProcessName: string | null
   regulationVersionId: number
   qaProcessId: number
   qaItemCode?: string | null
@@ -347,6 +352,7 @@ export interface FrontlinePqcDeviceParameterVO {
 }
 
 export interface FrontlinePqcInspectionItemVO {
+  plannedInspectionQuantity?: number
   itemSort: number
   itemCode: string
   itemName: string
@@ -376,6 +382,9 @@ export interface FrontlinePqcInspectionItemVO {
 }
 
 export interface FrontlineActiveOrderVO {
+  readBlocked?: boolean
+  readBlockReason?: string
+
   activeOrderId: number
   routeVersionId: number
   workOrderId: number
@@ -420,6 +429,7 @@ export interface FrontlinePqcTemplateVO {
 }
 
 export interface FrontlineSwitchActualEmployeeReqVO {
+  identityDomain: 'SYSTEM_USER' | 'MES_EMPLOYEE_PROFILE'
   activeOrderId: number
   routeId: number
   routeProcessId: number
@@ -472,6 +482,7 @@ export interface FrontlinePqcInspectionSubmitRespVO {
 }
 
 export interface FrontlineSwitchActualEmployeeRespVO {
+  identityDomain: 'SYSTEM_USER' | 'MES_EMPLOYEE_PROFILE'
   loginUserId: number
   actualEmployeeId: number
   routeId: number
@@ -569,6 +580,8 @@ export interface FrontlineProductionSubmitContextVO {
   parameterSnapshotState: 'FROZEN' | 'MISSING_LEGACY' | 'CURRENT_ROUTE_PROCESS_AT_SUBMIT'
   deviceSelectionSnapshotJson?: string
   deviceSelectionSnapshotSha256?: string
+  productionConfigSnapshotJson?: string
+  productionConfigSnapshotSha256?: string
 }
 
 export interface FrontlineRuntimeConfigVO {
@@ -1158,11 +1171,13 @@ export const ProFeedbackApi = {
     return await request.post({ url: `/mes/pro/feedback/create`, data })
   },
   // 一线报工与记录本一体提交
-  frontlineSubmit: async (data: ProFrontlineFeedbackSubmitReqVO) => {
+  frontlineSubmit: async (data: ProFrontlineFeedbackSubmitReqVO, options?: { isRequestContextCurrent?: () => boolean; isSuccessReceiptContextCurrent?: () => boolean }) => {
     return await request.post<ProFrontlineFeedbackSubmitRespVO>({
       url: `/mes/pro/feedback/frontline/submit`,
       data,
-      ignoreErrorMessage: true
+      ignoreErrorMessage: true,
+      isRequestContextCurrent: options?.isRequestContextCurrent,
+      isSuccessReceiptContextCurrent: options?.isSuccessReceiptContextCurrent
     })
   },
   // 淇敼鐢熶骇鎶ュ伐
@@ -1254,10 +1269,14 @@ export const ProFeedbackApi = {
     })
   },
   // 获取一线生产活跃订单冻结工序
-  getFrontlineProductionActiveOrderProcesses: async (activeOrderId: number) => {
+  getFrontlineProductionActiveOrderProcesses: async (
+    activeOrderId: number,
+    options?: { isRequestContextCurrent?: () => boolean }
+  ) => {
     return await request.get<FrontlineDeviceRouteProcessVO[]>({
       url: `/mes/pro/feedback/frontline/device-account/active-order/processes`,
       params: { activeOrderId },
+      isRequestContextCurrent: options?.isRequestContextCurrent,
       ignoreErrorMessage: true
     })
   },
@@ -1330,19 +1349,24 @@ export const ProFeedbackApi = {
     })
   },
   // PQC 检验提交到工序池
-  submitFrontlinePqcInspection: async (data: FrontlinePqcInspectionSubmitReqVO) => {
+  submitFrontlinePqcInspection: async (data: FrontlinePqcInspectionSubmitReqVO, options?: { isRequestContextCurrent?: () => boolean; isSuccessReceiptContextCurrent?: () => boolean }) => {
     return await request.post<FrontlinePqcInspectionSubmitRespVO>({
       url: `/mes/pro/feedback/frontline/device-account/pqc/submit`,
+      timeout: 180000,
       data,
-      ignoreErrorMessage: true
+      ignoreErrorMessage: true,
+      isRequestContextCurrent: options?.isRequestContextCurrent,
+      isSuccessReceiptContextCurrent: options?.isSuccessReceiptContextCurrent
     })
   },
   // 只读确认 PQC 正式提交回执
-  getFrontlinePqcSubmitReceipt: async (params: { pqcTaskId: number }) => {
+  getFrontlinePqcSubmitReceipt: async (params: { pqcTaskId: number }, options?: { isRequestContextCurrent?: () => boolean; isSuccessReceiptContextCurrent?: () => boolean }) => {
     return await request.get<FrontlinePqcInspectionSubmitRespVO | null>({
       url: `/mes/pro/feedback/frontline/device-account/pqc/submit-receipt`,
       params,
-      ignoreErrorMessage: true
+      ignoreErrorMessage: true,
+      isRequestContextCurrent: options?.isRequestContextCurrent,
+      isSuccessReceiptContextCurrent: options?.isSuccessReceiptContextCurrent
     })
   },
   // 瀵煎叆绗笁鏂圭敓浜ф姤宸?Excel

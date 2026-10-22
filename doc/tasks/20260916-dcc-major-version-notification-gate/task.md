@@ -52,4 +52,3 @@ ready_for_closeout
 - BDD: 三段可配置规则 -> Given 版本策略按前两段为大版本身份；When `A/1/1` 发布后再发布 `A/1/2`；Then 视为小版本，不创建关联新版通知。
 - BDD: 三段大版本身份变化 -> Given 版本策略按前两段为大版本身份；When `A/1/2` 发布后发布 `B/1/1` 或 `A/2/1`；Then 视为大版本，创建关联新版通知链路。
 - Expected additional verification: static contract and unit tests must prove notification gating calls the configurable policy rather than hardcoded `revisionCode` comparison.
-

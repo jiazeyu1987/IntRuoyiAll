@@ -1,6 +1,12 @@
 package cn.iocoder.yudao.module.system.service.permission;
 
 import cn.hutool.core.collection.CollUtil;
+import cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils;
+import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
+import cn.iocoder.yudao.framework.tenant.core.util.TenantUtils;
+import cn.iocoder.yudao.module.system.dal.mysql.tenant.TenantMapper;
+import cn.iocoder.yudao.module.system.dal.dataobject.tenant.TenantDO;
+import cn.iocoder.yudao.module.system.enums.permission.RoleTypeEnum;
 import cn.hutool.core.collection.CollectionUtil;
 import cn.hutool.core.util.ArrayUtil;
 import cn.hutool.core.util.StrUtil;
@@ -15,16 +21,14 @@ import cn.iocoder.yudao.module.system.dal.dataobject.permission.RoleMenuDO;
 import cn.iocoder.yudao.module.system.dal.dataobject.permission.UserRoleDO;
 import cn.iocoder.yudao.module.system.dal.mysql.permission.RoleMenuMapper;
 import cn.iocoder.yudao.module.system.dal.mysql.permission.UserRoleMapper;
+import cn.iocoder.yudao.module.system.dal.mysql.permission.RoleMapper;
+import cn.iocoder.yudao.module.system.dal.mysql.user.AdminUserMapper;
 import cn.iocoder.yudao.module.system.dal.redis.RedisKeyConstants;
 import cn.iocoder.yudao.module.system.enums.permission.DataScopeEnum;
 import cn.iocoder.yudao.module.system.enums.permission.RoleCodeEnum;
 import cn.iocoder.yudao.module.system.service.dept.DeptService;
-import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditCommand;
-import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService;
-import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditStateEnvelope;
 import cn.iocoder.yudao.module.system.service.gxpaudit.GxpWriteOperation;
 import cn.iocoder.yudao.module.system.service.user.AdminUserService;
-import com.baomidou.dynamic.datasource.annotation.DSTransactional;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.Sets;
@@ -55,6 +59,9 @@ import static cn.iocoder.yudao.module.system.enums.ErrorCodeConstants.*;
 @Slf4j
 public class PermissionServiceImpl implements PermissionService {
 
+    @Resource
+    private cn.iocoder.yudao.module.system.api.permission.ApprovalAuthorityApi approvalAuthority;
+
     private static final Pattern LOG_PERMISSION_PATTERN = Pattern.compile("(^|[:\\-])log([:\\-]|$)");
 
     @Resource
@@ -75,7 +82,13 @@ public class PermissionServiceImpl implements PermissionService {
     @Resource
     private TemporaryRoleGrantService temporaryRoleGrantService;
     @Resource
-    private GxpAuditService gxpAuditService;
+    private PermissionCommandProtocol permissionCommandProtocol;
+    @Resource
+    private RoleMapper roleMapper;
+    @Resource
+    private AdminUserMapper adminUserMapper;
+    @Resource
+    private TenantMapper tenantMapper;
 
     @Override
     public boolean hasAnyPermissions(Long userId, String... permissions) {
@@ -205,7 +218,6 @@ public class PermissionServiceImpl implements PermissionService {
     // ========== 角色-菜单的相关方法  ==========
 
     @Override
-    @DSTransactional // 多数据源，使用 @DSTransactional 保证本地事务，以及数据源的切换
     @Transactional(rollbackFor = Exception.class)
     @Caching(evict = {
             @CacheEvict(value = RedisKeyConstants.MENU_ROLE_ID_LIST,
@@ -216,12 +228,35 @@ public class PermissionServiceImpl implements PermissionService {
     @GxpWriteOperation(operationId = "system.permission.role-menu.assign")
     public void assignRoleMenu(Long roleId, Set<Long> menuIds, String reason, String idempotencyKey) {
         requireGxpPermissionAuditEvidence(reason, idempotencyKey);
+        Map<String, Object> requested = permissionSetState("roleId", roleId, "menuIds", menuIds);
+        var command = permissionCommandProtocol.begin("system.permission.role-menu.assign", roleId,
+                reason, idempotencyKey, requested);
+        applyRoleMenu(command, roleId, menuIds);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    @Caching(evict = {
+            @CacheEvict(value = RedisKeyConstants.MENU_ROLE_ID_LIST, allEntries = true),
+            @CacheEvict(value = RedisKeyConstants.PERMISSION_MENU_ID_LIST, allEntries = true)
+    })
+    public void assignTenantRoleMenu(Long tenantId, Long roleId, Set<Long> menuIds, String managementPermission,
+                                     String reason, String idempotencyKey) {
+        requireTenantAdministration(tenantId, managementPermission);
+        var command = permissionCommandProtocol.beginTenantAdministration("system.permission.role-menu.assign", roleId,
+                reason, idempotencyKey, permissionSetState("roleId", roleId, "menuIds", menuIds), tenantId, managementPermission);
+        applyRoleMenu(command, roleId, menuIds);
+    }
+
+    private void applyRoleMenu(PermissionCommandProtocol.Command command, Long roleId, Set<Long> menuIds) {
+        if (command.replayed()) return;
+        var authority = approvalAuthority.lockTenantApprovalAuthority(command.tenantId());
+        requirePermissionRole(command.tenantId(), roleId);
         // 获得角色拥有菜单编号
-        Set<Long> dbMenuIds = convertSet(roleMenuMapper.selectListByRoleId(roleId), RoleMenuDO::getMenuId);
+        Set<Long> dbMenuIds = convertSet(roleMenuMapper.selectPermissionRowsForUpdate(command.tenantId(), roleId), RoleMenuDO::getMenuId);
         Set<Long> beforeMenuIds = sortedLongSet(dbMenuIds);
         // 计算新增和删除的菜单编号
         Set<Long> menuIdList = CollUtil.emptyIfNull(menuIds);
-        Set<Long> afterMenuIds = sortedLongSet(menuIdList);
         Collection<Long> createMenuIds = CollUtil.subtract(menuIdList, dbMenuIds);
         Collection<Long> deleteMenuIds = CollUtil.subtract(dbMenuIds, menuIdList);
         // 执行新增和删除。对于已经授权的菜单，不用做任何处理
@@ -230,14 +265,18 @@ public class PermissionServiceImpl implements PermissionService {
                 RoleMenuDO entity = new RoleMenuDO();
                 entity.setRoleId(roleId);
                 entity.setMenuId(menuId);
+                entity.setTenantId(command.tenantId());
                 return entity;
             }));
         }
         if (CollUtil.isNotEmpty(deleteMenuIds)) {
             roleMenuMapper.deleteListByRoleIdAndMenuIds(roleId, deleteMenuIds);
         }
-        appendPermissionAudit("system.permission.role-menu.assign", "SYSTEM_ROLE:" + roleId,
-                reason, idempotencyKey, Map.of("menuIds", beforeMenuIds), Map.of("menuIds", afterMenuIds));
+        var persisted = convertSet(roleMenuMapper.selectPermissionRowsForUpdate(command.tenantId(), roleId), RoleMenuDO::getMenuId);
+        approvalAuthority.incrementLockedAuthorityRevision(command.tenantId(), authority.revision());
+        permissionCommandProtocol.finish(command,
+                permissionSetState("roleId", roleId, "menuIds", beforeMenuIds),
+                permissionSetState("roleId", roleId, "menuIds", persisted));
     }
 
     @Override
@@ -289,20 +328,75 @@ public class PermissionServiceImpl implements PermissionService {
     // ========== 用户-角色的相关方法  ==========
 
     @Override
-    @DSTransactional // 多数据源，使用 @DSTransactional 保证本地事务，以及数据源的切换
     @Transactional(rollbackFor = Exception.class)
     @CacheEvict(value = RedisKeyConstants.USER_ROLE_ID_LIST, key = "#userId")
     @GxpWriteOperation(operationId = "system.permission.user-role.assign")
     public void assignUserRole(Long userId, Set<Long> roleIds, String reason, String idempotencyKey) {
         requireGxpPermissionAuditEvidence(reason, idempotencyKey);
+        var command = permissionCommandProtocol.begin("system.permission.user-role.assign", userId,
+                reason, idempotencyKey, permissionSetState("userId", userId, "roleIds", roleIds));
+        applyUserRole(command, userId, roleIds, false);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    @CacheEvict(value = RedisKeyConstants.USER_ROLE_ID_LIST, key = "#userId")
+    public void initializeTenantAdministrator(Long tenantId, Long userId, Long roleId, String reason, String idempotencyKey) {
+        requireTenantAdministration(tenantId, "system:tenant:create");
+        var command = permissionCommandProtocol.beginTenantAdministration("system.permission.user-role.assign", userId,
+                reason, idempotencyKey, permissionSetState("userId", userId, "roleIds", Set.of(roleId)),
+                tenantId, "system:tenant:create");
+        if (command.replayed()) return;
+        if (adminUserMapper.selectPermissionSubjectForUpdate(tenantId, userId) == null) {
+            throw new IllegalStateException("Permission user subject not found in tenant");
+        }
+        approvalAuthority.lockTenantApprovalAuthority(tenantId);
+        TenantDO tenant = tenantMapper.selectById(tenantId);
+        RoleDO role = roleMapper.selectPermissionSubjectForUpdate(tenantId, roleId);
+        if (tenant == null || !Objects.equals(userId, tenant.getContactUserId()) || role == null
+                || !RoleCodeEnum.TENANT_ADMIN.getCode().equals(role.getCode())
+                || !Objects.equals(RoleTypeEnum.SYSTEM.getType(), role.getType())) {
+            throw new IllegalStateException("Tenant administrator initialization subject mismatch");
+        }
+        applyUserRole(command, userId, Set.of(roleId), true);
+    }
+
+    private void requireTenantAdministration(Long tenantId, String permission) {
+        if (!Set.of("system:tenant:create", "system:tenant:update", "system:tenant-package:update").contains(permission)
+                || !Objects.equals(tenantId, TenantContextHolder.getRequiredTenantId())) {
+            throw new IllegalStateException("Tenant administration target or action mismatch");
+        }
+        var actor = SecurityFrameworkUtils.getLoginUser();
+        if (actor == null || actor.getId() == null || actor.getTenantId() == null) {
+            throw new IllegalStateException("Authenticated tenant administrator required");
+        }
+        TenantUtils.execute(actor.getTenantId(), () -> {
+            TenantDO platform = tenantMapper.selectById(actor.getTenantId());
+            if (platform == null || !Objects.equals(platform.getPackageId(), TenantDO.PACKAGE_ID_SYSTEM)
+                    || !hasAnyPermissions(actor.getId(), permission)) {
+                throw new IllegalStateException("Tenant administration permission denied");
+            }
+        });
+    }
+
+    private void applyUserRole(PermissionCommandProtocol.Command command, Long userId, Set<Long> roleIds,
+                               boolean initializeAdministrator) {
+        if (command.replayed()) return;
+        if (adminUserMapper.selectPermissionSubjectForUpdate(command.tenantId(), userId) == null) {
+            throw new IllegalStateException("Permission user subject not found in tenant");
+        }
+        var authority = approvalAuthority.lockTenantApprovalAuthority(command.tenantId());
         // 获得角色拥有角色编号
-        Set<Long> dbRoleIds = convertSet(userRoleMapper.selectListByUserId(userId),
+        Set<Long> dbRoleIds = convertSet(userRoleMapper.selectPermissionRowsForUpdate(command.tenantId(), userId),
                 UserRoleDO::getRoleId);
-        validateAssignableUserRoles(dbRoleIds, roleIds);
+        if (initializeAdministrator) {
+            if (!dbRoleIds.isEmpty()) throw new IllegalStateException("Tenant administrator already initialized");
+        } else {
+            validateAssignableUserRoles(dbRoleIds, roleIds);
+        }
         Set<Long> beforeRoleIds = sortedLongSet(dbRoleIds);
         // 计算新增和删除的角色编号
         Set<Long> roleIdList = CollUtil.emptyIfNull(roleIds);
-        Set<Long> afterRoleIds = sortedLongSet(roleIdList);
         Collection<Long> createRoleIds = CollUtil.subtract(roleIdList, dbRoleIds);
         Collection<Long> deleteMenuIds = CollUtil.subtract(dbRoleIds, roleIdList);
         // 执行新增和删除。对于已经授权的角色，不用做任何处理
@@ -311,14 +405,18 @@ public class PermissionServiceImpl implements PermissionService {
                 UserRoleDO entity = new UserRoleDO();
                 entity.setUserId(userId);
                 entity.setRoleId(roleId);
+                entity.setTenantId(command.tenantId());
                 return entity;
             }));
         }
         if (!CollectionUtil.isEmpty(deleteMenuIds)) {
             userRoleMapper.deleteListByUserIdAndRoleIdIds(userId, deleteMenuIds);
         }
-        appendPermissionAudit("system.permission.user-role.assign", "SYSTEM_USER:" + userId,
-                reason, idempotencyKey, Map.of("roleIds", beforeRoleIds), Map.of("roleIds", afterRoleIds));
+        var persisted = convertSet(userRoleMapper.selectPermissionRowsForUpdate(command.tenantId(), userId), UserRoleDO::getRoleId);
+        approvalAuthority.incrementLockedAuthorityRevision(command.tenantId(), authority.revision());
+        permissionCommandProtocol.finish(command,
+                permissionSetState("userId", userId, "roleIds", beforeRoleIds),
+                permissionSetState("userId", userId, "roleIds", persisted));
     }
 
     private void validateAssignableUserRoles(Collection<Long> currentRoleIds, Collection<Long> targetRoleIds) {
@@ -403,6 +501,17 @@ public class PermissionServiceImpl implements PermissionService {
         return roles;
     }
 
+    @Override
+    public Set<Long> getTemporaryMenuListByUserId(Long userId) {
+        var roles=getEnableTemporaryRoleListByUserId(userId).stream()
+                .filter(role->Objects.equals(role.getTenantId(),
+                        cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getTenantId())).toList();
+        if (roles.isEmpty()) return Set.of();
+        // Use explicit role-menu grants, including TEMP roles carrying an admin code.
+        return roleMenuMapper.selectListByRoleId(roles.stream().map(RoleDO::getId).toList()).stream()
+                .map(RoleMenuDO::getMenuId).collect(java.util.stream.Collectors.toSet());
+    }
+
     private List<RoleDO> getEnableTemporaryRoleListByUserId(Long userId) {
         Set<Long> temporaryRoleIds = temporaryRoleGrantService.getActiveRoleIdsByUserId(userId, LocalDateTime.now());
         if (CollUtil.isEmpty(temporaryRoleIds)) {
@@ -421,14 +530,19 @@ public class PermissionServiceImpl implements PermissionService {
     public void assignRoleDataScope(Long roleId, Integer dataScope, Set<Long> dataScopeDeptIds,
                                     String reason, String idempotencyKey) {
         requireGxpPermissionAuditEvidence(reason, idempotencyKey);
-        RoleDO beforeRole = roleService.getRole(roleId);
+        Map<String, Object> requested = new LinkedHashMap<>();
+        requested.put("roleId", String.valueOf(roleId));
+        requested.put("dataScope", dataScope);
+        requested.put("dataScopeDeptIds", PermissionCommandProtocol.ids(dataScopeDeptIds));
+        var command = permissionCommandProtocol.begin("system.permission.role-data-scope.assign", roleId,
+                reason, idempotencyKey, requested);
+        if (command.replayed()) return;
+        approvalAuthority.lockTenantApprovalAuthority(command.tenantId());
+        RoleDO beforeRole = requirePermissionRole(command.tenantId(), roleId);
         Map<String, Object> beforeState = roleDataScopeState(beforeRole);
         roleService.updateRoleDataScope(roleId, dataScope, dataScopeDeptIds);
-        Map<String, Object> afterState = new LinkedHashMap<>();
-        afterState.put("dataScope", dataScope);
-        afterState.put("dataScopeDeptIds", sortedLongSet(dataScopeDeptIds));
-        appendPermissionAudit("system.permission.role-data-scope.assign", "SYSTEM_ROLE:" + roleId,
-                reason, idempotencyKey, beforeState, afterState);
+        permissionCommandProtocol.finish(command, beforeState,
+                roleDataScopeState(requirePermissionRole(command.tenantId(), roleId)));
     }
 
     @Override
@@ -503,40 +617,27 @@ public class PermissionServiceImpl implements PermissionService {
     }
 
     private void requireGxpPermissionAuditEvidence(String reason, String idempotencyKey) {
+        PermissionCommandProtocol.validateKey(idempotencyKey);
         if (StrUtil.hasBlank(reason, idempotencyKey)) {
             throw new IllegalArgumentException("GxP permission audit reason and idempotencyKey are required");
         }
     }
 
-    private void appendPermissionAudit(String operationId, String subjectId, String reason, String idempotencyKey,
-                                       Map<String, ?> beforeState, Map<String, ?> afterState) {
-        String beforeJson = toJsonString(beforeState);
-        String afterJson = toJsonString(afterState);
-        gxpAuditService.append(GxpAuditCommand.builder()
-                .operationId(operationId)
-                .subjectId(subjectId)
-                .subjectVersion(String.valueOf(Objects.hash(beforeJson, afterJson)))
-                .reason(reason)
-                .beforeState(GxpAuditStateEnvelope.builder()
-                        .state("PRESENT")
-                        .objectVersion(String.valueOf(beforeJson.hashCode()))
-                        .canonicalJson(beforeJson)
-                        .build())
-                .afterState(GxpAuditStateEnvelope.builder()
-                        .state("PRESENT")
-                        .objectVersion(String.valueOf(afterJson.hashCode()))
-                        .canonicalJson(afterJson)
-                        .build())
-                .idempotencyKey(idempotencyKey)
-                .requestId(operationId + ":" + subjectId)
-                .source("PermissionServiceImpl")
-                .build());
+    private RoleDO requirePermissionRole(Long tenantId, Long roleId) {
+        RoleDO role = roleMapper.selectPermissionSubjectForUpdate(tenantId, roleId);
+        if (role == null) throw new IllegalStateException("Permission role subject not found in tenant");
+        return role;
+    }
+
+    private Map<String, Object> permissionSetState(String subjectField, Long id, String setField, Collection<Long> values) {
+        return Map.of(subjectField, String.valueOf(id), setField, PermissionCommandProtocol.ids(values));
     }
 
     private Map<String, Object> roleDataScopeState(RoleDO role) {
         Map<String, Object> state = new LinkedHashMap<>();
-        state.put("dataScope", role == null ? null : role.getDataScope());
-        state.put("dataScopeDeptIds", sortedLongSet(role == null ? null : role.getDataScopeDeptIds()));
+        state.put("roleId", role.getId().toString());
+        state.put("dataScope", role.getDataScope());
+        state.put("dataScopeDeptIds", PermissionCommandProtocol.ids(role.getDataScopeDeptIds()));
         return state;
     }
 

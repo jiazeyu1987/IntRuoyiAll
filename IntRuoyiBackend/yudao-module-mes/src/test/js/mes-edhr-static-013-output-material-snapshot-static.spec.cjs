@@ -37,20 +37,22 @@ const snapshotBuilderBlock = sliceBetween(
   'private JSONObject requireRouteProductionProcessConfig'
 )
 assert(
-  snapshotBuilderBlock.includes('requireOutputMaterialIds(activeOrder, process, routeProductionConfig.getJSONArray("outputMaterialIds"))') &&
+  snapshotBuilderBlock.includes('requireMaterialIds(activeOrder, routeMaterials.getJSONArray("inputMaterialIds"))') &&
+    snapshotBuilderBlock.includes('requireMaterialIds(activeOrder, routeMaterials.getJSONArray("outputMaterialIds"))') &&
     snapshotBuilderBlock.includes('snapshot.put("outputMaterialIds", JSON.parseArray(outputMaterialIdsJson))') &&
     snapshotBuilderBlock.includes('JSON.toJSONString(snapshot)'),
-  'Active-order production config snapshot must write frozen outputMaterialIds from the formal route snapshot.'
+  'Active-order production config snapshot must write frozen input/output material IDs from batchUseConfigs.'
 )
 
 const routeConfigBlock = sliceBetween(
   activeOrderService,
   'private JSONObject requireRouteProductionProcessConfig',
-  'private String canonicalProductionArray'
+  'private JSONObject requireRouteMaterialConfig'
 )
 assert(
-  routeConfigBlock.includes('config.getJSONArray("outputMaterialIds") == null'),
-  'Active-order creation must fail fast when the formal route production config lacks outputMaterialIds.'
+  routeConfigBlock.includes('config.getJSONArray("parameterRules") == null') &&
+    !routeConfigBlock.includes('config.getJSONArray("outputMaterialIds") == null'),
+  'Active-order production config validation must not require duplicated material IDs.'
 )
 
 const routeValidationBlock = sliceBetween(
@@ -59,8 +61,9 @@ const routeValidationBlock = sliceBetween(
   'private static void validateDeviceConfiguration'
 )
 assert(
-  routeValidationBlock.includes('validateOutputMaterialIds(routeVersionId, config.getJSONArray("outputMaterialIds"))'),
-  'Route production config validation must require a non-empty frozen outputMaterialIds list.'
+  routeValidationBlock.includes('validateDeviceConfiguration(routeVersionId, config)') &&
+    !routeValidationBlock.includes('config.getJSONArray("outputMaterialIds")'),
+  'Route production config validation must remain independent from duplicated material IDs.'
 )
 
 assert(
@@ -87,16 +90,14 @@ const listProgressBlock = sliceBetween(
   'private BigDecimal requireAllocationQuantity'
 )
 assert(
-  listProgressBlock.includes('processPoolEventMapper.selectProductionSubmitsByWorkOrderIdsAndRouteIds') &&
-    listProgressBlock.includes('resolveConservativeProcessProgressQuantities') &&
-    listProgressBlock.includes('MesOutputMaterialProgressCalculator.calculateConservativeProcessProgress') &&
+  listProgressBlock.includes('resolveConservativeProcessProgressQuantities') &&
     listProgressBlock.includes('progressQuantityByProcess'),
   'Active-order list progress and remaining quantities must use the same conservative output-material quantity.'
 )
 
 assert(
   completionProgressPort.includes('MesProProcessPoolEventMapper') &&
-    completionProgressPort.includes('eventMapper.selectProductionSubmitsByWorkOrderAndRouteForUpdate') &&
+    completionProgressPort.includes('eventMapper.selectProductionSubmitsByIdsForUpdate') &&
     completionProgressPort.includes('MesOutputMaterialProgressCalculator.calculateConservativeProcessProgress'),
   'Completion gate progress port must calculate production completion from frozen output materials and locked production events.'
 )

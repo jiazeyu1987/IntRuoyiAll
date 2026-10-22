@@ -31,6 +31,7 @@ public class MesQaInspectionRegulationVersionDO extends TenantBaseDO {
 
     private Long regulationId;
     private String versionNo;
+    private Long draftRevision;
     private String lifecycleStatus;
     private LocalDate effectiveDate;
     private String inspectionTypeRulesJson;

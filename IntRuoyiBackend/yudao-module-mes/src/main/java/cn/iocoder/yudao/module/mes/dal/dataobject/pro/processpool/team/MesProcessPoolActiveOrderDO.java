@@ -29,6 +29,7 @@ public class MesProcessPoolActiveOrderDO extends TenantBaseDO {
 
     @TableId
     private Long id;
+    private Long dossierRevision;
 
     private Long leaderUserId;
     private Long workOrderId;
@@ -37,6 +38,8 @@ public class MesProcessPoolActiveOrderDO extends TenantBaseDO {
     private Long dccProjectCodeId;
     private Long qaRegulationId;
     private Long qaRegulationVersionId;
+    private Long reworkSourceActiveOrderId;
+    private Long reworkReviewId;
     private BigDecimal erpFixedQuantitySnapshot;
     private String activeStatus;
     private String businessStatus;
@@ -46,6 +49,7 @@ public class MesProcessPoolActiveOrderDO extends TenantBaseDO {
     private Long releaseDecisionId;
     private Long releasedBy;
     private LocalDateTime releasedAt;
+    private String udiControlDocumentNo;
     private Boolean simulated;
     private String simulationStage;
     private String simulationRunId;

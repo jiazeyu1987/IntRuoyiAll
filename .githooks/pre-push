@@ -1,4 +1,8 @@
 #!/bin/sh
+while read -r local_ref local_sha remote_ref remote_sha; do
+  case "$local_sha" in 0000000000000000000000000000000000000000) continue ;; esac
+  python scripts/preflight/check-menu-migrations.py --revision "$local_sha" || exit $?
+done
 if command -v pwsh >/dev/null 2>&1; then
   exec pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/preflight/branch-runtime-port-guard.ps1
 fi

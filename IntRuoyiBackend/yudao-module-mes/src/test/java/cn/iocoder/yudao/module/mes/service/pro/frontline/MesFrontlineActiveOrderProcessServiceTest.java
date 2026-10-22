@@ -1,11 +1,15 @@
 package cn.iocoder.yudao.module.mes.service.pro.frontline;
 
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolReportAllocationDO;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventMapper;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteVersionDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolReportAllocationMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteVersionMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -30,6 +34,8 @@ class MesFrontlineActiveOrderProcessServiceTest {
     private static final Long ROUTE_VERSION_ID = 501L;
     private static final Long FROZEN_ROUTE_PROCESS_ID = 980645L;
     private static final Long PROCESS_ID = 201L;
+    private static final Long PRODUCTION_EVENT_ID = 8801L;
+    private static final Long OUTPUT_MATERIAL_ID = 9001L;
 
     @Mock
     private MesProcessPoolActiveOrderMapper activeOrderMapper;
@@ -37,13 +43,17 @@ class MesFrontlineActiveOrderProcessServiceTest {
     private MesProcessPoolActiveOrderProcessSnapshotMapper processSnapshotMapper;
     @Mock
     private MesProRouteVersionMapper routeVersionMapper;
+    @Mock
+    private MesProcessPoolReportAllocationMapper reportAllocationMapper;
+    @Mock
+    private MesProProcessPoolEventMapper processPoolEventMapper;
 
     private MesFrontlineActiveOrderProcessService service;
 
     @BeforeEach
     void setUp() {
         service = new MesFrontlineActiveOrderProcessServiceImpl(activeOrderMapper, processSnapshotMapper,
-                routeVersionMapper);
+                routeVersionMapper, reportAllocationMapper, processPoolEventMapper);
     }
 
     @Test
@@ -68,7 +78,25 @@ class MesFrontlineActiveOrderProcessServiceTest {
         assertEquals("WS-OLD", process.workstationCode());
         assertEquals(new BigDecimal("1.500000"), process.productionQuantityFactor());
         assertEquals(new BigDecimal("150.000000"), process.targetQuantity());
+        assertEquals(new BigDecimal("0.000000"), process.submittedQuantity());
         assertEquals(Boolean.FALSE, process.checkFlag());
+    }
+
+    @Test
+    void listProcesses_returnsSubmittedQuantityFromCurrentActiveOrderProcessProgress() {
+        when(activeOrderMapper.selectById(ACTIVE_ORDER_ID)).thenReturn(activeOrder());
+        when(routeVersionMapper.selectById(ROUTE_VERSION_ID)).thenReturn(routeVersion());
+        when(processSnapshotMapper.selectListByActiveOrderId(ACTIVE_ORDER_ID)).thenReturn(List.of(
+                processSnapshotWithOutputMaterialConfig()));
+        when(reportAllocationMapper.selectListByActiveOrderIds(List.of(ACTIVE_ORDER_ID))).thenReturn(List.of(
+                reportAllocation()));
+        when(processPoolEventMapper.selectBatchIds(List.of(PRODUCTION_EVENT_ID))).thenReturn(List.of(
+                productionSubmitEvent()));
+
+        List<MesFrontlineActiveOrderProcess> processes = service.listProcesses(LOGIN_LEADER_ID, ACTIVE_ORDER_ID);
+
+        assertEquals(1, processes.size());
+        assertEquals(new BigDecimal("40.000000"), processes.get(0).submittedQuantity());
     }
 
     @Test
@@ -163,6 +191,49 @@ class MesFrontlineActiveOrderProcessServiceTest {
                 .processNameSnapshot("粗洗工序")
                 .productionQuantityFactorSnapshot(new BigDecimal("1.500000"))
                 .plannedQuantitySnapshot(new BigDecimal("150.000000"))
+                .build();
+    }
+
+    private static MesProcessPoolActiveOrderProcessSnapshotDO processSnapshotWithOutputMaterialConfig() {
+        return processSnapshot()
+                .setProductionConfigSnapshotJson("""
+                        {
+                          "outputMaterialIds": [9001]
+                        }
+                        """);
+    }
+
+    private static MesProcessPoolReportAllocationDO reportAllocation() {
+        return MesProcessPoolReportAllocationDO.builder()
+                .id(9101L)
+                .eventId(PRODUCTION_EVENT_ID)
+                .activeOrderId(ACTIVE_ORDER_ID)
+                .workOrderId(1001L)
+                .routeProcessId(FROZEN_ROUTE_PROCESS_ID)
+                .processId(PROCESS_ID)
+                .allocatedQuantity(new BigDecimal("40.000000"))
+                .lifecycleStatus(MesProcessPoolReportAllocationDO.LIFECYCLE_CURRENT)
+                .build();
+    }
+
+    private static MesProProcessPoolEventDO productionSubmitEvent() {
+        return MesProProcessPoolEventDO.builder()
+                .id(PRODUCTION_EVENT_ID)
+                .eventType(MesProProcessPoolEventDO.EVENT_TYPE_PRODUCTION_SUBMIT)
+                .workOrderId(1001L)
+                .routeId(ROUTE_ID)
+                .routeProcessId(FROZEN_ROUTE_PROCESS_ID)
+                .processId(PROCESS_ID)
+                .rawPayload("""
+                        {
+                          "materialDetails": [
+                            {
+                              "materialId": 9001,
+                              "outputQuantity": 40
+                            }
+                          ]
+                        }
+                        """)
                 .build();
     }
 

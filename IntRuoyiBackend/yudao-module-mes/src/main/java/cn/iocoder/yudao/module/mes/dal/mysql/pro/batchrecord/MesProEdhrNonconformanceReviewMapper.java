@@ -8,6 +8,7 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrNonc
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
+import org.apache.ibatis.annotations.Update;
 
 import java.util.List;
 import java.util.Collection;
@@ -20,6 +21,19 @@ public interface MesProEdhrNonconformanceReviewMapper extends BaseMapperX<MesPro
     @Select("SELECT * FROM mes_pro_edhr_nonconformance_review WHERE id = #{id} "
             + "AND deleted = b'0' FOR UPDATE")
     MesProEdhrNonconformanceReviewDO selectByIdForUpdate(@Param("id") Long id);
+
+    @Select("SELECT * FROM mes_pro_edhr_nonconformance_review "
+            + "WHERE tenant_id = #{tenantId} AND idempotency_key = #{idempotencyKey} "
+            + "AND deleted = b'0' FOR UPDATE")
+    MesProEdhrNonconformanceReviewDO selectByTenantAndIdempotencyKeyForUpdate(
+            @Param("tenantId") Long tenantId, @Param("idempotencyKey") String idempotencyKey);
+
+    @Update("UPDATE mes_pro_edhr_nonconformance_review "
+            + "SET qa_create_signature_id = #{signatureId}, qa_signature = #{signature}, qa_user_id = #{qaUserId} "
+            + "WHERE tenant_id = #{tenantId} AND id = #{id} AND deleted = b'0'")
+    int attachCreateSignature(@Param("tenantId") Long tenantId, @Param("id") Long id,
+                              @Param("signatureId") Long signatureId, @Param("signature") String signature,
+                              @Param("qaUserId") Long qaUserId);
 
     default PageResult<MesProEdhrNonconformanceReviewDO> selectPage(
             MesProEdhrNonconformanceReviewPageReqVO reqVO) {
@@ -78,7 +92,7 @@ public interface MesProEdhrNonconformanceReviewMapper extends BaseMapperX<MesPro
     @Select({
             "<script>",
             "SELECT r.* FROM mes_pro_edhr_nonconformance_review r",
-            "WHERE r.source_type = #{sourceType} AND r.deleted = b'0'",
+            "WHERE r.source_type = #{sourceType} AND r.deleted = FALSE",
             "<if test='tenantId != null'> AND r.tenant_id = #{tenantId} </if>",
             "  AND r.source_id IN",
             "  <foreach collection='sourceIds' item='sourceId' open='(' separator=',' close=')'>",
@@ -88,7 +102,7 @@ public interface MesProEdhrNonconformanceReviewMapper extends BaseMapperX<MesPro
             "    SELECT 1 FROM mes_pro_edhr_nonconformance_review newer",
             "    WHERE newer.source_type = r.source_type",
             "      AND newer.source_id = r.source_id",
-            "      AND newer.deleted = b'0'",
+            "      AND newer.deleted = FALSE",
             "<if test='tenantId != null'>      AND newer.tenant_id = #{tenantId} </if>",
             "      AND newer.id &gt; r.id",
             "  )",
@@ -99,6 +113,62 @@ public interface MesProEdhrNonconformanceReviewMapper extends BaseMapperX<MesPro
             @Param("sourceType") String sourceType,
             @Param("sourceIds") Collection<Long> sourceIds,
             @Param("tenantId") Long tenantId);
+
+    default List<MesProEdhrNonconformanceReviewDO> selectLatestByActiveOrderIds(
+            Collection<Long> activeOrderIds, Long tenantId) {
+        if (activeOrderIds == null || activeOrderIds.isEmpty()) {
+            return List.of();
+        }
+        return selectLatestByActiveOrderIdsInternal(activeOrderIds, tenantId);
+    }
+
+    default List<MesProEdhrNonconformanceReviewDO> selectListByActiveOrderIds(
+            Collection<Long> activeOrderIds, Long tenantId) {
+        if (activeOrderIds == null || activeOrderIds.isEmpty()) {
+            return List.of();
+        }
+        return selectListByActiveOrderIdsInternal(activeOrderIds, tenantId);
+    }
+
+    @Select({
+            "<script>",
+            "SELECT r.* FROM mes_pro_edhr_nonconformance_review r",
+            "WHERE r.active_order_id IN",
+            "  <foreach collection='activeOrderIds' item='activeOrderId' open='(' separator=',' close=')'>",
+            "    #{activeOrderId}",
+            "  </foreach>",
+            "  AND r.deleted = FALSE",
+            "  <if test='tenantId != null'> AND r.tenant_id = #{tenantId} </if>",
+            "ORDER BY r.id DESC",
+            "</script>"
+    })
+    List<MesProEdhrNonconformanceReviewDO> selectListByActiveOrderIdsInternal(
+            @Param("activeOrderIds") Collection<Long> activeOrderIds,
+            @Param("tenantId") Long tenantId);
+
+    @Select({
+            "<script>",
+            "SELECT r.* FROM mes_pro_edhr_nonconformance_review r",
+            "WHERE r.active_order_id IN",
+            "  <foreach collection='activeOrderIds' item='activeOrderId' open='(' separator=',' close=')'>",
+            "    #{activeOrderId}",
+            "  </foreach>",
+            "  AND r.deleted = b'0'",
+            "<if test='tenantId != null'> AND r.tenant_id = #{tenantId} </if>",
+            "  AND NOT EXISTS (",
+            "    SELECT 1 FROM mes_pro_edhr_nonconformance_review newer",
+            "    WHERE newer.active_order_id = r.active_order_id",
+            "      AND newer.deleted = b'0'",
+            "<if test='tenantId != null'>      AND newer.tenant_id = #{tenantId} </if>",
+            "      AND newer.id &gt; r.id",
+            "  )",
+            "ORDER BY r.id DESC",
+            "</script>"
+    })
+    List<MesProEdhrNonconformanceReviewDO> selectLatestByActiveOrderIdsInternal(
+            @Param("activeOrderIds") Collection<Long> activeOrderIds,
+            @Param("tenantId") Long tenantId);
+
 
     default Long selectPendingCountByWorkOrderId(Long workOrderId) {
         return selectCount(new LambdaQueryWrapperX<MesProEdhrNonconformanceReviewDO>()
@@ -130,6 +200,17 @@ public interface MesProEdhrNonconformanceReviewMapper extends BaseMapperX<MesPro
                 .last("ORDER BY CASE WHEN review_status = 'pending_review' THEN 0 ELSE 1 END, id DESC LIMIT 1"));
     }
 
+    default MesProEdhrNonconformanceReviewDO selectFirstBlockingPqcSubmissionByActiveOrderId(Long activeOrderId) {
+        return selectOne(new LambdaQueryWrapperX<MesProEdhrNonconformanceReviewDO>()
+                .eq(MesProEdhrNonconformanceReviewDO::getActiveOrderId, activeOrderId)
+                .ne(MesProEdhrNonconformanceReviewDO::getSourceType, "PQC_RELEASE")
+                .and(query -> query
+                        .eq(MesProEdhrNonconformanceReviewDO::getReviewStatus, STATUS_PENDING_REVIEW)
+                        .or()
+                        .eq(MesProEdhrNonconformanceReviewDO::getDisposition, "void"))
+                .last("ORDER BY CASE WHEN review_status = 'pending_review' THEN 0 ELSE 1 END, id DESC LIMIT 1"));
+    }
+
     default List<MesProEdhrNonconformanceReviewDO> selectFreezeLifecycleByWorkOrderId(Long workOrderId) {
         return selectList(new LambdaQueryWrapperX<MesProEdhrNonconformanceReviewDO>()
                 .eq(MesProEdhrNonconformanceReviewDO::getWorkOrderId, workOrderId)
@@ -143,11 +224,32 @@ public interface MesProEdhrNonconformanceReviewMapper extends BaseMapperX<MesPro
                 .orderByDesc(MesProEdhrNonconformanceReviewDO::getId));
     }
 
+    default List<MesProEdhrNonconformanceReviewDO> selectListByActiveOrderId(Long activeOrderId) {
+        if (activeOrderId == null) {
+            return List.of();
+        }
+        return selectList(new LambdaQueryWrapperX<MesProEdhrNonconformanceReviewDO>()
+                .eq(MesProEdhrNonconformanceReviewDO::getActiveOrderId, activeOrderId)
+                .orderByDesc(MesProEdhrNonconformanceReviewDO::getId));
+    }
+
+    default List<MesProEdhrNonconformanceReviewDO> selectListByReviewMaterialFileId(Long fileId) {
+        if (fileId == null) {
+            return List.of();
+        }
+        return selectList(new LambdaQueryWrapperX<MesProEdhrNonconformanceReviewDO>()
+                .and(query -> query.eq(MesProEdhrNonconformanceReviewDO::getReviewMaterialFileId, fileId)
+                        .or().apply("JSON_CONTAINS(review_materials_json, JSON_OBJECT('fileId', {0}), '$.activeMaterials')", fileId)
+                        .or().apply("JSON_CONTAINS(review_materials_json, JSON_OBJECT('fileId', {0}), '$.activeMaterials')", fileId.toString()))
+                .orderByDesc(MesProEdhrNonconformanceReviewDO::getId));
+    }
+
     private LambdaQueryWrapperX<MesProEdhrNonconformanceReviewDO> buildPageQuery(
             MesProEdhrNonconformanceReviewPageReqVO reqVO) {
         return new LambdaQueryWrapperX<MesProEdhrNonconformanceReviewDO>()
                 .likeIfPresent(MesProEdhrNonconformanceReviewDO::getReviewCode, reqVO.getReviewCode())
                 .eqIfPresent(MesProEdhrNonconformanceReviewDO::getSourceType, reqVO.getSourceType())
+                .eqIfPresent(MesProEdhrNonconformanceReviewDO::getSourceId, reqVO.getSourceId())
                 .eqIfPresent(MesProEdhrNonconformanceReviewDO::getBatchExecutionId, reqVO.getBatchExecutionId())
                 .likeIfPresent(MesProEdhrNonconformanceReviewDO::getBatchExecutionCode,
                         reqVO.getBatchExecutionCode())

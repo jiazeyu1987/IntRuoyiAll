@@ -1,5 +1,7 @@
 # eDHR 90步全流程静态检查：逻辑缺陷记录
 
+最新修复判定：见本文件缺陷索引及文末“2026-09-14 主流程修复与回归（最新）”；历史修复自述不作为本次通过依据。
+
 ## 审计范围与证据边界
 
 - 用户请求：静态检查本对话第1—90步eDHR流程，并登记逻辑问题。
@@ -13,20 +15,20 @@
 
 | 编号 | 级别 | 涉及步骤 | 问题 | 状态 |
 |---|---|---|---|---|
-| EDHR-STATIC-001 | P1 | 17—18、21、26—28 | 已发布通用规程套版本可原地改成员或退回草稿 | FIXED_STATIC_VERIFIED |
-| EDHR-STATIC-002 | P1 | 38—40、57—64 | 初始分配不变时复核提前返回，未生成正式复核 | FIXED_STATIC_VERIFIED |
-| EDHR-STATIC-003 | P1 | 40、55、62—64 | 分配复核写入的签名证据与完工读取合同不一致 | FIXED_INDEPENDENT_STATIC_ROUND2 |
-| EDHR-STATIC-004 | P1 | 33—40、55、61—64 | 同一工序正常多次报工被损耗回填判为重复 | FIXED_STATIC_VERIFIED |
-| EDHR-STATIC-005 | P1 | 17—18、28、43—50、67—68 | 通用QA任务在生产放行时被按专用规程版本校验 | FIXED_INDEPENDENT_STATIC_ROUND2 |
-| EDHR-STATIC-006 | P2 | 52—56、83、90 | 损耗表把同工序最新生产签名套到所有历史报废记录 | FIXED_STATIC_VERIFIED |
-| EDHR-STATIC-007 | P1 | 29、38、61—68 | 完工申请后仍允许新增生产提交，破坏已固化来源边界 | FIXED_STATIC_VERIFIED |
-| EDHR-STATIC-008 | P1 | 75—79、85—87 | 四类报告齐套直接把六类业务检查写成PASS | REOPENED_INDEPENDENT_STATIC |
-| EDHR-STATIC-009 | P1 | 85—87、90 | QA处置签名只是自由文本，没有签署时身份验证 | FIXED_STATIC_VERIFIED |
-| EDHR-STATIC-010 | P2 | 69—75、85 | 不合格冻结期间仍可上传正式报告附件 | FIXED_STATIC_VERIFIED |
-| EDHR-STATIC-011 | P1 | 85—89 | 同工单多份不合格评审按特定顺序结束后永久残留冻结 | FIXED_INDEPENDENT_STATIC_ROUND2 |
-| EDHR-STATIC-012 | P2 | 26—27、80—84 | 归档读取现行路线名称而非批次保存的历史名称 | REOPENED_MAIN_FLOW_STATIC |
-| EDHR-STATIC-013 | P1 | 7、33、36、38、57—59 | 多输出物料拆分提交时，不同物料数量被累加成工序进度 | REOPENED_INDEPENDENT_STATIC |
-| EDHR-STATIC-014 | P1 | 10、15、26—27、62、67—68 | 新路线发布物理删除旧正式表单绑定，旧订单放行无法解析 | FIXED_STATIC_VERIFIED |
+| EDHR-STATIC-001 | P1 | 17—18、21、26—28 | 已发布通用规程套版本可原地改成员或退回草稿 | FIXED_CURRENT_STATIC_20260914 |
+| EDHR-STATIC-002 | P1 | 38—40、57—64 | 初始分配不变时复核提前返回，未生成正式复核 | FIXED_CURRENT_STATIC_20260914 |
+| EDHR-STATIC-003 | P1 | 40、55、62—64 | 分配复核写入的签名证据与完工读取合同不一致 | FIXED_CURRENT_STATIC_20260914 |
+| EDHR-STATIC-004 | P1 | 33—40、55、61—64 | 同一工序正常多次报工被损耗回填判为重复 | FIXED_CURRENT_STATIC_20260914 |
+| EDHR-STATIC-005 | P1 | 17—18、28、43—50、67—68 | 通用QA任务在生产放行时被按专用规程版本校验 | FIXED_CURRENT_STATIC_20260914 |
+| EDHR-STATIC-006 | P2 | 52—56、83、90 | 损耗表把同工序最新生产签名套到所有历史报废记录 | FIXED_CURRENT_STATIC_20260914 |
+| EDHR-STATIC-007 | P1 | 29、38、61—68 | 完工申请后仍允许新增生产提交，破坏已固化来源边界 | FIXED_CURRENT_STATIC_20260914 |
+| EDHR-STATIC-008 | P1 | 75—79、85—87 | 四类报告齐套直接把六类业务检查写成PASS | FIXED_TARGETED_REGRESSION_20260914 |
+| EDHR-STATIC-009 | P1 | 85—87、90 | QA处置签名只是自由文本，没有签署时身份验证 | FIXED_CURRENT_STATIC_20260914 |
+| EDHR-STATIC-010 | P2 | 69—75、85 | 不合格冻结期间仍可上传正式报告附件 | FIXED_CURRENT_STATIC_20260914 |
+| EDHR-STATIC-011 | P1 | 85—89 | 同工单多份不合格评审按特定顺序结束后永久残留冻结 | FIXED_CURRENT_STATIC_20260914 |
+| EDHR-STATIC-012 | P2 | 26—27、80—84 | 归档读取现行路线名称而非批次保存的历史名称 | FIXED_CURRENT_STATIC_20260914 |
+| EDHR-STATIC-013 | P1 | 7、33、36、38、57—59 | 多输出物料拆分提交时，不同物料数量被累加成工序进度 | FIXED_CURRENT_STATIC_20260914 |
+| EDHR-STATIC-014 | P1 | 10、15、26—27、62、67—68 | 新路线发布物理删除旧正式表单绑定，旧订单放行无法解析 | FIXED_CURRENT_STATIC_20260914 |
 
 ## EDHR-STATIC-001：已发布通用规程套版本可以原地改写
 
@@ -255,3 +257,20 @@
 - 源码：`IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/route/MesProRouteVersionPublishProjectionServiceImpl.java:394`；`service/pro/batchrecord/MesProEdhrBatchExecutionServiceImpl.java:1165`、`:1186`、`:1187`、`:1188`、`:8052`、`:8064`（同一MES Java根目录）。
 - 原012修复只证明“批次已正确保存旧名后再改名”能够归档，未覆盖“冻结订单后、创建批次前改名”。修复须让批次创建也从同一冻结快照取得身份，不能放宽归档一致性校验。
 - 主流程当前重点跟进原008、012、013及新增020—022；详细触发条件和验收顺序见补充bug记录。仅静态分析，未修复或运行验证。
+
+## 2026-09-14 全部编号独立复核（修复前）
+
+- 按当前代码核对001—026：22项原缺陷修复点成立；020仅旧公式修复，最新补料单依据未实现；008、026部分修复；023仍未修复。
+- 仍需闭环：008、020、023、026；另需接入无补料信息弹框确认及后端确认事实。
+- 历史修复自述和结论保留，以当前索引及 `doc/tasks/20260914-edhr-bug-list-recheck/verification-report.md` 为本次结论。仅静态代码复核，未修改业务代码或运行业务测试/E2E。
+
+## 2026-09-14 主流程修复与回归（最新）
+
+- 在 `int_main` 修复剩余008、020、023、026及无补料确认链路；定向后端回归210项全部通过，前端类型检查和相关合同通过。
+- 008：报废数量大于零时检验判定一致；缺少正式报废数量或整数溢出明确阻断。
+- 020：正式损耗读取已审核生产补料单的实补数量；保留全部补料单号、分录、物料和批号。现场过程损耗保留作追溯，不再作为正式损耗数值及原因依据。
+- 无补料：完成时未查到补料单先返回确认要求；生产组长确认后允许完工，保存无正式损耗及确认人。取消不完工，重试沿用已保存确认；未审核、无效数量和匹配不唯一的单据不能被确认成无补料。
+- 023：分配确认时按分配记录读取来源事件，按目标订单分配数量计算进度，保留来源工单身份。
+- 026：逐路线工序的正式损耗条件随完工回执传入建批；不适用损耗表不创建填写实例/待办，不阻断前后工序，不计入必填进度，最终检查使用一致条件。
+- 扩展建批测试185项中有9项既有失败；用修改前服务代码隔离复跑仍是相同9项，未将其记为PASS或新业务缺陷。本次未执行真实订单E2E，不能据此宣称任意订单已经实测跑通。
+- 正式证据：`doc/tasks/20260914-edhr-main-flow-fixes/verification-report.md`。改动尚未Git提交/推送。

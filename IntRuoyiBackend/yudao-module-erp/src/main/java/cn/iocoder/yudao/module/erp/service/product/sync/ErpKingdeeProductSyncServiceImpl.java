@@ -95,7 +95,7 @@ public class ErpKingdeeProductSyncServiceImpl implements ErpKingdeeProductSyncSe
         List<ErpProductDO> productsToUpdate = new ArrayList<>();
         ErpKingdeeProductSyncResult result = new ErpKingdeeProductSyncResult();
         for (ErpKingdeeMaterial material : materialsByNumber.values()) {
-            Long categoryId = ensureCategoryId(material, categoryIds);
+            Long categoryId = ensureCategoryId(material, categoryIds, !skipExisting);
             Long unitId = ensureUnitId(material, unitIds);
             Integer status = resolveStatus(material);
             ErpProductDO existingProduct = existingProductMap.get(material.getMaterialNumber());
@@ -120,7 +120,12 @@ public class ErpKingdeeProductSyncServiceImpl implements ErpKingdeeProductSyncSe
             productMapper.insertBatch(productsToCreate, 1000);
         }
         if (CollUtil.isNotEmpty(productsToUpdate)) {
-            productMapper.updateBatch(productsToUpdate, 1000);
+            for (ErpProductDO row : productsToUpdate) {
+                int count = productMapper.updateErpMaterialSnapshot(row);
+                if (count != 1) {
+                    throw exception(KINGDEE_PURCHASE_ORDER_RESPONSE_INVALID, "material snapshot update failed: " + row.getId());
+                }
+            }
         }
         return result;
     }
@@ -162,10 +167,16 @@ public class ErpKingdeeProductSyncServiceImpl implements ErpKingdeeProductSyncSe
         return update;
     }
 
-    private Long ensureCategoryId(ErpKingdeeMaterial material, Map<String, Long> categoryIds) {
+    private Long ensureCategoryId(ErpKingdeeMaterial material, Map<String, Long> categoryIds, boolean refreshName) {
         return categoryIds.computeIfAbsent(material.getCategoryCode(), key -> {
             ErpProductCategoryDO category = productCategoryMapper.selectByCode(key);
             if (category != null) {
+                if (refreshName && !Objects.equals(category.getName(), material.getCategoryName())) {
+                    category.setName(material.getCategoryName());
+                    if (productCategoryMapper.updateById(category) != 1) {
+                        throw exception(KINGDEE_PURCHASE_ORDER_RESPONSE_INVALID, "material category update failed: " + key);
+                    }
+                }
                 return category.getId();
             }
             category = new ErpProductCategoryDO();

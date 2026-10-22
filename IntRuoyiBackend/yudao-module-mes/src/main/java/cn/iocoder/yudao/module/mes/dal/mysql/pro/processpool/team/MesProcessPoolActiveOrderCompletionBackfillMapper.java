@@ -11,6 +11,13 @@ import java.util.List;
 public interface MesProcessPoolActiveOrderCompletionBackfillMapper
         extends BaseMapperX<MesProcessPoolActiveOrderCompletionBackfillDO> {
 
+    default MesProcessPoolActiveOrderCompletionBackfillDO selectByActiveOrderAndType(
+            Long activeOrderId, String backfillType) {
+        return selectOne(new LambdaQueryWrapperX<MesProcessPoolActiveOrderCompletionBackfillDO>()
+                .eq(MesProcessPoolActiveOrderCompletionBackfillDO::getActiveOrderId, activeOrderId)
+                .eq(MesProcessPoolActiveOrderCompletionBackfillDO::getBackfillType, backfillType));
+    }
+
     default MesProcessPoolActiveOrderCompletionBackfillDO selectByActiveOrderAndTypeForUpdate(
             Long activeOrderId, String backfillType) {
         return selectOne(new LambdaQueryWrapperX<MesProcessPoolActiveOrderCompletionBackfillDO>()

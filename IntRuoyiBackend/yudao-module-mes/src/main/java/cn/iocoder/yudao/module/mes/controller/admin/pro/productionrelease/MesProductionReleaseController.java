@@ -65,6 +65,7 @@ public class MesProductionReleaseController {
                         .setExpectedVersion(reqVO.getExpectedVersion())
                         .setIdempotencyKey(reqVO.getIdempotencyKey())
                         .setApprovalOpinion(reqVO.getApprovalOpinion())
+                        .setUdiControlDocumentNo(reqVO.getUdiControlDocumentNo())
                         .setSignaturePassword(reqVO.getSignaturePassword()))));
     }
 
@@ -103,7 +104,9 @@ public class MesProductionReleaseController {
                         .setPageSize(reqVO.getPageSize())
                         .setViewStatus(reqVO.getViewStatus())
                         .setWorkOrderCode(reqVO.getWorkOrderCode())
-                        .setBatchCode(reqVO.getBatchCode()));
+                        .setBatchCode(reqVO.getBatchCode())
+                        .setApplicationId(reqVO.getApplicationId())
+                        .setPqcReleaseWorkTaskId(reqVO.getPqcReleaseWorkTaskId()));
         return success(new PageResult<>(page.getList().stream().map(this::toPageItemResp).toList(), page.getTotal()));
     }
 
@@ -141,12 +144,18 @@ public class MesProductionReleaseController {
                 .setDecision(result.getDecision())
                 .setStatus(result.getStatus())
                 .setRejectReason(result.getRejectReason())
+                .setUdiControlDocumentNo(result.getUdiControlDocumentNo())
+                .setDecisionIdempotencyKey(result.getDecisionIdempotencyKey())
+                .setDecisionPayloadHash(result.getDecisionPayloadHash())
                 .setBatchExecutionId(result.getBatchExecutionId())
                 .setSignatureId(result.getSignatureId())
                 .setBatchRecordEvidenceIds(result.getBatchRecordEvidenceIds())
                 .setProcessInspectionEvidenceIds(result.getProcessInspectionEvidenceIds())
                 .setProcessInspectionFormCenterInstanceIds(result.getProcessInspectionFormCenterInstanceIds())
                 .setLossReportEvidenceIds(result.getLossReportEvidenceIds())
+                .setLossReportFormCenterInstanceIds(result.getLossReportFormCenterInstanceIds())
+                .setLossReportFieldAuditIds(result.getLossReportFieldAuditIds())
+                .setLossReportFieldAuditHeadHashes(result.getLossReportFieldAuditHeadHashes())
                 .setReportUploadTasks(result.getReportUploadTasks().stream()
                         .map(item -> new MesProductionReleaseReportUploadTaskRespVO()
                                 .setNodeType(item.getNodeType())

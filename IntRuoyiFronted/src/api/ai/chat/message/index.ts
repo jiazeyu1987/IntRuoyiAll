@@ -56,7 +56,8 @@ export const ChatMessageApi = {
     onMessage,
     onError,
     onClose,
-    attachmentUrls?: string[]
+    attachmentUrls?: string[],
+    useIntRuoyiMcp = false
   ) => {
     const token = getAccessToken()
     return fetchEventSource(`${config.base_url}/ai/chat/message/send-stream`, {
@@ -71,7 +72,8 @@ export const ChatMessageApi = {
         content,
         useContext: enableContext,
         useSearch: enableWebSearch,
-        attachmentUrls: attachmentUrls || []
+        attachmentUrls: attachmentUrls || [],
+        useIntRuoyiMcp
       }),
       onmessage: onMessage,
       onerror: onError,

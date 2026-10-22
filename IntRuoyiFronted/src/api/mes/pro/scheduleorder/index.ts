@@ -74,7 +74,12 @@ export interface MesProScheduleOrderProcessVO {
   sort: number
   enabled: boolean
   capacitySource: string
-  capacityMode?: 'RESOURCE_CALCULATED' | 'MANUAL_OVERRIDE' | 'FINITE_HOURLY' | 'INFINITE_FORMULA' | string
+  capacityMode?:
+    | 'RESOURCE_CALCULATED'
+    | 'MANUAL_OVERRIDE'
+    | 'FINITE_HOURLY'
+    | 'INFINITE_FORMULA'
+    | string
   hourlyCapacityTotal?: number
   infiniteDurationQuantityFactor?: number
   infiniteDurationBaseMinutes?: number
@@ -128,8 +133,19 @@ export interface MesProScheduleOrderProcessWipVO {
   processName?: string
   wipOrderCount: number
   shiftCapacityTotal?: number
-  capacityMode?: 'RESOURCE_CALCULATED' | 'MANUAL_OVERRIDE' | 'FINITE_HOURLY' | 'INFINITE_FORMULA' | string
-  capacitySource?: 'MACHINE' | 'WORKER' | 'MANUAL_OVERRIDE' | 'INFINITE_FORMULA' | 'UNCONFIGURED' | string
+  capacityMode?:
+    | 'RESOURCE_CALCULATED'
+    | 'MANUAL_OVERRIDE'
+    | 'FINITE_HOURLY'
+    | 'INFINITE_FORMULA'
+    | string
+  capacitySource?:
+    | 'MACHINE'
+    | 'WORKER'
+    | 'MANUAL_OVERRIDE'
+    | 'INFINITE_FORMULA'
+    | 'UNCONFIGURED'
+    | string
   resourceStatus?: 'NORMAL' | 'CAPACITY_MISSING' | string
   resourceStatusReason?: string
   shiftStatus?: '白班' | '夜班' | string
@@ -193,6 +209,32 @@ export interface MesProScheduleOrderAdmissionDiffRowVO {
   ownerRole?: string
   selectable: boolean
   actions?: MesProScheduleOrderIssueActionVO[]
+}
+
+export interface MesProWorkOrderErpCleanupItem {
+  workOrderId: number
+  workOrderCode: string
+  syncRecordId: number
+  sourceFid: string
+  sourceBillNo: string
+  sourceMaterialNumber: string
+  deletable: boolean
+  retainReason?: string
+}
+
+export interface MesProWorkOrderErpCleanupPreview {
+  environmentKey: string
+  analyzedCount: number
+  unverifiableCount: number
+  missingWorkOrders: MesProWorkOrderErpCleanupItem[]
+}
+
+export interface MesProWorkOrderErpCleanupRequest {
+  environmentKey: string
+  items: Pick<
+    MesProWorkOrderErpCleanupItem,
+    'workOrderId' | 'syncRecordId' | 'sourceFid' | 'sourceBillNo' | 'sourceMaterialNumber'
+  >[]
 }
 
 export interface MesProScheduleOrderAdmissionDiffSummaryVO {
@@ -560,6 +602,21 @@ export const MesProScheduleOrderApi = {
 
   deleteScheduleOrders: async (data: MesProScheduleOrderDeleteReqVO) => {
     return await request.delete({ url: '/mes/pro/schedule-order/batch-delete', data })
+  },
+
+  analyzeErpMissingWorkOrders: async (): Promise<MesProWorkOrderErpCleanupPreview> => {
+    return await request.get({
+      url: '/mes/pro/schedule-order/erp-missing-work-orders',
+      ignoreErrorMessage: true
+    })
+  },
+
+  deleteErpMissingWorkOrders: async (data: MesProWorkOrderErpCleanupRequest): Promise<number> => {
+    return await request.post({
+      url: '/mes/pro/schedule-order/delete-erp-missing-work-orders',
+      data,
+      ignoreErrorMessage: true
+    })
   },
 
   getDeleteImpact: async (id: number) => {

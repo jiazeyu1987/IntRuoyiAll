@@ -6,7 +6,7 @@ export interface UserVO {
   nickname: string
   deptId: number
   deptName?: string
-  postIds: string[]
+  postIds: Array<number | string>
   email: string
   mobile: string
   sex: number
@@ -27,6 +27,20 @@ export interface UserVO {
   disabled?: boolean
 }
 
+export interface UserListVO extends UserVO {
+  postNames: string[]
+  roleNames: string[]
+}
+
+export interface UserAssignedPostVO {
+  id: number | string
+  name: string
+  status: number
+}
+
+export interface UserEditVO extends UserVO {
+  assignedPosts: UserAssignedPostVO[]
+}
 export type UserSaveVO = Omit<UserVO, 'deptId'> & { deptId: number | null }
 
 export interface UserDingTalkImportRespVO {
@@ -61,14 +75,19 @@ export const getUser = (id: number) => {
   return request.get({ url: '/system/user/get?id=' + id })
 }
 
+// 查询包含正式既有岗位的用户编辑详情
+export const getUserForUpdate = (id: number): Promise<UserEditVO> => {
+  return request.get({ url: '/system/user/get-for-update?id=' + id, ignoreErrorMessage: true })
+}
+
 // 新增用户
-export const createUser = (data: UserSaveVO) => {
-  return request.post({ url: '/system/user/create', data })
+export const createUser = (data: UserSaveVO, options?: { ignoreErrorMessage?: boolean }) => {
+  return request.post({ url: '/system/user/create', data, ignoreErrorMessage: options?.ignoreErrorMessage })
 }
 
 // 修改用户
-export const updateUser = (data: UserSaveVO) => {
-  return request.put({ url: '/system/user/update', data })
+export const updateUser = (data: UserSaveVO, options?: { ignoreErrorMessage?: boolean }) => {
+  return request.put({ url: '/system/user/update', data, ignoreErrorMessage: options?.ignoreErrorMessage })
 }
 
 // 删除用户
@@ -107,7 +126,7 @@ export const resetUserPassword = (id: number, password: string) => {
     id,
     password
   }
-  return request.put({ url: '/system/user/update-password', data: data })
+  return request.put({ url: '/system/user/update-password', data: data, ignoreErrorMessage: true })
 }
 
 // 用户状态修改
@@ -125,11 +144,18 @@ export const recordUserLifecycleDeactivation = (data: UserLifecycleDeactivateReq
 }
 
 // 解锁用户
-export const unlockUser = (id: number) => {
-  return request.put({ url: '/system/user/unlock?id=' + id })
+export const unlockUser = (id: number, reason: string) => {
+  return request.put({ url: '/system/user/unlock', params: { id, reason } })
 }
 
 // 获取用户精简信息列表
 export const getSimpleUserList = (): Promise<UserVO[]> => {
   return request.get({ url: '/system/user/simple-list' })
 }
+
+// 用户查询页只读组织元数据，不要求部门管理权限。
+export const getDepartmentTree = (): Promise<import('@/api/system/dept').DeptVO[]> =>
+  request.get({ url: '/system/user/department-tree' })
+
+export const getSupervisorImpact = (ids: number[]): Promise<import('@/api/system/dept').DeptVO[]> =>
+  request.get({ url: '/system/user/supervisor-impact', params: { ids: ids.join(',') } })

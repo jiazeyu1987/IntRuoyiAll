@@ -43,6 +43,10 @@ public interface MesProBatchRecordExecutionService {
     MesProBatchRecordExecutionOpenOrCreateByContextRespVO openOrCreateByContext(
             MesProBatchRecordExecutionOpenOrCreateByContextReqVO reqVO);
 
+    /** Internal frozen completion source writer; never runs generic cell-link prefills. */
+    MesProBatchRecordExecutionOpenOrCreateByContextRespVO openOrCreateForCompletionSource(
+            MesProBatchRecordExecutionOpenOrCreateByContextReqVO reqVO);
+
     void submitBatchRecordExecution(MesProBatchRecordExecutionSubmitReqVO reqVO);
 
     MesProBatchRecordExecutionFormReviewSignRespVO cosignBatchRecordExecution(

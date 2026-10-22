@@ -77,7 +77,7 @@ class MesFrontlineSessionSnapshotServiceTest {
     private static MesFrontlineSessionSnapshotContent content() {
         MesFrontlineEmployeeSwitchResult employee = new MesFrontlineEmployeeSwitchResult(
                 9001L, 10001L, 101L, 1001L, 201L, false,
-                new MesFrontlineTemplateDescriptor("TPL-001", "PRODUCTION", 1001L, 201L, 10001L));
+                new MesFrontlineTemplateDescriptor("TPL-001", "PRODUCTION", 1001L, 201L, 10001L), "SYSTEM_USER");
         return new MesFrontlineSessionSnapshotContent(1L, 9001L, 101L, 1001L, 201L, 301L,
                 List.of(employee), List.of(), List.of(), List.of(),
                 new MesFrontlineProductionSubmitContext(null, null, null, null,

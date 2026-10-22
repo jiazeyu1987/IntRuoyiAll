@@ -95,7 +95,7 @@ async function openTargetActiveOrderDetail(page) {
 
   const detailPage = page.locator('[data-team-leader-active-order-detail-page]').first()
   await detailPage.waitFor({ state: 'visible', timeout: 30000 })
-  await detailPage.getByRole('tab', { name: /生产提交/ }).click()
+  await detailPage.getByRole('tab', { name: /生产表单/ }).click()
   return detailPage
 }
 

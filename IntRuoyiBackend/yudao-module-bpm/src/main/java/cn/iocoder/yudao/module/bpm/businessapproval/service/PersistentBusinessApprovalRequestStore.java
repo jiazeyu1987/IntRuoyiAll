@@ -46,8 +46,9 @@ public class PersistentBusinessApprovalRequestStore implements BusinessApprovalR
     @Transactional(rollbackFor = Exception.class)
     public BusinessApprovalRequest attachProcessInstance(Long requestId, String processInstanceId) {
         BusinessApprovalRequestDO requestDO = requireRequestDO(requestId);
+        if (processInstanceId == null || processInstanceId.isBlank()) throw new IllegalStateException("APPROVAL_FORMAL_PROCESS_REQUIRED");
         requestDO.setProcessInstanceId(processInstanceId);
-        requestMapper.updateById(requestDO);
+        if (requestMapper.updateById(requestDO) != 1) throw new IllegalStateException("APPROVAL_FORMAL_SOURCE_ATTACHMENT_FAILED");
         return toModel(requestDO);
     }
 

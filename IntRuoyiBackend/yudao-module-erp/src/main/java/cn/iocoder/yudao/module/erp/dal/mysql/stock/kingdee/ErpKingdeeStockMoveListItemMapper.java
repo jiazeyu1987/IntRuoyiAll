@@ -21,4 +21,7 @@ public interface ErpKingdeeStockMoveListItemMapper extends BaseMapperX<ErpKingde
         return selectOne(ErpKingdeeStockMoveListItemDO::getSourceLineKey, sourceLineKey);
     }
 
+    @org.apache.ibatis.annotations.Delete("DELETE FROM erp_kingdee_stock_move_item WHERE stock_move_id = #{stockMoveId}")
+    int deleteByStockMoveId(@org.apache.ibatis.annotations.Param("stockMoveId") Long stockMoveId);
+
 }

@@ -70,9 +70,8 @@ public class MesProFrontlineFeedbackMaterialSubmissionValidator {
         if (outputQuantity == null || outputQuantity.compareTo(BigDecimal.ZERO) <= 0) {
             throw invalid("输出数量必须大于 0");
         }
-        if (lossQuantity == null || lossQuantity.compareTo(BigDecimal.ZERO) < 0
-                || lossQuantity.compareTo(outputQuantity) > 0) {
-            throw invalid("损耗数量不能小于 0 或大于输出数量");
+        if (lossQuantity == null || lossQuantity.compareTo(BigDecimal.ZERO) < 0) {
+            throw invalid("损耗数量不能为空或小于 0");
         }
         List<MesProFrontlineFeedbackPayloadReqVO.LossDetailReqVO> lossDetails = payload.getLossDetails();
         BigDecimal detailTotal = lossDetails == null ? BigDecimal.ZERO : lossDetails.stream()
@@ -123,9 +122,6 @@ public class MesProFrontlineFeedbackMaterialSubmissionValidator {
         }
         if (lossQuantity == null || lossQuantity.compareTo(BigDecimal.ZERO) < 0) {
             throw invalid("物料损耗数量不能为空或小于 0：" + materialId);
-        }
-        if (lossQuantity.compareTo(outputQuantity) > 0) {
-            throw invalid("损耗数量不能大于完成数量：" + materialId);
         }
     }
 

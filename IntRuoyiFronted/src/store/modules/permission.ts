@@ -1,4 +1,5 @@
 import { defineStore } from 'pinia'
+import { filterTestModeMenus, useTestModeStore } from './testMode'
 import { store } from '@/store'
 import { cloneDeep } from 'lodash-es'
 import remainingRouter from '@/router/modules/remaining'
@@ -545,6 +546,26 @@ const mergeStaticRoutesWithDynamicRoutes = (
   permissionControlledRoutes: AppRouteRecordRaw[] = []
 ) => {
   const mergedStaticRoutes = cloneDeep(staticRoutes)
+  const staticRouteNamesToRemove: string[] = []
+  // A published module menu owns its config leaf. Do not leave a second static
+  // shell with the same named leaf, or merge a dynamic leaf into its own parent.
+  const configNames = new Set(['MesEdhrGlobalConfig', 'ErpTableAutoSyncConfig', 'DccRegistrationCertificateConfig', 'InfraBasicConfig'])
+  const publishedConfigNames = new Set<string>()
+  const collectConfigNames = (routes: AppRouteRecordRaw[]) => {
+    for (const route of routes) {
+      if (configNames.has(String(route.name))) publishedConfigNames.add(String(route.name))
+      if (route.children?.length) collectConfigNames(route.children)
+    }
+  }
+  collectConfigNames(dynamicRoutes)
+  for (let index = mergedStaticRoutes.length - 1; index >= 0; index--) {
+    const route = mergedStaticRoutes[index]
+    if (route.children?.some(child => publishedConfigNames.has(String(child.name))) &&
+        String(route.name).endsWith('ConfigRoot')) {
+      staticRouteNamesToRemove.push(String(route.name))
+      mergedStaticRoutes.splice(index, 1)
+    }
+  }
   const controlledStaticRoutes = cloneDeep(permissionControlledRoutes)
   const authorizedStaticRoutes: AppRouteRecordRaw[] = []
   const dynamicRoutesToAdd: AppRouteRecordRaw[] = []
@@ -645,6 +666,7 @@ const mergeStaticRoutesWithDynamicRoutes = (
   }
 
   return {
+    staticRouteNamesToRemove,
     authorizedStaticRoutes,
     mergedStaticRoutes,
     dynamicRoutesToAdd,
@@ -653,6 +675,7 @@ const mergeStaticRoutesWithDynamicRoutes = (
 }
 
 export interface PermissionState {
+  staticRouteNamesToRemove: string[]
   routers: AppRouteRecordRaw[]
   addRouters: AppRouteRecordRaw[]
   menuTabRouters: AppRouteRecordRaw[]
@@ -660,19 +683,22 @@ export interface PermissionState {
 
 export const usePermissionStore = defineStore('permission', {
   state: (): PermissionState => ({
+    staticRouteNamesToRemove: [],
     routers: [],
     addRouters: [],
     menuTabRouters: []
   }),
   getters: {
     getRouters(): AppRouteRecordRaw[] {
-      return this.routers
+      return useTestModeStore().enabled === true ? this.routers : filterTestModeMenus(this.routers)
     },
     getAddRouters(): AppRouteRecordRaw[] {
       return flatMultiLevelRoutes(cloneDeep(this.addRouters))
     },
     getMenuTabRouters(): AppRouteRecordRaw[] {
-      return this.menuTabRouters
+      return useTestModeStore().enabled === true
+        ? this.menuTabRouters
+        : filterTestModeMenus(this.menuTabRouters)
     }
   },
   actions: {
@@ -686,6 +712,7 @@ export const usePermissionStore = defineStore('permission', {
         }
         const routerMap: AppRouteRecordRaw[] = generateRoute(res)
         const {
+          staticRouteNamesToRemove,
           authorizedStaticRoutes,
           mergedStaticRoutes,
           dynamicRoutesToAdd,
@@ -695,6 +722,7 @@ export const usePermissionStore = defineStore('permission', {
           routerMap,
           permissionControlledStaticRoutes
         )
+        this.staticRouteNamesToRemove = staticRouteNamesToRemove
         // 动态路由，404一定要放到最后面
         // preschooler：vue-router@4以后已支持静态404路由，此处可不再追加
         this.addRouters = mergedRoutesToReplace.concat(dynamicRoutesToAdd, [

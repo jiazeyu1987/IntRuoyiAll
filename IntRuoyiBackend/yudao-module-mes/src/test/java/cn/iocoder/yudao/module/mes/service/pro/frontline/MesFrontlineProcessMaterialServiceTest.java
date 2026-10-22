@@ -57,7 +57,7 @@ class MesFrontlineProcessMaterialServiceTest {
     @BeforeEach
     void setUp() {
         service = new MesFrontlineProcessMaterialServiceImpl(activeOrderSnapshotResolver, processSnapshotMapper,
-                routeVersionMapper, workOrderMapper, itemMapper, batchQueryService);
+                routeVersionMapper, workOrderMapper, itemMapper);
         when(activeOrderSnapshotResolver.requireEffective(ACTIVE_ORDER_ID))
                 .thenReturn(new ActiveOrderSnapshotResolver.ActiveOrderSnapshot(ACTIVE_ORDER_ID, WORK_ORDER_ID,
                         ROUTE_ID, ROUTE_VERSION_ID, 71L, 81L, 91L));
@@ -75,7 +75,22 @@ class MesFrontlineProcessMaterialServiceTest {
     }
 
     @Test
-    void listFrozenMaterials_separatesInputBatchEvidenceFromOutputCompletionMaterials() {
+    void openingProductionDoesNotRequireOrQueryPickListBatches() {
+        when(routeVersionMapper.selectById(ROUTE_VERSION_ID)).thenReturn(routeVersion("""
+                {"routeId":101,"configSnapshots":{"batchUseConfigs":[
+                {"routeProcessId":1001,"inputMaterialIds":[503],"outputMaterialIds":[501]}]}}
+                """));
+        when(itemMapper.selectListByIds(anyCollection())).thenReturn(List.of(
+                item(503L, "A003", "输入原料"), item(501L, "A001", "产出物料")));
+        var materials = service.listFrozenMaterials(ACTIVE_ORDER_ID, ROUTE_ID, ROUTE_PROCESS_ID, PROCESS_ID);
+        assertEquals(2, materials.size());
+        assertTrue(materials.get(0).batchCodes().isEmpty());
+        assertNull(materials.get(0).sourceSnapshotHash());
+        verifyNoInteractions(batchQueryService);
+    }
+
+    @Test
+    void listFrozenMaterials_separatesPendingInputsFromOutputCompletionMaterials() {
         when(routeVersionMapper.selectById(ROUTE_VERSION_ID)).thenReturn(routeVersion("""
                 {
                   "routeId": 101,
@@ -94,8 +109,6 @@ class MesFrontlineProcessMaterialServiceTest {
                 item(503L, "A003", "输入原料"),
                 item(502L, "A002", "杠杆"),
                 item(501L, "A001", "弹簧")));
-        when(batchQueryService.resolveEvidence(WORK_ORDER_ID, "A003"))
-                .thenReturn(evidence("A003", List.of("LOT-001", "LOT-002")));
 
         List<MesFrontlineProcessMaterial> materials = service.listFrozenMaterials(ACTIVE_ORDER_ID, ROUTE_ID,
                 ROUTE_PROCESS_ID, PROCESS_ID);
@@ -103,7 +116,9 @@ class MesFrontlineProcessMaterialServiceTest {
         assertEquals(3, materials.size());
         assertEquals(503L, materials.get(0).materialId());
         assertEquals("INPUT", materials.get(0).materialRole());
-        assertEquals(List.of("LOT-001", "LOT-002"), materials.get(0).batchCodes());
+        assertTrue(materials.get(0).batchCodes().isEmpty());
+        assertNull(materials.get(0).actualQuantity());
+        assertNull(materials.get(0).sourceSnapshotHash());
         assertEquals(501L, materials.get(1).materialId());
         assertEquals("OUTPUT", materials.get(1).materialRole());
         assertEquals("弹簧", materials.get(1).materialName());
@@ -111,7 +126,7 @@ class MesFrontlineProcessMaterialServiceTest {
         assertNull(materials.get(0).bomQuantity());
         assertEquals(502L, materials.get(2).materialId());
         assertEquals("OUTPUT", materials.get(2).materialRole());
-        verify(batchQueryService).resolveEvidence(WORK_ORDER_ID, "A003");
+        verifyNoInteractions(batchQueryService);
         verify(batchQueryService, never()).resolveEvidence(WORK_ORDER_ID, "A001");
         verify(batchQueryService, never()).resolveEvidence(WORK_ORDER_ID, "A002");
     }
@@ -132,8 +147,6 @@ class MesFrontlineProcessMaterialServiceTest {
                 }
                 """));
         when(itemMapper.selectListByIds(anyCollection())).thenReturn(List.of(item(503L, "A003", "输入原料")));
-        when(batchQueryService.resolveEvidence(WORK_ORDER_ID, "A003"))
-                .thenReturn(evidence("A003", List.of("LOT-001")));
 
         List<MesFrontlineProcessMaterial> materials = service.listFrozenMaterials(ACTIVE_ORDER_ID, ROUTE_ID,
                 ROUTE_PROCESS_ID, PROCESS_ID);

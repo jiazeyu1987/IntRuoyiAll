@@ -50,6 +50,7 @@ import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -96,6 +97,14 @@ public class MesProWorkOrderServiceImpl implements MesProWorkOrderService {
     private MesProScheduleCalendarRuleMapper scheduleCalendarRuleMapper;
     @Resource
     private MesReportAllocationOrderChangeService reportAllocationOrderChangeService;
+    @Resource
+    private cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper activeOrderMapper;
+    @Resource
+    private cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffService handoffService;
+    @Resource
+    private cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesReportAllocationReleaseStateService releaseStateService;
+    @Resource
+    private cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService gxpAuditService;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -125,8 +134,9 @@ public class MesProWorkOrderServiceImpl implements MesProWorkOrderService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void updateWorkOrder(MesProWorkOrderSaveReqVO updateReqVO) {
+        gxpAuditService.acquireLedgerLock();
         // 1.1 校验存在 + 只有草稿状态才能编辑
-        MesProWorkOrderDO oldWorkOrder = validateWorkOrderExists(updateReqVO.getId());
+        MesProWorkOrderDO oldWorkOrder = validateWorkOrderExistsForUpdate(updateReqVO.getId());
         if (ObjUtil.notEqual(oldWorkOrder.getStatus(), MesProWorkOrderStatusEnum.PREPARE.getStatus())) {
             throw exception(PRO_WORK_ORDER_NOT_PREPARE);
         }
@@ -172,6 +182,15 @@ public class MesProWorkOrderServiceImpl implements MesProWorkOrderService {
     @Override
     public MesProWorkOrderDO validateWorkOrderExists(Long id) {
         MesProWorkOrderDO workOrder = workOrderMapper.selectById(id);
+        if (workOrder == null) {
+            throw exception(PRO_WORK_ORDER_NOT_EXISTS);
+        }
+        return workOrder;
+    }
+
+    @Override
+    public MesProWorkOrderDO validateWorkOrderExistsForUpdate(Long id) {
+        MesProWorkOrderDO workOrder = workOrderMapper.selectByIdForUpdate(id);
         if (workOrder == null) {
             throw exception(PRO_WORK_ORDER_NOT_EXISTS);
         }
@@ -354,9 +373,19 @@ public class MesProWorkOrderServiceImpl implements MesProWorkOrderService {
     }
 
     @Override
+    public MesProWorkOrderDO validateWorkOrderConfirmedForUpdate(Long id) {
+        MesProWorkOrderDO workOrder = validateWorkOrderExistsForUpdate(id);
+        if (ObjUtil.notEqual(workOrder.getStatus(), MesProWorkOrderStatusEnum.CONFIRMED.getStatus())) {
+            throw exception(PRO_WORK_ORDER_NOT_CONFIRMED);
+        }
+        return workOrder;
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
     public void confirmWorkOrder(Long id) {
         // 1.1 校验存在
-        MesProWorkOrderDO workOrder = validateWorkOrderExists(id);
+        MesProWorkOrderDO workOrder = validateWorkOrderExistsForUpdate(id);
         // 1.2 只有草稿状态才能确认
         if (ObjUtil.notEqual(workOrder.getStatus(), MesProWorkOrderStatusEnum.PREPARE.getStatus())) {
             throw exception(PRO_WORK_ORDER_NOT_PREPARE);
@@ -371,7 +400,7 @@ public class MesProWorkOrderServiceImpl implements MesProWorkOrderService {
     @Transactional(rollbackFor = Exception.class)
     public void finishWorkOrder(Long id) {
         // 1. 校验存在 + 只有已确认状态才能完成
-        MesProWorkOrderDO workOrder = validateWorkOrderExists(id);
+        MesProWorkOrderDO workOrder = validateWorkOrderExistsForUpdate(id);
         if (ObjUtil.notEqual(workOrder.getStatus(), MesProWorkOrderStatusEnum.CONFIRMED.getStatus())) {
             throw exception(PRO_WORK_ORDER_NOT_CONFIRMED);
         }
@@ -422,26 +451,46 @@ public class MesProWorkOrderServiceImpl implements MesProWorkOrderService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void cancelWorkOrder(Long id) {
+        // Same first lock as frontline submission and the nested handoff audit.
+        gxpAuditService.acquireLedgerLock();
         // 1. 校验存在 + 只有已确认状态才能取消
-        MesProWorkOrderDO workOrder = validateWorkOrderExists(id);
+        var cycles = activeOrderMapper.selectListByWorkOrderIdForUpdate(id);
+        MesProWorkOrderDO workOrder = workOrderMapper.selectByIdForUpdate(id);
+        if (workOrder == null) throw exception(PRO_WORK_ORDER_NOT_EXISTS);
         if (ObjUtil.notEqual(workOrder.getStatus(), MesProWorkOrderStatusEnum.CONFIRMED.getStatus())) {
             throw exception(PRO_WORK_ORDER_NOT_CONFIRMED);
+        }
+        for (var cycle : cycles) {
+            if ("ACTIVE".equals(cycle.getActiveStatus()) && (!"ACTIVE".equals(cycle.getBusinessStatus())
+                    || releaseStateService.isReleaseApplicationLockedForUpdate(cycle.getId()))) {
+                throw exception(PRO_WORK_ORDER_NOT_CONFIRMED);
+            }
         }
 
         reportAllocationOrderChangeService.invalidateWorkOrder(id, SecurityFrameworkUtils.getLoginUserId(),
                 "工单取消");
         // 2. 级联取消所有关联任务
         taskService.cancelTaskByOrderId(id);
+        for (var cycle : cycles) {
+            if (!"ACTIVE".equals(cycle.getActiveStatus())) continue;
+            if (activeOrderMapper.cancelActiveCycle(cycle.getId(), cycle.getVersion(), LocalDateTime.now()) != 1) {
+                throw new IllegalStateException("工单取消时活动周期已变化");
+            }
+            handoffService.retireCycle(cycle.getId(), SecurityFrameworkUtils.getLoginUserId(), id);
+        }
 
         // 3. 更新工单状态为已取消
-        workOrderMapper.updateById(new MesProWorkOrderDO().setId(id)
+        if (workOrderMapper.updateById(new MesProWorkOrderDO().setId(id)
                 .setStatus(MesProWorkOrderStatusEnum.CANCELED.getStatus())
-                .setCancelDate(LocalDateTime.now()));
+                .setCancelDate(LocalDateTime.now())) != 1) throw new IllegalStateException("工单取消写入失败");
     }
 
     // ==================== 校验方法 ====================
 
     private void validateWorkOrderSaveData(Long id, MesProWorkOrderSaveReqVO reqVO) {
+        if (reqVO.getParentId() != null && !Objects.equals(reqVO.getParentId(), MesProWorkOrderDO.PARENT_ID_NULL)) {
+            validateWorkOrderExistsForUpdate(reqVO.getParentId());
+        }
         // 1. 校验编码唯一
         validateWorkOrderCodeUnique(id, reqVO.getCode());
         // 2. 校验产品存在

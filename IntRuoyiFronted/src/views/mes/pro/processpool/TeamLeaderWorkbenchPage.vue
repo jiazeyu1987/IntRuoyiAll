@@ -158,13 +158,61 @@
                   </el-tag>
                 </template>
               </el-table-column>
-              <el-table-column label="员工编码" min-width="120">
-                <template #default="{ row }">{{ row.employeeCode || '-' }}</template>
-              </el-table-column>
-              <el-table-column label="签名密码" min-width="140">
+              <el-table-column label="状态" width="100">
                 <template #default="{ row }">
-                  {{ formatSignaturePasswordManager(row) }}
+                  <el-tag :type="row.enabled === false ? 'danger' : 'success'" effect="plain">
+                    {{ row.enabled === false ? '已禁用' : '可选择' }}
+                  </el-tag>
                 </template>
+              </el-table-column>
+              <el-table-column label="操作" width="320" fixed="right">
+                <template #default="{ row }">
+                  <el-button link type="primary" @click="updateEmployeeDisplayName(row)">
+                    修改名称
+                  </el-button>
+                  <el-button
+                    link
+                    :type="row.enabled === false ? 'success' : 'warning'"
+                    @click="updateEmployeeStatus(row, row.enabled === false)"
+                  >
+                    {{ row.enabled === false ? '启用人员' : '禁用人员' }}
+                  </el-button>
+                  <el-button
+                    v-if="row.employeeType === 'TEMPORARY'"
+                    link
+                    type="primary"
+                    @click="resetTemporarySignaturePassword(row)"
+                  >
+                    重置密码
+                  </el-button>
+                  <el-button link type="info" @click="foldProductionPersonnel(row)">
+                    折叠
+                  </el-button>
+                </template>
+              </el-table-column>
+            </el-table>
+          </template>
+        </UnifiedListTemplate>
+
+        <el-collapse v-if="foldedProductionPersonnelRows.length" class="mt-16px">
+          <el-collapse-item name="folded-personnel">
+            <template #title>
+              已折叠人员（{{ foldedProductionPersonnelRows.length }}人）
+            </template>
+            <el-button class="mb-12px" @click="restoreAllProductionPersonnel">
+              全部恢复显示
+            </el-button>
+            <el-table :data="foldedProductionPersonnelRows" row-key="id" border stripe>
+              <el-table-column label="显示名" min-width="140">
+                <template #default="{ row }">
+                  <span
+                    class="team-leader-workbench__personnel-name"
+                    :class="{ 'is-disabled': row.enabled === false }"
+                  >{{ row.displayName || row.employeeName || '--' }}</span>
+                </template>
+              </el-table-column>
+              <el-table-column label="来源" width="110">
+                <template #default="{ row }">{{ formatEmployeeType(row.employeeType) }}</template>
               </el-table-column>
               <el-table-column label="状态" width="100">
                 <template #default="{ row }">
@@ -173,31 +221,16 @@
                   </el-tag>
                 </template>
               </el-table-column>
-              <el-table-column label="操作" width="260" fixed="right">
+              <el-table-column label="操作" width="130" fixed="right">
                 <template #default="{ row }">
-                  <el-button link type="primary" @click="updateEmployeeDisplayName(row)">
-                    修改显示名
-                  </el-button>
-                  <el-button
-                    link
-                    :type="row.enabled === false ? 'success' : 'warning'"
-                    @click="updateEmployeeStatus(row, row.enabled === false)"
-                  >
-                    {{ row.enabled === false ? '启用' : '禁用' }}
-                  </el-button>
-                  <el-button
-                    v-if="row.employeeType === 'TEMPORARY'"
-                    link
-                    type="primary"
-                    @click="resetTemporarySignaturePassword(row)"
-                  >
-                    重置签名密码
+                  <el-button link type="primary" @click="restoreProductionPersonnel(row)">
+                    恢复显示
                   </el-button>
                 </template>
               </el-table-column>
             </el-table>
-          </template>
-        </UnifiedListTemplate>
+          </el-collapse-item>
+        </el-collapse>
 
         <el-dialog
           data-team-leader-personnel-add-dialog
@@ -739,7 +772,10 @@
             :min-width="getSubmissionColumnMinWidthString('workOrder', 160)"
           >
             <template #default="{ row }">
-              <span :data-pqc-leader-work-order="activeLeaderTab === 'PQC' ? '' : undefined">
+              <span
+                data-team-leader-submission-work-order-code
+                :data-pqc-leader-work-order="activeLeaderTab === 'PQC' ? '' : undefined"
+              >
                 {{ row.workOrderCode || row.workOrderName || '--' }}
               </span>
             </template>
@@ -942,6 +978,9 @@
                 {{ resolvePqcInspectionTypeText(row.inspectionType) }} / 第
                 {{ row.roundNo || '--' }} 轮
               </span>
+              <div data-pqc-leader-original-event-ids>
+                原提交事件：{{ formatSubmissionSourceEventIds(row).split(' ').join('、') }}
+              </div>
             </template>
           </el-table-column>
           <el-table-column
@@ -956,6 +995,7 @@
                 <span
                   v-for="item in resolvePqcInspectionItemItems(row)"
                   :key="item.key"
+                  :data-pqc-inspection-item-code="item.key"
                   class="team-leader-workbench__structured-pill"
                 >
                   {{ item.valueText }}
@@ -1016,6 +1056,7 @@
                 <span
                   v-for="item in resolvePqcEquipmentNumberItems(row)"
                   :key="item.key"
+                  :data-pqc-inspection-item-code="item.key"
                   class="team-leader-workbench__structured-pill"
                 >
                   {{ item.label }}：{{ item.valueText }}
@@ -1038,6 +1079,7 @@
                 <span
                   v-for="item in resolvePqcAcceptanceStandardItems(row)"
                   :key="item.key"
+                  :data-pqc-inspection-item-code="item.key"
                   class="team-leader-workbench__structured-pill"
                 >
                   {{ item.label }}：{{ item.valueText }}
@@ -1057,6 +1099,7 @@
                 <span
                   v-for="item in resolvePqcInspectionMethodItems(row)"
                   :key="item.key"
+                  :data-pqc-inspection-item-code="item.key"
                   class="team-leader-workbench__structured-pill"
                 >
                   {{ item.label }}：{{ item.valueText }}
@@ -1102,6 +1145,7 @@
                 <div
                   v-for="item in resolveSubmissionParameterItems(row)"
                   :key="item.key"
+                  :data-pqc-inspection-item-code="activeLeaderTab === 'PQC' ? item.key : undefined"
                   class="team-leader-workbench__parameter-item"
                 >
                   <span class="team-leader-workbench__parameter-label">{{ item.label }}</span>
@@ -1277,6 +1321,8 @@
                   link
                   type="success"
                   :data-team-leader-review-event-id="String(row.id)"
+                  :data-pqc-leader-pqc-task-id="activeLeaderTab === 'PQC' ? String(row.pqcTaskId || '') : undefined"
+                  :data-pqc-leader-submitted-event-ids="activeLeaderTab === 'PQC' ? formatSubmissionSourceEventIds(row) : undefined"
                   @click="openReview(row)"
                 >
                   复核
@@ -1370,6 +1416,13 @@
           <el-descriptions-item label="生产工单">
             {{ detail.workOrderCode || '--' }}
           </el-descriptions-item>
+          <el-descriptions-item
+            v-if="isPqcSubmissionRow(detail)"
+            label="损耗数量"
+            data-pqc-leader-detail-loss-quantity
+          >
+            {{ resolveSubmissionLossQuantity(detail) }}
+          </el-descriptions-item>
           <el-descriptions-item v-if="!isPqcSubmissionRow(detail)" label="复核日志">
             <div class="team-leader-workbench__review-log" data-team-leader-review-log>
               <el-tag
@@ -1426,6 +1479,13 @@
                   </template>
                 </el-table-column>
                 <el-table-column label="设备编号" prop="selectedEquipmentNumber" min-width="130" />
+                <el-table-column label="损耗数量" min-width="100">
+                  <template #default="{ row }">
+                    <span data-pqc-leader-detail-item-loss-quantity>
+                      {{ formatPqcItemLossQuantity(row) }}
+                    </span>
+                  </template>
+                </el-table-column>
                 <el-table-column label="接收标准" min-width="180">
                   <template #default="{ row }">{{ formatPqcSnapshotStandard(row) }}</template>
                 </el-table-column>
@@ -1512,21 +1572,57 @@
       :total="activeOrderTotal"
       v-model:page="activeOrderQuery.pageNo"
       v-model:limit="activeOrderQuery.pageSize"
-    >
+      >
       <template #actions>
+        <el-input
+          v-model="activeOrderWorkOrderKeyword"
+          class="team-leader-workbench__active-order-filter"
+          clearable
+          placeholder="筛选生产订单号"
+          data-team-leader-active-order-work-order-filter
+          @input="handleActiveOrderWorkOrderKeywordChange"
+          @clear="handleActiveOrderWorkOrderKeywordChange"
+        />
+        <el-button class="app-test-button"
+          v-if="testModeEnabled"
+          v-hasPermi="['mes:pro-process-pool-team-leader:maintain']"
+          type="warning"
+          :loading="activeOrderTestResetSubmitting"
+          :disabled="activeOrderTestResetBlocked"
+          title="清理指定测试订单的本轮测试数据，并重新加入活跃订单；保留原工单及领料关联"
+          data-team-leader-reset-fixed-active-order
+          @click="handleResetFixedSimulationActiveOrder"
+        >
+          <Icon icon="ep:refresh-right" class="mr-5px" />
+          重置指定测试订单
+        </el-button>
         <el-button
           type="primary"
+          :disabled="activeOrderTestResetSubmitting"
           data-team-leader-open-active-order-dialog
           @click="openActiveOrderDialog"
         >
           <Icon icon="ep:plus" class="mr-5px" />
           新增活跃订单
         </el-button>
+        <el-button class="app-test-button"
+          v-if="testModeEnabled && (isProductionLeader)"
+          v-hasPermi="['mes:pro-process-pool-team-leader:maintain']"
+          type="danger"
+          plain
+          :loading="teamLeaderDataCleanupSubmitting"
+          :disabled="maintenanceSubmitting || activeOrderTestResetSubmitting || activeOrderSimulationSubmittingId !== undefined"
+          data-team-leader-data-cleanup
+          @click="handleTeamLeaderDataCleanup"
+        >
+          一键清理生产数据
+        </el-button>
       </template>
       <template #table>
         <el-table
           v-loading="activeOrderLoading"
           :data="pagedActiveOrderRows"
+          row-key="id"
           border
           stripe
           :row-class-name="resolveActiveOrderRowClassName"
@@ -1534,11 +1630,6 @@
           data-team-leader-active-order-list
           data-user-table-key="mes.pro.processPool.teamLeader.activeOrders"
         >
-          <el-table-column label="活跃池ID" prop="id" width="110">
-            <template #default="{ row }">
-              <span :data-team-leader-active-order-id="String(row.id)">{{ row.id }}</span>
-            </template>
-          </el-table-column>
           <el-table-column label="生产订单号" prop="workOrderCode" min-width="200">
             <template #default="{ row }">
               <div class="team-leader-workbench__active-order-code-cell">
@@ -1567,30 +1658,24 @@
               </div>
             </template>
           </el-table-column>
+          <el-table-column label="产品名称" prop="productName" min-width="200" />
           <el-table-column label="路线名称" prop="routeName" min-width="200" />
-          <el-table-column label="版本号" prop="routeVersionNo" min-width="100" />
-          <el-table-column label="订单类型" min-width="110">
-            <template #default="{ row }">
-              <el-tag v-if="row.simulated" type="warning" effect="plain">测试模拟</el-tag>
-              <span v-else>正式订单</span>
-            </template>
-          </el-table-column>
           <el-table-column label="ERP生产数量" min-width="130">
             <template #default="{ row }">
-              {{ formatTraceQuantity(row.erpFixedQuantitySnapshot) }}
+              {{ formatActiveOrderErpQuantity(row.erpFixedQuantitySnapshot) }}
             </template>
           </el-table-column>
           <el-table-column label="生产进度" prop="productionProgressPercent" min-width="120">
             <template #default="{ row }">
               <span data-team-leader-active-order-production-progress>
-                {{ formatActiveOrderProgressPercent(row.productionProgressPercent) }}
+                {{ row.readBlocked ? '未知' : formatActiveOrderProgressPercent(row.productionProgressPercent) }}
               </span>
             </template>
           </el-table-column>
           <el-table-column label="检验进度" prop="inspectionProgressPercent" min-width="120">
             <template #default="{ row }">
               <span data-team-leader-active-order-inspection-progress>
-                {{ formatActiveOrderProgressPercent(row.inspectionProgressPercent) }}
+                {{ row.readBlocked ? '未知' : formatActiveOrderProgressPercent(row.inspectionProgressPercent) }}
               </span>
             </template>
           </el-table-column>
@@ -1600,6 +1685,7 @@
                 :type="formatActiveOrderReleaseStatusTag(row.releaseApplicationStatus)"
                 effect="plain"
                 :title="row.releaseSourceSnapshotHash || undefined"
+                data-team-leader-active-order-release-status
               >
                 {{ formatActiveOrderReleaseStatus(row.releaseApplicationStatus) }}
               </el-tag>
@@ -1608,51 +1694,12 @@
           <el-table-column label="加入时间" min-width="170">
             <template #default="{ row }">{{ formatDateTime(row.joinedAt) }}</template>
           </el-table-column>
-          <el-table-column label="操作" width="790" fixed="right">
+          <el-table-column label="操作" width="200" fixed="right">
             <template #default="{ row }">
-              <el-tooltip content="上移" placement="top">
-                <el-button
-                  link
-                  type="primary"
-                  aria-label="上移"
-                  title="上移"
-                  :disabled="
-                    isFirstActiveOrder(row) ||
-                    activeOrderMoveSubmittingId !== undefined ||
-                    activeOrderSimulationSubmittingId !== undefined
-                  "
-                  :loading="
-                    activeOrderMoveSubmittingId === row.id && activeOrderMoveDirection === 'UP'
-                  "
-                  data-team-leader-move-active-order-up
-                  @click="submitMoveActiveOrder(row, 'UP')"
-                >
-                  <Icon icon="ep:arrow-up-bold" />
-                </el-button>
-              </el-tooltip>
-              <el-tooltip content="下移" placement="top">
-                <el-button
-                  link
-                  type="primary"
-                  aria-label="下移"
-                  title="下移"
-                  :disabled="
-                    isLastActiveOrder(row) ||
-                    activeOrderMoveSubmittingId !== undefined ||
-                    activeOrderSimulationSubmittingId !== undefined
-                  "
-                  :loading="
-                    activeOrderMoveSubmittingId === row.id && activeOrderMoveDirection === 'DOWN'
-                  "
-                  data-team-leader-move-active-order-down
-                  @click="submitMoveActiveOrder(row, 'DOWN')"
-                >
-                  <Icon icon="ep:arrow-down-bold" />
-                </el-button>
-              </el-tooltip>
               <el-button
                 link
                 type="primary"
+                :disabled="row.readBlocked"
                 data-team-leader-active-order-detail
                 @click="openActiveOrderSubmissionDetail(row)"
               >
@@ -1660,22 +1707,9 @@
               </el-button>
               <el-button
                 link
-                type="danger"
-                :loading="maintenanceSubmitting"
-                :disabled="
-                  activeOrderRebuildSubmittingId !== undefined ||
-                  activeOrderSimulationSubmittingId !== undefined
-                "
-                data-team-leader-remove-active-order
-                @click="handleRemoveActiveOrder(row)"
-              >
-                移除
-              </el-button>
-              <el-button
-                link
                 type="warning"
-                :disabled="row.abnormal || activeOrderSimulationSubmittingId !== undefined"
-                :loading="abnormalSubmitting && abnormalForm.workOrderId === row.workOrderId"
+                :disabled="row.abnormal || row.readBlocked || activeOrderTestResetSubmitting || activeOrderSimulationSubmittingId !== undefined"
+                :loading="abnormalSubmitting && abnormalForm.activeOrderId === row.id"
                 :title="
                   row.abnormal ? row.abnormalReason || '该订单已报异常' : '针对该活跃订单报异常'
                 "
@@ -1689,7 +1723,7 @@
                 type="primary"
                 :disabled="
                   !canApplyActiveOrderRelease(row) || isActiveOrderReleaseApplicationLocked(row.id)
-                    || activeOrderSimulationSubmittingId !== undefined
+                    || activeOrderTestResetSubmitting || activeOrderSimulationSubmittingId !== undefined
                 "
                 :loading="releaseApplicationSubmittingId === row.id"
                 :title="resolveActiveOrderReleaseApplyDisabledReason(row)"
@@ -1698,97 +1732,144 @@
               >
                 完工
               </el-button>
-              <el-button
-                link
-                type="success"
-                :loading="activeOrderRebuildSubmittingId === row.id"
-                :disabled="
-                  maintenanceSubmitting ||
-                  activeOrderRebuildSubmittingId !== undefined ||
-                  activeOrderSimulationSubmittingId !== undefined
-                "
-                data-team-leader-rebuild-active-order
-                @click="handleRebuildActiveOrder(row)"
+              <el-dropdown
+                trigger="click"
+                class="team-leader-workbench__active-order-test-menu"
               >
-                重建
-              </el-button>
-              <el-button
-                v-hasPermi="['mes:pro-process-pool-team-leader:version-upgrade']"
-                link
-                type="warning"
-                :loading="activeOrderVersionUpgradeSubmittingId === row.id"
-                :disabled="
-                  maintenanceSubmitting ||
-                  row.activeStatus !== 'ACTIVE' ||
-                  activeOrderRebuildSubmittingId !== undefined ||
-                  activeOrderSimulationSubmittingId !== undefined ||
-                  activeOrderVersionUpgradeSubmittingId !== undefined
-                "
-                title="按全部最新正式版本发起版本升级重启审批"
-                data-team-leader-active-order-version-upgrade
-                @click="handleActiveOrderVersionUpgrade(row)"
-              >升级</el-button>
-              <el-button
-                link
-                type="primary"
-                :loading="activeOrderSimulationSubmittingId === row.id"
-                :disabled="
-                  maintenanceSubmitting ||
-                  activeOrderRebuildSubmittingId !== undefined ||
-                  activeOrderSimulationSubmittingId !== undefined
-                "
-                data-team-leader-copy-latest-simulation-order
-                @click="handleCopyLatestSimulationActiveOrder(row)"
-              >
-                <Icon icon="ep:document-copy" />
-                复制测试单
-              </el-button>
-              <el-button
-                v-if="row.simulated && row.simulationStage === 'LATEST_VERSION_COPY'"
-                link
-                type="danger"
-                :loading="activeOrderSimulationSubmittingId === row.id"
-                :disabled="
-                  maintenanceSubmitting ||
-                  activeOrderRebuildSubmittingId !== undefined ||
-                  activeOrderSimulationSubmittingId !== undefined
-                "
-                data-team-leader-cleanup-latest-simulation-order
-                @click="handleCleanupLatestSimulationActiveOrder(row)"
-              >
-                清理测试单
-              </el-button>
-              <el-button
-                link
-                type="primary"
-                :loading="activeOrderSimulationSubmittingId === row.id"
-                :disabled="
-                  maintenanceSubmitting ||
-                  activeOrderRebuildSubmittingId !== undefined ||
-                  activeOrderSimulationSubmittingId !== undefined
-                "
-                data-team-leader-simulate-active-order-stage1
-                @click="handleSimulateStage1(row)"
-              >
-                <Icon icon="ep:refresh" />
-                Stage1模拟
-              </el-button>
-              <el-button
-                link
-                type="success"
-                :loading="activeOrderSimulationSubmittingId === row.id"
-                :disabled="
-                  maintenanceSubmitting ||
-                  activeOrderRebuildSubmittingId !== undefined ||
-                  activeOrderSimulationSubmittingId !== undefined
-                "
-                data-team-leader-simulate-active-order-stage2-5
-                title="模拟完工并打开真实批次执行详情"
-                @click="handleSimulateStage2_5(row)"
-              >
-                <Icon icon="ep:finished" />
-                模拟完工
-              </el-button>
+                <el-button
+                  link
+                  type="primary"
+                  :loading="activeOrderSimulationSubmittingId === row.id || releaseApplicationSubmittingId === row.id"
+                  :disabled="maintenanceSubmitting || activeOrderRebuildSubmittingId !== undefined || activeOrderTestResetSubmitting || activeOrderSimulationSubmittingId !== undefined"
+                  aria-label="更多操作"
+                  title="更多操作"
+                  data-team-leader-active-order-test-menu
+                >
+                  <Icon icon="ep:more-filled" />
+                </el-button>
+                <template #dropdown>
+                  <el-dropdown-menu>
+                    <el-dropdown-item
+                      :disabled="
+                        maintenanceSubmitting ||
+                        activeOrderRebuildSubmittingId !== undefined ||
+                        activeOrderTestResetSubmitting || activeOrderSimulationSubmittingId !== undefined
+                      "
+                      data-team-leader-remove-active-order
+                      @click="handleRemoveActiveOrder(row)"
+                    >
+                      <Icon v-if="maintenanceSubmitting" icon="ep:loading" class="is-loading" />
+                      移除
+                    </el-dropdown-item>
+                    <el-dropdown-item
+                      :disabled="
+                        maintenanceSubmitting ||
+                        activeOrderRebuildSubmittingId !== undefined ||
+                        activeOrderTestResetSubmitting || activeOrderSimulationSubmittingId !== undefined
+                      "
+                      data-team-leader-rebuild-active-order
+                      @click="handleRebuildActiveOrder(row)"
+                    >
+                      <Icon v-if="activeOrderRebuildSubmittingId === row.id" icon="ep:loading" class="is-loading" />
+                      重建
+                    </el-dropdown-item>
+                    <el-dropdown-item
+                      v-hasPermi="['mes:pro-process-pool-team-leader:version-upgrade']"
+                      :disabled="
+                        maintenanceSubmitting ||
+                        row.activeStatus !== 'ACTIVE' ||
+                        activeOrderRebuildSubmittingId !== undefined ||
+                        activeOrderTestResetSubmitting || activeOrderSimulationSubmittingId !== undefined ||
+                        activeOrderVersionUpgradeSubmittingId !== undefined
+                      "
+                      title="按全部最新正式版本发起版本升级重启审批"
+                      data-team-leader-active-order-version-upgrade
+                      @click="handleActiveOrderVersionUpgrade(row)"
+                    >
+                      <Icon v-if="activeOrderVersionUpgradeSubmittingId === row.id" icon="ep:loading" class="is-loading" />
+                      升级
+                    </el-dropdown-item>
+                    <el-dropdown-item class="app-test-button"
+          v-if="testModeEnabled"
+                      :disabled="
+                        maintenanceSubmitting ||
+                        activeOrderRebuildSubmittingId !== undefined ||
+                        activeOrderTestResetSubmitting || activeOrderSimulationSubmittingId !== undefined
+                      "
+                      data-team-leader-copy-latest-simulation-order
+                      @click="handleCopyLatestSimulationActiveOrder(row)"
+                    >
+                      <Icon icon="ep:document-copy" />
+                      复制测试单
+                    </el-dropdown-item>
+                    <el-dropdown-item class="app-test-button"
+                      v-if="testModeEnabled && (row.simulated && row.simulationStage === 'LATEST_VERSION_COPY')"
+                      :disabled="
+                        maintenanceSubmitting ||
+                        activeOrderRebuildSubmittingId !== undefined ||
+                        activeOrderTestResetSubmitting || activeOrderSimulationSubmittingId !== undefined
+                      "
+                      data-team-leader-cleanup-latest-simulation-order
+                      @click="handleCleanupLatestSimulationActiveOrder(row)"
+                    >
+                      清理测试单
+                    </el-dropdown-item>
+                    <el-dropdown-item class="app-test-button"
+          v-if="testModeEnabled"
+                      :disabled="
+                        maintenanceSubmitting ||
+                        activeOrderRebuildSubmittingId !== undefined ||
+                        activeOrderTestResetSubmitting || activeOrderSimulationSubmittingId !== undefined
+                      "
+                      data-team-leader-simulate-active-order-stage1-p1
+                      @click="handleSimulateStage1(row)"
+                    >
+                      <Icon icon="ep:refresh" />
+                      P1双100
+                    </el-dropdown-item>
+                    <el-dropdown-item class="app-test-button"
+          v-if="testModeEnabled"
+                      :disabled="
+                        maintenanceSubmitting ||
+                        activeOrderRebuildSubmittingId !== undefined ||
+                        activeOrderTestResetSubmitting || activeOrderSimulationSubmittingId !== undefined ||
+                        !canGenerateStage1Forms(row)
+                      "
+                      :title="resolveStage1GenerateFormDisabledReason(row)"
+                      data-team-leader-generate-active-order-stage1-p2
+                      @click="handleGenerateStage1Forms(row)"
+                    >
+                      <Icon icon="ep:document" />
+                      P2生成
+                    </el-dropdown-item>
+                    <el-dropdown-item class="app-test-button"
+          v-if="testModeEnabled"
+                      v-hasPermi="['mes:pro-process-pool-team-leader:release-apply']"
+                      :disabled="maintenanceSubmitting || activeOrderTestResetSubmitting || activeOrderSimulationSubmittingId !== undefined || releaseApplicationSubmittingId !== undefined || !canApplyActiveOrderRelease(row)"
+                      title="将P2生成的记录推送给PQC生产放行"
+                      data-team-leader-push-pqc-stage3
+                      @click="handlePushGeneratedPqcRelease(row)"
+                    >
+                      <Icon icon="ep:promotion" />
+                      P3推送放行
+                    </el-dropdown-item>
+                    <el-dropdown-item class="app-test-button"
+          v-if="testModeEnabled"
+                      :disabled="
+                        maintenanceSubmitting ||
+                        activeOrderRebuildSubmittingId !== undefined ||
+                        activeOrderTestResetSubmitting || activeOrderSimulationSubmittingId !== undefined
+                      "
+                      data-team-leader-simulate-active-order-stage2-5
+                      title="模拟完工并打开真实批次执行详情"
+                      @click="handleSimulateStage2_5(row)"
+                    >
+                      <Icon icon="ep:finished" />
+                      模拟完工
+                    </el-dropdown-item>
+                  </el-dropdown-menu>
+                </template>
+              </el-dropdown>
             </template>
           </el-table-column>
         </el-table>
@@ -1962,6 +2043,7 @@
             remote
             clearable
             reserve-keyword
+            data-team-leader-active-order-candidate-select
             :teleported="false"
             :remote-method="searchActiveOrderCandidates"
             :loading="activeOrderCandidateLoading"
@@ -1981,6 +2063,9 @@
               <div
                 class="team-leader-workbench__active-order-candidate"
                 :class="{ 'is-eligible': candidate.eligible, 'is-blocked': !candidate.eligible }"
+                data-team-leader-active-order-candidate-option
+                :data-team-leader-active-order-candidate-code="candidate.workOrderCode"
+                :data-team-leader-active-order-candidate-state="candidate.candidateState"
               >
                 <span class="team-leader-workbench__active-order-candidate-code">
                   {{ candidate.workOrderCode }}
@@ -2034,7 +2119,12 @@
         <el-button :disabled="maintenanceSubmitting" @click="activeOrderAddDialogVisible = false">
           取消
         </el-button>
-        <el-button type="primary" :loading="maintenanceSubmitting" @click="submitAddActiveOrder">
+        <el-button
+          type="primary"
+          :loading="maintenanceSubmitting"
+          data-team-leader-active-order-add-submit
+          @click="submitAddActiveOrder"
+        >
           {{ activeOrderSubmitLabel }}
         </el-button>
       </template>
@@ -2054,8 +2144,8 @@
         :rules="abnormalRules"
         label-width="100px"
       >
-        <el-form-item label="生产订单ID">
-          <el-input :model-value="abnormalForm.workOrderId" disabled />
+        <el-form-item label="活跃订单ID">
+          <el-input :model-value="abnormalForm.activeOrderId" disabled />
         </el-form-item>
         <el-form-item label="异常原因" prop="abnormalDescription">
           <el-input
@@ -2622,6 +2712,13 @@
               </template>
             </el-table-column>
             <el-table-column label="设备编号" prop="selectedEquipmentNumber" min-width="130" />
+            <el-table-column label="损耗数量" min-width="100">
+              <template #default="{ row }">
+                <span data-pqc-leader-detail-item-loss-quantity>
+                  {{ formatPqcItemLossQuantity(row) }}
+                </span>
+              </template>
+            </el-table-column>
             <el-table-column label="接收标准" min-width="180">
               <template #default="{ row }">{{ formatPqcSnapshotStandard(row) }}</template>
             </el-table-column>
@@ -2668,6 +2765,25 @@
         </el-descriptions>
       </div>
     </div>
+    <template #footer>
+      <el-button
+        v-if="detail && isProductionLeader && canAllocateSubmission(detail)"
+        type="primary"
+        :data-production-detail-allocation-event-id="String(detail.id)"
+        @click="openAllocation(detail)"
+      >
+        分配复核
+      </el-button>
+      <el-button
+        v-if="detail && isProductionLeader && canRejectProductionSubmission(detail)"
+        type="danger"
+        :data-production-detail-reject-event-id="String(detail.id)"
+        @click="openProductionReject(detail)"
+      >
+        驳回
+      </el-button>
+      <el-button @click="detailVisible = false">关闭</el-button>
+    </template>
   </el-drawer>
 
   <el-dialog
@@ -3336,10 +3452,11 @@
     :title="reviewDialogTitle"
     width="min(1120px, calc(100vw - 32px))"
     class="team-leader-workbench__review-dialog"
+    data-team-leader-review-dialog
   >
     <el-form :model="reviewForm" label-width="92px">
       <el-form-item v-if="reviewDialogMode === 'REVIEW'" label="判定结果">
-        <el-select v-model="reviewForm.reviewStatus">
+        <el-select v-model="reviewForm.reviewStatus" data-team-leader-review-status>
           <el-option label="正确" value="APPROVED" />
           <el-option label="不正确" value="REJECTED" />
         </el-select>
@@ -3368,6 +3485,7 @@
           show-password
           autocomplete="new-password"
           placeholder="请输入当前登录密码完成电子签名"
+          data-team-leader-review-signature-password
         />
       </el-form-item>
     </el-form>
@@ -3581,7 +3699,7 @@
     </div>
     <template #footer>
       <el-button @click="reviewVisible = false">取消</el-button>
-      <el-button type="primary" :loading="reviewSubmitting" @click="submitReview">{{
+      <el-button type="primary" :loading="reviewSubmitting" data-team-leader-review-submit @click="submitReview">{{
         reviewDialogSubmitText
       }}</el-button>
     </template>
@@ -3831,6 +3949,7 @@
           <el-form-item label="检验数量">
             <el-input-number
               v-model="correctionForm.pqcActualInspectionQuantity"
+              disabled
               :min="1"
               :precision="0"
               step-strictly
@@ -3976,8 +4095,16 @@
 </template>
 
 <script setup lang="ts">
-import { watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { useTestMode } from '@/store/modules/testMode'
+
+import { useApprovalCenterInvalidationStore } from '@/store/modules/approvalCenterInvalidation'
+import { createFormalActionGuard } from '@/store/modules/approvalCenterInvalidationState'
+const approvalInvalidation = useApprovalCenterInvalidationStore()
+import { applyWithNoReplenishmentConfirmation } from './activeOrderReplenishmentConfirmation'
+import { h, watch, toRaw } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { handoffNavigationContext } from '@/api/mes/pro/handoff'
+import { isClosedHandoffCompletion, resolveActiveOrderHandoffTarget } from '@/utils/activeOrderHandoffNavigation'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import TableMultiFilter from '@/components/TableMultiFilter/index.vue'
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
@@ -3993,6 +4120,7 @@ import {
 import {
   addTeamLeaderActiveOrder,
   applyTeamLeaderActiveOrderRelease,
+  pushGeneratedTeamLeaderActiveOrderRelease,
   confirmTeamLeaderReportAllocation,
   createTemporaryTeamEmployee,
   createTeamDevice,
@@ -4013,7 +4141,6 @@ import {
   linkPqcFormalEmployee,
   linkFormalTeamEmployee,
   markAndReportWorkOrderAbnormal,
-  moveTeamLeaderActiveOrder,
   previewTeamLeaderReportFifoAllocation,
   previewTeamLeaderActiveOrderRebuild,
   previewTeamLeaderActiveOrderVersionUpgrade,
@@ -4021,6 +4148,9 @@ import {
   submitTeamLeaderActiveOrderVersionUpgrade,
   copyLatestTeamLeaderSimulationActiveOrder,
   cleanupLatestTeamLeaderSimulationActiveOrder,
+  resetFixedSimulationActiveOrder,
+  previewTeamLeaderDataCleanup,
+  executeTeamLeaderDataCleanup,
   simulateStage1ActiveOrderCompletion,
   simulateStage2_5BackfillBatchExecution,
   simulateTeamLeaderActiveOrderCompletion,
@@ -4039,6 +4169,7 @@ import {
   updateTeamEmployeeStatus as updateTeamEmployeeStatusRequest,
   updatePqcPersonnelStatus,
   type TeamFormalEmployeeCandidateRespVO,
+  type Stage1ActiveOrderCompleteSimulationRespVO,
   type TeamLeaderActiveOrderCandidateRespVO,
   type TeamLeaderActiveOrderCommitAction,
   type TeamLeaderActiveOrderDetailRespVO,
@@ -4075,8 +4206,10 @@ import {
   correctProcessPoolProductionReport
 } from '@/api/mes/pro/processpool/eventRevision'
 import { MdItemApi } from '@/api/mes/md/item'
-import { SOURCE_TYPE_PQC_SUBMISSION } from '@/api/mes/pro/edhr/nonconformanceReview'
 import { formatDateTimeValue, formatDate } from '@/utils/formatTime'
+import { parsePositiveRouteQueryId } from '@/utils/routeQueryId'
+
+const testModeEnabled = useTestMode()
 
 defineOptions({ name: 'MesProProcessPoolTeamLeaderWorkbench' })
 
@@ -4238,7 +4371,6 @@ type AllocationShortcutMode = 'MAX' | 'HALF'
 type ActiveOrderReleaseApplicationLockState =
   | 'CONFIRMED'
   | 'CONFIRMED_REFRESH_FAILED'
-  | 'CONFIRMED_NOT_PROJECTED'
   | 'RECOVERED'
   | 'UNCERTAIN'
 
@@ -4293,6 +4425,7 @@ interface PqcInspectionCorrectionItemRow {
   standardPrecision?: number
   resultType?: string
   sampleValuesText: string
+  sampleQuantity: number
 }
 
 interface ProductionReportCorrectionPreviewItem {
@@ -4324,6 +4457,7 @@ const props = withDefaults(
 const abnormalFormRef = ref()
 const activeLeaderTab = ref<WorkbenchLeaderTab>(props.leaderType)
 const router = useRouter()
+const route = useRoute()
 const activePqcModuleTab = ref<'personnel' | 'management' | 'equipment' | 'detail' | 'history'>(
   'management'
 )
@@ -4341,11 +4475,22 @@ const abnormalSubmitting = ref(false)
 const maintenanceSubmitting = ref(false)
 const activeOrderLoading = ref(false)
 const activeOrderConflictSubmitting = ref(false)
-const activeOrderMoveSubmittingId = ref<number>()
-const activeOrderMoveDirection = ref<'UP' | 'DOWN'>()
-const activeOrderRebuildSubmittingId = ref<number>()
-const activeOrderVersionUpgradeSubmittingId = ref<number>()
-const activeOrderSimulationSubmittingId = ref<number>()
+const activeOrderRebuildSubmittingId = ref<number | string>()
+const activeOrderVersionUpgradeSubmittingId = ref<number | string>()
+const activeOrderSimulationSubmittingId = ref<number | string>()
+const activeOrderTestResetSubmitting = ref(false)
+const activeOrderTestResetBlocked = computed(() =>
+  activeOrderTestResetSubmitting.value ||
+  maintenanceSubmitting.value ||
+  activeOrderSimulationSubmittingId.value !== undefined ||
+  teamLeaderDataCleanupSubmitting.value ||
+  activeOrderRebuildSubmittingId.value !== undefined ||
+  activeOrderVersionUpgradeSubmittingId.value !== undefined ||
+  releaseApplicationSubmittingId.value !== undefined ||
+  abnormalSubmitting.value ||
+  activeOrderConflictSubmitting.value
+)
+const teamLeaderDataCleanupSubmitting = ref(false)
 const correctionSubmitting = ref(false)
 const detailVisible = ref(false)
 const reviewVisible = ref(false)
@@ -4375,10 +4520,10 @@ const activeOrderSelectedCandidate = ref<TeamLeaderActiveOrderCandidateRespVO>()
 const activeOrderCandidateKeyword = ref('')
 const activeOrderCandidateLoading = ref(false)
 const activeOrderCandidateError = ref('')
-const releaseApplicationSubmittingId = ref<number>()
+const releaseApplicationSubmittingId = ref<number | string>()
 const releaseApplicationBlockers = ref<TeamLeaderActiveOrderReleaseBlockerRespVO[]>([])
-const releaseApplicationIdempotencyKeys = new Map<number, string>()
-const releaseApplicationLocks = reactive(new Map<number, ActiveOrderReleaseApplicationLockState>())
+const releaseApplicationIdempotencyKeys = new Map<number | string, string>()
+const releaseApplicationLocks = reactive(new Map<number | string, ActiveOrderReleaseApplicationLockState>())
 const releaseApplicationUncertainMessage = ref('')
 const processConfigRows = ref<TeamLeaderProcessConfigRowRespVO[]>([])
 const processConfigDisplayRows = ref<TeamLeaderProcessConfigRowRespVO[]>([])
@@ -4462,6 +4607,7 @@ const productionPersonnelLoading = ref(false)
 const productionPersonnelSubmitting = ref(false)
 const formalCandidateLoading = ref(false)
 const productionPersonnelRows = ref<TeamProductionEmployeeRespVO[]>([])
+const foldedProductionPersonnelIds = ref(new Set<string>())
 const formalEmployeeCandidateOptions = ref<TeamFormalEmployeeCandidateRespVO[]>([])
 const pqcPersonnelAddDialogVisible = ref(false)
 const pqcPersonnelLoading = ref(false)
@@ -4480,7 +4626,6 @@ const productionPersonnelOperatorOptions: any[] = []
 const productionPersonnelColumns: any[] = [
   { key: 'displayName', label: '显示名', visible: true },
   { key: 'employeeType', label: '来源', visible: true },
-  { key: 'employeeCode', label: '员工编码', visible: true },
   { key: 'enabled', label: '状态', visible: true }
 ]
 const activeOrderQuery = reactive({
@@ -4490,11 +4635,11 @@ const activeOrderQuery = reactive({
 const activeOrderFilterDefinitions: any[] = []
 const activeOrderQuickFilterState = reactive({})
 const activeOrderOperatorOptions: any[] = []
+const activeOrderWorkOrderKeyword = ref('')
 const activeOrderColumns: any[] = [
-  { key: 'id', label: '活跃池ID', visible: true },
   { key: 'workOrderCode', label: '生产订单号', visible: true },
+  { key: 'productName', label: '产品名称', visible: true },
   { key: 'routeName', label: '路线名称', visible: true },
-  { key: 'routeVersionNo', label: '版本号', visible: true },
   { key: 'erpFixedQuantitySnapshot', label: 'ERP生产数量', visible: true },
   { key: 'productionProgressPercent', label: '生产进度', visible: true },
   { key: 'inspectionProgressPercent', label: '检验进度', visible: true },
@@ -4524,6 +4669,7 @@ const pqcDetailColumns: any[] = [
   { key: 'itemName', label: '检验项目', visible: true },
   { key: 'selectedEquipmentName', label: '检验设备', visible: true },
   { key: 'selectedEquipmentNumber', label: '设备编号', visible: true },
+  { key: 'lossQuantity', label: '损耗数量', visible: true },
   { key: 'standardText', label: '接收标准', visible: true },
   { key: 'inspectionMethod', label: '检验方法', visible: true },
   { key: 'sampleValues', label: '样本值', visible: true },
@@ -4562,19 +4708,8 @@ const pqcSubmissionDefaultColumns: UserTableColumnDefinition[] = [
   { key: 'process', label: '工序', minWidth: 150 },
   { key: 'workOrder', label: '生产工单', minWidth: 160 },
   { key: 'completionQuantity', label: '检验数量', minWidth: 130 },
-  { key: 'lossQuantity', label: '损耗数量', minWidth: 120 },
-  { key: 'lossBreakdown', label: '损耗明细', minWidth: 210 },
   { key: 'product', label: '产品', minWidth: 180 },
   { key: 'inspectionTask', label: '检验类型/轮次', minWidth: 150 },
-  { key: 'inspectionItems', label: '检验项', minWidth: 190 },
-  { key: 'equipmentSnapshot', label: '设备', minWidth: 220 },
-  { key: 'selectedDevice', label: '选用设备', minWidth: 220 },
-  { key: 'equipmentNumber', label: '设备编号', minWidth: 150 },
-  { key: 'acceptanceStandard', label: '接收标准', minWidth: 220 },
-  { key: 'inspectionMethod', label: '检验方法', minWidth: 180 },
-  { key: 'inspectionJudgement', label: '检验判定', minWidth: 150 },
-  { key: 'parameterSnapshot', label: '参数明细', minWidth: 280 },
-  { key: 'deviceParameterReadings', label: '设备参数', minWidth: 280 },
   { key: 'operation', label: '操作', width: 360, hideable: false, business: false }
 ]
 const pqcFormHistoryDefaultColumns: UserTableColumnDefinition[] = [
@@ -4762,27 +4897,55 @@ const dailyCloseSummaryCards = computed(() => [
     hint: loadError.value || '当前看板数据已加载'
   }
 ])
-const productionPersonnelTotal = computed(() => productionPersonnelRows.value.length)
+const visibleProductionPersonnelRows = computed(() =>
+  productionPersonnelRows.value.filter(row => !foldedProductionPersonnelIds.value.has(String(row.id)))
+)
+const foldedProductionPersonnelRows = computed(() =>
+  productionPersonnelRows.value.filter(row => foldedProductionPersonnelIds.value.has(String(row.id)))
+)
+const productionPersonnelTotal = computed(() => visibleProductionPersonnelRows.value.length)
 const pagedProductionPersonnelRows = computed(() => {
   const pageNo = Math.max(1, Number(productionPersonnelQuery.pageNo) || 1)
   const pageSize = Math.max(1, Number(productionPersonnelQuery.pageSize) || 10)
   const start = (pageNo - 1) * pageSize
-  return productionPersonnelRows.value.slice(start, start + pageSize)
+  return visibleProductionPersonnelRows.value.slice(start, start + pageSize)
 })
-const activeOrderTotal = computed(() => activeOrderOptions.value.length)
+const foldProductionPersonnel = (row: TeamProductionEmployeeRespVO) => {
+  foldedProductionPersonnelIds.value.add(String(row.id))
+  const maxPage = Math.max(1, Math.ceil(productionPersonnelTotal.value / productionPersonnelQuery.pageSize))
+  productionPersonnelQuery.pageNo = Math.min(productionPersonnelQuery.pageNo, maxPage)
+}
+const restoreProductionPersonnel = (row: TeamProductionEmployeeRespVO) => {
+  foldedProductionPersonnelIds.value.delete(String(row.id))
+  const index = visibleProductionPersonnelRows.value.findIndex(item => String(item.id) === String(row.id))
+  productionPersonnelQuery.pageNo = Math.floor(index / productionPersonnelQuery.pageSize) + 1
+}
+const restoreAllProductionPersonnel = () => {
+  foldedProductionPersonnelIds.value.clear()
+  productionPersonnelQuery.pageNo = 1
+}
+const normalizedActiveOrderWorkOrderKeyword = computed(() =>
+  activeOrderWorkOrderKeyword.value.trim().toLowerCase()
+)
+const handoffActiveOrderAnchor = ref<string>()
+const filteredActiveOrderRows = computed(() => {
+  const anchored = handoffActiveOrderAnchor.value ? activeOrderOptions.value.filter(order => String(order.id) === handoffActiveOrderAnchor.value) : activeOrderOptions.value
+  const keyword = normalizedActiveOrderWorkOrderKeyword.value
+  if (!keyword) return anchored
+  return anchored.filter((order) =>
+    String(order.workOrderCode || '').toLowerCase().includes(keyword)
+  )
+})
+const activeOrderTotal = computed(() => filteredActiveOrderRows.value.length)
 const allocatableActiveOrderOptions = computed(() =>
-  activeOrderOptions.value.filter((order) => normalizePositiveNumber(order.id))
+  activeOrderOptions.value.filter((order) => !order.readBlocked && normalizePositiveNumber(order.id))
 )
 const pagedActiveOrderRows = computed(() => {
   const pageNo = Math.max(1, Number(activeOrderQuery.pageNo) || 1)
   const pageSize = Math.max(1, Number(activeOrderQuery.pageSize) || 10)
   const start = (pageNo - 1) * pageSize
-  return activeOrderOptions.value.slice(start, start + pageSize)
+  return filteredActiveOrderRows.value.slice(start, start + pageSize)
 })
-const isFirstActiveOrder = (row: TeamLeaderActiveOrderRespVO) =>
-  activeOrderOptions.value[0]?.id === row.id
-const isLastActiveOrder = (row: TeamLeaderActiveOrderRespVO) =>
-  activeOrderOptions.value[activeOrderOptions.value.length - 1]?.id === row.id
 const pqcPersonnelTotal = computed(() => pqcPersonnelRows.value.length)
 const pagedPqcPersonnelRows = computed(() => {
   const pageNo = Math.max(1, Number(pqcPersonnelQuery.pageNo) || 1)
@@ -4792,6 +4955,7 @@ const pagedPqcPersonnelRows = computed(() => {
 })
 
 const canReviewSubmission = (row: ProcessPoolTimelineEventVO) =>
+  route.query.handoffReadOnly !== '1' &&
   !(isProductionReportHistoryTab.value || isPqcFormHistoryTab.value) &&
   !isProductionLeader.value &&
   !row.released &&
@@ -4800,22 +4964,46 @@ const canReviewSubmission = (row: ProcessPoolTimelineEventVO) =>
   Boolean(row.id)
 
 const canOpenPqcSubmissionNonconformanceReview = (row: ProcessPoolTimelineEventVO) =>
-  canReviewSubmission(row)
+  canReviewSubmission(row) && Boolean(row.activeOrderId)
+
+const requiresOwnProductionReturnCorrection = (row: ProcessPoolTimelineEventVO) => {
+  if (!isProductionLeader.value || row.submissionReviewStatus !== 'REJECTED') return false
+  const payload = parsePqcOriginalPayload(row.originalPayloadJson)
+  const raw = payload && isRecord(payload.rawPayload) ? payload.rawPayload : payload
+  return raw?.signatureIdentityDomain === 'SYSTEM_USER'
+}
 
 const canCorrectSubmission = (row: ProcessPoolTimelineEventVO) =>
+  route.query.handoffReadOnly !== '1' &&
   !(isProductionReportHistoryTab.value || isPqcFormHistoryTab.value) &&
+  !requiresOwnProductionReturnCorrection(row) &&
   (isProductionLeader.value || !row.released) &&
   Boolean(row.id)
 
 const canAllocateSubmission = (row: ProcessPoolTimelineEventVO) =>
+  route.query.handoffReadOnly !== '1' &&
   isProductionLeader.value && !isProductionReportHistoryTab.value && Boolean(row.id)
 
 const canRejectProductionSubmission = (row: ProcessPoolTimelineEventVO) =>
+  route.query.handoffReadOnly !== '1' &&
   isProductionLeader.value &&
   !isProductionReportHistoryTab.value &&
   row.submissionReviewStatus !== 'REJECTED' &&
   Boolean(row.id) &&
   !(row.reportAllocations || []).some((allocation) => allocation.released)
+
+const formatSubmissionSourceEventIds = (row: ProcessPoolTimelineEventVO) => {
+  const ids = [
+    row.submittedEventId,
+    ...(Array.isArray(row.submittedEventIds) ? row.submittedEventIds : []),
+    ...(Array.isArray(row.groupedEventIds) ? row.groupedEventIds : [])
+  ]
+  return Array.from(new Set(ids
+    .map((id) => Number(id))
+    .filter((id) => Number.isFinite(id) && id > 0)
+    .map((id) => String(id))))
+    .join(' ')
+}
 
 const findReportSelectedActiveOrder = (event: ProcessPoolTimelineEventVO) => {
   const workOrderId = Number(event.workOrderId)
@@ -5337,7 +5525,7 @@ const correctionChangePreview = computed<ProductionReportCorrectionPreviewItem[]
 })
 
 const abnormalForm = reactive({
-  workOrderId: 0,
+  activeOrderId: 0,
   abnormalDescription: ''
 })
 
@@ -5524,6 +5712,18 @@ const isActiveOrderProgressComplete = (value: number | string | undefined) => {
   return Number.isFinite(parsed) && parsed >= 100
 }
 
+const assertStage1SimulationDouble100 = (result: Stage1ActiveOrderCompleteSimulationRespVO) => {
+  const productionComplete =
+    result.productionProgress100 && isActiveOrderProgressComplete(result.productionProgressPercent)
+  const inspectionComplete =
+    result.inspectionProgress100 && isActiveOrderProgressComplete(result.inspectionProgressPercent)
+  if (!productionComplete || !inspectionComplete) {
+    throw new Error(
+      `P1 未完成双100：生产进度 ${formatActiveOrderProgressPercent(result.productionProgressPercent)}，检验进度 ${formatActiveOrderProgressPercent(result.inspectionProgressPercent)}。请重置后重跑P1。`
+    )
+  }
+}
+
 const formatActiveOrderReleaseStatus = (status?: string) => {
   if (status === 'PQC_RELEASE_PENDING') return '待PQC放行'
   if (status === 'PQC_RELEASE_REJECTED') return 'PQC已拒绝'
@@ -5565,7 +5765,7 @@ const resolveActiveOrderReleaseBlockerLocator = (
   return locatorParts.join('；')
 }
 
-const isActiveOrderReleaseApplicationLocked = (activeOrderId: number) =>
+const isActiveOrderReleaseApplicationLocked = (activeOrderId: number | string) =>
   releaseApplicationLocks.has(activeOrderId)
 
 const resolveActiveOrderRowClassName = ({ row }: { row: TeamLeaderActiveOrderRespVO }) =>
@@ -5574,7 +5774,7 @@ const resolveActiveOrderRowClassName = ({ row }: { row: TeamLeaderActiveOrderRes
     : ''
 
 const canApplyActiveOrderRelease = (row: TeamLeaderActiveOrderRespVO) => {
-  if (row.abnormal) return false
+  if (row.readBlocked || row.abnormal) return false
   if (row.hasQuantityConflict || row.quantityConflict) return false
   if (row.releaseApplicationStatus) return false
   return (
@@ -5584,6 +5784,7 @@ const canApplyActiveOrderRelease = (row: TeamLeaderActiveOrderRespVO) => {
 }
 
 const resolveActiveOrderReleaseApplyDisabledReason = (row: TeamLeaderActiveOrderRespVO) => {
+  if (row.readBlocked) return row.readBlockReason || '订单数据异常，暂不可申请放行'
   if (releaseApplicationLocks.get(row.id) === 'UNCERTAIN') {
     return '申请结果未确认，请人工核对后刷新页面'
   }
@@ -5598,6 +5799,25 @@ const resolveActiveOrderReleaseApplyDisabledReason = (row: TeamLeaderActiveOrder
   return '提交生产放行申请'
 }
 
+const canGenerateStage1Forms = (row: TeamLeaderActiveOrderRespVO) =>
+  Boolean(row.simulated) &&
+  row.simulationStage === 'STAGE1' &&
+  isActiveOrderProgressComplete(row.productionProgressPercent) &&
+  isActiveOrderProgressComplete(row.inspectionProgressPercent)
+
+const resolveStage1GenerateFormDisabledReason = (row: TeamLeaderActiveOrderRespVO) => {
+  if (!row.simulated || row.simulationStage !== 'STAGE1') return '请先点击P1生成Stage1模拟数据'
+  if (!isActiveOrderProgressComplete(row.productionProgressPercent)) return '生产进度未达到100%'
+  if (!isActiveOrderProgressComplete(row.inspectionProgressPercent)) return '检验进度未达到100%'
+  return '生成批记录和过程检验记录'
+}
+
+const formatActiveOrderErpQuantity = (value: number | string | undefined) => {
+  if (value === undefined || value === null || value === '') return '-'
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed.toFixed(0) : String(value)
+}
+
 const formatTraceQuantity = (value: number | string | undefined) => {
   if (value === undefined || value === null || value === '') return '-'
   const parsed = Number(value)
@@ -5605,7 +5825,7 @@ const formatTraceQuantity = (value: number | string | undefined) => {
 }
 
 const navigateActiveOrderSubmissionDetail = (
-  activeOrderId: number,
+  activeOrderId: string,
   sourceWorkOrderCode?: string
 ) => {
   router.push({
@@ -5618,7 +5838,10 @@ const navigateActiveOrderSubmissionDetail = (
 }
 
 const openActiveOrderSubmissionDetail = (row: TeamLeaderActiveOrderRespVO) => {
-  const sourceActiveOrderId = requirePositiveNumber(row.id, '活跃订单记录ID不能为空')
+  const sourceActiveOrderId = parsePositiveRouteQueryId(row.id)
+  if (!sourceActiveOrderId) {
+    throw new Error('活跃订单记录ID不能为空或不是有效的十进制整数')
+  }
   navigateActiveOrderSubmissionDetail(sourceActiveOrderId)
 }
 const resolveActiveOrderConflictProcesses = (
@@ -5673,12 +5896,6 @@ const formatEmployeeType = (employeeType?: string) => {
   if (employeeType === 'TEMPORARY') return '临时工'
   if (employeeType === 'FORMAL') return '正式工'
   return employeeType || '--'
-}
-
-const formatSignaturePasswordManager = (row: TeamProductionEmployeeRespVO) => {
-  if (row.employeeType === 'TEMPORARY') return '临时工档案密码'
-  if (row.employeeType === 'FORMAL') return '原账号电子签名密码'
-  return row.signaturePasswordManagedBy || '--'
 }
 
 const refreshPqcPersonnel = async () => {
@@ -5787,7 +6004,7 @@ const refreshProductionPersonnel = async () => {
     productionPersonnelRows.value = await getProductionPersonnelList()
     const maxPage = Math.max(
       1,
-      Math.ceil(productionPersonnelRows.value.length / productionPersonnelQuery.pageSize)
+      Math.ceil(productionPersonnelTotal.value / productionPersonnelQuery.pageSize)
     )
     if (productionPersonnelQuery.pageNo > maxPage) {
       productionPersonnelQuery.pageNo = maxPage
@@ -5885,7 +6102,7 @@ const submitCreateTemporaryEmployee = async () => {
 
 const updateEmployeeDisplayName = async (row: TeamProductionEmployeeRespVO) => {
   try {
-    const result = await ElMessageBox.prompt('请输入新的显示名；重名时请加后缀区分', '修改显示名', {
+    const result = await ElMessageBox.prompt('请输入新的显示名；重名时请加后缀区分', '修改名称', {
       inputValue: row.displayName || row.employeeName || '',
       inputPattern: /\S+/,
       inputErrorMessage: '显示名不能为空',
@@ -5932,7 +6149,7 @@ const updateEmployeeStatus = async (row: TeamProductionEmployeeRespVO, enabled: 
 
 const resetTemporarySignaturePassword = async (row: TeamProductionEmployeeRespVO) => {
   try {
-    const result = await ElMessageBox.prompt('请输入新的临时工电子签名密码', '重置签名密码', {
+    const result = await ElMessageBox.prompt('请输入新的临时工电子签名密码', '重置密码', {
       inputType: 'password',
       inputPattern: /\S+/,
       inputErrorMessage: '签名密码不能为空',
@@ -5943,7 +6160,7 @@ const resetTemporarySignaturePassword = async (row: TeamProductionEmployeeRespVO
       employeeProfileId: requirePositiveNumber(row.id, '生产人员档案ID不能为空'),
       signaturePassword: String(result.value || '')
     })
-    ElMessage.success('临时工签名密码已重置')
+    ElMessage.success('临时凭据已设置，员工首次使用须更换')
     await refreshProductionPersonnel()
   } catch (error) {
     if (error === 'cancel' || error === 'close') return
@@ -5958,22 +6175,29 @@ const resetReviewAllocation = () => {
   allocationSaveIdempotencyState.value = undefined
 }
 
+let activeOrderReadGeneration = 0
 const loadActiveOrders = async () => {
+  const generation = ++activeOrderReadGeneration
+  const scope = JSON.stringify([approvalInvalidation.syncSession().key, route.fullPath, activeLeaderTab.value])
+  const isCurrent = () => generation === activeOrderReadGeneration && scope === JSON.stringify([approvalInvalidation.syncSession().key, route.fullPath, activeLeaderTab.value])
   activeOrderLoading.value = true
   try {
-    activeOrderOptions.value = await getTeamLeaderActiveOrderList()
+    const orders = await getTeamLeaderActiveOrderList({ ignoreErrorMessage: true, isRequestContextCurrent: isCurrent })
+    if (!isCurrent()) return
+    activeOrderOptions.value = orders
     const maxPage = Math.max(
       1,
-      Math.ceil(activeOrderOptions.value.length / activeOrderQuery.pageSize)
+      Math.ceil(filteredActiveOrderRows.value.length / activeOrderQuery.pageSize)
     )
     if (activeOrderQuery.pageNo > maxPage) {
       activeOrderQuery.pageNo = maxPage
     }
   } catch (error) {
+    if (!isCurrent()) return
     activeOrderOptions.value = []
     throw error
   } finally {
-    activeOrderLoading.value = false
+    if (isCurrent()) activeOrderLoading.value = false
   }
 }
 
@@ -7078,6 +7302,7 @@ const previewFifoAllocation = async () => {
 const assertUniqueAllocationActiveOrders = () => {
   const selectedWorkOrderIds = new Set<number>()
   for (const line of allocationRows.value) {
+    if (line.editable === false) continue
     const activeOrderId = normalizePositiveNumber(line.activeOrderId)
     if (activeOrderId === undefined) continue
     const selectedOrder = allocatableActiveOrderOptions.value.find(
@@ -7157,6 +7382,7 @@ type PqcSubmissionPayloadRecord = Record<string, unknown>
 interface PqcItemSnapshotDetail {
   itemCode?: string
   itemName?: string
+  lossQuantity?: number | string
   selectedEquipmentId?: number
   selectedEquipmentCode?: string
   selectedEquipmentName?: string
@@ -7248,13 +7474,33 @@ const normalizePqcSubmittedValues = (value: unknown): string[] => {
   return text ? [text] : []
 }
 
-const toPqcItemSnapshotDetail = (value: unknown): PqcItemSnapshotDetail | undefined => {
+const normalizePqcItemLossQuantity = (value: unknown): number | string => {
+  if (value === undefined || value === null || String(value).trim() === '') {
+    return 0
+  }
+  const numericValue = Number(value)
+  return Number.isFinite(numericValue) ? numericValue : String(value).trim()
+}
+
+const resolvePqcPayloadScrapQuantity = (payload?: PqcSubmissionPayloadRecord) => {
+  const fieldValues = isRecord(payload?.fieldValues) ? payload.fieldValues : undefined
+  const pqcDraft = isRecord(payload?.pqcDraft) ? payload.pqcDraft : undefined
+  return [payload?.scrapQuantity, fieldValues?.scrapQuantity, pqcDraft?.scrapQuantity].find(
+    (value) => value !== undefined && value !== null && String(value).trim() !== ''
+  )
+}
+
+const toPqcItemSnapshotDetail = (
+  value: unknown,
+  lossQuantity: number | string = 0
+): PqcItemSnapshotDetail | undefined => {
   if (!isRecord(value)) {
     return undefined
   }
   const detail: PqcItemSnapshotDetail = {
     itemCode: String(value.itemCode ?? '').trim() || undefined,
     itemName: String(value.itemName ?? '').trim() || undefined,
+    lossQuantity,
     selectedEquipmentId: Number(value.selectedEquipmentId) || undefined,
     selectedEquipmentCode: String(value.selectedEquipmentCode ?? '').trim() || undefined,
     selectedEquipmentName: String(value.selectedEquipmentName ?? '').trim() || undefined,
@@ -7275,10 +7521,13 @@ const toPqcItemSnapshotDetail = (value: unknown): PqcItemSnapshotDetail | undefi
   return detail.itemCode || detail.itemName ? detail : undefined
 }
 
-const normalizePqcItemSnapshotDetails = (value: unknown): PqcItemSnapshotDetail[] => {
+const normalizePqcItemSnapshotDetails = (
+  value: unknown,
+  lossQuantity: number | string = 0
+): PqcItemSnapshotDetail[] => {
   const sourceItems = Array.isArray(value) ? value : isRecord(value) ? Object.values(value) : []
   return sourceItems
-    .map(toPqcItemSnapshotDetail)
+    .map((item) => toPqcItemSnapshotDetail(item, lossQuantity))
     .filter((item): item is PqcItemSnapshotDetail => Boolean(item))
 }
 
@@ -7574,16 +7823,16 @@ const enrichSubmissionMaterialNames = async (rows: ProcessPoolTimelineEventVO[])
   if (!uniqueMaterialRows.length) {
     return
   }
-  const resolvedEntries = await Promise.all(
-    uniqueMaterialRows.map(async (item) => {
-      const material = await MdItemApi.getItem(item.materialId)
-      const materialName = String(material?.name || '').trim()
-      if (!materialName) {
-        throw new Error(`物料 ${item.materialId} 缺少真实物料名称，不能展示报工明细`)
-      }
-      return [String(item.materialId), materialName] as const
-    })
+  const materialNames = await MdItemApi.getItemNames(
+    uniqueMaterialRows.map((item) => item.materialId)
   )
+  const resolvedEntries = uniqueMaterialRows.map((item) => {
+    const materialName = String(materialNames[String(item.materialId)] || '').trim()
+    if (!materialName) {
+      throw new Error(`物料 ${item.materialId} 缺少真实物料名称，不能展示报工明细`)
+    }
+    return [String(item.materialId), materialName] as const
+  })
   submissionMaterialNameCache.value = {
     ...submissionMaterialNameCache.value,
     ...Object.fromEntries(resolvedEntries)
@@ -7591,20 +7840,36 @@ const enrichSubmissionMaterialNames = async (rows: ProcessPoolTimelineEventVO[])
 }
 
 const resolvePqcItemSnapshotDetails = (row: ProcessPoolTimelineEventVO) => {
-  const { payload, rootPayload } = resolvePqcPayloadPair(row)
-  const sources = [
-    rootPayload?.pqcItemDetails,
-    payload?.pqcItemDetails,
-    rootPayload?.itemResults,
-    payload?.itemResults
-  ]
-  for (const source of sources) {
-    const details = normalizePqcItemSnapshotDetails(source)
-    if (details.length) {
-      return details
+  const payloadJsons = row.groupedOriginalPayloadJsons?.length
+    ? [...row.groupedOriginalPayloadJsons, row.originalPayloadJson].filter(Boolean)
+    : [row.originalPayloadJson].filter(Boolean)
+  const detailByKey = new Map<string, PqcItemSnapshotDetail>()
+  payloadJsons.forEach((payloadJson) => {
+    const payload = parsePqcOriginalPayload(payloadJson)
+    const rootPayload = payload && isRecord(payload.rawPayload) ? payload.rawPayload : payload
+    const lossQuantity = normalizePqcItemLossQuantity(
+      resolvePqcPayloadScrapQuantity(rootPayload || payload)
+    )
+    const sources = [
+      rootPayload?.pqcItemDetails,
+      payload?.pqcItemDetails,
+      rootPayload?.itemResults,
+      payload?.itemResults
+    ]
+    for (const source of sources) {
+      const details = normalizePqcItemSnapshotDetails(source, lossQuantity)
+      details.forEach((detail, index) => {
+        const key = detail.itemCode || detail.itemName || `${payloadJson}-${index}`
+        if (!detailByKey.has(key)) {
+          detailByKey.set(key, detail)
+        }
+      })
+      if (details.length) {
+        break
+      }
     }
-  }
-  return []
+  })
+  return [...detailByKey.values()]
 }
 
 const pqcDetailRows = computed<PqcItemSnapshotDetail[]>(() => {
@@ -7628,6 +7893,9 @@ const formatSubmissionQuantity = (value: unknown) => {
   }
   return `${String(value).trim()} 件`
 }
+
+const formatPqcItemLossQuantity = (detail: PqcItemSnapshotDetail) =>
+  formatSubmissionQuantity(detail.lossQuantity ?? 0)
 
 const formatSubmissionText = (value: unknown, emptyText = '--') => {
   if (value === undefined || value === null || String(value).trim() === '') {
@@ -8387,22 +8655,29 @@ const buildSubmissionParams = (): TeamLeaderSubmissionPageReqVO => {
   }
 }
 
+let submissionReadGeneration = 0
 async function getSubmissionList() {
+  const generation = ++submissionReadGeneration
+  const scope = JSON.stringify([approvalInvalidation.syncSession().key, route.fullPath, buildSubmissionParams()])
+  const isCurrent = () => generation === submissionReadGeneration && scope === JSON.stringify([approvalInvalidation.syncSession().key, route.fullPath, buildSubmissionParams()])
   loading.value = true
   loadError.value = ''
   try {
     const data = await getTeamLeaderSubmissionPage(buildSubmissionParams())
+    if (!isCurrent()) return
     const list = data.list || []
     await enrichSubmissionMaterialNames(list)
+    if (!isCurrent()) return
     submissionList.value = list
     submissionTotal.value = data.total || 0
   } catch (error) {
+    if (!isCurrent()) return
     submissionList.value = []
     submissionTotal.value = 0
     loadError.value = resolveErrorMessage(error, '班组长提交看板加载失败')
     ElMessage.error(loadError.value)
   } finally {
-    loading.value = false
+    if (isCurrent()) loading.value = false
   }
 }
 
@@ -8576,6 +8851,11 @@ const openDetail = async (event: ProcessPoolTimelineEventVO) => {
   if (activeLeaderTab.value === 'PQC' && showPqcModuleTabs.value) {
     detailVisible.value = false
     activePqcModuleTab.value = 'detail'
+    if ((event.groupedEventIds?.length || 0) > 1) {
+      detail.value = event
+      pqcDetailQuery.pageNo = 1
+      return
+    }
     await loadSubmissionDetail(eventId)
     return
   }
@@ -8583,23 +8863,40 @@ const openDetail = async (event: ProcessPoolTimelineEventVO) => {
   await loadSubmissionDetail(eventId)
 }
 
+const leaderReviewGuard = createFormalActionGuard(() => JSON.stringify([approvalInvalidation.syncSession().key, route.fullPath, reviewEvent.value?.id, reviewDialogMode.value]))
+const resetLeaderReviewContext = () => { leaderReviewGuard.invalidate(); reviewSubmitting.value = false; reviewForm.reviewSignaturePassword = '' }
+watch(reviewVisible, resetLeaderReviewContext, { flush: 'sync' })
+watch(() => route.fullPath, () => { resetLeaderReviewContext(); reviewVisible.value = false }, { flush: 'sync' })
+onBeforeUnmount(resetLeaderReviewContext)
+onDeactivated(resetLeaderReviewContext)
+watch(() => approvalInvalidation.syncSession().key, () => { resetLeaderReviewContext(); reviewVisible.value = false }, { flush: 'sync' })
+
 const openReview = async (event: ProcessPoolTimelineEventVO) => {
+  resetLeaderReviewContext()
   requirePositiveNumber(event.id, '工序池提交事件编号不能为空')
-  if (!canReviewSubmission(event)) {
+  if (route.query.handoffReadOnly === '1' || !canReviewSubmission(event)) {
     ElMessage.error('已完成复核的提交不能重复复核')
     return
   }
+  if (!isProductionLeader.value && (!event.expectedReviews?.length ||
+      event.expectedReviews.some((member) => !member.payloadHash || member.reviewId == null ||
+        member.reviewRound == null || member.revisionId == null))) {
+    ElMessage.error('PQC记录缺少审核上下文，请刷新后重新复核')
+    return
+  }
   reviewDialogMode.value = 'REVIEW'
-  reviewEvent.value = event
+  reviewEvent.value = structuredClone(toRaw(event))
   reviewForm.reviewStatus = 'APPROVED'
   resetReviewAllocation()
   reviewForm.reviewRemark = ''
   reviewForm.reviewSignaturePassword = ''
   reviewVisible.value = true
+  const isCurrent = leaderReviewGuard.capture()
   if (isProductionLeader.value) {
     try {
       await loadActiveOrders()
     } catch (error) {
+    if (!isCurrent()) return
       ElMessage.error(resolveErrorMessage(error, '活跃订单加载失败'))
     }
   }
@@ -8612,8 +8909,8 @@ const openPqcSubmissionNonconformanceReview = (row: ProcessPoolTimelineEventVO) 
     return
   }
   const query: Record<string, string> = {
-    sourceType: SOURCE_TYPE_PQC_SUBMISSION,
-    sourceId: String(row.id)
+    activeOrderId: String(row.activeOrderId),
+    autoCreate: '1'
   }
   router.push({
     name: 'MesProFeedbackEdhrNonconformanceReview',
@@ -8622,13 +8919,14 @@ const openPqcSubmissionNonconformanceReview = (row: ProcessPoolTimelineEventVO) 
 }
 
 const openProductionReject = (event: ProcessPoolTimelineEventVO) => {
+  resetLeaderReviewContext()
   requirePositiveNumber(event.id, '工序池提交事件编号不能为空')
   if (!canRejectProductionSubmission(event)) {
     ElMessage.error('已放行或已处理的生产报工不能驳回')
     return
   }
   reviewDialogMode.value = 'REJECTION'
-  reviewEvent.value = event
+  reviewEvent.value = structuredClone(toRaw(event))
   reviewForm.reviewStatus = 'REJECTED'
   reviewForm.reviewRemark = ''
   reviewForm.reviewSignaturePassword = ''
@@ -8637,18 +8935,19 @@ const openProductionReject = (event: ProcessPoolTimelineEventVO) => {
 }
 
 const openAllocation = async (event: ProcessPoolTimelineEventVO) => {
+  resetLeaderReviewContext()
   requirePositiveNumber(event.id, '工序池提交事件编号不能为空')
   if (!canAllocateSubmission(event)) {
     ElMessage.error('当前报工不在可分配列表中')
     return
   }
   reviewDialogMode.value = 'ALLOCATION'
-  reviewEvent.value = event
+  reviewEvent.value = structuredClone(toRaw(event))
   reviewForm.reviewStatus = 'APPROVED'
   resetReviewAllocation()
   reviewForm.reviewRemark = ''
   reviewForm.reviewSignaturePassword = ''
-  reviewVisible.value = true
+  const isCurrent = leaderReviewGuard.capture()
   try {
     const [snapshot] = await Promise.all([
       getCurrentTeamLeaderReportAllocation(
@@ -8657,16 +8956,37 @@ const openAllocation = async (event: ProcessPoolTimelineEventVO) => {
       ),
       loadActiveOrders()
     ])
+    if (!isCurrent()) return
     applyAllocationSnapshot(snapshot)
     prefillSelectedOrderAllocation(event, snapshot)
+    // Do not expose editable rows until the initial snapshot and prefill settle.
+    reviewVisible.value = true
   } catch (error) {
+    if (!isCurrent()) return
     ElMessage.error(resolveErrorMessage(error, '报工分配加载失败'))
   }
 }
 
+const requireProductionDisplayedReview = () => {
+  const context = reviewEvent.value?.expectedReviews?.[0]
+  if (!context || reviewEvent.value?.expectedReviews?.length !== 1 ||
+      context.eventId !== reviewEvent.value?.id || !context.payloadHash ||
+      context.revisionId == null || context.reviewId == null || context.reviewRound == null ||
+      !context.reviewStatus || context.allocationVersion == null) {
+    throw new Error('生产记录缺少复核上下文，请刷新后重新复核')
+  }
+  return structuredClone(toRaw(context))
+}
+
 const submitReview = async () => {
+  if (reviewSubmitting.value) return
+  let isCurrent = leaderReviewGuard.capture()
+  const mode = reviewDialogMode.value
+  const status = reviewForm.reviewStatus
+  const productionLeader = isProductionLeader.value
   const eventId = requirePositiveNumber(reviewEvent.value?.id, '工序池提交事件编号不能为空')
-  if (reviewForm.reviewStatus === 'REJECTED' && !reviewForm.reviewRemark.trim()) {
+  const approvalEvent = approvalInvalidation.captureHandoffSourceSuccess('PROCESS_POOL_EVENT', eventId)
+  if (status === 'REJECTED' && !reviewForm.reviewRemark.trim()) {
     ElMessage.error('退回复核必须填写复核说明')
     return
   }
@@ -8675,23 +8995,25 @@ const submitReview = async () => {
   try {
     const leaderType = resolveCurrentLeaderType()
     const reviewRemark = reviewForm.reviewRemark.trim() || undefined
-    if (reviewDialogMode.value === 'REJECTION') {
+    if (mode === 'REJECTION') {
       const reviewSignaturePayload = buildReviewSignaturePayload()
       await reviewTeamLeaderSubmission({
         leaderType: 'PRODUCTION',
         eventId,
         reviewStatus: 'REJECTED',
+        expectedReview: requireProductionDisplayedReview(),
         reviewRemark,
         ...reviewSignaturePayload
       })
-    } else if (isProductionLeader.value && reviewForm.reviewStatus === 'APPROVED') {
-      if (reviewDialogMode.value === 'ALLOCATION') {
+    } else if (productionLeader && status === 'APPROVED') {
+      if (mode === 'ALLOCATION') {
         const allocations = buildAllocationSubmitLines()
         const reviewSignaturePayload = buildReviewSignaturePayload()
         const snapshot = await confirmTeamLeaderReportAllocation({
           eventId,
           leaderType,
           allocationMode: reviewForm.allocationMode,
+          expectedReview: requireProductionDisplayedReview(),
           expectedVersion: allocationSnapshot.value?.version,
           idempotencyKey: getOrCreateAllocationSaveIdempotencyKey({
             eventId,
@@ -8705,6 +9027,9 @@ const submitReview = async () => {
           ...reviewSignaturePayload,
           allocations
         })
+        writeCompleted = true
+        approvalInvalidation.publishEdhrSuccess(approvalEvent)
+        if (!isCurrent()) return
         applyAllocationSnapshot(snapshot)
       } else {
         const reviewSignaturePayload = buildReviewSignaturePayload()
@@ -8713,6 +9038,8 @@ const submitReview = async () => {
           leaderType,
           allocationMode: reviewForm.allocationMode,
           reviewRemark,
+          expectedReview: requireProductionDisplayedReview(),
+          expectedVersion: requireProductionDisplayedReview().allocationVersion,
           ...reviewSignaturePayload,
           allocations: buildAllocationSubmitLines()
         })
@@ -8722,39 +9049,45 @@ const submitReview = async () => {
       await reviewTeamLeaderSubmission({
         leaderType,
         eventId,
-        reviewStatus: reviewForm.reviewStatus,
+        reviewStatus: status,
+        expectedReviews: reviewEvent.value?.expectedReviews,
         reviewRemark,
         ...reviewSignaturePayload
       })
     }
     writeCompleted = true
+    approvalInvalidation.publishEdhrSuccess(approvalEvent)
+    if (!isCurrent()) return
     ElMessage.success(
-      reviewDialogMode.value === 'ALLOCATION'
+      mode === 'ALLOCATION'
         ? '分配已保存'
-        : reviewDialogMode.value === 'REJECTION'
+        : mode === 'REJECTION'
           ? '生产报工已驳回'
           : '复核已提交'
     )
     reviewVisible.value = false
+    isCurrent = leaderReviewGuard.capture()
     if (
-      isProductionLeader.value &&
-      (reviewForm.reviewStatus === 'APPROVED' || reviewDialogMode.value === 'REJECTION')
+      productionLeader &&
+      (status === 'APPROVED' || mode === 'REJECTION')
     ) {
       await Promise.all([getSubmissionList(), loadActiveOrders()])
     } else {
       await getSubmissionList()
     }
   } catch (error) {
-    if (reviewDialogMode.value === 'ALLOCATION' && isReportAllocationVersionConflict(error)) {
+    if (!isCurrent()) return
+    if (mode === 'ALLOCATION' && isReportAllocationVersionConflict(error)) {
       try {
         const latest = await getCurrentTeamLeaderReportAllocation(
           eventId,
           resolveCurrentLeaderType()
         )
+        if (!isCurrent()) return
         applyAllocationSnapshot(latest)
         ElMessage.error('分配版本已更新，已加载最新分配，请确认后重新保存')
       } catch (refreshError) {
-        ElMessage.error(resolveErrorMessage(refreshError, '分配版本冲突，最新分配加载失败'))
+        if (isCurrent()) ElMessage.error(resolveErrorMessage(refreshError, '分配版本冲突，最新分配加载失败'))
       }
       return
     }
@@ -8762,18 +9095,18 @@ const submitReview = async () => {
       resolveErrorMessage(
         error,
         writeCompleted
-          ? reviewDialogMode.value === 'ALLOCATION'
+          ? mode === 'ALLOCATION'
             ? '分配已保存，但列表刷新失败'
-            : reviewDialogMode.value === 'REJECTION'
+            : mode === 'REJECTION'
               ? '生产报工已驳回，但列表刷新失败'
               : '复核已提交，但列表刷新失败'
-          : reviewDialogMode.value === 'REJECTION'
+          : mode === 'REJECTION'
             ? '生产报工驳回失败'
             : '复核提交失败'
       )
     )
   } finally {
-    reviewSubmitting.value = false
+    if (isCurrent()) reviewSubmitting.value = false
   }
 }
 
@@ -8891,7 +9224,8 @@ const openPqcCorrection = (event: ProcessPoolTimelineEventVO, eventId: number) =
       standardUpperLimit: item.standardUpperLimit,
       standardPrecision: item.standardPrecision,
       resultType: item.resultType,
-      sampleValuesText: normalizePqcSampleText(sampleValues)
+      sampleValuesText: normalizePqcSampleText(sampleValues),
+      sampleQuantity: sampleValues.length
     }
   })
   correctionVisible.value = true
@@ -8905,20 +9239,33 @@ const openCorrection = async (event: ProcessPoolTimelineEventVO) => {
       return
     }
     if (!canCorrectSubmission(event)) {
-      ElMessage.error(isPqcSubmissionRow(event) ? 'PQC历史表单不能修改' : '当前报工不能修改')
+      ElMessage.error(requiresOwnProductionReturnCorrection(event)
+        ? '已退回的正式员工报工须由原提交员工在本人退回待办中补正'
+        : isPqcSubmissionRow(event) ? 'PQC历史表单不能修改' : '当前报工不能修改')
       return
     }
     if (isPqcSubmissionRow(event)) {
-      openPqcCorrection(event, eventId)
+      const current = await getTeamLeaderSubmissionDetail(eventId, resolveCurrentLeaderType())
+      if (Number(current.id) !== eventId || current.released || !canCorrectSubmission(current)) {
+        throw new Error('当前PQC记录已变化或已放行，请刷新后核对')
+      }
+      openPqcCorrection(current, eventId)
       return
     }
-    await openProductionCorrection(event, eventId)
+    const current = await getTeamLeaderSubmissionDetail(eventId, resolveCurrentLeaderType())
+    if (Number(current.id) !== eventId || !canCorrectSubmission(current)) throw new Error('记录已变化，请刷新后核对')
+    await openProductionCorrection(current, eventId)
   } catch (error) {
     ElMessage.error(resolveErrorMessage(error, '修改入口打开失败'))
   }
 }
 
 const requireCorrectionAuditFields = () => {
+  const expectedRevisionId = Number(correctionEvent.value?.displayedRevisionId)
+  const expectedPayloadHash = correctionEvent.value?.displayedPayloadHash
+  if (!Number.isSafeInteger(expectedRevisionId) || expectedRevisionId < 0 || !expectedPayloadHash) {
+    throw new Error('缺少记录版本，请重新打开补正页面')
+  }
   const changeReason = correctionForm.changeReason.trim()
   if (!changeReason) {
     throw new Error('修改原因不能为空')
@@ -8931,6 +9278,8 @@ const requireCorrectionAuditFields = () => {
   }
   return {
     changeReason,
+    expectedRevisionId,
+    expectedPayloadHash,
     signaturePassword: correctionForm.signaturePassword
   }
 }
@@ -9066,8 +9415,8 @@ const buildPqcCorrectionRequest = () => {
       throw new Error('PQC检验项目编码不能为空')
     }
     const sampleValues = parsePqcSampleText(item.sampleValuesText)
-    if (sampleValues.length !== actualInspectionQuantity) {
-      throw new Error(`PQC项目 ${item.itemName || itemCode} 的样本数量必须等于检验数量`)
+    if (sampleValues.length !== item.sampleQuantity) {
+      throw new Error(`PQC项目 ${item.itemName || itemCode} 的样本数量必须保持为${item.sampleQuantity}`)
     }
     sampleValuesByItem.set(itemCode, sampleValues)
     return {
@@ -9097,10 +9446,13 @@ const buildPqcCorrectionRequest = () => {
 }
 
 const submitCorrection = async () => {
-  requirePositiveNumber(correctionEvent.value?.id, '工序池提交事件编号不能为空')
+  const eventId = requirePositiveNumber(correctionEvent.value?.id, '工序池提交事件编号不能为空')
+  const approvalEvent = correctionEvent.value?.submissionReviewStatus === 'REJECTED'
+    ? approvalInvalidation.captureHandoffSourceSuccess('PROCESS_POOL_EVENT', eventId) : undefined
   const valid = await correctionFormRef.value?.validate?.().catch(() => false)
   if (valid === false) return
   correctionSubmitting.value = true
+  let writeSucceeded = false
   try {
     const isPqcCorrection = correctionForm.correctionMode === 'PQC'
     if (isPqcCorrection) {
@@ -9108,6 +9460,9 @@ const submitCorrection = async () => {
     } else {
       await correctProcessPoolProductionReport(buildProductionCorrectionRequest())
     }
+    if (approvalEvent) approvalInvalidation.publishEdhrSuccess(approvalEvent)
+    writeSucceeded = true
+    if (approvalEvent && !approvalInvalidation.isCurrent(approvalEvent.session.key)) return
     ElMessage.success(
       isPqcCorrection ? 'PQC表单修改已提交，修改日志已记录' : '修改已提交，修改日志已记录'
     )
@@ -9117,7 +9472,7 @@ const submitCorrection = async () => {
     ElMessage.error(
       resolveErrorMessage(
         error,
-        correctionForm.correctionMode === 'PQC' ? 'PQC表单修改失败' : '报工修改失败'
+        writeSucceeded ? '更正已成功，但列表刷新失败' : correctionForm.correctionMode === 'PQC' ? 'PQC表单修改失败' : '报工修改失败'
       )
     )
   } finally {
@@ -9126,29 +9481,41 @@ const submitCorrection = async () => {
 }
 
 const resetAbnormalForm = () => {
-  abnormalForm.workOrderId = 0
+  abnormalForm.activeOrderId = 0
   abnormalForm.abnormalDescription = ''
   abnormalFormRef.value?.clearValidate?.()
 }
 
 const openAbnormalDialog = (row: TeamLeaderActiveOrderRespVO) => {
+  if (activeOrderTestResetSubmitting.value) return
   if (row.abnormal) {
     ElMessage.warning(row.abnormalReason || '该订单已报异常')
     return
   }
   resetAbnormalForm()
-  abnormalForm.workOrderId = row.workOrderId
+  abnormalForm.activeOrderId = requirePositiveNumber(row.id, '活跃订单ID不能为空')
   abnormalDialogVisible.value = true
 }
 
 const submitAbnormal = async () => {
   const valid = await abnormalFormRef.value?.validate?.()
   if (valid === false) return
-  requirePositiveNumber(abnormalForm.workOrderId, '生产订单ID不能为空')
+  if (activeOrderTestResetSubmitting.value) return
+  const activeOrderId = requirePositiveNumber(abnormalForm.activeOrderId, '活跃订单ID不能为空')
   abnormalSubmitting.value = true
   try {
+    await loadActiveOrders()
+    const currentActiveOrder = activeOrderOptions.value.find(
+      (order) => Number(order.id) === activeOrderId
+    )
+    if (!currentActiveOrder) {
+      throw new Error('当前活跃订单已不在实时活跃列表中，请刷新后重试')
+    }
+    if (currentActiveOrder.readBlocked) {
+      throw new Error(currentActiveOrder.readBlockReason || '当前活跃订单数据异常，请刷新后重试')
+    }
     await markAndReportWorkOrderAbnormal({
-      workOrderId: abnormalForm.workOrderId,
+      activeOrderId,
       abnormalDescription: abnormalForm.abnormalDescription.trim()
     })
     await loadActiveOrders()
@@ -9171,6 +9538,7 @@ const resetActiveOrderForm = () => {
 }
 
 const openActiveOrderDialog = () => {
+  if (activeOrderTestResetSubmitting.value) return
   resetActiveOrderForm()
   activeOrderAddDialogVisible.value = true
 }
@@ -9311,14 +9679,17 @@ const activeOrderCommitSuccessMessage = (action: TeamLeaderActiveOrderCommitActi
 }
 
 const submitAddActiveOrder = async () => {
+  if (activeOrderTestResetSubmitting.value) return
   maintenanceSubmitting.value = true
   let writeCompleted = false
   try {
     const workOrderId = await requireSelectedActiveOrderCandidateWorkOrderId()
+    const approvalEvent = approvalInvalidation.captureHandoffSourceSuccess('WORK_ORDER', workOrderId)
     const receipt = await addTeamLeaderActiveOrder({
       workOrderId
     })
     writeCompleted = true
+    if (receipt.action === 'ADD') approvalInvalidation.publishEdhrSuccess(approvalEvent)
     requirePositiveNumber(receipt.activeOrderId, '活跃订单提交回执缺少订单ID')
     const successMessage = activeOrderCommitSuccessMessage(receipt.action)
     ElMessage.success(successMessage)
@@ -9382,57 +9753,103 @@ const resolveActiveOrderReleaseFailure = (
   return blockersAreComplete ? (candidate as TeamLeaderActiveOrderReleaseFailureRespVO) : undefined
 }
 
-const isDefinitiveActiveOrderReleaseBusinessFailure = (error: unknown) => {
-  const code = (error as { code?: unknown } | null)?.code
-  return typeof code === 'number' && Number.isFinite(code)
+const isActiveOrderReleaseTransportTimeout = (error: unknown) => {
+  if (!error || typeof error !== 'object') return false
+  const candidate = error as { isAxiosError?: unknown; code?: unknown; response?: unknown; request?: unknown }
+  return candidate.isAxiosError === true && candidate.response == null && candidate.request != null &&
+    (candidate.code === 'ECONNABORTED' || candidate.code === 'ETIMEDOUT')
+}
+
+const requireActiveOrderReleaseIdentity = (value: unknown, message: string): string => {
+  if (typeof value === 'string' && /^[1-9]\d*$/.test(value)) return value
+  if (typeof value === 'number' && Number.isSafeInteger(value) && value > 0) return String(value)
+  throw new Error(message)
+}
+
+const freezeActiveOrderReleaseRequest = (row: TeamLeaderActiveOrderRespVO) => {
+  const session = approvalInvalidation.syncSession()
+  const activeOrderId = requireActiveOrderReleaseIdentity(row.id, '活跃订单记录ID缺失或不精确')
+  return Object.freeze({
+    rowId: row.id,
+    activeOrderId,
+    workOrderId: requireActiveOrderReleaseIdentity(row.workOrderId, '正式工单ID缺失或不精确'),
+    routeId: requireActiveOrderReleaseIdentity(row.routeId, '正式路线ID缺失或不精确'),
+    routeVersionId: requireActiveOrderReleaseIdentity(row.routeVersionId, '正式路线版本ID缺失或不精确'),
+    idempotencyKey: getOrCreateActiveOrderReleaseIdempotencyKey(row),
+    session,
+    approvalEvent: approvalInvalidation.captureHandoffReceiptSuccess(session, 'ACTIVE_ORDER', activeOrderId)
+  })
+}
+
+const applyActiveOrderReleaseReceiptToRow = (
+  row: TeamLeaderActiveOrderRespVO,
+  result: TeamLeaderActiveOrderReleaseApplyRespVO
+) => {
+  row.releaseApplicationId = result.applicationId
+  row.pqcReleaseWorkTaskId = result.pqcReleaseWorkTaskId
+  row.releaseApplicationStatus = result.status
+  row.releaseSourceSnapshotHash = result.sourceSnapshotHash
+  row.releaseApplicationVersion = result.version
 }
 
 const confirmActiveOrderReleaseApplicationReceipt = async (
-  row: TeamLeaderActiveOrderRespVO
+  request: ReturnType<typeof freezeActiveOrderReleaseRequest>,
+  isCurrent: () => boolean
 ): Promise<TeamLeaderActiveOrderReleaseApplyRespVO> => {
-  const receipt = await getTeamLeaderActiveOrderRelease(row.id)
-  assertActiveOrderReleaseApplicationReceipt(receipt, row.id)
+  const receipt = await getTeamLeaderActiveOrderRelease(request.activeOrderId, { isRequestContextCurrent: isCurrent })
+  assertActiveOrderReleaseApplicationReceipt(receipt, request.activeOrderId)
+  if (!receipt.requestIdempotencyKey || receipt.requestIdempotencyKey !== request.idempotencyKey) {
+    throw new Error('正式回执的请求幂等键与本次申请不一致或缺失')
+  }
+  for (const field of ['workOrderId', 'routeId', 'routeVersionId'] as const) {
+    if (requireActiveOrderReleaseIdentity(receipt[field], '正式回执来源ID缺失或不精确') !== request[field]) {
+      throw new Error('正式回执的工单或路线版本与本次申请不一致')
+    }
+  }
   return receipt
 }
 
 const recoverUncertainActiveOrderReleaseApplication = async (
-  row: TeamLeaderActiveOrderRespVO,
-  writeError: unknown
-) => {
+  request: ReturnType<typeof freezeActiveOrderReleaseRequest>,
+  writeError: unknown,
+  isCurrent: () => boolean
+): Promise<TeamLeaderActiveOrderReleaseApplyRespVO | undefined> => {
   let receipt: TeamLeaderActiveOrderReleaseApplyRespVO
   try {
-    receipt = await confirmActiveOrderReleaseApplicationReceipt(row)
+    receipt = await confirmActiveOrderReleaseApplicationReceipt(request, isCurrent)
   } catch (confirmationError) {
-    releaseApplicationLocks.set(row.id, 'UNCERTAIN')
+    if (!isCurrent()) return
+    releaseApplicationLocks.set(request.rowId, 'UNCERTAIN')
     releaseApplicationUncertainMessage.value =
-      `申请响应不确定，正式回执确认失败，请人工核对后刷新页面：` +
-      `写入错误 ${resolveErrorMessage(writeError, '申请响应异常')}；` +
-      `回执错误 ${resolveErrorMessage(confirmationError, '正式回执确认失败')}`
+      `申请响应不确定，回执未能确认本次请求：${resolveErrorMessage(confirmationError, '回执确认失败')}；写入错误：${resolveErrorMessage(writeError, '响应异常')}`
     ElMessage.error(releaseApplicationUncertainMessage.value)
     return
   }
-
-  releaseApplicationIdempotencyKeys.delete(row.id)
-  releaseApplicationLocks.set(row.id, 'RECOVERED')
-  releaseApplicationUncertainMessage.value = ''
-  ElMessage.warning(
-    `申请响应异常，但正式回执已确认：${formatActiveOrderReleaseStatus(receipt.status)}`
-  )
+  // The formal write belongs to the frozen session/source even if the UI has moved on.
+  approvalInvalidation.publishEdhrSuccess(request.approvalEvent)
+  return receipt
 }
+
+const leaderReleaseGuard = createFormalActionGuard(() => JSON.stringify([approvalInvalidation.syncSession().key, route.fullPath]))
+watch(() => route.fullPath, () => { leaderReleaseGuard.invalidate(); releaseApplicationSubmittingId.value = undefined }, { flush: 'sync' })
+onBeforeUnmount(() => leaderReleaseGuard.invalidate())
+onDeactivated(() => { leaderReleaseGuard.invalidate(); releaseApplicationSubmittingId.value = undefined })
+watch(() => approvalInvalidation.syncSession().key, () => { leaderReleaseGuard.invalidate(); releaseApplicationSubmittingId.value = undefined }, { flush: 'sync' })
 
 const assertActiveOrderReleaseApplicationReceipt = (
   result: TeamLeaderActiveOrderReleaseApplyRespVO,
-  activeOrderId: number,
+  activeOrderId: number | string,
   requireInitialStatus = false
 ) => {
-  if (String(result.activeOrderId) !== String(activeOrderId)) {
+  if (!result || requireActiveOrderReleaseIdentity(result.activeOrderId, '放行申请回执缺少活跃订单ID') !== requireActiveOrderReleaseIdentity(activeOrderId, '原活跃订单ID缺失或不精确')) {
     throw new Error('放行申请回执的活跃订单与当前订单不一致')
   }
-  requirePositiveNumber(result.applicationId, '放行申请回执缺少申请记录ID')
-  requirePositiveNumber(result.workOrderId, '放行申请回执缺少生产工单ID')
-  requirePositiveNumber(result.routeId, '放行申请回执缺少工艺路线ID')
-  requirePositiveNumber(result.routeVersionId, '放行申请回执缺少工艺路线版本ID')
-  requirePositiveNumber(result.pqcReleaseWorkTaskId, '放行申请回执缺少PQC放行待办ID')
+  requireActiveOrderReleaseIdentity(result.applicationId, '放行申请回执缺少申请记录ID')
+  requireActiveOrderReleaseIdentity(result.workOrderId, '放行申请回执缺少生产工单ID')
+  requireActiveOrderReleaseIdentity(result.routeId, '放行申请回执缺少工艺路线ID')
+  requireActiveOrderReleaseIdentity(result.routeVersionId, '放行申请回执缺少工艺路线版本ID')
+  requireActiveOrderReleaseIdentity(result.batchExecutionId, '放行申请回执缺少P2批次执行ID')
+  requireActiveOrderReleaseIdentity(result.pqcReleaseWorkTaskId, '放行申请回执缺少PQC放行待办ID')
   if (!isActiveOrderReleaseStatus(result.status)) {
     throw new Error(`不支持的放行申请状态：${String(result.status)}`)
   }
@@ -9442,58 +9859,99 @@ const assertActiveOrderReleaseApplicationReceipt = (
   if (!result.sourceSnapshotHash?.trim()) {
     throw new Error('放行申请回执缺少正式来源快照哈希')
   }
-  requirePositiveNumber(result.version, '放行申请回执缺少正式版本号')
+  if (!Number.isSafeInteger(result.version) || result.version <= 0) {
+    throw new Error('放行申请回执缺少精确正式版本号')
+  }
   if (!result.appliedAt) throw new Error('放行申请回执缺少申请时间')
 }
 
 const submitActiveOrderReleaseApplication = async (row: TeamLeaderActiveOrderRespVO) => {
-  if (!canApplyActiveOrderRelease(row)) {
+  if (activeOrderTestResetSubmitting.value || releaseApplicationSubmittingId.value !== undefined) return
+  leaderReleaseGuard.invalidate()
+  const guardIsCurrent = leaderReleaseGuard.capture()
+  let frozenSourceKey = ''
+  const rowSourceKey = () => JSON.stringify([String(row.id), String(row.workOrderId), String(row.routeId), String(row.routeVersionId), row.version])
+  const isCurrent = () => guardIsCurrent() && (!frozenSourceKey || frozenSourceKey === rowSourceKey())
+  if (!canApplyActiveOrderRelease(row) || isActiveOrderReleaseApplicationLocked(row.id)) {
     ElMessage.warning(resolveActiveOrderReleaseApplyDisabledReason(row))
     return
   }
+  let request: ReturnType<typeof freezeActiveOrderReleaseRequest>
   try {
+    request = freezeActiveOrderReleaseRequest(row)
+    frozenSourceKey = rowSourceKey()
     await ElMessageBox.confirm(
-      '系统将先完成生产订单和正式资料回填，再提交生产放行申请并生成一个PQC待办；不会创建批次、报告上传任务或最终放行事务。',
+      h('div', [
+        h('p', [
+          '工单号：',
+          h('strong', { 'data-team-leader-release-confirm-work-order': '' }, row.workOrderCode)
+        ]),
+        h('p', '系统将先完成生产订单和正式资料回填，再提交生产放行申请并生成一个PQC待办；提交前会执行P2生成批记录、过程检验记录和批次执行。')
+      ]),
       '提交生产放行申请',
       { type: 'warning', confirmButtonText: '申请放行', cancelButtonText: '取消' }
     )
   } catch (confirmationAction) {
+    if (!isCurrent()) return
     if (confirmationAction === 'cancel' || confirmationAction === 'close') return
     ElMessage.error(resolveErrorMessage(confirmationAction, '申请确认弹窗打开失败'))
     return
   }
-  const activeOrderId = requirePositiveNumber(row.id, '活跃订单记录ID不能为空')
-  const idempotencyKey = getOrCreateActiveOrderReleaseIdempotencyKey(row)
+  if (!isCurrent() || activeOrderTestResetSubmitting.value) return
   releaseApplicationSubmittingId.value = row.id
+  releaseApplicationLocks.set(request.rowId, 'UNCERTAIN')
   releaseApplicationBlockers.value = []
   releaseApplicationUncertainMessage.value = ''
-  let result: TeamLeaderActiveOrderReleaseApplyRespVO
+  let result: TeamLeaderActiveOrderReleaseApplyRespVO | undefined
+  let recovered = false
   try {
-    result = await applyTeamLeaderActiveOrderRelease({
-      activeOrderId,
-      idempotencyKey,
-      applyRemark: '生产组长提交生产放行申请'
-    })
-  } catch (writeError) {
-    const failure = resolveActiveOrderReleaseFailure(writeError)
-    if (failure) {
-      releaseApplicationBlockers.value = failure.blockers
-      releaseApplicationLocks.delete(row.id)
-      releaseApplicationUncertainMessage.value = ''
-      ElMessage.error(resolveErrorMessage(writeError, failure.blockers[0].reason))
-    } else if (isDefinitiveActiveOrderReleaseBusinessFailure(writeError)) {
-      releaseApplicationLocks.delete(row.id)
-      releaseApplicationUncertainMessage.value = ''
-      ElMessage.error(resolveErrorMessage(writeError, '生产完工或放行申请失败'))
-    } else {
-      await recoverUncertainActiveOrderReleaseApplication(row, writeError)
+    result = await applyWithNoReplenishmentConfirmation(
+      (confirmNoReplenishmentInfo) => applyTeamLeaderActiveOrderRelease({
+        activeOrderId: request.activeOrderId,
+        idempotencyKey: request.idempotencyKey,
+        applyRemark: '生产组长提交生产放行申请',
+        confirmNoReplenishmentInfo
+      }, { isRequestContextCurrent: isCurrent , isSuccessReceiptContextCurrent: (() => { const receiptSessionKey = approvalInvalidation.syncSession().key; return () => approvalInvalidation.isCurrent(receiptSessionKey) })()}),
+      () => ElMessageBox.confirm(
+        '完成时未查到生产补料单。确认后将按无正式损耗完成订单；取消则不完成。',
+        '确认无补料信息',
+        { type: 'warning', confirmButtonText: '确认无补料信息', cancelButtonText: '取消' }
+      ),
+      (error) => resolveErrorMessage(error, '生产完工失败'),
+      isCurrent
+    )
+    if (!result) {
+      if (!isCurrent()) return
+      releaseApplicationLocks.delete(request.rowId)
+      releaseApplicationSubmittingId.value = undefined
+      return
     }
-    releaseApplicationSubmittingId.value = undefined
-    return
+    approvalInvalidation.publishEdhrSuccess(request.approvalEvent)
+    if (!isCurrent()) return
+  } catch (writeError) {
+    if (isActiveOrderReleaseTransportTimeout(writeError)) {
+      // A stale UI must not suppress read-only confirmation or its original cache event.
+      recovered = true
+      result = await recoverUncertainActiveOrderReleaseApplication(request, writeError, isCurrent)
+      if (!isCurrent()) return
+      if (!result) {
+        releaseApplicationSubmittingId.value = undefined
+        return
+      }
+    } else {
+      if (!isCurrent()) return
+      const failure = resolveActiveOrderReleaseFailure(writeError)
+      releaseApplicationBlockers.value = failure?.blockers ?? []
+      releaseApplicationLocks.delete(request.rowId)
+      releaseApplicationUncertainMessage.value = ''
+      ElMessage.error(resolveErrorMessage(writeError, failure?.blockers[0].reason ?? '生产完工或放行申请失败'))
+      releaseApplicationSubmittingId.value = undefined
+      return
+    }
   }
 
   try {
-    assertActiveOrderReleaseApplicationReceipt(result, row.id, true)
+    assertActiveOrderReleaseApplicationReceipt(result, request.activeOrderId, !recovered)
   } catch (receiptError) {
     releaseApplicationLocks.set(row.id, 'UNCERTAIN')
     releaseApplicationUncertainMessage.value =
@@ -9505,80 +9963,49 @@ const submitActiveOrderReleaseApplication = async (row: TeamLeaderActiveOrderRes
   }
 
   releaseApplicationIdempotencyKeys.delete(row.id)
+  applyActiveOrderReleaseReceiptToRow(row, result)
   releaseApplicationLocks.set(row.id, 'CONFIRMED')
-  ElMessage.success('生产放行申请已提交，待PQC放行')
+  releaseApplicationUncertainMessage.value = ''
+  ElMessage.success('完工已完成：P2已生成，P3已推送至PQC生产放行')
   try {
     await loadActiveOrders()
-    const refreshedReceipt = activeOrderOptions.value.find((candidate) => candidate.id === row.id)
-    if (
-      refreshedReceipt?.releaseApplicationId === result.applicationId &&
-      refreshedReceipt.releaseApplicationStatus === result.status
-    ) {
+    if (!isCurrent()) return
+    const refreshedReceipt = activeOrderOptions.value.find((candidate) => String(candidate.id) === request.activeOrderId)
+    if (refreshedReceipt) {
+      applyActiveOrderReleaseReceiptToRow(refreshedReceipt, result)
       releaseApplicationLocks.delete(row.id)
-    } else {
-      releaseApplicationLocks.set(row.id, 'CONFIRMED_NOT_PROJECTED')
-      releaseApplicationUncertainMessage.value = '申请已提交，但列表状态尚未同步，请刷新页面'
-      ElMessage.warning(releaseApplicationUncertainMessage.value)
+      releaseApplicationUncertainMessage.value = ''
     }
   } catch (refreshError) {
+    if (!isCurrent()) return
     releaseApplicationLocks.set(row.id, 'CONFIRMED_REFRESH_FAILED')
     releaseApplicationUncertainMessage.value = `申请已提交，但列表刷新失败：${resolveErrorMessage(refreshError, '列表刷新失败')}`
     ElMessage.error(releaseApplicationUncertainMessage.value)
   } finally {
-    releaseApplicationSubmittingId.value = undefined
-  }
-}
-
-const submitMoveActiveOrder = async (
-  row: TeamLeaderActiveOrderRespVO,
-  direction: 'UP' | 'DOWN'
-) => {
-  activeOrderMoveSubmittingId.value = row.id
-  activeOrderMoveDirection.value = direction
-  let writeCompleted = false
-  try {
-    await moveTeamLeaderActiveOrder({
-      activeOrderId: requirePositiveNumber(row.id, '活跃订单记录ID不能为空'),
-      direction
-    })
-    writeCompleted = true
-    await loadActiveOrders()
-    ElMessage.success(direction === 'UP' ? '活跃订单已上移' : '活跃订单已下移')
-  } catch (error) {
-    ElMessage.error(
-      resolveErrorMessage(
-        error,
-        writeCompleted
-          ? '活跃订单排序已保存，但列表刷新失败'
-          : direction === 'UP'
-            ? '活跃订单上移失败'
-            : '活跃订单下移失败'
-      )
-    )
-  } finally {
-    activeOrderMoveSubmittingId.value = undefined
-    activeOrderMoveDirection.value = undefined
+    if (isCurrent()) releaseApplicationSubmittingId.value = undefined
   }
 }
 
 const handleRebuildActiveOrder = async (row: TeamLeaderActiveOrderRespVO) => {
+  if (activeOrderTestResetSubmitting.value) return
   activeOrderRebuildSubmittingId.value = row.id
   let writeCompleted = false
   try {
     const preview = await previewTeamLeaderActiveOrderRebuild(
       requirePositiveNumber(row.id, '活跃订单记录ID不能为空')
     )
-    const confirmMessage = preview.hasHistoricalRuntimeData
-      ? `当前活跃订单已有 ${preview.productionReportCount} 条报工记录、${preview.productionProgressCount} 条生产进度、${preview.pqcInspectionResultCount} 条 PQC 检验结果。确认后会先删除这些历史业务结果，并删除生产快照、PQC 快照，再按当前最新数据重建。${preview.releaseApplicationCount > 0 ? ` 当前已有 ${preview.releaseApplicationCount} 条放行申请，后端将禁止重建，请先完成或关闭放行链路后再操作。` : ''}`
-      : '确认重建当前活跃订单的生产快照和 PQC 快照？系统会删除旧生产快照、PQC 快照，并按当前最新数据重新生成。'
+    if (preview.hasHistoricalRuntimeData || preview.releaseApplicationCount > 0) {
+      throw new Error('已有报工记录、生产进度、PQC 检验结果或放行证据，禁止重建；历史记录必须保留。')
+    }
+    const confirmMessage = '当前订单无已提交的业务证据。确认按最新配置重建生产快照和 PQC 快照？'
     await ElMessageBox.confirm(confirmMessage, '重建活跃订单', {
-      type: preview.hasHistoricalRuntimeData ? 'warning' : 'info',
+      type: 'info',
       confirmButtonText: '确认重建',
       cancelButtonText: '取消'
     })
     const result = await rebuildTeamLeaderActiveOrder({
       activeOrderId: requirePositiveNumber(row.id, '活跃订单记录ID不能为空'),
-      confirmDeleteHistoricalRuntimeData: preview.hasHistoricalRuntimeData
+      confirmDeleteHistoricalRuntimeData: false
     })
     writeCompleted = true
     ElMessage.success(
@@ -9599,6 +10026,7 @@ const handleRebuildActiveOrder = async (row: TeamLeaderActiveOrderRespVO) => {
 }
 
 const handleActiveOrderVersionUpgrade = async (row: TeamLeaderActiveOrderRespVO) => {
+  if (activeOrderTestResetSubmitting.value) return
   activeOrderVersionUpgradeSubmittingId.value = row.id
   try {
     const preview = await previewTeamLeaderActiveOrderVersionUpgrade(
@@ -9616,6 +10044,7 @@ const handleActiveOrderVersionUpgrade = async (row: TeamLeaderActiveOrderRespVO)
 }
 
 const submitActiveOrderVersionUpgrade = async () => {
+  if (activeOrderTestResetSubmitting.value) return
   const preview = activeOrderVersionUpgradePreview.value
   if (!preview) {
     ElMessage.error('缺少活跃订单版本升级预览结果')
@@ -9642,6 +10071,7 @@ const submitActiveOrderVersionUpgrade = async () => {
 const createSimulationCopyRunId = () => `SIMCOPY-${Date.now()}-${crypto.randomUUID()}`
 
 const handleCopyLatestSimulationActiveOrder = async (row: TeamLeaderActiveOrderRespVO) => {
+  if (activeOrderTestResetSubmitting.value) return
   activeOrderSimulationSubmittingId.value = row.id
   let result: TeamLeaderActiveOrderSimulationCopyRespVO | undefined
   try {
@@ -9673,6 +10103,7 @@ const handleCopyLatestSimulationActiveOrder = async (row: TeamLeaderActiveOrderR
 }
 
 const handleCleanupLatestSimulationActiveOrder = async (row: TeamLeaderActiveOrderRespVO) => {
+  if (activeOrderTestResetSubmitting.value) return
   activeOrderSimulationSubmittingId.value = row.id
   let writeCompleted = false
   try {
@@ -9704,12 +10135,13 @@ const handleCleanupLatestSimulationActiveOrder = async (row: TeamLeaderActiveOrd
 }
 
 const handleSimulateStage1 = async (row: TeamLeaderActiveOrderRespVO) => {
+  if (activeOrderTestResetSubmitting.value) return
   activeOrderSimulationSubmittingId.value = row.id
   let writeCompleted = false
   try {
     await ElMessageBox.confirm(
-      '系统将按当前点击的活跃订单，通过正式生产和PQC提交、复核链路形成生产进度和检验进度均为100%的事实。不会完工、回填、上传资料或放行。',
-      '确认模拟生产和PQC',
+      '系统将按当前点击的活跃订单，通过正式生产和PQC提交、复核链路形成生产进度和检验进度均为100%的事实。不会打开或生成批记录表单、完工、上传资料或放行。',
+      '确认P1双100',
       { type: 'warning', confirmButtonText: '开始模拟', cancelButtonText: '取消' }
     )
     const activeOrderId = requirePositiveNumber(row.id, '活跃订单记录ID不能为空')
@@ -9717,23 +10149,59 @@ const handleSimulateStage1 = async (row: TeamLeaderActiveOrderRespVO) => {
       simulationRunId: `STAGE1-${Date.now()}`,
       activeOrderId
     })
+    assertStage1SimulationDouble100(result)
     writeCompleted = true
     ElMessage.success(
-      `Stage1 已完成：当前活跃订单 ${result.activeOrderId}，生产进度 ${formatActiveOrderProgressPercent(result.productionProgressPercent)}，检验进度 ${formatActiveOrderProgressPercent(result.inspectionProgressPercent)}。`
+      `P1 已完成：当前活跃订单 ${result.activeOrderId}，生产进度 ${formatActiveOrderProgressPercent(result.productionProgressPercent)}，检验进度 ${formatActiveOrderProgressPercent(result.inspectionProgressPercent)}。`
     )
     await loadActiveOrders()
-    navigateActiveOrderSubmissionDetail(activeOrderId)
   } catch (error) {
     if (error === 'cancel' || error === 'close') return
     ElMessage.error(
-      resolveErrorMessage(error, writeCompleted ? 'Stage1 已生成，但列表刷新失败' : 'Stage1 模拟失败')
+      resolveErrorMessage(error, writeCompleted ? 'P1 已完成，但列表刷新失败' : 'P1 模拟失败')
     )
   } finally {
     activeOrderSimulationSubmittingId.value = undefined
   }
 }
 
+const handleGenerateStage1Forms = async (row: TeamLeaderActiveOrderRespVO) => {
+  if (activeOrderTestResetSubmitting.value) return
+  if (!canGenerateStage1Forms(row)) {
+    ElMessage.warning(resolveStage1GenerateFormDisabledReason(row))
+    return
+  }
+  if (!row.version && row.version !== 0) {
+    ElMessage.error('活跃订单版本缺失，无法安全执行P2生成')
+    return
+  }
+  const activeOrderId = requirePositiveNumber(row.id, '活跃订单记录ID不能为空')
+  activeOrderSimulationSubmittingId.value = row.id
+  let writeCompleted = false
+  try {
+    await ElMessageBox.confirm(
+      '本次将基于P1已形成的生产、PQC提交，以及正式物料单据和工单，回填批记录和过程检验记录。不会重新模拟生产或PQC数据。',
+      '确认P2生成',
+      { type: 'warning', confirmButtonText: '开始生成', cancelButtonText: '取消' }
+    )
+    await simulateStage2_5BackfillBatchExecution({
+      simulationRunId: 'STAGE2_5-' + Date.now(),
+      activeOrderId,
+      expectedVersion: row.version
+    })
+    writeCompleted = true
+    ElMessage.success('P2 生成完成')
+    await loadActiveOrders()
+  } catch (error) {
+    if (error === 'cancel' || error === 'close') return
+    ElMessage.error(resolveErrorMessage(error, writeCompleted ? 'P2 已生成，但列表刷新失败' : 'P2 生成失败'))
+  } finally {
+    activeOrderSimulationSubmittingId.value = undefined
+  }
+}
+
 const handleSimulateStage2_5 = async (row: TeamLeaderActiveOrderRespVO) => {
+  if (activeOrderTestResetSubmitting.value) return
   if (!row.version && row.version !== 0) {
     ElMessage.error('活跃订单版本缺失，无法安全执行模拟完工')
     return
@@ -9760,7 +10228,42 @@ const handleSimulateStage2_5 = async (row: TeamLeaderActiveOrderRespVO) => {
   }
 }
 
+const handlePushGeneratedPqcRelease = async (row: TeamLeaderActiveOrderRespVO) => {
+  if (activeOrderTestResetSubmitting.value) return
+  if (!canApplyActiveOrderRelease(row)) {
+    ElMessage.warning(resolveActiveOrderReleaseApplyDisabledReason(row))
+    return
+  }
+  releaseApplicationSubmittingId.value = row.id
+  let writeCompleted = false
+  try {
+    await ElMessageBox.confirm(
+      '将P2已生成的批记录和过程检验记录提交至PQC生产放行。',
+      '确认P3推送',
+      { type: 'warning', confirmButtonText: '推送PQC', cancelButtonText: '取消' }
+    )
+    const result = await pushGeneratedTeamLeaderActiveOrderRelease({
+      activeOrderId: requirePositiveNumber(row.id, '活跃订单记录ID不能为空'),
+      idempotencyKey: getOrCreateActiveOrderReleaseIdempotencyKey(row),
+      applyRemark: 'P3推送P2生成记录至PQC生产放行'
+    })
+    writeCompleted = true
+    assertActiveOrderReleaseApplicationReceipt(result, row.id, true)
+    releaseApplicationLocks.set(row.id, 'CONFIRMED')
+    ElMessage.success('P3已推送，待PQC生产放行')
+    await loadActiveOrders()
+    releaseApplicationIdempotencyKeys.delete(row.id)
+    releaseApplicationLocks.delete(row.id)
+  } catch (error) {
+    if (error === 'cancel' || error === 'close') return
+    ElMessage.error(resolveErrorMessage(error, writeCompleted ? 'P3已推送，但回执或列表刷新失败' : 'P3推送失败'))
+  } finally {
+    releaseApplicationSubmittingId.value = undefined
+  }
+}
+
 const handleRecommendedActiveOrderConflictResolution = async () => {
+  if (activeOrderTestResetSubmitting.value) return
   const row = activeOrderConflictSelectedOrder.value
   if (!row) {
     ElMessage.error('请选择需要处理的活跃订单')
@@ -9773,9 +10276,12 @@ const handleRecommendedActiveOrderConflictResolution = async () => {
   let writeCompletedPhase: 'NONE' | 'REBUILT' | 'SIMULATED' = 'NONE'
   try {
     const preview = await previewTeamLeaderActiveOrderRebuild(activeOrderId)
+    if (preview.hasHistoricalRuntimeData || preview.releaseApplicationCount > 0) {
+      throw new Error('已有报工、检验或放行证据，禁止重建；历史记录必须保留。')
+    }
     await rebuildTeamLeaderActiveOrder({
       activeOrderId,
-      confirmDeleteHistoricalRuntimeData: preview.hasHistoricalRuntimeData
+      confirmDeleteHistoricalRuntimeData: false
     })
     writeCompletedPhase = 'REBUILT'
     activeOrderRebuildSubmittingId.value = undefined
@@ -9806,6 +10312,7 @@ const handleRecommendedActiveOrderConflictResolution = async () => {
 }
 
 const handleRemoveActiveOrder = async (row: TeamLeaderActiveOrderRespVO) => {
+  if (activeOrderTestResetSubmitting.value) return
   maintenanceSubmitting.value = true
   let writeCompleted = false
   try {
@@ -9824,6 +10331,80 @@ const handleRemoveActiveOrder = async (row: TeamLeaderActiveOrderRespVO) => {
     )
   } finally {
     maintenanceSubmitting.value = false
+  }
+}
+
+const handleResetFixedSimulationActiveOrder = async () => {
+  if (activeOrderTestResetBlocked.value) return
+  activeOrderTestResetSubmitting.value = true
+  let writeCompleted = false
+  try {
+    const result = await resetFixedSimulationActiveOrder()
+    if (!result?.workOrderCode?.trim() || !/^[1-9]\d*$/.test(String(result.activeOrderId))) {
+      throw new Error('重置回执缺少正式工单号或活跃订单身份，请刷新核对后再操作')
+    }
+    writeCompleted = true
+    activeOrderWorkOrderKeyword.value = result.workOrderCode
+    activeOrderQuery.pageNo = 1
+    await loadActiveOrders()
+    if (!activeOrderOptions.value.some((order) =>
+      String(order.id) === String(result.activeOrderId) && order.workOrderCode === result.workOrderCode
+    )) {
+      throw new Error('刷新后未找到重置回执对应的活跃订单，请核对列表')
+    }
+    ElMessage.success(
+      `本轮测试数据已清理，原工单已重新加入：${result.workOrderCode}（活跃订单 ${result.activeOrderId}）`
+    )
+  } catch (error) {
+    const reason = resolveErrorMessage(error, '请稍后刷新核对')
+    ElMessage.error(
+      writeCompleted
+        ? `测试订单已重置，但列表刷新失败：${reason}；请刷新列表，不要再次重置`
+        : `测试订单重置失败：${reason}`
+    )
+  } finally {
+    activeOrderTestResetSubmitting.value = false
+  }
+}
+
+const handleActiveOrderWorkOrderKeywordChange = () => {
+  activeOrderQuery.pageNo = 1
+}
+
+const handleTeamLeaderDataCleanup = async () => {
+  if (activeOrderTestResetSubmitting.value) return
+  teamLeaderDataCleanupSubmitting.value = true
+  try {
+    const preview = await previewTeamLeaderDataCleanup()
+    if (
+      !preview.activeOrderCount &&
+      !preview.reportEventCount &&
+      !preview.batchExecutionCount &&
+      !preview.releaseApplicationCount &&
+      !preview.releaseTransactionCount
+    ) {
+      ElMessage.info('当前生产组长范围内没有可清理的数据')
+      return
+    }
+    await ElMessageBox.confirm(
+      `将清理当前生产组长范围内的全部数据：活跃订单 ${preview.activeOrderCount} 条、生产放行申请 ${preview.releaseApplicationCount} 条、生产放行事务 ${preview.releaseTransactionCount} 条、报工管理/历史 ${preview.reportEventCount} 条、批次执行 ${preview.batchExecutionCount} 条。系统会自动解析全部目标订单，不需要逐单上传订单号。此操作不可恢复，是否继续？`,
+      '一键清理生产数据',
+      { type: 'warning', confirmButtonText: '确认清理', cancelButtonText: '取消' }
+    )
+    const result = await executeTeamLeaderDataCleanup({
+      orderIds: preview.orderIds.map((id) => Number(id)),
+      orderVersions: preview.orderVersions,
+      confirm: true
+    })
+    ElMessage.success(
+      `清理完成：活跃订单 ${result.activeOrderCount} 条，生产放行 ${result.releaseApplicationCount} 条，报工 ${result.reportEventCount} 条，批次执行 ${result.batchExecutionCount} 条`
+    )
+    await Promise.all([getSubmissionList(), loadActiveOrders()])
+  } catch (error) {
+    if (error === 'cancel' || error === 'close') return
+    ElMessage.error(resolveErrorMessage(error, '一键清理生产数据失败'))
+  } finally {
+    teamLeaderDataCleanupSubmitting.value = false
   }
 }
 
@@ -9896,6 +10477,182 @@ const resolvePqcTagType = (pqcResult?: string) => {
 }
 
 onBeforeUnmount(clearProductionPersonnelDialogError)
+
+let productionEventNavigationRequestId = 0
+const parseProductionEventQuery = (value: unknown): number | undefined => {
+  if (value === undefined) return undefined
+  if (typeof value !== 'string' || !/^[1-9]\d*$/.test(value)) {
+    throw new Error('生产提交事件编号必须是唯一的正整数')
+  }
+  const eventId = Number(value)
+  if (!Number.isSafeInteger(eventId)) {
+    throw new Error('生产提交事件编号超出可精确读取范围')
+  }
+  return eventId
+}
+
+const navigateToProductionEvent = async (value: unknown) => {
+  const requestId = ++productionEventNavigationRequestId
+  if (!showProductionModuleTabs.value || !isProductionLeader.value) return
+  detailVisible.value = false
+  detail.value = undefined
+  detailLoading.value = false
+  try {
+    const eventId = parseProductionEventQuery(value)
+    if (eventId === undefined) return
+    detailLoading.value = true
+    const selected = await getTeamLeaderSubmissionDetail(eventId, 'PRODUCTION')
+    if (requestId !== productionEventNavigationRequestId) return
+    if (selected.id !== eventId) {
+      throw new Error('生产提交详情与指定事件编号不一致')
+    }
+    activeProductionModuleTab.value = ['APPROVED', 'REJECTED'].includes(
+      selected.submissionReviewStatus || ''
+    )
+      ? 'reportHistory'
+      : 'report'
+    pqcDetailQuery.pageNo = 1
+    detail.value = selected
+    detailVisible.value = true
+  } catch (error) {
+    if (requestId === productionEventNavigationRequestId) {
+      ElMessage.error(resolveErrorMessage(error, '指定生产提交详情加载失败'))
+    }
+  } finally {
+    if (requestId === productionEventNavigationRequestId) detailLoading.value = false
+  }
+}
+
+const requireProductionHandoffDetail = (
+  selected: ProcessPoolTimelineDetailVO,
+  context: Awaited<ReturnType<typeof handoffNavigationContext>>
+) => {
+  const task = context.task
+  const positiveIdentity = (value: unknown): boolean =>
+    (typeof value === 'number' && Number.isSafeInteger(value) && value > 0) ||
+    (typeof value === 'string' && /^[1-9][0-9]*$/.test(value))
+  const sameIdentity = (value: unknown, expected: unknown): boolean =>
+    positiveIdentity(value) && positiveIdentity(expected) && String(value) === String(expected)
+  const isRecord = (value: unknown): value is Record<string, unknown> =>
+    value !== null && typeof value === 'object' && !Array.isArray(value)
+
+  // Production belongs to the shared report pool. Its top-level cycle is a PQC-only projection.
+  // The original production source is frozen in the payload, independently of FIFO target orders.
+  if (typeof selected.originalPayloadJson !== 'string' || !selected.originalPayloadJson.trim()) {
+    throw new Error('生产正式提交载荷缺失，禁止推断原周期')
+  }
+  const payload: unknown = JSON.parse(selected.originalPayloadJson)
+  if (!isRecord(payload) || !isRecord(payload.activeOrderProcess)) {
+    throw new Error('生产正式提交载荷缺少原周期工序身份')
+  }
+  const source = payload.activeOrderProcess
+  if (!sameIdentity(payload.activeOrderId, task.activeOrderId) ||
+    !sameIdentity(source.activeOrderId, task.activeOrderId) ||
+    !sameIdentity(payload.workOrderId, task.workOrderId) ||
+    !sameIdentity(selected.workOrderId, task.workOrderId) ||
+    !sameIdentity(payload.routeProcessId, task.routeProcessId) ||
+    !sameIdentity(source.routeProcessId, task.routeProcessId) ||
+    !sameIdentity(selected.routeProcessId, task.routeProcessId) ||
+    !sameIdentity(payload.processId, selected.processId) ||
+    !sameIdentity(source.processId, selected.processId) ||
+    !sameIdentity(payload.routeId, selected.routeId) ||
+    (selected.activeOrderId != null && !sameIdentity(selected.activeOrderId, task.activeOrderId))) {
+    throw new Error('生产正式提交载荷与原周期、原工序、原工单不一致')
+  }
+  if (!Array.isArray(selected.reportAllocations)) throw new Error('生产正式分配关联缺失')
+  const allocationIds = new Set<string>()
+  const originalAllocations = selected.reportAllocations.filter(allocation => {
+    if (!isRecord(allocation) || !positiveIdentity(allocation.allocationId) ||
+      !positiveIdentity(allocation.activeOrderId) || !positiveIdentity(allocation.workOrderId) ||
+      allocationIds.has(String(allocation.allocationId))) throw new Error('生产正式分配关联身份无效或重复')
+    allocationIds.add(String(allocation.allocationId))
+    if (!sameIdentity(allocation.activeOrderId, task.activeOrderId)) return false
+    if (!sameIdentity(allocation.workOrderId, task.workOrderId)) throw new Error('原周期生产分配与原工单不一致')
+    return true
+  })
+  if (originalAllocations.length > 1) throw new Error('原周期生产分配关联不唯一')
+  // Rejection retires CURRENT allocations; a signed correction creates a new PENDING round before FIFO.
+  const awaitingReallocation = context.current && context.processable && task.status === 'TODO' && (
+    (task.sourceType === 'PROCESS_POOL_EVENT_REJECTED_REVIEW' && context.profileLeaderCorrection &&
+      selected.submissionReviewStatus === 'REJECTED') ||
+    (task.sourceType === 'PROCESS_POOL_EVENT_SIGNED_REVISION' && !context.profileLeaderCorrection &&
+      selected.submissionReviewStatus === 'PENDING')
+  )
+  const completedRejection = !context.processable && task.status === 'DONE' &&
+    route.query.handoffReadOnly === '1' && selected.submissionReviewStatus === 'REJECTED' &&
+    positiveIdentity(task.completedBy) && positiveIdentity(task.completionSourceId) &&
+    task.completedAt != null && Number.isFinite(new Date(task.completedAt).getTime())
+  if (!originalAllocations.length && !awaitingReallocation && !completedRejection) throw new Error('原周期正式生产分配不存在')
+}
+
+let handoffNavigationEpoch = 0
+const navigateToLeaderHandoff = async () => {
+  const epoch = ++handoffNavigationEpoch
+  handoffActiveOrderAnchor.value = undefined
+  if (route.query.handoffTaskId === undefined) return
+  detailVisible.value = false; detail.value = undefined
+  try {
+    const id = route.query.handoffTaskId
+    if (typeof id !== 'string' || !/^[1-9][0-9]*$/.test(id)) throw new Error('交接任务编号无效')
+    const context = await handoffNavigationContext(id)
+    if (epoch !== handoffNavigationEpoch) return
+    const target = resolveActiveOrderHandoffTarget({ actionUrl: context.task.actionUrl, handoffTaskId: context.task.id, handoffType: context.task.taskType, activeOrderId: context.task.activeOrderId })
+    if (!target || Object.entries(target.query).some(([key, value]) => route.query[key] !== value)
+      || Object.keys(route.query).some(key => !(key in target.query) && key !== 'handoffReadOnly')) throw new Error('页面参数与原交接任务不一致')
+    const closedDone = isClosedHandoffCompletion(context)
+    if ((!context.current && !closedDone) || context.task.status === 'CANCELED') throw new Error('旧周期交接已失效，禁止办理新周期')
+    if (route.query.handoffReadOnly !== undefined && route.query.handoffReadOnly !== '1') throw new Error('交接只读参数无效')
+    if (context.processable && route.query.handoffReadOnly === '1') throw new Error('待处理交接不能冒充完成历史')
+    if (!context.processable && route.query.handoffReadOnly !== '1') throw new Error('该交接已完成，仅允许查看原结果')
+    if (!context.processable && !isClosedHandoffCompletion({ ...context, current: false })) throw new Error('交接完成事实缺失，禁止推断历史结果')
+    if (context.task.taskType === 'QA_DECISION_HANDOFF') {
+      if (!isProductionLeader.value) throw new Error('该交接仅供原生产组长接手')
+      await loadActiveOrders()
+      if (epoch !== handoffNavigationEpoch) return
+      if (!activeOrderOptions.value.some(order => String(order.id) === String(context.task.activeOrderId))) throw new Error('原周期活跃订单不可办理')
+      handoffActiveOrderAnchor.value = String(context.task.activeOrderId); activeOrderQuery.pageNo = 1
+      activeProductionModuleTab.value = 'activeOrder'
+      return
+    }
+    const leader = context.task.taskType === 'PRODUCTION_REVIEW' ? 'PRODUCTION' : context.task.taskType === 'PQC_REVIEW' ? 'PQC' : undefined
+    if (!leader || resolveCurrentLeaderType() !== leader) throw new Error('交接类型与当前岗位页面不一致')
+    const originalReview = context.task.sourceType === 'PROCESS_POOL_EVENT' &&
+      String(context.task.roundId) === String(context.task.sourceId) && !context.profileLeaderCorrection
+    const signedReview = context.task.sourceType === 'PROCESS_POOL_EVENT_SIGNED_REVISION' &&
+      !context.profileLeaderCorrection
+    const profileReturn = leader === 'PRODUCTION' &&
+      context.task.sourceType === 'PROCESS_POOL_EVENT_REJECTED_REVIEW' && context.profileLeaderCorrection
+    if ((!originalReview && !signedReview && !profileReturn) ||
+      String(context.task.sourceId) !== target.query.eventId ||
+      String(context.task.roundId) !== target.query.roundId) throw new Error('交接任务与原提交事件、原轮次不一致')
+    const eventId = parseProductionEventQuery(target.query.eventId)!
+    const selected = await getTeamLeaderSubmissionDetail(eventId, leader)
+    if (epoch !== handoffNavigationEpoch) return
+    if (String(selected.id) !== target.query.eventId) throw new Error('正式提交详情与原事件不一致')
+    if (signedReview && context.processable && selected.submissionReviewStatus !== 'PENDING') {
+      throw new Error('签名补正交接不是当前待复核轮次')
+    }
+    if (profileReturn && context.processable && selected.submissionReviewStatus !== 'REJECTED') {
+      throw new Error('临时人员补正交接不是当前拒绝轮次')
+    }
+    if (leader === 'PRODUCTION') requireProductionHandoffDetail(selected, context)
+    else if (String(selected.activeOrderId) !== target.query.activeOrderId) throw new Error('正式提交详情与原周期、原事件不一致')
+    detail.value = selected; pqcDetailQuery.pageNo = 1
+    if (leader === 'PQC') activePqcModuleTab.value = 'detail'
+    else {
+      const correctingProfile = context.profileLeaderCorrection && context.processable && route.query.handoffReadOnly !== '1'
+      activeProductionModuleTab.value = correctingProfile ? 'report' : ['APPROVED', 'REJECTED'].includes(selected.submissionReviewStatus || '') ? 'reportHistory' : 'report'
+      detailVisible.value = true
+      if (correctingProfile) await openCorrection(selected)
+    }
+  } catch (error) { if (epoch === handoffNavigationEpoch) { loadError.value = resolveErrorMessage(error, '原周期交接加载失败'); ElMessage.error(loadError.value) } }
+}
+watch(() => [route.query.handoffTaskId, route.query.activeOrderId, route.query.eventId, route.query.roundId, route.query.handoffType, route.query.handoffReadOnly], () => { void navigateToLeaderHandoff() }, { immediate: true })
+watch(
+  () => route.query.eventId,
+  (value) => { if (route.query.handoffTaskId === undefined) void navigateToProductionEvent(value) },
+  { immediate: true }
+)
 
 onMounted(() => {
   if (isProductionLeader.value) {
@@ -10071,6 +10828,10 @@ onMounted(() => {
 
 .team-leader-workbench__personnel-actions--dialog {
   margin-bottom: 0;
+}
+
+.team-leader-workbench__active-order-filter {
+  width: 260px;
 }
 
 .team-leader-workbench__personnel-name.is-disabled {
@@ -10846,6 +11607,11 @@ onMounted(() => {
 
 :deep(.team-leader-workbench__active-order-row--quantity-conflict > td) {
   background: var(--el-color-danger-light-9) !important;
+}
+
+.team-leader-workbench__active-order-test-menu {
+  margin-left: 12px;
+  vertical-align: middle;
 }
 
 .team-leader-workbench__active-order-code-cell {

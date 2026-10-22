@@ -111,15 +111,15 @@ public class DccProjectFilePlacementService {
     public DccProjectFilePlacementDO bindDerived(Long userId,Long projectId,Long folderId,Long fileId,Long directoryId,String reason,
             cn.iocoder.yudao.module.dcc.service.file.DccDerivedUploadStorage storage) {
         if(storage==null) throw fail(FOLDER_INVALID);
-        return bind(userId,projectId,folderId,fileId,directoryId,reason,storage);
+        return persistBinding(userId,projectId,folderId,fileId,directoryId,reason,storage);
     }
 
     @Transactional(propagation = Propagation.MANDATORY, rollbackFor = Exception.class)
     public DccProjectFilePlacementDO bind(Long userId, Long projectId, Long projectFolderId,
                                           Long controlledFileId, Long storageDirectoryId, String reason) {
-        return bind(userId,projectId,projectFolderId,controlledFileId,storageDirectoryId,reason,null);
+        return persistBinding(userId,projectId,projectFolderId,controlledFileId,storageDirectoryId,reason,null);
     }
-    private DccProjectFilePlacementDO bind(Long userId,Long projectId,Long projectFolderId,Long controlledFileId,Long storageDirectoryId,String reason,
+    private DccProjectFilePlacementDO persistBinding(Long userId,Long projectId,Long projectFolderId,Long controlledFileId,Long storageDirectoryId,String reason,
             cn.iocoder.yudao.module.dcc.service.file.DccDerivedUploadStorage storage) {
         String actualReason;
         if(storage==null) {

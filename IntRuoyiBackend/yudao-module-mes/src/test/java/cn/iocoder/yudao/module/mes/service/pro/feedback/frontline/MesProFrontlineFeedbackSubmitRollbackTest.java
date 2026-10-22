@@ -7,6 +7,7 @@ import cn.iocoder.yudao.module.mes.service.pro.feedback.MesProFeedbackService;
 import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineSubmitAuthorizationService;
 import cn.iocoder.yudao.module.mes.service.pro.frontline.ActiveOrderSnapshotResolver;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.MesProcessPoolSubmitEventService;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -24,6 +25,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -45,11 +47,13 @@ class MesProFrontlineFeedbackSubmitRollbackTest {
     @Mock
     private MesMdAutoCodeRecordService autoCodeRecordService;
     @Mock
-    private MesProBatchRecordExecutionSignatureService signatureService;
+    private MesProductionAuthenticatedSignatureService signatureService;
     @Mock
     private ActiveOrderSnapshotResolver activeOrderSnapshotResolver;
+    @Mock
+    private GxpAuditService gxpAuditService;
 
-    private MesProFrontlineFeedbackSubmitService submitService;
+    private MesProFrontlineFeedbackSubmitServiceImpl submitService;
 
     @BeforeEach
     void setUp() {
@@ -62,21 +66,28 @@ class MesProFrontlineFeedbackSubmitRollbackTest {
                 new MesProFrontlineFeedbackMaterialSubmissionValidator(lossReasonValidator),
                 new MesProFrontlineFeedbackPayloadSplitter(),
                 autoCodeRecordService,
-                signatureService,
-                activeOrderSnapshotResolver);
+                null,
+                activeOrderSnapshotResolver,
+                gxpAuditService);
+        { org.springframework.test.util.ReflectionTestUtils.setField(submitService, "handoffService", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffService.class)); }
+        MesProFrontlineFeedbackSubmitSnapshotTestSupport.stubAuditIdentity(submitService);
+        MesProFrontlineFeedbackSubmitSnapshotTestSupport.stubAuthenticatedResources(submitService, signatureService);
         MesProFrontlineFeedbackSubmitSnapshotTestSupport.stubAuthorization(submitAuthorizationService);
         MesProFrontlineFeedbackSubmitTestData.stubLossReasonValidator(lossReasonValidator);
         MesProFrontlineFeedbackSubmitTestData.stubActiveOrderSnapshot(activeOrderSnapshotResolver);
         org.mockito.Mockito.lenient().when(parameterAuditService.resolveAndApply(any()))
                 .thenReturn(MesFrontlineParameterAuditResult.empty());
-        org.mockito.Mockito.lenient().when(signatureService.recordProductionSubmitSignature(any(), any(), any()))
+        org.mockito.Mockito.lenient().when(parameterAuditService.resolveAndApplyMaterial(
+                        any(), any(), any(), any(), any()))
+                .thenReturn(MesFrontlineParameterAuditResult.empty());
+        org.mockito.Mockito.lenient().when(signatureService.record(any(), any(cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProductionSubmitSignatureContext.class)))
                 .thenReturn(4001L);
     }
 
     @Test
     void submitShouldDeclareRollbackForAnyException() throws NoSuchMethodException {
         Method submit = MesProFrontlineFeedbackSubmitServiceImpl.class
-                .getMethod("submit", cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.vo.frontline.MesProFrontlineFeedbackSubmitReqVO.class);
+                .getMethod("submitAuthenticated", cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.vo.frontline.MesProFrontlineFeedbackSubmitReqVO.class, cn.iocoder.yudao.module.system.api.signature.dto.AuthenticatedSigner.class);
 
         Transactional transactional = submit.getAnnotation(Transactional.class);
         assertNotNull(transactional);
@@ -93,12 +104,33 @@ class MesProFrontlineFeedbackSubmitRollbackTest {
         try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
             security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(9001L);
             assertThrows(IllegalStateException.class,
-                    () -> submitService.submit(MesProFrontlineFeedbackSubmitTestData.buildSubmitReq()));
+                    () -> MesProFrontlineFeedbackSubmitSnapshotTestSupport.submit(submitService, MesProFrontlineFeedbackSubmitTestData.buildSubmitReq()));
         }
 
         verify(feedbackService).createFrontlineFeedback(any());
         verify(feedbackService).submitFeedback(501L);
         verify(feedbackMaterialService).createMaterials(any());
         verify(processPoolSubmitEventService).createSubmitEvent(any());
+    }
+
+    @Test
+    void shouldPropagateUnifiedGxpAuditFailureToTriggerTransactionRollback() {
+        when(processPoolSubmitEventService.findExistingSubmitEvent(any())).thenReturn(Optional.empty());
+        when(feedbackService.createFrontlineFeedback(any())).thenReturn(501L);
+        when(processPoolSubmitEventService.createSubmitEvent(any())).thenReturn(801L);
+        doThrow(new IllegalStateException("GxP audit append failed"))
+                .when(gxpAuditService).append(any());
+
+        try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(9001L);
+            assertThrows(IllegalStateException.class,
+                    () -> MesProFrontlineFeedbackSubmitSnapshotTestSupport.submit(submitService, MesProFrontlineFeedbackSubmitTestData.buildSubmitReq()));
+        }
+
+        verify(feedbackService).createFrontlineFeedback(any());
+        verify(feedbackService).submitFeedback(501L);
+        verify(feedbackMaterialService).createMaterials(any());
+        verify(processPoolSubmitEventService).createSubmitEvent(any());
+        verify(gxpAuditService).append(any());
     }
 }

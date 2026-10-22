@@ -28,11 +28,14 @@ public class MesFrontlineEmployeeSwitchServiceImpl implements MesFrontlineEmploy
         }
         MesFrontlineRuntimeConfig runtimeConfig = runtimeConfigService.getRuntimeConfig(command.loginUserId(),
                 command.activeOrderId(), command.routeId(), command.routeProcessId(), command.processId());
-        requireRuntimeEmployee(runtimeConfig.employees(), command.actualEmployeeId(), runtimeConfig.processId());
-        MesFrontlineTemplateDescriptor template = requireEmployeeSwitchTemplate(runtimeConfig.employeeSwitchSnapshots(),
-                command.actualEmployeeId(), runtimeConfig.processId());
+        var snapshot = runtimeConfig.employeeSwitchSnapshots().stream()
+                .filter(item -> item != null && Objects.equals(item.actualEmployeeId(), command.actualEmployeeId())
+                        && Objects.equals(item.identityDomain(), command.identityDomain()))
+                .findFirst().orElseThrow(() -> exception(PRO_FRONTLINE_ACTUAL_EMPLOYEE_NOT_IN_TEAM,
+                        command.actualEmployeeId(), runtimeConfig.processId()));
         return new MesFrontlineEmployeeSwitchResult(command.loginUserId(), command.actualEmployeeId(),
-                runtimeConfig.routeId(), runtimeConfig.routeProcessId(), runtimeConfig.processId(), false, template);
+                runtimeConfig.routeId(), runtimeConfig.routeProcessId(), runtimeConfig.processId(), false,
+                snapshot.template(), snapshot.identityDomain());
     }
 
     private static void requireRuntimeEmployee(List<MesFrontlineTeamEmployeeOption> employees,

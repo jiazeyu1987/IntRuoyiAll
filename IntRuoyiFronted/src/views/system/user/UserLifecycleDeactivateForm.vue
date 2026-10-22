@@ -10,6 +10,7 @@
       <el-form-item label="用户账号">
         <el-input :model-value="targetUserText" disabled />
       </el-form-item>
+      <el-alert :title="supervisorImpact" type="warning" :closable="false" class="mb-16px" />
       <el-form-item label="单据类型" prop="documentType">
         <el-radio-group v-model="formData.documentType">
           <el-radio-button label="RESIGNATION">离职单</el-radio-button>
@@ -59,6 +60,7 @@ const dialogVisible = ref(false)
 const formLoading = ref(false)
 const formRef = ref()
 const targetUserText = ref('')
+const supervisorImpact = ref('')
 const formData = ref<UserApi.UserLifecycleDeactivateReqVO>({
   id: 0,
   documentType: 'RESIGNATION',
@@ -89,12 +91,16 @@ const resetForm = (user: UserApi.UserVO) => {
   formRef.value?.clearValidate()
 }
 
-const open = (user: UserApi.UserVO) => {
+const open = async (user: UserApi.UserVO) => {
   if (user.lifecycleDeactivatedTime) {
     message.warning('该账号已按离职/转岗单联动停用')
     return
   }
+  const affected = await UserApi.getSupervisorImpact([user.id])
   resetForm(user)
+  supervisorImpact.value = affected.length
+    ? '到生效时间才解除主管配置：' + affected.map((dept) => dept.name).join('、') + '。已有待办需另外办理交接。'
+    : '未担任部门主管。到生效时间停用账号，已有待办需另外办理交接。'
   dialogVisible.value = true
 }
 

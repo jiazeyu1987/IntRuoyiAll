@@ -92,6 +92,17 @@ const deferred = () => {
 }
 
 const run = async () => {
+  const blockedState = createFrontlineDeviceEmployeeState()
+  processRequest = async () => [routeOneProcess]
+  const requestsBeforeBlocked = processRequestCount
+  await assert.rejects(
+    selectFrontlineProductionActiveOrder(blockedState, {
+      ...balloonOrder, readBlocked: true, readBlockReason: '输出物料快照缺失'
+    }),
+    /输出物料快照缺失/
+  )
+  assert.equal(processRequestCount, requestsBeforeBlocked)
+  assert.equal(blockedState.selectedActiveOrder, undefined)
   const state = createFrontlineDeviceEmployeeState()
   state.productionProcessOptions = [routeOneProcess]
   state.processOptions = [routeOneProcess]

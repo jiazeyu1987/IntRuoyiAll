@@ -30,6 +30,10 @@ public class RuntimeOpsCandidateServiceImpl implements RuntimeOpsCandidateServic
     private static final String STATUS_BLOCKED = "BLOCKED";
     private static final String ROLLBACK_PREFIX = "rollback:";
     private static final String RESTORE_PREFIX = "restore:";
+    private static final String REHEARSAL_PREFIX = "rehearsal:";
+    private static final String CANDIDATE_TYPE_REHEARSAL = "REHEARSAL";
+    private static final String CANDIDATE_TYPE_CONTROLLED_RESTORE = "CONTROLLED_RESTORE";
+    private static final String REHEARSAL_STATUS_PASSED = "PASSED";
     private static final int ROLLBACK_CANDIDATE_SCAN_LIMIT = 5;
     private static final int RESTORE_CANDIDATE_SCAN_LIMIT = 5;
 
@@ -60,10 +64,12 @@ public class RuntimeOpsCandidateServiceImpl implements RuntimeOpsCandidateServic
 
     @Override
     public List<RuntimeControlRestoreCandidateRespVO> listRestoreCandidates() {
-        return backupRepository.listBackupPointDirs().stream()
+        List<RuntimeControlRestoreCandidateRespVO> candidates = new ArrayList<>();
+        backupRepository.listBackupPointDirs().stream()
                 .limit(RESTORE_CANDIDATE_SCAN_LIMIT)
-                .map(this::buildRestoreCandidate)
-                .toList();
+                .map(this::buildRestoreCandidates)
+                .forEach(candidates::addAll);
+        return candidates;
     }
 
     @Override
@@ -85,6 +91,12 @@ public class RuntimeOpsCandidateServiceImpl implements RuntimeOpsCandidateServic
 
     @Override
     public RuntimeControlRestoreCandidateRespVO requireAvailableRestoreCandidate(String candidateId) {
+        return requireAvailableRestoreCandidate(candidateId, "");
+    }
+
+    @Override
+    public RuntimeControlRestoreCandidateRespVO requireAvailableRestoreCandidate(String candidateId,
+                                                                                 String candidateType) {
         if (StrUtil.isBlank(candidateId)) {
             throw exception(RUNTIME_CONTROL_ACTION_PARAMETER_REQUIRED, "selectedRecoverySetCandidateId");
         }
@@ -93,6 +105,11 @@ public class RuntimeOpsCandidateServiceImpl implements RuntimeOpsCandidateServic
                 .findFirst()
                 .orElseThrow(() -> exception(RUNTIME_CONTROL_ACTION_PARAMETER_INVALID,
                         "selectedRecoverySetCandidateId 候选不存在：" + candidateId));
+        if (StrUtil.isNotBlank(candidateType) && !candidateType.equals(candidate.getCandidateType())) {
+            throw exception(RUNTIME_CONTROL_ACTION_PARAMETER_INVALID,
+                    "selectedRecoverySetCandidateId 候选类型必须为 " + candidateType
+                            + "，当前为 " + candidate.getCandidateType());
+        }
         if (!STATUS_AVAILABLE.equals(candidate.getStatus())) {
             throw exception(RUNTIME_CONTROL_ACTION_PARAMETER_INVALID,
                     "selectedRecoverySetCandidateId 候选被阻断：" + String.join("；", candidate.getBlockedReasons()));
@@ -230,7 +247,8 @@ public class RuntimeOpsCandidateServiceImpl implements RuntimeOpsCandidateServic
         return packageDirectoryName;
     }
 
-    private RuntimeControlRestoreCandidateRespVO buildRestoreCandidate(RuntimeBackupNasRepository.BackupPointDir backupPointDir) {
+    private List<RuntimeControlRestoreCandidateRespVO> buildRestoreCandidates(
+            RuntimeBackupNasRepository.BackupPointDir backupPointDir) {
         String backupId = backupPointDir.backupId();
         String manifestPath = manifestPath(backupPointDir);
         String checksumPath = backupRepository.childPath(backupPointDir, "manifest", "checksums.txt");
@@ -242,10 +260,49 @@ public class RuntimeOpsCandidateServiceImpl implements RuntimeOpsCandidateServic
         RecoverySet recoverySet = readRecoverySet(backupPointDir, manifest.node(), manifest.sha256(), blockedReasons);
         DccRestoreSummary dccSummary = readDccRestoreSummary(dccBackupManifestPath, blockedReasons);
         String imageTag = resolveImageTag(backupPointDir, manifest.node(), recoverySet.programVersion(), blockedReasons);
+        String sourceFingerprint = sourceFingerprint(manifest.node());
+        String targetFingerprint = targetFingerprint(manifest.node());
+        if (StrUtil.isBlank(sourceFingerprint)) {
+            blockedReasons.add("manifest.source 缺少源环境指纹所需字段");
+        }
+        if (StrUtil.isBlank(targetFingerprint)) {
+            blockedReasons.add("manifest 缺少目标环境指纹所需字段");
+        }
         requireRegularFile(checksumPath, "缺少 checksum 清单", blockedReasons);
+        RehearsalEvidence rehearsalEvidence = readRehearsalEvidence(manifest.node(), rehearsalReportPath);
 
+        RuntimeControlRestoreCandidateRespVO rehearsalCandidate = buildRestoreCandidate(backupId,
+                REHEARSAL_PREFIX + backupId, CANDIDATE_TYPE_REHEARSAL, imageTag, recoverySet, dccSummary,
+                manifest.sha256(), dccSummary.chainDigest(), sourceFingerprint, targetFingerprint,
+                manifestPath, checksumPath, rehearsalReportPath, snapshotPath,
+                rehearsalEvidence, blockedReasons);
+        List<String> controlledRestoreBlockedReasons = new ArrayList<>(blockedReasons);
+        if (!REHEARSAL_STATUS_PASSED.equals(rehearsalEvidence.status())
+                || StrUtil.isBlank(rehearsalEvidence.lastRehearsedAt())) {
+            controlledRestoreBlockedReasons.add(
+                    "manifest.validation.rehearsalStatus 必须为 PASSED 且 lastRehearsedAt 必须存在后才能正式恢复");
+        }
+        validateControlledRestoreEvidence(backupId, manifest.sha256(), dccSummary.chainDigest(),
+                sourceFingerprint, targetFingerprint, rehearsalEvidence, rehearsalReportPath,
+                controlledRestoreBlockedReasons);
+        RuntimeControlRestoreCandidateRespVO controlledRestoreCandidate = buildRestoreCandidate(backupId,
+                RESTORE_PREFIX + backupId, CANDIDATE_TYPE_CONTROLLED_RESTORE, imageTag, recoverySet, dccSummary,
+                manifest.sha256(), dccSummary.chainDigest(), sourceFingerprint, targetFingerprint,
+                manifestPath, checksumPath, rehearsalReportPath, snapshotPath,
+                rehearsalEvidence,
+                controlledRestoreBlockedReasons);
+        return List.of(rehearsalCandidate, controlledRestoreCandidate);
+    }
+
+    private RuntimeControlRestoreCandidateRespVO buildRestoreCandidate(
+            String backupId, String candidateId, String candidateType, String imageTag, RecoverySet recoverySet,
+            DccRestoreSummary dccSummary, String manifestDigest, String chainDigest, String sourceFingerprint,
+            String targetFingerprint, String manifestPath,
+            String checksumPath, String rehearsalReportPath, String snapshotPath, RehearsalEvidence rehearsalEvidence,
+            List<String> blockedReasons) {
         RuntimeControlRestoreCandidateRespVO candidate = new RuntimeControlRestoreCandidateRespVO();
-        candidate.setCandidateId(RESTORE_PREFIX + backupId);
+        candidate.setCandidateId(candidateId);
+        candidate.setCandidateType(candidateType);
         candidate.setBackupId(backupId);
         candidate.setImageTag(imageTag);
         candidate.setRecoverySetId(recoverySet.id());
@@ -255,6 +312,10 @@ public class RuntimeOpsCandidateServiceImpl implements RuntimeOpsCandidateServic
         candidate.setConfigurationManifestPath(recoverySet.configurationManifestPath());
         candidate.setConfigurationComposePath(recoverySet.configurationComposePath());
         candidate.setRecoverySetManifestHash(recoverySet.manifestHash());
+        candidate.setManifestDigest(manifestDigest);
+        candidate.setChainDigest(chainDigest);
+        candidate.setSourceFingerprint(sourceFingerprint);
+        candidate.setTargetFingerprint(targetFingerprint);
         candidate.setComponentSummary(recoverySet.componentSummary());
         candidate.setDccBackupMode(dccSummary.backupMode());
         candidate.setDccChainStatus(dccSummary.chainStatus());
@@ -262,10 +323,80 @@ public class RuntimeOpsCandidateServiceImpl implements RuntimeOpsCandidateServic
         candidate.setManifestPath(manifestPath);
         candidate.setChecksumPath(checksumPath);
         candidate.setRehearsalReportPath(rehearsalReportPath);
+        candidate.setRehearsalStatus(rehearsalEvidence.status());
+        candidate.setLastRehearsedAt(rehearsalEvidence.lastRehearsedAt());
         candidate.setSnapshotPath(snapshotPath);
         candidate.setBlockedReasons(blockedReasons);
         candidate.setStatus(blockedReasons.isEmpty() ? STATUS_AVAILABLE : STATUS_BLOCKED);
         return candidate;
+    }
+
+    private RehearsalEvidence readRehearsalEvidence(JsonNode manifest, String rehearsalReportPath) {
+        JsonNode validation = manifest == null ? null : manifest.get("validation");
+        String status = normalizedRehearsalStatus(text(validation, "rehearsalStatus"));
+        String lastRehearsedAt = text(validation, "lastRehearsedAt");
+        if (REHEARSAL_STATUS_PASSED.equals(status) && StrUtil.isBlank(lastRehearsedAt)) {
+            lastRehearsedAt = readRehearsalReportCompletedAt(rehearsalReportPath);
+        }
+        if (!backupRepository.isRegularFile(rehearsalReportPath)) {
+            return new RehearsalEvidence(status, lastRehearsedAt, "", "", "", "", "");
+        }
+        try {
+            JsonNode report = objectMapper.readTree(backupRepository.readText(rehearsalReportPath));
+            return new RehearsalEvidence(status, lastRehearsedAt,
+                    text(report, "backupId"),
+                    text(report, "manifestDigest"),
+                    text(report, "chainDigest"),
+                    text(report, "sourceFingerprint"),
+                    text(report, "targetFingerprint"));
+        } catch (ServiceException | IOException ex) {
+            return new RehearsalEvidence(status, lastRehearsedAt, "", "", "", "", "");
+        }
+    }
+
+    private void validateControlledRestoreEvidence(String backupId, String manifestDigest, String chainDigest,
+                                                   String sourceFingerprint, String targetFingerprint,
+                                                   RehearsalEvidence evidence, String rehearsalReportPath,
+                                                   List<String> blockedReasons) {
+        if (!backupRepository.isRegularFile(rehearsalReportPath)) {
+            blockedReasons.add("缺少 rehearsal-report.json，不能把候选标记为 CONTROLLED_RESTORE");
+            return;
+        }
+        requireEvidenceMatch("rehearsal-report backupId", backupId, evidence.reportBackupId(), blockedReasons);
+        requireEvidenceMatch("rehearsal-report manifestDigest", manifestDigest, evidence.reportManifestDigest(),
+                blockedReasons);
+        requireEvidenceMatch("rehearsal-report chainDigest", chainDigest, evidence.reportChainDigest(),
+                blockedReasons);
+        requireEvidenceMatch("rehearsal-report sourceFingerprint", sourceFingerprint,
+                evidence.reportSourceFingerprint(), blockedReasons);
+        requireEvidenceMatch("rehearsal-report targetFingerprint", targetFingerprint,
+                evidence.reportTargetFingerprint(), blockedReasons);
+    }
+
+    private void requireEvidenceMatch(String fieldName, String expected, String actual,
+                                       List<String> blockedReasons) {
+        if (StrUtil.isBlank(expected) || StrUtil.isBlank(actual) || !expected.equals(actual)) {
+            blockedReasons.add(fieldName + " 与当前恢复候选不一致");
+        }
+    }
+
+    private String normalizedRehearsalStatus(String status) {
+        if (StrUtil.isBlank(status)) {
+            return "NOT_RUN";
+        }
+        return status.trim().replace('-', '_').toUpperCase();
+    }
+
+    private String readRehearsalReportCompletedAt(String rehearsalReportPath) {
+        if (!backupRepository.isRegularFile(rehearsalReportPath)) {
+            return "";
+        }
+        try {
+            JsonNode report = objectMapper.readTree(backupRepository.readText(rehearsalReportPath));
+            return StrUtil.blankToDefault(text(report, "completedAt"), text(report, "checkedAt"));
+        } catch (ServiceException | IOException ex) {
+            return "";
+        }
     }
 
     private DccRestoreSummary readDccRestoreSummary(String dccBackupManifestPath, List<String> blockedReasons) {
@@ -274,7 +405,8 @@ public class RuntimeOpsCandidateServiceImpl implements RuntimeOpsCandidateServic
             return DccRestoreSummary.empty();
         }
         try {
-            JsonNode dccManifest = objectMapper.readTree(backupRepository.readText(dccBackupManifestPath));
+            String dccManifestText = backupRepository.readText(dccBackupManifestPath);
+            JsonNode dccManifest = objectMapper.readTree(dccManifestText);
             String schemaVersion = text(dccManifest, "schemaVersion");
             if (!"dcc-backup-manifest-v1".equals(schemaVersion)) {
                 blockedReasons.add("DCC backup manifest schemaVersion 不支持：" + schemaVersion);
@@ -295,7 +427,7 @@ public class RuntimeOpsCandidateServiceImpl implements RuntimeOpsCandidateServic
             if (changeSummary.isEmpty()) {
                 blockedReasons.add("DCC backup manifest 缺少 changeSummary");
             }
-            return new DccRestoreSummary(backupMode, chainStatus, changeSummary);
+            return new DccRestoreSummary(backupMode, chainStatus, changeSummary, sha256(dccManifestText));
         } catch (ServiceException ex) {
             blockedReasons.add("DCC backup manifest 读取失败：" + ex.getMessage());
             return DccRestoreSummary.empty();
@@ -303,6 +435,32 @@ public class RuntimeOpsCandidateServiceImpl implements RuntimeOpsCandidateServic
             blockedReasons.add("DCC backup manifest 解析失败：" + ex.getMessage());
             return DccRestoreSummary.empty();
         }
+    }
+
+    private String sourceFingerprint(JsonNode manifest) {
+        JsonNode source = manifest == null ? null : manifest.get("source");
+        String serverHost = text(source, "serverHost");
+        String appDir = text(source, "appDir");
+        String minioBucket = text(source, "minioBucket");
+        String imageTag = manifestImageTag(manifest);
+        if (StrUtil.isBlank(serverHost) || StrUtil.isBlank(appDir) || StrUtil.isBlank(minioBucket)
+                || StrUtil.isBlank(imageTag)) {
+            return "";
+        }
+        return "serverHost=" + serverHost + ";appDir=" + appDir
+                + ";minioBucket=" + minioBucket + ";imageTag=" + imageTag;
+    }
+
+    private String targetFingerprint(JsonNode manifest) {
+        String targetEnvironment = text(manifest, "targetEnvironment");
+        String targetHost = text(manifest, "targetHost");
+        String imageTag = manifestImageTag(manifest);
+        if (StrUtil.isBlank(targetEnvironment) || StrUtil.isBlank(targetHost) || StrUtil.isBlank(imageTag)) {
+            return "";
+        }
+        return "environment=" + StrUtil.blankToDefault(targetEnvironment, "UNKNOWN")
+                + ";host=" + StrUtil.blankToDefault(targetHost, "UNKNOWN")
+                + ";imageTag=" + StrUtil.blankToDefault(imageTag, "UNKNOWN");
     }
 
     private ManifestEvidence readManifest(String backupId, String manifestPath, List<String> blockedReasons) {
@@ -512,10 +670,16 @@ public class RuntimeOpsCandidateServiceImpl implements RuntimeOpsCandidateServic
         }
     }
 
-    private record DccRestoreSummary(String backupMode, String chainStatus, Map<String, String> changeSummary) {
+    private record DccRestoreSummary(String backupMode, String chainStatus, Map<String, String> changeSummary,
+                                     String chainDigest) {
         private static DccRestoreSummary empty() {
-            return new DccRestoreSummary("", "", Map.of());
+            return new DccRestoreSummary("", "", Map.of(), "");
         }
+    }
+
+    private record RehearsalEvidence(String status, String lastRehearsedAt, String reportBackupId,
+                                     String reportManifestDigest, String reportChainDigest,
+                                     String reportSourceFingerprint, String reportTargetFingerprint) {
     }
 
     private record RollbackCompatibility(String status, String checkedAt, String summary) {

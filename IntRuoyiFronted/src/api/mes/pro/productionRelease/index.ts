@@ -1,4 +1,14 @@
 import request from '@/config/axios'
+import type { TeamLeaderActiveOrderDetailRespVO } from '@/api/mes/pro/processpool/teamLeader'
+import type { ErpProductionMaterialListVO } from '@/api/erp/production/material-list'
+
+export const getPqcProductionReleaseOrderDetail = async (applicationId: string, options?: { ignoreErrorMessage?: boolean; isRequestContextCurrent?: () => boolean; isSuccessReceiptContextCurrent?: () => boolean }) => {
+  return await request.get<{
+    detail: TeamLeaderActiveOrderDetailRespVO
+    productionMaterialLists: ErpProductionMaterialListVO[]
+  }>({ ignoreErrorMessage: options?.ignoreErrorMessage, isRequestContextCurrent: options?.isRequestContextCurrent,
+    isSuccessReceiptContextCurrent: options?.isSuccessReceiptContextCurrent, url: '/mes/pro/production-release/pqc/order-detail', params: { applicationId } })
+}
 
 export const PQC_RELEASE_VIEW_PENDING = 'PENDING' as const
 export const PQC_RELEASE_VIEW_RELEASED = 'RELEASED' as const
@@ -53,6 +63,7 @@ export interface MesPqcProductionReleaseApproveReqVO {
   expectedVersion: number
   idempotencyKey: string
   signaturePassword: string
+  udiControlDocumentNo: string
   approvalOpinion?: string
 }
 
@@ -75,16 +86,24 @@ export interface MesPqcProductionReleaseDecisionRespVO {
   batchRecordEvidenceIds: string[]
   processInspectionEvidenceIds: string[]
   lossReportEvidenceIds: string[]
+  lossReportFormCenterInstanceIds: string[]
+  lossReportFieldAuditIds: string[]
+  lossReportFieldAuditHeadHashes: string[]
   reportUploadTasks: MesProductionReleaseReportUploadTaskRespVO[]
   sourceSnapshotHash: string
   reportSnapshotHash?: string
   version: number
   decidedBy?: string
   decidedAt?: string | number
+  udiControlDocumentNo?: string
+  decisionIdempotencyKey?: string | null
+  decisionPayloadHash?: string | null
 }
 
 export interface MesPqcProductionReleasePageReqVO extends PageParam {
   viewStatus: MesPqcProductionReleaseViewStatus
+  applicationId?: string
+  pqcReleaseWorkTaskId?: string
   workOrderCode?: string
   batchCode?: string
 }
@@ -115,29 +134,41 @@ export interface MesPqcProductionReleasePageItemRespVO {
   approvalBlockerSuggestion?: string
 }
 
-export const approvePqcProductionRelease = async (data: MesPqcProductionReleaseApproveReqVO) => {
+export const approvePqcProductionRelease = async (data: MesPqcProductionReleaseApproveReqVO, options?: { ignoreErrorMessage?: boolean; isRequestContextCurrent?: () => boolean; isSuccessReceiptContextCurrent?: () => boolean }) => {
   return await request.post<MesPqcProductionReleaseDecisionRespVO>({
+    ignoreErrorMessage: options?.ignoreErrorMessage,
+    isRequestContextCurrent: options?.isRequestContextCurrent,
+    isSuccessReceiptContextCurrent: options?.isSuccessReceiptContextCurrent,
     url: '/mes/pro/production-release/pqc/approve',
     data
   })
 }
 
-export const rejectPqcProductionRelease = async (data: MesPqcProductionReleaseRejectReqVO) => {
+export const rejectPqcProductionRelease = async (data: MesPqcProductionReleaseRejectReqVO, options?: { ignoreErrorMessage?: boolean; isRequestContextCurrent?: () => boolean; isSuccessReceiptContextCurrent?: () => boolean }) => {
   return await request.post<MesPqcProductionReleaseDecisionRespVO>({
+    ignoreErrorMessage: options?.ignoreErrorMessage,
+    isRequestContextCurrent: options?.isRequestContextCurrent,
+    isSuccessReceiptContextCurrent: options?.isSuccessReceiptContextCurrent,
     url: '/mes/pro/production-release/pqc/reject',
     data
   })
 }
 
-export const getPqcProductionRelease = async (applicationId: string) => {
+export const getPqcProductionRelease = async (applicationId: string, options?: { ignoreErrorMessage?: boolean; isRequestContextCurrent?: () => boolean; isSuccessReceiptContextCurrent?: () => boolean }) => {
   return await request.get<MesPqcProductionReleaseDecisionRespVO>({
+    ignoreErrorMessage: options?.ignoreErrorMessage,
+    isRequestContextCurrent: options?.isRequestContextCurrent,
+    isSuccessReceiptContextCurrent: options?.isSuccessReceiptContextCurrent,
     url: '/mes/pro/production-release/get',
     params: { applicationId }
   })
 }
 
-export const getPqcProductionReleasePage = async (params: MesPqcProductionReleasePageReqVO) => {
+export const getPqcProductionReleasePage = async (params: MesPqcProductionReleasePageReqVO, options?: { ignoreErrorMessage?: boolean; isRequestContextCurrent?: () => boolean; isSuccessReceiptContextCurrent?: () => boolean }) => {
   return await request.get<PageResult<MesPqcProductionReleasePageItemRespVO[]>>({
+    ignoreErrorMessage: options?.ignoreErrorMessage,
+    isRequestContextCurrent: options?.isRequestContextCurrent,
+    isSuccessReceiptContextCurrent: options?.isSuccessReceiptContextCurrent,
     url: '/mes/pro/production-release/pqc/page',
     params
   })

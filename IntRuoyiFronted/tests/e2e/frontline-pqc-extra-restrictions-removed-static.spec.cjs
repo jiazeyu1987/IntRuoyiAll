@@ -133,11 +133,30 @@ assert.doesNotMatch(
   /requirePositive\(command\.getProductionSubmitEventId\(\), "productionSubmitEventId"\)/,
   'Backend PQC submit command validation must not require productionSubmitEventId.'
 )
-assert.match(
-  pqcContextSource,
-  /resolveUniqueProductionSubmitEvent\(activeOrder,\s*task\)[\s\S]*command\.setProductionSubmitEventId\(productionSubmit\.eventId\(\)\)/,
-  'Backend PQC submit flow must auto-bind the unique same active-order and same-process production submit event.'
-)
+// 20260820 decoupling + backend-development.md: production events are not PQC identity.
+const identityBlock = blockBetween(pqcContextSource,
+  'private Long validatePqcTaskSubmissionIdentity(',
+  'private List<MesFrontlinePqcInspectionItem> resolveSubmittedInspectionItems(')
+assert.match(identityBlock, /command\.setProductionSubmitEventId\(null\)/,
+  'Formal PQC identity validation must clear production-event binding.')
+assert.match(identityBlock, /requirePqcEmployee\(loginUserId,\s*command\.getActualEmployeeId\(\)\)/)
+assert.match(identityBlock, /requireTaskBackedByFrozenProcess\(activeOrder,\s*task\)/)
+for (const field of ['ActiveOrderId', 'RegulationVersionId', 'QaProcessId']) {
+  assert.match(identityBlock, new RegExp(`Objects\\.equals\\(command\\.get${field}\\(\\),\\s*task\\.get${field}\\(\\)\\)`),
+    `PQC ${field} must match the formal task.`)
+}
+const submissionBlock = blockBetween(pqcContextSource,
+  'public MesFrontlinePqcSubmitResult submitPqcInspection(',
+  'private void requirePqcSubmitCommand(')
+assert.match(submissionBlock, /pqcTaskMapper\.selectByIdForUpdate\(command\.getPqcTaskId\(\)\)/)
+assert.match(submissionBlock, /applyPqcTaskContext\(command,\s*task,\s*loginUserId\)/)
+const contextBlock = blockBetween(pqcContextSource,
+  'private Long applyPqcTaskContext(', 'private Long validatePqcTaskSubmissionIdentity(')
+assert.match(contextBlock, /validatePqcTaskSubmissionIdentity\(command,\s*task,\s*loginUserId\)/)
+for (const block of [submissionBlock, contextBlock, identityBlock]) {
+  assert.doesNotMatch(block, /resolveUniqueProductionSubmitEvent|resolveProductionSubmitCandidates|setProductionSubmitEventId\((?!null\))/,
+    'PQC submission must not query or bind a production submit event.')
+}
 assert.match(
   pqcContextSource,
   /requirePqcEmployee\(loginUserId,\s*command\.getActualEmployeeId\(\)\)/,
@@ -156,7 +175,7 @@ assert.doesNotMatch(
 
 const resolveSelectedEquipmentBlock = blockBetween(
   pqcContextSource,
-  'private MesFrontlinePqcInspectionItem.EquipmentOption resolveSelectedEquipment(',
+  'static MesFrontlinePqcInspectionItem.EquipmentOption resolveSelectedEquipment(',
   'private MesProWorkOrderDO requireWorkOrder'
 )
 assert.match(
@@ -168,7 +187,7 @@ assert.match(
 const requirePqcSubmitCommandBlock = blockBetween(
   pqcContextSource,
   'private void requirePqcSubmitCommand(MesFrontlinePqcSubmitCommand command) {',
-  'private void applyPqcTaskContext'
+  'private Long applyPqcTaskContext'
 )
 for (const requiredField of [
   'pqcTaskId',

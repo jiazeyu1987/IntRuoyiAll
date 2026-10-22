@@ -76,7 +76,23 @@ public class ErpKingdeeStockSyncServiceImpl implements ErpKingdeeStockSyncServic
         kingdeeProperties.validateBaseConfig();
         List<ErpKingdeeInventoryRow> rows = inventoryClient.fetchInventoryRowsModifiedBetween(
                 kingdeeProperties, windowStart, windowEnd);
-        return syncRows(rows, false);
+        Map<List<String>, ErpKingdeeInventoryRow> groups = new LinkedHashMap<>();
+        for (ErpKingdeeInventoryRow row : rows) {
+            groups.putIfAbsent(List.of(row.getMaterialNumber(), row.getStockOrgNumber(), row.getWarehouseNumber()), row);
+        }
+        List<ErpKingdeeInventoryRow> snapshots = new ArrayList<>();
+        for (ErpKingdeeInventoryRow group : groups.values()) {
+            List<ErpKingdeeInventoryRow> snapshot = inventoryClient.fetchInventoryGroup(kingdeeProperties,
+                    group.getMaterialNumber(), group.getStockOrgNumber(), group.getWarehouseNumber());
+            if (snapshot.isEmpty()) {
+                // 已删除最后一个库存维度时，该仓库物料的完整查询结果为零。
+                group.setQuantity(BigDecimal.ZERO);
+                snapshots.add(group);
+            } else {
+                snapshots.addAll(snapshot);
+            }
+        }
+        return syncRows(snapshots, false);
     }
 
     private ErpKingdeeStockSyncResult syncRows(List<ErpKingdeeInventoryRow> rows, boolean skipExisting) {

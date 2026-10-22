@@ -19,6 +19,8 @@ type BrowserRowReadableState = {
   status?: string
   canPreview?: boolean
   canDownload?: boolean
+  canDownloadReadOnly?: boolean
+  canDownloadEditable?: boolean
   canPrint?: boolean
   actionProjection?: DccControlledFileActionProjectionVO | null
 }
@@ -133,6 +135,10 @@ export const getBrowserRowActionState = (row: BrowserRowReadableState) => {
   return {
     canPreview: isDccControlledFileActionAllowed(row, 'PREVIEW'),
     canDownload: isDccControlledFileActionAllowed(row, 'DOWNLOAD'),
+    canDownloadReadOnly:
+      Boolean(row.canDownloadReadOnly) && isDccControlledFileActionAllowed(row, 'DOWNLOAD'),
+    canDownloadEditable:
+      Boolean(row.canDownloadEditable) && isDccControlledFileActionAllowed(row, 'DOWNLOAD'),
     canPrint: isDccControlledFileActionAllowed(row, 'PRINT'),
     canPublish: isDccControlledFileActionAllowed(row, 'PUBLISH'),
     projectionMissing: !hasProjection,

@@ -3,6 +3,9 @@ package cn.iocoder.yudao.module.mes.service.pro.processpool;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventDO;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.dto.MesProcessPoolCreateEventReqDTO;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesReportAllocationCommandService;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProductionSignatureEvidenceService;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProductionSubmitSignatureContext;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -20,6 +23,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -30,17 +35,24 @@ class MesProcessPoolSubmitEventServiceAdapterTest {
     private MesProcessPoolEventService eventService;
     @Mock
     private MesReportAllocationCommandService reportAllocationCommandService;
+    @Mock
+    private MesProductionSignatureEvidenceService signatureEvidenceService;
 
     private MesProcessPoolSubmitEventService submitEventService;
 
     @BeforeEach
     void setUp() {
         submitEventService = new MesProcessPoolSubmitEventServiceImpl(eventService, reportAllocationCommandService);
+        ReflectionTestUtils.setField(submitEventService, "productionSignatureEvidenceService", signatureEvidenceService);
     }
 
     @Test
     void shouldMapFrontlineSubmitEventToFormalProcessPoolEvent() {
         when(eventService.createEvent(org.mockito.ArgumentMatchers.any())).thenReturn(801L);
+        String verifiedSnapshot = "{\"authority\":\"UNIFIED_SYSTEM_USER\",\"signatureId\":4001}";
+        when(signatureEvidenceService.snapshotForSubmission(3001L, 4001L,
+                new MesProductionSubmitSignatureContext(81L, 71L, 31L, "P0-SUBMIT-F2-20260730-001")))
+                .thenReturn(verifiedSnapshot);
         Map<String, Object> rawPayload = new LinkedHashMap<>();
         rawPayload.put("templateType", "PRODUCTION_SIMPLE");
         rawPayload.put("fieldPressure", new BigDecimal("50.000"));
@@ -51,6 +63,7 @@ class MesProcessPoolSubmitEventServiceAdapterTest {
                 .setRecordbookEntryId(701L)
                 .setRecordbookEventId(702L)
                 .setWorkOrderId(41L)
+                .setActiveOrderId(81L)
                 .setTaskId(51L)
                 .setRouteId(21L)
                 .setRouteProcessId(71L)
@@ -83,6 +96,11 @@ class MesProcessPoolSubmitEventServiceAdapterTest {
         assertEquals(3001L, dto.getActualEmployeeId());
         assertEquals(3001L, dto.getSignatureUserId());
         assertEquals(4001L, dto.getSignatureId());
+        assertNotNull(dto.getSignatureSnapshot(),
+                "A formal production event must freeze verified signature evidence, not only a signature ID");
+        assertEquals(verifiedSnapshot, dto.getSignatureSnapshot());
+        verify(signatureEvidenceService).snapshotForSubmission(3001L, 4001L,
+                new MesProductionSubmitSignatureContext(81L, 71L, 31L, "P0-SUBMIT-F2-20260730-001"));
         assertEquals("MES_PRO_FEEDBACK", dto.getFeedbackSourceType());
         assertEquals(501L, dto.getFeedbackSourceId());
         assertEquals(701L, dto.getRecordbookEntryId());
@@ -109,5 +127,19 @@ class MesProcessPoolSubmitEventServiceAdapterTest {
 
         verify(reportAllocationCommandService).createInitialAllocation(
                 801L, 81L, new BigDecimal("100.500"));
+    }
+
+    @Test
+    void shouldNotPersistProductionEventWhenFormalSignatureVerificationFails() {
+        when(signatureEvidenceService.snapshotForSubmission(3001L, 4001L,
+                new MesProductionSubmitSignatureContext(81L, 71L, 31L, "submit-bad-evidence")))
+                .thenThrow(cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception(
+                        MesProductionSignatureEvidenceService.EVIDENCE_INVALID));
+        assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,
+                () -> submitEventService.createSubmitEvent(new MesProcessPoolSubmitEventCreateReqBO()
+                        .setActiveOrderId(81L).setRouteProcessId(71L).setProcessId(31L)
+                        .setProcessPoolSubmissionIdempotencyKey("submit-bad-evidence")
+                        .setSignatureEmployeeId(3001L).setSignatureId(4001L)));
+        verify(eventService, never()).createEvent(org.mockito.ArgumentMatchers.any());
     }
 }

@@ -61,6 +61,14 @@ public interface PermissionService {
      */
     void assignRoleMenu(Long roleId, Set<Long> menuIds, String reason, String idempotencyKey);
 
+    /** Internal, explicitly authorized tenant administration; no controller accepts this target. */
+    void assignTenantRoleMenu(Long tenantId, Long roleId, Set<Long> menuIds, String managementPermission,
+                              String reason, String idempotencyKey);
+
+    /** Initialize only the declared contact user of the newly created tenant. */
+    void initializeTenantAdministrator(Long tenantId, Long userId, Long roleId, String reason, String idempotencyKey);
+
+
     /**
      * 处理角色删除时，删除关联授权数据
      *
@@ -100,6 +108,9 @@ public interface PermissionService {
      * @return 菜单编号集合
      */
     Set<Long> getDynamicMenuListByUserId(Long userId);
+
+    /** 当前租户有效临时角色的显式菜单授权；不改变永久角色或管理员身份。 */
+    Set<Long> getTemporaryMenuListByUserId(Long userId);
 
     /**
      * 获得拥有指定菜单的角色编号数组，从缓存中获取

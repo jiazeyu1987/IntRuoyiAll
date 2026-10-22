@@ -33,6 +33,7 @@ import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowStatus;
 import cn.iocoder.yudao.module.mes.service.pro.productionrelease.role.MesProductionReleaseRequiredCandidateResolver;
 import cn.iocoder.yudao.module.mes.service.pro.productionrelease.role.MesProductionReleaseRoleCandidates;
 import cn.iocoder.yudao.module.mes.service.pro.productionrelease.role.MesProductionReleaseRoleCodes;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrNonconformanceReviewService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -54,6 +55,8 @@ public class MesTeamLeaderActiveOrderReleaseGenerationService {
     private static final String BUSINESS_KEY_PREFIX = "PQC_RELEASE";
     private static final String TASK_TYPE_PQC_RELEASE = "PQC_PRODUCTION_RELEASE";
     private static final String BUSINESS_SCOPE_RELEASE_APPLICATION = "RELEASE_APPLICATION";
+    private static final String NONCONFORMANCE_REWORK = "NONCONFORMANCE_REWORK";
+    private static final String REWORK_CYCLE_PREFIX = "REWORK:";
 
     private final MesProcessPoolActiveOrderMapper activeOrderMapper;
     private final MesProWorkOrderMapper workOrderMapper;
@@ -68,6 +71,7 @@ public class MesTeamLeaderActiveOrderReleaseGenerationService {
     private final MesProductionReleaseRequiredCandidateResolver candidateResolver;
     private final MesTeamLeaderActiveOrderReleaseSourceSnapshotHasher sourceSnapshotHasher;
     private final MesProcessPoolActiveOrderPickListBindingMapper pickListBindingMapper;
+    private final MesProEdhrNonconformanceReviewService nonconformanceReviewService;
 
     public MesTeamLeaderActiveOrderReleaseGenerationService(
             MesProcessPoolActiveOrderMapper activeOrderMapper,
@@ -82,7 +86,8 @@ public class MesTeamLeaderActiveOrderReleaseGenerationService {
             MesTeamLeaderActiveOrderReleaseApplicationPersistenceService persistenceService,
             MesProductionReleaseRequiredCandidateResolver candidateResolver,
             MesTeamLeaderActiveOrderReleaseSourceSnapshotHasher sourceSnapshotHasher,
-            MesProcessPoolActiveOrderPickListBindingMapper pickListBindingMapper) {
+            MesProcessPoolActiveOrderPickListBindingMapper pickListBindingMapper,
+            MesProEdhrNonconformanceReviewService nonconformanceReviewService) {
         this.activeOrderMapper = activeOrderMapper;
         this.workOrderMapper = workOrderMapper;
         this.processSnapshotMapper = processSnapshotMapper;
@@ -96,6 +101,7 @@ public class MesTeamLeaderActiveOrderReleaseGenerationService {
         this.candidateResolver = candidateResolver;
         this.sourceSnapshotHasher = sourceSnapshotHasher;
         this.pickListBindingMapper = pickListBindingMapper;
+        this.nonconformanceReviewService = nonconformanceReviewService;
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -106,7 +112,8 @@ public class MesTeamLeaderActiveOrderReleaseGenerationService {
         MesProcessPoolActiveOrderDO activeOrder = requireActiveOrder(command.getActiveOrderId(), leaderUserId);
         MesProWorkOrderDO workOrder = requireWorkOrder(activeOrder);
         String batchCode = requireBatchCode(workOrder);
-        String businessKey = businessKey(tenantId, activeOrder, workOrder, batchCode);
+        Long latestReworkCycleId = latestReworkCycleId(activeOrder.getId());
+        String businessKey = businessKey(tenantId, activeOrder, workOrder, batchCode, latestReworkCycleId);
 
         MesProcessPoolActiveOrderReleaseApplicationDO existing =
                 findExistingApplication(activeOrder.getId(), requestKey, businessKey);
@@ -114,11 +121,14 @@ public class MesTeamLeaderActiveOrderReleaseGenerationService {
             return persistenceService.toResult(requireCurrentApplication(existing));
         }
 
+        // Successful application replay is read-only; only new applications must pass the
+        // authoritative NCR/work-order freeze gate before any pending task can be created.
+        nonconformanceReviewService.ensureWorkOrderNotFrozen(workOrder.getId(), "申请PQC生产放行");
         List<MesProcessPoolActiveOrderProcessSnapshotDO> snapshots = requireSnapshots(activeOrder);
         requireNoProductionQuantityConflict(activeOrder, snapshots);
         List<MesProcessPoolOrderProcessCompletionDO> completions =
                 requireFormalProductionCompletions(activeOrder, snapshots);
-        InspectionEvidence inspectionEvidence = requireFormalInspectionCompletions(activeOrder, snapshots);
+        InspectionEvidence inspectionEvidence = requireFormalInspectionCompletions(activeOrder);
         List<MesProcessPoolActiveOrderPickListBindingDO> pickListBindings =
                 pickListBindingMapper.selectListByActiveOrderId(activeOrder.getId());
         if (pickListBindings == null || pickListBindings.isEmpty()
@@ -149,7 +159,8 @@ public class MesTeamLeaderActiveOrderReleaseGenerationService {
         MesProcessPoolActiveOrderDO activeOrder = requireActiveOrder(command.getActiveOrderId(), leaderUserId);
         MesProWorkOrderDO workOrder = requireWorkOrder(activeOrder);
         String batchCode = requireBatchCode(workOrder);
-        String businessKey = businessKey(tenantId, activeOrder, workOrder, batchCode);
+        Long latestReworkCycleId = latestReworkCycleId(activeOrder.getId());
+        String businessKey = businessKey(tenantId, activeOrder, workOrder, batchCode, latestReworkCycleId);
         MesProcessPoolActiveOrderReleaseApplicationDO existing =
                 findExistingApplication(activeOrder.getId(), requestKey, businessKey);
         return existing == null ? null : persistenceService.toResult(requireCurrentApplication(existing));
@@ -362,64 +373,47 @@ public class MesTeamLeaderActiveOrderReleaseGenerationService {
         }
     }
 
-    private InspectionEvidence requireFormalInspectionCompletions(
-            MesProcessPoolActiveOrderDO activeOrder,
-            List<MesProcessPoolActiveOrderProcessSnapshotDO> snapshots) {
-        List<MesPqcInspectionTaskDO> allTasks = list(pqcTaskMapper.selectListByActiveOrderId(activeOrder.getId()));
-        List<MesPqcProcessInspectionAggregateDetailDO> allDetails =
-                list(aggregateDetailMapper.selectListByActiveOrderId(activeOrder.getId()));
-        List<MesPqcInspectionTaskDO> matchedTasks = new ArrayList<>();
-        List<MesPqcProcessInspectionAggregateDetailDO> matchedDetails = new ArrayList<>();
-        for (MesProcessPoolActiveOrderProcessSnapshotDO snapshot : snapshots) {
-            boolean inspectionConfigured = allTasks.stream()
-                    .anyMatch(task -> task != null
-                            && Objects.equals(snapshot.getRouteProcessId(), task.getRouteProcessId())
-                            && Objects.equals(snapshot.getProcessId(), task.getProcessId()));
-            if (!inspectionConfigured) {
-                continue;
-            }
-            List<MesPqcInspectionTaskDO> confirmed = allTasks.stream()
-                    .filter(task -> isConfirmedInspectionTask(task, activeOrder, snapshot))
-                    .toList();
-            MesPqcProcessInspectionAggregateDetailDO detail = confirmed.stream()
-                    .flatMap(task -> allDetails.stream()
-                            .filter(item -> matchesInspectionDetail(item, task, activeOrder, snapshot)))
-                    .findFirst().orElse(null);
-            if (confirmed.isEmpty() || detail == null) {
-                throw progressBlocker(MesReleaseFlowBlockerType.INSPECTION_PROGRESS_NOT_COMPLETED,
-                        activeOrder, snapshot, "formal process inspection progress is below 100%",
-                        "confirm the PQC task and aggregate detail for this frozen process");
-            }
-            matchedTasks.add(confirmed.get(0));
-            matchedDetails.add(detail);
+    private InspectionEvidence requireFormalInspectionCompletions(MesProcessPoolActiveOrderDO activeOrder) {
+        List<MesPqcInspectionTaskDO> tasks = list(pqcTaskMapper.selectListByActiveOrderId(activeOrder.getId()));
+        List<MesPqcProcessInspectionAggregateDetailDO> details = list(aggregateDetailMapper.selectListByActiveOrderId(activeOrder.getId()));
+        if (tasks.isEmpty()) {
+            throw blocker(MesReleaseFlowBlockerType.INSPECTION_PROGRESS_NOT_COMPLETED, null,
+                    "ACTIVE_ORDER", String.valueOf(activeOrder.getId()), null,
+                    "整单QA检验任务缺失", "完成整单QA检验与PQC组长复核");
         }
-        return new InspectionEvidence(List.copyOf(allTasks), List.copyOf(allDetails));
-    }
-
-    private boolean isConfirmedInspectionTask(MesPqcInspectionTaskDO task,
-                                               MesProcessPoolActiveOrderDO activeOrder,
-                                               MesProcessPoolActiveOrderProcessSnapshotDO snapshot) {
-        return task != null && task.getId() != null
-                && MesPqcInspectionTaskDO.TASK_STATUS_CONFIRMED.equals(task.getTaskStatus())
-                && Objects.equals(activeOrder.getId(), task.getActiveOrderId())
-                && Objects.equals(activeOrder.getWorkOrderId(), task.getWorkOrderId())
-                && Objects.equals(activeOrder.getRouteId(), task.getRouteId())
-                && Objects.equals(activeOrder.getRouteVersionId(), task.getRouteVersionId())
-                && Objects.equals(snapshot.getRouteProcessId(), task.getRouteProcessId())
-                && Objects.equals(snapshot.getProcessId(), task.getProcessId());
-    }
-
-    private boolean matchesInspectionDetail(MesPqcProcessInspectionAggregateDetailDO detail,
-                                            MesPqcInspectionTaskDO task,
-                                            MesProcessPoolActiveOrderDO activeOrder,
-                                            MesProcessPoolActiveOrderProcessSnapshotDO snapshot) {
-        return detail != null && detail.getId() != null && Objects.equals(task.getId(), detail.getPqcTaskId())
-                && Objects.equals(activeOrder.getId(), detail.getActiveOrderId())
-                && Objects.equals(activeOrder.getWorkOrderId(), detail.getWorkOrderId())
-                && Objects.equals(activeOrder.getRouteId(), detail.getRouteId())
-                && Objects.equals(activeOrder.getRouteVersionId(), detail.getRouteVersionId())
-                && Objects.equals(snapshot.getRouteProcessId(), detail.getRouteProcessId())
-                && Objects.equals(snapshot.getProcessId(), detail.getProcessId());
+        for (var task : tasks) {
+            if (task == null || task.getId() == null || task.getQaProcessId() == null || task.getRegulationVersionId() == null
+                    || task.getRouteProcessId() != null || task.getProcessId() != null
+                    || !MesPqcInspectionTaskDO.TASK_STATUS_CONFIRMED.equals(task.getTaskStatus())
+                    || !Objects.equals(activeOrder.getId(), task.getActiveOrderId())
+                    || !Objects.equals(activeOrder.getWorkOrderId(), task.getWorkOrderId())
+                    || !Objects.equals(activeOrder.getRouteId(), task.getRouteId())
+                    || !Objects.equals(activeOrder.getRouteVersionId(), task.getRouteVersionId())
+                    || task.getSubmittedEventId() == null) {
+                throw blocker(MesReleaseFlowBlockerType.INSPECTION_PROGRESS_NOT_COMPLETED, null,
+                        "PQC_INSPECTION_TASK", task == null ? null : String.valueOf(task.getId()), null,
+                        "整单QA阶段检验尚未完成", "提交并复核全部QA阶段任务");
+            }
+            var plan = cn.iocoder.yudao.module.mes.service.pro.processpool.pqc.MesPqcInspectionItemPlan.require(task);
+            var taskDetails = details.stream().filter(detail -> Objects.equals(task.getId(), detail.getPqcTaskId())).toList();
+            boolean valid = taskDetails.stream().allMatch(detail -> detail.getId() != null
+                    && Objects.equals(activeOrder.getId(), detail.getActiveOrderId())
+                    && Objects.equals(activeOrder.getWorkOrderId(), detail.getWorkOrderId())
+                    && Objects.equals(task.getRegulationVersionId(), detail.getRegulationVersionId())
+                    && Objects.equals(task.getSubmittedEventId(), detail.getEventId())
+                    && detail.getRouteProcessId() == null && detail.getProcessId() == null);
+            valid = valid && taskDetails.stream().map(MesPqcProcessInspectionAggregateDetailDO::getItemCode)
+                    .collect(java.util.stream.Collectors.toSet()).equals(plan.keySet());
+            for (var entry : plan.entrySet()) {
+                var samples = taskDetails.stream().filter(detail -> Objects.equals(entry.getKey(), detail.getItemCode()))
+                        .map(MesPqcProcessInspectionAggregateDetailDO::getSampleNo).sorted().toList();
+                valid = valid && samples.equals(java.util.stream.IntStream.rangeClosed(1, entry.getValue()).boxed().toList());
+            }
+            if (!valid) throw blocker(MesReleaseFlowBlockerType.INSPECTION_PROGRESS_NOT_COMPLETED, null,
+                    "PQC_INSPECTION_TASK", String.valueOf(task.getId()), null,
+                    "整单QA阶段检验汇集证据不完整", "复核全部检验项目与抽样明细");
+        }
+        return new InspectionEvidence(List.copyOf(tasks), List.copyOf(details));
     }
 
     private MesProcessPoolActiveOrderReleaseApplicationDO buildApplication(
@@ -445,11 +439,24 @@ public class MesTeamLeaderActiveOrderReleaseGenerationService {
     }
 
     private String businessKey(Long tenantId, MesProcessPoolActiveOrderDO activeOrder,
-                               MesProWorkOrderDO workOrder, String batchCode) {
-        return DigestUtil.sha256Hex(String.join("|", BUSINESS_KEY_PREFIX,
+                               MesProWorkOrderDO workOrder, String batchCode, Long latestReworkCycleId) {
+        List<String> parts = new ArrayList<>(List.of(BUSINESS_KEY_PREFIX,
                 String.valueOf(tenantId), String.valueOf(activeOrder.getId()),
                 String.valueOf(workOrder.getId()), batchCode,
                 String.valueOf(activeOrder.getRouteId()), String.valueOf(activeOrder.getRouteVersionId())));
+        if (latestReworkCycleId != null) {
+            parts.add(REWORK_CYCLE_PREFIX + latestReworkCycleId);
+        }
+        return DigestUtil.sha256Hex(String.join("|", parts));
+    }
+
+    private Long latestReworkCycleId(Long activeOrderId) {
+        MesProcessPoolActiveOrderReleaseApplicationDO latestRework =
+                applicationMapper.selectLatestReworkClosedByActiveOrderId(activeOrderId);
+        if (latestRework != null && !isReworkClosedReleaseApplication(latestRework)) {
+            throw new IllegalStateException("REWORK_APPLICATION_STATE_INCONSISTENT");
+        }
+        return latestRework == null ? null : latestRework.getId();
     }
 
     private MesProcessPoolActiveOrderReleaseApplicationDO findExistingApplication(
@@ -459,7 +466,16 @@ public class MesTeamLeaderActiveOrderReleaseGenerationService {
         if (requestExisting != null) {
             return requestExisting;
         }
-        return applicationMapper.selectByBusinessIdempotencyKey(activeOrderId, businessKey);
+        MesProcessPoolActiveOrderReleaseApplicationDO businessExisting =
+                applicationMapper.selectByBusinessIdempotencyKey(activeOrderId, businessKey);
+        return isReworkClosedReleaseApplication(businessExisting) ? null : businessExisting;
+    }
+
+    private boolean isReworkClosedReleaseApplication(MesProcessPoolActiveOrderReleaseApplicationDO existing) {
+        if (existing == null) {
+            return false;
+        }
+        return NONCONFORMANCE_REWORK.equals(existing.getApplicationStatus());
     }
 
     private MesProcessPoolActiveOrderReleaseApplicationDO requireCurrentApplication(

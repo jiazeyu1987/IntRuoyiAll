@@ -1852,7 +1852,8 @@ def write_checksums(workspace: Path) -> None:
     (workspace / "manifest" / "checksums.txt").write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
-def write_manifest(workspace: Path, backup_id: str, backup_type: str, config: dict, image_tag: str, backend_port: int, frontend_port: int) -> None:
+def write_manifest(workspace: Path, backup_id: str, backup_type: str, backup_kind: str, config: dict,
+                   image_tag: str, backend_port: int, frontend_port: int) -> None:
     db_name = get_required(config, ["backup", "mysqlDatabase"], "backup.mysqlDatabase")
     bucket = get_required(config, ["backup", "objectBucket"], "backup.objectBucket")
     target_environment = str(config.get("environment", ""))
@@ -1890,6 +1891,7 @@ def write_manifest(workspace: Path, backup_id: str, backup_type: str, config: di
         "targetEnvironment": target_environment,
         "targetHost": target_host,
         "backupType": backup_type,
+        "backupKind": backup_kind,
         "environment": target_environment,
         "status": "success",
         "source": {
@@ -2053,11 +2055,31 @@ def write_rehearsal_evidence(backup_root: Path, backup_id: str, status: str, ver
         del validation["rehearsalError"]
     manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
 
+    manifest_digest = hashlib.sha256(manifest_path.read_bytes()).hexdigest()
+    dcc_manifest_path = manifest_dir / "dcc-backup-manifest.json"
+    chain_digest = hashlib.sha256(dcc_manifest_path.read_bytes()).hexdigest() if dcc_manifest_path.is_file() else ""
+    source = manifest.get("source") or {}
+    deploy = manifest.get("deploy") or {}
+    source_fingerprint = (
+        f"serverHost={source.get('serverHost', '')};"
+        f"appDir={source.get('appDir', '')};"
+        f"minioBucket={source.get('minioBucket', '')};"
+        f"imageTag={deploy.get('imageTag', '')}"
+    )
+    target_fingerprint = (
+        f"environment={manifest.get('targetEnvironment', '')};"
+        f"host={manifest.get('targetHost', '')};"
+        f"imageTag={deploy.get('imageTag', '')}"
+    )
     report = {
         "status": status,
         "backupId": backup_id,
         "verifiedAt": verified_at,
         "checks": checks,
+        "manifestDigest": manifest_digest,
+        "chainDigest": chain_digest,
+        "sourceFingerprint": source_fingerprint,
+        "targetFingerprint": target_fingerprint,
     }
     if error_message:
         report["error"] = error_message
@@ -2146,7 +2168,24 @@ def wait_http_ok(url: str, timeout: int = 180) -> None:
     raise BackupOpsError("INTBK-5003", "fail", f"Health check timed out for {url}. Last error: {last_error}")
 
 
-def backup_now(config: dict, runner: Runner) -> dict:
+def backup_now(config: dict, runner: Runner, backup_kind: str) -> dict:
+    backup_kind = str(backup_kind or "").strip().upper()
+    if backup_kind not in {"FULL", "INCREMENTAL"}:
+        raise BackupOpsError(
+            "INTBK-1003",
+            "blocked",
+            "backup-now requires explicit --backup-kind FULL or INCREMENTAL.",
+        )
+    configured_mode = resolve_mysql_backup_mode(config)
+    configured_kind = "INCREMENTAL" if configured_mode.startswith("binlog") else "FULL"
+    if configured_kind != backup_kind:
+        raise BackupOpsError(
+            "INTBK-6001",
+            "blocked",
+            "Requested backup kind does not match configured MySQL backup strategy: "
+            f"requested={backup_kind}, configured={configured_kind}. "
+            "Update the server backup strategy before retrying; no silent strategy downgrade is allowed.",
+        )
     runtime = get_runtime_paths(config)
     env_lines = read_env_lines(runtime["env"])
     image_tag = get_env_value(env_lines, "IMAGE_TAG")
@@ -2222,7 +2261,7 @@ def backup_now(config: dict, runner: Runner) -> dict:
 
     write_dcc_backup_contract(backup_root, backup_id, config, runner, mysql_password, object_inventory)
     write_checksums(backup_root)
-    write_manifest(backup_root, backup_id, "manual", config, image_tag, backend_port, frontend_port)
+    write_manifest(backup_root, backup_id, "manual", backup_kind, config, image_tag, backend_port, frontend_port)
     publish_backup_workspace(backup_root, final_backup_root, config, runner)
     return {"backupId": backup_id, "imageTag": image_tag, "stagingRoot": str(backup_root), "backupRoot": str(final_backup_root)}
 
@@ -2632,7 +2671,12 @@ def assert_production_backup_confirmation(confirm_text: str) -> None:
         )
 
 
-def project_target_environment(config: dict, mode: str, target_environment: str, production_backup_confirm_text: str) -> dict:
+def project_target_environment(
+    config: dict,
+    mode: str,
+    target_environment: str,
+    production_backup_confirm_text: str = "",
+) -> dict:
     if mode == "restore-data" and target_environment == "prod":
         raise BackupOpsError(
             "INTBK-1003",
@@ -2685,6 +2729,7 @@ def main() -> int:
     parser.add_argument("--selected-backup-id", default="")
     parser.add_argument("--selected-image-tag", default="")
     parser.add_argument("--operator-name", default="")
+    parser.add_argument("--backup-kind", choices=["FULL", "INCREMENTAL"], default="")
     parser.add_argument("--target-environment", choices=["prod", "test", "backup"], default="prod")
     parser.add_argument("--production-backup-confirm-text", default="")
     parser.add_argument("--non-interactive", action="store_true")
@@ -2705,7 +2750,7 @@ def main() -> int:
             args.production_backup_confirm_text,
         )
         if args.mode in {"backup-now", "backup-scheduled"}:
-            context = backup_now(config, runner)
+            context = backup_now(config, runner, args.backup_kind)
             return runner.finalize("success", "INTBK-0000", "Linux local backup completed successfully.", context)
         if args.mode == "rollback-app":
             context = rollback_app(config, runner, args.selected_image_tag)

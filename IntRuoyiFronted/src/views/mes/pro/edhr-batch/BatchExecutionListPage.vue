@@ -25,6 +25,7 @@
         @pagination="getList"
       >
         <template #actions>
+          <el-button v-hasPermi="['mes:pro-batch-record-execution:golden-finger']" @click="configRouter.push({ name: 'MesEdhrGlobalConfig' })">eDHR配置</el-button>
           <UserTableColumnSettings
             class="edhr-batch-page__column-settings"
             :columns="edhrBatchExecutionColumns"
@@ -33,13 +34,6 @@
             @change="saveEdhrBatchExecutionColumnConfig"
             @reset="resetEdhrBatchExecutionColumnConfig"
           />
-          <el-button
-            v-hasPermi="['mes:pro-edhr-batch-execution:create']"
-            type="primary"
-            @click="openCreateDialog"
-          >
-            打开/创建
-          </el-button>
           <el-button
             v-if="hasGoldenFingerPermission"
             v-hasPermi="[GOLDEN_FINGER_PERMISSION]"
@@ -116,38 +110,6 @@
               </template>
             </el-table-column>
             <el-table-column
-              v-if="isEdhrBatchExecutionColumnVisible('currentProcess')"
-              label="当前工序"
-              prop="currentProcess"
-              :min-width="getEdhrBatchExecutionColumnMinWidthString('currentProcess', 140)"
-              v-bind="sortColumnAttrs('currentProcess')"
-            >
-              <template #default="{ row }">
-                <el-button
-                  v-if="row.currentProcessName || row.currentProcessCode"
-                  link
-                  type="primary"
-                  @click="openDetail(row, 'process')"
-                >
-                  {{ row.currentProcessName || row.currentProcessCode }}
-                </el-button>
-                <span v-else>--</span>
-              </template>
-            </el-table-column>
-            <el-table-column
-              v-if="isEdhrBatchExecutionColumnVisible('currentFillers')"
-              label="当前填写人"
-              prop="currentFillers"
-              :min-width="getEdhrBatchExecutionColumnMinWidthString('currentFillers', 220)"
-              v-bind="sortColumnAttrs('currentFillers')"
-            >
-              <template #default="{ row }">
-                <div class="edhr-batch-page__filler-cell">
-                  {{ resolveCurrentProcessFillerNames(row) }}
-                </div>
-              </template>
-            </el-table-column>
-            <el-table-column
               v-if="isEdhrBatchExecutionColumnVisible('product')"
               label="产品"
               prop="product"
@@ -186,65 +148,159 @@
                 </div>
               </template>
             </el-table-column>
-            <el-table-column
-              v-if="isEdhrBatchExecutionColumnVisible('progress')"
-              label="完成进度"
-              prop="progress"
-              :width="getEdhrBatchExecutionColumnWidthString('progress', 150)"
-              v-bind="sortColumnAttrs('progress')"
-            >
-              <template #default="{ row }">
-                <div class="edhr-batch-page__progress">
-                  <span>{{ resolveBatchRequiredProgress(row) }}%</span>
-                  <el-progress :percentage="resolveBatchRequiredProgress(row)" :show-text="false" :stroke-width="6" />
-                </div>
-              </template>
-            </el-table-column>
             <el-table-column v-if="isEdhrBatchExecutionColumnVisible('blockedCount')" label="阻塞数" prop="blockedCount" :width="getEdhrBatchExecutionColumnWidthString('blockedCount', 90)" align="center" v-bind="sortColumnAttrs('blockedCount')" />
             <el-table-column v-if="isEdhrBatchExecutionColumnVisible('updateTime')" label="最后更新时间" prop="updateTime" :width="getEdhrBatchExecutionColumnWidthString('updateTime', 180)" :formatter="edhrDateTimeFormatter" v-bind="sortColumnAttrs('updateTime')" />
-            <el-table-column v-if="isEdhrBatchExecutionColumnVisible('operation')" label="操作" prop="operation" :width="getEdhrBatchExecutionColumnWidthString('operation', 180)" fixed="right">
+            <el-table-column v-if="isEdhrBatchExecutionColumnVisible('operation')" label="操作" prop="operation" :width="getEdhrBatchExecutionColumnWidthString('operation', 240)" fixed="right">
               <template #default="{ row }">
-                <div
-                  v-if="resolveBatchVoidOperationState(row) === 'pending-withdrawable'"
-                  class="edhr-batch-page__actions"
-                >
-                  <el-button
-                    v-hasPermi="['mes:pro-edhr-change:void']"
-                    link
-                    type="warning"
-                    @click="handleWithdrawVoidRequest(row)"
+                <div class="edhr-batch-page__operation-grid">
+                  <ReleaseTaskNotificationEntry
+                    v-hasPermi="['mes:pro-edhr-work-task:query']"
+                    :batch-execution-id="row.id"
+                    :release-transaction-id="row.releaseTransactionId"
                   >
-                    撤回作废申请
-                  </el-button>
-                </div>
-                <div
-                  v-else-if="resolveBatchVoidOperationState(row) === 'pending-readonly'"
-                  class="edhr-batch-page__actions"
-                >
-                  <span class="edhr-batch-page__muted">作废申请中</span>
-                </div>
-                <div
-                  v-else-if="resolveBatchVoidOperationState(row) === 'voided'"
-                  class="edhr-batch-page__actions"
-                >
-                  <el-button link type="primary" @click="openDetail(row)">编辑</el-button>
-                </div>
-                <div
-                  v-else-if="resolveBatchVoidOperationState(row) === 'release-locked'"
-                  class="edhr-batch-page__actions"
-                >
-                  <el-button link type="primary" @click="openDetail(row)">编辑</el-button>
-                </div>
-                <div v-else class="edhr-batch-page__actions">
-                  <el-button link type="primary" @click="openDetail(row)">编辑</el-button>
-                  <el-button
-                    v-hasPermi="['mes:pro-edhr-change:void']"
-                    link
-                    type="danger"
-                    @click="openVoidDialog(row)"
+                    交接
+                  </ReleaseTaskNotificationEntry>
+                  <div
+                    v-if="resolveBatchVoidOperationState(row) === 'pending-withdrawable'"
+                    class="edhr-batch-page__actions"
                   >
-                    作废
-                  </el-button>
+                    <el-button
+                      link
+                      type="primary"
+                      data-edhr-batch-active-order-detail
+                      @click="openActiveOrderDetail(row)"
+                    >
+                      详情
+                    </el-button>
+                    <el-button
+                      v-hasPermi="['mes:pro-edhr-change:void']"
+                      link
+                      type="warning"
+                      @click="handleWithdrawVoidRequest(row)"
+                    >
+                      撤回作废申请
+                    </el-button>
+                  </div>
+                  <div
+                    v-else-if="resolveBatchVoidOperationState(row) === 'pending-readonly'"
+                    class="edhr-batch-page__actions"
+                  >
+                    <el-button
+                      link
+                      type="primary"
+                      data-edhr-batch-active-order-detail
+                      @click="openActiveOrderDetail(row)"
+                    >
+                      详情
+                    </el-button>
+                    <span class="edhr-batch-page__muted">作废申请中</span>
+                  </div>
+                  <div
+                    v-else-if="resolveBatchVoidOperationState(row) === 'voided'"
+                    class="edhr-batch-page__actions"
+                  >
+                    <el-button
+                      link
+                      type="primary"
+                      data-edhr-batch-active-order-detail
+                      @click="openActiveOrderDetail(row)"
+                    >
+                      详情
+                    </el-button>
+                  </div>
+                  <div
+                    v-else-if="resolveBatchVoidOperationState(row) === 'release-locked'"
+                    class="edhr-batch-page__actions"
+                  >
+                    <el-button
+                      link
+                      type="primary"
+                      data-edhr-batch-active-order-detail
+                      @click="openActiveOrderDetail(row)"
+                    >
+                      详情
+                    </el-button>
+                    <el-button
+                      v-hasPermi="['mes:pro-production-release:pqc-reject']"
+                      link
+                      type="warning"
+                      data-edhr-batch-action="reject"
+                      @click="handleRejectClick(row)"
+                    >
+                      驳回
+                    </el-button>
+                    <el-button
+                      v-hasPermi="[
+                        'mes:pro-process-pool-team-leader:maintain',
+                        'mes:pro-production-release:pqc-approve',
+                        'mes:pro-edhr-batch-execution:upload'
+                      ]"
+                      link
+                      type="primary"
+                      data-edhr-batch-action="upload"
+                      @click="openActiveOrderOtherUploadTab(row)"
+                    >
+                      上传
+                    </el-button>
+                    <el-button
+                      v-hasPermi="['mes:pro-edhr-release:approve']"
+                      link
+                      type="primary"
+                      data-edhr-batch-action="release"
+                      @click="openReleaseDialog(row)"
+                    >
+                      放行
+                    </el-button>
+                  </div>
+                  <div v-else class="edhr-batch-page__actions">
+                    <el-button
+                      link
+                      type="primary"
+                      data-edhr-batch-active-order-detail
+                      @click="openActiveOrderDetail(row)"
+                    >
+                      详情
+                    </el-button>
+                    <el-button
+                      v-hasPermi="['mes:pro-production-release:pqc-reject']"
+                      link
+                      type="warning"
+                      data-edhr-batch-action="reject"
+                      @click="handleRejectClick(row)"
+                    >
+                      驳回
+                    </el-button>
+                    <el-button
+                      v-hasPermi="['mes:pro-edhr-change:void']"
+                      link
+                      type="danger"
+                      @click="openVoidDialog(row)"
+                    >
+                      作废
+                    </el-button>
+                    <el-button
+                      v-hasPermi="[
+                        'mes:pro-process-pool-team-leader:maintain',
+                        'mes:pro-production-release:pqc-approve',
+                        'mes:pro-edhr-batch-execution:upload'
+                      ]"
+                      link
+                      type="primary"
+                      data-edhr-batch-action="upload"
+                      @click="openActiveOrderOtherUploadTab(row)"
+                    >
+                      上传
+                    </el-button>
+                    <el-button
+                      v-hasPermi="['mes:pro-edhr-release:approve']"
+                      link
+                      type="primary"
+                      data-edhr-batch-action="release"
+                      @click="openReleaseDialog(row)"
+                    >
+                      放行
+                    </el-button>
+                  </div>
                 </div>
               </template>
             </el-table-column>
@@ -253,96 +309,171 @@
       </UnifiedListTemplate>
     </div>
 
-    <Dialog title="打开或创建 eDHR 批次执行" v-model="createDialogVisible" width="520px">
+    <Dialog title="上市放行确认" v-model="releaseDialogVisible" width="560px">
       <el-alert
-        v-if="createError"
-        :title="createError"
+        v-if="releaseTransactionMissing"
+        title="正式上市放行事务尚未生成。"
+        :description="
+          selectedReleaseBatch?.activeOrderId
+            ? '让步处置只关闭不合格评审，不会生成正式放行事务。请在“PQC生产放行”的“待放行”列表中完成该工单的正式放行签字；事务生成后再返回本页。'
+            : '请先在批次详情页完成放行预检及正式前置审批，生成事务后再返回本页。'
+        "
+        type="warning"
+        :closable="false"
+        show-icon
+        class="edhr-batch-page__dialog-alert"
+      />
+      <el-alert
+        v-if="releaseError"
+        :title="releaseError"
         type="error"
         :closable="false"
         show-icon
         class="edhr-batch-page__dialog-alert"
       />
-      <el-form label-width="96px">
-        <el-form-item label="生产工单" required>
-          <el-select
-            v-model="createForm.workOrderId"
-            filterable
-            remote
-            reserve-keyword
-            clearable
-            :remote-method="searchSelectableWorkOrders"
-            :loading="workOrderLoading"
-            popper-class="edhr-batch-page__work-order-select-popper"
-            placeholder="输入工单号或产品名称搜索并选择未冻结工单"
-            style="width: 100%"
-            @change="handleWorkOrderChange"
-            @clear="handleWorkOrderClear"
-          >
-            <el-option
-              v-for="workOrder in selectableWorkOrders"
-              :key="workOrder.id"
-              :label="resolveWorkOrderOptionLabel(workOrder)"
-              :value="workOrder.id"
-            >
-              <div class="edhr-batch-page__work-order-option">
-                <div>
-                  <div class="edhr-batch-page__work-order-code">{{ workOrder.code || '--' }}</div>
-                  <div class="edhr-batch-page__muted">{{ workOrder.name || '--' }}</div>
-                </div>
-                <div class="edhr-batch-page__work-order-meta">
-                  <span>{{ workOrder.productName || workOrder.productCode || '未维护产品' }}</span>
-                  <span>{{ workOrder.batchCode || '未维护批次' }}</span>
-                  <span>ID {{ workOrder.id }}</span>
-                </div>
-              </div>
-            </el-option>
-          </el-select>
-          <div class="edhr-batch-page__field-hint">
-            仅显示未取消且未临时冻结的生产工单。
-          </div>
+      <el-button
+        v-if="releaseTransactionMissing && selectedReleaseBatch?.activeOrderId && selectedReleaseBatch?.workOrderCode"
+        link
+        type="primary"
+        data-edhr-batch-action="pqc-release-prerequisite"
+        @click="openPqcReleasePending"
+      >
+        查看对应 PQC 待放行申请
+      </el-button>
+      <el-descriptions v-if="selectedReleaseBatch" :column="1" border>
+        <el-descriptions-item label="批次执行编码">
+          {{ selectedReleaseBatch.batchExecutionCode || selectedReleaseBatch.id }}
+        </el-descriptions-item>
+        <el-descriptions-item label="工单号">
+          {{ selectedReleaseBatch.workOrderCode || '--' }}
+        </el-descriptions-item>
+        <el-descriptions-item label="批次号">
+          {{ selectedReleaseBatch.batchCode || '--' }}
+        </el-descriptions-item>
+        <el-descriptions-item label="当前状态">
+          {{ resolveBatchStatusLabel(selectedReleaseBatch.status) }}
+        </el-descriptions-item>
+      </el-descriptions>
+      <el-alert
+        v-if="releaseContextLoading"
+        title="正在加载该批次的放行事务..."
+        type="info"
+        :closable="false"
+        show-icon
+        class="mt-12px"
+      />
+      <template v-else-if="releaseCompletedReadOnly && releaseContext">
+        <el-alert
+          title="该正式任务已完成上市放行。"
+          description="当前为已完成信息，只可查看历史批记录，无需重复签批。"
+          type="success"
+          :closable="false"
+          show-icon
+          class="mt-12px"
+        />
+        <el-descriptions :column="1" border class="mt-12px">
+          <el-descriptions-item label="正式放行事务">
+            {{ releaseContext.releaseCode || releaseContext.releaseTransactionId }}
+          </el-descriptions-item>
+          <el-descriptions-item label="完成时间">
+            {{ releaseContext.approvedAt }}
+          </el-descriptions-item>
+          <el-descriptions-item label="放行意见">
+            {{ releaseContext.approvalOpinion }}
+          </el-descriptions-item>
+        </el-descriptions>
+      </template>
+      <el-form
+        v-else-if="releaseContext?.releaseTransactionId"
+        label-width="120px"
+        class="mt-12px"
+      >
+        <el-form-item label="电子签名密码" required>
+          <el-input
+            v-model="releaseForm.password"
+            type="password"
+            show-password
+            autocomplete="new-password"
+            placeholder="请输入上市放行负责人的电子签名密码"
+            @keyup.enter="submitRelease"
+          />
         </el-form-item>
-        <el-form-item label="工艺路线" required>
-          <el-select
-            v-model="createForm.routeId"
-            clearable
-            :disabled="!createForm.workOrderId || createRouteOptionsLoading || !createRouteOptions.length"
-            :loading="createRouteOptionsLoading"
-            popper-class="edhr-batch-page__work-order-select-popper"
-            placeholder="请先选择工单，再选择该产品绑定的工艺路线"
-            style="width: 100%"
-          >
-            <el-option
-              v-for="routeOption in createRouteOptions"
-              :key="routeOption.routeId"
-              :label="resolveRouteOptionLabel(routeOption)"
-              :value="routeOption.routeId"
-            >
-              <div class="edhr-batch-page__work-order-option">
-                <div>
-                  <div class="edhr-batch-page__work-order-code">{{ routeOption.routeCode || '--' }}</div>
-                  <div class="edhr-batch-page__muted">{{ routeOption.routeName || '--' }}</div>
-                </div>
-                <div class="edhr-batch-page__work-order-meta">
-                  <span>ID {{ routeOption.routeId }}</span>
-                  <span>{{ routeOption.batchRouteEnabled ? '批记录流程已启用' : '批记录流程未启用' }}</span>
-                </div>
-              </div>
-            </el-option>
-          </el-select>
-          <div class="edhr-batch-page__field-hint">
-            多条路线时必须明确选择，避免同一工单按错误路线创建批次。
-          </div>
-        </el-form-item>
-        <el-form-item label="批次号" required>
-          <el-input v-model="createForm.batchCode" placeholder="请输入真实批次号" />
-        </el-form-item>
-        <el-form-item label="备注">
-          <el-input v-model="createForm.remark" type="textarea" :rows="3" />
+        <el-form-item>
+          <span class="edhr-batch-page__field-hint">
+            确认后将直接完成上市放行；资料上传状态不作为本次确认的前置条件。
+          </span>
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="createDialogVisible = false">取 消</el-button>
-        <el-button type="primary" :loading="createLoading" @click="submitOpenOrCreate">确 认</el-button>
+        <el-button @click="releaseDialogVisible = false">取 消</el-button>
+        <el-button
+          v-if="releaseCompletedReadOnly"
+          type="primary"
+          data-edhr-batch-action="completed-release-history"
+          @click="openCompletedReleaseHistory"
+        >
+          查看历史批记录
+        </el-button>
+        <el-button
+          v-else-if="releaseContext?.releaseTransactionId"
+          type="primary"
+          :loading="releaseLoading"
+          :disabled="releaseContextLoading"
+          @click="submitRelease"
+        >
+          确认上市放行
+        </el-button>
+      </template>
+    </Dialog>
+
+    <Dialog title="驳回并发起不合格评审" v-model="rejectDialogVisible" width="560px">
+      <el-alert
+        v-if="rejectError"
+        :title="rejectError"
+        type="error"
+        :closable="false"
+        show-icon
+        class="edhr-batch-page__dialog-alert"
+      />
+      <el-descriptions v-if="selectedRejectBatch" :column="1" border>
+        <el-descriptions-item label="批次执行编码">
+          {{ selectedRejectBatch.batchExecutionCode || selectedRejectBatch.id }}
+        </el-descriptions-item>
+        <el-descriptions-item label="工单号">
+          {{ selectedRejectBatch.workOrderCode || '--' }}
+        </el-descriptions-item>
+        <el-descriptions-item label="批次号">
+          {{ selectedRejectBatch.batchCode || '--' }}
+        </el-descriptions-item>
+        <el-descriptions-item label="当前状态">
+          {{ resolveBatchStatusLabel(selectedRejectBatch.status) }}
+        </el-descriptions-item>
+      </el-descriptions>
+      <el-form label-width="120px" class="mt-12px">
+        <el-form-item label="不合格原因" required>
+          <el-input
+            v-model="rejectForm.nonconformanceReason"
+            type="textarea"
+            :rows="3"
+            placeholder="请输入驳回进入不合格评审的原因"
+          />
+        </el-form-item>
+        <el-form-item label="电子签名密码" required>
+          <el-input
+            v-model="rejectForm.signaturePassword"
+            type="password"
+            show-password
+            autocomplete="new-password"
+            placeholder="请输入上市放行负责人的电子签名密码"
+            @keyup.enter="submitRejectBatchExecution"
+          />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="rejectDialogVisible = false">取 消</el-button>
+        <el-button type="danger" :loading="rejectLoading" @click="submitRejectBatchExecution">
+          确认驳回并进入不合格流程
+        </el-button>
       </template>
     </Dialog>
 
@@ -711,6 +842,8 @@
 </template>
 
 <script setup lang="ts">
+const configRouter = useRouter()
+import ReleaseTaskNotificationEntry from '../production-release/components/ReleaseTaskNotificationEntry.vue'
 import {
   EDHR_BATCH_STATUS_ARCHIVED,
   EDHR_BATCH_STATUS_CLOSED,
@@ -724,27 +857,33 @@ import {
   goldenFingerBulkVoidEdhrBatchExecutions,
   getEdhrRehearsalReadiness,
   getEdhrBatchReviewTimeline,
-  getEdhrBatchExecutionRouteOptions,
   getLatestEdhrBatchArchive,
+  getEdhrBatchExecution,
   getEdhrBatchExecutionPage,
-  openOrCreateManualEdhrBatchExecution,
   type EdhrBatchExecutionArchiveRespVO,
   type EdhrBatchExecutionPageReqVO,
   type EdhrBatchExecutionRespVO,
-  type EdhrBatchExecutionRouteOptionRespVO,
   type EdhrBatchReviewTimelineRespVO,
   type EdhrRehearsalReadinessItem,
   type EdhrRehearsalReadinessResult
 } from '@/api/mes/pro/edhr/batchExecution'
-import { ProWorkOrderApi, type ProWorkOrderVO } from '@/api/mes/pro/workorder'
+import {
+  approveEdhrRelease,
+  getEdhrRelease,
+  getEdhrReleasePage,
+  type EdhrReleasePageReqVO,
+  type EdhrReleaseRowVO
+} from '@/api/mes/pro/edhr/release'
+import { rejectEdhrBatchExecutionToNonconformanceReview } from '@/api/mes/pro/edhr/nonconformanceReview'
+import { useApprovalCenterInvalidationStore } from '@/store/modules/approvalCenterInvalidation'
+import { createFormalActionGuard } from '@/store/modules/approvalCenterInvalidationState'
+const approvalInvalidation = useApprovalCenterInvalidationStore()
 import * as UserApi from '@/api/system/user'
 import * as DefinitionApi from '@/api/bpm/definition'
 import * as ProcessInstanceApi from '@/api/bpm/processInstance'
 import { requestVoidBatchExecution, resolveVoidBatchExecutionApproval } from '@/api/mes/pro/edhr/change'
 import { CandidateStrategy, NodeId } from '@/components/SimpleProcessDesignerV2/src/consts'
 import UserSelectV2 from '@/views/system/user/components/UserSelectV2.vue'
-import { MesProWorkOrderStatusEnum } from '@/views/mes/utils/constants'
-import { resolveBatchRequiredProgress } from './progress'
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import UserTableColumnSettings from '@/components/UserTableColumnSettings/index.vue'
 import EdhrBatchRecordTabs from './EdhrBatchRecordTabs.vue'
@@ -766,7 +905,6 @@ const userStore = useUserStore()
 const GOLDEN_FINGER_PERMISSION = 'mes:pro-batch-record-execution:golden-finger'
 const hasGoldenFingerPermission = computed(() => userStore.permissions.has(GOLDEN_FINGER_PERMISSION))
 const hasGoldenFingerActionBypass = computed(() => hasGoldenFingerPermission.value)
-type EdhrBatchExecutionDetailFocus = 'process'
 const EDHR_BATCH_EXECUTION_TRACE_ONLY_STATUSES = [
   EDHR_BATCH_STATUS_ARCHIVED,
   EDHR_BATCH_STATUS_REJECTED
@@ -780,12 +918,9 @@ type BatchVoidOperationState =
 const edhrBatchExecutionDefaultColumns: UserTableColumnDefinition[] = [
   { key: 'batchExecutionCode', label: '批次执行编码', minWidth: 190 },
   { key: 'workOrderCode', label: '工单', minWidth: 150 },
-  { key: 'currentProcess', label: '当前工序', minWidth: 140 },
-  { key: 'currentFillers', label: '当前填写人', minWidth: 220 },
   { key: 'product', label: '产品', minWidth: 170 },
   { key: 'route', label: '路线', minWidth: 170 },
   { key: 'status', label: '状态', width: 110 },
-  { key: 'progress', label: '完成进度', width: 150 },
   { key: 'blockedCount', label: '阻塞数', width: 90 },
   { key: 'updateTime', label: '最后更新时间', width: 180 },
   { key: 'operation', label: '操作', width: 180, hideable: false, business: false }
@@ -802,16 +937,17 @@ const {
 } = useUserTableColumns('mes.pro.edhrBatch.execution.main', edhrBatchExecutionDefaultColumns)
 
 const loading = ref(false)
-const createLoading = ref(false)
 const voidLoading = ref(false)
+const releaseLoading = ref(false)
+const rejectLoading = ref(false)
+const releaseContextLoading = ref(false)
 const goldenFingerBulkVoidLoading = ref(false)
 const readinessLoading = ref(false)
 const readinessUserLoading = ref(false)
-const workOrderLoading = ref(false)
-const createRouteOptionsLoading = ref(false)
 const loadError = ref('')
-const createError = ref('')
 const voidError = ref('')
+const releaseError = ref('')
+const rejectError = ref('')
 const goldenFingerBulkVoidError = ref('')
 const readinessError = ref('')
 const list = ref<EdhrBatchExecutionRespVO[]>([])
@@ -828,11 +964,10 @@ const handleBatchExecutionSelectionChange = (rows: EdhrBatchExecutionRespVO[]) =
   selectedGoldenFingerBulkVoidRows.value = rows.filter(isGoldenFingerBulkVoidSelectableRow)
 }
 const readinessUserOptions = ref<UserApi.UserVO[]>([])
-const selectableWorkOrders = ref<ProWorkOrderVO[]>([])
-const createRouteOptions = ref<EdhrBatchExecutionRouteOptionRespVO[]>([])
 const total = ref(0)
-const createDialogVisible = ref(false)
 const voidDialogVisible = ref(false)
+const releaseDialogVisible = ref(false)
+const rejectDialogVisible = ref(false)
 const goldenFingerBulkVoidDialogVisible = ref(false)
 const readinessDialogVisible = ref(false)
 const archiveDialogVisible = ref(false)
@@ -845,6 +980,11 @@ const batchFlowTraceError = ref('')
 const archivePreview = ref<EdhrBatchExecutionArchiveRespVO>()
 const selectedTraceBatch = ref<EdhrBatchExecutionRespVO>()
 const selectedVoidBatch = ref<EdhrBatchExecutionRespVO>()
+const selectedReleaseBatch = ref<EdhrBatchExecutionRespVO>()
+const selectedRejectBatch = ref<EdhrBatchExecutionRespVO>()
+const releaseContext = ref<EdhrReleaseRowVO>()
+const releaseCompletedReadOnly = ref(false)
+const releaseTransactionMissing = ref(false)
 const batchFlowTraceTimeline = ref<EdhrBatchReviewTimelineRespVO>()
 const readinessResult = ref<EdhrRehearsalReadinessResult>()
 const queryParams = reactive({
@@ -879,12 +1019,6 @@ const edhrBatchQuickFilterDefinitions: TableQuickFilterDefinition[] = [
   },
   { key: 'createTime', label: '创建时间', type: 'dateRange' }
 ]
-const createForm = reactive({
-  workOrderId: undefined as number | undefined,
-  routeId: undefined as number | undefined,
-  batchCode: '',
-  remark: ''
-})
 const readinessForm = reactive({
   routeId: '',
   executorUserId: '',
@@ -897,6 +1031,10 @@ const voidForm = reactive({
   password: '',
   comment: '',
   idempotencyKey: ''
+})
+const rejectForm = reactive({
+  nonconformanceReason: '',
+  signaturePassword: ''
 })
 const goldenFingerBulkVoidForm = reactive({
   reasonCategory: '',
@@ -1322,36 +1460,32 @@ const resolveBatchStatusType = (status?: number | string | null) => {
   return 'info'
 }
 
-const resolveCurrentProcessFillerNames = (row: EdhrBatchExecutionRespVO) => {
-  const seenNames = new Set<string>()
-  const names = [
-    ...(row.currentProcessProductionFillers || []),
-    ...(row.currentProcessEquipmentFillers || []),
-    ...(row.currentProcessQualityFillers || [])
-  ].reduce<string[]>((result, user) => {
-    const name = user.displayName?.trim()
-    if (!name || seenNames.has(name)) return result
-    seenNames.add(name)
-    result.push(name)
-    return result
-  }, [])
-  return names.length ? names.join('、') : '--'
-}
-
-const getList = async () => {
+let batchListReadGeneration = 0
+const loadBatchList = async (isActionCurrent: () => boolean) => {
+  if (!isActionCurrent()) return false
+  const generation = ++batchListReadGeneration
+  const query = buildQuery()
+  const scope = JSON.stringify([approvalInvalidation.syncSession().key, route.fullPath, query])
+  const isCurrent = () => isActionCurrent() && generation === batchListReadGeneration && scope === JSON.stringify([approvalInvalidation.syncSession().key, route.fullPath, buildQuery()])
   loading.value = true
   loadError.value = ''
   try {
-    const data = await getEdhrBatchExecutionPage(buildQuery())
+    const data = await getEdhrBatchExecutionPage(query, { ignoreErrorMessage: true, isRequestContextCurrent: isCurrent })
+    if (!isCurrent()) return false
     list.value = (data.list || []).filter(isVisibleBatchExecutionRow)
     total.value = data.total || 0
   } catch (error) {
+    if (!isCurrent()) return false
     list.value = []
     total.value = 0
     loadError.value = resolveErrorMessage(error, 'eDHR 批次执行列表加载失败。')
   } finally {
-    loading.value = false
+    if (isCurrent()) loading.value = false
   }
+  return isCurrent()
+}
+const getList = async () => {
+  await loadBatchList(() => true)
 }
 const edhrBatchQuickFilter = useTableQuickFilter(
   'mes.pro.edhrBatch.execution.main',
@@ -1372,166 +1506,6 @@ const applyRouteQueryFilters = () => {
   if (batchExecutionCode) queryParams.batchExecutionCode = batchExecutionCode
   if (workOrderCode) queryParams.workOrderCode = workOrderCode
   if (batchCode) queryParams.batchCode = batchCode
-}
-
-const resetCreateForm = () => {
-  createForm.workOrderId = undefined
-  createForm.routeId = undefined
-  createForm.batchCode = ''
-  createForm.remark = ''
-  selectableWorkOrders.value = []
-  createRouteOptions.value = []
-}
-
-const openCreateDialog = () => {
-  createError.value = ''
-  resetCreateForm()
-  createDialogVisible.value = true
-  const prefillWorkOrderCode = getPrefillWorkOrderCodeFromRoute()
-  if (prefillWorkOrderCode) {
-    prefillWorkOrderForCreateDialog(prefillWorkOrderCode)
-    return
-  }
-  searchSelectableWorkOrders('')
-}
-
-const getPrefillWorkOrderCodeFromRoute = () => {
-  return typeof route.query.prefillWorkOrderCode === 'string' ? route.query.prefillWorkOrderCode.trim() : ''
-}
-
-const prefillWorkOrderForCreateDialog = async (prefillWorkOrderCode: string) => {
-  if (!prefillWorkOrderCode) return
-  await searchSelectableWorkOrders(prefillWorkOrderCode)
-  const matchedWorkOrder = selectableWorkOrders.value.find((workOrder) => workOrder.code === prefillWorkOrderCode)
-  if (!matchedWorkOrder) {
-    createError.value = `未找到可用于批次执行的生产工单：${prefillWorkOrderCode}`
-    return
-  }
-  createForm.workOrderId = matchedWorkOrder.id
-  createForm.batchCode = matchedWorkOrder.batchCode || createForm.batchCode
-  await loadCreateRouteOptions(matchedWorkOrder.id)
-}
-
-const buildSelectableWorkOrderQueries = (keyword: string) => {
-  const normalizedKeyword = keyword.trim()
-  const baseQuery = {
-    pageNo: 1,
-    pageSize: 20,
-    temporaryFrozen: false
-  }
-  if (!normalizedKeyword) return [baseQuery]
-  return [
-    {
-      ...baseQuery,
-      code: normalizedKeyword
-    },
-    {
-      ...baseQuery,
-      productNameKeyword: normalizedKeyword
-    }
-  ]
-}
-
-const dedupeSelectableWorkOrders = (workOrders: ProWorkOrderVO[]) => {
-  const workOrderMap = new Map<number, ProWorkOrderVO>()
-  workOrders.forEach((workOrder) => {
-    if (!workOrderMap.has(workOrder.id)) {
-      workOrderMap.set(workOrder.id, workOrder)
-    }
-  })
-  return [...workOrderMap.values()]
-}
-
-const searchSelectableWorkOrders = async (keyword: string) => {
-  workOrderLoading.value = true
-  createError.value = ''
-  try {
-    const workOrderPages = await Promise.all(
-      buildSelectableWorkOrderQueries(keyword).map((query) => ProWorkOrderApi.getWorkOrderPage(query))
-    )
-    selectableWorkOrders.value = dedupeSelectableWorkOrders(
-      workOrderPages.flatMap((data) => data.list || [])
-    ).filter(
-      (workOrder) => workOrder.status !== MesProWorkOrderStatusEnum.CANCELED
-    )
-  } catch (error) {
-    selectableWorkOrders.value = []
-    createError.value = resolveErrorMessage(error, '有效生产工单查询失败。')
-  } finally {
-    workOrderLoading.value = false
-  }
-}
-
-const loadCreateRouteOptions = async (workOrderId?: number) => {
-  createRouteOptions.value = []
-  createForm.routeId = undefined
-  if (!workOrderId) return
-  createRouteOptionsLoading.value = true
-  try {
-    createRouteOptions.value = await getEdhrBatchExecutionRouteOptions(workOrderId)
-    if (createRouteOptions.value.length === 1) {
-      createForm.routeId = createRouteOptions.value[0].routeId
-    }
-  } catch (error) {
-    createRouteOptions.value = []
-    createError.value = resolveErrorMessage(error, '工艺路线查询失败。')
-  } finally {
-    createRouteOptionsLoading.value = false
-  }
-}
-
-const handleWorkOrderClear = () => {
-  createForm.workOrderId = undefined
-  createForm.routeId = undefined
-  selectableWorkOrders.value = []
-  createRouteOptions.value = []
-}
-
-const handleWorkOrderChange = async (workOrderId?: number) => {
-  const selectedWorkOrder = selectableWorkOrders.value.find((workOrder) => workOrder.id === workOrderId)
-  if (selectedWorkOrder?.batchCode) {
-    createForm.batchCode = selectedWorkOrder.batchCode
-  }
-  await loadCreateRouteOptions(workOrderId)
-}
-
-const resolveWorkOrderOptionLabel = (workOrder: ProWorkOrderVO) => {
-  return [workOrder.code, workOrder.name, workOrder.productName || workOrder.productCode]
-    .filter(Boolean)
-    .join(' / ')
-}
-
-const resolveRouteOptionLabel = (routeOption: EdhrBatchExecutionRouteOptionRespVO) => {
-  return [routeOption.routeCode, routeOption.routeName, `ID ${routeOption.routeId}`]
-    .filter(Boolean)
-    .join(' / ')
-}
-
-const submitOpenOrCreate = async () => {
-  createLoading.value = true
-  try {
-    if (createForm.workOrderId == null) throw new Error('请选择有效的未冻结生产工单。')
-    if (createRouteOptionsLoading.value) throw new Error('工艺路线正在加载，请稍候再确认。')
-    if (createForm.routeId == null) {
-      if (!createError.value) createError.value = '请选择工艺路线。'
-      return
-    }
-    if (!createForm.batchCode.trim()) throw new Error('批次号不能为空。')
-    createError.value = ''
-    const result = await openOrCreateManualEdhrBatchExecution({
-      workOrderId: createForm.workOrderId,
-      routeId: createForm.routeId,
-      batchCode: createForm.batchCode.trim(),
-      remark: createForm.remark.trim() || undefined
-    })
-    createDialogVisible.value = false
-    message.success('已打开 eDHR 批次执行')
-    await router.push({ path: '/mes/pro/feedback/edhr-batch-execution/detail', query: { id: String(result.id) } })
-  } catch (error) {
-    createError.value = resolveErrorMessage(error, '打开或创建 eDHR 批次执行失败。')
-  } finally {
-    createLoading.value = false
-  }
 }
 
 const submitReadinessCheck = async () => {
@@ -1567,14 +1541,375 @@ const resolveReadinessUserLabel = (user: UserApi.UserVO) => {
   return [user.username, user.nickname, `ID ${user.id}`].filter(Boolean).join(' / ')
 }
 
-const openDetail = async (row: EdhrBatchExecutionRespVO, focus?: EdhrBatchExecutionDetailFocus) => {
+const openDetail = async (row: EdhrBatchExecutionRespVO) => {
   const query: Record<string, string> = { id: String(row.id) }
-  if (focus) query.focus = focus
-  if (focus === 'process') {
-    if (row.currentProcessCode) query.processCode = row.currentProcessCode
-    if (row.currentProcessName) query.processName = row.currentProcessName
-  }
   await router.push({ path: '/mes/pro/feedback/edhr-batch-execution/detail', query })
+}
+
+const resetRejectForm = () => {
+  rejectForm.nonconformanceReason = ''
+  rejectForm.signaturePassword = ''
+}
+
+const rejectContextGuard = createFormalActionGuard(() => JSON.stringify([approvalInvalidation.syncSession().key, route.fullPath, selectedRejectBatch.value?.id]))
+const resetRejectContext = () => { rejectContextGuard.invalidate(); rejectLoading.value = false; rejectForm.signaturePassword = '' }
+watch(rejectDialogVisible, resetRejectContext, { flush: 'sync' })
+watch(() => approvalInvalidation.syncSession().key, () => { resetRejectContext(); rejectDialogVisible.value = false }, { flush: 'sync' })
+watch(() => route.fullPath, () => { resetRejectContext(); rejectDialogVisible.value = false }, { flush: 'sync' })
+watch(() => [route.fullPath, approvalInvalidation.syncSession().key], () => { batchListReadGeneration++; loading.value = false }, { flush: 'sync' })
+onDeactivated(resetRejectContext)
+onBeforeUnmount(resetRejectContext)
+
+const openRejectDialog = (row: EdhrBatchExecutionRespVO) => {
+  resetRejectContext()
+  if (!row.id) {
+    message.error('当前批次缺少批次执行 ID，无法驳回。')
+    return
+  }
+  selectedRejectBatch.value = row
+  rejectError.value = ''
+  resetRejectForm()
+  rejectDialogVisible.value = true
+}
+
+const handleRejectClick = async (row: EdhrBatchExecutionRespVO) => {
+  const isCurrent = rejectContextGuard.capture()
+  try {
+    await message.confirm(`确认驳回批次 ${row.batchExecutionCode || row.id} 吗？驳回后将进入不合格评审并冻结批次和工单。`)
+    if (isCurrent()) openRejectDialog(row)
+  } catch (error) {
+    if (!isCurrent()) return
+    if (error === 'cancel' || error === 'close') return
+    message.error(resolveErrorMessage(error, '驳回确认失败。'))
+  }
+}
+
+const submitRejectBatchExecution = async () => {
+  if (rejectLoading.value) return
+  const batch = selectedRejectBatch.value ? { ...selectedRejectBatch.value } : null
+  const reason = rejectForm.nonconformanceReason.trim()
+  const password = rejectForm.signaturePassword.trim()
+  if (!batch?.id) {
+    rejectError.value = '当前批次缺少批次执行 ID，无法驳回。'
+    return
+  }
+  if (!reason || !password) {
+    rejectError.value = '不合格原因和电子签名密码均不能为空。'
+    return
+  }
+  rejectLoading.value = true
+  rejectError.value = ''
+  const event = approvalInvalidation.captureHandoffSourceSuccess('BATCH_EXECUTION', batch.id)
+  const isRequestCurrent = rejectContextGuard.capture()
+  let isCurrent = isRequestCurrent
+  let writeSucceeded = false
+  try {
+    const review = await rejectEdhrBatchExecutionToNonconformanceReview({
+      batchExecutionId: batch.id,
+      nonconformanceReason: reason,
+      signaturePassword: password
+    }, {
+      ignoreErrorMessage: true,
+      isRequestContextCurrent: isRequestCurrent,
+      isSuccessReceiptContextCurrent: () => approvalInvalidation.isCurrent(event.session.key)
+    })
+    writeSucceeded = true
+    approvalInvalidation.publishEdhrSuccess(event)
+    if (!isCurrent()) return
+    rejectDialogVisible.value = false
+    isCurrent = rejectContextGuard.capture()
+    message.success(`已驳回并进入不合格评审流程${review.reviewCode ? `：${review.reviewCode}` : ''}`)
+    if (!(await loadBatchList(isCurrent))) return
+    if (isCurrent() && loadError.value) throw new Error(loadError.value)
+  } catch (error) {
+    if (!isCurrent()) return
+    rejectError.value = writeSucceeded ? `驳回并发起评审已成功，刷新失败：${resolveErrorMessage(error, '请刷新核对。')}` : resolveErrorMessage(error, '驳回并发起不合格评审失败，请查看后端错误信息。')
+    message.error(rejectError.value)
+  } finally {
+    if (isCurrent()) rejectLoading.value = false
+  }
+}
+
+const releaseForm = reactive({
+  password: '',
+  idempotencyKey: ''
+})
+
+type MarketReleaseRouteContext = {
+  batchExecutionId: string
+  releaseTransactionId: string
+  workTaskId: string
+}
+
+let marketReleaseRouteGeneration = 0
+const marketReleaseWrites = new Map<string, { status: 'WRITING' | 'CONFIRMED' | 'UNCERTAIN' }>()
+
+const marketReleaseWriteScope = (context: EdhrReleaseRowVO) => JSON.stringify([
+  approvalInvalidation.syncSession().key, context.releaseTransactionId, context.releaseApprovalWorkTaskId
+])
+
+const isDefinitiveMarketReleaseFailure = (error: unknown) => {
+  if (!error || typeof error !== 'object') return false
+  const candidate = error as { code?: unknown; response?: unknown }
+  return candidate.response != null || (typeof candidate.code === 'number' && Number.isFinite(candidate.code))
+}
+
+const resetMarketReleaseDialog = () => {
+  marketReleaseRouteGeneration++
+  selectedReleaseBatch.value = undefined
+  releaseContext.value = undefined
+  releaseCompletedReadOnly.value = false
+  releaseTransactionMissing.value = false
+  releaseContextLoading.value = false
+  releaseLoading.value = false
+  releaseError.value = ''
+  releaseForm.password = ''
+  releaseForm.idempotencyKey = ''
+}
+
+const readMarketReleaseRouteContext = (): MarketReleaseRouteContext | undefined => {
+  if (route.query.action === undefined) return undefined
+  if (route.query.action !== 'marketRelease') throw new Error('上市放行入口动作不正确。')
+  const result = {} as MarketReleaseRouteContext
+  for (const key of ['batchExecutionId', 'releaseTransactionId', 'workTaskId'] as const) {
+    const value = route.query[key]
+    if (typeof value !== 'string' || !/^[1-9]\d*$/.test(value)) {
+      throw new Error('上市放行入口缺少精确批次、事务或工作任务编号。')
+    }
+    result[key] = value
+  }
+  return result
+}
+
+const openMarketReleaseFromRoute = async () => {
+  releaseDialogVisible.value = false
+  resetMarketReleaseDialog()
+  const generation = marketReleaseRouteGeneration
+  const sessionKey = approvalInvalidation.syncSession().key
+  const routeKey = route.fullPath
+  const isCurrent = () => generation === marketReleaseRouteGeneration &&
+    approvalInvalidation.isCurrent(sessionKey) && route.fullPath === routeKey
+  try {
+    const context = readMarketReleaseRouteContext()
+    if (!context) return
+    if (!userStore.permissions.has('mes:pro-edhr-release:approve') && !userStore.permissions.has('*:*:*')) {
+      throw new Error('当前账号没有上市放行权限。')
+    }
+    const batch = await getEdhrBatchExecution(context.batchExecutionId, { ignoreErrorMessage: true, isRequestContextCurrent: isCurrent })
+    if (!isCurrent()) return
+    if (String(batch.id) !== context.batchExecutionId || batch.pendingVoidChangeEventId || isVoidedBatchExecutionStatus(batch.status)) {
+      throw new Error('上市放行入口批次身份或当前作废状态不符合正式任务。')
+    }
+    await openReleaseDialog(batch, context)
+  } catch (error) {
+    if (!isCurrent()) return
+    releaseContext.value = undefined
+    loadError.value = resolveErrorMessage(error, '上市放行待办加载失败。')
+  }
+}
+
+const openReleaseDialog = async (
+  row: EdhrBatchExecutionRespVO,
+  taskContext?: MarketReleaseRouteContext
+) => {
+  resetMarketReleaseDialog()
+  const generation = marketReleaseRouteGeneration
+  const sessionKey = approvalInvalidation.syncSession().key
+  const routeKey = route.fullPath
+  const isCurrent = () => generation === marketReleaseRouteGeneration &&
+    approvalInvalidation.isCurrent(sessionKey) && route.fullPath === routeKey &&
+    releaseDialogVisible.value && String(selectedReleaseBatch.value?.id) === String(row.id)
+  if (!row.id) {
+    message.error('当前批次缺少批次执行编号，无法发起上市放行。')
+    return
+  }
+  selectedReleaseBatch.value = row
+  releaseContext.value = undefined
+  releaseTransactionMissing.value = false
+  releaseError.value = ''
+  releaseForm.password = ''
+  if (!taskContext) {
+    releaseForm.idempotencyKey = `EDHR-MARKET-RELEASE-${row.id}-${generateUUID()}`
+  }
+  releaseDialogVisible.value = true
+  releaseContextLoading.value = true
+  try {
+    let context: EdhrReleaseRowVO | undefined
+    if (taskContext) {
+      context = await getEdhrRelease(taskContext.releaseTransactionId, { ignoreErrorMessage: true, isRequestContextCurrent: isCurrent })
+      if (!isCurrent()) return
+      if (String(row.id) !== taskContext.batchExecutionId ||
+        String(context.batchExecutionId) !== taskContext.batchExecutionId ||
+        String(context.releaseTransactionId) !== taskContext.releaseTransactionId ||
+        String(context.releaseApprovalWorkTaskId) !== taskContext.workTaskId) {
+        throw new Error('上市放行事务、批次或工作任务与通知中的正式身份不一致。')
+      }
+      if (context.releaseStatus === 'RELEASED') {
+        releaseCompletedReadOnly.value = true
+      } else if (context.releaseStatus === 'PENDING_APPROVAL') {
+        releaseForm.idempotencyKey = `EDHR-MARKET-RELEASE-${row.id}-${generateUUID()}`
+      } else {
+        throw new Error('通知对应的正式上市放行状态不支持签批或已完成查询。')
+      }
+    } else {
+      const params: EdhrReleasePageReqVO = {
+        pageNo: 1,
+        pageSize: 20,
+        batchExecutionCode: row.batchExecutionCode
+      }
+      const result = await getEdhrReleasePage(params, { ignoreErrorMessage: true, isRequestContextCurrent: isCurrent })
+      if (!isCurrent()) return
+      context = (result.list || []).find(
+        (item) => String(item.batchExecutionId) === String(row.id)
+      )
+    }
+    if (!context) {
+      throw new Error('未查询到此批次的放行状态，请刷新列表后重试。')
+    }
+    releaseContext.value = context
+    if (!context.releaseTransactionId) {
+      releaseTransactionMissing.value = true
+      return
+    }
+  } catch (error) {
+    if (!isCurrent()) return
+    releaseError.value = resolveErrorMessage(error, '上市放行事务加载失败。')
+  } finally {
+    if (isCurrent()) releaseContextLoading.value = false
+  }
+}
+
+const openCompletedReleaseHistory = async () => {
+  const batch = selectedReleaseBatch.value
+  const context = releaseContext.value
+  if (!releaseCompletedReadOnly.value || context?.releaseStatus !== 'RELEASED' ||
+    !batch?.id || String(context.batchExecutionId) !== String(batch.id)) {
+    releaseError.value = '当前入口缺少已完成的精确上市放行信息。'
+    return
+  }
+  await router.push({
+    path: '/mes/pro/feedback/edhr-batch-execution/active-order-detail',
+    query: { batchExecutionId: String(batch.id), from: '/mes/pro/feedback/edhr-batch-history' }
+  })
+}
+
+const openPqcReleasePending = async () => {
+  const batch = selectedReleaseBatch.value
+  const workOrderCode = batch?.workOrderCode?.trim()
+  if (!batch?.activeOrderId || !workOrderCode) {
+    releaseError.value = '缺少活跃订单或工单信息，无法定位 PQC 待放行申请。'
+    return
+  }
+  try {
+    await router.push({
+      name: 'MesPqcProductionRelease',
+      query: { workOrderCode }
+    })
+  } catch (error) {
+    releaseError.value = resolveErrorMessage(error, '无法打开对应的 PQC 待放行申请。')
+  }
+}
+
+const submitRelease = async () => {
+  if (!releaseDialogVisible.value || releaseLoading.value || releaseContextLoading.value) return
+  if (releaseCompletedReadOnly.value || releaseContext.value?.releaseStatus === 'RELEASED') {
+    releaseError.value = '该正式任务已完成上市放行，请查看历史批记录。'
+    return
+  }
+  if (!releaseForm.password.trim()) {
+    releaseError.value = '请输入电子签名密码。'
+    return
+  }
+  const batch = selectedReleaseBatch.value
+  const context = releaseContext.value
+  if (!batch?.id || !context?.releaseTransactionId) {
+    releaseError.value = '当前批次缺少正式放行事务，无法确认上市放行。'
+    return
+  }
+  const scopeKey = marketReleaseWriteScope(context)
+  if (marketReleaseWrites.has(scopeKey)) {
+    releaseError.value = '本次正式事务已提交或结果尚未确认，请只读核对正式回执；禁止重复提交。'
+    return
+  }
+  const writeState = { status: 'WRITING' as 'WRITING' | 'CONFIRMED' | 'UNCERTAIN' }
+  marketReleaseWrites.set(scopeKey, writeState)
+  const generation = marketReleaseRouteGeneration
+  const routeKey = route.fullPath
+  const isCurrent = () => generation === marketReleaseRouteGeneration && releaseDialogVisible.value &&
+    routeKey === route.fullPath && releaseContext.value != null && scopeKey === marketReleaseWriteScope(releaseContext.value) &&
+    String(selectedReleaseBatch.value?.id) === String(batch.id) &&
+    String(releaseContext.value?.releaseTransactionId) === String(context.releaseTransactionId) &&
+    String(releaseContext.value?.releaseApprovalWorkTaskId) === String(context.releaseApprovalWorkTaskId)
+  releaseLoading.value = true
+  releaseError.value = ''
+  let writeSucceeded = false
+  try {
+    const event = approvalInvalidation.captureEdhrSuccess(context.releaseApprovalWorkTaskId
+      ? { sourceTaskType: 'EDHR_WORK_TASK', sourceTaskId: String(context.releaseApprovalWorkTaskId) }
+      : { sourceTaskType: 'EDHR_WORK_TASK', businessSourceType: 'RELEASE_TRANSACTION', businessSourceId: String(context.releaseTransactionId) })
+    await approveEdhrRelease({
+      releaseTransactionId: String(context.releaseTransactionId),
+      workTaskId: context.releaseApprovalWorkTaskId
+        ? String(context.releaseApprovalWorkTaskId)
+        : undefined,
+      expectedVersion: context.version ?? undefined,
+      idempotencyKey: releaseForm.idempotencyKey,
+      signoffEvidenceHash: context.approvalSignoffEvidenceHash || undefined,
+      password: releaseForm.password
+    }, { ignoreErrorMessage: true, isRequestContextCurrent: isCurrent , isSuccessReceiptContextCurrent: (() => { const receiptSessionKey = approvalInvalidation.syncSession().key; return () => approvalInvalidation.isCurrent(receiptSessionKey) })()})
+    writeState.status = 'CONFIRMED'
+    approvalInvalidation.publishEdhrSuccess(event)
+    writeSucceeded = true
+    if (!isCurrent() || !approvalInvalidation.isCurrent(event.session.key)) return
+    releaseForm.password = ''
+    releaseDialogVisible.value = false
+    message.success('上市放行成功')
+    try {
+      await router.push({ path: '/mes/pro/feedback/edhr-batch-history', query: { batchExecutionId: String(batch.id) } })
+    } catch (error) {
+      if (approvalInvalidation.isCurrent(event.session.key) && routeKey === route.fullPath) message.warning(`上市放行已成功，历史页面打开失败：${resolveErrorMessage(error, '请刷新查看。')}`)
+    }
+  } catch (error) {
+    if (!writeSucceeded) {
+      if (isDefinitiveMarketReleaseFailure(error)) {
+        if (marketReleaseWrites.get(scopeKey) === writeState) marketReleaseWrites.delete(scopeKey)
+      } else writeState.status = 'UNCERTAIN'
+    }
+    if (!isCurrent()) return
+    releaseError.value = writeSucceeded
+      ? `上市放行已成功，页面刷新失败：${resolveErrorMessage(error, '请刷新查看历史批记录。')}`
+      : isDefinitiveMarketReleaseFailure(error)
+        ? resolveErrorMessage(error, '上市放行失败，请查看后端错误后重试。')
+        : `上市放行结果无法确认，请只读核对正式回执；禁止重复提交：${resolveErrorMessage(error, '响应异常')}`
+  } finally {
+    if (isCurrent() && (!marketReleaseWrites.has(scopeKey) || marketReleaseWrites.get(scopeKey) === writeState)) releaseLoading.value = false
+  }
+}
+
+const openActiveOrderOtherUploadTab = async (row: EdhrBatchExecutionRespVO) => {
+  if (!row.id) {
+    message.error('当前批次缺少批次执行编号，无法进入其他上传。')
+    return
+  }
+  await router.push({
+    path: '/mes/pro/feedback/edhr-batch-execution/active-order-detail',
+    query: {
+      batchExecutionId: String(row.id),
+      from: 'execution',
+      tab: 'otherUpload'
+    }
+  })
+}
+
+const openActiveOrderDetail = async (row: EdhrBatchExecutionRespVO) => {
+  if (!row.id) {
+    message.error('当前批次缺少批次执行编号，无法查看详情批记录。')
+    return
+  }
+  await router.push({
+    path: '/mes/pro/feedback/edhr-batch-execution/active-order-detail',
+    query: { batchExecutionId: String(row.id), from: 'execution' }
+  })
 }
 
 const openVoidDialog = async (row: EdhrBatchExecutionRespVO) => {
@@ -1727,10 +2062,20 @@ const handleViewArchive = async (row: EdhrBatchExecutionRespVO) => {
 onMounted(() => {
   applyRouteQueryFilters()
   getList()
-  if (getPrefillWorkOrderCodeFromRoute()) {
-    openCreateDialog()
-  }
+  void openMarketReleaseFromRoute()
 })
+
+watch(
+  () => [route.fullPath, approvalInvalidation.syncSession().key],
+  () => { void openMarketReleaseFromRoute() },
+  { flush: 'sync' }
+)
+
+watch(releaseDialogVisible, (visible) => {
+  if (!visible) resetMarketReleaseDialog()
+}, { flush: 'sync' })
+onBeforeUnmount(() => { resetMarketReleaseDialog() })
+onDeactivated(() => { releaseDialogVisible.value = false; resetMarketReleaseDialog() })
 </script>
 
 <style scoped>
@@ -1751,25 +2096,27 @@ onMounted(() => {
   margin-bottom: 12px;
 }
 
-.edhr-batch-page__progress {
-  display: grid;
-  grid-template-columns: 44px 1fr;
-  align-items: center;
-  gap: 8px;
-  font-variant-numeric: tabular-nums;
-}
-
 .edhr-batch-page__stage-cell {
   display: grid;
   justify-items: center;
   gap: 6px;
 }
 
-.edhr-batch-page__actions {
-  display: flex;
-  flex-wrap: wrap;
+.edhr-batch-page__operation-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: center;
+  justify-items: center;
   gap: 8px;
   white-space: nowrap;
+}
+
+.edhr-batch-page__operation-grid :deep(.el-button) {
+  margin: 0;
+}
+
+.edhr-batch-page__actions {
+  display: contents;
 }
 
 .edhr-batch-page__dialog-alert {
@@ -1859,48 +2206,6 @@ onMounted(() => {
   color: #6b7280;
   font-size: 12px;
   line-height: 18px;
-}
-
-.edhr-batch-page__work-order-option {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  width: 100%;
-}
-
-.edhr-batch-page__work-order-code {
-  color: #172033;
-  font-size: 13px;
-  font-weight: 600;
-  line-height: 18px;
-}
-
-.edhr-batch-page__work-order-meta {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  color: #6b7280;
-  font-size: 12px;
-  line-height: 18px;
-  white-space: nowrap;
-}
-
-:global(.edhr-batch-page__work-order-select-popper) {
-  width: min(640px, calc(100vw - 48px)) !important;
-  min-width: min(640px, calc(100vw - 48px)) !important;
-  max-width: calc(100vw - 48px);
-}
-
-:global(.edhr-batch-page__work-order-select-popper .el-select-dropdown__item) {
-  height: auto;
-  min-height: 60px;
-  padding: 8px 12px;
-  line-height: normal;
-}
-
-:global(.edhr-batch-page__work-order-select-popper .edhr-batch-page__work-order-option) {
-  min-height: 52px;
 }
 
 .edhr-batch-page__muted {

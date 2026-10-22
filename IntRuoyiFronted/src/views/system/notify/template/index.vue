@@ -132,7 +132,8 @@
           >
             修改
           </el-button>
-          <el-button
+          <el-button class="app-test-button"
+          v-if="testModeEnabled"
             link
             type="primary"
             @click="openSendForm(scope.row)"
@@ -163,15 +164,19 @@
   <!-- 表单弹窗：添加/修改 -->
   <NotifyTemplateForm ref="formRef" @success="getList" />
   <!-- 表单弹窗：测试发送 -->
-  <NotifyTemplateSendForm ref="sendFormRef" />
+  <NotifyTemplateSendForm v-if="testModeEnabled" ref="sendFormRef" />
 </template>
 <script lang="ts" setup>
+import { useTestMode } from '@/store/modules/testMode'
+
 import { isSearchFormInputEmpty } from '@/utils/search'
 import { DICT_TYPE, getIntDictOptions } from '@/utils/dict'
 import { dateFormatter } from '@/utils/formatTime'
 import * as NotifyTemplateApi from '@/api/system/notify/template'
 import NotifyTemplateForm from './NotifyTemplateForm.vue'
 import NotifyTemplateSendForm from './NotifyTemplateSendForm.vue'
+
+const testModeEnabled = useTestMode()
 
 defineOptions({ name: 'NotifySmsTemplate' })
 

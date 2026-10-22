@@ -65,6 +65,7 @@ public class MesWmOutsourceIssueServiceImpl implements MesWmOutsourceIssueServic
     private MesMdAutoCodeRecordService autoCodeRecordService;
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public Long createOutsourceIssue(MesWmOutsourceIssueSaveReqVO createReqVO) {
         // 自动生成编码
         if (StrUtil.isEmpty(createReqVO.getCode())) {
@@ -81,6 +82,7 @@ public class MesWmOutsourceIssueServiceImpl implements MesWmOutsourceIssueServic
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void updateOutsourceIssue(MesWmOutsourceIssueSaveReqVO updateReqVO) {
         // 校验存在 + 草稿状态
         validateOutsourceIssueExistsAndDraft(updateReqVO.getId());
@@ -262,7 +264,7 @@ public class MesWmOutsourceIssueServiceImpl implements MesWmOutsourceIssueServic
             vendorService.validateVendorExistsAndEnable(saveReqVO.getVendorId());
         }
         // 校验工单存在且类型为外协（代工）
-        MesProWorkOrderDO workOrder = workOrderService.validateWorkOrderConfirmed(saveReqVO.getWorkOrderId());
+        MesProWorkOrderDO workOrder = workOrderService.validateWorkOrderConfirmedForUpdate(saveReqVO.getWorkOrderId());
         if (ObjUtil.notEqual(workOrder.getType(), MesProWorkOrderTypeEnum.OUTSOURCE.getType())) {
             throw exception(WM_OUTSOURCE_ISSUE_WORK_ORDER_TYPE_INVALID);
         }

@@ -26,7 +26,9 @@ import org.mockito.Mock;
 import java.nio.file.Path;
 import java.nio.file.Files;
 import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.time.LocalDateTime;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -65,10 +67,13 @@ class RuntimeControlServiceImplTest extends BaseMockitoUnitTest {
     private RuntimeControlProperties properties;
     private RuntimeControlServiceImpl runtimeControlService;
     private TestReleasePackageConfigService releasePackageConfigService;
+    private final Map<String, String> manifestDigests = new ConcurrentHashMap<>();
+    private java.util.function.Function<String, byte[]> testedFixtureFactory;
 
     @BeforeEach
-    void setUp() {
+    void setUp() throws Exception {
         properties = RuntimeControlProperties.createDefaultForTests(tempDir);
+        configureWorkflowExecutor(properties);
         properties.getBackupOps().setNasBackupPointsRoot("nas-backup-points");
         releasePackageConfigService = new TestReleasePackageConfigService();
         RuntimeControlOperationStore operationStore = new RuntimeControlOperationStore(properties);
@@ -313,6 +318,36 @@ class RuntimeControlServiceImplTest extends BaseMockitoUnitTest {
     }
 
     @Test
+    void getReleasePackageShouldReadCurrentTestedAttestationBytesAndRejectMalformedEvidence() {
+        stubNasReleaseConfig();
+        String releaseTag = "release-r10-tested";
+        String packagePath = "Backup/ReleasePackage/" + releaseTag;
+        String testedPath = packagePath + "/tested.json";
+        testedFixtureFactory = tag -> """
+                {"schemaVersion":"v2","releaseTag":"%s","packageDirectoryName":"%s","packageDigest":"%s","manifestDigest":"%s","testEnvironment":"test","publishTestOperationId":"op-test-12345678","publishTestOperationStatus":"SUCCESS","publishTestRequestedAt":"2026-09-21T08:00:00Z","testedAt":"2026-09-21T09:00:00Z","testResult":"PASS","testedBy":"qa","testConclusion":"page verified"}
+                """.formatted(tag, tag, "a".repeat(64), manifestDigests.get(tag))
+                .getBytes(StandardCharsets.UTF_8);
+        stubReleasePackageManifest(packagePath, releaseTag, true, true);
+        byte[] tested = testedFixtureFactory.apply(releaseTag);
+
+        RuntimeControlReleasePackageRespVO releasePackage = runtimeControlService.getReleasePackage(releaseTag).orElseThrow();
+        assertTrue(releasePackage.getTested());
+        assertEquals(releaseTag, releasePackage.getTestedReleaseTag());
+        assertEquals("a".repeat(64), releasePackage.getTestedPackageDigest());
+        assertEquals(manifestDigests.get(releaseTag), releasePackage.getTestedManifestDigest());
+        assertEquals("op-test-12345678", releasePackage.getTestedOperationId());
+        assertEquals("2026-09-21T08:00:00Z", releasePackage.getTestedOperationRequestedAt());
+        assertEquals(cn.iocoder.yudao.module.infra.service.runtimecontrol.releaseworkflow.ReleaseDigestContract
+                .manifestDigest(tested), releasePackage.getTestedDigest());
+
+        doReturn(new NasFileReadResult("tested.json", testedPath, "application/json", "{".getBytes(StandardCharsets.UTF_8)))
+                .when(nasBrowserService).readFile(any(NasConnectionConfig.class), eq(testedPath));
+        RuntimeControlReleasePackageRespVO malformed = runtimeControlService.getReleasePackage(releaseTag).orElseThrow();
+        assertFalse(malformed.getTested());
+        assertTrue(malformed.getTestedValidationError().contains("invalid"));
+    }
+
+    @Test
     void getReleasePackagesShouldListDirectoriesFromReleaseRepositoryInDescendingOrder() {
         stubNasReleaseConfig();
         FileNasListRespVO response = new FileNasListRespVO()
@@ -492,10 +527,11 @@ class RuntimeControlServiceImplTest extends BaseMockitoUnitTest {
         RuntimeControlActionReqVO reqVO = new RuntimeControlActionReqVO();
         reqVO.setAction("build-release");
         reqVO.setReason("构建发布包验证");
-        reqVO.setPublishScope("with-data");
+        reqVO.setPublishScope("app-release");
         reqVO.setReleaseTag("20260528_220000");
         reqVO.setIncludeOnlyOffice(true);
         reqVO.setIncludeShowroomBuildPackage(true);
+        attachWorkflowContext(reqVO);
 
         RuntimeControlOperationRespVO result = runtimeControlService.executeAction(reqVO, "1001");
 
@@ -504,14 +540,14 @@ class RuntimeControlServiceImplTest extends BaseMockitoUnitTest {
         assertEquals("release", result.getEnvironment());
         assertEquals("ops", result.getComponent());
         assertEquals("running", result.getStatus());
-        assertEquals("with-data", result.getParameters().get("publishScope"));
+        assertEquals("app-release", result.getParameters().get("publishScope"));
         assertEquals("true", result.getParameters().get("includeOnlyOffice"));
         assertEquals("true", result.getParameters().get("includeShowroomBuildPackage"));
         assertEquals("20260528_220000", result.getParameters().get("releaseTag"));
         verify(nasSettingsService).getRequiredNasConfig();
         verify(commandExecutor, timeout(1000)).executeOperation(argThat(command -> "release".equals(command.getEnvironment())
                 && "ops".equals(command.getComponent())
-                && "script/deploy/publish-int-ruoyi.ps1".equals(command.getScriptPath())
+                && command.getScriptPath().equals(tempDir.resolve("controlled-maintenance/ops/deploy/publish-int-ruoyi.ps1").toString())
                 && command.getArguments().contains("-Mode")
                 && command.getArguments().contains("build-release")
                 && command.getArguments().contains("-ReleaseTag")
@@ -547,10 +583,11 @@ class RuntimeControlServiceImplTest extends BaseMockitoUnitTest {
         RuntimeControlActionReqVO reqVO = new RuntimeControlActionReqVO();
         reqVO.setAction("build-release");
         reqVO.setReason("构建发布包验证");
-        reqVO.setPublishScope("code-only");
+        reqVO.setPublishScope("app-release");
         reqVO.setReleaseTag("20260528_220002");
         reqVO.setIncludeOnlyOffice(false);
         reqVO.setIncludeShowroomBuildPackage(false);
+        attachWorkflowContext(reqVO);
 
         RuntimeControlOperationRespVO result = runtimeControlService.executeAction(reqVO, "1001");
 
@@ -577,11 +614,12 @@ class RuntimeControlServiceImplTest extends BaseMockitoUnitTest {
         RuntimeControlActionReqVO reqVO = new RuntimeControlActionReqVO();
         reqVO.setAction("build-release");
         reqVO.setReason("Smart Release report-only 构建报告");
-        reqVO.setPublishScope("code-only");
+        reqVO.setPublishScope("app-release");
         reqVO.setReleaseTag("20260528_220005");
         reqVO.setIncludeOnlyOffice(false);
         reqVO.setIncludeShowroomBuildPackage(false);
         reqVO.setEnableSmartReleaseReport(true);
+        attachWorkflowContext(reqVO);
 
         RuntimeControlOperationRespVO result = runtimeControlService.executeAction(reqVO, "1001");
 
@@ -608,12 +646,14 @@ class RuntimeControlServiceImplTest extends BaseMockitoUnitTest {
         reqVO.setReason("Smart Release report-only 部署预检");
         reqVO.setReleaseTag("20260528_220000");
         reqVO.setEnableSmartReleaseReport(true);
+        attachWorkflowContext(reqVO);
 
         var result = runtimeControlService.previewAction(reqVO, "1001");
 
         assertEquals("publish-test", result.getAction());
         assertEquals("test", result.getEnvironment());
-        assertEquals("script/deploy/publish-int-ruoyi.ps1", result.getScriptPath());
+        assertEquals(tempDir.resolve("controlled-maintenance/ops/deploy/publish-int-ruoyi.ps1").toString(),
+                result.getScriptPath());
         assertEquals(true, result.getEnableSmartReleaseReport());
         assertTrue(result.getArguments().contains("-EnableSmartReleaseReport"));
         assertTrue(containsArgumentPair(result.getArguments(), "-ServerHost",
@@ -634,7 +674,7 @@ class RuntimeControlServiceImplTest extends BaseMockitoUnitTest {
         RuntimeControlActionReqVO reqVO = new RuntimeControlActionReqVO();
         reqVO.setAction("build-release");
         reqVO.setReason("构建发布包验证");
-        reqVO.setPublishScope("code-only");
+        reqVO.setPublishScope("app-release");
         reqVO.setReleaseTag("20260528_220004");
         reqVO.setIncludeOnlyOffice(false);
         reqVO.setIncludeShowroomBuildPackage(false);
@@ -649,7 +689,7 @@ class RuntimeControlServiceImplTest extends BaseMockitoUnitTest {
         RuntimeControlActionReqVO reqVO = new RuntimeControlActionReqVO();
         reqVO.setAction("build-release");
         reqVO.setReason("构建发布包验证");
-        reqVO.setPublishScope("code-only");
+        reqVO.setPublishScope("app-release");
         reqVO.setReleaseTag("20260528_220003");
         reqVO.setIncludeOnlyOffice(false);
         reqVO.setIncludeShowroomBuildPackage(false);
@@ -661,11 +701,33 @@ class RuntimeControlServiceImplTest extends BaseMockitoUnitTest {
     }
 
     @Test
+    void executeWorkflowBuildShouldBlockOperationWhenExecutorFingerprintCannotBeVerified() {
+        configureBackendRuntimeBase();
+        properties.getReleaseWorkflow().setExpectedPublishScriptSha256("c".repeat(64));
+        RuntimeControlActionReqVO reqVO = new RuntimeControlActionReqVO();
+        reqVO.setAction("build-release");
+        reqVO.setReason("验证受控发布器指纹");
+        reqVO.setPublishScope("app-release");
+        reqVO.setReleaseTag("release-20260921-test-app");
+        reqVO.setIncludeOnlyOffice(false);
+        reqVO.setIncludeShowroomBuildPackage(false);
+        reqVO.setReleaseWorkflowId("rw-12345678");
+        reqVO.setReleaseWorkflowExpectedStateVersion(1L);
+        reqVO.setPreassignedOperationId("op-12345678");
+
+        assertServiceException(() -> runtimeControlService.executeAction(reqVO, "1001"),
+                ErrorCodeConstants.RUNTIME_CONTROL_ACTION_PARAMETER_INVALID, "RELEASE_EXECUTOR_DIGEST_MISMATCH: expected published maintenance executor");
+        RuntimeControlOperationRespVO operation = runtimeControlService.getOperations().get(0);
+        assertEquals("blocked", operation.getStatus());
+        verify(commandExecutor, never()).executeOperation(any(), any());
+    }
+
+    @Test
     void executeBuildReleaseShouldRequireOnlyOfficeDecision() {
         RuntimeControlActionReqVO reqVO = new RuntimeControlActionReqVO();
         reqVO.setAction("build-release");
         reqVO.setReason("构建发布包验证");
-        reqVO.setPublishScope("code-only");
+        reqVO.setPublishScope("app-release");
         reqVO.setReleaseTag("20260528_220000");
         reqVO.setIncludeShowroomBuildPackage(false);
 
@@ -679,7 +741,7 @@ class RuntimeControlServiceImplTest extends BaseMockitoUnitTest {
         RuntimeControlActionReqVO reqVO = new RuntimeControlActionReqVO();
         reqVO.setAction("build-release");
         reqVO.setReason("构建发布包验证");
-        reqVO.setPublishScope("code-only");
+        reqVO.setPublishScope("app-release");
         reqVO.setReleaseTag("20260528_220000");
         reqVO.setIncludeOnlyOffice(false);
 
@@ -695,10 +757,11 @@ class RuntimeControlServiceImplTest extends BaseMockitoUnitTest {
         RuntimeControlActionReqVO reqVO = new RuntimeControlActionReqVO();
         reqVO.setAction("build-release");
         reqVO.setReason("构建发布包验证");
-        reqVO.setPublishScope("code-only");
+        reqVO.setPublishScope("app-release");
         reqVO.setReleaseTag("20260528_220001");
         reqVO.setIncludeOnlyOffice(false);
         reqVO.setIncludeShowroomBuildPackage(false);
+        attachWorkflowContext(reqVO);
 
         RuntimeControlOperationRespVO result = runtimeControlService.executeAction(reqVO, "1001");
 
@@ -722,6 +785,7 @@ class RuntimeControlServiceImplTest extends BaseMockitoUnitTest {
         reqVO.setAction("publish-test");
         reqVO.setReason("发布测试服验证");
         reqVO.setReleaseTag("20260528_220000");
+        attachWorkflowContext(reqVO);
 
         RuntimeControlOperationRespVO result = runtimeControlService.executeAction(reqVO, "1001");
 
@@ -734,7 +798,7 @@ class RuntimeControlServiceImplTest extends BaseMockitoUnitTest {
         assertEquals("20260528_220000", result.getParameters().get("releaseTag"));
         verify(commandExecutor, timeout(1000)).executeOperation(argThat(command -> "test".equals(command.getEnvironment())
                 && "ops".equals(command.getComponent())
-                && "script/deploy/publish-int-ruoyi.ps1".equals(command.getScriptPath())
+                && command.getScriptPath().equals(tempDir.resolve("controlled-maintenance/ops/deploy/publish-int-ruoyi.ps1").toString())
                 && command.getArguments().contains("-Mode")
                 && command.getArguments().contains("deploy-release")
                 && command.getArguments().contains("-Environment")
@@ -743,6 +807,24 @@ class RuntimeControlServiceImplTest extends BaseMockitoUnitTest {
                 && command.getArguments().contains("20260528_220000")
                 && command.getArguments().contains("-NasConfigPath")), any());
         waitOperationStatus(result.getOperationId(), "succeeded");
+    }
+
+    @Test
+    void executePublishTestShouldBlockChangedManifestBeforeDispatch() {
+        stubNasReleaseConfig();
+        stubReleasePackageList("release-unchanged-app", true, false);
+        RuntimeControlActionReqVO reqVO = new RuntimeControlActionReqVO();
+        reqVO.setAction("publish-test");
+        reqVO.setReason("校验不可变包绑定");
+        reqVO.setReleaseTag("release-unchanged-app");
+        attachWorkflowContext(reqVO);
+        reqVO.setExpectedManifestDigest("0".repeat(64));
+
+        assertServiceException(() -> runtimeControlService.executeAction(reqVO, "1001"),
+                ErrorCodeConstants.RUNTIME_CONTROL_ACTION_PARAMETER_INVALID,
+                "RELEASE_WORKFLOW_PACKAGE_BINDING_MISMATCH");
+        assertEquals("blocked", runtimeControlService.getOperations().get(0).getStatus());
+        verify(commandExecutor, never()).executeOperation(any(), any());
     }
 
     @Test
@@ -764,6 +846,7 @@ class RuntimeControlServiceImplTest extends BaseMockitoUnitTest {
         RuntimeControlActionReqVO reqVO = new RuntimeControlActionReqVO();
         reqVO.setAction("publish-test");
         reqVO.setReason("发布测试服验证");
+        attachWorkflowContext(reqVO);
 
         assertServiceException(() -> runtimeControlService.executeAction(reqVO, "1001"),
                 ErrorCodeConstants.RUNTIME_CONTROL_ACTION_PARAMETER_REQUIRED, "releaseTag");
@@ -815,6 +898,7 @@ class RuntimeControlServiceImplTest extends BaseMockitoUnitTest {
         reqVO.setReason("发布测试服验证");
         reqVO.setReleaseTag("20260528_220000");
         reqVO.setSqlPath("D:/tmp/quick.sql");
+        attachWorkflowContext(reqVO);
 
         assertServiceException(() -> runtimeControlService.executeAction(reqVO, "1001"),
                 ErrorCodeConstants.RUNTIME_CONTROL_ACTION_PARAMETER_INVALID, "sqlPath");
@@ -823,17 +907,14 @@ class RuntimeControlServiceImplTest extends BaseMockitoUnitTest {
     @Test
     void executeMarkReleaseTestedShouldWriteTestedMarkerThroughScript() throws Exception {
         stubNasReleaseConfig();
-        RuntimeControlProperties properties = RuntimeControlProperties.createDefaultForTests(tempDir);
-        properties.getBackupOps().setNasBackupPointsRoot("nas-backup-points");
-        createRestoreCandidateFixture(properties, "20260525-215449", "20260525_200033");
-        RuntimeOpsCandidateService candidateService =
-                new RuntimeOpsCandidateServiceImpl(properties, new RuntimeControlNasBrowserServiceStub(tempDir));
-        String recoverySetCandidateId = candidateService.listRestoreCandidates().get(0).getCandidateId();
         RuntimeControlActionReqVO reqVO = new RuntimeControlActionReqVO();
         reqVO.setAction("mark-release-tested");
         reqVO.setReason("测试服验证通过");
+        reqVO.setTestResult("PASS");
         reqVO.setTestConclusion("回归通过，允许上线正式服");
-        reqVO.setSelectedRecoverySetCandidateId(recoverySetCandidateId);
+        reqVO.setTestOperationId("op-test-12345678");
+        reqVO.setTestOperationEvidencePath("release/test-acceptance.json");
+        attachWorkflowContext(reqVO);
         RuntimeControlStatusResult testStatus = RuntimeControlStatusResult.running("HTTP 200", "running");
         testStatus.setCurrentReleaseTag("20260528_220000");
         doReturn(testStatus).when(commandExecutor).queryStatus(argThat(command -> "test".equals(command.getEnvironment())
@@ -845,18 +926,15 @@ class RuntimeControlServiceImplTest extends BaseMockitoUnitTest {
         assertEquals("20260528_220000", result.getParameters().get("releaseTag"));
         assertEquals("回归通过，允许上线正式服", result.getParameters().get("testConclusion"));
         verify(commandExecutor, timeout(1000)).executeOperation(argThat(command ->
-                "script/deploy/publish-int-ruoyi.ps1".equals(command.getScriptPath())
+                command.getScriptPath().equals(tempDir.resolve("controlled-maintenance/ops/deploy/publish-int-ruoyi.ps1").toString())
                         && command.getArguments().contains("-Mode")
                         && command.getArguments().contains("mark-tested")
                         && command.getArguments().contains("-ReleaseTag")
                         && command.getArguments().contains("20260528_220000")
                         && command.getArguments().contains("-TestConclusion")
                         && command.getArguments().contains("回归通过，允许上线正式服")
-                        && command.getArguments().contains("-SelectedRecoverySetCandidateId")
-                        && command.getArguments().contains(recoverySetCandidateId)
-                        && command.getArguments().contains("-RecoverySetId")
-                        && command.getArguments().contains("20260525-215449")
-                        && command.getArguments().contains("-RecoverySetManifestHash")
+                        && containsArgumentPair(command.getArguments(), "-TestResult", "PASS")
+                        && containsArgumentPair(command.getArguments(), "-TestOperationId", "op-test-12345678")
                         && command.getArguments().contains("-NasConfigPath")), any());
         waitOperationStatus(result.getOperationId(), "succeeded");
     }
@@ -866,7 +944,11 @@ class RuntimeControlServiceImplTest extends BaseMockitoUnitTest {
         RuntimeControlActionReqVO reqVO = new RuntimeControlActionReqVO();
         reqVO.setAction("mark-release-tested");
         reqVO.setReason("测试服验证通过");
+        reqVO.setTestResult("PASS");
         reqVO.setTestConclusion("回归通过，允许上线正式服");
+        reqVO.setTestOperationId("op-test-12345678");
+        reqVO.setTestOperationEvidencePath("release/test-acceptance.json");
+        attachWorkflowContext(reqVO);
         doReturn(RuntimeControlStatusResult.running("HTTP 200", "running"))
                 .when(commandExecutor).queryStatus(any());
 
@@ -908,6 +990,7 @@ class RuntimeControlServiceImplTest extends BaseMockitoUnitTest {
         reqVO.setReason("上线正式服");
         reqVO.setProdConfirmText("PROD");
         reqVO.setReleaseTag("20260528_220000");
+        attachWorkflowContext(reqVO);
 
         ServiceException exception = assertThrows(ServiceException.class,
                 () -> runtimeControlService.executeAction(reqVO, "1001"));
@@ -923,6 +1006,7 @@ class RuntimeControlServiceImplTest extends BaseMockitoUnitTest {
     void executePromoteProdShouldDeployOnlyVerifiedReleasePackageAndKeepProdGuard() throws Exception {
         RuntimeControlProperties properties = RuntimeControlProperties.createDefaultForTests(
                 tempDir.resolve("enabled-prod-promote"));
+        configureWorkflowExecutor(properties);
         properties.getEnvironments().get("prod").setAccessEnabled(true);
         RuntimeControlOperationStore operationStore = new RuntimeControlOperationStore(properties);
         runtimeControlService = new RuntimeControlServiceImpl(properties, commandExecutor, operationStore,
@@ -936,6 +1020,7 @@ class RuntimeControlServiceImplTest extends BaseMockitoUnitTest {
         reqVO.setReason("上线正式服");
         reqVO.setProdConfirmText("PROD");
         reqVO.setReleaseTag("20260528_220000");
+        attachPromotionEvidence(reqVO);
 
         RuntimeControlOperationRespVO result = runtimeControlService.executeAction(reqVO, "1001");
 
@@ -943,14 +1028,14 @@ class RuntimeControlServiceImplTest extends BaseMockitoUnitTest {
         assertEquals("prod", result.getEnvironment());
         assertEquals("20260528_220000", result.getParameters().get("releaseTag"));
         verify(commandExecutor, timeout(1000)).executeOperation(argThat(command ->
-                "script/deploy/publish-int-ruoyi.ps1".equals(command.getScriptPath())
+                command.getScriptPath().equals(tempDir.resolve("controlled-maintenance/ops/deploy/publish-int-ruoyi.ps1").toString())
                         && command.getArguments().contains("-Mode")
                         && command.getArguments().contains("deploy-release")
                         && command.getArguments().contains("-Environment")
                         && command.getArguments().contains("prod")
                         && command.getArguments().contains("-ConfirmText")
                         && command.getArguments().contains("PROD")
-                        && command.getArguments().contains("-RequireTested")
+                        && containsArgumentPair(command.getArguments(), "-TestOperationId", "op-test-12345678")
                         && command.getArguments().contains("-ReleaseTag")
                         && command.getArguments().contains("20260528_220000")
                         && command.getArguments().contains("-RemoteMinioContainer")
@@ -970,6 +1055,7 @@ class RuntimeControlServiceImplTest extends BaseMockitoUnitTest {
         reqVO.setReason("上线备用服务器");
         reqVO.setProdConfirmText("PROD");
         reqVO.setReleaseTag("20260528_220000");
+        attachPromotionEvidence(reqVO);
 
         RuntimeControlOperationRespVO result = runtimeControlService.executeAction(reqVO, "1001");
 
@@ -977,14 +1063,14 @@ class RuntimeControlServiceImplTest extends BaseMockitoUnitTest {
         assertEquals("backup", result.getEnvironment());
         assertEquals("20260528_220000", result.getParameters().get("releaseTag"));
         verify(commandExecutor, timeout(1000)).executeOperation(argThat(command ->
-                "script/deploy/publish-int-ruoyi.ps1".equals(command.getScriptPath())
+                command.getScriptPath().equals(tempDir.resolve("controlled-maintenance/ops/deploy/publish-int-ruoyi.ps1").toString())
                         && command.getArguments().contains("-Mode")
                         && command.getArguments().contains("deploy-release")
                         && command.getArguments().contains("-Environment")
                         && command.getArguments().contains("backup")
                         && command.getArguments().contains("-ConfirmText")
                         && command.getArguments().contains("PROD")
-                        && command.getArguments().contains("-RequireTested")
+                        && containsArgumentPair(command.getArguments(), "-TestOperationId", "op-test-12345678")
                         && command.getArguments().contains("-ReleaseTag")
                         && command.getArguments().contains("20260528_220000")
                         && command.getArguments().contains("-RemoteReleaseRoot")
@@ -1020,6 +1106,7 @@ class RuntimeControlServiceImplTest extends BaseMockitoUnitTest {
         reqVO.setReason("上线备用服务器");
         reqVO.setProdConfirmText("PROD");
         reqVO.setReleaseTag("20260528_220000");
+        attachPromotionEvidence(reqVO);
 
         ServiceException exception = assertThrows(ServiceException.class,
                 () -> runtimeControlService.executeAction(reqVO, "1001"));
@@ -1037,6 +1124,7 @@ class RuntimeControlServiceImplTest extends BaseMockitoUnitTest {
         reqVO.setReason("上线备用服务器");
         reqVO.setProdConfirmText("PROD");
         reqVO.setReleaseTag("20260528_220000");
+        attachPromotionEvidence(reqVO);
 
         ServiceException exception = assertThrows(ServiceException.class,
                 () -> runtimeControlService.executeAction(reqVO, "1001"));
@@ -1061,6 +1149,7 @@ class RuntimeControlServiceImplTest extends BaseMockitoUnitTest {
         reqVO.setAction("promote-prod");
         reqVO.setReason("上线正式服");
         reqVO.setProdConfirmText("PROD");
+        attachWorkflowContext(reqVO);
 
         assertServiceException(() -> runtimeControlService.executeAction(reqVO, "1001"),
                 ErrorCodeConstants.RUNTIME_CONTROL_ACTION_PARAMETER_REQUIRED, "releaseTag");
@@ -1114,6 +1203,7 @@ class RuntimeControlServiceImplTest extends BaseMockitoUnitTest {
         reqVO.setAction("publish-test");
         reqVO.setReason("发布测试服验证");
         reqVO.setReleaseTag("20260528_220000");
+        attachWorkflowContext(reqVO);
 
         ServiceException exception = assertThrows(ServiceException.class,
                 () -> runtimeControlService.executeAction(reqVO, "1001"));
@@ -1129,14 +1219,12 @@ class RuntimeControlServiceImplTest extends BaseMockitoUnitTest {
         stubNasReleaseConfig();
         String releaseTag = "20260528_220000";
         String packagePath = "Backup/ReleasePackage/" + releaseTag;
-        doReturn(nasList("Backup/ReleasePackage",
-                new FileNasListRespVO.Item().setName(releaseTag).setPath(packagePath).setDir(true).setSize(0L)))
-                .when(nasBrowserService).listFiles(any(NasConnectionConfig.class), eq("Backup/ReleasePackage"));
         stubReleasePackageManifestWithoutComponent(packagePath, releaseTag);
         RuntimeControlActionReqVO reqVO = new RuntimeControlActionReqVO();
         reqVO.setAction("publish-test");
         reqVO.setReason("发布测试服验证");
         reqVO.setReleaseTag(releaseTag);
+        attachWorkflowContext(reqVO);
 
         ServiceException exception = assertThrows(ServiceException.class,
                 () -> runtimeControlService.executeAction(reqVO, "1001"));
@@ -1162,6 +1250,7 @@ class RuntimeControlServiceImplTest extends BaseMockitoUnitTest {
         reqVO.setReason("上线正式服");
         reqVO.setProdConfirmText("PROD");
         reqVO.setReleaseTag("20260528_220000");
+        attachPromotionEvidence(reqVO);
 
         ServiceException exception = assertThrows(ServiceException.class,
                 () -> runtimeControlService.executeAction(reqVO, "1001"));
@@ -1255,6 +1344,7 @@ class RuntimeControlServiceImplTest extends BaseMockitoUnitTest {
         RuntimeControlActionReqVO reqVO = new RuntimeControlActionReqVO();
         reqVO.setAction("backup-now");
         reqVO.setTargetEnvironment("test");
+        reqVO.setBackupKind("FULL");
         reqVO.setReason("测试服立即备份");
 
         RuntimeControlOperationRespVO result = runtimeControlService.executeAction(reqVO, "1001");
@@ -1287,8 +1377,7 @@ class RuntimeControlServiceImplTest extends BaseMockitoUnitTest {
         RuntimeControlActionReqVO reqVO = new RuntimeControlActionReqVO();
         reqVO.setAction("rehearsal");
         reqVO.setReason("恢复演练");
-        reqVO.setSelectedRecoverySetCandidateId(candidateService
-                .listRestoreCandidates().get(0).getCandidateId());
+        reqVO.setSelectedRecoverySetCandidateId(findRestoreCandidate(candidateService, "REHEARSAL").getCandidateId());
 
         RuntimeControlOperationRespVO result = runtimeControlService.executeAction(reqVO, "1001");
 
@@ -1338,8 +1427,8 @@ class RuntimeControlServiceImplTest extends BaseMockitoUnitTest {
         reqVO.setAction("restore-data");
         reqVO.setReason("测试服恢复数据");
         reqVO.setTargetEnvironment("test");
-        reqVO.setSelectedRecoverySetCandidateId(candidateService
-                .listRestoreCandidates().get(0).getCandidateId());
+        reqVO.setSelectedRecoverySetCandidateId(findRestoreCandidate(candidateService, "CONTROLLED_RESTORE")
+                .getCandidateId());
 
         RuntimeControlOperationRespVO result = runtimeControlService.executeAction(reqVO, "1001");
 
@@ -1374,8 +1463,8 @@ class RuntimeControlServiceImplTest extends BaseMockitoUnitTest {
         reqVO.setReason("备份服恢复数据");
         reqVO.setTargetEnvironment("backup");
         reqVO.setProdConfirmText("PROD");
-        reqVO.setSelectedRecoverySetCandidateId(candidateService
-                .listRestoreCandidates().get(0).getCandidateId());
+        reqVO.setSelectedRecoverySetCandidateId(findRestoreCandidate(candidateService, "CONTROLLED_RESTORE")
+                .getCandidateId());
 
         RuntimeControlOperationRespVO result = runtimeControlService.executeAction(reqVO, "1001");
 
@@ -1409,8 +1498,8 @@ class RuntimeControlServiceImplTest extends BaseMockitoUnitTest {
         reqVO.setAction("restore-data");
         reqVO.setReason("备份服恢复数据");
         reqVO.setTargetEnvironment("backup");
-        reqVO.setSelectedRecoverySetCandidateId(candidateService
-                .listRestoreCandidates().get(0).getCandidateId());
+        reqVO.setSelectedRecoverySetCandidateId(findRestoreCandidate(candidateService, "CONTROLLED_RESTORE")
+                .getCandidateId());
 
         ServiceException exception = assertThrows(ServiceException.class,
                 () -> runtimeControlService.executeAction(reqVO, "1001"));
@@ -1440,8 +1529,8 @@ class RuntimeControlServiceImplTest extends BaseMockitoUnitTest {
         reqVO.setReason("禁止正式服恢复数据");
         reqVO.setTargetEnvironment("prod");
         reqVO.setProdConfirmText("PROD");
-        reqVO.setSelectedRecoverySetCandidateId(candidateService
-                .listRestoreCandidates().get(0).getCandidateId());
+        reqVO.setSelectedRecoverySetCandidateId(findRestoreCandidate(candidateService, "CONTROLLED_RESTORE")
+                .getCandidateId());
 
         ServiceException exception = assertThrows(ServiceException.class,
                 () -> runtimeControlService.executeAction(reqVO, "1001"));
@@ -1586,10 +1675,11 @@ class RuntimeControlServiceImplTest extends BaseMockitoUnitTest {
         RuntimeControlActionReqVO reqVO = new RuntimeControlActionReqVO();
         reqVO.setAction("build-release");
         reqVO.setReason("构建发布包验证");
-        reqVO.setPublishScope("code-only");
+        reqVO.setPublishScope("app-release");
         reqVO.setReleaseTag("20260528_220001");
         reqVO.setIncludeOnlyOffice(false);
         reqVO.setIncludeShowroomBuildPackage(false);
+        attachWorkflowContext(reqVO);
 
         RuntimeControlOperationRespVO operation = runtimeControlService.executeAction(reqVO, "1001");
         waitOperationStatus(operation.getOperationId(), "succeeded");
@@ -1641,6 +1731,53 @@ class RuntimeControlServiceImplTest extends BaseMockitoUnitTest {
         assertEquals("立即备份 completed", persisted.getSummary());
     }
 
+    @Test
+    void getOperationLogShouldReconcileRunningStatusFromTerminalUnknownLogAndKeepWriteProtection()
+            throws Exception {
+        RuntimeControlOperationStore operationStore = new RuntimeControlOperationStore(properties);
+        runtimeControlService = new RuntimeControlServiceImpl(properties, commandExecutor, operationStore,
+                createSeededResponsibilityService(properties),
+                new RuntimeOpsCandidateServiceImpl(properties, new RuntimeControlNasBrowserServiceStub(tempDir)),
+                nasSettingsService, nasBrowserService);
+        RuntimeControlOperationRespVO operation = new RuntimeControlOperationRespVO();
+        operation.setOperationId("op-terminal-unknown");
+        operation.setRequestedBy("1001");
+        operation.setRequestedAt(LocalDateTime.now());
+        operation.setEnvironment("test");
+        operation.setComponent("ops");
+        operation.setAction("backup-now");
+        operation.setActionLabel("立即备份");
+        operation.setParameters(Map.of("targetEnvironment", "test"));
+        operation.setReason("测试服立即备份");
+        operation.setStatus("running");
+        operation.setSummary("立即备份 dispatched");
+        Path logPath = operationStore.getOperationLogPath(operation.getOperationId());
+        operation.setResultLogPath(logPath.toString());
+        operationStore.initializeLog(logPath);
+        Files.writeString(logPath, """
+                操作完成：未知
+                动作类型：立即备份
+                结果代码：INTBK-UNKNOWN
+                结果说明：命令进程中断，不能证明备份成功或失败。
+                """, StandardCharsets.UTF_8);
+        operationStore.save(operation);
+
+        RuntimeControlLogRespVO log = runtimeControlService.getOperationLog(operation.getOperationId(), 1024);
+
+        assertEquals("unknown", log.getStatus());
+        RuntimeControlOperationRespVO persisted = operationStore.findById(operation.getOperationId());
+        assertEquals("unknown", persisted.getStatus());
+        RuntimeControlActionReqVO reqVO = new RuntimeControlActionReqVO();
+        reqVO.setAction("backup-now");
+        reqVO.setTargetEnvironment("test");
+        reqVO.setBackupKind("FULL");
+        reqVO.setReason("unknown write protection");
+        ServiceException exception = assertThrows(ServiceException.class,
+                () -> runtimeControlService.executeAction(reqVO, "1001"));
+        assertEquals(ErrorCodeConstants.RUNTIME_CONTROL_ACTION_PARAMETER_INVALID.getCode(), exception.getCode());
+        assertTrue(exception.getMessage().contains("UNKNOWN 操作"));
+    }
+
     private void waitOperationStatus(String operationId, String status) throws InterruptedException {
         for (int i = 0; i < 20; i++) {
             boolean matched = runtimeControlService.getOperations().stream()
@@ -1669,6 +1806,36 @@ class RuntimeControlServiceImplTest extends BaseMockitoUnitTest {
                 .when(nasSettingsService).getRequiredNasConfig();
     }
 
+    private void configureWorkflowExecutor(RuntimeControlProperties runtimeProperties) throws Exception {
+        Path root = tempDir.resolve("controlled-maintenance");
+        Path script = root.resolve("ops/deploy/publish-int-ruoyi.ps1");
+        Files.createDirectories(script.getParent());
+        byte[] content = "param([string]$Mode)\n".getBytes(StandardCharsets.UTF_8);
+        Files.write(script, content);
+        runtimeProperties.getReleaseWorkflow().setMaintenanceRepoRoot(root.toString());
+        runtimeProperties.getReleaseWorkflow().setApplicationRepoRoot(tempDir.resolve("approved-application").toString());
+        runtimeProperties.getReleaseWorkflow().setExpectedPublishScriptSha256(
+                HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(content)));
+    }
+
+    private void attachWorkflowContext(RuntimeControlActionReqVO request) {
+        request.setReleaseWorkflowId("rw-12345678");
+        request.setReleaseWorkflowExpectedStateVersion(1L);
+        request.setPreassignedOperationId("op-" + java.util.UUID.randomUUID());
+        if (!"build-release".equals(request.getAction())) {
+            request.setExpectedPackageDigest("a".repeat(64));
+            request.setExpectedManifestDigest(request.getReleaseTag() == null
+                    ? "b".repeat(64)
+                    : manifestDigests.getOrDefault(request.getReleaseTag(), "b".repeat(64)));
+        }
+    }
+
+    private void attachPromotionEvidence(RuntimeControlActionReqVO request) {
+        attachWorkflowContext(request);
+        request.setTestOperationId("op-test-12345678");
+        request.setTestOperationEvidencePath("release/test-acceptance.json");
+    }
+
     private void stubReleasePackageManifest(String packagePath, String releaseTag, boolean checksumPresent) {
         stubReleasePackageManifest(packagePath, releaseTag, checksumPresent, false);
     }
@@ -1680,9 +1847,6 @@ class RuntimeControlServiceImplTest extends BaseMockitoUnitTest {
     private void stubReleasePackageList(String releaseTag, boolean checksumPresent, boolean tested,
                                         RuntimeControlRestoreCandidateRespVO recoverySet) {
         String packagePath = "Backup/ReleasePackage/" + releaseTag;
-        doReturn(nasList("Backup/ReleasePackage",
-                new FileNasListRespVO.Item().setName(releaseTag).setPath(packagePath).setDir(true).setSize(0L)))
-                .when(nasBrowserService).listFiles(any(NasConnectionConfig.class), eq("Backup/ReleasePackage"));
         stubReleasePackageManifest(packagePath, releaseTag, checksumPresent, tested, recoverySet);
     }
 
@@ -1693,22 +1857,23 @@ class RuntimeControlServiceImplTest extends BaseMockitoUnitTest {
 
     private void stubReleasePackageManifest(String packagePath, String releaseTag, boolean checksumPresent,
                                             boolean tested, RuntimeControlRestoreCandidateRespVO recoverySet) {
-        String manifestPath = packagePath + "/release-manifest.json";
+        String manifestPath = packagePath + "/manifest.json";
         String testedPath = packagePath + "/tested.json";
         FileNasListRespVO.Item[] files = tested
                 ? new FileNasListRespVO.Item[] {
-                    file("release-manifest.json", manifestPath),
+                    file("manifest.json", manifestPath),
                     file("tested.json", testedPath)
                 }
-                : new FileNasListRespVO.Item[] { file("release-manifest.json", manifestPath) };
+                : new FileNasListRespVO.Item[] { file("manifest.json", manifestPath) };
         doReturn(nasList(packagePath, files))
                 .when(nasBrowserService).listFiles(any(NasConnectionConfig.class), eq(packagePath));
-        doReturn(new NasFileReadResult("release-manifest.json", manifestPath, "application/json",
-                """
-                        {"releaseTag":"%s","packageDirectoryName":"%s","builtAt":"2026-05-29T21:05:42Z","component":"intruoyi","includeShowroomBuildPackage":false,"onlyOfficeIncluded":true,"artifacts":[%s]}
-                        """.formatted(releaseTag, releaseTag,
-                        checksumPresent ? "{\"path\":\"intruoyi-images.tar\",\"sha256\":\"abc\"}" : "{\"path\":\"intruoyi-images.tar\"}")
-                        .getBytes(StandardCharsets.UTF_8)))
+        byte[] manifestBytes = """
+                {"releaseTag":"%s","packageId":"%s","createdAt":"2026-05-29T21:05:42Z","publishScope":"app-release","component":"intruoyi","components":["backend","admin-frontend"],"onlyOfficeIncluded":true,"packageDigest":"%s","sourceRoots":[{"rootRole":"maintenance","commit":"aaa"},{"rootRole":"application","commit":"bbb"}],"sourceRoles":[{"sourceRole":"maintenance","rootRole":"maintenance"},{"sourceRole":"backend","rootRole":"application"},{"sourceRole":"frontend","rootRole":"application"}],"artifacts":[%s]}
+                """.formatted(releaseTag, releaseTag, "a".repeat(64),
+                checksumPresent ? "{\"path\":\"intruoyi-images.tar\",\"sha256\":\"abc\"}" : "{\"path\":\"intruoyi-images.tar\"}")
+                .getBytes(StandardCharsets.UTF_8);
+        manifestDigests.put(releaseTag, cn.iocoder.yudao.module.infra.service.runtimecontrol.releaseworkflow.ReleaseDigestContract.manifestDigest(manifestBytes));
+        doReturn(new NasFileReadResult("manifest.json", manifestPath, "application/json", manifestBytes))
                 .when(nasBrowserService).readFile(any(NasConnectionConfig.class), eq(manifestPath));
         if (tested) {
             String recoverySetJson = recoverySet == null
@@ -1718,21 +1883,22 @@ class RuntimeControlServiceImplTest extends BaseMockitoUnitTest {
                             """.formatted(recoverySet.getCandidateId(), recoverySet.getRecoverySetId(),
                             recoverySet.getRecoverySetManifestHash(), recoverySet.getProgramVersion(),
                             recoverySet.getRedisPolicy());
-            doReturn(new NasFileReadResult("tested.json", testedPath, "application/json",
-                    """
+            byte[] testedBytes = testedFixtureFactory == null ? """
                             {"releaseTag":"%s","packageDirectoryName":"%s","testedAt":"2026-05-29T22:00:00Z","operatorName":"tester","recoverySet":%s}
-                            """.formatted(releaseTag, releaseTag, recoverySetJson).getBytes(StandardCharsets.UTF_8)))
+                            """.formatted(releaseTag, releaseTag, recoverySetJson).getBytes(StandardCharsets.UTF_8)
+                    : testedFixtureFactory.apply(releaseTag);
+            doReturn(new NasFileReadResult("tested.json", testedPath, "application/json", testedBytes))
                     .when(nasBrowserService).readFile(any(NasConnectionConfig.class), eq(testedPath));
         }
     }
 
     private void stubReleasePackageManifestWithoutComponent(String packagePath, String releaseTag) {
-        String manifestPath = packagePath + "/release-manifest.json";
-        doReturn(nasList(packagePath, file("release-manifest.json", manifestPath)))
+        String manifestPath = packagePath + "/manifest.json";
+        doReturn(nasList(packagePath, file("manifest.json", manifestPath)))
                 .when(nasBrowserService).listFiles(any(NasConnectionConfig.class), eq(packagePath));
-        doReturn(new NasFileReadResult("release-manifest.json", manifestPath, "application/json",
+        doReturn(new NasFileReadResult("manifest.json", manifestPath, "application/json",
                 """
-                        {"releaseTag":"%s","packageDirectoryName":"%s","builtAt":"2026-05-29T21:05:42Z","includeShowroomBuildPackage":false,"onlyOfficeIncluded":true,"artifacts":[{"path":"intruoyi-images.tar","sha256":"abc"}]}
+                        {"releaseTag":"%s","packageId":"%s","createdAt":"2026-05-29T21:05:42Z","publishScope":"app-release","components":["backend","admin-frontend"],"onlyOfficeIncluded":true,"packageDigest":"abc","sourceRoots":[{"rootRole":"maintenance"},{"rootRole":"application"}],"sourceRoles":[{"sourceRole":"maintenance"},{"sourceRole":"backend"},{"sourceRole":"frontend"}],"artifacts":[{"path":"intruoyi-images.tar","sha256":"abc"}]}
                         """.formatted(releaseTag, releaseTag).getBytes(StandardCharsets.UTF_8)))
                 .when(nasBrowserService).readFile(any(NasConnectionConfig.class), eq(manifestPath));
     }
@@ -1814,9 +1980,10 @@ class RuntimeControlServiceImplTest extends BaseMockitoUnitTest {
             java.nio.file.Files.writeString(root.resolve("manifest").resolve("manifest.json"),
                     "{\"schemaVersion\":\"v2\",\"backupId\":\"" + backupId
                             + "\",\"targetEnvironment\":\"test\",\"targetHost\":\"172.30.30.58\",\"status\":\"success\",\"deploy\":{\"imageTag\":\""
-                            + imageTag + "\"},\"recoverySet\":{\"id\":\"" + backupId
+                            + imageTag
+                            + "\"},\"source\":{\"serverHost\":\"172.30.30.58\",\"appDir\":\"/opt/intruoyi/runtime\",\"minioBucket\":\"yudao\"},\"recoverySet\":{\"id\":\"" + backupId
                             + "\",\"status\":\"COMPLETE\",\"program\":{\"imageTag\":\"" + imageTag
-                            + "\"},\"mysql\":{\"dumpPath\":\"mysql/ruoyi-vue-pro.sql.gz\"},\"minio\":{\"bucket\":\"yudao\",\"snapshotPath\":\"objects/manifest-object-inventory.json\"},\"businessFiles\":{\"snapshotPath\":\"objects/manifest-object-inventory.json\"},\"redis\":{\"policy\":\"CLEAR_AND_REBUILD\"},\"configuration\":{\"manifestPath\":\"deploy/runtime.env\",\"composePath\":\"deploy/docker-compose.yml\"},\"checksums\":{\"path\":\"manifest/checksums.txt\",\"sha256\":\"abc\"}}}");
+                            + "\"},\"mysql\":{\"dumpPath\":\"mysql/ruoyi-vue-pro.sql.gz\"},\"minio\":{\"bucket\":\"yudao\",\"snapshotPath\":\"objects/manifest-object-inventory.json\"},\"businessFiles\":{\"snapshotPath\":\"objects/manifest-object-inventory.json\"},\"redis\":{\"policy\":\"CLEAR_AND_REBUILD\"},\"configuration\":{\"manifestPath\":\"deploy/runtime.env\",\"composePath\":\"deploy/docker-compose.yml\"},\"checksums\":{\"path\":\"manifest/checksums.txt\",\"sha256\":\"abc\"}},\"validation\":{\"mysqlDumpCreated\":true,\"objectBackupCreated\":true,\"checksumsGenerated\":true,\"rehearsalStatus\":\"PASSED\",\"lastRehearsedAt\":\"2026-09-19T00:00:00+08:00\"}}");
         } catch (java.io.IOException ex) {
             throw new IllegalStateException(ex);
         }
@@ -1828,7 +1995,13 @@ class RuntimeControlServiceImplTest extends BaseMockitoUnitTest {
             Path manifest = tempDir.resolve("nas-backup-points").resolve(backupId).resolve("manifest");
             java.nio.file.Files.writeString(manifest.resolve("checksums.txt"), "sha256  deploy/runtime.env");
             java.nio.file.Files.writeString(manifest.resolve("dcc-backup-manifest.json"), dccBackupManifest(backupId));
-            java.nio.file.Files.writeString(manifest.resolve("rehearsal-report.json"), "{\"status\":\"PASSED\"}");
+            String manifestText = java.nio.file.Files.readString(manifest.resolve("manifest.json"));
+            java.nio.file.Files.writeString(manifest.resolve("rehearsal-report.json"), """
+                    {"status":"PASSED","backupId":"%s","manifestDigest":"%s","chainDigest":"%s",
+                     "sourceFingerprint":"serverHost=172.30.30.58;appDir=/opt/intruoyi/runtime;minioBucket=yudao;imageTag=%s",
+                     "targetFingerprint":"environment=test;host=172.30.30.58;imageTag=%s"}
+                    """.formatted(backupId, sha256(manifestText), sha256(dccBackupManifest(backupId)),
+                    imageTag, imageTag));
             java.nio.file.Files.writeString(manifest.resolve("现场快照.md"), "snapshot");
         } catch (java.io.IOException ex) {
             throw new IllegalStateException(ex);
@@ -1844,7 +2017,27 @@ class RuntimeControlServiceImplTest extends BaseMockitoUnitTest {
     private RuntimeControlRestoreCandidateRespVO createAvailableRecoverySetCandidate(RuntimeControlProperties properties) {
         createRestoreCandidateFixture(properties, "20260525-215449", "20260525_200033");
         return new RuntimeOpsCandidateServiceImpl(properties, new RuntimeControlNasBrowserServiceStub(tempDir))
-                .listRestoreCandidates().get(0);
+                .listRestoreCandidates().stream()
+                .filter(candidate -> "CONTROLLED_RESTORE".equals(candidate.getCandidateType()))
+                .findFirst()
+                .orElseThrow();
+    }
+
+    private RuntimeControlRestoreCandidateRespVO findRestoreCandidate(RuntimeOpsCandidateService candidateService,
+                                                                      String candidateType) {
+        return candidateService.listRestoreCandidates().stream()
+                .filter(candidate -> candidateType.equals(candidate.getCandidateType()))
+                .findFirst()
+                .orElseThrow();
+    }
+
+    private String sha256(String text) {
+        try {
+            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
+                    .digest(text.getBytes(StandardCharsets.UTF_8)));
+        } catch (java.security.NoSuchAlgorithmException ex) {
+            throw new IllegalStateException(ex);
+        }
     }
 
     private Path writeBackupOpsConfig(Path backupPointsRoot) {

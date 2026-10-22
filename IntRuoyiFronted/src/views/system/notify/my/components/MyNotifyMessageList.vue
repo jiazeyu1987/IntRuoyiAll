@@ -1,5 +1,6 @@
 <template>
   <div class="my-notify-message-list" :class="{ 'my-notify-message-list--embedded': embedded }">
+    <ActiveOrderHandoffPanel v-if="canReadActiveOrderHandoffs" />
     <component :is="contentWrapper" class="my-notify-message-list__section">
       <UnifiedListTemplate
         table-key="system.notify.my-message"
@@ -150,6 +151,8 @@ import { dateFormatter } from '@/utils/formatTime'
 import * as NotifyMessageApi from '@/api/system/notify/message'
 import MyNotifyMessageDetail from '../MyNotifyMessageDetail.vue'
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
+import ActiveOrderHandoffPanel from '@/views/mes/pro/handoff/ActiveOrderHandoffPanel.vue'
+import { hasPermission } from '@/directives/permission/hasPermi'
 import { useUserTableColumns, type UserTableColumnDefinition } from '@/hooks/web/useUserTableColumns'
 import { useTableQuickFilter, type TableQuickFilterDefinition } from '@/hooks/web/useTableQuickFilter'
 import {
@@ -180,6 +183,12 @@ const NOTIFY_TABLE_KEY = 'system.notify.my-message'
 
 const embedded = computed(() => props.embedded)
 const contentWrapper = computed(() => (props.embedded ? 'div' : 'ContentWrap'))
+const canReadActiveOrderHandoffs = computed(() => hasPermission([
+  'mes:pro-feedback:query',
+  'mes:pro-process-pool-team-leader:query',
+  'mes:pro-edhr-nonconformance-review:query',
+  'mes:pro-edhr-work-task:query'
+]))
 
 const notifyDefaultColumns: UserTableColumnDefinition[] = [
   { key: 'templateNickname', label: '发送人', width: 180 },

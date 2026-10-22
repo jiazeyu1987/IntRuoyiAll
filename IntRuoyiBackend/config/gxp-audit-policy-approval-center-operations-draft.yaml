@@ -1,0 +1,92 @@
+# DRAFT source entries for task 20261006-approval-center-review-preflight.
+# Not an activated bundle and not proof of deployment approval. Merge into a reviewed
+# bundle with the original operations/coverage intact before a separately authorized activation.
+operations:
+- operationId: mes.independent-batch-prerequisite-receipt.issue
+  sourceType: SERVICE_METHOD
+  sourceLocators:
+  - cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesIndependentBatchPrerequisiteReceiptServiceImpl#issue
+  domain: MES
+  subjectType: INDEPENDENT_BATCH_PREREQUISITE_RECEIPT
+  actionType: CREATE
+  reasonPolicy: USER_REQUIRED
+  signaturePolicy: NONE
+  statePolicy: ABSENT_TO_PRESENT
+  snapshotProfile: PRODUCTION
+  retentionClass: GXP_MES_RECEIPT
+  testIds:
+  - MesEdhrSourceCreationAuditWriterTest
+  ownerRole: mes-owner
+  applicability: GXP
+- operationId: mes.independent-batch-prerequisite-receipt.revoke
+  sourceType: SERVICE_METHOD
+  sourceLocators:
+  - cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesIndependentBatchPrerequisiteReceiptServiceImpl#revoke
+  domain: MES
+  subjectType: INDEPENDENT_BATCH_PREREQUISITE_RECEIPT
+  actionType: REVOKE
+  reasonPolicy: USER_REQUIRED
+  signaturePolicy: NONE
+  statePolicy: PRESENT_TO_PRESENT
+  snapshotProfile: PRODUCTION
+  retentionClass: GXP_MES_RECEIPT
+  testIds:
+  - MesEdhrSourceCreationAuditWriterTest
+  ownerRole: mes-owner
+  applicability: GXP
+- operationId: mes.edhr.material-gate.receipt.create
+  sourceType: SERVICE_METHOD
+  sourceLocators:
+  - cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesReleaseMaterialGateReceiptPortImpl#persistReady
+  domain: MES
+  subjectType: EDHR_MATERIAL_GATE_RECEIPT
+  actionType: CREATE
+  reasonPolicy: SYSTEM
+  signaturePolicy: NONE
+  statePolicy: ABSENT_TO_PRESENT
+  snapshotProfile: ATTACHMENT
+  retentionClass: GXP_MES_RELEASE
+  testIds:
+  - MesEdhrSourceCreationAuditWriterTest
+  ownerRole: mes-owner
+  applicability: GXP
+- operationId: mes.market-release.manager-stage.initialize
+  sourceType: SERVICE_METHOD
+  sourceLocators:
+  - cn.iocoder.yudao.module.mes.service.pro.productionrelease.manager.MesProductionReleaseManagerStageInitializerImpl#initializeManagerReleaseStage
+  domain: MES
+  subjectType: RELEASE_TRANSACTION
+  actionType: INITIALIZE_MANAGER_STAGE
+  reasonPolicy: SYSTEM
+  signaturePolicy: NONE
+  statePolicy: ABSENT_OR_PRESENT_TO_PRESENT
+  snapshotProfile: MARKET_RELEASE
+  retentionClass: GXP_MES_RELEASE
+  testIds:
+  - MesEdhrMaterialAssociationIdentityTest
+  ownerRole: mes-owner
+  applicability: GXP
+- operationId: APPROVAL_CENTER_REVIEW_COMMIT
+  sourceType: SERVICE_METHOD
+  sourceLocators:
+  - ApprovalCenterReviewExecutor.execute
+  domain: BPM
+  subjectType: APPROVAL_CENTER_REVIEW_RECEIPT
+  actionType: CREATE
+  reasonPolicy: USER_REQUIRED
+  signaturePolicy: REQUIRED
+  statePolicy: ABSENT_TO_PRESENT
+  snapshotProfile: SIGNATURE
+  retentionClass: GXP_ELECTRONIC_SIGNATURE
+  testIds:
+  - ApprovalCenterReviewExecutorTest
+  ownerRole: qa-owner
+  applicability: GXP
+# Additional exact source for the existing signature.record.create operation.
+existingOperationLocatorAdditions:
+- operationId: signature.record.create
+  sourceType: SERVICE_METHOD
+  sourceLocator: ElectronicSignatureTransactionExecutor.executeAuthenticated
+- operationId: mes.production.submit
+  sourceType: SERVICE_METHOD
+  sourceLocator: cn.iocoder.yudao.module.mes.service.pro.feedback.frontline.MesProFrontlineFeedbackSubmitServiceImpl#submitAuthenticated

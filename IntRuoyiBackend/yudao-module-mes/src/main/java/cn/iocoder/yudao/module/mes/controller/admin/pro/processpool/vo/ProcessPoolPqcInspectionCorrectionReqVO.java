@@ -19,6 +19,12 @@ public class ProcessPoolPqcInspectionCorrectionReqVO {
     @NotNull(message = "工序池提交事件不能为空")
     private Long eventId;
 
+    // Ordinary corrections require this baseline in MesCorrectionBaselineGuard.
+    // Own-return corrections use the outer rejected-review baseline instead.
+    @jakarta.validation.constraints.Min(0)
+    private Long expectedRevisionId;
+    private String expectedPayloadHash;
+
     @Schema(description = "实际检验数量", requiredMode = Schema.RequiredMode.REQUIRED)
     @NotNull(message = "实际检验数量不能为空")
     @Min(value = 1, message = "实际检验数量必须大于 0")
@@ -45,6 +51,8 @@ public class ProcessPoolPqcInspectionCorrectionReqVO {
     public MesProcessPoolPqcInspectionCorrectionCommand toCommand() {
         return new MesProcessPoolPqcInspectionCorrectionCommand()
                 .setEventId(eventId)
+                .setExpectedRevisionId(expectedRevisionId)
+                .setExpectedPayloadHash(expectedPayloadHash)
                 .setActualInspectionQuantity(actualInspectionQuantity)
                 .setScrapQuantity(scrapQuantity)
                 .setItemResults(itemResults.stream()

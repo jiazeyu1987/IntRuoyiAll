@@ -34,6 +34,8 @@
 </template>
 
 <script setup lang="ts">
+import { until } from '@vueuse/core'
+
 defineOptions({ name: 'RouteForm' })
 
 const RouteFormContent = defineAsyncComponent(() => import('./RouteFormContent.vue'))
@@ -55,14 +57,11 @@ const dialogTitle = computed(() => {
 })
 
 const waitForContentRef = async () => {
-  for (let attempt = 0; attempt < 20; attempt += 1) {
-    await nextTick()
-    if (contentRef.value?.open) {
-      return contentRef.value
-    }
-    await new Promise((resolve) => setTimeout(resolve, 50))
-  }
-  throw new Error('打开工艺路线表单失败：表单内容未加载')
+  await until(() => typeof contentRef.value?.open === 'function').toBeTruthy({
+    timeout: 60000,
+    throwOnTimeout: true
+  })
+  return contentRef.value!
 }
 
 const open = async (type: string, id?: number) => {

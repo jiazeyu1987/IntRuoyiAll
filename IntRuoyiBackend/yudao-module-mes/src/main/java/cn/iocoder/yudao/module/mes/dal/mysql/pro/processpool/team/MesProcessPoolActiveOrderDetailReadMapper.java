@@ -11,6 +11,10 @@ public interface MesProcessPoolActiveOrderDetailReadMapper {
     List<MesTeamLeaderActiveOrderDetailReadDO> selectByActiveOrderId(
             @Param("activeOrderId") Long activeOrderId);
 
+    // Only authorized historical REWORKED source detail uses this explicit tenant-bound projection.
+    List<MesTeamLeaderActiveOrderDetailReadDO> selectArchivedReworkByActiveOrderId(
+            @Param("activeOrderId") Long activeOrderId, @Param("archivedTenantId") Long archivedTenantId);
+
     List<MesTeamLeaderActiveOrderEventPartyReadDO> selectEventPartiesByEventIds(
             @Param("eventIds") List<Long> eventIds);
 }

@@ -1,0 +1,38 @@
+# Independent proposal only. Not packaged, approved, or activated.
+proposalType: GXP_AUDIT_OPERATION_FRAGMENTS
+status: DRAFT
+approvalReference: null
+runtimeLoad: false
+operations:
+  - operationId: mes.market-release.reject
+    sourceType: SERVICE_METHOD
+    sourceLocator: cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrReleaseServiceImpl#finalizeReject
+    domain: MES
+    subjectType: RELEASE_TRANSACTION
+    actionType: REJECT
+    reasonPolicy: REQUIRED
+    signaturePolicy: NONE
+    statePolicy: PRESENT_TO_PRESENT
+    retentionClass: GXP_MES_RELEASE
+    testIds: [BDD-TERMINAL-REJECT, BDD-TERMINAL-REPLAY, BDD-TERMINAL-ROLLBACK]
+    owner: mes-owner
+    applicability: GXP
+  - operationId: mes.market-release.withdraw
+    sourceType: SERVICE_METHOD
+    sourceLocator: cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrReleaseServiceImpl#finalizeWithdraw
+    domain: MES
+    subjectType: RELEASE_TRANSACTION
+    actionType: WITHDRAW
+    reasonPolicy: REQUIRED
+    signaturePolicy: NONE
+    statePolicy: PRESENT_TO_PRESENT
+    retentionClass: GXP_MES_RELEASE
+    testIds: [BDD-TERMINAL-WITHDRAW, BDD-TERMINAL-REPLAY, BDD-TERMINAL-ROLLBACK]
+    owner: mes-owner
+    applicability: GXP
+# Coverage metadata only, not additional activated operations.
+additionalSourceLocators:
+  - cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrReleaseServiceImpl#reject
+  - cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrReleaseServiceImpl#withdraw
+# Preserve existing reason/authentication contract. No APPROVE signature reuse.
+# Missing active operation must fail and roll back, never auto-activate this file.

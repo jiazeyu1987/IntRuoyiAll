@@ -37,6 +37,7 @@ import java.util.Iterator;
 import java.util.Map;
 
 import static cn.iocoder.yudao.framework.apilog.core.interceptor.ApiAccessLogInterceptor.ATTRIBUTE_HANDLER_METHOD;
+import static cn.iocoder.yudao.framework.apilog.core.interceptor.ApiAccessLogInterceptor.getLogRequestUri;
 import static cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString;
 
 /**
@@ -68,12 +69,22 @@ public class ApiAccessLogFilter extends ApiRequestFilter {
         // 获得开始时间
         LocalDateTime beginTime = LocalDateTime.now();
         // 提前获得参数，避免 XssFilter 过滤处理
-        Map<String, String> queryString = ServletUtils.getParamMap(request);
-        String requestBody = ServletUtils.isJsonRequest(request) ? ServletUtils.getBody(request) : null;
+        boolean requestLoggingDisabled = isRequestLoggingDisabled(request);
+        if (requestLoggingDisabled) {
+            getLogRequestUri(request); // Missing privacy metadata is a prerequisite failure, not a raw-URI fallback.
+        }
+        Map<String, String> queryString = requestLoggingDisabled ? null : ServletUtils.getParamMap(request);
+        String requestBody = !requestLoggingDisabled && ServletUtils.isJsonRequest(request)
+                ? ServletUtils.getBody(request) : null;
 
         try {
             // 继续过滤器
             filterChain.doFilter(request, response);
+            if (isRequestLoggingDisabled(request) && WebFrameworkUtils.getCommonResult(request) == null
+                    && response.getStatus() >= 400) {
+                WebFrameworkUtils.setCommonResult(request,
+                        CommonResult.error(response.getStatus(), "HTTP 请求未完成"));
+            }
             // 正常执行，记录日志
             createApiAccessLog(request, beginTime, queryString, requestBody, null);
         } catch (Exception ex) {
@@ -93,8 +104,22 @@ public class ApiAccessLogFilter extends ApiRequestFilter {
             }
             apiAccessLogApi.createApiAccessLogAsync(accessLog);
         } catch (Throwable th) {
-            log.error("[createApiAccessLog][url({}) log({}) 发生异常]", request.getRequestURI(), toJsonString(accessLog), th);
+            if (isRequestLoggingDisabled(request)) {
+                log.error("[createApiAccessLog][requestParameters=disabled][url({}) exceptionType({})]",
+                        getLogRequestUri(request), th.getClass().getName());
+            } else {
+                log.error("[createApiAccessLog][url({}) log({}) 发生异常]", request.getRequestURI(), toJsonString(accessLog), th);
+            }
         }
+    }
+
+    private static boolean isRequestLoggingDisabled(HttpServletRequest request) {
+        Object handler = request.getAttribute(ATTRIBUTE_HANDLER_METHOD);
+        if (!(handler instanceof HandlerMethod handlerMethod)) {
+            return false;
+        }
+        ApiAccessLog annotation = handlerMethod.getMethodAnnotation(ApiAccessLog.class);
+        return annotation != null && !annotation.requestEnable();
     }
 
     private boolean buildApiAccessLog(ApiAccessLogCreateReqDTO accessLog, HttpServletRequest request, LocalDateTime beginTime,
@@ -118,13 +143,15 @@ public class ApiAccessLogFilter extends ApiRequestFilter {
             accessLog.setResultCode(result.getCode()).setResultMsg(result.getMsg());
         } else if (ex != null) {
             accessLog.setResultCode(GlobalErrorCodeConstants.INTERNAL_SERVER_ERROR.getCode())
-                    .setResultMsg(ExceptionUtil.getRootCauseMessage(ex));
+                    .setResultMsg(accessLogAnnotation != null && !accessLogAnnotation.requestEnable()
+                            ? GlobalErrorCodeConstants.INTERNAL_SERVER_ERROR.getMsg()
+                            : ExceptionUtil.getRootCauseMessage(ex));
         } else {
             accessLog.setResultCode(GlobalErrorCodeConstants.SUCCESS.getCode()).setResultMsg("");
         }
         // 设置请求字段
         accessLog.setTraceId(TracerUtils.getTraceId()).setApplicationName(applicationName)
-                .setRequestUrl(request.getRequestURI()).setRequestMethod(request.getMethod())
+                .setRequestUrl(getLogRequestUri(request)).setRequestMethod(request.getMethod())
                 .setUserAgent(ServletUtils.getUserAgent(request)).setUserIp(ServletUtils.getClientIP(request));
         String[] sanitizeKeys = accessLogAnnotation != null ? accessLogAnnotation.sanitizeKeys() : null;
         Boolean requestEnable = accessLogAnnotation != null ? accessLogAnnotation.requestEnable() : Boolean.TRUE;

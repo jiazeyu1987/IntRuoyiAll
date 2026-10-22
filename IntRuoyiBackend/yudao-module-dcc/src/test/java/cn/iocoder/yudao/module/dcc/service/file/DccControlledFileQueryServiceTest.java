@@ -4996,6 +4996,7 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
                 .directoryId(20L)
                 .requesterId(99L)
                 .title("Pending training record projection")
+                .sourceFileId(10130L)
                 .versionNo("2.0")
                 .processInstanceId("pi-1013")
                 .processDefinitionKey(DccControlledFileProcessDefinitionKeys.UPLOAD)

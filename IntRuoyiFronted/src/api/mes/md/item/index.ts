@@ -49,6 +49,10 @@ export const MdItemApi = {
     return await request.get({ url: `/mes/md/item/get?id=` + id })
   },
 
+  getItemNames: async (ids: number[]): Promise<Record<string, string>> => {
+    return await request.get({ url: `/mes/md/item/names`, params: { ids: ids.join(',') } })
+  },
+
   // 按产品编号查询物料产品
   getItemByCode: async (code: string) => {
     return await request.get({ url: `/mes/md/item/get-by-code`, params: { code } })

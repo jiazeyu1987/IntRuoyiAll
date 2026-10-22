@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.iocoder.yudao.module.system.api.workbench.WorkbenchQuerySql">
+<!-- Every source's count validates the entire business base, before filter/hidden.
+     NULL is a rejected source contract, never a substituted zero or distinct-only count. -->
+<sql id="exactCount">
+<bind name="queryValidated" value="q.validated()"/>
+SELECT CASE WHEN (SELECT COUNT(*)=COUNT(DISTINCT CAST(CONVERT(u.task_key USING utf8mb4) AS BINARY))
+ FROM (<include refid="${baseRef}"/>) u)
+ THEN COUNT(*) ELSE NULL END
+FROM (<include refid="cn.iocoder.yudao.module.system.api.workbench.WorkbenchQuerySql.normalizedProjection"><property name="baseRef" value="${baseRef}"/></include>) r
+<include refid="cn.iocoder.yudao.module.system.api.workbench.WorkbenchQuerySql.where"/>
+</sql>
+<sql id="normalizedProjection">
+<bind name="queryValidated" value="q.validated()"/>
+SELECT b.*, CASE WHEN due_at IS NULL THEN 1 ELSE 0 END AS due_group,
+CAST(COALESCE(due_at,'1970-01-01 00:00:00.000000') AS DATETIME(6)) AS due_sort,
+CAST(CASE WHEN due_at IS NULL THEN COALESCE(created_at,'1970-01-01 00:00:00.000000') ELSE '1970-01-01 00:00:00.000000' END AS DATETIME(6)) AS created_sort
+FROM (<include refid="${baseRef}"/>) b
+</sql>
+<sql id="sortText"><choose><when test="q.sortKey == 'taskType'">CAST(CONVERT(COALESCE(r.task_type, '') USING utf8mb4) AS BINARY)</when><when test="q.sortKey == 'source'">CAST(CONVERT(COALESCE(r.source, '') USING utf8mb4) AS BINARY)</when><when test="q.sortKey == 'detail'">CAST(CONVERT(COALESCE(r.detail, '') USING utf8mb4) AS BINARY)</when><when test="q.sortKey == 'statusLabel'">CAST(CONVERT(COALESCE(r.status_label, '') USING utf8mb4) AS BINARY)</when><otherwise><bind name="rejectedQuery" value="@cn.iocoder.yudao.module.system.api.workbench.SortContract@rejectQuery()"/></otherwise></choose></sql>
+<sql id="cursorText"><choose><when test="q.sortKey == 'taskType'">CAST(CONVERT(COALESCE(#{after.taskType}, '') USING utf8mb4) AS BINARY)</when><when test="q.sortKey == 'source'">CAST(CONVERT(COALESCE(#{after.source}, '') USING utf8mb4) AS BINARY)</when><when test="q.sortKey == 'detail'">CAST(CONVERT(COALESCE(#{after.detail}, '') USING utf8mb4) AS BINARY)</when><when test="q.sortKey == 'statusLabel'">CAST(CONVERT(COALESCE(#{after.statusLabel}, '') USING utf8mb4) AS BINARY)</when><otherwise><bind name="rejectedQuery" value="@cn.iocoder.yudao.module.system.api.workbench.SortContract@rejectQuery()"/></otherwise></choose></sql>
+<sql id="filterText"><choose><when test="q.filterField == 'source'">CAST(CONVERT(COALESCE(r.source, '') USING utf8mb4) AS BINARY)</when><when test="q.filterField == 'detail'">CAST(CONVERT(COALESCE(r.detail, '') USING utf8mb4) AS BINARY)</when><when test="q.filterField == 'statusLabel'">CAST(CONVERT(COALESCE(r.status_label, '') USING utf8mb4) AS BINARY)</when><otherwise><bind name="rejectedQuery" value="@cn.iocoder.yudao.module.system.api.workbench.SortContract@rejectQuery()"/></otherwise></choose></sql>
+<sql id="where">
+<where>
+<if test="q.taskType != null">AND CAST(CONVERT(r.task_type USING utf8mb4) AS BINARY)=CAST(CONVERT(#{q.taskType} USING utf8mb4) AS BINARY)</if>
+<if test="q.filterField != null and q.filterValue != ''">
+AND <choose><when test="q.filterOperator == 'eq'"><include refid="cn.iocoder.yudao.module.system.api.workbench.WorkbenchQuerySql.filterText"/>=CAST(CONVERT(#{q.filterValue} USING utf8mb4) AS BINARY)</when>
+<when test="q.filterOperator == 'contains'">LOCATE(CAST(CONVERT(#{q.filterValue} USING utf8mb4) AS BINARY),<include refid="cn.iocoder.yudao.module.system.api.workbench.WorkbenchQuerySql.filterText"/>) &gt; 0</when><otherwise><bind name="rejectedQuery" value="@cn.iocoder.yudao.module.system.api.workbench.SortContract@rejectQuery()"/></otherwise></choose>
+</if>
+<if test="q.visibilityFilter.partition != null">
+AND <if test="q.visibilityFilter.partition == 'visible'">NOT</if> EXISTS(
+ SELECT 1 FROM system_profile_workbench_task_visibility v
+ WHERE v.tenant_id=#{q.visibilityFilter.tenantId} AND v.user_id=#{q.visibilityFilter.userId} AND v.deleted=0
+ AND CAST(CONVERT(v.task_key USING utf8mb4) AS BINARY)=CAST(CONVERT(r.task_key USING utf8mb4) AS BINARY))
+</if>
+</where>
+</sql>
+<sql id="after">
+<if test="after != null">
+AND (
+<if test="q.sortKey != null">
+ <include refid="cn.iocoder.yudao.module.system.api.workbench.WorkbenchQuerySql.sortText"/> <choose><when test="q.sortOrder == 'desc'">&lt;</when><when test="q.sortOrder == 'asc'">&gt;</when><otherwise><bind name="rejectedQuery" value="@cn.iocoder.yudao.module.system.api.workbench.SortContract@rejectQuery()"/></otherwise></choose> <include refid="cn.iocoder.yudao.module.system.api.workbench.WorkbenchQuerySql.cursorText"/>
+ OR (<include refid="cn.iocoder.yudao.module.system.api.workbench.WorkbenchQuerySql.sortText"/>=<include refid="cn.iocoder.yudao.module.system.api.workbench.WorkbenchQuerySql.cursorText"/> AND
+</if>
+(
+ r.due_group &gt; CASE WHEN #{after.dueAt} IS NULL THEN 1 ELSE 0 END
+ OR (r.due_group=CASE WHEN #{after.dueAt} IS NULL THEN 1 ELSE 0 END
+ AND r.due_sort &gt; CAST(COALESCE(#{after.dueAt},'1970-01-01 00:00:00.000000') AS DATETIME(6)))
+ OR (r.due_group=CASE WHEN #{after.dueAt} IS NULL THEN 1 ELSE 0 END
+ AND r.due_sort=CAST(COALESCE(#{after.dueAt},'1970-01-01 00:00:00.000000') AS DATETIME(6))
+ AND r.created_sort &lt; CAST(CASE WHEN #{after.dueAt} IS NULL THEN COALESCE(#{after.createdAt},'1970-01-01 00:00:00.000000') ELSE '1970-01-01 00:00:00.000000' END AS DATETIME(6)))
+ OR (r.due_group=CASE WHEN #{after.dueAt} IS NULL THEN 1 ELSE 0 END
+ AND r.due_sort=CAST(COALESCE(#{after.dueAt},'1970-01-01 00:00:00.000000') AS DATETIME(6))
+ AND r.created_sort=CAST(CASE WHEN #{after.dueAt} IS NULL THEN COALESCE(#{after.createdAt},'1970-01-01 00:00:00.000000') ELSE '1970-01-01 00:00:00.000000' END AS DATETIME(6))
+ AND CAST(CONVERT(r.row_order_key USING utf8mb4) AS BINARY) &lt; CAST(CONVERT(#{after.rowOrderKey} USING utf8mb4) AS BINARY))
+)
+<if test="q.sortKey != null">)</if>
+)
+</if>
+</sql>
+<sql id="order">
+ORDER BY <if test="q.sortKey != null"><include refid="cn.iocoder.yudao.module.system.api.workbench.WorkbenchQuerySql.sortText"/> <choose><when test="q.sortOrder == 'desc'">DESC</when><when test="q.sortOrder == 'asc'">ASC</when><otherwise><bind name="rejectedQuery" value="@cn.iocoder.yudao.module.system.api.workbench.SortContract@rejectQuery()"/></otherwise></choose>,</if>
+r.due_group ASC,r.due_sort ASC,r.created_sort DESC,CAST(CONVERT(r.row_order_key USING utf8mb4) AS BINARY) DESC
+</sql>
+</mapper>

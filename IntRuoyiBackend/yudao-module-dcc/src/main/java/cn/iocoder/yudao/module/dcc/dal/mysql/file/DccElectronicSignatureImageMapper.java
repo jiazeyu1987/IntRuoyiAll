@@ -12,6 +12,18 @@ import java.util.List;
 @Mapper
 public interface DccElectronicSignatureImageMapper extends BaseMapperX<DccElectronicSignatureImageDO> {
 
+    default List<DccElectronicSignatureImageDO> selectIdentityHistoryForUpdate(Long userId) {
+        return selectList(new LambdaQueryWrapperX<DccElectronicSignatureImageDO>()
+                .eq(DccElectronicSignatureImageDO::getUserId, userId)
+                .orderByAsc(DccElectronicSignatureImageDO::getId).last("FOR UPDATE"));
+    }
+
+    default DccElectronicSignatureImageDO selectOwnedForUpdate(Long userId, Long imageId) {
+        return selectOne(new LambdaQueryWrapperX<DccElectronicSignatureImageDO>()
+                .eq(DccElectronicSignatureImageDO::getUserId, userId)
+                .eq(DccElectronicSignatureImageDO::getId, imageId).last("FOR UPDATE"));
+    }
+
     default DccElectronicSignatureImageDO selectActiveByUserId(Long userId) {
         return selectOne(new LambdaQueryWrapperX<DccElectronicSignatureImageDO>()
                 .eq(DccElectronicSignatureImageDO::getUserId, userId)

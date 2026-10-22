@@ -41,6 +41,8 @@ import java.util.Objects;
 @Service
 public class MesReleaseAuthoritativeContextPortImpl implements MesReleaseAuthoritativeContextPort {
 
+    @jakarta.annotation.Resource private cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesEdhrReleaseMaterialSelectionRegistry materialSelections;
+    @jakarta.annotation.Resource private cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrWorkTaskMapper approvalTasks;
     private final MesProEdhrReleaseTransactionMapper releaseTransactionMapper;
     private final MesProEdhrBatchExecutionMapper batchExecutionMapper;
     private final MesProcessPoolActiveOrderReleaseApplicationMapper applicationMapper;
@@ -80,6 +82,16 @@ public class MesReleaseAuthoritativeContextPortImpl implements MesReleaseAuthori
 
     @Override
     public MesReleaseFinalizationEvidence require(MesReleaseFinalizationCommand command) {
+        return requireInternal(command, command == null || command.isMaterialGateRequired());
+    }
+
+    @Override
+    public MesReleaseFinalizationEvidence requireWithoutMaterialGate(MesReleaseFinalizationCommand command) {
+        return requireInternal(command, false);
+    }
+
+    private MesReleaseFinalizationEvidence requireInternal(
+            MesReleaseFinalizationCommand command, boolean materialGateRequired) {
         if (command == null || command.getReleaseTransactionId() == null) {
             throw blocker(null, "releaseTransactionId is required");
         }
@@ -87,31 +99,34 @@ public class MesReleaseAuthoritativeContextPortImpl implements MesReleaseAuthori
                 .selectById(command.getReleaseTransactionId());
         List<MesProcessPoolActiveOrderReleaseApplicationDO> applications = applicationMapper
                 .selectListByReleaseTransactionId(command.getReleaseTransactionId());
-        if (transaction == null || applications.size() != 1) {
-            throw blocker(null, "release transaction must have exactly one authoritative release application");
+        if (transaction == null || applications.size() > 1
+                || !MesProEdhrReleaseServiceImpl.STATUS_PENDING_APPROVAL.equals(transaction.getReleaseStatus())) {
+            throw blocker(null, "release transaction must uniquely identify a pending release");
         }
-        MesProcessPoolActiveOrderReleaseApplicationDO application = applications.get(0);
-        if (!MesReleaseFlowStatus.MANAGER_RELEASE_PENDING.equals(application.getApplicationStatus())
-                || !MesProEdhrReleaseServiceImpl.STATUS_PENDING_APPROVAL.equals(transaction.getReleaseStatus())
-                || !Objects.equals(transaction.getBatchExecutionId(), application.getBatchExecutionId())
-                || application.getBatchExecutionId() == null) {
-            throw blocker(application, "release application and transaction are not pending manager approval");
+        MesProcessPoolActiveOrderReleaseApplicationDO application = applications.isEmpty() ? null : applications.get(0);
+        if (application != null) {
+            if (!MesReleaseFlowStatus.MANAGER_RELEASE_PENDING.equals(application.getApplicationStatus())
+                    || !Objects.equals(transaction.getBatchExecutionId(), application.getBatchExecutionId())) {
+                throw blocker(application, "release application and transaction are not pending manager approval");
+            }
+            requireMatches(command.getReleaseApplicationId(), application.getId(), application, "releaseApplicationId mismatch");
+            requireMatches(command.getWorkTaskId(), application.getReleaseApprovalWorkTaskId(), application, "workTaskId mismatch");
+        } else if (command.getReleaseApplicationId() != null) {
+            throw blocker(null, "GENERAL release cannot identify a managed application");
         }
-        requireMatches(command.getReleaseApplicationId(), application.getId(), application,
-                "releaseApplicationId does not match the authoritative application");
-        requireMatches(command.getBatchExecutionId(), application.getBatchExecutionId(), application,
-                "batchExecutionId does not match the authoritative application");
-        requireMatches(command.getWorkTaskId(), application.getReleaseApprovalWorkTaskId(), application,
-                "workTaskId does not match the frozen manager task");
-
-        Long batchExecutionId = application.getBatchExecutionId();
+        requireMatches(command.getBatchExecutionId(), transaction.getBatchExecutionId(), application, "batchExecutionId mismatch");
+        Long batchExecutionId = transaction.getBatchExecutionId();
         Long tenantId = TenantContextHolder.getRequiredTenantId();
         MesProEdhrBatchExecutionDO batch = batchExecutionMapper.selectById(batchExecutionId);
+        boolean activeOrderFormalFacts = application != null ? application.getActiveOrderId() != null : command.getActiveOrderId() != null;
+        boolean batchProvisioningReady = batch != null
+                && "BATCH_READY".equals(batch.getProvisioningStatus())
+                && (activeOrderFormalFacts
+                || Objects.equals(batch.getStatus(), MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_READY_TO_CLOSE)
+                || Objects.equals(batch.getStatus(), MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_CLOSED));
         if (batch == null || batch.getStatus() == null
                 || (batch.getTenantId() != null && !Objects.equals(batch.getTenantId(), tenantId))
-                || !"BATCH_READY".equals(batch.getProvisioningStatus())
-                || !(Objects.equals(batch.getStatus(), MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_READY_TO_CLOSE)
-                || Objects.equals(batch.getStatus(), MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_CLOSED))) {
+                || !batchProvisioningReady) {
             throw blocker(application, "flow 6 batch execution is not BATCH_READY");
         }
         String entryType = command.getEntryType() != null ? command.getEntryType()
@@ -122,10 +137,10 @@ public class MesReleaseAuthoritativeContextPortImpl implements MesReleaseAuthori
         List<MesProEdhrBatchExecutionOriginDO> origins;
         if (isBlank(entryType)) {
             origins = allOrigins.stream()
-                    .filter(origin -> application.getActiveOrderId() == null
+                    .filter(origin -> (application == null ? command.getActiveOrderId() : application.getActiveOrderId()) == null
                             ? origin.getActiveOrderId() == null
                             : Objects.equals(origin.getEntryType(), "ACTIVE_ORDER_COMPLETION")
-                            && Objects.equals(origin.getActiveOrderId(), application.getActiveOrderId()))
+                            && Objects.equals(origin.getActiveOrderId(), application == null ? command.getActiveOrderId() : application.getActiveOrderId()))
                     .toList();
             if (origins.size() != 1) {
                 throw blocker(application, "formal Flow 7 origin must uniquely identify the release entry");
@@ -138,7 +153,7 @@ public class MesReleaseAuthoritativeContextPortImpl implements MesReleaseAuthori
             origins = allOrigins.stream()
                 .filter(origin -> Objects.equals(origin.getEntryType(), persistedEntryType))
                 .filter(origin -> "ACTIVE_ORDER_COMPLETION".equals(persistedEntryType)
-                        ? Objects.equals(origin.getActiveOrderId(), application.getActiveOrderId())
+                        ? Objects.equals(origin.getActiveOrderId(), application == null ? command.getActiveOrderId() : application.getActiveOrderId())
                         : origin.getActiveOrderId() == null)
                 .toList();
         }
@@ -150,8 +165,23 @@ public class MesReleaseAuthoritativeContextPortImpl implements MesReleaseAuthori
                 new MesProEdhrBatchTraceSourcePrecheckCommand().setBatchExecutionId(batchExecutionId));
         requireTracePrecheck(source, origin, batchExecutionId, application);
 
-        MesReleaseMaterialGateReceipt gateReceipt = loadMaterialGateReceipt(
-                tenantId, batchExecutionId, command.getMaterialGateReceiptId(), source.getSourceSnapshotHash(), application);
+        if (command.getWorkTaskId() == null) throw blocker(application, "formal approval task is required");
+        var task = approvalTasks.selectById(command.getWorkTaskId());
+        var selected = materialSelections.requireCurrentVerified(tenantId, transaction, task, application != null);
+        if(selected.activeOrderFact()!=null) {
+            if(application==null || !Objects.equals(application.getId(),selected.activeOrderFact().applicationId())
+                    || !"ACTIVE_ORDER_COMPLETION".equals(persistedEntryType) || materialGateRequired
+                    || command.getMaterialGateReceiptId()!=null || command.getMaterialGateManifestHash()!=null)
+                throw blocker(application,"active-order facts cannot be substituted for a four-material assignment");
+        } else {
+            if (command.getMaterialGateReceiptId() != null && !Objects.equals(command.getMaterialGateReceiptId(), selected.materialFact().ownerReceipt().getReceiptId()))
+                throw blocker(application, "material receipt does not match the immutable approval assignment");
+            command.setMaterialGateReceiptId(selected.materialFact().ownerReceipt().getReceiptId());
+        }
+        MesReleaseMaterialGateReceipt gateReceipt = materialGateRequired
+                ? loadMaterialGateReceipt(tenantId, batchExecutionId, command.getMaterialGateReceiptId(),
+                source.getSourceSnapshotHash(), application)
+                : null;
         MesReleaseFinalizationEvidence evidence = new MesReleaseFinalizationEvidence()
                 .setMaterialGateReceipt(gateReceipt);
         if ("ACTIVE_ORDER_COMPLETION".equals(persistedEntryType)) {
@@ -160,8 +190,8 @@ public class MesReleaseAuthoritativeContextPortImpl implements MesReleaseAuthori
                     || origin.getCompletionVersion() == null || isBlank(origin.getSourceSnapshotHash())) {
                 throw blocker(application, "formal active-order completion source is incomplete");
             }
-            MesFlow6CompletionBackfillReceipt flow6Receipt = completionReceiptPort.getByReceiptId(
-                    origin.getCompletionBackfillReceiptId(), tenantId);
+            MesFlow6CompletionBackfillReceipt flow6Receipt = completionReceiptPort.requireVerifiedByReceiptId(
+                    origin.getCompletionBackfillReceiptId(), tenantId).receipt();
             requireFlow6Receipt(origin, flow6Receipt, application);
             requireBackfills(origin, application);
             List<MesBatchExecutionPickListSource> pickListSources = resolvePickListSources(
@@ -214,7 +244,7 @@ public class MesReleaseAuthoritativeContextPortImpl implements MesReleaseAuthori
                 || source.getOriginLinkId() == null || isBlank(source.getTraceLinkHash())
                 || isBlank(source.getSourceSnapshotHash()) || isBlank(source.getRelationStatus())
                 || !("CAPTURED".equalsIgnoreCase(source.getRelationStatus())
-                || "READY".equalsIgnoreCase(source.getRelationStatus()))
+                || "BOUND".equalsIgnoreCase(source.getRelationStatus()))
                 || "NOT_APPLICABLE".equalsIgnoreCase(source.getRelationStatus())
                 || !Objects.equals(source.getSourceSnapshotHash(), origin.getSourceSnapshotHash())) {
             throw blocker(application, "Flow 7 Origin/TraceLink/Manifest mapping is not ready");
@@ -229,9 +259,9 @@ public class MesReleaseAuthoritativeContextPortImpl implements MesReleaseAuthori
                           MesFlow6CompletionBackfillReceipt flow6Receipt,
                           CompletionBackfillReceipt completion,
                           MesReleaseMaterialGateReceipt gate) {
-        setOrRequire(command.getReleaseApplicationId(), application.getId(), application,
+        setOrRequire(command.getReleaseApplicationId(), application == null ? null : application.getId(), application,
                 value -> command.setReleaseApplicationId(value), "releaseApplicationId");
-        setOrRequire(command.getBatchExecutionId(), application.getBatchExecutionId(), application,
+        setOrRequire(command.getBatchExecutionId(), transaction.getBatchExecutionId(), application,
                 value -> command.setBatchExecutionId(value), "batchExecutionId");
         setOrRequire(command.getWorkOrderId(), origin.getWorkOrderId(), application,
                 value -> command.setWorkOrderId(value), "workOrderId");
@@ -261,12 +291,14 @@ public class MesReleaseAuthoritativeContextPortImpl implements MesReleaseAuthori
                 value -> command.setDualProgressCompleted(value), "dualProgressCompleted");
         setOrRequire(command.getThreeBackfillsSucceeded(), true, application,
                 value -> command.setThreeBackfillsSucceeded(value), "threeBackfillsSucceeded");
-        setOrRequire(command.getMaterialGateReceiptId(), gate.getReceiptId(), application,
-                value -> command.setMaterialGateReceiptId(value), "materialGateReceiptId");
-        setOrRequire(command.getMaterialGateManifestHash(), gate.getManifestHash(), application,
-                value -> command.setMaterialGateManifestHash(value), "materialGateManifestHash");
-        setOrRequire(command.getMaterialGateSourceSnapshotHash(), gate.getSourceSnapshotHash(), application,
-                value -> command.setMaterialGateSourceSnapshotHash(value), "materialGateSourceSnapshotHash");
+        if (gate != null) {
+            setOrRequire(command.getMaterialGateReceiptId(), gate.getReceiptId(), application,
+                    value -> command.setMaterialGateReceiptId(value), "materialGateReceiptId");
+            setOrRequire(command.getMaterialGateManifestHash(), gate.getManifestHash(), application,
+                    value -> command.setMaterialGateManifestHash(value), "materialGateManifestHash");
+            setOrRequire(command.getMaterialGateSourceSnapshotHash(), gate.getSourceSnapshotHash(), application,
+                    value -> command.setMaterialGateSourceSnapshotHash(value), "materialGateSourceSnapshotHash");
+        }
         setOrRequire(command.getExpectedVersion(), transaction.getVersion(), application,
                 value -> command.setExpectedVersion(value), "expectedVersion");
     }
@@ -277,9 +309,9 @@ public class MesReleaseAuthoritativeContextPortImpl implements MesReleaseAuthori
                                     MesProEdhrBatchExecutionOriginDO origin,
                                     IndependentBatchPrerequisiteReceipt receipt,
                                     MesReleaseMaterialGateReceipt gate) {
-        setOrRequire(command.getReleaseApplicationId(), application.getId(), application,
+        setOrRequire(command.getReleaseApplicationId(), application == null ? null : application.getId(), application,
                 value -> command.setReleaseApplicationId(value), "releaseApplicationId");
-        setOrRequire(command.getBatchExecutionId(), application.getBatchExecutionId(), application,
+        setOrRequire(command.getBatchExecutionId(), transaction.getBatchExecutionId(), application,
                 value -> command.setBatchExecutionId(value), "batchExecutionId");
         setOrRequire(command.getWorkOrderId(), origin.getWorkOrderId(), application,
                 value -> command.setWorkOrderId(value), "workOrderId");
@@ -293,12 +325,14 @@ public class MesReleaseAuthoritativeContextPortImpl implements MesReleaseAuthori
                 value -> command.setSourceSnapshotHash(value), "sourceSnapshotHash");
         setOrRequire(command.getIndependentPrerequisiteReceiptId(), receipt.getReceiptId(), application,
                 value -> command.setIndependentPrerequisiteReceiptId(value), "independentPrerequisiteReceiptId");
-        setOrRequire(command.getMaterialGateReceiptId(), gate.getReceiptId(), application,
-                value -> command.setMaterialGateReceiptId(value), "materialGateReceiptId");
-        setOrRequire(command.getMaterialGateManifestHash(), gate.getManifestHash(), application,
-                value -> command.setMaterialGateManifestHash(value), "materialGateManifestHash");
-        setOrRequire(command.getMaterialGateSourceSnapshotHash(), gate.getSourceSnapshotHash(), application,
-                value -> command.setMaterialGateSourceSnapshotHash(value), "materialGateSourceSnapshotHash");
+        if (gate != null) {
+            setOrRequire(command.getMaterialGateReceiptId(), gate.getReceiptId(), application,
+                    value -> command.setMaterialGateReceiptId(value), "materialGateReceiptId");
+            setOrRequire(command.getMaterialGateManifestHash(), gate.getManifestHash(), application,
+                    value -> command.setMaterialGateManifestHash(value), "materialGateManifestHash");
+            setOrRequire(command.getMaterialGateSourceSnapshotHash(), gate.getSourceSnapshotHash(), application,
+                    value -> command.setMaterialGateSourceSnapshotHash(value), "materialGateSourceSnapshotHash");
+        }
         setOrRequire(command.getExpectedVersion(), transaction.getVersion(), application,
                 value -> command.setExpectedVersion(value), "expectedVersion");
     }

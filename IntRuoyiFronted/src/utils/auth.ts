@@ -1,8 +1,12 @@
 import { useCache, CACHE_KEY } from '@/hooks/web/useCache'
 import { TokenType } from '@/api/login/types'
 import { decrypt } from '@/utils/jsencrypt'
+import { readonly, ref } from 'vue'
 
 const { wsCache } = useCache()
+const contextRevision = ref(0)
+// Neutral observable lifetime; auth never depends on a business consumer.
+export const authContextRevision = readonly(contextRevision)
 
 const AccessTokenKey = 'ACCESS_TOKEN'
 const RefreshTokenKey = 'REFRESH_TOKEN'
@@ -34,9 +38,10 @@ export const getRefreshToken = () => {
 export const setToken = (token: TokenType) => {
   clearAuthenticatedUserCache()
   setRefreshedToken(token)
+  contextRevision.value += 1
 }
 
-// 同一登录会话刷新令牌时保留已认证身份及代访范围。
+// 同一会话续期只更新令牌，保留当前身份、菜单和访问租户。
 export const setRefreshedToken = (token: TokenType) => {
   wsCache.set(RefreshTokenKey, token.refreshToken)
   wsCache.set(AccessTokenKey, token.accessToken)
@@ -46,6 +51,7 @@ export const setRefreshedToken = (token: TokenType) => {
 export const removeToken = () => {
   wsCache.delete(AccessTokenKey)
   wsCache.delete(RefreshTokenKey)
+  contextRevision.value += 1
 }
 
 /** 格式化token（jwt格式） */
@@ -227,11 +233,15 @@ export const getTenantId = () => {
 }
 
 export const setTenantId = (tenantId: number) => {
+  const changed = getTenantId() !== tenantId
   wsCache.set(CACHE_KEY.TenantId, tenantId)
+  if (changed) contextRevision.value += 1
 }
 
 export const removeTenantId = () => {
+  const changed = getTenantId() != null
   wsCache.delete(CACHE_KEY.TenantId)
+  if (changed) contextRevision.value += 1
 }
 
 export const getVisitTenantId = () => {
@@ -239,5 +249,7 @@ export const getVisitTenantId = () => {
 }
 
 export const setVisitTenantId = (visitTenantId: number) => {
+  const changed = getVisitTenantId() !== visitTenantId
   wsCache.set(CACHE_KEY.VisitTenantId, visitTenantId)
+  if (changed) contextRevision.value += 1
 }

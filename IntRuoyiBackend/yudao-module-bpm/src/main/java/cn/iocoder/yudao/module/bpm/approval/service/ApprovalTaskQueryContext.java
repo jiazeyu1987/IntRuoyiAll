@@ -2,14 +2,12 @@ package cn.iocoder.yudao.module.bpm.approval.service;
 
 import cn.iocoder.yudao.module.bpm.approval.core.ApprovalModuleCode;
 import cn.iocoder.yudao.module.bpm.approval.core.ApprovalTaskViewType;
-import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.experimental.Accessors;
 
 @Data
 @NoArgsConstructor
-@AllArgsConstructor
 @Accessors(chain = true)
 public class ApprovalTaskQueryContext {
 
@@ -26,6 +24,18 @@ public class ApprovalTaskQueryContext {
     private Integer pageSize;
 
     private boolean globalView;
+
+    private ApprovalQueryWindow window;
+
+    public ApprovalTaskQueryContext(Long user, ApprovalTaskViewType view, ApprovalModuleCode module,
+            String keyword, Integer page, Integer size, boolean global) {
+        this.loginUserId=user; this.viewType=view; this.moduleCode=module; this.keyword=keyword;
+        this.pageNo=page; this.pageSize=size; this.globalView=global;
+    }
+
+    public ApprovalTaskQueryContext withWindow(ApprovalQueryWindow value) {
+        return new ApprovalTaskQueryContext(loginUserId,viewType,moduleCode,keyword,pageNo,pageSize,globalView).setWindow(value);
+    }
 
     public static ApprovalTaskQueryContext of(Long loginUserId, ApprovalTaskViewType viewType,
                                               ApprovalModuleCode moduleCode, String keyword,

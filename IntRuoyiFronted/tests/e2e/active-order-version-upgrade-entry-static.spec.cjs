@@ -35,8 +35,8 @@ assert(
   pageSource.includes('data-team-leader-active-order-version-upgrade') &&
     pageSource.includes("v-hasPermi=\"['mes:pro-process-pool-team-leader:version-upgrade']\"") &&
     pageSource.includes('handleActiveOrderVersionUpgrade(row)') &&
-    pageSource.includes('>升级<'),
-  'active-order row operations must expose an Upgrade button wired to the version-upgrade permission and flow'
+    /<el-dropdown-item\b[^>]*data-team-leader-active-order-version-upgrade[^>]*>[\s\S]*?升级\s*<\/el-dropdown-item>/.test(pageSource),
+  'active-order row menu must expose an Upgrade item wired to the version-upgrade permission and flow'
 )
 assert(
   pageSource.includes('版本升级重启') &&

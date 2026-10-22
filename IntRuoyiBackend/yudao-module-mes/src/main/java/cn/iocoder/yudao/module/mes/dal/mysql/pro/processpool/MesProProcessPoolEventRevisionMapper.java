@@ -28,6 +28,14 @@ public interface MesProProcessPoolEventRevisionMapper extends BaseMapperX<MesPro
                 .orderByDesc(MesProProcessPoolEventRevisionDO::getId));
     }
 
+    default List<MesProProcessPoolEventRevisionDO> selectListByEventIdForUpdate(Long eventId) {
+        return selectList(new LambdaQueryWrapperX<MesProProcessPoolEventRevisionDO>()
+                .eq(MesProProcessPoolEventRevisionDO::getEventId, eventId)
+                .eq(MesProProcessPoolEventRevisionDO::getRevisionStatus, MesProProcessPoolEventRevisionDO.STATUS_EFFECTIVE)
+                .orderByDesc(MesProProcessPoolEventRevisionDO::getServerRevisionTime)
+                .orderByDesc(MesProProcessPoolEventRevisionDO::getId).last("FOR UPDATE"));
+    }
+
     Long selectProductionReportRevisionLogCount(
             @Param("reqVO") MesProProductionReportRevisionLogPageReqVO reqVO,
             @Param("employeeUserIds") List<Long> employeeUserIds);

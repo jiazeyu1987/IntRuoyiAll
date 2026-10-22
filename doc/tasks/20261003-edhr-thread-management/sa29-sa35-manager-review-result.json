@@ -1,0 +1,127 @@
+{
+  "observedAt": "2026-10-06T02:01:52.121443+08:00",
+  "status": "PASS_MANAGER_REVIEW_AND_INDEPENDENT_COMBINATION_REGRESSION",
+  "issues": [
+    {
+      "issue": "SA29",
+      "review": "PASS",
+      "reasoning": "Initial required approval guards the authoritative source and positive CURRENT consumers before signature or writes, even with unchanged quantities; established retained-row and exact replay paths remain distinct.",
+      "integration": "PENDING_EXPLICIT_SCOPED_LOCAL_AUTHORIZATION",
+      "integrated": true
+    },
+    {
+      "issue": "SA30",
+      "review": "PASS",
+      "reasoning": "Report rows precede FIFO insertion; retention joins allocation ID, active-cycle ID and formal work/route/process identity. Actual H2 writer tests exercise new-cycle 20 to 30 to 10 to zero to 20 while old40 remains immutable. All consumers and migration prerequisites audited; no history inference.",
+      "integration": "PENDING_EXPLICIT_SCOPED_LOCAL_AUTHORIZATION",
+      "integrated": true
+    },
+    {
+      "issue": "SA31",
+      "review": "PASS",
+      "reasoning": "Authoritative work-order/NCR guard precedes physical file creation/deletion, relation and audit. Normal approved-PQC upload and actual concession_release thaw remain allowed; reads use separate scope.",
+      "integration": "PENDING_EXPLICIT_SCOPED_LOCAL_AUTHORIZATION",
+      "integrated": true
+    },
+    {
+      "issue": "SA32",
+      "review": "PASS",
+      "reasoning": "Terminal detail validates actual QA closure identity and source, or real BATCH_VOID evidence with tenant query. Real archive entry uses detail reader, retains original PQC signature and writer-specific approved versus pending behavior. Final persisted closure and archived-read tests re-reviewed.",
+      "integration": "PENDING_EXPLICIT_SCOPED_LOCAL_AUTHORIZATION",
+      "integrated": true
+    },
+    {
+      "issue": "SA33",
+      "review": "PASS",
+      "reasoning": "Vue handlers clone opened raw displayed context. Controller/DTO/API carry the formal status separately from UI PENDING. Ledger/event lock checks hash/revision/review identity/round/allocation version before signature; replay binds same context. Actual correction-to-timeline-to-review matrix preserved.",
+      "integration": "PENDING_EXPLICIT_SCOPED_LOCAL_AUTHORIZATION",
+      "integrated": true
+    },
+    {
+      "issue": "SA34",
+      "review": "PASS",
+      "reasoning": "Each shared consumer validates its own authoritative frozen route/version/process and cycle, allowing cross-route same-MES-process sharing. Positive CURRENT consumers still retain lifecycle, receipt, release and NCR guards.",
+      "integration": "PENDING_EXPLICIT_SCOPED_LOCAL_AUTHORIZATION",
+      "integrated": true
+    },
+    {
+      "issue": "SA35",
+      "review": "PASS",
+      "reasoning": "New SYSTEM_USER business actions enforce the actual employee current CREATE after exact read-only replay and before new signature or material/feedback/event/audit. PROFILE qualification domain and historical read/return contracts preserved.",
+      "integration": "PENDING_EXPLICIT_SCOPED_LOCAL_AUTHORIZATION",
+      "integrated": true
+    }
+  ],
+  "managerBackend": {
+    "tests": 2619,
+    "classes": 122,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "actualRun": {
+      "exitCode": 0,
+      "selectors": 122,
+      "finishedAt": "2026-10-06T01:57:17.4646156+08:00",
+      "startedAt": "2026-10-06T01:51:22.5803625+08:00"
+    },
+    "evidenceSha256": "BB2D5C466DA04304AA78D2B5CB083AE9E14E3C951FBE1DB17A64FCD5EADF8746",
+    "logSha256": "D164774161FC8500CD3A77AC802A6BCB97806DB8E1F09B6B3BB29004DE9AB45A"
+  },
+  "managerFrontend": {
+    "behaviorCases": 64,
+    "syntaxComponents": 2,
+    "additionalInterimCases": 10,
+    "evidenceSha256": "1E9A432A8A6DB06867AAA63C3E08E94F03C1E1F94A70B5B948650CDB40105AEF",
+    "e2e": false
+  },
+  "sources": {
+    "combinedSourceInputs": 343,
+    "taskDeltas": 42,
+    "fullBuildInputs": 14667,
+    "sourceManifestSha256": "2EFA27A1933DAA8082CE2F66D08D77C7A1D0FE9B6BE6653A9EB1F15F11230C3C",
+    "protectedPreviousReviewAssets": 2144,
+    "protectedRootDocuments": 1
+  },
+  "mainHEAD": "0c8d6cc195f3d9dbb53a01b89fcc6c3f6cd8173a",
+  "integrated": false,
+  "issuesClosed": 0,
+  "goalComplete": false,
+  "gitCommitAuthorized": false,
+  "databaseWrites": false,
+  "serviceActions": false,
+  "e2e": false,
+  "wholeRepositoryAllTests": false,
+  "nonSemanticIncrement": {
+    "status": "PASS_EXACT_SINGLE_SPACE_INCREMENT_ACTUAL_DIRECTED_TEST_AND_IDENTICAL_BYTECODE",
+    "observedAt": "2026-10-06T02:27:38.800917+08:00",
+    "path": "IntRuoyiBackend/yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesReportAllocationConcurrencyTest.java",
+    "beforeSha256": "EEF7CDD64860569CCFA05D56CB253B022ABBEE059D92BDD79ECDA9A451FAA3F1",
+    "afterSha256": "15707182861B4846F930119966BAA7BB821357882EC1F1ADAAB534AACB805C6E",
+    "incrementSealSha256": "BA4963FDF8DB372C742EF5A539635C0E99CC529C5B4BC021778856610B534281",
+    "incrementSealFiles": 34,
+    "fullActualSourceCount": 14667,
+    "onlyOneNonSemanticChangedSource": true,
+    "actualFreshTargetedTests": 1,
+    "actualLogSha256": "670525F745A53059C6638DB4505C75AEA42CE53D9B5656E84AB1B430116C5C4F",
+    "actualXmlSha256": "61227B7CFFA8CB8145E1F8C328602EB52BD1ECE7694E28F1A57D29F00BE1A95F",
+    "identicalCompiledClassSha256": "6F5CBE0A518D8038E225F9D42F204CA35C3AC67FBC8C72A9653C5780E29F3A5A",
+    "workerAndManagerOriginalCompiledClassIdentical": true,
+    "originalIndependentFullRegression": {
+      "classes": 122,
+      "tests": 2619,
+      "rawSourceScope": "Before one-space increment",
+      "evidenceSha256": "BB2D5C466DA04304AA78D2B5CB083AE9E14E3C951FBE1DB17A64FCD5EADF8746"
+    },
+    "newRawFullSuiteRerun": false,
+    "frontendUnchanged": true,
+    "managerAuthoredBusinessCode": false,
+    "gitCommit": false,
+    "e2e": false
+  },
+  "integrationAuthorization": "APPROVED_42_IMPLEMENTATION_5_RECORDS_LOCAL_ONLY",
+  "mainIntegrated": true,
+  "localIntegrationEvidence": "sa29-sa35-local-integration-receipt.json",
+  "mainIntegrationCommit": "82297d8d4f810a903689a03b87dabad525339749",
+  "workerImplementationCommit": "b876124a822935161847e1a9266660f45675c9d8",
+  "freshPostIntegrationAuditPending": true
+}

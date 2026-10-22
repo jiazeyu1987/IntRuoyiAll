@@ -250,6 +250,7 @@ class ShowroomAssignmentWorkflowTest extends BaseDbUnitTest {
         var leader = new cn.iocoder.yudao.module.system.dal.dataobject.user.AdminUserDO();
         leader.setId(200L);
         leader.setUsername("leader");
+        leader.setCanonicalUsername("leader");
         leader.setPassword("pwd");
         leader.setNickname("部门负责人");
         leader.setDeptId(10L);
@@ -260,6 +261,7 @@ class ShowroomAssignmentWorkflowTest extends BaseDbUnitTest {
         var publicityApprover = new cn.iocoder.yudao.module.system.dal.dataobject.user.AdminUserDO();
         publicityApprover.setId(300L);
         publicityApprover.setUsername("publicity");
+        publicityApprover.setCanonicalUsername("publicity");
         publicityApprover.setPassword("pwd");
         publicityApprover.setNickname("企宣审批人");
         publicityApprover.setDeptId(20L);
@@ -270,6 +272,7 @@ class ShowroomAssignmentWorkflowTest extends BaseDbUnitTest {
         var assignee = new cn.iocoder.yudao.module.system.dal.dataobject.user.AdminUserDO();
         assignee.setId(700L);
         assignee.setUsername("editor");
+        assignee.setCanonicalUsername("editor");
         assignee.setPassword("pwd");
         assignee.setNickname("编辑");
         assignee.setDeptId(assignAssigneeDept ? 10L : null);

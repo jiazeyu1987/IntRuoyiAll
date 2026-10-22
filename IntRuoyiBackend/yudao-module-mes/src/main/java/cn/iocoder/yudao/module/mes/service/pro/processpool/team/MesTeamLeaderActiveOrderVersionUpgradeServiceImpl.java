@@ -30,6 +30,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteVersionMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesProWorkOrderMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationVersionMapper;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrNonconformanceReviewService;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import org.springframework.beans.factory.ObjectProvider;
@@ -102,6 +103,7 @@ public class MesTeamLeaderActiveOrderVersionUpgradeServiceImpl
     private final MesQaInspectionRegulationMapper regulationMapper;
     private final MesQaInspectionRegulationVersionMapper regulationVersionMapper;
     private final ObjectProvider<BusinessApprovalOrchestrator> approvalOrchestratorProvider;
+    private final MesProEdhrNonconformanceReviewService nonconformanceReviewService;
 
     public MesTeamLeaderActiveOrderVersionUpgradeServiceImpl(
             MesProcessPoolActiveOrderMapper activeOrderMapper,
@@ -119,7 +121,8 @@ public class MesTeamLeaderActiveOrderVersionUpgradeServiceImpl
             MesProRouteVersionMapper routeVersionMapper,
             MesQaInspectionRegulationMapper regulationMapper,
             MesQaInspectionRegulationVersionMapper regulationVersionMapper,
-            ObjectProvider<BusinessApprovalOrchestrator> approvalOrchestratorProvider) {
+            ObjectProvider<BusinessApprovalOrchestrator> approvalOrchestratorProvider,
+            MesProEdhrNonconformanceReviewService nonconformanceReviewService) {
         this.activeOrderMapper = activeOrderMapper;
         this.versionUpgradeRequestMapper = versionUpgradeRequestMapper;
         this.pickListBindingMapper = pickListBindingMapper;
@@ -136,11 +139,14 @@ public class MesTeamLeaderActiveOrderVersionUpgradeServiceImpl
         this.regulationMapper = regulationMapper;
         this.regulationVersionMapper = regulationVersionMapper;
         this.approvalOrchestratorProvider = approvalOrchestratorProvider;
+        this.nonconformanceReviewService = nonconformanceReviewService;
     }
 
     @Override
     public MesTeamLeaderActiveOrderVersionUpgradePreview preview(Long leaderUserId, Long activeOrderId) {
         MesProcessPoolActiveOrderDO activeOrder = requireOwnedActiveOrder(leaderUserId, activeOrderId);
+        nonconformanceReviewService.ensureWorkOrderNotFrozen(
+                activeOrder.getWorkOrderId(), "活跃订单版本升级预览");
         MesProWorkOrderDO workOrder = activeOrder.getWorkOrderId() == null
                 ? null : workOrderMapper.selectById(activeOrder.getWorkOrderId());
         MesProRouteDO route = activeOrder.getRouteId() == null ? null : routeMapper.selectById(activeOrder.getRouteId());
@@ -203,6 +209,11 @@ public class MesTeamLeaderActiveOrderVersionUpgradeServiceImpl
         if (idempotentRequest != null) {
             return toResult(idempotentRequest);
         }
+        MesProcessPoolActiveOrderDO lockedActiveOrder = activeOrderMapper.selectByIdForUpdate(command.getActiveOrderId());
+        if (lockedActiveOrder == null || !Objects.equals(lockedActiveOrder.getLeaderUserId(), leaderUserId)
+                || !STATUS_ACTIVE.equals(lockedActiveOrder.getActiveStatus())) {
+            throw exception(PRO_PROCESS_POOL_ACTIVE_ORDER_NOT_EXISTS, command.getActiveOrderId());
+        }
         MesTeamLeaderActiveOrderVersionUpgradePreview preview = preview(leaderUserId, command.getActiveOrderId());
         if (!Boolean.TRUE.equals(preview.getSubmittable())) {
             throw exception(PRO_PROCESS_POOL_ACTIVE_ORDER_VERSION_UPGRADE_TARGET_REQUIRED,
@@ -214,12 +225,9 @@ public class MesTeamLeaderActiveOrderVersionUpgradeServiceImpl
             throw exception(PRO_PROCESS_POOL_ACTIVE_ORDER_VERSION_UPGRADE_ONGOING_EXISTS,
                     command.getActiveOrderId(), ongoingRequest.getRequestCode());
         }
-        MesProcessPoolActiveOrderDO lockedActiveOrder = activeOrderMapper.selectByIdForUpdate(command.getActiveOrderId());
-        if (lockedActiveOrder == null || !Objects.equals(lockedActiveOrder.getLeaderUserId(), leaderUserId)
-                || !STATUS_ACTIVE.equals(lockedActiveOrder.getActiveStatus())) {
-            throw exception(PRO_PROCESS_POOL_ACTIVE_ORDER_NOT_EXISTS, command.getActiveOrderId());
-        }
         requireNoReleaseApplication(lockedActiveOrder.getId());
+        nonconformanceReviewService.ensureWorkOrderNotFrozen(
+                lockedActiveOrder.getWorkOrderId(), "活跃订单版本升级提交");
         LocalDateTime now = LocalDateTime.now();
         int frozen = activeOrderMapper.freezeForVersionUpgrade(
                 lockedActiveOrder.getId(), lockedActiveOrder.getVersion(), leaderUserId, now);
@@ -322,6 +330,8 @@ public class MesTeamLeaderActiveOrderVersionUpgradeServiceImpl
             throw exception(PRO_PROCESS_POOL_ACTIVE_ORDER_VERSION_UPGRADE_APPLY_CONFLICT,
                     request.getId(), request.getSourceActiveOrderId());
         }
+        nonconformanceReviewService.ensureWorkOrderNotFrozen(
+                sourceActiveOrder.getWorkOrderId(), "活跃订单版本升级审批应用");
         MesProWorkOrderDO workOrder = workOrderMapper.selectById(request.getSourceWorkOrderId());
         if (workOrder == null) {
             throw exception(PRO_WORK_ORDER_NOT_EXISTS);

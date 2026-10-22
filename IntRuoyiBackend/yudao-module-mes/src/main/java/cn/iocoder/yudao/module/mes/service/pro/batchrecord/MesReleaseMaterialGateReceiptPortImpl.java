@@ -23,7 +23,10 @@ import java.util.stream.Collectors;
 public class MesReleaseMaterialGateReceiptPortImpl
         implements MesReleaseMaterialGateReceiptPort, MesReleaseMaterialGateReceiptWriter {
 
+    @jakarta.annotation.Resource private cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionMapper batchExecutionMapper;
     private final MesProEdhrMaterialGateReceiptMapper mapper;
+    @jakarta.annotation.Resource private MesEdhrSourceCreationAuditWriter creationWriter;
+    @jakarta.annotation.Resource private MesEdhrSourceCreationVerificationService creationVerifier;
 
     public MesReleaseMaterialGateReceiptPortImpl(MesProEdhrMaterialGateReceiptMapper mapper) {
         this.mapper = mapper;
@@ -36,6 +39,12 @@ public class MesReleaseMaterialGateReceiptPortImpl
                                                        MesProEdhrFourMaterialGateResult result,
                                                        Long issuedBy) {
         requirePersistInput(tenantId, batchExecutionId, sourceSnapshotHash, result, issuedBy);
+        creationWriter.acquireLedgerLock();
+        if (!Objects.equals(tenantId, cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId()))
+            throw new IllegalStateException("MATERIAL_GATE_TENANT_MISMATCH");
+        var lockedBatch = batchExecutionMapper.selectByTenantIdAndIdForUpdate(tenantId, batchExecutionId);
+        if (lockedBatch == null || !Objects.equals(lockedBatch.getTenantId(), tenantId))
+            throw new IllegalStateException("MATERIAL_GATE_BATCH_REQUIRED");
         String materialTypesJson = JSON.toJSONString(new TreeSet<>(MesReleaseMaterialGateReceipt.REQUIRED_MATERIAL_TYPES));
         String versionSetHash = materialVersionSetHash(result.materials());
         MesProEdhrMaterialGateReceiptDO current = mapper.selectLatestByBatchExecutionId(tenantId, batchExecutionId);
@@ -46,9 +55,12 @@ public class MesReleaseMaterialGateReceiptPortImpl
             if (!Objects.equals(current.getReceiptHash(), receiptHash(current))) {
                 throw new IllegalStateException("MATERIAL_GATE_RECEIPT_HASH_FAILED");
             }
+            creationVerifier.requireMaterialCreation(tenantId, batchExecutionId, current.getReceiptId());
             return toCore(current, materialTypesJson);
         }
-        int version = current == null || current.getVersion() == null ? 1 : current.getVersion() + 1;
+        if (current != null && (current.getVersion() == null || current.getVersion() <= 0))
+            throw new IllegalStateException("MATERIAL_GATE_RECEIPT_VERSION_INVALID");
+        int version = current == null ? 1 : Math.addExact(current.getVersion(), 1);
         String receiptId = "MATERIALS-" + batchExecutionId + "-" + version;
         String auditEventId = "FLOW8-MATERIALS-" + batchExecutionId + "-" + version;
         MesProEdhrMaterialGateReceiptDO row = new MesProEdhrMaterialGateReceiptDO()
@@ -64,10 +76,19 @@ public class MesReleaseMaterialGateReceiptPortImpl
                 .setAuditEventId(auditEventId)
                 .setVersion(version);
         row.setReceiptHash(receiptHash(row));
-        if (mapper.insert(row) != 1 || row.getId() == null) {
+        if (mapper.insert(row) != 1 || row.getId() == null || row.getId() <= 0) {
             throw new IllegalStateException("MATERIAL_GATE_RECEIPT_PERSIST_FAILED");
         }
+        creationWriter.material(row);
         return toCore(row, materialTypesJson);
+    }
+
+    @Override
+    public MesEdhrVerifiedMaterialGateFact getCreationVerifiedByReceiptId(Long tenantId, Long batchExecutionId,
+            String receiptId, String sourceSnapshotHash) {
+        MesReleaseMaterialGateReceipt receipt = getVerifiedByReceiptId(tenantId, batchExecutionId, receiptId, sourceSnapshotHash);
+        if (receipt == null) throw new IllegalStateException("MATERIAL_GATE_RECEIPT_REQUIRED");
+        return new MesEdhrVerifiedMaterialGateFact(receipt, creationVerifier.requireMaterialCreation(tenantId, batchExecutionId, receiptId));
     }
 
     @Override
@@ -102,6 +123,7 @@ public class MesReleaseMaterialGateReceiptPortImpl
             return null;
         }
         MesReleaseMaterialGateReceipt receipt = toCore(row, row.getMaterialTypeKeysJson());
+        creationVerifier.requireMaterialCreation(tenantId, batchExecutionId, row.getReceiptId());
         return receipt.isCompleteFor(batchExecutionId) ? receipt : null;
     }
 

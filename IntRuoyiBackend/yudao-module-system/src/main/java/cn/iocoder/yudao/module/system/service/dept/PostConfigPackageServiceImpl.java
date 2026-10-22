@@ -22,6 +22,9 @@ import static cn.iocoder.yudao.module.system.enums.ErrorCodeConstants.CONFIG_PAC
 @Service
 public class PostConfigPackageServiceImpl implements PostConfigPackageService {
 
+    @Resource
+    private cn.iocoder.yudao.module.system.service.permission.GlobalApprovalAuthorityCoordinator approvalAuthority;
+
     private static final String PACKAGE_VERSION = "1";
 
     @Resource
@@ -43,6 +46,7 @@ public class PostConfigPackageServiceImpl implements PostConfigPackageService {
     public void importPackage(byte[] content) {
         PostConfigPackage payload = parsePayload(content);
         validatePayload(payload);
+        var authority = approvalAuthority.lockGlobalRoleTenants();
         for (PostConfigItem item : payload.getPosts()) {
             validateItem(item);
             PostDO existing = postMapper.selectByCode(item.getCode());
@@ -53,15 +57,16 @@ public class PostConfigPackageServiceImpl implements PostConfigPackageService {
                 post.setSort(item.getSort());
                 post.setStatus(item.getStatus());
                 post.setRemark(item.getRemark());
-                postMapper.insert(post);
+                if (postMapper.insert(post) != 1) throw new IllegalStateException("APPROVAL_POST_IMPORT_ROW_COUNT");
                 continue;
             }
             existing.setName(item.getName());
             existing.setSort(item.getSort());
             existing.setStatus(item.getStatus());
             existing.setRemark(item.getRemark());
-            postMapper.updateById(existing);
+            if (postMapper.updateById(existing) != 1) throw new IllegalStateException("APPROVAL_POST_IMPORT_ROW_COUNT");
         }
+        approvalAuthority.incrementLockedTenants(authority);
     }
 
     private PostConfigPackage parsePayload(byte[] content) {

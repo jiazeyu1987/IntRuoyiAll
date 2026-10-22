@@ -35,6 +35,12 @@ assert.match(
 
 assert.match(
   service,
+  /setReleaseEvents\(buildReviewTimelineReleaseEvents\(releaseTransaction\)\)/,
+  '历史 review-timeline 必须返回上市放行事务事件。'
+)
+
+assert.match(
+  service,
   /private List<EdhrBatchExecutionReviewTimelineRespVO\.SignatureCellMarker>\s+resolveSignatureCellMarkers\([\s\S]*boolean persistedExecutionOnly\)[\s\S]*extractSignatureCellMarkers\(execution\.getExecutionSnapshotJson\(\)\)[\s\S]*extractSignatureCellMarkers\(execution\.getSheetLayoutJson\(\)\)[\s\S]*if \(!layoutMarkers\.isEmpty\(\) \|\| persistedExecutionOnly\)\s*\{[\s\S]*return layoutMarkers;[\s\S]*jimuReportGateway\.getReportJson/,
   '终态历史执行预览应只用已持久化执行快照/布局解析签名单元格，不应因当前 Jimu 报表缺失阻断历史。'
 )

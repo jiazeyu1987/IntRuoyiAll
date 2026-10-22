@@ -141,12 +141,24 @@ public interface MesProFeedbackMapper extends BaseMapperX<MesProFeedbackDO> {
                 .orderByAsc(MesProFeedbackDO::getId));
     }
 
+    default List<MesProFeedbackDO> selectUnifiedFormalApprovalSources(Collection<Long> feedbackIds, String keyword) {
+        if (feedbackIds.isEmpty()) return Collections.emptyList();
+        LambdaQueryWrapperX<MesProFeedbackDO> query = new LambdaQueryWrapperX<>();
+        query.apply("tenant_id = {0}", cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId());
+        return selectList(query
+                .in(MesProFeedbackDO::getId, feedbackIds)
+                .likeIfPresent(MesProFeedbackDO::getCode, keyword)
+                .orderByDesc(MesProFeedbackDO::getId));
+    }
+
     default List<MesProFeedbackDO> selectUnifiedApprovalList(Long approveUserId, Long feedbackUserId,
                                                              Collection<Integer> statuses, String keyword) {
         if (statuses == null || statuses.isEmpty()) {
             return Collections.emptyList();
         }
-        return selectList(new LambdaQueryWrapperX<MesProFeedbackDO>()
+        LambdaQueryWrapperX<MesProFeedbackDO> query = new LambdaQueryWrapperX<>();
+        query.apply("tenant_id = {0}", cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId());
+        return selectList(query
                 .eqIfPresent(MesProFeedbackDO::getApproveUserId, approveUserId)
                 .eqIfPresent(MesProFeedbackDO::getFeedbackUserId, feedbackUserId)
                 .in(MesProFeedbackDO::getStatus, statuses)

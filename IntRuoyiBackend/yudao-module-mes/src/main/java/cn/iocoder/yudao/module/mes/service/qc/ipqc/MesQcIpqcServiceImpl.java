@@ -129,6 +129,7 @@ public class MesQcIpqcServiceImpl implements MesQcIpqcService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void updateIpqc(MesQcIpqcSaveReqVO updateReqVO) {
         // 1.1 校验存在 + 草稿状态
         validateIpqcStatusPrepare(updateReqVO.getId());
@@ -154,7 +155,7 @@ public class MesQcIpqcServiceImpl implements MesQcIpqcService {
         MesMdWorkstationDO workstation = workstationService.validateWorkstationExists(reqVO.getWorkstationId());
         adminUserApi.validateUser(reqVO.getInspectorUserId());
         // 校验工单存在
-        MesProWorkOrderDO workOrder = workOrderService.validateWorkOrderConfirmed(reqVO.getWorkOrderId());
+        MesProWorkOrderDO workOrder = workOrderService.validateWorkOrderConfirmedForUpdate(reqVO.getWorkOrderId());
         if (reqVO.getItemId() != null && ObjUtil.notEqual(reqVO.getItemId(), workOrder.getProductId())) {
             throw exception(PRO_WORK_ORDER_PRODUCT_MISMATCH);
         }

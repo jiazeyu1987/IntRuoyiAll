@@ -157,7 +157,7 @@ public class MesProEdhrFourMaterialGateServiceImpl implements MesProEdhrFourMate
                 || source.getOriginLinkId() == null || blank(source.getTraceLinkHash())
                 || blank(source.getSourceSnapshotHash()) || blank(source.getRelationStatus())
                 || !("CAPTURED".equalsIgnoreCase(source.getRelationStatus())
-                || "READY".equalsIgnoreCase(source.getRelationStatus()))) {
+                || "BOUND".equalsIgnoreCase(source.getRelationStatus()))) {
             throw exception(TRACE_CAPTURE_BLOCKED, TRACE_MAPPING_BLOCKED);
         }
         return source;

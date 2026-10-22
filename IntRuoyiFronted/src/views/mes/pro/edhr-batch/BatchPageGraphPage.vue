@@ -1,7 +1,6 @@
 <template>
   <ContentWrap>
     <section class="edhr-page-graph-page" data-edhr-page-graph>
-      <EdhrBatchRecordTabs active-tab="pageGraph" />
 
       <header class="edhr-page-graph-page__header">
         <div>
@@ -127,7 +126,6 @@ import {
   type Edge,
   type Node
 } from '@vue-flow/core'
-import EdhrBatchRecordTabs from './EdhrBatchRecordTabs.vue'
 
 defineOptions({ name: 'MesProEdhrBatchPageGraph' })
 

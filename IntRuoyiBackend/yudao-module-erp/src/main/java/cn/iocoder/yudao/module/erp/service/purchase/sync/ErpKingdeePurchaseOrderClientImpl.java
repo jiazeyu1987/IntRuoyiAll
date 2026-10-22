@@ -58,7 +58,19 @@ public class ErpKingdeePurchaseOrderClientImpl implements ErpKingdeePurchaseOrde
             "FQty",
             "FPrice",
             "FEntryTaxRate",
-            "FEntryNote");
+            "FEntryNote",
+            "FUnitId.FName",
+            "FEntryTaxAmount",
+            "FEntryAmount",
+            "FAllAmount",
+            "FAllDisCount",
+            "FDeposit",
+            "FBillAmount",
+            "FBillTaxAmount",
+            "FBillAllAmount",
+            "FPOOrderEntry_FEntryID",
+            "FPriceUnitId.FName",
+            "FPriceUnitQty");
     private static final String INCREMENTAL_FIELD_KEYS = FIELD_KEYS + ",FModifyDate";
 
     private static final int INDEX_FID = 0;
@@ -75,9 +87,9 @@ public class ErpKingdeePurchaseOrderClientImpl implements ErpKingdeePurchaseOrde
     private static final int INDEX_PRICE = 12;
     private static final int INDEX_TAX_RATE = 13;
     private static final int INDEX_LINE_REMARK = 14;
-    private static final int FIELD_COUNT = 15;
-    private static final int INDEX_SOURCE_MODIFY_TIME = 15;
-    private static final int INCREMENTAL_FIELD_COUNT = 16;
+    private static final int FIELD_COUNT = 27;
+    private static final int INDEX_SOURCE_MODIFY_TIME = 27;
+    private static final int INCREMENTAL_FIELD_COUNT = 28;
 
     @Qualifier("erpKingdeeRestTemplate")
     private final RestTemplate restTemplate;
@@ -86,7 +98,17 @@ public class ErpKingdeePurchaseOrderClientImpl implements ErpKingdeePurchaseOrde
     public List<ErpKingdeePurchaseOrder> fetchPurchaseOrders(ErpKingdeeProperties properties) {
         properties.validatePurchaseOrderSyncConfig();
         String cookieHeader = login(properties);
-        JsonNode queryResponse = executeBillQuery(properties, cookieHeader);
+        com.fasterxml.jackson.databind.node.ArrayNode queryResponse = com.fasterxml.jackson.databind.node.JsonNodeFactory.instance.arrayNode();
+        int offset = 0;
+        int pageLimit = Math.min(PAGE_LIMIT, properties.getPurchaseOrder().getQueryLimit());
+        while (true) {
+            JsonNode page = executeBillQuery(properties, cookieHeader, offset);
+            if (!page.isArray()) { throw exception(KINGDEE_PURCHASE_ORDER_RESPONSE_INVALID, "purchase query is not an array"); }
+            if (page.isEmpty()) { break; }
+            page.forEach(queryResponse::add);
+            offset += page.size();
+            if (page.size() < pageLimit) { break; }
+        }
         if (!queryResponse.isArray()) {
             throw exception(KINGDEE_PURCHASE_ORDER_RESPONSE_INVALID, "ExecuteBillQuery response is not an array");
         }
@@ -100,10 +122,9 @@ public class ErpKingdeePurchaseOrderClientImpl implements ErpKingdeePurchaseOrde
         properties.validatePurchaseOrderSyncConfig();
         String cookieHeader = login(properties);
         int startRow = 0;
-        int remaining = properties.getPurchaseOrder().getQueryLimit();
+        int pageLimit = Math.min(PAGE_LIMIT, properties.getPurchaseOrder().getQueryLimit());
         List<JsonNode> allRows = new ArrayList<>();
-        while (remaining > 0) {
-            int pageLimit = Math.min(PAGE_LIMIT, remaining);
+        while (true) {
             JsonNode rows = executeIncrementalBillQuery(properties, cookieHeader, windowStart, windowEnd, startRow,
                     pageLimit);
             if (!rows.isArray()) {
@@ -117,7 +138,6 @@ public class ErpKingdeePurchaseOrderClientImpl implements ErpKingdeePurchaseOrde
                 break;
             }
             startRow += rows.size();
-            remaining -= rows.size();
         }
         return rowsToOrders(JsonUtils.parseTree(JsonUtils.toJsonString(allRows)), true);
     }
@@ -165,8 +185,9 @@ public class ErpKingdeePurchaseOrderClientImpl implements ErpKingdeePurchaseOrde
         return CollUtil.join(CollUtil.map(cookies, cookie -> StrUtil.subBefore(cookie, ";", false), true), "; ");
     }
 
-    private JsonNode executeBillQuery(ErpKingdeeProperties properties, String cookieHeader) {
+    private JsonNode executeBillQuery(ErpKingdeeProperties properties, String cookieHeader, int offset) {
         Map<String, Object> query = buildPurchaseOrderQuery(properties);
+        query.put("StartRow", offset);
         MultiValueMap<String, String> body = new LinkedMultiValueMap<>();
         body.add("data", JsonUtils.toJsonString(query));
         ResponseEntity<String> response = restTemplate.postForEntity(
@@ -200,7 +221,9 @@ public class ErpKingdeePurchaseOrderClientImpl implements ErpKingdeePurchaseOrde
                 .limit(limit)
                 .build();
         MultiValueMap<String, String> body = new LinkedMultiValueMap<>();
-        body.add("data", JsonUtils.toJsonString(spec.toQuery(windowStart, windowEnd)));
+        var query = spec.toQuery(windowStart, windowEnd);
+        query.put("OrderString", "FModifyDate ASC,FID ASC,FPOOrderEntry_FEntryID ASC");
+        body.add("data", JsonUtils.toJsonString(query));
         ResponseEntity<String> response = restTemplate.postForEntity(
                 buildServiceUrl(properties.getBaseUrl(), QUERY_SERVICE),
                 new HttpEntity<>(body, buildFormHeaders(cookieHeader)),
@@ -251,9 +274,9 @@ public class ErpKingdeePurchaseOrderClientImpl implements ErpKingdeePurchaseOrde
         query.put("FormId", ErpKingdeePurchaseOrder.FORM_ID);
         query.put("FieldKeys", FIELD_KEYS);
         query.put("FilterString", filterString);
-        query.put("OrderString", "FID DESC");
+        query.put("OrderString", "FID DESC,FPOOrderEntry_FEntryID ASC");
         query.put("StartRow", 0);
-        query.put("Limit", purchaseOrder.getQueryLimit());
+        query.put("Limit", Math.min(PAGE_LIMIT, purchaseOrder.getQueryLimit()));
         return query;
     }
 
@@ -289,6 +312,11 @@ public class ErpKingdeePurchaseOrderClientImpl implements ErpKingdeePurchaseOrde
         order.setCancelStatus(optionalText(row, INDEX_CANCEL_STATUS));
         order.setSupplierNumber(requiredText(row, INDEX_SUPPLIER_NUMBER, "FSupplierId.FNumber"));
         order.setSupplierName(optionalText(row, INDEX_SUPPLIER_NAME));
+        order.setDiscountAmount(parseDecimal(requiredText(row, 19, "FAllDisCount"), "FAllDisCount"));
+        order.setDepositAmount(parseDecimal(requiredText(row, 20, "FDeposit"), "FDeposit"));
+        order.setTotalProductAmount(parseDecimal(requiredText(row, 21, "FBillAmount"), "FBillAmount"));
+        order.setTotalTaxAmount(parseDecimal(requiredText(row, 22, "FBillTaxAmount"), "FBillTaxAmount"));
+        order.setTotalAmount(parseDecimal(requiredText(row, 23, "FBillAllAmount"), "FBillAllAmount"));
         return order;
     }
 
@@ -300,6 +328,13 @@ public class ErpKingdeePurchaseOrderClientImpl implements ErpKingdeePurchaseOrde
         line.setPrice(parseDecimal(requiredText(row, INDEX_PRICE, "FPrice"), "FPrice"));
         line.setTaxPercent(parseDecimal(requiredText(row, INDEX_TAX_RATE, "FEntryTaxRate"), "FEntryTaxRate"));
         line.setRemark(optionalText(row, INDEX_LINE_REMARK));
+        line.setUnitName(requiredText(row, 15, "FUnitId.FName"));
+        line.setPriceUnitName(requiredText(row, 25, "FPriceUnitId.FName"));
+        line.setPriceUnitQuantity(parseDecimal(requiredText(row, 26, "FPriceUnitQty"), "FPriceUnitQty"));
+        line.setTaxAmount(parseDecimal(requiredText(row, 16, "FEntryTaxAmount"), "FEntryTaxAmount"));
+        line.setNetAmount(parseDecimal(requiredText(row, 17, "FEntryAmount"), "FEntryAmount"));
+        line.setEntryId(requiredText(row, 24, "ERP entry ID"));
+        line.setTotalAmount(parseDecimal(requiredText(row, 18, "FAllAmount"), "FAllAmount"));
         return line;
     }
 

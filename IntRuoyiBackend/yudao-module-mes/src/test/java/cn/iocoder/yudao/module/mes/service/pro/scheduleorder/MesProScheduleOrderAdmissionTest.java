@@ -163,7 +163,7 @@ class MesProScheduleOrderAdmissionTest {
         reqVO.setWorkOrderId(100L);
         reqVO.setPromiseDate(LocalDate.of(2026, 6, 30));
 
-        when(workOrderMapper.selectById(100L)).thenReturn(workOrder);
+        when(workOrderMapper.selectByIdForUpdate(100L)).thenReturn(workOrder);
         when(scheduleOrderMapper.selectListByWorkOrderIds(List.of(100L))).thenReturn(List.of());
         when(routeProductMapper.selectByItemId(20L)).thenReturn(null);
 
@@ -192,7 +192,7 @@ class MesProScheduleOrderAdmissionTest {
         reqVO.setWorkOrderId(101L);
         reqVO.setPromiseDate(LocalDate.of(2026, 7, 1));
 
-        when(workOrderMapper.selectById(101L)).thenReturn(workOrder);
+        when(workOrderMapper.selectByIdForUpdate(101L)).thenReturn(workOrder);
         when(scheduleOrderMapper.selectListByWorkOrderIds(List.of(101L))).thenReturn(List.of());
         when(routeProductMapper.selectByItemId(21L)).thenReturn(routeProduct);
         when(routeMapper.selectById(31L)).thenReturn(route);
@@ -224,7 +224,7 @@ class MesProScheduleOrderAdmissionTest {
         reqVO.setWorkOrderId(102L);
         reqVO.setPromiseDate(LocalDate.of(2026, 7, 2));
 
-        when(workOrderMapper.selectById(102L)).thenReturn(workOrder);
+        when(workOrderMapper.selectByIdForUpdate(102L)).thenReturn(workOrder);
         when(scheduleOrderMapper.selectListByWorkOrderIds(List.of(102L))).thenReturn(List.of());
         when(scheduleOrderMapper.selectMaxCodeByPrefix(anyString())).thenReturn(null);
         when(routeProductMapper.selectByItemId(22L)).thenReturn(routeProduct);
@@ -295,7 +295,7 @@ class MesProScheduleOrderAdmissionTest {
         reqVO.setWorkOrderId(103L);
         reqVO.setPromiseDate(LocalDate.of(2026, 7, 3));
 
-        when(workOrderMapper.selectById(103L)).thenReturn(workOrder);
+        when(workOrderMapper.selectByIdForUpdate(103L)).thenReturn(workOrder);
         when(scheduleOrderMapper.selectListByWorkOrderIds(List.of(103L))).thenReturn(List.of());
         when(routeProductMapper.selectByItemId(23L)).thenReturn(routeProduct);
         when(routeMapper.selectById(33L)).thenReturn(route);
@@ -326,7 +326,7 @@ class MesProScheduleOrderAdmissionTest {
         reqVO.setWorkOrderId(104L);
         reqVO.setPromiseDate(LocalDate.of(2026, 7, 4));
 
-        when(workOrderMapper.selectById(104L)).thenReturn(workOrder);
+        when(workOrderMapper.selectByIdForUpdate(104L)).thenReturn(workOrder);
         when(scheduleOrderMapper.selectListByWorkOrderIds(List.of(104L))).thenReturn(List.of());
         when(routeProductMapper.selectByItemId(24L)).thenReturn(routeProduct);
         when(routeMapper.selectById(34L)).thenReturn(route);
@@ -375,7 +375,7 @@ class MesProScheduleOrderAdmissionTest {
         reqVO.setWorkOrderId(106L);
         reqVO.setPromiseDate(LocalDate.of(2026, 7, 6));
 
-        when(workOrderMapper.selectById(106L)).thenReturn(workOrder);
+        when(workOrderMapper.selectByIdForUpdate(106L)).thenReturn(workOrder);
         when(scheduleOrderMapper.selectListByWorkOrderIds(List.of(106L))).thenReturn(List.of());
         when(routeProductMapper.selectByItemId(26L)).thenReturn(routeProduct);
         when(routeMapper.selectById(36L)).thenReturn(route);
@@ -490,7 +490,7 @@ class MesProScheduleOrderAdmissionTest {
         reqVO.setWorkOrderId(105L);
         reqVO.setPromiseDate(LocalDate.of(2026, 7, 5));
 
-        when(workOrderMapper.selectById(105L)).thenReturn(workOrder);
+        when(workOrderMapper.selectByIdForUpdate(105L)).thenReturn(workOrder);
         when(scheduleOrderMapper.selectListByWorkOrderIds(List.of(105L))).thenReturn(List.of());
         when(routeProductMapper.selectByItemId(25L)).thenReturn(routeProduct);
         when(routeMapper.selectById(35L)).thenReturn(route);

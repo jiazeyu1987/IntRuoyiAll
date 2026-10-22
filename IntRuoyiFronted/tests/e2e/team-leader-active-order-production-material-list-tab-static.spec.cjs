@@ -6,24 +6,35 @@ const root = path.resolve(__dirname, '../..')
 const read = (file) => fs.readFileSync(path.join(root, file), 'utf8')
 
 const detailPage = read('src/views/mes/pro/processpool/ActiveOrderSubmissionDetailPage.vue')
-const detailPanel = read('src/views/mes/pro/processpool/components/ActiveOrderSubmissionDetailPanel.vue')
-const erpApi = read('src/api/erp/production/material-list/index.ts')
+const detailPanel = read(
+  'src/views/mes/pro/processpool/components/ActiveOrderSubmissionDetailPanel.vue'
+)
+const teamLeaderApi = read('src/api/mes/pro/processpool/teamLeader.ts')
 const productionMaterialListStart = detailPanel.indexOf('label="生产用料清单"')
 const workOrderTabStart = detailPanel.indexOf('label="生产工单"', productionMaterialListStart)
 assert.ok(productionMaterialListStart >= 0, '详情面板必须新增“生产用料清单”主 tab。')
-assert.ok(workOrderTabStart > productionMaterialListStart, '生产用料清单 tab 必须位于生产工单 tab 之前。')
+assert.ok(
+  workOrderTabStart > productionMaterialListStart,
+  '生产用料清单 tab 必须位于生产工单 tab 之前。'
+)
 const productionMaterialListTab = detailPanel.slice(productionMaterialListStart, workOrderTabStart)
 
 assert.match(
-  erpApi,
-  /getPage:\s*async[\s\S]*\/erp\/production-material-list\/page/,
-  '前端必须使用 ERP 生产用料清单正式分页接口。'
+  teamLeaderApi,
+  /getTeamLeaderActiveOrderProductionMaterialLists\s*=\s*async[\s\S]*request\.get<ErpProductionMaterialListVO\[\]>\([\s\S]*\/mes\/pro\/process-pool\/team-leader\/active-order\/production-material-lists[\s\S]*params:\s*\{\s*activeOrderId\s*\}/,
+  '前端必须使用按活跃订单限定归属的 MES 正式生产用料清单只读接口。'
 )
 
 assert.match(
   detailPage,
-  /ErpProductionMaterialListApi[\s\S]*loadProductionMaterialLists[\s\S]*productionOrderNo[\s\S]*getPage/,
-  '详情页必须按当前显示的生产订单编号查询生产用料清单。'
+  /loadProductionMaterialLists\s*=\s*async\s*\(activeOrderId:[\s\S]*getTeamLeaderActiveOrderProductionMaterialLists\(activeOrderId\)/,
+  '详情页必须以当前活跃订单身份查询完整正式用料清单，由服务端解析工单归属。'
+)
+
+assert.doesNotMatch(
+  detailPage,
+  /ErpProductionMaterialListApi|productionOrderNo/,
+  '详情页不得继续依赖 ERP 通用分页查询或客户端工单编码。'
 )
 
 assert.match(
@@ -67,7 +78,11 @@ for (const label of [
   '审核人',
   '审核日期'
 ]) {
-  assert.match(productionMaterialListTab, new RegExp(label), `生产用料清单纸质样式必须显示 ${label}。`)
+  assert.match(
+    productionMaterialListTab,
+    new RegExp(label),
+    `生产用料清单纸质样式必须显示 ${label}。`
+  )
 }
 
 assert.doesNotMatch(

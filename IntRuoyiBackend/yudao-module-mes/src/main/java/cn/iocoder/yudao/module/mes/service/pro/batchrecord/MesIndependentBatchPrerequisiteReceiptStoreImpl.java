@@ -19,6 +19,11 @@ public class MesIndependentBatchPrerequisiteReceiptStoreImpl implements MesIndep
     @Override public MesIndependentBatchPrerequisiteReceiptDO selectByIdempotencyKey(Long tenantId, String entryType, String idempotencyKey) {
         return mapper.selectByIdempotencyKey(tenantId, entryType, idempotencyKey);
     }
-    @Override public void insert(MesIndependentBatchPrerequisiteReceiptDO data) { mapper.insert(data); }
-    @Override public void update(MesIndependentBatchPrerequisiteReceiptDO data) { mapper.updateById(data); }
+    @Override public void insert(MesIndependentBatchPrerequisiteReceiptDO data) {
+        if (mapper.insert(data) != 1 || data.getId() == null || data.getId() <= 0)
+            throw new IllegalStateException("INDEPENDENT_RECEIPT_INSERT_FAILED");
+    }
+    @Override public void update(MesIndependentBatchPrerequisiteReceiptDO data) {
+        if (mapper.updateById(data) != 1) throw new IllegalStateException("INDEPENDENT_RECEIPT_UPDATE_FAILED");
+    }
 }

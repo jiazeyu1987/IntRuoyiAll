@@ -72,6 +72,7 @@ class MesFrontlineActiveOrderControllerTest {
                         .setRouteVersionId(2101L)
                         .setRouteVersionNo("V14")
                         .setRouteName("生产路线")
+                        .setBusinessStatus("ACTIVE")
                         .setJoinedAt(LocalDateTime.of(2026, 8, 12, 9, 0))));
 
         CommonResult<List<MesFrontlineActiveOrderRespVO>> response = controller.getProductionActiveOrders();
@@ -86,12 +87,45 @@ class MesFrontlineActiveOrderControllerTest {
     }
 
     @Test
+    void getProductionActiveOrders_excludesNonFillableBusinessStatusRows() {
+        when(contextService.resolveResponsibleLeaderUserId(null)).thenReturn(7001L);
+        when(activeOrderService.listActiveOrders(7001L)).thenReturn(List.of(
+                new MesTeamLeaderActiveOrderRow()
+                        .setId(1009200176L)
+                        .setWorkOrderId(1001L)
+                        .setWorkOrderCode("WO-COMPLETED-001")
+                        .setProductId(3001L)
+                        .setProductName("已完工产品")
+                        .setQuantity(new BigDecimal("100"))
+                        .setRouteId(2001L)
+                        .setRouteVersionId(2101L)
+                        .setBusinessStatus("COMPLETED"),
+                new MesTeamLeaderActiveOrderRow()
+                        .setId(5002L)
+                        .setWorkOrderId(1002L)
+                        .setWorkOrderCode("WO-ACTIVE-001")
+                        .setProductId(3002L)
+                        .setProductName("可填写产品")
+                        .setQuantity(new BigDecimal("80"))
+                        .setRouteId(2002L)
+                        .setRouteVersionId(2102L)
+                        .setBusinessStatus("ACTIVE")));
+
+        CommonResult<List<MesFrontlineActiveOrderRespVO>> response = controller.getProductionActiveOrders();
+
+        assertEquals(1, response.getData().size());
+        assertEquals(5002L, response.getData().get(0).getActiveOrderId());
+        assertEquals("WO-ACTIVE-001", response.getData().get(0).getWorkOrderCode());
+    }
+
+    @Test
     void getProductionActiveOrderProcesses_returnsFrozenProcessSnapshot() {
         when(contextService.resolveResponsibleLeaderUserId(null)).thenReturn(7001L);
         when(activeOrderProcessService.listProcesses(7001L, 48L)).thenReturn(List.of(
                 new MesFrontlineActiveOrderProcess(48L, 2001L, 501L, "R-OLD", "旧版路线",
                         980645L, 3001L, "P-OLD", "旧版精洗", 10, 4001L, "WS-OLD", "旧版工位",
-                        new BigDecimal("1.500000"), new BigDecimal("150.000000"))));
+                        new BigDecimal("1.500000"), new BigDecimal("150.000000"),
+                        new BigDecimal("45.000000"), Boolean.FALSE)));
 
         CommonResult<List<MesFrontlineActiveOrderProcessRespVO>> response =
                 controller.getProductionActiveOrderProcesses(48L);
@@ -102,6 +136,7 @@ class MesFrontlineActiveOrderControllerTest {
         assertEquals(980645L, process.getRouteProcessId());
         assertEquals(new BigDecimal("1.500000"), process.getProductionQuantityFactor());
         assertEquals(new BigDecimal("150.000000"), process.getTargetQuantity());
+        assertEquals(new BigDecimal("45.000000"), process.getSubmittedQuantity());
         assertEquals(4001L, process.getWorkstationId());
     }
 }

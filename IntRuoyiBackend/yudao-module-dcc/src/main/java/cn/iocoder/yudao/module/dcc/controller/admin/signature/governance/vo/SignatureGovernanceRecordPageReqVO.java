@@ -24,6 +24,9 @@ public class SignatureGovernanceRecordPageReqVO extends PageParam {
     @Schema(description = "业务记录关键字", example = "BR-20260714")
     private String keyword;
 
+    @Schema(description = "电子签名记录 ID（按来源记录 ID 精确筛选）", example = "9001")
+    private String signatureId;
+
     @Schema(description = "签名人用户编号", example = "101")
     private Long signerUserId;
 

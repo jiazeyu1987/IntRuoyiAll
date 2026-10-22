@@ -8,17 +8,17 @@
         </p>
       </div>
       <div class="showroom-assignment-workbench__actions">
-        <el-select v-model="filters.targetType" clearable placeholder="目标类型">
+        <el-select v-model="filters.targetType" :disabled="routeAssignmentId !== undefined" clearable placeholder="目标类型">
           <el-option label="公司" value="COMPANY" />
           <el-option label="产品" value="PRODUCT" />
         </el-select>
-        <el-select v-model="filters.status" clearable placeholder="状态">
+        <el-select v-model="filters.status" :disabled="routeAssignmentId !== undefined" clearable placeholder="状态">
           <el-option label="待处理" value="OPEN" />
           <el-option label="草稿" value="DRAFT" />
           <el-option label="待提交" value="PENDING" />
           <el-option label="已完成" value="COMPLETED" />
         </el-select>
-        <el-select v-model="filters.assigneeUserId" clearable filterable placeholder="编辑人">
+        <el-select v-model="filters.assigneeUserId" :disabled="routeAssignmentId !== undefined" clearable filterable placeholder="编辑人">
           <el-option
             v-for="user in userOptions"
             :key="user.id"
@@ -48,6 +48,7 @@
       <div class="showroom-assignment-workbench__list-shell">
         <div class="showroom-assignment-workbench__section-title">指派记录</div>
         <el-table
+          ref="assignmentTableRef"
           v-loading="loading"
           :data="filteredRows"
           highlight-current-row
@@ -75,7 +76,7 @@
         </el-table>
       </div>
 
-      <div class="showroom-assignment-workbench__detail-shell">
+      <div v-loading="detailLoading" class="showroom-assignment-workbench__detail-shell">
         <div class="showroom-assignment-workbench__detail-header">
           <div>
             <div class="showroom-assignment-workbench__section-title">自动提交</div>
@@ -87,7 +88,10 @@
           <el-button type="primary" @click="dialogVisible = true">新建指派</el-button>
         </div>
 
-        <el-empty v-if="!activeDetail" description="请选择一条指派记录查看详情" />
+        <el-empty
+          v-if="!activeDetail"
+          :description="loadError ? '指派详情加载失败，请刷新重试' : detailLoading ? '正在加载指派详情' : '请选择一条指派记录查看详情'"
+        />
 
         <template v-else>
           <div class="showroom-assignment-workbench__summary">
@@ -183,6 +187,7 @@ const props = withDefaults(
   defineProps<{
     companyCurrent?: Record<string, unknown> | null
     products?: unknown[]
+    routeAssignmentId?: unknown
   }>(),
   {
     companyCurrent: null,
@@ -194,6 +199,11 @@ const message = useMessage()
 const userStore = useUserStore()
 
 const loading = ref(false)
+const detailLoading = ref(false)
+const assignmentTableRef = ref<{ setCurrentRow: (row?: ShowroomAssignmentRecord) => void }>()
+let selectionGeneration = 0
+let listGeneration = 0
+let disposed = false
 const actionLoading = ref(false)
 const loadError = ref('')
 const dialogVisible = ref(false)
@@ -212,6 +222,7 @@ const completionForm = reactive({
 })
 
 const filteredRows = computed(() => {
+  if (props.routeAssignmentId !== undefined) return rows.value
   return rows.value.filter((row) => {
     const matchesTarget = !filters.targetType || row.targetType === filters.targetType
     const matchesStatus = !filters.status || row.status === filters.status
@@ -231,22 +242,46 @@ const loadUserOptions = async () => {
 }
 
 const loadAssignments = async () => {
+  const generation = ++listGeneration
+  const routeIdentity = props.routeAssignmentId
+  const previousId = activeId.value
+  ++selectionGeneration
+  detailLoading.value = false
+  rows.value = []
+  activeId.value = null
+  activeDetail.value = null
+  completionForm.fieldValue = ''
   loading.value = true
   loadError.value = ''
   try {
+    if (routeIdentity !== undefined) {
+      if (typeof routeIdentity !== 'string' || !/^[1-9]\d*$/.test(routeIdentity)) {
+        throw new Error('工作台入口缺少有效指派编号。')
+      }
+      const detail = await loadAssignmentDetail(routeIdentity)
+      if (disposed || generation !== listGeneration || routeIdentity !== props.routeAssignmentId) return
+      if (!detail) return
+      rows.value = [detail]
+      activeId.value = detail.assignmentId
+      await nextTick()
+      if (generation === listGeneration) assignmentTableRef.value?.setCurrentRow(detail)
+      return
+    }
     const page = await request.get({
       url: '/showroom/assignment/page',
+      ignoreErrorMessage: true,
       params: {
         pageNo: 1,
-        pageSize: 50,
+        pageSize: 20,
         targetType: filters.targetType || undefined,
         status: filters.status || undefined,
         assigneeUserId: filters.assigneeUserId || undefined
       }
     })
+    if (disposed || generation !== listGeneration || routeIdentity !== props.routeAssignmentId) return
     rows.value = normalizeAssignmentPage(page)
-    const nextId = activeId.value && rows.value.some((row) => row.assignmentId === activeId.value)
-      ? activeId.value
+    const nextId = previousId && rows.value.some((row) => row.assignmentId === previousId)
+      ? previousId
       : rows.value[0]?.assignmentId || null
     activeId.value = nextId
     if (nextId) {
@@ -255,28 +290,57 @@ const loadAssignments = async () => {
       activeDetail.value = null
     }
   } catch (error) {
+    if (disposed || generation !== listGeneration || routeIdentity !== props.routeAssignmentId) return
     const resolved = error instanceof Error ? error : new Error(String(error))
     loadError.value = resolved.message
     message.error(`指派工作台加载失败：${resolved.message}`)
   } finally {
-    loading.value = false
+    if (!disposed && generation === listGeneration) loading.value = false
   }
 }
 
-const loadAssignmentDetail = async (assignmentId: number) => {
-  const detail = await request.get({ url: `/showroom/assignment/get?id=${assignmentId}` })
-  activeDetail.value = normalizeAssignmentPage([detail])[0]
-  completionForm.fieldValue = activeDetail.value.currentDraftValue || ''
+const loadAssignmentDetail = async (assignmentId: number | string) => {
+  const generation = ++selectionGeneration
+  const requestedId = String(assignmentId)
+  activeDetail.value = null
+  completionForm.fieldValue = ''
+  detailLoading.value = true
+  try {
+    const response = await request.get({
+      url: '/showroom/assignment/get', params: { id: requestedId }, ignoreErrorMessage: true
+    })
+    if (disposed || generation !== selectionGeneration) return
+    const detail = normalizeAssignmentPage([response])[0]
+    if (!Number.isSafeInteger(detail.assignmentId) || String(detail.assignmentId) !== requestedId) {
+      throw new Error('指派详情返回的正式编号与所选任务不一致。')
+    }
+    activeId.value = detail.assignmentId
+    activeDetail.value = detail
+    completionForm.fieldValue = detail.currentDraftValue || ''
+    return detail
+  } finally {
+    if (!disposed && generation === selectionGeneration) detailLoading.value = false
+  }
 }
 
 const handleCurrentChange = async (row?: ShowroomAssignmentRecord) => {
   if (!row) {
+    if (props.routeAssignmentId !== undefined) return
+    ++selectionGeneration
     activeId.value = null
     activeDetail.value = null
     return
   }
+  if (activeId.value === row.assignmentId && activeDetail.value?.assignmentId === row.assignmentId) return
   activeId.value = row.assignmentId
-  await loadAssignmentDetail(row.assignmentId)
+  loadError.value = ''
+  const generation = selectionGeneration + 1
+  try {
+    await loadAssignmentDetail(row.assignmentId)
+  } catch (error) {
+    if (disposed || generation !== selectionGeneration) return
+    loadError.value = error instanceof Error ? error.message : String(error)
+  }
 }
 
 const refreshActiveDetail = async () => {
@@ -284,7 +348,14 @@ const refreshActiveDetail = async () => {
     activeDetail.value = null
     return
   }
-  await loadAssignmentDetail(activeId.value)
+  const generation = selectionGeneration + 1
+  loadError.value = ''
+  try {
+    await loadAssignmentDetail(activeId.value)
+  } catch (error) {
+    if (disposed || generation !== selectionGeneration) return
+    loadError.value = error instanceof Error ? error.message : String(error)
+  }
 }
 
 const handleCreated = async () => {
@@ -313,8 +384,14 @@ const handleCompleteAndSubmit = async () => {
   }
 }
 
+watch(() => props.routeAssignmentId, () => { void loadAssignments() }, { immediate: true })
+onBeforeUnmount(() => {
+  disposed = true
+  ++selectionGeneration
+  ++listGeneration
+})
 onMounted(async () => {
-  await Promise.all([loadUserOptions(), loadAssignments()])
+  await loadUserOptions()
   if (targetOptions.value.COMPANY.length > 0) {
     filters.targetType = filters.targetType || 'PRODUCT'
   }

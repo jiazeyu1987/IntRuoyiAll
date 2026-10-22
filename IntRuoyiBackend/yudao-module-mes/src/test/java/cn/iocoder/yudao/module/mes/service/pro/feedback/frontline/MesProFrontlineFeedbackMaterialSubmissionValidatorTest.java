@@ -101,6 +101,35 @@ class MesProFrontlineFeedbackMaterialSubmissionValidatorTest {
         assertEquals("正常损耗", result.reasonName());
     }
 
+    @Test
+    void independentLossGreaterThanQualifiedOutputIsValidWithAndWithoutMaterials() {
+        var detail = new MesProFrontlineFeedbackPayloadReqVO.LossDetailReqVO()
+                .setReasonId(8301L).setQuantity(new BigDecimal("12"));
+        when(lossReasonValidator.requireSnapshotLossReasons(any(), any(), eq(new BigDecimal("12"))))
+                .thenReturn(List.of(new MesFrontlineLossReasonSnapshot(8301L, "LOSS-001", "正常损耗")));
+        var requested = material(501L, "10", "12").setLossDetails(List.of(detail));
+        var result = validator.validate(frozenMaterials(), List.of(), List.of(requested));
+        assertEquals(new BigDecimal("10"), result.progressQuantity());
+        assertEquals(new BigDecimal("12"), result.totalLossQuantity());
+        var payload = new MesProFrontlineFeedbackPayloadReqVO().setOutputQuantity(new BigDecimal("10"))
+                .setLossQuantity(new BigDecimal("12")).setLossDetails(List.of(detail));
+        assertEquals("LOSS-001", validator.validateProcessPayload(payload, List.of()).reasonCode());
+    }
+
+    @Test
+    void independentLossStillRequiresNonNegativeQuantityAndMatchingReasonTotal() {
+        var negative = new MesProFrontlineFeedbackPayloadReqVO().setOutputQuantity(BigDecimal.TEN)
+                .setLossQuantity(BigDecimal.ONE.negate()).setLossDetails(List.of());
+        assertThrows(ServiceException.class, () -> validator.validateProcessPayload(negative, List.of()));
+        assertThrows(ServiceException.class, () -> validator.validate(frozenMaterials(), List.of(),
+                List.of(material(501L, "10", "-1"))));
+        var mismatch = new MesProFrontlineFeedbackPayloadReqVO().setOutputQuantity(BigDecimal.TEN)
+                .setLossQuantity(new BigDecimal("12")).setLossDetails(List.of());
+        assertThrows(ServiceException.class, () -> validator.validateProcessPayload(mismatch, List.of()));
+        assertThrows(ServiceException.class, () -> validator.validate(frozenMaterials(), List.of(),
+                List.of(material(501L, "10", "12"))));
+    }
+
     private static List<MesFrontlineProcessMaterial> frozenMaterials() {
         return List.of(
                 new MesFrontlineProcessMaterial(501L, "A001", "弹簧", null, BigDecimal.ONE),

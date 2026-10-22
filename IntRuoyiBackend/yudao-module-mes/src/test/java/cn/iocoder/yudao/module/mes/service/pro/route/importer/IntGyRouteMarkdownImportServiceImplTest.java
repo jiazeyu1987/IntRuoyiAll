@@ -73,13 +73,25 @@ class IntGyRouteMarkdownImportServiceImplTest {
     private MesProEdhrPermissionScopeService permissionScopeService;
 
     private IntGyRouteMarkdownImportServiceImpl importService;
+    @Mock private cn.iocoder.yudao.module.mes.service.md.autocode.MesMdAutoCodeRecordService autoCodeRecordService;
 
     @BeforeEach
     void setUp() {
         importService = new IntGyRouteMarkdownImportServiceImpl(
                 new IntGyRouteMarkdownParser(), routeMapper, processMapper, routeProcessMapper,
                 routeProcessFlowEdgeMapper, new MesProRouteOwnerPermissionServiceImpl(permissionScopeService));
+        var creator = new cn.iocoder.yudao.module.mes.service.pro.process.MesProProcessCreationService();
+        org.springframework.test.util.ReflectionTestUtils.setField(creator, "autoCodeRecordService", autoCodeRecordService);
+        org.springframework.test.util.ReflectionTestUtils.setField(creator, "processMapper", processMapper);
+        org.springframework.test.util.ReflectionTestUtils.setField(importService, "processCreationService", creator);
+        cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.setTenantId(1L);
+        AtomicLong serial = new AtomicLong();
+        org.mockito.Mockito.lenient().when(autoCodeRecordService.generateAutoCode("PRO_PROCESS_GX_CODE", null))
+                .thenAnswer(invocation -> "GX-" + String.format("%04d", serial.incrementAndGet()));
     }
+
+    @org.junit.jupiter.api.AfterEach
+    void clearTenant() { cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.clear(); }
 
     @Test
     void importCurrentExport_createsDisabledRoutesProcessesAndRouteProcessesWithFinalKeyFlags() throws Exception {
@@ -88,7 +100,6 @@ class IntGyRouteMarkdownImportServiceImplTest {
         AtomicLong processId = new AtomicLong(2000L);
         AtomicLong routeProcessId = new AtomicLong(3000L);
         when(routeMapper.selectByCode(anyString())).thenReturn(null);
-        when(processMapper.selectByCode(anyString())).thenReturn(null);
         when(processMapper.selectByName(anyString())).thenReturn(null);
         when(routeMapper.insert(any(MesProRouteDO.class))).thenAnswer(invocation -> {
             invocation.getArgument(0, MesProRouteDO.class).setId(routeId.incrementAndGet());
@@ -133,9 +144,11 @@ class IntGyRouteMarkdownImportServiceImplTest {
         verify(routeProcessMapper, times(51)).insert(routeProcessCaptor.capture());
         List<String> keyProcessCodes = routeProcessCaptor.getAllValues().stream()
                 .filter(routeProcess -> Boolean.TRUE.equals(routeProcess.getKeyFlag()))
-                .map(routeProcess -> processById.get(routeProcess.getProcessId()).getCode())
+                .map(routeProcess -> processById.get(routeProcess.getProcessId()).getName())
                 .toList();
-        assertIterableEquals(List.of("W030", "B320"), keyProcessCodes);
+        assertIterableEquals(new IntGyRouteMarkdownParser().parse(markdown).routes().stream()
+                .flatMap(route -> route.steps().stream()).filter(IntGyRouteMarkdownParser.Step::finalProcess)
+                .map(IntGyRouteMarkdownParser.Step::processNameCn).toList(), keyProcessCodes);
 
         ArgumentCaptor<MesProRouteProcessFlowEdgeDO> edgeCaptor =
                 ArgumentCaptor.forClass(MesProRouteProcessFlowEdgeDO.class);
@@ -151,52 +164,52 @@ class IntGyRouteMarkdownImportServiceImplTest {
     }
 
     @Test
-    void importCurrentExport_existingProcessCodeWithDifferentNameFailsBeforeAnyInsert() throws Exception {
-        when(routeMapper.selectByCode(anyString())).thenReturn(null);
-        when(processMapper.selectByCode(anyString())).thenAnswer(invocation -> {
-            if ("Z470".equals(invocation.getArgument(0, String.class))) {
-                return MesProProcessDO.builder().id(7L).code("Z470").name("不同工序名称").build();
-            }
-            return null;
+    void importSourceCodeIsIgnoredButRelationshipsAndCheckFlagsArePreserved() {
+        String markdown = """
+                ## 1. ROUTE-NEW
+                | routeCode | ROUTE-NEW |
+                | routeName | New route |
+                | sequenceNo | processCode | processNameCn | nodeId | dependencyType | isFinalProcess |
+                | --- | --- | --- | --- | --- | --- |
+                | 1 | OLD-A | First | a | NORMAL | 0 |
+                | 2 | OLD-B | Second | b | NORMAL | 1 |
+                """;
+        AtomicLong ids = new AtomicLong(10);
+        when(processMapper.insert(any(MesProProcessDO.class))).thenAnswer(invocation -> {
+            invocation.getArgument(0, MesProProcessDO.class).setId(ids.incrementAndGet()); return 1;
         });
-
-        assertServiceExceptionCode(() -> importService.importMarkdown(
-                        readFixture(), CommonStatusEnum.ENABLE.getStatus(), null),
-                PRO_ROUTE_IMPORT_PROCESS_CONFLICT.getCode());
-        verifyNoInsert();
+        when(routeMapper.insert(any(MesProRouteDO.class))).thenAnswer(invocation -> {
+            invocation.getArgument(0, MesProRouteDO.class).setId(100L); return 1;
+        });
+        when(routeProcessMapper.insert(any(MesProRouteProcessDO.class))).thenAnswer(invocation -> {
+            invocation.getArgument(0, MesProRouteProcessDO.class).setId(ids.incrementAndGet()); return 1;
+        });
+        var result = importService.importMarkdown(markdown, 0, "{\"ROUTE-NEW\":[\"OLD-B\"]}");
+        assertEquals(2, result.getProcessCreatedCount());
+        ArgumentCaptor<MesProProcessDO> processes = ArgumentCaptor.forClass(MesProProcessDO.class);
+        verify(processMapper, times(2)).insert(processes.capture());
+        assertEquals(List.of("GX-0001", "GX-0002"), processes.getAllValues().stream().map(MesProProcessDO::getCode).toList());
+        ArgumentCaptor<MesProRouteProcessDO> nodes = ArgumentCaptor.forClass(MesProRouteProcessDO.class);
+        verify(routeProcessMapper, times(2)).insert(nodes.capture());
+        assertEquals(List.of(11L, 12L), nodes.getAllValues().stream().map(MesProRouteProcessDO::getProcessId).toList());
+        assertTrue(nodes.getAllValues().get(1).getCheckFlag());
+        assertTrue(nodes.getAllValues().get(1).getKeyFlag());
+        verify(processMapper, never()).selectByCode(anyString());
     }
 
     @Test
-    void importCurrentExport_existingProcessNameWithDifferentCodeFailsBeforeAnyInsert() throws Exception {
-        when(routeMapper.selectByCode(anyString())).thenReturn(null);
-        when(processMapper.selectByCode(anyString())).thenReturn(null);
-        when(processMapper.selectByName(anyString())).thenAnswer(invocation -> {
-            if ("造影导管切导管".equals(invocation.getArgument(0, String.class))) {
-                return MesProProcessDO.builder().id(8L).code("LOCAL-Z470").name("造影导管切导管").build();
-            }
-            return null;
-        });
-
-        assertServiceExceptionCode(() -> importService.importMarkdown(
-                        readFixture(), CommonStatusEnum.ENABLE.getStatus(), null),
-                PRO_ROUTE_IMPORT_PROCESS_NAME_EXISTS.getCode());
-        verifyNoInsert();
-    }
-
-    @Test
-    void importCurrentExport_existingProcessCodeWithSameNameIsReused() throws Exception {
+    void importCurrentExport_existingProcessNameWithDifferentCodeIsReused() throws Exception {
         String markdown = readFixture();
         AtomicLong routeId = new AtomicLong(4000L);
         AtomicLong processId = new AtomicLong(5000L);
         AtomicLong routeProcessId = new AtomicLong(6000L);
         when(routeMapper.selectByCode(anyString())).thenReturn(null);
-        when(processMapper.selectByCode(anyString())).thenAnswer(invocation -> {
-            if ("Z470".equals(invocation.getArgument(0, String.class))) {
-                return MesProProcessDO.builder().id(7000L).code("Z470").name("造影导管切导管").build();
+        when(processMapper.selectByName(anyString())).thenAnswer(invocation -> {
+            if ("造影导管切导管".equals(invocation.getArgument(0, String.class))) {
+                return MesProProcessDO.builder().id(7000L).code("GX-0012").name("造影导管切导管").build();
             }
             return null;
         });
-        when(processMapper.selectByName(anyString())).thenReturn(null);
         when(routeMapper.insert(any(MesProRouteDO.class))).thenAnswer(invocation -> {
             invocation.getArgument(0, MesProRouteDO.class).setId(routeId.incrementAndGet());
             return 1;
@@ -325,7 +338,6 @@ class IntGyRouteMarkdownImportServiceImplTest {
         AtomicLong processId = new AtomicLong(9000L);
         AtomicLong routeProcessId = new AtomicLong(10000L);
         when(routeMapper.selectByCode(anyString())).thenReturn(null);
-        when(processMapper.selectByCode(anyString())).thenReturn(null);
         when(processMapper.selectByName(anyString())).thenReturn(null);
         when(routeMapper.insert(any(MesProRouteDO.class))).thenAnswer(invocation -> {
             invocation.getArgument(0, MesProRouteDO.class).setId(routeId.incrementAndGet());
@@ -351,8 +363,11 @@ class IntGyRouteMarkdownImportServiceImplTest {
 
         ArgumentCaptor<MesProRouteProcessDO> routeProcessCaptor = ArgumentCaptor.forClass(MesProRouteProcessDO.class);
         verify(routeProcessMapper, times(51)).insert(routeProcessCaptor.capture());
+        String checkedName = new IntGyRouteMarkdownParser().parse(markdown).routes().stream()
+                .flatMap(route -> route.steps().stream()).filter(step -> "W030".equals(step.processCode()))
+                .findFirst().orElseThrow().processNameCn();
         long checkedCount = routeProcessCaptor.getAllValues().stream()
-                .filter(routeProcess -> "W030".equals(processById.get(routeProcess.getProcessId()).getCode()))
+                .filter(routeProcess -> checkedName.equals(processById.get(routeProcess.getProcessId()).getName()))
                 .filter(MesProRouteProcessDO::getCheckFlag)
                 .count();
         assertEquals(1L, checkedCount);

@@ -46,6 +46,7 @@ public class MesProCardServiceImpl implements MesProCardService {
     private MesWmBarcodeService barcodeService;
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public Long createCard(MesProCardSaveReqVO createReqVO) {
         // 1. 校验关联数据
         validateCardSaveData(createReqVO);
@@ -62,6 +63,7 @@ public class MesProCardServiceImpl implements MesProCardService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void updateCard(MesProCardSaveReqVO updateReqVO) {
         // 1.1 校验存在 + 草稿状态
         validateCardExistsAndPrepare(updateReqVO.getId());
@@ -178,7 +180,7 @@ public class MesProCardServiceImpl implements MesProCardService {
         // 校验编码唯一
         validateCardCodeUnique(reqVO.getId(), reqVO.getCode());
         // 校验工单存在
-        MesProWorkOrderDO workOrder = workOrderService.validateWorkOrderConfirmed(reqVO.getWorkOrderId());
+        MesProWorkOrderDO workOrder = workOrderService.validateWorkOrderConfirmedForUpdate(reqVO.getWorkOrderId());
         // 校验物料存在
         itemService.validateItemExists(reqVO.getItemId());
         if (ObjUtil.notEqual(workOrder.getProductId(), reqVO.getItemId())) {

@@ -1,6 +1,11 @@
 package cn.iocoder.yudao.module.dcc.service.file;
 
 import cn.hutool.core.util.StrUtil;
+import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
+import cn.iocoder.yudao.module.system.api.permission.ApprovalAuthorityApi;
+import cn.iocoder.yudao.module.system.api.permission.dto.ApprovalAuthorityRevisionDTO;
+import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
+import cn.iocoder.yudao.module.system.service.signature.SignatureIdentityLockContext;
 import cn.iocoder.yudao.module.dcc.controller.admin.signature.vo.DccElectronicSignatureImageRespVO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileSignatureDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccElectronicSignatureImageDO;
@@ -11,6 +16,7 @@ import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.util.UriUtils;
@@ -24,6 +30,8 @@ import java.security.MessageDigest;
 import java.time.LocalDateTime;
 import java.util.HexFormat;
 import java.util.Locale;
+import java.util.List;
+import java.util.Objects;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_SIGNATURE_IMAGE_HASH_MISMATCH;
@@ -46,6 +54,10 @@ public class DccElectronicSignatureImageServiceImpl implements DccElectronicSign
     private DccElectronicSignatureImageMapper signatureImageMapper;
     @Resource
     private FileService fileService;
+    @Resource
+    private AdminUserApi users;
+    @Resource
+    private ApprovalAuthorityApi authority;
 
     @Override
     public DccElectronicSignatureImageRespVO getMySignatureImage(Long userId) {
@@ -57,6 +69,8 @@ public class DccElectronicSignatureImageServiceImpl implements DccElectronicSign
     public DccElectronicSignatureImageRespVO uploadMySignatureImage(Long userId, MultipartFile file,
                                                                     Long operatorId, String reason) {
         validateUploadFile(file);
+        var revision = lockImageIdentity(userId, operatorId);
+        List<DccElectronicSignatureImageDO> history = signatureImageMapper.selectIdentityHistoryForUpdate(userId);
         try {
             byte[] content = file.getBytes();
             validateImageContent(content);
@@ -67,7 +81,7 @@ public class DccElectronicSignatureImageServiceImpl implements DccElectronicSign
             FileDO storedFile = requireStoredFile(fileId);
             DccElectronicSignatureImageDO image = DccElectronicSignatureImageDO.builder()
                     .userId(userId)
-                    .versionNo(nextVersionNo(userId))
+                    .versionNo(nextVersionNo(history))
                     .fileId(fileId)
                     .fileUrl(buildAdminFileAccessUrl(storedFile))
                     .storagePath(storedFile.getPath())
@@ -81,9 +95,10 @@ public class DccElectronicSignatureImageServiceImpl implements DccElectronicSign
                     .uploadedAt(LocalDateTime.now())
                     .referencedCount(0)
                     .build();
-            if (signatureImageMapper.insert(image) <= 0 || image.getId() == null) {
+            if (signatureImageMapper.insert(image) != 1 || image.getId() == null || image.getId() <= 0) {
                 throw exception(CONTROLLED_FILE_SIGNATURE_IMAGE_PERSIST_FAILED);
             }
+            authority.incrementLockedAuthorityRevision(revision.tenantId(), revision.revision());
             return toRespVO(image);
         } catch (RuntimeException ex) {
             throw ex;
@@ -99,13 +114,19 @@ public class DccElectronicSignatureImageServiceImpl implements DccElectronicSign
         if (StrUtil.isBlank(reason)) {
             throw exception(CONTROLLED_FILE_SIGNATURE_IMAGE_INVALID);
         }
-        DccElectronicSignatureImageDO image = signatureImageMapper.selectById(imageId);
+        var revision = lockImageIdentity(userId, operatorId);
+        List<DccElectronicSignatureImageDO> history = signatureImageMapper.selectIdentityHistoryForUpdate(userId);
+        DccElectronicSignatureImageDO image = signatureImageMapper.selectOwnedForUpdate(userId, imageId);
         if (image == null || !userId.equals(image.getUserId())) {
             throw exception(CONTROLLED_FILE_SIGNATURE_IMAGE_MISSING);
         }
         verifyStoredImage(image);
         LocalDateTime now = LocalDateTime.now();
-        signatureImageMapper.deactivateActiveByUserId(userId, imageId, now);
+        long replaced = history.stream().filter(row -> Boolean.TRUE.equals(row.getActive())
+                && !Objects.equals(row.getId(), imageId)).count();
+        if (signatureImageMapper.deactivateActiveByUserId(userId, imageId, now) != replaced) {
+            throw exception(CONTROLLED_FILE_SIGNATURE_IMAGE_PERSIST_FAILED);
+        }
         DccElectronicSignatureImageDO update = DccElectronicSignatureImageDO.builder()
                 .id(imageId)
                 .imageStatus(STATUS_ACTIVE)
@@ -114,9 +135,10 @@ public class DccElectronicSignatureImageServiceImpl implements DccElectronicSign
                 .disabledAt(null)
                 .disableReason(null)
                 .build();
-        if (signatureImageMapper.updateById(update) <= 0) {
+        if (signatureImageMapper.updateById(update) != 1) {
             throw exception(CONTROLLED_FILE_SIGNATURE_IMAGE_PERSIST_FAILED);
         }
+        authority.incrementLockedAuthorityRevision(revision.tenantId(), revision.revision());
         return toRespVO(signatureImageMapper.selectById(imageId));
     }
 
@@ -126,10 +148,8 @@ public class DccElectronicSignatureImageServiceImpl implements DccElectronicSign
         if (StrUtil.isBlank(reason)) {
             throw exception(CONTROLLED_FILE_SIGNATURE_IMAGE_INVALID);
         }
-        DccElectronicSignatureImageDO image = signatureImageMapper.selectActiveByUserId(userId);
-        if (image == null) {
-            throw exception(CONTROLLED_FILE_SIGNATURE_IMAGE_MISSING);
-        }
+        var revision = lockImageIdentity(userId, operatorId);
+        DccElectronicSignatureImageDO image = requireActive(signatureImageMapper.selectIdentityHistoryForUpdate(userId));
         DccElectronicSignatureImageDO update = DccElectronicSignatureImageDO.builder()
                 .id(image.getId())
                 .imageStatus(STATUS_DISABLED)
@@ -137,9 +157,10 @@ public class DccElectronicSignatureImageServiceImpl implements DccElectronicSign
                 .disabledAt(LocalDateTime.now())
                 .disableReason(StrUtil.trim(reason))
                 .build();
-        if (signatureImageMapper.updateById(update) <= 0) {
+        if (signatureImageMapper.updateById(update) != 1) {
             throw exception(CONTROLLED_FILE_SIGNATURE_IMAGE_PERSIST_FAILED);
         }
+        authority.incrementLockedAuthorityRevision(revision.tenantId(), revision.revision());
         return toRespVO(signatureImageMapper.selectById(image.getId()));
     }
 
@@ -151,6 +172,50 @@ public class DccElectronicSignatureImageServiceImpl implements DccElectronicSign
         }
         byte[] content = verifyStoredImage(image);
         return toSnapshot(image, VERIFY_STATUS_VALID, content);
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.MANDATORY, rollbackFor = Exception.class)
+    public DccElectronicSignatureImageSnapshot requireActiveSnapshotLocked(Long userId) {
+        SignatureIdentityLockContext.requireSystemIdentityLock(userId);
+        var image = requireActive(signatureImageMapper.selectIdentityHistoryForUpdate(userId));
+        if (!Objects.equals(image.getUserId(), userId))
+            throw exception(CONTROLLED_FILE_SIGNATURE_IMAGE_MISSING);
+        return toSnapshot(image, VERIFY_STATUS_VALID, verifyStoredImage(image));
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.MANDATORY, rollbackFor = Exception.class)
+    public void markReferencedLocked(Long userId, Long imageId) {
+        SignatureIdentityLockContext.requireSystemIdentityLock(userId);
+        DccElectronicSignatureImageDO image = signatureImageMapper.selectOwnedForUpdate(userId, imageId);
+        if (image == null || !Objects.equals(image.getUserId(), userId) || !STATUS_ACTIVE.equals(image.getImageStatus())
+                || !Boolean.TRUE.equals(image.getActive()) || image.getReferencedCount() == null
+                || image.getReferencedCount() < 0 || image.getReferencedCount() == Integer.MAX_VALUE) {
+            throw exception(CONTROLLED_FILE_SIGNATURE_IMAGE_MISSING);
+        }
+        int updated = signatureImageMapper.update(null, new LambdaUpdateWrapper<DccElectronicSignatureImageDO>()
+                .eq(DccElectronicSignatureImageDO::getId, imageId)
+                .eq(DccElectronicSignatureImageDO::getUserId, userId)
+                .eq(DccElectronicSignatureImageDO::getReferencedCount, image.getReferencedCount())
+                .set(DccElectronicSignatureImageDO::getReferencedCount, image.getReferencedCount() + 1));
+        if (updated != 1) throw exception(CONTROLLED_FILE_SIGNATURE_IMAGE_PERSIST_FAILED);
+    }
+
+    private ApprovalAuthorityRevisionDTO lockImageIdentity(Long userId, Long operatorId) {
+        if (userId == null || userId <= 0 || !Objects.equals(userId, operatorId))
+            throw exception(CONTROLLED_FILE_SIGNATURE_IMAGE_INVALID);
+        users.lockSignatureIdentity(userId);
+        return authority.lockTenantApprovalAuthority(TenantContextHolder.getRequiredTenantId());
+    }
+
+    private static DccElectronicSignatureImageDO requireActive(List<DccElectronicSignatureImageDO> history) {
+        if (history == null) throw exception(CONTROLLED_FILE_SIGNATURE_IMAGE_MISSING);
+        List<DccElectronicSignatureImageDO> active = history.stream()
+                .filter(row -> Boolean.TRUE.equals(row.getActive())).toList();
+        if (active.size() != 1 || !STATUS_ACTIVE.equals(active.get(0).getImageStatus()))
+            throw exception(CONTROLLED_FILE_SIGNATURE_IMAGE_MISSING);
+        return active.get(0);
     }
 
     @Override
@@ -261,9 +326,15 @@ public class DccElectronicSignatureImageServiceImpl implements DccElectronicSign
         return normalized == null ? "signature-image.png" : normalized;
     }
 
-    private Integer nextVersionNo(Long userId) {
-        Integer maxVersionNo = signatureImageMapper.selectMaxVersionNoByUserId(userId);
-        return maxVersionNo == null ? 1 : maxVersionNo + 1;
+    private Integer nextVersionNo(List<DccElectronicSignatureImageDO> history) {
+        if (history == null) throw exception(CONTROLLED_FILE_SIGNATURE_IMAGE_MISSING);
+        int maxVersion = 0;
+        for (var image : history) {
+            if (image.getVersionNo() == null || image.getVersionNo() <= 0)
+                throw exception(CONTROLLED_FILE_SIGNATURE_IMAGE_INVALID);
+            maxVersion = Math.max(maxVersion, image.getVersionNo());
+        }
+        return Math.addExact(maxVersion, 1);
     }
 
     private FileDO requireStoredFile(Long fileId) {

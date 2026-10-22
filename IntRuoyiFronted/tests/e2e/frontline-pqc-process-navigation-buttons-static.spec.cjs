@@ -93,7 +93,7 @@ assert.match(
 )
 
 for (const requiredToken of [
-  'const switchablePqcProcessOptions = computed',
+  'const filteredPqcProcessOptions = computed',
   'const selectedPqcProcessIndex = computed',
   'const previousPqcProcess = computed',
   'const nextPqcProcess = computed',
@@ -125,6 +125,21 @@ assert.doesNotMatch(
   navigateBlock,
   /deviceState\.selectedProcess\s*=/,
   'PQC navigation handler must not mutate selectedProcess directly.'
+)
+assert.match(
+  source,
+  /const selectedPqcProcessIndex = computed\(\(\) => \{[\s\S]*filteredPqcProcessOptions\.value\.findIndex/,
+  'PQC process navigation must locate the current process in the selected-rule filtered process list.'
+)
+assert.match(
+  source,
+  /const previousPqcProcess = computed\(\(\) => \{[\s\S]*filteredPqcProcessOptions\.value\[selectedIndex - 1\]/,
+  'PQC previous arrow must use the selected-rule filtered process list.'
+)
+assert.match(
+  source,
+  /const nextPqcProcess = computed\(\(\) => \{[\s\S]*filteredPqcProcessOptions\.value\[selectedIndex \+ 1\]/,
+  'PQC next arrow must use the selected-rule filtered process list.'
 )
 
 assert.match(

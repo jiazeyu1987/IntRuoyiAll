@@ -23,10 +23,10 @@ public interface DccProjectAccessService {
 
     void assertProjectEditorOrOwner(Long userId, Long projectCodeId);
 
-    /** 只读项目目录范围；不授予配置写入或文件正文权限。 */
+    /** 校验项目查看权限；同租户超级管理员拥有全部项目 OWNER，其余账号读取正式规则。 */
     void assertProjectViewerOrAbove(Long userId, Long projectCodeId);
 
-    /** 当前正式项目规则与既有分配硬范围的只读交集，不由文件存在与否推断。 */
+    /** 同租户超级管理员可读全部启用项目，其余账号取正式规则与分配范围的交集。 */
     List<Long> listReadableProjectIds(Long userId);
 
 }

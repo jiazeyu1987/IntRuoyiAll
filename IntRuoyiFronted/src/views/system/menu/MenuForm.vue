@@ -195,9 +195,6 @@ const submitForm = async () => {
         if (formData.value.parentId === 0 && formData.value.path.charAt(0) !== '/') {
           message.error('路径必须以 / 开头')
           return
-        } else if (formData.value.parentId !== 0 && formData.value.path.charAt(0) === '/') {
-          message.error('路径不能以 / 开头')
-          return
         }
       }
     }

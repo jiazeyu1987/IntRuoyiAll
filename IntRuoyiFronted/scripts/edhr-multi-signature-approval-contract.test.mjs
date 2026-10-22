@@ -25,24 +25,14 @@ test('batch record report API exposes review source fields for signature markers
   assert.match(apiSource, /'USERS'/, 'signature marker API should expose multi-user review source')
 })
 
-test('template designer lets APPROVE signature cells bind role and user source collections', () => {
-  const pageSource = readText('src/views/mes/pro/batchrecordtemplate/index.vue')
-
-  assert.match(pageSource, /getSimplePostList/, 'template designer should load system posts')
-  assert.match(pageSource, /getSimpleRoleList/, 'template designer should load system roles')
-  assert.match(pageSource, /getSimpleUserList/, 'template designer should load system users')
-  assert.match(pageSource, /reviewSourceType/, 'template designer should bind review source type')
-  assert.match(pageSource, /reviewSourceId/, 'template designer should bind review source id')
-  assert.match(pageSource, /reviewSourceIds/, 'template designer should bind multi review source ids')
-  assert.match(pageSource, /POST/, 'template designer should support POST review sources')
-  assert.match(pageSource, /ROLE/, 'template designer should support ROLE review sources')
-  assert.match(pageSource, /USER/, 'template designer should support USER review sources')
-  assert.match(pageSource, /ROLES/, 'template designer should support ROLES review sources')
-  assert.match(pageSource, /USERS/, 'template designer should support USERS review sources')
-  assert.match(pageSource, /multiple/, 'template designer should use multi-select for grouped sources')
-  assert.match(pageSource, /isMultipleReviewSourceType/, 'template designer should branch validation for grouped sources')
+test('formal cell rule designer preserves review markers and binds current user/role collections', () => {
+  const source = readText('src/views/mes/pro/batchrecordformlist/BatchRecordCellRulesConfirmDialog.vue')
+  for (const token of ['getSimpleRoleList', 'getSimpleUserList', 'reviewSourceType', 'reviewSourceId', 'reviewSourceIds', 'candidateSourceType', 'USERS', 'ROLE', 'multiple']) {
+    assert.ok(source.includes(token), `formal designer must bind ${token}`)
+  }
+  assert.match(source, /existingMarker\?\.reviewSourceIds/, 'existing grouped marker identities must be retained')
+  assert.match(source, /normalizeAssignmentSourceType/, 'current assignment type contract must be normalized explicitly')
 })
-
 test('approval detail page gates review signing to the current work-task signature cell', () => {
   const pageSource = readText('src/views/mes/pro/edhr/ApprovalDetailPage.vue')
 

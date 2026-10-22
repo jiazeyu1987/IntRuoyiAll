@@ -9,6 +9,8 @@ public interface DccElectronicSignatureAuthorizationService {
 
     void validateElectronicSignatureEnabled(Long userId);
 
+    void validateElectronicSignatureEnabledLocked(Long userId);
+
     Map<Long, Boolean> getAuthorizationMap(Collection<Long> userIds);
 
     void updateAuthorization(Long userId, boolean enabled);

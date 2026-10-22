@@ -3,6 +3,7 @@ package cn.iocoder.yudao.module.mes.service.pro.batchrecord;
 import cn.hutool.core.util.StrUtil;
 import cn.iocoder.yudao.module.bpm.formcenter.model.BusinessActionContext;
 import cn.iocoder.yudao.module.bpm.formcenter.model.FormActionInstance;
+import cn.iocoder.yudao.module.bpm.formcenter.model.FormActionExecutionContext;
 import cn.iocoder.yudao.module.bpm.formcenter.model.FormControlledActionApprovalOutcome;
 import cn.iocoder.yudao.module.bpm.formcenter.service.FormBusinessEffectExecutor;
 import cn.iocoder.yudao.module.bpm.formcenter.service.FormBusinessEffectPrecheck;
@@ -43,7 +44,13 @@ public class MesProEdhrRouteFormFillEffectExecutor
         }
         try {
             MesProEdhrBatchExecutionTaskDO task = requireWritableTask(instance);
-            workTaskService.completeRouteFormFillAndCreateNextFill(task.getId(), instance.getApplicantUserId());
+            FormActionExecutionContext execution = instance.getExecutionContext();
+            if (execution.getKind() == FormActionExecutionContext.Kind.VERIFIED_BACKFILL) {
+                workTaskService.completeVerifiedRouteFormBackfill(task.getId(), execution.getActorUserId(),
+                        execution.getEvidenceHash());
+            } else {
+                workTaskService.completeRouteFormFillAndCreateNextFill(task.getId(), execution.getActorUserId());
+            }
             return FormBusinessEffectResult.success(String.valueOf(task.getId()));
         } catch (RuntimeException ex) {
             return FormBusinessEffectResult.failure(ex.getMessage());
@@ -87,6 +94,10 @@ public class MesProEdhrRouteFormFillEffectExecutor
     }
 
     private MesProEdhrBatchExecutionTaskDO requireWritableTask(FormActionInstance instance) {
+        FormActionExecutionContext execution = instance.getExecutionContext();
+        if (execution == null) {
+            throw new IllegalArgumentException("Missing actual route form submitter");
+        }
         Long taskId = requiredTaskId(instance);
         MesProEdhrBatchExecutionTaskDO task = batchTaskMapper.selectByIdForUpdate(taskId);
         if (task == null || !MesProEdhrBatchExecutionServiceImpl.NODE_TYPE_ROUTE_FORM.equals(task.getNodeType())) {
@@ -96,6 +107,12 @@ public class MesProEdhrRouteFormFillEffectExecutor
                 || task.getFormTemplateId() == null
                 || task.getFormTemplateVersionId() == null) {
             throw new IllegalArgumentException("eDHR route form task misses form center snapshot: " + taskId);
+        }
+        if (execution.getKind() == FormActionExecutionContext.Kind.VERIFIED_BACKFILL
+                && (!EXECUTOR_CODE.equals(execution.getExpectedExecutorCode())
+                || !("PROCESS_INSPECTION".equals(task.getFormSlotType())
+                || "LOSS_REPORT".equals(task.getFormSlotType())))) {
+            throw new IllegalArgumentException("Automatic backfill only accepts inspection/loss route forms");
         }
         Integer status = task.getStatus();
         if (!Objects.equals(status, MesProEdhrBatchExecutionServiceImpl.TASK_STATUS_WAITING)

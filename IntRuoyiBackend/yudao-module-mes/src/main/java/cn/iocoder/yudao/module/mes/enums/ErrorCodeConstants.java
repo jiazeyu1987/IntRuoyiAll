@@ -219,6 +219,7 @@ public interface ErrorCodeConstants {
     ErrorCode PRO_SCHEDULE_ORDER_REASON_REQUIRED = new ErrorCode(1_040_270_009, "操作原因不能为空");
     ErrorCode PRO_SCHEDULE_ORDER_BATCH_REQUIRED = new ErrorCode(1_040_270_010, "排产工单不能为空");
     ErrorCode PRO_SCHEDULE_ORDER_DELETE_BLOCKED = new ErrorCode(1_040_270_011, "排产工单存在已报工或已完成记录，不能删除");
+    ErrorCode PRO_WORK_ORDER_ERP_CLEANUP_BLOCKED = new ErrorCode(1_040_270_030, "ERP 不存在工单清理失败");
     ErrorCode PRO_SCHEDULE_ORDER_ROUTE_SCHEDULE_CONFIG_REQUIRED = new ErrorCode(1_040_270_012, "排产工单缺少路线排产策略配置，processId={}");
     ErrorCode PRO_SCHEDULE_ORDER_SHIFT_HOURS_REQUIRED = new ErrorCode(1_040_270_013, "排产资源缺少班次小时配置，routeProcessId={}, workstationId={}");
     ErrorCode PRO_SCHEDULE_ORDER_ROUTE_FLOW_CONFIG_REQUIRED = new ErrorCode(1_040_270_014, "排产工单缺少智能排产流程配置，processId={}");
@@ -1154,6 +1155,16 @@ public interface ErrorCodeConstants {
             "设备参数上下限无效，下限不能大于上限：{}");
     ErrorCode PRO_PROCESS_POOL_ACTIVE_ORDER_NOT_EXISTS = new ErrorCode(1_040_760_306,
             "班组活跃订单不存在：{}");
+    ErrorCode PRO_PROCESS_POOL_DATA_CLEANUP_CONFIRM_REQUIRED = new ErrorCode(1_040_760_398,
+            "必须先完成数据清理预检并确认清理范围");
+    ErrorCode PRO_PROCESS_POOL_DATA_CLEANUP_SCOPE_CHANGED = new ErrorCode(1_040_760_399,
+            "数据清理范围已变化，请重新预检");
+    ErrorCode PRO_PROCESS_POOL_DATA_CLEANUP_BLOCKED = new ErrorCode(1_040_760_400,
+            "数据清理被正式业务锁定：{}");
+    ErrorCode PRO_PROCESS_POOL_ACTIVE_ORDER_REBUILD_EVIDENCE_BLOCKED = new ErrorCode(1_040_760_401,
+            "活跃订单已有报工、检验或生产进度证据，禁止重建，必须保留历史记录：{}");
+    ErrorCode PRO_PROCESS_POOL_ACTIVE_ORDER_DOSSIER_FILE_BLOCKED = new ErrorCode(1_040_760_409,
+            "活跃订单资料文件读取受阻：{}");
     ErrorCode PRO_PROCESS_POOL_PICK_LIST_REQUIRED = new ErrorCode(1_040_760_360, "正式领料单不能为空");
     ErrorCode PRO_PROCESS_POOL_PICK_LIST_NOT_EXISTS = new ErrorCode(1_040_760_361, "正式领料单不存在：{}");
     ErrorCode PRO_PROCESS_POOL_PICK_LIST_NOT_APPROVED = new ErrorCode(1_040_760_362, "领料单未审核：{}");
@@ -1243,6 +1254,10 @@ public interface ErrorCodeConstants {
             "正式工电子签名密码由用户管理统一维护，不能在生产人员档案中重置：{}");
     ErrorCode PRO_PROCESS_POOL_TEAM_FORMAL_EMPLOYEE_DUPLICATE = new ErrorCode(1_040_760_337,
             "当前生产组长已关联该正式工，请启用或修改既有生产人员档案：{}");
+    ErrorCode PRO_PROCESS_POOL_TEAM_FORMAL_EMPLOYEE_OWNER_CONFLICT = new ErrorCode(1_040_760_410,
+            "正式员工 {} 已在组长 {} 的班组启用，请先停用原班组档案，再关联或启用当前班组");
+    ErrorCode PRO_PROCESS_POOL_TEAM_FORMAL_EMPLOYEE_OWNER_CHANGED = new ErrorCode(1_040_760_411,
+            "正式员工 {} 的启用归属已被其他操作占用，请刷新并先停用原班组档案后重试");
     ErrorCode PRO_PROCESS_POOL_SUBMISSION_REVIEW_PQC_LEADER_REQUIRED = new ErrorCode(1_040_760_338,
             "PQC 检验单只能由 PQC 组长确认或退回：eventId={}，leaderType={}");
     ErrorCode PRO_PROCESS_POOL_SUBMISSION_REVIEW_REJECT_REMARK_REQUIRED = new ErrorCode(1_040_760_339,
@@ -1327,6 +1342,8 @@ public interface ErrorCodeConstants {
             "活跃订单完成缺少正式三类回填来源：activeOrderId={}，blocker={}");
     ErrorCode PRO_PROCESS_POOL_ACTIVE_ORDER_COMPLETION_PERSISTENCE_FAILED = new ErrorCode(1_040_760_370,
             "活跃订单完成回执持久化失败：activeOrderId={}");
+    ErrorCode PRO_PROCESS_POOL_ACTIVE_ORDER_COMPLETION_EVIDENCE_LOCKED = new ErrorCode(1_040_760_412,
+            "活跃订单已有完工回执或回填记录，不能重建、移除或重新加入，请继续原完工或放行流程：activeOrderId={}");
     ErrorCode PRO_PROCESS_POOL_ACTIVE_ORDER_COMPLETION_RECEIPT_NOT_FOUND = new ErrorCode(1_040_760_371,
             "活跃订单完成回执不存在或不属于当前租户：receiptId={}");
     ErrorCode PRO_PROCESS_POOL_ACTIVE_ORDER_COMPLETION_RECEIPT_TAMPERED = new ErrorCode(1_040_760_372,

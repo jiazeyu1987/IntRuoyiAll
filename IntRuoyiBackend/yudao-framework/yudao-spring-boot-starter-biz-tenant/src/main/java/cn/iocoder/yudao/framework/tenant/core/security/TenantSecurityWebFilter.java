@@ -22,6 +22,9 @@ import org.springframework.util.AntPathMatcher;
 import java.io.IOException;
 import java.util.Objects;
 import java.util.Set;
+import cn.iocoder.yudao.framework.web.core.util.WebFrameworkUtils;
+import static cn.iocoder.yudao.framework.apilog.core.interceptor.ApiAccessLogInterceptor.isRequestLoggingDisabled;
+import static cn.iocoder.yudao.framework.apilog.core.interceptor.ApiAccessLogInterceptor.getLogRequestUri;
 
 /**
  * 多租户 Security Web 过滤器
@@ -76,9 +79,13 @@ public class TenantSecurityWebFilter extends ApiRequestFilter {
             } else if (!Objects.equals(user.getTenantId(), TenantContextHolder.getTenantId())) {
                 log.error("[doFilterInternal][租户({}) User({}/{}) 越权访问租户({}) URL({}/{})]",
                         user.getTenantId(), user.getId(), user.getUserType(),
-                        TenantContextHolder.getTenantId(), request.getRequestURI(), request.getMethod());
-                ServletUtils.writeJSON(response, CommonResult.error(GlobalErrorCodeConstants.FORBIDDEN.getCode(),
-                        "您无权访问该租户的数据"));
+                        TenantContextHolder.getTenantId(), getLogRequestUri(request), request.getMethod());
+                CommonResult<?> result = CommonResult.error(GlobalErrorCodeConstants.FORBIDDEN.getCode(),
+                        "您无权访问该租户的数据");
+                if (isRequestLoggingDisabled(request)) {
+                    WebFrameworkUtils.setCommonResult(request, result);
+                }
+                ServletUtils.writeJSON(response, result);
                 return;
             }
         }
@@ -87,9 +94,13 @@ public class TenantSecurityWebFilter extends ApiRequestFilter {
         if (!isIgnoreUrl(request)) {
             // 2. 如果请求未带租户的编号，不允许访问。
             if (tenantId == null) {
-                log.error("[doFilterInternal][URL({}/{}) 未传递租户编号]", request.getRequestURI(), request.getMethod());
-                ServletUtils.writeJSON(response, CommonResult.error(GlobalErrorCodeConstants.BAD_REQUEST.getCode(),
-                        "请求的租户标识未传递，请进行排查"));
+                log.error("[doFilterInternal][URL({}/{}) 未传递租户编号]", getLogRequestUri(request), request.getMethod());
+                CommonResult<?> result = CommonResult.error(GlobalErrorCodeConstants.BAD_REQUEST.getCode(),
+                        "请求的租户标识未传递，请进行排查");
+                if (isRequestLoggingDisabled(request)) {
+                    WebFrameworkUtils.setCommonResult(request, result);
+                }
+                ServletUtils.writeJSON(response, result);
                 return;
             }
             // 3. 校验租户是合法，例如说被禁用、到期
@@ -97,6 +108,9 @@ public class TenantSecurityWebFilter extends ApiRequestFilter {
                 tenantFrameworkService.validTenant(tenantId);
             } catch (Throwable ex) {
                 CommonResult<?> result = globalExceptionHandler.allExceptionHandler(request, ex);
+                if (isRequestLoggingDisabled(request)) {
+                    WebFrameworkUtils.setCommonResult(request, result);
+                }
                 ServletUtils.writeJSON(response, result);
                 return;
             }

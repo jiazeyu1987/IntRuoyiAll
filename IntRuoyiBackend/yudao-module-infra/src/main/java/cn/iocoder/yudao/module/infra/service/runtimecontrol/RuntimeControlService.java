@@ -10,6 +10,7 @@ import cn.iocoder.yudao.module.infra.controller.admin.runtimecontrol.vo.RuntimeC
 import cn.iocoder.yudao.module.infra.controller.admin.runtimecontrol.vo.RuntimeControlRestartReqVO;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface RuntimeControlService {
 
@@ -19,6 +20,10 @@ public interface RuntimeControlService {
 
     RuntimeControlOperationRespVO executeAction(RuntimeControlActionReqVO reqVO, String requestedBy);
 
+    boolean cancelOperation(String operationId);
+
+    void rejectLegacyProductionAction(RuntimeControlActionReqVO reqVO);
+
     RuntimeControlActionPreviewRespVO previewAction(RuntimeControlActionReqVO reqVO, String requestedBy);
 
     RuntimeControlLogRespVO getOperationLog(String operationId, Integer maxBytes);
@@ -26,6 +31,8 @@ public interface RuntimeControlService {
     List<RuntimeControlOperationRespVO> getOperations();
 
     List<RuntimeControlReleasePackageRespVO> getReleasePackages();
+
+    Optional<RuntimeControlReleasePackageRespVO> getReleasePackage(String releaseTag);
 
     RuntimeControlReleaseStatusRespVO getReleaseStatus();
 }

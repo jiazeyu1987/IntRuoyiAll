@@ -338,6 +338,8 @@ CREATE TABLE IF NOT EXISTS `dcc_controlled_file` (
   `directory_id` BIGINT NOT NULL,
   `source_file_id` BIGINT NOT NULL,
   `original_file_id` BIGINT NOT NULL,
+  `read_only_file_id` BIGINT,
+  `editable_file_id` BIGINT,
   `drawing_pdf_file_id` BIGINT NULL,
   `training_record_file_id` BIGINT NULL,
   `published_file_id` BIGINT NULL,

@@ -9,6 +9,7 @@ import cn.iocoder.yudao.module.mes.service.pro.feedback.MesProFeedbackService;
 import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineSubmitAuthorizationService;
 import cn.iocoder.yudao.module.mes.service.pro.frontline.ActiveOrderSnapshotResolver;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.MesProcessPoolSubmitEventService;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -53,11 +54,13 @@ class MesP0ProductionSubmitClosedLoopContractTest {
     @Mock
     private MesMdAutoCodeRecordService autoCodeRecordService;
     @Mock
-    private MesProBatchRecordExecutionSignatureService signatureService;
+    private MesProductionAuthenticatedSignatureService signatureService;
     @Mock
     private ActiveOrderSnapshotResolver activeOrderSnapshotResolver;
+    @Mock
+    private GxpAuditService gxpAuditService;
 
-    private MesProFrontlineFeedbackSubmitService submitService;
+    private MesProFrontlineFeedbackSubmitServiceImpl submitService;
 
     @BeforeEach
     void setUp() {
@@ -70,14 +73,21 @@ class MesP0ProductionSubmitClosedLoopContractTest {
                 new MesProFrontlineFeedbackMaterialSubmissionValidator(lossReasonValidator),
                 new MesProFrontlineFeedbackPayloadSplitter(),
                 autoCodeRecordService,
-                signatureService,
-                activeOrderSnapshotResolver);
+                null,
+                activeOrderSnapshotResolver,
+                gxpAuditService);
+        { org.springframework.test.util.ReflectionTestUtils.setField(submitService, "handoffService", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffService.class)); }
+        MesProFrontlineFeedbackSubmitSnapshotTestSupport.stubAuditIdentity(submitService);
+        MesProFrontlineFeedbackSubmitSnapshotTestSupport.stubAuthenticatedResources(submitService, signatureService);
         MesProFrontlineFeedbackSubmitSnapshotTestSupport.stubAuthorization(submitAuthorizationService);
         MesProFrontlineFeedbackSubmitTestData.stubLossReasonValidator(lossReasonValidator);
         MesProFrontlineFeedbackSubmitTestData.stubActiveOrderSnapshot(activeOrderSnapshotResolver);
         org.mockito.Mockito.lenient().when(parameterAuditService.resolveAndApply(any()))
                 .thenReturn(MesFrontlineParameterAuditResult.empty());
-        org.mockito.Mockito.lenient().when(signatureService.recordProductionSubmitSignature(any(), any(), any()))
+        org.mockito.Mockito.lenient().when(parameterAuditService.resolveAndApplyMaterial(
+                        any(), any(), any(), any(), any()))
+                .thenReturn(MesFrontlineParameterAuditResult.empty());
+        org.mockito.Mockito.lenient().when(signatureService.record(any(), any(cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProductionSubmitSignatureContext.class)))
                 .thenReturn(4001L);
     }
 
@@ -91,7 +101,7 @@ class MesP0ProductionSubmitClosedLoopContractTest {
         MesProFrontlineFeedbackSubmitRespVO respVO;
         try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
             security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(9001L);
-            respVO = submitService.submit(MesProFrontlineFeedbackSubmitTestData.buildSubmitReq());
+            respVO = MesProFrontlineFeedbackSubmitSnapshotTestSupport.submit(submitService, MesProFrontlineFeedbackSubmitTestData.buildSubmitReq());
         }
 
         assertEquals(501L, respVO.getFeedbackId());
@@ -145,7 +155,7 @@ class MesP0ProductionSubmitClosedLoopContractTest {
 
         try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
             security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(9001L);
-            assertEquals(801L, submitService.submit(MesProFrontlineFeedbackSubmitTestData.buildSubmitReq())
+            assertEquals(801L, MesProFrontlineFeedbackSubmitSnapshotTestSupport.submit(submitService, MesProFrontlineFeedbackSubmitTestData.buildSubmitReq())
                     .getProcessPoolEventId());
         }
 
@@ -155,7 +165,7 @@ class MesP0ProductionSubmitClosedLoopContractTest {
 
     private static void assertSubmitMethodHasRollbackBoundary() throws Exception {
         Transactional transactional = MesProFrontlineFeedbackSubmitServiceImpl.class
-                .getMethod("submit", MesProFrontlineFeedbackSubmitReqVO.class)
+                .getMethod("submitAuthenticated", MesProFrontlineFeedbackSubmitReqVO.class, cn.iocoder.yudao.module.system.api.signature.dto.AuthenticatedSigner.class)
                 .getAnnotation(Transactional.class);
         assertNotNull(transactional, "P0 submit must stay in one transactional boundary");
         assertTrue(Arrays.asList(transactional.rollbackFor()).contains(Exception.class),

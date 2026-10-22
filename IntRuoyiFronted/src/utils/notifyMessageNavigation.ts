@@ -1,4 +1,6 @@
 import type { Router } from 'vue-router'
+import { resolveActiveOrderHandoffTarget, navigateToActiveOrderHandoff } from '@/utils/activeOrderHandoffNavigation'
+import type { ActiveOrderHandoffTarget } from '@/utils/activeOrderHandoffNavigation'
 import { readDccDistributionNotification, dccDistributionReadLocation, type DccDistributionReadIdentity } from './dccDistributionNavigation'
 import type { NotifyMessageVO } from '@/api/system/notify/message'
 import { DCC_OFFLINE_TRAINING_RECORD, readOfflineTrainingManagementLocation, type OfflineTrainingRecordLocation } from './dccOfflineTrainingRecord'
@@ -27,6 +29,8 @@ export const NOTIFY_MESSAGE_NAVIGATION_PARAM_KEYS = new Set([
   'notifyOpen',
   'workTaskId',
   'followupUrl',
+  'handoffTaskId',
+  'handoffType',
   'notifyProcessInstanceId'
 ])
 
@@ -85,6 +89,7 @@ export type NotifyMessageTarget =
   | BpmApprovalNotifyTarget
   | EdhrWorkTaskNotifyTarget
   | DccPublicationNotifyTarget
+  | ActiveOrderHandoffTarget
   | DccProjectProductNotifyTarget
   | DccOfflineTrainingNotifyTarget
   | DccRelationRemediationNotifyTarget
@@ -262,6 +267,10 @@ export const getNotifyMessageTargets = (message?: NotifyMessageLike | null): Not
   if (!templateParams) {
     return []
   }
+  if (templateParams.handoffTaskId !== undefined) {
+    const target = resolveActiveOrderHandoffTarget(templateParams)
+    return target ? [target] : []
+  }
   if (message?.templateCode === 'dcc_distribution') {
     try { return [{ ...readDccDistributionNotification(templateParams), type: 'dccDistribution', label: '查看下发文件并签收' }] }
     catch { return [] }
@@ -338,6 +347,10 @@ export const navigateToNotifyMessageTarget = async (
       }
     })
     window.location.assign(targetRoute.href)
+    return
+  }
+  if (target.type === 'activeOrderHandoff') {
+    await navigateToActiveOrderHandoff(router, target)
     return
   }
   if (target.type === 'edhrWorkTask') {

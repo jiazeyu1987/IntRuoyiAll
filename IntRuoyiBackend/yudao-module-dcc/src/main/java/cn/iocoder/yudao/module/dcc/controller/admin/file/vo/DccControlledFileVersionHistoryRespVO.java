@@ -71,6 +71,8 @@ public class DccControlledFileVersionHistoryRespVO {
     private Boolean canPreview;
     private String previewUnavailableReason;
     private Boolean canDownload;
+    private Boolean canDownloadReadOnly;
+    private Boolean canDownloadEditable;
     private Boolean canPrint;
     private DccControlledFileActionProjectionRespVO actionProjection;
     private Boolean checkedOut;

@@ -27,6 +27,7 @@ import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesT
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderRebuildResultRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderTransferTraceRespVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderVoidedActiveOrderPageReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderAllocationTraceRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderBatchRecordTraceRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderOrderProcessTraceRespVO;
@@ -111,6 +112,7 @@ import java.util.Set;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.Mockito.mockStatic;
@@ -120,6 +122,9 @@ import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class MesProcessPoolTeamLeaderControllerTest {
+    @org.mockito.Mock private cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffService handoffService;
+    @org.mockito.Mock private cn.iocoder.yudao.module.mes.service.pro.handoff.MesSignedReturnCorrectionResolver returnCorrectionResolver;
+
 
     @Mock
     private MesTeamLeaderWorkbenchService workbenchService;
@@ -178,6 +183,13 @@ class MesProcessPoolTeamLeaderControllerTest {
         MesTeamLeaderSubmissionReviewReqVO reqVO = new MesTeamLeaderSubmissionReviewReqVO()
                 .setEventId(1001L)
                 .setLeaderType("PQC")
+                .setExpectedReviews(List.of(
+                        new cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesSubmissionReviewExpectedContext()
+                                .setEventId(1001L).setPayloadHash("displayed-member-one").setRevisionId(31L)
+                                .setReviewId(41L).setReviewRound(2),
+                        new cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesSubmissionReviewExpectedContext()
+                                .setEventId(1002L).setPayloadHash("displayed-member-two").setRevisionId(32L)
+                                .setReviewId(42L).setReviewRound(3)))
                 .setReviewStatus("APPROVED")
                 .setReviewRemark("已复核")
                 .setSignaturePassword("review-pass");
@@ -197,6 +209,8 @@ class MesProcessPoolTeamLeaderControllerTest {
         assertEquals(1001L, captor.getValue().getEventId());
         assertEquals("APPROVED", captor.getValue().getReviewStatus());
         assertEquals("review-pass", captor.getValue().getSignaturePassword());
+        assertEquals(reqVO.getExpectedReviews(), captor.getValue().getExpectedReviews(),
+                "Controller must forward every displayed member without replacing its version or review round");
     }
 
     @Test
@@ -204,7 +218,7 @@ class MesProcessPoolTeamLeaderControllerTest {
         when(abnormalReportService.markAndReport(org.mockito.ArgumentMatchers.any())).thenReturn(8101L);
 
         MesWorkOrderAbnormalReportReqVO reqVO = new MesWorkOrderAbnormalReportReqVO()
-                .setWorkOrderId(5001L)
+                .setActiveOrderId(7001L)
                 .setAbnormalDescription("设备停机，影响工单交付");
 
         CommonResult<Long> response;
@@ -217,7 +231,7 @@ class MesProcessPoolTeamLeaderControllerTest {
         ArgumentCaptor<MesWorkOrderAbnormalReportReqBO> captor =
                 ArgumentCaptor.forClass(MesWorkOrderAbnormalReportReqBO.class);
         verify(abnormalReportService).markAndReport(captor.capture());
-        assertEquals(5001L, captor.getValue().getWorkOrderId());
+        assertEquals(7001L, captor.getValue().getActiveOrderId());
         assertEquals(3001L, captor.getValue().getMarkerUserId());
         assertEquals("设备停机，影响工单交付", captor.getValue().getAbnormalDescription());
     }
@@ -240,6 +254,30 @@ class MesProcessPoolTeamLeaderControllerTest {
                 cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesDefectReasonSaveReqBO.class);
         verify(defectReasonCatalogService).createReason(reasonCaptor.capture());
         assertEquals(3001L, reasonCaptor.getValue().getLeaderUserId());
+    }
+
+    @Test
+    void blockedOrderDiagnosisReachesBothWorkbenchAndFrontlineResponses() {
+        MesTeamLeaderActiveOrderRow blocked = new MesTeamLeaderActiveOrderRow()
+                .setId(8101L).setWorkOrderId(9001L).setReadBlocked(true)
+                .setReadBlockReason("PRODUCTION_OUTPUT_MATERIAL_IDS_REQUIRED")
+                .setAbnormal(true).setAbnormalReason("PRODUCTION_OUTPUT_MATERIAL_IDS_REQUIRED");
+        when(activeOrderService.listActiveOrders(3001L)).thenReturn(List.of(blocked));
+        try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(3001L);
+            MesTeamLeaderActiveOrderRespVO response = controller.getActiveOrderList().getData().get(0);
+            assertTrue(response.getReadBlocked());
+            assertEquals(blocked.getReadBlockReason(), response.getReadBlockReason());
+            assertNull(response.getProductionProgressPercent());
+        }
+        cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.vo.frontline.MesFrontlineActiveOrderRespVO frontline =
+                org.springframework.test.util.ReflectionTestUtils.invokeMethod(
+                        cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.MesFrontlineDeviceAccountController.class,
+                        "toProductionActiveOrderRespVO", blocked);
+        assertNotNull(frontline);
+        assertEquals(8101L, frontline.getActiveOrderId());
+        assertTrue(frontline.getReadBlocked());
+        assertEquals(blocked.getReadBlockReason(), frontline.getReadBlockReason());
     }
 
     @Test
@@ -796,6 +834,8 @@ class MesProcessPoolTeamLeaderControllerTest {
         assertEndpoint("markAndReportWorkOrderAbnormal", new Class[]{MesWorkOrderAbnormalReportReqVO.class},
                 PostMapping.class, new String[]{"/work-order/abnormal/report"},
                 "mes:pro-process-pool-team-leader:abnormal");
+        assertNotNull(findFieldOrNull(MesWorkOrderAbnormalReportReqVO.class, "activeOrderId"));
+        assertNull(findFieldOrNull(MesWorkOrderAbnormalReportReqVO.class, "workOrderId"));
         assertNull(findFieldOrNull(MesWorkOrderAbnormalReportReqVO.class, "routeProcessId"));
         assertNull(findFieldOrNull(MesWorkOrderAbnormalReportReqVO.class, "processId"));
         assertNull(findFieldOrNull(MesWorkOrderAbnormalReportReqVO.class, "sourceEventId"));
@@ -810,6 +850,8 @@ class MesProcessPoolTeamLeaderControllerTest {
                 new String[]{"/active-order/remove"}, "mes:pro-process-pool-team-leader:maintain");
         assertEndpoint("getActiveOrderList", new Class[]{}, GetMapping.class,
                 new String[]{"/active-order/list"}, "mes:pro-process-pool-team-leader:query");
+        assertEndpoint("getVoidedActiveOrderPage", new Class[]{MesTeamLeaderVoidedActiveOrderPageReqVO.class}, GetMapping.class,
+                new String[]{"/active-order/voided-page"}, "mes:pro-process-pool-team-leader:query");
         assertEndpoint("previewReportFifoAllocation",
                 new Class[]{MesTeamLeaderReportAllocationPreviewReqVO.class}, PostMapping.class,
                 new String[]{"/submission/allocation/preview-fifo"},

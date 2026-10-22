@@ -71,8 +71,10 @@ export interface EdhrSignatureSummaryVO {
   snapshotStatus?: string
 }
 
-export const getEdhrExecutionSignaturePage = async (params: EdhrSignaturePageReqVO) => {
+export const getEdhrExecutionSignaturePage = async (params: EdhrSignaturePageReqVO, options?: { ignoreErrorMessage?: boolean; isRequestContextCurrent?: () => boolean }) => {
   return await request.get<PageResult<EdhrSignatureSummaryVO[]>>({
+    ignoreErrorMessage: options?.ignoreErrorMessage,
+    isRequestContextCurrent: options?.isRequestContextCurrent,
     url: '/mes/pro/batch-record-execution/signature-page',
     params
   })

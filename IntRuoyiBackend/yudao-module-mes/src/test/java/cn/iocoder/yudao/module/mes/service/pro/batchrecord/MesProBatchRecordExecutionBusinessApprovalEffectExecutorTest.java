@@ -45,6 +45,10 @@ class MesProBatchRecordExecutionBusinessApprovalEffectExecutorTest {
     private MesProEdhrWorkTaskService workTaskService;
     @Mock
     private cn.iocoder.yudao.module.bpm.service.task.BpmTaskService bpmTaskService;
+    @Mock
+    private MesEdhrFinalApprovalReceiptVerifier finalApprovalReceiptVerifier;
+    @Mock
+    private cn.iocoder.yudao.module.bpm.businessapproval.service.BusinessApprovalRequestStore requestStore;
 
     @BeforeEach
     void setUp() {
@@ -54,6 +58,8 @@ class MesProBatchRecordExecutionBusinessApprovalEffectExecutorTest {
         ReflectionTestUtils.setField(executor, "executionSignatureService", executionSignatureService);
         ReflectionTestUtils.setField(executor, "workTaskService", workTaskService);
         ReflectionTestUtils.setField(executor, "bpmTaskService", bpmTaskService);
+        ReflectionTestUtils.setField(executor, "finalApprovalReceiptVerifier", finalApprovalReceiptVerifier);
+        ReflectionTestUtils.setField(executor, "requestStore", requestStore);
     }
 
     @Test
@@ -126,50 +132,34 @@ class MesProBatchRecordExecutionBusinessApprovalEffectExecutorTest {
     }
 
     @Test
-    void executeApprovedClosesSnapshotExecutionAndReviewTask() {
-        when(executionMapper.selectByIdForUpdate(9001L)).thenReturn(new MesProBatchRecordExecutionDO()
+    void executeApprovedVerifiesFinalReceiptWithoutRepeatingDomainWrites() {
+        cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.setTenantId(122L);
+        var execution = new MesProBatchRecordExecutionDO()
                 .setId(9001L)
-                .setStatus(MesProEdhrApprovalStatusMapping.EXECUTION_STATUS_SUBMITTED)
-                .setProcessInstanceId("process-9001"));
-        when(approvalSnapshotMapper.selectByExecutionId(9001L)).thenReturn(MesProBatchRecordApprovalSnapshotDO.builder()
+                .setRevisionNo(1)
+                .setProcessDefinitionKey("mes-edhr-approval-v1")
+                .setStatus(MesProEdhrApprovalStatusMapping.EXECUTION_STATUS_APPROVED)
+                .setProcessInstanceId("process-9001");
+        var snapshot = MesProBatchRecordApprovalSnapshotDO.builder()
                 .id(7001L)
                 .executionId(9001L)
                 .processInstanceId("process-9001")
-                .approvalStatus("SUBMITTED")
-                .currentBpmTaskId("task-9001")
-                .build());
-        when(executionMapper.updateById(any(MesProBatchRecordExecutionDO.class))).thenReturn(1);
-        when(approvalSnapshotMapper.approveAndClearCurrentBpmTask(any(MesProBatchRecordApprovalSnapshotDO.class)))
-                .thenReturn(1);
-        MesProEdhrWorkTaskDO reviewTask = new MesProEdhrWorkTaskDO()
-                .setId(8002L)
-                .setExecutionId(9001L)
-                .setBpmTaskId("task-9001");
-        when(workTaskService.getActiveReviewTaskByBpmTaskId(9001L, "task-9001")).thenReturn(reviewTask);
-        when(workTaskService.completeOneReviewTask(8002L, 9001L)).thenReturn(reviewTask);
-
-        BusinessApprovalEffectResult result = executor.executeApproved(context(), request("process-9001"), 88L);
-
-        assertEquals("APPROVED", result.getResultState());
-        ArgumentCaptor<MesProBatchRecordApprovalSnapshotDO> snapshotCaptor =
-                ArgumentCaptor.forClass(MesProBatchRecordApprovalSnapshotDO.class);
-        verify(approvalSnapshotMapper).approveAndClearCurrentBpmTask(snapshotCaptor.capture());
-        assertEquals(7001L, snapshotCaptor.getValue().getId());
-        assertEquals("APPROVED", snapshotCaptor.getValue().getApprovalStatus());
-        assertEquals(88L, snapshotCaptor.getValue().getApprovedBy());
-        assertNotNull(snapshotCaptor.getValue().getApprovedAt());
-        assertNotNull(snapshotCaptor.getValue().getClosedAt());
-        ArgumentCaptor<MesProBatchRecordExecutionDO> executionCaptor =
-                ArgumentCaptor.forClass(MesProBatchRecordExecutionDO.class);
-        verify(executionMapper).updateById(executionCaptor.capture());
-        assertEquals(MesProEdhrApprovalStatusMapping.EXECUTION_STATUS_APPROVED,
-                executionCaptor.getValue().getStatus());
-        assertEquals(88L, executionCaptor.getValue().getApprovedBy());
-        assertNotNull(executionCaptor.getValue().getApprovedAt());
-        assertNotNull(executionCaptor.getValue().getClosedAt());
-        verify(executionMapper).clearActiveContextKey(9001L);
-        verify(workTaskService).completeOneReviewTask(8002L, 9001L);
-        verify(workTaskService).createNextFillAfterReview(reviewTask);
+                .submitSignatureId(1301L).snapshotHash("approval-snapshot-hash").snapshotJson("{\"executionId\":9001}")
+                .approvalStatus("APPROVED").build();
+        when(executionMapper.selectByIdForUpdate(9001L)).thenReturn(execution);
+        when(approvalSnapshotMapper.selectByExecutionId(9001L)).thenReturn(snapshot);
+        when(requestStore.findByProcessInstanceId("process-9001")).thenReturn(java.util.Optional.of(request("process-9001")));
+        try {
+            var result = executor.executeApproved(context(), request("process-9001"), 88L);
+            assertEquals("APPROVED", result.getResultState());
+            verify(finalApprovalReceiptVerifier).requireCompleted(execution, snapshot, 88L);
+            verify(executionMapper, never()).updateById(any(MesProBatchRecordExecutionDO.class));
+            verify(executionMapper, never()).clearActiveContextKey(any());
+            verify(approvalSnapshotMapper, never()).approveAndClearCurrentBpmTask(any());
+            org.mockito.Mockito.verifyNoInteractions(workTaskService);
+        } finally {
+            cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.clear();
+        }
     }
 
     private BusinessApprovalContext context() {
@@ -207,6 +197,9 @@ class MesProBatchRecordExecutionBusinessApprovalEffectExecutorTest {
     private BusinessApprovalRequest request(String processInstanceId) {
         return BusinessApprovalRequest.builder()
                 .requestId(91001L)
+                .tenantId(122L)
+                .processDefinitionKey("mes-edhr-approval-v1")
+                .effectExecutorCode("EDHR_BATCH_EXECUTION_SUBMIT_REVIEW")
                 .processInstanceId(processInstanceId)
                 .context(context())
                 .build();

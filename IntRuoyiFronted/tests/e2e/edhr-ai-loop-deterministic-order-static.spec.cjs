@@ -1,0 +1,25 @@
+const fs = require('node:fs')
+const path = require('node:path')
+const assert = require('node:assert/strict')
+
+const apiPath = path.resolve(process.cwd(), 'src/api/mes/pro/workorder/index.ts')
+const pagePath = path.resolve(process.cwd(), 'src/views/mes/pro/workorder/index.vue')
+const apiSource = fs.readFileSync(apiPath, 'utf8')
+const pageSource = fs.readFileSync(pagePath, 'utf8')
+
+assert(apiSource.includes('createAiE2eProductionOrder'), 'work-order API must expose deterministic AI E2E order creation')
+assert(apiSource.includes('/create-ai-e2e-production-order'), 'deterministic AI E2E endpoint path is missing')
+assert(apiSource.includes('/mes/pro/work-order/create-ai-e2e-production-order'), 'AI E2E creation must use the configured ERP template endpoint without a local work-order id')
+assert(pageSource.includes('runId') && pageSource.includes('slot') && pageSource.includes('quantity'), 'AI E2E dialog must expose runId, slot and quantity')
+assert(pageSource.includes('AI E2E') && pageSource.includes('100'), 'AI E2E dialog must communicate fixed quantity 100')
+assert(pageSource.includes('data-edhr-ai-e2e-open-global'), 'AI E2E dialog must open from a stable global toolbar selector')
+assert(pageSource.includes('data-edhr-ai-e2e-run-id'), 'AI E2E runId input must expose a stable automation selector')
+assert(pageSource.includes('data-edhr-ai-e2e-slot'), 'AI E2E slot select must expose a stable automation selector')
+assert(pageSource.includes('data-edhr-ai-e2e-quantity'), 'AI E2E quantity input must expose a stable automation selector')
+assert(pageSource.includes('data-edhr-ai-e2e-batch-number'), 'AI E2E batch number input must expose a stable automation selector')
+assert(pageSource.includes('data-edhr-ai-e2e-submit'), 'AI E2E submit button must expose a stable automation selector')
+assert(pageSource.includes('erpBillNo'), 'page must retain and display returned ERP bill number')
+assert(!pageSource.includes('catch {}'), 'AI E2E order creation must not swallow errors')
+
+console.log('PASS: deterministic AI E2E order creation frontend contract')
+

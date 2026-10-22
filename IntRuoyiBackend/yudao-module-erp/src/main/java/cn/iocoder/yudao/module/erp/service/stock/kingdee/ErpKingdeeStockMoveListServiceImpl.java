@@ -127,16 +127,12 @@ public class ErpKingdeeStockMoveListServiceImpl implements ErpKingdeeStockMoveLi
     }
 
     private void upsertItems(Long stockMoveId, ErpKingdeeStockMove stockMove, LocalDateTime now) {
+        // 明细表仅用于 ERP 快照展示；完整替换同时移除 ERP 已删除的分录和已清空的字段。
+        stockMoveListItemMapper.deleteByStockMoveId(stockMoveId);
         for (ErpKingdeeStockMove.Line line : stockMove.getLines()) {
             String sourceLineKey = stockMove.getFid() + "|" + line.getEntryId();
-            ErpKingdeeStockMoveListItemDO existing = stockMoveListItemMapper.selectBySourceLineKey(sourceLineKey);
             ErpKingdeeStockMoveListItemDO record = buildItemRecord(stockMoveId, stockMove, line, sourceLineKey, now);
-            if (existing == null) {
-                stockMoveListItemMapper.insert(record);
-                continue;
-            }
-            record.setId(existing.getId());
-            stockMoveListItemMapper.updateById(record);
+            stockMoveListItemMapper.insert(record);
         }
     }
 

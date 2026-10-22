@@ -123,4 +123,55 @@ class DccW01ProjectAccessIdentityTest {
         }
         verifyNoInteractions(permissions);
     }
+
+    @Test void superAdminOwnsExistingAndNewProjectsWithoutExplicitRulesOrAssignment() {
+        when(users.getUser(99L)).thenReturn(user());
+        when(permissions.hasAnyRoles(99L, "super_admin")).thenReturn(true);
+        var added = DccProjectCodeDO.builder().id(101L).status("ENABLE").build();
+        added.setTenantId(1L);
+        when(projects.selectById(101L)).thenReturn(added);
+        var existing = projects.selectById(100L);
+        when(projects.selectEnabledList()).thenReturn(List.of(existing, added));
+
+        for (Long projectId : List.of(100L, 101L)) {
+            assertTrue(service.hasProjectOwner(99L, projectId));
+            assertTrue(service.hasProjectEditorOrOwner(99L, projectId));
+            assertDoesNotThrow(() -> service.assertProjectOwner(99L, projectId));
+            assertDoesNotThrow(() -> service.assertProjectEditorOrOwner(99L, projectId));
+            assertDoesNotThrow(() -> service.assertProjectViewerOrAbove(99L, projectId));
+        }
+        assertEquals(List.of(100L, 101L), service.listReadableProjectIds(99L));
+        verifyNoInteractions(rules, assignments);
+    }
+
+    @Test void superAdminCannotOwnForeignTenantOrMissingProjects() {
+        when(users.getUser(99L)).thenReturn(user());
+        when(permissions.hasAnyRoles(99L, "super_admin")).thenReturn(true);
+        var foreign = DccProjectCodeDO.builder().id(101L).status("ENABLE").build();
+        foreign.setTenantId(2L);
+        when(projects.selectById(101L)).thenReturn(foreign);
+        var existing = projects.selectById(100L);
+        when(projects.selectEnabledList()).thenReturn(List.of(existing, foreign));
+
+        for (Long projectId : List.of(101L, 999L)) {
+            assertFalse(service.hasProjectOwner(99L, projectId));
+            assertFalse(service.hasProjectEditorOrOwner(99L, projectId));
+            assertThrows(ServiceException.class, () -> service.assertProjectOwner(99L, projectId));
+            assertThrows(ServiceException.class, () -> service.assertProjectViewerOrAbove(99L, projectId));
+        }
+        assertEquals(List.of(100L), service.listReadableProjectIds(99L));
+    }
+
+    @Test void superAdminRoleCannotOverrideDisabledOrForeignAccountIdentity() {
+        lenient().when(permissions.hasAnyRoles(99L, "super_admin")).thenReturn(true);
+        for (var invalid : List.of(user().setStatus(1), user().setStatus(null),
+                user().setTenantId(2L), user().setId(98L))) {
+            when(users.getUser(99L)).thenReturn(invalid);
+            assertFalse(service.hasProjectOwner(99L, 100L));
+            assertFalse(service.hasProjectEditorOrOwner(99L, 100L));
+            assertThrows(ServiceException.class, () -> service.assertProjectViewerOrAbove(99L, 100L));
+            assertThrows(ServiceException.class, () -> service.listReadableProjectIds(99L));
+        }
+        verifyNoInteractions(permissions, rules, assignments);
+    }
 }

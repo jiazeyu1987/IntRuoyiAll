@@ -15,9 +15,9 @@
 
 ## 使用顺序
 
-1. 创建或识别 `doc/tasks/<task-id>/`，先在 `task.md` 写入目标、里程碑、预期验证和当前状态。
-2. 再读 `docs/experience-index.md`，确认本任务命中测试服发布、构建、manifest、PowerShell、worktree 和运行态门禁，并把适用门禁补入 `task.md`。
-3. 在 `execution-log.md` 记录 `GREEN: experience-preflight -> PASS` 后，再执行发布、服务器写入、数据库写入或真实 E2E。
+1. 核对用户已授权的测试服范围和实际发布目标；记录按任务需要保留，不要求先建任务目录。
+2. 按实际发布内容核对必要构建、manifest、运行态和归属要求；有疑点时再查相关经验，不重复阅读或摘录全部规则。
+3. 前提满足后执行已授权操作，如实报告结果；不以固定日志文件或 experience-preflight 回执作为执行前提。
 4. 按本文阶段顺序执行；任一 fail fast 条件出现时停止发布，记录问题，不进入下一阶段。
 
 ## 可索引门禁摘要

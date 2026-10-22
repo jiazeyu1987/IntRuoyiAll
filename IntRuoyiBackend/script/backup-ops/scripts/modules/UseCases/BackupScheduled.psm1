@@ -90,6 +90,10 @@ function Invoke-BackupScheduledUseCase {
         Show-BackupOpsProgress -Current 3 -Total 11 -Message '读取当前部署元数据...'
         $null = Save-BackupOpsDeployMetadata -Config $Config -Workspace $workspace -LogSession $logSession
 
+        if ($BackupKind -eq 'INCREMENTAL') {
+            $null = Test-BackupOpsMySqlBinlogToolAvailable -Config $Config -LogSession $logSession
+        }
+
         Show-BackupOpsProgress -Current 4 -Total 13 -Message '停止 frontend/backend，建立无写入窗口...'
         try {
             $servicesStopped = $true

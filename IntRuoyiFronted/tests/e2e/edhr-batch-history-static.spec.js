@@ -15,8 +15,8 @@ const traceDrawer = read('src/views/mes/pro/edhr/form-trace/BatchExecutionTraceD
 const batchTabs = read('src/views/mes/pro/edhr-batch/EdhrBatchRecordTabs.vue')
 const router = read('src/router/modules/remaining.ts')
 
-assert.doesNotMatch(batchTabs, /历史批记录|edhr-batch-history/, 'eDHR 批记录页签不得再显示独立历史批记录。')
-assert.doesNotMatch(router, /edhr-batch-history|MesProEdhrBatchHistory/, '路由不得再暴露独立历史批记录页面。')
+assert.match(batchTabs, /label="历史追溯"\s+name="history"/, '批记录页签必须保留历史追溯入口。')
+assert.match(router, /edhr-batch-history|MesProEdhrBatchHistory/, '路由必须保留历史追溯页面入口。')
 assertIncludes(
   traceDrawer,
   '批记录表单',
@@ -29,8 +29,13 @@ assertIncludes(
 )
 assertIncludes(
   traceDrawer,
-  'EdhrExecutionReadonlyForm',
-  '表单追溯详情必须复用只读模板表格组件'
+  'ActiveOrderSubmissionDetailPanel',
+  '表单追溯详情必须复用活跃订单详情面板'
+)
+assertIncludes(
+  traceDrawer,
+  'getEdhrBatchActiveOrderDetail',
+  '表单追溯详情必须按批次执行正式来源读取详情单据'
 )
 assertIncludes(
   traceDrawer,

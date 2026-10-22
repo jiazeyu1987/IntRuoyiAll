@@ -65,16 +65,21 @@ function Invoke-ProcessCapture {
     param(
         [Parameter(Mandatory = $true)]
         [string]$FilePath,
-        [string[]]$ArgumentList = @()
+        [string[]]$ArgumentList = @(),
+        [Parameter(Mandatory = $true)]
+        [string]$StandardInputText
     )
 
     $tempDir = Join-Path ([System.IO.Path]::GetTempPath()) ("intruoyi-remote-root-disk-" + [System.Guid]::NewGuid().ToString("N"))
     New-Item -ItemType Directory -Force -Path $tempDir | Out-Null
     $stdoutPath = Join-Path $tempDir 'stdout.log'
     $stderrPath = Join-Path $tempDir 'stderr.log'
+    $stdinPath = Join-Path $tempDir 'stdin.sh'
     try {
+        [System.IO.File]::WriteAllText($stdinPath, $StandardInputText, [System.Text.UTF8Encoding]::new($false))
         $process = Start-Process -FilePath $FilePath `
             -ArgumentList $ArgumentList `
+            -RedirectStandardInput $stdinPath `
             -RedirectStandardOutput $stdoutPath `
             -RedirectStandardError $stderrPath `
             -NoNewWindow `
@@ -103,15 +108,18 @@ function Invoke-ProcessCapture {
 function Invoke-SshCapture {
     param([string]$Command)
     Assert-TargetBoundary
+    $remoteScript = $Command.Replace("`r`n", "`n")
+    if ($remoteScript.Contains("`r")) {
+        Fail 'Remote script contains a standalone CR byte'
+    }
     $result = Invoke-ProcessCapture -FilePath 'ssh' -ArgumentList @(
-        '-n',
         '-T',
         '-o', 'BatchMode=yes',
         '-o', 'ConnectTimeout=8',
         '-o', 'StrictHostKeyChecking=no',
         "$ServerUser@$ServerHost",
-        $Command
-    )
+        'bash', '-s'
+    ) -StandardInputText $remoteScript
     $stdOut = if ($null -ne $result.StdOut) { $result.StdOut } else { '' }
     $stdErr = if ($null -ne $result.StdErr) { $result.StdErr } else { '' }
     $cleanOutput = Remove-SshNoise (($stdOut + "`n" + $stdErr).Trim())

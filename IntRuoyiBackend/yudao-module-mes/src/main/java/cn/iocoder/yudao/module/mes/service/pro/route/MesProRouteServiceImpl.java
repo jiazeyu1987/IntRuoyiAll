@@ -11,6 +11,14 @@ import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.MesProRoutePageReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.MesProRouteRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.MesProRouteSaveReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.MesProRouteCreateReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flow.MesProRouteProcessFlowSaveReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flow.MesProRouteProcessFlowEdgeReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flow.MesProRouteProcessFlowBoundaryEdgeReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flow.MesProRouteProcessFlowLayoutReqVO;
+import cn.iocoder.yudao.module.mes.service.md.autocode.MesMdAutoCodeRecordService;
+import cn.iocoder.yudao.module.mes.enums.md.autocode.MesMdAutoCodeRuleCodeEnum;
+import cn.iocoder.yudao.module.mes.enums.pro.MesProLinkTypeEnum;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.schedulerworkbench.vo.MesProSchedulerWorkbenchPolicySettingsRespVO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.md.item.MesMdItemDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.process.MesProProcessDO;
@@ -46,12 +54,14 @@ import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
 import jakarta.annotation.Resource;
 import org.springframework.context.annotation.Lazy;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.annotation.Validated;
 
 import java.math.BigDecimal;
 import java.util.Collection;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -153,10 +163,137 @@ public class MesProRouteServiceImpl implements MesProRouteService {
     private MesProRouteControlledContentAdapter platformAdapter;
     @Resource
     private MesProRouteOwnerPermissionService routeOwnerPermissionService;
+    @Resource
+    private MesMdAutoCodeRecordService autoCodeRecordService;
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Long createRouteWithProcesses(MesProRouteCreateReqVO reqVO) {
+        String name = StrUtil.trim(reqVO.getName());
+        if (StrUtil.isBlank(name)) {
+            throw exception(cn.iocoder.yudao.framework.common.exception.enums.GlobalErrorCodeConstants.BAD_REQUEST,
+                    "名称不能为空");
+        }
+        validateRouteNameUnique(null, name);
+        List<Long> processIds = reqVO.getProcessIds();
+        if (CollUtil.isEmpty(processIds)) {
+            throw exception(PRO_ROUTE_ENABLE_NO_PROCESS);
+        }
+        if (new LinkedHashSet<>(processIds).size() != processIds.size()) {
+            throw exception(PRO_ROUTE_PROCESS_DUPLICATE);
+        }
+        Map<Long, MesProProcessDO> processDefinitions = new LinkedHashMap<>();
+        for (Long processId : processIds) {
+            MesProProcessDO process = processId == null ? null : processMapper.selectById(processId);
+            if (process == null) {
+                throw exception(PRO_ROUTE_PROCESS_NOT_EXISTS);
+            }
+            processDefinitions.put(processId, process);
+        }
+        String code = autoCodeRecordService.generateAutoCode(MesMdAutoCodeRuleCodeEnum.PRO_ROUTE_CODE.getCode());
+        if (code == null || !code.matches("GYLC-[0-9]{4,}")) {
+            throw exception(AUTO_CODE_GENERATE_FAILED);
+        }
+        MesProRouteDO route = MesProRouteDO.builder().code(code).name(name).remark(reqVO.getRemark())
+                .status(CommonStatusEnum.DISABLE.getStatus()).build();
+        insertRoute(route);
+        List<MesProRouteProcessDO> routeProcesses = new ArrayList<>();
+        for (int index = 0; index < processIds.size(); index++) {
+            MesProRouteProcessDO routeProcess = MesProRouteProcessDO.builder()
+                    .routeId(route.getId()).processId(processIds.get(index)).sort(index + 1)
+                    .nextProcessId(index + 1 < processIds.size() ? processIds.get(index + 1) : null)
+                    .linkType(MesProLinkTypeEnum.FINISH_START.getType())
+                    .keyFlag(false).checkFlag(false).build();
+            routeProcessMapper.insert(routeProcess);
+            routeProcesses.add(routeProcess);
+        }
+        routeProcessFlowService.saveGraph(buildInitialSequentialGraph(route.getId(), routeProcesses));
+        // 初始构建不调用逐工序变更入口，避免生成空 V1 或额外候选版本。
+        JSONObject initialConfigs = new JSONObject(true);
+        JSONArray productionConfigs = new JSONArray();
+        for (MesProRouteProcessDO routeProcess : routeProcesses) {
+            MesProProcessDO process = processDefinitions.get(routeProcess.getProcessId());
+            JSONObject config = new JSONObject(true);
+            config.put("routeProcessId", routeProcess.getId());
+            config.put("processId", routeProcess.getProcessId());
+            config.put("processCode", process.getCode());
+            config.put("processName", process.getName());
+            config.put("sort", routeProcess.getSort());
+            // 新流程尚未配置损耗、设备和参数，明确初始化为空配置及零超产比例。
+            config.put("overagePercent", BigDecimal.ZERO);
+            config.put("lossReasons", new JSONArray());
+            config.put("deviceSelectionGroups", new JSONArray());
+            config.put("parameterRules", new JSONArray());
+            productionConfigs.add(config);
+        }
+        initialConfigs.put(PRODUCTION_PROCESS_CONFIG_SCHEMA_VERSION_KEY, PRODUCTION_PROCESS_CONFIG_SCHEMA_VERSION);
+        initialConfigs.put(PRODUCTION_PROCESS_CONFIGS_KEY, productionConfigs);
+        MesProRouteVersionDO version = createRouteVersion(route, "V1", null,
+                Boolean.TRUE, ROUTE_VERSION_STATUS_ACTIVE, initialConfigs);
+        for (MesProRouteProcessDO routeProcess : routeProcesses) {
+            ensureDefaultScheduleUseConfig(route, routeProcess);
+            ensureDefaultRouteScheduleConfig(route, routeProcess);
+        }
+        refreshRouteVersionSnapshot(route, version.getId());
+        MesProRouteVersionDO initialVersion = routeVersionMapper.selectById(version.getId());
+        if (!MesProRouteVersionSnapshotValidator.hasCompleteConfigSnapshot(initialVersion.getRouteSnapshotJson())) {
+            throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, version.getId());
+        }
+        registerActiveVersionRef(initialVersion);
+        routeOwnerPermissionService.bindCurrentUserAsOwner(route.getId());
+        return route.getId();
+    }
+
+    private MesProRouteProcessFlowSaveReqVO buildInitialSequentialGraph(
+            Long routeId, List<MesProRouteProcessDO> processes) {
+        MesProRouteProcessFlowSaveReqVO graph = new MesProRouteProcessFlowSaveReqVO();
+        graph.setRouteId(routeId);
+        graph.setGraphVersion(0L);
+        for (int index = 0; index < processes.size(); index++) {
+            Long routeProcessId = processes.get(index).getId();
+            MesProRouteProcessFlowLayoutReqVO layout = new MesProRouteProcessFlowLayoutReqVO();
+            layout.setRouteProcessId(routeProcessId);
+            layout.setX(240 + index * 280);
+            layout.setY(160);
+            layout.setWidth(220);
+            layout.setHeight(96);
+            graph.getLayouts().add(layout);
+            if (index + 1 < processes.size()) {
+                MesProRouteProcessFlowEdgeReqVO edge = new MesProRouteProcessFlowEdgeReqVO();
+                edge.setSourceRouteProcessId(routeProcessId);
+                edge.setTargetRouteProcessId(processes.get(index + 1).getId());
+                edge.setRelationType("NORMAL");
+                graph.getEdges().add(edge);
+            }
+        }
+        for (String boundaryType : List.of("START", "END")) {
+            MesProRouteProcessFlowBoundaryEdgeReqVO boundary = new MesProRouteProcessFlowBoundaryEdgeReqVO();
+            boundary.setBoundaryType(boundaryType);
+            boundary.setRouteProcessId(processes.get("START".equals(boundaryType) ? 0 : processes.size() - 1).getId());
+            boundary.setSort(1);
+            graph.getBoundaryEdges().add(boundary);
+        }
+        return graph;
+    }
+
+    private void insertRoute(MesProRouteDO route) {
+        try {
+            routeMapper.insert(route);
+        } catch (DuplicateKeyException ex) {
+            if (ex.getMessage() != null && ex.getMessage().contains("uk_mes_pro_route_name_live")) {
+                throw exception(PRO_ROUTE_NAME_DUPLICATE);
+            }
+            if (ex.getMessage() != null && ex.getMessage().contains("uk_mes_pro_route_code")) {
+                throw exception(PRO_ROUTE_CODE_DUPLICATE);
+            }
+            throw ex;
+        }
+    }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public Long createRoute(MesProRouteSaveReqVO createReqVO) {
+        createReqVO.setName(StrUtil.trim(createReqVO.getName()));
         // 1. 校验编码唯一性
         validateRouteCodeUnique(null, createReqVO.getCode());
         validateRouteNameUnique(null, createReqVO.getName());
@@ -164,7 +301,7 @@ public class MesProRouteServiceImpl implements MesProRouteService {
         MesProRouteDO route = BeanUtils.toBean(createReqVO, MesProRouteDO.class);
         route.setRemark(buildRouteRemark(createReqVO.getRemark(), createReqVO.getOwnerName()));
         route.setStatus(CommonStatusEnum.DISABLE.getStatus());
-        routeMapper.insert(route);
+        insertRoute(route);
         createInitialRouteVersion(route);
         routeOwnerPermissionService.bindCurrentUserAsOwner(route.getId());
         return route.getId();
@@ -173,6 +310,7 @@ public class MesProRouteServiceImpl implements MesProRouteService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void updateRoute(MesProRouteSaveReqVO updateReqVO) {
+        updateReqVO.setName(StrUtil.trim(updateReqVO.getName()));
         // 1.1 校验存在
         MesProRouteDO oldRoute = validateRouteExists(updateReqVO.getId());
         // 1.2 校验编码唯一性

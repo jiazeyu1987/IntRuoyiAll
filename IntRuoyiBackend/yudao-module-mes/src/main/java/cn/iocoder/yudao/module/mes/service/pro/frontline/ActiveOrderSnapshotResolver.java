@@ -60,12 +60,39 @@ public class ActiveOrderSnapshotResolver {
                 dccProjectCodeId, qaRegulationId, qaRegulationVersionId);
     }
 
+    public ActiveOrderSnapshot requireFormalSource(Long activeOrderId) {
+        if (activeOrderId == null || activeOrderId <= 0) {
+            throw exception(PRO_PROCESS_POOL_ACTIVE_ORDER_NOT_EXISTS, activeOrderId);
+        }
+        MesProcessPoolActiveOrderDO activeOrder = activeOrderMapper.selectByIdIgnoreDeleted(activeOrderId);
+        if (activeOrder == null || !activeOrderId.equals(activeOrder.getId())) {
+            throw exception(PRO_PROCESS_POOL_ACTIVE_ORDER_NOT_EXISTS, activeOrderId);
+        }
+        return new ActiveOrderSnapshot(activeOrder.getId(),
+                requirePositive(activeOrder.getWorkOrderId(), PRO_PROCESS_POOL_ACTIVE_ORDER_ROUTE_REQUIRED, activeOrderId),
+                requirePositive(activeOrder.getRouteId(), PRO_PROCESS_POOL_ACTIVE_ORDER_ROUTE_REQUIRED, activeOrderId),
+                requirePositive(activeOrder.getRouteVersionId(), PRO_PROCESS_POOL_ACTIVE_ORDER_ROUTE_REQUIRED, activeOrderId),
+                requirePositive(activeOrder.getDccProjectCodeId(), QA_INSPECTION_REGULATION_SNAPSHOT_INVALID,
+                        "activeOrderId=" + activeOrderId),
+                requirePositive(activeOrder.getQaRegulationId(), QA_INSPECTION_REGULATION_SNAPSHOT_INVALID,
+                        "activeOrderId=" + activeOrderId),
+                requirePositive(activeOrder.getQaRegulationVersionId(), QA_INSPECTION_REGULATION_SNAPSHOT_INVALID,
+                        "activeOrderId=" + activeOrderId));
+    }
+
     private static Long requireLong(Map<String, Object> row, String key, ErrorCode errorCode, Object detail) {
         Object value = row.get(key);
         if (!(value instanceof Number number) || number.longValue() <= 0) {
             throw exception(errorCode, detail);
         }
         return number.longValue();
+    }
+
+    private static Long requirePositive(Long value, ErrorCode errorCode, Object detail) {
+        if (value == null || value <= 0) {
+            throw exception(errorCode, detail);
+        }
+        return value;
     }
 
     public record ActiveOrderSnapshot(Long activeOrderId,

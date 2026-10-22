@@ -1,5 +1,6 @@
 package cn.iocoder.yudao.module.mes.service.pro.processpool.team;
 
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolWorkOrderAbnormalDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolWorkOrderAbnormalMapper;
@@ -8,6 +9,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.annotation.Validated;
 
 import java.time.LocalDateTime;
+import java.util.Objects;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_ACTIVE_ORDER_NOT_EXISTS;
@@ -36,17 +38,19 @@ public class MesWorkOrderAbnormalReportServiceImpl implements MesWorkOrderAbnorm
     @Transactional(rollbackFor = Exception.class)
     public Long markAndReport(MesWorkOrderAbnormalReportReqBO reqBO) {
         validateReq(reqBO);
-        if (activeOrderMapper.selectActiveByLeaderAndWorkOrderForUpdate(
-                reqBO.getMarkerUserId(), reqBO.getWorkOrderId())
-                == null) {
-            throw exception(PRO_PROCESS_POOL_ACTIVE_ORDER_NOT_EXISTS, reqBO.getWorkOrderId());
+        MesProcessPoolActiveOrderDO activeOrder = activeOrderMapper.selectByIdForUpdate(reqBO.getActiveOrderId());
+        if (activeOrder == null || !Objects.equals(activeOrder.getLeaderUserId(), reqBO.getMarkerUserId())
+                || !MesTeamLeaderActiveOrderServiceImpl.STATUS_ACTIVE.equals(activeOrder.getActiveStatus())
+                || activeOrder.getWorkOrderId() == null) {
+            throw exception(PRO_PROCESS_POOL_ACTIVE_ORDER_NOT_EXISTS, reqBO.getActiveOrderId());
         }
-        if (abnormalStateService.hasOpenAbnormal(reqBO.getWorkOrderId())) {
-            throw exception(PRO_PROCESS_POOL_WORK_ORDER_ABNORMAL_OPEN_EXISTS, reqBO.getWorkOrderId());
+        Long workOrderId = activeOrder.getWorkOrderId();
+        if (abnormalStateService.hasOpenAbnormal(workOrderId)) {
+            throw exception(PRO_PROCESS_POOL_WORK_ORDER_ABNORMAL_OPEN_EXISTS, workOrderId);
         }
         LocalDateTime now = LocalDateTime.now();
         MesProcessPoolWorkOrderAbnormalDO abnormal = MesProcessPoolWorkOrderAbnormalDO.builder()
-                .workOrderId(reqBO.getWorkOrderId())
+                .workOrderId(workOrderId)
                 .abnormalReasonCode(ACTIVE_ORDER_ABNORMAL_REASON_CODE)
                 .abnormalDescription(reqBO.getAbnormalDescription().trim())
                 .reportStatus(MesProcessPoolWorkOrderAbnormalDO.REPORT_STATUS_REPORTED)
@@ -60,7 +64,7 @@ public class MesWorkOrderAbnormalReportServiceImpl implements MesWorkOrderAbnorm
     }
 
     private void validateReq(MesWorkOrderAbnormalReportReqBO reqBO) {
-        if (reqBO == null || reqBO.getWorkOrderId() == null || reqBO.getMarkerUserId() == null
+        if (reqBO == null || reqBO.getActiveOrderId() == null || reqBO.getMarkerUserId() == null
                 || isBlank(reqBO.getAbnormalDescription())) {
             throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "workOrderAbnormal");
         }

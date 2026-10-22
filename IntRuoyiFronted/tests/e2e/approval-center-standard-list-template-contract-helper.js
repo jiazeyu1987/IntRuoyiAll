@@ -110,7 +110,8 @@ const assertApprovalCenterStandardListContract = ({
   }
 
   if (expectsReviewAction) {
-    assert.match(unifiedTemplate, /openReviewDialog\(row\)/, 'TODO list must preserve direct review action')
+    assert.match(unifiedTemplate, /openReviewAction\(row\)/, 'TODO list must preserve capability-directed review action')
+    assert.match(approvalPage, /if \(canReview\(row\)\)[\s\S]*?openReviewDialog\(row\)/, 'quick review must retain its eligibility guard')
   }
 
   assert.match(

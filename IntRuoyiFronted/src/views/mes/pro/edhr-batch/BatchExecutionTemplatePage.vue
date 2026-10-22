@@ -28,10 +28,11 @@
                   </span>
                 </button>
                 <el-button
+          v-if="testModeEnabled"
                   size="small"
                   link
                   type="primary"
-                  class="edhr-batch-template__simulate-action"
+                  class="edhr-batch-template__simulate-action app-test-button"
                   @click.stop="openSimulate(task)"
                 >
                   模拟填写
@@ -99,6 +100,8 @@
 </template>
 
 <script setup lang="ts">
+import { useTestMode } from '@/store/modules/testMode'
+
 import {
   BatchRecordReportApi,
   type BatchRecordReportCellRuleVO,
@@ -112,6 +115,8 @@ import {
 import { normalizeCellRule } from '@/views/mes/pro/batchrecord-shared/batchRecordTemplateRules'
 import EdhrExecutionTemplateGuide from '@/views/mes/pro/edhr/components/EdhrExecutionTemplateGuide.vue'
 import { parsePositiveRouteQueryId } from '@/utils/routeQueryId'
+
+const testModeEnabled = useTestMode()
 
 defineOptions({ name: 'MesProEdhrBatchExecutionTemplate' })
 

@@ -102,8 +102,8 @@ assert(
   '批次执行详情页必须复用活跃订单提交详情面板'
 )
 assert(
-  batchDetail.includes('getTeamLeaderActiveOrderDetail'),
-  '批次执行详情页必须按 activeOrderId 加载活跃订单提交详情'
+  batchDetail.includes('getEdhrBatchActiveOrderDetail'),
+  '批次执行详情页必须按批次执行正式来源加载活跃订单提交详情'
 )
 assert(
   batchDetail.includes("task.formSlotType === 'MAIN'") && batchDetail.includes("return 'production'"),
@@ -137,28 +137,29 @@ assert(
 )
 assert(
   teamLeaderApi.includes('version: number') && teamLeaderApi.includes('simulateStage2_5BackfillBatchExecution'),
-  '前端活跃订单详情类型必须包含 version，并复用 Stage2.5 生成或打开真实批次执行'
+  '前端活跃订单类型必须包含 version，活跃订单池 P2 按钮才可带 expectedVersion 生成真实批次执行'
 )
 assert(
-  activeOrderPanel.includes('open-batch-execution-production-form') &&
-    activeOrderPanel.includes('open-batch-execution-pqc-form'),
-  '活跃订单提交详情必须暴露打开批次执行生产表单和过程检验记录的事件'
+  !activeOrderPanel.includes('open-batch-execution-production-form') &&
+    !activeOrderPanel.includes('open-batch-execution-pqc-form') &&
+    !activeOrderPanel.includes('data-active-order-open-batch-execution-production-form') &&
+    !activeOrderPanel.includes('data-active-order-open-batch-execution-pqc-form'),
+  '活跃订单提交详情不得暴露可绕过 P2 按钮生成批次执行的入口'
 )
 assert(
-  activeOrderDetailPage.includes('simulateStage2_5BackfillBatchExecution') &&
-    activeOrderDetailPage.includes('handleOpenBatchExecutionSubmissionForm'),
-  '活跃订单提交详情页必须点击按钮后先生成或打开真实批次执行'
+  !activeOrderDetailPage.includes('simulateStage2_5BackfillBatchExecution') &&
+    !activeOrderDetailPage.includes('handleOpenBatchExecutionSubmissionForm') &&
+    !activeOrderDetailPage.includes('DETAIL-FORM'),
+  '活跃订单提交详情页不得自行触发 P2 回填；P2 只能由活跃订单池 P2 按钮执行'
 )
 assert(
-  activeOrderDetailPage.includes('batchExecutionOpenResultCache') &&
-    activeOrderDetailPage.includes('resolveBatchExecutionOpenResult') &&
-    activeOrderDetailPage.includes('batchExecutionOpenResultCache.set(currentDetail.activeOrderId, result)'),
-  '同一活跃订单先打开生产表单后再打开 PQC 表单时，必须复用已生成批次执行结果，不能重复创建 Stage2.5'
+  !activeOrderDetailPage.includes('batchExecutionOpenResultCache') &&
+    !activeOrderDetailPage.includes('resolveBatchExecutionOpenResult'),
+  '活跃订单提交详情页不得缓存或复用详情内生成的 P2 结果，因为详情页不能生成 P2'
 )
 assert(
-  activeOrderDetailPage.includes("formSlotType: mode === 'production' ? 'MAIN' : 'PROCESS_INSPECTION'") &&
-    activeOrderDetailPage.includes('routeProcessId'),
-  '跳转批次执行详情必须携带正式槽位类型和 routeProcessId，不按工序名称定位'
+  !activeOrderDetailPage.includes("formSlotType: mode === 'production' ? 'MAIN' : 'PROCESS_INSPECTION'"),
+  '槽位跳转只能发生在 P2 生成后的批次执行页面，不能从活跃订单详情页触发'
 )
 assert(
   batchDetail.includes('route.query.formSlotType') &&

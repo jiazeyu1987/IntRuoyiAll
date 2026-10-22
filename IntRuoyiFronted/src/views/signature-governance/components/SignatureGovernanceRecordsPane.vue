@@ -291,6 +291,7 @@ const signatureActionLabels: Record<string, string> = {
   SIGN_ADDED: '加签',
   SUBMIT: '提交',
   PQC_SUBMIT: 'PQC 检验提交',
+  MARKET_RELEASE: '上市放行',
   FORM_REVIEW: '表单复核',
   REVIEW_APPROVE: '审核通过',
   DISTRIBUTION_ACK: '发放签收',
@@ -303,6 +304,7 @@ const signatureMeaningLabels: Record<string, string> = {
   PASSWORD_VERIFIED: '签名密码已验证',
   PASSWORD_NOT_VERIFIED: '签名密码未验证',
   PQC_SUBMIT: 'PQC 检验提交',
+  MARKET_RELEASE: '上市放行',
   FORM_REVIEW: '表单复核',
   REVIEW_APPROVE: '审核通过',
   APPROVE: '审批通过',
@@ -397,6 +399,7 @@ const signatureRecordPdfPreviewDialog = reactive({
 const recordQuickFilterDefinitions: TableQuickFilterDefinition[] = [
   { key: 'recordScope', label: '记录范围', type: 'select', options: recordScopeOptions },
   { key: 'source', label: '来源', type: 'select', options: sourceOptions },
+  { key: 'signatureId', label: '签名记录 ID', type: 'text', placeholder: '签名记录 ID' },
   { key: 'keyword', label: '关键字', type: 'text', placeholder: '业务编号/名称' },
   { key: 'signer', label: '签名人', type: 'text', placeholder: '签名人/账号' },
   { key: 'action', label: '动作', type: 'text', placeholder: '动作编码' },
@@ -435,7 +438,10 @@ const buildPageParams = (): SignatureGovernanceRecordPageReqVO => {
   if (quickFilter.fieldKey === 'recordScope') {
     return params
   }
-  if (quickFilter.fieldKey === 'source') {
+  if (quickFilter.fieldKey === 'signatureId') {
+    params.sourceCodes = ['BATCH_RECORD']
+    params.signatureId = normalizeText(quickFilter.value)
+  } else if (quickFilter.fieldKey === 'source') {
     params.sourceCodes = [quickFilter.value as SignatureGovernanceRecordSourceCode]
   } else if (quickFilter.fieldKey === 'keyword') {
     params.keyword = normalizeText(quickFilter.value)

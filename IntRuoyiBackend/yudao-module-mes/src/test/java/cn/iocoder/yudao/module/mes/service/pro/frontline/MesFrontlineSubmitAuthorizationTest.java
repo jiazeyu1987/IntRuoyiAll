@@ -31,13 +31,37 @@ class MesFrontlineSubmitAuthorizationTest {
     private MesFrontlineSessionSnapshotService sessionSnapshotService;
     @Mock
     private MesReportAllocationReleaseStateService releaseStateService;
+    @Mock
+    private cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesProWorkOrderMapper workOrderMapper;
 
     private MesFrontlineSubmitAuthorizationServiceImpl submitAuthorizationService;
+
+    @Test
+    void newSystemUserSubmissionDoesNotRequireActualEmployeeMenuPermission() {
+        givenSnapshot(List.of(employee(10001L, "TPL-201-E1001")), List.of(device(501L)));
+        assertDoesNotThrow(() -> submitAuthorizationService.authorize(command(10001L,10001L,501L,101L,1001L,201L,"TPL-201-E1001")));
+        assertDoesNotThrow(() -> submitAuthorizationService.authorizeNewSubmission(10001L,"SYSTEM_USER"));
+    }
+
+    @Test
+    void profileIdentityNeverUsesSystemAccountPermissionEvenWithNumericCollision() {
+        assertDoesNotThrow(() -> submitAuthorizationService.authorizeNewSubmission(10001L,"MES_EMPLOYEE_PROFILE"));
+    }
+
+    @Test
+    void newSubmissionStillRejectsMissingEmployeeAndInvalidIdentityDomain() {
+        assertThrows(ServiceException.class, () -> submitAuthorizationService.authorizeNewSubmission(null, "SYSTEM_USER"));
+        assertThrows(ServiceException.class, () -> submitAuthorizationService.authorizeNewSubmission(10001L, null));
+        assertThrows(ServiceException.class, () -> submitAuthorizationService.authorizeNewSubmission(10001L, "UNKNOWN"));
+    }
 
     @BeforeEach
     void setUp() {
         submitAuthorizationService = new MesFrontlineSubmitAuthorizationServiceImpl(
                 contextService, activeOrderMapper, processSnapshotMapper, sessionSnapshotService, releaseStateService);
+        org.springframework.test.util.ReflectionTestUtils.setField(submitAuthorizationService, "workOrderMapper", workOrderMapper);
+        org.mockito.Mockito.lenient().when(workOrderMapper.selectByIdForUpdate(41L)).thenReturn(
+                cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesProWorkOrderDO.builder().id(41L).status(1).build());
     }
 
     @Test
@@ -190,6 +214,22 @@ class MesFrontlineSubmitAuthorizationTest {
                 9001L, 81L, 41L, 21L, 71L, 31L));
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"missing", "canceled", "finished", "released", "foreign"})
+    void refusesNewProductionFromStaleConfirmedWorkOrderContext(String state) {
+        when(contextService.resolveResponsibleLeaderUserId(9001L)).thenReturn(3001L);
+        var active = MesProcessPoolActiveOrderDO.builder().id(81L).leaderUserId(3001L).workOrderId(41L)
+                .routeId(21L).routeVersionId(61L).activeStatus("ACTIVE").businessStatus("ACTIVE").build();
+        active.setTenantId(1L);
+        when(activeOrderMapper.selectByIdForUpdate(81L)).thenReturn(active);
+        var order = cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesProWorkOrderDO.builder()
+                .id(41L).status(state.equals("canceled") ? 3 : state.equals("finished") ? 2 : state.equals("released") ? 4 : 1).build();
+        order.setTenantId(state.equals("foreign") ? 2L : 1L);
+        when(workOrderMapper.selectByIdForUpdate(41L)).thenReturn(state.equals("missing") ? null : order);
+        assertThrows(ServiceException.class, () -> submitAuthorizationService.authorizeActiveOrder(9001L,81L,41L,21L,71L,31L));
+        org.mockito.Mockito.verifyNoInteractions(processSnapshotMapper);
+    }
+
     private void givenSnapshot(List<MesFrontlineEmployeeSwitchResult> employees,
                                List<MesFrontlineTeamDeviceOption> devices) {
         MesFrontlineSessionSnapshotContent content = new MesFrontlineSessionSnapshotContent(
@@ -204,12 +244,12 @@ class MesFrontlineSubmitAuthorizationTest {
                                                              Long deviceId, Long routeId, Long routeProcessId,
                                                              Long processId, String templateNo) {
         return new MesFrontlineSubmitIdentityCommand(9001L, actualEmployeeId, signatureEmployeeId,
-                deviceId, 301L, routeId, routeProcessId, processId, templateNo, "snapshot-001", "hash-001");
+                deviceId, 301L, routeId, routeProcessId, processId, templateNo, "snapshot-001", "hash-001", "SYSTEM_USER");
     }
 
     private static MesFrontlineEmployeeSwitchResult employee(Long actualEmployeeId, String templateNo) {
         return new MesFrontlineEmployeeSwitchResult(9001L, actualEmployeeId, 101L, 1001L, 201L, false,
-                new MesFrontlineTemplateDescriptor(templateNo, "BATCH_RECORD", 1001L, 201L, actualEmployeeId));
+                new MesFrontlineTemplateDescriptor(templateNo, "BATCH_RECORD", 1001L, 201L, actualEmployeeId), "SYSTEM_USER");
     }
 
     private static MesFrontlineTeamDeviceOption device(Long deviceId) {

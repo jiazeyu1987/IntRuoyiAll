@@ -1,9 +1,9 @@
 # IntRuoyi Database And SQL Rules
 
-## 触发场景
+## 适用场景
 
-- 写 SQL、迁移、菜单、权限、租户绑定、schema 相关代码或数据修复脚本前，必须先读取本文件。
-- 涉及真实数据库连接、远端数据库或发布数据变更时，还必须读取 `docs/server-access.md` 和 `docs/release-backup-restore.md`。
+- SQL、迁移、schema、权限或租户问题按需查阅相关段落，已读且未变化的规则不重复读取。
+- 涉及真实数据库操作时按需核对服务器及备份说明，仍须执行必要的目标库、结构、授权和数据保护检查。
 
 ## Schema 核对
 
@@ -16,6 +16,18 @@
 - 新 DCC 生命周期只为新建逻辑文件提供身份、版本、检出和审计字段；迁移不得回填、重命名或更新历史 Master/Version 行来“对齐”新字段。
 - MySQL 幂等新增列必须使用 `information_schema.COLUMNS` 守护过程；不得使用 MySQL 运行库不接受的 `ADD COLUMN IF NOT EXISTS`。测试 H2 对 generated column 的语法可不同，必须同时保留 H2 夹具合同和 MySQL migration 合同。
 - 迁移验证至少包含：完整 `dependsOn` 闭包的 policy gate、首次/重复执行静态合同、历史数据零写入证据，以及运行后端实际连接库的 schema 复核。运行 Jar 未包含新接口或 schema 未执行时，禁止用 API/页面假设已部署。
+- `dependsOn` 引用正式 `migrationId`（SQL 文件名不含 `.sql` 后缀）；修正元数据后用实际目标文件的完整依赖闭包做回归，不能只用临时示例证明解析器通过。已有前置结构满足时，只执行缺失的必需正式迁移，不重复改写无关结构。
+
+### 迁移收集与失败恢复静态核对
+
+- Trigger: 新增菜单/schema SQL、只读盘点脚本或使用存储过程的迁移。
+- Preflight check: 分别核对实际 publisher、manifest builder 与 policy 的扫描根、递归规则和 metadata；文件名或 READ ONLY 注释不能使脚本自动成为 evidence-only。盘点资产放在不会被实际发布入口执行的证据位置，并更新引用。所有实际读取的增量表须在正式 dependsOn 闭包中；bootstrap 表须单独列为基线前置，不伪造 migrationId。
+- Verification: 用目标真实文件的完整依赖闭包运行正式 policy，并直接验证实际发布收集函数的候选归属；仅提取无副作用函数，禁止执行 publisher 顶层来做静态检查。目标闭包通过与全库收集/门禁失败分别记录，不能互相替代。
+- Failure recovery: 事务回滚不能证明 CREATE PROCEDURE 或连接临时表已清理。恢复前核对准确 schema、routine definition、任务归属和并发调用；身份标记按精确值比较，不能依赖大小写不敏感 collation。缺归属或清理授权时停止，不盲目 DROP 同名对象或自动重试。
+- 实际初始化前置：按 SQL 执行顺序核对种子谓词与后置守卫。页面和按钮可能复用权限码，前面的页面 INSERT 会抑制后续按 permission 判断的按钮 INSERT；不能仅凭所有 INSERT 文本存在断言固定菜单 ID 齐全。同连接用户变量须在实际执行 CALL 的连接显式设置，不能依赖前一个 CLI 会话。
+- 元数据守卫：从目标 MySQL 的正式原始 DDL 实际读取 COLUMN_DEFAULT/EXTRA，并核对时间精度及自动更新时间语义。CURRENT_TIMESTAMP 的有无括号可能只是元数据呈现差异；仅允许经核实的精确等价表达，未知属性继续拒绝。结构合同或 H2 不能代替原表首次 MySQL 执行。
+- 残留例程比对：SHOW CREATE 可用于恢复原始字符串引号，INFORMATION_SCHEMA.ROUTINE_DEFINITION 不保证与源码文本等同。通过 XML 等结构化输出保留文本，记录客户端精确移除的已知独立注释和换行规范化；不得泛化替换 SQL token、引号或业务表达式使指纹通过。失败后保留已提交 DDL 与日志，经备份和明确恢复范围审查后才执行未完成部分。
+- Evidence: `doc/tasks/20261008-profile-architecture-implementation/verification-report.md`。上述静态证据不替代 MySQL 首次/重复执行、反例、数据快照或真实恢复验证。
 - 已有库依赖证明：账本缺少某旧迁移不等于对应结构未创建；旧SQL与原账本SHA不同时，先查精确历史来源和当前所需schema/config事实。明确已满足的外部依赖可以记录为“当前目标事实满足”，不得伪造APPLIED、替换原SHA或重放历史初始化/种子。执行前分别冻结实际待执行白名单和完整依赖闭包，核对正式执行器是否会自动追加依赖或改写skip账本。
 - 历史零改写证明：同表COUNT不变不能证明正文、版本或签名未改；冻结原列与主键，对原有各行的精确字节摘要逐项比较，新增生成列另验最终表达式/索引。允许的新增配置行必须同时核对身份和载荷，不能仅按新增数量PASS。MySQL DDL隐式提交，恢复范围必须包括实际修改原表及本任务新增ledger键，不能通过事务ROLLBACK或全账本覆盖伪装恢复。
 - Evidence: `doc/tasks/20261001-dcc-integration-unblock/g20-review.md`、`g21-review.md`、`g25-runtime-review.md`；19项隔离首次/重复及源库执行已通过，历史原列逐行摘要未变。该运行结论不扩展到其它新迁移、审计批准、历史名称登记或业务E2E。
@@ -42,12 +54,17 @@
 
 ### 运行态迁移漂移系统异常门禁
 
+- Local restart probe coverage: 本机重启脚本的既有 schema probes 全部通过，只能证明已登记的检查项满足；新增生命周期迁移必须逐项核对当前运行库字段、生成列与索引。运行 Jar 与编译产物一致、health=UP 都不能代替业务列表的真实加载核验。
+
+
 - Trigger: 页面或接口在当前代码已支持的路径上提示 `系统异常`，后端栈包含缺表、缺列、`doesn't have a default value`、`cannot be null`、旧索引冲突，或源码已有对应正式迁移但运行库 schema 可能滞后。
 - Preflight check: 先从后端失败栈冻结首个数据库异常、Mapper 与目标表，再以当前后端 Java 进程实际启动参数/运行态数据源作为真实连接库，不能只看 `application-local.yaml` 或默认配置；随后用 `information_schema.columns/statistics` 或 `SHOW COLUMNS/INDEX` 对比当前运行库和目标正式迁移；同时确认迁移 metadata、`dependsOn` 和 release migration policy gate 通过。不得先改业务代码适配旧库。
+- 多轮返工放行场景：若历史申请必须保留但正式返工关闭后应释放当前批次，不能删除历史行或放宽旧唯一键；应使用由正式状态计算的 `GENERATED ALWAYS` 当前批次列，原子替换当前唯一索引，并保留历史批次索引。Mapper 的当前关联查询、历史回读和新轮次创建必须同时切换到同一当前批次语义。
 - Generated-column check: 正式 MySQL 中的 `GENERATED ALWAYS` 列只能由数据库计算，业务 INSERT/UPDATE 不得显式写入。若测试 H2 schema 为普通列，必须用静态 SQL 合同或 MySQL 迁移合同补位，防止 H2 通过但运行库报 `The value specified for generated column ... is not allowed`。
 - MySQL DDL idempotence check: 本地/正式 MySQL 8.0 运行库不接受的 `ALTER TABLE ... ADD COLUMN IF NOT EXISTS` 不能作为幂等迁移写法；新增列应复用项目既有 `information_schema.COLUMNS` 守护过程，并用真实 MySQL 首次/重复执行或静态合同证明可跑。
 - Blocker: 无法确认当前后端实际连接库、目标迁移依赖未满足、运行态表结构与迁移前置不一致、迁移会破坏现有唯一性或历史数据，或只能通过默认值、吞异常、伪造上下文继续提交时必须停止。
 - Verification: 迁移前用可重复运行的运行态 schema 契约记录 RED；执行正式迁移后用同一契约记录 GREEN，并运行目标服务回归和不写基线业务数据的真实页面复验。成功写入型 E2E 仍须遵守测试租户、任务自有数据和明确授权门禁。
+- Verification extension: 对返工轮次迁移必须同时证明首次执行、重复执行、当前唯一索引、历史索引、历史行投影/计数不变和拟议当前冲突为零；仅 health=UP 或页面重启成功不能证明旧唯一键冲突已修复。
 - Diagnosis order: HTTP 200 不能证明接口成功；必须同时记录业务码/消息、Mapper 首个数据库异常和真实连接库。若本机重启脚本或运行 Jar 覆盖了数据源地址，迁移也必须打到该运行库；配置文件库迁移成功不代表页面运行库已修复。若订单初始化、排产工单主列表、个人中心聚合页或批记录建立链接的任一子请求返回业务码 500 且日志为缺列、字段过短或数据截断，先修复运行库迁移漂移和字段容量，再判断前端错误归属；不要通过隐藏该子请求错误、返回空数据或截断业务字段编码掩盖 schema 缺口。
 - Shared-layout attribution: 进入业务页面时看到全局“系统异常”，必须先用浏览器网络记录定位第一个失败请求。顶部待办、消息角标或权限初始化等公共布局请求失败时，不得按当前页面路由归因给业务模块；例如一线生产目标接口全部成功而 `/approval-center/tasks/page` 因 DCC 表缺列失败，应修复对应 DCC 迁移并同时复验公共接口与一线页面，不能修改 MES 或隐藏全局错误。
 - Policy scope: 完整 SQL 根目录门禁若被无关文件阻断，不得修改无关迁移或绕过记录；应冻结目标迁移的完整 dependsOn 闭包单独核验并同时记录根目录门禁阻断，未通过的完整门禁不能宣称全库发布就绪。
@@ -103,11 +120,11 @@
 ### 数据修复字符串比较排序规则门禁
 
 - Trigger: 数据修复、测试项种子、菜单/权限补齐等 SQL 使用临时表、字面量、用户变量或存储过程局部字符串变量与真实表字符列做 `JOIN`、`=`、`NOT EXISTS` 比较，尤其包含中文名称、权限字符串、表单名称、测试项名称。
-- Preflight check: 写入前用 `information_schema.COLUMNS` 核对目标字符列 `COLLATION_NAME`，并核对连接 `collation_connection`；临时表字符串列必须声明与目标列一致的 `CHARACTER SET` 和 `COLLATE`。存储过程局部字符串变量会继承创建过程时的连接排序规则，与表列比较时必须显式统一 `COLLATE`，或在要求大小写、字节、中英文标点完全一致的冻结身份校验中对两侧使用 `BINARY` 精确比较，避免 `utf8mb4_unicode_ci` 将中英文括号等字符判等导致 UPDATE 被跳过。
+- Preflight check: 写入前用 `information_schema.COLUMNS` 核对目标字符列 `COLLATION_NAME`，并核对连接 `collation_connection`；临时表字符串列必须声明与目标列一致的 `CHARACTER SET` 和 `COLLATE`。菜单/权限迁移中若临时表保存 `permission`、`path`、`component` 等字符串并与 `system_menu` 比较，必须按目标列显式声明，不能依赖数据库默认 collation。存储过程局部字符串变量会继承创建过程时的连接排序规则，与表列比较时必须显式统一 `COLLATE`，或在要求大小写、字节、中英文标点完全一致的冻结身份校验中对两侧使用 `BINARY` 精确比较，避免 `utf8mb4_unicode_ci` 将中英文括号等字符判等导致 UPDATE 被跳过。
 - Blocker: MySQL 报 `ERROR 1267 Illegal mix of collations`，或发现临时字符串列与目标字符列排序规则不一致时必须停止并回滚当前事务；MySQL 报 `ERROR 1137 Can't reopen table` 时也必须停止，不能把已提交前后的汇总 SELECT 当作成功证据。
 - Verification: 重试前先确认失败事务未提交；修复后记录命中行数、目标行数、字段排序规则和关键文本扫描结果；涉及物料名、菜单名、表单名等字面修正时，最终验收必须使用 `BINARY` 比较或 `HEX()` 证明目标文本字面一致；同一事务内需要多次统计同一临时表时，先 `SELECT COUNT(*) INTO` 过程变量，或拆成多条不重复打开同一临时表的语句。
 - Forbidden action: 禁止修改数据库默认排序规则、手改真实表排序规则、扩大 `WHERE` 范围、拆掉精确租户/删除标记条件，或把失败事务当作成功继续执行。
-- Evidence: `doc/tasks/20260727-test-management-deterministic-closed-loop/execution-log.md`；`doc/tasks/20260801-smart-seed-collation-fix/verification-report.md`；`doc/tasks/20260802-test-server-replan-protected-task-workstation/execution-log.md`，`20260726_system_codex_smart_scheduling_test_items.sql` 的 `tmp_codex_smart_scheduling_*` 临时表必须显式 `COLLATE=utf8mb4_0900_ai_ci`，防止 `utf8mb4_general_ci` / `utf8mb4_0900_ai_ci` 混用；`doc/tasks/20260811-dcc-qa-backend-persistence/execution-log.md`，压力泵 QA 种子首次因临时工序表与正式表排序规则不一致而整事务回滚，显式统一为 `utf8mb4_unicode_ci` 后幂等迁移通过；`doc/tasks/20260817-generate-current-active-order-pqc-tasks/execution-log.md`，PQC 数据修复存储过程的局部字符串变量继承 `utf8mb4_general_ci`，与 `utf8mb4_unicode_ci` 表列比较触发 `ERROR 1267`，回滚确认后改为两侧 `BINARY` 精确身份比较并通过；`doc/tasks/20260903-align-pick-list-input-materials/verification-report.md`，领料单物料名修正时 `utf8mb4_unicode_ci` 将中英文括号判等，改用 `BINARY` 后完成字面修正与验收。
+- Evidence: `doc/tasks/20260727-test-management-deterministic-closed-loop/execution-log.md`；`doc/tasks/20260801-smart-seed-collation-fix/verification-report.md`；`doc/tasks/20260802-test-server-replan-protected-task-workstation/execution-log.md`，`20260726_system_codex_smart_scheduling_test_items.sql` 的 `tmp_codex_smart_scheduling_*` 临时表必须显式 `COLLATE=utf8mb4_0900_ai_ci`，防止 `utf8mb4_general_ci` / `utf8mb4_0900_ai_ci` 混用；`doc/tasks/20260811-dcc-qa-backend-persistence/execution-log.md`，压力泵 QA 种子首次因临时工序表与正式表排序规则不一致而整事务回滚，显式统一为 `utf8mb4_unicode_ci` 后幂等迁移通过；`doc/tasks/20260817-generate-current-active-order-pqc-tasks/execution-log.md`，PQC 数据修复存储过程的局部字符串变量继承 `utf8mb4_general_ci`，与 `utf8mb4_unicode_ci` 表列比较触发 `ERROR 1267`，回滚确认后改为两侧 `BINARY` 精确身份比较并通过；`doc/tasks/20260903-align-pick-list-input-materials/verification-report.md`，领料单物料名修正时 `utf8mb4_unicode_ci` 将中英文括号判等，改用 `BINARY` 后完成字面修正与验收；`doc/tasks/20260917-admin-edhr-batch-execution-visible/verification-report.md`，eDHR 菜单权限修复迁移中临时 `permission` 列默认 `utf8mb4_general_ci`，与 `system_menu.permission` 的 `utf8mb4_unicode_ci` 比较触发 `ERROR 1267`，显式声明临时列为 `utf8mb4_unicode_ci` 后通过。
 
 ### MySQL 存储过程标识符长度门禁
 
@@ -134,6 +151,9 @@
 - Blocker: 目标表不支持事务、目标业务组零行却允许迁移成功、目标组参数数量不完整、脚本在关联 DML 之间执行隐式提交 DDL、无法提供迁移前精确范围快照，或失败后不能证明连接关闭会回滚未提交事务时必须停止。
 - Verification: 先用缺少事务或缺少目标零行拦截的脚本得到 RED，再补事务与 fail-fast 预检得到 GREEN；执行后按迁移前冻结主键逐行核对全部关联字段，并通过真实页面或正式读接口证明运行态没有半迁移或零行假成功。
 - Forbidden action: 禁止依赖“通常不会失败”拆开提交关联 DML，禁止第一条成功后用第二条重试脚本补数据，禁止以页面只显示其中一部分字段掩盖迁移不完整。
+- DDL 与配置混合脚本：包含建表、辅助过程和模板 INSERT 的迁移须逐项披露写入范围，不能称为仅结构迁移。MySQL 的隐式提交可能保留已成功的 DDL 或配置；执行失败后先只读核对实际已提交对象，再确定后续操作，不能假定整文件已回滚并盲目重跑。`CREATE TABLE IF NOT EXISTS` 不校验已有结构，重跑前须验证字段、默认值、完整索引和例程归属；字符串或 H2 合同测试不代替真实 MySQL 首次及重复执行。Evidence: `doc/tasks/20260930-edhr-seven-test-accounts/astra-b-notify01-migration-review.md`。
+- 只读 preflight 边界：元数据空集合须另核账号可见性，不能直接证明对象不存在；模板参数正确也不能证明正文、昵称、类型和存储容量正确。保留已有模板全行基线，额外唯一索引、普通文本被改为 JSON 列及生成列也须明确审查。离线夹具通过不代表当前库或实际迁移通过。Evidence: `doc/tasks/20260930-edhr-seven-test-accounts/astra-b-notify-schema-preflight-runbook.md`。
+- 启动脚本副作用：预构建 Jar 只绕过编译，不保证启动过程无数据库写入。标准本机重启入口仍会探测并自动执行缺失的既有迁移；执行前须只读确认全部探针满足，或逐项取得对应迁移授权。服务启动或重启授权不能扩大为任意数据库迁移授权，静态迁移依赖检查通过也不能代替现场授权和实际执行证据。
 - Evidence: `doc/tasks/20260811-fine-wash-cleaning-params/execution-log.md`；`doc/tasks/20260811-cleaning-process-medium-temperature/execution-log.md`。
 
 ### 旧表单模板绑定切换表单中心门禁
@@ -203,6 +223,7 @@
 
 - Trigger: 用户要求删除、隐藏或下线左侧动态菜单/页签，但对应菜单树下仍有按钮权限、后台运行权限、实例处理或其它非页面能力需要保留。
 - Preflight check: 先区分 `type=1/2` 的可见目录/菜单和 `type=3` 的按钮权限；冻结目标可见入口、子入口、按钮权限、角色绑定、租户套餐绑定和相邻保留入口。仅需移除页面入口且运行权限仍需保留时，应只调整目标可见菜单的 `visible/always_show`，不得连带删除运行权限或业务数据；若入口本身缺少正式页面链路且用户明确要求删除，应按菜单 ID 清理角色授权和租户套餐中的有效绑定，避免权限树继续暴露无效入口。
+- Cross-migration retirement: 同一个 legacy 页面可能由多份历史迁移分别登记页面菜单、打印策略或补打子菜单；下线前必须按稳定菜单 ID 冻结完整集合，新增一份只做软下线和授权集合清理的迁移，并同步收紧前端路由、旧静态合同和 release coverage exclusion，保留后端 API、业务表和审计数据。
 - Blocker: 无法确认子菜单是否仍被后台运行调用、必须删除 `type=3` 权限才能让页面消失、相邻保留菜单与目标父菜单仍存在依赖、用户未明确授权删除缺页入口，或只有前端硬编码隐藏方案时必须停止。
 - Verification: 聚焦迁移合同先记录 RED/GREEN；运行完整 migration policy dependency closure；真实库执行后核对目标入口不可见、应保留的按钮权限和授权绑定不变、应删除的可见入口不再出现在角色/套餐中；fresh 登录展开父菜单，确认目标入口消失、相邻保留入口仍可点击并进入原页面。
 - Forbidden action: 禁止把“删除页签”直接解释为删除表单/实例/权限数据，禁止软删除父菜单导致运行权限树丢失，禁止只删前端静态路由或用 CSS 隐藏，禁止用旧登录会话或直接 URL 代替真实侧边栏验证，禁止用空页面、默认跳转或重定向 fallback 代替正式删除或正式补页。
@@ -280,6 +301,14 @@
 - Verification: 必须通过正式 `active-order/remove` 业务链逐条移除，并复核目标 `active_status/business_status=REMOVED`、`removed_at` 非空、版本递增、目标 `CURRENT` 分配为 0、`REMOVE_ACTIVE_ORDER/SUCCESS` 审计覆盖全部目标、非目标活跃订单主键集合不变，以及最终登录态列表不再返回目标订单。
 - Forbidden action: 禁止物理删除活跃订单，禁止直接 SQL 只改 `active_status` / `business_status`，禁止删除历史分配来伪造失效，禁止用近似产品名扩大范围，禁止把列表接口失败或空响应当作删除成功。
 - Evidence: `doc/tasks/20260811-delete-active-pressure-pump-orders/verification-report.md`。
+
+### 生产组长多页签一键清理门禁
+
+- Trigger: 生产组长工作台新增一键清理，范围同时包含活跃订单、报工管理/历史和批次执行及其子表。
+- Preflight check: 先在当前租户锁定生产组长的 ACTIVE 订单及乐观锁版本，按正式关联键展开历史订单、报工事件、反馈、PQC、批次执行、批记录和 eDHR 子表；必须检查其它组长共享工单、放行申请、放行事务和批次终态。若用户明确声明本轮目标是清理测试数据并清空活跃订单池，共享工单不能要求用户逐单上传，应按 `work_order_id` 把同租户其它生产组长的 ACTIVE/REMOVED 活跃订单自动纳入同一清理闭包；预检结果应携带稳定 ID 与版本，执行时重新锁定并逐项比对。
+- Blocker: 范围版本变化、共享工单未完整纳入闭包、生产放行链路存在但未进入同一测试清理范围、已发布/归档/拒收/作废等不可逆正式终态、缺少租户上下文或任一依赖表无法解析时必须失败并回滚；不得把批量清理降级为模糊名称匹配、直接改状态或物理删除活跃订单主记录。
+- Verification: 成功路径必须复用正式 active-order/remove 业务链逐条移除并保留 `REMOVE_ACTIVE_ORDER` 审计，再按租户和稳定关联 ID 清理报工运行事实、PQC/生产放行运行申请与事务、批次子表，最后写入汇总清理审计；失败路径断言零部分写入，非闭包活跃订单、非目标工单和生命周期审计事实保持不变。
+- Forbidden action: 禁止在没有预检快照、二次确认、回滚边界和页面成功/失败反馈时提供“一键删除”；禁止用 API-only 或直接 SQL 冒充真实页面动作；禁止删除 WORM/append-only 追溯、字段审计、归档审计等不可逆审计事实来换取空列表。
 
 ### 工艺路线跨租户导入导出数据包完整性门禁
 
@@ -360,3 +389,9 @@
 - Verification: SQL 合同断言正式迁移和全部 schema 定义一致；对现有测试库首次及重复执行迁移，并核对 `information_schema.columns` 的实际类型。
 - Forbidden action: 禁止截断后写入、吞掉 Data truncation、只扩大前端输入限制，或用另一列/JSON 临时保存溢出内容。
 - Evidence: `doc/tasks/20260907-dcc-release-notification-impact/verification-report.md`。
+
+## JSON快照校验与候选版本差异审查
+
+- 只读审查带hash的JSON快照时，先核对生产实现的hash输入：原文、规范JSON或其它正式格式。采用canonical格式的快照不得直接用原JSON字节hash判定损坏；优先调用已核实运行产物中的实际规范化类，并比较存储hash与格式版本。
+- 发布来源未知的候选前，保留完整差异及来源身份；行ID/时间与业务绑定、版本引用、布局字段分别评审，不得直接忽略差异后宣称候选与正式版相同。只读比对和hash一致不代表已获发布授权或真实E2E通过。
+- 证据：`doc/tasks/20260930-edhr-seven-test-accounts/route-v16-v17-comparison-summary.json`及`execution-log.md`。

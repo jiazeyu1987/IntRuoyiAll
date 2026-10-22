@@ -1,5 +1,25 @@
 # Worktree Memory
 
+## 归档前保存任务记录与跨会话归属
+
+- 归档或清理 managed worktree 前，核对 Git 注册、附件归属及是否有原会话、分叉会话或子 Agent仍在使用同一目录；未完成的实现和验证不得按空闲目录清理。
+- 源码快照只证明实际进入快照树的内容。先用 `git check-ignore` 和快照路径清单核对任务记录、验证日志及关键资源是否被忽略；必要记录须保存在任务外的明确持久位置并校验，不能假定源码快照包含它们。
+- 恢复时记录快照对象、父提交、时间、文件清单及快照之后的未保存修改。任务分支仍指向基线不代表未提交实现已有备份，前端残留存在也不代表工作区可用。
+- 分叉会话的附件未同步为归档状态时，原生恢复工具可能找不到目标。准确记录阻塞，不把失败改写为恢复完成；切换恢复路径遵守当前用户授权与项目规则，不重建旧基线来掩盖缺失。
+- 恢复后重新冻结源码并运行相应验证；丢失日志只记录会话中的历史结果及来源，不重造 PASS 记录，不把旧快照的验证沿用到后续补丁。
+
+## 取消隔离环境后的清理边界
+
+- 用户取消隔离验证时，先撤回共享导入预约并停止仅归属本任务的写入；将恢复、构建和E2E改为取消，保留真实失败与未运行事实，不把取消当作验收通过。
+- 清理清单分别覆盖checkout与端口登记、任务进程、专用Redis、数据库副本/用户、临时dump、对象存储副本/IAM及私有配置；只删任务路径和精确身份，保留原环境测试账号及共享服务。
+- managed worktree优先通过Codex归档保存可恢复源码快照后清理，不把弃用checkout中的混合输入自动提交或合并主分支。路径确认不存在、任务记录与分支归档已处理后，使用同一端口登记mutex原子释放该任务槽位。
+- 对象副本清理先全量核对精确version清单与retainUntil/hold；普通环境删除授权不代替解除hold的明确授权。有效COMPLIANCE保留期不绕过，不能用delete marker或只删IAM伪装底层对象已释放。
+
+## 用户取消验证后融合
+
+- 用户明确取消后续验证时，同步任务范围并保留已有失败、未运行和半成品事实，不以授权代替通过证据。
+- 先停止任务内并行写入，再准备精确提交；主线未提交改动仍需保全，不能把“直接融合”解释为覆盖、丢弃或提交无关工作。
+
 ## Worktree 前端依赖与类型检查门禁
 
 - Trigger: 附加 worktree 需要运行前端 `pnpm ts:check`、构建或静态检查，但该 worktree 是新 checkout 或未曾安装前端依赖。
@@ -7,8 +27,10 @@
 - Blocker: `pnpm install --frozen-lockfile` 失败、锁文件缺失、依赖脚本需要额外 approval 但目标检查依赖该脚本产物，或类型检查仍失败且无法区分是否当前任务引入时，必须停止并记录影响；不得改用 API-only、跳过类型检查或把缺依赖写成代码通过。
 - Verification: 记录依赖安装命令退出码、`pnpm ts:check` 退出码、是否存在 build-script approval 警告及其影响；合并前再次确认 `node_modules` 为 ignored 产物且未进入提交清单。
 - Forbidden action: 禁止提交 `node_modules`、禁止静默降级到只跑 `node --check` 替代类型检查、禁止把主工作区已有依赖目录复制到附加 worktree。
-- Evidence: `doc/tasks/20260909-form-parser-json-editor-frontline-preview/execution-log.md`，`jiexi123` 新 worktree 首次 `pnpm ts:check` 失败于 `cross-env` 缺失，按锁文件执行 `pnpm install --frozen-lockfile` 后类型检查通过且 lockfile 未变。
+- Evidence: `doc/tasks/20260909-form-parser-json-editor-frontline-preview/execution-log.md`，`jiexi123` 新 worktree 首次 `pnpm ts:check` 失败于 `cross-env` 缺失，按锁文件执行 `pnpm install --frozen-lockfile` 后类型检查通过且 lockfile 未变；`doc/tasks/20260918-production-batch-record-json-publish-implementation/verification-report.md`，`20260918_gongyiluxian` worktree 首次因缺少 `node_modules/cross-env` 未进入 TypeScript 分析，按锁文件安装依赖后复跑进入类型分析，但暴露既有 `BatchExecutionListPage.vue` 导入缺失错误，任务按类型门禁阻塞记录而未静默降级。
 
+- 跨盘加速依赖安装时，保留任务自有标准 `node_modules/.pnpm` 结构。只外置 virtual-store 可能破坏包内 require 的祖先目录解析，即使 frozen install exit0，Vite/ESLint仍可能缺模块；不得用 NODE_PATH、alias 或修改解析配置把该失败计为通过。
+- 从任务自有物理SSD目录安装后用 junction 消费前，逐字节核对 manifest/lock/workspace 配置，并确认相对 file/link/workspace依赖、生命周期脚本和额外配置不会使复制少量配置文件丢失安装上下文；不满足即停止。安装、实际模块解析、定向验证、真实页面就绪分别记证据；保留中断/失败轮，收尾核对消费者已停止后再清理确切自有物理目录与链接。
 ## 同类需求 Worktree 复用门禁
 
 - Trigger: 用户要求在 worktree 中继续一个业务功能，且 `D:\IntRuoyiWorktree\` 下可能已有同类分支或半成品分支。
@@ -291,6 +313,23 @@
 - Forbidden action: 禁止因已有“删除 worktree”授权就静默丢弃可提交源码；禁止把 dirty worktree 的代码混入主工作区基线提交；禁止在保全提交后忘记复跑 `git worktree remove`，也禁止删除分支引用来掩盖未合入状态。
 - Evidence: `doc/tasks/20260805-remove-non-main-worktrees/execution-log.md`，批量删除时 `profile-erp-table-auto-sync` 仍有 31 个未提交实现/测试/任务文件，先提交 `35c583ce5` 到其自身分支后再移除 worktree。
 
+### 按更新时间批量删除的只读盘点与保全门禁
+
+- Trigger: 用户明确授权按最近若干天未更新的条件批量删除 worktree，而非按分支合入状态做常规任务收尾。
+- Preflight check: 固定带时区的滚动时间阈值；同时检查目录内部文件、目录及 worktree 专属 Git 元数据最新写入时间，不能只看根目录时间或最后提交时间。使用 `git --no-optional-locks status` 避免检查本身刷新索引；进程扫描排除当前 PID，记录路径归属，不按端口盲停进程。先核对聊天附件；仅对本聊天可管理的托管附件使用归档工具，其余真实 linked worktree 必须核对所属 common Git 目录、注册路径和显式绝对路径边界。
+- Preservation rule: 删除授权不等于丢弃源码授权；未授权提交时不得用保全提交绕过最近层级 AGENTS。删除前保存 binary patch、变更/未跟踪文件及核心任务记录到独立恢复目录，逐文件核对 SHA-256；没有 surviving ref 覆盖的 detached HEAD 必须生成完整 bundle 并 verify。保留既有分支与恢复包，不顺手合并、推送或创建备份分支。忽略文件不自动进入保全包，需先识别仍有用途的内容。
+- Source archive: 大量小文件可流式写入每目标独立 ZIP，分别核对源码、解包成员和归档整体 SHA-256；可再生成的依赖与构建目录按明确清单排除，链接只记录目标时必须称为源码恢复包，不宣称完整文件系统备份。复用既有包仍须在删除前重检源目录。
+- Inventory invariant: Windows 目录的 st_size 反映目录索引分配，可能因 API 或索引整理发生变化，不能当作源码内容大小。删除前比较完整路径集合、类型、全部条目写入时间、普通文件字节数与 SHA-256、reparse 目标；不要因为目录索引字节变化而跳过真正的源码差异。
+- Read-only Git diff: 生成补丁时同时使用 `--no-optional-locks` 与 `-c diff.autoRefreshIndex=false`；仅前者不保证 `git diff` 不创建、删除索引锁，从而刷新专属 Git 目录时间。若检查自带副作用已发生，须复现同一命令并证明元数据文件集合、时间、哈希、恢复索引、HEAD 和 status 全部不变，才能只排除已证实的目录时间变化；不明来源的更新仍须保留目标。
+- Classification: `.git` 为目录的独立仓库不属于 linked worktree；无 `.git` 的残留也须确认所有相关 common Git 目录均无精确路径或子路径登记，才能按已授权残留清单删除。父目录内普通备份、状态目录和正式恢复资产不自动纳入工作树清理。
+- Blocker: 近期更新、运行中、locked/index.lock、扫描拒绝访问、缺失 Git 元数据、物理路径与注册路径不同、或保全核验失败时停止该目标。不得把异常 worktree 静默降级成普通目录递归删除。
+- Explicit exception: 仅在用户明确批准“异常目录完整备份后按普通目录删除”时，对固定清单执行该方案；不修复或重写 `.git` 指针，不调用可能误删有效外部注册的 `git worktree remove`。检查外部有效 worktree 的精确注册、HEAD 和专属元数据哈希；并行任务使总注册表变化时，不冻结或回滚无关注册。
+- Full snapshot gate: 普通目录清理的“完整备份”须明确隐藏/忽略文件、空目录和 reparse 链接的范围。Windows tar 可能将 junction 展开，即使未显式启用跟随链接，也必须通过实际解包、重建链接和逐文件 SHA-256/结构比对确认；文件包加链接清单不能仅凭打包成功放行。删除前再核对源快照与包/清单哈希，发现差异即停。
+- Link boundary: 不沿 reparse point 盘点或递归删除；先精确移除目录内链接，再删除已验证的目标根。原始绝对链接指向不随换位置恢复而自动迁移；ACL/ADS/硬链接拓扑、缺失外部 Git 元数据及单盘灾难恢复必须单独说明，不能夸大恢复承诺。正式恢复资产保留到用户另行授权，不纳入 task-closeout 的临时资产清理。
+- Verification: 逐项核对物理目录不存在、所属仓库注册不存在、HEAD 有引用或已验证 bundle、具名分支仍包含原 HEAD；只对已删除且登记端口无监听的目标持同一 registry mutex 置 inactive，并验证其他登记项不变。批量完整证据保存为任务报告，终端仅输出汇总，避免输出截断掩盖遗漏。
+- Forbidden action: 禁止只凭最后提交时间判旧、因盘满跳过保全、对 worktree 父目录批量递归删除、将扫描失败记为清理成功、释放有监听或其他任务的槽位、或清理独立恢复目录。
+- Evidence: `doc/tasks/20261001-delete-stale-d-worktrees/verification-report.md`；`doc/tasks/20261008-stale-worktrees-cleanup/verification-report.md`。
+
 ### Git 注册已移除但物理目录被运行态锁住
 
 - Trigger: `git worktree remove <path>` 返回 `Invalid argument`、Git 注册列表已不再显示目标 worktree，但物理目录仍存在，或残留目录内 `runtime-backend.err.log` / Vite / Java / esbuild 文件被占用。
@@ -318,7 +357,7 @@
 - Cleanup rule: 若 PowerShell `Remove-Item -Recurse` 或 `cmd /c rmdir /s /q <path>` 对 pnpm `node_modules` 输出大量 `The system cannot find the path specified`、`Could not find a part of the path` 或留下空壳目录，先用当前任务专用空目录对目标 `node_modules` 执行 `robocopy <empty-dir> <target-node_modules> /MIR /R:0 /W:0`，确认子项计数为 0 后再逐层删除 `node_modules`、`IntRuoyiFronted` 和目标 worktree 根目录。若删除仅因目标依赖文件的 `ReadOnly` 属性报 `Access denied`，可在上述路径、注册、进程和端口门禁全部通过后，只清除目标目录树内的 `ReadOnly` 属性再重试；不得修改目标外文件属性。若当前执行环境策略拒绝递归删除，记录 Git 登记已移除、路径边界、端口登记和残留范围，停止自动清理并等待人工或明确授权的同等边界清理方式。
 - Verification: 仅对目标残留目录清理属性或空目录镜像后删除，之后重新验证 `Test-Path <path>` 为 `False`、`git worktree list --porcelain` 不含该路径、目标登记项已标记 `active=false/deletedAt/cleanupTask`。
 - Forbidden action: 禁止为了处理 `node_modules` 残留删除父级 worktree 根目录；禁止跳过进程和端口核验；禁止在 Git 注册仍存在时把 worktree 当普通目录强删。
-- Evidence: `doc/tasks/20260727-merge-remaining-worktrees/verification-report.md`，`codex-test-process-route` 在 Git 注册移除后残留前端依赖目录，确认无 `.git`、无目标进程和 8082/48082 监听后仅清理目标目录并复核不存在；`doc/tasks/20260730-worktree-prune-keep-banzuzhang/verification-report.md`，多个 worktree 的 pnpm `node_modules` 残留需先用空目录 `robocopy /MIR` 清空再删除空目录链；`doc/tasks/20260813-scheduler-seven-issues-closure/verification-report.md`，验证 worktree 的 Git 注册移除后仅残留 pnpm 依赖目录，清理目标只读属性后删除成功，并复核端口、物理路径和 slot 登记全部释放。
+- Evidence: `doc/tasks/20260727-merge-remaining-worktrees/verification-report.md`，`codex-test-process-route` 在 Git 注册移除后残留前端依赖目录，确认无 `.git`、无目标进程和 8082/48082 监听后仅清理目标目录并复核不存在；`doc/tasks/20260730-worktree-prune-keep-banzuzhang/verification-report.md`，多个 worktree 的 pnpm `node_modules` 残留需先用空目录 `robocopy /MIR` 清空再删除空目录链；`doc/tasks/20260813-scheduler-seven-issues-closure/verification-report.md`，验证 worktree 的 Git 注册移除后仅残留 pnpm 依赖目录，清理目标只读属性后删除成功，并复核端口、物理路径和 slot 登记全部释放；`doc/tasks/20260920-delete-stale-worktrees/verification-report.md`，批量删除 2026-09-17 前 worktree 时，先用 `git worktree remove --force --force` 移除 Git 注册，再逐项核对无 `.git`、候选路径仍在 `D:\IntRuoyiWorktree` 下、无 Git 注册残留，最后清理 pnpm `gen-mapping` 等依赖残留并将登记表候选 active 项置为 inactive。
 
 ### 发布 release worktree 物理根复核门禁
 
@@ -393,6 +432,8 @@
 - Trigger: 用户更换 Maven 安装位置，或同一桌面会话中需要使用新 Maven 运行编译/测试。
 - Preflight check: 同时读取用户级 MAVEN_HOME/Path、当前进程 $env:MAVEN_HOME，并直接执行新路径下的 mvn.cmd -version；用户级变量更新不会刷新已启动的 Codex/PowerShell 进程。
 - Verification: 对本次命令显式设置进程级 MAVEN_HOME 与 Path，记录 mvn.cmd -version 的 Maven/Java 版本；新终端或新任务再复核当前进程变量。
+- JDK evidence: 分开记录 pom.xml 的 source/target 或 release 编译目标、mvn -v 的实际 JDK 版本/路径和 Surefire 执行结果；编译目标 Java 17 不能证明测试运行于 JDK 17。要求 JDK 17 验证时，先检查已有工具链并仅在任务进程内设置 JAVA_HOME/Path，再复核 mvn -v；不得把 JDK 21 结果标为 JDK 17。
+- Test compile precondition: Maven 的 -Dtest 只筛选执行测试，仍会编译模块全部测试源码。既有测试引用目标 JDK 不支持的 API 时，应记录具体文件/行、基线证据和编译阻塞；经任务范围授权作等价测试修正后重跑，不以跳过编译、切换 JDK 或降低断言冒充通过。
 - Forbidden action: 禁止因当前进程仍显示旧路径就修改无关项目配置，禁止把绝对路径 Maven 已通过误写成系统环境已刷新，禁止下载/安装第二份 Maven 作为旁路。
 
 ### 全量回归工件分类与工具阻断门禁
@@ -401,6 +442,8 @@
 - Preflight check: 只读扫描目标 worktree 的 `target/surefire-reports/TEST-*.xml`，先用 suite 聚合核对 tests/failures/errors/skipped，再保留每条 testcase 的 class、method、原始 F/E 和最短错误摘要；将流程 gate、相邻流程、并行模块和环境/fixture 作为互斥 primary 分类，环境问题仅作二次标记。
 - Blocker: XML 工件缺失、聚合数与报告基线不一致、无法取得逐条 class/method、Maven 尚未进入 Surefire、或失败根因只能靠猜测时必须停在分类/阻断，不能把 skipped、fixture、PowerShell ParserError、JVM native memory failure 写成业务 RED，也不能以局部定向绿证替代全量回归。
 - Verification: 记录只读工件路径、suite/test/failure/error/skip 聚合、逐条清单与 owner 矩阵；对每个 failure/error 提供原命令的 `-Dtest=Class#method` 最小复现和后续动作；重新运行时必须使用真实 fixture/JUnit，保留原始退出码和工具错误。
+- 多轮报告绑定：target/surefire-reports 会保留未重跑类的旧 XML，也会被下一轮覆盖。逐类报告必须核对本次命令开始/结束时间、完成日志中的类名及计数和当前 XML 的时间、计数；其中任一不匹配，只能记录为未绑定证据，不能宣布该场景通过。编译失败或尚在运行时，不得拿目录里的 XML 作为本次运行结果。
+- 证据封存：稳定交付后先绑定源码、选择器及运行命令，再在下一次重跑前保存完成日志和报告摘要、SHA256。日志与 XML 相互印证后才汇总通过数；中间单类通过、整批通过、独立验收通过与已融合须分别记录。
 - Forbidden action: 禁止让流程 gate owner 修复跨模块失败，禁止 API-only、mock、默认成功或跳过测试掩盖缺口，禁止把合法 runtime slot 当业务失败，禁止覆盖并行 worktree 或修改其它任务代码来“清零”分类。
 
 ### 发布 worktree 与控制台身份一致性门禁
@@ -417,6 +460,7 @@
 - Trigger: 主工作区同时出现大量 tracked dirty、untracked 任务文档、运行快照、迁移包或本地 Office 输入，且需要恢复主线可集成状态。
 - Preflight check: 先用 git status --porcelain=v1 --untracked-files=all 或 NUL 分隔输出冻结基线；处理包含中文的路径时必须使用 Git 的 NUL 输出或正确解码，不能把 Git 的引号/八进制转义误判为实际路径。按“主干代码/测试、正式项目文档、并行任务记录、可再生生成物、敏感本地数据、未知业务输入”分类。
 - Commit rule: 只对归属明确且已通过 staged 文件清单、git diff --cached --check 和定向验证的文件选择性暂存；禁止整体 git add -A、把并行任务半成品并入主线，或用提交掩盖未知业务输入。
+- 主干快照提交：用户仅要求提交推送时，冻结起始路径与 SHA-256，暂存前后核对源码、索引内容和 HEAD；冻结后的新改动保留原处。任务应明确 Git 完整性核验与业务验证的边界，不把提交或推送通过记作构建、业务回归或 E2E 通过。
 - Ignore rule: 可再生的 tmp-*、编译输出、运行时快照、测试依赖、备份目录、review 运行目录和本地迁移包进入项目 .gitignore；并行任务工作记录和本机 Office 输入只在当前机器的 .git/info/exclude 中排除，保留实体文件且不改变团队共享规则。
 - Index lock rule: 遇到 .git/index.lock 时先检查活动 Git 进程和锁文件时间；活动进程结束后重新读取 HEAD、状态和 ancestry，再决定是否需要处理 stale lock，禁止直接删除可能仍被使用的锁。
 - Blocker: 已跟踪的设计表格、业务资源或其他不可再生输入无法确认归属时，必须保留 dirty 并单独交由业务负责人审阅；不能通过 restore、reset 或宽泛 ignore 隐藏修改。
@@ -426,18 +470,24 @@
 ### 运行时融合后的版本与端口交叉核验
 
 - 触发场景：功能 worktree 已融合到 `int_main`，需要用本机长期运行态做真实页面验证，且运行态目录可能同时保留多个历史 jar。
+- 隔离完整构建：旧运行包包含未提交但已经验证的前期修复时，干净 HEAD 加本次补丁可能退回这些修复。先冻结旧包对应的最小源码基线和本次补丁白名单，逐文件记录来源、相对路径、字节数与 SHA-256，独立审查后复制到自有隔离 checkout；不从共享脏目录直接打包，不携带无来源旧 class。
+- 构建证据：标准完整 package 与同一输入的实际测试执行分别记录；跳过测试执行的 BUILD SUCCESS 不能替代回归 PASS。新包关键 class 和伴随 class 须与自身已验证 target 核对，稳定副本再次核对整体 SHA-256；尚未加载目标 PID、健康检查及真实业务复验的包只能记为构建通过。
 - 经验规则：先核对 `int_main` 的祖先链和分支端口门禁，再按 PID、启动命令、jar 文件名和独立日志确认端口归属；只在新 jar 的健康检查和启动成功时间窗均通过后宣称运行态已切换。
 - 经验规则：如果两个已验证运行包分别覆盖不同模块，优先以最新且已验证的运行包为底，逐个替换缺失的 nested module jar，再用 `jar tf` 复核关键 class 同时存在；不要直接把单个 class、`target/classes` 或未核对的模块拼成 fat jar。
+- 经验规则：若完整打包被无关模块阻断且只能做本机定向恢复，hotfix Jar 必须单独命名并记录原 Jar 哈希、hotfix Jar 哈希、外层 nested module `compress_type=0`、替换 class 哈希、旧/新 PID、health 和登录态目标接口业务码；同时把完整构建阻断点单独列为非任务 blocker，避免把 hotfix 运行态写成发布构建通过。
 - 经验规则：启动参数中的日志文件路径、超时等关键配置，尽量用完整单参数或环境变量传递；不要让命令行出现 `key= value` 这种被空格拆开的写法，否则 Spring Boot 可能拿到空值或错误值，导致日志不落盘或配置未生效。
 - 排查顺序：记录旧 PID/新 PID，确认新 PID 独占 `48081`，请求 `/actuator/health`，再扫描本次日志中的启动成功或失败标记；不要只凭端口可访问或历史日志判断版本。
 - 禁止做法：禁止按端口盲杀不属于当前任务的 Java 进程，禁止把 worktree 构建成功写成 `int_main` 已验证，禁止在主工作区 dirty 时清理或覆盖并行任务文件。
 
 ### 融合前主线二次漂移与 Dirty 阻断
 
+- 三方整合未提交代码时，须分别记录共同提交、两来源HEAD及逐文件SHA256；隔离目录内的主线参考副本不是本任务资产，不能整体提交。合并工具输入先统一换行再比较，原文件仍只读；出现真实内容冲突后由分工worker处理，禁止重跑机械同步覆盖worker结果。最终合入前再次核对来源摘要，漂移时停止并重建验证基线。
+
 - 触发场景：用户要求把附加 worktree 融合进 `int_main`，但 rebase/验证期间主分支又被其它任务推进，或主工作区保留并行任务 dirty/untracked 文件。
 - 经验规则：融合前重新执行 `git log --left-right --cherry-pick int_main...<branch>`；若出现 `<` 侧提交，先在附加 worktree 再 rebase 到当前 `int_main` 并重跑目标验证。即使分支已可 fast-forward，主工作区仍需 clean 后才能运行 closeout apply。
 - 阻断处理：主工作区 dirty 属于其它任务时，只记录文件清单和阻断原因，不做 stash、restore、clean、reset，也不手工绕过 closeout guard。
 - 验证方式：记录最终分支领先提交数、任务提交 hash、目标静态/单测结果、`git diff --check` 和 closeout preview 输出。
+- Evidence: `doc/tasks/20260918-production-batch-record-json-publish-implementation/verification-report.md`，`20260918_gongyiluxian` closeout preview 保留任务证据但阻塞于 `E:\IntRuoyi` 主 worktree dirty，未执行 cleanup apply、commit、merge 或 worktree remove。
 
 ### Worktree 绝对路径补丁门禁
 
@@ -462,3 +512,23 @@
 - Verification: 记录 detached 状态、cleanup preview 的 blocked 行、任务最终状态以及未执行 commit/push/apply 的原因。
 - Forbidden action: 禁止在 detached HEAD 上猜测分支名、强行提交、手工绕过 closeout guard、直接删除 worktree 或把 blocked preview 写成 cleanup PASS。
 - Evidence: `doc/tasks/20260914-edhr-static-021-inventory-evidence-chain/verification-report.md`，EDHR-STATIC-021 在 linked worktree 中 cleanup preview 阻塞于 `Current worktree branch could not be resolved`，任务按规则停在 blocked。
+
+
+## 测试夹具随融合提交门禁
+- 触发：测试引用 doc/tasks 下被忽略的策略草案、样例或快照，源工作区通过而新 checkout 缺文件。
+- 规则：将测试必需且不含敏感信息的原始夹具归入对应模块 src/test/resources，并更新测试读取路径；生产策略与未批准测试草案必须保持隔离。不得用编造内容或跳过断言掩盖缺文件。
+- 验证：以 Git 跟踪清单确认夹具随实现提交，重新执行实际消费夹具的测试；不要把源工作区忽略文件存在当作合并后可复现的证据。
+
+
+## 交付清单与完整构建来源分开封存
+
+- 修复交付同时核对任务差异清单与实际完整构建输入清单；后者应覆盖被忽略但真实参与编译的源码、根构建配置及二进制资源，并关联编译器输入。两份清单不能互相代替。
+- 发现调用方已交付而Mapper、状态消费者或测试依赖漏入清单时，退回原修复线程完整盘点并重新封存；整改后按最终源码重新运行回归，不沿用整改前日志或旧XML。
+- 隔离索引核对基线和修复差异各自的精确路径及内容；临时索引预演不等于实际提交或主干融合通过。
+
+
+## 隔离索引保留文件元数据
+
+- 触发：精确融合或单独提交任务记录使用隔离索引，重新read-tree后Git反复扫描大量未改文件。
+- 规则：主索引没有已暂存改动且与当前HEAD一致时，可把已核验的主索引原字节复制到任务隔离索引，再仅暂存授权路径，以保留文件元数据；真实主索引和并行任务资产保持保护。
+- 门禁：提交前核对HEAD、主索引SHA、精确暂存路径和候选树差异；提交后核对实际来源、无关资产和暂存状态。保留索引缓存不能替代源码指纹或省略内容核验。

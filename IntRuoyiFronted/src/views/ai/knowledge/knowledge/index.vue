@@ -97,7 +97,8 @@
           >
             文档
           </el-button>
-          <el-button
+          <el-button class="app-test-button"
+          v-if="testModeEnabled"
             link
             type="primary"
             @click="handleRetrieval(scope.row.id)"
@@ -130,12 +131,16 @@
 </template>
 
 <script setup lang="ts">
+import { useTestMode } from '@/store/modules/testMode'
+
 import { isSearchFormInputEmpty } from '@/utils/search'
 import { getIntDictOptions, DICT_TYPE } from '@/utils/dict'
 import { dateFormatter } from '@/utils/formatTime'
 import { KnowledgeApi, KnowledgeVO } from '@/api/ai/knowledge/knowledge'
 import KnowledgeForm from './KnowledgeForm.vue'
 import { useRouter } from 'vue-router'
+
+const testModeEnabled = useTestMode()
 
 /** AI 知识库列表 */
 defineOptions({ name: 'Knowledge' })

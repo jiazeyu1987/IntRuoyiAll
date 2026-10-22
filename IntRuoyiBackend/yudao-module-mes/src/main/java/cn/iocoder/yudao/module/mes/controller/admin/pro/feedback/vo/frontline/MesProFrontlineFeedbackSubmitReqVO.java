@@ -57,6 +57,10 @@ public class MesProFrontlineFeedbackSubmitReqVO {
     @NotNull(message = "签名员工不能为空")
     private Long signatureEmployeeId;
 
+    @Schema(description = "签名身份域：SYSTEM_USER 或 MES_EMPLOYEE_PROFILE", requiredMode = Schema.RequiredMode.REQUIRED)
+    @NotBlank(message = "签名身份域不能为空")
+    private String signatureIdentityDomain;
+
     @Schema(description = "签名员工电子签名密码", requiredMode = Schema.RequiredMode.REQUIRED)
     @NotBlank(message = "电子签名密码不能为空")
     private String signaturePassword;

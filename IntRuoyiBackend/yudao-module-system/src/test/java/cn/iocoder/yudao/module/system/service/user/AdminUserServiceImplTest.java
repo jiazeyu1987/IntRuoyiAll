@@ -10,6 +10,7 @@ import cn.iocoder.yudao.framework.common.util.collection.CollectionUtils;
 import cn.iocoder.yudao.framework.test.core.ut.BaseDbUnitTest;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.infra.api.config.ConfigApi;
+import cn.iocoder.yudao.module.infra.enums.config.PasswordMaxAgeConfig;
 import cn.iocoder.yudao.module.infra.api.file.FileApi;
 import cn.iocoder.yudao.module.system.controller.admin.user.vo.profile.UserProfileUpdatePasswordReqVO;
 import cn.iocoder.yudao.module.system.controller.admin.user.vo.profile.UserProfileUpdateReqVO;
@@ -28,6 +29,7 @@ import cn.iocoder.yudao.module.system.dal.dataobject.user.AdminUserDO;
 import cn.iocoder.yudao.module.system.dal.dataobject.user.AdminUserPasswordHistoryDO;
 import cn.iocoder.yudao.module.system.dal.mysql.dept.DeptMapper;
 import cn.iocoder.yudao.module.system.dal.mysql.dept.UserPostMapper;
+import cn.iocoder.yudao.module.system.dal.mysql.dept.PostMapper;
 import cn.iocoder.yudao.module.system.dal.mysql.user.AdminUserMapper;
 import cn.iocoder.yudao.module.system.dal.mysql.user.AdminUserPasswordHistoryMapper;
 import cn.iocoder.yudao.module.system.enums.common.SexEnum;
@@ -36,6 +38,8 @@ import cn.iocoder.yudao.module.system.service.dept.DeptService;
 import cn.iocoder.yudao.module.system.service.dept.PostService;
 import cn.iocoder.yudao.module.system.service.oauth2.OAuth2TokenService;
 import cn.iocoder.yudao.module.system.service.permission.PermissionService;
+import cn.iocoder.yudao.module.system.api.permission.ApprovalAuthorityApi;
+import cn.iocoder.yudao.module.system.api.permission.dto.ApprovalAuthorityRevisionDTO;
 import cn.iocoder.yudao.module.system.service.tenant.TenantService;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
@@ -46,6 +50,9 @@ import org.mockito.stubbing.Answer;
 import org.springframework.context.annotation.Import;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -76,8 +83,9 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
-@Import(AdminUserServiceImpl.class)
+@Import({AdminUserServiceImpl.class, org.springframework.boot.autoconfigure.transaction.TransactionAutoConfiguration.class})
 public class AdminUserServiceImplTest extends BaseDbUnitTest {
+    @MockitoBean private cn.iocoder.yudao.module.system.service.dept.DeptSupervisorService supervisorService;
 
     private static final String TEST_INIT_PASSWORD = "Yudao@2026";
 
@@ -89,9 +97,13 @@ public class AdminUserServiceImplTest extends BaseDbUnitTest {
     @Resource
     private AdminUserPasswordHistoryMapper passwordHistoryMapper;
     @Resource
+    private PlatformTransactionManager transactionManager;
+    @Resource
     private DeptMapper deptMapper;
     @Resource
     private UserPostMapper userPostMapper;
+    @Resource
+    private PostMapper postMapper;
 
     @MockitoBean
     private DeptService deptService;
@@ -99,6 +111,8 @@ public class AdminUserServiceImplTest extends BaseDbUnitTest {
     private PostService postService;
     @MockitoBean
     private PermissionService permissionService;
+    @MockitoBean
+    private ApprovalAuthorityApi approvalAuthority;
     @MockitoBean
     private PasswordEncoder passwordEncoder;
     @MockitoBean
@@ -112,9 +126,12 @@ public class AdminUserServiceImplTest extends BaseDbUnitTest {
 
     @BeforeEach
     public void before() {
+        when(configApi.getConfigValueByKey(PasswordMaxAgeConfig.KEY)).thenReturn("90");
         // mock 初始化密码
         when(configApi.getConfigValueByKey(USER_INIT_PASSWORD_KEY)).thenReturn(TEST_INIT_PASSWORD);
         TenantContextHolder.setTenantId(1L);
+        when(approvalAuthority.lockTenantApprovalAuthority(1L))
+                .thenReturn(new ApprovalAuthorityRevisionDTO(1L, 1L));
     }
 
     @Test
@@ -223,7 +240,13 @@ public class AdminUserServiceImplTest extends BaseDbUnitTest {
         AdminUserDO dbUser = randomAdminUserDO(o -> o.setPostIds(asSet(1L, 2L)));
         userMapper.insert(dbUser);
         userPostMapper.insert(new UserPostDO().setUserId(dbUser.getId()).setPostId(1L));
-        userPostMapper.insert(new UserPostDO().setUserId(dbUser.getId()).setPostId(2L));
+        UserPostDO retainedBinding = new UserPostDO().setUserId(dbUser.getId()).setPostId(2L);
+        userPostMapper.insert(retainedBinding);
+        retainedBinding = userPostMapper.selectById(retainedBinding.getId());
+        for (long id : new long[]{1L, 2L, 3L}) {
+            postMapper.insert(new PostDO().setId(id).setCode("um04-" + id).setName("岗位" + id)
+                    .setSort(0).setStatus(CommonStatusEnum.ENABLE.getStatus()));
+        }
         // 准备参数
         UserSaveReqVO reqVO = randomPojo(UserSaveReqVO.class, o -> {
             o.setId(dbUser.getId());
@@ -254,17 +277,20 @@ public class AdminUserServiceImplTest extends BaseDbUnitTest {
         List<UserPostDO> userPosts = userPostMapper.selectListByUserId(user.getId());
         assertEquals(2L, userPosts.get(0).getPostId());
         assertEquals(3L, userPosts.get(1).getPostId());
+        assertEquals(retainedBinding.getId(), userPosts.get(0).getId());
+        assertEquals(retainedBinding.getCreateTime(), userPosts.get(0).getCreateTime());
+        assertEquals(dbUser.getPassword(), user.getPassword());
     }
 
     @Test
     public void testUpdateUser_genericAccountForbidden() {
-        AdminUserDO dbUser = randomAdminUserDO(o -> o.setUsername("operator01"));
+        AdminUserDO dbUser = randomAdminUserDO(o -> { o.setUsername("operator01"); o.setPostIds(Set.of()); });
         userMapper.insert(dbUser);
         UserSaveReqVO reqVO = randomPojo(UserSaveReqVO.class, o -> {
             o.setId(dbUser.getId());
             o.setUsername("test");
             o.setMobile(randomString());
-            o.setPostIds(null);
+            o.setPostIds(Set.of());
         });
 
         assertServiceException(() -> userService.updateUser(reqVO), USER_GENERIC_ACCOUNT_FORBIDDEN, "test");
@@ -496,6 +522,8 @@ public class AdminUserServiceImplTest extends BaseDbUnitTest {
 
         assertServiceException(() -> userService.reauthenticateForSignature(user.getId(), "old"),
                 ESIGN_CREDENTIAL_EXPIRED);
+        when(configApi.getConfigValueByKey(PasswordMaxAgeConfig.KEY)).thenReturn("180");
+        assertEquals(user.getId(), userService.reauthenticateForSignature(user.getId(), "old").getId());
     }
 
     @Test
@@ -588,12 +616,14 @@ public class AdminUserServiceImplTest extends BaseDbUnitTest {
     public void testUpdateUserPassword_rejectsRecentHistoryReuse() {
         AdminUserDO dbUser = randomAdminUserDO(o -> o.setPassword("encode:current"));
         userMapper.insert(dbUser);
-        passwordHistoryMapper.insert(AdminUserPasswordHistoryDO.builder()
+        AdminUserPasswordHistoryDO history = AdminUserPasswordHistoryDO.builder()
                 .userId(dbUser.getId())
                 .passwordHash("encode:old1")
                 .changedAt(LocalDateTime.now().minusDays(1))
                 .sourceType("SELF_CHANGE")
-                .build());
+                .build();
+        history.setTenantId(dbUser.getTenantId());
+        passwordHistoryMapper.insert(history);
         UserProfileUpdatePasswordReqVO reqVO = randomPojo(UserProfileUpdatePasswordReqVO.class, o -> {
             o.setOldPassword("current");
             o.setNewPassword("Old@2026");
@@ -646,12 +676,249 @@ public class AdminUserServiceImplTest extends BaseDbUnitTest {
     }
 
     @Test
+    public void testUpdateUserPassword02_allowsCurrentPasswordReuse() {
+        AdminUserDO dbUser = randomAdminUserDO(o -> o.setPassword("encode:current"));
+        userMapper.insert(dbUser);
+        String password = "Current@2026";
+        when(passwordEncoder.matches(eq(password), eq(dbUser.getPassword()))).thenReturn(true);
+        when(passwordEncoder.encode(eq(password))).thenReturn("encode:" + password);
+
+        userService.updateUserPassword(dbUser.getId(), password);
+
+        AdminUserDO user = userMapper.selectById(dbUser.getId());
+        assertEquals("encode:" + password, user.getPassword());
+    }
+
+    @Test
+    public void testUpdateUserPassword02_allowsRecentHistoryPasswordReuse() {
+        AdminUserDO dbUser = randomAdminUserDO(o -> o.setPassword("encode:current"));
+        userMapper.insert(dbUser);
+        AdminUserPasswordHistoryDO history = AdminUserPasswordHistoryDO.builder()
+                .userId(dbUser.getId())
+                .passwordHash("encode:old1")
+                .changedAt(LocalDateTime.now().minusDays(1))
+                .sourceType("SELF_CHANGE")
+                .build();
+        history.setTenantId(dbUser.getTenantId());
+        passwordHistoryMapper.insert(history);
+        String password = "Old@2026";
+        when(passwordEncoder.matches(eq(password), eq(dbUser.getPassword()))).thenReturn(false);
+        when(passwordEncoder.matches(eq(password), eq("encode:old1"))).thenReturn(true);
+        when(passwordEncoder.encode(eq(password))).thenReturn("encode:" + password);
+
+        userService.updateUserPassword(dbUser.getId(), password);
+
+        AdminUserDO user = userMapper.selectById(dbUser.getId());
+        assertEquals("encode:" + password, user.getPassword());
+    }
+
+    @Test
     public void testUpdateUserPassword02_weakPassword() {
         AdminUserDO dbUser = randomAdminUserDO();
         userMapper.insert(dbUser);
 
         assertServiceException(() -> userService.updateUserPassword(dbUser.getId(), "yudao"),
                 USER_PASSWORD_STRENGTH_INVALID);
+    }
+
+    @Test
+    public void testPasswordReset_revokesTargetSessionsAndKeepsAccountBindings() {
+        AdminUserDO before = randomAdminUserDO(o -> {
+            o.setPassword("encoded-before");
+            o.setLoginLocked(1);
+            o.setLoginLockedTime(LocalDateTime.now());
+            o.setStatus(CommonStatusEnum.DISABLE.getStatus());
+            o.setPostIds(asSet(7L, 8L));
+            o.setPasswordCredentialStatus("ACTIVE");
+        });
+        userMapper.insert(before);
+        before = userMapper.selectById(before.getId());
+        when(passwordEncoder.encode(anyString())).thenReturn("encoded-after");
+
+        userService.updateUserPassword(before.getId(), "Changed@2026");
+
+        verify(oauth2TokenService).removeAccessToken(before.getId(), UserTypeEnum.ADMIN.getValue());
+        AdminUserDO after = userMapper.selectById(before.getId());
+        assertEquals("RESET_REQUIRED", after.getPasswordCredentialStatus());
+        assertEquals(before.getStatus(), after.getStatus());
+        assertEquals(before.getLoginLocked(), after.getLoginLocked());
+        assertEquals(before.getLoginLockedTime(), after.getLoginLockedTime());
+        assertEquals(before.getDeptId(), after.getDeptId());
+        assertEquals(before.getPostIds(), after.getPostIds());
+    }
+
+    @Test
+    public void testSelfPasswordChange_revokesSessions() {
+        AdminUserDO before = randomAdminUserDO(o -> o.setPassword("encoded-before"));
+        userMapper.insert(before);
+        when(passwordEncoder.matches("old-secret", before.getPassword())).thenReturn(true);
+        when(passwordEncoder.encode("Changed@2026")).thenReturn("encoded-after");
+
+        userService.updateUserPassword(before.getId(), new UserProfileUpdatePasswordReqVO()
+                .setOldPassword("old-secret").setNewPassword("Changed@2026"));
+
+        verify(oauth2TokenService).removeAccessToken(before.getId(), UserTypeEnum.ADMIN.getValue());
+        assertEquals("ACTIVE", userMapper.selectById(before.getId()).getPasswordCredentialStatus());
+    }
+
+    @Test
+    public void testPasswordMutation_revocationFailureRollsBackPasswordAndHistory() {
+        assertTrue(org.springframework.aop.support.AopUtils.isAopProxy(userService),
+                "Password mutation must be called through the real Spring transaction proxy");
+        for (boolean selfChange : new boolean[]{false, true}) {
+            AdminUserDO before = randomAdminUserDO(o -> {
+                o.setPassword("encoded-before");
+                o.setPasswordCredentialStatus("ACTIVE");
+                o.setPasswordUpdateTime(LocalDateTime.now().minusDays(1).withNano(0));
+            });
+            userMapper.insert(before);
+            when(passwordEncoder.encode("Changed@2026")).thenReturn("encoded-after");
+            when(passwordEncoder.matches("old-secret", before.getPassword())).thenReturn(true);
+            doThrow(new IllegalStateException("session cache deletion failed"))
+                    .when(oauth2TokenService).removeAccessToken(before.getId(), UserTypeEnum.ADMIN.getValue());
+
+            assertThrows(IllegalStateException.class, () -> {
+                if (selfChange) {
+                    userService.updateUserPassword(before.getId(), new UserProfileUpdatePasswordReqVO()
+                            .setOldPassword("old-secret").setNewPassword("Changed@2026"));
+                } else {
+                    userService.updateUserPassword(before.getId(), "Changed@2026");
+                }
+            });
+
+            AdminUserDO after = userMapper.selectById(before.getId());
+            assertEquals(before.getPassword(), after.getPassword());
+            assertEquals(before.getPasswordUpdateTime(), after.getPasswordUpdateTime());
+            assertEquals(before.getPasswordCredentialStatus(), after.getPasswordCredentialStatus());
+            assertTrue(passwordHistoryMapper.selectLatestListByUserId(before.getId(), 5).isEmpty());
+        }
+    }
+
+    @Test
+    public void testLockUserForSessionMutation_requiresWritableTransactionAndMatchingTenant() {
+        AdminUserDO user = randomAdminUserDO();
+        userMapper.insert(user);
+        assertThrows(IllegalStateException.class,
+                () -> userService.lockUserForSessionMutation(1L, user.getId()));
+
+        TransactionTemplate readOnly = new TransactionTemplate(transactionManager);
+        readOnly.setReadOnly(true);
+        readOnly.executeWithoutResult(status -> assertThrows(IllegalStateException.class,
+                () -> userService.lockUserForSessionMutation(1L, user.getId())));
+
+        new TransactionTemplate(transactionManager).executeWithoutResult(status -> {
+            assertThrows(IllegalStateException.class,
+                    () -> userService.lockUserForSessionMutation(null, user.getId()));
+            assertThrows(IllegalStateException.class,
+                    () -> userService.lockUserForSessionMutation(2L, user.getId()));
+            assertThrows(IllegalArgumentException.class,
+                    () -> userService.lockUserForSessionMutation(1L, 0L));
+            TenantContextHolder.clear();
+            try {
+                assertThrows(IllegalStateException.class,
+                        () -> userService.lockUserForSessionMutation(1L, user.getId()));
+            } finally {
+                TenantContextHolder.setTenantId(1L);
+            }
+        });
+    }
+
+    @Test
+    public void testLockUserForSessionMutation_allowsDisabledLockedUserAndRejectsDeletedOrOtherTenant() {
+        AdminUserDO user = randomAdminUserDO(o -> {
+            o.setStatus(CommonStatusEnum.DISABLE.getStatus());
+            o.setLoginLocked(1);
+            o.setLoginLockedTime(LocalDateTime.now());
+        });
+        userMapper.insert(user);
+        AdminUserDO otherTenant = randomAdminUserDO(o -> o.setTenantId(2L));
+        userMapper.insert(otherTenant);
+        AdminUserDO deleted = randomAdminUserDO();
+        userMapper.insert(deleted);
+        userMapper.deleteById(deleted.getId());
+
+        new TransactionTemplate(transactionManager).executeWithoutResult(status -> {
+            AdminUserDO locked = userService.lockUserForSessionMutation(1L, user.getId());
+            assertEquals(CommonStatusEnum.DISABLE.getStatus(), locked.getStatus());
+            assertEquals(1, locked.getLoginLocked());
+            assertServiceException(() -> userService.lockUserForSessionMutation(1L, otherTenant.getId()),
+                    USER_NOT_EXISTS);
+            assertServiceException(() -> userService.lockUserForSessionMutation(1L, deleted.getId()),
+                    USER_NOT_EXISTS);
+        });
+    }
+
+    @Test
+    public void testUpdateUserStatus_revocationFailureRollsBackStatus() {
+        AdminUserDO before = randomAdminUserDO(o -> o.setStatus(CommonStatusEnum.ENABLE.getStatus()));
+        userMapper.insert(before);
+        doThrow(new IllegalStateException("session cache deletion failed"))
+                .when(oauth2TokenService).removeAccessToken(before.getId(), UserTypeEnum.ADMIN.getValue());
+
+        assertThrows(IllegalStateException.class,
+                () -> userService.updateUserStatus(before.getId(), CommonStatusEnum.DISABLE.getStatus()));
+        assertEquals(CommonStatusEnum.ENABLE.getStatus(), userMapper.selectById(before.getId()).getStatus());
+    }
+
+    @Test
+    public void testLifecycleDeactivation_revocationFailureRollsBackDocumentAndStatus() {
+        AdminUserDO before = randomAdminUserDO(o -> o.setStatus(CommonStatusEnum.ENABLE.getStatus()));
+        userMapper.insert(before);
+        doThrow(new IllegalStateException("session cache deletion failed"))
+                .when(oauth2TokenService).removeAccessToken(before.getId(), UserTypeEnum.ADMIN.getValue());
+        LocalDateTime effectiveTime = LocalDateTime.now().minusMinutes(1).withNano(0);
+
+        assertThrows(IllegalStateException.class, () -> userService.recordUserLifecycleDeactivation(
+                buildLifecycleDeactivateReqVO(before.getId(), UserLifecycleDocumentTypeEnum.RESIGNATION.getType(),
+                        "UM05-ROLLBACK", effectiveTime.minusDays(1), effectiveTime)));
+
+        AdminUserDO after = userMapper.selectById(before.getId());
+        assertEquals(CommonStatusEnum.ENABLE.getStatus(), after.getStatus());
+        assertNull(after.getLifecycleDocumentType());
+        assertNull(after.getLifecycleDocumentNo());
+        assertNull(after.getLifecycleDeactivatedTime());
+    }
+
+    @Test
+    public void testProcessDueLifecycleDeactivations_locksByIdAndUsesCurrentUser() {
+        AdminUserMapper mapper = mock(AdminUserMapper.class);
+        AdminUserServiceImpl service = new AdminUserServiceImpl();
+        ReflectionTestUtils.setField(service, "userMapper", mapper);
+        ReflectionTestUtils.setField(service, "oauth2TokenService", oauth2TokenService);
+        ReflectionTestUtils.setField(service, "approvalAuthority", approvalAuthority);
+        ReflectionTestUtils.setField(service, "supervisorService", supervisorService);
+        LocalDateTime now = LocalDateTime.now().withNano(0);
+        when(mapper.selectListByPendingLifecycleDeactivation(now, 20)).thenReturn(List.of(
+                new AdminUserDO().setId(3L), new AdminUserDO().setId(2L), new AdminUserDO().setId(1L)));
+        when(mapper.selectPermissionSubjectForUpdate(1L, 1L)).thenReturn(new AdminUserDO().setId(1L)
+                .setLifecycleDeactivatedTime(now.minusMinutes(1)));
+        when(mapper.selectPermissionSubjectForUpdate(1L, 2L)).thenReturn(new AdminUserDO().setId(2L)
+                .setLifecycleDocumentType(UserLifecycleDocumentTypeEnum.TRANSFER.getType())
+                .setLifecycleDocumentNo("UM05-RESCHEDULED").setLifecycleEffectiveTime(now.plusDays(1)));
+        when(mapper.selectPermissionSubjectForUpdate(1L, 3L)).thenReturn(new AdminUserDO().setId(3L)
+                .setStatus(CommonStatusEnum.ENABLE.getStatus())
+                .setLifecycleDocumentType(UserLifecycleDocumentTypeEnum.RESIGNATION.getType())
+                .setLifecycleDocumentNo("UM05-DUE").setLifecycleEffectiveTime(now.minusMinutes(1)));
+        when(mapper.update(isNull(), any())).thenReturn(1);
+
+        Integer count = new TransactionTemplate(transactionManager)
+                .execute(status -> service.processDueLifecycleDeactivations(now, 20));
+
+        assertEquals(1, count);
+        var order = inOrder(mapper, approvalAuthority, oauth2TokenService);
+        order.verify(mapper).selectListByPendingLifecycleDeactivation(now, 20);
+        order.verify(mapper).selectPermissionSubjectForUpdate(1L, 1L);
+        order.verify(mapper).selectPermissionSubjectForUpdate(1L, 2L);
+        order.verify(mapper).selectPermissionSubjectForUpdate(1L, 3L);
+        order.verify(approvalAuthority).lockTenantApprovalAuthority(1L);
+        order.verify(mapper).update(isNull(), any());
+        order.verify(oauth2TokenService).removeAccessToken(3L, UserTypeEnum.ADMIN.getValue());
+        order.verify(approvalAuthority).incrementLockedAuthorityRevision(1L, 1L);
+        verify(approvalAuthority, times(1)).incrementLockedAuthorityRevision(1L, 1L);
+        verify(mapper, times(1)).update(isNull(), any());
+        verify(supervisorService).releaseAssignments(List.of(3L), "离职/转岗定时生效：UM05-DUE");
+        verify(oauth2TokenService, never()).removeAccessToken(1L, UserTypeEnum.ADMIN.getValue());
+        verify(oauth2TokenService, never()).removeAccessToken(2L, UserTypeEnum.ADMIN.getValue());
     }
 
     @Test

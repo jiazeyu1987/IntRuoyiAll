@@ -1,0 +1,31 @@
+{
+  "task_id": "20261006-user-password-session-fix",
+  "run_id": "um0520261007023542",
+  "username": "um0520261007023542",
+  "nickname": "UM05会话撤销验证",
+  "tenant": "芋道源码",
+  "frontend_port": 8090,
+  "backend_port": 48090,
+  "status": "UI_DELETED_READONLY_CONFIRMED",
+  "roles": [],
+  "credentials_recorded": false,
+  "expected": [
+    "UI创建专属账号",
+    "首次登录强制改密并回登录",
+    "两个真实独立会话登录",
+    "重置取消及弱密码不产生写请求",
+    "重置成功无秘密且两个旧会话被拒绝",
+    "新重置密码登录强制自助改密",
+    "最终密码正常登录",
+    "UI退出并删除专属账号"
+  ],
+  "business_actions_by": "Playwright real frontend only",
+  "readonly_witness": "Real production services/Mappers under an older MySQL RR snapshot; no DML",
+  "ui_creation": {
+    "dialog_closed": true,
+    "message": "新增成功",
+    "password_input_type": "password",
+    "shared_admin_unchanged": true
+  },
+  "cleanup_completed_at": "2026-10-07T04:44:45+08:00"
+}

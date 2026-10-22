@@ -1,10 +1,9 @@
 # IntRuoyi Local Runtime Rules
 
-## 触发场景
+## 适用场景
 
-- 启动、停止、重启或排查本机前端、后端、Vite、Java 服务时，必须先读取本文件。
-- 排查 `8081`、`48081` 或其他 worktree 登记端口占用时，必须同时读取 `docs/worktree-restrictions.md`。
-- 本文件只约束本机运行态；远端服务器必须读取 `docs/server-access.md`。
+- 本机服务、Vite、Java 或端口问题按需查阅本文件，已读且未变化的规则不重复读取。
+- worktree 端口及远端服务器问题按需查阅对应说明，仍须遵守实际端口和进程归属边界。
 
 ## 固定端口
 
@@ -89,6 +88,7 @@ PORT_CONTRACT_VERSION: 2026-08-24-branch-runtime-v7
 - Launch template check: 若为了启动已验证的预构建 Jar 而复用 `restart-int-ruoyi-local.ps1` 中的 `$backendScript` here-string，必须在停止旧进程前解析并验证该 here-string 引用的全部外层参数默认值，包括 OnlyOffice 地址和 DCC 电子签名证据密钥配置；只抽取 here-string、未带入外层变量会把必需环境变量展开为空，导致新进程在 Spring Bean 初始化阶段 fail fast。预检至少应生成待启动脚本的脱敏结构摘要，并断言每个必需环境变量非空；不得输出密钥原值。若无法证明自定义启动器与标准脚本参数等价，应停止并扩展标准脚本的预构建 Jar 入口，不能先停旧服务再试错。
 - Child-process configuration boundary: 本地重启脚本生成 Java 子进程时，运行所需配置必须通过 `backendArgs` 或等价启动参数显式传递；只依赖父进程环境继承会把配置在 Spring Bean 初始化阶段丢失。仍必须显式传递 DCC 预览、OnlyOffice 和电子签名证据等现行必需配置；DCC 下载已改为授权后直接返回原文件字节，不再读取或注入旧下载密钥环境变量，也不再传递旧下载加密启动参数。静态脚本合同必须断言关键参数存在、下载加密配置不存在，并继续核对其他必需配置未丢失；不得用默认值、切换数据源或绕过校验掩盖真实缺失配置。
 - Cross-module API check: 若修复新增或改动跨模块 Java API 方法，热替换时必须成组核对并替换接口、调用方、实现类、服务接口、服务实现和 Mapper/DAO 等全部相关 class；只替换直接报错的调用方 class 会导致运行态继续走旧实现或启动后 `NoSuchMethodError`。替换包含匿名类、局部类、lambda 或编译器生成伴随类的实现时，必须同时替换同名前缀的 `$*.class`，并在启动前从内嵌模块核对这些 class 均存在，避免运行时 `NoClassDefFoundError`。若目标修复还改变 Controller 注解、`@RequestParam(required=false)`、VO 字段或路由声明，必须同时用 `javap -v`、登录态 API 和真实页面路径核对运行 Jar 内对应 Controller/VO class 已刷新；只替换 Service/依赖模块会出现页面 `keyword=` 通过但缺省参数或新注解仍按旧 class 失败。只看到运行 Jar 内存在同名 Controller class 不足以证明映射已刷新；当页面仍报 `请求地址不存在` 时，必须用 `javap -private -verbose` 比对方法列表和 `GetMapping` 常量，防止 `target/classes` 已更新但内嵌模块 jar 仍是旧方法集。
+- Scoped hotfix artifact boundary: 标准完整 package 被无关模块编译错误阻断、但用户已授权重启并且必须恢复 `48081` 目标业务时，可以生成明确标记的定向 hotfix 运行产物；前置必须同时满足：旧运行包登录态接口能复现目标业务错误、数据库/配置只读核验排除数据缺失、目标 class 已由定向 JUnit/静态合同验证、替换 class 成组完整、外层 Spring Boot nested module jar 仍为 `compress_type=0`、替换后内嵌 class SHA-256 与已验证 `target/classes` 一致、产物文件名和证据均标注 hotfix。该产物只能作为本机测试/恢复运行态证据，不能写成完整发布构建通过。
 - Blocker: 如果 PID 归属不明、Jar 来源不明、目标 Jar 哈希与隔离构建 Jar 不一致、运行 Jar 内嵌模块缺少本次关键 class、热替换内嵌 jar 被压缩写入、或主工作区源码混有其他任务改动，必须停止，不得从脏主工作区重新打包冒充本任务运行态。
 - Verification: 记录旧 PID、停止依据、新 PID、Jar SHA256、启动命令、`http://127.0.0.1:48081/actuator/health`、端口监听新 PID 命令行、登录态目标接口业务响应、必要 schema 字段核对、内嵌模块关键 class 检查结果、嵌套 jar 压缩方式（`compress_type=0`），并在 E2E 后记录真实数据库状态。若使用临时 detached worktree 构建 Jar，收尾必须用 `git worktree remove --force <path>` 删除并复核 `Test-Path=False`。
 - Route check: 目标接口需要登录时，未登录请求返回 `401` 只能证明安全过滤器生效，不能证明 MVC 路由已加载；必须使用本机登录态请求目标接口，业务码为 `0` 或预期业务错误，才可宣称新 Controller 已进入运行态。
@@ -178,6 +178,13 @@ PORT_CONTRACT_VERSION: 2026-08-24-branch-runtime-v7
 - Forbidden action: 禁止通过停止、删除、重建容器来冒充禁用自启；禁止让 `docker_ragflow` 等无关栈保留 `always`、`unless-stopped` 或 `on-failure` 自启策略。
 - Evidence: `doc/tasks/20260802-docker-autostart-policy/verification-report.md`。
 
+## 本机跨盘文件迁移边界
+
+- 触发：为释放本机磁盘空间而迁移个人文件或本地运行产物。
+- 前置检查：区分静态文件、软件运行数据、项目仓库和系统已知文件夹；只搬大文件与整个文件夹重定向是不同范围。先核对源/目标绝对路径、目标卷健康与容量、现有目标冲突、重解析点及活动文件，不能仅按扩展名把工具程序、聊天附件或数据库当作可迁移安装包。
+- 执行：先复制并逐文件核对字节数和 SHA-256，持久化源/目标映射，再移除已确认的源文件；移除前重新确认文件未变化。验证与移除期间限制写入竞争，遇到锁定、权限拒绝或不一致立即停止并保留源文件。
+- 验证：核对目标文件数、字节数、内容摘要和源文件移除状态；释放量以迁移文件实际字节数为依据，磁盘空闲量变化另记，不能忽略并发任务的写入影响。路径变化可能影响最近文件入口和固定路径引用，不用兼容链接掩盖影响，也不自动修改浏览器下载目录、强制关闭用户应用或重启共享服务。
+
 ## 2026-08-05 本机 Docker 未使用镜像清理门禁
 
 - Trigger: D 盘空间不足、`D:\Docker\DockerDesktopWSL\disk\docker_data.vhdx` 过大、`docker system df` 显示大量未使用镜像、用户要求通过 Docker 命令清理未使用镜像。
@@ -186,6 +193,26 @@ PORT_CONTRACT_VERSION: 2026-08-24-branch-runtime-v7
 - Verification: 再次运行 `docker image prune -a -f` 应返回 `Total reclaimed space: 0B`；记录清理前后 `docker system df`，并确认容器仍存在、volume 未执行 prune。
 - Forbidden action: 禁止执行 `docker system prune --volumes`、`docker volume prune`、删除容器、删除 VHDX、或把 VHDX 文件未立刻缩小误判为清理失败；VHDX 回收/压缩必须作为单独授权任务处理。
 - Evidence: `doc/tasks/20260805-docker-unused-image-cleanup/verification-report.md`。
+
+### 按发布历史范围清理镜像
+
+- 用户仅授权历史发布镜像清理时，先冻结候选 tag/ID、全部容器引用和需要保留的发布版本；保留项目工具、基础镜像及未明确纳入范围的镜像。删除精确 tag 使用 `docker image rm`，不加 force；执行前再次核对 tag 指纹和容器引用，变化即停止。不要用全局 prune 扩大范围。
+- 保留版本的清理按候选 ID/tag 无残留验收，不为了获得全局 reclaimable 0B 删除保留项。容器 Mounts 按 Destination/Source 排序后比较全部属性；Docker 返回数组的顺序变化不等于挂载配置变化。
+- `docker system df` 的镜像大小、构建缓存和可回收统计可能共享层；镜像删除后缓存可回收量增加，不代表 Windows 已释放同等空间。分别记录 Docker 分类统计、VHDX 字节数和宿主盘可用空间，缓存清理与 VHDX 压缩继续按各自授权执行。
+
+### Docker 构建缓存清理范围
+
+- 缓存清理前用 `docker buildx ls` 和目标 builder 的 `docker buildx du --builder <name>` 确认驱动、缓存范围和可回收状态；当前选中的 builder 可能属于并行任务，不能按星号选择项直接清理。
+- 明确授权本机默认引擎缓存清理时，按本机 CLI help 显式指定 `desktop-linux` builder；不要扩展到独立 `docker-container` builder。保留全部镜像 tag/ID、容器身份/启动时间/挂载和卷，清理前后核对。
+- 记录 prune 实际 Total 和清理后的 builder du；即使缓存为 0B，宿主 VHDX 仍可能不缩小。停止 Docker、关闭 WSL 与压缩 VHDX 继续作为独立授权动作；当前进程无管理员权限时，先完成可执行的缓存清理和核验，再提出具体提权操作。
+
+### Docker VHDX 压缩脚本审查
+
+- 编写或审查压缩脚本不代表授权实际停机。脚本正式入口应核对管理员、固定磁盘、本机 Docker context/endpoint，提示全部 WSL 停止并明确确认；只读模式不写运行日志或暂停服务。
+- 原运行容器清单须在首次停止前独立持久化，后续状态原子更新；停止后重新核对容器集合与运行状态，竞争变化则取消压缩并恢复原运行集合。只启动原运行 ID，不扩大到所有容器，不重启后端。
+- docker stop 的有限 timeout 到期会 SIGKILL；需要正常退出时使用 timeout=-1。DiskPart 压缩不应因脚本计时器被强杀；连续 DiskPart 脚本至少间隔15秒。必须用 readonly attach，核验退出码及 attach/compact/detach 正向证据；分离未确认不得启动 Docker。
+- 日志/状态写入失败仍须明确报错并使整体失败；发生在停机之后时，不得阻止安全分离与必要恢复。恢复成功不能掩盖压缩失败。验证危险分支采用隔离工具替身，真实只读预检通过不能写成压缩已成功。
+- Windows 原生命令参数仅在需要时使用 CommandLineToArgvW 引号规则，WSL flags 不应一律加双引号；WSL 重定向输出按 UTF-16LE、Docker 按 UTF-8 解码。DiskPart 成功原文应按当前语言核对，未知输出不得默认成功。
 
 ## 2026-08-05 本机 Ruoyi Docker 未用容器卷镜像清理门禁
 
@@ -239,11 +266,11 @@ PORT_CONTRACT_VERSION: 2026-08-24-branch-runtime-v7
 
 - Trigger: `restart-int-ruoyi-local.ps1 -Component full` 或 `-Component backend` 在 `mvn -pl yudao-server -am -DskipTests package` 阶段失败，日志出现 `testCompile`、`COMPILATION ERROR`、测试类引用当前生产代码不存在的常量、方法、字段或 VO setter。
 - Preflight check: 本地重启前若当前工作区存在未完成的测试/生产代码不一致风险，先用标准脚本实际打包结果作为门禁；`-DskipTests` 仍会编译测试代码，不能把它理解成完全跳过测试编译。
-- Recovery check: 若失败信息是 `testCompile` 读取 `target/classes` 中当前源码确实存在的类时报 `NoSuchFileException`，先全仓确认源码存在、无同目录并发 Maven/重启，再运行对应模块的 `mvn -pl <module> -am -DskipTests test-compile` 重建编译产物；该命令通过后仍必须重跑标准 `full/backend` 脚本，不能把定向 test-compile 当作后端已启动。
+- Recovery check: 若失败信息是 `testCompile` 读取 `target/classes` 中当前源码确实存在的类时报 `NoSuchFileException`，先全仓确认源码存在、无同目录并发 Maven/重启，再运行对应模块的 `mvn -pl <module> -am -DskipTests test-compile` 重建编译产物；若失败信息是接口新增方法导致测试替身、匿名 mapper 或公共测试构造器未实现新方法，先补齐正式测试桩合同并用对应模块 `test-compile` 复验。上述定向命令通过后仍必须重跑标准 `full/backend` 脚本，不能把定向 test-compile 当作后端已启动。
 - Blocker: 标准脚本退出码非 `0`、Maven 测试编译失败、`yudao-server-exec.jar` 未重新生成，或当前运行进程来源不是本次标准脚本成功启动时，必须停止完整重启结论；只能记录当前端口是否已有可访问运行态，不能宣称标准 full 重启完成。
 - Verification: 记录 Maven 失败模块、失败测试文件、缺失符号、脚本退出码；同时复核 `8081` HTTP 状态、`48081` health 状态、监听 PID、命令行归属和运行 Jar 路径，明确区分“当前可访问”和“本次标准重启成功”。
 - Forbidden action: 禁止改用 `-Dmaven.test.skip=true`、旧 Jar、手工 Java 启动、API-only health、随机端口或跳过后端打包来冒充标准 full 重启成功；禁止为重启任务擅自修改无关测试或生产代码。
-- Evidence: `doc/tasks/20260813-restart-local-runtime/verification-report.md`。
+- Evidence: `doc/tasks/20260813-restart-local-runtime/verification-report.md`；`doc/tasks/20260921-mes-timeline-testcompile-fix/verification-report.md`。
 
 ## 2026-08-14 主工作区并发重启所有权门禁
 
@@ -258,10 +285,11 @@ PORT_CONTRACT_VERSION: 2026-08-24-branch-runtime-v7
 
 - Trigger: 标准 `full/backend` 重启已进入 `spring-boot:repackage`，`yudao-server-exec.jar` 暂时为 `0` 字节、Maven 长时间无新输出，或误以为最终打包卡死。
 - Preflight check: 不得只根据终端静默、低 CPU 或临时 `0` 字节 Jar 判定失败；先确认 Maven 进程仍属于本次任务，再用 `jcmd <pid> Thread.print -l` 检查主线程。若主线程处于 `AbstractJarWriter$StoredEntryPreparator.load`、`writeNestedLibrary` 或 `Repackager.repackage` 的文件读取/写入链路，说明仍在处理 Spring Boot 嵌套依赖，应继续等待标准命令返回。
+- 编译阶段补充：增量编译也可能因 Windows 文件 I/O 长时间静默。若栈位于 `WinNTFileSystem.delete0 -> IncrementalBuildHelper.beforeRebuildExecution`、资源复制或 javac/Lombok 类文件写入，结合目标文件数、修改时间及进程读写量的连续变化判断进度；磁盘队列高只能作为诊断证据，不能替代最终构建结果。完整构建已成功但启动因并发端口变化失败时，先重新核对共享运行态；确认可启动后，可将本次已验证新包及其 SHA256 交给标准 `PrebuiltBackendJar/PrebuiltBackendSha256` 入口，保留可执行包与 schema 门禁。
 - Blocker: Maven 进程已退出且脚本非零返回、线程栈不再属于打包链路、进程归属不明、目标 Jar 长时间不变化且无法证明仍在 I/O，或最终没有 `BUILD SUCCESS` 时，必须停止成功结论。
 - Verification: 以 Maven `BUILD SUCCESS`、`yudao-server-exec.jar` 完整生成、标准重启脚本退出码 `0`、新 `48081/8081` 进程归属及最终 health/HTTP 检查共同证明完成；线程栈只能证明“仍在执行”，不能代替最终成功结果。
 - Forbidden action: 禁止因临时 `0` 字节 Jar 或终端静默强停本任务构建、改用旧 Jar、跳过重打包或手工启动旧后端冒充成功。
-- Evidence: `doc/tasks/20260817-restart-local-runtime/verification-report.md`。
+- Evidence: `doc/tasks/20260817-restart-local-runtime/verification-report.md`；`doc/tasks/20261008-restart-local-runtime/verification-report.md`。
 
 ## 2026-08-29 本地重启脚本 WMI 查询卡住门禁
 
@@ -289,6 +317,14 @@ PORT_CONTRACT_VERSION: 2026-08-24-branch-runtime-v7
 - Verification: 最终必须同时看到完整 Reactor `BUILD SUCCESS`、脚本退出码 0、新运行 Jar/PID 归属和 `/actuator/health` 返回 `UP`。
 - Forbidden action: 禁止用旧 Jar、跳过测试编译、手工启动不等价参数或随机端口恢复来冒充标准重启成功。
 
+## 2026-09-16 标准 full 重启前端首屏延迟门禁
+
+- Trigger: `restart-int-ruoyi-local.ps1 -Component full` 返回成功后，`8081` 已监听但首次 `Invoke-WebRequest http://127.0.0.1:8081/` 超时。
+- Preflight check: 先核对 `8081` PID 启动时间、命令行是否来自当前仓库 `IntRuoyiFronted`、是否使用 `--mode env.local` 和 `--strictPort`；同时核对 `48081` 新 PID、运行 Jar、repo-root 参数和 health。
+- Blocker: 前端 PID 归属不明、端口不是固定 `8081`、命令行未使用 env.local strictPort、连续重试仍超时或返回 Vite 编译错误时，必须停止前端启动成功结论。
+- Verification: Vite 启动后允许一次首屏编译等待或重试；最终必须记录前端 HTTP `200`、后端 health `UP`、前后端 PID 均在用户本轮重启请求后启动，且运行路径属于当前 Git 仓库。
+- Forbidden action: 禁止只凭 `8081` Listen 宣称前端可用，也禁止把首次短超时直接当作前端失败后切换端口或跳过前端验证。
+
 ## 禁止做法
 
 - 禁止把 `int_main` 改到随机端口启动。
@@ -308,6 +344,51 @@ PORT_CONTRACT_VERSION: 2026-08-24-branch-runtime-v7
 - 分支启动后验证对应 profile 的前端入口和后端健康检查，例如 `int_batch` 使用 `http://127.0.0.1:8041/` 与 `http://127.0.0.1:48041/actuator/health`。
 - 分支后端需要覆盖 Spring 参数时必须使用 `start-branch-backend.ps1 -ExtraArgs @('...')`；启动后除 health 外，还要核对监听 PID 的真实命令行包含任务 `repo-root/state-dir` 等关键参数。参数名写错但 PowerShell 未阻断、或只看到 health `UP`，都不能作为目标功能已加载的证据。
 
+## 2026-09-26 Worktree 前端依赖隔离补充
+
+- 触发场景：附加 worktree 的 Vite 启动出现 `server.fs.allow` 拒绝、动态模块 500、或 node_modules 指向另一个工作区。
+- 经验规则：附加 worktree 必须使用自己的 `node_modules`，优先在该 worktree 前端目录运行 `pnpm install --frozen-lockfile`；启动前确认 `node_modules\.bin\vite` 和关键依赖都解析到当前 worktree。
+- 验证方式：记录依赖安装退出码、实际 `node_modules` 是否为目录而非 junction、Vite 启动命令/端口、前端 HTTP 200 和目标动态模块 HTTP 200；依赖安装完成后再运行 `vue-tsc`、ESLint 和 Playwright。
+- 禁止做法：禁止用主工作区 node_modules junction/symlink 代替 worktree 依赖，禁止修改 package.json/lockfile 绕过安装，禁止只看端口监听就宣称前端可用。
+
+## Windows Vite 静态导入预处理与 EMFILE
+
+- 触发：Vite 已 ready，但首页或源码模块出现 `EMFILE: too many open files`。
+- 排查：检查真实 `fs/promises` 调用栈和 `server.preTransformRequests`。`UV_THREADPOOL_SIZE`、watch ignore 和依赖预构建清单不能单独约束递归静态导入预处理；已有 callback fs 补丁也不能证明 promise 文件读取已受控。
+- 规则：现有 `windows-safe` 开发配置按实际请求转换模块，关闭递归预处理；保留实际编译、文件错误、代理和源码监听。用真实 Vite import-analysis 回归确认一个入口不会派生整图预处理，依赖仍能按需编译，缺失文件仍失败。
+- 验证：首页、主入口及原失败模块分别 HTTP 200，新进程日志无 EMFILE。首次转换超时须复核后续结果，不能仅凭 Vite ready 判定成功。证据：`doc/tasks/20260929-start-local-runtime/verification-report.md`。
+
+## GxP 策略启动不一致的运行诊断
+
+- 打包加载门禁：源覆盖扫描通过后，必须再用真实运行 Jar 的 loader 校验策略与 schema，尤其是 snapshotProfile 等枚举；扫描登记通过不等于运行器可加载。配置纠正后重新生成覆盖报告与完整包，并绑定最终哈希。
+- 辅助写入边界：父事务的待办行快照不能代替权限 claim/grant/专项事件或通知正文。按真实写入算法覆盖受影响集合，跨策略重建须包含所有受影响用户的 grants；用真实服务持久化和审计失败回滚验证。AFTER_COMMIT 写入另有事务，不归入父事务快照。
+
+- 触发：启动失败于 `GxP policy startup mismatch`。
+- 排查：只读对比运行 Jar 内唯一策略、后端 config 权威源、租户最新 activation 的版本与规范内容 hash，并区分历史哈希算法、真实内容变化和打包错误。
+- 规则：真实策略变化必须通过正式激活事务切换，保留旧版本、旧 activation 和审计事实；不得修改已有 hash、关闭启动保护或回退策略让启动通过。激活前核对覆盖证据和数据库写入授权；覆盖检查失败不能记作已获批准的成功报告。
+- 换行核验：审批清单原始字节 SHA 不匹配时，分别核对原字节、CRLF→LF 和 LF→CRLF；只检查一个方向不能将余项全部归为源码逻辑变化。该诊断不改变正式 hash 合同，不自动更新审批人、批准引用或候选摘要。
+- 审批来源：合入代码、允许数据库写入和批准当前策略是不同事实；若合入记录明确保留未批准策略/覆盖缺口，不能仅凭 YAML 的旧 APPROVED 标签或旧批准引用执行激活。方法扫描候选也须区分真实写入与尚未解析的词法调用，不能批量排除。
+- 验证：策略、激活及运行包一致后，再核对固定后端端口和 health UP。前端 HTTP 200、Maven BUILD SUCCESS 或脚本派发成功都不能替代该验证。
+
+## Windows 管理查询阻断标准启动
+
+- 触发：标准脚本需要核实进程命令行或端口归属，而Get-CimInstance/Get-NetTCPConnection超时，Get-Process和原生netstat仍有结果。
+- 排查：分开核实服务是否监听、Docker依赖是否正常、精确PID及简单系统信息的限时查询是否可用；Windows查询故障不能当作业务服务或Docker故障。标准脚本依赖归属核验时，不绕过核验启动或停止服务。
+- 处理：共享Winmgmt恢复须有明确授权，先核依赖，按批准范围执行且不用Force扩大停止。权限拒绝保留实际错误，授权不等于当前Windows进程具有管理员权限；未获更广授权不扩大为系统重启、WMI仓库修复或Docker/WSL重启。
+- 验证：查询恢复后重新核端口、PID命令行、运行包hash和health，再恢复真实页面验收；服务恢复与业务E2E分别记录。
+
+## 后台启动日志句柄与任务清理
+
+- 触发：后台启动器已退出，但 cleanup 删除其 stdout/stderr 日志报 Windows WinError 32。
+- 规则：后代运行进程可能仍持有启动器日志句柄；父 PID 已退出不能证明日志已闲置。保留仍被当前服务持有的日志，将其列入任务 `Cleanup Keep`，重新 preview/apply 只清理已闲置的辅助文件。
+- 验证：归档实际清理失败、修正范围和最终结果，复核前后端健康状态。禁止为清理日志停止用户要求保留运行的服务，或改名、强制解锁和删除活跃日志。
+
+## 本机历史运行 JAR 清理
+
+- 盘点空间先核对文件索引是否已更新，按整盘目录合计与卷已用空间对账；大文件子集或过期索引不能作为整盘总占用。区分文件逻辑大小、实际分配空间和并发写入造成的差额。
+- 用户授权清理历史 JAR 时，冻结精确绝对路径、直属目录、扩展名、截止日期、文件字节数与修改时间；只删除清单中的普通文件，不递归清空 runtime，不按文件名中的日期代替已约定的修改时间条件。
+- 删除前检查可见进程（含 PowerShell 编码启动命令）、服务、计划任务、启动脚本与运行配置、Docker 挂载；保护现用包、固定主程序名称、仍被引用的版本和授权日期范围外的包。文件锁定、状态变化或无法判断引用时保留并记录原因，不强杀共享服务。
+- 执行中复核引用与文件元数据，逐个使用 LiteralPath 删除并记录结果；完成后验证已删清单无残留、保留项及主程序仍存在，分别记录删除字节数与磁盘空闲增量。任务证据默认脱敏，不保存完整进程命令行或含凭据的配置。
 
 ## 本地运行构建输入完整性门禁
 

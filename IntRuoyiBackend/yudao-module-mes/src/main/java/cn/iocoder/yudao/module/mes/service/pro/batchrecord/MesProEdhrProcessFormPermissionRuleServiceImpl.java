@@ -124,6 +124,11 @@ public class MesProEdhrProcessFormPermissionRuleServiceImpl implements MesProEdh
                     FORM_LEVEL_ROUTE_PROCESS_ID, batchRecordReportId, batchRecordVersionId);
         }
         MesProEdhrProcessFormPermissionRuleRespVO.CandidateRule fillRule = extractFillRule(rules);
+        if (fillRule == null && rules.stream().noneMatch(rule ->
+                MesProEdhrProcessFormPermissionRuleMapper.PROCESS_FORM_FILL_RULE_TYPES.contains(rule.getRuleType()))) {
+            fillRule = extractFillRule(selectRulesByVersionScope(
+                    FORM_LEVEL_ROUTE_PROCESS_ID, batchRecordReportId, batchRecordVersionId));
+        }
         List<MesProEdhrProcessFormPermissionRuleRespVO.SignatureRule> signatureRules = extractSignatureRules(rules);
         return new MesProEdhrProcessFormPermissionRuleRespVO()
                 .setRouteProcessId(routeProcessId)
@@ -289,6 +294,8 @@ public class MesProEdhrProcessFormPermissionRuleServiceImpl implements MesProEdh
         Long batchRecordVersionId = requireBatchRecordVersionId(
                 resolveReportBatchRecordVersionId(reportId, routeBatchRecords),
                 FORM_LEVEL_ROUTE_PROCESS_ID, reportId);
+        processFormPermissionRuleMapper.physicalDeleteRouteFillRulesByReportAndVersion(
+                reportId, batchRecordVersionId, FORM_LEVEL_ROUTE_PROCESS_ID);
         processFormPermissionRuleMapper.physicalDeleteByRouteProcessAndReport(
                 FORM_LEVEL_ROUTE_PROCESS_ID, reportId);
         MesProRouteFlowProcessBatchRecordDO firstBinding =
@@ -570,16 +577,38 @@ public class MesProEdhrProcessFormPermissionRuleServiceImpl implements MesProEdh
 
     private void bindPermissionScope(MesProEdhrProcessFormPermissionRuleSaveReqVO reqVO,
                                      MesProRouteFlowProcessBatchRecordDO routeBatchRecord) {
+        MesProEdhrPermissionScopeDetailResult existingScope = routeBatchRecord.getPermissionScopeId() == null
+                ? null : permissionScopeService.getDetail(new MesProEdhrPermissionScopeQueryCommand()
+                .setScopeId(routeBatchRecord.getPermissionScopeId()));
+        List<MesProEdhrPermissionRuleCommand> permissionRules = buildPermissionRules(reqVO);
+        if (existingScope != null) {
+            for (MesProEdhrPermissionRuleResult rule : existingScope.getRules()) {
+                if ("VIEW".equals(rule.getAbility()) || "FILL".equals(rule.getAbility())) {
+                    continue;
+                }
+                permissionRules.add(new MesProEdhrPermissionRuleCommand()
+                        .setSubjectType(rule.getSubjectType())
+                        .setSubjectId(rule.getSubjectId())
+                        .setAbility(rule.getAbility())
+                        .setDecision(rule.getDecision())
+                        .setPriority(rule.getPriority())
+                        .setEffectiveFrom(rule.getEffectiveFrom())
+                        .setEffectiveTo(rule.getEffectiveTo())
+                        .setStatus(rule.getStatus()));
+            }
+        }
         MesProEdhrPermissionScopeDetailResult scope = permissionScopeService.saveRules(
                 new MesProEdhrPermissionScopeSaveCommand()
                         .setScopeId(routeBatchRecord.getPermissionScopeId())
+                        .setExpectedVersion(existingScope == null ? null : existingScope.getVersion())
+                        .setParentScopeId(existingScope == null ? null : existingScope.getParentScopeId())
                         .setScopeName("route-process-batch-record-" + reqVO.getRouteProcessId()
                                 + "-" + reqVO.getBatchRecordReportId())
                         .setObjectType(OBJECT_TYPE_ROUTE_PROCESS_BATCH_RECORD)
                         .setObjectId(buildScopeObjectId(reqVO.getRouteProcessId(), reqVO.getBatchRecordReportId()))
                         .setActorUserId(getLoginUserId())
                         .setActorUsername(getLoginUserNickname())
-                        .setRules(buildPermissionRules(reqVO)));
+                        .setRules(permissionRules));
         if (!Objects.equals(routeBatchRecord.getPermissionScopeId(), scope.getScopeId())) {
             routeFlowProcessBatchRecordMapper.updateById(MesProRouteFlowProcessBatchRecordDO.builder()
                     .id(routeBatchRecord.getId())

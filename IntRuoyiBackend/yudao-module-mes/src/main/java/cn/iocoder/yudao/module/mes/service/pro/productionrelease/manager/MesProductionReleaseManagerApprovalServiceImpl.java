@@ -39,6 +39,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
@@ -122,6 +123,28 @@ public class MesProductionReleaseManagerApprovalServiceImpl
     }
 
     @Override
+    public void preflightApprovalCenterReview(Long actorUserId, MesProEdhrWorkTaskDO task,
+            MesProEdhrReleaseTransactionDO transaction, MesProEdhrBatchExecutionDO batch) {
+        TenantContextHolder.getRequiredTenantId();
+        if (TenantContextHolder.isIgnore()) {
+            throw new IllegalStateException("APPROVAL_REVIEW_TENANT_REQUIRED: EDHR");
+        }
+        List<MesProcessPoolActiveOrderReleaseApplicationDO> applications =
+                applicationMapper.selectListByReleaseTransactionId(transaction.getId());
+        if (applications.size() != 1) {
+            throw blocker(null, MesReleaseFlowBlockerType.RELEASE_TRANSACTION_NOT_PROCESSABLE,
+                    "release transaction must have one formal release application",
+                    "refresh the authoritative manager release task");
+        }
+        MesProcessPoolActiveOrderReleaseApplicationDO application = applications.get(0);
+        MesProductionReleaseSignoffService.requireBinding(task, application, transaction, batch);
+        requirePendingState(application, transaction, new MesProEdhrReleaseApproveReqVO()
+                .setReleaseTransactionId(transaction.getId()).setWorkTaskId(task.getId())
+                .setExpectedVersion(transaction.getVersion()));
+        requireManagerCandidate(application, task, actorUserId, transaction.getId());
+    }
+
+    @Override
     @Transactional(rollbackFor = Exception.class)
     public MesProductionReleaseManagerApprovalResult prepareForFinalization(
             Long actorUserId, MesProEdhrReleaseApproveReqVO command) {
@@ -161,14 +184,21 @@ public class MesProductionReleaseManagerApprovalServiceImpl
                     "release batch execution is missing",
                     "restore the authoritative batch execution before continuing");
         }
-        List<MesProductionReleaseReportNodeEvidence> evidences = collectReportEvidences(application);
-        String recomputedReportSnapshotHash = MesProductionReleaseReportSnapshots.hash(application, evidences);
+        String recomputedReportSnapshotHash = MesProductionReleaseFormalFactSnapshots
+                .isActiveOrderFactsSnapshot(application.getReportSnapshotHash())
+                ? MesProductionReleaseFormalFactSnapshots.recomputeActiveOrderFactsSnapshot(application)
+                : MesProductionReleaseReportSnapshots.hash(application, collectReportEvidences(application));
         if (!Objects.equals(application.getReportSnapshotHash(), recomputedReportSnapshotHash)) {
             throw blocker(application, MesReleaseFlowBlockerType.REPORT_SNAPSHOT_CHANGED,
-                    "one or more frozen report evidences changed before final release",
-                    "restore the four approved report evidences and retry with a fresh task receipt");
+                    "one or more frozen release evidences changed before final release",
+                    MesProductionReleaseFormalFactSnapshots.isActiveOrderFactsSnapshot(application.getReportSnapshotHash())
+                            ? "restore the active-order formal fact receipt and retry with a fresh task receipt"
+                            : "restore the four approved report evidences and retry with a fresh task receipt");
         }
         requireBusinessReadiness(application, batch);
+        if (StrUtil.isNotBlank(command.getSignoffSubjectId())) {
+            MesProductionReleaseSignoffService.requireBinding(workTask, application, transaction, batch);
+        }
         requireSignoffEvidence(workTask, actorUserId, command, application);
 
         return new MesProductionReleaseManagerApprovalResult()
@@ -224,6 +254,7 @@ public class MesProductionReleaseManagerApprovalServiceImpl
                 .setIdempotencyKey(command.getIdempotencyKey())
                 .setTenantId(TenantContextHolder.getTenantId())
                 .setApplicationId(application.getId())
+                .setActiveOrderId(application.getActiveOrderId())
                 .setWorkTaskId(workTask.getId())
                 .setBatchExecutionId(application.getBatchExecutionId())
                 .setReleaseTransactionId(released.getId())
@@ -231,6 +262,7 @@ public class MesProductionReleaseManagerApprovalServiceImpl
                 .setToStatus(MesReleaseFlowStatus.RELEASED)
                 .setVersion(application.getVersion() + 1)
                 .setActorUserId(actorUserId)
+                .setSignatureId(command.getSignatureId())
                 .setOccurredAt(occurredAt)
                 .setSourceSnapshotHash(reportSnapshotHash)
                 .setResultStatus("SUCCESS"));
@@ -354,17 +386,48 @@ public class MesProductionReleaseManagerApprovalServiceImpl
         return evidence;
     }
 
+    @jakarta.annotation.Resource private cn.iocoder.yudao.module.signature.service.ElectronicSignatureVerifiedFactService centerSignatureFacts;
     private void requireSignoffEvidence(
             MesProEdhrWorkTaskDO workTask,
             Long actorUserId,
             MesProEdhrReleaseApproveReqVO command,
             MesProcessPoolActiveOrderReleaseApplicationDO application) {
-        if (!signoffService.isVerified(workTask.getId(), actorUserId, command.getSignoffSubjectId(),
-                command.getSignoffEvidenceHash(), command.getApprovalOpinion())) {
-            throw blocker(application, MesReleaseFlowBlockerType.RELEASE_TRANSACTION_NOT_PROCESSABLE,
-                    "verified manager electronic signoff evidence is required",
-                    "complete password verification and submit the resulting signature evidence hash");
+        if (Objects.equals(command.getSignoffSubjectId(), "EDHR_RELEASE:" + command.getReleaseTransactionId())) {
+            var signature = centerSignatureFacts.requireVerifiedFact(command.getSignatureId());
+            if (!"V2".equals(signature.verification().evidenceFormatVersion()) || !"BPM".equals(signature.moduleCode())
+                    || !"BPM_APPROVAL_TASK".equals(signature.subjectType()) || !"APPROVE".equals(signature.actionCode())
+                    || !Objects.equals(signature.actorId(), actorUserId) || !Objects.equals(signature.taskId(), workTask.getId().toString())
+                    || !Objects.equals(signature.subjectId(), command.getSignoffSubjectId())
+                    || !Objects.equals(signature.evidenceHash(), command.getSignoffEvidenceHash())
+                    || !Objects.equals(signature.reason(), command.getApprovalOpinion())) throw new IllegalStateException("CENTER_MANAGER_SIGNATURE_MISMATCH");
+            return;
         }
+        if (isInlineMarketReleaseSignature(actorUserId, command)) {
+            return;
+        }
+        Long verifiedSignatureId = signoffService.findVerifiedSignatureId(workTask.getId(), actorUserId,
+                command.getSignoffSubjectId(), command.getSignoffEvidenceHash(), command.getApprovalOpinion())
+                .orElseThrow(() -> blocker(application,
+                        MesReleaseFlowBlockerType.RELEASE_TRANSACTION_NOT_PROCESSABLE,
+                        "verified manager electronic signoff evidence is required",
+                        "complete password verification and submit the resulting signature evidence hash"));
+        command.setSignatureId(verifiedSignatureId);
+    }
+
+    private boolean isInlineMarketReleaseSignature(Long actorUserId, MesProEdhrReleaseApproveReqVO command) {
+        if (actorUserId == null || command == null || command.getReleaseTransactionId() == null
+                || !command.isPasswordReauthenticated()
+                || StrUtil.isNotBlank(command.getSignoffSubjectId())
+                || StrUtil.isBlank(command.getSignoffEvidenceHash())
+                || StrUtil.isBlank(command.getIdempotencyKey())) {
+            return false;
+        }
+        String expectedHash = DigestUtil.sha256Hex(String.join("|",
+                "MES_MARKET_RELEASE_SIGNATURE",
+                String.valueOf(command.getReleaseTransactionId()),
+                String.valueOf(actorUserId),
+                command.getIdempotencyKey()));
+        return Objects.equals(expectedHash, command.getSignoffEvidenceHash());
     }
 
     private MesProductionReleaseManagerApprovalResult replay(
@@ -402,6 +465,17 @@ public class MesProductionReleaseManagerApprovalServiceImpl
                     "stored manager approval receipt does not match released state",
                     "repair the atomic release transaction before replaying the receipt");
         }
+        if (StrUtil.isNotBlank(command.getSignoffSubjectId())) {
+            MesProductionReleaseSignoffService.requireBinding(workTask, application, transaction, batch);
+            requireSignoffEvidence(workTask, actorUserId, command, application);
+            if (!Objects.equals(transaction.getApprovalSignatureId(), command.getSignatureId())
+                    || !Objects.equals(transaction.getApprovedBy(), actorUserId)
+                    || !Objects.equals(transaction.getApprovalSignoffEvidenceHash(), command.getSignoffEvidenceHash())
+                    || snapshot == null || !Objects.equals(snapshot.getLong("signatureId"), command.getSignatureId())) {
+                throw blocker(application, MesReleaseFlowBlockerType.RELEASE_TRANSACTION_NOT_PROCESSABLE,
+                        "replayed signature does not match the final release receipt", "use the original verified signature");
+            }
+        }
         return new MesProductionReleaseManagerApprovalResult()
                 .setBatchExecution(batch)
                 .setReleaseTransaction(transaction)
@@ -426,6 +500,7 @@ public class MesProductionReleaseManagerApprovalServiceImpl
         snapshot.put("fromStatus", MesReleaseFlowStatus.MANAGER_RELEASE_PENDING);
         snapshot.put("toStatus", MesReleaseFlowStatus.RELEASED);
         snapshot.put("actorUserId", actorUserId);
+        snapshot.put("signatureId", command.getSignatureId());
         snapshot.put("opinion", StrUtil.trim(command.getApprovalOpinion()));
         snapshot.put("idempotencyKey", command.getIdempotencyKey());
         snapshot.put("signoffEvidenceHash", command.getSignoffEvidenceHash());
@@ -458,7 +533,9 @@ public class MesProductionReleaseManagerApprovalServiceImpl
     private void requireBusinessReadiness(MesProcessPoolActiveOrderReleaseApplicationDO application,
                                           MesProEdhrBatchExecutionDO batch) {
         MesProductionReleaseBusinessReadiness businessReadiness =
-                businessReadinessService.resolveBusinessReadinessChecks(batch);
+                MesProductionReleaseFormalFactSnapshots.isActiveOrderFactsSnapshot(application.getReportSnapshotHash())
+                        ? businessReadinessService.resolveActiveOrderFormalFactsReadiness(batch, application)
+                        : businessReadinessService.resolveBusinessReadinessChecks(batch);
         if (businessReadiness.hasBlockingChecks()) {
             throw blocker(application, MesReleaseFlowBlockerType.RELEASE_TRANSACTION_NOT_PROCESSABLE,
                     "business readiness checks changed before final release",
@@ -501,7 +578,7 @@ public class MesProductionReleaseManagerApprovalServiceImpl
     }
 
     private LocalDateTime now() {
-        return LocalDateTime.now(clock);
+        return LocalDateTime.ofInstant(clock.instant(), ZoneId.systemDefault());
     }
 
     private MesReleaseFlowBlockerException reportChanged(

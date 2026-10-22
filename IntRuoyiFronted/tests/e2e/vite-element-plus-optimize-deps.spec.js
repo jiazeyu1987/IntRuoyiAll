@@ -15,7 +15,9 @@ const nasRouteElementPlusStyleDeps = [
   'element-plus/es/components/date-picker/style/css',
   'element-plus/es/components/tree/style/css',
   'element-plus/es/components/divider/style/css',
-  'element-plus/es/components/message-box/style/css'
+  'element-plus/es/components/message-box/style/css',
+  'element-plus/es/components/skeleton-item/style/css',
+  'element-plus/es/components/result/style/css'
 ]
 
 for (const dep of nasRouteElementPlusStyleDeps) {

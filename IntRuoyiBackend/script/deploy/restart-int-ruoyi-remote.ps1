@@ -20,10 +20,6 @@ $RemoteMysqlContainer = 'intruoyi-mysql'
 $RemoteMysqlDatabase = 'ruoyi-vue-pro'
 $RemoteMysqlUser = 'root'
 $RemoteMysqlPassword = '123456'
-$ShowroomMediaSampleObjects = @(
-    'showroom/product/cover/20260530/product-product_001-cover.png',
-    'showroom/narration/20260522/company-1-zh-ruoxi.wav'
-)
 
 function Fail([string]$Message) {
     Write-Host "[FAIL] $Message" -ForegroundColor Red
@@ -96,7 +92,6 @@ fi
 }
 
 function Assert-RemoteShowroomMediaBucketConsistency {
-    $sampleObjectArguments = ($ShowroomMediaSampleObjects | ForEach-Object { "'$_'" }) -join ' '
     $command = @"
 set -eu
 bucket=`$(docker exec -e MYSQL_PWD=$RemoteMysqlPassword $RemoteMysqlContainer mysql -u$RemoteMysqlUser -N -B $RemoteMysqlDatabase -e 'SELECT JSON_UNQUOTE(JSON_EXTRACT(config, CAST(0x242e6275636b6574 AS CHAR CHARACTER SET utf8mb4))) FROM infra_file_config WHERE master = 1 AND deleted = 0 LIMIT 1')
@@ -112,8 +107,15 @@ if [ "`$minio_running" != "true" ]; then
   echo "Showroom media bucket consistency check failed: required MinIO container $RemoteMinioContainer is not running." >&2
   exit 1
 fi
-for object in $sampleObjectArguments; do
-  if ! docker exec $RemoteMinioContainer sh -lc "test -f '/data/`$bucket/`$object' || test -f '/data/`$bucket/`$object/xl.meta'"; then
+sample_product=`$(docker exec -e MYSQL_PWD=$RemoteMysqlPassword $RemoteMysqlContainer mysql -u$RemoteMysqlUser -N -B $RemoteMysqlDatabase -e 'SELECT path FROM infra_file WHERE config_id = 28 AND deleted = 0 AND path LIKE CONCAT(0x73686f77726f6f6d2f70726f647563742f, 0x25) ORDER BY id DESC LIMIT 1')
+sample_narration=`$(docker exec -e MYSQL_PWD=$RemoteMysqlPassword $RemoteMysqlContainer mysql -u$RemoteMysqlUser -N -B $RemoteMysqlDatabase -e 'SELECT path FROM infra_file WHERE config_id = 28 AND deleted = 0 AND path LIKE CONCAT(0x73686f77726f6f6d2f6e6172726174696f6e2f, 0x25) ORDER BY id DESC LIMIT 1')
+if [ -z "`$sample_product" ] || [ -z "`$sample_narration" ]; then
+  echo "Showroom media bucket consistency check failed: protected infra_file samples are incomplete." >&2
+  exit 1
+fi
+for object in "`$sample_product" "`$sample_narration"; do
+  object_path="/data/`$bucket/`$object"
+  if ! docker exec $RemoteMinioContainer test -f "`$object_path" && ! docker exec $RemoteMinioContainer test -f "`$object_path/xl.meta"; then
     echo "Showroom media bucket consistency check failed: master bucket '`$bucket' is missing object '`$object' in MinIO container $RemoteMinioContainer." >&2
     exit 1
   fi
@@ -123,6 +125,9 @@ done
 }
 
 function Assert-RemoteOnlyOfficePublicFileBaseUrlReachable {
+    param(
+        [switch]$CheckReachability
+    )
     $remoteAppDirLiteral = ConvertTo-ShellSingleQuotedLiteral -Value $RemoteAppDir -Purpose 'remote app directory'
     $command = @"
 set -eu
@@ -131,7 +136,7 @@ if [ ! -f .env ]; then
   echo "Missing remote runtime env file: $RemoteAppDir/.env" >&2
   exit 1
 fi
-public_file_base_url=`$(awk -F= '`$1 == "DCC_ONLYOFFICE_PUBLIC_FILE_BASE_URL" { sub(/^[^=]*=/, ""); print; found = 1; exit } END { if (found != 1) exit 2 }' .env)
+public_file_base_url=`$(grep -E '^DCC_ONLYOFFICE_PUBLIC_FILE_BASE_URL=' .env | head -n 1 | cut -d= -f2-)
 if [ -z "`$public_file_base_url" ]; then
   echo "DCC_ONLYOFFICE_PUBLIC_FILE_BASE_URL is blank; remote OnlyOffice preview requires an explicit backend file URL." >&2
   exit 1
@@ -142,6 +147,9 @@ case "`$public_file_base_url" in
     exit 1
     ;;
 esac
+if [ '$($CheckReachability.IsPresent.ToString().ToLowerInvariant())' != 'true' ]; then
+  exit 0
+fi
 health_url="`$(printf '%s' "`$public_file_base_url" | sed 's#/*`$##')/actuator/health"
 if ! docker inspect intruoyi-onlyoffice >/dev/null 2>&1; then
   echo "Missing intruoyi-onlyoffice container; cannot verify OnlyOffice document-server file download path." >&2
@@ -211,6 +219,7 @@ if ($Component -eq 'website') {
 
 if ($Component -eq 'backend' -or $Component -eq 'full') {
     Wait-HttpOk -Url "http://${ServerHost}:$BackendPort/actuator/health" -TimeoutSeconds 180
+    Assert-RemoteOnlyOfficePublicFileBaseUrlReachable -CheckReachability
 }
 if ($Component -eq 'frontend' -or $Component -eq 'full') {
     Wait-HttpOk -Url "http://${ServerHost}:$FrontendPort/" -TimeoutSeconds 180

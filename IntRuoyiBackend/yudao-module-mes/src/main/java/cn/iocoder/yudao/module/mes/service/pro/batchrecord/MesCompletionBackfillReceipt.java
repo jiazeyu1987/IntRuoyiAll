@@ -36,6 +36,7 @@ public class MesCompletionBackfillReceipt {
     private Long batchRecordId;
     private Long processInspectionId;
     private Boolean hasActualLoss;
+    private String lossConditionFactsJson;
     private String lossDecision;
     private String lossReportStatus;
     private Long lossRecordId;

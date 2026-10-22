@@ -35,6 +35,7 @@ class BpmProcessInstanceBusinessApprovalStarterTest {
     void startUsesApplicantAndStableBusinessKey() {
         BusinessApprovalRequest request = BusinessApprovalRequest.builder()
                 .requestId(2001L)
+                .tenantId(122L)
                 .context(BusinessApprovalPolicyResolveServiceTest.baseContext().build())
                 .build();
         when(processInstanceApi.createProcessInstance(org.mockito.ArgumentMatchers.eq(501L),
@@ -53,6 +54,12 @@ class BpmProcessInstanceBusinessApprovalStarterTest {
         assertEquals("BUSINESS_APPROVAL:2001", reqDTO.getBusinessKey());
         assertEquals(122L, reqDTO.getVariables().get("tenantId"));
         assertEquals(2001L, reqDTO.getVariables().get("approvalRequestId"));
+        assertEquals(122L,reqDTO.getApprovalAuthority().tenantId());
+        assertEquals("NATIVE_BUSINESS",reqDTO.getApprovalAuthority().projectionCode());
+        assertEquals("BUSINESS_REQUEST",reqDTO.getApprovalAuthority().authorityType());
+        assertEquals("2001",reqDTO.getApprovalAuthority().authorityId());
+        assertEquals(request.getContext().getObjectVersion(),reqDTO.getApprovalAuthority().authorityVersion());
+        assertEquals("BUSINESS_APPROVAL:2001",reqDTO.getApprovalAuthority().expectedBusinessKey());
     }
 
     @Test

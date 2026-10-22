@@ -44,6 +44,9 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class MesProRouteVersionWorkflowServiceTest {
 
+    @Mock
+    private cn.iocoder.yudao.module.mes.service.pro.craft.MesProCraftService craftService;
+
     @InjectMocks
     private MesProRouteVersionWorkflowServiceImpl service;
 

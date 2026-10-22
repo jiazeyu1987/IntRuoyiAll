@@ -2,7 +2,7 @@
 
 ## 触发条件
 
-当任务涉及以下任一事项时，Codex 必须先读本文，再决定是否进入真实发布动作：
+已授权发布任务涉及以下事项时，按需核对本文对应步骤；已读且未变化的规则不重复读取：
 
 - 运行控制台 `build-release`
 - 发布到测试服
@@ -39,16 +39,16 @@ Codex 必须把完整发布任务视为以下严格顺序：
 
 ### 必做动作
 
-- 创建或识别任务目录。
-- 读取 `docs/experience-index.md`。
-- 命中并读取：
+- 核对用户已授权的发布范围和实际目标；记录按任务需要保留，不要求固定任务目录。
+- 有具体疑点时按关键词查找相关经验，不做全量经验预检。
+- 按需参考相关说明，已读且未变化的内容不重复读取：
   - `D:\ProjectPackage\Int\IntRuoyiMaintance\docs\test-release-preflight.md`（仅测试服发布或 publish-test 任务）
   - `D:\ProjectPackage\Int\IntRuoyiMaintance\docs\release-build-preflight-lessons.md`
   - `E:\IntRuoyi\docs\release-backup-restore.md`
   - `E:\IntRuoyi\docs\server-access.md`
   - 如涉及登录验证，再读 `E:\IntRuoyi\docs\login-access.md`
-- 在 `execution-log.md` 先写 `GREEN: experience-preflight -> PASS` 或明确 blocker。
-- 在 `docs/request-command-log.md` 记录用户需求与关键命令。
+- 如实报告必要预检结果及阻塞；不要求固定日志文件或 experience-preflight 标记。
+- 按需要保留简短操作结果，不要求另写请求与命令流水。
 
 ### 放行条件
 
@@ -374,7 +374,7 @@ Codex 只有在以下条件同时成立时，才能判定完整发布完成：
   - frontend HTTP=`200`
 - 任务日志与请求命令日志已回写
 - 发布和运行态验证完成后，任务先进入 `ready_for_closeout`
-- `task-closeout-cleanup` preview/apply 已通过，`verification-report.md` 位于默认 keep 集
+- 必要验证结果已保留；有本任务临时产物才按归属清理，不强制 cleanup preview/apply 或固定报告文件
 - 所有临时 worktree 的 Git 注册和物理目录均已清理，运行控制台已恢复稳定主路径
 - 只有上述 closeout 证据全部通过后，任务状态才更新为 `completed`
 

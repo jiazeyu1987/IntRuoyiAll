@@ -33,6 +33,8 @@ public class DccControlledFileDO extends BaseDO {
     private Long directoryId;
     private Long sourceFileId;
     private Long originalFileId;
+    private Long readOnlyFileId;
+    private Long editableFileId;
     private Long drawingPdfFileId;
     private Long trainingRecordFileId;
     private Long publishedFileId;

@@ -26,10 +26,12 @@ public interface ErrorCodeConstants {
     // ========== API 聊天会话 1-040-003-000 ==========
     ErrorCode CHAT_CONVERSATION_NOT_EXISTS = new ErrorCode(1_040_003_000, "对话不存在!");
     ErrorCode CHAT_CONVERSATION_MODEL_ERROR = new ErrorCode(1_040_003_001, "操作失败，该聊天模型的配置不完整");
+    ErrorCode CODEX_CLI_MODEL_NOT_EXISTS = new ErrorCode(1_040_003_002, "Codex Web 未配置启用的 Codex CLI 模型");
 
     // ========== API 聊天消息 1-040-004-000 ==========
     ErrorCode CHAT_MESSAGE_NOT_EXIST = new ErrorCode(1_040_004_000, "消息不存在!");
     ErrorCode CHAT_STREAM_ERROR = new ErrorCode(1_040_004_001, "对话生成异常!");
+    ErrorCode CODEX_WEB_MCP_NOT_CONFIGURED = new ErrorCode(1_040_004_002, "Codex Web 未配置 IntRuoyi MCP endpoint");
 
     // ========== API 绘画 1-040-005-000 ==========
     ErrorCode IMAGE_NOT_EXISTS = new ErrorCode(1_040_005_000, "图片不存在!");

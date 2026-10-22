@@ -78,7 +78,7 @@ class MesKingdeeWorkOrderBomSyncServiceImplTest {
         MesProWorkOrderDO workOrder = buildWorkOrder(MesProWorkOrderStatusEnum.PREPARE.getStatus(), new BigDecimal("10"));
         ErpKingdeeBomLine bomLine = buildBomLine("V1", "SUB-001", "Child 1", "Spec 1", "PCS", "2", "1");
         when(kingdeeConfigService.getEffectiveProperties()).thenReturn(kingdeeProperties);
-        when(workOrderService.validateWorkOrderExists(100L)).thenReturn(workOrder);
+        when(workOrderService.validateWorkOrderExistsForUpdate(100L)).thenReturn(workOrder);
         when(itemMapper.selectById(20L)).thenReturn(new MesMdItemDO().setId(20L).setCode("MAT-001"));
         when(bomClient.fetchApprovedBomByParentMaterialNumber(kingdeeProperties, "MAT-001")).thenReturn(List.of(bomLine));
         when(itemMapper.selectByCode("SUB-001")).thenReturn(new MesMdItemDO().setId(200L).setCode("SUB-001"));
@@ -103,7 +103,7 @@ class MesKingdeeWorkOrderBomSyncServiceImplTest {
         MesProWorkOrderDO workOrder = buildWorkOrder(MesProWorkOrderStatusEnum.CONFIRMED.getStatus(), new BigDecimal("3"));
         ErpKingdeeBomLine bomLine = buildBomLine("V2", "SUB-002", "Child 2", "Spec 2", "PCS", "1.5", "1");
         when(kingdeeConfigService.getEffectiveProperties()).thenReturn(kingdeeProperties);
-        when(workOrderService.validateWorkOrderExists(100L)).thenReturn(workOrder);
+        when(workOrderService.validateWorkOrderExistsForUpdate(100L)).thenReturn(workOrder);
         when(itemMapper.selectById(20L)).thenReturn(new MesMdItemDO().setId(20L).setCode("MAT-001"));
         when(bomClient.fetchApprovedBomByParentMaterialNumber(kingdeeProperties, "MAT-001")).thenReturn(List.of(bomLine));
         when(itemMapper.selectByCode("SUB-002")).thenReturn(new MesMdItemDO().setId(201L).setCode("SUB-002"));
@@ -122,7 +122,7 @@ class MesKingdeeWorkOrderBomSyncServiceImplTest {
     void syncErpBom_blocksWhenMultipleApprovedVersionsExist() {
         MesProWorkOrderDO workOrder = buildWorkOrder(MesProWorkOrderStatusEnum.PREPARE.getStatus(), new BigDecimal("10"));
         when(kingdeeConfigService.getEffectiveProperties()).thenReturn(kingdeeProperties);
-        when(workOrderService.validateWorkOrderExists(100L)).thenReturn(workOrder);
+        when(workOrderService.validateWorkOrderExistsForUpdate(100L)).thenReturn(workOrder);
         when(itemMapper.selectById(20L)).thenReturn(new MesMdItemDO().setId(20L).setCode("MAT-001"));
         when(productIssueMapper.selectCountByWorkOrderId(100L)).thenReturn(0L);
         when(outsourceIssueMapper.selectCountByWorkOrderId(100L)).thenReturn(0L);
@@ -139,7 +139,7 @@ class MesKingdeeWorkOrderBomSyncServiceImplTest {
     @Test
     void syncErpBom_blocksWhenDownstreamRecordsExist() {
         MesProWorkOrderDO workOrder = buildWorkOrder(MesProWorkOrderStatusEnum.CONFIRMED.getStatus(), new BigDecimal("10"));
-        when(workOrderService.validateWorkOrderExists(100L)).thenReturn(workOrder);
+        when(workOrderService.validateWorkOrderExistsForUpdate(100L)).thenReturn(workOrder);
         when(productIssueMapper.selectCountByWorkOrderId(100L)).thenReturn(1L);
 
         assertThrows(RuntimeException.class, () -> syncService.syncErpBom(100L));
@@ -150,7 +150,7 @@ class MesKingdeeWorkOrderBomSyncServiceImplTest {
     void syncErpBom_blocksWhenLocalMesItemIsMissing() {
         MesProWorkOrderDO workOrder = buildWorkOrder(MesProWorkOrderStatusEnum.PREPARE.getStatus(), new BigDecimal("10"));
         when(kingdeeConfigService.getEffectiveProperties()).thenReturn(kingdeeProperties);
-        when(workOrderService.validateWorkOrderExists(100L)).thenReturn(workOrder);
+        when(workOrderService.validateWorkOrderExistsForUpdate(100L)).thenReturn(workOrder);
         when(itemMapper.selectById(20L)).thenReturn(new MesMdItemDO().setId(20L).setCode("MAT-001"));
         when(productIssueMapper.selectCountByWorkOrderId(100L)).thenReturn(0L);
         when(outsourceIssueMapper.selectCountByWorkOrderId(100L)).thenReturn(0L);

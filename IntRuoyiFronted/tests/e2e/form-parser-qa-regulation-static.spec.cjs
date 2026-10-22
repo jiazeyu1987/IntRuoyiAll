@@ -89,6 +89,18 @@ assertIncludes(qaPanel, 'inspectionMethod')
 assertIncludes(qaPanel, 'samplingPlanText')
 assertIncludes(qaPanel, 'firstInspectionQuantity')
 assertIncludes(qaPanel, 'patrolInspectionRatio')
+const parseWordHandlerStart = qaPanel.indexOf('const parseWordFile = async')
+const parseWordHandlerEnd = qaPanel.indexOf('\nconst applyQaEditedJson', parseWordHandlerStart)
+if (parseWordHandlerStart < 0 || parseWordHandlerEnd < 0) {
+  throw new Error('QA 解析处理函数边界缺失')
+}
+const parseWordHandler = qaPanel.slice(parseWordHandlerStart, parseWordHandlerEnd)
+assertNotIncludes(
+  parseWordHandler,
+  'download.json',
+  'QA 检验规程解析完成后不得自动下载 JSON，只有用户点击“下载当前JSON”时才允许下载'
+)
+assertIncludes(parseWordHandler, "message.success('QA 检验规程解析完成')")
 assertNotIncludes(qaPanel, 'BatchRecordReportApi')
 assertNotIncludes(qaPanel, 'parseProductionBatchRecordTotalRecognitionJson')
 assertNotIncludes(qaPanel, 'importQaRegulationWordDraft')

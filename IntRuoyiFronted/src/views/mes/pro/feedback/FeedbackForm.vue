@@ -272,16 +272,6 @@
       >
         查看批次执行
       </el-button>
-      <el-button
-        v-if="formType !== 'approve'"
-        type="primary"
-        plain
-        @click="handleOpenEdhr"
-        :loading="edhrOpening"
-        :disabled="formLoading"
-      >
-        打开 eDHR
-      </el-button>
       <el-button v-if="isEditable" @click="submitForm" type="primary" :disabled="formLoading">
         保 存
       </el-button>
@@ -318,13 +308,11 @@
 import { getIntDictOptions, DICT_TYPE } from '@/utils/dict'
 import {
   ProFeedbackApi,
-  type ProFeedbackEdhrEntryContextReqVO,
   type ProFeedbackVO
 } from '@/api/mes/pro/feedback'
 import { AutoCodeRecordApi } from '@/api/mes/md/autocode/record'
 import { ProRouteProcessApi } from '@/api/mes/pro/route/process'
 import { ProWorkOrderApi, type ProWorkOrderVO } from '@/api/mes/pro/workorder'
-import { openOrCreateManualEdhrBatchExecution } from '@/api/mes/pro/edhr/batchExecution'
 import ProWorkOrderSelect from '@/views/mes/pro/workorder/components/ProWorkOrderSelect.vue'
 import ProTaskSelect from '@/views/mes/pro/task/components/ProTaskSelect.vue'
 import MdWorkstationSelect from '@/views/mes/md/workstation/components/MdWorkstationSelect.vue'
@@ -348,7 +336,6 @@ const router = useRouter()
 
 const dialogVisible = ref(false) // 弹窗的是否展示
 const formLoading = ref(false) // 表单的加载中
-const edhrOpening = ref(false)
 const formType = ref<string>('create') // 表单的类型：create / update / submit / approve / detail
 const isEditable = computed(() => ['create', 'update', 'submit'].includes(formType.value))
 const isDetail = computed(() => ['detail', 'approve'].includes(formType.value))
@@ -430,14 +417,6 @@ const productInfo = ref({
   unitMeasureName: '',
   itemSpecification: ''
 })
-const edhrRequiredFieldLabels: Record<string, string> = {
-  workOrderId: '生产工单',
-  taskId: '生产任务',
-  routeId: '工艺路线',
-  processId: '工序',
-  workstationId: '工作站',
-  batchCode: '批次号'
-}
 
 const resolveErrorMessage = (error: unknown, fallback: string) => {
   if (error instanceof Error && error.message.trim()) {
@@ -597,27 +576,6 @@ const ensureWorkOrderContextFromWorkOrder = async () => {
   }
 }
 
-const buildEdhrEntryContext = async (): Promise<ProFeedbackEdhrEntryContextReqVO> => {
-  await ensureBatchCodeFromWorkOrder()
-
-  for (const fieldName of Object.keys(edhrRequiredFieldLabels)) {
-    const value = formData.value[fieldName]
-    const missingString = typeof value === 'string' && !value.trim()
-    if (value == null || missingString) {
-      throw new Error(`打开 eDHR 失败：缺少${edhrRequiredFieldLabels[fieldName]}，请先补齐报工上下文。`)
-    }
-  }
-
-  return {
-    workOrderId: Number(formData.value.workOrderId),
-    taskId: Number(formData.value.taskId),
-    routeId: Number(formData.value.routeId),
-    processId: Number(formData.value.processId),
-    workstationId: Number(formData.value.workstationId),
-    batchCode: String(formData.value.batchCode).trim()
-  }
-}
-
 const buildEdhrBatchExecutionQuery = async () => {
   const workOrderContext = await ensureWorkOrderContextFromWorkOrder()
   return {
@@ -635,44 +593,6 @@ const handleOpenEdhrBatchExecution = async () => {
     })
   } catch (error) {
     message.error(resolveErrorMessage(error, '打开 eDHR 批次执行失败，请联系管理员。'))
-  }
-}
-
-const handleOpenEdhr = async () => {
-  edhrOpening.value = true
-  try {
-    const entryRequest = await buildEdhrEntryContext()
-    const resolvedBatchCode = entryRequest.batchCode
-    if (!resolvedBatchCode?.trim()) {
-      throw new Error('eDHR 入口未返回批次号，无法打开执行页。')
-    }
-    formData.value.batchCode = resolvedBatchCode
-    const batch = await openOrCreateManualEdhrBatchExecution({
-      workOrderId: entryRequest.workOrderId,
-      routeId: entryRequest.routeId,
-      batchCode: resolvedBatchCode
-    })
-    const batchExecutionId = Number(batch?.id)
-    if (!Number.isFinite(batchExecutionId) || batchExecutionId <= 0) {
-      throw new Error('eDHR 入口未返回有效批次执行 ID，无法跳转批次详情。')
-    }
-
-    await router.push({
-      path: '/mes/pro/feedback/edhr-batch-execution/detail',
-      query: {
-        id: String(batchExecutionId),
-        feedbackId: formData.value.id ? String(formData.value.id) : undefined,
-        workOrderId: String(entryRequest.workOrderId),
-        taskId: String(entryRequest.taskId),
-        batchCode: resolvedBatchCode,
-        routeId: String(entryRequest.routeId),
-        processId: String(entryRequest.processId)
-      }
-    })
-  } catch (error) {
-    message.error(resolveErrorMessage(error, '打开 eDHR 失败，请联系管理员。'))
-  } finally {
-    edhrOpening.value = false
   }
 }
 

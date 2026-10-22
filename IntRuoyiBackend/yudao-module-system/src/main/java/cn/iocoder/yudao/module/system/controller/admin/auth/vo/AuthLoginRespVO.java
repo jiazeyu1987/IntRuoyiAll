@@ -27,4 +27,7 @@ public class AuthLoginRespVO {
     @Schema(description = "过期时间", requiredMode = Schema.RequiredMode.REQUIRED)
     private LocalDateTime expiresTime;
 
+    @Schema(description = "是否必须先修改密码", requiredMode = Schema.RequiredMode.REQUIRED)
+    private Boolean passwordChangeRequired;
+
 }

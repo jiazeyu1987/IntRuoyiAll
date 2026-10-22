@@ -36,7 +36,7 @@ assert.match(
 )
 assert.match(
   backendService,
-  /MesQaInspectionRegulationProcessMapper[\s\S]*selectBatchIds[\s\S]*MesPqcInspectionTaskDO::getQaProcessId[\s\S]*setQaProcessName\(qaProcess\.getProcessName\(\)\)/,
+  /MesQaInspectionRegulationProcessMapper[\s\S]*selectBatchIds\(distinctIds\(tasks,\s*MesPqcInspectionTaskDO::getQaProcessId\)\)[\s\S]*setQaProcessName\(qaProcessDisplayName\)/,
   '详情服务必须从正式 PQC 规程工序读取 qaProcessName，不能前端推断'
 )
 assert.match(
@@ -57,12 +57,12 @@ assert.match(
 )
 assert.match(
   detailPanel,
-  /label="生产提交"[\s\S]*name="productionSubmissions"[\s\S]*data-team-leader-active-order-detail-production-process-tabs/,
+  /label="生产表单"[\s\S]*name="productionSubmissions"[\s\S]*data-team-leader-active-order-detail-production-process-tabs/,
   '生产提交主 tab 下必须按生产工序展示'
 )
 assert.match(
   detailPanel,
-  /label="PQC提交"[\s\S]*name="pqcSubmissions"[\s\S]*data-team-leader-active-order-detail-pqc-process-tabs/,
+  /label="过程检表单"[\s\S]*name="pqcSubmissions"[\s\S]*data-team-leader-active-order-detail-pqc-process-tabs/,
   'PQC提交主 tab 下必须按 PQC 自有工序展示'
 )
 assert.match(

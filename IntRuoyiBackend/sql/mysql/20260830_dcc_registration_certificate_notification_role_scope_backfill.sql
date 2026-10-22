@@ -1,7 +1,8 @@
 -- release-migration: allowedEnvironments=test,backup,prod; dependsOn=20260816_mdm_enterprise_company_scope,20260818_dcc_registration_certificate_reminder,20260830_dcc_registration_certificate_associated_company_backfill; type=data; riskLevel=medium
--- Purpose: Backfill enabled role-company scopes for configured registration-certificate notification roles and existing registration-certificate owner companies without authorizing users.
--- Recovery: The procedure runs inside one transaction for data writes; on failure it rolls back inserted role scopes and leaves existing authorization data untouched.
--- Rollback: Delete only rows created by creator='dcc-reg-cert-notification-role-scope-backfill' after verifying no downstream notification run depends on them.
+-- Purpose: Backfill enabled role-company scopes for the approved registration-certificate notification role 910218 and existing registration-certificate owner companies without authorizing users.
+-- Role contract: role 910218 is the approved notification recipient role. The query-current permission is an access permission, not a notification-recipient mapping. Missing or stale role 910218 fails fast; this migration never infers, deletes, creates, or broadens notification roles.
+-- Recovery: All persistent writes, including the infra_job contract update and role-company scope inserts, run inside one transaction. Any failure rolls back every persistent write and leaves existing authorization data untouched.
+-- Rollback: Delete only rows created by creator='dcc-reg-cert-notification-role-scope-backfill' after verifying no downstream notification run depends on them. The infra_job handler_param is restored automatically by transaction rollback on failure.
 
 SET NAMES utf8mb4;
 
@@ -11,6 +12,7 @@ CREATE PROCEDURE ensure_dcc_reg_cert_notification_role_scope_backfill_20260830()
 BEGIN
   DECLARE job_count INT DEFAULT 0;
   DECLARE configured_role_count INT DEFAULT 0;
+  DECLARE missing_configured_role_count INT DEFAULT 0;
   DECLARE expected_count INT DEFAULT 0;
   DECLARE inserted_count INT DEFAULT 0;
 
@@ -74,7 +76,7 @@ BEGIN
            `job`.`handler_param` IS NULL
            OR TRIM(`job`.`handler_param`) = ''
            OR JSON_VALID(`job`.`handler_param`) = 0
-           OR COALESCE(JSON_TYPE(JSON_EXTRACT(`job`.`handler_param`, '$.roleIds')), '') <> 'ARRAY'
+           OR COALESCE(JSON_TYPE(JSON_EXTRACT(`job`.`handler_param`, '$')), '') <> 'OBJECT'
          )
   ) THEN
     SIGNAL SQLSTATE '45000'
@@ -86,6 +88,45 @@ BEGIN
     `role_id` bigint NOT NULL,
     PRIMARY KEY (`role_id`)
   ) ENGINE=MEMORY DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+  START TRANSACTION;
+
+  UPDATE `infra_job` AS `job`
+     SET `job`.`handler_param` = JSON_SET(`job`.`handler_param`, '$.roleIds', JSON_ARRAY(910218)),
+         `job`.`updater` = 'dcc-reg-cert-notification-role-scope-backfill',
+         `job`.`update_time` = NOW()
+   WHERE `job`.`handler_name` = 'registrationCertificateReminderDailyJob'
+     AND `job`.`deleted` = b'0';
+
+  INSERT IGNORE INTO tmp_dcc_reg_cert_notification_role_ids (`role_id`)
+  SELECT DISTINCT `role_param`.`role_id`
+    FROM `infra_job` AS `job`
+    JOIN JSON_TABLE(
+           `job`.`handler_param`,
+           '$.roleIds[*]' COLUMNS (
+             `role_id` bigint PATH '$'
+           )
+         ) AS `role_param`
+   WHERE `job`.`handler_name` = 'registrationCertificateReminderDailyJob'
+     AND `job`.`deleted` = b'0';
+
+  SELECT COUNT(*)
+    INTO configured_role_count
+    FROM tmp_dcc_reg_cert_notification_role_ids;
+
+  SELECT COUNT(*)
+    INTO missing_configured_role_count
+    FROM tmp_dcc_reg_cert_notification_role_ids AS `configured`
+    LEFT JOIN `system_role` AS `role`
+      ON `role`.`id` = `configured`.`role_id`
+     AND `role`.`deleted` = b'0'
+     AND `role`.`status` = 0
+   WHERE `role`.`id` IS NULL;
+
+  IF configured_role_count = 0 OR missing_configured_role_count > 0 THEN
+    SIGNAL SQLSTATE '45000'
+      SET MESSAGE_TEXT = 'Notification role mapping is missing or stale; query-current permission cannot define notification recipients';
+  END IF;
 
   DROP TEMPORARY TABLE IF EXISTS tmp_dcc_reg_cert_notification_roles;
   CREATE TEMPORARY TABLE tmp_dcc_reg_cert_notification_roles (
@@ -108,46 +149,6 @@ BEGIN
     `company_id` bigint NOT NULL,
     PRIMARY KEY (`tenant_id`, `role_id`, `company_id`)
   ) ENGINE=MEMORY DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-  INSERT IGNORE INTO tmp_dcc_reg_cert_notification_role_ids (`role_id`)
-  SELECT DISTINCT `role_param`.`role_id`
-    FROM `infra_job` AS `job`
-    JOIN JSON_TABLE(
-           `job`.`handler_param`,
-           '$.roleIds[*]' COLUMNS (
-             `role_id` bigint PATH '$'
-           )
-         ) AS `role_param`
-   WHERE `job`.`handler_name` = 'registrationCertificateReminderDailyJob'
-     AND `job`.`deleted` = b'0';
-
-  SELECT COUNT(*)
-    INTO configured_role_count
-    FROM tmp_dcc_reg_cert_notification_role_ids;
-
-  IF configured_role_count = 0
-      OR EXISTS (
-        SELECT 1
-          FROM tmp_dcc_reg_cert_notification_role_ids
-         WHERE `role_id` IS NULL
-            OR `role_id` <= 0
-      ) THEN
-    SIGNAL SQLSTATE '45000'
-      SET MESSAGE_TEXT = 'Missing registration certificate notification role scope source';
-  END IF;
-
-  IF EXISTS (
-      SELECT 1
-        FROM tmp_dcc_reg_cert_notification_role_ids AS `configured`
-        LEFT JOIN `system_role` AS `role`
-          ON `role`.`id` = `configured`.`role_id`
-         AND `role`.`deleted` = b'0'
-         AND `role`.`status` = 0
-       WHERE `role`.`id` IS NULL
-  ) THEN
-    SIGNAL SQLSTATE '45000'
-      SET MESSAGE_TEXT = 'Missing registration certificate notification role scope source';
-  END IF;
 
   INSERT INTO tmp_dcc_reg_cert_notification_roles (`tenant_id`, `role_id`)
   SELECT `role`.`tenant_id`,
@@ -230,8 +231,6 @@ BEGIN
       SELECT COUNT(*)
         FROM tmp_dcc_reg_cert_notification_pending_scopes
   );
-
-  START TRANSACTION;
 
   INSERT INTO `mdm_role_company_scope`
     (`role_id`, `company_id`, `status`, `revision`, `creator`, `create_time`,

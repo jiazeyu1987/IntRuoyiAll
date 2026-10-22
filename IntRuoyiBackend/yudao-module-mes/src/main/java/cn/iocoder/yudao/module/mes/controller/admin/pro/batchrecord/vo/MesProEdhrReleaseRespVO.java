@@ -10,10 +10,13 @@ import java.time.LocalDateTime;
 public class MesProEdhrReleaseRespVO {
 
     private Long releaseTransactionId;
+    private String signedDossierManifestJson;
 
     private String releaseCode;
 
     private Long batchExecutionId;
+
+    private Long activeOrderId;
 
     private String batchExecutionCode;
 

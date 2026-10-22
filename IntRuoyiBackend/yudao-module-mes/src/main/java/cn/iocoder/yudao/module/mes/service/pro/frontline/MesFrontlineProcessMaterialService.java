@@ -6,4 +6,7 @@ public interface MesFrontlineProcessMaterialService {
 
     List<MesFrontlineProcessMaterial> listFrozenMaterials(Long activeOrderId, Long routeId,
                                                           Long routeProcessId, Long processId);
+
+    List<MesFrontlineProcessMaterial> listArchivedFrozenMaterials(Long activeOrderId, Long routeId,
+                                                                  Long routeProcessId, Long processId);
 }

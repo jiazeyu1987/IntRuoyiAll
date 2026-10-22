@@ -20,6 +20,10 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteProcessMapper;
 import cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants;
 import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
 import cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
+import org.apache.ibatis.builder.MapperBuilderAssistant;
+import org.apache.ibatis.session.Configuration;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -27,6 +31,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.dao.DuplicateKeyException;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -72,31 +77,71 @@ class MesTeamLeaderRuntimeConfigServiceTest {
     private PasswordEncoder passwordEncoder;
 
     private MesTeamLeaderRuntimeConfigService service;
+    private MesProcessPoolTeamEmployeeProfileDO insertedCredential;
 
     @BeforeEach
     void setUp() {
         lenient().when(scopeMapper.insert(any(MesProcessPoolTeamLeaderScopeDO.class))).thenReturn(1);
         lenient().when(scopeMapper.updateById(any(MesProcessPoolTeamLeaderScopeDO.class))).thenReturn(1);
+        lenient().when(employeeProfileMapper.updateById(any(MesProcessPoolTeamEmployeeProfileDO.class))).thenReturn(1);
         service = new MesTeamLeaderRuntimeConfigServiceImpl(scopeService, routeStartAuthorizationService,
                 employeeProfileMapper, scopeMapper, deviceMapper, processDeviceMapper, parameterRuleMapper,
                 routeProcessMapper, defectReasonMapper, auditMapper,
                 adminUserApi, passwordEncoder);
+        cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.setTenantId(1L);
+        var authority = org.mockito.Mockito.mock(cn.iocoder.yudao.module.system.api.permission.ApprovalAuthorityApi.class);
+        lenient().when(authority.lockTenantApprovalAuthority(1L)).thenReturn(
+                new cn.iocoder.yudao.module.system.api.permission.dto.ApprovalAuthorityRevisionDTO(1L, 1L));
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "qualificationAuthority", authority);
+        lenient().when(employeeProfileMapper.selectSignatureIdentityForUpdate(org.mockito.ArgumentMatchers.eq(1L), any())).thenAnswer(call -> {
+            Long id = call.getArgument(1);
+            var profile = insertedCredential != null && id.equals(insertedCredential.getId())
+                    ? insertedCredential : employeeProfileMapper.selectById(id);
+            if (profile == null) return null;
+            var copy = new MesProcessPoolTeamEmployeeProfileDO();
+            org.springframework.beans.BeanUtils.copyProperties(profile, copy);
+            profile = copy;
+            profile.setTenantId(1L);
+            if (profile.getSignatureCredentialGeneration() == null) profile.setSignatureCredentialGeneration("fixture-generation");
+            if (profile.getSignatureCredentialVersion() == null) profile.setSignatureCredentialVersion(1L);
+            return profile;
+        });
+        lenient().when(adminUserApi.lockSignatureIdentity(org.mockito.ArgumentMatchers.anyLong())).thenAnswer(call -> adminUserApi.getUser(call.getArgument(0)));
+        lenient().when(employeeProfileMapper.selectSignaturePasswordHistory(1L, 8801L)).thenReturn(List.of());
+        lenient().when(employeeProfileMapper.insertSignaturePasswordHistory(org.mockito.ArgumentMatchers.eq(1L), org.mockito.ArgumentMatchers.eq(8801L), org.mockito.ArgumentMatchers.nullable(String.class), any())).thenReturn(1);
+        lenient().when(employeeProfileMapper.writeSignatureFailures(1L, 8801L, 0, null, null)).thenReturn(1);
+    }
+
+    @org.junit.jupiter.api.AfterEach void clearTenant() {
+        cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.clear();
+    }
+
+    @Test
+    void weakTemporarySignatureCredentialIsRejectedBeforeIdentityOrDomainWrites() {
+        var failure = assertThrows(IllegalArgumentException.class, () -> service.createTemporaryEmployee(
+                MesTeamTemporaryEmployeeCreateReqBO.builder().leaderUserId(3001L)
+                        .displayName("临时工甲").signaturePassword("weak").build()));
+        assertEquals("SIGNATURE_PASSWORD_TOO_WEAK", failure.getMessage());
+        verify(employeeProfileMapper, never()).insert(any(MesProcessPoolTeamEmployeeProfileDO.class));
+        verify(passwordEncoder, never()).encode(any());
+        verify(auditMapper, never()).insert(any(MesProcessPoolTeamMaintenanceAuditDO.class));
     }
 
     @Test
     void shouldCreateTemporaryProductionPersonWithSignaturePasswordHashAndAudit() {
         when(employeeProfileMapper.selectList(any())).thenReturn(List.of());
-        when(passwordEncoder.encode("sign-123")).thenReturn("bcrypt-temp-sign");
+        when(passwordEncoder.encode("TestOnly-Sign7!2026")).thenReturn("bcrypt-temp-sign");
         when(scopeMapper.selectProductionEmployeeScope(3001L, 8801L)).thenReturn(null);
         when(employeeProfileMapper.insert(any(MesProcessPoolTeamEmployeeProfileDO.class))).thenAnswer(invocation -> {
-            invocation.getArgument(0, MesProcessPoolTeamEmployeeProfileDO.class).setId(8801L);
+            insertedCredential = invocation.getArgument(0, MesProcessPoolTeamEmployeeProfileDO.class);
+            insertedCredential.setId(8801L);
             return 1;
         });
 
         Long profileId = service.createTemporaryEmployee(MesTeamTemporaryEmployeeCreateReqBO.builder()
                 .leaderUserId(3001L)
                 .displayName("临时工甲")
-                .signaturePassword("sign-123")
+                .signaturePassword("TestOnly-Sign7!2026")
                 .build());
 
         assertEquals(8801L, profileId);
@@ -207,7 +252,7 @@ class MesTeamLeaderRuntimeConfigServiceTest {
                 MesTeamTemporaryEmployeeCreateReqBO.builder()
                         .leaderUserId(3001L)
                         .displayName("张三")
-                        .signaturePassword("sign-123")
+                        .signaturePassword("TestOnly-Sign7!2026")
                         .build()));
 
         assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_TEAM_EMPLOYEE_DISPLAY_NAME_DUPLICATE.getCode(),
@@ -247,12 +292,21 @@ class MesTeamLeaderRuntimeConfigServiceTest {
                 .employeeType("TEMPORARY")
                 .enabled(Boolean.TRUE)
                 .build());
-        when(passwordEncoder.encode("new-sign")).thenReturn("bcrypt-new-sign");
+        when(passwordEncoder.encode("TestOnly-Reset8!2026")).thenReturn("bcrypt-new-sign");
+        when(employeeProfileMapper.updateById(any(MesProcessPoolTeamEmployeeProfileDO.class))).thenAnswer(call -> {
+            var update = call.getArgument(0, MesProcessPoolTeamEmployeeProfileDO.class);
+            var stored = employeeProfileMapper.selectById(update.getId());
+            stored.setSignatureCredentialStatus(update.getSignatureCredentialStatus());
+            stored.setSignaturePasswordHash(update.getSignaturePasswordHash());
+            stored.setSignaturePasswordUpdatedAt(update.getSignaturePasswordUpdatedAt());
+            stored.setSignatureCredentialVersion(2L);
+            return 1;
+        });
 
         service.resetTemporaryEmployeeSignaturePassword(MesTeamTempSignaturePasswordResetReqBO.builder()
                 .leaderUserId(3001L)
                 .employeeProfileId(8801L)
-                .signaturePassword("new-sign")
+                .signaturePassword("TestOnly-Reset8!2026")
                 .build());
 
         ArgumentCaptor<MesProcessPoolTeamEmployeeProfileDO> updateCaptor =
@@ -274,7 +328,7 @@ class MesTeamLeaderRuntimeConfigServiceTest {
                 MesTeamTempSignaturePasswordResetReqBO.builder()
                         .leaderUserId(3001L)
                         .employeeProfileId(8802L)
-                        .signaturePassword("new-sign")
+                        .signaturePassword("TestOnly-Reset8!2026")
                         .build()));
         assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_TEAM_FORMAL_SIGNATURE_PASSWORD_MANAGED_BY_USER.getCode(),
                 ex.getCode());
@@ -345,7 +399,8 @@ class MesTeamLeaderRuntimeConfigServiceTest {
     @Test
     void shouldCreateTemporaryEmployeeWithoutSystemUser() {
         when(employeeProfileMapper.insert(any(MesProcessPoolTeamEmployeeProfileDO.class))).thenAnswer(invocation -> {
-            invocation.getArgument(0, MesProcessPoolTeamEmployeeProfileDO.class).setId(8801L);
+            insertedCredential = invocation.getArgument(0, MesProcessPoolTeamEmployeeProfileDO.class);
+            insertedCredential.setId(8801L);
             return 1;
         });
 
@@ -386,6 +441,123 @@ class MesTeamLeaderRuntimeConfigServiceTest {
         assertEquals("撤压机", devices.get(0).getDeviceName());
         assertTrue(devices.get(0).getEnabled());
         verify(processDeviceMapper, never()).selectList(any());
+    }
+
+    @Test
+    void formalEmployeeCannotBeLinkedWhileEnabledUnderAnotherLeader() {
+        AdminUserRespDTO formalUser = new AdminUserRespDTO();
+        formalUser.setId(2001L);
+        formalUser.setNickname("新组显示名");
+        when(adminUserApi.getUser(2001L)).thenReturn(formalUser);
+        stubEnabledOwnerQuery(MesProcessPoolTeamEmployeeProfileDO.builder().id(8801L).leaderUserId(3002L)
+                        .systemUserId(2001L).employeeType("FORMAL").enabled(true)
+                        .displayName("原组显示名").build());
+
+        ServiceException error = assertThrows(ServiceException.class, () -> service.linkFormalEmployee(
+                MesTeamFormalEmployeeLinkReqBO.builder().leaderUserId(3001L).systemUserId(2001L)
+                        .displayName("新组显示名").build()));
+
+        assertTrue(error.getMessage().contains("先停用"));
+        verify(employeeProfileMapper, never()).insert(any(MesProcessPoolTeamEmployeeProfileDO.class));
+        verify(scopeMapper, never()).insert(any(MesProcessPoolTeamLeaderScopeDO.class));
+        verify(auditMapper, never()).insert(any(MesProcessPoolTeamMaintenanceAuditDO.class));
+    }
+
+    @Test
+    void formalEmployeeCannotBeEnabledWhileAnotherLeaderOwnsEnabledProfile() {
+        when(employeeProfileMapper.selectById(8802L)).thenReturn(
+                MesProcessPoolTeamEmployeeProfileDO.builder().id(8802L).leaderUserId(3001L)
+                        .systemUserId(2001L).employeeType("FORMAL").enabled(false).displayName("张三").build());
+        stubEnabledOwnerQuery(MesProcessPoolTeamEmployeeProfileDO.builder().id(8801L).leaderUserId(3002L)
+                        .systemUserId(2001L).employeeType("FORMAL").enabled(true).displayName("张三").build());
+
+        ServiceException error = assertThrows(ServiceException.class, () -> service.updateEmployeeEnabled(
+                MesTeamEmployeeStatusUpdateReqBO.builder().leaderUserId(3001L)
+                        .employeeProfileId(8802L).enabled(true).build()));
+
+        assertTrue(error.getMessage().contains("先停用"));
+        verify(employeeProfileMapper, never()).updateById(any(MesProcessPoolTeamEmployeeProfileDO.class));
+        verify(scopeMapper, never()).insert(any(MesProcessPoolTeamLeaderScopeDO.class));
+        verify(scopeMapper, never()).updateById(any(MesProcessPoolTeamLeaderScopeDO.class));
+        verify(auditMapper, never()).insert(any(MesProcessPoolTeamMaintenanceAuditDO.class));
+    }
+
+    @Test
+    void formalEmployeeCanBeEnabledAfterOldGroupWasDisabled() {
+        MesProcessPoolTeamEmployeeProfileDO profile = MesProcessPoolTeamEmployeeProfileDO.builder()
+                .id(8802L).leaderUserId(3001L).systemUserId(2001L).employeeType("FORMAL")
+                .enabled(false).displayName("张三").build();
+        when(employeeProfileMapper.selectById(8802L)).thenReturn(profile);
+        lenient().when(employeeProfileMapper.selectList(any())).thenReturn(List.of());
+        when(employeeProfileMapper.updateById(any(MesProcessPoolTeamEmployeeProfileDO.class))).thenReturn(1);
+        when(scopeMapper.selectProductionEmployeeScope(3001L, 2001L)).thenReturn(
+                MesProcessPoolTeamLeaderScopeDO.builder().id(7001L).leaderUserId(3001L)
+                        .leaderType("PRODUCTION").scopeType("EMPLOYEE").employeeUserId(2001L).enabled(false).build());
+
+        service.updateEmployeeEnabled(MesTeamEmployeeStatusUpdateReqBO.builder().leaderUserId(3001L)
+                .employeeProfileId(8802L).enabled(true).build());
+
+        ArgumentCaptor<MesProcessPoolTeamLeaderScopeDO> scope = ArgumentCaptor.forClass(MesProcessPoolTeamLeaderScopeDO.class);
+        verify(scopeMapper).updateById(scope.capture());
+        assertEquals(Boolean.TRUE, scope.getValue().getEnabled());
+        verify(auditMapper).insert(any(MesProcessPoolTeamMaintenanceAuditDO.class));
+    }
+
+    @Test
+    void genericEmployeeCreationCannotBypassFormalEmployeeOwnership() {
+        stubEnabledOwnerQuery(MesProcessPoolTeamEmployeeProfileDO.builder().id(8801L).leaderUserId(3002L)
+                        .systemUserId(2001L).employeeType("SYSTEM").enabled(true).displayName("张三").build());
+
+        ServiceException error = assertThrows(ServiceException.class, () -> service.createEmployee(
+                MesTeamEmployeeProfileSaveReqBO.builder().leaderUserId(3001L).systemUserId(2001L)
+                        .employeeCode("USER-2001").employeeName("张三").employeeType("SYSTEM").build()));
+
+        assertTrue(error.getMessage().contains("先停用"));
+        verify(employeeProfileMapper, never()).insert(any(MesProcessPoolTeamEmployeeProfileDO.class));
+        verify(scopeMapper, never()).insert(any(MesProcessPoolTeamLeaderScopeDO.class));
+        verify(auditMapper, never()).insert(any(MesProcessPoolTeamMaintenanceAuditDO.class));
+    }
+
+    private void stubEnabledOwnerQuery(MesProcessPoolTeamEmployeeProfileDO owner) {
+        Configuration configuration = new Configuration();
+        configuration.setMapUnderscoreToCamelCase(true);
+        TableInfoHelper.initTableInfo(new MapperBuilderAssistant(configuration, "ownership-test"),
+                MesProcessPoolTeamEmployeeProfileDO.class);
+        lenient().when(employeeProfileMapper.selectList(any())).thenAnswer(invocation -> {
+            LambdaQueryWrapper<MesProcessPoolTeamEmployeeProfileDO> query = invocation.getArgument(0);
+            String sql = query.getSqlSegment();
+            if (sql.contains("system_user_id") && sql.contains("enabled") && !sql.contains("leader_user_id")) {
+                assertTrue(query.getParamNameValuePairs().containsValue(2001L));
+                assertTrue(query.getParamNameValuePairs().containsValue(Boolean.TRUE));
+                return List.of(owner);
+            }
+            return List.of();
+        });
+    }
+
+    @Test
+    void concurrentOwnerConstraintReturnsBusinessConflictWithoutWritingScopeOrAudit() {
+        AdminUserRespDTO user = new AdminUserRespDTO();
+        user.setId(2001L);
+        user.setNickname("张三");
+        when(adminUserApi.getUser(2001L)).thenReturn(user);
+        when(employeeProfileMapper.insert(any(MesProcessPoolTeamEmployeeProfileDO.class)))
+                .thenThrow(new DuplicateKeyException("Duplicate entry for key 'uk_mes_pp_employee_enabled_user'"));
+        ServiceException error = assertThrows(ServiceException.class, () -> service.linkFormalEmployee(
+                MesTeamFormalEmployeeLinkReqBO.builder().leaderUserId(3001L).systemUserId(2001L).build()));
+        assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_TEAM_FORMAL_EMPLOYEE_OWNER_CHANGED.getCode(), error.getCode());
+        verify(scopeMapper, never()).insert(any(MesProcessPoolTeamLeaderScopeDO.class));
+        verify(auditMapper, never()).insert(any(MesProcessPoolTeamMaintenanceAuditDO.class));
+    }
+
+    @Test
+    void unrelatedUniqueConstraintIsNotMisreportedAsEmployeeOwnerConflict() {
+        DuplicateKeyException failure = new DuplicateKeyException("Duplicate entry for key 'uk_mes_pp_team_employee_profile'");
+        when(employeeProfileMapper.insert(any(MesProcessPoolTeamEmployeeProfileDO.class))).thenThrow(failure);
+        assertEquals(failure, assertThrows(DuplicateKeyException.class, () -> service.createEmployee(
+                MesTeamEmployeeProfileSaveReqBO.builder().leaderUserId(3001L).systemUserId(2001L)
+                        .employeeCode("USER-2001").employeeName("张三").employeeType("SYSTEM").build())));
+        verify(scopeMapper, never()).insert(any(MesProcessPoolTeamLeaderScopeDO.class));
     }
 
     @Test

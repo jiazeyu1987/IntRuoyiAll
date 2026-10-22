@@ -68,11 +68,15 @@ class MesTeamLeaderActiveOrderReleaseBatchRecordWriterTest {
 
     private MesTeamLeaderActiveOrderReleaseBatchRecordWriter writer;
 
+    @Mock private cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProductionSignatureEvidenceService signatureEvidenceService;
+
     @BeforeEach
     void setUp() {
         writer = new MesTeamLeaderActiveOrderReleaseBatchRecordWriterImpl(
                 bindingMapper, reportMapper, ruleMapper, batchTaskMapper, backfillService,
                 productionPickListSourceService, routeVersionSnapshotResolver);
+        org.springframework.test.util.ReflectionTestUtils.setField(writer, "productionSignatureEvidenceService", signatureEvidenceService);
+        org.mockito.Mockito.lenient().when(signatureEvidenceService.isValidForEvent(org.mockito.ArgumentMatchers.any())).thenReturn(true);
     }
 
     @Test
@@ -124,6 +128,18 @@ class MesTeamLeaderActiveOrderReleaseBatchRecordWriterTest {
                 () -> assertEquals(1001L, backfillCommand.getSourceEvents().get(0).getId()),
                 () -> assertFalse(result.getBatchRecordExecutionIds().contains(8701L),
                         "历史 completion backfill execution 只能作为来源证据"));
+    }
+
+    @Test
+    void allocatedSourceOrderIsAcceptedWithoutRewritingItsIdentity() {
+        mockFormalPlanSources();
+        var command = command();
+        var event = command.getProcessSources().get(0).getSourceEvents().get(0);
+        event.setWorkOrderId(9000L);
+        var plan = writer.plan(command);
+        assertTrue(plan.getBlockers().isEmpty(), () -> plan.getBlockers().toString());
+        assertEquals(9000L, event.getWorkOrderId());
+        assertEquals(WORK_ORDER_ID, command.getWorkOrder().getId());
     }
 
     @Test

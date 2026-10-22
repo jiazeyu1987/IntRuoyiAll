@@ -50,7 +50,8 @@
     <div class="pay-channel-container">
       <div
         class="box"
-        v-for="channel in channelsMock"
+        v-for="channel in visibleOtherChannels"
+        :class="{ 'app-test-button': channel.code === 'mock' }"
         :key="channel.code"
         @click="submit(channel.code)"
       >
@@ -115,6 +116,8 @@
 </template>
 
 <script lang="ts" setup>
+import { useTestMode } from '@/store/modules/testMode'
+
 import { Qrcode } from '@/components/Qrcode'
 import * as PayOrderApi from '@/api/pay/order'
 import { PayChannelEnum, PayDisplayModeEnum, PayOrderStatusEnum } from '@/utils/constants'
@@ -134,6 +137,8 @@ import svg_wx_native from '@/assets/svgs/pay/icon/wx_native.svg'
 import svg_wx_bar from '@/assets/svgs/pay/icon/wx_bar.svg'
 import svg_wallet from '@/assets/svgs/pay/icon/wallet.svg'
 import svg_mock from '@/assets/svgs/pay/icon/mock.svg'
+
+const testModeEnabled = useTestMode()
 
 defineOptions({ name: 'PayCashier' })
 
@@ -212,6 +217,10 @@ const channelsMock = [
     code: 'mock'
   }
 ]
+
+const visibleOtherChannels = computed(() =>
+  channelsMock.filter((channel) => channel.code !== 'mock' || testModeEnabled.value)
+)
 
 const submitLoading = ref(false) // 提交支付的 loading
 const interval = ref<any>(undefined) // 定时任务，轮询是否完成支付

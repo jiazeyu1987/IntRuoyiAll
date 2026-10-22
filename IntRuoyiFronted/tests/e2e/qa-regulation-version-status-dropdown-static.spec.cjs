@@ -73,7 +73,7 @@ assert.match(
 )
 assert.match(
   page,
-  /const\s+handleQaRegulationVersionChange\s*=\s*async\s*\(versionId\?:\s*number\)[\s\S]*QcTemplateApi\.getPublishedQaRegulationVersion\(dccProjectCodeId,\s*versionId\)/,
+  /const\s+handleQaRegulationVersionChange\s*=\s*async\s*\(versionId\?:\s*number\)[\s\S]*QcTemplateApi\.getPublishedQaRegulationVersion\(\s*dccProjectCodeId,\s*versionId\s*\)/,
   'Selecting a version must read the version detail by formal version id.'
 )
 assert.match(

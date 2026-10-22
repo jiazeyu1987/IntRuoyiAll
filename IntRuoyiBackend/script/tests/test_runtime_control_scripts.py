@@ -48,7 +48,7 @@ def test_local_restart_script_is_component_scoped_and_fail_fast():
     assert "New-Item -ItemType Directory -Force -Path $backendLogDir" in script
     assert '"--logging.file.name=$backendLogFile"' in script
     assert '"--yudao.runtime-control.storage-guard.log-dir=$backendLogDir"' in script
-    assert "-pl yudao-server -am -DskipTests package" in script
+    assert "-pl yudao-server -am '-DskipTests' package" in script
     assert "backend-runtime-control-$timestamp.jar" in script
     assert "frontend-runtime-control-$timestamp.out.log" in script
     assert "frontend-runtime-control-$timestamp.err.log" in script
@@ -125,6 +125,27 @@ def test_local_restart_backend_uses_java_argument_array_instead_of_powershell_li
     assert "& java @backendArgs" in script
     assert "java -jar '$runtimeJar' `" not in script
     assert "--spring.datasource.dynamic.datasource.master.url=jdbc:mysql://${LocalDockerRuntimeHost}:23306/ruoyi-vue-pro?useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&nullCatalogMeansCurrent=true" in script
+
+
+def test_local_restart_backend_passes_required_dcc_configuration_as_explicit_java_arguments():
+    script = read_script("restart-int-ruoyi-local.ps1")
+    backend_block = script[script.index("function Start-Backend"):script.index("function Start-Website")]
+    args_start = backend_block.index("`$backendArgs = @(")
+    args_end = backend_block.index("& java @backendArgs", args_start)
+    backend_args = backend_block[args_start:args_end]
+    configuration = (
+        ("yudao.dcc.preview.onlyoffice.base-url", "DCC_ONLYOFFICE_BASE_URL", "OnlyOfficeBaseUrl"),
+        ("yudao.dcc.preview.onlyoffice.public-file-base-url", "DCC_ONLYOFFICE_PUBLIC_FILE_BASE_URL", "OnlyOfficePublicFileBaseUrl"),
+        ("dcc.signature.evidence.hmac-secret", "DCC_SIGNATURE_EVIDENCE_HMAC_SECRET", "DccSignatureEvidenceHmacSecret"),
+        ("dcc.signature.evidence.key-version", "DCC_SIGNATURE_EVIDENCE_KEY_VERSION", "DccSignatureEvidenceKeyVersion"),
+    )
+    for property_name, environment_name, source_name in configuration:
+        # Preserve the child environment reference through the outer here-string.
+        # The generated Java argument expands it once, without reparsing secret values.
+        expected_argument = f'"--{property_name}=`$env:{environment_name}"'
+        assert backend_args.count(expected_argument) == 1, f"Missing explicit child Java argument: {property_name}"
+        assignment = f"`$env:{environment_name} = '${source_name}'"
+        assert assignment in backend_block[:args_start], f"Missing existing child configuration mapping: {environment_name}"
 
 
 def test_local_restart_backend_does_not_pass_dcc_download_encryption_to_java():
@@ -225,6 +246,8 @@ def test_remote_scripts_support_json_and_website_component():
     assert "[ValidateSet('backend', 'frontend', 'full', 'website')]" in restart_script
     assert "docker compose restart website" in restart_script
     assert "OperationRecordPath" in restart_script
+    assert "[switch]$CheckReachability" in restart_script
+    assert "Assert-RemoteOnlyOfficePublicFileBaseUrlReachable -CheckReachability" in restart_script
 
 
 def test_remote_restart_blocks_showroom_media_bucket_inconsistency_before_backend_restart():
@@ -234,18 +257,27 @@ def test_remote_restart_blocks_showroom_media_bucket_inconsistency_before_backen
     assert "$RemoteMysqlContainer = 'intruoyi-mysql'" in script
     assert "[string]$RemoteMinioContainer = ''" in script
     assert "Missing -RemoteMinioContainer; remote backend restart requires an explicit MinIO container." in script
-    assert "$ShowroomMediaSampleObjects = @(" in script
-    assert "showroom/product/cover/20260530/product-product_001-cover.png" in script
-    assert "showroom/narration/20260522/company-1-zh-ruoxi.wav" in script
+    assert "sample_product=" in script
+    assert "sample_narration=" in script
+    assert "FROM infra_file WHERE config_id = 28" in script
+    assert "0x73686f77726f6f6d2f70726f647563742f" in script
+    assert "0x73686f77726f6f6d2f6e6172726174696f6e2f" in script
+    assert "protected infra_file samples are incomplete" in script
     assert "SELECT JSON_UNQUOTE(JSON_EXTRACT(config, CAST(0x242e6275636b6574 AS CHAR CHARACTER SET utf8mb4))) FROM infra_file_config WHERE master = 1 AND deleted = 0 LIMIT 1" in script
     assert "Showroom media bucket consistency check failed" in script
-    assert "test -f '/data/`$bucket/`$object/xl.meta'" in script
+    assert "docker exec $RemoteMinioContainer test -f" in script
 
     guard_condition = "if ($Component -eq 'backend' -or $Component -eq 'full')"
     guard_block_index = script.index(guard_condition, script.index("Info \"Restarting remote runtime"))
     restart_index = script.index("docker compose restart $serviceNames")
     assert script.index("Missing -RemoteMinioContainer", guard_block_index) < restart_index
     assert script.index("Assert-RemoteShowroomMediaBucketConsistency", guard_block_index) < restart_index
+
+
+def test_test_server_restart_wrapper_passes_the_authoritative_minio_container():
+    wrapper = (DEPLOY_DIR / "restart-int-ruoyi-to-test.bat").read_text(encoding="utf-8")
+
+    assert '-RemoteMinioContainer "ragflow_compose-minio-1"' in wrapper
 
 
 def test_remote_restart_quotes_mysql_bucket_sql_for_ssh_shell():

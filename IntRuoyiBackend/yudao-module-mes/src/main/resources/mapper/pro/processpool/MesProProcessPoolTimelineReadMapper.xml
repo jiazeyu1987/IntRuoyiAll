@@ -2,6 +2,25 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolTimelineReadMapper">
 
+    <sql id="ActualEmployeeDomain">
+        CASE WHEN pool_event.event_type = 'PRODUCTION_SUBMIT'
+                  AND pool_event.template_type = 'SIMULATED_PRODUCTION_SUBMIT'
+                  AND JSON_VALID(pool_event.raw_payload)
+                  AND JSON_UNQUOTE(JSON_EXTRACT(pool_event.raw_payload, '$.simulated')) = 'true' THEN 'SYSTEM_USER'
+             WHEN pool_event.event_type = 'PQC_INSPECTION' THEN 'SYSTEM_USER'
+             WHEN pool_event.event_type = 'PRODUCTION_SUBMIT' AND JSON_VALID(pool_event.raw_payload)
+                 THEN JSON_UNQUOTE(JSON_EXTRACT(pool_event.raw_payload, '$.signatureIdentityDomain'))
+        END
+    </sql>
+
+    <sql id="ActualEmployeeName">
+        CASE <include refid="ActualEmployeeDomain"/>
+            WHEN 'SYSTEM_USER' THEN COALESCE(NULLIF(actual_employee.nickname, ''), NULLIF(actual_employee.username, ''))
+            WHEN 'MES_EMPLOYEE_PROFILE' THEN COALESCE(NULLIF(actual_employee_profile_by_id.display_name, ''),
+                                                     NULLIF(actual_employee_profile_by_id.employee_name, ''))
+        END
+    </sql>
+
     <sql id="TimelineColumns">
         pool_event.id AS id,
         pool_event.event_type AS eventType,
@@ -10,7 +29,7 @@
         pool_event.device_account_id AS loginUserId,
         NULL AS loginUserName,
         pool_event.actual_employee_id AS actualEmployeeUserId,
-        COALESCE(NULLIF(actual_employee.nickname, ''), NULLIF(actual_employee_profile_by_user.display_name, ''), NULLIF(actual_employee_profile_by_user.employee_name, ''), NULLIF(actual_employee_profile_by_id.display_name, ''), NULLIF(actual_employee_profile_by_id.employee_name, ''), NULLIF(actual_employee.username, '')) AS actualEmployeeUserName,
+        <include refid="ActualEmployeeName"/> AS actualEmployeeUserName,
         pool_event.signature_user_id AS signatureEmployeeUserId,
         NULL AS signatureEmployeeUserName,
         pool_event.signature_id AS electronicSignatureId,
@@ -67,6 +86,13 @@
         pqc_task.business_date AS pqcBusinessDate,
         pqc_task.shift_code AS pqcShiftCode,
         pqc_task.round_no AS roundNo,
+        CASE
+            WHEN JSON_VALID(pool_event.raw_payload) THEN
+                NULLIF(JSON_UNQUOTE(JSON_EXTRACT(pool_event.raw_payload, '$.pqcSubmissionGroupId')), '')
+            ELSE NULL
+        END AS pqcSubmissionGroupId,
+        NULL AS groupedEventIds,
+        NULL AS groupedOriginalPayloadJsons,
         pool_event.feedback_source_id AS sourceFeedbackId,
         NULL AS sourceRecordbookEntryId,
         pool_event.recordbook_source_id AS sourceRecordbookEventId,
@@ -89,6 +115,7 @@
             WHEN review_copy_summary.review_copy_count IS NULL THEN '审核副本待生成'
             ELSE CONCAT('审核副本已提交，字段 ', COALESCE(review_copy_summary.field_count, 0), ' 个')
         END AS auditCopySummary,
+        <include refid="DisplayedReviewContextColumns"/>
         latest_submission_review.review_status AS submissionReviewStatus,
         latest_submission_review.review_remark AS submissionReviewRemark,
         latest_submission_review.leader_user_id AS submissionReviewLeaderUserId,
@@ -99,6 +126,17 @@
 
     <sql id="TimelineFilters">
         pool_event.deleted = 0
+        <if test="reqVO.eventIds != null">
+            <choose>
+                <when test="reqVO.eventIds.size() > 0">
+                    AND pool_event.id IN
+                    <foreach collection="reqVO.eventIds" item="authorizedEventId" open="(" separator="," close=")">
+                        #{authorizedEventId}
+                    </foreach>
+                </when>
+                <otherwise>AND 1 = 0</otherwise>
+            </choose>
+        </if>
         <if test="reqVO.submittedAtStart != null and reqVO.submittedAtEnd != null">
             AND pool_event.server_submit_time <![CDATA[>=]]> #{reqVO.submittedAtStart}
             AND pool_event.server_submit_time <![CDATA[<]]> #{reqVO.submittedAtEnd}
@@ -183,10 +221,6 @@
         </if>
         <if test="reqVO.pqcFormView == 'CURRENT'">
             AND pool_event.event_type = 'PQC_INSPECTION'
-            AND (
-                latest_submission_review.review_status IS NULL
-                OR latest_submission_review.review_status <![CDATA[<>]]> 'APPROVED'
-            )
             AND NOT EXISTS (
                 SELECT 1
                 FROM mes_pro_process_pool_active_order_release_application release_application
@@ -204,6 +238,33 @@
             AND pool_event.event_type = 'PQC_INSPECTION'
             AND latest_submission_review.review_status = 'APPROVED'
         </if>
+        <if test="reqVO.eventType == 'PQC_INSPECTION'">
+            AND (
+                NOT (
+                    JSON_VALID(pool_event.raw_payload)
+                    AND NULLIF(JSON_UNQUOTE(JSON_EXTRACT(pool_event.raw_payload, '$.pqcSubmissionGroupId')), '') IS NOT NULL
+                )
+                OR pool_event.id = (
+                    SELECT group_event.id
+                    FROM mes_pro_process_pool_event group_event
+                    LEFT JOIN (<include refid="LatestSubmissionReviewRows"/>) group_review
+                      ON group_review.tenant_id = group_event.tenant_id
+                     AND group_review.event_id = group_event.id
+                    WHERE group_event.tenant_id = pool_event.tenant_id
+                      AND group_event.deleted = 0
+                      AND group_event.event_type = 'PQC_INSPECTION'
+                      AND JSON_VALID(group_event.raw_payload)
+                      AND JSON_UNQUOTE(JSON_EXTRACT(group_event.raw_payload, '$.pqcSubmissionGroupId')) =
+                          JSON_UNQUOTE(JSON_EXTRACT(pool_event.raw_payload, '$.pqcSubmissionGroupId'))
+                    ORDER BY CASE
+                        WHEN group_review.review_status = 'REJECTED' THEN 0
+                        WHEN group_review.review_status IS NULL OR group_review.review_status = 'PENDING' THEN 1
+                        ELSE 2
+                    END, group_event.id DESC
+                    LIMIT 1
+                )
+            )
+        </if>
     </sql>
 
     <sql id="TimelineAuthorityJoins">
@@ -213,34 +274,14 @@
          AND product_item.deleted = 0
         LEFT JOIN system_users actual_employee
           ON actual_employee.id = pool_event.actual_employee_id
+         AND <include refid="ActualEmployeeDomain"/> = 'SYSTEM_USER'
          AND actual_employee.tenant_id = pool_event.tenant_id
          AND actual_employee.deleted = 0
         LEFT JOIN mes_pro_process_pool_team_employee_profile actual_employee_profile_by_id
           ON actual_employee_profile_by_id.id = pool_event.actual_employee_id
+         AND <include refid="ActualEmployeeDomain"/> = 'MES_EMPLOYEE_PROFILE'
          AND actual_employee_profile_by_id.tenant_id = pool_event.tenant_id
          AND actual_employee_profile_by_id.deleted = 0
-        LEFT JOIN (
-            SELECT tenant_id,
-                   system_user_id,
-                   display_name,
-                   employee_name
-            FROM (
-                SELECT profile.tenant_id,
-                       profile.system_user_id,
-                       profile.display_name,
-                       profile.employee_name,
-                       ROW_NUMBER() OVER (
-                           PARTITION BY profile.tenant_id, profile.system_user_id
-                           ORDER BY profile.enabled DESC, profile.update_time DESC, profile.id DESC
-                       ) AS row_rank
-                FROM mes_pro_process_pool_team_employee_profile profile
-                WHERE profile.deleted = 0
-                  AND profile.system_user_id IS NOT NULL
-            ) ranked_profile
-            WHERE ranked_profile.row_rank = 1
-        ) actual_employee_profile_by_user
-          ON actual_employee_profile_by_user.tenant_id = pool_event.tenant_id
-         AND actual_employee_profile_by_user.system_user_id = pool_event.actual_employee_id
         LEFT JOIN mes_pqc_inspection_task pqc_task
           ON pqc_task.tenant_id = pool_event.tenant_id
          AND pqc_task.deleted = 0
@@ -248,18 +289,159 @@
          AND pqc_task.id = pool_event.pqc_task_id
     </sql>
 
-    <sql id="LatestSubmissionReviewJoin">
-        LEFT JOIN (
-            SELECT tenant_id,
-                   event_id,
-                   leader_user_id,
-                   review_status,
-                   review_remark,
-                   reviewed_at
+    <!-- A signed correction superseding the latest rejected decision makes that member reviewable again.
+         The write command still verifies the formal signature and complete group before any mutation. -->
+    <sql id="DisplayedReviewContextColumns">
+        COALESCE((SELECT rr.review_status FROM mes_pro_process_pool_submission_review rr
+          WHERE rr.event_id=pool_event.id AND rr.tenant_id=pool_event.tenant_id AND rr.deleted=0
+          ORDER BY rr.reviewed_at DESC, rr.id DESC LIMIT 1),'PENDING') AS displayedReviewStatus,
+        COALESCE((SELECT a.current_version FROM mes_pro_process_pool_report_allocation_state a
+          WHERE a.event_id=pool_event.id AND a.tenant_id=pool_event.tenant_id AND a.deleted=0),0) AS displayedAllocationVersion,
+        COALESCE((SELECT rr.id FROM mes_pro_process_pool_submission_review rr
+          WHERE rr.event_id=pool_event.id AND rr.tenant_id=pool_event.tenant_id AND rr.deleted=0
+          ORDER BY rr.reviewed_at DESC, rr.id DESC LIMIT 1),0) AS displayedReviewId,
+        COALESCE((SELECT rr.review_round FROM mes_pro_process_pool_submission_review rr
+          WHERE rr.event_id=pool_event.id AND rr.tenant_id=pool_event.tenant_id AND rr.deleted=0
+          ORDER BY rr.reviewed_at DESC, rr.id DESC LIMIT 1),0) AS displayedReviewRound,
+        COALESCE((SELECT rv.id FROM mes_pro_process_pool_event_revision rv
+          WHERE rv.event_id=pool_event.id AND rv.tenant_id=pool_event.tenant_id AND rv.deleted=0
+            AND rv.revision_status='EFFECTIVE'
+          ORDER BY rv.server_revision_time DESC, rv.id DESC LIMIT 1),0) AS displayedRevisionId,
+    </sql>
+
+    <sql id="LatestSubmissionReviewRows">
+        <include refid="ScopedSubmissionReviewRows">
+            <property name="reviewScope" value="SubmissionReviewFilterScope"/>
+        </include>
+    </sql>
+
+    <!-- Restrict ranking before the window function, rather than ranking unrelated reports. -->
+    <sql id="SubmissionReviewFilterScope">
+        <if test="_parameter.containsKey('reqVO') and reqVO.eventType == 'PRODUCTION_SUBMIT'">
+            AND review_log.event_id IN (
+                SELECT scope_event.id FROM mes_pro_process_pool_event scope_event
+                WHERE scope_event.deleted = 0 AND scope_event.event_type = 'PRODUCTION_SUBMIT'
+                <if test="reqVO.processIds != null and reqVO.processIds.size() > 0">
+                    AND scope_event.process_id IN
+                    <foreach collection="reqVO.processIds" item="scopeProcessId" open="(" separator="," close=")">
+                        #{scopeProcessId}
+                    </foreach>
+                </if>
+                <if test="reqVO.submittedAtStart != null and reqVO.submittedAtEnd != null">
+                    AND scope_event.server_submit_time <![CDATA[>=]]> #{reqVO.submittedAtStart}
+                    AND scope_event.server_submit_time <![CDATA[<]]> #{reqVO.submittedAtEnd}
+                </if>
+            )
+        </if>
+    </sql>
+
+    <sql id="SubmissionReviewPageScope">
+        AND (review_log.tenant_id, review_log.event_id) IN (SELECT page_scope.tenant_id, page_scope.id FROM production_page page_scope)
+    </sql>
+
+    <sql id="ScopedSubmissionReviewRows">
+            SELECT ranked_review.tenant_id,
+                   ranked_review.event_id,
+                   ranked_review.leader_user_id,
+                   CASE WHEN ranked_review.review_status = 'REJECTED'
+                        AND review_event.event_type IN ('PQC_INSPECTION', 'PRODUCTION_SUBMIT')
+                        AND EXISTS (
+                            SELECT 1 FROM mes_pro_process_pool_event_revision correction
+                            WHERE correction.tenant_id = ranked_review.tenant_id
+                              AND correction.event_id = ranked_review.event_id
+                              AND correction.deleted = 0
+                              AND correction.revision_status = 'EFFECTIVE'
+                              AND correction.id = (
+                                  SELECT latest_correction.id
+                                  FROM mes_pro_process_pool_event_revision latest_correction
+                                  WHERE latest_correction.tenant_id = ranked_review.tenant_id
+                                    AND latest_correction.event_id = ranked_review.event_id
+                                    AND latest_correction.deleted = 0
+                                    AND latest_correction.revision_status = 'EFFECTIVE'
+                                  ORDER BY latest_correction.server_revision_time DESC, latest_correction.id DESC
+                                  LIMIT 1
+                              )
+                              AND correction.revision_signature_id <![CDATA[>]]> 0
+                              AND correction.server_revision_time <![CDATA[>=]]> ranked_review.reviewed_at
+                              AND correction.revision_signature_user_id = correction.modified_by_user_id
+                              AND JSON_VALID(correction.revision_signature_snapshot)
+                              AND JSON_UNQUOTE(JSON_EXTRACT(correction.revision_signature_snapshot, '$.signatureId')) =
+                                  CAST(correction.revision_signature_id AS CHAR)
+                              AND JSON_UNQUOTE(JSON_EXTRACT(correction.revision_signature_snapshot, '$.actorId')) =
+                                  CAST(correction.revision_signature_user_id AS CHAR)
+                              AND JSON_EXTRACT(correction.revision_signature_snapshot, '$.signedAt') IS NOT NULL
+                              AND JSON_TYPE(JSON_EXTRACT(correction.revision_signature_snapshot, '$.signedAt')) != 'NULL'
+                              AND JSON_VALID(correction.after_payload)
+                              AND JSON_TYPE(JSON_EXTRACT(correction.after_payload, '$.supersededReviewId')) = 'INTEGER'
+                              AND JSON_UNQUOTE(JSON_EXTRACT(correction.after_payload, '$.supersededReviewId')) =
+                                  CAST(ranked_review.id AS CHAR)
+                              AND JSON_EXTRACT(correction.after_payload, '$') = JSON_EXTRACT(review_event.raw_payload, '$')
+                              AND (review_event.event_type = 'PQC_INSPECTION' OR (
+                                  ranked_review.leader_type = 'PRODUCTION'
+                                  AND correction.server_revision_time <![CDATA[>=]]> ranked_review.reviewed_at
+                                  AND review_event.actual_employee_id = review_event.signature_user_id
+                                  AND JSON_VALID(correction.before_payload)
+                                  AND JSON_EXTRACT(correction.before_payload, '$') <![CDATA[<>]]> JSON_EXTRACT(correction.after_payload, '$')
+                                  AND EXISTS (
+                                      SELECT 1 FROM system_electronic_signature original_signature
+                                      WHERE original_signature.id = review_event.signature_id
+                                        AND original_signature.tenant_id = review_event.tenant_id
+                                        AND original_signature.deleted = 0
+                                        AND original_signature.module_code = 'MES'
+                                        AND original_signature.action_code = 'PRODUCTION_SUBMIT'
+                                        AND original_signature.verification_status = 'VALID'
+                                        AND original_signature.actor_id = review_event.actual_employee_id
+                                        AND JSON_VALID(original_signature.canonical_content_json)
+                                        AND JSON_UNQUOTE(JSON_EXTRACT(original_signature.canonical_content_json, '$.signatureIdentity.domain')) =
+                                             JSON_UNQUOTE(JSON_EXTRACT(review_event.raw_payload, '$.signatureIdentityDomain'))
+                                        AND JSON_UNQUOTE(JSON_EXTRACT(original_signature.canonical_content_json, '$.signatureIdentity.signerId')) = CAST(review_event.actual_employee_id AS CHAR)
+                                        AND JSON_UNQUOTE(JSON_EXTRACT(original_signature.canonical_content_json, '$.signatureIdentity.tenantId')) = CAST(review_event.tenant_id AS CHAR)
+                                  )
+                                  AND EXISTS (
+                                      SELECT 1 FROM system_electronic_signature correction_signature
+                                      WHERE correction_signature.id = correction.revision_signature_id
+                                        AND correction_signature.tenant_id = correction.tenant_id
+                                        AND correction_signature.deleted = 0
+                                        AND correction_signature.module_code = 'MES'
+                                        AND correction_signature.action_code = 'FIELD_CHANGE'
+                                        AND correction_signature.subject_type = 'MES_BATCH_RECORD'
+                                        AND correction_signature.verification_status = 'VALID'
+                                        AND correction_signature.actor_id = correction.modified_by_user_id
+                                        AND correction_signature.signed_at <![CDATA[>=]]> ranked_review.reviewed_at
+                                  )
+                                  AND 1 = (
+                                      SELECT COUNT(*) FROM mes_active_order_handoff_task correction_task
+                                      WHERE correction_task.tenant_id = correction.tenant_id
+                                        AND correction_task.deleted = 0
+                                        AND correction_task.task_type = 'PRODUCTION_REVIEW'
+                                        AND correction_task.source_type = 'PROCESS_POOL_EVENT_SIGNED_REVISION'
+                                        AND correction_task.source_id = review_event.id
+                                        AND correction_task.round_id = correction.id
+                                        AND correction_task.status = 'TODO'
+                                        AND correction_task.initiated_by = correction.modified_by_user_id
+                                        AND correction_task.work_order_id = review_event.work_order_id
+                                        AND correction_task.route_process_id = review_event.route_process_id
+                                        AND JSON_TYPE(JSON_EXTRACT(review_event.raw_payload, '$.activeOrderId')) = 'INTEGER'
+                                        AND JSON_UNQUOTE(JSON_EXTRACT(review_event.raw_payload, '$.activeOrderId')) = CAST(correction_task.active_order_id AS CHAR)
+                                        AND JSON_VALID(correction_task.responsibility_snapshot_json)
+                                        AND ((JSON_UNQUOTE(JSON_EXTRACT(review_event.raw_payload, '$.signatureIdentityDomain')) = 'SYSTEM_USER'
+                                              AND correction.modified_by_user_id = review_event.actual_employee_id
+                                              AND JSON_UNQUOTE(JSON_EXTRACT(correction_task.responsibility_snapshot_json, '$.correctionOrigin')) = 'OWN_RETURN_CORRECTION')
+                                           OR (JSON_UNQUOTE(JSON_EXTRACT(review_event.raw_payload, '$.signatureIdentityDomain')) = 'MES_EMPLOYEE_PROFILE'
+                                              AND correction.modified_by_user_id = ranked_review.leader_user_id
+                                              AND JSON_UNQUOTE(JSON_EXTRACT(correction_task.responsibility_snapshot_json, '$.correctionOrigin')) = 'LEADER_PROFILE_CORRECTION'))
+                                        AND CAST(correction_task.candidate_user_snapshot AS BINARY) = CAST(CAST(ranked_review.leader_user_id AS CHAR) AS BINARY)
+                                  )
+                              ))
+                        ) THEN 'PENDING' ELSE ranked_review.review_status END AS review_status,
+                   ranked_review.review_remark,
+                   ranked_review.reviewed_at
             FROM (
-                SELECT review_log.tenant_id,
+                SELECT review_log.id,
+                       review_log.tenant_id,
                        review_log.event_id,
                        review_log.leader_user_id,
+                       review_log.leader_type,
                        review_log.review_status,
                        review_log.review_remark,
                        review_log.reviewed_at,
@@ -269,8 +451,18 @@
                        ) AS review_rank
                 FROM mes_pro_process_pool_submission_review review_log
                 WHERE review_log.deleted = 0
+                <include refid="${reviewScope}"/>
             ) ranked_review
+            LEFT JOIN mes_pro_process_pool_event review_event
+              ON review_event.id = ranked_review.event_id
+             AND review_event.tenant_id = ranked_review.tenant_id
+             AND review_event.deleted = 0
             WHERE ranked_review.review_rank = 1
+    </sql>
+
+    <sql id="LatestSubmissionReviewJoin">
+        LEFT JOIN (
+            <include refid="LatestSubmissionReviewRows"/>
         ) latest_submission_review
           ON latest_submission_review.event_id = pool_event.id
          AND latest_submission_review.tenant_id = pool_event.tenant_id
@@ -284,7 +476,20 @@
     </sql>
 
     <select id="selectTimelineCount" resultType="java.lang.Long">
-        SELECT COUNT(1)
+        SELECT
+        <choose>
+            <when test="reqVO.eventType == 'PQC_INSPECTION'">
+                COUNT(DISTINCT CASE
+                    WHEN JSON_VALID(pool_event.raw_payload)
+                     AND NULLIF(JSON_UNQUOTE(JSON_EXTRACT(pool_event.raw_payload, '$.pqcSubmissionGroupId')), '') IS NOT NULL
+                        THEN JSON_UNQUOTE(JSON_EXTRACT(pool_event.raw_payload, '$.pqcSubmissionGroupId'))
+                    ELSE CONCAT('EVENT:', pool_event.id)
+                END)
+            </when>
+            <otherwise>
+                COUNT(1)
+            </otherwise>
+        </choose>
         FROM mes_pro_process_pool_event pool_event
         LEFT JOIN mes_pro_work_order work_order
           ON work_order.id = pool_event.work_order_id
@@ -303,7 +508,7 @@
              AND pool_event.feedback_source_type = 'MES_PQC_INSPECTION_TASK'
              AND pqc_task.id = pool_event.pqc_task_id
         </if>
-        <if test="reqVO.submissionReviewStatus != null or reqVO.pqcFormView != null or reqVO.allocationView == 'WORKBENCH' or reqVO.allocationView == 'HISTORY'">
+        <if test="reqVO.submissionReviewStatus != null or reqVO.pqcFormView != null or reqVO.allocationView == 'WORKBENCH'">
             <include refid="LatestSubmissionReviewJoin"/>
         </if>
         WHERE <include refid="TimelineFilters"/>
@@ -311,8 +516,38 @@
 
     <select id="selectTimelinePage" resultType="cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.ProcessPoolTimelineEventReadDO">
         <bind name="offset" value="(reqVO.pageNo - 1) * reqVO.pageSize"/>
+        <if test="reqVO.eventType == 'PRODUCTION_SUBMIT'">
+            WITH production_page AS (
+                SELECT pool_event.id, pool_event.tenant_id
+                FROM mes_pro_process_pool_event pool_event
+                LEFT JOIN mes_pro_work_order work_order
+                  ON work_order.id = pool_event.work_order_id
+                 AND work_order.tenant_id = pool_event.tenant_id AND work_order.deleted = 0
+                <if test="reqVO.productKeyword != null and reqVO.productKeyword != ''">
+                    LEFT JOIN mes_md_item product_item
+                      ON product_item.id = work_order.product_id
+                     AND product_item.tenant_id = pool_event.tenant_id AND product_item.deleted = 0
+                </if>
+                <if test="reqVO.inspectionType != null or reqVO.roundNo != null or reqVO.pqcFormView != null">
+                    LEFT JOIN mes_pqc_inspection_task pqc_task
+                      ON pqc_task.id = pool_event.pqc_task_id
+                     AND pqc_task.tenant_id = pool_event.tenant_id AND pqc_task.deleted = 0
+                     AND pool_event.feedback_source_type = 'MES_PQC_INSPECTION_TASK'
+                </if>
+                <if test="reqVO.submissionReviewStatus != null or reqVO.allocationView == 'WORKBENCH'">
+                    <include refid="LatestSubmissionReviewJoin"/>
+                </if>
+                WHERE <include refid="TimelineFilters"/>
+                ORDER BY pool_event.server_submit_time DESC, pool_event.id DESC
+                LIMIT #{offset}, #{reqVO.pageSize}
+            )
+        </if>
         SELECT <include refid="TimelineColumns"/>
         FROM mes_pro_process_pool_event pool_event
+        <if test="reqVO.eventType == 'PRODUCTION_SUBMIT'">
+            INNER JOIN production_page page_head
+              ON page_head.id = pool_event.id AND page_head.tenant_id = pool_event.tenant_id
+        </if>
         LEFT JOIN mes_pro_work_order work_order
           ON work_order.id = pool_event.work_order_id
          AND work_order.tenant_id = pool_event.tenant_id
@@ -342,34 +577,61 @@
                    COALESCE(SUM(review_copy_field_stat.field_count), 0) AS field_count
             FROM mes_pro_process_pool_review_copy review_copy
             LEFT JOIN (
-                SELECT tenant_id, review_copy_id, COUNT(1) AS field_count
-                FROM mes_pro_process_pool_review_copy_field
-                WHERE deleted = 0
-                GROUP BY tenant_id, review_copy_id
+                SELECT copy_field.tenant_id, copy_field.review_copy_id, COUNT(1) AS field_count
+                FROM mes_pro_process_pool_review_copy_field copy_field
+                WHERE copy_field.deleted = 0
+                <if test="reqVO.eventType == 'PRODUCTION_SUBMIT'">
+                    AND (copy_field.tenant_id, copy_field.review_copy_id) IN (
+                        SELECT scoped_copy.tenant_id, scoped_copy.id FROM mes_pro_process_pool_review_copy scoped_copy
+                        WHERE scoped_copy.deleted = 0 AND (scoped_copy.tenant_id, scoped_copy.event_id) IN (SELECT page_scope.tenant_id, page_scope.id FROM production_page page_scope)
+                    )
+                </if>
+                GROUP BY copy_field.tenant_id, copy_field.review_copy_id
             ) review_copy_field_stat
               ON review_copy_field_stat.review_copy_id = review_copy.id
              AND review_copy_field_stat.tenant_id = review_copy.tenant_id
             WHERE review_copy.deleted = 0
+            <if test="reqVO.eventType == 'PRODUCTION_SUBMIT'">
+                AND (review_copy.tenant_id, review_copy.event_id) IN (SELECT page_scope.tenant_id, page_scope.id FROM production_page page_scope)
+            </if>
             GROUP BY review_copy.tenant_id, review_copy.event_id
         ) review_copy_summary
           ON review_copy_summary.event_id = pool_event.id
          AND review_copy_summary.tenant_id = pool_event.tenant_id
-        <include refid="LatestSubmissionReviewJoin"/>
+        <choose>
+            <when test="reqVO.eventType == 'PRODUCTION_SUBMIT'">
+                LEFT JOIN (
+                    <include refid="ScopedSubmissionReviewRows">
+                        <property name="reviewScope" value="SubmissionReviewPageScope"/>
+                    </include>
+                ) latest_submission_review
+                  ON latest_submission_review.event_id = pool_event.id
+                 AND latest_submission_review.tenant_id = pool_event.tenant_id
+            </when>
+            <otherwise><include refid="LatestSubmissionReviewJoin"/></otherwise>
+        </choose>
         <include refid="SubmissionReviewLeaderJoin"/>
         LEFT JOIN (
-            SELECT tenant_id,
-                   event_id,
+            SELECT revision.tenant_id,
+                   revision.event_id,
                    CONCAT('原始记录已修改 ', COUNT(1), ' 次') AS summary
-            FROM mes_pro_process_pool_event_revision
-            WHERE deleted = 0
-              AND revision_status = 'EFFECTIVE'
-            GROUP BY tenant_id, event_id
+            FROM mes_pro_process_pool_event_revision revision
+            WHERE revision.deleted = 0
+              AND revision.revision_status = 'EFFECTIVE'
+            <if test="reqVO.eventType == 'PRODUCTION_SUBMIT'">
+                AND (revision.tenant_id, revision.event_id) IN (SELECT page_scope.tenant_id, page_scope.id FROM production_page page_scope)
+            </if>
+            GROUP BY revision.tenant_id, revision.event_id
         ) revision_summary
           ON revision_summary.event_id = pool_event.id
          AND revision_summary.tenant_id = pool_event.tenant_id
-        WHERE <include refid="TimelineFilters"/>
+        <if test="reqVO.eventType != 'PRODUCTION_SUBMIT'">
+            WHERE <include refid="TimelineFilters"/>
+        </if>
         ORDER BY pool_event.server_submit_time DESC, pool_event.id DESC
-        LIMIT #{offset}, #{reqVO.pageSize}
+        <if test="reqVO.eventType != 'PRODUCTION_SUBMIT'">
+            LIMIT #{offset}, #{reqVO.pageSize}
+        </if>
     </select>
 
     <select id="selectTimelineDetailById" resultType="cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.ProcessPoolTimelineEventReadDO">
@@ -433,6 +695,23 @@
           AND pool_event.id = #{id}
     </select>
 
+    <select id="selectPqcSubmissionGroupPayloadsByGroupIds"
+            resultType="cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.ProcessPoolTimelineEventReadDO">
+        SELECT pool_event.id AS id,
+               <include refid="DisplayedReviewContextColumns"/>
+               JSON_UNQUOTE(JSON_EXTRACT(pool_event.raw_payload, '$.pqcSubmissionGroupId')) AS pqcSubmissionGroupId,
+               CAST(pool_event.raw_payload AS CHAR) AS originalPayloadJson
+        FROM mes_pro_process_pool_event pool_event
+        WHERE pool_event.deleted = 0
+          AND pool_event.event_type = 'PQC_INSPECTION'
+          AND JSON_VALID(pool_event.raw_payload)
+          AND JSON_UNQUOTE(JSON_EXTRACT(pool_event.raw_payload, '$.pqcSubmissionGroupId')) IN
+        <foreach collection="groupIds" item="groupId" open="(" separator="," close=")">
+            #{groupId}
+        </foreach>
+        ORDER BY pool_event.id ASC
+    </select>
+
     <select id="selectReportAllocationsByEventIds"
             resultType="cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.ProcessPoolTimelineReportAllocationReadDO">
         SELECT allocation.event_id AS eventId,
@@ -487,6 +766,14 @@
             FROM mes_pro_process_pool_report_allocation
             WHERE deleted = 0
               AND lifecycle_status = 'CURRENT'
+              AND (tenant_id, active_order_id, route_process_id, process_id) IN (
+                  SELECT tenant_id, active_order_id, route_process_id, process_id
+                  FROM mes_pro_process_pool_report_allocation
+                  WHERE deleted = 0 AND lifecycle_status = 'CURRENT' AND event_id IN
+                  <foreach collection="eventIds" item="eventId" open="(" separator="," close=")">
+                      #{eventId}
+                  </foreach>
+              )
             GROUP BY tenant_id, active_order_id, route_process_id, process_id
         ) order_process_allocation
           ON order_process_allocation.active_order_id = allocation.active_order_id

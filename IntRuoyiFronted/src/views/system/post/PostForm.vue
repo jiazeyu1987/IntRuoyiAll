@@ -61,6 +61,7 @@ const formData = ref({
 const formRules = reactive({
   name: [{ required: true, message: '组织角色名称不能为空', trigger: 'blur' }],
   code: [{ required: true, message: '组织角色编码不能为空', trigger: 'change' }],
+  sort: [{ required: true, message: '组织角色顺序不能为空', trigger: 'blur' }],
   status: [{ required: true, message: '组织角色状态不能为空', trigger: 'change' }],
   remark: [{ required: false, message: '组织角色备注不能为空', trigger: 'blur' }]
 })
@@ -116,7 +117,7 @@ const resetForm = () => {
     id: undefined,
     name: '',
     code: '',
-    sort: undefined,
+    sort: 0,
     status: CommonStatusEnum.ENABLE,
     remark: ''
   } as any

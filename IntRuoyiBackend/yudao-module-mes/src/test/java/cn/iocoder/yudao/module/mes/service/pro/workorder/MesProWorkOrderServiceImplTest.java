@@ -89,6 +89,11 @@ class MesProWorkOrderServiceImplTest {
     @Mock
     private MesReportAllocationOrderChangeService reportAllocationOrderChangeService;
 
+    @Mock private cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper activeOrderMapper;
+    @Mock private cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffService handoffService;
+    @Mock private cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesReportAllocationReleaseStateService releaseStateService;
+    @Mock private cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService gxpAuditService;
+
     @BeforeEach
     void setUp() {
         TenantContextHolder.setTenantId(1L);
@@ -97,6 +102,28 @@ class MesProWorkOrderServiceImplTest {
     @AfterEach
     void tearDown() {
         TenantContextHolder.clear();
+    }
+
+    @Test
+    void validateWorkOrderConfirmedForUpdate_shouldReadCurrentStateWithLock() {
+        MesProWorkOrderDO current = new MesProWorkOrderDO().setId(901L)
+                .setStatus(MesProWorkOrderStatusEnum.CONFIRMED.getStatus());
+        when(workOrderMapper.selectByIdForUpdate(901L)).thenReturn(current);
+        assertEquals(current, workOrderService.validateWorkOrderConfirmedForUpdate(901L));
+        verify(workOrderMapper).selectByIdForUpdate(901L);
+        verify(workOrderMapper, never()).selectById(901L);
+    }
+
+    @Test
+    void validateWorkOrderConfirmedForUpdate_shouldRejectDeletedWorkOrder() {
+        assertThrows(RuntimeException.class, () -> workOrderService.validateWorkOrderConfirmedForUpdate(901L));
+    }
+
+    @Test
+    void validateWorkOrderConfirmedForUpdate_shouldRejectChangedStatus() {
+        when(workOrderMapper.selectByIdForUpdate(901L)).thenReturn(new MesProWorkOrderDO().setId(901L)
+                .setStatus(MesProWorkOrderStatusEnum.PREPARE.getStatus()));
+        assertThrows(RuntimeException.class, () -> workOrderService.validateWorkOrderConfirmedForUpdate(901L));
     }
 
     @Test
@@ -253,7 +280,8 @@ class MesProWorkOrderServiceImplTest {
     void cancelWorkOrder_shouldReturnUnreleasedAllocationsBeforeStatusChange() {
         MesProWorkOrderDO workOrder = MesProWorkOrderDO.builder().id(202L)
                 .status(MesProWorkOrderStatusEnum.CONFIRMED.getStatus()).build();
-        when(workOrderMapper.selectById(202L)).thenReturn(workOrder);
+        when(workOrderMapper.selectByIdForUpdate(202L)).thenReturn(workOrder);
+        when(workOrderMapper.updateById(any(MesProWorkOrderDO.class))).thenReturn(1);
 
         workOrderService.cancelWorkOrder(202L);
 
@@ -274,7 +302,7 @@ class MesProWorkOrderServiceImplTest {
         request.setCode("WO-203");
         request.setProductId(20L);
         request.setQuantity(new BigDecimal("60"));
-        when(workOrderMapper.selectById(203L)).thenReturn(old);
+        when(workOrderMapper.selectByIdForUpdate(203L)).thenReturn(old);
         when(workOrderMapper.selectByCode("WO-203")).thenReturn(old);
 
         workOrderService.updateWorkOrder(request);

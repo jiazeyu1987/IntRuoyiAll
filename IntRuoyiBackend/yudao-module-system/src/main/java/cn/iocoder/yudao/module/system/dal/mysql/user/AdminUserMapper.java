@@ -16,6 +16,10 @@ import java.util.List;
 
 @Mapper
 public interface AdminUserMapper extends BaseMapperX<AdminUserDO> {
+    @Select("SELECT id, tenant_id, status, username, nickname FROM system_users "
+            + "WHERE tenant_id=#{tenantId} AND id=#{userId} AND deleted=0")
+    AdminUserDO selectGxpAuditActor(@Param("tenantId") Long tenantId, @Param("userId") Long userId);
+
     @Select("SELECT * FROM system_users WHERE tenant_id=#{tenantId} AND id=#{userId} AND deleted=0")
     AdminUserDO selectDirectSupervisorUser(@Param("tenantId") Long tenantId, @Param("userId") Long userId);
 
@@ -31,6 +35,36 @@ public interface AdminUserMapper extends BaseMapperX<AdminUserDO> {
     int updateDirectSupervisorRelation(@Param("tenantId") Long tenantId, @Param("userId") Long userId,
         @Param("supervisorId") Long supervisorId, @Param("expectedVersion") Long expectedVersion,
         @Param("nextVersion") Long nextVersion, @Param("actorId") Long actorId);
+
+    default AdminUserDO selectSessionSubject(Long tenantId, Long userId) {
+        return selectOne(new LambdaQueryWrapperX<AdminUserDO>()
+                .eq(AdminUserDO::getTenantId, tenantId).eq(AdminUserDO::getId, userId)
+                .eq(AdminUserDO::getDeleted, false));
+    }
+    @Select("SELECT * FROM system_users WHERE tenant_id = #{tenantId} ORDER BY id FOR UPDATE")
+    List<AdminUserDO> selectAllTenantIdentitiesForUpdate(@Param("tenantId") Long tenantId);
+
+    @Update("UPDATE system_users SET login_failure_count=0, login_failure_window_start_time=NULL, login_locked=0, login_locked_time=NULL WHERE tenant_id=#{tenantId} AND id=#{userId} AND deleted=0")
+    int resetSignatureFailures(@Param("tenantId") Long tenantId, @Param("userId") Long userId);
+
+    @Update("UPDATE system_users SET login_failure_count=#{count}, login_failure_window_start_time=#{windowStart}, login_locked=#{locked}, login_locked_time=#{lockedAt} WHERE tenant_id=#{tenantId} AND id=#{userId} AND deleted=0")
+    int recordSignatureFailure(@Param("tenantId") Long tenantId, @Param("userId") Long userId,
+            @Param("count") int count, @Param("windowStart") LocalDateTime windowStart,
+            @Param("locked") int locked, @Param("lockedAt") LocalDateTime lockedAt);
+
+    default AdminUserDO selectPermissionSubjectForUpdate(Long tenantId, Long userId) {
+        return selectOne(new LambdaQueryWrapperX<AdminUserDO>()
+                .eq(AdminUserDO::getTenantId, tenantId).eq(AdminUserDO::getId, userId)
+                .eq(AdminUserDO::getDeleted, false).last("FOR UPDATE"));
+    }
+
+    @Select("""
+            SELECT post_ids
+            FROM system_users
+            WHERE id = #{userId} AND tenant_id = #{tenantId} AND deleted = FALSE
+            FOR UPDATE
+            """)
+    String selectPostIdsForUpdate(@Param("tenantId") Long tenantId, @Param("userId") Long userId);
 
     default AdminUserDO selectByUsername(String username) {
         return selectOne(AdminUserDO::getUsername, username);

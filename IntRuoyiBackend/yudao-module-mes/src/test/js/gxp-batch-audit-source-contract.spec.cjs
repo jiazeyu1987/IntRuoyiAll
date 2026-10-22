@@ -1,0 +1,15 @@
+const assert = require('node:assert/strict')
+const fs = require('node:fs')
+const path = require('node:path')
+const source = fs.readFileSync(path.join(__dirname, '../../main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/batchrecord/MesProEdhrBatchExecutionController.java'), 'utf8')
+for (const name of ['auditPage', 'auditGet']) {
+  const start = source.indexOf(` ${name}(`)
+  assert.ok(start >= 0)
+  const end = source.indexOf('\n    @', start)
+  const method = source.slice(start, end)
+  assert.match(method, /@RequestParam\(value = "batchExecutionId", required = false\) Long batchExecutionId/)
+  assert.match(method, /@RequestParam\(value = "activeOrderId", required = false\) Long activeOrderId/)
+  assert.match(method, /activeOrderId != null\s*\? batchActiveOrderDetailService\.getDetailByActiveOrderId\(activeOrderId\)\s*: batchActiveOrderDetailService\.getDetail\(batchExecutionId\)/)
+  assert.match(method, /"ACTIVE_ORDER", detail\.getActiveOrderId\(\)/)
+}
+console.log('PASS batch audit source selection contract (static, not E2E)')

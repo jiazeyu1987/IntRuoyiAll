@@ -12,8 +12,9 @@ public interface MesTeamLeaderActiveOrderCompletionBackfillPort {
      * Reads the current formal source snapshot without materializing any Tx-A document.
      * Replay handling uses this read to prevent returning a stale immutable receipt.
      */
-    String readSourceSnapshotHash(Long leaderUserId, MesProcessPoolActiveOrderDO activeOrder,
-                                  MesTeamLeaderActiveOrderCompletionCommand command);
+    boolean matchesReceiptSources(Long leaderUserId, MesProcessPoolActiveOrderDO activeOrder,
+                                  MesTeamLeaderActiveOrderCompletionCommand command,
+                                  cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderCompletionReceiptDO receipt);
 
     MesTeamLeaderActiveOrderCompletionBackfillDraft prepare(
             Long leaderUserId, MesProcessPoolActiveOrderDO activeOrder,

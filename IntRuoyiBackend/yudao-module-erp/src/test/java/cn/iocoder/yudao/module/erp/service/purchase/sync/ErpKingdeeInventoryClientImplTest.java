@@ -158,4 +158,32 @@ class ErpKingdeeInventoryClientImplTest {
         return properties;
     }
 
+
+    @Test void completeInventoryGroupIncludesUnchangedAndZeroQuantityLots() {
+        var rest = new RestTemplate();
+        var server = MockRestServiceServer.bindTo(rest).build();
+        var properties = buildProperties("https://k3.example.com");
+        server.expect(requestTo("https://k3.example.com/K3Cloud/Kingdee.BOS.WebApi.ServicesStub.AuthService.ValidateUser.common.kdsvc"))
+                .andRespond(withSuccess("{\"LoginResultType\":1}", MediaType.APPLICATION_JSON)
+                        .header(HttpHeaders.SET_COOKIE, "session=test"));
+        String url = "https://k3.example.com/K3Cloud/Kingdee.BOS.WebApi.ServicesStub.DynamicFormService.ExecuteBillQuery.common.kdsvc";
+        server.expect(requestTo(url))
+                .andExpect(content().string(containsString("FMATERIALID.FNumber+%3D+%27MAT-001%27")))
+                .andExpect(content().string(containsString("FStockOrgId.FNumber+%3D+%27892%27")))
+                .andExpect(content().string(containsString("FStockId.FNumber+%3D+%27CK001%27")))
+                .andExpect(content().string(org.hamcrest.Matchers.not(containsString("FUpdateTime"))))
+                .andExpect(content().string(org.hamcrest.Matchers.not(containsString("FBaseQty+%3E+0"))))
+                .andRespond(withSuccess("""
+                    [["MAT-001","物料",null,2,"CK001","仓库","LOT1","个","892","组织"],
+                     ["MAT-001","物料",null,8,"CK001","仓库","LOT2","个","892","组织"],
+                     ["MAT-001","物料",null,0,"CK001","仓库","LOT3","个","892","组织"]]
+                    """, MediaType.APPLICATION_JSON));
+        server.expect(requestTo(url)).andExpect(content().string(containsString("%22StartRow%22%3A3")))
+                .andRespond(withSuccess("[]", MediaType.APPLICATION_JSON));
+        var rows = new ErpKingdeeInventoryClientImpl(rest).fetchInventoryGroup(properties,"MAT-001","892","CK001");
+        assertEquals(3, rows.size());
+        assertEquals(0,new java.math.BigDecimal("10").compareTo(rows.stream()
+                .map(ErpKingdeeInventoryRow::getQuantity).reduce(java.math.BigDecimal.ZERO,java.math.BigDecimal::add)));
+        server.verify();
+    }
 }

@@ -53,6 +53,19 @@ class RuntimeControlCommandExecutorImplTest {
     }
 
     @Test
+    void executeForOutputShouldUseExplicitWorkflowWorkingDirectoryWithoutLegacyRepoRoot() throws Exception {
+        RuntimeControlProperties properties = propertiesWithRepoRoot(tempDir.resolve("missing-old-root").toString());
+        RuntimeControlCommandExecutorImpl executor = executorWithProperties(properties);
+        Path script = writePowerShellScript("Write-Output ((Get-Location).Path)");
+        RuntimeControlCommand command = command(script);
+        command.setWorkingDirectory(tempDir.toString());
+
+        String output = executor.executeForOutput(command, Duration.ofSeconds(5)).trim();
+
+        assertEquals(tempDir.toAbsolutePath().normalize().toString(), output);
+    }
+
+    @Test
     void queryStatusShouldUseConfiguredStatusCommandTimeout() throws Exception {
         RuntimeControlProperties properties = propertiesWithRepoRoot(tempDir.toString());
         properties.setStatusCommandTimeout(Duration.ofMillis(200));

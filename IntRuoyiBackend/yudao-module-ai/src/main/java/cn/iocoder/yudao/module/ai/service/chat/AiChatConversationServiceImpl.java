@@ -5,6 +5,8 @@ import cn.hutool.core.lang.Assert;
 import cn.hutool.core.util.ObjUtil;
 import cn.hutool.core.util.ObjectUtil;
 import cn.iocoder.yudao.module.ai.enums.model.AiModelTypeEnum;
+import cn.iocoder.yudao.module.ai.enums.model.AiPlatformEnum;
+import cn.iocoder.yudao.framework.common.enums.CommonStatusEnum;
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
 import cn.iocoder.yudao.framework.common.util.object.BeanUtils;
 import cn.iocoder.yudao.module.ai.controller.admin.chat.vo.conversation.AiChatConversationCreateMyReqVO;
@@ -30,6 +32,7 @@ import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionU
 import static cn.iocoder.yudao.framework.common.util.collection.CollectionUtils.convertList;
 import static cn.iocoder.yudao.module.ai.enums.ErrorCodeConstants.CHAT_CONVERSATION_MODEL_ERROR;
 import static cn.iocoder.yudao.module.ai.enums.ErrorCodeConstants.CHAT_CONVERSATION_NOT_EXISTS;
+import static cn.iocoder.yudao.module.ai.enums.ErrorCodeConstants.CODEX_CLI_MODEL_NOT_EXISTS;
 
 /**
  * AI 聊天对话 Service 实现类
@@ -75,6 +78,25 @@ public class AiChatConversationServiceImpl implements AiChatConversationService 
         } else {
             conversation.setTitle(AiChatConversationDO.TITLE_DEFAULT);
         }
+        chatConversationMapper.insert(conversation);
+        return conversation.getId();
+    }
+
+    @Override
+    public Long createCodexChatConversationMy(Long userId) {
+        List<AiModelDO> models = modalService.getModelListByStatusAndType(
+                CommonStatusEnum.ENABLE.getStatus(), AiModelTypeEnum.CHAT.getType(),
+                AiPlatformEnum.CODEX_CLI.getPlatform());
+        AiModelDO model = CollUtil.getFirst(models);
+        if (model == null) {
+            throw exception(CODEX_CLI_MODEL_NOT_EXISTS);
+        }
+        validateChatModel(model);
+
+        AiChatConversationDO conversation = new AiChatConversationDO().setUserId(userId).setPinned(false)
+                .setTitle("Codex Web").setModelId(model.getId()).setModel(model.getModel())
+                .setTemperature(model.getTemperature()).setMaxTokens(model.getMaxTokens())
+                .setMaxContexts(model.getMaxContexts());
         chatConversationMapper.insert(conversation);
         return conversation.getId();
     }

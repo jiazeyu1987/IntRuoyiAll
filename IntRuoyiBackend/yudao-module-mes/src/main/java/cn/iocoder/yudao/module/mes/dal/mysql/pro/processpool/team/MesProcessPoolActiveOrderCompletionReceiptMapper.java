@@ -9,12 +9,35 @@ import org.apache.ibatis.annotations.Mapper;
 public interface MesProcessPoolActiveOrderCompletionReceiptMapper
         extends BaseMapperX<MesProcessPoolActiveOrderCompletionReceiptDO> {
 
+    default MesProcessPoolActiveOrderCompletionReceiptDO selectByActiveOrderId(Long activeOrderId) {
+        return selectOne(new LambdaQueryWrapperX<MesProcessPoolActiveOrderCompletionReceiptDO>()
+                .eq(MesProcessPoolActiveOrderCompletionReceiptDO::getActiveOrderId, activeOrderId));
+    }
+
+    default MesProcessPoolActiveOrderCompletionReceiptDO selectFirstByWorkOrderIdForUpdate(Long workOrderId) {
+        return selectOne(new LambdaQueryWrapperX<MesProcessPoolActiveOrderCompletionReceiptDO>()
+                .eq(MesProcessPoolActiveOrderCompletionReceiptDO::getWorkOrderId, workOrderId)
+                .orderByAsc(MesProcessPoolActiveOrderCompletionReceiptDO::getId)
+                .last("LIMIT 1 FOR UPDATE"));
+    }
+
     default MesProcessPoolActiveOrderCompletionReceiptDO selectByActiveOrderIdForUpdate(Long activeOrderId) {
         if (activeOrderId == null) {
             return null;
         }
         return selectOne(new LambdaQueryWrapperX<MesProcessPoolActiveOrderCompletionReceiptDO>()
                 .eq(MesProcessPoolActiveOrderCompletionReceiptDO::getActiveOrderId, activeOrderId)
+                .last("FOR UPDATE"));
+    }
+
+    default MesProcessPoolActiveOrderCompletionReceiptDO selectByActiveOrderIdAndTenantIdForUpdate(
+            Long activeOrderId, Long tenantId) {
+        if (activeOrderId == null || tenantId == null) {
+            return null;
+        }
+        return selectOne(new LambdaQueryWrapperX<MesProcessPoolActiveOrderCompletionReceiptDO>()
+                .eq(MesProcessPoolActiveOrderCompletionReceiptDO::getActiveOrderId, activeOrderId)
+                .eq(MesProcessPoolActiveOrderCompletionReceiptDO::getTenantId, tenantId)
                 .last("FOR UPDATE"));
     }
 

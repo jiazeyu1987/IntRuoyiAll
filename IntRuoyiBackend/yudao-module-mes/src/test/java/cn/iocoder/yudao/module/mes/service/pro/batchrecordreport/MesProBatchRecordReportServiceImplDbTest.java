@@ -136,6 +136,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @Import({MesProBatchRecordReportServiceImpl.class, MesProBatchRecordRouteGenerationServiceImpl.class,
+        cn.iocoder.yudao.module.mes.service.pro.process.MesProProcessCreationService.class,
         MesProBatchRecordVersionBusinessApprovalEffectExecutor.class,
         MesProRouteOwnerPermissionServiceImpl.class,
         MesProBatchRecordFormProfileRegistry.class, MesProBatchRecordLossReportNormalizer.class,
@@ -206,6 +207,10 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
 
     @BeforeEach
     void setUp() {
+        TenantContextHolder.setTenantId(1L);
+        AtomicInteger gxCodeCounter = new AtomicInteger();
+        when(autoCodeRecordService.generateAutoCode("PRO_PROCESS_GX_CODE", null))
+                .thenAnswer(invocation -> "GX-" + String.format("%04d", gxCodeCounter.incrementAndGet()));
         jdbcTemplate().execute("DELETE FROM mes_pro_route_dcc_project_binding");
         jdbcTemplate().execute("DELETE FROM mes_pro_route_process_flow_boundary_edge");
         jdbcTemplate().execute("DELETE FROM mes_pro_route_process_flow_edge");

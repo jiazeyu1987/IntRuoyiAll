@@ -15,6 +15,9 @@ import java.util.List;
 
 @Mapper
 public interface MesProEdhrWorkTaskMapper extends BaseMapperX<MesProEdhrWorkTaskDO> {
+    @org.apache.ibatis.annotations.Select("SELECT * FROM mes_pro_edhr_work_task WHERE id = #{id} AND tenant_id = #{tenantId} AND deleted = 0 FOR UPDATE")
+    MesProEdhrWorkTaskDO selectByIdAndTenantForUpdate(@org.apache.ibatis.annotations.Param("id") Long id,
+            @org.apache.ibatis.annotations.Param("tenantId") Long tenantId);
 
     List<String> APPROVAL_CENTER_TASK_TYPES = List.of("REVIEW", "APPROVE", "RELEASE_APPROVE");
     List<String> PRODUCTION_RELEASE_REPORT_NODE_TYPES = List.of(
@@ -25,6 +28,60 @@ public interface MesProEdhrWorkTaskMapper extends BaseMapperX<MesProEdhrWorkTask
     String TASK_TYPE_ARCHIVE = "ARCHIVE";
     String TERMINAL_BATCH_STATUS_SQL = "30, 40, 50, 60";
     String ARCHIVE_TODO_EXCLUDED_BATCH_STATUS_SQL = "40, 50, 60";
+
+    /** One work-task identity for A (assigned approvals) OR B (candidate signatures). */
+    default LambdaQueryWrapperX<MesProEdhrWorkTaskDO> approvalCenterQuery(
+            MesProEdhrWorkTaskPageReqVO req, Long actor, Long tenant, boolean done, String status) {
+        LambdaQueryWrapperX<MesProEdhrWorkTaskDO> query = baseMyFilterWrapper(req);
+        query.apply("tenant_id = {0}", tenant)
+                .eq(MesProEdhrWorkTaskDO::getDeleted, false);
+        if (done) {
+            query.in(MesProEdhrWorkTaskDO::getTaskType, "REVIEW", "APPROVE", "RELEASE_APPROVE", "PQC_PRODUCTION_RELEASE")
+                    .eq(MesProEdhrWorkTaskDO::getStatus, MesProEdhrWorkTaskStatus.DONE);
+            return applyDoneTaskVisibility(query, actor);
+        }
+        query.eq(MesProEdhrWorkTaskDO::getStatus, status).and(union -> union
+                .and(assigned -> {
+                    assigned.in(MesProEdhrWorkTaskDO::getTaskType, APPROVAL_CENTER_TASK_TYPES);
+                    if (actor != null) assigned.eq(MesProEdhrWorkTaskDO::getAssigneeUserId, actor);
+                    assigned.apply("(batch_execution_id IS NULL OR batch_execution_id NOT IN"
+                            + " (SELECT id FROM mes_pro_edhr_batch_execution WHERE deleted = 0"
+                            + " AND tenant_id = {0} AND status IN (30,40,50,60)))", tenant);
+                })
+                .or(candidate -> {
+                    if (actor != null) candidate.apply("CONCAT(',', candidate_user_snapshot, ',') LIKE {0}",
+                            "%," + actor + ",%");
+                    // Preserve ARCHIVE's existing closed-batch exception within B only.
+                    candidate.apply("(batch_execution_id IS NULL OR batch_execution_id NOT IN"
+                            + " (SELECT id FROM mes_pro_edhr_batch_execution WHERE deleted = 0"
+                            + " AND tenant_id = {0} AND status IN (30,40,50,60))"
+                            + " OR (task_type = 'ARCHIVE' AND batch_execution_id NOT IN"
+                            + " (SELECT id FROM mes_pro_edhr_batch_execution WHERE deleted = 0"
+                            + " AND tenant_id = {0} AND status IN (40,50,60))))", tenant);
+                    if (req.getNodeTypes() != null && !req.getNodeTypes().isEmpty()) {
+                        if (!PRODUCTION_RELEASE_REPORT_NODE_TYPES.containsAll(req.getNodeTypes())) {
+                            candidate.apply("1 = 0");
+                        } else {
+                            String nodes = req.getNodeTypes().stream().distinct().map(node -> "'" + node + "'")
+                                    .collect(java.util.stream.Collectors.joining(","));
+                            candidate.apply("batch_task_id IN (SELECT id FROM mes_pro_edhr_batch_execution_task"
+                                    + " WHERE tenant_id = {0} AND deleted = 0 AND node_type IN (" + nodes + "))", tenant);
+                        }
+                    }
+                }));
+        return query;
+    }
+
+    default PageResult<MesProEdhrWorkTaskDO> selectApprovalCenterPrefix(
+            MesProEdhrWorkTaskPageReqVO req, Long actor, Long tenant, boolean done, String status, long limit) {
+        if (limit < 1) throw new IllegalArgumentException("QUERY_WINDOW_RANGE_UNSUPPORTED");
+        long total = selectCount(approvalCenterQuery(req, actor, tenant, done, status));
+        LambdaQueryWrapperX<MesProEdhrWorkTaskDO> query = approvalCenterQuery(req, actor, tenant, done, status);
+        String time = done ? "completed_at" : "create_time";
+        query.last("ORDER BY " + time + " IS NULL ASC, " + time
+                + " DESC, CAST(id AS BINARY) ASC LIMIT " + limit);
+        return new PageResult<>(selectList(query), total);
+    }
     default PageResult<MesProEdhrWorkTaskDO> selectMyPage(MesProEdhrWorkTaskPageReqVO reqVO,
                                                           Long assigneeUserId,
                                                           String status) {
@@ -34,9 +91,18 @@ public interface MesProEdhrWorkTaskMapper extends BaseMapperX<MesProEdhrWorkTask
                 .orderByDesc(MesProEdhrWorkTaskDO::getId));
     }
 
+    default PageResult<MesProEdhrWorkTaskDO> selectMyOpenPage(MesProEdhrWorkTaskPageReqVO reqVO,
+                                                          Long assigneeUserId) {
+        return selectPage(reqVO, applyOpenWorkTaskBatchVisibility(
+                baseMyWrapper(reqVO, assigneeUserId, true), reqVO.getTaskType())
+                .in(MesProEdhrWorkTaskDO::getStatus,
+                        MesProEdhrWorkTaskStatus.TODO, MesProEdhrWorkTaskStatus.OVERDUE)
+                .orderByDesc(MesProEdhrWorkTaskDO::getId));
+    }
+
     default PageResult<MesProEdhrWorkTaskDO> selectDonePage(MesProEdhrWorkTaskPageReqVO reqVO,
                                                             Long assigneeUserId) {
-        return selectPage(reqVO, baseMyWrapper(reqVO, assigneeUserId, false)
+        return selectPage(reqVO, applyDoneTaskVisibility(baseMyFilterWrapper(reqVO), assigneeUserId)
                 .eq(MesProEdhrWorkTaskDO::getStatus, MesProEdhrWorkTaskStatus.DONE)
                 .orderByDesc(MesProEdhrWorkTaskDO::getCompletedAt)
                 .orderByDesc(MesProEdhrWorkTaskDO::getId));
@@ -52,7 +118,9 @@ public interface MesProEdhrWorkTaskMapper extends BaseMapperX<MesProEdhrWorkTask
 
     default PageResult<MesProEdhrWorkTaskDO> selectApprovalCenterDonePage(MesProEdhrWorkTaskPageReqVO reqVO,
                                                                           Long assigneeUserId) {
-        return selectPage(reqVO, baseApprovalCenterWrapper(reqVO, assigneeUserId)
+        LambdaQueryWrapperX<MesProEdhrWorkTaskDO> wrapper = baseMyFilterWrapper(reqVO);
+        wrapper.in(MesProEdhrWorkTaskDO::getTaskType, "REVIEW", "APPROVE", "RELEASE_APPROVE", "PQC_PRODUCTION_RELEASE");
+        return selectPage(reqVO, applyDoneTaskVisibility(wrapper, assigneeUserId)
                 .eq(MesProEdhrWorkTaskDO::getStatus, MesProEdhrWorkTaskStatus.DONE)
                 .orderByDesc(MesProEdhrWorkTaskDO::getCompletedAt)
                 .orderByDesc(MesProEdhrWorkTaskDO::getId));
@@ -61,8 +129,13 @@ public interface MesProEdhrWorkTaskMapper extends BaseMapperX<MesProEdhrWorkTask
     default Long countMy(Long assigneeUserId, String taskType, String status) {
         boolean includeProcessFormCandidates = MesProEdhrWorkTaskStatus.TODO.equals(status)
                 || MesProEdhrWorkTaskStatus.OVERDUE.equals(status);
-        LambdaQueryWrapperX<MesProEdhrWorkTaskDO> wrapper = applyMyTaskVisibility(
-                new LambdaQueryWrapperX<>(), assigneeUserId, includeProcessFormCandidates)
+        LambdaQueryWrapperX<MesProEdhrWorkTaskDO> wrapper = new LambdaQueryWrapperX<>();
+        if (MesProEdhrWorkTaskStatus.DONE.equals(status)) {
+            applyDoneTaskVisibility(wrapper, assigneeUserId);
+        } else {
+            applyMyTaskVisibility(wrapper, assigneeUserId, includeProcessFormCandidates);
+        }
+        wrapper
                 .eqIfPresent(MesProEdhrWorkTaskDO::getTaskType, taskType)
                 .eqIfPresent(MesProEdhrWorkTaskDO::getStatus, status);
         if (MesProEdhrWorkTaskStatus.TODO.equals(status) || MesProEdhrWorkTaskStatus.OVERDUE.equals(status)) {
@@ -98,8 +171,8 @@ public interface MesProEdhrWorkTaskMapper extends BaseMapperX<MesProEdhrWorkTask
                                                        String status) {
         LambdaQueryWrapperX<MesProEdhrWorkTaskDO> wrapper = excludeTerminalBatchWrapper(
                 baseApprovalCenterWrapper(reqVO, assigneeUserId))
-                .eq(MesProEdhrWorkTaskDO::getTaskType, "REVIEW")
                 .eq(MesProEdhrWorkTaskDO::getStatus, status);
+        applyProductionReleaseNodeTypeFilter(wrapper, reqVO.getNodeTypes());
         if (candidateUserId != null) {
             String candidateToken = "," + candidateUserId + ",";
             wrapper.apply("CONCAT(',', candidate_user_snapshot, ',') LIKE {0}", "%" + candidateToken + "%");
@@ -232,6 +305,22 @@ public interface MesProEdhrWorkTaskMapper extends BaseMapperX<MesProEdhrWorkTask
                                 MesProEdhrWorkTaskStatus.OVERDUE));
     }
 
+    /** The application is generated before its batch; approval binds that formal batch atomically. */
+    default int completePqcApprovedTask(Long id, Long batchExecutionId, LocalDateTime completedAt) {
+        if (batchExecutionId == null || batchExecutionId <= 0) {
+            throw new IllegalArgumentException("PQC approval requires a formal batch");
+        }
+        return update(new MesProEdhrWorkTaskDO().setBatchExecutionId(batchExecutionId)
+                        .setStatus(MesProEdhrWorkTaskStatus.DONE).setCompletedAt(completedAt).setReason("APPROVE"),
+                new LambdaUpdateWrapper<MesProEdhrWorkTaskDO>()
+                        .eq(MesProEdhrWorkTaskDO::getId, id)
+                        .eq(MesProEdhrWorkTaskDO::getTaskType, "PQC_PRODUCTION_RELEASE")
+                        .and(w -> w.isNull(MesProEdhrWorkTaskDO::getBatchExecutionId)
+                                .or().eq(MesProEdhrWorkTaskDO::getBatchExecutionId, batchExecutionId))
+                        .in(MesProEdhrWorkTaskDO::getStatus, MesProEdhrWorkTaskStatus.TODO,
+                                MesProEdhrWorkTaskStatus.DOING, MesProEdhrWorkTaskStatus.OVERDUE));
+    }
+
     default int completePqcDecisionTask(Long id, LocalDateTime completedAt, String decision) {
         return update(new MesProEdhrWorkTaskDO()
                         .setStatus(MesProEdhrWorkTaskStatus.DONE)
@@ -310,7 +399,25 @@ public interface MesProEdhrWorkTaskMapper extends BaseMapperX<MesProEdhrWorkTask
     private LambdaQueryWrapperX<MesProEdhrWorkTaskDO> baseMyWrapper(MesProEdhrWorkTaskPageReqVO reqVO,
                                                                     Long assigneeUserId,
                                                                     boolean includeProcessFormCandidates) {
-        return applyMyTaskVisibility(new LambdaQueryWrapperX<>(), assigneeUserId, includeProcessFormCandidates)
+        return applyMyTaskVisibility(baseMyFilterWrapper(reqVO), assigneeUserId, includeProcessFormCandidates);
+    }
+
+    default int completePqcQaClosureTask(Long id, Long applicationId, Long reviewId,
+                                        LocalDateTime at, String closure) {
+        return update(new MesProEdhrWorkTaskDO().setStatus(MesProEdhrWorkTaskStatus.DONE)
+                        .setCompletedAt(at).setReason(closure)
+                        .setReviewSourceType("EDHR_NONCONFORMANCE_REVIEW").setReviewSourceId(reviewId),
+                new LambdaUpdateWrapper<MesProEdhrWorkTaskDO>()
+                        .eq(MesProEdhrWorkTaskDO::getId, id)
+                        .eq(MesProEdhrWorkTaskDO::getTaskType, "PQC_PRODUCTION_RELEASE")
+                        .eq(MesProEdhrWorkTaskDO::getBusinessScopeType, "RELEASE_APPLICATION")
+                        .eq(MesProEdhrWorkTaskDO::getBusinessScopeId, applicationId)
+                        .in(MesProEdhrWorkTaskDO::getStatus, MesProEdhrWorkTaskStatus.TODO,
+                                MesProEdhrWorkTaskStatus.DOING, MesProEdhrWorkTaskStatus.OVERDUE));
+    }
+
+    private LambdaQueryWrapperX<MesProEdhrWorkTaskDO> baseMyFilterWrapper(MesProEdhrWorkTaskPageReqVO reqVO) {
+        return new LambdaQueryWrapperX<MesProEdhrWorkTaskDO>()
                 .eqIfPresent(MesProEdhrWorkTaskDO::getTaskType, reqVO.getTaskType())
                 .eqIfPresent(MesProEdhrWorkTaskDO::getBatchExecutionId, reqVO.getBatchExecutionId())
                 .likeIfPresent(MesProEdhrWorkTaskDO::getWorkOrderCode, reqVO.getWorkOrderCode())
@@ -326,12 +433,7 @@ public interface MesProEdhrWorkTaskMapper extends BaseMapperX<MesProEdhrWorkTask
             wrapper.eq(MesProEdhrWorkTaskDO::getAssigneeUserId, userId);
             return wrapper;
         }
-        String candidateToken = "," + userId + ",";
-        wrapper.and(query -> query
-                .eq(MesProEdhrWorkTaskDO::getAssigneeUserId, userId)
-                .or()
-                .apply("CONCAT(',', candidate_user_snapshot, ',') LIKE {0}",
-                        "%" + candidateToken + "%"));
+        wrapper.apply(MesOpenWorkTaskVisibility.ownerWrapperSql(), userId);
         return wrapper;
     }
 
@@ -355,24 +457,80 @@ public interface MesProEdhrWorkTaskMapper extends BaseMapperX<MesProEdhrWorkTask
     private LambdaQueryWrapperX<MesProEdhrWorkTaskDO> applyOpenWorkTaskBatchVisibility(
             LambdaQueryWrapperX<MesProEdhrWorkTaskDO> wrapper,
             String taskType) {
-        String normalizedTaskType = taskType == null ? null : taskType.trim();
-        if (TASK_TYPE_ARCHIVE.equals(normalizedTaskType)) {
-            return excludeBatchStatusWrapper(wrapper, ARCHIVE_TODO_EXCLUDED_BATCH_STATUS_SQL);
+        wrapper.apply(MesOpenWorkTaskVisibility.batchSql(taskType));
+        return wrapper;
+    }
+
+    private LambdaQueryWrapperX<MesProEdhrWorkTaskDO> applyDoneTaskVisibility(
+            LambdaQueryWrapperX<MesProEdhrWorkTaskDO> wrapper, Long userId) {
+        if (userId == null) {
+            return wrapper;
         }
-        if (normalizedTaskType != null && !normalizedTaskType.isEmpty()) {
-            return excludeTerminalBatchWrapper(wrapper);
-        }
+        // Completed PQC decisions belong to their formal decider, never an unused assigned candidate.
         wrapper.and(query -> query
-                .isNull(MesProEdhrWorkTaskDO::getBatchExecutionId)
-                .or()
-                .notInSql(MesProEdhrWorkTaskDO::getBatchExecutionId,
-                        "SELECT id FROM mes_pro_edhr_batch_execution WHERE deleted = 0 AND status IN ("
-                                + TERMINAL_BATCH_STATUS_SQL + ")")
-                .or(archiveQuery -> archiveQuery
-                        .eq(MesProEdhrWorkTaskDO::getTaskType, TASK_TYPE_ARCHIVE)
-                        .notInSql(MesProEdhrWorkTaskDO::getBatchExecutionId,
-                                "SELECT id FROM mes_pro_edhr_batch_execution WHERE deleted = 0 AND status IN ("
-                                        + ARCHIVE_TODO_EXCLUDED_BATCH_STATUS_SQL + ")")));
+                .and(owner -> owner.ne(MesProEdhrWorkTaskDO::getTaskType, "PQC_PRODUCTION_RELEASE")
+                        .eq(MesProEdhrWorkTaskDO::getAssigneeUserId, userId))
+                .or(pqc -> pqc.eq(MesProEdhrWorkTaskDO::getTaskType, "PQC_PRODUCTION_RELEASE")
+                        .eq(MesProEdhrWorkTaskDO::getBusinessScopeType, "RELEASE_APPLICATION")
+                        .eq(MesProEdhrWorkTaskDO::getStatus, MesProEdhrWorkTaskStatus.DONE)
+                        .apply("EXISTS (SELECT 1 FROM mes_pro_process_pool_active_order_release_application pa"
+                                + " JOIN system_users pu ON pu.id = pa.pqc_decided_by AND pu.tenant_id = pa.tenant_id"
+                                + " AND pu.deleted = 0"
+                                + " WHERE pa.id = mes_pro_edhr_work_task.business_scope_id"
+                                + " AND pa.pqc_release_work_task_id = mes_pro_edhr_work_task.id"
+                                + " AND pa.work_order_id = mes_pro_edhr_work_task.work_order_id"
+                                + " AND pa.tenant_id = mes_pro_edhr_work_task.tenant_id AND pa.deleted = 0"
+                                + " AND pa.active_order_id > 0 AND pa.batch_execution_id > 0"
+                                + " AND (mes_pro_edhr_work_task.batch_execution_id IS NULL"
+                                + " OR mes_pro_edhr_work_task.batch_execution_id = pa.batch_execution_id)"
+                                + " AND pa.pqc_decided_by = {0} AND pa.pqc_decided_by > 0"
+                                + " AND pa.pqc_decided_at = mes_pro_edhr_work_task.completed_at"
+                                + " AND CAST(pa.pqc_decision AS BINARY) = CAST(mes_pro_edhr_work_task.reason AS BINARY)"
+                                + " AND ((pa.pqc_decision = 'APPROVE' AND pa.application_status IN"
+                                + " ('REPORT_UPLOAD_PENDING','MANAGER_RELEASE_PENDING','RELEASED','NONCONFORMANCE_REWORK','NONCONFORMANCE_VOID'))"
+                                + " OR (pa.pqc_decision = 'REJECT' AND pa.application_status IN ('PQC_RELEASE_REJECTED','NONCONFORMANCE_REWORK','NONCONFORMANCE_VOID')"
+                                + " AND pa.pqc_reject_reason IS NOT NULL AND TRIM(pa.pqc_reject_reason) <> ''))"
+                                + " AND (pa.application_status NOT IN ('NONCONFORMANCE_REWORK','NONCONFORMANCE_VOID') OR EXISTS"
+                                + " (SELECT 1 FROM mes_pro_edhr_nonconformance_review nr WHERE nr.id = pa.qa_closure_review_id"
+                                + " AND nr.tenant_id = pa.tenant_id AND nr.deleted = 0 AND nr.review_status = 'closed'"
+                                + " AND nr.active_order_id = pa.active_order_id AND nr.work_order_id = pa.work_order_id"
+                                + " AND (nr.batch_execution_id IS NULL OR nr.batch_execution_id = pa.batch_execution_id)"
+                                + " AND nr.closed_at IS NOT NULL AND nr.qa_user_id > 0"
+                                + " AND ((nr.disposition = 'rework' AND pa.application_status = 'NONCONFORMANCE_REWORK')"
+                                + " OR (nr.disposition = 'void' AND pa.application_status = 'NONCONFORMANCE_VOID')))))", userId))
+                .or(qa -> qa.eq(MesProEdhrWorkTaskDO::getTaskType, "PQC_PRODUCTION_RELEASE")
+                        .eq(MesProEdhrWorkTaskDO::getBusinessScopeType, "RELEASE_APPLICATION")
+                        .eq(MesProEdhrWorkTaskDO::getStatus, MesProEdhrWorkTaskStatus.DONE)
+                        .eq(MesProEdhrWorkTaskDO::getReviewSourceType, "EDHR_NONCONFORMANCE_REVIEW")
+                        .apply("EXISTS (SELECT 1 FROM mes_pro_edhr_nonconformance_review nr"
+                                + " JOIN mes_pro_process_pool_active_order_release_application pa ON pa.qa_closure_review_id = nr.id"
+                                + " AND pa.tenant_id = nr.tenant_id AND pa.deleted = 0"
+                                + " JOIN system_users qu ON qu.id = nr.qa_user_id AND qu.tenant_id = nr.tenant_id"
+                                + " AND qu.deleted = 0"
+                                + " WHERE nr.id = mes_pro_edhr_work_task.review_source_id AND nr.deleted = 0"
+                                + " AND nr.tenant_id = mes_pro_edhr_work_task.tenant_id"
+                                + " AND nr.review_status = 'closed' AND nr.qa_user_id = {0}"
+                                + " AND pa.id = mes_pro_edhr_work_task.business_scope_id"
+                                + " AND pa.pqc_release_work_task_id = mes_pro_edhr_work_task.id"
+                                + " AND nr.active_order_id = pa.active_order_id AND (nr.batch_execution_id IS NULL OR nr.batch_execution_id = pa.batch_execution_id)"
+                                + " AND nr.work_order_id = pa.work_order_id AND pa.work_order_id = mes_pro_edhr_work_task.work_order_id"
+                                + " AND (mes_pro_edhr_work_task.batch_execution_id IS NULL OR mes_pro_edhr_work_task.batch_execution_id = pa.batch_execution_id)"
+                                + " AND pa.pqc_decision IS NULL AND pa.pqc_decided_by IS NULL AND pa.pqc_decided_at IS NULL"
+                                + " AND nr.closed_at = mes_pro_edhr_work_task.completed_at"
+                                + " AND CAST(pa.application_status AS BINARY) = CAST(mes_pro_edhr_work_task.reason AS BINARY)"
+                                + " AND ((nr.disposition = 'rework' AND pa.application_status = 'NONCONFORMANCE_REWORK')"
+                                + " OR (nr.disposition = 'void' AND pa.application_status = 'NONCONFORMANCE_VOID')))", userId))
+                .or(actor -> actor
+                        .eq(MesProEdhrWorkTaskDO::getTaskType, "RELEASE_APPROVE")
+                        .eq(MesProEdhrWorkTaskDO::getBusinessScopeType, "RELEASE_TRANSACTION")
+                        .eq(MesProEdhrWorkTaskDO::getStatus, MesProEdhrWorkTaskStatus.DONE)
+                        .apply("EXISTS (SELECT 1 FROM mes_pro_edhr_release_transaction rt"
+                                + " WHERE rt.id = mes_pro_edhr_work_task.business_scope_id"
+                                + " AND rt.batch_execution_id = mes_pro_edhr_work_task.batch_execution_id"
+                                + " AND rt.work_order_id = mes_pro_edhr_work_task.work_order_id"
+                                + " AND rt.tenant_id = mes_pro_edhr_work_task.tenant_id"
+                                + " AND rt.deleted = 0 AND rt.release_status = 'RELEASED'"
+                                + " AND rt.approved_by = {0})", userId)));
         return wrapper;
     }
 

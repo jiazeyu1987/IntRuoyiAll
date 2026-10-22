@@ -19,6 +19,8 @@ import java.util.Set;
  */
 @Component
 public class BpmTaskCandidateFormDeptLeaderStrategy extends AbstractBpmTaskCandidateDeptLeaderStrategy {
+    @jakarta.annotation.Resource @org.springframework.context.annotation.Lazy
+    private cn.iocoder.yudao.module.bpm.service.task.BpmProcessInstanceService processInstanceService;
 
     @Override
     public BpmTaskCandidateStrategyEnum getStrategy() {
@@ -40,7 +42,9 @@ public class BpmTaskCandidateFormDeptLeaderStrategy extends AbstractBpmTaskCandi
         String[] params = param.split("\\|");
         Object result = execution.getVariable(params[0]);
         int level = Integer.parseInt(params[1]);
-        return super.getMultiLevelDeptLeaderIds(Convert.toList(Long.class, result), level);
+        var process = processInstanceService.getProcessInstance(execution.getProcessInstanceId());
+        Assert.notNull(process, "流程实例不存在");
+        return super.getMultiLevelDeptLeaderIds(Convert.toList(Long.class, result), level, Long.valueOf(process.getStartUserId()));
     }
 
     @Override
@@ -50,7 +54,7 @@ public class BpmTaskCandidateFormDeptLeaderStrategy extends AbstractBpmTaskCandi
         String[] params = param.split("\\|");
         Object result = processVariables == null ? null : processVariables.get(params[0]);
         int level = Integer.parseInt(params[1]);
-        return super.getMultiLevelDeptLeaderIds(Convert.toList(Long.class, result), level);
+        return super.getMultiLevelDeptLeaderIds(Convert.toList(Long.class, result), level, startUserId);
     }
 
 }

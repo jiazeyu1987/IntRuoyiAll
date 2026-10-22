@@ -48,6 +48,7 @@ public class ErpKingdeeProductionReplenishmentList {
         private Integer productionOrderLineNo;
         private String productionMaterialListNo;
         private Integer productionMaterialListLineNo;
+        private String productionMaterialListEntryId;
         private String workshopNumber;
         private String workshopName;
         private String stockStatusNumber;

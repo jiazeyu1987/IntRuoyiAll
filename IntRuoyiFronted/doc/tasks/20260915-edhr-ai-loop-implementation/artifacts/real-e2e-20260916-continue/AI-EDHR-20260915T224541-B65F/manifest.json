@@ -1,0 +1,49 @@
+{
+  "schemaVersion": "AI_EDHR_E2E_RUN_V1",
+  "runId": "AI-EDHR-20260915T224541-B65F",
+  "mode": "full",
+  "templateWorkOrderCode": null,
+  "templateSource": "CONFIGURED_TEMPLATE",
+  "createdAt": "2026-09-15T22:45:41.628Z",
+  "orders": [
+    {
+      "slot": "O01",
+      "workOrderCode": "AI-EDHR-20260915T224541-B65F-O01",
+      "batchCode": "AI-EDHR-20260915T224541-B65F-B01",
+      "quantity": 100
+    },
+    {
+      "slot": "O02",
+      "workOrderCode": "AI-EDHR-20260915T224541-B65F-O02",
+      "batchCode": "AI-EDHR-20260915T224541-B65F-B02",
+      "quantity": 100
+    },
+    {
+      "slot": "O03",
+      "workOrderCode": "AI-EDHR-20260915T224541-B65F-O03",
+      "batchCode": "AI-EDHR-20260915T224541-B65F-B03",
+      "quantity": 100
+    },
+    {
+      "slot": "O04",
+      "workOrderCode": "AI-EDHR-20260915T224541-B65F-O04",
+      "batchCode": "AI-EDHR-20260915T224541-B65F-B04",
+      "quantity": 100
+    },
+    {
+      "slot": "O05",
+      "workOrderCode": "AI-EDHR-20260915T224541-B65F-O05",
+      "batchCode": "AI-EDHR-20260915T224541-B65F-B05",
+      "quantity": 100
+    }
+  ],
+  "expected": {
+    "processCount": 2,
+    "productionFeedbackCount": 4,
+    "pqcTaskCount": 16,
+    "pqcDetailCount": 40,
+    "finishedQuantity": 100,
+    "reportNodeCount": 4,
+    "archiveCount": 1
+  }
+}

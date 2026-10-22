@@ -1,0 +1,71 @@
+package cn.iocoder.yudao.module.mes.service.pro.batchrecord;
+
+import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionRespVO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderDetail;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderDetailService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.Objects;
+
+import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
+import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_BATCH_ACTIVE_ORDER_SOURCE_MISSING;
+import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_BATCH_ACTIVE_ORDER_SOURCE_INVALID;
+
+@Service
+@RequiredArgsConstructor
+public class MesProEdhrBatchActiveOrderDetailService {
+
+    private final MesProEdhrBatchExecutionService batchExecutionService;
+    private final MesProcessPoolActiveOrderMapper activeOrderMapper;
+    private final MesTeamLeaderActiveOrderDetailService detailService;
+
+    @Transactional(rollbackFor = Exception.class)
+    public MesTeamLeaderActiveOrderDetail getDetail(Long batchExecutionId) {
+        return detailService.getArchivedFormalDetail(requireBatchSource(batchExecutionId));
+    }
+
+    @Transactional(readOnly = true)
+    public MesTeamLeaderActiveOrderDetail getSignatureDetail(Long batchExecutionId, Long signatureId) {
+        return detailService.getArchivedSignatureDetail(requireBatchSource(batchExecutionId), signatureId);
+    }
+
+    private Long requireBatchSource(Long batchExecutionId) {
+        EdhrBatchExecutionRespVO batch = batchExecutionService.get(batchExecutionId);
+        Long activeOrderId = batch == null ? null : batch.getActiveOrderId();
+        if (activeOrderId == null) {
+            throw exception(PRO_EDHR_BATCH_ACTIVE_ORDER_SOURCE_MISSING);
+        }
+        MesProcessPoolActiveOrderDO activeOrder = activeOrderMapper.selectByIdIgnoreDeleted(activeOrderId);
+        if (activeOrder == null || activeOrder.getLeaderUserId() == null
+                || !Objects.equals(activeOrder.getWorkOrderId(), batch.getWorkOrderId())) {
+            throw exception(PRO_EDHR_BATCH_ACTIVE_ORDER_SOURCE_INVALID);
+        }
+        return activeOrderId;
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public MesTeamLeaderActiveOrderDetail getDetailByActiveOrderId(Long activeOrderId) {
+        requireActiveOrderSource(activeOrderId);
+        return detailService.getArchivedFormalDetail(activeOrderId);
+    }
+
+    @Transactional(readOnly = true)
+    public MesTeamLeaderActiveOrderDetail getSignatureDetailByActiveOrderId(Long activeOrderId, Long signatureId) {
+        requireActiveOrderSource(activeOrderId);
+        return detailService.getArchivedSignatureDetail(activeOrderId, signatureId);
+    }
+
+    private void requireActiveOrderSource(Long activeOrderId) {
+        if (activeOrderId == null || activeOrderId <= 0) {
+            throw new IllegalStateException("EDHR_BATCH_ACTIVE_ORDER_SOURCE_MISSING");
+        }
+        MesProcessPoolActiveOrderDO activeOrder = activeOrderMapper.selectByIdIgnoreDeleted(activeOrderId);
+        if (activeOrder == null || activeOrder.getLeaderUserId() == null) {
+            throw new IllegalStateException("EDHR_BATCH_ACTIVE_ORDER_SOURCE_INVALID");
+        }
+    }
+}

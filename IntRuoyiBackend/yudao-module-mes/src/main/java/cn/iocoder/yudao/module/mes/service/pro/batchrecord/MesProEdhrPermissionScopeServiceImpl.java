@@ -1,4 +1,5 @@
 package cn.iocoder.yudao.module.mes.service.pro.batchrecord;
+import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.StrUtil;
@@ -36,6 +37,7 @@ import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrPerm
 
 @Service
 public class MesProEdhrPermissionScopeServiceImpl implements MesProEdhrPermissionScopeService {
+    @jakarta.annotation.Resource private cn.iocoder.yudao.module.system.api.permission.ApprovalAuthorityApi qualificationAuthority;
 
     private static final String DECISION_ALLOW = "ALLOW";
     private static final String DECISION_DENY = "DENY";
@@ -68,6 +70,7 @@ public class MesProEdhrPermissionScopeServiceImpl implements MesProEdhrPermissio
     @Transactional(rollbackFor = Exception.class)
     public MesProEdhrPermissionScopeDetailResult saveRules(MesProEdhrPermissionScopeSaveCommand command) {
         validateSaveCommand(command);
+        var qualification = qualificationAuthority.lockTenantApprovalAuthority(TenantContextHolder.getRequiredTenantId());
         Long actorUserId = resolveActorUserId(command.getActorUserId());
         MesProEdhrPermissionScopeDO scope = resolveExistingScope(command);
         if (scope == null) {
@@ -129,6 +132,7 @@ public class MesProEdhrPermissionScopeServiceImpl implements MesProEdhrPermissio
                         "scopeId", scope.getId(),
                         "version", scope.getVersion(),
                         "ruleCount", rules.size()))));
+        qualificationAuthority.incrementLockedAuthorityRevision(qualification.tenantId(), qualification.revision());
         return toDetail(scope, audit == null ? null : audit.getId());
     }
 

@@ -45,6 +45,21 @@ export interface QaInspectionRegulationParseVO {
   processes: QaInspectionRegulationParsedProcessVO[]
 }
 
+export interface QaInspectionRegulationJsonPublishReqVO {
+  dccProjectCodeId: number
+  recognitionJson: QaInspectionRegulationParseVO
+}
+
+export interface QaInspectionRegulationJsonPublishRespVO {
+  dccProjectCodeId: number
+  regulationId: number
+  publishedVersionId: number
+  versionNo: string
+  route: 'CREATE' | 'UPDATE'
+  processCount: number
+  itemCount: number
+}
+
 export interface QaInspectionRegulationInspectionTypeRuleVO {
   key: QaInspectionRegulationInspectionRuleKey
   inspectionType: 'FIRST' | 'PATROL' | 'FINAL'
@@ -107,6 +122,7 @@ export interface QaInspectionRegulationProcessVO {
 }
 
 export interface QaInspectionRegulationPublishedVersionVO {
+  draftRevision: number
   dccProjectCodeId: number
   regulationId: number
   publishedVersionId: number
@@ -202,6 +218,9 @@ export interface QaCommonRegulationSetMemberVO {
   sort?: number
   memberRole?: string
   remark?: string
+  finalInspectionApplicable: boolean
+  finalInspectionNotApplicableReason?: string
+  inspectionTypeRules: QaInspectionRegulationInspectionTypeRuleVO[]
   processes: QaInspectionRegulationProcessVO[]
 }
 
@@ -253,6 +272,31 @@ export interface QaCommonRegulationSetVersionSaveReqVO {
   members: QaCommonRegulationSetVersionMemberSaveReqVO[]
 }
 
+export interface QaCommonRegulationSetItemsUpgradeMemberReqVO {
+  commonRegulationId: number
+  sourceCommonRegulationVersionId: number
+  commonDccProjectCodeId: number
+  commonRegulationCode: string
+  commonRegulationName: string
+  versionNo: string
+  sort?: number
+  memberRole?: string
+  remark?: string
+  finalInspectionApplicable: boolean
+  finalInspectionNotApplicableReason?: string
+  inspectionTypeRules: QaInspectionRegulationInspectionTypeRuleVO[]
+  processes: QaCommonRegulationSetItemsUpgradeProcessReqVO[]
+}
+
+export interface QaCommonRegulationSetItemsUpgradeReqVO {
+  setId: number
+  sourceSetVersionId: number
+  versionNo: string
+  effectiveDate?: string
+  remark?: string
+  members: QaCommonRegulationSetItemsUpgradeMemberReqVO[]
+}
+
 export interface QaCommonRegulationSetVersionOptionVO {
   commonRegulationSetId: number
   commonRegulationSetVersionId: number
@@ -266,6 +310,7 @@ export interface QaCommonRegulationSetVersionOptionVO {
 }
 
 export interface QaInspectionRegulationSaveReqVO {
+  expectedDraftRevision: number
   regulationId?: number
   dccProjectCodeId: number
   ownerModule?: QaInspectionRegulationOwnerModule
@@ -291,7 +336,18 @@ export type QaInspectionRegulationSaveItemVO = Omit<
   'equipmentOptions'
 >
 
+export interface QaCommonRegulationSetItemsUpgradeItemReqVO
+  extends QaInspectionRegulationSaveItemVO {
+  equipmentOptions: QaInspectionRegulationItemEquipmentVO[]
+}
+
+export interface QaCommonRegulationSetItemsUpgradeProcessReqVO
+  extends Omit<QaInspectionRegulationSaveProcessVO, 'items'> {
+  items: QaCommonRegulationSetItemsUpgradeItemReqVO[]
+}
+
 export interface QaInspectionRegulationSaveRespVO {
+  draftRevision: number
   dccProjectCodeId: number
   regulationId: number
   draftVersionId: number
@@ -393,6 +449,15 @@ export const QcTemplateApi = {
       timeout: 300000
     })
     return result.data
+  },
+
+  publishQaInspectionRegulationJson: async (
+    data: QaInspectionRegulationJsonPublishReqVO
+  ): Promise<QaInspectionRegulationJsonPublishRespVO> => {
+    return await request.post({
+      url: `/mes/qa/inspection-regulation/form-parser-json/publish`,
+      data
+    })
   },
 
   // 保存正式 QA 检验规程草稿
@@ -534,6 +599,16 @@ export const QcTemplateApi = {
   ): Promise<QaCommonRegulationSetVersionVO> => {
     return await request.post({
       url: `/mes/qa/inspection-regulation/common-set-versions/save`,
+      data
+    })
+  },
+
+  // 保存通用检验规程套检验项目并升版
+  upgradeCommonRegulationSetItems: async (
+    data: QaCommonRegulationSetItemsUpgradeReqVO
+  ): Promise<QaCommonRegulationSetVersionVO> => {
+    return await request.post({
+      url: `/mes/qa/inspection-regulation/common-set-versions/upgrade-items`,
       data
     })
   },

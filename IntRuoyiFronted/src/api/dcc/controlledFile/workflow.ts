@@ -152,7 +152,9 @@ export interface ControlledFileSubmitReqVO extends Omit<ApprovalMatrixConfirmati
   directoryId?: number | string | null
   sessionId: string
   idempotencyKey: string
-  originalUploadTicket: string
+  readOnlyUploadTicket: string
+  editableUploadTicket?: string
+  originalUploadTicket?: string
   sourceUploadTicket?: string
   sourceFileName?: string
   drawingPdfUploadTicket?: string
@@ -235,7 +237,10 @@ export interface ControlledFileProjectCodeRecognitionRespVO {
   matchText?: string | null
 }
 
-export interface ExternalFileReviewSubmitReqVO extends ControlledFileSubmitReqVO {
+export interface ExternalFileReviewSubmitReqVO
+  extends Omit<ControlledFileSubmitReqVO, 'readOnlyUploadTicket' | 'editableUploadTicket'> {
+  originalUploadTicket: string
+  sourceUploadTicket: string
   externalSource: string
   externalOwner: string
   reviewReason: string
@@ -278,6 +283,8 @@ export interface ControlledFileUploadRespVO {
 
 export type UploadPreviewPurpose =
   | 'SOURCE'
+  | 'READ_ONLY_VIEW'
+  | 'EDITABLE_SOURCE'
   | 'DRAWING_PDF'
   | 'ATTACHMENT'
   | 'APPROVAL_PDF'
@@ -625,6 +632,8 @@ export interface ControlledFileVersionHistoryVO extends ControlledFileOwnerFacts
   canPreview?: boolean
   previewUnavailableReason?: string
   canDownload?: boolean
+  canDownloadReadOnly?: boolean
+  canDownloadEditable?: boolean
   modifying?: boolean
   checkedOut?: boolean
   checkedOutBy?: number | null
@@ -930,6 +939,8 @@ export interface ControlledFileVO extends ControlledFileOwnerFacts {
   canPreview?: boolean
   previewUnavailableReason?: string
   canDownload?: boolean
+  canDownloadReadOnly?: boolean
+  canDownloadEditable?: boolean
   canPrint?: boolean
   accessExplanation?: ControlledFileAccessExplanationVO
   canObsolete?: boolean
@@ -1583,6 +1594,8 @@ export interface NasPermissionRestoreStatusVO extends NasPermissionRestoreApplyR
 }
 
 export const CONTROLLED_FILE_PROCESS_DEFINITION_KEY = 'dcc-controlled-file-approval'
+export const CONTROLLED_FILE_READ_ONLY_DOWNLOAD_PERMISSION = 'dcc:controlled-file:download-read-only'
+export const CONTROLLED_FILE_EDITABLE_DOWNLOAD_PERMISSION = 'dcc:controlled-file:download-editable'
 export const CONTROLLED_FILE_UPLOAD_PROCESS_DEFINITION_KEY = 'dcc-controlled-file-upload'
 export const CONTROLLED_FILE_REVISION_PROCESS_DEFINITION_KEY = 'dcc-controlled-file-revision'
 export const CONTROLLED_FILE_OBSOLETE_PROCESS_DEFINITION_KEY = 'dcc-controlled-file-obsolete'
@@ -1951,7 +1964,11 @@ const assertControlledFileSubmitRequest = (
     throw new DccControlledFileContractError(`${context} request uses obsolete field: uploadTicket`)
   }
   assertRequiredString(payload, 'sessionId', context)
-  assertRequiredString(payload, 'originalUploadTicket', context)
+  if (payload.processType === 'EXTERNAL_REVIEW') {
+    assertRequiredString(payload, 'originalUploadTicket', context)
+  } else {
+    assertRequiredString(payload, 'readOnlyUploadTicket', context)
+  }
   if (payload.sourceUploadTicket !== undefined && payload.sourceUploadTicket !== null) {
     assertRequiredString(payload, 'sourceUploadTicket', context)
   }
@@ -2655,6 +2672,9 @@ export const decodePreviewWatermark = (rawHeader: unknown): ControlledPreviewWat
 const buildControlledFileDownloadEndpoint = (id: number | string) =>
   `${axiosConfig.base_url}/dcc/controlled-files/${id}/download`
 
+const buildControlledFileVariantDownloadEndpoint = (id: number | string, variant: 'read-only' | 'editable') =>
+  `${axiosConfig.base_url}/dcc/controlled-files/${id}/download/${variant}`
+
 const decodeContentDispositionFileName = (rawHeader: unknown): string | null => {
   const contentDisposition = typeof rawHeader === 'string' ? rawHeader.trim() : ''
   if (!contentDisposition) {
@@ -2835,6 +2855,26 @@ export const downloadControlledFileWithName = async (
   }
 }
 
+export const downloadControlledFileVariantWithName = async (
+  id: number | string,
+  variant: 'read-only' | 'editable'
+): Promise<ControlledFileDownloadResult> => {
+  const downloadRequestId = createControlledFileDownloadRequestId()
+  const response = await axios.get<Blob>(buildControlledFileVariantDownloadEndpoint(id, variant), {
+    headers: buildControlledFileBinaryHeaders(),
+    params: {
+      nonControlledWarningConfirmed: true,
+      downloadRequestId
+    },
+    timeout: axiosConfig.request_timeout,
+    responseType: 'blob'
+  })
+  await assertControlledFileDownloadBusinessResult(response)
+  const { fileName, evidence } = assertControlledFileDownloadHeaders(response, downloadRequestId)
+  return { blob: response.data, fileName, evidence }
+}
+
+
 export const downloadControlledFileAttachmentWithName = async (
   id: number | string,
   attachmentId: number | string,
@@ -2853,6 +2893,19 @@ export const downloadControlledFileAttachmentWithName = async (
   await assertControlledFileDownloadBusinessResult(response)
   const { fileName, evidence } = assertControlledFileDownloadHeaders(response, downloadRequestId)
   return { blob: response.data, fileName, evidence }
+}
+
+export const triggerControlledFileVariantDownload = async (
+  id: number | string,
+  variant: 'read-only' | 'editable'
+): Promise<boolean> => {
+  const confirmed = await confirmControlledFileDownload()
+  if (!confirmed) {
+    return false
+  }
+  const { blob, fileName } = await downloadControlledFileVariantWithName(id, variant)
+  downloadByData(blob, fileName, blob.type || 'application/octet-stream')
+  return true
 }
 
 export const getControlledFilePreviewMetadata = async (

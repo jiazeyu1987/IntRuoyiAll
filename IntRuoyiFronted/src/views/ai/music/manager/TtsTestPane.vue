@@ -139,7 +139,7 @@
       </el-form-item>
 
       <div class="flex flex-wrap gap-12px">
-        <el-button type="primary" :loading="generating" @click="handleGenerate">
+        <el-button class="app-test-button" type="primary" :loading="generating" @click="handleGenerate">
           生成音频
         </el-button>
         <el-button :disabled="!audioUrl" @click="togglePlayback">

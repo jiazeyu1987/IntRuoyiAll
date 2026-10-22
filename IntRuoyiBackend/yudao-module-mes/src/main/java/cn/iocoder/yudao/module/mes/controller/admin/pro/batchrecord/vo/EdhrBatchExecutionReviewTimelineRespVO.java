@@ -22,6 +22,8 @@ public class EdhrBatchExecutionReviewTimelineRespVO {
 
     private List<FlowEvent> flowEvents;
 
+    private List<ReleaseEvent> releaseEvents;
+
     private List<EdhrBatchExecutionArchiveRespVO> archiveVersions;
 
     private List<DossierItem> dossierItems;
@@ -244,6 +246,33 @@ public class EdhrBatchExecutionReviewTimelineRespVO {
         private String integrityCheckResult;
 
         private String eventSnapshotJson;
+
+        private String evidenceHash;
+
+        private LocalDateTime occurredAt;
+    }
+
+    @Data
+    @Accessors(chain = true)
+    public static class ReleaseEvent {
+
+        private Long id;
+
+        private String eventType;
+
+        private String fromStatus;
+
+        private String toStatus;
+
+        private Long actorUserId;
+
+        private String actorName;
+
+        private String reason;
+
+        private String opinion;
+
+        private String signoffEvidenceHash;
 
         private String evidenceHash;
 
