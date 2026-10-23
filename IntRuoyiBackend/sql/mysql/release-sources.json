@@ -1019,7 +1019,10 @@
     "20261023_mes_team_leader_schema_identity.sql",
     "20261023_mes_team_leader_permission_identity.sql",
     "20261023_mes_active_order_upgrade_permission_identity.sql",
-    "20261023_mes_team_leader_cleanup_identity.sql"
+    "20261023_mes_team_leader_cleanup_identity.sql",
+    "20261023_system_workbench_projection_check_identity.sql",
+    "20261023_system_workbench_retention_check_identity.sql",
+    "20261023_system_workbench_history_check_identity.sql"
   ],
   "migrationScopes": [
     {
