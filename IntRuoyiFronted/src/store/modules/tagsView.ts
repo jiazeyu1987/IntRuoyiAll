@@ -149,8 +149,12 @@ export const useTagsViewStore = defineStore('tagsView', {
         (visitedView) => visitedView.path === activeMenuPath
       )
       const previousView =
-        viewIndex >= 0 ? cloneDeep(this.visitedViews[viewIndex]) : undefined
-      const nextView = this.normalizeVisitedView(cloneDeep(view))
+        viewIndex >= 0
+          ? (cloneDeep(getRawRoute(this.visitedViews[viewIndex])) as RouteLocationNormalizedLoaded)
+          : undefined
+      const nextView = this.normalizeVisitedView(
+        cloneDeep(getRawRoute(view)) as RouteLocationNormalizedLoaded
+      )
 
       if (viewIndex >= 0) {
         this.visitedViews.splice(viewIndex, 1, nextView)
