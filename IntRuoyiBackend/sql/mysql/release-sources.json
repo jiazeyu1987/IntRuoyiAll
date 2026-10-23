@@ -1014,7 +1014,8 @@
     "20261023_mes_route_snapshot_legacy_summary_enforce.sql",
     "20261023_dcc_registration_certificate_menu_identity.sql",
     "20261023_registration_certificate_management_menu_hierarchy_identity.sql",
-    "20261023_dcc_registration_certificate_upload_view_identity.sql"
+    "20261023_dcc_registration_certificate_upload_view_identity.sql",
+    "20261023_dcc_registration_certificate_download_project_optional_identity.sql"
   ],
   "migrationScopes": [
     {
