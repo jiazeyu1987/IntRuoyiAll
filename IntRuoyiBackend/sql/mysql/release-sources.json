@@ -1011,7 +1011,10 @@
     "20261022_dcc_rework_versioned_deployment.sql",
     "20261022_mes_pqc_c00_empty_history_activation.sql",
     "20261022_dcc_product_catalog_project_columns.sql",
-    "20261023_mes_route_snapshot_legacy_summary_enforce.sql"
+    "20261023_mes_route_snapshot_legacy_summary_enforce.sql",
+    "20261023_dcc_registration_certificate_menu_identity.sql",
+    "20261023_registration_certificate_management_menu_hierarchy_identity.sql",
+    "20261023_dcc_registration_certificate_upload_view_identity.sql"
   ],
   "migrationScopes": [
     {
