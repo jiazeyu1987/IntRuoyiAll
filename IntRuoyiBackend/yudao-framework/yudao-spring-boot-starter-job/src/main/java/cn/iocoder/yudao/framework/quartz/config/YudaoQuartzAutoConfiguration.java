@@ -3,12 +3,15 @@ package cn.iocoder.yudao.framework.quartz.config;
 import cn.iocoder.yudao.framework.quartz.core.scheduler.SchedulerManager;
 import lombok.extern.slf4j.Slf4j;
 import org.quartz.Scheduler;
+import org.springframework.beans.factory.config.BeanFactoryPostProcessor;
+import org.springframework.beans.factory.support.BeanDefinitionRegistry;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.autoconfigure.quartz.SchedulerFactoryBeanCustomizer;
 import org.springframework.scheduling.annotation.EnableScheduling;
+import org.springframework.scheduling.config.TaskManagementConfigUtils;
 
 import java.util.Optional;
 
@@ -23,6 +26,19 @@ public class YudaoQuartzAutoConfiguration {
     @EnableScheduling
     @ConditionalOnProperty(name = "intruoyi.release.maintenance", havingValue = "false", matchIfMissing = true)
     static class SchedulingConfiguration {
+    }
+
+    @Bean
+    @ConditionalOnProperty(name = "intruoyi.release.maintenance", havingValue = "true")
+    public static BeanFactoryPostProcessor releaseMaintenanceScheduledProcessorDisabler() {
+        // Run after all configuration/registry processing, but before BeanPostProcessors are instantiated.
+        // Third-party @EnableScheduling (including JimuReport) can otherwise register tasks in maintenance.
+        return beanFactory -> {
+            String processorName = TaskManagementConfigUtils.SCHEDULED_ANNOTATION_PROCESSOR_BEAN_NAME;
+            if (beanFactory.containsBeanDefinition(processorName)) {
+                ((BeanDefinitionRegistry) beanFactory).removeBeanDefinition(processorName);
+            }
+        };
     }
 
     @Bean
