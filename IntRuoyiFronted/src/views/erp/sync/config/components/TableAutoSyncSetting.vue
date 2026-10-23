@@ -13,6 +13,13 @@
     </template>
 
     <el-alert v-if="loadError" :title="loadError" type="error" :closable="false" show-icon />
+    <el-alert
+      v-if="jobsLoaded && !uniformDailyStartTime"
+      title="当前任务使用独立调度计划。选择每日开始时间并保存后，选中的任务才会改为每日执行。"
+      type="info"
+      :closable="false"
+      show-icon
+    />
     <el-alert v-if="latestRunsError" :title="latestRunsError" type="error" :closable="false" />
 
     <el-form
@@ -81,6 +88,11 @@
           <el-table-column type="selection" width="48" :selectable="isSyncRowSelectable" />
           <el-table-column prop="erpTableName" label="ERP表格名称" min-width="180" />
           <el-table-column prop="localTabName" label="本地页签名称" min-width="220" />
+          <el-table-column label="当前计划（CRON）" min-width="180">
+            <template #default="{ row }">
+              {{ jobsByHandlerName[row.handlerName]?.cronExpression || '未加载' }}
+            </template>
+          </el-table-column>
           <el-table-column label="最近执行时间" min-width="180">
             <template #default="{ row }">{{ resolveLatestRunTime(row.latestRun) }}</template>
           </el-table-column>
@@ -471,13 +483,12 @@ const fetchJobByHandlerName = async (handlerName: string) => {
   return job
 }
 
-const requireUniformDailyJobs = (jobs: JobApi.JobVO[]) => {
-  const times = jobs.map(job => parseDailyCronExpression(job.cronExpression))
-  if (!times.length || times.some(time => !time) || new Set(times).size !== 1) {
-    throw new Error('同步任务必须具有合法且一致的每日时间，当前配置无法保存。')
-  }
-  return times[0]
-}
+const uniformDailyStartTime = computed(() => {
+  const times = Object.values(jobsByHandlerName.value).map((job) =>
+    parseDailyCronExpression(job.cronExpression)
+  )
+  return times.length && times.every((time) => time && time === times[0]) ? times[0] : ''
+})
 
 const loadJobs = async () => {
   jobsLoaded.value = false
@@ -498,7 +509,7 @@ const loadJobs = async () => {
       )
       .map((item) => item.syncType)
     form.enabled = selectedSyncTypes.value.length > 0
-    form.dailyStartTime = requireUniformDailyJobs(Object.values(nextJobsByHandlerName))
+    form.dailyStartTime = uniformDailyStartTime.value
     jobsLoaded.value = true
   } finally {
     jobLoading.value = false
@@ -683,13 +694,6 @@ const handleSave = async () => {
   try {
     const selectedSyncTypeSet = new Set(selectedSyncTypes.value)
     const jobEntries = await refreshJobsBeforeMutation()
-    try {
-      requireUniformDailyJobs(jobEntries.map(([, job]) => job))
-    } catch (error) {
-      jobsLoaded.value = false
-      jobsByHandlerName.value = {}
-      throw error
-    }
     await Promise.all(
       jobEntries.map(([item, job]) => updateJobForAutoSync(item, job, selectedSyncTypeSet))
     )

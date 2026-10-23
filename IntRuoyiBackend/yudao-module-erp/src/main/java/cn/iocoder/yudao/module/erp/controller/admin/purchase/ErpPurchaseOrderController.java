@@ -162,7 +162,8 @@ public class ErpPurchaseOrderController {
                 convertSet(pageResult.getList(), ErpPurchaseOrderDO::getSupplierId));
         // 1.4 管理员信息
         Map<Long, AdminUserRespDTO> userMap = adminUserApi.getUserMap(
-                convertSet(pageResult.getList(), purchaseOrder -> Long.parseLong(purchaseOrder.getCreator())));
+                convertSet(pageResult.getList(), purchaseOrder -> Long.parseLong(purchaseOrder.getCreator()),
+                        purchaseOrder -> purchaseOrder.getCreator() != null && !purchaseOrder.getCreator().isBlank()));
         // 2. 开始拼接
         return BeanUtils.toBean(pageResult, ErpPurchaseOrderRespVO.class, purchaseOrder -> {
             purchaseOrder.setItems(BeanUtils.toBean(purchaseOrderItemMap.get(purchaseOrder.getId()), ErpPurchaseOrderRespVO.Item.class,
@@ -170,7 +171,10 @@ public class ErpPurchaseOrderController {
                             .setProductBarCode(product.getBarCode()).setProductUnitName(product.getUnitName()))));
             purchaseOrder.setProductNames(CollUtil.join(purchaseOrder.getItems(), "，", ErpPurchaseOrderRespVO.Item::getProductName));
             MapUtils.findAndThen(supplierMap, purchaseOrder.getSupplierId(), supplier -> purchaseOrder.setSupplierName(supplier.getName()));
-            MapUtils.findAndThen(userMap, Long.parseLong(purchaseOrder.getCreator()), user -> purchaseOrder.setCreatorName(user.getNickname()));
+            // Imported orders may have no platform creator; leave the display name unknown.
+            if (purchaseOrder.getCreator() != null && !purchaseOrder.getCreator().isBlank()) {
+                MapUtils.findAndThen(userMap, Long.parseLong(purchaseOrder.getCreator()), user -> purchaseOrder.setCreatorName(user.getNickname()));
+            }
         });
     }
 

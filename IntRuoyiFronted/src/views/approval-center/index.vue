@@ -22,6 +22,7 @@
         @pagination="handlePagination"
       >
         <template #extra-filters>
+          <ApprovalHistoryMaintenance @repaired="getList(true)" />
           <div class="approval-center__title-group">
             <h3 class="approval-center__title">审批中心</h3>
             <div class="approval-center__meta">
@@ -467,6 +468,7 @@
 </template>
 
 <script lang="ts" setup>
+import ApprovalHistoryMaintenance from './ApprovalHistoryMaintenance.vue'
 import { ElMessage } from 'element-plus'
 import { edhrReadDisplay, bpmMissingPermissionReason, canProcessBpmInModule, bpmModuleDecisionLocation, compactApprovalCapabilities, APPROVAL_CAPABILITIES_DEFAULT_WIDTH } from './approvalReadDisplay'
 import { formatDate } from '@/utils/formatTime'
