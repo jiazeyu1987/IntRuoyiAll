@@ -47,7 +47,7 @@ function fixture(options = {}) {
    if(id==='./manifest.json')return {default:activeManifest}
    if(files[id])return load(id)
    assert.ok(deps[id],'unexpected dependency '+id);return deps[id]
-  },m,m.exports,require('node:crypto').webcrypto,dom,dom)
+  },m,m.exports,options.crypto ?? require('node:crypto').webcrypto,dom,dom)
   return m.exports
  }
  function load(id){

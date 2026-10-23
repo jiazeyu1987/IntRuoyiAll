@@ -43,7 +43,10 @@ export interface WorkbenchReadLease {
 }
 export const beginWorkbenchRead = (): WorkbenchReadLease => {
   const identity = workbenchContextIdentity()
-  return { lifetime: workbenchLifetime.value, identity, contextEpoch: crypto.randomUUID() }
+  // Read correlation needs independent random values, including on the supported HTTP LAN origin.
+  const contextEpoch = Array.from(crypto.getRandomValues(new Uint8Array(16)),
+    value => value.toString(16).padStart(2, '0')).join('')
+  return { lifetime: workbenchLifetime.value, identity, contextEpoch }
 }
 export const isWorkbenchReadCurrent = (lease: WorkbenchReadLease) =>
   lease.identity === workbenchContextIdentity() && lease.lifetime === workbenchLifetime.value
