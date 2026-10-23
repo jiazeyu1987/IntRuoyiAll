@@ -600,6 +600,7 @@ const APPROVAL_STATUS_LABELS: Record<string, string> = {
   APPROVING: '审批中',
   ACTIVE: '现行',
   SUPERSEDED: '已替代',
+  LEGACY_INCOMPLETE: '历史不完整（不可执行）',
   OBSOLETE: '已作废',
   WITHDRAWN: '已撤回',
   DELETED: '已删除'

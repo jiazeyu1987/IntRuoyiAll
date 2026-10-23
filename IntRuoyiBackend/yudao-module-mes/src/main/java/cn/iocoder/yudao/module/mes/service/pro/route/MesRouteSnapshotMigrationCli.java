@@ -9,7 +9,7 @@ import java.util.*;
 
 /** Offline release command. No Spring application, business runner, or current-route reconstruction. */
 public final class MesRouteSnapshotMigrationCli {
-    private static final String MIGRATION = "20260812_mes_route_version_snapshot_identity_enforce";
+    private static final String MIGRATION = MesRouteLegacySummaryIdentity.MIGRATION_ID;
     private static final Set<String> CANDIDATE = Set.of("DRAFT", "PENDING_APPROVAL", "READY_TO_PUBLISH", "REJECTED", "CANCELLED");
     private static final Set<String> MODES = Set.of("PRECHECK", "BACKFILL", "READINESS");
     private static final ObjectMapper JSON = new ObjectMapper();
@@ -38,7 +38,7 @@ public final class MesRouteSnapshotMigrationCli {
             try (Connection connection = DriverManager.getConnection(requiredEnv("MES_SNAPSHOT_JDBC_URL"),
                     requiredEnv("MES_SNAPSHOT_JDBC_USER"), requiredEnv("MES_SNAPSHOT_JDBC_PASSWORD"))) {
                 result.put("targetDatabase", connection.getCatalog());
-                Outcome outcome = new MesRouteSnapshotMigrationCli().execute(connection, options.get("mode"));
+                Outcome outcome = new MesRouteSnapshotMigrationCli().execute(connection, options.get("mode"), options);
                 result.put("status", outcome.blockers().isEmpty() ? "READY" : "BLOCKED");
                 result.put("scannedCount", outcome.scannedCount());
                 result.put("updatedCount", outcome.updatedCount());
@@ -83,6 +83,10 @@ public final class MesRouteSnapshotMigrationCli {
     }
 
     public Outcome execute(Connection connection, String mode) throws SQLException {
+        return execute(connection, mode, Map.of());
+    }
+
+    public Outcome execute(Connection connection, String mode, Map<String, String> auditContext) throws SQLException {
         if (!MODES.contains(mode) || !connection.getAutoCommit()) throw new IllegalArgumentException("fresh connection and explicit mode required");
         boolean write = "BACKFILL".equals(mode);
         connection.setTransactionIsolation(Connection.TRANSACTION_SERIALIZABLE);
@@ -104,6 +108,8 @@ public final class MesRouteSnapshotMigrationCli {
             }
             List<Row> rows = rows(connection, columns, write);
             List<Blocker> blockers = validate(rows, "READINESS".equals(mode));
+            MesRouteLegacySummaryMigration legacy = new MesRouteLegacySummaryMigration(connection, write, auditContext);
+            blockers.addAll(legacy.validate(rows, "READINESS".equals(mode)));
             if (!blockers.isEmpty()) {
                 connection.rollback();
                 return new Outcome(rows.size(), 0, blockers);
@@ -113,6 +119,11 @@ public final class MesRouteSnapshotMigrationCli {
                 try (PreparedStatement statement = connection.prepareStatement("UPDATE mes_pro_route_version SET route_snapshot_sha256=?,route_snapshot_format_version=?,update_time=update_time WHERE id=? AND tenant_id=? AND route_snapshot_sha256 IS NULL AND route_snapshot_format_version IS NULL")) {
                     for (Row row : rows) {
                         if (row.hash() != null) continue;
+                        if (row.isApprovedSummary()) {
+                            legacy.archive(row);
+                            updated++;
+                            continue;
+                        }
                         statement.setString(1, canonicalizer.sha256(row.json()));
                         statement.setString(2, MesProRouteSnapshotCanonicalizer.FORMAT_VERSION);
                         statement.setLong(3, row.id());
@@ -126,11 +137,18 @@ public final class MesRouteSnapshotMigrationCli {
                 for (int i = 0; i < rows.size(); i++) {
                     Row before = rows.get(i), after = persisted.get(i);
                     if (before.id() != after.id() || before.routeId() != after.routeId() || before.tenantId() != after.tenantId()
-                            || !Objects.equals(before.json(), after.json()) || !Objects.equals(before.lifecycle(), after.lifecycle())) {
+                            || !Objects.equals(before.json(), after.json())
+                            || !Objects.equals(before.versionNo(), after.versionNo()) || !Objects.equals(before.remark(), after.remark())
+                            || !Objects.equals(before.created(), after.created()) || !Objects.equals(before.updated(), after.updated())
+                            || !Objects.equals(before.deleted(), after.deleted()) || !Objects.equals(before.approval(), after.approval())
+                            || !Objects.equals(before.sourceVersionId(), after.sourceVersionId())
+                            || (!before.isApprovedSummary() && (!Objects.equals(before.lifecycle(), after.lifecycle())
+                            || !Objects.equals(before.active(), after.active())))) {
                         throw new SQLException("immutable snapshot changed");
                     }
                 }
                 blockers = validate(persisted, true);
+                blockers.addAll(legacy.validate(persisted, true));
                 if (!blockers.isEmpty()) {
                     connection.rollback();
                     return new Outcome(rows.size(), 0, blockers);
@@ -162,19 +180,41 @@ public final class MesRouteSnapshotMigrationCli {
         // The immutable 20260715 lifecycle migration adds exactly DEFAULT ACTIVE; PRECHECK models that DDL only.
         String lifecycle = columns.contains("lifecycle_status") ? "lifecycle_status" : "'ACTIVE'";
         String identity = columns.contains("route_snapshot_sha256") ? "route_snapshot_sha256,route_snapshot_format_version" : "NULL,NULL";
-        String query = "SELECT id,tenant_id,route_id,route_snapshot_json," + lifecycle + "," + identity
+        String metadata = "," + expression(columns, "version_no") + "," + expression(columns, "active")
+                + "," + expression(columns, "remark") + "," + expression(columns, "create_time")
+                + "," + expression(columns, "update_time") + "," + expression(columns, "deleted")
+                + "," + expression(columns, "approval_process_instance_id") + "," + expression(columns, "source_route_version_id");
+        String query = "SELECT id,tenant_id,route_id,route_snapshot_json," + lifecycle + "," + identity + metadata
                 + " FROM mes_pro_route_version ORDER BY id" + (lock ? " FOR UPDATE" : "");
         List<Row> result = new ArrayList<>();
         try (Statement statement = connection.createStatement(); ResultSet rows = statement.executeQuery(query)) {
             while (rows.next()) result.add(new Row(rows.getLong(1), rows.getLong(2), rows.getLong(3), rows.getString(4),
-                    rows.getString(5), rows.getString(6), rows.getString(7)));
+                    rows.getString(5), rows.getString(6), rows.getString(7), rows.getString(8),
+                    (Boolean) rows.getObject(9, Boolean.class), rows.getString(10),
+                    localTime(rows.getTimestamp(11)), localTime(rows.getTimestamp(12)),
+                    (Boolean) rows.getObject(13, Boolean.class), rows.getString(14), (Long) rows.getObject(15, Long.class)));
         }
         return result;
     }
 
+    private static String expression(Set<String> columns, String column) { return columns.contains(column) ? column : "NULL"; }
+    private static java.time.LocalDateTime localTime(Timestamp value) { return value == null ? null : value.toLocalDateTime(); }
+
     private List<Blocker> validate(List<Row> rows, boolean requireIdentity) {
         List<Blocker> result = new ArrayList<>();
         for (Row row : rows) {
+            if (row.isApprovedSummary()) {
+                boolean before = "ACTIVE".equals(row.lifecycle()) && Boolean.TRUE.equals(row.active()) && row.hash() == null && row.format() == null;
+                boolean after = MesRouteLegacySummaryIdentity.STATUS.equals(row.lifecycle()) && Boolean.FALSE.equals(row.active())
+                        && MesRouteLegacySummaryIdentity.FORMAT_VERSION.equals(row.format())
+                        && MesRouteLegacySummaryIdentity.approved(row.id()).rawSha256().equals(row.hash());
+                if (!(after || before && !requireIdentity)) result.add(row.blocker("LEGACY_SUMMARY_STATE_INVALID"));
+                continue;
+            }
+            if (MesRouteLegacySummaryIdentity.isLegacyMarker(row.lifecycle(), row.format())) {
+                result.add(row.blocker("LEGACY_SUMMARY_PROVENANCE_MISMATCH"));
+                continue;
+            }
             var validation = (row.lifecycle() != null && CANDIDATE.contains(row.lifecycle())) ? canonicalizer.validateCandidate(row.routeId(), row.json())
                     : canonicalizer.validate(row.routeId(), row.json());
             for (var blocker : validation.blockers()) result.add(row.blocker(blocker.reasonCode()));
@@ -185,10 +225,16 @@ public final class MesRouteSnapshotMigrationCli {
             } else if (!MesProRouteSnapshotCanonicalizer.FORMAT_VERSION.equals(row.format())) result.add(row.blocker("SNAPSHOT_FORMAT_UNSUPPORTED"));
             else if (!canonicalizer.sha256(row.json()).equals(row.hash())) result.add(row.blocker("SNAPSHOT_HASH_MISMATCH"));
         }
-        return List.copyOf(result);
+        return result;
     }
 
-    private record Row(long id, long tenantId, long routeId, String json, String lifecycle, String hash, String format) {
+    record Row(long id, long tenantId, long routeId, String json, String lifecycle, String hash, String format,
+               String versionNo, Boolean active, String remark, java.time.LocalDateTime created,
+               java.time.LocalDateTime updated, Boolean deleted, String approval, Long sourceVersionId) {
+        boolean isApprovedSummary() {
+            return Boolean.FALSE.equals(deleted) && (approval == null || approval.isBlank()) && sourceVersionId == null
+                    && MesRouteLegacySummaryIdentity.matchesProvenance(id, tenantId, routeId, versionNo, json, remark, created, updated);
+        }
         Blocker blocker(String reason) { return new Blocker(id, routeId, tenantId, reason); }
     }
     public record Blocker(Long routeVersionId, Long routeId, Long tenantId, String reasonCode) { }

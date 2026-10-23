@@ -53,6 +53,9 @@ class MesProRouteVersionBusinessApprovalSubmitServiceTest {
         MesProRouteVersionDO pending = draftCandidate();
         pending.setLifecycleStatus(MesProRouteVersionLifecycleServiceImpl.STATUS_PENDING_APPROVAL);
         when(workflowService.getVersion(1002L)).thenReturn(draft, pending);
+        var readiness = new cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.version.MesProRouteVersionBlockerRespVO();
+        readiness.setPublishable(true);
+        when(workflowService.getPublishBlockers(1002L)).thenReturn(readiness);
         when(businessApprovalOrchestrator.submit(any(BusinessApprovalContext.class)))
                 .thenReturn(BusinessApprovalRequest.builder()
                         .requestId(3001L)
@@ -107,6 +110,34 @@ class MesProRouteVersionBusinessApprovalSubmitServiceTest {
 
         assertSame(active, result);
         verify(businessApprovalOrchestrator, never()).submit(any(BusinessApprovalContext.class));
+    }
+
+    @Test
+    void sourceFreeDraft_shouldUseNormalApprovalOnlyAfterCompleteConfigurationIsReady() {
+        var draft = draftCandidate();
+        draft.setSourceRouteVersionId(null);
+        when(workflowService.getVersion(1002L)).thenReturn(draft);
+        var readiness = new cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.version.MesProRouteVersionBlockerRespVO();
+        readiness.setPublishable(false);
+        when(workflowService.getPublishBlockers(1002L)).thenReturn(readiness);
+        TenantContextHolder.setTenantId(122L);
+        try (var security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(501L);
+            assertThrows(ServiceException.class, () -> service.submitAndPublishCandidate(1002L));
+            org.mockito.Mockito.verifyNoInteractions(businessApprovalOrchestrator);
+            readiness.setPublishable(true);
+            service.submitAndPublishCandidate(1002L);
+            verify(businessApprovalOrchestrator).submit(any(BusinessApprovalContext.class));
+        }
+    }
+
+    @Test
+    void archivedSummary_shouldNeverSubmitAnApprovalOrReturnAsAlreadyActive() {
+        var legacy = activeCandidate();
+        legacy.setRouteSnapshotFormatVersion(MesRouteLegacySummaryIdentity.FORMAT_VERSION);
+        when(workflowService.getVersion(1002L)).thenReturn(legacy);
+        assertThrows(IllegalStateException.class, () -> service.submitAndPublishCandidate(1002L));
+        org.mockito.Mockito.verifyNoInteractions(businessApprovalOrchestrator);
     }
 
     @Test

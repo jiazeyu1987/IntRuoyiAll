@@ -1,5 +1,6 @@
 package cn.iocoder.yudao.module.mes.service.pro.scheduleorder;
 
+import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteVersionUsagePolicy;
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.ObjUtil;
 import cn.hutool.core.util.StrUtil;
@@ -3332,6 +3333,7 @@ public class MesProScheduleOrderServiceImpl implements MesProScheduleOrderServic
     }
 
     private Map<Long, MesProRouteScheduleConfigDO> buildScheduleConfigMap(MesProRouteVersionDO activeRouteVersion) {
+        MesProRouteVersionUsagePolicy.requireUsable(activeRouteVersion);
         if (activeRouteVersion == null) {
             return Collections.emptyMap();
         }

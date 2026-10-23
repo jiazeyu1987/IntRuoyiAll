@@ -22,6 +22,50 @@ public class MesProRouteControlledContentAdapter {
     @Resource
     private ControlledContentLifecycleCoreService lifecycleCoreService;
 
+    public void recordFirstCandidateCreated(MesProRouteVersionDO legacy, MesProRouteVersionDO candidate,
+                                             Long actorId, String reason) {
+        requireArchivedRef(legacy);
+        requireVersion(candidate, "candidate");
+        if (!Objects.equals(legacy.getRouteId(), candidate.getRouteId())
+                || candidate.getSourceRouteVersionId() != null || Boolean.TRUE.equals(candidate.getActive())
+                || !MesProRouteVersionLifecycleServiceImpl.STATUS_DRAFT.equals(candidate.getLifecycleStatus())) {
+            throw new IllegalStateException("归档路线的新版本必须为独立草稿");
+        }
+        ControlledContentKey key = routeKey(candidate);
+        if (lifecycleCoreService.getActiveRef(key) != null) throw new IllegalStateException("路线正式版本已变化");
+        lifecycleCoreService.createCandidateRef(key, candidate.getRouteId(), candidate.getId(), candidate.getVersionNo(),
+                candidate.getLifecycleStatus(), null, null, actorId, reason);
+    }
+
+    public void recordFirstPublished(MesProRouteVersionDO legacy, MesProRouteVersionDO candidate, Long actorId) {
+        requireArchivedRef(legacy);
+        requireVersion(candidate, "candidate");
+        ControlledContentKey key = routeKey(candidate);
+        if (!Objects.equals(legacy.getRouteId(), candidate.getRouteId()) || candidate.getSourceRouteVersionId() != null
+                || lifecycleCoreService.getActiveRef(key) != null) throw new IllegalStateException("路线首个正式版本来源已变化");
+        lifecycleCoreService.transitionVersionRef(key, candidate.getId(), ControlledContentCanonicalStatus.ACTIVE,
+                MesProRouteVersionLifecycleServiceImpl.STATUS_ACTIVE, ControlledContentTransitionAction.PUBLISH,
+                actorId, "历史摘要归档后首次完整路线版本发布", null);
+    }
+
+    private void requireArchivedRef(MesProRouteVersionDO legacy) {
+        if (!MesRouteLegacySummaryIdentity.isKnownArchivedIdentity(legacy)) {
+            throw new IllegalStateException("历史摘要归档身份不一致");
+        }
+        if (!Objects.equals(legacy.getTenantId(), TenantContextHolder.getTenantId())) {
+            throw new IllegalStateException("历史摘要归档租户不一致");
+        }
+        ControlledContentVersionRefDO ref = lifecycleCoreService.getVersionRef(routeKey(legacy), legacy.getId());
+        if (ref == null || !Objects.equals(legacy.getId(), ref.getNativeVersionId())
+                || !Objects.equals(legacy.getRouteId(), ref.getNativeMasterId())
+                || !Objects.equals(legacy.getTenantId(), ref.getTenantId())
+                || !ControlledContentCanonicalStatus.LEGACY_INCOMPLETE.name().equals(ref.getCanonicalStatus())
+                || !MesRouteLegacySummaryIdentity.STATUS.equals(ref.getDomainStatus())
+                || ref.getActiveUniqueFlag() != null || ref.getOpenCandidateUniqueFlag() != null) {
+            throw new IllegalStateException("历史摘要受控引用归档状态不一致");
+        }
+    }
+
     public void recordActiveRegistered(MesProRouteVersionDO active, Long actorId, String reason) {
         requireVersion(active, "active");
         if (!Boolean.TRUE.equals(active.getActive())) {
@@ -171,6 +215,7 @@ public class MesProRouteControlledContentAdapter {
     }
 
     private void requireVersion(MesProRouteVersionDO version, String role) {
+        MesProRouteVersionUsagePolicy.requireUsable(version);
         if (version == null || version.getId() == null) {
             throw new IllegalArgumentException(role + " route version is required");
         }

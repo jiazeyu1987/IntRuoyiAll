@@ -1,5 +1,6 @@
 package cn.iocoder.yudao.module.mes.service.pro.processpool.team;
 
+import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteVersionUsagePolicy;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_ACTIVE_ORDER_COMPLETION_EVIDENCE_LOCKED;
 
 import cn.hutool.core.util.IdUtil;
@@ -474,6 +475,7 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
         }
         Map<Long, List<MesProRouteVersionDO>> activeRouteVersionsByRouteId = routeVersionMapper
                 .selectListByRouteIds(validRouteIds).stream()
+                .filter(version -> !MesProRouteVersionUsagePolicy.isHistoricalSummary(version))
                 .filter(version -> Boolean.TRUE.equals(version.getActive()))
                 .filter(version -> Objects.equals("ACTIVE", version.getLifecycleStatus()))
                 .filter(version -> version.getRouteId() != null)
@@ -698,6 +700,7 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
 
     private List<MesProScheduleOrderProcessDO> toRouteProcessSources(MesProWorkOrderDO workOrder,
                                                                      MesProRouteVersionDO routeVersion) {
+        MesProRouteVersionUsagePolicy.requireUsable(routeVersion);
         if (routeVersion == null || routeVersion.getRouteSnapshotJson() == null
                 || routeVersion.getRouteSnapshotJson().isBlank()) {
             throw exception(PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_REQUIRED,

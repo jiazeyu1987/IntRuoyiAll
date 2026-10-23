@@ -436,7 +436,8 @@ public class MesProRouteServiceImpl implements MesProRouteService {
     private void maintainRouteVersionAfterRouteUpdate(MesProRouteDO oldRoute, MesProRouteDO updatedRoute) {
         MesProRouteVersionDO activeVersion = routeVersionMapper.selectActiveByRouteId(updatedRoute.getId());
         if (activeVersion == null) {
-            createInitialRouteVersion(mergeRouteForSnapshot(oldRoute, updatedRoute));
+            MesProRouteDO snapshotRoute = mergeRouteForSnapshot(oldRoute, updatedRoute);
+            if (!maintainArchivedRouteDraft(snapshotRoute)) createInitialRouteVersion(snapshotRoute);
             return;
         }
         MesProRouteDO snapshotRoute = mergeRouteForSnapshot(oldRoute, updatedRoute);
@@ -450,7 +451,7 @@ public class MesProRouteServiceImpl implements MesProRouteService {
         MesProRouteDO route = validateRouteExists(routeId);
         MesProRouteVersionDO activeVersion = routeVersionMapper.selectActiveByRouteId(routeId);
         if (activeVersion == null) {
-            createInitialRouteVersion(route);
+            if (!maintainArchivedRouteDraft(route)) createInitialRouteVersion(route);
             return;
         }
         MesProRouteVersionDO draftCandidate = findReusableDraftCandidate(routeId, activeVersion);
@@ -498,6 +499,33 @@ public class MesProRouteServiceImpl implements MesProRouteService {
                 buildCompleteRouteConfigSnapshots(route.getId(), activeVersion.getId()));
         platformAdapter.recordCandidateCreated(activeVersion, candidate, null, "route version candidate created");
         return candidate;
+    }
+
+    private boolean maintainArchivedRouteDraft(MesProRouteDO route) {
+        MesProRouteVersionDO legacy = MesProRouteVersionUsagePolicy.knownArchivedSummary(
+                routeVersionMapper.selectListByRouteId(route.getId()));
+        if (legacy == null) return false;
+        MesProRouteVersionDO draft = routeVersionMapper.selectOpenCandidateByRouteId(route.getId());
+        JSONObject configs = buildCompleteRouteConfigSnapshots(route.getId(), draft == null ? null : draft.getId());
+        String snapshot = buildRouteSnapshotJson(route, configs);
+        if (!MesProRouteVersionSnapshotValidator.hasAuthoringConfigSnapshot(route.getId(), snapshot)) {
+            throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, legacy.getId());
+        }
+        if (draft != null) {
+            MesProRouteVersionUsagePolicy.requireUsable(draft);
+            if (!ROUTE_VERSION_STATUS_DRAFT.equals(draft.getLifecycleStatus()) || draft.getSourceRouteVersionId() != null) {
+                throw exception(PRO_ROUTE_VERSION_CONFLICT, route.getId(), draft.getId(), draft.getLifecycleStatus());
+            }
+            MesProRouteVersionDO update = new MesProRouteVersionDO();
+            update.setId(draft.getId());
+            MesProRouteVersionSnapshotIdentityWriter.apply(update, snapshot);
+            routeVersionMapper.updateById(update);
+        } else {
+            MesProRouteVersionDO candidate = createRouteVersion(route, nextVersionNo(route.getId()), null,
+                    Boolean.FALSE, ROUTE_VERSION_STATUS_DRAFT, configs);
+            platformAdapter.recordFirstCandidateCreated(legacy, candidate, null, "历史摘要归档后正常创建路线草稿");
+        }
+        return true;
     }
 
     private MesProRouteDO mergeRouteForSnapshot(MesProRouteDO oldRoute, MesProRouteDO updatedRoute) {
@@ -823,7 +851,7 @@ public class MesProRouteServiceImpl implements MesProRouteService {
         configSnapshots.put(PRODUCTS_KEY, JSON.toJSON(routeProductMapper.selectListByRouteId(routeId)));
         configSnapshots.put(PRODUCT_BOMS_KEY, JSON.toJSON(routeProductBomMapper.selectList(routeId, null, null)));
         configSnapshots.put(SCHEDULE_CONFIGS_KEY,
-                JSON.toJSON(routeScheduleConfigMapper.selectListByRouteVersionId(routeVersionId)));
+                routeVersionId == null ? new JSONArray() : JSON.toJSON(routeScheduleConfigMapper.selectListByRouteVersionId(routeVersionId)));
         configSnapshots.put(BATCH_USE_CONFIGS_KEY, buildBatchUseConfigSnapshots(routeId,
                 resolveExistingConfigSnapshot(routeVersionId, BATCH_USE_CONFIGS_KEY), routeVersionId));
         configSnapshots.put(SCHEDULE_USE_CONFIGS_KEY, JSON.toJSON(routeFlowProcessConfigMapper

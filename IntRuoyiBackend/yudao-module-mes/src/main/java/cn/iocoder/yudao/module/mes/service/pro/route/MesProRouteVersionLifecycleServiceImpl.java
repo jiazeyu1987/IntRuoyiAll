@@ -33,6 +33,7 @@ public class MesProRouteVersionLifecycleServiceImpl implements MesProRouteVersio
     public static final String STATUS_SUPERSEDED = "SUPERSEDED";
     public static final String STATUS_REJECTED = "REJECTED";
     public static final String STATUS_CANCELLED = "CANCELLED";
+    public static final String STATUS_LEGACY_INCOMPLETE = MesRouteLegacySummaryIdentity.STATUS;
 
     private static final Set<String> PUBLISHABLE_STATUSES = Set.of(STATUS_READY_TO_PUBLISH);
 
@@ -62,6 +63,7 @@ public class MesProRouteVersionLifecycleServiceImpl implements MesProRouteVersio
         if (candidate == null) {
             throw exception(PRO_ROUTE_VERSION_NOT_EXISTS, candidateRouteVersionId);
         }
+        MesProRouteVersionUsagePolicy.requireUsable(candidate);
         if (isAlreadyActive(candidate)) {
             return candidate;
         }
@@ -79,10 +81,12 @@ public class MesProRouteVersionLifecycleServiceImpl implements MesProRouteVersio
         }
         craftService.validateBindings(JSON.parseObject(candidate.getRouteSnapshotJson()).getJSONObject("configSnapshots"));
         MesProRouteVersionDO active = routeVersionMapper.selectActiveByRouteId(candidate.getRouteId());
-        if (active == null) {
+        MesProRouteVersionDO legacy = active == null ? MesProRouteVersionUsagePolicy.knownArchivedSummary(
+                routeVersionMapper.selectListByRouteId(candidate.getRouteId())) : null;
+        if (active == null && (legacy == null || candidate.getSourceRouteVersionId() != null)) {
             throw exception(PRO_ROUTE_VERSION_ACTIVE_NOT_EXISTS, candidate.getRouteId());
         }
-        if (!Objects.equals(candidate.getSourceRouteVersionId(), active.getId())) {
+        if (active != null && !Objects.equals(candidate.getSourceRouteVersionId(), active.getId())) {
             throw exception(PRO_ROUTE_VERSION_CONFLICT,
                     candidate.getRouteId(), candidate.getSourceRouteVersionId(), active.getId());
         }
@@ -91,11 +95,13 @@ public class MesProRouteVersionLifecycleServiceImpl implements MesProRouteVersio
                 publishProjectionService.projectCandidate(candidate);
         persistAndVerifyProjectedSnapshot(candidate, projection);
 
-        MesProRouteVersionDO superseded = new MesProRouteVersionDO();
-        superseded.setId(active.getId());
-        superseded.setActive(Boolean.FALSE);
-        superseded.setLifecycleStatus(STATUS_SUPERSEDED);
-        requireAffectedRows("supersede", active.getId(), routeVersionMapper.updateById(superseded));
+        if (active != null) {
+            MesProRouteVersionDO superseded = new MesProRouteVersionDO();
+            superseded.setId(active.getId());
+            superseded.setActive(Boolean.FALSE);
+            superseded.setLifecycleStatus(STATUS_SUPERSEDED);
+            requireAffectedRows("supersede", active.getId(), routeVersionMapper.updateById(superseded));
+        }
 
         LocalDateTime publishedTime = LocalDateTime.now();
         MesProRouteVersionDO published = new MesProRouteVersionDO();
@@ -106,7 +112,8 @@ public class MesProRouteVersionLifecycleServiceImpl implements MesProRouteVersio
         published.setPublishedTime(publishedTime);
         requireAffectedRows("activate", candidate.getId(), routeVersionMapper.updateById(published));
 
-        platformAdapter.recordPublished(active, candidate, publisherId);
+        if (active == null) platformAdapter.recordFirstPublished(legacy, candidate, publisherId);
+        else platformAdapter.recordPublished(active, candidate, publisherId);
 
         candidate.setActive(Boolean.TRUE);
         candidate.setLifecycleStatus(STATUS_ACTIVE);

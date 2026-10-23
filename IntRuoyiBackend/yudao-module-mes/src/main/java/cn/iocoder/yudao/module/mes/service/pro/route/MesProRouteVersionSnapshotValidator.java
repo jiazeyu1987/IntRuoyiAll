@@ -30,6 +30,18 @@ final class MesProRouteVersionSnapshotValidator {
     }
 
     static boolean hasCompleteConfigSnapshot(String routeSnapshotJson) {
+        return hasConfigSnapshot(routeSnapshotJson, true);
+    }
+
+    /** New source-free drafts still require a real complete graph; business settings are authored afterwards. */
+    static boolean hasAuthoringConfigSnapshot(Long routeId, String routeSnapshotJson) {
+        return hasConfigSnapshot(routeSnapshotJson, false)
+                && Boolean.TRUE.equals(JSON.parseObject(routeSnapshotJson).getJSONObject(SNAPSHOT_CONFIGS_KEY)
+                        .getJSONObject(FLOW_GRAPH_KEY).getBoolean("valid"))
+                && new MesProRouteSnapshotCanonicalizer().validate(routeId, routeSnapshotJson).ready();
+    }
+
+    private static boolean hasConfigSnapshot(String routeSnapshotJson, boolean requireProductionConfiguration) {
         if (StrUtil.isBlank(routeSnapshotJson)) {
             return false;
         }
@@ -65,8 +77,10 @@ final class MesProRouteVersionSnapshotValidator {
             if (!structurallyComplete) {
                 return false;
             }
-            MesProRouteCandidateConfigServiceImpl.validateProductionProcessConfigs(
-                    snapshot.getLong("routeVersionId"), configSnapshots);
+            if (requireProductionConfiguration) {
+                MesProRouteCandidateConfigServiceImpl.validateProductionProcessConfigs(
+                        snapshot.getLong("routeVersionId"), configSnapshots);
+            }
             return true;
         } catch (RuntimeException ex) {
             return false;

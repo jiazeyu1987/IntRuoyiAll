@@ -38,11 +38,18 @@ public class MesProRouteVersionBusinessApprovalSubmitServiceImpl
     @Transactional(rollbackFor = Exception.class)
     public MesProRouteVersionDO submitAndPublishCandidate(Long routeVersionId) {
         MesProRouteVersionDO candidate = workflowService.getVersion(routeVersionId);
+        MesProRouteVersionUsagePolicy.requireUsable(candidate);
         if (isAlreadyActive(candidate)) {
             return candidate;
         }
         requireDraftCandidate(candidate);
-        businessApprovalOrchestrator.submit(buildPublishContext(candidate, requireApplicantUserId()));
+        Long applicantUserId = requireApplicantUserId();
+        var readiness = workflowService.getPublishBlockers(routeVersionId);
+        if (readiness == null || !Boolean.TRUE.equals(readiness.getPublishable())) {
+            throw exception(PRO_ROUTE_VERSION_CANDIDATE_NOT_PUBLISHABLE,
+                    candidate.getId(), candidate.getLifecycleStatus());
+        }
+        businessApprovalOrchestrator.submit(buildPublishContext(candidate, applicantUserId));
         return workflowService.getVersion(routeVersionId);
     }
 

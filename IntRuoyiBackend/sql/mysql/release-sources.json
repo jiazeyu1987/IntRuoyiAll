@@ -1010,7 +1010,8 @@
     "20261022_business_approval_form_columns.sql",
     "20261022_dcc_rework_versioned_deployment.sql",
     "20261022_mes_pqc_c00_empty_history_activation.sql",
-    "20261022_dcc_product_catalog_project_columns.sql"
+    "20261022_dcc_product_catalog_project_columns.sql",
+    "20261023_mes_route_snapshot_legacy_summary_enforce.sql"
   ],
   "migrationScopes": [
     {
@@ -1108,6 +1109,14 @@
         "with-data"
       ],
       "reason": "One-time removal of the subsidiary product catalog business source; application deployment must preserve existing catalog rows."
+    },
+    {
+      "file": "20260829_mes_old_form_template_binding_switch.sql",
+      "sha256": "aa6797eddcf1d0331bad1516a0e1b1a85b10ba992d3c757b41e2858fb14917db",
+      "allowedPublishScopes": [
+        "with-data"
+      ],
+      "reason": "Original 2026-08-29 task authorized a one-time local int_main conversion of 580 bindings and templates 27/28/32/41. Current application intentionally supports dynamic bindings of the same shape, so this targeted business-data conversion must not run in an application upgrade or be claimed APPLIED when excluded; separately approved with-data execution retains its reviewed target gate."
     }
   ],
   "excludedSources": [
@@ -1132,6 +1141,12 @@
       "sha256": "1cd2f6c77346c10c6ebfda2a8b5f5ed5686deac7d7a17212f9560c875e21a236",
       "approvedHook": "route-snapshot-identity-v1",
       "reason": "Requires candidate-only offline Java PRECHECK before stopping writers and transactional BACKFILL plus strict READINESS immediately before immutable NOT NULL enforcement; never reconstruct historical snapshots."
+    },
+    {
+      "file": "20261023_mes_route_snapshot_legacy_summary_enforce.sql",
+      "sha256": "8668832bc8a52de84b39f451c0324c821e95b073a52c668f3bdbf6491fe30a7a",
+      "approvedHook": "route-snapshot-identity-v2",
+      "reason": "Explicit successor preserves the immutable v1 enforce source without claiming it APPLIED; candidate-only maintenance archives exactly five approved legacy summaries as non-executable with unchanged JSON and synchronized controlled references, while every complete version remains strictly canonical."
     }
   ]
 }

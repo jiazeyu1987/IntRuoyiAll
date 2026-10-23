@@ -1,5 +1,6 @@
 package cn.iocoder.yudao.module.mes.service.pro.batchrecord;
 
+import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteVersionUsagePolicy;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
@@ -1184,6 +1185,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
     }
 
     private FrozenRouteIdentity requireFrozenRouteIdentity(MesProRouteVersionDO routeVersion, Long expectedRouteId) {
+        MesProRouteVersionUsagePolicy.requireUsable(routeVersion);
         if (routeVersion == null || !Objects.equals(expectedRouteId, routeVersion.getRouteId())) {
             throw exception(PRO_EDHR_BATCH_EXECUTION_ROUTE_VERSION_REQUIRED, expectedRouteId);
         }
@@ -1777,6 +1779,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                                                                      List<String> missingItems) {
         MesProRouteVersionDO routeVersion = command == null || command.getRouteVersionId() == null
                 ? null : routeVersionMapper.selectById(command.getRouteVersionId());
+        MesProRouteVersionUsagePolicy.requireUsable(routeVersion);
         if (routeVersion != null
                 && Objects.equals(routeVersion.getRouteId(), route.getId())
                 && hasFrozenBatchTaskConfigSnapshot(routeVersion.getRouteSnapshotJson())) {
@@ -5258,6 +5261,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
     private List<BatchTaskConfig> buildBatchTaskConfigs(MesProRouteDO route,
                                                         List<MesProRouteProcessDO> routeProcesses,
                                                         MesProRouteVersionDO activeRouteVersion) {
+        MesProRouteVersionUsagePolicy.requireUsable(activeRouteVersion);
         if (activeRouteVersion != null
                 && hasFrozenBatchTaskConfigSnapshot(activeRouteVersion.getRouteSnapshotJson())) {
             MesProEdhrBatchExecutionDO frozenContext = new MesProEdhrBatchExecutionDO()

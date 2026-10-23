@@ -47,6 +47,42 @@ class MesProRouteVersionLifecycleServiceTest {
     private MesProRouteSnapshotCanonicalizer canonicalizer = new MesProRouteSnapshotCanonicalizer();
 
     @Test
+    void publishCandidate_afterReviewedArchive_shouldActivateOnlyApprovedCompleteNextVersion() {
+        MesProRouteVersionDO legacy = MesProRouteVersionDO.builder().id(5L).tenantId(122L).routeId(9001L)
+                .versionNo("V1").active(false).lifecycleStatus(MesRouteLegacySummaryIdentity.STATUS)
+                .routeSnapshotFormatVersion(MesRouteLegacySummaryIdentity.FORMAT_VERSION).build();
+        MesProRouteVersionDO candidate = MesProRouteVersionDO.builder().id(1002L).routeId(9001L)
+                .versionNo("V2").active(false).lifecycleStatus("READY_TO_PUBLISH")
+                .routeSnapshotJson(validSnapshotJson(9001L, "RT-9001-V2", "New complete route")).build();
+        when(routeVersionMapper.selectById(candidate.getId())).thenReturn(candidate);
+        when(routeVersionMapper.selectListByRouteId(candidate.getRouteId())).thenReturn(List.of(legacy, candidate));
+        when(routeVersionMapper.updateById(any(MesProRouteVersionDO.class))).thenReturn(1);
+        when(publishProjectionService.projectCandidate(candidate)).thenReturn(projection(candidate.getRouteSnapshotJson(), 10L));
+        try (var identity = mockStatic(MesRouteLegacySummaryIdentity.class, org.mockito.Mockito.CALLS_REAL_METHODS)) {
+            identity.when(() -> MesRouteLegacySummaryIdentity.isKnownArchivedIdentity(legacy)).thenReturn(true);
+            MesProRouteVersionDO result = lifecycleService.publishCandidate(candidate.getId(), 607L);
+            assertEquals("ACTIVE", result.getLifecycleStatus());
+            assertEquals(true, result.getActive());
+            assertEquals(MesRouteLegacySummaryIdentity.STATUS, legacy.getLifecycleStatus());
+            verify(platformAdapter).recordFirstPublished(legacy, candidate, 607L);
+            ArgumentCaptor<MesProRouteVersionDO> writes = ArgumentCaptor.forClass(MesProRouteVersionDO.class);
+            verify(routeVersionMapper, times(2)).updateById(writes.capture());
+            org.junit.jupiter.api.Assertions.assertTrue(writes.getAllValues().stream().allMatch(v -> candidate.getId().equals(v.getId())));
+        }
+    }
+
+    @Test
+    void publishCandidate_shouldRejectLegacyEvenWhenIncorrectlyMarkedActive() {
+        MesProRouteVersionDO legacy = MesProRouteVersionDO.builder().id(5L).routeId(9001L).active(true)
+                .lifecycleStatus("ACTIVE").routeSnapshotFormatVersion(MesRouteLegacySummaryIdentity.FORMAT_VERSION).build();
+        when(routeVersionMapper.selectById(5L)).thenReturn(legacy);
+        assertThrows(IllegalStateException.class, () -> lifecycleService.publishCandidate(5L, 607L));
+        verify(routeVersionMapper, never()).updateById(any(MesProRouteVersionDO.class));
+        verify(craftService, never()).onRouteReady(any(), any());
+        org.mockito.Mockito.verifyNoInteractions(publishProjectionService, platformAdapter);
+    }
+
+    @Test
     void publishCandidate_shouldPersistCanonicalRewrittenSnapshotBeforeStatusSwitch() {
         String activeSnapshot = validSnapshotJson(9601L, "RT-9601-V1", "Route V1");
         MesProRouteVersionDO active = MesProRouteVersionDO.builder()

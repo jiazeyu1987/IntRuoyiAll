@@ -51,6 +51,7 @@ public class MesProRouteVersionApprovalServiceImpl implements MesProRouteVersion
             }
             throw exception(PRO_ROUTE_VERSION_APPROVAL_NOT_EXISTS, approvalProcessInstanceId);
         }
+        MesProRouteVersionUsagePolicy.requireUsable(candidate);
         if (craftService.cancelledBatch(candidate)) {
             return result(candidate, approvalEventId, normalizedApprovalResult, DUPLICATE);
         }

@@ -74,6 +74,62 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class MesProRouteServiceImplTest {
 
+    @Test
+    void processChange_afterReviewedArchive_shouldCreateNextDraftInsteadOfAnAutomaticallyActiveV1() {
+        var route = MesProRouteDO.builder().id(9001L).code("RT-9001").name("route").build();
+        var legacy = MesProRouteVersionDO.builder().id(5L).tenantId(122L).routeId(9001L).versionNo("V1")
+                .active(false).lifecycleStatus(MesRouteLegacySummaryIdentity.STATUS)
+                .routeSnapshotFormatVersion(MesRouteLegacySummaryIdentity.FORMAT_VERSION).build();
+        when(routeMapper.selectById(route.getId())).thenReturn(route);
+        when(routeVersionMapper.selectListByRouteId(route.getId())).thenReturn(List.of(legacy));
+        when(routeVersionMapper.selectMaxVersionNoByRouteId(route.getId())).thenReturn("V1");
+        var graph = new MesProRouteProcessFlowGraphRespVO();
+        var node = new MesProRouteProcessFlowNodeRespVO();
+        node.setRouteProcessId(3001L);
+        node.setProcessId(4001L);
+        graph.setNodes(List.of(node));
+        graph.setEdges(List.of());
+        graph.setValid(true);
+        when(routeProcessFlowService.getGraph(route.getId())).thenReturn(graph);
+        try (var identity = mockStatic(MesRouteLegacySummaryIdentity.class, org.mockito.Mockito.CALLS_REAL_METHODS)) {
+            identity.when(() -> MesRouteLegacySummaryIdentity.isKnownArchivedIdentity(legacy)).thenReturn(true);
+            routeService.maintainRouteVersionAfterProcessChange(route.getId());
+            var captor = ArgumentCaptor.forClass(MesProRouteVersionDO.class);
+            verify(routeVersionMapper).insert(captor.capture());
+            var candidate = captor.getValue();
+            assertEquals("V2", candidate.getVersionNo());
+            assertEquals("DRAFT", candidate.getLifecycleStatus());
+            assertFalse(candidate.getActive());
+            assertNull(candidate.getSourceRouteVersionId());
+            verify(platformAdapter).recordFirstCandidateCreated(legacy, candidate, null, "历史摘要归档后正常创建路线草稿");
+            verify(platformAdapter, never()).recordActiveRegistered(any(), any(), any());
+        }
+    }
+
+    @Test
+    void processChange_afterArchive_shouldNotCreateAnyDraftForAnUninitializedCurrentGraph() {
+        var route = MesProRouteDO.builder().id(9001L).code("RT-9001").name("route").build();
+        var legacy = MesProRouteVersionDO.builder().id(5L).routeId(9001L)
+                .lifecycleStatus(MesRouteLegacySummaryIdentity.STATUS).build();
+        when(routeMapper.selectById(route.getId())).thenReturn(route);
+        when(routeVersionMapper.selectListByRouteId(route.getId())).thenReturn(List.of(legacy));
+        var graph = new MesProRouteProcessFlowGraphRespVO();
+        var node = new MesProRouteProcessFlowNodeRespVO();
+        node.setRouteProcessId(3001L);
+        node.setProcessId(4001L);
+        graph.setNodes(List.of(node));
+        graph.setValid(false);
+        graph.setValidationStatus("UNINITIALIZED");
+        when(routeProcessFlowService.getGraph(route.getId())).thenReturn(graph);
+        try (var identity = mockStatic(MesRouteLegacySummaryIdentity.class, org.mockito.Mockito.CALLS_REAL_METHODS)) {
+            identity.when(() -> MesRouteLegacySummaryIdentity.isKnownArchivedIdentity(legacy)).thenReturn(true);
+            org.junit.jupiter.api.Assertions.assertThrows(RuntimeException.class,
+                    () -> routeService.maintainRouteVersionAfterProcessChange(route.getId()));
+            verify(routeVersionMapper, never()).insert(any(MesProRouteVersionDO.class));
+            org.mockito.Mockito.verifyNoInteractions(platformAdapter);
+        }
+    }
+
     @InjectMocks
     private MesProRouteServiceImpl routeService;
 

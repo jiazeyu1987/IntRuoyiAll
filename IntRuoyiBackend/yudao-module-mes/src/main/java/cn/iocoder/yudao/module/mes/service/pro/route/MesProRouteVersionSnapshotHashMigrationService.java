@@ -96,6 +96,13 @@ public class MesProRouteVersionSnapshotHashMigrationService {
                                                     boolean requireIdentity) {
         List<MigrationBlocker> blockers = new ArrayList<>();
         for (MesProRouteVersionDO version : versions) {
+            if (MesRouteLegacySummaryIdentity.isLegacyMarker(version.getLifecycleStatus(), version.getRouteSnapshotFormatVersion())) {
+                if (!MesRouteLegacySummaryIdentity.isKnownArchivedIdentity(version)) {
+                    blockers.add(new MigrationBlocker(version.getId(), version.getRouteId(), version.getVersionNo(),
+                            "LEGACY_SUMMARY_PROVENANCE_MISMATCH", "approved archival identity is required; this is not an executable snapshot"));
+                }
+                continue;
+            }
             MesProRouteSnapshotCanonicalizer.Validation validation =
                     isCandidateLifecycle(version.getLifecycleStatus())
                             ? canonicalizer.validateCandidate(version.getRouteId(), version.getRouteSnapshotJson())

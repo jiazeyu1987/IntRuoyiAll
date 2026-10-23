@@ -29,6 +29,9 @@ public class MesProRouteVersionDO extends BaseDO {
     @TableId
     private Long id;
 
+    /** Physical tenant identity is required by the approved legacy-summary provenance contract. */
+    private Long tenantId;
+
     private Long routeId;
 
     private String versionNo;

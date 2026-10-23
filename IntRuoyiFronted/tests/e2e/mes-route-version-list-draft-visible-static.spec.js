@@ -29,8 +29,8 @@ assert.match(
 
 assert.match(
   routeList,
-  /const ROUTE_VERSION_WORKSPACE_VISIBLE_STATUS_SET = new Set\(\[\s*'DRAFT',\s*'ACTIVE',\s*'SUPERSEDED'\s*\]\)/,
-  '版本列表必须显式定义工作区可见状态集合，包含进行中草稿 DRAFT 和已生效历史版本。'
+  /const ROUTE_VERSION_WORKSPACE_VISIBLE_STATUS_SET = new Set\(\[\s*'DRAFT',\s*'ACTIVE',\s*'SUPERSEDED',\s*'LEGACY_INCOMPLETE'\s*\]\)/,
+  '版本列表必须保留草稿、生效历史和不可执行遗留摘要的查看入口。'
 )
 
 const visiblePredicate = getFunctionBody(routeList, 'isVisibleRouteVersionInWorkspace')
