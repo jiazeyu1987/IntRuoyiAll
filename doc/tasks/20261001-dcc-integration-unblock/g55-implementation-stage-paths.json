@@ -1,0 +1,135 @@
+{
+  "status": "PIN_VERIFIED_EXACT_SOURCE_TEST_STAGE_PREPARED",
+  "files": [
+    {
+      "path": "IntRuoyiBackend/yudao-module-bpm/src/main/java/cn/iocoder/yudao/module/bpm/service/definition/BpmProcessDefinitionServiceImpl.java",
+      "bytes": 10705,
+      "sha256": "3cd440c87e5fe8ac21f7ce841233afaf6d696fcc9351524bf5396042569732f1"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-bpm/src/test/java/cn/iocoder/yudao/module/bpm/service/definition/BpmLatestProcessDefinitionTest.java",
+      "bytes": 7815,
+      "sha256": "0a9de24e6c16f55e357d54b6d6e7b1339a12b05014c3918cb531ac12ad8af9d3"
+    },
+    {
+      "path": "scripts/runtime/start-branch-backend.ps1",
+      "bytes": 1776,
+      "sha256": "d186ea2be5de2b97c22c8c97242613abcabd0e58fd093b894838d016531d9602"
+    },
+    {
+      "path": "scripts/tests/start-branch-backend-spring-profile-contract.spec.ps1",
+      "bytes": 5355,
+      "sha256": "136f0013b8a1d5baca9caed441652b9f93f7e76d27ab910aa47e6056c013c9f6"
+    },
+    {
+      "path": "scripts/tests/start-branch-backend-dcc-encryption-static.spec.cjs",
+      "bytes": 3616,
+      "sha256": "eb0b68ebc3a3dfa2e14fa263a32cfc3cd513f7035b4e083f41c5766c177dbe58"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccWorkflowSignoffAssignmentService.java",
+      "bytes": 18486,
+      "sha256": "cb6f0010cb5f4fd60946071f5f4100f18c6fc798628dff13a1b21c78f3799754"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccSignoffAssignmentContext.java",
+      "bytes": 707,
+      "sha256": "63a5db055cab9d12183616796dba68f2fad8c9872750798fed550d68acfc6b4e"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccWorkflowSignoffAssignmentTest.java",
+      "bytes": 18319,
+      "sha256": "0469e16604887606d1aeb454a15bd872e382608930d8207e896181bd94467bde"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccAssignmentContextHttpContractTest.java",
+      "bytes": 2330,
+      "sha256": "58540121ffd03c382e380d1cdf53e7468ffe2e9ac604f56d2f892058551fcbfd"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccSignedRelationAssignmentContractTest.java",
+      "bytes": 9120,
+      "sha256": "e7ca003512649927ce4689f7ddaa02853bcc0842034c99d0247689524a783e51"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccWorkflowSignedArrangementTransactionTest.java",
+      "bytes": 22675,
+      "sha256": "f70e1dbea3ad08a3cf791ff7a0120fcde00933c5c1adbacb670893df9ee2e488"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccRelationControlledEventIntegrationTest.java",
+      "bytes": 33541,
+      "sha256": "2ec61791112acd08c97dba157d3e06f092008c24cf5d2b07ca7c061a05a7f551"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/detail/DetailSignoffAssignment.vue",
+      "bytes": 6445,
+      "sha256": "7ddce1e2f06563c697fd9966af568ba4b925bddbb4cf0933ba30152ee4eec513"
+    },
+    {
+      "path": "IntRuoyiFronted/src/api/dcc/controlledFile/applicationRead.ts",
+      "bytes": 21498,
+      "sha256": "6fa4714ac2d023ec70ff7cdc4689f9d883c386a5cbbb815310ccb557465f507e"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-signoff-remediation-scope.test.cjs",
+      "bytes": 7051,
+      "sha256": "6251b0740a9a9547ae13acf465c96a3524bf7d83f229052f29958f24c2434061"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-detail-integration.test.cjs",
+      "bytes": 15633,
+      "sha256": "c57717d585631ea4f55bf977db0efd7ba14b0f157fbb46328cc8d24b7ce48cfd"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileQueryServiceImpl.java",
+      "bytes": 263655,
+      "sha256": "069d9041576faa69915fcc386994415bcf9d855810920fe21a483341ca5f33c9"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/file/vo/DccControlledFileRespVO.java",
+      "bytes": 6893,
+      "sha256": "244f4a95b2cb4874eedfe2c622f8d53ae6e1335b804bbc3a2d239cb30a7002f3"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileQueryServiceTest.java",
+      "bytes": 401379,
+      "sha256": "4b4e4ff2d6788c7a3b63079250bc30710c90e8e9482e2b51f8ad0fe9e13d97e6"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/detail/index.vue",
+      "bytes": 308017,
+      "sha256": "b61d3be83136637768167d8368c281355c68ceaa999f1de1bc79804abb77e2a4"
+    },
+    {
+      "path": "IntRuoyiFronted/src/api/dcc/controlledFile/workflow.ts",
+      "bytes": 86280,
+      "sha256": "91628ac1833ee857201f77fa55e2c952fbf2b02652d35d94672bc8b04d322d2a"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/e2e/dcc-approval-publish-transition-static.spec.cjs",
+      "bytes": 3516,
+      "sha256": "82ba1b1eaa55f818466cd3ef97de482b82d604cd7be97eec2db2b9f103f7dea2"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-detail-route-read.test.cjs",
+      "bytes": 6129,
+      "sha256": "b9342bc981512e3c0ab923cf0e8ca53f202ddd9acc677f058eead4ecefc44709"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-detail-project-facts.test.cjs",
+      "bytes": 3506,
+      "sha256": "4f60e6b7e97b6ed853979db66f5072b2529b3c9fa096f78dc2546322b9065537"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccVersionPlacementDatabaseTest.java",
+      "bytes": 10719,
+      "sha256": "ba466ef6b3d226b10eb224dec08e056fab13a1f2379be6554225a33c372dedd9"
+    }
+  ],
+  "protected": {
+    "AGENTS.md": "3ae2c3981839b6a746c5166747b34a4d64d62d907da883d166a189fcd595e7da",
+    "IntRuoyiBackend/yudao-module-infra/src/main/java/cn/iocoder/yudao/module/infra/controller/admin/file/FileController.java": "7b003bfc1e13ec22bea261b77df7f6b1d17fa6d59dd2df393048896880ed7426",
+    "IntRuoyiBackend/yudao-module-infra/src/test/java/cn/iocoder/yudao/module/infra/controller/admin/file/FileControllerTest.java": "22a723ccfd96d720d070cef401f2fd586dcdc9049d8eb0f164452dc0bff23908"
+  }
+}

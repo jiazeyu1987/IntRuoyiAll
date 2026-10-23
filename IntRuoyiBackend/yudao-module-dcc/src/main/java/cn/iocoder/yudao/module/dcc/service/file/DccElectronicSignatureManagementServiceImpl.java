@@ -282,7 +282,8 @@ public class DccElectronicSignatureManagementServiceImpl implements DccElectroni
         }
         Map<Long, String> operatorNameMap = getOperatorNameMap(pageResult.getList());
         return new PageResult<>(CollectionUtils.convertList(pageResult.getList(),
-                audit -> toAuthorizationAuditRespVO(audit, operatorNameMap.get(audit.getOperatorId()))),
+                audit -> toAuthorizationAuditRespVO(audit, audit.getOperatorId() != null
+                        ? operatorNameMap.get(audit.getOperatorId()) : null)),
                 pageResult.getTotal());
     }
 
@@ -677,7 +678,9 @@ public class DccElectronicSignatureManagementServiceImpl implements DccElectroni
                     "签名 " + (signature == null ? "" : signature.getId()) + " 证据字段不完整，不能重新封存");
         }
         if (!Set.of("v1", DccControlledFileSignatureEvidenceServiceImpl.PAYLOAD_VERSION_V2,
-                DccControlledFileSignatureEvidenceServiceImpl.PAYLOAD_VERSION_V3_IMAGE)
+                DccControlledFileSignatureEvidenceServiceImpl.PAYLOAD_VERSION_V3_IMAGE,
+                DccControlledFileSignatureEvidenceServiceImpl.PAYLOAD_VERSION_V4_WORKFLOW,
+                DccControlledFileSignatureEvidenceServiceImpl.PAYLOAD_VERSION_V5_DELAYED)
                 .contains(signature.getEvidencePayloadVersion())) {
             throw exception(CONTROLLED_FILE_SIGNATURE_BINDING_MIGRATION_BLOCKED,
                     "签名 " + signature.getId() + " 证据版本不支持重新封存");
@@ -730,6 +733,8 @@ public class DccElectronicSignatureManagementServiceImpl implements DccElectroni
         respVO.setRevisionId(signature.getRevisionId());
         respVO.setVersionNo(signature.getVersionNo());
         respVO.setTaskId(signature.getTaskId());
+        respVO.setProcessInstanceId(signature.getProcessInstanceId());
+        respVO.setFileNumberSnapshot(signature.getFileNumberSnapshot());
         respVO.setActorId(signature.getActorId());
         respVO.setSignerUserId(signature.getActorId());
         respVO.setActorUsername(actor != null ? actor.getUsername() : signature.getActorUsernameSnapshot());
@@ -942,7 +947,9 @@ public class DccElectronicSignatureManagementServiceImpl implements DccElectroni
                     "SIGNATURE_EVIDENCE_MISSING", null, bindingVerification);
         }
         if (!Set.of("v1", DccControlledFileSignatureEvidenceServiceImpl.PAYLOAD_VERSION_V2,
-                DccControlledFileSignatureEvidenceServiceImpl.PAYLOAD_VERSION_V3_IMAGE)
+                DccControlledFileSignatureEvidenceServiceImpl.PAYLOAD_VERSION_V3_IMAGE,
+                DccControlledFileSignatureEvidenceServiceImpl.PAYLOAD_VERSION_V4_WORKFLOW,
+                DccControlledFileSignatureEvidenceServiceImpl.PAYLOAD_VERSION_V5_DELAYED)
                 .contains(signature.getEvidencePayloadVersion())) {
             return invalidVerification(null, null, STATUS_INVALID, verifiedAt,
                     "EVIDENCE_PAYLOAD_VERSION_UNSUPPORTED", null, bindingVerification);
@@ -1018,9 +1025,13 @@ public class DccElectronicSignatureManagementServiceImpl implements DccElectroni
         if (signature == null || controlledFile == null) {
             return false;
         }
+        if (isWorkflowEvidencePayload(signature)
+                && StrUtil.hasBlank(signature.getProcessInstanceId(), signature.getFileNumberSnapshot())) return false;
         if (StrUtil.hasBlank(signature.getEvidencePayloadVersion(), signature.getEvidenceHashAlgorithm(),
-                signature.getEvidenceKeyVersion(), signature.getEvidenceHash(), controlledFile.getFileNumber(),
-                controlledFile.getProcessInstanceId(), signature.getVersionNo(), signature.getSourceFileHash(),
+                signature.getEvidenceKeyVersion(), signature.getEvidenceHash(),
+                isWorkflowEvidencePayload(signature) ? signature.getFileNumberSnapshot() : controlledFile.getFileNumber(),
+                isWorkflowEvidencePayload(signature) ? signature.getProcessInstanceId() : controlledFile.getProcessInstanceId(),
+                signature.getVersionNo(), signature.getSourceFileHash(),
                 signature.getControlledCopyHashStatus(), signature.getTaskId(), signature.getActionType(),
                 signature.getMeaningCode(), signature.getActorUsernameSnapshot(), signature.getActorNicknameSnapshot(),
                 signature.getActorPostNamesSnapshot(), signature.getActorRoleNamesSnapshot(),
@@ -1063,6 +1074,11 @@ public class DccElectronicSignatureManagementServiceImpl implements DccElectroni
                 .equals(signature.getEvidencePayloadVersion()) || signature.getSignatureImageId() != null);
     }
 
+    private boolean isWorkflowEvidencePayload(DccControlledFileSignatureDO signature) {
+        return signature != null && (DccControlledFileSignatureEvidenceServiceImpl.PAYLOAD_VERSION_V4_WORKFLOW
+                .equals(signature.getEvidencePayloadVersion()) || DccControlledFileSignatureEvidenceServiceImpl.PAYLOAD_VERSION_V5_DELAYED.equals(signature.getEvidencePayloadVersion()));
+    }
+
     private boolean hasCompleteSignatureImageEvidence(DccControlledFileSignatureDO signature) {
         return signature.getSignatureImageId() != null
                 && signature.getSignatureImageVersionNo() != null
@@ -1080,7 +1096,8 @@ public class DccElectronicSignatureManagementServiceImpl implements DccElectroni
         append(payload, "keyVersion", signature.getEvidenceKeyVersion());
         append(payload, "tenantId", TenantContextHolder.getRequiredTenantId());
         append(payload, "controlledFileId", signature.getControlledFileId());
-        append(payload, "fileNumber", controlledFile.getFileNumber());
+        append(payload, "fileNumber", isWorkflowEvidencePayload(signature)
+                ? signature.getFileNumberSnapshot() : controlledFile.getFileNumber());
         append(payload, "revisionId", signature.getRevisionId());
         append(payload, "versionNo", signature.getVersionNo());
         append(payload, "sourceFileHash", signature.getSourceFileHash());
@@ -1097,7 +1114,8 @@ public class DccElectronicSignatureManagementServiceImpl implements DccElectroni
             append(payload, "signatureImageStatusSnapshot", signature.getSignatureImageStatusSnapshot());
             append(payload, "signatureImageVerifiedStatus", signature.getSignatureImageVerifiedStatus());
         }
-        append(payload, "processInstanceId", controlledFile.getProcessInstanceId());
+        append(payload, "processInstanceId", isWorkflowEvidencePayload(signature)
+                ? signature.getProcessInstanceId() : controlledFile.getProcessInstanceId());
         append(payload, "taskId", signature.getTaskId());
         append(payload, "taskActionResult", normalizeTaskActionResult(signature.getActionType()));
         append(payload, "meaningCode", signature.getMeaningCode());
@@ -1113,6 +1131,13 @@ public class DccElectronicSignatureManagementServiceImpl implements DccElectroni
         append(payload, "authenticationMethod", signature.getAuthenticationMethod());
         append(payload, "signedAt", OffsetDateTime.of(signature.getSignedAt(), ZoneOffset.ofHours(8)).toString());
         append(payload, "reasonText", StrUtil.trimToEmpty(signature.getComment()));
+        if(DccControlledFileSignatureEvidenceServiceImpl.PAYLOAD_VERSION_V5_DELAYED.equals(signature.getEvidencePayloadVersion())) {
+            if(signature.getSelectedEffectiveTime()==null || signature.getAttributeRound()==null || signature.getAttributeRound()<=0
+                    || signature.getSelectedEffectiveTime().getNano()!=0 || signature.getSelectedEffectiveTime().isBefore(signature.getSignedAt()))
+                throw new IllegalStateException("延迟确认签名缺少合法不可变时间或轮次快照");
+            append(payload,"selectedEffectiveTime",OffsetDateTime.of(signature.getSelectedEffectiveTime(),ZoneOffset.ofHours(8)).toString());
+            append(payload,"attributeRound",signature.getAttributeRound());
+        }
         payload.append('}');
         return payload.toString();
     }
@@ -1597,7 +1622,7 @@ public class DccElectronicSignatureManagementServiceImpl implements DccElectroni
             return false;
         }
         return switch (actionType) {
-            case "APPROVE", "REJECT", "RETURN", "TRANSFER", "ADD_SIGN",
+            case "ASSIGN", "APPROVE", "REJECT", "RETURN", "TRANSFER", "ADD_SIGN",
                     "DISTRIBUTION_ACK", "DISTRIBUTION_SIGN" -> true;
             default -> false;
         };
@@ -1677,6 +1702,7 @@ public class DccElectronicSignatureManagementServiceImpl implements DccElectroni
     }
 
     private enum SignatureTaskActionMapping {
+        ASSIGN("ASSIGN", "ASSIGNED"),
         APPROVE("APPROVE", "APPROVED"),
         REJECT("REJECT", "REJECTED"),
         RETURN("RETURN", "RETURNED"),
@@ -1706,6 +1732,7 @@ public class DccElectronicSignatureManagementServiceImpl implements DccElectroni
                 throw exception(CONTROLLED_FILE_SIGNATURE_EVIDENCE_MISSING);
             }
             return switch (actionType) {
+                case "ASSIGN" -> ASSIGN;
                 case "APPROVE" -> APPROVE;
                 case "REJECT" -> REJECT;
                 case "RETURN" -> RETURN;
@@ -1722,6 +1749,7 @@ public class DccElectronicSignatureManagementServiceImpl implements DccElectroni
                 throw exception(CONTROLLED_FILE_SIGNATURE_EVIDENCE_MISSING);
             }
             return switch (taskActionResult) {
+                case "ASSIGNED" -> ASSIGN;
                 case "APPROVED" -> APPROVE;
                 case "REJECTED" -> REJECT;
                 case "RETURNED" -> RETURN;

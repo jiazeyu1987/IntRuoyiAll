@@ -58,6 +58,17 @@ for (const token of [
   assert.ok(templateEditor.includes(token), `template editor must expose ${token}`)
 }
 
+assert.match(
+  templateEditor,
+  /value:\s*row\.id[\s\S]*label:\s*row\.name/,
+  'template taxonomy options must expose stable value and label fields'
+)
+assert.match(
+  templateEditor,
+  /value:\s*'value'[\s\S]*label:\s*'label'/,
+  'cascader props must consume explicit taxonomy value and label fields'
+)
+
 for (const token of [
   'projectFileTemplateItems',
   'projectFileTemplateLoading',

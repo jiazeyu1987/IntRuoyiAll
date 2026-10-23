@@ -45,7 +45,7 @@ public class DccCategoryViewMatrixAdminServiceImpl implements DccCategoryViewMat
     private static final String VIEW_RULE_SUMMARY =
             "当前查看矩阵参与人可浏览、查看详情和预览已发布受控副本";
     private static final String PENDING_PREVIEW_RULE_SUMMARY =
-            "进行中文件待审原件预览继续按提交时 route snapshot 参与人放行";
+            "进行中文件正文预览仅向对应当前审批任务处理人开放，待生效正文不通过日常历史开放";
     private static final String DOWNLOAD_RULE_SUMMARY =
             "下载规则单独治理，仅展示类别 DOWNLOAD 规则，不改变下载判定逻辑";
 
@@ -213,7 +213,7 @@ public class DccCategoryViewMatrixAdminServiceImpl implements DccCategoryViewMat
                         .filter(subject -> userId.equals(subject.userId()))
                         .toList();
         boolean viewMatched = !matchedSubjects.isEmpty();
-        boolean downloadMatched = directoryAdmin || permissionSupport.evaluateCategoryPermission(category.getId(), userId,
+        boolean downloadMatched = permissionSupport.evaluateCategoryPermission(category.getId(), userId,
                 DccFileCategoryPermissionActionEnum.DOWNLOAD).allowed();
         if (!directoryAdmin && !viewMatched && !downloadMatched) {
             return null;
@@ -230,15 +230,19 @@ public class DccCategoryViewMatrixAdminServiceImpl implements DccCategoryViewMat
         } else {
             setViewAbility(respVO, "NO", "DENIED", "不在当前文件类型查看矩阵解析主体内");
         }
+        respVO.setPublishedPreviewStatus(viewMatched ? "YES" : "NO");
+        respVO.setPublishedPreviewSource(viewMatched
+                ? DccControlledFileViewMatrixAccessService.SOURCE_CURRENT_VIEW_MATRIX : "DENIED");
+        respVO.setPublishedPreviewReason(viewMatched
+                ? "当前查看矩阵参与人；正文仍须满足版本状态和项目范围"
+                : "未命中查看矩阵；目录管理不授予正文预览，独立目录预览授权须按目标文件核验");
         respVO.setPendingPreviewStatus("CONDITIONAL");
-        respVO.setPendingPreviewSource("ROUTE_SNAPSHOT");
-        respVO.setPendingPreviewReason("仅对命中 route snapshot 的进行中文件实例生效");
+        respVO.setPendingPreviewSource("CURRENT_APPROVAL_TASK");
+        respVO.setPendingPreviewReason("仅对命中当前正式审批任务的精确文件版本生效；待生效正文不通过日常历史开放");
         if (downloadMatched) {
             respVO.setDownloadStatus("CONDITIONAL");
-            respVO.setDownloadSource(directoryAdmin ? "DIRECTORY_ADMIN" : "DOWNLOAD_RULE");
-            respVO.setDownloadReason(directoryAdmin
-                    ? "目录管理员进入独立下载判定，实际下载仍取决于下载策略与文件状态"
-                    : "命中类别 DOWNLOAD 规则，实际下载仍取决于独立下载策略与目标文件状态");
+            respVO.setDownloadSource("DOWNLOAD_RULE");
+            respVO.setDownloadReason("命中类别 DOWNLOAD 规则，实际下载仍须满足目录 DOWNLOAD、文件状态和项目范围");
         } else {
             respVO.setDownloadStatus("NO");
             respVO.setDownloadSource("DOWNLOAD_POLICY");

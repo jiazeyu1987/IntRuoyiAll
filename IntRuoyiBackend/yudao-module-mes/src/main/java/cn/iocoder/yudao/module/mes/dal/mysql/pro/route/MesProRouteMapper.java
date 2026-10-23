@@ -43,7 +43,7 @@ public interface MesProRouteMapper extends BaseMapperX<MesProRouteDO> {
     }
 
     default MesProRouteDO selectByName(String name) {
-        return selectOne(MesProRouteDO::getName, name);
+        return selectOne(new LambdaQueryWrapperX<MesProRouteDO>().apply("TRIM(name) = {0}", name));
     }
 
     default List<MesProRouteDO> selectListByName(String name) {

@@ -1,0 +1,30 @@
+{
+  "status": "ROOT_REVIEWED_NINE_MODE_UI_SCRIPT_FAMILY_PREPARATION_NOT_E2E_PASS",
+  "familyModes": [
+    "project-product",
+    "upload-submit",
+    "native-task",
+    "training",
+    "version",
+    "relations",
+    "reference",
+    "distribution",
+    "obsolete"
+  ],
+  "offlinePreparationCases": {
+    "g29": 29,
+    "g30": 26,
+    "g31": 25
+  },
+  "g31ManifestPath": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-public-backend-completion\\g31-ui-delivery-fingerprints.json",
+  "g31ManifestSha256": "ff323ccd33790fc69db80447f63f24689edd00edffc69d3c12b3c1e81eb5ed91",
+  "g31AssetsVerified": 3,
+  "oldG29G30Preserved": true,
+  "actualBrowserInvocations": 0,
+  "actualUiE2ePassed": false,
+  "obsoleteTerminalNeedsReadonlyBpmRetentionCorroboration": true,
+  "qaApproved": false,
+  "newTableDdlExecuted": false,
+  "objectRecoveryExecuted": false,
+  "localIntQmsMerge": false
+}

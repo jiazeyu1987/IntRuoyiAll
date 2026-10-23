@@ -1,0 +1,131 @@
+{
+  "status": "G56_HTML_FLOW1_8_AUDIT_AND_BOUNDED_PREVIEW_FIX_FROZEN_FOR_ROOT",
+  "baseline": "Root provided HEAD8090e7193, main/int_qms, no Git command by agent",
+  "productionFiles": 1,
+  "testFiles": 1,
+  "assets": [
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/shared/ControlledFileBasicInfoPanel.vue",
+      "bytes": 9704,
+      "sha256": "d3a176035eacfa4463d6564899c2f6bd82ea0e03c2cfb280c6e94ba66dbacf2b"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-preview-project-execution-version.test.cjs",
+      "bytes": 4227,
+      "sha256": "f5937d041d1168dc2524815d997fd73d74cf7936a22fd984d3de611e8b8efdff"
+    }
+  ],
+  "documents": [
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g56-flow1-8-review-matrix.md",
+      "bytes": 14832,
+      "sha256": "fce172308f24692670093b15d734d01479f72c4839f73091fabd243a641efc4c"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g56-preview-project-execution-version-bdd.md",
+      "bytes": 1954,
+      "sha256": "eeb3eb91937aa005aed9fd247482b1504ca181a25ce8ab2b6ddba64849a65cd9"
+    }
+  ],
+  "unchangedG55Assets": [
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/detail/index.vue",
+      "bytes": 308017,
+      "sha256": "b61d3be83136637768167d8368c281355c68ceaa999f1de1bc79804abb77e2a4"
+    },
+    {
+      "path": "IntRuoyiFronted/src/api/dcc/controlledFile/workflow.ts",
+      "bytes": 86280,
+      "sha256": "91628ac1833ee857201f77fa55e2c952fbf2b02652d35d94672bc8b04d322d2a"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/e2e/dcc-approval-publish-transition-static.spec.cjs",
+      "bytes": 3516,
+      "sha256": "82ba1b1eaa55f818466cd3ef97de482b82d604cd7be97eec2db2b9f103f7dea2"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-detail-route-read.test.cjs",
+      "bytes": 6129,
+      "sha256": "b9342bc981512e3c0ab923cf0e8ca53f202ddd9acc677f058eead4ecefc44709"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-detail-project-facts.test.cjs",
+      "bytes": 3506,
+      "sha256": "4f60e6b7e97b6ed853979db66f5072b2529b3c9fa096f78dc2546322b9065537"
+    }
+  ],
+  "unchangedG54Assets": [
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/detail/DetailSignoffAssignment.vue",
+      "bytes": 6445,
+      "sha256": "7ddce1e2f06563c697fd9966af568ba4b925bddbb4cf0933ba30152ee4eec513"
+    },
+    {
+      "path": "IntRuoyiFronted/src/api/dcc/controlledFile/applicationRead.ts",
+      "bytes": 21498,
+      "sha256": "6fa4714ac2d023ec70ff7cdc4689f9d883c386a5cbbb815310ccb557465f507e"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-signoff-remediation-scope.test.cjs",
+      "bytes": 7051,
+      "sha256": "6251b0740a9a9547ae13acf465c96a3524bf7d83f229052f29958f24c2434061"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-detail-integration.test.cjs",
+      "bytes": 15633,
+      "sha256": "c57717d585631ea4f55bf977db0efd7ba14b0f157fbb46328cc8d24b7ce48cfd"
+    }
+  ],
+  "exactChange": "Only shared preview project-link text uses formal projectName/projectCode with exact actual projectID navigation and explicit unbound/missing facts; currentActiveVersionNo label becomes 当前执行受控版本; no product field mutation/new latest data or API",
+  "verification": {
+    "RED": {
+      "tests": 4,
+      "pass": 1,
+      "failures": 3,
+      "exitCode": 1
+    },
+    "finalRegression": {
+      "files": 4,
+      "tests": 15,
+      "pass": 15,
+      "failures": 0,
+      "skipped": 0,
+      "exitCode": 0,
+      "overlap": "Includes existing G55 detail project/route/copy, not additive"
+    },
+    "ownedLint": {
+      "files": 1,
+      "exitCode": 0,
+      "warnings": 0
+    },
+    "documentStructure": "All specified AC IDs and four finding IDs present; exact handler/API anchors read"
+  },
+  "rawLogs": [
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g56-preview-project-execution-version-red.log",
+      "bytes": 3733,
+      "sha256": "2bb8a11e383718e1b6b69105616ead02cf7964c8f7d4628f4b2de1e9009327e3"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g56-preview-project-execution-version-final.log",
+      "bytes": 1732,
+      "sha256": "f02082b21051a71bd2116bee0a21fbb4668966ca26e6e61797da61f070547306"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g56-preview-project-execution-version-lint.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "unimplementedFindings": [
+    "G56-F02 public project folder maintenance entry",
+    "G56-F03 full browse dossier fields/entry in bare viewer",
+    "G56-F04 native stage progress still legacy fixed projection"
+  ],
+  "limitations": [
+    "Source chain plus existing Root G55 real receipt audit; no current browser/API/DB/runtime/Git",
+    "Actual helper and actual template Vue renderer via explicit hosts, not E2E",
+    "Root new full types/build and actual viewer verification pending; untested actor/config/history/future cases not source failures or PASS",
+    "Other detail/upload/workflow API/G54 production not changed by this limited source fix"
+  ]
+}

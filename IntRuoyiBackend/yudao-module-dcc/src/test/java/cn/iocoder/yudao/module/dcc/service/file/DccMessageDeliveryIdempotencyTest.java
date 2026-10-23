@@ -4,6 +4,10 @@ import cn.iocoder.yudao.framework.test.core.ut.BaseMockitoUnitTest;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileMessageJobDO;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileMessageJobMapper;
+import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileMapper;
+import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileTrainingMapper;
+import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileDO;
+import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileTrainingDO;
 import cn.iocoder.yudao.module.system.api.notify.NotifyMessageSendApi;
 import cn.iocoder.yudao.module.system.api.notify.dto.NotifySendSingleToUserIdempotentReqDTO;
 import cn.iocoder.yudao.module.system.api.notify.dto.NotifySendSingleToUserReqDTO;
@@ -22,10 +26,16 @@ import static org.mockito.Mockito.*;
 class DccMessageDeliveryIdempotencyTest extends BaseMockitoUnitTest {
     @Mock private DccControlledFileMessageJobMapper messageJobMapper;
     @Mock private NotifyMessageSendApi notifyMessageSendApi;
+    @Mock private DccControlledFileMapper controlledFileMapper;
+    @Mock private DccControlledFileTrainingMapper trainingMapper;
     @InjectMocks private DccControlledFileMessageDeliveryService service;
 
     @org.junit.jupiter.api.BeforeEach
-    void setUp() { DccMessageDeliveryTestSupport.wire(service, messageJobMapper).put(901L, job()); }
+    void setUp() {
+        DccMessageDeliveryTestSupport.wire(service, messageJobMapper).put(901L, job());
+        lenient().when(trainingMapper.selectById(300L)).thenReturn(DccControlledFileTrainingDO.builder().id(300L).controlledFileId(42L).build());
+        lenient().when(controlledFileMapper.selectById(42L)).thenReturn(DccControlledFileDO.builder().id(42L).title("培训文件").versionNo("B/1").build());
+    }
 
     @AfterEach
     void clearTenant() { TenantContextHolder.clear(); }
@@ -43,11 +53,16 @@ class DccMessageDeliveryIdempotencyTest extends BaseMockitoUnitTest {
                     assertNotNull(req.getBusinessKey());
                     return platformMessages.computeIfAbsent(req.getBusinessKey(), key -> (long) platformMessages.size() + 1);
                 });
-        when(messageJobMapper.updateById(any(DccControlledFileMessageJobDO.class)))
-                .thenThrow(new IllegalStateException("DCC ACK write failed")).thenReturn(1);
+        var failedOnce = new java.util.concurrent.atomic.AtomicBoolean();
+        when(messageJobMapper.updateById(any(DccControlledFileMessageJobDO.class))).thenAnswer(call -> {
+            var row=call.getArgument(0,DccControlledFileMessageJobDO.class);
+            if("SENT".equals(row.getStatus()) && failedOnce.compareAndSet(false,true))
+                throw new IllegalStateException("DCC ACK write failed");
+            return 1;
+        });
 
-        assertThrows(IllegalStateException.class, () -> service.dispatchMessageJob(job, Map.of("title", "文件")));
-        service.dispatchMessageJob(job, Map.of("title", "文件"));
+        assertThrows(IllegalStateException.class, () -> service.replayMessageJob(job));
+        service.replayMessageJob(job);
 
         assertEquals(1, platformMessages.size(), "重试必须复用同一通知业务身份");
     }
@@ -57,7 +72,7 @@ class DccMessageDeliveryIdempotencyTest extends BaseMockitoUnitTest {
         TenantContextHolder.setTenantId(1L);
         when(notifyMessageSendApi.sendSingleMessageIdempotentlyToAdmin(any())).thenReturn(null);
         when(messageJobMapper.updateById(any(DccControlledFileMessageJobDO.class))).thenReturn(1);
-        assertThrows(IllegalStateException.class, () -> service.dispatchMessageJob(job(), Map.of("title", "文件")));
+        assertThrows(IllegalStateException.class, () -> service.replayMessageJob(job()));
         verify(messageJobMapper, never()).updateById(org.mockito.ArgumentMatchers.<DccControlledFileMessageJobDO>argThat(row -> "SENT".equals(row.getStatus())));
     }
 

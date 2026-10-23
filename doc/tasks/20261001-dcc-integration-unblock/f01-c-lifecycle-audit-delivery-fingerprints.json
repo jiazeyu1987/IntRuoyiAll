@@ -1,0 +1,31 @@
+{
+  "worktree": "C:/IntRuoyi/20260930-dcc-c",
+  "branch": "codex/20260930-dcc-c",
+  "ownerException": "Current user: Query/AccessAudit lifecycle transaction boundary and corresponding tests only",
+  "files": [
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileQueryServiceImpl.java",
+      "beforeRawSha256": "c3420a52709f145528c0bbf6c1f30d8de608bad66af3fda5e3f3051abb92be20",
+      "afterRawSha256": "2037f4c310f0517d25e45cb44cdaaba81bcf1986df346c0ed8b8fea73a01c71c",
+      "afterUtf8LfSha256": "78b0eba0f1e4c899f162fe3b5859d5d0f9fa0947ca90027c625e437c0a7fac61"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/audit/DccControlledFileAccessAuditService.java",
+      "beforeRawSha256": "471073a0e9915c1fbf769c78db7af45e17e5fa5b59825c0fdee9e5a8f2c802d8",
+      "afterRawSha256": "be950e0db26113ed24c9d26fbcd6e6c4a6b37c2a17c0f1673a98ff510dd52b1e",
+      "afterUtf8LfSha256": "bc8e65230fe6a1ed95f0199bb99276f5070e54966017c94dbb2b4c02547eb1d8"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccCheckinDraftInitializationDatabaseTest.java",
+      "beforeRawSha256": "6dc34d3675727cbbe66298ca4e6d1aced30f0177b29f92105e3eb29ccb5bd25d",
+      "afterRawSha256": "712ec0301bed9dcadd7e69c5ca70f36c02177a00e56995cfdd29704e603b583e",
+      "afterUtf8LfSha256": "712ec0301bed9dcadd7e69c5ca70f36c02177a00e56995cfdd29704e603b583e"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/audit/DccControlledFileAccessAuditServiceTest.java",
+      "beforeRawSha256": "4ee0ec0306b92f4a6ab65f625f58ea0832b455eedc23626e785ab14a561d1bb4",
+      "afterRawSha256": "b56969a1ffe2c82e3a31b0e245ae3922535444c282c7fd474fd63103b16c98bc",
+      "afterUtf8LfSha256": "d5598d17fab1155126f25ecdd75d317ad26ebef2cd7844567403d3db9cb81c9d"
+    }
+  ]
+}

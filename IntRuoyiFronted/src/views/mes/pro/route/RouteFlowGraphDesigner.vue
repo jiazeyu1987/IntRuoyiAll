@@ -435,6 +435,8 @@
               }"
               data-flow-node="route-process"
               :data-route-process-id="data.routeNode.routeProcessId"
+              :data-process-id="data.routeNode.processId"
+              :data-process-sort="data.routeNode.sort"
               type="button"
               @click="handleRouteProcessNodeClick(data.routeNode)"
               @keydown="handleRouteProcessNodeKeydown($event, data.routeNode)"
@@ -1052,10 +1054,24 @@
               type="textarea"
               :autosize="{ minRows: 12, maxRows: 24 }"
             />
-            <div
+            <el-alert
+              v-if="selectedProcessDetailField.key === 'deviceParameters' && !selectedProcessDetailField.loading && routeProcessDeviceParameterConfig && !routeProcessDeviceParameterConfig.craftId && selectedRouteProcessDeviceParameterDevices.some((device) => device.parameters?.length)"
+              title="已配置参数，未关联工艺库"
+              :description="isProcessDetailFieldEditable('deviceParameters')
+                ? '当前使用原流程参数。若要关联工艺库，请在下方选择工艺并点击“应用到当前工序”。'
+                : '当前使用原流程参数。若要关联工艺库，请进入草稿候选版本选择工艺并应用。'"
+              type="info"
+              :closable="false"
+              show-icon
+              data-flow-panel="route-process-craft-unbound"
+            />
+            <el-collapse
               v-if="selectedProcessDetailField.key === 'deviceParameters' && !selectedProcessDetailField.loading && !isProcessDetailFieldEditable(selectedProcessDetailField.key)"
+              :key="selectedRouteProcessId"
+              class="route-flow-graph-designer__device-parameter-details"
               data-flow-panel="published-route-process-devices"
             >
+              <el-collapse-item name="parameters" :title="buildRouteProcessDeviceParameterDetailSummary()">
               <section v-for="device in selectedRouteProcessDeviceParameterDevices" :key="device.deviceId">
                 <strong>{{ formatRouteProcessDeviceParameterDeviceLabel(device) }}</strong>
                 <span>设备标识：{{ device.deviceId }}</span>
@@ -1064,7 +1080,8 @@
                 </p>
               </section>
               <p v-if="!selectedRouteProcessDeviceParameterDevices.length">当前工序未关联设备参数</p>
-            </div>
+              </el-collapse-item>
+            </el-collapse>
             <div
               v-if="selectedProcessDetailField.links?.length"
               class="route-flow-graph-designer__selected-detail-links"
@@ -1534,7 +1551,8 @@
                         :route-process-id="selectedRouteProcessId"
                         :route-version-id="props.routeVersionEditContext.routeVersionId"
                         :snapshot-sha256="routeProcessDeviceParameterConfig.routeSnapshotSha256"
-                        :craft-id="routeProcessDeviceParameterConfig.craftId"
+                        :bindings="routeProcessDeviceParameterConfig.craftBindings"
+                        :devices="selectedRouteProcessDeviceParameterDevices"
                         :disabled="recordBindingEditorDisabled || hasProductionProcessConfigJsonDraftChanges(selectedRouteProcessId)"
                         @saved="refreshSelectedCraftBinding"
                       />
@@ -3675,14 +3693,24 @@ const selectedRouteProcessDeviceParameterDevices = computed(
 )
 
 const buildRouteProcessDeviceParameterSummaryValue = () => {
+  const config = routeProcessDeviceParameterConfig.value
+  if (!config) return '点击查看工艺'
+  if (!config.craftId) {
+    const hasParameters = config.devices?.some((device) => device.parameters?.length)
+    return hasParameters ? '已配置参数（未关联工艺库）' : '未配置设备参数'
+  }
+  if (!config.craftBindings?.length) return '已绑定工艺，但关联明细缺失'
+  const codes = config.craftBindings.map((binding) => binding.craftCode?.trim())
+  return codes.every(Boolean) ? codes.join('、') : '已绑定工艺，但工艺编号缺失'
+}
+
+const buildRouteProcessDeviceParameterDetailSummary = () => {
   const devices = selectedRouteProcessDeviceParameterDevices.value
-  if (!routeProcessDeviceParameterConfig.value) return '点击查看设备参数'
-  if (devices.length === 0) return '未配置'
   const parameterCount = devices.reduce(
     (total, device) => total + (device.parameters?.length || 0),
     0
   )
-  return `${devices.length} 台设备 / ${parameterCount} 个参数`
+  return `设备与参数详情（${devices.length} 台设备 / ${parameterCount} 个参数）`
 }
 
 const formatRouteProcessDeviceParameterDeviceLabel = (
@@ -5213,6 +5241,9 @@ const selectedProcessDetailField = computed(() =>
 )
 const getProcessDetailFieldSourceLabel = (fieldKey?: ProcessDetailFieldKey) => {
   if (!fieldKey) return '-'
+  if (fieldKey === 'deviceParameters') {
+    return routeProcessDeviceParameterConfig.value?.craftId ? '工艺库' : '流程参数配置'
+  }
   return isFormSlotAggregateDetailField(fieldKey) ? '表单槽位' : '基础字段'
 }
 const selectedProcessDetailFieldSource = computed(() =>
@@ -10227,6 +10258,13 @@ defineExpose({
 </script>
 
 <style scoped>
+.route-flow-graph-designer__device-parameter-details :deep(.el-collapse-item__header) {
+  height: auto;
+  min-height: 40px;
+  padding: 8px 0;
+  line-height: 20px;
+}
+
 .route-flow-graph-designer {
   display: flex;
   flex-direction: column;

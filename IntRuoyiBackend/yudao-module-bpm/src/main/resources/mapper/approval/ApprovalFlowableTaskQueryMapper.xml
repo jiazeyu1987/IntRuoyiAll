@@ -49,11 +49,24 @@
         OR LOWER(CAST(rr.id AS CHAR)) LIKE #{keyword} ESCAPE '!'
         OR LOWER(CAST(rr.certificate_id AS CHAR)) LIKE #{keyword} ESCAPE '!'
         OR LOWER(rr.request_key) LIKE #{keyword} ESCAPE '!'
-        OR LOWER(cv.certificate_no) LIKE #{keyword} ESCAPE '!' OR LOWER(cs.product_name) LIKE #{keyword} ESCAPE '!')
+        OR LOWER(cv.certificate_no) LIKE #{keyword} ESCAPE '!' OR LOWER(cs.product_name) LIKE #{keyword} ESCAPE '!'
+        OR (o.authority_type='CONTROLLED_FILE' AND EXISTS (
+          SELECT 1 FROM dcc_controlled_file searched WHERE searched.tenant_id=#{tenant}
+            AND CAST(searched.id AS CHAR)=o.authority_id
+            AND (LOWER(searched.title) LIKE #{keyword} ESCAPE '!'
+              OR LOWER(searched.file_number) LIKE #{keyword} ESCAPE '!'))))
     </if>
   </sql>
   <sql id="partition">
-    <choose><when test="projection == 'DCC_TASK'">AND o.projection_code='DCC_TASK'</when>
+    <choose><when test="projection == 'DCC_TASK'">AND o.projection_code='DCC_TASK'
+      <if test="!done">
+        AND NOT (d.KEY_ IN ('dcc-controlled-file-upload','dcc-controlled-file-revision')
+          AND t.TASK_DEF_KEY_='DOC_CONTROL_REVIEW' AND EXISTS (
+            SELECT 1 FROM dcc_controlled_file completed WHERE completed.tenant_id=#{tenant}
+              AND CAST(completed.id AS CHAR)=o.authority_id
+              AND completed.status IN ('ACTIVE','SUPERSEDED','OBSOLETE')))
+      </if>
+    </when>
       <otherwise>AND o.projection_code IN ('NATIVE_BPM','NATIVE_FORM','NATIVE_BUSINESS','NATIVE_EXTERNAL_EDHR')</otherwise>
     </choose>
   </sql>

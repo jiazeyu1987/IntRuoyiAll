@@ -1,0 +1,75 @@
+{
+  "status": "FROZEN_MAVEN_FREE_READY_FOR_ROOT_REVIEW",
+  "productionFiles": 2,
+  "modifiedTestFiles": 5,
+  "assets": [
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccWorkflowSignoffAssignmentService.java",
+      "bytes": 18486,
+      "sha256": "cb6f0010cb5f4fd60946071f5f4100f18c6fc798628dff13a1b21c78f3799754"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccSignoffAssignmentContext.java",
+      "bytes": 707,
+      "sha256": "63a5db055cab9d12183616796dba68f2fad8c9872750798fed550d68acfc6b4e"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccWorkflowSignoffAssignmentTest.java",
+      "bytes": 18319,
+      "sha256": "0469e16604887606d1aeb454a15bd872e382608930d8207e896181bd94467bde"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccAssignmentContextHttpContractTest.java",
+      "bytes": 2330,
+      "sha256": "58540121ffd03c382e380d1cdf53e7468ffe2e9ac604f56d2f892058551fcbfd"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccSignedRelationAssignmentContractTest.java",
+      "bytes": 9120,
+      "sha256": "e7ca003512649927ce4689f7ddaa02853bcc0842034c99d0247689524a783e51"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccWorkflowSignedArrangementTransactionTest.java",
+      "bytes": 22675,
+      "sha256": "f70e1dbea3ad08a3cf791ff7a0120fcde00933c5c1adbacb670893df9ee2e488"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccRelationControlledEventIntegrationTest.java",
+      "bytes": 33541,
+      "sha256": "2ec61791112acd08c97dba157d3e06f092008c24cf5d2b07ca7c061a05a7f551"
+    }
+  ],
+  "compiledClasses": [
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/target/classes/cn/iocoder/yudao/module/dcc/service/file/DccWorkflowSignoffAssignmentService.class",
+      "bytes": 22504,
+      "sha256": "71e409be75de71401bb5974ac106fa0a40a5f431b96d66863e1c931a5c3fff29"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/target/classes/cn/iocoder/yudao/module/dcc/service/file/DccSignoffAssignmentContext$AssigneeOption.class",
+      "bytes": 2069,
+      "sha256": "eccbe4593268d1caf3bd87378201a0a463b3b3fc0363aaf70cd76925cafd967d"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/target/classes/cn/iocoder/yudao/module/dcc/service/file/DccSignoffAssignmentContext.class",
+      "bytes": 3880,
+      "sha256": "460a90ab2f6de5fe9d14b5a4d74474e12cea653f5195e42bf4ae6667c5027b04"
+    }
+  ],
+  "verification": {
+    "path": "doc/tasks/20261002-dcc-public-backend-completion/g54-signoff-verification-receipt.json",
+    "bytes": 4623,
+    "sha256": "8a067cde17a1462c57ceee96ab25f91d479623f734d5273b72e6ef969fc24d67"
+  },
+  "contracts": {
+    "currentProcessDefinitionKey": "formal exact current Task.processDefinitionId -> definition ID/tenant plus UPLOAD/REVISION/OBSOLETE whitelist; not file original key",
+    "assignmentScope": "Only REVISION invokes remediation.saveArrangements; UPLOAD/OBSOLETE nonempty relation payload rejected before signature, empty still real signature/snapshot/task assignment",
+    "unchangedGuards": "tenant/task/obligation/actor/department/position/readiness/password signature evidence/round/payload replay",
+    "noNewBpmNodeOrFakeSignature": true
+  },
+  "actualBrowserRuns": 0,
+  "actualDbActions": 0,
+  "GitMutations": 0,
+  "packageRuns": 0,
+  "scope": "2 production files, 5 necessary explicit fixture/test files; no FE edit"
+}

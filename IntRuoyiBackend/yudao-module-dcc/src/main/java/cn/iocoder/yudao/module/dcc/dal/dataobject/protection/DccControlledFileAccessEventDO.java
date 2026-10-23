@@ -26,9 +26,12 @@ public class DccControlledFileAccessEventDO extends BaseDO {
 
     @TableId
     private Long id;
+    private Long tenantId;
     private String accessEventCode;
     private Long controlledFileId;
     private String fileVersionNo;
+    /** Exact issuing approval instance, when the authorized caller proved one; historical absence stays null. */
+    private String processInstanceId;
     private Long userId;
     private String accessType;
     private String purpose;

@@ -55,7 +55,7 @@ assert.match(
 )
 assert.match(
   getListBlock,
-  /catch \(error\) \{[\s\S]*list\.value = \[\][\s\S]*total\.value = 0[\s\S]*clearBrowserLoadedListState\(\)[\s\S]*browserListErrorMessage\.value = resolveBrowserErrorMessage\(error, '受控浏览列表加载失败，请重新登录或刷新后重试。'\)[\s\S]*throw error[\s\S]*\}/,
+  /catch \(error\) \{[\s\S]*list\.value = \[\][\s\S]*total\.value = 0[\s\S]*clearBrowserLoadedListState\(\)[\s\S]*browserListErrorMessage\.value = resolveControlledFileReadErrorMessage\(error, '文件列表加载失败，请重试。'\)[\s\S]*throw error[\s\S]*\}/,
   'getList must clear stale rows, mark the list state invalid, expose the real error, and rethrow on failed loads.'
 )
 

@@ -27,11 +27,14 @@ def test_system_test_schema_contains_signature_password_t1_fields():
     assert 'unique ("tenant_id", "canonical_username")' in schema
 
 
-def test_password_policy_uses_90_day_expiry_boundary():
+def test_password_policy_uses_configured_expiry_and_initializes_90_days():
     source = (ROOT / "yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/service/user/AdminUserPasswordPolicy.java").read_text(encoding="utf-8")
+    migration = (ROOT / "sql/mysql/20261021_system_password_max_age_config.sql").read_text(encoding="utf-8")
 
-    assert "MAX_AGE_DAYS = 90" in source
-    assert "plusDays(MAX_AGE_DAYS).isAfter(now)" in source
+    assert "PasswordMaxAgeConfig.parseRequired(configuredMaxAgeDays)" in source
+    assert "plusDays(maxAgeDays).isAfter(now)" in source
+    assert "'system.user.password-max-age-days', '90'" in migration
+    assert "WHERE NOT EXISTS" in migration
 
 
 def test_signature_identity_t2_uses_failure_window_and_reauth_contract():

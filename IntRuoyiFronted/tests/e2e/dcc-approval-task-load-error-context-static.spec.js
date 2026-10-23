@@ -11,69 +11,61 @@ const readSource = (relativePath) => {
 }
 
 const approvalTaskPage = readSource('src/views/dcc/controlled-file/approval-tasks/index.vue')
+const workbenchPage = readSource('src/views/dcc/controlled-file/workbench/index.vue')
 
 assert.match(
   approvalTaskPage,
-  /resolveApprovalTaskControlledFileReadErrorMessage/,
-  'approval task page must build a contextual controlled-file read error'
+  /router\.replace\(\{[\s\S]*path:\s*['"]\/approval-center['"][\s\S]*moduleCode:\s*['"]DCC['"][\s\S]*viewType:\s*['"]TODO['"]/,
+  'legacy approval task entry must redirect to the unified DCC approval center'
 )
 assert.match(
-  approvalTaskPage,
-  /DCC 审批任务加载阻断/,
-  'approval task page must expose the load blocker as a DCC approval task blocker'
+  workbenchPage,
+  /resolveWorkbenchErrorMessage/,
+  'unified DCC workbench must expose a contextual load error'
 )
 assert.match(
-  approvalTaskPage,
-  /任务「\$\{taskName\}」/,
-  'approval task load error must include the BPM task name'
+  workbenchPage,
+  /DCC 工作台加载失败，请查看接口错误后重试/,
+  'workbench load error must preserve a concrete DCC context'
 )
 assert.match(
-  approvalTaskPage,
-  /流程 \$\{processInstanceId\}/,
-  'approval task load error must include the process instance id'
+  workbenchPage,
+  /TaskApi\.getTaskTodoPage/,
+  'workbench approval loading must use the BPM TODO source'
 )
 assert.match(
-  approvalTaskPage,
-  /businessKey=\$\{businessKey\}/,
-  'approval task load error must include the businessKey used to read the controlled file'
+  workbenchPage,
+  /getProcessInstance\(item\.processInstanceId\)/,
+  'controlled-file reads must resolve through the task process instance'
 )
 assert.match(
-  approvalTaskPage,
-  /后端返回：\$\{backendMessage\}/,
-  'approval task load error must keep the backend error message'
+  workbenchPage,
+  /const businessObjectId = String\(processInstance\.businessObjectId \|\| ''\)\.trim\(\)[\s\S]*const businessKey = String\(processInstance\.businessKey \|\| ''\)\.trim\(\)/,
+  'controlled-file reads must prefer the process business object id and only then use a numeric business key'
 )
 assert.match(
-  approvalTaskPage,
-  /getControlledFileForApprovalTask\(taskRows\[index\], id\)/,
-  'controlled file reads must be tied back to the task row that requested them'
+  workbenchPage,
+  /controlledFileIds\.map\(\(id\) => getControlledFile\(id\)\)/,
+  'controlled-file reads must use the resolved process business object identity'
 )
 assert.match(
-  approvalTaskPage,
-  /list\.value = \[\]/,
-  'approval task page must keep fail-fast empty list behavior when loading is blocked'
+  workbenchPage,
+  /buildDccTaskCenterRowView/,
+  'workbench rows must derive actions from the current task and file state'
 )
 assert.match(
-  approvalTaskPage,
-  /total\.value = 0/,
-  'approval task page must keep fail-fast total reset behavior when loading is blocked'
+  workbenchPage,
+  /approvalTodoRows\.value = \[\][\s\S]*pendingDistributionRows\.value = \[\][\s\S]*trainingTodoRows\.value = \[\][\s\S]*finalizationFailedRows\.value = \[\]/,
+  'workbench must clear visible rows when loading is blocked'
 )
-
-for (const behaviorToken of [
-  'TaskApi.getTaskTodoPage',
-  'getProcessInstance',
-  'getControlledFile',
-  'buildDccTaskCenterRowView',
-  'openViewer(row)',
-  'openDetail(row)',
-  'handleAudit(row)',
-  'processInstanceId: row.processInstanceId',
-  'taskId: row.id'
-]) {
-  assert.ok(approvalTaskPage.includes(behaviorToken), `approval task behavior must stay: ${behaviorToken}`)
-}
+assert.match(
+  workbenchPage,
+  /approvalTodoTotal:\s*0[\s\S]*pendingDistributionTotal:\s*0[\s\S]*trainingTodoTotal:\s*0[\s\S]*finalizationFailedTotal:\s*0/,
+  'workbench must reset totals when loading is blocked'
+)
 
 assert.doesNotMatch(
-  approvalTaskPage,
+  `${approvalTaskPage}\n${workbenchPage}`,
   /skipBrokenTask|filterValidTask|ignoreMissingFile|mock|placeholder data|fallback|降级|吞异常|默认成功/i,
   'approval task load blocker context must not skip broken tasks or introduce mock/fallback behavior'
 )

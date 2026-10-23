@@ -1,0 +1,32 @@
+{
+  "status": "ROOT_OFFLINE_REVIEW_PASS_SINGLE_MIGRATION_PREPARATION_NOT_AUTHORIZED",
+  "assetsVerified": 12,
+  "manifestSha256": "ea64fd36d37fc9f3cf98da9f2ebd7b1949301a2ada671c0c96cc4fe1bd5fcadf",
+  "tests": [
+    {
+      "testFile": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-detail-integration\\g28-schema-test.py",
+      "testCount": 11,
+      "exitCode": 0,
+      "outputSha256": "ff0b260e79c6e0b6e717fe042846f8a9714abc7219ef662bcec1a06e7f861386"
+    },
+    {
+      "testFile": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-detail-integration\\g28-driver-test.py",
+      "testCount": 16,
+      "exitCode": 0,
+      "outputSha256": "fa732a8ced4c9ef6cb80598a8758d4ee6a38298ef68fbd063c51ac38264d0d49"
+    },
+    {
+      "testFile": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-public-backend-completion\\g28-driver-independent-test.py",
+      "testCount": 5,
+      "exitCode": 0,
+      "outputSha256": "714f29415a01b3dc098655f670ededa6a83a69a59d0cc42dd4e2d8bb8d9b4148"
+    }
+  ],
+  "production41Unchanged": true,
+  "specificNewMigrationAuthorized": false,
+  "actualMySQLFirstRepeat": false,
+  "actualDatabaseWrites": false,
+  "actualObjectWrites": false,
+  "actualQualityApproval": false,
+  "remainingActualFreshCollection": true
+}

@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- V5 structural candidate only. No deployment or authoritative supervisor source is implied. -->
+<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL"
+             xmlns:flowable="http://flowable.org/bpmn"
+             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+             targetNamespace="urn:int-ruoyi:dcc:controlled-file:v5">
+  <process id="dcc-controlled-file-obsolete" name="DCC受控文件作废审批" isExecutable="true">
+    <startEvent id="StartEvent" name="提交作废" />
+    <sequenceFlow id="start_supervisor" sourceRef="StartEvent" targetRef="SUPERVISOR_REVIEW" />
+    <userTask id="SUPERVISOR_REVIEW" name="直接主管独立审核与签名">
+      <extensionElements>
+        <flowable:candidateStrategy>35</flowable:candidateStrategy>
+        <flowable:approveMethod>1</flowable:approveMethod>
+      </extensionElements>
+    </userTask>
+    <sequenceFlow id="supervisor_matrix" sourceRef="SUPERVISOR_REVIEW" targetRef="MATRIX_REVIEW" />
+    <userTask id="MATRIX_REVIEW" name="部门负责人签名指派与实际会签">
+      <extensionElements>
+        <flowable:candidateStrategy>34</flowable:candidateStrategy>
+        <flowable:approveMethod>2</flowable:approveMethod>
+        <flowable:approveRatio>100</flowable:approveRatio>
+      </extensionElements>
+      <multiInstanceLoopCharacteristics isSequential="false">
+        <loopCardinality>${PROCESS_DCC_TASK_OBLIGATION_IDS["MATRIX_REVIEW"].size()}</loopCardinality>
+        <completionCondition>${nrOfCompletedInstances == nrOfInstances}</completionCondition>
+      </multiInstanceLoopCharacteristics>
+    </userTask>
+    <sequenceFlow id="matrix_approval" sourceRef="MATRIX_REVIEW" targetRef="MATRIX_APPROVAL" />
+    <userTask id="MATRIX_APPROVAL" name="批准">
+      <extensionElements>
+        <flowable:candidateStrategy>34</flowable:candidateStrategy>
+        <flowable:approveMethod>1</flowable:approveMethod>
+      </extensionElements>
+    </userTask>
+    <sequenceFlow id="approval_end" sourceRef="MATRIX_APPROVAL" targetRef="EndEvent" />
+    <endEvent id="EndEvent" name="批准作废结束" />
+  </process>
+</definitions>

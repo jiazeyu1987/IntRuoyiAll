@@ -3,13 +3,16 @@ package cn.iocoder.yudao.module.infra.service.job;
 import cn.iocoder.yudao.framework.quartz.core.scheduler.SchedulerManager;
 import org.junit.jupiter.api.Test;
 import org.quartz.SchedulerException;
+import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 class JobStartupSyncRunnerTest {
@@ -62,6 +65,49 @@ class JobStartupSyncRunnerTest {
         runner.run(null);
 
         verify(jobService, never()).syncJob();
+    }
+
+    @Test
+    void conditionalPropertyFalseSkipsRunnerBeanAndSync() {
+        JobService jobService = mock(JobService.class);
+        SchedulerManager schedulerManager = mock(SchedulerManager.class);
+
+        new ApplicationContextRunner()
+                .withUserConfiguration(JobStartupSyncRunner.class)
+                .withBean(JobService.class, () -> jobService)
+                .withBean(SchedulerManager.class, () -> schedulerManager)
+                .withPropertyValues("yudao.local-job-control.startup-sync-enabled=false")
+                .run(context -> {
+                    assertThat(context).hasNotFailed().doesNotHaveBean(JobStartupSyncRunner.class);
+                    verifyNoInteractions(jobService, schedulerManager);
+                });
+    }
+
+    @Test
+    void conditionalPropertyMissingPreservesEnabledDefault() {
+        new ApplicationContextRunner()
+                .withUserConfiguration(JobStartupSyncRunner.class)
+                .withBean(JobService.class, () -> mock(JobService.class))
+                .withBean(SchedulerManager.class, () -> mock(SchedulerManager.class))
+                .run(context -> assertThat(context).hasNotFailed().hasSingleBean(JobStartupSyncRunner.class));
+    }
+
+    @Test
+    void conditionalPropertyTrueRegistersRunnerAndSyncsJobs() throws Exception {
+        JobService jobService = mock(JobService.class);
+        SchedulerManager schedulerManager = mock(SchedulerManager.class);
+        when(schedulerManager.isEnabled()).thenReturn(true);
+
+        new ApplicationContextRunner()
+                .withUserConfiguration(JobStartupSyncRunner.class)
+                .withBean(JobService.class, () -> jobService)
+                .withBean(SchedulerManager.class, () -> schedulerManager)
+                .withPropertyValues("yudao.local-job-control.startup-sync-enabled=true")
+                .run(context -> {
+                    assertThat(context).hasNotFailed().hasSingleBean(JobStartupSyncRunner.class);
+                    context.getBean(JobStartupSyncRunner.class).run(null);
+                    verify(jobService).syncJob();
+                });
     }
 
 }

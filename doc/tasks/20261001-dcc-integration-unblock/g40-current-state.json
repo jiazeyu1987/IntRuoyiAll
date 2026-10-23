@@ -1,0 +1,29 @@
+{
+  "status": "CURRENT_POST_G39_QUALITY_BLOCKER_REVALIDATED",
+  "facts": {
+    "database": "ruoyi-vue-pro",
+    "serverUuid": "92ca05d0-aec8-11f1-a944-02b4e226a5ef",
+    "legacyActivatedScopes": 0,
+    "newQualityPolicyVersion": 0,
+    "newActiveAuditOperations": 0
+  },
+  "reviewedOwnerAndGateAssets": 7,
+  "reviewedJarUnchanged": true,
+  "protectedNontask6Unchanged": true,
+  "git": [
+    {
+      "branch": "int_qms",
+      "head": "a801dc8b91579241e221d129ab34343997673f40",
+      "staged": 0
+    },
+    {
+      "branch": "codex/20261001-dcc-integration",
+      "head": "a801dc8b91579241e221d129ab34343997673f40",
+      "staged": 0
+    }
+  ],
+  "liveJava": 0,
+  "taskListeners": 0,
+  "actualReadWrites": false,
+  "newTestsOrBuildsRun": false
+}

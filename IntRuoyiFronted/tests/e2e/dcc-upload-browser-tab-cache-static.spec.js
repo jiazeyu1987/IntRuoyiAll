@@ -54,7 +54,7 @@ assert.match(
 
 assert.match(
   appView,
-  /if \(currentRoute\.name && currentRoute\.meta\?\.noCache !== true\)[\s\S]*caches\.add\(String\(currentRoute\.name\)\)/,
+  /const keepAliveName = resolveKeepAliveName\(currentRoute\)[\s\S]*if \(keepAliveName && currentRoute\.meta\?\.noCache !== true\)[\s\S]*caches\.add\(keepAliveName\)/,
   'AppView 必须把 noCache=false 的当前路由加入 keep-alive include。'
 )
 assert.match(

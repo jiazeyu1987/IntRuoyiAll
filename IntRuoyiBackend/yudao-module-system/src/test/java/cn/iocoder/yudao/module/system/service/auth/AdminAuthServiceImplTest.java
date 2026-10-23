@@ -4,12 +4,15 @@ import cn.hutool.core.util.ReflectUtil;
 import cn.iocoder.yudao.framework.common.enums.CommonStatusEnum;
 import cn.iocoder.yudao.framework.common.enums.UserTypeEnum;
 import cn.iocoder.yudao.framework.test.core.ut.BaseDbUnitTest;
+import cn.iocoder.yudao.module.infra.api.config.ConfigApi;
+import cn.iocoder.yudao.module.infra.enums.config.PasswordMaxAgeConfig;
 import cn.iocoder.yudao.module.system.api.sms.SmsCodeApi;
 import cn.iocoder.yudao.module.system.api.social.dto.SocialUserBindReqDTO;
 import cn.iocoder.yudao.module.system.api.social.dto.SocialUserRespDTO;
 import cn.iocoder.yudao.module.system.controller.admin.auth.vo.*;
 import cn.iocoder.yudao.module.system.dal.dataobject.oauth2.OAuth2AccessTokenDO;
 import cn.iocoder.yudao.module.system.dal.dataobject.user.AdminUserDO;
+import cn.iocoder.yudao.module.system.controller.admin.user.vo.profile.UserProfileUpdatePasswordReqVO;
 import cn.iocoder.yudao.module.system.enums.logger.LoginLogTypeEnum;
 import cn.iocoder.yudao.module.system.enums.logger.LoginResultEnum;
 import cn.iocoder.yudao.module.system.enums.sms.SmsSceneEnum;
@@ -53,6 +56,8 @@ public class AdminAuthServiceImplTest extends BaseDbUnitTest {
     @MockitoBean
     private AdminUserService userService;
     @MockitoBean
+    private ConfigApi configApi;
+    @MockitoBean
     private CaptchaService captchaService;
     @MockitoBean
     private LoginLogService loginLogService;
@@ -69,6 +74,7 @@ public class AdminAuthServiceImplTest extends BaseDbUnitTest {
 
     @BeforeEach
     public void setUp() {
+        when(configApi.getConfigValueByKey(PasswordMaxAgeConfig.KEY)).thenReturn("90");
         authService.setCaptchaEnable(true);
         // 注入一个 Validator 对象
         ReflectUtil.setFieldValue(authService, "validator",
@@ -83,6 +89,7 @@ public class AdminAuthServiceImplTest extends BaseDbUnitTest {
         // mock user 数据
         AdminUserDO user = randomPojo(AdminUserDO.class, o -> o.setUsername(username)
                 .setPassword(password).setStatus(CommonStatusEnum.ENABLE.getStatus())
+                .setPasswordCredentialStatus("ACTIVE")
                 .setPasswordUpdateTime(LocalDateTime.now().minusDays(30)));
         when(userService.getUserByUsername(eq(username))).thenReturn(user);
         // mock password 匹配
@@ -92,6 +99,24 @@ public class AdminAuthServiceImplTest extends BaseDbUnitTest {
         AdminUserDO loginUser = authService.authenticate(username, password);
         // 校验
         assertPojoEquals(user, loginUser);
+    }
+
+    @Test
+    public void testAuthenticate_readsChangedPasswordWindowOnEachAttempt() {
+        AdminUserDO user = new AdminUserDO().setId(101L).setUsername("expiry-user")
+                .setPassword("encoded").setStatus(CommonStatusEnum.ENABLE.getStatus())
+                .setPasswordUpdateTime(LocalDateTime.now().minusDays(100));
+        when(userService.getUserByUsername("expiry-user")).thenReturn(user);
+        when(userService.isPasswordMatch("provided", "encoded")).thenReturn(true);
+
+        assertServiceException(() -> authService.authenticate("expiry-user", "provided"), AUTH_LOGIN_PASSWORD_EXPIRED);
+        when(configApi.getConfigValueByKey(PasswordMaxAgeConfig.KEY)).thenReturn("180");
+        assertSame(user, authService.authenticate("expiry-user", "provided"));
+        when(configApi.getConfigValueByKey(PasswordMaxAgeConfig.KEY)).thenReturn("30");
+        assertServiceException(() -> authService.authenticate("expiry-user", "provided"), AUTH_LOGIN_PASSWORD_EXPIRED);
+        when(configApi.getConfigValueByKey(PasswordMaxAgeConfig.KEY)).thenReturn(null);
+        assertServiceException(() -> authService.authenticate("expiry-user", "provided"),
+                cn.iocoder.yudao.module.infra.enums.ErrorCodeConstants.CONFIG_PASSWORD_MAX_AGE_MISSING);
     }
 
     @Test
@@ -219,8 +244,7 @@ public class AdminAuthServiceImplTest extends BaseDbUnitTest {
         when(userService.getUserByUsername(eq(username))).thenReturn(user);
         when(userService.isPasswordMatch(eq(password), eq(user.getPassword()))).thenReturn(true);
 
-        AdminUserDO loginUser = authService.authenticate(username, password);
-        assertPojoEquals(user, loginUser);
+        assertServiceException(() -> authService.authenticate(username, password), AUTH_LOGIN_PASSWORD_CHANGE_REQUIRED);
     }
 
     @Test
@@ -322,6 +346,166 @@ public class AdminAuthServiceImplTest extends BaseDbUnitTest {
     }
 
     @Test
+    public void testChangePasswordBeforeLogin_initialCredential() {
+        String username = randomString();
+        AdminUserDO user = randomPojo(AdminUserDO.class, o -> o.setId(92L).setUsername(username)
+                .setPassword("encoded-current").setStatus(CommonStatusEnum.ENABLE.getStatus())
+                .setLoginLocked(0).setPasswordCredentialStatus("INITIAL")
+                .setPasswordUpdateTime(LocalDateTime.now()));
+        when(userService.getUserByUsername(eq(username))).thenReturn(user);
+        when(userService.isPasswordMatch(eq("current-password"), eq(user.getPassword()))).thenReturn(true);
+
+        authService.changePasswordBeforeLogin(preLoginChange(username, "current-password", "Strong@2026"));
+
+        verify(userService).updateUserPassword(eq(user.getId()), argThat((UserProfileUpdatePasswordReqVO req) ->
+                "current-password".equals(req.getOldPassword())
+                        && "Strong@2026".equals(req.getNewPassword())));
+        verifyNoInteractions(oauth2TokenService);
+    }
+
+    @Test
+    public void testChangePasswordBeforeLogin_resetRequiredCredential() {
+        String username = randomString();
+        AdminUserDO user = randomPojo(AdminUserDO.class, o -> o.setId(93L).setUsername(username)
+                .setPassword("encoded-current").setStatus(CommonStatusEnum.ENABLE.getStatus())
+                .setLoginLocked(0).setPasswordCredentialStatus("RESET_REQUIRED")
+                .setPasswordUpdateTime(LocalDateTime.now()));
+        when(userService.getUserByUsername(eq(username))).thenReturn(user);
+        when(userService.isPasswordMatch(eq("current-password"), eq(user.getPassword()))).thenReturn(true);
+
+        authService.changePasswordBeforeLogin(preLoginChange(username, "current-password", "Strong@2026"));
+
+        verify(userService).updateUserPassword(eq(user.getId()), argThat((UserProfileUpdatePasswordReqVO req) ->
+                "current-password".equals(req.getOldPassword())
+                        && "Strong@2026".equals(req.getNewPassword())));
+        verifyNoInteractions(oauth2TokenService);
+    }
+
+    @Test
+    public void testChangePasswordBeforeLogin_expiredCredential() {
+        String username = randomString();
+        AdminUserDO user = randomPojo(AdminUserDO.class, o -> o.setId(94L).setUsername(username)
+                .setPassword("encoded-current").setStatus(CommonStatusEnum.ENABLE.getStatus())
+                .setLoginLocked(0).setPasswordCredentialStatus("ACTIVE")
+                .setPasswordUpdateTime(LocalDateTime.now().minusDays(90)));
+        when(userService.getUserByUsername(eq(username))).thenReturn(user);
+        when(userService.isPasswordMatch(eq("current-password"), eq(user.getPassword()))).thenReturn(true);
+
+        authService.changePasswordBeforeLogin(preLoginChange(username, "current-password", "Strong@2026"));
+
+        verify(userService).updateUserPassword(eq(user.getId()), argThat((UserProfileUpdatePasswordReqVO req) ->
+                "Strong@2026".equals(req.getNewPassword())));
+        verifyNoInteractions(oauth2TokenService);
+    }
+
+    @Test
+    public void testChangePasswordBeforeLogin_wrongOldPasswordUsesLoginFailureAccounting() {
+        String username = randomString();
+        AdminUserDO user = randomPojo(AdminUserDO.class, o -> o.setId(95L).setUsername(username)
+                .setPassword("encoded-current").setStatus(CommonStatusEnum.ENABLE.getStatus())
+                .setLoginLocked(0).setPasswordCredentialStatus("RESET_REQUIRED")
+                .setPasswordUpdateTime(LocalDateTime.now()));
+        when(userService.getUserByUsername(eq(username))).thenReturn(user);
+        when(userService.isPasswordMatch(eq("wrong-password"), eq(user.getPassword()))).thenReturn(false);
+
+        assertServiceException(() -> authService.changePasswordBeforeLogin(
+                preLoginChange(username, "wrong-password", "Strong@2026")), AUTH_LOGIN_BAD_CREDENTIALS);
+
+        verify(userService).recordUserLoginFailure(eq(user.getId()));
+        verify(userService, never()).updateUserPassword(eq(user.getId()), any(UserProfileUpdatePasswordReqVO.class));
+        verify(loginLogService).createLoginLog(argThat(log ->
+                log.getResult().equals(LoginResultEnum.BAD_CREDENTIALS.getResult())
+                        && user.getId().equals(log.getUserId())));
+        verifyNoInteractions(oauth2TokenService);
+    }
+
+    @Test
+    public void testChangePasswordBeforeLogin_unknownUserMatchesBadCredentialsBehavior() {
+        String username = randomString();
+        when(userService.getUserByUsername(eq(username))).thenReturn(null);
+
+        assertServiceException(() -> authService.changePasswordBeforeLogin(
+                preLoginChange(username, "wrong-password", "Strong@2026")), AUTH_LOGIN_BAD_CREDENTIALS);
+
+        verify(loginLogService).createLoginLog(argThat(log ->
+                log.getResult().equals(LoginResultEnum.BAD_CREDENTIALS.getResult())
+                        && log.getUserId() == null));
+        verify(userService, never()).updateUserPassword(any(), any(UserProfileUpdatePasswordReqVO.class));
+        verifyNoInteractions(oauth2TokenService);
+    }
+
+    @Test
+    public void testChangePasswordBeforeLogin_activeCredentialRejected() {
+        String username = randomString();
+        AdminUserDO user = randomPojo(AdminUserDO.class, o -> o.setId(96L).setUsername(username)
+                .setPassword("encoded-current").setStatus(CommonStatusEnum.ENABLE.getStatus())
+                .setLoginLocked(0).setPasswordCredentialStatus("ACTIVE")
+                .setPasswordUpdateTime(LocalDateTime.now().minusDays(10)));
+        when(userService.getUserByUsername(eq(username))).thenReturn(user);
+        when(userService.isPasswordMatch(eq("current-password"), eq(user.getPassword()))).thenReturn(true);
+
+        assertServiceException(() -> authService.changePasswordBeforeLogin(
+                preLoginChange(username, "current-password", "Strong@2026")),
+                AUTH_LOGIN_BAD_CREDENTIALS);
+
+        verify(userService, never()).updateUserPassword(eq(user.getId()), any(UserProfileUpdatePasswordReqVO.class));
+        verify(loginLogService).createLoginLog(argThat(log ->
+                log.getResult().equals(LoginResultEnum.PASSWORD_CHANGE_NOT_ALLOWED.getResult())
+                        && user.getId().equals(log.getUserId())));
+        verifyNoInteractions(oauth2TokenService);
+    }
+
+    @Test
+    public void testChangePasswordBeforeLogin_lockedCredentialRejected() {
+        String username = randomString();
+        AdminUserDO user = randomPojo(AdminUserDO.class, o -> o.setId(97L).setUsername(username)
+                .setPassword("encoded-current").setStatus(CommonStatusEnum.ENABLE.getStatus())
+                .setLoginLocked(1).setLoginLockedTime(LocalDateTime.now())
+                .setPasswordCredentialStatus("RESET_REQUIRED")
+                .setPasswordUpdateTime(LocalDateTime.now()));
+        when(userService.getUserByUsername(eq(username))).thenReturn(user);
+
+        assertServiceException(() -> authService.changePasswordBeforeLogin(
+                preLoginChange(username, "current-password", "Strong@2026")), AUTH_LOGIN_BAD_CREDENTIALS);
+
+        verify(userService, never()).isPasswordMatch(anyString(), anyString());
+        verify(userService, never()).updateUserPassword(eq(user.getId()), any(UserProfileUpdatePasswordReqVO.class));
+        verify(userService, never()).resetUserLoginFailure(eq(user.getId()));
+        verify(loginLogService).createLoginLog(argThat(log ->
+                log.getResult().equals(LoginResultEnum.USER_LOCKED.getResult())
+                        && user.getId().equals(log.getUserId())));
+        verifyNoInteractions(oauth2TokenService);
+    }
+
+    @Test
+    public void testChangePasswordBeforeLogin_disabledCredentialRejected() {
+        String username = randomString();
+        AdminUserDO user = randomPojo(AdminUserDO.class, o -> o.setId(98L).setUsername(username)
+                .setPassword("encoded-current").setStatus(CommonStatusEnum.DISABLE.getStatus())
+                .setLoginLocked(0).setPasswordCredentialStatus("RESET_REQUIRED")
+                .setPasswordUpdateTime(LocalDateTime.now()));
+        when(userService.getUserByUsername(eq(username))).thenReturn(user);
+
+        assertServiceException(() -> authService.changePasswordBeforeLogin(
+                preLoginChange(username, "current-password", "Strong@2026")), AUTH_LOGIN_BAD_CREDENTIALS);
+
+        verify(userService, never()).isPasswordMatch(anyString(), anyString());
+        verify(userService, never()).updateUserPassword(eq(user.getId()), any(UserProfileUpdatePasswordReqVO.class));
+        verify(loginLogService).createLoginLog(argThat(log ->
+                log.getResult().equals(LoginResultEnum.USER_DISABLED.getResult())
+                        && user.getId().equals(log.getUserId())));
+        verifyNoInteractions(oauth2TokenService);
+    }
+
+    private AuthPreLoginPasswordChangeReqVO preLoginChange(String username, String oldPassword, String newPassword) {
+        AuthPreLoginPasswordChangeReqVO reqVO = new AuthPreLoginPasswordChangeReqVO();
+        reqVO.setUsername(username);
+        reqVO.setOldPassword(oldPassword);
+        reqVO.setNewPassword(newPassword);
+        return reqVO;
+    }
+
+    @Test
     public void testLogin_success() {
         // 准备参数
         AuthLoginReqVO reqVO = randomPojo(AuthLoginReqVO.class, o ->
@@ -364,7 +548,7 @@ public class AdminAuthServiceImplTest extends BaseDbUnitTest {
     }
 
     @Test
-    public void testLogin_passwordChangeRequired_returnsTokenAndFlag() {
+    public void testLogin_passwordChangeRequired_rejectsBeforeIssuingToken() {
         AuthLoginReqVO reqVO = randomPojo(AuthLoginReqVO.class, o ->
                 o.setUsername("reset_user").setPassword("reset_password"));
         AdminUserDO user = randomPojo(AdminUserDO.class, o -> o.setId(2L).setUsername("reset_user")
@@ -373,15 +557,8 @@ public class AdminAuthServiceImplTest extends BaseDbUnitTest {
         user.setTenantId(1L);
         when(userService.getUserByUsername(eq("reset_user"))).thenReturn(user);
         when(userService.isPasswordMatch(eq("reset_password"), eq(user.getPassword()))).thenReturn(true);
-        OAuth2AccessTokenDO token = randomPojo(OAuth2AccessTokenDO.class, o -> o.setUserId(2L)
-                .setUserType(UserTypeEnum.ADMIN.getValue()));
-        when(oauth2TokenService.createPasswordAccessToken(any(AdminPasswordAuthenticationSnapshot.class), eq("default"), isNull()))
-                .thenReturn(new AdminSessionToken(token, true));
-
-        AuthLoginRespVO response = authService.login(reqVO);
-
-        assertPojoEquals(token, response);
-        assertEquals(Boolean.TRUE, response.getPasswordChangeRequired());
+        assertServiceException(() -> authService.login(reqVO), AUTH_LOGIN_PASSWORD_CHANGE_REQUIRED);
+        verify(oauth2TokenService, never()).createPasswordAccessToken(any(), any(), any());
     }
 
     @Test

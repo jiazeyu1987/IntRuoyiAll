@@ -509,6 +509,7 @@
 </template>
 
 <script setup lang="ts">
+import { until } from '@vueuse/core'
 import { getIntDictOptions, DICT_TYPE } from '@/utils/dict'
 import { dateFormatter, formatDateTimeValue } from '@/utils/formatTime'
 import { CommonStatusEnum } from '@/utils/constants'
@@ -804,8 +805,12 @@ const handleStatusChange = async (row: ProRouteVO) => {
 }
 
 /** 添加/修改操作 */
-const openForm = (type: string, id?: number) => {
-  formRef.value.open(type, id)
+const openForm = async (type: string, id?: number) => {
+  await until(() => typeof formRef.value?.open === 'function').toBeTruthy({
+    timeout: 60000,
+    throwOnTimeout: true
+  })
+  await formRef.value.open(type, id)
 }
 
 type RouteEditTab = 'basic' | 'flow' | 'product'

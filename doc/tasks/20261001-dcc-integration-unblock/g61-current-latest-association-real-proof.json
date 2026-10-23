@@ -1,0 +1,25 @@
+{
+  "status": "ACTUAL_CURRENT_ASSOCIATION_LATEST_PENDING_CONTROLLED_VS_FROZEN_HISTORY_PASS",
+  "sourceFile": "2054545668044084028",
+  "linkedMaster": "2054545668044079116",
+  "currentRelatedFile": "2054545668044084032",
+  "currentVersion": "A/2",
+  "currentLabel": "待生效",
+  "frozenRelatedFile": "2054545668044084026",
+  "frozenVersion": "A/1",
+  "frozenLabel": "历史审批版本",
+  "controlSwitchDate": "2026-10-05 22:40:36",
+  "oldA1StillExecuting": true,
+  "actualUi": [
+    {
+      "path": "C:\\IntRuoyiBackups\\20261005-dcc-four-direction-runtime\\g56-real-ui-r9\\213.json",
+      "sha256": "805c71896632289a5154e405ed573640c0437a9b106a00af1ff861f1f9ce675a"
+    },
+    {
+      "path": "C:\\IntRuoyiBackups\\20261005-dcc-four-direction-runtime\\g56-real-ui-r9\\216.json",
+      "sha256": "fee0c433c963df6663097416547b57e74d4139b44f230a8b02af7060d919f3ff"
+    }
+  ],
+  "actualFrontendAction": "selected currenttab and then historytab; DB/API onlyreadonly",
+  "noHistoryRewrite": true
+}

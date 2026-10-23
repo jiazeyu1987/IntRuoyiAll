@@ -41,6 +41,7 @@ export interface UserAssignedPostVO {
 export interface UserEditVO extends UserVO {
   assignedPosts: UserAssignedPostVO[]
 }
+export type UserSaveVO = Omit<UserVO, 'deptId'> & { deptId: number | null }
 
 export interface UserDingTalkImportRespVO {
   createUsernames: string[]
@@ -80,12 +81,12 @@ export const getUserForUpdate = (id: number): Promise<UserEditVO> => {
 }
 
 // 新增用户
-export const createUser = (data: UserVO, options?: { ignoreErrorMessage?: boolean }) => {
+export const createUser = (data: UserSaveVO, options?: { ignoreErrorMessage?: boolean }) => {
   return request.post({ url: '/system/user/create', data, ignoreErrorMessage: options?.ignoreErrorMessage })
 }
 
 // 修改用户
-export const updateUser = (data: UserVO, options?: { ignoreErrorMessage?: boolean }) => {
+export const updateUser = (data: UserSaveVO, options?: { ignoreErrorMessage?: boolean }) => {
   return request.put({ url: '/system/user/update', data, ignoreErrorMessage: options?.ignoreErrorMessage })
 }
 

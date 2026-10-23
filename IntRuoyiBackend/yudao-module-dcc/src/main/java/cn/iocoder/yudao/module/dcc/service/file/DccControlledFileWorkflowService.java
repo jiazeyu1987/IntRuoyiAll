@@ -7,7 +7,6 @@ import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFilePag
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileRejectTaskReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileReturnTaskReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileCurrentVersionRespVO;
-import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileMajorRevisionReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileRespVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileRouteReadinessRespVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileSubmitReqVO;
@@ -18,30 +17,56 @@ import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileTra
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileTransferTaskReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileWithdrawReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccSignatureActionRespVO;
+import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccProjectProductRespVO;
+import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileUploadPreviewReqVO;
 
 import java.util.List;
 
 public interface DccControlledFileWorkflowService {
+    DccControlledFileRouteReadinessRespVO previewRoute(Long actorId,
+            cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileRoutePreviewReqVO request);
+    DccApplicationExecutionContractService.Prepared prepareLegacyWorkingApplication(Long actorId,Long fileId,String processDefinitionId);
+
+    DccProjectProductRespVO previewProjectProduct(Long userId, Long projectCodeId);
+
+    void validateApprovalPdfUpload(Long userId, Long fileId, String taskId, Long categoryId, String sessionId);
+    void validateTrainingRecordUpload(Long userId,Long fileId,Long categoryId,String sessionId);
+
+    void validateSourceUploadContext(Long userId, DccControlledFileUploadPreviewReqVO request);
 
     DccControlledFileRouteReadinessRespVO previewRoute(Long userId, Long categoryId,
-                                                       List<Long> selectedSignoffUserIds);
+                                                       List<Long> selectedSignoffUserIds,
+                                                       List<Long> selectedSignoffDepartmentIds, String actionType);
 
     DccControlledFileCurrentVersionRespVO getCurrentVersionByFileNumber(Long userId, String fileNumber);
     DccControlledFileCurrentVersionRespVO getCurrentVersionByFileNumber(Long userId, String fileNumber,
-                                                                         Long dccProjectCodeId,
-                                                                         Long fileTypeTaxonomyId);
+                                                                          Long dccProjectCodeId,
+                                                                          Long fileTypeTaxonomyId);
+
+    Long submitNewWithDerivedStorage(Long userId,DccControlledFileSubmitReqVO reqVO,DccDerivedUploadStorage storage);
+    Long createWorkingWithDerivedStorage(Long userId,DccControlledFileSubmitReqVO reqVO,DccDerivedUploadStorage storage);
+
+    Long submitControlledFile(Long userId, DccControlledFileSubmitReqVO reqVO);
 
     Long createWorkingControlledFile(Long userId, DccControlledFileSubmitReqVO reqVO);
+    DccWorkingApplicationAttributes readWorkingApplicationAttributes(Long userId, Long fileId);
+    DccWorkingApplicationAttributes readReplacementApplicationAttributes(Long userId,Long selectedIterationId,Long controlledBaselineId);
+
+    void restoreWorkingApplicationAttributes(Long userId, Long fileId);
+
+    void saveWorkingApplicationAttributes(Long userId, Long fileId,
+            cn.iocoder.yudao.module.dcc.service.projectcode.attributes.DccProjectAttributes actual);
+
+    void saveWorkingApplicationAttributes(Long userId, Long fileId,
+            cn.iocoder.yudao.module.dcc.service.projectcode.attributes.DccProjectAttributes actual,
+            String effectiveMode, java.time.LocalDate effectiveDate, List<Long> selectedDistributionDepartmentIds);
+
+    void saveWorkingApplication(Long actorId,Long fileId,
+            cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccWorkingApplicationSaveReqVO request);
 
     Long submitWorkingIteration(Long userId, Long iterationId, DccControlledFileSubmitIterationReqVO reqVO);
 
-    Long createMajorRevision(Long userId, DccControlledFileMajorRevisionReqVO reqVO);
-
     Long submitControlledFileWithoutApproval(Long userId, DccControlledFileSubmitReqVO reqVO);
-
-    PageResult<DccControlledFileRespVO> getUploadRevisionCandidates(Long userId, Long dccProjectCodeId,
-                                                                    Long fileTypeTaxonomyId, String keyword,
-                                                                    Integer pageNo, Integer pageSize);
 
     Long submitControlledFileWithoutApproval(Long userId, DccControlledFileSubmitReqVO reqVO,
                                              String approvalProcessInstanceId, String platformEventKey);
@@ -70,4 +95,6 @@ public interface DccControlledFileWorkflowService {
     void transferTask(Long userId, Long id, DccControlledFileTransferTaskReqVO reqVO);
 
     void createSignTask(Long userId, Long id, DccControlledFileCreateSignTaskReqVO reqVO);
+
+    void assignSignoff(Long userId, Long id, cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccSignoffAssignmentReqVO request);
 }

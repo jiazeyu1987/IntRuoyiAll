@@ -221,7 +221,7 @@ const retry = async (delivery: DccPublicationNotificationDeliveryVO) => {
   actionError.value = ''
   retryingDeliveryId.value = delivery.id
   try {
-    const prompt = await ElMessageBox.prompt('请填写重试原因', '重试发布通知', {
+    const prompt = await ElMessageBox.prompt('请填写重试原因', '重试生效通知', {
       confirmButtonText: '重试', cancelButtonText: '取消',
       inputValidator: (value) => Boolean(value?.trim()), inputErrorMessage: '重试原因不能为空'
     })

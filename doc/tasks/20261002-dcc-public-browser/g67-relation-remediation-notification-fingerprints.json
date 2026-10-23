@@ -1,0 +1,120 @@
+{
+  "status": "G67_RELATION_REMEDIATION_NOTIFICATION_SOURCE_ENTRY_FROZEN_FOR_ROOT_REVIEW",
+  "productionFiles": 2,
+  "testFiles": 1,
+  "assets": [
+    {
+      "path": "IntRuoyiFronted/src/utils/notifyMessageNavigation.ts",
+      "bytes": 13614,
+      "sha256": "4cf1137e7119dbcd67435454567676c94eb88d02b43840d95e283dbcecb9016c"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/system/notify/my/MyNotifyMessageDetail.vue",
+      "bytes": 13459,
+      "sha256": "04d875c3e83d47be1884c70774ae188674454d5d53a587ed998538805c3ac067"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-relation-remediation-notification.test.cjs",
+      "bytes": 5627,
+      "sha256": "42986e71247fca59b70a951163d7f338a309d2a4239da8b1751ea9228f7a4c71"
+    }
+  ],
+  "documents": [
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g67-notification-reminder-ui-path.md",
+      "bytes": 4513,
+      "sha256": "a7c56527e413504a74f6790092aeac2c7c859760af9905be248deb83c1971e59"
+    }
+  ],
+  "verification": {
+    "effectiveRED": {
+      "tests": 3,
+      "pass": 1,
+      "failures": 2,
+      "exitCode": 1
+    },
+    "finalRegression": {
+      "files": 3,
+      "tests": 17,
+      "pass": 17,
+      "failures": 0,
+      "skipped": 0,
+      "exitCode": 0,
+      "overlap": "3new+6offlineTraining+8projectNotification,notadditive"
+    },
+    "ownedLint": {
+      "files": 2,
+      "warnings": 0,
+      "exitCode": 0
+    },
+    "fullTypes": {
+      "session": 75657,
+      "exitCode": 0,
+      "command": "node --max-old-space-size=8192 node_modules/vue-tsc/bin/vue-tsc.js --noEmit -p tsconfig.relaxed.json"
+    },
+    "fullBuild": {
+      "session": 84592,
+      "exitCode": 0,
+      "command": "node --max-old-space-size=8192 node_modules/vite/bin/vite.js build --mode env.local --outDir ../doc/tasks/20261002-dcc-public-browser/g67-build-local-output",
+      "temporaryOutput": "doc/tasks/20261002-dcc-public-browser/g67-build-local-output"
+    }
+  },
+  "rawLogs": [
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g67-relation-remediation-notification-red.log",
+      "bytes": 2435,
+      "sha256": "f64576276f8e4d4e933cb2f0bde9ee76fde9d30de1fd249000de6df55e9cfdc6"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g67-relation-remediation-notification-final.log",
+      "bytes": 2129,
+      "sha256": "e0a53d56d75921572f6a1fe11aa97faf8ce94bd4f4aca079056280972a090374"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g67-relation-remediation-notification-lint.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g67-final-types.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g67-final-build.log",
+      "bytes": 453,
+      "sha256": "22a88adab49d04dd9bef940ea395bdb4a323a1afc2ee89d6517660a454c9d1a2"
+    }
+  ],
+  "exactContracts": [
+    "Exact formaltemplateCode dcc_relation_remediation and actualexisting sender sixfields required, no newmarker/DTO",
+    "Source and relatedMaster positiveLongstring<=JavaMAX, secondprecisionvaliddeadline/actualsourcecode+version",
+    "Sameorigin exactsource detailpath and only singleviewer1/fromnotification no credentials/hash/writablequery",
+    "Readonlysource typednavigation/messageaction, relatedMaster never fabricatedFileID/contentgrant; invalidrelationtarget never falls togenericBPM",
+    "Existing offline/project/publication paths preserved; no mytasks/workbench/provider/newapproval orpermissionchange"
+  ],
+  "protectedOtherStages": [
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g63-approval-center-signoff-entry-fingerprints.json",
+      "bytes": 4707,
+      "sha256": "a05324dd57aba3226626b948df015e22c4eefd1c838a4467f7a0c582f7a99ee3"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g64-upload-http-business-error-fingerprints-r2.json",
+      "bytes": 2926,
+      "sha256": "71955979cffe4a9f23506ee05727f0ee58317fa853a072aa7d89013836f3d92d"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g59-workbench-section-permissions-fingerprints.json",
+      "bytes": 4677,
+      "sha256": "d8fe4a49f4936b80829c08899b5e059ced851cea7bd223bd8e9422217f6d1fa9"
+    }
+  ],
+  "supersedes": "Only declared notifyhelper/MyNotifyDetail source bytes; newtest. Priorseals retained,Parent/G64upload/workbench exactpriorassets unchanged",
+  "limitations": [
+    "Offline actualparser/existingpayload/handler/actualbuttonrenderer plusfulltypes/build, not realrecipientUI or API/DBevidence",
+    "Root actualnewB1notifyreceived/sourceonlynavigation/7dayreminder needed",
+    "Tasklocalbuildoutput temporary notpublished,RootGit/runtime/cleanup owner",
+    "No backend/DTO/sender/workbench/menu/role/API/UI/DB/Git/service/Maven by agent;sharedtaskin_progress"
+  ]
+}

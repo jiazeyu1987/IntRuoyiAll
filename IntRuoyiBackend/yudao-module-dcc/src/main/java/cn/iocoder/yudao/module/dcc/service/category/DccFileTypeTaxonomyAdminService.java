@@ -1,6 +1,7 @@
 package cn.iocoder.yudao.module.dcc.service.category;
 
 import cn.iocoder.yudao.module.dcc.controller.admin.category.vo.DccFileTypeTaxonomySaveReqVO;
+import cn.iocoder.yudao.module.dcc.controller.admin.category.vo.DccFileTypeTaxonomyRespVO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.category.DccFileTypeTaxonomyDO;
 
 import java.util.List;
@@ -15,7 +16,13 @@ public interface DccFileTypeTaxonomyAdminService {
 
     List<DccFileTypeTaxonomyDO> getTaxonomyList();
 
+    List<DccFileTypeTaxonomyRespVO> getUploadTaxonomyOptions();
+
     DccFileTypeTaxonomyPath resolveActivePath(Long id);
+
+    Long resolveActiveCategoryId(Long fileTypeTaxonomyId);
+
+    DccFileTypeTaxonomyPath validateCategoryMapping(Long fileTypeTaxonomyId, Long categoryId, boolean active);
 
     List<Long> listActiveDescendantIds(Long id);
 

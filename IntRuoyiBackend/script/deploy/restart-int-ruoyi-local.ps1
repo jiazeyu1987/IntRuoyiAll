@@ -5,7 +5,8 @@ param(
     [string]$OperationRecordPath,
     [string]$PrebuiltBackendJar,
     [string]$PrebuiltBackendSha256,
-    [switch]$BackendSchemaReadOnly
+    [switch]$BackendSchemaReadOnly,
+    [switch]$LocalDevelopmentAuditPolicy
 )
 
 $ErrorActionPreference = 'Stop'
@@ -1607,6 +1608,7 @@ Remove-Item -Path 'Env:\CODEX_TEST_RUNNER_TOKEN' -ErrorAction SilentlyContinue
   "$runtimeJar"
   "--server.port=$BackendPort"
   "--spring.profiles.active=local"
+  "--yudao.gxp-audit.local-development-policy=$($LocalDevelopmentAuditPolicy.IsPresent.ToString().ToLowerInvariant())"
   "--yudao.dcc.preview.onlyoffice.base-url=`$env:DCC_ONLYOFFICE_BASE_URL"
   "--yudao.dcc.preview.onlyoffice.public-file-base-url=`$env:DCC_ONLYOFFICE_PUBLIC_FILE_BASE_URL"
   "--dcc.signature.evidence.hmac-secret=`$env:DCC_SIGNATURE_EVIDENCE_HMAC_SECRET"

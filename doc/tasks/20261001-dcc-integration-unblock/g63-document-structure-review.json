@@ -1,0 +1,1057 @@
+{
+  "status": "FINAL_UTF8_JSON_EXACT_TASK_SCOPE_HTML27AC_AND_READY_STATUS_STRUCTURE_PASS",
+  "assets": [
+    {
+      "path": "doc/tasks/20261001-dcc-integration-unblock/execution-log.md",
+      "bytes": 126715,
+      "sha256": "d99ed590a739ab117b1165bbc0c4bd7072847ca5dc0c0f7fbc314aef2c3e9178"
+    },
+    {
+      "path": "doc/tasks/20261001-dcc-integration-unblock/g56-activation-runtime-plan.json",
+      "bytes": 1379,
+      "sha256": "bfb094da6035e5ef32ff0107eb04689ab5b5b8ce9e2ad1244d0c49b25b832be5"
+    },
+    {
+      "path": "doc/tasks/20261001-dcc-integration-unblock/g56-arrangement-read-root-review.json",
+      "bytes": 318,
+      "sha256": "e2af0dbb246a7b0269ce9bbe567e9090eaf8192477b95ed9397b9e422ffee39a"
+    },
+    {
+      "path": "doc/tasks/20261001-dcc-integration-unblock/g56-auth-session-expiry-review.json",
+      "bytes": 878,
+      "sha256": "bf590dca38b71de7ce3781bd4b643dc23d39b5a3afe86bdfd083e822419928a6"
+    },
+    {
+      "path": "doc/tasks/20261001-dcc-integration-unblock/g56-backend-start-receipt-r10.json",
+      "bytes": 567,
+      "sha256": "6d9800620153cb787dea24818eb37da7a8ba0ab635b192d648e3f07263c7e6dd"
+    },
+    {
+      "path": "doc/tasks/20261001-dcc-integration-unblock/g56-backend-start-receipt-r11.json",
+      "bytes": 614,
+      "sha256": "0724afd3ccef69c65724264c1eeb067b81881bf467bae478332a425f3c4ede8c"
+    },
+    {
+      "path": "doc/tasks/20261001-dcc-integration-unblock/g56-backend-start-receipt-r12.json",
+      "bytes": 613,
+      "sha256": "5c504c18447a2ed11a222b73ec661540082263af8870b6202f7863421a64652f"
+    },
+    {
+      "path": "doc/tasks/20261001-dcc-integration-unblock/g56-backend-start-receipt-r6.json",
+      "bytes": 566,
+      "sha256": "6f0ea9e6de80aecc380df2dfb7fda9a03bb91a32b8720e96bc06a406d84764b2"
+    },
+    {
+      "path": "doc/tasks/20261001-dcc-integration-unblock/g56-backend-start-receipt-r7.json",
+      "bytes": 566,
+      "sha256": "542e937a0ffc21d1a08c3b359c7297d99b3a49145eece3a4915e1875b22a0039"
+    },
+    {
+      "path": "doc/tasks/20261001-dcc-integration-unblock/g56-backend-start-receipt-r8.json",
+      "bytes": 566,
+      "sha256": "7995517ffa852eab698ee0b908f8017ee9983f888dc294618330985974d49382"
+    },
+    {
+      "path": "doc/tasks/20261001-dcc-integration-unblock/g56-backend-start-receipt-r9.json",
+      "bytes": 566,
+      "sha256": "4d13c8feed7ddbe2c83a915c25af2a96b9a1e8b1603a0f4012ea5ccb92fc0157"
+    },
+    {
+      "path": "doc/tasks/20261001-dcc-integration-unblock/g56-current-source-root-review.json",
+      "bytes": 379,
+      "sha256": "d03991b028648a72a5a351ac7823f08ad8bbec7d5778b98b027a67db3c83ab37"
+    },
+    {
+      "path": "doc/tasks/20261001-dcc-integration-unblock/g56-fix-scope-matrix.json",
+      "bytes": 9219,
+      "sha256": "5c4658799390f4b073f788c55d9b8478600a5486927418951c6baec3b0512612"
+    },
+    {
+      "path": "doc/tasks/20261001-dcc-integration-unblock/g56-folder-job-project-real-checkpoint.json",
+      "bytes": 3139,
+      "sha256": "cb74ab594cb2f1306730ea63318419c72e5b616b41659a870289e1b851b4c8a6"
+    },
+    {
+      "path": "doc/tasks/20261001-dcc-integration-unblock/g56-frontend-root-review.json",
+      "bytes": 764,
+      "sha256": "271f8877b9db1081d28882b75c86aa1b860543d01ded6b6c61962ca7c2d7ccc6"
+    },
+    {
+      "path": "doc/tasks/20261001-dcc-integration-unblock/g56-full-html-verification-plan.md",
+      "bytes": 3129,
+      "sha256": "ebe8baaaeca38e153d5ed860f682f0e01b534548dd4f76cecaf892893f843319"
+    },
+    {
+      "path": "doc/tasks/20261001-dcc-integration-unblock/g56-html-ac-inventory.json",
+      "bytes": 21413,
+      "sha256": "4c882d53993f234d3bd4113290cabfc1d091decc22750e1c3f992583d7e29c1a"
+    },
+    {
+      "path": "doc/tasks/20261001-dcc-integration-unblock/g56-implementation-commit-proof.json",
+      "bytes": 304,
+      "sha256": "75fc4112a28c748e9bf7c83c3ceb0f10f8f3341bcb4b4940433ed070c37cfdbe"
+    },
+    {
+      "path": "doc/tasks/20261001-dcc-integration-unblock/g56-implementation-stage-paths.json",
+      "bytes": 5683,
+      "sha256": "b3ba4d73c4129090ddccb38ecfbbb6cbca1b84baff922995b5c4fdd88af47a45"
+    },
+    {
+      "path": "doc/tasks/20261001-dcc-integration-unblock/g56-initial-push-proof.json",
+      "bytes": 526,
+      "sha256": "4edacf3e626544c090d356b9efdd447620717334ca09499ddec53b99fcd09fcc"
+    },
+    {
+      "path": "doc/tasks/20261001-dcc-integration-unblock/g56-linked-upload-fixed-real-proof.json",
+      "bytes": 912,
+      "sha256": "43549e6976a94b20b3c6e51b82d7fbbaad7f6e5a1936cc97027a87d8ae72e9be"
+    },
+    {
+      "path": "doc/tasks/20261001-dcc-integration-unblock/g56-linked-upload-real-failure.json",
+      "bytes": 1233,
+      "sha256": "39ee3298c5cc80e1273ea4231717ce650e453a643287dbf7cb1cace8bea8ca94"
+    },
+    {
+      "path": "doc/tasks/20261001-dcc-integration-unblock/g56-linked-upload-root-review.json",
+      "bytes": 472,
+      "sha256": "3aecbc69317fb7881014efb4e984556c864feb8333412cbc7ffb55005ad52c0d"
+    },
+    {
+      "path": "doc/tasks/20261001-dcc-integration-unblock/g56-local-runtime.py",
+      "bytes": 7447,
+      "sha256": "96915d72d6443bfce107b248b5a6c3ffc2719cabe2965980098f1f03cbc1d520"
+    },
+    {
+      "path": "doc/tasks/20261001-dcc-integration-unblock/g56-package-root-review.json",
+      "bytes": 1274,
+      "sha256": "4f90f2a0b14df7ecdce37732c10dcd3039b1fb963f18793702c9033070999dda"
+    },
+    {
+      "path": "doc/tasks/20261001-dcc-integration-unblock/g56-precontrol-relation-real-proof.json",
+      "bytes": 555,
+      "sha256": "a16d0d739430afaa268ac0147bff9c54cecde17e349e9bc69b841716d420b909"
+    },
+    {
+      "path": "doc/tasks/20261001-dcc-integration-unblock/g56-real-ui.cjs",
+      "bytes": 15160,
+      "sha256": "afa53cfe71dd71a1eced960927c0440c54435a015a7303f1610251c90a9bc81f"
+    },
+    {
+      "path": "doc/tasks/20261001-dcc-integration-unblock/g56-reference-readonly-real-checkpoint.json",
+      "bytes": 2998,
+      "sha256": "f846fd20bf039ac0497df040e140869e9ed77f643dcd69776dad515ce6d6084c"
+    },
+    {
+      "path": "doc/tasks/20261001-dcc-integration-unblock/g56-runtime-readiness.json",
+      "bytes": 1128,
+      "sha256": "adfa896c580b5301ee8f140f32e1ae737a7aa1e54403ff27d890efe06ae9631d"
+    },
+    {
+      "path": "doc/tasks/20261001-dcc-integration-unblock/g56-second-push-proof.json",
+      "bytes": 600,
+      "sha256": "d512e664ec8b0f5397b467cddf091453fe17a3b408e7e73b485835df38065a14"
+    },
+    {
+      "path": "doc/tasks/20261001-dcc-integration-unblock/g56-training-completion-real-proof.json",
+      "bytes": 1099,
+      "sha256": "ec9d886a40da4b8414f94df72091fcd9620a2d9fdbb19148e8385c28a836bf62"
+    },
+    {
+      "path": "doc/tasks/20261001-dcc-integration-unblock/g56-training-pending-real-proof.json",
+      "bytes": 414,
+      "sha256": "f29b5a49a8d8949920f45eb68960e6d4608f95547db52f4210651e5bbaff55f4"
+    },
+    {
+      "path": "doc/tasks/20261001-dcc-integration-unblock/g56-types-first-failure.json",
+      "bytes": 428,
+      "sha256": "8da65ae056d6a75e2fa8ccdcb2eeb985d9354612e5578c69eae72710f7b692f2"
+    },
+    {
+      "path": "doc/tasks/20261001-dcc-integration-unblock/g56-working-mapped-navigation-bdd.md",
+      "bytes": 2779,
+      "sha256": "5edfc9571dd622417ecc8bbc57e3d8dd95705184eb3fd2e005f3b06e0c6adc3c"
+    },
+    {
+      "path": "doc/tasks/20261001-dcc-integration-unblock/g56-working-navigation-root-review.json",
+      "bytes": 1406,
+      "sha256": "0cdd16b1ea10d01d7abe880d9bf1be2ff93a5b31cb02533e9a55315daaca70e4"
+    },
+    {
+      "path": "doc/tasks/20261001-dcc-integration-unblock/g57-activation-recovery-root-review.json",
+      "bytes": 550,
+      "sha256": "112d592038c7c11417ca1fcd6a25c85724c3ef7fa52e4aa63eb2c2214b9d3f7b"
+    },
+    {
+      "path": "doc/tasks/20261001-dcc-integration-unblock/g57-backend-root-review.json",
+      "bytes": 3582,
+      "sha256": "8b0eb1fe833725c3bd170ce7fcd341cb9d0b7417337d4635bf1b110aec1eb58f"
+    },
+    {
+      "path": "doc/tasks/20261001-dcc-integration-unblock/g57-frontend-root-review.json",
+      "bytes": 1120,
+      "sha256": "c386e4370c7f2711dd840670007d2ebcc88b38ddc24af32949aef5a65568fd0c"
+    },
+    {
+      "path": "doc/tasks/20261001-dcc-integration-unblock/g57-implementation-commit-proof.json",
+      "bytes": 4319,
+      "sha256": "289e4506af9ecbc3d992505d4f72db24e33a63dbc54b7cd6e61807bd8cbc3ba9"
+    },
+    {
+      "path": "doc/tasks/20261001-dcc-integration-unblock/g57-implementation-stage-paths.json",
+      "bytes": 8765,
+      "sha256": "a439a9f47eaec2c896a786765b22bf52f14a7082165c0790b845ae0b1cf2a5fe"
+    },
+    {
+      "path": "doc/tasks/20261001-dcc-integration-unblock/g57-package-root-review.json",
+      "bytes": 8317,
+      "sha256": "5ca24d1cc44d937bb7759c847ae2143f55a8fa6375a37efb0f4d2f8e697888ae"
+    },
+    {
+      "path": "doc/tasks/20261001-dcc-integration-unblock/g57-prepackage-runtime-checkpoint.json",
+      "bytes": 797,
+      "sha256": "f4a0dc192050917323f87641a1650c3369e82f2ce09ea66f7ec5b4cda2852c0f"
+    },
+    {
+      "path": "doc/tasks/20261001-dcc-integration-unblock/g57-protected-evidence-archive.json",
+      "bytes": 7571,
+      "sha256": "b8ab8b279520067031272b5768a88cfb6084f443bb69f4bf07a9bb49e164e7e2"
+    },
+    {
+      "path": "doc/tasks/20261001-dcc-integration-unblock/g57-runtime-readiness.json",
+      "bytes": 688,
+      "sha256": "84f01184b50e6ede812f6d7ade50d86e489e246c57e12bc7541bdc4309c91c24"
+    },
+    {
+      "path": "doc/tasks/20261001-dcc-integration-unblock/g58-backend-root-review.json",
+      "bytes": 573,
+      "sha256": "afa48d4acbb6b8311b01504af5219e2502f8a1c1dfaca8eaf372ed4da56ca4c1"
+    },
+    {
+      "path": "doc/tasks/20261001-dcc-integration-unblock/g58-document-stage-candidates.json",
+      "bytes": 8246,
+      "sha256": "7e75a8a18db86d1271707ee816b890b8f59bc3bf7c69b6da1aa8b52c5464c8cd"
+    },
+    {
+      "path": "doc/tasks/20261001-dcc-integration-unblock/g58-frontend-root-review.json",
+      "bytes": 1069,
+      "sha256": "713311eaded41d947e7e692de3d9e7ba7a91e1fc18d71affa907e5158b31d799"
+    },
+    {
+      "path": "doc/tasks/20261001-dcc-integration-unblock/g58-implementation-commit-proof.json",
+      "bytes": 1928,
+      "sha256": "2bf046d596c1a75570b8f51df4c8a3d9bc2fba9fe1c7c6d175bf2eb2b7daef49"
+    },
+    {
+      "path": "doc/tasks/20261001-dcc-integration-unblock/g58-implementation-stage-paths.json",
+      "bytes": 3016,
+      "sha256": "4719e4b8507da7944aa43a57523f786e7550b7a19de1a4de04a8ba33631c59e8"
+    },
+    {
+      "path": "doc/tasks/20261001-dcc-integration-unblock/g58-push-proof.json",
+      "bytes": 318,
+      "sha256": "c81c74d730b697e7c9c3832bae23278f277a57539667fe9bfc4e3be632b19edf"
+    },
+    {
+      "path": "doc/tasks/20261001-dcc-integration-unblock/g58-working-actor-real-checkpoint.json",
+      "bytes": 1373,
+      "sha256": "43478956c09e6eb5ea24b91d5c3849fd026741f15a2cb059210203cd7ad28175"
+    },
+    {
+      "path": "doc/tasks/20261001-dcc-integration-unblock/g59-actual-projection-repair-root-review.json",
+      "bytes": 1322,
+      "sha256": "a4c872fe71ba34880157651099e5491a731a5ca211d394678f3aef03db61bc1f"
+    },
+    {
+      "path": "doc/tasks/20261001-dcc-integration-unblock/g59-actual-version-projection-failure.json",
+      "bytes": 1019,
+      "sha256": "d6ca850e9639c44dddc6d1667cf873c1cfbaa896221f6ac661c55a6bac4342c7"
+    },
+    {
+      "path": "doc/tasks/20261001-dcc-integration-unblock/g59-audit-rule-execution-plan.md",
+      "bytes": 1996,
+      "sha256": "f90b86fd0ee1090ec6bd866c5dfa6bb15e9ca2649fe8ee7f1be3a3e45d90432a"
+    },
+    {
+      "path": "doc/tasks/20261001-dcc-integration-unblock/g59-audit-rule-root-execution.json",
+      "bytes": 15159,
+      "sha256": "3f4831fbc34d26670e03471722fee89a5d5893bd76b8e20f28e0e0f8c54c7cfc"
+    },
+    {
+      "path": "doc/tasks/20261001-dcc-integration-unblock/g59-backend-root-review.json",
+      "bytes": 3616,
+      "sha256": "f1dd7c4270857e3fa2bd484f3835fa93d2017c49223c4234a1795ba029245983"
+    },
+    {
+      "path": "doc/tasks/20261001-dcc-integration-unblock/g59-execute-audit-rule.py",
+      "bytes": 7310,
+      "sha256": "85a6fc3993885fdf81cf9e059807578879704d70ee255e257f03da4de2fc5749"
+    },
+    {
+      "path": "doc/tasks/20261001-dcc-integration-unblock/g59-frontend-root-review-r2.json",
+      "bytes": 966,
+      "sha256": "ce47a0b69ebed3646e79daee141dd8f2b480767a4d316e48749fd077688fcb0f"
+    },
+    {
+      "path": "doc/tasks/20261001-dcc-integration-unblock/g59-frontend-root-review.json",
+      "bytes": 561,
+      "sha256": "dbfa1f7c91890eef9f55ab5219d3c182b86356dff6a4f0829fa7fcd2043b4188"
+    },
+    {
+      "path": "doc/tasks/20261001-dcc-integration-unblock/g59-implementation-commit-proof.json",
+      "bytes": 3858,
+      "sha256": "588b392e2dd01cd40584cd5e161f46b9fa14713378c6287242fccc4b76c9ff7c"
+    },
+    {
+      "path": "doc/tasks/20261001-dcc-integration-unblock/g59-implementation-stage-paths-r3.json",
+      "bytes": 6647,
+      "sha256": "ae0a46e14fac4145d605e6e63e46db15eca72a8d436c5987ab73a780817bcadf"
+    },
+    {
+      "path": "doc/tasks/20261001-dcc-integration-unblock/g59-implementation-stage-paths.json",
+      "bytes": 6384,
+      "sha256": "ddcfad88336b5c6b2fa9a101120dfc1bcfcdcb92d6d83f889639678a841f0ba5"
+    },
+    {
+      "path": "doc/tasks/20261001-dcc-integration-unblock/g59-jdbc-implementation-commit-proof.json",
+      "bytes": 708,
+      "sha256": "f08517feb0c8cce526b4b562e07587d92c5af7415b3ff1d07f78ea7cc3cafb63"
+    },
+    {
+      "path": "doc/tasks/20261001-dcc-integration-unblock/g59-package-root-review-r3.json",
+      "bytes": 4236,
+      "sha256": "0e6a6dd5115b104f81d2a988a795de40611dfd3d0685eb2473b0acf29c29356e"
+    },
+    {
+      "path": "doc/tasks/20261001-dcc-integration-unblock/g59-package-root-review.json",
+      "bytes": 4505,
+      "sha256": "3f95095fa6f84e70fdfda5794688a5e53b40a282b8f20f5da80089202feb30b2"
+    },
+    {
+      "path": "doc/tasks/20261001-dcc-integration-unblock/g59-real-repair-preview-failure.json",
+      "bytes": 595,
+      "sha256": "c6ff90ceea734edaea24a5c351aac7c2ed843034549882099ec3ba1a438fd584"
+    },
+    {
+      "path": "doc/tasks/20261001-dcc-integration-unblock/g59-runtime-actor-readonly-checkpoint.json",
+      "bytes": 2107,
+      "sha256": "f5390be8a047f65a942d34c932241dcd45554292064ee547e0151479e8dd5b7c"
+    },
+    {
+      "path": "doc/tasks/20261001-dcc-integration-unblock/g59-workbench-section-commit-proof.json",
+      "bytes": 642,
+      "sha256": "b05e6b4b826a0536de44d24374c417ceac6b6c517dcef5d41002f8daae2947db"
+    },
+    {
+      "path": "doc/tasks/20261001-dcc-integration-unblock/g59-workbench-section-root-review.json",
+      "bytes": 646,
+      "sha256": "e6b0b5357186f34998ccdb2cf7f82aaeeabdc9c075ba1c144bfa9b27df0aac42"
+    },
+    {
+      "path": "doc/tasks/20261001-dcc-integration-unblock/g60-backend-root-review.json",
+      "bytes": 565,
+      "sha256": "3696a7d55d33116dd1cbbbb3fca45a9c2bcee6e24bdd955d7faa3c5fd61e28c4"
+    },
+    {
+      "path": "doc/tasks/20261001-dcc-integration-unblock/g60-final-package-stage-pins.json",
+      "bytes": 7609,
+      "sha256": "f1c974e31da2e3cef8fffa0fabc2232ea949b5f80f7dd98cbdc530a3e61e8161"
+    },
+    {
+      "path": "doc/tasks/20261001-dcc-integration-unblock/g60-git-network-checkpoint.json",
+      "bytes": 882,
+      "sha256": "36d76498def5e1782c6171438558850fc460543022cdd41fd4dbf743fde5b516"
+    },
+    {
+      "path": "doc/tasks/20261001-dcc-integration-unblock/g60-implementation-commit-proof.json",
+      "bytes": 902,
+      "sha256": "ed5762f6945d819208cf0a1b953c8b61a9456d6c57bcd063f3b130646237939a"
+    },
+    {
+      "path": "doc/tasks/20261001-dcc-integration-unblock/g60-implementation-stage-paths.json",
+      "bytes": 1411,
+      "sha256": "41c85f62fd915f6575920b93cde04200812e8789792955ee2c279fcc8c7f53c8"
+    },
+    {
+      "path": "doc/tasks/20261001-dcc-integration-unblock/g60-package-root-review.json",
+      "bytes": 4199,
+      "sha256": "24fcffa167e67df195ecba2625c3fd83a1f264b42ed40d10c222d8b4bf7397b7"
+    },
+    {
+      "path": "doc/tasks/20261001-dcc-integration-unblock/g60-partial-future-control-real-proof.json",
+      "bytes": 1209,
+      "sha256": "d5bbf537d9d7353715a5e9b640a177cdae0ec4c7c290b6f304c63cc0d5146e06"
+    },
+    {
+      "path": "doc/tasks/20261001-dcc-integration-unblock/g60-protected-final-evidence-archive.json",
+      "bytes": 9053,
+      "sha256": "0f5c533f0c80d21c84718fc8a94b8393c29e3a373e230f43f85a774c317d7015"
+    },
+    {
+      "path": "doc/tasks/20261001-dcc-integration-unblock/g60-push-proof.json",
+      "bytes": 391,
+      "sha256": "383f504ad2b386a93feb4bc8191a210c8ca6fc551c64a2aac36bd20763ee7bcc"
+    },
+    {
+      "path": "doc/tasks/20261001-dcc-integration-unblock/g60-runtime-business-checkpoint.json",
+      "bytes": 1406,
+      "sha256": "1e273a4427d5177d0f4de4a389e0a12ba7167f528acaca4cbf8ded279ce1aa9d"
+    },
+    {
+      "path": "doc/tasks/20261001-dcc-integration-unblock/g60-runtime-final-readiness.json",
+      "bytes": 664,
+      "sha256": "13fad71302356880fc865a0269ce42c1dca4a11601760ae952e069a294e582c9"
+    },
+    {
+      "path": "doc/tasks/20261001-dcc-integration-unblock/g61-backend-root-review.json",
+      "bytes": 1244,
+      "sha256": "fd0967a1ea7187218ce0769c03ece83d86248c6072bc7eeab6b17a86fc96b71a"
+    },
+    {
+      "path": "doc/tasks/20261001-dcc-integration-unblock/g61-current-latest-association-real-proof.json",
+      "bytes": 1022,
+      "sha256": "9389697ae5e55f355b7c67e2ad7ee13926041f027b8d9efa544f29352b6c02c7"
+    },
+    {
+      "path": "doc/tasks/20261001-dcc-integration-unblock/g61-final-package-stage-pins.json",
+      "bytes": 8029,
+      "sha256": "33ab8d3eaa5e525a1af26170d6b19feb59ec2b045d12de7640949a1c5b8acc51"
+    },
+    {
+      "path": "doc/tasks/20261001-dcc-integration-unblock/g61-full-html-final-review.md",
+      "bytes": 10501,
+      "sha256": "7c9b0d3065e978f188ae3d540a5bcb50e7e0ace929e6ed9e763876291ddc76ed"
+    },
+    {
+      "path": "doc/tasks/20261001-dcc-integration-unblock/g61-owned-backend-stop.json",
+      "bytes": 257,
+      "sha256": "f527226a7ca4c4f71e8ad8c7c5848071e7d025c0d9a6dad73b000c83912c6cf3"
+    },
+    {
+      "path": "doc/tasks/20261001-dcc-integration-unblock/g61-package-root-review.json",
+      "bytes": 5839,
+      "sha256": "c9f740cbae62c34075c56aaca9fe044a6ec91b3efedee330bb60a1332f371017"
+    },
+    {
+      "path": "doc/tasks/20261001-dcc-integration-unblock/g61-pending-obsolete-entry-real-failure.json",
+      "bytes": 559,
+      "sha256": "7ee2d6e264ffa19a2d7f5fedfa0bcd262a72abe66fc4ed39709e3cdb30e03862"
+    },
+    {
+      "path": "doc/tasks/20261001-dcc-integration-unblock/g61-training-actor-acceptance-checkpoint.json",
+      "bytes": 2102,
+      "sha256": "0edb60c9d66f7c01ddfa600cd21de6918565d22cc72773377b1da71afec810af"
+    },
+    {
+      "path": "doc/tasks/20261001-dcc-integration-unblock/g61-training-record-role-config-real-proof.json",
+      "bytes": 366,
+      "sha256": "4cfba6bac2cb8224d6e8ab43b31d9815b6622a8820aa50683dbc5a67e8958adf"
+    },
+    {
+      "path": "doc/tasks/20261001-dcc-integration-unblock/g61-verify-final-package.py",
+      "bytes": 3103,
+      "sha256": "81d49509ae34ea8f27ff357817f40c739d9ae531caf857311ad2d26dd4ee866e"
+    },
+    {
+      "path": "doc/tasks/20261001-dcc-integration-unblock/g62-backend-root-review.json",
+      "bytes": 2206,
+      "sha256": "203e8701d0a6ad135b31778442eb572f4a3477a9ac0d4ca9b18a05d977dd81c8"
+    },
+    {
+      "path": "doc/tasks/20261001-dcc-integration-unblock/g62-final-package-stage-pins.json",
+      "bytes": 8322,
+      "sha256": "2e7fb13af0b573928d69b5752e9844505ae095ea46b7e70fa8d73aa882f03c23"
+    },
+    {
+      "path": "doc/tasks/20261001-dcc-integration-unblock/g62-frontend-root-review.json",
+      "bytes": 1576,
+      "sha256": "70ef4fc47f2687b9574462808fc9047b81a8588f8b6d27a0e8736db3ba87c760"
+    },
+    {
+      "path": "doc/tasks/20261001-dcc-integration-unblock/g62-natural-activation-real-proof.json",
+      "bytes": 1439,
+      "sha256": "de253edf74f9eb62120a51844d9fd45dc0943b9d727481924adbc6e5c00c5dba"
+    },
+    {
+      "path": "doc/tasks/20261001-dcc-integration-unblock/g62-natural-date-activation-readonly.json",
+      "bytes": 2533,
+      "sha256": "0224f5187f706041304ee74dc0399664a055cfd58f993884e16668e5852c41a5"
+    },
+    {
+      "path": "doc/tasks/20261001-dcc-integration-unblock/g62-obsolete-frozen-obligations-real-failure.json",
+      "bytes": 2292,
+      "sha256": "57cd18a8494e780ea9e5e7e66dcb68207ddf409e55205c64a0a920d0282f7e92"
+    },
+    {
+      "path": "doc/tasks/20261001-dcc-integration-unblock/g62-owned-backend-stop.json",
+      "bytes": 357,
+      "sha256": "f49f72e6cb571e28876af56d2a65370cd8c44de0a3651ee4ab440426e76fb52d"
+    },
+    {
+      "path": "doc/tasks/20261001-dcc-integration-unblock/g62-package-root-review.json",
+      "bytes": 5839,
+      "sha256": "82abc42cb2a03689c3e4464974cb909297fe4775621bfab6a7b3934c5bb3a566"
+    },
+    {
+      "path": "doc/tasks/20261001-dcc-integration-unblock/g62-protected-evidence-archive.json",
+      "bytes": 80057,
+      "sha256": "ce44831046b881a3b1c865abb76394a076ddc93ea7d0c851915eee8eee7d49a3"
+    },
+    {
+      "path": "doc/tasks/20261001-dcc-integration-unblock/g62-verify-final-package.py",
+      "bytes": 3155,
+      "sha256": "e45e5e874fe7a90b2abd1fbce4a639899d8b535236e916d95070352344cea43f"
+    },
+    {
+      "path": "doc/tasks/20261001-dcc-integration-unblock/g63-document-stage-paths.json",
+      "bytes": 18681,
+      "sha256": "6a850b01f632504cec8e6f661e1c8ffc4f3f4d802e4906df33c3f3838c0e48ef"
+    },
+    {
+      "path": "doc/tasks/20261001-dcc-integration-unblock/g63-document-structure-review.json",
+      "bytes": 45055,
+      "sha256": "8dfbc7181b61206b4d2fc91b3318041f62ef92647492fc45e5a63b6e7d667b1d"
+    },
+    {
+      "path": "doc/tasks/20261001-dcc-integration-unblock/g63-final-completion-display-real-proof.json",
+      "bytes": 3133,
+      "sha256": "edd66cceceeb10dda1da871edf3e98b7b36681016ed2f3bda6631ddc4503a6c9"
+    },
+    {
+      "path": "doc/tasks/20261001-dcc-integration-unblock/g63-frontend-root-review.json",
+      "bytes": 1875,
+      "sha256": "882e4255c637c0ab83944d8a2e61e8dae436f8e40d50694d5b9902a21c9b0d23"
+    },
+    {
+      "path": "doc/tasks/20261001-dcc-integration-unblock/g63-independent-obsolete-real-proof.json",
+      "bytes": 3750,
+      "sha256": "01a2b186624f4b3141d87d9c8e402b91224872fd5e2741f1b9f55ebabd93b479"
+    },
+    {
+      "path": "doc/tasks/20261001-dcc-integration-unblock/g63-normal-todo-assignment-real-failure.json",
+      "bytes": 1172,
+      "sha256": "128f80292a2837ba814f2a8bfb43d3e5d1ac11606eb2f5588506e2e7fa028786"
+    },
+    {
+      "path": "doc/tasks/20261001-dcc-integration-unblock/task.md",
+      "bytes": 127543,
+      "sha256": "e83fe4b87d788904ab5d78997a8f88aa13cefbf8501a5feecb1a0e84e57ca1f4"
+    },
+    {
+      "path": "doc/tasks/20261001-dcc-integration-unblock/verification-report.md",
+      "bytes": 67958,
+      "sha256": "8e8ef80573b4d17a95b88c8de40dfabd9321b1659a6c1ab5354c82919dd33212"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/execution-log.md",
+      "bytes": 64316,
+      "sha256": "f853b99f0555ce9d00f41d64ed20b381de00859b7ab7126e2d26fb77ce463b2e"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g56-current-controlled-source-contract.md",
+      "bytes": 5058,
+      "sha256": "5169d71371ca0c9bbf1e94b4459e10563a7f13ed6c0ca05678fd768fa3ce8fdc"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g56-current-source-fingerprints.json",
+      "bytes": 3973,
+      "sha256": "b77f0bf1e59dba86c0fe3cba5a17d47abd4955895574ff05ed1bcfd1e07c4fcf"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g56-current-source-verification-receipt.json",
+      "bytes": 3223,
+      "sha256": "b689648f0e3bfc3ca19277a717f6743dfed5a6b8d5f32279b11d5588f5c71d8c"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g56-independent-interface-integration-review.md",
+      "bytes": 13337,
+      "sha256": "bc8df95f0a3434b67c8bcf68d6958dc036231a959976c513450225458445989d"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g56-initial-arrangement-read-fingerprints.json",
+      "bytes": 1752,
+      "sha256": "db36633e90db3239d7c92708a0f7d9f16e5dbde1fae265502225ac0419bc046c"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g56-initial-arrangement-read-junit-archive.json",
+      "bytes": 3131,
+      "sha256": "20c1a37f5ced6af6ada07eeab595ef375060adfb0a45ae7947e502d23e0bd220"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g56-initial-arrangement-read-verification-receipt.json",
+      "bytes": 5504,
+      "sha256": "64fc4d5c49743fdcd85e8b4059d4a80ae2e8f6e9f5f487e33d54f73737ba18e9"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g56-initial-revision-arrangement-read-bdd.md",
+      "bytes": 2131,
+      "sha256": "999b9d3ddbc1fc33987ce05c68d0076bab2c370823ebb5f46c64bd1f72fc0f1e"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g56-lifecycle-html-acceptance-readonly-review.md",
+      "bytes": 16103,
+      "sha256": "a9c62ba1818aa7a191a2d95a8b763ab5b4955b4a1e92417ac2f2c4a3baefee84"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g56-linked-upload-binding-order-bdd.md",
+      "bytes": 4575,
+      "sha256": "917d8935c41969094b604065d70e9cbd3f08f077c52c2fdd50eadada328e3ba0"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g56-linked-upload-order-fingerprints.json",
+      "bytes": 7002,
+      "sha256": "faf64853f2c9b38e800946e9197ba1739083d83c8184f953a730b78f7643c095"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g56-linked-upload-order-verification-receipt.json",
+      "bytes": 6757,
+      "sha256": "6299301c970793222688dd2eb2c6e5911dbde1b700ac82fac30816f86fd402a7"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g56-relations-reference-name-ac-review.md",
+      "bytes": 13846,
+      "sha256": "ecd75547191d7bc3a06b536b4842845a1221f5fa3a361949896ada07e9f6f1f3"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g56-training-record-entry-readonly-review.md",
+      "bytes": 10146,
+      "sha256": "659b2b16530b450074ae46658c9258f797863f6869389aeab05fa05dce3d7baf"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g57-activation-ram-recovery-readonly-plan.md",
+      "bytes": 9666,
+      "sha256": "89292cd298793ef2f2e92ae884351cc5ce0119bb4c206e6d1d47c79ea2756232"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g57-backend-fingerprints-r1.json",
+      "bytes": 15733,
+      "sha256": "b3afd238f7e55e0f19ee93893e332ed2a2a9bffd80108063d4248ec4299cb473"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g57-backend-fingerprints.json",
+      "bytes": 16135,
+      "sha256": "0aea4639a14475c5c0162ee5ff88f4fc62bf451fa57f15a212330dc7e77c0468"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g57-backend-verification-receipt.json",
+      "bytes": 9076,
+      "sha256": "c46f90ce2e8fddf8720cb03bac32ce134d2fb4a062e24671fcd567bb76580f76"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g57-current-file-location-bdd.md",
+      "bytes": 2421,
+      "sha256": "0d4e8d8a629bbc0b0d6e1116db110bb73cb66d453fb8be9857bf0ad03f188d97"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g57-document-control-category-access-review.md",
+      "bytes": 4114,
+      "sha256": "87ad58c5a9f4bffa66346b2d2388d74cab50e777dd3e00c83d658235673a75ee"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g57-local-activation-startup-bdd.md",
+      "bytes": 3146,
+      "sha256": "1e76bbc695b8e1b78369887054551e4d3cea1f0cf749fea83a570a06e5b3d06d"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g57-local-activation-startup-fingerprints-r2.json",
+      "bytes": 2678,
+      "sha256": "1e1fe7d3930124c3b791eba3895b0b3e764cfb4f76add8a0d67d2a2c2a56ccb4"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g57-local-activation-startup-fingerprints.json",
+      "bytes": 2210,
+      "sha256": "1b7e86ff41d152a9986bde46de1989b49799dd42eaa0c379a5cb678a357085f3"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g57-local-activation-startup-junit-archive-r2.json",
+      "bytes": 937,
+      "sha256": "2076c1e1b4504332e384348b16a18d43330b486b36aa07da62c09d203f444274"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g57-local-activation-startup-junit-archive.json",
+      "bytes": 931,
+      "sha256": "354d1fa68d4691bb25f03133a68a192943066a121d5ebd54cac0bf7466a73efa"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g57-local-activation-startup-verification-receipt-r2.json",
+      "bytes": 4270,
+      "sha256": "42256214b506ca662892f28592d23258f227e80f59ccd81aa1aca44bf6e894bd"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g57-local-activation-startup-verification-receipt.json",
+      "bytes": 3852,
+      "sha256": "9d8a30ea31048e41049781299b432431752d30fff5391d1dc99c4fecc8da18da"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g57-obsolete-rework-ui-review.md",
+      "bytes": 8146,
+      "sha256": "0781738f493c3aabb13f1294acdbc4eeabdd8de177b9417cb354933d7a0bad68"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g57-offline-training-entry-bdd.md",
+      "bytes": 4195,
+      "sha256": "1e62c66f374b7669528294a3ed3611179938d735dc12a0b27cd93ae6ce94b39c"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g58-backend-fingerprints.json",
+      "bytes": 11288,
+      "sha256": "ba5cc9f45c8292cce5ccc43edcd9ee45e3185ce53955a748ba052df272ee46db"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g58-backend-verification-receipt.json",
+      "bytes": 9855,
+      "sha256": "7b937560b8edb0e34a31efec64780bf4f355481b4eab2f0f59b45a805af278a0"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g58-task-doc-entry-role-ui-plan.md",
+      "bytes": 10173,
+      "sha256": "eae391c0d8f23977ca8058b6867041ba39f636df11333319ee58fcc3c581dc15"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g58-training-record-duty-bdd.md",
+      "bytes": 2967,
+      "sha256": "f1084b99b1b02b63234bd27a89301e5261e5236d738aed9b58e80a2c1e3a2b63"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g59-backend-fingerprints-r2.json",
+      "bytes": 13730,
+      "sha256": "d471f18748ab6fab87e0a52f13ee0ebf752e37f9858c95846e4e310d4b86232b"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g59-backend-fingerprints-r3.json",
+      "bytes": 13946,
+      "sha256": "4c5a586be608388c8cb0458cc1296399b00dd1e7acafb658ecb96af5cb8ba67a"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g59-backend-fingerprints.json",
+      "bytes": 13320,
+      "sha256": "2bce027dfe2a4128bc0866e4188a15b5d0d0b8c5dee7032ec037ce03b7ef7079"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g59-backend-verification-receipt-r2.json",
+      "bytes": 3060,
+      "sha256": "65ccb33efa2c4ad8b569fb04969736732a3a74c090fd72d79c9c91245c9a6ac9"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g59-backend-verification-receipt-r3.json",
+      "bytes": 2835,
+      "sha256": "2a6935653426a6a3fe290e431d867bc5fbe8560d4cf67c7e972e65c5853b696b"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g59-backend-verification-receipt.json",
+      "bytes": 11374,
+      "sha256": "7c857d05c07a117ab86a85b610c8704491a73d1bc3c207f819caa514cd5f89e0"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g59-core-direction-independent-source-review.md",
+      "bytes": 11444,
+      "sha256": "36611ae3808988e74043287716a7d7fbed3533c31cbedbab99a66f5288c93622"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g59-gxp-policy-candidate.yaml",
+      "bytes": 18574,
+      "sha256": "13d5ad2854951d4c21e63e68eac028706e5ab076da0f21c2ee8ad75ad46a6571"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g59-jdbc-event-time-bdd.md",
+      "bytes": 1642,
+      "sha256": "32b1e9382471fa1e0b8560cc7697516fd4d11f1ef108f450fd5f53be25ec64c4"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g59-native-lifecycle-contract-plan.md",
+      "bytes": 9243,
+      "sha256": "cd3265bcfc6c2ccbbbf2ffb8733e09bb655955263b71fbfa6e8dbf01092d4fff"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g59-native-platform-lifecycle-bdd.md",
+      "bytes": 4691,
+      "sha256": "181d2de4739cda7fd6e47c90c4fc388c63cca9f733d659bc157e64377a1fd9b7"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g59-native-platform-lifecycle-readonly-review.md",
+      "bytes": 6595,
+      "sha256": "7825a4516788d48b3ba8b39cf85159382bfe6458963832daf57132b34c29c09e"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g59-repair-audit-rule.review.sql",
+      "bytes": 4132,
+      "sha256": "3f5cf81609b2637a08024a415fedfe8f95e74137992e4622e70d0ddb8811ab78"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g59-repair-impact.json",
+      "bytes": 2301,
+      "sha256": "65ce6bb3b2b119618d924e13fa1b67d6e977b81ddd9bd3128c5c1f4c5f8550fd"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g59-shared-state-and-reconcile-independent-review.md",
+      "bytes": 10980,
+      "sha256": "3a0ea8a820433223f018f5e32a2c7664ab5bbccdc475c8ef50a588a8ef759d10"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g60-backend-fingerprints.json",
+      "bytes": 7620,
+      "sha256": "1448c667d6525c6a70658f9285d52a2b13c00bcd85f3aae1a2ce545ea1f6cdda"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g60-backend-verification-receipt.json",
+      "bytes": 10986,
+      "sha256": "c081bb24e75dc8283e1cbc8be4d95254fdd964b58587b9c5c6ea0d64a506846f"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g60-final-html-code-direction-review.md",
+      "bytes": 19229,
+      "sha256": "7c6b7d634195c322f60f7d108571ca9e386ff1f44522d5ac910928ca99ddfbb0"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g60-pending-obsolete-bdd.md",
+      "bytes": 2631,
+      "sha256": "9184dee9ef4960f63b114f26785845bc140a6b50958f04d025b8c967652cb762"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g61-backend-fingerprints.json",
+      "bytes": 9379,
+      "sha256": "58f76e170de9c650d8f6bd885df069b996d98dc6fbbdb5187e8eb29ffcf7ae91"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g61-backend-verification-receipt.json",
+      "bytes": 9095,
+      "sha256": "3812d29820e60d7846fb4970f73b32d7e46921354956372b6971900052a1ae12"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g61-pending-obsolete-entry-bdd.md",
+      "bytes": 2800,
+      "sha256": "08d40a52ba857722a21ad604ab020395cf00082068c781dfde1eb04edce0fe4b"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g62-backend-fingerprints.json",
+      "bytes": 3080,
+      "sha256": "f3ec8fd1417bc18d049ca5f7e78bb5fc8f4aee5a069186e8b26c4596314bb5c4"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g62-backend-verification-receipt.json",
+      "bytes": 5285,
+      "sha256": "e72bcccb074c4584adb379cffe077c6790236a0b5f7dfebf3aca08e862861a7e"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g62-obsolete-obligation-wiring-bdd.md",
+      "bytes": 2341,
+      "sha256": "71e4423bc341e985e48f6545760ea017b1c2ee766934a0ed1cc23b6dccc77e0f"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g63-native-obsolete-current-round-readonly-review.md",
+      "bytes": 4066,
+      "sha256": "bd1e84653eeaf848a756cb373fbff7d0fd37d5f2cd26337712cbc129156e5442"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/task.md",
+      "bytes": 67362,
+      "sha256": "ebf91f80dae43b14a49fbf04b92827b94dd7d4e18655025696ec97e627d9dca1"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/verification-report.md",
+      "bytes": 81203,
+      "sha256": "e665d431709149dc655421e628ec302292c5f890afa5111b908511ddf00bbb93"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/execution-log.md",
+      "bytes": 68010,
+      "sha256": "84745f439d59d3adb7846efe44b5b03d14d33f734ba751c13d5a86ee56321d85"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g56-current-relation-source-bdd.md",
+      "bytes": 1839,
+      "sha256": "d57da0fc640e236877bbdc1dade783949120fc13ecc6a1a2bf01a1836a0919bc"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g56-f02-f04-r02-delivery.md",
+      "bytes": 3557,
+      "sha256": "be6c5c4b512a019e03f93f25ae24d03fc6c2dd58029134f3659687c9b65d2b26"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g56-f02-f04-r02-fingerprints-r2.json",
+      "bytes": 6577,
+      "sha256": "e4e3eeda96e4fd73ab4f9d432a296ace7edede429dc485b6feff8d3548282ea2"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g56-f02-f04-r02-fingerprints-r3.json",
+      "bytes": 6238,
+      "sha256": "d88ec4f1e16a1900e2096613136bb1619ac4a41f4d6ee472e23dd9c8b939dbae"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g56-f02-f04-r02-fingerprints.json",
+      "bytes": 11847,
+      "sha256": "c13204fc2f4d9d27790d3a9c98bed77cc885eb35280a1d2e2564b00112cba407"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g56-flow1-8-review-matrix.md",
+      "bytes": 14832,
+      "sha256": "fce172308f24692670093b15d734d01479f72c4839f73091fabd243a641efc4c"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g56-native-progress-duty-bdd.md",
+      "bytes": 2447,
+      "sha256": "9bafb2c7f97c85b76bfbcb3d4d9733ca46a88c8fc0b11cd531ceebe8f6eabe26"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g56-native-stage-evidence-r3-bdd.md",
+      "bytes": 1901,
+      "sha256": "d20ae35bc5396d2a15b80bb88b60ecd4460fe2124c6df62832db5156fa31dbd2"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g56-next-fe-boundaries-readonly.md",
+      "bytes": 4022,
+      "sha256": "c3ee26f24f180b7ff6ed7c0d17cc22676323e60141d5cd444fc3d6ee0ed7e61b"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g56-preview-project-execution-version-bdd.md",
+      "bytes": 1954,
+      "sha256": "eeb3eb91937aa005aed9fd247482b1504ca181a25ce8ab2b6ddba64849a65cd9"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g56-preview-project-execution-version-fingerprints.json",
+      "bytes": 5235,
+      "sha256": "3beed9f4fa4257092c66692f975ddb70340bfe8dfa56d1c90b9cff7114b575d5"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g56-public-folder-maintenance-bdd.md",
+      "bytes": 1594,
+      "sha256": "5fe6824de72fe371f69987f944f368dae2cf467c0a07dbc5ece0a239df66a5a7"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g56-viewer-trace-entry-bdd.md",
+      "bytes": 1338,
+      "sha256": "5a1aea4334de1bc3109394ed8eef0b378860645e2da33be49465213952153283"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g56-viewer-trace-import-r2-bdd.md",
+      "bytes": 1498,
+      "sha256": "6cce191a9cc5ad10af6b6d4c6f1cba41cdfc660bb62c586a64083ce16c634c93"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g57-offline-training-entry-frontend-bdd.md",
+      "bytes": 3678,
+      "sha256": "e76d86b7399ef1e4bd271a336b665da4ccb1069cf61f0560a64dfd03f4b063c6"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g57-offline-training-entry-frontend-fingerprints-r2.json",
+      "bytes": 7747,
+      "sha256": "b2e6ede8284ffe43d5c00d0c826bb7ce118602b234a75140c10827243b47bde8"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g57-offline-training-entry-frontend-fingerprints.json",
+      "bytes": 10758,
+      "sha256": "55f9edb914b9bf730b78eb70af065009096f848e1429dfcc0f79f9c4177e4703"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g57-readonly-metadata-gate-r2-bdd.md",
+      "bytes": 2940,
+      "sha256": "835b4f1c9832b90a28683755299b3f33cec1ad7928e5c9e1db4df161e58f067d"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g58-browser-selected-version-display-bdd.md",
+      "bytes": 3387,
+      "sha256": "ee787aa82af2122fdbf970b15212f643e16c86bab24725e9bc19913b2e70a4ea"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g58-browser-selected-version-display-fingerprints.json",
+      "bytes": 3976,
+      "sha256": "0b4e2a415c802ced3496adc6aac180133a21d9caeb74a96916a1e0c3f8d6fdf5"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g58-training-record-category-permission-frontend-bdd.md",
+      "bytes": 2856,
+      "sha256": "984d449d666288a8c9ebf2d552d4862948159c3339bf3f085626e8c2c3754b23"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g58-training-record-category-permission-frontend-fingerprints.json",
+      "bytes": 4202,
+      "sha256": "e15fd50d192ba4faceffb2e67cb41ab0e10fbfff038de01b024db685b63f766b"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g59-legacy-workbench-summary-acl-readonly.md",
+      "bytes": 4142,
+      "sha256": "7e79efc7d8b3d49787137a7d782aabed0d8797b3d831c7d00966e083e5640483"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g59-lifecycle-projection-repair-frontend-bdd.md",
+      "bytes": 5161,
+      "sha256": "01fef319601a4b94c71dcc88806e4c6e38d8a8af0fb82001e5e6e677916e6d64"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g59-lifecycle-projection-repair-frontend-fingerprints-r2.json",
+      "bytes": 4400,
+      "sha256": "9e960e4912e080f604d7019294e4a4f6176414486eeac5ac3fbb1af66bba1886"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g59-lifecycle-projection-repair-frontend-fingerprints.json",
+      "bytes": 4832,
+      "sha256": "e6095838009d0158544c5677a3289feb80adf9b76a95736a716bc1accb3133c5"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g59-repair-contract-r2-bdd.md",
+      "bytes": 2682,
+      "sha256": "79ed0324f9b1872a9a8150d358061d127947d31367ed8e71d37f464eee226973"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g59-workbench-section-permissions-bdd.md",
+      "bytes": 3577,
+      "sha256": "f06f55df0266a10378f61ffb50e2ec9e2ad95ca3996852ad7343815c506a1ef5"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g59-workbench-section-permissions-fingerprints.json",
+      "bytes": 4677,
+      "sha256": "d8fe4a49f4936b80829c08899b5e059ced851cea7bd223bd8e9422217f6d1fa9"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g61-pending-controlled-obsolete-entry-readonly-review.md",
+      "bytes": 4723,
+      "sha256": "5cf7cc3e3a8ad64aaf6fd6878adc13c57b5c3552b02ddae6aee0f5712261ec35"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g62-native-completion-summary-bdd.md",
+      "bytes": 2935,
+      "sha256": "3f0bf01b88f8e88186f7d18ea0d6e0766a929a03bf2b9c6f0838259e9ed090a5"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g62-native-completion-summary-fingerprints.json",
+      "bytes": 3912,
+      "sha256": "80d94a9027092b2568b3f3853345125f44e7e5ee7fc1002dc63bb1dfb3599fb0"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g63-approval-center-signoff-entry-bdd.md",
+      "bytes": 3696,
+      "sha256": "7f626ce7a9514886b0b393450733fb0bfeb6a569978be72a6a93e72b59016182"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g63-approval-center-signoff-entry-fingerprints.json",
+      "bytes": 4707,
+      "sha256": "a05324dd57aba3226626b948df015e22c4eefd1c838a4467f7a0c582f7a99ee3"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/task.md",
+      "bytes": 31956,
+      "sha256": "29ab131857f7a61d9492080987d1a4e80a7db58953a9d55a94b9b74d53452fa5"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/verification-report.md",
+      "bytes": 42737,
+      "sha256": "d5db4dc06c8b4e216d3ffdc37bc25a4520e0abf4985d344559181565a7a64049"
+    },
+    {
+      "path": "docs/dcc-business-integration-experience.md",
+      "bytes": 9591,
+      "sha256": "299db5b1e2facd3a4bcbbd6a3a9f312e16ef1d0d85bcb8535be6a10f50c75659"
+    },
+    {
+      "path": "docs/experience-index.md",
+      "bytes": 216867,
+      "sha256": "b15ee12ef89535e3721ca4a5fcf5948b81fb28de4172240a3e41d9d30c0a954d"
+    },
+    {
+      "path": "docs/product/dcc-final-requirements.html",
+      "bytes": 88124,
+      "sha256": "53e9afc74cafd1539cd48d9f2384d364511dd4802c4d686431b444b549930222"
+    }
+  ],
+  "formalCleanupTool": "UNAVAILABLE",
+  "rawOutputsExcluded": true
+}

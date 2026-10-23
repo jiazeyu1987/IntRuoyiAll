@@ -1,0 +1,31 @@
+{
+  "status": "FROZEN_MAVEN_FREE_READY_FOR_ROOT_REVIEW",
+  "productionFiles": 1,
+  "newTestFiles": 1,
+  "files": [
+    {
+      "path": "IntRuoyiBackend/yudao-module-bpm/src/main/java/cn/iocoder/yudao/module/bpm/service/definition/BpmProcessDefinitionServiceImpl.java",
+      "bytes": 10705,
+      "sha256": "3cd440c87e5fe8ac21f7ce841233afaf6d696fcc9351524bf5396042569732f1"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-bpm/src/test/java/cn/iocoder/yudao/module/bpm/service/definition/BpmLatestProcessDefinitionTest.java",
+      "bytes": 7815,
+      "sha256": "0a9de24e6c16f55e357d54b6d6e7b1339a12b05014c3918cb531ac12ad8af9d3"
+    }
+  ],
+  "compiledClass": {
+    "path": "IntRuoyiBackend/yudao-module-bpm/target/classes/cn/iocoder/yudao/module/bpm/service/definition/BpmProcessDefinitionServiceImpl.class",
+    "bytes": 12405,
+    "sha256": "17b91a5e3a92bbf85d640498e9e14a64403c70be1c9413bd571734d11c4575c1"
+  },
+  "verification": {
+    "path": "doc/tasks/20261002-dcc-public-backend-completion/g53-latest-definition-verification-receipt.json",
+    "bytes": 3565,
+    "sha256": "65f2ce55e12b3c9cddbad251ea0fe2dbfce76dca009c99912abaad034309bff0"
+  },
+  "actualBusinessDB": 0,
+  "DccFrozenSourceEdits": 0,
+  "FEEdits": 0,
+  "scope": "getActiveProcessDefinition latestVersion constraint only; histories and explicitid lookups unchanged"
+}

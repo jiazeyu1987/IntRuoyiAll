@@ -73,7 +73,15 @@ public class DccControlledFileCurrentVersionRespVO {
     private String stampedFilePath;
 
     @Schema(description = "Product master id")
+    @com.fasterxml.jackson.annotation.JsonFormat(shape=com.fasterxml.jackson.annotation.JsonFormat.Shape.STRING)
     private Long productMasterId;
+    private String productSource;
+    @com.fasterxml.jackson.annotation.JsonFormat(shape=com.fasterxml.jackson.annotation.JsonFormat.Shape.STRING)
+    private Long productCatalogId;
+    @com.fasterxml.jackson.annotation.JsonFormat(shape=com.fasterxml.jackson.annotation.JsonFormat.Shape.STRING)
+    private Long productRelationId;
+    @com.fasterxml.jackson.annotation.JsonFormat(shape=com.fasterxml.jackson.annotation.JsonFormat.Shape.STRING)
+    private Long productCreateRequestId;
 
     @Schema(description = "DCC product code")
     private String productCode;

@@ -158,13 +158,61 @@
                   </el-tag>
                 </template>
               </el-table-column>
-              <el-table-column label="员工编码" min-width="120">
-                <template #default="{ row }">{{ row.employeeCode || '-' }}</template>
-              </el-table-column>
-              <el-table-column label="签名密码" min-width="140">
+              <el-table-column label="状态" width="100">
                 <template #default="{ row }">
-                  {{ formatSignaturePasswordManager(row) }}
+                  <el-tag :type="row.enabled === false ? 'danger' : 'success'" effect="plain">
+                    {{ row.enabled === false ? '已禁用' : '可选择' }}
+                  </el-tag>
                 </template>
+              </el-table-column>
+              <el-table-column label="操作" width="320" fixed="right">
+                <template #default="{ row }">
+                  <el-button link type="primary" @click="updateEmployeeDisplayName(row)">
+                    修改名称
+                  </el-button>
+                  <el-button
+                    link
+                    :type="row.enabled === false ? 'success' : 'warning'"
+                    @click="updateEmployeeStatus(row, row.enabled === false)"
+                  >
+                    {{ row.enabled === false ? '启用人员' : '禁用人员' }}
+                  </el-button>
+                  <el-button
+                    v-if="row.employeeType === 'TEMPORARY'"
+                    link
+                    type="primary"
+                    @click="resetTemporarySignaturePassword(row)"
+                  >
+                    重置密码
+                  </el-button>
+                  <el-button link type="info" @click="foldProductionPersonnel(row)">
+                    折叠
+                  </el-button>
+                </template>
+              </el-table-column>
+            </el-table>
+          </template>
+        </UnifiedListTemplate>
+
+        <el-collapse v-if="foldedProductionPersonnelRows.length" class="mt-16px">
+          <el-collapse-item name="folded-personnel">
+            <template #title>
+              已折叠人员（{{ foldedProductionPersonnelRows.length }}人）
+            </template>
+            <el-button class="mb-12px" @click="restoreAllProductionPersonnel">
+              全部恢复显示
+            </el-button>
+            <el-table :data="foldedProductionPersonnelRows" row-key="id" border stripe>
+              <el-table-column label="显示名" min-width="140">
+                <template #default="{ row }">
+                  <span
+                    class="team-leader-workbench__personnel-name"
+                    :class="{ 'is-disabled': row.enabled === false }"
+                  >{{ row.displayName || row.employeeName || '--' }}</span>
+                </template>
+              </el-table-column>
+              <el-table-column label="来源" width="110">
+                <template #default="{ row }">{{ formatEmployeeType(row.employeeType) }}</template>
               </el-table-column>
               <el-table-column label="状态" width="100">
                 <template #default="{ row }">
@@ -173,31 +221,16 @@
                   </el-tag>
                 </template>
               </el-table-column>
-              <el-table-column label="操作" width="260" fixed="right">
+              <el-table-column label="操作" width="130" fixed="right">
                 <template #default="{ row }">
-                  <el-button link type="primary" @click="updateEmployeeDisplayName(row)">
-                    修改显示名
-                  </el-button>
-                  <el-button
-                    link
-                    :type="row.enabled === false ? 'success' : 'warning'"
-                    @click="updateEmployeeStatus(row, row.enabled === false)"
-                  >
-                    {{ row.enabled === false ? '启用' : '禁用' }}
-                  </el-button>
-                  <el-button
-                    v-if="row.employeeType === 'TEMPORARY'"
-                    link
-                    type="primary"
-                    @click="resetTemporarySignaturePassword(row)"
-                  >
-                    重置签名密码
+                  <el-button link type="primary" @click="restoreProductionPersonnel(row)">
+                    恢复显示
                   </el-button>
                 </template>
               </el-table-column>
             </el-table>
-          </template>
-        </UnifiedListTemplate>
+          </el-collapse-item>
+        </el-collapse>
 
         <el-dialog
           data-team-leader-personnel-add-dialog
@@ -1550,7 +1583,8 @@
           @input="handleActiveOrderWorkOrderKeywordChange"
           @clear="handleActiveOrderWorkOrderKeywordChange"
         />
-        <el-button
+        <el-button class="app-test-button"
+          v-if="testModeEnabled"
           v-hasPermi="['mes:pro-process-pool-team-leader:maintain']"
           type="warning"
           :loading="activeOrderTestResetSubmitting"
@@ -1571,8 +1605,8 @@
           <Icon icon="ep:plus" class="mr-5px" />
           新增活跃订单
         </el-button>
-        <el-button
-          v-if="isProductionLeader"
+        <el-button class="app-test-button"
+          v-if="testModeEnabled && (isProductionLeader)"
           v-hasPermi="['mes:pro-process-pool-team-leader:maintain']"
           type="danger"
           plain
@@ -1596,11 +1630,6 @@
           data-team-leader-active-order-list
           data-user-table-key="mes.pro.processPool.teamLeader.activeOrders"
         >
-          <el-table-column label="活跃池ID" prop="id" width="110">
-            <template #default="{ row }">
-              <span :data-team-leader-active-order-id="String(row.id)">{{ row.id }}</span>
-            </template>
-          </el-table-column>
           <el-table-column label="生产订单号" prop="workOrderCode" min-width="200">
             <template #default="{ row }">
               <div class="team-leader-workbench__active-order-code-cell">
@@ -1629,25 +1658,11 @@
               </div>
             </template>
           </el-table-column>
+          <el-table-column label="产品名称" prop="productName" min-width="200" />
           <el-table-column label="路线名称" prop="routeName" min-width="200" />
-          <el-table-column label="版本号" prop="routeVersionNo" min-width="100" />
-          <el-table-column label="订单类型" min-width="110">
-            <template #default="{ row }">
-              <el-tag v-if="row.simulated" type="warning" effect="plain">测试模拟</el-tag>
-              <span v-else>正式订单</span>
-            </template>
-          </el-table-column>
           <el-table-column label="ERP生产数量" min-width="130">
             <template #default="{ row }">
-              {{ formatTraceQuantity(row.erpFixedQuantitySnapshot) }}
-            </template>
-          </el-table-column>
-          <el-table-column label="数据检查" min-width="260">
-            <template #default="{ row }">
-              <span v-if="row.readBlocked" data-active-order-read-error role="status">
-                数据异常：{{ row.readBlockReason }}
-              </span>
-              <span v-else>正常</span>
+              {{ formatActiveOrderErpQuantity(row.erpFixedQuantitySnapshot) }}
             </template>
           </el-table-column>
           <el-table-column label="生产进度" prop="productionProgressPercent" min-width="120">
@@ -1679,7 +1694,7 @@
           <el-table-column label="加入时间" min-width="170">
             <template #default="{ row }">{{ formatDateTime(row.joinedAt) }}</template>
           </el-table-column>
-          <el-table-column label="操作" width="330" fixed="right">
+          <el-table-column label="操作" width="200" fixed="right">
             <template #default="{ row }">
               <el-button
                 link
@@ -1689,19 +1704,6 @@
                 @click="openActiveOrderSubmissionDetail(row)"
               >
                 详情
-              </el-button>
-              <el-button
-                link
-                type="danger"
-                :loading="maintenanceSubmitting"
-                :disabled="
-                  activeOrderRebuildSubmittingId !== undefined ||
-                  activeOrderTestResetSubmitting || activeOrderSimulationSubmittingId !== undefined
-                "
-                data-team-leader-remove-active-order
-                @click="handleRemoveActiveOrder(row)"
-              >
-                移除
               </el-button>
               <el-button
                 link
@@ -1730,36 +1732,6 @@
               >
                 完工
               </el-button>
-              <el-button
-                link
-                type="success"
-                :loading="activeOrderRebuildSubmittingId === row.id"
-                :disabled="
-                  maintenanceSubmitting ||
-                  activeOrderRebuildSubmittingId !== undefined ||
-                  activeOrderTestResetSubmitting || activeOrderSimulationSubmittingId !== undefined
-                "
-                data-team-leader-rebuild-active-order
-                @click="handleRebuildActiveOrder(row)"
-              >
-                重建
-              </el-button>
-              <el-button
-                v-hasPermi="['mes:pro-process-pool-team-leader:version-upgrade']"
-                link
-                type="warning"
-                :loading="activeOrderVersionUpgradeSubmittingId === row.id"
-                :disabled="
-                  maintenanceSubmitting ||
-                  row.activeStatus !== 'ACTIVE' ||
-                  activeOrderRebuildSubmittingId !== undefined ||
-                  activeOrderTestResetSubmitting || activeOrderSimulationSubmittingId !== undefined ||
-                  activeOrderVersionUpgradeSubmittingId !== undefined
-                "
-                title="按全部最新正式版本发起版本升级重启审批"
-                data-team-leader-active-order-version-upgrade
-                @click="handleActiveOrderVersionUpgrade(row)"
-              >升级</el-button>
               <el-dropdown
                 trigger="click"
                 class="team-leader-workbench__active-order-test-menu"
@@ -1769,14 +1741,56 @@
                   type="primary"
                   :loading="activeOrderSimulationSubmittingId === row.id || releaseApplicationSubmittingId === row.id"
                   :disabled="maintenanceSubmitting || activeOrderRebuildSubmittingId !== undefined || activeOrderTestResetSubmitting || activeOrderSimulationSubmittingId !== undefined"
+                  aria-label="更多操作"
+                  title="更多操作"
                   data-team-leader-active-order-test-menu
                 >
-                  测试
-                  <Icon icon="ep:arrow-down" class="ml-5px" />
+                  <Icon icon="ep:more-filled" />
                 </el-button>
                 <template #dropdown>
                   <el-dropdown-menu>
                     <el-dropdown-item
+                      :disabled="
+                        maintenanceSubmitting ||
+                        activeOrderRebuildSubmittingId !== undefined ||
+                        activeOrderTestResetSubmitting || activeOrderSimulationSubmittingId !== undefined
+                      "
+                      data-team-leader-remove-active-order
+                      @click="handleRemoveActiveOrder(row)"
+                    >
+                      <Icon v-if="maintenanceSubmitting" icon="ep:loading" class="is-loading" />
+                      移除
+                    </el-dropdown-item>
+                    <el-dropdown-item
+                      :disabled="
+                        maintenanceSubmitting ||
+                        activeOrderRebuildSubmittingId !== undefined ||
+                        activeOrderTestResetSubmitting || activeOrderSimulationSubmittingId !== undefined
+                      "
+                      data-team-leader-rebuild-active-order
+                      @click="handleRebuildActiveOrder(row)"
+                    >
+                      <Icon v-if="activeOrderRebuildSubmittingId === row.id" icon="ep:loading" class="is-loading" />
+                      重建
+                    </el-dropdown-item>
+                    <el-dropdown-item
+                      v-hasPermi="['mes:pro-process-pool-team-leader:version-upgrade']"
+                      :disabled="
+                        maintenanceSubmitting ||
+                        row.activeStatus !== 'ACTIVE' ||
+                        activeOrderRebuildSubmittingId !== undefined ||
+                        activeOrderTestResetSubmitting || activeOrderSimulationSubmittingId !== undefined ||
+                        activeOrderVersionUpgradeSubmittingId !== undefined
+                      "
+                      title="按全部最新正式版本发起版本升级重启审批"
+                      data-team-leader-active-order-version-upgrade
+                      @click="handleActiveOrderVersionUpgrade(row)"
+                    >
+                      <Icon v-if="activeOrderVersionUpgradeSubmittingId === row.id" icon="ep:loading" class="is-loading" />
+                      升级
+                    </el-dropdown-item>
+                    <el-dropdown-item class="app-test-button"
+          v-if="testModeEnabled"
                       :disabled="
                         maintenanceSubmitting ||
                         activeOrderRebuildSubmittingId !== undefined ||
@@ -1788,8 +1802,8 @@
                       <Icon icon="ep:document-copy" />
                       复制测试单
                     </el-dropdown-item>
-                    <el-dropdown-item
-                      v-if="row.simulated && row.simulationStage === 'LATEST_VERSION_COPY'"
+                    <el-dropdown-item class="app-test-button"
+                      v-if="testModeEnabled && (row.simulated && row.simulationStage === 'LATEST_VERSION_COPY')"
                       :disabled="
                         maintenanceSubmitting ||
                         activeOrderRebuildSubmittingId !== undefined ||
@@ -1800,7 +1814,8 @@
                     >
                       清理测试单
                     </el-dropdown-item>
-                    <el-dropdown-item
+                    <el-dropdown-item class="app-test-button"
+          v-if="testModeEnabled"
                       :disabled="
                         maintenanceSubmitting ||
                         activeOrderRebuildSubmittingId !== undefined ||
@@ -1812,7 +1827,8 @@
                       <Icon icon="ep:refresh" />
                       P1双100
                     </el-dropdown-item>
-                    <el-dropdown-item
+                    <el-dropdown-item class="app-test-button"
+          v-if="testModeEnabled"
                       :disabled="
                         maintenanceSubmitting ||
                         activeOrderRebuildSubmittingId !== undefined ||
@@ -1826,7 +1842,8 @@
                       <Icon icon="ep:document" />
                       P2生成
                     </el-dropdown-item>
-                    <el-dropdown-item
+                    <el-dropdown-item class="app-test-button"
+          v-if="testModeEnabled"
                       v-hasPermi="['mes:pro-process-pool-team-leader:release-apply']"
                       :disabled="maintenanceSubmitting || activeOrderTestResetSubmitting || activeOrderSimulationSubmittingId !== undefined || releaseApplicationSubmittingId !== undefined || !canApplyActiveOrderRelease(row)"
                       title="将P2生成的记录推送给PQC生产放行"
@@ -1836,7 +1853,8 @@
                       <Icon icon="ep:promotion" />
                       P3推送放行
                     </el-dropdown-item>
-                    <el-dropdown-item
+                    <el-dropdown-item class="app-test-button"
+          v-if="testModeEnabled"
                       :disabled="
                         maintenanceSubmitting ||
                         activeOrderRebuildSubmittingId !== undefined ||
@@ -4077,6 +4095,8 @@
 </template>
 
 <script setup lang="ts">
+import { useTestMode } from '@/store/modules/testMode'
+
 import { useApprovalCenterInvalidationStore } from '@/store/modules/approvalCenterInvalidation'
 import { createFormalActionGuard } from '@/store/modules/approvalCenterInvalidationState'
 const approvalInvalidation = useApprovalCenterInvalidationStore()
@@ -4188,6 +4208,8 @@ import {
 import { MdItemApi } from '@/api/mes/md/item'
 import { formatDateTimeValue, formatDate } from '@/utils/formatTime'
 import { parsePositiveRouteQueryId } from '@/utils/routeQueryId'
+
+const testModeEnabled = useTestMode()
 
 defineOptions({ name: 'MesProProcessPoolTeamLeaderWorkbench' })
 
@@ -4585,6 +4607,7 @@ const productionPersonnelLoading = ref(false)
 const productionPersonnelSubmitting = ref(false)
 const formalCandidateLoading = ref(false)
 const productionPersonnelRows = ref<TeamProductionEmployeeRespVO[]>([])
+const foldedProductionPersonnelIds = ref(new Set<string>())
 const formalEmployeeCandidateOptions = ref<TeamFormalEmployeeCandidateRespVO[]>([])
 const pqcPersonnelAddDialogVisible = ref(false)
 const pqcPersonnelLoading = ref(false)
@@ -4603,7 +4626,6 @@ const productionPersonnelOperatorOptions: any[] = []
 const productionPersonnelColumns: any[] = [
   { key: 'displayName', label: '显示名', visible: true },
   { key: 'employeeType', label: '来源', visible: true },
-  { key: 'employeeCode', label: '员工编码', visible: true },
   { key: 'enabled', label: '状态', visible: true }
 ]
 const activeOrderQuery = reactive({
@@ -4615,10 +4637,9 @@ const activeOrderQuickFilterState = reactive({})
 const activeOrderOperatorOptions: any[] = []
 const activeOrderWorkOrderKeyword = ref('')
 const activeOrderColumns: any[] = [
-  { key: 'id', label: '活跃池ID', visible: true },
   { key: 'workOrderCode', label: '生产订单号', visible: true },
+  { key: 'productName', label: '产品名称', visible: true },
   { key: 'routeName', label: '路线名称', visible: true },
-  { key: 'routeVersionNo', label: '版本号', visible: true },
   { key: 'erpFixedQuantitySnapshot', label: 'ERP生产数量', visible: true },
   { key: 'productionProgressPercent', label: '生产进度', visible: true },
   { key: 'inspectionProgressPercent', label: '检验进度', visible: true },
@@ -4876,13 +4897,33 @@ const dailyCloseSummaryCards = computed(() => [
     hint: loadError.value || '当前看板数据已加载'
   }
 ])
-const productionPersonnelTotal = computed(() => productionPersonnelRows.value.length)
+const visibleProductionPersonnelRows = computed(() =>
+  productionPersonnelRows.value.filter(row => !foldedProductionPersonnelIds.value.has(String(row.id)))
+)
+const foldedProductionPersonnelRows = computed(() =>
+  productionPersonnelRows.value.filter(row => foldedProductionPersonnelIds.value.has(String(row.id)))
+)
+const productionPersonnelTotal = computed(() => visibleProductionPersonnelRows.value.length)
 const pagedProductionPersonnelRows = computed(() => {
   const pageNo = Math.max(1, Number(productionPersonnelQuery.pageNo) || 1)
   const pageSize = Math.max(1, Number(productionPersonnelQuery.pageSize) || 10)
   const start = (pageNo - 1) * pageSize
-  return productionPersonnelRows.value.slice(start, start + pageSize)
+  return visibleProductionPersonnelRows.value.slice(start, start + pageSize)
 })
+const foldProductionPersonnel = (row: TeamProductionEmployeeRespVO) => {
+  foldedProductionPersonnelIds.value.add(String(row.id))
+  const maxPage = Math.max(1, Math.ceil(productionPersonnelTotal.value / productionPersonnelQuery.pageSize))
+  productionPersonnelQuery.pageNo = Math.min(productionPersonnelQuery.pageNo, maxPage)
+}
+const restoreProductionPersonnel = (row: TeamProductionEmployeeRespVO) => {
+  foldedProductionPersonnelIds.value.delete(String(row.id))
+  const index = visibleProductionPersonnelRows.value.findIndex(item => String(item.id) === String(row.id))
+  productionPersonnelQuery.pageNo = Math.floor(index / productionPersonnelQuery.pageSize) + 1
+}
+const restoreAllProductionPersonnel = () => {
+  foldedProductionPersonnelIds.value.clear()
+  productionPersonnelQuery.pageNo = 1
+}
 const normalizedActiveOrderWorkOrderKeyword = computed(() =>
   activeOrderWorkOrderKeyword.value.trim().toLowerCase()
 )
@@ -5771,6 +5812,12 @@ const resolveStage1GenerateFormDisabledReason = (row: TeamLeaderActiveOrderRespV
   return '生成批记录和过程检验记录'
 }
 
+const formatActiveOrderErpQuantity = (value: number | string | undefined) => {
+  if (value === undefined || value === null || value === '') return '-'
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed.toFixed(0) : String(value)
+}
+
 const formatTraceQuantity = (value: number | string | undefined) => {
   if (value === undefined || value === null || value === '') return '-'
   const parsed = Number(value)
@@ -5849,12 +5896,6 @@ const formatEmployeeType = (employeeType?: string) => {
   if (employeeType === 'TEMPORARY') return '临时工'
   if (employeeType === 'FORMAL') return '正式工'
   return employeeType || '--'
-}
-
-const formatSignaturePasswordManager = (row: TeamProductionEmployeeRespVO) => {
-  if (row.employeeType === 'TEMPORARY') return '临时工档案密码'
-  if (row.employeeType === 'FORMAL') return '原账号电子签名密码'
-  return row.signaturePasswordManagedBy || '--'
 }
 
 const refreshPqcPersonnel = async () => {
@@ -5963,7 +6004,7 @@ const refreshProductionPersonnel = async () => {
     productionPersonnelRows.value = await getProductionPersonnelList()
     const maxPage = Math.max(
       1,
-      Math.ceil(productionPersonnelRows.value.length / productionPersonnelQuery.pageSize)
+      Math.ceil(productionPersonnelTotal.value / productionPersonnelQuery.pageSize)
     )
     if (productionPersonnelQuery.pageNo > maxPage) {
       productionPersonnelQuery.pageNo = maxPage
@@ -6061,7 +6102,7 @@ const submitCreateTemporaryEmployee = async () => {
 
 const updateEmployeeDisplayName = async (row: TeamProductionEmployeeRespVO) => {
   try {
-    const result = await ElMessageBox.prompt('请输入新的显示名；重名时请加后缀区分', '修改显示名', {
+    const result = await ElMessageBox.prompt('请输入新的显示名；重名时请加后缀区分', '修改名称', {
       inputValue: row.displayName || row.employeeName || '',
       inputPattern: /\S+/,
       inputErrorMessage: '显示名不能为空',
@@ -6108,7 +6149,7 @@ const updateEmployeeStatus = async (row: TeamProductionEmployeeRespVO, enabled: 
 
 const resetTemporarySignaturePassword = async (row: TeamProductionEmployeeRespVO) => {
   try {
-    const result = await ElMessageBox.prompt('请输入新的临时工电子签名密码', '重置签名密码', {
+    const result = await ElMessageBox.prompt('请输入新的临时工电子签名密码', '重置密码', {
       inputType: 'password',
       inputPattern: /\S+/,
       inputErrorMessage: '签名密码不能为空',
@@ -7782,16 +7823,16 @@ const enrichSubmissionMaterialNames = async (rows: ProcessPoolTimelineEventVO[])
   if (!uniqueMaterialRows.length) {
     return
   }
-  const resolvedEntries = await Promise.all(
-    uniqueMaterialRows.map(async (item) => {
-      const material = await MdItemApi.getItem(item.materialId)
-      const materialName = String(material?.name || '').trim()
-      if (!materialName) {
-        throw new Error(`物料 ${item.materialId} 缺少真实物料名称，不能展示报工明细`)
-      }
-      return [String(item.materialId), materialName] as const
-    })
+  const materialNames = await MdItemApi.getItemNames(
+    uniqueMaterialRows.map((item) => item.materialId)
   )
+  const resolvedEntries = uniqueMaterialRows.map((item) => {
+    const materialName = String(materialNames[String(item.materialId)] || '').trim()
+    if (!materialName) {
+      throw new Error(`物料 ${item.materialId} 缺少真实物料名称，不能展示报工明细`)
+    }
+    return [String(item.materialId), materialName] as const
+  })
   submissionMaterialNameCache.value = {
     ...submissionMaterialNameCache.value,
     ...Object.fromEntries(resolvedEntries)

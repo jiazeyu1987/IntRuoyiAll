@@ -1,0 +1,9 @@
+{
+  "status": "ACTUAL_TOKEN_CACHE_EXPIRY_PRECISION_READONLY_DIAGNOSTIC",
+  "deltaAtAsiaShanghaiMillis": 204,
+  "deltaAtUtcMillis": 28800204,
+  "cachedFractionMillis": 796,
+  "timestampSerializerUsesSystemDefaultZone": true,
+  "databaseOrCacheWrites": false,
+  "tokenOrCredentialPrinted": false
+}

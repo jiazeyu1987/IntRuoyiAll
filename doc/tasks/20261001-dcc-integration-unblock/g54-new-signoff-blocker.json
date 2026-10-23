@@ -1,0 +1,19 @@
+{
+  "status": "REAL_NEW_FILE_SIGNOFF_BLOCKED_BY_REVISION_ONLY_ARRANGEMENT_READINESS",
+  "fileId": "2054545668044084026",
+  "changeType": "NEW",
+  "statusFact": "PENDING_MATRIX_REVIEW",
+  "projectId": "271",
+  "mappingId": "2",
+  "logicalFolderId": "2",
+  "storageDirectoryId": "913876",
+  "contextSuccess": "signoff assignment context shows dept100 and user1",
+  "actualUiError": "整改安排尚未加载或校验完成，请核对后再签名",
+  "actualArrangementError": "DCC_RELATION_ARRANGEMENT_FORBIDDEN",
+  "actualCurrentRelationError": "DCC_RELATION_CURRENT_SET_NOT_INITIALIZED",
+  "assignmentPostPerformed": false,
+  "actualUiEvidence": "g53-real-ui-r4/008.json",
+  "backendGuardsToPreserve": true,
+  "HTMLScope": "Only revision signoff requires related-file remediation choices",
+  "fixAssigned": "FE exact applicability and payload separation"
+}

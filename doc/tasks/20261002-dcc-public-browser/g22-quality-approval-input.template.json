@@ -1,0 +1,22 @@
+{
+  "scope": "Local tenant1 test configuration only; not production CSV approval",
+  "tenantId": 1,
+  "policyVersion": "2026-10-dcc-integration-01",
+  "policyHash": "776905347c7726983db317eda110908f6762aa1351a8564e1e130da19b0d59df",
+  "coverageReportHash": "319fc04a677dcb8670b420c9791bf5e4584d6708e0e765e58dbb637d9ab6b558",
+  "actualQualityApproval": {
+    "approved": null,
+    "approverName": null,
+    "qualityRoleBasis": null,
+    "approvedBy": null,
+    "approvedAt": null,
+    "timeZone": "Asia/Shanghai",
+    "approvalReference": null,
+    "qualitySignatureEvidenceReference": null
+  },
+  "explicitLocalWriteAuthorization": {
+    "registerMaximumOneNewVersionRow": false,
+    "registerExact25OperationRows": false
+  },
+  "instructions": "Input actual independently confirmed facts in a separate copy; do not guess IDs, use admin by default, reuse old approval, or place credentials in this file."
+}

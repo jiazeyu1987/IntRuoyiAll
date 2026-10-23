@@ -52,6 +52,9 @@
             <div v-if="rowErrors[$index]?.fileTypeTaxonomyId" class="project-template-row-error">
               {{ rowErrors[$index].fileTypeTaxonomyId }}
             </div>
+            <div v-if="row.invalidReason" class="project-template-row-error">
+              {{ row.invalidReason }}（原分类ID：{{ row.fileTypeTaxonomyId }}，请重新选择有效分类）
+            </div>
           </template>
         </el-table-column>
         <el-table-column label="文件名称" min-width="280">
@@ -142,6 +145,7 @@ type EditorRow = {
   key: number
   fileTypeTaxonomyId?: number
   fileName: string
+  invalidReason?: string | null
 }
 
 type EditorRowError = {
@@ -196,6 +200,8 @@ const taxonomyTreeOptions = computed(
     handleTree(
       activeTaxonomyRows.value.map((row) => ({
         ...row,
+        value: row.id,
+        label: row.name,
         disabled: !row.id || !selectableTaxonomyIds.value.has(row.id)
       }))
     ) as DccFileTypeTaxonomyVO[]
@@ -214,8 +220,8 @@ const taxonomyPathDepthMap = computed(() => {
   return depthMap
 })
 const taxonomyCascaderProps = {
-  value: 'id',
-  label: 'name',
+  value: 'value',
+  label: 'label',
   children: 'children',
   emitPath: false,
   checkStrictly: true
@@ -225,7 +231,8 @@ const toEditorRows = (template: DccProjectFileTemplateRespVO): EditorRow[] =>
   template.items.map((item) => ({
     key: ++rowKeySequence,
     fileTypeTaxonomyId: item.fileTypeTaxonomyId,
-    fileName: item.fileName
+    fileName: item.fileName,
+    invalidReason: item.valid === false ? item.validationMessage : undefined
   }))
 
 const open = async (project: DccProjectCodeRespVO) => {
@@ -273,6 +280,7 @@ const moveItem = (index: number, offset: number) => {
 
 const clearRowError = (index: number) => {
   if (rowErrors.value[index]) rowErrors.value[index] = {}
+  if (rows.value[index]) rows.value[index].invalidReason = undefined
 }
 
 const validateRows = () => {

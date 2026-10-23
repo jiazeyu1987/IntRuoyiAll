@@ -31,8 +31,8 @@
         :closable="false"
         show-icon
       />
-      <div class="edhr-batch-detail__simulation-toolbar" aria-label="模拟操作">
-        <el-button
+      <div v-if="testModeEnabled" class="edhr-batch-detail__simulation-toolbar" aria-label="模拟操作">
+        <el-button class="app-test-button"
           v-hasPermi="['mes:pro-edhr-batch-execution:update']"
           type="warning"
           :loading="stage4SimulationLoading"
@@ -41,7 +41,7 @@
         >
           批次执行四份材料上传模拟
         </el-button>
-        <el-button
+        <el-button class="app-test-button"
           v-hasPermi="['mes:pro-edhr-batch-execution:update']"
           type="danger"
           :loading="stage5SimulationLoading"
@@ -50,7 +50,7 @@
         >
           最终放行模拟准备
         </el-button>
-        <el-button
+        <el-button class="app-test-button"
           v-hasPermi="['mes:pro-edhr-batch-execution:update']"
           type="success"
           :loading="stage6SimulationLoading"
@@ -1527,6 +1527,8 @@
 </template>
 
 <script setup lang="ts">
+import { useTestMode } from '@/store/modules/testMode'
+
 import { ElMessageBox, type UploadInstance, type UploadRequestOptions } from 'element-plus'
 import {
   EDHR_BATCH_ARCHIVE_ARTIFACT_FINAL_PDF,
@@ -1641,6 +1643,8 @@ import { generateUUID } from '@/utils'
 import { stringifyEdhrExecutionPageQuery } from '@/utils/edhrWorkTaskNavigation'
 import { parsePositiveRouteQueryId, sameRouteQueryId } from '@/utils/routeQueryId'
 import { useUserStore } from '@/store/modules/user'
+
+const testModeEnabled = useTestMode()
 
 defineOptions({ name: 'MesProEdhrBatchExecutionDetail' })
 

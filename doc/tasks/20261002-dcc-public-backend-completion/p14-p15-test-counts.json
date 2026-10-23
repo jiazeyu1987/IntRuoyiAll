@@ -1,0 +1,202 @@
+{
+  "p14-p15-affected-regression-3.log": {
+    "buildSuccess": true,
+    "classes": [
+      {
+        "tests": 3,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.framework.web.DccUploadEndpointHttpContractTest"
+      },
+      {
+        "tests": 9,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileNameClaimServiceTest"
+      },
+      {
+        "tests": 11,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileRelatedFileServiceTest"
+      },
+      {
+        "tests": 15,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileSelectorDatabaseTest"
+      },
+      {
+        "tests": 35,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileUploadApiTest"
+      },
+      {
+        "tests": 13,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.file.DccCurrentFileRelationsTest"
+      },
+      {
+        "tests": 3,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.file.DccRelationFormalQueryGuardTest"
+      },
+      {
+        "tests": 6,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.file.DccRelationNameMetadataDatabaseTest"
+      },
+      {
+        "tests": 13,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.file.DccUploadNamePreflightDatabaseTest"
+      },
+      {
+        "tests": 27,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.upload.DccUploadTicketServiceTest"
+      }
+    ],
+    "executions": 135
+  },
+  "p14-p15-final-regression.log": {
+    "buildSuccess": true,
+    "classes": [
+      {
+        "tests": 3,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.framework.web.DccUploadEndpointHttpContractTest"
+      },
+      {
+        "tests": 9,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileNameClaimServiceTest"
+      },
+      {
+        "tests": 240,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest"
+      },
+      {
+        "tests": 11,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileRelatedFileServiceTest"
+      },
+      {
+        "tests": 15,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileSelectorDatabaseTest"
+      },
+      {
+        "tests": 35,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileUploadApiTest"
+      },
+      {
+        "tests": 13,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.file.DccCurrentFileRelationsTest"
+      },
+      {
+        "tests": 3,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.file.DccRelationFormalQueryGuardTest"
+      },
+      {
+        "tests": 6,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.file.DccRelationNameMetadataDatabaseTest"
+      },
+      {
+        "tests": 14,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.file.DccUploadNamePreflightDatabaseTest"
+      },
+      {
+        "tests": 43,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.file.DccVersionPlacementDatabaseTest"
+      },
+      {
+        "tests": 22,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.file.DccWorkflowAttributesIntegrationTest"
+      },
+      {
+        "tests": 33,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccPublicUploadPlacementTransactionTest"
+      },
+      {
+        "tests": 27,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.upload.DccUploadTicketServiceTest"
+      }
+    ],
+    "executions": 474
+  },
+  "p14-p15-final-http-2.log": {
+    "buildSuccess": true,
+    "classes": [
+      {
+        "tests": 6,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.file.DccRelationNameMetadataDatabaseTest"
+      },
+      {
+        "tests": 15,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.file.DccUploadNamePreflightDatabaseTest"
+      }
+    ],
+    "executions": 21
+  }
+}

@@ -1,0 +1,128 @@
+{
+  "status": "TYPE_FIX_MADE_NOT_UI_FROZEN_AWAITING_ROOT_TYPECHECK",
+  "previousDelivery": {
+    "path": "doc/tasks/20261002-dcc-public-browser/g49-project-application-entry-fingerprints.json",
+    "bytes": 7123,
+    "sha256": "6af4e1bcff5424b8437f4d5d8fb2bce2460048a6a1c89803639f5ec3c20ef738"
+  },
+  "changedSourceFiles": 1,
+  "changedTestFiles": 0,
+  "assets": [
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/basic-data/components/ProductCatalogTabPanel.vue",
+      "bytes": 76565,
+      "sha256": "e2870627e936e85d8cfbab14b1ee524d224c424d0ff125a24340d3474855b7f8"
+    },
+    {
+      "path": "IntRuoyiFronted/src/api/dcc/controlledFile/projectProductRequests.ts",
+      "bytes": 5637,
+      "sha256": "9ee50a97893e08ed46f4f009d4f188556d4987bf57f54baf68aa0ec03d5d0fb3"
+    },
+    {
+      "path": "IntRuoyiFronted/src/utils/notifyMessageNavigation.ts",
+      "bytes": 9770,
+      "sha256": "e184920a9ca69d47949c6bc09622ed2ce6ac061f3139e259758f217f2f8e63c2"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/system/notify/my/MyNotifyMessageDetail.vue",
+      "bytes": 11958,
+      "sha256": "d6b31ea1c3684ceaa7b59b44aec5adb88de294cca8b4ac608e9928378855d65d"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/approval-center/index.vue",
+      "bytes": 55595,
+      "sha256": "79da229f01e99b95785afa63a90bbcc217698fcc8b5e447dab400c4b91f9baff"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-project-application-entry.test.cjs",
+      "bytes": 12646,
+      "sha256": "cf27bbaf55dbf572df70a1b1336b256b9494344ce049525a20980d22879eca4c"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/e2e/dcc-project-product-reasons-unit.spec.js",
+      "bytes": 8714,
+      "sha256": "6ea2ce38b19bf60e063e3eda010d1d0ca994b88b399f51a8e2825dd78b470723"
+    }
+  ],
+  "documents": [
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g49-project-application-entry-type-fix-bdd.md",
+      "bytes": 1688,
+      "sha256": "dbaa72ccb5be85b7b9cc95c5da8c3e34fcc5aa7643c36565fa471b598cea59de"
+    }
+  ],
+  "unchangedOriginalBdd": {
+    "path": "doc/tasks/20261002-dcc-public-browser/g49-project-application-entry-bdd.md",
+    "bytes": 7989,
+    "sha256": "df7bcce011dcb0774fb546ba6394a1b38dc260de482d33b4cd24ca642c934512"
+  },
+  "unchangedUploadAssets": [
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/upload/index.vue",
+      "bytes": 113069,
+      "sha256": "75c7cf187f21ad641b2164f78eb849441b108fc8e239be425d2676775ed781a7"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/upload/submitter.ts",
+      "bytes": 19099,
+      "sha256": "0182a9f42bfb813a5da9b96169c23d195f8430983ebd505c9a241eb6380c267f"
+    },
+    {
+      "path": "IntRuoyiFronted/src/api/dcc/controlledFile/workflow.ts",
+      "bytes": 86222,
+      "sha256": "6e3079a4df6f335b90ce12de0ea0aa2b101151e96b5bf4dfaa946f033f88a8da"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-upload-single-project-folder.test.cjs",
+      "bytes": 6866,
+      "sha256": "3b551db3233e91c5dd7f803d0246c0ea97227abca82897ac75b8d3affc1b1189"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-upload-application-page.test.cjs",
+      "bytes": 18437,
+      "sha256": "2c408a13e480c8161a165a18040ca7a6e5f3cc13257a90a2431cba1259467a52"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-upload-free-file-type.test.cjs",
+      "bytes": 9701,
+      "sha256": "210e8275b4591612c415298355b4d376fa179dc1187192061f4a38a1f247abae"
+    }
+  ],
+  "exactChange": "Declare original four-candidate array as Array<NotifyMessageTarget|null>; reuse original filter predicate. No candidate, dedicated target, navigation or UI change.",
+  "RED": {
+    "source": "Root actual fulltypes session94613",
+    "exitCode": 2,
+    "error": "Only TS2677 notifyMessageNavigation.ts:225",
+    "oldViteSession": 31355,
+    "oldViteExitCode": 0,
+    "scope": "Root logs retained; old Vite not new r2 validation"
+  },
+  "localVerification": {
+    "regressionFiles": 8,
+    "regressionTests": 22,
+    "pass": 22,
+    "failures": 0,
+    "skipped": 0,
+    "exitCode": 0,
+    "ownedLintFiles": 1,
+    "lintExitCode": 0,
+    "lintWarnings": 0,
+    "overlap": "Same prior 22 execution set, not additive"
+  },
+  "rawLogs": [
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g49-project-application-entry-type-fix-r2.log",
+      "bytes": 2697,
+      "sha256": "4922efdf19c2c55e8cc33a03279a1537d729cb8f8f9f505a4ff2edbd317dff2e"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g49-project-application-entry-type-fix-lint-r2.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "limitations": [
+    "Root new full types/build pending; local Node/lint PASS does not prove full type gate",
+    "No actual API/browser/DB/services/Maven/Git or UI business acceptance by this type-only fix"
+  ]
+}

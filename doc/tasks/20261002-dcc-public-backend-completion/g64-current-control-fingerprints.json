@@ -1,0 +1,20 @@
+{
+  "status": "FROZEN_TEST_ONLY",
+  "productionChanged": 0,
+  "assets": [
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccRelationControlledEventIntegrationTest.java",
+      "sha256": "e58100f503f02cbc49034fa59e04f90f7992cb03c1010c7e214dedbcdfe51b5f",
+      "priorSha256": "2ec61791112acd08c97dba157d3e06f092008c24cf5d2b07ca7c061a05a7f551"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g64-current-control-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccRelationControlledEventIntegrationTest.xml",
+      "sha256": "029ade1e3f3fcfb8b5bd84cafb41ab2e2b799707aa9dc93f52d9a7dba3c087dd"
+    }
+  ],
+  "receipt": {
+    "path": "doc/tasks/20261002-dcc-public-backend-completion/g64-current-control-verification-receipt.json",
+    "sha256": "c1c561536bdd3d4e072798392bc06902d0375ef82159c448c07ce40bc5c734b4"
+  },
+  "oldG64ManifestUnchanged": "5c535a2c21bcef341876dfe846a3a80587ee6f2b3ad6daeaceab0961c8227ec6"
+}

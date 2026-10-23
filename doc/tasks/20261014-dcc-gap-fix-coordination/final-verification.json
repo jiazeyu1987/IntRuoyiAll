@@ -1,0 +1,40 @@
+{
+  "status": "software_verification_passed",
+  "branch": "int_qms",
+  "backend": {
+    "finalEffectiveReports": 47,
+    "totals": {
+      "tests": 1008,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "basis": "M12 unaffected44 classes933 + M14 child declarations18 and original parent27 + M15 single whitespace-only test30",
+    "M12ExitCode": 1,
+    "M14ExitCode": 0,
+    "sourceChange": "Two test-only changes: explicit PUBLIC_MATRIX in G48 fixture; one extra CR on empty line in checkin test. No production changes.",
+    "sourceManifestCount": 11865,
+    "sourceDriftCount": 0,
+    "M15ExitCode": 0
+  },
+  "frontend": {
+    "typecheck": "T04 pnpm ts:check exit0 2429 recorded inputs zero drift",
+    "build": "B01 Vite test exit0 3239 emitted artifacts recorded zero source drift",
+    "behavior": "A32/R09 Root260, A33 Root34, R08 Root2, F02 Root38; overlapping scopes not added as unique cases"
+  },
+  "excluded": "No E2E, live database migration, service restart, deployment or push. Local commit separately authorized on 2026-10-15.",
+  "requirementsBoundary": "Provided requirements and 12 delegated gaps; truncated section2 tail and missing sections6/8 not invented; browse time means saved registration time",
+  "cleanup": {
+    "preview": "PASS",
+    "apply": "PASS",
+    "deletedTaskOwnedBuildFiles": 3239,
+    "deletedBytes": 35269727,
+    "evidencePreserved": true
+  },
+  "engineeringStatus": "completed within explicit local-commit-only scope; no push",
+  "localCommit": {
+    "implementation": "a3b8234ecfba6bbafff2e8aa4dc3d1e60eccb1d2",
+    "branch": "int_qms",
+    "pushExecuted": false
+  }
+}

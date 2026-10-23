@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS "system_electronic_signature" (
     "meaning_code" varchar(64) not null,
     "meaning_label" varchar(128) not null,
     "reason" varchar(500) not null,
-    "signed_at" timestamp not null,
+    "signed_at" timestamp(6) not null,
     "time_evidence_id" varchar(128) not null,
     "authentication_method" varchar(64) not null,
     "content_hash" char(64) not null,

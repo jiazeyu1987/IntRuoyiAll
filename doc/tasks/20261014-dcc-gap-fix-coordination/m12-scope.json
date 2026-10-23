@@ -1,0 +1,72 @@
+{
+  "scope": "ElectronicSignatureServiceImplTest,DccDelayedSignatureRoundtripTest,DccG02ControlledSignatureTimeTransactionTest,DccG02DelayedFinalizationTransactionTest,DccDelayedEffectiveConfirmationServiceTest,DccDelayedEffectiveConfirmationEvidenceTest,DccDelayedEffectiveHmacTest,DccWorkflowV6BpmnTest,DccWorkflowSignoffAssignmentTest,DccPublicMatrixNativeDerivationTest,DccExactVersionReferenceUsageTest,DccProjectReferenceTransactionTest,DccControlledFileQueryServiceTest,DccControlledFileBodyReadCurrentSourceTest,DccControlledFileBodyReadContextTest,DccControlledFileBodyReadHttpContractTest,DccControlledFileDetailAuthorizationGuardTest,DccOnlyOfficePreviewTokenServiceTest,DccReferenceUsagePageDatabaseTest,DccProjectReferenceFormalAuthorityIntegrationTest,DccControlledPreviewAccessServiceTest,DccG09PreviewRegisteredAtTest,DccOnlineFilePreviewServiceTest,DccG09OnlinePreviewRegisteredAtTest,DccControlledFileAccessAuditServiceTest,DccCheckinAttachmentUploadContextTest,DccRevisionAttachmentsDatabaseTest,DccOrdinaryAttachmentFactsTest,DccRevisionDatabaseTest,DccCheckinDraftInitializationDatabaseTest,DccW08PreparedCreationDatabaseTest,DccW08PreparedSourceBoundaryTest,DccWorkflowSelectedIterationDatabaseTest,DccAttachmentDownloadTest,DccAttachmentDownloadHttpContractTest,DccApplicationCustomMatrixResolverTest,DccApplicationCustomMatrixTokenTest,DccApplicationCustomMatrixWorkflowTest#actualCustomPreviewSaveRestoreSubmitStartsSupervisorAndFreezesOwnSourceWithoutPublicMatrix+exactCommittedReplayReturnsOneInstanceButChangedCustomPayloadRejects+lateFailureRollsBackSavedCustomAttributesSnapshotsAndActualFlowableThenCanRetry+sourceModeChangeNeverReplacesSavedCustomWithPublicAndUnavailableAccountCannotAdvance+actualFrozenCustomRouteAndBoundBpmRestoreWithoutPublicIdentityAndRejectCorruption+currentUnavailableAccountChangedProofOrManifestCannotCreateBpmOrMutateSavedFacts+actualUnallocatedPreviewCreatesOwnReservedDraftAndRestoresExactConfiguration+actualDirectNewCustomSubmissionBindsRealReservedRoundAndStartsSameSupervisorModel+actualPublicV2PreviewUsesPreparedV2ThenSavedAndSubmittedSourceKeepsRealPublicVersion,DccCustomRejectedCheckinResubmitTest#rejectedFrozenCustomSurvivesActualCheckinAndCurrentPersonnelIsRecheckedOnNewCandidate,DccCustomDraftInheritanceIntegrationTest,DccPublicRoundNativeSourceGuardTest#currentPublicRoundWithFrozenNativeProofButMissingActualBpmVariableRejects+matchingActualNativeVariableIsReadyButMismatchCannotBorrowFrozenSource,DccPreparedExecutionInheritanceDatabaseTest,DccRoundFlowContractTest,DccCategoryApprovalSourceModeTest,DccCategoryApprovalSourceProjectionTest,G48StorageProjectionTest",
+  "classes": [
+    "ElectronicSignatureServiceImplTest",
+    "DccDelayedSignatureRoundtripTest",
+    "DccG02ControlledSignatureTimeTransactionTest",
+    "DccG02DelayedFinalizationTransactionTest",
+    "DccDelayedEffectiveConfirmationServiceTest",
+    "DccDelayedEffectiveConfirmationEvidenceTest",
+    "DccDelayedEffectiveHmacTest",
+    "DccWorkflowV6BpmnTest",
+    "DccWorkflowSignoffAssignmentTest",
+    "DccPublicMatrixNativeDerivationTest",
+    "DccExactVersionReferenceUsageTest",
+    "DccProjectReferenceTransactionTest",
+    "DccControlledFileQueryServiceTest",
+    "DccControlledFileBodyReadCurrentSourceTest",
+    "DccControlledFileBodyReadContextTest",
+    "DccControlledFileBodyReadHttpContractTest",
+    "DccControlledFileDetailAuthorizationGuardTest",
+    "DccOnlyOfficePreviewTokenServiceTest",
+    "DccReferenceUsagePageDatabaseTest",
+    "DccProjectReferenceFormalAuthorityIntegrationTest",
+    "DccControlledPreviewAccessServiceTest",
+    "DccG09PreviewRegisteredAtTest",
+    "DccOnlineFilePreviewServiceTest",
+    "DccG09OnlinePreviewRegisteredAtTest",
+    "DccControlledFileAccessAuditServiceTest",
+    "DccCheckinAttachmentUploadContextTest",
+    "DccRevisionAttachmentsDatabaseTest",
+    "DccOrdinaryAttachmentFactsTest",
+    "DccRevisionDatabaseTest",
+    "DccCheckinDraftInitializationDatabaseTest",
+    "DccW08PreparedCreationDatabaseTest",
+    "DccW08PreparedSourceBoundaryTest",
+    "DccWorkflowSelectedIterationDatabaseTest",
+    "DccAttachmentDownloadTest",
+    "DccAttachmentDownloadHttpContractTest",
+    "DccApplicationCustomMatrixResolverTest",
+    "DccApplicationCustomMatrixTokenTest",
+    "DccApplicationCustomMatrixWorkflowTest",
+    "DccCustomRejectedCheckinResubmitTest",
+    "DccCustomDraftInheritanceIntegrationTest",
+    "DccPublicRoundNativeSourceGuardTest",
+    "DccPreparedExecutionInheritanceDatabaseTest",
+    "DccRoundFlowContractTest",
+    "DccCategoryApprovalSourceModeTest",
+    "DccCategoryApprovalSourceProjectionTest",
+    "G48StorageProjectionTest"
+  ],
+  "declaredMethods": {
+    "DccApplicationCustomMatrixWorkflowTest": [
+      "actualCustomPreviewSaveRestoreSubmitStartsSupervisorAndFreezesOwnSourceWithoutPublicMatrix",
+      "exactCommittedReplayReturnsOneInstanceButChangedCustomPayloadRejects",
+      "lateFailureRollsBackSavedCustomAttributesSnapshotsAndActualFlowableThenCanRetry",
+      "sourceModeChangeNeverReplacesSavedCustomWithPublicAndUnavailableAccountCannotAdvance",
+      "actualFrozenCustomRouteAndBoundBpmRestoreWithoutPublicIdentityAndRejectCorruption",
+      "currentUnavailableAccountChangedProofOrManifestCannotCreateBpmOrMutateSavedFacts",
+      "actualUnallocatedPreviewCreatesOwnReservedDraftAndRestoresExactConfiguration",
+      "actualDirectNewCustomSubmissionBindsRealReservedRoundAndStartsSameSupervisorModel",
+      "actualPublicV2PreviewUsesPreparedV2ThenSavedAndSubmittedSourceKeepsRealPublicVersion"
+    ],
+    "DccCustomRejectedCheckinResubmitTest": [
+      "rejectedFrozenCustomSurvivesActualCheckinAndCurrentPersonnelIsRecheckedOnNewCandidate"
+    ],
+    "DccPublicRoundNativeSourceGuardTest": [
+      "currentPublicRoundWithFrozenNativeProofButMissingActualBpmVariableRejects",
+      "matchingActualNativeVariableIsReadyButMismatchCannotBorrowFrozenSource"
+    ]
+  },
+  "classCount": 46
+}

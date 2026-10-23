@@ -1,0 +1,2438 @@
+{
+  "base": "a801dc8b91579241e221d129ab34343997673f40",
+  "target": "C:\\IntRuoyi\\20261001-dcc-integration",
+  "files": [
+    {
+      "path": "IntRuoyiBackend/yudao-module-bpm/src/main/java/cn/iocoder/yudao/module/bpm/formcenter/runtime/FormCenterRuntimeServiceImpl.java",
+      "owners": [
+        "a"
+      ],
+      "sources": {
+        "a": "02341c9a57906beaa6fd5d74b26aedd15222498b44c46ea7305ce7076829cb2e"
+      },
+      "assembled_sha256": "02341c9a57906beaa6fd5d74b26aedd15222498b44c46ea7305ce7076829cb2e"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-bpm/src/main/java/cn/iocoder/yudao/module/bpm/service/task/BpmTaskServiceImpl.java",
+      "owners": [
+        "a"
+      ],
+      "sources": {
+        "a": "97849a7b1b414e334ce4fba21d95efac9dc3ed428ab1ee9b832aca0c7aff2ec2"
+      },
+      "assembled_sha256": "97849a7b1b414e334ce4fba21d95efac9dc3ed428ab1ee9b832aca0c7aff2ec2"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/approval/DccApprovalTaskAdapter.java",
+      "owners": [
+        "a"
+      ],
+      "sources": {
+        "a": "3b45cccb60b80fa8aa659ae221613e21602059091be77360b0142bcfcfc05563"
+      },
+      "assembled_sha256": "3b45cccb60b80fa8aa659ae221613e21602059091be77360b0142bcfcfc05563"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/file/vo/DccControlledFileObsoleteReqVO.java",
+      "owners": [
+        "a"
+      ],
+      "sources": {
+        "a": "f0096c49d4ee136c94c238887e6fc5f1190e1596aba60f0ed6d455975c9c3294"
+      },
+      "assembled_sha256": "f0096c49d4ee136c94c238887e6fc5f1190e1596aba60f0ed6d455975c9c3294"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/file/vo/DccControlledFileRespVO.java",
+      "owners": [
+        "a",
+        "c"
+      ],
+      "sources": {
+        "a": "9c7b6a43ea42ec8f1e2fddad9a3a2e8d50a6eacc8311828aac5ca9a2056341fa",
+        "c": "509f710f603f6c88009aa8b5a6128d7c0985fc4b875ed65e4e993b257bb21e82"
+      },
+      "assembled_sha256": "2e3e972ee35e852410b61846f9ca25b32d279ad72bd86236938ee21017842804"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/file/vo/DccControlledFileSignatureSummaryRespVO.java",
+      "owners": [
+        "a"
+      ],
+      "sources": {
+        "a": "134e092f7ace506a00715e59a365e6091f505e4a4cdf974b92491fe15a9bb052"
+      },
+      "assembled_sha256": "134e092f7ace506a00715e59a365e6091f505e4a4cdf974b92491fe15a9bb052"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/signature/vo/DccElectronicSignatureRespVO.java",
+      "owners": [
+        "a"
+      ],
+      "sources": {
+        "a": "a1ed5f045bbbf5ca31bf4e5168bddc7643c9c5e798559e8d2cce35302cfef5e4"
+      },
+      "assembled_sha256": "a1ed5f045bbbf5ca31bf4e5168bddc7643c9c5e798559e8d2cce35302cfef5e4"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/dal/dataobject/file/DccControlledFileDO.java",
+      "owners": [
+        "a",
+        "c"
+      ],
+      "sources": {
+        "a": "f619f2b2ac3cebc35016d1739d13da9550dfe3f5db08d4d7833bb10842603c30",
+        "c": "4fdd5f280fab1b1193d741bf83c6c8eb2daf63dbcf9918a4faccb10e6280da19"
+      },
+      "assembled_sha256": "97bf0ef48d94d6190af31bfd3233ad61ec3133266f6688fbf049bfb1507b442a"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/dal/dataobject/file/DccControlledFileMasterDO.java",
+      "owners": [
+        "a"
+      ],
+      "sources": {
+        "a": "82126b49c120518f2b5cf1499bbbda2b5aa642c7d6e89a13cb72d349dd0a7f2e"
+      },
+      "assembled_sha256": "82126b49c120518f2b5cf1499bbbda2b5aa642c7d6e89a13cb72d349dd0a7f2e"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/dal/dataobject/file/DccControlledFileSignatureDO.java",
+      "owners": [
+        "a"
+      ],
+      "sources": {
+        "a": "7a44f72058ea3a859b83a0f5cb801c568a9e8a8f7e0a3c77d9c2acd4fe23485d"
+      },
+      "assembled_sha256": "7a44f72058ea3a859b83a0f5cb801c568a9e8a8f7e0a3c77d9c2acd4fe23485d"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/dal/dataobject/file/DccControlledFileTaskAssigneeSnapshotDO.java",
+      "owners": [
+        "a"
+      ],
+      "sources": {
+        "a": "a4e48fb1c30ceeaad3043bf6e070e227a0f2f7d4ef164c0ffdc2f615727f3c0d"
+      },
+      "assembled_sha256": "a4e48fb1c30ceeaad3043bf6e070e227a0f2f7d4ef164c0ffdc2f615727f3c0d"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/dal/mysql/file/DccControlledFileMasterMapper.java",
+      "owners": [
+        "a"
+      ],
+      "sources": {
+        "a": "70b3c60c9461103b68d1d1f2d3bdb7a033d4932bda7c98d576c6644fb9783495"
+      },
+      "assembled_sha256": "70b3c60c9461103b68d1d1f2d3bdb7a033d4932bda7c98d576c6644fb9783495"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/enums/DccControlledFileStatusEnum.java",
+      "owners": [
+        "a"
+      ],
+      "sources": {
+        "a": "65a42d1995d068179615b7bffe8294c2298280b3603796902d4a2372d8a7b9c7"
+      },
+      "assembled_sha256": "65a42d1995d068179615b7bffe8294c2298280b3603796902d4a2372d8a7b9c7"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileFinalizationServiceImpl.java",
+      "owners": [
+        "a"
+      ],
+      "sources": {
+        "a": "182f2d805623c60657fc354ba45c467bcb36fe873ea180fa75e936b861b148b9"
+      },
+      "assembled_sha256": "182f2d805623c60657fc354ba45c467bcb36fe873ea180fa75e936b861b148b9"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileObsoleteFormEffectExecutor.java",
+      "owners": [
+        "a"
+      ],
+      "sources": {
+        "a": "80c41b0bd9ff3321943fc91ae31c6739bfb8e7936168cfe404749c02f8db2211"
+      },
+      "assembled_sha256": "80c41b0bd9ff3321943fc91ae31c6739bfb8e7936168cfe404749c02f8db2211"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileObsoleteServiceImpl.java",
+      "owners": [
+        "a"
+      ],
+      "sources": {
+        "a": "67f3a8c98d07c1a6eeec4938ad336e012ebc7c1de794709036d458c5c0638474"
+      },
+      "assembled_sha256": "67f3a8c98d07c1a6eeec4938ad336e012ebc7c1de794709036d458c5c0638474"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileSignatureEvidence.java",
+      "owners": [
+        "a"
+      ],
+      "sources": {
+        "a": "9c0bff30b16f587737b35b74bd4ec51ddde467b3ea4ca83693d0a59ab3759ae6"
+      },
+      "assembled_sha256": "9c0bff30b16f587737b35b74bd4ec51ddde467b3ea4ca83693d0a59ab3759ae6"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileSignatureEvidenceCreateReq.java",
+      "owners": [
+        "a"
+      ],
+      "sources": {
+        "a": "1d61e4167b5e96397a9468ad65ecc37cce53edc852473130adb3a9e688476435"
+      },
+      "assembled_sha256": "1d61e4167b5e96397a9468ad65ecc37cce53edc852473130adb3a9e688476435"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileSignatureEvidenceServiceImpl.java",
+      "owners": [
+        "a"
+      ],
+      "sources": {
+        "a": "13ad3e0c0031345d811cbe107f0b2c334cc19de1a9874dde77c143de6125f2d3"
+      },
+      "assembled_sha256": "13ad3e0c0031345d811cbe107f0b2c334cc19de1a9874dde77c143de6125f2d3"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileSignatureSubjectAdapter.java",
+      "owners": [
+        "a"
+      ],
+      "sources": {
+        "a": "56e8eb8f9b0021e0b459e86f712902ca1a855e80dd6fb442149e3a6780e670ab"
+      },
+      "assembled_sha256": "56e8eb8f9b0021e0b459e86f712902ca1a855e80dd6fb442149e3a6780e670ab"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileWorkflowService.java",
+      "owners": [
+        "a"
+      ],
+      "sources": {
+        "a": "8083894f20fd55849ee26a07b19e818c31190d5c6fef4affd0ac8b42bb4ca106"
+      },
+      "assembled_sha256": "8083894f20fd55849ee26a07b19e818c31190d5c6fef4affd0ac8b42bb4ca106"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileWorkflowServiceImpl.java",
+      "owners": [
+        "a"
+      ],
+      "sources": {
+        "a": "9f23873ea1e1a052a01b914085f29f8bada394670fff6bc96c14653260d551b3"
+      },
+      "assembled_sha256": "9f23873ea1e1a052a01b914085f29f8bada394670fff6bc96c14653260d551b3"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccDistributionReceiptServiceImpl.java",
+      "owners": [
+        "a"
+      ],
+      "sources": {
+        "a": "89c9134a1a095867757e7fff793f04a207f835c8706baaa30885938103606c11"
+      },
+      "assembled_sha256": "89c9134a1a095867757e7fff793f04a207f835c8706baaa30885938103606c11"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccDistributionTaskServiceImpl.java",
+      "owners": [
+        "a"
+      ],
+      "sources": {
+        "a": "5f878e349bd1c30c2d1d94ea73e559ec4683ca0e30cb8021db40a351507c2eec"
+      },
+      "assembled_sha256": "5f878e349bd1c30c2d1d94ea73e559ec4683ca0e30cb8021db40a351507c2eec"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccElectronicSignatureManagementServiceImpl.java",
+      "owners": [
+        "a"
+      ],
+      "sources": {
+        "a": "1d7f048c1c20651bce7a5e7fb8e1636e862ba5eb292ab0c49fcd4fed99bdf73e"
+      },
+      "assembled_sha256": "1d7f048c1c20651bce7a5e7fb8e1636e862ba5eb292ab0c49fcd4fed99bdf73e"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccFrozenApprovalSignatures.java",
+      "owners": [
+        "a"
+      ],
+      "sources": {
+        "a": "f151ff827be27e85189046966b80b55dc87ae069cdf5f220716a222c119ec398"
+      },
+      "assembled_sha256": "f151ff827be27e85189046966b80b55dc87ae069cdf5f220716a222c119ec398"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccPaperDistributionAckServiceImpl.java",
+      "owners": [
+        "a"
+      ],
+      "sources": {
+        "a": "46df1d7f7b379908817666f2061cb662c593d761e6129710f37c381a2f9eaa82"
+      },
+      "assembled_sha256": "46df1d7f7b379908817666f2061cb662c593d761e6129710f37c381a2f9eaa82"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccSignatureVerificationService.java",
+      "owners": [
+        "a"
+      ],
+      "sources": {
+        "a": "67a577186674362d1a35d2ba22128d01eb5c5f82f97b06a87e85257111e30262"
+      },
+      "assembled_sha256": "67a577186674362d1a35d2ba22128d01eb5c5f82f97b06a87e85257111e30262"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccSignatureVerificationServiceImpl.java",
+      "owners": [
+        "a"
+      ],
+      "sources": {
+        "a": "47c825b33e80726158275a439886eafcce9c2524eada2c3680caa9b92e54e84b"
+      },
+      "assembled_sha256": "47c825b33e80726158275a439886eafcce9c2524eada2c3680caa9b92e54e84b"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/route/DccActionApprovalRoutePolicy.java",
+      "owners": [
+        "a"
+      ],
+      "sources": {
+        "a": "a4dc6b677ea199d3999b99eef9410dbd7667e3208d859d0ce67c481bbf11bce0"
+      },
+      "assembled_sha256": "a4dc6b677ea199d3999b99eef9410dbd7667e3208d859d0ce67c481bbf11bce0"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/DccThreeWorkflowMatrixMultiInstanceMigrationTest.java",
+      "owners": [
+        "a"
+      ],
+      "sources": {
+        "a": "617f5fef4985ddfc1b266e47eef317c301f7a85096d288f97cb58003568e9c74"
+      },
+      "assembled_sha256": "617f5fef4985ddfc1b266e47eef317c301f7a85096d288f97cb58003568e9c74"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/approval/DccApprovalTaskAdapterTest.java",
+      "owners": [
+        "a"
+      ],
+      "sources": {
+        "a": "4a651f5634e1dea2a93c9072bf2674c62d5ede37e383f2f081594eee54968fb3"
+      },
+      "assembled_sha256": "4a651f5634e1dea2a93c9072bf2674c62d5ede37e383f2f081594eee54968fb3"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileFinalizationServiceImplTest.java",
+      "owners": [
+        "a"
+      ],
+      "sources": {
+        "a": "f9c23f1b22eec24e8a324ccfd35ab07b5c83321b416c6b11225ea8d926ed583a"
+      },
+      "assembled_sha256": "f9c23f1b22eec24e8a324ccfd35ab07b5c83321b416c6b11225ea8d926ed583a"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileObsoleteFormEffectExecutorTest.java",
+      "owners": [
+        "a"
+      ],
+      "sources": {
+        "a": "a3e8e4015c70bcdb64bf96a0ef0f77b4b697c063e00a7c325ba6859220a30d1b"
+      },
+      "assembled_sha256": "a3e8e4015c70bcdb64bf96a0ef0f77b4b697c063e00a7c325ba6859220a30d1b"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileObsoleteServiceTest.java",
+      "owners": [
+        "a"
+      ],
+      "sources": {
+        "a": "a5a74ae354b7e1537555f9bf4b64522929893e86603095a8e3b516514f57c94d"
+      },
+      "assembled_sha256": "a5a74ae354b7e1537555f9bf4b64522929893e86603095a8e3b516514f57c94d"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileSignatureServiceTest.java",
+      "owners": [
+        "a"
+      ],
+      "sources": {
+        "a": "5d1a481557ffc673c27d70731ec703eb2e540c9d045065d170b57a02cab07560"
+      },
+      "assembled_sha256": "5d1a481557ffc673c27d70731ec703eb2e540c9d045065d170b57a02cab07560"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileWorkflowServiceImplTest.java",
+      "owners": [
+        "a"
+      ],
+      "sources": {
+        "a": "83f37beab63d2b467a960b4ebb7bb50b055b693d01e6e0d2d6828d223f8972e6"
+      },
+      "assembled_sha256": "83f37beab63d2b467a960b4ebb7bb50b055b693d01e6e0d2d6828d223f8972e6"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccFrozenApprovalSignaturesTest.java",
+      "owners": [
+        "a"
+      ],
+      "sources": {
+        "a": "32ea165c69fe9ec297726e3c23b85c9975a621ecc70b4101394160c03d5566be"
+      },
+      "assembled_sha256": "32ea165c69fe9ec297726e3c23b85c9975a621ecc70b4101394160c03d5566be"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/signature/policy/SignatureGovernancePolicyDccAdapterTest.java",
+      "owners": [
+        "a"
+      ],
+      "sources": {
+        "a": "2bf1687dc38d9c2defc6eda1e06451ba0430167dbc3fe9fa7ea1cd5e639705b3"
+      },
+      "assembled_sha256": "2bf1687dc38d9c2defc6eda1e06451ba0430167dbc3fe9fa7ea1cd5e639705b3"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/resources/sql/clean.sql",
+      "owners": [
+        "a",
+        "b",
+        "c"
+      ],
+      "sources": {
+        "a": "2dc594ceb8ce4c9cf44b7a33aad3463c35eab960dd2b0751b00abf80af2799e6",
+        "b": "dfe43810b9d90e2f2033e4e14064f61f2d5d9c42b3dc1439ac1a9818119da9ab",
+        "c": "54fd9e64c1fbad2bce9c820c414b1e1bc78f3cdd6c8d16e2d2d8100b91d2ef1b"
+      },
+      "assembled_sha256": "ccc6a2c7a53ba1d5ef2171e8851a014879bc412cde5aac05a67f3950ab595e3a"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/resources/sql/create_tables.sql",
+      "owners": [
+        "a",
+        "b",
+        "c"
+      ],
+      "sources": {
+        "a": "a439b06e6cd78ec4e3e82367b3a17be312844e7edb4acea1ca8d93cd67631f08",
+        "b": "3a339caaf059103dc6ffec78fca881334bfa188861ed390f88f3d37b94f75f34",
+        "c": "647bc235e084c37e8bd16cc3e73d4f05cf336d53296670dade62ccf3300e67d9"
+      },
+      "assembled_sha256": "9bf640677882bb7fd2ea85bef2d23a9a2d1ac3b2c1fb4cb5afe9af7159b7f395"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/routes/components/RouteForm.vue",
+      "owners": [
+        "a"
+      ],
+      "sources": {
+        "a": "bbc5090b38af27cb509fecd96078b01fd9491d8f4d1980eeb12dbb5cc272c9b9"
+      },
+      "assembled_sha256": "bbc5090b38af27cb509fecd96078b01fd9491d8f4d1980eeb12dbb5cc272c9b9"
+    },
+    {
+      "path": "IntRuoyiBackend/sql/mysql/20260930_dcc_a_future_obsolete_policy.sql",
+      "owners": [
+        "a"
+      ],
+      "sources": {
+        "a": "eb30d8a49d6f8a05137c61e95a04ea29e569ce9e41710046c90a5ea060887c2a"
+      },
+      "assembled_sha256": "eb30d8a49d6f8a05137c61e95a04ea29e569ce9e41710046c90a5ea060887c2a"
+    },
+    {
+      "path": "IntRuoyiBackend/sql/mysql/20260930_dcc_a_lifecycle.sql",
+      "owners": [
+        "a"
+      ],
+      "sources": {
+        "a": "a020a9bc36da01f2edb624f488fd51deb48b20eed02dc4de6389432bd99f9209"
+      },
+      "assembled_sha256": "a020a9bc36da01f2edb624f488fd51deb48b20eed02dc4de6389432bd99f9209"
+    },
+    {
+      "path": "IntRuoyiBackend/sql/mysql/20260930_dcc_a_signature_workflow_round.sql",
+      "owners": [
+        "a"
+      ],
+      "sources": {
+        "a": "bab32625c48bd7decc966c9d96bc30f7c965f6a04af2f2e991dbd494244b7e1d"
+      },
+      "assembled_sha256": "bab32625c48bd7decc966c9d96bc30f7c965f6a04af2f2e991dbd494244b7e1d"
+    },
+    {
+      "path": "IntRuoyiBackend/sql/mysql/20260930_dcc_a_workflow_bpmn_v4.sql",
+      "owners": [
+        "a"
+      ],
+      "sources": {
+        "a": "5ddc77a61d77e56c0af863e1a88f09f3f3da9af2703512f6d66fa2acae904a52"
+      },
+      "assembled_sha256": "5ddc77a61d77e56c0af863e1a88f09f3f3da9af2703512f6d66fa2acae904a52"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-bpm/src/main/java/cn/iocoder/yudao/module/bpm/service/task/DccSignedTaskActionGuard.java",
+      "owners": [
+        "a"
+      ],
+      "sources": {
+        "a": "603deb3c70256d09396c8fbae053391cef12d6ade58e58c3e66f991283623bc0"
+      },
+      "assembled_sha256": "603deb3c70256d09396c8fbae053391cef12d6ade58e58c3e66f991283623bc0"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-bpm/src/test/java/cn/iocoder/yudao/module/bpm/formcenter/runtime/DccWorkflowFormCenterObligationTest.java",
+      "owners": [
+        "a"
+      ],
+      "sources": {
+        "a": "5aaa7337bc56ac2f0428328948114cea456374d52c2698c02b346936dc80f4db"
+      },
+      "assembled_sha256": "5aaa7337bc56ac2f0428328948114cea456374d52c2698c02b346936dc80f4db"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-bpm/src/test/java/cn/iocoder/yudao/module/bpm/service/task/DccWorkflowSignedTaskActionGuardTest.java",
+      "owners": [
+        "a"
+      ],
+      "sources": {
+        "a": "790e52dc6e3f0d5481986c3ca66371b35646c7fc4a5f557a1ad2aaf241849988"
+      },
+      "assembled_sha256": "790e52dc6e3f0d5481986c3ca66371b35646c7fc4a5f557a1ad2aaf241849988"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/file/DccWorkflowLifecycleController.java",
+      "owners": [
+        "a"
+      ],
+      "sources": {
+        "a": "14ec12a47fc6edb6bbfe0a58f961aa83d716a0273d6ac3155aae63397e29cebb"
+      },
+      "assembled_sha256": "14ec12a47fc6edb6bbfe0a58f961aa83d716a0273d6ac3155aae63397e29cebb"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/file/vo/DccSignoffAssignmentReqVO.java",
+      "owners": [
+        "a"
+      ],
+      "sources": {
+        "a": "96e28995962d82587dcbddfa7af90cea829ae02639632374f0ccf461d8ef2f57"
+      },
+      "assembled_sha256": "96e28995962d82587dcbddfa7af90cea829ae02639632374f0ccf461d8ef2f57"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/file/vo/DccWorkflowDistributionRecipientRespVO.java",
+      "owners": [
+        "a"
+      ],
+      "sources": {
+        "a": "305be5bb52400b787814702fe2d42c4f095c52ff9bf319bcc8383ddcd482844b"
+      },
+      "assembled_sha256": "305be5bb52400b787814702fe2d42c4f095c52ff9bf319bcc8383ddcd482844b"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/file/vo/DccWorkflowDistributionReqVO.java",
+      "owners": [
+        "a"
+      ],
+      "sources": {
+        "a": "ab743adf64c236d66e3e66aa24578ea105ab0241dfcaf29dcf0c21ab22a7d4c3"
+      },
+      "assembled_sha256": "ab743adf64c236d66e3e66aa24578ea105ab0241dfcaf29dcf0c21ab22a7d4c3"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileLifecycleEvent.java",
+      "owners": [
+        "a"
+      ],
+      "sources": {
+        "a": "4257a36d6c0a30badbbdd821ac2749669be7ab40905a1b9fd8e775fee4564fe0"
+      },
+      "assembled_sha256": "4257a36d6c0a30badbbdd821ac2749669be7ab40905a1b9fd8e775fee4564fe0"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileLifecycleService.java",
+      "owners": [
+        "a"
+      ],
+      "sources": {
+        "a": "13db13b8471d3c5907124e72e042c34e5eb3d45ee410f441b4bf15675a4eae19"
+      },
+      "assembled_sha256": "13db13b8471d3c5907124e72e042c34e5eb3d45ee410f441b4bf15675a4eae19"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccWorkflowDatePolicy.java",
+      "owners": [
+        "a"
+      ],
+      "sources": {
+        "a": "c63d299d3ac815ce55241cae660f1b7ec9b137b98274abf08f38693ea14cd6ca"
+      },
+      "assembled_sha256": "c63d299d3ac815ce55241cae660f1b7ec9b137b98274abf08f38693ea14cd6ca"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccWorkflowDistributionService.java",
+      "owners": [
+        "a"
+      ],
+      "sources": {
+        "a": "193c7daf57d95b2cf4f9d3a73d9f100ea3081059cd114d14a14cb07a7499a8f5"
+      },
+      "assembled_sha256": "193c7daf57d95b2cf4f9d3a73d9f100ea3081059cd114d14a14cb07a7499a8f5"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccWorkflowObsoleteArchiveRequestService.java",
+      "owners": [
+        "a"
+      ],
+      "sources": {
+        "a": "5a84bf575eae00cec129627dabfeeded1a6859b67c41e37d5e61c3521c6df23f"
+      },
+      "assembled_sha256": "5a84bf575eae00cec129627dabfeeded1a6859b67c41e37d5e61c3521c6df23f"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccWorkflowObsoleteEvidenceGuard.java",
+      "owners": [
+        "a"
+      ],
+      "sources": {
+        "a": "c3732943c8a29e09c6fdd8b76bc10aa72166da3271da7cd710e76874ff6fd39a"
+      },
+      "assembled_sha256": "c3732943c8a29e09c6fdd8b76bc10aa72166da3271da7cd710e76874ff6fd39a"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccWorkflowSignoffAssignmentService.java",
+      "owners": [
+        "a"
+      ],
+      "sources": {
+        "a": "f9721ed7536af450309d37acbf0ceb107f48c69fb823c4edbc0ca6c3afbe26ab"
+      },
+      "assembled_sha256": "f9721ed7536af450309d37acbf0ceb107f48c69fb823c4edbc0ca6c3afbe26ab"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/listener/DccControlledFileActivationJob.java",
+      "owners": [
+        "a"
+      ],
+      "sources": {
+        "a": "f7792436ec6c575737ee032e0b586b35b4b02fb347b4bb41c4ad11ccd21cd6aa"
+      },
+      "assembled_sha256": "f7792436ec6c575737ee032e0b586b35b4b02fb347b4bb41c4ad11ccd21cd6aa"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/DccWorkflowMigrationContractTest.java",
+      "owners": [
+        "a"
+      ],
+      "sources": {
+        "a": "8b6aefad01b9d09d26ef89a17b73507f60c85201b75df32fbc846c4a3a24e6f8"
+      },
+      "assembled_sha256": "8b6aefad01b9d09d26ef89a17b73507f60c85201b75df32fbc846c4a3a24e6f8"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/DccWorkflowObsoleteCompletionReadTest.java",
+      "owners": [
+        "a"
+      ],
+      "sources": {
+        "a": "d875e42e037b2df5caf7afa6bb5f3ea446800f11b120d8d016efd56d30757e25"
+      },
+      "assembled_sha256": "d875e42e037b2df5caf7afa6bb5f3ea446800f11b120d8d016efd56d30757e25"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/DccWorkflowV4BpmnTest.java",
+      "owners": [
+        "a"
+      ],
+      "sources": {
+        "a": "989e966d66cf3db6678bea5f4c3b9930e641e3ae904081a89cb6392fcf608be3"
+      },
+      "assembled_sha256": "989e966d66cf3db6678bea5f4c3b9930e641e3ae904081a89cb6392fcf608be3"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccWorkflowDistributionDirectoryTest.java",
+      "owners": [
+        "a"
+      ],
+      "sources": {
+        "a": "28d59bc866eb2213e319458413d2ff237cfcd9bef4f2138477d71a44a323873c"
+      },
+      "assembled_sha256": "28d59bc866eb2213e319458413d2ff237cfcd9bef4f2138477d71a44a323873c"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccWorkflowDistributionTransactionTest.java",
+      "owners": [
+        "a"
+      ],
+      "sources": {
+        "a": "7b491dea5ca143911bd7a0cbb268f1a6e30fc3f4a9dfefd778883c8603d01ac0"
+      },
+      "assembled_sha256": "7b491dea5ca143911bd7a0cbb268f1a6e30fc3f4a9dfefd778883c8603d01ac0"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccWorkflowIc1TransitionTest.java",
+      "owners": [
+        "a"
+      ],
+      "sources": {
+        "a": "c18e70aefeac673a0d28fbcaec0a90c11bd9ecd9f68449de94dd9e554fdcba64"
+      },
+      "assembled_sha256": "c18e70aefeac673a0d28fbcaec0a90c11bd9ecd9f68449de94dd9e554fdcba64"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccWorkflowLifecycleReminderApiTest.java",
+      "owners": [
+        "a"
+      ],
+      "sources": {
+        "a": "beddf1597f27a7b743b393504181a58772e4f6038c394c3d42891a92f0235a7e"
+      },
+      "assembled_sha256": "beddf1597f27a7b743b393504181a58772e4f6038c394c3d42891a92f0235a7e"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccWorkflowLifecycleTransactionTest.java",
+      "owners": [
+        "a"
+      ],
+      "sources": {
+        "a": "1d24cc71c8972db97e05b15f5de5f212ab40b02586714b3b63e5e59c494bc88c"
+      },
+      "assembled_sha256": "1d24cc71c8972db97e05b15f5de5f212ab40b02586714b3b63e5e59c494bc88c"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccWorkflowObsoleteEvidenceGuardTest.java",
+      "owners": [
+        "a"
+      ],
+      "sources": {
+        "a": "60b6bf94e092c8a807a26163c871c6f585c9d94a6c70dd1a013cee9b83009aa2"
+      },
+      "assembled_sha256": "60b6bf94e092c8a807a26163c871c6f585c9d94a6c70dd1a013cee9b83009aa2"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccWorkflowObsoleteRoundSignatureTest.java",
+      "owners": [
+        "a"
+      ],
+      "sources": {
+        "a": "be173eaee6f46e941a3a6875a0090546b85af08b78c21fd6b8dd31688d9ef0bc"
+      },
+      "assembled_sha256": "be173eaee6f46e941a3a6875a0090546b85af08b78c21fd6b8dd31688d9ef0bc"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccWorkflowObsoleteTransactionTest.java",
+      "owners": [
+        "a"
+      ],
+      "sources": {
+        "a": "85441dbd05256e03eabffb666ddd4bedb9c149d4364eca66a8bceed23d742bdb"
+      },
+      "assembled_sha256": "85441dbd05256e03eabffb666ddd4bedb9c149d4364eca66a8bceed23d742bdb"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccWorkflowSignoffAssignmentTest.java",
+      "owners": [
+        "a"
+      ],
+      "sources": {
+        "a": "fecbc4aea189d7c3d996db26a54d3eee930a4d11628c486038f0c20793a809aa"
+      },
+      "assembled_sha256": "fecbc4aea189d7c3d996db26a54d3eee930a4d11628c486038f0c20793a809aa"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccWorkflowTaskIdentityTest.java",
+      "owners": [
+        "a"
+      ],
+      "sources": {
+        "a": "13f18e93e5a7e4a694c6e3b2c522373cf37be2e601a626659ed6a0b92a12462a"
+      },
+      "assembled_sha256": "13f18e93e5a7e4a694c6e3b2c522373cf37be2e601a626659ed6a0b92a12462a"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccWorkflowUnifiedAssignmentSignatureTest.java",
+      "owners": [
+        "a"
+      ],
+      "sources": {
+        "a": "31793ca8d4f03af7651917ff0efb58b24a51a9f53c3fd42c0acaeb47756c9cce"
+      },
+      "assembled_sha256": "31793ca8d4f03af7651917ff0efb58b24a51a9f53c3fd42c0acaeb47756c9cce"
+    },
+    {
+      "path": "IntRuoyiFronted/src/api/dcc/controlledFile/workflowLifecycle.ts",
+      "owners": [
+        "a"
+      ],
+      "sources": {
+        "a": "5467eb6890e6ee287c6430d3aa65ad7d616a0273807e405e9c5b02b42b1448f8"
+      },
+      "assembled_sha256": "5467eb6890e6ee287c6430d3aa65ad7d616a0273807e405e9c5b02b42b1448f8"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/workflow/ControlledLifecyclePanel.vue",
+      "owners": [
+        "a"
+      ],
+      "sources": {
+        "a": "bf932bfeac38e6d47d3e28a1841b9adb4d7ee1deaf01961e6f66cbac69cb4f0e"
+      },
+      "assembled_sha256": "bf932bfeac38e6d47d3e28a1841b9adb4d7ee1deaf01961e6f66cbac69cb4f0e"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/workflow/PendingWorkflowDistributionList.vue",
+      "owners": [
+        "a"
+      ],
+      "sources": {
+        "a": "a5b5b8a80d0fd39ea4dbccc9f70164d4b7a46dcd89bb8e58baa7c423c0a4c7cc"
+      },
+      "assembled_sha256": "a5b5b8a80d0fd39ea4dbccc9f70164d4b7a46dcd89bb8e58baa7c423c0a4c7cc"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/workflow/SignoffAssignmentPanel.vue",
+      "owners": [
+        "a"
+      ],
+      "sources": {
+        "a": "c111b628a7fc4a264d94c0972c424e2e869dd916adba389188f4898c80773dfd"
+      },
+      "assembled_sha256": "c111b628a7fc4a264d94c0972c424e2e869dd916adba389188f4898c80773dfd"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/workflow/WorkflowDistributionPanel.vue",
+      "owners": [
+        "a"
+      ],
+      "sources": {
+        "a": "dd34e8756d56f022048b45278f26c5a75aa70377e08ff2c994c4a0338e73c087"
+      },
+      "assembled_sha256": "dd34e8756d56f022048b45278f26c5a75aa70377e08ff2c994c4a0338e73c087"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/workflow/workflow-actions.ts",
+      "owners": [
+        "a"
+      ],
+      "sources": {
+        "a": "a9f2e33571f30621459639baffb5f55d9a2a2eae1a8b91df351cbf085878f7f6"
+      },
+      "assembled_sha256": "a9f2e33571f30621459639baffb5f55d9a2a2eae1a8b91df351cbf085878f7f6"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-workflow-components.test.cjs",
+      "owners": [
+        "a"
+      ],
+      "sources": {
+        "a": "74efa74d14a0b2c8d5e4d8463e015522327faede638526d806ed875dc66d2ebb"
+      },
+      "assembled_sha256": "74efa74d14a0b2c8d5e4d8463e015522327faede638526d806ed875dc66d2ebb"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-workflow-distribution.test.cjs",
+      "owners": [
+        "a"
+      ],
+      "sources": {
+        "a": "1eef612bc5ed9320fa7a49501566f355bfbdc7b2793ff3037961741c60c62444"
+      },
+      "assembled_sha256": "1eef612bc5ed9320fa7a49501566f355bfbdc7b2793ff3037961741c60c62444"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-workflow-ic1.test.cjs",
+      "owners": [
+        "a"
+      ],
+      "sources": {
+        "a": "063d5658247ad1996cc417da09fa0a3e1cb664820799268818c6b5e877bd27b8"
+      },
+      "assembled_sha256": "063d5658247ad1996cc417da09fa0a3e1cb664820799268818c6b5e877bd27b8"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-workflow-reminders.test.cjs",
+      "owners": [
+        "a"
+      ],
+      "sources": {
+        "a": "8af23dd4783c4da1fd2cfef0d28ac6809638fa805bccaf8778735a1484f8dc34"
+      },
+      "assembled_sha256": "8af23dd4783c4da1fd2cfef0d28ac6809638fa805bccaf8778735a1484f8dc34"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/category/DccFileTypeTaxonomyController.java",
+      "owners": [
+        "b"
+      ],
+      "sources": {
+        "b": "8bf668e1fca2eec67a58159638f856c48f97c9774291caa167ffe2708eeae449"
+      },
+      "assembled_sha256": "8bf668e1fca2eec67a58159638f856c48f97c9774291caa167ffe2708eeae449"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/projectcode/DccProjectProductCreateController.java",
+      "owners": [
+        "b"
+      ],
+      "sources": {
+        "b": "2185b76c281474a598cc03419d1430e6cf994ba7a2211b009d864c43bf411f57"
+      },
+      "assembled_sha256": "2185b76c281474a598cc03419d1430e6cf994ba7a2211b009d864c43bf411f57"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/projectcode/vo/DccProjectCodeRespVO.java",
+      "owners": [
+        "b"
+      ],
+      "sources": {
+        "b": "84d390f943b645d8ac1b0408f83829eb7d0ef09ad6d163b83f648f966e0777b7"
+      },
+      "assembled_sha256": "84d390f943b645d8ac1b0408f83829eb7d0ef09ad6d163b83f648f966e0777b7"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/projectcode/vo/productcreate/DccProjectProductCreateReqVO.java",
+      "owners": [
+        "b"
+      ],
+      "sources": {
+        "b": "ddb6a2bcd8eeb23fb95944dbaa0f91fcb1d9bd794fc3ea9c59e0485c528d283d"
+      },
+      "assembled_sha256": "ddb6a2bcd8eeb23fb95944dbaa0f91fcb1d9bd794fc3ea9c59e0485c528d283d"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/projectcode/vo/productcreate/DccProjectProductCreateRespVO.java",
+      "owners": [
+        "b"
+      ],
+      "sources": {
+        "b": "589e23a11c37d047d7e05f20c4b215f620d766eddd5c5c5e8e58905dce6cbd94"
+      },
+      "assembled_sha256": "589e23a11c37d047d7e05f20c4b215f620d766eddd5c5c5e8e58905dce6cbd94"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/dal/dataobject/projectcode/DccProjectCodeDO.java",
+      "owners": [
+        "b"
+      ],
+      "sources": {
+        "b": "c28a159103571f1f6b82908a3117afc2f57429bf384dad1c85f98b1f732933ef"
+      },
+      "assembled_sha256": "c28a159103571f1f6b82908a3117afc2f57429bf384dad1c85f98b1f732933ef"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/dal/dataobject/projectcode/DccProjectProductCreateRequestDO.java",
+      "owners": [
+        "b"
+      ],
+      "sources": {
+        "b": "5c585d9c77b46216b7544209d29acbf82a19cb8b9bb128b168678ed7850e7b14"
+      },
+      "assembled_sha256": "5c585d9c77b46216b7544209d29acbf82a19cb8b9bb128b168678ed7850e7b14"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/dal/mysql/projectcode/DccProjectProductCreateRequestMapper.java",
+      "owners": [
+        "b"
+      ],
+      "sources": {
+        "b": "e8b0d1956305ace823d65d3ab0ac42687746b5102214881dfcb6e35f8b5d12bc"
+      },
+      "assembled_sha256": "e8b0d1956305ace823d65d3ab0ac42687746b5102214881dfcb6e35f8b5d12bc"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/category/DccFileTypeTaxonomyAdminService.java",
+      "owners": [
+        "b"
+      ],
+      "sources": {
+        "b": "c531819300a0ba0f0711fa246d565632adcee19089e0d097b9ea1262350888ce"
+      },
+      "assembled_sha256": "c531819300a0ba0f0711fa246d565632adcee19089e0d097b9ea1262350888ce"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/category/DccFileTypeTaxonomyAdminServiceImpl.java",
+      "owners": [
+        "b"
+      ],
+      "sources": {
+        "b": "a5411f5228af791fcb916d071b7c08f8d7f4b88773c59d92488a806f00761d98"
+      },
+      "assembled_sha256": "a5411f5228af791fcb916d071b7c08f8d7f4b88773c59d92488a806f00761d98"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/projectcode/DccProjectCodeServiceImpl.java",
+      "owners": [
+        "b"
+      ],
+      "sources": {
+        "b": "ea07da5afe1a8ce562d9b359f1a66d16969d9198c67eb00a6180a3e360704cc8"
+      },
+      "assembled_sha256": "ea07da5afe1a8ce562d9b359f1a66d16969d9198c67eb00a6180a3e360704cc8"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/projectcode/access/DccProjectAccessServiceImpl.java",
+      "owners": [
+        "b"
+      ],
+      "sources": {
+        "b": "a9cf8f46074d1c3c31f9bad5189684082098ff2d3fb30d16871628ba89cca71c"
+      },
+      "assembled_sha256": "a9cf8f46074d1c3c31f9bad5189684082098ff2d3fb30d16871628ba89cca71c"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/projectcode/productcreate/DccProjectProductCreateService.java",
+      "owners": [
+        "b"
+      ],
+      "sources": {
+        "b": "623b46d4768abec903ab552a5ed210391c25e81e2b6e622ec92f2e18860ba3ad"
+      },
+      "assembled_sha256": "623b46d4768abec903ab552a5ed210391c25e81e2b6e622ec92f2e18860ba3ad"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/projectcode/productcreate/DccProjectProductCreateServiceImpl.java",
+      "owners": [
+        "b"
+      ],
+      "sources": {
+        "b": "dac6c34c5d6244649618946810b7b50acfa6e4610eac6db8be2fffb42199e683"
+      },
+      "assembled_sha256": "dac6c34c5d6244649618946810b7b50acfa6e4610eac6db8be2fffb42199e683"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/projectcode/productcreate/DccProjectProductCreateWriteService.java",
+      "owners": [
+        "b"
+      ],
+      "sources": {
+        "b": "5b9b3540fe046baea8375ec1ee55692ad908628359fbb0952bb6a4a547319b40"
+      },
+      "assembled_sha256": "5b9b3540fe046baea8375ec1ee55692ad908628359fbb0952bb6a4a547319b40"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/controller/admin/category/DccFileTypeTaxonomyControllerTest.java",
+      "owners": [
+        "b"
+      ],
+      "sources": {
+        "b": "288361a7a5cf5ea5dae1db7bae323a9cc43b43091b5b86edaab551502e788925"
+      },
+      "assembled_sha256": "288361a7a5cf5ea5dae1db7bae323a9cc43b43091b5b86edaab551502e788925"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/category/DccFileTypeTaxonomyAdminServiceImplTest.java",
+      "owners": [
+        "b"
+      ],
+      "sources": {
+        "b": "0714d116cf71e33531b4e45aa0958319e3cb3e5fb1a856d04e37ca89cc404f29"
+      },
+      "assembled_sha256": "0714d116cf71e33531b4e45aa0958319e3cb3e5fb1a856d04e37ca89cc404f29"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/projectcode/access/DccProjectAccessServiceImplTest.java",
+      "owners": [
+        "b"
+      ],
+      "sources": {
+        "b": "adf1049eec904f059e7a86d06d91a3acf2a450bfb88fa5b5e22d79664539842d"
+      },
+      "assembled_sha256": "adf1049eec904f059e7a86d06d91a3acf2a450bfb88fa5b5e22d79664539842d"
+    },
+    {
+      "path": "IntRuoyiFronted/src/api/dcc/controlledFile/fileTypeTaxonomies.ts",
+      "owners": [
+        "b"
+      ],
+      "sources": {
+        "b": "524a4dcc6b107fecdd5eb302ab3429625bda92c54d0c3aeb03f61d7a12775f9a"
+      },
+      "assembled_sha256": "524a4dcc6b107fecdd5eb302ab3429625bda92c54d0c3aeb03f61d7a12775f9a"
+    },
+    {
+      "path": "IntRuoyiFronted/src/api/dcc/controlledFile/projectCodes.ts",
+      "owners": [
+        "b"
+      ],
+      "sources": {
+        "b": "b9800289fc4f75e1263c83e991f2e556025492c40ab12daed071f66913698133"
+      },
+      "assembled_sha256": "b9800289fc4f75e1263c83e991f2e556025492c40ab12daed071f66913698133"
+    },
+    {
+      "path": "IntRuoyiFronted/src/api/dcc/controlledFile/projectProductRequests.ts",
+      "owners": [
+        "b"
+      ],
+      "sources": {
+        "b": "c315de17a06a9a1dd745b289d8ea61430962ea58f056524fdefcaa3766fd2244"
+      },
+      "assembled_sha256": "c315de17a06a9a1dd745b289d8ea61430962ea58f056524fdefcaa3766fd2244"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/basic-data/components/ProductCatalogTabPanel.vue",
+      "owners": [
+        "b"
+      ],
+      "sources": {
+        "b": "b6800f40fab4ff0bf0a20689acdd0bf6c6313a4c955a0149cb7e2867e4bfb273"
+      },
+      "assembled_sha256": "b6800f40fab4ff0bf0a20689acdd0bf6c6313a4c955a0149cb7e2867e4bfb273"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/basic-data/components/ProjectCodeTabPanel.vue",
+      "owners": [
+        "b"
+      ],
+      "sources": {
+        "b": "894f5b2d8f72ee7637f5bb6c29e56b9169dc76bb5e26aae5b863053d9354d851"
+      },
+      "assembled_sha256": "894f5b2d8f72ee7637f5bb6c29e56b9169dc76bb5e26aae5b863053d9354d851"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/basic-data/file-type-taxonomy/index.vue",
+      "owners": [
+        "b"
+      ],
+      "sources": {
+        "b": "30b01c04ec50fc61df7bf0dc21c20672d24f9beca62f403527b99608d444327f"
+      },
+      "assembled_sha256": "30b01c04ec50fc61df7bf0dc21c20672d24f9beca62f403527b99608d444327f"
+    },
+    {
+      "path": "IntRuoyiBackend/script/tests/test_dcc_b_schema_contract.py",
+      "owners": [
+        "b"
+      ],
+      "sources": {
+        "b": "d16e48c0ffe71cc1c676d3ff5f692a0ded038483c0b75f70f06d757002d02230"
+      },
+      "assembled_sha256": "d16e48c0ffe71cc1c676d3ff5f692a0ded038483c0b75f70f06d757002d02230"
+    },
+    {
+      "path": "IntRuoyiBackend/sql/mysql/20260930_dcc_b_project_attributes_folders.sql",
+      "owners": [
+        "b"
+      ],
+      "sources": {
+        "b": "024ffedb8e7c7d326218f9022e2509c18295b59fb4563c0205d00a0f528a0b3c"
+      },
+      "assembled_sha256": "024ffedb8e7c7d326218f9022e2509c18295b59fb4563c0205d00a0f528a0b3c"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/projectcode/DccFolderTemplateController.java",
+      "owners": [
+        "b"
+      ],
+      "sources": {
+        "b": "f47d38488673d2cf3cec6ea935c7c4f0d08fdead315d58ccb8bfd1688a888471"
+      },
+      "assembled_sha256": "f47d38488673d2cf3cec6ea935c7c4f0d08fdead315d58ccb8bfd1688a888471"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/projectcode/DccProjectAttributesController.java",
+      "owners": [
+        "b"
+      ],
+      "sources": {
+        "b": "81e3888ef9eb00126fa65e4eb80cd3e98977482e628088c3d4ca6a66682f9597"
+      },
+      "assembled_sha256": "81e3888ef9eb00126fa65e4eb80cd3e98977482e628088c3d4ca6a66682f9597"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/dal/dataobject/projectcode/DccFolderTemplateDO.java",
+      "owners": [
+        "b"
+      ],
+      "sources": {
+        "b": "9fd34f28945c7e7bdc3e2f65e136de376c820d6f84b381e4443b8dc88dfb087f"
+      },
+      "assembled_sha256": "9fd34f28945c7e7bdc3e2f65e136de376c820d6f84b381e4443b8dc88dfb087f"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/dal/dataobject/projectcode/DccFolderTemplateHistoryDO.java",
+      "owners": [
+        "b"
+      ],
+      "sources": {
+        "b": "eca98ccea819937e72189562f1644c252aaf62aafafb33110b9dba25610f01ce"
+      },
+      "assembled_sha256": "eca98ccea819937e72189562f1644c252aaf62aafafb33110b9dba25610f01ce"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/dal/dataobject/projectcode/DccProjectApplicationAttributesDO.java",
+      "owners": [
+        "b"
+      ],
+      "sources": {
+        "b": "0493fa650c4d24cb3a8d7dd3f7dbf29b5b66ebea08e1572424ded96221b93f4a"
+      },
+      "assembled_sha256": "0493fa650c4d24cb3a8d7dd3f7dbf29b5b66ebea08e1572424ded96221b93f4a"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/dal/dataobject/projectcode/DccProjectFolderDO.java",
+      "owners": [
+        "b"
+      ],
+      "sources": {
+        "b": "3999399dd8c3fbe3f0374ec9255f96a4bd5483daff35269f045d3c39e27c7df3"
+      },
+      "assembled_sha256": "3999399dd8c3fbe3f0374ec9255f96a4bd5483daff35269f045d3c39e27c7df3"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/dal/mysql/projectcode/DccFolderTemplateHistoryMapper.java",
+      "owners": [
+        "b"
+      ],
+      "sources": {
+        "b": "bf1307b9fc5f86d1d4d1d3a3e8e4252feb66408cae0f17da0b2499aa233c5b65"
+      },
+      "assembled_sha256": "bf1307b9fc5f86d1d4d1d3a3e8e4252feb66408cae0f17da0b2499aa233c5b65"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/dal/mysql/projectcode/DccFolderTemplateMapper.java",
+      "owners": [
+        "b"
+      ],
+      "sources": {
+        "b": "77fff170be8bb8d5e1b79e109aaca9baef5002497438987f6500365d7ca75342"
+      },
+      "assembled_sha256": "77fff170be8bb8d5e1b79e109aaca9baef5002497438987f6500365d7ca75342"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/dal/mysql/projectcode/DccProjectApplicationAttributesMapper.java",
+      "owners": [
+        "b"
+      ],
+      "sources": {
+        "b": "87897a15cbe100fc4abde797cae9e2ce53b26d837b9392832b60e9e5774094b5"
+      },
+      "assembled_sha256": "87897a15cbe100fc4abde797cae9e2ce53b26d837b9392832b60e9e5774094b5"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/dal/mysql/projectcode/DccProjectFolderMapper.java",
+      "owners": [
+        "b"
+      ],
+      "sources": {
+        "b": "b69c1821c18f812a8d98a6714763a12e740cefcc6e354231726ef4bf3be5bae4"
+      },
+      "assembled_sha256": "b69c1821c18f812a8d98a6714763a12e740cefcc6e354231726ef4bf3be5bae4"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/projectcode/attributes/DccProjectAttributeErrors.java",
+      "owners": [
+        "b"
+      ],
+      "sources": {
+        "b": "e0e908ec215d04893a759055d6c5b5241042c5f2f2550603dc88da6e5256c15e"
+      },
+      "assembled_sha256": "e0e908ec215d04893a759055d6c5b5241042c5f2f2550603dc88da6e5256c15e"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/projectcode/attributes/DccProjectAttributes.java",
+      "owners": [
+        "b"
+      ],
+      "sources": {
+        "b": "5c1d84a9bc97ebab3737ee992a1a4825439a3f18c7d47303fa4314f648de6623"
+      },
+      "assembled_sha256": "5c1d84a9bc97ebab3737ee992a1a4825439a3f18c7d47303fa4314f648de6623"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/projectcode/attributes/DccProjectAttributesService.java",
+      "owners": [
+        "b"
+      ],
+      "sources": {
+        "b": "4c88fa382fee32c3ba6ad8db06a9aa20428cc771b25445ab077fe1273189ee01"
+      },
+      "assembled_sha256": "4c88fa382fee32c3ba6ad8db06a9aa20428cc771b25445ab077fe1273189ee01"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/projectcode/attributes/DccProjectConfigurationAuditService.java",
+      "owners": [
+        "b"
+      ],
+      "sources": {
+        "b": "0a3904f49edbf30eccb69c697bc63d9826b0f19ddbc7936376ef5d3303e0bb67"
+      },
+      "assembled_sha256": "0a3904f49edbf30eccb69c697bc63d9826b0f19ddbc7936376ef5d3303e0bb67"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/projectcode/attributes/DccProjectLeaderService.java",
+      "owners": [
+        "b"
+      ],
+      "sources": {
+        "b": "534c51ec04a11fde06ca34263eb1b04a0a5ce300328b8022ea21824f67ee8f91"
+      },
+      "assembled_sha256": "534c51ec04a11fde06ca34263eb1b04a0a5ce300328b8022ea21824f67ee8f91"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/projectcode/folder/DccFolderTemplateService.java",
+      "owners": [
+        "b"
+      ],
+      "sources": {
+        "b": "6153ea6af5a092a0cb2964762e30c6b0c93c5739392bc186659b0849be91b64e"
+      },
+      "assembled_sha256": "6153ea6af5a092a0cb2964762e30c6b0c93c5739392bc186659b0849be91b64e"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/projectcode/folder/DccFolderTemplateStructure.java",
+      "owners": [
+        "b"
+      ],
+      "sources": {
+        "b": "5f34f3bd7dd18964795eb9674ab0d9aa28ccc220a8069c23bb59e43a9d10bd3b"
+      },
+      "assembled_sha256": "5f34f3bd7dd18964795eb9674ab0d9aa28ccc220a8069c23bb59e43a9d10bd3b"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/category/DccFileTypeMappingAmbiguityTest.java",
+      "owners": [
+        "b"
+      ],
+      "sources": {
+        "b": "6883efadfe486ebdbb33bfba32857d56e3318b999290fac00a7523138bcdc9e1"
+      },
+      "assembled_sha256": "6883efadfe486ebdbb33bfba32857d56e3318b999290fac00a7523138bcdc9e1"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/projectcode/DccFolderTemplateServiceTest.java",
+      "owners": [
+        "b"
+      ],
+      "sources": {
+        "b": "2d2ed4bd4121db5a00a3de2501e5dcc7b62105e8fa6c8ac7a6a72f1a2cb3b28f"
+      },
+      "assembled_sha256": "2d2ed4bd4121db5a00a3de2501e5dcc7b62105e8fa6c8ac7a6a72f1a2cb3b28f"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/projectcode/DccProjectAttributesBaselineContractTest.java",
+      "owners": [
+        "b"
+      ],
+      "sources": {
+        "b": "b556f8ac7d7a5cce3f3287079fc8e88f37e00a6b223af66dca2c8bb0a414334b"
+      },
+      "assembled_sha256": "b556f8ac7d7a5cce3f3287079fc8e88f37e00a6b223af66dca2c8bb0a414334b"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/projectcode/DccProjectAttributesControllerTest.java",
+      "owners": [
+        "b"
+      ],
+      "sources": {
+        "b": "ad60e0b5ae99e2a178ba1a54f6c4a026ee5fe833f18ff86c4816682c25bafd65"
+      },
+      "assembled_sha256": "ad60e0b5ae99e2a178ba1a54f6c4a026ee5fe833f18ff86c4816682c25bafd65"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/projectcode/DccProjectAttributesServiceTest.java",
+      "owners": [
+        "b"
+      ],
+      "sources": {
+        "b": "6ac253362c6141beb2860b8ab92ef563a0cda8fbcc686d89605d88dd41808153"
+      },
+      "assembled_sha256": "6ac253362c6141beb2860b8ab92ef563a0cda8fbcc686d89605d88dd41808153"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/projectcode/DccProjectConfigurationHttpPersistenceTest.java",
+      "owners": [
+        "b"
+      ],
+      "sources": {
+        "b": "ba92514cfb1f1c726b0f3af25e37089170c921e79fa8c1bb2322990df852ff10"
+      },
+      "assembled_sha256": "ba92514cfb1f1c726b0f3af25e37089170c921e79fa8c1bb2322990df852ff10"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/projectcode/DccProjectLeaderServiceTest.java",
+      "owners": [
+        "b"
+      ],
+      "sources": {
+        "b": "9fcfb73f562091856df7d1c4cb52a62337785cec8f002724fdbd1e293c637999"
+      },
+      "assembled_sha256": "9fcfb73f562091856df7d1c4cb52a62337785cec8f002724fdbd1e293c637999"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/projectcode/DccProjectProductAttributesCreateTest.java",
+      "owners": [
+        "b"
+      ],
+      "sources": {
+        "b": "2c5c6b59269e90fb47f52942ae14a541fe83238f9e272b8acac3da78758015fa"
+      },
+      "assembled_sha256": "2c5c6b59269e90fb47f52942ae14a541fe83238f9e272b8acac3da78758015fa"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/projectcode/DccProjectProductWriteRetryTest.java",
+      "owners": [
+        "b"
+      ],
+      "sources": {
+        "b": "bcdfd62a403977621fecf7213e16ef643c8f8cc3f64cfd12dd0cd776bcae9d4f"
+      },
+      "assembled_sha256": "bcdfd62a403977621fecf7213e16ef643c8f8cc3f64cfd12dd0cd776bcae9d4f"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/resources/sql/dcc_b_gxp_audit_clean.sql",
+      "owners": [
+        "b"
+      ],
+      "sources": {
+        "b": "32b1451b507026a868156332b2fac67dfe65dd346bc61e54d03dce39f8f38dc9"
+      },
+      "assembled_sha256": "32b1451b507026a868156332b2fac67dfe65dd346bc61e54d03dce39f8f38dc9"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/resources/sql/dcc_b_gxp_audit_tables.sql",
+      "owners": [
+        "b"
+      ],
+      "sources": {
+        "b": "6e2a46b5b53dea348234cef05a288f818d495ea7bcbac7c2ad03f769469389eb"
+      },
+      "assembled_sha256": "6e2a46b5b53dea348234cef05a288f818d495ea7bcbac7c2ad03f769469389eb"
+    },
+    {
+      "path": "IntRuoyiFronted/src/api/dcc/controlledFile/projectAttributes.ts",
+      "owners": [
+        "b"
+      ],
+      "sources": {
+        "b": "e4436a3930c2c613c61292b3dcacd57b9e15067bb30839ce532ca46601257cc2"
+      },
+      "assembled_sha256": "e4436a3930c2c613c61292b3dcacd57b9e15067bb30839ce532ca46601257cc2"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/basic-data/components/FolderTemplateLibraryEditor.vue",
+      "owners": [
+        "b"
+      ],
+      "sources": {
+        "b": "62c8baf60c90aa5880d6451427146eb530c5d6694c0cde49173fb96eb93c093a"
+      },
+      "assembled_sha256": "62c8baf60c90aa5880d6451427146eb530c5d6694c0cde49173fb96eb93c093a"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/basic-data/components/ProjectAttributeConfigurationDialog.vue",
+      "owners": [
+        "b"
+      ],
+      "sources": {
+        "b": "334fd817201ab5152629f2a84d252df672f9c613710aa79749b8ab6a11e8507f"
+      },
+      "assembled_sha256": "334fd817201ab5152629f2a84d252df672f9c613710aa79749b8ab6a11e8507f"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/basic-data/components/ProjectFolderTreePanel.vue",
+      "owners": [
+        "b"
+      ],
+      "sources": {
+        "b": "ef57aeff744d370e92a5cab4d373998f3db1c17a57943a975b8b5dbd677e9992"
+      },
+      "assembled_sha256": "ef57aeff744d370e92a5cab4d373998f3db1c17a57943a975b8b5dbd677e9992"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/basic-data/components/project-folder-tree.ts",
+      "owners": [
+        "b"
+      ],
+      "sources": {
+        "b": "20f2004a095e3c5c7e1ded3d5203a51ba6c3742e9accae5874138effa91db3ca"
+      },
+      "assembled_sha256": "20f2004a095e3c5c7e1ded3d5203a51ba6c3742e9accae5874138effa91db3ca"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/basic-data/components/project-product-resubmit.ts",
+      "owners": [
+        "b"
+      ],
+      "sources": {
+        "b": "533d5a54458b7ff2834396c5d4122f7f1c9f03a4ffec4e23cf9471222f1c7df3"
+      },
+      "assembled_sha256": "533d5a54458b7ff2834396c5d4122f7f1c9f03a4ffec4e23cf9471222f1c7df3"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/basic-data/file-type-taxonomy/FileTypeCategoryMappingDialog.vue",
+      "owners": [
+        "b"
+      ],
+      "sources": {
+        "b": "a0141a27367c1a176d721a07e696ea187ca8f58806f6d4414822a18518c61997"
+      },
+      "assembled_sha256": "a0141a27367c1a176d721a07e696ea187ca8f58806f6d4414822a18518c61997"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/project-attributes/ProjectApplicationAttributes.vue",
+      "owners": [
+        "b"
+      ],
+      "sources": {
+        "b": "35d0ec97416e3c809c49e4c4e9fa80cd8262b9788cb2623e5d7874f6c9940fe5"
+      },
+      "assembled_sha256": "35d0ec97416e3c809c49e4c4e9fa80cd8262b9788cb2623e5d7874f6c9940fe5"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/project-attributes/ProjectAttributesFields.vue",
+      "owners": [
+        "b"
+      ],
+      "sources": {
+        "b": "86269f5df416d7fa5d5d06c08b5ec5e4906196cc5398b6c9543cb9cf387068e8"
+      },
+      "assembled_sha256": "86269f5df416d7fa5d5d06c08b5ec5e4906196cc5398b6c9543cb9cf387068e8"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/project-attributes/state.ts",
+      "owners": [
+        "b"
+      ],
+      "sources": {
+        "b": "e4bd4a3f7dcf25c815c89452eb97a980721a7f55599eef31757e7e134d2f2fc8"
+      },
+      "assembled_sha256": "e4bd4a3f7dcf25c815c89452eb97a980721a7f55599eef31757e7e134d2f2fc8"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/e2e/dcc-project-attributes-race-unit.spec.js",
+      "owners": [
+        "b"
+      ],
+      "sources": {
+        "b": "72aad24271fa6c2d6b80efce8298adb243ea93566e2cb2388e4802211be981d9"
+      },
+      "assembled_sha256": "72aad24271fa6c2d6b80efce8298adb243ea93566e2cb2388e4802211be981d9"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/e2e/dcc-project-attributes-unit.spec.js",
+      "owners": [
+        "b"
+      ],
+      "sources": {
+        "b": "47aac5669879d78d20f10bb3d9cab8d07db327f52707d3aee4be06681451fc0e"
+      },
+      "assembled_sha256": "47aac5669879d78d20f10bb3d9cab8d07db327f52707d3aee4be06681451fc0e"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/e2e/dcc-project-b-components-static.spec.js",
+      "owners": [
+        "b"
+      ],
+      "sources": {
+        "b": "0e115c0822c0658255309e8f5615e09f98990bc75f861f3b9af833959b8cb217"
+      },
+      "assembled_sha256": "0e115c0822c0658255309e8f5615e09f98990bc75f861f3b9af833959b8cb217"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/e2e/dcc-project-b-components-unit.spec.js",
+      "owners": [
+        "b"
+      ],
+      "sources": {
+        "b": "3326155a352ed25f066023bb8c472aa60d51152acdcb40efee0da689d3b45cf6"
+      },
+      "assembled_sha256": "3326155a352ed25f066023bb8c472aa60d51152acdcb40efee0da689d3b45cf6"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/e2e/dcc-project-folders-unit.spec.js",
+      "owners": [
+        "b"
+      ],
+      "sources": {
+        "b": "eede019caa58a0bf77c847fe5671147e65594f536546fc0fd966b9a9051be034"
+      },
+      "assembled_sha256": "eede019caa58a0bf77c847fe5671147e65594f536546fc0fd966b9a9051be034"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/e2e/dcc-project-product-resubmit-unit.spec.js",
+      "owners": [
+        "b"
+      ],
+      "sources": {
+        "b": "703bc57b8804612ff59786d28025e4d1edee112c73f0041fe574490e5c13f571"
+      },
+      "assembled_sha256": "703bc57b8804612ff59786d28025e4d1edee112c73f0041fe574490e5c13f571"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/file/vo/DccControlledFileCheckinReqVO.java",
+      "owners": [
+        "c"
+      ],
+      "sources": {
+        "c": "31a392034faa364b92450720d74a34f8af61d8ecf7f72f73c65a652c87fe8b34"
+      },
+      "assembled_sha256": "31a392034faa364b92450720d74a34f8af61d8ecf7f72f73c65a652c87fe8b34"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/file/vo/DccControlledFileSubmitIterationReqVO.java",
+      "owners": [
+        "c"
+      ],
+      "sources": {
+        "c": "ea2314dccddb6afa8c084eace373abcbfb7be8e03c03cc192664a06f984cc2db"
+      },
+      "assembled_sha256": "ea2314dccddb6afa8c084eace373abcbfb7be8e03c03cc192664a06f984cc2db"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/file/vo/DccControlledFileSubmitReqVO.java",
+      "owners": [
+        "c"
+      ],
+      "sources": {
+        "c": "4bcc16a3ef422735c916a2e5654c9bbd240ec9ee9eccff89284cfb93f83c6fb9"
+      },
+      "assembled_sha256": "4bcc16a3ef422735c916a2e5654c9bbd240ec9ee9eccff89284cfb93f83c6fb9"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/file/vo/DccControlledFileVersionHistoryRespVO.java",
+      "owners": [
+        "c"
+      ],
+      "sources": {
+        "c": "f83414fc5be27434d0b0da3dc34570463f4a0701f14f532335a6dc6f168bc46a"
+      },
+      "assembled_sha256": "f83414fc5be27434d0b0da3dc34570463f4a0701f14f532335a6dc6f168bc46a"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/dal/dataobject/file/DccControlledFileNameClaimDO.java",
+      "owners": [
+        "c"
+      ],
+      "sources": {
+        "c": "26e77def931e9c98b5bbec16cab9a05423cf6ececf3c2099fd1c83d867e7c754"
+      },
+      "assembled_sha256": "26e77def931e9c98b5bbec16cab9a05423cf6ececf3c2099fd1c83d867e7c754"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/dal/mysql/file/DccControlledFileCheckoutMapper.java",
+      "owners": [
+        "c"
+      ],
+      "sources": {
+        "c": "c012d7d43ef0d91b21c6c872742d9f29c4fa1b744494abc618797dd805c09081"
+      },
+      "assembled_sha256": "c012d7d43ef0d91b21c6c872742d9f29c4fa1b744494abc618797dd805c09081"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/dal/mysql/file/DccControlledFileNameClaimMapper.java",
+      "owners": [
+        "c"
+      ],
+      "sources": {
+        "c": "a1f3a6c3a1691213d2036b58dc0295a39a74ee7ad2cd976f15a77a1ed52bffda"
+      },
+      "assembled_sha256": "a1f3a6c3a1691213d2036b58dc0295a39a74ee7ad2cd976f15a77a1ed52bffda"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileDetailAuthorizationGuard.java",
+      "owners": [
+        "c"
+      ],
+      "sources": {
+        "c": "7b871aa5724e990c1212da56236102d7f0314ed2f4e3c0852296118f8d56a571"
+      },
+      "assembled_sha256": "7b871aa5724e990c1212da56236102d7f0314ed2f4e3c0852296118f8d56a571"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileNameClaimService.java",
+      "owners": [
+        "c"
+      ],
+      "sources": {
+        "c": "053089aa5945bf01d6ff44774d60abe729a789b76d1de58b83692db4cfd9a9e1"
+      },
+      "assembled_sha256": "053089aa5945bf01d6ff44774d60abe729a789b76d1de58b83692db4cfd9a9e1"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileQueryServiceImpl.java",
+      "owners": [
+        "c"
+      ],
+      "sources": {
+        "c": "cc31b19fe0a536d8b04a83a2633de9e260bec2475c8f4a4b79c7015775ee620c"
+      },
+      "assembled_sha256": "cc31b19fe0a536d8b04a83a2633de9e260bec2475c8f4a4b79c7015775ee620c"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileVersion.java",
+      "owners": [
+        "c"
+      ],
+      "sources": {
+        "c": "cf5175eab6edee71a7f4e9a5c87556342ee7312aec50db0f2658f44e5ac29307"
+      },
+      "assembled_sha256": "cf5175eab6edee71a7f4e9a5c87556342ee7312aec50db0f2658f44e5ac29307"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileVersionPolicy.java",
+      "owners": [
+        "c"
+      ],
+      "sources": {
+        "c": "d58aff2cfc75d659afb838f7fcc00262009dad87bbba0889eca820255d234e97"
+      },
+      "assembled_sha256": "d58aff2cfc75d659afb838f7fcc00262009dad87bbba0889eca820255d234e97"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccWindchillVersionNumber.java",
+      "owners": [
+        "c"
+      ],
+      "sources": {
+        "c": "1df2bd5fd39cf9b89fa52cbe93a9534cc2d1032c697260f94be2f2090d033d8f"
+      },
+      "assembled_sha256": "1df2bd5fd39cf9b89fa52cbe93a9534cc2d1032c697260f94be2f2090d033d8f"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/DccControlledFileCheckoutContractTest.java",
+      "owners": [
+        "c"
+      ],
+      "sources": {
+        "c": "9071f3d9133b1dc9f212d15945be37b7fa2abd721e27f668a35bde53dfb176f9"
+      },
+      "assembled_sha256": "9071f3d9133b1dc9f212d15945be37b7fa2abd721e27f668a35bde53dfb176f9"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccCheckoutCheckinLifecycleTest.java",
+      "owners": [
+        "c"
+      ],
+      "sources": {
+        "c": "67b789538f667b815b202a0ac5edb1790786a5979e56440a5079ba22270084dd"
+      },
+      "assembled_sha256": "67b789538f667b815b202a0ac5edb1790786a5979e56440a5079ba22270084dd"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileDetailAuthorizationGuardTest.java",
+      "owners": [
+        "c"
+      ],
+      "sources": {
+        "c": "22d1715d4b140400638be088ad2556e9cb67d5711f46a489ffbf6c593842fdc2"
+      },
+      "assembled_sha256": "22d1715d4b140400638be088ad2556e9cb67d5711f46a489ffbf6c593842fdc2"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileNameClaimServiceTest.java",
+      "owners": [
+        "c"
+      ],
+      "sources": {
+        "c": "cc0202aed75754fa43083360648e59ab60eeadedfc4734928c31e3a41d9a27b1"
+      },
+      "assembled_sha256": "cc0202aed75754fa43083360648e59ab60eeadedfc4734928c31e3a41d9a27b1"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileQueryServiceTest.java",
+      "owners": [
+        "c"
+      ],
+      "sources": {
+        "c": "255f0bb42822675bff03cb53cd32dda2dc024ce1ac4c89be2a5eb78786dcb2fd"
+      },
+      "assembled_sha256": "255f0bb42822675bff03cb53cd32dda2dc024ce1ac4c89be2a5eb78786dcb2fd"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccNewFileInitialVersionTest.java",
+      "owners": [
+        "c"
+      ],
+      "sources": {
+        "c": "edff42bffd88f2501040d499f518fa7ad61165d57f56fbe66fd3a843d4fe0643"
+      },
+      "assembled_sha256": "edff42bffd88f2501040d499f518fa7ad61165d57f56fbe66fd3a843d4fe0643"
+    },
+    {
+      "path": "IntRuoyiBackend/sql/mysql/20260930_dcc_c_revision_identity.sql",
+      "owners": [
+        "c"
+      ],
+      "sources": {
+        "c": "b8ad667f71352d50e06f121d29e989fb1c984d7b28fb3915c5e73ad06211c901"
+      },
+      "assembled_sha256": "b8ad667f71352d50e06f121d29e989fb1c984d7b28fb3915c5e73ad06211c901"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileRevisionChangeType.java",
+      "owners": [
+        "c"
+      ],
+      "sources": {
+        "c": "39564ea01ee0433290ed62e3d3366510a697157be4f7e6fb79f34c8e9f6fa70e"
+      },
+      "assembled_sha256": "39564ea01ee0433290ed62e3d3366510a697157be4f7e6fb79f34c8e9f6fa70e"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileRevisionService.java",
+      "owners": [
+        "c"
+      ],
+      "sources": {
+        "c": "c6f50d8086dddd5c7366e505b0a51f1ef3e1b82a99e5dbdcb55a5791a68bd006"
+      },
+      "assembled_sha256": "c6f50d8086dddd5c7366e505b0a51f1ef3e1b82a99e5dbdcb55a5791a68bd006"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileRevisionServiceImpl.java",
+      "owners": [
+        "c"
+      ],
+      "sources": {
+        "c": "09d2109b94990b0cc5405e3cc95618dff4eff4ae7f109b3b5b782ff132df02b0"
+      },
+      "assembled_sha256": "09d2109b94990b0cc5405e3cc95618dff4eff4ae7f109b3b5b782ff132df02b0"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileVersionSourceRollback.java",
+      "owners": [
+        "c"
+      ],
+      "sources": {
+        "c": "5c157152311be4e4b6e49d52b5a34a611496ddb160d945e1b850f92131a00fe3"
+      },
+      "assembled_sha256": "5c157152311be4e4b6e49d52b5a34a611496ddb160d945e1b850f92131a00fe3"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccRevisionDatabaseTest.java",
+      "owners": [
+        "c"
+      ],
+      "sources": {
+        "c": "3e74c4ff78153182385db3182199714087b02b9950f47e02b9bd7a06ccb81fe0"
+      },
+      "assembled_sha256": "3e74c4ff78153182385db3182199714087b02b9950f47e02b9bd7a06ccb81fe0"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccRevisionExactNameTest.java",
+      "owners": [
+        "c"
+      ],
+      "sources": {
+        "c": "8acbaf97a91d7d8a0b9b404e5cc680f49519a8c0fa86eb0838bd8448a1f1291c"
+      },
+      "assembled_sha256": "8acbaf97a91d7d8a0b9b404e5cc680f49519a8c0fa86eb0838bd8448a1f1291c"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccRevisionMigrationTest.java",
+      "owners": [
+        "c"
+      ],
+      "sources": {
+        "c": "f606beee0f602a441c7e873fb95048d81dd19d2eb0780bc14cb1643c6c0ded97"
+      },
+      "assembled_sha256": "f606beee0f602a441c7e873fb95048d81dd19d2eb0780bc14cb1643c6c0ded97"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccRevisionPolicyTest.java",
+      "owners": [
+        "c"
+      ],
+      "sources": {
+        "c": "1af3e9b1d2e229006a47f2fc3a23f05a0a444ae6a2918fee027b11b34e197edd"
+      },
+      "assembled_sha256": "1af3e9b1d2e229006a47f2fc3a23f05a0a444ae6a2918fee027b11b34e197edd"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccRevisionRollbackSynchronizationTest.java",
+      "owners": [
+        "c"
+      ],
+      "sources": {
+        "c": "c7d3778b7f6b28dff7054ed7886e56a927b4281efdd8e9f94be38a1548e5764e"
+      },
+      "assembled_sha256": "c7d3778b7f6b28dff7054ed7886e56a927b4281efdd8e9f94be38a1548e5764e"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccRevisionServiceTest.java",
+      "owners": [
+        "c"
+      ],
+      "sources": {
+        "c": "96bbb65ed9f6b8fd084ac48715c916aa9c850a82dadff8bea4dc7a4b2bffd5b9"
+      },
+      "assembled_sha256": "96bbb65ed9f6b8fd084ac48715c916aa9c850a82dadff8bea4dc7a4b2bffd5b9"
+    },
+    {
+      "path": "IntRuoyiFronted/scripts/dcc-revision-component.test.mjs",
+      "owners": [
+        "c"
+      ],
+      "sources": {
+        "c": "4d4c2b12c6d7db19f94d8d3c36f5093b6caec424edfed31028b77043a9e982eb"
+      },
+      "assembled_sha256": "4d4c2b12c6d7db19f94d8d3c36f5093b6caec424edfed31028b77043a9e982eb"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/revision/DccRevisionPanel.vue",
+      "owners": [
+        "c"
+      ],
+      "sources": {
+        "c": "c9400687d7e30fc91851efbc15ed29cff3dc6f40f1406dd4ef50b6298de7b9ff"
+      },
+      "assembled_sha256": "c9400687d7e30fc91851efbc15ed29cff3dc6f40f1406dd4ef50b6298de7b9ff"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/revision/revision-model.ts",
+      "owners": [
+        "c"
+      ],
+      "sources": {
+        "c": "f898e708548add228209a42c79ffe4fb829d37adc0d5b303de4df50a9b1ecdca"
+      },
+      "assembled_sha256": "f898e708548add228209a42c79ffe4fb829d37adc0d5b303de4df50a9b1ecdca"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/file/vo/DccControlledFileRelatedFileRespVO.java",
+      "owners": [
+        "d"
+      ],
+      "sources": {
+        "d": "5d382e595bb6fc9676c7d502218dc93e011001608b108bfe89654bdcd89b206e"
+      },
+      "assembled_sha256": "5d382e595bb6fc9676c7d502218dc93e011001608b108bfe89654bdcd89b206e"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/dal/mysql/file/DccControlledFileRelatedFileMapper.java",
+      "owners": [
+        "d"
+      ],
+      "sources": {
+        "d": "81bec1310c258e6501825aa3c492dbfdbe0df02c477810cdd2d6a8d1c342445e"
+      },
+      "assembled_sha256": "81bec1310c258e6501825aa3c492dbfdbe0df02c477810cdd2d6a8d1c342445e"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileRelatedFileService.java",
+      "owners": [
+        "d"
+      ],
+      "sources": {
+        "d": "dafea1fbe3730ecf84f4ebf9ecc530e9b881aee679da204232fc24e11fed17c6"
+      },
+      "assembled_sha256": "dafea1fbe3730ecf84f4ebf9ecc530e9b881aee679da204232fc24e11fed17c6"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileRelatedFileServiceImpl.java",
+      "owners": [
+        "d"
+      ],
+      "sources": {
+        "d": "76d7a30844cfff71d9f8836f85a0adf93a06c6bff4942850ab98913dfe53080b"
+      },
+      "assembled_sha256": "76d7a30844cfff71d9f8836f85a0adf93a06c6bff4942850ab98913dfe53080b"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccPublicationFollowupServiceImpl.java",
+      "owners": [
+        "d"
+      ],
+      "sources": {
+        "d": "f5cc804e7dd64a2466a79300053cb76b301816fbd458cc883f3c314469214f9a"
+      },
+      "assembled_sha256": "f5cc804e7dd64a2466a79300053cb76b301816fbd458cc883f3c314469214f9a"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileRelatedFileServiceTest.java",
+      "owners": [
+        "d"
+      ],
+      "sources": {
+        "d": "1103eaf010368ca093dd2cf63ced870ae4e506b855287c9e5abfef1598c60181"
+      },
+      "assembled_sha256": "1103eaf010368ca093dd2cf63ced870ae4e506b855287c9e5abfef1598c60181"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccPublicationFollowupServiceTest.java",
+      "owners": [
+        "d"
+      ],
+      "sources": {
+        "d": "9461800c4e3f81ff97c820fec6805db8d244e8629cdddc65a30d2a23a9ce8ea1"
+      },
+      "assembled_sha256": "9461800c4e3f81ff97c820fec6805db8d244e8629cdddc65a30d2a23a9ce8ea1"
+    },
+    {
+      "path": "IntRuoyiBackend/config/gxp-audit-policy-dcc-d.yaml",
+      "owners": [
+        "d"
+      ],
+      "sources": {
+        "d": "839f80488763029f7fe4eec91d52960de9ddc1da427d8e6de072b109fedeb6ac"
+      },
+      "assembled_sha256": "839f80488763029f7fe4eec91d52960de9ddc1da427d8e6de072b109fedeb6ac"
+    },
+    {
+      "path": "IntRuoyiBackend/sql/mysql/20260930_dcc_d_notification_template.sql",
+      "owners": [
+        "d"
+      ],
+      "sources": {
+        "d": "c25894dd3c966ee05a12a03be443851dbb4a169399d52c82f65a3b3e9210c50d"
+      },
+      "assembled_sha256": "c25894dd3c966ee05a12a03be443851dbb4a169399d52c82f65a3b3e9210c50d"
+    },
+    {
+      "path": "IntRuoyiBackend/sql/mysql/20260930_dcc_d_relations.sql",
+      "owners": [
+        "d"
+      ],
+      "sources": {
+        "d": "74d931b00798e597cceb79b3d6cc5120329cc8129baee5bf20ac8dda850d3320"
+      },
+      "assembled_sha256": "74d931b00798e597cceb79b3d6cc5120329cc8129baee5bf20ac8dda850d3320"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/file/DccFileRelationsController.java",
+      "owners": [
+        "d"
+      ],
+      "sources": {
+        "d": "2882ba32ba1a08e56d98eb9d69780700e4a5eccaa80c48d822ef59b03f642e21"
+      },
+      "assembled_sha256": "2882ba32ba1a08e56d98eb9d69780700e4a5eccaa80c48d822ef59b03f642e21"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/file/DccProjectReferenceController.java",
+      "owners": [
+        "d"
+      ],
+      "sources": {
+        "d": "a89f583f2a19b63de8517926ebdaef122d6bd5247da932c673b63b3b8799326b"
+      },
+      "assembled_sha256": "a89f583f2a19b63de8517926ebdaef122d6bd5247da932c673b63b3b8799326b"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/file/DccRelationRemediationController.java",
+      "owners": [
+        "d"
+      ],
+      "sources": {
+        "d": "339defe240ab7c9a16dcd5ff543a7704a4fb1cb11cd8e360e3775acfe55a49c4"
+      },
+      "assembled_sha256": "339defe240ab7c9a16dcd5ff543a7704a4fb1cb11cd8e360e3775acfe55a49c4"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/file/DccRelationsExceptionHandler.java",
+      "owners": [
+        "d"
+      ],
+      "sources": {
+        "d": "cd29761f1c982b16221ce647f3dfd10b8a4e41701f23c483e8328d34f4f64c67"
+      },
+      "assembled_sha256": "cd29761f1c982b16221ce647f3dfd10b8a4e41701f23c483e8328d34f4f64c67"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/relations/DccLatestControlledFileResolver.java",
+      "owners": [
+        "d"
+      ],
+      "sources": {
+        "d": "5dffa99656eb7b6bdf27622463ae7b053f9d5bea04e29786813533d87cd07690"
+      },
+      "assembled_sha256": "5dffa99656eb7b6bdf27622463ae7b053f9d5bea04e29786813533d87cd07690"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/relations/DccProjectReferenceAuthority.java",
+      "owners": [
+        "d"
+      ],
+      "sources": {
+        "d": "f4995e8f6a37a762cb192b5d9784adfef8d564dd59e32162fafe5d5dbf60eefc"
+      },
+      "assembled_sha256": "f4995e8f6a37a762cb192b5d9784adfef8d564dd59e32162fafe5d5dbf60eefc"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/relations/DccProjectReferenceService.java",
+      "owners": [
+        "d"
+      ],
+      "sources": {
+        "d": "6475a43fe1d72bea7bd5e35daac09eec54ffd2a7a05f924b678b59f666fbbff9"
+      },
+      "assembled_sha256": "6475a43fe1d72bea7bd5e35daac09eec54ffd2a7a05f924b678b59f666fbbff9"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/relations/DccRelationAccessPolicy.java",
+      "owners": [
+        "d"
+      ],
+      "sources": {
+        "d": "a4beb97fa01fa46969f16b6391d1616469de9074cc609e1905ce41d7b745f004"
+      },
+      "assembled_sha256": "a4beb97fa01fa46969f16b6391d1616469de9074cc609e1905ce41d7b745f004"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/relations/DccRelationContracts.java",
+      "owners": [
+        "d"
+      ],
+      "sources": {
+        "d": "3c0fe6877e150f4b3381f967c0180f72192a94624992ba4e3fd5a468cf038073"
+      },
+      "assembled_sha256": "3c0fe6877e150f4b3381f967c0180f72192a94624992ba4e3fd5a468cf038073"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/relations/DccRelationFailure.java",
+      "owners": [
+        "d"
+      ],
+      "sources": {
+        "d": "17f28a9ac71d82ea2004305122de54283eb24744d604c10a92ce67376ed4e341"
+      },
+      "assembled_sha256": "17f28a9ac71d82ea2004305122de54283eb24744d604c10a92ce67376ed4e341"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/relations/DccRelationInputFailure.java",
+      "owners": [
+        "d"
+      ],
+      "sources": {
+        "d": "31e6fdff162ef5eddbfa0eb1398cfd97e7ca3a884aebd499c54fdc806f4d7236"
+      },
+      "assembled_sha256": "31e6fdff162ef5eddbfa0eb1398cfd97e7ca3a884aebd499c54fdc806f4d7236"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/relations/DccRelationNotificationDispatcher.java",
+      "owners": [
+        "d"
+      ],
+      "sources": {
+        "d": "e573b1d3b468fd6ca0299fe7e9e8b90a5e54d0e43eb1d4f1ee8ca0e376d15b16"
+      },
+      "assembled_sha256": "e573b1d3b468fd6ca0299fe7e9e8b90a5e54d0e43eb1d4f1ee8ca0e376d15b16"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/relations/DccRelationNotificationPostCommitScheduler.java",
+      "owners": [
+        "d"
+      ],
+      "sources": {
+        "d": "3833ba8007640dbc9c055aab6bcae4666cde35a098f48f8a26fc01e847b0530b"
+      },
+      "assembled_sha256": "3833ba8007640dbc9c055aab6bcae4666cde35a098f48f8a26fc01e847b0530b"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/relations/DccRelationNotificationRecoveryService.java",
+      "owners": [
+        "d"
+      ],
+      "sources": {
+        "d": "454b4067398613351d7f2d581999d92de0e6b34f8aeabd1e53a23ba0c2289d30"
+      },
+      "assembled_sha256": "454b4067398613351d7f2d581999d92de0e6b34f8aeabd1e53a23ba0c2289d30"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/relations/DccRelationNotificationSender.java",
+      "owners": [
+        "d"
+      ],
+      "sources": {
+        "d": "8ef649afa450d4a9df3676359c6639989cb966b0d324487ef2785999d5127f24"
+      },
+      "assembled_sha256": "8ef649afa450d4a9df3676359c6639989cb966b0d324487ef2785999d5127f24"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/relations/DccRelationPlatformNotificationSender.java",
+      "owners": [
+        "d"
+      ],
+      "sources": {
+        "d": "e1f1ee02b28754c4c87f5d438e06068d7ed04f152ec32643b7c983f856ae8b28"
+      },
+      "assembled_sha256": "e1f1ee02b28754c4c87f5d438e06068d7ed04f152ec32643b7c983f856ae8b28"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/relations/DccRelationRemediationService.java",
+      "owners": [
+        "d"
+      ],
+      "sources": {
+        "d": "a93e64609292a4e98c9ad19d4557d3b8bd727ddbc88c2060c152f4599f38fc46"
+      },
+      "assembled_sha256": "a93e64609292a4e98c9ad19d4557d3b8bd727ddbc88c2060c152f4599f38fc46"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/relations/DccRelationStore.java",
+      "owners": [
+        "d"
+      ],
+      "sources": {
+        "d": "94d813af42c4ad3dbbf45500af599104fdd4703cfcdfe75a81c127a2509ba78f"
+      },
+      "assembled_sha256": "94d813af42c4ad3dbbf45500af599104fdd4703cfcdfe75a81c127a2509ba78f"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccCurrentFileRelationsTest.java",
+      "owners": [
+        "d"
+      ],
+      "sources": {
+        "d": "bd68f17a8e3c83b8c637404dcddff472e9e3ae677d4a1bf6c4286593fa49dcc1"
+      },
+      "assembled_sha256": "bd68f17a8e3c83b8c637404dcddff472e9e3ae677d4a1bf6c4286593fa49dcc1"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccProjectReferenceApiPersistenceTest.java",
+      "owners": [
+        "d"
+      ],
+      "sources": {
+        "d": "99f17d698d3f4a9d95403659561c4935146aa33d8db7ed39e5a42216529b3882"
+      },
+      "assembled_sha256": "99f17d698d3f4a9d95403659561c4935146aa33d8db7ed39e5a42216529b3882"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccProjectReferenceTransactionTest.java",
+      "owners": [
+        "d"
+      ],
+      "sources": {
+        "d": "96bbb308ec8831474f0a67636e6ab55a865cc65d02e17cbdac1dd2c2b20a4d64"
+      },
+      "assembled_sha256": "96bbb308ec8831474f0a67636e6ab55a865cc65d02e17cbdac1dd2c2b20a4d64"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccRelationNotificationRecoveryTest.java",
+      "owners": [
+        "d"
+      ],
+      "sources": {
+        "d": "4feaa4430f15238c7c89e5f385033cfa400a89f677ec1708b8c47a23ef8e7d14"
+      },
+      "assembled_sha256": "4feaa4430f15238c7c89e5f385033cfa400a89f677ec1708b8c47a23ef8e7d14"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccRelationPlatformNotificationSenderTest.java",
+      "owners": [
+        "d"
+      ],
+      "sources": {
+        "d": "a588e6af56437abb87becd8b6cfc38af53a9f84b030519d43504ba80e5e8fda6"
+      },
+      "assembled_sha256": "a588e6af56437abb87becd8b6cfc38af53a9f84b030519d43504ba80e5e8fda6"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccRelationPlatformPersistenceTest.java",
+      "owners": [
+        "d"
+      ],
+      "sources": {
+        "d": "492dfddc248f515f2885c3a7b67225ba17788cde38ed0c4e2dd28e2163c34705"
+      },
+      "assembled_sha256": "492dfddc248f515f2885c3a7b67225ba17788cde38ed0c4e2dd28e2163c34705"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccRelationPostCommitSchedulerTest.java",
+      "owners": [
+        "d"
+      ],
+      "sources": {
+        "d": "4ffd15c14b143b740bb22ead16055addec0037c73d3770a8f1654ab49154ae2f"
+      },
+      "assembled_sha256": "4ffd15c14b143b740bb22ead16055addec0037c73d3770a8f1654ab49154ae2f"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccRelationRemediationTransactionTest.java",
+      "owners": [
+        "d"
+      ],
+      "sources": {
+        "d": "b1442107cf7dbc2e631abf638f3e426838a925592a0d98b0c4b5ea7b8156eac7"
+      },
+      "assembled_sha256": "b1442107cf7dbc2e631abf638f3e426838a925592a0d98b0c4b5ea7b8156eac7"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccRelationsApiErrorTest.java",
+      "owners": [
+        "d"
+      ],
+      "sources": {
+        "d": "dad91cdb47adb77766e453e51e833b280bcc18890feb2dda7b0ea4265ed0fd24"
+      },
+      "assembled_sha256": "dad91cdb47adb77766e453e51e833b280bcc18890feb2dda7b0ea4265ed0fd24"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccSubmissionRelationPersistenceTest.java",
+      "owners": [
+        "d"
+      ],
+      "sources": {
+        "d": "6779a967b45c2c25dbcf89238a14459a5184af3a57755119d4a2c2282c26c63c"
+      },
+      "assembled_sha256": "6779a967b45c2c25dbcf89238a14459a5184af3a57755119d4a2c2282c26c63c"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/resources/sql/dcc_d_platform_message_fixture.sql",
+      "owners": [
+        "d"
+      ],
+      "sources": {
+        "d": "ed249d7a27eab8ffc1728b78a0054fc7f017b59f2b8fd785a54282f8e0196fef"
+      },
+      "assembled_sha256": "ed249d7a27eab8ffc1728b78a0054fc7f017b59f2b8fd785a54282f8e0196fef"
+    },
+    {
+      "path": "IntRuoyiFronted/scripts/dcc-arrangement-form.test.mjs",
+      "owners": [
+        "d"
+      ],
+      "sources": {
+        "d": "fec05667f1e46c488aae900297c5b9a3bac8d94d92e4a056a748cda11d988887"
+      },
+      "assembled_sha256": "fec05667f1e46c488aae900297c5b9a3bac8d94d92e4a056a748cda11d988887"
+    },
+    {
+      "path": "IntRuoyiFronted/scripts/dcc-file-selector.test.mjs",
+      "owners": [
+        "d"
+      ],
+      "sources": {
+        "d": "4bcf31d6b1d196c2db9b10be524c437fc1b0ce8c519d781c1ce0d26aff49e3f4"
+      },
+      "assembled_sha256": "4bcf31d6b1d196c2db9b10be524c437fc1b0ce8c519d781c1ce0d26aff49e3f4"
+    },
+    {
+      "path": "IntRuoyiFronted/scripts/dcc-relation-editor.test.mjs",
+      "owners": [
+        "d"
+      ],
+      "sources": {
+        "d": "19ed2fe71105ca795d4ffa85bb99b8d8c951ecde4b2dcf7ec11fc0340cf1ed29"
+      },
+      "assembled_sha256": "19ed2fe71105ca795d4ffa85bb99b8d8c951ecde4b2dcf7ec11fc0340cf1ed29"
+    },
+    {
+      "path": "IntRuoyiFronted/scripts/dcc-relations-components.test.mjs",
+      "owners": [
+        "d"
+      ],
+      "sources": {
+        "d": "3ba7a38f1578b6d2a8e1e0339fb22ff73142459a0c786033d7e0e7ea3f91df5e"
+      },
+      "assembled_sha256": "3ba7a38f1578b6d2a8e1e0339fb22ff73142459a0c786033d7e0e7ea3f91df5e"
+    },
+    {
+      "path": "IntRuoyiFronted/scripts/dcc-relations-vue-runtime.test.mjs",
+      "owners": [
+        "d"
+      ],
+      "sources": {
+        "d": "dfe0133574a3d868360a256f80cc3e8008e5875f7da4b13f393c2d349aedc020"
+      },
+      "assembled_sha256": "dfe0133574a3d868360a256f80cc3e8008e5875f7da4b13f393c2d349aedc020"
+    },
+    {
+      "path": "IntRuoyiFronted/src/api/dcc/controlledFile/relations.ts",
+      "owners": [
+        "d"
+      ],
+      "sources": {
+        "d": "93528711a03f8a53b000a6b56d6055e2e1e5e333d4d0a673da81541dad8754d9"
+      },
+      "assembled_sha256": "93528711a03f8a53b000a6b56d6055e2e1e5e333d4d0a673da81541dad8754d9"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/relations/DccFileRelations.vue",
+      "owners": [
+        "d"
+      ],
+      "sources": {
+        "d": "f91aeb340c73b11c5724d265c4ed93071ea36edcada0f927caf6f42de277b68e"
+      },
+      "assembled_sha256": "f91aeb340c73b11c5724d265c4ed93071ea36edcada0f927caf6f42de277b68e"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/relations/DccFileSelector.vue",
+      "owners": [
+        "d"
+      ],
+      "sources": {
+        "d": "663375cc5d6be7485564f0329956ae40744795901bb2a30dd392af5f76efb176"
+      },
+      "assembled_sha256": "663375cc5d6be7485564f0329956ae40744795901bb2a30dd392af5f76efb176"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/relations/DccProjectReferences.vue",
+      "owners": [
+        "d"
+      ],
+      "sources": {
+        "d": "d350c3721793ec8c0378a22172c6e857d84505b9fcff744bb4518c12294fef94"
+      },
+      "assembled_sha256": "d350c3721793ec8c0378a22172c6e857d84505b9fcff744bb4518c12294fef94"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/relations/DccReferenceBadge.vue",
+      "owners": [
+        "d"
+      ],
+      "sources": {
+        "d": "80247f91356e878b9bfee00e99f5c7b8c09cc83827f5cbb8ea52497637566c11"
+      },
+      "assembled_sha256": "80247f91356e878b9bfee00e99f5c7b8c09cc83827f5cbb8ea52497637566c11"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/relations/DccRelationArrangementPanel.vue",
+      "owners": [
+        "d"
+      ],
+      "sources": {
+        "d": "d2326113aba566cf5592e7927e760348a41cd469a3f004d14dde17bae4497a6d"
+      },
+      "assembled_sha256": "d2326113aba566cf5592e7927e760348a41cd469a3f004d14dde17bae4497a6d"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/relations/DccRelationArrangements.vue",
+      "owners": [
+        "d"
+      ],
+      "sources": {
+        "d": "e42440aa71e0a410982843f0339c672c7185bf9bee88e51b4a274041fc2443c9"
+      },
+      "assembled_sha256": "e42440aa71e0a410982843f0339c672c7185bf9bee88e51b4a274041fc2443c9"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/relations/arrangement-form.ts",
+      "owners": [
+        "d"
+      ],
+      "sources": {
+        "d": "f9a1efc35cf729e535ec94f664c321bb68254e0d0a65d6473b5ac5aa2384650d"
+      },
+      "assembled_sha256": "f9a1efc35cf729e535ec94f664c321bb68254e0d0a65d6473b5ac5aa2384650d"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/relations/relation-editor-state.ts",
+      "owners": [
+        "d"
+      ],
+      "sources": {
+        "d": "ccc82068fbfb94d9a21a5d2113eef26e62594dcf1839d9f4d0a54b09667d355d"
+      },
+      "assembled_sha256": "ccc82068fbfb94d9a21a5d2113eef26e62594dcf1839d9f4d0a54b09667d355d"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/relations/selector-state.ts",
+      "owners": [
+        "d"
+      ],
+      "sources": {
+        "d": "1499a25ffa5c750ae68970a6ee13b23e7536e565d397a2f8c9b9ec9826e9f1e7"
+      },
+      "assembled_sha256": "1499a25ffa5c750ae68970a6ee13b23e7536e565d397a2f8c9b9ec9826e9f1e7"
+    }
+  ]
+}

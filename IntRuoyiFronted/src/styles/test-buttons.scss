@@ -1,0 +1,48 @@
+// 测试操作统一使用黑框、白底和紫色文字，包括行内入口及下拉菜单项。
+.app-test-button {
+  --el-button-text-color: #7e22ce;
+  --el-button-bg-color: #fff;
+  --el-button-border-color: #000;
+  --el-button-hover-text-color: #7e22ce;
+  --el-button-hover-bg-color: #fff;
+  --el-button-hover-border-color: #000;
+  --el-button-active-text-color: #7e22ce;
+  --el-button-active-bg-color: #fff;
+  --el-button-active-border-color: #000;
+  --el-button-disabled-text-color: #7e22ce;
+  --el-button-disabled-bg-color: #fff;
+  --el-button-disabled-border-color: #000;
+
+  // 覆盖既有业务页面的局部按钮颜色及 Element Plus link/plain 状态。
+  &,
+  &:hover,
+  &:focus,
+  &:active,
+  &.is-disabled {
+    color: #7e22ce !important;
+    background: #fff !important;
+    border: 1px solid #000 !important;
+  }
+
+  &:focus-visible {
+    outline: 2px solid #7e22ce;
+    outline-offset: 2px;
+  }
+
+  &:disabled,
+  &.is-disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+
+  &.el-button.is-link,
+  &.el-button.is-text {
+    min-height: 28px;
+    padding: 4px 10px;
+  }
+
+  &.el-dropdown-menu__item {
+    margin: 4px 8px;
+    border-radius: var(--el-border-radius-base);
+  }
+}

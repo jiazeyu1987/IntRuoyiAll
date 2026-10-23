@@ -28,7 +28,7 @@ const trainingTab = readSource(
 const distributionShell = readSource('src/views/dcc/controlled-file/distribution/index.vue')
 const trainingShell = readSource('src/views/dcc/controlled-file/training/index.vue')
 const retireSql = readWorkspaceSource(
-  'ruoyi-vue-pro/sql/mysql/20260714_dcc_distribution_training_menu_retire.sql'
+  'IntRuoyiBackend/sql/mysql/20260714_dcc_distribution_training_menu_retire.sql'
 )
 
 assert.equal(
@@ -55,13 +55,13 @@ for (const [source, tableKey, apiToken, title] of [
   [
     distributionTab,
     'dcc.controlledFile.permission.distributionRules',
-    'getCategoryDistributionRules(category.id)',
+    'getCategoryDistributionRules(categoryId)',
     '分发规则'
   ],
   [
     trainingTab,
     'dcc.controlledFile.permission.trainingRules',
-    'getCategoryTrainingRules(category.id)',
+    'getCategoryTrainingRules(categoryId)',
     '培训规则'
   ]
 ]) {

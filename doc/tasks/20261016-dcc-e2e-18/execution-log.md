@@ -1,0 +1,46 @@
+# Execution Log
+
+- 2026-10-16 Root创建本例记录；用户授权每个E2E一个实际线程，Root统一启动和review。当前仅准备，尚无真实E2E执行结论。
+- 2026-10-16 读取根AGENTS.md、task-closeout-rules.md、e2e-rules.md、login-access.md、local-runtime.md、worktree-restrictions.md、branch-runtime-ports.md及24例thread-contract.md；确认当前分支为int_qms。
+- 2026-10-16 静态页面核对：真实入口为`/dcc/controlled-file/browser?browserMode=storage`文件编号筛选后的“追溯”；选择草稿版本后点“填写审批申请”进入详情申请面板。详情页提供版本历史、文件附件、申请历史和培训记录区域；升版面板提供`data-testid="dcc-revision-panel"`与`data-testid="dcc-revision-submit"`。
+- 2026-10-16 准备参数分支：`partial`（局部变更）和`replacement`（换版变更）；两分支各自要求来源受控版、选中草稿、实际变更类型、变更说明、新旧附件和培训记录按版本隔离。
+- 2026-10-16 创建`dcc-e2e-18-real-flow.cjs`：脚本先读取公共`dispatch.json`，`prepare_only`只写`runtime-result.json`并退出，不加载Playwright、不启动浏览器；execute前要求Root核验runtime/role fixture和运行时注入凭据。
+- 2026-10-16 `node --check doc/tasks/20261016-dcc-e2e-18/dcc-e2e-18-real-flow.cjs` -> PASS；未启动浏览器、未执行业务写入、未执行Maven或Git。
+- 2026-10-16 `node doc/tasks/20261016-dcc-e2e-18/dcc-e2e-18-real-flow.cjs` -> `PREPARED_WAITING`，`browserStarted=false`；脚本读取本例`prepare_only` gate后退出，未加载Playwright。
+- 2026-10-16 结构扫描 -> PASS：未发现`fetch`、`axios`、`APIRequest`、SQL、mock路由、localStorage登录、admin默认凭据或密码字面量；仅在execute阶段监听页面自然响应的method/path/status。
+- 2026-10-16 覆盖范围限定：脚本仅到申请人提交并在真实页面确认版本/附件事实；用`BLOCKED_PENDING_APPROVAL`明确阻止把提交受理写作完整链路PASS。审批签名、培训记录办理、文控终态与页面清理仍待Root核准精确角色/fixture后补齐。
+- 2026-10-16 Root review修正：trace stop、context close和browser close不再吞异常；错误分别写入`traceError`/`cleanupError`并强制`BLOCKED_TRACE_OR_CLEANUP`。旧版与草稿要求运行时注入的版本标识、正文标记、附件名称和培训记录字段，清单必须版本互斥并在可见页面文本中逐项命中；已提交对象写入`residual`并保留，不执行本阶段清理。
+- 2026-10-16 trace保密修正：Playwright tracing移动到登录重定向完成之后，登录密码字段和认证阶段响应不进入trace；只记录脱敏URL、method和status。
+- 2026-10-16 版本事实修正：每分支旧版与草稿正文均通过真实预览窗口的PDF正文搜索命中独立标记，并检查非空canvas像素；附件名称、培训事实和版本标识逐项可见匹配且互斥，不能只按行数或画布节点存在判断。
+- 2026-10-16 Root dispatch更新后复核：运行态`runtimeVerified=true`，但`roleFixtureVerified=false`，仍执行prepare-only结构检查；未改变dispatch、不启动浏览器。
+- 2026-10-16 增补版本范围：已提交升版候选通过真实浏览器版本选择重新打开追溯页，独立核对该版本的正文、附件、培训及申请字段；提交确认前先持久化潜在残留，页面确认新ID后立即回写。
+
+- 2026-10-18 恢复真实UI执行，账号/组织/目录准备与项目申请详见当次run ui-execution.json；runner PID20780、handle63720。旧prepared-only限制已被最新授权替代。
+- 2026-10-18 Root通知已授权本机48061安全更新窗口；立即停止新增业务写入。只读确认DCC241016C18P1项目COMPLETED，产品DCC241016C18PRODUCT，负责人910503、批准人910507、模板25；取消关闭只读项目申请弹窗。未创建受控文件/升版申请/BPM任务，无临时源件上传或未知上传结果。
+- 2026-10-18 保存12个context的URL、账号、登录过期情况、可见弹窗和文件输入检查；Config最后页面为categories?tab=file-types。runtime-pause.json active=true，不修改共享dispatch，不重启服务，不执行Git。正常close命令结束trace并关闭本例contexts/browser，最终进程结果待runtime-pause.json记录。
+- 2026-10-18 暂停收尾完成：12个context及browser均正常关闭，UI_SESSION_CLOSED，12份final trace落盘；关闭阶段cleanupErrors为空。readline使Node继续驻留，随后仅对本例PTY发送Ctrl+C，runner退出码1；原runner及15个浏览器子进程均不存在，runnerResidual=NONE。不是正常退出码0，也不写E2E PASS。
+- 2026-10-18 脱敏检查：首轮扫描因DPAPI文本末尾换行失败，零命中无效；Trim并启用Stop后重新检查20份zip成功，3种已知凭据输入已核验、正文匹配数0、archiveErrors为空。结果见runtime-pause-trace-check.json，仅覆盖trace文本条目；保留此前一次trace暂停告警，不抹除历史。
+- 2026-10-18 结构复核runtime-pause.json active=true、browserClosed=true、runnerResidual=NONE；checkpoint明确INCOMPLETE及剩余四项。停止本轮，无等待循环、不更新共享gate、不重启服务、不发送其它chat消息、不调用update_goal paused。
+- 2026-10-18 Root恢复：新运行SHA bf2fd4962d74a923cca3bbf869d87b5407031335f0c410c060c554975c07169f，8061/48061；本例runtime-pause.active=false，新run 2026-10-18T07-43-21-112Z。Config和A本人新context登录；回读配置角色、分类及已有项目产品，不重建。旧runtime证据保留。
+- runner恢复首轮DPAPI换行使空凭据进入脱敏器并污染manifest（无登录/业务请求）；立即关闭空browser，修复Trim/Stop及非空断言，移除空字符串红字插入恢复manifest并断言7账号/已完成项目身份。无密码重置，无重复业务对象。
+- 配置已通过真实UI创建DCC241016C18T3/T4/T5三层分类、DCC241016C18CAT自定义审批类别并绑定DCC241016C18DIR、9条类别权限；分页回查确认类别实际保存，没有重复保存。16份独立标记PDF已生成、提取文本断言通过并视觉检查总览。
+- 初次审批路线预检显示S/L/A/D缺少电子签名授权与签名图片，源件尚未上传。通过管理员正式用户授权页仅开启本例U/S/L/C/A/D签名授权；给本例三个角色增加既有“我的签名”菜单900218/900418，由业务人本人登录配置图片。未新建菜单、未修改共享角色或生产源码。
+- 2026-10-18 PARTIAL基线正式提交：file2054545668044084232、BPM0a3b05d4-cace-11f1-a035-b082e25ec548。S签名、L指派C、C会签、A批准保留原负责人U、D文控审核全部经本人真实UI完成。当前流程页面明确D之后才进入培训。
+- 培训绑定点击2026-10-18 16:51:44.327495 +08:00，来自Playwright时钟还原；自然POST /admin-api/dcc/controlled-files/2054545668044084232/training-record，原文件DCC241016C18-PARTIAL-OLD-TRAINING.pdf，ticket已返回，不输出ticket。页面首次显示30秒timeout，未重传/重绑；同一管理详情真实回查证明A/1受控（已生效）/ACTIVE，证据文件名匹配，自动下发完成。精确截图PARTIAL-exact-detail-loaded-after-training-timeout.png。Root数据库核对仅作恢复佐证。
+- 全域浏览另报30秒timeout并清空旧结果；只读线程快照显示浏览候选反复调用目录/分配授权链，无数据库写入、服务操作或超时调整。后续本人新登录也超时，未推进检出，不创建新业务对象。
+- Root唯一分配最小行为RED：在DccControlledFileQueryServiceTest新增getControlledFileBrowserPage_readsDirectoryGrantsOncePerRequestAndRechecksRevocation，复用现有fixture，真实getControlledFileBrowserPage四候选验证QUERY/PREVIEW放行、拒绝、每请求读取一次，第二请求撤权重读。正文详情作为独立拒绝port，避免计数扩大到非browser守卫；未修改生产源码、未运行Maven。git diff --check目标文件PASS，仅换行提示。RED/GREEN均待Root实际执行，不冒充通过。交接browser-directory-grants-red-handoff.md。
+- 2026-10-18 性能RED已完整冻结，performance-red-frozen.json记录精确方法及Java文件哈希；Root串行执行RED期间不再改Java。本轮8个context/browser正常关闭、runner退出0、traceErrors/cleanupErrors均为空、原47472/2568无残留。Root后续准许原UI回读与检出，使用新run，不重建已完成业务。
+- 2026-10-18 Root确认有效RED：1test/1failure/0error，实际browser返回正确3行且正文预览/下载拒绝断言通过，QUERY集合wanted1实际多次。Root授权本例独占QueryServiceImpl最小GREEN。
+- GREEN实现仅普通browser候选过滤局部按accessType懒加载EnumMap；私有canAccessQuery新增6参重载，原4/5参保留并传null使用原无缓存目录助手；原3参hasAuthorizedDirectoryAccess未改，新增4参助手保留Objects.requireNonNull与异常传播、QUERY/PREVIEW短路顺序及无目录不读取规则。未修改目录服务、二进制guard、SQL、全局超时、DB池或共享字段缓存。原行为测试未再编辑。静态diff检查PASS，performance-green-frozen.json记精确文件/哈希；本例未运行Maven，等待Root GREEN。
+- 新run-2026-10-18T09-38-09-129Z本人登录并再次回读A/1受控及培训证据后，从详情正式检出/检入入口得到精确workingFileId2054545668044084232 / workingMasterId2054545668044079204浏览行；通过理由确认真实检出，UI显示DCC241016C18U于2026-10-18 17:47:25检出。检入弹窗随后消失，脚本在checkbox等待处结束，尚未执行setInputFiles或检入提交；无新临时源件/草稿，保留当前检出，恢复时不可重复检出/培训绑定。business-checkpoint.json已更新。
+- 2026-10-18 本轮2个context/browser正常关闭并保存trace，runner31948退出0且无残留，traceErrors/cleanupErrors为空；保留原文件当前检出，待Root性能GREEN/运行态通知后继续检入，未提交或推送。
+- 2026-10-18 Root回传性能GREEN实测：1test/0failure/0error/0skip；同页QUERY/PREVIEW各读取一次，第二独立请求撤权后结果0且两集合重新读取。生产/测试继续冻结，邻近getControlledFileBrowserPage*及custom/working数据库回归由Root统一执行。运行PID25996仍为旧查询代码，原真实UI超时证据保留，不声明已部署或页面性能已修。A/1 ACTIVE已检出断点不变。
+- 2026-10-18 按Root已核实命名夹具约束，检入必须保留原sourceOriginalFileName完整basename/后缀/大小写。PARTIAL原件DCC241016C18-PARTIAL-OLD-BODY.pdf，新正文内容复制到本例assets/PARTIAL/NEW下同basename；旧/新哈希不同，原NEW正文标记保留。普通附件/培训仍用各版独立名称。未上传、未生成新业务数据、未放宽guard、未修改冻结Java；原已检出断点保留。
+- 2026-10-18 Root review及邻近回归通过：getControlledFileBrowserPage*全部12test/0failure/0error，CustomRejected42全绿。SelectedWorking两处旧submit请求缺附件manifest由21仅修测试调用，本例Query与性能测试继续冻结。未部署：PID25996仍旧查询实现，不能声明真实页面性能已修；保持原file2054545668044084232检出断点，待统一包后复验原UI超时及续跑检入。
+- 2026-10-18 Root明确放行新运行PID34440/SHA264efbd4ee539115f1a7d5b43941029a2fd7a03f03b7df9d9e8964d8cf3ffeb5；新context本人回读A/1受控、原培训名及U原检出均一致，manifest仅在UI成功后更新runtime。存储目录→全域原触发页仍显示列表数据已失效/timeout of 30000ms exceeded，60秒等待目标行失败；截图original-global-browser-retest-failure.png，真实UI性能回归FAIL，不以12项单测PASS代替。原精确检出入口正常，继续原业务；只读线程快照留证，无生产修改/服务操作。
+- 2026-10-18 Root唯一授权电子分发查询行为RED：BDD后仅新增QueryServiceTest#getControlledFileBrowserPage_readsElectronicRecipientsOncePerRequestAndRechecksRevocation，真实browser多候选，目录/matrix拒绝，电子分发只放行2份ACTIVE；pending即使有receipt也拒绝、外租户receipt不读取；本请求bulk1/per-file count0、下一请求撤权立即0且重读。复用既有fixture，无生产改动、无Maven。diff检查PASS，测试完整冻结，待Root有效RED。自然GET发出2026-10-18 21:39:52.679，30.009s后ERR_ABORTED；6秒采栈落在hasActiveElectronicDistributionAccess/count查询，详见global-natural-request-window.json及本轮global-at-6s-dcc-http-threads.txt。
+- 2026-10-18 本轮真实UI已完成同名新正文及两普通附件检入，创建工作稿2054545668044084246，正式基线/直接来源均4232，页面显示草稿；工作入口预览命中DCC241016C18 PARTIAL NEW BODY、OLD标记无匹配，685×969画布625点采样7点非白。PARTIAL申请面板已选4246和局部变更、目标A/2，尚未正式提交/BPM未新建。绑定附件/源件已保存，无待清理临时票据，不能重检入/重绑原培训。2个本人context/browser正常关闭，runner35340退出0无残留，traceErrors/cleanupErrors为空。
+- 2026-10-18 Root实测电子分发行为RED：exit1，1test/1failure/0error/0skip，先通过可见2行/待审与外租户拒绝，失败为bulk未调用。Root批准后仅修改QueryServiceImpl：browserSummary候选局部HashSet通过当前TenantContext/user调用已有selectActiveElectronicControlledFileIdsByUserId一次，Objects.requireNonNull不吞异常；私有7参canAccessQuery/4参canAccessBrowseScope/3参hasActiveElectronicDistributionAccess接收本请求Set，保留ACTIVE、原授权短路和旧count入口；原目录EnumMap保留。无Mapper/SQL/全局缓存/ThreadLocal/策略类/keyword前移。测试哈希与RED冻结一致，diff检查PASS；实现完整冻结于electronic-recipients-green-frozen.json，本线程未运行Maven。当前34440未部署此修复，全域UI缺陷仍待实际回归。原工作稿4246和基线4232保持。
+- 2026-10-18 Root回传57项实际GREEN：13 getBrowserPage、17真实签收事务、22绑定、5ack消费者，均0failure/error/skip；电子资格Set实现接受。Query/历史读修复唯一写权转交23，本例不再改生产或QueryTest，不构建/重启/回滚。当前34440仍200656旧电子资格实现，未部署不宣称全域性能已修。保留原工作稿4246，下一包放行后复验同一global自然查询及升版，不重建/重复检入。
+- 2026-10-19 旧包14864原正式项目/文件夹入口回读A/1受控成功；该行浏览按钮真实disabled，不force。PDF证据脚本在点击失败后留下popup Promise未处理，runner退出1；修正为先断言按钮enabled，再Promise.all等待popup/click，保留原失败及未正常关闭trace状态，不伪装旧正文预览PASS。仅改本例E2E helper，未改Query/QueryTest、权限或生产。业务草稿4246不重建。
+- 2026-10-19 继续时先核对共享最新事实：Root已完成原两参数A1/4232→A2/4252→B1/4256，草稿4246/4255，完整签名/本版培训/终态及逐版正文、两附件和培训内容预览均PASS，原root-integrated-result.json保留。R28后续在22原C/A/D签名真实复验PASS（协调e2e28-reading-close-root-review.json），撤回本例过期“R28未关闭”结论。reconcile-final-evidence.py对已存页面事实/身份/隔离字段、17张PNG、28份trace索引/脱敏收据核对PASS，不是新E2E。旧报告与断点另存历史；当前验证报告和checkpoint更新为业务两参数PASS、工程blocked。当前环境恢复gate未放行，不重跑已通过业务、不重建文件/检入/培训/签名，不触碰Root/23生产文件。cleanup preview实际exit3，原因blocked状态，未apply、零删除；缺Git当轮授权，未提交/推送、不标completed。

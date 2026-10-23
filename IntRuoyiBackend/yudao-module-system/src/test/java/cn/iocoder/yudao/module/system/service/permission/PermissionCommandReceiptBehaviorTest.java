@@ -63,6 +63,10 @@ class PermissionCommandReceiptBehaviorTest {
         ReflectionTestUtils.setField(service, "userRoleMapper", userRoles);
         ReflectionTestUtils.setField(service, "roleService", roles);
         ReflectionTestUtils.setField(service, "menuService", mock(MenuService.class));
+        var authority = mock(cn.iocoder.yudao.module.system.api.permission.ApprovalAuthorityApi.class);
+        when(authority.lockTenantApprovalAuthority(91L)).thenReturn(
+                new cn.iocoder.yudao.module.system.api.permission.dto.ApprovalAuthorityRevisionDTO(91L, 1L));
+        ReflectionTestUtils.setField(service, "approvalAuthority", authority);
         // Real protocol with explicit SQL-port doubles; the separate H2 class proves persistence.
         PermissionCommandProtocol protocol = new PermissionCommandProtocol();
         receipts = mock(PermissionCommandReceiptMapper.class);
@@ -103,6 +107,21 @@ class PermissionCommandReceiptBehaviorTest {
 
     @AfterEach
     void cleanup() { TenantContextHolder.clear(); SecurityContextHolder.clearContext(); }
+
+    @ParameterizedTest @EnumSource(Operation.class)
+    void localModeUsesPackagedPolicyForAllThreePermissionCommands(Operation op) {
+        var protocol = (PermissionCommandProtocol) ReflectionTestUtils.getField(service, "permissionCommandProtocol");
+        var environment = new org.springframework.mock.env.MockEnvironment().withProperty(
+                "spring.datasource.dynamic.datasource.master.url", "jdbc:mysql://127.0.0.2:23306/local");
+        environment.setActiveProfiles("local");
+        var policy = new cn.iocoder.yudao.module.system.service.gxpaudit.GxpLocalDevelopmentPolicy(environment,
+                new cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditPolicyBundleLoader());
+        ReflectionTestUtils.setField(protocol, "localDevelopmentPolicy", policy);
+        invoke(op, "local-permission-command");
+        verifyNoInteractions(ReflectionTestUtils.getField(protocol, "activations"), ReflectionTestUtils.getField(protocol, "operations"));
+        verify(audit).append(any());
+        verify(receipts).insert(any());
+    }
 
     @ParameterizedTest @EnumSource(Operation.class)
     void digestIndexHitMustStillMatchOriginalKeyBytes(Operation op) throws Exception {

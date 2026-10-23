@@ -7,6 +7,7 @@ import cn.iocoder.yudao.framework.common.pojo.PageResult;
 import cn.iocoder.yudao.framework.common.util.date.DateUtils;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.framework.test.core.ut.BaseDbAndRedisUnitTest;
+import cn.iocoder.yudao.module.infra.api.config.ConfigApi;
 import cn.iocoder.yudao.module.system.controller.admin.oauth2.vo.token.OAuth2AccessTokenPageReqVO;
 import cn.iocoder.yudao.module.system.dal.dataobject.oauth2.OAuth2AccessTokenDO;
 import cn.iocoder.yudao.module.system.dal.dataobject.oauth2.OAuth2ClientDO;
@@ -62,6 +63,8 @@ public class OAuth2TokenServiceImplTest extends BaseDbAndRedisUnitTest {
     private OAuth2ClientService oauth2ClientService;
     @MockitoBean
     private AdminUserService adminUserService;
+    @MockitoBean
+    private ConfigApi configApi;
 
     @BeforeEach
     void setExplicitTenant() {

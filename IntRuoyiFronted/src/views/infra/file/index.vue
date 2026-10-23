@@ -124,6 +124,22 @@
           </el-button>
           <el-button
             link
+            type="primary"
+            @click="openUploadTimeForm(scope.row)"
+            v-hasPermi="['intern-user:time-maintenance:file-upload-time:update']"
+          >
+            <Icon icon="ep:edit" class="mr-4px" />修改时间
+          </el-button>
+          <el-button
+            link
+            type="primary"
+            @click="openUploadTimeAudit(scope.row)"
+            v-hasPermi="['intern-user:time-maintenance:file-upload-time-audit:query']"
+          >
+            <Icon icon="ep:document-checked" class="mr-4px" />修改审计
+          </el-button>
+          <el-button
+            link
             type="danger"
             :disabled="isProtectedShowroomFile(scope.row)"
             title="展厅文件配置 28 的 showroom/ 媒体受保护，禁止在文件管理页删除"
@@ -146,6 +162,8 @@
 
   <!-- 表单弹窗：添加/修改 -->
   <FileForm ref="formRef" @success="getList" />
+  <FileUploadTimeForm ref="uploadTimeFormRef" @success="getList" />
+  <InternUserTimeAuditDialog ref="timeAuditDialogRef" />
 </template>
 <script lang="ts" setup>
 import { isSearchFormInputEmpty } from '@/utils/search'
@@ -153,6 +171,8 @@ import { fileSizeFormatter } from '@/utils'
 import { dateFormatter } from '@/utils/formatTime'
 import * as FileApi from '@/api/infra/file'
 import FileForm from './FileForm.vue'
+import FileUploadTimeForm from './FileUploadTimeForm.vue'
+import InternUserTimeAuditDialog from '@/views/intern-user/time-maintenance/InternUserTimeAuditDialog.vue'
 import { useClipboard } from '@vueuse/core'
 
 defineOptions({ name: 'InfraFile' })
@@ -219,6 +239,16 @@ const resetQuery = () => {
 const formRef = ref()
 const openForm = () => {
   formRef.value.open()
+}
+
+const uploadTimeFormRef = ref()
+const openUploadTimeForm = (row) => {
+  uploadTimeFormRef.value.open(row)
+}
+
+const timeAuditDialogRef = ref()
+const openUploadTimeAudit = (row) => {
+  timeAuditDialogRef.value.open('fileUploadTime', row.id, '上传时间修改审计')
 }
 
 /** 复制到剪贴板方法 */

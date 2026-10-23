@@ -1028,6 +1028,12 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
         return new MesProRouteProcessDeviceParameterRespVO()
                 .setCraftId(processConfig.getLong("craftId"))
                 .setCraftCode(processConfig.getString("craftCode"))
+                .setCraftBindings(cn.iocoder.yudao.module.mes.service.pro.craft.MesProCraftParameters.bindings(processConfig)
+                        .stream().map(binding -> {
+                            JSONObject result = new JSONObject(true);
+                            for (String key : List.of("craftId", "craftCode", "craftDeviceIds")) result.put(key, binding.get(key));
+                            return result;
+                        }).toList())
                 .setRouteVersionId(context.version().getId())
                 .setRouteSnapshotSha256(context.version().getRouteSnapshotSha256())
                 .setRouteProcessId(routeProcessId)

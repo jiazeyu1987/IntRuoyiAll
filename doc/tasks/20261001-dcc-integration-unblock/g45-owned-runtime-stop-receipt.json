@@ -1,0 +1,11 @@
+{
+  "status": "ONLY_OWNED_INTEGRATION_SLOT6_SERVICES_STOPPED_FOR_SINGLE_TRUNK_CONSOLIDATION",
+  "backendPid": 55612,
+  "frontendPid": 42328,
+  "backendPort": 48067,
+  "frontendPort": 8067,
+  "jarSha256": "fda108fddb591158f47d2f1352d732ce56fa1f262714fa4bec37c311cee3d617",
+  "taskPlaywrightSessionNaturallyClosed": true,
+  "otherProcessesStopped": false,
+  "existingDockerDependenciesKeptRunning": true
+}

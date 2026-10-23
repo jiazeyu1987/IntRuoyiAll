@@ -14,6 +14,7 @@ import org.aspectj.lang.annotation.Aspect;
 
 import java.util.List;
 import java.util.Map;
+import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -42,6 +43,8 @@ public class TenantJobAspect {
 
         // 逐个租户，执行 Job
         Map<Long, String> results = new ConcurrentHashMap<>();
+        Map<Long, Throwable> failures = new ConcurrentHashMap<>();
+        boolean failOnError = tenantJob.failOnError();
         tenantIds.parallelStream().forEach(tenantId -> {
             // TODO 芋艿：先通过 parallel 实现并行；1）多个租户，是一条执行日志；2）异常的情况
             TenantUtils.execute(tenantId, () -> {
@@ -51,9 +54,19 @@ public class TenantJobAspect {
                 } catch (Throwable e) {
                     log.error("[execute][租户({}) 执行 Job 发生异常", tenantId, e);
                     results.put(tenantId, ExceptionUtil.getRootCauseMessage(e));
+                    if (failOnError) failures.put(tenantId, e);
                 }
             });
         });
+        if (!failures.isEmpty()) {
+            Map<Long, Throwable> orderedFailures = new TreeMap<>(failures);
+            String summary = orderedFailures.entrySet().stream()
+                    .map(entry -> "tenant=" + entry.getKey() + ": " + ExceptionUtil.getRootCauseMessage(entry.getValue()))
+                    .collect(java.util.stream.Collectors.joining("; "));
+            IllegalStateException failure = new IllegalStateException("Tenant job failed: " + summary);
+            orderedFailures.values().forEach(failure::addSuppressed);
+            throw failure;
+        }
         return JsonUtils.toJsonString(results);
     }
 

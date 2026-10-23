@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- V6 exact delayed confirmation candidate. Existing V4/V5 deployments remain immutable. -->
+<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL"
+             xmlns:flowable="http://flowable.org/bpmn"
+             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+             targetNamespace="urn:int-ruoyi:dcc:controlled-file:v6">
+  <process id="dcc-controlled-file-revision" name="DCC受控文件升版审批" isExecutable="true">
+    <startEvent id="StartEvent" name="提交升版" />
+    <sequenceFlow id="start_supervisor" sourceRef="StartEvent" targetRef="SUPERVISOR_REVIEW" />
+    <userTask id="SUPERVISOR_REVIEW" name="直接主管独立审核与签名">
+      <extensionElements>
+        <flowable:candidateStrategy>35</flowable:candidateStrategy>
+        <flowable:approveMethod>1</flowable:approveMethod>
+      </extensionElements>
+    </userTask>
+    <sequenceFlow id="supervisor_matrix" sourceRef="SUPERVISOR_REVIEW" targetRef="MATRIX_REVIEW" />
+    <userTask id="MATRIX_REVIEW" name="部门负责人签名指派与实际会签">
+      <extensionElements>
+        <flowable:candidateStrategy>34</flowable:candidateStrategy>
+        <flowable:approveMethod>2</flowable:approveMethod>
+        <flowable:approveRatio>100</flowable:approveRatio>
+      </extensionElements>
+      <multiInstanceLoopCharacteristics isSequential="false">
+        <loopCardinality>${PROCESS_DCC_TASK_OBLIGATION_IDS["MATRIX_REVIEW"].size()}</loopCardinality>
+        <completionCondition>${nrOfCompletedInstances == nrOfInstances}</completionCondition>
+      </multiInstanceLoopCharacteristics>
+    </userTask>
+    <sequenceFlow id="matrix_approval" sourceRef="MATRIX_REVIEW" targetRef="MATRIX_APPROVAL" />
+    <userTask id="MATRIX_APPROVAL" name="批准并确认文件负责人">
+      <extensionElements>
+        <flowable:candidateStrategy>34</flowable:candidateStrategy>
+        <flowable:approveMethod>1</flowable:approveMethod>
+      </extensionElements>
+    </userTask>
+    <sequenceFlow id="approval_doc_control" sourceRef="MATRIX_APPROVAL" targetRef="DOC_CONTROL_REVIEW" />
+    <userTask id="DOC_CONTROL_REVIEW" name="文控标准化审核与签名">
+      <extensionElements>
+        <flowable:candidateStrategy>34</flowable:candidateStrategy>
+        <flowable:approveMethod>1</flowable:approveMethod>
+      </extensionElements>
+    </userTask>
+    <sequenceFlow id="doc_control_training_gateway" sourceRef="DOC_CONTROL_REVIEW" targetRef="NeedTrainingGateway" />
+    <exclusiveGateway id="NeedTrainingGateway" name="本次是否需要培训" />
+    <sequenceFlow id="needs_training" sourceRef="NeedTrainingGateway" targetRef="TRAINING">
+      <conditionExpression xsi:type="tFormalExpression">${needTraining == true}</conditionExpression>
+    </sequenceFlow>
+    <sequenceFlow id="no_training" sourceRef="NeedTrainingGateway" targetRef="EffectiveModeGateway">
+      <conditionExpression xsi:type="tFormalExpression">${needTraining == false}</conditionExpression>
+    </sequenceFlow>
+    <receiveTask id="TRAINING" name="负责人组织培训，上传人保存记录" />
+    <sequenceFlow id="training_end" sourceRef="TRAINING" targetRef="EffectiveModeGateway" />
+    <exclusiveGateway id="EffectiveModeGateway" name="本次生效方式" />
+    <sequenceFlow id="immediate_end" sourceRef="EffectiveModeGateway" targetRef="EndEvent">
+      <conditionExpression xsi:type="tFormalExpression">${effectiveMode == 'AFTER_STANDARDIZATION_SIGNATURE'}</conditionExpression>
+    </sequenceFlow>
+    <sequenceFlow id="delayed_confirm" sourceRef="EffectiveModeGateway" targetRef="DELAYED_EFFECTIVE_CONFIRM">
+      <conditionExpression xsi:type="tFormalExpression">${effectiveMode == 'DELAYED'}</conditionExpression>
+    </sequenceFlow>
+    <userTask id="DELAYED_EFFECTIVE_CONFIRM" name="延迟生效确认">
+      <extensionElements>
+        <flowable:candidateStrategy>35</flowable:candidateStrategy>
+        <flowable:approveMethod>1</flowable:approveMethod>
+      </extensionElements>
+    </userTask>
+    <sequenceFlow id="confirmed_end" sourceRef="DELAYED_EFFECTIVE_CONFIRM" targetRef="EndEvent" />
+    <endEvent id="EndEvent" name="进入受控处理" />
+  </process>
+</definitions>

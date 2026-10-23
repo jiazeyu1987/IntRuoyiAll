@@ -6,7 +6,7 @@
         <div class="dcc-workbench-updated">更新时间：{{ lastLoadedAt || '-' }}</div>
       </div>
       <div class="dcc-workbench-actions">
-        <el-button :loading="loading || impactLoading" @click="refreshWorkbench">
+        <el-button :loading="loading || impactLoading || pendingDistributionState.loading" @click="refreshWorkbench">
           <Icon icon="ep:refresh-right" class="mr-5px" />
           刷新
         </el-button>
@@ -39,21 +39,34 @@
 
     <div v-loading="loading" class="dcc-workbench-metric-grid">
       <button
-        v-for="metric in metricItems"
+        v-for="metric in visibleMetricItems"
         :key="metric.key"
         class="dcc-workbench-metric"
         :class="`dcc-workbench-metric--${metric.tone}`"
         type="button"
-        @click="openPath(metric.routePath)"
+        @click="openWorkbenchMetric(metric)"
       >
-        <span class="dcc-workbench-metric__label">{{ metric.label }}</span>
-        <span class="dcc-workbench-metric__count">{{ metric.count }}</span>
+        <span class="dcc-workbench-metric__label">{{ metric.key === 'pendingDistributionTotal' && pendingDistributionState.remindersOnly ? `${metric.label}（提醒）` : metric.label }}</span>
+        <span class="dcc-workbench-metric__count">{{ metric.key === 'pendingDistributionTotal' ? pendingDistributionState.total ?? '—' : metric.count ?? '—' }}</span>
       </button>
     </div>
   </ContentWrap>
 
   <div class="dcc-workbench-panel-grid">
-    <ContentWrap class="dcc-workbench-panel">
+    <ContentWrap v-if="canReadOfflineTrainingTodos" class="dcc-workbench-panel" data-testid="dcc-workbench-offline-training-records">
+      <div class="dcc-workbench-panel__header">
+        <div class="dcc-workbench-panel__title">待本次上传人上传线下培训记录（{{ offlineTrainingLoading || offlineTrainingError ? '—' : offlineTrainingRows.length }}）</div>
+        <el-button :loading="offlineTrainingLoading" link @click="loadOfflineTrainingTodos">刷新</el-button>
+      </div>
+      <el-alert v-if="offlineTrainingError" :title="offlineTrainingError" type="error" :closable="false" />
+      <el-table v-else v-loading="offlineTrainingLoading" :data="offlineTrainingRows" row-key="id" empty-text="暂无待上传线下培训记录">
+        <el-table-column prop="fileName" label="文件" min-width="160" />
+        <el-table-column prop="fileNumber" label="文件编号" min-width="130" />
+        <el-table-column prop="versionNo" label="本次版本" width="100" />
+        <el-table-column label="操作" min-width="150"><template #default="{ row }"><el-button data-testid="dcc-offline-training-open" link type="primary" @click="openOfflineTrainingRecord(row)">上传线下培训记录</el-button></template></el-table-column>
+      </el-table>
+    </ContentWrap>
+    <ContentWrap v-if="canReadLegacyApprovalTodos" class="dcc-workbench-panel">
       <div class="dcc-workbench-panel__header">
         <div class="dcc-workbench-panel__title">我的审批待办</div>
         <el-button link type="primary" @click="openPath('/approval-center?moduleCode=DCC&viewType=TODO')">
@@ -61,7 +74,8 @@
         </el-button>
       </div>
       <el-table
-        v-loading="loading"
+        v-if="!legacySectionState.approval.error"
+        v-loading="legacySectionState.approval.loading"
         :data="approvalTodoRows"
         empty-text="暂无审批待办"
         size="small"
@@ -94,33 +108,24 @@
           </template>
         </el-table-column>
       </el-table>
+      <el-alert v-else :title="legacySectionState.approval.error" type="error" :closable="false" />
     </ContentWrap>
 
-    <ContentWrap class="dcc-workbench-panel">
+    <ContentWrap v-if="canHandleWorkflowDistribution" id="dcc-workbench-pending-distribution" class="dcc-workbench-panel">
       <div class="dcc-workbench-panel__header">
         <div class="dcc-workbench-panel__title">待文控下发</div>
-        <el-button link type="primary" @click="openPath('/dcc/controlled-file/browser')">全部</el-button>
       </div>
-      <el-table
-        v-loading="loading"
-        :data="pendingDistributionRows"
-        empty-text="暂无待下发文件"
-        size="small"
-      >
-        <el-table-column label="文件" min-width="220" prop="title" show-overflow-tooltip />
-        <el-table-column label="编号" min-width="150" prop="fileNumber" show-overflow-tooltip />
-        <el-table-column label="时间" width="170" prop="timeText" />
-        <el-table-column label="操作" align="center" width="90">
-          <template #default="{ row }">
-            <el-button link type="primary" :title="row.actionBlockReason" @click="openFileDetail(row.id)">
-              {{ row.primaryActionText }}
-            </el-button>
-          </template>
-        </el-table-column>
-      </el-table>
+      <PendingWorkflowDistributionList
+        ref="pendingDistributionPanel"
+        :context-key="workflowDistributionContextKey"
+        :can-handle="canHandleWorkflowDistribution"
+        :load="loadPendingWorkflowDistribution"
+        @state="capturePendingDistributionState"
+        @open="openPendingWorkflowDistribution"
+      />
     </ContentWrap>
 
-    <ContentWrap class="dcc-workbench-panel">
+    <ContentWrap v-if="canReadLegacyTrainingTodos" class="dcc-workbench-panel">
       <div class="dcc-workbench-panel__header">
         <div class="dcc-workbench-panel__title">待培训确认</div>
         <el-button link type="primary" @click="openPath('/dcc/controlled-file/training-mine')">
@@ -128,7 +133,8 @@
         </el-button>
       </div>
       <el-table
-        v-loading="loading"
+        v-if="!legacySectionState.training.error"
+        v-loading="legacySectionState.training.loading"
         :data="trainingTodoRows"
         empty-text="暂无培训任务"
         size="small"
@@ -168,17 +174,19 @@
           </template>
         </el-table-column>
       </el-table>
+      <el-alert v-else :title="legacySectionState.training.error" type="error" :closable="false" />
     </ContentWrap>
 
-    <ContentWrap class="dcc-workbench-panel dcc-workbench-panel--wide">
+    <ContentWrap v-if="canReadLegacyFinalizationFailed" class="dcc-workbench-panel dcc-workbench-panel--wide">
       <div class="dcc-workbench-panel__header">
-        <div class="dcc-workbench-panel__title">发布失败</div>
+        <div class="dcc-workbench-panel__title">生效失败</div>
         <el-button link type="primary" @click="openPath('/dcc/controlled-file/browser')">全部</el-button>
       </div>
       <el-table
-        v-loading="loading"
+        v-if="!legacySectionState.finalization.error"
+        v-loading="legacySectionState.finalization.loading"
         :data="finalizationFailedRows"
-        empty-text="暂无发布失败"
+        empty-text="暂无生效失败"
         size="small"
       >
         <el-table-column label="文件" min-width="260" prop="title" show-overflow-tooltip />
@@ -192,6 +200,7 @@
           </template>
         </el-table-column>
       </el-table>
+      <el-alert v-else :title="legacySectionState.finalization.error" type="error" :closable="false" />
     </ContentWrap>
 
     <ContentWrap
@@ -295,24 +304,26 @@
   >
     <el-alert v-if="revisionDialog.error" role="alert" type="error" :closable="false" :title="revisionDialog.error" />
     <div v-loading="revisionDialog.loading" class="revision-dialog-body">
-      <template v-if="revisionDialog.options?.openMajorRevision">
-        <el-alert type="info" :closable="false" show-icon title="当前文件已有开放大版本，只能关联现有版本" />
-        <div class="revision-existing">
-          {{ revisionDialog.options.openMajorRevision.versionNo }} / {{ controlledFileStatusLabel(revisionDialog.options.openMajorRevision.status) }}
-        </div>
+      <template v-if="revisionDialog.options?.sourceIterations?.length">
+        <el-alert type="info" :closable="false" show-icon title="请选择需要关联的现有升版版本" />
+        <el-radio-group v-model="revisionDialog.selectedRevisionControlledFileId" class="revision-existing-list">
+          <el-radio
+            v-for="item in revisionDialog.options.sourceIterations"
+            :key="item.controlledFileId"
+            :label="item.controlledFileId"
+            border
+          >
+            {{ getWorkbenchImpactVersionLabel(item) }} / {{ controlledFileStatusLabel(item.status) }}
+            <el-tag v-if="item.controlledFileId === revisionDialog.options.openMajorRevision?.controlledFileId" size="small" type="success">
+              当前开放大版本
+            </el-tag>
+          </el-radio>
+        </el-radio-group>
       </template>
-      <el-form v-else label-position="top">
-        <el-form-item label="选择来源小版本" required>
-          <el-select v-model="revisionDialog.sourceControlledFileId" class="w-100%" placeholder="请选择 A/1、A/2 等来源版本">
-            <el-option
-              v-for="option in revisionDialog.options?.sourceIterations || []"
-              :key="option.controlledFileId"
-              :label="`${option.versionNo} / ${controlledFileStatusLabel(option.status)}`"
-              :value="option.controlledFileId"
-            />
-          </el-select>
-        </el-form-item>
-      </el-form>
+      <el-alert
+        v-else type="warning" :closable="false" show-icon
+        title="尚无开放大版本。请先到文件浏览中检出该文件，并在检入时选择“大版本”，再返回此处关联。"
+      />
       <el-form label-position="top">
         <el-form-item label="升版或关联原因" required>
           <el-input v-model="revisionDialog.reason" type="textarea" :rows="3" maxlength="1000" show-word-limit />
@@ -321,19 +332,30 @@
     </div>
     <template #footer>
       <el-button :disabled="revisionDialog.submitting" @click="revisionDialog.visible = false">取消</el-button>
-      <el-button type="primary" :loading="revisionDialog.submitting" :disabled="revisionDialog.loading" @click="submitImpactRevision">
-        {{ revisionDialog.options?.openMajorRevision ? '关联现有版本' : '创建大版本' }}
+      <el-button
+        type="primary" :loading="revisionDialog.submitting"
+        :disabled="revisionDialog.loading || !revisionDialog.selectedRevisionControlledFileId" @click="submitImpactRevision"
+      >
+        关联现有版本
       </el-button>
     </template>
   </el-dialog>
 </template>
 
 <script lang="ts" setup>
+import PendingWorkflowDistributionList from '../workflow/PendingWorkflowDistributionList.vue'
+import { isWorkflowId, type PendingWorkflowDistributionFile } from '../workflow/workflow-actions'
+import { getPendingWorkflowDistribution } from '@/api/dcc/controlledFile/workflowLifecycle'
+import { useUserStore } from '@/store/modules/user'
+import { getTenantId, getVisitTenantId } from '@/utils/auth'
 import { ElMessageBox } from 'element-plus'
 import * as TaskApi from '@/api/bpm/task'
 import { getProcessInstance, type ProcessInstanceVO } from '@/api/bpm/processInstance'
 import {
+  CONTROLLED_FILE_OBSOLETE_PROCESS_DEFINITION_KEY,
   CONTROLLED_FILE_PROCESS_DEFINITION_KEY,
+  CONTROLLED_FILE_REVISION_PROCESS_DEFINITION_KEY,
+  CONTROLLED_FILE_UPLOAD_PROCESS_DEFINITION_KEY,
   EXTERNAL_FILE_REVIEW_PROCESS_DEFINITION_KEY,
   getControlledFile,
   getControlledFileBrowserPage,
@@ -342,7 +364,6 @@ import {
 import { getMyTrainingTaskPage, type TrainingTaskProgressVO } from '@/api/dcc/controlledFile/training'
 import { formatDateTimeValue } from '@/utils/formatTime'
 import {
-  createImpactRevision,
   decideImpactTask,
   getImpactRevisionOptions,
   getMyImpactTaskPage,
@@ -362,6 +383,7 @@ import {
 } from '../shared/publicationFollowupPresentation'
 import {
   buildDccWorkbenchMetricItems,
+  getWorkbenchImpactVersionLabel,
   resolveWorkbenchErrorMessage,
   toWorkbenchFileRow,
   toWorkbenchTrainingRow,
@@ -369,6 +391,10 @@ import {
   type DccWorkbenchMetricItem,
   type DccWorkbenchTrainingRow
 } from './presentation'
+
+import { watch, onBeforeUnmount } from 'vue'
+import { getApprovalTaskPage } from '@/api/approval-center'
+import { DCC_WORKBENCH_PATH, loadOfflineTrainingRecordTodos, resolveOfflineTrainingRecordLocation, type OfflineTrainingRecordTodo } from '@/utils/dccOfflineTrainingRecord'
 
 defineOptions({ name: 'DccControlledFileWorkbench' })
 
@@ -397,17 +423,104 @@ interface DccWorkbenchTaskRow {
 
 const route = useRoute()
 const router = useRouter()
+const userStore = useUserStore()
+const offlineTrainingRows = ref<OfflineTrainingRecordTodo[]>([])
+const offlineTrainingLoadedContext = ref('')
+const offlineTrainingLoading = ref(false), offlineTrainingError = ref('')
+let offlineTrainingSequence = 0
+const canReadOfflineTrainingTodos = computed(() => userStore.getIsSetUser
+  && (userStore.getPermissions.has('bpm:task:query') || userStore.getPermissions.has('*:*:*')))
+const readOfflineTrainingContext = () => {
+  const tenant = getVisitTenantId() || getTenantId(), actor = userStore.getUser.id
+  return canReadOfflineTrainingTodos.value && route.path === DCC_WORKBENCH_PATH && isWorkflowId(tenant) && isWorkflowId(actor)
+    ? JSON.stringify([String(tenant), String(actor), route.fullPath]) : ''
+}
+const loadOfflineTrainingTodos = async () => {
+  const sequence = ++offlineTrainingSequence, context = readOfflineTrainingContext()
+  offlineTrainingRows.value = []; offlineTrainingLoadedContext.value = ''; offlineTrainingError.value = ''; offlineTrainingLoading.value = false
+  if (!canReadOfflineTrainingTodos.value || !context) return
+  const current = () => sequence === offlineTrainingSequence && context === readOfflineTrainingContext()
+  offlineTrainingLoading.value = true
+  try {
+    const rows = await loadOfflineTrainingRecordTodos(getApprovalTaskPage, current)
+    if (current()) { offlineTrainingRows.value = rows; offlineTrainingLoadedContext.value = context }
+  } catch (cause) {
+    if (current()) offlineTrainingError.value = cause instanceof Error ? cause.message : '线下培训记录待办读取失败，请查看接口错误'
+  } finally { if (sequence === offlineTrainingSequence) offlineTrainingLoading.value = false }
+}
+const openOfflineTrainingRecord = (row: OfflineTrainingRecordTodo) => {
+  const selected = offlineTrainingRows.value.find(item => item.id === row.id)
+  const context = readOfflineTrainingContext()
+  if (!selected || !context || offlineTrainingLoadedContext.value !== context || offlineTrainingLoading.value || offlineTrainingError.value) return
+  return router.push(resolveOfflineTrainingRecordLocation(selected.summary))
+}
+watch(() => [route.fullPath, String(userStore.getUser.id), canReadOfflineTrainingTodos.value], () => { void loadOfflineTrainingTodos() })
+onBeforeUnmount(() => { offlineTrainingSequence++; offlineTrainingRows.value = []; offlineTrainingLoadedContext.value = '' })
+const readWorkflowDistributionContext = () => {
+  const tenantId = getVisitTenantId() || getTenantId()
+  const userId = userStore.getUser.id
+  return isWorkflowId(tenantId) && isWorkflowId(userId) ? JSON.stringify([String(tenantId), String(userId)]) : ''
+}
+const workflowDistributionContextKey = computed(readWorkflowDistributionContext)
+const canHandleWorkflowDistribution = computed(() => userStore.getIsSetUser
+  && userStore.getRoles.includes('doc_control')
+  && (userStore.getPermissions.has('dcc:controlled-file:distribute') || userStore.getPermissions.has('*:*:*'))
+  && Boolean(workflowDistributionContextKey.value))
+const pendingDistributionPanel = ref<{ refresh: () => Promise<void> }>()
+const pendingDistributionState = reactive<{ total: number | null; loading: boolean; error: string; remindersOnly: boolean }>({
+  total: null, loading: false, error: '', remindersOnly: false
+})
+const capturePendingDistributionState = (state: typeof pendingDistributionState) => Object.assign(pendingDistributionState, state)
+const loadPendingWorkflowDistribution = async (remindersOnly: boolean) => {
+  if (!canHandleWorkflowDistribution.value) throw new Error('当前账号无文控下发办理资格')
+  const context = readWorkflowDistributionContext()
+  if (!context || context !== workflowDistributionContextKey.value)
+    throw new Error('文控待处置上下文已变化，请重新进入工作台')
+  const result = await getPendingWorkflowDistribution(remindersOnly)
+  if (!canHandleWorkflowDistribution.value || context !== readWorkflowDistributionContext())
+    throw new Error('文控待处置上下文已变化，请重新进入工作台')
+  return result
+}
+const openPendingWorkflowDistribution = (file: PendingWorkflowDistributionFile) => {
+  if (!canHandleWorkflowDistribution.value || readWorkflowDistributionContext() !== workflowDistributionContextKey.value
+    || !isWorkflowId(file.id) || file.distributedTime)
+    throw new Error('当前账号或文件不具备文控下发办理条件')
+  router.push({ path: `/dcc/controlled-file/detail/${String(file.id)}`,
+    query: { mode: 'manage', from: 'workbench', returnTo: route.fullPath } })
+}
 const loading = ref(false)
 const loadErrorMessage = ref('')
 const lastLoadedAt = ref('')
 const metricItems = ref<DccWorkbenchMetricItem[]>(buildDccWorkbenchMetricItems({
-  approvalTodoTotal: 0,
-  pendingDistributionTotal: 0,
-  trainingTodoTotal: 0,
-  finalizationFailedTotal: 0
+  approvalTodoTotal: null,
+  pendingDistributionTotal: null,
+  trainingTodoTotal: null,
+  finalizationFailedTotal: null
 }))
+const hasLegacyWorkbenchPermission = (permission: string) => userStore.getIsSetUser
+  && (userStore.getPermissions.has(permission) || userStore.getPermissions.has('*:*:*'))
+const canReadLegacyApprovalTodos = computed(() => hasLegacyWorkbenchPermission('bpm:task:query') && hasLegacyWorkbenchPermission('bpm:process-instance:query'))
+const canReadLegacyTrainingTodos = computed(() => hasLegacyWorkbenchPermission('dcc:controlled-file:training:mine'))
+const canReadLegacyFinalizationFailed = computed(() => hasLegacyWorkbenchPermission('dcc:controlled-file:query'))
+const legacySectionState = reactive<{ [key in 'approval' | 'training' | 'finalization']: { loading: boolean; error: string; total: number | null } }>({
+  approval: { loading: false, error: '', total: null },
+  training: { loading: false, error: '', total: null },
+  finalization: { loading: false, error: '', total: null }
+})
+let legacyWorkbenchSequence = 0
+const readLegacyWorkbenchContext = () => {
+  const tenant = getVisitTenantId() || getTenantId(), actor = userStore.getUser.id
+  return userStore.getIsSetUser && route.path === DCC_WORKBENCH_PATH && isWorkflowId(tenant) && isWorkflowId(actor)
+    ? JSON.stringify([String(tenant), String(actor), route.fullPath, canReadLegacyApprovalTodos.value, canReadLegacyTrainingTodos.value, canReadLegacyFinalizationFailed.value]) : ''
+}
 const approvalTodoRows = ref<DccWorkbenchTaskRow[]>([])
-const pendingDistributionRows = ref<DccWorkbenchFileRow[]>([])
+const visibleMetricItems = computed(() => metricItems.value.filter(metric => {
+  if (metric.key === 'pendingDistributionTotal') return canHandleWorkflowDistribution.value
+  if (metric.key === 'approvalTodoTotal') return canReadLegacyApprovalTodos.value
+  if (metric.key === 'trainingTodoTotal') return canReadLegacyTrainingTodos.value
+  if (metric.key === 'finalizationFailedTotal') return canReadLegacyFinalizationFailed.value
+  return false
+}))
 const trainingTodoRows = ref<DccWorkbenchTrainingRow[]>([])
 const finalizationFailedRows = ref<DccWorkbenchFileRow[]>([])
 const impactLoading = ref(false)
@@ -425,19 +538,31 @@ const revisionDialog = reactive<{
   error: string
   task: DccPublicationImpactTaskVO | null
   options: DccPublicationImpactRevisionOptionsVO | null
-  sourceControlledFileId: string
+  selectedRevisionControlledFileId: string
   reason: string
 }>({ visible: false, loading: false, submitting: false, error: '', task: null,
-  options: null, sourceControlledFileId: '', reason: '' })
+  options: null, selectedRevisionControlledFileId: '', reason: '' })
 const message = useMessage()
 
 const DCC_APPROVAL_PROCESS_DEFINITION_KEYS = [
   CONTROLLED_FILE_PROCESS_DEFINITION_KEY,
+  CONTROLLED_FILE_UPLOAD_PROCESS_DEFINITION_KEY,
+  CONTROLLED_FILE_REVISION_PROCESS_DEFINITION_KEY,
+  CONTROLLED_FILE_OBSOLETE_PROCESS_DEFINITION_KEY,
   EXTERNAL_FILE_REVIEW_PROCESS_DEFINITION_KEY
 ]
 
 const openPath = (path: string) => {
   router.push(path)
+}
+
+const openWorkbenchMetric = (metric: DccWorkbenchMetricItem) => {
+  if (metric.key === 'pendingDistributionTotal') {
+    if (canHandleWorkflowDistribution.value)
+      document.getElementById('dcc-workbench-pending-distribution')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    return
+  }
+  openPath(metric.routePath)
 }
 
 const openFileDetail = (id: number | string) => {
@@ -452,10 +577,25 @@ const openTrainingTask = (progressId: number | string) => {
 }
 
 const openApproval = (row: DccWorkbenchTaskRow) => {
-  if (!row.controlledFile?.id) {
-    throw new Error('DCC 工作台审批待办缺少受控文件 ID')
+  const fileId = String(row.controlledFile?.id || ''), processInstanceId = String(row.processInstanceId || ''), taskId = String(row.id || '')
+  if (!isWorkflowId(fileId) || !processInstanceId || processInstanceId !== processInstanceId.trim() || processInstanceId.length > 64
+    || !taskId || taskId !== taskId.trim() || taskId.length > 64) {
+    throw new Error('DCC 工作台审批待办缺少精确文件、流程轮次或任务身份')
   }
-  openControlledFileViewer(router, route, row.controlledFile.id, 'workbench-approval')
+  return router.push({ path: `/dcc/controlled-file/detail/${fileId}`,
+    query: { handling: 'approval', from: 'approval-center', processInstanceId, taskId } })
+}
+
+const resolveControlledFileIdFromProcessInstance = (processInstance: ProcessInstanceVO) => {
+  const businessObjectId = String(processInstance.businessObjectId || '').trim()
+  if (/^\d+$/.test(businessObjectId)) {
+    return businessObjectId
+  }
+  const businessKey = String(processInstance.businessKey || '').trim()
+  if (/^\d+$/.test(businessKey)) {
+    return businessKey
+  }
+  return ''
 }
 
 const buildTaskRows = async () => {
@@ -482,12 +622,14 @@ const buildTaskRows = async () => {
   const processInstances = await Promise.all(
     taskRows.map((item) => getProcessInstance(item.processInstanceId))
   )
-  const businessKeys = processInstances.map((item: ProcessInstanceVO) => item.businessKey)
-  if (businessKeys.some((item) => !item || !/^\d+$/.test(item))) {
-    throw new Error('DCC 工作台审批待办缺少 businessKey，无法定位受控文件')
+  const controlledFileIds = processInstances.map((item: ProcessInstanceVO) =>
+    resolveControlledFileIdFromProcessInstance(item)
+  )
+  if (controlledFileIds.some((item) => !item)) {
+    throw new Error('DCC 工作台审批待办缺少受控文件业务对象 ID，无法定位受控文件')
   }
   const [files, taskLists] = await Promise.all([
-    Promise.all(businessKeys.map((id) => getControlledFile(id as string))),
+    Promise.all(controlledFileIds.map((id) => getControlledFile(id))),
     Promise.all(taskRows.map((item) => TaskApi.getTaskListByProcessInstanceId(item.processInstanceId)))
   ])
 
@@ -545,47 +687,49 @@ const loadTrainingTodos = async () => {
   }
 }
 
+const syncLegacyWorkbenchMetrics = () => {
+  metricItems.value = buildDccWorkbenchMetricItems({ approvalTodoTotal: legacySectionState.approval.total,
+    pendingDistributionTotal: null, trainingTodoTotal: legacySectionState.training.total,
+    finalizationFailedTotal: legacySectionState.finalization.total })
+  loadErrorMessage.value = Object.values(legacySectionState).map(section => section.error).filter(Boolean).join('；')
+}
 const loadWorkbench = async () => {
+  const token = ++legacyWorkbenchSequence, context = readLegacyWorkbenchContext()
+  const current = () => token === legacyWorkbenchSequence && context === readLegacyWorkbenchContext()
+  approvalTodoRows.value = []; trainingTodoRows.value = []; finalizationFailedRows.value = []
+  Object.values(legacySectionState).forEach(section => { section.loading = false; section.error = ''; section.total = null })
+  lastLoadedAt.value = ''; syncLegacyWorkbenchMetrics()
+  loading.value = false
+  if (!context || ![canReadLegacyApprovalTodos.value, canReadLegacyTrainingTodos.value, canReadLegacyFinalizationFailed.value].some(Boolean)) return
   loading.value = true
-  loadErrorMessage.value = ''
-  try {
-    const [approvalTodos, pendingDistribution, trainingTodos, finalizationFailed] = await Promise.all([
-      buildTaskRows(),
-      loadFilePageByStatus('PENDING_MANUAL_DISTRIBUTION'),
-      loadTrainingTodos(),
-      loadFilePageByStatus('FINALIZATION_FAILED')
-    ])
-
-    approvalTodoRows.value = approvalTodos.rows
-    pendingDistributionRows.value = pendingDistribution.rows
-    trainingTodoRows.value = trainingTodos.rows
-    finalizationFailedRows.value = finalizationFailed.rows
-    metricItems.value = buildDccWorkbenchMetricItems({
-      approvalTodoTotal: approvalTodos.total,
-      pendingDistributionTotal: pendingDistribution.total,
-      trainingTodoTotal: trainingTodos.total,
-      finalizationFailedTotal: finalizationFailed.total
-    })
-    lastLoadedAt.value = formatDateTimeValue(new Date())
-  } catch (error) {
-    approvalTodoRows.value = []
-    pendingDistributionRows.value = []
-    trainingTodoRows.value = []
-    finalizationFailedRows.value = []
-    metricItems.value = buildDccWorkbenchMetricItems({
-      approvalTodoTotal: 0,
-      pendingDistributionTotal: 0,
-      trainingTodoTotal: 0,
-      finalizationFailedTotal: 0
-    })
-    loadErrorMessage.value = resolveWorkbenchErrorMessage(
-      error,
-      'DCC 工作台加载失败，请查看接口错误后重试。'
-    )
-  } finally {
-    loading.value = false
+  const readSection = async <T,>(key: 'approval' | 'training' | 'finalization', allowed: boolean,
+    read: () => Promise<{ rows: T[]; total: number }>, apply: (rows: T[]) => void) => {
+    if (!allowed || !current()) return
+    legacySectionState[key].loading = true
+    try {
+      const result = await read()
+      if (!current()) return
+      if (!Number.isSafeInteger(result.total) || result.total < 0 || !Array.isArray(result.rows)) throw new Error('工作台分区读取结果无有效数量或列表')
+      apply(result.rows); legacySectionState[key].total = result.total
+    } catch (cause) {
+      if (current()) legacySectionState[key].error = resolveWorkbenchErrorMessage(cause, 'DCC 工作台加载失败，请查看接口错误后重试。')
+    } finally { if (current()) { legacySectionState[key].loading = false; syncLegacyWorkbenchMetrics() } }
+  }
+  await Promise.all([
+    readSection('approval', canReadLegacyApprovalTodos.value, buildTaskRows, rows => { approvalTodoRows.value = rows }),
+    readSection('training', canReadLegacyTrainingTodos.value, loadTrainingTodos, rows => { trainingTodoRows.value = rows }),
+    readSection('finalization', canReadLegacyFinalizationFailed.value, () => loadFilePageByStatus('FINALIZATION_FAILED'), rows => { finalizationFailedRows.value = rows })
+  ])
+  if (current()) { loading.value = false; lastLoadedAt.value = formatDateTimeValue(new Date()) }
+  else if (token === legacyWorkbenchSequence) {
+    approvalTodoRows.value = []; trainingTodoRows.value = []; finalizationFailedRows.value = []
+    Object.values(legacySectionState).forEach(section => { section.loading = false; section.total = null; section.error = '' })
+    syncLegacyWorkbenchMetrics(); loading.value = false; lastLoadedAt.value = ''
+    loadErrorMessage.value = '工作台用户或租户上下文已变化，请刷新后重试。'
   }
 }
+watch(() => readLegacyWorkbenchContext(), () => { void loadWorkbench() }, { flush: 'sync' })
+onBeforeUnmount(() => { legacyWorkbenchSequence++ })
 
 const resolveImpactError = (error: unknown) => {
   const value = (error as any)?.response?.data?.msg || (error as any)?.message
@@ -656,11 +800,15 @@ const openImpactRevisionDialog = async (row: DccPublicationImpactTaskVO) => {
   revisionDialog.error = ''
   revisionDialog.task = row
   revisionDialog.options = null
-  revisionDialog.sourceControlledFileId = ''
+  revisionDialog.selectedRevisionControlledFileId = ''
   revisionDialog.reason = ''
   impactActionTaskId.value = row.id
   try {
     revisionDialog.options = await getImpactRevisionOptions(row.id)
+    revisionDialog.selectedRevisionControlledFileId =
+      revisionDialog.options.openMajorRevision?.controlledFileId ||
+      revisionDialog.options.sourceIterations?.[0]?.controlledFileId ||
+      ''
   } catch (error) {
     revisionDialog.error = resolveImpactError(error)
   } finally {
@@ -681,29 +829,20 @@ const submitImpactRevision = async () => {
     revisionDialog.error = '升版或关联原因不能为空'
     return
   }
-  if (!options.openMajorRevision && !revisionDialog.sourceControlledFileId) {
-    revisionDialog.error = '请选择来源小版本'
+  if (!revisionDialog.selectedRevisionControlledFileId) {
+    revisionDialog.error = '请选择需要关联的现有升版版本'
     return
   }
   revisionDialog.submitting = true
   revisionDialog.error = ''
   impactActionTaskId.value = task.id
   try {
-    if (options.openMajorRevision) {
-      await linkImpactRevision(task.id, {
-        expectedVersion: task.rowVersion,
-        revisionControlledFileId: options.openMajorRevision.controlledFileId,
-        reason
-      })
-      message.success('已关联现有开放大版本')
-    } else {
-      await createImpactRevision(task.id, {
-        expectedVersion: task.rowVersion,
-        sourceControlledFileId: revisionDialog.sourceControlledFileId,
-        reason
-      })
-      message.success('大版本已创建并关联')
-    }
+    await linkImpactRevision(task.id, {
+      expectedVersion: task.rowVersion,
+      revisionControlledFileId: revisionDialog.selectedRevisionControlledFileId,
+      reason
+    })
+    message.success('已关联现有开放大版本')
     revisionDialog.visible = false
     await loadImpactTasks()
   } catch (error) {
@@ -715,10 +854,15 @@ const submitImpactRevision = async () => {
 }
 
 const refreshWorkbench = async () => {
-  await Promise.all([loadWorkbench(), loadImpactTasks()])
+  await Promise.all([loadWorkbench(), loadImpactTasks(), pendingDistributionPanel.value?.refresh(), loadOfflineTrainingTodos()])
 }
 
-onMounted(refreshWorkbench)
+onMounted(() => { void Promise.all([loadWorkbench(), loadImpactTasks(), loadOfflineTrainingTodos()]) })
+let activatedOnce = false
+onActivated(() => {
+  if (activatedOnce) void refreshWorkbench()
+  activatedOnce = true
+})
 </script>
 
 <style scoped>
@@ -870,6 +1014,28 @@ onMounted(refreshWorkbench)
 
 .dcc-workbench-row-actions :deep(.el-button + .el-button) {
   margin-left: 0;
+}
+
+.revision-dialog-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.revision-existing-list {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+}
+
+.revision-existing-list :deep(.el-radio.is-bordered) {
+  display: flex;
+  width: 100%;
+  height: auto;
+  min-height: 40px;
+  margin-right: 0;
+  white-space: normal;
 }
 
 @media (max-width: 1180px) {

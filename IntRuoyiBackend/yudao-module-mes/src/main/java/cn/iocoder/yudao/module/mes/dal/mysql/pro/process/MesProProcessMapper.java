@@ -20,6 +20,15 @@ import java.util.List;
 @Mapper
 public interface MesProProcessMapper extends BaseMapperX<MesProProcessDO> {
 
+    @com.baomidou.mybatisplus.annotation.InterceptorIgnore(tenantLine = "true")
+    @Select("SELECT GREATEST(" +
+            "COALESCE((SELECT MAX(CAST(SUBSTRING(code, 4) AS UNSIGNED)) FROM mes_pro_process " +
+            "WHERE tenant_id = #{tenantId} AND code REGEXP '^GX-[0-9]+$'), 0), " +
+            "COALESCE((SELECT MAX(CAST(SUBSTRING(result, 4) AS UNSIGNED)) FROM mes_md_auto_code_record " +
+            "WHERE tenant_id = #{tenantId} AND result REGEXP '^GX-[0-9]+$'), 0))")
+    Long selectProcessCodeHighWatermark(@Param("tenantId") Long tenantId);
+
+
     default PageResult<MesProProcessDO> selectPage(MesProProcessPageReqVO reqVO) {
         LambdaQueryWrapperX<MesProProcessDO> wrapper = new LambdaQueryWrapperX<MesProProcessDO>()
                 .eq(MesProProcessDO::getDeleted, false)

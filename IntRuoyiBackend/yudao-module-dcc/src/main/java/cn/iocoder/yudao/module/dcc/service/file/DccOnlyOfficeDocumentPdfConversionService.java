@@ -35,10 +35,26 @@ public class DccOnlyOfficeDocumentPdfConversionService implements DccDocumentPdf
     private DccOnlyOfficeConversionClient onlyOfficeConversionClient;
     @Resource
     private BusinessFileAccessService businessFileAccessService;
+    @Resource
+    private cn.iocoder.yudao.module.infra.service.file.FileService fileService;
+    @Resource
+    private DccImageTextPdfProperties imageTextPdfProperties = new DccImageTextPdfProperties();
 
     @Override
     public DccConvertedPdf convertToPdf(FileDO sourceFile) {
         requireSourceFile(sourceFile);
+        if (DccControlledFileUploadTypePolicy.isPngName(sourceFile.getName())
+                || DccControlledFileUploadTypePolicy.isTextName(sourceFile.getName())) {
+            requireConversionAccess(sourceFile.getId());
+            if (sourceFile.getConfigId() == null || StrUtil.isBlank(sourceFile.getPath()))
+                throw conversionFailed("PNG/TXT source storage address is missing");
+            try {
+                return DccImageTextPdfConverter.convert(sourceFile.getName(), sourceFile.getType(),
+                        fileService.getFileContent(sourceFile.getConfigId(), sourceFile.getPath()), imageTextPdfProperties.getTextFont());
+            } catch (Exception failure) {
+                throw conversionFailed(failure.getMessage());
+            }
+        }
         requireConfigured();
         String fileType = resolveFileType(sourceFile.getName());
         BusinessFileAccessReference reference = requireConversionAccess(sourceFile.getId());
@@ -111,6 +127,10 @@ public class DccOnlyOfficeDocumentPdfConversionService implements DccDocumentPdf
     private String buildConversionKey(FileDO sourceFile) {
         String rawKey = sourceFile.getId() + ":" + StrUtil.blankToDefault(sourceFile.getPath(), "")
                 + ":" + StrUtil.blankToDefault(sourceFile.getName(), "");
+        String fileType = resolveFileType(sourceFile.getName());
+        if ("xls".equals(fileType) || "xlsx".equals(fileType)) {
+            rawKey += ":spreadsheet-layout-v1";
+        }
         byte[] digest;
         try {
             digest = MessageDigest.getInstance("SHA-256").digest(rawKey.getBytes(StandardCharsets.UTF_8));

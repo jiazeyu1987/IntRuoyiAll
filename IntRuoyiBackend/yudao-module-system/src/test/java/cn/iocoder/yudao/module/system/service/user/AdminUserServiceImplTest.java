@@ -10,6 +10,7 @@ import cn.iocoder.yudao.framework.common.util.collection.CollectionUtils;
 import cn.iocoder.yudao.framework.test.core.ut.BaseDbUnitTest;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.infra.api.config.ConfigApi;
+import cn.iocoder.yudao.module.infra.enums.config.PasswordMaxAgeConfig;
 import cn.iocoder.yudao.module.infra.api.file.FileApi;
 import cn.iocoder.yudao.module.system.controller.admin.user.vo.profile.UserProfileUpdatePasswordReqVO;
 import cn.iocoder.yudao.module.system.controller.admin.user.vo.profile.UserProfileUpdateReqVO;
@@ -125,6 +126,7 @@ public class AdminUserServiceImplTest extends BaseDbUnitTest {
 
     @BeforeEach
     public void before() {
+        when(configApi.getConfigValueByKey(PasswordMaxAgeConfig.KEY)).thenReturn("90");
         // mock 初始化密码
         when(configApi.getConfigValueByKey(USER_INIT_PASSWORD_KEY)).thenReturn(TEST_INIT_PASSWORD);
         TenantContextHolder.setTenantId(1L);
@@ -520,6 +522,8 @@ public class AdminUserServiceImplTest extends BaseDbUnitTest {
 
         assertServiceException(() -> userService.reauthenticateForSignature(user.getId(), "old"),
                 ESIGN_CREDENTIAL_EXPIRED);
+        when(configApi.getConfigValueByKey(PasswordMaxAgeConfig.KEY)).thenReturn("180");
+        assertEquals(user.getId(), userService.reauthenticateForSignature(user.getId(), "old").getId());
     }
 
     @Test
@@ -545,7 +549,8 @@ public class AdminUserServiceImplTest extends BaseDbUnitTest {
     @Test
     public void testUpdateUserPassword_success() {
         // mock 数据
-        AdminUserDO dbUser = randomAdminUserDO(o -> o.setPassword("encode:tudou"));
+        AdminUserDO dbUser = randomAdminUserDO(o -> o.setPassword("encode:tudou")
+                .setPasswordCredentialStatus("RESET_REQUIRED"));
         userMapper.insert(dbUser);
         // 准备参数
         Long userId = dbUser.getId();
@@ -563,10 +568,32 @@ public class AdminUserServiceImplTest extends BaseDbUnitTest {
         // 断言
         AdminUserDO user = userMapper.selectById(userId);
         assertEquals("encode:Yuanma@2026", user.getPassword());
+        assertEquals("ACTIVE", user.getPasswordCredentialStatus());
         assertNotNull(user.getPasswordUpdateTime());
         List<AdminUserPasswordHistoryDO> historyList = passwordHistoryMapper.selectLatestListByUserId(userId, 5);
         assertEquals(1, historyList.size());
         assertEquals("encode:tudou", historyList.get(0).getPasswordHash());
+    }
+
+    @Test
+    public void testUpdateUserPassword_initialCredentialBecomesActive() {
+        AdminUserDO dbUser = randomAdminUserDO(o -> o.setPassword("encode:initial")
+                .setPasswordCredentialStatus("INITIAL"));
+        userMapper.insert(dbUser);
+        UserProfileUpdatePasswordReqVO reqVO = randomPojo(UserProfileUpdatePasswordReqVO.class, o -> {
+            o.setOldPassword("initial");
+            o.setNewPassword("Initial@2026");
+        });
+        when(passwordEncoder.matches(eq("initial"), eq(dbUser.getPassword()))).thenReturn(true);
+        when(passwordEncoder.encode(eq("Initial@2026"))).thenReturn("encode:Initial@2026");
+
+        userService.updateUserPassword(dbUser.getId(), reqVO);
+
+        AdminUserDO updatedUser = userMapper.selectById(dbUser.getId());
+        assertEquals("ACTIVE", updatedUser.getPasswordCredentialStatus());
+        assertEquals("encode:Initial@2026", updatedUser.getPassword());
+        assertEquals("encode:initial", passwordHistoryMapper
+                .selectLatestListByUserId(dbUser.getId(), 5).get(0).getPasswordHash());
     }
 
     @Test

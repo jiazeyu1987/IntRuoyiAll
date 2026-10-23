@@ -37,5 +37,11 @@ public class DccControlledFileRouteSnapshotDO extends BaseDO {
     private String approveMethod;
     private Integer approveRatio;
     private Boolean requireAllApprovals;
+    private Long sourceApprovalMatrixId;
+    private Integer sourceApprovalMatrixVersion;
+    private String sourceApprovalMatrixDigest;
+    private String derivationVersion;
+    private String sourceApprovalMatrixJson;
+    private String runtimeApprovalNodesJson;
 
 }

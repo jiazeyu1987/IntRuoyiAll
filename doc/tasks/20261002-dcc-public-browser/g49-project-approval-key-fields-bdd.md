@@ -1,0 +1,11 @@
+# LD04/G49 r3 — 项目申请审批中心关键字段
+
+Status: ready_for_closeout_for_Root_review。Root已确认r2完整types97698/build28748均退出0，并授权本批唯一生产源approval-center/index.vue的resolveDccKeyFields有限修正。旧r2 seal保留，upload/其他源不改；不新增通用设计、导航、tags合同或业务节点。
+
+Given sourceTaskType为DCC_PROJECT_PRODUCT_REVIEW或DCC_PROJECT_PRODUCT_APPROVAL、正式businessCode取request.projectCode、currentNodeName为真实中文审核/批准，When现审批中心解析及渲染关键字段，Then只显示“项目代码”和“当前审批节点”；不能把项目代码叫文件编号，不从文件tags伪造版本/文件类型。
+
+Given其他既有DCC文件任务，When走同一resolver/原渲染子树，Then原文件编号/版本/文件类型/当前审批节点四字段保持原来源与显示。Given项目申请真实businessCode缺失，Then不借requestId/businessKey冒项目代码；沿原空值显示合同隐藏该字段。
+
+TDD先执行真实resolver+原template AST编译/Vue renderer的有效RED，再加精确两sourceType最小分支；GREEN和原22项有限关联回归、该源lint。Root统一完整types/build及真实待办页面，本Agent不环境/DB/API/browser/services/Maven/Git，不将离线渲染声称E2E。
+
+实际RED4项1PASS/3FAIL：旧受控文件4字段已正确；两native来源被误叫文件编号并读取版本/类型tags，缺code时借requestId且原Vue子树显示错误。GREEN4项全PASS，最终9文件26执行PASS/0fail/0skip/exit0（原22加新4，重跑不累计）；该源ESLint --max-warnings 0 exit0且日志为空。renderer编译生产实际data-testid子树、调用生产resolver及原实际display helpers，未替换为实现镜像或真实浏览器。新增分支只认准确两sourceType、项目代码只取businessCode、node继续原helper；现文件分支4字段原来源/模板保留。Source/test新冻结，Root新r3全types/build待验，旧r2成功不冒r3新成功。

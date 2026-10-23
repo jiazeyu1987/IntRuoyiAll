@@ -19,7 +19,7 @@ const extractBetween = (source, startToken, endToken) => {
 
 const approvalCenterTable = extractBetween(
   approvalCenterPage,
-  '<el-table\n              v-loading="loading"',
+  '<el-table',
   '</el-table>'
 )
 
@@ -39,14 +39,21 @@ for (const redirectToken of [
 
 for (const summaryToken of [
   'label="业务摘要"',
-  'row.moduleCode === \'DCC\'',
   'data-testid="approval-center-dcc-key-fields"',
-  'resolveDccKeyFields(row)',
+  'resolveVisibleDccKeyFields(row)',
   'data-testid="approval-center-dcc-business-context"',
-  'row.businessContextTags',
+  'resolveVisibleBusinessContextTags(row)',
   'resolveBusinessContextTagLabel(tag)'
 ]) {
   assert.ok(approvalCenterTable.includes(summaryToken), `统一审批中心必须保留 DCC 审批摘要：${summaryToken}`)
+}
+
+for (const dccResolverToken of [
+  'const resolveVisibleDccKeyFields = (row: ApprovalTaskSummaryVO)',
+  'row.moduleCode === \'DCC\'',
+  'resolveDccKeyFields(row)'
+]) {
+  assert.ok(approvalCenterPage.includes(dccResolverToken), `统一审批中心 DCC 摘要解析必须保留 DCC 门禁：${dccResolverToken}`)
 }
 
 for (const actionToken of [

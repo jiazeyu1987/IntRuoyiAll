@@ -51,7 +51,8 @@
         >
           <Icon icon="ep:upload-filled" class="mr-5px" /> 第三方导入
         </el-button>
-        <el-button
+        <el-button class="app-test-button"
+          v-if="testModeEnabled"
           type="warning"
           plain
           :loading="simulateImportLoading"
@@ -468,6 +469,8 @@
 </template>
 
 <script setup lang="ts">
+import { useTestMode } from '@/store/modules/testMode'
+
 import type { Component } from 'vue'
 import { shallowRef } from 'vue'
 import { dateFormatter, formatDateTimeValue } from '@/utils/formatTime'
@@ -493,6 +496,8 @@ import {
   type TableQuickFilterDefinition,
   type TableQuickFilterValue
 } from '@/hooks/web/useTableQuickFilter'
+
+const testModeEnabled = useTestMode()
 
 defineOptions({ name: 'MesProFeedback' })
 

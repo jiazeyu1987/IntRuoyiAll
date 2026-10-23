@@ -1,0 +1,20 @@
+{
+  "status": "EXPLICIT_USER_AUTHORIZED_COMBINED_THREE_SCRIPT_LOCAL_UPGRADE_AND_REAL_UI_ACCEPTANCE",
+  "actualUserReply": "授权",
+  "source": "Actual latest user message replying to the pending g50 combined scope",
+  "scopePlan": "g50-four-direction-local-runtime-upgrade-plan.md",
+  "sourceDatabase": "ruoyi-vue-pro",
+  "cloneDatabase": "dcc_intqms_g18_rehearsal",
+  "serverUuid": "92ca05d0-aec8-11f1-a944-02b4e226a5ef",
+  "migrationIds": [
+    "20261004_dcc_product_identity_source",
+    "20261005_dcc_project_folder_storage_mapping",
+    "20261005_dcc_project_product_application_notify"
+  ],
+  "maximumLedgerAdditionsPerDatabase": 3,
+  "preserveExistingBusinessRowsAndSignatures": true,
+  "cloneFirstRepeatBeforeSource": true,
+  "realFrontendAcceptance": true,
+  "qualityApprovalNeeded": false,
+  "remoteOrPushAuthorized": false
+}

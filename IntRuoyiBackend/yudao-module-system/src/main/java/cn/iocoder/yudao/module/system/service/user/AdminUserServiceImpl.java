@@ -15,6 +15,7 @@ import cn.iocoder.yudao.framework.common.util.validation.ValidationUtils;
 import cn.iocoder.yudao.framework.datapermission.core.util.DataPermissionUtils;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.infra.api.config.ConfigApi;
+import cn.iocoder.yudao.module.infra.enums.config.PasswordMaxAgeConfig;
 import cn.iocoder.yudao.module.system.controller.admin.auth.vo.AuthRegisterReqVO;
 import cn.iocoder.yudao.module.system.controller.admin.user.vo.profile.UserProfileUpdatePasswordReqVO;
 import cn.iocoder.yudao.module.system.controller.admin.user.vo.profile.UserProfileUpdateReqVO;
@@ -227,14 +228,21 @@ public class AdminUserServiceImpl implements AdminUserService {
         AdminUserDO updateObj = BeanUtils.toBean(updateReqVO, AdminUserDO.class);
         updateObj.setPostIds(targetPostIds);
         updateObj.setCanonicalUsername(canonicalizeUsername(updateReqVO.getUsername()));
-        if (userMapper.updateById(updateObj) != 1) {
-            throw exception(USER_POST_WRITE_FAILED, oldUser.getId(), "用户更新行数异常");
+        if (userMapper.update(updateObj, Wrappers.<AdminUserDO>lambdaUpdate()
+                .eq(AdminUserDO::getId, updateReqVO.getId())
+                .set(updateReqVO.isDeptIdSpecified() && updateReqVO.getDeptId() == null,
+                        AdminUserDO::getDeptId, null)) != 1) {
+            throw exception(USER_POST_WRITE_FAILED, oldUser.getId(), "用户资料更新异常");
         }
         // 2.2 更新岗位
         updateUserPost(oldUser.getId(), snapshot.postIds(), targetPostIds);
         approvalAuthority.incrementLockedAuthorityRevision(authority.tenantId(), authority.revision());
 
         // 3. 记录操作日志上下文
+        // 省略部门表示保留；持久化后补齐实际值，避免审计将省略误记为清空。
+        if (!updateReqVO.isDeptIdSpecified()) {
+            updateReqVO.setDeptId(oldUser.getDeptId());
+        }
         LogRecordContext.putVariable(DiffParseFunction.OLD_OBJECT, BeanUtils.toBean(oldUser, UserSaveReqVO.class));
         LogRecordContext.putVariable("user", oldUser);
     }
@@ -464,7 +472,8 @@ public class AdminUserServiceImpl implements AdminUserService {
                 || Objects.equals(user.getPasswordCredentialStatus(), "RESET_REQUIRED")) {
             throw exception(ESIGN_CREDENTIAL_CHANGE_REQUIRED);
         }
-        if (AdminUserPasswordPolicy.isExpired(user.getPasswordUpdateTime(), LocalDateTime.now())) {
+        if (AdminUserPasswordPolicy.isExpired(user.getPasswordUpdateTime(), LocalDateTime.now(),
+                configApi.getConfigValueByKey(PasswordMaxAgeConfig.KEY))) {
             throw exception(ESIGN_CREDENTIAL_EXPIRED);
         }
         resetUserLoginFailure(id);
@@ -991,6 +1000,10 @@ public class AdminUserServiceImpl implements AdminUserService {
         if (user == null) {
             throw exception(USER_NOT_EXISTS);
         }
+        validateOldPassword(user, oldPassword);
+    }
+
+    private void validateOldPassword(AdminUserDO user, String oldPassword) {
         if (!isPasswordMatch(oldPassword, user.getPassword())) {
             throw exception(USER_PASSWORD_FAILED);
         }

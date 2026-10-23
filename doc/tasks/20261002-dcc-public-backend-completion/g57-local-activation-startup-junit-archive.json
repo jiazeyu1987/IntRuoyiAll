@@ -1,0 +1,22 @@
+[
+  {
+    "class": "cn.iocoder.yudao.module.dcc.service.file.DccLocalActivationStartupSyncRunnerTest",
+    "tests": 17,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "path": "doc/tasks/20261002-dcc-public-backend-completion/g57-local-activation-startup-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccLocalActivationStartupSyncRunnerTest.xml",
+    "bytes": 124826,
+    "sha256": "2cf88ed9151523ad293bee1b30c2fb0802c24031407c35051ee14c7fc81629b9"
+  },
+  {
+    "class": "cn.iocoder.yudao.module.infra.service.job.JobStartupSyncRunnerTest",
+    "tests": 7,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "path": "doc/tasks/20261002-dcc-public-backend-completion/g57-local-activation-startup-junit/TEST-cn.iocoder.yudao.module.infra.service.job.JobStartupSyncRunnerTest.xml",
+    "bytes": 70641,
+    "sha256": "cbc68d3f4fa7dbe0e61d3a7d11671107eb818f7a66c449eb6263894a9c9f4819"
+  }
+]

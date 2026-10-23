@@ -955,6 +955,7 @@
     "20260911_dcc_upload_ticket_category_guard.sql",
     "20260914_dcc_download_record_direct_download_schema.sql",
     "20260915_mes_team_leader_cleanup_permission_menu.sql",
+    "20260917_dcc_controlled_file_name_claim.sql",
     "20260917_mes_active_order_dossier_file.sql",
     "20260917_mes_edhr_batch_execution_admin_visible.sql",
     "20260917_mes_edhr_batch_traceability_capacity.sql",
@@ -966,17 +967,26 @@
     "20260919_dcc_dual_version_download_permissions.sql",
     "20260919_mes_edhr_live_label_print_menu_removal.sql",
     "20260919_runtime_control_production_promotion_permission.sql",
+    "20260920_dcc_controlled_file_attachment.sql",
+    "20260920_dcc_project_product_create_approval.sql",
     "20260920_mes_edhr_nonconformance_review_active_order_fact.sql",
+    "20260921_dcc_category_approval_route_action_type.sql",
     "20260921_infra_idle_logout_config.sql",
     "20260921_infra_release_operation_lock_lease_fencing.sql",
     "20260921_mes_edhr_nonconformance_review_material_preview.sql",
     "20260921_mes_edhr_nonconformance_review_materials_json.sql",
+    "20260922_dcc_source_governance_batch_tenant_id.sql",
+    "20260922_dcc_task_assignee_snapshot.sql",
+    "20260922_dcc_three_workflow_bpmn_seed.sql",
+    "20260922_intern_user_time_maintenance_module.sql",
     "20260922_mes_release_rework_current_batch.sql",
+    "20260923_dcc_three_workflow_candidate_strategy_fix.sql",
     "20260923_mes_release_transaction_signature_id.sql",
     "20260924_gxp_audit_event_v2.sql",
     "20260924_mes_edhr_deviation_management.sql",
     "20260924_mes_edhr_deviation_ncr.sql",
     "20260924_mes_pqc_release_udi_document_no.sql",
+    "20260926_dcc_three_workflow_matrix_multi_instance_fix.sql",
     "20260926_mes_edhr_nonconformance_review_code_counter.sql",
     "20260927_mes_edhr_release_transaction_rework_history.sql",
     "20260928_mes_active_order_rework_cycle.sql",
@@ -984,45 +994,104 @@
     "20260928_mes_pqc_piece_correction_history.sql",
     "20260929_mes_pqc_task_frozen_identity_columns.sql",
     "20260929_system_permission_command_receipt.sql",
+    "20260930_dcc_a_future_obsolete_policy.sql",
+    "20260930_dcc_a_lifecycle.sql",
+    "20260930_dcc_a_signature_workflow_round.sql",
+    "20260930_dcc_a_workflow_bpmn_v4.sql",
+    "20260930_dcc_b_project_attributes_folders.sql",
+    "20260930_dcc_c_revision_identity.sql",
+    "20260930_dcc_d_notification_template.sql",
+    "20260930_dcc_d_relations.sql",
+    "20261001_dcc_application_round_link.sql",
+    "20261001_dcc_b_manual_project_folder_origin.sql",
+    "20261001_dcc_b_project_file_placement.sql",
+    "20261001_dcc_b_project_product_audit_intent.sql",
+    "20261001_dcc_b_reserved_draft_round.sql",
+    "20261002_dcc_c_initial_candidate_identity.sql",
+    "20261003_dcc_approval_file_owner_snapshot.sql",
+    "20261003_dcc_controlled_file_activation_job_registration.sql",
+    "20261003_dcc_legacy_source_name_occupancy.sql",
+    "20261003_dcc_project_reviewer_configuration.sql",
+    "20261003_dcc_revision_failed_attempt_identity.sql",
     "20261003_mes_release_task_notification.sql",
+    "20261004_dcc_product_identity_source.sql",
+    "20261005_dcc_project_folder_storage_mapping.sql",
+    "20261005_dcc_project_product_application_notify.sql",
     "20261005_gxp_signature_audit_lookup_index.sql",
     "20261005_mes_active_order_handoff.sql",
     "20261005_mes_release_qa_closure_current_batch.sql",
     "20261005_mes_report_fifo_cycle_identity.sql",
+    "20261006_dcc_native_distribution_menu.sql",
     "20261008_profile_business_config_menus.sql",
     "20261009_system_workbench_visibility_context.sql",
     "20261009_system_workbench_visibility_stable_keys.sql",
     "20261010_approval_process_ownership_history_preflight_draft.sql",
     "20261010_system_workbench_projection.sql",
+    "20261011_dcc_application_effective_distribution.sql",
+    "20261011_dcc_application_round_relation_source.sql",
+    "20261011_dcc_approval_matrix_baseline.sql",
+    "20261011_dcc_distribution_outbox.sql",
+    "20261011_dcc_product_catalog_source_sequence.sql",
+    "20261011_dcc_relation_stage_application_identity.sql",
+    "20261011_dcc_relation_stage_snapshots.sql",
+    "20261011_dcc_training_attachment_facts.sql",
     "20261011_system_workbench_projection_history.sql",
     "20261011_system_workbench_projection_retention.sql",
+    "20261012_dcc_application_execution_contract.sql",
+    "20261012_dcc_obsolete_form_draft_round.sql",
+    "20261012_dcc_obsolete_form_runtime.sql",
+    "20261012_dcc_preview_issuing_round.sql",
+    "20261013_dcc_normal_definition_headers.sql",
+    "20261013_dcc_project_reviewer_role.sql",
+    "20261013_dcc_project_single_role_review.sql",
+    "20261013_system_user_direct_supervisor.sql",
+    "20261014_dcc_delayed_effective_confirmation.sql",
     "20261014_mes_pqc_order_qa_stage_tasks.sql",
+    "20261015_dcc_application_custom_matrix.sql",
+    "20261015_dcc_category_approval_source_mode.sql",
+    "20261015_dcc_checkin_payload_hash.sql",
+    "20261015_dcc_preview_reading_session.sql",
+    "20261017_dcc_activation_event_time_precision.sql",
+    "20261017_dcc_controlled_event_time_precision.sql",
+    "20261017_dcc_distribution_test_audit_policies.sql",
+    "20261017_dcc_upload_placement_test_audit_policy.sql",
+    "20261018_dcc_delayed_confirmation_test_audit_policy.sql",
+    "20261018_dcc_distribution_body_opened_test_audit_policy.sql",
+    "20261018_dcc_distribution_receipt_test_audit_policy.sql",
+    "20261018_dcc_distribution_signature_bind_test_audit_policy.sql",
     "20261019_edhr_concurrency_and_close.sql",
+    "20261021_infra_test_mode_config.sql",
     "20261021_mes_craft_library.sql",
+    "20261021_mes_process_gx_sequence.sql",
+    "20261021_mes_route_create_sequence.sql",
+    "20261021_system_password_max_age_config.sql",
+    "20261022_business_approval_form_columns.sql",
+    "20261022_dcc_product_catalog_project_columns.sql",
+    "20261022_dcc_product_catalog_tenant_schema_guard.sql",
+    "20261022_dcc_rework_versioned_deployment.sql",
     "20261022_edhr_approval_release_runtime.sql",
     "20261022_edhr_trace_menu_forward.sql",
     "20261022_historical_business_contract.sql",
     "20261022_historical_schema_forward.sql",
+    "20261022_mes_pqc_c00_empty_history_activation.sql",
+    "20261022_qms_menu_package_integration.sql",
     "20261022_retire_fixed_route_initializers.sql",
     "20261022_retire_historical_role_e2e_fixtures.sql",
     "20261022_retire_legacy_test_initializers.sql",
     "20261022_scheduler_current_route_permission.sql",
-    "20261022_business_approval_form_columns.sql",
-    "20261022_dcc_rework_versioned_deployment.sql",
-    "20261022_mes_pqc_c00_empty_history_activation.sql",
-    "20261022_dcc_product_catalog_project_columns.sql",
-    "20261023_mes_route_snapshot_legacy_summary_enforce.sql",
-    "20261023_dcc_registration_certificate_menu_identity.sql",
-    "20261023_registration_certificate_management_menu_hierarchy_identity.sql",
-    "20261023_dcc_registration_certificate_upload_view_identity.sql",
     "20261023_dcc_registration_certificate_download_project_optional_identity.sql",
-    "20261023_mes_team_leader_schema_identity.sql",
-    "20261023_mes_team_leader_permission_identity.sql",
+    "20261023_dcc_registration_certificate_menu_identity.sql",
+    "20261023_dcc_registration_certificate_upload_view_identity.sql",
     "20261023_mes_active_order_upgrade_permission_identity.sql",
+    "20261023_mes_route_snapshot_legacy_summary_enforce.sql",
     "20261023_mes_team_leader_cleanup_identity.sql",
+    "20261023_mes_team_leader_permission_identity.sql",
+    "20261023_mes_team_leader_schema_identity.sql",
+    "20261023_registration_certificate_management_menu_hierarchy_identity.sql",
+    "20261023_system_workbench_history_check_identity.sql",
     "20261023_system_workbench_projection_check_identity.sql",
     "20261023_system_workbench_retention_check_identity.sql",
-    "20261023_system_workbench_history_check_identity.sql"
+    "20261024_dcc_document_control_role.sql"
   ],
   "migrationScopes": [
     {
@@ -1128,6 +1197,70 @@
         "with-data"
       ],
       "reason": "Original 2026-08-29 task authorized a one-time local int_main conversion of 580 bindings and templates 27/28/32/41. Current application intentionally supports dynamic bindings of the same shape, so this targeted business-data conversion must not run in an application upgrade or be claimed APPLIED when excluded; separately approved with-data execution retains its reviewed target gate."
+    },
+    {
+      "file": "20261013_dcc_normal_definition_headers.sql",
+      "sha256": "ac72eb50830f52e0d233f172de113d57a76a058630ccea9e5fcc4372252d901a",
+      "allowedPublishScopes": [
+        "with-data"
+      ],
+      "reason": "Explicit tenant-scoped correction of existing definition headers requires a separately reviewed repair request and session variables; not a general application upgrade."
+    },
+    {
+      "file": "20261003_dcc_controlled_file_activation_job_registration.sql",
+      "sha256": "49bf35361fd544551ecc3c720a89353ad0f5e31f2366e13083f08ea61c1138a5",
+      "allowedPublishScopes": [
+        "with-data"
+      ],
+      "reason": "Operational registration requires explicitly approved cron, retry and monitor session parameters; not an unattended application upgrade."
+    },
+    {
+      "file": "20261017_dcc_distribution_test_audit_policies.sql",
+      "sha256": "87a3a69c75b82540c93707e22bf2ed4d4fa9793aa51f542102778a3bb580c803",
+      "allowedPublishScopes": [
+        "with-data"
+      ],
+      "reason": "Explicit local/test tenant-1 audit-policy adoption depends on an existing approved policy baseline. Not a general application schema upgrade or production policy approval."
+    },
+    {
+      "file": "20261017_dcc_upload_placement_test_audit_policy.sql",
+      "sha256": "af08f8c1af7503f2a788a407224c1f4fea678111761ef0f946b172592a272913",
+      "allowedPublishScopes": [
+        "with-data"
+      ],
+      "reason": "Explicit local/test tenant-1 audit-policy adoption depends on an existing approved policy baseline. Not a general application schema upgrade or production policy approval."
+    },
+    {
+      "file": "20261018_dcc_delayed_confirmation_test_audit_policy.sql",
+      "sha256": "0fcdb13362c9842fa5d37f64bcae6974686b70dc7a9aa20e1168aead7be57d5d",
+      "allowedPublishScopes": [
+        "with-data"
+      ],
+      "reason": "Explicit local/test tenant-1 audit-policy adoption depends on an existing approved policy baseline. Not a general application schema upgrade or production policy approval."
+    },
+    {
+      "file": "20261018_dcc_distribution_body_opened_test_audit_policy.sql",
+      "sha256": "ce0ee3d681cb64f4be1379a232b32e407c6cad5e46e35d2a9c996a07bea6a123",
+      "allowedPublishScopes": [
+        "with-data"
+      ],
+      "reason": "Explicit local/test tenant-1 audit-policy adoption depends on an existing approved policy baseline. Not a general application schema upgrade or production policy approval."
+    },
+    {
+      "file": "20261018_dcc_distribution_receipt_test_audit_policy.sql",
+      "sha256": "d624a8ba1e5f2945accc74fc5000b4c97a55f58f02e7f6221e9510d28755ff8d",
+      "allowedPublishScopes": [
+        "with-data"
+      ],
+      "reason": "Explicit local/test tenant-1 audit-policy adoption depends on an existing approved policy baseline. Not a general application schema upgrade or production policy approval."
+    },
+    {
+      "file": "20261018_dcc_distribution_signature_bind_test_audit_policy.sql",
+      "sha256": "3ccdfe4b0c9e4a8f85b571c2c06f42f8e3eab78b0c0e5fbbe77e0512a5f213f0",
+      "allowedPublishScopes": [
+        "with-data"
+      ],
+      "reason": "Explicit local/test tenant-1 audit-policy adoption depends on an existing approved policy baseline. Not a general application schema upgrade or production policy approval."
     }
   ],
   "excludedSources": [

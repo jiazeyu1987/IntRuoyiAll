@@ -111,38 +111,6 @@ class DccImpactAssessmentTransactionIntegrationTest extends BaseDbUnitTest {
         assertEquals(0L, count("dcc_publication_impact_audit"));
     }
 
-    @Test
-    void revisionCoordinator_linkFailureRollsBackWorkflowCreatedRevision() {
-        DccRelatedFileImpactAssessmentService impactService = mock(DccRelatedFileImpactAssessmentService.class);
-        DccControlledFileWorkflowService workflowService = mock(DccControlledFileWorkflowService.class);
-        doAnswer(invocation -> {
-            jdbcTemplate.update("""
-                    INSERT INTO dcc_controlled_file
-                      (id, master_id, category_id, directory_id, source_file_id, original_file_id,
-                       file_name, title, file_number, need_training, process_type, change_type,
-                       version_no, revision_code, iteration_no, status, submitter_id, requester_id,
-                       tenant_id, deleted)
-                    VALUES (501, 20, 30, 40, 1001, 1001, '关联修订', '关联修订', 'REL-20', 0,
-                            'CONTROLLED_FILE', 'REVISION', 'B/1', 'B', 1,
-                            'PENDING_DOC_CONTROL_REVIEW', 99, 99, 1, 0)
-                    """);
-            return 501L;
-        }).when(workflowService).createMajorRevision(any(), any());
-        doThrow(new IllegalStateException("injected link CAS failure"))
-                .when(impactService).linkExistingMajorRevision(99L, 10L, 2, 501L, "同步关联文件");
-        DccImpactRevisionCommandService coordinator = new DccImpactRevisionCommandService();
-        ReflectionTestUtils.setField(coordinator, "impactService", impactService);
-        ReflectionTestUtils.setField(coordinator, "workflowService", workflowService);
-
-        IllegalStateException error = assertThrows(IllegalStateException.class,
-                () -> new TransactionTemplate(transactionManager).executeWithoutResult(ignored ->
-                        coordinator.createAndLinkMajorRevision(99L, 10L, 2, 200L, "同步关联文件")));
-
-        assertEquals("injected link CAS failure", error.getMessage());
-        assertEquals(0L, jdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM dcc_controlled_file WHERE id = 501", Long.class));
-    }
-
     private long count(String table) {
         Long count = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM " + table, Long.class);
         return count == null ? 0L : count;

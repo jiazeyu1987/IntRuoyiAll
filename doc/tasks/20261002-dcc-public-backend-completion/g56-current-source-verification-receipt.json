@@ -1,0 +1,74 @@
+{
+  "status": "ACTUAL_CURRENT_SOURCE_METADATA_SCOPED_PASS",
+  "command": "mvn.cmd -o -pl yudao-module-dcc -am '-Dtest=DccRelationNameMetadataDatabaseTest,DccControlledFileSelectorDatabaseTest,DccRelationFormalQueryGuardTest' '-Dsurefire.failIfNoSpecifiedTests=false' test",
+  "cliExitCode": 0,
+  "finishedAt": "2026-10-05T14:37:45+08:00",
+  "classes": 3,
+  "tests": 39,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0,
+  "reports": [
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.file.DccRelationNameMetadataDatabaseTest",
+      "tests": 21,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g56-current-source-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccRelationNameMetadataDatabaseTest.xml",
+      "bytes": 98201,
+      "sha256": "6731a8cb6b7120352d32e1d3b1190ce6e8b0c138bd57eb04fc7568ff7011c334"
+    },
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileSelectorDatabaseTest",
+      "tests": 15,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g56-current-source-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccControlledFileSelectorDatabaseTest.xml",
+      "bytes": 98450,
+      "sha256": "c1bea44d829c0d612079a0a2b42d8979bc3fa302cb81e75cfd929d432d1bb3d4"
+    },
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.file.DccRelationFormalQueryGuardTest",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g56-current-source-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccRelationFormalQueryGuardTest.xml",
+      "bytes": 94090,
+      "sha256": "287b318bbb1ffe5e343fb41be6e6197314b38e1372512a6e1529e6b920ee4859"
+    }
+  ],
+  "log": {
+    "path": "doc/tasks/20261002-dcc-public-backend-completion/g56-current-source-final.log",
+    "bytes": 70019,
+    "sha256": "49baa2bf72e13014095b0bd24e97dea05c2bb07989e2e33bc1c6d0e0129ed549"
+  },
+  "effectiveRed": {
+    "tests": 1,
+    "failures": 1,
+    "errors": 0,
+    "reason": "Actual H2 selectedWORKING controlledfalse+Masterlatest realACTIVE requires serverSourceFlagtrue; old response null field",
+    "xml": {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g56-current-source-effective-red.xml",
+      "bytes": 96874,
+      "sha256": "545a46929cab2795d24616278b52aeb111dc39f45f0c89679b613605b9802d07"
+    },
+    "log": {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g56-current-source-red-r2.log",
+      "bytes": 71374,
+      "sha256": "7eb1640d08a8c7f21df109e750cc0389e5e7b84724d27d904e2dfcf040e533bb"
+    }
+  },
+  "initialFixtureFailures": [
+    "Newlatestfixture missing required original_file_id, corrected before effectiveRED",
+    "Obsolete selected name-only visibility correctly denied; test now keeps authorizedselected separate from legitimate terminallatest, no permission guard relaxed"
+  ],
+  "actualDb": 0,
+  "actualBrowser": 0,
+  "GitMutations": 0,
+  "runtimeActions": 0,
+  "newSql": 0,
+  "noCurrentSetCreationOrHistoryRewrite": true
+}

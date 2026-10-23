@@ -1,0 +1,43 @@
+{
+  "status": "prepared_reviewed_not_executed",
+  "offlineTests": 12,
+  "expectedNewOperationCount": 25,
+  "maximumNewApprovalRecords": 1,
+  "tenantId": 1,
+  "realApprovalFactsProvided": false,
+  "userWriteAuthorizationProvided": false,
+  "assets": [
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g22-gxp-25-operation-impact.json",
+      "sha256": "476b27400eacd1d8711cea10800f2d27645794446dc70eaac9749e073715f774"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g22-gxp-25-operation-config.review.sql",
+      "sha256": "6d9c185033455151e24f6e6e9909b5ae5c4d0b1e74ee286dc8901128a677f034"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g22-gxp-quality-version-registration.review.sql",
+      "sha256": "c7f1cd92dc79c2c66026ca1c5c1e40a1430edb0a6db134b91ea933a9e413a3e1"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g22-quality-approval-input.template.json",
+      "sha256": "195c57a0380e4c0272058dc8cfd615a60ab42cf5afee0a3825648f082c88f26b"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g22_gxp_configuration.py",
+      "sha256": "b466e4bf823fae4bdb19e1ba94e9b526d53e79b8c2e67b393cda281cc5d7b7b2"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/test_g22_gxp_configuration.py",
+      "sha256": "5fbdaa7f65c1f170f1a5d84f8b4f3bac103550962759e31a54da373c4e5e4744"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g22-formal-policy-source-coverage.txt",
+      "sha256": "319fc04a677dcb8670b420c9791bf5e4584d6708e0e765e58dbb637d9ab6b558"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g22-gxp-local-test-configuration-plan.md",
+      "sha256": "5abc79395b1d11ba9045f37be36bd1b0657a1a659eec9b2604369294736a35f3"
+    }
+  ]
+}

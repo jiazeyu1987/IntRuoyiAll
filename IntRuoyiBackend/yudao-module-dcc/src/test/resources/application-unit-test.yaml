@@ -17,6 +17,7 @@ spring:
       initial-size: 1
   sql:
     init:
+      encoding: UTF-8
       schema-locations: classpath:/sql/create_tables.sql
 
 mybatis-plus:

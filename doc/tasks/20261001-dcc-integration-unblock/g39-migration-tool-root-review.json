@@ -1,0 +1,13 @@
+{
+  "status": "ROOT_REVIEWED_ACTUAL_CHECK_AND_STOPPED_FIRST_REPEAT_ONLY_RESUME_CANDIDATE",
+  "toolManifestSha256": "ed950b3a79da5e51827d29ea48ae682454d655fabd2851c04d1844a8da4309eb",
+  "actualFacts": 104,
+  "enforcedChecks": 7,
+  "firstSqlActualExit": 0,
+  "firstLedgerAlreadyCommitted": true,
+  "firstReplayForbidden": true,
+  "stopJournalSha256": "281a23209d7ad6b829f8d6950bcf6706cbd37a1318d6d8ee064f9c5a31fd7395",
+  "newDriverSha256": "667a81edf468e1212afef8a01ae5cb996bd62737cfba7db6138e30259e0db2d4",
+  "sourceExecuted": false,
+  "actualResumeExecuted": false
+}

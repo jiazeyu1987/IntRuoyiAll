@@ -1,0 +1,49 @@
+{
+  "status": "DEVELOPMENT_TEST_ONLY_PREPARED_INPUT_CONTRACT_NOT_ACTUAL_RECEIPT",
+  "sourceDatabase": "ruoyi-vue-pro",
+  "sourceUuid": "92ca05d0-aec8-11f1-a944-02b4e226a5ef",
+  "connectionHost": "127.0.0.1",
+  "connectionPort": 23306,
+  "tenantId": 1,
+  "beforeAfterJsonFields": [
+    "environment",
+    "operationRows",
+    "qualityVersionRows"
+  ],
+  "environmentFields": [
+    "database",
+    "serverUuid",
+    "connectionHost",
+    "connectionPort",
+    "mysqlVersion",
+    "timeZone",
+    "connectionCharset",
+    "connectionCollation",
+    "tenantId",
+    "sourceSchemaReady",
+    "allApplicationWritersExcluded"
+  ],
+  "proofCollectionOwner": "Root actual readonly capture/fullschema/backup/writerfencing; booleans are review facts not inferred by helper",
+  "strictOperationFieldCount": 14,
+  "permanentWriteTable": "gxp_audit_policy_operation",
+  "firstInsertCount": 26,
+  "replayInsertCount": 0,
+  "partialInsertAllowed": false,
+  "qualityVersionInsertCount": 0,
+  "publish09Preserved": true,
+  "actualQualityApproved": false,
+  "developmentDescriptorFields": [
+    "status",
+    "tenantId",
+    "policyVersion",
+    "policyHash",
+    "coverageReportHash"
+  ],
+  "technicalSqlFlags": [
+    "@dcc_g43_dev_only",
+    "@dcc_g43_write_authorized",
+    "@dcc_g43_policy_sha",
+    "@dcc_g43_coverage_sha"
+  ],
+  "actualSqlExecutionByAgent": false
+}

@@ -1,0 +1,27 @@
+{
+  "status": "G55_ROOT_BOUNDED_SOURCE_PIN_AND_ACTUAL_XML_REVIEW_PASS",
+  "frontendManifestSha256": "2c514df78912f9ea0988ec9b77bb17809e11f1cfe7ee8e9219de34dc6205e365",
+  "backendManifestSha256": "dd66e487679e9cf7a10e7d7d159b350fa6f713b7e9e9ea34732bdd359f79a12e",
+  "backendTests": 13,
+  "backendFailures": 0,
+  "frontendFiniteTests": 31,
+  "fullTypesSession": 39830,
+  "fullTypesExitCode": 0,
+  "fullBuildSession": 17848,
+  "fullBuild": "PASS_ACTUAL_17848_EXIT_0",
+  "actualProjectRetest": "PENDING",
+  "fullBuildExitCode": 0,
+  "currentJarSha256": "381754e50a21922e3c106b3dd6e69cec663b9ff9a52ae4cdae2e00f43b1b706c",
+  "ownedBackendPid": 6604,
+  "health": "UP",
+  "frontendLogs": [
+    {
+      "path": "C:\\IntRuoyiBackups\\20261005-dcc-four-direction-runtime\\g55-types.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "C:\\IntRuoyiBackups\\20261005-dcc-four-direction-runtime\\g55-build.log",
+      "sha256": "b46813d7b7f90633292868570bae094be23a5dbf82483cdf35b3a462a1166e96"
+    }
+  ]
+}

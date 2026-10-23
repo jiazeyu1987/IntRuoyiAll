@@ -1,0 +1,14 @@
+{
+  "status": "ROOT_INDEPENDENT_OFFLINE_TRAINING_PERMISSION_SOURCE_REVIEW_PASS",
+  "manifestSha256": "ba5cc9f45c8292cce5ccc43edcd9ee45e3185ce53955a748ba052df272ee46db",
+  "actualCliExitCode": 0,
+  "actualTotals": {
+    "tests": 260,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "sourcePins": 5,
+  "scope": "independent TRAINING_RECORD permission, current real receive qualification across preview/upload/queue/message; existing APPROVE protection unchanged",
+  "actualRuntime": "G57running; G58package deferred until mainprojectionfixdesign"
+}

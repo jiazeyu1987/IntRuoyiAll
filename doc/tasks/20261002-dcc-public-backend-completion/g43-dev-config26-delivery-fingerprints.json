@@ -1,0 +1,123 @@
+{
+  "status": "G43_DEV_CONFIG26_PREPARED_READY_FOR_ROOT_REVIEW",
+  "assets": [
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g43-dev-config26.py",
+      "bytes": 17820,
+      "sha256": "7989b3a7e7a5ab1178183cc47db1c0f6830c17f353c969a2ddf8fb628b61ac6d"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g43-dev-config26-test.py",
+      "bytes": 7130,
+      "sha256": "ca66fdab908f7f9991496530edc538e337282357979e87bfbcf46284e21264c7"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g43-dev-config26-contract.md",
+      "bytes": 3062,
+      "sha256": "1d9fd11c7ef147a411dd1c937217c3875f7040dff7c0d0f69758327862fa32f6"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g43-dev-config26-operator-plan.md",
+      "bytes": 7367,
+      "sha256": "5451e95e3e941f3e5ea304c6edcde3ff3e24b54e8bceb1f963a0fd8f9696abb7"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g43-dev-config26.review.sql",
+      "bytes": 27532,
+      "sha256": "cea0fcd4413dfee1f6175089fe35205ee167e9c1df8f05f38eded9e455ba7c23"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g43-dev-config26-readonly-preflight.sql",
+      "bytes": 1663,
+      "sha256": "0fdecd1df5f07746289a1120939399b3db10d9c9614347c2c6bec35db8330d83"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g43-dev-config26-readonly-postflight.sql",
+      "bytes": 1663,
+      "sha256": "0fdecd1df5f07746289a1120939399b3db10d9c9614347c2c6bec35db8330d83"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g43-dev-config26-impact.json",
+      "bytes": 20045,
+      "sha256": "90c39cb0a82613f27171d9cfe2bb0ae2519b8bb5d65c9fd1ade0cb8801b6f79f"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g43-dev-policy.json",
+      "bytes": 291,
+      "sha256": "747b35bc10ba710c691cc51e9693077370a407e180e728163c6558520e5cac82"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g43-dev-config26-input-contract.json",
+      "bytes": 1402,
+      "sha256": "9583afa1b4f51b8cff94d91e4d731a9a94d83a01690725fc689ac83545467ab6"
+    }
+  ],
+  "rawEvidence": [
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g43-dev-config26-red.log",
+      "bytes": 3539,
+      "sha256": "1df98ba5067b4e641fc0d7681a785455f2abd799378e704607ddf220cbb5588e"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g43-dev-config26-final-green-r3.log",
+      "bytes": 110,
+      "sha256": "4d979aeec0a9bff73aaa5a9673d3b628e97cdd89492af644a35ef31b96916070"
+    }
+  ],
+  "currentCandidatePolicy": {
+    "path": "IntRuoyiBackend/config/gxp-audit-policy.yaml",
+    "bytes": 18022,
+    "sha256": "661af676e1406e86659806af8be8f46abd17d101d871d3af8d5b3b736873c894"
+  },
+  "exactOperationPayloadHash": "f43f134e39ed0aea3cfa756956cb7684ff867973a5d419dab00e03f7bf0f4c8a",
+  "originalG28Assets": [
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g28_config26.py",
+      "bytes": 17655,
+      "sha256": "22cb60bd0df683651bbeaf34d2318ef25e0638d3874334a148ab6b640af7250c"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g28-config26-impact.json",
+      "bytes": 25828,
+      "sha256": "5ecb0f89f1a500267a310d18c08f08b36c8c5c9ca8c1398577abaf4d5f53fe4b"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g28-config26-operation.review.sql",
+      "bytes": 24844,
+      "sha256": "5394330362003ece98b32ead58fd51c750cedb5cf54ce8e4b7ee780258c23e02"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g28-config26-quality-version.review.sql",
+      "bytes": 7331,
+      "sha256": "19815323feb81c228297665c1a67edc4d04aea6ef23f473fd8c40f8ad51c0664"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g28-config26-test.py",
+      "bytes": 7210,
+      "sha256": "482615c40c46e259f9fda8bf9df5a8d26fc1073113b6bd2cde3e9b3bdb6b7b51"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g28-config26-input-contract.json",
+      "bytes": 1202,
+      "sha256": "a7863974d82cfe5a07aa6c04838cc0aaab76cc6165250b87cd13039aacfef4a0"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g28-config26-operator-plan.md",
+      "bytes": 11454,
+      "sha256": "82aa5fa26b3a198965bc73767dfa0431e4af754ba2f7aacdf4c8a909c2345904"
+    }
+  ],
+  "offlineTests": {
+    "count": 7,
+    "failures": 0,
+    "cliExitCode": 0,
+    "log": "g43-dev-config26-final-green-r3.log"
+  },
+  "effectiveRed": "Old QA-dependent plan rejected exactdevelopment descriptor with real quality approval required; no fabricatedQA",
+  "actualMySqlFirstReplayOrRollbackByAgent": false,
+  "actualQualityApproved": false,
+  "qualityVersionWrites": 0,
+  "actualDbOrMavenOrBrowserOrServiceOrGitByAgent": false,
+  "sqlExecutionOwner": "Root",
+  "boundary": "Development-only candidate config does not assert quality approval or production release"
+}

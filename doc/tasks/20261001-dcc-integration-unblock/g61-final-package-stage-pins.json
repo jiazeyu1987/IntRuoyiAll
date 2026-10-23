@@ -1,0 +1,167 @@
+{
+  "assets": [
+    {
+      "path": "IntRuoyiBackend/config/gxp-audit-policy.yaml",
+      "sha256": "13d5ad2854951d4c21e63e68eac028706e5ab076da0f21c2ee8ad75ad46a6571",
+      "bytes": 18574
+    },
+    {
+      "kind": "production",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/file/DccLifecycleProjectionRepairController.java",
+      "bytes": 1819,
+      "sha256": "db72b9277eac4c094805e1be7bcd6f8247e00986381948ddaf27d821799f9877"
+    },
+    {
+      "kind": "production",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/file/vo/DccLifecycleProjectionRepairPreviewRespVO.java",
+      "bytes": 820,
+      "sha256": "d2e37ccb7dd7c7cae9ffee6f5a9da548f361804b44983416ff146e602af96660"
+    },
+    {
+      "kind": "production",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/file/vo/DccLifecycleProjectionRepairReqVO.java",
+      "bytes": 690,
+      "sha256": "36031cdc3c93d57bd31fa4477584f40a6ca56ab816d95971ca7f082248eec80b"
+    },
+    {
+      "kind": "production",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/file/vo/DccLifecycleProjectionRepairRespVO.java",
+      "bytes": 379,
+      "sha256": "a8ac1b1ed0b17c5d501e138c48bc7c185c9178f92042d63753edae58b20c5657"
+    },
+    {
+      "kind": "production",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledContentAdapter.java",
+      "bytes": 21888,
+      "sha256": "99a9768e957b14eaa9d3c1aebfe60d11cc91e1c11b8613aae566ba5ac3d0d3b0"
+    },
+    {
+      "kind": "production",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileLifecycleService.java",
+      "bytes": 17261,
+      "sha256": "5236cdf476b2f9528b24c7b6b428f10619417b6e1e1e696e81bd02857a93a767"
+    },
+    {
+      "kind": "production",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccLifecycleProjectionRepairService.java",
+      "bytes": 22356,
+      "sha256": "d24f20b3aa0c26e0120bf352df42ac8a4d43e865792121165f6db98e2b99cff7"
+    },
+    {
+      "kind": "test",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileFinalizationServiceImplTest.java",
+      "bytes": 98847,
+      "sha256": "6f14c1b4d5df41dda7781435780d43b9c75e341211686cf6440846eeeac07bfa"
+    },
+    {
+      "kind": "test",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccLifecycleProjectionRepairDatabaseTest.java",
+      "bytes": 17735,
+      "sha256": "2b404a4f9b139de934cca2cb71e70884be0c07d9679ff4eda034e3c7c6bd1775"
+    },
+    {
+      "kind": "test",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccNativePlatformLifecycleTransactionTest.java",
+      "bytes": 12259,
+      "sha256": "ebd12f4a4f6ca484759091d3c7df318fec9fcf80e0b11ec441fab97dc3e060fa"
+    },
+    {
+      "kind": "test",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccThreeControlledVersionActivationTest.java",
+      "bytes": 17926,
+      "sha256": "04ee6adccf63f8917daa8ef9fa6a49796e716fbbe0c6bb8c276f7a10564870ff"
+    },
+    {
+      "kind": "test",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccWorkflowLifecycleTransactionTest.java",
+      "bytes": 17398,
+      "sha256": "171f6c326a0482a1373b95c9c37a7d5e0f6d7f4ed53823a403e45dea9b878368"
+    },
+    {
+      "kind": "production",
+      "path": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/dal/mysql/controlledcontent/ControlledContentVersionRefMapper.java",
+      "bytes": 3671,
+      "sha256": "b4f1400049316c9714197868302ce2328d690c7b7f6afdb0a576131a7490476e"
+    },
+    {
+      "kind": "production",
+      "path": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/enums/controlledcontent/ControlledContentCanonicalStatus.java",
+      "bytes": 406,
+      "sha256": "4d6fa9a1ec8595da62e3f70c4d4ed7984fc9820defb1faa616d4ee4e3e8e411d"
+    },
+    {
+      "kind": "production",
+      "path": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/enums/controlledcontent/ControlledContentTransitionAction.java",
+      "bytes": 597,
+      "sha256": "70e909e91155f3fa7564961f199761e8eaa88f6bdecd7e083b48e9be7d5aaece"
+    },
+    {
+      "kind": "production",
+      "path": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/service/controlledcontent/ControlledContentLifecycleCoreService.java",
+      "bytes": 35157,
+      "sha256": "a55319b208dedb193c33c05c91bfa199efaf5b2a6a5d716c34af2025e0c998fb"
+    },
+    {
+      "kind": "production",
+      "path": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/service/controlledcontent/ControlledContentStateMachine.java",
+      "bytes": 7716,
+      "sha256": "e858752015e98fc3dae1837a6d9a74e7682a330c710d088831998df698fc4588"
+    },
+    {
+      "kind": "production",
+      "path": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/service/controlledcontent/ControlledContentTransitionProfile.java",
+      "bytes": 4948,
+      "sha256": "dedafa6c41808a3fe4280aece80a8eca33dfb2239bbf934bf1486f718265a97f"
+    },
+    {
+      "path": "IntRuoyiFronted/src/api/dcc/controlledFile/lifecycleProjectionRepair.ts",
+      "sha256": "001f553bd57cd43b1fe218efa3c0ef675e14991c3ef0e52ec174f334cfc5f443",
+      "bytes": 6776
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/detail/DetailLifecycleProjectionRepairDialog.vue",
+      "sha256": "e2fe4ecb7ed95e31ebd655a0609a920734e83393ab3136dbce3b3227c565ae02",
+      "bytes": 7866
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/detail/index.vue",
+      "sha256": "7584fa5adca8b9d3b4e9fe2a3509db8485c6bd3a7554d5a84e41c42c13a36889",
+      "bytes": 315365
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-lifecycle-projection-repair.test.cjs",
+      "sha256": "0c1801141e10462016cee10521eb67bd35cc9eefe138cd931d6fb6ad4717ba53",
+      "bytes": 14807
+    },
+    {
+      "kind": "production",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileObsoleteServiceImpl.java",
+      "bytes": 26041,
+      "sha256": "60f6fd8c2adf8354d26b4bcdbb8b28e2acdc9b6e3860956b9379933231034dfc"
+    },
+    {
+      "kind": "test",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccPendingObsoletePlatformTransactionTest.java",
+      "bytes": 10805,
+      "sha256": "67ef9aed9fef4765c2fa7163be1163b8e19bf35c55db15a6dfaf468949d411c4"
+    },
+    {
+      "kind": "test",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccWorkflowObsoleteTransactionTest.java",
+      "bytes": 20322,
+      "sha256": "0c9a0c94fb6e57c4682d391c63b0ea2f4d1663a15e3160acbbbf294b1912fedd"
+    },
+    {
+      "kind": "production",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileQueryServiceImpl.java",
+      "bytes": 269993,
+      "sha256": "9f2f14d389e989ec795af4368d64099227e87a5967a5628f41cadf6fc3bf31a1"
+    },
+    {
+      "kind": "test",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccRelationNameMetadataDatabaseTest.java",
+      "bytes": 25438,
+      "sha256": "11255c32c717ccff389718890490ed27d61f7302b5e2f42fe01e5f0de9e4343a"
+    }
+  ]
+}

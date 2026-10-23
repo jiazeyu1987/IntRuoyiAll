@@ -57,13 +57,13 @@ assert.match(routeTable, />\s*删除\s*</, '流程路线操作列必须显示“
 
 assert.match(
   routePage,
-  /const handleCreateRoute = async \(\) => \{[\s\S]*routeFormRef\.value\?\.open\(\{[\s\S]*categories: categoryOptions\.value[\s\S]*users: users\.value[\s\S]*positions: positions\.value/,
-  '新增路线必须打开表单并传入可选文件类别、用户和岗位'
+  /const handleCreateRoute = async \(\) => \{[\s\S]*routeFormRef\.value\?\.open\(\{[\s\S]*categories: categoryOptions\.value[\s\S]*users: users\.value[\s\S]*positions: activePositions\.value[\s\S]*departments: departments\.value/,
+  '新增路线必须打开表单并传入可选文件类别、用户、启用岗位和部门'
 )
 assert.match(
   routePage,
-  /const handleEditRoute = async \(row: ControlledFileApprovalRouteVO\) => \{[\s\S]*routeFormRef\.value\?\.open\(\{[\s\S]*category:[\s\S]*route: row[\s\S]*users: users\.value[\s\S]*positions: positions\.value/,
-  '修改路线必须打开表单并传入当前行路线版本'
+  /const handleEditRoute = async \(row: ControlledFileApprovalRouteVO\) => \{[\s\S]*routeFormRef\.value\?\.open\(\{[\s\S]*category:[\s\S]*route: row[\s\S]*users: users\.value[\s\S]*positions: activePositions\.value[\s\S]*departments: departments\.value/,
+  '修改路线必须打开表单并传入当前行路线版本、启用岗位和部门'
 )
 assert.match(
   routePage,
@@ -77,13 +77,22 @@ assert.doesNotMatch(
 )
 
 assert.match(routeForm, /<el-form-item label="文件类别" prop="categoryId">/, '路线表单必须支持选择文件类别')
+assert.match(routeForm, /<el-form-item label="动作类型" prop="actionType">/, '路线表单必须支持选择动作类型')
+assert.match(routeForm, /ROUTE_ACTION_TYPE_OPTIONS/, '路线表单动作类型必须使用正式动作选项')
+assert.match(routeForm, /actionType: 'NEW'/, '新增路线默认应创建 NEW 动作路线')
+assert.match(routeForm, /handleActionTypeChange/, '切换动作类型必须重置节点策略')
 assert.match(routeForm, /v-if="categorySelectable"/, '新增路线时文件类别必须可选')
 assert.match(routeForm, /v-else[\s\S]*currentCategory\?\.name/, '编辑路线时文件类别必须固定展示')
 assert.match(routeForm, /categoryId: undefined/, '路线表单模型必须包含 categoryId')
 assert.match(routeForm, /categories\?: Array<ControlledFileCategoryVO & \{ id: number \}>/, '路线表单 open 入参必须支持候选文件类别')
+assert.match(routeForm, /departments: DeptVO\[\]/, '路线表单 open 入参必须支持部门候选')
 assert.match(routeForm, /const categorySelectable = computed/, '路线表单必须根据打开模式控制文件类别选择')
+assert.match(routeForm, /candidateSourceType: !isLegacyRoute\.value && index === 0 \? 'DEPT' : 'POSITION'/, '三动作路线首节点默认必须按部门会签')
+assert.match(routeForm, /node\.stageNo === 1 && node\.candidateSourceType !== 'DEPT'/, '三动作路线保存前必须阻断非部门会签首节点')
+assert.match(routeForm, /candidateSourceIds/, '路线表单必须支持多部门候选集合')
 assert.match(routeForm, /if \(!formData\.value\.categoryId\)[\s\S]*message\.warning\('请选择文件类别'\)/, '保存前必须显式校验文件类别')
 assert.match(routeForm, /await saveApprovalRoute\(formData\.value\.categoryId/, '路线表单保存必须使用选择后的类别 id')
+assert.match(routeForm, /actionType: formData\.value\.actionType as ControlledFileApprovalRouteActionType/, '路线表单保存必须提交动作类型')
 
 for (const forbidden of [/mock/i, /placeholder data/i, /fallback/i, /降级/, /吞异常/, /默认成功/]) {
   assert.doesNotMatch(routePage, forbidden, '路线操作页面不得引入 mock、fallback、降级、吞异常或默认成功')

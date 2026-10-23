@@ -2,6 +2,7 @@ package cn.iocoder.yudao.server.profileworkbench;
 
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
 import org.springframework.stereotype.Component;
 import java.security.SecureRandom;
 import java.time.*;
@@ -23,7 +24,10 @@ public class WorkbenchQueryTokens {
     public WorkbenchQueryTokens(WorkbenchTokenStore store, ObjectMapper mapper) { this(store, mapper, Clock.systemUTC()); }
     // Explicit clock supports deterministic expiry verification; production has one UTC clock.
     public WorkbenchQueryTokens(WorkbenchTokenStore store, ObjectMapper mapper, Clock clock) {
-        this.store = store; this.mapper = mapper; this.clock = clock;
+        this.store = store;
+        // Token storage uses ISO instants, independent of the HTTP mapper's millisecond timestamps.
+        this.mapper = mapper.copy().disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+        this.clock = clock;
     }
     public Issued issue(long tenant, long user, long version, String revision, List<String> sources,
                         WorkbenchQuerySpec spec, String epoch) {

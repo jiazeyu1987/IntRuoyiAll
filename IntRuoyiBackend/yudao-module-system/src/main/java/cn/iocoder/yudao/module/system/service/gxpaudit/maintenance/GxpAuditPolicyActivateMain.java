@@ -118,6 +118,7 @@ public final class GxpAuditPolicyActivateMain {
             context.registerBean(SqlSessionTemplate.class,
                     () -> new SqlSessionTemplate(context.getBean(SqlSessionFactory.class)));
             registerMapper(context, TenantMapper.class);
+            registerMapper(context, cn.iocoder.yudao.module.system.dal.mysql.user.AdminUserMapper.class);
             registerMapper(context, GxpAuditPolicyVersionMapper.class);
             registerMapper(context, GxpAuditPolicyOperationMapper.class);
             registerMapper(context, GxpAuditPolicyActivationMapper.class);

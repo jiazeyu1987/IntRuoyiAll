@@ -5,6 +5,7 @@ import cn.iocoder.yudao.module.system.dal.dataobject.gxpaudit.GxpAuditPolicyActi
 import cn.iocoder.yudao.module.system.dal.mysql.gxpaudit.GxpAuditPolicyActivationMapper;
 import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditPolicyBundle;
 import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditPolicyBundleLoader;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpLocalDevelopmentPolicy;
 import org.springframework.beans.factory.SmartInitializingSingleton;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Component;
@@ -17,6 +18,9 @@ public class GxpAuditPolicyStartupGuard implements SmartInitializingSingleton {
     private final GxpAuditPolicyBundleLoader loader;
     private final GxpAuditPolicyActivationMapper activations;
 
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private GxpLocalDevelopmentPolicy localDevelopmentPolicy;
+
     public GxpAuditPolicyStartupGuard(GxpAuditPolicyBundleLoader loader,
                                      GxpAuditPolicyActivationMapper activations) {
         this.loader = loader;
@@ -26,6 +30,10 @@ public class GxpAuditPolicyStartupGuard implements SmartInitializingSingleton {
     @Override
     public void afterSingletonsInstantiated() {
         GxpAuditPolicyBundle bundle = loader.load();
+        if (localDevelopmentPolicy != null) {
+            localDevelopmentPolicy.verifyBundle(bundle);
+            return;
+        }
         // Activation is the scope authority, including disabled/deleted/orphan system tenants.
         // Do not change table-level tenant rules; restore the caller's context even on rejection.
         TenantUtils.executeIgnore((Runnable) () -> {

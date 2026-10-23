@@ -50,4 +50,13 @@ class DccFileTypeTaxonomyControllerTest extends BaseMockitoUnitTest {
         assertEquals("@ss.hasPermission('dcc:controlled-file:category:manage')",
                 managementList.getAnnotation(PreAuthorize.class).value());
     }
+    @Test void activeCategoryAllowsFormalCategoryMaintenanceAndStillKeepsManagementListPermission() throws Exception {
+        Method method = DccFileTypeTaxonomyController.class.getDeclaredMethod("activeCategory", Long.class);
+        assertEquals("@ss.hasAnyPermissions('dcc:controlled-file:submit','dcc:controlled-file:category:manage')",
+                method.getAnnotation(PreAuthorize.class).value());
+        when(taxonomyAdminService.resolveActiveCategoryId(31L)).thenReturn(51L);
+        assertEquals(51L, controller.activeCategory(31L).getCheckedData());
+        assertEquals("@ss.hasPermission('dcc:controlled-file:category:manage')",
+                DccFileTypeTaxonomyController.class.getDeclaredMethod("getTaxonomyList").getAnnotation(PreAuthorize.class).value());
+    }
 }

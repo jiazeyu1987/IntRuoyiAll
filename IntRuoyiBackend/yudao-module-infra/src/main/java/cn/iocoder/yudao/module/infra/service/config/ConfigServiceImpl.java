@@ -7,6 +7,7 @@ import cn.iocoder.yudao.module.infra.convert.config.ConfigConvert;
 import cn.iocoder.yudao.module.infra.dal.dataobject.config.ConfigDO;
 import cn.iocoder.yudao.module.infra.dal.mysql.config.ConfigMapper;
 import cn.iocoder.yudao.module.infra.enums.config.ConfigTypeEnum;
+import cn.iocoder.yudao.module.infra.enums.config.PasswordMaxAgeConfig;
 import com.google.common.annotations.VisibleForTesting;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
@@ -28,6 +29,7 @@ import static cn.iocoder.yudao.module.infra.enums.ErrorCodeConstants.*;
 public class ConfigServiceImpl implements ConfigService {
 
     public static final String IDLE_LOGOUT_MINUTES_CONFIG_KEY = "system.login.idle-timeout-minutes";
+    public static final String TEST_MODE_CONFIG_KEY = "system.ui.test-mode-enabled";
     private static final int IDLE_LOGOUT_MINUTES_MIN = 1;
     private static final int IDLE_LOGOUT_MINUTES_MAX = 1440;
     private static final Pattern POSITIVE_INTEGER_PATTERN = Pattern.compile("^[1-9]\\d*$");
@@ -43,7 +45,8 @@ public class ConfigServiceImpl implements ConfigService {
 
         // 插入参数配置
         ConfigDO config = ConfigConvert.INSTANCE.convert(createReqVO);
-        config.setType(ConfigTypeEnum.CUSTOM.getType());
+        config.setType(PasswordMaxAgeConfig.KEY.equals(config.getConfigKey())
+                ? ConfigTypeEnum.SYSTEM.getType() : ConfigTypeEnum.CUSTOM.getType());
         configMapper.insert(config);
         return config.getId();
     }
@@ -51,13 +54,20 @@ public class ConfigServiceImpl implements ConfigService {
     @Override
     public void updateConfig(ConfigSaveReqVO updateReqVO) {
         // 校验自己存在
-        validateConfigExists(updateReqVO.getId());
+        ConfigDO current = validateConfigExists(updateReqVO.getId());
+        if (current != null && PasswordMaxAgeConfig.KEY.equals(current.getConfigKey())
+                && !PasswordMaxAgeConfig.KEY.equals(updateReqVO.getKey())) {
+            throw exception(CONFIG_PASSWORD_MAX_AGE_KEY_IMMUTABLE);
+        }
         validateConfigValue(updateReqVO.getKey(), updateReqVO.getValue());
         // 校验参数配置 key 的唯一性
         validateConfigKeyUnique(updateReqVO.getId(), updateReqVO.getKey());
 
         // 更新参数配置
         ConfigDO updateObj = ConfigConvert.INSTANCE.convert(updateReqVO);
+        if (PasswordMaxAgeConfig.KEY.equals(updateReqVO.getKey())) {
+            updateObj.setType(ConfigTypeEnum.SYSTEM.getType());
+        }
         configMapper.updateById(updateObj);
     }
 
@@ -130,6 +140,16 @@ public class ConfigServiceImpl implements ConfigService {
     }
 
     private void validateConfigValue(String key, String value) {
+        if (PasswordMaxAgeConfig.KEY.equals(key)) {
+            PasswordMaxAgeConfig.parseRequired(value);
+            return;
+        }
+        if (TEST_MODE_CONFIG_KEY.equals(key)) {
+            if (!"true".equals(value) && !"false".equals(value)) {
+                throw exception(CONFIG_TEST_MODE_INVALID);
+            }
+            return;
+        }
         if (!IDLE_LOGOUT_MINUTES_CONFIG_KEY.equals(key)) {
             return;
         }

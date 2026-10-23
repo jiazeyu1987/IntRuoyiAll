@@ -53,9 +53,10 @@ const removedDownloadInjectionMessage =
 
 assert.match(
   script,
-  /--spring\.profiles\.active=local/,
-  'Backend start script must still start the local Spring profile.'
+  /\[string\]\$SpringProfile\s*=\s*'local'/,
+  'Backend start script must retain the local Spring profile default.'
 )
+assert.match(script, /--spring\.profiles\.active=\$SpringProfile/, 'Backend start script must use the explicit single Spring profile parameter.')
 
 for (const [label, source] of inspectedSources) {
   for (const envName of forbiddenRuntimeVariables) {

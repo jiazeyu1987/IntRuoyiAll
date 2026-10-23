@@ -1,0 +1,113 @@
+# Execution Log
+
+## 2026-09-20
+
+- User requested and authorized a full E2E run for DCC permission isolation, including service restart authorization.
+- Required rules reviewed before run/test/restart/E2E work:
+  - `docs/task-closeout-rules.md`
+  - `docs/e2e-rules.md`
+  - `docs/local-runtime.md`
+  - `docs/branch-runtime-ports.md`
+  - `docs/worktree-restrictions.md`
+  - `docs/login-access.md`
+  - `docs/backend-development.md`
+  - `docs/frontend-development.md`
+  - `docs/dcc-minimal-main-flow/implementation.md`
+  - `docs/product/dcc-windchill-version-phase1-acceptance-criteria.md`
+- Current high-level constraints:
+  - Use tenant `芋道源码` and the provided real login account.
+  - Perform accepted business actions through Playwright on the real frontend.
+  - Do not use direct API or database writes as substitutes for E2E actions.
+  - Do not operate remote servers, Git commit/push, or sub agents without explicit authorization.
+  - Do not affect `int_main` / port `48081`.
+- Task asset directory created for scripts, evidence, and verification records.
+- Runtime branch confirmed as `int_qms`; branch runtime ports are frontend `8061`, backend `48061`.
+- Existing listeners before restart:
+  - `8061`: Vite branch-qms frontend, PID 18928.
+  - `48061`: int_qms backend, PID 32432.
+  - `8081`: unrelated Vite env.local frontend, PID 31460. Left untouched.
+- Backend package command with repository runtime Maven/JDK passed:
+  - `C:\IntRuoyiAll-int_main\.runtime\tools\apache-maven-3.9.11\bin\mvn.cmd -pl yudao-server -am -DskipTests package`
+- First backend restart attempt with the freshly built jar failed fast before web server startup:
+  - Error: `DCC electronic signature evidence configuration is missing`.
+  - Root cause class: `DccSignatureEvidenceProperties`, prefix `dcc.signature.evidence`, required `hmacSecret` and `keyVersion`.
+- Existing deploy contract maps `DCC_SIGNATURE_EVIDENCE_HMAC_SECRET` and `DCC_SIGNATURE_EVIDENCE_KEY_VERSION` to:
+  - `--dcc.signature.evidence.hmac-secret`
+  - `--dcc.signature.evidence.key-version`
+- Restarted only int_qms backend with explicit local E2E DCC signature evidence configuration; new backend PID `40608`.
+- Health check after restart: `http://127.0.0.1:48061/actuator/health` -> `UP`.
+- Real Playwright probe script: `permission-isolation-browser-check.e2e.cjs`.
+- First probe exposed two script/runtime issues and was corrected:
+  - The browser page requires a real directory click before list loading.
+  - The low-privilege account route rejection is asynchronous and must be observed as a rendered 404, not a locator timeout.
+- Final real frontend probe result: `BLOCKED`.
+  - Tenant: `芋道源码`.
+  - `admin`: route accessible, real directory click and `全域` scope switch completed, but unfiltered list `initialRowCount=0`; no ACTIVE current file row exists for permission comparison.
+  - `aoteman`: login succeeded, but direct real-page navigation to `/dcc/controlled-file/browser` rendered `抱歉，您访问的页面不存在。`, proving the account lacks the controlled-browser route/menu permission. This is not a name-only permission result.
+  - No preview, download, edit, approval, association, API business write, or database write was performed.
+- Static checks:
+  - `dcc-controlled-content-matrix-real-flow-contract-static.spec.js`: PASS.
+  - `dcc-controlled-viewer-permission-static.spec.js`: PASS.
+  - `dcc-view-matrix-independent-source-static.spec.js`: FAIL because its literal check requires `<CategoryViewMatrixTable />`, while the current source uses a multiline component invocation with props. The component and `查看矩阵` tab are present in source; this is recorded as a static-check mismatch, not E2E evidence.
+- Backend focused permission tests:
+  - `DccControlledFileQueryServiceTest`: 149 passed.
+  - `DccControlledFileReviewMatrixAccessServiceTest`: 4 passed.
+  - `DccControlledFileViewMatrixAccessServiceTest`: 11 passed.
+  - Maven reactor result: `BUILD SUCCESS`.
+- Final script rerun after documenting the blocker hit login-response timeouts for both accounts after 120 seconds; this is recorded as a runtime stability issue and does not replace the earlier completed page evidence. Stable blocked evidence was preserved in `artifacts/permission-isolation-browser-check-blocked.json`.
+- Continued after backend restart authorization and confirmed current backend listener:
+  - `48061`: int_qms backend, PID `47176`, command line points at `output\runtime\int_qms\branch-backend-runtime-20260919-024740.jar`.
+  - Health check: `http://127.0.0.1:48061/actuator/health` returned HTTP 200.
+  - `48081` was not stopped or restarted.
+- Real frontend E2E rerun for file `CODEX 文件上传流程测试 20260808`:
+  - `wangsiyu`: PASS. Route accessible, target file visible, row actions include `预览`, `追溯`, `签核`, `下载`, `更多`; no row metadata edit action. Preview opened real detail viewer; `/preview-metadata` and `/preview` both returned 200. Download confirmation was completed through the UI; `/download?...nonControlledWarningConfirmed=true...` returned 200. Detail page showed project linkage and approval-related panels.
+  - Evidence saved as `artifacts/permission-isolation-wangsiyu-content-pass.json`, `wangsiyu-browser.png`, `wangsiyu-preview.png`, `wangsiyu-detail.png`.
+  - `zhaojie`: PASS for name/content separation. Route accessible, target file visible with metadata; row actions include `追溯` and `签核`, but no `预览` and no `下载`; detail page has no preview button. This demonstrates searchable metadata without content access, though this account is not a pure name-only fixture because approval/traceability UI is also visible.
+  - Evidence saved as `artifacts/permission-isolation-zhaojie-name-only-pass.json`, `zhaojie-browser.png`, `zhaojie-detail.png`.
+  - `admin`: PASS for admin/content/reference evidence. Target file visible; preview and download completed with HTTP 200. Detail page exposes richer approval, signature, association, and traceability information.
+  - Evidence saved as `artifacts/permission-isolation-admin-pass.json`, `admin-browser.png`, `admin-preview.png`, `admin-detail.png`.
+- Current remaining gap:
+  - Existing usable accounts prove content gating for preview/download and metadata visibility without content actions.
+  - They do not yet prove clean independent positive fixtures for edit-only, approval-only, and association-only permissions.
+  - Creating or changing task-owned roles/users/permissions through the real frontend is the next required step if the goal must be completed in the same environment.
+- Extended the real Playwright evidence script to inspect independent permission gates without submitting state-changing actions:
+  - Row `更多` menu records whether `修改基础信息` is exposed.
+  - Traceability detail records whether `关联文档入口` is visible and enabled.
+  - Approval center records DCC todo rows and real `审核` buttons for the logged-in account.
+- Independent gate evidence:
+  - `admin`: row metadata edit menu present; association entry visible and enabled; approval center showed 12 DCC task rows and 8 `审核` buttons.
+  - `wangsiyu`: preview/download completed; row metadata edit menu present; association entry visible and enabled; approval center had 0 tasks and 0 review buttons.
+  - `zhaojie`: metadata visible with no preview/download; no metadata edit menu; association entry visible but disabled; approval center had 0 tasks and 0 review buttons.
+- New raw evidence:
+  - `artifacts/permission-isolation-admin-full-matrix.json`
+  - `artifacts/permission-isolation-wangsiyu-full-matrix.json`
+  - `artifacts/permission-isolation-zhaojie-full-matrix.json`
+  - `artifacts/permission-isolation-combined-run-flaky.json` is retained as a flaky combined-run diagnostic only and is not used as acceptance evidence.
+- Final read-only permission gate pass does not yet include saving metadata, submitting an approval, or creating/changing an association. These state-changing actions remain outside the current evidence set.
+- Association route follow-up:
+  - Static inspection of `20260626_dcc_basic_data_global_submenu.sql` and the existing route contract established that the registered route is `/mdm/project-code`; the detail source and related project-code navigation helpers still used the obsolete `/mes/md/dcc-project-code` path.
+  - Corrected the four frontend navigation sources and their focused route expectations, plus the task-owned browser probe's route and fallback URL.
+  - RED: the first post-fix `admin` browser attempt -> FAIL at login because the branch backend had not successfully started; startup log reported missing `dcc.signature.evidence` configuration.
+  - GREEN: restarted only `int_qms` on `48061` with the repository runtime JDK, local MySQL/Redis settings, and explicit DCC signature evidence configuration; health returned `UP`.
+  - GREEN: `node tests/e2e/dcc-basic-data-global-submenu-static.spec.js` -> PASS.
+  - GREEN: `node tests/e2e/dcc-project-code-recognition-static.spec.js` -> PASS.
+  - REGRESSION CHECK: `node tests/e2e/product-master-cross-navigation-static.spec.cjs` -> FAIL on its pre-existing registration-row product-management jump assertion; this failure is unrelated to the DCC route correction.
+  - GREEN: real Playwright route-fixed matrix for `admin`, `wangsiyu`, and `zhaojie` -> PASS.
+  - Route-fixed evidence: `artifacts/permission-isolation-admin-route-fixed.json`, `artifacts/permission-isolation-wangsiyu-route-fixed.json`, `artifacts/permission-isolation-zhaojie-route-fixed.json`.
+  - `admin`: `/mdm/project-code` loaded with project-code rows; association entry was enabled; approval center exposed 8 real `审核` buttons; preview/download responses were both 200.
+  - `wangsiyu`: `/mdm/project-code` loaded the maintenance surface with `分配修正` and `分配记录`; preview/download responses were both 200; approval center had zero tasks/review buttons.
+  - `zhaojie`: metadata row remained visible with no preview/download/edit; association entry remained disabled; approval center had zero tasks/review buttons.
+  - No metadata save, approval submit, association create/change, API write, or database write was performed.
+- Write-flow continuation:
+  - Added task-owned Playwright script `permission-isolation-write-e2e.cjs` with browser tracing for edit, approval, association, and cleanup actions.
+  - RED: first write run -> metadata dialog label locator timed out before any save request. Fixed the locator to target the visible Element Plus form item; no write occurred in the failing attempt.
+  - GREEN: edit action as `wangsiyu` -> changed the task file name with the real `修改基础信息` dialog, received one metadata PUT HTTP 200, then restored the original name with a second metadata PUT HTTP 200. Final browser list showed the original name.
+  - RED: first approval attempt -> visible radio-button text intercepted the hidden input. Fixed the Playwright locator to click `.el-radio-button__inner`.
+  - GREEN: approval action as `admin` -> selected the real CODEX approval task `CODEX-DCC-MAJOR-20260919165439.docx`, chose `审核不通过`, filled the reason and signature password, submitted from `审核确认`, received `POST /admin-api/approval-center/tasks/review` HTTP 200, and the task row left the TODO list.
+  - RED: first association attempt -> the button was enabled but the script expected an accessible dialog name that Element Plus did not expose; diagnostic screenshot confirmed the real `分配修正任务` dialog was already open. Fixed the locator to the visible dialog and selected the target file through the real `当前选中文件` search path.
+  - GREEN: association action as `admin` -> selected project code `125`, searched and selected `CODEX 文件上传流程测试 20260808`, chose `王思雨 / wangsiyu`, entered a task-marked reason, clicked `创建分配`, received `POST /admin-api/dcc/project-codes/125/assignments` HTTP 200, and verified the record in `分配记录`.
+  - GREEN: cleanup action as `admin` -> opened the real `撤回` prompt, entered a reason, received `PUT /admin-api/dcc/project-code-assignments/10/revoke` HTTP 200, and verified the assignment row status changed to `REVOKED`.
+  - Post-write real browser regression:
+    - `admin`: PASS with preview/download HTTP 200, edit menu, `/mdm/project-code`, and 7 remaining DCC review buttons after the intentional rejection.
+    - `wangsiyu`: PASS with preview/download HTTP 200, edit menu, association maintenance controls, and zero approval tasks.
+    - `zhaojie`: PASS with metadata row visible, no preview/download/edit, disabled association entry, and zero approval tasks.

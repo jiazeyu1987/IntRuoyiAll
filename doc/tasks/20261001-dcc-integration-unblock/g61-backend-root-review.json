@@ -1,0 +1,30 @@
+{
+  "status": "G61_TWO_ASSET_ROOT_REVIEW_AND_REAL_XML46_PASS",
+  "suites": [
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g61-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest.xml",
+      "sha256": "3a67d912e287f9f843cc6fc1c8e39ee302b8df1d5e7e6d391a1df28e85b66992",
+      "tests": 7,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g61-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccRelationNameMetadataDatabaseTest.xml",
+      "sha256": "a18e8989eb6b45344f97103846974cabf509cbe20d603ba7bcf05de04c488d99",
+      "tests": 39,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    }
+  ],
+  "productionAssets": 1,
+  "testAssets": 1,
+  "mavenSession": 66147,
+  "exitCode": 0,
+  "sourceCommit": "01f846cec",
+  "independentFrontendReview": "g61-pending-controlled-obsolete-entry-readonly-review.md",
+  "actualEntry": "r9/302 normal controlledbrowser operationpanel opens qualified pendingobsolete dialog",
+  "actualFullObsolete": "G62 realcaller missing frozen obligations inprogress",
+  "remoteThroughG61": "0ahead0behind normal verified"
+}

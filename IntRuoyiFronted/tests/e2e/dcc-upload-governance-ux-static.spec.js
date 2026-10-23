@@ -67,10 +67,15 @@ for (const sourceToken of [
   'routeReadiness.value?.ready',
   'routeReadiness.value.blockers',
   'checkControlledFileRouteReadiness',
-  'selectedSignoffUserIds'
+  "actionType: 'NEW'"
 ]) {
   assert.match(uploadPage, new RegExp(sourceToken.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), `upload preflight must use formal source: ${sourceToken}`)
 }
+assert.doesNotMatch(
+  uploadPage,
+  /checkControlledFileRouteReadiness\(\{[\s\S]*selectedSignoffUserIds/,
+  'upload preflight must not send deprecated manual signoff users'
+)
 
 for (const field of ['publishedArtifactAvailable', 'stampedArtifactAvailable', 'previewUnavailableReason']) {
   assert.match(workflowApi, new RegExp(`${field}\\?:`), `frontend detail VO must expose business artifact state: ${field}`)
@@ -137,15 +142,21 @@ const approvalBusinessSummary = extractBetween(
   'v-if="isApprovalColumnVisible(\'node\')"',
   'approval-center business summary column'
 )
+const approvalContextResolver = extractBetween(
+  approvalCenter,
+  'const resolveVisibleBusinessContextTags',
+  'const resolveBusinessContextTagLabel',
+  'approval-center business context resolver'
+)
 assert.match(
   approvalBusinessSummary,
   /data-testid="approval-center-dcc-business-context"/,
   'approval center must render stable DCC business context tags'
 )
 assert.match(
-  approvalBusinessSummary,
+  approvalContextResolver,
   /row\.businessContextTags/,
-  'approval center row must render backend-provided business context tags'
+  'approval center context resolver must read backend-provided business context tags'
 )
 
 for (const diagnostic of [

@@ -63,6 +63,10 @@ public class DccControlledFileMetadataUpdateServiceImpl implements DccControlled
     @Resource
     private DccProjectCodeMapper projectCodeMapper;
     @Resource
+    private cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccApprovedProductIdentityMapper approvedProductIdentityMapper;
+    @Resource
+    private cn.iocoder.yudao.module.mdm.api.product.MdmProductApi mdmProductApi;
+    @Resource
     private PermissionApi permissionApi;
     @Resource
     private DccFileTypeTaxonomyAdminService fileTypeTaxonomyAdminService;
@@ -131,6 +135,8 @@ public class DccControlledFileMetadataUpdateServiceImpl implements DccControlled
                 .title(metadata.fileName())
                 .fileNumber(metadata.fileNumber())
                 .productMasterId(metadata.productMasterId())
+                .productSource(metadata.product().source()).productCatalogId(metadata.product().catalogId())
+                .productRelationId(metadata.product().relationId()).productCreateRequestId(metadata.product().requestId())
                 .productCode(metadata.productCode())
                 .productName(metadata.productName())
                 .dccProjectCodeId(metadata.dccProjectCodeId())
@@ -143,6 +149,14 @@ public class DccControlledFileMetadataUpdateServiceImpl implements DccControlled
                 .fileTypeLevel5(metadata.fileTypeLevel5())
                 .build();
         controlledFileMapper.updateById(afterFile);
+        // Explicitly clear the other source's IDs; default non-null update strategies cannot do this.
+        int productRows=controlledFileMapper.update(null,new com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper<DccControlledFileDO>()
+                .eq("id",file.getId()).eq("tenant_id",TenantContextHolder.getRequiredTenantId())
+                .set("product_master_id",metadata.productMasterId()).set("product_source",metadata.product().source())
+                .set("product_catalog_id",metadata.product().catalogId()).set("product_relation_id",metadata.product().relationId())
+                .set("product_create_request_id",metadata.product().requestId())
+                .set("product_code",metadata.productCode()).set("product_name",metadata.productName()));
+        if(productRows!=1) throw exception(CONTROLLED_FILE_FILE_NUMBER_CONFLICT);
         metadataChangeAuditService.recordMetadataChange(new DccProjectCodeMetadataChangeCommand(
                 userId, authorization, file, afterFile, reqVO.getChangeReason()));
     }
@@ -166,11 +180,13 @@ public class DccControlledFileMetadataUpdateServiceImpl implements DccControlled
         DccProjectCodeDO projectCode = resolveEnabledProjectCode(reqVO.getDccProjectCodeId());
         ResolvedFileTypeTaxonomy fileTypeTaxonomy = resolveFileTypeTaxonomy(reqVO);
         FileTypeLevels fileTypeLevels = fileTypeTaxonomy.levels();
+        var product=cn.iocoder.yudao.module.dcc.service.projectcode.productcreate.DccProjectProductIdentityResolver
+                .resolve(projectCode,mdmProductApi,approvedProductIdentityMapper);
         return new NormalizedMetadata(
-                null,
-                StrUtil.trim(projectCode.getProjectName()),
+                product.masterId(),
+                product.name(),
                 StrUtil.trim(reqVO.getFileName()),
-                StrUtil.trim(projectCode.getProjectCode()),
+                product.code(),
                 fileNumber,
                 StrUtil.blankToDefault(fileNumber, null),
                 reqVO.getCategoryId(),
@@ -182,7 +198,7 @@ public class DccControlledFileMetadataUpdateServiceImpl implements DccControlled
                 fileTypeLevels.level2(),
                 fileTypeLevels.level3(),
                 fileTypeLevels.level4(),
-                fileTypeLevels.level5());
+                fileTypeLevels.level5(),product);
     }
 
     private DccProjectCodeDO resolveEnabledProjectCode(Long dccProjectCodeId) {
@@ -337,7 +353,8 @@ public class DccControlledFileMetadataUpdateServiceImpl implements DccControlled
                                       Long dccProjectCodeId,
                                       Boolean needTraining, Long fileTypeTaxonomyId, String fileTypeLevel1,
                                       String fileTypeLevel2, String fileTypeLevel3, String fileTypeLevel4,
-                                      String fileTypeLevel5) {
+                                      String fileTypeLevel5,
+                                      cn.iocoder.yudao.module.dcc.service.projectcode.productcreate.DccProjectProductIdentityResolver.Product product) {
     }
 
     private record FileTypeLevels(String level1, String level2, String level3, String level4, String level5) {

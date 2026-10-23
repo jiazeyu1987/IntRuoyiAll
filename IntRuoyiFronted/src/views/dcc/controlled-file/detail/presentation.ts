@@ -1,4 +1,5 @@
 import dayjs from 'dayjs'
+import { getDccVersionDisplayText } from '../shared/version-display'
 import type {
   ControlledFileDistributionStatusVO,
   ControlledFileSignatureSummaryVO,
@@ -19,6 +20,7 @@ import {
   getDccSignatureEvidenceStatusLabel,
   getDccSignatureEvidenceStatusTagType,
   getDccSignatureMeaningLabel,
+  getDccSignatureOpinionLabel,
   getDccSignatureTaskActionLabel
 } from '../shared/signature-evidence'
 import {
@@ -107,8 +109,8 @@ const DCC_DETAIL_PROJECTION_LABELS: Record<DccDetailProjectionAction, string> = 
   DOWNLOAD: '下载受控文件',
   PRINT: '受控打印',
   OBSOLETE: '作废当前版本',
-  PUBLISH: '发布申请',
-  MANUAL_RELEASE: '正式下发',
+  PUBLISH: '生效申请',
+  MANUAL_RELEASE: '下发',
   ACKNOWLEDGE_TRAINING: '确认培训'
 }
 
@@ -323,7 +325,12 @@ export const getDetailTrainingAssignmentSummary = (
 
 export const isVersionHistoryVisibleToReader = (_status: string | undefined) => true
 
-export const getDistributionStatusLabel = (status: string | undefined) => {
+export const getDistributionStatusLabel = (
+  status: string | undefined,
+  file?: { distributedTime?: unknown }
+) => {
+  if (status === 'PENDING' && file?.distributedTime != null && file.distributedTime !== '')
+    return '已下发，待签收'
   return status ? DISTRIBUTION_STATUS_LABEL_MAP.get(status) ?? status : '-'
 }
 
@@ -488,7 +495,7 @@ export const buildDetailLifecycleTimelineItems = (
   }
   const items: DetailLifecycleTimelineDraft[] = []
   const requesterName = userNameMapValue(context.userNameMap, file.requesterId)
-  const fileVersionText = `版本 ${file.versionNo || '-'}`
+  const fileVersionText = `版本 ${getDccVersionDisplayText(file.versionNo)}`
 
   appendLifecycleTimelineItem(items, {
     key: 'file-submitted',
@@ -529,7 +536,7 @@ export const buildDetailLifecycleTimelineItems = (
   })
   appendLifecycleTimelineItem(items, {
     key: 'file-stamped',
-    categoryLabel: '发布',
+    categoryLabel: '受控',
     title: '受控副本生成',
     occurredAt: file.stampedTime,
     description: `${fileVersionText} 受控副本已生成。`,
@@ -537,18 +544,17 @@ export const buildDetailLifecycleTimelineItems = (
   })
   appendLifecycleTimelineItem(items, {
     key: 'file-published',
-    categoryLabel: '发布',
-    title: '正式发布',
-    occurredAt: file.publishedTime,
-    description: `${fileVersionText} 已发布。`,
-    tagType: 'success'
+    categoryLabel: '受控',
+    title: '文件受控',
+    occurredAt: file.controlledTime,
+    description: `${fileVersionText} 已受控。`,
+    tagType: 'primary'
   })
   appendLifecycleTimelineItem(items, {
     key: 'file-effective',
     categoryLabel: '生效',
     title: '版本生效',
-    occurredAt: file.effectiveDate,
-    dateOnly: true,
+    occurredAt: file.activatedTime,
     description: `${fileVersionText} 生效。`,
     tagType: 'success'
   })
@@ -558,7 +564,7 @@ export const buildDetailLifecycleTimelineItems = (
       appendLifecycleTimelineItem(items, {
         key: `version-${version.id}-published`,
         categoryLabel: '版本',
-        title: `版本 ${version.versionNo || '-'} 发布`,
+        title: `版本 ${getDccVersionDisplayText(version.versionNo)} 发布`,
         occurredAt: version.publishedTime,
         description: `${version.fileNumber || version.title || '历史版本'}：${getDetailStatusLabel(version.status)}`,
         tagType: 'info'
@@ -567,7 +573,7 @@ export const buildDetailLifecycleTimelineItems = (
     appendLifecycleTimelineItem(items, {
       key: `version-${version.id}-obsolete`,
       categoryLabel: '版本',
-      title: `版本 ${version.versionNo || '-'} 作废`,
+      title: `版本 ${getDccVersionDisplayText(version.versionNo)} 作废`,
       occurredAt: version.obsoletedTime,
       description: version.remark || `${version.fileNumber || version.title || '历史版本'} 已作废。`,
       tagType: 'warning'
@@ -581,7 +587,7 @@ export const buildDetailLifecycleTimelineItems = (
       categoryLabel: '分发',
       title: '文控发放',
       occurredAt: distribution.acknowledgedAt,
-      description: `${departmentName} · ${getDistributionMediumLabel(distribution.distributionMedium)} · ${getDistributionStatusLabel(distribution.status)}`,
+      description: `${departmentName} · ${getDistributionMediumLabel(distribution.distributionMedium)} · ${getDistributionStatusLabel(distribution.status, file)}`,
       actorText: getDistributionAckUserSummary(distribution, context.userNameMap),
       tagType: 'primary'
     })
@@ -643,7 +649,7 @@ export const buildDetailLifecycleTimelineItems = (
       categoryLabel: '签名',
       title: '电子签名',
       occurredAt: signature.signedAt,
-      description: [meaningLabel, actionLabel, signature.comment].filter((item) => toText(item)).join(' · '),
+      description: [meaningLabel, actionLabel, getDccSignatureOpinionLabel(signature.comment)].filter((item) => toText(item)).join(' · '),
       actorText: getSignatureActorSummary(signature, context.userNameMap),
       tagType: signature.taskActionResult === 'REJECTED' ? 'danger' : 'success'
     })

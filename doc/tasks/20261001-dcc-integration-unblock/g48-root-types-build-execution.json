@@ -1,0 +1,18 @@
+{
+  "status": "LD03_FROZEN_FRONTEND_ROOT_TYPES_BUILD_PASS_NOT_UI",
+  "frontendManifestSha256": "7cb78c16744e634b3749682a1d5af45be341aecffb3e1a5d401b7a25993d70d4",
+  "types": {
+    "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "exitCode": 0,
+    "sessionId": 59524
+  },
+  "build": {
+    "logSha256": "6d5d273300bb7a2fbc5e0465a37ef7ea7ac634cbd2571c647f3290879b6391e1",
+    "exitCode": 0,
+    "sessionId": 35653,
+    "indexSha256": "7f3badab353b3d56c1cf0a1352434631c295d56834cf4f31a2da8f73fb089a65"
+  },
+  "backendMapping": "IN_PROGRESS",
+  "actualSchemaMigration": false,
+  "actualUi": false
+}

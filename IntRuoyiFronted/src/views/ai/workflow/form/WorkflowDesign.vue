@@ -9,13 +9,13 @@
       :provider="provider"
     />
     <div class="absolute top-30px right-30px">
-      <el-button @click="testWorkflowModel" type="primary" v-hasPermi="['ai:workflow:test']">
+      <el-button class="app-test-button" v-if="testModeEnabled" @click="testWorkflowModel" type="primary" v-hasPermi="['ai:workflow:test']">
         测试
       </el-button>
     </div>
 
     <!-- 测试窗口 -->
-    <el-drawer v-model="showTestDrawer" title="工作流测试" :modal="false">
+    <el-drawer v-if="testModeEnabled" v-model="showTestDrawer" title="工作流测试" :modal="false">
       <fieldset>
         <legend class="ml-15px"><h3>运行参数配置</h3></legend>
         <div class="p-20px">
@@ -53,7 +53,7 @@
           <div v-else> <el-text type="info">点击运行查看结果</el-text> </div>
         </div>
       </fieldset>
-      <el-button class="mt-20px w-100%" size="large" type="success" @click="goRun">
+      <el-button class="mt-20px w-100% app-test-button" size="large" type="success" @click="goRun">
         运行流程
       </el-button>
     </el-drawer>
@@ -61,10 +61,14 @@
 </template>
 
 <script setup lang="ts">
+import { useTestMode } from '@/store/modules/testMode'
+
 import Tinyflow from '@/components/Tinyflow/Tinyflow.vue'
 import * as WorkflowApi from '@/api/ai/workflow'
 // TODO @lesan：要不使用 ICon 哪个组件哈
 import { Delete } from '@element-plus/icons-vue'
+
+const testModeEnabled = useTestMode()
 
 defineProps<{
   provider: any

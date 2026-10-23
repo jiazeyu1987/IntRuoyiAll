@@ -1,0 +1,14 @@
+{
+  "status": "G66_TASK_PROJECT_DEFAULT_BEFORE_UI_MODIFICATION_READONLY",
+  "actualActions": "4041checkout/checkinnormalproduced4042A3-1 saveddefaultCE; editproject271plannedUIonly",
+  "queries": [
+    {
+      "query": "SELECT id,project_leader_user_id,default_attributes_json FROM dcc_project_code WHERE tenant_id=1 AND id=271;",
+      "result": "271\t1\t{\"targetMarkets\":[\"CE\"],\"otherMarket\":null,\"licenseHolder\":\"Y\",\"actualManufacturer\":\"Y\",\"documentTransfer\":\"N\",\"transferTo\":null}\n"
+    },
+    {
+      "query": "SELECT id,status,version_no FROM dcc_controlled_file WHERE tenant_id=1 AND master_id=2054545668044079116 ORDER BY id DESC LIMIT 2;",
+      "result": "2054545668044084042\tWORKING\tA/3-4\n2054545668044084041\tACTIVE\tA/3\n"
+    }
+  ]
+}

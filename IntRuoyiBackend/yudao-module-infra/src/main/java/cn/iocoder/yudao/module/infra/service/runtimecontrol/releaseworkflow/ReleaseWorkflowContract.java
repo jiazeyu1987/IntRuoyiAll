@@ -12,8 +12,8 @@ public final class ReleaseWorkflowContract {
     public static final String MANIFEST_FILE_NAME = "manifest.json";
 
     private static final DateTimeFormatter RELEASE_TIME = DateTimeFormatter
-            .ofPattern("yyyyMMdd-HHmmss", Locale.ROOT)
-            .withZone(ZoneOffset.UTC);
+            .ofPattern("yyyy-MM-dd-HH-mm-ss", Locale.ROOT)
+            .withZone(ZoneOffset.ofHours(8));
 
     private ReleaseWorkflowContract() {
     }
@@ -26,7 +26,7 @@ public final class ReleaseWorkflowContract {
         String normalizedPresetVersion = requireText(presetVersion, "presetVersion");
         return new ReleaseWorkflowIdentity(
                 "rw-" + normalizedToken,
-                "release-" + RELEASE_TIME.format(createdAt) + "-" + normalizedToken + "-app",
+                RELEASE_TIME.format(createdAt),
                 PUBLISH_SCOPE,
                 normalizedPresetId,
                 normalizedPresetVersion);

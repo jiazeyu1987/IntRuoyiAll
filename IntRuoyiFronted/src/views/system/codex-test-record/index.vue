@@ -1,4 +1,5 @@
 <template>
+  <template v-if="testModeEnabled">
   <ContentWrap>
     <UnifiedListTemplate
       table-key="system.codex-test.records"
@@ -223,9 +224,12 @@
       <el-image v-if="artifactPreviewUrl" class="codex-test-artifact" :src="artifactPreviewUrl" fit="contain" />
     </template>
   </el-drawer>
+  </template>
 </template>
 
 <script lang="ts" setup>
+import { useTestMode } from '@/store/modules/testMode'
+
 import * as CodexTestApi from '@/api/system/codexTestManagement'
 import * as TenantApi from '@/api/system/tenant'
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
@@ -235,6 +239,8 @@ import {
 } from '@/hooks/web/useTableQuickFilter'
 import { useUserTableColumns, type UserTableColumnDefinition } from '@/hooks/web/useUserTableColumns'
 import { formatDateTimeValue } from '@/utils/formatTime'
+
+const testModeEnabled = useTestMode()
 
 defineOptions({ name: 'SystemCodexTestRecord' })
 

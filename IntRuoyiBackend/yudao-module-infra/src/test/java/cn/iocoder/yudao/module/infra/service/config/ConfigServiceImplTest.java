@@ -9,7 +9,10 @@ import cn.iocoder.yudao.module.infra.controller.admin.config.vo.ConfigSaveReqVO;
 import cn.iocoder.yudao.module.infra.dal.dataobject.config.ConfigDO;
 import cn.iocoder.yudao.module.infra.dal.mysql.config.ConfigMapper;
 import cn.iocoder.yudao.module.infra.enums.config.ConfigTypeEnum;
+import cn.iocoder.yudao.module.infra.enums.config.PasswordMaxAgeConfig;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.context.annotation.Import;
 
 import jakarta.annotation.Resource;
@@ -29,6 +32,53 @@ import static org.junit.jupiter.api.Assertions.*;
 public class ConfigServiceImplTest extends BaseDbUnitTest {
 
     private static final String IDLE_LOGOUT_MINUTES_KEY = "system.login.idle-timeout-minutes";
+    private static final String TEST_MODE_KEY = "system.ui.test-mode-enabled";
+
+    @Test
+    public void testCreateConfig_testModeRejectsInvalidValue() {
+        for (String value : new String[] { "", "1", "TRUE", " false ", "enabled" }) {
+            ConfigSaveReqVO reqVO = randomPojo(ConfigSaveReqVO.class, o -> {
+                o.setId(null);
+                o.setKey(TEST_MODE_KEY);
+                o.setValue(value);
+            });
+            assertServiceException(() -> configService.createConfig(reqVO), CONFIG_TEST_MODE_INVALID);
+        }
+    }
+
+    @Test
+    public void testUpdateConfig_testModePersistsBothStates() {
+        ConfigDO config = randomConfigDO(o -> {
+            o.setConfigKey(TEST_MODE_KEY);
+            o.setValue("false");
+        });
+        configMapper.insert(config);
+        for (String value : new String[] { "true", "false" }) {
+            ConfigSaveReqVO reqVO = randomPojo(ConfigSaveReqVO.class, o -> {
+                o.setId(config.getId());
+                o.setKey(TEST_MODE_KEY);
+                o.setValue(value);
+            });
+            configService.updateConfig(reqVO);
+            assertEquals(value, configMapper.selectById(config.getId()).getValue());
+        }
+    }
+
+    @Test
+    public void testUpdateConfig_testModeRejectsInvalidValueWithoutChangingStoredState() {
+        ConfigDO config = randomConfigDO(o -> {
+            o.setConfigKey(TEST_MODE_KEY);
+            o.setValue("false");
+        });
+        configMapper.insert(config);
+        ConfigSaveReqVO reqVO = randomPojo(ConfigSaveReqVO.class, o -> {
+            o.setId(config.getId());
+            o.setKey(TEST_MODE_KEY);
+            o.setValue("TRUE");
+        });
+        assertServiceException(() -> configService.updateConfig(reqVO), CONFIG_TEST_MODE_INVALID);
+        assertEquals("false", configMapper.selectById(config.getId()).getValue());
+    }
 
     @Resource
     private ConfigServiceImpl configService;
@@ -129,6 +179,44 @@ public class ConfigServiceImplTest extends BaseDbUnitTest {
         configService.deleteConfig(id);
         // 校验数据不存在了
         assertNull(configMapper.selectById(id));
+    }
+
+    @Test
+    public void passwordMaxAgeCanBeSavedAndReadButNotRenamedOrDeleted() {
+        ConfigSaveReqVO req = randomPojo(ConfigSaveReqVO.class, o -> {
+            o.setId(null);
+            o.setKey(PasswordMaxAgeConfig.KEY);
+            o.setValue("90");
+        });
+        Long id = configService.createConfig(req);
+        assertEquals(ConfigTypeEnum.SYSTEM.getType(), configService.getConfig(id).getType());
+        req.setId(id);
+        req.setValue("180");
+        configService.updateConfig(req);
+        assertEquals("180", configService.getConfigByKey(PasswordMaxAgeConfig.KEY).getValue());
+
+        req.setKey("renamed.password-policy");
+        assertServiceException(() -> configService.updateConfig(req), CONFIG_PASSWORD_MAX_AGE_KEY_IMMUTABLE);
+        assertServiceException(() -> configService.deleteConfig(id), CONFIG_CAN_NOT_DELETE_SYSTEM_TYPE);
+        assertServiceException(() -> configService.deleteConfigList(java.util.List.of(id)), CONFIG_CAN_NOT_DELETE_SYSTEM_TYPE);
+        assertEquals("180", configService.getConfigByKey(PasswordMaxAgeConfig.KEY).getValue());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"0", "-1", "1.5", " 90", "090", "abc", "2147483648"})
+    public void passwordMaxAgeRejectsInvalidCreateAndUpdateWithoutChangingStoredValue(String value) {
+        ConfigSaveReqVO req = randomPojo(ConfigSaveReqVO.class, o -> {
+            o.setId(null);
+            o.setKey(PasswordMaxAgeConfig.KEY);
+            o.setValue(value);
+        });
+        assertServiceException(() -> configService.createConfig(req), CONFIG_PASSWORD_MAX_AGE_INVALID);
+        assertNull(configService.getConfigByKey(PasswordMaxAgeConfig.KEY));
+        req.setValue("90");
+        req.setId(configService.createConfig(req));
+        req.setValue(value);
+        assertServiceException(() -> configService.updateConfig(req), CONFIG_PASSWORD_MAX_AGE_INVALID);
+        assertEquals("90", configService.getConfigByKey(PasswordMaxAgeConfig.KEY).getValue());
     }
 
     @Test

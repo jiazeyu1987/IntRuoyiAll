@@ -17,32 +17,32 @@ assert.equal(
 
 assert.match(
   uploadPage,
-  /<el-form-item label="产品编号" prop="productCode">[\s\S]*<el-input[\s\S]*v-model="formData\.productCode"[\s\S]*readonly[\s\S]*placeholder="选择 DCC 项目后自动生成"/,
-  'Upload product number must be a readonly field generated from the selected DCC project code'
+  /<el-form-item label="产品编号" prop="productCode">[\s\S]*<el-input[\s\S]*v-model="formData\.productCode"[\s\S]*readonly[\s\S]*placeholder="选择 DCC 项目后读取正式产品编码"/,
+  'Upload product number must be readonly and read from the formal server projection'
 )
 
 assert.match(
   uploadPage,
-  /const applyDccProjectCodeProductNumber = \(\) => \{[\s\S]*formData\.productMasterId = null[\s\S]*formData\.productCode = selectedProjectCode\.value\?\.projectCode\?\.trim\(\) \|\| ''[\s\S]*\}/,
-  'Product number autofill must copy selectedProjectCode.projectCode and clear productMasterId'
+  /const applyDccProjectCodeProductNumber = async \(\) => \{[\s\S]*previewControlledFileProjectProduct\(projectCodeId\)[\s\S]*readProjectProductIdentity\(result, projectCodeId\)[\s\S]*formData\.productCode = product\.productCode \|\| ''/,
+  'Product number must consume the validated formal preview, never a displayed project code'
 )
 
 assert.match(
   uploadPage,
   /validateDccProjectProductCode\(\s*formData\.productCode,\s*isProductRequiredForSelectedCategory\.value\s*\)/,
-  'DHF/DMR upload validation must require the DCC project code product number, not another data source'
+  'Product-required categories still validate the formally projected product code'
 )
 
 assert.match(
   uploadPage,
   /const handleProjectCodeChange = async \(\) => \{[\s\S]*applyDccProjectCodeProductNumber\(\)/,
-  'Changing DCC project must refresh product number from the selected project code'
+  'Changing DCC project must refresh its formal product preview'
 )
 
 assert.match(
   uploadPage,
   /const handleCategoryChange = async \(\) => \{[\s\S]*applyDccProjectCodeProductNumber\(\)/,
-  'Changing category must keep product number aligned to the selected DCC project code'
+  'Changing category must keep product aligned to the selected project formal preview'
 )
 
 assert(
@@ -51,11 +51,13 @@ assert(
     !uploadPage.includes('DccControlledFileProductOptionVO') &&
     !uploadPage.includes('tryAutofillProductFromSelectedProject') &&
     !uploadPage.includes('applyProductMasterSelection') &&
-    !uploadPage.includes('handleProductMasterChange') &&
-    !uploadPage.includes('产品主数据'),
-  'Upload product number must not depend on other data-source options, matching, or legacy wording'
+    !uploadPage.includes('handleProductMasterChange'),
+  'Upload must not guess product identity by an independent option list or name match'
 )
+assert.doesNotMatch(uploadPage, /formData\.productCode = selectedProjectCode\.value\?\.projectCode/,
+  'Project code is not a fallback product identity')
+assert.match(uploadPage, /projectProductRequestSequence\+\+/, 'Unmount must invalidate the formal preview')
 
 assert(!uploadPage.includes('generateProductCode'), 'Upload page must not generate a temporary product code')
 
-console.log('PASS: DCC upload product autofill static contract')
+console.log('PASS: DCC upload formal product preview static contract')

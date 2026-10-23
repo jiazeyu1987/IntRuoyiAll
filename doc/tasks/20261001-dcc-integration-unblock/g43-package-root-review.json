@@ -1,0 +1,27 @@
+{
+  "status": "DEVELOPMENT_QUALITY_GATE_REMOVAL_PACKAGED_NOT_REAL_UI_ACCEPTANCE",
+  "manifestSha256": "611d06410f55953ae4204089d27e10b730787a07e24e5a0e24a0e4c156f311d4",
+  "jar": {
+    "path": "C:\\IntRuoyi\\20261001-dcc-integration\\IntRuoyiBackend\\yudao-server\\target\\yudao-server-exec.jar",
+    "sha256": "500ecab1c7484d1b5e8eed396eefcc4db3e917f93721d14e7ec0f2a9d72bca27",
+    "bytes": 507323651
+  },
+  "compiledProductionClasses": [
+    {
+      "class": "cn/iocoder/yudao/module/dcc/service/file/DccLegacyMaintenanceGate.class",
+      "sha256": "aabb2fd466fc3583b3c47bde060b79f3b67fae92c030b3d756ec8d0fe0a4117e"
+    },
+    {
+      "class": "cn/iocoder/yudao/module/dcc/service/file/DccLegacyNameRegistrationMaintenanceCommand.class",
+      "sha256": "506522134689c5487645f168932f8c13c3ba1458b5b669f3ea09b53a62befce8"
+    },
+    {
+      "class": "cn/iocoder/yudao/module/dcc/service/file/DccLegacyMaintenanceExecutor.class",
+      "sha256": "e60b45d308d3295ab96a2e392175950956539891302cb035d6cefa59bf554714"
+    }
+  ],
+  "testsExecuted": 130,
+  "uniqueTestCasesClaimed": false,
+  "actualQualityApproval": false,
+  "legacyActivationExecuted": false
+}

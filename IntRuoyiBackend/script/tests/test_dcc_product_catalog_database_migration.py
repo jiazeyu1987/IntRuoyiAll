@@ -8,6 +8,22 @@ PROJECT_CODE_SCHEMA_GUARD_SQL = (
     REPO_ROOT / "sql/mysql/20260802_dcc_product_catalog_project_code_schema_guard.sql"
 )
 APPLICATION_YAML = REPO_ROOT / "yudao-server/src/main/resources/application.yaml"
+TENANT_SCHEMA_GUARD_SQL = (
+    REPO_ROOT / "sql/mysql/20261022_dcc_product_catalog_tenant_schema_guard.sql"
+)
+
+
+def test_existing_product_catalog_has_independent_tenant_schema_migration() -> None:
+    sql = TENANT_SCHEMA_GUARD_SQL.read_text(encoding="utf-8")
+
+    assert "dependsOn=20260710_dcc_product_catalog_database; type=schema; riskLevel=medium" in sql
+    assert "information_schema.COLUMNS" in sql
+    assert "ADD COLUMN tenant_id BIGINT NOT NULL DEFAULT 0" in sql
+    assert "IS_NULLABLE = 'NO' AND COLUMN_DEFAULT = '0'" in sql
+    assert "SIGNAL SQLSTATE '45000'" in sql
+    assert "INSERT INTO" not in sql
+    assert "UPDATE dcc_product_catalog" not in sql
+    assert "DELETE FROM" not in sql
 
 
 def test_product_catalog_migration_declares_global_table_and_seed_rows() -> None:

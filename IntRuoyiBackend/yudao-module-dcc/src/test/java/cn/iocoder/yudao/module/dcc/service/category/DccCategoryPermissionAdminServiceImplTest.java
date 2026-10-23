@@ -156,7 +156,7 @@ class DccCategoryPermissionAdminServiceImplTest extends BaseDbUnitTest {
     }
 
     private DccFileCategoryDO createCategory(String code, Boolean distributionRequired, Boolean trainingRequired) {
-        DccFileCategoryDO category = DccFileCategoryDO.builder()
+        DccFileCategoryDO category = DccFileCategoryDO.builder().approvalSourceMode("PUBLIC_MATRIX")
                 .id(randomLongId())
                 .code(code)
                 .name(code + "-NAME")

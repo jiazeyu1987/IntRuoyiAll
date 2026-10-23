@@ -7,6 +7,15 @@
 
 ## Git 提交与推送门禁
 
+### 合并前确认分支和远端版本
+
+- Trigger: 跨分支融合、用户询问分支是否最新、目录名称与实际分支可能不同。
+- Preflight check: 在实际工作目录运行 `git branch --show-current`、`git status --short --branch`，再通过 `git ls-remote --heads origin <分支>` 或 fetch 确认远端提交；功能核查注明代码所在分支与提交号。合并前按既有规则保存未提交改动，并单独记录部分实现的验证范围。
+- Blocker: 分支身份不明、远端版本未确认、修改无法归属或工作区存在未处理冲突。
+- Verification: 合并后用 `git merge-base --is-ancestor <已确认来源提交> HEAD` 验证来源已包含；重跑冲突文件的行为测试和端口守卫；推送后本地分支与远端一致。
+- Forbidden action: 禁止用文件夹名判断分支、用本地远端跟踪引用冒充已查询远端、批量选择一侧冲突而丢失修复，或把基线保存误称为全部功能完成。
+- Evidence: `doc/tasks/20260914-dcc-20-remediation/execution-log.md`。
+
 ### 按授权执行 Git 操作
 
 - 仅在用户已授权范围内提交、推送或保存基线；不要求每个任务推送或拆分基线、实现、收尾提交。

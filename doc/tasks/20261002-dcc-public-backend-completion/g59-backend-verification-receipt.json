@@ -1,0 +1,231 @@
+{
+  "status": "PASS_FROZEN_CORE_AND_LATEST_REPAIR_SOFTWARE_NOT_RUNTIME_E2E",
+  "broadRegression": {
+    "actualCliExitCode": 0,
+    "finishedAt": "2026-10-05T21:01:12+08:00",
+    "tests": 143,
+    "groups": 9,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "log": {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g59-final-related-regression-r2.log",
+      "bytes": 75670,
+      "sha256": "7a89adca152559814bbc393f22923c1177f29a7fa1ae0c956b50f89350ca7140"
+    },
+    "suites": [
+      {
+        "name": "cn.iocoder.yudao.module.dcc.service.file.DccControlledContentAdapterTest",
+        "tests": 11,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "path": "doc/tasks/20261002-dcc-public-backend-completion/g59-final-r2-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccControlledContentAdapterTest.xml",
+        "bytes": 96239,
+        "sha256": "98e2d21bbcc156a4551da5e089eb07a712dc84a6770903486a77af0648fbc61d"
+      },
+      {
+        "name": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileFinalizationServiceImplTest",
+        "tests": 59,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "path": "doc/tasks/20261002-dcc-public-backend-completion/g59-final-r2-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccControlledFileFinalizationServiceImplTest.xml",
+        "bytes": 106615,
+        "sha256": "0f3454fef89fd5c269118fd2df1fd8fd0f7e44a485cf3e371e3b5452b4513753"
+      },
+      {
+        "name": "cn.iocoder.yudao.module.dcc.service.file.DccLifecycleProjectionRepairDatabaseTest",
+        "tests": 4,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "path": "doc/tasks/20261002-dcc-public-backend-completion/g59-final-r2-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccLifecycleProjectionRepairDatabaseTest.xml",
+        "bytes": 97278,
+        "sha256": "4338a61eff665aeb872fa3524569a7698d6ea44c9fb949e4a6563832cc7d1066"
+      },
+      {
+        "name": "cn.iocoder.yudao.module.dcc.service.file.DccNativePlatformLifecycleTransactionTest",
+        "tests": 8,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "path": "doc/tasks/20261002-dcc-public-backend-completion/g59-final-r2-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccNativePlatformLifecycleTransactionTest.xml",
+        "bytes": 98102,
+        "sha256": "9fc9fb90fc50396e77e8fa4694baa7fd02909d323fc21ff7af2e7e1df3374604"
+      },
+      {
+        "name": "cn.iocoder.yudao.module.dcc.service.file.DccThreeControlledVersionActivationTest",
+        "tests": 10,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "path": "doc/tasks/20261002-dcc-public-backend-completion/g59-final-r2-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccThreeControlledVersionActivationTest.xml",
+        "bytes": 98540,
+        "sha256": "43d588c3f3f83990e1e33ea64872ddc05ab2895e134c4ec4de2bfda6e281421c"
+      },
+      {
+        "name": "cn.iocoder.yudao.module.dcc.service.file.DccWorkflowLifecycleTransactionTest",
+        "tests": 14,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "path": "doc/tasks/20261002-dcc-public-backend-completion/g59-final-r2-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccWorkflowLifecycleTransactionTest.xml",
+        "bytes": 97103,
+        "sha256": "30f2d8f2702663bca32541bfeb2877c32e38497b04fce855619ccf893162c939"
+      },
+      {
+        "name": "cn.iocoder.yudao.module.system.service.controlledcontent.ControlledContentLifecycleCoreServiceTest",
+        "tests": 11,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "path": "doc/tasks/20261002-dcc-public-backend-completion/g59-final-r2-junit/TEST-cn.iocoder.yudao.module.system.service.controlledcontent.ControlledContentLifecycleCoreServiceTest.xml",
+        "bytes": 73476,
+        "sha256": "5cac2cc90cc843f085724c7404b9165c98f19d7c714fc37412c2a179d95c7ada"
+      },
+      {
+        "name": "cn.iocoder.yudao.module.system.service.controlledcontent.ControlledContentRegistrationProjectionContractTest",
+        "tests": 22,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "path": "doc/tasks/20261002-dcc-public-backend-completion/g59-final-r2-junit/TEST-cn.iocoder.yudao.module.system.service.controlledcontent.ControlledContentRegistrationProjectionContractTest.xml",
+        "bytes": 76318,
+        "sha256": "a3ba6f6b0c20e2648705eac551794c397f2dde8ed863b7d8d43d9f36c4433a42"
+      },
+      {
+        "name": "cn.iocoder.yudao.module.system.service.controlledcontent.ControlledContentStateMachineTest",
+        "tests": 4,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "path": "doc/tasks/20261002-dcc-public-backend-completion/g59-final-r2-junit/TEST-cn.iocoder.yudao.module.system.service.controlledcontent.ControlledContentStateMachineTest.xml",
+        "bytes": 71864,
+        "sha256": "f1dc4f9bfe36032407232182169a3754bbe7cf3a8179833e21769f9d278f923a"
+      }
+    ]
+  },
+  "latestRepairRegression": {
+    "actualCliExitCode": 0,
+    "finishedAt": "2026-10-05T21:09:45+08:00",
+    "tests": 5,
+    "groups": 1,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "log": {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g59-repair-final-r3.log",
+      "bytes": 70280,
+      "sha256": "2ca67724072aff864a15ed56d3a0f17397b379c6aa5e40b3176add1cd41644f9"
+    },
+    "suites": [
+      {
+        "name": "cn.iocoder.yudao.module.dcc.service.file.DccLifecycleProjectionRepairDatabaseTest",
+        "tests": 5,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "path": "doc/tasks/20261002-dcc-public-backend-completion/g59-repair-final-r3-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccLifecycleProjectionRepairDatabaseTest.xml",
+        "bytes": 96812,
+        "sha256": "1b41e70404cc5ac7dd9122f1ddfc5997dd3bf7ea35767b341e4f2e2021d09154"
+      }
+    ],
+    "delta": "One requireComplete call moved after exacttenant signature filtering. All eightcore production files unchanged from broadGREEN; latest repair5 includes four prior repair cases plus newtenant case. Overlap not added as one actual full run."
+  },
+  "effectiveRED": [
+    {
+      "name": "ActualNativeLifecycle leaves sharedFINALIZING",
+      "tests": 1,
+      "failures": 1,
+      "errors": 0,
+      "xml": {
+        "path": "doc/tasks/20261002-dcc-public-backend-completion/g59-native-lifecycle-effective-red.xml",
+        "bytes": 96947,
+        "sha256": "753e70c197a8aa8420e3d6651f7dba0aae4cb473da993d48a4b7e818d4c2ba42"
+      },
+      "log": {
+        "path": "doc/tasks/20261002-dcc-public-backend-completion/g59-native-lifecycle-red.log",
+        "bytes": 71451,
+        "sha256": "6f913873c41206d2e01fca69cc9bc07746c7652817110df8c8e78bfb6a83f901"
+      }
+    },
+    {
+      "name": "Foreigntenant signature could fill actualrepair roster before filtering",
+      "tests": 1,
+      "failures": 1,
+      "errors": 0,
+      "xml": {
+        "path": "doc/tasks/20261002-dcc-public-backend-completion/g59-repair-roster-tenant-effective-red.xml",
+        "bytes": 96770,
+        "sha256": "52e7505ce1fc133fd232cffc682c374a6b93b9798c63ae123b8a512d4b21219c"
+      },
+      "log": {
+        "path": "doc/tasks/20261002-dcc-public-backend-completion/g59-repair-roster-tenant-red.log",
+        "bytes": 71285,
+        "sha256": "634d30eefeddc2a9b73f1d5e8b0f7721addd1582d9e9dc2440a724f016dac8a4"
+      }
+    }
+  ],
+  "formalCoverage": {
+    "operations": 35,
+    "literalAnnotations": 13,
+    "coverageSha256": "68625c74bc44b599a386bdcc508c8706314dbf0783da00b9e8e90b056167ed64",
+    "actualCliExitCode": 0,
+    "log": {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g59-gxp-coverage-prepared-r2.log",
+      "bytes": 131,
+      "sha256": "7021580a77390180911f4b0bbe698d2a7bb47faeddaed7693d8a3f3e8130d86c"
+    },
+    "candidate": {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g59-gxp-policy-candidate.yaml",
+      "bytes": 18574,
+      "sha256": "13d5ad2854951d4c21e63e68eac028706e5ab076da0f21c2ee8ad75ad46a6571"
+    }
+  },
+  "fixtureFailuresNotBusinessRED": [
+    "Repair SignatureDO has no tenant field: compile required exacttenant SQL signature IDs, not guessed DTO",
+    "ActiveFlag1 corruption hit actualuniqueindex in fixture: use corrupt value2 to test stricttuple refusal",
+    "Subclass JDBC name shadow left parentnull, renamedonlyfixture",
+    "Mandatory routeVersion/stageName and DEPT obligation/ASSIGN/v4-payload facts missing in testhost, populated accurateisolatedfixtures",
+    "Old ThreeControlledVersionActivation test lacked mandatory official current-account bean; added actualenabled99/tenant1 port, no production guard downgrade",
+    "Coverage firstrelativepath wrong, correctedabsolute target, originalfail retained"
+  ],
+  "proofBoundaries": {
+    "actualH2CoreStateMachineMapperAndCAS": true,
+    "actualDccLifecycleSameTransactionAndRollback": true,
+    "actualOfficialGxpKernelForExplicitRepair": true,
+    "ports": "Repair account/BPM/signatureverify/artifact read externalports explicit isolatedfixture; developer signature rows are evidence prerequisites not realE2E human signature claims. Original native public signatures testedpreviousRoot batches.",
+    "mockLifecycleFixtures": "Adjacent standaloneoldlifecycle suites isolateplatform via explicit mock; newDccNativePlatformLifecycleTransactionTest usesactualcore, not mockproof",
+    "actualLiveDBAPIUIServicePackageGitByChild": false
+  },
+  "RootActualAuditConfig": "Parent separately reportsg59-audit-rule-root-execution clone/sourcefirstrepeatPASS newrow1 each/oldprotectedrowsunchanged0quality; no actualexecution by this child.",
+  "G58FiveAssetsUnchanged": [
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/enums/DccFileCategoryPermissionActionEnum.java",
+      "bytes": 980,
+      "sha256": "a116acb661153de3b4354f1f6ba83d17053910f65c5a48b42ff09b11415767ae"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccOfflineTrainingRecordService.java",
+      "bytes": 13302,
+      "sha256": "91ab127fc7b7ecdfc0ab988c996c0c55cc253320dd6da07ec39a00fcad9f5093"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileWorkflowServiceImpl.java",
+      "bytes": 218766,
+      "sha256": "566b0886c28534a5e0e662f9146893b6e4c2765bec0bc0bafa69a7d1a81e3b41"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccTrainingRecordDutyDatabaseTest.java",
+      "bytes": 14415,
+      "sha256": "6b64a1f0ecdfccfa68595548e840a7b3efcef9a6747bafd6171fdad8011064ed"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccTrainingRecordDutyApprovalTransactionTest.java",
+      "bytes": 2652,
+      "sha256": "d1b6ff03d8d4cc2f21c0e3d60389b481a215dd3d51228f8d82998d54b1a7afb0"
+    }
+  ],
+  "mavenOwnership": "FREE_FROZEN_NO_FURTHER_SOURCE_TARGET_OR_MAVEN"
+}

@@ -1,0 +1,3037 @@
+{
+  "branch": "int_qms",
+  "head": "822c31fc0856516cf59ba9cd84bf2bc7f455d17f",
+  "originTrackingBefore": "822c31fc0856516cf59ba9cd84bf2bc7f455d17f",
+  "selectedSource": [
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/config/gxp-audit-policy.yaml"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-framework/yudao-spring-boot-starter-test/src/main/java/cn/iocoder/yudao/framework/test/core/ut/BaseDbUnitTest.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-bpm/src/main/java/cn/iocoder/yudao/module/bpm/api/task/dto/BpmProcessInstanceCreateReqDTO.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-bpm/src/main/java/cn/iocoder/yudao/module/bpm/controller/admin/definition/BpmModelController.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-bpm/src/main/java/cn/iocoder/yudao/module/bpm/dal/mysql/formcenter/FormActionInstanceMapper.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-bpm/src/main/java/cn/iocoder/yudao/module/bpm/enums/ErrorCodeConstants.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-bpm/src/main/java/cn/iocoder/yudao/module/bpm/formcenter/runtime/FormCenterRuntimeServiceImpl.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-bpm/src/main/java/cn/iocoder/yudao/module/bpm/service/task/BpmProcessInstanceServiceImpl.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-bpm/src/test/java/cn/iocoder/yudao/module/bpm/businessapproval/service/BusinessApprovalOrchestratorSignatureRequiredTest.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-bpm/src/test/java/cn/iocoder/yudao/module/bpm/formcenter/runtime/DccWorkflowFormCenterObligationTest.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/approval/DccOfflineTrainingTaskDelegate.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/approval/DccProjectProductTaskDelegate.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/category/DccFileTypeTaxonomyController.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/category/vo/DccCategoryApprovalMatrixRespVO.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/category/vo/DccFileCategoryRespVO.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/category/vo/DccFileCategorySaveReqVO.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/category/vo/DccFileTypeTaxonomyRespVO.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/distribution/DccDistributionTaskController.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/distribution/vo/DccDistributionTaskRespVO.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/file/DccControlledFileController.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/file/DccControlledFileWorkflowController.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/file/DccWorkflowLifecycleController.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/file/vo/DccControlledFileAttachmentRespVO.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/file/vo/DccControlledFileCheckinReqVO.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/file/vo/DccControlledFileObsoleteReqVO.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/file/vo/DccControlledFilePreviewMetadataRespVO.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/file/vo/DccControlledFileRespVO.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/file/vo/DccControlledFileRoutePreviewReqVO.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/file/vo/DccControlledFileRouteReadinessRespVO.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/file/vo/DccControlledFileSubmitIterationReqVO.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/file/vo/DccControlledFileSubmitReqVO.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/file/vo/DccControlledFileVersionHistoryRespVO.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/file/vo/DccSignoffAssignmentReqVO.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/projectcode/DccProjectAttributesController.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/projectcode/DccProjectProductCreateController.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/projectcode/vo/productcreate/DccProjectProductCreateRespVO.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/dal/dataobject/category/DccFileCategoryDO.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/dal/dataobject/file/DccControlledFileAttachmentDO.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/dal/dataobject/file/DccControlledFileCheckoutDO.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/dal/dataobject/file/DccControlledFileDO.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/dal/dataobject/file/DccControlledFileDistributionDO.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/dal/dataobject/file/DccControlledFileDistributionRecipientDO.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/dal/dataobject/file/DccControlledFileMessageJobDO.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/dal/dataobject/file/DccControlledFileRouteSnapshotDO.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/dal/dataobject/file/DccControlledFileSignatureDO.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/dal/dataobject/projectcode/DccProjectProductCreateRequestDO.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/dal/dataobject/protection/DccControlledFileAccessEventDO.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/dal/mysql/category/DccFileCategoryMapper.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/dal/mysql/category/DccFileTypeTaxonomyMapper.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/dal/mysql/file/DccControlledFileAttachmentMapper.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/dal/mysql/file/DccControlledFileCheckoutMapper.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/dal/mysql/file/DccControlledFileDistributionMapper.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/dal/mysql/file/DccControlledFileDistributionRecipientMapper.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/dal/mysql/file/DccControlledFileMapper.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/dal/mysql/file/DccControlledFileMessageJobMapper.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/dal/mysql/file/DccControlledFileNameClaimMapper.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/dal/mysql/file/DccControlledFileSelectorMapper.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/dal/mysql/file/DccProjectBrowserMapper.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/dal/mysql/file/DccSourceNameReservationMapper.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/dal/mysql/productcatalog/DccProductCatalogMapper.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/dal/mysql/projectcode/DccProjectFolderMapper.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/enums/DccControlledFileStageCodeEnum.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/enums/DccControlledFileStatusEnum.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/enums/ErrorCodeConstants.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/audit/DccAccessEventCreateCommand.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/audit/DccControlledFileAccessAuditService.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/category/DccCategoryApprovalMatrixAdminServiceImpl.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/category/DccCategoryApprovalMatrixSeedServiceImpl.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/category/DccCategoryViewMatrixAdminServiceImpl.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/category/DccFileCategoryAdminService.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/category/DccFileCategoryAdminServiceImpl.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/category/DccFileTypeTaxonomyAdminService.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/category/DccFileTypeTaxonomyAdminServiceImpl.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/directory/DccDirectoryAccessPermissionServiceImpl.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccApplicationRoundService.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccApplicationRoundSummary.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledContentAdapter.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileApplicationEvidence.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileApprovalRouteAssigneeResolver.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileAttachmentService.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileAttachmentServiceImpl.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileCategoryPermissionSupport.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileDetailAuthorizationGuard.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileFinalizationFailureService.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileFinalizationServiceImpl.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileLifecycleService.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileMessageDeliveryService.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileNameClaimService.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileObsoleteFormEffectExecutor.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileObsoleteService.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileObsoleteServiceImpl.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileQueryService.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileQueryServiceImpl.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileRelatedFileServiceImpl.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileRevisionOptions.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileRevisionServiceImpl.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileRouteReadinessService.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileSelectorRecord.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileSelectorRow.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileSignatureBindingService.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileSignatureEvidence.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileSignatureEvidenceCreateReq.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileSignatureEvidenceService.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileSignatureEvidenceServiceImpl.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileSignatureSubjectAdapter.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileUploadServiceImpl.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileVersionPolicy.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileViewMatrixAccessService.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileWorkflowService.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileWorkflowServiceImpl.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccDistributionReceiptService.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccDistributionReceiptServiceImpl.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccDistributionTaskService.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccDistributionTaskServiceImpl.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccElectronicSignatureManagementServiceImpl.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccFileRelationPermissions.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccFrozenApprovalSignatures.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccOfflineTrainingRecordService.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccOnlyOfficePreviewTokenService.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccPublicUploadPlacementService.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccSignatureVerificationService.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccSignatureVerificationServiceImpl.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccWorkflowDatePolicy.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccWorkflowDistributionService.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccWorkflowFileStateAudit.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccWorkflowObsoleteEvidenceGuard.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccWorkflowSignoffAssignmentService.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccWorkingApplicationAttributes.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccWorkingApplicationDraftInitializer.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/relations/DccProjectReferenceAuthority.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/relations/DccProjectReferenceAuthorityImpl.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/relations/DccProjectReferenceService.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/relations/DccRelationContracts.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/relations/DccRelationRemediationService.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/relations/DccRelationStore.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/filepreview/DccOnlineFilePreviewServiceImpl.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/preview/DccControlledPreviewAccessService.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/preview/DccPreviewAccessRequest.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/projectcode/access/DccProjectAccessServiceImpl.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/projectcode/attributes/DccProjectAttributeErrors.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/projectcode/attributes/DccProjectAttributesService.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/projectcode/folder/DccFolderTemplateService.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/projectcode/folder/DccProjectFilePlacementService.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/projectcode/folder/DccProjectFolderMaintenanceService.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/projectcode/productcreate/DccProjectProductActorSupport.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/projectcode/productcreate/DccProjectProductCreateServiceImpl.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/projectcode/productcreate/DccProjectProductCreateWriteService.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/projectcode/productcreate/DccProjectProductIdentityResolver.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/projectcode/productcreate/DccProjectProductNotificationService.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/upload/DccUploadTicketService.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/upload/DccUploadTicketServiceImpl.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/DccWorkflowObsoleteCompletionReadTest.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/category/DccAdminFullConfigPackageServiceTest.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/category/DccCategoryApprovalMatrixAdminServiceImplTest.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/category/DccCategoryDistributionRuleAdminServiceImplTest.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/category/DccCategoryPermissionAdminServiceImplTest.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/category/DccCategoryTrainingRuleAdminServiceImplTest.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/category/DccCategoryViewMatrixAdminServiceImplTest.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/category/DccFileCategoryAdminServiceImplTest.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/category/DccFileTypeTaxonomyAdminServiceImplTest.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/directory/DccDirectoryAccessPermissionServiceTest.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccApplicationReadHttpContractTest.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccCheckinDraftInitializationDatabaseTest.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileApprovalRouteAssigneeResolverTest.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileCategoryPermissionSupportTest.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileDetailAuthorizationGuardTest.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileFinalizationServiceImplTest.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileObsoleteFormEffectExecutorTest.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileObsoleteServiceTest.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFilePreviewDownloadApiTest.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileQueryServiceTest.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileRelatedFileServiceTest.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileRouteReadinessServiceTest.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileSelectorDatabaseTest.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileSignatureServiceTest.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileUploadApiTest.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileViewMatrixAccessServiceTest.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileWorkflowServiceImplTest.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccCurrentFileRelationsTest.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccCurrentRelationsRevisionFreezeDatabaseTest.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccDistributionReceiptServiceImplTest.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccDistributionTaskServiceImplTest.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccExactWorkingBrowserScopeDatabaseTest.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccFrozenApprovalSignaturesTest.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccLegacySourceNameOccupancyTest.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccMajorRevisionBoundaryTest.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccMessageDeliveryIdempotencyTest.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccMessageDeliveryTransactionIntegrationTest.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccNativePlatformLifecycleTransactionTest.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccNewFileInitialVersionTest.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccObsoleteTaskReadinessTest.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccOfflineTrainingApprovalTransactionTest.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccOfflineTrainingEntryDatabaseTest.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccOnlyOfficePreviewTokenServiceTest.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccPendingObsoletePlatformTransactionTest.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccProjectBrowserScopeIntegrationTest.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccProjectReferenceFormalAuthorityIntegrationTest.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccProjectReferenceTransactionTest.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccReferenceUsagePageDatabaseTest.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccRejectedRevisionRetryDatabaseTest.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccRelationControlledEventIntegrationTest.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccRelationNameMetadataDatabaseTest.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccRelationRemediationTransactionTest.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccRevisionDatabaseTest.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccRevisionPolicyTest.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccRevisionServiceTest.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccSelectorBrowserMappingIntegrationTest.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccUploadNamePreflightDatabaseTest.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccWithdrawnNativeRevisionReworkDatabaseTest.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccWorkflowAttributesIntegrationTest.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccWorkflowDistributionTransactionTest.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccWorkflowLifecycleTransactionTest.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccWorkflowObsoleteEvidenceGuardTest.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccWorkflowObsoleteRoundSignatureTest.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccWorkflowObsoleteTransactionTest.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccWorkflowSelectedIterationDatabaseTest.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccWorkflowSignoffAssignmentTest.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccWorkingAttributesHttpContractTest.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/preview/DccControlledPreviewAccessServiceTest.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/productcatalog/DccProductCatalogServiceImplTest.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/projectcode/DccApprovedProjectLeaderOwnerTest.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/projectcode/DccFolderTemplateServiceTest.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/projectcode/DccProjectApplicationNotificationTest.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/projectcode/DccProjectAttributesControllerTest.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/projectcode/DccProjectCodeServiceImplTest.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/projectcode/DccProjectConfigurationHttpPersistenceTest.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/projectcode/DccProjectFolderDeletionCombinationTest.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/projectcode/DccProjectFolderViewReadTest.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/projectcode/DccProjectFormalCombinationTest.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/projectcode/DccProjectProductDecisionPersistenceTest.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/projectcode/DccProjectProductLedgerTest.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/projectcode/DccProjectProductWriteRetryTest.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/projectcode/G48StorageProjectionTest.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/projectcode/access/DccProjectAccessServiceImplTest.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/route/DccApprovalRouteAdminServiceImplTest.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/signature/policy/SignatureGovernancePolicyDccAdapterTest.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/resources/application-unit-test.yaml"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/resources/sql/clean.sql"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/resources/sql/create_tables.sql"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/resources/sql/g49_project_application_notify_tables.sql"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-signature/src/main/java/cn/iocoder/yudao/module/signature/api/ElectronicSignatureSubjectAdapter.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-signature/src/main/java/cn/iocoder/yudao/module/signature/service/ElectronicSignatureServiceImpl.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-signature/src/test/resources/sql/create_tables.sql"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/api/user/AdminUserApi.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/api/user/AdminUserApiImpl.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/controller/admin/user/UserController.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/dal/dataobject/user/AdminUserDO.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/dal/mysql/user/AdminUserMapper.java"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiBackend/yudao-module-system/src/test/resources/sql/create_tables.sql"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiFronted/scripts/dcc-relations-components.test.mjs"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiFronted/scripts/dcc-relations-vue-runtime.test.mjs"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiFronted/src/api/bpm/model/index.ts"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiFronted/src/api/common/filePreview.ts"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiFronted/src/api/dcc/controlledFile/applicationRead.ts"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiFronted/src/api/dcc/controlledFile/distribution.ts"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiFronted/src/api/dcc/controlledFile/fileCategories.ts"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiFronted/src/api/dcc/controlledFile/fileTypeTaxonomies.ts"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiFronted/src/api/dcc/controlledFile/projectAttributes.ts"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiFronted/src/api/dcc/controlledFile/projectProductRequests.ts"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiFronted/src/api/dcc/controlledFile/relations.ts"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiFronted/src/api/dcc/controlledFile/workflow.ts"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiFronted/src/store/modules/approvalTodoBadge.ts"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiFronted/src/utils/notifyMessageNavigation.ts"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiFronted/src/views/approval-center/index.vue"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiFronted/src/views/bpm/model/index.vue"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiFronted/src/views/bpm/processInstance/detail/index.vue"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/basic-data/components/FolderTemplateLibraryEditor.vue"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/basic-data/components/ProductCatalogTabPanel.vue"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/basic-data/components/ProjectAttributeConfigurationDialog.vue"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/basic-data/components/ProjectCodeTabPanel.vue"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/basic-data/components/ProjectFolderEditor.vue"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/basic-data/components/project-attribute-configuration.ts"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/basic-data/components/project-product-confirmation.ts"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/basic-data/components/project-reviewer.ts"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/browser/ProjectBrowserPanel.vue"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/browser/ProjectFileRelationsDialog.vue"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/browser/index.vue"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/browser/presentation.ts"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/browser/project-browser.ts"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/categories/components/CategoryForm.vue"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/categories/components/CategoryMatrixDialog.vue"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/categories/components/CategoryReviewMatrixTable.vue"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/categories/components/CategoryViewMatrixDialog.vue"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/categories/governance.ts"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/categories/index.vue"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/detail/DetailApplicationHistory.vue"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/detail/DetailApplicationPanel.vue"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/detail/DetailObsoleteApplication.vue"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/detail/DetailRelationArrangements.vue"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/detail/DetailRelationsPanel.vue"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/detail/DetailSignoffAssignment.vue"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/detail/application-round-context.ts"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/detail/index.vue"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/detail/native-approval-progress.ts"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/detail/presentation.ts"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/detail/relation-contract.ts"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/logs/index.vue"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/project-attributes/ProjectApplicationAttributes.vue"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/project-attributes/state.ts"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/relations/DccFileRelations.vue"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/relations/DccFileSelector.vue"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/relations/DccProjectReferences.vue"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/relations/DccReferenceUsageDialog.vue"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/relations/reference-usage.ts"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/relations/selector-project-directory.ts"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/relations/selector-state.ts"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/revision/DccRevisionPanel.vue"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/revision/revision-model.ts"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/shared/ControlledFileBasicInfoPanel.vue"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/shared/approval.ts"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/shared/handlingSummary.ts"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/shared/lifecycle.ts"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/shared/signature-evidence.ts"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/shared/stage-name.ts"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/shared/viewer-navigation.ts"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/upload/file-type-options.ts"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/upload/index.vue"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/upload/signoff-departments.ts"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/upload/submitter.ts"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/view/OnlyOfficeReadOnlyViewer.vue"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/view/index.vue"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/view/presentation.ts"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/workbench/index.vue"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/workbench/presentation.ts"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/workflow/ControlledLifecyclePanel.vue"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/workflow/PendingWorkflowDistributionList.vue"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/workflow/SignoffAssignmentPanel.vue"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/workflow/WorkflowDistributionPanel.vue"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/workflow/workflow-actions.ts"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiFronted/src/views/system/notify/my/MyNotifyMessageDetail.vue"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiFronted/src/views/system/user/UserAssignRoleForm.vue"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiFronted/src/views/system/user/index.vue"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiFronted/tests/e2e/dcc-common-file-preview-source.spec.js"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiFronted/tests/e2e/dcc-detail-lifecycle-timeline-static.spec.js"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiFronted/tests/e2e/dcc-project-attributes-race-unit.spec.js"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiFronted/tests/e2e/dcc-workbench-file-context-static.spec.js"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiFronted/tests/unit/dcc-application-read-loader.test.cjs"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiFronted/tests/unit/dcc-approval-center-signoff-entry.test.cjs"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiFronted/tests/unit/dcc-approval-dialog-context.test.cjs"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiFronted/tests/unit/dcc-browser-application-entry.test.cjs"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiFronted/tests/unit/dcc-browser-checkin-minor-only.test.cjs"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiFronted/tests/unit/dcc-browser-selected-version-display.test.cjs"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiFronted/tests/unit/dcc-current-relation-source.test.cjs"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiFronted/tests/unit/dcc-detail-application-round-context.test.cjs"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiFronted/tests/unit/dcc-detail-closure.test.cjs"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiFronted/tests/unit/dcc-detail-integration.test.cjs"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiFronted/tests/unit/dcc-detail-route-read.test.cjs"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiFronted/tests/unit/dcc-detail-training-context.test.cjs"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiFronted/tests/unit/dcc-native-completion-summary.test.cjs"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiFronted/tests/unit/dcc-native-progress-duty.test.cjs"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiFronted/tests/unit/dcc-native-stage-evidence.test.cjs"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiFronted/tests/unit/dcc-offline-training-entry.test.cjs"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiFronted/tests/unit/dcc-project-application-entry.test.cjs"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiFronted/tests/unit/dcc-project-configuration-guards.test.cjs"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiFronted/tests/unit/dcc-project-product-confirmation.test.cjs"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiFronted/tests/unit/dcc-project-reviewer.test.cjs"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiFronted/tests/unit/dcc-readonly-metadata-gate.test.cjs"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiFronted/tests/unit/dcc-reference-usage.test.cjs"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiFronted/tests/unit/dcc-relation-remediation-notification.test.cjs"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiFronted/tests/unit/dcc-upload-actual-attributes.test.cjs"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiFronted/tests/unit/dcc-upload-application-page.test.cjs"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiFronted/tests/unit/dcc-upload-confirmation-summary.test.cjs"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiFronted/tests/unit/dcc-upload-free-file-type.test.cjs"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiFronted/tests/unit/dcc-upload-http-business-error.test.cjs"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiFronted/tests/unit/dcc-upload-project-folder-context.test.cjs"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiFronted/tests/unit/dcc-upload-relations-page.test.cjs"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiFronted/tests/unit/dcc-upload-signoff-departments.test.cjs"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiFronted/tests/unit/dcc-upload-single-project-folder.test.cjs"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiFronted/tests/unit/dcc-viewer-trace-entry.test.cjs"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiFronted/tests/unit/dcc-workbench-distribution-public.test.cjs"
+    },
+    {
+      "status": " M",
+      "path": "IntRuoyiFronted/tests/unit/dcc-workflow-distribution.test.cjs"
+    },
+    {
+      "status": " M",
+      "path": "docs/dcc-business-integration-experience.md"
+    },
+    {
+      "status": " M",
+      "path": "docs/product/dcc-final-requirements.html"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/config/dcc-workflow-v5/README.md"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/config/dcc-workflow-v5/deployment-inputs.json"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/config/dcc-workflow-v5/obsolete.bpmn20.xml"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/config/dcc-workflow-v5/revision.bpmn20.xml"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/config/dcc-workflow-v5/upload.bpmn20.xml"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/config/dcc-workflow-v6/revision.bpmn20.xml"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/config/dcc-workflow-v6/upload.bpmn20.xml"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/script/tests/test_dcc_application_custom_matrix_sql.py"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/script/tests/test_dcc_category_approval_source_mode_sql.py"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/sql/mysql/20261011_dcc_application_effective_distribution.sql"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/sql/mysql/20261011_dcc_application_round_relation_source.sql"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/sql/mysql/20261011_dcc_approval_matrix_baseline.sql"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/sql/mysql/20261011_dcc_distribution_outbox.sql"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/sql/mysql/20261011_dcc_product_catalog_source_sequence.sql"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/sql/mysql/20261011_dcc_relation_stage_application_identity.sql"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/sql/mysql/20261011_dcc_relation_stage_snapshots.sql"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/sql/mysql/20261011_dcc_training_attachment_facts.sql"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/sql/mysql/20261012_dcc_application_execution_contract.sql"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/sql/mysql/20261012_dcc_obsolete_form_draft_round.sql"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/sql/mysql/20261012_dcc_obsolete_form_runtime.sql"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/sql/mysql/20261012_dcc_preview_issuing_round.sql"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/sql/mysql/20261013_dcc_normal_definition_headers.sql"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/sql/mysql/20261013_dcc_project_reviewer_role.sql"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/sql/mysql/20261013_dcc_project_single_role_review.sql"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/sql/mysql/20261013_system_user_direct_supervisor.sql"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/sql/mysql/20261014_dcc_delayed_effective_confirmation.sql"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/sql/mysql/20261015_dcc_application_custom_matrix.sql"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/sql/mysql/20261015_dcc_category_approval_source_mode.sql"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/sql/mysql/20261015_dcc_checkin_payload_hash.sql"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-bpm/src/main/java/cn/iocoder/yudao/module/bpm/formcenter/service/FormExactBpmSubmissionAdapter.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-bpm/src/main/java/cn/iocoder/yudao/module/bpm/service/definition/BpmUnmanagedModelClaimService.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-bpm/src/test/java/cn/iocoder/yudao/module/bpm/formcenter/runtime/FormCenterExactBpmSubmissionTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-bpm/src/test/java/cn/iocoder/yudao/module/bpm/service/definition/BpmUnmanagedModelClaimServiceTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-bpm/src/test/java/cn/iocoder/yudao/module/bpm/service/task/BpmProcessInstanceExactDefinitionStartTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/distribution/vo/DccAutomaticDistributionResultRespVO.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/distribution/vo/DccAutomaticDistributionRetryReqVO.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/distribution/vo/DccDistributionRecipientReceiptRespVO.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/file/DccApprovalMatrixExceptionAdvice.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/file/vo/DccApprovalMatrixBaselineVO.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/file/vo/DccControlledFileDelayedEffectiveConfirmReqVO.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/file/vo/DccControlledFileDelayedEffectiveConfirmRespVO.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/file/vo/DccControlledFileObsoleteApplicationRespVO.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/file/vo/DccControlledFileObsoleteReworkSourceReqVO.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/file/vo/DccControlledFileObsoleteReworkSourceVO.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/file/vo/DccDistributionOfficeOpenedReqVO.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/file/vo/DccSubmissionValidationGroup.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/file/vo/DccWorkingApplicationSaveReqVO.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/dal/dataobject/file/DccDistributionBatchDO.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/dal/dataobject/file/DccDistributionDispatchAttemptDO.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/dal/dataobject/file/DccObsoleteFormRuntimeObligationDO.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/dal/dataobject/file/DccObsoleteFormRuntimeSnapshotDO.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/dal/dataobject/file/DccRelationStageMemberDO.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/dal/dataobject/file/DccRelationStageSnapshotDO.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/dal/mysql/file/DccDistributionBatchMapper.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/dal/mysql/file/DccDistributionDispatchAttemptMapper.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/dal/mysql/file/DccObsoleteFormRuntimeObligationMapper.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/dal/mysql/file/DccObsoleteFormRuntimeSnapshotMapper.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/dal/mysql/file/DccRelationStageSnapshotMapper.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/category/DccCategoryApprovalMatrixAdminErrors.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/category/DccFileCategoryAdminErrors.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccAccessUserIdentity.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccApplicationCustomMatrix.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccApplicationCustomMatrixService.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccApplicationEffectiveSelection.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccApplicationExecutionContractService.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccApplicationNodeRecord.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccApplicationNodeRecordProjection.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccApprovalMatrixBaselineService.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccApprovalMatrixCanonicalizer.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccApprovalMatrixChangeException.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccApprovalMatrixSourceService.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccApprovalMatrixTokenProperties.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccApprovalMatrixTokenService.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccBoundWorkflowContractResolver.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileBodyReadContext.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccDelayedEffectiveConfirmationEvidence.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccDelayedEffectiveConfirmationService.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccDirectSupervisorSource.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccDistributionAuditSupport.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccDistributionBatchResult.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccDistributionBatchService.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccDistributionDispatchAttemptService.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccDistributionPreviewContext.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccDistributionRosterSnapshot.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccDistributionRosterSource.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccExecutionDefinitionTransitions.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccFirstEffectiveDistributionRosterSource.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccLifecycleEffectiveContract.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccLifecycleEffectiveContractResolver.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccObsoleteFormExecutionPreparationService.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccObsoleteFormPreparationProof.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccObsoleteFormRuntimeStore.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccTrainingApplicationProgressService.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccUserManagementDirectSupervisorSource.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccVerifiedOfficeReadActor.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccWorkflowDefinitionCatalog.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/relations/DccRelationRoundEvidence.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/relations/DccRelationRoundSource.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/relations/DccRelationStageContracts.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/relations/DccRelationStageSnapshotService.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/productcatalog/DccProductCatalogRowNumberAllocator.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/projectcode/productcreate/DccProjectReviewerRoleService.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/route/DccApprovalMatrixCapabilityException.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/route/DccPublicMatrixNativeDerivation.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/upload/DccTrainingUploadTicketBoundFile.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/DccWorkflowV6BpmnTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/controller/admin/file/DccSupervisorSourceHttpBoundaryTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/category/DccCategoryApprovalMatrixConfigurationContractTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/category/DccCategoryApprovalMatrixSeedServiceImplTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/category/DccCategoryApprovalSourceModeTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/category/DccCategoryApprovalSourceProjectionTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/category/DccFileCategoryAtomicSaveTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccAccessUserIdentityTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccActivatedDistributionTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccApplicationCustomMatrixResolverTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccApplicationCustomMatrixTokenTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccApplicationCustomMatrixWorkflowTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccApplicationExecutionContractServiceTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccApplicationNodeRecordsTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccApprovalMatrixBaselineServiceTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccApprovalMatrixCanonicalizerTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccApprovalMatrixExceptionAdviceTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccApprovalMatrixSourceServiceTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccApprovalMatrixTokenServiceTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccAttachmentDownloadHttpContractTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccAttachmentDownloadTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccAutomaticDistributionRetryControllerTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccAutomaticDistributionRetryTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccBoundExecutionGraphContractTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileBodyReadContextTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileBodyReadCurrentSourceTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileBodyReadHttpContractTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileLifecycleEffectiveModeTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledRevisionFreshDraftDatabaseTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccCustomDraftInheritanceIntegrationTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccCustomRejectedCheckinResubmitTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccDelayedEffectiveConfirmationEvidenceTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccDelayedEffectiveConfirmationServiceTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccDelayedEffectiveHmacTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccDelayedSignatureRoundtripTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccDistributionAckBindingConsumerTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccDistributionBatchProjectionTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccDistributionBatchServiceTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccDistributionBodyOpenedTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccDistributionDispatchAttemptTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccDistributionMessageFactsTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccDistributionOutboxTransactionTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccDistributionReceiptFactsTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccDistributionRecipientProjectionTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccDistributionRosterPortTransactionTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccDistributionSignatureKernelPolicyTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccDistributionSignatureTransactionTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccDistributionTaskFactsTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccDistributionTaskIdentityJsonTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccElectronicReceiptBindingTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccExactVersionReferenceUsageTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccExpiredPresetUploadCompletionDatabaseTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccFirstEffectiveDistributionRosterSourceTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccFirstEffectiveDistributionRosterTransactionTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccG02ControlledSignatureTimeTransactionTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccG02DelayedFinalizationTransactionTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccLifecycleAutomaticRosterCallerTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccLifecycleBoundContractConsumptionTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccLifecycleDistributionOutboxTransactionTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccLifecycleEffectiveContractResolverTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccLifecycleExactGraphGuardTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccNativeActivationReasonTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccNativeActivationReasonTransactionTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccNativeEndListenerWindowTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccNativeFinalizationActorsTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccNativeSupervisorBoundaryTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccNativeSupervisorPersistenceOrderTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccNativeSupervisorSourceTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccNativeTrainingControllerPermissionTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccNativeUploadCompletionDatabaseTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccNativeUploadSupervisorWorkflowTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccNewActionBaselinePreparationDatabaseTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccNodeRecordProjectionTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccObsoleteApplicationBoundaryTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccObsoleteFormDraftRoundTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccObsoleteFormExecutionPreparationTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccObsoleteFormOpenDraftDatabaseTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccObsoleteFormReworkSourceTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccObsoleteFormRuntimeStorageTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccObsoleteFormRuntimeStoreTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccObsoleteReservedAttributesForkTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccOfficeDistributionOpenedApiTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccOrdinaryAttachmentFactsTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccPendingAutomaticDistributionApiTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccPreparedExecutionInheritanceDatabaseTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccProcessNotificationIdentityTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccPublicDocumentControlEvidenceTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccPublicFinalizationTransactionTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccPublicMatrixNativeDerivationTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccPublicRoundNativeSourceGuardTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccPublicTrainingWaitingTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccRelationObsoleteReworkSourceTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccRelationStageH2Schema.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccRelationStageSnapshotServiceTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccRemovableSignoffContractTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccRevisionAttachmentsDatabaseTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccRoundFlowContractTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccStandardizationEffectiveAuditTransactionTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccTrainingApplicationProgressTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccTrainingAttachmentServiceTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccTrainingAttachmentTransactionTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccTrainingProgressFlowContractTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccUserManagementDirectSupervisorSourceTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccUserManagementSupervisorObsoletePrecheckTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccUserManagementSupervisorWorkflowPrecheckTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccV5RuntimePhaseDatabaseTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccW04ProjectReferenceAuthorityTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccW06TrainingLifecycleTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccW08ApplicationRelationEvidenceTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccW08DistributionPreviewTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccW08OfficeOpenedConfirmationDatabaseTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccW08PreparedCreationDatabaseTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccW08PreparedSourceBoundaryTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccW08PreparedUnitFixture.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccW08RoundFlowQueryDatabaseTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccW08SupervisorReadDatabaseTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccW08VersionBrowserPermissionsTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccWorkflowDateBusinessErrorTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccWorkflowDatePolicyTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccWorkflowExactPreparedStartTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccWorkflowRelationStageIntegrationTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccWorkingDraftVerifiedSourceIdentityTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/W07OptionalCommentBoundaryRedTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/filepreview/DccG09OnlinePreviewRegisteredAtTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/preview/DccG09PreviewRegisteredAtTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/preview/DccPreviewIssuedRoundTransactionTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/productcatalog/DccW01ProductCatalogRowNumberAllocatorTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/productcatalog/DccW01ProductCatalogSequenceMigrationTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/projectcode/DccProjectAttributeConfigurationConflictTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/projectcode/DccProjectReviewerRoleServiceTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/projectcode/DccProjectSingleRoleReviewTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/projectcode/DccW01ApprovedRequestSequenceTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/projectcode/DccW01FolderMutationTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/projectcode/DccW01ProjectApproverTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/projectcode/DccW01ProjectIdentityStateTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/projectcode/DccW01ProjectProductJdbcFixture.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/projectcode/access/DccW01ProjectAccessIdentityTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/upload/DccCheckinAttachmentUploadContextTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/upload/DccTrainingUploadTicketServiceTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/js/dcc-w03-training-upload-authorization.spec.cjs"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/js/dcc-w06-lifecycle-contract.spec.cjs"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/js/dcc-w06-training-attachment-migration-contract.spec.cjs"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/resources/sql/dcc_distribution_outbox.sql"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/api/user/dto/AdminUserDirectSupervisorRespDTO.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/controller/admin/user/vo/user/UserDirectSupervisorRespVO.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/controller/admin/user/vo/user/UserDirectSupervisorSaveReqVO.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/service/user/AdminUserDirectSupervisorErrors.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/service/user/AdminUserDirectSupervisorService.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-system/src/test/java/cn/iocoder/yudao/module/system/service/user/AdminUserDirectSupervisorAuditTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiBackend/yudao-module-system/src/test/java/cn/iocoder/yudao/module/system/service/user/AdminUserDirectSupervisorServiceTest.java"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiFronted/src/api/dcc/controlledFile/bodyReadContext.ts"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiFronted/src/api/system/user/directSupervisor.ts"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiFronted/src/utils/dccDistributionNavigation.ts"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiFronted/src/views/bpm/model/BpmModelXmlImport.vue"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiFronted/src/views/bpm/model/bpmn-import-contract.ts"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiFronted/src/views/bpm/processInstance/detail/dcc-business-identity.ts"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/basic-data/components/project-product-role.ts"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/browser/CheckinAttachmentsPanel.vue"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/browser/ProjectFolderFileTable.vue"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/browser/checkin-training.ts"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/browser/folder-file-list.ts"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/categories/components/approval-matrix-configuration.ts"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/detail/ControlledFileAttachments.vue"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/detail/ControlledFileBrowseRecords.vue"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/detail/DetailRelationStageEvidence.vue"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/detail/DistributionReadPanel.vue"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/detail/application-node-records.ts"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/detail/attachment-facts.ts"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/detail/browse-records.ts"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/detail/distribution-receipt-reader.ts"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/detail/obsolete-application.ts"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/shared/version-display.ts"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/upload/CustomApplicationMatrixEditor.vue"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/upload/approval-matrix.ts"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/view/pdf-tools.ts"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/workflow/DelayedEffectiveConfirmationPanel.vue"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/workflow/DistributionReceiptConfirm.vue"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/workflow/distribution-facts.ts"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/workflow/effective-facts.ts"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiFronted/src/views/system/user/UserDirectSupervisorDialog.vue"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiFronted/src/views/system/user/direct-supervisor-state.ts"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiFronted/src/views/system/user/role-option-label.ts"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiFronted/tests/unit/dcc-application-g03-attachment-manifest.test.cjs"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiFronted/tests/unit/dcc-application-node-records.test.cjs"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiFronted/tests/unit/dcc-application-public-route.test.cjs"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiFronted/tests/unit/dcc-approval-matrix-shared-contract.test.cjs"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiFronted/tests/unit/dcc-approval-success-inbox-cache.test.cjs"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiFronted/tests/unit/dcc-approval-supervisor-status-label.test.cjs"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiFronted/tests/unit/dcc-attachment-download.test.cjs"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiFronted/tests/unit/dcc-automatic-distribution-retry.test.cjs"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiFronted/tests/unit/dcc-body-read-wrapper-g01.test.cjs"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiFronted/tests/unit/dcc-bpm-notification-task-entry.test.cjs"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiFronted/tests/unit/dcc-bpm-obsolete-business-identity.test.cjs"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiFronted/tests/unit/dcc-bpmn-import-contract.test.cjs"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiFronted/tests/unit/dcc-browser-checkin-attachments.test.cjs"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiFronted/tests/unit/dcc-browser-checkin-training-default.test.cjs"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiFronted/tests/unit/dcc-browser-html-alignment.test.cjs"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiFronted/tests/unit/dcc-category-g03-approval-source.test.cjs"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiFronted/tests/unit/dcc-category-review-g03-source.test.cjs"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiFronted/tests/unit/dcc-checkin-attachments-panel.test.cjs"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiFronted/tests/unit/dcc-content-application-selection.test.cjs"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiFronted/tests/unit/dcc-content-detail-split.test.cjs"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiFronted/tests/unit/dcc-current-effective-read-contract.test.cjs"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiFronted/tests/unit/dcc-delayed-confirmation-round.test.cjs"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiFronted/tests/unit/dcc-delayed-display.test.cjs"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiFronted/tests/unit/dcc-delayed-effective-confirmation.test.cjs"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiFronted/tests/unit/dcc-delayed-effective-submission.test.cjs"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiFronted/tests/unit/dcc-delayed-labels.test.cjs"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiFronted/tests/unit/dcc-delayed-progress.test.cjs"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiFronted/tests/unit/dcc-detail-application-ic05.test.cjs"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiFronted/tests/unit/dcc-detail-g03-custom-application.test.cjs"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiFronted/tests/unit/dcc-distribution-notification.test.cjs"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiFronted/tests/unit/dcc-distribution-receipt-read.test.cjs"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiFronted/tests/unit/dcc-download-business-denial.test.cjs"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiFronted/tests/unit/dcc-e2e-findings-fix.test.cjs"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiFronted/tests/unit/dcc-fixed-version-preview-test-loader.cjs"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiFronted/tests/unit/dcc-g07-body-read-context.test.cjs"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiFronted/tests/unit/dcc-g07-preview-registration.test.cjs"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiFronted/tests/unit/dcc-g09-office-readonly.test.cjs"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiFronted/tests/unit/dcc-g09-pdf-text.test.cjs"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiFronted/tests/unit/dcc-g09-registration-hunk.test.cjs"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiFronted/tests/unit/dcc-g09-viewer-tools.test.cjs"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiFronted/tests/unit/dcc-history-event-time.test.cjs"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiFronted/tests/unit/dcc-matrix-opening-load.test.cjs"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiFronted/tests/unit/dcc-nc-e2e-findings.test.cjs"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiFronted/tests/unit/dcc-obsolete-application-session.test.cjs"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiFronted/tests/unit/dcc-obsolete-dialog-phases.test.cjs"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiFronted/tests/unit/dcc-obsolete-phase-api.test.cjs"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiFronted/tests/unit/dcc-preview-time-parser-g01.test.cjs"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiFronted/tests/unit/dcc-project-role-initial-load.test.cjs"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiFronted/tests/unit/dcc-project-single-role-contract.test.cjs"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiFronted/tests/unit/dcc-project-single-role-page.test.cjs"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiFronted/tests/unit/dcc-reader-bpm-boundary.test.cjs"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiFronted/tests/unit/dcc-reference-usage-dialog.test.cjs"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiFronted/tests/unit/dcc-relation-history-read-contract.test.cjs"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiFronted/tests/unit/dcc-relation-stage-evidence.test.cjs"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiFronted/tests/unit/dcc-reviewer-approval-badge-access.test.cjs"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiFronted/tests/unit/dcc-revision-target-confirmation.test.cjs"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiFronted/tests/unit/dcc-role-option-identity.test.cjs"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiFronted/tests/unit/dcc-round-flow-api.test.cjs"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiFronted/tests/unit/dcc-round-flow-presentation.test.cjs"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiFronted/tests/unit/dcc-selected-application-context.test.cjs"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiFronted/tests/unit/dcc-selected-version-reference-summary.test.cjs"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiFronted/tests/unit/dcc-selected-version-relations.test.cjs"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiFronted/tests/unit/dcc-shared-application-schema.test.cjs"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiFronted/tests/unit/dcc-shared-attachments-component.test.cjs"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiFronted/tests/unit/dcc-signoff-department-assignee.test.cjs"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiFronted/tests/unit/dcc-supervisor-presentation.test.cjs"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiFronted/tests/unit/dcc-training-attachment-facts.test.cjs"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiFronted/tests/unit/dcc-training-completed-round-read.test.cjs"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiFronted/tests/unit/dcc-unrelated-obsolete-read-gate.test.cjs"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiFronted/tests/unit/dcc-upload-a32-contract.test.cjs"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiFronted/tests/unit/dcc-upload-a32-fixture.cjs"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiFronted/tests/unit/dcc-upload-attachment-state.test.cjs"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiFronted/tests/unit/dcc-upload-effective-activation-times.test.cjs"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiFronted/tests/unit/dcc-upload-g03-custom-matrix-editor.test.cjs"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiFronted/tests/unit/dcc-upload-g03-custom-state.test.cjs"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiFronted/tests/unit/dcc-upload-g03-page.test.cjs"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiFronted/tests/unit/dcc-upload-g12-api-optional-folder-reason.test.cjs"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiFronted/tests/unit/dcc-upload-g12-optional-folder-reason.test.cjs"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiFronted/tests/unit/dcc-upload-ic05-application-options.test.cjs"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiFronted/tests/unit/dcc-upload-ic13-matrix.test.cjs"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiFronted/tests/unit/dcc-upload-ic21-new-action-baseline.test.cjs"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiFronted/tests/unit/dcc-upload-reentry.test.cjs"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiFronted/tests/unit/dcc-upload-removable-signoff.test.cjs"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiFronted/tests/unit/dcc-upload-route-leave.test.cjs"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiFronted/tests/unit/dcc-upload-runtime-approval-groups.test.cjs"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiFronted/tests/unit/dcc-upload-test-loader.cjs"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiFronted/tests/unit/dcc-upload-w03-safety.test.cjs"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiFronted/tests/unit/dcc-version-display-a09.test.cjs"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiFronted/tests/unit/dcc-version-display-detail-a12.test.cjs"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiFronted/tests/unit/dcc-version-display-wiring.test.cjs"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiFronted/tests/unit/dcc-version-display-workbench-a17.test.cjs"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiFronted/tests/unit/dcc-version-display.test.cjs"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiFronted/tests/unit/dcc-view-matrix-subject-picker.test.cjs"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiFronted/tests/unit/dcc-w06-effective-facts.test.cjs"
+    },
+    {
+      "status": "??",
+      "path": "IntRuoyiFronted/tests/unit/dcc-workbench-process-entry.test.cjs"
+    }
+  ],
+  "leftLocalCount": 11818,
+  "leftLocalTracked": [
+    "IntRuoyiBackend/LOG_FILE_IS_UNDEFINED",
+    "LOG_FILE_IS_UNDEFINED"
+  ],
+  "sourceFingerprintChecks": {
+    "backend": 11865,
+    "frontend": 2429,
+    "mismatchCount": 0
+  }
+}

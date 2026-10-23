@@ -13,6 +13,7 @@ public interface DccFileCategoryAdminService {
     void updateCategory(DccFileCategorySaveReqVO reqVO);
     void deleteCategory(Long id);
     DccFileCategoryDO getCategory(Long id);
+    /** Returns only categories with an explicit valid approval source; never repairs unknown stored values. */
     List<DccFileCategoryDO> getCategoryList();
     DccFileCategoryImportResult importCategoriesFromIntAuth();
     Map<Long, Long> getCategoryDirectoryBindingMap();

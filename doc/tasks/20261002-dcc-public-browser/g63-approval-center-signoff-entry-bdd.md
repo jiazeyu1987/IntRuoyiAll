@@ -1,0 +1,19 @@
+# G63 — 正常审批中心会签任务入口可指派
+
+Status: ready_for_closeout_for_Root_review。共享任务保持in_progress。Root真实todo→4033独立作废MATRIX_REVIEW通过正式handling=approval/from=approval-center进入，原Parent showDetailManagementActions=false把指派child藏起，签名按钮signoffReady=false无法先指派。Root正常入口未拼管理query绕过。
+
+Given正常审批中心真实当前用户nativeUPLOAD/REVISION/OBSOLETE MATRIX_REVIEW待办，正式所选file+BPM round映射与query/read context已核，WhenParent显示会签处理，Then只这一区出现原指派child；其原canAssign、本部门负责人/候选人及签名硬守保留，不打开元数据、其它管理操作。
+
+Givenviewer/readonly trace、不同file/BPM/任务/用户、无review权限或未经实际round读取，Then不mount写表单；管理入口原合格会签仍支持。确认OBSOLETE当前轮次时上传审批卡显示“会签→批准，批准后结束；无需培训”，不借原文件needTraining/旧upload流程字段描述作废节点。
+
+生产仅Parent展示computed/原child条件与当前申请流程文案，专属actualguard/模板renderer/helper测试和必要既有viewer夹具。G54child/contextAPI/签名writer、globalshowDetailManagementActions、角色与业务mutation不改。先有效旧源RED→GREEN+finite/lint，Root要求如有类型组装做一次完整types，G62build历史结果不外推为新源build；本次不重复构建。Root真实UI验收，无API/DB/UI/Git/服务/Maven操作。
+
+实施Parent独立canShowSignoffAssignment：非viewer/trace、现reviewmenu、已验证nativefile+BPM/applicationType、实际MATRIX_REVIEW todo同BPM/currentassignee；正常审批中心还核applicationApprovalRead的contextKey/BPM/taskID和正式roundselection，防同BPM另一部门task。原管理态合格指派仍可。没有新猜task status枚举、角色名单或增加普通管理能力；child原canAssign/本部门候选+电子签名保存不变。
+
+当前申请文案用同正式scopefile+BPM的OBSOLETE类型显示“无需培训，批准后结束”及会签→批准；UPLOAD/REVISION保原needTraining选择和完整主流程，不取原File旧uploadkey猜当前独立作废。
+
+初新helper缺失测试3项失败保留（red.log），不把测试内缺helper默认false当actual旧getterRED；最终去掉该fixture默认。权威有效RED为只将真实Parent指派template条件临时恢复已核旧management-only，执行真实template Vue renderer：3项=2PASS/1FAIL、exit1（template-production-red.log），准确正常todo面板0而期望1；恢复新条件后GREEN。Root此前已明确该父源由本Agent独占。旧viewerfixture漏新canShowcomputed投影先失败保留，补宿主变量后原readonly/managementassert不变。
+
+最终5文件23項PASS、0fail/skip、exit0（final-frozen.log）：新3实际computed/原renderer/当前流程copy+原round10/viewer3/metadata2/G54child5，执行不与旧32/其他历史叠加。第一次组合误写不存在的childtest路径实际只18项，不当5文件完整证明；末命令精确existingdcc-signoff-remediation-scope后23为最终依据。
+
+Parent ESLint --max-warnings 0实际exit0、无输出（81722终态）；Root授权单次完整vue-tsc8192/tsconfig.relaxed，52767实际exit0、无输出。本批未重复Vite build，G62旧build0只代表旧版本。Source/test冻结，manifest g63-approval-center-signoff-entry-fingerprints.json明确替代Parent及viewerfixture，G62nativecompletion其他事实/G54child/其它G58G59资产保持。Root正常审批中心真实指派、会签、批准验收待，不用离线PASS冒实际签名成功。

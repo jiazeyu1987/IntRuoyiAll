@@ -1,0 +1,7 @@
+{
+  "kind": "full_project_type_check",
+  "exitCode": 0,
+  "command": "node node_modules/vue-tsc/bin/vue-tsc.js --noEmit -p tsconfig.relaxed.json",
+  "log": "C:\\IntRuoyiAll-int_main\\doc\\tasks\\20261001-dcc-integration-unblock\\g35-frontend-types.log",
+  "actualBrowserRun": false
+}

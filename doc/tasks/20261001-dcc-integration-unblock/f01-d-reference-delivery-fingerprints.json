@@ -1,0 +1,398 @@
+{
+  "schema": "dcc-d-project-reference-review-v1",
+  "worktree": "C:/IntRuoyi/20260930-dcc-d",
+  "branch": "codex/20260930-dcc-d",
+  "head": "a801dc8b91579241e221d129ab34343997673f40",
+  "recordedAtUtc": "2026-10-02T11:59:02.9194747Z",
+  "status": "ready_for_manager_review_public_project_page_not_accepted",
+  "sourceManifest": "C:\\IntRuoyi\\20260930-dcc-b\\doc\\tasks\\20260930-dcc-b-project\\view-directory-review-manifest.json",
+  "sourceManifestSha256": "1e0df0ce22724c2a11f0772746dab392ff6021bc06b33c4a5936b1f0b094b620",
+  "bFrozenReceivedDependencies": [
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/projectcode/access/DccProjectAccessService.java",
+      "role": "b_frozen_view_dependency_received_with_explicit_authorization",
+      "receivedFrozenSha256": "3b13fdea81b6b90ab323e572db8ea8135902049b5dd55f17fcfb541a9b5540b7",
+      "targetSha256": "3b13fdea81b6b90ab323e572db8ea8135902049b5dd55f17fcfb541a9b5540b7",
+      "sourceLiveSha256": "d25d2e744c8ca46ad0c1c2a1a29c08f7e693d32c5da8bfdc4727c30127ab8cc9",
+      "sourceStillFrozen": false,
+      "decision": "known_head_baseline_lf",
+      "lateLiveIncrementReceived": false
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/projectcode/access/DccProjectAccessServiceImpl.java",
+      "role": "b_frozen_view_dependency_received_with_explicit_authorization",
+      "receivedFrozenSha256": "61a503c4d10be3aa8f6afcfcecbcb12c012cbc4dcdc2dd4083893ad33518073f",
+      "targetSha256": "61a503c4d10be3aa8f6afcfcecbcb12c012cbc4dcdc2dd4083893ad33518073f",
+      "sourceLiveSha256": "46007fa908119d3389e47ef6b4d6dc01e97e421fc2318a36bb4d550c606a6295",
+      "sourceStillFrozen": false,
+      "decision": "known_previous",
+      "lateLiveIncrementReceived": false
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/projectcode/folder/DccFolderTemplateService.java",
+      "role": "b_frozen_view_dependency_received_with_explicit_authorization",
+      "receivedFrozenSha256": "f2a4e4412ccd3e018738d6e0f8e7028c39474d989a9dbcbb44ca1c0835143b3e",
+      "targetSha256": "f2a4e4412ccd3e018738d6e0f8e7028c39474d989a9dbcbb44ca1c0835143b3e",
+      "sourceLiveSha256": "f2a4e4412ccd3e018738d6e0f8e7028c39474d989a9dbcbb44ca1c0835143b3e",
+      "sourceStillFrozen": true,
+      "decision": "known_previous",
+      "lateLiveIncrementReceived": false
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/projectcode/DccProjectAttributesController.java",
+      "role": "b_frozen_view_dependency_received_with_explicit_authorization",
+      "receivedFrozenSha256": "912bab69d7a88701afec487cede13680099c8d5da2ea00f960c8e1856690ee08",
+      "targetSha256": "912bab69d7a88701afec487cede13680099c8d5da2ea00f960c8e1856690ee08",
+      "sourceLiveSha256": "d20e802de5772c660180beb314faa5e42d45220ae1b66233074133a060a391dc",
+      "sourceStillFrozen": false,
+      "decision": "known_previous",
+      "lateLiveIncrementReceived": false
+    },
+    {
+      "path": "IntRuoyiFronted/src/api/dcc/controlledFile/projectAttributes.ts",
+      "role": "b_frozen_view_dependency_received_with_explicit_authorization",
+      "receivedFrozenSha256": "8b64aca95782e70f64502180ece0c6d6a3445cf3aee281d32de8d3fde60b71f8",
+      "targetSha256": "8b64aca95782e70f64502180ece0c6d6a3445cf3aee281d32de8d3fde60b71f8",
+      "sourceLiveSha256": "8b64aca95782e70f64502180ece0c6d6a3445cf3aee281d32de8d3fde60b71f8",
+      "sourceStillFrozen": true,
+      "decision": "known_previous",
+      "lateLiveIncrementReceived": false
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/projectcode/DccProjectFolderViewReadTest.java",
+      "role": "b_frozen_view_dependency_received_with_explicit_authorization",
+      "receivedFrozenSha256": "dcf9daa76cecf8aa6d58cf83b18162a4561eb3d3b5dcb12f6f3a3ddfd56f84ce",
+      "targetSha256": "dcf9daa76cecf8aa6d58cf83b18162a4561eb3d3b5dcb12f6f3a3ddfd56f84ce",
+      "sourceLiveSha256": "dcf9daa76cecf8aa6d58cf83b18162a4561eb3d3b5dcb12f6f3a3ddfd56f84ce",
+      "sourceStillFrozen": true,
+      "decision": "new_target",
+      "lateLiveIncrementReceived": false
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/projectcode/DccFolderTemplateServiceTest.java",
+      "role": "b_frozen_view_dependency_received_with_explicit_authorization",
+      "receivedFrozenSha256": "d11b1a5ca5a645d4a41d43b19e9746dda658f0d69a647804234a7c4ea6f4c9ba",
+      "targetSha256": "d11b1a5ca5a645d4a41d43b19e9746dda658f0d69a647804234a7c4ea6f4c9ba",
+      "sourceLiveSha256": "d11b1a5ca5a645d4a41d43b19e9746dda658f0d69a647804234a7c4ea6f4c9ba",
+      "sourceStillFrozen": true,
+      "decision": "known_previous",
+      "lateLiveIncrementReceived": false
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/projectcode/DccProjectConfigurationHttpPersistenceTest.java",
+      "role": "b_frozen_view_dependency_received_with_explicit_authorization",
+      "receivedFrozenSha256": "87e44dd1c65e4ebc97316686e85cb392eb49a4ff28fd7735b0d245e702b628f8",
+      "targetSha256": "87e44dd1c65e4ebc97316686e85cb392eb49a4ff28fd7735b0d245e702b628f8",
+      "sourceLiveSha256": "87e44dd1c65e4ebc97316686e85cb392eb49a4ff28fd7735b0d245e702b628f8",
+      "sourceStillFrozen": true,
+      "decision": "known_previous",
+      "lateLiveIncrementReceived": false
+    },
+    {
+      "path": "IntRuoyiFronted/tests/e2e/dcc-project-directory-view-wrapper-unit.spec.js",
+      "role": "b_frozen_view_dependency_received_with_explicit_authorization",
+      "receivedFrozenSha256": "fb88dc7d202256c24c91f680acf0d8f1b7bb6efcad834bc4389c69b292d0b4fd",
+      "targetSha256": "fb88dc7d202256c24c91f680acf0d8f1b7bb6efcad834bc4389c69b292d0b4fd",
+      "sourceLiveSha256": "fb88dc7d202256c24c91f680acf0d8f1b7bb6efcad834bc4389c69b292d0b4fd",
+      "sourceStillFrozen": true,
+      "decision": "new_target",
+      "lateLiveIncrementReceived": false
+    }
+  ],
+  "lateBSourceDrift": "reference-view-source-drift.json",
+  "lateBSourceDriftReceived": false,
+  "files": [
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/relations/project-reference-contract.ts",
+      "role": "new_d_mapping_contract",
+      "sha256": "519a17734f718d18389669026638718cf55733ec6ab07511f7177ca3832196d1",
+      "bytes": 5438
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/relations/DccProjectReferences.vue",
+      "role": "d_component_existing_type_export_only",
+      "sha256": "663165a2fc56b5aaacaf3104a5a37e2aac593207c0fc322268c3253066e81a7e",
+      "bytes": 6560
+    },
+    {
+      "path": "IntRuoyiFronted/scripts/dcc-project-reference-contract.test.mjs",
+      "role": "new_d_mapping_bdd_red_green_test",
+      "sha256": "c37b5c4ffb72839b143a8df8b5d87456175cd33d35667842c71f72e0ab62bc0e",
+      "bytes": 4926
+    },
+    {
+      "path": "IntRuoyiFronted/scripts/dcc-relations-vue-runtime.test.mjs",
+      "role": "d_test_reference_increment_preserving_upload_tests",
+      "sha256": "083703f02be095a51e222bfa37832e3a09ecd9f466ae79240ffad7e8f533fc71",
+      "bytes": 57248
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/projectcode/DccProjectReferenceViewDirectoryCombinationTest.java",
+      "role": "new_d_true_b_d_mapper_h2_combination",
+      "sha256": "fd5c0eca5c63c9419e8ce36a1cd111ca19c46b974c80ba7a976f349a05a3652d",
+      "bytes": 14015
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccProjectReferenceFormalAuthorityIntegrationTest.java",
+      "role": "d_test_actual_b_access_dependency_adaptation",
+      "sha256": "5c0a28153f50c646bf74a4aaedea836a72cf9f9d9251d674da954d8dd7728dba",
+      "bytes": 22620
+    },
+    {
+      "path": "IntRuoyiFronted/src/api/dcc/controlledFile/relations.ts",
+      "role": "unchanged_d_formal_api_and_root_loader_delegate",
+      "sha256": "629260e80a4fc1f296ef91a37c0fb03fac4e734cdd9d1b4da56d7b250d23b18c",
+      "bytes": 2963
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/relations/DccFileSelector.vue",
+      "role": "unchanged_d_component",
+      "sha256": "663375cc5d6be7485564f0329956ae40744795901bb2a30dd392af5f76efb176",
+      "bytes": 7581
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/relations/DccReferenceBadge.vue",
+      "role": "unchanged_d_component",
+      "sha256": "80247f91356e878b9bfee00e99f5c7b8c09cc83827f5cbb8ea52497637566c11",
+      "bytes": 548
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/relations/selector-state.ts",
+      "role": "unchanged_d_state",
+      "sha256": "71104a74b70b0be9026faea2dbe9b4bfe9dd6c3c2bee74ae5a20f5f0343b7aa9",
+      "bytes": 5430
+    },
+    {
+      "path": "IntRuoyiFronted/scripts/dcc-relations-components.test.mjs",
+      "role": "unchanged_affected_d_regression",
+      "sha256": "3ba7a38f1578b6d2a8e1e0339fb22ff73142459a0c786033d7e0e7ea3f91df5e",
+      "bytes": 9870
+    },
+    {
+      "path": "IntRuoyiFronted/src/api/dcc/controlledFile/applicationRead.ts",
+      "role": "root_readonly_sole_selector_loader",
+      "sha256": "3a6be5708376dbd83e269f35ab127d3435ae8142d3507a444976d724c279afb5",
+      "bytes": 6403
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/project-attributes/state.ts",
+      "role": "b_readonly_actual_attribute_validation_dependency",
+      "sha256": "8eb32f6055b92d291d4011e95918f7aef63fbbf9d96e2b72a121e8d93b014fce",
+      "bytes": 6752
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/basic-data/components/project-folder-tree.ts",
+      "role": "b_readonly_sole_folder_tree_validation",
+      "sha256": "20f2004a095e3c5c7e1ded3d5203a51ba6c3742e9accae5874138effa91db3ca",
+      "bytes": 2687
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/projectcode/attributes/DccProjectLeaderService.java",
+      "role": "b_readonly_official_leader_authority",
+      "sha256": "534c51ec04a11fde06ca34263eb1b04a0a5ce300328b8022ea21824f67ee8f91",
+      "bytes": 1739
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileQueryServiceImpl.java",
+      "role": "c_readonly_real_name_and_body_guard",
+      "sha256": "9f0953eadba0babaea2914488d277aeafd2f3dcb0a999f06d834de477b615288",
+      "bytes": 250269
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/file/DccProjectReferenceController.java",
+      "role": "unchanged_d_formal_reference_api",
+      "sha256": "3f4c188e8ab81492570ee6342e97c49f5c6a1ab51721a0da5312b3ecb1ff8619",
+      "bytes": 3008
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/relations/DccProjectReferenceService.java",
+      "role": "unchanged_d_formal_reference_transaction",
+      "sha256": "3d99f6ec2e67b784e50a24524397d4690c5ebd84f2c94f3e6647446eb5edfce8",
+      "bytes": 8823
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/relations/DccRelationContracts.java",
+      "role": "unchanged_d_formal_reference_views",
+      "sha256": "29d12e8c09e1956dda194f381d508e9580534961aa926222b3262eef1a39869c",
+      "bytes": 3717
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/relations/DccRelationStore.java",
+      "role": "unchanged_d_mapper_and_distinct_project_count",
+      "sha256": "9fb863fc140361861cbd4e0b62766b8b763f488c7f274be18e92398c6c680a63",
+      "bytes": 4924
+    },
+    {
+      "path": "IntRuoyiBackend/sql/mysql/20260930_dcc_d_relations.sql",
+      "role": "unchanged_d_migration_test_fixture_only",
+      "sha256": "74d931b00798e597cceb79b3d6cc5120329cc8129baee5bf20ac8dda850d3320",
+      "bytes": 3539
+    },
+    {
+      "path": "doc/tasks/20260930-dcc-d-relations/project-reference-integration.md",
+      "role": "d_reference_task_delivery_or_evidence",
+      "sha256": "7b591dea8a56535ed4ed3a4350c65de5e5cb7d54900a92d7fe978f01620bd99c",
+      "bytes": 10539
+    },
+    {
+      "path": "doc/tasks/20260930-dcc-d-relations/project-reference-usage.vue",
+      "role": "d_reference_task_delivery_or_evidence",
+      "sha256": "acca5c11bf8e14a0130e40bd61be5dd788d811e8d1973ebe5ab9ab653db90271",
+      "bytes": 4892
+    },
+    {
+      "path": "doc/tasks/20260930-dcc-d-relations/tsconfig.reference-example.json",
+      "role": "d_reference_task_delivery_or_evidence",
+      "sha256": "be8e1a07a46dd02c55faf0ee73b5cea27ead66388e7c51057bb7acee280cc13c",
+      "bytes": 470
+    },
+    {
+      "path": "doc/tasks/20260930-dcc-d-relations/task.md",
+      "role": "d_reference_task_delivery_or_evidence",
+      "sha256": "d5c439ce6dcbfca4467bf0bd240ca29bef5d70001228909ed47d42e15dd82aa0",
+      "bytes": 22026
+    },
+    {
+      "path": "doc/tasks/20260930-dcc-d-relations/verification-report.md",
+      "role": "d_reference_task_delivery_or_evidence",
+      "sha256": "e03cdfd70505aa551a5aa0a77dd53238ae5a65497e82214939304d3e35abbc1d",
+      "bytes": 82491
+    },
+    {
+      "path": "doc/tasks/20260930-dcc-d-relations/integration-notes.md",
+      "role": "d_reference_task_delivery_or_evidence",
+      "sha256": "abee9a4f1d63575b349f70f851cec0c775f42517aeb62b75073ea5f871ae929f",
+      "bytes": 73848
+    },
+    {
+      "path": "doc/tasks/20260930-dcc-d-relations/manager-review-response.md",
+      "role": "d_reference_task_delivery_or_evidence",
+      "sha256": "de1c28f0fa3f7e2eb20b9ff0c281eb2088c2a8667cbe68900678633d6ef114f7",
+      "bytes": 21470
+    },
+    {
+      "path": "doc/tasks/20260930-dcc-d-relations/execution-log.md",
+      "role": "d_reference_task_delivery_or_evidence",
+      "sha256": "916c0092fff53a1434049dcc1fd81ffc657e48808b1a2b40c0ad03047b948fed",
+      "bytes": 73449
+    },
+    {
+      "path": "doc/tasks/20260930-dcc-d-relations/reference-view-dependency-preflight.json",
+      "role": "d_reference_task_delivery_or_evidence",
+      "sha256": "a027bacd61b339749a10d3cccefd681229ea5b48bd969d5888344a7d6fd48b28",
+      "bytes": 4104
+    },
+    {
+      "path": "doc/tasks/20260930-dcc-d-relations/reference-view-dependency-reception.json",
+      "role": "d_reference_task_delivery_or_evidence",
+      "sha256": "45c03c314bd8d0a6d9aba6790d1aa510621821cab27cfc8b9ab096203ccd8d88",
+      "bytes": 4701
+    },
+    {
+      "path": "doc/tasks/20260930-dcc-d-relations/reference-view-source-drift.md",
+      "role": "d_reference_task_delivery_or_evidence",
+      "sha256": "142431a8751fc2b563e0c265cdca96a9357c72cc2cfe2a166bbe7223027745af",
+      "bytes": 7729
+    },
+    {
+      "path": "doc/tasks/20260930-dcc-d-relations/reference-view-source-drift.json",
+      "role": "d_reference_task_delivery_or_evidence",
+      "sha256": "3a7c51b0ceb831d16c743aceddf6feba5ff17e7df2928af7d0910fc115865569",
+      "bytes": 2023
+    },
+    {
+      "path": "doc/tasks/20260930-dcc-d-relations/reference-view-real-responses.json",
+      "role": "d_reference_task_delivery_or_evidence",
+      "sha256": "2a3731c1c425876c78e96f8b38be8e3dadd7789b08f8908e687004495c6f331f",
+      "bytes": 2730
+    },
+    {
+      "path": "doc/tasks/20260930-dcc-d-relations/reference-contract-red.log",
+      "role": "d_reference_task_delivery_or_evidence",
+      "sha256": "9634364a98eedd4eefd3c504f9c1127487caabfc411d3e94283cd299af7c5b38",
+      "bytes": 5339
+    },
+    {
+      "path": "doc/tasks/20260930-dcc-d-relations/reference-contract-green.log",
+      "role": "d_reference_task_delivery_or_evidence",
+      "sha256": "02fbb791e0b23ef932cd02ad1918b355e7794cda3e25951cb0e219a72a633c63",
+      "bytes": 697
+    },
+    {
+      "path": "doc/tasks/20260930-dcc-d-relations/reference-contract-final.log",
+      "role": "d_reference_task_delivery_or_evidence",
+      "sha256": "00446477dbe9098dbf012a0af38d97b5868cb574e4898e05dafc57b91e7eec4d",
+      "bytes": 816
+    },
+    {
+      "path": "doc/tasks/20260930-dcc-d-relations/reference-wrapper-vue-final.log",
+      "role": "d_reference_task_delivery_or_evidence",
+      "sha256": "b554e4172c906894b2e9f7b294d95c41747f6eba5ffa96b34267028e783d36e2",
+      "bytes": 625
+    },
+    {
+      "path": "doc/tasks/20260930-dcc-d-relations/reference-b-wrapper-final.log",
+      "role": "d_reference_task_delivery_or_evidence",
+      "sha256": "55f71ca0ce261d009552f0c45e9e2f86959639693d6c794caaee30a2ecd1ada0",
+      "bytes": 808
+    },
+    {
+      "path": "doc/tasks/20260930-dcc-d-relations/reference-components-affected.log",
+      "role": "d_reference_task_delivery_or_evidence",
+      "sha256": "d77849b08d20849770e5b4d176fec38013c5e4f9c9e29006adeafd7f4d944e52",
+      "bytes": 1362
+    },
+    {
+      "path": "doc/tasks/20260930-dcc-d-relations/reference-view-affected-regression.log",
+      "role": "d_reference_task_delivery_or_evidence",
+      "sha256": "dd8f25ade6bc738a2e1cfc447ce93df914c132213c511ea0fca2a52122df7515",
+      "bytes": 153999
+    },
+    {
+      "path": "doc/tasks/20260930-dcc-d-relations/reference-view-server-compile.log",
+      "role": "d_reference_task_delivery_or_evidence",
+      "sha256": "32fe2b4e141964b9f5d167ea5df6ce0d5f242bb7f8f3052bf3b9fff7cc633523",
+      "bytes": 31164
+    },
+    {
+      "path": "doc/tasks/20260930-dcc-d-relations/reference-d-types.log",
+      "role": "d_reference_task_delivery_or_evidence",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "doc/tasks/20260930-dcc-d-relations/reference-example-types.log",
+      "role": "d_reference_task_delivery_or_evidence",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "doc/tasks/20260930-dcc-d-relations/reference-project-types.log",
+      "role": "d_reference_task_delivery_or_evidence",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "doc/tasks/20260930-dcc-d-relations/reference-contract-eslint.log",
+      "role": "d_reference_task_delivery_or_evidence",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    }
+  ],
+  "verification": {
+    "backendFinal": 110,
+    "frontendFinal": 31,
+    "frontendGroups": [
+      4,
+      6,
+      7,
+      14
+    ],
+    "mappingValidRedFailures": 5,
+    "uploadPrevious73": "preserved_separate_not_repeated_or_added",
+    "migration": "none_new_none_executed_business_db",
+    "offlineOnly": true,
+    "publicPageAccepted": false,
+    "latestLiveBNewRulesValidated": false
+  }
+}

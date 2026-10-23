@@ -1,0 +1,56 @@
+{
+  "status": "ACTUAL_INDEPENDENT_REVIEW_AND_CONTROL_SUCCESS_NOTICE_RECIPIENT_OPEN_READONLY_SOURCE_PASS",
+  "actor": "g57dccdoc20261005/910328 genuineownlogin+image10",
+  "control": "4045B1pending10/13,old4041A3executing",
+  "beforeControlTasks": 0,
+  "currentTasks": 1,
+  "ui": [
+    {
+      "step": "300",
+      "sha256": "bf4df2a464561c44e873c8fdbd3a6940821d1f8fb8c74b2cf3b8f5363e993c7c",
+      "url": "/dcc/controlled-file/detail/2054545668044084045",
+      "visible": "瑛泰管理系统\n展厅\n个人中心\n2486\n审批中心\n59\n电子签名\nSRM\n基础数据\n文控中心\n文档目录\n文控权限\n上传审批\n文件上传\n受控浏览\n文控日志\n文控管理员\n发布后续\nCRM 系统\nAI 大模型\nMES 系统\n智能排产\n系统管理\n基础设施\n报表管理\nERP 系统\n版本信息未生成\n文控中心\n/\n受控浏览\n请输入菜单内容\n瑛泰管理员\n审批中心\n59\n受控文件详情\n20261005-dcc-four-directions-g53-source.pdf\n受控（待生效）\n文件编号：G53-DOC-20261005-01\n版本：B/1\n生效日期：2026-10-13\n返回\n发布后续\n\n暂无发布后续记录\n\n上传提交信息\n提交范围：审批中心上传审批；审批阶段：文控下发\n审批要求\n文件信息\nDCC 项目\tG53文控主流程项目 / G53-P-20261005\n文件分类\t技术调研报告\n提交目录\t质量管理/项目#271 文件夹#2\n文件名称\t20261005-dcc-four-directions-g53-source.pdf\n文件编号\tG53-DOC-20261005-01\n产品编号\tG53PRODUCT\n版本号\tB/1\n生效日期\t2026-10-13\n提交备注\t20261006-dcc-full-html-g69 原B/1撤回后的修正工作稿，作为下一次同B/1申请正文。\n培训要求\t无需培训\n本次申请流程\t会签 → 批准 → 培训（如需） → 文控审核 → 受控 → 下发。\n附件预览\n20261005-dcc-four-directions-g53-source.pdf\n当前预览会根据文件类型自动切换到 PDF、图片、文本、OnlyOffice、音频或视频只读视图，并继续保留受控阅读限制。\n受控预览\n禁止截图/外传\n100% / 0°\n放大\n缩小\n旋转\n复原\n受控预览\n禁止截图/外传\nWM-20261006-4740198E3B33 | admin | 2026-10-06 08:40:39\n第 1 / 1 页\n审批要求：DCC 审批签名\n\n当前没有待处理审批任务\n\n普通附件\n共 0 个\n\n暂无普通附件\n\n实际变更类型\t换版变更\t文件记录身份\t#2054545668044084045\n升版申请尝试\t2\t返工前驱文件\t#2054545668044084043\n本版本 BPM\t89833bb6-c11c-11f1-aab8-b082e25ec548\t批准选择的文件负责人\tG57独立文控验收（g57dccdoc20261005，账号 #910328）\n负责人批准签名\t#443 · BPM 89833bb6-c11c-11f1-aab8-b082e25ec548\t来源受控版本\tA/3\n选用正文小版本\tB/1-1\t变更说明\t20261006-dcc-full-html-g69 第2次B/1换版申请，选B/1-1修正正文，独立部门会签与关联整改通知，10月13日生效。\n受控日期\t2026-10-06 08:41:52\t预设生效日期\t2026-10-13\n实际生效时间\t尚未生效\t下发时间\t尚未下发\n2026-10-13 生效，生效前不得执行；旧版保持当前执行版。\n\n申请轮次与冻结证据\n\n当前办理轮次：89833bb6-c11c-11f1-aab8-b082e25ec548；本面板展示该轮冻结证据。\n\n升版申请 · 属性第 1 轮 · BPM 89833bb6-c11c-11f1-aab8-b082e25ec548\n\n文件 #2054545668044084045 · B/1 · 升版申请 · BPM 89833bb6-c11c-11f1-aab8-b082e25ec548 · 属性第 1 轮\n\n目标市场\nNMPA 国内\nCE 欧盟\nFDA\nMADSAP\n其他\n不适用\n是否为注册人\n是\n否\n不适用\n是否为生产方\n是\n否\n不适用\n文件转移\n是\n否\n本轮默认来源（只读）\n签名记录\n\t\n签名人\n\t\n签名动作\n\t\n部门\n\t\n服务器签名时间\n\t\nBPM 轮次\n441\n\t\n瑛泰"
+    },
+    {
+      "step": "306",
+      "sha256": "b1ea16f6e0193990cc3fee4f06ca30ba22e311c10e2d4ba762bef91d09a32d7c",
+      "url": "/user/profile",
+      "visible": "瑛泰管理系统\n个人中心\n审批中心\n文控中心\n版本信息未生成\n个人中心\n/\n个人中心\n请输入菜单内容\nG57独立文控验收\n个人中心\n个人工作台\n我的站内信\n基本设置\n密码设置\n暂无筛选条件\n全部阅读\n显示字段\n发送人\n\t\n发送时间\n\t\n类型\n\t\n消息内容\n\t\n是否已读\n\t\n阅读时间\n\t\n操作\nDCC系统\n\t\n2026-10-06 08:41:54\n\t\n系统消息\n\t\n受控文件 G53-DOC-20261005-01 B/1 已完成受控。您被指派处理关联文件整改，期限为 2026-10-20 12:00:00，请查看本次受控申请。\n\t\n否\n\t\n\t\n阅读\n\n\nDCC系统\n\t\n2026-10-06 08:33:21\n\t\n系统消息\n\t\n您收到一条 DCC 待办任务：DCC受控文件升版审批 {fileCode} - 会签指派与签名，提交人：瑛泰管理员。请尽快处理。\n\t\n否\n\t\n\t\n阅读\n\n\nDCC系统\n\t\n2026-10-05 23:03:03\n\t\n系统消息\n\t\n您收到一条 DCC 待办任务：20261005-dcc-full-html-g61-independent-training.pdf - 文控上传线下培训记录，提交人：瑛泰管理员。请尽快处理。\n\t\n否\n\t\n\t\n阅读\n共 3 条\n20条/页\n1\n前往\n页\nCopyright ©2026 瑛泰管理系统"
+    },
+    {
+      "step": "308",
+      "sha256": "49102c13d37a04b281632a21af72aad76b87ca978a53de81d12d2dd0bb61ac4f",
+      "url": "/user/profile",
+      "visible": [
+        "消息详情\n站内信\nDCC系统\n系统消息\n发送人\nDCC系统\n发送时间\n2026-10-06 08:41:54\n阅读状态\n是\n阅读时间\n2026-10-06 08:46:04\n消息内容\n受控文件 G53-DOC-20261005-01 B/1 已完成受控。您被指派处理关联文件整改，期限为 2026-10-20 12:00:00，请查看本次受控申请。\n业务信息\n整改期限\n2026-10-20 12:00:00\n文件编号\nG53-DOC-20261005-01\n关联文件 Master 身份\n2054545668044079118\n来源受控文件身份\n2054545668044084045\n发布版本\nB/1\n快捷操作\n查看来源受控申请"
+      ]
+    },
+    {
+      "step": "310",
+      "sha256": "8a819239dc8aaad072b67771b80e592aaf4f924c98b4b82db9f57ae3594d687d",
+      "url": "/dcc/controlled-file/detail/2054545668044084045",
+      "visible": "瑛泰管理系统\n个人中心\n审批中心\n文控中心\n文件上传\n受控浏览\n版本信息未生成\n文控中心\n/\n受控浏览\n请输入菜单内容\nG57独立文控验收\n个人中心\n受控文件详情\n返回\n只读预览态\n查看只读档案 / 版本历史\n20261005-dcc-four-directions-g53-source.pdf\n当前预览会根据文件类型自动切换到 PDF、图片、文本、OnlyOffice、音频或视频只读视图，并继续保留受控阅读限制。\n受控预览\n禁止截图/外传\n100% / 0°\n放大\n缩小\n旋转\n复原\n受控预览\n禁止截图/外传\nWM-20261006-E1C636DEE94E | g57dccdoc20261005 | 2026-10-06 08:46:07\n第 1 / 1 页\n文件类别\t技术调研报告\n受控目录\t-\n文件名称\t20261005-dcc-four-directions-g53-source.pdf\n产品编号\tG53PRODUCT\n产品名称\t\nG53文控验证产品\n\nDCC基础条目\t\nG53文控主流程项目 / G53-P-20261005\n\n文件类别 I\t技术文档\n文件类别 II\t设计和开发策划阶段\n文件类别 III\t技术调研报告\n文件类别 IV\t-\n文件类别 V\t-\n培训要求\t无需培训\n当前执行受控版本\tA/3\n流程实例\t89833bb6-c11c-11f1-aab8-b082e25ec548\n提交人\t瑛泰管理员 (admin)\n提交时间\t2026-10-06 08:26:13\n发布时间\t2026-10-06 08:41:52\n流程定义\tdcc-controlled-file-revision\n提交备注\t20261006-dcc-full-html-g69 原B/1撤回后的修正工作稿，作为下一次同B/1申请正文。\nCopyright ©2026 瑛泰管理系统"
+    }
+  ],
+  "facts": [
+    {
+      "query": "SELECT id,status,version_no,controlled_time,effective_date,activated_time FROM dcc_controlled_file WHERE id IN (2054545668044084041,2054545668044084045);",
+      "result": "2054545668044084041\tACTIVE\tA/3\t2026-10-06 02:34:38\t2026-10-06\t2026-10-06 02:34:38\n2054545668044084045\tCONTROLLED_PENDING_EFFECTIVE\tB/1\t2026-10-06 08:41:52\t2026-10-13\tNULL\n"
+    },
+    {
+      "query": "SELECT source_file_id,application_round,related_master_id,assignee_user_id,due_at,arranged_by FROM dcc_relation_arrangement WHERE tenant_id=1 AND source_file_id=2054545668044084045;",
+      "result": "2054545668044084045\t89833bb6-c11c-11f1-aab8-b082e25ec548\t2054545668044079118\t910328\t2026-10-20 12:00:00\t1\n"
+    },
+    {
+      "query": "SELECT task.id,task.related_master_id,task.assignee_user_id,task.due_at,task.status,event.controlled_file_id FROM dcc_relation_remediation_task task JOIN dcc_relation_controlled_event event ON event.tenant_id=task.tenant_id AND event.id=task.event_id WHERE event.tenant_id=1 AND event.controlled_file_id=2054545668044084045;",
+      "result": "1\t2054545668044079118\t910328\t2026-10-20 12:00:00\tPENDING\t2054545668044084045\n"
+    },
+    {
+      "query": "SELECT id,actor_id,action_type,signed_at,evidence_status FROM dcc_controlled_file_signature WHERE controlled_file_id=2054545668044084045 ORDER BY id;",
+      "result": "441\t1\tASSIGN\t2026-10-06 08:33:20\tVALID\n442\t910328\tAPPROVE\t2026-10-06 08:36:24\tVALID\n443\t1\tAPPROVE\t2026-10-06 08:39:24\tVALID\n444\t1\tAPPROVE\t2026-10-06 08:41:50\tVALID\n"
+    }
+  ],
+  "directBusinessSqlWrites": false,
+  "apiResponseBodyOracle": false,
+  "scopeLimit": "Recipient source file readonly opening, not expanded D08 remediation completion"
+}

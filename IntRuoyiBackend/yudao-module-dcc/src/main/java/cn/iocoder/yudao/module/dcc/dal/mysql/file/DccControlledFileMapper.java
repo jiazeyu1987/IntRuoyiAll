@@ -27,6 +27,20 @@ import java.util.Map;
 @Mapper
 public interface DccControlledFileMapper extends BaseMapperX<DccControlledFileDO> {
 
+    default List<DccControlledFileDO> selectOfflineTrainingCandidates(Long tenantId) {
+        return selectList(new LambdaQueryWrapper<DccControlledFileDO>()
+                .eq(DccControlledFileDO::getTenantId, tenantId)
+                .eq(DccControlledFileDO::getStatus, "PENDING_APPLICANT_TRAINING_RECORD")
+                .in(DccControlledFileDO::getProcessDefinitionKey, "dcc-controlled-file-upload", "dcc-controlled-file-revision")
+                .eq(DccControlledFileDO::getDeleted, false));
+    }
+
+    default List<DccControlledFileDO> selectListByPredecessorControlledFileId(Long predecessorId) {
+        return selectList(new LambdaQueryWrapper<DccControlledFileDO>()
+                .eq(DccControlledFileDO::getPredecessorControlledFileId, predecessorId)
+                .eq(DccControlledFileDO::getDeleted, false));
+    }
+
     default DccControlledFileDO selectBySubmitIdempotency(Long tenantId, Long submitterId, String idempotencyKey) {
         return selectOne(new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<DccControlledFileDO>()
                 .eq(DccControlledFileDO::getTenantId, tenantId)
@@ -48,7 +62,21 @@ public interface DccControlledFileMapper extends BaseMapperX<DccControlledFileDO
 
     @Update("""
             UPDATE dcc_controlled_file
-            SET status = 'READY_TO_PUBLISH', approved_time = #{approvedTime},
+            SET status = #{change.status}, submitter_id = #{actorId},
+                need_training = #{change.needTraining},
+                submit_idempotency_key = #{change.submitIdempotencyKey},
+                submit_payload_hash = #{change.submitPayloadHash},
+                process_definition_key = #{change.processDefinitionKey}, submitted_time = #{change.submittedTime},
+                updater = #{actorId}, update_time = CURRENT_TIMESTAMP
+            WHERE tenant_id = #{tenantId} AND id = #{change.id} AND requester_id = #{actorId}
+              AND status = 'WORKING' AND checked_out_by IS NULL AND deleted = 0
+            """)
+    int claimWorkingIterationSubmission(@Param("tenantId") Long tenantId, @Param("actorId") Long actorId,
+                                        @Param("change") DccControlledFileDO change);
+
+    @Update("""
+            UPDATE dcc_controlled_file
+            SET status = 'READY_TO_PUBLISH', approved_time = COALESCE(approved_time, #{approvedTime}),
                 updater = #{actorId}, update_time = CURRENT_TIMESTAMP
             WHERE tenant_id = #{tenantId}
               AND id = #{controlledFileId}
@@ -64,6 +92,26 @@ public interface DccControlledFileMapper extends BaseMapperX<DccControlledFileDO
                                         @Param("expectedStatus") String expectedStatus,
                                         @Param("approvedTime") java.time.LocalDateTime approvedTime,
                                         @Param("actorId") Long actorId);
+
+    @Update("""
+            UPDATE dcc_controlled_file
+            SET status = 'REJECTED', rejected_time = #{rejectedTime}, reject_reason = #{rejectReason},
+                updater = #{actorId}, update_time = CURRENT_TIMESTAMP
+            WHERE tenant_id = #{tenantId}
+              AND id = #{controlledFileId}
+              AND process_instance_id = #{processInstanceId}
+              AND process_definition_key = #{processDefinitionKey}
+              AND status = #{expectedStatus}
+              AND deleted = 0
+            """)
+    int markRejectedAfterApprovalEvent(@Param("tenantId") Long tenantId,
+                                       @Param("controlledFileId") Long controlledFileId,
+                                       @Param("processInstanceId") String processInstanceId,
+                                       @Param("processDefinitionKey") String processDefinitionKey,
+                                       @Param("expectedStatus") String expectedStatus,
+                                       @Param("rejectedTime") java.time.LocalDateTime rejectedTime,
+                                       @Param("rejectReason") String rejectReason,
+                                       @Param("actorId") Long actorId);
 
     @Update("""
             UPDATE dcc_controlled_file
@@ -101,7 +149,7 @@ public interface DccControlledFileMapper extends BaseMapperX<DccControlledFileDO
             WHERE tenant_id = #{tenantId}
               AND submitter_id = #{submitterId}
               AND submit_idempotency_key = #{idempotencyKey}
-              AND deleted = b'0'
+              AND deleted = 0
             LIMIT 1
             FOR UPDATE
             """)
@@ -121,7 +169,7 @@ public interface DccControlledFileMapper extends BaseMapperX<DccControlledFileDO
             WHERE tenant_id = #{tenantId}
               AND requester_id = #{requesterId}
               AND creation_idempotency_key = #{idempotencyKey}
-              AND deleted = b'0'
+              AND deleted = 0
             LIMIT 1 FOR UPDATE
             """)
     DccControlledFileDO selectByCreationIdempotencyForUpdate(@Param("tenantId") Long tenantId,
@@ -147,12 +195,28 @@ public interface DccControlledFileMapper extends BaseMapperX<DccControlledFileDO
               AND id = #{controlledFileId}
               AND deleted = 0
               AND checked_out_by IS NULL
-              AND status IN ('WORKING', 'REJECTED', 'ACTIVE', 'PENDING_APPLICANT_REWORK')
+              AND status IN ('WORKING', 'REJECTED', 'ACTIVE', 'SUPERSEDED', 'CONTROLLED_PENDING_EFFECTIVE', 'PENDING_APPLICANT_REWORK')
             """)
     int checkoutByIdAndTenantWhenAvailable(@Param("tenantId") Long tenantId,
                                            @Param("controlledFileId") Long controlledFileId,
                                            @Param("actorId") Long actorId,
                                            @Param("reason") String reason);
+
+    /** Only after the service has verified exact cancelled native revision history/lineage. */
+    @Update("""
+            UPDATE dcc_controlled_file
+            SET checked_out_by = #{actorId}, checked_out_time = CURRENT_TIMESTAMP,
+                checked_out_reason = #{reason}, updater = #{actorId}, update_time = CURRENT_TIMESTAMP
+            WHERE tenant_id = #{tenantId} AND id = #{controlledFileId} AND deleted = 0
+              AND status = 'WITHDRAWN' AND checked_out_by IS NULL AND requester_id = #{actorId}
+              AND process_definition_key = 'dcc-controlled-file-revision' AND change_type = 'REVISION'
+              AND revision_change_type IN ('PARTIAL','REPLACEMENT') AND controlled_time IS NULL
+              AND superseded_by_file_id IS NULL AND process_instance_id = #{processInstanceId}
+              AND revision_source_controlled_file_id IS NOT NULL AND selected_iteration_controlled_file_id IS NOT NULL
+            """)
+    int checkoutCancelledNativeRevisionWhenAvailable(@Param("tenantId") Long tenantId,
+            @Param("controlledFileId") Long controlledFileId, @Param("actorId") Long actorId,
+            @Param("processInstanceId") String processInstanceId, @Param("reason") String reason);
 
     @Update("""
             UPDATE dcc_controlled_file
@@ -191,6 +255,9 @@ public interface DccControlledFileMapper extends BaseMapperX<DccControlledFileDO
                    tenant_id,
                    title,
                    file_number,
+                   file_name,
+                   version_no,
+                   category_id,
                    status,
                    process_instance_id,
                    process_definition_key,
@@ -265,6 +332,12 @@ public interface DccControlledFileMapper extends BaseMapperX<DccControlledFileDO
 
     default List<DccControlledFileDO> selectListByMasterId(Long masterId) {
         return selectList(DccControlledFileDO::getMasterId, masterId);
+    }
+
+    default List<DccControlledFileDO> selectListByMasterIdForUpdate(Long masterId) {
+        return selectList(new LambdaQueryWrapperX<DccControlledFileDO>()
+                .eq(DccControlledFileDO::getMasterId, masterId)
+                .orderByAsc(DccControlledFileDO::getId).last("FOR UPDATE"));
     }
 
     default DccControlledFileDO selectLatestApprovedByMasterId(Long masterId) {

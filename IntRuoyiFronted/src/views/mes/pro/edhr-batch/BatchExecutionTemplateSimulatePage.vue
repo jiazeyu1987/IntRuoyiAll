@@ -1,4 +1,5 @@
 <template>
+  <template v-if="testModeEnabled">
   <ContentWrap>
     <div v-loading="loading" class="edhr-batch-template-simulate">
       <el-alert v-if="loadError" :title="loadError" type="error" :closable="false" show-icon />
@@ -48,9 +49,12 @@
       </section>
     </div>
   </ContentWrap>
+  </template>
 </template>
 
 <script setup lang="ts">
+import { useTestMode } from '@/store/modules/testMode'
+
 import {
   type BatchRecordReportCellRuleVO,
   BatchRecordReportApi,
@@ -75,6 +79,8 @@ import type { TemplateEditableCellContext } from '@/views/mes/pro/batchrecord-sh
 import EdhrExecutionReadonlyForm from '@/views/mes/pro/edhr/components/EdhrExecutionReadonlyForm.vue'
 import EdhrExecutionTemplateEditableForm from '@/views/mes/pro/edhr/components/EdhrExecutionTemplateEditableForm.vue'
 import { parsePositiveRouteQueryId, sameRouteQueryId } from '@/utils/routeQueryId'
+
+const testModeEnabled = useTestMode()
 
 defineOptions({ name: 'MesProEdhrBatchExecutionTemplateSimulate' })
 

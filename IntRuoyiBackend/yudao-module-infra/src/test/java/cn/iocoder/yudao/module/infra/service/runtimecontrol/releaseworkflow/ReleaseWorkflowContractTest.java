@@ -23,14 +23,14 @@ class ReleaseWorkflowContractTest {
         Method createIdentity = contractClass.getMethod("createIdentity", Instant.class, String.class,
                 String.class, String.class);
 
-        Object identity = createIdentity.invoke(null, Instant.parse("2026-09-11T01:02:03Z"), "abcd1234",
+        Object identity = createIdentity.invoke(null, Instant.parse("2026-10-20T17:53:10Z"), "abcd1234",
                 "test-app-release", "2026-09-11");
 
         assertEquals("app-release", invokeAccessor(identity, "publishScope"));
         assertEquals("test-app-release", invokeAccessor(identity, "presetId"));
         assertEquals("2026-09-11", invokeAccessor(identity, "presetVersion"));
         assertTrue(((String) invokeAccessor(identity, "workflowId")).startsWith("rw-"));
-        assertTrue(((String) invokeAccessor(identity, "releaseTag")).startsWith("release-20260911-010203-"));
+        assertEquals("2026-10-21-01-53-10", invokeAccessor(identity, "releaseTag"));
         assertEquals("manifest.json", contractClass.getField("MANIFEST_FILE_NAME").get(null));
     }
 

@@ -1,0 +1,27 @@
+{
+  "status": "passed",
+  "assets": [
+    {
+      "path": "docs/product/dcc-final-requirements.html",
+      "previousSha256": "39e6acc4ac8796d1ddd66a409e3f7dd0e4b4d83ea71c7813612fe8fc6194f3a8",
+      "sha256": "416d95b5b28b0e5dc6044dd71b4266688a2f939d0bc1500fc337204f41a82f87"
+    },
+    {
+      "path": "docs/dcc-parallel-delivery/shared-contract.md",
+      "previousSha256": "2a088442e37de048eabeee5d252e6c6e33a79bdaccf0951730c5302ec19669e2",
+      "sha256": "cbec478d7c4febc7b1d8f410bc2297e5b47f7e55f6c94702c8ce0173bf03bad3"
+    },
+    {
+      "path": "docs/dcc-parallel-delivery/implementation-contract.md",
+      "previousSha256": null,
+      "sha256": "017fc7b35eb2a60f627a6afb81e7dca9f17e174b9076b1df4c26875930c19a1b"
+    },
+    {
+      "path": "docs/dcc-parallel-delivery/ownership.md",
+      "previousSha256": "583dd414c5d8f96d65d934d5fe723170c6e57429773bc155eb0f59b85974ec02",
+      "sha256": "f2e236cf10bb3234ad282bb0beb2e13d21eb50333033d3ed1eb448401b635d87"
+    }
+  ],
+  "htmlIdCount": 40,
+  "localAnchorCount": 45
+}

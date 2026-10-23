@@ -1,0 +1,53 @@
+{
+  "status": "G34_MAIN_FLOW_SCOPE_ISOLATION_SOFTWARE_PASS_NOT_REAL_UI_ACCEPTANCE",
+  "tests": 68,
+  "classes": 3,
+  "MavenExitCode": 0,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0,
+  "effectiveRed": {
+    "tests": 3,
+    "failures": 3,
+    "errors": 0,
+    "log": {
+      "path": "doc/tasks/20261002-dcc-detail-integration/g34-matrix-isolation-red.log",
+      "bytes": 67938,
+      "sha256": "a323616339191c0427ae97666ecd4e1680a01bcb836ad809d6c06aff77b95a26"
+    }
+  },
+  "currentFinalLog": {
+    "path": "doc/tasks/20261002-dcc-detail-integration/g34-final-regression.log",
+    "bytes": 66773,
+    "sha256": "0b1572c228d2fb0462271fffa28bf67833381c0d0ba66c0b37cdc0c950cc8525"
+  },
+  "previous65And68GreenLogs": {
+    "g34-matrix-isolation-green.log": {
+      "path": "doc/tasks/20261002-dcc-detail-integration/g34-matrix-isolation-green.log",
+      "bytes": 65525,
+      "sha256": "0e20e1e066b31ad8925ece726965fd0fab2544456cf17dab3f6807d7e9a0a390"
+    },
+    "g34-matrix-isolation-green-r2.log": {
+      "path": "doc/tasks/20261002-dcc-detail-integration/g34-matrix-isolation-green-r2.log",
+      "bytes": 65525,
+      "sha256": "edadc854eeec3522942805f77af258d39fc3774181ed120337931bf8fecf3078"
+    }
+  },
+  "earlierSamePathFailuresOverwritten": true,
+  "lostEarlierRawEvidence": [
+    "firstcompile getTenantId missing onBaseDO",
+    "65 categoryfixture tenant0 vs requiredcontext1"
+  ],
+  "theseLostRawFailuresNotBusinessRED": true,
+  "deliveryFingerprintSha256": "06cb3caa852542337fa132b308be410d64994d4c1eaf173184163616be67b98e",
+  "onlySameLegacyWritersShareCategoryLock": true,
+  "otherTypedWriterSharedLockClaimed": false,
+  "noNewMigration": true,
+  "ControllerVOUnchanged": true,
+  "formalTypedResolverUnchanged": true,
+  "actualDBWrites": false,
+  "runtimeE2E": false,
+  "servicesStarted": false,
+  "jarPackageRun": false,
+  "gitMutation": false
+}

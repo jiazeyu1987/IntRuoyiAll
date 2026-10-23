@@ -1,0 +1,8 @@
+{
+  "status": "SOURCE24_COMMITTED_BEFORE_REAL_E2E_SAME_SOURCE_VERIFIED",
+  "commit": "c9ca1bf4bb89610a02bf476cfc263e924b22e566",
+  "sourceTestFiles": 24,
+  "normalizedCommittedSourceMatchesTestedWorktree": true,
+  "initialPushAlreadyComplete": true,
+  "newPushAfterRealVerification": "PENDING"
+}

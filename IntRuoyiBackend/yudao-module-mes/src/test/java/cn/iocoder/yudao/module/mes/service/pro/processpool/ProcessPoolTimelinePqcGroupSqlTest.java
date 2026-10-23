@@ -26,6 +26,133 @@ public class ProcessPoolTimelinePqcGroupSqlTest {
     private static final Path XML = Path.of("src/main/resources/mapper/pro/processpool/MesProProcessPoolTimelineReadMapper.xml");
 
     @Test
+    void productionPageKeepsFilteringBeforePaginationAndTenantIsolation() throws Exception {
+        try (Connection db = database()) {
+            productionPageSchema(db);
+            for (long id : List.of(101L, 102L, 103L, 104L, 105L, 106L)) {
+                event(db, id == 106L ? 2 : 1, id, null);
+            }
+            try (var st = db.createStatement()) {
+                st.executeUpdate("UPDATE mes_pro_process_pool_event SET event_type='PRODUCTION_SUBMIT',process_id=10,report_management_status='UNALLOCATED',report_output_quantity=10,server_submit_time='2026-10-02 10:00:00'");
+                st.executeUpdate("UPDATE mes_pro_process_pool_event SET process_id=20 WHERE id=105");
+                st.executeUpdate("UPDATE mes_pro_process_pool_event SET report_management_status='RELEASED' WHERE id=104");
+                st.executeUpdate("INSERT INTO mes_pro_process_pool_review_copy(id,tenant_id,event_id,review_status) VALUES(301,1,102,'APPROVED'),(302,2,102,'REJECTED')");
+                st.executeUpdate("INSERT INTO mes_pro_process_pool_review_copy_field(tenant_id,review_copy_id) VALUES(1,301),(1,301),(2,302)");
+                st.executeUpdate("INSERT INTO mes_pro_process_pool_event_revision(id,tenant_id,event_id,revision_status) VALUES(401,1,102,'EFFECTIVE'),(402,2,102,'EFFECTIVE')");
+            }
+            review(db, 1, 203, 103, "REJECTED");
+            var params = productionRequest(null);
+            var req = (ProcessPoolTimelinePageReqVO) params.get("reqVO");
+            req.setProcessIds(Set.of(10L)); req.setRequirePositiveOutputQuantity(true);
+            req.setAllocationView("WORKBENCH"); req.setPageSize(1);
+            assertEquals(2, productionCount(db, params));
+            assertEquals(List.of("102:2:原始记录已修改 1 次"), productionPageRows(db, params));
+            req.setPageNo(2);
+            assertEquals(List.of("101:0:原始记录暂无修改"), productionPageRows(db, params));
+            req.setPageNo(3);
+            assertEquals(List.of(), productionPageRows(db, params));
+            req.setAllocationView("HISTORY"); req.setPageNo(1); req.setPageSize(20);
+            assertEquals(4, productionCount(db, params));
+            assertEquals(List.of("104:0:原始记录暂无修改", "103:0:原始记录暂无修改",
+                    "102:2:原始记录已修改 1 次", "101:0:原始记录暂无修改"), productionPageRows(db, params));
+            req.setSubmissionReviewStatus("REJECTED");
+            assertEquals(1, productionCount(db, params));
+            assertEquals(List.of("103:0:原始记录暂无修改"), productionPageRows(db, params));
+        }
+    }
+
+    private static List<String> productionPageRows(Connection db, Map<String, Object> params) throws Exception {
+        BoundSql sql = configuration().getMappedStatement(NAMESPACE + ".selectTimelinePage").getBoundSql(params);
+        // Exercise the same tenant SQL rewriting used by the application, including the CTE.
+        try (var st = db.prepareStatement(tenantSql(sql))) {
+            bind(st, sql, params);
+            var result = new ArrayList<String>();
+            try (var rows = st.executeQuery()) {
+                while (rows.next()) result.add(rows.getLong("id") + ":"
+                        + (rows.getString("auditCopySummary").contains("字段 2 个") ? 2 : 0)
+                        + ":" + rows.getString("modificationHistorySummary"));
+            }
+            return result;
+        }
+    }
+
+    private static long productionCount(Connection db, Map<String, Object> params) throws Exception {
+        var sql = configuration().getMappedStatement(NAMESPACE + ".selectTimelineCount").getBoundSql(params);
+        try (var st = db.prepareStatement(tenantSql(sql))) {
+            bind(st, sql, params);
+            try (var rows = st.executeQuery()) {
+                rows.next();
+                return rows.getLong(1);
+            }
+        }
+    }
+
+    @Test
+    void scopedAllocationTotalsStillIncludeOtherReportsForSameOrderProcess() throws Exception {
+        try (Connection db = database()) {
+            productionPageSchema(db);
+            try (var st = db.createStatement()) {
+                st.execute("CREATE TABLE mes_pro_process_pool_report_allocation(id BIGINT,tenant_id BIGINT,event_id BIGINT,active_order_id BIGINT,work_order_id BIGINT,route_process_id BIGINT,process_id BIGINT,allocated_quantity DECIMAL,lifecycle_status VARCHAR(40),deleted INT DEFAULT 0)");
+                st.execute("CREATE TABLE mes_pro_process_pool_active_order_process_snapshot(tenant_id BIGINT,active_order_id BIGINT,route_process_id BIGINT,process_id BIGINT,planned_quantity_snapshot DECIMAL,deleted INT DEFAULT 0)");
+                st.executeUpdate("INSERT INTO mes_pro_process_pool_report_allocation(id,tenant_id,event_id,active_order_id,work_order_id,route_process_id,process_id,allocated_quantity,lifecycle_status) VALUES(1,1,101,10,20,30,40,60,'CURRENT'),(2,1,102,10,20,30,40,50,'CURRENT'),(3,1,103,10,20,31,40,900,'CURRENT'),(4,1,104,10,20,30,40,900,'SUPERSEDED'),(5,2,101,10,20,30,40,900,'CURRENT')");
+                st.executeUpdate("INSERT INTO mes_pro_process_pool_active_order_process_snapshot(tenant_id,active_order_id,route_process_id,process_id,planned_quantity_snapshot) VALUES(1,10,30,40,100)");
+                st.executeUpdate("INSERT INTO mes_pro_process_pool_active_order_release_application(tenant_id,active_order_id,release_transaction_id) VALUES(1,10,50)");
+                st.executeUpdate("INSERT INTO mes_pro_edhr_release_transaction(id,tenant_id,release_status) VALUES(50,1,'RELEASED')");
+            }
+            var params = Map.<String, Object>of("eventIds", List.of(101L));
+            var sql = configuration().getMappedStatement(NAMESPACE + ".selectReportAllocationsByEventIds").getBoundSql(params);
+            try (var st = db.prepareStatement(tenantSql(sql))) {
+                bind(st, sql, params);
+                try (var rows = st.executeQuery()) {
+                    org.junit.jupiter.api.Assertions.assertTrue(rows.next());
+                    assertEquals(1, rows.getLong("allocationId"));
+                    assertEquals(0, new java.math.BigDecimal("10").compareTo(rows.getBigDecimal("overageQuantity")));
+                    org.junit.jupiter.api.Assertions.assertTrue(rows.getBoolean("needsAdjustment"));
+                    org.junit.jupiter.api.Assertions.assertTrue(rows.getBoolean("released"));
+                    org.junit.jupiter.api.Assertions.assertFalse(rows.next());
+                }
+            }
+        }
+    }
+
+    private static String tenantSql(BoundSql sql) {
+        return new com.baomidou.mybatisplus.extension.plugins.inner.TenantLineInnerInterceptor(
+                new com.baomidou.mybatisplus.extension.plugins.handler.TenantLineHandler() {
+                    public net.sf.jsqlparser.expression.Expression getTenantId() {
+                        return new net.sf.jsqlparser.expression.LongValue(1);
+                    }
+                }).parserSingle(sql.getSql(), null);
+    }
+
+    private static void productionPageSchema(Connection db) throws Exception {
+        try (var st = db.createStatement()) {
+            for (String column : List.of("server_submit_time TIMESTAMP", "process_id BIGINT", "device_id BIGINT",
+                    "template_type VARCHAR(40)", "pool_id BIGINT", "device_account_id BIGINT", "workstation_id BIGINT",
+                    "route_id BIGINT", "qa_process_id BIGINT", "pqc_task_id BIGINT", "feedback_source_type VARCHAR(40)",
+                    "feedback_source_id BIGINT", "recordbook_source_id BIGINT", "report_output_quantity DECIMAL",
+                    "report_allocated_quantity DECIMAL", "report_unallocated_quantity DECIMAL", "report_release_status VARCHAR(40)")) {
+                st.execute("ALTER TABLE mes_pro_process_pool_event ADD " + column);
+            }
+            for (String column : List.of("code VARCHAR(40)", "name VARCHAR(40)", "product_id BIGINT", "batch_code VARCHAR(40)")) {
+                st.execute("ALTER TABLE mes_pro_work_order ADD " + column);
+            }
+            for (String table : List.of("mes_md_item", "mes_pro_process", "mes_md_workstation")) {
+                st.execute("CREATE TABLE " + table + "(id BIGINT,tenant_id BIGINT,deleted INT DEFAULT 0,code VARCHAR(40),name VARCHAR(40))");
+            }
+            st.execute("CREATE TABLE system_users(id BIGINT,tenant_id BIGINT,deleted INT DEFAULT 0,nickname VARCHAR(40),username VARCHAR(40))");
+            st.execute("CREATE TABLE mes_pro_process_pool_team_employee_profile(id BIGINT,tenant_id BIGINT,deleted INT DEFAULT 0,display_name VARCHAR(40),employee_name VARCHAR(40))");
+            st.execute("CREATE TABLE mes_pqc_inspection_task(id BIGINT,tenant_id BIGINT,deleted INT DEFAULT 0,active_order_id BIGINT,inspection_type VARCHAR(40),business_date DATE,shift_code VARCHAR(40),round_no INT)");
+            st.execute("CREATE TABLE mes_qa_inspection_regulation_process(id BIGINT,tenant_id BIGINT,deleted INT DEFAULT 0,process_code VARCHAR(40),process_name VARCHAR(40))");
+            st.execute("CREATE TABLE mes_pro_process_pool_pqc_record(event_id BIGINT,tenant_id BIGINT,deleted INT DEFAULT 0,inspection_result VARCHAR(40),process_inspection_aggregation_status VARCHAR(40),process_inspection_review_id BIGINT,process_inspection_aggregated_at TIMESTAMP)");
+            st.execute("CREATE TABLE mes_pro_edhr_batch_execution(id BIGINT,tenant_id BIGINT,deleted INT DEFAULT 0,work_order_id BIGINT,route_id BIGINT,batch_code VARCHAR(40),status INT,attempt_no INT)");
+            st.execute("CREATE TABLE mes_pro_process_pool_active_order_release_application(tenant_id BIGINT,active_order_id BIGINT,deleted INT DEFAULT 0,release_transaction_id BIGINT)");
+            st.execute("CREATE TABLE mes_pro_edhr_release_transaction(id BIGINT,tenant_id BIGINT,deleted INT DEFAULT 0,release_status VARCHAR(40))");
+            st.execute("CREATE TABLE mes_pro_process_pool_review_copy(id BIGINT,tenant_id BIGINT,event_id BIGINT,deleted INT DEFAULT 0,review_status VARCHAR(40))");
+            st.execute("CREATE TABLE mes_pro_process_pool_review_copy_field(tenant_id BIGINT,review_copy_id BIGINT,deleted INT DEFAULT 0)");
+        }
+    }
+
+    @Test
     void frozenReviewEventScopeFiltersRealCountAndPageAndEmptyScopeReturnsNothing() throws Exception {
         try (Connection db = database()) {
             event(db, 1, 101, "a"); event(db, 1, 102, "a");
@@ -199,14 +326,18 @@ public class ProcessPoolTimelinePqcGroupSqlTest {
     @Test
     void originalProductionActorSignedCorrectionReopensOnlyItsExactRejectedRound() throws Exception {
         try (Connection db = database()) {
+            productionPageSchema(db);
             productionCorrection(db);
             assertProductionStatus(db, "PENDING");
+            assertEquals(List.of("101:0:原始记录已修改 1 次"),
+                    productionPageRows(db, productionRequest("PENDING")));
             assertEquals(List.of("101:PENDING"), rows(db, productionRequest("PENDING")));
             assertEquals(List.of(), rows(db, productionRequest("REJECTED")));
             try (var statement = db.createStatement()) {
                 statement.executeUpdate("INSERT INTO mes_pro_process_pool_submission_review(id,tenant_id,event_id,leader_user_id,leader_type,review_status,reviewed_at) VALUES (202,1,101,9,'PRODUCTION','REJECTED','2026-10-02 14:00:00')");
             }
             assertProductionStatus(db, "REJECTED");
+            assertEquals(List.of(), productionPageRows(db, productionRequest("PENDING")));
             assertEquals(List.of(), rows(db, productionRequest("PENDING")));
             try (var statement = db.createStatement()) {
                 statement.executeUpdate("UPDATE mes_pro_process_pool_submission_review SET review_status='APPROVED' WHERE id=202");

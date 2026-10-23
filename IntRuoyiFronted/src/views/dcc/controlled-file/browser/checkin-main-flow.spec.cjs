@@ -25,10 +25,12 @@ async function submit({ sourceFile, drawingPdf, remark = '原备注' }) {
     checkinTarget: { value: { id: 900, remark: '原备注' } },
     checkinUpload: { value: sourceFile },
     checkinDrawingPdfUpload: { value: drawingPdf },
-    checkinForm: { changeDescription: '修正主流程文档', remark },
+    checkinForm: { versionChangeType: 'MINOR', changeDescription: '修正主流程文档', remark },
     checkinSubmitting: { value: false },
     checkinUploadLoading: { value: false },
     checkinDrawingPdfLoading: { value: false },
+    checkinCleanupLoading: { value: false },
+    checkinSourceState: { value: sourceFile?.uploadTicket ? 'ready' : 'idle' },
     checkoutLoadingId: { value: undefined },
     checkinUploadSessionId: { value: 'checkin-session' },
     checkinDialogVisible: { value: true },
@@ -64,7 +66,7 @@ test('图纸和配套PDF以同一会话提交', async () => {
   assert.deepEqual(result.requests, [{
     id: 900,
     payload: {
-      uploadTicket: 'SOURCE-TICKET', drawingPdfUploadTicket: 'PDF-TICKET',
+      versionChangeType: 'MINOR', uploadTicket: 'SOURCE-TICKET', drawingPdfUploadTicket: 'PDF-TICKET',
       sessionId: 'checkin-session', changeDescription: '修正主流程文档', remark: '原备注'
     }
   }])
@@ -108,6 +110,8 @@ test('旧图纸PDF上传的迟到结果不得清除新源件的PDF', async () =>
     checkinUpload: { value: { uploadTicket: 'OLD-SOURCE', fileName: 'old.dwg' } },
     checkinUploadSessionId: { value: 'session' },
     checkinDrawingPdfLoading: { value: false },
+    checkinCleanupLoading: { value: false },
+    checkinSourceState: { value: 'ready' },
     checkinDrawingPdfUpload: { value: undefined },
     checkinDrawingPdfFileList: { value: [] },
     checkinDrawingPdfRequestSequence: 0,

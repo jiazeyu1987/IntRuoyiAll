@@ -1,0 +1,45 @@
+{
+  "status": "ROOT_ACTUAL_READONLY_COLLECTION_STOPPED_AT_BACKUP_VALIDATION",
+  "sourceDatabase": "dcc_intqms_g18_rehearsal",
+  "databaseWrites": false,
+  "objectWrites": false,
+  "g28ExecutionRequestExists": false,
+  "failureCause": "mysqldump generated-column tables have explicit INSERT column lists; old parser did not count them",
+  "actualBackupCommandExits": [
+    0,
+    0
+  ],
+  "review": "g29-first-readonly-collection-review.md",
+  "proofs": [
+    {
+      "path": "C:\\IntRuoyiBackups\\20261003-dcc-integration\\g29-clone-fresh-inputs\\g29-collection-failure.json",
+      "sha256": "ace8cae857f245d93ef16f29cdedb4d23576c79e92a23ead573a9ac8bcdb39b1",
+      "bytes": 254
+    },
+    {
+      "path": "C:\\IntRuoyiBackups\\20261003-dcc-integration\\g29-clone-fresh-inputs\\fresh-original-baseline.json",
+      "sha256": "dd002045da7199860f03af8ba9f43c981439fd87e7ac20ef8e3007d71824a96b",
+      "bytes": 9409421
+    },
+    {
+      "path": "C:\\IntRuoyiBackups\\20261003-dcc-integration\\g29-clone-fresh-inputs\\post19-validation.json",
+      "sha256": "09f7cff64092a94cfb42fa9f9d60f29e4cc156b2e1ae042525781843d5a791f7",
+      "bytes": 693
+    },
+    {
+      "path": "C:\\IntRuoyiBackups\\20261003-dcc-integration\\g29-clone-fresh-inputs\\fresh-backup.json",
+      "sha256": "36c87be95f02c2e6ba35f29c9b0a589ada737de73340db14068cb21bbcb4e7e7",
+      "bytes": 1776
+    },
+    {
+      "path": "C:\\IntRuoyiBackups\\20261003-dcc-integration\\g29-clone-fresh-inputs\\schema-dump-command-receipt.json",
+      "sha256": "2711ac00db1ad9c07ade1e8f40f9e8462cc53155beca073b03b62311fc7b1be2",
+      "bytes": 1397
+    },
+    {
+      "path": "C:\\IntRuoyiBackups\\20261003-dcc-integration\\g29-clone-fresh-inputs\\protected-original-rows-dump-command-receipt.json",
+      "sha256": "ab0da3eda7fe84d96be1296ebd680dc8f78cfdb39e443ce660ed7694065efc5e",
+      "bytes": 1447
+    }
+  ]
+}

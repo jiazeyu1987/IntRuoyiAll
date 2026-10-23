@@ -1,4 +1,5 @@
 <template>
+  <template v-if="testModeEnabled">
   <el-tabs v-model="activeTab" class="codex-test-tabs" @tab-change="handleTabChange">
     <el-tab-pane label="测试项" name="cases">
       <ContentWrap>
@@ -73,7 +74,7 @@
               <Icon class="mr-5px" icon="ep:plus" />
               新增测试项
             </el-button>
-            <el-button
+            <el-button class="app-test-button"
               v-hasPermi="['system:codex-test:execute']"
               :disabled="selectedCaseIds.length === 0 || !selectedTenantId"
               :loading="executeLoading"
@@ -83,7 +84,7 @@
             >
               顺序执行
             </el-button>
-            <el-button
+            <el-button class="app-test-button"
               v-hasPermi="['system:codex-test:execute']"
               :disabled="
                 selectedCaseIds.length === 0 || !selectedTenantId || selectedCasesContainNodeChain
@@ -236,6 +237,7 @@
                 :loading="executeLoading"
                 link
                 type="success"
+                class="app-test-button"
                 @click="startSingleCaseExecution(row)"
               >
                 执行
@@ -515,9 +517,12 @@
     </el-descriptions>
   </el-dialog>
 
+  </template>
 </template>
 
 <script lang="ts" setup>
+import { useTestMode } from '@/store/modules/testMode'
+
 import type { FormInstance, FormRules } from 'element-plus'
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import {
@@ -531,6 +536,8 @@ import {
 } from '@/hooks/web/useTableQuickFilter'
 import * as CodexTestApi from '@/api/system/codexTestManagement'
 import * as TenantApi from '@/api/system/tenant'
+
+const testModeEnabled = useTestMode()
 
 defineOptions({ name: 'SystemCodexTestManagement' })
 

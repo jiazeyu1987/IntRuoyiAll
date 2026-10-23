@@ -34,4 +34,8 @@ public interface DccControlledFileMetadataChangeItemMapper
                 .orderByAsc(DccControlledFileMetadataChangeItemDO::getId));
     }
 
+    default List<DccControlledFileMetadataChangeItemDO> selectListByControlledFileId(Long controlledFileId) {
+        return selectList(DccControlledFileMetadataChangeItemDO::getControlledFileId, controlledFileId);
+    }
+
 }

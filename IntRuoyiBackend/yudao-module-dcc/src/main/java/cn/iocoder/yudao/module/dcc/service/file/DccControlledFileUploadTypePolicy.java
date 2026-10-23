@@ -12,11 +12,13 @@ public final class DccControlledFileUploadTypePolicy {
     public static final String PURPOSE_READ_ONLY_VIEW = "READ_ONLY_VIEW";
     public static final String PURPOSE_EDITABLE_SOURCE = "EDITABLE_SOURCE";
     public static final String PURPOSE_DRAWING_PDF = "DRAWING_PDF";
+    public static final String PURPOSE_APPROVAL_PDF = "APPROVAL_PDF";
     public static final String PURPOSE_TRAINING_RECORD = "TRAINING_RECORD";
     public static final String PURPOSE_EXTERNAL_REVIEW_OUTPUT = "EXTERNAL_REVIEW_OUTPUT";
+    public static final String PURPOSE_ATTACHMENT = "ATTACHMENT";
 
     private static final Set<String> EDITABLE_SOURCE_EXTENSIONS = Set.of(
-            "doc", "docx", "xls", "xlsx", "pdf", "dwg", "sldprt", "sldasm", "slddrw");
+            "doc", "docx", "xls", "xlsx", "pdf", "dwg", "sldprt", "sldasm", "slddrw", "png", "txt");
     private static final Set<String> DRAWING_SOURCE_EXTENSIONS = Set.of("dwg", "sldprt", "sldasm", "slddrw");
     private static final byte[] PDF_SIGNATURE = "%PDF-".getBytes(StandardCharsets.US_ASCII);
 
@@ -32,9 +34,11 @@ public final class DccControlledFileUploadTypePolicy {
         return PURPOSE_SOURCE.equals(normalized)
                 || PURPOSE_READ_ONLY_VIEW.equals(normalized)
                 || PURPOSE_EDITABLE_SOURCE.equals(normalized)
+                || PURPOSE_APPROVAL_PDF.equals(normalized)
                 || PURPOSE_DRAWING_PDF.equals(normalized)
                 || PURPOSE_TRAINING_RECORD.equals(normalized)
-                || PURPOSE_EXTERNAL_REVIEW_OUTPUT.equals(normalized);
+                || PURPOSE_EXTERNAL_REVIEW_OUTPUT.equals(normalized)
+                || PURPOSE_ATTACHMENT.equals(normalized);
     }
 
     public static boolean isSourcePurpose(String purpose) {
@@ -53,6 +57,10 @@ public final class DccControlledFileUploadTypePolicy {
         return PURPOSE_DRAWING_PDF.equals(normalizePurpose(purpose));
     }
 
+    public static boolean isAttachmentPurpose(String purpose) {
+        return PURPOSE_ATTACHMENT.equals(normalizePurpose(purpose));
+    }
+
     public static boolean isAllowedEditableSourceName(String fileName) {
         String extension = extensionOf(fileName);
         return StrUtil.isNotBlank(extension) && EDITABLE_SOURCE_EXTENSIONS.contains(extension);
@@ -66,6 +74,9 @@ public final class DccControlledFileUploadTypePolicy {
     public static boolean isPdfName(String fileName) {
         return "pdf".equals(extensionOf(fileName));
     }
+
+    public static boolean isPngName(String fileName) { return "png".equals(extensionOf(fileName)); }
+    public static boolean isTextName(String fileName) { return "txt".equals(extensionOf(fileName)); }
 
     public static boolean isRealPdfFile(String fileName, byte[] content) {
         return "pdf".equals(extensionOf(fileName)) && hasPdfSignature(content);
@@ -84,7 +95,7 @@ public final class DccControlledFileUploadTypePolicy {
     }
 
     public static String allowedEditableSourceExtensionsText() {
-        return "doc、docx、xls、xlsx、pdf、dwg、sldprt、sldasm、slddrw";
+        return "doc、docx、xls、xlsx、pdf、dwg、sldprt、sldasm、slddrw、png、txt";
     }
 
     private static String extensionOf(String fileName) {

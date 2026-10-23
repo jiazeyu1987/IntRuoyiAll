@@ -1,0 +1,2478 @@
+{
+  "expectedServerUuid": "92ca05d0-aec8-11f1-a944-02b4e226a5ef",
+  "serverIdentityReceiptSha256": "eaf6abec15c1b550e047899e4b993cd8ab0f2daf95b2147abc4b3fcede9ccd80",
+  "contractVersion": "g21-bpm-policy-v1",
+  "semantics": "satisfied_by_exact_existing_target_facts_not_migration_execution",
+  "database": "ruoyi-vue-pro",
+  "mysqlVersion": "8.0.40",
+  "tenants": [
+    "1",
+    "122"
+  ],
+  "migrationIds": [
+    "20260922_dcc_three_workflow_bpmn_seed",
+    "20260923_dcc_three_workflow_candidate_strategy_fix",
+    "20260926_dcc_three_workflow_matrix_multi_instance_fix",
+    "20260719_business_approval_policy",
+    "20260719_dcc_upload_form_policy_seed",
+    "20260720_dcc_publish_form_policy_seed",
+    "20260906_dcc_new_file_lifecycle_p4",
+    "20260907_dcc_publication_notification"
+  ],
+  "migrationMustNotExecute": true,
+  "inventAppliedHistory": false,
+  "sourceHashes": {
+    "20260922_dcc_three_workflow_bpmn_seed": "cd8cb4b2cadcda67086750df13071d6e6649310283e9a55d650b4bd51d15c63d",
+    "20260923_dcc_three_workflow_candidate_strategy_fix": "7127acdd73c61b1389124d2cca65480d60e5ff6e8756e11a363890e089d9c307",
+    "20260926_dcc_three_workflow_matrix_multi_instance_fix": "e345c35ba89e8386aa3315257cef8bd4fce6fbfd0cc1b25e6c78a9cea9eea0e4",
+    "20260719_business_approval_policy": "3c51d352f2d0245efea952d2fc08a9d559aaf29cff119159ac257d93d65fe299",
+    "20260719_dcc_upload_form_policy_seed": "059042e6847aba56722c1176efcb3547cd59ee7e0e647a2de58287cce88fbbbd",
+    "20260720_dcc_publish_form_policy_seed": "ae7bcded6478a90044a7a8dbb3394e5bcbd1d020a79539bfcdcafedac629b6dc",
+    "20260906_dcc_new_file_lifecycle_p4": "8a4d7db74973febd329771ca89fcacd582c90f63df777b3490b3a457d0b3eec8",
+    "20260907_dcc_publication_notification": "7042398a7ec61810fa4dfa7f1bc182680f6e02f8b710f09a817ee999654b56c0"
+  },
+  "baselineEvidence": {
+    "g18BackupReceiptSha256": "a8cde19e891ca7a335b141d7dabf2b791996c110944d20d789948303ce603511",
+    "affectedDumpSha256": "04dec6bd67bcef3743bb4b259a27840a24d597f2837ecbafddca9c720e3b706c",
+    "schemaDumpSha256": "cf6a94375b95720637d7b75a471e508420ffa9cc6b399c4438851237d4fc66fa",
+    "g18ConfigLogSha256": "fc52fd543a5e1d7b26e16f43bd215b3f72e457f88c1d2cc4d593e1ef01545501"
+  },
+  "sections": {
+    "procdefs": [
+      {
+        "id": "0d825aad-5092-11f1-9f49-00155d09335a",
+        "key": "dcc-controlled-file-approval",
+        "name": "DCC Controlled File Approval",
+        "tenant": "1",
+        "version": 3,
+        "suspension": 1,
+        "deploymentId": "0d7cdc6b-5092-11f1-9f49-00155d09335a",
+        "resource": "dcc-controlled-file-approval.bpmn",
+        "category": "DCC",
+        "derivedFrom": null
+      },
+      {
+        "id": "5d30440c-4eb4-11f1-950d-00155db32d8f",
+        "key": "dcc-controlled-file-approval",
+        "name": "DCC Controlled File Approval",
+        "tenant": "1",
+        "version": 1,
+        "suspension": 2,
+        "deploymentId": "5d2dabfa-4eb4-11f1-950d-00155db32d8f",
+        "resource": "dcc-controlled-file-approval.bpmn",
+        "category": "DCC",
+        "derivedFrom": null
+      },
+      {
+        "id": "d3b301da-5091-11f1-9f49-00155d09335a",
+        "key": "dcc-controlled-file-approval",
+        "name": "DCC Controlled File Approval",
+        "tenant": "1",
+        "version": 2,
+        "suspension": 2,
+        "deploymentId": "d3b069c8-5091-11f1-9f49-00155d09335a",
+        "resource": "dcc-controlled-file-approval.bpmn",
+        "category": "DCC",
+        "derivedFrom": null
+      },
+      {
+        "id": "dcc-controlled-file-approval:1:codex122",
+        "key": "dcc-controlled-file-approval",
+        "name": "DCC Controlled File Approval",
+        "tenant": "122",
+        "version": 1,
+        "suspension": 1,
+        "deploymentId": "codex-dcc-deploy-122",
+        "resource": "dcc-controlled-file-approval.bpmn",
+        "category": "DCC",
+        "derivedFrom": null
+      },
+      {
+        "id": "dcc-controlled-file-obsolete:1:dcc-three-workflow-tenant-1",
+        "key": "dcc-controlled-file-obsolete",
+        "name": "DCC受控文件作废审批",
+        "tenant": "1",
+        "version": 1,
+        "suspension": 2,
+        "deploymentId": "dcc-controlled-file-obsolete-deploy-tenant-1",
+        "resource": "dcc-controlled-file-obsolete.bpmn",
+        "category": "DCC",
+        "derivedFrom": null
+      },
+      {
+        "id": "dcc-controlled-file-obsolete:1:dcc-three-workflow-tenant-122",
+        "key": "dcc-controlled-file-obsolete",
+        "name": "DCC受控文件作废审批",
+        "tenant": "122",
+        "version": 1,
+        "suspension": 2,
+        "deploymentId": "dcc-controlled-file-obsolete-deploy-tenant-122",
+        "resource": "dcc-controlled-file-obsolete.bpmn",
+        "category": "DCC",
+        "derivedFrom": null
+      },
+      {
+        "id": "dcc-controlled-file-obsolete:2:dcc-three-workflow-tenant-1",
+        "key": "dcc-controlled-file-obsolete",
+        "name": "DCC受控文件作废审批",
+        "tenant": "1",
+        "version": 2,
+        "suspension": 2,
+        "deploymentId": "dcc-controlled-file-obsolete-deploy-v2-tenant-1",
+        "resource": "dcc-controlled-file-obsolete.bpmn",
+        "category": "DCC",
+        "derivedFrom": "dcc-controlled-file-obsolete:1:dcc-three-workflow-tenant-1"
+      },
+      {
+        "id": "dcc-controlled-file-obsolete:2:dcc-three-workflow-tenant-122",
+        "key": "dcc-controlled-file-obsolete",
+        "name": "DCC受控文件作废审批",
+        "tenant": "122",
+        "version": 2,
+        "suspension": 2,
+        "deploymentId": "dcc-controlled-file-obsolete-deploy-v2-tenant-122",
+        "resource": "dcc-controlled-file-obsolete.bpmn",
+        "category": "DCC",
+        "derivedFrom": "dcc-controlled-file-obsolete:1:dcc-three-workflow-tenant-122"
+      },
+      {
+        "id": "dcc-controlled-file-obsolete:3:dcc-three-workflow-tenant-1",
+        "key": "dcc-controlled-file-obsolete",
+        "name": "DCC受控文件作废审批",
+        "tenant": "1",
+        "version": 3,
+        "suspension": 1,
+        "deploymentId": "dcc-controlled-file-obsolete-deploy-v3-tenant-1",
+        "resource": "dcc-controlled-file-obsolete.bpmn",
+        "category": "DCC",
+        "derivedFrom": "dcc-controlled-file-obsolete:2:dcc-three-workflow-tenant-1"
+      },
+      {
+        "id": "dcc-controlled-file-obsolete:3:dcc-three-workflow-tenant-122",
+        "key": "dcc-controlled-file-obsolete",
+        "name": "DCC受控文件作废审批",
+        "tenant": "122",
+        "version": 3,
+        "suspension": 1,
+        "deploymentId": "dcc-controlled-file-obsolete-deploy-v3-tenant-122",
+        "resource": "dcc-controlled-file-obsolete.bpmn",
+        "category": "DCC",
+        "derivedFrom": "dcc-controlled-file-obsolete:2:dcc-three-workflow-tenant-122"
+      },
+      {
+        "id": "dcc-controlled-file-revision:1:dcc-three-workflow-tenant-1",
+        "key": "dcc-controlled-file-revision",
+        "name": "DCC受控文件升版审批",
+        "tenant": "1",
+        "version": 1,
+        "suspension": 2,
+        "deploymentId": "dcc-controlled-file-revision-deploy-tenant-1",
+        "resource": "dcc-controlled-file-revision.bpmn",
+        "category": "DCC",
+        "derivedFrom": null
+      },
+      {
+        "id": "dcc-controlled-file-revision:1:dcc-three-workflow-tenant-122",
+        "key": "dcc-controlled-file-revision",
+        "name": "DCC受控文件升版审批",
+        "tenant": "122",
+        "version": 1,
+        "suspension": 2,
+        "deploymentId": "dcc-controlled-file-revision-deploy-tenant-122",
+        "resource": "dcc-controlled-file-revision.bpmn",
+        "category": "DCC",
+        "derivedFrom": null
+      },
+      {
+        "id": "dcc-controlled-file-revision:2:dcc-three-workflow-tenant-1",
+        "key": "dcc-controlled-file-revision",
+        "name": "DCC受控文件升版审批",
+        "tenant": "1",
+        "version": 2,
+        "suspension": 2,
+        "deploymentId": "dcc-controlled-file-revision-deploy-v2-tenant-1",
+        "resource": "dcc-controlled-file-revision.bpmn",
+        "category": "DCC",
+        "derivedFrom": "dcc-controlled-file-revision:1:dcc-three-workflow-tenant-1"
+      },
+      {
+        "id": "dcc-controlled-file-revision:2:dcc-three-workflow-tenant-122",
+        "key": "dcc-controlled-file-revision",
+        "name": "DCC受控文件升版审批",
+        "tenant": "122",
+        "version": 2,
+        "suspension": 2,
+        "deploymentId": "dcc-controlled-file-revision-deploy-v2-tenant-122",
+        "resource": "dcc-controlled-file-revision.bpmn",
+        "category": "DCC",
+        "derivedFrom": "dcc-controlled-file-revision:1:dcc-three-workflow-tenant-122"
+      },
+      {
+        "id": "dcc-controlled-file-revision:3:dcc-three-workflow-tenant-1",
+        "key": "dcc-controlled-file-revision",
+        "name": "DCC受控文件升版审批",
+        "tenant": "1",
+        "version": 3,
+        "suspension": 1,
+        "deploymentId": "dcc-controlled-file-revision-deploy-v3-tenant-1",
+        "resource": "dcc-controlled-file-revision.bpmn",
+        "category": "DCC",
+        "derivedFrom": "dcc-controlled-file-revision:2:dcc-three-workflow-tenant-1"
+      },
+      {
+        "id": "dcc-controlled-file-revision:3:dcc-three-workflow-tenant-122",
+        "key": "dcc-controlled-file-revision",
+        "name": "DCC受控文件升版审批",
+        "tenant": "122",
+        "version": 3,
+        "suspension": 1,
+        "deploymentId": "dcc-controlled-file-revision-deploy-v3-tenant-122",
+        "resource": "dcc-controlled-file-revision.bpmn",
+        "category": "DCC",
+        "derivedFrom": "dcc-controlled-file-revision:2:dcc-three-workflow-tenant-122"
+      },
+      {
+        "id": "dcc-controlled-file-upload:1:dcc-three-workflow-tenant-1",
+        "key": "dcc-controlled-file-upload",
+        "name": "DCC受控文件上传审批",
+        "tenant": "1",
+        "version": 1,
+        "suspension": 2,
+        "deploymentId": "dcc-controlled-file-upload-deploy-tenant-1",
+        "resource": "dcc-controlled-file-upload.bpmn",
+        "category": "DCC",
+        "derivedFrom": null
+      },
+      {
+        "id": "dcc-controlled-file-upload:1:dcc-three-workflow-tenant-122",
+        "key": "dcc-controlled-file-upload",
+        "name": "DCC受控文件上传审批",
+        "tenant": "122",
+        "version": 1,
+        "suspension": 2,
+        "deploymentId": "dcc-controlled-file-upload-deploy-tenant-122",
+        "resource": "dcc-controlled-file-upload.bpmn",
+        "category": "DCC",
+        "derivedFrom": null
+      },
+      {
+        "id": "dcc-controlled-file-upload:2:dcc-three-workflow-tenant-1",
+        "key": "dcc-controlled-file-upload",
+        "name": "DCC受控文件上传审批",
+        "tenant": "1",
+        "version": 2,
+        "suspension": 2,
+        "deploymentId": "dcc-controlled-file-upload-deploy-v2-tenant-1",
+        "resource": "dcc-controlled-file-upload.bpmn",
+        "category": "DCC",
+        "derivedFrom": "dcc-controlled-file-upload:1:dcc-three-workflow-tenant-1"
+      },
+      {
+        "id": "dcc-controlled-file-upload:2:dcc-three-workflow-tenant-122",
+        "key": "dcc-controlled-file-upload",
+        "name": "DCC受控文件上传审批",
+        "tenant": "122",
+        "version": 2,
+        "suspension": 2,
+        "deploymentId": "dcc-controlled-file-upload-deploy-v2-tenant-122",
+        "resource": "dcc-controlled-file-upload.bpmn",
+        "category": "DCC",
+        "derivedFrom": "dcc-controlled-file-upload:1:dcc-three-workflow-tenant-122"
+      },
+      {
+        "id": "dcc-controlled-file-upload:3:dcc-three-workflow-tenant-1",
+        "key": "dcc-controlled-file-upload",
+        "name": "DCC受控文件上传审批",
+        "tenant": "1",
+        "version": 3,
+        "suspension": 1,
+        "deploymentId": "dcc-controlled-file-upload-deploy-v3-tenant-1",
+        "resource": "dcc-controlled-file-upload.bpmn",
+        "category": "DCC",
+        "derivedFrom": "dcc-controlled-file-upload:2:dcc-three-workflow-tenant-1"
+      },
+      {
+        "id": "dcc-controlled-file-upload:3:dcc-three-workflow-tenant-122",
+        "key": "dcc-controlled-file-upload",
+        "name": "DCC受控文件上传审批",
+        "tenant": "122",
+        "version": 3,
+        "suspension": 1,
+        "deploymentId": "dcc-controlled-file-upload-deploy-v3-tenant-122",
+        "resource": "dcc-controlled-file-upload.bpmn",
+        "category": "DCC",
+        "derivedFrom": "dcc-controlled-file-upload:2:dcc-three-workflow-tenant-122"
+      }
+    ],
+    "models": [
+      {
+        "id": "44a108c8-4eb4-11f1-950d-00155db32d8f",
+        "key": "dcc-controlled-file-approval",
+        "name": "DCC Controlled File Approval",
+        "tenant": "1",
+        "version": 1,
+        "deploymentId": "0d7cdc6b-5092-11f1-9f49-00155d09335a",
+        "editorSourceId": "44a28f69-4eb4-11f1-950d-00155db32d8f",
+        "editorExtraId": null,
+        "category": "DCC",
+        "metaHash": "460688a5c68d363c1022e8b2cb26250eff9de5c5bdaeea2513aa67a9e3737f75"
+      },
+      {
+        "id": "dcc-controlled-file-obsolete-model-tenant-1",
+        "key": "dcc-controlled-file-obsolete",
+        "name": "DCC受控文件作废审批",
+        "tenant": "1",
+        "version": 1,
+        "deploymentId": "dcc-controlled-file-obsolete-deploy-tenant-1",
+        "editorSourceId": "dcc-controlled-file-obsolete-bpmn-tenant-1",
+        "editorExtraId": null,
+        "category": "DCC",
+        "metaHash": "5b38eb58a035d44e224a44e15947e369cc995e1b7a34c66a42d534309d160a9c"
+      },
+      {
+        "id": "dcc-controlled-file-obsolete-model-tenant-122",
+        "key": "dcc-controlled-file-obsolete",
+        "name": "DCC受控文件作废审批",
+        "tenant": "122",
+        "version": 1,
+        "deploymentId": "dcc-controlled-file-obsolete-deploy-tenant-122",
+        "editorSourceId": "dcc-controlled-file-obsolete-bpmn-tenant-122",
+        "editorExtraId": null,
+        "category": "DCC",
+        "metaHash": "5b38eb58a035d44e224a44e15947e369cc995e1b7a34c66a42d534309d160a9c"
+      },
+      {
+        "id": "dcc-controlled-file-obsolete-model-v2-tenant-1",
+        "key": "dcc-controlled-file-obsolete",
+        "name": "DCC受控文件作废审批",
+        "tenant": "1",
+        "version": 2,
+        "deploymentId": "dcc-controlled-file-obsolete-deploy-v2-tenant-1",
+        "editorSourceId": "dcc-controlled-file-obsolete-bpmn-v2-tenant-1",
+        "editorExtraId": null,
+        "category": "DCC",
+        "metaHash": "5b38eb58a035d44e224a44e15947e369cc995e1b7a34c66a42d534309d160a9c"
+      },
+      {
+        "id": "dcc-controlled-file-obsolete-model-v2-tenant-122",
+        "key": "dcc-controlled-file-obsolete",
+        "name": "DCC受控文件作废审批",
+        "tenant": "122",
+        "version": 2,
+        "deploymentId": "dcc-controlled-file-obsolete-deploy-v2-tenant-122",
+        "editorSourceId": "dcc-controlled-file-obsolete-bpmn-v2-tenant-122",
+        "editorExtraId": null,
+        "category": "DCC",
+        "metaHash": "5b38eb58a035d44e224a44e15947e369cc995e1b7a34c66a42d534309d160a9c"
+      },
+      {
+        "id": "dcc-controlled-file-obsolete-model-v3-tenant-1",
+        "key": "dcc-controlled-file-obsolete",
+        "name": "DCC受控文件作废审批",
+        "tenant": "1",
+        "version": 3,
+        "deploymentId": "dcc-controlled-file-obsolete-deploy-v3-tenant-1",
+        "editorSourceId": "dcc-controlled-file-obsolete-bpmn-v3-tenant-1",
+        "editorExtraId": null,
+        "category": "DCC",
+        "metaHash": "5b38eb58a035d44e224a44e15947e369cc995e1b7a34c66a42d534309d160a9c"
+      },
+      {
+        "id": "dcc-controlled-file-obsolete-model-v3-tenant-122",
+        "key": "dcc-controlled-file-obsolete",
+        "name": "DCC受控文件作废审批",
+        "tenant": "122",
+        "version": 3,
+        "deploymentId": "dcc-controlled-file-obsolete-deploy-v3-tenant-122",
+        "editorSourceId": "dcc-controlled-file-obsolete-bpmn-v3-tenant-122",
+        "editorExtraId": null,
+        "category": "DCC",
+        "metaHash": "5b38eb58a035d44e224a44e15947e369cc995e1b7a34c66a42d534309d160a9c"
+      },
+      {
+        "id": "dcc-controlled-file-revision-model-tenant-1",
+        "key": "dcc-controlled-file-revision",
+        "name": "DCC受控文件升版审批",
+        "tenant": "1",
+        "version": 1,
+        "deploymentId": "dcc-controlled-file-revision-deploy-tenant-1",
+        "editorSourceId": "dcc-controlled-file-revision-bpmn-tenant-1",
+        "editorExtraId": null,
+        "category": "DCC",
+        "metaHash": "be9accfbf2be08724040ca361b93eab305a32edaf390b2c709c84e6aa5d4aa96"
+      },
+      {
+        "id": "dcc-controlled-file-revision-model-tenant-122",
+        "key": "dcc-controlled-file-revision",
+        "name": "DCC受控文件升版审批",
+        "tenant": "122",
+        "version": 1,
+        "deploymentId": "dcc-controlled-file-revision-deploy-tenant-122",
+        "editorSourceId": "dcc-controlled-file-revision-bpmn-tenant-122",
+        "editorExtraId": null,
+        "category": "DCC",
+        "metaHash": "be9accfbf2be08724040ca361b93eab305a32edaf390b2c709c84e6aa5d4aa96"
+      },
+      {
+        "id": "dcc-controlled-file-revision-model-v2-tenant-1",
+        "key": "dcc-controlled-file-revision",
+        "name": "DCC受控文件升版审批",
+        "tenant": "1",
+        "version": 2,
+        "deploymentId": "dcc-controlled-file-revision-deploy-v2-tenant-1",
+        "editorSourceId": "dcc-controlled-file-revision-bpmn-v2-tenant-1",
+        "editorExtraId": null,
+        "category": "DCC",
+        "metaHash": "be9accfbf2be08724040ca361b93eab305a32edaf390b2c709c84e6aa5d4aa96"
+      },
+      {
+        "id": "dcc-controlled-file-revision-model-v2-tenant-122",
+        "key": "dcc-controlled-file-revision",
+        "name": "DCC受控文件升版审批",
+        "tenant": "122",
+        "version": 2,
+        "deploymentId": "dcc-controlled-file-revision-deploy-v2-tenant-122",
+        "editorSourceId": "dcc-controlled-file-revision-bpmn-v2-tenant-122",
+        "editorExtraId": null,
+        "category": "DCC",
+        "metaHash": "be9accfbf2be08724040ca361b93eab305a32edaf390b2c709c84e6aa5d4aa96"
+      },
+      {
+        "id": "dcc-controlled-file-revision-model-v3-tenant-1",
+        "key": "dcc-controlled-file-revision",
+        "name": "DCC受控文件升版审批",
+        "tenant": "1",
+        "version": 3,
+        "deploymentId": "dcc-controlled-file-revision-deploy-v3-tenant-1",
+        "editorSourceId": "dcc-controlled-file-revision-bpmn-v3-tenant-1",
+        "editorExtraId": null,
+        "category": "DCC",
+        "metaHash": "be9accfbf2be08724040ca361b93eab305a32edaf390b2c709c84e6aa5d4aa96"
+      },
+      {
+        "id": "dcc-controlled-file-revision-model-v3-tenant-122",
+        "key": "dcc-controlled-file-revision",
+        "name": "DCC受控文件升版审批",
+        "tenant": "122",
+        "version": 3,
+        "deploymentId": "dcc-controlled-file-revision-deploy-v3-tenant-122",
+        "editorSourceId": "dcc-controlled-file-revision-bpmn-v3-tenant-122",
+        "editorExtraId": null,
+        "category": "DCC",
+        "metaHash": "be9accfbf2be08724040ca361b93eab305a32edaf390b2c709c84e6aa5d4aa96"
+      },
+      {
+        "id": "dcc-controlled-file-upload-model-tenant-1",
+        "key": "dcc-controlled-file-upload",
+        "name": "DCC受控文件上传审批",
+        "tenant": "1",
+        "version": 1,
+        "deploymentId": "dcc-controlled-file-upload-deploy-tenant-1",
+        "editorSourceId": "dcc-controlled-file-upload-bpmn-tenant-1",
+        "editorExtraId": null,
+        "category": "DCC",
+        "metaHash": "bb64637ba6b715de50538bf14c285b5526278497e8a3a9cd3c847004301d20f4"
+      },
+      {
+        "id": "dcc-controlled-file-upload-model-tenant-122",
+        "key": "dcc-controlled-file-upload",
+        "name": "DCC受控文件上传审批",
+        "tenant": "122",
+        "version": 1,
+        "deploymentId": "dcc-controlled-file-upload-deploy-tenant-122",
+        "editorSourceId": "dcc-controlled-file-upload-bpmn-tenant-122",
+        "editorExtraId": null,
+        "category": "DCC",
+        "metaHash": "bb64637ba6b715de50538bf14c285b5526278497e8a3a9cd3c847004301d20f4"
+      },
+      {
+        "id": "dcc-controlled-file-upload-model-v2-tenant-1",
+        "key": "dcc-controlled-file-upload",
+        "name": "DCC受控文件上传审批",
+        "tenant": "1",
+        "version": 2,
+        "deploymentId": "dcc-controlled-file-upload-deploy-v2-tenant-1",
+        "editorSourceId": "dcc-controlled-file-upload-bpmn-v2-tenant-1",
+        "editorExtraId": null,
+        "category": "DCC",
+        "metaHash": "bb64637ba6b715de50538bf14c285b5526278497e8a3a9cd3c847004301d20f4"
+      },
+      {
+        "id": "dcc-controlled-file-upload-model-v2-tenant-122",
+        "key": "dcc-controlled-file-upload",
+        "name": "DCC受控文件上传审批",
+        "tenant": "122",
+        "version": 2,
+        "deploymentId": "dcc-controlled-file-upload-deploy-v2-tenant-122",
+        "editorSourceId": "dcc-controlled-file-upload-bpmn-v2-tenant-122",
+        "editorExtraId": null,
+        "category": "DCC",
+        "metaHash": "bb64637ba6b715de50538bf14c285b5526278497e8a3a9cd3c847004301d20f4"
+      },
+      {
+        "id": "dcc-controlled-file-upload-model-v3-tenant-1",
+        "key": "dcc-controlled-file-upload",
+        "name": "DCC受控文件上传审批",
+        "tenant": "1",
+        "version": 3,
+        "deploymentId": "dcc-controlled-file-upload-deploy-v3-tenant-1",
+        "editorSourceId": "dcc-controlled-file-upload-bpmn-v3-tenant-1",
+        "editorExtraId": null,
+        "category": "DCC",
+        "metaHash": "bb64637ba6b715de50538bf14c285b5526278497e8a3a9cd3c847004301d20f4"
+      },
+      {
+        "id": "dcc-controlled-file-upload-model-v3-tenant-122",
+        "key": "dcc-controlled-file-upload",
+        "name": "DCC受控文件上传审批",
+        "tenant": "122",
+        "version": 3,
+        "deploymentId": "dcc-controlled-file-upload-deploy-v3-tenant-122",
+        "editorSourceId": "dcc-controlled-file-upload-bpmn-v3-tenant-122",
+        "editorExtraId": null,
+        "category": "DCC",
+        "metaHash": "bb64637ba6b715de50538bf14c285b5526278497e8a3a9cd3c847004301d20f4"
+      }
+    ],
+    "deployments": [
+      {
+        "id": "0d7cdc6b-5092-11f1-9f49-00155d09335a",
+        "key": "dcc-controlled-file-approval",
+        "name": "DCC Controlled File Approval",
+        "tenant": "1",
+        "category": "DCC",
+        "parentId": "0d7cdc6b-5092-11f1-9f49-00155d09335a"
+      },
+      {
+        "id": "5d2dabfa-4eb4-11f1-950d-00155db32d8f",
+        "key": "dcc-controlled-file-approval",
+        "name": "DCC Controlled File Approval",
+        "tenant": "1",
+        "category": "DCC",
+        "parentId": "5d2dabfa-4eb4-11f1-950d-00155db32d8f"
+      },
+      {
+        "id": "codex-dcc-deploy-122",
+        "key": "dcc-controlled-file-approval",
+        "name": "DCC Controlled File Approval",
+        "tenant": "122",
+        "category": "DCC",
+        "parentId": "codex-dcc-deploy-122"
+      },
+      {
+        "id": "d3b069c8-5091-11f1-9f49-00155d09335a",
+        "key": "dcc-controlled-file-approval",
+        "name": "DCC Controlled File Approval",
+        "tenant": "1",
+        "category": "DCC",
+        "parentId": "d3b069c8-5091-11f1-9f49-00155d09335a"
+      },
+      {
+        "id": "dcc-controlled-file-obsolete-deploy-tenant-1",
+        "key": "dcc-controlled-file-obsolete",
+        "name": "DCC受控文件作废审批",
+        "tenant": "1",
+        "category": "DCC",
+        "parentId": "dcc-controlled-file-obsolete-deploy-tenant-1"
+      },
+      {
+        "id": "dcc-controlled-file-obsolete-deploy-tenant-122",
+        "key": "dcc-controlled-file-obsolete",
+        "name": "DCC受控文件作废审批",
+        "tenant": "122",
+        "category": "DCC",
+        "parentId": "dcc-controlled-file-obsolete-deploy-tenant-122"
+      },
+      {
+        "id": "dcc-controlled-file-obsolete-deploy-v2-tenant-1",
+        "key": "dcc-controlled-file-obsolete",
+        "name": "DCC受控文件作废审批",
+        "tenant": "1",
+        "category": "DCC",
+        "parentId": "dcc-controlled-file-obsolete-deploy-v2-tenant-1"
+      },
+      {
+        "id": "dcc-controlled-file-obsolete-deploy-v2-tenant-122",
+        "key": "dcc-controlled-file-obsolete",
+        "name": "DCC受控文件作废审批",
+        "tenant": "122",
+        "category": "DCC",
+        "parentId": "dcc-controlled-file-obsolete-deploy-v2-tenant-122"
+      },
+      {
+        "id": "dcc-controlled-file-obsolete-deploy-v3-tenant-1",
+        "key": "dcc-controlled-file-obsolete",
+        "name": "DCC受控文件作废审批",
+        "tenant": "1",
+        "category": "DCC",
+        "parentId": "dcc-controlled-file-obsolete-deploy-v3-tenant-1"
+      },
+      {
+        "id": "dcc-controlled-file-obsolete-deploy-v3-tenant-122",
+        "key": "dcc-controlled-file-obsolete",
+        "name": "DCC受控文件作废审批",
+        "tenant": "122",
+        "category": "DCC",
+        "parentId": "dcc-controlled-file-obsolete-deploy-v3-tenant-122"
+      },
+      {
+        "id": "dcc-controlled-file-revision-deploy-tenant-1",
+        "key": "dcc-controlled-file-revision",
+        "name": "DCC受控文件升版审批",
+        "tenant": "1",
+        "category": "DCC",
+        "parentId": "dcc-controlled-file-revision-deploy-tenant-1"
+      },
+      {
+        "id": "dcc-controlled-file-revision-deploy-tenant-122",
+        "key": "dcc-controlled-file-revision",
+        "name": "DCC受控文件升版审批",
+        "tenant": "122",
+        "category": "DCC",
+        "parentId": "dcc-controlled-file-revision-deploy-tenant-122"
+      },
+      {
+        "id": "dcc-controlled-file-revision-deploy-v2-tenant-1",
+        "key": "dcc-controlled-file-revision",
+        "name": "DCC受控文件升版审批",
+        "tenant": "1",
+        "category": "DCC",
+        "parentId": "dcc-controlled-file-revision-deploy-v2-tenant-1"
+      },
+      {
+        "id": "dcc-controlled-file-revision-deploy-v2-tenant-122",
+        "key": "dcc-controlled-file-revision",
+        "name": "DCC受控文件升版审批",
+        "tenant": "122",
+        "category": "DCC",
+        "parentId": "dcc-controlled-file-revision-deploy-v2-tenant-122"
+      },
+      {
+        "id": "dcc-controlled-file-revision-deploy-v3-tenant-1",
+        "key": "dcc-controlled-file-revision",
+        "name": "DCC受控文件升版审批",
+        "tenant": "1",
+        "category": "DCC",
+        "parentId": "dcc-controlled-file-revision-deploy-v3-tenant-1"
+      },
+      {
+        "id": "dcc-controlled-file-revision-deploy-v3-tenant-122",
+        "key": "dcc-controlled-file-revision",
+        "name": "DCC受控文件升版审批",
+        "tenant": "122",
+        "category": "DCC",
+        "parentId": "dcc-controlled-file-revision-deploy-v3-tenant-122"
+      },
+      {
+        "id": "dcc-controlled-file-upload-deploy-tenant-1",
+        "key": "dcc-controlled-file-upload",
+        "name": "DCC受控文件上传审批",
+        "tenant": "1",
+        "category": "DCC",
+        "parentId": "dcc-controlled-file-upload-deploy-tenant-1"
+      },
+      {
+        "id": "dcc-controlled-file-upload-deploy-tenant-122",
+        "key": "dcc-controlled-file-upload",
+        "name": "DCC受控文件上传审批",
+        "tenant": "122",
+        "category": "DCC",
+        "parentId": "dcc-controlled-file-upload-deploy-tenant-122"
+      },
+      {
+        "id": "dcc-controlled-file-upload-deploy-v2-tenant-1",
+        "key": "dcc-controlled-file-upload",
+        "name": "DCC受控文件上传审批",
+        "tenant": "1",
+        "category": "DCC",
+        "parentId": "dcc-controlled-file-upload-deploy-v2-tenant-1"
+      },
+      {
+        "id": "dcc-controlled-file-upload-deploy-v2-tenant-122",
+        "key": "dcc-controlled-file-upload",
+        "name": "DCC受控文件上传审批",
+        "tenant": "122",
+        "category": "DCC",
+        "parentId": "dcc-controlled-file-upload-deploy-v2-tenant-122"
+      },
+      {
+        "id": "dcc-controlled-file-upload-deploy-v3-tenant-1",
+        "key": "dcc-controlled-file-upload",
+        "name": "DCC受控文件上传审批",
+        "tenant": "1",
+        "category": "DCC",
+        "parentId": "dcc-controlled-file-upload-deploy-v3-tenant-1"
+      },
+      {
+        "id": "dcc-controlled-file-upload-deploy-v3-tenant-122",
+        "key": "dcc-controlled-file-upload",
+        "name": "DCC受控文件上传审批",
+        "tenant": "122",
+        "category": "DCC",
+        "parentId": "dcc-controlled-file-upload-deploy-v3-tenant-122"
+      }
+    ],
+    "infos": [
+      {
+        "id": "1",
+        "procdefId": "5d30440c-4eb4-11f1-950d-00155db32d8f",
+        "modelId": "44a108c8-4eb4-11f1-950d-00155db32d8f",
+        "tenant": "1",
+        "deleted": 0,
+        "formType": 20,
+        "createPath": "/dcc/controlled-file/upload",
+        "viewPath": "/dcc/controlled-file/detail",
+        "modelType": 10,
+        "visible": 1,
+        "form_confHash": null,
+        "form_fieldsHash": null,
+        "start_user_idsHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "start_dept_idsHash": null,
+        "manager_user_idsHash": "6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b",
+        "title_settingHash": null,
+        "summary_settingHash": null,
+        "process_before_trigger_settingHash": null,
+        "process_after_trigger_settingHash": null,
+        "task_before_trigger_settingHash": null,
+        "task_after_trigger_settingHash": null
+      },
+      {
+        "id": "4",
+        "procdefId": "d3b301da-5091-11f1-9f49-00155d09335a",
+        "modelId": "44a108c8-4eb4-11f1-950d-00155db32d8f",
+        "tenant": "1",
+        "deleted": 0,
+        "formType": 20,
+        "createPath": "/dcc/controlled-file/upload",
+        "viewPath": "/dcc/controlled-file/detail",
+        "modelType": 10,
+        "visible": 1,
+        "form_confHash": null,
+        "form_fieldsHash": null,
+        "start_user_idsHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "start_dept_idsHash": null,
+        "manager_user_idsHash": "6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b",
+        "title_settingHash": null,
+        "summary_settingHash": null,
+        "process_before_trigger_settingHash": null,
+        "process_after_trigger_settingHash": null,
+        "task_before_trigger_settingHash": null,
+        "task_after_trigger_settingHash": null
+      },
+      {
+        "id": "5",
+        "procdefId": "0d825aad-5092-11f1-9f49-00155d09335a",
+        "modelId": "44a108c8-4eb4-11f1-950d-00155db32d8f",
+        "tenant": "1",
+        "deleted": 0,
+        "formType": 20,
+        "createPath": "/dcc/controlled-file/upload",
+        "viewPath": "/dcc/controlled-file/detail",
+        "modelType": 10,
+        "visible": 1,
+        "form_confHash": null,
+        "form_fieldsHash": null,
+        "start_user_idsHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "start_dept_idsHash": null,
+        "manager_user_idsHash": "6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b",
+        "title_settingHash": null,
+        "summary_settingHash": null,
+        "process_before_trigger_settingHash": null,
+        "process_after_trigger_settingHash": null,
+        "task_before_trigger_settingHash": null,
+        "task_after_trigger_settingHash": null
+      },
+      {
+        "id": "6",
+        "procdefId": "dcc-controlled-file-approval:1:codex122",
+        "modelId": "44a108c8-4eb4-11f1-950d-00155db32d8f",
+        "tenant": "122",
+        "deleted": 0,
+        "formType": 20,
+        "createPath": "/dcc/controlled-file/upload",
+        "viewPath": "/dcc/controlled-file/detail",
+        "modelType": 10,
+        "visible": 1,
+        "form_confHash": null,
+        "form_fieldsHash": null,
+        "start_user_idsHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "start_dept_idsHash": null,
+        "manager_user_idsHash": "6c658ee83fb7e812482494f3e416a876f63f418a0b8a1f5e76d47ee4177035cb",
+        "title_settingHash": null,
+        "summary_settingHash": null,
+        "process_before_trigger_settingHash": null,
+        "process_after_trigger_settingHash": null,
+        "task_before_trigger_settingHash": null,
+        "task_after_trigger_settingHash": null
+      },
+      {
+        "id": "56",
+        "procdefId": "dcc-controlled-file-obsolete:1:dcc-three-workflow-tenant-122",
+        "modelId": "dcc-controlled-file-obsolete-model-tenant-122",
+        "tenant": "122",
+        "deleted": 0,
+        "formType": 20,
+        "createPath": "/dcc/controlled-file/detail",
+        "viewPath": "/dcc/controlled-file/detail",
+        "modelType": 10,
+        "visible": 0,
+        "form_confHash": null,
+        "form_fieldsHash": null,
+        "start_user_idsHash": null,
+        "start_dept_idsHash": null,
+        "manager_user_idsHash": null,
+        "title_settingHash": "6b4ec07e0862900409103bff9dd6a1062679faedb9747a8bdf1c312b3e0b34a6",
+        "summary_settingHash": "903db5116c3c16a9557263f314b065f12c027310abefbeccceebca77b175d6b0",
+        "process_before_trigger_settingHash": null,
+        "process_after_trigger_settingHash": null,
+        "task_before_trigger_settingHash": null,
+        "task_after_trigger_settingHash": null
+      },
+      {
+        "id": "57",
+        "procdefId": "dcc-controlled-file-obsolete:1:dcc-three-workflow-tenant-1",
+        "modelId": "dcc-controlled-file-obsolete-model-tenant-1",
+        "tenant": "1",
+        "deleted": 0,
+        "formType": 20,
+        "createPath": "/dcc/controlled-file/detail",
+        "viewPath": "/dcc/controlled-file/detail",
+        "modelType": 10,
+        "visible": 0,
+        "form_confHash": null,
+        "form_fieldsHash": null,
+        "start_user_idsHash": null,
+        "start_dept_idsHash": null,
+        "manager_user_idsHash": null,
+        "title_settingHash": "6b4ec07e0862900409103bff9dd6a1062679faedb9747a8bdf1c312b3e0b34a6",
+        "summary_settingHash": "903db5116c3c16a9557263f314b065f12c027310abefbeccceebca77b175d6b0",
+        "process_before_trigger_settingHash": null,
+        "process_after_trigger_settingHash": null,
+        "task_before_trigger_settingHash": null,
+        "task_after_trigger_settingHash": null
+      },
+      {
+        "id": "58",
+        "procdefId": "dcc-controlled-file-revision:1:dcc-three-workflow-tenant-122",
+        "modelId": "dcc-controlled-file-revision-model-tenant-122",
+        "tenant": "122",
+        "deleted": 0,
+        "formType": 20,
+        "createPath": "/dcc/controlled-file/detail",
+        "viewPath": "/dcc/controlled-file/detail",
+        "modelType": 10,
+        "visible": 0,
+        "form_confHash": null,
+        "form_fieldsHash": null,
+        "start_user_idsHash": null,
+        "start_dept_idsHash": null,
+        "manager_user_idsHash": null,
+        "title_settingHash": "545ee931f8ffc2e5cf8422de83921132285de18b39db69bdda6fe9bf39db6935",
+        "summary_settingHash": "903db5116c3c16a9557263f314b065f12c027310abefbeccceebca77b175d6b0",
+        "process_before_trigger_settingHash": null,
+        "process_after_trigger_settingHash": null,
+        "task_before_trigger_settingHash": null,
+        "task_after_trigger_settingHash": null
+      },
+      {
+        "id": "59",
+        "procdefId": "dcc-controlled-file-revision:1:dcc-three-workflow-tenant-1",
+        "modelId": "dcc-controlled-file-revision-model-tenant-1",
+        "tenant": "1",
+        "deleted": 0,
+        "formType": 20,
+        "createPath": "/dcc/controlled-file/detail",
+        "viewPath": "/dcc/controlled-file/detail",
+        "modelType": 10,
+        "visible": 0,
+        "form_confHash": null,
+        "form_fieldsHash": null,
+        "start_user_idsHash": null,
+        "start_dept_idsHash": null,
+        "manager_user_idsHash": null,
+        "title_settingHash": "545ee931f8ffc2e5cf8422de83921132285de18b39db69bdda6fe9bf39db6935",
+        "summary_settingHash": "903db5116c3c16a9557263f314b065f12c027310abefbeccceebca77b175d6b0",
+        "process_before_trigger_settingHash": null,
+        "process_after_trigger_settingHash": null,
+        "task_before_trigger_settingHash": null,
+        "task_after_trigger_settingHash": null
+      },
+      {
+        "id": "60",
+        "procdefId": "dcc-controlled-file-upload:1:dcc-three-workflow-tenant-122",
+        "modelId": "dcc-controlled-file-upload-model-tenant-122",
+        "tenant": "122",
+        "deleted": 0,
+        "formType": 20,
+        "createPath": "/dcc/controlled-file/detail",
+        "viewPath": "/dcc/controlled-file/detail",
+        "modelType": 10,
+        "visible": 0,
+        "form_confHash": null,
+        "form_fieldsHash": null,
+        "start_user_idsHash": null,
+        "start_dept_idsHash": null,
+        "manager_user_idsHash": null,
+        "title_settingHash": "571d2519e9fdd0650adecba61ed31e70bb1eb5a41e3ae7d485e8acffa680926f",
+        "summary_settingHash": "903db5116c3c16a9557263f314b065f12c027310abefbeccceebca77b175d6b0",
+        "process_before_trigger_settingHash": null,
+        "process_after_trigger_settingHash": null,
+        "task_before_trigger_settingHash": null,
+        "task_after_trigger_settingHash": null
+      },
+      {
+        "id": "61",
+        "procdefId": "dcc-controlled-file-upload:1:dcc-three-workflow-tenant-1",
+        "modelId": "dcc-controlled-file-upload-model-tenant-1",
+        "tenant": "1",
+        "deleted": 0,
+        "formType": 20,
+        "createPath": "/dcc/controlled-file/detail",
+        "viewPath": "/dcc/controlled-file/detail",
+        "modelType": 10,
+        "visible": 0,
+        "form_confHash": null,
+        "form_fieldsHash": null,
+        "start_user_idsHash": null,
+        "start_dept_idsHash": null,
+        "manager_user_idsHash": null,
+        "title_settingHash": "571d2519e9fdd0650adecba61ed31e70bb1eb5a41e3ae7d485e8acffa680926f",
+        "summary_settingHash": "903db5116c3c16a9557263f314b065f12c027310abefbeccceebca77b175d6b0",
+        "process_before_trigger_settingHash": null,
+        "process_after_trigger_settingHash": null,
+        "task_before_trigger_settingHash": null,
+        "task_after_trigger_settingHash": null
+      },
+      {
+        "id": "63",
+        "procdefId": "dcc-controlled-file-obsolete:2:dcc-three-workflow-tenant-122",
+        "modelId": "dcc-controlled-file-obsolete-model-v2-tenant-122",
+        "tenant": "122",
+        "deleted": 0,
+        "formType": 20,
+        "createPath": "/dcc/controlled-file/detail",
+        "viewPath": "/dcc/controlled-file/detail",
+        "modelType": 10,
+        "visible": 0,
+        "form_confHash": null,
+        "form_fieldsHash": null,
+        "start_user_idsHash": null,
+        "start_dept_idsHash": null,
+        "manager_user_idsHash": null,
+        "title_settingHash": "6b4ec07e0862900409103bff9dd6a1062679faedb9747a8bdf1c312b3e0b34a6",
+        "summary_settingHash": "903db5116c3c16a9557263f314b065f12c027310abefbeccceebca77b175d6b0",
+        "process_before_trigger_settingHash": null,
+        "process_after_trigger_settingHash": null,
+        "task_before_trigger_settingHash": null,
+        "task_after_trigger_settingHash": null
+      },
+      {
+        "id": "64",
+        "procdefId": "dcc-controlled-file-obsolete:2:dcc-three-workflow-tenant-1",
+        "modelId": "dcc-controlled-file-obsolete-model-v2-tenant-1",
+        "tenant": "1",
+        "deleted": 0,
+        "formType": 20,
+        "createPath": "/dcc/controlled-file/detail",
+        "viewPath": "/dcc/controlled-file/detail",
+        "modelType": 10,
+        "visible": 0,
+        "form_confHash": null,
+        "form_fieldsHash": null,
+        "start_user_idsHash": null,
+        "start_dept_idsHash": null,
+        "manager_user_idsHash": null,
+        "title_settingHash": "6b4ec07e0862900409103bff9dd6a1062679faedb9747a8bdf1c312b3e0b34a6",
+        "summary_settingHash": "903db5116c3c16a9557263f314b065f12c027310abefbeccceebca77b175d6b0",
+        "process_before_trigger_settingHash": null,
+        "process_after_trigger_settingHash": null,
+        "task_before_trigger_settingHash": null,
+        "task_after_trigger_settingHash": null
+      },
+      {
+        "id": "65",
+        "procdefId": "dcc-controlled-file-revision:2:dcc-three-workflow-tenant-122",
+        "modelId": "dcc-controlled-file-revision-model-v2-tenant-122",
+        "tenant": "122",
+        "deleted": 0,
+        "formType": 20,
+        "createPath": "/dcc/controlled-file/detail",
+        "viewPath": "/dcc/controlled-file/detail",
+        "modelType": 10,
+        "visible": 0,
+        "form_confHash": null,
+        "form_fieldsHash": null,
+        "start_user_idsHash": null,
+        "start_dept_idsHash": null,
+        "manager_user_idsHash": null,
+        "title_settingHash": "545ee931f8ffc2e5cf8422de83921132285de18b39db69bdda6fe9bf39db6935",
+        "summary_settingHash": "903db5116c3c16a9557263f314b065f12c027310abefbeccceebca77b175d6b0",
+        "process_before_trigger_settingHash": null,
+        "process_after_trigger_settingHash": null,
+        "task_before_trigger_settingHash": null,
+        "task_after_trigger_settingHash": null
+      },
+      {
+        "id": "66",
+        "procdefId": "dcc-controlled-file-revision:2:dcc-three-workflow-tenant-1",
+        "modelId": "dcc-controlled-file-revision-model-v2-tenant-1",
+        "tenant": "1",
+        "deleted": 0,
+        "formType": 20,
+        "createPath": "/dcc/controlled-file/detail",
+        "viewPath": "/dcc/controlled-file/detail",
+        "modelType": 10,
+        "visible": 0,
+        "form_confHash": null,
+        "form_fieldsHash": null,
+        "start_user_idsHash": null,
+        "start_dept_idsHash": null,
+        "manager_user_idsHash": null,
+        "title_settingHash": "545ee931f8ffc2e5cf8422de83921132285de18b39db69bdda6fe9bf39db6935",
+        "summary_settingHash": "903db5116c3c16a9557263f314b065f12c027310abefbeccceebca77b175d6b0",
+        "process_before_trigger_settingHash": null,
+        "process_after_trigger_settingHash": null,
+        "task_before_trigger_settingHash": null,
+        "task_after_trigger_settingHash": null
+      },
+      {
+        "id": "67",
+        "procdefId": "dcc-controlled-file-upload:2:dcc-three-workflow-tenant-122",
+        "modelId": "dcc-controlled-file-upload-model-v2-tenant-122",
+        "tenant": "122",
+        "deleted": 0,
+        "formType": 20,
+        "createPath": "/dcc/controlled-file/detail",
+        "viewPath": "/dcc/controlled-file/detail",
+        "modelType": 10,
+        "visible": 0,
+        "form_confHash": null,
+        "form_fieldsHash": null,
+        "start_user_idsHash": null,
+        "start_dept_idsHash": null,
+        "manager_user_idsHash": null,
+        "title_settingHash": "571d2519e9fdd0650adecba61ed31e70bb1eb5a41e3ae7d485e8acffa680926f",
+        "summary_settingHash": "903db5116c3c16a9557263f314b065f12c027310abefbeccceebca77b175d6b0",
+        "process_before_trigger_settingHash": null,
+        "process_after_trigger_settingHash": null,
+        "task_before_trigger_settingHash": null,
+        "task_after_trigger_settingHash": null
+      },
+      {
+        "id": "68",
+        "procdefId": "dcc-controlled-file-upload:2:dcc-three-workflow-tenant-1",
+        "modelId": "dcc-controlled-file-upload-model-v2-tenant-1",
+        "tenant": "1",
+        "deleted": 0,
+        "formType": 20,
+        "createPath": "/dcc/controlled-file/detail",
+        "viewPath": "/dcc/controlled-file/detail",
+        "modelType": 10,
+        "visible": 0,
+        "form_confHash": null,
+        "form_fieldsHash": null,
+        "start_user_idsHash": null,
+        "start_dept_idsHash": null,
+        "manager_user_idsHash": null,
+        "title_settingHash": "571d2519e9fdd0650adecba61ed31e70bb1eb5a41e3ae7d485e8acffa680926f",
+        "summary_settingHash": "903db5116c3c16a9557263f314b065f12c027310abefbeccceebca77b175d6b0",
+        "process_before_trigger_settingHash": null,
+        "process_after_trigger_settingHash": null,
+        "task_before_trigger_settingHash": null,
+        "task_after_trigger_settingHash": null
+      },
+      {
+        "id": "70",
+        "procdefId": "dcc-controlled-file-obsolete:3:dcc-three-workflow-tenant-122",
+        "modelId": "dcc-controlled-file-obsolete-model-v3-tenant-122",
+        "tenant": "122",
+        "deleted": 0,
+        "formType": 20,
+        "createPath": "/dcc/controlled-file/detail",
+        "viewPath": "/dcc/controlled-file/detail",
+        "modelType": 10,
+        "visible": 0,
+        "form_confHash": null,
+        "form_fieldsHash": null,
+        "start_user_idsHash": null,
+        "start_dept_idsHash": null,
+        "manager_user_idsHash": null,
+        "title_settingHash": "6b4ec07e0862900409103bff9dd6a1062679faedb9747a8bdf1c312b3e0b34a6",
+        "summary_settingHash": "903db5116c3c16a9557263f314b065f12c027310abefbeccceebca77b175d6b0",
+        "process_before_trigger_settingHash": null,
+        "process_after_trigger_settingHash": null,
+        "task_before_trigger_settingHash": null,
+        "task_after_trigger_settingHash": null
+      },
+      {
+        "id": "71",
+        "procdefId": "dcc-controlled-file-obsolete:3:dcc-three-workflow-tenant-1",
+        "modelId": "dcc-controlled-file-obsolete-model-v3-tenant-1",
+        "tenant": "1",
+        "deleted": 0,
+        "formType": 20,
+        "createPath": "/dcc/controlled-file/detail",
+        "viewPath": "/dcc/controlled-file/detail",
+        "modelType": 10,
+        "visible": 0,
+        "form_confHash": null,
+        "form_fieldsHash": null,
+        "start_user_idsHash": null,
+        "start_dept_idsHash": null,
+        "manager_user_idsHash": null,
+        "title_settingHash": "6b4ec07e0862900409103bff9dd6a1062679faedb9747a8bdf1c312b3e0b34a6",
+        "summary_settingHash": "903db5116c3c16a9557263f314b065f12c027310abefbeccceebca77b175d6b0",
+        "process_before_trigger_settingHash": null,
+        "process_after_trigger_settingHash": null,
+        "task_before_trigger_settingHash": null,
+        "task_after_trigger_settingHash": null
+      },
+      {
+        "id": "72",
+        "procdefId": "dcc-controlled-file-revision:3:dcc-three-workflow-tenant-122",
+        "modelId": "dcc-controlled-file-revision-model-v3-tenant-122",
+        "tenant": "122",
+        "deleted": 0,
+        "formType": 20,
+        "createPath": "/dcc/controlled-file/detail",
+        "viewPath": "/dcc/controlled-file/detail",
+        "modelType": 10,
+        "visible": 0,
+        "form_confHash": null,
+        "form_fieldsHash": null,
+        "start_user_idsHash": null,
+        "start_dept_idsHash": null,
+        "manager_user_idsHash": null,
+        "title_settingHash": "545ee931f8ffc2e5cf8422de83921132285de18b39db69bdda6fe9bf39db6935",
+        "summary_settingHash": "903db5116c3c16a9557263f314b065f12c027310abefbeccceebca77b175d6b0",
+        "process_before_trigger_settingHash": null,
+        "process_after_trigger_settingHash": null,
+        "task_before_trigger_settingHash": null,
+        "task_after_trigger_settingHash": null
+      },
+      {
+        "id": "73",
+        "procdefId": "dcc-controlled-file-revision:3:dcc-three-workflow-tenant-1",
+        "modelId": "dcc-controlled-file-revision-model-v3-tenant-1",
+        "tenant": "1",
+        "deleted": 0,
+        "formType": 20,
+        "createPath": "/dcc/controlled-file/detail",
+        "viewPath": "/dcc/controlled-file/detail",
+        "modelType": 10,
+        "visible": 0,
+        "form_confHash": null,
+        "form_fieldsHash": null,
+        "start_user_idsHash": null,
+        "start_dept_idsHash": null,
+        "manager_user_idsHash": null,
+        "title_settingHash": "545ee931f8ffc2e5cf8422de83921132285de18b39db69bdda6fe9bf39db6935",
+        "summary_settingHash": "903db5116c3c16a9557263f314b065f12c027310abefbeccceebca77b175d6b0",
+        "process_before_trigger_settingHash": null,
+        "process_after_trigger_settingHash": null,
+        "task_before_trigger_settingHash": null,
+        "task_after_trigger_settingHash": null
+      },
+      {
+        "id": "74",
+        "procdefId": "dcc-controlled-file-upload:3:dcc-three-workflow-tenant-122",
+        "modelId": "dcc-controlled-file-upload-model-v3-tenant-122",
+        "tenant": "122",
+        "deleted": 0,
+        "formType": 20,
+        "createPath": "/dcc/controlled-file/detail",
+        "viewPath": "/dcc/controlled-file/detail",
+        "modelType": 10,
+        "visible": 0,
+        "form_confHash": null,
+        "form_fieldsHash": null,
+        "start_user_idsHash": null,
+        "start_dept_idsHash": null,
+        "manager_user_idsHash": null,
+        "title_settingHash": "571d2519e9fdd0650adecba61ed31e70bb1eb5a41e3ae7d485e8acffa680926f",
+        "summary_settingHash": "903db5116c3c16a9557263f314b065f12c027310abefbeccceebca77b175d6b0",
+        "process_before_trigger_settingHash": null,
+        "process_after_trigger_settingHash": null,
+        "task_before_trigger_settingHash": null,
+        "task_after_trigger_settingHash": null
+      },
+      {
+        "id": "75",
+        "procdefId": "dcc-controlled-file-upload:3:dcc-three-workflow-tenant-1",
+        "modelId": "dcc-controlled-file-upload-model-v3-tenant-1",
+        "tenant": "1",
+        "deleted": 0,
+        "formType": 20,
+        "createPath": "/dcc/controlled-file/detail",
+        "viewPath": "/dcc/controlled-file/detail",
+        "modelType": 10,
+        "visible": 0,
+        "form_confHash": null,
+        "form_fieldsHash": null,
+        "start_user_idsHash": null,
+        "start_dept_idsHash": null,
+        "manager_user_idsHash": null,
+        "title_settingHash": "571d2519e9fdd0650adecba61ed31e70bb1eb5a41e3ae7d485e8acffa680926f",
+        "summary_settingHash": "903db5116c3c16a9557263f314b065f12c027310abefbeccceebca77b175d6b0",
+        "process_before_trigger_settingHash": null,
+        "process_after_trigger_settingHash": null,
+        "task_before_trigger_settingHash": null,
+        "task_after_trigger_settingHash": null
+      }
+    ],
+    "bodies": [
+      {
+        "id": "0d7cdc6c-5092-11f1-9f49-00155d09335a",
+        "name": "dcc-controlled-file-approval.bpmn",
+        "deploymentId": "0d7cdc6b-5092-11f1-9f49-00155d09335a",
+        "revision": 1,
+        "generated": 0,
+        "sha256": "d55f4ca30c2f13963c411dbc40094b4fdf7c7722e9dfe414348f4352b4881241",
+        "octets": 3039
+      },
+      {
+        "id": "44a28f69-4eb4-11f1-950d-00155db32d8f",
+        "name": "source",
+        "deploymentId": null,
+        "revision": 2,
+        "generated": null,
+        "sha256": "d55f4ca30c2f13963c411dbc40094b4fdf7c7722e9dfe414348f4352b4881241",
+        "octets": 3039
+      },
+      {
+        "id": "5d2dabfb-4eb4-11f1-950d-00155db32d8f",
+        "name": "dcc-controlled-file-approval.bpmn",
+        "deploymentId": "5d2dabfa-4eb4-11f1-950d-00155db32d8f",
+        "revision": 1,
+        "generated": 0,
+        "sha256": "d55f4ca30c2f13963c411dbc40094b4fdf7c7722e9dfe414348f4352b4881241",
+        "octets": 3039
+      },
+      {
+        "id": "codex-dcc-bpmn-122",
+        "name": "dcc-controlled-file-approval.bpmn",
+        "deploymentId": "codex-dcc-deploy-122",
+        "revision": 1,
+        "generated": 0,
+        "sha256": "d55f4ca30c2f13963c411dbc40094b4fdf7c7722e9dfe414348f4352b4881241",
+        "octets": 3039
+      },
+      {
+        "id": "d3b069c9-5091-11f1-9f49-00155d09335a",
+        "name": "dcc-controlled-file-approval.bpmn",
+        "deploymentId": "d3b069c8-5091-11f1-9f49-00155d09335a",
+        "revision": 1,
+        "generated": 0,
+        "sha256": "d55f4ca30c2f13963c411dbc40094b4fdf7c7722e9dfe414348f4352b4881241",
+        "octets": 3039
+      },
+      {
+        "id": "dcc-controlled-file-obsolete-bpmn-tenant-1",
+        "name": "dcc-controlled-file-obsolete.bpmn",
+        "deploymentId": "dcc-controlled-file-obsolete-deploy-tenant-1",
+        "revision": 1,
+        "generated": 0,
+        "sha256": "c26eb3a80a8780ab0429ccb79b4d6bfdabf9de508461c2cde76f6d3271c1be4b",
+        "octets": 1721
+      },
+      {
+        "id": "dcc-controlled-file-obsolete-bpmn-tenant-122",
+        "name": "dcc-controlled-file-obsolete.bpmn",
+        "deploymentId": "dcc-controlled-file-obsolete-deploy-tenant-122",
+        "revision": 1,
+        "generated": 0,
+        "sha256": "c26eb3a80a8780ab0429ccb79b4d6bfdabf9de508461c2cde76f6d3271c1be4b",
+        "octets": 1721
+      },
+      {
+        "id": "dcc-controlled-file-obsolete-bpmn-v2-tenant-1",
+        "name": "dcc-controlled-file-obsolete.bpmn",
+        "deploymentId": "dcc-controlled-file-obsolete-deploy-v2-tenant-1",
+        "revision": 1,
+        "generated": 0,
+        "sha256": "f57f6e0b362f7dba7c2699b31c7ebc73126fda5276a3865ac128acfa56774435",
+        "octets": 1721
+      },
+      {
+        "id": "dcc-controlled-file-obsolete-bpmn-v2-tenant-122",
+        "name": "dcc-controlled-file-obsolete.bpmn",
+        "deploymentId": "dcc-controlled-file-obsolete-deploy-v2-tenant-122",
+        "revision": 1,
+        "generated": 0,
+        "sha256": "f57f6e0b362f7dba7c2699b31c7ebc73126fda5276a3865ac128acfa56774435",
+        "octets": 1721
+      },
+      {
+        "id": "dcc-controlled-file-obsolete-bpmn-v3-tenant-1",
+        "name": "dcc-controlled-file-obsolete.bpmn",
+        "deploymentId": "dcc-controlled-file-obsolete-deploy-v3-tenant-1",
+        "revision": 1,
+        "generated": 0,
+        "sha256": "fbb4d19829e22c594da8ba8e59464dae9ec31f787fc545e1c3b1f286c939f1a0",
+        "octets": 1919
+      },
+      {
+        "id": "dcc-controlled-file-obsolete-bpmn-v3-tenant-122",
+        "name": "dcc-controlled-file-obsolete.bpmn",
+        "deploymentId": "dcc-controlled-file-obsolete-deploy-v3-tenant-122",
+        "revision": 1,
+        "generated": 0,
+        "sha256": "fbb4d19829e22c594da8ba8e59464dae9ec31f787fc545e1c3b1f286c939f1a0",
+        "octets": 1919
+      },
+      {
+        "id": "dcc-controlled-file-revision-bpmn-tenant-1",
+        "name": "dcc-controlled-file-revision.bpmn",
+        "deploymentId": "dcc-controlled-file-revision-deploy-tenant-1",
+        "revision": 1,
+        "generated": 0,
+        "sha256": "9ea859b1c3b2f052f85ce6d6c4d71e12caf13629b4a792f6c3343eaef3bcfb56",
+        "octets": 2667
+      },
+      {
+        "id": "dcc-controlled-file-revision-bpmn-tenant-122",
+        "name": "dcc-controlled-file-revision.bpmn",
+        "deploymentId": "dcc-controlled-file-revision-deploy-tenant-122",
+        "revision": 1,
+        "generated": 0,
+        "sha256": "9ea859b1c3b2f052f85ce6d6c4d71e12caf13629b4a792f6c3343eaef3bcfb56",
+        "octets": 2667
+      },
+      {
+        "id": "dcc-controlled-file-revision-bpmn-v2-tenant-1",
+        "name": "dcc-controlled-file-revision.bpmn",
+        "deploymentId": "dcc-controlled-file-revision-deploy-v2-tenant-1",
+        "revision": 1,
+        "generated": 0,
+        "sha256": "fca4adacc3a4922802f8809ecb0d594bcba3c30e2c6ab93419af0ca1b36b173b",
+        "octets": 2667
+      },
+      {
+        "id": "dcc-controlled-file-revision-bpmn-v2-tenant-122",
+        "name": "dcc-controlled-file-revision.bpmn",
+        "deploymentId": "dcc-controlled-file-revision-deploy-v2-tenant-122",
+        "revision": 1,
+        "generated": 0,
+        "sha256": "fca4adacc3a4922802f8809ecb0d594bcba3c30e2c6ab93419af0ca1b36b173b",
+        "octets": 2667
+      },
+      {
+        "id": "dcc-controlled-file-revision-bpmn-v3-tenant-1",
+        "name": "dcc-controlled-file-revision.bpmn",
+        "deploymentId": "dcc-controlled-file-revision-deploy-v3-tenant-1",
+        "revision": 1,
+        "generated": 0,
+        "sha256": "e7b26e8c6a41bf2f562143cac55c25397ec31cb74d6d9592a0343871765f2f1b",
+        "octets": 2865
+      },
+      {
+        "id": "dcc-controlled-file-revision-bpmn-v3-tenant-122",
+        "name": "dcc-controlled-file-revision.bpmn",
+        "deploymentId": "dcc-controlled-file-revision-deploy-v3-tenant-122",
+        "revision": 1,
+        "generated": 0,
+        "sha256": "e7b26e8c6a41bf2f562143cac55c25397ec31cb74d6d9592a0343871765f2f1b",
+        "octets": 2865
+      },
+      {
+        "id": "dcc-controlled-file-upload-bpmn-tenant-1",
+        "name": "dcc-controlled-file-upload.bpmn",
+        "deploymentId": "dcc-controlled-file-upload-deploy-tenant-1",
+        "revision": 1,
+        "generated": 0,
+        "sha256": "e10f8f7e823d075dac4baa0f9295710c977b064037fb3d601f5cea0d4a1f5c56",
+        "octets": 2663
+      },
+      {
+        "id": "dcc-controlled-file-upload-bpmn-tenant-122",
+        "name": "dcc-controlled-file-upload.bpmn",
+        "deploymentId": "dcc-controlled-file-upload-deploy-tenant-122",
+        "revision": 1,
+        "generated": 0,
+        "sha256": "e10f8f7e823d075dac4baa0f9295710c977b064037fb3d601f5cea0d4a1f5c56",
+        "octets": 2663
+      },
+      {
+        "id": "dcc-controlled-file-upload-bpmn-v2-tenant-1",
+        "name": "dcc-controlled-file-upload.bpmn",
+        "deploymentId": "dcc-controlled-file-upload-deploy-v2-tenant-1",
+        "revision": 1,
+        "generated": 0,
+        "sha256": "13c95d7275802e050089385f916f9671be00b90bb00f3ea7ba8c3e171aa82d7a",
+        "octets": 2663
+      },
+      {
+        "id": "dcc-controlled-file-upload-bpmn-v2-tenant-122",
+        "name": "dcc-controlled-file-upload.bpmn",
+        "deploymentId": "dcc-controlled-file-upload-deploy-v2-tenant-122",
+        "revision": 1,
+        "generated": 0,
+        "sha256": "13c95d7275802e050089385f916f9671be00b90bb00f3ea7ba8c3e171aa82d7a",
+        "octets": 2663
+      },
+      {
+        "id": "dcc-controlled-file-upload-bpmn-v3-tenant-1",
+        "name": "dcc-controlled-file-upload.bpmn",
+        "deploymentId": "dcc-controlled-file-upload-deploy-v3-tenant-1",
+        "revision": 1,
+        "generated": 0,
+        "sha256": "c0ec54c7d193315f9befde1f3a083fd13bd11d1c469e2e080e63b8a0536b55f8",
+        "octets": 2861
+      },
+      {
+        "id": "dcc-controlled-file-upload-bpmn-v3-tenant-122",
+        "name": "dcc-controlled-file-upload.bpmn",
+        "deploymentId": "dcc-controlled-file-upload-deploy-v3-tenant-122",
+        "revision": 1,
+        "generated": 0,
+        "sha256": "c0ec54c7d193315f9befde1f3a083fd13bd11d1c469e2e080e63b8a0536b55f8",
+        "octets": 2861
+      }
+    ],
+    "policies": [
+      {
+        "id": "23",
+        "tenant": "1",
+        "domain": "DCC",
+        "system": "DCC",
+        "objectType": "CONTROLLED_FILE",
+        "action": "UPLOAD",
+        "state": "DRAFT",
+        "mode": "BPM_REQUIRED",
+        "processKey": "dcc-controlled-file-approval",
+        "executor": "DCC_UPLOAD",
+        "formPolicyType": "NONE",
+        "formSlots": "[]",
+        "status": "PUBLISHED",
+        "deleted": 0
+      },
+      {
+        "id": "24",
+        "tenant": "122",
+        "domain": "DCC",
+        "system": "DCC",
+        "objectType": "CONTROLLED_FILE",
+        "action": "UPLOAD",
+        "state": "DRAFT",
+        "mode": "BPM_REQUIRED",
+        "processKey": "dcc-controlled-file-approval",
+        "executor": "DCC_UPLOAD",
+        "formPolicyType": "NONE",
+        "formSlots": "[]",
+        "status": "PUBLISHED",
+        "deleted": 0
+      },
+      {
+        "id": "26",
+        "tenant": "1",
+        "domain": "DCC",
+        "system": "DCC",
+        "objectType": "CONTROLLED_FILE",
+        "action": "PUBLISH",
+        "state": "READY_TO_PUBLISH",
+        "mode": "BPM_REQUIRED",
+        "processKey": "dcc-controlled-file-approval",
+        "executor": "DCC_PUBLISH",
+        "formPolicyType": "NONE",
+        "formSlots": "[]",
+        "status": "DISABLED",
+        "deleted": 0
+      },
+      {
+        "id": "27",
+        "tenant": "122",
+        "domain": "DCC",
+        "system": "DCC",
+        "objectType": "CONTROLLED_FILE",
+        "action": "PUBLISH",
+        "state": "READY_TO_PUBLISH",
+        "mode": "BPM_REQUIRED",
+        "processKey": "dcc-controlled-file-approval",
+        "executor": "DCC_PUBLISH",
+        "formPolicyType": "NONE",
+        "formSlots": "[]",
+        "status": "DISABLED",
+        "deleted": 0
+      },
+      {
+        "id": "29",
+        "tenant": "1",
+        "domain": "DCC",
+        "system": "DCC",
+        "objectType": "CONTROLLED_FILE",
+        "action": "PUBLISH",
+        "state": "READY_TO_PUBLISH",
+        "mode": "DIRECT",
+        "processKey": "dcc-controlled-file-approval",
+        "executor": "DCC_PUBLISH",
+        "formPolicyType": "NONE",
+        "formSlots": "[]",
+        "status": "PUBLISHED",
+        "deleted": 0
+      },
+      {
+        "id": "30",
+        "tenant": "122",
+        "domain": "DCC",
+        "system": "DCC",
+        "objectType": "CONTROLLED_FILE",
+        "action": "PUBLISH",
+        "state": "READY_TO_PUBLISH",
+        "mode": "DIRECT",
+        "processKey": "dcc-controlled-file-approval",
+        "executor": "DCC_PUBLISH",
+        "formPolicyType": "NONE",
+        "formSlots": "[]",
+        "status": "PUBLISHED",
+        "deleted": 0
+      },
+      {
+        "id": "32",
+        "tenant": "1",
+        "domain": "DCC",
+        "system": "DCC",
+        "objectType": "CONTROLLED_FILE",
+        "action": "OBSOLETE",
+        "state": "ACTIVE",
+        "mode": "BPM_REQUIRED",
+        "processKey": "dcc-controlled-file-obsolete",
+        "executor": "DCC_OBSOLETE",
+        "formPolicyType": "NONE",
+        "formSlots": "[]",
+        "status": "PUBLISHED",
+        "deleted": 0
+      },
+      {
+        "id": "33",
+        "tenant": "122",
+        "domain": "DCC",
+        "system": "DCC",
+        "objectType": "CONTROLLED_FILE",
+        "action": "OBSOLETE",
+        "state": "ACTIVE",
+        "mode": "BPM_REQUIRED",
+        "processKey": "dcc-controlled-file-obsolete",
+        "executor": "DCC_OBSOLETE",
+        "formPolicyType": "NONE",
+        "formSlots": "[]",
+        "status": "PUBLISHED",
+        "deleted": 0
+      }
+    ],
+    "templates": [
+      {
+        "id": "6829",
+        "code": "dcc_publication_released",
+        "name": "DCC发布后续通知",
+        "nickname": "DCC系统",
+        "type": 2,
+        "status": 0,
+        "params": "[\"fileNumber\",\"versionNo\",\"followupUrl\"]",
+        "deleted": 0,
+        "contentHash": "df497166b91862c6f5d0c08747183c1099b9168368d21fd0c1e5103ae2bf139a"
+      }
+    ]
+  },
+  "schemaColumns": [
+    {
+      "table": "bpm_business_approval_policy",
+      "column": "id",
+      "type": "bigint",
+      "nullable": "NO",
+      "default": null,
+      "collation": null
+    },
+    {
+      "table": "bpm_business_approval_policy",
+      "column": "tenant_id",
+      "type": "bigint",
+      "nullable": "NO",
+      "default": null,
+      "collation": null
+    },
+    {
+      "table": "bpm_business_approval_policy",
+      "column": "data_domain",
+      "type": "varchar(64)",
+      "nullable": "NO",
+      "default": null,
+      "collation": "utf8mb4_unicode_ci"
+    },
+    {
+      "table": "bpm_business_approval_policy",
+      "column": "system_code",
+      "type": "varchar(64)",
+      "nullable": "NO",
+      "default": null,
+      "collation": "utf8mb4_unicode_ci"
+    },
+    {
+      "table": "bpm_business_approval_policy",
+      "column": "object_type",
+      "type": "varchar(64)",
+      "nullable": "NO",
+      "default": null,
+      "collation": "utf8mb4_unicode_ci"
+    },
+    {
+      "table": "bpm_business_approval_policy",
+      "column": "action_code",
+      "type": "varchar(64)",
+      "nullable": "NO",
+      "default": null,
+      "collation": "utf8mb4_unicode_ci"
+    },
+    {
+      "table": "bpm_business_approval_policy",
+      "column": "object_state",
+      "type": "varchar(64)",
+      "nullable": "NO",
+      "default": null,
+      "collation": "utf8mb4_unicode_ci"
+    },
+    {
+      "table": "bpm_business_approval_policy",
+      "column": "policy_mode",
+      "type": "varchar(32)",
+      "nullable": "NO",
+      "default": null,
+      "collation": "utf8mb4_unicode_ci"
+    },
+    {
+      "table": "bpm_business_approval_policy",
+      "column": "process_definition_key",
+      "type": "varchar(128)",
+      "nullable": "YES",
+      "default": null,
+      "collation": "utf8mb4_unicode_ci"
+    },
+    {
+      "table": "bpm_business_approval_policy",
+      "column": "effect_executor_code",
+      "type": "varchar(128)",
+      "nullable": "NO",
+      "default": null,
+      "collation": "utf8mb4_unicode_ci"
+    },
+    {
+      "table": "bpm_business_approval_policy",
+      "column": "form_policy_type",
+      "type": "varchar(32)",
+      "nullable": "YES",
+      "default": null,
+      "collation": "utf8mb4_unicode_ci"
+    },
+    {
+      "table": "bpm_business_approval_policy",
+      "column": "form_slots_json",
+      "type": "longtext",
+      "nullable": "YES",
+      "default": null,
+      "collation": "utf8mb4_unicode_ci"
+    },
+    {
+      "table": "bpm_business_approval_policy",
+      "column": "status",
+      "type": "varchar(32)",
+      "nullable": "NO",
+      "default": null,
+      "collation": "utf8mb4_unicode_ci"
+    },
+    {
+      "table": "bpm_business_approval_policy",
+      "column": "remark",
+      "type": "varchar(500)",
+      "nullable": "YES",
+      "default": null,
+      "collation": "utf8mb4_unicode_ci"
+    },
+    {
+      "table": "bpm_business_approval_policy",
+      "column": "published_match_key",
+      "type": "varchar(512)",
+      "nullable": "YES",
+      "default": null,
+      "collation": "utf8mb4_unicode_ci",
+      "generationExpression": "\n    CASE\n      WHEN `deleted` = b'0' AND `status` = 'PUBLISHED'\n      THEN CONCAT_WS('|', `tenant_id`, `data_domain`, `system_code`, `object_type`, `action_code`, `object_state`)\n      ELSE NULL\n    END\n  ",
+      "generatedKind": "VIRTUAL"
+    },
+    {
+      "table": "bpm_business_approval_policy",
+      "column": "creator",
+      "type": "varchar(64)",
+      "nullable": "YES",
+      "default": "",
+      "collation": "utf8mb4_unicode_ci"
+    },
+    {
+      "table": "bpm_business_approval_policy",
+      "column": "create_time",
+      "type": "datetime",
+      "nullable": "NO",
+      "default": "CURRENT_TIMESTAMP",
+      "collation": null
+    },
+    {
+      "table": "bpm_business_approval_policy",
+      "column": "updater",
+      "type": "varchar(64)",
+      "nullable": "YES",
+      "default": "",
+      "collation": "utf8mb4_unicode_ci"
+    },
+    {
+      "table": "bpm_business_approval_policy",
+      "column": "update_time",
+      "type": "datetime",
+      "nullable": "NO",
+      "default": "CURRENT_TIMESTAMP",
+      "collation": null
+    },
+    {
+      "table": "bpm_business_approval_policy",
+      "column": "deleted",
+      "type": "bit(1)",
+      "nullable": "NO",
+      "default": "b'0'",
+      "collation": null
+    },
+    {
+      "table": "bpm_business_approval_request",
+      "column": "id",
+      "type": "bigint",
+      "nullable": "NO",
+      "default": null,
+      "collation": null
+    },
+    {
+      "table": "bpm_business_approval_request",
+      "column": "tenant_id",
+      "type": "bigint",
+      "nullable": "NO",
+      "default": null,
+      "collation": null
+    },
+    {
+      "table": "bpm_business_approval_request",
+      "column": "policy_id",
+      "type": "bigint",
+      "nullable": "NO",
+      "default": null,
+      "collation": null
+    },
+    {
+      "table": "bpm_business_approval_request",
+      "column": "policy_mode",
+      "type": "varchar(32)",
+      "nullable": "NO",
+      "default": null,
+      "collation": "utf8mb4_unicode_ci"
+    },
+    {
+      "table": "bpm_business_approval_request",
+      "column": "data_domain",
+      "type": "varchar(64)",
+      "nullable": "NO",
+      "default": null,
+      "collation": "utf8mb4_unicode_ci"
+    },
+    {
+      "table": "bpm_business_approval_request",
+      "column": "system_code",
+      "type": "varchar(64)",
+      "nullable": "NO",
+      "default": null,
+      "collation": "utf8mb4_unicode_ci"
+    },
+    {
+      "table": "bpm_business_approval_request",
+      "column": "object_type",
+      "type": "varchar(64)",
+      "nullable": "NO",
+      "default": null,
+      "collation": "utf8mb4_unicode_ci"
+    },
+    {
+      "table": "bpm_business_approval_request",
+      "column": "object_id",
+      "type": "varchar(128)",
+      "nullable": "NO",
+      "default": null,
+      "collation": "utf8mb4_unicode_ci"
+    },
+    {
+      "table": "bpm_business_approval_request",
+      "column": "object_version",
+      "type": "varchar(128)",
+      "nullable": "NO",
+      "default": null,
+      "collation": "utf8mb4_unicode_ci"
+    },
+    {
+      "table": "bpm_business_approval_request",
+      "column": "action_code",
+      "type": "varchar(64)",
+      "nullable": "NO",
+      "default": null,
+      "collation": "utf8mb4_unicode_ci"
+    },
+    {
+      "table": "bpm_business_approval_request",
+      "column": "object_state",
+      "type": "varchar(64)",
+      "nullable": "NO",
+      "default": null,
+      "collation": "utf8mb4_unicode_ci"
+    },
+    {
+      "table": "bpm_business_approval_request",
+      "column": "request_status",
+      "type": "varchar(32)",
+      "nullable": "NO",
+      "default": null,
+      "collation": "utf8mb4_unicode_ci"
+    },
+    {
+      "table": "bpm_business_approval_request",
+      "column": "applicant_user_id",
+      "type": "bigint",
+      "nullable": "NO",
+      "default": null,
+      "collation": null
+    },
+    {
+      "table": "bpm_business_approval_request",
+      "column": "process_definition_key",
+      "type": "varchar(128)",
+      "nullable": "YES",
+      "default": null,
+      "collation": "utf8mb4_unicode_ci"
+    },
+    {
+      "table": "bpm_business_approval_request",
+      "column": "process_instance_id",
+      "type": "varchar(128)",
+      "nullable": "YES",
+      "default": null,
+      "collation": "utf8mb4_unicode_ci"
+    },
+    {
+      "table": "bpm_business_approval_request",
+      "column": "effect_executor_code",
+      "type": "varchar(128)",
+      "nullable": "NO",
+      "default": null,
+      "collation": "utf8mb4_unicode_ci"
+    },
+    {
+      "table": "bpm_business_approval_request",
+      "column": "last_event_key",
+      "type": "varchar(256)",
+      "nullable": "YES",
+      "default": null,
+      "collation": "utf8mb4_unicode_ci"
+    },
+    {
+      "table": "bpm_business_approval_request",
+      "column": "result_state",
+      "type": "varchar(64)",
+      "nullable": "YES",
+      "default": null,
+      "collation": "utf8mb4_unicode_ci"
+    },
+    {
+      "table": "bpm_business_approval_request",
+      "column": "failure_reason",
+      "type": "varchar(500)",
+      "nullable": "YES",
+      "default": null,
+      "collation": "utf8mb4_unicode_ci"
+    },
+    {
+      "table": "bpm_business_approval_request",
+      "column": "business_context_json",
+      "type": "longtext",
+      "nullable": "NO",
+      "default": null,
+      "collation": "utf8mb4_unicode_ci"
+    },
+    {
+      "table": "bpm_business_approval_request",
+      "column": "pending_match_key",
+      "type": "varchar(512)",
+      "nullable": "YES",
+      "default": null,
+      "collation": "utf8mb4_unicode_ci",
+      "generationExpression": "\n    CASE\n      WHEN `deleted` = b'0' AND `request_status` = 'PENDING_BPM'\n      THEN CONCAT_WS('|', `tenant_id`, `system_code`, `object_type`, `object_id`, `object_version`, `action_code`)\n      ELSE NULL\n    END\n  ",
+      "generatedKind": "VIRTUAL"
+    },
+    {
+      "table": "bpm_business_approval_request",
+      "column": "creator",
+      "type": "varchar(64)",
+      "nullable": "YES",
+      "default": "",
+      "collation": "utf8mb4_unicode_ci"
+    },
+    {
+      "table": "bpm_business_approval_request",
+      "column": "create_time",
+      "type": "datetime",
+      "nullable": "NO",
+      "default": "CURRENT_TIMESTAMP",
+      "collation": null
+    },
+    {
+      "table": "bpm_business_approval_request",
+      "column": "updater",
+      "type": "varchar(64)",
+      "nullable": "YES",
+      "default": "",
+      "collation": "utf8mb4_unicode_ci"
+    },
+    {
+      "table": "bpm_business_approval_request",
+      "column": "update_time",
+      "type": "datetime",
+      "nullable": "NO",
+      "default": "CURRENT_TIMESTAMP",
+      "collation": null
+    },
+    {
+      "table": "bpm_business_approval_request",
+      "column": "deleted",
+      "type": "bit(1)",
+      "nullable": "NO",
+      "default": "b'0'",
+      "collation": null
+    },
+    {
+      "table": "dcc_publication_notification_delivery",
+      "column": "id",
+      "type": "bigint",
+      "nullable": "NO",
+      "default": null,
+      "collation": null
+    },
+    {
+      "table": "dcc_publication_notification_delivery",
+      "column": "batch_id",
+      "type": "bigint",
+      "nullable": "NO",
+      "default": null,
+      "collation": null
+    },
+    {
+      "table": "dcc_publication_notification_delivery",
+      "column": "candidate_id",
+      "type": "bigint",
+      "nullable": "NO",
+      "default": null,
+      "collation": null
+    },
+    {
+      "table": "dcc_publication_notification_delivery",
+      "column": "user_id",
+      "type": "bigint",
+      "nullable": "NO",
+      "default": null,
+      "collation": null
+    },
+    {
+      "table": "dcc_publication_notification_delivery",
+      "column": "business_key",
+      "type": "varchar(255)",
+      "nullable": "NO",
+      "default": null,
+      "collation": "utf8mb4_unicode_ci"
+    },
+    {
+      "table": "dcc_publication_notification_delivery",
+      "column": "template_code",
+      "type": "varchar(64)",
+      "nullable": "NO",
+      "default": null,
+      "collation": "utf8mb4_unicode_ci"
+    },
+    {
+      "table": "dcc_publication_notification_delivery",
+      "column": "status",
+      "type": "varchar(16)",
+      "nullable": "NO",
+      "default": "PENDING",
+      "collation": "utf8mb4_unicode_ci"
+    },
+    {
+      "table": "dcc_publication_notification_delivery",
+      "column": "attempt_count",
+      "type": "int",
+      "nullable": "NO",
+      "default": "0",
+      "collation": null
+    },
+    {
+      "table": "dcc_publication_notification_delivery",
+      "column": "last_attempt_at",
+      "type": "datetime",
+      "nullable": "YES",
+      "default": null,
+      "collation": null
+    },
+    {
+      "table": "dcc_publication_notification_delivery",
+      "column": "sent_at",
+      "type": "datetime",
+      "nullable": "YES",
+      "default": null,
+      "collation": null
+    },
+    {
+      "table": "dcc_publication_notification_delivery",
+      "column": "system_message_id",
+      "type": "bigint",
+      "nullable": "YES",
+      "default": null,
+      "collation": null
+    },
+    {
+      "table": "dcc_publication_notification_delivery",
+      "column": "last_error_summary",
+      "type": "varchar(512)",
+      "nullable": "YES",
+      "default": null,
+      "collation": "utf8mb4_unicode_ci"
+    },
+    {
+      "table": "dcc_publication_notification_delivery",
+      "column": "row_version",
+      "type": "int",
+      "nullable": "NO",
+      "default": "0",
+      "collation": null
+    },
+    {
+      "table": "dcc_publication_notification_delivery",
+      "column": "creation_token",
+      "type": "varchar(36)",
+      "nullable": "NO",
+      "default": null,
+      "collation": "utf8mb4_unicode_ci"
+    },
+    {
+      "table": "dcc_publication_notification_delivery",
+      "column": "tenant_id",
+      "type": "bigint",
+      "nullable": "NO",
+      "default": "0",
+      "collation": null
+    },
+    {
+      "table": "dcc_publication_notification_delivery",
+      "column": "create_time",
+      "type": "datetime",
+      "nullable": "NO",
+      "default": "CURRENT_TIMESTAMP",
+      "collation": null
+    },
+    {
+      "table": "dcc_publication_notification_delivery",
+      "column": "update_time",
+      "type": "datetime",
+      "nullable": "NO",
+      "default": "CURRENT_TIMESTAMP",
+      "collation": null
+    },
+    {
+      "table": "dcc_publication_notification_delivery",
+      "column": "creator",
+      "type": "varchar(64)",
+      "nullable": "YES",
+      "default": null,
+      "collation": "utf8mb4_unicode_ci"
+    },
+    {
+      "table": "dcc_publication_notification_delivery",
+      "column": "updater",
+      "type": "varchar(64)",
+      "nullable": "YES",
+      "default": null,
+      "collation": "utf8mb4_unicode_ci"
+    },
+    {
+      "table": "dcc_publication_notification_delivery",
+      "column": "deleted",
+      "type": "tinyint",
+      "nullable": "NO",
+      "default": "0",
+      "collation": null
+    },
+    {
+      "table": "dcc_publication_notification_audit",
+      "column": "id",
+      "type": "bigint",
+      "nullable": "NO",
+      "default": null,
+      "collation": null
+    },
+    {
+      "table": "dcc_publication_notification_audit",
+      "column": "delivery_id",
+      "type": "bigint",
+      "nullable": "NO",
+      "default": null,
+      "collation": null
+    },
+    {
+      "table": "dcc_publication_notification_audit",
+      "column": "batch_id",
+      "type": "bigint",
+      "nullable": "NO",
+      "default": null,
+      "collation": null
+    },
+    {
+      "table": "dcc_publication_notification_audit",
+      "column": "action_type",
+      "type": "varchar(32)",
+      "nullable": "NO",
+      "default": null,
+      "collation": "utf8mb4_unicode_ci"
+    },
+    {
+      "table": "dcc_publication_notification_audit",
+      "column": "actor_id",
+      "type": "bigint",
+      "nullable": "YES",
+      "default": null,
+      "collation": null
+    },
+    {
+      "table": "dcc_publication_notification_audit",
+      "column": "reason",
+      "type": "varchar(1000)",
+      "nullable": "YES",
+      "default": null,
+      "collation": "utf8mb4_unicode_ci"
+    },
+    {
+      "table": "dcc_publication_notification_audit",
+      "column": "status_before",
+      "type": "varchar(16)",
+      "nullable": "YES",
+      "default": null,
+      "collation": "utf8mb4_unicode_ci"
+    },
+    {
+      "table": "dcc_publication_notification_audit",
+      "column": "status_after",
+      "type": "varchar(16)",
+      "nullable": "NO",
+      "default": null,
+      "collation": "utf8mb4_unicode_ci"
+    },
+    {
+      "table": "dcc_publication_notification_audit",
+      "column": "attempt_count",
+      "type": "int",
+      "nullable": "NO",
+      "default": null,
+      "collation": null
+    },
+    {
+      "table": "dcc_publication_notification_audit",
+      "column": "system_message_id",
+      "type": "bigint",
+      "nullable": "YES",
+      "default": null,
+      "collation": null
+    },
+    {
+      "table": "dcc_publication_notification_audit",
+      "column": "error_summary",
+      "type": "varchar(512)",
+      "nullable": "YES",
+      "default": null,
+      "collation": "utf8mb4_unicode_ci"
+    },
+    {
+      "table": "dcc_publication_notification_audit",
+      "column": "row_version_before",
+      "type": "int",
+      "nullable": "NO",
+      "default": null,
+      "collation": null
+    },
+    {
+      "table": "dcc_publication_notification_audit",
+      "column": "row_version_after",
+      "type": "int",
+      "nullable": "NO",
+      "default": null,
+      "collation": null
+    },
+    {
+      "table": "dcc_publication_notification_audit",
+      "column": "occurred_at",
+      "type": "datetime",
+      "nullable": "NO",
+      "default": null,
+      "collation": null
+    },
+    {
+      "table": "dcc_publication_notification_audit",
+      "column": "tenant_id",
+      "type": "bigint",
+      "nullable": "NO",
+      "default": "0",
+      "collation": null
+    },
+    {
+      "table": "dcc_publication_notification_audit",
+      "column": "create_time",
+      "type": "datetime",
+      "nullable": "NO",
+      "default": "CURRENT_TIMESTAMP",
+      "collation": null
+    },
+    {
+      "table": "dcc_publication_notification_audit",
+      "column": "update_time",
+      "type": "datetime",
+      "nullable": "NO",
+      "default": "CURRENT_TIMESTAMP",
+      "collation": null
+    },
+    {
+      "table": "dcc_publication_notification_audit",
+      "column": "creator",
+      "type": "varchar(64)",
+      "nullable": "YES",
+      "default": null,
+      "collation": "utf8mb4_unicode_ci"
+    },
+    {
+      "table": "dcc_publication_notification_audit",
+      "column": "updater",
+      "type": "varchar(64)",
+      "nullable": "YES",
+      "default": null,
+      "collation": "utf8mb4_unicode_ci"
+    },
+    {
+      "table": "dcc_publication_notification_audit",
+      "column": "deleted",
+      "type": "tinyint",
+      "nullable": "NO",
+      "default": "0",
+      "collation": null
+    }
+  ],
+  "schemaIndexes": [
+    {
+      "table": "bpm_business_approval_policy",
+      "index": "PRIMARY",
+      "nonUnique": 0,
+      "columns": [
+        "id"
+      ]
+    },
+    {
+      "table": "bpm_business_approval_policy",
+      "index": "uk_bpm_business_approval_policy_published",
+      "nonUnique": 0,
+      "columns": [
+        "published_match_key"
+      ]
+    },
+    {
+      "table": "bpm_business_approval_policy",
+      "index": "idx_bpm_business_approval_policy_match",
+      "nonUnique": 1,
+      "columns": [
+        "tenant_id",
+        "data_domain",
+        "system_code",
+        "object_type",
+        "action_code",
+        "object_state",
+        "status"
+      ]
+    },
+    {
+      "table": "bpm_business_approval_policy",
+      "index": "idx_bpm_business_approval_policy_executor",
+      "nonUnique": 1,
+      "columns": [
+        "tenant_id",
+        "effect_executor_code"
+      ]
+    },
+    {
+      "table": "bpm_business_approval_request",
+      "index": "PRIMARY",
+      "nonUnique": 0,
+      "columns": [
+        "id"
+      ]
+    },
+    {
+      "table": "bpm_business_approval_request",
+      "index": "uk_bpm_business_approval_request_pending",
+      "nonUnique": 0,
+      "columns": [
+        "pending_match_key"
+      ]
+    },
+    {
+      "table": "bpm_business_approval_request",
+      "index": "uk_bpm_business_approval_request_process",
+      "nonUnique": 0,
+      "columns": [
+        "tenant_id",
+        "process_instance_id"
+      ]
+    },
+    {
+      "table": "bpm_business_approval_request",
+      "index": "idx_bpm_business_approval_request_object",
+      "nonUnique": 1,
+      "columns": [
+        "tenant_id",
+        "system_code",
+        "object_type",
+        "object_id",
+        "object_version",
+        "action_code",
+        "request_status"
+      ]
+    },
+    {
+      "table": "bpm_business_approval_request",
+      "index": "idx_bpm_business_approval_request_event",
+      "nonUnique": 1,
+      "columns": [
+        "tenant_id",
+        "last_event_key"
+      ]
+    },
+    {
+      "table": "dcc_publication_notification_delivery",
+      "index": "PRIMARY",
+      "nonUnique": 0,
+      "columns": [
+        "id"
+      ]
+    },
+    {
+      "table": "dcc_publication_notification_delivery",
+      "index": "uk_dcc_pub_delivery_candidate",
+      "nonUnique": 0,
+      "columns": [
+        "tenant_id",
+        "batch_id",
+        "candidate_id",
+        "deleted"
+      ]
+    },
+    {
+      "table": "dcc_publication_notification_delivery",
+      "index": "uk_dcc_pub_delivery_business_key",
+      "nonUnique": 0,
+      "columns": [
+        "tenant_id",
+        "business_key",
+        "deleted"
+      ]
+    },
+    {
+      "table": "dcc_publication_notification_delivery",
+      "index": "idx_dcc_pub_delivery_status",
+      "nonUnique": 1,
+      "columns": [
+        "tenant_id",
+        "batch_id",
+        "status",
+        "deleted"
+      ]
+    },
+    {
+      "table": "dcc_publication_notification_audit",
+      "index": "PRIMARY",
+      "nonUnique": 0,
+      "columns": [
+        "id"
+      ]
+    },
+    {
+      "table": "dcc_publication_notification_audit",
+      "index": "idx_dcc_pub_notification_audit_delivery",
+      "nonUnique": 1,
+      "columns": [
+        "tenant_id",
+        "delivery_id",
+        "id",
+        "deleted"
+      ]
+    },
+    {
+      "table": "dcc_publication_notification_audit",
+      "index": "idx_dcc_pub_notification_audit_batch",
+      "nonUnique": 1,
+      "columns": [
+        "tenant_id",
+        "batch_id",
+        "id",
+        "deleted"
+      ]
+    }
+  ],
+  "acceptance": {
+    "nativeV1V2": "exact frozen historical identities/XML retained suspended under V3",
+    "nativeV3": "exact required current six native model/definition/body/info chains active",
+    "publish": "exact disabled historical BPM_REQUIRED plus current P4 DIRECT PUBLISHED; never infer July seed executed",
+    "publicationTemplate": "one exact registered global template, no overwrite"
+  },
+  "checksByMigration": {
+    "20260922_dcc_three_workflow_bpmn_seed": [
+      "native-history-v1",
+      "native-current-v3-chain",
+      "obsolete-active-policy"
+    ],
+    "20260923_dcc_three_workflow_candidate_strategy_fix": [
+      "native-history-v2",
+      "native-current-v3-strategies",
+      "native-editor-resource-linkage"
+    ],
+    "20260926_dcc_three_workflow_matrix_multi_instance_fix": [
+      "native-current-v3-chain",
+      "native-v3-obligation-multi-instance",
+      "v3-six-model-definition-info-tenant-links"
+    ],
+    "20260719_business_approval_policy": [
+      "policy-request-table-columns",
+      "published-pending-generated-identities",
+      "policy-request-unique-indexes",
+      "current-dcc-policy-identity-uniqueness"
+    ],
+    "20260719_dcc_upload_form_policy_seed": [
+      "two-tenant-upload-published-exact",
+      "legacy-latest-active-procdef-info-resource"
+    ],
+    "20260720_dcc_publish_form_policy_seed": [
+      "historical-publish-bpm-required-disabled",
+      "p4-current-direct-exact",
+      "two-tenant-upload-published-exact"
+    ],
+    "20260906_dcc_new_file_lifecycle_p4": [
+      "p4-current-direct-exact",
+      "historical-publish-bpm-required-disabled",
+      "publish-none-empty-slots"
+    ],
+    "20260907_dcc_publication_notification": [
+      "notification-table-columns-indexes",
+      "one-exact-publication-template"
+    ]
+  },
+  "queryFile": "g21-bpm-policy-facts.sql",
+  "querySha256": "51da829aaf0891e36a1490a44bee28bd7a431d9d7c7fccea0f52e4a373895648"
+}

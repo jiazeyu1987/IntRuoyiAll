@@ -24,6 +24,10 @@ public interface DccProjectCodeService {
 
     PageResult<DccProjectCodeDO> getProjectCodePage(Long userId, DccProjectCodePageReqVO reqVO);
 
+    PageResult<DccProjectCodeDO> getReadableProjectCodePage(Long userId, DccProjectCodePageReqVO reqVO);
+
+    DccProjectCodeDO getReadableProjectCode(Long userId, Long id);
+
     PageResult<DccProjectCodeDO> getProjectCodePage(DccProjectCodePageReqVO reqVO);
 
     DccProjectCodeDO getProjectCode(Long id);

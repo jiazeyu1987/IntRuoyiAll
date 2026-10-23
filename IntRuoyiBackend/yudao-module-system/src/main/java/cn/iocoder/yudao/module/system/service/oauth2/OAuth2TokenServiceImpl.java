@@ -16,6 +16,8 @@ import cn.iocoder.yudao.framework.datapermission.core.annotation.DataPermission;
 import cn.iocoder.yudao.framework.security.core.LoginUser;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.framework.tenant.core.util.TenantUtils;
+import cn.iocoder.yudao.module.infra.api.config.ConfigApi;
+import cn.iocoder.yudao.module.infra.enums.config.PasswordMaxAgeConfig;
 import cn.iocoder.yudao.module.system.controller.admin.oauth2.vo.token.OAuth2AccessTokenPageReqVO;
 import cn.iocoder.yudao.module.system.dal.dataobject.oauth2.OAuth2AccessTokenDO;
 import cn.iocoder.yudao.module.system.dal.dataobject.oauth2.OAuth2ClientDO;
@@ -67,6 +69,8 @@ public class OAuth2TokenServiceImpl implements OAuth2TokenService {
     private OAuth2RefreshTokenMapper oauth2RefreshTokenMapper;
     @Resource
     private AdminUserMapper adminUserMapper;
+    @Resource
+    private ConfigApi configApi;
 
     @Resource
     private OAuth2AccessTokenRedisDAO oauth2AccessTokenRedisDAO;
@@ -178,7 +182,8 @@ public class OAuth2TokenServiceImpl implements OAuth2TokenService {
                 || !Objects.equals(snapshot.getPasswordCredentialStatus(), user.getPasswordCredentialStatus())) {
             throw unauthorized("认证凭据已变化，请重新登录");
         }
-        if (AdminUserPasswordPolicy.isExpired(user.getPasswordUpdateTime(), LocalDateTime.now())) {
+        if (AdminUserPasswordPolicy.isExpired(user.getPasswordUpdateTime(), LocalDateTime.now(),
+                configApi.getConfigValueByKey(PasswordMaxAgeConfig.KEY))) {
             throw unauthorized("密码已过期，请重新认证");
         }
         adminUserService.resetUserLoginFailure(user.getId());

@@ -1,0 +1,19 @@
+{
+  "status": "SECOND_POST_RESUME_SAME_QUALITY_BLOCKER_NO_PROGRESS_AUDIT",
+  "previousGoalTurn": "G40_NO_PROGRESS_REQUIRED_ACTUAL_QUALITY_APPROVAL_ABSENT",
+  "consecutiveResumedNoProgressAudits": 2,
+  "blockedThresholdMet": false,
+  "actualQualityApproved": false,
+  "actualApprovalTimeOrSignatureSupplied": false,
+  "currentQualityRegistryRows": 0,
+  "currentActiveAuditOperations": 0,
+  "currentVerifiedLegacyScopes": 0,
+  "finalReviewedPackageUnchanged": true,
+  "liveVerificationHandle": false,
+  "meaningfulIndependentMainFlowWorkAvailable": false,
+  "newSourceTestsBuildsServiceDataOrGitActions": false,
+  "conditionalOperationPermissionAlreadyReceived": true,
+  "realUiAcceptanceComplete": false,
+  "localIntQmsMergeComplete": false,
+  "nextAuditRule": "If the same required quality approval remains absent on the next goal turn and no meaningful independent work becomes available, mark the goal blocked. Do not reopen deferred detail work or request the same operation permission again."
+}

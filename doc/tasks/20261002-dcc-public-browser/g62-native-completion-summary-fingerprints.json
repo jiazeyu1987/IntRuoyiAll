@@ -1,0 +1,101 @@
+{
+  "status": "G62_NATIVE_COMPLETION_DISPLAY_FROZEN_FOR_ROOT_REVIEW",
+  "productionFiles": 1,
+  "testFiles": 1,
+  "assets": [
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/detail/index.vue",
+      "bytes": 318695,
+      "sha256": "86039af7b173dd0513f715aa44b4041d19ca3daa25c46b36446762dd0fc47ca8"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-native-completion-summary.test.cjs",
+      "bytes": 5495,
+      "sha256": "18b99c48179cd78bff7bd0818e19dc09a043805c430de2ed55286b4a3f071992"
+    }
+  ],
+  "documents": [
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g62-native-completion-summary-bdd.md",
+      "bytes": 2935,
+      "sha256": "3f0bf01b88f8e88186f7d18ea0d6e0766a929a03bf2b9c6f0838259e9ed090a5"
+    }
+  ],
+  "previousParentStage": {
+    "path": "doc/tasks/20261002-dcc-public-browser/g59-lifecycle-projection-repair-frontend-fingerprints-r2.json",
+    "bytes": 4400,
+    "sha256": "9e960e4912e080f604d7019294e4a4f6176414486eeac5ac3fbb1af66bba1886"
+  },
+  "verification": {
+    "effectiveRED": {
+      "tests": 3,
+      "pass": 0,
+      "failures": 3,
+      "exitCode": 1
+    },
+    "finalRegression": {
+      "files": 5,
+      "tests": 32,
+      "pass": 32,
+      "failures": 0,
+      "skipped": 0,
+      "exitCode": 0,
+      "overlap": "3new+29existing native/closure/readonly,not additive"
+    },
+    "ownedLint": {
+      "files": 1,
+      "warnings": 0,
+      "exitCode": 0
+    },
+    "fullTypes": {
+      "session": 78607,
+      "exitCode": 0,
+      "command": "node --max-old-space-size=8192 node_modules/vue-tsc/bin/vue-tsc.js --noEmit -p tsconfig.relaxed.json"
+    },
+    "fullBuild": {
+      "session": 61132,
+      "exitCode": 0,
+      "command": "node --max-old-space-size=8192 node_modules/vite/bin/vite.js build --mode env.local --outDir ../doc/tasks/20261002-dcc-public-browser/g62-build-local-output",
+      "temporaryOutput": "doc/tasks/20261002-dcc-public-browser/g62-build-local-output"
+    }
+  },
+  "rawLogs": [
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g62-native-completion-summary-red.log",
+      "bytes": 4989,
+      "sha256": "0e5763ba78881f64e2b6f91fb77dd6c153295adcf1063aa21814cf76b8d03b3b"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g62-native-completion-summary-final-frozen.log",
+      "bytes": 4005,
+      "sha256": "135c0db86af5b23c7f7a20e540128ca2dc0c31b1f9fdd4c7c4dff837ade08098"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g62-native-completion-summary-lint-frozen.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g62-final-types.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g62-final-build.log",
+      "bytes": 453,
+      "sha256": "84cc7d6ead1edf738f8c22ad2c1b927c3f0ef205e14ce4f57e22552127816db7"
+    }
+  ],
+  "exactContracts": [
+    "Formal nativeUP/REV originalfilekey+BPM; ACTIVE completed panel only; no new pending panel",
+    "Native completed oldversion evidence only actualOBSOLETE and successor=thisfile; MasterexecutionNo missing remains unrecorded",
+    "Explicit legacyapproval/external release text/evidence unchanged; unknownnotlegacy",
+    "No businessmutation/API/permission/history rewriting"
+  ],
+  "supersedes": "Only Parent completion presentation bytes; all prior seals retained, G58/G59 other assets unchanged",
+  "limitations": [
+    "Offline actualgetter/helper/template renderer and fulltypes/build not actualUIacceptance",
+    "Root runtime/UI/Git/cleanup remainsowner; localtaskbuildoutput not published",
+    "No Maven/API/UI/DB/Git/service by agent; sharedtaskin_progress"
+  ]
+}

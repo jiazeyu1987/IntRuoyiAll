@@ -3,6 +3,7 @@ package cn.iocoder.yudao.module.bpm.framework.flowable.core.behavior;
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.RandomUtil;
 import cn.iocoder.yudao.module.bpm.framework.flowable.core.candidate.BpmTaskCandidateInvoker;
+import cn.iocoder.yudao.module.bpm.framework.flowable.core.enums.BpmnVariableConstants;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import org.flowable.bpmn.model.UserTask;
@@ -19,6 +20,7 @@ import org.flowable.task.service.impl.persistence.entity.TaskEntity;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -49,6 +51,29 @@ public class BpmUserTaskActivityBehavior extends UserTaskActivityBehavior {
         if (assigneeUserId != null) {
             TaskHelper.changeTaskAssignee(task, String.valueOf(assigneeUserId));
         }
+        recordDccTaskObligationLocalVariables(task, execution);
+    }
+
+    @SuppressWarnings("unchecked")
+    void recordDccTaskObligationLocalVariables(TaskEntity task, DelegateExecution execution) {
+        Map<String, List<String>> obligationIdsByActivity = execution.getVariable(
+                BpmnVariableConstants.PROCESS_INSTANCE_VARIABLE_DCC_TASK_OBLIGATION_IDS, Map.class);
+        if (CollUtil.isEmpty(obligationIdsByActivity)) {
+            return;
+        }
+        List<String> obligationIds = obligationIdsByActivity.get(execution.getCurrentActivityId());
+        if (CollUtil.isEmpty(obligationIds)) {
+            return;
+        }
+        Integer loopCounter = execution.getVariableLocal("loopCounter", Integer.class);
+        if (loopCounter == null) {
+            loopCounter = execution.getVariable("loopCounter", Integer.class);
+        }
+        if (loopCounter == null || loopCounter < 0 || loopCounter >= obligationIds.size()) {
+            return;
+        }
+        task.setVariableLocal(BpmnVariableConstants.TASK_VARIABLE_DCC_OBLIGATION_ID, obligationIds.get(loopCounter));
+        task.setVariableLocal(BpmnVariableConstants.TASK_VARIABLE_DCC_OBLIGATION_INDEX, loopCounter);
     }
 
     private Long calculateTaskCandidateUsers(DelegateExecution execution) {

@@ -1,0 +1,27 @@
+# E2E-21 固定正文只读诊断与最小BDD
+
+200656新Jar SHA264efbd4已完成原4236→B1 4244正式换版及五位本人签名；B1真实UI受控生效，A1 4230已作废，工作稿4236已替代。换版修复真实GREEN。
+
+## 权限夹具缺口，暂不判作废状态缺陷
+
+READER从正式版本历史打开4230：URL携带精确VERSION_HISTORY/4230/A1，身份显示A1已作废，metadata自然GET HTTP200但UI报Current user cannot access，无canvas。原请求logger未保存query，所以不宣称metadata线上的context参数已核验。此前B1主管任务正文可搜索到B并排除A，画布686×970/非白1336，属于审批任务部分正例；缺相同账号当前正文对照，尚未整支PASS。
+
+同READER在当前B1日常列表浏览按钮disabled。CONFIG只读类别查看矩阵行明确“未配置查看矩阵规则”，有效权限预览为VIEW_MATRIX_NOT_CONFIGURED/空用户/阻塞；未新增任何规则。category VIEW动作权限与独立查看矩阵不是同一存储来源。
+
+直接代码：DccControlledFileQueryServiceImpl.canReadBinary约2973允许context先校验，DAILY/VERSION_HISTORY仍进入后续目录或当前查看矩阵资格；约3024-3035 retained body需要目录PREVIEW或canAccessCurrentViewMatrix，后者在DccControlledFileViewMatrixAccessService按独立规则解析，不是类别VIEW动作权限。DetailAuthorizationGuard.VERSION_HISTORY明确允许OBSOLETE；Requester READER在canSeeObsolete也已有豁免。因此当前证据更支持日常/历史正文权限夹具缺口，不能只归因OBSOLETE被误拒。
+
+Root决定前不补查看矩阵、不加OBSOLETE权限、不扩大角色/目录授权。最小夹具BDD：Given 原A/B以及本例授权READER，When Root明确批准后在独立查看矩阵形成精确本例READER资格并真实回读，再对当前B和原A VERSION_HISTORY分别打开，Then B命中B排除A、A命中A排除B，负例身份不获规则。此处仅设计，尚未取得/执行新授权。
+
+## 已办入口丢失精确历史上下文，独立候选缺陷
+
+HISTORY本人新context→审批中心已办→本例A1批准记录→查看，真实URL为/dcc/controlled-file/detail/2054545668044084230?viewer=1&from=approval-center，没有bodyReadContext/processInstanceId/taskId；页面只有返回/查看详情，未展示身份正文。原行文字及URL/自然请求保留JSON证据。未手拼URL补历史身份。
+
+静态定位：approval-center/index.vue resolveDccApprovalDetailLocation约930-956，TODO模块办理分支明确补processInstanceId/taskId，非办理分支仅加viewer/from，并依赖nextQuery；此次真实已办缺这些字段。详情readDccBodyReadContextRoute无context默认DAILY，不能代表APPROVAL_HISTORY。尚未分析完provider为何未给detailQuery，故不把责任唯一归到前端，不做修复。
+
+最小BDD/RED设计：Given 普通历史办理人真实已完成的A1任务和不同当前B1，When 从统一已办真实“查看”点击DCC记录，Then 正式路由应携带APPROVAL_HISTORY、精确fileId/expectedVersion/bpmRound/taskId/applicationType并供metadata/binary原样消费，页面展示固定A正文；不得默认DAILY、改当前B或用只读详情行替正文。Root可先在现有审批中心route/provider邻近测试补一个此记录的精确路由行为RED，再唯一分配修复入口/投影；未运行Maven、未改生产。
+
+## 原TASK对照边界
+
+只重放了早先真实待办生成的A主管task URL。该task和流程现已完成，UI“当前没有待处理审批任务”。Guard.APPROVAL_TASK按active round/live assignee要求拒绝符合现有契约；不能用已关闭任务重放当作有效待办正例，也不登记为第三个产品缺陷。后续TASK需要原范围下真实在途固定正文与当前版差异的有效任务夹具，Root决定后继续，不在本轮新建替代申请。
+
+三类权限拒绝尚未执行，全部标NOT_EXECUTED，不以以上授权正例失败当负例PASS。草稿已见仅草稿标签及状态，但完整正文切换仍未完成。所有context/browser/runner已关闭，无生产/权限/业务资产变更（本轮仅B1原链完成；之后诊断只读）。

@@ -1,0 +1,58 @@
+{
+  "status": "LD01_BACKEND_ROOT_PIN_AND_ACTUAL_FINAL_XML_REVIEW_PASS_NOT_REAL_UI",
+  "manifestSha256": "d72221905b803f3a36b4fa2b02a2f8408669abdb49e25938691d41b37894cf62",
+  "sourceAssets": 17,
+  "actualTests": 467,
+  "classes": 6,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0,
+  "classResults": [
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileMetadataUpdateServiceTest",
+      "tests": 19,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+      "tests": 240,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+      "tests": 168,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.projectcode.assignmentaudit.DccProjectCodeMetadataChangeAuditServiceImplTest",
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectProductLedgerTest",
+      "tests": 25,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.projectcode.G46ApprovedProductIdentityTest",
+      "tests": 13,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    }
+  ],
+  "inheritedTestsNotDistinctSum": true,
+  "only4NullableMigrationPrepared": true,
+  "actualDatabaseMigrationExecuted": false,
+  "actualPageCreateToUploadPass": false
+}

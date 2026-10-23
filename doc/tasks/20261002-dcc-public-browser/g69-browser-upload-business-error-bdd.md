@@ -1,0 +1,11 @@
+# G69 浏览检入上传优先正式业务错误
+
+Status: ready_for_closeout_for_Root_review。共享任务保持in_progress。Root4043原生WITHDRAWN已成功检出锁30，但CHECKIN/sourcepreview HTTP400；后端Owner修正式SOURCEcontext，本批不发status或放宽参数绕过。
+
+Given真实AxiosError有泛HTTPmessage且正式response.data.msg非空，When浏览页实际resolveBrowserErrorMessage和uploadCheckinSource catch运行，Then显示正式msg、上传状态failed/票据清空且onError执行，不模拟ready或onSuccess。Given没有有效msg，Then原Error/string/fallback保持。
+
+唯一生产browser/index.vue resolver。G64resolveNestedUploadErrorText是私有函数，现public readerror helper也只读Error，因此不修改冻结submitter的导出/业务mapping，而在本地用同最小formalmsg优先合同；不将检出/清理错误按NEW_UPLOAD编号规则误归。专属actualAxiosError+实际handlerRED→GREEN、最近checkin/display回归/lint，无API/类型接口变更不全types/build，G68r2Parent/G67notify/G64submitter原pin保持。Root独占实际UI/DB/服务/Git/Maven。
+
+有效RED2项均FAIL/exit1（red.log），真实AxiosError实例带业务payload，实际原resolver及实际uploadCheckinSource catch均返HTTP泛message，非宿主准备失败。唯一新增4行正式response.data.msg优先，原Error/string/fallback不变。最终3文件20项PASS、0fail/skip、exit0（final.log）；新增2实际error/helper+handler保证同file/category/SOURCE/CHECKIN/clientSession、无status/project伪字段、failed/ticket清空/onError/0Success，另18最近checkin/display回归不累加历史。单生产ESLint --max-warnings0实际exit0、无输出。
+
+本次不改任何API/interface/function签名，按Root明确不全types/build，不用G67旧构建当新browser检查。g69-browser-upload-business-error-fingerprints.json仅1生产/1test，新browserpin明确替代G58display同源历史pin，旧manifest保。G68Parentr2/G67notify/G64submitter全部raw保持。实际WITHDRAWN上传新正文票据和sameB1重提需Root新BE加载后正常页面复验，此处离线fixturemsg不作为真实400根因/通过证据。

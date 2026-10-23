@@ -1,0 +1,12 @@
+{
+  "scope": 0,
+  "evidence": 0,
+  "reservation": 0,
+  "globalSqlMode": "ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION",
+  "sessionSqlMode": "ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION",
+  "status": "ACTUAL_PRETOKEN_AUTH_FAILURE_OWNED_PROCESS_STOPPED",
+  "pid": 14296,
+  "qualityApprovalNotRequired": true,
+  "activationReceiptAbsent": true,
+  "databaseWritesPerformedByThisCheck": false
+}

@@ -1,0 +1,18 @@
+{
+  "status": "ROOT_ATTESTATION_TEMPLATE_NOT_FACT",
+  "database": "ruoyi-vue-pro",
+  "serverUuid": "92ca05d0-aec8-11f1-a944-02b4e226a5ef",
+  "allKnownWritersExcluded": false,
+  "attestedBy": "Root",
+  "exclusionReference": null,
+  "knownWriterRegistry": [
+    "task/main/parallel backend Java",
+    "frontend mutation sessions",
+    "Quartz/TenantJob/background jobs",
+    "Flowable async executors",
+    "message workers/integrations",
+    "direct DB clients",
+    "enabled MySQL events"
+  ],
+  "meaning": "Root must affirm actual exclusion/fence/quietness before collector; do not convert DBzero into allwritersExcluded automatically"
+}

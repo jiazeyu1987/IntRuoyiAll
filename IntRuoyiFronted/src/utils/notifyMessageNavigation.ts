@@ -1,7 +1,9 @@
 import type { Router } from 'vue-router'
 import { resolveActiveOrderHandoffTarget, navigateToActiveOrderHandoff } from '@/utils/activeOrderHandoffNavigation'
 import type { ActiveOrderHandoffTarget } from '@/utils/activeOrderHandoffNavigation'
+import { readDccDistributionNotification, dccDistributionReadLocation, type DccDistributionReadIdentity } from './dccDistributionNavigation'
 import type { NotifyMessageVO } from '@/api/system/notify/message'
+import { DCC_OFFLINE_TRAINING_RECORD, readOfflineTrainingManagementLocation, type OfflineTrainingRecordLocation } from './dccOfflineTrainingRecord'
 import {
   EDHR_WORK_TASK_NOTIFY_PATHS,
   navigateToEdhrWorkTask
@@ -12,6 +14,10 @@ export const BPM_PROCESS_DETAIL_PATH = '/bpm/process-instance/detail'
 export const DCC_CONTROLLED_FILE_DETAIL_PATH_PATTERN = /^\/dcc\/controlled-file\/detail\/(\d+)$/
 
 export const NOTIFY_MESSAGE_NAVIGATION_PARAM_KEYS = new Set([
+  'controlledFileId',
+  'distributionId',
+  'recipientId',
+  'approvalProcessInstanceId',
   'detailUrl',
   'actionUrl',
   'notifyTargetType',
@@ -24,10 +30,11 @@ export const NOTIFY_MESSAGE_NAVIGATION_PARAM_KEYS = new Set([
   'workTaskId',
   'followupUrl',
   'handoffTaskId',
-  'handoffType'
+  'handoffType',
+  'notifyProcessInstanceId'
 ])
 
-type NotifyMessageLike = Pick<NotifyMessageVO, 'templateParams'>
+type NotifyMessageLike = Pick<NotifyMessageVO, 'templateParams'> & Partial<Pick<NotifyMessageVO, 'templateCode'>>
 
 export type ShowroomProductNotifyTarget = {
   type: 'showroomProduct'
@@ -57,12 +64,35 @@ export type DccPublicationNotifyTarget = {
   targetId: string
 }
 
+export type DccProjectProductNotifyTarget = {
+  type: 'dccProjectProduct'
+  label: '查看项目及产品申请'
+  targetId: string
+  query: { requestId: string; requestOpen: 'records'; from: 'notification' }
+}
+export type DccOfflineTrainingNotifyTarget = {
+  type: 'dccOfflineTraining'
+  label: '上传线下培训记录'
+  location: OfflineTrainingRecordLocation
+}
+export type DccRelationRemediationNotifyTarget = {
+  type: 'dccRelationRemediation'
+  label: '查看来源受控申请'
+  targetId: string
+  relatedMasterId: string
+  dueAt: string
+}
+
 export type NotifyMessageTarget =
+  | (DccDistributionReadIdentity & { type: 'dccDistribution'; label: '查看下发文件并签收' })
   | ShowroomProductNotifyTarget
   | BpmApprovalNotifyTarget
   | EdhrWorkTaskNotifyTarget
   | DccPublicationNotifyTarget
   | ActiveOrderHandoffTarget
+  | DccProjectProductNotifyTarget
+  | DccOfflineTrainingNotifyTarget
+  | DccRelationRemediationNotifyTarget
 
 const normalizeTemplateParams = (value: unknown) => {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
@@ -184,6 +214,54 @@ const resolveDccPublicationTarget = (
   return { type: 'dccPublication', label: '查看发布文件', targetId: match[1] }
 }
 
+const resolveDccProjectProductTarget = (
+  templateParams: Record<string, unknown>
+): DccProjectProductNotifyTarget | null => {
+  if (templateParams.notifyTargetType !== 'DCC_PROJECT_PRODUCT_REQUEST'
+    || typeof templateParams.notifyTargetId !== 'string'
+    || !/^[1-9][0-9]*$/.test(templateParams.notifyTargetId)
+    || BigInt(templateParams.notifyTargetId) > 9223372036854775807n
+    || typeof templateParams.actionUrl !== 'string') return null
+  let url: URL
+  try { url = new URL(templateParams.actionUrl, window.location.origin) }
+  catch { return null }
+  const allowedKeys = new Set(['requestId', 'requestOpen', 'from'])
+  if (url.origin !== window.location.origin || url.pathname !== '/mdm/product-catalog'
+    || url.hash || url.username || url.password
+    || Array.from(url.searchParams.keys()).some(key => !allowedKeys.has(key))
+    || Array.from(allowedKeys).some(key => url.searchParams.getAll(key).length !== 1)
+    || url.searchParams.get('requestId') !== templateParams.notifyTargetId
+    || url.searchParams.get('requestOpen') !== 'records'
+    || url.searchParams.get('from') !== 'notification') return null
+  return {
+    type: 'dccProjectProduct', label: '查看项目及产品申请', targetId: templateParams.notifyTargetId,
+    query: { requestId: templateParams.notifyTargetId, requestOpen: 'records', from: 'notification' }
+  }
+}
+
+const resolveDccRelationRemediationTarget = (params: Record<string, unknown>): DccRelationRemediationNotifyTarget | null => {
+  const identity = (value: unknown): value is string => typeof value === 'string' && /^[1-9]\d*$/.test(value)
+    && BigInt(value) <= 9223372036854775807n
+  if (!identity(params.sourceControlledFileId) || !identity(params.relatedMasterId)
+    || typeof params.fileNumber !== 'string' || !params.fileNumber.trim()
+    || typeof params.versionNo !== 'string' || !params.versionNo.trim()
+    || typeof params.dueAt !== 'string' || typeof params.detailUrl !== 'string') return null
+  const dateParts = /^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})$/.exec(params.dueAt)
+  if (!dateParts) return null
+  const [year, month, day, hour, minute, second] = dateParts.slice(1).map(Number)
+  if (year < 1 || month < 1 || month > 12 || day < 1 || hour > 23 || minute > 59 || second > 59) return null
+  const date = new Date(0); date.setUTCFullYear(year, month - 1, day); date.setUTCHours(hour, minute, second, 0)
+  if (date.getUTCFullYear() !== year || date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day) return null
+  let url: URL
+  try { url = new URL(params.detailUrl, window.location.origin) } catch { return null }
+  if (url.origin !== window.location.origin || url.username || url.password || url.hash
+    || url.pathname !== `/dcc/controlled-file/detail/${params.sourceControlledFileId}`
+    || Array.from(url.searchParams.keys()).some(key => !['viewer', 'from'].includes(key))
+    || url.searchParams.getAll('viewer').length !== 1 || url.searchParams.get('viewer') !== '1'
+    || url.searchParams.getAll('from').length !== 1 || url.searchParams.get('from') !== 'notification') return null
+  return { type: 'dccRelationRemediation', label: '查看来源受控申请', targetId: params.sourceControlledFileId,
+    relatedMasterId: params.relatedMasterId, dueAt: params.dueAt }
+}
 export const getNotifyMessageTargets = (message?: NotifyMessageLike | null): NotifyMessageTarget[] => {
   const templateParams = normalizeTemplateParams(message?.templateParams)
   if (!templateParams) {
@@ -193,8 +271,38 @@ export const getNotifyMessageTargets = (message?: NotifyMessageLike | null): Not
     const target = resolveActiveOrderHandoffTarget(templateParams)
     return target ? [target] : []
   }
-  return [resolveDccPublicationTarget(templateParams), resolveShowroomProductTarget(templateParams), resolveBpmApprovalTarget(templateParams), resolveEdhrWorkTaskTarget(templateParams)].filter(
-    (target): target is NonNullable<typeof target> => Boolean(target)
+  if (message?.templateCode === 'dcc_distribution') {
+    try { return [{ ...readDccDistributionNotification(templateParams), type: 'dccDistribution', label: '查看下发文件并签收' }] }
+    catch { return [] }
+  }
+  if (message?.templateCode === 'dcc_relation_remediation') {
+    const target = resolveDccRelationRemediationTarget(templateParams)
+    return target ? [target] : []
+  }
+  if (templateParams.notifyTargetType === DCC_OFFLINE_TRAINING_RECORD) {
+    try {
+      const urls = [templateParams.detailUrl, templateParams.actionUrl]
+      if (urls.some(value => typeof value !== 'string')) return []
+      const locations = urls.map(value => {
+        const url = new URL(value as string, window.location.origin)
+        if (url.origin !== window.location.origin || url.hash || url.username || url.password
+          || Array.from(url.searchParams.keys()).some(key => url.searchParams.getAll(key).length !== 1)) throw new Error('培训通知入口无效')
+        return readOfflineTrainingManagementLocation(templateParams.notifyTargetId, templateParams.notifyProcessInstanceId, url.pathname, Object.fromEntries(url.searchParams))
+      })
+      if (JSON.stringify(locations[0]) !== JSON.stringify(locations[1])) return []
+      return [{ type: 'dccOfflineTraining', label: '上传线下培训记录', location: locations[0] }]
+    } catch { return [] }
+  }
+  if (templateParams.notifyTargetType === 'DCC_PROJECT_PRODUCT_REQUEST') {
+    const target = resolveDccProjectProductTarget(templateParams)
+    return target ? [target] : []
+  }
+  const targets: Array<NotifyMessageTarget | null> = [
+    resolveDccPublicationTarget(templateParams), resolveShowroomProductTarget(templateParams),
+    resolveBpmApprovalTarget(templateParams), resolveEdhrWorkTaskTarget(templateParams)
+  ]
+  return targets.filter(
+    (target): target is NotifyMessageTarget => Boolean(target)
   )
 }
 
@@ -213,6 +321,10 @@ export const navigateToNotifyMessageTarget = async (
   } = {}
 ) => {
   await options.beforeNavigate?.()
+  if (target.type === 'dccDistribution') {
+    await router.push(dccDistributionReadLocation(target))
+    return
+  }
   if (target.type === 'showroomProduct') {
     sessionStorage.setItem(
       SHOWROOM_NOTIFY_PRODUCT_TARGET_KEY,
@@ -251,12 +363,20 @@ export const navigateToNotifyMessageTarget = async (
     })
     return
   }
-  if (target.type === 'dccPublication') {
+  if (target.type === 'dccPublication' || target.type === 'dccRelationRemediation') {
     await router.push({
       name: 'DccControlledFileDetail',
       params: { id: target.targetId },
       query: { viewer: '1', from: 'notification' }
     })
+    return
+  }
+  if (target.type === 'dccProjectProduct') {
+    await router.push({ path: '/mdm/product-catalog', query: target.query })
+    return
+  }
+  if (target.type === 'dccOfflineTraining') {
+    await router.push(target.location)
     return
   }
   await router.push({

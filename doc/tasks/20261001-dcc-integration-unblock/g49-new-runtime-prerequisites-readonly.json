@@ -1,0 +1,11 @@
+{
+  "status": "FOUR_DIRECTION_NEW_RUNTIME_PREREQUISITES_READONLY_NOT_PRESENT",
+  "database": "ruoyi-vue-pro",
+  "newProductSourceFieldsPresent": 0,
+  "projectFolderStorageMappingTablePresent": 0,
+  "projectApplicationNotifyTemplatePresent": 0,
+  "databaseWrites": false,
+  "previousFourColumnQuestion": "PENDING_NO_ANSWER",
+  "newMappingAndNotifyExecution": "NOT_AUTHORIZED_NOT_EXECUTED",
+  "sourceDevelopmentContinues": true
+}

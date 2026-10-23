@@ -2,9 +2,12 @@ package cn.iocoder.yudao.module.mes.service.md.autocode.strategy.impl;
 
 import cn.hutool.core.date.DateUtil;
 import cn.hutool.core.util.StrUtil;
+import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
+import cn.iocoder.yudao.module.mes.enums.md.autocode.MesMdAutoCodeRuleCodeEnum;
 import cn.iocoder.yudao.module.mes.dal.dataobject.md.autocode.MesMdAutoCodeRecordDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.md.autocode.MesMdAutoCodePartDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.md.autocode.MesMdAutoCodeRecordMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.process.MesProProcessMapper;
 import cn.iocoder.yudao.module.mes.dal.redis.md.autocode.MesMdAutoCodeRedisDAO;
 import cn.iocoder.yudao.module.mes.enums.md.autocode.MesMdAutoCodeCycleMethodEnum;
 import cn.iocoder.yudao.module.mes.enums.md.autocode.MesMdAutoCodePartTypeEnum;
@@ -28,6 +31,8 @@ public class MesMdAutoCodeSerialNumberPartStrategy implements MesMdAutoCodePartS
     private MesMdAutoCodeRedisDAO redisDAO;
     @Resource
     private MesMdAutoCodeRecordMapper recordMapper;
+    @Resource
+    private MesProProcessMapper processMapper;
 
     @Override
     public Integer getType() {
@@ -98,10 +103,23 @@ public class MesMdAutoCodeSerialNumberPartStrategy implements MesMdAutoCodePartS
                 && MesMdAutoCodeCycleMethodEnum.INPUT_CHAR.getMethod().equals(part.getCycleMethod());
         MesMdAutoCodeRecordDO latestRecord = recordMapper.selectLatestSerialRecord(context.getRule().getId(),
                 filterByInputChar ? context.getInputChar() : null, filterByInputChar, cycleWindow[0], cycleWindow[1]);
-        if (latestRecord == null || latestRecord.getSerialNo() == null) {
-            return startNo.longValue();
+        long next = latestRecord == null || latestRecord.getSerialNo() == null
+                ? startNo.longValue() : Math.max(startNo.longValue(), Math.addExact(latestRecord.getSerialNo(), step));
+        if (MesMdAutoCodeRuleCodeEnum.PRO_ROUTE_CODE.getCode().equals(context.getRule().getCode())) {
+            Long highWatermark = recordMapper.selectRouteCodeHighWatermark(TenantContextHolder.getRequiredTenantId());
+            if (highWatermark == null) {
+                throw new IllegalStateException("工艺流程编码历史序号查询失败");
+            }
+            next = Math.max(next, Math.addExact(highWatermark, step));
         }
-        return Math.max(startNo.longValue(), latestRecord.getSerialNo() + step);
+        if (MesMdAutoCodeRuleCodeEnum.PRO_PROCESS_GX_CODE.getCode().equals(context.getRule().getCode())) {
+            Long highWatermark = processMapper.selectProcessCodeHighWatermark(TenantContextHolder.getRequiredTenantId());
+            if (highWatermark == null) {
+                throw new IllegalStateException("工序编码历史序号查询失败");
+            }
+            next = Math.max(next, Math.addExact(highWatermark, step));
+        }
+        return next;
     }
 
     private LocalDateTime[] resolveCycleWindow(MesMdAutoCodePartDO part, LocalDateTime now) {

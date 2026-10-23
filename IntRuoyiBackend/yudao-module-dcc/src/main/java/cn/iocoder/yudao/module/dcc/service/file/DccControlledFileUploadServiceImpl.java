@@ -49,6 +49,7 @@ import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.DCC_UPLOAD_SI
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.DCC_PROJECT_ACCESS_DENIED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.FILE_CATEGORY_LIFECYCLE_STAGE_INVALID;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.FILE_CATEGORY_NOT_EXISTS;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.PROJECT_FILE_TEMPLATE_SELECTION_INVALID;
 
 @Service
 public class DccControlledFileUploadServiceImpl implements DccControlledFileUploadService {
@@ -77,8 +78,14 @@ public class DccControlledFileUploadServiceImpl implements DccControlledFileUplo
     private DccControlledFileCategoryPermissionSupport permissionSupport;
     @Resource
     private BusinessFileAccessService businessFileAccessService;
+    @Resource
+    private DccControlledFileWorkflowService workflowService;
+    @Resource private DccControlledFileNameClaimService nameClaimService;
+    @Resource private DccControlledFileSourceOwnershipService sourceOwnershipService;
+    @Resource private DccPublicUploadPlacementService publicUploadPlacementService;
 
     @Override
+    @org.springframework.transaction.annotation.Transactional(rollbackFor=Exception.class)
     public DccControlledFileUploadRespVO uploadPreviewFile(Long userId, DccControlledFileUploadPreviewReqVO reqVO,
                                                            DccRequestAuditContext auditContext) throws Exception {
         MultipartFile file = null;
@@ -88,35 +95,80 @@ public class DccControlledFileUploadServiceImpl implements DccControlledFileUplo
             file = validatePreviewFile(reqVO);
             validatePreviewSession(reqVO.getSessionId());
             purpose = validatePreviewPurposeName(reqVO.getPurpose(), file.getOriginalFilename());
-            validatePreviewCategory(userId, reqVO.getCategoryId());
+            boolean approvalPdf = DccControlledFileUploadTypePolicy.PURPOSE_APPROVAL_PDF.equals(purpose);
+            String ticketSessionId = reqVO.getSessionId();
+            boolean trainingRecord=DccControlledFileUploadTypePolicy.PURPOSE_TRAINING_RECORD.equals(purpose);
+            validatePreviewCategory(userId, reqVO.getCategoryId(), !(approvalPdf || trainingRecord));
+            if(trainingRecord) workflowService.validateTrainingRecordUpload(userId,reqVO.getControlledFileId(),reqVO.getCategoryId(),ticketSessionId);
+            if (DccControlledFileUploadTypePolicy.PURPOSE_SOURCE.equals(purpose)
+                    || DccControlledFileUploadTypePolicy.PURPOSE_READ_ONLY_VIEW.equals(purpose)
+                    || DccControlledFileUploadTypePolicy.PURPOSE_EDITABLE_SOURCE.equals(purpose)
+                    || DccControlledFileUploadTypePolicy.PURPOSE_DRAWING_PDF.equals(purpose)
+                    || DccControlledFileUploadTypePolicy.PURPOSE_ATTACHMENT.equals(purpose)) {
+                if (StrUtil.isBlank(reqVO.getUploadContext())) {
+                    throw exception(PROJECT_FILE_TEMPLATE_SELECTION_INVALID);
+                }
+                workflowService.validateSourceUploadContext(userId, reqVO);
+                String prefix = switch (reqVO.getUploadContext()) {
+                    case "NEW_UPLOAD" -> DccSourceUploadSession.newUploadPrefix(reqVO.getDccProjectCodeId(),
+                            reqVO.getFileTypeTaxonomyId(), reqVO.getFileName());
+                    case "CHECKIN" -> {
+                        if (DccControlledFileUploadTypePolicy.PURPOSE_ATTACHMENT.equals(purpose)) {
+                            if (TenantContextHolder.isIgnore() || reqVO.getControlledFileId() == null
+                                    || reqVO.getControlledFileId() <= 0) {
+                                throw exception(PROJECT_FILE_TEMPLATE_SELECTION_INVALID);
+                            }
+                            // The existing workflow guard already verifies the exact tenant/category,
+                            // project authority and checkout actor. Retain the formal folder guard too.
+                            publicUploadPlacementService.lockSourceLocation(userId, reqVO.getControlledFileId());
+                        }
+                        yield DccSourceUploadSession.checkinPrefix(reqVO.getControlledFileId());
+                    }
+                    case "EXTERNAL_REVIEW" -> DccSourceUploadSession.externalPrefix();
+                    default -> throw exception(PROJECT_FILE_TEMPLATE_SELECTION_INVALID);
+                };
+                ticketSessionId = DccSourceUploadSession.scope(prefix, reqVO.getSessionId());
+            }
+            if (approvalPdf) {
+                workflowService.validateApprovalPdfUpload(userId, reqVO.getControlledFileId(), reqVO.getTaskId(),
+                        reqVO.getCategoryId(), reqVO.getSessionId());
+            }
             uploadSizePolicyService.validateUploadSize(reqVO.getCategoryId(),
                     purpose, file.getSize(), null);
             byte[] content = IoUtil.readBytes(file.getInputStream());
-            validatePreviewPurposeContent(purpose, file.getOriginalFilename(), content);
+            validatePreviewPurposeContent(purpose, file.getOriginalFilename(), file.getContentType(), content);
             String requestId = auditContext.requireRequestId("upload preview");
-            DccUploadTicketCreated uploadTicket = uploadTicketService.reuseActiveTicketOrReject(
-                    new DccUploadTicketPreflightCommand(userId, reqVO.getCategoryId(), reqVO.getSessionId(), purpose,
+            DccUploadTicketCreated uploadTicket = "NEW_UPLOAD".equals(reqVO.getUploadContext()) && "SOURCE".equals(purpose)
+                    ? nameClaimService.preflightNewSourceName(userId,reqVO.getCategoryId(),reqVO.getDccProjectCodeId(),reqVO.getFileTypeTaxonomyId(),
+                        file.getOriginalFilename(),ticketSessionId,cn.hutool.crypto.digest.DigestUtil.sha256Hex(content)) : null;
+            if(uploadTicket==null)uploadTicket = uploadTicketService.reuseActiveTicketOrReject(
+                    new DccUploadTicketPreflightCommand(userId, reqVO.getCategoryId(), ticketSessionId, purpose,
                             content));
             FileDO storedFile;
             if (uploadTicket == null) {
                 storedFile = storePreviewFile(content, file);
+                var cleaned=registerPreviewRollback(storedFile,content);
                 try {
                     uploadTicket = uploadTicketService.createTicket(new DccUploadTicketCreateCommand(
-                            userId, reqVO.getCategoryId(), reqVO.getSessionId(),
+                            userId, reqVO.getCategoryId(), ticketSessionId,
                             purpose, storedFile.getId(),
                             storedFile.getName(), file.getContentType(), file.getSize(), content, requestId));
                 } catch (Exception ex) {
-                    fileService.deleteFile(storedFile.getId());
+                    try {fileService.deleteFile(storedFile.getId());cleaned.set(true);}
+                    catch(Exception cleanupFailure){ex.addSuppressed(cleanupFailure);}
                     throw ex;
                 }
                 if (uploadTicket.storageFileId() != null
                         && !Objects.equals(uploadTicket.storageFileId(), storedFile.getId())) {
                     fileService.deleteFile(storedFile.getId());
+                    cleaned.set(true);
                     storedFile = requireStoredFile(uploadTicket.storageFileId());
                 }
             } else {
                 storedFile = requireStoredFile(uploadTicket.storageFileId());
             }
+            if(!Objects.equals(file.getOriginalFilename(),storedFile.getName()) || !Objects.equals(file.getOriginalFilename(),uploadTicket.fileName()))
+                throw exception(CONTROLLED_FILE_UPLOAD_SLOT_CONFLICT);
             DccControlledFileUploadRespVO respVO = buildUploadResponse(userId, requestId, uploadTicket, storedFile);
             uploadCompleted = true;
             recordUploadBoundary(userId, purpose, "SUCCESS", null, null, auditContext);
@@ -127,6 +179,23 @@ public class DccControlledFileUploadServiceImpl implements DccControlledFileUplo
             }
             throw ex;
         }
+    }
+
+    private java.util.concurrent.atomic.AtomicBoolean registerPreviewRollback(FileDO file,byte[] content) {
+        if(!org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive()
+                || !org.springframework.transaction.support.TransactionSynchronizationManager.isSynchronizationActive())
+            throw new IllegalStateException("temporary preview allocation requires its upload transaction");
+        var cleanup=sourceOwnershipService.rollbackCleanup(new DccControlledFilePreparedSource(file.getId(),file.getId(),
+                cn.hutool.crypto.digest.DigestUtil.sha256Hex(content),true));
+        var cleaned=new java.util.concurrent.atomic.AtomicBoolean(false);
+        org.springframework.transaction.support.TransactionSynchronizationManager.registerSynchronization(new org.springframework.transaction.support.TransactionSynchronization(){
+            @Override public void afterCompletion(int status){
+                if(status==STATUS_COMMITTED || cleaned.get())return;
+                if(status!=STATUS_ROLLED_BACK)throw new IllegalStateException("upload completion unknown; allocated bytes require reconciliation");
+                cleanup.run();cleaned.set(true);
+            }
+        });
+        return cleaned;
     }
 
     @Override
@@ -187,7 +256,14 @@ public class DccControlledFileUploadServiceImpl implements DccControlledFileUplo
         return normalizedPurpose;
     }
 
-    private void validatePreviewPurposeContent(String purpose, String fileName, byte[] content) {
+    private void validatePreviewPurposeContent(String purpose, String fileName, String contentType, byte[] content) {
+        if (DccControlledFileUploadTypePolicy.isSourcePurpose(purpose)
+                && (DccControlledFileUploadTypePolicy.isPngName(fileName) || DccControlledFileUploadTypePolicy.isTextName(fileName))) {
+            try { DccImageTextPdfConverter.validateSource(fileName, contentType, content); }
+            catch (java.io.IOException invalid) {
+                throw new ServiceException(CONTROLLED_FILE_SOURCE_FILE_TYPE_INVALID.getCode(), invalid.getMessage());
+            }
+        }
         if (DccControlledFileUploadTypePolicy.isSourcePurpose(purpose)
                 && DccControlledFileUploadTypePolicy.isPdfName(fileName)
                 && !DccControlledFileUploadTypePolicy.isRealPdfFile(fileName, content)) {
@@ -197,13 +273,14 @@ public class DccControlledFileUploadServiceImpl implements DccControlledFileUplo
                 && !DccControlledFileUploadTypePolicy.isRealPdfFile(fileName, content)) {
             throw exception(CONTROLLED_FILE_SOURCE_FILE_TYPE_INVALID);
         }
-        if (DccControlledFileUploadTypePolicy.isDrawingPdfPurpose(purpose)
+        if ((DccControlledFileUploadTypePolicy.isDrawingPdfPurpose(purpose)
+                || DccControlledFileUploadTypePolicy.PURPOSE_APPROVAL_PDF.equals(purpose))
                 && !DccControlledFileUploadTypePolicy.isRealPdfFile(fileName, content)) {
             throw exception(CONTROLLED_FILE_DRAWING_PDF_FILE_INVALID);
         }
     }
 
-    private void validatePreviewCategory(Long userId, Long categoryId) {
+    private void validatePreviewCategory(Long userId, Long categoryId, boolean requireUploadPermission) {
         DccFileCategoryDO category = categoryId == null ? null : categoryMapper.selectById(categoryId);
         if (category == null) {
             throw exception(FILE_CATEGORY_NOT_EXISTS);
@@ -215,9 +292,9 @@ public class DccControlledFileUploadServiceImpl implements DccControlledFileUplo
         if (!DccFileCategoryLifecycleStageEnum.isValid(lifecycleStage)) {
             throw exception(FILE_CATEGORY_LIFECYCLE_STAGE_INVALID, lifecycleStage);
         }
-        if (!permissionSupport.hasCategoryPermission(categoryId, userId,
+        if (requireUploadPermission && !permissionSupport.hasCategoryPermission(categoryId, userId,
                 DccFileCategoryPermissionActionEnum.UPLOAD)) {
-            throw exception(DCC_PROJECT_ACCESS_DENIED);
+            throw new ServiceException(DCC_PROJECT_ACCESS_DENIED.getCode(), "当前用户没有该文件类别的上传权限");
         }
     }
 

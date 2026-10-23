@@ -1,0 +1,11 @@
+{
+  "status": "G56_R02_OFFICIAL_RELATION_AVAILABILITY_SOURCE_ROOT_PIN_PASS",
+  "manifestSha256": "b77f0bf1e59dba86c0fe3cba5a17d47abd4955895574ff05ed1bcfd1e07c4fcf",
+  "field": "hasCurrentControlledSource",
+  "sourceFiles": 2,
+  "declaredTests": 39,
+  "actualUi": "PENDING_NEW_PACKAGE",
+  "actualTests": 39,
+  "actualClasses": 3,
+  "actualXmlAndHashesVerified": true
+}

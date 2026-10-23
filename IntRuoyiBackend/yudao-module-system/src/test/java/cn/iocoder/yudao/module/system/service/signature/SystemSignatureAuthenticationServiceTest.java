@@ -2,6 +2,8 @@ package cn.iocoder.yudao.module.system.service.signature;
 
 import cn.iocoder.yudao.framework.security.core.LoginUser;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
+import cn.iocoder.yudao.module.infra.api.config.ConfigApi;
+import cn.iocoder.yudao.module.infra.enums.config.PasswordMaxAgeConfig;
 import cn.iocoder.yudao.module.system.api.signature.dto.AuthenticatedSigner;
 import cn.iocoder.yudao.module.system.api.signature.dto.SignatureAuthenticationRequest;
 import cn.iocoder.yudao.module.system.dal.dataobject.signature.SignatureAuthenticationEventDO;
@@ -35,11 +37,13 @@ class SystemSignatureAuthenticationServiceTest {
     private final AdminUserMapper users = mock(AdminUserMapper.class);
     private final SignatureAuthenticationEventMapper events = mock(SignatureAuthenticationEventMapper.class);
     private final PasswordEncoder encoder = mock(PasswordEncoder.class);
+    private final ConfigApi configApi = mock(ConfigApi.class);
     private final SystemSignatureAuthenticationService service = new SystemSignatureAuthenticationService(
-            users, events, encoder, Clock.fixed(NOW, ZoneOffset.UTC));
+            users, events, encoder, Clock.fixed(NOW, ZoneOffset.UTC), configApi);
     private AdminUserDO user;
 
     @BeforeEach void identity() {
+        when(configApi.getConfigValueByKey(PasswordMaxAgeConfig.KEY)).thenReturn("90");
         TenantContextHolder.setTenantId(7L);
         LoginUser operator = new LoginUser(); operator.setId(12L);
         SecurityContextHolder.getContext().setAuthentication(
@@ -103,6 +107,16 @@ class SystemSignatureAuthenticationServiceTest {
         user.setLifecycleEffectiveTime(LOCAL);
         assertEquals("IDENTITY_DISABLED", service.authenticate(request()).rejectionCode());
         verifyNoInteractions(encoder);
+    }
+    @Test void configurationChangeAppliesToAuthenticationAndSigningRevalidation() {
+        user.setPasswordUpdateTime(LOCAL.minusDays(100));
+        when(configApi.getConfigValueByKey(PasswordMaxAgeConfig.KEY)).thenReturn("180");
+        when(encoder.matches("typed-password", "stored-hash")).thenReturn(true);
+        assertTrue(service.authenticate(request()).succeeded());
+        when(configApi.getConfigValueByKey(PasswordMaxAgeConfig.KEY)).thenReturn("30");
+        assertEquals("CREDENTIAL_EXPIRED", service.authenticate(request()).rejectionCode());
+        assertEquals("CREDENTIAL_EXPIRED", assertThrows(IllegalStateException.class,
+                () -> service.lockAndRevalidate(signer(), NOW)).getMessage());
     }
     @Test void auditWriteFailureCannotReturnAnAuthenticatedSigner() {
         when(encoder.matches(anyString(), anyString())).thenReturn(true);

@@ -27,7 +27,7 @@ for (const [name, block] of [
 ]) {
   assert.match(
     block,
-    /if\s*\(\s*viewerMode\.value\s*\)\s*\{/,
+    /if\s*\(\s*viewerMode\.value\s*(?:\|\|\s*![^)]+)?\)\s*\{/,
     `${name} must return before loading management-only data in controlled-file viewer mode.`
   )
 }
@@ -45,7 +45,7 @@ assert.match(
 
 assert.match(
   reloadAll,
-  /await\s+loadData\(\)[\s\S]*await\s+loadDccSignatureEvidenceList\(\)[\s\S]*await\s+loadApprovalDetail\(\)/,
+  /await\s+loadData\([^)]*\)[\s\S]*await\s+loadDccSignatureEvidenceList\(\)[\s\S]*await\s+loadApprovalDetail\([^)]*\)/,
   'reloadAll must keep the established load sequence; individual loaders own viewer-mode permission gating.'
 )
 

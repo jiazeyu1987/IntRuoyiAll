@@ -1,0 +1,43 @@
+{
+  "status": "ACTUAL_FINAL_TIMELINE_RELATED_TEST_PASS",
+  "cliExitCode": 0,
+  "finishedAt": "2026-10-05T02:07:41+08:00",
+  "tests": 43,
+  "classes": 2,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0,
+  "reports": [
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectApplicationNotificationTest",
+      "tests": 16,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g49-timeline-junit-archive/TEST-cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectApplicationNotificationTest.xml",
+      "bytes": 99249,
+      "sha256": "8758478e887cc3db82a7d8a4f232d534ed5c8b78a686e463e9167dfc2fd35e59"
+    },
+    {
+      "class": "cn.iocoder.yudao.module.dcc.approval.DccApprovalTaskAdapterTest",
+      "tests": 27,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g49-timeline-junit-archive/TEST-cn.iocoder.yudao.module.dcc.approval.DccApprovalTaskAdapterTest.xml",
+      "bytes": 97760,
+      "sha256": "811f6bed3b3ad364410b9e810b09c4d2358e25535c01654446d4da452ad1403a"
+    }
+  ],
+  "log": {
+    "path": "doc/tasks/20261002-dcc-public-backend-completion/g49-timeline-final-regression.log",
+    "bytes": 63463,
+    "sha256": "1b613cb5b753f69f566366cb21666d7e99255b48d7751f8a7b7b65b20b61a722"
+  },
+  "previousBroadReceipt": "g49-backend-verification-receipt.json",
+  "previousBroadTests": 102,
+  "notAdditive": true,
+  "onlyPostBroadSourceChange": "native timeline action/actionLabel now use persisted stage result, historical states already isolated",
+  "actualMySql": 0,
+  "actualBrowser": 0
+}

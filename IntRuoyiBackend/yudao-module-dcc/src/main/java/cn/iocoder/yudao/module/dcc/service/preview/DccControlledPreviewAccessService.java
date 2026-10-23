@@ -1,6 +1,7 @@
 package cn.iocoder.yudao.module.dcc.service.preview;
 
 import cn.hutool.core.util.StrUtil;
+import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.protection.DccControlledFileAccessEventDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.protection.DccControlledFileWatermarkTraceDO;
@@ -11,6 +12,7 @@ import cn.iocoder.yudao.module.dcc.service.audit.DccWatermarkTraceCreateCommand;
 import cn.iocoder.yudao.module.dcc.service.token.DccIssuedViewerToken;
 import cn.iocoder.yudao.module.dcc.service.token.DccViewerTokenIssueCommand;
 import cn.iocoder.yudao.module.dcc.service.token.DccViewerTokenService;
+import cn.iocoder.yudao.module.dcc.service.token.DccPreviewSourceIdentity;
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,11 +20,13 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.time.temporal.ChronoUnit;
 import java.time.format.DateTimeFormatter;
 import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
+import java.util.Objects;
 
 @Service
 public class DccControlledPreviewAccessService {
@@ -40,14 +44,48 @@ public class DccControlledPreviewAccessService {
 
     @Transactional(rollbackFor = Exception.class)
     public DccPreviewAccessResult prepareAccess(DccPreviewAccessRequest request) {
+        return prepareAccessInternal(request, null);
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public DccPreviewAccessResult prepareSourceBoundAccess(DccPreviewAccessRequest request, DccPreviewSourceIdentity source) {
+        Objects.requireNonNull(source, "preview source identity");
+        if (request == null || !"PREVIEW".equals(request.accessType()))
+            throw new IllegalArgumentException("Source-bound access is only valid for preview");
+        return prepareAccessInternal(request, source);
+    }
+
+    private DccPreviewAccessResult prepareAccessInternal(DccPreviewAccessRequest request, DccPreviewSourceIdentity source) {
         requireRequest(request);
         LocalDateTime issuedAt = LocalDateTime.ofInstant(clock.instant(), ZoneOffset.UTC);
+        // The existing PREVIEW event column is DATETIME(0); persist and expose this same UTC second.
+        if ("PREVIEW".equals(StrUtil.trim(request.accessType()))) issuedAt = issuedAt.truncatedTo(ChronoUnit.SECONDS);
         LocalDateTime expiresAt = issuedAt.plusSeconds(request.ttlSeconds());
         String accessEventCode = newCode("AE");
         DccControlledFileAccessEventDO accessEvent = accessAuditService.createAccessEvent(
                 new DccAccessEventCreateCommand(accessEventCode, request.fileId(), request.versionId(),
                         request.userId(), request.accessType(), request.purpose(), RESULT_SUCCESS,
-                        null, null, request.sourceIp(), request.userAgent(), request.requestId(), issuedAt));
+                        null, null, request.sourceIp(), request.userAgent(), request.requestId(), issuedAt,
+                        request.processInstanceId()));
+        if (request.processInstanceId() != null && (accessEvent == null
+                || !Objects.equals(request.processInstanceId(), accessEvent.getProcessInstanceId())
+                || !Objects.equals(request.tenantId(), accessEvent.getTenantId()))) {
+            throw new IllegalStateException("The issuing approval round was not persisted");
+        }
+        if ("PREVIEW".equals(StrUtil.trim(request.accessType())) && (accessEvent == null
+                || accessEvent.getId() == null || accessEvent.getId() <= 0
+                || !Objects.equals(accessEvent.getTenantId(), request.tenantId())
+                || !Objects.equals(accessEvent.getAccessEventCode(), accessEventCode)
+                || !Objects.equals(accessEvent.getControlledFileId(), request.fileId())
+                || !Objects.equals(accessEvent.getFileVersionNo(), StrUtil.trim(request.versionId()))
+                || !Objects.equals(accessEvent.getUserId(), request.userId())
+                || !Objects.equals(accessEvent.getProcessInstanceId(), request.processInstanceId())
+                || !Objects.equals(accessEvent.getAccessType(), "PREVIEW")
+                || !Objects.equals(accessEvent.getPurpose(), StrUtil.trim(request.purpose()))
+                || !Objects.equals(accessEvent.getResult(), RESULT_SUCCESS)
+                || !Objects.equals(accessEvent.getOccurredAt(), issuedAt))) {
+            throw new IllegalStateException("The PREVIEW event identity and registration time were not persisted");
+        }
 
         String watermarkTraceCode = newCode("WM");
         String watermarkPayloadJson = JsonUtils.toJsonString(watermarkPayload(request, accessEventCode,
@@ -63,9 +101,11 @@ public class DccControlledPreviewAccessService {
                 request.purpose(), RESULT_SUCCESS, null, null, request.sourceIp(), request.requestId(),
                 request.userAgent()));
 
-        DccIssuedViewerToken issuedToken = viewerTokenService.issue(new DccViewerTokenIssueCommand(
+        var command = new DccViewerTokenIssueCommand(
                 request.tenantId(), request.userId(), request.fileId(), request.versionId(), accessEvent.getId(),
-                request.purpose(), request.ttlSeconds()));
+                request.purpose(), request.ttlSeconds());
+        DccIssuedViewerToken issuedToken = source == null ? viewerTokenService.issue(command)
+                : viewerTokenService.issueSourceBound(command, source);
         return new DccPreviewAccessResult(accessEvent.getId(), accessEventCode, watermarkTrace.getId(),
                 watermarkTraceCode, issuedToken.token(), issuedToken.payload().getTokenId(),
                 issuedToken.payload().getNonce(), issuedAt, expiresAt, watermarkPayloadJson);
@@ -106,6 +146,18 @@ public class DccControlledPreviewAccessService {
         requireNotBlank(request.purpose(), "purpose");
         requirePositive(request.ttlSeconds(), "ttlSeconds");
         requireNotBlank(request.privacyMode(), "privacyMode");
+        if ("PREVIEW".equals(StrUtil.trim(request.accessType()))
+                && !Objects.equals(request.tenantId(), TenantContextHolder.getRequiredTenantId())) {
+            throw new IllegalArgumentException("The PREVIEW request tenant does not match the current tenant");
+        }
+        if (request.processInstanceId() != null) {
+            String round = request.processInstanceId();
+            if (round.isBlank() || !round.equals(round.strip()) || round.length() > 128
+                    || round.chars().anyMatch(value -> value < 33 || value > 126)
+                    || !Objects.equals(request.tenantId(), TenantContextHolder.getRequiredTenantId())) {
+                throw new IllegalArgumentException("Exact preview round and tenant identity are invalid");
+            }
+        }
     }
 
     private void requirePositive(Long value, String fieldName) {

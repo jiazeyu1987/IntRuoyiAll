@@ -1,6 +1,4 @@
-import type {
-  ControlledFileApprovalRoutePreviewVO
-} from '@/api/dcc/controlledFile/approvalRoutes'
+import type { ControlledFileApprovalRoutePreviewVO } from '@/api/dcc/controlledFile/approvalRoutes'
 import type {
   ControlledFileCategoryApprovalMatrixVO,
   ControlledFileCategoryReviewMatrixRuleVO,
@@ -28,17 +26,18 @@ export interface CategoryDepartmentRuleDraft {
   active: boolean
 }
 
-type ReviewMatrixDraftSubjectType = 'USER' | 'DEPT' | 'ROLE' | 'POST' | 'DCC_POSITION'
+type ReviewMatrixDraftSubjectType = ControlledFileCategoryReviewMatrixSubjectType
 
 export interface ReviewMatrixRuleDraft {
   stageType: 'SIGNOFF' | 'APPROVAL'
   active: boolean
   subjectLabel?: string
-  marker: '▲'
+  marker?: string
   subjectType?: ReviewMatrixDraftSubjectType
   subjectId?: number
   subjectName?: string
   subjectDepartmentPath?: string
+  remark?: string
 }
 
 export interface ApprovalMatrixDraft {
@@ -88,33 +87,35 @@ const normalizeText = (value?: string) => {
 const normalizeReviewMatrixSubjectType = (
   subjectType?: ControlledFileCategoryReviewMatrixSubjectType
 ): ReviewMatrixDraftSubjectType | undefined => {
-  const normalized = subjectType?.trim().toUpperCase()
-  if (normalized === 'POSITION' || normalized === 'DCC_POSITION') {
-    return 'DCC_POSITION'
-  }
+  if (subjectType === undefined) return undefined
   if (
-    normalized === 'USER' ||
-    normalized === 'DEPT' ||
-    normalized === 'ROLE' ||
-    normalized === 'POST'
+    !['USER', 'DEPT', 'ROLE', 'POST', 'POSITION', 'DCC_POSITION', 'UNMAPPED_EXCEL'].includes(
+      subjectType
+    )
   ) {
-    return normalized
+    throw new Error('审批矩阵主体类型无效，请核对正式配置')
   }
-  return undefined
+  return subjectType
 }
 
 const normalizeReviewMatrixRule = (
   rule?: Partial<ControlledFileCategoryReviewMatrixRuleVO>
-): ReviewMatrixRuleDraft => ({
-  stageType: rule?.stageType === 'APPROVAL' ? 'APPROVAL' : 'SIGNOFF',
-  active: rule?.active ?? true,
-  subjectLabel: normalizeText(rule?.subjectLabel),
-  marker: '▲',
-  subjectType: normalizeReviewMatrixSubjectType(rule?.subjectType),
-  subjectId: rule?.subjectId,
-  subjectName: normalizeText(rule?.subjectName),
-  subjectDepartmentPath: normalizeText(rule?.subjectDepartmentPath)
-})
+): ReviewMatrixRuleDraft => {
+  if (!rule || !['SIGNOFF', 'APPROVAL'].includes(rule.stageType || '')) {
+    throw new Error('审批矩阵阶段无效，请核对正式配置')
+  }
+  return {
+    stageType: rule.stageType!,
+    active: rule?.active ?? true,
+    subjectLabel: normalizeText(rule?.subjectLabel),
+    marker: rule.marker,
+    subjectType: normalizeReviewMatrixSubjectType(rule?.subjectType),
+    subjectId: rule?.subjectId,
+    subjectName: normalizeText(rule?.subjectName),
+    subjectDepartmentPath: normalizeText(rule?.subjectDepartmentPath),
+    remark: rule.remark
+  }
+}
 
 export const createPermissionRuleDraft = (
   overrides: Partial<CategoryPermissionRuleDraft> = {}
@@ -162,18 +163,19 @@ export const buildDepartmentRulePayload = (drafts: ReadonlyArray<CategoryDepartm
   }))
 }
 
-const buildApprovalMatrixPayload = (draft: ApprovalMatrixDraft) => ({
+export const buildApprovalMatrixPayload = (draft: ApprovalMatrixDraft) => ({
   effectiveTime: draft.effectiveTime,
   remark: draft.remark.trim() || undefined,
   rules: draft.rules.map((rule) => ({
     stageType: rule.stageType,
     active: rule.active,
     subjectLabel: normalizeText(rule.subjectLabel),
-    marker: '▲' as const,
+    marker: rule.marker,
     subjectType: rule.subjectType,
     subjectId: rule.subjectId,
     subjectName: normalizeText(rule.subjectName),
-    subjectDepartmentPath: normalizeText(rule.subjectDepartmentPath)
+    subjectDepartmentPath: normalizeText(rule.subjectDepartmentPath),
+    remark: rule.remark
   }))
 })
 
@@ -189,7 +191,10 @@ export const createGovernanceService = (deps: GovernanceServiceDeps) => {
       category: Pick<ControlledFileCategoryVO, 'id'>,
       draft: ApprovalMatrixDraft
     ) {
-      await deps.saveCategoryApprovalMatrix(category.id as number, buildApprovalMatrixPayload(draft))
+      await deps.saveCategoryApprovalMatrix(
+        category.id as number,
+        buildApprovalMatrixPayload(draft)
+      )
       return await deps.previewApprovalRoute({ categoryId: category.id as number })
     },
     async saveDistributionRules(

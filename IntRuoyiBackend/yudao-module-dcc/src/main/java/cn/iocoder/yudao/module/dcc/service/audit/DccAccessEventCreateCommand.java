@@ -14,5 +14,12 @@ public record DccAccessEventCreateCommand(String accessEventCode,
                                           String sourceIp,
                                           String userAgent,
                                           String requestId,
-                                          LocalDateTime occurredAt) {
+                                          LocalDateTime occurredAt,
+                                          String processInstanceId) {
+    public DccAccessEventCreateCommand(String accessEventCode,Long fileId,String versionId,Long userId,
+            String accessType,String purpose,String result,String failureCode,String failureReason,
+            String sourceIp,String userAgent,String requestId,LocalDateTime occurredAt) {
+        this(accessEventCode,fileId,versionId,userId,accessType,purpose,result,failureCode,failureReason,
+                sourceIp,userAgent,requestId,occurredAt,null);
+    }
 }

@@ -10,6 +10,7 @@ import cn.iocoder.yudao.framework.tenant.core.aop.TenantIgnoreAspect;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.framework.tenant.core.db.TenantDatabaseInterceptor;
 import cn.iocoder.yudao.module.infra.api.config.ConfigApi;
+import cn.iocoder.yudao.module.infra.enums.config.PasswordMaxAgeConfig;
 import cn.iocoder.yudao.module.system.controller.admin.user.vo.profile.UserProfileUpdatePasswordReqVO;
 import cn.iocoder.yudao.module.system.dal.dataobject.dept.UserPostDO;
 import cn.iocoder.yudao.module.system.dal.dataobject.oauth2.OAuth2AccessTokenDO;
@@ -136,6 +137,7 @@ public class OAuth2PasswordSessionTransactionTest extends BaseDbUnitTest {
 
     @BeforeEach
     void prepareBoundaries() {
+        when(configApi.getConfigValueByKey(PasswordMaxAgeConfig.KEY)).thenReturn("90");
         jdbc = new JdbcTemplate(dataSource);
         TenantContextHolder.setTenantId(TENANT);
         TenantContextHolder.setIgnore(false);
@@ -479,6 +481,21 @@ public class OAuth2PasswordSessionTransactionTest extends BaseDbUnitTest {
                 () -> tokenService.createPasswordAccessToken(snapshot, "client-a", List.of("read"))).getCode());
         assertEquals(3, userMapper.selectById(USER).getLoginFailureCount());
         assertNoTargetTokens();
+    }
+
+    @Test
+    void changedPasswordWindowIsReadBeforeTokenIssuance() {
+        seedUserAndRelations();
+        userMapper.updateById(new AdminUserDO().setId(USER)
+                .setPasswordUpdateTime(LocalDateTime.now().minusDays(100)));
+        AdminPasswordAuthenticationSnapshot snapshot = AdminPasswordAuthenticationSnapshot.from(userMapper.selectById(USER));
+        when(configApi.getConfigValueByKey(PasswordMaxAgeConfig.KEY)).thenReturn("30");
+        assertEquals(401, assertThrows(ServiceException.class,
+                () -> tokenService.createPasswordAccessToken(snapshot, "client-a", List.of("read"))).getCode());
+        assertNoTargetTokens();
+        when(configApi.getConfigValueByKey(PasswordMaxAgeConfig.KEY)).thenReturn("180");
+        AdminSessionToken issued = tokenService.createPasswordAccessToken(snapshot, "client-a", List.of("read"));
+        assertNotNull(accessMapper.selectByAccessToken(issued.getAccessToken().getAccessToken()));
     }
 
     @Test

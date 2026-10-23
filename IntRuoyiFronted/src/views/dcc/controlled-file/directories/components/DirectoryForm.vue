@@ -141,6 +141,33 @@ const submitForm = async () => {
   if (!valid) {
     return
   }
+  const byId = new Map()
+  const pending = [...directoryOptions.value]
+  while (pending.length) {
+    const directory = pending.shift()!
+    if (byId.has(directory.id)) {
+      message.error('目录数据重复或存在循环，请刷新并修正目录关系。')
+      return
+    }
+    byId.set(directory.id, directory)
+    pending.push(...(directory.children || []))
+  }
+  const visited = new Set()
+  if (formData.value.id) visited.add(formData.value.id)
+  let parentId = formData.value.parentId
+  while (parentId) {
+    if (visited.has(parentId)) {
+      message.error('上级目录不能是自身或下级目录，目录关系不能循环。')
+      return
+    }
+    visited.add(parentId)
+    const parent = byId.get(parentId)
+    if (!parent) {
+      message.error('上级目录已失效，请刷新后重新选择。')
+      return
+    }
+    parentId = parent.parentId
+  }
   formLoading.value = true
   try {
     if (formType.value === 'create') {

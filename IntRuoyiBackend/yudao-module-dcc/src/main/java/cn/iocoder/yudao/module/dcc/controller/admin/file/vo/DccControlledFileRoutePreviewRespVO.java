@@ -12,10 +12,13 @@ public class DccControlledFileRoutePreviewRespVO {
     private String stageName;
     private Integer stageOrder;
     private String candidateSourceType;
+    @com.fasterxml.jackson.annotation.JsonFormat(shape=com.fasterxml.jackson.annotation.JsonFormat.Shape.STRING)
     private Long candidateSourceId;
+    @com.fasterxml.jackson.databind.annotation.JsonSerialize(contentUsing=com.fasterxml.jackson.databind.ser.std.ToStringSerializer.class)
     private List<Long> candidateSourceIds;
     private String approveMethod;
     private Integer approveRatio;
     private Boolean requireAllApprovals;
+    @com.fasterxml.jackson.databind.annotation.JsonSerialize(contentUsing=com.fasterxml.jackson.databind.ser.std.ToStringSerializer.class)
     private List<Long> resolvedUserIds;
 }

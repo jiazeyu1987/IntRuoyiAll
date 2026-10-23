@@ -1,0 +1,43 @@
+{
+  "status": "G39_FINAL_SOURCE_AND_PACKAGE_ACCEPTED_QUALITY_NOT_APPROVED",
+  "ownerTests": 154,
+  "conditionalGateTests": 30,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0,
+  "packageExit": 0,
+  "jar": {
+    "path": "C:\\IntRuoyi\\20261001-dcc-integration\\IntRuoyiBackend\\yudao-server\\target\\yudao-server-exec.jar",
+    "sha256": "844c3a21f0a37d614f0687763f59d27f7489c3dde3893abadd8424e32250c4a9",
+    "bytes": 507324409
+  },
+  "nestedDccSha256": "1772f1652090c540c59a9b812baeab280c1f19f9076c96a42e94c19a88ed2744",
+  "currentCompiledProductionClasses": [
+    {
+      "class": "cn/iocoder/yudao/module/dcc/service/file/DccLegacyMaintenanceGate.class",
+      "sha256": "31dca69754d3b74415e37921bc8acafe1ced8ec350c99897e68bd64625b27864"
+    },
+    {
+      "class": "cn/iocoder/yudao/module/dcc/service/projectcode/access/DccProjectAccessService.class",
+      "sha256": "77dac58a06b51e1c26e368dc3ae55b695106f791f7de3f3fb176b07ac637a5be"
+    },
+    {
+      "class": "cn/iocoder/yudao/module/dcc/service/projectcode/access/DccProjectAccessServiceImpl.class",
+      "sha256": "55ca0aa37790ec14b8bc712a6880e9319ed990c73938a0dc6b28686636ce54b8"
+    },
+    {
+      "class": "cn/iocoder/yudao/module/dcc/service/projectcode/productcreate/DccProjectProductCreateWriteService.class",
+      "sha256": "581485e05919190a9153b3cf068fd10d0ca032677a0607ba6da6972667a1d064"
+    },
+    {
+      "class": "cn/iocoder/yudao/module/dcc/service/projectcode/productcreate/DccProjectProductAuditService.class",
+      "sha256": "4c5bf8b34ed0c108d4119afe134b70cc9e25faa7b1c3686e534c877c944dee15"
+    }
+  ],
+  "conditionalManifestSha256": "2879850b2d9d580f0d3ffdee5ab6ca6f9745b39a79a44c33c1b1fced9ac8b9b9",
+  "qualityApproved": false,
+  "auditRulesEnabled": false,
+  "legacyRegistrationExecuted": false,
+  "realUiAcceptance": false,
+  "localIntQmsMerged": false
+}

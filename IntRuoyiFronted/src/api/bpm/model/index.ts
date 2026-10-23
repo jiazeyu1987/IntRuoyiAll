@@ -74,6 +74,9 @@ export const getModelList = async (name: string | undefined) => {
 export const getModel = async (id: string) => {
   return await request.get({ url: '/bpm/model/get?id=' + id })
 }
+export const claimModelManager = async (id: string, reason: string) => {
+  return await request.post({ url: '/bpm/model/claim-manager', data: { id, reason } })
+}
 
 export const updateModel = async (data: ModelUpdateReqVO) => {
   return await request.put({ url: '/bpm/model/update', data: data })

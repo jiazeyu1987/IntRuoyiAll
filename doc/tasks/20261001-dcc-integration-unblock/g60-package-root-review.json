@@ -1,0 +1,92 @@
+{
+  "status": "FINAL_G60_PENDING_OBSOLETE_G59_JDBC_TYPED_NATIVE_SHARED_PACKAGE_PASS",
+  "exitCode": 0,
+  "packageSession": 9844,
+  "jarSha256": "4383357e77195ae707976374fa801416577bde1cb7feea638513e6d9c652dab2",
+  "sourceCommit": "1f81bae4b63a765edfdeca79e3e08a5995974ba1",
+  "sourcePins": 26,
+  "classes": [
+    {
+      "module": "system",
+      "class": "cn/iocoder/yudao/module/system/dal/mysql/controlledcontent/ControlledContentVersionRefMapper.class",
+      "sha256": "db9ad21eb7a624dccc4288981146dfa64dc84923e21f063a231625f06e126a8a"
+    },
+    {
+      "module": "system",
+      "class": "cn/iocoder/yudao/module/system/enums/controlledcontent/ControlledContentCanonicalStatus.class",
+      "sha256": "8237bd287cc9d3aeb2762bb87c61022bc9392e55b6a82282a821218d515e618b"
+    },
+    {
+      "module": "system",
+      "class": "cn/iocoder/yudao/module/system/enums/controlledcontent/ControlledContentTransitionAction.class",
+      "sha256": "7c6086b4232f1e3ab2dd5da05f35fb44fc58a63e6871c54245d6eef9e31a5a1a"
+    },
+    {
+      "module": "system",
+      "class": "cn/iocoder/yudao/module/system/service/controlledcontent/ControlledContentLifecycleCoreService.class",
+      "sha256": "4b4b1cd1d150e225c91fdfcb85a7d6e6428eb540b63553a3bca1847213c18abb"
+    },
+    {
+      "module": "system",
+      "class": "cn/iocoder/yudao/module/system/service/controlledcontent/ControlledContentStateMachine.class",
+      "sha256": "982c54d2d25b6819f566d6c8001c922a237bc968c794ab1494d730bf429bb3b5"
+    },
+    {
+      "module": "system",
+      "class": "cn/iocoder/yudao/module/system/service/controlledcontent/ControlledContentStateMachine$TransitionRule.class",
+      "sha256": "a33d906c7c1e61c198bc72c36e9989dd0bf2b6774c789f048e62f3f59529c410"
+    },
+    {
+      "module": "system",
+      "class": "cn/iocoder/yudao/module/system/service/controlledcontent/ControlledContentTransitionProfile.class",
+      "sha256": "de1103ce86e83669e1d40c71f1e9621f411dd31a8759668bc3e0410d4e8c4f88"
+    },
+    {
+      "module": "dcc",
+      "class": "cn/iocoder/yudao/module/dcc/controller/admin/file/DccLifecycleProjectionRepairController.class",
+      "sha256": "9792dfc82170dfb8186f2b84523c5ea80b3be522faaaa8718b7d713822bddb8c"
+    },
+    {
+      "module": "dcc",
+      "class": "cn/iocoder/yudao/module/dcc/controller/admin/file/vo/DccLifecycleProjectionRepairPreviewRespVO.class",
+      "sha256": "ffe3a4485318a041b069ff925ee5216eff0997de0d98834fb525f24b4d48ad68"
+    },
+    {
+      "module": "dcc",
+      "class": "cn/iocoder/yudao/module/dcc/controller/admin/file/vo/DccLifecycleProjectionRepairReqVO.class",
+      "sha256": "5d28c446f46b73b05d3e2cd99673a09f647542bb02f91a4015bfedac815ce5a1"
+    },
+    {
+      "module": "dcc",
+      "class": "cn/iocoder/yudao/module/dcc/controller/admin/file/vo/DccLifecycleProjectionRepairRespVO.class",
+      "sha256": "340ece08e3fca7eb2639ca86af1353581309fd411092073153888aaaf2aa1d2a"
+    },
+    {
+      "module": "dcc",
+      "class": "cn/iocoder/yudao/module/dcc/service/file/DccControlledContentAdapter.class",
+      "sha256": "de5b2185bd55130d1c8239f2885bf1abd4c80bffb9ac99db686e1a1a55aa0111"
+    },
+    {
+      "module": "dcc",
+      "class": "cn/iocoder/yudao/module/dcc/service/file/DccControlledFileLifecycleService.class",
+      "sha256": "7d7e5d7bec1c169f53b5a90be0678f83418712c04e777e207570b309673b1b84"
+    },
+    {
+      "module": "dcc",
+      "class": "cn/iocoder/yudao/module/dcc/service/file/DccLifecycleProjectionRepairService.class",
+      "sha256": "fb0bb202d648af92927c197a7649de319399ee5c9c454a0f37cbc09ceabd1203"
+    },
+    {
+      "module": "dcc",
+      "class": "cn/iocoder/yudao/module/dcc/service/file/DccLifecycleProjectionRepairService$Proof.class",
+      "sha256": "89516ff340122c4c2cce1f72e4f5c70287f46ead91f1181736187cc291bbfe71"
+    },
+    {
+      "module": "dcc",
+      "class": "cn/iocoder/yudao/module/dcc/service/file/DccControlledFileObsoleteServiceImpl.class",
+      "sha256": "c14748424c9ce8afc143af2fc07bc9e2516beba1b30929b7ac0447586681381d"
+    }
+  ],
+  "backendStopped": "OWNED23896 exactstopped",
+  "actualUI": "continuing training and obsolete"
+}

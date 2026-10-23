@@ -1,0 +1,41 @@
+{
+  "status": "G39_SELECTED_LEADER_INITIAL_OWNER_FROZEN_FOR_ROOT_REVIEW",
+  "assets": [
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/projectcode/access/DccProjectAccessService.java",
+      "bytes": 1407,
+      "sha256": "2298d18acdcc7fd688c60e8b4ec7b6d3e3ff837000f8af67bc3923202c4c32f3"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/projectcode/access/DccProjectAccessServiceImpl.java",
+      "bytes": 14701,
+      "sha256": "db1c822c7242b8c91ddba1aadbd42d26ac5747e0db1f23d3192c4c678aa95192"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/projectcode/productcreate/DccProjectProductCreateWriteService.java",
+      "bytes": 10132,
+      "sha256": "ede03e01218342d39c79255cd78d28a441f50a40a41d87ed8f48dfb731faa879"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/projectcode/productcreate/DccProjectProductAuditService.java",
+      "bytes": 5704,
+      "sha256": "b1a9b73970e444b7226d41d58da2729fd11f304ab5df86c2483e416dd9f42f44"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/projectcode/DccApprovedProjectLeaderOwnerTest.java",
+      "bytes": 10528,
+      "sha256": "8fd2fe52eb777c0b6924098765be79f16ea8f7553a746ed19e457912ec64cde9"
+    }
+  ],
+  "productionFiles": 4,
+  "testFiles": 1,
+  "schemaChanged": false,
+  "actualDatabaseWrites": false,
+  "servicesStarted": false,
+  "MavenPackage": false,
+  "userAuthorizationReceipt": {
+    "path": "C:/IntRuoyiAll-int_main/doc/tasks/20261001-dcc-integration-unblock/g39-user-authorization.json",
+    "bytes": 1992,
+    "sha256": "af6010ed49c3103b0df9b072584ba2741f1e0872d32e632e2e94f5667621305e"
+  }
+}

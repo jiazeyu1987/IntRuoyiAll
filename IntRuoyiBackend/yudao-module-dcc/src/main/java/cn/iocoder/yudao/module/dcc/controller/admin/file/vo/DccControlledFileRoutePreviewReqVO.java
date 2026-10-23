@@ -1,6 +1,7 @@
 package cn.iocoder.yudao.module.dcc.controller.admin.file.vo;
 
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
 import lombok.Data;
 
 import java.util.List;
@@ -10,6 +11,25 @@ public class DccControlledFileRoutePreviewReqVO {
 
     @NotNull(message = "categoryId is required")
     private Long categoryId;
+    private cn.iocoder.yudao.module.dcc.service.file.DccApplicationCustomMatrix applicationCustomMatrix;
+    private String expectedApplicationCustomMatrixDigest;
+    private String applicationCustomMatrixToken;
+    private String applicationCustomMatrixPhase;
+
+    private String actionType;
 
     private List<Long> selectedSignoffUserIds;
+
+    private List<@NotNull @Positive Long> selectedSignoffDepartmentIds;
+    private Long controlledFileId;
+    private Long dccProjectCodeId;
+    private String applicationContextKey;
+    private String approvalMatrixBaselineToken;
+    private Long expectedApprovalRouteId;
+    private Integer expectedApprovalRouteVersionNo;
+    private String expectedApprovalMatrixDigest;
+    private String executionContract;
+    private String expectedProcessDefinitionId;
+    private String expectedDefinitionDigest;
+    private Boolean prepareNewActionBaseline;
 }

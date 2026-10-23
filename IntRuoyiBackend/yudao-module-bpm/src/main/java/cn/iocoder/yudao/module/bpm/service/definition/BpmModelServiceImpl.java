@@ -27,10 +27,12 @@ import lombok.extern.slf4j.Slf4j;
 import org.flowable.bpmn.model.*;
 import org.flowable.common.engine.impl.db.SuspensionState;
 import org.flowable.engine.HistoryService;
+import org.flowable.engine.ManagementService;
 import org.flowable.engine.RepositoryService;
 import org.flowable.engine.RuntimeService;
 import org.flowable.engine.TaskService;
 import org.flowable.engine.history.HistoricProcessInstance;
+import org.flowable.engine.impl.util.CommandContextUtil;
 import org.flowable.engine.repository.Model;
 import org.flowable.engine.repository.ModelQuery;
 import org.flowable.engine.repository.ProcessDefinition;
@@ -61,6 +63,8 @@ public class BpmModelServiceImpl implements BpmModelService {
 
     @Resource
     private RepositoryService repositoryService;
+    @Resource
+    private ManagementService managementService;
     @Resource
     private BpmProcessDefinitionService processDefinitionService;
     @Resource
@@ -378,11 +382,33 @@ public class BpmModelServiceImpl implements BpmModelService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void updateModelBpmnXml(String id, String bpmnXml) {
         if (StrUtil.isEmpty(bpmnXml)) {
             return;
         }
-        repositoryService.addModelEditorSource(id, StrUtil.utf8Bytes(bpmnXml));
+        byte[] source = StrUtil.utf8Bytes(bpmnXml);
+        managementService.executeCommand(commandContext -> {
+            var models = CommandContextUtil.getModelEntityManager(commandContext);
+            var model = models.findById(id);
+            if (model == null) {
+                throw exception(MODEL_NOT_EXISTS);
+            }
+            if (model.getEditorSourceValueId() != null) {
+                var currentSource = CommandContextUtil.getByteArrayEntityManager(commandContext)
+                        .findById(model.getEditorSourceValueId());
+                if (currentSource == null) {
+                    throw new IllegalStateException("BPM_MODEL_EDITOR_SOURCE_MISSING");
+                }
+                if (currentSource.getDeploymentId() != null) {
+                    // Legacy seeds may alias an immutable deployed resource. Preserve it and
+                    // let Flowable create an independent source in this same command transaction.
+                    model.setEditorSourceValueId(null);
+                }
+            }
+            models.insertEditorSourceForModel(id, source);
+            return null;
+        });
     }
 
     @SuppressWarnings("JavaExistingMethodCanBeUsed")

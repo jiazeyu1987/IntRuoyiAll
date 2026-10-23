@@ -1,0 +1,17 @@
+{
+  "status": "SPECIFIC_USER_DDL_AUTHORIZATION_RECEIVED",
+  "userAnswerReceived": true,
+  "sourceQuestionId": "call_mc2WuQaway0pBN7yucRpSVS9:1",
+  "sourceMessageReference": "send_user_message_question_reply:call_mc2WuQaway0pBN7yucRpSVS9:item1",
+  "actualAnswer": "授权按方案执行（建议）",
+  "migrationId": "20261003_dcc_legacy_source_name_occupancy",
+  "migrationSha256": "621fe041064ac07c5bfe995abd556c3f9436b0253c883a3b7d2b33014e68de2a",
+  "allowedDatabases": ["dcc_intqms_g18_rehearsal", "ruoyi-vue-pro"],
+  "newLedgerMaximum": 1,
+  "preserveHistoricalRows": true,
+  "allowLegacyActivation": false,
+  "allowObjectRecovery": false,
+  "allowAuditPolicyConfiguration": false,
+  "isolatedFirstRepeatBeforeSource": true,
+  "reference": "g39-user-authorization.json"
+}

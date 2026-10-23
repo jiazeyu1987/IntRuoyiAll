@@ -1,0 +1,48 @@
+{
+  "manager_thread": "01a0eb90-0723-72b3-a6ca-7a22dab040ab",
+  "creation_method": "ordinary thread/start through installed codex app-server stdio",
+  "stage": "external runner stopped; desktop-native thread creation required",
+  "threads": [
+    {
+      "module": "A",
+      "id": "01a0f255-3ecd-7fe2-b2e5-ec5ebf36b349",
+      "name": "DCC-A 审批与生命周期",
+      "task_book": "docs/dcc-parallel-delivery/task-a-workflow.md",
+      "source": "vscode",
+      "cwd": "C:\\IntRuoyiAll-int_main",
+      "dispatch_status": "external_execution_stopped",
+      "turn_id": "01a0f266-5e45-7791-ae15-8173d094a90a"
+    },
+    {
+      "module": "B",
+      "id": "01a0f255-433e-7c51-9b27-d3e49f3c2904",
+      "name": "DCC-B 项目属性与基础配置",
+      "task_book": "docs/dcc-parallel-delivery/task-b-project.md",
+      "source": "vscode",
+      "cwd": "C:\\IntRuoyiAll-int_main",
+      "dispatch_status": "external_execution_stopped",
+      "turn_id": "01a0f266-5e52-72b2-ac56-67ed2b4e0092"
+    },
+    {
+      "module": "C",
+      "id": "01a0f255-47b3-7462-a6ef-af03b5960b1a",
+      "name": "DCC-C 版本与名称编号",
+      "task_book": "docs/dcc-parallel-delivery/task-c-version.md",
+      "source": "vscode",
+      "cwd": "C:\\IntRuoyiAll-int_main",
+      "dispatch_status": "external_execution_stopped",
+      "turn_id": "01a0f266-5e65-7ea1-9925-ad8a59e35906"
+    },
+    {
+      "module": "D",
+      "id": "01a0f255-4c43-7c71-b18f-c393b0add24f",
+      "name": "DCC-D 关联与引用",
+      "task_book": "docs/dcc-parallel-delivery/task-d-relations.md",
+      "source": "vscode",
+      "cwd": "C:\\IntRuoyiAll-int_main",
+      "dispatch_status": "external_execution_stopped",
+      "turn_id": "01a0f266-5e76-71f1-9956-a66294030953"
+    }
+  ],
+  "stop_reason": "User reports threads opened in another application; CLI execution rejected as desktop workflow"
+}

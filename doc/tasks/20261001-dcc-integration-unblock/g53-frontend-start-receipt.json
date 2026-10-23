@@ -1,0 +1,14 @@
+{
+  "status": "OWNED_MAIN_QMS_RUNTIME_STARTING",
+  "mode": "frontend",
+  "launcherPid": 50712,
+  "repository": "C:/IntRuoyiAll-int_main",
+  "branch": "int_qms",
+  "slot": 0,
+  "port": 8061,
+  "output": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/frontend",
+  "database": "ruoyi-vue-pro",
+  "credentialsPersisted": false,
+  "backgroundJobsEnabled": false,
+  "realBusinessAcceptance": false
+}

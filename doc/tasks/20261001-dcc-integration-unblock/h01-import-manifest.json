@@ -1,0 +1,71 @@
+{
+  "source": "C:\\IntRuoyi\\20260930-dcc-a",
+  "target": "C:\\IntRuoyi\\20261001-dcc-integration",
+  "base": "a801dc8b91579241e221d129ab34343997673f40",
+  "files": [
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccWorkflowFileStateAudit.java",
+      "sha256": "a3d9dccb44055861fd272e4b254cd5f516fafcd24d16c9aa8890a9efe56970c9",
+      "before_sha256": null,
+      "source_sha256": "a3d9dccb44055861fd272e4b254cd5f516fafcd24d16c9aa8890a9efe56970c9",
+      "mode": "frozen-A-delivery"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileLifecycleService.java",
+      "sha256": "e0c41315c098a04c746950086849a9f67ab26640155df4a2dc620b64e34f9334",
+      "before_sha256": "5eb32ec837fd5a1ba7459f67cebd3bab0f438dc99eabe8f313f6a367448bfb82",
+      "source_sha256": "e0c41315c098a04c746950086849a9f67ab26640155df4a2dc620b64e34f9334",
+      "mode": "frozen-A-delivery"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileObsoleteServiceImpl.java",
+      "sha256": "47cf4689be50cea2fc421794ca7b066f14ccf6f8854431f0fb22ec1a2fe6af86",
+      "before_sha256": "f53e0637fd5c9488c4b20f8f038920a94274fcef87509a87e7fe64f40ca90b86",
+      "source_sha256": "47cf4689be50cea2fc421794ca7b066f14ccf6f8854431f0fb22ec1a2fe6af86",
+      "mode": "frozen-A-delivery"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccWorkflowControlledRemediationIntegrationTest.java",
+      "sha256": "cbf200a70be39a97ca7ff27b8f49035523a53262d78850e0f2c705c6130470ed",
+      "before_sha256": "7f1b2df00de2ddb6b58326d5305ea961d5f143f7946fdb847b4ae85919be0d28",
+      "source_sha256": "cbf200a70be39a97ca7ff27b8f49035523a53262d78850e0f2c705c6130470ed",
+      "mode": "frozen-A-delivery"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccWorkflowObsoleteTransactionTest.java",
+      "sha256": "e7aa8a90d609c37fd813f098cb028fbf087636afad6d85e6dcc88b3b6e470c1c",
+      "before_sha256": "6c6d30b7577c19b4218b131292019c5e2bb2a8b7f8b8b30c361705b7bb8cd1b7",
+      "source_sha256": "e7aa8a90d609c37fd813f098cb028fbf087636afad6d85e6dcc88b3b6e470c1c",
+      "mode": "frozen-A-delivery"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccRelationControlledEventIntegrationTest.java",
+      "sha256": "d029843a0fc6af9a58be1a0caccbf21cdabfd84dec2d5089fa95a89bbd2d605c",
+      "before_sha256": "fd2e8ef3864b9c967c6c237d2497a86ba594763a092d3968f863384dc5ca5105",
+      "source_sha256": "04b38b65d506b6f19099f30d78a56a017c031a8bb24649a6ee61d90b4a6c953a",
+      "mode": "retain-D-shared-tests-add-A-audit-wiring"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccWorkflowLifecycleTransactionTest.java",
+      "sha256": "bf9a748ba02a0b5d4f2885a4dcdfeb65fb786a79ebacf043883d538ecef589a4",
+      "before_sha256": "fc6b292960ff30dd2186060c240ce91bf711b0cce3b84130605668049cb9e8d5",
+      "source_sha256": "bf9a748ba02a0b5d4f2885a4dcdfeb65fb786a79ebacf043883d538ecef589a4",
+      "mode": "frozen-A-delivery"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileFinalizationServiceImplTest.java",
+      "sha256": "9e548ec529565e237a6fda3b46ca66fda6ec9f5cd2841ced14fb040b47a17c16",
+      "before_sha256": "9a52892968c7a0370a2967273681f9ab181561d160dd15803431cc5f179724a1",
+      "source_sha256": "9e548ec529565e237a6fda3b46ca66fda6ec9f5cd2841ced14fb040b47a17c16",
+      "mode": "frozen-A-delivery"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileObsoleteServiceTest.java",
+      "sha256": "21407978a8f43c13a0865a7e99fa2a6b2450de476bc4f0050f7b9af75b86afa1",
+      "before_sha256": "a427823e157efa40f4a2b5087a84826e7c50647d65c578c348d6808b225a5baf",
+      "source_sha256": "21407978a8f43c13a0865a7e99fa2a6b2450de476bc4f0050f7b9af75b86afa1",
+      "mode": "frozen-A-delivery"
+    }
+  ],
+  "workers_written": false
+}

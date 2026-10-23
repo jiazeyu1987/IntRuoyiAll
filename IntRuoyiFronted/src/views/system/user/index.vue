@@ -85,6 +85,7 @@
               data-user-table-column-explicit
               data-user-table-key="system.user.main"
               :data="list"
+              row-key="id"
               border
               :allow-drag-last-column="true"
               :row-class-name="getUserRowClassName"
@@ -318,6 +319,15 @@
                     </div>
                     <div class="system-user-row-actions__row">
                       <el-button
+                        type="primary"
+                        link
+                        :disabled="scope.row.status !== CommonStatusEnum.ENABLE"
+                        @click="directSupervisorRef?.open(scope.row.id)"
+                        v-hasPermi="['system:user:update']"
+                      >
+                        设置直属主管
+                      </el-button>
+                      <el-button
                         type="danger"
                         link
                         :disabled="Boolean(scope.row.lifecycleDeactivatedTime)"
@@ -348,6 +358,7 @@
   <UserAssignRoleForm ref="assignRoleFormRef" @success="getList" />
   <!-- 离职/转岗联动停用 -->
   <UserLifecycleDeactivateForm ref="lifecycleDeactivateFormRef" @success="refreshAfterLifecycleChange" />
+  <UserDirectSupervisorDialog ref="directSupervisorRef" />
 </template>
 <script lang="ts" setup>
 import { DICT_TYPE, getIntDictOptions } from '@/utils/dict'
@@ -373,6 +384,7 @@ import UserImportForm from './UserImportForm.vue'
 import UserDingTalkImportForm from './UserDingTalkImportForm.vue'
 import UserAssignRoleForm from './UserAssignRoleForm.vue'
 import UserLifecycleDeactivateForm from './UserLifecycleDeactivateForm.vue'
+import UserDirectSupervisorDialog from './UserDirectSupervisorDialog.vue'
 import DeptTreeSelect from '@/views/system/dept/components/DeptTreeSelect.vue'
 import { isSystemPasswordStrong, SYSTEM_PASSWORD_MESSAGE } from './systemPasswordPolicy'
 import {
@@ -467,7 +479,6 @@ const queryParams = reactive({
   createTime: [] as string[]
 })
 
-const shouldPrioritizeDeptLeaders = computed(() => queryParams.deptId !== undefined)
 const selectedDeptId = computed(() => queryParams.deptId)
 const selectedDeptName = computed(() =>
   selectedDeptId.value === undefined ? '' : (deptNameById.value.get(selectedDeptId.value) ?? '')
@@ -508,18 +519,22 @@ const getUserRowClassName = ({ row }: { row: UserTableRow }) =>
   row.id === highlightedUserId.value ? 'system-user-table__row--target' : ''
 
 /** 查询列表 */
+let listRequestId = 0
 const getList = async () => {
+  const requestId = ++listRequestId
+  const params = { ...queryParams }
   loading.value = true
   try {
-    const data = await UserApi.getUserPage(queryParams)
+    const data = await UserApi.getUserPage(params)
+    if (requestId !== listRequestId) return
     const pageList = data.list as UserApi.UserListVO[]
-    const orderedList = shouldPrioritizeDeptLeaders.value
-      ? sortUsersByDeptLeader(pageList, deptLeaderByDeptId.value, queryParams.deptId)
+    const orderedList = params.deptId !== undefined
+      ? sortUsersByDeptLeader(pageList, deptLeaderByDeptId.value, params.deptId)
       : pageList
     list.value = buildUserTableRows(orderedList)
     total.value = data.total
   } finally {
-    loading.value = false
+    if (requestId === listRequestId) loading.value = false
   }
 }
 
@@ -752,6 +767,7 @@ const handleUnlock = async (row: UserApi.UserVO) => {
 
 /** 分配角色 */
 const assignRoleFormRef = ref()
+const directSupervisorRef = ref<InstanceType<typeof UserDirectSupervisorDialog>>()
 const handleRole = (row: UserApi.UserVO) => {
   assignRoleFormRef.value.open(row)
 }

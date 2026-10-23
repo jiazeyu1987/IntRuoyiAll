@@ -29,8 +29,12 @@ assertContains(
   'DCC obsolete dialog must reuse the existing form-center ActionFormPanel.'
 )
 assertContains(
-  "actionCode: 'OBSOLETE'",
-  'DCC obsolete form-center context must submit the OBSOLETE action.'
+  "const DCC_OBSOLETE_ACTION_CODE = 'OBSOLETE'",
+  'DCC obsolete form-center flow must define the OBSOLETE action code constant.'
+)
+assertContains(
+  'actionCode: DCC_OBSOLETE_ACTION_CODE',
+  'DCC obsolete form-center context must submit the OBSOLETE action through its constant.'
 )
 assertContains(
   "objectType: 'CONTROLLED_FILE'",

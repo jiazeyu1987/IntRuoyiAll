@@ -1,0 +1,20 @@
+{
+  "status": "ACTUAL_CURRENT_ACCOUNT_READONLY_DIAGNOSTIC",
+  "currentUserEnabled": true,
+  "currentTenantMatches": true,
+  "currentUsernameNonblank": true,
+  "currentNicknameNonblank": true,
+  "checkedInfoKeys": [
+    "deptId",
+    "nickname"
+  ],
+  "currentUsernameMatchesCache": false,
+  "currentNicknameMatchesCache": true,
+  "legacyCounts": {
+    "scope": 0,
+    "evidence": 0,
+    "reservation": 0
+  },
+  "secretValuesPrinted": false,
+  "databaseWrites": false
+}

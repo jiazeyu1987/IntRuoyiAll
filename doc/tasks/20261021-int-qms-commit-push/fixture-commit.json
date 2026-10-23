@@ -1,0 +1,8 @@
+{
+  "commit": "4afe2d852a823bebf653877e72cf4cc7f67c64e2",
+  "files": [
+    "IntRuoyiFronted/tests/unit/dcc-detail-authority-late-response.test.cjs",
+    "IntRuoyiFronted/tests/unit/dcc-detail-route-read.test.cjs",
+    "IntRuoyiFronted/tests/unit/dcc-detail-integration.test.cjs"
+  ]
+}

@@ -1,0 +1,80 @@
+{
+  "status": "G64_UPLOAD_HTTP_BUSINESS_MESSAGE_FROZEN_FOR_ROOT_REVIEW",
+  "productionFiles": 1,
+  "testFiles": 1,
+  "assets": [
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/upload/submitter.ts",
+      "bytes": 19344,
+      "sha256": "2eaf8e633f9f773c45b4c05c593b9c0184eeb3cb2aa1a942e967695255877288"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-upload-http-business-error.test.cjs",
+      "bytes": 2304,
+      "sha256": "c08609ccfe973dd8225d25e60bfc3b5dfa5c2d87793579b4c9690db137b50219"
+    }
+  ],
+  "documents": [
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g64-upload-http-business-error-bdd.md",
+      "bytes": 1961,
+      "sha256": "1662b020d1856feccf7b21e2d8d25664717d587037415e60e79897f03b088c4d"
+    }
+  ],
+  "protectedParentStage": {
+    "path": "doc/tasks/20261002-dcc-public-browser/g63-approval-center-signoff-entry-fingerprints.json",
+    "bytes": 4707,
+    "sha256": "a05324dd57aba3226626b948df015e22c4eefd1c838a4467f7a0c582f7a99ee3"
+  },
+  "verification": {
+    "effectiveRED": {
+      "tests": 3,
+      "pass": 1,
+      "failures": 2,
+      "exitCode": 1
+    },
+    "finalRegression": {
+      "files": 3,
+      "tests": 15,
+      "pass": 15,
+      "failures": 0,
+      "skipped": 0,
+      "exitCode": 0,
+      "overlap": "3new+4actualattributes+8filetypeexisting,notadditive"
+    },
+    "ownedLint": {
+      "files": 1,
+      "warnings": 0,
+      "exitCode": 0
+    }
+  },
+  "rawLogs": [
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g64-upload-http-business-error-red.log",
+      "bytes": 2604,
+      "sha256": "4b112c1215bb9cc35b7d660f92f73103333d088065dec9c67811befa4433ca9b"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g64-upload-http-business-error-final.log",
+      "bytes": 1731,
+      "sha256": "b2feb1981a0ee6eaf2803cbc2db1d62c82f4e09bcf13e8bd484ac3043c9182ab"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g64-upload-http-business-error-lint.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "exactContract": [
+    "Formal response.data nonemptymsg priority before generic AxiosError.message",
+    "Missingmsg retains actual originalError; existingothernested/knownstorageformat rules unchanged",
+    "No HTTP400->nameconflict fabricatedmapping or parameter/namechange"
+  ],
+  "supersedes": "Only submitter error-message helper bytes and newownedtest; all Parent/current otherstage assets preserved,oldsealsretained",
+  "limitations": [
+    "Actual AxiosError/module tests with explicitofflinebodyfixture,not realresponseJSON/API/UIevidence",
+    "Root actual natural upload error diagnosis/business nameclaim acceptance pending",
+    "No fulltypes/build performed newhelper; priorchecks not claimed current",
+    "No globalaxios/backend/parameters/filetype/name/roles/DB/UI/Git/services/Maven by agent;sharedtaskin_progress"
+  ]
+}

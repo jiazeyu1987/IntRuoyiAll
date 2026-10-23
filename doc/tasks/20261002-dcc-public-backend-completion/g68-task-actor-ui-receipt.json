@@ -1,0 +1,418 @@
+{
+  "status": "PASS_REAL_UI_CONFIG_SAVED_REOPENED_SCOPE_ONLY",
+  "actor": "tenant1 芋道源码/admin",
+  "frontend": "http://127.0.0.1:8061",
+  "backendPort": 48061,
+  "rootRuntime": {
+    "ownedJavaPid": 5760,
+    "jarSha256": "becee2d85e2f039e6b30a9558a3dab79bf6138614f3c3db9564fd82b45494524",
+    "packageReceipt": "doc/tasks/20261001-dcc-integration-unblock/g68-package-root-review.json",
+    "startReceipt": "doc/tasks/20261001-dcc-integration-unblock/g56-backend-start-receipt-r15.json"
+  },
+  "project": {
+    "id": "271",
+    "code": "G53-P-20261005",
+    "existingUserOwner1Preserved": true,
+    "user910328Change": "EDIT→OWNER",
+    "visibleOwnerRows": 2,
+    "sourceSteps": [
+      "007.json",
+      "012.json",
+      "013.json",
+      "014.json"
+    ],
+    "scope": "only exactproject accessrule form, projectleader field untouched; rootreadOnly verifies1"
+  },
+  "department": {
+    "id": "910335",
+    "name": "G67独立文控会签验收",
+    "beforeParent": "100芋道源码",
+    "savedParent": "瑛泰医疗",
+    "rootReadOnlyParentId": "124",
+    "leader1Preserved": true,
+    "nameStatusSortPreserved": true,
+    "sourceSteps": [
+      "032.json",
+      "038.json"
+    ],
+    "naturalWriteStatus": "not recorded by limitedDCCresponsefilter; no assertedHTTPcode, actualsave+reopenDOMandRootreadonly corroboration"
+  },
+  "matrix": {
+    "categoryId": "908710",
+    "code": "DCC_FVM_DHF_002",
+    "beforeRows": 2,
+    "afterRows": 3,
+    "oldSemanticRules": [
+      "新品开发部 ▲ DEPT",
+      "QMS ● DEPT"
+    ],
+    "newRule": {
+      "label": "G67测试账号查看",
+      "type": "DEPT",
+      "departmentId": "910335",
+      "marker": "●",
+      "scope": "ALL_MEMBERS",
+      "active": true,
+      "previewGroup": "瑛泰医疗-G67独立文控会签验收",
+      "groupUsers": 1,
+      "onlyNickname": "G57独立文控验收",
+      "rootPreconfirmedUserId": "910328"
+    },
+    "sourceSteps": [
+      "018.json",
+      "053.json",
+      "054.json",
+      "057.json"
+    ],
+    "noOldRuleIdEqualityClaim": true
+  },
+  "naturalWrites": [
+    {
+      "path": "/admin-api/dcc/project-codes/271/access-rules",
+      "method": "PUT",
+      "status": 200
+    },
+    {
+      "path": "/admin-api/dcc/file-categories/908710/view-matrix",
+      "method": "PUT",
+      "status": 200
+    }
+  ],
+  "session": {
+    "ownedProcess": 27539,
+    "terminalExit": 0,
+    "browserClosed": true,
+    "resourcesReleased": "UI_FREE sent beforeRootG69stop",
+    "noApiRequestFetchMockSqlRouterInjection": true,
+    "noCredentialTokenStorageStateCapture": true
+  },
+  "actualBusinessAssertions": "visibleDOM/forms/newpreview1person/savedreopenedonly; noJSONresponseoracle",
+  "remaining": "not checkout/signoff/Doc login or completeHTML; Rootonly these furtherbusinessactions",
+  "assets": [
+    {
+      "path": "C:/IntRuoyiBackups/20261006-dcc-task-actor-config/g68-ui-r1/001.json",
+      "bytes": 7437,
+      "sha256": "88b0c4fd5be457c605807780a9bfad69ad5316d9f8289e98a78eefdd5b2559b7"
+    },
+    {
+      "path": "C:/IntRuoyiBackups/20261006-dcc-task-actor-config/g68-ui-r1/002.json",
+      "bytes": 177,
+      "sha256": "42732a50cf9c0f924b9327c2b1cd39ea3e9ccc2f463f644dc8366bce97145efb"
+    },
+    {
+      "path": "C:/IntRuoyiBackups/20261006-dcc-task-actor-config/g68-ui-r1/003.json",
+      "bytes": 13958,
+      "sha256": "83a0bddd6d71a3e1741ba2c542791316a86dfc3ec575c869829b08107a90a619"
+    },
+    {
+      "path": "C:/IntRuoyiBackups/20261006-dcc-task-actor-config/g68-ui-r1/004.json",
+      "bytes": 13950,
+      "sha256": "831f959faae7384808ce84dad95ba1007a74eba3b16c62380b1f26a0f27dc6d3"
+    },
+    {
+      "path": "C:/IntRuoyiBackups/20261006-dcc-task-actor-config/g68-ui-r1/005.json",
+      "bytes": 14017,
+      "sha256": "c671a64e4f746a1a480ff2d0eda5d77a44a3867a20363ac21ee11962982e339c"
+    },
+    {
+      "path": "C:/IntRuoyiBackups/20261006-dcc-task-actor-config/g68-ui-r1/006.json",
+      "bytes": 9635,
+      "sha256": "ad8a33ce8bb0b005a4d7a1aee93df04af276173f7fd3099ef23db9dbafec6ebc"
+    },
+    {
+      "path": "C:/IntRuoyiBackups/20261006-dcc-task-actor-config/g68-ui-r1/007.json",
+      "bytes": 8027,
+      "sha256": "4a06bd9229f77bd6009b5bb80ee7c5f86a2acd1de51d4b1cf1bd4df918163317"
+    },
+    {
+      "path": "C:/IntRuoyiBackups/20261006-dcc-task-actor-config/g68-ui-r1/008.json",
+      "bytes": 8000,
+      "sha256": "b0335f8410f444d16ddfa9445a948c227179bc9359432cbfd489c7a04056a033"
+    },
+    {
+      "path": "C:/IntRuoyiBackups/20261006-dcc-task-actor-config/g68-ui-r1/009.json",
+      "bytes": 8008,
+      "sha256": "f7c0f68c38ce61e99598487028ad6207f4afb1e308e08012468f957488b5596b"
+    },
+    {
+      "path": "C:/IntRuoyiBackups/20261006-dcc-task-actor-config/g68-ui-r1/010.json",
+      "bytes": 7947,
+      "sha256": "e980919351260f87ca13542334909cd430ea4c66bad285008e763436897e5552"
+    },
+    {
+      "path": "C:/IntRuoyiBackups/20261006-dcc-task-actor-config/g68-ui-r1/011.json",
+      "bytes": 7947,
+      "sha256": "4b63718aeedede8bc4f0542edd8a83794ec43b6c0fa9dea415b29bf61fd34dfe"
+    },
+    {
+      "path": "C:/IntRuoyiBackups/20261006-dcc-task-actor-config/g68-ui-r1/012.json",
+      "bytes": 9541,
+      "sha256": "7fce47be6f8d8f2d616471428b4edff9abb49766f371ca8aa659727c25849029"
+    },
+    {
+      "path": "C:/IntRuoyiBackups/20261006-dcc-task-actor-config/g68-ui-r1/013.json",
+      "bytes": 8068,
+      "sha256": "be2dce7726c5a3fc82ee65a5675ba5ffaaa505a0e511a8edf89469e2a2358816"
+    },
+    {
+      "path": "C:/IntRuoyiBackups/20261006-dcc-task-actor-config/g68-ui-r1/014.json",
+      "bytes": 8054,
+      "sha256": "171d8a905818e5b8128e16f81f1110f79abc1a90cb4d91952f482c4a42b138b8"
+    },
+    {
+      "path": "C:/IntRuoyiBackups/20261006-dcc-task-actor-config/g68-ui-r1/015.json",
+      "bytes": 7947,
+      "sha256": "7a3c411244ebd9d86a8b93f4effc246d01180eff11bbf720c4a13b9e8f2d4d32"
+    },
+    {
+      "path": "C:/IntRuoyiBackups/20261006-dcc-task-actor-config/g68-ui-r1/016.json",
+      "bytes": 197,
+      "sha256": "a90a53e6221046d44fdccbb7ccbcefef1f956dd245542ef305aa3ede2ab3b512"
+    },
+    {
+      "path": "C:/IntRuoyiBackups/20261006-dcc-task-actor-config/g68-ui-r1/017.json",
+      "bytes": 5927,
+      "sha256": "ce9c7ec92e4e7b534bf221b7c978be144a9b1daa82d237574ffa088541cbbaa8"
+    },
+    {
+      "path": "C:/IntRuoyiBackups/20261006-dcc-task-actor-config/g68-ui-r1/018.json",
+      "bytes": 5874,
+      "sha256": "8eadf268939480f57aaf102e219a9909cff75b248d3b22710704da7eafc6dc79"
+    },
+    {
+      "path": "C:/IntRuoyiBackups/20261006-dcc-task-actor-config/g68-ui-r1/019.json",
+      "bytes": 6279,
+      "sha256": "2348c7f7c64b185e430323f6e84d8e1a7c7d252b07246d4ad7d8e525f3cff7e7"
+    },
+    {
+      "path": "C:/IntRuoyiBackups/20261006-dcc-task-actor-config/g68-ui-r1/020.json",
+      "bytes": 6300,
+      "sha256": "4b4dd1eaf41eaf18183eff47a388f7d2456f41ef52af30bba4ed20d2c21a63cd"
+    },
+    {
+      "path": "C:/IntRuoyiBackups/20261006-dcc-task-actor-config/g68-ui-r1/021.json",
+      "bytes": 6518,
+      "sha256": "04a67b140f7c673c2029b650adf1c062c8ff1cadf4c69dcf34f73514ec518016"
+    },
+    {
+      "path": "C:/IntRuoyiBackups/20261006-dcc-task-actor-config/g68-ui-r1/022.json",
+      "bytes": 6383,
+      "sha256": "baebfbd85caa3c6f69dd8bec951a5a007134943d855a72b7a80ede71d95bdb57"
+    },
+    {
+      "path": "C:/IntRuoyiBackups/20261006-dcc-task-actor-config/g68-ui-r1/023.json",
+      "bytes": 6467,
+      "sha256": "6359c8a73ec5274fd052408534683e3fcfafb16c556cde35c0458abe97989a69"
+    },
+    {
+      "path": "C:/IntRuoyiBackups/20261006-dcc-task-actor-config/g68-ui-r1/024.json",
+      "bytes": 6602,
+      "sha256": "ae180788d3bf78967babee4157818b32a38a80278cdb5a8391821068cdecd3c3"
+    },
+    {
+      "path": "C:/IntRuoyiBackups/20261006-dcc-task-actor-config/g68-ui-r1/025.json",
+      "bytes": 6944,
+      "sha256": "05e42a23be7bb849bc9e1d14fb2632e7c0c6814b469d6c805e4228560fa0cea8"
+    },
+    {
+      "path": "C:/IntRuoyiBackups/20261006-dcc-task-actor-config/g68-ui-r1/026.json",
+      "bytes": 6933,
+      "sha256": "187f15e42116deea684348ee17d35b963959a98e9cfac1b9acac73ee54722743"
+    },
+    {
+      "path": "C:/IntRuoyiBackups/20261006-dcc-task-actor-config/g68-ui-r1/027.json",
+      "bytes": 6911,
+      "sha256": "4e795295a04c79b62d556d4a4607dcf19179de837cee738fecf8c22afb6f408e"
+    },
+    {
+      "path": "C:/IntRuoyiBackups/20261006-dcc-task-actor-config/g68-ui-r1/028.json",
+      "bytes": 6784,
+      "sha256": "1039a8fd17cbe9804a980817a94576a8f1f5b08ac7ca5178ccfe1bc9f10c51d9"
+    },
+    {
+      "path": "C:/IntRuoyiBackups/20261006-dcc-task-actor-config/g68-ui-r1/029.json",
+      "bytes": 5809,
+      "sha256": "79b23dd33b2e718a82e47e301225de5dd658b8467a085c84e5aa034d02e73897"
+    },
+    {
+      "path": "C:/IntRuoyiBackups/20261006-dcc-task-actor-config/g68-ui-r1/030.json",
+      "bytes": 178,
+      "sha256": "1dc76dd1b04c66021617a10c3e1c0309ca1bc607bef6d36237b15039be763ca0"
+    },
+    {
+      "path": "C:/IntRuoyiBackups/20261006-dcc-task-actor-config/g68-ui-r1/031.json",
+      "bytes": 61461,
+      "sha256": "1e6c5fb26cd386437913c9c9846931034f4a7635de981173cbdab89d441c5e7b"
+    },
+    {
+      "path": "C:/IntRuoyiBackups/20261006-dcc-task-actor-config/g68-ui-r1/032.json",
+      "bytes": 28951,
+      "sha256": "25f4f4fad8ff6685ff261039c4b1a9be31bf22171b2e0be1f624e9ee671f210e"
+    },
+    {
+      "path": "C:/IntRuoyiBackups/20261006-dcc-task-actor-config/g68-ui-r1/033.json",
+      "bytes": 38237,
+      "sha256": "db258258eaee9e45a07779aa6146875dc3d9764097391b4a28dc8c4151ff35e4"
+    },
+    {
+      "path": "C:/IntRuoyiBackups/20261006-dcc-task-actor-config/g68-ui-r1/034.json",
+      "bytes": 38237,
+      "sha256": "0544a5d4c881ba20634756f2a022fa36870e2d5eb4c3ce5ba28c15e05e380cb6"
+    },
+    {
+      "path": "C:/IntRuoyiBackups/20261006-dcc-task-actor-config/g68-ui-r1/035.json",
+      "bytes": 61461,
+      "sha256": "ce2c60e278e26c28f424923d6e1ac5427b045de1598b5213e40a5854d71b7f35"
+    },
+    {
+      "path": "C:/IntRuoyiBackups/20261006-dcc-task-actor-config/g68-ui-r1/036.json",
+      "bytes": 61461,
+      "sha256": "dfc4f740118cc93b2aa6b4212cf7e1e138eeac486bc1a790da00b64c1d948d9e"
+    },
+    {
+      "path": "C:/IntRuoyiBackups/20261006-dcc-task-actor-config/g68-ui-r1/037.json",
+      "bytes": 28951,
+      "sha256": "75970f010b14a3f1df55f1d00482298c8b70b7e2a1aa0f475df4eda4d4247036"
+    },
+    {
+      "path": "C:/IntRuoyiBackups/20261006-dcc-task-actor-config/g68-ui-r1/038.json",
+      "bytes": 29067,
+      "sha256": "1944886898a163277a14ad48156039584bc187fa31b9155abfe529d8d70015c8"
+    },
+    {
+      "path": "C:/IntRuoyiBackups/20261006-dcc-task-actor-config/g68-ui-r1/039.json",
+      "bytes": 28927,
+      "sha256": "1b138f68434d4d3df2fe8be0f54c7447093c4dce32ec75298e679901c62e6350"
+    },
+    {
+      "path": "C:/IntRuoyiBackups/20261006-dcc-task-actor-config/g68-ui-r1/040.json",
+      "bytes": 197,
+      "sha256": "7c7af0ff7a17399bbf28da210c58ac7edd693502a444598618da9a40ecc33083"
+    },
+    {
+      "path": "C:/IntRuoyiBackups/20261006-dcc-task-actor-config/g68-ui-r1/041.json",
+      "bytes": 5990,
+      "sha256": "56dac7293c39f573d801fecaec52e9aa8114d25c3bd9daf58b6b3813b0da6b85"
+    },
+    {
+      "path": "C:/IntRuoyiBackups/20261006-dcc-task-actor-config/g68-ui-r1/042.json",
+      "bytes": 6279,
+      "sha256": "f21101ad2f0551687f8a23dcd51766591d6ad92a0d29785a8059639b47bae5d5"
+    },
+    {
+      "path": "C:/IntRuoyiBackups/20261006-dcc-task-actor-config/g68-ui-r1/043.json",
+      "bytes": 6300,
+      "sha256": "9668d2a4b23226d9fb2449a843357e96398f6c8d268eadb9db9ab5eba6b905be"
+    },
+    {
+      "path": "C:/IntRuoyiBackups/20261006-dcc-task-actor-config/g68-ui-r1/044.json",
+      "bytes": 6374,
+      "sha256": "e588c18d9be6f21a14b4264a29948974b1aa2c46006ad4667fdb4e84deabd881"
+    },
+    {
+      "path": "C:/IntRuoyiBackups/20261006-dcc-task-actor-config/g68-ui-r1/045.json",
+      "bytes": 6383,
+      "sha256": "6d1904a9d7d5da3a9a655cbab7591c455a6d1700011a4c81096a54bddddce1af"
+    },
+    {
+      "path": "C:/IntRuoyiBackups/20261006-dcc-task-actor-config/g68-ui-r1/046.json",
+      "bytes": 6467,
+      "sha256": "2ea4b2888b8c989f6502c99efb987eb05bceab56f0d9e631f687253a6f5de671"
+    },
+    {
+      "path": "C:/IntRuoyiBackups/20261006-dcc-task-actor-config/g68-ui-r1/047.json",
+      "bytes": 6602,
+      "sha256": "7661bbe9a695de6775daa88a31a099a7704a3f496c0a1b987354ebb76e54dfc2"
+    },
+    {
+      "path": "C:/IntRuoyiBackups/20261006-dcc-task-actor-config/g68-ui-r1/048.json",
+      "bytes": 7031,
+      "sha256": "515be1189d2ba4fea8d5cc733a24ecacae3a23652f046ab61a1e31ee7aca9914"
+    },
+    {
+      "path": "C:/IntRuoyiBackups/20261006-dcc-task-actor-config/g68-ui-r1/049.json",
+      "bytes": 7193,
+      "sha256": "6b33c36c46111e0407713cd4ca00122a83ef4f320445d1f622efb3b4d0780a6e"
+    },
+    {
+      "path": "C:/IntRuoyiBackups/20261006-dcc-task-actor-config/g68-ui-r1/050.json",
+      "bytes": 6428,
+      "sha256": "5bc88077be43403466d7f5a56bcab380d4198fbb3ea1b8ef3d059d069702a813"
+    },
+    {
+      "path": "C:/IntRuoyiBackups/20261006-dcc-task-actor-config/g68-ui-r1/051.json",
+      "bytes": 6544,
+      "sha256": "9324d463f890acd3b143b212dffb5764f3ba4000d8ae522bbd29a025b4218514"
+    },
+    {
+      "path": "C:/IntRuoyiBackups/20261006-dcc-task-actor-config/g68-ui-r1/052.json",
+      "bytes": 6954,
+      "sha256": "a9e2ac727fa4fc54b7062e6020333051181750e123dcb14bde350591ccc19c7e"
+    },
+    {
+      "path": "C:/IntRuoyiBackups/20261006-dcc-task-actor-config/g68-ui-r1/053.json",
+      "bytes": 6924,
+      "sha256": "e4fd8109a2435a05de0da361f9495a66c601b6253c59b945d162452c8eddf592"
+    },
+    {
+      "path": "C:/IntRuoyiBackups/20261006-dcc-task-actor-config/g68-ui-r1/054.json",
+      "bytes": 7102,
+      "sha256": "015a221578e52003d37f3e558a31938399f88924f54336cecaab284acda9716d"
+    },
+    {
+      "path": "C:/IntRuoyiBackups/20261006-dcc-task-actor-config/g68-ui-r1/055.json",
+      "bytes": 5983,
+      "sha256": "6481dd0e172288fe4b65bbaf6747ce88ca2dc985d44cbc042cb15720f4d1756c"
+    },
+    {
+      "path": "C:/IntRuoyiBackups/20261006-dcc-task-actor-config/g68-ui-r1/056.json",
+      "bytes": 7124,
+      "sha256": "5ea4929c946ad6bdc6a3dcba46c79bca0438536116fb85f28ce817c4f88e606b"
+    },
+    {
+      "path": "C:/IntRuoyiBackups/20261006-dcc-task-actor-config/g68-ui-r1/057.json",
+      "bytes": 6949,
+      "sha256": "e029f620717b821b6270544ebf51e81d3fcbbb8ecec177f695375bbca7cd1893"
+    },
+    {
+      "path": "C:/IntRuoyiBackups/20261006-dcc-task-actor-config/g68-ui-r1/058.json",
+      "bytes": 6838,
+      "sha256": "5614135ff7900383d442200aea75bee20f6383b85ca2284487914d18f1416146"
+    },
+    {
+      "path": "C:/IntRuoyiBackups/20261006-dcc-task-actor-config/g68-ui-r1/project-owner-final.png",
+      "bytes": 151151,
+      "sha256": "dbe388372515ffa2fa0eefdcbef3fb1ef23378f5a94e0dc3830f051551da7575"
+    },
+    {
+      "path": "C:/IntRuoyiBackups/20261006-dcc-task-actor-config/g68-ui-r1/task-department-parent-final.png",
+      "bytes": 146978,
+      "sha256": "f5aef27c08e1138393b8146bd7ba3fc5d1174dba814dcdfc9a2a8ac6d469762d"
+    },
+    {
+      "path": "C:/IntRuoyiBackups/20261006-dcc-task-actor-config/g68-ui-r1/view-matrix-department-scope-block.png",
+      "bytes": 142205,
+      "sha256": "e457abdffed2b18e77297dc6bbfdc444b489e11b14b1faff73227bb9ea45c88b"
+    },
+    {
+      "path": "C:/IntRuoyiBackups/20261006-dcc-task-actor-config/g68-ui-r1/view-matrix-one-user-preview.png",
+      "bytes": 135385,
+      "sha256": "c7739037db79235d0d03997e411f5d80f905ae20021a953a46f1f7f809986073"
+    },
+    {
+      "path": "C:/IntRuoyiBackups/20261006-dcc-task-actor-config/g68-ui-r1/view-matrix-one-user-ready.png",
+      "bytes": 143377,
+      "sha256": "6e2fb131883b9ce3b4cbabc3b14c2b13f7119b6d144701891a79c46c4a660715"
+    },
+    {
+      "path": "C:/IntRuoyiBackups/20261006-dcc-task-actor-config/g68-ui-r1/view-matrix-saved-final.png",
+      "bytes": 143335,
+      "sha256": "f0d674ec719cead38ee27cfa67c77b2495f08bd4e249a794e2a37213188cf316"
+    }
+  ],
+  "script": {
+    "path": "doc/tasks/20261002-dcc-public-backend-completion/g68-task-actor-ui.cjs",
+    "bytes": 6963,
+    "sha256": "7997ee4ff2a20a1bab9e879eeb9280b7fd883c9e7070219af0bce570d964d948"
+  }
+}

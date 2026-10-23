@@ -16,6 +16,7 @@ public class DccControlledFileSignatureEvidenceCreateReq {
     private Long tenantId;
     private Long controlledFileId;
     private String taskId;
+    private String processInstanceId;
     private String taskActionResult;
     private String meaningCode;
     private Long signerUserId;
@@ -29,6 +30,8 @@ public class DccControlledFileSignatureEvidenceCreateReq {
     private String authorizationBasis;
     private String authenticationMethod;
     private LocalDateTime signedAt;
+    private LocalDateTime selectedEffectiveTime;
+    private Integer attributeRound;
     private String reasonText;
     private String controlledCopyHashStatus;
     private Long controlledCopyFileId;

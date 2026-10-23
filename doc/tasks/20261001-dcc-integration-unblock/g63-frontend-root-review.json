@@ -1,0 +1,54 @@
+{
+  "status": "G63_EXACT_CURRENT_TASK_ASSIGNMENT_AND_READONLY_SCOPE_SOURCE23_TYPES_PASS",
+  "assets": [
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/detail/index.vue",
+      "bytes": 320797,
+      "sha256": "f54e0475f0b0242d71a1445d5a192cfb5c63858b149f0a41c6912ac55d5914b1"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-approval-center-signoff-entry.test.cjs",
+      "bytes": 5754,
+      "sha256": "47392bdef72f7ad7192a470a4b1c480a775694c402203018eccae866f5c873eb"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-viewer-trace-entry.test.cjs",
+      "bytes": 5774,
+      "sha256": "7653a21b71f5109e8db384a35b0492081b07d408849f91fdd9333979f7c4abdc"
+    }
+  ],
+  "verification": {
+    "actualTemplateProductionRED": {
+      "tests": 3,
+      "pass": 2,
+      "failures": 1,
+      "exitCode": 1,
+      "scope": "Only actual Parent template restored old management-only condition temporarily; actual renderer fails expectedvisible"
+    },
+    "finalRegression": {
+      "files": 5,
+      "tests": 23,
+      "pass": 23,
+      "failures": 0,
+      "skipped": 0,
+      "exitCode": 0,
+      "overlap": "3new plus20 existing round/viewer/readonly/signoff applicability; not additive"
+    },
+    "ownedLint": {
+      "files": 1,
+      "warnings": 0,
+      "exitCode": 0,
+      "session": 81722
+    },
+    "fullTypes": {
+      "session": 52767,
+      "exitCode": 0,
+      "command": "node --max-old-space-size=8192 node_modules/vue-tsc/bin/vue-tsc.js --noEmit -p tsconfig.relaxed.json"
+    },
+    "fullBuild": {
+      "status": "Not repeated by Root explicit scope",
+      "previousG62Build": "61132 exit0 applies to previous Parent stage only"
+    }
+  },
+  "actual": "r9/333normaltodohasassignment\u2192345signedassign\u2192350signedreview\u2192r10/006approval\u2192readonlyOBSOLETE"
+}

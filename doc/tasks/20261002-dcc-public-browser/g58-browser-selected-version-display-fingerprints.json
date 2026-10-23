@@ -1,0 +1,97 @@
+{
+  "status": "G58_AC23_SELECTED_VERSION_DISPLAY_FROZEN_FOR_ROOT_REVIEW",
+  "productionFiles": 2,
+  "testFiles": 1,
+  "assets": [
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/browser/index.vue",
+      "bytes": 161020,
+      "sha256": "dab12d6eab93d715b1f182314b32ac8f983ac8b7ac76881e4a70d0a434707f28"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/browser/presentation.ts",
+      "bytes": 5716,
+      "sha256": "b21b9905ef8b6ef9e91689c22f795b62356d939b0f50406f7cd209209f803ec4"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-browser-selected-version-display.test.cjs",
+      "bytes": 6449,
+      "sha256": "6781379840a3dc182f00e4dbf1ab2f3485567f3a7e1daaae83163ee5fd258936"
+    }
+  ],
+  "documents": [
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g58-browser-selected-version-display-bdd.md",
+      "bytes": 3387,
+      "sha256": "ee787aa82af2122fdbf970b15212f643e16c86bab24725e9bc19913b2e70a4ea"
+    }
+  ],
+  "protectedOtherSeals": [
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g57-offline-training-entry-frontend-fingerprints-r2.json",
+      "bytes": 7747,
+      "sha256": "b2e6ede8284ffe43d5c00d0c826bb7ce118602b234a75140c10827243b47bde8"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g58-training-record-category-permission-frontend-fingerprints.json",
+      "bytes": 4202,
+      "sha256": "e15fd50d192ba4faceffb2e67cb41ab0e10fbfff038de01b024db685b63f766b"
+    }
+  ],
+  "verification": {
+    "effectiveRED": {
+      "tests": 3,
+      "pass": 0,
+      "failures": 3,
+      "exitCode": 1
+    },
+    "finalRegression": {
+      "files": 3,
+      "tests": 20,
+      "pass": 20,
+      "failures": 0,
+      "skipped": 0,
+      "exitCode": 0,
+      "overlap": "Includes17 existing browser checkin/application cases; not additive"
+    },
+    "ownedLint": {
+      "files": 2,
+      "warnings": 0,
+      "exitCode": 0
+    }
+  },
+  "rawLogs": [
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g58-browser-selected-version-display-effective-red.log",
+      "bytes": 3885,
+      "sha256": "2f8263ac0373bb3553d920d55fe5bb3de056e26c2d6c0803d2081e43220ad848"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g58-browser-selected-version-display-final-frozen.log",
+      "bytes": 2293,
+      "sha256": "fc2d0e7ef3b10e61bddd151ed265606e18e486391c91a5116838fa128d82b32f"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g58-browser-selected-version-display-lint-frozen.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "exactContracts": [
+    "Actual selected status determines working/inflight/pending/history kind; unknown facts explicit unrecorded",
+    "Current execution only ACTIVE and same versionNo as explicit formal rowMaster currentActiveVersionNo",
+    "Selected versionNo and formal Master executionNo separately shown; no default using selected own current field",
+    "No API/version choice/query/operation ID/checkin logic modified"
+  ],
+  "setupIncidents": [
+    "Initial own renderer unmount lacked truthful sibling relationships and hung; owned child21112 stopped after precise parent18352 ownership check, initial log not businessRED",
+    "Renderer host parent/sibling/remove corrected before actual unchanged production effectiveRED"
+  ],
+  "limitations": [
+    "Actual helper/AST getter/two template Vue renderer and explicit offline dependencies; not runtime/E2E",
+    "Root final types/build and actual UI acceptance pending",
+    "No backend/API/DB/browser/service/Git/Maven/fulltypesbuild operations by this agent",
+    "All G57r2 and G58category production/test pins checked unchanged; Root working-navigation untouched"
+  ],
+  "supersedes": "Only declared browser display/index/helper bytes; G58 category and all prior manifests unchanged"
+}

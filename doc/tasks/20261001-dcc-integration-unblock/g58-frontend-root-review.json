@@ -1,0 +1,27 @@
+{
+  "status": "ROOT_G58_FRONTEND_PERMISSION_AND_SELECTED_VERSION_REVIEW_FULL_TYPES_BUILD_PASS",
+  "manifests": [
+    {
+      "path": "doc\\tasks\\20261002-dcc-public-browser\\g58-training-record-category-permission-frontend-fingerprints.json",
+      "sha256": "e15fd50d192ba4faceffb2e67cb41ab0e10fbfff038de01b024db685b63f766b",
+      "assets": 3
+    },
+    {
+      "path": "doc\\tasks\\20261002-dcc-public-browser\\g58-browser-selected-version-display-fingerprints.json",
+      "sha256": "0b4e2a415c802ced3496adc6aac180133a21d9caeb74a96916a1e0c3f8d6fdf5",
+      "assets": 3
+    }
+  ],
+  "typesSession": 74726,
+  "typesExit": 0,
+  "buildSession": 57908,
+  "buildExit": 0,
+  "rootNavigationRegression": {
+    "tests": 29,
+    "fail": 0,
+    "red": "current vs global actualscope fail",
+    "actualTwoCheckins": true
+  },
+  "normalRuntime": "G57Jar still running; fullG58new pack pending G59schema-free design",
+  "actualPermissionForm": "newtaskrole991222/user910328 created frontend; no rolegrant accepted yet, earlier old logrole rejected"
+}

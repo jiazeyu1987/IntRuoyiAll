@@ -1,0 +1,17 @@
+{
+  "status": "LD04_EXISTING_ROUTE_AND_TEMPLATE_READONLY_PREFLIGHT",
+  "database": "ruoyi-vue-pro",
+  "productCatalogMenu": {
+    "component": "dcc/controlled-file/basic-data/product-catalog/index",
+    "childPath": "product-catalog",
+    "formalRoute": "/mdm/product-catalog",
+    "componentName": "DccProductCatalogBasicDataPage",
+    "parentPath": "/mdm",
+    "parentId": "990200",
+    "id": "990216"
+  },
+  "targetNotifyTemplateCount": 0,
+  "reviewerConfigUses": "dcc_project_reviewer_config_not_infra_config",
+  "databaseWrites": false,
+  "actualRequestActions": "NOT_PERFORMED"
+}

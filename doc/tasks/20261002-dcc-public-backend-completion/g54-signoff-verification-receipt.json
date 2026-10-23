@@ -1,0 +1,99 @@
+{
+  "status": "ACTUAL_CURRENT_REACTOR_SCOPED_PASS",
+  "command": "mvn.cmd -o -pl yudao-module-dcc -am '-Dtest=DccWorkflowSignoffAssignmentTest,DccAssignmentContextHttpContractTest,DccRelationRemediationTransactionTest,DccSignedRelationAssignmentContractTest,DccWorkflowSignedArrangementTransactionTest,DccRelationControlledEventIntegrationTest' '-Dsurefire.failIfNoSpecifiedTests=false' test",
+  "cliExitCode": 0,
+  "finishedAt": "2026-10-05T11:11:22+08:00",
+  "classes": 6,
+  "tests": 69,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0,
+  "reports": [
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.file.DccWorkflowSignoffAssignmentTest",
+      "tests": 23,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g54-signoff-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccWorkflowSignoffAssignmentTest.xml",
+      "bytes": 98055,
+      "sha256": "77b6522a92cb60b839e36628ef1fd8d8c9ec36d325eedd1875a9ab84bb5ad597"
+    },
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.file.DccAssignmentContextHttpContractTest",
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g54-signoff-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccAssignmentContextHttpContractTest.xml",
+      "bytes": 94111,
+      "sha256": "e95b2c7b63b1ec27638893557f635d3f8cfd31292f86edb54d3585299f32a915"
+    },
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.file.DccRelationRemediationTransactionTest",
+      "tests": 16,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g54-signoff-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccRelationRemediationTransactionTest.xml",
+      "bytes": 96686,
+      "sha256": "198f3c711274152ee71119a9a08309af264dbd586f3e826114132d143383954c"
+    },
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.file.DccSignedRelationAssignmentContractTest",
+      "tests": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g54-signoff-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccSignedRelationAssignmentContractTest.xml",
+      "bytes": 94449,
+      "sha256": "6cda7d3586eb625cd8465bf1acebda3b3860c8cf5b4d6de39e50c3144319e8c7"
+    },
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.file.DccWorkflowSignedArrangementTransactionTest",
+      "tests": 10,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g54-signoff-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccWorkflowSignedArrangementTransactionTest.xml",
+      "bytes": 124901,
+      "sha256": "15a328045e8210221dc31d0e82a4de342c1b13679fc757000eeaf5c606cb15e9"
+    },
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.file.DccRelationControlledEventIntegrationTest",
+      "tests": 15,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g54-signoff-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccRelationControlledEventIntegrationTest.xml",
+      "bytes": 107987,
+      "sha256": "2c635035ac04fc0689783c8790a09239207a3e5341a545a17488bcbe63571fbc"
+    }
+  ],
+  "log": {
+    "path": "doc/tasks/20261002-dcc-public-backend-completion/g54-signoff-scope-final-r2.log",
+    "bytes": 101104,
+    "sha256": "b89ca242e5d1d3ab4a119346f7d5d27065472d32d09e1447919015f4d45879b3"
+  },
+  "effectiveRed": {
+    "tests": 4,
+    "failures": 4,
+    "errors": 0,
+    "cliExitCode": 1,
+    "xml": {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g54-signoff-scope-effective-red-r2.xml",
+      "bytes": 110606,
+      "sha256": "d5df5d8c97c5a3aaeefd26727f5cc091dc9f21f5f323b6e7a57d32bd3625cc58"
+    },
+    "log": {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g54-signoff-scope-red-r2.log",
+      "bytes": 77854,
+      "sha256": "5ed510f623d14952b5dc82dfdb3b69cc05ddd1c3dc13fd03283e7b4203ecefd3"
+    },
+    "reason": "Actual old save interaction on nonrevision and old nonemptycaller accepted. Initial injectedport exception evidence retained but superseded, not a formal guard proof."
+  },
+  "actualBrowserRuns": 0,
+  "realBusinessDbActions": 0,
+  "runtimeActions": 0,
+  "originalActualFailure": "Root UI initial arrangement pre-load with round-null; no assignment POST observed, not proven POST403."
+}

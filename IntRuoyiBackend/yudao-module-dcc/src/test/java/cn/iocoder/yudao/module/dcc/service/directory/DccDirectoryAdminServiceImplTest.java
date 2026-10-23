@@ -67,6 +67,24 @@ import static org.mockito.Mockito.when;
 
 @Import({DccDirectoryAdminServiceImpl.class, DccDirectoryNasTransferGuardService.class})
 class DccDirectoryAdminServiceImplTest extends BaseDbUnitTest {
+    @MockitoBean private cn.iocoder.yudao.module.dcc.service.file.DccStorageMappingMutationGuard storageMappingGuard;
+
+
+    @Test
+    void nameOnlyDirectoryGrantIsNotPromotedToContentWhenSavedOrRead() {
+        var directory = insertDirectory("NAME_ONLY", "Name only", null);
+        var request = new DccDirectoryAccessRuleSaveReqVO();
+        request.setSubjectType("USER");
+        request.setSubjectId(99L);
+        request.setCanQuery(true);
+        request.setCanPreview(false);
+        request.setCanDownload(false);
+        request.setActive(true);
+        directoryAdminService.replaceAccessRules(directory.getId(), List.of(request));
+        var rules = directoryAdminService.getAccessRules(directory.getId());
+        assertEquals(Boolean.TRUE, rules.get(0).getCanQuery());
+        assertEquals(Boolean.FALSE, rules.get(0).getCanPreview());
+    }
 
     @Resource
     private DccDirectoryAdminServiceImpl directoryAdminService;
@@ -134,6 +152,7 @@ class DccDirectoryAdminServiceImplTest extends BaseDbUnitTest {
         assertEquals(2, roots.size());
         DccFileDirectoryDO dbRoot = directoryMapper.selectById(rootId);
         DccFileDirectoryDO expectedRoot = BeanUtils.toBean(rootReqVO, DccFileDirectoryDO.class);
+        expectedRoot.setTenantId(cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId());
         expectedRoot.setAccessRuleManuallyBound(Boolean.FALSE);
         assertPojoEquals(expectedRoot, dbRoot,
                 "id", "createTime", "updateTime", "creator", "updater", "deleted");
@@ -306,6 +325,7 @@ class DccDirectoryAdminServiceImplTest extends BaseDbUnitTest {
         projectCodeAssignmentFileMapper.insert(DccProjectCodeAssignmentFileDO.builder()
                 .id(9202L)
                 .assignmentId(9201L)
+                .masterId(9100L)
                 .projectCodeId(3001L)
                 .controlledFileId(9101L)
                 .masterId(9100L)

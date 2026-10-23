@@ -63,6 +63,10 @@ class DccControlledFileMetadataUpdateServiceTest extends BaseMockitoUnitTest {
     @Mock
     private DccProjectCodeMapper projectCodeMapper;
     @Mock
+    private cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccApprovedProductIdentityMapper approvedProductIdentityMapper;
+    @Mock
+    private cn.iocoder.yudao.module.mdm.api.product.MdmProductApi mdmProductApi;
+    @Mock
     private PermissionApi permissionApi;
     @Mock
     private DccFileTypeTaxonomyAdminService fileTypeTaxonomyAdminService;
@@ -79,11 +83,33 @@ class DccControlledFileMetadataUpdateServiceTest extends BaseMockitoUnitTest {
     @BeforeEach
     void setTenantContext() {
         TenantContextHolder.setTenantId(1L);
+        org.mockito.Mockito.lenient().when(approvedProductIdentityMapper.selectApprovedProduct(any(),any())).thenReturn(List.of());
+        org.mockito.Mockito.lenient().when(controlledFileMapper.update(isNull(),any())).thenReturn(1);
     }
 
     @AfterEach
     void clearTenantContext() {
         TenantContextHolder.clear();
+    }
+
+    @Test
+    void updateMetadataUsesTheSameApprovedProductInsteadOfProjectCodeAndName() {
+        var file=activeFile();mockDocControl();mockTargetCategoryAndDirectory();mockMasterIdentityUpdateSuccess();
+        when(controlledFileMapper.selectById(900L)).thenReturn(file);
+        when(controlledFileMasterMapper.selectById(700L)).thenReturn(oldMaster());
+        when(controlledFileMapper.selectListByMasterId(700L)).thenReturn(List.of(file));
+        when(approvedProductIdentityMapper.selectApprovedProduct(1L,3000L)).thenReturn(List.of(
+                new cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccApprovedProductIdentityMapper.ApprovedProduct(
+                        3000L,401L,402L,403L,"BUSINESS-PRODUCT-LONG-CODE","批准产品名称","BUSINESS-PRODUCT-LONG-CODE","批准产品名称")));
+        when(approvedProductIdentityMapper.countDeclaredProductEvidence(1L,3000L)).thenReturn(2L);
+        metadataUpdateService.updateMetadata(99L,900L,updateReq());
+        var changed=ArgumentCaptor.forClass(DccControlledFileDO.class);
+        verify(controlledFileMapper).updateById(changed.capture());
+        assertEquals("BUSINESS-PRODUCT-LONG-CODE",changed.getValue().getProductCode());
+        assertEquals("批准产品名称",changed.getValue().getProductName());
+        assertEquals("DCC_CATALOG",changed.getValue().getProductSource());
+        assertEquals(401L,changed.getValue().getProductCatalogId());
+        assertNull(changed.getValue().getProductMasterId());
     }
 
     @Test
@@ -113,8 +139,8 @@ class DccControlledFileMetadataUpdateServiceTest extends BaseMockitoUnitTest {
         assertEquals("NEW-SOP", fileCaptor.getValue().getTitle());
         assertEquals("DOC-NEW", fileCaptor.getValue().getFileNumber());
         assertNull(fileCaptor.getValue().getProductMasterId());
-        assertEquals("YCKPR", fileCaptor.getValue().getProductCode());
-        assertEquals("按压式Y型连接器", fileCaptor.getValue().getProductName());
+        assertNull(fileCaptor.getValue().getProductCode());
+        assertNull(fileCaptor.getValue().getProductName());
         assertEquals(3000L, fileCaptor.getValue().getDccProjectCodeId());
         assertEquals(Boolean.TRUE, fileCaptor.getValue().getNeedTraining());
         assertEquals("体系文件", fileCaptor.getValue().getFileTypeLevel1());
@@ -226,6 +252,7 @@ class DccControlledFileMetadataUpdateServiceTest extends BaseMockitoUnitTest {
                         .projectCode("YCKPR")
                         .status("ENABLE")
                         .build());
+        projectCodeMapper.selectById(3000L).setTenantId(1L);
         mockTargetCategoryAndDirectory();
         mockMasterIdentityUpdateSuccess();
         when(controlledFileMapper.selectById(900L)).thenReturn(file);
@@ -255,6 +282,7 @@ class DccControlledFileMetadataUpdateServiceTest extends BaseMockitoUnitTest {
                         .projectCode("OTHER")
                         .status("ENABLE")
                         .build());
+        projectCodeMapper.selectById(3001L).setTenantId(1L);
 
         assertServiceException(() -> metadataUpdateService.updateMetadata(123L, 900L, reqVO),
                 PROJECT_CODE_ASSIGNMENT_TARGET_PROJECT_MISMATCH);
@@ -414,8 +442,8 @@ class DccControlledFileMetadataUpdateServiceTest extends BaseMockitoUnitTest {
         ArgumentCaptor<DccControlledFileDO> fileCaptor = ArgumentCaptor.forClass(DccControlledFileDO.class);
         verify(controlledFileMapper).updateById(fileCaptor.capture());
         assertNull(fileCaptor.getValue().getProductMasterId());
-        assertEquals("YCKPR", fileCaptor.getValue().getProductCode());
-        assertEquals("按压式Y型连接器", fileCaptor.getValue().getProductName());
+        assertNull(fileCaptor.getValue().getProductCode());
+        assertNull(fileCaptor.getValue().getProductName());
     }
 
     @Test
@@ -497,6 +525,7 @@ class DccControlledFileMetadataUpdateServiceTest extends BaseMockitoUnitTest {
                         .projectCode("YCKPR")
                         .status("ENABLE")
                         .build());
+        projectCodeMapper.selectById(3000L).setTenantId(1L);
     }
 
     private void mockTargetCategoryAndDirectory() {

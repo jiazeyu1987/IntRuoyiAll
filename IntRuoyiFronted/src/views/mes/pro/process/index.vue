@@ -82,68 +82,6 @@
             v-bind="sortColumnAttrs('name')"
           />
           <el-table-column
-            v-if="isProcessColumnVisible('routeList')"
-            label="所属工艺路线"
-            align="center"
-            prop="routeList"
-            :width="getProcessColumnWidthString('routeList', 240)"
-            v-bind="sortColumnAttrs('routeList')"
-          >
-            <template #default="scope">
-              <div class="process-route-cell">
-                <div class="process-route-tags">
-                  <el-tag
-                    v-for="routeItem in resolveProcessRouteTags(scope.row.routeList)"
-                    :key="routeItem.routeProcessId || routeItem.id"
-                    size="small"
-                    effect="plain"
-                    class="process-route-tag"
-                    :title="formatProcessRouteTag(routeItem)"
-                  >
-                    {{ formatProcessRouteTag(routeItem) }}
-                  </el-tag>
-                  <span
-                    v-if="!resolveProcessRouteTags(scope.row.routeList).length"
-                    class="process-unconfigured"
-                  >
-                    未配置
-                  </span>
-                </div>
-                <el-button
-                  v-if="scope.row.routeCapacityConflict"
-                  link
-                  type="warning"
-                  class="process-route-capacity-link"
-                  :title="
-                    scope.row.routeCapacityConflictMessage ||
-                    '多条工艺路线的排产产能不一致，请进入工艺流程使用覆盖产能处理。'
-                  "
-                  @click="openRouteCapacityOverride(scope.row)"
-                >
-                  产能不一致，去覆盖
-                </el-button>
-              </div>
-            </template>
-          </el-table-column>
-          <el-table-column
-            v-if="isProcessColumnVisible('relationList')"
-            label="关系清单"
-            align="center"
-            prop="relationList"
-            :width="getProcessColumnWidthString('relationList', 320)"
-            show-overflow-tooltip
-            v-bind="sortColumnAttrs('relationList')"
-          >
-            <template #default="scope">
-              <span
-                class="process-relation-summary"
-                :title="buildProcessRelationListSummary(scope.row)"
-              >
-                {{ buildProcessRelationListSummary(scope.row) }}
-              </span>
-            </template>
-          </el-table-column>
-          <el-table-column
             v-if="isProcessColumnVisible('workstationNames')"
             label="工作站"
             align="center"
@@ -183,31 +121,6 @@
           >
             <template #default="scope">
               <span>{{ formatCapacity(scope.row.productionQuantityFactor) }}</span>
-            </template>
-          </el-table-column>
-          <el-table-column
-            v-if="isProcessColumnVisible('batchRecordFormNames')"
-            label="批记录表单"
-            align="center"
-            prop="batchRecordFormNames"
-            :width="getProcessColumnWidthString('batchRecordFormNames', 260)"
-            show-overflow-tooltip
-            v-bind="sortColumnAttrs('batchRecordFormNames')"
-          >
-            <template #default="scope">
-              <div v-if="scope.row.batchRecordForms?.length" class="process-link-tags">
-                <el-button
-                  v-for="form in scope.row.batchRecordForms"
-                  :key="form.reportId"
-                  link
-                  type="primary"
-                  class="process-link-tag"
-                  @click="openBatchRecordForm(form)"
-                >
-                  {{ form.reportName }}
-                </el-button>
-              </div>
-              <span v-else class="process-unconfigured">未配置</span>
             </template>
           </el-table-column>
           <el-table-column
@@ -317,21 +230,11 @@ import { dateFormatter } from '@/utils/formatTime'
 import download from '@/utils/download'
 import {
   ProProcessApi,
-  ProProcessBatchRecordFormLinkVO,
   ProProcessMachineryVO,
-  ProProcessRouteVO,
   ProProcessVO,
   ProProcessWorkstationVO
 } from '@/api/mes/pro/process'
-import {
-  ProRouteApi,
-  type ProRouteVO,
-  type RouteFlowBoundaryEdgeVO,
-  type RouteFlowBoundaryType,
-  type RouteFlowEdgeVO,
-  type RouteFlowGraphVO,
-  type RouteFlowNodeVO
-} from '@/api/mes/pro/route'
+import { ProRouteApi, type ProRouteVO } from '@/api/mes/pro/route'
 import ProProcessForm from './ProProcessForm.vue'
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import { useUserTableColumns, type UserTableColumnDefinition } from '@/hooks/web/useUserTableColumns'
@@ -341,11 +244,6 @@ import {
   type TableQuickFilterOption,
   type TableQuickFilterValue
 } from '@/hooks/web/useTableQuickFilter'
-import {
-  buildRouteCandidateEditQuery,
-  ensureSameSourceDraftCandidateForProductionConfig
-} from '../route/routeCandidateEntry'
-
 defineOptions({ name: 'MesProProcess' })
 
 const message = useMessage() // 消息弹窗
@@ -356,17 +254,13 @@ const router = useRouter()
 type ProcessQuickFilterFieldKey = 'code' | 'name' | 'routeId' | 'status'
 
 const PROCESS_ROUTE_PATH = '/mes/pro/process'
-const CAPACITY_OVERRIDE_CANDIDATE_CHANGE_REASON = '生产工序产能不一致入口创建候选版本'
 const processMainTableHeight = 'max(360px, calc(100vh - 300px))'
 
 const processDefaultColumns: UserTableColumnDefinition[] = [
   { key: 'code', label: '工序编码', width: 150 },
   { key: 'name', label: '工序名称', width: 200 },
-  { key: 'routeList', label: '所属工艺路线', width: 240 },
-  { key: 'relationList', label: '关系清单', width: 320 },
   { key: 'workstationNames', label: '工作站', width: 240, hideable: false },
   { key: 'productionQuantityFactor', label: '生产系数', width: 120, hideable: false },
-  { key: 'batchRecordFormNames', label: '批记录表单', width: 260, hideable: false },
   { key: 'status', label: '状态', width: 100 },
   { key: 'remark', label: '备注', width: 360 },
   { key: 'createTime', label: '创建时间', width: 180 },
@@ -394,156 +288,12 @@ const processMachineryDialogTitle = ref('关联设备产能明细')
 const processMachineryLoading = ref(false)
 const processMachineryList = ref<ProProcessMachineryVO[]>([])
 const routeOptions = ref<ProRouteVO[]>([])
-const routeRelationGraphByRouteId = reactive<Record<number, RouteFlowGraphVO>>({})
-const routeRelationGraphLoadingByRouteId = reactive<Record<number, boolean>>({})
-const routeRelationGraphErrorByRouteId = reactive<Record<number, string>>({})
 const routeQuickFilterOptions = computed<TableQuickFilterOption[]>(() =>
   routeOptions.value.map((item) => ({
     label: item.name,
     value: item.id!
   }))
 )
-const resolveProcessRouteTags = (routeList?: ProProcessVO['routeList']) => {
-  return (
-    routeList?.filter((item) => item && (item.name?.trim() || item.code?.trim() || item.id)) || []
-  )
-}
-
-const formatProcessRouteTag = (routeItem: ProProcessRouteVO) => {
-  const name = routeItem.name?.trim()
-  const code = routeItem.code?.trim()
-  if (name && code) return `${name}（${code}）`
-  return name || code || String(routeItem.id)
-}
-
-const normalizeRelationId = (value?: number | string | null) => {
-  const id = Number(value)
-  return Number.isFinite(id) && id > 0 ? id : undefined
-}
-
-const boundaryRelationLabel = (boundaryType: RouteFlowBoundaryType) =>
-  boundaryType === 'START' ? '工序开始' : '工序结束'
-
-const formatRouteNodeLabel = (node?: RouteFlowNodeVO) => {
-  if (!node) return '-'
-  const code = node.processCode?.trim()
-  const name = node.processName?.trim()
-  if (code && name) return `${code} ${name}`
-  return name || code || String(node.routeProcessId)
-}
-
-const buildRouteNodeMap = (nodes?: RouteFlowNodeVO[]) =>
-  new Map((nodes || []).map((node) => [Number(node.routeProcessId), node]))
-
-const isRelationEdgeMatched = (edge: RouteFlowEdgeVO, routeProcessId: number) =>
-  Number(edge.sourceRouteProcessId) === routeProcessId ||
-  Number(edge.targetRouteProcessId) === routeProcessId
-
-const formatRouteRelationEdge = (
-  edge: RouteFlowEdgeVO,
-  nodeMap: Map<number, RouteFlowNodeVO>
-) => {
-  const source = formatRouteNodeLabel(nodeMap.get(Number(edge.sourceRouteProcessId)))
-  const target = formatRouteNodeLabel(nodeMap.get(Number(edge.targetRouteProcessId)))
-  return `${source} -> ${target}`
-}
-
-const isBoundaryEdgeMatched = (edge: RouteFlowBoundaryEdgeVO, routeProcessId: number) =>
-  Number(edge.routeProcessId) === routeProcessId
-
-const formatBoundaryRelationEdge = (
-  edge: RouteFlowBoundaryEdgeVO,
-  nodeMap: Map<number, RouteFlowNodeVO>
-) => {
-  const processLabel = formatRouteNodeLabel(nodeMap.get(Number(edge.routeProcessId)))
-  return edge.boundaryType === 'START'
-    ? `${boundaryRelationLabel('START')} -> ${processLabel}`
-    : `${processLabel} -> ${boundaryRelationLabel('END')}`
-}
-
-const buildRouteProcessRelationSummaryFromGraph = (
-  graph: RouteFlowGraphVO,
-  routeProcessId: number
-) => {
-  const nodeMap = buildRouteNodeMap(graph.nodes)
-  const boundaryRelations = (graph.boundaryEdges || [])
-    .filter((edge) => isBoundaryEdgeMatched(edge, routeProcessId))
-    .map((edge) => formatBoundaryRelationEdge(edge, nodeMap))
-  const routeRelations = (graph.edges || [])
-    .filter((edge) => isRelationEdgeMatched(edge, routeProcessId))
-    .map((edge) => formatRouteRelationEdge(edge, nodeMap))
-  const relationTexts = [...boundaryRelations, ...routeRelations].filter((text) => text.trim())
-  return relationTexts.length > 0 ? relationTexts.join('；') : '暂无关系'
-}
-
-const collectRouteIdsForRelationList = (rows: ProProcessVO[]) => {
-  const routeIds = new Set<number>()
-  rows.forEach((row) => {
-    resolveProcessRouteTags(row.routeList).forEach((routeItem) => {
-      const routeId = normalizeRelationId(routeItem.id)
-      const routeProcessId = normalizeRelationId(routeItem.routeProcessId)
-      if (routeId && routeProcessId) {
-        routeIds.add(routeId)
-      }
-    })
-  })
-  return [...routeIds]
-}
-
-const loadRelationGraphByRouteId = async (routeId: number) => {
-  if (routeRelationGraphByRouteId[routeId] || routeRelationGraphLoadingByRouteId[routeId]) return
-  routeRelationGraphLoadingByRouteId[routeId] = true
-  delete routeRelationGraphErrorByRouteId[routeId]
-  try {
-    routeRelationGraphByRouteId[routeId] = await ProRouteApi.getRouteProcessFlowGraph(routeId)
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : '关系清单加载失败'
-    routeRelationGraphErrorByRouteId[routeId] = errorMessage
-    message.error(`关系清单加载失败：${errorMessage}`)
-  } finally {
-    routeRelationGraphLoadingByRouteId[routeId] = false
-  }
-}
-
-const loadRelationGraphsForVisibleProcesses = async (rows: ProProcessVO[] = list.value) => {
-  if (!isProcessColumnVisible('relationList')) return
-  const routeIds = collectRouteIdsForRelationList(rows)
-  await Promise.all(routeIds.map((routeId) => loadRelationGraphByRouteId(routeId)))
-}
-
-const buildProcessRelationListSummary = (row: ProProcessVO) => {
-  const routeItems = resolveProcessRouteTags(row.routeList).filter(
-    (routeItem) => normalizeRelationId(routeItem.id) && normalizeRelationId(routeItem.routeProcessId)
-  )
-  if (!routeItems.length) return '暂无关系'
-
-  let hasLoadingRelation = false
-  const summaries = routeItems
-    .map((routeItem) => {
-      const routeId = normalizeRelationId(routeItem.id)!
-      const routeProcessId = normalizeRelationId(routeItem.routeProcessId)!
-      const routeLabel = formatProcessRouteTag(routeItem)
-      if (routeRelationGraphLoadingByRouteId[routeId]) {
-        hasLoadingRelation = true
-        return ''
-      }
-      if (routeRelationGraphErrorByRouteId[routeId]) {
-        return `${routeLabel}：关系加载失败`
-      }
-      const graph = routeRelationGraphByRouteId[routeId]
-      if (!graph) {
-        hasLoadingRelation = true
-        return ''
-      }
-      const relationSummary = buildRouteProcessRelationSummaryFromGraph(graph, routeProcessId)
-      return routeItems.length > 1 ? `${routeLabel}：${relationSummary}` : relationSummary
-    })
-    .filter((summary) => summary.trim())
-
-  if (summaries.length > 0) return summaries.join('；')
-  return hasLoadingRelation ? '加载中' : '暂无关系'
-}
-
 const formatProcessWorkstation = (workstation: ProProcessWorkstationVO) => {
   const code = workstation.code?.trim()
   const name = workstation.name?.trim()
@@ -651,7 +401,6 @@ const getList = async () => {
     const data = await ProProcessApi.getProcessPage(buildProcessPageParams())
     list.value = data.list
     total.value = data.total
-    await loadRelationGraphsForVisibleProcesses(data.list)
   } finally {
     loading.value = false
   }
@@ -731,13 +480,6 @@ const formatAvailabilityStatus = (status?: string) => {
   return status === 'REPAIR' ? '维修中/待验收' : '可用'
 }
 
-const openBatchRecordForm = (form: ProProcessBatchRecordFormLinkVO) => {
-  router.push({
-    path: '/mes/pro/batch-record-form-list',
-    query: { reportId: form.reportId }
-  })
-}
-
 const openProcessWorkstation = async (workstation: ProProcessWorkstationVO, row: ProProcessVO) => {
   const workstationCode = workstation.code?.trim()
   if (!workstation.id || !workstationCode) {
@@ -757,48 +499,6 @@ const openProcessWorkstation = async (workstation: ProProcessWorkstationVO, row:
   })
 }
 
-const openRouteCapacityOverride = async (row: ProProcessVO) => {
-  try {
-    const routeItem = resolveProcessRouteTags(row.routeList).find(
-      (item) => item.id && item.routeProcessId
-    )
-    if (!routeItem?.id || !routeItem.routeProcessId) {
-      throw new Error(`产能覆盖跳转缺少路线或路线工序标识: processId=${row.id}`)
-    }
-    const routeLabel = formatProcessRouteTag(routeItem)
-    const candidateResult = await ensureSameSourceDraftCandidateForProductionConfig({
-      routeId: routeItem.id,
-      actionName: '产能覆盖跳转',
-      changeReason: CAPACITY_OVERRIDE_CANDIDATE_CHANGE_REASON,
-      confirm: (content, title) => message.confirm(content, title),
-      success: (content) => message.success(content),
-      existingConfirmMessage: `产能覆盖需要在路线「${routeLabel}」候选版本中编辑。确认后会进入已有候选版本，不会直接影响当前生产版本。是否继续？`,
-      existingConfirmTitle: '进入候选版本',
-      createConfirmMessage: `产能覆盖需要先为路线「${routeLabel}」创建候选版本。确认后会创建候选版本并进入编辑，不会直接影响当前生产版本。是否继续？`,
-      createConfirmTitle: '创建候选版本',
-      existingSuccessMessage: '正在进入候选版本产能覆盖编辑',
-      createdSuccessMessage: '候选版本已创建，正在进入产能覆盖编辑'
-    })
-    if (!candidateResult) return
-    await router.push({
-      name: 'MesProRouteEdit',
-      params: { id: routeItem.id },
-      query: buildRouteCandidateEditQuery(candidateResult.candidate, {
-        tab: 'flow',
-        routeProcessId: String(routeItem.routeProcessId),
-        capacitySourceFocus: 'schedule',
-        source: 'process-list-route-capacity-conflict',
-        capacityOverride: '1'
-      })
-    })
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : '产能覆盖跳转失败，请查看后端返回错误。'
-    message.error(errorMessage)
-    throw error
-  }
-}
-
-/** 删除按钮操作 */
 const handleDelete = async (id: number) => {
   try {
     // 删除的二次确认
@@ -852,14 +552,6 @@ watch(
   }
 )
 
-watch(
-  () => isProcessColumnVisible('relationList'),
-  async (visible) => {
-    if (visible) {
-      await loadRelationGraphsForVisibleProcesses()
-    }
-  }
-)
 </script>
 
 <style scoped>
@@ -879,54 +571,6 @@ watch(
 
 .process-main-table :deep(.el-scrollbar__bar.is-horizontal > div) {
   background-color: #9caec4;
-}
-
-.process-route-cell {
-  display: flex;
-  max-width: 100%;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-}
-
-.process-route-tags {
-  display: flex;
-  max-width: 100%;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  vertical-align: middle;
-}
-
-.process-route-tag {
-  max-width: 110px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  vertical-align: middle;
-  white-space: nowrap;
-}
-
-.process-route-tag :deep(.el-tag__content) {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.process-relation-summary {
-  display: inline-block;
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  vertical-align: middle;
-  white-space: nowrap;
-}
-
-.process-route-capacity-link {
-  min-height: 20px;
-  padding: 0;
-  font-size: 12px;
-  line-height: 20px;
 }
 
 .process-workstation-tags {
@@ -964,19 +608,6 @@ watch(
 .process-workstation-link-tag:focus-visible {
   outline: 2px solid var(--el-color-primary-light-5);
   outline-offset: 2px;
-}
-
-.process-link-tags {
-  display: inline-flex;
-  max-width: 100%;
-  gap: 4px;
-  overflow: hidden;
-  vertical-align: middle;
-}
-
-.process-link-tag {
-  max-width: 130px;
-  padding: 0;
 }
 
 .process-unconfigured {

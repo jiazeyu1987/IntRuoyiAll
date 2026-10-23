@@ -1,0 +1,56 @@
+{
+  "status": "LD01_LD02_LOCAL_IMPLEMENTATION_COMMITTED",
+  "commit": "64ba36ae92e4d2f08c3808b9130c085b55a2bea8",
+  "branch": "int_qms",
+  "paths": [
+    "doc/tasks/20261002-dcc-public-browser/g46-project-product-frontend-bdd.md",
+    "doc/tasks/20261002-dcc-public-browser/g47-free-file-upload-bdd.md",
+    "IntRuoyiBackend/sql/mysql/20261004_dcc_product_identity_source.sql",
+    "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/file/vo/DccControlledFileCurrentVersionRespVO.java",
+    "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/file/vo/DccControlledFileRespVO.java",
+    "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/file/vo/DccProjectProductRespVO.java",
+    "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/dal/dataobject/file/DccControlledFileDO.java",
+    "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/dal/dataobject/productcatalog/DccProductCatalogDO.java",
+    "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/dal/mysql/projectcode/DccApprovedProductIdentityMapper.java",
+    "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileMetadataUpdateServiceImpl.java",
+    "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileQueryServiceImpl.java",
+    "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileWorkflowServiceImpl.java",
+    "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/projectcode/assignmentaudit/DccProjectCodeMetadataChangeAuditServiceImpl.java",
+    "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/projectcode/productcreate/DccProjectProductCreateWriteService.java",
+    "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/projectcode/productcreate/DccProjectProductIdentityResolver.java",
+    "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileMetadataUpdateServiceTest.java",
+    "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileWorkflowServiceImplTest.java",
+    "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccSourceUploadContextTest.java",
+    "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/projectcode/G46ApprovedProductIdentityTest.java",
+    "IntRuoyiBackend/yudao-module-dcc/src/test/resources/sql/create_tables.sql",
+    "IntRuoyiFronted/src/api/dcc/controlledFile/fileTypeTaxonomies.ts",
+    "IntRuoyiFronted/src/api/dcc/controlledFile/workflow.ts",
+    "IntRuoyiFronted/src/views/dcc/controlled-file/upload/file-type-options.ts",
+    "IntRuoyiFronted/src/views/dcc/controlled-file/upload/index.vue",
+    "IntRuoyiFronted/src/views/dcc/controlled-file/upload/project-product-identity.ts",
+    "IntRuoyiFronted/src/views/dcc/controlled-file/upload/submitter.ts",
+    "IntRuoyiFronted/tests/e2e/dcc-upload-product-autofill-static.spec.js",
+    "IntRuoyiFronted/tests/e2e/dcc-upload-project-code-hint-static.spec.js",
+    "IntRuoyiFronted/tests/unit/dcc-upload-application-page.test.cjs",
+    "IntRuoyiFronted/tests/unit/dcc-upload-free-file-type.test.cjs",
+    "IntRuoyiFronted/tests/unit/dcc-upload-long-contract.test.cjs",
+    "IntRuoyiFronted/tests/unit/dcc-upload-project-product-identity.test.cjs"
+  ],
+  "protectedAssets": [
+    {
+      "path": "AGENTS.md",
+      "sha256": "3ae2c3981839b6a746c5166747b34a4d64d62d907da883d166a189fcd595e7da"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-infra/src/main/java/cn/iocoder/yudao/module/infra/controller/admin/file/FileController.java",
+      "sha256": "7b003bfc1e13ec22bea261b77df7f6b1d17fa6d59dd2df393048896880ed7426"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-infra/src/test/java/cn/iocoder/yudao/module/infra/controller/admin/file/FileControllerTest.java",
+      "sha256": "22a723ccfd96d720d070cef401f2fd586dcdc9049d8eb0f164452dc0bff23908"
+    }
+  ],
+  "pushPerformed": false,
+  "actualSchemaMigration": false,
+  "fullBusinessUiPass": false
+}

@@ -1,0 +1,135 @@
+[
+  {
+    "migrationId": "20260513_dcc_base_schema",
+    "ledgerSha256": "2a57d12b245485017f67c11335ee8b8c4b07eb6a5d9035ae96dad09d7a8203a0",
+    "path": "IntRuoyiBackend/sql/mysql/20260513_dcc_base_schema.sql",
+    "exactSourceFound": true,
+    "gitCandidates": [
+      {
+        "revision": "bd33a7df6ae75e5f774a4183a34677abb19d841f",
+        "hashes": {
+          "git_blob": "2186d043facfb5f750219053e7ee14b53e7dfacffb0de8d7c5ea004f0805ffb1",
+          "utf8_lf": "2186d043facfb5f750219053e7ee14b53e7dfacffb0de8d7c5ea004f0805ffb1",
+          "utf8_crlf": "a91dc74e4b40528f43a2571eb0d6463ce1269f70e96945f7ed71c04167f77f98"
+        },
+        "matchingFormat": null
+      },
+      {
+        "revision": "bc640fd96d407d284aab7ab2501215f85ac5bf14",
+        "hashes": {
+          "git_blob": "de846ef4af93779c31f7b231909af14934d333b7101bb017344fcc2f1f68734d",
+          "utf8_lf": "de846ef4af93779c31f7b231909af14934d333b7101bb017344fcc2f1f68734d",
+          "utf8_crlf": "f0ace5742716c54bd4cb745c7ccce9a3075c61166e159d52798337f239555497"
+        },
+        "matchingFormat": null
+      },
+      {
+        "revision": "860496e330a8b47bcb421b8b65ece03c06df33d8",
+        "hashes": {
+          "git_blob": "b170725a736d199251fe317249e4c6416dc57bb838e416c7b37923f52c7ca656",
+          "utf8_lf": "b170725a736d199251fe317249e4c6416dc57bb838e416c7b37923f52c7ca656",
+          "utf8_crlf": "431d15dd2be469abdbadd88e637c304ed1133a769a0f2323a21ecee4fee1f536"
+        },
+        "matchingFormat": null
+      },
+      {
+        "revision": "fcfd718d5eb5350950ad970223291f7284bf97fb",
+        "hashes": {
+          "git_blob": "642377ecfbe30e63616206a471307fa6cd0d91367b3cf5f725391fe92e748c1b",
+          "utf8_lf": "642377ecfbe30e63616206a471307fa6cd0d91367b3cf5f725391fe92e748c1b",
+          "utf8_crlf": "43d7c2f7514ddbe1d9544d50753e5022fd2631467e6d72494f9cb5b6da60dac6"
+        },
+        "matchingFormat": null
+      },
+      {
+        "revision": "bafe11bd570403082049bd121b866bf8062ea035",
+        "hashes": {
+          "git_blob": "315679a3c0d1383820f7e67c15bf1cab47221f48168e1d580a9c5de66fc01669",
+          "utf8_lf": "315679a3c0d1383820f7e67c15bf1cab47221f48168e1d580a9c5de66fc01669",
+          "utf8_crlf": "c5974b7b9b62fb22e0b0382423d51f1c573d001152114db7d879f9a9870414f3"
+        },
+        "matchingFormat": null
+      },
+      {
+        "revision": "03646727bcf91611425da89b730f7b32b16ad0a1",
+        "hashes": {
+          "git_blob": "a99df8754f552dd0ef94466117326c3e76d033e7cbae7319fe84fdc64984aa50",
+          "utf8_lf": "a99df8754f552dd0ef94466117326c3e76d033e7cbae7319fe84fdc64984aa50",
+          "utf8_crlf": "2a57d12b245485017f67c11335ee8b8c4b07eb6a5d9035ae96dad09d7a8203a0"
+        },
+        "matchingFormat": "utf8_crlf"
+      },
+      {
+        "revision": "6b1fd19eb488dcbce58d4233eae82de427414216",
+        "hashes": {
+          "git_blob": "4e8746af5e0a090bb79abec211f73d687c7569f978f0e3812817b3d0bd799bf7",
+          "utf8_lf": "4e8746af5e0a090bb79abec211f73d687c7569f978f0e3812817b3d0bd799bf7",
+          "utf8_crlf": "6a94e0ae8c6c7acc364d040c43ad54ad627327d643d80a564340319c739e0171"
+        },
+        "matchingFormat": null
+      },
+      {
+        "revision": "acf452a354076f2e8d4bbdf9c7cf519559ceedaf",
+        "hashes": {
+          "git_blob": "d31bed9c6f621ab0a15c7124f571475e6759de6e760e6fc377664650dc9c595d",
+          "utf8_lf": "d31bed9c6f621ab0a15c7124f571475e6759de6e760e6fc377664650dc9c595d",
+          "utf8_crlf": "4751b23cf28e932d936f3c6a81d9aee109afbd6fa509189dd50d589ac6abfe28"
+        },
+        "matchingFormat": null
+      },
+      {
+        "revision": "4426f0c932b9603f156e3b25845f0ec5973b8c65",
+        "hashes": {
+          "git_blob": "1099f50e936d10bea5a20138fa261726b89ab68240c4b59d8aea8e6c2149ebac",
+          "utf8_lf": "1099f50e936d10bea5a20138fa261726b89ab68240c4b59d8aea8e6c2149ebac",
+          "utf8_crlf": "9c6d4004565813ebfc8b1ad0454c6eb7d27302a348f426f1ad94795774c2bd33"
+        },
+        "matchingFormat": null
+      },
+      {
+        "revision": "c67686a52e6f960820854536b5f3756c7cf9741f",
+        "hashes": {
+          "git_blob": "e9f26397f4f2675b6025c62d15ad903ebaf78858cd7760c7bf817b81fa605c52",
+          "utf8_lf": "e9f26397f4f2675b6025c62d15ad903ebaf78858cd7760c7bf817b81fa605c52",
+          "utf8_crlf": "fea457db362b6f7eec1c8c70a872ae1e2f89ce012261100b40f2b8657677b68a"
+        },
+        "matchingFormat": null
+      }
+    ]
+  },
+  {
+    "migrationId": "20260710_dcc_product_catalog_database",
+    "ledgerSha256": "2a17bc9ff3845e4ca313c02ca0602471716cc676843a207649c1a0f016f16307",
+    "path": "IntRuoyiBackend/sql/mysql/20260710_dcc_product_catalog_database.sql",
+    "exactSourceFound": true,
+    "gitCandidates": [
+      {
+        "revision": "bafe11bd570403082049bd121b866bf8062ea035",
+        "hashes": {
+          "git_blob": "d9be6777b11e600c6348b8d737fd87c1bc7c31806e95bbf992b81b683abc7157",
+          "utf8_lf": "d9be6777b11e600c6348b8d737fd87c1bc7c31806e95bbf992b81b683abc7157",
+          "utf8_crlf": "3d9d8e4ab76b6512e993810dc971341193d3273e5d6a68a83cca39c1d70fef5d"
+        },
+        "matchingFormat": null
+      },
+      {
+        "revision": "2f514778cc89d7d78c9f5c7f3a9a1902e8c6d986",
+        "hashes": {
+          "git_blob": "48a76dc2385d25492496121e3bbf4d28a4b9640593739ae6b697cd95d277f31c",
+          "utf8_lf": "48a76dc2385d25492496121e3bbf4d28a4b9640593739ae6b697cd95d277f31c",
+          "utf8_crlf": "2a17bc9ff3845e4ca313c02ca0602471716cc676843a207649c1a0f016f16307"
+        },
+        "matchingFormat": "utf8_crlf"
+      },
+      {
+        "revision": "c67686a52e6f960820854536b5f3756c7cf9741f",
+        "hashes": {
+          "git_blob": "634b0150f4ee75c4535c69106880d434ca9537a2bd366b8c0056bc61989c7140",
+          "utf8_lf": "634b0150f4ee75c4535c69106880d434ca9537a2bd366b8c0056bc61989c7140",
+          "utf8_crlf": "68d3626167206f34c24db1d23e32d007884aa251da1b7fdc8b0586eb948425e5"
+        },
+        "matchingFormat": null
+      }
+    ]
+  }
+]

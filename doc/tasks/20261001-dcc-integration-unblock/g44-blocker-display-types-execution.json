@@ -1,0 +1,5 @@
+{
+  "sameExistingProjectGate": true,
+  "exitCode": 134,
+  "tsconfig": "tsconfig.relaxed.json"
+}

@@ -1,0 +1,13 @@
+{
+  "status": "ACTUAL_NEW_UNCONTROLLED_DETAIL_SHOWS_FROZEN_SELECTED_HISTORY_WITHOUT_CURRENT_SET_FAILURE",
+  "fileId": "2054545668044084028",
+  "state": "PENDING_MATRIX_REVIEW",
+  "selectedFrozenRelatedFile": "2054545668044084026",
+  "selectedFrozenVersion": "A/1",
+  "actualUiEvidence": "C:\\IntRuoyiBackups\\20261005-dcc-four-direction-runtime\\g56-real-ui-r2\\039.json",
+  "evidenceSha256": "71a35c0541acec7e4c1baa64a271c3ac37896e2390d6a6522c8bdab5cbaf963f",
+  "currentSetCreatedByRead": false,
+  "actorAccountsTested": [
+    "admin"
+  ]
+}

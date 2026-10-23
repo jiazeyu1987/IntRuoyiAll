@@ -17,6 +17,7 @@ import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.HexFormat;
+import java.util.Objects;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_SIGNATURE_EVIDENCE_MISSING;
@@ -27,6 +28,8 @@ public class DccControlledFileSignatureEvidenceServiceImpl implements DccControl
 
     public static final String PAYLOAD_VERSION_V2 = "v2";
     public static final String PAYLOAD_VERSION_V3_IMAGE = "v3-image";
+    public static final String PAYLOAD_VERSION_V4_WORKFLOW = "v4-workflow";
+    public static final String PAYLOAD_VERSION_V5_DELAYED = "v5-delayed-effective";
     public static final String EVIDENCE_HASH_ALGORITHM = "HMAC_SHA256";
     public static final String FILE_HASH_ALGORITHM = "SHA-256";
     public static final String STATUS_VALID = "VALID";
@@ -51,7 +54,7 @@ public class DccControlledFileSignatureEvidenceServiceImpl implements DccControl
                 || revision.getSourceFileId() == null
                 || StrUtil.isBlank(revision.getFileNumber())
                 || StrUtil.isBlank(revision.getVersionNo())
-                || StrUtil.isBlank(revision.getProcessInstanceId())) {
+                || req.getProcessInstanceId() == null && StrUtil.isBlank(revision.getProcessInstanceId())) {
             throw exception(CONTROLLED_FILE_SIGNATURE_EVIDENCE_MISSING);
         }
         String sourceFileHash = digestFile(revision.getSourceFileId());
@@ -60,7 +63,10 @@ public class DccControlledFileSignatureEvidenceServiceImpl implements DccControl
         String canonicalPayload = buildCanonicalPayload(req, revision, sourceFileHash,
                 controlledCopyEvidence.hashForPayload(), signedAtText);
         return DccControlledFileSignatureEvidence.builder()
+                .selectedEffectiveTime(req.getSelectedEffectiveTime()).attributeRound(req.getAttributeRound())
                 .revisionId(revision.getId())
+                .processInstanceId(req.getProcessInstanceId())
+                .fileNumberSnapshot(req.getProcessInstanceId() == null ? null : revision.getFileNumber())
                 .versionNo(revision.getVersionNo())
                 .sourceFileId(revision.getSourceFileId())
                 .sourceFileHash(sourceFileHash)
@@ -79,7 +85,7 @@ public class DccControlledFileSignatureEvidenceServiceImpl implements DccControl
                 .signatureImageFileSize(req.getSignatureImageFileSize())
                 .signatureImageStatusSnapshot(req.getSignatureImageStatusSnapshot())
                 .signatureImageVerifiedStatus(req.getSignatureImageVerifiedStatus())
-                .evidencePayloadVersion(PAYLOAD_VERSION_V3_IMAGE)
+                .evidencePayloadVersion(payloadVersion(req))
                 .evidenceKeyVersion(signatureEvidenceProperties.getKeyVersion())
                 .evidenceHash(hmacSha256Hex(canonicalPayload))
                 .evidenceHashAlgorithm(EVIDENCE_HASH_ALGORITHM)
@@ -88,6 +94,27 @@ public class DccControlledFileSignatureEvidenceServiceImpl implements DccControl
                 .recordVersionSnapshot(revision.getVersionNo())
                 .recordHashSnapshot(sourceFileHash)
                 .build();
+    }
+
+    @Override
+    public DccControlledFileSignatureEvidence createDelayedSigningIntent(DccControlledFileSignatureEvidenceCreateReq req){
+        validateConfig();validateSignatureImageReq(req);
+        if(req==null || !"DELAYED_EFFECTIVE_CONFIRM_APPROVE".equals(req.getMeaningCode()) || req.getTenantId()==null
+                || req.getProcessInstanceId()==null || req.getProcessInstanceId().isBlank() || req.getTaskId()==null || req.getTaskId().isBlank()
+                || req.getSignerUserId()==null || req.getSelectedEffectiveTime()==null || req.getSelectedEffectiveTime().getNano()!=0
+                || req.getAttributeRound()==null || req.getAttributeRound()<=0 || req.getReasonText()==null || req.getReasonText().isBlank())
+            throw exception(CONTROLLED_FILE_SIGNATURE_EVIDENCE_MISSING);
+        var file=controlledFileMapper.selectById(req.getControlledFileId());
+        if(file==null || file.getSourceFileId()==null || !Objects.equals(file.getTenantId(),req.getTenantId())
+                || !Objects.equals(req.getTenantId(),cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId())
+                || Boolean.TRUE.equals(file.getDeleted()) || !Objects.equals(file.getRequesterId(),req.getSignerUserId())
+                || !Objects.equals(file.getProcessInstanceId(),req.getProcessInstanceId()))throw exception(CONTROLLED_FILE_SIGNATURE_EVIDENCE_MISSING);
+        String sourceHash=digestFile(file.getSourceFileId());req.setSignedAt(null);
+        return DccControlledFileSignatureEvidence.builder().revisionId(file.getId()).versionNo(file.getVersionNo()).fileNumberSnapshot(file.getFileNumber())
+                .processInstanceId(req.getProcessInstanceId()).sourceFileId(file.getSourceFileId()).sourceFileHash(sourceHash).recordHashSnapshot(sourceHash)
+                .recordVersionSnapshot(file.getVersionNo()).controlledCopyHash("").evidenceHash("").evidencePayloadVersion(PAYLOAD_VERSION_V5_DELAYED)
+                .selectedEffectiveTime(req.getSelectedEffectiveTime()).attributeRound(req.getAttributeRound())
+                .canonicalPayload(cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(req)).build();
     }
 
     private void validateConfig() {
@@ -112,6 +139,15 @@ public class DccControlledFileSignatureEvidenceServiceImpl implements DccControl
                 || req.getSignedAt() == null) {
             throw exception(CONTROLLED_FILE_SIGNATURE_EVIDENCE_MISSING);
         }
+        if (req.getProcessInstanceId() != null && StrUtil.isBlank(req.getProcessInstanceId()))
+            throw exception(CONTROLLED_FILE_SIGNATURE_EVIDENCE_MISSING);
+        if ("DELAYED_EFFECTIVE_CONFIRM_APPROVE".equals(req.getMeaningCode())) {
+            if(req.getProcessInstanceId()==null || req.getAttributeRound()==null || req.getAttributeRound()<=0
+                    || req.getSelectedEffectiveTime()==null || req.getSelectedEffectiveTime().getNano()!=0
+                    || req.getSelectedEffectiveTime().isBefore(req.getSignedAt()) || StrUtil.isBlank(req.getReasonText()))
+                throw exception(CONTROLLED_FILE_SIGNATURE_EVIDENCE_MISSING);
+        } else if(req.getSelectedEffectiveTime()!=null || req.getAttributeRound()!=null)
+            throw exception(CONTROLLED_FILE_SIGNATURE_EVIDENCE_MISSING);
     }
 
     private static void validateControlledCopyReq(DccControlledFileSignatureEvidenceCreateReq req) {
@@ -183,7 +219,7 @@ public class DccControlledFileSignatureEvidenceServiceImpl implements DccControl
                                          String controlledCopyHash,
                                          String signedAtText) {
         StringBuilder payload = new StringBuilder("{");
-        append(payload, "payloadVersion", PAYLOAD_VERSION_V3_IMAGE);
+        append(payload, "payloadVersion", payloadVersion(req));
         append(payload, "hashAlgorithm", EVIDENCE_HASH_ALGORITHM);
         append(payload, "keyVersion", signatureEvidenceProperties.getKeyVersion());
         append(payload, "tenantId", req.getTenantId());
@@ -202,7 +238,8 @@ public class DccControlledFileSignatureEvidenceServiceImpl implements DccControl
         append(payload, "signatureImageFileSize", req.getSignatureImageFileSize());
         append(payload, "signatureImageStatusSnapshot", req.getSignatureImageStatusSnapshot());
         append(payload, "signatureImageVerifiedStatus", req.getSignatureImageVerifiedStatus());
-        append(payload, "processInstanceId", revision.getProcessInstanceId());
+        append(payload, "processInstanceId", req.getProcessInstanceId() == null
+                ? revision.getProcessInstanceId() : req.getProcessInstanceId());
         append(payload, "taskId", req.getTaskId());
         append(payload, "taskActionResult", req.getTaskActionResult());
         append(payload, "meaningCode", req.getMeaningCode());
@@ -218,8 +255,17 @@ public class DccControlledFileSignatureEvidenceServiceImpl implements DccControl
         append(payload, "authenticationMethod", req.getAuthenticationMethod());
         append(payload, "signedAt", signedAtText);
         append(payload, "reasonText", StrUtil.trimToEmpty(req.getReasonText()));
+        if(PAYLOAD_VERSION_V5_DELAYED.equals(payloadVersion(req))) {
+            append(payload, "selectedEffectiveTime", toCanonicalSignedAt(req.getSelectedEffectiveTime()));
+            append(payload, "attributeRound", req.getAttributeRound());
+        }
         payload.append('}');
         return payload.toString();
+    }
+
+    private static String payloadVersion(DccControlledFileSignatureEvidenceCreateReq req) {
+        if("DELAYED_EFFECTIVE_CONFIRM_APPROVE".equals(req.getMeaningCode())) return PAYLOAD_VERSION_V5_DELAYED;
+        return req.getProcessInstanceId() == null ? PAYLOAD_VERSION_V3_IMAGE : PAYLOAD_VERSION_V4_WORKFLOW;
     }
 
     private static void append(StringBuilder payload, String field, String value) {

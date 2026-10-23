@@ -10,8 +10,12 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class DccControlledFileSignatureEvidence {
+    private java.time.LocalDateTime selectedEffectiveTime;
+    private Integer attributeRound;
 
     private Long revisionId;
+    private String processInstanceId;
+    private String fileNumberSnapshot;
     private String versionNo;
     private Long sourceFileId;
     private String sourceFileHash;

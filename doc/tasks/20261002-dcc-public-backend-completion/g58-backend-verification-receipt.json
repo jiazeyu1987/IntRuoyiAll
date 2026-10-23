@@ -1,0 +1,192 @@
+{
+  "status": "PASS_ISOLATED_CURRENT_SOURCE_NOT_RUNTIME_E2E",
+  "actualCliExitCode": 0,
+  "finishedAt": "2026-10-05T19:44:28+08:00",
+  "tests": 260,
+  "groups": 7,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0,
+  "finalLog": {
+    "path": "doc/tasks/20261002-dcc-public-backend-completion/g58-final-related-regression-r3.log",
+    "bytes": 132004,
+    "sha256": "15fb1f350d40d9af141d5228481a458806fb466bc701a23651cb493cdfd71dec"
+  },
+  "originalXml": [
+    {
+      "name": "cn.iocoder.yudao.module.dcc.approval.DccApprovalTaskAdapterTest",
+      "tests": 27,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g58-final-junit/TEST-cn.iocoder.yudao.module.dcc.approval.DccApprovalTaskAdapterTest.xml",
+      "bytes": 99082,
+      "sha256": "fe373ffa69acb109ffb67ac7ccebea4b0080f8cb24af53bc2dadb41c6e0ef7be"
+    },
+    {
+      "name": "cn.iocoder.yudao.module.dcc.service.category.DccCategoryPermissionAdminServiceImplTest",
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g58-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.category.DccCategoryPermissionAdminServiceImplTest.xml",
+      "bytes": 97786,
+      "sha256": "ed71fda684f6194a9264b3dc4493b97194d5aa4a0b8e06368e9e0c01e9d8a6ac"
+    },
+    {
+      "name": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileUploadApiTest",
+      "tests": 35,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g58-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccControlledFileUploadApiTest.xml",
+      "bytes": 101182,
+      "sha256": "d6ab6d15d017f27931f7457b5eec2a4fc3959fbdeab1b048dc3e21652d29eb85"
+    },
+    {
+      "name": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+      "tests": 170,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g58-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest.xml",
+      "bytes": 128223,
+      "sha256": "b71e865be111cfbcca712cc02be1bae74a8348423434b92856151634c08cfc3f"
+    },
+    {
+      "name": "cn.iocoder.yudao.module.dcc.service.file.DccOfflineTrainingEntryDatabaseTest",
+      "tests": 14,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g58-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccOfflineTrainingEntryDatabaseTest.xml",
+      "bytes": 136934,
+      "sha256": "f33ea5842bc156b945f356bce575fe8a4cd7c5faf1d842bfa48f5a955fd1c2d2"
+    },
+    {
+      "name": "cn.iocoder.yudao.module.dcc.service.file.DccTrainingRecordDutyApprovalTransactionTest",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g58-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccTrainingRecordDutyApprovalTransactionTest.xml",
+      "bytes": 103132,
+      "sha256": "c01cd47a51e9bbb54fda497b97a3f755ac105e3e512c09fb507d3951829b6d35"
+    },
+    {
+      "name": "cn.iocoder.yudao.module.dcc.service.file.DccTrainingRecordDutyDatabaseTest",
+      "tests": 6,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g58-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccTrainingRecordDutyDatabaseTest.xml",
+      "bytes": 111401,
+      "sha256": "7aad79bca68cda1f78172b37e50acc05986f24b096e32088101fad48409692f6"
+    }
+  ],
+  "effectiveRED": {
+    "tests": 3,
+    "failures": 1,
+    "errors": 2,
+    "reasons": [
+      "Independent actual H2 TRAINING_RECORD USER88 lacks content APPROVE; old shared eligibility false",
+      "Actual public preview rejected CONTROLLED_FILE_TASK_ACTION_NOT_ALLOWED1080000024",
+      "Actual public training POST rejected1080000024 before ticket binding"
+    ],
+    "xml": {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g58-training-duty-effective-red.xml",
+      "bytes": 109550,
+      "sha256": "fc48aa0dbe728c1a205377ce143b15d59ff25f00c33f4a79b5ee7a340b707f69"
+    },
+    "log": {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g58-training-duty-red-r4.log",
+      "bytes": 83906,
+      "sha256": "93d982c14ad77e81f731faad012a5b316264a31864c7a255b4d06c00c5d15517"
+    }
+  },
+  "fixtureFailuresNotBusinessRED": [
+    "Initial TransactionTemplate assertTrue overload compilation",
+    "Missing public HTTP User-Agent",
+    "Invalid isolated category lifecycle then corrected to formal OUTPUT",
+    "Physical preview host lacked actual TransactionTemplate then sourceOwnership rollback cleanup port",
+    "Checked deleteFile exception in Runnable must explicitly wrap; testCompile logs preserved"
+  ],
+  "actualProof": "Actual CategoryPermissionSupport/Mapper raw rules (TRAINING_RECORD USER88 vs APPROVE USER1), public Controller/UploadService/Workflow/ticketMapper and real ReceiveTask trigger; metadata/native queue/official message qualification; formal permissionRules transaction keeps old APPROVE row byte facts and continues manualAPPROVE rejection. Real public HMAC DCC+unified signatures/Flowable/official station insert host has missing-template/post-insert rollback with real dedicated rule.",
+  "explicitFixtures": "Account/role/menu/hard scope and storage source-byte client ports, template directory and Gxp ports isolated; no actual E2E password/signature assets or physical NAS proof.",
+  "semanticBoundary": {
+    "native": "TRAINING_RECORD independent category duty plus actual enabled doc_control, existing dccquery/approve endpoints, hardfile/project and exact current native training wait",
+    "legacy": "Non-native training POST retains original role/categoryAPPROVE gate and legacy stage; old600second chain not changed",
+    "approvalMatrix": "REVIEW/APPROVE protected; no approval personnel/route/history changes",
+    "bodyPermissions": "Unchanged",
+    "schemaSQL": "None",
+    "actualDatabaseAPIUIServicePackageGit": "None"
+  },
+  "mavenOwnership": "FREE_FROZEN",
+  "previousG57UnchangedAssets": [
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/approval/DccOfflineTrainingTaskDelegate.java",
+      "bytes": 2964,
+      "sha256": "6973261ed84a037db9527cfb061974f859e01dd58565896c4ad1cd4a85a52f03"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/approval/DccApprovalTaskAdapter.java",
+      "bytes": 45293,
+      "sha256": "feabbb3a2498a6d363104ebfd38228f8068e0aeab048cb2ab7a71c7b79222beb"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/dal/mysql/file/DccControlledFileMapper.java",
+      "bytes": 42257,
+      "sha256": "91c7263173259a20305d4a82f32e9ad5bdd7700f90c0b8cbd5bbfff34514bf5a"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileDetailAuthorizationGuard.java",
+      "bytes": 11946,
+      "sha256": "29601d1eadebe926b83bd88a7cd672dcbe0d493179300dcf591d8e16fcad15ac"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileQueryServiceImpl.java",
+      "bytes": 268783,
+      "sha256": "d778318190fd823515d91b3d61e6aff23624c966000b2e36c4604465bda90d63"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/file/vo/DccControlledFileRespVO.java",
+      "bytes": 7039,
+      "sha256": "e575f2435cfbd4a185c4e302cc14b398974b9e72c96639ff7c80b525e2e66877"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccOfflineTrainingEntryDatabaseTest.java",
+      "bytes": 20687,
+      "sha256": "50d25c24e22637c38cbb6e82e3fae949022b0f8cd51676ec9016b2e36340af56"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccOfflineTrainingApprovalTransactionTest.java",
+      "bytes": 9751,
+      "sha256": "b2fbd3be702422375a8f9308704c22e1ae7de9cc68f76f3f079458c381aaff65"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/approval/DccApprovalTaskAdapterTest.java",
+      "bytes": 54556,
+      "sha256": "92485732baa0b7e8b286dec80e2b53936161a3d73c8b20fe8c5df4af9fe6e9e7"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/projectcode/DccProjectApplicationNotificationTest.java",
+      "bytes": 19857,
+      "sha256": "19e684a1b55b61da8880f623fba9285546b2e1efe1970ef53049e9e1e6611073"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileWorkflowServiceImplTest.java",
+      "bytes": 296436,
+      "sha256": "8e1bf71adc0eadbbfeb9bf3a058dfeef7b550ad04c1cf3461f59f6095bd17fd7"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccRelationNameMetadataDatabaseTest.java",
+      "bytes": 18177,
+      "sha256": "2ea8291e750d8838a0ce0412a2bc4215c67ab74fefb021e0c75f0002d1dde818"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileQueryServiceTest.java",
+      "bytes": 401762,
+      "sha256": "7f515be4b4c228a8bc29ad75d226d7fc6e0aa143ef4c3c2ea29cf24561496a32"
+    }
+  ]
+}

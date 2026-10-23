@@ -1,0 +1,13 @@
+{
+  "actualUserApproval": true,
+  "actualAnswer": "授权按方案恢复（建议）",
+  "sourceMessageReference": "send_user_message_question_reply:call_mc2WuQaway0pBN7yucRpSVS9:item2",
+  "sourceQuestionId": "call_mc2WuQaway0pBN7yucRpSVS9:2",
+  "maximumUniqueObjectPuts": 3,
+  "sourceFileIds": ["9198354931064", "9198354931068", "9198354931079", "9198354931095"],
+  "missingOnlyConditionalCreation": true,
+  "overwritesAllowed": false,
+  "databaseHistoryWritesAllowed": false,
+  "all39IndependentVerificationRequired": true,
+  "reference": "g39-user-authorization.json"
+}

@@ -55,6 +55,7 @@ public class DccFileCategoryAdminServiceImpl implements DccFileCategoryAdminServ
     private static final String INTAUTH_CODE_PREFIX = "INTAUTH-";
     private static final String LOCAL_SOURCE = "LOCAL";
 
+    @Resource private cn.iocoder.yudao.module.dcc.service.file.DccStorageMappingMutationGuard storageMappingGuard;
     @Resource
     private DccFileCategoryMapper categoryMapper;
     @Resource
@@ -85,21 +86,42 @@ public class DccFileCategoryAdminServiceImpl implements DccFileCategoryAdminServ
     @Override
     @Transactional(rollbackFor = Exception.class)
     public Long createCategory(DccFileCategorySaveReqVO reqVO) {
+        DccFileCategoryDO.requireApprovalSourceMode(reqVO.getApprovalSourceMode());
         DccFileCategoryDO category = BeanUtils.toBean(reqVO, DccFileCategoryDO.class);
         applyLocalSourceDefault(category);
         applyLifecycleStageFromFileTypeTaxonomy(category);
         applyRequirementDefaults(category);
-        categoryMapper.insert(category);
+        fileTypeTaxonomyAdminService.validateCategoryMapping(category.getFileTypeTaxonomyId(), null,
+                Boolean.TRUE.equals(category.getActive()));
+        if (categoryMapper.insert(category) != 1 || category.getId() == null) {
+            throw exception(DccFileCategoryAdminErrors.WRITE_INCOMPLETE, "新增类别");
+        }
+        if (reqVO.getDirectoryBinding() != null) {
+            bindDirectory(category.getId(), reqVO.getDirectoryBinding());
+        }
         return category.getId();
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void updateCategory(DccFileCategorySaveReqVO reqVO) {
-        validateCategoryExists(reqVO.getId());
+        DccFileCategoryDO.requireApprovalSourceMode(reqVO.getApprovalSourceMode());
+        DccFileCategoryDO existing = validateCategoryExists(reqVO.getId());
+        if (!Objects.equals(existing.getFileTypeTaxonomyId(), reqVO.getFileTypeTaxonomyId())
+                && (controlledFileMapper.selectCount(DccControlledFileDO::getCategoryId, existing.getId()) > 0
+                || controlledFileMasterMapper.selectCount(DccControlledFileMasterDO::getCategoryId, existing.getId()) > 0)) {
+            throw exception(DccFileCategoryAdminErrors.USED_TYPE_CHANGE_FORBIDDEN);
+        }
         DccFileCategoryDO category = BeanUtils.toBean(reqVO, DccFileCategoryDO.class);
         applyLifecycleStageFromFileTypeTaxonomy(category);
-        categoryMapper.updateById(category);
+        fileTypeTaxonomyAdminService.validateCategoryMapping(category.getFileTypeTaxonomyId(), category.getId(),
+                Boolean.TRUE.equals(category.getActive()));
+        if (categoryMapper.updateById(category) != 1) {
+            throw exception(DccFileCategoryAdminErrors.WRITE_INCOMPLETE, "修改类别");
+        }
+        if (reqVO.getDirectoryBinding() != null) {
+            bindDirectory(category.getId(), reqVO.getDirectoryBinding());
+        }
     }
 
     @Override
@@ -107,7 +129,9 @@ public class DccFileCategoryAdminServiceImpl implements DccFileCategoryAdminServ
     public void deleteCategory(Long id) {
         validateCategoryExists(id);
         validateCategoryDeletable(id);
-        categoryMapper.deleteById(id);
+        if (categoryMapper.deleteById(id) != 1) {
+            throw exception(DccFileCategoryAdminErrors.WRITE_INCOMPLETE, "删除类别");
+        }
     }
 
     @Override
@@ -117,7 +141,9 @@ public class DccFileCategoryAdminServiceImpl implements DccFileCategoryAdminServ
 
     @Override
     public List<DccFileCategoryDO> getCategoryList() {
-        return categoryMapper.selectList();
+        var categories = categoryMapper.selectList();
+        categories.forEach(category -> DccFileCategoryDO.requireApprovalSourceMode(category.getApprovalSourceMode()));
+        return categories;
     }
 
     @Override
@@ -125,6 +151,7 @@ public class DccFileCategoryAdminServiceImpl implements DccFileCategoryAdminServ
     public DccFileCategoryImportResult importCategoriesFromIntAuth() {
         List<DccIntAuthFileCategoryClient.IntAuthFileCategory> intAuthCategories = intAuthFileCategoryClient.listFileCategories();
         List<DccFileCategoryDO> localCategories = categoryMapper.selectList();
+        localCategories.forEach(category -> DccFileCategoryDO.requireApprovalSourceMode(category.getApprovalSourceMode()));
         Map<Long, DccFileCategoryDO> mappedCategories = buildMappedCategories(localCategories);
         Map<String, List<DccFileCategoryDO>> unmappedCategoriesByName = localCategories.stream()
                 .filter(item -> parseIntAuthSourceId(item.getSource()) == null)
@@ -182,18 +209,25 @@ public class DccFileCategoryAdminServiceImpl implements DccFileCategoryAdminServ
     @Override
     @Transactional(rollbackFor = Exception.class)
     public DccCategoryDirectoryBindingDO bindDirectory(Long categoryId, DccCategoryDirectoryBindingSaveReqVO reqVO) {
+        storageMappingGuard.requireCategoryUnmapped(categoryId);
         validateCategoryExists(categoryId);
         if (directoryMapper.selectById(reqVO.getDirectoryId()) == null) {
             throw exception(FILE_DIRECTORY_NOT_EXISTS);
         }
         // This relation is single-binding configuration data; physical delete prevents
         // historical logic-deleted rows from continuing to occupy the unique pair.
-        bindingMapper.deleteAllByCategoryIdForce(categoryId);
+        long existingBindingCount = bindingMapper.selectCount(DccCategoryDirectoryBindingDO::getCategoryId, categoryId);
+        int deletedBindingCount = bindingMapper.deleteAllByCategoryIdForce(categoryId);
+        if (deletedBindingCount < existingBindingCount || deletedBindingCount < 0) {
+            throw exception(DccFileCategoryAdminErrors.WRITE_INCOMPLETE, "删除原目录绑定");
+        }
         DccCategoryDirectoryBindingDO binding = new DccCategoryDirectoryBindingDO();
         binding.setCategoryId(categoryId);
         binding.setDirectoryId(reqVO.getDirectoryId());
         binding.setActive(reqVO.getActive());
-        bindingMapper.insert(binding);
+        if (bindingMapper.insert(binding) != 1 || binding.getId() == null) {
+            throw exception(DccFileCategoryAdminErrors.WRITE_INCOMPLETE, "绑定目录");
+        }
         return binding;
     }
 
@@ -202,6 +236,7 @@ public class DccFileCategoryAdminServiceImpl implements DccFileCategoryAdminServ
         if (category == null) {
             throw exception(FILE_CATEGORY_NOT_EXISTS);
         }
+        DccFileCategoryDO.requireApprovalSourceMode(category.getApprovalSourceMode());
         return category;
     }
 
@@ -264,6 +299,7 @@ public class DccFileCategoryAdminServiceImpl implements DccFileCategoryAdminServ
         DccFileCategoryDO category = DccFileCategoryDO.builder()
                 .code(code)
                 .name(intAuthCategory.name())
+                .approvalSourceMode("PUBLIC_MATRIX")
                 .parentId(null)
                 .active(intAuthCategory.active())
                 .sort(sort)

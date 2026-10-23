@@ -64,8 +64,8 @@ assert.match(
 )
 assert.match(
   workbenchPage,
-  /const openApproval = \(row: DccWorkbenchTaskRow\) => \{[\s\S]*openControlledFileViewer\(router,\s*route,\s*row\.controlledFile\.id,\s*'workbench-approval'\)/,
-  'workbench approval entry must route through the shared controlled file viewer helper'
+  /const openApproval = \(row: DccWorkbenchTaskRow\) => \{[\s\S]*handling: 'approval'[\s\S]*processInstanceId, taskId/,
+  'workbench processing must route to the exact DCC approval task rather than readonly preview'
 )
 assert.doesNotMatch(
   workbenchPage,

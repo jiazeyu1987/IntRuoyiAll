@@ -1,0 +1,35 @@
+# G39 已确认方案实施与本机执行
+
+状态：in_progress。最新用户明确选择负责人OWNER方案、授权新增3空表先隔离首重验证再源库、授权恢复3缺失原件，并授权实际质量批准及全部原件核验齐备后26审计配置及历史登记。g39-user-authorization.json保存原答复；这不是实际质量批准，质量时间和签名仍空。
+
+分工：legacy_occupancy_core独占项目创建正式权限接线及必要Java／Maven测试；其他子Agent仅核封存执行工具和输入合同，不实际数据库／对象／服务操作，不改其封存源码。Root唯一实库／对象恢复／服务／Git执行Owner。原四工作tree只读，沿用现有整合树和主任务；此前blocked审计由实际新答复覆盖并重新开始。
+
+BDD：Given用户四项真实答复和已审迁移／恢复工具，When执行已授权范围，Then只新增3空表及最多1迁移行，隔离库首重PASS后才源库；旧原列逐行证据不变。缺对象只做最多3条件创建，绝不覆盖，失败／不确定保留实际影响；恢复后独立39GET全部匹配才具备后续登记条件。审计配置／登记仍须实际质量资料。
+
+BDD：Given批准创建新项目且选定正式启用同租户负责人，When同事务完成项目、模板目录、产品和关系，Then通过既有项目权限服务为其建立唯一USER／OWNER规则；负责人可通过正式reader进入项目和目录，其他人不被隐式授权。权限或晚步骤失败回滚，重放不覆盖当前规则和历史。
+
+## 当前实际执行结果
+
+Root已用现有本机容器核当前应用／端口／任务写入者及MySQL事务／其他客户端／事件均0；clone fresh collector R2实际36次读取及受保护7表schema／data备份完成。随后原封存R2 driver执行clone FIRST SQL，MySQL退出码0并有FIRST_COMPLETE marker，3空表和最多1新ledger已经提交；postflight验证器不能解析MySQL实际CHECK_CLAUSE里的charset加转义引号格式，停止为STOPPED_DDL_PARTIAL_COMMIT_POSSIBLE_REVIEW_REQUIRED。没有执行repeat或源库DDL，没有把该状态写成PASS或零写。原停止journal及材料保留。
+
+已只读捕获停止后的104条完整schema事实；actual7CHECK格式交missing_object_recovery唯一版本化task-only修复。原g28／g29工具及正式SQL不改；必须先有效actual RED／strict GREEN并完整核旧行和新ledger，再用明确resume-reviewed-first只执行repeat，无自动重试或重新首跑。源库随后使用修复版本重新fresh备份首重；原件恢复与DDL按独立授权执行。
+
+3唯一缺失原件已实际条件创建成功，恢复CLI退出码0、acceptedUniqueKeys3，4条引用finalGET全部RESTORED_VERIFIED。随后原独立39GET工具重新核39版本／39存储事实并全部MATCH，退出码0。具体保护收据g39-object-recovery/receipt.json和g39-all39-source-bytes/receipt.json；没有数据库写入、正文导出或密钥落盘。完整原文前置已解除，但质量仍未批准，不能提前历史名称登记。
+
+负责人初始OWNER源码修复已完成154／8类回归，主管理及独立Review进行中；只有4生产文件及1专属真实组合测试，无schema更改。授权收到后的旧blocked记录仅保留历史，当前主任务in_progress。
+
+版本化严格解析工具已核验actual104facts／7CHECK；Root根据实际FIRST材料和same-session退出码、旧7表原摘要及新ledger1逐项复核，明确只续跑REPEAT。clone新完成journal保留原停止回执引用，first不重放，repeat无ledger写，最终first／repeat完整验证PASS。源库另作fresh36次只读采集和新7表备份，随后FIRST／REPEAT皆退出码0，3空表／70列／7CHECK／完整索引合同及旧7表原行摘要保持，ledger只新增1。Root重新执行完整journal validator通过，收据g39-runtime-root-review.json；没有直接写业务文件或批准数据。
+
+负责人OWNER独立Review无开放P1／P2，154项定向工程回归及正式维护validator pin28项通过，当前包851ba7ed21a86e0866734f75b44f69f59d2f56612cf3f0186d96f5c72f42c5c2／507324377字节已同源验证。历史原名证据已真实JDBC只读采集并由正式Java rowHash生成，25claim／39version／13names清单通过严格factory，未激活；实际schema证明已绑定完成source journal和当前SHOW CREATE。
+
+执行授权中实际答复“授权条件齐备后按方案执行（建议）”需要被严格维护入口精确识别，不能把用户文字替换成旧允许短句。仅对白名单增加该实际条件句并保持质量／原件／schema门禁的必要接线修复正在有效TDD；最终包需据此再冻结。质量问题卡片已重发核实际事实，不重复索取已得到的操作授权。
+
+G39清单准备第一次失败为Java默认输出编码导致UnicodeDecodeError（未形成目录／未写DB）；Root显式file.encoding=UTF-8并只读容器指定环境字段后重验通过，没有输出密钥。工具验证首次期待错误状态词POSTFLIGHT_SCHEMA_PASS，核真实POSTFLIGHT_PASS更正Root校验器，非业务RED。全部旧失败证据与实际影响保留。
+
+最新质量答复再次明确“尚未批准”，g39-quality-not-approved.json保存；26配置、最多1实际批准登记及25／39／13历史登记继续零执行。迁移和原件恢复的授权及已完成PASS不受影响，不再次请求这些操作权限。最新条件授权短句接线30／3类PASS，所有质量／schema／正文门禁保持；源码已停止修改，Root进行最终包封存。
+
+## G39最终工程交付
+
+最终包CLI退出码0，2026-10-04T13:36:21+08:00完成。Jar507324409字节／SHA844c3a21f0a37d614f0687763f59d27f7489c3dde3893abadd8424e32250c4a9，内嵌DCC同源target匹配／STORED；当前OWNER四类和Gate最新类匹配编译产物。前851ba包已保存，旧pin收据保留，不以它覆盖本轮条件句更新。负责人相关154项回归和当前维护入口30项分别通过，前28项包含在后30项中，不重复累加。
+
+实际质量批准仍未完成。没有启用26审计规则、插入质量批准或激活历史名称占用；没有真实业务E2E、Git暂存／提交／合入或发布。目标完整范围保留，当前包可供后续已授权任务运行验证，实际批准齐备时重新采集必要fresh事实而非无条件复用旧清单。

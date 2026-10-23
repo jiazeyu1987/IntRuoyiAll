@@ -10,10 +10,14 @@ import jakarta.annotation.Resource;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.annotation.Import;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
+import org.springframework.transaction.IllegalTransactionStateException;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 @Import(DccControlledFileAccessAuditService.class)
 class DccControlledFileAccessAuditServiceTest extends BaseDbUnitTest {
@@ -22,6 +26,29 @@ class DccControlledFileAccessAuditServiceTest extends BaseDbUnitTest {
     private DccControlledFileAccessAuditService accessAuditService;
     @Resource
     private DccControlledFileAccessLogMapper accessLogMapper;
+    @Resource
+    private PlatformTransactionManager transactionManager;
+
+    @Test
+    void lifecycleSuccessRequiresBusinessTransactionAndCorrectResult() {
+        var success=new DccLifecycleLogCreateCommand(900L,"A/1",99L,"CHECKOUT","SUCCESS",null,"edit");
+        assertThrows(IllegalTransactionStateException.class,()->accessAuditService.recordLifecycleLog(success));
+        assertThrows(IllegalArgumentException.class,()->new TransactionTemplate(transactionManager).execute(s->
+                accessAuditService.recordLifecycleLog(new DccLifecycleLogCreateCommand(900L,"A/1",99L,"CHECKOUT","FAILED","DENIED","edit"))));
+        assertThrows(IllegalArgumentException.class,()->accessAuditService.recordLifecycleFailureLog(success));
+        assertEquals(0L,accessLogMapper.selectCount());
+    }
+
+    @Test
+    void independentFailureSurvivesOuterRollbackButSuccessDoesNot() {
+        assertThrows(IllegalStateException.class,()->new TransactionTemplate(transactionManager).execute(s->{
+            accessAuditService.recordLifecycleLog(new DccLifecycleLogCreateCommand(901L,"A/1-1",99L,"CHECKIN","SUCCESS",null,"new body"));
+            accessAuditService.recordLifecycleFailureLog(new DccLifecycleLogCreateCommand(900L,"A/1",99L,"CHECKIN","FAILED","CHECKIN_FAILED","source action failed"));
+            throw new IllegalStateException("late outer failure");
+        }));
+        var saved=accessLogMapper.selectList();assertEquals(1,saved.size());assertEquals("FAILED",saved.get(0).getResult());
+        assertEquals(900L,saved.get(0).getControlledFileId());assertEquals("A/1",saved.get(0).getFileVersionNo());assertEquals(99L,saved.get(0).getUserId());
+    }
 
     @AfterEach
     void clearTenantContext() {

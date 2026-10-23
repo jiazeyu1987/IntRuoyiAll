@@ -1,0 +1,146 @@
+{
+  "status": "passed",
+  "migrationCount": 9,
+  "migrations": [
+    {
+      "migrationId": "20260513_dcc_base_schema",
+      "file": "sql/mysql/20260513_dcc_base_schema.sql",
+      "sha256": "e5dfa8a13d4e80f27783c288dfb6ea1250c2cc91104d7b9475b168dbc2990aea",
+      "type": "schema",
+      "allowedEnvironments": [
+        "test",
+        "backup",
+        "prod"
+      ],
+      "dependsOn": [],
+      "riskLevel": "medium"
+    },
+    {
+      "migrationId": "20260710_dcc_product_catalog_database",
+      "file": "sql/mysql/20260710_dcc_product_catalog_database.sql",
+      "sha256": "3d9d8e4ab76b6512e993810dc971341193d3273e5d6a68a83cca39c1d70fef5d",
+      "type": "schema",
+      "allowedEnvironments": [
+        "test",
+        "backup",
+        "prod"
+      ],
+      "dependsOn": [
+        "20260513_dcc_base_schema"
+      ],
+      "riskLevel": "medium"
+    },
+    {
+      "migrationId": "20260719_dcc_file_type_taxonomy",
+      "file": "sql/mysql/20260719_dcc_file_type_taxonomy.sql",
+      "sha256": "4f6bb0a273aa0997e5c29ac259d5e21e5a96bc0b22909a3879f6bc510202e200",
+      "type": "schema",
+      "allowedEnvironments": [
+        "test",
+        "backup",
+        "prod"
+      ],
+      "dependsOn": [
+        "20260513_dcc_base_schema"
+      ],
+      "riskLevel": "medium"
+    },
+    {
+      "migrationId": "20260903_dcc_explicit_data_relation",
+      "file": "sql/mysql/20260903_dcc_explicit_data_relation.sql",
+      "sha256": "70b99159002094ec50f55625e4e8dd01e192a1d7e8a144a53e7aa18dfe40134b",
+      "type": "schema",
+      "allowedEnvironments": [
+        "test",
+        "backup",
+        "prod"
+      ],
+      "dependsOn": [
+        "20260710_dcc_product_catalog_database"
+      ],
+      "riskLevel": "medium"
+    },
+    {
+      "migrationId": "20260910_dcc_project_file_template",
+      "file": "sql/mysql/20260910_dcc_project_file_template.sql",
+      "sha256": "4e36e6ba67cb98121fb0272c4ee837e57b0ffde9c71d6fb73ce6a09d4e5de8c9",
+      "type": "schema",
+      "allowedEnvironments": [
+        "test",
+        "backup",
+        "prod"
+      ],
+      "dependsOn": [
+        "20260719_dcc_file_type_taxonomy"
+      ],
+      "riskLevel": "medium"
+    },
+    {
+      "migrationId": "20260920_dcc_project_product_create_approval",
+      "file": "sql/mysql/20260920_dcc_project_product_create_approval.sql",
+      "sha256": "ff131eca63d25cea4cceae2fe60a24b14bdc2a6fa666f222c609bf821225eb2a",
+      "type": "schema",
+      "allowedEnvironments": [
+        "test",
+        "backup",
+        "prod"
+      ],
+      "dependsOn": [
+        "20260903_dcc_explicit_data_relation"
+      ],
+      "riskLevel": "medium"
+    },
+    {
+      "migrationId": "20260930_dcc_b_project_attributes_folders",
+      "file": "sql/mysql/20260930_dcc_b_project_attributes_folders.sql",
+      "sha256": "024ffedb8e7c7d326218f9022e2509c18295b59fb4563c0205d00a0f528a0b3c",
+      "type": "schema",
+      "allowedEnvironments": [
+        "test",
+        "backup",
+        "prod"
+      ],
+      "dependsOn": [
+        "20260920_dcc_project_product_create_approval",
+        "20260910_dcc_project_file_template"
+      ],
+      "riskLevel": "medium"
+    },
+    {
+      "migrationId": "20261001_dcc_b_project_file_placement",
+      "file": "sql/mysql/20261001_dcc_b_project_file_placement.sql",
+      "sha256": "35a1d649406879cd1a5332b136ebdc4de2f40fc4e5a615b9e5156b788a7b8d52",
+      "type": "schema",
+      "allowedEnvironments": [
+        "test",
+        "backup",
+        "prod"
+      ],
+      "dependsOn": [
+        "20260930_dcc_b_project_attributes_folders"
+      ],
+      "riskLevel": "medium"
+    },
+    {
+      "migrationId": "20261005_dcc_project_folder_storage_mapping",
+      "file": "sql/mysql/20261005_dcc_project_folder_storage_mapping.sql",
+      "sha256": "afbdd3bbe5646dbb1e43f8db423e874cace07e4668bf578512f03c3009a5485a",
+      "type": "schema",
+      "allowedEnvironments": [
+        "test",
+        "backup",
+        "prod"
+      ],
+      "dependsOn": [
+        "20261001_dcc_b_project_file_placement",
+        "20260930_dcc_b_project_attributes_folders",
+        "20260513_dcc_base_schema"
+      ],
+      "riskLevel": "medium"
+    }
+  ],
+  "executionWhitelist": [
+    "20261005_dcc_project_folder_storage_mapping"
+  ],
+  "oldDependenciesReadonlyOnly": true
+}

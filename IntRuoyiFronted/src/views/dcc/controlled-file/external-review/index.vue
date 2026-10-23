@@ -196,6 +196,7 @@ import type { FormRules, UploadProps, UploadUserFile } from 'element-plus'
 import { getFileCategoryList, type ControlledFileCategoryVO } from '@/api/dcc/controlledFile/fileCategories'
 import {
   cleanupControlledFileUploadSession,
+  cleanupControlledFileUploadTicket,
   createControlledFileUploadSessionId,
   EXTERNAL_FILE_REVIEW_PROCESS_DEFINITION_KEY,
   getControlledFileUploadDirectoryTree,
@@ -354,7 +355,7 @@ const cleanupCurrentUploadSession = async (showSuccess = false) => {
   }
   try {
     const status = await cleanupControlledFileUploadSession(
-      uploadSessionId,
+      (previewUpload.value || drawingPdfUpload.value)!.sessionId,
       resolveCurrentUploadCleanupRequestId()
     )
     if (showSuccess && (status.cleanedCount ?? 0) > 0) {
@@ -367,12 +368,26 @@ const cleanupCurrentUploadSession = async (showSuccess = false) => {
   }
 }
 
+const cleanupTemporaryUploadTicket = async (upload: ControlledFileUploadRespVO | undefined) => {
+  if (uploadSubmitted.value || !upload?.uploadTicket) {
+    return true
+  }
+  try {
+    await cleanupControlledFileUploadTicket(upload.sessionId, upload.uploadTicket, upload.requestId)
+    return true
+  } catch (error) {
+    message.error(resolveUploadErrorMessage(error, '图纸 PDF 临时文件清理失败，请处理后再继续'))
+    return false
+  }
+}
+
 const buildUploadPreviewContext = () => {
   if (!formData.categoryId) {
     throw new Error('请先选择文件类别')
   }
   return {
     categoryId: formData.categoryId,
+    uploadContext: 'EXTERNAL_REVIEW' as const,
     sessionId: uploadSessionId
   }
 }
@@ -433,19 +448,30 @@ const handleFileRemove: UploadProps['onRemove'] = () => {
 }
 
 const handleDrawingPdfChange: UploadProps['onChange'] = async (file, uploadFiles) => {
+  if (submitLoading.value || uploadPreviewLoading.value || uploadDrawingPdfLoading.value) return
+  uploadDrawingPdfLoading.value = true
+  try {
   const validation = validateSingleUploadFileSelection(
     uploadFiles.map((item) => ({ name: item.name, type: item.raw?.type }))
   )
   const isPdf = file.raw?.type === 'application/pdf' || /\.pdf$/i.test(file.name)
   if (!validation.valid || !file.raw || !isPdf) {
     message.error(validation.message || '图纸文件必须上传 PDF 格式')
+    if (!(await cleanupTemporaryUploadTicket(drawingPdfUpload.value))) {
+      return
+    }
     drawingPdfUploadRef.value?.clearFiles()
     resetDrawingPdfUpload()
     return
   }
+  const previousDrawingPdfUpload = drawingPdfUpload.value
+  drawingPdfUpload.value = undefined
+  if (!(await cleanupTemporaryUploadTicket(previousDrawingPdfUpload))) {
+    drawingPdfUpload.value = previousDrawingPdfUpload
+    drawingPdfUploadRef.value?.clearFiles()
+    return
+  }
   drawingPdfFileList.value = uploadFiles.slice(-1)
-  uploadDrawingPdfLoading.value = true
-  try {
     drawingPdfUpload.value = await uploadControlledFilePreview(
       file.raw as File,
       'DRAWING_PDF',
@@ -460,10 +486,13 @@ const handleDrawingPdfChange: UploadProps['onChange'] = async (file, uploadFiles
 }
 
 const handleBeforeDrawingPdfRemove: UploadProps['beforeRemove'] = async () => {
-  if (!previewUpload.value) {
-    return await cleanupCurrentUploadSession(true)
+  if (submitLoading.value || uploadPreviewLoading.value || uploadDrawingPdfLoading.value) return false
+  uploadDrawingPdfLoading.value = true
+  try {
+    return await cleanupTemporaryUploadTicket(drawingPdfUpload.value)
+  } finally {
+    uploadDrawingPdfLoading.value = false
   }
-  return true
 }
 
 const handleDrawingPdfRemove: UploadProps['onRemove'] = () => {
@@ -471,8 +500,12 @@ const handleDrawingPdfRemove: UploadProps['onRemove'] = () => {
 }
 
 const submitForm = async () => {
+  if (submitLoading.value || uploadPreviewLoading.value || uploadDrawingPdfLoading.value) {
+    message.warning('请等待文件上传或清理完成')
+    return
+  }
   const valid = await formRef.value?.validate().catch(() => false)
-  if (!valid) {
+  if (!valid || submitLoading.value || uploadPreviewLoading.value || uploadDrawingPdfLoading.value) {
     return
   }
   if (!previewUpload.value) {

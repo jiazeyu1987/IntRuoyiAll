@@ -170,6 +170,13 @@ export default ({command, mode}: ConfigEnv): UserConfig => {
                 ws: false,
                 changeOrigin: true
               },
+              ...(useSameOriginApiProxy ? {
+                ['/druid']: {
+                  target: proxyTarget,
+                  ws: false,
+                  changeOrigin: true,
+                }
+              } : {}),
               ...(enableJmreportProxy ? {
                 ['/jmreport']: {
                   target: proxyTarget,

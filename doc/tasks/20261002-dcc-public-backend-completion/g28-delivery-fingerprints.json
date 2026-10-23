@@ -1,0 +1,76 @@
+{
+  "status": "OFFLINE_PREPARATION_GREEN_ROOT_REVIEW_FIXES_CLOSED_RUNTIME_PENDING",
+  "offlineTestGroups": 8,
+  "oldG22AssetsVerifiedImmutable": 15,
+  "actualDatabaseExecutor": false,
+  "actualDatabaseActions": 0,
+  "actualPolicyEdits": 0,
+  "actualQualityApproved": false,
+  "exact26WriteAuthorized": false,
+  "mysqlFirstRepeatExecuted": false,
+  "reviewFixes": [
+    "exact256referencebound",
+    "SQLactualsignatureRoleBasisPlaceholderRejection",
+    "postflightExactNewQualityVersionNamespaceAndAllPayload"
+  ],
+  "candidatePolicySHA": "661af676e1406e86659806af8be8f46abd17d101d871d3af8d5b3b736873c894",
+  "sourceCoverageSHA": "3acca207c875de851a1e645dec083a82311bdccd98523f1d48465e728d9e394d",
+  "generatedSQLReproducedExactUTF8": true,
+  "assets": [
+    {
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-public-backend-completion\\g28-config26-impact.json",
+      "bytes": 25828,
+      "sha256": "5ecb0f89f1a500267a310d18c08f08b36c8c5c9ca8c1398577abaf4d5f53fe4b"
+    },
+    {
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-public-backend-completion\\g28-config26-input-contract.json",
+      "bytes": 1202,
+      "sha256": "a7863974d82cfe5a07aa6c04838cc0aaab76cc6165250b87cd13039aacfef4a0"
+    },
+    {
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-public-backend-completion\\g28-config26-operation.review.sql",
+      "bytes": 24844,
+      "sha256": "5394330362003ece98b32ead58fd51c750cedb5cf54ce8e4b7ee780258c23e02"
+    },
+    {
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-public-backend-completion\\g28-config26-operator-plan.md",
+      "bytes": 11454,
+      "sha256": "82aa5fa26b3a198965bc73767dfa0431e4af754ba2f7aacdf4c8a909c2345904"
+    },
+    {
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-public-backend-completion\\g28-config26-quality-empty-template.json",
+      "bytes": 761,
+      "sha256": "ed093a4761273bcb0c856fed141ea8f4927402429282385478c9088af0161d80"
+    },
+    {
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-public-backend-completion\\g28-config26-quality-version.review.sql",
+      "bytes": 7331,
+      "sha256": "19815323feb81c228297665c1a67edc4d04aea6ef23f473fd8c40f8ad51c0664"
+    },
+    {
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-public-backend-completion\\g28-config26-readonly-postflight.sql",
+      "bytes": 3020,
+      "sha256": "f40ce0ba6e911533d33dc0d315c93ed0377e0c50713118626d3b227e21a34c73"
+    },
+    {
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-public-backend-completion\\g28-config26-readonly-preflight.sql",
+      "bytes": 3020,
+      "sha256": "f40ce0ba6e911533d33dc0d315c93ed0377e0c50713118626d3b227e21a34c73"
+    },
+    {
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-public-backend-completion\\g28-config26-test.py",
+      "bytes": 7210,
+      "sha256": "482615c40c46e259f9fda8bf9df5a8d26fc1073113b6bd2cde3e9b3bdb6b7b51"
+    },
+    {
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-public-backend-completion\\g28-original-g22-fingerprints.json",
+      "bytes": 3880,
+      "sha256": "2e7f8e7e16af4058aac74dab316d41d1e04cc4c9694dcfaf97fe19d5a642d886"
+    },
+    {
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-public-backend-completion\\g28_config26.py",
+      "bytes": 17655,
+      "sha256": "22cb60bd0df683651bbeaf34d2318ef25e0638d3874334a148ab6b640af7250c"
+    }
+  ]
+}

@@ -1,0 +1,105 @@
+{
+  "status": "G68_WITHDRAWN_NATIVE_REVISION_HINT_AND_FORMAL_MENU_FROZEN_FOR_ROOT_REVIEW",
+  "productionFiles": 1,
+  "testFiles": 1,
+  "assets": [
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/detail/index.vue",
+      "bytes": 321672,
+      "sha256": "a1857b69202a522c817c8b923826b651acfd1a4f3dd6eca8753c359140de8cfe"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-withdrawn-revision-hint.test.cjs",
+      "bytes": 7221,
+      "sha256": "3b1f15fd9af1f2eb371b67abe3cdee5d8d87e8e924f5850521dd4362266aa3da"
+    }
+  ],
+  "documents": [
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g68-withdrawn-revision-hint-bdd.md",
+      "bytes": 2792,
+      "sha256": "53d8a977293d20bbdfea8a62ba18b70944505b44b80b1e15f1b643544821f81d"
+    }
+  ],
+  "previousParentStage": {
+    "path": "doc/tasks/20261002-dcc-public-browser/g63-approval-center-signoff-entry-fingerprints.json",
+    "bytes": 4707,
+    "sha256": "a05324dd57aba3226626b948df015e22c4eefd1c838a4467f7a0c582f7a99ee3"
+  },
+  "protectedNotificationStage": {
+    "path": "doc/tasks/20261002-dcc-public-browser/g67-relation-remediation-notification-fingerprints.json",
+    "bytes": 5053,
+    "sha256": "810f2d66ad1c8cfd85f943c518e3cfbc499bb1679752cdd783b1eee9834383c0"
+  },
+  "verification": {
+    "effectiveHintRED": {
+      "tests": 3,
+      "pass": 1,
+      "failures": 2,
+      "exitCode": 1
+    },
+    "effectiveMenuRED": {
+      "tests": 4,
+      "pass": 1,
+      "failures": 3,
+      "exitCode": 1
+    },
+    "finalRegression": {
+      "files": 5,
+      "tests": 16,
+      "pass": 16,
+      "failures": 0,
+      "skipped": 0,
+      "exitCode": 0,
+      "overlap": "4new+12existingnative/completion/normalapproval/readonly,notadditive"
+    },
+    "ownedLint": {
+      "files": 1,
+      "warnings": 0,
+      "exitCode": 0,
+      "session": 39380
+    },
+    "typesBuild": {
+      "status": "Not repeated per Root explicit scope,no type/interface/import changes;G67previouschecks not claimed currentParent"
+    }
+  },
+  "rawLogs": [
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g68-withdrawn-revision-hint-effective-red.log",
+      "bytes": 2710,
+      "sha256": "fe175ec9f0d4f504bdeb8743253caeccfa0dcd9aa35cfa967ab5eb76eb3eb67f"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g68-withdrawn-revision-hint-menu-red.log",
+      "bytes": 3834,
+      "sha256": "5ad257629667ea2a78ba5ac2a2f3e6c67a6a32257a036ca4b08d2eca00d075c6"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g68-withdrawn-revision-hint-final-frozen.log",
+      "bytes": 2104,
+      "sha256": "9278c0803e674cb673cbd1cfb2a729ef21a85f03a9ddb8a050ee7293673196ce"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g68-withdrawn-revision-hint-lint.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "exactContracts": [
+    "Exact withdrawnnativeREVkey/originalBPM/noSuccessor hint before oldstage text,existingcheckout/checkin routeonly,no newactions",
+    "Original legacysharedhint and completed successor behavior preserved",
+    "Originalwithdrawnstatus/requester/successor gate plus actualformalpermissionactionprojection;separate delete/resubmit actions visibility,missingfailclosed",
+    "Actual lifecycle/formaction/Parentcomputed and originaldropdown renderer prove allowedsinglelegacy item and hiddennative"
+  ],
+  "setupIncidents": [
+    "Initial fixture undefined arguments applieddefaultscope and missingapprovalTodoTaskrenderer warning retained as setup failure,not businessRED",
+    "Final test removes temporary missing-new-computed defaultfalse branch"
+  ],
+  "supersedes": "Only Parent hint and olddropdown visibility bytes plus newtest;priorseals retained,G67notifyallassets unchanged",
+  "limitations": [
+    "Offline actualcomputed/function/helper/template renderer+lint,not actual withdrawnbody retryUI",
+    "No globaltypes/build thisbatch as scoped,no legacyflow/business/API/permissionmutation",
+    "Rootrealhint/menu/B1same-targetbodyretry/runtime/Git/cleanup owner",
+    "No UI/API/DB/Git/service/Maven by agent;sharedtaskin_progress"
+  ]
+}

@@ -1,0 +1,44 @@
+{
+  "status": "prepared_source_tool_offline_verified_actual_runtime_inputs_missing",
+  "tests": 27,
+  "testsResult": "PASS",
+  "databaseWritesExecuted": false,
+  "actualUpgradeExecuted": false,
+  "realCloneReceiptAvailable": false,
+  "currentPreparedStatus": "PREPARED_BLOCKED_MISSING_REAL_REHEARSAL_RECEIPT",
+  "writeConnectionAllowed": false,
+  "actualUserApprovalProvenByFlag": false,
+  "frozenG21AndRootSupportsUnchanged": true,
+  "assets": [
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g23-source-upgrade-driver.py",
+      "bytes": 34730,
+      "sha256": "3afe3715a1fb00ef872ae01f3d3dc6a97fd70bfda1864bcbb80f25a7f3344ff5",
+      "normalizedUtf8LfSha256": "9d8ad98d84ba8d945382e307e9880535e71d8c466c7b6ed91aa42149baf9a520"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g23-source-upgrade-tests.py",
+      "bytes": 35086,
+      "sha256": "ad917af0a3f9bc632e43f6fbe29c21edc9f028480022d8026b749f00c5e2cdaf",
+      "normalizedUtf8LfSha256": "2549752e8b308b1032bacc000de0ef5d636d6ed798c83fbdb3ad3d8130edeb40"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g23-source-upgrade-request-template.json",
+      "bytes": 1496,
+      "sha256": "bc039479cb82e24a75f970efb3677931fe981181fb0df2281eb628e729075656",
+      "normalizedUtf8LfSha256": "0048db7fc609369e0b1698e701d8bad15c9b19a0492e16b7e39decdd45f5b9c6"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g23-source-upgrade-input-contract.json",
+      "bytes": 5473,
+      "sha256": "e5852e9601cfb2adc9bb82ecb4e150e85cbc98a856edd8d62f1de225f2aa000a",
+      "normalizedUtf8LfSha256": "03b8924849cd1f893c9a4b002643dc2aab619d7a2abdaba93fb23e072c638dc9"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g23-source-upgrade-prepared-blocked.json",
+      "bytes": 292,
+      "sha256": "97f60dcdcce82e0f92d560a420a94a281b824898eadc4a03b5f4fdc1db1bd03b",
+      "normalizedUtf8LfSha256": "d860d164d9806ce39a65b8b79508344523add9d94df593ac0971ba36477dc810"
+    }
+  ]
+}

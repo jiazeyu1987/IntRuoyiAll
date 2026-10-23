@@ -121,7 +121,9 @@
                         data-testid="bpm-dcc-approval-file-preview"
                       >
                         <ProtectedPdfViewer
+                          v-if="dccApprovalPreviewSource"
                           :controlled-file-id="dccControlledFileBusinessId"
+                          :preview-source="dccApprovalPreviewSource"
                           :title="dccApprovalFileDetail?.title || '受控文件预览'"
                         />
                       </div>
@@ -179,6 +181,8 @@ import rejectSvg from '@/assets/svgs/bpm/reject.svg'
 import cancelSvg from '@/assets/svgs/bpm/cancel.svg'
 import PrintDialog from './PrintDialog.vue'
 import { resolveProcessInstanceDisplayName, resolveProcessNodeDisplayName } from './display-name'
+import { resolveDccControlledFileBusinessId, resolveDccTaskHandlingLocation, resolveDccApprovalBodyReadContext } from './dcc-business-identity'
+import { buildDccControlledFilePreviewSource, type OnlineFilePreviewSource } from '@/api/common/filePreview'
 
 defineOptions({ name: 'BpmProcessInstanceDetail' })
 const props = defineProps<{
@@ -187,6 +191,7 @@ const props = defineProps<{
   activityId?: string //流程活动编号，用于抄送查看
 }>()
 const message = useMessage() // 消息弹窗
+const router = useRouter()
 const processInstanceLoading = ref(false) // 流程实例的加载中
 const processInstance = ref<any>({}) // 流程实例
 const processDefinition = ref<any>({}) // 流程定义
@@ -223,6 +228,9 @@ const BusinessFormComponent = ref<any>(null) // 异步组件
 const dccApprovalFileDetail = ref<ControlledFileVO>()
 const dccApprovalFileLoading = ref(false)
 const dccApprovalFileError = ref('')
+const dccApprovalPreviewSource = shallowRef<OnlineFilePreviewSource>()
+const dccApprovalTodoTask = shallowRef<{ id?: unknown; processInstanceId?: unknown } | null>()
+let dccApprovalReadSequence = 0
 
 const normalizeCustomViewPath = (value?: string) =>
   String(value || '')
@@ -242,10 +250,9 @@ const isDccControlledFileCustomForm = computed(
 
 const showProcessInstanceTechnicalHeader = computed(() => !isDccControlledFileCustomForm.value)
 
-const dccControlledFileBusinessId = computed(() => {
-  const value = String(processInstance.value?.businessKey || '').trim()
-  return /^\d+$/.test(value) ? value : ''
-})
+const dccControlledFileBusinessId = computed(() =>
+  resolveDccControlledFileBusinessId(processInstance.value, processDefinition.value?.key)
+)
 
 const currentApprovalNodes = computed(() =>
   activityNodes.value.filter((node) =>
@@ -303,7 +310,9 @@ const currentApprovalActorText = computed(() => {
 })
 
 const resetDccApprovalFileSummary = () => {
+  dccApprovalReadSequence++
   dccApprovalFileDetail.value = undefined
+  dccApprovalPreviewSource.value = undefined
   dccApprovalFileError.value = ''
   dccApprovalFileLoading.value = false
 }
@@ -325,12 +334,22 @@ const loadDccApprovalFileSummary = async () => {
     return
   }
   dccApprovalFileLoading.value = true
+  const sequence = dccApprovalReadSequence
+  const selectedInstance = processInstance.value
+  const selectedDefinitionKey = processDefinition.value?.key
+  const selectedTaskId = props.taskId
+  const selectedTodoTask = dccApprovalTodoTask.value
+  const selectedFileId = dccControlledFileBusinessId.value
   try {
-    dccApprovalFileDetail.value = await getControlledFile(dccControlledFileBusinessId.value)
+    const file = await getControlledFile(selectedFileId)
+    if (sequence !== dccApprovalReadSequence) return
+    const context = resolveDccApprovalBodyReadContext(selectedInstance, selectedDefinitionKey, file, selectedTaskId, selectedTodoTask)
+    dccApprovalPreviewSource.value = buildDccControlledFilePreviewSource(selectedFileId, context)
+    dccApprovalFileDetail.value = file
   } catch (error) {
-    dccApprovalFileError.value = resolveDccApprovalFileError(error)
+    if (sequence === dccApprovalReadSequence) dccApprovalFileError.value = resolveDccApprovalFileError(error)
   } finally {
-    dccApprovalFileLoading.value = false
+    if (sequence === dccApprovalReadSequence) dccApprovalFileLoading.value = false
   }
 }
 
@@ -355,6 +374,13 @@ const getApprovalDetail = async () => {
     }
     processInstance.value = data.processInstance
     processDefinition.value = data.processDefinition
+    dccApprovalTodoTask.value = data.todoTask || null
+    const dccTaskLocation = !props.taskId || props.taskId === data.todoTask?.id
+      ? resolveDccTaskHandlingLocation(data.processInstance, data.processDefinition.key, data.todoTask) : null
+    if (dccTaskLocation) {
+      await router.replace(dccTaskLocation)
+      return
+    }
     activityNodes.value = data.activityNodes || []
 
     // 设置表单信息

@@ -1,12 +1,24 @@
 package cn.iocoder.yudao.server.profileworkbench;
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
 import org.junit.jupiter.api.Test;
 import java.time.*;
 import java.util.*;
 import static org.junit.jupiter.api.Assertions.*;
 import static cn.iocoder.yudao.module.system.api.workbench.WorkbenchFailure.*;
 class WorkbenchQueryTokensTest {
+ @Test void applicationMillisecondTimestampSettingsPreserveTokenInstantsAcrossInstances(){
+  ObjectMapper applicationMapper=new ObjectMapper().findAndRegisterModules()
+    .enable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
+    .disable(SerializationFeature.WRITE_DATE_TIMESTAMPS_AS_NANOSECONDS);
+  Instant precise=Instant.parse("2026-10-21T10:00:00.123456789Z");
+  Store store=new Store();
+  var issuer=new WorkbenchQueryTokens(store,applicationMapper,Clock.fixed(precise,ZoneOffset.UTC));
+  var issued=issue(issuer);
+  var reader=new WorkbenchQueryTokens(store,applicationMapper,Clock.fixed(precise.plusSeconds(1),ZoneOffset.UTC));
+  assertEquals(issued.claim(),reader.verify(issued.queryVersion(),"epoch:1",2,3));
+ }
  static class Store implements WorkbenchTokenStore {
   final Map<String,String> data=new HashMap<>(); Duration ttl;
   public boolean create(String key,String record,Duration duration){ttl=duration;return data.putIfAbsent(key,record)==null;}

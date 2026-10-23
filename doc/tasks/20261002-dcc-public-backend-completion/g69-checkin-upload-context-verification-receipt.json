@@ -1,0 +1,113 @@
+{
+  "status": "PASS_FORMAL_MULTIPART_CONTEXT_ISOLATED_REAL_UI_RETRY_PENDING",
+  "cliExitCode": 0,
+  "finishedAt": "2026-10-06T07:58:11+08:00",
+  "counts": {
+    "tests": 17,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "xml": [
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g69-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccWithdrawnCheckinMultipartContextDatabaseTest.xml",
+      "bytes": 100359,
+      "sha256": "9886a9c9ec9b18f70c85f45c35d137d3c9c7e07a77afd6af3d4790f93076030d",
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g69-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccWithdrawnNativeRevisionReworkDatabaseTest.xml",
+      "bytes": 97204,
+      "sha256": "0e4e7770d8be4933b9fcf102b16e141c1d40b481738af805cad3d93ca1c089cf",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g69-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccSourceUploadContextTest.xml",
+      "bytes": 95222,
+      "sha256": "0bfc8b4635040e5d045cfbf2079806910ec86bf12ba2b81baa3506e6f86a595c",
+      "tests": 9,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g69-final-junit/TEST-cn.iocoder.yudao.module.dcc.framework.web.DccUploadEndpointHttpContractTest.xml",
+      "bytes": 131426,
+      "sha256": "446b7c79f4dbd6f67579205ba6e5e10ff49801b20d37de2682e426bc85ba467f",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    }
+  ],
+  "assets": [
+    {
+      "kind": "production",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileQueryService.java",
+      "bytes": 5660,
+      "sha256": "b0eb80b061dae2a9674beb554f1e31546cbb46828ec092f7d690f8d46573debf"
+    },
+    {
+      "kind": "production",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileQueryServiceImpl.java",
+      "bytes": 274307,
+      "sha256": "24a7251d3e057bc6b26952327825d5a714a7f5bc830738ef936a73dac649d1fb"
+    },
+    {
+      "kind": "production",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileWorkflowServiceImpl.java",
+      "bytes": 219431,
+      "sha256": "bb2ccccccdf9d04a70d5f97b3bc57da57f56cec27988a9979a2ee0bf37df4771"
+    },
+    {
+      "kind": "test",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccWithdrawnCheckinMultipartContextDatabaseTest.java",
+      "bytes": 6433,
+      "sha256": "0513d74363ec0eb6acb3179d9d59f2cc97f146348e71f46efa689ebfc9156cb1"
+    },
+    {
+      "kind": "test",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccWithdrawnNativeRevisionReworkDatabaseTest.java",
+      "bytes": 7786,
+      "sha256": "4badc4e3d98c7d751014815e5736a1dea45d394c6b1c7ac7d3e357235102eab0"
+    },
+    {
+      "kind": "test",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccSourceUploadContextTest.java",
+      "bytes": 10942,
+      "sha256": "6f8daa3e995b3f857709f60c3cb0a7c1fa0aa8d226f8fed9eb05235031e7a18b"
+    }
+  ],
+  "log": {
+    "path": "doc/tasks/20261002-dcc-public-backend-completion/g69-checkin-upload-context-final-regression.log",
+    "sha256": "f6337bb4d1fa56b91bbf9d9315584959d52ac504256a6534d0b1d099ce9044fc"
+  },
+  "effectiveRed": {
+    "path": "doc/tasks/20261002-dcc-public-backend-completion/g69-checkin-upload-context-effective-red-r5.xml",
+    "tests": 1,
+    "errors": 1,
+    "expected": "formal WF checkin upload context DCC_UPLOAD_TICKET_INVALID1080000115 before allocation/checkin"
+  },
+  "fixtureErrorsNotBusinessRed": [
+    "ticket command accessor compile",
+    "missing UserAgent",
+    "category lifecycle null/incorrectCONTROLLED instead of OUTPUT",
+    "missing static import",
+    "constructed UploadService lacked actual transaction proxy"
+  ],
+  "scope": "new internal readonly Query authority reuses exact G68 cancelled process/lineage and existing access; Workflow only WITHDRAWN CHECKIN branch plus tenant identity; exact actor/base active lock/category/project retained",
+  "multipart": "actual Controller bound files/category/session/purpose SOURCE/uploadContext CHECKIN/exact controlledFileId; actual UploadService+WF authority and H2 cancelled process/lock; PDFBox actual PDF content",
+  "isolatedPorts": "storage allocation and ticket create/size/watermark interfaces explicit test ports; no actual frontend/S3/schema/E2E claims",
+  "G68MapperUnchanged": true,
+  "g67AllSixAssetsUnchanged": true,
+  "actualDbWrites": 0,
+  "actualUiRuns": 0,
+  "schemaChanges": 0,
+  "sourceTargetMavenFrozen": true
+}

@@ -1,0 +1,18 @@
+{
+  "branch": "codex/20261001-dcc-integration",
+  "scope": "G19 JobStartupSyncRunner conditional property guard",
+  "assets": [
+    {
+      "path": "IntRuoyiBackend/yudao-module-infra/src/main/java/cn/iocoder/yudao/module/infra/service/job/JobStartupSyncRunner.java",
+      "bytes": 1410,
+      "sha256": "fb436975969609470b71cedd9671f912a1a2f1ec2873a589d54b5c06977ad823",
+      "normalizedUtf8LfSha256": "37b972891f1183fa65b4790baae3787c26be5aaf38e644c917f721dbf14585b7"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-infra/src/test/java/cn/iocoder/yudao/module/infra/service/job/JobStartupSyncRunnerTest.java",
+      "bytes": 4933,
+      "sha256": "9e15b2b18c23f456fa71ebd05c0c4e7754dd62b8ca8acd9eb2e226c4690f05cd",
+      "normalizedUtf8LfSha256": "7ac999112d0d6cff465e69d62253bec2a9b271a19d6510fc9368fe411409bf59"
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "status": "G67_AUTHORITATIVE_READONLY_PREFLIGHT",
+  "facts": [
+    {
+      "query": "SELECT id,status,version_no,master_id,controlled_time,activated_time,process_instance_id FROM dcc_controlled_file WHERE tenant_id=1 AND id IN (2054545668044084028,2054545668044084041,2054545668044084042);",
+      "result": "2054545668044084028\tACTIVE\tA/1\t2054545668044079118\t2026-10-05 16:46:51\t2026-10-05 16:46:51\t8a634e88-c095-11f1-9629-b082e25ec548\n2054545668044084041\tACTIVE\tA/3\t2054545668044079116\t2026-10-06 02:34:38\t2026-10-06 02:34:38\tfe1c5afb-c0e9-11f1-b82c-b082e25ec548\n2054545668044084042\tWORKING\tA/3-4\t2054545668044079116\tNULL\tNULL\tNULL\n"
+    },
+    {
+      "query": "SELECT id,native_version_id,canonical_status,active_unique_flag,open_candidate_unique_flag FROM controlled_content_version_ref WHERE tenant_id=1 AND native_version_id IN (2054545668044084028,2054545668044084041);",
+      "result": "65599\t2054545668044084041\tACTIVE\t1\tNULL\n65593\t2054545668044084028\tFINALIZING\tNULL\t1\n"
+    },
+    {
+      "query": "SELECT id,username,nickname,status,dept_id FROM system_users WHERE tenant_id=1 AND id IN (1,910328);",
+      "result": "1\tadmin\t瑛泰管理员\t0\t103\n910328\tg57dccdoc20261005\tG57独立文控验收\t0\tNULL\n"
+    },
+    {
+      "query": "SELECT id,name,code FROM system_role WHERE tenant_id=1 AND id IN (910233,991222);",
+      "result": "910233\t文控\tdoc_control\n991222\tG58独立文控入口\tg58_dcc_training_entry\n"
+    },
+    {
+      "query": "SELECT r.id,r.name,r.code FROM system_role r JOIN system_user_role ur ON ur.role_id=r.id WHERE ur.user_id=910328 AND ur.deleted=0 AND r.deleted=0;",
+      "result": "910233\t文控\tdoc_control\n991222\tG58独立文控入口\tg58_dcc_training_entry\n"
+    }
+  ],
+  "jarSha256": "b5deaba71fb6f1f6ea53124311b126441f32766ace83854d60de1fe026d0f581",
+  "businessActions": "NONE"
+}

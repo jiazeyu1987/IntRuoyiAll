@@ -75,12 +75,12 @@ assert.match(
 )
 assert.match(
   detailPage,
-  /<el-button v-if="!isReturnedApplicantTask" plain @click="openTaskActionDialog\('transfer'\)">/,
+  /<el-button v-if="[^"]*!isReturnedApplicantTask[^"]*" plain @click="openTaskActionDialog\('transfer'\)">/,
   'returned applicant task must hide transfer action'
 )
 assert.match(
   detailPage,
-  /<el-button v-if="!isReturnedApplicantTask" plain @click="openTaskActionDialog\('sign'\)">/,
+  /<el-button v-if="[^"]*!isReturnedApplicantTask[^"]*" plain @click="openTaskActionDialog\('sign'\)">/,
   'returned applicant task must hide add-sign action'
 )
 

@@ -23,6 +23,11 @@ public class BpmProcessInstanceCreateReqDTO {
     /** Server-owned formal authority, never inferred from variables. */
     private ApprovalProcessAuthorityDTO approvalAuthority;
     /**
+     * 已冻结的精确流程定义编号；null 表示使用原标识入口。
+     * 提供该字段时仍须校验标识、租户、发起权限和审批人，不读取最新定义。
+     */
+    private String processDefinitionId;
+    /**
      * 变量实例（动态表单）
      */
     private Map<String, Object> variables;
@@ -48,5 +53,13 @@ public class BpmProcessInstanceCreateReqDTO {
      * 例如：{ taskKey1 :[1, 2] }，则表示 taskKey1 这个任务，提前设定了，由 userId 为 1,2 的用户进行审批
      */
     private Map<String, List<Long>> startUserSelectAssignees;
+
+    /**
+     * 发起时由业务方确认的后续节点审批人 Map。
+     *
+     * DCC FormCenter 作废等业务会在流程启动前冻结批准、文控审核候选人，
+     * 不能只依赖通用 variables 透传，避免跨 DTO 边界后名单丢失。
+     */
+    private Map<String, List<Long>> approveUserSelectAssignees;
 
 }

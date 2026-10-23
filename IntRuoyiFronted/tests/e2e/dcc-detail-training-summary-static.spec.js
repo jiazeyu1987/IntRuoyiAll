@@ -49,6 +49,41 @@ assert(trainingSection.includes('label="部门"'), '培训表必须保留部门�
 assert(trainingSection.includes('label="受训人"'), '培训表必须保留受训人列')
 assert(trainingSection.includes('label="培训摘要"'), '培训表必须新增培训摘要列')
 
+assert(
+  /v-if="fileDetail\?\.needTraining && fileDetail\?\.trainingRecordAvailable"/.test(
+    trainingSection
+  ),
+  '三流程培训证据提示必须同时受 needTraining 和 trainingRecordAvailable 控制'
+)
+assert(
+  /data-testid="dcc-detail-training-record-evidence"/.test(trainingSection),
+  '三流程培训证据提示必须提供稳定测试标识'
+)
+assert(
+  /title="三流程培训记录已上传"/.test(trainingSection),
+  '培训证据提示必须使用正式上传文案'
+)
+assert(
+  /:description="`证据文件：\$\{fileDetail\.trainingRecordFileName \|\| '已绑定文件'\}`"/.test(
+    trainingSection
+  ),
+  '培训证据提示必须显示后端投影的 trainingRecordFileName，不得写死文件名'
+)
+assert(
+  /:empty-text="fileDetail\?\.needTraining && fileDetail\?\.trainingRecordAvailable \? '三流程培训记录已上传，见上方证据' : '当前版本暂无培训记录'"/.test(
+    trainingSection
+  ),
+  '培训空状态必须区分已上传证据和普通无培训记录'
+)
+assert(
+  !/trainingRecordFileName\s*=\s*['"][^'"]+['"]/.test(trainingSection),
+  '培训证据文件名不得在模板中硬编码'
+)
+assert(
+  !/DCC-E2E|fake|mock|placeholder|伪造|虚构/i.test(trainingSection),
+  '培训证据区域不得包含测试编号、fake、mock、placeholder 或伪造证据'
+)
+
 const removedColumns = ['培训状态', '累计时长', '可确认', '部门状态', '确认时间']
 for (const label of removedColumns) {
   assert(!trainingSection.includes(`label="${label}"`), `培训表不应继续拆散显示列：${label}`)

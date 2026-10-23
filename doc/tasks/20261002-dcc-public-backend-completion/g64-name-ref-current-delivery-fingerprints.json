@@ -1,0 +1,26 @@
+{
+  "status": "FROZEN_CURRENT_NAME_REFERENCE_TEST_PROOF",
+  "sourceChanges": "only existing reference test current directory DTO; production/guards/permissions/assertions unchanged",
+  "sourceSha256": "5e46e7e908c438d345980cbc90d0b9b43d1f75b98b0e804104de61293c3d3309",
+  "currentTotal": 74,
+  "groups": 3,
+  "actualNewTestCases": 0,
+  "overlapNotAdded": true,
+  "assets": [
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g64-name-ref-current-runtime-tests.md",
+      "bytes": 4290,
+      "sha256": "cb6634ecbdb599a7ac8bdeaff8136c189f209659cad83dbd88771dbdb781269d"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g64-name-ref-current-final-receipt.json",
+      "bytes": 7308,
+      "sha256": "3c4bf26f1a284cbc42471c0f6fe0c6640077fb421a89863e50527bcc2e31304b"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g64-name-reference-config-proof-review.md",
+      "bytes": 12380,
+      "sha256": "30c23c04a9f9f41c3a711beb3f521d64df3ea02999b995ab455f12ebe291d3f7"
+    }
+  ]
+}

@@ -18,6 +18,9 @@
 
 ## 开发执行原则
 
+- 新构建的发布版本号使用北京时间 `yyyy-MM-dd-HH-mm-ss`，例如 `2026-10-21-01-53-10`；同一个包在三服沿用同一版本号。Git 提交号单独记录到 manifest，不拼接到版本号中。
+- 所有 IntRuoyi Spug 构建入口（含临时脚本）必须在 Vite 构建后生成 `release-info.json` 并打入前端镜像；导出镜像前必须从该镜像读回有效 JSON，核对 `releaseTag` 与 manifest 一致。缺失、无效或不一致即失败，不以运行容器补文件代替发布包验收。
+
 1. 先明确结果：用户最终能完成什么操作，做到什么程度算完成。
 2. 直接实现当前需求：优先沿用现有结构，不为尚未提出的场景增加框架、配置或兼容层。
 3. 新增防护必须有依据：来自明确业务要求、实际故障或真实外部边界；不能只凭“以后可能有问题”。
@@ -26,12 +29,14 @@
 
 ## Branch Runtime Port Matrix
 
+- 新增权限标识、新建 `src/views/**/index.vue` 页面、修改 `src/router/` 配置时，开发阶段必须在 `config/menu-migrations.json` 逐项关联新增的菜单/权限迁移 SQL；迁移使用现有 `release-migration` 元数据并包含目标角色、租户套餐授权。详情页、内部组件或复用现有菜单权限的情况必须填写具体免迁移原因，不得空白豁免。运行 `python scripts/preflight/check-menu-migrations.py`；提交前把关联记录、SQL 和源码一起暂存，再运行同命令加 `--staged`。禁止通过改检查基线、关闭 hook 或 CI 绕过失败。格式与边界见 `docs/menu-migration-development.md`。
+
 - Branch runtime port matrix: `docs\branch-runtime-ports.md`.
 - `int_main_d=8101/48101`.
 - Additional worktree slot in `1..100`; reserve it with `reserve-worktree-slot.ps1` before starting services.
 
 # E2E测试环境(禁止删除)
-E2E验证租户 芋道源码 
-用户名 admin 
+E2E验证租户 芋道源码
+用户名 admin
 密码 admin123
 只能通过前端操作，不能直接调用接口,比如不能使用 fetch/apiGet 等方式

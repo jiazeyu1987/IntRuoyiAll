@@ -1,0 +1,68 @@
+{
+  "status": "ACTUAL_REFERENCE_AND_READONLY_BRANCH_CHECKPOINT",
+  "targetProject": "272",
+  "folder": "4",
+  "sourceFile": "2054545668044084026",
+  "referenceProjectCountObserved": [
+    0,
+    1,
+    0
+  ],
+  "secondConfirmation": true,
+  "referenceFinalRemoved": true,
+  "sourceColorObserved": "class/render evidence recorded; source screenshot offscreen initial, no pixel-color claim",
+  "readOnlyTraceFromViewer": "actual click navigated true readonly trace; no application/assignment controls observed on ACTIVE baseline",
+  "originalCanvas": {
+    "width": 685,
+    "height": 969,
+    "nonWhite": 2208
+  },
+  "remainingActualDefect": "viewer metadata edit action currently visible; owner fixing management gate",
+  "distinctActorsTested": false,
+  "evidence": [
+    {
+      "path": "C:\\IntRuoyiBackups\\20261005-dcc-four-direction-runtime\\g56-real-ui-r4\\069.json",
+      "sha256": "e671e17acb69a6debf1844f493c3f79f0026aed82c9d8c249165784c9694b64b"
+    },
+    {
+      "path": "C:\\IntRuoyiBackups\\20261005-dcc-four-direction-runtime\\g56-real-ui-r4\\072.json",
+      "sha256": "315d5ec069d55ae2ccaf4183985cfcb025d8defb6064c3ce714a7d5298356b8a"
+    },
+    {
+      "path": "C:\\IntRuoyiBackups\\20261005-dcc-four-direction-runtime\\g56-real-ui-r4\\075.json",
+      "sha256": "eeead3d2991a569eff5742bd99e411c1f78d37b4abb4297aac8cb36a94a0d2b7"
+    },
+    {
+      "path": "C:\\IntRuoyiBackups\\20261005-dcc-four-direction-runtime\\g56-real-ui-r4\\077.json",
+      "sha256": "728423ff7db3700dc7d4035227ae1ce5ff1e62b096a4a32cb413da380df459b7"
+    },
+    {
+      "path": "C:\\IntRuoyiBackups\\20261005-dcc-four-direction-runtime\\g56-real-ui-r4\\080.json",
+      "sha256": "16faa6b0fa4dd41c024f77174c560a02edf490540cc5f4aa774e67a315593cfc"
+    },
+    {
+      "path": "C:\\IntRuoyiBackups\\20261005-dcc-four-direction-runtime\\g56-real-ui-r4\\083.json",
+      "sha256": "c1eb058aa2c795c3963f1896d2675f31b4623614966d54951610254caa0b4673"
+    },
+    {
+      "path": "C:\\IntRuoyiBackups\\20261005-dcc-four-direction-runtime\\g56-real-ui-r4\\084.json",
+      "sha256": "5d83e14a48310ac40efb7635a527b9a68514b63c1d64c96f8fd5674416bc84db"
+    },
+    {
+      "path": "C:\\IntRuoyiBackups\\20261005-dcc-four-direction-runtime\\g56-real-ui-r4\\086.json",
+      "sha256": "7158e62624b5b009e2fd8431c9dffe283f36638b663b55628cb077d0441cc26f"
+    },
+    {
+      "path": "C:\\IntRuoyiBackups\\20261005-dcc-four-direction-runtime\\g56-real-ui-r4\\087.json",
+      "sha256": "51135b9ba46754da2d96eb44dda9ea6a0c79147b749a9622c8d6fe91f8dd7f8a"
+    },
+    {
+      "path": "C:\\IntRuoyiBackups\\20261005-dcc-four-direction-runtime\\g56-real-ui-r4\\088.json",
+      "sha256": "2ae47c4505379cadb19ee99c2984ac875d8b93d1a2f2bf8d4154356b2554c51b"
+    },
+    {
+      "path": "C:\\IntRuoyiBackups\\20261005-dcc-four-direction-runtime\\g56-real-ui-r4\\089.json",
+      "sha256": "bfb4d5c187ec2ca5824e6c9ac286362446e6eb14b68326889ec56f2c341977c2"
+    }
+  ]
+}

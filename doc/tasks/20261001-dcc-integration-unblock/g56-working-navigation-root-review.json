@@ -1,0 +1,31 @@
+{
+  "status": "ROOT_PROJECT_STORAGE_INTENT_HELPER_FROZEN_FINITE_GREEN",
+  "contract": "required strict bool hasProjectStorageMapping; exact current File placement positive vs true legacy physical path",
+  "sources": [
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/shared/working-browser-navigation.ts",
+      "sha256": "75eccc9e57359caa95e6feeb6309de34cb8971723f19cd7ab4e18d12bca1edc7"
+    },
+    {
+      "path": "IntRuoyiFronted/src/api/dcc/controlledFile/workflow.ts",
+      "sha256": "fa10737360368ec25c732361bbf413e143effe11c0e3cf4523028459b7aa1c8f"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-working-browser-navigation.test.cjs",
+      "sha256": "0ed5d12a4e4c54511657f0c0318e16d3b5b1e8a8a303c937290fdc7b64892c9b"
+    }
+  ],
+  "effectiveRedLogs": [
+    "g56-working-navigation-red.log",
+    "g56-working-navigation-contract-red.log"
+  ],
+  "finalLog": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g56-working-navigation-contract-green.log",
+  "finalTests": 29,
+  "failures": 0,
+  "skipped": 0,
+  "lintExit": 0,
+  "lintLog": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g56-working-navigation-lint-final.log",
+  "initialLintCommandFailure": "npx not available; no PASS claimed; official local eslint via node final0",
+  "requiresNewBackendProjection": true,
+  "realRetest": "waiting same-source new executable"
+}

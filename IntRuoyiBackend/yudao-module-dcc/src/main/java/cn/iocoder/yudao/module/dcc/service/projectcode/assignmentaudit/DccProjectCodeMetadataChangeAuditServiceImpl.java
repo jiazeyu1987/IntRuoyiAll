@@ -171,6 +171,10 @@ public class DccProjectCodeMetadataChangeAuditServiceImpl
         return java.util.stream.Stream.of(
                         field("productMasterId", "历史产品ID", beforeFile.getProductMasterId(),
                                 afterFile.getProductMasterId()),
+                        field("productSource", "产品来源", beforeFile.getProductSource(),afterFile.getProductSource()),
+                        field("productCatalogId", "产品目录身份", beforeFile.getProductCatalogId(),afterFile.getProductCatalogId()),
+                        field("productRelationId", "项目产品关系", beforeFile.getProductRelationId(),afterFile.getProductRelationId()),
+                        field("productCreateRequestId", "产品创建申请", beforeFile.getProductCreateRequestId(),afterFile.getProductCreateRequestId()),
                         field("productCode", "产品编号", beforeFile.getProductCode(), afterFile.getProductCode()),
                         field("productName", "产品名称", beforeFile.getProductName(), afterFile.getProductName()),
                         field("dccProjectCodeId", "DCC 项目代码", beforeFile.getDccProjectCodeId(),
@@ -203,6 +207,10 @@ public class DccProjectCodeMetadataChangeAuditServiceImpl
     private Map<String, Object> snapshot(DccControlledFileDO file) {
         Map<String, Object> values = new LinkedHashMap<>();
         values.put("productMasterId", file.getProductMasterId());
+        values.put("productSource", file.getProductSource());
+        values.put("productCatalogId", file.getProductCatalogId());
+        values.put("productRelationId", file.getProductRelationId());
+        values.put("productCreateRequestId", file.getProductCreateRequestId());
         values.put("productCode", file.getProductCode());
         values.put("productName", file.getProductName());
         values.put("dccProjectCodeId", file.getDccProjectCodeId());

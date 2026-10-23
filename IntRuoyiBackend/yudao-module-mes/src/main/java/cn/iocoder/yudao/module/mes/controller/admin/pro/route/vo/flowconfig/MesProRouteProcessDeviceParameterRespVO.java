@@ -25,6 +25,7 @@ public class MesProRouteProcessDeviceParameterRespVO {
 
     private Long craftId;
     private String craftCode;
+    private List<com.alibaba.fastjson.JSONObject> craftBindings;
 
     @Schema(description = "工序名称")
     private String processName;

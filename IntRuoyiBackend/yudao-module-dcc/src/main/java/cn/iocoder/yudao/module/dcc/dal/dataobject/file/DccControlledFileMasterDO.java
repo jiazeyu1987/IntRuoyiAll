@@ -30,6 +30,7 @@ public class DccControlledFileMasterDO extends BaseDO {
     private Long fileTypeTaxonomyLeafId;
     private String normalizedFileNumber;
     private Long currentActiveControlledFileId;
+    private Long latestControlledFileId;
     private String status;
 
 }

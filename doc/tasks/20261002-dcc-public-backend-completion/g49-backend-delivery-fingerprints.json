@@ -1,0 +1,252 @@
+{
+  "status": "LD04_BACKEND_FROZEN_READY_FOR_ROOT_REVIEW",
+  "workspace": "MAIN_int_qms",
+  "productionJavaFiles": 10,
+  "testJavaFiles": 7,
+  "newForwardSqlFiles": 1,
+  "newIsolatedResourceFiles": 1,
+  "files": [
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/projectcode/productcreate/DccProjectProductActorSupport.java",
+      "bytes": 3822,
+      "sha256": "b916e03ed938a8bd0a4727f06035261cd6b94293091c95c712d7ec3974e1a345"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/projectcode/productcreate/DccProjectProductNotificationService.java",
+      "bytes": 3711,
+      "sha256": "82d437e2cfb791b6b10afde31065e6f989d134a77874d91e4d26bf2e557bbd61"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/approval/DccProjectProductTaskDelegate.java",
+      "bytes": 9536,
+      "sha256": "9e94364263717e4f07196888e7374383caca389a8bbc73e84aa2c4865dc569a5"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/projectcode/productcreate/DccProjectProductCreateService.java",
+      "bytes": 1059,
+      "sha256": "1c11cda712f4cd4e8e0d9a32bc13a3cbe64b7d4b4603e87a1e7b76c4968aa010"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/projectcode/productcreate/DccProjectProductCreateServiceImpl.java",
+      "bytes": 19745,
+      "sha256": "4c2c2ab471841e06cc0a917f0f61f2d0dcc2c6c72f8230f9745e1683e8438109"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/projectcode/productcreate/DccProjectProductCreateStateService.java",
+      "bytes": 5032,
+      "sha256": "7a5bc8690d8a551d30a46089b37b34b7ceab41bc761d903d1b14d8e35e398de5"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/dal/mysql/projectcode/DccProjectProductCreateRequestMapper.java",
+      "bytes": 5140,
+      "sha256": "b8e29a2055bdcd6bf007af48ca54f161cf213ed90312e8c2743e00548d38bb5f"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/projectcode/DccProjectProductCreateController.java",
+      "bytes": 6991,
+      "sha256": "cba7985973ff3c43ffa5ce863846954c4f5b0d38588ca6b5c44bbaafd1527e70"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/projectcode/vo/productcreate/DccProjectProductCreateRespVO.java",
+      "bytes": 3330,
+      "sha256": "3ae6f9d366cfff91fd4ca9f1c88073cca65b78291d207fafd93955e6bc546afb"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/approval/DccApprovalTaskAdapter.java",
+      "bytes": 45017,
+      "sha256": "cda7b9dca74c24d0d90fd2d906201bb1ceb0a5272a949e475952943c212f3677"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/projectcode/DccProjectApplicationNotificationTest.java",
+      "bytes": 19756,
+      "sha256": "51e039dbed1ccffb1c70c39c708864bb611e58bb44b18836077c8be7e3f1a1a3"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/approval/DccApprovalTaskAdapterTest.java",
+      "bytes": 54487,
+      "sha256": "c6850c2cb1ba76b29627f6c6f938a31d4a9a1f21a0dc96ca485f0ed42db30901"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/projectcode/DccProjectProductAttributesCreateTest.java",
+      "bytes": 17615,
+      "sha256": "1a0e138bb0bc75ca305487d4388010903c2e14f6f535d7aa7524e86bd4104c69"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/projectcode/DccProjectProductDecisionPersistenceTest.java",
+      "bytes": 9980,
+      "sha256": "fe484cf92981297b64fa32fc4c5a258f5469cf0e767d8da750e4fbea01db2655"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/projectcode/DccProjectProductLedgerTest.java",
+      "bytes": 23866,
+      "sha256": "03c4829921b6b344db6769d550b1fd0e4be98475d4d510f97a57149b5c07cbe0"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/projectcode/DccProjectProductWriteRetryTest.java",
+      "bytes": 6271,
+      "sha256": "e70c818b97508933d422876d365d341a8bbea0b22ade7ee55e05609251fc29e3"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/projectcode/DccProjectConfigurationHttpPersistenceTest.java",
+      "bytes": 32273,
+      "sha256": "acf6dcc2724fefccc16569e73543b6abca95d42a9852fd0e9877190fef70ce20"
+    },
+    {
+      "path": "IntRuoyiBackend/sql/mysql/20261005_dcc_project_product_application_notify.sql",
+      "bytes": 2106,
+      "sha256": "696bb80f60509ea453fe8c8fda07b42f8020e09415aaf2d2ed9b388ed907a810"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/resources/sql/g49_project_application_notify_tables.sql",
+      "bytes": 2837,
+      "sha256": "55c13ba706ea348d725b3a97d8b45f8799729e01a0c0caa4a93c98ef51ef5929"
+    }
+  ],
+  "compiledClassInventory": [
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/target/classes/cn/iocoder/yudao/module/dcc/service/projectcode/productcreate/DccProjectProductActorSupport.class",
+      "bytes": 4458,
+      "sha256": "e7de24d221dfa793575f018935fd63ac16b81645c3d2ec4f8377b5f882ddfaf9"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/target/classes/cn/iocoder/yudao/module/dcc/service/projectcode/productcreate/DccProjectProductNotificationService.class",
+      "bytes": 5558,
+      "sha256": "55db3bc304d5bd39104c3d08eaad858b3b3a9048974d6447afe4d3d6d0a91930"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/target/classes/cn/iocoder/yudao/module/dcc/approval/DccProjectProductTaskDelegate.class",
+      "bytes": 15280,
+      "sha256": "3d4060afc199e2078a2898f54eb1c8c167e0ec00a9c36c5fb7d25f21f174f468"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/target/classes/cn/iocoder/yudao/module/dcc/service/projectcode/productcreate/DccProjectProductCreateService.class",
+      "bytes": 1464,
+      "sha256": "a936f074ae7d56ef774d5634de57f70809c06b1f4b81f05c8b1197c3da817c9f"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/target/classes/cn/iocoder/yudao/module/dcc/service/projectcode/productcreate/DccProjectProductCreateServiceImpl.class",
+      "bytes": 24898,
+      "sha256": "ffe603276384728395154327b6c437d4d22b43133ed4425ad5131fdbb126b802"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/target/classes/cn/iocoder/yudao/module/dcc/service/projectcode/productcreate/DccProjectProductCreateServiceImpl.class",
+      "bytes": 24898,
+      "sha256": "ffe603276384728395154327b6c437d4d22b43133ed4425ad5131fdbb126b802"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/target/classes/cn/iocoder/yudao/module/dcc/service/projectcode/productcreate/DccProjectProductCreateStateService.class",
+      "bytes": 6302,
+      "sha256": "d23c02231588d00b0f82bb79c4fa509fa1959381a4b9d84fee37044f330ef713"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/target/classes/cn/iocoder/yudao/module/dcc/dal/mysql/projectcode/DccProjectProductCreateRequestMapper.class",
+      "bytes": 7464,
+      "sha256": "2f769bba7776db8abe452924336fba7b870518733e1a59a3e43d6fbd18c71d08"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/target/classes/cn/iocoder/yudao/module/dcc/controller/admin/projectcode/DccProjectProductCreateController.class",
+      "bytes": 10206,
+      "sha256": "5072fddc211f7b3ea37d908bd00504990151851dc2cc232723f782d7428b231f"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/target/classes/cn/iocoder/yudao/module/dcc/controller/admin/projectcode/vo/productcreate/DccProjectProductCreateRespVO.class",
+      "bytes": 21664,
+      "sha256": "268cf1860572870d7790a550b90e0b69c2c70e5867eab166a2aaf1a60619f207"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/target/classes/cn/iocoder/yudao/module/dcc/approval/DccApprovalTaskAdapter$1.class",
+      "bytes": 892,
+      "sha256": "1ec4fcb0bd9da46b9f396d7e6f5f6f2e6e7e096da78fe0cbbae494eed59f158a"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/target/classes/cn/iocoder/yudao/module/dcc/approval/DccApprovalTaskAdapter$VisibleWindow.class",
+      "bytes": 1713,
+      "sha256": "5d41eaec7e0e167319c6d75f5359285e139307305a4f06caa826b6b131244ada"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/target/classes/cn/iocoder/yudao/module/dcc/approval/DccApprovalTaskAdapter.class",
+      "bytes": 44589,
+      "sha256": "0713c0044c8e1a47583a37957b6778d5c6211a65adc819e1ad3acbbbad182602"
+    }
+  ],
+  "verification": [
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g49-backend-verification-receipt.json",
+      "bytes": 4539,
+      "sha256": "30da3c7c7a769b99864a7108a85919578ebaf6ec9b7749961d0878957ac2e373"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g49-timeline-verification-receipt.json",
+      "bytes": 1710,
+      "sha256": "a8b17e5c37d72930c27576e1ee102fd514516e32796cb42b1fe3cd07bda73be0"
+    }
+  ],
+  "sqlPolicy": [
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g49-notify-policy-red.json",
+      "bytes": 187,
+      "sha256": "045b69ca0cf4233f6939d8077dafd98de395e199efd4ad2fda04e0d6ea627977"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g49-notify-policy-green.json",
+      "bytes": 976,
+      "sha256": "25264f0aae92364e0321b5a1604373fec9ce9a2012fe4542d01f55bb7ae44b4d"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g49-notify-sql-static-receipt.json",
+      "bytes": 657,
+      "sha256": "e255d901c634dee623072dc15a2d6e090b9b512dd1d1659964417b6014b3ecf1"
+    }
+  ],
+  "effectiveRedXml": [
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g49-backend-effective-red.xml",
+      "bytes": 108854,
+      "sha256": "57cb15865e43133a1808e6dd7a4570df73edd59d2943c6d5e38ee8316a3eb7b0"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g49-query-permission-effective-red.xml",
+      "bytes": 96791,
+      "sha256": "88292c00a807003b81895be0165a5a0e184fd833fa10d1b8c82ffc3f12aebb5f"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g49-timeline-effective-red.xml",
+      "bytes": 96888,
+      "sha256": "d8fbfcb8bdcb74d9084360d8ee5da5440ee66e6d547e73270290cb3b8a4a5eba"
+    }
+  ],
+  "finalSql": {
+    "path": "IntRuoyiBackend/sql/mysql/20261005_dcc_project_product_application_notify.sql",
+    "bytes": 2106,
+    "sha256": "696bb80f60509ea453fe8c8fda07b42f8020e09415aaf2d2ed9b388ed907a810"
+  },
+  "preservedG48Manifest": {
+    "path": "doc/tasks/20261002-dcc-public-backend-completion/g48-storage-fingerprints.json",
+    "bytes": 7815,
+    "sha256": "607d2fd03fd1b90e7d3a9310c865fc13a8934942eac0da4f0f9b47b52039d985"
+  },
+  "preservedG48AssetsVerifiedUnchanged": 27,
+  "contracts": {
+    "nativeSourceTypes": [
+      "DCC_PROJECT_PRODUCT_REVIEW",
+      "DCC_PROJECT_PRODUCT_APPROVAL"
+    ],
+    "route": "/mdm/product-catalog",
+    "actions": [
+      "PROCESS_IN_MODULE"
+    ],
+    "requiresSignature": false,
+    "notifyTargetType": "DCC_PROJECT_PRODUCT_REQUEST",
+    "notifyTargetId": "actual requestId Long string",
+    "notificationTransaction": "official System API REQUIRED in existing request/Gxp physical transaction; no afterCommit/sent flag/private job",
+    "actorReadQualification": "real enabled same-tenant actor; query plus native request relationship/existing doc_control or approval_admin; reviewers/approver update+query, no grants",
+    "counts": "102/7 broad pass before last timeline-only action fix; 43/2 relevant final pass, overlapping, not additive",
+    "noExistingWriterOrProductResolverChanges": true
+  },
+  "actualMySqlRuns": 0,
+  "actualBrowserRuns": 0,
+  "realBusinessDbOrRuntimeActions": 0,
+  "GitMutations": 0,
+  "packageRuns": 0,
+  "mavenOwnership": "FREE_AFTER_FINAL_TEST_EXIT0"
+}

@@ -1,0 +1,62 @@
+{
+  "status": "LD02_BACKEND_ROOT_SOURCE_PIN_ACTUAL_XML_REVIEW_PASS_NOT_UI",
+  "manifestSha256": "4d18bfe65bad2fceb0a9184015d24123d74e347c3e6dd10473b97fe8756ccd7a",
+  "tests": 240,
+  "classes": 7,
+  "actualNoTemplatePreviewAndSubmitGuardsReplaced": true,
+  "formalUniqueActiveCategoryPreserved": true,
+  "oldTemplateManagementUnchanged": true,
+  "newSchemaAddedForThisDirection": false,
+  "actualUiVerificationPending": true,
+  "classResults": [
+    {
+      "class": "cn.iocoder.yudao.module.dcc.framework.web.DccUploadEndpointHttpContractTest",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.category.DccFileTypeTaxonomyAdminServiceImplTest",
+      "tests": 13,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileUploadApiTest",
+      "tests": 35,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+      "tests": 170,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.file.DccPublicUploadPlacementHttpContractTest",
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.file.DccSourceUploadContextTest",
+      "tests": 9,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectFileTemplateServiceImplTest",
+      "tests": 8,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    }
+  ]
+}

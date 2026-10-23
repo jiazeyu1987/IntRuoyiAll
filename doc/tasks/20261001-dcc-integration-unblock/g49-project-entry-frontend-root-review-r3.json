@@ -1,0 +1,14 @@
+{
+  "status": "LD04_NATIVE_PROJECT_FIELD_LABELS_ROOT_PIN_AND_FULL_CHECKS_PASS_NOT_UI",
+  "manifestSha256": "535ead21cdfd2aae95d21837ba8e57c910cc37a8696132513fe3c90393b1fc3b",
+  "checkedFiles": 20,
+  "tests": 26,
+  "typesSession": 77291,
+  "typesExit": 0,
+  "buildSession": 37120,
+  "buildExit": 0,
+  "currentTasksFieldLabels": "PROJECT_CODE_AND_CURRENT_STAGE",
+  "existingFileFieldsPreserved": true,
+  "nativeBackend": "IN_PROGRESS",
+  "actualUi": false
+}

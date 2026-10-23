@@ -1,0 +1,50 @@
+[
+  {
+    "name": "20260930-dcc-a",
+    "path": "C:\\IntRuoyi\\20260930-dcc-a",
+    "branch": "codex/20260930-dcc-a",
+    "profile": "int_qms",
+    "slot": 2,
+    "frontendPort": 8063,
+    "backendPort": 48063,
+    "active": true,
+    "createdAt": "2026-09-30T21:30:09.0186563+08:00",
+    "updatedAt": "2026-09-30T21:30:09.0186563+08:00"
+  },
+  {
+    "name": "20260930-dcc-b",
+    "path": "C:\\IntRuoyi\\20260930-dcc-b",
+    "branch": "codex/20260930-dcc-b",
+    "profile": "int_qms",
+    "slot": 3,
+    "frontendPort": 8064,
+    "backendPort": 48064,
+    "active": true,
+    "createdAt": "2026-09-30T21:30:28.2202087+08:00",
+    "updatedAt": "2026-09-30T21:30:28.2202087+08:00"
+  },
+  {
+    "name": "20260930-dcc-c",
+    "path": "C:\\IntRuoyi\\20260930-dcc-c",
+    "branch": "codex/20260930-dcc-c",
+    "profile": "int_qms",
+    "slot": 4,
+    "frontendPort": 8065,
+    "backendPort": 48065,
+    "active": true,
+    "createdAt": "2026-09-30T21:30:48.5096116+08:00",
+    "updatedAt": "2026-09-30T21:30:48.5096116+08:00"
+  },
+  {
+    "name": "20260930-dcc-d",
+    "path": "C:\\IntRuoyi\\20260930-dcc-d",
+    "branch": "codex/20260930-dcc-d",
+    "profile": "int_qms",
+    "slot": 5,
+    "frontendPort": 8066,
+    "backendPort": 48066,
+    "active": true,
+    "createdAt": "2026-09-30T21:31:07.2126293+08:00",
+    "updatedAt": "2026-09-30T21:31:07.2126293+08:00"
+  }
+]

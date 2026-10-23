@@ -1,0 +1,27 @@
+{
+  "status": "LD04_FRONTEND_ROOT_TYPES_BUILD_R2_PASS_NOT_UI",
+  "manifestSha256": "affe52dbce9a1396a376e650bdca5e9a64124f7f0800335f89376f21b210a792",
+  "previousTypes": {
+    "error": "TS2677",
+    "logSha256": "4c1c40dd7e50471f31341cfa5369398878f40c8bf2b04b70fdbea6d1322d14b0",
+    "sessionId": 94613,
+    "exitCode": 2
+  },
+  "previousBuild": {
+    "exitCode": 0,
+    "sessionId": 31355
+  },
+  "types": {
+    "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "sessionId": 97698,
+    "exitCode": 0
+  },
+  "build": {
+    "logSha256": "6d5d273300bb7a2fbc5e0465a37ef7ea7ac634cbd2571c647f3290879b6391e1",
+    "sessionId": 28748,
+    "indexSha256": "f1c0487e1dccb1e645be0bb05f833304eb56b9041719fc9253f52f2205b68811",
+    "exitCode": 0
+  },
+  "actualUi": false,
+  "backendTasksAndNotifications": "NOT_IMPLEMENTED"
+}

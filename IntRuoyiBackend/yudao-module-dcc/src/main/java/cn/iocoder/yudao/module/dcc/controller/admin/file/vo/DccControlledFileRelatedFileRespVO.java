@@ -5,6 +5,8 @@ import lombok.Data;
 @Data
 public class DccControlledFileRelatedFileRespVO {
 
+    private Long relationId;
+
     private Long controlledFileId;
     private Long masterId;
     private Long projectCodeId;

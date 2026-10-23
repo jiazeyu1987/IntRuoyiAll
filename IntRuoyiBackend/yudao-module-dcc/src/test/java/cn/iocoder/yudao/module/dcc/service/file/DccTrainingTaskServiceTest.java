@@ -82,13 +82,15 @@ class DccTrainingTaskServiceTest extends BaseMockitoUnitTest {
 
     @Test
     void readTrainingPreviewFile_marksProgressAndDistributionRead() throws Exception {
-        when(trainingProgressMapper.selectById(1001L)).thenReturn(DccControlledFileTrainingProgressDO.builder()
+        DccControlledFileTrainingProgressDO previewProgress = DccControlledFileTrainingProgressDO.builder()
                 .id(1001L)
                 .controlledFileId(900L)
                 .userId(99L)
                 .requiredViewSeconds(600)
                 .accumulatedViewSeconds(0)
-                .build());
+                .build();
+        when(trainingProgressMapper.selectById(1001L)).thenReturn(previewProgress);
+        when(trainingProgressMapper.selectByIdForUpdate(1001L)).thenReturn(previewProgress);
         when(controlledFileMapper.selectById(900L)).thenReturn(DccControlledFileDO.builder()
                 .id(900L)
                 .categoryId(10L)

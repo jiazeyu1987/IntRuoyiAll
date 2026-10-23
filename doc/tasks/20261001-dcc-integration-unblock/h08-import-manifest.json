@@ -1,0 +1,61 @@
+{
+  "base": "a801dc8b91579241e221d129ab34343997673f40",
+  "target": "C:\\IntRuoyi\\20261001-dcc-integration",
+  "owner_sources_written": false,
+  "files": [
+    {
+      "owner": "b",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/projectcode/attributes/DccProjectApplicationSnapshotService.java",
+      "before_sha256": "be539ca2c21bd311d08ce50c00d0a47bcb1624db670628a38101aca7c6f89386",
+      "sha256": "03e8a3623f29c15def82efe8dcd50f3cf73970eb8056b8526eeed5cb3f1a0831"
+    },
+    {
+      "owner": "b",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/projectcode/attributes/DccProjectAttributesService.java",
+      "before_sha256": "6b61a0b22212895d386cd9d5b96977313c265863d8bcc9893f42ed6f03072fdc",
+      "sha256": "3f1c2e618e7449d152cbffba5769c6d8d8c3615f08e1c198711c876c2ec2604e"
+    },
+    {
+      "owner": "b",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/projectcode/DccProjectUnsubmittedInheritanceTest.java",
+      "before_sha256": null,
+      "sha256": "58d60737cde0ec99fae090bd763ba12722194b6d2555452219fead423e55140c"
+    },
+    {
+      "owner": "d",
+      "path": "IntRuoyiFronted/src/api/dcc/controlledFile/relations.ts",
+      "before_sha256": "93528711a03f8a53b000a6b56d6055e2e1e5e333d4d0a673da81541dad8754d9",
+      "sha256": "629260e80a4fc1f296ef91a37c0fb03fac4e734cdd9d1b4da56d7b250d23b18c"
+    },
+    {
+      "owner": "d",
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/relations/selector-state.ts",
+      "before_sha256": "1499a25ffa5c750ae68970a6ee13b23e7536e565d397a2f8c9b9ec9826e9f1e7",
+      "sha256": "71104a74b70b0be9026faea2dbe9b4bfe9dd6c3c2bee74ae5a20f5f0343b7aa9"
+    },
+    {
+      "owner": "d",
+      "path": "IntRuoyiFronted/scripts/dcc-selector-browser-contract.test.mjs",
+      "before_sha256": null,
+      "sha256": "d1fc10b7cee43649f50106707c808b0d399ca9090cb958516aca6b5fac4966d2"
+    },
+    {
+      "owner": "d",
+      "path": "IntRuoyiFronted/scripts/dcc-relations-vue-runtime.test.mjs",
+      "before_sha256": "2919e48f30d5b53d7b22979da3facf32479c0b9c6a59715cb02a5d2c297f07e1",
+      "sha256": "ef88cd7c0945536dc777fc94d43c41917c246a66797a5e486eb77b7923cd7fd2"
+    },
+    {
+      "owner": "d",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccSelectorBrowserMappingIntegrationTest.java",
+      "before_sha256": null,
+      "sha256": "4b69a7178ad1806498bef29bc60fb31a5b0df700b3b536a94afe3a9b38c32ac1"
+    },
+    {
+      "owner": "d",
+      "path": "doc/tasks/20260930-dcc-d-relations/h02-real-selector-responses.json",
+      "before_sha256": null,
+      "sha256": "e225e343d2ef09c529ff18e406cd025d4cbcf1c32497c52147ebb110f5a1d46e"
+    }
+  ]
+}

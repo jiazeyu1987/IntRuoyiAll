@@ -1,0 +1,167 @@
+{
+  "status": "LD04_G49_FRONTEND_FROZEN_READY_FOR_ROOT_REVIEW",
+  "workspace": "C:/IntRuoyiAll-int_main",
+  "branch": "int_qms",
+  "productionFiles": 5,
+  "testFiles": 2,
+  "assets": [
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/basic-data/components/ProductCatalogTabPanel.vue",
+      "bytes": 76565,
+      "sha256": "e2870627e936e85d8cfbab14b1ee524d224c424d0ff125a24340d3474855b7f8"
+    },
+    {
+      "path": "IntRuoyiFronted/src/api/dcc/controlledFile/projectProductRequests.ts",
+      "bytes": 5637,
+      "sha256": "9ee50a97893e08ed46f4f009d4f188556d4987bf57f54baf68aa0ec03d5d0fb3"
+    },
+    {
+      "path": "IntRuoyiFronted/src/utils/notifyMessageNavigation.ts",
+      "bytes": 9698,
+      "sha256": "26b2135398453fc2b0c995c1b42335d6f25f735d074d5efc92d7f5d2d84cf27a"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/system/notify/my/MyNotifyMessageDetail.vue",
+      "bytes": 11958,
+      "sha256": "d6b31ea1c3684ceaa7b59b44aec5adb88de294cca8b4ac608e9928378855d65d"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/approval-center/index.vue",
+      "bytes": 55595,
+      "sha256": "79da229f01e99b95785afa63a90bbcc217698fcc8b5e447dab400c4b91f9baff"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-project-application-entry.test.cjs",
+      "bytes": 12646,
+      "sha256": "cf27bbaf55dbf572df70a1b1336b256b9494344ce049525a20980d22879eca4c"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/e2e/dcc-project-product-reasons-unit.spec.js",
+      "bytes": 8714,
+      "sha256": "6ea2ce38b19bf60e063e3eda010d1d0ca994b88b399f51a8e2825dd78b470723"
+    }
+  ],
+  "documents": [
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g49-project-application-entry-bdd.md",
+      "bytes": 7989,
+      "sha256": "df7bcce011dcb0774fb546ba6394a1b38dc260de482d33b4cd24ca642c934512"
+    }
+  ],
+  "unchangedG48Manifest": {
+    "path": "doc/tasks/20261002-dcc-public-browser/g48-frontend-single-folder-fingerprints.json",
+    "bytes": 5610,
+    "sha256": "7cb78c16744e634b3749682a1d5af45be341aecffb3e1a5d401b7a25993d70d4"
+  },
+  "unchangedUploadAssets": [
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/upload/index.vue",
+      "bytes": 113069,
+      "sha256": "75c7cf187f21ad641b2164f78eb849441b108fc8e239be425d2676775ed781a7"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/upload/submitter.ts",
+      "bytes": 19099,
+      "sha256": "0182a9f42bfb813a5da9b96169c23d195f8430983ebd505c9a241eb6380c267f"
+    },
+    {
+      "path": "IntRuoyiFronted/src/api/dcc/controlledFile/workflow.ts",
+      "bytes": 86222,
+      "sha256": "6e3079a4df6f335b90ce12de0ea0aa2b101151e96b5bf4dfaa946f033f88a8da"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-upload-single-project-folder.test.cjs",
+      "bytes": 6866,
+      "sha256": "3b551db3233e91c5dd7f803d0246c0ea97227abca82897ac75b8d3affc1b1189"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-upload-application-page.test.cjs",
+      "bytes": 18437,
+      "sha256": "2c408a13e480c8161a165a18040ca7a6e5f3cc13257a90a2431cba1259467a52"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-upload-free-file-type.test.cjs",
+      "bytes": 9701,
+      "sha256": "210e8275b4591612c415298355b4d376fa179dc1187192061f4a38a1f247abae"
+    }
+  ],
+  "contracts": [
+    "GET /dcc/project-product-requests/{id} exact original ID with explicit local failure; no pending fallback",
+    "RespVO Long fields are strings; writeAttemptNo stays number",
+    "Product catalog /mdm/product-catalog original records consumes requestId/requestOpen=records/from=approval-center or notification; markers are not permissions",
+    "Dedicated notifyTargetType DCC_PROJECT_PRODUCT_REQUEST with original notifyTargetId matching actionUrl requestId; only sameorigin exact path and three unique whitelisted query keys",
+    "Existing project review/approval/resubmission opinion endpoints and original identities retained; no quick signatures/grants/new node",
+    "Approval center only REVIEW and APPROVAL source labels changed; original file handling/navigation contract retained"
+  ],
+  "verification": {
+    "RED": {
+      "tests": 7,
+      "pass": 0,
+      "failures": 7,
+      "exitCode": 1,
+      "expected": "Old source lacks exact GET/route, dedicated notification target/action and native Chinese labels"
+    },
+    "initialGREEN": {
+      "tests": 7,
+      "pass": 7,
+      "failures": 0,
+      "exitCode": 0
+    },
+    "finalRegression": {
+      "files": 8,
+      "tests": 22,
+      "pass": 22,
+      "failures": 0,
+      "skipped": 0,
+      "exitCode": 0,
+      "dedicatedCases": 8,
+      "overlap": "Contains earlier project confirmation and existing offline contracts; not additive; tests/e2e paths executed only under Node"
+    },
+    "initialRelatedFailure": {
+      "tests": 22,
+      "pass": 21,
+      "failures": 1,
+      "reason": "Legacy fullSFC reasons fixture lacked G46 existing ./project-product-confirmation import",
+      "fix": "One finite test-host correction loads actual confirmation helper with explicit Element/network/lifecycle hosts and formal leader/template fixtures; original assertions retained"
+    },
+    "ownedLint": {
+      "productionFiles": 5,
+      "exitCode": 0,
+      "warnings": 0,
+      "command": "node node_modules/eslint/bin/eslint.js <production5> --max-warnings 0"
+    }
+  },
+  "rawLogs": [
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g49-project-application-entry-red.log",
+      "bytes": 8482,
+      "sha256": "3e49f6504b9a66dbfb27fe7905b998f4882efcc1d1a28e1285224bf8afef8670"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g49-project-application-entry-green.log",
+      "bytes": 893,
+      "sha256": "78fa4cf4cda12fcbb12c55e7c4e02711847f0142f45b9c5bb173456cb6afe53e"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g49-project-application-entry-regression.log",
+      "bytes": 3690,
+      "sha256": "2697b52834c95abb461f214c6ed58506a5e2a8309af3ff4c171b6aa2747a6970"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g49-project-application-entry-final.log",
+      "bytes": 2694,
+      "sha256": "f73a31e6bd0b0ee193598e5e8c0273aab620efef6d2ffcff9509f66cd1e34a89"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g49-project-application-entry-lint.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "limitations": [
+    "Actual source wrapper/helper/SFC handlers and actual message action AST Vue renderer executed; external network/Element/lifecycle are explicit offline hosts",
+    "New backend GET, native task provider and transactional notification are backend Owner scope and not declared runtime ready by this delivery",
+    "Root owns full types/build, real database/services/permissions/browser E2E and Git",
+    "No actual HTTP/DB/browser/services/Maven/Git actions by this agent; no whole-goal completion claim"
+  ]
+}

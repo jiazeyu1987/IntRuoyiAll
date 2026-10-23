@@ -185,7 +185,8 @@
             <Icon icon="ep:document" class="mr-4px" />
             解析
           </el-button>
-          <el-button
+          <el-button class="app-test-button"
+          v-if="testModeEnabled"
             type="danger"
             plain
             data-qa-regulation-test-reset
@@ -2331,6 +2332,8 @@
 </template>
 
 <script setup lang="ts">
+import { useTestMode } from '@/store/modules/testMode'
+
 import { ElMessage, ElMessageBox } from 'element-plus'
 import type { UploadFile, UploadUserFile } from 'element-plus'
 import { useClipboard, useMediaQuery } from '@vueuse/core'
@@ -2386,6 +2389,8 @@ import {
   type QaItemDisplayInspectionType,
   type QaItemInspectionState
 } from './qaRegulationItemInspection'
+
+const testModeEnabled = useTestMode()
 
 defineOptions({ name: 'MesProProcessPoolQaRegulation' })
 
@@ -4599,6 +4604,16 @@ const resolveInitialDccProjectCodeId = () => {
 const initializeQaRegulationPage = async () => {
   await Promise.all([loadDccProjectCodeOptions(), loadQaMachineryOptions()])
   const projectId = resolveInitialDccProjectCodeId()
+  if (projectId && !route.query.dccProjectCodeId) {
+    const rememberedProject = dccProjectCodeOptions.value.find(
+      (project) => Number(project.id) === projectId
+    )
+    if (!rememberedProject) {
+      await selectDccProjectCode()
+      ElMessage.warning('上次选择的 DCC 项目已停用或不在当前访问范围内，请重新选择项目')
+      return
+    }
+  }
   if (projectId) {
     await handleDccProjectCodeChange(projectId)
   }

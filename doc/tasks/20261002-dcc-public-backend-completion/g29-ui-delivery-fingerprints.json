@@ -1,0 +1,24 @@
+{
+  "status": "FOUR_MODE_SOURCE_MILESTONE_FROZEN_REAL_DOM_PENDING_REMAINING_FIVE_NOT_IMPLEMENTED",
+  "offlineSecurityCases": 29,
+  "actualBrowserInvocations": 0,
+  "helperSHA": "37f8c1e482dc1b5ee0f693d6467a0f4945c158023a6bc8dbaffb0f413316bef0",
+  "assets": [
+    {
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-public-backend-completion\\g29-public-lifecycle-runner.cjs",
+      "bytes": 28079,
+      "sha256": "2a2cd0f6ce9c7c5f7080666c592a3c0457c54682206bb85b0515f99b9064b04c"
+    },
+    {
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-public-backend-completion\\g29-public-lifecycle-contract-test.cjs",
+      "bytes": 4468,
+      "sha256": "87a8e7de0d3a9bd98ba2f4b0e9c2f154b73ef3d7334b9da37da27dea16c74485"
+    },
+    {
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-public-backend-completion\\g29-public-lifecycle-contract.md",
+      "bytes": 9465,
+      "sha256": "d4ff3b178ed5ba576acd3de8719d1dd55b058e35d996748939d5735e65dd8615"
+    }
+  ],
+  "receiptSha256": "f066e22a590831d92a8c5d93b3a571e0d42bc0441f55f1da4336223bcf71ebbf"
+}

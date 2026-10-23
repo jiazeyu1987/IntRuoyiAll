@@ -1,0 +1,55 @@
+{
+  "status": "ACTUAL_CLONE_AND_SOURCE_SIDECAR_FIRST_REPEAT_PASS_ORIGINALS39_MATCH_NOT_APPLICATION_ACCEPTANCE",
+  "executions": [
+    {
+      "database": "dcc_intqms_g18_rehearsal",
+      "status": "G28_OWNED_EXISTING_CLONE_FIRST_REPEAT_PASS",
+      "receiptSha256": "d538cd4e2ab2e2b7441866d0c97581d8309cb49f0274941d0aa75b89f8bc4365",
+      "originalRowCounts": {
+        "dcc_controlled_file": 41615,
+        "dcc_controlled_file_master": 36685,
+        "dcc_controlled_file_name_claim": 27,
+        "dcc_controlled_file_source_ownership": 43,
+        "dcc_controlled_file_signature": 339,
+        "system_electronic_signature": 0,
+        "infra_release_migration": 529
+      },
+      "newLedgerRows": 1,
+      "repeatLedgerWrites": 0,
+      "firstReplayExecuted": false,
+      "oldRowsUnchanged": true,
+      "threeNewTablesEmpty": true,
+      "columns": 70,
+      "checks": 7
+    },
+    {
+      "database": "ruoyi-vue-pro",
+      "status": "G28_SOURCE_ONE_MIGRATION_FIRST_REPEAT_PASS_NOT_APPLICATION_READINESS",
+      "receiptSha256": "cb8b6de0a03b5082d1dc9f6b258af78e9f6a06ca2c33f93bee91fe02b2595bb3",
+      "originalRowCounts": {
+        "dcc_controlled_file": 41615,
+        "dcc_controlled_file_master": 36685,
+        "dcc_controlled_file_name_claim": 27,
+        "dcc_controlled_file_source_ownership": 43,
+        "dcc_controlled_file_signature": 339,
+        "system_electronic_signature": 159,
+        "infra_release_migration": 529
+      },
+      "newLedgerRows": 1,
+      "repeatLedgerWrites": 0,
+      "firstReplayExecuted": false,
+      "oldRowsUnchanged": true,
+      "threeNewTablesEmpty": true,
+      "columns": 70,
+      "checks": 7
+    }
+  ],
+  "originalValidatorStopReceiptPreserved": true,
+  "stopReceiptSha256": "281a23209d7ad6b829f8d6950bcf6706cbd37a1318d6d8ee064f9c5a31fd7395",
+  "originalRecoveryReceiptSha256": "0a6c53a8b99688552cc67bd17915a357a837d19e0678d356ad8b3b874515b96f",
+  "actualQualityApproved": false,
+  "auditOperationsEnabled": 0,
+  "legacyRegistrationExecuted": false,
+  "actualBrowserAcceptance": false,
+  "localIntQmsMergeComplete": false
+}

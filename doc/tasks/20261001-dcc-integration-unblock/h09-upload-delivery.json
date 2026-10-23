@@ -1,0 +1,46 @@
+{
+  "recorded_at_utc": "2026-10-02T03:56:30.417580+00:00",
+  "source": "C:\\IntRuoyi\\20261001-dcc-integration",
+  "owner": "Root",
+  "files": [
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/upload/index.vue",
+      "sha256": "c59c02a4befa3c60df3ec3831a3b81bd432442bb1fc8cda164f28e5d917516d4",
+      "sha256_lf": "36cc76fc46e7f37e7e7d192c2fdb5f5cf0a329d0c1756d2bf5d95eb4264e9a2e"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/upload/submitter.ts",
+      "sha256": "d66cda2776f9ed738aa1c57731a82133f96d3b8ca20ebbf83bbef940134a4a34",
+      "sha256_lf": "178341ebec25cd7dbeda0086d6ce42db09a14f41e84e1ff2520a1c92bb5f0e98"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-upload-application-page.test.cjs",
+      "sha256": "f0482173cb6aad39586ea909edd846803450a94f1e8e5c8fca67c17780293d47",
+      "sha256_lf": "f0482173cb6aad39586ea909edd846803450a94f1e8e5c8fca67c17780293d47"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-upload-actual-attributes.test.cjs",
+      "sha256": "4e935ef80906fb5ebbc93e5e42e4bdb6e87cddbbe6b2da84eca1ea90034a2dff",
+      "sha256_lf": "4e935ef80906fb5ebbc93e5e42e4bdb6e87cddbbe6b2da84eca1ea90034a2dff"
+    }
+  ],
+  "red": {
+    "initial_page_tests": 6,
+    "initial_page_failures": 6,
+    "preflight_doubleclick_tests": 9,
+    "preflight_doubleclick_failures": 1
+  },
+  "green": {
+    "frontend_directed_tests": 48,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "project_types": "PASS",
+    "lint": "PASS",
+    "build_env_local": "PASS",
+    "dist_index_bytes": 3807
+  },
+  "scope": "ordinary upload actual project attributes and confirmation integration",
+  "whole_business_complete": false,
+  "e2e_or_runtime": false
+}

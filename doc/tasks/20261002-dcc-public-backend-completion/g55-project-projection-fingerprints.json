@@ -1,0 +1,32 @@
+{
+  "status": "FROZEN_MAVEN_FREE_READY_FOR_ROOT_REVIEW",
+  "productionFiles": 2,
+  "testFiles": 1,
+  "assets": [
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileQueryServiceImpl.java",
+      "bytes": 263655,
+      "sha256": "069d9041576faa69915fcc386994415bcf9d855810920fe21a483341ca5f33c9"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/file/vo/DccControlledFileRespVO.java",
+      "bytes": 6893,
+      "sha256": "244f4a95b2cb4874eedfe2c622f8d53ae6e1335b804bbc3a2d239cb30a7002f3"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileQueryServiceTest.java",
+      "bytes": 401379,
+      "sha256": "4b4e4ff2d6788c7a3b63079250bc30710c90e8e9482e2b51f8ad0fe9e13d97e6"
+    }
+  ],
+  "verification": {
+    "path": "doc/tasks/20261002-dcc-public-backend-completion/g55-project-projection-verification-receipt.json",
+    "bytes": 2827,
+    "sha256": "8b551ebd8536e4036e94ab5e12881c5268d4163c244a1057312541796e1761d6"
+  },
+  "contract": "Authorized detail includeRouteSnapshots only: projectName/projectCode from exact file.dccProjectCodeId same currenttenant formalproject. Null unbound history stays null/readable; boundmissing/foreign/deleted explicitPROJECT_CODE_NOT_EXISTS; disabled formalproject still readable. Product/list/name-only/permission/DB facts unchanged",
+  "newSql": 0,
+  "FEEditsByThisAgent": 0,
+  "actualDb": 0,
+  "MavenOwnership": "FREE"
+}

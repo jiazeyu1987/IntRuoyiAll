@@ -1,0 +1,15 @@
+{
+  "status": "G46_FIRST_PRODUCT_FRONTEND_ROOT_SOURCE_LOG_REVIEW_PASS_NOT_UI_RUNTIME",
+  "manifestSha256": "9361d82695a043912d1af8a71c9c2bb9bfbfbf66998a3525f42f0ac08d2082be",
+  "actualServerProductSourceUsed": true,
+  "projectCodeFallbackRemoved": true,
+  "clientProductIDsNotInjected": true,
+  "boundProductLongsRemainStrings": true,
+  "lateContextAndClearGuardsRetained": true,
+  "directionTwoAndThreeNotModifiedYet": true,
+  "tests": 46,
+  "lintExitCode": 0,
+  "fullTypesPending": false,
+  "realFrontendAcceptancePending": true,
+  "fullProjectTypesExitCode": 0
+}

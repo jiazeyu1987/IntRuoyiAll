@@ -389,3 +389,22 @@ PORT_CONTRACT_VERSION: 2026-08-24-branch-runtime-v7
 - 用户授权清理历史 JAR 时，冻结精确绝对路径、直属目录、扩展名、截止日期、文件字节数与修改时间；只删除清单中的普通文件，不递归清空 runtime，不按文件名中的日期代替已约定的修改时间条件。
 - 删除前检查可见进程（含 PowerShell 编码启动命令）、服务、计划任务、启动脚本与运行配置、Docker 挂载；保护现用包、固定主程序名称、仍被引用的版本和授权日期范围外的包。文件锁定、状态变化或无法判断引用时保留并记录原因，不强杀共享服务。
 - 执行中复核引用与文件元数据，逐个使用 LiteralPath 删除并记录结果；完成后验证已删清单无残留、保留项及主程序仍存在，分别记录删除字节数与磁盘空闲增量。任务证据默认脱敏，不保存完整进程命令行或含凭据的配置。
+
+## 本地运行构建输入完整性门禁
+
+- Trigger: 本地前后端启动、后端可执行 JAR 缺失、前端 `node_modules` 缺失、Maven 打包出现源码包或类型不存在。
+- Preflight check: 启动前确认后端可执行 JAR 或完整可构建源码存在，并确认前端锁文件对应依赖已安装；缺少产物时先运行正式构建命令验证源码完整性。
+- Blocker: 后端构建因 Git 跟踪源码包或类型缺失而失败，或者前端依赖未安装时，必须停止启动流程并记录精确缺失项。
+- Verification: 记录后端正式打包命令及退出码、前端运行器是否存在、目标端口监听状态，以及失败后临时诊断文件清理结果。
+- Forbidden action: 禁止凭调用方反推并保留半实现 runtime 源码，禁止把忽略目录中的临时代码当作正式前置，禁止只启动一端却宣称前后端已启动。
+- Evidence: `doc/tasks/run-qms-local-runtime-20260724/verification-report.md`。
+
+
+### Java runtime 源码包误忽略门禁
+
+- Trigger: 本地启动、后端打包或跨分支对比时出现 `src/main/java/**/runtime` 源码包缺失、`package ...runtime does not exist`、Shedule/其他分支本地可运行但 QMS 缺类。
+- Preflight check: 先运行 `git check-ignore -v` 检查缺失的 Java runtime 源码路径，并对比可运行工作区是否存在同名被忽略源码；确认 `.gitignore` 只忽略运行产物，不忽略 `IntRuoyiBackend/**/src/main/java/**/runtime/**`。
+- Blocker: 若源码只存在于其他本地工作区且被 Git ignore 命中，必须停止并修正源码跟踪规则；不得凭调用方反推半实现类。
+- Verification: `python -m pytest IntRuoyiBackend\script\tests\test_runtime_source_tracking_guard.py` 通过，且后端打包和目标分支端口健康检查通过。
+- Forbidden action: 禁止把 Java `runtime` 包当作临时运行产物清理，禁止只复制到本地但不修正 Git ignore，禁止用 fallback 端口或禁用插件冒充启动成功。
+- Evidence: `doc/tasks/run-qms-local-runtime-20260724/verification-report.md`。

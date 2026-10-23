@@ -1,27 +1,35 @@
 package cn.iocoder.yudao.module.dcc.service.file;
 
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
+import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.framework.test.core.ut.BaseMockitoUnitTest;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.route.DccCategoryApprovalRouteDO;
+import cn.iocoder.yudao.module.dcc.enums.DccControlledFileChangeTypeEnum;
 import cn.iocoder.yudao.module.system.api.permission.PermissionApi;
 import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
 import cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO;
 import org.junit.jupiter.api.Test;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_ROUTE_NOT_READY;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.APPROVAL_POSITION_UPLOADER_MAPPING_INVALID;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.when;
 
 class DccControlledFileRouteReadinessServiceTest extends BaseMockitoUnitTest {
+
+    @org.junit.jupiter.api.BeforeEach void tenant() { TenantContextHolder.setTenantId(1L); }
+    @org.junit.jupiter.api.AfterEach void clearTenant() { TenantContextHolder.clear(); }
 
     @Mock
     private DccControlledFileApprovalRouteAssigneeResolver routeAssigneeResolver;
@@ -39,7 +47,7 @@ class DccControlledFileRouteReadinessServiceTest extends BaseMockitoUnitTest {
 
     @Test
     void evaluate_aggregatesPostPermissionAuthorizationAndImageBlockers() {
-        when(routeAssigneeResolver.resolveRouteForReadiness(10L, 99L)).thenReturn(resolvedRoute(List.of(
+        when(routeAssigneeResolver.resolveRouteForReadiness(10L, 99L, null)).thenReturn(resolvedRoute(List.of(
                 new DccControlledFileApprovalRouteAssigneeResolver.ResolvedRouteNode(
                         1, "DOC_CONTROL_REVIEW", "文控审核", 1, "USER", 101L,
                         List.of(101L, 102L, 103L, 104L), "ALL", 100, true,
@@ -76,10 +84,30 @@ class DccControlledFileRouteReadinessServiceTest extends BaseMockitoUnitTest {
     }
 
     @Test
+    void evaluate_treatsMissingSignatureObjectAsImageBlockerInsteadOfServerError() {
+        when(routeAssigneeResolver.resolveRouteForReadiness(10L, 99L, null)).thenReturn(resolvedRoute(List.of(
+                new DccControlledFileApprovalRouteAssigneeResolver.ResolvedRouteNode(
+                        1, "DOC_CONTROL_REVIEW", "文控审核", 1, "USER", 101L,
+                        List.of(101L), "ALL", 100, true, List.of(101L)))));
+        when(adminUserApi.getUserList(List.of(101L))).thenReturn(List.of(user(101L, "签名对象缺失", Set.of(12L))));
+        when(permissionApi.hasAnyPermissions(101L, "dcc:controlled-file:review")).thenReturn(true);
+        when(signatureAuthorizationService.getAuthorizationMap(List.of(101L))).thenReturn(Map.of(101L, true));
+        doThrow(NoSuchKeyException.builder().message("signature object missing").build())
+                .when(signatureImageService).requireActiveSnapshot(101L);
+
+        DccControlledFileRouteReadinessService.RouteReadinessEvaluation evaluation =
+                service.evaluate(10L, 99L, List.of());
+
+        assertFalse(evaluation.response().getReady());
+        assertEquals(List.of("APPROVER_SIGNATURE_IMAGE_INVALID"),
+                evaluation.response().getBlockers().stream().map(blocker -> blocker.getReasonCode()).toList());
+    }
+
+    @Test
     void evaluate_submitterDepartmentLeaderMissingReturnsOrganizationBlocker() {
         doThrow(new ServiceException(APPROVAL_POSITION_UPLOADER_MAPPING_INVALID.getCode(),
                 "Approval position runtime mapping failed: 编制人直接主管 requires a local department leader for the submitter"))
-                .when(routeAssigneeResolver).resolveRouteForReadiness(10L, 99L);
+                .when(routeAssigneeResolver).resolveRouteForReadiness(10L, 99L, null);
 
         DccControlledFileRouteReadinessService.RouteReadinessEvaluation evaluation =
                 service.evaluate(10L, 99L, List.of());
@@ -90,14 +118,40 @@ class DccControlledFileRouteReadinessServiceTest extends BaseMockitoUnitTest {
         assertTrue(evaluation.response().getBlockers().get(0).getMessage().contains("部门负责人"));
     }
 
+    @Test
+    void evaluate_actionRouteRejectsDeprecatedManualSignoffUsers() {
+        ServiceException ex = assertThrows(ServiceException.class,
+                () -> service.evaluate(10L, 99L, List.of(101L), DccControlledFileChangeTypeEnum.NEW.getCode()));
+
+        assertEquals(CONTROLLED_FILE_ROUTE_NOT_READY.getCode(), ex.getCode());
+        assertTrue(ex.getMessage().contains("不得手选会签人"));
+    }
+
     private DccControlledFileApprovalRouteAssigneeResolver.ResolvedRoute resolvedRoute(
             List<DccControlledFileApprovalRouteAssigneeResolver.ResolvedRouteNode> nodes) {
         return new DccControlledFileApprovalRouteAssigneeResolver.ResolvedRoute(
                 DccCategoryApprovalRouteDO.builder().id(30L).categoryId(10L).versionNo(1).active(true).build(), nodes);
     }
 
+    @Test void frozenRouteRejectsDisabledForeignOrMissingApproverEvenWithPostsAndSignatureEvidence() {
+        var frozen=resolvedRoute(List.of(new DccControlledFileApprovalRouteAssigneeResolver.ResolvedRouteNode(
+                1,"MATRIX_REVIEW","会签",1,"DEPT",51L,List.of(51L,52L),"ALL",100,true,List.of(101L,101L))));
+        when(permissionApi.hasAnyPermissions(101L,"dcc:controlled-file:review")).thenReturn(true);
+        when(signatureAuthorizationService.getAuthorizationMap(List.of(101L))).thenReturn(Map.of(101L,true));
+        when(signatureImageService.requireActiveSnapshot(101L)).thenReturn(validImage());
+        for(var account:List.of(user(101L,"停用",Set.of(10L)).setStatus(1),user(101L,"异租户",Set.of(10L)).setTenantId(122L))) {
+            when(adminUserApi.getUserList(List.of(101L))).thenReturn(List.of(account));
+            var error=assertThrows(ServiceException.class,()->service.requireReadyResolvedRoute(frozen));
+            assertEquals(CONTROLLED_FILE_ROUTE_NOT_READY.getCode(),error.getCode());
+            assertTrue(error.getMessage().contains("已停用或不属于本租户"));
+        }
+        when(adminUserApi.getUserList(List.of(101L))).thenReturn(List.of());
+        assertThrows(ServiceException.class,()->service.requireReadyResolvedRoute(frozen));
+        org.mockito.Mockito.verifyNoInteractions(routeAssigneeResolver);
+    }
+
     private AdminUserRespDTO user(Long id, String nickname, Set<Long> postIds) {
-        return new AdminUserRespDTO().setId(id).setNickname(nickname).setPostIds(postIds);
+        return new AdminUserRespDTO().setId(id).setTenantId(1L).setStatus(0).setNickname(nickname).setPostIds(postIds);
     }
 
     private DccElectronicSignatureImageSnapshot validImage() {

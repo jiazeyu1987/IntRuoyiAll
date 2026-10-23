@@ -28,6 +28,20 @@
 - 元数据守卫：从目标 MySQL 的正式原始 DDL 实际读取 COLUMN_DEFAULT/EXTRA，并核对时间精度及自动更新时间语义。CURRENT_TIMESTAMP 的有无括号可能只是元数据呈现差异；仅允许经核实的精确等价表达，未知属性继续拒绝。结构合同或 H2 不能代替原表首次 MySQL 执行。
 - 残留例程比对：SHOW CREATE 可用于恢复原始字符串引号，INFORMATION_SCHEMA.ROUTINE_DEFINITION 不保证与源码文本等同。通过 XML 等结构化输出保留文本，记录客户端精确移除的已知独立注释和换行规范化；不得泛化替换 SQL token、引号或业务表达式使指纹通过。失败后保留已提交 DDL 与日志，经备份和明确恢复范围审查后才执行未完成部分。
 - Evidence: `doc/tasks/20261008-profile-architecture-implementation/verification-report.md`。上述静态证据不替代 MySQL 首次/重复执行、反例、数据快照或真实恢复验证。
+- 已有库依赖证明：账本缺少某旧迁移不等于对应结构未创建；旧SQL与原账本SHA不同时，先查精确历史来源和当前所需schema/config事实。明确已满足的外部依赖可以记录为“当前目标事实满足”，不得伪造APPLIED、替换原SHA或重放历史初始化/种子。执行前分别冻结实际待执行白名单和完整依赖闭包，核对正式执行器是否会自动追加依赖或改写skip账本。
+- 历史零改写证明：同表COUNT不变不能证明正文、版本或签名未改；冻结原列与主键，对原有各行的精确字节摘要逐项比较，新增生成列另验最终表达式/索引。允许的新增配置行必须同时核对身份和载荷，不能仅按新增数量PASS。MySQL DDL隐式提交，恢复范围必须包括实际修改原表及本任务新增ledger键，不能通过事务ROLLBACK或全账本覆盖伪装恢复。
+- Evidence: `doc/tasks/20261001-dcc-integration-unblock/g20-review.md`、`g21-review.md`、`g25-runtime-review.md`；19项隔离首次/重复及源库执行已通过，历史原列逐行摘要未变。该运行结论不扩展到其它新迁移、审计批准、历史名称登记或业务E2E。
+
+- Historical registration remains a separate software gate: a verified sidecar writer must use a real authenticated tenant context and the unified GxP append in the same transaction. A literal operation annotation must resolve in the coverage parser; a proposed source locator is not coverage evidence. An incomplete source-byte set remains blocked even when metadata and local candidate files match.
+
+### 历史原名核验与缺失对象恢复门禁
+
+- Trigger: 历史原名NULL阻断新文件、同名多Master需保留、或元数据存在而GetObject返回缺失。
+- Preflight check: 分别核对源版本/ownership/ticket/存储metadata与实际源bytes；当前SHA、大小、完整UTF8原名、配置与object key必须准确关联。元数据匹配或原SDK fake-stream测试不等于实际对象已读取。真实SDK所需依赖也须由同源Jar封存，缺依赖准确报错。
+- Recovery boundary: 找到本地候选必须实际SHA/长度全相符；按唯一object key而不是infra行数冻结写入上限，共用key必须连正文SHA/大小一致才能去重。只在全量实际NoSuchKey前置及用户具体授权后做条件创建，If-None-Match必须真实发送且服务器对应版本具有原子检查，禁止无条件覆盖、自动重试或自动删除恢复对象。
+- Verification: 独立核对旧原行摘要、scope完整主键集合、版本/metadata/current config定位与实际bytes；缺任一原件不能删掉失败项换取verified。恢复后原独立全量读取再次全部MATCH，才可激活完整证据；对象恢复不等于前端业务E2E。PUT超时/5xx或进程输出失败保留不确定状态和实际退出证据，不能声明零写或直接重跑。
+- Forbidden action: 禁止猜名称、按标题补历史原名、改写旧版本/签名、把admin或DB写授权当质量电子签名、用应用retention声明冒充bucket Object Lock实际配置。多个scope中只有VERIFIED scope的本行evidence可参与名字/owner判定，不能借同claim另一scope的成功污染PREPARED证据。
+- Evidence: `doc/tasks/20261001-dcc-integration-unblock/g25-runtime-review.md`、`g26-object-recovery-root-review.md`。实际恢复/占用登记状态以最终运行报告为准。
 
 ### MySQL 被索引字符列扩容顺序门禁
 

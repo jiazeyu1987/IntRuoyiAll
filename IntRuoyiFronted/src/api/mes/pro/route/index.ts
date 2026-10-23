@@ -2,6 +2,12 @@ import request from '@/config/axios'
 
 export type MesRouteId = number | string
 
+export interface ProRouteCreateReqVO {
+  name: string
+  remark?: string
+  processIds: number[]
+}
+
 // MES 工艺路线 VO
 export interface ProRouteVO {
   id?: number // 编号
@@ -161,6 +167,12 @@ export interface ProRouteProductionProcessConfigVO {
   craftCode?: string
   craftFingerprint?: string
   craftDeviceIds?: number[]
+  additionalCraftBindings?: Array<{
+    craftId: number
+    craftCode: string
+    craftFingerprint: string
+    craftDeviceIds: number[]
+  }>
   routeProcessId: number
   processId: number
   processCode?: string | null
@@ -355,7 +367,7 @@ export const ProRouteApi = {
   },
 
   // 新增工艺路线
-  createRoute: async (data: ProRouteVO, options: Record<string, unknown> = {}) => {
+  createRoute: async (data: ProRouteCreateReqVO, options: Record<string, unknown> = {}) => {
     return await request.post({ url: `/mes/pro/route/create`, data, ...options })
   },
 

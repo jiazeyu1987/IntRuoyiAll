@@ -44,7 +44,8 @@ const expectedSections = [
     testId: 'dcc-upload-section-file',
     className: 'upload-section--file',
     title: '文件信息',
-    labels: ['文件名称', '文件编号', '产品编号', '版本号', '生效日期', '提交备注']
+    labels: ['文件名称', '文件编号', '产品编号', '生效日期', '提交备注'],
+    texts: [`:label="isExternalReview ? '版本号' : '初始版本号'"`]
   },
   {
     testId: 'dcc-upload-preflight-panel',
@@ -150,13 +151,13 @@ const behaviorHooks = [
   'handleCategoryChange',
   'loadUploadDirectoryTree',
   'queryUploadNameSuggestions',
-  'handleHistoryFileNameSelect',
+  'handleProjectTemplateFileSelect',
   'handleProjectCodeChange',
   'handleFileChange',
   'handleDrawingPdfChange',
   'cleanupCurrentUploadSession',
   'validateDrawingPdfUpload',
-  'createWorkingControlledFile',
+  'submitControlledFile',
   'submitForm'
 ]
 

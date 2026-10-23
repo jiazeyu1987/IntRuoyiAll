@@ -1,0 +1,433 @@
+schemaVersion: gxp-audit-policy.v1
+policyVersion: 2026-10-dcc-integration-01
+approvalReference: PENDING-REVIEW-20261001
+operations:
+  - operationId: edhr.execution.field.update
+    sourceType: SERVICE_METHOD
+    sourceLocator: cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionFieldAuditServiceImpl#saveChanges
+    domain: EDHR
+    subjectType: EDHR_FIELD
+    actionType: UPDATE
+    reasonPolicy: REQUIRED_CATEGORY_AND_TEXT
+    signaturePolicy: NOT_REQUIRED
+    statePolicy: PRESENT_TO_PRESENT
+    retentionClass: GXP_BATCH_RECORD
+    testIds: [BDD-AT-01, BDD-AT-02, BDD-AT-05]
+    owner: mes-owner
+    applicability: GXP
+  - operationId: dcc.controlled-file.publish
+    sourceType: SERVICE_METHOD
+    sourceLocator: cn.iocoder.yudao.module.dcc.service.file.DccControlledFilePublishServiceImpl#publishControlledFile
+    domain: DCC
+    subjectType: DCC_CONTROLLED_FILE
+    actionType: PUBLISH
+    reasonPolicy: REQUIRED_CATEGORY_AND_TEXT
+    signaturePolicy: NOT_REQUIRED
+    statePolicy: PRESENT_TO_PRESENT
+    retentionClass: GXP_CONTROLLED_DOCUMENT
+    testIds: [BDD-AT-01, BDD-AT-03, BDD-AT-06]
+    owner: dcc-owner
+    applicability: GXP
+  - operationId: signature.record.create
+    sourceType: SERVICE_METHOD
+    sourceLocator: cn.iocoder.yudao.module.signature.service.ElectronicSignatureServiceImpl#sign
+    domain: SIGNATURE
+    subjectType: SIGNATURE_RECORD
+    actionType: CREATE
+    reasonPolicy: REQUIRED_CATEGORY_AND_TEXT
+    signaturePolicy: REQUIRED
+    statePolicy: PRESENT_TO_PRESENT
+    retentionClass: GXP_ELECTRONIC_SIGNATURE
+    testIds: [BDD-AT-01, BDD-AT-04, BDD-AT-06]
+    owner: qa-owner
+    applicability: GXP
+  - operationId: system.permission.role-menu.assign
+    sourceType: SERVICE_METHOD
+    sourceLocator: cn.iocoder.yudao.module.system.service.permission.PermissionServiceImpl#assignRoleMenu
+    domain: SYSTEM
+    subjectType: ROLE_PERMISSION
+    actionType: ASSIGN
+    reasonPolicy: REQUIRED_CATEGORY_AND_TEXT
+    signaturePolicy: NOT_REQUIRED
+    statePolicy: PRESENT_TO_PRESENT
+    retentionClass: GXP_SECURITY_CONFIGURATION
+    testIds: [BDD-AT-01, BDD-AT-05, BDD-AT-07]
+    owner: system-owner
+    applicability: GXP
+  - operationId: system.permission.user-role.assign
+    sourceType: SERVICE_METHOD
+    sourceLocator: cn.iocoder.yudao.module.system.service.permission.PermissionServiceImpl#assignUserRole
+    domain: SYSTEM
+    subjectType: USER_ROLE
+    actionType: ASSIGN
+    reasonPolicy: REQUIRED_CATEGORY_AND_TEXT
+    signaturePolicy: NOT_REQUIRED
+    statePolicy: PRESENT_TO_PRESENT
+    retentionClass: GXP_SECURITY_CONFIGURATION
+    testIds: [BDD-AT-01, BDD-AT-05, BDD-AT-07]
+    owner: system-owner
+    applicability: GXP
+  - operationId: system.permission.role-data-scope.assign
+    sourceType: SERVICE_METHOD
+    sourceLocator: cn.iocoder.yudao.module.system.service.permission.PermissionServiceImpl#assignRoleDataScope
+    domain: SYSTEM
+    subjectType: ROLE_DATA_SCOPE
+    actionType: ASSIGN
+    reasonPolicy: REQUIRED_CATEGORY_AND_TEXT
+    signaturePolicy: NOT_REQUIRED
+    statePolicy: PRESENT_TO_PRESENT
+    retentionClass: GXP_SECURITY_CONFIGURATION
+    testIds: [BDD-AT-01, BDD-AT-05, BDD-AT-07]
+    owner: system-owner
+    applicability: GXP
+  - operationId: system.config-package.import
+    sourceType: SERVICE_METHOD
+    sourceLocator: cn.iocoder.yudao.module.system.service.configpackage.SystemConfigPackageServiceImpl#importPackage
+    domain: SYSTEM
+    subjectType: SYSTEM_CONFIGURATION
+    actionType: IMPORT
+    reasonPolicy: REQUIRED_CATEGORY_AND_TEXT
+    signaturePolicy: NOT_REQUIRED
+    statePolicy: PRESENT_TO_PRESENT
+    retentionClass: GXP_SYSTEM_CONFIGURATION
+    testIds: [BDD-AT-01, BDD-AT-05, BDD-AT-08]
+    owner: system-owner
+    applicability: GXP
+  - operationId: release.migration.apply
+    sourceType: MIGRATION
+    sourceLocator: sql/mysql/20260908_gxp_audit_trail_core.sql
+    domain: RELEASE
+    subjectType: DATABASE_MIGRATION
+    actionType: APPLY
+    reasonPolicy: REQUIRED_CATEGORY_AND_TEXT
+    signaturePolicy: REQUIRED
+    statePolicy: ABSENT_TO_PRESENT
+    retentionClass: GXP_SYSTEM_CHANGE
+    testIds: [BDD-AT-08, BDD-AT-09]
+    owner: release-owner
+    applicability: GXP
+  - operationId: dcc.folder-template.save
+    sourceType: SERVICE_METHOD
+    sourceLocator: cn.iocoder.yudao.module.dcc.service.projectcode.folder.DccFolderTemplateService#save
+    domain: DCC
+    subjectType: DCC_PROJECT_CONFIGURATION
+    actionType: CREATE_OR_UPDATE
+    reasonPolicy: REQUIRED_CATEGORY_AND_TEXT
+    signaturePolicy: NOT_REQUIRED
+    statePolicy: ABSENT_OR_PRESENT_TO_PRESENT
+    retentionClass: GXP_CONTROLLED_DOCUMENT
+    testIds: [B-08]
+    owner: dcc-integration
+    applicability: GXP
+  - operationId: dcc.folder-template.delete
+    sourceType: SERVICE_METHOD
+    sourceLocator: cn.iocoder.yudao.module.dcc.service.projectcode.folder.DccFolderTemplateService#delete
+    domain: DCC
+    subjectType: DCC_PROJECT_CONFIGURATION
+    actionType: DELETE
+    reasonPolicy: REQUIRED_CATEGORY_AND_TEXT
+    signaturePolicy: NOT_REQUIRED
+    statePolicy: PRESENT_TO_VOIDED
+    retentionClass: GXP_CONTROLLED_DOCUMENT
+    testIds: [B-08]
+    owner: dcc-integration
+    applicability: GXP
+  - operationId: dcc.project-attributes.configure
+    sourceType: SERVICE_METHOD
+    sourceLocator: cn.iocoder.yudao.module.dcc.controller.admin.projectcode.DccProjectAttributesController#configure
+    domain: DCC
+    subjectType: DCC_PROJECT_CONFIGURATION
+    actionType: UPDATE
+    reasonPolicy: REQUIRED_CATEGORY_AND_TEXT
+    signaturePolicy: NOT_REQUIRED
+    statePolicy: PRESENT_TO_PRESENT
+    retentionClass: GXP_CONTROLLED_DOCUMENT
+    testIds: [B-04]
+    owner: dcc-integration
+    applicability: GXP
+  - operationId: dcc.project-product.resubmit
+    sourceType: SERVICE_METHOD
+    sourceLocator: cn.iocoder.yudao.module.dcc.service.projectcode.productcreate.DccProjectProductCreateServiceImpl#resubmitRejectedRequest
+    domain: DCC
+    subjectType: DCC_PROJECT_PRODUCT_REQUEST
+    actionType: CREATE
+    reasonPolicy: REQUIRED_CATEGORY_AND_TEXT
+    signaturePolicy: NOT_REQUIRED
+    statePolicy: ABSENT_TO_PRESENT
+    retentionClass: GXP_CONTROLLED_DOCUMENT
+    testIds: [B-01]
+    owner: dcc-integration
+    applicability: GXP
+  - operationId: dcc.project-reference.create
+    sourceType: SERVICE_METHOD
+    sourceLocator: cn.iocoder.yudao.module.dcc.service.file.relations.DccProjectReferenceService#create
+    domain: DCC
+    subjectType: DCC_PROJECT_REFERENCE
+    actionType: CREATE
+    reasonPolicy: REQUIRED_CATEGORY_AND_TEXT
+    signaturePolicy: NOT_REQUIRED
+    statePolicy: ABSENT_TO_PRESENT
+    retentionClass: GXP_CONTROLLED_DOCUMENT
+    testIds: [D-08]
+    owner: dcc-integration
+    applicability: GXP
+  - operationId: dcc.project-reference.cancel
+    sourceType: SERVICE_METHOD
+    sourceLocator: cn.iocoder.yudao.module.dcc.service.file.relations.DccProjectReferenceService#cancel
+    domain: DCC
+    subjectType: DCC_PROJECT_REFERENCE
+    actionType: DELETE
+    reasonPolicy: REQUIRED_CATEGORY_AND_TEXT
+    signaturePolicy: NOT_REQUIRED
+    statePolicy: PRESENT_TO_ABSENT
+    retentionClass: GXP_CONTROLLED_DOCUMENT
+    testIds: [D-10]
+    owner: dcc-integration
+    applicability: GXP
+  - operationId: dcc.relation.replace
+    sourceType: SERVICE_METHOD
+    sourceLocator: cn.iocoder.yudao.module.dcc.service.file.DccControlledFileRelatedFileServiceImpl#replaceCurrentRelations
+    domain: DCC
+    subjectType: DCC_FILE_RELATION
+    actionType: UPDATE
+    reasonPolicy: REQUIRED_CATEGORY_AND_TEXT
+    signaturePolicy: NOT_REQUIRED
+    statePolicy: PRESENT_TO_PRESENT
+    retentionClass: GXP_CONTROLLED_DOCUMENT
+    testIds: [D-01]
+    owner: dcc-integration
+    applicability: GXP
+  - operationId: dcc.relation.arrange
+    sourceType: SERVICE_METHOD
+    sourceLocator: cn.iocoder.yudao.module.dcc.service.file.relations.DccRelationRemediationService#saveArrangements
+    domain: DCC
+    subjectType: DCC_RELATION_ARRANGEMENT
+    actionType: CREATE
+    reasonPolicy: REQUIRED_CATEGORY_AND_TEXT
+    signaturePolicy: NOT_REQUIRED
+    statePolicy: ABSENT_TO_PRESENT
+    retentionClass: GXP_CONTROLLED_DOCUMENT
+    testIds: [D-06]
+    owner: dcc-integration
+    applicability: GXP
+  - operationId: dcc.relation.controlled
+    sourceType: SERVICE_METHOD
+    sourceLocator: cn.iocoder.yudao.module.dcc.service.file.relations.DccRelationRemediationService#recordControlled
+    domain: DCC
+    subjectType: DCC_CONTROLLED_EVENT
+    actionType: CREATE
+    reasonPolicy: REQUIRED_CATEGORY_AND_TEXT
+    signaturePolicy: NOT_REQUIRED
+    statePolicy: ABSENT_TO_PRESENT
+    retentionClass: GXP_CONTROLLED_DOCUMENT
+    testIds: [D-07]
+    owner: dcc-integration
+    applicability: GXP
+  - operationId: dcc.relation.notification.retry
+    sourceType: SERVICE_METHOD
+    sourceLocator: cn.iocoder.yudao.module.dcc.service.file.relations.DccRelationNotificationRecoveryService#requestRetry
+    domain: DCC
+    subjectType: DCC_RELATION_DELIVERY
+    actionType: RETRY
+    reasonPolicy: REQUIRED_CATEGORY_AND_TEXT
+    signaturePolicy: NOT_REQUIRED
+    statePolicy: PRESENT_TO_PRESENT
+    retentionClass: GXP_CONTROLLED_DOCUMENT
+    testIds: [D-07]
+    owner: dcc-integration
+    applicability: GXP
+  - operationId: dcc.project-folder.create
+    sourceType: SERVICE_METHOD
+    sourceLocator: cn.iocoder.yudao.module.dcc.service.projectcode.folder.DccProjectFolderMaintenanceService#save
+    domain: DCC
+    subjectType: DCC_PROJECT_FOLDER
+    actionType: CREATE
+    reasonPolicy: REQUIRED_CATEGORY_AND_TEXT
+    signaturePolicy: NOT_REQUIRED
+    statePolicy: ABSENT_TO_PRESENT
+    retentionClass: GXP_CONTROLLED_DOCUMENT
+    testIds: [B-R03, B-FOLDER-CREATE]
+    owner: dcc-integration
+    applicability: GXP
+  - operationId: dcc.project-folder.update
+    sourceType: SERVICE_METHOD
+    sourceLocator: cn.iocoder.yudao.module.dcc.service.projectcode.folder.DccProjectFolderMaintenanceService#save
+    domain: DCC
+    subjectType: DCC_PROJECT_FOLDER
+    actionType: UPDATE
+    reasonPolicy: REQUIRED_CATEGORY_AND_TEXT
+    signaturePolicy: NOT_REQUIRED
+    statePolicy: PRESENT_TO_PRESENT
+    retentionClass: GXP_CONTROLLED_DOCUMENT
+    testIds: [B-R03, B-FOLDER-UPDATE]
+    owner: dcc-integration
+    applicability: GXP
+  - operationId: dcc.project-file-placement.bind
+    sourceType: SERVICE_METHOD
+    sourceLocator: cn.iocoder.yudao.module.dcc.service.projectcode.folder.DccProjectFilePlacementService#bind
+    domain: DCC
+    subjectType: DCC_PROJECT_FILE_PLACEMENT
+    actionType: CREATE
+    reasonPolicy: REQUIRED_CATEGORY_AND_TEXT
+    signaturePolicy: NOT_REQUIRED
+    statePolicy: ABSENT_TO_PRESENT
+    retentionClass: GXP_CONTROLLED_DOCUMENT
+    testIds: [B-R03, B-PLACEMENT]
+    owner: dcc-integration
+    applicability: GXP
+  - operationId: dcc.project-folder.delete
+    sourceType: SERVICE_METHOD
+    sourceLocator: cn.iocoder.yudao.module.dcc.service.projectcode.folder.DccProjectFolderMaintenanceService#delete
+    domain: DCC
+    subjectType: DCC_PROJECT_FOLDER
+    actionType: DELETE
+    reasonPolicy: REQUIRED_CATEGORY_AND_TEXT
+    signaturePolicy: NOT_REQUIRED
+    statePolicy: PRESENT_TO_VOIDED
+    retentionClass: GXP_CONTROLLED_DOCUMENT
+    testIds: [D2-02, CC2-B-FOLDER-DELETE]
+    owner: dcc-integration
+    applicability: GXP
+  - operationId: dcc.project-product.reviewer-config
+    sourceType: SERVICE_METHOD
+    sourceLocator: cn.iocoder.yudao.module.dcc.service.projectcode.productcreate.DccProjectReviewerConfigurationService#save
+    domain: DCC
+    subjectType: DCC_PROJECT_CONFIGURATION
+    actionType: UPDATE
+    reasonPolicy: REQUIRED_CATEGORY_AND_TEXT
+    signaturePolicy: NOT_REQUIRED
+    statePolicy: ABSENT_OR_PRESENT_TO_PRESENT
+    retentionClass: GXP_CONTROLLED_DOCUMENT
+    testIds: [P07]
+    owner: dcc-integration
+    applicability: GXP
+  - operationId: dcc.project-product.create
+    sourceType: SERVICE_METHOD
+    sourceLocator: cn.iocoder.yudao.module.dcc.service.projectcode.productcreate.DccProjectProductCreateServiceImpl#createRequest
+    domain: DCC
+    subjectType: DCC_PROJECT_PRODUCT_REQUEST
+    actionType: CREATE
+    reasonPolicy: REQUIRED_CATEGORY_AND_TEXT
+    signaturePolicy: NOT_REQUIRED
+    statePolicy: ABSENT_TO_PRESENT
+    retentionClass: GXP_CONTROLLED_DOCUMENT
+    testIds: [B-REV-01, D2-03]
+    owner: dcc-integration
+    applicability: GXP
+  - operationId: dcc.project-product.review
+    sourceType: SERVICE_METHOD
+    sourceLocator: cn.iocoder.yudao.module.dcc.service.projectcode.productcreate.DccProjectProductCreateServiceImpl#review
+    domain: DCC
+    subjectType: DCC_PROJECT_PRODUCT_REQUEST
+    actionType: REVIEW
+    reasonPolicy: REQUIRED_CATEGORY_AND_TEXT
+    signaturePolicy: NOT_REQUIRED
+    statePolicy: PRESENT_TO_PRESENT
+    retentionClass: GXP_CONTROLLED_DOCUMENT
+    testIds: [B-REV-01, D2-03]
+    owner: dcc-integration
+    applicability: GXP
+  - operationId: dcc.project-product.approve
+    sourceType: SERVICE_METHOD
+    sourceLocator: cn.iocoder.yudao.module.dcc.service.projectcode.productcreate.DccProjectProductCreateStateService#markApprovalDecision
+    domain: DCC
+    subjectType: DCC_PROJECT_PRODUCT_REQUEST
+    actionType: APPROVE
+    reasonPolicy: REQUIRED_CATEGORY_AND_TEXT
+    signaturePolicy: NOT_REQUIRED
+    statePolicy: PRESENT_TO_PRESENT
+    retentionClass: GXP_CONTROLLED_DOCUMENT
+    testIds: [B-REV-01, D2-03]
+    owner: dcc-integration
+    applicability: GXP
+  - operationId: dcc.project-product.complete
+    sourceType: SERVICE_METHOD
+    sourceLocator: cn.iocoder.yudao.module.dcc.service.projectcode.productcreate.DccProjectProductCreateWriteService#writeApprovedRequest
+    domain: DCC
+    subjectType: DCC_PROJECT_PRODUCT_REQUEST
+    actionType: CREATE
+    reasonPolicy: REQUIRED_CATEGORY_AND_TEXT
+    signaturePolicy: NOT_REQUIRED
+    statePolicy: PRESENT_TO_PRESENT
+    retentionClass: GXP_CONTROLLED_DOCUMENT
+    testIds: [B-REV-01, D2-03]
+    owner: dcc-integration
+    applicability: GXP
+  - operationId: dcc.project-product.write-failed
+    sourceType: SERVICE_METHOD
+    sourceLocator: cn.iocoder.yudao.module.dcc.service.projectcode.productcreate.DccProjectProductCreateFailureService#markWriteFailed
+    domain: DCC
+    subjectType: DCC_PROJECT_PRODUCT_REQUEST
+    actionType: UPDATE
+    reasonPolicy: REQUIRED_CATEGORY_AND_TEXT
+    signaturePolicy: NOT_REQUIRED
+    statePolicy: PRESENT_TO_PRESENT
+    retentionClass: GXP_CONTROLLED_DOCUMENT
+    testIds: [B-REV-01, D2-03]
+    owner: dcc-integration
+    applicability: GXP
+  - operationId: dcc.project-product.retry
+    sourceType: SERVICE_METHOD
+    sourceLocator: cn.iocoder.yudao.module.dcc.service.projectcode.productcreate.DccProjectProductCreateStateService#markRetryWriting
+    domain: DCC
+    subjectType: DCC_PROJECT_PRODUCT_REQUEST
+    actionType: RETRY
+    reasonPolicy: REQUIRED_CATEGORY_AND_TEXT
+    signaturePolicy: NOT_REQUIRED
+    statePolicy: PRESENT_TO_PRESENT
+    retentionClass: GXP_CONTROLLED_DOCUMENT
+    testIds: [B-REV-01, D2-03]
+    owner: dcc-integration
+    applicability: GXP
+  - operationId: dcc.controlled-file.control
+    sourceType: SERVICE_METHOD
+    sourceLocator: cn.iocoder.yudao.module.dcc.service.file.DccWorkflowFileStateAudit#recordControl
+    domain: DCC
+    subjectType: DCC_CONTROLLED_FILE
+    actionType: UPDATE
+    reasonPolicy: REQUIRED_CATEGORY_AND_TEXT
+    signaturePolicy: NOT_REQUIRED
+    statePolicy: PRESENT_TO_PRESENT
+    retentionClass: GXP_CONTROLLED_DOCUMENT
+    testIds: [CC2-A-LEDGER-01, CC2-A-LEDGER-03, CC2-A-LEDGER-06]
+    owner: dcc-a
+    applicability: GXP
+  - operationId: dcc.controlled-file.activate
+    sourceType: SERVICE_METHOD
+    sourceLocator: cn.iocoder.yudao.module.dcc.service.file.DccWorkflowFileStateAudit#recordActivation
+    domain: DCC
+    subjectType: DCC_CONTROLLED_FILE
+    actionType: UPDATE
+    reasonPolicy: REQUIRED_CATEGORY_AND_TEXT
+    signaturePolicy: NOT_REQUIRED
+    statePolicy: PRESENT_TO_PRESENT
+    retentionClass: GXP_CONTROLLED_DOCUMENT
+    testIds: [CC2-A-LEDGER-02, CC2-A-LEDGER-03]
+    owner: dcc-a
+    applicability: GXP
+  - operationId: dcc.controlled-file.auto-obsolete
+    sourceType: SERVICE_METHOD
+    sourceLocator: cn.iocoder.yudao.module.dcc.service.file.DccWorkflowFileStateAudit#recordAutomaticObsolete
+    domain: DCC
+    subjectType: DCC_CONTROLLED_FILE
+    actionType: UPDATE
+    reasonPolicy: REQUIRED_CATEGORY_AND_TEXT
+    signaturePolicy: NOT_REQUIRED
+    statePolicy: PRESENT_TO_VOIDED
+    retentionClass: GXP_CONTROLLED_DOCUMENT
+    testIds: [CC2-A-LEDGER-02, CC2-A-LEDGER-03]
+    owner: dcc-a
+    applicability: GXP
+  - operationId: dcc.controlled-file.obsolete
+    sourceType: SERVICE_METHOD
+    sourceLocator: cn.iocoder.yudao.module.dcc.service.file.DccWorkflowFileStateAudit#recordApprovedObsolete
+    domain: DCC
+    subjectType: DCC_CONTROLLED_FILE
+    actionType: UPDATE
+    reasonPolicy: REQUIRED_CATEGORY_AND_TEXT
+    signaturePolicy: NOT_REQUIRED
+    statePolicy: PRESENT_TO_VOIDED
+    retentionClass: GXP_CONTROLLED_DOCUMENT
+    testIds: [CC2-A-LEDGER-04, CC2-A-LEDGER-05]
+    owner: dcc-a
+    applicability: GXP

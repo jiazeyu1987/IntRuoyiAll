@@ -34,6 +34,12 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 class DccControlledFileViewMatrixAccessServiceTest extends BaseMockitoUnitTest {
+    @org.junit.jupiter.api.BeforeEach void tenant() {
+        cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.setTenantId(1L);
+    }
+    @org.junit.jupiter.api.AfterEach void clearTenant() {
+        cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.clear();
+    }
 
     @Mock
     private DccCategoryViewMatrixRuleMapper ruleMapper;
@@ -245,7 +251,7 @@ class DccControlledFileViewMatrixAccessServiceTest extends BaseMockitoUnitTest {
     }
 
     private AdminUserRespDTO user(Long id, String nickname) {
-        return new AdminUserRespDTO().setId(id).setNickname(nickname);
+        return new AdminUserRespDTO().setId(id).setNickname(nickname).setTenantId(1L).setStatus(0);
     }
 
     private DeptRespDTO dept(Long id, String name, Long leaderUserId) {

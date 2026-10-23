@@ -1,0 +1,20 @@
+{
+  "status": "read_only_facts_collected_not_execution",
+  "databaseWrites": false,
+  "sourceContainer": "int-ruoyi-mysql",
+  "capture": {
+    "kind": "capture",
+    "version": "8.0.40",
+    "database": "ruoyi-vue-pro",
+    "serverUuid": "92ca05d0-aec8-11f1-a944-02b4e226a5ef",
+    "collectedAtUtc": "2026-10-03 05:49:42.414433"
+  },
+  "startedAtUtc": "2026-10-03T05:49:41.368724+00:00",
+  "sqlPath": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-detail-integration\\g21-structure-prerequisite-queries.sql",
+  "sqlSha256": "967320dac9c63e2e0ace5b6ca7ae44e1c32fc4de9b8be8e76d535a1b282c04d7",
+  "factsPath": "C:\\IntRuoyiAll-int_main\\doc\\tasks\\20261001-dcc-integration-unblock\\g21-structure-runtime-facts-v2.jsonl",
+  "factsSha256": "1b582427094df96f5d943f5fa7dbc98c677482dee9f258d5f716341f29f6eb74",
+  "rawCaptureSha256": "af2af06e6ae36cbdebb9cdbd81e1e8b3683874494d0d929a1f9ee9ba736e88da",
+  "rowCount": 1251,
+  "selectCount": 7
+}

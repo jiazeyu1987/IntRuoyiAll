@@ -92,6 +92,21 @@ assert.match(
   /v-for="item in publishCompletionSummaryItems"/,
   'publish completion summary must render a stable item list'
 )
+assert.match(
+  detailPage,
+  /const currentId = String\(fileDetail\.value\?\.id \|\| ''\)\.trim\(\)/,
+  'superseded predecessor matching must normalize the current file id as a string'
+)
+assert.doesNotMatch(
+  detailPage,
+  /const currentId = Number\(fileDetail\.value\?\.id \|\| 0\)/,
+  'superseded predecessor matching must not convert a long file id to Number'
+)
+assert.match(
+  detailPage,
+  /String\(version\.supersededByFileId \|\| ''\)\.trim\(\) === currentId/,
+  'superseded predecessor matching must compare normalized string identities'
+)
 
 assert.match(
   processViewer,

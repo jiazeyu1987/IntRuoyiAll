@@ -10,6 +10,7 @@ public class DccApprovalRouteRespVO {
     private Long id;
     private Long categoryId;
     private String categoryName;
+    private String actionType;
     private Integer versionNo;
     private Boolean active;
     private String statusLabel;

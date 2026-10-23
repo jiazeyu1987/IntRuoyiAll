@@ -14,7 +14,7 @@
         解析
       </el-button>
       <el-button
-        :disabled="disabled || Boolean(instanceId) || !resolution?.requiresForm"
+        :disabled="disabled || Boolean(instanceId) || !(resolution?.requiresForm || resolution?.requiresBpm)"
         :loading="loading"
         type="primary"
         @click="createInstance"
@@ -503,7 +503,41 @@ const applyLatestDraftSnapshotFormData = () => {
     .filter((snapshot) => snapshot.snapshotType === 'DRAFT')
     .sort((left, right) => Number(right.snapshotVersion || 0) - Number(left.snapshotVersion || 0))[0]
   if (!latestDraftSnapshot?.formData) return
+  const frozenAssignees = actionFormData.value.startUserSelectAssignees
+  const frozenApproveAssignees = actionFormData.value.approveUserSelectAssignees
+  const configuredAssignees = props.formData.startUserSelectAssignees
+  const configuredApproveAssignees = props.formData.approveUserSelectAssignees
   actionFormData.value = { ...actionFormData.value, ...latestDraftSnapshot.formData }
+  if (
+    configuredAssignees &&
+    typeof configuredAssignees === 'object' &&
+    !Array.isArray(configuredAssignees) &&
+    Object.keys(configuredAssignees).length > 0
+  ) {
+    actionFormData.value.startUserSelectAssignees = configuredAssignees
+  } else if (
+    frozenAssignees &&
+    typeof frozenAssignees === 'object' &&
+    !Array.isArray(frozenAssignees) &&
+    Object.keys(frozenAssignees).length > 0
+  ) {
+    actionFormData.value.startUserSelectAssignees = frozenAssignees
+  }
+  if (
+    configuredApproveAssignees &&
+    typeof configuredApproveAssignees === 'object' &&
+    !Array.isArray(configuredApproveAssignees) &&
+    Object.keys(configuredApproveAssignees).length > 0
+  ) {
+    actionFormData.value.approveUserSelectAssignees = configuredApproveAssignees
+  } else if (
+    frozenApproveAssignees &&
+    typeof frozenApproveAssignees === 'object' &&
+    !Array.isArray(frozenApproveAssignees) &&
+    Object.keys(frozenApproveAssignees).length > 0
+  ) {
+    actionFormData.value.approveUserSelectAssignees = frozenApproveAssignees
+  }
 }
 
 const loadTemplateVersionForActionForm = async (serial: number) => {
@@ -614,6 +648,8 @@ watch(
     props.initialBpmProcessInstanceId,
     props.formData.formTemplateId,
     props.formData.formTemplateVersionNo,
+    JSON.stringify(props.formData.startUserSelectAssignees || null),
+    JSON.stringify(props.formData.approveUserSelectAssignees || null),
     props.formData.formCenterInstanceId
   ],
   () => {
@@ -643,6 +679,24 @@ const buildSubmitPayload = (): SubmitFormInstanceReqVO => {
     normalized[taskKey] = userIds
   }
   payload.startUserSelectAssignees = normalized
+  const selectedApproveAssignees = actionFormData.value.approveUserSelectAssignees
+  if (selectedApproveAssignees !== undefined && selectedApproveAssignees !== null) {
+    if (Array.isArray(selectedApproveAssignees) || typeof selectedApproveAssignees !== 'object') {
+      throw new Error('approveUserSelectAssignees 必须是对象')
+    }
+    const approveNormalized: Record<string, number[]> = {}
+    for (const [taskKey, assignees] of Object.entries(selectedApproveAssignees)) {
+      if (!taskKey || !Array.isArray(assignees)) {
+        throw new Error('approveUserSelectAssignees 的每个节点必须配置审批人数组')
+      }
+      const userIds = assignees.map((item) => Number(item)).filter((item) => Number.isInteger(item) && item > 0)
+      if (userIds.length !== assignees.length) {
+        throw new Error('approveUserSelectAssignees 只能包含正整数用户ID')
+      }
+      approveNormalized[taskKey] = userIds
+    }
+    payload.approveUserSelectAssignees = approveNormalized
+  }
   return payload
 }
 

@@ -1,0 +1,21 @@
+{
+  "status": "CURRENT_NATIVE_CONTROL_SHARED_AND_SELECTED_OFFICIAL_MESSAGE16_PASS",
+  "source": {
+    "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccRelationControlledEventIntegrationTest.java",
+    "sha256": "fff56a7e41318422c448ca174806b1292958ea542b45d5d856ab8762d6a398ee",
+    "previousFrozenSha256": "e58100f503f02cbc49034fa59e04f90f7992cb03c1010c7e214dedbcdfe51b5f"
+  },
+  "xml": {
+    "path": "doc/tasks/20261002-dcc-public-backend-completion/g64-current-control-r3-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccRelationControlledEventIntegrationTest.xml",
+    "sha256": "e76d984cf90507a2808bfca68d2e187f4c5d458c7ec1de4edfe9776743e1f423"
+  },
+  "counts": {
+    "tests": 16,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "scope": "current actualFlowable round plus preconditions explicitly provided; officialsharedcore andNotify DB, originalassertretained",
+  "actualFullUi": "fourthnative A3control rootinprogress",
+  "productionNoChange": true
+}

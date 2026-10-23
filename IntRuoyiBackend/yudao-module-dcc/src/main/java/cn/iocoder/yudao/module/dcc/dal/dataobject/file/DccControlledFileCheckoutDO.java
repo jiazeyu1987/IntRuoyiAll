@@ -34,6 +34,8 @@ public class DccControlledFileCheckoutDO extends TenantBaseDO {
     private Long checkinIterationId;
     private Long checkinSourceFileId;
     private String checkinSourceSha256;
+    /** Server canonical hash of the entire committed CHECKIN request, including ordered attachment tickets. */
+    private String checkinPayloadHash;
     private LocalDateTime checkedInTime;
     private String cancelReason;
     private LocalDateTime cancelledTime;

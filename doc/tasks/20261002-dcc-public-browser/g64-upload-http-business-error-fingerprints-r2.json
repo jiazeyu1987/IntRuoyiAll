@@ -1,0 +1,79 @@
+{
+  "status": "G64_R2_EXACT_NAME_CONFLICT_MESSAGE_FROZEN_FOR_ROOT_REVIEW",
+  "productionFiles": 1,
+  "testFiles": 1,
+  "assets": [
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/upload/submitter.ts",
+      "bytes": 19759,
+      "sha256": "feeca48b2c736ef22d86558e2568387b0adcdf50607dd424bf753ba6de3f1562"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-upload-http-business-error.test.cjs",
+      "bytes": 3326,
+      "sha256": "7ebf05911f06e5d1c45b16388876db3c1305cf08812d4be869803243a58cb850"
+    }
+  ],
+  "documents": [
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g64-upload-exact-name-conflict-r2-bdd.md",
+      "bytes": 2074,
+      "sha256": "948be39c7343f26a0c2842625dd693590e2a09576c284ca6d234aa04551c55eb"
+    }
+  ],
+  "previousManifest": {
+    "path": "doc/tasks/20261002-dcc-public-browser/g64-upload-http-business-error-fingerprints.json",
+    "bytes": 3013,
+    "sha256": "41199ee38709158c85900d2b4d81ed92c9b309399f7354463fda2cdfc4a7b471"
+  },
+  "verification": {
+    "effectiveRED": {
+      "tests": 5,
+      "pass": 4,
+      "failures": 1,
+      "exitCode": 1
+    },
+    "finalRegression": {
+      "files": 3,
+      "tests": 17,
+      "pass": 17,
+      "failures": 0,
+      "skipped": 0,
+      "exitCode": 0,
+      "overlap": "5current+12existinguploadactual/type,notadditive"
+    },
+    "ownedLint": {
+      "files": 1,
+      "warnings": 0,
+      "exitCode": 0
+    }
+  },
+  "rawLogs": [
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g64-upload-exact-name-conflict-r2-red.log",
+      "bytes": 2135,
+      "sha256": "3f2c26b451358af05188107a02586e00bf08293f4cded88ed55e10c5176cd4b1"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g64-upload-exact-name-conflict-r2-final.log",
+      "bytes": 2009,
+      "sha256": "c56a0adef30dbb26b320f5308b226a9c9bfa3a57b101ab1487e159ba72013849"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g64-upload-exact-name-conflict-r2-lint.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "exactContract": [
+    "Only actualNameClaimcode1080000348 or exactcurrentknownfullmsg identifiesnameconflict",
+    "20yearobsolete retention preservesnames;existingreference/versionchain routes,never numberchange or disposalrelease advice",
+    "Original number/unknownduplicate/storageformat/noPayload classification preserved,HTTPmsgpriority retained"
+  ],
+  "supersedes": "Only r1 submitter/test bytes; oldseals retained,Parent/currentotherstageassets unchanged",
+  "limitations": [
+    "Root naturalr12actualcode/msg evidence promptsrepair;thisoffline source test not newUIacceptance",
+    "Root must verify actualnewmessage through normaluploadreselection",
+    "No types/build/Maven/API/UI/DB/Git/services by agent;sharedtaskin_progress"
+  ]
+}

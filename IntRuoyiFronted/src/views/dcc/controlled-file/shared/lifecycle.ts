@@ -10,16 +10,20 @@ import {
 
 export const DCC_CONTROLLED_FILE_STATUSES = [
   'DRAFT',
+  'WORKING',
+  'PENDING_SUPERVISOR_REVIEW',
   'PENDING_DOC_CONTROL_REVIEW',
   'PENDING_MATRIX_REVIEW',
   'PENDING_MATRIX_APPROVAL',
   'PENDING_DOC_CONTROL_APPROVAL',
   'PENDING_APPLICANT_REWORK',
   'PENDING_APPLICANT_TRAINING_RECORD',
+  'PENDING_DELAYED_EFFECTIVE_CONFIRM',
   'READY_TO_PUBLISH',
   'FINALIZING',
   'TRAINING_IN_PROGRESS',
   'PENDING_MANUAL_DISTRIBUTION',
+  'CONTROLLED_PENDING_EFFECTIVE',
   'ACTIVE',
   'REJECTED',
   'WITHDRAWN',
@@ -38,6 +42,7 @@ export const DCC_CATEGORY_PERMISSIONS = [
   'OBSOLETE',
   'REVIEW',
   'APPROVE',
+  'TRAINING_RECORD',
   'DISTRIBUTE'
 ] as const
 
@@ -51,6 +56,7 @@ export const DCC_CONTROLLED_FILE_STAGE_KEYS = [
 ] as const
 
 export type DccControlledFileStageKey = (typeof DCC_CONTROLLED_FILE_STAGE_KEYS)[number]
+export type DccControlledFileRuntimeStageKey = DccControlledFileStageKey | 'SUPERVISOR_REVIEW'
 export type DccControlledFileTagType = 'success' | 'primary' | 'warning' | 'danger' | 'info'
 
 export interface DccOption<T extends string> {
@@ -73,6 +79,12 @@ export interface DccControlledFileStageDefinition {
   requiredPermission: Extract<DccCategoryPermission, 'REVIEW' | 'APPROVE'>
 }
 
+export interface DccControlledFileRuntimeStageDefinition
+  extends Omit<DccControlledFileStageDefinition, 'key' | 'pendingStatus'> {
+  key: DccControlledFileRuntimeStageKey
+  pendingStatus: DccPendingControlledFileStatus | 'PENDING_SUPERVISOR_REVIEW'
+}
+
 export const DCC_WITHDRAWABLE_CONTROLLED_FILE_STATUSES = [
   'PENDING_DOC_CONTROL_REVIEW',
   'PENDING_MATRIX_REVIEW',
@@ -87,22 +99,26 @@ export type DccPendingControlledFileStatus =
 export const DCC_CONTROLLED_FILE_STATUS_DEFINITIONS: readonly DccControlledFileStatusDefinition[] =
   [
     { value: 'DRAFT', label: '草稿', tagType: 'info', order: 1 },
+    { value: 'WORKING', label: '工作版本', tagType: 'info', order: 1.5 },
+    { value: 'PENDING_SUPERVISOR_REVIEW', label: '待直属主管审核', tagType: 'primary', order: 1.75 },
     { value: 'PENDING_DOC_CONTROL_REVIEW', label: '待文控审核', tagType: 'primary', order: 2 },
     { value: 'PENDING_MATRIX_REVIEW', label: '待会签审核', tagType: 'primary', order: 3 },
     { value: 'PENDING_MATRIX_APPROVAL', label: '待会签批准', tagType: 'primary', order: 4 },
     { value: 'PENDING_DOC_CONTROL_APPROVAL', label: '待文控批准', tagType: 'primary', order: 5 },
     { value: 'PENDING_APPLICANT_REWORK', label: '待申请人处理回退', tagType: 'warning', order: 6 },
-    { value: 'PENDING_APPLICANT_TRAINING_RECORD', label: '待申请人上传培训记录', tagType: 'warning', order: 7 },
-    { value: 'READY_TO_PUBLISH', label: '待发布', tagType: 'warning', order: 8 },
-    { value: 'FINALIZING', label: '发布处理中', tagType: 'warning', order: 9 },
+    { value: 'PENDING_APPLICANT_TRAINING_RECORD', label: '待文控上传培训记录', tagType: 'warning', order: 7 },
+    { value: 'PENDING_DELAYED_EFFECTIVE_CONFIRM', label: '待延迟生效确认', tagType: 'primary', order: 7.5 },
+    { value: 'READY_TO_PUBLISH', label: '待受控', tagType: 'warning', order: 8 },
+    { value: 'FINALIZING', label: '受控处理中', tagType: 'warning', order: 9 },
     { value: 'TRAINING_IN_PROGRESS', label: '培训中', tagType: 'warning', order: 10 },
     { value: 'PENDING_MANUAL_DISTRIBUTION', label: '待文控下发', tagType: 'primary', order: 11 },
-    { value: 'ACTIVE', label: '现行', tagType: 'success', order: 12 },
+    { value: 'CONTROLLED_PENDING_EFFECTIVE', label: '受控（待生效）', tagType: 'warning', order: 11.5 },
+    { value: 'ACTIVE', label: '受控（已生效）', tagType: 'success', order: 12 },
     { value: 'REJECTED', label: '已驳回', tagType: 'danger', order: 13 },
     { value: 'WITHDRAWN', label: '已撤回', tagType: 'info', order: 14 },
     { value: 'OBSOLETE', label: '已作废', tagType: 'info', order: 15 },
     { value: 'SUPERSEDED', label: '已替代', tagType: 'info', order: 16 },
-    { value: 'FINALIZATION_FAILED', label: '发布失败', tagType: 'danger', order: 17 }
+    { value: 'FINALIZATION_FAILED', label: '受控处理失败', tagType: 'danger', order: 17 }
   ]
 
 export const DCC_CONTROLLED_FILE_STAGE_DEFINITIONS: readonly DccControlledFileStageDefinition[] = [
@@ -147,18 +163,30 @@ export const DCC_CATEGORY_PERMISSION_OPTIONS: ReadonlyArray<DccOption<DccCategor
   { label: '作废', value: 'OBSOLETE' },
   { label: '审核', value: 'REVIEW' },
   { label: '批准', value: 'APPROVE' },
+  { label: '上传线下培训记录', value: 'TRAINING_RECORD' },
   { label: '分发', value: 'DISTRIBUTE' }
 ]
 
 export const DCC_CONTROLLED_FILE_STAGE_OPTIONS: ReadonlyArray<DccOption<DccControlledFileStageKey>> =
   DCC_CONTROLLED_FILE_STAGE_DEFINITIONS.map(({ key, label }) => ({ label, value: key }))
 
+const runtimeStageDefinitions: readonly DccControlledFileRuntimeStageDefinition[] = [
+  {
+    key: 'SUPERVISOR_REVIEW',
+    label: '直属主管审核',
+    order: 0,
+    pendingStatus: 'PENDING_SUPERVISOR_REVIEW',
+    requiredPermission: 'REVIEW'
+  },
+  ...DCC_CONTROLLED_FILE_STAGE_DEFINITIONS
+]
+
 const statusDefinitionMap = new Map(
   DCC_CONTROLLED_FILE_STATUS_DEFINITIONS.map((definition) => [definition.value, definition] as const)
 )
 
 const stageDefinitionByStatusMap = new Map(
-  DCC_CONTROLLED_FILE_STAGE_DEFINITIONS.map((definition) => [definition.pendingStatus, definition] as const)
+  runtimeStageDefinitions.map((definition) => [definition.pendingStatus, definition] as const)
 )
 
 const permissionLabelMap = new Map(
@@ -187,11 +215,13 @@ export const getDccControlledFileStageByStatus = (status: DccControlledFileStatu
   if (status === 'PENDING_APPLICANT_TRAINING_RECORD') {
     return getDccControlledFileStageByKey('DOC_CONTROL_APPROVAL')
   }
-  return status ? stageDefinitionByStatusMap.get(status as DccPendingControlledFileStatus) : undefined
+  return status
+    ? stageDefinitionByStatusMap.get(status as DccControlledFileRuntimeStageDefinition['pendingStatus'])
+    : undefined
 }
 
-export const getDccControlledFileStageByKey = (key: DccControlledFileStageKey | undefined) => {
-  return key ? DCC_CONTROLLED_FILE_STAGE_DEFINITIONS.find((definition) => definition.key === key) : undefined
+export const getDccControlledFileStageByKey = (key: DccControlledFileRuntimeStageKey | undefined) => {
+  return key ? runtimeStageDefinitions.find((definition) => definition.key === key) : undefined
 }
 
 export const getDccCategoryPermissionLabel = (permission: DccCategoryPermission | undefined) => {

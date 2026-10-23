@@ -1,0 +1,12 @@
+{
+  "status": "FOURTH_RETRY_A3_CONTROLLED_AND_DISTRIBUTED_REAL_PAGE_VISIBLE",
+  "step": "256.json",
+  "sha256": "8929496d5e0bdf23ec944c49b57b96360d2e98bf90153c020ee587043ee9759b",
+  "route": "/dcc/controlled-file/detail/2054545668044084041",
+  "attempt": 4,
+  "presetDate": "2026-10-06",
+  "distributedAt": "2026-10-06 02:43:58",
+  "priorThreeRejectedRounds": "4035/4037/4039 distinctBPM/signatures preserved",
+  "readOnlySideEvidence": "g64-fourth-same-target-control-real-proof.json",
+  "priorVerificationAttempt": "sampled pre-refresh snapshot tooearly; no business change or assertion weakened"
+}

@@ -62,6 +62,17 @@ public interface DccProjectCodeMapper extends BaseMapperX<DccProjectCodeDO> {
                 .neIfPresent(DccProjectCodeDO::getId, excludeId));
     }
 
+    default DccProjectCodeDO selectByProjectCodeExcludingId(String projectCode, Long excludeId) {
+        return selectOne(new LambdaQueryWrapperX<DccProjectCodeDO>()
+                .eq(DccProjectCodeDO::getProjectCode, projectCode)
+                .neIfPresent(DccProjectCodeDO::getId, excludeId));
+    }
+
+    default DccProjectCodeDO selectByNormalizedProjectCode(String projectCode) {
+        return selectOne(new LambdaQueryWrapperX<DccProjectCodeDO>()
+                .apply("TRIM(project_code) = {0}", StrUtil.trimToEmpty(projectCode)));
+    }
+
     default List<DccProjectCodeDO> selectEnabledList() {
         return selectList(new LambdaQueryWrapperX<DccProjectCodeDO>()
                 .eq(DccProjectCodeDO::getStatus, DccProjectCodeStatusConstants.ENABLE)

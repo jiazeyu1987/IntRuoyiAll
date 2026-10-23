@@ -1,0 +1,42 @@
+const assert = require('node:assert/strict')
+const fs = require('node:fs')
+const path = require('node:path')
+const { createRequire } = require('node:module')
+const frontendRoot = path.resolve(__dirname, '../../..', 'IntRuoyiFronted')
+const requireFrontend = createRequire(path.join(frontendRoot, 'package.json'))
+const ts = requireFrontend('typescript')
+const file = path.join(__dirname, 'dcc-public-ui-acceptance.e2e.cjs')
+const source = fs.readFileSync(file, 'utf8')
+const syntax = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.JS)
+assert.equal(syntax.parseDiagnostics.length, 0, 'Script syntax must be valid')
+const forbiddenCalls = new Set(['fetch', 'apiGet', 'apiPost', 'axios', 'evaluate', 'evaluateHandle', 'request', 'route', 'fulfill', 'setContent', 'addInitScript', 'exec', 'execSync', 'spawn', 'query', 'execute'])
+const calls = []
+function visit(node) {
+  if (ts.isCallExpression(node)) {
+    const name = ts.isIdentifier(node.expression) ? node.expression.text
+      : ts.isPropertyAccessExpression(node.expression) ? node.expression.name.text : ''
+    assert.equal(forbiddenCalls.has(name), false, `Forbidden direct API/mock/SQL/action bridge: ${name}`)
+    calls.push(name)
+  }
+  ts.forEachChild(node, visit)
+}
+visit(syntax)
+for (const required of ['click', 'fill', 'setInputFiles', 'check', 'screenshot']) assert.ok(calls.includes(required), `Expected real UI action ${required}`)
+assert.match(source, /base\.port === '8067'/)
+assert.match(source, /expectedBackendPort: 48067/)
+assert.match(source, /timezoneId: 'Asia\/Shanghai'/)
+assert.match(source, /required\('DCC_E2E_PASSWORD'\)/)
+assert.doesNotMatch(source, /admin123|D01020|storageState|process\.env\.[A-Z_]*(?:TOKEN|SECRET|DB|MYSQL|REDIS)/)
+assert.doesNotMatch(source, /password\s*[:,]\s*['"]/)
+assert.doesNotMatch(source, /evidence\.[^\n]*(?:username|password|tenant)/)
+assert.ok(source.indexOf('await context.tracing.start') > source.indexOf('await page.waitForURL'), 'Trace starts after login')
+assert.match(source, /naturalRequests\.push\(\{ method: request\.method\(\), pathname: url\.pathname \}\)/)
+for (const mode of ['preflight', 'browse-cancel', 'upload-cancel', 'references-cancel', 'reminders-read']) assert.ok(source.includes(mode))
+assert.ok(fs.existsSync(path.join(frontendRoot, 'node_modules', 'playwright', 'package.json')), 'Local Playwright dependency must exist')
+const report = fs.readFileSync(path.join(__dirname, 'g15-current-public-flow-review.md'), 'utf8')
+for (let n = 1; n <= 12; n++) assert.ok(report.includes(`flow-${String(n).padStart(2, '0')}`), `Missing complete flow mapping ${n}`)
+assert.match(report, /未运行真实 E2E/)
+const task = fs.readFileSync(path.join(__dirname, 'task.md'), 'utf8')
+for (const artifact of ['dcc-public-ui-acceptance.e2e.cjs', 'verify-ui-acceptance-preparation.cjs', 'g15-current-public-flow-review.md', 'g15-ui-acceptance-plan.md'])
+  assert.ok(task.includes(`- doc/tasks/20261002-dcc-public-browser/${artifact}`), `Missing cleanup keep for ${artifact}`)
+process.stdout.write('PASS preparation only: AST safety, syntax, dependency, all 12 flow coverage and cleanup keep. No browser or E2E executed.\n')

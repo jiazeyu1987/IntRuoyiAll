@@ -1,0 +1,22 @@
+{
+  "status": "NATURAL_SHANGHAI_NEXT_DAY_ACTIVATION_READONLY_OBSERVATION",
+  "queries": [
+    {
+      "query": "SELECT id,status,version_no,master_id,controlled_time,effective_date,activated_time,obsoleted_time,distributed_time FROM dcc_controlled_file WHERE tenant_id=1 AND id IN (2054545668044084026,2054545668044084032,2054545668044084033) ORDER BY id;",
+      "result": "2054545668044084026\tOBSOLETE\tA/1\t2054545668044079116\t2026-10-05 11:51:36\t2026-10-05\t2026-10-05 11:51:36\t2026-10-06 00:00:00\t2026-10-05 12:11:29\n2054545668044084032\tACTIVE\tA/2\t2054545668044079116\t2026-10-05 22:40:36\t2026-10-06\t2026-10-06 00:00:00\tNULL\tNULL\n2054545668044084033\tACTIVE\tA/1\t2054545668044079119\t2026-10-05 23:09:37\t2026-10-06\t2026-10-06 00:00:00\tNULL\tNULL\n"
+    },
+    {
+      "query": "SELECT id,current_active_controlled_file_id,latest_controlled_file_id,status FROM dcc_controlled_file_master WHERE tenant_id=1 AND id IN (SELECT master_id FROM dcc_controlled_file WHERE tenant_id=1 AND id IN (2054545668044084026,2054545668044084033));",
+      "result": "2054545668044079116\t2054545668044084032\t2054545668044084032\tACTIVE_CHAIN\n2054545668044079119\t2054545668044084033\t2054545668044084033\tACTIVE_CHAIN\n"
+    },
+    {
+      "query": "SELECT id,native_version_id,canonical_status,domain_status,active_unique_flag,open_candidate_unique_flag,last_transition_time FROM controlled_content_version_ref WHERE tenant_id=1 AND native_version_id IN (2054545668044084026,2054545668044084032,2054545668044084033) ORDER BY id;",
+      "result": "65592\t2054545668044084026\tOBSOLETE\tOBSOLETE\tNULL\tNULL\t2026-10-06 00:00:00\n65594\t2054545668044084032\tACTIVE\tACTIVE\t1\tNULL\t2026-10-06 00:00:01\n65595\t2054545668044084033\tACTIVE\tACTIVE\t1\tNULL\t2026-10-06 00:00:01\n"
+    },
+    {
+      "query": "SELECT id,job_id,handler_name,begin_time,end_time,status,result FROM infra_job_log WHERE job_id=5625 AND deleted=0 ORDER BY id DESC LIMIT 2;",
+      "result": "44264\t5625\tdccControlledFileActivationJob\t2026-10-06 00:01:00\t2026-10-06 00:01:00\t1\t{\"1\":\"实际生效版本数：0\",\"162\":\"实际生效版本数：0\",\"121\":\"实际生效版本数：0\",\"122\":\"实际生效版本数：0\"}\n44263\t5625\tdccControlledFileActivationJob\t2026-10-06 00:00:00\t2026-10-06 00:00:01\t1\t{\"1\":\"实际生效版本数：2\",\"162\":\"实际生效版本数：0\",\"121\":\"实际生效版本数：0\",\"122\":\"实际生效版本数：0\"}\n"
+    }
+  ],
+  "noClockOrDataDateChange": true
+}

@@ -31,7 +31,7 @@ assert.strictEqual(
 
 assert.ok(categoryPage.includes('label="查看矩阵"'), '类别页必须提供 查看矩阵 页签')
 assert.ok(
-  categoryPage.includes('<CategoryViewMatrixTable />'),
+  /<CategoryViewMatrixTable\b[\s\S]*?\/>/.test(categoryPage),
   '查看矩阵页签必须挂接独立的查看矩阵表格组件'
 )
 

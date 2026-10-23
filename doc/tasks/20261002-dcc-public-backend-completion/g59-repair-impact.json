@@ -1,0 +1,42 @@
+{
+  "status": "DEVELOPMENT_TEST_ONLY_PREPARED_NOT_EXECUTED",
+  "policyVersion": "2026-10-dcc-integration-01",
+  "sourceIdentity": {
+    "host": "127.0.0.1",
+    "port": 23306,
+    "database": "ruoyi-vue-pro",
+    "serverUuid": "92ca05d0-aec8-11f1-a944-02b4e226a5ef",
+    "tenantId": "1"
+  },
+  "candidatePolicyHash": "13d5ad2854951d4c21e63e68eac028706e5ab076da0f21c2ee8ad75ad46a6571",
+  "preservedPolicyHash": "c768a409bce65bda7453ce28d4be80fd2aff7d53379113e3ef8ea15160118c66",
+  "operation": {
+    "operationId": "dcc.controlled-file.lifecycle-projection.repair",
+    "sourceType": "SERVICE_METHOD",
+    "sourceLocator": "cn.iocoder.yudao.module.dcc.service.file.DccLifecycleProjectionRepairService#repair",
+    "domain": "DCC",
+    "subjectType": "DCC_CONTROLLED_FILE",
+    "actionType": "UPDATE",
+    "reasonPolicy": "REQUIRED_CATEGORY_AND_TEXT",
+    "signaturePolicy": "NOT_REQUIRED",
+    "statePolicy": "PRESENT_TO_PRESENT",
+    "retentionClass": "GXP_CONTROLLED_DOCUMENT",
+    "testIds": "[G59-REPAIR-01, G59-REPAIR-02, G59-REPAIR-03]",
+    "owner": "dcc-owner",
+    "applicability": "GXP"
+  },
+  "expectedConfigInserts": 1,
+  "expectedReplayWrites": 0,
+  "qualityPolicyVersionWrites": 0,
+  "repairDataWritesBySql": 0,
+  "repairSampleScope": {
+    "tenantId": "1",
+    "masterId": "2054545668044079116",
+    "versionRefId": "65592",
+    "fileId": "2054545668044084026",
+    "precondition": "Root actual immutable File ACTIVE/currentMaster+completed approval/BPM/signatures/artifacts/CONTROLLED/ACTIVATED plus existingref FINALIZING; full preimage/server source hash obtained through actual preview before explicit POST. No guessed BPM/source/time."
+  },
+  "sqlHash": "3f5cf81609b2637a08024a415fedfe8f95e74137992e4622e70d0ddb8811ab78",
+  "sqlContext": "Protected clone UUID/db injected only after Root actual identity proof; source UUID/db exact above. SQL reviewer hash is launch receipt binding, SQL itself cannot hash its source. No execution by preparer.",
+  "beforeAfter": "Root captures all audit operation rows +quality registry+prior ledger preservation; config first/repeat can modify only one exact payload row; targetFile/signatures/core rows unaffected by config SQL. Actual repair through authenticated UI only separate reviewed command."
+}

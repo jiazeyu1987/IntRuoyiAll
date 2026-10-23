@@ -5,6 +5,7 @@ export type DccUploadSizePolicyScopeType = 'GLOBAL' | 'CATEGORY' | 'PURPOSE' | '
 export type DccUploadSizePolicyPurpose =
   | 'SOURCE'
   | 'DRAWING_PDF'
+  | 'APPROVAL_PDF'
   | 'TRAINING_RECORD'
   | 'EXTERNAL_REVIEW_OUTPUT'
   | string
@@ -59,6 +60,7 @@ export interface DccUploadSizePolicyEffectiveVO {
 export const DCC_UPLOAD_SIZE_POLICY_PURPOSE_OPTIONS = [
   { label: '源文件', value: 'SOURCE' },
   { label: '图纸 PDF', value: 'DRAWING_PDF' },
+  { label: '批准盖章 PDF', value: 'APPROVAL_PDF' },
   { label: '培训记录', value: 'TRAINING_RECORD' },
   { label: '外部审核输出', value: 'EXTERNAL_REVIEW_OUTPUT' }
 ] as const

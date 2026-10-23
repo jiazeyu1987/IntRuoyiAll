@@ -1,0 +1,70 @@
+{
+  "base": "a801dc8b91579241e221d129ab34343997673f40",
+  "source": "C:\\IntRuoyi\\20261001-dcc-integration",
+  "workers": [
+    {
+      "module": "a",
+      "path": "C:\\IntRuoyi\\20260930-dcc-a",
+      "files": [
+        {
+          "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/projectcode/attributes/DccProjectApplicationSnapshotService.java",
+          "before_sha256": "be539ca2c21bd311d08ce50c00d0a47bcb1624db670628a38101aca7c6f89386",
+          "sha256": "03e8a3623f29c15def82efe8dcd50f3cf73970eb8056b8526eeed5cb3f1a0831"
+        },
+        {
+          "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/projectcode/attributes/DccProjectAttributesService.java",
+          "before_sha256": "6b61a0b22212895d386cd9d5b96977313c265863d8bcc9893f42ed6f03072fdc",
+          "sha256": "3f1c2e618e7449d152cbffba5769c6d8d8c3615f08e1c198711c876c2ec2604e"
+        },
+        {
+          "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/projectcode/DccProjectUnsubmittedInheritanceTest.java",
+          "before_sha256": null,
+          "sha256": "58d60737cde0ec99fae090bd763ba12722194b6d2555452219fead423e55140c"
+        }
+      ]
+    },
+    {
+      "module": "c",
+      "path": "C:\\IntRuoyi\\20260930-dcc-c",
+      "files": [
+        {
+          "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/projectcode/attributes/DccProjectApplicationSnapshotService.java",
+          "before_sha256": null,
+          "sha256": "03e8a3623f29c15def82efe8dcd50f3cf73970eb8056b8526eeed5cb3f1a0831"
+        },
+        {
+          "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/projectcode/attributes/DccProjectAttributesService.java",
+          "before_sha256": "4c88fa382fee32c3ba6ad8db06a9aa20428cc771b25445ab077fe1273189ee01",
+          "sha256": "3f1c2e618e7449d152cbffba5769c6d8d8c3615f08e1c198711c876c2ec2604e"
+        },
+        {
+          "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/dal/dataobject/projectcode/DccProjectApplicationAttributesDO.java",
+          "before_sha256": "0493fa650c4d24cb3a8d7dd3f7dbf29b5b66ebea08e1572424ded96221b93f4a",
+          "sha256": "5335715660457b19fbb821a251e983023ac8d6f58fa1c72299584e25feb6e693"
+        },
+        {
+          "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccApplicationRoundService.java",
+          "before_sha256": "a81e37cd799651d7255cdce7c2806a03984f1136a47512583fab32f91096642b",
+          "sha256": "810d15e65ad076c1513e53343c1021d0858f602d683812667e95087fbf40db89"
+        },
+        {
+          "path": "IntRuoyiBackend/sql/mysql/20261001_dcc_b_reserved_draft_round.sql",
+          "before_sha256": null,
+          "sha256": "48a5584639c1f4584247b040fee4825d8d70d291f520e28168b621bfd597e0f0"
+        },
+        {
+          "path": "IntRuoyiBackend/yudao-module-dcc/src/test/resources/sql/create_tables.sql",
+          "before_sha256": "4691ec8b65b91c26fc273e7725b89ecd3d2c3426e450827e8e0cebad12ab3d13",
+          "sha256": "567ae59bbb08668449bb4f6541b04330eb9d61d036c47d209f79ddc6b7932120",
+          "merged_columns": [
+            "source_application_id",
+            "source_application_round"
+          ]
+        }
+      ]
+    }
+  ],
+  "A_C_owner_production_written": false,
+  "worker_heartbeat_created": false,
+  "instant_messages_sent": false
+}

@@ -1,0 +1,11 @@
+{
+  "status": "ACTUAL_DEV26_FIRST_REPEAT_PASS_NO_QUALITY_REGISTRATION",
+  "insertedOperations": 26,
+  "repeatInserts": 0,
+  "qualityVersionInserts": 0,
+  "developmentOnly": true,
+  "executionReceipt": "C:\\IntRuoyiBackups\\20261003-dcc-integration\\g43-development-config-run\\receipt.json",
+  "receiptSha256": "81cdf369984e3899c0411b2e67619d17daac95d7ea460786bdb34fb4d738fee4",
+  "actualQualityApproved": false,
+  "legacyActivationExecuted": false
+}

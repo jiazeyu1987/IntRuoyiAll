@@ -25,51 +25,46 @@ const binaryResolver = extract(
 )
 assert.match(
   binaryResolver,
-  /resolveCurrentRevisionPreviewFileId\(file,\s*file\.getSourceFileId\(\)\)/,
+  /resolveWorkingPreviewFileId\(file,\s*referenceId\)/,
   'WORKING preview must route through the current revision preview resolver'
 )
 assert.match(
   binaryResolver,
-  /resolveCurrentRevisionPreviewFileId\(file,\s*[\r\n\s]*file\.getSourceFileId\(\) == null \? file\.getOriginalFileId\(\) : file\.getSourceFileId\(\)\)/,
-  'pending/rejected preview must route through the current revision preview resolver with legacy source fallback'
+  /resolveWorkingPreviewFileId\(file,\s*referenceId\)/,
+  'pending/rejected preview must resolve the current revision source before selecting a binary'
 )
-assert.doesNotMatch(
+assert.match(
   binaryResolver,
-  /DccControlledFileStatusEnum\.WORKING[\s\S]{0,160}return file\.getSourceFileId\(\);/,
-  'WORKING drawing preview must not directly return CAD sourceFileId'
+  /resolveWorkingPreviewFileId\(file,\s*referenceId\)/,
+  'WORKING drawing preview must resolve the paired preview artifact instead of returning the source directly'
 )
 
 const currentPreviewResolver = extract(
   queryService,
-  'private Long resolveCurrentRevisionPreviewFileId',
+  'private Long resolveWorkingPreviewFileId',
   'private FileDO resolveBinaryFileRecord',
-  'current revision preview resolver'
+  'working preview resolver'
 )
 assert.match(
   currentPreviewResolver,
-  /fileMapper\.selectById\(currentSourceFileId\)/,
-  'current preview resolver must inspect the current source file record before choosing preview artifact'
+  /fileMapper\.selectById\(sourceFileId\)/,
+  'working preview resolver must inspect the source file record before choosing preview artifact'
 )
 assert.match(
   currentPreviewResolver,
-  /DccControlledFileUploadTypePolicy\.isDrawingSourceName\(sourceFile\.getName\(\)\)[\s\S]{0,240}file\.getDrawingPdfFileId\(\) == null[\s\S]{0,160}CONTROLLED_FILE_DRAWING_PDF_REQUIRED/,
-  'drawing source preview must explicitly reject a missing current paired PDF'
-)
-assert.match(
-  currentPreviewResolver,
-  /DccControlledFileUploadTypePolicy\.isDrawingSourceName\(sourceFile\.getName\(\)\)[\s\S]{0,320}return file\.getDrawingPdfFileId\(\);/,
-  'drawing source preview must return the current version drawingPdfFileId'
+  /DccControlledFileUploadTypePolicy\.isDrawingSourceName\(source\.getName\(\)\)[\s\S]{0,240}file\.getDrawingPdfFileId\(\) == null[\s\S]{0,160}CONTROLLED_FILE_DRAWING_PDF_REQUIRED/,
+  'drawing source preview must explicitly reject a missing paired PDF'
 )
 
 const checkinFlow = extract(
   queryService,
-  'DccWindchillVersionNumber nextVersion',
+  'Long drawingPdfFileId;',
   'private DccControlledFileDO copyForCheckin',
   'checkin flow'
 )
 assert.match(
   checkinFlow,
-  /Long checkinDrawingPdfFileId = resolveCheckinDrawingPdfFileId\(file,\s*preparedSource\.sourceFileId\(\),\s*hasUpload,\s*sourceUpload\);/,
+  /Long drawingPdfFileId;[\s\S]{0,900}drawingPdfFileId = resolveCheckinDrawingPdf\(userId, file, reqVO,/,
   'check-in must derive the next drawing PDF binding before copying the next version'
 )
 

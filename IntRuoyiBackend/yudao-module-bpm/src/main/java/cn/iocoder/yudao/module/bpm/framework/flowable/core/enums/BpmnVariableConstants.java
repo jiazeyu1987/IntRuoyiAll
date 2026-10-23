@@ -38,6 +38,12 @@ public class BpmnVariableConstants {
      */
     public static final String PROCESS_INSTANCE_VARIABLE_APPROVE_USER_SELECT_ASSIGNEES = "PROCESS_APPROVE_USER_SELECT_ASSIGNEES";
     /**
+     * 流程实例的变量 - DCC 每个任务节点对应的部门义务编号列表。
+     *
+     * <p>结构为 Map&lt;taskDefinitionKey, List&lt;obligationId&gt;&gt;，顺序必须与对应节点的审批人列表一致。</p>
+     */
+    public static final String PROCESS_INSTANCE_VARIABLE_DCC_TASK_OBLIGATION_IDS = "PROCESS_DCC_TASK_OBLIGATION_IDS";
+    /**
      * 流程实例的变量 - 发起用户 ID
      *
      * @see ProcessInstance#getProcessVariables()
@@ -116,5 +122,13 @@ public class BpmnVariableConstants {
      * 任务变量 - 签名图片 URL
      */
     public static final String TASK_SIGN_PIC_URL = "TASK_SIGN_PIC_URL";
+    /**
+     * 任务变量 - DCC 部门义务编号。
+     */
+    public static final String TASK_VARIABLE_DCC_OBLIGATION_ID = "DCC_OBLIGATION_ID";
+    /**
+     * 任务变量 - DCC 部门义务在多实例候选列表中的位置。
+     */
+    public static final String TASK_VARIABLE_DCC_OBLIGATION_INDEX = "DCC_OBLIGATION_INDEX";
 
 }

@@ -1,0 +1,42 @@
+{
+  "status": "REAL_APPROVED_PRODUCT_FREE_UPLOAD_SINGLE_FOLDER_REACHED_SUBMIT_BPM_DEFINITION_SELECTION_FAILED",
+  "requestId": "7",
+  "projectId": "271",
+  "catalogId": "614",
+  "catalogTenantId": "1",
+  "ownerUserId": "1",
+  "sourceOriginalFileName": "20261005-dcc-four-directions-g53-source.pdf",
+  "sourceSha256": "652bb1ee135b1a26b75ffa9d3388fea3b410ab2eb4174c7ba0ea4d0b9648e40b",
+  "typeId": "13",
+  "categoryId": "908710",
+  "selectedFolderName": "G44文档",
+  "projectDefaults": "CE/Y/Y/N",
+  "applicationActual": "FDA/Y/Y/N",
+  "realPageSteps": [
+    "g53-real-ui-r2/019.json",
+    "g53-real-ui-r2/024.json",
+    "g53-real-ui-r2/025.json",
+    "g53-real-ui-r2/026.json",
+    "g53-real-ui-r3/003.json",
+    "g53-real-ui-r3/005.json",
+    "g53-real-ui-r3/015.json",
+    "g53-real-ui-r3/028.json",
+    "g53-real-ui-r3/031.json",
+    "g53-real-ui-r3/032.json",
+    "g53-real-ui-r3/033.json",
+    "g53-real-ui-r3/035.json"
+  ],
+  "failure": "Flowable Query return 2 results instead of max 1",
+  "rootCause": "tenant-specific active key query lacks latest-version constraint",
+  "failureAnchor": "BpmProcessDefinitionServiceImpl.getActiveProcessDefinition",
+  "fileRows": 0,
+  "mappingRows": 0,
+  "manualWorkflowDefinitionDataChanged": false,
+  "automaticRetryPerformed": false,
+  "actualSqlDiagnosticsWrongColumns": [
+    "catalog code/name",
+    "stage_code"
+  ],
+  "diagnosticCorrectedUsingFormalDO": true,
+  "fullBusinessPass": false
+}

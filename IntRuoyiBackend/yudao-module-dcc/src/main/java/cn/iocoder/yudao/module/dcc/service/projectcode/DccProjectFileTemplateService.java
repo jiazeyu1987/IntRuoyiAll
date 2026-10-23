@@ -11,4 +11,6 @@ public interface DccProjectFileTemplateService {
                                                         DccProjectFileTemplateSaveReqVO reqVO);
 
     void validateUploadSelection(Long projectCodeId, Long fileTypeTaxonomyId, String fileName);
+
+    void validateUploadLocation(Long projectCodeId, Long fileTypeTaxonomyId);
 }

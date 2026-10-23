@@ -1,0 +1,84 @@
+{
+  "status": "FROZEN_MAVEN_FREE_READY_FOR_ROOT_REVIEW_R02",
+  "productionFiles": 2,
+  "testFiles": 1,
+  "assets": [
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccFileRelationPermissions.java",
+      "bytes": 882,
+      "sha256": "44ae09285796203c3d871bef7a3529e37c738e96fa2018d73f2583ee694f1c37"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileQueryServiceImpl.java",
+      "bytes": 265664,
+      "sha256": "e187d642f9e20784e82d7b0d59e239b0531caecfd2dd1b6feca7529c0fbc9b70"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccRelationNameMetadataDatabaseTest.java",
+      "bytes": 13561,
+      "sha256": "e536c3ee81f974447ebe17457c86073f4a4db9910dc3e6bd55995a70cc4c62c3"
+    }
+  ],
+  "compiledClassInventory": [
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/target/classes/cn/iocoder/yudao/module/dcc/service/file/DccFileRelationPermissions.class",
+      "bytes": 3960,
+      "sha256": "f07c99a65c05001e9e1caed9288dd7a0239815b2dfc50399cd7b3ecf77224292"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/target/classes/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileQueryServiceImpl$1.class",
+      "bytes": 1206,
+      "sha256": "7ed87c03078cb26d0af434b31004bbc163541713444d7c40e44c0bcadbf40e5c"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/target/classes/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileQueryServiceImpl$AccessReason.class",
+      "bytes": 1816,
+      "sha256": "960a19db9a20886c44bcb0f02b8b5d4f37d6818e9389077fe3777f7654b134cf"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/target/classes/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileQueryServiceImpl$CheckinReplayPayload.class",
+      "bytes": 1942,
+      "sha256": "32701fc20e73e7cf8e6370a5e7a59bc90a4b7421f64dfbdc515c2ef2c476cb39"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/target/classes/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileQueryServiceImpl$CheckinVersionSelection.class",
+      "bytes": 2242,
+      "sha256": "feec0ee64322d8d9de096e6a06dc99672b2d17e622305a055cc4bf96743c2c94"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/target/classes/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileQueryServiceImpl$LocalDateTimeComparator.class",
+      "bytes": 1148,
+      "sha256": "93a285213b83cfffc37bbaaf01454c0de5839274401b8305ce6b24ec82309250"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/target/classes/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileQueryServiceImpl$PreviewArtifactProjection.class",
+      "bytes": 1952,
+      "sha256": "f2c5a97e6a2cd79ed984295f50256d60775187ea0d7bbf04e03e17b27da882a6"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/target/classes/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileQueryServiceImpl.class",
+      "bytes": 232113,
+      "sha256": "a759aeeb80dcc8050bceb8e2b894c5182408f8c2406c4e09b0d7076bd445c428"
+    }
+  ],
+  "verification": {
+    "path": "doc/tasks/20261002-dcc-public-backend-completion/g56-current-source-verification-receipt.json",
+    "bytes": 3223,
+    "sha256": "b689648f0e3bfc3ca19277a717f6743dfed5a6b8d5f32279b11d5588f5c71d8c"
+  },
+  "contract": {
+    "field": "hasCurrentControlledSource:boolean",
+    "nullLatest": false,
+    "formalCurrentActiveOrPending": true,
+    "legitimateObsoleteLatestWithControlAndObsoleteTime": false,
+    "invalidPointerOrIdentityOrNonformalRow": "explicit error, never false",
+    "selectedPermissionFactsUnchanged": true,
+    "currentActiveOrChainFallback": false,
+    "newReadonlyWritesOrSets": false,
+    "legacyR01PolicyEdited": false
+  },
+  "actualDb": 0,
+  "actualBrowser": 0,
+  "Git": 0,
+  "package": 0
+}

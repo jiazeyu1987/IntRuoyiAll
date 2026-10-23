@@ -43,6 +43,8 @@ public class PermissionCommandProtocol {
     @Resource private GxpAuditPolicyActivationMapper activations;
     @Resource private GxpAuditPolicyOperationMapper operations;
     @Resource private GxpAuditService audit;
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private GxpLocalDevelopmentPolicy localDevelopmentPolicy;
 
     public record Command(PermissionCommandReceiptDO receipt, String key, String reason, boolean replayed,
                           Long tenantId, boolean tenantAdministration) {
@@ -95,9 +97,14 @@ public class PermissionCommandProtocol {
 
         // Same ordering as the writer; all lookups below are current reads, not RR snapshots.
         audit.acquireLedgerLock();
-        var activation = activations.selectLatestForUpdate(tenant);
-        require(activation != null, "activation-required");
-        var policy = operations.selectByPolicyVersionForUpdate(tenant, activation.getPolicyVersion(), operation);
+        cn.iocoder.yudao.module.system.dal.dataobject.gxpaudit.GxpAuditPolicyOperationDO policy;
+        if (localDevelopmentPolicy != null) {
+            policy = localDevelopmentPolicy.findOperation(tenant, operation);
+        } else {
+            var activation = activations.selectLatestForUpdate(tenant);
+            require(activation != null, "activation-required");
+            policy = operations.selectByPolicyVersionForUpdate(tenant, activation.getPolicyVersion(), operation);
+        }
         require(policy != null && Boolean.TRUE.equals(policy.getActive()) && "GXP".equals(policy.getApplicability()),
                 "active-operation-required");
         var saved = receipts.selectForUpdate(tenant, operation, digest(originalKey));

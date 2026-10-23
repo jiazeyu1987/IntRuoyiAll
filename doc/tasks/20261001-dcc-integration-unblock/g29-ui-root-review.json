@@ -1,0 +1,30 @@
+{
+  "status": "ROOT_REVIEWED_FOUR_EXECUTABLE_UI_MODE_PREPARATION_NOT_RUN",
+  "offlineCases": 29,
+  "supportedModes": [
+    "project-product",
+    "upload-submit",
+    "native-task",
+    "training"
+  ],
+  "remainingModes": [
+    "distribution",
+    "version",
+    "relations",
+    "reference",
+    "obsolete"
+  ],
+  "deliveryManifestPath": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-public-backend-completion\\g29-ui-delivery-fingerprints.json",
+  "deliveryManifestSha256": "23dd042b0aba75c3a68911fcb42fed28557bef691673b1f105cd379f02a403db",
+  "assetsVerified": 3,
+  "helperSHA": "37f8c1e482dc1b5ee0f693d6467a0f4945c158023a6bc8dbaffb0f413316bef0",
+  "actualBrowserInvocations": 0,
+  "actualE2ePassed": false,
+  "wholeGoalCoverage": false,
+  "rootReviewConditions": [
+    "True actual login/natural menus/Locator actions only",
+    "Full credential capture pause and no raw diagnostics",
+    "Mandatory saved state DOM/reload, no click-only success",
+    "Explicit unsupported modes blocked before browser"
+  ]
+}

@@ -1,0 +1,84 @@
+{
+  "log": "g13-review-owner-final.log",
+  "executions": 560,
+  "classes": [
+    {
+      "name": "cn.iocoder.yudao.module.dcc.approval.DccApprovalTaskAdapterTest",
+      "tests": 26,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "name": "cn.iocoder.yudao.module.dcc.service.file.DccApprovalFileOwnerSelectionTest",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "name": "cn.iocoder.yudao.module.dcc.service.file.DccApprovalFileOwnerTransactionTest",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "name": "cn.iocoder.yudao.module.dcc.service.file.DccCheckinDraftInitializationDatabaseTest",
+      "tests": 30,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "name": "cn.iocoder.yudao.module.dcc.service.file.DccCheckoutCheckinLifecycleTest",
+      "tests": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "name": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+      "tests": 240,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "name": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileSignatureEvidenceServiceTest",
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "name": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+      "tests": 167,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "name": "cn.iocoder.yudao.module.dcc.service.file.DccFileOwnerPublicApprovalTest",
+      "tests": 13,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "name": "cn.iocoder.yudao.module.dcc.service.file.DccRevisionServiceTest",
+      "tests": 63,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "name": "cn.iocoder.yudao.module.dcc.service.file.DccWorkflowRevisionIntegrationTest",
+      "tests": 6,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    }
+  ],
+  "buildSuccess": true
+}

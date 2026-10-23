@@ -1,0 +1,771 @@
+{
+  "source": "C:/IntRuoyiAll-int_main/doc/tasks/20261001-dcc-integration-unblock/g13-migration-package.json",
+  "schemaPreflight": "g13-runtime-schema-preflight.log",
+  "ledger": "g13-runtime-complete-ledger.log",
+  "comparison": "g13-runtime-migration-comparison.json",
+  "status": "read_only_review_not_executed",
+  "results": [
+    {
+      "id": "20260513_dcc_base_schema",
+      "type": "schema",
+      "root": false,
+      "hashMatch": true,
+      "ledger": [
+        "20260513_dcc_base_schema\t2a57d12b245485017f67c11335ee8b8c4b07eb6a5d9035ae96dad09d7a8203a0\tSKIPPED_ALREADY_APPLIED\ttest"
+      ],
+      "lfHash": "2186d043facfb5f750219053e7ee14b53e7dfacffb0de8d7c5ea004f0805ffb1",
+      "rawHash": "a91dc74e4b40528f43a2571eb0d6463ce1269f70e96945f7ed71c04167f77f98",
+      "procedureCalls": [],
+      "dml": [
+        "system_menu",
+        "system_menu",
+        "system_menu",
+        "system_menu",
+        "system_menu",
+        "system_menu",
+        "system_menu",
+        "system_menu",
+        "system_menu",
+        "system_menu",
+        "system_menu",
+        "system_menu",
+        "system_menu",
+        "system_menu",
+        "system_menu",
+        "system_menu",
+        "system_menu",
+        "system_menu",
+        "system_menu",
+        "system_role_menu",
+        "system_menu",
+        "system_menu",
+        "system_menu",
+        "system_menu",
+        "system_menu",
+        "system_menu",
+        "system_menu",
+        "system_menu",
+        "system_menu",
+        "system_menu",
+        "system_menu",
+        "system_menu"
+      ]
+    },
+    {
+      "id": "20260921_dcc_category_approval_route_action_type",
+      "type": "schema",
+      "root": false,
+      "hashMatch": true,
+      "ledger": "UNLEDGERED",
+      "lfHash": "63a3e80538f8d93dace828a02af940c614c316ee9e99b8cfab56cdc283789b47",
+      "rawHash": "39599767147aaa1645d610c52c8f6113f30e39485452e082acec992ae80a714e",
+      "procedureCalls": [],
+      "dml": [
+        "dcc_category_approval_route"
+      ]
+    },
+    {
+      "id": "20260922_dcc_three_workflow_bpmn_seed",
+      "type": "seed",
+      "root": false,
+      "hashMatch": true,
+      "ledger": "UNLEDGERED",
+      "lfHash": "a3bd8893a05045c55ab35ed968c6cf1930c02c15f562846637499d49bfe183ce",
+      "rawHash": "cd8cb4b2cadcda67086750df13071d6e6649310283e9a55d650b4bd51d15c63d",
+      "procedureCalls": [],
+      "dml": [
+        "act_re_deployment",
+        "act_ge_bytearray",
+        "act_ge_bytearray",
+        "act_re_model",
+        "act_re_procdef",
+        "bpm_process_definition_info",
+        "bpm_business_approval_policy"
+      ]
+    },
+    {
+      "id": "20260922_dcc_task_assignee_snapshot",
+      "type": "schema",
+      "root": false,
+      "hashMatch": true,
+      "ledger": "UNLEDGERED",
+      "lfHash": "1da5ec389e17998258678732ceed13bf36fd6099e2481fd964921936e108ced1",
+      "rawHash": "2143d36b3255d639f21bc00f7495bd97c674255151b7cdff2462669e02ce3641",
+      "procedureCalls": [],
+      "dml": []
+    },
+    {
+      "id": "20260930_dcc_a_lifecycle",
+      "type": "schema",
+      "root": true,
+      "hashMatch": true,
+      "ledger": "UNLEDGERED",
+      "lfHash": "b3ab7ff1ff72c62a01bc224cd15b7ca3eb12621a096f79dbca47bda62ba1f3ff",
+      "rawHash": "a020a9bc36da01f2edb624f488fd51deb48b20eed02dc4de6389432bd99f9209",
+      "procedureCalls": [
+        "IF",
+        "dcc_a_ic1_schema",
+        "dcc_a_ic1_schema",
+        "dcc_a_ic1_schema"
+      ],
+      "dml": []
+    },
+    {
+      "id": "20260923_dcc_three_workflow_candidate_strategy_fix",
+      "type": "seed",
+      "root": false,
+      "hashMatch": true,
+      "ledger": "UNLEDGERED",
+      "lfHash": "d4d9817277e41b47fce9c214b913d4bbe37de75be2996a94b4710a8889a6b830",
+      "rawHash": "7127acdd73c61b1389124d2cca65480d60e5ff6e8756e11a363890e089d9c307",
+      "procedureCalls": [],
+      "dml": [
+        "act_re_deployment",
+        "act_ge_bytearray",
+        "act_re_model",
+        "act_re_procdef",
+        "bpm_process_definition_info",
+        "act_re_procdef"
+      ]
+    },
+    {
+      "id": "20260926_dcc_three_workflow_matrix_multi_instance_fix",
+      "type": "seed",
+      "root": false,
+      "hashMatch": true,
+      "ledger": "UNLEDGERED",
+      "lfHash": "c2774dc2b9837207921ce807fc43973bb21305ccecea3c9df44ebb6f29047801",
+      "rawHash": "e345c35ba89e8386aa3315257cef8bd4fce6fbfd0cc1b25e6c78a9cea9eea0e4",
+      "procedureCalls": [
+        "IF",
+        "validate_dcc_three_workflow_matrix_multi_instance_v3",
+        "validate_dcc_three_workflow_matrix_multi_instance_v3",
+        "validate_dcc_three_workflow_matrix_multi_instance_v3",
+        "IF"
+      ],
+      "dml": [
+        "act_re_deployment",
+        "act_ge_bytearray",
+        "act_re_model",
+        "act_re_procdef",
+        "bpm_process_definition_info",
+        "act_re_procdef"
+      ]
+    },
+    {
+      "id": "20260930_dcc_a_workflow_bpmn_v4",
+      "type": "seed",
+      "root": true,
+      "hashMatch": true,
+      "ledger": "UNLEDGERED",
+      "lfHash": "dbbdb2cd8aed940dbaf46412ddc6a83beef90fc2c7d00f65594b405d19c8d27d",
+      "rawHash": "5ddc77a61d77e56c0af863e1a88f09f3f3da9af2703512f6d66fa2acae904a52",
+      "procedureCalls": [
+        "IF",
+        "validate_dcc_a_v4",
+        "validate_dcc_a_v4",
+        "validate_dcc_a_v4",
+        "validate_dcc_a_v4"
+      ],
+      "dml": [
+        "act_re_deployment",
+        "act_ge_bytearray",
+        "act_re_model",
+        "act_re_procdef",
+        "bpm_process_definition_info"
+      ]
+    },
+    {
+      "id": "20260930_dcc_a_signature_workflow_round",
+      "type": "schema",
+      "root": true,
+      "hashMatch": true,
+      "ledger": "UNLEDGERED",
+      "lfHash": "bab32625c48bd7decc966c9d96bc30f7c965f6a04af2f2e991dbd494244b7e1d",
+      "rawHash": "bab32625c48bd7decc966c9d96bc30f7c965f6a04af2f2e991dbd494244b7e1d",
+      "procedureCalls": [
+        "IF",
+        "dcc_a_signature_workflow_round",
+        "dcc_a_signature_workflow_round",
+        "dcc_a_signature_workflow_round"
+      ],
+      "dml": []
+    },
+    {
+      "id": "20260930_dcc_a_future_obsolete_policy",
+      "type": "seed",
+      "root": true,
+      "hashMatch": true,
+      "ledger": "UNLEDGERED",
+      "lfHash": "eb30d8a49d6f8a05137c61e95a04ea29e569ce9e41710046c90a5ea060887c2a",
+      "rawHash": "eb30d8a49d6f8a05137c61e95a04ea29e569ce9e41710046c90a5ea060887c2a",
+      "procedureCalls": [
+        "IF",
+        "validate_dcc_a_future_obsolete_policy",
+        "validate_dcc_a_future_obsolete_policy",
+        "validate_dcc_a_future_obsolete_policy",
+        "validate_dcc_a_future_obsolete_policy"
+      ],
+      "dml": [
+        "bpm_business_approval_policy"
+      ]
+    },
+    {
+      "id": "20260710_dcc_product_catalog_database",
+      "type": "schema",
+      "root": false,
+      "hashMatch": true,
+      "ledger": [
+        "20260710_dcc_product_catalog_database\t2a17bc9ff3845e4ca313c02ca0602471716cc676843a207649c1a0f016f16307\tSKIPPED_ALREADY_APPLIED\ttest"
+      ],
+      "lfHash": "d9be6777b11e600c6348b8d737fd87c1bc7c31806e95bbf992b81b683abc7157",
+      "rawHash": "3d9d8e4ab76b6512e993810dc971341193d3273e5d6a68a83cca39c1d70fef5d",
+      "procedureCalls": [],
+      "dml": [
+        "dcc_product_catalog"
+      ]
+    },
+    {
+      "id": "20260903_dcc_explicit_data_relation",
+      "type": "schema",
+      "root": false,
+      "hashMatch": true,
+      "ledger": "UNLEDGERED",
+      "lfHash": "2882ee9e31e5aa6071bdc63d0a7f8fcbd3532dadee052a8c132f00fd2a598a01",
+      "rawHash": "70b99159002094ec50f55625e4e8dd01e192a1d7e8a144a53e7aa18dfe40134b",
+      "procedureCalls": [],
+      "dml": []
+    },
+    {
+      "id": "20260920_dcc_project_product_create_approval",
+      "type": "schema",
+      "root": false,
+      "hashMatch": true,
+      "ledger": "UNLEDGERED",
+      "lfHash": "2d60785f65c898218f2d925f6aed89a4d0b670e3aa266224c56f0cf040e6c8a7",
+      "rawHash": "2d60785f65c898218f2d925f6aed89a4d0b670e3aa266224c56f0cf040e6c8a7",
+      "procedureCalls": [],
+      "dml": []
+    },
+    {
+      "id": "20260719_dcc_file_type_taxonomy",
+      "type": "schema",
+      "root": false,
+      "hashMatch": true,
+      "ledger": [
+        "20260719_dcc_file_type_taxonomy\t28ee75f74c4d02607e4db5ac110a0a11d24ac485a5c0ff60a6c0fa693f5a0c5e\tSKIPPED_ALREADY_APPLIED\ttest"
+      ],
+      "lfHash": "4f6bb0a273aa0997e5c29ac259d5e21e5a96bc0b22909a3879f6bc510202e200",
+      "rawHash": "28ee75f74c4d02607e4db5ac110a0a11d24ac485a5c0ff60a6c0fa693f5a0c5e",
+      "procedureCalls": [],
+      "dml": [
+        "system_menu",
+        "system_menu",
+        "system_role_menu"
+      ]
+    },
+    {
+      "id": "20260910_dcc_project_file_template",
+      "type": "schema",
+      "root": false,
+      "hashMatch": true,
+      "ledger": "UNLEDGERED",
+      "lfHash": "79b74b0125c2585d4bdf3ba3bef6c5d8ada49ea75e056429f2ddea521dcc8c5d",
+      "rawHash": "4e36e6ba67cb98121fb0272c4ee837e57b0ffde9c71d6fb73ce6a09d4e5de8c9",
+      "procedureCalls": [],
+      "dml": []
+    },
+    {
+      "id": "20260930_dcc_b_project_attributes_folders",
+      "type": "schema",
+      "root": true,
+      "hashMatch": true,
+      "ledger": "UNLEDGERED",
+      "lfHash": "6d5da3e0cc2d0d793eedc0e7b0acb1c7dda5e82877c5d9c788671e3f3ec6d99b",
+      "rawHash": "024ffedb8e7c7d326218f9022e2509c18295b59fb4563c0205d00a0f528a0b3c",
+      "procedureCalls": [],
+      "dml": []
+    },
+    {
+      "id": "20260917_dcc_controlled_file_name_claim",
+      "type": "schema",
+      "root": false,
+      "hashMatch": true,
+      "ledger": "UNLEDGERED",
+      "lfHash": "84a18e459e5093714da373576abc77d957d9e2624b7145f0c16ec7698a3dd19c",
+      "rawHash": "34a2950ca9ecaaf10a1d71e1e86a3b06115e80c06faaa0a118f9f2e5d50162fe",
+      "procedureCalls": [],
+      "dml": []
+    },
+    {
+      "id": "20260906_dcc_new_file_lifecycle_p1",
+      "type": "schema",
+      "root": false,
+      "hashMatch": true,
+      "ledger": "UNLEDGERED",
+      "lfHash": "c6f977dd216824348d0b71d548a80de5e7fb566ff0e648abbdd19c8de4ebd8a9",
+      "rawHash": "631bae6a1dbd521e5afd1df5838309c1403f9f641f22418e356253d30e8bba0b",
+      "procedureCalls": [
+        "IF",
+        "IF",
+        "IF",
+        "ensure_dcc_p1_column",
+        "ensure_dcc_p1_index",
+        "drop_dcc_p1_index",
+        "ensure_dcc_p1_column",
+        "ensure_dcc_p1_column",
+        "ensure_dcc_p1_column",
+        "ensure_dcc_p1_column",
+        "ensure_dcc_p1_column",
+        "drop_dcc_p1_index",
+        "ensure_dcc_p1_index",
+        "ensure_dcc_p1_index",
+        "IF",
+        "IF",
+        "IF"
+      ],
+      "dml": []
+    },
+    {
+      "id": "20260906_dcc_new_file_lifecycle_p2",
+      "type": "schema",
+      "root": false,
+      "hashMatch": true,
+      "ledger": "UNLEDGERED",
+      "lfHash": "025b5c7795eea74f1805c4cc2cf77e1cf65b12e44968fafcf722c744884155ad",
+      "rawHash": "3121fb0a6d6f12ad01408fb981f1de5af49f85deae9f3834e28e557a8a79907b",
+      "procedureCalls": [
+        "IF",
+        "ensure_dcc_p2_column",
+        "ensure_dcc_p2_column",
+        "ensure_dcc_p2_column",
+        "ensure_dcc_p2_column",
+        "ensure_dcc_p2_column",
+        "ensure_dcc_p2_column",
+        "ensure_dcc_p2_column",
+        "ensure_dcc_p2_column",
+        "IF"
+      ],
+      "dml": []
+    },
+    {
+      "id": "20260906_dcc_new_file_lifecycle_p3",
+      "type": "schema",
+      "root": false,
+      "hashMatch": true,
+      "ledger": "UNLEDGERED",
+      "lfHash": "c8d7843abd8152ca5d58346fa5e8b79e9ae844fcb4408ea8ecc236defe380cc4",
+      "rawHash": "5d4905c888a5163a593a138dc2bef1b3c88c0d889a74999293fdfab25f10818a",
+      "procedureCalls": [
+        "IF",
+        "ensure_dcc_p3_column",
+        "ensure_dcc_p3_column",
+        "IF"
+      ],
+      "dml": []
+    },
+    {
+      "id": "20260930_dcc_c_revision_identity",
+      "type": "schema",
+      "root": true,
+      "hashMatch": true,
+      "ledger": "UNLEDGERED",
+      "lfHash": "c13c68c7746efb269412c02520853bc3aa90388b7d1bae2d11fe07febd1ba777",
+      "rawHash": "b8ad667f71352d50e06f121d29e989fb1c984d7b28fb3915c5e73ad06211c901",
+      "procedureCalls": [
+        "IF",
+        "IF",
+        "ensure_dcc_c_column",
+        "ensure_dcc_c_index",
+        "ensure_dcc_c_column",
+        "ensure_dcc_c_column",
+        "ensure_dcc_c_column",
+        "ensure_dcc_c_column",
+        "ensure_dcc_c_column",
+        "ensure_dcc_c_column",
+        "ensure_dcc_c_column",
+        "ensure_dcc_c_column",
+        "ensure_dcc_c_column",
+        "ensure_dcc_c_column",
+        "ensure_dcc_c_column",
+        "ensure_dcc_c_column",
+        "ensure_dcc_c_column",
+        "ensure_dcc_c_column",
+        "ensure_dcc_c_column",
+        "ensure_dcc_c_index",
+        "ensure_dcc_c_index",
+        "ensure_dcc_c_index",
+        "ensure_dcc_c_index",
+        "IF",
+        "IF"
+      ],
+      "dml": []
+    },
+    {
+      "id": "20260815_system_notify_message_business_key",
+      "type": "schema",
+      "root": false,
+      "hashMatch": true,
+      "ledger": [
+        "20260815_system_notify_message_business_key\t227eb5c335b0726d0a9b91a93341c6cba360f26f208788dd7948ce22765274a9\tSKIPPED_ALREADY_APPLIED\ttest"
+      ],
+      "lfHash": "609682160bd2bddee73a11d4f869ac01cc5a77fb59665e2f5b03ad0d8a911662",
+      "rawHash": "227eb5c335b0726d0a9b91a93341c6cba360f26f208788dd7948ce22765274a9",
+      "procedureCalls": [
+        "IF",
+        "ensure_system_notify_message_business_key",
+        "ensure_system_notify_message_business_key",
+        "IF"
+      ],
+      "dml": []
+    },
+    {
+      "id": "20260903_dcc_controlled_file_related_file",
+      "type": "schema",
+      "root": false,
+      "hashMatch": true,
+      "ledger": "UNLEDGERED",
+      "lfHash": "98ece503796f462674616160db35eb9fc9c1f412f9c4b61dca8dcd03c9d6e28f",
+      "rawHash": "ada7c709bfc0ffea5270e3b0a46f6a971bd4cf636ca3e79987cbc5cbce34e511",
+      "procedureCalls": [],
+      "dml": []
+    },
+    {
+      "id": "20260615_system_config_package_menu",
+      "type": "menu",
+      "root": false,
+      "hashMatch": true,
+      "ledger": [
+        "20260615_system_config_package_menu\t93150ecb2cd1f8bd110b5cae2a7c6853201a4afc64df582bc9b65402d0ed600e\tSKIPPED_ALREADY_APPLIED\ttest"
+      ],
+      "lfHash": "d385c1bcfa87561be90a7d807e97e44b3470e98feda96b135311c44d702695d8",
+      "rawHash": "93150ecb2cd1f8bd110b5cae2a7c6853201a4afc64df582bc9b65402d0ed600e",
+      "procedureCalls": [
+        "IF",
+        "ensure_system_config_package_menu",
+        "ensure_system_config_package_menu",
+        "IF"
+      ],
+      "dml": [
+        "system_menu",
+        "system_menu",
+        "system_menu",
+        "system_tenant_package",
+        "system_role_menu"
+      ]
+    },
+    {
+      "id": "20260717_bpm_form_center",
+      "type": "schema",
+      "root": false,
+      "hashMatch": true,
+      "ledger": [
+        "20260717_bpm_form_center\tefbb62110581dda5fff647914b16f8deff11d8921016633eeab559a2c3824a7e\tSKIPPED_ALREADY_APPLIED\ttest"
+      ],
+      "lfHash": "4abbcff46401dc40fc6afcef31df00cc6b1b87ba9f07a4e55c59d898f96e8e4f",
+      "rawHash": "efbb62110581dda5fff647914b16f8deff11d8921016633eeab559a2c3824a7e",
+      "procedureCalls": [
+        "IF",
+        "ensure_bpm_form_center_menu",
+        "ensure_bpm_form_center_menu",
+        "IF"
+      ],
+      "dml": [
+        "system_menu",
+        "system_menu",
+        "system_role_menu",
+        "system_menu",
+        "system_menu",
+        "system_tenant_package",
+        "system_role_menu"
+      ]
+    },
+    {
+      "id": "20260719_business_approval_policy",
+      "type": "schema",
+      "root": false,
+      "hashMatch": true,
+      "ledger": [
+        "20260719_business_approval_policy\t3c51d352f2d0245efea952d2fc08a9d559aaf29cff119159ac257d93d65fe299\tSKIPPED_ALREADY_APPLIED\ttest"
+      ],
+      "lfHash": "e10ae250357845cc058524f2b68dbd6973f7e042df2bd401ab72783af39a3251",
+      "rawHash": "3c51d352f2d0245efea952d2fc08a9d559aaf29cff119159ac257d93d65fe299",
+      "procedureCalls": [],
+      "dml": []
+    },
+    {
+      "id": "20260719_dcc_upload_form_policy_seed",
+      "type": "data",
+      "root": false,
+      "hashMatch": true,
+      "ledger": "UNLEDGERED",
+      "lfHash": "10032e6b6463ed44aafc2bd41d33b8bcbe75223a65aca37c2075ed533b3b4fdf",
+      "rawHash": "059042e6847aba56722c1176efcb3547cd59ee7e0e647a2de58287cce88fbbbd",
+      "procedureCalls": [
+        "IF",
+        "ensure_dcc_upload_form_policy",
+        "ensure_dcc_upload_form_policy",
+        "IF"
+      ],
+      "dml": [
+        "bpm_business_approval_policy"
+      ]
+    },
+    {
+      "id": "20260720_dcc_publish_form_policy_seed",
+      "type": "data",
+      "root": false,
+      "hashMatch": true,
+      "ledger": "UNLEDGERED",
+      "lfHash": "62cf9e2f173881ae4b03cd49188d41f6af1d78fd80ee9876c665830196249599",
+      "rawHash": "ae7bcded6478a90044a7a8dbb3394e5bcbd1d020a79539bfcdcafedac629b6dc",
+      "procedureCalls": [
+        "IF",
+        "ensure_dcc_publish_form_policy",
+        "ensure_dcc_publish_form_policy",
+        "IF"
+      ],
+      "dml": [
+        "bpm_business_approval_policy"
+      ]
+    },
+    {
+      "id": "20260906_dcc_new_file_lifecycle_p4",
+      "type": "data",
+      "root": false,
+      "hashMatch": true,
+      "ledger": "UNLEDGERED",
+      "lfHash": "e9a099f2bbcf8beef53dcaf8223c78637d3ae3da69f0d59e352a7cf6254af92d",
+      "rawHash": "8a4d7db74973febd329771ca89fcacd582c90f63df777b3490b3a457d0b3eec8",
+      "procedureCalls": [
+        "IF",
+        "ensure_dcc_new_file_lifecycle_p4",
+        "ensure_dcc_new_file_lifecycle_p4",
+        "IF"
+      ],
+      "dml": [
+        "bpm_business_approval_policy",
+        "bpm_business_approval_policy"
+      ]
+    },
+    {
+      "id": "20260907_dcc_publication_followup",
+      "type": "schema",
+      "root": false,
+      "hashMatch": true,
+      "ledger": "UNLEDGERED",
+      "lfHash": "72e90746bcdde23ebc9327c9af870a5ca6f0ab729a95b2841275a036025e7a16",
+      "rawHash": "b0d0c1af3f8cf0302f21ed7f1fefb43db7d37e4d335cab71ce225533be963e1c",
+      "procedureCalls": [],
+      "dml": []
+    },
+    {
+      "id": "20260907_dcc_publication_impact_assessment",
+      "type": "schema",
+      "root": false,
+      "hashMatch": true,
+      "ledger": "UNLEDGERED",
+      "lfHash": "3de41dbdc3e5822cf9771b6abd448e43719aa78ad050b4d2adf758d9098a53dc",
+      "rawHash": "cae0a56e0bf9dd332662e566310d223d22a6fbccabf5f5324efb90045f3ae192",
+      "procedureCalls": [],
+      "dml": []
+    },
+    {
+      "id": "20260907_dcc_publication_notification",
+      "type": "schema",
+      "root": false,
+      "hashMatch": true,
+      "ledger": "UNLEDGERED",
+      "lfHash": "fbf241a3dc64c0639034ef322ef5560840067c8c1f75233366dddeb2c2626b86",
+      "rawHash": "7042398a7ec61810fa4dfa7f1bc182680f6e02f8b710f09a817ee999654b56c0",
+      "procedureCalls": [
+        "IF",
+        "ensure_dcc_publication_notification_p3",
+        "ensure_dcc_publication_notification_p3",
+        "IF"
+      ],
+      "dml": [
+        "system_notify_template",
+        "system_notify_template",
+        "system_menu",
+        "system_menu",
+        "system_role_menu",
+        "system_tenant_package"
+      ]
+    },
+    {
+      "id": "20260930_dcc_d_notification_template",
+      "type": "data",
+      "root": true,
+      "hashMatch": true,
+      "ledger": "UNLEDGERED",
+      "lfHash": "c25894dd3c966ee05a12a03be443851dbb4a169399d52c82f65a3b3e9210c50d",
+      "rawHash": "c25894dd3c966ee05a12a03be443851dbb4a169399d52c82f65a3b3e9210c50d",
+      "procedureCalls": [
+        "IF",
+        "ensure_dcc_d_remediation_template",
+        "ensure_dcc_d_remediation_template",
+        "IF"
+      ],
+      "dml": [
+        "system_notify_template"
+      ]
+    },
+    {
+      "id": "20260930_dcc_d_relations",
+      "type": "schema",
+      "root": true,
+      "hashMatch": true,
+      "ledger": "UNLEDGERED",
+      "lfHash": "74d931b00798e597cceb79b3d6cc5120329cc8129baee5bf20ac8dda850d3320",
+      "rawHash": "74d931b00798e597cceb79b3d6cc5120329cc8129baee5bf20ac8dda850d3320",
+      "procedureCalls": [],
+      "dml": []
+    },
+    {
+      "id": "20261001_dcc_application_round_link",
+      "type": "schema",
+      "root": true,
+      "hashMatch": true,
+      "ledger": "UNLEDGERED",
+      "lfHash": "9b2376eb347a6381270ddc3ee2f45700464946eb138189c31bfc56c1b1f28cf7",
+      "rawHash": "9b2376eb347a6381270ddc3ee2f45700464946eb138189c31bfc56c1b1f28cf7",
+      "procedureCalls": [],
+      "dml": []
+    },
+    {
+      "id": "20261001_dcc_b_manual_project_folder_origin",
+      "type": "schema",
+      "root": true,
+      "hashMatch": true,
+      "ledger": "UNLEDGERED",
+      "lfHash": "68d1f21b98a4e318919691404094032ad24ac8b71453200470e602f1ee207eae",
+      "rawHash": "68d1f21b98a4e318919691404094032ad24ac8b71453200470e602f1ee207eae",
+      "procedureCalls": [],
+      "dml": []
+    },
+    {
+      "id": "20261001_dcc_b_project_file_placement",
+      "type": "schema",
+      "root": true,
+      "hashMatch": true,
+      "ledger": "UNLEDGERED",
+      "lfHash": "d1c18263648efda60092d4f90eb030e97fd8b0be4398d02b88c8a992a045e060",
+      "rawHash": "35a1d649406879cd1a5332b136ebdc4de2f40fc4e5a615b9e5156b788a7b8d52",
+      "procedureCalls": [],
+      "dml": []
+    },
+    {
+      "id": "20261001_dcc_b_project_product_audit_intent",
+      "type": "schema",
+      "root": true,
+      "hashMatch": true,
+      "ledger": "UNLEDGERED",
+      "lfHash": "40229e93295f580f32067ec2335fe79b4475a98dbdf8c674be485c06de7edc3b",
+      "rawHash": "885c7806f07a51e2010e25b966c2d83accf16a384c07c4965b7e10d1968078fd",
+      "procedureCalls": [],
+      "dml": []
+    },
+    {
+      "id": "20261001_dcc_b_reserved_draft_round",
+      "type": "schema",
+      "root": true,
+      "hashMatch": true,
+      "ledger": "UNLEDGERED",
+      "lfHash": "3d474ab2953707bdc2821c84012d3d447658ad5967e9163d4d4b703c9d308652",
+      "rawHash": "48a5584639c1f4584247b040fee4825d8d70d291f520e28168b621bfd597e0f0",
+      "procedureCalls": [],
+      "dml": []
+    },
+    {
+      "id": "20261002_dcc_c_initial_candidate_identity",
+      "type": "schema",
+      "root": true,
+      "hashMatch": true,
+      "ledger": "UNLEDGERED",
+      "lfHash": "adb0dd8f1b536aeaf9f030ddb9c11797ac5ed4bdb4097031ca4541882d4e4e91",
+      "rawHash": "adb0dd8f1b536aeaf9f030ddb9c11797ac5ed4bdb4097031ca4541882d4e4e91",
+      "procedureCalls": [
+        "IF",
+        "ensure_dcc_c_initial_candidate_key",
+        "ensure_dcc_c_initial_candidate_key",
+        "IF"
+      ],
+      "dml": []
+    },
+    {
+      "id": "20261003_dcc_approval_file_owner_snapshot",
+      "type": "schema",
+      "root": true,
+      "hashMatch": true,
+      "ledger": "UNLEDGERED",
+      "lfHash": "68551ed616c76e9d160d18d7bffede41b495eef1c200859582962f4163c9cf1a",
+      "rawHash": "68551ed616c76e9d160d18d7bffede41b495eef1c200859582962f4163c9cf1a",
+      "procedureCalls": [
+        "IF",
+        "ensure_dcc_file_owner_column",
+        "ensure_dcc_file_owner_column",
+        "ensure_dcc_file_owner_column",
+        "ensure_dcc_file_owner_column",
+        "ensure_dcc_file_owner_column",
+        "ensure_dcc_file_owner_column",
+        "ensure_dcc_file_owner_column",
+        "ensure_dcc_file_owner_column",
+        "IF"
+      ],
+      "dml": []
+    },
+    {
+      "id": "20261003_dcc_controlled_file_activation_job_registration",
+      "type": "config",
+      "root": true,
+      "hashMatch": true,
+      "ledger": "UNLEDGERED",
+      "lfHash": "7a485fe6893eb4f67ba137ddb76a1f880cc08e53ddcd1c8dd88d13610638b606",
+      "rawHash": "49bf35361fd544551ecc3c720a89353ad0f5e31f2366e13083f08ea61c1138a5",
+      "procedureCalls": [
+        "IF",
+        "register_dcc_controlled_file_activation_job",
+        "register_dcc_controlled_file_activation_job",
+        "IF"
+      ],
+      "dml": [
+        "infra_job"
+      ]
+    },
+    {
+      "id": "20261003_dcc_project_reviewer_configuration",
+      "type": "schema",
+      "root": true,
+      "hashMatch": true,
+      "ledger": "UNLEDGERED",
+      "lfHash": "383628529609057bf6e3a331d51e0893b75e4946cf7f0e3bdfcb4a05f4c85d0d",
+      "rawHash": "1fe36f1472cdbd5a9ca0e58497439cb7b64afbe3d6df0869938672b9726abdc4",
+      "procedureCalls": [
+        "IF",
+        "ensure_dcc_reviewer_snapshot_column",
+        "ensure_dcc_reviewer_snapshot_column",
+        "ensure_dcc_reviewer_snapshot_column",
+        "ensure_dcc_reviewer_snapshot_column",
+        "IF"
+      ],
+      "dml": []
+    },
+    {
+      "id": "20261003_dcc_revision_failed_attempt_identity",
+      "type": "schema",
+      "root": true,
+      "hashMatch": true,
+      "ledger": "UNLEDGERED",
+      "lfHash": "cb59682ffac9b996dd2fb5b274999220b07ae24830a576e1621e267e1f3b06f1",
+      "rawHash": "d849e3105a5db4ae59b8b6e08b28e7a5b83749b9f9a3e99e113516c36c90421d",
+      "procedureCalls": [
+        "IF",
+        "ensure_dcc_revision_attempt_identity",
+        "ensure_dcc_revision_attempt_identity",
+        "IF"
+      ],
+      "dml": []
+    }
+  ]
+}

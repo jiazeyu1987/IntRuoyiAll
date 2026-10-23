@@ -2,11 +2,13 @@ package cn.iocoder.yudao.module.bpm.convert.task;
 
 import cn.iocoder.yudao.module.bpm.controller.admin.base.user.UserSimpleBaseVO;
 import cn.iocoder.yudao.module.bpm.controller.admin.definition.vo.process.BpmProcessDefinitionRespVO;
+import cn.iocoder.yudao.module.bpm.controller.admin.task.vo.instance.BpmProcessInstanceRespVO;
 import cn.iocoder.yudao.module.bpm.controller.admin.task.vo.instance.BpmProcessPrintDataRespVO;
 import cn.iocoder.yudao.module.bpm.dal.dataobject.definition.BpmProcessDefinitionInfoDO;
 import cn.iocoder.yudao.module.bpm.enums.task.BpmTaskStatusEnum;
 import cn.iocoder.yudao.module.bpm.framework.flowable.core.enums.BpmnVariableConstants;
 import org.flowable.engine.history.HistoricProcessInstance;
+import org.flowable.engine.repository.ProcessDefinition;
 import org.flowable.task.api.history.HistoricTaskInstance;
 import org.junit.jupiter.api.Test;
 
@@ -96,6 +98,21 @@ public class BpmProcessInstanceConvertTest {
         assertEquals(1, result.getTasks().size());
         assertTrue(result.getTasks().get(0).getDescription().contains("用户不存在(113) / 审核 /"));
         assertTrue(result.getTasks().get(0).getDescription().contains("审批通过"));
+    }
+
+    @Test
+    public void buildProcessInstance_projectsObjectIdAsBusinessObjectId() {
+        HistoricProcessInstance historicProcessInstance = mock(HistoricProcessInstance.class);
+        when(historicProcessInstance.getId()).thenReturn("proc-obsolete");
+        when(historicProcessInstance.getBusinessKey()).thenReturn("FORM_ACTION:FCI-122-1784320139265");
+        when(historicProcessInstance.getProcessVariables()).thenReturn(Map.of("objectId", "6003"));
+
+        BpmProcessInstanceRespVO result = BpmProcessInstanceConvert.INSTANCE.buildProcessInstance(
+                historicProcessInstance, mock(ProcessDefinition.class), BpmProcessDefinitionInfoDO.builder().build(),
+                null, null);
+
+        assertEquals("FORM_ACTION:FCI-122-1784320139265", result.getBusinessKey());
+        assertEquals("6003", result.getBusinessObjectId());
     }
 
 }

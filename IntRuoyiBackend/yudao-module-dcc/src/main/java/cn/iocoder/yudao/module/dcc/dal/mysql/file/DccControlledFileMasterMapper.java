@@ -12,6 +12,17 @@ import java.util.List;
 @Mapper
 public interface DccControlledFileMasterMapper extends BaseMapperX<DccControlledFileMasterDO> {
 
+    @Update("""
+            UPDATE dcc_controlled_file_master
+            SET current_active_controlled_file_id = NULL,
+                status = CASE WHEN latest_controlled_file_id IS NOT NULL AND latest_controlled_file_id <> #{fileId}
+                       THEN 'ACTIVE_CHAIN' ELSE 'OBSOLETE_CHAIN' END,
+                update_time = CURRENT_TIMESTAMP
+            WHERE id = #{id} AND tenant_id = #{tenantId}
+              AND current_active_controlled_file_id = #{fileId} AND deleted = 0
+            """)
+    int clearCurrentActive(@Param("tenantId") Long tenantId, @Param("id") Long id, @Param("fileId") Long fileId);
+
     default DccControlledFileMasterDO selectByCategoryIdAndDirectoryIdAndFileName(
             Long categoryId, Long directoryId, String fileName) {
         return selectOne(DccControlledFileMasterDO::getCategoryId, categoryId,
@@ -41,6 +52,7 @@ public interface DccControlledFileMasterMapper extends BaseMapperX<DccControlled
                    file_type_taxonomy_leaf_id,
                    normalized_file_number,
                    current_active_controlled_file_id,
+                   latest_controlled_file_id,
                    status,
                    create_time,
                    update_time,
@@ -52,7 +64,7 @@ public interface DccControlledFileMasterMapper extends BaseMapperX<DccControlled
               AND dcc_project_code_id = #{dccProjectCodeId}
               AND file_type_taxonomy_leaf_id = #{fileTypeTaxonomyLeafId}
               AND normalized_file_number = #{normalizedFileNumber}
-              AND deleted = b'0'
+              AND deleted = 0
             LIMIT 1
             """)
     DccControlledFileMasterDO selectByNewLogicalIdentity(@Param("tenantId") Long tenantId,
@@ -71,6 +83,7 @@ public interface DccControlledFileMasterMapper extends BaseMapperX<DccControlled
                    file_type_taxonomy_leaf_id,
                    normalized_file_number,
                    current_active_controlled_file_id,
+                   latest_controlled_file_id,
                    status,
                    create_time,
                    update_time,
@@ -117,6 +130,7 @@ public interface DccControlledFileMasterMapper extends BaseMapperX<DccControlled
                    file_name,
                    file_number,
                    current_active_controlled_file_id,
+                   latest_controlled_file_id,
                    status,
                    create_time,
                    update_time,

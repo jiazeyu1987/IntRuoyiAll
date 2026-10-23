@@ -1,0 +1,65 @@
+{
+  "state": "offline_reviewed_not_e2e",
+  "combinedTests": 131,
+  "standardLintTypesBuildSession": 66586,
+  "exit": 0,
+  "assets": [
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/detail/index.vue",
+      "sha256": "264355131f0f5f1a59f201ee0aa937bb88d121218171cd896811ab32579669ec",
+      "utf8LfSha256": "35d139d1ca96a50b4b87094de26d84b46c910f4302a43818e1f38e3ac8846608"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/detail/DetailApplicationHistory.vue",
+      "sha256": "d3db2a5389a3ef3bbacf04051b1496a876b4c6298a0e2562d4be15f68222dc72",
+      "utf8LfSha256": "d3db2a5389a3ef3bbacf04051b1496a876b4c6298a0e2562d4be15f68222dc72"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/detail/application-round-context.ts",
+      "sha256": "4836a76f0bfcf6aeab7f7bb4a749434e5b8215d32d5efcd42bba8fe5f9440344",
+      "utf8LfSha256": "4836a76f0bfcf6aeab7f7bb4a749434e5b8215d32d5efcd42bba8fe5f9440344"
+    },
+    {
+      "path": "IntRuoyiFronted/src/api/dcc/controlledFile/applicationRead.ts",
+      "sha256": "de1a57c65248b8bfd95430589baa5b6e01c9162d79b5c61e04c447206ae85f73",
+      "utf8LfSha256": "2a653ad94a72e98377117471f24150f161dd34af0c05e18134d208e2cbd099df"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/browser/ProjectBrowserPanel.vue",
+      "sha256": "3bdd91eaed6cb10969e0a217b37d57f4014b62211503994251083721dbb131e8",
+      "utf8LfSha256": "99e3d5717610443154c76f24b3f77ee3864e2db37d13485f0c48bec41577c4dc"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/browser/project-browser.ts",
+      "sha256": "491b1902c9835ae3a20b16baa766475de201c9c217ead0d5aae7292c18c6b7eb",
+      "utf8LfSha256": "491b1902c9835ae3a20b16baa766475de201c9c217ead0d5aae7292c18c6b7eb"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/relations/DccProjectReferences.vue",
+      "sha256": "436041d8dd3ea73abbefff4be294bcd84efbeb025b886c01b2553caa3803ddf6",
+      "utf8LfSha256": "436041d8dd3ea73abbefff4be294bcd84efbeb025b886c01b2553caa3803ddf6"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/relations/project-reference-contract.ts",
+      "sha256": "e1728649f4504954f6d74823a42ffa1adb2e8550f9ff23eb3fedc834395677fd",
+      "utf8LfSha256": "e1728649f4504954f6d74823a42ffa1adb2e8550f9ff23eb3fedc834395677fd"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/basic-data/components/ProductCatalogTabPanel.vue",
+      "sha256": "315d9185e45f67e88a2a0e3400465ea057bff752ebdd67cb7b4ba83a575a39b2",
+      "utf8LfSha256": "7108a30aac3f795ca3bb4e20d49a561e8707e5cc6de0aad7c998edb1c507f25a"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/basic-data/components/project-product-confirmation.ts",
+      "sha256": "ba91f917498b88fb893fb4df717f4e807fcc0b993fb268442a3d255a282dc881",
+      "utf8LfSha256": "ba91f917498b88fb893fb4df717f4e807fcc0b993fb268442a3d255a282dc881"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-project-product-confirmation.test.cjs",
+      "sha256": "2295b7df2dd59bc704f72527edd10adc7613c3bea3d032c8cb0aa2d23fd80b1f",
+      "utf8LfSha256": "2295b7df2dd59bc704f72527edd10adc7613c3bea3d032c8cb0aa2d23fd80b1f"
+    }
+  ],
+  "gitMerged": false,
+  "goalComplete": false
+}

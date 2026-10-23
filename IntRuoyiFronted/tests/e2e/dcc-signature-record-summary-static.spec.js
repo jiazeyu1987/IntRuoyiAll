@@ -26,11 +26,22 @@ const recordsTable = extractBetween(
   '</el-table>',
   'signature records table'
 )
-const signatureDetailDialog = extractBetween(
+const signaturePdfPreviewDialog = extractBetween(
   signaturePage,
-  '<el-dialog v-model="detailDialogVisible"',
+  '<el-dialog',
   '</el-dialog>',
-  'signature evidence detail dialog'
+  'signature evidence pdf preview dialog'
+)
+assert.match(
+  signaturePdfPreviewDialog,
+  /v-model="signaturePdfPreviewDialog\.visible"/,
+  '签名证据预览必须使用正式 PDF 预览弹窗状态'
+)
+const signaturePreviewHandler = extractBetween(
+  signaturePage,
+  'const openSignaturePdfPreview = async',
+  'const closeAuthorizationActionDialog',
+  'signature evidence pdf preview handler'
 )
 
 assert.equal(
@@ -120,19 +131,34 @@ for (const label of advancedColumnLabels) {
   assert.match(recordsTable, columnPattern, `${label} 技术列必须只在高级视图显示`)
 }
 
-for (const detailLabel of ['查看证据', '导出证据', '任务ID', '源文件 hash', '副本 hash', '证据 hash']) {
+for (const detailLabel of ['查看证据', '源文件 hash', '副本 hash', '证据 hash']) {
   assert.match(signaturePage, new RegExp(detailLabel), `签名证据功能必须保留：${detailLabel}`)
 }
 
 assert.match(
-  signatureDetailDialog,
-  /data-testid="dcc-signature-detail-file-link"/,
-  '签名证据详情弹窗必须提供稳定的文件详情入口'
+  signaturePdfPreviewDialog,
+  /title="签名证据 PDF 预览"/,
+  '签名证据弹窗必须直接预览正式 PDF 证据'
 )
 assert.match(
-  signatureDetailDialog,
-  /@click="openControlledFileDetail\(currentSignature\.controlledFileId\)"/,
-  '签名证据详情弹窗文件入口必须跳转当前签名记录对应的受控预览页'
+  signaturePdfPreviewDialog,
+  /:src="signaturePdfPreviewDialog\.objectUrl"/,
+  '签名证据弹窗必须使用正式证据 PDF objectUrl'
+)
+assert.match(
+  signaturePage,
+  /fetchDccSignatureEvidencePdfArtifact\(controlledFileId\)/,
+  '查看证据必须调用正式签名证据 PDF API'
+)
+assert.match(
+  signaturePage,
+  /URL\.createObjectURL\(artifact\.blob\)/,
+  '签名证据 PDF 必须由正式 blob 创建预览 URL'
+)
+assert.match(
+  signaturePage,
+  /URL\.revokeObjectURL\(signaturePdfPreviewDialog\.objectUrl\)/,
+  '签名证据 PDF 弹窗关闭时必须回收 objectUrl'
 )
 assert.match(
   signaturePage,
@@ -145,51 +171,19 @@ assert.doesNotMatch(
   '签名记录文件入口不得继续跳普通文件详情页'
 )
 assert.match(
-  signatureDetailDialog,
-  /currentSignature\.fileName/,
-  '签名证据详情弹窗文件入口必须继续展示真实文件名称'
+  signaturePreviewHandler,
+  /signaturePdfPreviewDialog\.target = signature/,
+  '签名证据 PDF 预览必须保留当前签名记录上下文'
 )
-
-for (const detailLabel of [
-  '账号快照',
-  '部门快照',
-  '岗位快照',
-  '角色快照',
-  '签名目的',
-  '认证方式',
-  '权限依据',
-  '记录版本',
-  '快照状态',
-  '记录 hash',
-  '客户端 IP',
-  'User-Agent',
-  '任务ID',
-  '源文件 hash',
-  '副本 hash',
-  '证据 hash',
-  '载荷版本',
-  '算法/密钥',
-  '校验结果',
-  '字段顺序',
-  '规范载荷'
-]) {
-  assert.match(signatureDetailDialog, new RegExp(detailLabel), `签名证据详情必须保留：${detailLabel}`)
-}
 
 for (const snapshotField of [
   'actorUsernameSnapshot',
   'actorDeptNameSnapshot',
   'actorPostNamesSnapshot',
   'actorRoleNamesSnapshot',
-  'signaturePurpose',
-  'authenticationMethod',
-  'authorizationBasis',
-  'recordVersionSnapshot',
-  'recordHashSnapshot',
-  'clientIpSnapshot',
-  'userAgentSnapshot'
+  'signaturePurpose'
 ]) {
-  assert.match(signatureDetailDialog, new RegExp(snapshotField), `签名证据详情必须展示 FDA 快照字段：${snapshotField}`)
+  assert.match(recordsTable, new RegExp(snapshotField), `签名记录摘要必须展示签名快照字段：${snapshotField}`)
 }
 
 assert.doesNotMatch(

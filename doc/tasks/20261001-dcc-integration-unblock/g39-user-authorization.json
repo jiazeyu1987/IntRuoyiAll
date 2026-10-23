@@ -1,0 +1,44 @@
+{
+  "source": "Actual user reply to request_user_input_async call_mc2WuQaway0pBN7yucRpSVS9",
+  "sourceMessageReference": "send_user_message_question_reply:call_mc2WuQaway0pBN7yucRpSVS9",
+  "projectInitialAccess": {
+    "actualAnswer": "采用负责人 OWNER 方案（建议）",
+    "confirmed": true,
+    "contract": "Initialize one formal USER/OWNER rule for the selected enabled same-tenant project leader within the project approval creation transaction; no automatic grant to applicant, reviewer or admin."
+  },
+  "sidecarMigration": {
+    "actualAnswer": "授权按方案执行（建议）",
+    "authorized": true,
+    "migrationId": "20261003_dcc_legacy_source_name_occupancy",
+    "sqlSha256": "621fe041064ac07c5bfe995abd556c3f9436b0253c883a3b7d2b33014e68de2a",
+    "databases": ["dcc_intqms_g18_rehearsal", "ruoyi-vue-pro"],
+    "isolatedFirstRepeatBeforeSource": true,
+    "maximumNewLedgerRowsPerDatabase": 1,
+    "preserveHistoricalRows": true
+  },
+  "exactOriginalObjectRecovery": {
+    "actualAnswer": "授权按方案恢复（建议）",
+    "authorized": true,
+    "sourceFileIds": ["9198354931064", "9198354931068", "9198354931079", "9198354931095"],
+    "maximumUniqueObjectPuts": 3,
+    "missingObjectsOnly": true,
+    "overwriteOrDatabaseHistoryChangeAllowed": false,
+    "independentAll39GetVerificationRequired": true
+  },
+  "conditionalAuditAndLegacyRegistration": {
+    "actualAnswer": "授权条件齐备后按方案执行（建议）",
+    "executionAuthorizedWhenPrerequisitesMet": true,
+    "auditOperationRows": 26,
+    "maximumActualQualityVersionRows": 1,
+    "legacyClaims": 25,
+    "versionEvidenceRows": 39,
+    "originalNameGroups": 13,
+    "actualQualityApprovalRequired": true,
+    "all39OriginalBodiesVerifiedRequired": true,
+    "preserveHistoricalFilesVersionsNamesSignatures": true
+  },
+  "actualQualityApproved": false,
+  "actualQualityTime": null,
+  "actualQualitySignatureEvidence": null,
+  "priorBlockedAuditSupersededByNewActualAnswers": true
+}

@@ -120,6 +120,8 @@ class DccProjectCodeServiceImplTest extends BaseDbUnitTest {
     @MockitoBean
     private PermissionApi permissionApi;
     @MockitoBean
+    private cn.iocoder.yudao.module.dcc.service.projectcode.access.DccProjectAccessService projectAccess;
+    @MockitoBean
     private DccProjectCodeConfigurationStatusApi configurationStatusApi;
     @MockitoBean
     private MdmProductApi productApi;
@@ -222,6 +224,23 @@ class DccProjectCodeServiceImplTest extends BaseDbUnitTest {
         updateReqVO.setProjectCode("CODE-A");
         updateReqVO.setStatus(DccProjectCodeStatusConstants.ENABLE);
         assertServiceException(() -> projectCodeService.updateProjectCode(updateReqVO), PROJECT_CODE_DUPLICATE);
+    }
+
+    @Test
+    void createShouldRejectDuplicateProjectCodeAcrossProjectNames() {
+        projectCodeMapper.insert(DccProjectCodeDO.builder()
+                .docControlNo("1")
+                .projectName("项目A")
+                .projectCode("CODE-SHARED")
+                .status(DccProjectCodeStatusConstants.ENABLE)
+                .build());
+
+        DccProjectCodeSaveReqVO createReqVO = new DccProjectCodeSaveReqVO();
+        createReqVO.setProjectName("项目B");
+        createReqVO.setProjectCode("CODE-SHARED");
+        createReqVO.setStatus(DccProjectCodeStatusConstants.ENABLE);
+
+        assertServiceException(() -> projectCodeService.createProjectCode(createReqVO), PROJECT_CODE_DUPLICATE);
     }
 
     @Test
@@ -418,6 +437,7 @@ class DccProjectCodeServiceImplTest extends BaseDbUnitTest {
         DccProjectCodeDO projectCode = insertProjectCode("1", "项目A", "CODE-A");
         DccControlledFileDO controlledFile = insertControlledFile(projectCode.getId(), "DCC-7001",
                 "controlled-file.pdf", null, null);
+        when(controlledFileQueryService.canViewFileName(eq(99L), any(DccControlledFileDO.class))).thenReturn(true);
         DccControlledFileRespVO registrationFile = new DccControlledFileRespVO();
         registrationFile.setId(8001L);
         registrationFile.setFileName("registration-certificate.pdf");
@@ -445,10 +465,24 @@ class DccProjectCodeServiceImplTest extends BaseDbUnitTest {
     }
 
     @Test
+    void associatedFilePageExcludesFilesWhoseNameIsNotAuthorized() {
+        var project = insertProjectCode("1", "项目权限测试", "CODE-PRIVATE");
+        insertControlledFile(project.getId(), "PRIVATE-1", "private.pdf", null, null);
+        var request = new DccProjectCodeControlledFilePageReqVO();
+        request.setPageNo(1);
+        request.setPageSize(20);
+        when(controlledFileQueryService.canViewFileName(eq(99L), any(DccControlledFileDO.class))).thenReturn(false);
+        var result = projectCodeService.getControlledFilePage(99L, project.getId(), request);
+        assertEquals(0L, result.getTotal());
+        assertEquals(List.of(), result.getList());
+    }
+
+    @Test
     void controlledFilePageShouldListPendingUploadedControlledFilesForUploadRelation() {
         DccProjectCodeDO projectCode = insertProjectCode("1", "项目A", "CODE-A");
         DccControlledFileDO pendingFile = insertControlledFile(projectCode.getId(), "PENDING-001",
                 "待审批上传文件.pdf", null, null, DccControlledFileStatusEnum.PENDING_DOC_CONTROL_APPROVAL.getStatus());
+        when(controlledFileQueryService.canViewFileName(eq(99L), any(DccControlledFileDO.class))).thenReturn(true);
 
         DccProjectCodeControlledFilePageReqVO reqVO = new DccProjectCodeControlledFilePageReqVO();
         reqVO.setPageNo(1);
@@ -1376,7 +1410,7 @@ class DccProjectCodeServiceImplTest extends BaseDbUnitTest {
         Long resolvedTaxonomyId = fileTypeTaxonomyId != null ? fileTypeTaxonomyId : 10_000L + Math.abs((long) code.hashCode());
         when(fileTypeTaxonomyAdminService.resolveActivePath(resolvedTaxonomyId)).thenReturn(new DccFileTypeTaxonomyPath(
                 resolvedTaxonomyId, "技术文档", taxonomyStageName(lifecycleStage), name, null, null));
-        DccFileCategoryDO category = DccFileCategoryDO.builder()
+        DccFileCategoryDO category = DccFileCategoryDO.builder().approvalSourceMode("PUBLIC_MATRIX")
                 .code(code)
                 .name(name)
                 .active(Boolean.TRUE)

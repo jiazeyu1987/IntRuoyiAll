@@ -1,0 +1,141 @@
+{
+  "status": "REAL_B1_ATTEMPT2_CONTROLLED_PENDING_EFFECTIVE_INDEPENDENT_SIGNATURE_VERIFIED_NEXT_NOTICE_AND_DISTRIBUTION",
+  "actualIds": {
+    "withdrawn": "2054545668044084043",
+    "correctedWorking": "2054545668044084044",
+    "newApplication": "2054545668044084045",
+    "newBpm": "89833bb6-c11c-11f1-aab8-b082e25ec548",
+    "sourceMaster": "2054545668044079116",
+    "relatedMaster": "2054545668044079118"
+  },
+  "visibleFlows": "actualsourceuploaded228/checkin232B1-1→normalreplacementB1attempt2/frozen4028→leaderadmin1assign441→realown910328sign442→approval443selectowner910328→doc444controlled300",
+  "oldExecuting": "4041A3 staysACTIVE until10/13, current latestcontrolled4045B1 pending",
+  "ui": [
+    {
+      "step": "228",
+      "sha256": "2fc119cc8b318cd931bc271418a54fbaf11e037225cfcf69d61449f455345615",
+      "url": "/dcc/controlled-file/browser",
+      "dialogs": [
+        "检入新版本\n检入结果\n检入仅生成工作小版本；正式局部变更或换版变更须从所选工作正文单独提交审批。\n培训要求\n需要培训\n修改后的源文件（可选）\n选择文件\n20261005-dcc-four-directions-g53-source.pdf\n已上传：20261005-dcc-four-directions-g53-source.pdf\n源文件或备注至少一项真实变化即可检入；未上传新源文件时，备注需与当前版本不同。\n修改说明\n0 / 1000\n检入备注\n49 / 1000\n取消\n检入并生成工作小版本"
+      ],
+      "naturalWrites": [
+        {
+          "method": "POST",
+          "pathname": "/admin-api/dcc/controlled-files/upload-preview",
+          "status": 200
+        }
+      ]
+    },
+    {
+      "step": "232",
+      "sha256": "ef580732843ca4ee0c47b230f121b35451decfe97dddcb873c3754584c539c3f",
+      "url": "/dcc/controlled-file/browser",
+      "dialogs": [],
+      "naturalWrites": [
+        {
+          "method": "POST",
+          "pathname": "/admin-api/dcc/controlled-files/2054545668044084043/checkin",
+          "status": 200
+        }
+      ]
+    },
+    {
+      "step": "251",
+      "sha256": "2810d3db637292bb4456197ab888137687f457fd2eebe77893c70a261b5d0395",
+      "url": "/dcc/controlled-file/detail/2054545668044084045",
+      "dialogs": [],
+      "naturalWrites": [
+        {
+          "method": "POST",
+          "pathname": "/admin-api/dcc/controlled-files/2054545668044084044/submit",
+          "status": 200
+        }
+      ]
+    },
+    {
+      "step": "267",
+      "sha256": "b257fbadd7e7f3d48802326d8d38917356367f44a25c2aa3ba70d139d43299a0",
+      "url": "/dcc/controlled-file/detail/2054545668044084045",
+      "dialogs": [],
+      "naturalWrites": []
+    },
+    {
+      "step": "271",
+      "sha256": "d0fd8f64e71a35609c71d0bd91cf22d28b6430256c442ca7c9b6d169a9ec8ca4",
+      "url": "/dcc/controlled-file/detail/2054545668044084045",
+      "dialogs": [],
+      "naturalWrites": []
+    },
+    {
+      "step": "273",
+      "sha256": "906cbbc080cbe1b16f301f7b421278f7933e7257c8a525607e0246a8741c9aa8",
+      "url": "/dcc/controlled-file/detail/2054545668044084045",
+      "dialogs": [
+        "会签审核签名\n文件编号\tG53-DOC-20261005-01\t版本\tB/1\n当前阶段\t会签\t签名含义\t会签审核通过\n签名人\tG57独立文控验收\t签名动作\t通过签名\n任务ID\t8987cfb6-c11c-11f1-aab8-b082e25ec548\n提交后流转\t提交后流转：上传、升版：会签→批准→培训（如需）→文控审核→受控→下发；按预设生效日期生效，新版生效时旧版自动作废。作废：会签→批准，批准通过即完成作废并结束流程。\n电子签名审计证据\t本次签名会写入电子签名审计证据，包含签名人、节点、动作、时间、哈希与审计快照。\n证据前置\t版本、源文件摘要、受控副本摘要状态\n登录密码\n审批意见\n取消\n确认签名"
+      ],
+      "naturalWrites": [
+        {
+          "method": "POST",
+          "pathname": "/admin-api/dcc/controlled-files/2054545668044084045/task-action-readiness",
+          "status": 200
+        }
+      ]
+    },
+    {
+      "step": "277",
+      "sha256": "5e447e3b9e7f413bb6f183a3f4b43422b768a7fab523772338501424e1910e22",
+      "url": "/dcc/controlled-file/detail/2054545668044084045",
+      "dialogs": [],
+      "naturalWrites": [
+        {
+          "method": "POST",
+          "pathname": "/admin-api/dcc/controlled-files/2054545668044084045/approve-task",
+          "status": 200
+        }
+      ]
+    },
+    {
+      "step": "289",
+      "sha256": "15f1ec46780cc0ea6c27eee9b0daf91db30d4eaae8ec9f571c48d81a8cea618d",
+      "url": "/dcc/controlled-file/detail/2054545668044084045",
+      "dialogs": [
+        "会签批准签名\n文件编号\tG53-DOC-20261005-01\t版本\tB/1\n当前阶段\t批准\t签名含义\t会签批准通过\n签名人\t瑛泰管理员\t签名动作\t通过签名\n任务ID\tf642c89b-c11d-11f1-aab8-b082e25ec548\n提交后流转\t提交后流转：上传、升版：会签→批准→培训（如需）→文控审核→受控→下发；按预设生效日期生效，新版生效时旧版自动作废。作废：会签→批准，批准通过即完成作废并结束流程。\n电子签名审计证据\t本次签名会写入电子签名审计证据，包含签名人、节点、动作、时间、哈希与审计快照。\n证据前置\t版本、源文件摘要、受控副本摘要状态\n登录密码\n审批意见\n文件负责人\nG57独立文控验收（g57dccdoc20261005）\n\n本次选择与批准签名保存；负责人选择不增加文件操作权限。\n\n取消\n确认签名",
+        "系统提示\n\n确认批准文件 G53-DOC-20261005-01 B/1，并选择账号 #910328 为本版本文件负责人？\n\n取消\n确定"
+      ],
+      "naturalWrites": []
+    },
+    {
+      "step": "292",
+      "sha256": "c6b52f66517e4a7d0df2445759b9466bb052ce0e777836f374f3395f09afc9d7",
+      "url": "/dcc/controlled-file/detail/2054545668044084045",
+      "dialogs": [],
+      "naturalWrites": [
+        {
+          "method": "POST",
+          "pathname": "/admin-api/dcc/controlled-files/2054545668044084045/approve-task",
+          "status": 200
+        }
+      ]
+    },
+    {
+      "step": "300",
+      "sha256": "bf4df2a464561c44e873c8fdbd3a6940821d1f8fb8c74b2cf3b8f5363e993c7c",
+      "url": "/dcc/controlled-file/detail/2054545668044084045",
+      "dialogs": [],
+      "naturalWrites": [
+        {
+          "method": "POST",
+          "pathname": "/admin-api/dcc/controlled-files/2054545668044084045/approve-task",
+          "status": 200
+        },
+        {
+          "method": "POST",
+          "pathname": "/admin-api/form-center/actions/active-instance",
+          "status": 200
+        }
+      ]
+    }
+  ],
+  "directBusinessSqlWrites": false,
+  "credentialsPersisted": false
+}

@@ -1,0 +1,337 @@
+{
+  "status": "G59_EXACT_SINGLE_DEVELOPMENT_AUDIT_RULE_CLONE_SOURCE_FIRST_REPEAT_PASS",
+  "sqlSha256": "3f5cf81609b2637a08024a415fedfe8f95e74137992e4622e70d0ddb8811ab78",
+  "results": [
+    {
+      "database": "dcc_intqms_g18_rehearsal",
+      "identity": {
+        "uuid": "92ca05d0-aec8-11f1-a944-02b4e226a5ef",
+        "version": "8.0.40",
+        "database": "dcc_intqms_g18_rehearsal"
+      },
+      "backup": {
+        "path": "C:\\IntRuoyiBackups\\20261005-dcc-four-direction-runtime\\g59-audit-rule\\dcc_intqms_g18_rehearsal\\protected-tables.sql.gz",
+        "sha256": "09678af51d6686a97fb386f52cbd42ef659cfa05c38c767609a95b9f6dfc4b8e",
+        "bytes": 2676736,
+        "expandedBytes": 50556612,
+        "exitCode": 0,
+        "gzipIntegrity": "PASS"
+      },
+      "steps": [
+        {
+          "execution": {
+            "database": "dcc_intqms_g18_rehearsal",
+            "sqlSha256": "7451db601c18ca374557d3c277542ce4365dea6e06d71fb329358560f8e4910c",
+            "exitCode": 0,
+            "stdout": "C:\\IntRuoyiBackups\\20261005-dcc-four-direction-runtime\\g59-audit-rule\\dcc_intqms_g18_rehearsal\\first.stdout.txt",
+            "stderr": "C:\\IntRuoyiBackups\\20261005-dcc-four-direction-runtime\\g59-audit-rule\\dcc_intqms_g18_rehearsal\\first.stderr.txt"
+          },
+          "oldRows": {
+            "gxp_audit_policy_operation": {
+              "originalCount": 8,
+              "originalPayloadSha256": "521c1bd47a0454d31118a868ed4d3a6ca0d22cc61e9e6a9c9918c08b964198f9",
+              "oldRowsUnchanged": true,
+              "newRowCount": 1
+            },
+            "gxp_audit_policy_version": {
+              "originalCount": 1,
+              "originalPayloadSha256": "d5d316d1c922ff33c243d449dde86075c08c191117a9589ce6ef79c6eba28314",
+              "oldRowsUnchanged": true,
+              "newRowCount": 0
+            },
+            "infra_release_migration": {
+              "originalCount": 533,
+              "originalPayloadSha256": "4859cbfcd616433a0ae3a70b77acea7c46631cc8d72cd42f7c51aa9c14a8eae3",
+              "oldRowsUnchanged": true,
+              "newRowCount": 0
+            },
+            "dcc_controlled_file": {
+              "originalCount": 41615,
+              "originalPayloadSha256": "b88b382fba0c6ba6f64431cfd4658042d8793695b42fbf6a591770e64bc48c21",
+              "oldRowsUnchanged": true,
+              "newRowCount": 0
+            },
+            "dcc_controlled_file_master": {
+              "originalCount": 36685,
+              "originalPayloadSha256": "236684c228fe8f62b149feb1fc369398e93421a76b4a0206c004b0722d57a6ef",
+              "oldRowsUnchanged": true,
+              "newRowCount": 0
+            },
+            "dcc_controlled_file_signature": {
+              "originalCount": 339,
+              "originalPayloadSha256": "502b016139429c127fd8313c8f18d4f4935abf1baf5a580076ac1ff695993853",
+              "oldRowsUnchanged": true,
+              "newRowCount": 0
+            },
+            "system_electronic_signature": {
+              "originalCount": 0,
+              "originalPayloadSha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+              "oldRowsUnchanged": true,
+              "newRowCount": 0
+            },
+            "controlled_content_version_ref": {
+              "originalCount": 0,
+              "originalPayloadSha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+              "oldRowsUnchanged": true,
+              "newRowCount": 0
+            },
+            "controlled_content_transition_audit": {
+              "originalCount": 0,
+              "originalPayloadSha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+              "oldRowsUnchanged": true,
+              "newRowCount": 0
+            },
+            "dcc_workflow_lifecycle_event": {
+              "originalCount": 0,
+              "originalPayloadSha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+              "oldRowsUnchanged": true,
+              "newRowCount": 0
+            }
+          },
+          "extraConfigRows": 1,
+          "businessRowsChanged": 0
+        },
+        {
+          "execution": {
+            "database": "dcc_intqms_g18_rehearsal",
+            "sqlSha256": "7451db601c18ca374557d3c277542ce4365dea6e06d71fb329358560f8e4910c",
+            "exitCode": 0,
+            "stdout": "C:\\IntRuoyiBackups\\20261005-dcc-four-direction-runtime\\g59-audit-rule\\dcc_intqms_g18_rehearsal\\repeat.stdout.txt",
+            "stderr": "C:\\IntRuoyiBackups\\20261005-dcc-four-direction-runtime\\g59-audit-rule\\dcc_intqms_g18_rehearsal\\repeat.stderr.txt"
+          },
+          "oldRows": {
+            "gxp_audit_policy_operation": {
+              "originalCount": 8,
+              "originalPayloadSha256": "521c1bd47a0454d31118a868ed4d3a6ca0d22cc61e9e6a9c9918c08b964198f9",
+              "oldRowsUnchanged": true,
+              "newRowCount": 1
+            },
+            "gxp_audit_policy_version": {
+              "originalCount": 1,
+              "originalPayloadSha256": "d5d316d1c922ff33c243d449dde86075c08c191117a9589ce6ef79c6eba28314",
+              "oldRowsUnchanged": true,
+              "newRowCount": 0
+            },
+            "infra_release_migration": {
+              "originalCount": 533,
+              "originalPayloadSha256": "4859cbfcd616433a0ae3a70b77acea7c46631cc8d72cd42f7c51aa9c14a8eae3",
+              "oldRowsUnchanged": true,
+              "newRowCount": 0
+            },
+            "dcc_controlled_file": {
+              "originalCount": 41615,
+              "originalPayloadSha256": "b88b382fba0c6ba6f64431cfd4658042d8793695b42fbf6a591770e64bc48c21",
+              "oldRowsUnchanged": true,
+              "newRowCount": 0
+            },
+            "dcc_controlled_file_master": {
+              "originalCount": 36685,
+              "originalPayloadSha256": "236684c228fe8f62b149feb1fc369398e93421a76b4a0206c004b0722d57a6ef",
+              "oldRowsUnchanged": true,
+              "newRowCount": 0
+            },
+            "dcc_controlled_file_signature": {
+              "originalCount": 339,
+              "originalPayloadSha256": "502b016139429c127fd8313c8f18d4f4935abf1baf5a580076ac1ff695993853",
+              "oldRowsUnchanged": true,
+              "newRowCount": 0
+            },
+            "system_electronic_signature": {
+              "originalCount": 0,
+              "originalPayloadSha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+              "oldRowsUnchanged": true,
+              "newRowCount": 0
+            },
+            "controlled_content_version_ref": {
+              "originalCount": 0,
+              "originalPayloadSha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+              "oldRowsUnchanged": true,
+              "newRowCount": 0
+            },
+            "controlled_content_transition_audit": {
+              "originalCount": 0,
+              "originalPayloadSha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+              "oldRowsUnchanged": true,
+              "newRowCount": 0
+            },
+            "dcc_workflow_lifecycle_event": {
+              "originalCount": 0,
+              "originalPayloadSha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+              "oldRowsUnchanged": true,
+              "newRowCount": 0
+            }
+          },
+          "extraConfigRows": 1,
+          "businessRowsChanged": 0
+        }
+      ]
+    },
+    {
+      "database": "ruoyi-vue-pro",
+      "identity": {
+        "uuid": "92ca05d0-aec8-11f1-a944-02b4e226a5ef",
+        "version": "8.0.40",
+        "database": "ruoyi-vue-pro"
+      },
+      "backup": {
+        "path": "C:\\IntRuoyiBackups\\20261005-dcc-four-direction-runtime\\g59-audit-rule\\ruoyi-vue-pro\\protected-tables.sql.gz",
+        "sha256": "30b2f49a6e4b44b6370d3be8380f923181f54b6fd4179e558723c548e554a149",
+        "bytes": 3219732,
+        "expandedBytes": 58943080,
+        "exitCode": 0,
+        "gzipIntegrity": "PASS"
+      },
+      "steps": [
+        {
+          "execution": {
+            "database": "ruoyi-vue-pro",
+            "sqlSha256": "7379e5a8936089a044654d14b00afbbe1c396f0a5dbe6efe5ab0d8d61216fd08",
+            "exitCode": 0,
+            "stdout": "C:\\IntRuoyiBackups\\20261005-dcc-four-direction-runtime\\g59-audit-rule\\ruoyi-vue-pro\\first.stdout.txt",
+            "stderr": "C:\\IntRuoyiBackups\\20261005-dcc-four-direction-runtime\\g59-audit-rule\\ruoyi-vue-pro\\first.stderr.txt"
+          },
+          "oldRows": {
+            "gxp_audit_policy_operation": {
+              "originalCount": 34,
+              "originalPayloadSha256": "05f8e15c94574662961e0e143a54f5a6d979c256bf04b5345bc91b6701dcd6fd",
+              "oldRowsUnchanged": true,
+              "newRowCount": 1
+            },
+            "gxp_audit_policy_version": {
+              "originalCount": 1,
+              "originalPayloadSha256": "d5d316d1c922ff33c243d449dde86075c08c191117a9589ce6ef79c6eba28314",
+              "oldRowsUnchanged": true,
+              "newRowCount": 0
+            },
+            "infra_release_migration": {
+              "originalCount": 533,
+              "originalPayloadSha256": "afeeb68c800acf5f771e095e343f19f794117a46d3797a347d0c694e76c45f8c",
+              "oldRowsUnchanged": true,
+              "newRowCount": 0
+            },
+            "dcc_controlled_file": {
+              "originalCount": 41619,
+              "originalPayloadSha256": "7aa5194e47ea77b8e47a0622658b86760147207949b34a6983088e827789b10f",
+              "oldRowsUnchanged": true,
+              "newRowCount": 0
+            },
+            "dcc_controlled_file_master": {
+              "originalCount": 36687,
+              "originalPayloadSha256": "26896555769cb90ccd5a62ce1e7257677622279e7dfff2c39b1cb9ae99aa1fa1",
+              "oldRowsUnchanged": true,
+              "newRowCount": 0
+            },
+            "dcc_controlled_file_signature": {
+              "originalCount": 349,
+              "originalPayloadSha256": "cee751980d7a0ae4f0904bbd6146a77aba98620395eabe565327bb31b5abc73b",
+              "oldRowsUnchanged": true,
+              "newRowCount": 0
+            },
+            "system_electronic_signature": {
+              "originalCount": 169,
+              "originalPayloadSha256": "d5238203dca1454d3d7c0955b612aecef6b0459a433d707513bcc0c7904af3b1",
+              "oldRowsUnchanged": true,
+              "newRowCount": 0
+            },
+            "controlled_content_version_ref": {
+              "originalCount": 34351,
+              "originalPayloadSha256": "80610ff733b1a5ccef0aa9af0e3885fbbbb3da5e49fefe28d9cab8563a7a92f1",
+              "oldRowsUnchanged": true,
+              "newRowCount": 0
+            },
+            "controlled_content_transition_audit": {
+              "originalCount": 198,
+              "originalPayloadSha256": "1cb342243701a98135942d3ee653b5b84b5ef37a24d85fe8a8d82a7c4b4eb374",
+              "oldRowsUnchanged": true,
+              "newRowCount": 0
+            },
+            "dcc_workflow_lifecycle_event": {
+              "originalCount": 4,
+              "originalPayloadSha256": "36fc071f3fca0468621a254853395636d54ca19d3eafd96ed7274522c41976d3",
+              "oldRowsUnchanged": true,
+              "newRowCount": 0
+            }
+          },
+          "extraConfigRows": 1,
+          "businessRowsChanged": 0
+        },
+        {
+          "execution": {
+            "database": "ruoyi-vue-pro",
+            "sqlSha256": "7379e5a8936089a044654d14b00afbbe1c396f0a5dbe6efe5ab0d8d61216fd08",
+            "exitCode": 0,
+            "stdout": "C:\\IntRuoyiBackups\\20261005-dcc-four-direction-runtime\\g59-audit-rule\\ruoyi-vue-pro\\repeat.stdout.txt",
+            "stderr": "C:\\IntRuoyiBackups\\20261005-dcc-four-direction-runtime\\g59-audit-rule\\ruoyi-vue-pro\\repeat.stderr.txt"
+          },
+          "oldRows": {
+            "gxp_audit_policy_operation": {
+              "originalCount": 34,
+              "originalPayloadSha256": "05f8e15c94574662961e0e143a54f5a6d979c256bf04b5345bc91b6701dcd6fd",
+              "oldRowsUnchanged": true,
+              "newRowCount": 1
+            },
+            "gxp_audit_policy_version": {
+              "originalCount": 1,
+              "originalPayloadSha256": "d5d316d1c922ff33c243d449dde86075c08c191117a9589ce6ef79c6eba28314",
+              "oldRowsUnchanged": true,
+              "newRowCount": 0
+            },
+            "infra_release_migration": {
+              "originalCount": 533,
+              "originalPayloadSha256": "afeeb68c800acf5f771e095e343f19f794117a46d3797a347d0c694e76c45f8c",
+              "oldRowsUnchanged": true,
+              "newRowCount": 0
+            },
+            "dcc_controlled_file": {
+              "originalCount": 41619,
+              "originalPayloadSha256": "7aa5194e47ea77b8e47a0622658b86760147207949b34a6983088e827789b10f",
+              "oldRowsUnchanged": true,
+              "newRowCount": 0
+            },
+            "dcc_controlled_file_master": {
+              "originalCount": 36687,
+              "originalPayloadSha256": "26896555769cb90ccd5a62ce1e7257677622279e7dfff2c39b1cb9ae99aa1fa1",
+              "oldRowsUnchanged": true,
+              "newRowCount": 0
+            },
+            "dcc_controlled_file_signature": {
+              "originalCount": 349,
+              "originalPayloadSha256": "cee751980d7a0ae4f0904bbd6146a77aba98620395eabe565327bb31b5abc73b",
+              "oldRowsUnchanged": true,
+              "newRowCount": 0
+            },
+            "system_electronic_signature": {
+              "originalCount": 169,
+              "originalPayloadSha256": "d5238203dca1454d3d7c0955b612aecef6b0459a433d707513bcc0c7904af3b1",
+              "oldRowsUnchanged": true,
+              "newRowCount": 0
+            },
+            "controlled_content_version_ref": {
+              "originalCount": 34351,
+              "originalPayloadSha256": "80610ff733b1a5ccef0aa9af0e3885fbbbb3da5e49fefe28d9cab8563a7a92f1",
+              "oldRowsUnchanged": true,
+              "newRowCount": 0
+            },
+            "controlled_content_transition_audit": {
+              "originalCount": 198,
+              "originalPayloadSha256": "1cb342243701a98135942d3ee653b5b84b5ef37a24d85fe8a8d82a7c4b4eb374",
+              "oldRowsUnchanged": true,
+              "newRowCount": 0
+            },
+            "dcc_workflow_lifecycle_event": {
+              "originalCount": 4,
+              "originalPayloadSha256": "36fc071f3fca0468621a254853395636d54ca19d3eafd96ed7274522c41976d3",
+              "oldRowsUnchanged": true,
+              "newRowCount": 0
+            }
+          },
+          "extraConfigRows": 1,
+          "businessRowsChanged": 0
+        }
+      ]
+    }
+  ],
+  "qualityApprovalRowsWritten": 0,
+  "nativeBusinessRowsWritten": 0,
+  "newRulePerDatabase": 1
+}

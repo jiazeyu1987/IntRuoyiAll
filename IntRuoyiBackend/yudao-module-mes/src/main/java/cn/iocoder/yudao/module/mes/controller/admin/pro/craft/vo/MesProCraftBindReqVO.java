@@ -1,10 +1,16 @@
 package cn.iocoder.yudao.module.mes.controller.admin.pro.craft.vo;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
+import java.util.List;
 @Data
-public class MesProCraftBindReqVO {
-    @NotNull private Long routeVersionId;
-    @NotNull private Long routeProcessId;
-    @NotNull private Long craftId;
-    @NotBlank private String expectedRouteSnapshotSha256;
+@EqualsAndHashCode(callSuper = true)
+public class MesProCraftBindReqVO extends MesProCraftBindingTargetReqVO {
+    @NotEmpty private List<@NotNull @Valid Binding> bindings;
+    @Data
+    public static class Binding {
+        @NotNull @Positive private Long craftId;
+        @NotEmpty private List<@NotNull @Positive Long> deviceIds;
+    }
 }

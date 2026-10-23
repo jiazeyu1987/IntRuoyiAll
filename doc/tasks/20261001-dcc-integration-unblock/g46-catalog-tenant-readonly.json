@@ -1,0 +1,14 @@
+{
+  "status": "ACTUAL_APPROVED_PROJECT_CATALOG_TENANT_MISMATCH_READONLY_CONFIRMED",
+  "requestId": "6",
+  "projectId": "270",
+  "relationId": "6",
+  "catalogId": "613",
+  "requestTenantId": "1",
+  "projectTenantId": "1",
+  "relationTenantId": "1",
+  "catalogTenantId": "0",
+  "noBusinessDataWrites": true,
+  "fixDirection": "future approved project/catalog creation inserts current tenant explicitly; resolver must never accept tenant0 as fallback",
+  "historicalRowsBackfilled": false
+}

@@ -34,6 +34,9 @@ export interface CraftSave {
 export interface CraftImpact {
   impactToken: string
   blockers: string[]
+  warnings?: string[]
+  newCraftCount?: number
+  existingCraftCount?: number
   routes?: Array<{ routeId: number; routeName: string; routeCode: string; versionNo: string }>
   sources?: Array<{
     routeId: number
@@ -41,6 +44,8 @@ export interface CraftImpact {
     routeProcessId: number
     processName: string
     parameters: CraftParameter[]
+    schemeNo: number
+    parameterCount: number
   }>
   before?: CraftParameter[]
   after?: CraftParameter[]
@@ -77,7 +82,12 @@ export const CraftApi = {
   bind: (data: {
     routeVersionId: number | string
     routeProcessId: number
-    craftId: number
+    bindings: Array<{ craftId: number; deviceIds: number[] }>
     expectedRouteSnapshotSha256: string
-  }) => request.post({ url: '/mes/pro/craft/bind', data })
+  }) => request.post({ url: '/mes/pro/craft/bind', data }),
+  bindExisting: (data: {
+    routeVersionId: number | string
+    routeProcessId: number
+    expectedRouteSnapshotSha256: string
+  }) => request.post({ url: '/mes/pro/craft/bind-existing', data })
 }

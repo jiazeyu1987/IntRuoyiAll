@@ -17,6 +17,7 @@ public enum DccFileCategoryPermissionActionEnum implements ArrayValuable<String>
     OBSOLETE("OBSOLETE", "Obsolete"),
     REVIEW("REVIEW", "Review"),
     APPROVE("APPROVE", "Approve"),
+    TRAINING_RECORD("TRAINING_RECORD", "上传线下培训记录"),
     DISTRIBUTE("DISTRIBUTE", "Distribute");
 
     public static final String[] ARRAYS = Arrays.stream(values())

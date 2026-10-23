@@ -41,6 +41,7 @@ class GxpAuditPolicyStartupGuardTest {
     private final AtomicInteger reads = new AtomicInteger();
     private List<GxpAuditPolicyActivationDO> latest = List.of();
     private RuntimeException readFailure;
+    private cn.iocoder.yudao.module.system.service.gxpaudit.GxpLocalDevelopmentPolicy localPolicy;
     // Name the planned contract without referencing a missing method: RED must be startup behavior.
     private final GxpAuditPolicyActivationMapper activations = mock(GxpAuditPolicyActivationMapper.class,
             invocation -> {
@@ -57,6 +58,22 @@ class GxpAuditPolicyStartupGuardTest {
     @AfterEach
     void clearOwnedContext() {
         TenantContextHolder.clear();
+    }
+
+    @Test
+    void explicitLocalPolicyStartsWithMismatchedDatabaseWithoutChangingActivations() {
+        var packaged = new GxpAuditPolicyBundleLoader().load();
+        when(loader.load()).thenReturn(packaged);
+        var environment = new org.springframework.mock.env.MockEnvironment().withProperty(
+                "spring.datasource.dynamic.datasource.master.url", "jdbc:mysql://127.0.0.2:23306/local");
+        environment.setActiveProfiles("local");
+        localPolicy = new cn.iocoder.yudao.module.system.service.gxpaudit.GxpLocalDevelopmentPolicy(environment, loader);
+        latest = List.of(activation(101L, "different-active-policy"));
+        try (ConfigurableApplicationContext ignored = start()) {
+            assertEquals(1, ready.get());
+            assertEquals(1, jobs.get());
+            verifyNoInteractions(activations, tenants);
+        }
     }
 
     @Test
@@ -214,10 +231,11 @@ class GxpAuditPolicyStartupGuardTest {
             context.getBeanFactory().registerSingleton("tenantMapper", tenants);
             context.getBeanFactory().registerSingleton("gxpAuditPolicyActivationMapper", activations);
             context.getBeanFactory().registerSingleton("gxpAuditPolicyBundleLoader", loader);
+            if (localPolicy != null) context.getBeanFactory().registerSingleton("gxpLocalDevelopmentPolicy", localPolicy);
             context.getBeanFactory().registerSingleton("jobLifecycleSentinel", new SmartLifecycle() {
                 private boolean running;
                 @Override public void start() {
-                    assertEquals(1, reads.get(), "guard read must finish before any lifecycle job");
+                    assertEquals(localPolicy == null ? 1 : 0, reads.get(), "formal mode checks activations before lifecycle jobs");
                     assertEquals(tenantBefore, TenantContextHolder.getTenantId());
                     assertEquals(ignoreBefore, TenantContextHolder.isIgnore());
                     jobs.incrementAndGet();

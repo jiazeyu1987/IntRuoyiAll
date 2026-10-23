@@ -1,0 +1,581 @@
+{
+  "status": "UNCONFIRMED",
+  "source_bytes_verified": false,
+  "write_authorized": false,
+  "database": "ruoyi-vue-pro",
+  "serverUuid": "92ca05d0-aec8-11f1-a944-02b4e226a5ef",
+  "capturedAt": "2026-10-03 07:29:28.463997",
+  "activeClaimCount": 25,
+  "captureSha256": "fa44479b99095408570103a955a94314ce87e2c7ae6848e434554ad68d98c8c2",
+  "factsRawSha256": "8c17e87327b31160e86be9d4c9424670c9a5e8097c1d909c8382f021819a416b",
+  "queryRawSha256": "8cecc9b7313117287ed6f67c2824a65bd9d9bf242cd4ae67e66117f44e2a6474",
+  "receiptRawSha256": "f4c863bda07b4b7b411cf5a5247c40faad1444030c8632d8bdf8bfc982e2dcbf",
+  "rawFactsRetainedOnlyInProtectedDirectory": true,
+  "counts": {
+    "UNCONFIRMED": 19,
+    "PROPOSED_VERIFIED_METADATA_MAPPING": 6
+  },
+  "reasonCounts": {
+    "EXACT_SOURCE_NAME_COLLISION_BETWEEN_CLAIMS": 19,
+    "MULTIPLE_EXACT_SOURCE_NAMES": 3
+  },
+  "mappingReview": [
+    {
+      "claimId": "5",
+      "masterId": "2054545668044079072",
+      "status": "UNCONFIRMED",
+      "reasons": [
+        "EXACT_SOURCE_NAME_COLLISION_BETWEEN_CLAIMS"
+      ],
+      "formalIdentityReview": [],
+      "versionEvidence": [
+        {
+          "controlledFileId": "2054545668044083981",
+          "versionNo": "A/1",
+          "sourceFileId": "9198354931064",
+          "sourceNameSha256": "e525457264d56a2de1db1355c5989c30456ab41a45afd164a1f0840b2e7b4ce7",
+          "sourceSha256": "2ad539f9095e70d70e94571207a51ca6ca1e3f7a6f7e04947c59db78100212c0"
+        }
+      ]
+    },
+    {
+      "claimId": "6",
+      "masterId": "2054545668044079073",
+      "status": "UNCONFIRMED",
+      "reasons": [
+        "EXACT_SOURCE_NAME_COLLISION_BETWEEN_CLAIMS"
+      ],
+      "formalIdentityReview": [
+        "MASTER_FORMAL_NUMBER_IDENTITY_INCOMPLETE",
+        "VERSION_FORMAL_NUMBER_IDENTITY_DIFFERS"
+      ],
+      "versionEvidence": [
+        {
+          "controlledFileId": "2054545668044083982",
+          "versionNo": "V1.0",
+          "sourceFileId": "9198354931066",
+          "sourceNameSha256": "4c45962cec54099602db78f51836a07c8f6e9c447894913db49a75e3536dc534",
+          "sourceSha256": "2ad539f9095e70d70e94571207a51ca6ca1e3f7a6f7e04947c59db78100212c0"
+        }
+      ]
+    },
+    {
+      "claimId": "7",
+      "masterId": "2054545668044079075",
+      "status": "UNCONFIRMED",
+      "reasons": [
+        "MULTIPLE_EXACT_SOURCE_NAMES",
+        "EXACT_SOURCE_NAME_COLLISION_BETWEEN_CLAIMS"
+      ],
+      "formalIdentityReview": [],
+      "versionEvidence": [
+        {
+          "controlledFileId": "2054545668044083983",
+          "versionNo": "A/1",
+          "sourceFileId": "9198354931068",
+          "sourceNameSha256": "57f99111bce12888feb422937bf4a6c73ba82e648fa06d0a42e09e04631e7344",
+          "sourceSha256": "2ad539f9095e70d70e94571207a51ca6ca1e3f7a6f7e04947c59db78100212c0"
+        },
+        {
+          "controlledFileId": "2054545668044083984",
+          "versionNo": "B/1",
+          "sourceFileId": "9198354931071",
+          "sourceNameSha256": "ab9d34e6684b5ec90fb04b3b3d6c2413cef21b2daa9973b149f9a9883bb7744d",
+          "sourceSha256": "2ad539f9095e70d70e94571207a51ca6ca1e3f7a6f7e04947c59db78100212c0"
+        },
+        {
+          "controlledFileId": "2054545668044083987",
+          "versionNo": "C/1",
+          "sourceFileId": "9198354931075",
+          "sourceNameSha256": "a0ca793d9c01b2a0fbdd19133b9f846be72f72848d73409323e36924b3adeadb",
+          "sourceSha256": "4f75621c9396a6c5485c665e39285ce0f5cb4ec623145e4ca8ac555b3cda476f"
+        },
+        {
+          "controlledFileId": "2054545668044083988",
+          "versionNo": "C/2",
+          "sourceFileId": "9198354931079",
+          "sourceNameSha256": "9256a0e5831dccb6c498c3c3bc9919f96604624761b567377919533393356122",
+          "sourceSha256": "cb3f40ac2ca8cebd85c5a895a64588e5b6298517a2061c8227c62e715a73a71f"
+        }
+      ]
+    },
+    {
+      "claimId": "8",
+      "masterId": "2054545668044079076",
+      "status": "UNCONFIRMED",
+      "reasons": [
+        "EXACT_SOURCE_NAME_COLLISION_BETWEEN_CLAIMS"
+      ],
+      "formalIdentityReview": [
+        "MASTER_FORMAL_NUMBER_IDENTITY_INCOMPLETE",
+        "VERSION_FORMAL_NUMBER_IDENTITY_DIFFERS"
+      ],
+      "versionEvidence": [
+        {
+          "controlledFileId": "2054545668044083985",
+          "versionNo": "V1.0",
+          "sourceFileId": "9198354931073",
+          "sourceNameSha256": "4c45962cec54099602db78f51836a07c8f6e9c447894913db49a75e3536dc534",
+          "sourceSha256": "2ad539f9095e70d70e94571207a51ca6ca1e3f7a6f7e04947c59db78100212c0"
+        }
+      ]
+    },
+    {
+      "claimId": "9",
+      "masterId": "2054545668044079077",
+      "status": "UNCONFIRMED",
+      "reasons": [
+        "EXACT_SOURCE_NAME_COLLISION_BETWEEN_CLAIMS"
+      ],
+      "formalIdentityReview": [
+        "MASTER_FORMAL_NUMBER_IDENTITY_INCOMPLETE",
+        "VERSION_FORMAL_NUMBER_IDENTITY_DIFFERS"
+      ],
+      "versionEvidence": [
+        {
+          "controlledFileId": "2054545668044083986",
+          "versionNo": "V1.0",
+          "sourceFileId": "9198354931074",
+          "sourceNameSha256": "4c45962cec54099602db78f51836a07c8f6e9c447894913db49a75e3536dc534",
+          "sourceSha256": "2ad539f9095e70d70e94571207a51ca6ca1e3f7a6f7e04947c59db78100212c0"
+        }
+      ]
+    },
+    {
+      "claimId": "10",
+      "masterId": "2054545668044079078",
+      "status": "UNCONFIRMED",
+      "reasons": [
+        "EXACT_SOURCE_NAME_COLLISION_BETWEEN_CLAIMS"
+      ],
+      "formalIdentityReview": [],
+      "versionEvidence": [
+        {
+          "controlledFileId": "2054545668044083989",
+          "versionNo": "A/1",
+          "sourceFileId": "9198354931095",
+          "sourceNameSha256": "9256a0e5831dccb6c498c3c3bc9919f96604624761b567377919533393356122",
+          "sourceSha256": "cb3f40ac2ca8cebd85c5a895a64588e5b6298517a2061c8227c62e715a73a71f"
+        }
+      ]
+    },
+    {
+      "claimId": "11",
+      "masterId": "2054545668044079080",
+      "status": "UNCONFIRMED",
+      "reasons": [
+        "EXACT_SOURCE_NAME_COLLISION_BETWEEN_CLAIMS"
+      ],
+      "formalIdentityReview": [
+        "MASTER_FORMAL_NUMBER_IDENTITY_INCOMPLETE",
+        "VERSION_FORMAL_NUMBER_IDENTITY_DIFFERS"
+      ],
+      "versionEvidence": [
+        {
+          "controlledFileId": "2054545668044083991",
+          "versionNo": "V1.0",
+          "sourceFileId": "9198354931126",
+          "sourceNameSha256": "4c45962cec54099602db78f51836a07c8f6e9c447894913db49a75e3536dc534",
+          "sourceSha256": "2ad539f9095e70d70e94571207a51ca6ca1e3f7a6f7e04947c59db78100212c0"
+        }
+      ]
+    },
+    {
+      "claimId": "12",
+      "masterId": "2054545668044079081",
+      "status": "UNCONFIRMED",
+      "reasons": [
+        "EXACT_SOURCE_NAME_COLLISION_BETWEEN_CLAIMS"
+      ],
+      "formalIdentityReview": [
+        "MASTER_FORMAL_NUMBER_IDENTITY_INCOMPLETE",
+        "VERSION_FORMAL_NUMBER_IDENTITY_DIFFERS"
+      ],
+      "versionEvidence": [
+        {
+          "controlledFileId": "2054545668044083992",
+          "versionNo": "V1.0",
+          "sourceFileId": "9198354931128",
+          "sourceNameSha256": "4c45962cec54099602db78f51836a07c8f6e9c447894913db49a75e3536dc534",
+          "sourceSha256": "2ad539f9095e70d70e94571207a51ca6ca1e3f7a6f7e04947c59db78100212c0"
+        }
+      ]
+    },
+    {
+      "claimId": "13",
+      "masterId": "2054545668044079085",
+      "status": "UNCONFIRMED",
+      "reasons": [
+        "EXACT_SOURCE_NAME_COLLISION_BETWEEN_CLAIMS"
+      ],
+      "formalIdentityReview": [],
+      "versionEvidence": [
+        {
+          "controlledFileId": "2054545668044083993",
+          "versionNo": "A/1",
+          "sourceFileId": "9198354931135",
+          "sourceNameSha256": "9256a0e5831dccb6c498c3c3bc9919f96604624761b567377919533393356122",
+          "sourceSha256": "cb3f40ac2ca8cebd85c5a895a64588e5b6298517a2061c8227c62e715a73a71f"
+        }
+      ]
+    },
+    {
+      "claimId": "14",
+      "masterId": "2054545668044079086",
+      "status": "UNCONFIRMED",
+      "reasons": [
+        "EXACT_SOURCE_NAME_COLLISION_BETWEEN_CLAIMS"
+      ],
+      "formalIdentityReview": [],
+      "versionEvidence": [
+        {
+          "controlledFileId": "2054545668044083994",
+          "versionNo": "A/1",
+          "sourceFileId": "9198354931136",
+          "sourceNameSha256": "9256a0e5831dccb6c498c3c3bc9919f96604624761b567377919533393356122",
+          "sourceSha256": "cb3f40ac2ca8cebd85c5a895a64588e5b6298517a2061c8227c62e715a73a71f"
+        },
+        {
+          "controlledFileId": "2054545668044083995",
+          "versionNo": "A/2",
+          "sourceFileId": "9198354931143",
+          "sourceNameSha256": "9256a0e5831dccb6c498c3c3bc9919f96604624761b567377919533393356122",
+          "sourceSha256": "cb3f40ac2ca8cebd85c5a895a64588e5b6298517a2061c8227c62e715a73a71f"
+        },
+        {
+          "controlledFileId": "2054545668044083996",
+          "versionNo": "A/3",
+          "sourceFileId": "9198354931147",
+          "sourceNameSha256": "9256a0e5831dccb6c498c3c3bc9919f96604624761b567377919533393356122",
+          "sourceSha256": "cb3f40ac2ca8cebd85c5a895a64588e5b6298517a2061c8227c62e715a73a71f"
+        },
+        {
+          "controlledFileId": "2054545668044083997",
+          "versionNo": "A/4",
+          "sourceFileId": "9198354931148",
+          "sourceNameSha256": "9256a0e5831dccb6c498c3c3bc9919f96604624761b567377919533393356122",
+          "sourceSha256": "cb3f40ac2ca8cebd85c5a895a64588e5b6298517a2061c8227c62e715a73a71f"
+        },
+        {
+          "controlledFileId": "2054545668044084000",
+          "versionNo": "A/5",
+          "sourceFileId": "9198354931155",
+          "sourceNameSha256": "9256a0e5831dccb6c498c3c3bc9919f96604624761b567377919533393356122",
+          "sourceSha256": "cb3f40ac2ca8cebd85c5a895a64588e5b6298517a2061c8227c62e715a73a71f"
+        }
+      ]
+    },
+    {
+      "claimId": "15",
+      "masterId": "2054545668044079088",
+      "status": "UNCONFIRMED",
+      "reasons": [
+        "EXACT_SOURCE_NAME_COLLISION_BETWEEN_CLAIMS"
+      ],
+      "formalIdentityReview": [
+        "MASTER_FORMAL_NUMBER_IDENTITY_INCOMPLETE",
+        "VERSION_FORMAL_NUMBER_IDENTITY_DIFFERS"
+      ],
+      "versionEvidence": [
+        {
+          "controlledFileId": "2054545668044083998",
+          "versionNo": "V1.0",
+          "sourceFileId": "9198354931149",
+          "sourceNameSha256": "4c45962cec54099602db78f51836a07c8f6e9c447894913db49a75e3536dc534",
+          "sourceSha256": "2ad539f9095e70d70e94571207a51ca6ca1e3f7a6f7e04947c59db78100212c0"
+        }
+      ]
+    },
+    {
+      "claimId": "17",
+      "masterId": "2054545668044079093",
+      "status": "UNCONFIRMED",
+      "reasons": [
+        "EXACT_SOURCE_NAME_COLLISION_BETWEEN_CLAIMS"
+      ],
+      "formalIdentityReview": [],
+      "versionEvidence": [
+        {
+          "controlledFileId": "2054545668044084001",
+          "versionNo": "A/1",
+          "sourceFileId": "9198354931161",
+          "sourceNameSha256": "a0ca793d9c01b2a0fbdd19133b9f846be72f72848d73409323e36924b3adeadb",
+          "sourceSha256": "4f75621c9396a6c5485c665e39285ce0f5cb4ec623145e4ca8ac555b3cda476f"
+        },
+        {
+          "controlledFileId": "2054545668044084002",
+          "versionNo": "A/2",
+          "sourceFileId": "9198354931164",
+          "sourceNameSha256": "a0ca793d9c01b2a0fbdd19133b9f846be72f72848d73409323e36924b3adeadb",
+          "sourceSha256": "4f75621c9396a6c5485c665e39285ce0f5cb4ec623145e4ca8ac555b3cda476f"
+        },
+        {
+          "controlledFileId": "2054545668044084003",
+          "versionNo": "B/1",
+          "sourceFileId": "9198354931166",
+          "sourceNameSha256": "a0ca793d9c01b2a0fbdd19133b9f846be72f72848d73409323e36924b3adeadb",
+          "sourceSha256": "4f75621c9396a6c5485c665e39285ce0f5cb4ec623145e4ca8ac555b3cda476f"
+        },
+        {
+          "controlledFileId": "2054545668044084013",
+          "versionNo": "C/1",
+          "sourceFileId": "9198354931221",
+          "sourceNameSha256": "a0ca793d9c01b2a0fbdd19133b9f846be72f72848d73409323e36924b3adeadb",
+          "sourceSha256": "4f75621c9396a6c5485c665e39285ce0f5cb4ec623145e4ca8ac555b3cda476f"
+        }
+      ]
+    },
+    {
+      "claimId": "18",
+      "masterId": "2054545668044079094",
+      "status": "UNCONFIRMED",
+      "reasons": [
+        "MULTIPLE_EXACT_SOURCE_NAMES",
+        "EXACT_SOURCE_NAME_COLLISION_BETWEEN_CLAIMS"
+      ],
+      "formalIdentityReview": [],
+      "versionEvidence": [
+        {
+          "controlledFileId": "2054545668044084004",
+          "versionNo": "A/1",
+          "sourceFileId": "9198354931167",
+          "sourceNameSha256": "eaa2e47294e2691b5c16a4204c9e5bd8878b6fc0e6a39e17ecf023a1a7515aef",
+          "sourceSha256": "b05f699e330d0bed57b67f427c65407b924b540f63151afd922b38ab3aae6477"
+        },
+        {
+          "controlledFileId": "2054545668044084005",
+          "versionNo": "A/2",
+          "sourceFileId": "9198354931170",
+          "sourceNameSha256": "9256a0e5831dccb6c498c3c3bc9919f96604624761b567377919533393356122",
+          "sourceSha256": "cb3f40ac2ca8cebd85c5a895a64588e5b6298517a2061c8227c62e715a73a71f"
+        },
+        {
+          "controlledFileId": "2054545668044084006",
+          "versionNo": "B/1",
+          "sourceFileId": "9198354931172",
+          "sourceNameSha256": "9256a0e5831dccb6c498c3c3bc9919f96604624761b567377919533393356122",
+          "sourceSha256": "cb3f40ac2ca8cebd85c5a895a64588e5b6298517a2061c8227c62e715a73a71f"
+        }
+      ]
+    },
+    {
+      "claimId": "19",
+      "masterId": "2054545668044079096",
+      "status": "PROPOSED_VERIFIED_METADATA_MAPPING",
+      "reasons": [],
+      "formalIdentityReview": [],
+      "versionEvidence": [
+        {
+          "controlledFileId": "2054545668044084007",
+          "versionNo": "A/1",
+          "sourceFileId": "9198354931193",
+          "sourceNameSha256": "ce2606370cbdb92bec30bc53be0094761abf0e633b73a52a8b6745ea0493b792",
+          "sourceSha256": "a3972d27f366ca5c5e6caf608557502bb3b7018605d6990877217d80583d7e87"
+        }
+      ]
+    },
+    {
+      "claimId": "20",
+      "masterId": "2054545668044079097",
+      "status": "PROPOSED_VERIFIED_METADATA_MAPPING",
+      "reasons": [],
+      "formalIdentityReview": [],
+      "versionEvidence": [
+        {
+          "controlledFileId": "2054545668044084008",
+          "versionNo": "A/1",
+          "sourceFileId": "9198354931197",
+          "sourceNameSha256": "8ee7451a1f14e125cb96b262194d0b070a7134cbbd651f399fb08da2a096cd2a",
+          "sourceSha256": "a3972d27f366ca5c5e6caf608557502bb3b7018605d6990877217d80583d7e87"
+        }
+      ]
+    },
+    {
+      "claimId": "21",
+      "masterId": "2054545668044079098",
+      "status": "PROPOSED_VERIFIED_METADATA_MAPPING",
+      "reasons": [],
+      "formalIdentityReview": [],
+      "versionEvidence": [
+        {
+          "controlledFileId": "2054545668044084009",
+          "versionNo": "A/1",
+          "sourceFileId": "9198354931201",
+          "sourceNameSha256": "6a616fd1a335acd20078273c4f6feb109ff03dfe2d48c6143b4d02d139a06ffd",
+          "sourceSha256": "a3972d27f366ca5c5e6caf608557502bb3b7018605d6990877217d80583d7e87"
+        }
+      ]
+    },
+    {
+      "claimId": "22",
+      "masterId": "2054545668044079099",
+      "status": "PROPOSED_VERIFIED_METADATA_MAPPING",
+      "reasons": [],
+      "formalIdentityReview": [],
+      "versionEvidence": [
+        {
+          "controlledFileId": "2054545668044084010",
+          "versionNo": "A/1",
+          "sourceFileId": "9198354931205",
+          "sourceNameSha256": "8def2309e70d9e5a3ad25bfbc443e383829dfbe318fd2de248370e0e303f08ca",
+          "sourceSha256": "a3972d27f366ca5c5e6caf608557502bb3b7018605d6990877217d80583d7e87"
+        }
+      ]
+    },
+    {
+      "claimId": "23",
+      "masterId": "2054545668044079100",
+      "status": "PROPOSED_VERIFIED_METADATA_MAPPING",
+      "reasons": [],
+      "formalIdentityReview": [],
+      "versionEvidence": [
+        {
+          "controlledFileId": "2054545668044084011",
+          "versionNo": "A/1",
+          "sourceFileId": "9198354931209",
+          "sourceNameSha256": "37380e615abc9f018875ad0235beecf4071aa2b940543f88e493530e3d009964",
+          "sourceSha256": "a3972d27f366ca5c5e6caf608557502bb3b7018605d6990877217d80583d7e87"
+        }
+      ]
+    },
+    {
+      "claimId": "24",
+      "masterId": "2054545668044079101",
+      "status": "PROPOSED_VERIFIED_METADATA_MAPPING",
+      "reasons": [],
+      "formalIdentityReview": [],
+      "versionEvidence": [
+        {
+          "controlledFileId": "2054545668044084012",
+          "versionNo": "A/1",
+          "sourceFileId": "9198354931213",
+          "sourceNameSha256": "d8890a5686d0f1ab2c5da9390b042012d2ad8de5309007f9ef854b99f3ead45c",
+          "sourceSha256": "a3972d27f366ca5c5e6caf608557502bb3b7018605d6990877217d80583d7e87"
+        }
+      ]
+    },
+    {
+      "claimId": "26",
+      "masterId": "2054545668044079104",
+      "status": "UNCONFIRMED",
+      "reasons": [
+        "EXACT_SOURCE_NAME_COLLISION_BETWEEN_CLAIMS"
+      ],
+      "formalIdentityReview": [],
+      "versionEvidence": [
+        {
+          "controlledFileId": "2054545668044084015",
+          "versionNo": "A/1",
+          "sourceFileId": "9198354931233",
+          "sourceNameSha256": "e525457264d56a2de1db1355c5989c30456ab41a45afd164a1f0840b2e7b4ce7",
+          "sourceSha256": "2ad539f9095e70d70e94571207a51ca6ca1e3f7a6f7e04947c59db78100212c0"
+        }
+      ]
+    },
+    {
+      "claimId": "27",
+      "masterId": "2054545668044079106",
+      "status": "UNCONFIRMED",
+      "reasons": [
+        "EXACT_SOURCE_NAME_COLLISION_BETWEEN_CLAIMS"
+      ],
+      "formalIdentityReview": [],
+      "versionEvidence": [
+        {
+          "controlledFileId": "2054545668044084016",
+          "versionNo": "A/1",
+          "sourceFileId": "9198354931240",
+          "sourceNameSha256": "e525457264d56a2de1db1355c5989c30456ab41a45afd164a1f0840b2e7b4ce7",
+          "sourceSha256": "2ad539f9095e70d70e94571207a51ca6ca1e3f7a6f7e04947c59db78100212c0"
+        }
+      ]
+    },
+    {
+      "claimId": "28",
+      "masterId": "2054545668044079108",
+      "status": "UNCONFIRMED",
+      "reasons": [
+        "MULTIPLE_EXACT_SOURCE_NAMES",
+        "EXACT_SOURCE_NAME_COLLISION_BETWEEN_CLAIMS"
+      ],
+      "formalIdentityReview": [],
+      "versionEvidence": [
+        {
+          "controlledFileId": "2054545668044084017",
+          "versionNo": "A/1",
+          "sourceFileId": "9198354931242",
+          "sourceNameSha256": "e525457264d56a2de1db1355c5989c30456ab41a45afd164a1f0840b2e7b4ce7",
+          "sourceSha256": "2ad539f9095e70d70e94571207a51ca6ca1e3f7a6f7e04947c59db78100212c0"
+        },
+        {
+          "controlledFileId": "2054545668044084018",
+          "versionNo": "B/1",
+          "sourceFileId": "9198354931244",
+          "sourceNameSha256": "a0ca793d9c01b2a0fbdd19133b9f846be72f72848d73409323e36924b3adeadb",
+          "sourceSha256": "4f75621c9396a6c5485c665e39285ce0f5cb4ec623145e4ca8ac555b3cda476f"
+        }
+      ]
+    },
+    {
+      "claimId": "29",
+      "masterId": "2054545668044079110",
+      "status": "UNCONFIRMED",
+      "reasons": [
+        "EXACT_SOURCE_NAME_COLLISION_BETWEEN_CLAIMS"
+      ],
+      "formalIdentityReview": [],
+      "versionEvidence": [
+        {
+          "controlledFileId": "2054545668044084019",
+          "versionNo": "A/1",
+          "sourceFileId": "9198354931246",
+          "sourceNameSha256": "e525457264d56a2de1db1355c5989c30456ab41a45afd164a1f0840b2e7b4ce7",
+          "sourceSha256": "2ad539f9095e70d70e94571207a51ca6ca1e3f7a6f7e04947c59db78100212c0"
+        }
+      ]
+    },
+    {
+      "claimId": "30",
+      "masterId": "2054545668044079111",
+      "status": "UNCONFIRMED",
+      "reasons": [
+        "EXACT_SOURCE_NAME_COLLISION_BETWEEN_CLAIMS"
+      ],
+      "formalIdentityReview": [],
+      "versionEvidence": [
+        {
+          "controlledFileId": "2054545668044084020",
+          "versionNo": "A/1",
+          "sourceFileId": "9198354931258",
+          "sourceNameSha256": "e525457264d56a2de1db1355c5989c30456ab41a45afd164a1f0840b2e7b4ce7",
+          "sourceSha256": "2ad539f9095e70d70e94571207a51ca6ca1e3f7a6f7e04947c59db78100212c0"
+        }
+      ]
+    },
+    {
+      "claimId": "32",
+      "masterId": "2054545668044079114",
+      "status": "UNCONFIRMED",
+      "reasons": [
+        "EXACT_SOURCE_NAME_COLLISION_BETWEEN_CLAIMS"
+      ],
+      "formalIdentityReview": [],
+      "versionEvidence": [
+        {
+          "controlledFileId": "2054545668044084023",
+          "versionNo": "A/1",
+          "sourceFileId": "9198354931266",
+          "sourceNameSha256": "e525457264d56a2de1db1355c5989c30456ab41a45afd164a1f0840b2e7b4ce7",
+          "sourceSha256": "2ad539f9095e70d70e94571207a51ca6ca1e3f7a6f7e04947c59db78100212c0"
+        },
+        {
+          "controlledFileId": "2054545668044084024",
+          "versionNo": "B/1",
+          "sourceFileId": "9198354931269",
+          "sourceNameSha256": "e525457264d56a2de1db1355c5989c30456ab41a45afd164a1f0840b2e7b4ce7",
+          "sourceSha256": "2ad539f9095e70d70e94571207a51ca6ca1e3f7a6f7e04947c59db78100212c0"
+        }
+      ]
+    }
+  ]
+}

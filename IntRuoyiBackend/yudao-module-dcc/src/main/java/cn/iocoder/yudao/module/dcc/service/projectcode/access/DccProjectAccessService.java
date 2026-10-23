@@ -7,6 +7,9 @@ import java.util.List;
 
 public interface DccProjectAccessService {
 
+    /** Called only inside the approved creation transaction; never grants a pre-existing project. */
+    void initializeApprovedProjectLeaderOwner(Long projectCodeId, Long selectedLeaderUserId, String reason);
+
     List<DccProjectAccessRuleDO> getProjectAccessRules(Long projectCodeId);
 
     List<DccProjectAccessRuleDO> replaceProjectAccessRules(Long projectCodeId,
@@ -19,5 +22,11 @@ public interface DccProjectAccessService {
     void assertProjectOwner(Long userId, Long projectCodeId);
 
     void assertProjectEditorOrOwner(Long userId, Long projectCodeId);
+
+    /** 校验项目查看权限；同租户超级管理员拥有全部项目 OWNER，其余账号读取正式规则。 */
+    void assertProjectViewerOrAbove(Long userId, Long projectCodeId);
+
+    /** 同租户超级管理员可读全部启用项目，其余账号取正式规则与分配范围的交集。 */
+    List<Long> listReadableProjectIds(Long userId);
 
 }

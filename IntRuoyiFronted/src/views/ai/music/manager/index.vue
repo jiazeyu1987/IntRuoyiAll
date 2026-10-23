@@ -213,7 +213,7 @@
       </ContentWrap>
     </el-tab-pane>
 
-    <el-tab-pane label="TTS 测试" name="tts-test">
+    <el-tab-pane v-if="testModeEnabled" label="TTS 测试" name="tts-test">
       <ContentWrap>
         <TtsTestPane />
       </ContentWrap>
@@ -222,6 +222,8 @@
 </template>
 
 <script setup lang="ts">
+import { useTestMode } from '@/store/modules/testMode'
+
 import { isSearchFormInputEmpty } from '@/utils/search'
 import { getBoolDictOptions, getIntDictOptions, DICT_TYPE } from '@/utils/dict'
 import { dateFormatter } from '@/utils/formatTime'
@@ -229,6 +231,8 @@ import { MusicApi, MusicVO } from '@/api/ai/music'
 import * as UserApi from '@/api/system/user'
 import { AiMusicStatusEnum } from '@/views/ai/utils/constants'
 import TtsTestPane from './TtsTestPane.vue'
+
+const testModeEnabled = useTestMode()
 
 defineOptions({ name: 'AiMusicManager' })
 

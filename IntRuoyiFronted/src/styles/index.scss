@@ -2,6 +2,7 @@
 @use './FormCreate/index.scss';
 @use './theme.scss';
 @use './scheme-d-controls.scss';
+@use './test-buttons.scss';
 
 .reset-margin [class*='el-icon'] + span {
   margin-left: 2px !important;
@@ -53,7 +54,7 @@
 
 .user-table-column-global-settings {
   position: absolute;
-  z-index: 2100;
+  z-index: 1;
   display: inline-flex;
   align-items: center;
   gap: 8px;

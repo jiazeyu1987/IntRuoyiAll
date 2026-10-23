@@ -1,0 +1,65 @@
+{
+  "status": "ACTUAL_NATIVE_REJECTION_FLOWABLE_MAPPER120_PASS",
+  "assets": [
+    {
+      "kind": "production",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/dal/mysql/file/DccControlledFileMapper.java",
+      "bytes": 42345,
+      "sha256": "c0a116e050b5722bd16c3bf5b71cb0bfc0c652eefbbbf7d2e12e8d5b7d622ead"
+    },
+    {
+      "kind": "production",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileFinalizationServiceImpl.java",
+      "bytes": 76841,
+      "sha256": "2a166f83c346f239a07af4f50647e583237d376b81d37e03fc9af498affda581"
+    },
+    {
+      "kind": "test",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccNativeRejectionTransactionTest.java",
+      "bytes": 13675,
+      "sha256": "b15d70475d34a49f08db2d3994b35d657cd7ab7555bde51bbae48687ded9dc4d"
+    },
+    {
+      "kind": "test",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileFinalizationServiceImplTest.java",
+      "bytes": 99009,
+      "sha256": "6c3590db949ffd4027d8bd09e7a1da48696eece1e4eef8c1eb2be3b900e4f7b0"
+    }
+  ],
+  "suites": [
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g64-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccControlledFileFinalizationServiceImplTest.xml",
+      "sha256": "e6620787e9197a60cf58885cb72d3c65171eaba59e1eda6a91d73a8e81b2af7b",
+      "tests": 59,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g64-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccNativeRejectionTransactionTest.xml",
+      "sha256": "f0078321a17746dbec02fbad8437438f9f13fca9c1053a79f52cb50a0b6c5be5",
+      "tests": 7,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g64-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccRejectedRevisionRetryDatabaseTest.xml",
+      "sha256": "718bb73d2c978b76080bb0b2d8b3e5fc8a6629ed4e82b34f660b01c2f0e4641a",
+      "tests": 50,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g64-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccWorkflowNativeCompletionEvidenceTest.xml",
+      "sha256": "742bbb41456ee754c19e5744768c1f97318e6bf5b1881a0d69dba9acdfc0ccf8",
+      "tests": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    }
+  ],
+  "actualRED": "r11/052\u771f\u5b9e500\u5bf9\u5e94nativekeyhardcoded",
+  "mapperCAS": "only validatedexpectedkeyparameter; nozeroCASsuccess"
+}

@@ -1,0 +1,216 @@
+{
+  "status": "REVIEWED_MINIMAL_FIX_SCOPE_IN_PROGRESS",
+  "mainIssues": [
+    {
+      "id": "G56-R01",
+      "ac": [
+        "AC-08",
+        "AC-09",
+        "AC-11",
+        "AC-13"
+      ],
+      "issue": "firstRevisionArrangementReadRejectsUnsignedCurrentObligation",
+      "owner": "legacy_occupancy_core",
+      "state": "SOURCE_FROZEN_67TEST_PASS",
+      "constraint": "exact real REVISION currenttask and read-only authorization; unchanged signed write guard"
+    },
+    {
+      "id": "G56-R02",
+      "ac": [
+        "AC-14",
+        "AC-15"
+      ],
+      "issue": "uncontrolledRelationViewLacksCurrentSourceStageFact",
+      "owner": "missing_object_recovery + runtime_account_readiness",
+      "state": "BE39_AND_FE_CURRENT_FIELD_REPAIR_FROZEN_TYPE_BUILD_PASS",
+      "constraint": "server hasCurrentControlledSource bool; no GET write/currentActive fallback/fake empty"
+    },
+    {
+      "id": "G56-R03",
+      "ac": [
+        "AC-06",
+        "AC-09",
+        "AC-14"
+      ],
+      "issue": "actualNonemptyUploadRelationsBindAfterPrematurePendingStatus",
+      "owner": "missing_object_recovery",
+      "state": "SOURCE_FROZEN_257TEST_PASS_CURRENT_COMMITc9ca1bf",
+      "constraint": "bind frozen relation evidence while WORKING before pending/BPM in same transaction; immutable historic guard preserved"
+    },
+    {
+      "id": "G56-F01",
+      "ac": [
+        "AC-15",
+        "AC-23"
+      ],
+      "issue": "previewProjectLabelAndExecutingVersionLabel",
+      "owner": "runtime_account_readiness",
+      "state": "SOURCE_FROZEN_15TEST_PASS"
+    },
+    {
+      "id": "G56-F02",
+      "ac": [
+        "AC-18"
+      ],
+      "issue": "publicLogicalProjectFolderMaintenanceEntryMissing",
+      "owner": "runtime_account_readiness",
+      "state": "SOURCE_FROZEN90_FULL_TYPES_BUILD_R2_PASS_CURRENT_COMMITc9ca1bf",
+      "constraint": "reuse existing formal foldereditor/services and no NAS/template semantic mutation"
+    },
+    {
+      "id": "G56-F03",
+      "ac": [
+        "AC-15"
+      ],
+      "issue": "viewerReadOnlyFullArchiveHistoryEntryMissing",
+      "owner": "runtime_account_readiness",
+      "state": "SOURCE_FROZEN90_FULL_TYPES_BUILD_R2_PASS_CURRENT_COMMITc9ca1bf",
+      "constraint": "exact selectedfile readonly trace path, independent binary permission unchanged"
+    },
+    {
+      "id": "G56-F04",
+      "ac": [
+        "AC-07",
+        "AC-09",
+        "AC-20",
+        "AC-23"
+      ],
+      "issue": "nativeStagesAndSignatureDutiesStillLegacyProjection",
+      "owner": "runtime_account_readiness",
+      "state": "SOURCE_FROZEN90_FULL_TYPES_BUILD_R2_PASS_CURRENT_COMMITc9ca1bf",
+      "constraint": "exact current file/BPM/round type; TRAINING is receiveTask and actual ASSIGN action; legacy actual identity only"
+    },
+    {
+      "id": "G56-RUNTIME",
+      "ac": [
+        "AC-12",
+        "AC-25",
+        "AC-26"
+      ],
+      "issue": "minuteActivationJobNotRegisteredAndQuartzAutoRunDisabled",
+      "owner": "root",
+      "state": "REAL_UI_REGISTERED5625_AND_MINUTE_LOG_ALL4TENANTS0; exactRAMrestartfixTDD_IN_PROGRESS",
+      "constraint": "official jobform, RAM isolated, no other registered jobs/startups; actual allTenantDue0; Shanghai lead7"
+    },
+    {
+      "id": "G57-TRAIN-ENTRY",
+      "ac": [
+        "AC-09",
+        "AC-15"
+      ],
+      "issue": "independentDocControlCannotDiscoverReceiveTaskOfflineTrainingWait",
+      "owner": "missing_object_recovery+runtime_account_readiness",
+      "state": "BE8PROD7TEST_284FINITE9GROUPS_PASS_FE6SOURCE_TYPES_BUILD_R2_PASS; ACTUAL_NEW_RUNTIME_PENDING",
+      "constraint": "real file/BPM native sourceType not fakeUserTaskID, qualified doccontrol/category/hard scope, metadata and binary permissions independent, no newtrainingapproval/600seconds"
+    },
+    {
+      "id": "G56-F04-EVIDENCE",
+      "ac": [
+        "AC-09",
+        "AC-23"
+      ],
+      "issue": "nonSignatureRecordStagesStillShowPendingSignatureSync",
+      "owner": "runtime_account_readiness",
+      "state": "FE_SOURCE_CLOSED_ACTUAL_R4_STAGE_RECORD_LABELS_CORRECT",
+      "constraint": "training/control/distribution record facts only, no new distributionSignature policy"
+    },
+    {
+      "id": "G57-LOCATION",
+      "ac": [
+        "AC-10",
+        "AC-11",
+        "AC-27"
+      ],
+      "issue": "currentFileDetailOmittedFormalPlacementAndHelperTreatedMappingAsPhysicalDirectory",
+      "owner": "root+missing_object_recovery",
+      "state": "BE_FORMAL_CURRENT_LOCATION_FROZEN284RANGE_AND_FE29_TYPES_BUILD_R2_PASS",
+      "constraint": "strict serverbool, exact currentFileplacement, noMasterguess or GETwrites; real retest with newJar"
+    },
+    {
+      "id": "G57-READONLY",
+      "ac": [
+        "AC-15"
+      ],
+      "issue": "viewerTraceCallerContextWrongAndReadonlyAssignmentMetadataControlsStillVisible",
+      "owner": "runtime_account_readiness",
+      "state": "REAL_R4viewerEditRED; actualSource2RED_to15GREEN_andTYPE_BUILD_R2_PASS",
+      "constraint": "existing management context gate for edit/assignment, independent binary policy unchanged"
+    },
+    {
+      "id": "G58-TRAIN-PERMISSION",
+      "ac": [
+        "AC-09",
+        "AC-15"
+      ],
+      "issue": "native offline training upload wrongly requires contentApproval category action which configuration forbids manual grant",
+      "owner": "missing_object_recovery+runtime_account_readiness",
+      "state": "BE_REAL_H2_RULE_CONTROLLER_RED_CONFIRMED_GREEN_IN_PROGRESS_FE_TWO_SOURCE15PASS",
+      "constraint": "independent configurable TRAINING_RECORD category action in existing framework; contentApproval matrix locked unchanged, noSQL,newnodes orbodygrants"
+    },
+    {
+      "id": "G58-WORKING-SCOPE",
+      "ac": [
+        "AC-10",
+        "AC-11",
+        "AC-27"
+      ],
+      "issue": "logical selected version operation still used current physicalscope withoutdirectory",
+      "owner": "root",
+      "state": "ACTUAL_R7_021FAIL_then029FiniteGREEN_actual31FIRSTCHECKIN_and41SECONDCHECKIN",
+      "constraint": "explicit existing global query with exact number/file/Master; legacy physical current retained,no fallback"
+    },
+    {
+      "id": "G58-WORKING-LABEL",
+      "ac": [
+        "AC-23"
+      ],
+      "issue": "selected working iteration mislabelled executingcontrolled and history in legacy operationbrowser",
+      "owner": "runtime_account_readiness",
+      "state": "ACTUAL_R7_031CONFIRMED_finitefix_IN_PROGRESS",
+      "constraint": "selectedstatus and realmasterexecution facts split; no data/selection changes"
+    },
+    {
+      "id": "G59-CONTENT-PROJECTION",
+      "ac": [
+        "AC-09",
+        "AC-11",
+        "AC-12",
+        "AC-20",
+        "AC-25",
+        "AC-27"
+      ],
+      "issue": "native controlled lifecycle omits shared controlled-content ref finalize/activation, blocks next revision with old FINALIZING openCandidate",
+      "owner": "missing_object_recovery+legacy_occupancy_core review+root",
+      "state": "OLD REAL_FAILURE_PROVED; CORE_DIRECTION_REVIEW2FIXES_IMPLEMENTED_FINITE_CURRENT_LAST_MAVEN; FE20_AND_FULL_TYPES55673_BUILD47918_PASS; AUDIT_RULE_CLONE_SOURCE_FIRST_REPEAT0",
+      "constraint": "same native lifecycle transaction exact pending vs executing sharedstate, no earlyACTIVEnoSQLhistoryrewrite/noGETlazysync, existing coreopen guard retained"
+    },
+    {
+      "id": "G61-PENDING-OBSOLETE-ENTRY",
+      "ac": [
+        "AC-20"
+      ],
+      "issue": "normaldetail/browser/history canObsolete and action projection onlyACTIVE although formalnativecontrolledpending allowed byservice/effect",
+      "owner": "missing_object_recovery",
+      "state": "REAL_R9_207_NOENTRY; precise serverstage andpendingFormlookup TDD_IN_PROGRESS",
+      "constraint": "formalcontrol/sourceidentity qualification only; existingperms/nameOnly/readOnly/pendingFormlock kept; noFEforcedenable"
+    },
+    {
+      "id": "G62-OBSOLETE-OBLIGATIONS",
+      "ac": [
+        "AC-20"
+      ],
+      "issue": "persisted DRAFTJSON missing frozen departments before actualsubmit",
+      "owner": "missing_object_recovery",
+      "state": "ACTUAL306_FAILURE_THEN_EFFECTIVE_RED_FINAL_GREEN_IN_PROGRESS",
+      "constraint": "move obligationfreezebeforecreate, noRuntimeguardwiden"
+    }
+  ],
+  "htmlClarification": "replace outdated unconfirmed reminder sentence with alreadyconfirmed Shanghai/7day/minute; do not change27AC",
+  "otherACs": "Formal caller chain exists; source tests and actual page evidence recorded independently, no fake all-E2E PASS",
+  "pushInitial": "origin/int_qms c9ca1bf4b latestverified0ahead0behind; newG57pending finaltests/runtime",
+  "currentSourceCommit": "8ead0a8f5858fa037cbb34ae39089c2f1a4d3d5f",
+  "actualExpandedAcceptance": "independentDocTRAIN1->0-record upload realDoc910328; futureA2closedpending oldA1ACTIVE; currentassociationtargetA2pending; originalsnapA1; pendingexplicitObsoletemenu finalserverfix",
+  "sourceRemoteStatus": "normalorigin0ahead0behind throughG58",
+  "latestSourceCommit": "01f846cec",
+  "latestOrigin": "0ahead0behind normalpush actual"
+}

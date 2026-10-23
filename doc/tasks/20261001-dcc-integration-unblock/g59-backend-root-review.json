@@ -1,0 +1,72 @@
+{
+  "status": "ROOT_G59_NATIVE_SHARED_PROJECTION_AND_EXPLICIT_REPAIR_REVIEW_PASS",
+  "manifestSha256": "d471f18748ab6fab87e0a52f13ee0ebf752e37f9858c95846e4e310d4b86232b",
+  "sourceAssets": 18,
+  "production": 13,
+  "tests": 5,
+  "coreAndNeighbors": {
+    "total": {
+      "tests": 143,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "suites": [
+      {
+        "path": "doc\\tasks\\20261002-dcc-public-backend-completion\\g59-final-r2-junit\\TEST-cn.iocoder.yudao.module.dcc.service.file.DccControlledContentAdapterTest.xml",
+        "sha256": "98e2d21bbcc156a4551da5e089eb07a712dc84a6770903486a77af0648fbc61d",
+        "tests": 11
+      },
+      {
+        "path": "doc\\tasks\\20261002-dcc-public-backend-completion\\g59-final-r2-junit\\TEST-cn.iocoder.yudao.module.dcc.service.file.DccControlledFileFinalizationServiceImplTest.xml",
+        "sha256": "0f3454fef89fd5c269118fd2df1fd8fd0f7e44a485cf3e371e3b5452b4513753",
+        "tests": 59
+      },
+      {
+        "path": "doc\\tasks\\20261002-dcc-public-backend-completion\\g59-final-r2-junit\\TEST-cn.iocoder.yudao.module.dcc.service.file.DccLifecycleProjectionRepairDatabaseTest.xml",
+        "sha256": "4338a61eff665aeb872fa3524569a7698d6ea44c9fb949e4a6563832cc7d1066",
+        "tests": 4
+      },
+      {
+        "path": "doc\\tasks\\20261002-dcc-public-backend-completion\\g59-final-r2-junit\\TEST-cn.iocoder.yudao.module.dcc.service.file.DccNativePlatformLifecycleTransactionTest.xml",
+        "sha256": "9fc9fb90fc50396e77e8fa4694baa7fd02909d323fc21ff7af2e7e1df3374604",
+        "tests": 8
+      },
+      {
+        "path": "doc\\tasks\\20261002-dcc-public-backend-completion\\g59-final-r2-junit\\TEST-cn.iocoder.yudao.module.dcc.service.file.DccThreeControlledVersionActivationTest.xml",
+        "sha256": "43d588c3f3f83990e1e33ea64872ddc05ab2895e134c4ec4de2bfda6e281421c",
+        "tests": 10
+      },
+      {
+        "path": "doc\\tasks\\20261002-dcc-public-backend-completion\\g59-final-r2-junit\\TEST-cn.iocoder.yudao.module.dcc.service.file.DccWorkflowLifecycleTransactionTest.xml",
+        "sha256": "30f2d8f2702663bca32541bfeb2877c32e38497b04fce855619ccf893162c939",
+        "tests": 14
+      },
+      {
+        "path": "doc\\tasks\\20261002-dcc-public-backend-completion\\g59-final-r2-junit\\TEST-cn.iocoder.yudao.module.system.service.controlledcontent.ControlledContentLifecycleCoreServiceTest.xml",
+        "sha256": "5cac2cc90cc843f085724c7404b9165c98f19d7c714fc37412c2a179d95c7ada",
+        "tests": 11
+      },
+      {
+        "path": "doc\\tasks\\20261002-dcc-public-backend-completion\\g59-final-r2-junit\\TEST-cn.iocoder.yudao.module.system.service.controlledcontent.ControlledContentRegistrationProjectionContractTest.xml",
+        "sha256": "a3ba6f6b0c20e2648705eac551794c397f2dde8ed863b7d8d43d9f36c4433a42",
+        "tests": 22
+      },
+      {
+        "path": "doc\\tasks\\20261002-dcc-public-backend-completion\\g59-final-r2-junit\\TEST-cn.iocoder.yudao.module.system.service.controlledcontent.ControlledContentStateMachineTest.xml",
+        "sha256": "f1dc4f9bfe36032407232182169a3754bbe7cf3a8179833e21769f9d278f923a",
+        "tests": 4
+      }
+    ],
+    "exit": 0
+  },
+  "latestRepair": {
+    "tests": 6,
+    "fail": 0,
+    "exit": 0,
+    "sha256": "d2a8647772f35f0c39c48260ef36f1acaa8f401ddf23465de7c04d0199953613"
+  },
+  "countsNotCombined": true,
+  "independentReview": "coreR01/R02 strictflags/CAS/source/replayclosed; exactlifecycleeventproof final6closed",
+  "runtime": "pending newpackage/realadmin repair4026; nofullHTMLE2E"
+}

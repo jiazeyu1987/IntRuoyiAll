@@ -1,0 +1,109 @@
+{
+  "schemaVersion": "dcc-a-h08-initializer-review.v1",
+  "createdAt": "2026-10-02T16:40:03.053635+08:00",
+  "branch": "codex/20260930-dcc-a",
+  "baseHead": "a801dc8b91579241e221d129ab34343997673f40",
+  "reviewStatus": "X-01 development GREEN / minimal increment ready for Root review and C synchronization; whole module in_progress",
+  "files": [
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccWorkingApplicationDraftInitializer.java",
+      "rawSha256": "32a61faba7b60409da6321f224b3e512f0c912fa908d0d32e885439a8c28822d",
+      "utf8LfSha256": "32a61faba7b60409da6321f224b3e512f0c912fa908d0d32e885439a8c28822d",
+      "bytes": 11757
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileWorkflowServiceImpl.java",
+      "rawSha256": "e80ad4ea5a2cd82c5776f43a67af0d175eb602f85739e05206f34b97d7b4f001",
+      "utf8LfSha256": "e80ad4ea5a2cd82c5776f43a67af0d175eb602f85739e05206f34b97d7b4f001",
+      "bytes": 205055
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccWorkingApplicationDraftInitializerTest.java",
+      "rawSha256": "58f8ca601b1d9ee658f16c55799f2139944a3b2989bbc5539aedad11c19f7262",
+      "utf8LfSha256": "58f8ca601b1d9ee658f16c55799f2139944a3b2989bbc5539aedad11c19f7262",
+      "bytes": 17168
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccWorkflowAttributesIntegrationTest.java",
+      "rawSha256": "e3b364fd2cbd1f4380e520ffa4e8da2eda3964e2f9e6bb73f559d93e3ee97da0",
+      "utf8LfSha256": "e3b364fd2cbd1f4380e520ffa4e8da2eda3964e2f9e6bb73f559d93e3ee97da0",
+      "bytes": 24769
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccWorkflowRevisionIntegrationTest.java",
+      "rawSha256": "de133265f56ac5923d50d78642d303aec4f10623f7a27a0a7699a2e763bcaae2",
+      "utf8LfSha256": "de133265f56ac5923d50d78642d303aec4f10623f7a27a0a7699a2e763bcaae2",
+      "bytes": 20820
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileWorkflowServiceImplTest.java",
+      "rawSha256": "38dead9d5a813c5a2236104cafc9159033ebd56dc28d480f5f5c2cf9463567f0",
+      "utf8LfSha256": "38dead9d5a813c5a2236104cafc9159033ebd56dc28d480f5f5c2cf9463567f0",
+      "bytes": 283472
+    },
+    {
+      "path": "doc/tasks/20260930-dcc-a-workflow/verify-directed.ps1",
+      "rawSha256": "c2100438921d63444c20f4e2443d7c13edf7a0b087649e050e1e0da64179c58c",
+      "utf8LfSha256": "c2100438921d63444c20f4e2443d7c13edf7a0b087649e050e1e0da64179c58c",
+      "bytes": 3273
+    },
+    {
+      "path": "doc/tasks/20260930-dcc-a-workflow/h08-test-counts.json",
+      "rawSha256": "dfce22ef1d71b5a5478f7a14772908adcf9b07b93ee048f069159cd61f242057",
+      "utf8LfSha256": "1361e165120344fe7ce74e0534681cf25987a4f9068d623df1361f40b0b2adb3",
+      "bytes": 17938
+    },
+    {
+      "path": "doc/tasks/20260930-dcc-a-workflow/h08-initializer-handoff.md",
+      "rawSha256": "444b14e4a97c2be59a022bd438a9366e43f4ee6a55f7bdb8cc7e5c9112085c49",
+      "utf8LfSha256": "444b14e4a97c2be59a022bd438a9366e43f4ee6a55f7bdb8cc7e5c9112085c49",
+      "bytes": 7816
+    }
+  ],
+  "serviceSignature": "DccProjectApplicationAttributesDO initialize(Long actorId, Long sourceFileId, Long targetFileId, DccProjectAttributes actual)",
+  "transaction": "MANDATORY / rollbackFor Exception / same outer file creation transaction",
+  "lockOrder": [
+    "project FOR UPDATE",
+    "Master FOR UPDATE",
+    "source/target File ascending ID FOR UPDATE",
+    "B mappings/attributes in same transaction"
+  ],
+  "fullDirected": {
+    "command": "./doc/tasks/20260930-dcc-a-workflow/verify-directed.ps1",
+    "finishedAt": "2026-10-02T16:29:13+08:00",
+    "exitCode": 0,
+    "classes": 67,
+    "dccTests": 957,
+    "bpmTests": 37,
+    "totalExecuted": 994,
+    "inheritedDuplicateCases": 27,
+    "distinctScenarios": 967,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "additionalInitializerRegression": {
+    "command": "mvn.cmd -o -pl yudao-module-dcc -am \"-Dtest=DccWorkingApplicationDraftInitializerTest\" \"-Dsurefire.failIfNoSpecifiedTests=false\" test",
+    "finishedAt": "2026-10-02T16:36:34+08:00",
+    "exitCode": 0,
+    "tests": 27,
+    "note": "Adds explicit actual-change test after full regression; production unchanged. Do not accumulate with 994."
+  },
+  "mainCompile": {
+    "command": "mvn.cmd -o -pl yudao-server -am \"-DskipTests\" compile",
+    "finishedAt": "2026-10-02T16:32:36+08:00",
+    "exitCode": 0
+  },
+  "policyCoverage": {
+    "operations": 32,
+    "annotations": 11,
+    "exitCode": 0,
+    "activation": "NOT RUN / candidate approval PENDING"
+  },
+  "remaining": [
+    "C Query checkin insertion hook and project-before-Master lock order integration",
+    "Failure target version reuse policy remains undecided",
+    "Public full flow / Root review / authorized runtime verification"
+  ],
+  "receiveRule": "Verify current source/target fingerprints and Owner changes before Root receive; no reset/overwrite, no other worktree copy by A."
+}

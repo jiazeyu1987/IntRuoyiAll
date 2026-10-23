@@ -1,0 +1,9 @@
+{
+  "status": "EXACT_OWNED_QMS_STOP_FOR_G62",
+  "pid": 49812,
+  "port": 48061,
+  "verifiedCommandJar": "C:/IntRuoyiAll-int_main/IntRuoyiBackend/yudao-server/target/yudao-server-exec.jar",
+  "executedCommandSession": 83203,
+  "firstReceiptWrite": "relative path error aftersuccessfulstop; Root correct absolute receipt now",
+  "branch": "int_qms"
+}

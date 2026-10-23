@@ -12,6 +12,8 @@ import org.junit.jupiter.api.Test;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 
+import java.util.List;
+
 import static cn.iocoder.yudao.framework.test.core.util.AssertUtils.assertServiceException;
 import static cn.iocoder.yudao.module.bpm.enums.ErrorCodeConstants.TASK_APPROVAL_REQUIRES_DCC_SIGNATURE;
 import static cn.iocoder.yudao.module.bpm.enums.ErrorCodeConstants.TASK_APPROVAL_REQUIRES_EDHR_SIGNATURE;
@@ -19,6 +21,28 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 class BpmTaskExternalSignatureGuardTest extends BaseMockitoUnitTest {
+
+    private static final List<String> DCC_THREE_WORKFLOW_KEYS = List.of(
+            "dcc-controlled-file-upload",
+            "dcc-controlled-file-revision",
+            "dcc-controlled-file-obsolete"
+    );
+
+    @Test
+    void assertGenericTaskMutationAllowed_blocksEvenFormCenterOwnedDccProcess() {
+        TenantContextHolder.setTenantId(122L);
+        Task task = mock(Task.class);
+        ProcessDefinition definition = mock(ProcessDefinition.class);
+        when(task.getProcessDefinitionId()).thenReturn("definition-1");
+        org.mockito.Mockito.lenient().when(task.getProcessInstanceId()).thenReturn("form-center-process-1");
+        when(processDefinitionService.getProcessDefinition("definition-1")).thenReturn(definition);
+        when(definition.getKey()).thenReturn("dcc-controlled-file-approval");
+        org.mockito.Mockito.lenient().when(formActionInstanceMapper.selectByProcessInstanceId(122L, "form-center-process-1"))
+                .thenReturn(new FormActionInstanceDO().setId(100L));
+
+        assertServiceException(() -> guard.assertGenericTaskMutationAllowed(task),
+                TASK_APPROVAL_REQUIRES_DCC_SIGNATURE);
+    }
 
     @Mock
     private cn.iocoder.yudao.module.bpm.service.definition.BpmProcessDefinitionService processDefinitionService;
@@ -50,12 +74,28 @@ class BpmTaskExternalSignatureGuardTest extends BaseMockitoUnitTest {
     }
 
     @Test
+    void assertGenericApproveOrRejectAllowed_blocksThreeDccWorkflowProcesses() {
+        for (String key : DCC_THREE_WORKFLOW_KEYS) {
+            TenantContextHolder.setTenantId(122L);
+            Task task = mock(Task.class);
+            ProcessDefinition definition = mock(ProcessDefinition.class);
+            when(task.getProcessDefinitionId()).thenReturn("definition-" + key);
+            when(task.getProcessInstanceId()).thenReturn("dcc-process-" + key);
+            when(processDefinitionService.getProcessDefinition("definition-" + key)).thenReturn(definition);
+            when(definition.getKey()).thenReturn(key);
+
+            assertServiceException(() -> guard.assertGenericApproveOrRejectAllowed(task),
+                    TASK_APPROVAL_REQUIRES_DCC_SIGNATURE);
+            TenantContextHolder.clear();
+        }
+    }
+
+    @Test
     void assertGenericTaskMutationAllowed_blocksDccControlledFileProcess() {
         TenantContextHolder.setTenantId(122L);
         Task task = mock(Task.class);
         ProcessDefinition definition = mock(ProcessDefinition.class);
         when(task.getProcessDefinitionId()).thenReturn("definition-1");
-        when(task.getProcessInstanceId()).thenReturn("dcc-process-1");
         when(processDefinitionService.getProcessDefinition("definition-1")).thenReturn(definition);
         when(definition.getKey()).thenReturn("dcc-controlled-file-approval");
 

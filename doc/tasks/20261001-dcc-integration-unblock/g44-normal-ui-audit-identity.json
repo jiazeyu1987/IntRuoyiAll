@@ -1,0 +1,68 @@
+{
+  "status": "ACTUAL_NORMAL_UI_AUDIT_USERNAME_DEFECT_READONLY_CONFIRMED",
+  "rows": [
+    {
+      "actorId": "1",
+      "eventId": "199",
+      "subject": "DCC_PROJECT_CONFIGURATION:1",
+      "eventHash": "286d147790b6c88a857246042a3061d22725b2c8ff1ae99d2bf4572fa2b7e6a1",
+      "operation": "dcc.project-product.reviewer-config",
+      "displayMatches": true,
+      "usernameMatches": false,
+      "isSystemActorLiteral": true
+    },
+    {
+      "actorId": "1",
+      "eventId": "200",
+      "subject": "DCC_PROJECT_CONFIGURATION:1",
+      "eventHash": "4d32f528db991bdd360916033fc17264be48a31f5bdf2519028f6e1dc97b06b6",
+      "operation": "dcc.folder-template.save",
+      "displayMatches": true,
+      "usernameMatches": false,
+      "isSystemActorLiteral": true
+    },
+    {
+      "actorId": "1",
+      "eventId": "201",
+      "subject": "DCC_PROJECT_PRODUCT_REQUEST:6",
+      "eventHash": "240680719ab4dbb686ae4dc16bfd75e4d82a50478ffd4fc5212b197126347f23",
+      "operation": "dcc.project-product.create",
+      "displayMatches": true,
+      "usernameMatches": false,
+      "isSystemActorLiteral": true
+    },
+    {
+      "actorId": "1",
+      "eventId": "202",
+      "subject": "DCC_PROJECT_PRODUCT_REQUEST:6",
+      "eventHash": "00e24ee22d26a0f8d02864c0800c3078412f186364960ed0c00b1b13885ecdc4",
+      "operation": "dcc.project-product.review",
+      "displayMatches": true,
+      "usernameMatches": false,
+      "isSystemActorLiteral": true
+    },
+    {
+      "actorId": "1",
+      "eventId": "203",
+      "subject": "DCC_PROJECT_PRODUCT_REQUEST:6",
+      "eventHash": "f516895ec391b05218d74053ca741d0eee2d35a826216fee97a76639fcb25473",
+      "operation": "dcc.project-product.approve",
+      "displayMatches": true,
+      "usernameMatches": false,
+      "isSystemActorLiteral": true
+    },
+    {
+      "actorId": "1",
+      "eventId": "204",
+      "subject": "DCC_PROJECT_PRODUCT_REQUEST:6",
+      "eventHash": "8a97369c84adb98127bff63287b770bc331c85af4dc738806288e8bb38c0c012",
+      "operation": "dcc.project-product.complete",
+      "displayMatches": true,
+      "usernameMatches": false,
+      "isSystemActorLiteral": true
+    }
+  ],
+  "currentUsernameSource": "system_users via exact actorId/tenant",
+  "databaseWrites": false,
+  "historicalEventRewritesAllowed": false
+}

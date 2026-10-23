@@ -1,0 +1,32 @@
+# G54 会签指派关联整改仅限升版
+
+状态：ready_for_closeout_for_Root_review。Root真实NEW会签指派context合法，但FE误读整改查询；后端原assign也无条件调用整改save。当前服务实际名DccWorkflowSignoffAssignmentService。仅修此service、当前contextrecord和必要tests，FE另owner。保任务/tenant/actor/部门/岗位/有效签名/载荷重放/原BPMround，实际DB/runtime/E2E/package/Git由Root负责。源/测试冻结、Maven已释放。
+
+- Given准确当前UPLOAD或OBSOLETE会签指派任务，When真实密码/意见/候选合法且无整改，Then原signature→assignmentfact→真实taskreassign继续，但不调用revision整改保存。
+- Given非revision caller传非空整改，Whenassign，Then签名/指派/整改/task写之前拒绝，不默认空或执行整改。
+- Given真实REVISION task，When合法指派和选择整改，Then保原真实签名载荷并严谨保存整改；整改异常不推进task。
+- Given原file uploadkey与当前obsolete round不同，Whencontext读取和assign，Then当前task.processDefinitionId准确查正式definition并核ID/tenant/三合法key，返回processDefinitionKey；不能用file旧key、prefix猜默认或另contextAPI。
+
+有效RED先跑旧assign对非revision处理整改失败或未拒绝的行为；新增context字段后只准确Http/body合同GREEN，不把缺新accessor当业务RED。无本owner实际签名/业务DB/browser。本轮独占Maven，修完源封存后释放Root。
+
+## 实际原因与有效RED边界
+
+Root进一步核定实际主line阻断是预加载整改所求round与正式boundround不同，FE因此0POST；RelationAccessPolicy原来没有REVISIONguard。本修是按HTML将整改限定升版，不能声称旧NEW POST403已经实测或把不存在的guard当原因。
+
+初RED曾在mock整改port注入例外，保历史日志但不充现正式服务拒绝证据；生产仍未改时将该测试改为纯verifyNoInteractions后重新有效RED4/4fail/0error：UPLOAD/OBSOLETE实际旧save交互两项违反范围，非空整改两项旧source正常接受。原XML已封g54-signoff-scope-effective-red-r2.xml。
+
+## 源合同与最后验证
+
+新context processDefinitionKey从当前Task.processDefinitionId准确查正式同租户definition，核ID/tenant/UPLOAD/REVISION/OBSOLETE三key；不使用file原key或默认NEW。assign在原Task/round校验前后保持真实身份，只REVISION调用原整改save；UPLOAD/OBSOLETE非空payload签名前拒，空payload仍执行原真实signatureService、snapshot证据和task转派。所有电子签名有效证据守卫保留，省略payload不等于授办理权限。
+
+首GREEN3类通过；相关六类首组合54/5PASS，另一旧Gxp组合fixture缺真实current-account7导致15错误。只补与现LoginUser完全一致的enabledtenant/username/nickname/dept/post正式账号端口fixture，不改Gxp生产guard。两签名整改组合原使用UPLOAD/非正式modelkey却测revision整改，必要fixture改成实际REVISION模型并通过当前engine Repository的正式DefinitionService读取；不借假key返回。
+
+最后2026-10-05 11:11:22 currentreactor六类69执行全部0fail/error/skip、exit0。Assignment23、HTTP1、Remediation16、SignedContract4、actualSpringFlowableSignedTxn10、actualGxpControlEvent15。后两组签名认证端口是显式隔离端口，正式任务/事务/数据库/Gxp事实实际执行，不宣称本机真实用户密码签名或业务E2E。六XML原bytes保存在g54-signoff-junit，receipt和production2/test5/compiled3指纹在g54-signoff-fingerprints.json；没有累加其它G53/FE执行。
+
+未运行或改另一个VersionPlacementDatabaseTest的手工context宿主；其旧自建Service未来需要注入新mandatory definitions端口，不能用nullfallback维持旧fixture。本批Root限制六组后即停止；该说明不是生产失败或69结果覆盖声明。
+
+## r2 必要相邻宿主闭合追加
+
+Root明确授权完成上述既有VersionPlacement的单一case。仅其手工assignment增加当前真实engine Repository→正式DefinitionService注入及keyassert；TestContext缺G48 StorageService Bean则显式提供本case从不调用的NEW-only mock并verifyNoInteractions，不假NEW成功。之后缺当前Gxp AdminApi Bean，显式账号99/tenant1/enabled/username placement-test/nickname Placement test与原LoginUser一致；两次早setupError如实保留，不计业务RED，不改任何production guard。
+
+2026-10-05 11:22:13 currentreactor精确 `DccVersionPlacementDatabaseTest#publicPlacementRealFlowableTaskSuppliesTheExactAssignmentObligation` 单case1pass/0fail/error/skip、exit0。原69六XML/生产2/旧source manifest资产原hash不动；此XML独立封g54-version-placement-context-junit.xml，manifest-r2只追加必要test及收据，不能称同一次全量70。此前本段前的未执行状态是历史快照，当前此必要宿主已闭合。没有扩其它case或测试核心，Maven已释放Root打包/真实签名。
