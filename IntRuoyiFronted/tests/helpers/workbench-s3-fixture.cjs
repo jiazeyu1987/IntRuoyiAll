@@ -18,10 +18,12 @@ function fixture(options = {}) {
  let activeDirectory=dir,activeRow=row,activeManifest={contractVersion:1,registryRevision:dir.registryRevision,modules:[{ownerModule:'sixth',enabled:true,sourceIds:['SIXTH']}]},activeUnits
  const routes=[]
  const scope=vue.effectScope(),user=vue.reactive({getUser:{id:1},getPermissions:[],getRoles:[]})
- const cache=new Map(),wsCache={get:key=>cache.get(key),set:(key,value)=>cache.set(key,value),delete:key=>cache.delete(key)}
+ const cache=options.cache||new Map(),wsCache={get:key=>cache.get(key),set:(key,value)=>cache.set(key,value),delete:key=>cache.delete(key)}
+ const sessionStorage=options.sessionStorage||new Map()
  const requests=[],contexts=new Map(),hooks={},messages=[],successes=[]
  const listeners=new Map()
  const dom={location:{origin:'https://example.test'},visibilityState:'visible',
+  sessionStorage:{getItem:key=>sessionStorage.get(key)??null,setItem:(key,value)=>sessionStorage.set(key,value),removeItem:key=>sessionStorage.delete(key)},
   addEventListener:(name,fn)=>{if(!listeners.has(name))listeners.set(name,new Set());listeners.get(name).add(fn);hooks[name]=()=>[...listeners.get(name)].forEach(fn=>fn())},
   removeEventListener:(name,fn)=>listeners.get(name)?.delete(fn)}
  let transport=async r=>{
@@ -71,7 +73,7 @@ function fixture(options = {}) {
   activeRow={...row,sourceId:d.sourceId,taskKey:d.sourceId+':'+options.item.id,businessId:options.item.id,taskType:d.taskType,source:d.label,action:{actionKind:d.actionKind,payloadVersion:1,payload:options.item}}
  }
  const auth=evaluate(read('src/utils/auth.ts'));deps['@/utils/auth']=auth
- auth.setTenantId(1);auth.setToken({accessToken:'session-A',refreshToken:'refresh-A'})
+ if(!options.cache){auth.setTenantId(1);auth.setToken({accessToken:'session-A',refreshToken:'refresh-A'})}
  const context=load('@/workbench/queryContext'),registry=load('@/workbench/registry'),api=load('@/api/system/profileWorkbenchTodo')
  const badgeModule=scope.run(()=>evaluate(read('src/store/modules/profileWorkbenchTodoBadge.ts'))),badge=badgeModule.useProfileWorkbenchTodoBadgeStore(p)
  const s=parse(read('src/views/Profile/components/ProfileWorkbench.vue')).descriptor.scriptSetup.content
@@ -81,7 +83,12 @@ function fixture(options = {}) {
   ElMessage:{error:m=>messages.push(m),success:m=>successes.push(m)},ElMessageBox:{confirm:async()=>{}},useUserTableColumns:()=>({}),useTableQuickFilter:()=>({}),
   window:dom,document:dom
  }
- const page=scope.run(()=>Function(...Object.keys(bindings),compile(body)+';return { loadWorkbench,openTodo,handleHideTodo,handleRestoreTodo,todoRows,total,hiddenTotal,loading,loadErrorMessages,actionTaskKey,queryParams,activeVisibilityTab,sortState };')(...Object.values(bindings)))
+ const createPage=()=>scope.run(()=>{
+  const pageScope=vue.effectScope()
+  const pageBindings={...bindings,onBeforeUnmount:fn=>hooks.unmount=()=>{fn();pageScope.stop()}}
+  return pageScope.run(()=>Function(...Object.keys(pageBindings),compile(body)+';return { loadWorkbench,openTodo,handleHideTodo,handleRestoreTodo,handleVisibilityTabChange,todoRows,total,hiddenTotal,loading,silentLoading,actionsReady,loadErrorMessages,actionTaskKey,queryParams,activeVisibilityTab,sortState };')(...Object.values(pageBindings)))
+ })
+ const page=createPage()
  const mountMenu=()=>{
   const source=parse(read('src/layout/components/Menu/src/Menu.vue')).descriptor.script.content
   const ast=ts.createSourceFile('menu.tsx',source,ts.ScriptTarget.Latest,true,ts.ScriptKind.TSX)
@@ -97,7 +104,7 @@ function fixture(options = {}) {
   const handlers=scope.run(()=>Function(...Object.keys(menuBindings),compile(statements.join('\n'))+';return {loadProfileWorkbenchTodoBadge,reportProfileWorkbenchTodoBadgeError};')(...Object.values(menuBindings)))
   menuHooks.mount();return {...menuHooks,...handlers,logs}
  }
- return {page,badge,context,registry,api,requests,contexts,messages,successes,hooks,bindings,scope,user,auth,cache,routes,mountMenu,listeners,dom,
+ return {page,createPage,badge,context,registry,api,requests,contexts,messages,successes,hooks,bindings,scope,user,auth,cache,sessionStorage,routes,mountMenu,listeners,dom,
   setTransport:fn=>{const old=transport;transport=r=>fn(r,old)},
   identity:(id,token='session-'+id)=>{auth.setToken({accessToken:token,refreshToken:'refresh-'+id});user.getUser.id=id},
   tenant:value=>auth.setTenantId(value),visit:value=>auth.setVisitTenantId(value)

@@ -178,11 +178,10 @@ class ElectronicSignatureVerifiedFactServiceTest {
     void developmentDisablesOnlyAuditBindingAndStillRejectsTamperedSignature() {
         sign("SYSTEM_USER", "批准");
         var env = new org.springframework.mock.env.MockEnvironment()
-                .withProperty(GxpAuditDevelopmentMode.PROPERTY, "true")
                 .withProperty("spring.datasource.dynamic.datasource.master.url", "jdbc:mysql://127.0.0.1/test");
         env.setActiveProfiles("local");
         try {
-            new GxpAuditDevelopmentMode(env);
+            new GxpAuditDevelopmentMode(env, cn.iocoder.yudao.module.infra.enums.config.GxpAuditMode.DEVELOPMENT_DISABLED);
             clearInvocations(audits);
             var fact=service.requireVerifiedFact(10L);
             assertEquals("CONSISTENT", fact.verification().digestStatus());
@@ -193,7 +192,7 @@ class ElectronicSignatureVerifiedFactServiceTest {
             record.setCanonicalContentJson("{\"tampered\":true}");
             assertThrows(ServiceException.class, ()->service.requireVerifiedFact(10L));
             verifyNoInteractions(audits);
-        } finally { new GxpAuditDevelopmentMode(new org.springframework.mock.env.MockEnvironment()); }
+        } finally { new GxpAuditDevelopmentMode(new org.springframework.mock.env.MockEnvironment(), cn.iocoder.yudao.module.infra.enums.config.GxpAuditMode.FORMAL); }
     }
 
     @Test

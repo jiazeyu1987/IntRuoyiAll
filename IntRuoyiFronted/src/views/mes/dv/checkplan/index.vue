@@ -3,6 +3,7 @@
 
   <ContentWrap>
     <UnifiedListTemplate
+      single-line-toolbar
       table-key="mes.dv.checkPlan.main"
       :query-model="queryParams"
       label-width="85px"

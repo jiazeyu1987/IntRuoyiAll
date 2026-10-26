@@ -138,6 +138,22 @@ class MesPqcReleasePageRoundOwnershipTest extends BaseDbUnitTest {
         assertEquals(List.of(2L), ids(secondVoidPage));
         assertEquals(102L, secondVoidPage.getList().get(0).getNonconformanceReviewId());
         assertEquals("void", secondVoidPage.getList().get(0).getNonconformanceDisposition());
+
+        var expectedIds = List.of(7L, 6L, 5L, 4L, 2L, 1L);
+        var expectedResults = List.of("VOIDED", "REWORKED", "CONCESSION_RELEASED", "RELEASED", "VOIDED", "REWORKED");
+        for (int index = 0; index < expectedIds.size(); index++) {
+            var completed = page("COMPLETED", index + 1);
+            assertEquals(6L, completed.getTotal());
+            assertEquals(List.of(expectedIds.get(index)), ids(completed));
+            assertEquals(expectedResults.get(index), completed.getList().get(0).getViewStatus());
+        }
+        assertTrue(page("COMPLETED", 7).getList().isEmpty());
+        assertEquals(0L, service.getPqcReleasePage(901L, exactQuery("COMPLETED", 4L, 104L)).getTotal());
+        assertEquals(0L, service.getPqcReleasePage(ACTOR_USER_ID, exactQuery("COMPLETED", 4L, 105L)).getTotal());
+        var filtered = service.getPqcReleasePage(ACTOR_USER_ID, new MesPqcProductionReleasePageQuery()
+                .setPageNo(1).setPageSize(10).setViewStatus("COMPLETED").setWorkOrderCode("WO-ROUND-1").setBatchCode("B-ROUND-1"));
+        assertEquals(2L, filtered.getTotal());
+        assertEquals(List.of(2L, 1L), ids(filtered));
     }
 
     @Test
@@ -301,10 +317,10 @@ class MesPqcReleasePageRoundOwnershipTest extends BaseDbUnitTest {
                                String disposition, String reason, LocalDateTime frozenAt, LocalDateTime closedAt) {
         jdbcTemplate.update("""
                 INSERT INTO mes_pro_edhr_nonconformance_review
-                    (id, source_type, source_id, active_order_id, review_status, disposition,
+                    (id, review_code, source_type, source_id, active_order_id, review_status, disposition,
                      nonconformance_reason, frozen_at, closed_at, deleted, tenant_id)
-                VALUES (?, 'ACTIVE_ORDER', ?, ?, ?, ?, ?, ?, ?, FALSE, ?)
-                """, id, sourceId, activeOrderId, reviewStatus, disposition, reason,
+                VALUES (?, ?, 'ACTIVE_ORDER', ?, ?, ?, ?, ?, ?, ?, FALSE, ?)
+                """, id, "PQC-REVIEW-" + id, sourceId, activeOrderId, reviewStatus, disposition, reason,
                 frozenAt, closedAt, TENANT_ID);
     }
 }

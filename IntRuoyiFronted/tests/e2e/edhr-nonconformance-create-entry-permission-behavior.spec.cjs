@@ -20,7 +20,7 @@ function harness(permissions, query = {}) {
   const ast = ts.createSourceFile('page.ts', descriptor.scriptSetup.content, ts.ScriptTarget.Latest, true)
   const script = ast.statements.filter(s => !ts.isImportDeclaration(s) && !ts.isExportDeclaration(s)).map(s => s.getText(ast)).join('\n')
   const context = {
-    ...vue, defineOptions() {}, useRoute: () => route,
+    ...vue, useApprovalCenterInvalidationStore: () => ({ syncSession: () => ({ key: "test-session" }) }), defineOptions() {}, useRoute: () => route,
     useMessage: () => ({ error() {}, success() {} }),
     onMounted: fn => mounted.push(fn), onBeforeUnmount: fn => unmounted.push(fn),
     watch: (...args) => { const stop = vue.watch(...args); stops.push(stop); return stop },
@@ -37,7 +37,7 @@ function harness(permissions, query = {}) {
     uploadNonconformanceReviewMaterial: async () => { writes.push('upload'); throw Error('read entry must not upload') }
   }
   const compiled = ts.transpileModule(script, { compilerOptions: { module: ts.ModuleKind.None, target: ts.ScriptTarget.ES2022 } }).outputText
-  const page = Function(...Object.keys(context), `${compiled}; return { createDialogVisible, reviewDialogVisible, selectedReview, selectedActiveOrderId, errorText, disposeForm, openCreateDialog, openReviewDialog, canCreateReview: typeof canCreateReview === 'undefined' ? undefined : canCreateReview, canConfigureQaAssignment };`)(...Object.values(context))
+  const page = Function(...Object.keys(context), `${compiled}; return { createDialogVisible, reviewDialogVisible, selectedReview, selectedActiveOrderId, errorText, disposeForm, openCreateDialog, openReviewDialog, canCreateReview: typeof canCreateReview === 'undefined' ? undefined : canCreateReview };`)(...Object.values(context))
   return { page, route, candidates, lists, exactReads, writes, mount: async () => { mounted.forEach(fn => fn()); await tick() }, close: () => { unmounted.forEach(fn => fn()); stops.forEach(stop => stop()) } }
 }
 
@@ -107,29 +107,10 @@ test('refused creation does not dismiss or replace the existing disposition obje
   assert.deepEqual(h.writes, []); h.close()
 })
 
-function qaAssignmentEntry(h) {
-  const find = node => {
-    if (node.type === 1 && node.tag === 'QaHandoffAssignmentConfig') return node
-    for (const child of node.children || []) { const result = find(child); if (result) return result }
-  }
-  const node = find(descriptor.template.ast)
-  assert.ok(node, 'Existing NCR page must provide the formal QA assignment entry')
-  const built = compileTemplate({ source: node.loc.source, filename: 'qa-assignment-entry.vue', id: 'qa-assignment-entry', compilerOptions: { mode: 'function', prefixIdentifiers: false, cacheHandlers: false } })
+test('取消路线负责人配置后，页面保留评审材料上传入口', () => {
+  assert.doesNotMatch(descriptor.template.content, /QaHandoffAssignmentConfig|PqcHandoffAssignmentConfig/)
+  assert.doesNotMatch(descriptor.scriptSetup.content, /canConfigureQaAssignment|canConfigurePqcAssignment/)
+  assert.match(descriptor.template.content, /aria-label="上传评审材料"/)
+  const built = compileTemplate({ source: descriptor.template.content, filename: 'nonconformance.vue', id: 'nonconformance' })
   assert.deepEqual(built.errors, [])
-  return Function('Vue', built.code)({ ...vue, resolveComponent: () => 'qa-assignment-config' })({ canConfigureQaAssignment: h.page.canConfigureQaAssignment.value }, [])
-}
-
-test('ordinary QA, creator and update-only users cannot mount the management configuration', async () => {
-  for (const permissions of [[queryPermission, disposePermission], [queryPermission, createPermission], [queryPermission, 'mes:pro-edhr-work-task-rule:update']]) {
-    const h = harness(permissions); await h.mount()
-    assert.equal(qaAssignmentEntry(h).type, vue.Comment)
-    assert.deepEqual(h.writes, []); h.close()
-  }
-})
-
-test('formal rule query permission mounts QA configuration without acquiring NCR creation', async () => {
-  const h = harness([queryPermission, 'mes:pro-edhr-work-task-rule:query']); await h.mount()
-  assert.equal(qaAssignmentEntry(h).type, 'qa-assignment-config')
-  assert.equal(createButton(h).type, vue.Comment)
-  assert.equal(h.candidates.length, 0); assert.deepEqual(h.writes, []); h.close()
 })

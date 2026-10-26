@@ -2,7 +2,7 @@
 import type { RouteLocationNormalizedLoaded } from 'vue-router'
 import { useTagsViewStore } from '@/store/modules/tagsView'
 import { useAppStore } from '@/store/modules/app'
-import { Footer } from '@/layout/components/Footer'
+import { useEdhrListViewport } from '@/hooks/web/useEdhrListViewport'
 
 defineOptions({ name: 'AppView' })
 
@@ -14,7 +14,11 @@ const fixedHeader = computed(() => appStore.getFixedHeader)
 
 const tagsViewStore = useTagsViewStore()
 const currentRoute = useRoute()
-const shouldShowFooter = computed(() => appStore.getFooter && currentRoute.meta?.hideFooter !== true)
+const isEdhrPage = computed(() =>
+  currentRoute.matched.some((route) => route.path === '/mes/edhr-batch-processing')
+)
+const contentRef = ref<HTMLElement>()
+useEdhrListViewport(contentRef, isEdhrPage)
 
 const resolveKeepAliveName = (route: RouteLocationNormalizedLoaded) =>
   String(route.meta?.keepAliveName || route.name || '')
@@ -47,13 +51,9 @@ void [layout, fixedHeader, tagsView]
 
 <template>
   <section
-    :class="[
-      'p-[var(--app-content-padding)] w-full bg-[var(--app-content-bg-color)] dark:bg-[var(--el-bg-color)]',
-      {
-        '!min-h-[calc(100vh-var(--top-tool-height)-var(--tags-view-height)-var(--app-footer-height))] pb-0':
-          shouldShowFooter
-      }
-    ]"
+    ref="contentRef"
+    :class="{ 'edhr-content': isEdhrPage }"
+    class="px-[var(--app-content-padding)] pt-[var(--app-content-padding)] pb-0 w-full bg-[var(--app-content-bg-color)] dark:bg-[var(--el-bg-color)]"
   >
     <router-view v-if="routerAlive">
       <template #default="{ Component, route }">
@@ -63,5 +63,12 @@ void [layout, fixedHeader, tagsView]
       </template>
     </router-view>
   </section>
-  <Footer v-if="shouldShowFooter" />
 </template>
+
+<style scoped>
+/* eDHR 列表在分页后结束，不再叠加分页与列表卡片的底部外边距。 */
+.edhr-content :deep(.el-pagination),
+.edhr-content :deep(.el-card.mb-15px:has(.el-table)) {
+  margin-bottom: 0;
+}
+</style>

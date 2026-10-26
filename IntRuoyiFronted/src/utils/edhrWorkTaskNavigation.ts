@@ -135,7 +135,23 @@ const resolveMarketReleaseTaskUrl = (item: EdhrWorkTaskRouteLike, url: URL, orig
 
 const resolveTaskNavigationUrl = (item: EdhrWorkTaskRouteLike, origin: string) => {
   if (item.actionUrl) {
-    return resolveMarketReleaseTaskUrl(item, parseInternalActionUrl(item, origin), origin)
+    const url = resolveMarketReleaseTaskUrl(item, parseInternalActionUrl(item, origin), origin)
+    if (isRouteValuePresent(item.id)) {
+      const workTaskId = requireTaskIdentity(item.id, '工作任务编号')
+      const existing = url.searchParams.getAll('workTaskId')
+      if (existing.length > 1 || (existing.length === 1 && existing[0] !== workTaskId)) {
+        throw new Error('工作任务入口与正式任务编号不一致。')
+      }
+      url.searchParams.set('workTaskId', workTaskId)
+    }
+    if (normalizeTaskType(item.taskType) === 'PQC_PRODUCTION_RELEASE') {
+      const applicationId = requireTaskIdentity(item.businessScopeId, '生产放行申请编号')
+      if (item.businessScopeType !== 'RELEASE_APPLICATION' || url.pathname !== PQC_PRODUCTION_RELEASE_PATH ||
+        url.searchParams.getAll('applicationId').length !== 1 || url.searchParams.get('applicationId') !== applicationId) {
+        throw new Error('生产放行入口与正式申请身份不一致。')
+      }
+    }
+    return url
   }
   if (isFillTask(item.taskType) && hasStructuredBatchFillTaskContext(item)) {
     return buildStructuredBatchFillTaskUrl(item, origin)
@@ -166,7 +182,8 @@ const toPositiveNumber = (value?: number | string | null) => {
 }
 
 const shouldOpenBatchFillTask = (item: EdhrWorkTaskRouteLike, url: URL) =>
-  (isFillOrReworkTask(item.taskType) || url.pathname === EDHR_BATCH_EXECUTION_DETAIL_PATH) &&
+  (isFillOrReworkTask(item.taskType) || (!item.taskType && url.pathname === EDHR_BATCH_EXECUTION_DETAIL_PATH &&
+    !url.searchParams.has('nodeType') && !url.searchParams.has('action'))) &&
   !resolveExecutionId(item, url) &&
   Boolean(resolveBatchExecutionId(item, url)) &&
   Boolean(resolveBatchTaskId(item, url))

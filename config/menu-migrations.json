@@ -1,6 +1,179 @@
 {
   "changes": [
     {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/handoff/MesActiveOrderHandoffService.java",
+      "kind": "permission",
+      "value": "mes:pro-edhr-nonconformance-review:dispose",
+      "reason": "取消路线QA负责人配置后，评审处置继续校验已有处置权限；仅将原配置服务中的权限校验保留在业务服务，不新增权限、菜单或角色及租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/mes/pro/edhr-deviation/index.vue",
+      "kind": "menu",
+      "value": "删除页面内批记录导航Tab，偏差管理与不合格评审使用生产执行下独立菜单",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261026_deviation_under_production_execution.sql",
+        "IntRuoyiBackend/sql/mysql/20261026_rename_production_execution_menus.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiBackend/sql/mysql/20261026_strip_edhr_child_menu_prefixes.sql",
+      "kind": "menu",
+      "value": "去掉eDHR批记录所有下级导航名称的eDHR前缀",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261026_strip_edhr_child_menu_prefixes.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiBackend/sql/mysql/20261026_deviation_under_production_execution.sql",
+      "kind": "menu",
+      "value": "生产执行下配置偏差管理入口",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261026_deviation_under_production_execution.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiFronted/src/store/modules/permission.ts",
+      "kind": "menu",
+      "value": "移除表单追溯子菜单并将eDHR历史追溯更名为历史追溯",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261026_simplify_form_trace_menus.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiBackend/sql/mysql/20261026_rename_production_execution_menus.sql",
+      "kind": "menu",
+      "value": "生产放行、工作任务、不合格评审导航更名",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261026_rename_production_execution_menus.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiBackend/sql/mysql/20261026_rename_process_management_directory.sql",
+      "kind": "menu",
+      "value": "工序设置父目录更名为工序管理",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261026_rename_process_management_directory.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiFronted/src/store/modules/permission.ts",
+      "kind": "menu",
+      "value": "隐藏物料产品分类、计量单位、物料产品管理和MES工序导航",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261026_hide_process_master_data_menus.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiFronted/src/store/modules/permission.ts",
+      "kind": "menu",
+      "value": "移除表单和批记录测试导航页签",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261026_hide_edhr_form_test_menus.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiFronted/src/store/modules/permission.ts",
+      "kind": "menu",
+      "value": "移除表单模板导航页签",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261026_hide_form_template_menu.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiBackend/sql/mysql/20261026_edhr_erp_config_menu_order.sql",
+      "kind": "menu",
+      "value": "ERP配置移至数据同步末尾",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261026_edhr_erp_config_menu_order.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/erp/sync/SyncRuntime.vue",
+      "kind": "permission",
+      "value": "erp:kingdee-sync:query",
+      "reason": "ERP配置合并时从原erp/sync/index.vue完整抽取运行区内部组件，复用原erp:kingdee-sync:query权限；不新增独立菜单、权限或业务操作授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/router/modules/businessConfig.ts",
+      "kind": "router",
+      "value": "6b6486f9f616718845625e665a72775cd0af31132ecdb3a9e30fd11168978fc9",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261026_erp_configuration_merged_menu.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiBackend/sql/mysql/20261026_erp_configuration_merged_menu.sql",
+      "kind": "menu",
+      "value": "ERP配置",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261026_erp_configuration_merged_menu.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiBackend/sql/mysql/20261026_edhr_lifecycle_directories.sql",
+      "kind": "menu",
+      "value": "/mes/edhr-production-forms",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261026_edhr_lifecycle_directories.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiBackend/sql/mysql/20261026_edhr_lifecycle_directories.sql",
+      "kind": "menu",
+      "value": "/mes/edhr-inspection-forms",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261026_edhr_lifecycle_directories.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiBackend/sql/mysql/20261026_edhr_lifecycle_directories.sql",
+      "kind": "menu",
+      "value": "/mes/edhr-process-settings",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261026_edhr_lifecycle_directories.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiBackend/sql/mysql/20261026_edhr_lifecycle_directories.sql",
+      "kind": "menu",
+      "value": "/mes/edhr-process-routes",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261026_edhr_lifecycle_directories.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiBackend/sql/mysql/20261026_edhr_lifecycle_directories.sql",
+      "kind": "menu",
+      "value": "/mes/edhr-production-execution",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261026_edhr_lifecycle_directories.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiBackend/sql/mysql/20261026_edhr_lifecycle_directories.sql",
+      "kind": "menu",
+      "value": "/mes/edhr-form-trace",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261026_edhr_lifecycle_directories.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiBackend/sql/mysql/20261026_edhr_data_sync_directory.sql",
+      "kind": "menu",
+      "value": "/mes/edhr-data-sync",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261026_edhr_data_sync_directory.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/mes/pro/edhr-batch/BatchRecordHistoryPage.vue",
+      "kind": "page",
+      "value": "mes/pro/edhr-batch/BatchRecordHistoryPage",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261026_edhr_root_menu_business_order.sql"
+      ]
+    },
+    {
       "source": "IntRuoyiFronted/src/permission.ts",
       "kind": "permission",
       "value": "system:user:query",
@@ -238,7 +411,7 @@
       "source": "IntRuoyiFronted/src/views/infra/config/basic/index.vue",
       "kind": "page",
       "value": "infra/config/basic/index",
-      "reason": "用户于2026-10-21明确批准本任务保留已评审的正式命令授权方案，例外于 SQL 直写角色/套餐要求；不修改门禁脚本。菜单定义由 IntRuoyiBackend/sql/mysql/20261008_profile_business_config_menus.sql 发布，角色/套餐必须按 doc/tasks/20261008-profile-architecture-implementation/menu-migration-runbook-s1.md 使用正式权限命令、真实差集及审计完成。当前仅融合静态候选，不表示迁移执行、真实菜单可见或授权验收通过。"
+      "reason": "用户于2026-10-21明确批准本任务保留已评审的正式命令授权方案，例外于 SQL 直写角色/套餐要求；不修改门禁脚本。菜单定义由 IntRuoyiBackend/sql/mysql/20261008_profile_business_config_menus.sql 发布，角色/套餐必须按 doc/tasks/20261008-profile-architecture-implementation/menu-migration-runbook-s1.md 使用正式权限命令、真实差集及审计完成。当前仅融合静态候选，不表示迁移执行、真实菜单可见或授权验收通过。 本次GxP模式组件复用此页面与infra:config:query/update，不新增菜单、权限或角色及租户套餐授权；模式初始数据由20261026_gxp_audit_mode_config.sql显式初始化，保存后重启生效。"
     },
     {
       "source": "IntRuoyiFronted/src/router/modules/businessConfig.ts",
@@ -983,6 +1156,132 @@
       "kind": "router",
       "value": "e9a7508d65a216e4335bbcae6a544d8d207b9e111047eb1c9fc3f200298d9a3e",
       "reason": "恢复 DCC 产品目录既有项目详情链接 /mdm/project-code 对应的内部隐藏路由，复用现有项目组件与权限，不新增菜单或角色及租户套餐授权；项目实际权限仍通过正式前端逐用户保存。"
+    },
+    {
+      "source": "IntRuoyiBackend/sql/mysql/20261026_mes_smart_scheduling_root_menu.sql",
+      "kind": "menu",
+      "value": "900120",
+      "reason": "智能排产既有目录提升为根目录，保留菜单ID、子页面地址及权限；复用现有角色菜单与租户套餐授权，无需新增授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/sql/mysql/20261026_edhr_device_resource_menus.sql",
+      "kind": "menu",
+      "value": "/mes/md/workstation",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261026_edhr_device_resource_menus.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiBackend/sql/mysql/20261026_edhr_device_resource_menus.sql",
+      "kind": "menu",
+      "value": "/mes/md/workstation/workshop",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261026_edhr_device_resource_menus.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiBackend/sql/mysql/20261026_edhr_device_resource_menus.sql",
+      "kind": "menu",
+      "value": "/mes/qc/template",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261026_edhr_device_resource_menus.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiBackend/sql/mysql/20261026_edhr_device_resource_menus.sql",
+      "kind": "menu",
+      "value": "/mes/qc/indicator",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261026_edhr_device_resource_menus.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiFronted/src/router/modules/showroom.ts",
+      "kind": "router",
+      "value": "e6ad9dbe17ddead4711606b435c13e35f00399c608bc5e181a1a5770653b681f",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261026_showroom_master_data_menu.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiBackend/sql/mysql/20261026_signature_under_system_menu.sql",
+      "kind": "menu",
+      "value": "/signature-governance",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261026_signature_under_system_menu.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiBackend/sql/mysql/20261026_root_navigation_order.sql",
+      "kind": "menu",
+      "value": "root-navigation-order",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261026_root_navigation_order.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiBackend/sql/mysql/20261026_hide_edhr_config_menu.sql",
+      "kind": "menu",
+      "value": "/mes/pro/edhr-config",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261026_hide_edhr_config_menu.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiBackend/sql/mysql/20261026_edhr_device_menu_order.sql",
+      "kind": "menu",
+      "value": "/mes/dv",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261026_edhr_device_menu_order.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiBackend/sql/mysql/20261026_form_parser_under_production_forms.sql",
+      "kind": "menu",
+      "value": "/mdm/form-center/parser",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261026_form_parser_under_production_forms.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiFronted/src/router/modules/remaining.ts",
+      "kind": "router",
+      "value": "8fcf81455230274bf694f431803c59e1f7890bd1e94b10097738a59a023ed0b3",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261026_merge_production_tasks_into_workbench.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/mes/pro/route/index.vue",
+      "kind": "permission",
+      "value": "mes:pro-edhr-work-task-rule:update",
+      "reason": "关闭、归档、放行规则由旧工作任务页迁入现有工艺路线页，复用既有规则维护权限；未新增角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/Profile/components/ProductionTaskRecords.vue",
+      "kind": "menu",
+      "value": "个人工作台承接生产任务记录，删除独立工作任务页",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261026_merge_production_tasks_into_workbench.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiFronted/src/store/modules/profileWorkbenchTodoBadge.ts",
+      "kind": "permission",
+      "value": "int:profile-workbench:page-snapshot:v1",
+      "reason": "工作台页面快照的浏览器存储键，不是权限标识；不新增菜单、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/erp/sync/config/components/TableAutoSyncSetting.vue",
+      "kind": "permission",
+      "value": "02:00:00",
+      "reason": "自动同步配置的每日开始时间字面量，不是权限标识；不新增菜单、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/mes/pro/edhr-batch/historySources.ts",
+      "kind": "permission",
+      "value": "mes:pro-edhr-batch-execution:query",
+      "reason": "批记录历史来源选项复用既有批次执行查询权限 mes:pro-edhr-batch-execution:query；内部数据配置无独立菜单，不新增角色或租户套餐授权。"
     }
   ]
 }

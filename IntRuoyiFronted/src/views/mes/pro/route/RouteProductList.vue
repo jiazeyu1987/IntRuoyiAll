@@ -2,6 +2,7 @@
 <template>
   <div class="route-product-list">
     <UnifiedListTemplate
+      single-line-toolbar
       table-key="mes.pro.route.product"
       :query-model="routeProductQueryParams"
       label-width="88px"

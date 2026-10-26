@@ -79,11 +79,10 @@ class MesEdhrSourceCreationVerificationServiceTest {
 
     @Test void developmentSkipsAuditPersistenceButRejectsCorruptedBusinessReceipt() {
         var env = new org.springframework.mock.env.MockEnvironment()
-                .withProperty(GxpAuditDevelopmentMode.PROPERTY, "true")
                 .withProperty("spring.datasource.dynamic.datasource.master.url", "jdbc:mysql://127.0.0.1/test");
         env.setActiveProfiles("local");
         try {
-            new GxpAuditDevelopmentMode(env);
+            new GxpAuditDevelopmentMode(env, cn.iocoder.yudao.module.infra.enums.config.GxpAuditMode.DEVELOPMENT_DISABLED);
             clearInvocations(events, relationMapper, bindingMapper);
             var proof = read();
             assertEquals(-91L, proof.creationEventId());
@@ -99,7 +98,7 @@ class MesEdhrSourceCreationVerificationServiceTest {
             material.setManifestHash("d".repeat(64));
             assertThrows(IllegalStateException.class, this::read);
             verifyNoInteractions(events, relationMapper, bindingMapper);
-        } finally { new GxpAuditDevelopmentMode(new org.springframework.mock.env.MockEnvironment()); }
+        } finally { new GxpAuditDevelopmentMode(new org.springframework.mock.env.MockEnvironment(), cn.iocoder.yudao.module.infra.enums.config.GxpAuditMode.FORMAL); }
     }
 
     private MesEdhrSourceCreationEvidence read() { return service.requireMaterialCreation(1L, 92L, "TEST_ONLY_MATERIAL"); }

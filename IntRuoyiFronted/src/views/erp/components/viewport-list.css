@@ -1,0 +1,132 @@
+/* Viewport layout is opt-in for data synchronization pages only. */
+.erp-viewport-list,
+.erp-configuration-screen {
+  height: calc(100dvh - var(--top-tool-height) - var(--tags-view-height) - var(--app-content-padding));
+  min-height: 0;
+  margin-bottom: 0;
+}
+
+.erp-viewport-list > .el-card__body,
+.erp-runtime-panel > .el-card > .el-card__body,
+.erp-configuration-content.profile-erp-table-sync > .el-card__body {
+  display: flex;
+  height: 100%;
+  min-height: 0;
+  flex-direction: column;
+}
+
+.erp-viewport-list > .el-card__body > .unified-list-template,
+.erp-runtime-panel > .el-card > .el-card__body > .unified-list-template,
+.erp-configuration-content .profile-erp-table-sync__list > .unified-list-template,
+.erp-configuration-content .profile-erp-table-sync__running-jobs > .unified-list-template {
+  flex: 1;
+  min-height: 0;
+}
+
+.erp-viewport-list > .el-card__body > .unified-list-template > .unified-list-template__table-shell,
+.erp-runtime-panel > .el-card > .el-card__body > .unified-list-template > .unified-list-template__table-shell,
+.erp-configuration-content .unified-list-template > .unified-list-template__table-shell {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.erp-viewport-list > .el-card__body > .unified-list-template > .el-form,
+.erp-viewport-list > .el-card__body > .unified-list-template > .el-pagination,
+.erp-runtime-panel .unified-list-template > .el-form,
+.erp-runtime-panel .unified-list-template > .el-pagination,
+.erp-configuration-content .unified-list-template > .el-form,
+.erp-configuration-content .unified-list-template > .el-pagination {
+  flex-shrink: 0;
+}
+
+.erp-viewport-list > .el-card__body > .unified-list-template > .el-pagination,
+.erp-runtime-panel .unified-list-template > .el-pagination,
+.erp-configuration-content .unified-list-template > .el-pagination {
+  margin-bottom: 0;
+}
+
+.erp-configuration-screen,
+.erp-runtime-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow: hidden;
+}
+
+.erp-configuration-content,
+.erp-runtime-summary,
+.erp-runtime-history {
+  flex: 1;
+  min-height: 0;
+  margin-bottom: 0;
+}
+
+.erp-runtime-panel > .erp-production-order-closure,
+.erp-runtime-summary .el-alert,
+.erp-configuration-content > .el-card__body > .el-form,
+.erp-configuration-content .profile-erp-table-sync__running-header {
+  flex-shrink: 0;
+}
+
+.erp-configuration-content > .el-card__body > fieldset {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+}
+
+.erp-configuration-content .profile-erp-table-sync__list {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+}
+
+.erp-configuration-content .profile-erp-table-sync__running-jobs {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  margin-top: 10px;
+  padding-top: 0;
+  flex-direction: column;
+}
+
+.erp-list-tabs {
+  flex-shrink: 0;
+}
+
+.erp-list-tabs > .el-tabs__header {
+  margin-bottom: 0;
+}
+
+.erp-configuration-content .profile-erp-table-sync__form {
+  margin-top: 0;
+}
+
+.el-dialog.erp-list-detail-dialog {
+  display: flex;
+  height: calc(100dvh - 64px);
+  margin-top: 32px;
+  margin-bottom: 32px;
+  flex-direction: column;
+}
+
+.erp-list-detail-dialog > .el-dialog__body,
+.erp-list-detail-dialog > .el-dialog__body > .unified-list-template {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+}
+
+.erp-list-detail-dialog .unified-list-template__table-shell {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.erp-list-detail-dialog .unified-list-template > .el-form,
+.erp-list-detail-dialog .unified-list-template > .el-pagination {
+  flex-shrink: 0;
+}

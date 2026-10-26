@@ -4,9 +4,6 @@
       <div class="edhr-domain-trace-detail__header">
         <div>
           <div class="edhr-domain-trace-detail__title">主数据追溯详情</div>
-          <div class="edhr-domain-trace-detail__subtitle">
-            展示追溯状态、阻塞原因和追溯明细，技术证据在展开区查看
-          </div>
         </div>
         <div class="edhr-domain-trace-detail__actions">
           <el-button @click="backToPage">
@@ -519,12 +516,6 @@ onMounted(() => loadDetail())
   color: #172033;
   font-size: 18px;
   font-weight: 600;
-}
-
-.edhr-domain-trace-detail__subtitle {
-  margin-top: 4px;
-  color: #4b5563;
-  font-size: 13px;
 }
 
 .edhr-domain-trace-detail__actions {

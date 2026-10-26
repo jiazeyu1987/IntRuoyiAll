@@ -10,6 +10,7 @@ export const authContextRevision = readonly(contextRevision)
 
 const AccessTokenKey = 'ACCESS_TOKEN'
 const RefreshTokenKey = 'REFRESH_TOKEN'
+const AuthSessionIdKey = 'AUTH_SESSION_ID'
 const LegacyLoginTenantNameMap = new Map([['瑛泰源码', '芋道源码']])
 const LegacyDefaultLoginUsernames = new Set(['aoteman', 'admin'])
 const LegacyDefaultLoginPasswords = new Set(['', 'admin123'])
@@ -34,10 +35,22 @@ export const getRefreshToken = () => {
   return wsCache.get(RefreshTokenKey)
 }
 
+// A non-secret login incarnation survives reloads without persisting a token in UI snapshots.
+export const getAuthSessionId = (): string | undefined => {
+  if (!getAccessToken()) return undefined
+  let sessionId = wsCache.get(AuthSessionIdKey) as string | undefined
+  if (!sessionId) {
+    sessionId = crypto.randomUUID()
+    wsCache.set(AuthSessionIdKey, sessionId)
+  }
+  return sessionId
+}
+
 // 设置token
 export const setToken = (token: TokenType) => {
   clearAuthenticatedUserCache()
   setRefreshedToken(token)
+  wsCache.set(AuthSessionIdKey, crypto.randomUUID())
   contextRevision.value += 1
 }
 
@@ -51,6 +64,7 @@ export const setRefreshedToken = (token: TokenType) => {
 export const removeToken = () => {
   wsCache.delete(AccessTokenKey)
   wsCache.delete(RefreshTokenKey)
+  wsCache.delete(AuthSessionIdKey)
   contextRevision.value += 1
 }
 

@@ -1,128 +1,118 @@
 <!-- ERP 生产用料清单列表 -->
 <template>
-  <ContentWrap>
-    <el-form
-      ref="queryFormRef"
-      :model="queryParams"
-      :inline="true"
-      class="-mb-15px"
-      label-width="96px"
+  <ContentWrap class="erp-viewport-list">
+    <UnifiedListTemplate
+      :show-filter-reset="false"
+      table-key="erp.production.material-list.main"
+      single-line-toolbar
+      :query-model="queryParams"
+      :filter-definitions="filterDefinitions"
+      :quick-filter-state="quickFilter.state"
+      :selected-filter-definition="quickFilter.selectedDefinition.value"
+      :operator-options="quickFilter.operatorOptions.value"
+      :columns="columns"
+      :column-saving="columnSaving"
+      :total="total"
+      v-model:page="queryParams.pageNo"
+      v-model:limit="queryParams.pageSize"
+      @update:quick-filter-state="quickFilter.updateState"
+      @quick-filter-query="quickFilter.applyQuickFilter"
+      @column-change="saveColumnConfig"
+      @pagination="getList"
     >
-      <el-form-item label="单据编号" prop="sourceBillNo">
-        <el-input
-          v-model="queryParams.sourceBillNo"
-          placeholder="请输入单据编号"
-          clearable
-          class="!w-240px"
-          @keyup.enter="handleQuery"
-        />
-      </el-form-item>
-      <el-form-item label="产品编码" prop="productCode">
-        <el-input
-          v-model="queryParams.productCode"
-          placeholder="请输入产品编码"
-          clearable
-          class="!w-240px"
-          @keyup.enter="handleQuery"
-        />
-      </el-form-item>
-      <el-form-item label="生产订单" prop="productionOrderNo">
-        <el-input
-          v-model="queryParams.productionOrderNo"
-          placeholder="请输入生产订单编号"
-          clearable
-          class="!w-240px"
-          @keyup.enter="handleQuery"
-        />
-      </el-form-item>
-      <el-form-item label="子项编码" prop="childMaterialCode">
-        <el-input
-          v-model="queryParams.childMaterialCode"
-          placeholder="请输入子项物料编码"
-          clearable
-          class="!w-240px"
-          @keyup.enter="handleQuery"
-        />
-      </el-form-item>
-      <el-form-item label="子项名称" prop="childMaterialName">
-        <el-input
-          v-model="queryParams.childMaterialName"
-          placeholder="请输入子项物料名称"
-          clearable
-          class="!w-240px"
-          @keyup.enter="handleQuery"
-        />
-      </el-form-item>
-      <el-form-item>
-        <el-button @click="handleQuery"><Icon icon="ep:search" class="mr-5px" /> 搜索</el-button>
-        <el-button @click="resetQuery"><Icon icon="ep:refresh" class="mr-5px" /> 重置</el-button>
+      <template #actions>
         <el-button
-          type="warning"
+          type="primary"
           plain
           :loading="kingdeeSyncLoading"
           @click="handleIncrementalSync"
           v-hasPermi="['erp:kingdee-sync:query']"
         >
-          <Icon icon="ep:refresh" class="mr-5px" /> 增量同步
+          <Icon icon="ep:refresh-right" class="mr-5px" /> 增量同步
         </el-button>
-      </el-form-item>
-    </el-form>
-  </ContentWrap>
-
-  <ContentWrap>
-    <el-table
-      v-loading="loading"
-      :data="list"
-      :stripe="true"
-      :show-overflow-tooltip="true"
-      class="erp-production-material-list__table"
-    >
-      <el-table-column label="单据编号" align="center" prop="sourceBillNo" width="220" fixed="left">
-        <template #default="{ row }">
-          <el-link
-            type="primary"
-            class="erp-production-material-list__bill-link"
-            @click="openDetailDialog(row)"
+      </template>
+      <template #table>
+        <el-table
+          v-loading="loading || columnLoading"
+          :data="list"
+          :stripe="true"
+          :show-overflow-tooltip="true"
+          class="erp-production-material-list__table"
+          border
+          row-key="id"
+          data-user-table-column-explicit
+          data-user-table-key="erp.production.material-list.main"
+          @header-dragend="handleHeaderDragend"
+         height="100%">
+          <el-table-column
+            v-if="isColumnVisible('sourceBillNo')"
+            column-key="sourceBillNo"
+            label="单据编号"
+            align="center"
+            prop="sourceBillNo"
+            fixed="left"
+            :width="getColumnWidthString('sourceBillNo', 220)"
           >
-            {{ row.sourceBillNo }}
-          </el-link>
-        </template>
-      </el-table-column>
-      <el-table-column label="子项数量" align="center" prop="lineCount" width="120" />
-      <el-table-column label="生产工单" align="center" prop="productionOrderSummary" min-width="220">
-        <template #default="{ row }">
-          <el-link
-            v-if="row.productionOrderCount === 1 && row.productionOrderSummary"
-            type="primary"
-            @click="handleOpenGroupWorkOrder(row)"
+            <template #default="{ row }">
+              <el-link
+                type="primary"
+                class="erp-production-material-list__bill-link"
+                @click="openDetailDialog(row)"
+              >
+                {{ row.sourceBillNo }}
+              </el-link>
+            </template>
+          </el-table-column>
+          <el-table-column
+            :formatter="erpListIntegerColumnFormatter"
+            v-if="isColumnVisible('lineCount')"
+            column-key="lineCount"
+            label="子项数量"
+            align="center"
+            prop="lineCount"
+            :width="getColumnWidthString('lineCount', 120)"
+          />
+          <el-table-column
+            v-if="isColumnVisible('productionOrderSummary')"
+            column-key="productionOrderSummary"
+            label="生产工单"
+            align="center"
+            prop="productionOrderSummary"
+            :min-width="getColumnWidthString('productionOrderSummary', 220)"
           >
-            {{ row.productionOrderSummary }}
-          </el-link>
-          <span v-else>{{ row.productionOrderSummary || '无' }}</span>
-          <span v-if="row.productionOrderCount > 1">（{{ row.productionOrderCount }}）</span>
-        </template>
-      </el-table-column>
-      <el-table-column
-        label="ERP修改时间"
-        align="center"
-        prop="sourceModifyTime"
-        :formatter="dateFormatter"
-        width="180"
-      />
-      <el-table-column
-        label="最后同步时间"
-        align="center"
-        prop="lastSyncTime"
-        :formatter="dateFormatter"
-        width="180"
-      />
-    </el-table>
-    <Pagination
-      :total="total"
-      v-model:page="queryParams.pageNo"
-      v-model:limit="queryParams.pageSize"
-      @pagination="getList"
-    />
+            <template #default="{ row }">
+              <el-link
+                v-if="row.productionOrderCount === 1 && row.productionOrderSummary"
+                type="primary"
+                @click="handleOpenGroupWorkOrder(row)"
+              >
+                {{ row.productionOrderSummary }}
+              </el-link>
+              <span v-else>{{ row.productionOrderSummary || '无' }}</span>
+              <span v-if="row.productionOrderCount > 1">（{{ row.productionOrderCount }}）</span>
+            </template>
+          </el-table-column>
+          <el-table-column
+            v-if="isColumnVisible('sourceModifyTime')"
+            column-key="sourceModifyTime"
+            label="ERP修改时间"
+            align="center"
+            prop="sourceModifyTime"
+            :formatter="dateFormatter"
+            :width="getColumnWidthString('sourceModifyTime', 180)"
+          />
+          <el-table-column
+            v-if="isColumnVisible('lastSyncTime')"
+            column-key="lastSyncTime"
+            label="最后同步时间"
+            align="center"
+            prop="lastSyncTime"
+            :formatter="dateFormatter"
+            :width="getColumnWidthString('lastSyncTime', 180)"
+          />
+        </el-table>
+      </template>
+    </UnifiedListTemplate>
   </ContentWrap>
 
   <el-dialog
@@ -130,93 +120,161 @@
     :title="detailDialogTitle"
     width="1080px"
     destroy-on-close
-    class="erp-production-material-list__dialog"
+    class="erp-production-material-list__dialog erp-list-detail-dialog"
   >
-    <el-table
-      v-loading="detailLoading"
-      :data="detailList"
-      :stripe="true"
-      :show-overflow-tooltip="true"
-      max-height="520"
-      class="erp-production-material-list__detail-table"
+    <ErpLocalList
+      table-key="erp.production.material-list.details"
+      :rows="detailList"
+      :default-columns="detailColumns"
+      :filter-definitions="detailFilters"
     >
-      <el-table-column
-        label="子项物料编码"
-        align="center"
-        prop="childMaterialCode"
-        min-width="180"
-        fixed="left"
-      />
-      <el-table-column
-        label="子项物料名称"
-        align="center"
-        prop="childMaterialName"
-        min-width="200"
-      />
-      <el-table-column
-        label="规格型号"
-        align="center"
-        prop="childMaterialSpecification"
-        min-width="180"
-      />
-      <el-table-column
-        label="子项类型"
-        align="center"
-        prop="childMaterialType"
-        min-width="120"
-      />
-      <el-table-column
-        label="分子"
-        align="center"
-        prop="numerator"
-        :formatter="erpCountTableColumnFormatter"
-        width="110"
-      />
-      <el-table-column
-        label="分母"
-        align="center"
-        prop="denominator"
-        :formatter="erpCountTableColumnFormatter"
-        width="110"
-      />
-      <el-table-column
-        label="子项单位"
-        align="center"
-        prop="childUnitName"
-        min-width="120"
-      />
-      <el-table-column label="图号" align="center" prop="drawingNumber" min-width="140" />
-      <el-table-column
-        label="应发数量"
-        align="center"
-        prop="requiredQuantity"
-        :formatter="erpCountTableColumnFormatter"
-        width="120"
-      />
-      <el-table-column
-        label="需求日期"
-        align="center"
-        prop="demandTime"
-        :formatter="dateFormatter"
-        width="180"
-      />
-      <el-table-column label="发料方式" align="center" prop="issueMethod" min-width="120" />
-      <el-table-column label="对应生产订单" align="center" min-width="180">
-        <template #default="{ row }">
-          <el-link v-if="row.workOrderId" type="primary" @click="handleOpenWorkOrder(row)">
-            {{ row.workOrderCode || row.productionOrderNo }}
-          </el-link>
-          <span v-else>{{ row.productionOrderNo || '无' }}</span>
-        </template>
-      </el-table-column>
-    </el-table>
+      <template
+        #default="{
+          rows,
+          isColumnVisible: isDetailColumnVisible,
+          getColumnWidthString: getDetailColumnWidthString,
+          handleHeaderDragend: handleDetailHeaderDragend
+        }"
+      >
+        <el-table
+          v-loading="detailLoading"
+          :data="rows"
+          :stripe="true"
+          :show-overflow-tooltip="true"
+          height="100%"
+          class="erp-production-material-list__detail-table"
+          data-user-table-column-explicit
+          data-user-table-key="erp.production.material-list.details"
+          @header-dragend="handleDetailHeaderDragend"
+        >
+          <el-table-column
+            v-if="isDetailColumnVisible('childMaterialCode')"
+            column-key="childMaterialCode"
+            label="子项物料编码"
+            align="center"
+            prop="childMaterialCode"
+            fixed="left"
+            :width="getDetailColumnWidthString('childMaterialCode', 180)"
+          />
+          <el-table-column
+            v-if="isDetailColumnVisible('childMaterialName')"
+            column-key="childMaterialName"
+            label="子项物料名称"
+            align="center"
+            prop="childMaterialName"
+            :width="getDetailColumnWidthString('childMaterialName', 200)"
+          />
+          <el-table-column
+            v-if="isDetailColumnVisible('childMaterialSpecification')"
+            column-key="childMaterialSpecification"
+            label="规格型号"
+            align="center"
+            prop="childMaterialSpecification"
+            :width="getDetailColumnWidthString('childMaterialSpecification', 180)"
+          />
+          <el-table-column
+            v-if="isDetailColumnVisible('childMaterialType')"
+            column-key="childMaterialType"
+            label="子项类型"
+            align="center"
+            prop="childMaterialType"
+            :width="getDetailColumnWidthString('childMaterialType', 120)"
+          />
+          <el-table-column
+            :formatter="erpListIntegerColumnFormatter"
+            v-if="isDetailColumnVisible('numerator')"
+            column-key="numerator"
+            label="分子"
+            align="center"
+            prop="numerator"
+            :width="getDetailColumnWidthString('numerator', 110)"
+          />
+          <el-table-column
+            :formatter="erpListIntegerColumnFormatter"
+            v-if="isDetailColumnVisible('denominator')"
+            column-key="denominator"
+            label="分母"
+            align="center"
+            prop="denominator"
+            :width="getDetailColumnWidthString('denominator', 110)"
+          />
+          <el-table-column
+            v-if="isDetailColumnVisible('childUnitName')"
+            column-key="childUnitName"
+            label="子项单位"
+            align="center"
+            prop="childUnitName"
+            :width="getDetailColumnWidthString('childUnitName', 120)"
+          />
+          <el-table-column
+            v-if="isDetailColumnVisible('drawingNumber')"
+            column-key="drawingNumber"
+            label="图号"
+            align="center"
+            prop="drawingNumber"
+            :width="getDetailColumnWidthString('drawingNumber', 140)"
+          />
+          <el-table-column
+            :formatter="erpListIntegerColumnFormatter"
+            v-if="isDetailColumnVisible('requiredQuantity')"
+            column-key="requiredQuantity"
+            label="应发数量"
+            align="center"
+            prop="requiredQuantity"
+            :width="getDetailColumnWidthString('requiredQuantity', 120)"
+          />
+          <el-table-column
+            v-if="isDetailColumnVisible('demandTime')"
+            column-key="demandTime"
+            label="需求日期"
+            align="center"
+            prop="demandTime"
+            :formatter="dateFormatter"
+            :width="getDetailColumnWidthString('demandTime', 180)"
+          />
+          <el-table-column
+            v-if="isDetailColumnVisible('issueMethod')"
+            column-key="issueMethod"
+            label="发料方式"
+            align="center"
+            prop="issueMethod"
+            :width="getDetailColumnWidthString('issueMethod', 120)"
+          />
+          <el-table-column
+            v-if="isDetailColumnVisible('productionOrderLink')"
+            column-key="productionOrderLink"
+            label="对应生产订单"
+            align="center"
+            :width="getDetailColumnWidthString('productionOrderLink', 180)"
+          >
+            <template #default="{ row }">
+              <el-link v-if="row.workOrderId" type="primary" @click="handleOpenWorkOrder(row)">
+                {{ row.workOrderCode || row.productionOrderNo }}
+              </el-link>
+              <span v-else>{{ row.productionOrderNo || '无' }}</span>
+            </template>
+          </el-table-column>
+        </el-table>
+      </template>
+    </ErpLocalList>
   </el-dialog>
 </template>
-
 <script setup lang="ts">
-import { isSearchFormInputEmpty } from '@/utils/search'
+import '@/views/erp/components/viewport-list.css'
+
+import { erpListIntegerColumnFormatter } from '@/views/erp/utils/integerDisplay'
+import ErpLocalList from '@/views/erp/components/ErpLocalList.vue'
+
+import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
+import {
+  useTableQuickFilter,
+  type TableQuickFilterDefinition
+} from '@/hooks/web/useTableQuickFilter'
+import {
+  useUserTableColumns,
+  type UserTableColumnDefinition
+} from '@/hooks/web/useUserTableColumns'
 import { dateFormatter } from '@/utils/formatTime'
-import { erpCountTableColumnFormatter } from '@/utils'
 import { ErpKingdeeSyncApi } from '@/api/erp/sync'
 import {
   ErpProductionMaterialListApi,
@@ -225,6 +283,104 @@ import {
 } from '@/api/erp/production/material-list'
 
 /** ERP 生产用料清单列表 */
+
+const detailColumns: UserTableColumnDefinition[] = [
+  {
+    key: 'childMaterialCode',
+    label: '子项物料编码',
+    width: 180,
+    sortable: false
+  },
+  {
+    key: 'childMaterialName',
+    label: '子项物料名称',
+    width: 200,
+    sortable: false
+  },
+  {
+    key: 'childMaterialSpecification',
+    label: '规格型号',
+    width: 180,
+    sortable: false
+  },
+  {
+    key: 'childMaterialType',
+    label: '子项类型',
+    width: 120,
+    sortable: false
+  },
+  {
+    key: 'numerator',
+    label: '分子',
+    width: 110,
+    sortable: false
+  },
+  {
+    key: 'denominator',
+    label: '分母',
+    width: 110,
+    sortable: false
+  },
+  {
+    key: 'childUnitName',
+    label: '子项单位',
+    width: 120,
+    sortable: false
+  },
+  {
+    key: 'drawingNumber',
+    label: '图号',
+    width: 140,
+    sortable: false
+  },
+  {
+    key: 'requiredQuantity',
+    label: '应发数量',
+    width: 120,
+    sortable: false
+  },
+  {
+    key: 'demandTime',
+    label: '需求日期',
+    width: 180,
+    sortable: false
+  },
+  {
+    key: 'issueMethod',
+    label: '发料方式',
+    width: 120,
+    sortable: false
+  },
+  {
+    key: 'productionOrderLink',
+    label: '对应生产订单',
+    width: 180,
+    sortable: false
+  }
+]
+const detailFilters: TableQuickFilterDefinition[] = [
+  {
+    key: 'childMaterialCode',
+    label: '子项物料编码',
+    type: 'text',
+    queryParamKey: 'childMaterialCode',
+    operators: ['contains']
+  },
+  {
+    key: 'childMaterialName',
+    label: '子项物料名称',
+    type: 'text',
+    queryParamKey: 'childMaterialName',
+    operators: ['contains']
+  },
+  {
+    key: 'childMaterialSpecification',
+    label: '规格型号',
+    type: 'text',
+    queryParamKey: 'childMaterialSpecification',
+    operators: ['contains']
+  }
+]
 defineOptions({ name: 'ErpProductionMaterialList' })
 
 const message = useMessage()
@@ -250,7 +406,6 @@ const queryParams = reactive({
   childMaterialCode: undefined as string | undefined,
   childMaterialName: undefined as string | undefined
 })
-const queryFormRef = ref()
 
 const applyRouteQuery = () => {
   queryParams.productionOrderNo =
@@ -307,20 +462,8 @@ const openDetailDialog = async (row: ErpProductionMaterialListGroupVO) => {
 }
 
 /** 搜索按钮操作 */
-const handleQuery = (skipEmptyReset = false) => {
-  if (skipEmptyReset !== true && isSearchFormInputEmpty(queryFormRef, queryParams)) {
-    resetQuery()
-    return
-  }
-  queryParams.pageNo = 1
-  getList()
-}
 
 /** 重置按钮操作 */
-const resetQuery = () => {
-  queryFormRef.value.resetFields()
-  handleQuery(true)
-}
 
 const handleIncrementalSync = async () => {
   kingdeeSyncLoading.value = true
@@ -346,6 +489,91 @@ onActivated(() => {
   applyRouteQuery()
   getList()
 })
+
+const filterDefinitions: TableQuickFilterDefinition[] = [
+  {
+    key: 'sourceBillNo',
+    label: '单据编号',
+    type: 'text',
+    queryParamKey: 'sourceBillNo',
+    operators: ['contains']
+  },
+  {
+    key: 'productCode',
+    label: '产品编码',
+    type: 'text',
+    queryParamKey: 'productCode',
+    operators: ['contains']
+  },
+  {
+    key: 'productionOrderNo',
+    label: '生产订单',
+    type: 'text',
+    queryParamKey: 'productionOrderNo',
+    operators: ['contains']
+  },
+  {
+    key: 'childMaterialCode',
+    label: '子项编码',
+    type: 'text',
+    queryParamKey: 'childMaterialCode',
+    operators: ['contains']
+  },
+  {
+    key: 'childMaterialName',
+    label: '子项名称',
+    type: 'text',
+    queryParamKey: 'childMaterialName',
+    operators: ['contains']
+  }
+]
+const defaultColumns: UserTableColumnDefinition[] = [
+  {
+    key: 'sourceBillNo',
+    label: '单据编号',
+    sortable: false,
+    width: 220
+  },
+  {
+    key: 'lineCount',
+    label: '子项数量',
+    sortable: false,
+    width: 120
+  },
+  {
+    key: 'productionOrderSummary',
+    label: '生产工单',
+    sortable: false,
+    minWidth: 220
+  },
+  {
+    key: 'sourceModifyTime',
+    label: 'ERP修改时间',
+    sortable: false,
+    width: 180
+  },
+  {
+    key: 'lastSyncTime',
+    label: '最后同步时间',
+    sortable: false,
+    width: 180
+  }
+]
+const {
+  columns,
+  loading: columnLoading,
+  saving: columnSaving,
+  isColumnVisible,
+  getColumnWidthString,
+  handleHeaderDragend,
+  saveConfig: saveColumnConfig
+} = useUserTableColumns('erp.production.material-list.main', defaultColumns)
+const quickFilter = useTableQuickFilter(
+  'erp.production.material-list.main',
+  filterDefinitions,
+  queryParams,
+  getList
+)
 
 onMounted(() => {
   applyRouteQuery()

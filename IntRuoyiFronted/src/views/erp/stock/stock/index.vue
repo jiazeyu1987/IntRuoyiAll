@@ -2,51 +2,29 @@
 <template>
   <doc-alert title="【库存】产品库存、库存明细" url="https://doc.iocoder.cn/erp/stock/" />
 
-  <ContentWrap>
-    <!-- 搜索工作栏 -->
-    <el-form
-      class="-mb-15px"
-      :model="queryParams"
-      ref="queryFormRef"
-      :inline="true"
-      label-width="68px"
+  <ContentWrap class="erp-viewport-list">
+    <UnifiedListTemplate
+      :show-filter-reset="false"
+      table-key="erp.stock.stock.main"
+      single-line-toolbar
+      :query-model="queryParams"
+      :filter-definitions="filterDefinitions"
+      :quick-filter-state="quickFilter.state"
+      :selected-filter-definition="quickFilter.selectedDefinition.value"
+      :operator-options="quickFilter.operatorOptions.value"
+      :columns="columns"
+      :column-saving="columnSaving"
+      :total="total"
+      v-model:page="queryParams.pageNo"
+      v-model:limit="queryParams.pageSize"
+      @update:quick-filter-state="quickFilter.updateState"
+      @quick-filter-query="quickFilter.applyQuickFilter"
+      @column-change="saveColumnConfig"
+      @pagination="getList"
     >
-      <el-form-item label="产品" prop="productId">
-        <el-select
-          v-model="queryParams.productId"
-          clearable
-          filterable
-          placeholder="请选择产品"
-          class="!w-240px"
-        >
-          <el-option
-            v-for="item in productList"
-            :key="item.id"
-            :label="item.name"
-            :value="item.id"
-          />
-        </el-select>
-      </el-form-item>
-      <el-form-item label="仓库" prop="warehouseId">
-        <el-select
-          v-model="queryParams.warehouseId"
-          clearable
-          filterable
-          placeholder="请选择仓库"
-          class="!w-240px"
-        >
-          <el-option
-            v-for="item in warehouseList"
-            :key="item.id"
-            :label="item.name"
-            :value="item.id"
-          />
-        </el-select>
-      </el-form-item>
-      <el-form-item>
-        <el-button @click="handleQuery"><Icon icon="ep:search" class="mr-5px" /> 搜索</el-button>
-        <el-button @click="resetQuery"><Icon icon="ep:refresh" class="mr-5px" /> 重置</el-button>
+      <template #actions>
         <el-button
+          v-show="false"
           type="primary"
           plain
           @click="openForm('create')"
@@ -55,6 +33,7 @@
           <Icon icon="ep:plus" class="mr-5px" /> 新增
         </el-button>
         <el-button
+          v-show="false"
           type="success"
           plain
           @click="handleExport"
@@ -64,50 +43,91 @@
           <Icon icon="ep:download" class="mr-5px" /> 导出
         </el-button>
         <el-button
-          type="warning"
+          type="primary"
           plain
           @click="handleSyncKingdeeStocks"
           :loading="kingdeeSyncLoading"
           v-hasPermi="['erp:stock:query']"
         >
-          <Icon icon="ep:refresh" class="mr-5px" /> 增量同步
+          <Icon icon="ep:refresh-right" class="mr-5px" /> 增量同步
         </el-button>
-      </el-form-item>
-    </el-form>
-  </ContentWrap>
-
-  <!-- 列表 -->
-  <ContentWrap>
-    <el-table v-loading="loading" :data="list" :stripe="true" :show-overflow-tooltip="true">
-      <el-table-column label="产品名称" align="center" prop="productName" />
-      <el-table-column label="产品单位" align="center" prop="unitName" />
-      <el-table-column label="产品分类" align="center" prop="categoryName" />
-      <el-table-column
-        label="库存量"
-        align="center"
-        prop="count"
-        :formatter="erpCountTableColumnFormatter"
-      />
-      <el-table-column label="仓库" align="center" prop="warehouseName" />
-    </el-table>
-    <!-- 分页 -->
-    <Pagination
-      :total="total"
-      v-model:page="queryParams.pageNo"
-      v-model:limit="queryParams.pageSize"
-      @pagination="getList"
-    />
+      </template>
+      <template #table>
+        <el-table
+          v-loading="loading || columnLoading"
+          :data="list"
+          :stripe="true"
+          :show-overflow-tooltip="true"
+          border
+          row-key="id"
+          data-user-table-column-explicit
+          data-user-table-key="erp.stock.stock.main"
+          @header-dragend="handleHeaderDragend"
+         height="100%">
+          <el-table-column
+            v-if="isColumnVisible('productName')"
+            column-key="productName"
+            label="产品名称"
+            align="center"
+            prop="productName"
+            :min-width="getColumnWidthString('productName', 140)"
+          />
+          <el-table-column
+            v-if="isColumnVisible('unitName')"
+            column-key="unitName"
+            label="产品单位"
+            align="center"
+            prop="unitName"
+            :min-width="getColumnWidthString('unitName', 140)"
+          />
+          <el-table-column
+            v-if="isColumnVisible('categoryName')"
+            column-key="categoryName"
+            label="产品分类"
+            align="center"
+            prop="categoryName"
+            :min-width="getColumnWidthString('categoryName', 140)"
+          />
+          <el-table-column
+            :formatter="erpListIntegerColumnFormatter"
+            v-if="isColumnVisible('count')"
+            column-key="count"
+            label="库存量"
+            align="center"
+            prop="count"
+            :min-width="getColumnWidthString('count', 140)"
+          />
+          <el-table-column
+            v-if="isColumnVisible('warehouseName')"
+            column-key="warehouseName"
+            label="仓库"
+            align="center"
+            prop="warehouseName"
+            :min-width="getColumnWidthString('warehouseName', 140)"
+          />
+        </el-table>
+      </template>
+    </UnifiedListTemplate>
   </ContentWrap>
 </template>
-
 <script setup lang="ts">
-import { isSearchFormInputEmpty } from '@/utils/search'
+import '@/views/erp/components/viewport-list.css'
+
+import { erpListIntegerColumnFormatter } from '@/views/erp/utils/integerDisplay'
+import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
+import {
+  useTableQuickFilter,
+  type TableQuickFilterDefinition
+} from '@/hooks/web/useTableQuickFilter'
+import {
+  useUserTableColumns,
+  type UserTableColumnDefinition
+} from '@/hooks/web/useUserTableColumns'
 import download from '@/utils/download'
 import { StockApi, StockVO } from '@/api/erp/stock/stock'
 import { ErpKingdeeSyncApi } from '@/api/erp/sync'
 import { ProductApi, ProductVO } from '@/api/erp/product/product'
 import { WarehouseApi, WarehouseVO } from '@/api/erp/stock/warehouse'
-import { erpCountTableColumnFormatter } from '@/utils'
 
 /** ERP 产品库存列表 */
 defineOptions({ name: 'ErpStock' })
@@ -124,7 +144,7 @@ const queryParams = reactive({
   productId: undefined,
   warehouseId: undefined
 })
-const queryFormRef = ref() // 搜索的表单
+
 const exportLoading = ref(false) // 导出的加载中
 const productList = ref<ProductVO[]>([]) // 产品列表
 const warehouseList = ref<WarehouseVO[]>([]) // 仓库列表
@@ -144,20 +164,8 @@ const getList = async () => {
 }
 
 /** 搜索按钮操作 */
-const handleQuery = (skipEmptyReset = false) => {
-  if (skipEmptyReset !== true && isSearchFormInputEmpty(queryFormRef, queryParams)) {
-    resetQuery()
-    return
-  }
-  queryParams.pageNo = 1
-  getList()
-}
 
 /** 重置按钮操作 */
-const resetQuery = () => {
-  queryFormRef.value.resetFields()
-  handleQuery(true)
-}
 
 /** 添加/修改操作 */
 const formRef = ref()
@@ -207,6 +215,71 @@ const handleSyncKingdeeStocks = async () => {
   }
 }
 void handleDelete
+
+const filterDefinitions = computed<TableQuickFilterDefinition[]>(() => [
+  {
+    key: 'productId',
+    label: '产品',
+    type: 'select',
+    virtualized: true,
+    queryParamKey: 'productId',
+    options: productList.value.map((item) => ({ label: item.name, value: item.id }))
+  },
+  {
+    key: 'warehouseId',
+    label: '仓库',
+    type: 'select',
+    queryParamKey: 'warehouseId',
+    options: warehouseList.value.map((item) => ({ label: item.name, value: item.id }))
+  }
+])
+const defaultColumns: UserTableColumnDefinition[] = [
+  {
+    key: 'productName',
+    label: '产品名称',
+    sortable: false,
+    minWidth: 140
+  },
+  {
+    key: 'unitName',
+    label: '产品单位',
+    sortable: false,
+    minWidth: 140
+  },
+  {
+    key: 'categoryName',
+    label: '产品分类',
+    sortable: false,
+    minWidth: 140
+  },
+  {
+    key: 'count',
+    label: '库存量',
+    sortable: false,
+    minWidth: 140
+  },
+  {
+    key: 'warehouseName',
+    label: '仓库',
+    sortable: false,
+    minWidth: 140
+  }
+]
+const {
+  columns,
+  loading: columnLoading,
+  saving: columnSaving,
+  isColumnVisible,
+  getColumnWidthString,
+  handleHeaderDragend,
+  saveConfig: saveColumnConfig
+} = useUserTableColumns('erp.stock.stock.main', defaultColumns)
+const quickFilter = useTableQuickFilter(
+  'erp.stock.stock.main',
+  filterDefinitions,
+  queryParams,
+  getList
+)
 
 onMounted(async () => {
   await getList()

@@ -1,0 +1,60 @@
+/* 批记录列表占满当前视口；表头、查询区与分页不参与表体滚动。 */
+.edhr-record-viewport {
+  display: flex;
+  flex-direction: column;
+  height: calc(100dvh - var(--top-tool-height) - var(--tags-view-height) - var(--app-content-padding));
+  min-width: 0;
+  min-height: 0;
+  margin-bottom: 0;
+}
+
+.edhr-record-viewport > .el-card__header {
+  flex-shrink: 0;
+}
+
+.edhr-record-viewport > .el-card__body,
+.edhr-record-viewport .edhr-record-viewport__body,
+.edhr-record-viewport .edhr-batch-page,
+.edhr-record-viewport .edhr-history-standard-list,
+.edhr-record-viewport .edhr-ncr,
+.edhr-record-viewport .edhr-ncr > .edhr-ncr__section,
+.edhr-record-viewport .unified-list-template,
+.edhr-record-viewport .unified-list-template__table-shell {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.edhr-record-viewport .unified-list-template__table-shell {
+  overflow: hidden;
+}
+
+.edhr-record-viewport__body > .el-table,
+.edhr-record-viewport .edhr-history-standard-list > .el-table,
+.edhr-record-viewport .edhr-ncr__section > .el-table,
+.edhr-record-viewport .unified-list-template__table-shell > .el-table {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+
+.edhr-record-viewport .el-form,
+.edhr-record-viewport .el-pagination,
+.edhr-record-viewport .el-tabs,
+.edhr-record-viewport .el-alert,
+.edhr-record-viewport .edhr-ncr__header,
+.edhr-record-viewport .edhr-ncr__section-head {
+  flex-shrink: 0;
+}
+
+.edhr-record-viewport .el-pagination {
+  margin-bottom: 0;
+}
+
+.edhr-record-viewport .edhr-ncr__assignments {
+  flex-shrink: 0;
+  max-height: 25vh;
+  overflow: auto;
+}

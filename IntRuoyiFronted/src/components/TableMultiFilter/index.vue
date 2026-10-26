@@ -74,7 +74,7 @@
         <Icon icon="ep:search" class="mr-5px" />
         查询
       </el-button>
-      <el-button @click="clearAllConditions">
+      <el-button v-if="showReset" @click="clearAllConditions">
         <Icon icon="ep:refresh-left" class="mr-5px" />
         重置
       </el-button>
@@ -103,9 +103,11 @@ const props = withDefaults(defineProps<{
   tableKey: string
   filterDefinitions: ListMultiFilterDefinition[]
   state: ListMultiFilterState
+  showReset?: boolean
   showOperators?: boolean
   maxInlineFilters?: number
 }>(), {
+  showReset: true,
   showOperators: true,
   maxInlineFilters: 4
 })

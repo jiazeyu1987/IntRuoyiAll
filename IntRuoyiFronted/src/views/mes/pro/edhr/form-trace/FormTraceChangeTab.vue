@@ -1,6 +1,7 @@
 <template>
   <div class="edhr-form-trace-change">
     <UnifiedListTemplate
+      single-line-toolbar
       table-key="mes.pro.edhr.formTrace.change"
       :query-model="queryParams"
       :filter-definitions="changeQuickFilterDefinitions"

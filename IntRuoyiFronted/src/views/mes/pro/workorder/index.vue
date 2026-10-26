@@ -2,9 +2,11 @@
 <template>
   <doc-alert title="MES 生产工单" url="https://doc.iocoder.cn/mes/pro/work-order/" />
 
-  <ContentWrap>
+  <ContentWrap class="erp-viewport-list">
     <UnifiedListTemplate
+      :show-filter-reset="false"
       table-key="mes.pro.workorder.main"
+      single-line-toolbar
       :query-model="queryParams"
       label-width="88px"
       :filter-definitions="workOrderQuickFilterDefinitions"
@@ -13,7 +15,6 @@
       :operator-options="workOrderQuickFilter.operatorOptions.value"
       :columns="workOrderColumns"
       :column-saving="workOrderColumnSaving"
-      :show-column-settings="false"
       :show-column-reset="false"
       :total="total"
       v-model:page="queryParams.pageNo"
@@ -23,19 +24,9 @@
       @column-change="saveWorkOrderColumnConfig"
       @pagination="getList"
     >
-      <template #extra-filters>
-        <el-form-item class="work-order-column-settings">
-          <UserTableColumnSettings
-            button-label="列筛选"
-            :columns="workOrderColumns"
-            :saving="workOrderColumnSaving"
-            :show-reset="false"
-            @change="saveWorkOrderColumnConfig"
-          />
-        </el-form-item>
-      </template>
       <template #actions>
         <el-button
+          v-show="false"
           v-if="isAdminUser"
           type="success"
           plain
@@ -45,24 +36,30 @@
           ><Icon icon="ep:download" class="mr-5px" /> 导出</el-button
         >
         <el-button
-          v-if="isAdminUser"
-          type="warning"
+          type="primary"
           plain
+          v-if="isAdminUser"
           @click="handleSyncKingdeeWorkOrders"
           :loading="kingdeeSyncLoading"
           data-work-order-sync-kingdee
           v-hasPermi="['mes:pro-work-order:create']"
-          ><Icon icon="ep:refresh" class="mr-5px" /> 增量同步</el-button
         >
-        <el-button class="app-test-button"
-          v-if="testModeEnabled && (isAdminUser)"
+          <Icon icon="ep:refresh-right" class="mr-5px" /> 增量同步
+        </el-button>
+        <el-button
+          v-show="false"
+          class="app-test-button"
+          v-if="testModeEnabled && isAdminUser"
           type="primary"
           plain
           @click="openAiE2eDialog"
           data-edhr-ai-e2e-open-global
           v-hasPermi="['mes:pro-work-order:create-erp']"
-        >AI E2E固定订单</el-button>
-        <el-button @click="resetQuery"><Icon icon="ep:refresh" class="mr-5px" /> 重置</el-button>
+          >AI E2E固定订单</el-button
+        >
+        <el-button v-show="false" @click="resetQuery"
+          ><Icon icon="ep:refresh" class="mr-5px" /> 重置</el-button
+        >
       </template>
       <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
         <el-table
@@ -71,7 +68,6 @@
           data-user-table-key="mes.pro.workorder.main"
           :data="list"
           border
-          :max-height="workOrderTableMaxHeight"
           :stripe="true"
           :show-overflow-tooltip="true"
           row-key="id"
@@ -80,183 +76,269 @@
           :tree-props="{ children: 'children', hasChildren: 'hasChildren' }"
           @header-dragend="handleWorkOrderHeaderDragend"
           @sort-change="handleTemplateSortChange"
-        >
-      <el-table-column
-        v-if="isWorkOrderColumnVisible('code')"
-        label="工单编号"
-        prop="code"
-        width="340"
-        fixed="left"
-          v-bind="sortColumnAttrs('code')"
-        ><template #default="scope">
-          <div class="work-order-key-cell">
-            <el-button
-              link
-              type="primary"
-              class="work-order-key-text"
-              data-work-order-code
-              @click="openForm('detail', scope.row.id)"
-              >{{ scope.row.code }}</el-button
-            >
-          </div></template
-        ></el-table-column
-      >
-      <el-table-column
-        v-if="isWorkOrderColumnVisible('productCode')"
-        label="产品编码"
-        align="center"
-        prop="productCode"
-        width="260"
-          v-bind="sortColumnAttrs('productCode')"
-        ><template #default="scope">
-          <div class="work-order-key-cell">
-            <span class="work-order-key-text">{{ scope.row.productCode }}</span>
-          </div></template
-        ></el-table-column
-      >
-      <el-table-column
-        v-if="isWorkOrderColumnVisible('productName')"
-        label="产品名称"
-        align="center"
-        prop="productName"
-        min-width="340"
-          v-bind="sortColumnAttrs('productName')"
-        ><template #default="scope">
-          <div class="work-order-key-cell">
-            <span class="work-order-key-text">{{ scope.row.productName }}</span>
-          </div></template
-        ></el-table-column
-      >
-      <el-table-column
-        v-if="isWorkOrderColumnVisible('demandBillNo')"
-        label="需求单据"
-        align="center"
-        prop="demandBillNo"
-        min-width="220"
-          v-bind="sortColumnAttrs('demandBillNo')"
-        ><template #default="scope">
-          <div class="work-order-key-cell">
-            <span class="work-order-key-text">{{ scope.row.demandBillNo }}</span>
-          </div></template
-        ></el-table-column
-      >
-      <el-table-column
-        v-if="isWorkOrderColumnVisible('productSpecification')"
-        label="规格型号"
-        align="center"
-        prop="productSpecification"
-        min-width="360"
-          v-bind="sortColumnAttrs('productSpecification')"
-        ><template #default="scope">
-          <div class="work-order-key-cell">
-            <span class="work-order-key-text">{{ scope.row.productSpecification }}</span>
-          </div></template
-        ></el-table-column
-      >
-      <el-table-column
-        v-if="isWorkOrderColumnVisible('quantity')"
-        label="计划数量"
-        align="center"
-        prop="quantity"
-        width="180"
-          v-bind="sortColumnAttrs('quantity')"
-        ><template #default="scope">
-          <div class="work-order-key-cell work-order-key-cell--number">
-            <span class="work-order-key-text" data-work-order-quantity>{{ scope.row.quantity }}</span>
-          </div></template
-        ></el-table-column
-      >
-      <el-table-column v-if="isWorkOrderColumnVisible('batchCode')" label="批次号" align="center" prop="batchCode" width="160" v-bind="sortColumnAttrs('batchCode')" />
-      <el-table-column v-if="isWorkOrderColumnVisible('workshopName')" label="生产车间" align="center" prop="workshopName" :width="getWorkOrderColumnWidthString('workshopName', 120)" v-bind="sortColumnAttrs('workshopName')" />
-      <el-table-column
-        v-if="isWorkOrderColumnVisible('plannedStartTime')"
-        label="计划开工时间"
-        align="center"
-        prop="plannedStartTime"
-        :formatter="dateFormatter2"
-        :width="getWorkOrderColumnWidthString('plannedStartTime', 180)"
-        v-bind="sortColumnAttrs('plannedStartTime')"
-      />
-      <el-table-column
-        v-if="isWorkOrderColumnVisible('plannedEndTime')"
-        label="计划完工时间"
-        align="center"
-        prop="plannedEndTime"
-        :formatter="dateFormatter"
-        :width="getWorkOrderColumnWidthString('plannedEndTime', 180)"
-        v-bind="sortColumnAttrs('plannedEndTime')"
-      />
-      <el-table-column v-if="isWorkOrderColumnVisible('businessStatus')" label="业务状态" align="center" prop="businessStatus" :width="getWorkOrderColumnWidthString('businessStatus', 100)" v-bind="sortColumnAttrs('businessStatus')" />
-      <el-table-column v-if="isWorkOrderColumnVisible('drawingNumber')" label="图号" align="center" prop="drawingNumber" :width="getWorkOrderColumnWidthString('drawingNumber', 140)" v-bind="sortColumnAttrs('drawingNumber')" />
-      <el-table-column v-if="isWorkOrderColumnVisible('refNo')" label="REF.NO." align="center" prop="refNo" :width="getWorkOrderColumnWidthString('refNo', 140)" v-bind="sortColumnAttrs('refNo')" />
-      <el-table-column v-if="isWorkOrderColumnVisible('auxiliaryCode')" label="备注1助记码" align="center" prop="auxiliaryCode" :width="getWorkOrderColumnWidthString('auxiliaryCode', 140)" v-bind="sortColumnAttrs('auxiliaryCode')" />
-      <el-table-column v-if="isWorkOrderColumnVisible('scheduleStatus')" label="排产状态" align="center" prop="scheduleStatus" :width="getWorkOrderColumnWidthString('scheduleStatus', 110)" v-bind="sortColumnAttrs('scheduleStatus')" />
-      <el-table-column v-if="isWorkOrderColumnVisible('quantityProduced')" label="已生产数量" align="center" prop="quantityProduced" :width="getWorkOrderColumnWidthString('quantityProduced', 110)" v-bind="sortColumnAttrs('quantityProduced')" />
-      <el-table-column v-if="isWorkOrderColumnVisible('status')" label="工单状态" align="center" prop="status" :width="getWorkOrderColumnWidthString('status', 100)"
-          v-bind="sortColumnAttrs('status')"
-        ><template #default="scope"
-          ><dict-tag :type="DICT_TYPE.MES_PRO_WORK_ORDER_STATUS" :value="scope.row.status" />
-        </template>
-      </el-table-column>
-      <el-table-column v-if="isWorkOrderColumnVisible('clientName')" label="客户名称" align="center" prop="clientName" :width="getWorkOrderColumnWidthString('clientName', 120)" v-bind="sortColumnAttrs('clientName')" />
-      <el-table-column v-if="isWorkOrderColumnVisible('productionMaterialList')" label="生产用料清单" align="center" prop="productionMaterialList" :min-width="getWorkOrderColumnMinWidthString('productionMaterialList', 220)" v-bind="sortColumnAttrs('productionMaterialList')">
-        <template #default="scope">
-          <el-link
-            v-if="scope.row.productionMaterialListCount > 0"
-            type="primary"
-            @click="handleOpenProductionMaterialList(scope.row)"
+         height="100%">
+          <el-table-column
+            v-if="isWorkOrderColumnVisible('code')"
+            label="工单编号"
+            prop="code"
+            width="340"
+            fixed="left"
+            v-bind="sortColumnAttrs('code')"
+            ><template #default="scope">
+              <div class="work-order-key-cell">
+                <el-button
+                  link
+                  type="primary"
+                  class="work-order-key-text"
+                  data-work-order-code
+                  @click="openForm('detail', scope.row.id)"
+                  >{{ scope.row.code }}</el-button
+                >
+              </div></template
+            ></el-table-column
           >
-            {{ scope.row.productionMaterialListSummary || `共 ${scope.row.productionMaterialListCount} 张` }}
-          </el-link>
-          <span v-else>无</span>
-        </template>
-      </el-table-column>
-      <el-table-column
-        v-if="isWorkOrderColumnVisible('createTime')"
-        label="创建时间"
-        align="center"
-        prop="createTime"
-        :formatter="dateFormatter"
-        :width="getWorkOrderColumnWidthString('createTime', 180)"
-        v-bind="sortColumnAttrs('createTime')"
-      />
-      <el-table-column
-        v-if="isAdminUser && isWorkOrderColumnVisible('operation')"
-        label="操作"
-        prop="operation"
-        align="center"
-        width="220"
-        fixed="right"
-      >
-        <template #default="scope">
-          <el-button class="app-test-button"
-          v-if="testModeEnabled"
-            link
-            type="primary"
-            :loading="erpCreateLoadingId === scope.row.id"
-            @click="handleCreateKingdeeProductionOrder(scope.row)"
-            v-hasPermi="['mes:pro-work-order:create-erp']"
+          <el-table-column
+            v-if="isWorkOrderColumnVisible('productCode')"
+            label="产品编码"
+            align="center"
+            prop="productCode"
+            width="260"
+            v-bind="sortColumnAttrs('productCode')"
+            ><template #default="scope">
+              <div class="work-order-key-cell">
+                <span class="work-order-key-text">{{ scope.row.productCode }}</span>
+              </div></template
+            ></el-table-column
           >
-            <Icon icon="ep:plus" class="mr-5px" /> 测试添加
-          </el-button>
-          <el-button class="app-test-button"
-          v-if="testModeEnabled"
-            link
-            type="primary"
-            @click="openAiE2eDialog(scope.row)"
-            data-edhr-ai-e2e-open
-            v-hasPermi="['mes:pro-work-order:create-erp']"
-          >AI E2E</el-button>
-          <el-button
-            link
-            type="primary"
-            @click="handleOpenBatchRecord(scope.row)"
-            v-hasPermi="['mes:pro-edhr-batch-execution:create']"
+          <el-table-column
+            v-if="isWorkOrderColumnVisible('productName')"
+            label="产品名称"
+            align="center"
+            prop="productName"
+            min-width="340"
+            v-bind="sortColumnAttrs('productName')"
+            ><template #default="scope">
+              <div class="work-order-key-cell">
+                <span class="work-order-key-text">{{ scope.row.productName }}</span>
+              </div></template
+            ></el-table-column
           >
-            批记录
-          </el-button>
-        </template>
-      </el-table-column>
+          <el-table-column
+            v-if="isWorkOrderColumnVisible('demandBillNo')"
+            label="需求单据"
+            align="center"
+            prop="demandBillNo"
+            min-width="220"
+            v-bind="sortColumnAttrs('demandBillNo')"
+            ><template #default="scope">
+              <div class="work-order-key-cell">
+                <span class="work-order-key-text">{{ scope.row.demandBillNo }}</span>
+              </div></template
+            ></el-table-column
+          >
+          <el-table-column
+            v-if="isWorkOrderColumnVisible('productSpecification')"
+            label="规格型号"
+            align="center"
+            prop="productSpecification"
+            min-width="360"
+            v-bind="sortColumnAttrs('productSpecification')"
+            ><template #default="scope">
+              <div class="work-order-key-cell">
+                <span class="work-order-key-text">{{ scope.row.productSpecification }}</span>
+              </div></template
+            ></el-table-column
+          >
+          <el-table-column
+            :formatter="erpListIntegerColumnFormatter"
+            v-if="isWorkOrderColumnVisible('quantity')"
+            label="计划数量"
+            align="center"
+            prop="quantity"
+            width="180"
+            v-bind="sortColumnAttrs('quantity')"
+            ><template #default="scope">
+              <div class="work-order-key-cell work-order-key-cell--number">
+                <span class="work-order-key-text" data-work-order-quantity>{{
+                  formatErpListInteger(scope.row.quantity)
+                }}</span>
+              </div></template
+            ></el-table-column
+          >
+          <el-table-column
+            v-if="isWorkOrderColumnVisible('batchCode')"
+            label="批次号"
+            align="center"
+            prop="batchCode"
+            width="160"
+            v-bind="sortColumnAttrs('batchCode')"
+          />
+          <el-table-column
+            v-if="isWorkOrderColumnVisible('workshopName')"
+            label="生产车间"
+            align="center"
+            prop="workshopName"
+            :width="getWorkOrderColumnWidthString('workshopName', 120)"
+            v-bind="sortColumnAttrs('workshopName')"
+          />
+          <el-table-column
+            v-if="isWorkOrderColumnVisible('plannedStartTime')"
+            label="计划开工时间"
+            align="center"
+            prop="plannedStartTime"
+            :formatter="dateFormatter2"
+            :width="getWorkOrderColumnWidthString('plannedStartTime', 180)"
+            v-bind="sortColumnAttrs('plannedStartTime')"
+          />
+          <el-table-column
+            v-if="isWorkOrderColumnVisible('plannedEndTime')"
+            label="计划完工时间"
+            align="center"
+            prop="plannedEndTime"
+            :formatter="dateFormatter"
+            :width="getWorkOrderColumnWidthString('plannedEndTime', 180)"
+            v-bind="sortColumnAttrs('plannedEndTime')"
+          />
+          <el-table-column
+            v-if="isWorkOrderColumnVisible('businessStatus')"
+            label="业务状态"
+            align="center"
+            prop="businessStatus"
+            :width="getWorkOrderColumnWidthString('businessStatus', 100)"
+            v-bind="sortColumnAttrs('businessStatus')"
+          />
+          <el-table-column
+            v-if="isWorkOrderColumnVisible('drawingNumber')"
+            label="图号"
+            align="center"
+            prop="drawingNumber"
+            :width="getWorkOrderColumnWidthString('drawingNumber', 140)"
+            v-bind="sortColumnAttrs('drawingNumber')"
+          />
+          <el-table-column
+            v-if="isWorkOrderColumnVisible('refNo')"
+            label="REF.NO."
+            align="center"
+            prop="refNo"
+            :width="getWorkOrderColumnWidthString('refNo', 140)"
+            v-bind="sortColumnAttrs('refNo')"
+          />
+          <el-table-column
+            v-if="isWorkOrderColumnVisible('auxiliaryCode')"
+            label="备注1助记码"
+            align="center"
+            prop="auxiliaryCode"
+            :width="getWorkOrderColumnWidthString('auxiliaryCode', 140)"
+            v-bind="sortColumnAttrs('auxiliaryCode')"
+          />
+          <el-table-column
+            v-if="isWorkOrderColumnVisible('scheduleStatus')"
+            label="排产状态"
+            align="center"
+            prop="scheduleStatus"
+            :width="getWorkOrderColumnWidthString('scheduleStatus', 110)"
+            v-bind="sortColumnAttrs('scheduleStatus')"
+          />
+          <el-table-column
+            :formatter="erpListIntegerColumnFormatter"
+            v-if="isWorkOrderColumnVisible('quantityProduced')"
+            label="已生产数量"
+            align="center"
+            prop="quantityProduced"
+            :width="getWorkOrderColumnWidthString('quantityProduced', 110)"
+            v-bind="sortColumnAttrs('quantityProduced')"
+          />
+          <el-table-column
+            v-if="isWorkOrderColumnVisible('status')"
+            label="工单状态"
+            align="center"
+            prop="status"
+            :width="getWorkOrderColumnWidthString('status', 100)"
+            v-bind="sortColumnAttrs('status')"
+            ><template #default="scope"
+              ><dict-tag :type="DICT_TYPE.MES_PRO_WORK_ORDER_STATUS" :value="scope.row.status" />
+            </template>
+          </el-table-column>
+          <el-table-column
+            v-if="isWorkOrderColumnVisible('clientName')"
+            label="客户名称"
+            align="center"
+            prop="clientName"
+            :width="getWorkOrderColumnWidthString('clientName', 120)"
+            v-bind="sortColumnAttrs('clientName')"
+          />
+          <el-table-column
+            v-if="isWorkOrderColumnVisible('productionMaterialList')"
+            label="生产用料清单"
+            align="center"
+            prop="productionMaterialList"
+            :min-width="getWorkOrderColumnMinWidthString('productionMaterialList', 220)"
+            v-bind="sortColumnAttrs('productionMaterialList')"
+          >
+            <template #default="scope">
+              <el-link
+                v-if="scope.row.productionMaterialListCount > 0"
+                type="primary"
+                @click="handleOpenProductionMaterialList(scope.row)"
+              >
+                {{
+                  scope.row.productionMaterialListSummary ||
+                  `共 ${scope.row.productionMaterialListCount} 张`
+                }}
+              </el-link>
+              <span v-else>无</span>
+            </template>
+          </el-table-column>
+          <el-table-column
+            v-if="isWorkOrderColumnVisible('createTime')"
+            label="创建时间"
+            align="center"
+            prop="createTime"
+            :formatter="dateFormatter"
+            :width="getWorkOrderColumnWidthString('createTime', 180)"
+            v-bind="sortColumnAttrs('createTime')"
+          />
+          <el-table-column
+            v-if="false"
+            label="操作"
+            prop="operation"
+            align="center"
+            width="220"
+            fixed="right"
+          >
+            <template #default="scope">
+              <el-button
+                v-show="false"
+                class="app-test-button"
+                v-if="testModeEnabled"
+                link
+                type="primary"
+                :loading="erpCreateLoadingId === scope.row.id"
+                @click="handleCreateKingdeeProductionOrder(scope.row)"
+                v-hasPermi="['mes:pro-work-order:create-erp']"
+              >
+                <Icon icon="ep:plus" class="mr-5px" /> 测试添加
+              </el-button>
+              <el-button
+                class="app-test-button"
+                v-if="testModeEnabled"
+                link
+                type="primary"
+                @click="openAiE2eDialog(scope.row)"
+                data-edhr-ai-e2e-open
+                v-hasPermi="['mes:pro-work-order:create-erp']"
+                >AI E2E</el-button
+              >
+              <el-button
+                link
+                type="primary"
+                @click="handleOpenBatchRecord(scope.row)"
+                v-hasPermi="['mes:pro-edhr-batch-execution:create']"
+              >
+                批记录
+              </el-button>
+            </template>
+          </el-table-column>
         </el-table>
       </template>
     </UnifiedListTemplate>
@@ -264,32 +346,66 @@
 
   <WorkOrderForm ref="formRef" @success="getList" />
 
-  <el-dialog v-if="testModeEnabled" v-model="aiE2eDialog.visible" title="创建 AI E2E 测试生产订单" width="520px">
+  <el-dialog
+    v-if="testModeEnabled"
+    v-model="aiE2eDialog.visible"
+    title="创建 AI E2E 测试生产订单"
+    width="520px"
+  >
     <el-form label-width="110px">
       <el-form-item label="运行编号">
-        <el-input data-edhr-ai-e2e-run-id v-model="aiE2eDialog.runId" placeholder="AI-EDHR-20260915T120000-A1B2" />
+        <el-input
+          data-edhr-ai-e2e-run-id
+          v-model="aiE2eDialog.runId"
+          placeholder="AI-EDHR-20260915T120000-A1B2"
+        />
       </el-form-item>
       <el-form-item label="订单槽位">
         <el-select data-edhr-ai-e2e-slot v-model="aiE2eDialog.slot" style="width: 100%">
-          <el-option v-for="slot in ['O01', 'O02', 'O03', 'O04', 'O05']" :key="slot" :label="slot" :value="slot" />
+          <el-option
+            v-for="slot in ['O01', 'O02', 'O03', 'O04', 'O05']"
+            :key="slot"
+            :label="slot"
+            :value="slot"
+          />
         </el-select>
       </el-form-item>
       <el-form-item label="固定数量">
-        <el-input-number data-edhr-ai-e2e-quantity v-model="aiE2eDialog.quantity" :min="100" :max="100" :step="1" controls-position="right" />
+        <el-input-number
+          data-edhr-ai-e2e-quantity
+          v-model="aiE2eDialog.quantity"
+          :min="100"
+          :max="100"
+          :step="1"
+          controls-position="right"
+        />
         <span class="ml-8px">100件</span>
       </el-form-item>
       <el-form-item label="生产批号">
-        <el-input data-edhr-ai-e2e-batch-number v-model="aiE2eDialog.batchNumber" :placeholder="`${aiE2eDialog.runId}-B01`" />
+        <el-input
+          data-edhr-ai-e2e-batch-number
+          v-model="aiE2eDialog.batchNumber"
+          :placeholder="`${aiE2eDialog.runId}-B01`"
+        />
       </el-form-item>
     </el-form>
     <template #footer>
       <el-button @click="aiE2eDialog.visible = false">取消</el-button>
-      <el-button class="app-test-button" data-edhr-ai-e2e-submit type="primary" :loading="aiE2eDialog.loading" @click="submitAiE2eOrder">创建</el-button>
+      <el-button
+        class="app-test-button"
+        data-edhr-ai-e2e-submit
+        type="primary"
+        :loading="aiE2eDialog.loading"
+        @click="submitAiE2eOrder"
+        >创建</el-button
+      >
     </template>
   </el-dialog>
 </template>
-
 <script setup lang="ts">
+import '@/views/erp/components/viewport-list.css'
+
+import { erpListIntegerColumnFormatter, formatErpListInteger } from '@/views/erp/utils/integerDisplay'
 import { useTestMode } from '@/store/modules/testMode'
 
 import { computed, onMounted, reactive, ref, watch } from 'vue'
@@ -307,7 +423,6 @@ import WorkOrderForm from './WorkOrderForm.vue'
 import { useTreeTableExpand } from '@/utils/treeExpand'
 import { checkRole } from '@/utils/permission'
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
-import UserTableColumnSettings from '@/components/UserTableColumnSettings/index.vue'
 import { useUserTableColumns, type UserTableColumnDefinition } from '@/hooks/web/useUserTableColumns'
 import {
   useTableQuickFilter,
@@ -321,7 +436,6 @@ defineOptions({ name: 'MesProWorkOrder' })
 const message = useMessage()
 const route = useRoute()
 const router = useRouter()
-const workOrderTableMaxHeight = 'calc(100vh - 240px)'
 const workOrderDefaultColumns: UserTableColumnDefinition[] = [
   { key: 'code', label: '工单编号', width: 340 },
   { key: 'productCode', label: '产品编码', width: 260 },
@@ -343,7 +457,6 @@ const workOrderDefaultColumns: UserTableColumnDefinition[] = [
   { key: 'clientName', label: '客户名称', width: 120 },
   { key: 'productionMaterialList', label: '生产用料清单', minWidth: 220 },
   { key: 'createTime', label: '创建时间', width: 180 },
-  { key: 'operation', label: '操作', width: 220, hideable: false, business: false }
 ]
 const {
   columns: workOrderColumns,

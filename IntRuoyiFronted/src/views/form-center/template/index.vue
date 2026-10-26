@@ -48,7 +48,7 @@
               v-loading="loading"
               :data="list"
               :row-key="templateRowKey"
-              height="calc(100vh - 260px)"
+              max-height="calc(100vh - 260px)"
               highlight-current-row
               border
               :stripe="true"

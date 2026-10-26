@@ -21,16 +21,6 @@
         @column-reset="resetApprovalColumnConfig"
         @pagination="handlePagination"
       >
-        <template #extra-filters>
-          <ApprovalHistoryMaintenance @repaired="getList(true)" />
-          <div class="approval-center__title-group">
-            <h3 class="approval-center__title">审批中心</h3>
-            <div class="approval-center__meta">
-              <el-tag size="small" type="info">{{ modules.length }} 个模块</el-tag>
-              <span>{{ activeTabLabel }}</span>
-            </div>
-          </div>
-        </template>
         <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
           <div class="approval-center__table-scope" data-user-table-column-explicit-scope>
             <el-alert
@@ -468,7 +458,6 @@
 </template>
 
 <script lang="ts" setup>
-import ApprovalHistoryMaintenance from './ApprovalHistoryMaintenance.vue'
 import { ElMessage } from 'element-plus'
 import { edhrReadDisplay, bpmMissingPermissionReason, canProcessBpmInModule, bpmModuleDecisionLocation, compactApprovalCapabilities, APPROVAL_CAPABILITIES_DEFAULT_WIDTH } from './approvalReadDisplay'
 import { formatDate } from '@/utils/formatTime'
@@ -748,10 +737,6 @@ const approvalQuickFilterDefinitions = computed<TableQuickFilterDefinition[]>(()
   }
 ])
 
-
-const activeTabLabel = computed(() => {
-  return viewTabs.find((item) => item.value === queryParams.viewType)?.label || '待办'
-})
 
 const isUnfilteredTodoQuery = () =>
   queryParams.viewType === 'TODO' && !queryParams.moduleCode && !queryParams.keyword.trim()
@@ -1771,30 +1756,6 @@ watch(
 
 .approval-center :deep(.unified-list-template__toolbar-actions) {
   margin-left: 0;
-}
-
-.approval-center__title-group {
-  display: flex;
-  order: -1;
-  flex: 0 0 auto;
-  align-items: center;
-  gap: 12px;
-  white-space: nowrap;
-}
-
-.approval-center__title {
-  margin: 0;
-  font-size: 18px;
-  font-weight: 600;
-  color: #1f2937;
-}
-
-.approval-center__meta {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: #64748b;
-  font-size: 13px;
 }
 
 .approval-center__filters {

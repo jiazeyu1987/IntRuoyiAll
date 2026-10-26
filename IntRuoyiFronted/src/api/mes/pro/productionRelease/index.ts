@@ -11,6 +11,7 @@ export const getPqcProductionReleaseOrderDetail = async (applicationId: string, 
 }
 
 export const PQC_RELEASE_VIEW_PENDING = 'PENDING' as const
+export const PQC_RELEASE_VIEW_COMPLETED = 'COMPLETED' as const
 export const PQC_RELEASE_VIEW_RELEASED = 'RELEASED' as const
 export const PQC_RELEASE_VIEW_VOIDED = 'VOIDED' as const
 export const PQC_RELEASE_VIEW_REWORKED = 'REWORKED' as const
@@ -101,7 +102,7 @@ export interface MesPqcProductionReleaseDecisionRespVO {
 }
 
 export interface MesPqcProductionReleasePageReqVO extends PageParam {
-  viewStatus: MesPqcProductionReleaseViewStatus
+  viewStatus: MesPqcProductionReleaseViewStatus | typeof PQC_RELEASE_VIEW_COMPLETED
   applicationId?: string
   pqcReleaseWorkTaskId?: string
   workOrderCode?: string

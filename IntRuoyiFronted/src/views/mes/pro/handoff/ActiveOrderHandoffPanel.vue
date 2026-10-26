@@ -1,8 +1,8 @@
 <template>
-  <el-card data-active-order-handoff-panel class="mb-4">
+  <el-card v-show="!hideWhenEmpty || tasks.length > 0 || Boolean(error)" data-active-order-handoff-panel class="mb-4">
     <template #header><span>我的生产交接</span><el-button class="ml-4" :loading="loading" @click="load">刷新交接</el-button></template>
     <el-alert v-if="error" :title="error" type="error" :closable="false" class="mb-4" />
-    <el-table :data="pagedTasks" v-loading="loading" row-key="id">
+    <el-table ref="handoffTableRef" :data="pagedTasks" v-loading="loading" row-key="id">
       <el-table-column label="交接编号" prop="id" width="120" />
       <el-table-column label="当轮订单" prop="activeOrderId" width="150" />
       <el-table-column label="交接事项"><template #default="{ row }">{{ labels[row.taskType] }}</template></el-table-column>
@@ -76,13 +76,21 @@
   </el-card>
 </template>
 <script setup lang="ts">
-import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
+import { ref, computed, nextTick, onMounted, onBeforeUnmount, watch } from 'vue'
+import type { TableInstance } from 'element-plus'
+withDefaults(defineProps<{ hideWhenEmpty?: boolean }>(), { hideWhenEmpty: false })
 import { useRouter, useRoute } from 'vue-router'
 import * as api from '@/api/mes/pro/handoff'
 import { resolveActiveOrderHandoffTarget, navigateToActiveOrderHandoff, isClosedHandoffCompletion } from '@/utils/activeOrderHandoffNavigation'
 import { formatDateTimeValue } from '@/utils/formatTime'
 import { readHandoffReceiptCandidates } from '@/utils/handoffReceiptResponsibility'
 const router = useRouter(), route = useRoute()
+const handoffTableRef = ref<TableInstance>()
+const refreshLayout = async () => {
+  await nextTick()
+  handoffTableRef.value?.doLayout()
+}
+defineExpose({ refreshLayout })
 const resultOpen = ref(false), result = ref<api.HandoffTask>()
 let resultEpoch = 0
 const completedResultOpen = ref(false), completedResult = ref<api.HandoffTask>()

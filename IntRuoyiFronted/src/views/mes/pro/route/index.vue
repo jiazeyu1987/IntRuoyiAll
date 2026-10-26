@@ -5,8 +5,9 @@
     url="https://doc.iocoder.cn/mes/pro/process-route/"
   />
 
-  <ContentWrap>
+  <ContentWrap class="route-list-page">
     <UnifiedListTemplate
+      single-line-toolbar
       :table-key="ROUTE_LIST_TABLE_KEY"
       :query-model="queryParams"
       label-width="88px"
@@ -17,7 +18,7 @@
       :operator-options="routeQuickFilter.operatorOptions.value"
       :columns="routeColumns"
       :column-saving="routeColumnSaving"
-      :show-column-settings="false"
+      :show-column-reset="false"
       :total="total"
       v-model:page="queryParams.pageNo"
       v-model:limit="queryParams.pageSize"
@@ -26,27 +27,15 @@
       @column-change="saveRouteColumnConfig"
       @pagination="getList"
     >
-      <template #extra-filters>
-        <el-form-item class="route-list__create-action">
-          <el-button
-            type="primary"
-            plain
-            @click="openForm('create')"
-            v-hasPermi="['mes:pro-route:create']"
-          >
-            <Icon icon="ep:plus" class="mr-5px" /> 新增
-          </el-button>
-        </el-form-item>
-        <el-form-item class="route-list__column-settings">
-          <UserTableColumnSettings
-            :columns="routeColumns"
-            :saving="routeColumnSaving"
-            :show-reset="false"
-            @change="saveRouteColumnConfig"
-          />
-        </el-form-item>
-      </template>
       <template #actions>
+        <el-button
+          type="primary"
+          plain
+          @click="openForm('create')"
+          v-hasPermi="['mes:pro-route:create']"
+        >
+          <Icon icon="ep:plus" class="mr-5px" /> 新增
+        </el-button>
         <el-button
           type="primary"
           plain
@@ -71,6 +60,7 @@
           data-user-table-column-explicit
           :data-user-table-key="ROUTE_LIST_TABLE_KEY"
           :data="list"
+          height="100%"
           border
           :stripe="true"
           :show-overflow-tooltip="true"
@@ -507,7 +497,6 @@ import {
 } from '@/api/mes/pro/route'
 import ControlledContentStateStrip from '@/components/ControlledContent/ControlledContentStateStrip.vue'
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
-import UserTableColumnSettings from '@/components/UserTableColumnSettings/index.vue'
 import {
   useUserTableColumns,
   type UserTableColumnDefinition
@@ -1420,6 +1409,38 @@ onMounted(async () => {
 </script>
 
 <style scoped>
+.route-list-page {
+  height: calc(100dvh - var(--top-tool-height) - var(--tags-view-height) - var(--app-content-padding));
+  margin-bottom: 0;
+}
+
+.route-list-page :deep(.el-card__body) {
+  display: flex;
+  height: 100%;
+  min-height: 0;
+  box-sizing: border-box;
+  flex-direction: column;
+}
+
+.route-list-page :deep(.unified-list-template),
+.route-list-page :deep(.unified-list-template__table-shell) {
+  flex: 1;
+  min-height: 0;
+}
+
+.route-list-page :deep(.unified-list-template__table-shell) {
+  overflow: hidden;
+}
+
+.route-list-page :deep(.el-form),
+.route-list-page :deep(.el-pagination) {
+  flex-shrink: 0;
+}
+
+.route-list-page :deep(.el-pagination) {
+  margin-bottom: 0;
+}
+
 .route-list__muted {
   color: #8a93a3;
 }

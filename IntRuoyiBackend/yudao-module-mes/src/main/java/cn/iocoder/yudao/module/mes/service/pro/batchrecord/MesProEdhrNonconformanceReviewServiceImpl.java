@@ -267,7 +267,6 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
         recordReviewOperation("NONCONFORMANCE_REVIEW_CREATE", "创建不合格评审", review, activeOrderId,
                 null, now, signatureId, null, null, null, null, "电子签名#" + signatureId, null);
         appendCreationAudit(review, signatureId, false, createAggregateHash);
-        handoffService.qaCreated(review, activeOrderId, actorId);
         return toResp(review);
     }
 
@@ -329,7 +328,6 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
                 captureAffectedState(persisted, requireAuditRow(activeOrderMapper.selectByIdForUpdate(activeOrder.getId())), afterBatch, afterWorkOrder,
                         null, new DispositionAuditTargets(null, null, null, null), null));
         appendUnsignedCreationAudit(before, after, persisted);
-        handoffService.qaCreated(persisted, activeOrder.getId(), SecurityFrameworkUtils.getLoginUserId());
         return toResp(review);
     }
 
@@ -461,7 +459,6 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
                 null, null, null, reason, "QA电子签名#" + signatureId, actorUserId);
         review.setQaCreateSignatureId(signatureId).setQaSignature("QA电子签名#" + signatureId)
                 .setQaUserId(actorUserId);
-        handoffService.qaCreated(review, activeOrderId, actorUserId);
         return toResp(review);
     }
 
@@ -533,7 +530,6 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
                 batch, SOURCE_TYPE_PQC_RELEASE, null, reason, "上市放行负责人电子签名#" + signatureId,
                 signatureId);
         appendCreationAudit(review, signatureId, true, aggregateHash);
-        handoffService.qaCreated(review, requireActiveOrderId(review.getActiveOrderId()), SecurityFrameworkUtils.getLoginUserId());
         return toResp(review);
     }
 

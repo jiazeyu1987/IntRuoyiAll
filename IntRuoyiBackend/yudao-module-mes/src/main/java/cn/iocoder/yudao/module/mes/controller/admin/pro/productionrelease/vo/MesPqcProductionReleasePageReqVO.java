@@ -13,9 +13,9 @@ import lombok.EqualsAndHashCode;
 @EqualsAndHashCode(callSuper = true)
 public class MesPqcProductionReleasePageReqVO extends PageParam {
 
-    @Schema(description = "视图状态：PENDING/RELEASED/VOIDED/REWORKED/CONCESSION_RELEASED", requiredMode = Schema.RequiredMode.REQUIRED)
+    @Schema(description = "视图状态：PENDING/COMPLETED/RELEASED/VOIDED/REWORKED/CONCESSION_RELEASED", requiredMode = Schema.RequiredMode.REQUIRED)
     @NotBlank(message = "视图状态不能为空")
-    @Pattern(regexp = "PENDING|RELEASED|VOIDED|REWORKED|CONCESSION_RELEASED", message = "视图状态不正确")
+    @Pattern(regexp = "PENDING|COMPLETED|RELEASED|VOIDED|REWORKED|CONCESSION_RELEASED", message = "视图状态不正确")
     private String viewStatus;
 
     @Schema(description = "工单号")

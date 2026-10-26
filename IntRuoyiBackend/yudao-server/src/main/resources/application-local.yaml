@@ -270,11 +270,7 @@ signature:
 
 # 瑛泰配置项，设置当前项目所有自定义的配置
 yudao:
-  gxp-audit:
-    # Local development only. Set false and restart to restore formal GXP auditing.
-    development-disabled: ${INTRUOYI_GXP_AUDIT_DEVELOPMENT_DISABLED:true}
-    # 显式本地调试开关；仅允许 local profile 和本机 MySQL，默认关闭。
-    local-development-policy: ${INTRUOYI_LOCAL_DEVELOPMENT_AUDIT_POLICY:false}
+  # GxP 模式统一从基础配置 system.gxp.audit-mode 读取，修改后重启生效。
   local-job-control:
     enabled: true
     quartz-auto-run-handler-whitelist:

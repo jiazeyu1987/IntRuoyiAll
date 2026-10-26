@@ -19,7 +19,7 @@ const notifyList = fs.existsSync(path.join(repoRoot, notifyListPath)) ? read(not
 
 assert.match(
   profileIndex,
-  /<el-tab-pane\s+name="workbench">[\s\S]*个人工作台[\s\S]*?<\/el-tab-pane>\s*<el-tab-pane\s+name="notifyMessage">/,
+  /<el-tab-pane\s+name="workbench"(?:\s+lazy)?>[\s\S]*个人工作台[\s\S]*?<\/el-tab-pane>\s*<el-tab-pane\s+name="notifyMessage"(?:\s+lazy)?>/,
   '个人中心必须在“个人工作台”后紧跟“我的站内信”Tab。'
 )
 assert.match(
@@ -39,7 +39,7 @@ assert.match(
 )
 assert.match(
   profileIndex,
-  /const refreshUnreadNotifyMessageCount = async \(\) => \{[\s\S]*NotifyMessageApi\.getUnreadNotifyMessageCount\(\)[\s\S]*\}/,
+  /const refreshUnreadNotifyMessageCount = async \(\) => \{[\s\S]*NotifyMessageApi\.getUnreadNotifyMessageCount\(\{[\s\S]*?\}\)[\s\S]*\}/,
   '个人中心必须通过真实接口刷新未读数量。'
 )
 assert.match(
@@ -49,9 +49,11 @@ assert.match(
 )
 assert.match(
   profileIndex,
-  /<MyNotifyMessageList\s+class="profile-notify-message-tab"\s+embedded\s+@read-status-change="refreshUnreadNotifyMessageCount"\s*\/>/,
+  /<MyNotifyMessageList\s+class="profile-notify-message-tab"\s+embedded\s+:active="activeName === \'notifyMessage\'"\s+@read-status-change="handleUnreadNotifyMessageRefresh"\s*\/>/,
   '个人中心“我的站内信”Tab 必须以嵌入模式渲染列表，并在已读状态变化后刷新红点。'
 )
+assert.match(profileIndex, /<el-tab-pane name="notifyMessage" lazy>/, '站内信列表必须仅在首次切换时挂载。')
+assert.match(profileIndex, /:active="activeName === 'notifyMessage'"/, '站内信列表必须知道当前 Tab 可见状态。')
 assert.match(
   profileIndex,
   /import MyNotifyMessageList from '@\/views\/system\/notify\/my\/components\/MyNotifyMessageList\.vue'/,
@@ -99,6 +101,10 @@ assert.match(
   /getMyNotifyMessagePage/,
   '我的站内信列表必须继续调用真实我的站内信分页接口。'
 )
+assert.match(notifyList, /notifyTableRef\.value\?\.doLayout\(\)/, '嵌入页切换为可见后必须重新计算站内信表格布局。')
+assert.match(notifyList, /watch\(\(\) => props\.active[\s\S]*refreshTableLayout\(\)/, '个人中心切换到站内信时必须重新布局表格。')
+assert.match(notifyList, /await refreshTableLayout\(\)/, '站内信首屏数据加载后必须重新布局表格。')
+assert.match(notifyList, /handoffPanelRef\.value\?\.refreshLayout\(\)/, '生产交接表格也必须重新计算隐藏页签中的列宽。')
 assert.match(
   notifyList,
   /defineEmits<\{[\s\S]*read-status-change[\s\S]*\}>/,

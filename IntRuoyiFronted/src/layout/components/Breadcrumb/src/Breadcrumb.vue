@@ -5,7 +5,7 @@ import { useRouter } from 'vue-router'
 import { usePermissionStore } from '@/store/modules/permission'
 import { filterBreadcrumb } from './helper'
 import { filter, treeToList } from '@/utils/tree'
-import type { RouteLocationNormalizedLoaded, RouteMeta } from 'vue-router'
+import type { RouteMeta } from 'vue-router'
 
 import { Icon } from '@/components/Icon'
 import { useAppStore } from '@/store/modules/app'
@@ -67,8 +67,8 @@ export default defineComponent({
     }
 
     watch(
-      () => currentRoute.value,
-      (route: RouteLocationNormalizedLoaded) => {
+      [() => currentRoute.value, menuRouters],
+      ([route]) => {
         if (route.path.startsWith('/redirect/')) {
           return
         }

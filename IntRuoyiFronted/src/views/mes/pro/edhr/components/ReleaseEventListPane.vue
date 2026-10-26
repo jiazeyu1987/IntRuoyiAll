@@ -1,6 +1,7 @@
 <template>
   <div class="edhr-release-event-pane">
     <UnifiedListTemplate
+      single-line-toolbar
       table-key="mes.pro.edhr.traceDrawer.releaseEvents"
       :query-model="queryParams"
       :filter-definitions="releaseEventQuickFilterDefinitions"

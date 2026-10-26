@@ -3,6 +3,7 @@
 
   <ContentWrap>
     <UnifiedListTemplate
+      single-line-toolbar
       table-key="mes.md.workstation.main"
       :query-model="queryParams"
       label-width="88px"

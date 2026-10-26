@@ -1,25 +1,6 @@
 <template>
   <el-card class="profile-erp-table-sync" shadow="never">
-    <template #header>
-      <div class="profile-erp-table-sync__header">
-        <div>
-          <div class="profile-erp-table-sync__title">ERP表格自动同步</div>
-          <div class="profile-erp-table-sync__subtitle">
-            统一配置每天自动拉取哪些 ERP 表格、几点开始，并提供增量与全量同步操作。
-          </div>
-        </div>
-        <el-tag type="success">infra/job</el-tag>
-      </div>
-    </template>
-
     <el-alert v-if="loadError" :title="loadError" type="error" :closable="false" show-icon />
-    <el-alert
-      v-if="jobsLoaded && !uniformDailyStartTime"
-      title="当前任务使用独立调度计划。选择每日开始时间并保存后，选中的任务才会改为每日执行。"
-      type="info"
-      :closable="false"
-      show-icon
-    />
     <el-alert v-if="latestRunsError" :title="latestRunsError" type="error" :closable="false" />
 
     <el-form
@@ -40,7 +21,40 @@
               format="HH:mm:ss"
               :clearable="false"
             />
+            <span
+              v-if="jobsLoaded && !uniformDailyStartTime"
+              class="ml-3 text-[12px] text-orange-500"
+            >
+              当前任务计划不一致，保存后统一使用所选时间
+            </span>
           </el-form-item>
+        </div>
+
+        <div
+          v-show="activeList === 'configuration'"
+          class="profile-erp-table-sync__schedule-actions"
+        >
+          <el-button
+            type="primary"
+            :loading="saving"
+            :disabled="!canSaveSchedule"
+            @click="handleSave"
+            >保存配置</el-button
+          >
+          <el-button
+            type="primary"
+            plain
+            :loading="running"
+            :disabled="
+              !canRunOnce ||
+              selectedSyncTypes.length === 0 ||
+              Boolean(incrementalSyncingType) ||
+              Boolean(fullSyncingType)
+            "
+            @click="handleRunOnce"
+          >
+            <Icon icon="ep:refresh-right" class="mr-5px" /> 增量执行一次
+          </el-button>
         </div>
 
         <section class="profile-erp-table-sync__connection-setting" aria-label="ERP连接">
@@ -75,95 +89,148 @@
           </div>
         </section>
       </div>
-      <el-form-item label="ERP 表格">
-        <el-table
-          ref="syncTableRef"
-          v-loading="jobLoading || runLoading"
-          :data="syncTableRows"
-          row-key="syncType"
-          class="profile-erp-table-sync__select-table"
-          border
-          @selection-change="handleSyncTableSelectionChange"
-        >
-          <el-table-column type="selection" width="48" :selectable="isSyncRowSelectable" />
-          <el-table-column prop="erpTableName" label="ERP表格名称" min-width="180" />
-          <el-table-column prop="localTabName" label="本地页签名称" min-width="220" />
-          <el-table-column label="当前计划（CRON）" min-width="180">
-            <template #default="{ row }">
-              {{ jobsByHandlerName[row.handlerName]?.cronExpression || '未加载' }}
-            </template>
-          </el-table-column>
-          <el-table-column label="最近执行时间" min-width="180">
-            <template #default="{ row }">{{ resolveLatestRunTime(row.latestRun) }}</template>
-          </el-table-column>
-          <el-table-column label="新增行数" min-width="110">
-            <template #default="{ row }">{{ resolveCreatedCount(row.latestRun) }}</template>
-          </el-table-column>
-          <el-table-column label="同步成功/失败" min-width="140">
-            <template #default="{ row }">
-              <el-tag :type="resolveLatestSyncStatusTagType(row.latestRun)">
-                {{ formatLatestSyncStatus(row.latestRun) }}
-              </el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column label="失败原因" min-width="220" show-overflow-tooltip>
-            <template #default="{ row }">{{ resolveFailureReason(row.latestRun) }}</template>
-          </el-table-column>
-          <el-table-column label="操作" width="190" fixed="right">
-            <template #default="{ row }">
-              <el-button
-                type="primary"
-                link
-                :loading="incrementalSyncingType === row.syncType"
-                :disabled="
-                  !canRunSync ||
-                  running ||
-                  Boolean(incrementalSyncingType) ||
-                  Boolean(fullSyncingType)
-                "
-                @click="handleRunIncremental(row)"
-              >
-                增量同步
-              </el-button>
-              <el-button
-                type="warning"
-                link
-                :loading="fullSyncingType === row.syncType"
-                :disabled="
-                  !canRunSync ||
-                  running ||
-                  Boolean(incrementalSyncingType) ||
-                  Boolean(fullSyncingType)
-                "
-                @click="handleRunFull(row)"
-              >
-                全量同步
-              </el-button>
-            </template>
-          </el-table-column>
-        </el-table>
-      </el-form-item>
-      <el-form-item>
-        <el-button type="primary" :loading="saving" :disabled="!canSaveSchedule" @click="handleSave"
-          >保存配置</el-button
-        >
-        <el-button
-          type="success"
-          :loading="running"
-          :disabled="
-            !canRunOnce ||
-            selectedSyncTypes.length === 0 ||
-            Boolean(incrementalSyncingType) ||
-            Boolean(fullSyncingType)
-          "
-          @click="handleRunOnce"
-        >
-          立即执行一次
-        </el-button>
-      </el-form-item>
     </el-form>
-
-    <div class="profile-erp-table-sync__running-jobs">
+    <el-tabs v-model="activeList" class="erp-list-tabs">
+      <el-tab-pane label="同步对象" name="configuration" />
+      <el-tab-pane label="运行中任务" name="running" />
+    </el-tabs>
+    <fieldset
+      v-show="activeList === 'configuration'"
+      :disabled="loading || saving || connectionSaving"
+      style="border: 0; padding: 0; min-width: 0"
+    >
+      <div class="profile-erp-table-sync__list">
+        <ErpLocalList
+          table-key="erp.sync.configuration"
+          :rows="syncTableRows"
+          :default-columns="syncConfigurationColumns"
+          :filter-definitions="syncConfigurationFilters"
+        >
+          <template #default="{ rows, isColumnVisible, getColumnWidthString, handleHeaderDragend }">
+            <el-table
+              ref="syncTableRef"
+              v-loading="jobLoading || runLoading"
+              :data="rows"
+              row-key="syncType"
+              class="profile-erp-table-sync__select-table"
+              border
+              @selection-change="handleSyncTableSelectionChange"
+              data-user-table-column-explicit
+              data-user-table-key="erp.sync.configuration"
+              @header-dragend="handleHeaderDragend"
+              height="100%"
+            >
+              <el-table-column
+                type="selection"
+                reserve-selection
+                width="48"
+                :selectable="isSyncRowSelectable"
+              />
+              <el-table-column
+                v-if="isColumnVisible('erpTableName')"
+                column-key="erpTableName"
+                prop="erpTableName"
+                label="ERP表格名称"
+                :min-width="getColumnWidthString('erpTableName', 180)"
+              />
+              <el-table-column
+                v-if="isColumnVisible('localTabName')"
+                column-key="localTabName"
+                prop="localTabName"
+                label="本地页签名称"
+                :min-width="getColumnWidthString('localTabName', 220)"
+              />
+              <el-table-column
+                v-if="isColumnVisible('cronExpression')"
+                column-key="cronExpression"
+                label="当前计划（CRON）"
+                :min-width="getColumnWidthString('cronExpression', 180)"
+              >
+                <template #default="{ row }">
+                  {{ jobsByHandlerName[row.handlerName]?.cronExpression || '未加载' }}
+                </template>
+              </el-table-column>
+              <el-table-column
+                v-if="isColumnVisible('latestRunTime')"
+                column-key="latestRunTime"
+                label="最近执行时间"
+                :min-width="getColumnWidthString('latestRunTime', 180)"
+              >
+                <template #default="{ row }">{{ resolveLatestRunTime(row.latestRun) }}</template>
+              </el-table-column>
+              <el-table-column
+                v-if="isColumnVisible('createdCount')"
+                column-key="createdCount"
+                label="新增行数"
+                :min-width="getColumnWidthString('createdCount', 110)"
+              >
+                <template #default="{ row }">{{ resolveCreatedCount(row.latestRun) }}</template>
+              </el-table-column>
+              <el-table-column
+                v-if="isColumnVisible('latestStatus')"
+                column-key="latestStatus"
+                label="同步成功/失败"
+                :min-width="getColumnWidthString('latestStatus', 140)"
+              >
+                <template #default="{ row }">
+                  <el-tag :type="resolveLatestSyncStatusTagType(row.latestRun)">
+                    {{ formatLatestSyncStatus(row.latestRun) }}
+                  </el-tag>
+                </template>
+              </el-table-column>
+              <el-table-column
+                v-if="isColumnVisible('failureMessage')"
+                column-key="failureMessage"
+                label="失败原因"
+                show-overflow-tooltip
+                :min-width="getColumnWidthString('failureMessage', 220)"
+              >
+                <template #default="{ row }">{{ resolveFailureReason(row.latestRun) }}</template>
+              </el-table-column>
+              <el-table-column
+                v-if="false"
+                column-key="actions"
+                label="操作"
+                fixed="right"
+                :width="getColumnWidthString('actions', 190)"
+              >
+                <template #default="{ row }">
+                  <el-button
+                    type="primary"
+                    plain
+                    :loading="incrementalSyncingType === row.syncType"
+                    :disabled="
+                      !canRunSync ||
+                      running ||
+                      Boolean(incrementalSyncingType) ||
+                      Boolean(fullSyncingType)
+                    "
+                    @click="handleRunIncremental(row)"
+                  >
+                    <Icon icon="ep:refresh-right" class="mr-5px" /> 增量同步
+                  </el-button>
+                  <el-button
+                    type="warning"
+                    link
+                    :loading="fullSyncingType === row.syncType"
+                    :disabled="
+                      !canRunSync ||
+                      running ||
+                      Boolean(incrementalSyncingType) ||
+                      Boolean(fullSyncingType)
+                    "
+                    @click="handleRunFull(row)"
+                  >
+                    全量同步
+                  </el-button>
+                </template>
+              </el-table-column>
+            </el-table>
+          </template>
+        </ErpLocalList>
+      </div>
+    </fieldset>
+    <div v-show="activeList === 'running'" class="profile-erp-table-sync__running-jobs">
       <el-alert v-if="runningRunsError" :title="runningRunsError" type="error" :closable="false" />
       <div class="profile-erp-table-sync__running-header">
         <div class="profile-erp-table-sync__running-title">正在进行的同步 Job</div>
@@ -171,35 +238,173 @@
           >仅显示当前运行中的 ERP 同步任务。</div
         >
       </div>
-      <el-table
-        v-loading="runningJobLoading"
-        :data="runningSyncRuns"
-        row-key="id"
-        class="profile-erp-table-sync__running-table"
-        border
-        :empty-text="runningRunsLoaded ? '暂无正在进行的同步 Job' : '运行事实未知'"
+      <ErpLocalList
+        table-key="erp.sync.running"
+        :rows="runningSyncRuns"
+        :default-columns="runningJobsColumns"
+        :filter-definitions="runningJobsFilters"
       >
-        <el-table-column label="ERP表格名称" min-width="180">
-          <template #default="{ row }">{{ resolveSyncTypeName(row.syncType) }}</template>
-        </el-table-column>
-        <el-table-column label="开始时间" min-width="180">
-          <template #default="{ row }">{{ formatDateTimeValue(row.startedAt, '-') }}</template>
-        </el-table-column>
-        <el-table-column label="新增行数" min-width="110">
-          <template #default="{ row }">{{ resolveRunCount(row.createdCount) }}</template>
-        </el-table-column>
-        <el-table-column label="更新行数" min-width="110">
-          <template #default="{ row }">{{ resolveRunCount(row.updatedCount) }}</template>
-        </el-table-column>
-        <el-table-column label="失败行数" min-width="110">
-          <template #default="{ row }">{{ resolveRunCount(row.failedCount) }}</template>
-        </el-table-column>
-      </el-table>
+        <template #default="{ rows, isColumnVisible, getColumnWidthString, handleHeaderDragend }">
+          <el-table
+            v-loading="runningJobLoading"
+            :data="rows"
+            row-key="id"
+            class="profile-erp-table-sync__running-table"
+            border
+            :empty-text="runningRunsLoaded ? '暂无正在进行的同步 Job' : '运行事实未知'"
+            data-user-table-column-explicit
+            data-user-table-key="erp.sync.running"
+            @header-dragend="handleHeaderDragend"
+            height="100%"
+          >
+            <el-table-column
+              v-if="isColumnVisible('col0')"
+              column-key="col0"
+              label="ERP表格名称"
+              :min-width="getColumnWidthString('col0', 180)"
+            >
+              <template #default="{ row }">{{ resolveSyncTypeName(row.syncType) }}</template>
+            </el-table-column>
+            <el-table-column
+              v-if="isColumnVisible('col1')"
+              column-key="col1"
+              label="开始时间"
+              :min-width="getColumnWidthString('col1', 180)"
+            >
+              <template #default="{ row }">{{ formatDateTimeValue(row.startedAt, '-') }}</template>
+            </el-table-column>
+            <el-table-column
+              v-if="isColumnVisible('col2')"
+              column-key="col2"
+              label="新增行数"
+              :min-width="getColumnWidthString('col2', 110)"
+            >
+              <template #default="{ row }">{{ resolveRunCount(row.createdCount) }}</template>
+            </el-table-column>
+            <el-table-column
+              v-if="isColumnVisible('col3')"
+              column-key="col3"
+              label="更新行数"
+              :min-width="getColumnWidthString('col3', 110)"
+            >
+              <template #default="{ row }">{{ resolveRunCount(row.updatedCount) }}</template>
+            </el-table-column>
+            <el-table-column
+              v-if="isColumnVisible('col4')"
+              column-key="col4"
+              label="失败行数"
+              :min-width="getColumnWidthString('col4', 110)"
+            >
+              <template #default="{ row }">{{ resolveRunCount(row.failedCount) }}</template>
+            </el-table-column>
+          </el-table>
+        </template>
+      </ErpLocalList>
     </div>
   </el-card>
 </template>
-
 <script setup lang="ts">
+const activeList = ref('configuration')
+import { formatErpListInteger } from '@/views/erp/utils/integerDisplay'
+import ErpLocalList from '@/views/erp/components/ErpLocalList.vue'
+import type { UserTableColumnDefinition } from '@/hooks/web/useUserTableColumns'
+import type { TableQuickFilterDefinition } from '@/hooks/web/useTableQuickFilter'
+
+const syncConfigurationColumns: UserTableColumnDefinition[] = [
+  {
+    key: 'erpTableName',
+    label: 'ERP表格名称',
+    width: 180,
+    sortable: false
+  },
+  {
+    key: 'localTabName',
+    label: '本地页签名称',
+    width: 220,
+    sortable: false
+  },
+  {
+    key: 'cronExpression',
+    label: '当前计划（CRON）',
+    width: 180,
+    sortable: false
+  },
+  {
+    key: 'latestRunTime',
+    label: '最近执行时间',
+    width: 180,
+    sortable: false
+  },
+  {
+    key: 'createdCount',
+    label: '新增行数',
+    width: 110,
+    sortable: false
+  },
+  {
+    key: 'latestStatus',
+    label: '同步成功/失败',
+    width: 140,
+    sortable: false
+  },
+  {
+    key: 'failureMessage',
+    label: '失败原因',
+    width: 220,
+    sortable: false
+  }
+]
+const syncConfigurationFilters: TableQuickFilterDefinition[] = [
+  {
+    key: 'erpTableName',
+    label: 'ERP表格名称',
+    type: 'text',
+    queryParamKey: 'erpTableName',
+    operators: ['contains']
+  },
+  {
+    key: 'localTabName',
+    label: '本地页签名称',
+    type: 'text',
+    queryParamKey: 'localTabName',
+    operators: ['contains']
+  }
+]
+
+const runningJobsColumns: UserTableColumnDefinition[] = [
+  {
+    key: 'col0',
+    label: 'ERP表格名称',
+    width: 180,
+    sortable: false
+  },
+  {
+    key: 'col1',
+    label: '开始时间',
+    width: 180,
+    sortable: false
+  },
+  {
+    key: 'col2',
+    label: '新增行数',
+    width: 110,
+    sortable: false
+  },
+  {
+    key: 'col3',
+    label: '更新行数',
+    width: 110,
+    sortable: false
+  },
+  {
+    key: 'col4',
+    label: '失败行数',
+    width: 110,
+    sortable: false
+  }
+]
+const runningJobsFilters: TableQuickFilterDefinition[] = []
+
 import { ElMessage } from 'element-plus'
 import { hasErpConfigCapability } from '@/utils/businessConfigAccess'
 import { ErpKingdeeConfigApi } from '@/api/erp/config'
@@ -344,7 +549,7 @@ const selectedConnectionType = ref<ErpKingdeeConnectionType | ''>('')
 const connectionOptions = ref<ErpKingdeeConnectionOptionVO[]>([])
 const form = reactive<ProfileErpTableSyncForm>({
   enabled: false,
-  dailyStartTime: ''
+  dailyStartTime: '02:00:00'
 })
 
 const resolveErrorMessage = (error: unknown, defaultMessage: string) => {
@@ -426,7 +631,8 @@ const resolveLatestSyncStatusTagType = (latestRun?: ErpKingdeeSyncRunVO) => {
 
 const resolveCreatedCount = (latestRun?: ErpKingdeeSyncRunVO) => {
   if (!latestRun) return '-'
-  if (typeof latestRun.createdCount === 'number') return latestRun.createdCount
+  if (typeof latestRun.createdCount === 'number')
+    return formatErpListInteger(latestRun.createdCount)
   return '-'
 }
 
@@ -444,7 +650,8 @@ const resolveFailureReason = (latestRun?: ErpKingdeeSyncRunVO) => {
 const resolveSyncTypeName = (syncType: string) =>
   syncTypes.find((item) => item.syncType === syncType)?.erpTableName || `未知ERP表格（${syncType}）`
 
-const resolveRunCount = (value?: number) => (typeof value === 'number' ? value : '-')
+const resolveRunCount = (value?: number) =>
+  typeof value === 'number' ? formatErpListInteger(value) : '-'
 
 const syncSelectedRows = async () => {
   await nextTick()
@@ -493,7 +700,7 @@ const uniformDailyStartTime = computed(() => {
 const loadJobs = async () => {
   jobsLoaded.value = false
   jobsByHandlerName.value = {}
-  form.dailyStartTime = ''
+  form.dailyStartTime = '02:00:00'
   jobLoading.value = true
   try {
     const entries = await Promise.all(
@@ -509,7 +716,7 @@ const loadJobs = async () => {
       )
       .map((item) => item.syncType)
     form.enabled = selectedSyncTypes.value.length > 0
-    form.dailyStartTime = uniformDailyStartTime.value
+    form.dailyStartTime = uniformDailyStartTime.value || '02:00:00'
     jobsLoaded.value = true
   } finally {
     jobLoading.value = false
@@ -630,13 +837,7 @@ const handleSaveConnection = async () => {
 
 const refreshJobsBeforeMutation = async () => {
   const entries = await Promise.all(
-    syncTypes.map(
-      async (item) =>
-        [
-          item,
-          await fetchJobByHandlerName(item.handlerName)
-        ] as const
-    )
+    syncTypes.map(async (item) => [item, await fetchJobByHandlerName(item.handlerName)] as const)
   )
   for (const [item, job] of entries) {
     jobsByHandlerName.value[item.handlerName] = job
@@ -654,24 +855,30 @@ const updateJobForAutoSync = async (
       ? InfraJobStatusEnum.NORMAL
       : InfraJobStatusEnum.STOP
 
-  if (targetStatus === InfraJobStatusEnum.NORMAL) {
-    if (job.status !== targetStatus) {
-      await JobApi.updateJobStatus(job.id, targetStatus)
+  // Job 更新接口只允许运行状态；暂停任务保存时间后恢复暂停状态。
+  const cronExpression = dailyCronExpression.value
+  if (job.cronExpression !== cronExpression) {
+    const wasStopped = job.status === InfraJobStatusEnum.STOP
+    if (job.status !== InfraJobStatusEnum.NORMAL) {
+      await JobApi.updateJobStatus(job.id, InfraJobStatusEnum.NORMAL)
+      job.status = InfraJobStatusEnum.NORMAL
     }
-    await JobApi.updateJob({
-      ...job,
-      status: targetStatus,
-      cronExpression: dailyCronExpression.value
-    })
-    return
+    let updated = false
+    try {
+      await JobApi.updateJob({
+        ...job,
+        status: InfraJobStatusEnum.NORMAL,
+        cronExpression
+      })
+      updated = true
+    } finally {
+      if (wasStopped && (!updated || targetStatus === InfraJobStatusEnum.STOP)) {
+        await JobApi.updateJobStatus(job.id, InfraJobStatusEnum.STOP)
+        job.status = InfraJobStatusEnum.STOP
+      }
+    }
   }
-
-  if (job.status === InfraJobStatusEnum.NORMAL) {
-    await JobApi.updateJob({
-      ...job,
-      status: targetStatus,
-      cronExpression: dailyCronExpression.value
-    })
+  if (job.status !== targetStatus) {
     await JobApi.updateJobStatus(job.id, targetStatus)
   }
 }
@@ -725,10 +932,12 @@ const handleRunOnce = async () => {
     try {
       await Promise.all([loadJobs(), loadLatestRuns(), loadRunningSyncRuns()])
     } catch (error) {
-      ElMessage.error(`任务已提交，但配置或运行事实刷新失败：${resolveErrorMessage(error, '刷新失败')}`)
+      ElMessage.error(
+        `任务已提交，但配置或运行事实刷新失败：${resolveErrorMessage(error, '刷新失败')}`
+      )
     }
   } catch (error) {
-    ElMessage.error(resolveErrorMessage(error, '立即执行一次失败'))
+    ElMessage.error(resolveErrorMessage(error, '增量执行一次失败'))
   } finally {
     running.value = false
   }
@@ -808,33 +1017,14 @@ onMounted(loadData)
   max-width: none;
 }
 
-.profile-erp-table-sync__header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-}
-
-.profile-erp-table-sync__title {
-  color: #1f2d3d;
-  font-size: 16px;
-  font-weight: 600;
-}
-
-.profile-erp-table-sync__subtitle {
-  margin-top: 4px;
-  color: #6b778c;
-  font-size: 13px;
-}
-
 .profile-erp-table-sync__form {
   margin-top: 16px;
 }
 
 .profile-erp-table-sync__top-settings {
   display: grid;
-  grid-template-columns: minmax(280px, 1fr) minmax(420px, 520px);
-  gap: 32px;
+  grid-template-columns: minmax(0, 1fr) auto minmax(320px, 440px);
+  gap: 24px;
   align-items: start;
   margin-bottom: 4px;
 }
@@ -843,7 +1033,14 @@ onMounted(loadData)
   min-width: 0;
 }
 
+.profile-erp-table-sync__schedule-actions {
+  display: flex;
+  align-items: center;
+  padding-top: 50px;
+}
+
 .profile-erp-table-sync__connection-setting {
+  grid-column: 3;
   min-width: 0;
   padding-left: 24px;
   border-left: 1px solid #dcdfe6;
@@ -914,7 +1111,12 @@ onMounted(loadData)
     gap: 8px;
   }
 
+  .profile-erp-table-sync__schedule-actions {
+    padding-top: 0;
+  }
+
   .profile-erp-table-sync__connection-setting {
+    grid-column: 1;
     padding-top: 16px;
     padding-left: 0;
     border-top: 1px solid #dcdfe6;

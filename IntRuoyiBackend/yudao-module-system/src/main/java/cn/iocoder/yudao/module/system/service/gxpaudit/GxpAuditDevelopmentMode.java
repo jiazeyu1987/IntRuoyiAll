@@ -1,48 +1,50 @@
 package cn.iocoder.yudao.module.system.service.gxpaudit;
 
+import cn.iocoder.yudao.module.infra.dal.dataobject.config.ConfigDO;
+import cn.iocoder.yudao.module.infra.dal.mysql.config.ConfigMapper;
+import cn.iocoder.yudao.module.infra.enums.config.GxpAuditMode;
+import com.google.common.annotations.VisibleForTesting;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Component;
-import org.slf4j.LoggerFactory;
-import java.util.Arrays;
-import java.util.regex.Pattern;
 
-/** Explicit process-wide local development mode; never a formal audit verification result. */
+/** Immutable for the life of this process. Saved configuration is consumed on the next startup. */
 @Component
 @Lazy(false)
 public class GxpAuditDevelopmentMode {
-    public static final String PROPERTY = "yudao.gxp-audit.development-disabled";
     public static final String STATUS = "DEVELOPMENT_DISABLED";
-    private static volatile boolean disabled;
-    private static final Pattern LOOPBACK_MYSQL = Pattern.compile(
-            "^jdbc:mysql://(?:localhost|127\\.0\\.0\\.[12]|\\[::1\\])(?::[0-9]+)?/[^/?]+(?:\\?.*)?$");
+    private static volatile GxpAuditMode currentMode = GxpAuditMode.FORMAL;
 
-    public GxpAuditDevelopmentMode(Environment environment) {
-        boolean requested = environment.getProperty(PROPERTY, Boolean.class, false);
-        if (requested) {
-            if (!Arrays.equals(environment.getActiveProfiles(), new String[]{"local"}))
-                throw new IllegalStateException(PROPERTY + " requires only the local Spring profile");
-            for (String name : new String[]{"master", "slave"}) {
-                String url = environment.getProperty("spring.datasource.dynamic.datasource." + name + ".url");
-                if (url == null && name.equals("slave")) continue;
-                if (url == null || !(LOOPBACK_MYSQL.matcher(url).matches()
-                        || isolatedCheckpointDatasource(environment, url)))
-                    throw new IllegalStateException(PROPERTY + " requires local or explicitly bound isolated checkpoint MySQL datasources");
-            }
-            LoggerFactory.getLogger(getClass()).warn("GXP DEVELOPMENT_DISABLED: audit recording, queries and audit-dependent checks are disabled. Real authentication, signatures and business rules remain enabled. NOT FORMAL AUDIT ACCEPTANCE.");
+    @Autowired
+    public GxpAuditDevelopmentMode(Environment environment, ConfigMapper configs) {
+        this(environment, readRequired(configs));
+    }
+
+    @VisibleForTesting
+    public GxpAuditDevelopmentMode(Environment environment, GxpAuditMode mode) {
+        try {
+            mode.validateEnvironment(environment);
+        } catch (IllegalArgumentException ex) {
+            throw new IllegalStateException(ex.getMessage(), ex);
         }
-        disabled = requested;
+        currentMode = mode;
+        LoggerFactory.getLogger(getClass()).warn("GXP mode applied at startup: {}. Configuration changes require a restart.", mode);
     }
 
-    public static boolean disabled() { return disabled; }
-    private static boolean isolatedCheckpointDatasource(Environment environment, String url) {
-        String space = environment.getProperty("INTRUOYI_CHECKPOINT_SPACE");
-        if (space == null || !space.matches("checkpoint-[a-z0-9-]{1,40}")
-                || !space.equals(environment.getProperty("intruoyi.checkpoint.space-id"))) return false;
-        String prefix = "jdbc:mysql://" + space + "-mysql-1:3306/ruoyi-vue-pro";
-        return url.equals(prefix) || url.startsWith(prefix + "?");
+    private static GxpAuditMode readRequired(ConfigMapper configs) {
+        ConfigDO config = configs.selectByKey(GxpAuditMode.CONFIG_KEY);
+        if (config == null || !Boolean.TRUE.equals(config.getVisible()) || !Integer.valueOf(1).equals(config.getType())) {
+            throw new IllegalStateException("缺少有效的 GxP 模式配置，请先执行 20261026_gxp_audit_mode_config.sql。");
+        }
+        return GxpAuditMode.parseRequired(config.getValue());
     }
+
+    public static GxpAuditMode currentMode() { return currentMode; }
+    public static boolean disabled() { return currentMode == GxpAuditMode.DEVELOPMENT_DISABLED; }
+    public boolean localPolicyEnabled() { return currentMode == GxpAuditMode.LOCAL_POLICY; }
     public static boolean auditBindingAccepted(String status) {
-        return "CONSISTENT".equals(status) || disabled && STATUS.equals(status);
+        return "CONSISTENT".equals(status) || disabled() && STATUS.equals(status);
     }
 }

@@ -1744,20 +1744,6 @@ const remainingRouter: AppRouteRecordRaw[] = [
         }
       },
       {
-        path: 'pro/feedback/edhr-work-task',
-        component: () => import('@/views/mes/pro/edhr-work-task/WorkTaskBoardPage.vue'),
-        name: 'MesProEdhrWorkTaskBoard',
-        meta: {
-          noCache: true,
-          hidden: true,
-          canTo: true,
-          icon: '',
-          title: 'eDHR 工作任务',
-          activeMenu: '/mes/pro/feedback/edhr-work-task',
-          permission: ['mes:pro-edhr-work-task:query']
-        }
-      },
-      {
         path: 'production-release/pqc',
         component: () => import('@/views/mes/pro/production-release/PqcProductionReleasePage.vue'),
         name: 'MesPqcProductionRelease',

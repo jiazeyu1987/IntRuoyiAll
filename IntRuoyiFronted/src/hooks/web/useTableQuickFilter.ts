@@ -29,6 +29,7 @@ export interface TableQuickFilterDefinition {
   queryParamKey?: string
   operators?: TableQuickFilterOperator[]
   options?: readonly TableQuickFilterOption[]
+  virtualized?: boolean
   placeholder?: string
   triggerOnFocus?: boolean
   popperClass?: string

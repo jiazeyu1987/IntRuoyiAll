@@ -21,6 +21,7 @@
           :filter-definitions="resolvedStandardFilterDefinitions"
           :state="resolvedStandardFilterState"
           :show-operators="showMultiFilterOperators"
+          :show-reset="showFilterReset"
           @update:state="handleStandardFilterStateUpdate"
           @query="handleStandardFilterQuery"
           @reset="handleStandardFilterReset"
@@ -146,6 +147,7 @@ const props = withDefaults(defineProps<{
   showMultiFilter?: boolean
   multiFilterDefinitions?: ListMultiFilterDefinition[]
   multiFilterState?: ListMultiFilterState
+  showFilterReset?: boolean
   showMultiFilterOperators?: boolean
   columns: UserTableColumnState[]
   columnSaving?: boolean
@@ -164,6 +166,7 @@ const props = withDefaults(defineProps<{
   showQuickFilterLabel: true,
   showMultiFilter: false,
   multiFilterDefinitions: () => [],
+  showFilterReset: true,
   showMultiFilterOperators: true,
   showColumnSettings: true,
   showColumnReset: false,

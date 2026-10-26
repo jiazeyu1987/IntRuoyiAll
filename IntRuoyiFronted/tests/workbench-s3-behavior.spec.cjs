@@ -2,6 +2,132 @@ const assert=require('node:assert/strict')
 const test=require('node:test')
 const {fixture,deferred,tick,descriptor,dir,row,read,compile}=require('./helpers/workbench-s3-fixture.cjs')
 
+test('visible and hidden snapshots survive round trips and browser reload independently',async()=>{
+ const f=fixture();await f.page.loadWorkbench();const visible=f.page.todoRows.value
+ f.setTransport(async(r,next)=>{
+  const result=await next(r)
+  if(r.url.endsWith('/page')&&f.contexts.get(r.params.queryVersion).querySpec.visibility==='hidden')return {...result,rows:[{...row,detail:'已隐藏任务'}]}
+  return result
+ })
+ f.page.activeVisibilityTab.value='hidden';await f.page.loadWorkbench();const hidden=f.page.todoRows.value
+ const gate=deferred();f.setTransport((r,next)=>r.url.endsWith('/page')?gate.promise.then(()=>next(r)):next(r))
+ f.page.activeVisibilityTab.value='visible';const pending=f.page.loadWorkbench()
+ assert.equal(f.page.todoRows.value,visible);gate.resolve();await pending
+ f.page.activeVisibilityTab.value='hidden';const back=f.page.loadWorkbench()
+ assert.equal(f.page.todoRows.value,hidden);await back
+ assert.equal(f.sessionStorage.size,2);f.scope.stop()
+ const reload=fixture({cache:f.cache,sessionStorage:f.sessionStorage})
+ const key=partition=>JSON.stringify([reload.page.queryParams,partition,reload.page.sortState.value])
+ assert.equal(reload.badge.readPageSnapshot(key('visible')).rows[0].detail,row.detail)
+ assert.equal(reload.badge.readPageSnapshot(key('hidden')).rows[0].detail,'已隐藏任务')
+ reload.auth.removeToken();assert.equal(reload.sessionStorage.size,0);reload.scope.stop()
+})
+
+test('first partition switch without snapshot is silent and never renders the other partition as current',async()=>{
+ const f=fixture();await f.page.loadWorkbench();const gate=deferred()
+ f.setTransport((r,next)=>r.url.endsWith('/page')?gate.promise.then(()=>next(r)):next(r))
+ f.page.activeVisibilityTab.value='hidden';f.page.handleVisibilityTabChange()
+ assert.equal(f.page.loading.value,true);assert.equal(f.page.silentLoading.value,true)
+ assert.equal(f.page.todoRows.value.length,0);assert.equal(f.page.actionsReady.value,false)
+ await tick();gate.resolve();await tick();assert.equal(f.page.loading.value,false);f.scope.stop()
+})
+
+test('full page reload restores session snapshot before background request without persisting credentials or query tokens',async()=>{
+ const first=fixture();await first.page.loadWorkbench()
+ const persisted=[...first.sessionStorage.values()].join('')
+ for(const secret of ['session-A','refresh-A','queryVersion','contextEpoch'])assert.equal(persisted.includes(secret),false)
+ first.scope.stop()
+ const reloaded=fixture({cache:first.cache,sessionStorage:first.sessionStorage}),gate=deferred()
+ reloaded.setTransport((r,next)=>r.url.endsWith('/page')?gate.promise.then(()=>next(r)):next(r))
+ const pending=reloaded.page.loadWorkbench()
+ assert.equal(reloaded.page.todoRows.value[0].taskKey,row.taskKey);assert.equal(reloaded.page.total.value,1)
+ assert.equal(reloaded.page.actionsReady.value,false)
+ gate.resolve();assert.equal(await pending,true);reloaded.scope.stop()
+})
+
+test('token renewal preserves persisted snapshot scope while a new login invalidates it',async()=>{
+ const first=fixture();await first.page.loadWorkbench();const session=first.auth.getAuthSessionId()
+ first.auth.setRefreshedToken({accessToken:'renewed',refreshToken:'renewed-refresh'})
+ assert.equal(first.auth.getAuthSessionId(),session);first.scope.stop()
+ const renewed=fixture({cache:first.cache,sessionStorage:first.sessionStorage})
+ assert.ok(renewed.badge.readPageSnapshot(JSON.stringify([renewed.page.queryParams,renewed.page.activeVisibilityTab.value,renewed.page.sortState.value])))
+ renewed.auth.setToken({accessToken:'new-login',refreshToken:'new-login-refresh'})
+ assert.notEqual(renewed.auth.getAuthSessionId(),session);assert.equal(renewed.sessionStorage.size,0)
+ renewed.auth.removeToken();assert.equal(renewed.auth.getAuthSessionId(),undefined);renewed.scope.stop()
+})
+
+for(const change of ['tenant','permissions'])test('reload with changed '+change+' refuses persisted snapshot',async()=>{
+ const first=fixture();await first.page.loadWorkbench();first.scope.stop()
+ const second=fixture({cache:first.cache,sessionStorage:first.sessionStorage})
+ if(change==='tenant')second.tenant(2)
+ else second.user.getPermissions.push('new:permission')
+ const gate=deferred();second.setTransport((r,next)=>r.url.endsWith('/sources')?gate.promise.then(()=>next(r)):next(r))
+ const pending=second.page.loadWorkbench();assert.equal(second.page.todoRows.value.length,0)
+ assert.equal(second.sessionStorage.size,0);second.hooks.unmount();gate.resolve();await pending;second.scope.stop()
+})
+
+test('malformed persisted snapshot is removed with explicit error and no hidden server read',async()=>{
+ const f=fixture();f.sessionStorage.set('int:profile-workbench:page-snapshot:v1:visible','invalid json')
+ assert.equal(await f.page.loadWorkbench(),false);assert.equal(f.requests.length,0)
+ assert.equal(f.sessionStorage.size,0);assert.equal(f.page.loadErrorMessages.value.length,1);f.scope.stop()
+})
+
+test('logout clears persisted snapshot even before it has been restored into memory',async()=>{
+ const first=fixture();await first.page.loadWorkbench();first.scope.stop()
+ const second=fixture({cache:first.cache,sessionStorage:first.sessionStorage})
+ second.badge.ensureContextWatch();assert.equal(second.badge.pageSnapshots.visible,undefined)
+ second.auth.removeToken();assert.equal(second.sessionStorage.size,0);second.scope.stop()
+})
+
+test('menu refresh while page is closed retains snapshot for the next open',async()=>{
+ const f=fixture();await f.page.loadWorkbench();const rows=f.page.todoRows.value
+ f.hooks.unmount();const menu=f.mountMenu();await tick()
+ f.hooks.focus();await tick()
+ assert.equal(f.badge.pageSnapshots.visible.rows,rows)
+ const page=f.createPage(),gate=deferred()
+ f.setTransport((r,next)=>r.url.endsWith('/page')?gate.promise.then(()=>next(r)):next(r))
+ const pending=page.loadWorkbench();assert.equal(page.todoRows.value,rows);assert.equal(page.total.value,1)
+ gate.resolve();assert.equal(await pending,true);menu.unmount();f.scope.stop()
+})
+
+test('explicit permission-directory invalidation still discards the display snapshot',async()=>{
+ const f=fixture();await f.page.loadWorkbench()
+ f.context.invalidateWorkbenchContext('授权来源已变化')
+ assert.equal(f.badge.pageSnapshots.visible,undefined);assert.equal(f.page.todoRows.value.length,0);f.scope.stop()
+})
+
+test('both refresh spinner and table mask are limited to a request without a snapshot',()=>{
+ const source=read('src/views/Profile/components/ProfileWorkbench.vue')
+ assert.match(source,/:loading="loading && total === undefined && !silentLoading"/)
+ assert.match(source,/v-loading="loading && total === undefined && !silentLoading"/)
+})
+
+test('focus plus visibilitychange does not restart the active page request',async()=>{
+ const f=fixture(),gate=deferred()
+ f.setTransport((r,next)=>r.url.endsWith('/page')?gate.promise.then(()=>next(r)):next(r))
+ f.hooks.mount();await tick()
+ f.hooks.focus();f.hooks.visibilitychange();await tick()
+ assert.equal(f.requests.filter(r=>r.url.endsWith('/sources')).length,1)
+ assert.equal(f.requests.filter(r=>r.url.endsWith('/page')).length,1)
+ gate.resolve();await tick();assert.equal(f.page.todoRows.value.length,1)
+ assert.equal(f.page.loading.value,false);f.scope.stop()
+})
+
+test('concurrent badge consumers share a count read and page loading supplies its own badge',async()=>{
+ const f=fixture(),gate=deferred()
+ f.setTransport((r,next)=>r.url.endsWith('/count')?gate.promise.then(()=>next(r)):next(r))
+ const first=f.badge.ensureTodoTotalLoaded();await tick()
+ await Promise.all([f.badge.ensureTodoTotalLoaded(),f.badge.ensureTodoTotalLoaded()])
+ assert.equal(f.requests.filter(r=>r.url.endsWith('/count')).length,1)
+ gate.resolve();await first;assert.equal(f.badge.todoTotal,3)
+ const pageGate=deferred()
+ f.setTransport((r,next)=>r.url.endsWith('/page')?pageGate.promise.then(()=>next(r)):next(r))
+ const page=f.page.loadWorkbench();await tick()
+ await f.badge.ensureTodoTotalLoaded()
+ assert.equal(f.requests.filter(r=>r.url.endsWith('/count')).length,1)
+ pageGate.resolve();assert.equal(await page,true);assert.equal(f.badge.todoTotal,3);f.scope.stop()
+})
+
 const actualRequestContextGuard=(ts,ast)=>{
  let initializer
  const visit=node=>{
@@ -35,14 +161,75 @@ for(const stage of ['/sources','/context','/page'])for(const reject of [false,tr
  const old=f.page.loadWorkbench();await tick();await f.page.loadWorkbench();gate.resolve();await old
  assert.equal(f.page.todoRows.value.length,1);assert.equal(f.page.loading.value,false);assert.deepEqual(f.page.loadErrorMessages.value,[]);assert.equal(f.badge.todoTotal,3);f.scope.stop()
 })
-test('directory query mutation stops next stage; focus clears page and badge synchronously',async()=>{
+test('directory query mutation stops next stage; focus preserves same-query snapshot and revokes actions',async()=>{
  const f=fixture(),gate=deferred();f.setTransport((r,next)=>r.url.endsWith('/sources')?gate.promise.then(()=>next(r)):next(r))
  const pending=f.page.loadWorkbench();f.page.queryParams.taskType='另一类型';gate.resolve();await pending
  assert.equal(f.requests.filter(r=>r.url.endsWith('/context')).length,0)
  f.setTransport((r,next)=>next(r));await f.page.loadWorkbench();f.hooks.mount();await tick()
  const wait=deferred();f.setTransport((r,next)=>r.url.endsWith('/sources')?wait.promise.then(()=>next(r)):next(r))
- f.hooks.focus();assert.equal(f.page.todoRows.value.length,0);assert.equal(f.page.total.value,undefined);assert.equal(f.badge.todoTotal,undefined)
+ f.hooks.focus();assert.equal(f.page.todoRows.value.length,1);assert.equal(f.page.total.value,1);assert.equal(f.page.actionsReady.value,false);assert.equal(f.badge.todoTotal,undefined)
  wait.resolve();await tick();f.scope.stop()
+})
+
+test('same snapshot renders immediately on reopen and identical response keeps row references without a second read',async()=>{
+ const f=fixture();await f.page.loadWorkbench();const rows=f.page.todoRows.value
+ f.hooks.unmount();const page=f.createPage(),gate=deferred(),before=f.requests.length
+ f.setTransport((r,next)=>r.url.endsWith('/page')?gate.promise.then(async()=>structuredClone(await next(r))):next(r))
+ const pending=page.loadWorkbench()
+ assert.equal(page.todoRows.value,rows);assert.equal(page.total.value,1);assert.equal(page.actionsReady.value,false)
+ await page.openTodo(rows[0]);assert.equal(f.routes.length,0)
+ await tick();gate.resolve();assert.equal(await pending,true)
+ assert.equal(page.todoRows.value,rows);assert.equal(page.actionsReady.value,true)
+ assert.equal(f.requests.slice(before).filter(r=>r.url.endsWith('/page')).length,1);f.scope.stop()
+})
+
+test('changed response updates snapshot directly in the single background request',async()=>{
+ const f=fixture();await f.page.loadWorkbench();const rows=f.page.todoRows.value,gate=deferred(),before=f.requests.length
+ f.setTransport((r,next)=>r.url.endsWith('/page')?gate.promise.then(async()=>({...await next(r),rows:[{...row,detail:'更新后的任务'}]})):next(r))
+ const pending=f.page.loadWorkbench();assert.equal(f.page.todoRows.value,rows)
+ await tick();gate.resolve();assert.equal(await pending,true)
+ assert.notEqual(f.page.todoRows.value,rows);assert.equal(f.page.todoRows.value[0].detail,'更新后的任务')
+ assert.equal(f.badge.pageSnapshots.visible.rows,f.page.todoRows.value)
+ assert.equal(f.requests.slice(before).filter(r=>r.url.endsWith('/page')).length,1);f.scope.stop()
+})
+
+for(const change of ['tenant','visit','permission','session'])test('snapshot is synchronously cleared by '+change+' change',async()=>{
+ const f=fixture();await f.page.loadWorkbench();assert.ok(f.badge.pageSnapshots.visible)
+ if(change==='tenant')f.tenant(2)
+ if(change==='visit')f.visit(2)
+ if(change==='permission')f.user.getPermissions.push('new:permission')
+ if(change==='session')f.identity(2)
+ assert.equal(f.badge.pageSnapshots.visible,undefined);assert.equal(f.page.todoRows.value.length,0);assert.equal(f.page.actionsReady.value,false)
+ f.scope.stop()
+})
+
+for(const change of ['filter','page','sort','visibility'])test('snapshot does not cross '+change+' query',async()=>{
+ const f=fixture();await f.page.loadWorkbench();const gate=deferred()
+ f.setTransport((r,next)=>r.url.endsWith('/sources')?gate.promise.then(()=>next(r)):next(r))
+ if(change==='filter')f.page.queryParams.taskType='其他任务'
+ if(change==='page')f.page.queryParams.pageNo=2
+ if(change==='sort')f.page.sortState.value={prop:'detail',order:'ascending'}
+ if(change==='visibility')f.page.activeVisibilityTab.value='hidden'
+ const pending=f.page.loadWorkbench();assert.equal(f.page.todoRows.value.length,0);assert.equal(f.page.total.value,undefined)
+ f.hooks.unmount();gate.resolve();await pending;f.scope.stop()
+})
+
+test('background failure clears snapshot, keeps existing explicit error, and leaves actions disabled',async()=>{
+ const f=fixture();await f.page.loadWorkbench();const gate=deferred()
+ f.setTransport((r,next)=>r.url.endsWith('/page')?gate.promise:next(r))
+ const pending=f.page.loadWorkbench();assert.equal(f.page.todoRows.value.length,1)
+ await tick();gate.reject(new Error('后台查询失败'));assert.equal(await pending,false)
+ assert.equal(f.page.todoRows.value.length,0);assert.equal(f.badge.pageSnapshots.visible,undefined)
+ assert.equal(f.page.actionsReady.value,false);assert.match(f.page.loadErrorMessages.value[0],/后台查询失败/);f.scope.stop()
+})
+
+test('visibility write clears snapshot before request and never restores old rows on refresh failure',async()=>{
+ const f=fixture();await f.page.loadWorkbench();const gate=deferred()
+ f.setTransport((r,next)=>r.url.endsWith('/visibility')?gate.promise:r.url.endsWith('/context')?Promise.reject(new Error('刷新失败')):next(r))
+ const pending=f.page.handleRestoreTodo(row)
+ assert.equal(f.badge.pageSnapshots.visible,undefined);assert.equal(f.page.todoRows.value.length,0)
+ gate.resolve({changed:true,visibilityVersion:'2',contextEpoch:[...f.contexts.values()][0].contextEpoch});await pending
+ assert.equal(f.page.todoRows.value.length,0);assert.equal(f.badge.pageSnapshots.visible,undefined);f.scope.stop()
 })
 test('identity A→B→A/visit/permissions cannot resurrect old lease',async()=>{
  const f=fixture(),gate=deferred();let once=true

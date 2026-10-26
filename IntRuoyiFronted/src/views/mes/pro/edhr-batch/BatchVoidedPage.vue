@@ -1,5 +1,5 @@
 <template>
-  <ContentWrap>
+  <ContentWrap :class="{ 'edhr-record-viewport': !detailVisible }">
     <ActiveOrderDetailLayout v-if="detailVisible" data-edhr-batch-voided-detail>
       <el-button data-edhr-batch-voided-detail-back @click="detailVisible = false">
         返回
@@ -17,8 +17,7 @@
         @retry="retryOrderDetail"
       />
     </ActiveOrderDetailLayout>
-    <div v-else>
-      <EdhrBatchRecordTabs active-tab="voided" />
+    <div v-else class="edhr-record-viewport__body">
       <el-form :inline="true" :model="queryParams" class="mt-16px" @submit.prevent="handleQuery">
         <el-form-item label="工单号">
           <el-input v-model="queryParams.workOrderCode" clearable @keyup.enter="handleQuery" />
@@ -32,7 +31,7 @@
         </el-form-item>
       </el-form>
       <el-alert v-if="loadError" :title="loadError" type="error" :closable="false" show-icon />
-      <el-table
+      <el-table height="100%"
         v-loading="loading"
         :data="list"
         row-key="applicationId"
@@ -73,10 +72,11 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
+import '@/views/mes/pro/edhr-batch/record-viewport.css'
+import { onMounted, reactive, ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import ActiveOrderSubmissionDetailPanel from '../processpool/components/ActiveOrderSubmissionDetailPanel.vue'
 import ActiveOrderDetailLayout from '../processpool/components/ActiveOrderDetailLayout.vue'
-import EdhrBatchRecordTabs from './EdhrBatchRecordTabs.vue'
 import {
   getPqcProductionReleaseOrderDetail,
   getPqcProductionReleasePage,
@@ -174,5 +174,14 @@ const retryOrderDetail = () => {
   if (detailRow.value) void openDetail(detailRow.value)
 }
 
-onMounted(getList)
+const route = useRoute()
+const applyHistoryEntry = () => {
+  if (route.path !== '/mes/pro/feedback/edhr-batch-voided') return
+  queryParams.pageNo = 1
+  queryParams.workOrderCode = typeof route.query.workOrderCode === 'string' ? route.query.workOrderCode : ''
+  queryParams.batchCode = typeof route.query.batchCode === 'string' ? route.query.batchCode : ''
+  void getList()
+}
+watch(() => [route.query.workOrderCode, route.query.batchCode], applyHistoryEntry)
+onMounted(applyHistoryEntry)
 </script>

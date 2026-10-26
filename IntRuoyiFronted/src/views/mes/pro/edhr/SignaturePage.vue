@@ -2,6 +2,7 @@
   <component :is="signaturePageShell" :class="{ 'edhr-signature-page--embedded': isEmbedded }">
     <div class="edhr-query">
       <UnifiedListTemplate
+        single-line-toolbar
         class="edhr-query__list-template"
         table-key="mes.pro.edhr.signature.history"
         :query-model="queryParams"

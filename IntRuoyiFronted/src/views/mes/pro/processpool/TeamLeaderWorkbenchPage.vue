@@ -103,6 +103,7 @@
     >
       <el-tab-pane label="生产人员档案" name="productionPersonnel">
         <UnifiedListTemplate
+          single-line-toolbar
           table-key="mes.processPool.teamLeader.productionPersonnel"
           :query-model="productionPersonnelQuery"
           :filter-definitions="productionPersonnelFilterDefinitions"
@@ -371,12 +372,6 @@
     :class="{ 'team-leader-workbench__pqc-module-card': showPqcModuleTabs }"
     data-pqc-leader-personnel-tab
   >
-    <div v-if="showPqcModuleTabs" class="team-leader-workbench__embedded-header">
-      <div class="team-leader-workbench__title">{{ pageTitle }}</div>
-      <div class="team-leader-workbench__subtitle">
-        {{ pageSubtitle }}
-      </div>
-    </div>
     <el-tabs
       v-if="showPqcModuleTabs"
       v-model="activePqcModuleTab"
@@ -390,6 +385,7 @@
     </el-tabs>
 
     <UnifiedListTemplate
+      single-line-toolbar
       table-key="mes.processPool.teamLeader.pqcPersonnel"
       :query-model="pqcPersonnelQuery"
       :filter-definitions="pqcPersonnelFilterDefinitions"
@@ -570,12 +566,6 @@
       <span v-else class="team-leader-workbench__responsible-routes-empty">
         {{ responsibleRouteLoading ? '工艺路线加载中' : '暂无负责工艺路线' }}
       </span>
-    </div>
-    <div v-if="showPqcModuleTabs" class="team-leader-workbench__embedded-header">
-      <div class="team-leader-workbench__title">{{ pageTitle }}</div>
-      <div class="team-leader-workbench__subtitle">
-        {{ pageSubtitle }}
-      </div>
     </div>
     <el-tabs
       v-if="showPqcModuleTabs"
@@ -1364,13 +1354,6 @@
                 >
                   分配
                 </el-button>
-                <details data-workflow-formal-record>
-                  <summary>正式记录身份</summary>
-                  <p v-for="expected in row.expectedReviews" :key="expected.eventId" data-workflow-review-context>{{ workflowReviewContext(row, expected) }}</p>
-                  <pre data-workflow-current-payload>{{ row.originalPayloadJson }}</pre>
-                  <p v-for="expected in row.expectedReviews" :key="`round-${expected.eventId}`" data-workflow-review-round>{{ expected.reviewRound }}</p>
-                  <pre v-for="proof in row.displayedReviewEvidence ?? []" :key="proof.reviewId" data-workflow-review-evidence>{{ JSON.stringify(proof) }}</pre>
-                </details>
               </div>
             </template>
           </el-table-column>
@@ -1384,12 +1367,6 @@
     class="team-leader-workbench__pqc-module-card"
     data-pqc-leader-detail-tab
   >
-    <div class="team-leader-workbench__embedded-header">
-      <div class="team-leader-workbench__title">{{ pageTitle }}</div>
-      <div class="team-leader-workbench__subtitle">
-        {{ pageSubtitle }}
-      </div>
-    </div>
     <el-tabs
       v-model="activePqcModuleTab"
       class="team-leader-workbench__module-tabs team-leader-workbench__module-tabs--flat"
@@ -1457,6 +1434,7 @@
         <div v-if="isPqcSubmissionRow(detail)" class="team-leader-workbench__detail-standard-list">
           <div class="team-leader-workbench__submission-log-title">PQC项目明细</div>
           <UnifiedListTemplate
+            single-line-toolbar
             table-key="mes.processPool.teamLeader.pqcSubmissionDetailItems"
             :query-model="pqcDetailQuery"
             :filter-definitions="pqcDetailFilterDefinitions"
@@ -2233,12 +2211,6 @@
       <span v-else class="team-leader-workbench__responsible-routes-empty">
         {{ responsibleRouteLoading ? '工艺路线加载中' : '暂无负责工艺路线' }}
       </span>
-    </div>
-    <div v-if="showPqcModuleTabs" class="team-leader-workbench__embedded-header">
-      <div class="team-leader-workbench__title">{{ pageTitle }}</div>
-      <div class="team-leader-workbench__subtitle">
-        {{ pageSubtitle }}
-      </div>
     </div>
     <el-tabs
       v-if="showPqcModuleTabs"
@@ -4981,13 +4953,6 @@ const canReviewSubmission = (row: ProcessPoolTimelineEventVO) =>
 
 const canOpenPqcSubmissionNonconformanceReview = (row: ProcessPoolTimelineEventVO) =>
   canReviewSubmission(row) && Boolean(row.activeOrderId)
-
-const workflowReviewContext = (row: ProcessPoolTimelineEventVO, expected: NonNullable<ProcessPoolTimelineEventVO['expectedReviews']>[number]) => {
-  const payload = parsePqcOriginalPayload(row.originalPayloadJson)
-  const raw = payload && isRecord(payload.rawPayload) ? payload.rawPayload : payload
-  const domain = isProductionLeader.value ? raw?.signatureIdentityDomain : 'SYSTEM_USER'
-  return '原事件：' + expected.eventId + '；原退回轮次：' + expected.reviewId + '；原修订：' + expected.revisionId + '；原正文哈希：' + expected.payloadHash + '；原签名人：' + (row.signatureEmployeeUserId ?? '未记录') + '；原签名身份：' + (domain ?? '未记录') + '；原签名记录：' + (row.electronicSignatureId ?? '未记录') + '；原复核状态：' + (expected.reviewStatus ?? row.submissionReviewStatus ?? '未记录') + '；原分配版本：' + (expected.allocationVersion ?? ((activeLeaderTab.value === 'PQC') ? '不适用' : '未记录')) + ((activeLeaderTab.value === 'PQC') ? '；原PQC判定：' + (raw?.inspectionResult ?? row.pqcResult ?? '未记录') : '')
-}
 
 const requiresOwnProductionReturnCorrection = (row: ProcessPoolTimelineEventVO) => {
   if (!isProductionLeader.value || row.submissionReviewStatus !== 'REJECTED') return false

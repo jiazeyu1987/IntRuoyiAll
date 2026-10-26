@@ -38,6 +38,17 @@
       @update:model-value="updateValue"
       @keyup.enter="$emit('query')"
     />
+    <el-select-v2
+      v-else-if="definition.type === 'select' && definition.virtualized"
+      :model-value="condition?.value"
+      :options="virtualOptions"
+      class="table-multi-filter-field__value"
+      clearable
+      filterable
+      :placeholder="definition.placeholder || '请选择'"
+      @update:model-value="updateValue"
+      @keyup.enter="$emit('query')"
+    />
     <el-select
       v-else-if="definition.type === 'select'"
       :model-value="condition?.value"
@@ -161,6 +172,7 @@ const OPERATOR_LABELS: Record<ListMultiFilterOperator, string> = {
 }
 
 const operatorOptions = computed(() => getMultiFilterOperatorOptions(props.definition))
+const virtualOptions = computed(() => props.definition.options?.slice())
 
 const currentOperator = computed(() =>
   props.condition?.operator || getDefaultMultiFilterOperator(props.definition)

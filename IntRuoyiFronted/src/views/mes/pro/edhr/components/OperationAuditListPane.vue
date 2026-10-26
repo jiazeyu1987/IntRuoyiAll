@@ -1,6 +1,7 @@
 <template>
   <div class="edhr-operation-audit-pane">
     <UnifiedListTemplate
+      single-line-toolbar
       table-key="mes.pro.edhr.operationAudit"
       :query-model="queryParams"
       :filter-definitions="operationAuditQuickFilterDefinitions"

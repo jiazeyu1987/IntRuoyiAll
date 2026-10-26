@@ -1,3 +1,26 @@
+# GxP 审计模式配置（2026-10-26）
+
+本节替代下方历史记录中的环境变量开关说明。GxP 模式统一保存于 `infra_config` 的 `system.gxp.audit-mode`，通过“基础设施 → 基础配置 → GxP 审计模式”查看和修改，复用 `infra:config:query/update` 权限。页面分别展示当前 JVM 运行模式、已保存模式和待重启状态。
+
+- `FORMAL`：正式审计，继续执行策略文件、激活 Hash、事务、签名及来源证据检查。
+- `LOCAL_POLICY`：本地策略审计，读取打包策略并写入 `LOCAL-DEV-*` 策略版本；只允许独立 local profile 和回环 MySQL。
+- `DEVELOPMENT_DISABLED`：关闭统一 GxP 写入和相关证据检查，跳过启动策略核验，不加载本地策略；只允许独立 local profile，以及回环或明确绑定的 checkpoint MySQL。
+
+保存仅改变数据库中的下次启动配置，不改变当前进程。所有租户共用该设置，每个连接此数据库的后端实例分别重启后生效。旧环境变量 `INTRUOYI_GXP_AUDIT_DEVELOPMENT_DISABLED`、`INTRUOYI_LOCAL_DEVELOPMENT_AUDIT_POLICY` 不再决定模式。配置缺失、重复、无效或环境不允许时启动失败；不自动选择其他模式。
+
+首次升级前，必须在同一 MySQL 会话中明确设置 `@intruoyi_gxp_audit_initial_mode` 为当前部署实际使用的模式，然后执行 `IntRuoyiBackend/sql/mysql/20261026_gxp_audit_mode_config.sql`。例如现有本机关闭审计环境使用：
+
+```sql
+SET @intruoyi_gxp_audit_initial_mode = 'DEVELOPMENT_DISABLED';
+SOURCE IntRuoyiBackend/sql/mysql/20261026_gxp_audit_mode_config.sql;
+```
+
+正式环境初始化为 `FORMAL`，本地策略环境初始化为 `LOCAL_POLICY`；不要将上面的本机示例直接用于其他环境。迁移已有有效配置时保留原值，没有初始模式时明确失败。迁移须先于新后端启动执行；它不清理事件、签名或业务数据。
+
+切回正式模式前，必须准备匹配的已批准、已激活策略。关闭期间的数据不会自动补成正式审计证据，应使用新的正式测试数据验收。当前内置策略仍需按既有审批激活流程处理，前端保存模式不等于批准策略。
+
+以下为历史实施记录，涉及旧开关的描述仅供追溯。
+
 # 本机 GXP 开发模式
 
 ## 2026-10-25 当前授权范围

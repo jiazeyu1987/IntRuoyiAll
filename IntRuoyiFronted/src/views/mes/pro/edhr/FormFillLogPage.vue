@@ -7,6 +7,7 @@
     >
       <el-tab-pane label="表单填写日志" name="FORM_FILL">
     <UnifiedListTemplate
+      single-line-toolbar
       class="edhr-form-fill-log-page"
       table-key="mes.pro.edhr.formFillLog.main"
       :query-model="queryParams"

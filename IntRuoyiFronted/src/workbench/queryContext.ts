@@ -1,5 +1,5 @@
 import { shallowRef, watch } from 'vue'
-import { authContextRevision, getAccessToken, getTenantId, getVisitTenantId } from '@/utils/auth'
+import { authContextRevision, getAccessToken, getAuthSessionId, getTenantId, getVisitTenantId } from '@/utils/auth'
 import { useUserStoreWithOut } from '@/store/modules/user'
 
 // Shared lifetime and consumer leases are distinct: a badge read cannot revoke a page read.
@@ -11,6 +11,11 @@ let directoryBinding = ''
 const readIdentity = () => {
   const user = useUserStoreWithOut()
   return JSON.stringify([authContextRevision.value, Boolean(getAccessToken()), String(user.getUser.id), String(getTenantId() ?? ''),
+    String(getVisitTenantId() ?? ''), [...user.getPermissions].sort(), [...user.getRoles].sort()])
+}
+export const workbenchSnapshotScope = () => {
+  const user = useUserStoreWithOut()
+  return JSON.stringify([getAuthSessionId(), String(user.getUser.id), String(getTenantId() ?? ''),
     String(getVisitTenantId() ?? ''), [...user.getPermissions].sort(), [...user.getRoles].sort()])
 }
 export const workbenchContextIdentity = () => {

@@ -11,6 +11,118 @@ import { isUrl } from '@/utils/is'
 const { wsCache } = useCache()
 const permissionControlledStaticRoutes = showroomRoutes
 const ALWAYS_AVAILABLE_HIDDEN_SHELL_NAMES = new Set(['DccCenterHidden'])
+// 仅隐藏指定导航入口，保留已授权路由供业务页面跳转。
+const HIDDEN_MODULE_MENU_PATHS = new Set([
+  '/mes',
+  '/infra',
+  '/report',
+  '/erp',
+  '/mes/md/erp-stock',
+  '/mdm/form-center/template',
+  '/mes/pro/edhr-config',
+  '/mes/pro/edhr-form',
+  '/mes/pro/feedback/edhr-batch-test',
+  '/mes/pro/feedback/edhr-form-trace',
+  '/mes/md/item-type',
+  '/mes/md/unit-measure',
+  '/mes/md/item',
+  '/mes/pro/mes-process',
+  '/system/tenant',
+  '/system/dept',
+  '/system/dict',
+  '/system/messages',
+  '/system/oauth2',
+  '/system/social',
+  '/system/area',
+  '/system/config-package',
+  '/system/codex-test-management',
+  '/system/codex-test-record',
+  '/system/backup-plan',
+  '/system/temporary-role-grant',
+  '/system/user/temporary-role-grant'
+])
+// The retired production-task page must not be registered from cached server menus.
+const removeRetiredProductionTaskPage = (routes: AppCustomRouteRecordRaw[]): AppCustomRouteRecordRaw[] =>
+  routes.filter((route) => route.path !== '/mes/pro/feedback/edhr-work-task'
+    && route.component !== 'mes/pro/edhr-work-task/WorkTaskBoardPage')
+    .map((route) => ({ ...route, ...(route.children ? { children: removeRetiredProductionTaskPage(route.children) } : {}) }))
+const ROOT_MENU_ORDER = [
+  '/user',
+  '/approval-center',
+  '/mdm',
+  '/showroom',
+  '/dcc',
+  '/mes/smart-scheduling',
+  '/mes/edhr-batch-processing',
+  '/system'
+]
+const orderRootMenus = (routes: AppRouteRecordRaw[]) => {
+  const rank = (route: AppRouteRecordRaw) => {
+    const index = ROOT_MENU_ORDER.indexOf(`/${route.path.replace(/^\/+|\/+$/g, '')}`)
+    return index === -1 ? ROOT_MENU_ORDER.length : index
+  }
+  return [...routes].sort((left, right) => rank(left) - rank(right))
+}
+const moveProjectCodeToMasterData = (routes: AppRouteRecordRaw[]) => {
+  const projectPath = '/mes/md/dcc-project-code'
+  const findParent = (items: AppRouteRecordRaw[]): AppRouteRecordRaw | undefined => {
+    for (const item of items) {
+      if (item.children?.some((child) => child.path === projectPath)) return item
+      const parent = item.children && findParent(item.children)
+      if (parent) return parent
+    }
+  }
+  const source = findParent(routes)
+  if (!source) return
+  const target = routes.find((route) => route.path === '/mdm')
+  if (!target) throw new Error('DCC项目代码菜单迁移缺少基础数据目录授权，请执行菜单迁移')
+  if (source === target) return
+  const index = source.children!.findIndex((child) => child.path === projectPath)
+  const [projectCode] = source.children!.splice(index, 1)
+  target.children = [...(target.children || []), projectCode]
+}
+const moveCraftToProcessManagement = (routes: AppCustomRouteRecordRaw[]) => {
+  let source: AppCustomRouteRecordRaw[] | undefined
+  let craft: AppCustomRouteRecordRaw | undefined
+  let target: AppCustomRouteRecordRaw | undefined
+  const visit = (items: AppCustomRouteRecordRaw[]) => {
+    for (const item of items) {
+      if (item.path === '/mes/edhr-process-settings') target = item
+      if (item.component === 'mes/pro/craft/index') {
+        source = items
+        craft = item
+      }
+      if (item.children) visit(item.children)
+    }
+  }
+  visit(routes)
+  if (!craft || !source) return
+  if (!target) throw new Error('工艺库菜单迁移缺少工序管理目录授权，请执行菜单迁移')
+  craft.path = '/mes/pro/craft'
+  if (source === target.children) return
+  source.splice(source.indexOf(craft), 1)
+  target.children = [...(target.children || []), craft]
+}
+const filterHiddenModuleMenus = (
+  routes: AppRouteRecordRaw[],
+  parentPath = ''
+): AppRouteRecordRaw[] =>
+  routes.flatMap((route) => {
+    const path = route.path.startsWith('/') ? route.path : `${parentPath}/${route.path}`
+    const normalizedPath = `/${path.replace(/^\/+|\/+$/g, '')}`
+    if (
+      HIDDEN_MODULE_MENU_PATHS.has(normalizedPath) ||
+      route.meta?.title === '配置中心'
+    ) {
+      return []
+    }
+    return [{
+      ...route,
+      ...(route.children
+        ? { children: filterHiddenModuleMenus(route.children, normalizedPath) }
+        : {})
+    }]
+  })
 const SIGNATURE_GOVERNANCE_ROUTE_PATH = '/signature-governance'
 const SIGNATURE_GOVERNANCE_ROUTE_NAME = 'SignatureGovernance'
 const SIGNATURE_RECORDS_ROUTE_PATH = 'signature-records'
@@ -690,15 +802,17 @@ export const usePermissionStore = defineStore('permission', {
   }),
   getters: {
     getRouters(): AppRouteRecordRaw[] {
-      return useTestModeStore().enabled === true ? this.routers : filterTestModeMenus(this.routers)
+      const routes = orderRootMenus(filterHiddenModuleMenus(this.routers))
+      return useTestModeStore().enabled === true ? routes : filterTestModeMenus(routes)
     },
     getAddRouters(): AppRouteRecordRaw[] {
       return flatMultiLevelRoutes(cloneDeep(this.addRouters))
     },
     getMenuTabRouters(): AppRouteRecordRaw[] {
+      const routes = filterHiddenModuleMenus(this.menuTabRouters)
       return useTestModeStore().enabled === true
-        ? this.menuTabRouters
-        : filterTestModeMenus(this.menuTabRouters)
+        ? routes
+        : filterTestModeMenus(routes)
     }
   },
   actions: {
@@ -708,9 +822,11 @@ export const usePermissionStore = defineStore('permission', {
         let res: AppCustomRouteRecordRaw[] = []
         const roleRouters = wsCache.get(CACHE_KEY.ROLE_ROUTERS)
         if (roleRouters) {
-          res = roleRouters as AppCustomRouteRecordRaw[]
+          res = cloneDeep(roleRouters as AppCustomRouteRecordRaw[])
         }
-        const routerMap: AppRouteRecordRaw[] = generateRoute(res)
+        moveCraftToProcessManagement(res)
+        const routerMap: AppRouteRecordRaw[] = generateRoute(removeRetiredProductionTaskPage(res))
+        moveProjectCodeToMasterData(routerMap)
         const {
           staticRouteNamesToRemove,
           authorizedStaticRoutes,

@@ -25,6 +25,7 @@ export interface ListMultiFilterDefinition {
   queryParamKeys?: [string, string]
   operators?: ListMultiFilterOperator[]
   options?: readonly ListMultiFilterOption[]
+  virtualized?: boolean
   placeholder?: string
   defaultVisible?: boolean
   group?: string

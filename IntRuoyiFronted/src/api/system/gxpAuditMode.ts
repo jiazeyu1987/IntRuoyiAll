@@ -1,8 +1,10 @@
 import request from '@/config/axios'
 
+export type GxpAuditMode = 'FORMAL' | 'LOCAL_POLICY' | 'DEVELOPMENT_DISABLED'
+
 export interface GxpAuditRuntimeMode {
   auditEnabled: boolean
-  mode: 'FORMAL' | 'DEVELOPMENT_DISABLED'
+  mode: GxpAuditMode
   serverStartedAtUtc: string
 }
 

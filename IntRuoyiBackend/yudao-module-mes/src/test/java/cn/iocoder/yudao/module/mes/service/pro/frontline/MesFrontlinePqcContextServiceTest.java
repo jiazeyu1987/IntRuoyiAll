@@ -199,17 +199,6 @@ class MesFrontlinePqcContextServiceTest {
         org.springframework.test.util.ReflectionTestUtils.setField(owners,"users",users);
         org.springframework.test.util.ReflectionTestUtils.setField(owners,"permissions",permissions);
         org.springframework.test.util.ReflectionTestUtils.setField(owners,"scopes",scopeMapper);
-        var assignment=new cn.iocoder.yudao.module.mes.service.pro.handoff.MesPqcHandoffAssignmentService();
-        var rules=mock(cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrWorkTaskAssignmentRuleMapper.class);
-        when(rules.selectListByScopeAndType("ROUTE",ROUTE_ID,"PQC_HANDOFF")).thenReturn(List.of(
-                new cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrWorkTaskAssignmentRuleDO()
-                        .setId(77L).setScopeType("ROUTE").setScopeId(ROUTE_ID).setTaskType("PQC_HANDOFF")
-                        .setEnabled(true).setCandidateSourceType("USER").setCandidateSourceId(3002L)));
-        when(routeMapper.selectOne(any(com.baomidou.mybatisplus.core.conditions.Wrapper.class)))
-                .thenReturn(MesProRouteDO.builder().id(ROUTE_ID).status(0).build());
-        org.springframework.test.util.ReflectionTestUtils.setField(assignment,"rules",rules);
-        org.springframework.test.util.ReflectionTestUtils.setField(assignment,"routes",routeMapper);
-        org.springframework.test.util.ReflectionTestUtils.setField(assignment,"owners",owners);
         cn.iocoder.yudao.framework.tenant.core.util.TenantUtils.execute(1L, () -> db.transaction.executeWithoutResult(tx -> {
             var foreign=pqcEmployeeScope(3000L,3002L).setId(67L).setEnabled(true);foreign.setTenantId(2L);scopeMapper.insert(foreign);
             var old=pqcEmployeeScope(3000L,3002L).setId(66L).setEnabled(true);old.setTenantId(1L);scopeMapper.insert(old);
@@ -225,8 +214,7 @@ class MesFrontlinePqcContextServiceTest {
                             .builder().leaderUserId(3000L).scopeId(66L).enabled(true).build()));
             assertEquals(cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_TEAM_PQC_PERSONNEL_OCCUPIED_BY_OTHER_LEADER.getCode(),ex.getCode());
             assertEquals(before,db.jdbc.queryForList("SELECT * FROM mes_pro_process_pool_team_leader_scope ORDER BY id"));
-            assertEquals(List.of(3001L),owners.validatePqcHandoffCandidates("3002"));
-            assertEquals(List.of(3001L),assignment.resolve(ROUTE_ID).handlerLeaderUserIds());
+            assertEquals(3001L,scopeMapper.selectActivePqcEmployeeScopesByEmployeeUserId(3002L).get(0).getLeaderUserId());
             submitPqcInspectionPermitsAdjustedActualQuantityForEveryInspectionType("FIRST","FIRST","FIRST","confirmed");
             personnel.updatePersonnelStatus(cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesPqcLeaderPersonnelStatusUpdateReqBO
                     .builder().leaderUserId(3001L).scopeId(b).enabled(true).build());
@@ -234,7 +222,7 @@ class MesFrontlinePqcContextServiceTest {
                     .builder().leaderUserId(3001L).scopeId(b).enabled(false).build());
             personnel.updatePersonnelStatus(cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesPqcLeaderPersonnelStatusUpdateReqBO
                     .builder().leaderUserId(3000L).scopeId(66L).enabled(true).build());
-            assertEquals(List.of(3000L),owners.validatePqcHandoffCandidates("3002"));
+            assertEquals(3000L,scopeMapper.selectActivePqcEmployeeScopesByEmployeeUserId(3002L).get(0).getLeaderUserId());
         }));
     }
 

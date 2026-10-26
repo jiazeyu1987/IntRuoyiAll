@@ -14,6 +14,7 @@
     </el-alert>
 
     <UnifiedListTemplate
+      single-line-toolbar
       class="profile-workbench__list-template"
       table-key="profile.workbench.todo"
       :query-model="queryParams"
@@ -37,6 +38,7 @@
       @pagination="handleTodoPagination"
     >
       <template #actions>
+        <el-button v-hasPermi="['mes:pro-edhr-work-task:query']" @click="productionRecordsRef?.open()">生产任务记录</el-button>
         <el-radio-group
           v-model="activeVisibilityTab"
           :disabled="Boolean(actionTaskKey)"
@@ -47,14 +49,14 @@
           <el-radio-button label="visible">待办任务</el-radio-button>
           <el-radio-button label="hidden">已隐藏 {{ hiddenTotal === undefined ? '' : hiddenTotal }}</el-radio-button>
         </el-radio-group>
-        <el-button :loading="loading" :disabled="Boolean(actionTaskKey)" @click="loadWorkbench">
+        <el-button :loading="loading && total === undefined && !silentLoading" :disabled="loading || Boolean(actionTaskKey)" @click="loadWorkbench()">
           <Icon icon="ep:refresh-right" class="mr-5px" />
           刷新
         </el-button>
       </template>
       <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
         <el-table
-          v-loading="loading"
+          v-loading="loading && total === undefined && !silentLoading"
           data-testid="profile-unified-todo-list"
           data-user-table-column-explicit
           data-user-table-key="profile.workbench.todo"
@@ -62,8 +64,8 @@
           border
           :stripe="true"
           row-key="taskKey"
-          height="520"
-          :empty-text="loading ? '加载中' : total === undefined ? '待办列表尚未加载成功，请重试' : activeVisibilityTab === 'hidden' ? '暂无隐藏任务' : '当前没有待办任务'"
+          height="100%"
+          :empty-text="loading ? silentLoading ? ' ' : '加载中' : total === undefined ? '待办列表尚未加载成功，请重试' : activeVisibilityTab === 'hidden' ? '暂无隐藏任务' : '当前没有待办任务'"
           :show-overflow-tooltip="true"
           @header-dragend="handleTodoHeaderDragend"
           @sort-change="handleTemplateSortChange"
@@ -125,7 +127,7 @@
                 v-if="activeVisibilityTab !== 'hidden'"
                 link
                 type="primary"
-                :disabled="Boolean(actionTaskKey)"
+                :disabled="!actionsReady || Boolean(actionTaskKey)"
                 @click="openTodo(row)"
               >
                 进入/处理
@@ -135,7 +137,7 @@
                 link
                 type="warning"
                 :loading="actionTaskKey === row.taskKey"
-                :disabled="Boolean(actionTaskKey)"
+                :disabled="!actionsReady || Boolean(actionTaskKey)"
                 @click="handleHideTodo(row)"
               >
                 隐藏
@@ -145,7 +147,7 @@
                 link
                 type="success"
                 :loading="actionTaskKey === row.taskKey"
-                :disabled="Boolean(actionTaskKey)"
+                :disabled="!actionsReady || Boolean(actionTaskKey)"
                 @click="handleRestoreTodo(row)"
               >
                 恢复
@@ -155,10 +157,13 @@
         </el-table>
       </template>
     </UnifiedListTemplate>
+    <ProductionTaskRecords ref="productionRecordsRef" />
   </div>
 </template>
 
 <script lang="ts" setup>
+import ProductionTaskRecords from './ProductionTaskRecords.vue'
+const productionRecordsRef = ref<InstanceType<typeof ProductionTaskRecords>>()
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   getProfileWorkbenchTodoPage,
@@ -197,6 +202,8 @@ const profileWorkbenchTodoBadgeStore = useProfileWorkbenchTodoBadgeStore()
 
 
 const loading = ref(false)
+const silentLoading = ref(false)
+const actionsReady = ref(false)
 const actionTaskKey = ref('')
 const visibilityWritePending = ref(false)
 const activeVisibilityTab = ref<'visible' | 'hidden'>('visible')
@@ -209,6 +216,7 @@ let requestGeneration = 0
 let disposed = false
 let visibilityActionGeneration = 0
 let refreshingAfterWrite = false
+let preservingSnapshotDisplay = false
 
 const todoDefaultColumns: UserTableColumnDefinition[] = [
   { key: 'taskType', label: '任务类型', width: 120, sortable: 'custom' },
@@ -293,21 +301,44 @@ const resolveErrorMessage = (error: unknown, message: string) => {
   if (error instanceof Error && error.message.trim()) return error.message
   return message
 }
-const invalidatePage = () => {
+const invalidatePage = (preserveDisplay = false) => {
   requestGeneration += 1
-  todoRows.value = []
-  total.value = undefined
-  hiddenTotal.value = undefined
+  if (!preserveDisplay) {
+    todoRows.value = []
+    total.value = undefined
+    hiddenTotal.value = undefined
+  }
+  actionsReady.value = false
   currentContext = undefined
   currentLease = undefined
   loading.value = false
   loadErrorMessages.value = []
 }
-const loadWorkbench = async (): Promise<boolean> => {
+const loadWorkbench = async (options?: { silent?: boolean }): Promise<boolean> => {
   if (disposed) return false
+  silentLoading.value = Boolean(options?.silent)
+  let snapshot: ReturnType<typeof profileWorkbenchTodoBadgeStore.readPageSnapshot>
+  try {
+    snapshot = profileWorkbenchTodoBadgeStore.readPageSnapshot(rawQueryKey())
+  } catch (error) {
+    invalidatePage()
+    loadErrorMessages.value = [resolveErrorMessage(error, '个人工作台快照读取失败。')]
+    return false
+  }
   // Revoke both consumers before the first await; their subsequent read leases are independent.
-  invalidateWorkbenchContext()
-  invalidatePage()
+  preservingSnapshotDisplay = Boolean(snapshot)
+  try {
+    invalidateWorkbenchContext()
+    invalidatePage(preservingSnapshotDisplay)
+  } finally {
+    preservingSnapshotDisplay = false
+  }
+  if (snapshot) {
+    todoRows.value = snapshot.rows
+    total.value = snapshot.total
+    hiddenTotal.value = snapshot.hiddenTotal
+    profileWorkbenchTodoBadgeStore.savePageSnapshot(snapshot.queryKey, snapshot.rows, snapshot.total, snapshot.hiddenTotal)
+  }
   const badge = profileWorkbenchTodoBadgeStore.beginBadgeUpdate()
   const token: PageToken = { generation: requestGeneration, queryKey: rawQueryKey(), lease: beginWorkbenchRead(), badge }
   if (!hasAuthenticatedUser()) return false
@@ -326,19 +357,28 @@ const loadWorkbench = async (): Promise<boolean> => {
     if (!tryCommitPage(token, () => {})) return false
     const page = await getProfileWorkbenchTodoPage(context, query.pageNo, query.pageSize, directory.sources)
     const committed = tryCommitPage(token, () => {
-      todoRows.value = page.rows
+      if (JSON.stringify(todoRows.value) !== JSON.stringify(page.rows)) todoRows.value = page.rows
       total.value = page.filteredTotal
       hiddenTotal.value = page.hiddenTotal
       queryParams.pageNo = page.effectivePageNo
       token.queryKey = rawQueryKey()
       currentContext = context
       currentLease = token.lease
+      actionsReady.value = true
+      profileWorkbenchTodoBadgeStore.savePageSnapshot(rawQueryKey(), todoRows.value, page.filteredTotal, page.hiddenTotal)
     })
     // Only this exact page response supplies its badge; never splice another count snapshot into it.
     if (committed) profileWorkbenchTodoBadgeStore.applyTodoTotal(badge, page.businessTotal)
     return committed
   } catch (error) {
     tryCommitPage(token, () => {
+      actionsReady.value = false
+      currentContext = undefined
+      currentLease = undefined
+      todoRows.value = []
+      total.value = undefined
+      hiddenTotal.value = undefined
+      profileWorkbenchTodoBadgeStore.clearPageSnapshot()
       loadErrorMessages.value = [resolveErrorMessage(error, '待办任务加载失败，请重试。')]
       profileWorkbenchTodoBadgeStore.tryCommit(badge, { loaded: false, error: resolveErrorMessage(error, '待处理数量加载失败') })
     })
@@ -389,6 +429,7 @@ const runVisibilityAction = async (row: ProfileWorkbenchTodoRow, restore: boolea
     identity === workbenchIdentityKey() && isWorkbenchReadCurrent(lease)
   actionTaskKey.value = row.taskKey
   visibilityWritePending.value = true
+  profileWorkbenchTodoBadgeStore.clearPageSnapshot()
   const badge = profileWorkbenchTodoBadgeStore.beginBadgeUpdate()
   invalidatePage()
   let writeSucceeded = false
@@ -440,7 +481,7 @@ const handleHideTodo = async (row: ProfileWorkbenchTodoRow) => {
 const handleRestoreTodo = (row: ProfileWorkbenchTodoRow) => runVisibilityAction(row, true)
 const handleVisibilityTabChange = () => {
   queryParams.pageNo = 1
-  void loadWorkbench()
+  void loadWorkbench({ silent: true })
 }
 const handleTodoSortChange = () => {
   queryParams.pageNo = 1
@@ -463,7 +504,7 @@ watch(
   { flush: 'sync' }
 )
 watch(workbenchLifetime, () => {
-  invalidatePage()
+  invalidatePage(preservingSnapshotDisplay)
   if (workbenchInvalidationReason.value) loadErrorMessages.value = [workbenchInvalidationReason.value]
   if (!refreshingAfterWrite) {
     visibilityActionGeneration += 1
@@ -480,7 +521,10 @@ onBeforeUnmount(() => {
   profileWorkbenchTodoBadgeStore.beginBadgeUpdate()
 })
 onMounted(() => {
-  releaseFocusRefresh = registerWorkbenchFocusRefresh(true, () => { void loadWorkbench() })
+  releaseFocusRefresh = registerWorkbenchFocusRefresh(true, () => {
+    // focus and visibilitychange often arrive together; keep the active read.
+    if (!loading.value && !visibilityWritePending.value) void loadWorkbench()
+  })
   void loadWorkbench()
 })
 </script>
@@ -488,6 +532,10 @@ onMounted(() => {
 <style scoped>
 .profile-workbench {
   color: #172033;
+  display: flex;
+  height: 100%;
+  min-height: 0;
+  flex-direction: column;
 }
 
 .profile-workbench__alert {
@@ -496,6 +544,20 @@ onMounted(() => {
 
 .profile-workbench__list-template {
   width: 100%;
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+}
+
+:deep(.profile-workbench__list-template > .unified-list-template__query-form),
+:deep(.profile-workbench__list-template > .el-pagination) {
+  flex-shrink: 0;
+}
+
+:deep(.profile-workbench__list-template > .unified-list-template__table-shell) {
+  flex: 1;
+  min-height: 0;
 }
 
 :deep(.profile-workbench__list-template .el-table) {

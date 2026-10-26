@@ -40,7 +40,6 @@ public class MesProEdhrApprovalTaskAdapter implements ApprovalTaskProvider, Appr
         cn.iocoder.yudao.module.bpm.approval.content.ApprovalTrustedDecisionProvider {
 
     private static final String SOURCE_TASK_TYPE = "EDHR_WORK_TASK";
-    private static final String EDHR_WORK_TASK_ROUTE = "/mes/pro/feedback/edhr-work-task";
     private static final String EDHR_APPROVAL_DETAIL_ROUTE = "/mes/pro/feedback/edhr-approval/detail";
     private static final String EDHR_BATCH_EXECUTION_DETAIL_ROUTE = "/mes/pro/feedback/edhr-batch-execution/detail";
     private static final Set<ApprovalTaskViewType> SUPPORTED_VIEWS = Set.of(
@@ -275,7 +274,7 @@ public class MesProEdhrApprovalTaskAdapter implements ApprovalTaskProvider, Appr
         ActionUrlParts decisionActionUrl = resolveDecisionActionUrl(task);
         Map<String, String> decisionDetailQuery = resolveDecisionDetailQuery(task, detailQuery, decisionActionUrl);
         String decisionRoute = resolveDecisionDetailRoute(task, decisionActionUrl);
-        String targetRoute = decisionRoute == null ? resolveDetailRoute(task) : decisionRoute;
+        String targetRoute = decisionRoute;
         List<String> requiredPermissions = requiredNavigationPermissions(targetRoute);
         List<String> missing = requiredPermissions.stream()
                 .filter(permission -> !permissions.hasAnyPermissions(loginUserId, permission)).toList();
@@ -303,8 +302,8 @@ public class MesProEdhrApprovalTaskAdapter implements ApprovalTaskProvider, Appr
                 .taskCreatedAt(task.getCreateTime())
                 .taskCompletedAt(task.getCompletedAt())
                 .requiresSignature(isReleaseApprovalTask(task) || hasText(task.getSignatureCellKey()))
-                .detailRoute(resolveDetailRoute(task))
-                .detailQuery(detailQuery)
+                .detailRoute(decisionRoute)
+                .detailQuery(decisionDetailQuery)
                 .decisionDetailRoute(decisionRoute)
                 .decisionDetailQuery(decisionDetailQuery)
                 .availableActions(navigationAllowed ? resolveAvailableActions(task) : Set.of())
@@ -320,9 +319,6 @@ public class MesProEdhrApprovalTaskAdapter implements ApprovalTaskProvider, Appr
         }
         if (EDHR_BATCH_EXECUTION_DETAIL_ROUTE.equals(route)) {
             return List.of("mes:pro-edhr-batch-execution:query");
-        }
-        if (EDHR_WORK_TASK_ROUTE.equals(route)) {
-            return List.of("mes:pro-edhr-work-task:query");
         }
         if ("/mes/production-release/pqc".equals(route)) {
             return List.of("mes:pro-production-release:query");
@@ -373,13 +369,6 @@ public class MesProEdhrApprovalTaskAdapter implements ApprovalTaskProvider, Appr
         return task.getExecutionId() == null ? null : String.valueOf(task.getExecutionId());
     }
 
-    private static String resolveDetailRoute(MesProEdhrWorkTaskRespVO task) {
-        if (isReleaseApprovalTask(task)) {
-            return EDHR_BATCH_EXECUTION_DETAIL_ROUTE;
-        }
-        return EDHR_WORK_TASK_ROUTE;
-    }
-
     private static String resolveDecisionDetailRoute(MesProEdhrWorkTaskRespVO task,
                                                      ActionUrlParts decisionActionUrl) {
         if (isReleaseApprovalTask(task)) {
@@ -398,7 +387,14 @@ public class MesProEdhrApprovalTaskAdapter implements ApprovalTaskProvider, Appr
             return new LinkedHashMap<>(detailQuery);
         }
         if (!isApprovalDecisionTask(task)) {
-            return decisionActionUrl == null ? new LinkedHashMap<>() : new LinkedHashMap<>(decisionActionUrl.query());
+            Map<String, String> query = decisionActionUrl == null
+                    ? new LinkedHashMap<>() : new LinkedHashMap<>(decisionActionUrl.query());
+            String workTaskId = String.valueOf(task.getId());
+            if (query.containsKey("workTaskId") && !workTaskId.equals(query.get("workTaskId"))) {
+                throw new IllegalStateException("APPROVAL_TASK_IDENTITY_MISMATCH: EDHR navigation");
+            }
+            query.put("workTaskId", workTaskId);
+            return query;
         }
         Map<String, String> query = new LinkedHashMap<>();
         if (task.getExecutionId() != null) {

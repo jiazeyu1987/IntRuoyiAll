@@ -60,6 +60,7 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
     private static final String TASK_TYPE_PQC_RELEASE = "PQC_PRODUCTION_RELEASE";
     private static final String BUSINESS_SCOPE_RELEASE_APPLICATION = "RELEASE_APPLICATION";
     private static final String VIEW_STATUS_PENDING = "PENDING";
+    private static final String VIEW_STATUS_COMPLETED = "COMPLETED";
     private static final String VIEW_STATUS_RELEASED = "RELEASED";
     private static final String VIEW_STATUS_VOIDED = "VOIDED";
     private static final String VIEW_STATUS_REWORKED = "REWORKED";
@@ -437,7 +438,9 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
             if (review == null) {
                 review = resolveActiveOrderReview(application, allRoundApplications, activeOrderReviews);
             }
-            pageRows.add(toPageItem(application, review, query.getViewStatus()));
+            String viewStatus = VIEW_STATUS_COMPLETED.equals(query.getViewStatus())
+                    ? resolveCompletedViewStatus(application, review) : query.getViewStatus();
+            pageRows.add(toPageItem(application, review, viewStatus));
         }
         return new PageResult<>(pageRows, applicationPage.getTotal());
     }
@@ -492,7 +495,7 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
         if (actorUserId == null || TenantContextHolder.getTenantId() == null || query == null
                 || query.getPageNo() == null || query.getPageSize() == null
                 || query.getPageNo() <= 0 || query.getPageSize() <= 0
-                || !Set.of(VIEW_STATUS_PENDING, VIEW_STATUS_RELEASED, VIEW_STATUS_VOIDED,
+                || !Set.of(VIEW_STATUS_PENDING, VIEW_STATUS_COMPLETED, VIEW_STATUS_RELEASED, VIEW_STATUS_VOIDED,
                         VIEW_STATUS_REWORKED, VIEW_STATUS_CONCESSION_RELEASED).contains(query.getViewStatus())) {
             throw blocker(MesReleaseFlowBlockerType.UNSUPPORTED_RELEASE_ACTION, null,
                     "PQC_RELEASE_PAGE", null, "PQC release page query is invalid",
@@ -521,6 +524,29 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
                     "nonconformance review already produced a terminal PQC disposition",
                     "view the disposition in the matching production release status tab");
         }
+    }
+
+    private String resolveCompletedViewStatus(
+            MesProcessPoolActiveOrderReleaseApplicationDO application,
+            MesProEdhrNonconformanceReviewDO review) {
+        if ("BATCH_VOIDED".equals(application.getApplicationStatus())) {
+            return VIEW_STATUS_VOIDED;
+        }
+        if (review != null && MesProEdhrNonconformanceReviewService.STATUS_CLOSED.equals(review.getReviewStatus())
+                && review.getClosedAt() != null && application.getAppliedAt() != null
+                && !review.getClosedAt().isBefore(application.getAppliedAt())) {
+            return switch (review.getDisposition()) {
+                case "void" -> VIEW_STATUS_VOIDED;
+                case "rework" -> VIEW_STATUS_REWORKED;
+                case "concession_release" -> VIEW_STATUS_CONCESSION_RELEASED;
+                default -> throw new IllegalStateException("已处理生产放行记录的处置类型不正确");
+            };
+        }
+        if (Set.of("REPORT_UPLOAD_PENDING", "MANAGER_RELEASE_PENDING", "RELEASED")
+                .contains(application.getApplicationStatus())) {
+            return VIEW_STATUS_RELEASED;
+        }
+        throw new IllegalStateException("已处理生产放行记录缺少正式结果");
     }
 
     private MesPqcProductionReleasePageItem toPageItem(

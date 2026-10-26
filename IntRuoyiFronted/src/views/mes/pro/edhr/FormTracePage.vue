@@ -3,12 +3,21 @@
     <div class="edhr-form-trace-page">
       <el-tabs v-model="activeTab" class="edhr-form-trace-page__tabs" @tab-change="handleTabChange">
         <el-tab-pane label="作废" name="change" lazy>
+          <template #label>
+            <span class="edhr-tab-label"><Icon icon="lucide:file-x-2" aria-hidden="true" />作废</span>
+          </template>
           <FormTraceChangeTab />
         </el-tab-pane>
         <el-tab-pane label="驳回" name="reject" lazy>
+          <template #label>
+            <span class="edhr-tab-label"><Icon icon="lucide:undo-2" aria-hidden="true" />驳回</span>
+          </template>
           <FormTraceReleaseTab trace-mode="reject" />
         </el-tab-pane>
         <el-tab-pane label="放行" name="release" lazy>
+          <template #label>
+            <span class="edhr-tab-label"><Icon icon="lucide:badge-check" aria-hidden="true" />放行</span>
+          </template>
           <FormTraceReleaseTab />
         </el-tab-pane>
       </el-tabs>
@@ -57,6 +66,12 @@ const handleTabChange = async (tabName: string | number) => {
 </script>
 
 <style scoped>
+.edhr-tab-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .edhr-form-trace-page {
   display: flex;
   flex-direction: column;

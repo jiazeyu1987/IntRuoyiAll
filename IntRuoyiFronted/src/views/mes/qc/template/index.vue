@@ -5,7 +5,7 @@
   <ContentWrap>
     <!-- 搜索工作栏 -->
     <el-form
-      class="-mb-15px"
+      class="-mb-15px edhr-single-line-query"
       :model="queryParams"
       ref="queryFormRef"
       :inline="true"
@@ -230,3 +230,32 @@ onMounted(() => {
   getList()
 })
 </script>
+
+<style scoped>
+@media (min-width: 1181px) {
+  .edhr-single-line-query {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 12px;
+    align-items: center;
+  }
+  .edhr-single-line-query > :deep(.el-form-item) {
+    flex: 1 1 0;
+    min-width: 0;
+    margin-right: 0;
+  }
+  .edhr-single-line-query > :deep(.el-form-item:last-child) {
+    flex: 0 0 auto;
+  }
+  .edhr-single-line-query :deep(.el-form-item__content) {
+    min-width: 0;
+    flex-wrap: nowrap;
+  }
+  .edhr-single-line-query :deep(.el-input),
+  .edhr-single-line-query :deep(.el-select),
+  .edhr-single-line-query :deep(.el-date-editor) {
+    width: 100% !important;
+    min-width: 0;
+  }
+}
+</style>

@@ -17,32 +17,6 @@ function script(file, bindings, names) {
   const code = ts.transpileModule(body, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS } }).outputText
   return Function(...Object.keys(bindings), code + '; return {' + names.join(',') + '};')(...Object.values(bindings))
 }
-function qa(api) {
-  const messages = []
-  // Explicitly drive actual async functions; lifecycle/watch are exercised by the real page integration separately.
-  const values = script('src/views/mes/pro/handoff/QaHandoffAssignmentConfig.vue', { ref: vue.ref, computed: vue.computed, watch: () => {}, onMounted: () => {}, api, useMessage: () => ({ success: text => messages.push(text) }) }, ['routeId','sourceId','sourceType','reason','ruleId','userOptions','readyToSave','error','loading','save','loadRule','searchUsers'])
-  return { ...values, messages }
-}
-const rule = (routeId, id, owner, label) => ({ id, routeId, candidateSourceType: 'USER', candidateSourceId: owner, candidateLabel: label, enabled: true })
-test('真实 QA 配置加载保存保持负责人姓名与准确路线/旧版本', async () => {
-  let request
-  const q = qa({ qaAssignment: async () => rule(98, 10, 345, 'QA本人'), saveQaAssignment: async data => { request = data; return rule(98, 10, 345, 'QA本人') } })
-  q.routeId.value = 98; await q.loadRule(); assert.deepEqual(q.userOptions.value, [{ id:345,label:'QA本人' }]); assert.equal(q.readyToSave.value, true)
-  q.reason.value = '正式责任确认'; await q.save(); assert.deepEqual(request,{ routeId:98,candidateSourceType:'USER',candidateSourceId:345,enabled:true,reason:'正式责任确认',expectedRuleId:10 }); assert.deepEqual(q.messages,['QA 负责人已保存'])
-})
-test('A 路线迟到读取不能污染 B 路线负责人或版本', async () => {
-  const a = deferred(), b = deferred(); const q = qa({ qaAssignment: route => route === 98 ? a.promise : b.promise })
-  q.routeId.value = 98; const first = q.loadRule(); q.routeId.value = 99; const second = q.loadRule(); b.resolve(rule(99,11,349,'B负责人')); await second; a.resolve(rule(98,10,345,'A负责人')); await first
-  assert.equal(q.ruleId.value,11); assert.equal(q.sourceId.value,349); assert.deepEqual(q.userOptions.value,[{id:349,label:'B负责人'}])
-})
-test('配置读取失败必须显式阻止保存', async () => {
-  let writes=0; const q=qa({qaAssignment:async()=>{throw Error('formal rule load failed')},saveQaAssignment:async()=>{writes++}})
-  q.routeId.value=98; await q.loadRule(); assert.equal(q.error.value,'formal rule load failed'); assert.equal(q.readyToSave.value,false); q.sourceId.value=345;q.reason.value='不能绕过读取';await q.save();assert.equal(writes,0)
-})
-test('A 路线保存和用户查询迟到响应不能污染 B 路线', async () => {
-  const saved=deferred(), searched=deferred();const q=qa({qaAssignment:async route=>rule(route,route,route+200,'路线'+route),saveQaAssignment:()=>saved.promise,qaUserOptions:()=>searched.promise})
-  q.routeId.value=98;await q.loadRule();q.reason.value='保存A';const save=q.save(), search=q.searchUsers('A');q.routeId.value=99;await q.loadRule();saved.resolve(rule(98,500,345,'迟到A'));searched.resolve([{id:345,label:'迟到A'}]);await Promise.all([save,search]);assert.equal(q.ruleId.value,99);assert.equal(q.sourceId.value,299);assert.deepEqual(q.userOptions.value,[{id:299,label:'路线99'}]);assert.deepEqual(q.messages,[])
-})
 function navigation(context) {
  const exports={};const module={exports};const text=fs.readFileSync(path.join(root,'src/utils/activeOrderHandoffNavigation.ts'),'utf8');const code=ts.transpileModule(text,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS}}).outputText
  Function('exports','module','require','window',code)(exports,module,() => ({handoffNavigationContext:async id => typeof context==='function'?context(id):context}),{location:{origin:'http://localhost:8081'}});return module.exports
@@ -61,7 +35,7 @@ const voidTask=()=>({id:taskId,activeOrderId:'413',sourceId:'229',roundId:'229',
 test('作废 DONE 在原周期关闭后跳转真实个人通知页并强制只读',async()=>{
  const task=voidTask(),nav=navigation({task,current:false,processable:false});let pushed;await nav.navigateToActiveOrderHandoff({push:async value=>pushed=value},nav.resolveActiveOrderHandoffTarget(params(task)));assert.equal(pushed.path,'/user/profile');assert.equal(pushed.query.tab,'notifyMessage');assert.equal(pushed.query.handoffReadOnly,'1');assert.equal(pushed.query.reviewId,'229')
 })
-function panel(api, route={query:{}}){const nav=navigation(null), unmount=[];const values=script('src/views/mes/pro/handoff/ActiveOrderHandoffPanel.vue',{ref:vue.ref,computed:vue.computed,watch:()=>{},onMounted:()=>{},onBeforeUnmount:fn=>unmount.push(fn),api,useRouter:()=>({push:async()=>{}}),useRoute:()=>route,resolveActiveOrderHandoffTarget:nav.resolveActiveOrderHandoffTarget,navigateToActiveOrderHandoff:nav.navigateToActiveOrderHandoff,isClosedHandoffCompletion:nav.isClosedHandoffCompletion},['tasks','page','PAGE_SIZE','pagedTasks','changePage','loading','error','load','showReceipts','receipts','receiptError','retryReason','retryable','retry','resultOpen','result','openVoidResult','completedResultOpen','completedResult','completedResultError','completedResultLoading','completionSnapshot','loadHandoffResult','closeCompletedResult','completedResultVisibilityChanged']);return{...values,unmount:()=>unmount.forEach(fn=>fn())}}
+function panel(api, route={query:{}}){const nav=navigation(null), unmount=[];const values=script('src/views/mes/pro/handoff/ActiveOrderHandoffPanel.vue',{defineExpose:()=>{},defineProps:()=>({}),withDefaults:(props,defaults)=>({...defaults,...props}),nextTick:vue.nextTick,ref:vue.ref,computed:vue.computed,watch:()=>{},onMounted:()=>{},onBeforeUnmount:fn=>unmount.push(fn),api,useRouter:()=>({push:async()=>{}}),useRoute:()=>route,resolveActiveOrderHandoffTarget:nav.resolveActiveOrderHandoffTarget,navigateToActiveOrderHandoff:nav.navigateToActiveOrderHandoff,isClosedHandoffCompletion:nav.isClosedHandoffCompletion},['tasks','page','PAGE_SIZE','pagedTasks','changePage','loading','error','load','showReceipts','receipts','receiptError','retryReason','retryable','retry','resultOpen','result','openVoidResult','completedResultOpen','completedResult','completedResultError','completedResultLoading','completionSnapshot','loadHandoffResult','closeCompletedResult','completedResultVisibilityChanged']);return{...values,unmount:()=>unmount.forEach(fn=>fn())}}
 const handoffRows = count => Array.from({length:count},(_,index)=>({
  id:(2100000000000000000n+BigInt(index)).toString(),activeOrderId:index<76?'422':'418',
  taskType:'PQC_HANDOFF',status:index<76?'TODO':index%2?'DONE':'CANCELED',

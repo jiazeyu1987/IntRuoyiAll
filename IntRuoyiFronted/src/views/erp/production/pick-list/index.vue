@@ -1,6 +1,7 @@
 <template>
-  <ContentWrap>
+  <ContentWrap class="production-sync-list erp-viewport-list">
     <UnifiedListTemplate
+      :show-filter-reset="false"
       table-key="erp.production.pickList.main"
       single-line-toolbar
       :query-model="queryParams"
@@ -23,12 +24,13 @@
       <template #actions>
         <el-button
           type="primary"
+          plain
           :loading="syncLoading"
           @click="handleKingdeeSync"
           v-hasPermi="['erp:kingdee-sync:query']"
           data-production-pick-list-sync-kingdee
         >
-          <Icon icon="ep:refresh-right" class="mr-5px" />增量同步
+          <Icon icon="ep:refresh-right" class="mr-5px" /> 增量同步
         </el-button>
       </template>
 
@@ -41,34 +43,124 @@
           stripe
           show-overflow-tooltip
           row-key="id"
-          height="calc(100vh - 304px)"
           data-user-table-column-explicit
           data-user-table-key="erp.production.pickList.main"
           @header-dragend="handlePickListHeaderDragend"
-        >
+         height="100%">
           <el-table-column type="expand" width="48" fixed="left">
             <template #default="{ row }">
               <div class="pick-list-items">
-                <el-table
-                  :data="row.items || []"
-                  border
-                  stripe
-                  size="small"
-                  empty-text="暂无领料明细"
+                <ErpLocalList
+                  table-key="erp.production.pickList.details"
+                  :rows="row.items || []"
+                  :default-columns="detailColumns"
+                  :filter-definitions="detailFilters"
                 >
-                  <el-table-column label="物料编码" prop="materialNumber" min-width="150" />
-                  <el-table-column label="物料名称" prop="materialName" min-width="180" />
-                  <el-table-column label="规格型号" prop="materialSpecification" min-width="180" />
-                  <el-table-column label="单位" prop="unitName" width="90" align="center" />
-                  <el-table-column label="申请数量" prop="requestedQuantity" width="120" align="right" />
-                  <el-table-column label="实发数量" prop="actualQuantity" width="120" align="right" />
-                  <el-table-column label="仓库" prop="warehouseName" min-width="160" />
-                  <el-table-column label="仓位" prop="stockLocationName" min-width="150" />
-                  <el-table-column label="库存状态" prop="stockStatusName" min-width="130" />
-                  <el-table-column label="批号" prop="lotNumber" min-width="130" />
-                  <el-table-column label="生产订单编号" prop="productionOrderNo" min-width="170" />
-                  <el-table-column label="车间" prop="workshopName" min-width="150" />
-                </el-table>
+                  <template
+                    #default="{ rows, isColumnVisible, getColumnWidthString, handleHeaderDragend }"
+                  >
+                    <el-table
+                      :data="rows"
+                      border
+                      stripe
+                      size="small"
+                      empty-text="暂无领料明细"
+                      data-user-table-column-explicit
+                      data-user-table-key="erp.production.pickList.details"
+                      @header-dragend="handleHeaderDragend"
+                    >
+                      <el-table-column
+                        v-if="isColumnVisible('materialNumber')"
+                        column-key="materialNumber"
+                        label="物料编码"
+                        prop="materialNumber"
+                        :width="getColumnWidthString('materialNumber', 150)"
+                      />
+                      <el-table-column
+                        v-if="isColumnVisible('materialName')"
+                        column-key="materialName"
+                        label="物料名称"
+                        prop="materialName"
+                        :width="getColumnWidthString('materialName', 180)"
+                      />
+                      <el-table-column
+                        v-if="isColumnVisible('materialSpecification')"
+                        column-key="materialSpecification"
+                        label="规格型号"
+                        prop="materialSpecification"
+                        :width="getColumnWidthString('materialSpecification', 180)"
+                      />
+                      <el-table-column
+                        v-if="isColumnVisible('unitName')"
+                        column-key="unitName"
+                        label="单位"
+                        prop="unitName"
+                        align="center"
+                        :width="getColumnWidthString('unitName', 90)"
+                      />
+                      <el-table-column
+                        :formatter="erpListIntegerColumnFormatter"
+                        v-if="isColumnVisible('requestedQuantity')"
+                        column-key="requestedQuantity"
+                        label="申请数量"
+                        prop="requestedQuantity"
+                        align="right"
+                        :width="getColumnWidthString('requestedQuantity', 120)"
+                      />
+                      <el-table-column
+                        :formatter="erpListIntegerColumnFormatter"
+                        v-if="isColumnVisible('actualQuantity')"
+                        column-key="actualQuantity"
+                        label="实发数量"
+                        prop="actualQuantity"
+                        align="right"
+                        :width="getColumnWidthString('actualQuantity', 120)"
+                      />
+                      <el-table-column
+                        v-if="isColumnVisible('warehouseName')"
+                        column-key="warehouseName"
+                        label="仓库"
+                        prop="warehouseName"
+                        :width="getColumnWidthString('warehouseName', 160)"
+                      />
+                      <el-table-column
+                        v-if="isColumnVisible('stockLocationName')"
+                        column-key="stockLocationName"
+                        label="仓位"
+                        prop="stockLocationName"
+                        :width="getColumnWidthString('stockLocationName', 150)"
+                      />
+                      <el-table-column
+                        v-if="isColumnVisible('stockStatusName')"
+                        column-key="stockStatusName"
+                        label="库存状态"
+                        prop="stockStatusName"
+                        :width="getColumnWidthString('stockStatusName', 130)"
+                      />
+                      <el-table-column
+                        v-if="isColumnVisible('lotNumber')"
+                        column-key="lotNumber"
+                        label="批号"
+                        prop="lotNumber"
+                        :width="getColumnWidthString('lotNumber', 130)"
+                      />
+                      <el-table-column
+                        v-if="isColumnVisible('productionOrderNo')"
+                        column-key="productionOrderNo"
+                        label="生产订单编号"
+                        prop="productionOrderNo"
+                        :width="getColumnWidthString('productionOrderNo', 170)"
+                      />
+                      <el-table-column
+                        v-if="isColumnVisible('workshopName')"
+                        column-key="workshopName"
+                        label="车间"
+                        prop="workshopName"
+                        :width="getColumnWidthString('workshopName', 150)"
+                      />
+                    </el-table>
+                  </template>
+                </ErpLocalList>
               </div>
             </template>
           </el-table-column>
@@ -150,8 +242,12 @@
     </UnifiedListTemplate>
   </ContentWrap>
 </template>
-
 <script setup lang="ts">
+import '@/views/erp/components/viewport-list.css'
+
+import { erpListIntegerColumnFormatter } from '@/views/erp/utils/integerDisplay'
+import ErpLocalList from '@/views/erp/components/ErpLocalList.vue'
+
 import {
   ErpProductionPickListApi,
   type ErpProductionPickListVO
@@ -169,6 +265,103 @@ import {
 import { formatDate } from '@/utils/formatTime'
 import { useRoute } from 'vue-router'
 
+const detailColumns: UserTableColumnDefinition[] = [
+  {
+    key: 'materialNumber',
+    label: '物料编码',
+    width: 150,
+    sortable: false
+  },
+  {
+    key: 'materialName',
+    label: '物料名称',
+    width: 180,
+    sortable: false
+  },
+  {
+    key: 'materialSpecification',
+    label: '规格型号',
+    width: 180,
+    sortable: false
+  },
+  {
+    key: 'unitName',
+    label: '单位',
+    width: 90,
+    sortable: false
+  },
+  {
+    key: 'requestedQuantity',
+    label: '申请数量',
+    width: 120,
+    sortable: false
+  },
+  {
+    key: 'actualQuantity',
+    label: '实发数量',
+    width: 120,
+    sortable: false
+  },
+  {
+    key: 'warehouseName',
+    label: '仓库',
+    width: 160,
+    sortable: false
+  },
+  {
+    key: 'stockLocationName',
+    label: '仓位',
+    width: 150,
+    sortable: false
+  },
+  {
+    key: 'stockStatusName',
+    label: '库存状态',
+    width: 130,
+    sortable: false
+  },
+  {
+    key: 'lotNumber',
+    label: '批号',
+    width: 130,
+    sortable: false
+  },
+  {
+    key: 'productionOrderNo',
+    label: '生产订单编号',
+    width: 170,
+    sortable: false
+  },
+  {
+    key: 'workshopName',
+    label: '车间',
+    width: 150,
+    sortable: false
+  }
+]
+const detailFilters: TableQuickFilterDefinition[] = [
+  {
+    key: 'materialNumber',
+    label: '物料编码',
+    type: 'text',
+    queryParamKey: 'materialNumber',
+    operators: ['contains']
+  },
+  {
+    key: 'materialName',
+    label: '物料名称',
+    type: 'text',
+    queryParamKey: 'materialName',
+    operators: ['contains']
+  },
+  {
+    key: 'materialSpecification',
+    label: '规格型号',
+    type: 'text',
+    queryParamKey: 'materialSpecification',
+    operators: ['contains']
+  }
+]
 defineOptions({ name: 'ErpProductionPickList' })
 
 const PICK_LIST_TABLE_KEY = 'erp.production.pickList.main'
@@ -275,12 +468,7 @@ const {
   operatorOptions: pickListFilterOperatorOptions,
   applyQuickFilter: applyPickListQuickFilter,
   updateState: updatePickListQuickFilterState
-} = useTableQuickFilter(
-  PICK_LIST_TABLE_KEY,
-  pickListQuickFilterDefinitions,
-  queryParams,
-  getList
-)
+} = useTableQuickFilter(PICK_LIST_TABLE_KEY, pickListQuickFilterDefinitions, queryParams, getList)
 
 const applyRouteQuery = () => {
   if (route.query.sourceBillNo) {
@@ -306,6 +494,30 @@ onMounted(() => {
 </script>
 
 <style scoped>
+.production-sync-list {
+  height: calc(100dvh - var(--top-tool-height) - var(--tags-view-height) - var(--app-content-padding));
+  min-height: 320px;
+  margin-bottom: 0;
+}
+
+.production-sync-list :deep(> .el-card__body),
+.production-sync-list :deep(.el-card__body > .unified-list-template) {
+  display: flex;
+  height: 100%;
+  min-height: 0;
+  flex-direction: column;
+}
+
+.production-sync-list :deep(.el-card__body > .unified-list-template > .unified-list-template__table-shell) {
+  flex: 1;
+  min-height: 0;
+}
+
+.production-sync-list :deep(.el-card__body > .unified-list-template > .el-form),
+.production-sync-list :deep(.el-card__body > .unified-list-template > .el-pagination) {
+  flex-shrink: 0;
+}
+
 .pick-list-table {
   width: 100%;
 }

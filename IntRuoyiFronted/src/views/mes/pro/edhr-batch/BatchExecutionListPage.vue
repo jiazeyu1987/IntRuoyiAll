@@ -1,8 +1,8 @@
 <template>
-  <ContentWrap>
+  <ContentWrap class="edhr-record-viewport">
     <div class="edhr-batch-page">
-      <EdhrBatchRecordTabs active-tab="execution" />
       <UnifiedListTemplate
+        single-line-toolbar
         class="edhr-batch-page__list-template"
         table-key="mes.pro.edhrBatch.execution.main"
         :query-model="queryParams"
@@ -25,7 +25,6 @@
         @pagination="getList"
       >
         <template #actions>
-          <el-button v-hasPermi="['mes:pro-batch-record-execution:golden-finger']" @click="configRouter.push({ name: 'MesEdhrGlobalConfig' })">eDHR配置</el-button>
           <UserTableColumnSettings
             class="edhr-batch-page__column-settings"
             :columns="edhrBatchExecutionColumns"
@@ -64,7 +63,7 @@
             show-icon
             class="edhr-batch-page__list-alert"
           />
-          <el-table
+          <el-table height="100%"
             v-loading="loading"
             data-user-table-column-explicit
             data-user-table-key="mes.pro.edhrBatch.execution.main"
@@ -845,7 +844,7 @@
 </template>
 
 <script setup lang="ts">
-const configRouter = useRouter()
+import '@/views/mes/pro/edhr-batch/record-viewport.css'
 import ReleaseTaskNotificationEntry from '../production-release/components/ReleaseTaskNotificationEntry.vue'
 import {
   EDHR_BATCH_STATUS_ARCHIVED,
@@ -889,7 +888,6 @@ import { CandidateStrategy, NodeId } from '@/components/SimpleProcessDesignerV2/
 import UserSelectV2 from '@/views/system/user/components/UserSelectV2.vue'
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import UserTableColumnSettings from '@/components/UserTableColumnSettings/index.vue'
-import EdhrBatchRecordTabs from './EdhrBatchRecordTabs.vue'
 import { useUserTableColumns, type UserTableColumnDefinition } from '@/hooks/web/useUserTableColumns'
 import {
   useTableQuickFilter,
@@ -2082,6 +2080,11 @@ onDeactivated(() => { releaseDialogVisible.value = false; resetMarketReleaseDial
 </script>
 
 <style scoped>
+.edhr-record-viewport {
+  border: 0;
+  border-radius: 0;
+}
+
 .edhr-batch-page {
   display: flex;
   flex-direction: column;
@@ -2089,8 +2092,6 @@ onDeactivated(() => { releaseDialogVisible.value = false; resetMarketReleaseDial
 }
 
 .edhr-batch-page__list-template {
-  border: 1px solid #dbe3ef;
-  border-radius: 8px;
   background: #ffffff;
   padding: 16px;
 }

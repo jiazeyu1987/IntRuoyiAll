@@ -2,47 +2,29 @@
 <template>
   <doc-alert title="【产品】产品信息、分类、单位" url="https://doc.iocoder.cn/erp/product/" />
 
-  <ContentWrap>
-    <el-form
-      class="-mb-15px"
-      :model="queryParams"
-      ref="queryFormRef"
-      :inline="true"
-      label-width="68px"
+  <ContentWrap class="erp-viewport-list">
+    <UnifiedListTemplate
+      :show-filter-reset="false"
+      table-key="erp.product.product.main"
+      single-line-toolbar
+      :query-model="queryParams"
+      :filter-definitions="filterDefinitions"
+      :quick-filter-state="quickFilter.state"
+      :selected-filter-definition="quickFilter.selectedDefinition.value"
+      :operator-options="quickFilter.operatorOptions.value"
+      :columns="columns"
+      :column-saving="columnSaving"
+      :total="total"
+      v-model:page="queryParams.pageNo"
+      v-model:limit="queryParams.pageSize"
+      @update:quick-filter-state="quickFilter.updateState"
+      @quick-filter-query="quickFilter.applyQuickFilter"
+      @column-change="saveColumnConfig"
+      @pagination="getList"
     >
-      <el-form-item label="名称" prop="name">
-        <el-input
-          v-model="queryParams.name"
-          placeholder="请输入名称"
-          clearable
-          @keyup.enter="handleQuery"
-          class="!w-240px"
-        />
-      </el-form-item>
-      <el-form-item label="产品编码/条码" prop="barCode">
-        <el-input
-          v-model="queryParams.barCode"
-          placeholder="请输入产品编码/条码"
-          clearable
-          @keyup.enter="handleQuery"
-          class="!w-240px"
-        />
-      </el-form-item>
-      <el-form-item label="分类" prop="categoryId">
-        <el-tree-select
-          v-model="queryParams.categoryId"
-          :data="categoryList"
-          :props="defaultProps"
-          check-strictly
-          default-expand-all
-          placeholder="请输入分类"
-          class="!w-240px"
-        />
-      </el-form-item>
-      <el-form-item>
-        <el-button @click="handleQuery"><Icon icon="ep:search" class="mr-5px" /> 搜索</el-button>
-        <el-button @click="resetQuery"><Icon icon="ep:refresh" class="mr-5px" /> 重置</el-button>
+      <template #actions>
         <el-button
+          v-show="false"
           type="primary"
           plain
           @click="openForm('create')"
@@ -51,6 +33,7 @@
           <Icon icon="ep:plus" class="mr-5px" /> 新增
         </el-button>
         <el-button
+          v-show="false"
           type="success"
           plain
           @click="handleExport"
@@ -60,89 +43,161 @@
           <Icon icon="ep:download" class="mr-5px" /> 导出
         </el-button>
         <el-button
-          type="warning"
+          type="primary"
           plain
           @click="handleSyncKingdeeProducts"
           :loading="kingdeeSyncLoading"
           v-hasPermi="['erp:product:create']"
         >
-          <Icon icon="ep:refresh" class="mr-5px" /> 增量同步
+          <Icon icon="ep:refresh-right" class="mr-5px" /> 增量同步
         </el-button>
-      </el-form-item>
-    </el-form>
-  </ContentWrap>
-
-  <ContentWrap>
-    <el-table v-loading="loading" :data="list" :stripe="true" :show-overflow-tooltip="true">
-      <el-table-column label="条码" align="center" prop="barCode" />
-      <el-table-column label="名称" align="center" prop="name" />
-      <el-table-column label="规格" align="center" prop="standard" />
-      <el-table-column label="分类" align="center" prop="categoryName" />
-      <el-table-column label="单位" align="center" prop="unitName" />
-      <el-table-column
-        label="采购价格"
-        align="center"
-        prop="purchasePrice"
-        :formatter="erpPriceTableColumnFormatter"
-      />
-      <el-table-column
-        label="销售价格"
-        align="center"
-        prop="salePrice"
-        :formatter="erpPriceTableColumnFormatter"
-      />
-      <el-table-column
-        label="最低价格"
-        align="center"
-        prop="minPrice"
-        :formatter="erpPriceTableColumnFormatter"
-      />
-      <el-table-column label="状态" align="center" prop="status">
-        <template #default="scope">
-          <dict-tag :type="DICT_TYPE.COMMON_STATUS" :value="scope.row.status" />
-        </template>
-      </el-table-column>
-      <el-table-column
-        label="创建时间"
-        align="center"
-        prop="createTime"
-        :formatter="dateFormatter"
-        width="180px"
-      />
-      <el-table-column label="操作" align="center" width="110">
-        <template #default="scope">
-          <el-button
-            link
-            type="primary"
-            @click="openForm('update', scope.row.id)"
-            v-hasPermi="['erp:product:update']"
+      </template>
+      <template #table>
+        <el-table
+          v-loading="loading || columnLoading"
+          :data="list"
+          :stripe="true"
+          :show-overflow-tooltip="true"
+          border
+          row-key="id"
+          data-user-table-column-explicit
+          data-user-table-key="erp.product.product.main"
+          @header-dragend="handleHeaderDragend"
+         height="100%">
+          <el-table-column
+            v-if="isColumnVisible('barCode')"
+            column-key="barCode"
+            label="条码"
+            align="center"
+            prop="barCode"
+            :min-width="getColumnWidthString('barCode', 140)"
+          />
+          <el-table-column
+            v-if="isColumnVisible('name')"
+            column-key="name"
+            label="名称"
+            align="center"
+            prop="name"
+            :min-width="getColumnWidthString('name', 140)"
+          />
+          <el-table-column
+            v-if="isColumnVisible('standard')"
+            column-key="standard"
+            label="规格"
+            align="center"
+            prop="standard"
+            :min-width="getColumnWidthString('standard', 140)"
+          />
+          <el-table-column
+            v-if="isColumnVisible('categoryName')"
+            column-key="categoryName"
+            label="分类"
+            align="center"
+            prop="categoryName"
+            :min-width="getColumnWidthString('categoryName', 140)"
+          />
+          <el-table-column
+            v-if="isColumnVisible('unitName')"
+            column-key="unitName"
+            label="单位"
+            align="center"
+            prop="unitName"
+            :min-width="getColumnWidthString('unitName', 140)"
+          />
+          <el-table-column
+            :formatter="erpListIntegerColumnFormatter"
+            v-if="isColumnVisible('purchasePrice')"
+            column-key="purchasePrice"
+            label="采购价格"
+            align="center"
+            prop="purchasePrice"
+            :min-width="getColumnWidthString('purchasePrice', 140)"
+          />
+          <el-table-column
+            :formatter="erpListIntegerColumnFormatter"
+            v-if="isColumnVisible('salePrice')"
+            column-key="salePrice"
+            label="销售价格"
+            align="center"
+            prop="salePrice"
+            :min-width="getColumnWidthString('salePrice', 140)"
+          />
+          <el-table-column
+            :formatter="erpListIntegerColumnFormatter"
+            v-if="isColumnVisible('minPrice')"
+            column-key="minPrice"
+            label="最低价格"
+            align="center"
+            prop="minPrice"
+            :min-width="getColumnWidthString('minPrice', 140)"
+          />
+          <el-table-column
+            v-if="isColumnVisible('status')"
+            column-key="status"
+            label="状态"
+            align="center"
+            prop="status"
+            :min-width="getColumnWidthString('status', 140)"
           >
-            编辑
-          </el-button>
-          <el-button
-            link
-            type="danger"
-            @click="handleDelete(scope.row.id)"
-            v-hasPermi="['erp:product:delete']"
+            <template #default="scope">
+              <dict-tag :type="DICT_TYPE.COMMON_STATUS" :value="scope.row.status" />
+            </template>
+          </el-table-column>
+          <el-table-column
+            v-if="isColumnVisible('createTime')"
+            column-key="createTime"
+            label="创建时间"
+            align="center"
+            prop="createTime"
+            :formatter="dateFormatter"
+            :width="getColumnWidthString('createTime', 180)"
+          />
+          <el-table-column
+            v-if="false"
+            column-key="actions"
+            label="操作"
+            align="center"
+            :width="getColumnWidthString('actions', 110)"
           >
-            删除
-          </el-button>
-        </template>
-      </el-table-column>
-    </el-table>
-    <Pagination
-      :total="total"
-      v-model:page="queryParams.pageNo"
-      v-model:limit="queryParams.pageSize"
-      @pagination="getList"
-    />
+            <template #default="scope">
+              <el-button
+                link
+                type="primary"
+                @click="openForm('update', scope.row.id)"
+                v-hasPermi="['erp:product:update']"
+              >
+                编辑
+              </el-button>
+              <el-button
+                link
+                type="danger"
+                @click="handleDelete(scope.row.id)"
+                v-hasPermi="['erp:product:delete']"
+              >
+                删除
+              </el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+      </template>
+    </UnifiedListTemplate>
   </ContentWrap>
 
   <ProductForm ref="formRef" @success="getList" />
 </template>
-
 <script setup lang="ts">
-import { isSearchFormInputEmpty } from '@/utils/search'
+import '@/views/erp/components/viewport-list.css'
+
+import { erpListIntegerColumnFormatter } from '@/views/erp/utils/integerDisplay'
+import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
+import {
+  useTableQuickFilter,
+  type TableQuickFilterDefinition
+} from '@/hooks/web/useTableQuickFilter'
+import {
+  useUserTableColumns,
+  type UserTableColumnDefinition
+} from '@/hooks/web/useUserTableColumns'
 import { dateFormatter } from '@/utils/formatTime'
 import download from '@/utils/download'
 import { ProductApi, ProductVO } from '@/api/erp/product/product'
@@ -150,8 +205,6 @@ import { ErpKingdeeSyncApi } from '@/api/erp/sync'
 import { ProductCategoryApi, ProductCategoryVO } from '@/api/erp/product/category'
 import ProductForm from './ProductForm.vue'
 import { DICT_TYPE } from '@/utils/dict'
-import { defaultProps, handleTree } from '@/utils/tree'
-import { erpPriceTableColumnFormatter } from '@/utils'
 
 defineOptions({ name: 'ErpProduct' })
 
@@ -168,7 +221,7 @@ const queryParams = reactive({
   barCode: undefined,
   categoryId: undefined
 })
-const queryFormRef = ref()
+
 const exportLoading = ref(false)
 const kingdeeSyncLoading = ref(false)
 const categoryList = ref<ProductCategoryVO[]>([])
@@ -182,20 +235,6 @@ const getList = async () => {
   } finally {
     loading.value = false
   }
-}
-
-const handleQuery = (skipEmptyReset = false) => {
-  if (skipEmptyReset !== true && isSearchFormInputEmpty(queryFormRef, queryParams)) {
-    resetQuery()
-    return
-  }
-  queryParams.pageNo = 1
-  getList()
-}
-
-const resetQuery = () => {
-  queryFormRef.value.resetFields()
-  handleQuery(true)
 }
 
 const formRef = ref()
@@ -238,8 +277,110 @@ const handleSyncKingdeeProducts = async () => {
 
 const loadCategoryList = async () => {
   const categoryData = await ProductCategoryApi.getProductCategorySimpleList()
-  categoryList.value = handleTree(categoryData, 'id', 'parentId')
+  categoryList.value = categoryData
 }
+
+const filterDefinitions = computed<TableQuickFilterDefinition[]>(() => [
+  {
+    key: 'name',
+    label: '名称',
+    type: 'text',
+    queryParamKey: 'name',
+    operators: ['contains']
+  },
+  {
+    key: 'barCode',
+    label: '产品编码/条码',
+    type: 'text',
+    queryParamKey: 'barCode',
+    operators: ['contains']
+  },
+  {
+    key: 'categoryId',
+    label: '分类',
+    type: 'select',
+    queryParamKey: 'categoryId',
+    options: categoryList.value.map((item) => ({ label: item.name, value: item.id }))
+  }
+])
+
+const defaultColumns: UserTableColumnDefinition[] = [
+  {
+    key: 'barCode',
+    label: '条码',
+    sortable: false,
+    minWidth: 140
+  },
+  {
+    key: 'name',
+    label: '名称',
+    sortable: false,
+    minWidth: 140
+  },
+  {
+    key: 'standard',
+    label: '规格',
+    sortable: false,
+    minWidth: 140
+  },
+  {
+    key: 'categoryName',
+    label: '分类',
+    sortable: false,
+    minWidth: 140
+  },
+  {
+    key: 'unitName',
+    label: '单位',
+    sortable: false,
+    minWidth: 140
+  },
+  {
+    key: 'purchasePrice',
+    label: '采购价格',
+    sortable: false,
+    minWidth: 140
+  },
+  {
+    key: 'salePrice',
+    label: '销售价格',
+    sortable: false,
+    minWidth: 140
+  },
+  {
+    key: 'minPrice',
+    label: '最低价格',
+    sortable: false,
+    minWidth: 140
+  },
+  {
+    key: 'status',
+    label: '状态',
+    sortable: false,
+    minWidth: 140
+  },
+  {
+    key: 'createTime',
+    label: '创建时间',
+    sortable: false,
+    width: 180
+  },
+]
+const {
+  columns,
+  loading: columnLoading,
+  saving: columnSaving,
+  isColumnVisible,
+  getColumnWidthString,
+  handleHeaderDragend,
+  saveConfig: saveColumnConfig
+} = useUserTableColumns('erp.product.product.main', defaultColumns)
+const quickFilter = useTableQuickFilter(
+  'erp.product.product.main',
+  filterDefinitions,
+  queryParams,
+  getList
+)
 
 onMounted(async () => {
   await getList()

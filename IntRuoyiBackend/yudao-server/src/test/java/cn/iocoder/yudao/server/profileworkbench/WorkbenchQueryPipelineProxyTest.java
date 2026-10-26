@@ -76,7 +76,7 @@ class WorkbenchQueryPipelineProxyTest {
    security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(3L);spring.when(()->SpringUtil.getBean(PermissionServiceImpl.class)).thenReturn(permission);
    var response=service.context(new WorkbenchContextRequest("revision",List.of("SIX"),"epoch",new WorkbenchQuerySpec("visible",null,null,null)));
    assertEquals(List.of("USE:OUTSIDE","initialize:WRITE","shared:WRITE","shared:RR_READ","token:RR_READ"),nodes);assertFalse(TransactionSynchronizationManager.isActualTransactionActive());assertEquals(1,db.queryForObject("SELECT version FROM personal",Long.class));
-   nodes.clear();service.page(response.queryVersion(),"epoch",1,10);assertEquals("USE:OUTSIDE",nodes.get(0));assertEquals("shared:RR_READ",nodes.get(1));assertEquals(3,nodes.stream().filter(n->n.equals("count:RR_READ")).count());assertFalse(nodes.stream().anyMatch(n->n.startsWith("initialize")));
+   nodes.clear();service.page(response.queryVersion(),"epoch",1,10);assertEquals("USE:OUTSIDE",nodes.get(0));assertEquals("shared:RR_READ",nodes.get(1));assertEquals(2,nodes.stream().filter(n->n.equals("count:RR_READ")).count());assertFalse(nodes.stream().anyMatch(n->n.startsWith("initialize")));
    nodes.clear();service.visibility(new WorkbenchVisibilityRequest(response.queryVersion(),"epoch","SIX:opaque-key","hide"));assertEquals(List.of("USE:OUTSIDE","exclusive:WRITE","USE:WRITE","qualify:WRITE","hidden:WRITE","advance:WRITE"),nodes);assertEquals(2,db.queryForObject("SELECT version FROM personal",Long.class));assertEquals(1,db.queryForObject("SELECT COUNT(*) FROM hidden",Long.class));
   }
  }

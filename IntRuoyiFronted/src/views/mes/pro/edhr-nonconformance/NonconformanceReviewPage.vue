@@ -1,16 +1,10 @@
 <template>
-  <ContentWrap>
+  <ContentWrap class="edhr-record-viewport">
     <div class="edhr-ncr" data-edhr-ncr-page>
-      <EdhrBatchRecordTabs active-tab="nonconformanceReview" />
 
-      <div v-if="canConfigureQaAssignment" class="edhr-ncr__assignments">
-        <QaHandoffAssignmentConfig v-if="canConfigureQaAssignment" />
-        <PqcHandoffAssignmentConfig v-if="canConfigurePqcAssignment" />
-      </div>
 
       <div class="edhr-ncr__header">
         <div>
-          <div class="edhr-ncr__title">不合格评审</div>
           <div class="edhr-ncr__subtitle">冻结后禁止报工、PQC提交、PQC放行</div>
         </div>
         <div class="edhr-ncr__header-actions">
@@ -45,7 +39,7 @@
           <el-tag type="warning">{{ total }} 条</el-tag>
         </div>
 
-        <el-table
+        <el-table height="100%"
           v-loading="listLoading"
           :data="reviews"
           stripe
@@ -263,12 +257,10 @@
 </template>
 
 <script setup lang="ts">
+import '@/views/mes/pro/edhr-batch/record-viewport.css'
 import { useApprovalCenterInvalidationStore } from '@/store/modules/approvalCenterInvalidation'
 const approvalInvalidation = useApprovalCenterInvalidationStore()
 import { parseExactIntegerJson } from '@/utils/exactIntegerJson'
-import EdhrBatchRecordTabs from '../edhr-batch/EdhrBatchRecordTabs.vue'
-import QaHandoffAssignmentConfig from '../handoff/QaHandoffAssignmentConfig.vue'
-import PqcHandoffAssignmentConfig from '../handoff/PqcHandoffAssignmentConfig.vue'
 import {
   DISPOSITION_CONCESSION_RELEASE,
   DISPOSITION_REWORK,
@@ -328,8 +320,6 @@ const entryActiveOrderId = computed<number | undefined>(() => {
 })
 const autoCreate = computed(() => route.query.autoCreate === '1')
 const canCreateReview = computed(() => hasPermission(['mes:pro-edhr-nonconformance-review:create']))
-const canConfigureQaAssignment = computed(() => hasPermission(['mes:pro-edhr-work-task-rule:query']))
-const canConfigurePqcAssignment = computed(() => hasPermission(['mes:pro-edhr-work-task-rule:query']))
 const entryForm = reactive({ nonconformanceReason: '' })
 
 const selectedActiveOrder = computed(() =>
@@ -905,18 +895,6 @@ onMounted(() => { void loadReviewEntry() })
 </script>
 
 <style scoped>
-.edhr-ncr__assignments {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
-}
-
-@media (max-width: 1050px) {
-  .edhr-ncr__assignments {
-    grid-template-columns: 1fr;
-  }
-}
-
 .edhr-ncr {
   display: flex;
   flex-direction: column;
@@ -944,12 +922,6 @@ onMounted(() => { void loadReviewEntry() })
   display: flex;
   align-items: center;
   gap: 8px;
-}
-
-.edhr-ncr__title {
-  font-size: 18px;
-  font-weight: 700;
-  color: #172033;
 }
 
 .edhr-ncr__subtitle,

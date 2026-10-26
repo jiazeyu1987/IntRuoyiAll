@@ -31,19 +31,9 @@
       />
     </ActiveOrderDetailLayout>
     <div v-show="!detailVisible" class="pqc-release-page" data-pqc-production-release-page>
-      <div class="pqc-release-page__header">
-        <div>
-          <h2>PQC生产放行</h2>
-        </div>
-        <el-button :icon="Refresh" :loading="loading" circle title="刷新" @click="getList()" />
-      </div>
-
       <el-tabs v-model="activeView" class="pqc-release-page__tabs" @tab-change="handleTabChange">
         <el-tab-pane label="待放行" :name="PQC_RELEASE_VIEW_PENDING" />
-        <el-tab-pane label="已放行" :name="PQC_RELEASE_VIEW_RELEASED" />
-        <el-tab-pane label="已作废" :name="PQC_RELEASE_VIEW_VOIDED" />
-        <el-tab-pane label="已返工" :name="PQC_RELEASE_VIEW_REWORKED" />
-        <el-tab-pane label="已让步放行" :name="PQC_RELEASE_VIEW_CONCESSION_RELEASED" />
+        <el-tab-pane label="已处理" :name="PQC_RELEASE_VIEW_COMPLETED" />
       </el-tabs>
 
       <el-form :inline="true" :model="queryParams" class="pqc-release-page__filters">
@@ -95,7 +85,7 @@
             <div class="pqc-release-page__secondary">{{ formatDateTime(row.appliedAt) }}</div>
           </template>
         </el-table-column>
-        <el-table-column label="状态" width="150">
+        <el-table-column :label="activeView === PQC_RELEASE_VIEW_COMPLETED ? '放行结果' : '状态'" width="150">
           <template #default="{ row }">
             <el-tag :type="resolveStatusTagType(row)">{{ resolveStatusLabel(row) }}</el-tag>
             <div v-if="row.underReview" class="pqc-release-page__secondary">QA评审中</div>
@@ -263,11 +253,12 @@
 <script setup lang="ts">
 import ReleaseTaskNotificationEntry from './components/ReleaseTaskNotificationEntry.vue'
 import CryptoJS from 'crypto-js'
-import { Refresh, RefreshLeft, Search } from '@element-plus/icons-vue'
+import { RefreshLeft, Search } from '@element-plus/icons-vue'
 import ActiveOrderSubmissionDetailPanel from '../processpool/components/ActiveOrderSubmissionDetailPanel.vue'
 import ActiveOrderDetailLayout from '../processpool/components/ActiveOrderDetailLayout.vue'
 import {
   PQC_RELEASE_VIEW_CONCESSION_RELEASED,
+  PQC_RELEASE_VIEW_COMPLETED,
   PQC_RELEASE_VIEW_PENDING,
   PQC_RELEASE_VIEW_RELEASED,
   PQC_RELEASE_VIEW_REWORKED,
@@ -278,7 +269,7 @@ import {
   getPqcProductionReleasePage,
   type MesPqcProductionReleaseDecisionRespVO,
   type MesPqcProductionReleasePageItemRespVO,
-  type MesPqcProductionReleaseViewStatus
+  type MesPqcProductionReleasePageReqVO
 } from '@/api/mes/pro/productionRelease'
 import { formatEdhrDateTime } from '@/views/mes/pro/edhr/shared/dateTime'
 import { useUserStore } from '@/store/modules/user'
@@ -303,7 +294,7 @@ const detailApplicationId = ref<string>()
 const detailReadOnly = ref(false)
 const orderDetail = ref<Awaited<ReturnType<typeof getPqcProductionReleaseOrderDetail>>>()
 let detailRequestSequence = 0
-const activeView = ref<MesPqcProductionReleaseViewStatus>(PQC_RELEASE_VIEW_PENDING)
+const activeView = ref<MesPqcProductionReleasePageReqVO['viewStatus']>(PQC_RELEASE_VIEW_PENDING)
 const releaseDialogVisible = ref(false)
 const releaseSubmitting = ref(false)
 const releaseError = ref('')
@@ -591,7 +582,7 @@ const resetQuery = () => {
 }
 
 const resolveStatusLabel = (row: MesPqcProductionReleasePageItemRespVO) => {
-  if (row.underReview) return '评审中'
+  if (row.underReview && row.viewStatus === PQC_RELEASE_VIEW_PENDING) return '评审中'
   if (
     row.viewStatus === PQC_RELEASE_VIEW_PENDING &&
     row.nonconformanceDisposition === 'concession_release'
@@ -600,7 +591,7 @@ const resolveStatusLabel = (row: MesPqcProductionReleasePageItemRespVO) => {
   }
   return {
     [PQC_RELEASE_VIEW_PENDING]: '待放行',
-    [PQC_RELEASE_VIEW_RELEASED]: '已生产放行',
+    [PQC_RELEASE_VIEW_RELEASED]: '已放行',
     [PQC_RELEASE_VIEW_VOIDED]: '已作废',
     [PQC_RELEASE_VIEW_REWORKED]: '已返工',
     [PQC_RELEASE_VIEW_CONCESSION_RELEASED]: '已让步放行'
@@ -608,7 +599,7 @@ const resolveStatusLabel = (row: MesPqcProductionReleasePageItemRespVO) => {
 }
 
 const resolveStatusTagType = (row: MesPqcProductionReleasePageItemRespVO) => {
-  if (row.underReview) return 'warning'
+  if (row.underReview && row.viewStatus === PQC_RELEASE_VIEW_PENDING) return 'warning'
   if (
     row.viewStatus === PQC_RELEASE_VIEW_RELEASED ||
     row.viewStatus === PQC_RELEASE_VIEW_CONCESSION_RELEASED
@@ -762,8 +753,7 @@ const applyReleaseSuccess = async (
   releaseForm.udiControlDocumentNo = ''
   releaseOutcomeUncertain.value = false
   releaseResult.value = result
-  activeView.value = row.nonconformanceDisposition === 'concession_release'
-    ? PQC_RELEASE_VIEW_CONCESSION_RELEASED : PQC_RELEASE_VIEW_RELEASED
+  activeView.value = PQC_RELEASE_VIEW_COMPLETED
   queryParams.pageNo = 1
   recovered ? message.warning('正式回执已确认本次生产放行完成') : message.success('生产放行完成')
   await getList(isCurrent)
@@ -938,19 +928,6 @@ onMounted(() => openPqcReleaseFromRoute())
   display: flex;
   flex-direction: column;
   gap: 16px;
-}
-
-.pqc-release-page__header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
-}
-
-.pqc-release-page__header h2 {
-  margin: 0;
-  font-size: 20px;
-  line-height: 28px;
 }
 
 .pqc-release-page__tabs,

@@ -57,4 +57,15 @@ class MesActiveOrderHandoffDeliveryReliabilityTest {
  @Test void platformSuccessButSentAuditFailureCanRecoverWithoutDuplicateMessage(){var once=new AtomicBoolean(true);doAnswer(i->{if("delivery-sent".equals(i.getArgument(0))&&once.getAndSet(false))throw new IllegalStateException("ACK audit rejected");return null;}).when(audit).append(anyString(),anyString(),anyString(),anyLong(),anyInt(),any(),any(),anyString());commit();var failed=row();assertEquals("FAILED",failed.getStatus());assertEquals(1,jdbc.queryForObject("SELECT COUNT(*) FROM system_notify_message",Integer.class));service.retry(failed.getId(),failed.getRowVersion(),343L,"恢复真实发送回执");assertEquals("SENT",row().getStatus());assertEquals(1,jdbc.queryForObject("SELECT COUNT(*) FROM system_notify_message",Integer.class));verify(sender,times(2)).sendSingleMessageIdempotentlyToAdmin(any());}
  @Test void oldAttemptAckCannotOverwriteNewSent(){doThrow(new IllegalStateException()).when(sender).sendSingleMessageIdempotentlyToAdmin(any());commit();var failed=row();var first=attempts.recordAttempt(failed.getId(),failed.getRowVersion(),"尝试一");var second=attempts.recordAttempt(failed.getId(),first.getRowVersion(),"尝试二");attempts.recordSent(second.getId(),second.getRowVersion(),903L,"正式成功");assertThrows(RuntimeException.class,()->attempts.recordFailed(first.getId(),first.getRowVersion(),"old failure","旧回执"));assertEquals("SENT",row().getStatus());assertEquals(903L,row().getSystemMessageId());}
  @Test void retiredCycleCannotRetryPendingNotification(){doThrow(new IllegalStateException()).when(sender).sendSingleMessageIdempotentlyToAdmin(any());commit();var failed=row();task.setStatus("CANCELED");assertThrows(RuntimeException.class,()->service.retry(failed.getId(),failed.getRowVersion(),343L,"旧周期重试"));assertEquals("FAILED",row().getStatus());}
+ @Test void canceledPqcReceptionCannotScheduleNewNotifications() {
+  task.setTaskType("PQC_HANDOFF");
+  assertThrows(RuntimeException.class,this::commit);
+  assertTrue(mapper.forTask(1L,task.getId()).isEmpty());verifyNoInteractions(sender);
+ }
+ @Test void canceledPqcReceptionCannotRetryHistoricalFailedNotification() {
+  doThrow(new IllegalStateException("offline")).when(sender).sendSingleMessageIdempotentlyToAdmin(any());commit();
+  var failed=row();task.setTaskType("PQC_HANDOFF");clearInvocations(sender);
+  assertThrows(RuntimeException.class,()->service.retry(failed.getId(),failed.getRowVersion(),343L,"重试旧通知"));
+  assertEquals(failed.getAttemptCount(),row().getAttemptCount());verifyNoInteractions(sender);
+ }
 }

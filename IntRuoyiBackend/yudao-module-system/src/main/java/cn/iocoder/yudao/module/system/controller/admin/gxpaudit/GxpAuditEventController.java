@@ -41,7 +41,7 @@ public class GxpAuditEventController {
     public CommonResult<java.util.Map<String, Object>> runtimeMode() {
         boolean disabled = cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditDevelopmentMode.disabled();
         return success(java.util.Map.of("auditEnabled", !disabled,
-                "mode", disabled ? "DEVELOPMENT_DISABLED" : "FORMAL",
+                "mode", cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditDevelopmentMode.currentMode().name(),
                 "serverStartedAtUtc", java.time.Instant.ofEpochMilli(
                         java.lang.management.ManagementFactory.getRuntimeMXBean().getStartTime()).toString()));
     }

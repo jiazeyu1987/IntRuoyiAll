@@ -3330,10 +3330,10 @@ const selectedProcessEvidenceItems = computed<ProcessEvidenceItem[]>(() => {
     },
     {
       key: 'work-task',
-      label: '工作任务',
-      description: '当前工序待办、返工和归档任务。',
-      path: '/mes/pro/feedback/edhr-work-task',
-      query: buildSelectedProcessEvidenceQuery()
+      label: '个人工作台',
+      description: '进入个人工作台查看生产待办与任务记录。',
+      path: '/user/profile',
+      query: { tab: 'workbench' }
     },
     {
       key: 'signature',
@@ -3585,11 +3585,11 @@ const assertBatchExecutionId = () => {
 
 const assertArchiveWorkTaskId = () => {
   if (!archiveWorkTaskId.value) {
-    throw new Error('地址缺少有效归档工作任务ID，请从电子批记录工作任务看板进入最终归档。')
+    throw new Error('地址缺少有效归档工作任务ID，请从个人工作台的归档待办进入最终归档。')
   }
   const workTaskId = Number(archiveWorkTaskId.value)
   if (!Number.isSafeInteger(workTaskId) || workTaskId <= 0) {
-    throw new Error('地址缺少有效归档工作任务ID，请从电子批记录工作任务看板进入最终归档。')
+    throw new Error('地址缺少有效归档工作任务ID，请从个人工作台的归档待办进入最终归档。')
   }
   return workTaskId
 }
@@ -4837,9 +4837,9 @@ const handleStage5FinalReleaseSimulation = async () => {
       message.success('最终放行模拟已准备管理者代表待办。')
     }
     await router.push({
-      path: '/mes/pro/feedback/edhr-work-task',
+      path: '/approval-center/todo',
       query: {
-        taskType: 'RELEASE_APPROVE',
+        moduleCode: 'EDHR',
         simulationRunId: result.simulationRunId,
         batchExecutionId: result.batchExecutionId
       }

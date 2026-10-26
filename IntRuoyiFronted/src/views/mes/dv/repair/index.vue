@@ -3,6 +3,7 @@
 
   <ContentWrap>
     <UnifiedListTemplate
+      single-line-toolbar
       table-key="mes.dv.repair.main"
       :query-model="queryParams"
       label-width="90px"

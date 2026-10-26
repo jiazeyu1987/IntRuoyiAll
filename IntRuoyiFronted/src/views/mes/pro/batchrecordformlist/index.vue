@@ -19,6 +19,7 @@
           class="batch-record-form-layout__alert"
         />
         <UnifiedListTemplate
+          single-line-toolbar
           table-key="mes.pro.edhrBatch.recordFormList.projectCodeV1"
           :query-model="queryParams"
           :filter-definitions="recordFormQuickFilterDefinitions"
@@ -61,7 +62,7 @@
               v-loading="listLoading"
               :data="list"
               row-key="rowKey"
-              height="calc(100vh - 260px)"
+              max-height="calc(100vh - 260px)"
               highlight-current-row
               border
               @row-click="selectReport"

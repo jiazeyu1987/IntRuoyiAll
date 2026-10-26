@@ -17,8 +17,8 @@ assert(labelFunctionMatch, 'PQC production release page must define resolveStatu
 const labelFunctionSource = labelFunctionMatch[0]
 
 assert(
-  /\[PQC_RELEASE_VIEW_RELEASED\]:\s*'已生产放行'/.test(labelFunctionSource),
-  'Released PQC production release rows must display status label "已生产放行".'
+  /\[PQC_RELEASE_VIEW_RELEASED\]:\s*'已放行'/.test(labelFunctionSource),
+  'Released PQC production release rows must display status label "已放行".'
 )
 
 console.log('PASS: PQC production release status label static contract')

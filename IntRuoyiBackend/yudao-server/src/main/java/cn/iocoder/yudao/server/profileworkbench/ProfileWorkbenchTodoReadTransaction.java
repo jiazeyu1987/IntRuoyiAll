@@ -46,7 +46,11 @@ public class ProfileWorkbenchTodoReadTransaction {
             SourceAdapter source = registry.require(id);
             long all = checkedCount(source, q.partition(null), start);
             long hiddenCount = checkedCount(source, q.partition("hidden"), start);
-            long selected = checkedCount(source, q, start);
+            // All partitions share this transaction's snapshot. Without filters, the
+            // visible/hidden count is already known; sorting does not change it.
+            long selected = q.getTaskType() == null && q.getFilterField() == null
+                ? ("hidden".equals(q.getVisibility()) ? hiddenCount : all - hiddenCount)
+                : checkedCount(source, q, start);
             if (hiddenCount > all || selected > ("hidden".equals(q.getVisibility()) ? hiddenCount : all - hiddenCount)) throw SOURCE_CONTRACT_INVALID.exception();
             try { business = Math.addExact(business, all); hidden = Math.addExact(hidden, hiddenCount); filtered = Math.addExact(filtered, selected); }
             catch (ArithmeticException failure) { throw SOURCE_CONTRACT_INVALID.exception(failure); }

@@ -113,8 +113,6 @@ import cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffDeli
 import cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffDeliveryTransactionService;
 import cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffOwnerResolver;
 import cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffService;
-import cn.iocoder.yudao.module.mes.service.pro.handoff.MesPqcHandoffAssignmentService;
-import cn.iocoder.yudao.module.mes.service.pro.handoff.MesQaHandoffAssignmentService;
 import cn.iocoder.yudao.module.mes.service.pro.handoff.MesSignedReturnCorrectionResolver;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesActiveOrderTransferTraceServiceImpl;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesCorrectionSignatureEvidenceReader;
@@ -1251,8 +1249,6 @@ class MesCompletionSourceProducerPersistenceTest {
             MesTeamLeaderActiveOrderReleaseLossSourceReaderImpl.class,
             MesFormalProductionPickListSourceResolver.class,
             MesActiveOrderHandoffOwnerResolver.class,
-            MesQaHandoffAssignmentService.class,
-            MesPqcHandoffAssignmentService.class,
             MesActiveOrderHandoffDeliveryService.class,
             MesActiveOrderHandoffAudit.class,
             MesSignedReturnCorrectionResolver.class,

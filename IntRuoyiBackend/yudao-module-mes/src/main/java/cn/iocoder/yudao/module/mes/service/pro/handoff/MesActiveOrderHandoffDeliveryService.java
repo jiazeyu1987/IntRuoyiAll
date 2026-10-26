@@ -26,6 +26,7 @@ public class MesActiveOrderHandoffDeliveryService {
     @Transactional(propagation=Propagation.MANDATORY,rollbackFor=Exception.class)
     public void schedule(MesActiveOrderHandoffTaskDO task) {
         require(TransactionSynchronizationManager.isSynchronizationActive(),"通知意图必须加入正式交接事务");
+        require(!"PQC_HANDOFF".equals(task.getTaskType()),"PQC检验接手通知已取消");
         validate(task); audit.lock(); Long currentTenant=tenant();
         String params=JsonUtils.toJsonString(Map.of("activeOrderId",task.getActiveOrderId().toString(),
                 "taskName",label(task.getTaskType()),"actionUrl",task.getActionUrl(),"reason",task.getReason(),"handoffTaskId",task.getId().toString(),"handoffType",task.getTaskType()));
@@ -73,6 +74,8 @@ public class MesActiveOrderHandoffDeliveryService {
         }
     }
     private void dispatch(MesActiveOrderHandoffDeliveryDO row,String reason) {
+        var task=tasks.selectById(row.getHandoffTaskId());
+        require(task!=null&&!"PQC_HANDOFF".equals(task.getTaskType()),"PQC检验接手通知已取消或交接不存在");
         var attempt=transactions.recordAttempt(row.getId(),row.getRowVersion(),reason);
         try {
             var request=new NotifySendSingleToUserIdempotentReqDTO();request.setUserId(attempt.getUserId());request.setTemplateCode(TEMPLATE);request.setBusinessKey(attempt.getBusinessKey());

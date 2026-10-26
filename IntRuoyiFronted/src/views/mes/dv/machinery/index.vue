@@ -11,6 +11,7 @@
     <el-col :span="20" :xs="24">
       <ContentWrap>
         <UnifiedListTemplate
+          single-line-toolbar
           table-key="mes.dv.machinery.main"
           :query-model="queryParams"
           label-width="100px"

@@ -1,6 +1,7 @@
 <template>
   <div class="edhr-form-trace-release">
     <UnifiedListTemplate
+      single-line-toolbar
       :table-key="releaseTraceTableKey"
       :query-model="queryParams"
       :filter-definitions="releaseQuickFilterDefinitions"

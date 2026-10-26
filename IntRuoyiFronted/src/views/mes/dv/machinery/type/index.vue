@@ -4,6 +4,7 @@
 
   <ContentWrap>
     <UnifiedListTemplate
+      single-line-toolbar
       table-key="mes.dv.machineryType.main"
       :query-model="queryParams"
       label-width="80px"

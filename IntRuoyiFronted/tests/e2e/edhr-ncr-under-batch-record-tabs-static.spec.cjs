@@ -9,11 +9,14 @@ const tabs = read('IntRuoyiFronted/src/views/mes/pro/edhr-batch/EdhrBatchRecordT
 const ncrPage = read('IntRuoyiFronted/src/views/mes/pro/edhr-nonconformance/NonconformanceReviewPage.vue')
 const routes = read('IntRuoyiFronted/src/router/modules/remaining.ts')
 
-assert.match(
-  tabs,
-  /<el-tab-pane\s+label="不合格评审"\s+name="nonconformanceReview"\s*\/>/,
-  'eDHR 批记录共享页签必须包含“不合格评审”。'
-)
+for (const page of [
+  'edhr-batch/BatchExecutionListPage.vue',
+  'edhr-batch/BatchVoidedPage.vue',
+  'edhr-nonconformance/NonconformanceReviewPage.vue',
+  'edhr-deviation/index.vue'
+]) {
+  assert.doesNotMatch(read(`IntRuoyiFronted/src/views/mes/pro/${page}`), /EdhrBatchRecordTabs/, '独立菜单页面不再显示共享导航 Tab')
+}
 
 assert.match(
   tabs,
@@ -27,17 +30,7 @@ assert.match(
   '不合格评审页签必须导航到既有不合格评审正式页面。'
 )
 
-assert.match(
-  ncrPage,
-  /import EdhrBatchRecordTabs from '..\/edhr-batch\/EdhrBatchRecordTabs.vue'/,
-  '不合格评审页面必须复用 eDHR 批记录页签组件。'
-)
-
-assert.match(
-  ncrPage,
-  /<EdhrBatchRecordTabs active-tab="nonconformanceReview" \/>/,
-  '不合格评审页面必须把当前页签标记为 nonconformanceReview。'
-)
+assert.doesNotMatch(ncrPage, /EdhrBatchRecordTabs/)
 
 assert.match(
   routes,

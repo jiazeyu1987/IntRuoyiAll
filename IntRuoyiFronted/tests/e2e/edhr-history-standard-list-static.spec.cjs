@@ -63,16 +63,18 @@ const mapper = read(
 )
 
 assert(historyPage.includes('data-edhr-history-standard-list'), '历史追溯页必须声明标准列表根标识')
-assert(historyPage.includes('releasedOnly: true'), '历史追溯页必须请求 releasedOnly=true')
+const historySources = read('IntRuoyiFronted', 'src', 'views', 'mes', 'pro', 'edhr-batch', 'historySources.ts')
+assert(historySources.includes('releasedOnly: true'), '历史追溯页必须请求 releasedOnly=true')
 assert(historyPage.includes('releaseApprovedTime'), '历史追溯页必须发送放行时间过滤参数')
 assert(historyPage.includes('data-edhr-history-detail-action'), '历史追溯列表必须提供行内详情按钮')
-assert(historyPage.includes('暂无已放行批次'), '历史追溯标准列表必须显示已放行批次空态')
+assert(historyPage.includes('暂无追溯记录'), '合并列表必须显示追溯记录空态')
+assert(historyPage.includes('prop="typeLabel"'), '合并列表必须展示类型列')
+assert(!historyPage.includes('<EdhrBatchRecordTabs'), '合并列表不得再展示五个页签')
 
 const removedWorkbenchTokens = [
   'getEdhrBatchReviewTimeline',
   'getLatestEdhrBatchArchive',
   'printEdhrBatchArchive',
-  'ActiveOrderSubmissionDetailPanel',
   'EdhrExecutionReadonlyForm',
   '统一时间线',
   '归档目录',

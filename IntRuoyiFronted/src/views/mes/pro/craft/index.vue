@@ -1,188 +1,185 @@
 <template>
-  <ContentWrap class="craft-library">
-    <el-alert
-      v-if="error"
-      :title="error"
-      type="error"
-      :closable="false"
-      show-icon
-      class="mb-12px"
-    />
-    <el-tabs v-model="activeTab" class="craft-library__tabs">
-      <el-tab-pane label="工艺库" name="crafts">
-        <UnifiedListTemplate
-          :table-key="CRAFT_TABLE_KEY"
-          class="craft-library__list"
-          :query-model="craftQuery"
-          :filter-definitions="[]"
-          :quick-filter-state="{}"
-          :operator-options="[]"
-          :show-quick-filter="false"
-          show-multi-filter
-          :multi-filter-definitions="craftFilterDefinitions"
-          :multi-filter-state="craftFilter.state"
-          :columns="craftColumnControl.columns.value"
-          :column-saving="craftColumnControl.saving.value"
-          v-model:sort-state="craftSort"
-          :total="filteredCrafts.length"
-          v-model:page="craftQuery.pageNo"
-          v-model:limit="craftQuery.pageSize"
-          @update:multi-filter-state="craftFilter.updateState"
-          @multi-filter-query="craftFilter.applyMultiFilter"
-          @multi-filter-reset="craftFilter.resetMultiFilter"
-          @multi-filter-remove="craftFilter.removeConditionAndApply"
-          @column-change="craftColumnControl.saveConfig"
-          @sort-change="craftQuery.pageNo = 1"
-        >
-          <template #actions>
-            <el-button
-              v-hasPermi="['mes:pro-craft:create']"
-              type="primary"
-              plain
-              @click="openEditor()"
-            >
-              <Icon icon="ep:plus" class="mr-5px" />新增工艺
-            </el-button>
-            <el-button
-              v-hasPermi="['mes:pro-craft:initialize']"
-              :loading="loading"
-              @click="previewInitialization"
-            >
-              从现有流程初始化
-            </el-button>
-            <el-button :loading="loading" @click="load"
-              ><Icon icon="ep:refresh" class="mr-5px" />刷新</el-button
-            >
-          </template>
-          <template #table="{ sortColumnAttrs, handleSortChange }">
-            <el-table
-              v-loading="loading"
-              :data="pagedCrafts"
-              height="100%"
-              scrollbar-always-on
-              border
-              stripe
-              show-overflow-tooltip
-              row-key="id"
-              data-user-table-column-explicit
-              :data-user-table-key="CRAFT_TABLE_KEY"
-              @header-dragend="craftColumnControl.handleHeaderDragend"
-              @sort-change="handleSortChange"
-            >
-              <el-table-column
-                v-for="column in visibleCraftDataColumns"
-                :key="column.key"
-                :prop="column.key"
-                :label="column.label"
-                :width="column.width"
-                :min-width="column.minWidth"
-                align="center"
-                v-bind="sortColumnAttrs(column.key)"
-              />
-              <el-table-column
-                label="操作"
-                prop="operation"
-                :width="craftColumnControl.getColumnWidthString('operation')"
-                align="center"
-                fixed="right"
+  <div ref="pageContainer" class="craft-library-page">
+    <ContentWrap class="craft-library">
+      <el-alert
+        v-if="error"
+        :title="error"
+        type="error"
+        :closable="false"
+        show-icon
+        class="mb-12px"
+      />
+      <el-tabs v-model="activeTab" class="craft-library__tabs">
+        <el-tab-pane label="工艺库" name="crafts">
+          <UnifiedListTemplate
+            :table-key="CRAFT_TABLE_KEY"
+          single-line-toolbar
+            class="craft-library__list"
+            :query-model="craftQuery"
+            :filter-definitions="[]"
+            :quick-filter-state="{}"
+            :operator-options="[]"
+            :show-quick-filter="false"
+            show-multi-filter
+            :multi-filter-definitions="craftFilterDefinitions"
+            :multi-filter-state="craftFilter.state"
+            :columns="craftColumnControl.columns.value"
+            :column-saving="craftColumnControl.saving.value"
+            v-model:sort-state="craftSort"
+            :total="filteredCrafts.length"
+            v-model:page="craftQuery.pageNo"
+            v-model:limit="craftQuery.pageSize"
+            @update:multi-filter-state="craftFilter.updateState"
+            @multi-filter-query="craftFilter.applyMultiFilter"
+            @multi-filter-reset="craftFilter.resetMultiFilter"
+            @multi-filter-remove="craftFilter.removeConditionAndApply"
+            @column-change="craftColumnControl.saveConfig"
+            @sort-change="craftQuery.pageNo = 1"
+          >
+            <template #actions>
+              <el-button
+                v-hasPermi="['mes:pro-craft:create']"
+                type="primary"
+                plain
+                @click="openEditor()"
               >
-                <template #default="{ row }">
-                  <el-button link type="primary" @click="openEditor(row, true)">查看</el-button>
-                  <el-button
-                    v-hasPermi="['mes:pro-craft:update']"
-                    link
-                    type="primary"
-                    @click="openEditor(row)"
-                    >修改</el-button
-                  >
-                </template>
-              </el-table-column>
-            </el-table>
-          </template>
-        </UnifiedListTemplate>
-      </el-tab-pane>
-      <el-tab-pane label="工艺修改记录" name="changes" lazy>
-        <UnifiedListTemplate
-          :table-key="CHANGE_TABLE_KEY"
-          class="craft-library__list"
-          :query-model="changeQuery"
-          :filter-definitions="[]"
-          :quick-filter-state="{}"
-          :operator-options="[]"
-          :show-quick-filter="false"
-          show-multi-filter
-          :multi-filter-definitions="changeFilterDefinitions"
-          :multi-filter-state="changeFilter.state"
-          :columns="changeColumnControl.columns.value"
-          :column-saving="changeColumnControl.saving.value"
-          v-model:sort-state="changeSort"
-          :total="filteredChanges.length"
-          v-model:page="changeQuery.pageNo"
-          v-model:limit="changeQuery.pageSize"
-          @update:multi-filter-state="changeFilter.updateState"
-          @multi-filter-query="changeFilter.applyMultiFilter"
-          @multi-filter-reset="changeFilter.resetMultiFilter"
-          @multi-filter-remove="changeFilter.removeConditionAndApply"
-          @column-change="changeColumnControl.saveConfig"
-          @sort-change="changeQuery.pageNo = 1"
-        >
-          <template #actions>
-            <el-button :loading="loading" @click="load"
-              ><Icon icon="ep:refresh" class="mr-5px" />刷新</el-button
-            >
-          </template>
-          <template #table="{ sortColumnAttrs, handleSortChange }">
-            <el-table
-              v-loading="loading"
-              :data="pagedChanges"
-              height="100%"
-              scrollbar-always-on
-              border
-              stripe
-              show-overflow-tooltip
-              row-key="id"
-              data-user-table-column-explicit
-              :data-user-table-key="CHANGE_TABLE_KEY"
-              @header-dragend="changeColumnControl.handleHeaderDragend"
-              @sort-change="handleSortChange"
-            >
-              <el-table-column
-                v-for="column in visibleChangeDataColumns"
-                :key="column.key"
-                :prop="column.key"
-                :label="column.label"
-                :width="column.width"
-                :min-width="column.minWidth"
-                :formatter="column.key === 'createTime' ? dateFormatter : undefined"
-                align="center"
-                v-bind="sortColumnAttrs(column.key)"
-              />
-              <el-table-column
-                label="操作"
-                prop="operation"
-                :width="changeColumnControl.getColumnWidthString('operation')"
-                align="center"
-                fixed="right"
+                <Icon icon="ep:plus" class="mr-5px" />新增工艺
+              </el-button>
+              <el-button :loading="loading" @click="load"
+                ><Icon icon="ep:refresh" class="mr-5px" />刷新</el-button
               >
-                <template #default="{ row }">
-                  <el-button link type="primary" @click="showHistory(row)">查看变更</el-button>
-                  <el-button
-                    v-if="row.status === 'PENDING'"
-                    v-hasPermi="['mes:pro-craft:update']"
-                    link
-                    type="danger"
-                    :disabled="loading"
-                    @click="cancelChange(row)"
-                    >作废整次修改</el-button
-                  >
-                </template>
-              </el-table-column>
-            </el-table>
-          </template>
-        </UnifiedListTemplate>
-      </el-tab-pane>
-    </el-tabs>
-  </ContentWrap>
+            </template>
+            <template #table="{ sortColumnAttrs, handleSortChange }">
+              <el-table
+                v-loading="loading"
+                :data="pagedCrafts"
+                height="100%"
+                scrollbar-always-on
+                border
+                stripe
+                show-overflow-tooltip
+                row-key="id"
+                data-user-table-column-explicit
+                :data-user-table-key="CRAFT_TABLE_KEY"
+                @header-dragend="craftColumnControl.handleHeaderDragend"
+                @sort-change="handleSortChange"
+              >
+                <el-table-column
+                  v-for="column in visibleCraftDataColumns"
+                  :key="column.key"
+                  :prop="column.key"
+                  :label="column.label"
+                  :width="column.width"
+                  :min-width="column.minWidth"
+                  align="center"
+                  v-bind="sortColumnAttrs(column.key)"
+                />
+                <el-table-column
+                  label="操作"
+                  prop="operation"
+                  :width="craftColumnControl.getColumnWidthString('operation')"
+                  align="center"
+                  fixed="right"
+                >
+                  <template #default="{ row }">
+                    <el-button link type="primary" @click="openEditor(row, true)">查看</el-button>
+                    <el-button
+                      v-hasPermi="['mes:pro-craft:update']"
+                      link
+                      type="primary"
+                      @click="openEditor(row)"
+                      >修改</el-button
+                    >
+                  </template>
+                </el-table-column>
+              </el-table>
+            </template>
+          </UnifiedListTemplate>
+        </el-tab-pane>
+        <el-tab-pane label="工艺修改记录" name="changes" lazy>
+          <UnifiedListTemplate
+            :table-key="CHANGE_TABLE_KEY"
+          single-line-toolbar
+            class="craft-library__list"
+            :query-model="changeQuery"
+            :filter-definitions="[]"
+            :quick-filter-state="{}"
+            :operator-options="[]"
+            :show-quick-filter="false"
+            show-multi-filter
+            :multi-filter-definitions="changeFilterDefinitions"
+            :multi-filter-state="changeFilter.state"
+            :columns="changeColumnControl.columns.value"
+            :column-saving="changeColumnControl.saving.value"
+            v-model:sort-state="changeSort"
+            :total="filteredChanges.length"
+            v-model:page="changeQuery.pageNo"
+            v-model:limit="changeQuery.pageSize"
+            @update:multi-filter-state="changeFilter.updateState"
+            @multi-filter-query="changeFilter.applyMultiFilter"
+            @multi-filter-reset="changeFilter.resetMultiFilter"
+            @multi-filter-remove="changeFilter.removeConditionAndApply"
+            @column-change="changeColumnControl.saveConfig"
+            @sort-change="changeQuery.pageNo = 1"
+          >
+            <template #actions>
+              <el-button :loading="loading" @click="load"
+                ><Icon icon="ep:refresh" class="mr-5px" />刷新</el-button
+              >
+            </template>
+            <template #table="{ sortColumnAttrs, handleSortChange }">
+              <el-table
+                v-loading="loading"
+                :data="pagedChanges"
+                height="100%"
+                scrollbar-always-on
+                border
+                stripe
+                show-overflow-tooltip
+                row-key="id"
+                data-user-table-column-explicit
+                :data-user-table-key="CHANGE_TABLE_KEY"
+                @header-dragend="changeColumnControl.handleHeaderDragend"
+                @sort-change="handleSortChange"
+              >
+                <el-table-column
+                  v-for="column in visibleChangeDataColumns"
+                  :key="column.key"
+                  :prop="column.key"
+                  :label="column.label"
+                  :width="column.width"
+                  :min-width="column.minWidth"
+                  :formatter="column.key === 'createTime' ? dateFormatter : undefined"
+                  align="center"
+                  v-bind="sortColumnAttrs(column.key)"
+                />
+                <el-table-column
+                  label="操作"
+                  prop="operation"
+                  :width="changeColumnControl.getColumnWidthString('operation')"
+                  align="center"
+                  fixed="right"
+                >
+                  <template #default="{ row }">
+                    <el-button link type="primary" @click="showHistory(row)">查看变更</el-button>
+                    <el-button
+                      v-if="row.status === 'PENDING'"
+                      v-hasPermi="['mes:pro-craft:update']"
+                      link
+                      type="danger"
+                      :disabled="loading"
+                      @click="cancelChange(row)"
+                      >作废整次修改</el-button
+                    >
+                  </template>
+                </el-table-column>
+              </el-table>
+            </template>
+          </UnifiedListTemplate>
+        </el-tab-pane>
+      </el-tabs>
+    </ContentWrap>
+  </div>
   <Dialog
     v-model="editorVisible"
     :title="readOnly ? '查看工艺' : form.id ? '修改工艺' : '新增工艺'"
@@ -322,16 +319,12 @@
   </Dialog>
   <Dialog
     v-model="impactVisible"
-    :title="initializing ? '初始化工艺库' : '确认工艺修改及全部流程升级'"
+    title="确认工艺修改及全部流程升级"
     width="1000px"
     :close-on-click-modal="false"
   >
     <el-alert
-      :title="
-        initializing
-          ? '仅将现有正式流程的参数提取到工艺库，不自动绑定或升级流程，不改变一线参数填写。不同参数方案分别入库，相同工序及参数自动去重。'
-          : '确认后全部关联流程统一升级；已有生产订单继续使用原参数快照。'
-      "
+      title="确认后全部关联流程统一升级；已有生产订单继续使用原参数快照。"
       type="info"
       :closable="false"
       show-icon
@@ -345,29 +338,7 @@
         :closable="false"
         class="mt-8px"
       />
-      <template v-if="initializing">
-        <el-alert
-          v-for="(warning, index) in impact.warnings"
-          :key="index"
-          :title="warning"
-          type="warning"
-          :closable="false"
-          class="mt-8px"
-        />
-        <p
-          >参数方案来源 {{ impact.sources?.length || 0 }} 条；去重后可新增
-          {{ impact.newCraftCount }} 项工艺，已有 {{ impact.existingCraftCount }} 项；无参数节点
-          {{ impact.emptyNodeCount || 0 }} 个。</p
-        >
-        <el-table :data="impact.sources" max-height="380"
-          ><el-table-column label="工艺流程" prop="routeName" /><el-table-column
-            label="工序"
-            prop="processName" /><el-table-column label="节点编号" prop="routeProcessId" />
-          <el-table-column label="节点内方案" prop="schemeNo" width="100" />
-          <el-table-column label="参数数量" prop="parameterCount" width="100"
-        /></el-table>
-      </template>
-      <template v-else>
+      <template>
         <p>工艺名称：{{ impact.beforeName }} → {{ impact.afterName }}</p>
         <el-table :data="parameterDiff" class="mt-12px" max-height="260">
           <el-table-column label="参数" prop="name" /><el-table-column
@@ -395,9 +366,9 @@
       <el-button
         type="primary"
         :loading="saving"
-        :disabled="!impact || !!impact.blockers.length || (initializing && !impact.newCraftCount)"
+        :disabled="!impact || !!impact.blockers.length"
         @click="confirmAll"
-        >{{ initializing ? '确认提取入库' : '确认修改并全部升级' }}</el-button
+        >确认修改并全部升级</el-button
       >
     </template>
   </Dialog>
@@ -433,6 +404,7 @@
   </Dialog>
 </template>
 <script setup lang="ts">
+import { useElementBounding, useWindowSize } from '@vueuse/core'
 import {
   CraftApi,
   type Craft,
@@ -454,6 +426,10 @@ import {
   type ListMultiFilterCondition
 } from '@/hooks/web/useTableMultiFilter'
 defineOptions({ name: 'MesProCraft' })
+const pageContainer = ref<HTMLElement>()
+const { top: pageTop } = useElementBounding(pageContainer)
+const { height: viewportHeight } = useWindowSize()
+const pageHeight = computed(() => `${Math.max(440, viewportHeight.value - pageTop.value - 2)}px`)
 const message = useMessage()
 const crafts = ref<Craft[]>([]),
   processes = ref<ProProcessVO[]>([]),
@@ -465,8 +441,7 @@ const error = ref(''),
   impactError = ref('')
 const editorVisible = ref(false),
   impactVisible = ref(false),
-  readOnly = ref(false),
-  initializing = ref(false)
+  readOnly = ref(false)
 const editorCode = ref(''),
   impact = ref<CraftImpact>(),
   historyVisible = ref(false),
@@ -768,7 +743,7 @@ function discardEditor() {
 function discardImpact() {
   impactVisible.value = false
   impact.value = undefined
-  if (!initializing.value) discardEditor()
+  discardEditor()
 }
 async function saveOrPreview() {
   editorError.value = ''
@@ -786,7 +761,6 @@ async function saveOrPreview() {
     } else {
       impact.value = await CraftApi.preview(form)
       form.impactToken = impact.value.impactToken
-      initializing.value = false
       impactError.value = ''
       impactVisible.value = true
     }
@@ -796,36 +770,18 @@ async function saveOrPreview() {
     saving.value = false
   }
 }
-async function previewInitialization() {
-  loading.value = true
-  error.value = ''
-  try {
-    impact.value = await CraftApi.initializationPreview()
-    initializing.value = true
-    impactError.value = ''
-    impactVisible.value = true
-  } catch (e) {
-    error.value = explain(e)
-  } finally {
-    loading.value = false
-  }
-}
 async function confirmAll() {
   if (!impact.value) return
   saving.value = true
   impactError.value = ''
   try {
-    const result = initializing.value
-      ? await CraftApi.initialize(impact.value.impactToken)
-      : await CraftApi.updateAll({ ...form, impactToken: impact.value.impactToken })
+    const result = await CraftApi.updateAll({ ...form, impactToken: impact.value.impactToken })
     impactVisible.value = false
     editorVisible.value = false
     message.success(
-      initializing.value
-        ? '参数已提取到工艺库，现有流程和一线填写未改变'
-        : result.status === 'APPLIED'
-          ? '工艺及全部关联流程已统一生效'
-          : '已提交，全部关联流程审批完成后统一生效'
+      result.status === 'APPLIED'
+        ? '工艺及全部关联流程已统一生效'
+        : '已提交，全部关联流程审批完成后统一生效'
     )
     await load()
   } catch (e) {
@@ -854,10 +810,14 @@ function showHistory(change: CraftChange) {
 onMounted(load)
 </script>
 <style scoped>
+.craft-library {
+  margin-bottom: 0;
+}
 .craft-library :deep(.el-card__body) {
   display: flex;
   flex-direction: column;
-  height: max(440px, calc(100vh - 190px));
+  height: v-bind(pageHeight);
+  box-sizing: border-box;
   overflow: hidden;
 }
 .craft-library__tabs {

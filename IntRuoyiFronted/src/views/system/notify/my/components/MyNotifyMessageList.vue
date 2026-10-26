@@ -1,8 +1,9 @@
 <template>
   <div class="my-notify-message-list" :class="{ 'my-notify-message-list--embedded': embedded }">
-    <ActiveOrderHandoffPanel v-if="canReadActiveOrderHandoffs" />
+    <ActiveOrderHandoffPanel v-if="canReadActiveOrderHandoffs" ref="handoffPanelRef" hide-when-empty />
     <component :is="contentWrapper" class="my-notify-message-list__section">
       <UnifiedListTemplate
+        single-line-toolbar
         table-key="system.notify.my-message"
         :query-model="queryParams"
         label-width="68px"
@@ -31,6 +32,7 @@
 
         <template #table>
           <el-table
+            ref="notifyTableRef"
             v-loading="loading"
             class="my-notify-message-list__table"
             data-user-table-column-explicit
@@ -57,20 +59,7 @@
               :width="getNotifyColumnWidthString('createTime', 200)"
               :formatter="dateFormatter"
             />
-            <el-table-column
-              v-if="isNotifyColumnVisible('templateType')"
-              label="类型"
-              align="center"
-              prop="templateType"
-              :width="getNotifyColumnWidthString('templateType', 180)"
-            >
-              <template #default="scope">
-                <dict-tag
-                  :type="DICT_TYPE.SYSTEM_NOTIFY_TEMPLATE_TYPE"
-                  :value="scope.row.templateType"
-                />
-              </template>
-            </el-table-column>
+
             <el-table-column
               v-if="isNotifyColumnVisible('templateContent')"
               label="消息内容"
@@ -110,14 +99,7 @@
                 <dict-tag :type="DICT_TYPE.INFRA_BOOLEAN_STRING" :value="scope.row.readStatus" />
               </template>
             </el-table-column>
-            <el-table-column
-              v-if="isNotifyColumnVisible('readTime')"
-              label="阅读时间"
-              align="center"
-              prop="readTime"
-              :width="getNotifyColumnWidthString('readTime', 200)"
-              :formatter="dateFormatter"
-            />
+
             <el-table-column
               v-if="isNotifyColumnVisible('operation')"
               label="操作"
@@ -146,6 +128,7 @@
 </template>
 
 <script lang="ts" setup>
+import type { TableInstance } from 'element-plus'
 import { DICT_TYPE, getBoolDictOptions } from '@/utils/dict'
 import { dateFormatter } from '@/utils/formatTime'
 import * as NotifyMessageApi from '@/api/system/notify/message'
@@ -170,14 +153,27 @@ const emit = defineEmits<{
 const props = withDefaults(
   defineProps<{
     embedded?: boolean
+    active?: boolean
   }>(),
   {
-    embedded: false
+    embedded: false,
+    active: true
   }
 )
 
 const message = useMessage() // 消息
 const router = useRouter()
+const notifyTableRef = ref<TableInstance>()
+const handoffPanelRef = ref<{ refreshLayout: () => Promise<void> }>()
+const refreshTableLayout = async () => {
+  if (!props.active) return
+  await nextTick()
+  notifyTableRef.value?.doLayout()
+  await handoffPanelRef.value?.refreshLayout()
+}
+watch(() => props.active, (active) => {
+  if (active) void refreshTableLayout()
+}, { flush: 'post' })
 
 const NOTIFY_TABLE_KEY = 'system.notify.my-message'
 
@@ -193,10 +189,8 @@ const canReadActiveOrderHandoffs = computed(() => hasPermission([
 const notifyDefaultColumns: UserTableColumnDefinition[] = [
   { key: 'templateNickname', label: '发送人', width: 180 },
   { key: 'createTime', label: '发送时间', width: 200 },
-  { key: 'templateType', label: '类型', width: 180 },
   { key: 'templateContent', label: '消息内容', minWidth: 280 },
   { key: 'readStatus', label: '是否已读', width: 160 },
-  { key: 'readTime', label: '阅读时间', width: 200 },
   { key: 'operation', label: '操作', width: 160, hideable: false, business: false }
 ]
 const {
@@ -256,6 +250,7 @@ const getList = async () => {
     const data = await NotifyMessageApi.getMyNotifyMessagePage(queryParams)
     list.value = mergeReadTimeOverrides(data.list)
     total.value = data.total
+    await refreshTableLayout()
   } finally {
     loading.value = false
   }

@@ -1,7 +1,8 @@
 <template>
-  <ContentWrap title="偏差管理">
+  <ContentWrap class="edhr-record-viewport">
     <UnifiedListTemplate
       table-key="mes.pro.edhr.deviation.main"
+      single-line-toolbar
       :query-model="query"
       :filter-definitions="filterDefinitions"
       :show-quick-filter-label="false"
@@ -18,13 +19,11 @@
       @sort-change="handleSortChange"
     >
       <template #actions>
-        <el-tabs v-model="activeStatus" @tab-change="handleTabChange"><el-tab-pane label="全部" name="ALL" /><el-tab-pane label="未处理" name="OPEN" /><el-tab-pane label="已处理" name="CLOSED" /></el-tabs>
         <el-button v-hasPermi="['mes:pro-edhr-deviation:create']" type="primary" @click="openCreate">发起偏差</el-button>
         <el-button v-if="selectedCritical.length > 0" v-hasPermi="['mes:pro-edhr-nonconformance-review:deviation-create']" type="danger" @click="openBatchNcr">批量发起不合格审批（{{ selectedCritical.length }}）</el-button>
-        <el-button @click="load">查询</el-button><el-button @click="reset">重置</el-button>
       </template>
       <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
-        <el-table v-loading="loading" :data="rows" empty-text="没有偏差" row-key="id" @selection-change="handleSelectionChange" @sort-change="handleTemplateSortChange">
+        <el-table height="100%" v-loading="loading" :data="rows" empty-text="没有偏差" row-key="id" @selection-change="handleSelectionChange" @sort-change="handleTemplateSortChange">
           <el-table-column type="selection" width="48" :selectable="isCriticalOpen" />
           <el-table-column prop="deviationCode" label="偏差编号" min-width="180" v-bind="sortColumnAttrs('deviationCode')" />
           <el-table-column prop="batchExecutionCode" label="关联批记录" min-width="180" />
@@ -65,6 +64,7 @@
 </template>
 
 <script setup lang="ts">
+import '@/views/mes/pro/edhr-batch/record-viewport.css'
 import { createDeviation, getDeviationBatchOptions, getDeviationPage, type DeviationBatchOptionRespVO, type DeviationCreateReqVO, type DeviationRespVO } from '@/api/mes/pro/edhr/deviation'
 import type { FormInstance, FormRules } from 'element-plus'
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
@@ -96,7 +96,6 @@ watch(() => route.fullPath, () => { resetBatchNcrContext(); batchNcrVisible.valu
 onDeactivated(resetBatchNcrContext)
 onBeforeUnmount(resetBatchNcrContext)
 const total = ref(0)
-const activeStatus = ref<'ALL' | 'OPEN' | 'CLOSED'>('ALL')
 const detailVisible = ref(false)
 const detailId = ref<number>()
 const query = reactive({ pageNo: 1, pageSize: 10, search: '', level: undefined as 'NORMAL' | 'CRITICAL' | undefined, initiatedAt: [] as string[], sortField: '', sortOrder: undefined as 'asc' | 'desc' | undefined })
@@ -150,7 +149,7 @@ const load = async () => {
   const isCurrent = () => serial === requestSerial && routeKey === route.fullPath && approvalInvalidation.isCurrent(sessionKey)
   loading.value = true
   try {
-    const data = await getDeviationPage({ ...query, initiatedAtStart: query.initiatedAt?.[0], initiatedAtEnd: query.initiatedAt?.[1], status: activeStatus.value === 'ALL' ? undefined : activeStatus.value }, { ignoreErrorMessage: true, isRequestContextCurrent: isCurrent })
+    const data = await getDeviationPage({ ...query, initiatedAtStart: query.initiatedAt?.[0], initiatedAtEnd: query.initiatedAt?.[1] }, { ignoreErrorMessage: true, isRequestContextCurrent: isCurrent })
     if (!isCurrent()) return false
     rows.value = data.list || []
     total.value = data.total || 0
@@ -170,8 +169,6 @@ const handleSortChange = (state: { key?: string; prop?: string; order?: 'ascendi
   query.pageNo = 1
   void load()
 }
-const handleTabChange = () => { query.pageNo = 1; load() }
-const reset = () => { query.search = ''; query.level = undefined; query.initiatedAt = []; query.sortField = ''; query.sortOrder = undefined; query.pageNo = 1; quickFilter.resetQuickFilter(); void load() }
 const openDetail = (id: number) => { detailId.value = id; detailVisible.value = true }
 const isCriticalOpen = (row: DeviationRespVO) => row.level === 'CRITICAL' && row.status === 'OPEN' && row.canTransferToNcr === true
 const handleSelectionChange = (selection: DeviationRespVO[]) => {
@@ -243,5 +240,15 @@ const submitCreate = async () => {
     await load()
   } catch (error: any) { createError.value = error?.response?.data?.msg || '偏差发起失败，请重试' } finally { createLoading.value = false }
 }
-onMounted(load)
+const applyHistoryEntry = () => {
+  if (route.path !== '/mes/pro/feedback/edhr-deviation') return
+  const value = route.query.deviationId
+  if (value === undefined) return
+  if (typeof value !== 'string' || !/^[1-9]\d*$/.test(value) || !Number.isSafeInteger(Number(value))) {
+    throw new Error('偏差详情入口编号无效。')
+  }
+  openDetail(Number(value))
+}
+watch(() => route.query.deviationId, applyHistoryEntry)
+onMounted(() => { applyHistoryEntry(); void load() })
 </script>

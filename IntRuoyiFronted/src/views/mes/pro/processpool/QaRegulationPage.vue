@@ -510,9 +510,6 @@
                     <div class="qa-regulation-page__common-binding-head">
                       <div>
                         <strong>通用规程套信息</strong>
-                        <p class="qa-regulation-page__common-binding-subtitle">
-                          维护可复用的通用检验规程套，供产品 QA 规程引用已发布套版本。
-                        </p>
                       </div>
                       <el-tag
                         data-qa-common-overview-status
@@ -909,6 +906,7 @@
                 </div>
 
                 <UnifiedListTemplate
+                  single-line-toolbar
                   table-key="mes.qa.common-regulation.items.processMethods.v1"
                   :query-model="commonRegulationItemsQuery"
                   :filter-definitions="qaEmptyFilterDefinitions"
@@ -1371,9 +1369,6 @@
               <div class="qa-regulation-page__common-binding-head">
                 <div>
                   <strong>关联通用检验规程</strong>
-                  <p class="qa-regulation-page__common-binding-subtitle">
-                    当前产品 QA 规程维护专属检验内容，并引用一个已发布的通用规程套版本。
-                  </p>
                 </div>
                 <el-tag data-qa-regulation-common-binding-status type="info" effect="plain">
                   {{ commonRegulationBindingStatusText }}
@@ -1569,6 +1564,7 @@
             </div>
           </template>
           <UnifiedListTemplate
+            single-line-toolbar
             table-key="mes.qa.regulation.items.processMethods.v3"
             :query-model="qaItemsQuery"
             :filter-definitions="qaEmptyFilterDefinitions"
@@ -2001,6 +1997,7 @@
           <el-card shadow="never" data-qa-regulation-completeness>
             <template #header>发布必要条件</template>
             <UnifiedListTemplate
+              single-line-toolbar
               table-key="mes.qa.regulation.checks"
               :query-model="qaChecksQuery"
               :filter-definitions="qaEmptyFilterDefinitions"
@@ -2075,6 +2072,7 @@
           <el-card shadow="never" data-qa-pqc-task-preview>
             <template #header>PQC 任务预览</template>
             <UnifiedListTemplate
+              single-line-toolbar
               table-key="mes.qa.regulation.pqcPreview.v2"
               :query-model="qaPqcPreviewQuery"
               :filter-definitions="qaEmptyFilterDefinitions"
@@ -5522,13 +5520,6 @@ const runQaPublishPrecheck = async () => {
   color: #172033;
   font-size: 16px;
   font-weight: 700;
-}
-
-.qa-regulation-page__common-binding-subtitle {
-  margin: 6px 0 0;
-  color: #667085;
-  font-size: 13px;
-  line-height: 1.6;
 }
 
 .qa-regulation-page__common-set-workbench {

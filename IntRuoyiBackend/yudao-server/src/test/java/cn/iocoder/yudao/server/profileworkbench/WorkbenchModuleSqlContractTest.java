@@ -24,6 +24,9 @@ class WorkbenchModuleSqlContractTest {
   var chunk=List.of(DCC+"chunkDistribution",DCC+"chunkTraining",MES+"chunkEdhr",MES+"chunkWorkOrder",SHOW+"chunkAssignment");
   for(int i=0;i<5;i++){
    var q=query();String c=sql(count.get(i),Map.of("q",q));assertTrue(c.contains("COUNT(DISTINCT CAST(CONVERT(u.task_key USING utf8mb4) AS BINARY))"));assertTrue(c.contains("THEN COUNT(*) ELSE NULL END"));assertTrue(c.indexOf("COUNT(DISTINCT")<c.indexOf("system_profile_workbench_task_visibility"));assertFalse(c.contains(" IN (?)"));
+   String all=sql(count.get(i),Map.of("q",q.partition(null)));
+   assertTrue(all.contains("COUNT(DISTINCT CAST(CONVERT(r.task_key USING utf8mb4) AS BINARY))"));assertTrue(all.contains("THEN COUNT(*) ELSE NULL END"));
+   assertFalse(all.contains("SELECT CASE WHEN (SELECT"));assertFalse(c.contains("AS due_group"));assertFalse(all.contains("AS due_group"));
    var args=new HashMap<String,Object>();args.put("q",q);args.put("fetchLimit",101);args.put("after",new ChunkCursor("FIXTURE","类别","来源","é","待处理",null,null,"row-😀"));String s=sql(chunk.get(i),args);
    assertTrue(s.contains("AS DATETIME(6)"));assertTrue(s.contains("CONVERT(r.row_order_key USING utf8mb4) AS BINARY) DESC"));assertTrue(s.contains("r.due_group ASC,r.due_sort ASC,r.created_sort DESC"));assertTrue(s.contains("NOT EXISTS"));assertTrue(s.contains("CONVERT(v.task_key USING utf8mb4)"));assertTrue(s.contains("LIMIT ?"));
    args.put("fetchLimit",1000);assertThrows(RuntimeException.class,()->sql(chunk.get(0),args));

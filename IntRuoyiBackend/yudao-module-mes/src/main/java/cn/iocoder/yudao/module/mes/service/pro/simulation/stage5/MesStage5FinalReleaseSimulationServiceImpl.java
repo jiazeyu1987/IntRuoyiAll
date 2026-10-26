@@ -277,7 +277,7 @@ public class MesStage5FinalReleaseSimulationServiceImpl implements MesStage5Fina
                 .setSourceDossierHash(reportSnapshotHash)
                 .setReleaseStatus(MesStage5FinalReleaseSimulationContractValidator.PENDING_RELEASE_STATUS)
                 .setApplicationStatus(MesStage5FinalReleaseSimulationContractValidator.PENDING_APPLICATION_STATUS)
-                .setManagerWorkTaskPath("/mes/pro/edhr-work-task?taskType=RELEASE_APPROVE&simulationRunId=" + runId)
+                .setManagerWorkTaskPath("/approval-center/todo?moduleCode=EDHR&simulationRunId=" + runId)
                 .setFinalReleaseReady(false)
                 .setBatchExecutionDossierSnapshot(dossier)
                 .setManagerReleaseContext(context)
