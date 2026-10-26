@@ -19,15 +19,27 @@ public class EdhrReleasePrecheckContentReader {
         var raw = ApprovalContentJson.parse(release.getPrecheckSnapshotJson());
         Set<String> allowed = Set.of("batchExecutionId", "releaseStatus", "checkedAt", "materialGateManifestHash", "items", "batchExecutionCode", "workOrderCode", "batchCode", "productCode", "evidencePolicy", "formalFactsHash");
         raw.fieldNames().forEachRemaining(key -> { if (!allowed.contains(key)) fail("unknown precheck key " + key); });
-        for (String key : Set.of("batchExecutionId", "releaseStatus", "checkedAt", "materialGateManifestHash", "items")) if (!raw.has(key)) fail("missing precheck key " + key);
-        if (!raw.path("batchExecutionId").isIntegralNumber() || !raw.path("batchExecutionId").canConvertToLong() || !Objects.equals(raw.path("batchExecutionId").longValue(), release.getBatchExecutionId())) fail("precheck batch");
-        String time = raw.path("checkedAt").asText(); if (!time.matches("[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}")) fail("precheck time format");
-        LocalDateTime checked;
-        try { checked = LocalDateTime.parse(time, DateTimeFormatter.ofPattern("uuuu-MM-dd'T'HH:mm:ss").withResolverStyle(ResolverStyle.STRICT)); }
-        catch (java.time.DateTimeException e) { throw new IllegalArgumentException("EDHR_PRECHECK_CALENDAR_INVALID", e); }
-        if (checked.getYear() < 1 || !checked.equals(release.getLastPrecheckAt())) fail("lastPrecheckAt mismatch");
         boolean active="ACTIVE_ORDER_FORMAL_FACTS_V1".equals(raw.path("evidencePolicy").asText());
-        if(active ? !raw.path("formalFactsHash").asText().matches("ACTIVE_ORDER_FACTS:[0-9a-f]{64}") || !raw.path("materialGateManifestHash").isNull()
+        for (String key : Set.of("batchExecutionId", "releaseStatus", "checkedAt", "items")) if (!raw.has(key)) fail("missing precheck key " + key);
+        // The active-order producer has no independent material gate. Fastjson omits
+        // its null map value; neither absence nor explicit null asserts a gate hash.
+        if (!active && !raw.has("materialGateManifestHash")) fail("missing precheck key materialGateManifestHash");
+        if (!raw.path("batchExecutionId").isIntegralNumber() || !raw.path("batchExecutionId").canConvertToLong() || !Objects.equals(raw.path("batchExecutionId").longValue(), release.getBatchExecutionId())) fail("precheck batch");
+        LocalDateTime checked;
+        var savedTime = raw.path("checkedAt");
+        if (savedTime.isIntegralNumber() && savedTime.canConvertToLong()) {
+            // The application's TimestampLocalDateTimeSerializer persists epoch milliseconds
+            // in the JVM zone. Compare the same instant with the formal database timestamp.
+            if (savedTime.longValue() % 1000 != 0) fail("precheck millisecond precision");
+            checked = LocalDateTime.ofInstant(java.time.Instant.ofEpochMilli(savedTime.longValue()), java.time.ZoneId.systemDefault());
+        } else {
+            String time = savedTime.asText();
+            if (!savedTime.isTextual() || !time.matches("[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}")) fail("precheck time format");
+            try { checked = LocalDateTime.parse(time, DateTimeFormatter.ofPattern("uuuu-MM-dd'T'HH:mm:ss").withResolverStyle(ResolverStyle.STRICT)); }
+            catch (java.time.DateTimeException e) { throw new IllegalArgumentException("EDHR_PRECHECK_CALENDAR_INVALID", e); }
+        }
+        if (checked.getYear() < 1 || !checked.equals(release.getLastPrecheckAt())) fail("lastPrecheckAt mismatch");
+        if(active ? !raw.path("formalFactsHash").asText().matches("ACTIVE_ORDER_FACTS:[0-9a-f]{64}") || raw.hasNonNull("materialGateManifestHash")
                 : raw.has("evidencePolicy") || raw.has("formalFactsHash")) fail("precheck evidence policy mismatch");
         int expectedCount=active?6:10;
         var rows = mapper.selectCurrentOpen(release.getId(), locked);

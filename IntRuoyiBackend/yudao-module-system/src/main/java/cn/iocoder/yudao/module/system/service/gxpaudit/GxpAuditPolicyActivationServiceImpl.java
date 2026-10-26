@@ -59,6 +59,7 @@ public class GxpAuditPolicyActivationServiceImpl implements GxpAuditPolicyActiva
     @Override
     @Transactional(rollbackFor = Exception.class)
     public GxpAuditPolicyActivationResult activate(GxpAuditPolicyActivationCommand command) {
+        if (GxpAuditDevelopmentMode.disabled()) throw new IllegalStateException("GXP_AUDIT_DEVELOPMENT_DISABLED: formal activation is unavailable");
         if (localDevelopmentPolicy != null) {
             throw exception(GXP_AUDIT_POLICY_ACTIVATION_INVALID, "disable-local-development-policy-before-formal-activation");
         }

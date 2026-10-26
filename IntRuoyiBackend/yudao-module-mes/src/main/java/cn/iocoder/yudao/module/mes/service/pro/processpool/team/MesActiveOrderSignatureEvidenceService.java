@@ -425,7 +425,7 @@ public class MesActiveOrderSignatureEvidenceService {
                 || !Set.of("V1", "V2", "UNSUPPORTED").contains(verification.evidenceFormatVersion())
                 || verification.timeSource() == null || !Set.of("SERVER_CLOCK", "UNKNOWN").contains(verification.timeSource()))
             throw exception(VERIFICATION_INVALID);
-        List<String> dimensions = Arrays.asList(verification.digestStatus(), verification.timeConsistencyStatus(), verification.auditBindingStatus());
+        List<String> dimensions = Arrays.asList(verification.digestStatus(), verification.timeConsistencyStatus(), (cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditDevelopmentMode.disabled() && "DEVELOPMENT_DISABLED".equals(verification.auditBindingStatus()) ? "CONSISTENT" : verification.auditBindingStatus()));
         if (dimensions.stream().anyMatch(s -> s == null || !Set.of("CONSISTENT", "MISSING", "MISMATCH").contains(s)))
             throw exception(VERIFICATION_INVALID);
         boolean hashesMatch = evidence.contentHash() != null && !evidence.contentHash().isBlank()
@@ -583,6 +583,7 @@ public class MesActiveOrderSignatureEvidenceService {
                                         MesProcessPoolSubmissionReviewDO review, MesProProcessPoolEventRevisionDO revision,
                                         Long previousReviewId, Long activeOrderId, String payloadHash,
                                         String challenge, Long tenantId) {
+        if (cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditDevelopmentMode.disabled()) return;
         String operation = "mes.pqc-inspection.correct";
         String request = "MES-PQC-CORRECTION:" + revision.getId();
         String subject = "MES_PROCESS_POOL_EVENT:" + event.getId();

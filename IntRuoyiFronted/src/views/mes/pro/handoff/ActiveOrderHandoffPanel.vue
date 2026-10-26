@@ -57,6 +57,10 @@
     </el-dialog>
     <el-dialog v-model="receiptOpen" title="本人交接通知回执" width="680px" @close="closeReceipt">
       <el-alert v-if="receiptError" :title="receiptError" type="error" :closable="false" class="mb-4" />
+      <el-alert v-if="receiptResponsibility.error" :title="receiptResponsibility.error" type="error" :closable="false" class="mb-4" />
+      <el-descriptions v-else-if="selected" :column="1" border class="mb-4">
+        <el-descriptions-item label="原任务候选用户编号"><span data-handoff-receipt-candidate-user-ids>{{ receiptResponsibility.ids.join('、') }}</span></el-descriptions-item>
+      </el-descriptions>
       <el-table :data="receipts" v-loading="receiptLoading">
         <el-table-column label="投递状态"><template #default="{ row }">{{ deliveryStates[row.status] }}</template></el-table-column>
         <el-table-column label="尝试次数" prop="attemptCount" />
@@ -77,6 +81,7 @@ import { useRouter, useRoute } from 'vue-router'
 import * as api from '@/api/mes/pro/handoff'
 import { resolveActiveOrderHandoffTarget, navigateToActiveOrderHandoff, isClosedHandoffCompletion } from '@/utils/activeOrderHandoffNavigation'
 import { formatDateTimeValue } from '@/utils/formatTime'
+import { readHandoffReceiptCandidates } from '@/utils/handoffReceiptResponsibility'
 const router = useRouter(), route = useRoute()
 const resultOpen = ref(false), result = ref<api.HandoffTask>()
 let resultEpoch = 0
@@ -92,6 +97,11 @@ const changePage = (nextPage: number) => {
   page.value = Math.min(Math.max(1, nextPage), Math.max(1, Math.ceil(tasks.value.length / PAGE_SIZE)))
 }
 const selected = ref<api.HandoffTask>(), receipts = ref<api.HandoffReceipt[]>([])
+const receiptResponsibility = computed(() => {
+  if (!selected.value) return { ids: [] as string[], error: '' }
+  try { return { ids: readHandoffReceiptCandidates(selected.value), error: '' } }
+  catch (error) { return { ids: [] as string[], error: error instanceof Error ? error.message : String(error) } }
+})
 const receiptOpen = ref(false), receiptLoading = ref(false), receiptError = ref(''), retryReason = ref(''), retrying = ref(false)
 let listEpoch = 0, receiptEpoch = 0
 const labels: Record<string, string> = { PRODUCTION_HANDOFF: '生产接手', PRODUCTION_REVIEW: '生产组长复核', PQC_HANDOFF: 'PQC检验接手', PQC_REVIEW: 'PQC组长复核', PRODUCTION_RETURN: '本人生产退回更正', PQC_RETURN: '本人PQC退回更正', QA_REVIEW: 'QA不合格评审', QA_DECISION_HANDOFF: 'QA处置结果交接' }

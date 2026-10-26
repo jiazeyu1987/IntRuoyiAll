@@ -11,14 +11,27 @@ const row = { returnTaskId: '1900000000000000001', eventId: 176, activeOrderId: 
   workOrderCode: 'OWN-TEST', formName: '参数录入', rejectionReason: '参数需核对', rejectedAt: '2026-10-05' }
 const production = { outputQuantity: 10, materialDetails: [], lossDetails: [],
   deviceParameterReadings: [{ deviceId: 663, parameterCode: 'COUNT', value: 2 }] }
+const stateModule = { exports: {} }
+const stateCode = ts.transpileModule(fs.readFileSync(path.resolve(__dirname, '../../src/store/modules/approvalCenterInvalidationState.ts'), 'utf8'),
+  { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS } }).outputText
+Function('exports', 'module', stateCode)(stateModule.exports, stateModule)
 function harness(mode = 'production', permissions = ['mes:pro-feedback:query', 'mes:pro-feedback:create']) {
   const ast = ts.createSourceFile('panel.ts', descriptor.scriptSetup.content, ts.ScriptTarget.Latest, true)
   const body = ast.statements.filter(s => !ts.isImportDeclaration(s)).map(s => s.getText(ast)).join('\n')
   const reads = [], writes = [], emits = [], allowed = new Set(permissions)
+  const session = Object.freeze({ key: 'test-session', tenantId: '1', loginUserId: '344' })
+  const state = stateModule.exports.createApprovalInvalidationState()
+  state.setSession(session.key)
+  const approvalInvalidation = { contextKey: session.key, syncSession: () => session,
+    isCurrent: key => key === session.key, captureEdhrSuccess: identity => state.capture(session, identity),
+    publishEdhrSuccess: event => state.publish(event) }
   let detail = { row, production }
   let save = async request => { writes.push(request); return { eventId: 176, revisionId: 701,
     changes: [{ fieldName: '次数', beforeValue: '2', afterValue: '3' }] } }
   const context = { ...vue, defineProps: () => ({ mode }), defineEmits: () => (...args) => emits.push(args),
+    useApprovalCenterInvalidationStore: () => approvalInvalidation,
+    useRouter: () => ({ currentRoute: vue.ref({ fullPath: '/test/frontline/' + mode }) }),
+    onBeforeUnmount() {}, onDeactivated() {},
     defineExpose() {}, checkPermi: requested => requested.some(p => allowed.has(p)),
     listOwnReturns: async type => { reads.push(['list', type]); return [row] },
     getOwnReturnDetail: async (request, type) => { reads.push(['detail', request, type]); return detail },
@@ -70,19 +83,19 @@ test('own production changes an actual parameter, retaining quantity, original e
   assert.equal(h.emits[0][0], 'corrected'); assert.equal(h.writes[0].correction.actorUserId, undefined)
 })
 test('unchanged form is blocked even with a new reason and password', async () => {
-  const h = harness(); await h.panel.choose(row)
+  const h = harness(); await h.panel.open(); await h.panel.choose(row)
   h.panel.reason.value = '只改理由'; h.panel.password.value = 'test-only-signature'; await h.panel.resubmit()
   assert.equal(h.writes.length, 0); assert.match(h.panel.errorText.value, /业务值/)
 })
 test('stale detail cannot replace the selected cycle and submit another round', async () => {
   const h = harness(); h.setDetail({ row: { ...row, activeOrderId: 412 }, production })
-  await h.panel.choose(row); assert.equal(h.panel.draft.value, undefined); assert.match(h.panel.errorText.value, /轮次/)
+  await h.panel.open(); await h.panel.choose(row); assert.equal(h.panel.draft.value, undefined); assert.match(h.panel.errorText.value, /轮次/)
 })
 test('PQC sends legal measurement changes with frozen sample quantity and equipment', async () => {
   const h = harness('pqc'); h.setDetail({ row, pqc: { actualInspectionQuantity: 2, scrapQuantity: 0,
     items: [{ itemCode: 'QA-1', itemName: '尺寸', resultType: 'NUMERIC', lowerLimit: 1, upperLimit: 5,
       selectedEquipmentId: 663, selectedEquipmentNumber: 'EQ-1', sampleValues: ['2', '2'] }] } })
-  await h.panel.choose(row); h.panel.draft.value.pqc.items[0].sampleValues[0] = '3'
+  await h.panel.open(); await h.panel.choose(row); h.panel.draft.value.pqc.items[0].sampleValues[0] = '3'
   h.panel.reason.value = '核对量测'; h.panel.password.value = 'test-only-signature'; await h.panel.resubmit()
   assert.equal(h.writes[0].correction.actualInspectionQuantity, 2)
   assert.deepEqual(h.writes[0].correction.itemResults, [{ itemCode: 'QA-1', selectedEquipmentId: 663,
@@ -90,14 +103,14 @@ test('PQC sends legal measurement changes with frozen sample quantity and equipm
   assert.equal(h.writes[0].correction.afterPayload, undefined)
 })
 test('server rejection preserves the form, shows the failure and clears signature password', async () => {
-  const h = harness(); await h.panel.choose(row); h.panel.draft.value.production.deviceParameterReadings[0].value = 3
+  const h = harness(); await h.panel.open(); await h.panel.choose(row); h.panel.draft.value.production.deviceParameterReadings[0].value = 3
   h.panel.reason.value = '核对记录'; h.panel.password.value = 'test-only-signature'
   h.setSave(async () => { throw Error('已非当前退回轮次') }); await h.panel.resubmit()
   assert.match(h.panel.errorText.value, /已非当前退回轮次/); assert.equal(h.panel.password.value, '')
   assert.equal(h.panel.result.value, undefined); assert.equal(h.panel.draft.value.production.deviceParameterReadings[0].value, 3)
 })
 test('pending correction rejects duplicate clicks and keeps the original request immutable', async () => {
-  const h = harness(); await h.panel.choose(row); h.panel.draft.value.production.deviceParameterReadings[0].value = 3
+  const h = harness(); await h.panel.open(); await h.panel.choose(row); h.panel.draft.value.production.deviceParameterReadings[0].value = 3
   h.panel.reason.value = '核对记录'; h.panel.password.value = 'test-only-signature'
   let resolve; h.setSave(request => { h.writes.push(request); return new Promise(r => { resolve = r }) })
   const pending = h.panel.resubmit(); await h.panel.resubmit(); assert.equal(h.writes.length, 1)

@@ -429,13 +429,22 @@
 
           <el-descriptions v-if="managerReleaseTask" :column="2" border>
             <el-descriptions-item label="放行事务">
-              {{ managerReleaseTask.businessScopeId }}
+              <span data-manager-release-transaction-id>{{ managerReleaseTask.businessScopeId }}</span>
             </el-descriptions-item>
             <el-descriptions-item label="管理者待办">
-              {{ managerReleaseTask.id }}
+              <span data-manager-release-task-id>{{ managerReleaseTask.id }}</span>
             </el-descriptions-item>
             <el-descriptions-item label="版本">
-              {{ managerReleaseReceipt?.version ?? managerReleaseTask.version }}
+              <span data-manager-release-version>{{ managerReleaseReceipt?.version ?? managerReleaseTask.version }}</span>
+            </el-descriptions-item>
+            <el-descriptions-item label="生产批次编号">
+              <span data-manager-release-batch-id>{{ managerReleaseReceipt?.batchExecutionId ?? '--' }}</span>
+            </el-descriptions-item>
+            <el-descriptions-item label="正式审批人">
+              <span data-manager-release-approved-by>{{ managerReleaseReceipt?.approvedBy ?? '--' }}</span>
+            </el-descriptions-item>
+            <el-descriptions-item label="正式审批时间">
+              <span data-manager-release-approved-at>{{ managerReleaseReceipt?.approvedAt ?? '--' }}</span>
             </el-descriptions-item>
             <el-descriptions-item label="状态">
               <span data-manager-release-status>
@@ -443,6 +452,11 @@
               </span>
             </el-descriptions-item>
           </el-descriptions>
+
+          <details v-if="managerReleaseReceipt?.precheckSnapshotJson">
+            <summary>正式预检记录</summary>
+            <pre data-manager-release-precheck>{{ managerReleaseReceipt.precheckSnapshotJson }}</pre>
+          </details>
 
           <el-form
             v-if="!managerReleaseCompleted"

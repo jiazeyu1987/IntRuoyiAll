@@ -1,5 +1,6 @@
 package cn.iocoder.yudao.module.mes.service.pro.processpool.team;
 
+import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventRevisionDO;
@@ -56,8 +57,11 @@ public class MesActiveOrderCorrectionEvidenceService {
             for (var revision : revisions.selectListByEventId(source.getKey())) {
                 var verified = verifyRelated(detail, revision);
                 var event = events.selectById(source.getKey());
+                var supersededReview = JsonUtils.parseTree(revision.getAfterPayload()).path("supersededReviewId");
                 rows.add(new Correction(revision.getId(), revision.getEventId(), event.getEventType(), source.getValue(),
                         revision.getServerRevisionTime(), revision.getChangeReason(), verified.signerName(),
+                        supersededReview.isIntegralNumber() ? supersededReview.longValue() : null,
+                        verified.evidence().actorId(),
                         verified.evidence().id(), verified.evidence().signedAt(), verified.verification().verificationStatus(),
                         verified.changes().stream().map(d -> new Change(d.getFieldCode(), d.getFieldName(), d.getBeforeValue(), d.getAfterValue())).toList()));
             }
@@ -101,7 +105,7 @@ public class MesActiveOrderCorrectionEvidenceService {
     private static void check(boolean valid, String reason) { if (!valid) throw new IllegalStateException("CORRECTION_HISTORY_INVALID: " + reason); }
     public record Timeline(Long activeOrderId, List<Correction> corrections) {}
     public record Correction(Long revisionId, Long eventId, String eventType, String processName, LocalDateTime revisedAt,
-                             String reason, String signerName, Long signatureId, LocalDateTime signedAt,
+                             String reason, String signerName, Long supersededReviewId, Long signerUserId, Long signatureId, LocalDateTime signedAt,
                              String verificationStatus, List<Change> changes) {}
     public record Change(String fieldCode, String fieldName, String beforeValue, String afterValue) {}
 }

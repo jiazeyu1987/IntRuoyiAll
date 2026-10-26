@@ -1174,6 +1174,8 @@ export const ProFeedbackApi = {
   frontlineSubmit: async (data: ProFrontlineFeedbackSubmitReqVO, options?: { isRequestContextCurrent?: () => boolean; isSuccessReceiptContextCurrent?: () => boolean }) => {
     return await request.post<ProFrontlineFeedbackSubmitRespVO>({
       url: `/mes/pro/feedback/frontline/submit`,
+      // Allow the formal transaction and its acknowledgement to finish; never auto-retry.
+      timeout: 150000,
       data,
       ignoreErrorMessage: true,
       isRequestContextCurrent: options?.isRequestContextCurrent,

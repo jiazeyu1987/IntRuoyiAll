@@ -220,13 +220,13 @@ public class MesProEdhrApprovalTaskAdapter implements ApprovalTaskProvider, Appr
             cn.iocoder.yudao.module.bpm.approval.content.PreparedApprovalContent content,
             cn.iocoder.yudao.module.signature.service.ElectronicSignatureVerifiedFactService.VerifiedSignatureFact signature) {
         if (command.getResult() != ApprovalTaskReviewResult.APPROVE) throw new IllegalArgumentException("APPROVAL_REVIEW_RESULT_UNSUPPORTED");
-        var auditFact = creationAudits.requireVerifiedEvent(content.identity().tenantId(), signature.auditEventId());
+        var auditFact = cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditDevelopmentMode.disabled() ? null : creationAudits.requireVerifiedEvent(content.identity().tenantId(), signature.auditEventId());
         var raw = cn.iocoder.yudao.module.bpm.approval.content.ApprovalContentJson.parse(content.canonicalBusinessContentJson());
         var result = releaseService.approveFromCenter(new cn.iocoder.yudao.module.mes.approval.content.EdhrCenterReviewCommand()
                 .setActorId(actorId).setWorkTaskId(Long.valueOf(content.identity().sourceTaskId()))
                 .setExpectedVersion(Integer.valueOf(raw.at("/release/version").textValue())).setIdempotencyKey(command.getIdempotencyKey())
                 .setReason(command.getReason()).setSignatureId(signature.id()).setSignatureCreationEventId(signature.auditEventId())
-                .setSignatureCreationEventHash(auditFact.eventHash()).setCenterReceiptId(receiptId).setPrepareId(command.getPrepareId())
+                .setSignatureCreationEventHash(auditFact == null ? "DEVELOPMENT_DISABLED" : auditFact.eventHash()).setCenterReceiptId(receiptId).setPrepareId(command.getPrepareId())
                 .setCanonicalHash(content.contentHash()).setRenderedHash(content.contentHash()).setSubjectId(signature.subjectId())
                 .setSubjectVersion(signature.subjectVersion()).setEvidenceHash(signature.evidenceHash()));
         var events = releaseEvents.selectList(new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrReleaseTransactionEventDO>()
@@ -234,6 +234,10 @@ public class MesProEdhrApprovalTaskAdapter implements ApprovalTaskProvider, Appr
                 .eq(cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrReleaseTransactionEventDO::getIdempotencyKey,command.getIdempotencyKey()));
         if (events.size()!=1 || result.getReleaseDecisionId()==null) throw new IllegalStateException("EDHR_CENTER_DOMAIN_LINKS_MISSING");
         var links = new LinkedHashMap<String,Object>(); links.put("releaseId", content.identity().domainSubjectId());links.put("decisionId", result.getReleaseDecisionId().toString());links.put("eventId",events.get(0).getId().toString());
+        if (cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditDevelopmentMode.disabled()) {
+            links.put("auditStatus", "DEVELOPMENT_DISABLED");
+            return new cn.iocoder.yudao.module.bpm.approval.content.ApprovalDomainDecision("APPROVE",result.getReleaseStatus(),cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(links));
+        }
         var candidates=creationAudits.readCandidateEventIdsByTarget(content.identity().tenantId(),"RELEASE_DECISION",result.getReleaseDecisionId().toString());
         var verifiedDomain=new java.util.ArrayList<cn.iocoder.yudao.module.system.service.gxpaudit.GxpCreationAuditVerificationService.VerifiedAuditEventFact>();
         for(var candidate:candidates) {

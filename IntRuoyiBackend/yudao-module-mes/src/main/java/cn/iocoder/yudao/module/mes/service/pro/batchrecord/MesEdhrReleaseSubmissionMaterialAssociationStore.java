@@ -61,8 +61,9 @@ public class MesEdhrReleaseSubmissionMaterialAssociationStore {
         var proof = creation.requireMaterialCreation(tenant, row.getBatchExecutionId(), row.getMaterialReceiptId());
         require(Objects.equals(proof.sourceRowId(), row.getMaterialSourceRowId())
                 && Objects.equals(proof.sourceHash(), row.getMaterialReceiptHash())
-                && Objects.equals(proof.creationEventId(), row.getMaterialCreationEventId())
-                && Objects.equals(proof.creationEventHash(), row.getMaterialCreationEventHash()), "SUBMISSION_MATERIAL_MISMATCH");
+                && (cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditDevelopmentMode.disabled() || Objects.equals(proof.creationEventId(), row.getMaterialCreationEventId())
+                && Objects.equals(proof.creationEventHash(), row.getMaterialCreationEventHash())), "SUBMISSION_MATERIAL_MISMATCH");
+        if (cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditDevelopmentMode.disabled()) return row;
         var audit = events.requireVerifiedEvent(tenant, row.getSubmissionAuditEventId());
         require(Objects.equals(audit.eventHash(), row.getSubmissionAuditEventHash())
                 && "mes.market-release.submit".equals(audit.columns().operationId())
@@ -81,6 +82,11 @@ public class MesEdhrReleaseSubmissionMaterialAssociationStore {
                 && Objects.equals(row.getSubmissionEventId(), sourceEvent.getId())
                 && Objects.equals(row.getSubmissionEvidenceHash(), sourceEvent.getEvidenceHash())
                 && Objects.equals(sourceEvent.getReason(), reason), "SUBMISSION_REPLAY_REQUEST_MISMATCH");
+        if (cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditDevelopmentMode.disabled()) {
+            var proof = creation.requireMaterialCreation(tenant, row.getBatchExecutionId(), row.getMaterialReceiptId());
+            require(Objects.equals(proof.sourceRowId(), row.getMaterialSourceRowId()) && Objects.equals(proof.sourceHash(), row.getMaterialReceiptHash()), "SUBMISSION_REPLAY_MATERIAL_MISMATCH");
+            return row;
+        }
         var audit = events.requireVerifiedEvent(tenant, row.getSubmissionAuditEventId());
         require(Objects.equals(audit.eventHash(), row.getSubmissionAuditEventHash())
                 && "mes.market-release.submit".equals(audit.columns().operationId())
@@ -99,6 +105,7 @@ public class MesEdhrReleaseSubmissionMaterialAssociationStore {
         var encoded = MesEdhrSourceCreationCodec.encodeSubmissionMaterialAssociationV1(payload(row));
         require(Objects.equals(encoded.canonicalJson(), row.getAssociationPayloadJson())
                 && Objects.equals(encoded.sha256(), row.getAssociationHash()), "SUBMISSION_ASSOCIATION_PAYLOAD_MISMATCH");
+        if (cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditDevelopmentMode.disabled()) return;
         MesEdhrSourceCreationBindingStore.positive(row.getSubmissionAuditEventId());
         MesEdhrSourceCreationBindingStore.hash(row.getSubmissionAuditEventHash());
     }

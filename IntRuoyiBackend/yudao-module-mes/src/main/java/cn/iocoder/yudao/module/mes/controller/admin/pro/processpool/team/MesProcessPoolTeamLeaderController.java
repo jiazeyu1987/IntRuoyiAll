@@ -1237,6 +1237,7 @@ public class MesProcessPoolTeamLeaderController {
             MesTeamLeaderActiveOrderDetail.SubmissionDetail submission) {
         return new MesTeamLeaderActiveOrderDetailRespVO.SubmissionDetail()
                 .setEventId(submission.getEventId())
+                .setOriginalBusinessIdentityJson(submission.getOriginalBusinessIdentityJson())
                 .setSubmittedQuantity(submission.getSubmittedQuantity())
                 .setSubmitterName(submission.getSubmitterName())
                 .setReviewerName(submission.getReviewerName())
@@ -1318,6 +1319,7 @@ public class MesProcessPoolTeamLeaderController {
                 .setPqcTaskIds(submission.getPqcTaskIds())
                 .setSubmittedEventId(submission.getSubmittedEventId())
                 .setSubmittedEventIds(submission.getSubmittedEventIds())
+                .setOriginalBusinessIdentities(submission.getOriginalBusinessIdentities())
                 .setProductionEventId(submission.getProductionEventId())
                 .setProductionEventIds(submission.getProductionEventIds())
                 .setProductionSubmitterSignatures(submission.getProductionSubmitterSignatures().stream()

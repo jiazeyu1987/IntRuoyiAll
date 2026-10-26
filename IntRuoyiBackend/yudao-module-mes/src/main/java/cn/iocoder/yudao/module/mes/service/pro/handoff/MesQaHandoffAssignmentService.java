@@ -32,13 +32,27 @@ public class MesQaHandoffAssignmentService {
     @Resource private MesActiveOrderHandoffAudit audit;
 
     public record Option(Long id,String label) { }
-    public record RuleView(Long id,String candidateSourceType,Long candidateSourceId,String candidateLabel,Boolean enabled,String remark) { }
+    public record CandidateUser(Long id,String accountName,String visibleDisplayName) { }
+    public record RuleView(Long id,String candidateSourceType,Long candidateSourceId,String candidateLabel,Boolean enabled,String remark,
+            List<CandidateUser> candidateUsers) { }
     public RuleView view(Long routeId) {
-        var rule=get(routeId);if(rule==null)return null;resolveRule(rule);
-        String label="USER".equals(rule.getCandidateSourceType())
-                ? users.getUser(rule.getCandidateSourceId()).getNickname()+"（"+users.getUser(rule.getCandidateSourceId()).getUsername()+"）"
-                : roles.getRole(rule.getCandidateSourceId()).getName();
-        return new RuleView(rule.getId(),rule.getCandidateSourceType(),rule.getCandidateSourceId(),label,rule.getEnabled(),rule.getRemark());
+        var rule=get(routeId);if(rule==null)return null;
+        // Preserve the exact validated responsibility snapshot; do not expand the role a second time.
+        String snapshot=resolveRule(rule);
+        List<CandidateUser> candidateUsers=candidates(snapshot).stream().map(id->{
+            var user=users.getUser(id);
+            require(user!=null&&Objects.equals(user.getId(),id)&&user.getUsername()!=null&&!user.getUsername().isBlank()
+                    &&user.getNickname()!=null&&!user.getNickname().isBlank(),"QA正式候选账号身份缺失");
+            return new CandidateUser(id,user.getUsername(),user.getNickname());
+        }).toList();
+        String label;
+        if("USER".equals(rule.getCandidateSourceType())) {
+            require(candidateUsers.size()==1&&Objects.equals(candidateUsers.get(0).id(),rule.getCandidateSourceId()),
+                    "QA正式用户责任源与已核验候选不一致");
+            var candidate=candidateUsers.get(0);
+            label=candidate.visibleDisplayName()+"（"+candidate.accountName()+"）";
+        } else label=roles.getRole(rule.getCandidateSourceId()).getName();
+        return new RuleView(rule.getId(),rule.getCandidateSourceType(),rule.getCandidateSourceId(),label,rule.getEnabled(),rule.getRemark(),candidateUsers);
     }
     public List<Option> routeOptions() {
         return routes.selectList(new LambdaQueryWrapperX<MesProRouteDO>().eq(MesProRouteDO::getStatus,0)

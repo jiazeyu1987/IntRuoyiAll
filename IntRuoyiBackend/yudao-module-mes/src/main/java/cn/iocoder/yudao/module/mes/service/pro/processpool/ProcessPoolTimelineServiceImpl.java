@@ -48,6 +48,9 @@ public class ProcessPoolTimelineServiceImpl implements ProcessPoolTimelineServic
             DEVICE_PARAMETER_READING_TYPE = new TypeReference<>() {
             };
 
+    @jakarta.annotation.Resource
+    private TimelineReviewEvidenceReader reviewEvidenceReader;
+
     private final MesProProcessPoolTimelineReadMapper timelineReadMapper;
 
     public ProcessPoolTimelineServiceImpl(MesProProcessPoolTimelineReadMapper timelineReadMapper) {
@@ -185,8 +188,10 @@ public class ProcessPoolTimelineServiceImpl implements ProcessPoolTimelineServic
                 .setModificationHistorySummary(event.getModificationHistorySummary());
         if (MesProProcessPoolEventDO.EVENT_TYPE_PQC_INSPECTION.equals(event.getEventType())
                 || MesProProcessPoolEventDO.EVENT_TYPE_PRODUCTION_SUBMIT.equals(event.getEventType())) {
+            var displayedContext = displayedReviewContext(event);
             respVO.setDisplayedPayloadHash(MesCorrectionBaselineGuard.payloadHash(event.getOriginalPayloadJson()));
-            respVO.setExpectedReviews(List.of(displayedReviewContext(event)));
+            respVO.setExpectedReviews(List.of(displayedContext));
+            respVO.setDisplayedReviewEvidence("REJECTED".equals(event.getDisplayedReviewStatus()) ? reviewEvidenceReader.read(event) : List.of());
         }
         fillProductionSubmissionPayload(event, respVO);
     }
@@ -195,14 +200,16 @@ public class ProcessPoolTimelineServiceImpl implements ProcessPoolTimelineServic
         if(event.getOriginalPayloadJson()==null || event.getDisplayedReviewId()==null
                 || event.getDisplayedReviewRound()==null || event.getDisplayedRevisionId()==null)
             throw new IllegalStateException("PQC展示记录缺少正式审核上下文，请刷新");
+        if (event.getDisplayedReviewStatus() == null)
+            throw new IllegalStateException("提交展示缺少正式复核状态，请刷新");
         var context = new cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesSubmissionReviewExpectedContext().setEventId(event.getId())
                 .setPayloadHash(cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionFieldAuditHasher.sha256(event.getOriginalPayloadJson()))
-                .setRevisionId(event.getDisplayedRevisionId()).setReviewId(event.getDisplayedReviewId()).setReviewRound(event.getDisplayedReviewRound());
+                .setRevisionId(event.getDisplayedRevisionId()).setReviewId(event.getDisplayedReviewId()).setReviewRound(event.getDisplayedReviewRound())
+                .setReviewStatus(event.getDisplayedReviewStatus());
         if (MesProProcessPoolEventDO.EVENT_TYPE_PRODUCTION_SUBMIT.equals(event.getEventType())) {
-            if (event.getDisplayedAllocationVersion() == null || event.getDisplayedReviewStatus() == null)
+            if (event.getDisplayedAllocationVersion() == null)
                 throw new IllegalStateException("生产展示缺少正式复核状态或分配版本");
-            context.setAllocationVersion(event.getDisplayedAllocationVersion())
-                    .setReviewStatus(event.getDisplayedReviewStatus());
+            context.setAllocationVersion(event.getDisplayedAllocationVersion());
         }
         return context;
     }
@@ -239,6 +246,7 @@ public class ProcessPoolTimelineServiceImpl implements ProcessPoolTimelineServic
             }
             if (!groupedPayloads.isEmpty()) {
                 row.setExpectedReviews(groupedPayloads.stream().map(this::displayedReviewContext).toList());
+                row.setDisplayedReviewEvidence(groupedPayloads.stream().flatMap(member -> ("REJECTED".equals(member.getDisplayedReviewStatus()) ? reviewEvidenceReader.read(member) : List.<TimelineReviewEvidenceReader.Evidence>of()).stream()).toList());
             }
             if (groupedPayloads.isEmpty()) {
                 accumulator.add(row.getId(), row.getOriginalPayloadJson());

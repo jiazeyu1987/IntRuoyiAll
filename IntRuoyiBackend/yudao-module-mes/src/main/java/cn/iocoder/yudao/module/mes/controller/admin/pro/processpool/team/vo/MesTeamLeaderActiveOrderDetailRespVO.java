@@ -122,6 +122,7 @@ public class MesTeamLeaderActiveOrderDetailRespVO {
     @Accessors(chain = true)
     public static class SubmissionDetail {
         private Long eventId;
+        private String originalBusinessIdentityJson;
         private BigDecimal submittedQuantity;
         private String submitterName;
         private String reviewerName;
@@ -190,6 +191,7 @@ public class MesTeamLeaderActiveOrderDetailRespVO {
         private List<Long> pqcTaskIds;
         private Long submittedEventId;
         private List<Long> submittedEventIds;
+        private List<String> originalBusinessIdentities;
         private Long productionEventId;
         private List<Long> productionEventIds;
         private List<SignatureDetail> productionSubmitterSignatures;

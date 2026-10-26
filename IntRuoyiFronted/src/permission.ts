@@ -56,6 +56,13 @@ const whiteList = [
   '/oauthLogin/gitee'
 ]
 
+// These existing management entries are removed from the dynamic menu when unauthorized.
+// Report an explicit access denial instead of letting the catch-all render a missing page.
+const managementEntryPermissions: Record<string, string> = {
+  '/system/user': 'system:user:query',
+  '/system/role/organization-role': 'system:post:query'
+}
+
 // 路由加载前
 router.beforeEach(async (to, from, next) => {
   start()
@@ -93,7 +100,16 @@ router.beforeEach(async (to, from, next) => {
         const nextData = to.path === redirect ? { path: redirect, query, replace: true } : { path: redirect, query }
         next(nextData)
       } else {
-        next()
+        const requiredPermission = managementEntryPermissions[to.path]
+        if (
+          requiredPermission &&
+          !userStore.getPermissions.has('*:*:*') &&
+          !userStore.getPermissions.has(requiredPermission)
+        ) {
+          next({ path: '/403', query: { redirect: to.fullPath }, replace: true })
+        } else {
+          next()
+        }
       }
     }
   } else {

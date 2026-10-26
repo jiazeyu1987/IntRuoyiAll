@@ -49,14 +49,15 @@ public class MesEdhrManagedHandoffMaterialAssociationStore {
                     || !Objects.equals(proof.sourceReceiptId(),payload.path("completionReceiptId").asText())
                     || !Objects.equals(proof.sourceVersion(),payload.path("completionVersion").asText())
                     || !Objects.equals(proof.sourceHash(),payload.path("completionReceiptHash").asText())
-                    || !Objects.equals(proof.creationEventId(),payload.path("completionCreationEventId").longValue())
-                    || !Objects.equals(proof.creationEventHash(),payload.path("completionCreationEventHash").asText())
+                    || (!cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditDevelopmentMode.disabled() && (!Objects.equals(proof.creationEventId(),payload.path("completionCreationEventId").longValue())
+                    || !Objects.equals(proof.creationEventHash(),payload.path("completionCreationEventHash").asText())))
                     || !Objects.equals(fact.sourceSnapshotHash(),payload.path("sourceSnapshotHash").asText())
                     || !Objects.equals(fact.pqcSignatureId(),payload.path("pqcSignatureId").longValue())
                     || !Objects.equals(fact.pqcEvidenceHash(),payload.path("pqcEvidenceHash").asText())
-                    || !Objects.equals(fact.pqcCreationEventId(),payload.path("pqcCreationEventId").longValue()))
+                    || (!cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditDevelopmentMode.disabled() && !Objects.equals(fact.pqcCreationEventId(),payload.path("pqcCreationEventId").longValue())))
                 throw new IllegalStateException("ACTIVE_ORDER_HANDOFF_PROVENANCE_MISMATCH");
         }
+        if (cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditDevelopmentMode.disabled()) return row;
         var event=events.requireVerifiedEvent(tenant,row.getHandoffAuditEventId());
         if (!Objects.equals(event.eventHash(),row.getHandoffAuditEventHash())
                 || !"mes.market-release.manager-stage.initialize".equals(event.columns().operationId())
@@ -66,7 +67,7 @@ public class MesEdhrManagedHandoffMaterialAssociationStore {
             throw new IllegalStateException("HANDOFF_AUDIT_MISMATCH");
         return row;
     }
-    public MesEdhrManagedHandoffMaterialAssociationDO requireReplay(Long tenant,String key) { var row=one(mapper.selectByKey(tenant,key));validate(row);events.requireVerifiedEvent(tenant,row.getHandoffAuditEventId());return row; }
+    public MesEdhrManagedHandoffMaterialAssociationDO requireReplay(Long tenant,String key) { var row=one(mapper.selectByKey(tenant,key));validate(row);if (!cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditDevelopmentMode.disabled()) events.requireVerifiedEvent(tenant,row.getHandoffAuditEventId());return row; }
     private void requireSourceRequest(MesEdhrManagedHandoffMaterialAssociationDO row,
             cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationDO app) {
         JsonNode request = parse(row.getHandoffRequestJson());
@@ -115,8 +116,8 @@ public class MesEdhrManagedHandoffMaterialAssociationStore {
                 || !Objects.equals(row.getReleaseTransactionId(),p.get("releaseTransactionId").longValue())
                 || !Objects.equals(row.getManagerWorkTaskId(),p.get("managerWorkTaskId").longValue())
                 || !MesEdhrSourceCreationCodec.encodeManagedHandoffRequestV1(parse(row.getHandoffRequestJson())).sha256().equals(p.get("handoffRequestHash").textValue())
-                || row.getHandoffAuditEventId()==null || row.getHandoffAuditEventId()<=0 || row.getHandoffAuditEventHash()==null
-                || !row.getHandoffAuditEventHash().matches("[0-9a-f]{64}")) throw new IllegalStateException("HANDOFF_ASSOCIATION_MISMATCH");
+                || (!cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditDevelopmentMode.disabled() && (row.getHandoffAuditEventId()==null || row.getHandoffAuditEventId()<=0 || row.getHandoffAuditEventHash()==null
+                || !row.getHandoffAuditEventHash().matches("[0-9a-f]{64}")))) throw new IllegalStateException("HANDOFF_ASSOCIATION_MISMATCH");
     }
     private static MesEdhrManagedHandoffMaterialAssociationDO one(List<MesEdhrManagedHandoffMaterialAssociationDO> rows) {
         if(rows==null || rows.size()!=1)throw new IllegalStateException("HANDOFF_ASSOCIATION_MISSING_OR_DUPLICATE");return rows.get(0);

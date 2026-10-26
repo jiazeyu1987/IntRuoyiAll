@@ -19,6 +19,19 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class ProcessPoolTimelineQueryTest {
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"PENDING", "APPROVED", "REJECTED"})
+    void pqcFormalIdentityExposesTheAuthoritativeReviewStatusBeforeAndAfterReview(String status) {
+        var source = event(324175L, "2026-07-30T08:30:00", 2001L, 6001L, 9001L, "PQC_SIMPLIFIED", 30001L)
+                .setEventType("PQC_INSPECTION").setSubmissionReviewStatus(null)
+                .setDisplayedReviewStatus(status);
+        var response = service(mapper(source)).getTimelinePage(pageReq()).getList().get(0);
+        assertEquals(status, response.getExpectedReviews().get(0).getReviewStatus());
+        assertEquals(source.getDisplayedReviewId(), response.getExpectedReviews().get(0).getReviewId());
+        source.setDisplayedReviewStatus(null);
+        assertThrows(IllegalStateException.class, () -> service(mapper(source)).getTimelinePage(pageReq()));
+    }
+
     @Test
     void frozenPqcPageRequiresTheWholeRealGroupBeforeExposingPayloads() {
         var read = org.mockito.Mockito.mock(MesProProcessPoolTimelineReadMapper.class);
@@ -31,13 +44,15 @@ class ProcessPoolTimelineQueryTest {
         org.mockito.Mockito.when(read.selectTimelinePage(req)).thenReturn(java.util.List.of(first));
         org.mockito.Mockito.when(read.selectPqcSubmissionGroupPayloadsByGroupIds(java.util.List.of("g")))
                 .thenReturn(java.util.List.of(first, second));
-        var actual = new ProcessPoolTimelineServiceImpl(read);
+        var actual = service(read);
         assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,
                 () -> actual.getTimelinePage(req));
         req.setEventIds(java.util.Set.of(101L, 102L));
         var authorized = actual.getTimelinePage(req).getList().get(0);
         assertEquals(java.util.List.of(101L, 102L), authorized.getGroupedEventIds());
         assertEquals(2, authorized.getExpectedReviews().size());
+        assertEquals(java.util.List.of("REJECTED", "REJECTED"),
+                authorized.getExpectedReviews().stream().map(value -> value.getReviewStatus()).toList());
         org.mockito.Mockito.when(read.selectPqcSubmissionGroupPayloadsByGroupIds(java.util.List.of("g")))
                 .thenReturn(java.util.List.of(second));
         assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,

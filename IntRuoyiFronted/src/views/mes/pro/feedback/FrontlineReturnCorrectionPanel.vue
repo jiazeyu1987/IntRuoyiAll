@@ -21,6 +21,7 @@
     <template v-else-if="draft">
       <p>{{ draft.row.workOrderCode }} · {{ draft.row.formName }}</p>
       <p>退回原因：{{ draft.row.rejectionReason }}</p>
+      <p data-own-return-formal-identity>原事件：{{ draft.row.eventId }}；原退回轮次：{{ draft.row.rejectedReviewId }}；原修订：{{ draft.row.expectedRevisionId }}</p>
       <p>退回轮次：{{ draft.row.rejectedReviewId }}。修改业务值后由本人签名，组长再次复核。</p>
       <fieldset :disabled="busy" class="return-fields">
         <template v-if="draft.production">

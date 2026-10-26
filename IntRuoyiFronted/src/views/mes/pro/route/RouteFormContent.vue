@@ -15,6 +15,11 @@
         @tab-change="handleRouteTabChange"
       >
         <el-tab-pane label="基础信息" name="basic">
+          <el-descriptions v-if="formData.id" title="已保存流程" :column="3">
+            <el-descriptions-item label="流程编号"><span data-route-created-id>{{ formData.id }}</span></el-descriptions-item>
+            <el-descriptions-item label="状态"><span data-route-created-status :data-status="formData.status">{{ formData.status === 0 ? '启用' : formData.status === 1 ? '停用' : '状态未确认' }}</span></el-descriptions-item>
+            <el-descriptions-item label="活动版本"><span data-route-created-version>{{ formData.activeRouteVersionNo }}</span></el-descriptions-item>
+          </el-descriptions>
           <el-row :gutter="20">
             <el-col v-if="formType !== 'create'" :span="12">
               <el-form-item label="编码" prop="code">

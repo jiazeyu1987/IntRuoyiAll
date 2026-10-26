@@ -388,6 +388,9 @@
         label-width="120px"
         class="mt-12px"
       >
+        <el-form-item label="正式放行事务编号">
+          <span data-edhr-release-transaction-id>{{ releaseContext.releaseTransactionId }}</span>
+        </el-form-item>
         <el-form-item label="电子签名密码" required>
           <el-input
             v-model="releaseForm.password"

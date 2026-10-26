@@ -14,7 +14,7 @@ import static org.mockito.Mockito.*;
 class MesPqcDisplayedReviewContextTest {
     private static ProcessPoolTimelineEventReadDO row(long id) {
         return new ProcessPoolTimelineEventReadDO().setId(id).setEventType("PQC_INSPECTION")
-                .setPqcSubmissionGroupId("g").setSubmissionReviewStatus("PENDING")
+                .setPqcSubmissionGroupId("g").setSubmissionReviewStatus("PENDING").setDisplayedReviewStatus("PENDING")
                 .setOriginalPayloadJson("{\"pqcSubmissionGroupId\":\"g\",\"value\":"+id+"}")
                 .setDisplayedRevisionId(id+100).setDisplayedReviewId(id+200).setDisplayedReviewRound(2);
     }
@@ -24,13 +24,14 @@ class MesPqcDisplayedReviewContextTest {
         request.setPageNo(1);request.setPageSize(20);
         when(mapper.selectTimelineCount(request)).thenReturn(1L);when(mapper.selectTimelinePage(request)).thenReturn(List.of(first));
         when(mapper.selectPqcSubmissionGroupPayloadsByGroupIds(List.of("g"))).thenReturn(List.of(first,second));
-        var result=new ProcessPoolTimelineServiceImpl(mapper).getTimelinePage(request).getList().get(0);
+        var result=ProcessPoolTimelineTestSupport.service(mapper).getTimelinePage(request).getList().get(0);
         assertEquals(first.getDisplayedRevisionId(), result.getDisplayedRevisionId());
         assertEquals(first.getDisplayedReviewId(), result.getDisplayedReviewId());
         assertEquals(first.getDisplayedReviewRound(), result.getDisplayedReviewRound());
         assertEquals(List.of(101L,102L),result.getExpectedReviews().stream().map(c->c.getEventId()).toList());
         for(int index=0;index<2;index++) {
             var member=List.of(first,second).get(index);var context=result.getExpectedReviews().get(index);
+            assertEquals("PENDING",context.getReviewStatus());
             assertEquals(MesProBatchRecordExecutionFieldAuditHasher.sha256(member.getOriginalPayloadJson()),context.getPayloadHash());
             assertEquals(member.getDisplayedRevisionId(),context.getRevisionId());assertEquals(member.getDisplayedReviewId(),context.getReviewId());assertEquals(2,context.getReviewRound());
         }
@@ -40,7 +41,7 @@ class MesPqcDisplayedReviewContextTest {
         var mapper=mock(MesProProcessPoolTimelineReadMapper.class);var member=row(101);
         switch(missing){case "raw"->member.setOriginalPayloadJson(null);case "revision"->member.setDisplayedRevisionId(null);case "review"->member.setDisplayedReviewId(null);case "round"->member.setDisplayedReviewRound(null);default->throw new IllegalArgumentException(missing);}
         when(mapper.selectTimelineDetailById(101L)).thenReturn(member);
-        var failure=assertThrows(IllegalStateException.class,()->new ProcessPoolTimelineServiceImpl(mapper).getTimelineDetail(101L));
+        var failure=assertThrows(IllegalStateException.class,()->ProcessPoolTimelineTestSupport.service(mapper).getTimelineDetail(101L));
         assertTrue(failure.getMessage().contains("刷新"));
         verify(mapper,never()).selectPqcSubmissionGroupPayloadsByGroupIds(any());
     }

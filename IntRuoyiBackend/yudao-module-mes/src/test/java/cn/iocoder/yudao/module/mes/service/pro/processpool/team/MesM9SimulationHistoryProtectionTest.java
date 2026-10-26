@@ -972,6 +972,25 @@ class MesM9SimulationHistoryProtectionTest {
     }
 
     @Test
+    void fixedResetRejectsFieldAuditsBeforeChangingAnyRuntimeOrMasterRecord() {
+        stubFixedResetOwner();
+        var mapper = dependency(MesTeamLeaderDataCleanupMapper.class);
+        when(mapper.selectBatchExecutionIdsByWorkOrderIds(92820L, List.of(201L))).thenReturn(List.of(901L));
+        when(mapper.selectBatchRecordExecutionIds(92820L, List.of(901L))).thenReturn(List.of(902L));
+        when(mapper.selectExecutionFieldAuditBatchIdsForUpdate(92820L, List.of(902L))).thenReturn(List.of(903L));
+        rejectWrites = true;
+
+        var error = assertThrows(ServiceException.class, () -> service.resetFixedSimulationActiveOrder(3001L));
+
+        assertEquals(cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants
+                .PRO_PROCESS_POOL_SIMULATION_COPY_CLEANUP_BLOCKED.getCode(), error.getCode());
+        assertTrue(error.getMessage().contains("表单填写审计日志"));
+        verify(dependency(cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffService.class), never())
+                .retireCycle(anyLong(), anyLong(), anyLong());
+        verify(dependency(GxpAuditService.class), never()).append(any());
+    }
+
+    @Test
     void fixedResetClearsCompletedBatchReleaseAndRecordRuntimeBeforeReadd() {
         stubFixedResetOwner();
         var mapper = dependency(MesTeamLeaderDataCleanupMapper.class);

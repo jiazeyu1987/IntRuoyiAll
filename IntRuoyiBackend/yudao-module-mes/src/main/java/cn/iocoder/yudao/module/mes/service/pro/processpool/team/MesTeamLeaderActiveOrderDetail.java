@@ -119,6 +119,8 @@ public class MesTeamLeaderActiveOrderDetail {
     @Accessors(chain = true)
     public static class SubmissionDetail {
         private Long eventId;
+        /** Original business event fields, independent of signature content. */
+        private String originalBusinessIdentityJson;
         private BigDecimal submittedQuantity;
         private String submitterName;
         private String reviewerName;
@@ -187,6 +189,7 @@ public class MesTeamLeaderActiveOrderDetail {
         private List<Long> pqcTaskIds = List.of();
         private Long submittedEventId;
         private List<Long> submittedEventIds = List.of();
+        private List<String> originalBusinessIdentities = List.of();
         private Long productionEventId;
         private List<Long> productionEventIds = List.of();
         private List<SignatureDetail> productionSubmitterSignatures = List.of();

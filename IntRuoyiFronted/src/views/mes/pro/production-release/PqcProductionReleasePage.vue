@@ -4,6 +4,22 @@
       <el-button data-pqc-production-release-detail-back @click="detailVisible = false">
         返回
       </el-button>
+      <el-descriptions
+        v-if="detailRow && orderDetail && !detailLoading && !detailError"
+        :column="1"
+        border
+        data-pqc-production-release-detail-identity
+      >
+        <el-descriptions-item label="生产放行申请编号">
+          <span data-pqc-production-release-detail-application-id>{{ detailRow.applicationId }}</span>
+        </el-descriptions-item>
+        <el-descriptions-item label="生产订单号">
+          <span data-pqc-production-release-detail-work-order>{{ detailRow.workOrderCode || '--' }}</span>
+        </el-descriptions-item>
+        <el-descriptions-item label="批次执行编号">
+          <span data-pqc-production-release-detail-batch-execution-id>{{ detailRow.batchExecutionId || '--' }}</span>
+        </el-descriptions-item>
+      </el-descriptions>
       <ActiveOrderSubmissionDetailPanel
         :detail="orderDetail?.detail"
         :production-material-lists="orderDetail?.productionMaterialLists || []"

@@ -702,6 +702,7 @@
                JSON_UNQUOTE(JSON_EXTRACT(pool_event.raw_payload, '$.pqcSubmissionGroupId')) AS pqcSubmissionGroupId,
                CAST(pool_event.raw_payload AS CHAR) AS originalPayloadJson
         FROM mes_pro_process_pool_event pool_event
+        <include refid="LatestSubmissionReviewJoin"/>
         WHERE pool_event.deleted = 0
           AND pool_event.event_type = 'PQC_INSPECTION'
           AND JSON_VALID(pool_event.raw_payload)

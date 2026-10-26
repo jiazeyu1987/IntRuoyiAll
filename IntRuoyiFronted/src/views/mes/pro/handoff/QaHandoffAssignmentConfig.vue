@@ -28,6 +28,23 @@
         <el-button v-hasPermi="['mes:pro-edhr-work-task-rule:update']" type="primary" :loading="saving" :disabled="!readyToSave" @click="save">保存 QA 负责人</el-button>
       </el-form-item>
     </el-form>
+    <section v-if="loadedRule && loadedRouteId === routeId && !loading" data-qa-assignment-evidence aria-label="正式QA责任候选">
+      <el-descriptions :column="1" border>
+        <el-descriptions-item label="正式路线"><span data-qa-assignment-route>{{ routes.find(option => option.id === loadedRouteId)?.label }}</span></el-descriptions-item>
+        <el-descriptions-item label="正式规则编号"><span data-qa-assignment-rule-id>{{ loadedRule.id }}</span></el-descriptions-item>
+        <el-descriptions-item label="正式责任来源"><span data-qa-assignment-source>{{ loadedRule.candidateSourceType }}</span></el-descriptions-item>
+        <el-descriptions-item label="正式负责人"><span data-qa-assignment-owner>{{ loadedRule.candidateLabel }}</span></el-descriptions-item>
+        <el-descriptions-item label="正式规则状态"><span data-qa-assignment-enabled>{{ loadedRule.enabled ? '已启用' : '未启用' }}</span></el-descriptions-item>
+        <el-descriptions-item label="正式有效候选账号">
+          <ul v-if="loadedRule.candidateUsers?.length">
+            <li v-for="candidate in loadedRule.candidateUsers" :key="candidate.id" data-qa-candidate>
+              <span data-qa-candidate-name>{{ candidate.visibleDisplayName }}</span>（<span data-qa-candidate-account>{{ candidate.accountName }}</span>）#<span data-qa-candidate-id>{{ candidate.id }}</span>
+            </li>
+          </ul>
+          <span v-else>正式规则未返回候选账号证据</span>
+        </el-descriptions-item>
+      </el-descriptions>
+    </section>
     <el-alert v-if="error" :title="error" type="error" :closable="false" />
     <el-alert v-else-if="routeId && !ruleId" title="该路线尚未配置 QA 评审负责人，发起评审将被阻止。" type="warning" :closable="false" />
   </el-card>
@@ -48,6 +65,7 @@ const sourceId = ref<number>()
 const enabled = ref(true)
 const reason = ref('')
 const ruleId = ref<number | null>(null)
+const loadedRule = ref<api.QaAssignmentRule | null>(null)
 const loading = ref(false)
 const initializing = ref(false)
 const searching = ref(false)
@@ -58,6 +76,7 @@ let searchEpoch = 0
 const readyToSave = computed(() => !initializing.value && !loading.value && !saving.value && loadedRouteId.value === routeId.value && !!routeId.value)
 const failure = (e: unknown) => { error.value = e instanceof Error ? e.message : String(e) }
 const applyRule = (rule: api.QaAssignmentRule | null) => {
+  loadedRule.value = rule
   ruleId.value = rule?.id ?? null
   sourceType.value = rule?.candidateSourceType ?? 'USER'
   sourceId.value = rule?.candidateSourceId

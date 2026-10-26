@@ -77,6 +77,31 @@ class MesEdhrSourceCreationVerificationServiceTest {
     }
     @AfterEach void clear() { TenantContextHolder.clear(); eventRows.clear(); links.clear(); }
 
+    @Test void developmentSkipsAuditPersistenceButRejectsCorruptedBusinessReceipt() {
+        var env = new org.springframework.mock.env.MockEnvironment()
+                .withProperty(GxpAuditDevelopmentMode.PROPERTY, "true")
+                .withProperty("spring.datasource.dynamic.datasource.master.url", "jdbc:mysql://127.0.0.1/test");
+        env.setActiveProfiles("local");
+        try {
+            new GxpAuditDevelopmentMode(env);
+            clearInvocations(events, relationMapper, bindingMapper);
+            var proof = read();
+            assertEquals(-91L, proof.creationEventId());
+            assertEquals(GxpAuditDevelopmentMode.STATUS, proof.creationEventHash());
+            assertEquals(material.getReceiptHash(), proof.sourceHash());
+            verifyNoInteractions(events, relationMapper, bindingMapper);
+            installIndependent();
+            clearInvocations(events, relationMapper, bindingMapper);
+            assertEquals(-81L, service.requireIndependentCreation(1L, "TEST_ONLY_INDEPENDENT").creationEventId());
+            independentRow.setRevocationReason("unexpected revocation reason on issued row");
+            assertThrows(IllegalStateException.class, () -> service.requireIndependentCreation(1L, "TEST_ONLY_INDEPENDENT"));
+            verifyNoInteractions(events, relationMapper, bindingMapper);
+            material.setManifestHash("d".repeat(64));
+            assertThrows(IllegalStateException.class, this::read);
+            verifyNoInteractions(events, relationMapper, bindingMapper);
+        } finally { new GxpAuditDevelopmentMode(new org.springframework.mock.env.MockEnvironment()); }
+    }
+
     private MesEdhrSourceCreationEvidence read() { return service.requireMaterialCreation(1L, 92L, "TEST_ONLY_MATERIAL"); }
     private GxpAuditRelation materialLink() { return new GxpAuditRelation("SOURCE", "EDHR_MATERIAL_GATE_RECEIPT", "91", "1", material.getReceiptHash()); }
     private void installCreation() {

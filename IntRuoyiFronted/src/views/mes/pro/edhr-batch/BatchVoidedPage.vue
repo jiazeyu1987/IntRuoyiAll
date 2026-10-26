@@ -4,6 +4,10 @@
       <el-button data-edhr-batch-voided-detail-back @click="detailVisible = false">
         返回
       </el-button>
+      <el-descriptions v-if="detailRow" title="作废来源" :column="2" border>
+        <el-descriptions-item label="放行申请编号"><span data-edhr-voided-source-application>{{ detailRow.applicationId }}</span></el-descriptions-item>
+        <el-descriptions-item label="不合格评审编号"><span data-edhr-voided-source-review>{{ detailRow.nonconformanceReviewId || '—' }}</span></el-descriptions-item>
+      </el-descriptions>
       <ActiveOrderSubmissionDetailPanel
         :detail="orderDetail?.detail"
         :production-material-lists="orderDetail?.productionMaterialLists || []"

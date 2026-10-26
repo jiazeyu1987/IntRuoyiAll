@@ -1081,6 +1081,13 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
         List<Long> pqcTaskIds = new ArrayList<>();
         List<Long> executionIds = batchIds.isEmpty() ? List.of()
                 : dataCleanupMapper.selectBatchRecordExecutionIds(tenantId, batchIds);
+        // Field audits resolve their form/batch context through these live records.
+        // Keeping the audit rows while deleting their source would create orphaned evidence.
+        if (!executionIds.isEmpty()
+                && !dataCleanupMapper.selectExecutionFieldAuditBatchIdsForUpdate(tenantId, executionIds).isEmpty()) {
+            throw exception(PRO_PROCESS_POOL_SIMULATION_COPY_CLEANUP_BLOCKED,
+                    "存在表单填写审计日志，重置会丢失执行及批次上下文；请保留原记录");
+        }
         List<Long> releaseTransactionIds = batchIds.isEmpty() ? List.of()
                 : dataCleanupMapper.selectReleaseTransactionIds(tenantId, batchIds);
         List<Long> recordbookIds = batchIds.isEmpty() ? List.of()

@@ -21,6 +21,7 @@ public class GxpAuditQueryServiceImpl implements GxpAuditQueryService {
 
     @Override
     public PageResult<GxpAuditEventDO> page(GxpAuditEventPageQuery query) {
+        if (GxpAuditDevelopmentMode.disabled()) return new PageResult<>(List.of(), 0L);
         Long tenantId = TenantContextHolder.getRequiredTenantId();
         if (query.getScopeType() != null && query.getScopeId() != null) {
             String scopeId = String.valueOf(query.getScopeId());
@@ -41,6 +42,7 @@ public class GxpAuditQueryServiceImpl implements GxpAuditQueryService {
     }
 
     public GxpAuditEventDO get(Long tenantId, Long eventId) {
+        if (GxpAuditDevelopmentMode.disabled()) return null;
         Long currentTenantId = TenantContextHolder.getRequiredTenantId();
         if (!currentTenantId.equals(tenantId)) {
             return null;
@@ -50,6 +52,7 @@ public class GxpAuditQueryServiceImpl implements GxpAuditQueryService {
 
     @Override
     public List<GxpAuditEventRelationDO> listRelations(Long eventId) {
+        if (GxpAuditDevelopmentMode.disabled()) return List.of();
         Long tenantId = TenantContextHolder.getRequiredTenantId();
         return relationMapper.selectListByTenantIdAndEventId(tenantId, eventId);
     }

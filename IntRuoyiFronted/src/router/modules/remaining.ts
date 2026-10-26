@@ -705,6 +705,19 @@ const remainingRouter: AppRouteRecordRaw[] = [
     },
     children: [
       {
+        path: 'project-code',
+        component: () => import('@/views/dcc/controlled-file/basic-data/project-code/index.vue'),
+        name: 'MdmProjectCodeHidden',
+        meta: {
+          noCache: true,
+          hidden: true,
+          canTo: true,
+          title: 'DCC项目代码',
+          activeMenu: '/mdm/product-catalog',
+          permission: ['dcc:project-code:query']
+        }
+      },
+      {
         path: 'company-scope',
         component: () => import('@/views/mdm/company-scope/index.vue'),
         name: 'MdmCompanyScopeHidden',

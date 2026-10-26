@@ -64,7 +64,7 @@ class ProcessPoolTimelineReportAllocationProjectionTest {
             }
         };
 
-        PageResult<ProcessPoolTimelineEventRespVO> page = new ProcessPoolTimelineServiceImpl(mapper)
+        PageResult<ProcessPoolTimelineEventRespVO> page = ProcessPoolTimelineTestSupport.service(mapper)
                 .getTimelinePage(ProcessPoolTimelineTestSupport.pageReq());
 
         ProcessPoolTimelineEventRespVO actual = page.getList().get(0);
@@ -183,7 +183,7 @@ class ProcessPoolTimelineReportAllocationProjectionTest {
             }
         };
 
-        PageResult<ProcessPoolTimelineEventRespVO> page = new ProcessPoolTimelineServiceImpl(mapper)
+        PageResult<ProcessPoolTimelineEventRespVO> page = ProcessPoolTimelineTestSupport.service(mapper)
                 .getTimelinePage(ProcessPoolTimelineTestSupport.pageReq());
 
         ProcessPoolTimelineEventRespVO.MaterialDetailRespVO material = page.getList().get(0).getMaterialDetails().get(0);
@@ -234,7 +234,7 @@ class ProcessPoolTimelineReportAllocationProjectionTest {
             }
         };
 
-        assertThrows(IllegalStateException.class, () -> new ProcessPoolTimelineServiceImpl(mapper)
+        assertThrows(IllegalStateException.class, () -> ProcessPoolTimelineTestSupport.service(mapper)
                 .getTimelinePage(ProcessPoolTimelineTestSupport.pageReq()));
     }
 

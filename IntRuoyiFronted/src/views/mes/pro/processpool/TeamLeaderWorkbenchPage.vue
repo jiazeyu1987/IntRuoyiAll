@@ -1364,6 +1364,13 @@
                 >
                   分配
                 </el-button>
+                <details data-workflow-formal-record>
+                  <summary>正式记录身份</summary>
+                  <p v-for="expected in row.expectedReviews" :key="expected.eventId" data-workflow-review-context>{{ workflowReviewContext(row, expected) }}</p>
+                  <pre data-workflow-current-payload>{{ row.originalPayloadJson }}</pre>
+                  <p v-for="expected in row.expectedReviews" :key="`round-${expected.eventId}`" data-workflow-review-round>{{ expected.reviewRound }}</p>
+                  <pre v-for="proof in row.displayedReviewEvidence ?? []" :key="proof.reviewId" data-workflow-review-evidence>{{ JSON.stringify(proof) }}</pre>
+                </details>
               </div>
             </template>
           </el-table-column>
@@ -1559,6 +1566,14 @@
       </span>
     </div>
 
+    <el-alert
+      v-if="activeOrderTestResetReceipt"
+      :type="activeOrderTestResetReceipt.state === 'success' ? 'success' : 'warning'"
+      :closable="false"
+      :title="activeOrderTestResetReceipt.message"
+      data-team-leader-test-reset-result
+      :data-result-state="activeOrderTestResetReceipt.state"
+    />
     <UnifiedListTemplate
       table-key="mes.processPool.teamLeader.activeOrders"
       :query-model="activeOrderQuery"
@@ -4479,6 +4494,7 @@ const activeOrderRebuildSubmittingId = ref<number | string>()
 const activeOrderVersionUpgradeSubmittingId = ref<number | string>()
 const activeOrderSimulationSubmittingId = ref<number | string>()
 const activeOrderTestResetSubmitting = ref(false)
+const activeOrderTestResetReceipt = ref<{ state: 'success' | 'unknown'; message: string }>()
 const activeOrderTestResetBlocked = computed(() =>
   activeOrderTestResetSubmitting.value ||
   maintenanceSubmitting.value ||
@@ -4965,6 +4981,13 @@ const canReviewSubmission = (row: ProcessPoolTimelineEventVO) =>
 
 const canOpenPqcSubmissionNonconformanceReview = (row: ProcessPoolTimelineEventVO) =>
   canReviewSubmission(row) && Boolean(row.activeOrderId)
+
+const workflowReviewContext = (row: ProcessPoolTimelineEventVO, expected: NonNullable<ProcessPoolTimelineEventVO['expectedReviews']>[number]) => {
+  const payload = parsePqcOriginalPayload(row.originalPayloadJson)
+  const raw = payload && isRecord(payload.rawPayload) ? payload.rawPayload : payload
+  const domain = isProductionLeader.value ? raw?.signatureIdentityDomain : 'SYSTEM_USER'
+  return '原事件：' + expected.eventId + '；原退回轮次：' + expected.reviewId + '；原修订：' + expected.revisionId + '；原正文哈希：' + expected.payloadHash + '；原签名人：' + (row.signatureEmployeeUserId ?? '未记录') + '；原签名身份：' + (domain ?? '未记录') + '；原签名记录：' + (row.electronicSignatureId ?? '未记录') + '；原复核状态：' + (expected.reviewStatus ?? row.submissionReviewStatus ?? '未记录') + '；原分配版本：' + (expected.allocationVersion ?? ((activeLeaderTab.value === 'PQC') ? '不适用' : '未记录')) + ((activeLeaderTab.value === 'PQC') ? '；原PQC判定：' + (raw?.inspectionResult ?? row.pqcResult ?? '未记录') : '')
+}
 
 const requiresOwnProductionReturnCorrection = (row: ProcessPoolTimelineEventVO) => {
   if (!isProductionLeader.value || row.submissionReviewStatus !== 'REJECTED') return false
@@ -10337,6 +10360,7 @@ const handleRemoveActiveOrder = async (row: TeamLeaderActiveOrderRespVO) => {
 const handleResetFixedSimulationActiveOrder = async () => {
   if (activeOrderTestResetBlocked.value) return
   activeOrderTestResetSubmitting.value = true
+  activeOrderTestResetReceipt.value = undefined
   let writeCompleted = false
   try {
     const result = await resetFixedSimulationActiveOrder()
@@ -10352,15 +10376,20 @@ const handleResetFixedSimulationActiveOrder = async () => {
     )) {
       throw new Error('刷新后未找到重置回执对应的活跃订单，请核对列表')
     }
+    activeOrderTestResetReceipt.value = { state: 'success', message: '重置完成：' + result.workOrderCode }
     ElMessage.success(
       `本轮测试数据已清理，原工单已重新加入：${result.workOrderCode}（活跃订单 ${result.activeOrderId}）`
     )
   } catch (error) {
     const reason = resolveErrorMessage(error, '请稍后刷新核对')
+    activeOrderTestResetReceipt.value = {
+      state: 'unknown',
+      message: `重置结果需要核对：${reason}；请刷新列表核对，不要再次重置`
+    }
     ElMessage.error(
       writeCompleted
         ? `测试订单已重置，但列表刷新失败：${reason}；请刷新列表，不要再次重置`
-        : `测试订单重置失败：${reason}`
+        : `测试订单重置结果未确认：${reason}；请核对结果，不要再次重置`
     )
   } finally {
     activeOrderTestResetSubmitting.value = false

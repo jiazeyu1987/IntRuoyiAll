@@ -571,6 +571,7 @@ export interface TeamLeaderActiveOrderSubmissionMaterialDetailRespVO {
 
 export interface TeamLeaderActiveOrderSubmissionDetailRespVO {
   eventId: number
+  originalBusinessIdentityJson?: string
   submittedQuantity: number | string
   submitterName: string
   reviewerName?: string
@@ -641,6 +642,7 @@ export interface TeamLeaderActiveOrderPqcSubmissionDetailRespVO {
   pqcTaskIds?: number[]
   submittedEventId?: number
   submittedEventIds?: number[]
+  originalBusinessIdentities?: string[]
   productionEventId?: number | string
   productionEventIds?: Array<number | string>
   productionSubmitterSignatures?: TeamLeaderActiveOrderSignatureDetailRespVO[]
@@ -1338,6 +1340,8 @@ export const pushGeneratedTeamLeaderActiveOrderRelease = async (
 export const resetFixedSimulationActiveOrder = async () => {
   return await request.post<TeamLeaderActiveOrderTestResetRespVO>({
     url: '/mes/pro/process-pool/team-leader/active-order/simulation/test-reset',
+    // Formal writes may exceed the default 30s; do not retry automatically.
+    timeout: 150000,
     ignoreErrorMessage: true
   })
 }

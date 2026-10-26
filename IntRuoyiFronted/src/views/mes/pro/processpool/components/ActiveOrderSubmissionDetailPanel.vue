@@ -76,6 +76,18 @@
           data-active-order-summary-tab
         >
           <section class="team-leader-workbench__active-order-summary">
+            <table class="team-leader-workbench__active-order-summary-table" data-active-order-production-submission-status>
+              <caption>当前订单各工序正式生产提交状态（完整明细）</caption>
+              <thead><tr><th>工序编码</th><th>工序名称</th><th>正式提交数</th><th>提交数量</th></tr></thead>
+              <tbody>
+                <tr v-for="process in detail.processes" :key="`${process.routeProcessId}-${process.processId}`" data-production-submission-status-row>
+                  <td>{{ process.processCode }}</td>
+                  <td>{{ process.processName }}</td>
+                  <td>{{ process.submissionCount }}</td>
+                  <td>{{ process.submittedQuantity }}</td>
+                </tr>
+              </tbody>
+            </table>
             <table
               class="team-leader-workbench__active-order-summary-table"
               data-active-order-summary-product-table
@@ -771,6 +783,7 @@
                       </tr>
                       <tr data-active-order-production-record-device-row>
                         <td colspan="12">
+                          <details open v-if="row.originalBusinessIdentityJson"><summary>原提交业务身份</summary><pre data-original-event-business-identity>{{ row.originalBusinessIdentityJson }}</pre></details>
                           <div
                             v-if="buildProductionRecordRowDeviceGroups(row).length"
                             class="team-leader-workbench__production-record-device-row-content"
@@ -920,6 +933,9 @@
                       <div class="team-leader-workbench__production-record-section-title">
                         {{ resolvePqcInspectionTypeText(submission) }}
                         <span>提交事件：{{ formatPqcSubmissionEventIds(submission) }}</span>
+                      </div>
+                      <div v-for="identity in submission.originalBusinessIdentities ?? []" :key="identity">
+                        <span>原提交业务身份</span><pre data-original-event-business-identity>{{ identity }}</pre>
                       </div>
                       <div class="team-leader-workbench__production-record-meta">
                         <div>
@@ -1853,6 +1869,7 @@
                 </tr>
                 <tr data-active-order-production-record-device-row>
                   <td colspan="12">
+                          <details open v-if="row.originalBusinessIdentityJson"><summary>原提交业务身份</summary><pre data-original-event-business-identity>{{ row.originalBusinessIdentityJson }}</pre></details>
                     <div
                       v-if="buildProductionRecordRowDeviceGroups(row).length"
                       class="team-leader-workbench__production-record-device-row-content"
@@ -2218,7 +2235,7 @@
           <el-descriptions-item label="核验原因" :span="2">{{ signatureVerificationDisplay(signatureEvidenceViewer.state.selected.verification).reasons }}</el-descriptions-item>
           <el-descriptions-item label="内容摘要" :span="2"><pre class="team-leader-workbench__gxp-audit-json">{{ signatureEvidenceViewer.state.selected.evidence.contentHash }}</pre></el-descriptions-item>
           <el-descriptions-item label="证据摘要" :span="2"><pre class="team-leader-workbench__gxp-audit-json">{{ signatureEvidenceViewer.state.selected.evidence.evidenceHash }}</pre></el-descriptions-item>
-          <el-descriptions-item label="原签署内容快照" :span="2"><pre class="team-leader-workbench__gxp-audit-json">{{ formatGxpAuditJson(signatureEvidenceViewer.state.selected.evidence.canonicalContentJson) }}</pre></el-descriptions-item>
+          <el-descriptions-item label="原签署内容快照" :span="2"><pre class="team-leader-workbench__gxp-audit-json">{{ signatureEvidenceViewer.state.selected.evidence.canonicalContentJson }}</pre></el-descriptions-item>
         </el-descriptions>
       </Dialog>
     </template>
@@ -3069,6 +3086,7 @@ interface ActiveOrderPqcInspectionRecordRow {
 interface ActiveOrderProductionSubmissionRow {
   key: string
   eventId: number
+  originalBusinessIdentityJson?: string
   materialId?: number
   materialCode?: string
   materialName?: string
@@ -3122,6 +3140,7 @@ const toActiveOrderProductionMaterialSubmissionRow = (
 ): ActiveOrderProductionSubmissionRow => ({
   key: `${submission.eventId}-${materialIndex}-${material.materialId}-${material.materialCode}`,
   eventId: submission.eventId,
+  originalBusinessIdentityJson: submission.originalBusinessIdentityJson,
   materialId: material.materialId,
   materialCode: material.materialCode,
   materialName: material.materialName,
@@ -3143,6 +3162,7 @@ const toActiveOrderProductionEventSubmissionRow = (
 ): ActiveOrderProductionSubmissionRow => ({
   key: `${submission.eventId}`,
   eventId: submission.eventId,
+  originalBusinessIdentityJson: submission.originalBusinessIdentityJson,
   submittedQuantity: submission.submittedQuantity,
   submitterName: submission.submitterName,
   reviewerName: submission.reviewerName,

@@ -197,7 +197,8 @@ public final class MesEdhrSourceCreationCodec {
         ObjectNode result = MAPPER.createObjectNode();
         for (String key : new TreeSet<>(keys)) {
             JsonNode value = input.get(key);
-            if (longs.contains(key)) value = P.validate(value, key);
+            if (developmentAuditMarker(key, value)) { /* Explicit non-audit development marker. */ }
+            else if (longs.contains(key)) value = P.validate(value, key);
             else if (integers.contains(key)) value = positiveInteger(value, key, Integer.MAX_VALUE, key.startsWith("sourceExpected") || key.startsWith("initialized"));
             else if (hashes.contains(key)) value = H.validate(value, key);
             else if ("associationVersion".equals(key)) value = fixedIntegerOne().validate(value, key);
@@ -227,7 +228,8 @@ public final class MesEdhrSourceCreationCodec {
         ObjectNode result=MAPPER.createObjectNode();
         for(String key:new TreeSet<>(keys)) {
             JsonNode value=input.get(key);
-            if(longs.contains(key)) value=P.validate(value,key);
+            if(developmentAuditMarker(key, value)) { /* Explicit non-audit development marker. */ }
+            else if(longs.contains(key)) value=P.validate(value,key);
             else if(integers.contains(key)) value=positiveInteger(value,key,Integer.MAX_VALUE,key.startsWith("sourceExpected") || key.startsWith("initialized"));
             else if(hashes.contains(key)) value=H.validate(value,key);
             else if("associationVersion".equals(key)) value=fixedIntegerOne().validate(value,key);
@@ -349,6 +351,14 @@ public final class MesEdhrSourceCreationCodec {
         }
     }
 
+    private static boolean developmentAuditMarker(String key, JsonNode value) {
+        if (!cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditDevelopmentMode.disabled() || value == null) return false;
+        return Set.of("materialCreationEventId", "completionCreationEventId", "pqcCreationEventId").contains(key)
+                && value.isIntegralNumber() && value.canConvertToLong() && value.longValue() < 0
+                || Set.of("materialCreationEventHash", "completionCreationEventHash").contains(key)
+                && value.isTextual() && "DEVELOPMENT_DISABLED".equals(value.textValue());
+    }
+
     private static Encoded encode(JsonNode input, Shape shape) {
         String json = canonicalJson(canonicalObject(input, shape, "$"));
         return new Encoded(json, digest(strictUtf8(json, "$")));
@@ -403,7 +413,7 @@ public final class MesEdhrSourceCreationCodec {
         }
         ObjectNode result = MAPPER.createObjectNode();
         for (String key : new TreeSet<>(schema.keySet())) {
-            result.set(key, schema.get(key).validate(input.get(key), path + "." + key));
+            result.set(key, developmentAuditMarker(key, input.get(key)) ? input.get(key).deepCopy() : schema.get(key).validate(input.get(key), path + "." + key));
         }
         switch (shape) {
             case ISSUE_STATE, MATERIAL_STATE -> checkRequestHash(result, "request", path);

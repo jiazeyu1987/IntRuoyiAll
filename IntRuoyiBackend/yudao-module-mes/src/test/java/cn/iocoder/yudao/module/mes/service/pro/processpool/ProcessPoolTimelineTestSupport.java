@@ -33,8 +33,12 @@ final class ProcessPoolTimelineTestSupport {
         return new InMemoryTimelineReadMapper(List.of(events));
     }
 
-    static ProcessPoolTimelineServiceImpl service(InMemoryTimelineReadMapper mapper) {
-        return new ProcessPoolTimelineServiceImpl(mapper);
+    static ProcessPoolTimelineServiceImpl service(MesProProcessPoolTimelineReadMapper mapper) {
+        var service = new ProcessPoolTimelineServiceImpl(mapper);
+        var reviews = org.mockito.Mockito.mock(TimelineReviewEvidenceReader.class);
+        org.mockito.Mockito.when(reviews.read(org.mockito.ArgumentMatchers.any())).thenReturn(List.of());
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "reviewEvidenceReader", reviews);
+        return service;
     }
 
     static ProcessPoolTimelineEventReadDO event(Long id, String submittedAt, Long employeeId,

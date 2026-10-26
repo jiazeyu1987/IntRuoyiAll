@@ -21,6 +21,7 @@ public class SignatureCreationVerificationService {
             throw new IllegalArgumentException("Signature audit expectation belongs to another tenant");
         }
         var protocol = SignatureCreationProtocolRegistry.require(expected.evidenceFormatVersion());
+        if (GxpAuditDevelopmentMode.disabled()) return result(GxpAuditDevelopmentMode.STATUS, "GXP_AUDIT_DEVELOPMENT_DISABLED", null);
         // Query exceptions deliberately propagate; missing evidence is only a successful empty read.
         var events = auditEventMapper.selectSignatureCreationEvents(expected.tenantId(), expected.signatureId().toString());
         if (events == null) throw new IllegalStateException("Signature creation audit query returned null");

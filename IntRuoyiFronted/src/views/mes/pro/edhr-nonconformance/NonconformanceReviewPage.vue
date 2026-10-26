@@ -169,6 +169,7 @@
       <template v-if="selectedReview">
         <div class="edhr-ncr__summary">
           <div><span class="edhr-ncr__label">评审单号</span><span>{{ selectedReview.reviewCode || '--' }}</span></div>
+          <div><span class="edhr-ncr__label">评审编号</span><span data-edhr-ncr-review-id>{{ selectedReview.id }}</span></div>
           <div><span class="edhr-ncr__label">来源</span><span>{{ resolveSourceTypeLabel(selectedReview.sourceType) }}</span></div>
           <div><span class="edhr-ncr__label">生产工单</span><span>{{ selectedReview.workOrderCode || '--' }}</span></div>
           <div><span class="edhr-ncr__label">批号</span><span>{{ selectedReview.batchCode || '--' }}</span></div>

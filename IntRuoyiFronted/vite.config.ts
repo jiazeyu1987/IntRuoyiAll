@@ -171,6 +171,12 @@ export default ({command, mode}: ConfigEnv): UserConfig => {
                 changeOrigin: true
               },
               ...(useSameOriginApiProxy ? {
+                // Knife4j 文档及其资源必须到后端，避免被前端路由接管。
+                '^/(doc\\.html|v3/api-docs|webjars|swagger-ui|swagger-resources)(/|\\?|$)': {
+                  target: proxyTarget,
+                  ws: false,
+                  changeOrigin: true,
+                },
                 ['/druid']: {
                   target: proxyTarget,
                   ws: false,

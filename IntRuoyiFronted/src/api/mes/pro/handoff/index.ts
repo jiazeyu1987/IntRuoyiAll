@@ -17,6 +17,7 @@ export interface AssignmentOption { id: number; label: string }
 export interface QaAssignmentRule {
   id: number; candidateSourceType: 'USER' | 'ROLE_GROUP'; candidateSourceId: number
   candidateLabel: string; enabled: boolean; remark: string
+  candidateUsers?: { id: number | string; accountName: string; visibleDisplayName: string }[]
 }
 export const myHandoffs = (): Promise<HandoffTask[]> => request.get({ url: `${base}/my-list` })
 export const handoffReceipts = (taskId: number | string): Promise<HandoffReceipt[]> => request.get({ url: `${base}/receipts`, params: { taskId } })

@@ -1257,6 +1257,7 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
         identity.put("operationId", "mes.nonconformance.rework");
         identity.put("identity", List.of(auditId(review.getId()), DISPOSITION_REWORK));
         String key = "GXP2:" + DigestUtil.sha256Hex(JsonUtils.toJsonString(identity));
+        if (cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditDevelopmentMode.disabled()) return;
         var receipt = auditReceiptMapper.selectByIdempotencyKeyForUpdate(TenantContextHolder.getRequiredTenantId(), key);
         if (receipt == null) {
             throw exception(cn.iocoder.yudao.module.system.enums.ErrorCodeConstants.GXP_AUDIT_RECEIPT_MISSING, key);

@@ -1,6 +1,14 @@
 <template>
   <div class="profile-page">
     <el-card class="profile-page__card" shadow="never">
+      <el-alert v-if="identityError" :title="identityError" type="error" :closable="false" />
+      <el-descriptions v-if="identity" title="当前登录身份" :column="3" data-profile-identity>
+        <el-descriptions-item label="账号"><span data-profile-account-name>{{ identity.username }}</span></el-descriptions-item>
+        <el-descriptions-item label="用户编号"><span data-profile-account-id>{{ identity.id }}</span></el-descriptions-item>
+        <el-descriptions-item label="姓名"><span data-profile-display-name>{{ identity.nickname }}</span></el-descriptions-item>
+        <el-descriptions-item label="租户"><span data-profile-tenant-name>{{ identity.tenantName }}</span></el-descriptions-item>
+        <el-descriptions-item label="租户编号"><span data-profile-tenant-id>{{ identity.tenantId }}</span></el-descriptions-item>
+      </el-descriptions>
       <el-tabs v-model="activeName" class="profile-tabs" tab-position="top">
         <el-tab-pane name="workbench" lazy>
           <template #label>
@@ -57,6 +65,7 @@
 import * as NotifyMessageApi from '@/api/system/notify/message'
 import { useProfileWorkbenchTodoBadgeStore } from '@/store/modules/profileWorkbenchTodoBadge'
 import { useUserStore } from '@/store/modules/user'
+import { getUserProfile, type ProfileVO } from '@/api/system/user/profile'
 import BusinessConfigMigrationNotice from '@/views/system/config-migration/BusinessConfigMigrationNotice.vue'
 import MyNotifyMessageList from '@/views/system/notify/my/components/MyNotifyMessageList.vue'
 import { BasicInfo, ProfileWorkbench, ResetPwd, UserSocial } from './components'
@@ -65,6 +74,20 @@ const { t } = useI18n()
 const route = useRoute()
 const userStore = useUserStore()
 const profileWorkbenchTodoBadgeStore = useProfileWorkbenchTodoBadgeStore()
+const identity = ref<ProfileVO | null>(null)
+const identityError = ref('')
+const loadIdentity = async () => {
+  try {
+    const profile: ProfileVO = await getUserProfile()
+    if (!profile?.username?.trim() || !profile.tenantName?.trim() || !Number.isSafeInteger(profile.tenantId) || profile.tenantId < 0 || !Number.isSafeInteger(profile.id) || profile.id <= 0) {
+      throw new Error('个人信息缺少账号或正式租户身份，请检查系统版本')
+    }
+    identity.value = profile
+  } catch (error) {
+    identity.value = null
+    identityError.value = error instanceof Error ? error.message : '当前登录身份加载失败'
+  }
+}
 defineOptions({ name: 'Profile' })
 
 const isAdminUser = computed(() => userStore.getRoles.includes('super_admin'))
@@ -142,6 +165,7 @@ watch(activeName, () => {
 })
 
 onMounted(() => {
+  void loadIdentity()
   refreshUnreadNotifyMessageCount().catch(reportProfileNotifyMessageError)
   refreshProfileWorkbenchTodoBadgeWhenVisible()
 })

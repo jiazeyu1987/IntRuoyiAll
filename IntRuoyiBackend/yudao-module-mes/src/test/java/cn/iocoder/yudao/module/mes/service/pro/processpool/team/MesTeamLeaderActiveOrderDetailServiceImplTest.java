@@ -89,6 +89,15 @@ class MesTeamLeaderActiveOrderDetailServiceImplTest {
         var purposeType = Class.forName(MesTeamLeaderActiveOrderDetailServiceImpl.class.getName()+"$PqcSignaturePurpose");
         Object purpose = java.util.Arrays.stream(purposeType.getEnumConstants()).filter(v->v.toString().equals("READ_PROJECTION")).findFirst().orElseThrow();
         var detail = pqcDetail();
+        if ("INCOMPLETE".equals(status)) {
+            // ElectronicSignatureVerifiedFactService.evaluateV2 emits only VALID/MISMATCH;
+            // MesActiveOrderSignatureEvidenceService.requireVerification enforces that rule.
+            // V2 collapses every non-consistent dimension to MISMATCH. An INCOMPLETE
+            // overall status is an inconsistent consumer-port DTO, not a readable diagnostic.
+            assertThrows(ServiceException.class, () -> org.springframework.test.util.ReflectionTestUtils
+                    .invokeMethod(service, "attachPqcProductionRelease", detail, pqcApplication(), purpose));
+            return;
+        }
         org.springframework.test.util.ReflectionTestUtils.invokeMethod(service, "attachPqcProductionRelease", detail, pqcApplication(), purpose);
         var projection = detail.getPqcProductionRelease().getSignature();
         assertEquals(status, projection.getVerification().verificationStatus());
@@ -722,10 +731,48 @@ class MesTeamLeaderActiveOrderDetailServiceImplTest {
     private MesTeamLeaderActiveOrderDetailServiceImpl service;
 
     @Mock private MesSubmissionSignatureIdentityReader submissionSignatureIdentityReader;
+    @Mock private cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolSubmissionReviewMapper businessReviewMapper;
 
     @BeforeEach void verifiedPortFixture() { cn.iocoder.yudao.module.mes.service.pro.MesVerifiedConsumerFixture.wire(service, signatureQueryService, 1L); }
     @BeforeEach
     void setUp() {
+        cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.setTenantId(1L);
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "businessReviewMapper", businessReviewMapper);
+        // These detail tests exercise the real business identity projection. Supply
+        // its independently read event/review records as well as the existing row DTOs.
+        lenient().when(eventMapper.selectById(anyLong())).thenAnswer(invocation -> {
+            Long eventId = invocation.getArgument(0);
+            var event = defaultPqcEvent(eventId);
+            event.setTenantId(1L);
+            event.setActualEmployeeId(3001L);
+            event.setDeviceAccountId(3001L);
+            event.setSignatureId(eventId + 10000L);
+            event.setEventIdempotencyKey("fixture-original-" + eventId);
+            var original = detailReadMapper.selectByActiveOrderId(8101L).stream()
+                    .filter(row -> eventId.equals(row.getEventId())).findFirst();
+            if (original.isPresent()) {
+                var row = original.get();
+                event.setEventType(MesProProcessPoolEventDO.EVENT_TYPE_PRODUCTION_SUBMIT);
+                event.setRouteProcessId(row.getRouteProcessId());
+                event.setProcessId(row.getProcessId());
+                event.setRawPayload(row.getOriginalPayloadJson() == null
+                        ? "{\"activeOrderId\":8101,\"signatureIdentityDomain\":\"SYSTEM_USER\"}"
+                        : row.getOriginalPayloadJson());
+            } else {
+                event.setFeedbackSourceType("MES_PQC_INSPECTION_TASK");
+                event.setFeedbackSourceId(4101L);
+            }
+            return event;
+        });
+        lenient().when(businessReviewMapper.selectListByEventId(anyLong())).thenAnswer(invocation -> {
+            Long eventId = invocation.getArgument(0);
+            var review = new cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolSubmissionReviewDO()
+                    .setId(eventId + 30000L).setEventId(eventId).setReviewSignatureId(eventId + 20000L)
+                    .setLeaderUserId(3001L).setLeaderType(eventId < 7100L ? "PRODUCTION" : "PQC")
+                    .setReviewStatus("APPROVED");
+            review.setTenantId(1L);
+            return List.of(review);
+        });
         lenient().when(submissionSignatureIdentityReader.read(anyLong(), anyLong(), anyLong(),
                 org.mockito.ArgumentMatchers.anyString())).thenAnswer(invocation -> {
             Long id = invocation.getArgument(0);
@@ -853,10 +900,8 @@ class MesTeamLeaderActiveOrderDetailServiceImplTest {
                 MesPqcInspectionTaskDO.builder()
                         .id(4101L)
                         .activeOrderId(8101L)
-                        .routeProcessId(5001L)
-                        .processId(6001L)
                         .inspectionType("FIRST")
-                        .qaItemCode("WIDTH")
+                        .qaItemCode("").inspectionItemPlanJson("{\"WIDTH\":2}").plannedInspectionQuantity(2)
                         .inspectionRuleKey("FIRST")
                         .roundNo(1)
                         .taskStatus(MesPqcInspectionTaskDO.TASK_STATUS_SUBMITTED)
@@ -905,8 +950,8 @@ class MesTeamLeaderActiveOrderDetailServiceImplTest {
         assertEquals(List.of(2101L, 2102L), process.getInputMaterials().get(0).getSourcePickListIds());
         assertEquals(List.of("SIM-SOUT-001", "SIM-SOUT-002"),
                 process.getInputMaterials().get(0).getSourcePickListNos());
-        assertEquals(1, process.getPqcSubmissions().size());
-        MesTeamLeaderActiveOrderDetail.PqcSubmissionDetail pqcSubmission = process.getPqcSubmissions().get(0);
+        assertEquals(1, detail.getPqcSubmissions().size());
+        MesTeamLeaderActiveOrderDetail.PqcSubmissionDetail pqcSubmission = detail.getPqcSubmissions().get(0);
         assertEquals(4101L, pqcSubmission.getPqcTaskId());
         assertEquals(7101L, pqcSubmission.getSubmittedEventId());
         assertEquals(7001L, pqcSubmission.getProductionEventId());
@@ -936,10 +981,10 @@ class MesTeamLeaderActiveOrderDetailServiceImplTest {
                 MesPqcInspectionTaskDO.builder()
                         .id(4101L)
                         .activeOrderId(8101L)
-                        .routeProcessId(5001L)
-                        .processId(6001L)
                         .inspectionType("FIRST")
-                        .qaItemCode("WIDTH")
+                        .qaItemCode("")
+                        .inspectionItemPlanJson("{\"WIDTH\":2}")
+                        .plannedInspectionQuantity(2)
                         .inspectionRuleKey("FIRST")
                         .businessDate(LocalDate.of(2026, 8, 13))
                         .roundNo(1)
@@ -986,8 +1031,6 @@ class MesTeamLeaderActiveOrderDetailServiceImplTest {
                         .id(4201L)
                         .pqcTaskId(4101L)
                         .activeOrderId(8101L)
-                        .routeProcessId(5001L)
-                        .processId(6001L)
                         .sampleNo(1)
                         .itemCode("WIDTH")
                         .itemName("宽度")
@@ -1002,7 +1045,7 @@ class MesTeamLeaderActiveOrderDetailServiceImplTest {
         MesTeamLeaderActiveOrderDetail detail = service.getDetail(3001L, 8101L);
 
         MesTeamLeaderActiveOrderDetail.PqcSubmissionDetail submission =
-                detail.getProcesses().get(0).getPqcSubmissions().get(0);
+                detail.getPqcSubmissions().get(0);
         assertEquals("12.3", submission.getSubmittedItems().get(0).getMeasuredValue());
         assertEquals("EQ-OLD", submission.getSubmittedItems().get(0).getSelectedEquipmentNumber());
         assertEquals("99.9", submission.getProcessInspectionItems().get(0).getMeasuredValue());
@@ -1091,10 +1134,10 @@ class MesTeamLeaderActiveOrderDetailServiceImplTest {
                 MesPqcInspectionTaskDO.builder()
                         .id(4101L)
                         .activeOrderId(8101L)
-                        .routeProcessId(5001L)
-                        .processId(6001L)
                         .inspectionType("FIRST")
-                        .qaItemCode("WIDTH")
+                        .qaItemCode("")
+                        .inspectionItemPlanJson("{\"WIDTH\":2}")
+                        .plannedInspectionQuantity(2)
                         .inspectionRuleKey("FIRST")
                         .businessDate(LocalDate.of(2026, 8, 13))
                         .shiftCode("FIRST")
@@ -1108,10 +1151,10 @@ class MesTeamLeaderActiveOrderDetailServiceImplTest {
                 MesPqcInspectionTaskDO.builder()
                         .id(4102L)
                         .activeOrderId(8101L)
-                        .routeProcessId(5002L)
-                        .processId(6002L)
                         .inspectionType("FIRST")
-                        .qaItemCode("WIDTH")
+                        .qaItemCode("")
+                        .inspectionItemPlanJson("{\"WIDTH\":2}")
+                        .plannedInspectionQuantity(2)
                         .inspectionRuleKey("FIRST")
                         .businessDate(LocalDate.of(2026, 8, 13))
                         .shiftCode("FIRST")
@@ -1146,8 +1189,6 @@ class MesTeamLeaderActiveOrderDetailServiceImplTest {
                         .id(4201L)
                         .pqcTaskId(4101L)
                         .activeOrderId(8101L)
-                        .routeProcessId(5001L)
-                        .processId(6001L)
                         .sampleNo(1)
                         .itemCode("WIDTH")
                         .itemName("宽度")
@@ -1159,8 +1200,6 @@ class MesTeamLeaderActiveOrderDetailServiceImplTest {
                         .id(4202L)
                         .pqcTaskId(4102L)
                         .activeOrderId(8101L)
-                        .routeProcessId(5002L)
-                        .processId(6002L)
                         .sampleNo(1)
                         .itemCode("WIDTH")
                         .itemName("宽度")
@@ -1171,15 +1210,14 @@ class MesTeamLeaderActiveOrderDetailServiceImplTest {
 
         MesTeamLeaderActiveOrderDetail detail = service.getDetail(3001L, 8101L);
 
-        int pqcSubmissionCount = detail.getProcesses().stream()
-                .mapToInt(process -> process.getPqcSubmissions().size())
-                .sum();
+        int pqcSubmissionCount = detail.getPqcSubmissions().size();
         assertEquals(1, pqcSubmissionCount);
         MesTeamLeaderActiveOrderDetail.PqcSubmissionDetail submission =
-                detail.getProcesses().get(0).getPqcSubmissions().get(0);
+                detail.getPqcSubmissions().get(0);
         assertEquals(4101L, submission.getPqcTaskId());
         assertEquals("FIRST", submission.getInspectionRuleKey());
-        assertEquals("WIDTH", submission.getQaItemCode());
+        assertEquals("", submission.getQaItemCode());
+        assertEquals("WIDTH", submission.getProcessInspectionItems().get(0).getItemCode());
         assertEquals(List.of(7101L), submission.getSubmittedEventIds());
         assertEquals(1, submission.getProcessInspectionItems().size());
     }
@@ -1261,7 +1299,7 @@ class MesTeamLeaderActiveOrderDetailServiceImplTest {
     }
 
     @Test
-    void shouldKeepSameProcessFinalInspectionTasksSeparatedByQaItemCode() {
+    void shouldKeepFinalInspectionTasksSeparatedByOriginalEventAndFrozenItemPlan() {
         when(activeOrderMapper.selectById(8101L)).thenReturn(MesProcessPoolActiveOrderDO.builder()
                 .id(8101L)
                 .leaderUserId(3001L)
@@ -1278,10 +1316,8 @@ class MesTeamLeaderActiveOrderDetailServiceImplTest {
                 MesPqcInspectionTaskDO.builder()
                         .id(4101L)
                         .activeOrderId(8101L)
-                        .routeProcessId(5001L)
-                        .processId(6001L)
                         .inspectionType("FINAL")
-                        .qaItemCode("APPEARANCE")
+                        .qaItemCode("").inspectionItemPlanJson("{\"APPEARANCE\":3}").plannedInspectionQuantity(3)
                         .inspectionRuleKey("FINAL")
                         .roundNo(1)
                         .taskStatus(MesPqcInspectionTaskDO.TASK_STATUS_SUBMITTED)
@@ -1293,10 +1329,8 @@ class MesTeamLeaderActiveOrderDetailServiceImplTest {
                 MesPqcInspectionTaskDO.builder()
                         .id(4102L)
                         .activeOrderId(8101L)
-                        .routeProcessId(5001L)
-                        .processId(6001L)
                         .inspectionType("FINAL")
-                        .qaItemCode("CLEAN")
+                        .qaItemCode("").inspectionItemPlanJson("{\"CLEAN\":3}").plannedInspectionQuantity(3)
                         .inspectionRuleKey("FINAL")
                         .roundNo(1)
                         .taskStatus(MesPqcInspectionTaskDO.TASK_STATUS_SUBMITTED)
@@ -1351,12 +1385,12 @@ class MesTeamLeaderActiveOrderDetailServiceImplTest {
         MesTeamLeaderActiveOrderDetail detail = service.getDetail(3001L, 8101L);
 
         MesTeamLeaderActiveOrderDetail.ProcessDetail process = detail.getProcesses().get(0);
-        assertEquals(2, process.getPqcSubmissions().size());
-        MesTeamLeaderActiveOrderDetail.PqcSubmissionDetail appearance = process.getPqcSubmissions().get(0);
-        MesTeamLeaderActiveOrderDetail.PqcSubmissionDetail clean = process.getPqcSubmissions().get(1);
+        assertEquals(2, detail.getPqcSubmissions().size());
+        MesTeamLeaderActiveOrderDetail.PqcSubmissionDetail appearance = detail.getPqcSubmissions().get(0);
+        MesTeamLeaderActiveOrderDetail.PqcSubmissionDetail clean = detail.getPqcSubmissions().get(1);
         assertEquals("FINAL", appearance.getInspectionType());
         assertEquals("FINAL", appearance.getInspectionRuleKey());
-        assertEquals("APPEARANCE", appearance.getQaItemCode());
+        assertEquals("", appearance.getQaItemCode());
         assertEquals(List.of(8869L), appearance.getSubmittedEventIds());
         assertEquals(List.of(7001L), appearance.getProductionEventIds());
         assertEquals("PQC王五", appearance.getSubmitterName());
@@ -1364,7 +1398,7 @@ class MesTeamLeaderActiveOrderDetailServiceImplTest {
         assertEquals("APPEARANCE", appearance.getProcessInspectionItems().get(0).getItemCode());
         assertEquals("FINAL", clean.getInspectionType());
         assertEquals("FINAL", clean.getInspectionRuleKey());
-        assertEquals("CLEAN", clean.getQaItemCode());
+        assertEquals("", clean.getQaItemCode());
         assertEquals(List.of(8872L), clean.getSubmittedEventIds());
         assertEquals(List.of(7002L), clean.getProductionEventIds());
         assertEquals("PQC赵六", clean.getSubmitterName());
@@ -1390,10 +1424,8 @@ class MesTeamLeaderActiveOrderDetailServiceImplTest {
                 MesPqcInspectionTaskDO.builder()
                         .id(4101L)
                         .activeOrderId(8101L)
-                        .routeProcessId(5001L)
-                        .processId(6001L)
                         .inspectionType("PATROL")
-                        .qaItemCode("APPEARANCE")
+                        .qaItemCode("").inspectionItemPlanJson("{\"APPEARANCE\":1}").plannedInspectionQuantity(1)
                         .inspectionRuleKey("PATROL_AM")
                         .shiftCode("AM")
                         .roundNo(1)
@@ -1406,10 +1438,8 @@ class MesTeamLeaderActiveOrderDetailServiceImplTest {
                 MesPqcInspectionTaskDO.builder()
                         .id(4102L)
                         .activeOrderId(8101L)
-                        .routeProcessId(5001L)
-                        .processId(6001L)
                         .inspectionType("PATROL")
-                        .qaItemCode("APPEARANCE")
+                        .qaItemCode("").inspectionItemPlanJson("{\"APPEARANCE\":1}").plannedInspectionQuantity(1)
                         .inspectionRuleKey("PATROL_PM")
                         .shiftCode("PM")
                         .roundNo(1)
@@ -1465,9 +1495,9 @@ class MesTeamLeaderActiveOrderDetailServiceImplTest {
         MesTeamLeaderActiveOrderDetail detail = service.getDetail(3001L, 8101L);
 
         MesTeamLeaderActiveOrderDetail.ProcessDetail process = detail.getProcesses().get(0);
-        assertEquals(2, process.getPqcSubmissions().size());
-        MesTeamLeaderActiveOrderDetail.PqcSubmissionDetail am = process.getPqcSubmissions().get(0);
-        MesTeamLeaderActiveOrderDetail.PqcSubmissionDetail pm = process.getPqcSubmissions().get(1);
+        assertEquals(2, detail.getPqcSubmissions().size());
+        MesTeamLeaderActiveOrderDetail.PqcSubmissionDetail am = detail.getPqcSubmissions().get(0);
+        MesTeamLeaderActiveOrderDetail.PqcSubmissionDetail pm = detail.getPqcSubmissions().get(1);
         assertEquals("PATROL_AM", am.getInspectionRuleKey());
         assertEquals(List.of(10287L), am.getSubmittedEventIds());
         assertEquals(List.of(7001L), am.getProductionEventIds());
@@ -1500,10 +1530,8 @@ class MesTeamLeaderActiveOrderDetailServiceImplTest {
                 MesPqcInspectionTaskDO.builder()
                         .id(4101L)
                         .activeOrderId(8101L)
-                        .routeProcessId(5001L)
-                        .processId(6001L)
                         .inspectionType("FINAL")
-                        .qaItemCode("APPEARANCE")
+                        .qaItemCode("").inspectionItemPlanJson("{\"APPEARANCE\":1}").plannedInspectionQuantity(1)
                         .inspectionRuleKey("FINAL")
                         .businessDate(LocalDate.of(2026, 8, 13))
                         .shiftCode("AM")
@@ -1517,10 +1545,8 @@ class MesTeamLeaderActiveOrderDetailServiceImplTest {
                 MesPqcInspectionTaskDO.builder()
                         .id(4102L)
                         .activeOrderId(8101L)
-                        .routeProcessId(5001L)
-                        .processId(6001L)
                         .inspectionType("FINAL")
-                        .qaItemCode("APPEARANCE")
+                        .qaItemCode("").inspectionItemPlanJson("{\"APPEARANCE\":1}").plannedInspectionQuantity(1)
                         .inspectionRuleKey("FINAL")
                         .businessDate(LocalDate.of(2026, 8, 13))
                         .shiftCode("PM")
@@ -1579,25 +1605,29 @@ class MesTeamLeaderActiveOrderDetailServiceImplTest {
         MesTeamLeaderActiveOrderDetail detail = service.getDetail(3001L, 8101L);
 
         MesTeamLeaderActiveOrderDetail.ProcessDetail process = detail.getProcesses().get(0);
-        assertEquals(2, process.getPqcSubmissions().size());
-        MesTeamLeaderActiveOrderDetail.PqcSubmissionDetail firstScrap = process.getPqcSubmissions().get(0);
-        MesTeamLeaderActiveOrderDetail.PqcSubmissionDetail secondScrap = process.getPqcSubmissions().get(1);
+        assertEquals(2, detail.getPqcSubmissions().size());
+        MesTeamLeaderActiveOrderDetail.PqcSubmissionDetail firstScrap = detail.getPqcSubmissions().get(0);
+        MesTeamLeaderActiveOrderDetail.PqcSubmissionDetail secondScrap = detail.getPqcSubmissions().get(1);
         assertEquals(List.of(7101L), firstScrap.getSubmittedEventIds());
         assertEquals(List.of(7001L), firstScrap.getProductionEventIds());
-        assertEquals(1, firstScrap.getProductionSubmitterSignatures().size());
-        assertEquals(17001L, firstScrap.getProductionSubmitterSignatures().get(0).getSignatureId());
-        assertEquals("甲", firstScrap.getProductionSubmitterSignatures().get(0).getSignerName());
+        assertEquals(List.of(), firstScrap.getProductionSubmitterSignatures());
+        var firstProductionSignature = process.getSubmissions().stream()
+                .filter(submission -> submission.getEventId().equals(7001L)).findFirst().orElseThrow().getSubmitterSignature();
+        assertEquals(17001L, firstProductionSignature.getSignatureId());
+        assertEquals("甲", firstProductionSignature.getSignerName());
         assertEquals(LocalDateTime.parse("2026-08-13T08:10:00"),
-                firstScrap.getProductionSubmitterSignatures().get(0).getSignedAt());
+                firstProductionSignature.getSignedAt());
         assertEquals(2, firstScrap.getScrapQuantity());
         assertEquals("PQC王五", firstScrap.getSubmitterName());
         assertEquals(List.of(7102L), secondScrap.getSubmittedEventIds());
         assertEquals(List.of(7002L), secondScrap.getProductionEventIds());
-        assertEquals(1, secondScrap.getProductionSubmitterSignatures().size());
-        assertEquals(17002L, secondScrap.getProductionSubmitterSignatures().get(0).getSignatureId());
-        assertEquals("乙", secondScrap.getProductionSubmitterSignatures().get(0).getSignerName());
+        assertEquals(List.of(), secondScrap.getProductionSubmitterSignatures());
+        var secondProductionSignature = process.getSubmissions().stream()
+                .filter(submission -> submission.getEventId().equals(7002L)).findFirst().orElseThrow().getSubmitterSignature();
+        assertEquals(17002L, secondProductionSignature.getSignatureId());
+        assertEquals("乙", secondProductionSignature.getSignerName());
         assertEquals(LocalDateTime.parse("2026-08-13T15:20:00"),
-                secondScrap.getProductionSubmitterSignatures().get(0).getSignedAt());
+                secondProductionSignature.getSignedAt());
         assertEquals(3, secondScrap.getScrapQuantity());
         assertEquals("PQC赵六", secondScrap.getSubmitterName());
     }

@@ -19,6 +19,40 @@ import static org.mockito.Mockito.*;
 
 /** Real projection/validators/precheck reader. Owner provenance and file APIs are explicit boundary doubles. */
 class EdhrReleaseContentResolverTest {
+    @Test void activePrecheckAcceptsProducerOmittedNullButNeverAnIndependentGateHash() throws Exception {
+        var f = new Fixture(true, true);
+        f.checks.removeIf(row -> row.getCheckCode().startsWith("DOSSIER_"));
+        f.release.setRequiredCheckCount(6);
+        var raw = (ObjectNode) ApprovalContentJson.parse(f.release.getPrecheckSnapshotJson());
+        var items = a();
+        for (var row : f.checks) items.add(o("checkCode", row.getCheckCode(), "checkResult", row.getCheckResult(),
+                "severity", row.getSeverity(), "responsibilityModule", row.getResponsibilityModule(), "sourceObjectCode", row.getSourceObjectCode()));
+        raw.set("items", items);
+        var producerTime = ApprovalContentJson.parse(cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(
+                Map.of("checkedAt", f.release.getLastPrecheckAt()))).get("checkedAt");
+        assertTrue(producerTime.isIntegralNumber());
+        raw.set("checkedAt", producerTime);
+        raw.put("evidencePolicy", "ACTIVE_ORDER_FORMAL_FACTS_V1").put("formalFactsHash", "ACTIVE_ORDER_FACTS:" + H);
+        var mapper = mock(MesProEdhrReleaseCheckItemMapper.class);
+        when(mapper.selectCurrentOpen(f.release.getId(), false)).thenReturn(f.checks);
+        var reader = new EdhrReleasePrecheckContentReader(mapper);
+        raw.remove("materialGateManifestHash");
+        f.release.setPrecheckSnapshotJson(raw.toString());
+        assertEquals(6, reader.read(f.release, false).path("items").size());
+        raw.put("checkedAt", producerTime.longValue() + 1000);
+        f.release.setPrecheckSnapshotJson(raw.toString());
+        assertThrows(IllegalArgumentException.class, () -> reader.read(f.release, false));
+        raw.set("checkedAt", producerTime);
+        raw.putNull("materialGateManifestHash");
+        f.release.setPrecheckSnapshotJson(raw.toString());
+        assertEquals(6, reader.read(f.release, false).path("items").size());
+        raw.put("materialGateManifestHash", H);
+        f.release.setPrecheckSnapshotJson(raw.toString());
+        assertThrows(IllegalArgumentException.class, () -> reader.read(f.release, false));
+        raw.remove("materialGateManifestHash"); raw.remove("evidencePolicy"); raw.remove("formalFactsHash");
+        f.release.setPrecheckSnapshotJson(raw.toString());
+        assertThrows(IllegalArgumentException.class, () -> reader.read(f.release, false));
+    }
     @Test void activeOrderFactsBindDossierFilesRevisionAndHashWithoutMaterialGate() throws Exception {
         var f=new Fixture(true,true);
         var old=f.releases.readForApproval(10L,2L,false);
@@ -50,6 +84,19 @@ class EdhrReleaseContentResolverTest {
         var content=ApprovalContentJson.parse(prepared.canonicalBusinessContentJson());
         assertTrue(content.at("/finalization/materialManifest/files").isArray());
         assertEquals(6,content.at("/release/precheckSnapshot/items").size());
+        var developmentContent = content.deepCopy();
+        var developmentFacts = (ObjectNode) developmentContent.at("/finalization/activeOrderFormalFacts");
+        developmentFacts.put("completionCreationEventId", "-80").put("completionCreationEventHash", "DEVELOPMENT_DISABLED")
+                .put("pqcCreationEventId", "-96");
+        assertThrows(IllegalArgumentException.class, () -> f.semantic.validate(developmentContent));
+        try (var mode = mockStatic(cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditDevelopmentMode.class)) {
+            mode.when(cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditDevelopmentMode::disabled).thenReturn(true);
+            assertDoesNotThrow(() -> f.semantic.validate(developmentContent));
+            developmentFacts.put("pqcSignatureId", "-96");
+            assertThrows(IllegalArgumentException.class, () -> f.semantic.validate(developmentContent));
+            developmentFacts.put("pqcSignatureId", "96").put("sourceSnapshotHash", "DEVELOPMENT_DISABLED");
+            assertThrows(IllegalArgumentException.class, () -> f.semantic.validate(developmentContent));
+        }
         verifyNoInteractions(f.materials,f.files);
         String beforeVersion = f.semantic.subjectVersion(content, guard());
         manifest.put("revision","1");manifest.remove("manifestHash");manifest.put("manifestHash",ApprovalContentJson.hash(manifest));

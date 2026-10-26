@@ -490,20 +490,26 @@ public class ProcessPoolTimelinePqcGroupSqlTest {
     void actualGroupPayloadQueryCarriesEachDisplayedVersionAndReviewRound() throws Exception {
         try(Connection db=database()) {
             event(db,1,101,"g");event(db,1,102,"g");
-            assertDisplayedContexts(db,List.of("101:0:0:0","102:0:0:0"));
+            assertDisplayedContexts(db,List.of("101:0:0:0:PENDING","102:0:0:0:PENDING"));
             review(db,1,201,101,"REJECTED");
             review(db,2,999,101,"APPROVED");
             try(var st=db.createStatement()) {
                 st.executeUpdate("UPDATE mes_pro_process_pool_submission_review SET review_round=3 WHERE id=201");
             }
+            assertDisplayedContexts(db,List.of("101:0:201:3:REJECTED","102:0:0:0:PENDING"));
             correction(db,1,301,101,201,901L);
             correction(db,2,999,101,201,999L);
-            assertDisplayedContexts(db,List.of("101:301:201:3","102:0:0:0"));
+            // R4-05: reviewability is derived PENDING, while the formal optimistic context
+            // must retain the persisted REJECTED decision and its original review round.
+            assertDisplayedContexts(db,List.of("101:301:201:3:REJECTED","102:0:0:0:PENDING"));
+            assertRows(db,"PENDING",List.of("102:PENDING"));
             try(var st=db.createStatement()) {
                 st.executeUpdate("UPDATE mes_pro_process_pool_event_revision SET revision_status='REVOKED' WHERE tenant_id=1 AND id=301");
                 st.executeUpdate("UPDATE mes_pro_process_pool_event SET deleted=1 WHERE id=102");
             }
-            assertDisplayedContexts(db,List.of("101:0:201:3"));
+            assertDisplayedContexts(db,List.of("101:0:201:3:REJECTED"));
+            review(db,1,202,101,"APPROVED");
+            assertDisplayedContexts(db,List.of("101:0:202:0:APPROVED"));
         }
     }
 
@@ -516,7 +522,7 @@ public class ProcessPoolTimelinePqcGroupSqlTest {
             try(var rows=statement.executeQuery()) {
                 while(rows.next()) {
                     org.junit.jupiter.api.Assertions.assertEquals("g",JsonUtils.parseTree(rows.getString("originalPayloadJson")).path("pqcSubmissionGroupId").asText());
-                    actual.add(rows.getLong("id")+":"+rows.getLong("displayedRevisionId")+":"+rows.getLong("displayedReviewId")+":"+rows.getInt("displayedReviewRound"));
+                    actual.add(rows.getLong("id")+":"+rows.getLong("displayedRevisionId")+":"+rows.getLong("displayedReviewId")+":"+rows.getInt("displayedReviewRound")+":"+rows.getString("displayedReviewStatus"));
                 }
             }
         }

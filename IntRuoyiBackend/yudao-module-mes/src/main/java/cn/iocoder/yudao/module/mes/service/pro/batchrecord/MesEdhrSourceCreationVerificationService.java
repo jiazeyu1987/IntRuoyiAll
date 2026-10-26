@@ -46,6 +46,15 @@ public class MesEdhrSourceCreationVerificationService {
         eq(receiptId, row.getReceiptId()); positiveStored(row.getCredentialVersion());
         ObjectNode request = owner.independentRequest(row);
         String version = row.getCredentialVersion().toString(); String target = "INDEPENDENT_BATCH_PREREQUISITE_RECEIPT";
+        if (cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditDevelopmentMode.disabled()) {
+            if ("ISSUED".equals(row.getStatus())) {
+                require(row.getRevokedAt() == null && row.getRevocationReason() == null, "SOURCE_LIFECYCLE_MISMATCH");
+            } else if ("REVOKED".equals(row.getStatus())) {
+                require(row.getRevokedAt() != null && row.getRevocationReason() != null
+                        && !row.getRevocationReason().isBlank(), "SOURCE_LIFECYCLE_MISMATCH");
+            } else throw fail("SOURCE_LIFECYCLE_MISMATCH");
+            return developmentProof("INDEPENDENT_ISSUE_V1", row.getId(), receiptId, version, row.getReceiptHash());
+        }
         var binding = forward(tenantId, "INDEPENDENT_ISSUE_V1", row.getId(), receiptId, version, row.getReceiptHash());
         var candidates = candidates(tenantId, target, row.getId(), version, row.getReceiptHash());
         var issue = one(candidates, ISSUE);
@@ -97,6 +106,7 @@ public class MesEdhrSourceCreationVerificationService {
         require(row != null, "SOURCE_ROW_MISSING"); source(row.getTenantId(), row.getId(), tenantId);
         eq(batchExecutionId, row.getBatchExecutionId()); eq(receiptId, row.getReceiptId()); positiveStored(row.getVersion());
         ArrayNode types = owner.materialTypes(row); String version = row.getVersion().toString();
+        if (cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditDevelopmentMode.disabled()) return developmentProof("MATERIAL_READY_V1", row.getId(), receiptId, version, row.getReceiptHash());
         var binding = forward(tenantId, "MATERIAL_READY_V1", row.getId(), receiptId, version, row.getReceiptHash());
         var candidates = candidates(tenantId, "EDHR_MATERIAL_GATE_RECEIPT", row.getId(), version, row.getReceiptHash());
         var creation = one(candidates, MATERIAL); ObjectNode state;
@@ -137,6 +147,7 @@ public class MesEdhrSourceCreationVerificationService {
         require(row.getCompletedAt() != null && row.getBatchCode() != null && !row.getBatchCode().isBlank(), "SOURCE_OWNER_INTEGRITY_FAILED");
         owner.completion(row);
         String version = row.getCompletedVersion().toString();
+        if (cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditDevelopmentMode.disabled()) return developmentProof("COMPLETION_MAIN_V1", row.getId(), receiptId.toString(), version, row.getReceiptHash());
         var candidates = candidates(tenantId, "COMPLETION_RECEIPT", row.getId(), version, row.getReceiptHash());
         var main = one(candidates, COMPLETION_MAIN); var parts = byKind(candidates, COMPLETION_PART);
         completionHeader(main, row, null);
@@ -171,11 +182,17 @@ public class MesEdhrSourceCreationVerificationService {
 
     public String requireCompletionTransactionId(Long tenantId, Long receiptId) {
         MesEdhrSourceCreationEvidence proof = requireCompletionCreation(tenantId, receiptId);
+        if (cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditDevelopmentMode.disabled()) return "DEVELOPMENT_DISABLED:COMPLETION:" + receiptId;
         VerifiedAuditEventFact event = shared.requireVerifiedEvent(tenantId, proof.creationEventId());
         eq(proof.creationEventHash(), event.eventHash());
         String transactionId = event.columns().transactionId();
         require(transactionId != null && !transactionId.isBlank(), "SOURCE_TRANSACTION_MISSING");
         return transactionId;
+    }
+
+    // Negative IDs are explicit development markers, never IDs of real GXP audit events.
+    private static MesEdhrSourceCreationEvidence developmentProof(String protocol, Long row, String receipt, String version, String hash) {
+        return new MesEdhrSourceCreationEvidence(protocol, row, receipt, version, hash, -row, "DEVELOPMENT_DISABLED");
     }
 
     private record Candidate(MesEdhrSourceCreationProtocolRegistry.Kind kind, VerifiedAuditEventFact fact) {}

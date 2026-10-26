@@ -105,6 +105,7 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
     private final MesMdItemMapper itemMapper;
     private final MesProcessPoolActiveOrderCompletionBackfillMapper backfillMapper;
     private final MesProProcessPoolEventMapper eventMapper;
+    @jakarta.annotation.Resource private cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolSubmissionReviewMapper businessReviewMapper;
     private final MesProProcessPoolEventRevisionMapper eventRevisionMapper;
     private final MesProcessPoolActiveOrderReleaseApplicationMapper releaseApplicationMapper;
     private final MesProEdhrNonconformanceReviewMapper nonconformanceReviewMapper;
@@ -1567,6 +1568,7 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
         private final String qaProcessDisplayName;
         private final LinkedHashSet<Long> pqcTaskIds = new LinkedHashSet<>();
         private final LinkedHashSet<Long> submittedEventIds = new LinkedHashSet<>();
+        private final Map<Long, String> originalBusinessIdentities = new LinkedHashMap<>();
         private final LinkedHashSet<Long> productionEventIds = new LinkedHashSet<>();
         private final LinkedHashSet<String> submitterNames = new LinkedHashSet<>();
         private final LinkedHashSet<String> reviewerNames = new LinkedHashSet<>();
@@ -1606,6 +1608,8 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
                 if (eventParty == null) {
                     throw exception(PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_REQUIRED, activeOrderId);
                 }
+                originalBusinessIdentities.put(task.getSubmittedEventId(), new MesSubmissionBusinessIdentityReader(eventMapper, businessReviewMapper).read(
+                        task.getSubmittedEventId(), eventParty.getReviewerSignatureId()));
                 submitterNames.add(trimToNull(eventParty.getSubmitterName()));
                 reviewerNames.add(trimToNull(eventParty.getReviewerName()));
                 if (eventParty.getSubmitterSignatureId() != null && submitterSignatures.stream()
@@ -1652,6 +1656,7 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
                     .setPqcTaskIds(taskIds)
                     .setSubmittedEventId(eventIds.isEmpty() ? null : eventIds.get(0))
                     .setSubmittedEventIds(eventIds)
+                    .setOriginalBusinessIdentities(eventIds.stream().map(originalBusinessIdentities::get).toList())
                     .setProductionEventId(productionIds.isEmpty() ? null : productionIds.get(0))
                     .setProductionEventIds(productionIds)
                     .setProductionSubmitterSignatures(productionSignatures)
@@ -1780,6 +1785,7 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
             }
             submissions.add(new MesTeamLeaderActiveOrderDetail.SubmissionDetail()
                     .setEventId(row.getEventId())
+                    .setOriginalBusinessIdentityJson(new MesSubmissionBusinessIdentityReader(eventMapper, businessReviewMapper).read(row.getEventId(), row.getReviewerSignatureId()))
                     .setSubmittedQuantity(row.getSubmittedQuantity())
                     .setSubmitterName(row.getSubmitterName())
                     .setReviewerName(row.getReviewerName())

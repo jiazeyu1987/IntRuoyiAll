@@ -8,8 +8,10 @@
         <el-empty v-if="!history.state.timeline.corrections.length" description="该正式周期没有补正修订" />
         <article v-for="row in history.state.timeline.corrections" :key="row.revisionId" class="correction-history__revision" data-active-order-correction-revision>
           <h3>{{ row.eventType === 'PRODUCTION_SUBMIT' ? '生产报工' : 'PQC检验' }} · {{ row.processName }}</h3>
-          <p>更正时间：{{ formatDateTimeValue(row.revisedAt) }} · 更正人：{{ row.signerName }}</p>
-          <p>更正原因：{{ row.reason }}</p>
+          <p>原事件：<span data-correction-event-id>{{ row.eventId }}</span>；正式修订：<span data-correction-revision-id>{{ row.revisionId }}</span>；原退回轮次：<span data-correction-rejected-review-id>{{ row.supersededReviewId ?? '未记录' }}</span></p>
+          <p>业务类型：<span data-correction-event-type>{{ row.eventType }}</span>；签名人编号：<span data-correction-signer-id>{{ row.signerUserId }}</span>；有效签名：<span data-correction-signature-id>{{ row.signatureId }}</span>；验证状态：<span data-correction-verification>{{ row.verificationStatus }}</span></p>
+          <p>更正时间：{{ formatDateTimeValue(row.revisedAt) }} · 更正人：<span data-correction-signer-name>{{ row.signerName }}</span></p>
+          <p>更正原因：<span data-correction-reason>{{ row.reason }}</span></p>
           <el-table :data="row.changes" aria-label="正式修订字段差异">
             <el-table-column prop="fieldName" label="修改字段" />
             <el-table-column prop="beforeValue" label="本次修改前" />

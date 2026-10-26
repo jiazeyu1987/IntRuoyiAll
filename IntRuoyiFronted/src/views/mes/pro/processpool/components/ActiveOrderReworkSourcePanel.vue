@@ -2,6 +2,7 @@
   <section v-if="source" data-active-order-rework-source>
     <el-alert v-if="location.error" :title="location.error" type="error" :closable="false" show-icon />
     <el-descriptions v-else title="返工来源" :column="2" border size="small">
+      <el-descriptions-item label="当前生产周期"><span data-active-order-rework-current-cycle>{{ source.currentActiveOrderId }}</span></el-descriptions-item>
       <el-descriptions-item label="原生产周期">
         <router-link v-if="location.target" :to="location.target" data-active-order-rework-source-link>{{ source.sourceActiveOrderId }}</router-link>
         <span v-else data-active-order-rework-source-readonly>{{ source.sourceActiveOrderId }}（完整原周期批记录需历史追溯权限）</span>
@@ -12,7 +13,7 @@
       <el-descriptions-item label="不合格原因">{{ source.nonconformanceReason }}</el-descriptions-item>
       <el-descriptions-item label="QA意见">{{ source.reviewOpinion }}</el-descriptions-item>
       <el-descriptions-item label="QA签署人">{{ source.qaSignature.signerName }}（账号 {{ source.qaUserId }}）</el-descriptions-item>
-      <el-descriptions-item label="QA签名编号" data-active-order-rework-qa-signature>{{ source.qaSignature.signatureId }}</el-descriptions-item>
+      <el-descriptions-item label="QA签名编号"><span data-active-order-rework-qa-signature>{{ source.qaSignature.signatureId }}</span></el-descriptions-item>
       <el-descriptions-item label="QA签署时间">{{ formatDateTimeValue(source.qaSignature.signedAt) }}</el-descriptions-item>
       <el-descriptions-item label="证据核验">{{ source.qaSignatureVerification.verificationStatus }}</el-descriptions-item>
       <el-descriptions-item label="签名内容哈希" :span="2">{{ source.qaSignatureEvidence.contentHash }}</el-descriptions-item>

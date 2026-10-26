@@ -35,6 +35,17 @@ public class GxpAuditEventController {
     @Resource
     private GxpAuditQueryService queryService;
 
+    @GetMapping("/runtime-mode")
+    @PreAuthorize("isAuthenticated()")
+    @Operation(summary = "查询当前环境的审计运行模式")
+    public CommonResult<java.util.Map<String, Object>> runtimeMode() {
+        boolean disabled = cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditDevelopmentMode.disabled();
+        return success(java.util.Map.of("auditEnabled", !disabled,
+                "mode", disabled ? "DEVELOPMENT_DISABLED" : "FORMAL",
+                "serverStartedAtUtc", java.time.Instant.ofEpochMilli(
+                        java.lang.management.ManagementFactory.getRuntimeMXBean().getStartTime()).toString()));
+    }
+
     @GetMapping("/page")
     @Operation(summary = "分页查询统一 GxP 审计事件")
     @PreAuthorize("@ss.hasPermission('system:gxp-audit:query')")

@@ -83,7 +83,7 @@
               <span v-else>
                 {{ row.batchCode || '--' }}
                 <el-tag v-if="row.contextStatus !== 'COMPLETE'" class="ml-6px" type="warning" size="small">
-                  批次上下文缺失
+                  {{ resolveEvidenceLabel(row.contextStatus) }}
                 </el-tag>
               </span>
             </template>
@@ -107,7 +107,7 @@
               <span v-else>
                 {{ row.workOrderCode || '--' }}
                 <el-tag v-if="row.contextStatus !== 'COMPLETE'" class="ml-6px" type="warning" size="small">
-                  批次上下文缺失
+                  {{ resolveEvidenceLabel(row.contextStatus) }}
                 </el-tag>
               </span>
             </template>
@@ -281,6 +281,9 @@
       class="edhr-form-fill-log-page__alert"
     />
     <el-descriptions v-if="detail" :column="2" border class="mb-12px">
+      <el-descriptions-item label="日志ID">{{ detail.auditBatchId }}</el-descriptions-item>
+      <el-descriptions-item label="原始执行ID">{{ detail.executionId }}</el-descriptions-item>
+      <el-descriptions-item label="上下文状态">{{ resolveEvidenceLabel(detail.contextStatus) }}</el-descriptions-item>
       <el-descriptions-item label="表单名称">{{ detail.formName || detail.batchRecordReportId || '--' }}</el-descriptions-item>
       <el-descriptions-item label="执行编号">{{ detail.executionCode || '--' }}</el-descriptions-item>
       <el-descriptions-item label="批号">{{ detail.batchCode || '--' }}</el-descriptions-item>

@@ -1,6 +1,18 @@
 {
   "changes": [
     {
+      "source": "IntRuoyiFronted/src/permission.ts",
+      "kind": "permission",
+      "value": "system:user:query",
+      "reason": "复用用户管理已有查询权限，仅使既有入口无权限时明确进入403，不新增菜单、页面、权限或角色及租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/permission.ts",
+      "kind": "permission",
+      "value": "system:post:query",
+      "reason": "复用组织角色管理已有查询权限，仅使既有入口无权限时明确进入403，不新增菜单、页面、权限或角色及租户套餐授权。"
+    },
+    {
       "source": "IntRuoyiFronted/src/views/approval-center/ApprovalHistoryMaintenance.vue",
       "kind": "permission",
       "value": "bpm:task:query",
@@ -959,6 +971,18 @@
       "kind": "permission",
       "value": "bpm:model:update",
       "reason": "无管理员模型的显式认领服务复用既有 bpm:model:update 权限，仍校验模型状态及操作人；未新增权限标识、菜单或角色/套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/router/modules/remaining.ts",
+      "kind": "permission",
+      "value": "dcc:project-code:query",
+      "reason": "恢复产品目录项目详情的内部隐藏入口，复用既有 dcc:project-code:query 权限和项目正式授权页面；不新增权限标识、菜单或角色及租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/router/modules/remaining.ts",
+      "kind": "router",
+      "value": "e9a7508d65a216e4335bbcae6a544d8d207b9e111047eb1c9fc3f200298d9a3e",
+      "reason": "恢复 DCC 产品目录既有项目详情链接 /mdm/project-code 对应的内部隐藏路由，复用现有项目组件与权限，不新增菜单或角色及租户套餐授权；项目实际权限仍通过正式前端逐用户保存。"
     }
   ]
 }

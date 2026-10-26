@@ -190,6 +190,7 @@ function notifyNavigation(){
   const code=ts.transpileModule(fs.readFileSync(path.join(root,file),'utf8'),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS}}).outputText
   const requireSource=name=>{
    if(name.startsWith('@/utils/'))return load('src/'+name.slice(2)+'.ts')
+   if(name.startsWith('./'))return load(path.posix.normalize(path.posix.join(path.posix.dirname(file),name+'.ts')))
    if(name==='@/api/mes/pro/handoff'||name==='@/api/mes/pro/edhr/batchExecution')return{}
    throw Error('Unexpected source dependency: '+name)
   }

@@ -29,6 +29,7 @@ public class GxpAuditPolicyStartupGuard implements SmartInitializingSingleton {
 
     @Override
     public void afterSingletonsInstantiated() {
+        if (cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditDevelopmentMode.disabled()) return;
         GxpAuditPolicyBundle bundle = loader.load();
         if (localDevelopmentPolicy != null) {
             localDevelopmentPolicy.verifyBundle(bundle);

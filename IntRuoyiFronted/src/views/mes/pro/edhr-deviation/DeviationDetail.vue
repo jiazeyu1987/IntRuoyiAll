@@ -126,10 +126,11 @@
         <el-divider v-if="handling.signatureEvidence?.length" />
         <div v-if="handling.signatureEvidence?.length" class="signature-evidence">
           <div class="signature-evidence__title">当前版本电子签名证据</div>
+          <p>当前核对账号：<span data-deviation-session-account>{{ signatureUser.username }}</span>（用户 #<span data-deviation-session-user-id>{{ signatureUser.id }}</span>）</p>
           <el-table :data="handling.signatureEvidence" size="small" border>
             <el-table-column prop="node" label="签名节点" width="150" />
             <el-table-column label="签名人" min-width="160">
-              <template #default="scope">{{ scope.row.actorDisplayName || `用户 #${scope.row.actorId || '—'}` }}</template>
+              <template #default="scope"><span data-deviation-signature-actor-name>{{ scope.row.actorDisplayName || '—' }}</span>（用户 #<span data-deviation-signature-actor-id>{{ scope.row.actorId || '—' }}</span>）</template>
             </el-table-column>
             <el-table-column prop="meaningLabel" label="签名含义" min-width="140" />
             <el-table-column label="服务器签名时间" min-width="220"><template #default="scope">{{ scope.row.signedAt || '—' }} {{ scope.row.timeZone ? `(${scope.row.timeZone})` : '' }}</template></el-table-column>
@@ -211,8 +212,10 @@ import { useMessage } from '@/hooks/web/useMessage'
 import dayjs from 'dayjs'
 import { useApprovalCenterInvalidationStore } from '@/store/modules/approvalCenterInvalidation'
 import { createFormalActionGuard } from '@/store/modules/approvalCenterInvalidationState'
+import { useUserStore } from '@/store/modules/user'
 const message = useMessage()
 const approvalInvalidation = useApprovalCenterInvalidationStore()
+const signatureUser = computed(() => useUserStore().getUser)
 const props = withDefaults(defineProps<{ id: number; readonly?: boolean }>(), { readonly: false })
 const loading = ref(false)
 const detail = ref<DeviationRespVO>()
