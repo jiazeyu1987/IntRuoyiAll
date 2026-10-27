@@ -44,9 +44,6 @@ public class AuthFenbeitongAssistantTicketValidateRespVO {
         private String acctId;
         private String username;
         private String password;
-        private String appId;
-        private String signedData;
-        private String timestamp;
         private Integer lcid;
 
     }
