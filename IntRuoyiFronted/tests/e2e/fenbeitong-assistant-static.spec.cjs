@@ -32,7 +32,14 @@ assert.match(loginApiSource, /startFenbeitongAssistant/)
 assert.match(loginApiSource, /\/system\/auth\/fenbeitong-assistant\/start/)
 
 assert.match(envTypes, /readonly VITE_FENBEITONG_ASSISTANT_URL: string/)
-assert.match(testEnv, /^VITE_FENBEITONG_ASSISTANT_URL=http:\/\/172\.30\.30\.58:18734\/$/m)
-assert.match(prodEnv, /^VITE_FENBEITONG_ASSISTANT_URL=$/m)
+assert.match(testEnv, /^VITE_FENBEITONG_ASSISTANT_URL=http:\/\/\{hostname\}:18734\/$/m)
+assert.match(prodEnv, /^VITE_FENBEITONG_ASSISTANT_URL=http:\/\/\{hostname\}:18734\/$/m)
+const resolveBody = viewSource.match(/const assistantBaseUrl = computed\(\(\) => \{([\s\S]*?)\n\}\)/)[1]
+const resolveUrl = new Function('configuredValue', 'window', resolveBody.replace('import.meta.env.VITE_FENBEITONG_ASSISTANT_URL', 'configuredValue'))
+for (const host of ['172.30.30.58', '172.30.30.57', '172.30.30.59']) {
+  assert.equal(resolveUrl('http://{hostname}:18734/', { location: { hostname: host } }), `http://${host}:18734/`)
+}
+assert.equal(resolveUrl('', { location: { hostname: '172.30.30.57' } }), '')
+assert.equal(resolveUrl('http://127.0.0.1:18734/', { location: { hostname: 'localhost' } }), 'http://127.0.0.1:18734/')
 
 console.log('Fenbeitong assistant frontend static contract passed')
