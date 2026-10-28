@@ -73,4 +73,17 @@ class WorkbenchRequestPrivacyTest {
   var capture=ArgumentCaptor.forClass(ApiErrorLogCreateReqDTO.class);verify(errors).createApiErrorLogAsync(capture.capture());assertFalse(JsonUtils.toJsonString(capture.getValue()).contains(SECRET));
   assertEquals("参数禁止记录",capture.getValue().getRequestParams());
  }
+ @Test void nestedSqlDiagnosticsRetainCodesButNeverMessages() throws Exception {
+  var sql=new java.sql.SQLException(SECRET,"HY000",1267);
+  var failure=WorkbenchFailure.SOURCE_QUERY_FAILED.exception(new IllegalStateException(SECRET,sql));
+  when(service.count(SECRET,"epoch")).thenThrow(failure);
+  mvc.perform(get("/admin-api/workbench/tasks/count").param("queryVersion",SECRET).param("contextEpoch","epoch"))
+   .andExpect(jsonPath("$.code").value(WorkbenchFailure.SOURCE_QUERY_FAILED.code()));
+  privateLogs();
+  String logs=events.list.stream().map(ILoggingEvent::getFormattedMessage).collect(java.util.stream.Collectors.joining("\n"));
+  assertTrue(logs.contains("vendorCode=1267"));assertTrue(logs.contains("sqlState=HY000"));
+  assertTrue(logs.contains("java.sql.SQLException"));
+  var capture=ArgumentCaptor.forClass(ApiErrorLogCreateReqDTO.class);verify(errors).createApiErrorLogAsync(capture.capture());
+  assertFalse(JsonUtils.toJsonString(capture.getValue()).contains(SECRET));
+ }
 }

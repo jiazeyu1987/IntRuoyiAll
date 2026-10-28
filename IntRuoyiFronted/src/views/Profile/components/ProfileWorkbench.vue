@@ -30,7 +30,8 @@
       :total="total ?? 0"
       v-model:sort-state="sortState"
       @sort-change="handleTodoSortChange"
-      v-model:page="queryParams.pageNo"
+      :page="queryParams.pageNo"
+      @update:page="handleTodoPageChange"
       v-model:limit="queryParams.pageSize"
       @update:quick-filter-state="todoQuickFilter.updateState"
       @quick-filter-query="todoQuickFilter.applyQuickFilter"
@@ -487,7 +488,14 @@ const handleTodoSortChange = () => {
   queryParams.pageNo = 1
   void loadWorkbench()
 }
-const handleTodoPagination = () => { void loadWorkbench() }
+// Clearing a pending result temporarily gives the pager total=0. Ignore its
+// automatic page-1 normalization until an authoritative result is available.
+const handleTodoPageChange = (page: number) => {
+  if (total.value !== undefined) queryParams.pageNo = page
+}
+const handleTodoPagination = () => {
+  if (total.value !== undefined) void loadWorkbench()
+}
 const todoQuickFilter = useTableQuickFilter(
   TODO_TABLE_KEY, todoQuickFilterDefinitions, queryParams, async () => { await loadWorkbench() }
 )

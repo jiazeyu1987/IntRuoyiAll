@@ -12,7 +12,7 @@ $javaCall = @($statements | Where-Object { $_.Extent.Text -eq '& java @javaArgs'
 $exitStatement = @($statements | Where-Object { $_.Extent.Text -eq 'exit $LASTEXITCODE' })
 if ($dotSource.Count -ne 1 -or $javaCall.Count -ne 1 -or $exitStatement.Count -ne 1) { throw 'Unexpected formal launcher external endpoints' }
 $body = @($statements | Where-Object { $_ -notin $dotSource -and $_ -notin $javaCall -and $_ -notin $exitStatement } | ForEach-Object { $_.Extent.Text }) -join "`n"
-$actualLauncher = [scriptblock]::Create($ast.ParamBlock.Extent.Text + "`n" + $body + "`n" + '[pscustomobject]@{ JavaArgs = @($javaArgs); ResolvedBranch = $branch }')
+$actualLauncher = [scriptblock]::Create($ast.ParamBlock.Extent.Text + "`n" + '$PSScriptRoot = ' + "'" + (Split-Path $launcherPath) + "'`n" + $body + "`n" + '[pscustomobject]@{ JavaArgs = @($javaArgs); ResolvedBranch = $branch }')
 
 # Explicit offline authority hosts: no actual Git, listener, jar, Java or service operation.
 $script:testBranch = 'int_qms'
@@ -36,6 +36,16 @@ function Test-Path {
     if ($Path -ne (Join-Path $taskRepoRoot 'IntRuoyiBackend\yudao-server\target\yudao-server-exec.jar')) { throw 'Executable jar source changed' }
     return $true
 }
+$script:packageExitCode = 0
+function python {
+    param($Script, $Action, $RootFlag, $Root)
+    if ($Action -notin @('verify', 'build') -or $RootFlag -ne '--root' -or $Root -ne (Join-Path $taskRepoRoot 'IntRuoyiBackend')) { throw 'Unexpected package verification arguments' }
+    $global:LASTEXITCODE = $script:packageExitCode
+}
+function New-Item { param($ItemType, $Path) }
+function Get-FileHash { param($LiteralPath, $Algorithm) return [pscustomobject]@{ Hash = 'verified-package-hash' } }
+function Copy-Item { param($LiteralPath, $Destination) }
+function Get-Item { param($LiteralPath) return [pscustomobject]@{ IsReadOnly = $false } }
 function java { throw 'Real Java must not execute in contract test' }
 function mvn.cmd { throw 'Real Maven must not execute in contract test' }
 function Assert-TaskEqual($Actual, $Expected, [string]$Message) {
@@ -75,3 +85,12 @@ foreach ($value in @('', ' ', 'local,dcc-local-development', 'local dcc-local-de
 }
 Write-Output 'PASS blank and multiple-profile inputs rejected'
 Write-Output 'PASS actual PowerShell launcher parameter construction; no Git, Java, Maven, listener, service or database execution'
+
+$script:packageExitCode = 1
+$rejected = $false
+try { $null = & $actualLauncher } catch {
+    if ($_.Exception.Message -notlike '*provenance verification failed*') { throw }
+    $rejected = $true
+}
+Assert-TaskEqual $rejected $true 'Unverified package rejected before Java startup'
+Write-Output 'PASS failed provenance verification blocks actual launcher'

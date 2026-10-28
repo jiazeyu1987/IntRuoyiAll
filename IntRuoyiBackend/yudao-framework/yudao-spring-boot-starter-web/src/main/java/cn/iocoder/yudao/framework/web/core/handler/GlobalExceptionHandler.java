@@ -474,10 +474,17 @@ public class GlobalExceptionHandler {
     }
 
     private String protectedStackTrace(Throwable exception) {
-        StringBuilder stack = new StringBuilder(exception.getClass().getName())
-                .append(": ").append(REQUEST_PARAMETERS_PROTECTED);
-        for (StackTraceElement element : exception.getStackTrace()) {
-            stack.append("\n\tat ").append(element);
+        StringBuilder stack = new StringBuilder();
+        java.util.Set<Throwable> seen = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
+        for (Throwable current = exception; current != null && seen.add(current) && seen.size() <= 16; current = current.getCause()) {
+            stack.append("\n").append(current.getClass().getName()).append(": ").append(REQUEST_PARAMETERS_PROTECTED);
+            if (current instanceof java.sql.SQLException sql) {
+                stack.append(" vendorCode=").append(sql.getErrorCode());
+                String state = sql.getSQLState();
+                if (state != null && state.matches("[A-Z0-9]{5}")) stack.append(" sqlState=").append(state);
+            }
+            if (current instanceof ServiceException service) stack.append(" code=").append(service.getCode());
+            for (StackTraceElement element : current.getStackTrace()) stack.append("\n\tat ").append(element);
         }
         return stack.toString();
     }

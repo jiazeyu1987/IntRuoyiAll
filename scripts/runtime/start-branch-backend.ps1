@@ -25,25 +25,31 @@ if ($listeners.Count -gt 0) {
     throw "Backend port $($ports.BackendPort) is already listening; owning process id(s): $pids. Stop the owned process explicitly before restarting."
 }
 
-if ($Build) {
-    Push-Location $backendRoot
-    try {
-        & mvn.cmd -pl yudao-server -am -DskipTests package
-        if ($LASTEXITCODE -ne 0) {
-            throw 'Backend package command failed.'
-        }
-    } finally {
-        Pop-Location
-    }
+$packageAction = if ($Build) { 'build' } else { 'verify' }
+& python (Join-Path $PSScriptRoot 'backend-package.py') $packageAction --root $backendRoot
+if ($LASTEXITCODE -ne 0) {
+    throw 'Backend package provenance verification failed. Rebuild using backend-package.py build before startup.'
 }
 
-if (-not (Test-Path $jarPath)) {
-    throw "Missing backend executable jar: $jarPath. Run with -Build or package yudao-server first."
+# Spring Boot keeps ZIP offsets cached while classes are loaded lazily. Never run
+# the Maven output directly: another package build can replace that file in use.
+$runtimeDirectory = Join-Path $repoRoot ("output\runtime\{0}\backend-{1}" -f $profile.Name, [Guid]::NewGuid().ToString('N'))
+New-Item -ItemType Directory -Path $runtimeDirectory | Out-Null
+$runtimeJarPath = Join-Path $runtimeDirectory 'yudao-server-exec.jar'
+$sourceHash = (Get-FileHash -LiteralPath $jarPath -Algorithm SHA256).Hash
+Copy-Item -LiteralPath $jarPath -Destination $runtimeJarPath
+if ((Get-FileHash -LiteralPath $runtimeJarPath -Algorithm SHA256).Hash -ne $sourceHash -or
+    (Get-FileHash -LiteralPath $jarPath -Algorithm SHA256).Hash -ne $sourceHash) {
+    throw 'Backend package changed while preparing the runtime copy. Start again after packaging completes.'
 }
+& python (Join-Path $PSScriptRoot 'backend-package.py') verify --root $backendRoot
+if ($LASTEXITCODE -ne 0) { throw 'Backend source or package changed during runtime preparation.' }
+Copy-Item -LiteralPath ([System.IO.Path]::ChangeExtension($jarPath, '.provenance.json')) -Destination (Join-Path $runtimeDirectory 'provenance.json')
+(Get-Item -LiteralPath $runtimeJarPath).IsReadOnly = $true
 
 $javaArgs = @(
     '-jar',
-    $jarPath,
+    $runtimeJarPath,
     "--server.port=$($ports.BackendPort)",
     "--spring.profiles.active=$SpringProfile"
 ) + $ExtraArgs
