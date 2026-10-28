@@ -58,6 +58,7 @@ public class GxpAuditServiceImpl implements GxpAuditService {
     @Override
     @Transactional(propagation = Propagation.MANDATORY, rollbackFor = Exception.class)
     public void acquireLedgerLock() {
+        if (GxpAuditDevelopmentMode.disabled()) return;
         Long tenantId = resolveTenantId();
         if (ledgerSequenceMapper.selectByTenantIdForUpdate(tenantId) == null) {
             throw exception(GXP_AUDIT_APPEND_FAILED, "ledger-sequence-watermark-not-initialized");
@@ -68,18 +69,23 @@ public class GxpAuditServiceImpl implements GxpAuditService {
     @Override
     @Transactional(propagation = Propagation.MANDATORY, rollbackFor = Exception.class)
     public void assertLedgerLockHeld() {
+        if (GxpAuditDevelopmentMode.disabled()) return;
         GxpAuditLedgerLockContext.requireHeld(resolveTenantId());
     }
 
     @Override
     @Transactional(propagation = Propagation.MANDATORY, rollbackFor = Exception.class)
     public Long reserveEventId(String operationId, String subjectId, String sourceLocator, String idempotencyKey) {
+        if (GxpAuditDevelopmentMode.disabled()) return -com.baomidou.mybatisplus.core.toolkit.IdWorker.getId();
         return GxpAuditLedgerLockContext.reserve(resolveTenantId(), operationId, subjectId, sourceLocator, idempotencyKey);
     }
 
     @Override
     @Transactional(propagation = Propagation.MANDATORY, rollbackFor = Exception.class)
     public GxpAuditAppendResult append(GxpAuditCommand command) {
+        if (GxpAuditDevelopmentMode.disabled()) return command != null && command.getReservedEventId() != null
+                ? new GxpAuditAppendResult(command.getReservedEventId(), null, GxpAuditDevelopmentMode.STATUS, false, GxpAuditDevelopmentMode.STATUS)
+                : GxpAuditAppendResult.developmentDisabled();
         validateRequired(command);
         Long tenantId = resolveTenantId();
         LoginUser actor = resolveActor(tenantId);

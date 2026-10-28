@@ -20,6 +20,8 @@ public interface ErrorCodeConstants {
     ErrorCode CONFIG_PASSWORD_MAX_AGE_INVALID = new ErrorCode(1_001_000_007, "密码有效期必须为正整数天数，且不能超过 2147483647 天");
     ErrorCode CONFIG_PASSWORD_MAX_AGE_MISSING = new ErrorCode(1_001_000_008, "缺少系统账号密码有效期配置，请联系管理员初始化参数配置");
     ErrorCode CONFIG_PASSWORD_MAX_AGE_KEY_IMMUTABLE = new ErrorCode(1_001_000_009, "密码有效期的参数键名不能修改");
+    ErrorCode CONFIG_GXP_MODE_INVALID = new ErrorCode(1_001_000_010, "GxP 模式配置无效：{}");
+    ErrorCode CONFIG_GXP_MODE_KEY_IMMUTABLE = new ErrorCode(1_001_000_011, "GxP 模式的参数键名不能修改");
 
     // ========== 定时任务 1-001-001-000 ==========
     ErrorCode JOB_NOT_EXISTS = new ErrorCode(1_001_001_000, "定时任务不存在");

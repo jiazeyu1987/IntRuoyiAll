@@ -50,6 +50,7 @@ public class GxpCreationAuditVerificationService {
             "errorCode", "attemptedOperationId", "relationManifestJson", "evidenceManifestJson", "statePayloadHash");
 
     public List<Long> readCandidateEventIdsByTarget(Long tenantId, String targetType, String targetId) {
+        if (GxpAuditDevelopmentMode.disabled()) return List.of();
         requireTenant(tenantId);
         if (StrUtil.hasBlank(targetType, targetId)) throw new IllegalArgumentException("Audit target must be nonblank");
         List<Long> ids = eventRelationMapper.selectEventIdsByTargets(tenantId, List.of(targetType), targetId);
@@ -64,6 +65,7 @@ public class GxpCreationAuditVerificationService {
     }
 
     public VerifiedAuditEventFact requireVerifiedEvent(Long tenantId, Long eventId) {
+        if (GxpAuditDevelopmentMode.disabled()) throw new IllegalStateException("GXP_AUDIT_DEVELOPMENT_DISABLED: formal audit facts are unavailable");
         requireTenant(tenantId);
         if (eventId == null || eventId <= 0) throw new IllegalArgumentException("Audit event ID must be positive");
         GxpAuditEventDO event = auditEventMapper.selectByTenantIdAndId(tenantId, eventId);

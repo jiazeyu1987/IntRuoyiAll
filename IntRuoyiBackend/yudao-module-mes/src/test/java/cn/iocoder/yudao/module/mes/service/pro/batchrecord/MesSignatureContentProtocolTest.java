@@ -18,7 +18,9 @@ import cn.iocoder.yudao.module.signature.service.ElectronicSignatureVerifiedFact
 import cn.iocoder.yudao.module.signature.service.ElectronicSignatureVerifiedFactService.VerifiedSignatureFact;
 import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
 import cn.iocoder.yudao.module.system.dal.dataobject.gxpaudit.*;
+import cn.iocoder.yudao.module.system.dal.dataobject.user.AdminUserDO;
 import cn.iocoder.yudao.module.system.dal.mysql.gxpaudit.*;
+import cn.iocoder.yudao.module.system.dal.mysql.user.AdminUserMapper;
 import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditServiceImpl;
 import cn.iocoder.yudao.module.system.service.gxpaudit.SignatureCreationVerificationService;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -135,6 +137,18 @@ class MesSignatureContentProtocolTest {
         policy.setReasonPolicy("USER_REQUIRED"); policy.setSignaturePolicy("REQUIRED");
         when(policies.selectByPolicyVersionForUpdate(1L, "audit-p1", "signature.record.create")).thenReturn(policy);
         var auditWriter = new GxpAuditServiceImpl();
+        // GxP resolves the authenticated actor from the current tenant directory,
+        // independently of OAuth login info. Mock only that storage lookup so the
+        // real audit writer and signature creation verification remain in use.
+        var auditUsers = mock(AdminUserMapper.class);
+        var currentActor = new AdminUserDO();
+        currentActor.setId(7L);
+        currentActor.setTenantId(1L);
+        currentActor.setStatus(0);
+        currentActor.setUsername("operator");
+        currentActor.setNickname("设备操作员");
+        when(auditUsers.selectGxpAuditActor(1L, 7L)).thenReturn(currentActor);
+        ReflectionTestUtils.setField(auditWriter, "adminUserMapper", auditUsers);
         ReflectionTestUtils.setField(auditWriter, "auditEventMapper", audits);
         ReflectionTestUtils.setField(auditWriter, "ledgerSequenceMapper", ledgers);
         ReflectionTestUtils.setField(auditWriter, "policyActivationMapper", activations);

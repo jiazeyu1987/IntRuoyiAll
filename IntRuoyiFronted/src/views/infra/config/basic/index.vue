@@ -1,5 +1,6 @@
 <template>
   <IdleLogoutSetting v-if="canQuery" :can-update="canUpdate" />
+  <GxpAuditModeSetting v-if="canQuery" :can-update="canUpdate" />
   <el-alert v-else title="无权查看基础配置。" type="error" :closable="false" show-icon />
   <el-card v-if="canQuery && testMode && (canMes || canErp || canDcc)" class="config-shortcuts" shadow="never">
     <template #header>配置快捷导航</template>
@@ -14,6 +15,7 @@
 import { GOLDEN_FINGER_PERMISSION, hasExplicitConfigPermission, hasInfraConfigPermission, hasErpConfigCapability } from '@/utils/businessConfigAccess'
 import { useTestMode } from '@/store/modules/testMode'
 import IdleLogoutSetting from './components/IdleLogoutSetting.vue'
+import GxpAuditModeSetting from './components/GxpAuditModeSetting.vue'
 defineOptions({ name: 'InfraBasicConfig' })
 const router = useRouter()
 const testMode = useTestMode()

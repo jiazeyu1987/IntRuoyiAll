@@ -58,6 +58,7 @@ public class MesEdhrSourceCreationAuditWriter {
 
     @Transactional(propagation = Propagation.MANDATORY, rollbackFor = Exception.class)
     public void revoke(MesIndependentBatchPrerequisiteReceiptDO row, Long actor, MesEdhrSourceCreationEvidence creation) {
+        if (cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditDevelopmentMode.disabled()) return;
         var issue = events.requireVerifiedEvent(row.getTenantId(), creation.creationEventId());
         if (!creation.creationEventHash().equals(issue.eventHash())) throw new IllegalStateException("SOURCE_BINDING_MISMATCH");
         ObjectNode request = revokeRequest(row, actor);
@@ -118,6 +119,7 @@ public class MesEdhrSourceCreationAuditWriter {
             String beforeJson, String afterJson, String reason, String reasonCode, String reasonSource, String key,
             List<GxpAuditRelation> links, List<GxpAuditEvidence> evidence) {
         MesEdhrSourceCreationBindingStore.tenant(tenant); MesEdhrSourceCreationBindingStore.positive(row);
+        if (cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditDevelopmentMode.disabled()) return;
         var result = audit.append(GxpAuditCommand.builder().operationId(operation).subjectId(prefix + receipt).subjectVersion(version)
                 .reason(reason).reasonCode(reasonCode).reasonSource(reasonSource).idempotencyKey(key).requestId(key)
                 .sourceType("SERVICE_METHOD").sourceLocator("cn.iocoder.yudao.module.mes.service.pro.batchrecord." + method)

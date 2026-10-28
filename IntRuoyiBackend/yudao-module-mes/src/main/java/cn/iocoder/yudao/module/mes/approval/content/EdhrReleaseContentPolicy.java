@@ -43,6 +43,7 @@ public final class EdhrReleaseContentPolicy {
     public void validateBatchGuard(JsonNode value) { validate(schema,schema.at("/$defs/batchGuard"),value,"$.batchGuard",true); }
 
     private void validate(JsonNode definitions, JsonNode spec, JsonNode value, String path, boolean enforce) {
+        if (developmentAuditMarker(value, path)) return;
         if (spec.has("$ref")) {
             validate(definitions,definitions.at(spec.get("$ref").asText().substring(1)),value,path,enforce);
         }
@@ -92,6 +93,19 @@ public final class EdhrReleaseContentPolicy {
                 if (spec.has("items")) validate(definitions,spec.get("items"), value.get(i), path + "[" + i + "]", enforce);
             }
         }
+    }
+    /** Only the existing explicit development markers of GXP provenance are exempt.
+     * Business IDs, real signature IDs, source hashes and dossier checks remain strict. */
+    private static boolean developmentAuditMarker(JsonNode value, String path) {
+        if (!cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditDevelopmentMode.disabled()
+                || value == null || !value.isTextual()) return false;
+        if ("$.finalization.activeOrderFormalFacts.completionCreationEventHash".equals(path))
+            return "DEVELOPMENT_DISABLED".equals(value.textValue());
+        if (!java.util.Set.of("$.finalization.activeOrderFormalFacts.completionCreationEventId",
+                "$.finalization.activeOrderFormalFacts.pqcCreationEventId").contains(path)) return false;
+        if (!value.textValue().matches("^-[1-9][0-9]*$")) return false;
+        try { return Long.parseLong(value.textValue()) < 0; }
+        catch (NumberFormatException e) { return false; }
     }
     private boolean matches(JsonNode definitions, JsonNode spec, JsonNode value, String path) {
         try { validate(definitions,spec, value, path, true); return true; } catch (IllegalArgumentException e) { return false; }

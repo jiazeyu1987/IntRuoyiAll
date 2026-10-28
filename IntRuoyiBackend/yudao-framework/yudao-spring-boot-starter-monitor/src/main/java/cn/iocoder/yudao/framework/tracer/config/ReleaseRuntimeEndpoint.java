@@ -75,6 +75,15 @@ public class ReleaseRuntimeEndpoint {
                 throw new IllegalStateException("release-info.json contains no valid releaseTag");
             }
             result.put("releaseTag", tag.textValue());
+            Object gxp = context.getBean("gxpAuditDevelopmentMode");
+            Object modes = gxp.getClass().getMethod("releaseState").invoke(gxp);
+            if (!(modes instanceof Map<?, ?> modeState)
+                    || !(modeState.get("gxpAuditMode") instanceof String)
+                    || !(modeState.get("configuredGxpAuditMode") instanceof String)) {
+                throw new IllegalStateException("GxP runtime configuration is unavailable");
+            }
+            result.put("gxpAuditMode", modeState.get("gxpAuditMode"));
+            result.put("configuredGxpAuditMode", modeState.get("configuredGxpAuditMode"));
             result.put("status", "available");
         } catch (Exception error) {
             result.put("status", "unavailable");

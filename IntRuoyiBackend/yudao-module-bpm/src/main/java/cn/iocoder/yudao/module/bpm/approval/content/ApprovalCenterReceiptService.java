@@ -25,17 +25,20 @@ public class ApprovalCenterReceiptService {
         if (row == null) return null;
         if (!Objects.equals(row.getActorId(), actor) || !Objects.equals(row.getOperatorId(), actor) || !Objects.equals(row.getTenantId(),TenantContextHolder.getRequiredTenantId()) || !"AC_REVIEW_V1".equals(row.getRequestHashVersion()) || !Objects.equals(row.getReceiptRecordHash(), recordHash(row)) || !Objects.equals(row.getPreviewContentHash(),ApprovalContentJson.hash(row.getCanonicalBusinessContentJson()))) throw new IllegalStateException("APPROVAL_RECEIPT_INTEGRITY_FAILED");
         var signature = signatures.requireVerifiedFact(row.getCenterSignatureId());
-        if (!Objects.equals(signature.auditEventId(),row.getSignatureCreationAuditId()) || !Objects.equals(signature.actorId(),actor) || !Objects.equals(signature.evidenceHash(),row.getCenterEvidenceHash()) || !Objects.equals(signature.subjectVersion(),row.getSubjectVersion())) throw new IllegalStateException("APPROVAL_RECEIPT_SIGNATURE_MISMATCH");
+        if ((!cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditDevelopmentMode.disabled() && !Objects.equals(signature.auditEventId(),row.getSignatureCreationAuditId())) || !Objects.equals(signature.actorId(),actor) || !Objects.equals(signature.evidenceHash(),row.getCenterEvidenceHash()) || !Objects.equals(signature.subjectVersion(),row.getSubjectVersion())) throw new IllegalStateException("APPROVAL_RECEIPT_SIGNATURE_MISMATCH");
         var content = ApprovalContentJson.parse(signature.canonicalContentJson());
         requireCenterSignatureBinding(row,signature,content);
         if (!Objects.equals(content.get("approvalContent"),ApprovalContentJson.parse(row.getCanonicalBusinessContentJson()))) throw new IllegalStateException("APPROVAL_RECEIPT_CONTENT_MISMATCH");
         if(!Objects.equals(content.path("action").asText(),row.getActionCode()) || !Objects.equals(content.path("reason").asText(),row.getReason())) throw new IllegalStateException("APPROVAL_RECEIPT_DECISION_MISMATCH");
         var links=ApprovalContentJson.parse(row.getDomainLinksJson());
+        if (!cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditDevelopmentMode.disabled()) {
         var domain=audits.requireVerifiedEvent(row.getTenantId(),Long.valueOf(links.path("businessAuditEventId").textValue()));
         var domainEnvelope=ApprovalContentJson.parse(domain.canonicalEventJson());
         if(!Objects.equals(domain.eventHash(),links.path("businessAuditEventHash").textValue()) || !"mes.market-release.approve".equals(domainEnvelope.path("operationId").asText()) || !row.getCenterSignatureId().toString().equals(domainEnvelope.path("signatureRecordId").asText())) throw new IllegalStateException("APPROVAL_RECEIPT_DOMAIN_CREATION_MISMATCH");
+        }
         var response=response(row);
         if(response==null || !row.getId().toString().equals(response.receiptId()) || !row.getCenterSignatureId().toString().equals(response.signatureId()) || !Objects.equals(row.getIdempotencyKey(),response.idempotencyKey()) || !Objects.equals(row.getPrepareId(),response.prepareId()) || !Objects.equals(row.getCenterEvidenceHash(),response.evidenceHash()) || !Objects.equals(row.getResultCode(),response.resultCode()) || !Objects.equals(row.getResultingStatus(),response.resultingStatus()) || !Objects.equals(row.getCommittedAt().toString()+"+08:00",response.committedAt())) throw new IllegalStateException("APPROVAL_RECEIPT_RESPONSE_MISMATCH");
+        if (cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditDevelopmentMode.disabled()) return row;
         var event = audits.requireVerifiedEvent(row.getTenantId(),row.getReceiptAuditId()); var source = ApprovalContentJson.parse(event.canonicalEventJson());
         if (!"APPROVAL_CENTER_REVIEW_COMMIT".equals(source.path("operationId").asText()) || !sourceLocator(row.getId()).equals(source.path("sourceLocator").asText()) || !Objects.equals(source.path("subjectId").asText(),row.getId().toString()) || !Objects.equals(ApprovalContentJson.parse(source.path("afterStateJson").asText()),ApprovalContentJson.parse(JsonUtils.toJsonString(protectedState(row))))) throw new IllegalStateException("APPROVAL_RECEIPT_CREATION_MISMATCH");
         return row;

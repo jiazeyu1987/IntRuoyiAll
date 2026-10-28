@@ -685,10 +685,12 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
                 || c.getReason() == null || c.getReason().isBlank()) throw new IllegalStateException("CENTER_TRUSTED_SIGNATURE_REQUIRED");
         var graph = readForApproval(c.getWorkTaskId(), c.getActorId(), true);
         if (!Objects.equals(graph.transaction().getVersion(), c.getExpectedVersion())) throw new IllegalStateException("CENTER_RELEASE_VERSION_CHANGED");
+        if (!cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditDevelopmentMode.disabled()) {
         var signatureEvent = approvalCreationEvents.requireVerifiedEvent(graph.tenantId(), c.getSignatureCreationEventId());
         if (!Objects.equals(signatureEvent.eventHash(), c.getSignatureCreationEventHash())
                 || !"signature.record.create".equals(signatureEvent.columns().operationId())
                 || !Objects.equals(signatureEvent.columns().actorId(), c.getActorId())) throw new IllegalStateException("CENTER_SIGNATURE_CREATION_MISMATCH");
+        }
         var signature = centerSignatureFacts.requireVerifiedFact(c.getSignatureId());
         if (!Objects.equals(signature.auditEventId(), c.getSignatureCreationEventId())
                 || !Objects.equals(signature.tenantId(), graph.tenantId()) || !Objects.equals(signature.actorId(), c.getActorId())

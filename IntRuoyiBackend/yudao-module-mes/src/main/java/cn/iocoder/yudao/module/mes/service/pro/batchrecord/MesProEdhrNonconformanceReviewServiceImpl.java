@@ -267,7 +267,6 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
         recordReviewOperation("NONCONFORMANCE_REVIEW_CREATE", "创建不合格评审", review, activeOrderId,
                 null, now, signatureId, null, null, null, null, "电子签名#" + signatureId, null);
         appendCreationAudit(review, signatureId, false, createAggregateHash);
-        handoffService.qaCreated(review, activeOrderId, actorId);
         return toResp(review);
     }
 
@@ -329,7 +328,6 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
                 captureAffectedState(persisted, requireAuditRow(activeOrderMapper.selectByIdForUpdate(activeOrder.getId())), afterBatch, afterWorkOrder,
                         null, new DispositionAuditTargets(null, null, null, null), null));
         appendUnsignedCreationAudit(before, after, persisted);
-        handoffService.qaCreated(persisted, activeOrder.getId(), SecurityFrameworkUtils.getLoginUserId());
         return toResp(review);
     }
 
@@ -461,7 +459,6 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
                 null, null, null, reason, "QA电子签名#" + signatureId, actorUserId);
         review.setQaCreateSignatureId(signatureId).setQaSignature("QA电子签名#" + signatureId)
                 .setQaUserId(actorUserId);
-        handoffService.qaCreated(review, activeOrderId, actorUserId);
         return toResp(review);
     }
 
@@ -533,7 +530,6 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
                 batch, SOURCE_TYPE_PQC_RELEASE, null, reason, "上市放行负责人电子签名#" + signatureId,
                 signatureId);
         appendCreationAudit(review, signatureId, true, aggregateHash);
-        handoffService.qaCreated(review, requireActiveOrderId(review.getActiveOrderId()), SecurityFrameworkUtils.getLoginUserId());
         return toResp(review);
     }
 
@@ -1257,6 +1253,7 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
         identity.put("operationId", "mes.nonconformance.rework");
         identity.put("identity", List.of(auditId(review.getId()), DISPOSITION_REWORK));
         String key = "GXP2:" + DigestUtil.sha256Hex(JsonUtils.toJsonString(identity));
+        if (cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditDevelopmentMode.disabled()) return;
         var receipt = auditReceiptMapper.selectByIdempotencyKeyForUpdate(TenantContextHolder.getRequiredTenantId(), key);
         if (receipt == null) {
             throw exception(cn.iocoder.yudao.module.system.enums.ErrorCodeConstants.GXP_AUDIT_RECEIPT_MISSING, key);

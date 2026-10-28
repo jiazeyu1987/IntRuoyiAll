@@ -1091,7 +1091,8 @@
     "20261023_system_workbench_history_check_identity.sql",
     "20261023_system_workbench_projection_check_identity.sql",
     "20261023_system_workbench_retention_check_identity.sql",
-    "20261024_dcc_document_control_role.sql"
+    "20261024_dcc_document_control_role.sql",
+    "20261026_gxp_audit_mode_config.sql"
   ],
   "migrationScopes": [
     {

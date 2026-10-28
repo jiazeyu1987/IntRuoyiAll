@@ -240,8 +240,8 @@ public class MesTeamLeaderActiveOrderCompletionServiceImpl implements MesTeamLea
         }
         GxpAuditAppendResult main = appendCompletionGxpAudit(activeOrder, persisted, affectedRowsBefore);
         var proof = creationVerifier.requireCompletionCreation(persisted.getTenantId(), persisted.getId());
-        if (proof == null || !java.util.Objects.equals(main.eventId(), proof.creationEventId())
-                || !java.util.Objects.equals(main.eventHash(), proof.creationEventHash())) {
+        if (!cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditDevelopmentMode.disabled() && (proof == null || !java.util.Objects.equals(main.eventId(), proof.creationEventId())
+                || !java.util.Objects.equals(main.eventHash(), proof.creationEventHash()))) {
             throw new IllegalStateException("Completion main audit readback does not match append result");
         }
         creationVerifier.requireCompletionTransactionId(persisted.getTenantId(), persisted.getId());
@@ -252,6 +252,7 @@ public class MesTeamLeaderActiveOrderCompletionServiceImpl implements MesTeamLea
     private GxpAuditAppendResult appendCompletionGxpAudit(MesProcessPoolActiveOrderDO activeOrder,
                                           MesProcessPoolActiveOrderCompletionReceiptDO receipt,
                                           String affectedRowsBefore) {
+        if (cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditDevelopmentMode.disabled()) return GxpAuditAppendResult.developmentDisabled();
         var affectedManifest = MesCompletionAffectedRowAudit.append(gxpAuditService, receipt, affectedRowsBefore,
                 JsonUtils.toJsonString(affectedStateCollector.captureCompletion(activeOrder.getId(), activeOrder.getWorkOrderId())));
         Map<String, Object> before = new java.util.LinkedHashMap<>();

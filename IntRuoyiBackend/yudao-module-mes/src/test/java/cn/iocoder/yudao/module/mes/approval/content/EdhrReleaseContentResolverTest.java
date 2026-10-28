@@ -50,6 +50,19 @@ class EdhrReleaseContentResolverTest {
         var content=ApprovalContentJson.parse(prepared.canonicalBusinessContentJson());
         assertTrue(content.at("/finalization/materialManifest/files").isArray());
         assertEquals(6,content.at("/release/precheckSnapshot/items").size());
+        var developmentContent = content.deepCopy();
+        var developmentFacts = (ObjectNode) developmentContent.at("/finalization/activeOrderFormalFacts");
+        developmentFacts.put("completionCreationEventId", "-80").put("completionCreationEventHash", "DEVELOPMENT_DISABLED")
+                .put("pqcCreationEventId", "-96");
+        assertThrows(IllegalArgumentException.class, () -> f.semantic.validate(developmentContent));
+        try (var mode = mockStatic(cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditDevelopmentMode.class)) {
+            mode.when(cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditDevelopmentMode::disabled).thenReturn(true);
+            assertDoesNotThrow(() -> f.semantic.validate(developmentContent));
+            developmentFacts.put("pqcSignatureId", "-96");
+            assertThrows(IllegalArgumentException.class, () -> f.semantic.validate(developmentContent));
+            developmentFacts.put("pqcSignatureId", "96").put("sourceSnapshotHash", "DEVELOPMENT_DISABLED");
+            assertThrows(IllegalArgumentException.class, () -> f.semantic.validate(developmentContent));
+        }
         verifyNoInteractions(f.materials,f.files);
         String beforeVersion = f.semantic.subjectVersion(content, guard());
         manifest.put("revision","1");manifest.remove("manifestHash");manifest.put("manifestHash",ApprovalContentJson.hash(manifest));

@@ -8,6 +8,7 @@ import cn.iocoder.yudao.module.infra.dal.dataobject.config.ConfigDO;
 import cn.iocoder.yudao.module.infra.dal.mysql.config.ConfigMapper;
 import cn.iocoder.yudao.module.infra.enums.config.ConfigTypeEnum;
 import cn.iocoder.yudao.module.infra.enums.config.PasswordMaxAgeConfig;
+import cn.iocoder.yudao.module.infra.enums.config.GxpAuditMode;
 import com.google.common.annotations.VisibleForTesting;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
@@ -37,15 +38,19 @@ public class ConfigServiceImpl implements ConfigService {
     @Resource
     private ConfigMapper configMapper;
 
+    @Resource
+    private org.springframework.core.env.Environment environment;
+
     @Override
     public Long createConfig(ConfigSaveReqVO createReqVO) {
+        validateGxpConfig(createReqVO);
         validateConfigValue(createReqVO.getKey(), createReqVO.getValue());
         // 校验参数配置 key 的唯一性
         validateConfigKeyUnique(null, createReqVO.getKey());
 
         // 插入参数配置
         ConfigDO config = ConfigConvert.INSTANCE.convert(createReqVO);
-        config.setType(PasswordMaxAgeConfig.KEY.equals(config.getConfigKey())
+        config.setType((PasswordMaxAgeConfig.KEY.equals(config.getConfigKey()) || GxpAuditMode.CONFIG_KEY.equals(config.getConfigKey()))
                 ? ConfigTypeEnum.SYSTEM.getType() : ConfigTypeEnum.CUSTOM.getType());
         configMapper.insert(config);
         return config.getId();
@@ -55,6 +60,11 @@ public class ConfigServiceImpl implements ConfigService {
     public void updateConfig(ConfigSaveReqVO updateReqVO) {
         // 校验自己存在
         ConfigDO current = validateConfigExists(updateReqVO.getId());
+        if (current != null && GxpAuditMode.CONFIG_KEY.equals(current.getConfigKey())
+                && !GxpAuditMode.CONFIG_KEY.equals(updateReqVO.getKey())) {
+            throw exception(CONFIG_GXP_MODE_KEY_IMMUTABLE);
+        }
+        validateGxpConfig(updateReqVO);
         if (current != null && PasswordMaxAgeConfig.KEY.equals(current.getConfigKey())
                 && !PasswordMaxAgeConfig.KEY.equals(updateReqVO.getKey())) {
             throw exception(CONFIG_PASSWORD_MAX_AGE_KEY_IMMUTABLE);
@@ -65,7 +75,7 @@ public class ConfigServiceImpl implements ConfigService {
 
         // 更新参数配置
         ConfigDO updateObj = ConfigConvert.INSTANCE.convert(updateReqVO);
-        if (PasswordMaxAgeConfig.KEY.equals(updateReqVO.getKey())) {
+        if (PasswordMaxAgeConfig.KEY.equals(updateReqVO.getKey()) || GxpAuditMode.CONFIG_KEY.equals(updateReqVO.getKey())) {
             updateObj.setType(ConfigTypeEnum.SYSTEM.getType());
         }
         configMapper.updateById(updateObj);
@@ -76,7 +86,7 @@ public class ConfigServiceImpl implements ConfigService {
         // 校验配置存在
         ConfigDO config = validateConfigExists(id);
         // 内置配置，不允许删除
-        if (ConfigTypeEnum.SYSTEM.getType().equals(config.getType())) {
+        if (ConfigTypeEnum.SYSTEM.getType().equals(config.getType()) || GxpAuditMode.CONFIG_KEY.equals(config.getConfigKey())) {
             throw exception(CONFIG_CAN_NOT_DELETE_SYSTEM_TYPE);
         }
         // 删除
@@ -88,7 +98,7 @@ public class ConfigServiceImpl implements ConfigService {
         // 校验是否有内置配置
         List<ConfigDO> configs = configMapper.selectByIds(ids);
         configs.forEach(config -> {
-            if (ConfigTypeEnum.SYSTEM.getType().equals(config.getType())) {
+            if (ConfigTypeEnum.SYSTEM.getType().equals(config.getType()) || GxpAuditMode.CONFIG_KEY.equals(config.getConfigKey())) {
                 throw exception(CONFIG_CAN_NOT_DELETE_SYSTEM_TYPE);
             }
         });
@@ -136,6 +146,18 @@ public class ConfigServiceImpl implements ConfigService {
         }
         if (!config.getId().equals(id)) {
             throw exception(CONFIG_KEY_DUPLICATE);
+        }
+    }
+
+    private void validateGxpConfig(ConfigSaveReqVO request) {
+        if (!GxpAuditMode.CONFIG_KEY.equals(request.getKey())) return;
+        try {
+            GxpAuditMode.parseRequired(request.getValue()).validateEnvironment(environment);
+            if (!Boolean.TRUE.equals(request.getVisible())) {
+                throw new IllegalArgumentException("GxP 模式配置必须保持可见。");
+            }
+        } catch (IllegalArgumentException ex) {
+            throw exception(CONFIG_GXP_MODE_INVALID, ex.getMessage());
         }
     }
 

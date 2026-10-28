@@ -226,7 +226,7 @@
       "source": "IntRuoyiFronted/src/views/infra/config/basic/index.vue",
       "kind": "page",
       "value": "infra/config/basic/index",
-      "reason": "用户于2026-10-21明确批准本任务保留已评审的正式命令授权方案，例外于 SQL 直写角色/套餐要求；不修改门禁脚本。菜单定义由 IntRuoyiBackend/sql/mysql/20261008_profile_business_config_menus.sql 发布，角色/套餐必须按 doc/tasks/20261008-profile-architecture-implementation/menu-migration-runbook-s1.md 使用正式权限命令、真实差集及审计完成。当前仅融合静态候选，不表示迁移执行、真实菜单可见或授权验收通过。"
+      "reason": "用户于2026-10-21明确批准本任务保留已评审的正式命令授权方案，例外于 SQL 直写角色/套餐要求；不修改门禁脚本。菜单定义由 IntRuoyiBackend/sql/mysql/20261008_profile_business_config_menus.sql 发布，角色/套餐必须按 doc/tasks/20261008-profile-architecture-implementation/menu-migration-runbook-s1.md 使用正式权限命令、真实差集及审计完成。当前仅融合静态候选，不表示迁移执行、真实菜单可见或授权验收通过。 GxP模式组件复用本页面和infra:config:query/update权限，不新增菜单或授权；配置由20261026_gxp_audit_mode_config.sql显式初始化，修改后重启生效。"
     },
     {
       "source": "IntRuoyiFronted/src/router/modules/businessConfig.ts",

@@ -109,6 +109,30 @@ class PermissionCommandReceiptBehaviorTest {
     void cleanup() { TenantContextHolder.clear(); SecurityContextHolder.clearContext(); }
 
     @ParameterizedTest @EnumSource(Operation.class)
+    void disabledServerModeAllowsCommandsWithoutAuditInitializationButRequiresTenantActor(Operation op) {
+        var protocol = (PermissionCommandProtocol) ReflectionTestUtils.getField(service, "permissionCommandProtocol");
+        var environment = new org.springframework.mock.env.MockEnvironment().withProperty(
+                "spring.datasource.dynamic.datasource.master.url", "jdbc:mysql://mysql:3306/server");
+        environment.setActiveProfiles("prod");
+        try {
+            new cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditDevelopmentMode(environment,
+                    cn.iocoder.yudao.module.infra.enums.config.GxpAuditMode.DEVELOPMENT_DISABLED);
+            ReflectionTestUtils.setField(protocol, "audit",
+                    new cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditServiceImpl());
+            invoke(op, "disabled-permission-command");
+            verify(receipts).insert(any());
+            verifyNoInteractions(ReflectionTestUtils.getField(protocol, "activations"),
+                    ReflectionTestUtils.getField(protocol, "operations"), ReflectionTestUtils.getField(protocol, "events"));
+            SecurityContextHolder.clearContext();
+            assertThrows(RuntimeException.class, () -> invoke(op, "disabled-without-actor"));
+            verify(receipts, times(1)).insert(any());
+        } finally {
+            new cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditDevelopmentMode(environment,
+                    cn.iocoder.yudao.module.infra.enums.config.GxpAuditMode.FORMAL);
+        }
+    }
+
+    @ParameterizedTest @EnumSource(Operation.class)
     void localModeUsesPackagedPolicyForAllThreePermissionCommands(Operation op) {
         var protocol = (PermissionCommandProtocol) ReflectionTestUtils.getField(service, "permissionCommandProtocol");
         var environment = new org.springframework.mock.env.MockEnvironment().withProperty(
