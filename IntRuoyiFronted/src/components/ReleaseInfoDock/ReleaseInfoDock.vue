@@ -7,6 +7,8 @@ interface ReleaseChangeSet {
 
 interface ReleaseInfo {
   releaseTag?: string
+  baseReleaseTag?: string
+  frontendPatchTag?: string
   changeSet?: ReleaseChangeSet
 }
 
@@ -14,8 +16,9 @@ const releaseInfo = ref<ReleaseInfo | null>(null)
 const loadError = ref('')
 const dialogVisible = ref(false)
 
-const currentReleaseTag = computed(() => releaseInfo.value?.releaseTag?.trim() || '')
-const statusText = computed(() => currentReleaseTag.value || '版本信息未生成')
+const currentReleaseTag = computed(() => (releaseInfo.value?.baseReleaseTag || releaseInfo.value?.releaseTag)?.trim() || '')
+const frontendPatchTag = computed(() => releaseInfo.value?.frontendPatchTag?.trim() || '')
+const statusText = computed(() => frontendPatchTag.value ? `${currentReleaseTag.value} · 前端补丁 ${frontendPatchTag.value}` : currentReleaseTag.value || '版本信息未生成')
 const gitChangeItems = computed(() => {
   return (releaseInfo.value?.changeSet?.gitChanges || []).slice(0, 10)
 })
@@ -51,6 +54,10 @@ onMounted(async () => {
 
   <ElDialog v-model="dialogVisible" title="版本变更说明" width="560px" append-to-body>
     <div v-if="releaseInfo" class="release-info-dialog">
+      <section class="release-info-dialog__section">
+        <p>主版本：{{ currentReleaseTag }}</p>
+        <p v-if="frontendPatchTag">前端补丁：{{ frontendPatchTag }}</p>
+      </section>
       <section class="release-info-dialog__section">
         <h3>版本变化（最多 10 条）</h3>
         <ul v-if="gitChangeItems.length">
