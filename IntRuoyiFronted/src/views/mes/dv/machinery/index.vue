@@ -259,6 +259,13 @@ const exportLoading = ref(false)
 
 const machineryQuickFilterDefinitions = computed<TableQuickFilterDefinition[]>(() => [
   {
+    key: 'code',
+    label: '设备编号',
+    type: 'text',
+    queryParamKey: 'code',
+    operators: ['contains']
+  },
+  {
     key: 'status',
     label: '设备状态',
     type: 'select',
