@@ -22,6 +22,9 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class MesProRouteVersionNumberAllocationTest {
 
+    @Mock
+    private cn.iocoder.yudao.module.mes.service.pro.craft.MesProCraftService craftService;
+
     @InjectMocks
     private MesProRouteVersionWorkflowServiceImpl service;
 
@@ -84,7 +87,10 @@ class MesProRouteVersionNumberAllocationTest {
                             "products": [],
                             "scheduleConfigs": [],
                             "batchUseConfigs": [],
-                            "scheduleUseConfigs": []
+                            "scheduleUseConfigs": [],
+                            "productionProcessConfigSchemaVersion": 1,
+                            "productionProcessConfigs": [{"routeProcessId":10,"processId":20,
+                              "overagePercent":0,"lossReasons":[],"deviceSelectionGroups":[],"parameterRules":[]}]
                           }
                         }
                         """)

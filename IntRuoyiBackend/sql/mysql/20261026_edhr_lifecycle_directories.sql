@@ -27,7 +27,7 @@ BEGIN
   INSERT INTO tmp_edhr_lifecycle_pages VALUES
     (900365,991512,'表单中心','/mes/pro/batch-record-form-list','mes/pro/batchrecordformlist/index',10),
     (605071201,991512,'表单模板','/mdm/form-center/template','form-center/template/index',20),
-    (900310,991512,'表单','/mes/pro/edhr-form','mes/pro/edhr-form/FormPage',30),
+    (900272,991512,'eDHR独立表单','/mes/pro/feedback/edhr-form','mes/pro/edhr-form/FormPage',30),
     (900440,991512,'批记录测试','/mes/pro/feedback/edhr-batch-test','mes/pro/edhr-batch/BatchRecordTestPage',40),
     (900434,991513,'QA','/mes/pro/process-pool/qa-regulation','mes/pro/processpool/QaRegulationPage',10),
     (5110,991514,'物料产品分类','/mes/md/item-type','mes/md/item/type/index',10),
@@ -42,7 +42,7 @@ BEGIN
     (900437,991516,'一线生产','/mes/pro/feedback/edhr-batch-production-fill','mes/pro/edhr-batch/BatchProductionFillPage',20),
     (900438,991516,'一线PQC','/mes/pro/feedback/edhr-batch-pqc-fill','mes/pro/edhr-batch/BatchPqcFillPage',30),
     (900435,991516,'PQC组长','/mes/pro/process-pool/pqc-leader','mes/pro/processpool/PqcLeaderWorkbenchPage',40),
-    (605071316,991516,'PQC生产放行','/mes/pro/production-release/pqc','mes/pro/production-release/PqcProductionReleasePage',50),
+    (605071315,991516,'PQC生产放行','/mes/production-release/pqc','mes/pro/production-release/PqcProductionReleasePage',50),
     (900033,991516,'批次执行','/mes/pro/feedback/edhr-batch-execution','mes/pro/edhr-batch/BatchExecutionListPage',60),
     (900230,991516,'eDHR工作任务','/mes/pro/feedback/edhr-work-task','mes/pro/edhr-work-task/WorkTaskBoardPage',70),
     (9008300,991516,'eDHR不合格评审','/mes/pro/feedback/edhr-nonconformance-review','mes/pro/edhr-nonconformance/NonconformanceReviewPage',80),

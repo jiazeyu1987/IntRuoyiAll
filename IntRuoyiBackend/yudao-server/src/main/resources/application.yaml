@@ -387,3 +387,10 @@ yudao:
       type: redis # 消息总线的类型
 
 debug: false
+
+# Release attestation is read-only; runtime verifies its returned evidence.
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,release

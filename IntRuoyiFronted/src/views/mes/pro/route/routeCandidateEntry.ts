@@ -5,6 +5,7 @@ import {
   type ProRouteVersionVO
 } from '@/api/mes/pro/route'
 import { parsePositiveRouteQueryId } from '@/utils/routeQueryId'
+import { isLegacyRouteVersion } from './routeVersionHistory'
 
 const DRAFT_ROUTE_VERSION_STATUS = 'DRAFT'
 const PENDING_APPROVAL_ROUTE_VERSION_STATUS = 'PENDING_APPROVAL'
@@ -85,16 +86,18 @@ const requireRouteForCandidateEntry = (routeInfo: ProRouteVO, actionName: string
   if (!routeInfo?.id) {
     throw new Error(`${actionName}失败：缺少路线编号，无法进入候选版本。`)
   }
-  if (!routeInfo.activeRouteVersionId) {
-    throw new Error(`${actionName}失败：当前路线缺少激活版本，无法进入候选版本。`)
-  }
 }
 
 const requireDraftCandidateVersion = (
   candidate: ProRouteVersionVO | undefined,
   actionName: string
 ) => {
-  if (!candidate?.id || !candidate.versionNo || candidate.lifecycleStatus !== DRAFT_ROUTE_VERSION_STATUS) {
+  if (
+    !candidate?.id ||
+    !candidate.versionNo ||
+    isLegacyRouteVersion(candidate) ||
+    candidate.lifecycleStatus !== DRAFT_ROUTE_VERSION_STATUS
+  ) {
     throw new Error(`${actionName}失败：候选版本未返回可编辑草稿版本。`)
   }
   return candidate
@@ -109,9 +112,13 @@ export const resolveSameSourceDraftCandidateForProductionConfig = (
   if (!Array.isArray(routeVersions)) {
     throw new Error(`${actionName}失败：路线版本列表返回异常，无法判断候选版本。`)
   }
+  if (!routeInfo.activeRouteVersionId && !routeVersions.some(isLegacyRouteVersion)) {
+    throw new Error(`${actionName}失败：当前路线缺少激活版本或已归档历史摘要，无法进入候选版本。`)
+  }
   const openCandidates = routeVersions.filter(
     (version) =>
       !version.active &&
+      !isLegacyRouteVersion(version) &&
       OPEN_ROUTE_VERSION_STATUSES.includes(String(version.lifecycleStatus))
   )
   const draftCandidates = openCandidates.filter(
@@ -134,7 +141,8 @@ export const resolveSameSourceDraftCandidateForProductionConfig = (
   const currentDraftCandidate = draftCandidates[0]
   if (
     currentDraftCandidate &&
-    currentDraftCandidate.sourceRouteVersionId !== routeInfo.activeRouteVersionId
+    (currentDraftCandidate.sourceRouteVersionId ?? undefined) !==
+      (routeInfo.activeRouteVersionId ?? undefined)
   ) {
     throw new Error(
       `${actionName}失败：草稿版本来源已不是当前生效版本，请取消后基于当前 ACTIVE 重新创建。`
@@ -169,7 +177,10 @@ export const ensureSameSourceDraftCandidateForProductionConfig = async (
     if (options.success && options.existingSuccessMessage) {
       options.success(options.existingSuccessMessage)
     }
-    return { candidate: requireDraftCandidateVersion(existingDraftCandidate, actionName), created: false }
+    return {
+      candidate: requireDraftCandidateVersion(existingDraftCandidate, actionName),
+      created: false
+    }
   }
   const confirmed = await confirmRouteCandidateAction(
     options.confirm,

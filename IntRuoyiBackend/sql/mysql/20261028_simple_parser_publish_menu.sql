@@ -21,7 +21,7 @@ BEGIN
       SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Parser publish menu identity occupied';
     END IF;
     INSERT INTO system_menu (id,name,permission,type,sort,parent_id,path,icon,component,component_name,status,visible,keep_alive,always_show,creator,create_time,updater,update_time,deleted)
-    VALUES (publish_id,'简易解析发布','form:parser:production-batch-record:publish',3,1,605071336,'','','','',0,b'1',b'0',b'0','simple-parser',NOW(),'simple-parser',NOW(),b'0');
+    VALUES (991523,'简易解析发布','form:parser:production-batch-record:publish',3,1,605071336,'','','','',0,b'1',b'0',b'0','simple-parser',NOW(),'simple-parser',NOW(),b'0');
   END IF;
   IF EXISTS (SELECT 1 FROM system_tenant_package WHERE deleted=b'0' AND (NOT JSON_VALID(menu_ids) OR JSON_TYPE(CAST(menu_ids AS JSON))<>'ARRAY')) THEN
     SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Invalid tenant package menu scope';

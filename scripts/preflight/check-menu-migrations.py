@@ -188,6 +188,21 @@ def validate_migrations(root: Path, read, paths: set[str], migrations: list[str]
     for path in paths:
         if path.startswith(SQL_ROOT) and path.endswith(".sql"):
             available.setdefault(Path(path).stem, []).append(path)
+    catalog_path = SQL_ROOT + "release-sources.json"
+    if catalog_path in paths:
+        catalog = json.loads(read(catalog_path))
+        if catalog.get("schemaVersion") != "release-sql-sources/v2":
+            raise GateError("Unsupported release source catalog")
+        for entry in catalog.get("historicalMigrations", []):
+            name, original = entry["file"], entry["original"]
+            if Path(name).name != name or original != "historical/" + name:
+                raise GateError("Invalid historical migration source: " + name)
+            expected = {SQL_ROOT + name, SQL_ROOT + original}
+            if set(available.get(Path(name).stem, [])) != expected:
+                raise GateError("Historical migration files missing or ambiguous: " + name)
+            # The release package executes the declared immutable original.
+            # The reviewed root file is retained as source evidence, not a second migration.
+            available[Path(name).stem] = [SQL_ROOT + original]
     closure, visiting = set(), set()
     with tempfile.TemporaryDirectory(prefix="menu-migration-") as temporary:
         sql_root = Path(temporary)

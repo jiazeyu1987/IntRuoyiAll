@@ -5,10 +5,7 @@ const path = require('node:path')
 const frontendRoot = path.resolve(__dirname, '../..')
 const routeListPath = path.join(frontendRoot, 'src/views/mes/pro/route/index.vue')
 const routeEditPath = path.join(frontendRoot, 'src/views/mes/pro/route/RouteEditPage.vue')
-const routeGraphPath = path.join(
-  frontendRoot,
-  'src/views/mes/pro/route/RouteFlowGraphDesigner.vue'
-)
+const routeGraphPath = path.join(frontendRoot, 'src/views/mes/pro/route/RouteFlowGraphDesigner.vue')
 
 const routeList = fs.readFileSync(routeListPath, 'utf8')
 const routeEdit = fs.readFileSync(routeEditPath, 'utf8')
@@ -38,7 +35,7 @@ assert.doesNotMatch(
 const viewer = getFunctionBody(routeList, 'openRouteVersionViewer', true)
 assert.match(
   viewer,
-  /query:\s*version\.active\s*\?\s*\{\s*tab:\s*'flow'\s*\}/,
+  /query:\s*version\.active\s*&&\s*!isLegacyRouteVersion\(version\)\s*\?\s*\{\s*tab:\s*'flow'\s*\}/,
   'ACTIVE 版本查看仍必须使用当前生效版本上下文。'
 )
 assert.match(
@@ -54,8 +51,8 @@ assert.doesNotMatch(
 
 assert.match(
   routeEdit,
-  /const routeVersionEditContext = computed<RouteVersionEditContext \| undefined>\(\(\) => \{[\s\S]*routeVersionId[\s\S]*routeVersionNo[\s\S]*routeVersionStatus/s,
-  '编辑页必须继续从 query 构建只读版本上下文。'
+  /const requestedRouteVersionContext = computed<RouteVersionEditContext \| undefined>\(\(\) => \{[\s\S]*routeVersionId[\s\S]*routeVersionNo[\s\S]*routeVersionStatus/s,
+  '编辑页必须从 query 读取请求版本，并通过后端真实版本校验。'
 )
 assert.match(
   routeGraph,

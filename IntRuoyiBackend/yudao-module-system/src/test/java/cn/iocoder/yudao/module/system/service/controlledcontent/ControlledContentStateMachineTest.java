@@ -40,6 +40,19 @@ class ControlledContentStateMachineTest {
     private final ControlledContentStateMachine stateMachine = new ControlledContentStateMachine();
 
     @Test
+    void legacyIncomplete_shouldBeTerminalAndNeverAnOrdinaryTransitionTarget() {
+        var legacy = ControlledContentCanonicalStatus.LEGACY_INCOMPLETE;
+        assertFalse(stateMachine.isEditable(legacy));
+        for (var action : ControlledContentTransitionAction.values()) {
+            assertRejected(null, legacy, action);
+            for (var status : ControlledContentCanonicalStatus.values()) {
+                assertRejected(legacy, status, action);
+                assertRejected(status, legacy, action);
+            }
+        }
+    }
+
+    @Test
     void shouldAllowDocumentedLifecycleTransitions() {
         assertAllowed(null, ACTIVE, REGISTER_ACTIVE);
         assertAllowed(DRAFT, IN_REVIEW, SUBMIT);

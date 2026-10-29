@@ -24,6 +24,12 @@ public class MesProRouteVersionRespVO {
     @Schema(description = "生命周期状态")
     private String lifecycleStatus;
 
+    @Schema(description = "保存的快照格式；历史摘要不具备执行能力")
+    private String routeSnapshotFormatVersion;
+
+    @Schema(description = "真实保存的快照原文，不以当前工艺补齐历史")
+    private String routeSnapshotJson;
+
     @Schema(description = "来源路线版本编号")
     private Long sourceRouteVersionId;
 

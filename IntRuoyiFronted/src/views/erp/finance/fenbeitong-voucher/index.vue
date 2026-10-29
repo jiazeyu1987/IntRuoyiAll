@@ -64,7 +64,10 @@ const assistantStatusMessage = ref('')
 const assistantAccessUrl = ref('')
 
 const assistantBaseUrl = computed(() => {
-  return import.meta.env.VITE_FENBEITONG_ASSISTANT_URL?.trim() || ''
+  const configured = import.meta.env.VITE_FENBEITONG_ASSISTANT_URL?.trim() || ''
+  // Deployment explicitly selects a same-server URL template so one image works
+  // on test, production and review hosts. Empty configuration remains an error.
+  return configured.replace('{hostname}', window.location.hostname)
 })
 
 const buildAssistantAccessUrl = (baseUrl: string, ticket: string) => {

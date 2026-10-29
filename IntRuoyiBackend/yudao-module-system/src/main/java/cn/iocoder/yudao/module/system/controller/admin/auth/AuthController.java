@@ -30,6 +30,7 @@ import cn.iocoder.yudao.module.system.service.fenbeitongassistant.FenbeitongAssi
 import cn.iocoder.yudao.module.system.service.invoicevoucherprintassistant.InvoiceVoucherPrintAssistantService;
 import cn.iocoder.yudao.module.system.service.invoicevoucherprintassistant.InvoiceVoucherPrintKingdeeConfigProvider;
 import cn.iocoder.yudao.module.system.service.invoicevoucherprintassistant.InvoiceVoucherPrintKingdeeConfigProvider.KingdeeConfigSnapshot;
+import cn.iocoder.yudao.module.system.service.fenbeitongassistant.FenbeitongKingdeeConfigProvider;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.Parameters;
@@ -109,6 +110,9 @@ public class AuthController {
     private FenbeitongAssistantService fenbeitongAssistantService;
     @Resource
     private InvoiceVoucherPrintKingdeeConfigProvider kingdeeConfigProvider;
+
+    @Resource
+    private FenbeitongKingdeeConfigProvider fenbeitongKingdeeConfigProvider;
 
     @Resource
     private SecurityProperties securityProperties;
@@ -373,7 +377,7 @@ public class AuthController {
     }
 
     private AuthFenbeitongAssistantTicketValidateRespVO.KingdeeConfig buildFenbeitongAssistantKingdeeConfig() {
-        KingdeeConfigSnapshot snapshot = kingdeeConfigProvider.getCurrentConfigSnapshot();
+        FenbeitongKingdeeConfigProvider.PasswordLoginConfig snapshot = fenbeitongKingdeeConfigProvider.getCurrentPasswordLoginConfig();
         if (snapshot == null) {
             throw exception0(GlobalErrorCodeConstants.BAD_REQUEST.getCode(),
                     FENBEITONG_KINGDEE_CONFIG_PREFIX + "kingdeeConfig");
@@ -383,9 +387,6 @@ public class AuthController {
                 .acctId(snapshot.getAcctId())
                 .username(snapshot.getUsername())
                 .password(snapshot.getPassword())
-                .appId(snapshot.getAppId())
-                .signedData(snapshot.getSignedData())
-                .timestamp(snapshot.getTimestamp())
                 .lcid(snapshot.getLcid())
                 .build();
     }

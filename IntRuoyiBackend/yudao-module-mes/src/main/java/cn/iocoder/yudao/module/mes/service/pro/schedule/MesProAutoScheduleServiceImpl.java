@@ -1,5 +1,6 @@
 package cn.iocoder.yudao.module.mes.service.pro.schedule;
 
+import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteVersionUsagePolicy;
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.ObjUtil;
 import cn.hutool.core.util.StrUtil;
@@ -1785,6 +1786,7 @@ public class MesProAutoScheduleServiceImpl implements MesProAutoScheduleService 
             throw exception(PRO_AUTO_SCHEDULE_ROUTE_VERSION_REQUIRED, scheduleOrder.getId());
         }
         MesProRouteVersionDO activeRouteVersion = routeVersionMapper.selectActiveByRouteId(scheduleOrder.getRouteId());
+        MesProRouteVersionUsagePolicy.requireUsable(activeRouteVersion);
         if (activeRouteVersion != null && activeRouteVersion.getId() != null) {
             return activeRouteVersion;
         }

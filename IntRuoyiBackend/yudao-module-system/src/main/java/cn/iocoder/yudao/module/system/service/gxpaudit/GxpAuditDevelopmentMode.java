@@ -16,10 +16,12 @@ import org.springframework.stereotype.Component;
 public class GxpAuditDevelopmentMode {
     public static final String STATUS = "DEVELOPMENT_DISABLED";
     private static volatile GxpAuditMode currentMode = GxpAuditMode.FORMAL;
+    private ConfigMapper configs;
 
     @Autowired
     public GxpAuditDevelopmentMode(Environment environment, ConfigMapper configs) {
         this(environment, readRequired(configs));
+        this.configs = configs;
     }
 
     @VisibleForTesting
@@ -42,6 +44,12 @@ public class GxpAuditDevelopmentMode {
     }
 
     public static GxpAuditMode currentMode() { return currentMode; }
+    /** Fresh persisted state is distinct from the immutable mode applied at startup. */
+    public java.util.Map<String, String> releaseState() {
+        if (configs == null) throw new IllegalStateException("GxP configuration reader is unavailable");
+        return java.util.Map.of("gxpAuditMode", currentMode.name(),
+                "configuredGxpAuditMode", readRequired(configs).name());
+    }
     public static boolean disabled() { return currentMode == GxpAuditMode.DEVELOPMENT_DISABLED; }
     public boolean localPolicyEnabled() { return currentMode == GxpAuditMode.LOCAL_POLICY; }
     public static boolean auditBindingAccepted(String status) {

@@ -12,8 +12,8 @@ BEGIN
     RESIGNAL;
   END;
   START TRANSACTION;
-  IF NOT EXISTS (SELECT 1 FROM system_menu WHERE id=900310
-      AND path='/mes/pro/edhr-form' AND component='mes/pro/edhr-form/FormPage'
+  IF NOT EXISTS (SELECT 1 FROM system_menu WHERE id=900272
+      AND path='/mes/pro/feedback/edhr-form' AND component='mes/pro/edhr-form/FormPage'
       AND type=2 AND deleted=b'0')
     OR NOT EXISTS (SELECT 1 FROM system_menu WHERE id=900440
       AND path='/mes/pro/feedback/edhr-batch-test'
@@ -22,7 +22,7 @@ BEGIN
     SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Missing or changed eDHR form / batch record test menu';
   END IF;
   UPDATE system_menu SET visible=b'0', updater='hide-edhr-form-test', update_time=NOW()
-    WHERE id IN (900310,900440);
+    WHERE id IN (900272,900440);
   COMMIT;
 END$$
 DELIMITER ;

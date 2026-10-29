@@ -235,6 +235,8 @@ export default ({command, mode}: ConfigEnv): UserConfig => {
             sourcemap: env.VITE_SOURCEMAP === 'true' ? 'inline' : false,
             // brotliSize: false,
             terserOptions: {
+                // Bound minifier memory while the release service persists its state.
+                maxWorkers: 2,
                 compress: {
                     drop_debugger: env.VITE_DROP_DEBUGGER === 'true',
                     drop_console: env.VITE_DROP_CONSOLE === 'true'

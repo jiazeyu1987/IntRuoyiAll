@@ -25,6 +25,18 @@ class MesProRouteVersionSnapshotResolverTest {
     }
 
     @Test
+    void archivedSummary_shouldNotResolveOrUseCurrentProjectionEvenIfWronglyMarkedActive() {
+        MesProRouteVersionDO legacy = publishedVersion(11L, 9L, snapshot(9L, 101L, "P1"));
+        legacy.setRouteSnapshotFormatVersion(MesRouteLegacySummaryIdentity.FORMAT_VERSION);
+        when(mapper.selectById(11L)).thenReturn(legacy);
+        assertThrows(IllegalStateException.class, () -> resolver.resolveVersion(11L));
+        legacy.setRouteSnapshotFormatVersion(MesProRouteSnapshotCanonicalizer.FORMAT_VERSION);
+        legacy.setLifecycleStatus(MesRouteLegacySummaryIdentity.STATUS);
+        legacy.setActive(false);
+        assertThrows(IllegalStateException.class, () -> resolver.resolveVersion(11L));
+    }
+
+    @Test
     void resolve_shouldUseExactPublishedVersionAndRouteProcessId() {
         String snapshot = snapshot(9L, 101L, "same-name");
         MesProRouteVersionDO version = publishedVersion(11L, 9L, snapshot);

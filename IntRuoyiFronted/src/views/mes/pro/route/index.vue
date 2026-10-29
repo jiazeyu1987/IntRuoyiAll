@@ -158,7 +158,7 @@
               >
                 {{ scope.row.activeRouteVersionNo }}
               </el-link>
-              <span v-else class="route-list__muted">未生成版本</span>
+              <span v-else class="route-list__muted">无生效版本</span>
             </template>
           </el-table-column>
           <el-table-column
@@ -298,9 +298,9 @@
             {{ routeVersionRoute?.code || '-' }} {{ routeVersionRoute?.name || '' }}
           </div>
           <div class="route-version-workspace__active-version">
-            当前 ACTIVE：
-            <el-tag type="success">{{
-              routeVersionRoute?.activeRouteVersionNo || '未生成版本'
+            当前生效版本：
+            <el-tag :type="routeVersionRoute?.activeRouteVersionId ? 'success' : 'info'">{{
+              routeVersionRoute?.activeRouteVersionNo || '无生效版本'
             }}</el-tag>
             <span
               v-if="routeVersionRoute?.activeRouteVersionId"
@@ -315,7 +315,9 @@
             type="warning"
             plain
             :loading="routeVersionActionLoading"
-            :disabled="routeVersionOpenCandidateCount > 0"
+            :disabled="
+              routeVersionOpenCandidateCount > 0 || !routeVersionRoute?.activeRouteVersionId
+            "
             data-route-version-action="migrate-production-config"
             @click="migrateLegacyProductionConfigFromFormalSource"
             v-hasPermi="['mes:pro-route:version-create']"
@@ -338,7 +340,7 @@
         class="route-version-workspace__state-strip"
         test-id="mes-route-version-workspace-state-strip"
         title="候选版本工作区"
-        :version-no="routeVersionRoute.activeRouteVersionNo || '未生成版本'"
+        :version-no="routeVersionRoute.activeRouteVersionNo || '无生效版本'"
         :status-label="routeVersionWorkspaceStatusLabel"
         :status-type="routeVersionWorkspaceStatusTagType"
         mode-label="MES 工艺路线"
@@ -347,6 +349,14 @@
         :blockers="routeVersionWorkspaceBlockers"
         :readonly="routeVersionOpenCandidateCount > 0 && !routeVersionEditableDraft"
         :editable="routeVersionEditableDraft"
+      />
+      <el-alert
+        v-if="routeVersions.some(isLegacyRouteVersion)"
+        class="route-version-workspace__notice"
+        type="warning"
+        :closable="false"
+        :title="LEGACY_ROUTE_VERSION_NOTICE"
+        show-icon
       />
       <el-alert
         v-if="routeVersionNoticeMessage"
@@ -375,7 +385,12 @@
             <el-tag :type="resolveRouteVersionStatusTagType(version.lifecycleStatus)">
               {{ resolveRouteVersionStatusLabel(version.lifecycleStatus) }}
             </el-tag>
-            <el-tag v-if="version.active" class="ml-6px" type="success">ACTIVE</el-tag>
+            <el-tag
+              v-if="version.active && !isLegacyRouteVersion(version)"
+              class="ml-6px"
+              type="success"
+              >ACTIVE</el-tag
+            >
           </template>
         </el-table-column>
         <el-table-column label="来源版本" prop="sourceRouteVersionId" min-width="110">
@@ -390,8 +405,9 @@
         </el-table-column>
         <el-table-column label="发布阻断项" min-width="260">
           <template #default="{ row: version }">
+            <span v-if="isLegacyRouteVersion(version)">历史摘要不完整，不可发布或执行</span>
             <div
-              v-if="routeVersionBlockersById[version.id]"
+              v-else-if="routeVersionBlockersById[version.id]"
               class="route-version-workspace__blockers"
             >
               <el-tag v-if="routeVersionBlockersById[version.id].publishable" type="success">
@@ -430,6 +446,7 @@
               编辑
             </el-button>
             <el-button
+              v-if="!isLegacyRouteVersion(version)"
               link
               type="primary"
               :loading="routeVersionBlockerLoadingId === version.id"
@@ -505,6 +522,7 @@ import {
   type ProRouteVersionVO
 } from '@/api/mes/pro/route'
 import ControlledContentStateStrip from '@/components/ControlledContent/ControlledContentStateStrip.vue'
+import { isLegacyRouteVersion, LEGACY_ROUTE_VERSION_NOTICE } from './routeVersionHistory'
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import {
   useUserTableColumns,
@@ -577,16 +595,25 @@ const ROUTE_OPEN_CANDIDATE_STATUS_SET = new Set([
   'READY_TO_PUBLISH',
   'REJECTED'
 ])
-const ROUTE_VERSION_WORKSPACE_VISIBLE_STATUS_SET = new Set(['DRAFT', 'ACTIVE', 'SUPERSEDED'])
+const ROUTE_VERSION_WORKSPACE_VISIBLE_STATUS_SET = new Set([
+  'DRAFT',
+  'ACTIVE',
+  'SUPERSEDED',
+  'LEGACY_INCOMPLETE'
+])
 const isVisibleRouteVersionInWorkspace = (version: ProRouteVersionVO) =>
-  version.active || ROUTE_VERSION_WORKSPACE_VISIBLE_STATUS_SET.has(String(version.lifecycleStatus))
+  isLegacyRouteVersion(version) ||
+  version.active ||
+  ROUTE_VERSION_WORKSPACE_VISIBLE_STATUS_SET.has(String(version.lifecycleStatus))
 const visibleRouteVersions = computed(() =>
   routeVersions.value.filter(isVisibleRouteVersionInWorkspace)
 )
 const routeVersionOpenCandidates = computed(() =>
   routeVersions.value.filter(
     (version) =>
-      !version.active && ROUTE_OPEN_CANDIDATE_STATUS_SET.has(String(version.lifecycleStatus))
+      !version.active &&
+      !isLegacyRouteVersion(version) &&
+      ROUTE_OPEN_CANDIDATE_STATUS_SET.has(String(version.lifecycleStatus))
   )
 )
 const routeVersionOpenCandidateCount = computed(() => {
@@ -606,6 +633,12 @@ const routeVersionWorkspaceStatusLabel = computed(() => {
   const candidate = routeVersionPrimaryOpenCandidate.value
   if (candidate?.lifecycleStatus) {
     return resolveRouteVersionStatusLabel(candidate.lifecycleStatus)
+  }
+  if (
+    !routeVersionRoute.value?.activeRouteVersionId &&
+    routeVersions.value.some(isLegacyRouteVersion)
+  ) {
+    return '仅有历史不完整摘要'
   }
   return routeVersionRoute.value?.activeRouteVersionId ? '无打开候选' : '未生成版本'
 })
@@ -637,6 +670,7 @@ const routeVersionWorkspaceHint = computed(() => {
     return '候选版本已驳回，按意见修改会回到草稿后再编辑。'
   }
   if (!routeVersionRoute.value?.activeRouteVersionId) {
+    if (routeVersions.value.some(isLegacyRouteVersion)) return LEGACY_ROUTE_VERSION_NOTICE
     return '当前路线暂无生效版本，请先完成路线配置并创建首版。'
   }
   return '当前只有一个生效版本；修改生产配置请先创建候选版本。'
@@ -835,9 +869,6 @@ const handleEditRouteProductionConfig = async (row: ProRouteVO) => {
   if (!row.id) {
     throw new Error('进入候选版本编辑失败：缺少路线编号')
   }
-  if (!row.activeRouteVersionId) {
-    throw new Error('进入候选版本编辑失败：当前路线缺少生效版本，无法创建候选版本')
-  }
   routeCandidateEditLoadingId.value = row.id
   try {
     const candidateResult = await ensureSameSourceDraftCandidateForProductionConfig({
@@ -988,14 +1019,15 @@ const openRouteVersionViewer = async (version: ProRouteVersionVO) => {
   await router.push({
     name: 'MesProRouteEdit',
     params: { id: currentRoute.id },
-    query: version.active
-      ? { tab: 'flow' }
-      : {
-          tab: 'flow',
-          routeVersionId: String(version.id),
-          routeVersionNo: version.versionNo,
-          routeVersionStatus: version.lifecycleStatus
-        }
+    query:
+      version.active && !isLegacyRouteVersion(version)
+        ? { tab: 'flow' }
+        : {
+            tab: 'flow',
+            routeVersionId: String(version.id),
+            routeVersionNo: version.versionNo,
+            routeVersionStatus: version.lifecycleStatus
+          }
   })
   routeVersionDialogVisible.value = false
 }
@@ -1201,16 +1233,18 @@ const runRouteVersionAction = async (
 }
 
 const canSubmitRouteVersion = (version: ProRouteVersionVO) =>
-  !version.active && version.lifecycleStatus === 'DRAFT'
+  !isLegacyRouteVersion(version) && !version.active && version.lifecycleStatus === 'DRAFT'
 
 const canEditRouteCandidateVersion = (version: ProRouteVersionVO) =>
-  !version.active && version.lifecycleStatus === 'DRAFT'
+  !isLegacyRouteVersion(version) && !version.active && version.lifecycleStatus === 'DRAFT'
 
 const canWithdrawRouteVersion = (version: ProRouteVersionVO) =>
-  !version.active && version.lifecycleStatus === 'PENDING_APPROVAL'
+  !isLegacyRouteVersion(version) &&
+  !version.active &&
+  version.lifecycleStatus === 'PENDING_APPROVAL'
 
 const canReopenRouteVersion = (version: ProRouteVersionVO) =>
-  !version.active && version.lifecycleStatus === 'REJECTED'
+  !isLegacyRouteVersion(version) && !version.active && version.lifecycleStatus === 'REJECTED'
 
 const openRouteCandidateVersionEditor = async (version: ProRouteVersionVO) => {
   const currentRoute = routeVersionRoute.value
@@ -1234,7 +1268,7 @@ const openRouteCandidateVersionEditor = async (version: ProRouteVersionVO) => {
 }
 
 const canDeleteRouteDraftVersion = (version: ProRouteVersionVO) =>
-  !version.active && version.lifecycleStatus === 'DRAFT'
+  !isLegacyRouteVersion(version) && !version.active && version.lifecycleStatus === 'DRAFT'
 
 const formatPendingRouteVersion = (row: ProRouteVO) => {
   if (!row.pendingRouteVersionNo) {
@@ -1254,6 +1288,7 @@ const resolveRouteVersionStatusLabel = (status?: ProRouteVersionLifecycleStatus)
     READY_TO_PUBLISH: '待发布',
     ACTIVE: '已生效',
     SUPERSEDED: '已替代',
+    LEGACY_INCOMPLETE: '历史不完整（不可执行）',
     REJECTED: '已驳回',
     CANCELLED: '已取消'
   }
@@ -1267,6 +1302,7 @@ const resolveRouteVersionStatusTagType = (status?: ProRouteVersionLifecycleStatu
     READY_TO_PUBLISH: 'warning',
     ACTIVE: 'success',
     SUPERSEDED: 'info',
+    LEGACY_INCOMPLETE: 'warning',
     REJECTED: 'danger',
     CANCELLED: 'info'
   }

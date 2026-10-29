@@ -61,6 +61,7 @@ public class MesProRouteVersionSnapshotResolver {
         if (version == null) {
             throw new IllegalStateException("route version does not exist: " + routeVersionId);
         }
+        MesProRouteVersionUsagePolicy.requireUsable(version);
         if (!Set.of(MesProRouteVersionLifecycleServiceImpl.STATUS_ACTIVE,
                 MesProRouteVersionLifecycleServiceImpl.STATUS_SUPERSEDED).contains(version.getLifecycleStatus())) {
             throw new IllegalStateException("route version is not published: " + routeVersionId);

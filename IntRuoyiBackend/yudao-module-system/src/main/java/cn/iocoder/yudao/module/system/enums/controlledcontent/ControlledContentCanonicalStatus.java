@@ -17,6 +17,8 @@ public enum ControlledContentCanonicalStatus {
     OBSOLETE,
     REJECTED,
     WITHDRAWN,
-    CANCELLED
+    CANCELLED,
+    /** One reviewed technical migration only; no ordinary transition enters or leaves this terminal state. */
+    LEGACY_INCOMPLETE
 
 }

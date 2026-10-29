@@ -1,3 +1,4 @@
+-- release-migration: allowedEnvironments=test,backup,prod; dependsOn=; type=preflight; riskLevel=high
 -- READ-ONLY DRAFT, NOT EXECUTED. No historical ownership INSERT is authorized here.
 -- A historical row needs a verified real source authority/version plus Java canonical
 -- evidenceDigest and original start-writer proof. A title, numeric business key,

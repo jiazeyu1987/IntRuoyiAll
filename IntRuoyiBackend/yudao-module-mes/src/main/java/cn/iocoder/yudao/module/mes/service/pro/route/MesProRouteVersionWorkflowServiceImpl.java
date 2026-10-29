@@ -82,6 +82,7 @@ public class MesProRouteVersionWorkflowServiceImpl implements MesProRouteVersion
         if (version == null) {
             throw exception(PRO_ROUTE_VERSION_NOT_EXISTS, id);
         }
+        MesProRouteVersionUsagePolicy.requireUsable(version);
         return version;
     }
 
@@ -90,40 +91,49 @@ public class MesProRouteVersionWorkflowServiceImpl implements MesProRouteVersion
     public MesProRouteVersionDO createCandidate(MesProRouteVersionCreateReqVO reqVO) {
         craftService.lockCatalog();
         MesProRouteVersionDO active = routeVersionMapper.selectActiveByRouteIdForUpdate(reqVO.getRouteId());
-        if (active == null) {
+        MesProRouteVersionDO legacy = active == null ? MesProRouteVersionUsagePolicy.knownArchivedSummary(
+                routeVersionMapper.selectListByRouteId(reqVO.getRouteId())) : null;
+        if (active == null && legacy == null) {
             throw exception(PRO_ROUTE_VERSION_ACTIVE_NOT_EXISTS, reqVO.getRouteId());
         }
+        Long sourceId = active == null ? null : active.getId();
+        MesProRouteVersionUsagePolicy.requireUsable(active);
         if (reqVO.getSourceRouteVersionId() != null
-                && !Objects.equals(reqVO.getSourceRouteVersionId(), active.getId())) {
+                && !Objects.equals(reqVO.getSourceRouteVersionId(), sourceId)) {
             throw exception(PRO_ROUTE_VERSION_CONFLICT,
-                    reqVO.getRouteId(), reqVO.getSourceRouteVersionId(), active.getId());
+                    reqVO.getRouteId(), reqVO.getSourceRouteVersionId(), sourceId);
         }
         MesProRouteVersionDO openCandidate = routeVersionMapper.selectOpenCandidateByRouteId(reqVO.getRouteId());
         if (openCandidate != null) {
             if (MesProRouteVersionLifecycleServiceImpl.STATUS_DRAFT.equals(openCandidate.getLifecycleStatus())) {
-                if (!Objects.equals(openCandidate.getSourceRouteVersionId(), active.getId())) {
+                MesProRouteVersionUsagePolicy.requireUsable(openCandidate);
+                if (!Objects.equals(openCandidate.getSourceRouteVersionId(), sourceId)) {
                     throw exception(PRO_ROUTE_VERSION_CONFLICT,
-                            reqVO.getRouteId(), openCandidate.getSourceRouteVersionId(), active.getId());
+                            reqVO.getRouteId(), openCandidate.getSourceRouteVersionId(), sourceId);
                 }
                 return openCandidate;
             }
             throw exception(PRO_ROUTE_VERSION_CONFLICT,
                     reqVO.getRouteId(), openCandidate.getId(), openCandidate.getLifecycleStatus());
         }
-        String routeSnapshotJson = routeService.buildCurrentRouteSnapshotJson(reqVO.getRouteId(), active.getId());
+        String routeSnapshotJson = routeService.buildCurrentRouteSnapshotJson(reqVO.getRouteId(), sourceId);
         if (Boolean.TRUE.equals(reqVO.getMigrateLegacyProductionConfig())) {
+            if (active == null) throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, legacy.getId());
             routeSnapshotJson = migrateLegacyProductionConfigs(
                     active, routeSnapshotJson, reqVO.getMissingOveragePercent());
         }
-        if (!MesProRouteVersionSnapshotValidator.hasCompleteConfigSnapshot(routeSnapshotJson)) {
-            throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, active.getId());
+        boolean validSnapshot = active == null
+                ? MesProRouteVersionSnapshotValidator.hasAuthoringConfigSnapshot(reqVO.getRouteId(), routeSnapshotJson)
+                : MesProRouteVersionSnapshotValidator.hasCompleteConfigSnapshot(routeSnapshotJson);
+        if (!validSnapshot) {
+            throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, active == null ? legacy.getId() : active.getId());
         }
         MesProRouteVersionDO candidate = MesProRouteVersionDO.builder()
                 .routeId(reqVO.getRouteId())
                 .versionNo(nextVersionNo(reqVO.getRouteId()))
                 .active(Boolean.FALSE)
                 .lifecycleStatus(MesProRouteVersionLifecycleServiceImpl.STATUS_DRAFT)
-                .sourceRouteVersionId(active.getId())
+                .sourceRouteVersionId(sourceId)
                 .changeSummaryJson(buildChangeSummary(reqVO.getChangeReason()))
                 .remark("工艺路线候选版本，发布后生效")
                 .build();
@@ -134,8 +144,11 @@ public class MesProRouteVersionWorkflowServiceImpl implements MesProRouteVersion
         }
         MesProRouteVersionSnapshotIdentityWriter.apply(candidate, routeSnapshotJson);
         routeVersionMapper.insert(candidate);
-        platformAdapter.recordCandidateCreated(active, candidate, SecurityFrameworkUtils.getLoginUserId(),
-                reqVO.getChangeReason());
+        if (active == null) {
+            platformAdapter.recordFirstCandidateCreated(legacy, candidate, SecurityFrameworkUtils.getLoginUserId(), reqVO.getChangeReason());
+        } else {
+            platformAdapter.recordCandidateCreated(active, candidate, SecurityFrameworkUtils.getLoginUserId(), reqVO.getChangeReason());
+        }
         return candidate;
     }
 
@@ -468,9 +481,10 @@ public class MesProRouteVersionWorkflowServiceImpl implements MesProRouteVersion
             blockers.add("candidate status is not publishable: " + candidate.getLifecycleStatus());
         }
         MesProRouteVersionDO active = routeVersionMapper.selectActiveByRouteId(candidate.getRouteId());
-        if (active == null) {
+        if (active == null && !(candidate.getSourceRouteVersionId() == null
+                && MesProRouteVersionUsagePolicy.hasKnownArchivedSummary(routeVersionMapper.selectListByRouteId(candidate.getRouteId())))) {
             blockers.add("active route version does not exist");
-        } else if (!Objects.equals(candidate.getSourceRouteVersionId(), active.getId())) {
+        } else if (active != null && !Objects.equals(candidate.getSourceRouteVersionId(), active.getId())) {
             blockers.add("source active version drifted");
         }
         if (!MesProRouteVersionSnapshotValidator.hasCompleteConfigSnapshot(candidate.getRouteSnapshotJson())) {

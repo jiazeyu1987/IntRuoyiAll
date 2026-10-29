@@ -66,6 +66,7 @@ import { defaultProps, handleTree } from '@/utils/tree'
 import * as RoleApi from '@/api/system/role'
 import * as MenuApi from '@/api/system/menu'
 import * as PermissionApi from '@/api/system/permission'
+import { createPermissionAuditId } from '@/utils/permission-audit-id'
 
 defineOptions({ name: 'SystemRoleAssignMenuForm' })
 
@@ -145,6 +146,8 @@ const submitForm = async () => {
     dialogVisible.value = false
     // 发送操作成功的事件
     emit('success')
+  } catch (error) {
+    message.error(error instanceof Error ? error.message : '菜单权限提交失败，请查看错误信息后重试')
   } finally {
     formLoading.value = false
   }
@@ -179,9 +182,6 @@ const handleCheckedTreeExpand = () => {
 }
 
 const createPermissionAuditIdempotencyKey = () => {
-  if (typeof crypto !== 'object' || typeof crypto.randomUUID !== 'function') {
-    throw new Error('当前浏览器不支持 crypto.randomUUID，无法生成权限审计幂等键')
-  }
-  return `SYSTEM-PERM-ROLE-MENU-${formData.id}-${crypto.randomUUID()}`
+  return createPermissionAuditId('ROLE-MENU', formData.id)
 }
 </script>

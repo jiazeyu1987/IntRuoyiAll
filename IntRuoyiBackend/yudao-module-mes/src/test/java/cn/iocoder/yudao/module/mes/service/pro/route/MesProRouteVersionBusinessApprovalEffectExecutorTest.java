@@ -57,6 +57,17 @@ class MesProRouteVersionBusinessApprovalEffectExecutorTest {
     }
 
     @Test
+    void directApproval_shouldRejectLegacyMarkerBeforeAnyApprovalOrPublicationWrite() {
+        MesProRouteVersionDO legacy = draftVersion();
+        legacy.setRouteSnapshotFormatVersion(MesRouteLegacySummaryIdentity.FORMAT_VERSION);
+        when(routeVersionMapper.selectById(1001L)).thenReturn(legacy);
+        org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException.class,
+                () -> executor.executeDirect(context(), request()));
+        verify(routeVersionMapper, never()).updateById(any(MesProRouteVersionDO.class));
+        org.mockito.Mockito.verifyNoInteractions(platformAdapter, lifecycleService);
+    }
+
+    @Test
     void terminalApprovalEffectsRunInSingleRollbackTransaction() {
         Transactional transactional = MesProRouteVersionBusinessApprovalEffectExecutor.class
                 .getAnnotation(Transactional.class);

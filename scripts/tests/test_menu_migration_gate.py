@@ -74,6 +74,41 @@ class MenuMigrationGateTest(unittest.TestCase):
         with self.assertRaisesRegex(gate.GateError, "Missing migration decision"):
             self.check()
 
+    def test_declared_historical_original_is_required_in_package(self):
+        self.cover(self.permission())
+        self.write(SQL, MIGRATION.replace('dependsOn=;', 'dependsOn=20260101_base;'))
+        reviewed = gate.SQL_ROOT + '20260101_base.sql'
+        original = gate.SQL_ROOT + 'historical/20260101_base.sql'
+        self.write(reviewed, META.replace('type=menu', 'type=schema') + 'SELECT 1;')
+        self.write(original, META.replace('type=menu', 'type=schema') + 'SELECT 2;')
+        with self.assertRaisesRegex(gate.GateError, 'Dependency missing or ambiguous'):
+            self.check()
+        self.write(gate.SQL_ROOT + 'release-sources.json', json.dumps({
+            'schemaVersion': 'release-sql-sources/v2',
+            'historicalMigrations': [{'file': '20260101_base.sql', 'original': 'historical/20260101_base.sql'}],
+        }))
+        result = self.check(packaged_sql={SQL, original})
+        self.assertEqual(set(result['requiredSql']), {SQL, original})
+        with self.assertRaisesRegex(gate.GateError, 'Migrations omitted from release package'):
+            self.check(packaged_sql={SQL, reviewed})
+
+    def test_catalog_does_not_hide_extra_duplicate_or_missing_original(self):
+        self.cover(self.permission())
+        self.write(SQL, MIGRATION.replace('dependsOn=;', 'dependsOn=20260101_base;'))
+        reviewed = gate.SQL_ROOT + '20260101_base.sql'
+        original = gate.SQL_ROOT + 'historical/20260101_base.sql'
+        self.write(reviewed, META + 'SELECT 1;')
+        self.write(gate.SQL_ROOT + 'release-sources.json', json.dumps({
+            'schemaVersion': 'release-sql-sources/v2',
+            'historicalMigrations': [{'file': '20260101_base.sql', 'original': 'historical/20260101_base.sql'}],
+        }))
+        with self.assertRaisesRegex(gate.GateError, 'Historical migration files missing or ambiguous'):
+            self.check()
+        self.write(original, META + 'SELECT 1;')
+        self.write(gate.SQL_ROOT + 'other/20260101_base.sql', META + 'SELECT 1;')
+        with self.assertRaisesRegex(gate.GateError, 'Historical migration files missing or ambiguous'):
+            self.check()
+
     def test_permission_and_page_link_to_same_valid_migration(self):
         permission = self.permission()
         self.write(PAGE, "<template>New page</template>")

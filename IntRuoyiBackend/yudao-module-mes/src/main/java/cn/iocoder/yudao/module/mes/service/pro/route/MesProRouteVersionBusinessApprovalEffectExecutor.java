@@ -193,6 +193,7 @@ public class MesProRouteVersionBusinessApprovalEffectExecutor implements Busines
             throw new BusinessApprovalException(BusinessApprovalErrorCode.BUSINESS_APPROVAL_CONTEXT_INVALID,
                     "MES route version does not exist: " + routeVersionId);
         }
+        MesProRouteVersionUsagePolicy.requireUsable(candidate);
         if (Boolean.TRUE.equals(candidate.getActive()) || !expectedStatus.equals(candidate.getLifecycleStatus())) {
             throw new BusinessApprovalException(BusinessApprovalErrorCode.BUSINESS_APPROVAL_CONTEXT_INVALID,
                     "MES route version status is invalid: routeVersionId=" + routeVersionId

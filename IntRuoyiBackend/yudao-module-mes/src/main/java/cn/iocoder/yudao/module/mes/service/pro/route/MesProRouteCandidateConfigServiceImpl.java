@@ -81,6 +81,7 @@ public class MesProRouteCandidateConfigServiceImpl implements MesProRouteCandida
         if (candidate == null) {
             throw exception(PRO_ROUTE_VERSION_NOT_EXISTS, candidateRouteVersionId);
         }
+        MesProRouteVersionUsagePolicy.requireUsable(candidate);
         if (Boolean.TRUE.equals(candidate.getActive())
                 || !MesProRouteVersionLifecycleServiceImpl.STATUS_DRAFT.equals(candidate.getLifecycleStatus())) {
             throw exception(PRO_ROUTE_VERSION_CANDIDATE_NOT_PUBLISHABLE,

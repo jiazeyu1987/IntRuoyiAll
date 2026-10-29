@@ -27,6 +27,9 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class MesProRouteVersionPlatformAdapterTest {
 
+    @Mock
+    private cn.iocoder.yudao.module.mes.service.pro.craft.MesProCraftService craftService;
+
     @InjectMocks
     private MesProRouteVersionWorkflowServiceImpl workflowService;
     @InjectMocks
@@ -72,7 +75,7 @@ class MesProRouteVersionPlatformAdapterTest {
     void submitCandidate_shouldMirrorNativeStatusToPlatformRef() {
         MesProRouteVersionDO active = activeVersion();
         MesProRouteVersionDO candidate = draftCandidate(active);
-        when(routeVersionMapper.selectById(candidate.getId())).thenReturn(candidate);
+        when(routeVersionMapper.selectByIdForUpdate(candidate.getId())).thenReturn(candidate);
         when(routeVersionMapper.selectActiveByRouteId(candidate.getRouteId())).thenReturn(active);
 
         try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
@@ -142,7 +145,10 @@ class MesProRouteVersionPlatformAdapterTest {
                     "products": [],
                     "scheduleConfigs": [],
                     "batchUseConfigs": [],
-                    "scheduleUseConfigs": []
+                    "scheduleUseConfigs": [],
+                    "productionProcessConfigSchemaVersion": 1,
+                    "productionProcessConfigs": [{"routeProcessId":10,"processId":20,
+                      "overagePercent":0,"lossReasons":[],"deviceSelectionGroups":[],"parameterRules":[]}]
                   }
                 }
                 """;

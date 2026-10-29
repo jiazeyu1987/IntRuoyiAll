@@ -41,6 +41,41 @@ class MesProRouteControlledContentAdapterTest {
     }
 
     @Test
+    void reviewedArchive_shouldAllowSourceFreeDraftAndApprovedFirstPublishWithoutReactivatingSummary() {
+        MesProRouteVersionDO legacy = MesProRouteVersionDO.builder().id(5L).tenantId(122L).routeId(9001L)
+                .active(false).lifecycleStatus(MesRouteLegacySummaryIdentity.STATUS)
+                .routeSnapshotFormatVersion(MesRouteLegacySummaryIdentity.FORMAT_VERSION).build();
+        MesProRouteVersionDO candidate = MesProRouteVersionDO.builder().id(1002L).routeId(9001L).versionNo("V2")
+                .active(false).lifecycleStatus("DRAFT").build();
+        var key = routeKey(9001L);
+        when(lifecycleCoreService.getVersionRef(key, 5L)).thenReturn(ControlledContentVersionRefDO.builder()
+                .id(7001L).nativeVersionId(5L).nativeMasterId(9001L).tenantId(122L).canonicalStatus("LEGACY_INCOMPLETE")
+                .domainStatus("LEGACY_INCOMPLETE").build());
+        try (var identity = org.mockito.Mockito.mockStatic(MesRouteLegacySummaryIdentity.class,
+                org.mockito.Mockito.CALLS_REAL_METHODS)) {
+            identity.when(() -> MesRouteLegacySummaryIdentity.isKnownArchivedIdentity(legacy)).thenReturn(true);
+            adapter.recordFirstCandidateCreated(legacy, candidate, 501L, "normal authoring");
+            verify(lifecycleCoreService).createCandidateRef(key, 9001L, 1002L, "V2", "DRAFT", null, null, 501L, "normal authoring");
+            candidate.setLifecycleStatus("READY_TO_PUBLISH");
+            adapter.recordFirstPublished(legacy, candidate, 501L);
+            verify(lifecycleCoreService).transitionVersionRef(key, 1002L, ControlledContentCanonicalStatus.ACTIVE,
+                    "ACTIVE", ControlledContentTransitionAction.PUBLISH, 501L, "历史摘要归档后首次完整路线版本发布", null);
+            verify(lifecycleCoreService, never()).registerActiveRef(org.mockito.ArgumentMatchers.any(),
+                    org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
+                    org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
+                    org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
+        }
+    }
+
+    @Test
+    void ordinaryLifecycleRecord_shouldRejectLegacyFormatEvenWithDraftStatus() {
+        MesProRouteVersionDO legacy = MesProRouteVersionDO.builder().id(5L).routeId(9001L).active(false)
+                .lifecycleStatus("DRAFT").routeSnapshotFormatVersion(MesRouteLegacySummaryIdentity.FORMAT_VERSION).build();
+        assertThrows(IllegalStateException.class, () -> adapter.recordSubmitted(legacy, 501L, null));
+        org.mockito.Mockito.verifyNoInteractions(lifecycleCoreService);
+    }
+
+    @Test
     void recordActiveRegistered_shouldUseRouteAsPlatformContentKey() {
         MesProRouteVersionDO active = activeVersion();
 

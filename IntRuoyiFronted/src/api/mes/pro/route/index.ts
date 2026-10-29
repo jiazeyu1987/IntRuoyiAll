@@ -116,6 +116,7 @@ export type ProRouteVersionLifecycleStatus =
   | 'READY_TO_PUBLISH'
   | 'ACTIVE'
   | 'SUPERSEDED'
+  | 'LEGACY_INCOMPLETE'
   | 'REJECTED'
   | 'CANCELLED'
   | string
@@ -126,6 +127,8 @@ export interface ProRouteVersionVO {
   versionNo: string
   active: boolean
   lifecycleStatus: ProRouteVersionLifecycleStatus
+  routeSnapshotFormatVersion?: string
+  routeSnapshotJson?: string
   sourceRouteVersionId?: number
   submittedBy?: number
   submittedTime?: string

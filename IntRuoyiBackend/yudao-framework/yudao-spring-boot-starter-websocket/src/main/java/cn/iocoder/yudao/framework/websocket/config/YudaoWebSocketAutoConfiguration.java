@@ -106,6 +106,7 @@ public class YudaoWebSocketAutoConfiguration {
         }
 
         @Bean
+        @ConditionalOnProperty(name = "intruoyi.release.maintenance", havingValue = "false", matchIfMissing = true)
         public RedisWebSocketMessageConsumer redisWebSocketMessageConsumer(
                 RedisWebSocketMessageSender redisWebSocketMessageSender) {
             return new RedisWebSocketMessageConsumer(redisWebSocketMessageSender);
@@ -125,6 +126,7 @@ public class YudaoWebSocketAutoConfiguration {
         }
 
         @Bean
+        @ConditionalOnProperty(name = "intruoyi.release.maintenance", havingValue = "false", matchIfMissing = true)
         public RocketMQWebSocketMessageConsumer rocketMQWebSocketMessageConsumer(
                 RocketMQWebSocketMessageSender rocketMQWebSocketMessageSender) {
             return new RocketMQWebSocketMessageConsumer(rocketMQWebSocketMessageSender);
@@ -144,6 +146,7 @@ public class YudaoWebSocketAutoConfiguration {
         }
 
         @Bean
+        @ConditionalOnProperty(name = "intruoyi.release.maintenance", havingValue = "false", matchIfMissing = true)
         public RabbitMQWebSocketMessageConsumer rabbitMQWebSocketMessageConsumer(
                 RabbitMQWebSocketMessageSender rabbitMQWebSocketMessageSender) {
             return new RabbitMQWebSocketMessageConsumer(rabbitMQWebSocketMessageSender);
@@ -173,6 +176,7 @@ public class YudaoWebSocketAutoConfiguration {
         }
 
         @Bean
+        @ConditionalOnProperty(name = "intruoyi.release.maintenance", havingValue = "false", matchIfMissing = true)
         public KafkaWebSocketMessageConsumer kafkaWebSocketMessageConsumer(
                 KafkaWebSocketMessageSender kafkaWebSocketMessageSender) {
             return new KafkaWebSocketMessageConsumer(kafkaWebSocketMessageSender);

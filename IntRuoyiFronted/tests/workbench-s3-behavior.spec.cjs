@@ -137,6 +137,32 @@ const actualRequestContextGuard=(ts,ast)=>{
  visit(ast);assert.ok(initializer,'actual request context guard is present')
  return Function(compile('const guard='+initializer+';')+';return guard;')()
 }
+test('HTTP crypto without randomUUID loads the actual workbench page and badge with independent read epochs',async()=>{
+ const webcrypto=require('node:crypto').webcrypto
+ const httpCrypto={getRandomValues:webcrypto.getRandomValues.bind(webcrypto)}
+ assert.equal(httpCrypto.randomUUID,undefined)
+ const f=fixture({crypto:httpCrypto})
+ try {
+  const leases=Array.from({length:256},()=>f.context.beginWorkbenchRead())
+  assert.equal(new Set(leases.map(lease=>lease.contextEpoch)).size,leases.length)
+  for(const lease of leases)assert.match(lease.contextEpoch,/^[a-f0-9]{32}$/)
+  assert.equal(await f.page.loadWorkbench(),true)
+  assert.equal(f.page.total.value,1);assert.equal(f.badge.todoTotal,3)
+  assert.deepEqual(f.page.loadErrorMessages.value,[])
+  await f.badge.refreshTodoTotal()
+  assert.equal(f.badge.loaded,true);assert.equal(f.badge.todoTotal,3)
+  const contexts=f.requests.filter(r=>r.url.endsWith('/context')).map(r=>r.data.contextEpoch)
+  assert.equal(contexts.length,2);assert.notEqual(contexts[0],contexts[1])
+  for(const request of f.requests.filter(r=>r.url.endsWith('/page')||r.url.endsWith('/count'))){
+   assert.ok(contexts.includes(request.params.contextEpoch))
+  }
+ } finally { f.scope.stop() }
+})
+test('missing secure random values is an explicit error rather than a weak read epoch',()=>{
+ const f=fixture({crypto:{}})
+ try { assert.throws(()=>f.context.beginWorkbenchRead(),/getRandomValues/) }
+ finally { f.scope.stop() }
+})
 test('neutral sixth nonnumeric source, token-only requests and business badge',async()=>{
  const f=fixture();assert.equal(await f.page.loadWorkbench(),true)
  assert.equal(f.page.todoRows.value[0].businessId,'opaque:work-A');assert.equal(f.page.total.value,1);assert.equal(f.badge.todoTotal,3)

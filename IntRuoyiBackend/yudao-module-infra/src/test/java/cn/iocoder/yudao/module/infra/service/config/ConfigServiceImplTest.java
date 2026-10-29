@@ -49,17 +49,30 @@ public class ConfigServiceImplTest extends BaseDbUnitTest {
     }
 
     @Test
-    void gxpModeRejectsInvalidValuesInvisibleConfigAndNonLocalDisable() {
+    void gxpModeRejectsInvalidValuesInvisibleConfigAndNonLocalPolicy() {
         ConfigSaveReqVO request = randomPojo(ConfigSaveReqVO.class, row -> {
             row.setId(null); row.setKey("system.gxp.audit-mode"); row.setVisible(true);
         });
-        for (String value : new String[]{"", "formal", " FORMAL", "MOCK", "DEVELOPMENT_DISABLED", "LOCAL_POLICY"}) {
+        for (String value : new String[]{"", "formal", " FORMAL", "MOCK", "LOCAL_POLICY"}) {
             request.setValue(value);
             assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class, () -> configService.createConfig(request));
         }
         request.setValue("FORMAL"); request.setVisible(false);
         assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class, () -> configService.createConfig(request));
         assertNull(configMapper.selectByKey("system.gxp.audit-mode"));
+    }
+
+    @Test
+    void disabledModeCanBeSavedAndChangedExplicitlyOutsideLocalProfile() {
+        ConfigSaveReqVO request = randomPojo(ConfigSaveReqVO.class, row -> {
+            row.setId(null); row.setKey("system.gxp.audit-mode");
+            row.setValue("DEVELOPMENT_DISABLED"); row.setVisible(true);
+        });
+        Long id = configService.createConfig(request);
+        assertEquals("DEVELOPMENT_DISABLED", configMapper.selectById(id).getValue());
+        request.setId(id); request.setValue("FORMAL");
+        configService.updateConfig(request);
+        assertEquals("FORMAL", configMapper.selectById(id).getValue());
     }
 
     @Test

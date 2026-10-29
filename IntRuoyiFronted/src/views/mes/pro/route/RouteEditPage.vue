@@ -19,6 +19,11 @@
         </div>
       </template>
     </el-alert>
+    <LegacyRouteVersionSummary
+      v-else-if="legacyRouteVersion"
+      :version="legacyRouteVersion"
+      @back="handleBackToList"
+    />
     <RouteFormContent
       v-else
       ref="contentRef"
@@ -33,7 +38,11 @@
       @success="handleSaved"
     />
     <div
-      v-if="!routeEditBlockingError && !['flow', 'basic', 'product', 'dcc'].includes(activeRouteTab)"
+      v-if="
+        !routeEditBlockingError &&
+        !legacyRouteVersion &&
+        !['flow', 'basic', 'product', 'dcc'].includes(activeRouteTab)
+      "
       class="route-edit-page__actions"
     >
       <el-button
@@ -57,6 +66,8 @@ import {
   type RouteVersionEditContext
 } from '@/api/mes/pro/route'
 import RouteFormContent from './RouteFormContent.vue'
+import LegacyRouteVersionSummary from './LegacyRouteVersionSummary.vue'
+import { isLegacyRouteVersion, readLegacyRouteSummaryFields } from './routeVersionHistory'
 import {
   buildRouteCandidateEditQuery,
   ensureSameSourceDraftCandidateForProductionConfig
@@ -75,6 +86,12 @@ const contentRef = ref<InstanceType<typeof RouteFormContent>>()
 const loadedRouteRequestKey = ref<string>()
 const routeVersionActionLoading = ref(false)
 const routeLoadError = ref('')
+const verifiedRouteVersion = ref<ProRouteVersionVO>()
+const legacyRouteVersion = computed(() =>
+  verifiedRouteVersion.value && isLegacyRouteVersion(verifiedRouteVersion.value)
+    ? verifiedRouteVersion.value
+    : undefined
+)
 const LIST_EDIT_ROUTE_DRAFT_ORIGIN = 'list-edit'
 const LIST_EDIT_DISCARD_ON_UNSAVED_EXIT = '1'
 const INVALID_ROUTE_EDIT_MESSAGE = '编辑工艺路线失败：缺少有效路线编号'
@@ -82,9 +99,7 @@ const INVALID_ROUTE_EDIT_MESSAGE = '编辑工艺路线失败：缺少有效路�
 const routeId = computed(() => parsePositiveRouteQueryId(route.params.id || route.query.id))
 const isCurrentRouteEditPage = computed(() => route.name === 'MesProRouteEdit')
 const routeIdInvalidError = computed(() =>
-  isCurrentRouteEditPage.value && !routeId.value
-    ? INVALID_ROUTE_EDIT_MESSAGE
-    : ''
+  isCurrentRouteEditPage.value && !routeId.value ? INVALID_ROUTE_EDIT_MESSAGE : ''
 )
 const routeEditBlockingError = computed(() => routeIdInvalidError.value || routeLoadError.value)
 const normalizeRouteQueryText = (value: unknown) => {
@@ -92,12 +107,14 @@ const normalizeRouteQueryText = (value: unknown) => {
   return value ? String(value) : ''
 }
 const routeDraftOrigin = computed(() => normalizeRouteQueryText(route.query.routeDraftOrigin))
-const discardOnUnsavedExit = computed(() => normalizeRouteQueryText(route.query.discardOnUnsavedExit))
+const discardOnUnsavedExit = computed(() =>
+  normalizeRouteQueryText(route.query.discardOnUnsavedExit)
+)
 const targetRouteProcessId = computed(() => {
   const value = Number(route.query.routeProcessId)
   return Number.isFinite(value) && value > 0 ? value : undefined
 })
-const routeVersionEditContext = computed<RouteVersionEditContext | undefined>(() => {
+const requestedRouteVersionContext = computed<RouteVersionEditContext | undefined>(() => {
   const routeVersionId = parsePositiveRouteQueryId(route.query.routeVersionId)
   if (!routeVersionId) {
     return undefined
@@ -111,6 +128,17 @@ const routeVersionEditContext = computed<RouteVersionEditContext | undefined>(()
   }
   return { routeVersionId, versionNo, lifecycleStatus }
 })
+const routeVersionEditContext = computed<RouteVersionEditContext | undefined>(() => {
+  const requested = requestedRouteVersionContext.value
+  const verified = verifiedRouteVersion.value
+  if (!requested || !verified || String(verified.id) !== String(requested.routeVersionId))
+    return requested
+  return {
+    routeVersionId: verified.id,
+    versionNo: verified.versionNo,
+    lifecycleStatus: verified.lifecycleStatus
+  }
+})
 const initialTab = computed(() => {
   const tab = String(route.query.tab || '')
   if (['basic', 'flow', 'product', 'dcc'].includes(tab)) {
@@ -120,7 +148,7 @@ const initialTab = computed(() => {
 })
 const activeRouteTab = computed(() => contentRef.value?.getActiveTab() ?? initialTab.value)
 const routeVersionEditContextKey = computed(() => {
-  const context = routeVersionEditContext.value
+  const context = requestedRouteVersionContext.value
   return context
     ? `${context.routeVersionId}:${context.versionNo}:${context.lifecycleStatus}`
     : 'active'
@@ -131,7 +159,8 @@ const routeLeaveAlreadyConfirmed = ref(false)
 const routeEditTabSnapshot = ref<RouteLocationNormalizedLoaded>()
 const routeEditTabSynced = ref(false)
 const routeCandidateDraftKey = computed(
-  () => `${routeId.value}:${routeVersionEditContextKey.value}:${routeDraftOrigin.value}:${discardOnUnsavedExit.value}`
+  () =>
+    `${routeId.value}:${routeVersionEditContextKey.value}:${routeDraftOrigin.value}:${discardOnUnsavedExit.value}`
 )
 const isListEditCandidateDraftExitGuardEnabled = computed(
   () =>
@@ -230,14 +259,24 @@ const loadRoute = async () => {
     return
   }
   routeLoadError.value = ''
-  await nextTick()
-  const content = contentRef.value
-  if (!content) {
-    routeLoadError.value = '编辑工艺路线失败：表单组件未加载'
-    loadedRouteRequestKey.value = undefined
-    return
-  }
+  verifiedRouteVersion.value = undefined
   try {
+    const requested = requestedRouteVersionContext.value
+    if (requested) {
+      const version = await ProRouteApi.getRouteVersion(requested.routeVersionId)
+      if (String(version.routeId) !== String(routeId.value)) {
+        throw new Error('查看路线版本失败：版本不属于当前路线。')
+      }
+      verifiedRouteVersion.value = version
+      if (isLegacyRouteVersion(version)) {
+        readLegacyRouteSummaryFields(version)
+        loadedRouteRequestKey.value = nextRouteRequestKey
+        return
+      }
+    }
+    await nextTick()
+    const content = contentRef.value
+    if (!content) throw new Error('编辑工艺路线失败：表单组件未加载')
     await content.open('update', routeId.value, initialTab.value)
     loadedRouteRequestKey.value = nextRouteRequestKey
   } catch (error) {
@@ -405,7 +444,12 @@ const confirmUnsavedCandidateDraftBeforeExit = async () => {
           message.success('未保存的候选版本草稿已丢弃')
           return true
         } catch (cancelError) {
-          message.error(resolveRouteOperationErrorMessage(cancelError, '丢弃候选版本草稿失败，请查看后端返回错误'))
+          message.error(
+            resolveRouteOperationErrorMessage(
+              cancelError,
+              '丢弃候选版本草稿失败，请查看后端返回错误'
+            )
+          )
           return false
         } finally {
           routeVersionActionLoading.value = false
@@ -485,7 +529,12 @@ watch(
 )
 
 watch(
-  () => [isCurrentRouteEditPage.value, routeId.value, initialTab.value, routeVersionEditContextKey.value],
+  () => [
+    isCurrentRouteEditPage.value,
+    routeId.value,
+    initialTab.value,
+    routeVersionEditContextKey.value
+  ],
   async () => {
     await loadRoute()
   },
