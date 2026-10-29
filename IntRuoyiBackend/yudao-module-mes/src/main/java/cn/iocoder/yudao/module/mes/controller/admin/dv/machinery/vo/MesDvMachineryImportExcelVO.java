@@ -1,9 +1,7 @@
 package cn.iocoder.yudao.module.mes.controller.admin.dv.machinery.vo;
 
 import cn.idev.excel.annotation.ExcelProperty;
-import cn.iocoder.yudao.framework.excel.core.annotations.DictFormat;
-import cn.iocoder.yudao.framework.excel.core.convert.DictConvert;
-import cn.iocoder.yudao.module.mes.enums.DictTypeConstants;
+import cn.idev.excel.annotation.ExcelIgnore;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
 import lombok.AllArgsConstructor;
@@ -41,20 +39,21 @@ public class MesDvMachineryImportExcelVO {
     private String machineryTypeCode;
 
     @ExcelProperty("\u6240\u5C5E\u8F66\u95F4\u7F16\u7801")
-    @NotBlank(message = "所属车间编码不能为空")
     private String workshopCode;
 
-    @ExcelProperty("\u5DE5\u5E8F\u540D\u79F0")
+    @ExcelProperty("所属车间")
+    private String workshopName;
+
+    @ExcelIgnore
     private String processName;
 
     @ExcelProperty("\u8BBE\u5907\u6807\u51C6\u5C0F\u65F6\u4EA7\u80FD")
     @DecimalMin(value = "0.000000001", message = "设备标准小时产能必须大于 0")
     private BigDecimal standardHourlyCapacity;
 
-    @ExcelProperty(value = "\u8BBE\u5907\u72B6\u6001", converter = DictConvert.class)
-    @DictFormat(DictTypeConstants.MES_DV_MACHINERY_STATUS)
+    @ExcelIgnore
     private Integer status;
 
-    @ExcelProperty("\u5907\u6CE8")
+    @ExcelIgnore
     private String remark;
 }

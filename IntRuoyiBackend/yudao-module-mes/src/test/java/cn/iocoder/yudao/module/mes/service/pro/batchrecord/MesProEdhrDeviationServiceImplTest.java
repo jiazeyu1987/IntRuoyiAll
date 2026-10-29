@@ -64,6 +64,8 @@ class MesProEdhrDeviationServiceImplTest {
     private GxpAuditService gxpAuditService;
     @Mock
     private MesProEdhrBatchExecutionOriginMapper batchExecutionOriginMapper;
+    @Mock
+    private MesProEdhrWorkTaskService workTaskService;
 
     private MesProEdhrDeviationServiceImpl service;
     private final AtomicReference<String> reservedPayloadHash = new AtomicReference<>();
@@ -109,6 +111,7 @@ class MesProEdhrDeviationServiceImplTest {
                 deviationMapper, createRequestMapper, batchExecutionMapper, releaseTransactionMapper, numberGenerator,
                 signatureService, gxpAuditService);
         ReflectionTestUtils.setField(service, "batchExecutionOriginMapper", batchExecutionOriginMapper);
+        ReflectionTestUtils.setField(service, "workTaskService", workTaskService);
     }
 
     @AfterEach

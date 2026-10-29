@@ -11,7 +11,7 @@ public final class MesActiveOrderHandoffContract {
     public static final String EVENT_REJECTED_REVIEW="PROCESS_POOL_EVENT_REJECTED_REVIEW";
     public static final String EVENT_SIGNED_REVISION="PROCESS_POOL_EVENT_SIGNED_REVISION";
     public static final String TEMPLATE="MES_ACTIVE_ORDER_HANDOFF";
-    public static final Set<String> TYPES=Set.of("PRODUCTION_HANDOFF","PRODUCTION_REVIEW","PQC_HANDOFF","PQC_REVIEW","PRODUCTION_RETURN","PQC_RETURN","QA_REVIEW","QA_DECISION_HANDOFF");
+    public static final Set<String> TYPES=Set.of("PRODUCTION_HANDOFF","PRODUCTION_REVIEW","PQC_HANDOFF","PQC_REVIEW","PRODUCTION_RETURN","PQC_RETURN","QA_REVIEW","QA_DECISION_HANDOFF","NCR_FREEZE_NOTICE");
     private MesActiveOrderHandoffContract() { }
     public static ServiceException failure(String text) { return new ServiceException(1_076_041_001,text); }
     public static void require(boolean condition,String text) { if(!condition)throw failure(text); }
@@ -38,6 +38,8 @@ public final class MesActiveOrderHandoffContract {
             require(task.getRouteProcessId()!=null&&task.getRouteProcessId()>0,"逐工序交接缺少正式工序绑定");
         if (Set.of("PQC_HANDOFF", "PQC_REVIEW", "PQC_RETURN").contains(task.getTaskType()))
             require(task.getRouteProcessId() == null, "PQC交接必须按整单QA任务执行");
+        if("NCR_FREEZE_NOTICE".equals(task.getTaskType()))
+            require(Boolean.TRUE.equals(task.getNotificationOnly())&&"DONE".equals(task.getStatus()),"冻结告知不得创建执行待办");
         URI uri;
         try { uri=URI.create(Objects.requireNonNull(task.getActionUrl())); }
         catch(RuntimeException invalid) { throw failure("交接真实页面入口无效"); }
@@ -46,7 +48,7 @@ public final class MesActiveOrderHandoffContract {
         String sourceKey=switch(task.getTaskType()) {
             case "PRODUCTION_HANDOFF" -> "cycleId";
             case "PQC_HANDOFF" -> "pqcTaskId";
-            case "QA_REVIEW","QA_DECISION_HANDOFF" -> "reviewId";
+            case "QA_REVIEW","QA_DECISION_HANDOFF","NCR_FREEZE_NOTICE" -> "reviewId";
             default -> "eventId";
         };
         String sourceType=switch(sourceKey) {case "cycleId"->"ACTIVE_ORDER";case "pqcTaskId"->"PQC_INSPECTION_TASK";case "reviewId"->"NONCONFORMANCE_REVIEW";default->"PROCESS_POOL_EVENT";};
@@ -57,12 +59,13 @@ public final class MesActiveOrderHandoffContract {
             case "PRODUCTION_HANDOFF","PRODUCTION_RETURN" -> Set.of("/mes/pro/feedback/edhr-batch-production-fill");
             case "PQC_HANDOFF","PQC_RETURN" -> Set.of("/mes/pro/feedback/edhr-batch-pqc-fill");
             case "PQC_REVIEW" -> Set.of("/mes/pro/process-pool/pqc-leader");
+            case "NCR_FREEZE_NOTICE" -> Set.of("/user/profile");
             case "QA_REVIEW" -> Set.of("/mes/pro/feedback/edhr-nonconformance-review");
             case "QA_DECISION_HANDOFF" -> Set.of("/mes/pro/process-pool/production-leader","/user/profile");
             default -> Set.of("/mes/pro/process-pool/production-leader");
         };
         var allowed=new HashSet<>(Set.of("activeOrderId",sourceKey,"handoffTaskId","roundId","handoffType"));
-        if("QA_DECISION_HANDOFF".equals(task.getTaskType())&&"/user/profile".equals(uri.getPath()))allowed.add("tab");
+        if(Set.of("QA_DECISION_HANDOFF","NCR_FREEZE_NOTICE").contains(task.getTaskType())&&"/user/profile".equals(uri.getPath()))allowed.add("tab");
         if(task.getTaskType().endsWith("_RETURN"))allowed.addAll(Set.of("returnTaskId","rejectedReviewId"));
         require(paths.contains(uri.getPath())&&query.keySet().equals(allowed),"交接入口类型或参数不匹配");
         require(Objects.equals(task.getActiveOrderId().toString(),query.get("activeOrderId"))
@@ -70,6 +73,7 @@ public final class MesActiveOrderHandoffContract {
                 &&Objects.equals(task.getId().toString(),query.get("handoffTaskId"))
                 &&Objects.equals(task.getRoundId().toString(),query.get("roundId"))
                 &&Objects.equals(task.getTaskType(),query.get("handoffType")),"交接入口与原周期、来源或轮次不一致");
+        if("NCR_FREEZE_NOTICE".equals(task.getTaskType())) require("notifyMessage".equals(query.get("tab")),"冻结告知仅查看消息");
         if(task.getTaskType().endsWith("_RETURN")) require(Objects.equals(task.getId().toString(),query.get("returnTaskId"))
                 &&Objects.equals(task.getRoundId().toString(),query.get("rejectedReviewId")),"本人更正入口与退回轮次不一致");
         if("QA_DECISION_HANDOFF".equals(task.getTaskType())&&"/user/profile".equals(uri.getPath()))
@@ -89,6 +93,7 @@ public final class MesActiveOrderHandoffContract {
             case "PRODUCTION_HANDOFF" -> "生产接手"; case "PRODUCTION_REVIEW" -> "生产组长复核";
             case "PQC_HANDOFF" -> "PQC检验接手"; case "PQC_REVIEW" -> "PQC组长复核";
             case "PRODUCTION_RETURN" -> "本人生产退回更正"; case "PQC_RETURN" -> "本人PQC退回更正";
+            case "NCR_FREEZE_NOTICE" -> "NCR工单/批次冻结告知";
             case "QA_REVIEW" -> "QA不合格评审"; case "QA_DECISION_HANDOFF" -> "QA处置结果交接";
             default -> throw failure("未知交接类型");
         };

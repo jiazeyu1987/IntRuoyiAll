@@ -25,14 +25,12 @@
         <el-input-number v-model="formData.sort" :min="0" controls-position="right" />
       </el-form-item>
       <el-form-item label="部门主管" prop="leaderUserId">
-        <el-select v-model="formData.leaderUserId" clearable filterable placeholder="请选择主管；留空时由上级主管代管">
-          <el-option
-            v-for="item in userList"
-            :key="item.id"
-            :label="item.nickname"
-            :value="item.id"
-          />
-        </el-select>
+        <UserSelectV2
+          v-model="formData.leaderUserId"
+          clearable
+          placeholder="请选择主管；留空时由上级主管代管"
+          :user-options="userList"
+        />
         <div v-if="existingSupervisor?.configuredUserInvalid" class="text-[var(--el-color-danger)]">
           原主管 {{ existingSupervisor.configuredUserName || existingSupervisor.configuredUserId }} 已失效，请重新选择或清空。
         </div>
@@ -61,6 +59,7 @@
   </Dialog>
 </template>
 <script lang="ts" setup>
+import UserSelectV2 from '@/views/system/user/components/UserSelectV2.vue'
 import { DICT_TYPE, getIntDictOptions } from '@/utils/dict'
 import { defaultProps, handleTree } from '@/utils/tree'
 import * as DeptApi from '@/api/system/dept'

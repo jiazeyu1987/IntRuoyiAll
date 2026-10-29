@@ -30,7 +30,7 @@
                 :data-release-task-notification-retry="row.id"
                 @click="selectRetry(row)"
               >
-                补发本人通知
+                补发通知
               </el-button>
             </template>
           </el-table-column>
@@ -195,7 +195,7 @@ const open = async () => {
 }
 
 const canRetry = (row: ReleaseTaskNotificationReceipt) => canQuery.value &&
-  row.workTaskId === resolvedTaskId.value && row.userId === actorId.value &&
+  row.workTaskId === resolvedTaskId.value && row.retryAllowed === true &&
   (row.status === 'PENDING' || row.status === 'FAILED') && !pendingDeliveryIds.has(row.id)
 
 const selectRetry = (row: ReleaseTaskNotificationReceipt) => {

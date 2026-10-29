@@ -3,6 +3,7 @@ import request from '@/config/axios'
 export interface UserVO {
   id: number
   username: string
+  yintaiAdminUsernameAllowed?: boolean
   nickname: string
   deptId: number
   deptName?: string
@@ -61,7 +62,22 @@ export interface UserLifecycleDeactivateReqVO {
 }
 
 // 查询用户管理列表
-export const getUserPage = (params: PageParam) => {
+export interface UserSelectionQuery extends PageParam {
+  username?: string
+  nickname?: string
+  mobile?: string
+  status?: number
+  deptId?: number
+  deptIds?: number[]
+  deptLeaderMode?: 'ALL' | 'MEMBER' | 'LEADER'
+  roleId?: number
+  postId?: number
+  includeChildDepts?: boolean
+  scopeDeptId?: number
+  scopeRoleId?: number
+  scopePostId?: number
+}
+export const getUserPage = (params: UserSelectionQuery) => {
   return request.get({ url: '/system/user/page', params })
 }
 
@@ -144,6 +160,10 @@ export const recordUserLifecycleDeactivation = (data: UserLifecycleDeactivateReq
 }
 
 // 解锁用户
+export const lockUser = (id: number, reason: string) => {
+  return request.put({ url: '/system/user/lock', params: { id, reason } })
+}
+
 export const unlockUser = (id: number, reason: string) => {
   return request.put({ url: '/system/user/unlock', params: { id, reason } })
 }
@@ -159,3 +179,21 @@ export const getDepartmentTree = (): Promise<import('@/api/system/dept').DeptVO[
 
 export const getSupervisorImpact = (ids: number[]): Promise<import('@/api/system/dept').DeptVO[]> =>
   request.get({ url: '/system/user/supervisor-impact', params: { ids: ids.join(',') } })
+
+// 人员选择只读精简身份接口，不使用用户管理详情权限。
+export const getSelectionPage = (params: UserSelectionQuery): Promise<{ list: import('@/views/system/user/components/userPicker').UserOption[]; total: number }> =>
+  request.get({ url: '/system/user/selection-page', params })
+export const getSelectionList = async (
+  ids: Array<number | string>,
+  scope: Pick<UserSelectionQuery, 'scopeDeptId' | 'scopeRoleId' | 'scopePostId'> = {}
+): Promise<import('@/views/system/user/components/userPicker').UserOption[]> => {
+  const rows: import('@/views/system/user/components/userPicker').UserOption[] = []
+  for (let offset = 0; offset < ids.length; offset += 200) {
+    const batch = await request.get({
+      url: '/system/user/selection-list',
+      params: { ids: ids.slice(offset, offset + 200).join(','), ...scope }
+    })
+    rows.push(...batch)
+  }
+  return rows
+}

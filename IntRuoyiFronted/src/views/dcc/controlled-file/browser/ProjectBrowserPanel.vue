@@ -1,12 +1,49 @@
 <template>
   <section class="project-browser" data-testid="dcc-project-browser">
     <aside>
-      <div class="search"><el-input v-model="state.projectKeyword" placeholder="项目名称或编码" clearable @keyup.enter="searchProjects" /><el-button :loading="state.projectLoading" @click="searchProjects">查找项目</el-button></div>
-      <el-alert v-if="state.projectError" :title="state.projectError" type="error" :closable="false" />
-      <el-table :data="state.projects" v-loading="state.projectLoading" highlight-current-row @row-click="selectProject">
-        <el-table-column prop="projectName" label="项目" /><el-table-column prop="projectCode" label="编码" />
-      </el-table>
-      <el-pagination v-model:current-page="state.projectPage" :page-size="20" :total="state.projectsTotal" layout="total, prev, next" @current-change="state.loadProjects()" />
+      <UnifiedListTemplate
+        class="unified-list-template--contained project-browser__projects"
+        table-key="dcc.projectBrowser.projects"
+        pagination-layout="total, prev, next"
+        :total="state.projectsTotal"
+        v-model:page="state.projectPage"
+        v-model:limit="state.projectPageSize"
+        @pagination="state.loadProjects()"
+      >
+        <template #filters>
+          <div>
+            <el-input
+              v-model="state.projectKeyword"
+              placeholder="项目名称或编码"
+              clearable
+              @keyup.enter="searchProjects"
+            />
+          </div>
+        </template>
+        <template #actions>
+          <el-button :loading="state.projectLoading" @click="searchProjects">查找项目</el-button>
+        </template>
+        <template #table>
+          <el-alert
+            v-if="state.projectError"
+            :title="state.projectError"
+            type="error"
+            :closable="false"
+          />
+          <el-table
+            stripe
+            border
+            :data="state.projects"
+            v-loading="state.projectLoading"
+            highlight-current-row
+            @row-click="selectProject"
+          >
+            <el-table-column prop="projectName" label="项目" />
+            <el-table-column prop="projectCode" label="编码" />
+          </el-table>
+        </template>
+      </UnifiedListTemplate>
+
       <h4>{{ state.project ? state.project.projectName : '项目文件夹' }}</h4>
       <div v-if="state.project" data-testid="dcc-project-folder-maintenance">
         <el-button v-hasPermi="['dcc:project-code:update']" :disabled="state.folderLoading || Boolean(state.folderError)" @click="openFolderMaintenance('create')">新增文件夹</el-button>
@@ -21,39 +58,170 @@
       <el-tabs :model-value="state.scope" @tab-change="changeScope"><el-tab-pane label="全局文件" name="global" /><el-tab-pane label="当前项目" name="project" :disabled="!state.project" /><el-tab-pane label="项目文件夹" name="directory" /></el-tabs>
       <p v-if="state.scope === 'project'">{{ state.project?.projectName }} / 全部文件夹</p>
       <p v-if="state.scope === 'directory'">{{ state.project?.projectName }} / {{ state.folder?.name || '请选择文件夹' }}</p>
-      <div class="version-view">
-        <span>版本浏览范围</span>
-        <el-select
-          v-model="state.versionView"
-          data-testid="dcc-project-browser-version-view"
-          class="!w-280px"
-          @change="state.changeVersionView($event)"
-        >
-          <el-option-group v-for="group in versionViewGroups" :key="group.name" :label="group.name">
-            <el-option v-for="option in group.options" :key="option.value" :value="option.value" :label="option.label" />
-          </el-option-group>
-        </el-select>
-        <span>默认最新受控版本；工作、审批中及历史版本按所选阶段查询。</span>
-      </div>
-      <div class="search"><el-input v-model="state.keyword" placeholder="文件名称、编号或项目名称" clearable @keyup.enter="state.search(state.scope)" /><el-button :loading="state.loading" @click="state.search(state.scope)">搜索</el-button><el-button v-if="state.scope === 'directory' && state.folder" @click="operationVisible = true">选择文件操作</el-button></div>
-      <el-alert v-if="state.error" :title="state.error" type="error" :closable="false" />
-      <el-alert v-if="state.actorError" :title="state.actorError" type="error" :closable="false" />
-      <DccProjectReferences v-if="state.scope === 'directory' && state.project && state.folder"
-          :key="state.contextKey" :context-key="state.contextKey" :selection-context-key="listContextKey" :project-id="state.project.id" :folder-id="state.folder.folderId!" :folder-name="state.folder.name" :is-project-leader="state.canReference" :selector-source="selectorSource" :directories="state.directories" :load-page="loadPage" :open-preview="preview"
-          :open-reference-preview="previewReference" :open-reference-trace="traceReference"
-          @show-usage="openUsage($event.selectedVersion)"
-          :load-references="loadReferences" :create-references="createReferences" :cancel-reference="cancelReference"
-          @changed="state.referencesChanged()" @refreshed="state.referencesChanged()" @saved-read-failure="state.referencesChanged()">
-        <template #default="{ rows, loading, busy, readingReferenceId, selectedReference, selectReference, readReference }">
-          <ProjectFolderFileTable :files="state.rows" :references="rows" :usage="state.usage" :keyword="state.appliedKeyword" :version-view="state.versionView"
-            :loading="state.loading || loading || busy" :can-reference="state.canReference" :selected-reference="selectedReference" :reading-reference-id="readingReferenceId"
-            @select-reference="selectReference" @read-reference="readReference" @preview="previewRow" @relations="openRelationsRow" @operation="openOperationRow" @usage="openUsage" />
+      <UnifiedListTemplate
+        class="unified-list-template--contained project-browser__files"
+        style="height: auto; flex: 1"
+        table-key="dcc.projectBrowser.files"
+        :total="state.total"
+        v-model:page="state.pageNo"
+        v-model:limit="state.pageSize"
+        @pagination="state.loadFiles()"
+      >
+        <template #filters>
+          <div>
+            <div class="version-view">
+              <el-tooltip content="默认最新受控版本；工作、审批中及历史版本按所选阶段查询。"><span>版本浏览范围</span></el-tooltip>
+              <el-select
+                v-model="state.versionView"
+                data-testid="dcc-project-browser-version-view"
+                class="!w-280px"
+                @change="state.changeVersionView($event)"
+              >
+                <el-option-group
+                  v-for="group in versionViewGroups"
+                  :key="group.name"
+                  :label="group.name"
+                >
+                  <el-option
+                    v-for="option in group.options"
+                    :key="option.value"
+                    :value="option.value"
+                    :label="option.label"
+                  />
+                </el-option-group>
+              </el-select>
+
+            </div>
+            <el-input
+              v-model="state.keyword"
+              placeholder="文件名称、编号或项目名称"
+              clearable
+              @keyup.enter="state.search(state.scope)"
+            />
+          </div>
         </template>
-      </DccProjectReferences>
-      <ProjectFolderFileTable v-else :files="state.rows" :references="[]" :usage="state.usage" :keyword="state.appliedKeyword" :version-view="state.versionView"
-        :loading="state.loading" :can-reference="false" @preview="previewRow" @relations="openRelationsRow" @operation="openOperationRow" @usage="openUsage" />
-      <p v-if="state.scope === 'directory' && state.folder">当前文件夹引用与文件同表显示；引用固定所选受控版本。分页仅统计本项目文件。</p>
-      <el-pagination v-model:current-page="state.pageNo" :page-size="state.pageSize" :total="state.total" layout="total, prev, pager, next" @current-change="state.loadFiles()" />
+        <template #actions>
+          <el-button :loading="state.loading" @click="state.search(state.scope)">搜索</el-button>
+          <el-button
+            v-if="state.scope === 'directory' && state.folder"
+            @click="operationVisible = true"
+          >
+            选择文件操作
+          </el-button>
+          <template v-if="state.scope === 'directory' && state.project && state.folder">
+            <el-button
+              v-if="state.canReference"
+              :disabled="
+                !projectReferences ||
+                projectReferences.loading ||
+                projectReferences.busy ||
+                projectReferences.savedReadFailure
+              "
+              @click="projectReferences.openSelector()"
+            >
+              引用
+            </el-button>
+            <el-button
+              v-if="state.canReference"
+              data-testid="dcc-folder-cancel-reference"
+              :disabled="
+                !projectReferences ||
+                projectReferences.loading ||
+                projectReferences.busy ||
+                projectReferences.savedReadFailure ||
+                !projectReferences.selectedReference
+              "
+              @click="projectReferences.cancelSelectedReference()"
+            >
+              取消引用
+            </el-button>
+            <el-button
+              data-testid="dcc-folder-refresh-references"
+              :disabled="!projectReferences || projectReferences.loading || projectReferences.busy"
+              @click="projectReferences.refresh()"
+            >
+              刷新引用列表
+            </el-button>
+          </template>
+        </template>
+        <template #table>
+          <el-alert v-if="state.error" :title="state.error" type="error" :closable="false" />
+          <el-alert v-if="state.actorError" :title="state.actorError" type="error" :closable="false" />
+          <DccProjectReferences
+            ref="projectReferences"
+            embedded-toolbar
+            v-if="state.scope === 'directory' && state.project && state.folder"
+            :key="state.contextKey"
+            :context-key="state.contextKey"
+            :selection-context-key="listContextKey"
+            :project-id="state.project.id"
+            :folder-id="state.folder.folderId!"
+            :folder-name="state.folder.name"
+            :is-project-leader="state.canReference"
+            :selector-source="selectorSource"
+            :directories="state.directories"
+            :load-page="loadPage"
+            :open-preview="preview"
+            :open-reference-preview="previewReference"
+            :open-reference-trace="traceReference"
+            @show-usage="openUsage($event.selectedVersion)"
+            :load-references="loadReferences"
+            :create-references="createReferences"
+            :cancel-reference="cancelReference"
+            @changed="state.referencesChanged()"
+            @refreshed="state.referencesChanged()"
+            @saved-read-failure="state.referencesChanged()"
+          >
+            <template
+              #default="{
+                rows,
+                loading,
+                busy,
+                readingReferenceId,
+                selectedReference,
+                selectReference,
+                readReference
+              }"
+            >
+              <ProjectFolderFileTable
+                :files="state.rows"
+                :references="rows"
+                :usage="state.usage"
+                :keyword="state.appliedKeyword"
+                :version-view="state.versionView"
+                :loading="state.loading || loading || busy"
+                :can-reference="state.canReference"
+                :selected-reference="selectedReference"
+                :reading-reference-id="readingReferenceId"
+                @select-reference="selectReference"
+                @read-reference="readReference"
+                @preview="previewRow"
+                @relations="openRelationsRow"
+                @operation="openOperationRow"
+                @usage="openUsage"
+              />
+            </template>
+          </DccProjectReferences>
+          <ProjectFolderFileTable
+            v-else
+            :files="state.rows"
+            :references="[]"
+            :usage="state.usage"
+            :keyword="state.appliedKeyword"
+            :version-view="state.versionView"
+            :loading="state.loading"
+            :can-reference="false"
+            @preview="previewRow"
+            @relations="openRelationsRow"
+            @operation="openOperationRow"
+            @usage="openUsage"
+          />
+          <p v-if="state.scope === 'directory' && state.folder">
+            当前文件夹引用与文件同表显示；引用固定所选受控版本。分页仅统计本项目文件。
+          </p>
+        </template>
+      </UnifiedListTemplate>
+
     </main>
     <DccFileSelector v-if="state.folder" v-model="operationVisible" :source="selectorSource" purpose="operation" :directories="state.directories" :selected="[]" :load-page="loadPage" :open-preview="preview" :persist="openOperation" />
     <ProjectFileRelationsDialog v-if="relationsVisible && relationsSource" v-model="relationsVisible" :source="relationsSource" :context-key="listContextKey" />
@@ -62,6 +230,7 @@
   </section>
 </template>
 <script setup lang="ts">
+import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { getTenantId, getVisitTenantId } from '@/utils/auth'
@@ -85,6 +254,7 @@ const state = reactive(new ProjectBrowserState(referenceIdentity(getVisitTenantI
 const versionViewGroups = [...new Set(PROJECT_BROWSER_VERSION_VIEWS.map(option => option.group))].map(name => ({
   name, options: PROJECT_BROWSER_VERSION_VIEWS.filter(option => option.group === name)
 }))
+const projectReferences = ref<InstanceType<typeof DccProjectReferences>>()
 const operationVisible = ref(false)
 const folderEditor = ref<InstanceType<typeof ProjectFolderEditor>>()
 const openFolderMaintenance = async (mode: 'create' | 'update' | 'delete') => {
@@ -102,7 +272,7 @@ const handleFolderMaintenanceSaved = async (projectId: number | string) => {
 }
 const relationsVisible = ref(false), relationsSource = ref<FileCandidate>()
 const usageVisible = ref(false), usageSource = ref<ReferenceUsageSource>()
-const listContextKey = computed(() => JSON.stringify([state.contextKey, state.scope, state.appliedKeyword, state.versionView, state.pageNo]))
+const listContextKey = computed(() => JSON.stringify([state.contextKey, state.scope, state.appliedKeyword, state.versionView, state.pageNo, state.pageSize]))
 const openRelationsRow = (row: FileCandidate) => {
   if (state.loading || !state.rows.some(file => file.controlledFileId === row.controlledFileId)) return
   relationsSource.value = JSON.parse(JSON.stringify(row)); relationsVisible.value = true
@@ -170,9 +340,14 @@ const openOperationRow = async (row: FileCandidate) => {
 onMounted(() => Promise.all([state.loadProjects(), state.loadActor(), state.loadFiles()]))
 </script>
 <style scoped>
-.project-browser { display: grid; grid-template-columns: minmax(260px, 28%) minmax(0, 1fr); gap: 18px; }
-aside, main { min-width: 0; padding: 14px; background: var(--el-bg-color); }
+.project-browser { height:calc(100dvh - 170px);min-height:0;overflow:hidden;display: grid; grid-template-columns: minmax(260px, 28%) minmax(0, 1fr); gap: 18px; }
+aside, main { display:flex;flex-direction:column;min-height:0;min-width: 0; padding: 14px; background: var(--el-bg-color); }
 .search { display: flex; gap: 8px; margin-bottom: 12px; }
-.version-view { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+.version-view { display: flex; align-items: center; flex-wrap: nowrap; gap: 8px; margin-bottom: 0; white-space:nowrap;flex-shrink:0; }
 @media (max-width: 900px) { .project-browser { grid-template-columns: 1fr; } }
+.project-browser__projects { flex-shrink:0;--unified-list-height:280px; }
+aside > .el-tree { flex:1;min-height:0;overflow:auto; }
+main > .el-tabs { flex-shrink:0; }
+.project-browser__files :deep(.unified-list-template__table-shell > div) { display:flex;flex:1;min-height:0;flex-direction:column; }
+.project-browser__files :deep(.el-table) { flex:1;min-height:0;height:100%; }
 </style>

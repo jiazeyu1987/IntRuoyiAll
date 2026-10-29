@@ -132,6 +132,15 @@ public class UserController {
         return success(true);
     }
 
+    @PutMapping("/lock")
+    @Operation(summary = "锁定用户30分钟")
+    @PreAuthorize("@ss.hasPermission('system:user:update')")
+    public CommonResult<Boolean> lockUser(@RequestParam("id") Long id,
+            @RequestParam("reason") @NotBlank(message = "锁定原因不能为空") String reason) {
+        userService.lockUser(id, reason);
+        return success(true);
+    }
+
     @PutMapping("/unlock")
     @Operation(summary = "解锁用户")
     @Parameters({
@@ -156,6 +165,34 @@ public class UserController {
         }
         // 拼接数据
         return success(new PageResult<>(userDisplayService.describe(pageResult.getList()), pageResult.getTotal()));
+    }
+
+    @GetMapping("/selection-page")
+    @Operation(summary = "获得人员选择候选分页（精简身份信息）")
+    public CommonResult<PageResult<UserSelectionRespVO>> getSelectionPage(@Valid UserPageReqVO reqVO) {
+        PageResult<AdminUserDO> page = userService.getUserPage(reqVO);
+        return success(new PageResult<>(toSelectionUsers(page.getList()), page.getTotal()));
+    }
+
+    @GetMapping("/selection-list")
+    @Operation(summary = "按编号回显人员精简身份信息")
+    public CommonResult<List<UserSelectionRespVO>> getSelectionList(
+            @RequestParam("ids") @jakarta.validation.constraints.Size(min = 1, max = 200) List<Long> ids,
+            @Valid UserPageReqVO reqVO) {
+        reqVO.setIds(ids);
+        reqVO.setPageNo(1);
+        reqVO.setPageSize(200);
+        return success(toSelectionUsers(userService.getUserPage(reqVO).getList()));
+    }
+
+    private List<UserSelectionRespVO> toSelectionUsers(List<AdminUserDO> users) {
+        Map<Long, DeptDO> depts = deptService.getDeptMap(convertSet(users, AdminUserDO::getDeptId));
+        return users.stream().map(user -> {
+            UserSelectionRespVO row = cn.iocoder.yudao.framework.common.util.object.BeanUtils.toBean(user, UserSelectionRespVO.class);
+            DeptDO dept = depts.get(user.getDeptId());
+            if (dept != null) row.setDeptName(dept.getName());
+            return row;
+        }).collect(java.util.stream.Collectors.toList());
     }
 
     @GetMapping("/department-tree")

@@ -19,7 +19,7 @@ const roleApi = readSource('src/api/system/role/index.ts')
 const rolePage = readSource('src/views/system/role/index.vue')
 const roleForm = readSource('src/views/system/role/RoleForm.vue')
 const categoryForm = readSource('src/views/system/role/RoleCategoryForm.vue')
-const migrationSql = readWorkspaceSource('ruoyi-vue-pro/sql/mysql/20260707_system_role_category_management.sql')
+const migrationSql = readWorkspaceSource('IntRuoyiBackend/sql/mysql/20260707_system_role_category_management.sql')
 
 assert.equal(
   packageJson.scripts?.['e2e:system:role-category:static'],

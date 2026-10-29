@@ -53,6 +53,10 @@ class MesProEdhrActiveOrderLeaderBatchVisibilityTest {
     @BeforeEach void setUp() {
         TenantContextHolder.setTenantId(1L);
         service = new MesProEdhrBatchExecutionVisibilityService();
+        var marketAccess = org.mockito.Mockito.mock(MesMarketReleaseAccess.class);
+        ReflectionTestUtils.setField(service, "marketReleaseAccess", marketAccess);
+        org.mockito.Mockito.lenient().when(marketAccess.get(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any()))
+                .thenReturn(new MesMarketReleaseAccess.Access(true, true, false, false, null, null, null, null));
         ReflectionTestUtils.setField(service, "permissionApi", permissionApi);
         ReflectionTestUtils.setField(service, "releaseTransactionMapper", releaseTransactionMapper);
         ReflectionTestUtils.setField(service, "workTaskMapper", workTaskMapper);

@@ -4,8 +4,6 @@ import cn.iocoder.yudao.framework.common.enums.CommonStatusEnum;
 import cn.iocoder.yudao.framework.common.exception.ErrorCode;
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
-import cn.iocoder.yudao.module.mdm.dal.dataobject.companyscope.MdmRoleCompanyScopeDO;
-import cn.iocoder.yudao.module.mdm.dal.dataobject.companyscope.MdmUserCompanyScopeDO;
 import cn.iocoder.yudao.module.mdm.dal.dataobject.enterprise.MdmEnterpriseDO;
 import cn.iocoder.yudao.module.mdm.dal.mysql.companyscope.MdmRoleCompanyScopeMapper;
 import cn.iocoder.yudao.module.mdm.dal.mysql.companyscope.MdmUserCompanyScopeMapper;
@@ -35,8 +33,6 @@ import static cn.iocoder.yudao.module.mdm.service.companyscope.MdmCompanyScopeEr
 import static cn.iocoder.yudao.module.mdm.service.companyscope.MdmCompanyScopeErrorCodes.MDM_COMPANY_SCOPE_RECIPIENT_NOT_FOUND;
 import static cn.iocoder.yudao.module.mdm.service.companyscope.MdmCompanyScopeErrorCodes.MDM_COMPANY_SCOPE_SYSTEM_ROLE_INVALID;
 import static cn.iocoder.yudao.module.mdm.service.companyscope.MdmCompanyScopeErrorCodes.MDM_COMPANY_SCOPE_SYSTEM_USER_INVALID;
-import static cn.iocoder.yudao.module.mdm.service.companyscope.MdmCompanyScopeErrorCodes.MDM_ROLE_COMPANY_SCOPE_DISABLED;
-import static cn.iocoder.yudao.module.mdm.service.companyscope.MdmCompanyScopeErrorCodes.MDM_ROLE_COMPANY_SCOPE_MISSING;
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.module.mdm.enums.ErrorCodeConstants.MDM_ENTERPRISE_DISABLED;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -75,8 +71,6 @@ class MdmCompanyScopeRecipientResolverTest {
         TenantContextHolder.setTenantId(TENANT_ID);
         resolver = new MdmCompanyScopeRecipientResolver();
         ReflectionTestUtils.setField(resolver, "enterpriseService", enterpriseService);
-        ReflectionTestUtils.setField(resolver, "roleScopeMapper", roleScopeMapper);
-        ReflectionTestUtils.setField(resolver, "userScopeMapper", userScopeMapper);
         ReflectionTestUtils.setField(resolver, "roleApi", roleApi);
         ReflectionTestUtils.setField(resolver, "permissionApi", permissionApi);
         ReflectionTestUtils.setField(resolver, "adminUserApi", adminUserApi);
@@ -88,47 +82,28 @@ class MdmCompanyScopeRecipientResolverTest {
     }
 
     @Test
-    void resolveReturnsStableDeduplicatedFullIntersection() {
+    void resolveReturnsAllRoleMembersWithoutCompanyMappings() {
         List<Long> roleIds = List.of(20L, 10L);
         stubEnabledCompany();
-        when(roleScopeMapper.selectByTenantCompanyAndRoleIds(TENANT_ID, COMPANY_ID, roleIds))
-                .thenReturn(List.of(roleScope(2L, 10L, true), roleScope(1L, 20L, true)));
         when(roleApi.getRoleList(roleIds)).thenReturn(List.of(enabledRole(10L), enabledRole(20L)));
         when(permissionApi.hasAnyPermissionsInRoles(Set.of(10L), PERMISSION)).thenReturn(true);
         when(permissionApi.hasAnyPermissionsInRoles(Set.of(20L), PERMISSION)).thenReturn(true);
         when(permissionApi.getUserRoleIdListByRoleIds(Set.of(10L, 20L)))
                 .thenReturn(new LinkedHashSet<>(List.of(300L, 100L, 200L)));
-        when(userScopeMapper.selectByTenantCompany(TENANT_ID, COMPANY_ID)).thenReturn(List.of(
-                userScope(1L, 100L, true),
-                userScope(2L, 200L, true),
-                userScope(3L, 999L, true)));
-        when(adminUserApi.getUserList(Set.of(100L, 200L)))
-                .thenReturn(List.of(enabledUser(200L), enabledUser(100L)));
+        when(adminUserApi.getUserList(Set.of(100L, 200L, 300L)))
+                .thenReturn(List.of(enabledUser(300L), enabledUser(200L), enabledUser(100L)));
 
         Set<Long> recipients = resolver.resolve(COMPANY_ID, roleIds, PERMISSION);
 
-        assertEquals(List.of(100L, 200L), List.copyOf(recipients));
+        assertEquals(List.of(100L, 200L, 300L), List.copyOf(recipients));
+        verifyNoInteractions(roleScopeMapper, userScopeMapper);
         verify(permissionApi).hasAnyPermissionsInRoles(Set.of(10L), PERMISSION);
         verify(permissionApi).hasAnyPermissionsInRoles(Set.of(20L), PERMISSION);
     }
 
     @Test
-    void resolveChecksRoleCompanyMappingBeforeEnterpriseLookup() {
+    void resolveRejectsDisabledCompany() {
         List<Long> roleIds = List.of(10L);
-        when(roleScopeMapper.selectByTenantCompanyAndRoleIds(TENANT_ID, COMPANY_ID, roleIds))
-                .thenReturn(List.of());
-
-        assertServiceException(() -> resolver.resolve(COMPANY_ID, roleIds, PERMISSION),
-                MDM_ROLE_COMPANY_SCOPE_MISSING);
-
-        verifyNoInteractions(enterpriseService);
-    }
-
-    @Test
-    void resolveNormalizesEnterpriseStateFailureAfterRoleScope() {
-        List<Long> roleIds = List.of(10L);
-        when(roleScopeMapper.selectByTenantCompanyAndRoleIds(TENANT_ID, COMPANY_ID, roleIds))
-                .thenReturn(List.of(roleScope(1010L, 10L, true)));
         doThrow(exception(MDM_ENTERPRISE_DISABLED, COMPANY_ID))
                 .when(enterpriseService).getEnabledEnterprises(List.of(COMPANY_ID),
                         Set.of(MdmEnterpriseTypeEnum.OWNED_COMPANY.getType()));
@@ -142,8 +117,6 @@ class MdmCompanyScopeRecipientResolverTest {
     @Test
     void resolvePropagatesInfrastructureFailureUnchanged() {
         List<Long> roleIds = List.of(10L);
-        when(roleScopeMapper.selectByTenantCompanyAndRoleIds(TENANT_ID, COMPANY_ID, roleIds))
-                .thenReturn(List.of(roleScope(1010L, 10L, true)));
         IllegalStateException databaseFailure = new IllegalStateException("enterprise database unavailable");
         doThrow(databaseFailure).when(enterpriseService).getEnabledEnterprises(List.of(COMPANY_ID),
                 Set.of(MdmEnterpriseTypeEnum.OWNED_COMPANY.getType()));
@@ -156,31 +129,9 @@ class MdmCompanyScopeRecipientResolverTest {
     }
 
     @Test
-    void resolveRejectsMissingDisabledAndAmbiguousRoleCompanyConfiguration() {
-        List<Long> roleIds = List.of(10L, 20L);
-        when(roleScopeMapper.selectByTenantCompanyAndRoleIds(TENANT_ID, COMPANY_ID, roleIds))
-                .thenReturn(List.of(roleScope(1L, 10L, true)));
-        assertServiceException(() -> resolver.resolve(COMPANY_ID, roleIds, PERMISSION),
-                MDM_ROLE_COMPANY_SCOPE_MISSING);
-
-        when(roleScopeMapper.selectByTenantCompanyAndRoleIds(TENANT_ID, COMPANY_ID, roleIds))
-                .thenReturn(List.of(roleScope(1L, 10L, true), roleScope(2L, 20L, false)));
-        assertServiceException(() -> resolver.resolve(COMPANY_ID, roleIds, PERMISSION),
-                MDM_ROLE_COMPANY_SCOPE_DISABLED);
-
-        when(roleScopeMapper.selectByTenantCompanyAndRoleIds(TENANT_ID, COMPANY_ID, roleIds))
-                .thenReturn(List.of(roleScope(1L, 10L, true), roleScope(2L, 10L, true),
-                        roleScope(3L, 20L, true)));
-        assertServiceException(() -> resolver.resolve(COMPANY_ID, roleIds, PERMISSION),
-                MDM_COMPANY_SCOPE_CONFIG_INVALID);
-
-        verifyNoInteractions(roleApi, permissionApi, userScopeMapper, adminUserApi);
-    }
-
-    @Test
     void resolveRejectsMissingDisabledOrDuplicateSystemRoleEvidence() {
         List<Long> roleIds = List.of(10L);
-        stubEnabledRoleScope(roleIds);
+        stubEnabledCompany();
         when(roleApi.getRoleList(roleIds)).thenReturn(List.of());
         assertServiceException(() -> resolver.resolve(COMPANY_ID, roleIds, PERMISSION),
                 MDM_COMPANY_SCOPE_SYSTEM_ROLE_INVALID);
@@ -197,7 +148,7 @@ class MdmCompanyScopeRecipientResolverTest {
     @Test
     void resolveRequiresEveryConfiguredRoleToHoldExplicitPermission() {
         List<Long> roleIds = List.of(10L, 20L);
-        stubEnabledRoleScope(roleIds);
+        stubEnabledCompany();
         when(roleApi.getRoleList(roleIds)).thenReturn(List.of(enabledRole(10L), enabledRole(20L)));
         when(permissionApi.hasAnyPermissionsInRoles(Set.of(10L), PERMISSION)).thenReturn(true);
         when(permissionApi.hasAnyPermissionsInRoles(Set.of(20L), PERMISSION)).thenReturn(false);
@@ -209,12 +160,10 @@ class MdmCompanyScopeRecipientResolverTest {
     }
 
     @Test
-    void resolveRejectsEmptyIntersectionInsteadOfFallingBack() {
+    void resolveRejectsRolesWithoutMembers() {
         List<Long> roleIds = List.of(10L);
-        stubEnabledRoleScopeAndIdentity(roleIds);
-        when(permissionApi.getUserRoleIdListByRoleIds(Set.of(10L))).thenReturn(Set.of(100L));
-        when(userScopeMapper.selectByTenantCompany(TENANT_ID, COMPANY_ID))
-                .thenReturn(List.of(userScope(1L, 200L, true)));
+        stubEnabledRoleIdentity(roleIds);
+        when(permissionApi.getUserRoleIdListByRoleIds(Set.of(10L))).thenReturn(Set.of());
 
         assertServiceException(() -> resolver.resolve(COMPANY_ID, roleIds, PERMISSION),
                 MDM_COMPANY_SCOPE_RECIPIENT_NOT_FOUND);
@@ -223,12 +172,10 @@ class MdmCompanyScopeRecipientResolverTest {
     }
 
     @Test
-    void resolveRejectsMissingOrDisabledSystemUsersInTheIntersection() {
+    void resolveRejectsMissingOrDisabledSystemUsers() {
         List<Long> roleIds = List.of(10L);
-        stubEnabledRoleScopeAndIdentity(roleIds);
+        stubEnabledRoleIdentity(roleIds);
         when(permissionApi.getUserRoleIdListByRoleIds(Set.of(10L))).thenReturn(Set.of(100L));
-        when(userScopeMapper.selectByTenantCompany(TENANT_ID, COMPANY_ID))
-                .thenReturn(List.of(userScope(1L, 100L, true)));
         when(adminUserApi.getUserList(Set.of(100L))).thenReturn(List.of());
         assertServiceException(() -> resolver.resolve(COMPANY_ID, roleIds, PERMISSION),
                 MDM_COMPANY_SCOPE_SYSTEM_USER_INVALID);
@@ -236,23 +183,6 @@ class MdmCompanyScopeRecipientResolverTest {
         when(adminUserApi.getUserList(Set.of(100L))).thenReturn(List.of(disabledUser(100L)));
         assertServiceException(() -> resolver.resolve(COMPANY_ID, roleIds, PERMISSION),
                 MDM_COMPANY_SCOPE_SYSTEM_USER_INVALID);
-    }
-
-    @Test
-    void resolveRejectsAmbiguousOrCrossTenantUserScopeEvidence() {
-        List<Long> roleIds = List.of(10L);
-        stubEnabledRoleScopeAndIdentity(roleIds);
-        when(permissionApi.getUserRoleIdListByRoleIds(Set.of(10L))).thenReturn(Set.of(100L));
-        MdmUserCompanyScopeDO crossTenant = userScope(1L, 100L, true);
-        crossTenant.setTenantId(99L);
-        when(userScopeMapper.selectByTenantCompany(TENANT_ID, COMPANY_ID)).thenReturn(List.of(crossTenant));
-        assertServiceException(() -> resolver.resolve(COMPANY_ID, roleIds, PERMISSION),
-                MDM_COMPANY_SCOPE_CONFIG_INVALID);
-
-        when(userScopeMapper.selectByTenantCompany(TENANT_ID, COMPANY_ID)).thenReturn(List.of(
-                userScope(1L, 100L, true), userScope(2L, 100L, true)));
-        assertServiceException(() -> resolver.resolve(COMPANY_ID, roleIds, PERMISSION),
-                MDM_COMPANY_SCOPE_CONFIG_INVALID);
     }
 
     @Test
@@ -269,14 +199,8 @@ class MdmCompanyScopeRecipientResolverTest {
         verifyNoInteractions(enterpriseService, roleScopeMapper, roleApi, permissionApi, userScopeMapper, adminUserApi);
     }
 
-    private void stubEnabledRoleScope(List<Long> roleIds) {
+    private void stubEnabledRoleIdentity(List<Long> roleIds) {
         stubEnabledCompany();
-        when(roleScopeMapper.selectByTenantCompanyAndRoleIds(TENANT_ID, COMPANY_ID, roleIds))
-                .thenReturn(roleIds.stream().map(roleId -> roleScope(roleId + 1000L, roleId, true)).toList());
-    }
-
-    private void stubEnabledRoleScopeAndIdentity(List<Long> roleIds) {
-        stubEnabledRoleScope(roleIds);
         when(roleApi.getRoleList(roleIds)).thenReturn(roleIds.stream().map(this::enabledRole).toList());
         roleIds.forEach(roleId -> when(permissionApi.hasAnyPermissionsInRoles(Set.of(roleId), PERMISSION))
                 .thenReturn(true));
@@ -296,28 +220,6 @@ class MdmCompanyScopeRecipientResolverTest {
         company.setTenantId(TENANT_ID);
         company.setDeleted(false);
         return company;
-    }
-
-    private MdmRoleCompanyScopeDO roleScope(Long id, Long roleId, boolean enabled) {
-        MdmRoleCompanyScopeDO scope = MdmRoleCompanyScopeDO.builder()
-                .id(id).roleId(roleId).companyId(COMPANY_ID)
-                .status(enabled ? MdmEnterpriseStatusEnum.ENABLE.getStatus()
-                        : MdmEnterpriseStatusEnum.DISABLE.getStatus())
-                .revision(1).build();
-        scope.setTenantId(TENANT_ID);
-        scope.setDeleted(false);
-        return scope;
-    }
-
-    private MdmUserCompanyScopeDO userScope(Long id, Long userId, boolean enabled) {
-        MdmUserCompanyScopeDO scope = MdmUserCompanyScopeDO.builder()
-                .id(id).userId(userId).companyId(COMPANY_ID)
-                .status(enabled ? MdmEnterpriseStatusEnum.ENABLE.getStatus()
-                        : MdmEnterpriseStatusEnum.DISABLE.getStatus())
-                .revision(1).build();
-        scope.setTenantId(TENANT_ID);
-        scope.setDeleted(false);
-        return scope;
     }
 
     private RoleRespDTO enabledRole(Long roleId) {

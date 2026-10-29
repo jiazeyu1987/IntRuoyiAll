@@ -48,6 +48,24 @@ class MesHandoffApprovalCenterPrefixTest {
     void clear() { TenantContextHolder.clear(); }
 
     @Test
+    void decisionHandoffIsExecutionWorkRatherThanApprovalTodo() {
+        var handoff = mock(cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffService.class);
+        ReflectionTestUtils.setField(projection, "handoff", handoff);
+        var task = target("QA_DECISION_HANDOFF");
+        when(tasks.own(1L, 12L)).thenReturn(List.of(task));
+        when(handoff.current(task)).thenReturn(true);
+        var context = ApprovalTaskQueryContext.of(12L, ApprovalTaskViewType.TODO,
+                ApprovalModuleCode.EDHR, null, 1, 20, false);
+        assertTrue(projection.list(context).isEmpty());
+        task.setStatus("DONE").setCompletedBy(12L).setCompletionSourceId(71L)
+                .setCompletedAt(LocalDateTime.of(2026, 10, 7, 1, 0));
+        var completed = projection.list(ApprovalTaskQueryContext.of(12L, ApprovalTaskViewType.DONE,
+                ApprovalModuleCode.EDHR, null, 1, 20, false)).get(0);
+        assertFalse(completed.getRequiresSignature());
+        assertTrue(completed.getAvailableActions().isEmpty());
+    }
+
+    @Test
     void prefixProjectsExistingFormalModuleEntryAndTotalWithoutAllLoading() {
         var task = task();
         when(tasks.selectApprovalCenterPrefix(1L,12L,false,false,"生产",400L))
@@ -95,7 +113,7 @@ class MesHandoffApprovalCenterPrefixTest {
             var required = type.endsWith("_HANDOFF") && !type.startsWith("QA_")
                     ? List.of("mes:pro-feedback:query", "mes:pro-feedback:create")
                     : type.endsWith("_RETURN") ? List.of("mes:pro-feedback:query")
-                    : type.equals("QA_REVIEW") ? List.of("mes:pro-edhr-nonconformance-review:query")
+                    : type.equals("QA_REVIEW") ? List.of("mes:pro-edhr-nonconformance-review:query", "mes:pro-edhr-nonconformance-review:dispose")
                     : List.of("mes:pro-process-pool-team-leader:query");
             for (String missing : required) {
                 when(permissions.hasAnyPermissions(anyLong(), any(String[].class))).thenAnswer(call ->
@@ -151,7 +169,7 @@ class MesHandoffApprovalCenterPrefixTest {
     }
 
     private MesActiveOrderHandoffTaskDO target(String type) {
-        var row = task().setTaskType(type).setRouteProcessId(9L);
+        var row = task().setTaskType(type).setRouteProcessId(type.startsWith("PQC_") ? null : 9L);
         String path, key, source;
         if (type.equals("PRODUCTION_HANDOFF")) { path="/mes/pro/feedback/edhr-batch-production-fill"; key="cycleId"; source="ACTIVE_ORDER"; }
         else if (type.equals("PQC_HANDOFF")) { path="/mes/pro/feedback/edhr-batch-pqc-fill"; key="pqcTaskId"; source="PQC_INSPECTION_TASK"; }

@@ -17,6 +17,35 @@ public interface MesProEdhrBatchExecutionTaskMapper extends BaseMapperX<MesProEd
 
     String NODE_TYPE_ROUTE_FORM = "ROUTE_FORM";
 
+    /** Only the fields consumed by current-process visibility selection; never load form payloads. */
+    default List<MesProEdhrBatchExecutionTaskDO> selectVisibilityTasksByBatchExecutionIds(Collection<Long> batchIds) {
+        if (batchIds.isEmpty()) return List.of();
+        return selectList(new LambdaQueryWrapperX<MesProEdhrBatchExecutionTaskDO>()
+                .select(MesProEdhrBatchExecutionTaskDO::getId,
+                        MesProEdhrBatchExecutionTaskDO::getBatchExecutionId,
+                        MesProEdhrBatchExecutionTaskDO::getNodeType,
+                        MesProEdhrBatchExecutionTaskDO::getProcessCode,
+                        MesProEdhrBatchExecutionTaskDO::getRouteProcessId,
+                        MesProEdhrBatchExecutionTaskDO::getRouteProcessSort,
+                        MesProEdhrBatchExecutionTaskDO::getBatchRecordSort,
+                        MesProEdhrBatchExecutionTaskDO::getBatchRecordReportId,
+                        MesProEdhrBatchExecutionTaskDO::getBatchRecordDefinitionId,
+                        MesProEdhrBatchExecutionTaskDO::getBatchRecordVersionId,
+                        MesProEdhrBatchExecutionTaskDO::getFormSlotType,
+                        MesProEdhrBatchExecutionTaskDO::getRequiredFlag,
+                        MesProEdhrBatchExecutionTaskDO::getRequiredPolicy,
+                        MesProEdhrBatchExecutionTaskDO::getStatus,
+                        MesProEdhrBatchExecutionTaskDO::getSkippedBy,
+                        MesProEdhrBatchExecutionTaskDO::getSkippedAt)
+                .in(MesProEdhrBatchExecutionTaskDO::getBatchExecutionId, batchIds)
+                .and(query -> query.isNull(MesProEdhrBatchExecutionTaskDO::getRequiredFlag)
+                        .or().eq(MesProEdhrBatchExecutionTaskDO::getRequiredFlag, true))
+                .orderByAsc(MesProEdhrBatchExecutionTaskDO::getRouteProcessSort)
+                .orderByAsc(MesProEdhrBatchExecutionTaskDO::getRouteProcessId)
+                .orderByAsc(MesProEdhrBatchExecutionTaskDO::getBatchRecordSort)
+                .orderByAsc(MesProEdhrBatchExecutionTaskDO::getId));
+    }
+
     default List<MesProEdhrBatchExecutionTaskDO> selectListByBatchExecutionId(Long batchExecutionId) {
         return selectList(new LambdaQueryWrapperX<MesProEdhrBatchExecutionTaskDO>()
                 .eq(MesProEdhrBatchExecutionTaskDO::getBatchExecutionId, batchExecutionId)

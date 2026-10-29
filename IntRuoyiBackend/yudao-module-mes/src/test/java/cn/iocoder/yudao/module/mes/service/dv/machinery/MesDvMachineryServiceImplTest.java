@@ -56,6 +56,76 @@ class MesDvMachineryServiceImplTest extends BaseDbUnitTest {
     private MesDvRepairService repairService;
 
     @Test
+    void deleteAll_deletesChildTypesBeforeParents() {
+        when(workshopService.getWorkshopPage(any())).thenReturn(
+                new cn.iocoder.yudao.framework.common.pojo.PageResult<>(List.of(), 0L));
+        when(machineryTypeService.getMachineryTypeList(any(
+                cn.iocoder.yudao.module.mes.controller.admin.dv.machinery.vo.type.MesDvMachineryTypeListReqVO.class)))
+                .thenReturn(List.of(MesDvMachineryTypeDO.builder().id(1L).parentId(0L).build(),
+                        MesDvMachineryTypeDO.builder().id(2L).parentId(1L).build()));
+        machineryService.deleteAllMachineryAndWorkshops();
+        var order = org.mockito.Mockito.inOrder(machineryTypeService);
+        order.verify(machineryTypeService).deleteMachineryType(2L);
+        order.verify(machineryTypeService).deleteMachineryType(1L);
+    }
+
+    @Test
+    void deleteAll_typeFailureRollsBackEquipmentDeletion() {
+        MesDvMachineryDO equipment = MesDvMachineryDO.builder().code("CLEAR-TYPE").name("clear").build();
+        machineryMapper.insert(equipment);
+        when(workshopService.getWorkshopPage(any())).thenReturn(
+                new cn.iocoder.yudao.framework.common.pojo.PageResult<>(List.of(), 0L));
+        when(machineryTypeService.getMachineryTypeList(any(
+                cn.iocoder.yudao.module.mes.controller.admin.dv.machinery.vo.type.MesDvMachineryTypeListReqVO.class)))
+                .thenReturn(List.of(MesDvMachineryTypeDO.builder().id(1L).parentId(0L).build()));
+        org.mockito.Mockito.doThrow(new IllegalStateException("type has machinery"))
+                .when(machineryTypeService).deleteMachineryType(1L);
+        org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException.class,
+                () -> machineryService.deleteAllMachineryAndWorkshops());
+        assertNotNull(machineryMapper.selectById(equipment.getId()));
+    }
+
+    @Test
+    void deleteAll_equipmentRestrictionCancelsDeletion() {
+        MesDvMachineryDO equipment = MesDvMachineryDO.builder().code("CLEAR-3").name("clear").build();
+        machineryMapper.insert(equipment);
+        when(workshopService.getWorkshopPage(any())).thenReturn(
+                new cn.iocoder.yudao.framework.common.pojo.PageResult<>(List.of(), 0L));
+        when(checkRecordService.getCheckRecordCountByMachineryId(equipment.getId())).thenReturn(1L);
+        org.junit.jupiter.api.Assertions.assertThrows(
+                cn.iocoder.yudao.framework.common.exception.ServiceException.class,
+                () -> machineryService.deleteAllMachineryAndWorkshops());
+        assertNotNull(machineryMapper.selectById(equipment.getId()));
+        org.mockito.Mockito.verify(workshopService, org.mockito.Mockito.never()).deleteWorkshop(any());
+    }
+
+    @Test
+    void deleteAll_removesEquipmentAndCallsWorkshopDeletion() {
+        MesDvMachineryDO equipment = MesDvMachineryDO.builder().code("CLEAR-1").name("clear").build();
+        machineryMapper.insert(equipment);
+        when(workshopService.getWorkshopPage(any())).thenReturn(
+                new cn.iocoder.yudao.framework.common.pojo.PageResult<>(
+                        List.of(MesMdWorkshopDO.builder().id(3001L).build()), 1L));
+        machineryService.deleteAllMachineryAndWorkshops();
+        org.junit.jupiter.api.Assertions.assertNull(machineryMapper.selectById(equipment.getId()));
+        verify(workshopService).deleteWorkshop(3001L);
+    }
+
+    @Test
+    void deleteAll_workshopRestrictionRollsBackEquipmentDeletion() {
+        MesDvMachineryDO equipment = MesDvMachineryDO.builder().code("CLEAR-2").name("clear").build();
+        machineryMapper.insert(equipment);
+        when(workshopService.getWorkshopPage(any())).thenReturn(
+                new cn.iocoder.yudao.framework.common.pojo.PageResult<>(
+                        List.of(MesMdWorkshopDO.builder().id(3001L).build()), 1L));
+        org.mockito.Mockito.doThrow(new IllegalStateException("workshop has workstation"))
+                .when(workshopService).deleteWorkshop(3001L);
+        org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException.class,
+                () -> machineryService.deleteAllMachineryAndWorkshops());
+        assertNotNull(machineryMapper.selectById(equipment.getId()));
+    }
+
+    @Test
     void testCreateMachinery_persistProcessNameAndStandardHourlyCapacity() {
         MesDvMachinerySaveReqVO reqVO = new MesDvMachinerySaveReqVO();
         reqVO.setCode("B09528");
@@ -110,5 +180,27 @@ class MesDvMachineryServiceImplTest extends BaseDbUnitTest {
         assertEquals("造影导管融飞边", machinery.getProcessName());
         assertEquals(0, machinery.getStandardHourlyCapacity().compareTo(new BigDecimal("190")));
         verify(barcodeService).autoGenerateBarcode(MACHINERY.getValue(), machinery.getId(), "A05192", "熔接机");
+    }
+    @Test
+    void testImportWorkshopNameAndRejectAmbiguity() {
+        when(machineryTypeService.getMachineryTypeList(any(cn.iocoder.yudao.module.mes.controller.admin.dv.machinery.vo.type.MesDvMachineryTypeListReqVO.class)))
+                .thenReturn(List.of(MesDvMachineryTypeDO.builder().id(2001L).code("TYPE").build()));
+        MesMdWorkshopDO workshop = MesMdWorkshopDO.builder().id(3001L).code("WS").name("一车间").build();
+        when(workshopService.getWorkshopListByStatus(anyInt())).thenReturn(List.of(workshop));
+        MesDvMachineryImportExcelVO row = MesDvMachineryImportExcelVO.builder()
+                .code("NAME-IMPORT").name("设备").machineryTypeCode("TYPE")
+                .workshopName("一车间").status(2).build();
+        assertEquals(List.of("NAME-IMPORT"), machineryService.importMachineryList(List.of(row), false).getCreateCodes());
+        assertEquals(3001L, machineryMapper.selectByCode("NAME-IMPORT").getWorkshopId());
+        assertEquals(List.of("NAME-IMPORT"), machineryService.importMachineryList(List.of(row), true).getUpdateCodes());
+        row.setWorkshopCode("WS");
+        row.setWorkshopName("其他车间");
+        assertEquals("所属车间与车间编码不一致", machineryService.importMachineryList(List.of(row), true).getFailureCodes().get(row.getCode()));
+        row.setWorkshopCode(null);
+        assertEquals("所属车间[其他车间]不存在或未启用", machineryService.importMachineryList(List.of(row), true).getFailureCodes().get(row.getCode()));
+        row.setWorkshopName("一车间");
+        when(workshopService.getWorkshopListByStatus(anyInt())).thenReturn(List.of(workshop,
+                MesMdWorkshopDO.builder().id(3002L).code("WS2").name("一车间").build()));
+        assertEquals("所属车间[一车间]存在重名，请填写所属车间编码", machineryService.importMachineryList(List.of(row), true).getFailureCodes().get(row.getCode()));
     }
 }

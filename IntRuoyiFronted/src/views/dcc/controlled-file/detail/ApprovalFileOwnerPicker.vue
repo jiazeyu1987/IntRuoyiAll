@@ -1,13 +1,12 @@
 <template>
   <div v-loading="loading" class="w-full" data-testid="dcc-approval-file-owner-picker">
     <el-alert v-if="error" :title="error" type="error" :closable="false" />
-    <el-select :model-value="modelValue" :disabled="loading || disabled || Boolean(error)" placeholder="请选择文件负责人" filterable class="w-full" @update:model-value="choose">
-      <el-option v-for="user in users" :key="user.id" :value="user.id" :label="`${user.name}（${user.username || '#' + user.id}）`" />
-    </el-select>
+    <UserSelectV2 :model-value="modelValue" :disabled="loading || disabled || Boolean(error)" placeholder="请选择文件负责人" class="w-full" @update:model-value="choose" :clearable="false" :user-options="users.map(user => ({ ...user, nickname: user.name }))" />
     <p class="text-12px">本次选择与批准签名保存；负责人选择不增加文件操作权限。</p>
   </div>
 </template>
 <script setup lang="ts">
+import UserSelectV2 from '@/views/system/user/components/UserSelectV2.vue'
 import { onBeforeUnmount, ref } from 'vue'
 import { getSimpleUserList } from '@/api/system/user'
 import { referenceIdentity } from '../relations/project-reference-contract'

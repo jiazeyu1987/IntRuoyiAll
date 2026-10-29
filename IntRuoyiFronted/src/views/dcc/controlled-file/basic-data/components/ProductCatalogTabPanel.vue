@@ -1,8 +1,5 @@
 <template>
   <ContentWrap class="scheme-d-basic-data-page scheme-d-basic-data-page--dcc-product-catalog">
-    <div class="mb-16px flex items-center gap-8px">
-      <span class="text-18px font-600 text-[var(--el-text-color-primary)]">基础数据 / DCC产品目录</span>
-    </div>
     <UnifiedListTemplate
       class="dcc-product-catalog-list-template"
       table-key="dcc.productCatalog.main"
@@ -37,9 +34,6 @@
         >
           <Icon icon="ep:plus" class="mr-5px" />
           新建项目代码及产品
-        </el-button>
-        <el-button data-testid="dcc-project-product-records-open" v-hasPermi="['dcc:project-code:query']" @click="openProjectProductDialog('records')">
-          项目申请与审批
         </el-button>
       </template>
       <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
@@ -363,7 +357,7 @@
   <Dialog
     v-model="projectProductDialogVisible"
     class="scheme-d-form-control"
-    :title="projectProductMode === 'records' ? '项目申请与审批' : projectProductResubmitRequestId ? '修改驳回申请后重提' : '新建项目代码及产品'"
+    :title="projectProductMode === 'records' ? '项目申请记录' : projectProductResubmitRequestId ? '修改驳回申请后重提' : '新建项目代码及产品'"
     width="980px"
   >
     <el-alert v-if="projectProductError" :title="projectProductError" type="error" :closable="false" class="mb-12px" />
@@ -388,9 +382,7 @@
         </el-col>
         <el-col :span="12">
           <el-form-item label="项目负责人" prop="projectLeaderUserId">
-            <el-select v-model="projectProductForm.projectLeaderUserId" filterable placeholder="选择系统账号">
-              <el-option v-for="user in projectLeaderUsers" :key="user.id" :value="user.id" :label="user.nickname + '（' + user.username + '）'" />
-            </el-select>
+            <UserSelectV2 v-model="projectProductForm.projectLeaderUserId" placeholder="选择系统账号" :clearable="false" :user-options="projectLeaderUsers" />
           </el-form-item>
         </el-col>
         <el-col :span="12">
@@ -445,6 +437,8 @@
         刷新
       </el-button>
     </div>
+    <el-alert v-if="projectProductMode === 'records'" title="项目审核、批准统一在审批中心办理；此处保留申请记录、修改重提和写入重试。" type="info" :closable="false" class="mb-12px" />
+    <el-button v-if="projectProductMode === 'records'" class="mb-12px" @click="router.push({ path: '/approval-center/todo', query: { moduleCode: 'DCC' } })">前往审批中心</el-button>
     <el-table
       v-loading="projectProductRequestsLoading"
       :data="projectProductRequests"
@@ -480,40 +474,6 @@
         <template #default="{ row }">
           <el-button v-if="canResubmitProjectProductRequest(row, userStore.getUser.id)" v-hasPermi="['dcc:project-code:create']" link type="primary" @click="editRejectedProjectProduct(row)">
             修改后重提
-          </el-button>
-          <el-button
-            v-if="canPerformProjectAction(row, 'review')"
-            v-hasPermi="[row.reviewContract === 'ROLE_SINGLE_REVIEW_V1' ? 'dcc:project-code:review' : 'dcc:project-code:update']"
-            link
-            type="primary"
-            @click="handleProjectProductAction(row, 'review', true)"
-          >
-            审核通过
-          </el-button>
-          <el-button
-            v-if="canPerformProjectAction(row, 'review')"
-            v-hasPermi="[row.reviewContract === 'ROLE_SINGLE_REVIEW_V1' ? 'dcc:project-code:review' : 'dcc:project-code:update']"
-            link
-            type="danger"
-            @click="handleProjectProductAction(row, 'review', false)"
-          >
-            审核驳回
-          </el-button>
-          <el-button
-            v-if="canPerformProjectAction(row, 'approve')"
-            link
-            type="primary"
-            @click="handleProjectProductAction(row, 'approve', true)"
-          >
-            批准通过
-          </el-button>
-          <el-button
-            v-if="canPerformProjectAction(row, 'approve')"
-            link
-            type="danger"
-            @click="handleProjectProductAction(row, 'approve', false)"
-          >
-            批准驳回
           </el-button>
           <el-button
             v-if="canPerformProjectAction(row, 'retry')"
@@ -665,6 +625,7 @@
 </template>
 
 <script lang="ts" setup>
+import UserSelectV2 from '@/views/system/user/components/UserSelectV2.vue'
 import type { FormRules } from 'element-plus'
 import { confirmProjectProductApplication } from './project-product-confirmation'
 import { useUserStore } from '@/store/modules/user'
@@ -674,7 +635,7 @@ import { canResubmitProjectProductRequest, restoreRejectedProjectProductForm } f
 import ProjectAttributesFields from '../../project-attributes/ProjectAttributesFields.vue'
 import FolderTemplateLibraryEditor from './FolderTemplateLibraryEditor.vue'
 import { requireProjectReviewerRole } from './project-product-role'
-import { canHandleProjectRequest, reviewerIdentity, projectRequestContract } from './project-reviewer'
+import { canHandleProjectRequest } from './project-reviewer';
 import { emptyAttributes, validateAttributes, type ProjectAttributes } from '../../project-attributes/state'
 import { getFolderTemplates, type FolderTemplate, type FolderNode } from '@/api/dcc/controlledFile/projectAttributes'
 import { getSimpleUserList, type UserVO } from '@/api/system/user'
@@ -698,7 +659,6 @@ import {
   updateProductCatalog
 } from '@/api/dcc/controlledFile/productCatalog'
 import {
-  approveDccProjectProductRequest,
   createDccProjectProductRequest,
   resubmitDccProjectProductRequest,
   dccProjectProductRequestIdentity,
@@ -706,7 +666,6 @@ import {
   getDccProjectProductRequests,
   getDccProjectReviewerRole,
   retryDccProjectProductRequestWrite,
-  reviewDccProjectProductRequest,
   type DccProjectProductCreateReqVO,
   type DccProjectProductCreateRespVO,
   type DccProjectReviewerRole,
@@ -1305,39 +1264,6 @@ const submitProjectProductRequest = async () => {
   } finally {
     if (sequence === projectProductDialogSequence && actor !== projectProductActorScope()) closeProjectProductRequestEntry()
     else if (current()) projectProductLoading.value = false
-  }
-}
-
-const handleProjectProductAction = async (row: DccProjectProductCreateRespVO, node: 'review' | 'approve', approve: boolean) => {
-  if (projectProductRequestsLoading.value || projectProductLoading.value || !projectProductDialogVisible.value) return
-  if (!canPerformProjectAction(row, node)) { projectProductError.value = '当前账号不具备本申请的办理资格'; return }
-  const sequence = projectProductDialogSequence
-  const actor = projectProductActorScope()
-  const current = () => sequence === projectProductDialogSequence && actor === projectProductActorScope() && projectProductDialogVisible.value
-  const reason = window.prompt(approve ? '请输入通过意见' : '请输入驳回原因', projectProductActionReason.value)
-  if (reason === null) return
-  projectProductActionReason.value = reason.trim()
-  if (!reason.trim() || reason.length > 500) { projectProductError.value = '请填写500字以内的审批意见'; return }
-  if (!current() || !canPerformProjectAction(row, node)) return
-  projectProductRequestsLoading.value = true
-  projectProductError.value = ''
-  try {
-    const saved = node === 'review'
-      ? await reviewDccProjectProductRequest(row.id, { reason: reason.trim() }, approve)
-      : await approveDccProjectProductRequest(row.id, { reason: reason.trim() }, approve)
-    if (!current()) return
-    projectProductExactRequestId.value = saved.id
-    projectProductRequests.value = [saved]
-    await loadProjectProductRequests()
-    if (!current()) return
-    if (projectProductError.value) projectProductError.value = '决定已保存，但读取最新申请失败：' + projectProductError.value
-    else if (saved.status === 'WRITE_FAILED') projectProductError.value = saved.writeErrorMessage || '决定已保存，项目建档失败，请核对后重试'
-    else message.success('审批处理成功')
-  } catch (cause) {
-    if (current()) projectProductError.value = cause instanceof Error ? cause.message : String(cause)
-  } finally {
-    if (sequence === projectProductDialogSequence && actor !== projectProductActorScope()) closeProjectProductRequestEntry()
-    else if (current()) projectProductRequestsLoading.value = false
   }
 }
 

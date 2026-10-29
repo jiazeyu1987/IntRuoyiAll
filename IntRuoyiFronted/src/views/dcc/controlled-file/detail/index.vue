@@ -872,6 +872,7 @@
     <ContentWrap data-testid="dcc-detail-route-snapshot-section">
       <UnifiedListTemplate
         table-key="dcc.controlledFile.detail.routeSnapshot"
+        data-list-viewport="embedded"
         :query-model="detailListQueryModel"
         :filter-definitions="detailListFilterDefinitions"
         :show-quick-filter="false"
@@ -1014,6 +1015,7 @@
     <ContentWrap v-if="isVersionHistoryVisibleToReader(fileDetail?.status)">
       <UnifiedListTemplate
         table-key="dcc.controlledFile.detail.versionHistory"
+        data-list-viewport="embedded"
         :query-model="detailListQueryModel"
         :filter-definitions="detailListFilterDefinitions"
         :show-quick-filter="false"
@@ -1207,6 +1209,7 @@
     <ContentWrap>
       <UnifiedListTemplate
         table-key="dcc.controlledFile.detail.distributionStatus"
+        data-list-viewport="embedded"
         :query-model="detailListQueryModel"
         :filter-definitions="detailListFilterDefinitions"
         :show-quick-filter="false"
@@ -1383,6 +1386,7 @@
     <ContentWrap data-testid="dcc-controlled-print-records">
       <UnifiedListTemplate
         table-key="dcc.controlledFile.detail.controlledPrintRecords"
+        data-list-viewport="embedded"
         :query-model="detailListQueryModel"
         :filter-definitions="detailListFilterDefinitions"
         :show-quick-filter="false"
@@ -1572,6 +1576,7 @@
     <ContentWrap data-testid="dcc-detail-training-section">
       <UnifiedListTemplate
         table-key="dcc.controlledFile.detail.trainingStatus"
+        data-list-viewport="embedded"
         :query-model="detailListQueryModel"
         :filter-definitions="detailListFilterDefinitions"
         :show-quick-filter="false"
@@ -1703,6 +1708,7 @@
     <ContentWrap data-testid="dcc-detail-signature-trace-section" data-source="fileDetail?.signatureSummaries">
       <UnifiedListTemplate
         table-key="dcc.controlledFile.detail.signatureTrace"
+        data-list-viewport="embedded"
         :query-model="detailListQueryModel"
         :filter-definitions="detailListFilterDefinitions"
         :show-query-form="false"
@@ -2820,7 +2826,7 @@ import ControlledFileBrowseRecords from './ControlledFileBrowseRecords.vue'
 import { assertRelationApplicationSelection, type DetailRelationApplicationSelection } from './relation-contract'
 import { getDccVersionDisplayText } from '../shared/version-display'
 import ControlledFileAttachments from './ControlledFileAttachments.vue'
-import { attachmentPurposeText, attachmentUploaderText, attachmentUploadTimeText, attachmentRoundText, assertAttachmentBelongsToVersion } from './attachment-facts'
+
 import type { UploadProps, UploadUserFile } from 'element-plus'
 import DetailApplicationHistory from './DetailApplicationHistory.vue'
 import { resolveApplicationRoundSelection, validateApplicationApprovalRead, validateApplicationRoundMappings, requireDelayedConfirmationRound, type ApplicationApprovalRead } from './application-round-context'
@@ -2959,12 +2965,7 @@ import { buildDccControlledFileAttachmentPreviewSource, buildDccControlledFilePr
 import { normalizeDccBodyReadContext, readDccBodyReadContextRoute, serializeDccBodyReadContext, type DccBodyReadContext } from '@/api/dcc/controlledFile/bodyReadContext'
 import { resolveDetailReadSelection } from './detail-read-context'
 import { getDccSignatureOpinionLabel } from '../shared/signature-evidence'
-import {
-  buildControlledFileViewerPath,
-  buildControlledFileTraceabilityPath,
-  isControlledFileViewerMode,
-  resolveControlledFileTraceabilityScope
-} from '../view/presentation'
+import { buildControlledFileViewerPath, isControlledFileViewerMode, resolveControlledFileTraceabilityScope } from '../view/presentation';
 import {
   flattenTrainingAssignments,
   formatControlledFileDate,
@@ -5306,18 +5307,7 @@ const resolveUserNames = (userIds: number[]) => {
   return userIds.map((item) => userNameMap.value.get(item) || `用户#${item}`).join('、')
 }
 
-const formatAttachmentFileSize = (fileSize: number | null | undefined) => {
-  if (!fileSize || fileSize < 0) {
-    return '-'
-  }
-  if (fileSize < 1024) {
-    return `${fileSize} B`
-  }
-  if (fileSize < 1024 * 1024) {
-    return `${(fileSize / 1024).toFixed(1)} KB`
-  }
-  return `${(fileSize / 1024 / 1024).toFixed(2)} MB`
-}
+
 
 const ensureCurrentDetailContext = () => {
   if (String(fileDetail.value?.id || '') === controlledFileId.value
@@ -5398,13 +5388,7 @@ const detailBodyPreviewState = computed(() => {
   catch (error) { return { source: undefined, error: error instanceof Error ? error.message : String(error) } }
 })
 
-const openAttachmentPreview = (attachment: ControlledFileAttachmentVO) => {
-  if (!ensureCurrentDetailContext()) return
-  try { assertAttachmentBelongsToVersion(attachment, controlledFileId.value) }
-  catch (error) { message.error(error instanceof Error ? error.message : String(error)); return }
-  selectedAttachmentPreview.value = attachment
-  attachmentPreviewDialogVisible.value = true
-}
+
 
 const openMetadataDialog = () => {
   if (!canEditMetadata.value) {

@@ -110,6 +110,7 @@ function session({ visitTenant = true, authenticatedCache = true, refreshPayload
         if (sourceFiles[id]) return load(sourceFiles[id])
         if (id === 'axios') return transport
         if (id === 'qs') return require('qs')
+        if (id === 'vue') return require('vue')
         if (id === 'web-storage-cache') return MemoryStorageCache
         if (id === '@/utils/jsencrypt') return { decrypt: () => { throw new Error('unexpected login-form decrypt') } }
         if (id === '@/utils/encrypt') return {
@@ -132,7 +133,8 @@ function session({ visitTenant = true, authenticatedCache = true, refreshPayload
       useI18n: () => ({ t: (key) => key }),
       window: { location },
       console,
-      Response
+      Response,
+      crypto: require('node:crypto').webcrypto
     }, { filename: relativePath })
     return module.exports
   }

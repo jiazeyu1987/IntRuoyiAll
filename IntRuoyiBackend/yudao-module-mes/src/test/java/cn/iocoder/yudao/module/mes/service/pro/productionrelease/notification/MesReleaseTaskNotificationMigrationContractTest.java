@@ -68,6 +68,21 @@ class MesReleaseTaskNotificationMigrationContractTest {
                 "business_key(1) prefix uniqueness does not prove full platform business-key idempotency");
     }
 
+    @Test
+    void outcomeMigrationAddsOnlyResultTemplatesAndNoRecipientOrBusinessBackfill() throws Exception {
+        String sql = Files.readString(findBackendRoot().resolve(
+                "sql/mysql/20261027_mes_release_outcome_notification.sql"), StandardCharsets.UTF_8);
+        String normalized = sql.replace("`", "").toLowerCase(Locale.ROOT);
+        assertTrue(normalized.contains("release-migration: allowedenvironments=test,backup,prod"));
+        assertTrue(normalized.contains("dependson=20261003_mes_release_task_notification,20261027_market_release_handover"));
+        assertTrue(normalized.contains("mes_edhr_release_pqc_approved"));
+        assertTrue(normalized.contains("mes_edhr_release_pqc_rejected"));
+        assertTrue(normalized.contains("mes_edhr_release_market_approved"));
+        assertTrue(normalized.contains("result notice"));
+        assertFalse(Pattern.compile("(?is)\\b(?:delete\\s+from|truncate\\s+table|update)\\s+\\w*(?:application|release|work_task|notify_delivery)")
+                .matcher(normalized).find(), "result notice migration must not backfill deliveries, alter tasks or rewrite applications");
+    }
+
     private Path findBackendRoot() {
         Path location = Path.of("").toAbsolutePath();
         while (location != null) {

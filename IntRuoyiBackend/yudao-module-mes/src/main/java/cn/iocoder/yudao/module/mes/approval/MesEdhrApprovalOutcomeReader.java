@@ -30,6 +30,9 @@ public class MesEdhrApprovalOutcomeReader {
     private final ElectronicSignatureQueryService signatures;
     private final MesProductionReleaseSignoffService signoff;
     private final MesEdhrExecutionFinalOutcomeReader executionFinal;
+    @jakarta.annotation.Resource private MesEdhrRecordChangeOutcomeReader recordChange;
+    @jakarta.annotation.Resource
+    private MesEdhrDeviationApprovalOutcomeReader deviationOutcomeReader;
 
     public MesEdhrApprovalOutcomeReader(MesProEdhrWorkTaskMapper tasks,
             MesProEdhrReleaseTransactionMapper transactions, MesProEdhrReleaseDecisionMapper decisions,
@@ -73,12 +76,16 @@ public class MesEdhrApprovalOutcomeReader {
                 && Objects.equals(task.getCandidateSourceType(), projected.getCandidateSourceType())
                 && Objects.equals(task.getCandidateSourceId(), projected.getCandidateSourceId())
                 && Objects.equals(task.getResponsibilityScopeJson(), projected.getResponsibilityScopeJson())
+                && Objects.equals(task.getResponsibilitySourceVersion(), projected.getResponsibilitySourceVersion())
+                && Objects.equals(task.getResponsibilitySourceDigest(), projected.getResponsibilitySourceDigest())
                 && Objects.equals(task.getUpdateTime(), projected.getUpdateTime())
                 && Objects.equals(task.getStatus(), projected.getStatus())
                 && Objects.equals(task.getCompletedAt(), projected.getCompletedAt()), "projected task identity changed");
         if (!"DONE".equals(task.getStatus())) return unproven(task, null);
+        if ("DEVIATION_APPROVE".equals(task.getTaskType())) return deviationOutcomeReader.read(task, tenant);
         if ("PQC_PRODUCTION_RELEASE".equals(task.getTaskType())) return pqc(task, tenant);
         if ("RELEASE_APPROVE".equals(task.getTaskType())) return market(task, tenant);
+        if ("RECORD_CHANGE_APPROVE".equals(task.getTaskType())) return recordChange.read(task, tenant);
         if (("REVIEW".equals(task.getTaskType()) || "APPROVE".equals(task.getTaskType())) && positive(task.getExecutionId())) {
             return executionFinal.read(task, tenant);
         }
@@ -221,6 +228,23 @@ public class MesEdhrApprovalOutcomeReader {
         if ("DONE".equals(task.getStatus())) {
             require(positive(task.getCompletedBy()) && positive(task.getCompletionSourceId())
                     && task.getCompletedAt() != null, "handoff completion fact missing");
+        }
+        if ("QA_REVIEW".equals(task.getTaskType()) && "DONE".equals(task.getStatus())) {
+            require(Objects.equals(task.getSourceId(), task.getRoundId())
+                    && Objects.equals(task.getSourceId(), task.getCompletionSourceId()), "QA completion source/round conflict");
+            var review = actors.readVerifiedQaReview(task.getId(), task.getSourceId());
+            require(review != null && Objects.equals(review.getId(), task.getSourceId())
+                    && Objects.equals(review.getTenantId(), task.getTenantId())
+                    && Objects.equals(review.getActiveOrderId(), task.getActiveOrderId())
+                    && Objects.equals(review.getWorkOrderId(), task.getWorkOrderId())
+                    && Objects.equals(review.getQaUserId(), task.getCompletedBy())
+                    && Objects.equals(review.getQaReviewerUserId(), task.getCompletedBy())
+                    && MesActiveOrderHandoffContract.candidates(task.getCandidateUserSnapshot()).equals(java.util.List.of(task.getCompletedBy()))
+                    && Objects.equals(review.getClosedAt(), task.getCompletedAt()), "QA deciding actor/ownership/time conflict");
+            return new MesEdhrApprovalOutcome("COMPLETED", ApprovalTaskReviewResult.APPROVE,
+                    review.getReviewStatus(), task.getStatus(), "APPROVE", review.getDisposition(),
+                    review.getReviewOpinion(), task.getReason(), null, review.getQaUserId(), review.getClosedAt(),
+                    "EXISTING_QA_NONCONFORMANCE_REVIEW", review.getId().toString(), review.getQaUserId());
         }
         return new MesEdhrApprovalOutcome(taskState(task.getStatus()), null, null, task.getStatus(),
                 "UNKNOWN", null, null, task.getReason(), null, null, null,

@@ -10,6 +10,10 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatc
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrProcessFormPermissionRuleDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecordreport.MesProBatchRecordReportDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrReleaseTransactionDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrWorkTaskDO;
+import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionTaskMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionOriginMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrProcessFormPermissionRuleMapper;
@@ -38,6 +42,8 @@ import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatc
 
 @Service
 public class MesProEdhrBatchExecutionVisibilityService {
+
+    @Resource private MesMarketReleaseAccess marketReleaseAccess;
 
     private static final String FORM_SLOT_MAIN = "MAIN";
 
@@ -76,26 +82,50 @@ public class MesProEdhrBatchExecutionVisibilityService {
     public boolean canViewBatch(MesProEdhrBatchExecutionDO batch,
                                 List<MesProEdhrBatchExecutionTaskDO> tasks,
                                 Long currentUserId) {
-        if (hasOverviewPermission(currentUserId)) {
+        return canViewBatch(batch, tasks, currentUserId, marketReleaseAccess.get(batch.getId(), currentUserId));
+    }
+
+    public boolean canViewBatch(MesProEdhrBatchExecutionDO batch,
+                                List<MesProEdhrBatchExecutionTaskDO> tasks,
+                                Long currentUserId, MesMarketReleaseAccess.Access releaseAccess) {
+        return canViewBatch(batch, tasks, currentUserId, releaseAccess, new VisibilityChecks(
+                () -> hasOverviewPermission(currentUserId),
+                item -> isCurrentManagerReleaseCandidate(item, currentUserId),
+                this::resolveFormalActiveOrder,
+                (item, active) -> isFormalPqcReleaseCandidate(item, active, currentUserId),
+                this::resolveCurrentProcessFillerUserIdMap));
+    }
+
+    private boolean canViewBatch(MesProEdhrBatchExecutionDO batch,
+                                 List<MesProEdhrBatchExecutionTaskDO> tasks, Long currentUserId,
+                                 MesMarketReleaseAccess.Access releaseAccess, VisibilityChecks checks) {
+        if(!releaseAccess.visible()) return false;
+        if(releaseAccess.original() || Objects.equals(releaseAccess.currentUserId(),currentUserId) && currentUserId!=null) return true;
+        if (checks.overview().get()) {
             return true;
         }
-        if (isCurrentManagerReleaseCandidate(batch, currentUserId)) {
+        if (checks.manager().test(batch)) {
             return true;
         }
-        MesProcessPoolActiveOrderDO active = resolveFormalActiveOrder(batch);
+        MesProcessPoolActiveOrderDO active = checks.active().apply(batch);
         if (active != null && Objects.equals(active.getLeaderUserId(), currentUserId)) {
             return true;
         }
-        if (active != null && isFormalPqcReleaseCandidate(batch, active, currentUserId)) {
+        if (active != null && checks.pqc().test(batch, active)) {
             return true;
         }
+        return canViewCurrentProcess(tasks, currentUserId, checks.fillers());
+    }
+
+    private boolean canViewCurrentProcess(List<MesProEdhrBatchExecutionTaskDO> tasks, Long currentUserId,
+            java.util.function.Function<MesProEdhrBatchExecutionTaskDO, Map<String, List<Long>>> fillers) {
         MesProEdhrBatchExecutionTaskDO currentProcessTask = resolveCurrentProcessTask(tasks);
         if (currentProcessTask == null) {
             return false;
         }
         Map<String, List<Long>> fillerUserIdMap;
         try {
-            fillerUserIdMap = resolveCurrentProcessFillerUserIdMap(currentProcessTask);
+            fillerUserIdMap = fillers.apply(currentProcessTask);
         } catch (ServiceException ex) {
             if (isDefaultReportRequired(ex)) {
                 return false;
@@ -107,7 +137,212 @@ public class MesProEdhrBatchExecutionVisibilityService {
                 .anyMatch(userId -> Objects.equals(userId, currentUserId));
     }
 
+    public List<MesProEdhrBatchExecutionDO> filterVisible(List<MesProEdhrBatchExecutionDO> batches, Long userId) {
+        return newVisibilitySession(userId).filterVisible(batches);
+    }
+
+    /** Request-local only: reuse across candidate chunks, never across requests or tenants. */
+    public VisibilitySession newVisibilitySession(Long userId) {
+        return new VisibilitySession(userId);
+    }
+
+    public final class VisibilitySession {
+        private final Long userId;
+        private final Long tenantId = TenantContextHolder.getTenantId();
+        private Boolean overview;
+        private final Set<String> loadedReports = new LinkedHashSet<>();
+        private final Map<String, List<MesProBatchRecordReportDO>> reports = new LinkedHashMap<>();
+        private final Map<String, List<MesProEdhrProcessFormPermissionRuleDO>> rules = new LinkedHashMap<>();
+        private final Map<RuleSource, MesProEdhrCandidateResolver.MesProEdhrCandidateContract> candidates =
+                new LinkedHashMap<>();
+
+        private VisibilitySession(Long userId) { this.userId = userId; }
+
+        public List<MesProEdhrBatchExecutionDO> filterVisible(List<MesProEdhrBatchExecutionDO> batches) {
+            if (!Objects.equals(tenantId, TenantContextHolder.getTenantId())) {
+                throw new IllegalStateException("EDHR_VISIBILITY_SESSION_TENANT_CHANGED");
+            }
+            if (batches.isEmpty()) return List.of();
+            List<Long> ids = batches.stream().map(MesProEdhrBatchExecutionDO::getId).toList();
+            var access = marketReleaseAccess.getAll(ids, userId);
+            if (overview == null) overview = hasOverviewPermission(userId);
+            if (overview) {
+                return batches.stream().filter(batch -> access.get(batch.getId()).visible()).toList();
+            }
+            // Follow the single-batch short-circuit order. Each next query only loads unresolved batches.
+            Set<Long> visibleIds = new LinkedHashSet<>();
+            List<MesProEdhrBatchExecutionDO> remaining = batches.stream().filter(batch -> {
+                var item = access.get(batch.getId());
+                if (!item.visible()) return false;
+                if (item.original() || userId != null && Objects.equals(item.currentUserId(), userId)) {
+                    visibleIds.add(batch.getId());
+                    return false;
+                }
+                return true;
+            }).toList();
+            if (remaining.isEmpty()) return visibleInOrder(batches, visibleIds);
+            ids = remaining.stream().map(MesProEdhrBatchExecutionDO::getId).toList();
+            var transactions = releaseTransactionMapper.selectLatestByBatchExecutionIds(ids).stream()
+                    .collect(Collectors.toMap(MesProEdhrReleaseTransactionDO::getBatchExecutionId, item -> item));
+            Map<Long, List<MesProEdhrWorkTaskDO>> timeline = transactions.isEmpty() ? Map.of()
+                    : workTaskMapper.selectList(new LambdaQueryWrapperX<MesProEdhrWorkTaskDO>()
+                            .in(MesProEdhrWorkTaskDO::getBatchExecutionId, transactions.keySet())
+                            .eq(MesProEdhrWorkTaskDO::getTaskType, "RELEASE_APPROVE")
+                            .eq(MesProEdhrWorkTaskDO::getBusinessScopeType, "RELEASE_TRANSACTION")
+                            .in(MesProEdhrWorkTaskDO::getBusinessScopeId, transactions.values().stream()
+                                    .map(MesProEdhrReleaseTransactionDO::getId).toList())
+                            .eq(MesProEdhrWorkTaskDO::getOwnershipLocked, true)
+                            .in(MesProEdhrWorkTaskDO::getStatus, List.of("TODO", "DOING", "DONE"))
+                            .orderByAsc(MesProEdhrWorkTaskDO::getCreateTime)
+                            .orderByAsc(MesProEdhrWorkTaskDO::getId)).stream()
+                            .collect(Collectors.groupingBy(MesProEdhrWorkTaskDO::getBatchExecutionId));
+            remaining = remaining.stream().filter(batch -> {
+                if (!isCurrentManagerReleaseCandidate(batch, userId, transactions.get(batch.getId()),
+                        () -> timeline.getOrDefault(batch.getId(), List.of()))) return true;
+                visibleIds.add(batch.getId());
+                return false;
+            }).toList();
+            if (remaining.isEmpty()) return visibleInOrder(batches, visibleIds);
+            ids = remaining.stream().map(MesProEdhrBatchExecutionDO::getId).toList();
+            var origins = batchOriginMapper.selectList(new LambdaQueryWrapperX<MesProEdhrBatchExecutionOriginDO>()
+                    .in(MesProEdhrBatchExecutionOriginDO::getBatchExecutionId, ids)
+                    .orderByAsc(MesProEdhrBatchExecutionOriginDO::getId)).stream()
+                    .collect(Collectors.groupingBy(MesProEdhrBatchExecutionOriginDO::getBatchExecutionId));
+            Set<Long> activeIds = origins.values().stream().flatMap(List::stream)
+                    .map(MesProEdhrBatchExecutionOriginDO::getActiveOrderId).filter(Objects::nonNull)
+                    .collect(Collectors.toSet());
+            Map<Long, MesProcessPoolActiveOrderDO> activeOrders = activeIds.isEmpty() ? Map.of()
+                    : activeOrderMapper.selectList(new LambdaQueryWrapperX<MesProcessPoolActiveOrderDO>()
+                            .in(MesProcessPoolActiveOrderDO::getId, activeIds)).stream()
+                            .collect(Collectors.toMap(MesProcessPoolActiveOrderDO::getId, item -> item));
+            Map<Long, MesProcessPoolActiveOrderDO> formalOrders = new LinkedHashMap<>();
+            remaining = remaining.stream().filter(batch -> {
+                var active = resolveFormalActiveOrder(batch,
+                        id -> origins.getOrDefault(id, List.of()), activeOrders::get);
+                if (active != null && Objects.equals(active.getLeaderUserId(), userId)) {
+                    visibleIds.add(batch.getId());
+                    return false;
+                }
+                if (active != null) formalOrders.put(batch.getId(), active);
+                return true;
+            }).toList();
+            if (remaining.isEmpty()) return visibleInOrder(batches, visibleIds);
+            if (!formalOrders.isEmpty()) {
+                var applications = releaseApplicationMapper.selectList(
+                        new LambdaQueryWrapperX<MesProcessPoolActiveOrderReleaseApplicationDO>()
+                                .in(MesProcessPoolActiveOrderReleaseApplicationDO::getBatchExecutionId,
+                                        formalOrders.keySet())).stream()
+                        .collect(Collectors.groupingBy(MesProcessPoolActiveOrderReleaseApplicationDO::getBatchExecutionId));
+                Set<Long> pqcIds = applications.values().stream().flatMap(List::stream)
+                        .map(MesProcessPoolActiveOrderReleaseApplicationDO::getPqcReleaseWorkTaskId)
+                        .filter(Objects::nonNull).collect(Collectors.toSet());
+                Map<Long, MesProEdhrWorkTaskDO> workById = pqcIds.isEmpty() ? Map.of()
+                        : workTaskMapper.selectList(new LambdaQueryWrapperX<MesProEdhrWorkTaskDO>()
+                                .in(MesProEdhrWorkTaskDO::getId, pqcIds)).stream()
+                                .collect(Collectors.toMap(MesProEdhrWorkTaskDO::getId, item -> item));
+                remaining = remaining.stream().filter(batch -> {
+                    var active = formalOrders.get(batch.getId());
+                    if (active == null || !isFormalPqcReleaseCandidate(batch, active, userId,
+                            singleOrNull(applications.getOrDefault(batch.getId(), List.of())), workById::get)) return true;
+                    visibleIds.add(batch.getId());
+                    return false;
+                }).toList();
+            }
+            if (remaining.isEmpty()) return visibleInOrder(batches, visibleIds);
+            ids = remaining.stream().map(MesProEdhrBatchExecutionDO::getId).toList();
+            var tasks = batchTaskMapper.selectVisibilityTasksByBatchExecutionIds(ids).stream()
+                    .collect(Collectors.groupingBy(MesProEdhrBatchExecutionTaskDO::getBatchExecutionId));
+            Set<String> newReports = tasks.values().stream().map(MesProEdhrBatchExecutionVisibilityService.this::resolveCurrentProcessTask)
+                    .filter(Objects::nonNull).map(MesProEdhrBatchExecutionTaskDO::getBatchRecordReportId)
+                    .filter(StrUtil::isNotBlank).filter(id -> !loadedReports.contains(id)).collect(Collectors.toSet());
+            if (!newReports.isEmpty()) {
+                reports.putAll(reportMapper.selectList(new LambdaQueryWrapperX<MesProBatchRecordReportDO>()
+                        .in(MesProBatchRecordReportDO::getReportId, newReports)).stream()
+                        .collect(Collectors.groupingBy(MesProBatchRecordReportDO::getReportId)));
+                rules.putAll(processFormPermissionRuleMapper.selectList(
+                        new LambdaQueryWrapperX<MesProEdhrProcessFormPermissionRuleDO>()
+                                .in(MesProEdhrProcessFormPermissionRuleDO::getBatchRecordReportId, newReports)
+                                .in(MesProEdhrProcessFormPermissionRuleDO::getRuleType,
+                                        MesProEdhrProcessFormPermissionRuleMapper.PROCESS_FORM_FILL_RULE_TYPES)
+                                .eq(MesProEdhrProcessFormPermissionRuleDO::getEnabled, true)
+                                .orderByAsc(MesProEdhrProcessFormPermissionRuleDO::getRuleType)
+                                .orderByAsc(MesProEdhrProcessFormPermissionRuleDO::getScopeKey)
+                                .orderByDesc(MesProEdhrProcessFormPermissionRuleDO::getId)).stream()
+                        .collect(Collectors.groupingBy(MesProEdhrProcessFormPermissionRuleDO::getBatchRecordReportId)));
+                loadedReports.addAll(newReports);
+            }
+            remaining.stream().filter(batch -> canViewCurrentProcess(
+                    tasks.getOrDefault(batch.getId(), List.of()), userId,
+                    task -> resolveCurrentProcessFillerUserIdMap(task,
+                            id -> singleOrNull(reports.getOrDefault(id, List.of())), this::rulesForBinding,
+                            this::candidateForRule)))
+                    .forEach(batch -> visibleIds.add(batch.getId()));
+            // Long scans must not retain every report encountered after its candidate window is consumed.
+            if (loadedReports.size() > 512) {
+                loadedReports.clear();
+                reports.clear();
+                rules.clear();
+            }
+            return visibleInOrder(batches, visibleIds);
+        }
+
+        private List<MesProEdhrBatchExecutionDO> visibleInOrder(
+                List<MesProEdhrBatchExecutionDO> batches, Set<Long> visibleIds) {
+            return batches.stream().filter(batch -> visibleIds.contains(batch.getId())).toList();
+        }
+
+        private MesProEdhrCandidateResolver.MesProEdhrCandidateContract candidateForRule(
+                MesProEdhrProcessFormPermissionRuleDO rule) {
+            RuleSource source = new RuleSource(rule.getCandidateSourceType(), rule.getCandidateSourceIds());
+            var candidate = candidates.get(source);
+            if (candidate != null) return candidate;
+            candidate = candidateResolver.resolveProcessFormRule(rule);
+            if (candidates.size() >= 512) candidates.clear();
+            candidates.put(source, candidate);
+            return candidate;
+        }
+
+        private List<MesProEdhrProcessFormPermissionRuleDO> rulesForBinding(
+                MesProEdhrBatchExecutionTaskDO task, ResolvedTaskFormBinding binding) {
+            List<MesProEdhrProcessFormPermissionRuleDO> all = rules.getOrDefault(binding.reportId(), List.of());
+            List<MesProEdhrProcessFormPermissionRuleDO> selected = rulesInScope(all, task.getRouteProcessId(), binding.versionId());
+            return selected.isEmpty() ? rulesInScope(all, task.getRouteProcessId(), null) : selected;
+        }
+
+        private List<MesProEdhrProcessFormPermissionRuleDO> rulesInScope(
+                List<MesProEdhrProcessFormPermissionRuleDO> all, Long routeProcessId, Long versionId) {
+            List<MesProEdhrProcessFormPermissionRuleDO> versionRules = all.stream()
+                    .filter(rule -> Objects.equals(rule.getBatchRecordVersionId(), versionId)).toList();
+            List<MesProEdhrProcessFormPermissionRuleDO> routeRules = versionRules.stream()
+                    .filter(rule -> Objects.equals(rule.getRouteProcessId(), routeProcessId)).toList();
+            return routeRules.isEmpty() ? versionRules.stream()
+                    .filter(rule -> Objects.equals(rule.getRouteProcessId(),
+                            MesProEdhrProcessFormPermissionRuleMapper.FORM_LEVEL_ROUTE_PROCESS_ID)).toList() : routeRules;
+        }
+    }
+
+    private static <T> T singleOrNull(List<T> rows) {
+        if (rows.size() > 1) throw new org.apache.ibatis.exceptions.TooManyResultsException(
+                "Expected one visibility association, found " + rows.size());
+        return rows.isEmpty() ? null : rows.get(0);
+    }
+
+    private record RuleSource(String type, String ids) {}
+
+    private record VisibilityChecks(java.util.function.Supplier<Boolean> overview,
+            java.util.function.Predicate<MesProEdhrBatchExecutionDO> manager,
+            java.util.function.Function<MesProEdhrBatchExecutionDO, MesProcessPoolActiveOrderDO> active,
+            java.util.function.BiPredicate<MesProEdhrBatchExecutionDO, MesProcessPoolActiveOrderDO> pqc,
+            java.util.function.Function<MesProEdhrBatchExecutionTaskDO, Map<String, List<Long>>> fillers) {}
+
     private MesProcessPoolActiveOrderDO resolveFormalActiveOrder(MesProEdhrBatchExecutionDO batch) {
+        return resolveFormalActiveOrder(batch, id -> batchOriginMapper.selectListByBatchExecutionId(id),
+                id -> activeOrderMapper.selectById(id));
+    }
+
+    private MesProcessPoolActiveOrderDO resolveFormalActiveOrder(MesProEdhrBatchExecutionDO batch,
+            java.util.function.Function<Long, List<MesProEdhrBatchExecutionOriginDO>> originsByBatch,
+            java.util.function.Function<Long, MesProcessPoolActiveOrderDO> activeById) {
         if (batch == null || batch.getId() == null || batch.getId() <= 0
                 || batch.getTenantId() == null
                 || !Objects.equals(batch.getTenantId(), TenantContextHolder.getTenantId())
@@ -118,7 +353,7 @@ public class MesProEdhrBatchExecutionVisibilityService {
             return null;
         }
         List<MesProEdhrBatchExecutionOriginDO> origins = Objects.requireNonNull(
-                batchOriginMapper.selectListByBatchExecutionId(batch.getId()),
+                originsByBatch.apply(batch.getId()),
                 "EDHR_BATCH_OWNER_ORIGINS_REQUIRED: batchId=" + batch.getId());
         if (origins.isEmpty()) {
             return null;
@@ -135,7 +370,7 @@ public class MesProEdhrBatchExecutionVisibilityService {
                         || !Objects.equals(origin.getActiveOrderId(), activeOrderId))) {
             return null;
         }
-        var active = activeOrderMapper.selectById(activeOrderId);
+        var active = activeById.apply(activeOrderId);
         // The persisted holder owns this batch's read scope, including after completion/release.
         // Current route candidates, creators and form/task assignments are separate contracts.
         return active != null && !Boolean.TRUE.equals(active.getDeleted())
@@ -149,6 +384,13 @@ public class MesProEdhrBatchExecutionVisibilityService {
     private boolean isFormalPqcReleaseCandidate(MesProEdhrBatchExecutionDO batch,
                                                MesProcessPoolActiveOrderDO active, Long userId) {
         var application = releaseApplicationMapper.selectByBatchExecutionId(batch.getId());
+        return isFormalPqcReleaseCandidate(batch, active, userId, application, id -> workTaskMapper.selectById(id));
+    }
+
+    private boolean isFormalPqcReleaseCandidate(MesProEdhrBatchExecutionDO batch,
+            MesProcessPoolActiveOrderDO active, Long userId,
+            MesProcessPoolActiveOrderReleaseApplicationDO application,
+            java.util.function.Function<Long, MesProEdhrWorkTaskDO> taskById) {
         if (application == null || application.getId() == null || application.getId() <= 0
                 || Boolean.TRUE.equals(application.getDeleted())
                 || !Objects.equals(application.getTenantId(), batch.getTenantId())
@@ -160,7 +402,7 @@ public class MesProEdhrBatchExecutionVisibilityService {
                 || application.getPqcReleaseWorkTaskId() == null || application.getPqcReleaseWorkTaskId() <= 0) {
             return false;
         }
-        var task = workTaskMapper.selectById(application.getPqcReleaseWorkTaskId());
+        var task = taskById.apply(application.getPqcReleaseWorkTaskId());
         if (task == null || Boolean.TRUE.equals(task.getDeleted())
                 || !Objects.equals(task.getId(), application.getPqcReleaseWorkTaskId())
                 || task.getBatchExecutionId() != null && !Objects.equals(task.getBatchExecutionId(), batch.getId())
@@ -189,11 +431,18 @@ public class MesProEdhrBatchExecutionVisibilityService {
 
     private boolean isCurrentManagerReleaseCandidate(MesProEdhrBatchExecutionDO batch, Long userId) {
         var transaction = releaseTransactionMapper.selectByBatchExecutionId(batch.getId());
+        return isCurrentManagerReleaseCandidate(batch, userId, transaction,
+                () -> workTaskMapper.selectTimelineListByBatchExecutionId(batch.getId()));
+    }
+
+    private boolean isCurrentManagerReleaseCandidate(MesProEdhrBatchExecutionDO batch, Long userId,
+            MesProEdhrReleaseTransactionDO transaction,
+            java.util.function.Supplier<List<MesProEdhrWorkTaskDO>> timeline) {
         if (transaction == null || transaction.getId() == null
                 || !Objects.equals(transaction.getBatchExecutionId(), batch.getId())) {
             return false;
         }
-        return workTaskMapper.selectTimelineListByBatchExecutionId(batch.getId()).stream()
+        return timeline.get().stream()
                 .filter(task -> Objects.equals(task.getBatchExecutionId(), batch.getId()))
                 .filter(task -> "RELEASE_APPROVE".equals(task.getTaskType()))
                 .filter(task -> "RELEASE_TRANSACTION".equals(task.getBusinessScopeType()))
@@ -271,36 +520,49 @@ public class MesProEdhrBatchExecutionVisibilityService {
 
     private Map<String, List<Long>> resolveCurrentProcessFillerUserIdMap(
             MesProEdhrBatchExecutionTaskDO currentProcessTask) {
+        return resolveCurrentProcessFillerUserIdMap(currentProcessTask, id -> reportMapper.selectByReportId(id),
+                (task, binding) -> {
+                    List<MesProEdhrProcessFormPermissionRuleDO> rules =
+                            processFormPermissionRuleMapper.selectEnabledFillRulesForRouteOrReport(
+                                    task.getRouteProcessId(), binding.reportId(), binding.versionId());
+                    if (rules.isEmpty()) {
+                        // Existing read contract also exposes null-version rules; dispatch stays version-strict.
+                        rules = processFormPermissionRuleMapper.selectEnabledFillRulesForRouteOrReport(
+                                task.getRouteProcessId(), binding.reportId());
+                    }
+                    return rules;
+                }, rule -> candidateResolver.resolveProcessFormRule(rule));
+    }
+
+    private Map<String, List<Long>> resolveCurrentProcessFillerUserIdMap(
+            MesProEdhrBatchExecutionTaskDO currentProcessTask,
+            java.util.function.Function<String, MesProBatchRecordReportDO> reportById,
+            java.util.function.BiFunction<MesProEdhrBatchExecutionTaskDO, ResolvedTaskFormBinding,
+                    List<MesProEdhrProcessFormPermissionRuleDO>> rulesForBinding,
+            java.util.function.Function<MesProEdhrProcessFormPermissionRuleDO,
+                    MesProEdhrCandidateResolver.MesProEdhrCandidateContract> candidateForRule) {
         if (currentProcessTask == null || currentProcessTask.getRouteProcessId() == null
                 || StrUtil.isBlank(currentProcessTask.getBatchRecordReportId())) {
             return Map.of();
         }
-        ResolvedTaskFormBinding resolvedBinding = resolveFrozenTaskFormBinding(currentProcessTask);
-        List<MesProEdhrProcessFormPermissionRuleDO> rules =
-                processFormPermissionRuleMapper.selectEnabledFillRulesForRouteOrReport(
-                        currentProcessTask.getRouteProcessId(), resolvedBinding.reportId(),
-                        resolvedBinding.versionId());
-        if (rules.isEmpty()) {
-            // Read-only current-filler display keeps legacy null-version rules visible.
-            // Fill task dispatch and entitlement synchronization remain version-strict.
-            rules = processFormPermissionRuleMapper.selectEnabledFillRulesForRouteOrReport(
-                    currentProcessTask.getRouteProcessId(), resolvedBinding.reportId());
-        }
+        ResolvedTaskFormBinding resolvedBinding = resolveFrozenTaskFormBinding(currentProcessTask,
+                reportById.apply(currentProcessTask.getBatchRecordReportId()));
+        List<MesProEdhrProcessFormPermissionRuleDO> rules = rulesForBinding.apply(currentProcessTask, resolvedBinding);
         Map<String, MesProEdhrProcessFormPermissionRuleDO> latestRuleMap = rules.stream()
                 .collect(Collectors.toMap(MesProEdhrProcessFormPermissionRuleDO::getRuleType,
                         rule -> rule, (first, ignored) -> first, LinkedHashMap::new));
         Map<String, List<Long>> ruleUserIdMap = new LinkedHashMap<>();
         for (Map.Entry<String, MesProEdhrProcessFormPermissionRuleDO> entry : latestRuleMap.entrySet()) {
             MesProEdhrCandidateResolver.MesProEdhrCandidateContract candidate =
-                    candidateResolver.resolveProcessFormRule(entry.getValue());
+                    candidateForRule.apply(entry.getValue());
             ruleUserIdMap.put(entry.getKey(), parseCommaSeparatedIds(candidate.userSnapshot(),
                     "EDHR_CURRENT_PROCESS_FILLER_SNAPSHOT_INVALID: ruleId=" + entry.getValue().getId()));
         }
         return ruleUserIdMap;
     }
 
-    private ResolvedTaskFormBinding resolveFrozenTaskFormBinding(MesProEdhrBatchExecutionTaskDO task) {
-        MesProBatchRecordReportDO boundReport = reportMapper.selectByReportId(task.getBatchRecordReportId());
+    private ResolvedTaskFormBinding resolveFrozenTaskFormBinding(MesProEdhrBatchExecutionTaskDO task,
+                                                                 MesProBatchRecordReportDO boundReport) {
         if (boundReport == null) {
             throw exception(PRO_EDHR_BATCH_EXECUTION_DEFAULT_REPORT_REQUIRED);
         }

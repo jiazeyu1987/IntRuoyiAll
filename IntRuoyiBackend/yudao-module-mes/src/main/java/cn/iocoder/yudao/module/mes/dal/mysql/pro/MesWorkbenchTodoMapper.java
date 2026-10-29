@@ -5,6 +5,7 @@ import org.apache.ibatis.annotations.*;
 import java.util.List;
 @Mapper
 public interface MesWorkbenchTodoMapper {
+ @Options(timeout=10) List<MesEdhrWorkbenchRow> identityHandoff(@Param("q") QueryContext query,@Param("id") long id);
  @Options(timeout=10) Long countEdhr(@Param("q") QueryContext query);
  @Options(timeout=10) List<MesEdhrWorkbenchRow> chunkEdhr(@Param("q") QueryContext query,@Param("after") ChunkCursor after,@Param("fetchLimit") int fetchLimit);
  @Options(timeout=10) List<MesEdhrWorkbenchRow> identityEdhr(@Param("q") QueryContext query,@Param("businessId") String businessId,@Param("lockedBatchStatus") Long lockedBatchStatus);

@@ -1,9 +1,10 @@
 {
   "contractVersion": 1,
-  "registryRevision": "profile-workbench-s2-v1",
+  "registryRevision": "profile-workbench-edhr-void-v1",
   "modules": [
     { "ownerModule": "dcc", "enabled": true, "sourceIds": ["DCC_DISTRIBUTION", "DCC_TRAINING"] },
     { "ownerModule": "mes", "enabled": true, "sourceIds": ["EDHR_WORK_TASK", "WORK_ORDER"] },
+    { "ownerModule": "bpm", "enabled": true, "sourceIds": ["BPM_EDHR_VOID"] },
     { "ownerModule": "showroom", "enabled": true, "sourceIds": ["SHOWROOM_ASSIGNMENT"] }
   ]
 }

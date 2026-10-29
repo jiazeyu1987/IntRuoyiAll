@@ -1,22 +1,27 @@
 <template>
   <div class="showroom-product-list">
-    <div class="showroom-product-list__toolbar">
-      <div class="showroom-product-list__search-group">
-        <el-input
-          v-model="draftFilters.keyword"
-          class="showroom-product-list__search"
-          clearable
-          placeholder="搜索产品名称"
-          @keyup.enter="emitSearch"
-        />
-        <el-button type="primary" :loading="loading" @click="emitSearch">
-          查询
-        </el-button>
-        <el-button @click="resetFilters">
-          重置
-        </el-button>
-      </div>
-      <div class="showroom-product-list__actions">
+    <UnifiedListTemplate
+      table-key="showroom.product.main"
+      :total="pageTotal"
+      :page="pageNo"
+      :limit="pageSize"
+      @update:page="handlePageChange"
+      @update:limit="emit('page-change', { pageNo: 1, pageSize: $event })"
+    >
+      <template #filters>
+        <div>
+          <el-input
+            v-model="draftFilters.keyword"
+            class="showroom-product-list__search"
+            clearable
+            placeholder="搜索产品名称"
+            @keyup.enter="emitSearch"
+          />
+        </div>
+      </template>
+      <template #actions>
+        <el-button type="primary" :loading="loading" @click="emitSearch">查询</el-button>
+        <el-button @click="resetFilters">重置</el-button>
         <el-button v-if="manageProducts" type="primary" @click="emit('create')">新增</el-button>
         <el-button
           v-if="manageProducts"
@@ -77,7 +82,11 @@
           v-if="canBatchGeneratePublishedMedia"
           type="primary"
           plain
-          :disabled="Boolean(batchTranslatePublishTaskStatus?.active || batchTranslatePublishTaskStatus?.running)"
+          :disabled="
+            Boolean(
+              batchTranslatePublishTaskStatus?.active || batchTranslatePublishTaskStatus?.running
+            )
+          "
           :loading="Boolean(batchTranslatingPublishing)"
           @click="handleBatchTranslatePublishClick"
         >
@@ -101,282 +110,274 @@
         >
           一键封面
         </el-button>
-      </div>
-    </div>
-
-    <div v-if="showNarrationTaskBanner" class="showroom-product-list__task-banner">
-      <div class="showroom-product-list__task-header">
-        <span class="showroom-product-list__task-title">一键讲解任务</span>
-        <div class="showroom-product-list__task-meta">
-          <el-tag :type="narrationScriptTaskActive ? 'warning' : 'info'" effect="plain">
-            {{ narrationScriptTaskStateLabel }}
-          </el-tag>
-          <el-button
-            link
-            type="info"
-            class="showroom-product-list__task-close"
-            @click="dismissNarrationTaskBanner"
-          >
-            关闭
-          </el-button>
-        </div>
-      </div>
-      <p class="showroom-product-list__task-line">
-        筛选快照：{{ narrationScriptTaskFilterSummary }}
-      </p>
-      <p v-if="narrationScriptTaskCurrentProductText" class="showroom-product-list__task-line">
-        当前执行产品：{{ narrationScriptTaskCurrentProductText }}
-      </p>
-      <p class="showroom-product-list__task-line">
-        命中 {{ narrationScriptTaskStatus?.matchedCount || 0 }}，整条跳过
-        {{ narrationScriptTaskStatus?.skippedCompletedCount || 0 }}，本轮补齐
-        {{ narrationScriptTaskStatus?.generatedLanguageCount || 0 }} 个语言讲解稿，失败
-        {{ narrationScriptTaskStatus?.failedCount || 0 }}，剩余缺口
-        {{ narrationScriptTaskStatus?.remainingCount || 0 }}
-      </p>
-      <p v-if="narrationScriptTaskTimeSummary" class="showroom-product-list__task-line">
-        {{ narrationScriptTaskTimeSummary }}
-      </p>
-      <p
-        v-if="narrationScriptTaskFailureText"
-        class="showroom-product-list__task-line showroom-product-list__task-line--danger"
-      >
-        最近失败：{{ narrationScriptTaskFailureText }}
-      </p>
-    </div>
-
-    <div v-if="showTranslatePublishTaskBanner" class="showroom-product-list__task-banner">
-      <div class="showroom-product-list__task-header">
-        <span class="showroom-product-list__task-title">一键翻译任务</span>
-        <div class="showroom-product-list__task-meta">
-          <el-tag :type="translatePublishTaskTagType" effect="plain">
-            {{ translatePublishTaskStateLabel }}
-          </el-tag>
-          <el-button
-            link
-            type="info"
-            class="showroom-product-list__task-close"
-            @click="dismissTranslatePublishTaskBanner"
-          >
-            关闭
-          </el-button>
-        </div>
-      </div>
-      <p class="showroom-product-list__task-line">
-        筛选快照：{{ translatePublishTaskFilterSummary }}
-      </p>
-      <p class="showroom-product-list__task-line">
-        当前执行产品：{{ translatePublishTaskCurrentProductText }}
-      </p>
-      <p class="showroom-product-list__task-line">
-        命中 {{ batchTranslatePublishTaskStatus?.matchedCount || 0 }}，成功发布
-        {{ batchTranslatePublishTaskStatus?.succeededCount || 0 }}，失败
-        {{ batchTranslatePublishTaskStatus?.failedCount || 0 }}，剩余
-        {{ batchTranslatePublishTaskStatus?.remainingCount || 0 }}
-      </p>
-      <p v-if="translatePublishTaskTimeSummary" class="showroom-product-list__task-line">
-        {{ translatePublishTaskTimeSummary }}
-      </p>
-      <p
-        v-if="translatePublishTaskFailureText"
-        class="showroom-product-list__task-line showroom-product-list__task-line--danger"
-      >
-        最近失败：{{ translatePublishTaskFailureText }}
-      </p>
-    </div>
-
-    <div v-if="showCoverTaskBanner" class="showroom-product-list__task-banner">
-      <div class="showroom-product-list__task-header">
-        <span class="showroom-product-list__task-title">一键封面任务</span>
-        <div class="showroom-product-list__task-meta">
-          <el-tag :type="coverTaskTagType" effect="plain">
-            {{ coverTaskStateLabel }}
-          </el-tag>
-          <el-button
-            link
-            type="info"
-            class="showroom-product-list__task-close"
-            @click="dismissCoverTaskBanner"
-          >
-            关闭
-          </el-button>
-        </div>
-      </div>
-      <p class="showroom-product-list__task-line">
-        允许状态：{{ coverTaskAllowStatusLabel }}
-      </p>
-      <p class="showroom-product-list__task-line">
-        筛选快照：{{ coverTaskFilterSummary }}
-      </p>
-      <p class="showroom-product-list__task-line">
-        当前执行产品：{{ coverTaskCurrentProductText }}
-      </p>
-      <p class="showroom-product-list__task-line">
-        命中 {{ coverTaskSummary?.matchedCount || 0 }}，已发布 {{ coverTaskSummary?.publishedCount || 0 }}，跳过未发布
-        {{ coverTaskSummary?.skippedUnpublishedCount || 0 }}，跳过已有封面
-        {{ coverTaskSummary?.skippedExistingCount || 0 }}，成功生成
-        {{ coverTaskSummary?.succeededCount || 0 }}，失败 {{ coverTaskSummary?.failedCount || 0 }}
-        <template v-if="(coverTaskSummary?.remainingPendingCount || 0) > 0">
-          ，剩余未完成 {{ coverTaskSummary?.remainingPendingCount || 0 }}
-        </template>
-      </p>
-      <p v-if="coverTaskTimeSummary" class="showroom-product-list__task-line">
-        {{ coverTaskTimeSummary }}
-      </p>
-      <p
-        v-if="coverTaskFailureText"
-        class="showroom-product-list__task-line showroom-product-list__task-line--danger"
-      >
-        最近失败：{{ coverTaskFailureText }}
-      </p>
-    </div>
-
-    <div class="showroom-product-list__table-shell">
-      <el-table
-        v-loading="loading"
-        :data="normalizedRows"
-        border
-        class="showroom-product-list__table"
-        :row-class-name="resolveProductRowClassName"
-        row-key="productId"
-      >
-        <el-table-column label="中文名称" min-width="160" prop="nameCn" show-overflow-tooltip />
-        <el-table-column
-          label="旧产品编号"
-          min-width="130"
-          prop="legacyProductCode"
-          show-overflow-tooltip
-        />
-        <el-table-column label="当前版本" width="96">
-          <template #default="{ row }">
-            {{ row.revisionNo }}
-          </template>
-        </el-table-column>
-        <el-table-column label="审批状态" width="120">
-          <template #default="{ row }">
-            <el-tag :type="row.approvalTagType">{{ row.approvalText }}</el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column label="BU" min-width="180" show-overflow-tooltip>
-          <template #default="{ row }">
-            {{ row.pipelineLayout || '未填写' }}
-          </template>
-        </el-table-column>
-        <el-table-column
-          label="持证人"
-          min-width="180"
-          prop="ownerTypeText"
-          show-overflow-tooltip
-        />
-        <el-table-column label="获证状态" width="110">
-          <template #default="{ row }">
-            <el-tag :type="row.lifecycleTagType">{{ row.lifecycleText }}</el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column
-          label="在售国家"
-          min-width="170"
-          prop="targetMarket"
-          show-overflow-tooltip
-        />
-        <el-table-column label="封面" width="104">
-          <template #default="{ row }">
-            <div class="showroom-product-list__cover-cell">
-              <el-image
-                v-if="row.coverImageUrl"
-                :preview-src-list="[row.coverImageUrl]"
-                :src="row.coverImageUrl"
-                class="showroom-product-list__cover"
-                fit="cover"
-                preview-teleported
-              />
-              <span v-else class="showroom-product-list__cover-empty">未上传</span>
+      </template>
+      <template #table>
+        <div v-if="showNarrationTaskBanner" class="showroom-product-list__task-banner">
+          <div class="showroom-product-list__task-header">
+            <span class="showroom-product-list__task-title">一键讲解任务</span>
+            <div class="showroom-product-list__task-meta">
+              <el-tag :type="narrationScriptTaskActive ? 'warning' : 'info'" effect="plain">
+                {{ narrationScriptTaskStateLabel }}
+              </el-tag>
+              <el-button
+                link
+                type="info"
+                class="showroom-product-list__task-close"
+                @click="dismissNarrationTaskBanner"
+              >
+                关闭
+              </el-button>
             </div>
-          </template>
-        </el-table-column>
-        <el-table-column label="状态" min-width="220">
-          <template #default="{ row }">
-            <div class="showroom-product-list__status-cell">
-              <div class="showroom-product-list__status-grid">
-                <span
-                  v-for="item in row.contentStatusItems"
-                  :key="item.key"
-                  :class="[
-                    'showroom-product-list__status-pill',
-                    item.ready
-                      ? 'showroom-product-list__status-pill--ready'
-                      : 'showroom-product-list__status-pill--missing'
-                  ]"
-                >
-                  <span class="showroom-product-list__status-marker">
-                    {{ item.ready ? 'OK' : 'MISS' }}
-                  </span>
-                  <span>{{ item.shortLabel }}</span>
-                </span>
-              </div>
+          </div>
+          <p class="showroom-product-list__task-line">
+            筛选快照：{{ narrationScriptTaskFilterSummary }}
+          </p>
+          <p v-if="narrationScriptTaskCurrentProductText" class="showroom-product-list__task-line">
+            当前执行产品：{{ narrationScriptTaskCurrentProductText }}
+          </p>
+          <p class="showroom-product-list__task-line">
+            命中 {{ narrationScriptTaskStatus?.matchedCount || 0 }}，整条跳过
+            {{ narrationScriptTaskStatus?.skippedCompletedCount || 0 }}，本轮补齐
+            {{ narrationScriptTaskStatus?.generatedLanguageCount || 0 }} 个语言讲解稿，失败
+            {{ narrationScriptTaskStatus?.failedCount || 0 }}，剩余缺口
+            {{ narrationScriptTaskStatus?.remainingCount || 0 }}
+          </p>
+          <p v-if="narrationScriptTaskTimeSummary" class="showroom-product-list__task-line">
+            {{ narrationScriptTaskTimeSummary }}
+          </p>
+          <p
+            v-if="narrationScriptTaskFailureText"
+            class="showroom-product-list__task-line showroom-product-list__task-line--danger"
+          >
+            最近失败：{{ narrationScriptTaskFailureText }}
+          </p>
+        </div>
+
+        <div v-if="showTranslatePublishTaskBanner" class="showroom-product-list__task-banner">
+          <div class="showroom-product-list__task-header">
+            <span class="showroom-product-list__task-title">一键翻译任务</span>
+            <div class="showroom-product-list__task-meta">
+              <el-tag :type="translatePublishTaskTagType" effect="plain">
+                {{ translatePublishTaskStateLabel }}
+              </el-tag>
+              <el-button
+                link
+                type="info"
+                class="showroom-product-list__task-close"
+                @click="dismissTranslatePublishTaskBanner"
+              >
+                关闭
+              </el-button>
             </div>
-          </template>
-        </el-table-column>
-        <el-table-column
-          fixed="right"
-          label="操作"
-          :width="manageProducts ? 370 : rowEditableExists ? 240 : 180"
+          </div>
+          <p class="showroom-product-list__task-line">
+            筛选快照：{{ translatePublishTaskFilterSummary }}
+          </p>
+          <p class="showroom-product-list__task-line">
+            当前执行产品：{{ translatePublishTaskCurrentProductText }}
+          </p>
+          <p class="showroom-product-list__task-line">
+            命中 {{ batchTranslatePublishTaskStatus?.matchedCount || 0 }}，成功发布
+            {{ batchTranslatePublishTaskStatus?.succeededCount || 0 }}，失败
+            {{ batchTranslatePublishTaskStatus?.failedCount || 0 }}，剩余
+            {{ batchTranslatePublishTaskStatus?.remainingCount || 0 }}
+          </p>
+          <p v-if="translatePublishTaskTimeSummary" class="showroom-product-list__task-line">
+            {{ translatePublishTaskTimeSummary }}
+          </p>
+          <p
+            v-if="translatePublishTaskFailureText"
+            class="showroom-product-list__task-line showroom-product-list__task-line--danger"
+          >
+            最近失败：{{ translatePublishTaskFailureText }}
+          </p>
+        </div>
+
+        <div v-if="showCoverTaskBanner" class="showroom-product-list__task-banner">
+          <div class="showroom-product-list__task-header">
+            <span class="showroom-product-list__task-title">一键封面任务</span>
+            <div class="showroom-product-list__task-meta">
+              <el-tag :type="coverTaskTagType" effect="plain">
+                {{ coverTaskStateLabel }}
+              </el-tag>
+              <el-button
+                link
+                type="info"
+                class="showroom-product-list__task-close"
+                @click="dismissCoverTaskBanner"
+              >
+                关闭
+              </el-button>
+            </div>
+          </div>
+          <p class="showroom-product-list__task-line">允许状态：{{ coverTaskAllowStatusLabel }}</p>
+          <p class="showroom-product-list__task-line">筛选快照：{{ coverTaskFilterSummary }}</p>
+          <p class="showroom-product-list__task-line">
+            当前执行产品：{{ coverTaskCurrentProductText }}
+          </p>
+          <p class="showroom-product-list__task-line">
+            命中 {{ coverTaskSummary?.matchedCount || 0 }}，已发布
+            {{ coverTaskSummary?.publishedCount || 0 }}，跳过未发布
+            {{ coverTaskSummary?.skippedUnpublishedCount || 0 }}，跳过已有封面
+            {{ coverTaskSummary?.skippedExistingCount || 0 }}，成功生成
+            {{ coverTaskSummary?.succeededCount || 0 }}，失败 {{ coverTaskSummary?.failedCount || 0 }}
+            <template v-if="(coverTaskSummary?.remainingPendingCount || 0) > 0">
+              ，剩余未完成 {{ coverTaskSummary?.remainingPendingCount || 0 }}
+            </template>
+          </p>
+          <p v-if="coverTaskTimeSummary" class="showroom-product-list__task-line">
+            {{ coverTaskTimeSummary }}
+          </p>
+          <p
+            v-if="coverTaskFailureText"
+            class="showroom-product-list__task-line showroom-product-list__task-line--danger"
+          >
+            最近失败：{{ coverTaskFailureText }}
+          </p>
+        </div>
+
+        <el-table
+          stripe
+          v-loading="loading"
+          :data="normalizedRows"
+          border
+          class="showroom-product-list__table"
+          :row-class-name="resolveProductRowClassName"
+          row-key="productId"
         >
-          <template #default="{ row }">
-            <el-button v-if="manageProducts" link type="primary" @click="emit('assign', row.raw)">
-              指派
-            </el-button>
-            <el-button
-              v-if="manageProducts"
-              link
-              type="primary"
-              @click="emit('open-audio-dialog', row.raw)"
-            >
-              语音
-            </el-button>
-            <el-button v-if="row.editable" link type="primary" @click="emit('edit', row.raw)">基础</el-button>
-            <el-button link type="primary" @click="emit('detail', row.raw)">详细信息</el-button>
-            <el-button
-              link
-              type="primary"
-              @click="emit('version-center', { productId: row.productId, displayRevisionId: row.displayRevisionId })"
-            >
-              版本中心
-            </el-button>
-            <el-button
-              v-if="manageProducts"
-              link
-              type="primary"
-              :disabled="!isPublishableStatus(row.approvalStatus)"
-              :loading="String(publishingProductId ?? '') === row.productId"
-              @click="emit('publish', row.raw)"
-            >
-              发布
-            </el-button>
-            <el-button v-if="manageProducts" link type="danger" @click="emit('delete', row.raw)">
-              删除
-            </el-button>
-          </template>
-        </el-table-column>
-      </el-table>
-
-      <div class="showroom-product-list__footer">
-        <div class="showroom-product-list__summary">共 {{ pageTotal }} 条，共 {{ totalPages }} 页</div>
-        <el-pagination
-          v-if="pageTotal > 0"
-          :background="true"
-          :current-page="pageNo"
-          :page-size="pageSize"
-          :total="pageTotal"
-          layout="prev, pager, next"
-          @current-change="handlePageChange"
-        />
-      </div>
-    </div>
+          <el-table-column label="中文名称" min-width="160" prop="nameCn" show-overflow-tooltip />
+          <el-table-column
+            label="旧产品编号"
+            min-width="130"
+            prop="legacyProductCode"
+            show-overflow-tooltip
+          />
+          <el-table-column label="当前版本" width="96">
+            <template #default="{ row }">
+              {{ row.revisionNo }}
+            </template>
+          </el-table-column>
+          <el-table-column label="审批状态" width="120">
+            <template #default="{ row }">
+              <el-tag :type="row.approvalTagType">{{ row.approvalText }}</el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="BU" min-width="180" show-overflow-tooltip>
+            <template #default="{ row }">
+              {{ row.pipelineLayout || '未填写' }}
+            </template>
+          </el-table-column>
+          <el-table-column
+            label="持证人"
+            min-width="180"
+            prop="ownerTypeText"
+            show-overflow-tooltip
+          />
+          <el-table-column label="获证状态" width="110">
+            <template #default="{ row }">
+              <el-tag :type="row.lifecycleTagType">{{ row.lifecycleText }}</el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column
+            label="在售国家"
+            min-width="170"
+            prop="targetMarket"
+            show-overflow-tooltip
+          />
+          <el-table-column label="封面" width="104">
+            <template #default="{ row }">
+              <div class="showroom-product-list__cover-cell">
+                <el-image
+                  v-if="row.coverImageUrl"
+                  :preview-src-list="[row.coverImageUrl]"
+                  :src="row.coverImageUrl"
+                  class="showroom-product-list__cover"
+                  fit="cover"
+                  preview-teleported
+                />
+                <span v-else class="showroom-product-list__cover-empty">未上传</span>
+              </div>
+            </template>
+          </el-table-column>
+          <el-table-column label="状态" min-width="220">
+            <template #default="{ row }">
+              <div class="showroom-product-list__status-cell">
+                <div class="showroom-product-list__status-grid">
+                  <span
+                    v-for="item in row.contentStatusItems"
+                    :key="item.key"
+                    :class="[
+                      'showroom-product-list__status-pill',
+                      item.ready
+                        ? 'showroom-product-list__status-pill--ready'
+                        : 'showroom-product-list__status-pill--missing'
+                    ]"
+                  >
+                    <span class="showroom-product-list__status-marker">
+                      {{ item.ready ? 'OK' : 'MISS' }}
+                    </span>
+                    <span>{{ item.shortLabel }}</span>
+                  </span>
+                </div>
+              </div>
+            </template>
+          </el-table-column>
+          <el-table-column
+            fixed="right"
+            label="操作"
+            :width="manageProducts ? 370 : rowEditableExists ? 240 : 180"
+          >
+            <template #default="{ row }">
+              <el-button v-if="manageProducts" link type="primary" @click="emit('assign', row.raw)">
+                指派
+              </el-button>
+              <el-button
+                v-if="manageProducts"
+                link
+                type="primary"
+                @click="emit('open-audio-dialog', row.raw)"
+              >
+                语音
+              </el-button>
+              <el-button v-if="row.editable" link type="primary" @click="emit('edit', row.raw)">
+                基础
+              </el-button>
+              <el-button link type="primary" @click="emit('detail', row.raw)">详细信息</el-button>
+              <el-button
+                link
+                type="primary"
+                @click="
+                  emit('version-center', {
+                    productId: row.productId,
+                    displayRevisionId: row.displayRevisionId
+                  })
+                "
+              >
+                版本中心
+              </el-button>
+              <el-button
+                v-if="manageProducts"
+                link
+                type="primary"
+                :disabled="!isPublishableStatus(row.approvalStatus)"
+                :loading="String(publishingProductId ?? '') === row.productId"
+                @click="emit('publish', row.raw)"
+              >
+                发布
+              </el-button>
+              <el-button v-if="manageProducts" link type="danger" @click="emit('delete', row.raw)">
+                删除
+              </el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+      </template>
+    </UnifiedListTemplate>
   </div>
 </template>
 
 <script lang="ts" setup>
+import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 defineOptions({ name: 'ProductListTable' })
 
 type ProductOwnerType = 'YINGTAI' | 'SUBSIDIARY' | 'INCOMPLETE'

@@ -1164,40 +1164,7 @@ import {
   searchDirectories,
   type ControlledFileDirectoryVO
 } from '@/api/dcc/controlledFile/directories'
-import {
-  confirmControlledFileMetadataImport,
-  confirmControlledFileRecognitionMigrationImport,
-  checkoutControlledFile,
-  checkinControlledFile,
-  cancelCheckoutControlledFile,
-  cleanupControlledFileUploadTicket,
-  createControlledFileUploadSessionId,
-  createControlledFileBatchRecognitionTask,
-  exportControlledFileMetadataExcel,
-  exportControlledFileRecognitionMigrationExcel,
-  exportControlledFileRecognitionRecordExcel,
-  getControlledFileMetadataImportTemplate,
-  getControlledFileBatchRecognitionTask,
-  getControlledFileBrowserExtensionBlacklist,
-  getControlledFileBrowserPage,
-  previewControlledFileRecognitionMigrationImport,
-  previewControlledFileMetadataImport,
-  saveControlledFileBrowserExtensionBlacklist,
-  submitControlledFileWorkingIteration,
-  triggerControlledFileVariantDownload,
-  triggerControlledFileDownload,
-  uploadControlledFilePreview,
-  type ControlledFileBatchRecognitionCreateReqVO,
-  type ControlledFileBatchRecognitionTaskRespVO,
-  type ControlledFileMetadataImportPreviewRespVO,
-  type ControlledFileMetadataImportRowRespVO,
-  type ControlledFilePageReqVO,
-  type ControlledFileRecognitionMigrationImportPreviewRespVO,
-  type ControlledFileRecognitionMigrationImportRowRespVO,
-  type ControlledFileUploadRespVO,
-  type ControlledFileVersionHistoryVO,
-  type ControlledFileVO
-} from '@/api/dcc/controlledFile/workflow'
+import { confirmControlledFileMetadataImport, confirmControlledFileRecognitionMigrationImport, checkoutControlledFile, checkinControlledFile, cancelCheckoutControlledFile, cleanupControlledFileUploadTicket, createControlledFileUploadSessionId, createControlledFileBatchRecognitionTask, exportControlledFileMetadataExcel, exportControlledFileRecognitionMigrationExcel, exportControlledFileRecognitionRecordExcel, getControlledFileMetadataImportTemplate, getControlledFileBatchRecognitionTask, getControlledFileBrowserExtensionBlacklist, getControlledFileBrowserPage, previewControlledFileRecognitionMigrationImport, previewControlledFileMetadataImport, saveControlledFileBrowserExtensionBlacklist, triggerControlledFileVariantDownload, uploadControlledFilePreview, type ControlledFileBatchRecognitionCreateReqVO, type ControlledFileBatchRecognitionTaskRespVO, type ControlledFileMetadataImportPreviewRespVO, type ControlledFileMetadataImportRowRespVO, type ControlledFilePageReqVO, type ControlledFileRecognitionMigrationImportPreviewRespVO, type ControlledFileRecognitionMigrationImportRowRespVO, type ControlledFileUploadRespVO, type ControlledFileVersionHistoryVO, type ControlledFileVO } from '@/api/dcc/controlledFile/workflow';
 import { getTenantId, getVisitTenantId } from '@/utils/auth'
 import { useUserTableColumns, type UserTableColumnDefinition } from '@/hooks/web/useUserTableColumns'
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
@@ -1901,7 +1868,7 @@ const canCheckoutVersion = (file: ControlledFileVO | ControlledFileBrowserVersio
   Boolean(canEditVersion(file) || isDccControlledFileActionAllowed(file, 'MAJOR_REVISION'))
 
 const canSubmitWorkingIteration = (
-  row: ControlledFileBrowserRow,
+  _row: ControlledFileBrowserRow,
   file: ControlledFileVO | ControlledFileBrowserVersion
 ) => Boolean(
   file.id &&
@@ -1914,32 +1881,18 @@ const canSubmitWorkingIteration = (
   !file.checkedOutBy
 )
 
-const browserMutationIdempotencyKeys = reactive<Record<string, string>>({})
+
 const canOpenWorkingTypeStorageRecovery = (row: ControlledFileBrowserRow) =>
   isLatestVersionSelected(row) && getSelectedVersion(row).changeType === 'NEW' &&
   canSubmitWorkingIteration(row, getSelectedVersion(row))
 
-const getBrowserMutationCacheKey = (action: string, id: number | string) => `${action}:${id}`
 
-const createBrowserMutationIdempotencyKey = (action: string, id: number | string) => {
-  if (typeof window.crypto?.randomUUID !== 'function') {
-    throw new Error('当前浏览器不支持安全请求标识，无法提交审批。')
-  }
-  return `dcc-${action}:${id}:${window.crypto.randomUUID()}`
-}
 
-const getOrCreateBrowserMutationIdempotencyKey = (action: string, id: number | string) => {
-  const cacheKey = getBrowserMutationCacheKey(action, id)
-  if (browserMutationIdempotencyKeys[cacheKey]) {
-    return browserMutationIdempotencyKeys[cacheKey]
-  }
-  browserMutationIdempotencyKeys[cacheKey] = createBrowserMutationIdempotencyKey(action, id)
-  return browserMutationIdempotencyKeys[cacheKey]
-}
 
-const deleteBrowserMutationIdempotencyKey = (action: string, id: number | string) => {
-  delete browserMutationIdempotencyKeys[getBrowserMutationCacheKey(action, id)]
-}
+
+
+
+
 
 const handleSubmitWorkingIteration = async (
   row: ControlledFileBrowserRow,

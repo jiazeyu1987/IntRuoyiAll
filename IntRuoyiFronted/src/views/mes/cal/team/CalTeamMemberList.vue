@@ -35,14 +35,12 @@
         v-loading="formLoading"
       >
         <el-form-item label="用户" prop="userId">
-          <el-select v-model="formData.userId" placeholder="请选择用户" filterable class="!w-1/1">
-            <el-option
-              v-for="user in userList"
-              :key="user.id"
-              :label="user.nickname"
-              :value="user.id"
-            />
-          </el-select>
+          <UserSelectV2
+            v-model="formData.userId"
+            :user-options="userList"
+            placeholder="请选择人员"
+            class="!w-1/1"
+          />
         </el-form-item>
         <el-form-item label="备注" prop="remark">
           <el-input v-model="formData.remark" type="textarea" placeholder="请输入备注" />
@@ -57,6 +55,7 @@
 </template>
 
 <script setup lang="ts">
+import UserSelectV2 from '@/views/system/user/components/UserSelectV2.vue'
 import { CalTeamMemberApi, CalTeamMemberVO } from '@/api/mes/cal/team/member'
 import { getSimpleUserList } from '@/api/system/user'
 import type { UserVO } from '@/api/system/user'

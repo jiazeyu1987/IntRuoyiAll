@@ -103,11 +103,16 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-@Import({MesProEdhrReleaseServiceImpl.class, MesProEdhrCandidateResolver.class,
+@Import({MesProEdhrReleaseServiceImpl.class, MesMarketReleaseAccess.class, MesProEdhrCandidateResolver.class,
+        cn.iocoder.yudao.module.mes.approval.content.EdhrSignedDossierReader.class,
+        cn.iocoder.yudao.module.mes.approval.content.EdhrReleaseContentSemanticValidator.class,
+        cn.iocoder.yudao.module.mes.approval.content.EdhrReleaseContentPolicy.class,
         MesProEdhrDeviationServiceImpl.class, MesProEdhrDeviationNumberGenerator.class,
         cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesSignatureH2DialectConfiguration.class,
         cn.iocoder.yudao.module.mes.service.pro.productionrelease.MesReleaseAffectedStateCollector.class})
+@org.mybatis.spring.annotation.MapperScan(basePackageClasses = cn.iocoder.yudao.module.signature.dal.mysql.ElectronicSignatureRecordMapper.class)
 class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
+    @org.springframework.boot.test.mock.mockito.MockBean private cn.iocoder.yudao.module.mes.service.pro.productionrelease.notification.MesReleaseOutcomeNotificationService outcomeNotifications;
     @org.springframework.boot.test.mock.mockito.MockBean private cn.iocoder.yudao.module.mes.approval.MesActiveOrderHandoffApprovalProjection handoffProjection;
 
 
@@ -833,6 +838,7 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
     private MesProBatchRecordExecutionSignatureService executionSignatureService;
 
     @MockitoBean private cn.iocoder.yudao.module.system.api.permission.ApprovalAuthorityApi approvalAuthority;
+    @MockitoBean private cn.iocoder.yudao.module.mes.service.pro.productionrelease.pqc.MesPqcReleaseCorrectionService marketCorrectionService;
     @MockitoBean private MesEdhrReleaseSubmissionMaterialAssociationStore submissionMaterials;
     @MockitoBean private MesEdhrReleaseMaterialSelectionRegistry materialSelections;
     @MockitoBean private cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseMaterialGateReceiptPort materialReceipts;
@@ -1002,6 +1008,8 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
     @BeforeEach
     void setUpDossierRequirementDefaults() {
         TenantContextHolder.setTenantId(0L);
+        when(permissionApi.hasAnyPermissions(any(), org.mockito.ArgumentMatchers.eq("mes:pro-edhr-release:reject"))).thenReturn(true);
+        when(permissionApi.hasAnyPermissions(any(), org.mockito.ArgumentMatchers.eq("mes:pro-edhr-release:withdraw"))).thenReturn(true);
         installLegacyReleaseUnitPorts();
         mockDossierRequirementState(false, false, false, false, "dossier-hash-all-false");
         mockReleaseCompletenessSourcesAsNotApplicable();
@@ -1896,7 +1904,7 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
                     .setBatchRecordEvidenceIds(List.of()).setProcessInspectionEvidenceIds(List.of())
                     .setProcessInspectionFormCenterInstanceIds(List.of()).setLossReportEvidenceIds(List.of())
                     .setLossReportFormCenterInstanceIds(List.of()).setLossReportFieldAuditIds(List.of())
-                    .setLossReportFieldAuditHeadHashes(List.of()).setReportUploadTasks(List.of());
+                    .setLossReportFieldAuditHeadHashes(List.of());
             actualApplications.updateById(new cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationDO()
                     .setId(application.getId()).setDossierSummaryJson(JSON.toJSONString(pqcReceipt)));
             var storedPqcApplication = actualApplications.selectById(application.getId());
@@ -2047,7 +2055,8 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
                 jdbc,actualActiveOrders,actualEvents,signatures.query,null,actualApplications,releaseTransactionMapper,actualOperationAudits);
         org.springframework.test.util.ReflectionTestUtils.setField(detailService, "workTaskMapper", actualWorkTasks);
         org.springframework.test.util.ReflectionTestUtils.setField(detailService, "batchExecutionMapper", batchExecutionMapper);
-        var batchDetails = new MesProEdhrBatchActiveOrderDetailService(null,actualActiveOrders,detailService);
+        var batchDetails = new MesProEdhrBatchActiveOrderDetailService(null,
+                org.mockito.Mockito.mock(MesMarketReleaseAccess.class),actualActiveOrders,detailService);
         var evidenceReader = new cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesActiveOrderSignatureEvidenceService(
                 detailService,null,batchDetails,signatures.query,null,null,null,null,null,
                 actualApplications,releaseTransactionMapper,actualWorkTasks,batchExecutionMapper,
@@ -2576,6 +2585,109 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
                 .capturedBy(10001L)
                 .capturedAt(LocalDateTime.now())
                 .build());
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"false,false", "true,false", "false,true", "true,true"})
+    @org.springframework.test.context.jdbc.Sql(statements = {
+            "DELETE FROM mes_pro_process_pool_active_order_release_application WHERE id IN (5071,5072)",
+            "DELETE FROM mes_pro_edhr_work_task WHERE id IN (7971,7972)"},
+            executionPhase = org.springframework.test.context.jdbc.Sql.ExecutionPhase.AFTER_TEST_METHOD)
+    @org.springframework.test.context.jdbc.SqlMergeMode(org.springframework.test.context.jdbc.SqlMergeMode.MergeMode.MERGE)
+    void managedNegativeDecisionPersistsOrRollsBackOriginalGraph(boolean withdraw, boolean failHandoff) {
+        var batch = insertClosedBatch("MARKET-NEGATIVE");
+        var pending = insertPendingApprovalRelease(batch);
+        var transaction = releaseTransactionMapper.selectById(pending.getReleaseTransactionId());
+        var task = releaseApprovalTask(transaction.getId(), withdraw ? 7972L : 7971L).setTaskCode("MARKET-NEGATIVE-" + withdraw)
+                .setBatchExecutionId(batch.getId()).setWorkOrderId(batch.getWorkOrderId())
+                .setCandidateSourceType("ROLE_GROUP").setCandidateSourceId(77L).setCandidateUserSnapshot("10001")
+                .setResponsibilitySourceKey("MES_MANAGEMENT_REPRESENTATIVE").setStatus("TODO")
+                .setAssigneeUserId(10001L).setActionUrl("/mes/production-release/manager");
+        actualWorkTasks.insert(task);
+        var application = new cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationDO()
+                .setId(withdraw ? 5072L : 5071L).setActiveOrderId(withdraw ? 8072L : 8071L).setWorkOrderId(batch.getWorkOrderId())
+                .setWorkOrderCode(batch.getWorkOrderCode()).setRouteId(batch.getRouteId()).setRouteVersionId(1L)
+                .setBatchCode(batch.getBatchCode()).setBatchExecutionId(batch.getId())
+                .setReleaseTransactionId(transaction.getId()).setReleaseApprovalWorkTaskId(task.getId())
+                .setPqcReleaseWorkTaskId(withdraw ? 9472L : 9471L).setPqcDecision("APPROVE").setAppliedBy(10001L)
+                .setSourceSnapshotHash("negative-formal-source").setVersion(5)
+                .setApplicationStatus("MANAGER_RELEASE_PENDING").setRequestIdempotencyKey("negative-request-" + withdraw)
+                .setBusinessIdempotencyKey("negative-business-" + withdraw);
+        application.setTenantId(0L);
+        actualApplications.insert(application);
+        var realManager = new cn.iocoder.yudao.module.mes.service.pro.productionrelease.manager.MesProductionReleaseManagerApprovalServiceImpl(
+                actualApplications, releaseTransactionMapper, terminalEventMapper, actualWorkTasks,
+                batchExecutionMapper, batchTaskMapper,
+                org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.productionrelease.manager.MesProductionReleaseSignoffService.class),
+                org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.productionrelease.manager.MesProductionReleaseBusinessReadinessService.class),
+                org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderReleaseAuditRecorder.class));
+        when(managerApprovalService.isManagedReleaseTransaction(any())).thenAnswer(inv -> realManager.isManagedReleaseTransaction(inv.getArgument(0)));
+        when(managerApprovalService.prepareNegativeDecision(any())).thenAnswer(inv -> realManager.prepareNegativeDecision(inv.getArgument(0)));
+        org.mockito.Mockito.doAnswer(inv -> { realManager.completeNegativeDecision(inv.getArgument(0), inv.getArgument(1)); return null; })
+                .when(managerApprovalService).completeNegativeDecision(any(), any());
+        when(executionSignatureService.recordBatchActionSignature(any(), any(), any(), any(), any(), any(), any())).thenReturn(99671L);
+        org.mockito.Mockito.doAnswer(inv -> { actualWorkTasks.updateById(new MesProEdhrWorkTaskDO().setId(task.getId()).setStatus("DONE").setReason("REJECT")); return null; })
+                .when(workTaskService).completeReleaseApprovalTask(any(), any(), any(), any());
+        org.mockito.Mockito.doAnswer(inv -> { actualWorkTasks.updateById(new MesProEdhrWorkTaskDO().setId(task.getId()).setStatus("CANCELED")); return null; })
+                .when(workTaskService).cancelReleaseApprovalTask(any(), any());
+        when(marketCorrectionService.create(any(), any(), any())).thenReturn(9571L);
+        when(nonconformanceReviewService.create(any())).thenReturn(
+                new cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrNonconformanceReviewRespVO()
+                        .setId(9671L).setActiveOrderId(application.getActiveOrderId()).setBatchExecutionId(batch.getId())
+                        .setWorkOrderId(batch.getWorkOrderId()).setQaReviewerUserId(10002L).setSourceType("ACTIVE_ORDER")
+                        .setSourceId(application.getActiveOrderId()).setReviewStatus("PENDING_REVIEW"));
+        if (failHandoff) {
+            if (withdraw) doThrow(new IllegalStateException("正式补正交接失败")).when(marketCorrectionService).create(any(), any(), any());
+            else doThrow(new IllegalStateException("正式QA交接失败")).when(nonconformanceReviewService).create(any());
+        }
+        try (var security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(10001L);
+            Runnable action = () -> {
+                if (withdraw) releaseService.withdraw(new MesProEdhrReleaseWithdrawReqVO()
+                        .setReleaseTransactionId(transaction.getId()).setWorkTaskId(task.getId())
+                        .setExpectedVersion(transaction.getVersion()).setIdempotencyKey("managed-negative")
+                        .setWithdrawReason("资料需要补正"));
+                else releaseService.reject(new MesProEdhrReleaseRejectReqVO()
+                        .setReleaseTransactionId(transaction.getId()).setWorkTaskId(task.getId())
+                        .setExpectedVersion(transaction.getVersion()).setIdempotencyKey("managed-negative")
+                        .setQaReviewerUserId(10002L).setPassword("fixture-only").setRejectReason("质量证据不充分"));
+            };
+            if (failHandoff) assertThrows(IllegalStateException.class, action::run);
+            else { action.run(); action.run(); }
+        }
+        if (failHandoff) {
+            assertEquals("PENDING_APPROVAL", releaseTransactionMapper.selectById(transaction.getId()).getReleaseStatus());
+            assertEquals(transaction.getVersion(), releaseTransactionMapper.selectById(transaction.getId()).getVersion());
+            assertEquals("MANAGER_RELEASE_PENDING", actualApplications.selectById(application.getId()).getApplicationStatus());
+            assertEquals(5, actualApplications.selectById(application.getId()).getVersion());
+            assertEquals("TODO", actualWorkTasks.selectById(task.getId()).getStatus());
+            assertEquals(null, releaseDecisionMapper.selectByTransactionIdForUpdate(transaction.getId()));
+            verify(outcomeNotifications, never()).scheduleMarketNegative(any(), any(), any(), any(), org.mockito.ArgumentMatchers.anyBoolean(), any());
+            return;
+        }
+        var persisted = releaseTransactionMapper.selectById(transaction.getId());
+        assertEquals(withdraw ? "WITHDRAWN" : "REJECTED", persisted.getReleaseStatus());
+        assertEquals(transaction.getVersion() + 1, persisted.getVersion());
+        assertEquals(withdraw ? "MARKET_RELEASE_WITHDRAWN" : "MARKET_RELEASE_REJECTED",
+                actualApplications.selectById(application.getId()).getApplicationStatus());
+        assertEquals("APPROVE", actualApplications.selectById(application.getId()).getPqcDecision());
+        assertEquals(withdraw ? "CANCELED" : "DONE", actualWorkTasks.selectById(task.getId()).getStatus());
+        var decision = releaseDecisionMapper.selectById(persisted.getReleaseDecisionId());
+        assertEquals(application.getId(), decision.getReleaseApplicationId());
+        if (withdraw) {
+            verify(marketCorrectionService).create(any(), org.mockito.ArgumentMatchers.eq(10001L), org.mockito.ArgumentMatchers.eq("资料需要补正"));
+            verify(nonconformanceReviewService, never()).create(any());
+            verify(executionSignatureService, never()).recordBatchActionSignature(any(), any(), any(), any(), any(), any(), any());
+        } else {
+            verify(nonconformanceReviewService).create(argThat(req -> application.getActiveOrderId().equals(req.getActiveOrderId())
+                    && batch.getId().equals(req.getBatchExecutionId()) && Long.valueOf(10002L).equals(req.getQaReviewerUserId())
+                    && req.getRemark().equals("上市放行不予批准；原放行事务:" + transaction.getId())));
+            verify(marketCorrectionService, never()).create(any(), any(), any());
+            assertEquals(99671L, JSON.parseObject(decision.getAuditSnapshotJson()).getLong("signatureId"));
+            assertEquals(decision.getPayloadHash(), decision.getSignoffEvidenceHash());
+        }
+        verify(outcomeNotifications).scheduleMarketNegative(any(), any(), any(), org.mockito.ArgumentMatchers.eq(10001L),
+                org.mockito.ArgumentMatchers.eq(!withdraw), any());
     }
 
     private MesProEdhrReleaseRespVO insertPendingApprovalRelease(MesProEdhrBatchExecutionDO batch) {

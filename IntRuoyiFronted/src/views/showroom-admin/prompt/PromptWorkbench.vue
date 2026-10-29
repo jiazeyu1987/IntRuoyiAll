@@ -23,7 +23,7 @@
           <section class="showroom-prompt-workbench__panel">
             <div class="showroom-prompt-workbench__panel-header">
               <div>
-                <h3>当前生效版本</h3>
+
                 <p class="showroom-prompt-workbench__panel-tip">
                   当前产品封面生成默认使用此版本提示词。
                 </p>
@@ -66,7 +66,7 @@
           <section class="showroom-prompt-workbench__panel">
             <div class="showroom-prompt-workbench__panel-header">
               <div>
-                <h3>保存新版本</h3>
+
                 <p class="showroom-prompt-workbench__panel-tip">
                   每次保存都会生成新版本，不会覆盖旧版本。
                 </p>
@@ -117,64 +117,77 @@
         <section class="showroom-prompt-workbench__panel">
           <div class="showroom-prompt-workbench__panel-header">
             <div>
-              <h3>历史版本</h3>
+
               <p class="showroom-prompt-workbench__panel-tip">
                 这里只读查看历史版本，不支持直接用旧版本重新生成图片。
               </p>
             </div>
           </div>
 
-          <el-table :data="historyRows" row-key="promptVersionId" empty-text="暂无提示词历史版本">
-            <el-table-column label="版本" width="100">
-              <template #default="{ row }">
-                <div class="showroom-prompt-workbench__version-cell">
-                  <strong>V{{ row.versionNo }}</strong>
-                  <el-tag v-if="row.current" size="small" type="success">当前</el-tag>
-                </div>
-              </template>
-            </el-table-column>
-            <el-table-column label="版本说明" min-width="220" show-overflow-tooltip>
-              <template #default="{ row }">
-                {{ row.changeNote || '未填写版本说明' }}
-              </template>
-            </el-table-column>
-            <el-table-column label="占位符" min-width="180">
-              <template #default="{ row }">
-                <div class="showroom-prompt-workbench__placeholder-tags">
-                  <el-tag
-                    v-for="placeholderCode in row.placeholderCodes"
-                    :key="`${row.promptVersionId}-${placeholderCode}`"
-                    type="info"
-                  >
-                    {{ formatPlaceholder(placeholderCode) }}
-                  </el-tag>
-                </div>
-              </template>
-            </el-table-column>
-            <el-table-column label="使用次数" width="100" prop="useCount" />
-            <el-table-column label="最近使用时间" min-width="180">
-              <template #default="{ row }">
-                {{ formatDateTime(row.lastUsedAt, '尚未使用') }}
-              </template>
-            </el-table-column>
-            <el-table-column label="创建人" width="140">
-              <template #default="{ row }">
-                {{ resolveCreator(row.creator) }}
-              </template>
-            </el-table-column>
-            <el-table-column label="创建时间" min-width="180">
-              <template #default="{ row }">
-                {{ formatDateTime(row.createTime) }}
-              </template>
-            </el-table-column>
-            <el-table-column label="操作" width="120" fixed="right">
-              <template #default="{ row }">
-                <el-button link type="primary" @click="openHistoryPreview(row)">
-                  查看内容
-                </el-button>
-              </template>
-            </el-table-column>
-          </el-table>
+          <UnifiedListTemplate
+            table-key="showroom.prompt.versions"
+            :rows="historyRows"
+            class="unified-list-template--contained"
+            data-list-viewport="embedded"
+          >
+            <template #table="{ rows: standardRows }">
+              <el-table
+                stripe
+                border
+                :data="standardRows"
+                row-key="promptVersionId"
+                empty-text="暂无提示词历史版本"
+              >
+                <el-table-column label="版本" width="100">
+                  <template #default="{ row }">
+                    <div class="showroom-prompt-workbench__version-cell">
+                      <strong>V{{ row.versionNo }}</strong>
+                      <el-tag v-if="row.current" size="small" type="success">当前</el-tag>
+                    </div>
+                  </template>
+                </el-table-column>
+                <el-table-column label="版本说明" min-width="220" show-overflow-tooltip>
+                  <template #default="{ row }">
+                    {{ row.changeNote || '未填写版本说明' }}
+                  </template>
+                </el-table-column>
+                <el-table-column label="占位符" min-width="180">
+                  <template #default="{ row }">
+                    <div class="showroom-prompt-workbench__placeholder-tags">
+                      <el-tag
+                        v-for="placeholderCode in row.placeholderCodes"
+                        :key="`${row.promptVersionId}-${placeholderCode}`"
+                        type="info"
+                      >
+                        {{ formatPlaceholder(placeholderCode) }}
+                      </el-tag>
+                    </div>
+                  </template>
+                </el-table-column>
+                <el-table-column label="使用次数" width="100" prop="useCount" />
+                <el-table-column label="最近使用时间" min-width="180">
+                  <template #default="{ row }">
+                    {{ formatDateTime(row.lastUsedAt, '尚未使用') }}
+                  </template>
+                </el-table-column>
+                <el-table-column label="创建人" width="140">
+                  <template #default="{ row }">
+                    {{ resolveCreator(row.creator) }}
+                  </template>
+                </el-table-column>
+                <el-table-column label="创建时间" min-width="180">
+                  <template #default="{ row }">
+                    {{ formatDateTime(row.createTime) }}
+                  </template>
+                </el-table-column>
+                <el-table-column label="操作" width="120" fixed="right">
+                  <template #default="{ row }">
+                    <el-button link type="primary" @click="openHistoryPreview(row)">查看内容</el-button>
+                  </template>
+                </el-table-column>
+              </el-table>
+            </template>
+          </UnifiedListTemplate>
         </section>
 
         <el-dialog
@@ -221,6 +234,7 @@
 </template>
 
 <script setup lang="ts">
+import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import {
   ShowroomAdminApi,
   type ShowroomImagePromptCurrentRespVO,
@@ -349,16 +363,24 @@ onMounted(() => {
 
 <style scoped>
 .showroom-prompt-workbench {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: minmax(360px, 0.95fr) minmax(0, 1.05fr);
+  height: calc(100dvh - var(--top-tool-height) - var(--tags-view-height) - var(--app-content-padding) - 37px);
+  min-height: 0;
+  overflow: hidden;
   gap: 16px;
 }
 
 .showroom-prompt-workbench__grid {
   display: grid;
-  grid-template-columns: minmax(360px, 0.95fr) minmax(0, 1.05fr);
+  grid-template-columns: minmax(0, 1fr);
+  min-height: 0;
+  overflow: auto;
   gap: 16px;
 }
+.showroom-prompt-workbench > .el-alert { grid-column:1 / -1; }
+.showroom-prompt-workbench > .showroom-prompt-workbench__panel { display:flex;flex-direction:column;min-width:0;min-height:0; }
+.showroom-prompt-workbench > .showroom-prompt-workbench__panel > .unified-list-template { flex:1;height:auto;min-height:0; }
 
 .showroom-prompt-workbench__panel {
   padding: 20px;
@@ -432,6 +454,7 @@ onMounted(() => {
 }
 
 @media (max-width: 1100px) {
+  .showroom-prompt-workbench { grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr) minmax(0,1fr); }
   .showroom-prompt-workbench__grid {
     grid-template-columns: 1fr;
   }

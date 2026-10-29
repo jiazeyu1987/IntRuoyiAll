@@ -195,6 +195,33 @@ public class MesManagerReleaseCompletedActorResolver {
                 && (review.getBatchExecutionId() == null || Objects.equals(application.getBatchExecutionId(), review.getBatchExecutionId()))
                 && Objects.equals(application.getWorkOrderId(), review.getWorkOrderId())
                 && review.getClosedAt() != null && positive(review.getQaUserId()), taskId, "formal QA closure is missing or mismatched");
+        return requireQaSignature(taskId, review);
+    }
+
+    /** Exact QA review decision for its own handoff; no application or latest-row inference. */
+    public cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrNonconformanceReviewDO readVerifiedQaReview(
+            Long taskId, Long reviewId) {
+        Long tenantId = TenantContextHolder.getRequiredTenantId();
+        require(positive(reviewId), taskId, "QA review identity missing");
+        var review = nonconformanceReviews.selectOne(new LambdaQueryWrapperX<cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrNonconformanceReviewDO>()
+                .eq(cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrNonconformanceReviewDO::getId, reviewId)
+                .eq(cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrNonconformanceReviewDO::getTenantId, tenantId));
+        require(review != null && Objects.equals(reviewId, review.getId()) && Objects.equals(tenantId, review.getTenantId())
+                && !Boolean.TRUE.equals(review.getDeleted()) && "closed".equals(review.getReviewStatus())
+                && Set.of("concession_release", "rework", "void").contains(review.getDisposition())
+                && review.getClosedAt() != null && positive(review.getQaUserId()), taskId, "QA review decision missing or mismatched");
+        String hash = cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesEdhrQaDispositionAggregateHash.build(review,
+                review.getDisposition(), review.getReviewMaterialUrl(), review.getReviewMaterialFileId(),
+                review.getReviewMaterialsJson(), review.getReviewOpinion(), review.getQaUserId());
+        require(Objects.equals(hash, JsonUtils.parseTree(review.getTraceSnapshotJson()).path("qaSignatureSnapshotJson")
+                .path("aggregateHash").asText()), taskId, "QA decision content differs from the signed aggregate");
+        return requireQaSignature(taskId, review);
+    }
+
+    private cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrNonconformanceReviewDO requireQaSignature(
+            Long taskId, cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrNonconformanceReviewDO review) {
+        Long tenantId = TenantContextHolder.getRequiredTenantId();
+        String disposition = review.getDisposition();
         var actor = users.selectById(review.getQaUserId());
         require(actor != null && Objects.equals(review.getQaUserId(), actor.getId())
                 && Objects.equals(tenantId, actor.getTenantId()) && !Boolean.TRUE.equals(actor.getDeleted()),

@@ -15,6 +15,10 @@ public class MesDvMachineryImportRespVO {
     @Schema(description = "创建成功的设备编码数组", requiredMode = Schema.RequiredMode.REQUIRED)
     private List<String> createCodes;
 
+    private int workshopCreateCount;
+    private int workshopUpdateCount;
+    private int workshopReuseCount;
+
     @Schema(description = "更新成功的设备编码数组", requiredMode = Schema.RequiredMode.REQUIRED)
     private List<String> updateCodes;
 

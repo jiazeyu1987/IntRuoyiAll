@@ -5,7 +5,7 @@ const ts = require('typescript')
 const vm = require('node:vm')
 
 const source = fs.readFileSync('src/views/dcc/controlled-file/basic-data/components/ProductCatalogTabPanel.vue', 'utf8')
-const handler = source.slice(source.indexOf('const submitProjectProductRequest ='), source.indexOf('const handleProjectProductAction ='))
+const handler = source.slice(source.indexOf('const submitProjectProductRequest ='), source.indexOf('const handleProjectProductRetry ='))
 const reviewer = { reviewContract: 'ROLE_SINGLE_REVIEW_V1', roleId: '9223372036854775706', roleCode: 'dcc_project_reviewer', roleName: '项目审核员', canReview: false, candidates: [{ userId: '9223372036854775707', username: 'quality', nickname: '质量审核' }, { userId: '8', username: 'review-b', nickname: '审核乙' }] }
 const attrs = { targetMarkets: ['CE'], licenseHolder: 'Y', actualManufacturer: 'N', documentTransfer: 'N' }
 function host({ confirm = async () => {}, configuration = async () => ({ ...reviewer }), rejectedId } = {}) {

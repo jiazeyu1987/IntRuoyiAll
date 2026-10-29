@@ -114,6 +114,28 @@ public class MesTeamLeaderActiveOrderReleaseApplicationServiceImpl
         return batch.getId();
     }
 
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public MesTeamLeaderActiveOrderReleaseApplicationResult applyCorrection(Long leaderUserId,
+            MesTeamLeaderActiveOrderReleaseApplyCommand command, Long rejectedApplicationId, Long batchExecutionId) {
+        gxpAuditService.acquireLedgerLock();
+        Long formalBatchId = requirePersistedP2BatchExecutionId(leaderUserId, command);
+        if (!Objects.equals(formalBatchId, batchExecutionId)) {
+            throw new IllegalStateException("补正申请与本轮P2正式批次不一致");
+        }
+        var previous = applicationMapper.selectByIdForUpdate(rejectedApplicationId);
+        if (!cn.iocoder.yudao.module.mes.service.pro.productionrelease.pqc.MesPqcReleaseCorrectionService.isCorrectable(previous)
+                || !Objects.equals(previous.getAppliedBy(), leaderUserId)
+                || !Objects.equals(previous.getActiveOrderId(), command.getActiveOrderId())
+                || !Objects.equals(previous.getBatchExecutionId(), batchExecutionId))
+            throw new IllegalStateException("补正重提缺少原申请人的正式PQC驳回或上市撤回回执");
+        Map<String, Object> affectedBefore = affectedStates.capture(batchExecutionId, null, null, null, true);
+        var generated = generationService.generateCorrection(leaderUserId, command, rejectedApplicationId);
+        var bound = bindBatchExecution(generated, batchExecutionId);
+        appendReleaseApplyGxpAudit(command.getActiveOrderId(), bound, null, "applyCorrection", affectedBefore);
+        return bound;
+    }
+
     private MesTeamLeaderActiveOrderReleaseApplicationResult bindBatchExecution(
             MesTeamLeaderActiveOrderReleaseApplicationResult application, Long batchExecutionId) {
         if (application.getBatchExecutionId() != null) {

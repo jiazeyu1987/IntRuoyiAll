@@ -204,7 +204,7 @@ public interface MesProcessPoolActiveOrderReleaseApplicationMapper
     @Update("UPDATE mes_pro_process_pool_active_order_release_application SET application_status = #{closureStatus}, qa_closure_review_id = #{reviewId}, "
             + "version = version + 1 WHERE id = #{id} AND deleted = 0 AND version = #{expectedVersion} "
             + "AND #{reviewId} > 0 AND #{closureStatus} IN ('NONCONFORMANCE_REWORK','NONCONFORMANCE_VOID') "
-            + "AND application_status IN ('PQC_RELEASE_PENDING','REPORT_UPLOAD_PENDING','MANAGER_RELEASE_PENDING','RELEASED')")
+            + "AND application_status IN ('PQC_RELEASE_PENDING','REPORT_UPLOAD_PENDING','MANAGER_RELEASE_PENDING','MARKET_RELEASE_REJECTED','RELEASED')")
     int closeLifecycleFromNonconformance(@Param("id") Long id, @Param("expectedVersion") Integer expectedVersion,
                                          @Param("closureStatus") String closureStatus, @Param("reviewId") Long reviewId);
 
@@ -237,7 +237,8 @@ public interface MesProcessPoolActiveOrderReleaseApplicationMapper
             throw new IllegalArgumentException("正式批次编号无效");
         }
         return selectOne(new LambdaQueryWrapperX<MesProcessPoolActiveOrderReleaseApplicationDO>()
-                .eq(MesProcessPoolActiveOrderReleaseApplicationDO::getBatchExecutionId, batchExecutionId));
+                .eq(MesProcessPoolActiveOrderReleaseApplicationDO::getBatchExecutionId, batchExecutionId)
+                .orderByDesc(MesProcessPoolActiveOrderReleaseApplicationDO::getId).last("LIMIT 1"));
     }
 
     default MesProcessPoolActiveOrderReleaseApplicationDO selectLatestByActiveOrderId(Long activeOrderId) {
@@ -323,10 +324,19 @@ public interface MesProcessPoolActiveOrderReleaseApplicationMapper
         if (batchExecutionIds == null || batchExecutionIds.isEmpty()) {
             return Collections.emptyList();
         }
-        return selectList(new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<MesProcessPoolActiveOrderReleaseApplicationDO>()
-                .in("current_batch_execution_id", batchExecutionIds)
-                .orderByDesc("id"));
+        return selectLatestRoundsByBatchExecutionIds(batchExecutionIds,
+                cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId());
     }
+
+    /** Latest round includes an applicant's outstanding rejection, while historical decisions stay immutable. */
+    @Select({"<script>", "SELECT a.* FROM mes_pro_process_pool_active_order_release_application a",
+            "WHERE a.deleted=0 AND a.tenant_id=#{tenantId} AND a.batch_execution_id IN",
+            "<foreach collection='batchExecutionIds' item='batchId' open='(' separator=',' close=')'>#{batchId}</foreach>",
+            "AND a.id=(SELECT MAX(latest_round.id) FROM mes_pro_process_pool_active_order_release_application latest_round",
+            "WHERE latest_round.tenant_id=#{tenantId} AND latest_round.deleted=0",
+            "AND latest_round.batch_execution_id=a.batch_execution_id) ORDER BY a.id DESC", "</script>"})
+    List<MesProcessPoolActiveOrderReleaseApplicationDO> selectLatestRoundsByBatchExecutionIds(
+            @Param("batchExecutionIds") Collection<Long> batchExecutionIds, @Param("tenantId") Long tenantId);
 
     default List<MesProcessPoolActiveOrderReleaseApplicationDO> selectListForPqcReleasePage(
             String workOrderCode, String batchCode) {
@@ -352,6 +362,8 @@ public interface MesProcessPoolActiveOrderReleaseApplicationMapper
     /**
      * PQC release list query. The candidate, derived view status and pagination are all pushed into SQL so the
      * service does not load the tenant's complete release history before slicing the requested page.
+     * Resolve the next strictly later application once per application, not once per candidate review.
+     * Equal application timestamps deliberately share the same review interval.
      */
     @org.apache.ibatis.annotations.Select({
             "<script>",
@@ -369,35 +381,22 @@ public interface MesProcessPoolActiveOrderReleaseApplicationMapper
             "       AND t.task_type = 'PQC_PRODUCTION_RELEASE'",
             "       AND t.business_scope_type = 'RELEASE_APPLICATION'",
             "       AND t.business_scope_id = a.id",
+            "LEFT JOIN mes_pro_process_pool_active_order_release_application next_round ON next_round.id = (",
+            "  SELECT next_a.id FROM mes_pro_process_pool_active_order_release_application next_a",
+            "  WHERE next_a.tenant_id = #{tenantId} AND next_a.deleted = 0",
+            "    AND next_a.active_order_id = a.active_order_id AND next_a.applied_at &gt; a.applied_at",
+            "  ORDER BY next_a.applied_at, next_a.id LIMIT 1",
+            ")",
             "LEFT JOIN mes_pro_edhr_nonconformance_review r",
-            "       ON r.source_type = 'ACTIVE_ORDER'",
-            "      AND r.source_id = a.active_order_id",
-            "      AND r.active_order_id = a.active_order_id",
-            "      AND r.deleted = 0 AND r.tenant_id = #{tenantId}",
-            "      AND r.frozen_at &gt;= a.applied_at",
-            "      AND NOT EXISTS (",
-            "          SELECT 1 FROM mes_pro_process_pool_active_order_release_application next_a",
-            "          WHERE next_a.active_order_id = a.active_order_id",
-            "            AND next_a.deleted = 0 AND next_a.tenant_id = #{tenantId}",
-            "            AND next_a.applied_at &gt; a.applied_at",
-            "            AND next_a.applied_at &lt;= r.frozen_at",
-            "      )",
-            "      AND NOT EXISTS (",
-            "          SELECT 1 FROM mes_pro_edhr_nonconformance_review newer_r",
-            "          WHERE newer_r.source_type = 'ACTIVE_ORDER'",
-            "            AND newer_r.source_id = a.active_order_id",
-            "            AND newer_r.active_order_id = a.active_order_id",
-            "            AND newer_r.deleted = 0 AND newer_r.tenant_id = #{tenantId}",
-            "            AND newer_r.frozen_at &gt;= a.applied_at",
-            "            AND NOT EXISTS (",
-            "                SELECT 1 FROM mes_pro_process_pool_active_order_release_application newer_a",
-            "                WHERE newer_a.active_order_id = a.active_order_id",
-            "                  AND newer_a.deleted = 0 AND newer_a.tenant_id = #{tenantId}",
-            "                  AND newer_a.applied_at &gt; a.applied_at",
-            "                  AND newer_a.applied_at &lt;= newer_r.frozen_at",
-            "            )",
-            "            AND newer_r.id &gt; r.id",
-            "      )",
+            "       ON r.id = (",
+            "          SELECT round_r.id FROM mes_pro_edhr_nonconformance_review round_r",
+            "          WHERE round_r.source_type = 'ACTIVE_ORDER'",
+            "            AND round_r.source_id = a.active_order_id AND round_r.active_order_id = a.active_order_id",
+            "            AND round_r.deleted = 0 AND round_r.tenant_id = #{tenantId}",
+            "            AND round_r.frozen_at &gt;= a.applied_at",
+            "            AND (next_round.id IS NULL OR round_r.frozen_at &lt; next_round.applied_at)",
+            "          ORDER BY round_r.id DESC LIMIT 1",
+            "       )",
             "WHERE a.tenant_id = #{tenantId} AND a.deleted = 0",
             "  AND CONCAT(',', REPLACE(COALESCE(t.candidate_user_snapshot, ''), ' ', ''), ',')",
             "      LIKE CONCAT('%,', #{actorUserId}, ',%')",
@@ -464,6 +463,41 @@ public interface MesProcessPoolActiveOrderReleaseApplicationMapper
             @Param("batchCode") String batchCode,
             @Param("applicationId") Long applicationId,
             @Param("pqcReleaseWorkTaskId") Long pqcReleaseWorkTaskId);
+
+    /** Page decoration deliberately retains its historical frozen/closed/create timestamp semantics. */
+    @Select({
+            "<script>",
+            "SELECT a.id AS application_id, r.id, r.review_status, r.disposition, r.nonconformance_reason, r.closed_at",
+            "FROM mes_pro_process_pool_active_order_release_application a",
+            "LEFT JOIN mes_pro_process_pool_active_order_release_application next_round ON next_round.id = (",
+            "  SELECT next_a.id FROM mes_pro_process_pool_active_order_release_application next_a",
+            "  WHERE next_a.tenant_id = #{tenantId} AND next_a.deleted = 0",
+            "    AND next_a.active_order_id = a.active_order_id AND next_a.applied_at &gt; a.applied_at",
+            "  ORDER BY next_a.applied_at, next_a.id LIMIT 1",
+            ")",
+            "INNER JOIN mes_pro_edhr_nonconformance_review r ON r.id = (",
+            "  SELECT candidate.id FROM mes_pro_edhr_nonconformance_review candidate",
+            "  WHERE candidate.tenant_id = #{tenantId} AND candidate.deleted = 0",
+            "    AND candidate.source_type = 'ACTIVE_ORDER' AND candidate.active_order_id = a.active_order_id",
+            "    AND (a.applied_at IS NULL OR COALESCE(candidate.frozen_at, candidate.closed_at, candidate.create_time) &gt;= a.applied_at)",
+            "    AND COALESCE(candidate.frozen_at, candidate.closed_at, candidate.create_time) IS NOT NULL",
+            "    AND (next_round.id IS NULL OR COALESCE(candidate.frozen_at, candidate.closed_at, candidate.create_time) &lt; next_round.applied_at)",
+            "  ORDER BY candidate.id DESC LIMIT 1",
+            ")",
+            "WHERE a.tenant_id = #{tenantId} AND a.deleted = 0 AND a.id IN",
+            "<foreach collection='applicationIds' item='id' open='(' separator=',' close=')'>#{id}</foreach>",
+            "</script>"
+    })
+    List<PqcApplicationReview> selectPqcPageRoundReviews(@Param("applicationIds") Collection<Long> applicationIds,
+                                                       @Param("tenantId") Long tenantId);
+
+    class PqcApplicationReview extends cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrNonconformanceReviewDO {
+        private Long applicationId;
+
+        public Long getApplicationId() { return applicationId; }
+
+        public void setApplicationId(Long applicationId) { this.applicationId = applicationId; }
+    }
 
     default int deleteByActiveOrderId(Long activeOrderId) {
         return activeOrderId == null ? 0 : physicalDeleteByActiveOrderId(activeOrderId);

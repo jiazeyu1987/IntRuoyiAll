@@ -17,6 +17,15 @@ import java.util.List;
 @Mapper
 public interface MdmEnterpriseMapper extends BaseMapperX<MdmEnterpriseDO> {
 
+    @Select("SELECT id FROM system_tenant WHERE id = #{tenantId} FOR UPDATE")
+    @InterceptorIgnore(tenantLine = "true")
+    Long lockTenantForCompanyCodeGeneration(@Param("tenantId") Long tenantId);
+
+    @Select("SELECT enterprise_code FROM mdm_enterprise "
+            + "WHERE tenant_id = #{tenantId} AND enterprise_code LIKE 'Company-%'")
+    @InterceptorIgnore(tenantLine = "true")
+    List<String> selectCompanyCodesForGeneration(@Param("tenantId") Long tenantId);
+
     default PageResult<MdmEnterpriseDO> selectPage(MdmEnterprisePageReqVO reqVO) {
         String keyword = StrUtil.trimToNull(reqVO.getKeyword());
         LambdaQueryWrapperX<MdmEnterpriseDO> wrapper = new LambdaQueryWrapperX<MdmEnterpriseDO>()

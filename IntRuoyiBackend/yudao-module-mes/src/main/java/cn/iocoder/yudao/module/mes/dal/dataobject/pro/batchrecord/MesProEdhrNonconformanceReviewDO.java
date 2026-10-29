@@ -74,6 +74,8 @@ public class MesProEdhrNonconformanceReviewDO extends BaseDO {
 
     private Long qaUserId;
 
+    private Long qaReviewerUserId;
+
     private LocalDateTime frozenAt;
 
     private LocalDateTime closedAt;

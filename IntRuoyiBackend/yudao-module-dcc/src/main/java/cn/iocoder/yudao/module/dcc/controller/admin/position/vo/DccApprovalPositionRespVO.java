@@ -15,4 +15,6 @@ public class DccApprovalPositionRespVO {
     private String remark;
     private LocalDateTime createTime;
     private List<DccPositionAssignmentRespVO> assignments;
+    @io.swagger.v3.oas.annotations.media.Schema(description = "当前后端支持执行的分配类型，用于配置入口能力校验")
+    private List<String> supportedAssignmentTypes = List.of("USER", "POST", "DIRECT_SUPERVISOR", "DEPT_LEADER");
 }

@@ -213,7 +213,8 @@
       </template>
     </UnifiedListTemplate>
 
-    <Dialog title="电子批记录变更详情" v-model="detailDialogVisible" width="860px">
+    <Dialog class="edhr-detail-surface" title="电子批记录变更详情" v-model="detailDialogVisible" width="860px" :fullscreen="false">
+      <template #title><div class="edhr-detail-heading"><h2>电子批记录变更详情</h2><p>查看变更内容、状态流转与关联记录</p></div></template>
       <el-tabs v-model="detailActiveTab" class="edhr-form-trace-change__detail-tabs">
         <el-tab-pane label="批记录表单" name="recordForm">
           <div class="edhr-form-trace-change__record-card">
@@ -232,20 +233,39 @@
                 查看批记录表单
               </el-button>
             </div>
-            <el-descriptions :column="2" border class="edhr-form-trace-change__detail">
-              <el-descriptions-item label="变更编号">
-                {{ selectedChange?.changeCode || '--' }}
-              </el-descriptions-item>
-              <el-descriptions-item label="状态">
-                {{ resolveChangeStatusLabel(selectedChange?.changeStatus) }}
-              </el-descriptions-item>
-              <el-descriptions-item label="批次ID">
-                {{ formatObjectId(selectedChange?.batchExecutionId) }}
-              </el-descriptions-item>
-              <el-descriptions-item label="执行ID">
-                {{ formatObjectId(selectedChange?.executionId) }}
-              </el-descriptions-item>
-            </el-descriptions>
+            <div class="edhr-form-trace-change__detail">
+              <dl class="edhr-detail-summary">
+                <div>
+                  <dt>变更编号</dt>
+                  <dd>
+                    {{ selectedChange?.changeCode || "--" }}
+                  </dd>
+                </div>
+                <div>
+                  <dt>状态</dt>
+                  <dd>
+                    {{ resolveChangeStatusLabel(selectedChange?.changeStatus) }}
+                  </dd>
+                </div>
+              </dl>
+              <section class="edhr-detail-section">
+                <h3>关联记录</h3>
+                <dl class="edhr-detail-fields">
+                  <div>
+                    <dt>批次ID</dt>
+                    <dd>
+                      {{ formatObjectId(selectedChange?.batchExecutionId) }}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>执行ID</dt>
+                    <dd>
+                      {{ formatObjectId(selectedChange?.executionId) }}
+                    </dd>
+                  </div>
+                </dl>
+              </section>
+            </div>
             <el-alert
               class="edhr-form-trace-change__record-alert"
               type="info"
@@ -275,42 +295,68 @@
             </div>
           </div>
 
-          <el-descriptions :column="2" border class="edhr-form-trace-change__detail">
-            <el-descriptions-item label="变更类型">{{ resolveChangeTypeLabel(selectedChange?.changeType) }}</el-descriptions-item>
-            <el-descriptions-item label="状态变化">
-              {{ resolveExecutionStatusLabel(selectedChange?.previousStatus) }} ->
-              {{ resolveExecutionStatusLabel(selectedChange?.newStatus) }}
-            </el-descriptions-item>
-            <el-descriptions-item label="批次ID">
-              <el-button
-                v-if="canOpenBatchExecution(selectedChange)"
-                link
-                type="primary"
-                class="edhr-form-trace-change__object-link"
-                @click="openBatchExecution(selectedChange)"
-              >
-                {{ formatObjectId(selectedChange?.batchExecutionId) }}
-              </el-button>
-              <span v-else class="edhr-form-trace-change__object-link--disabled">--</span>
-            </el-descriptions-item>
-            <el-descriptions-item label="执行ID">
-              <el-button
-                v-if="canOpenExecution(selectedChange)"
-                link
-                type="primary"
-                class="edhr-form-trace-change__object-link"
-                @click="openExecution(selectedChange)"
-              >
-                {{ formatObjectId(selectedChange?.executionId) }}
-              </el-button>
-              <span v-else class="edhr-form-trace-change__object-link--disabled">--</span>
-            </el-descriptions-item>
-            <el-descriptions-item label="原因分类">{{ selectedChange?.reasonCategory || '--' }}</el-descriptions-item>
-            <el-descriptions-item label="申请时间">
-              {{ formatEdhrDateTime(selectedChange?.requestedAt) }}
-            </el-descriptions-item>
-            <el-descriptions-item label="原因说明" :span="2">{{ selectedChange?.reasonText || '--' }}</el-descriptions-item>
-          </el-descriptions>
+          <div class="edhr-form-trace-change__detail">
+            <section class="edhr-detail-section">
+              <h3>变更信息</h3>
+              <dl class="edhr-detail-fields">
+                <div>
+                  <dt>变更类型</dt>
+                  <dd>{{ resolveChangeTypeLabel(selectedChange?.changeType) }}</dd>
+                </div>
+                <div>
+                  <dt>状态变化</dt>
+                  <dd>
+                    {{ resolveExecutionStatusLabel(selectedChange?.previousStatus) }} ->
+                    {{ resolveExecutionStatusLabel(selectedChange?.newStatus) }}
+                  </dd>
+                </div>
+                <div>
+                  <dt>批次ID</dt>
+                  <dd>
+                    <el-button
+                      v-if="canOpenBatchExecution(selectedChange)"
+                      link
+                      type="primary"
+                      class="edhr-form-trace-change__object-link"
+                      @click="openBatchExecution(selectedChange)"
+                    >
+                      {{ formatObjectId(selectedChange?.batchExecutionId) }}
+                    </el-button>
+                    <span v-else class="edhr-form-trace-change__object-link--disabled">--</span>
+                  </dd>
+                </div>
+                <div>
+                  <dt>执行ID</dt>
+                  <dd>
+                    <el-button
+                      v-if="canOpenExecution(selectedChange)"
+                      link
+                      type="primary"
+                      class="edhr-form-trace-change__object-link"
+                      @click="openExecution(selectedChange)"
+                    >
+                      {{ formatObjectId(selectedChange?.executionId) }}
+                    </el-button>
+                    <span v-else class="edhr-form-trace-change__object-link--disabled">--</span>
+                  </dd>
+                </div>
+                <div>
+                  <dt>原因分类</dt>
+                  <dd>{{ selectedChange?.reasonCategory || "--" }}</dd>
+                </div>
+                <div>
+                  <dt>申请时间</dt>
+                  <dd>
+                    {{ formatEdhrDateTime(selectedChange?.requestedAt) }}
+                  </dd>
+                </div>
+                <div>
+                  <dt>原因说明</dt>
+                  <dd>{{ selectedChange?.reasonText || "--" }}</dd>
+                </div>
+              </dl>
+            </section>
+          </div>
 
           <el-collapse v-model="detailEvidenceNames" class="edhr-form-trace-change__evidence-collapse">
             <el-collapse-item title="链路证据" name="chain-evidence">
@@ -344,7 +390,7 @@
           </el-collapse>
         </el-tab-pane>
       </el-tabs>
-    </Dialog>
+    <template #footer><el-button type="primary" @click="detailDialogVisible = false">关闭</el-button></template></Dialog>
     <BatchExecutionTraceDrawer
       v-model="traceDrawerVisible"
       :context="traceContext"
@@ -353,6 +399,7 @@
 </template>
 
 <script setup lang="ts">
+import '@/views/mes/pro/edhr/shared/detail-surface.scss'
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import {
   EDHR_CHANGE_STATUS_APPROVED,
@@ -550,9 +597,9 @@ const resolveExecutionStatusLabel = (status?: string) => {
   return labels[status] || '未知状态'
 }
 
-const isPositiveId = (value?: number) => Number.isFinite(Number(value)) && Number(value) > 0
+const isPositiveId = (value?: string | number) => Boolean(parsePositiveRouteQueryId(value))
 
-const formatObjectId = (value?: number) => (isPositiveId(value) ? `#${Number(value)}` : '--')
+const formatObjectId = (value?: string | number) => (isPositiveId(value) ? `#${value}` : '--')
 
 const canOpenBatchExecution = (row?: Pick<EdhrRecordChangeRespVO, 'batchExecutionId'>) =>
   isPositiveId(row?.batchExecutionId)

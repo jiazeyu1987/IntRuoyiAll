@@ -5,13 +5,10 @@
       v-loading="formLoading"
       :model="formData"
       :rules="formRules"
-      label-width="80px"
+      label-width="120px"
     >
       <el-form-item label="组织角色名称" prop="name">
         <el-input v-model="formData.name" placeholder="请输入组织角色名称" />
-      </el-form-item>
-      <el-form-item label="组织角色编码" prop="code">
-        <el-input v-model="formData.code" placeholder="请输入组织角色编码" />
       </el-form-item>
       <el-form-item label="组织角色顺序" prop="sort">
         <el-input v-model="formData.sort" placeholder="请输入组织角色顺序" />
@@ -53,14 +50,12 @@ const formType = ref('') // 表单的类型：create - 新增；update - 修改
 const formData = ref({
   id: undefined,
   name: '',
-  code: '',
   sort: 0,
   status: CommonStatusEnum.ENABLE,
   remark: ''
 })
 const formRules = reactive({
   name: [{ required: true, message: '组织角色名称不能为空', trigger: 'blur' }],
-  code: [{ required: true, message: '组织角色编码不能为空', trigger: 'change' }],
   sort: [{ required: true, message: '组织角色顺序不能为空', trigger: 'blur' }],
   status: [{ required: true, message: '组织角色状态不能为空', trigger: 'change' }],
   remark: [{ required: false, message: '组织角色备注不能为空', trigger: 'blur' }]
@@ -95,7 +90,8 @@ const submitForm = async () => {
   // 提交请求
   formLoading.value = true
   try {
-    const data = formData.value as unknown as PostApi.PostVO
+    const { id, name, sort, status, remark } = formData.value
+    const data: PostApi.PostSaveVO = { id, name, sort, status, remark }
     if (formType.value === 'create') {
       await PostApi.createPost(data)
       message.success(t('common.createSuccess'))
@@ -116,7 +112,6 @@ const resetForm = () => {
   formData.value = {
     id: undefined,
     name: '',
-    code: '',
     sort: 0,
     status: CommonStatusEnum.ENABLE,
     remark: ''

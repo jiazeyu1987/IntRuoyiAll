@@ -275,7 +275,7 @@ public class MesProEdhrApprovalTaskAdapter implements ApprovalTaskProvider, Appr
         Map<String, String> decisionDetailQuery = resolveDecisionDetailQuery(task, detailQuery, decisionActionUrl);
         String decisionRoute = resolveDecisionDetailRoute(task, decisionActionUrl);
         String targetRoute = decisionRoute;
-        List<String> requiredPermissions = requiredNavigationPermissions(targetRoute);
+        List<String> requiredPermissions = requiredNavigationPermissions(targetRoute, task);
         List<String> missing = requiredPermissions.stream()
                 .filter(permission -> !permissions.hasAnyPermissions(loginUserId, permission)).toList();
         if (!missing.isEmpty()) {
@@ -301,7 +301,8 @@ public class MesProEdhrApprovalTaskAdapter implements ApprovalTaskProvider, Appr
                 .processInstanceId(resolveProcessInstanceId(task))
                 .taskCreatedAt(task.getCreateTime())
                 .taskCompletedAt(task.getCompletedAt())
-                .requiresSignature(isReleaseApprovalTask(task) || hasText(task.getSignatureCellKey()))
+                .requiresSignature(isReleaseApprovalTask(task) || hasText(task.getSignatureCellKey())
+                        || "RECORD_CHANGE_APPROVE".equals(task.getTaskType()))
                 .detailRoute(decisionRoute)
                 .detailQuery(decisionDetailQuery)
                 .decisionDetailRoute(decisionRoute)
@@ -312,7 +313,19 @@ public class MesProEdhrApprovalTaskAdapter implements ApprovalTaskProvider, Appr
     }
 
     // Contracts follow the actual mandatory page loads, not candidate membership or action tokens.
-    private static List<String> requiredNavigationPermissions(String route) {
+    private static List<String> requiredNavigationPermissions(String route, MesProEdhrWorkTaskRespVO task) {
+        if ("/mes/pro/feedback/edhr-change".equals(route)) {
+            return List.of("mes:pro-edhr-change:query", "mes:pro-edhr-change:approve");
+        }
+        if ("/mes/pro/feedback/edhr-deviation".equals(route)) {
+            String nodePermission = switch (String.valueOf(task.getSignatureCellKey())) {
+                case "QA" -> "mes:pro-edhr-deviation:qa-close";
+                case "QUALITY_OWNER" -> "mes:pro-edhr-deviation:quality-approve";
+                case "MANAGEMENT_REP" -> "mes:pro-edhr-deviation:critical-management-approve";
+                default -> throw new IllegalStateException("偏差审批任务缺少正式质量节点");
+            };
+            return List.of("mes:pro-edhr-deviation:query", nodePermission);
+        }
         if (EDHR_APPROVAL_DETAIL_ROUTE.equals(route)) {
             return List.of("mes:pro-batch-record-execution:approve", "mes:pro-batch-record-execution:track",
                     "mes:pro-batch-record-execution:signature-query");

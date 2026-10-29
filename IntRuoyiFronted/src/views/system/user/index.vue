@@ -32,7 +32,6 @@
           @pagination="getList"
         >
           <template #actions>
-            <el-button plain @click="handoverRef.open()" v-hasPermi="['bpm:task:manager-query']">主管待办交接</el-button>
             <el-dropdown
               class="system-user-advanced-actions"
               trigger="click"
@@ -273,69 +272,22 @@
                 <template #default="scope">
                   <div class="system-user-row-actions">
                     <div class="system-user-row-actions__row">
-                      <el-button
-                        type="primary"
-                        link
-                        @click="openForm('update', scope.row.id)"
-                        v-hasPermi="['system:user:update']"
-                      >
-                        修改
-                      </el-button>
-                      <el-button
-                        type="danger"
-                        link
-                        @click="handleDelete(scope.row.id)"
-                        v-hasPermi="['system:user:delete']"
-                      >
-                        删除
-                      </el-button>
-                    </div>
-                    <div class="system-user-row-actions__row">
-                      <el-button
-                        type="warning"
-                        link
-                        @click="handleResetPwd(scope.row)"
-                        v-hasPermi="['system:user:update-password']"
-                      >
-                        重置密码
-                      </el-button>
-                      <el-button
-                        type="primary"
-                        link
-                        @click="handleRole(scope.row)"
-                        v-hasPermi="['system:permission:assign-user-role']"
-                      >
-                        分配角色
-                      </el-button>
-                      <el-button
-                        v-if="scope.row.loginLocked === 1"
-                        type="success"
-                        link
-                        @click="handleUnlock(scope.row)"
-                        v-hasPermi="['system:user:update']"
-                      >
-                        解锁
-                      </el-button>
-                    </div>
-                    <div class="system-user-row-actions__row">
-                      <el-button
-                        type="primary"
-                        link
-                        :disabled="scope.row.status !== CommonStatusEnum.ENABLE"
-                        @click="directSupervisorRef?.open(scope.row.id)"
-                        v-hasPermi="['system:user:update']"
-                      >
-                        设置直属主管
-                      </el-button>
-                      <el-button
-                        type="danger"
-                        link
-                        :disabled="Boolean(scope.row.lifecycleDeactivatedTime)"
-                        @click="openLifecycleDeactivate(scope.row)"
-                        v-hasPermi="['system:user:update']"
-                      >
-                        离职/转岗
-                      </el-button>
+                      <el-button v-hasPermi="['system:user:update']" type="primary" link @click="openForm('update', scope.row.id)">修改</el-button>
+                      <el-button v-hasPermi="['system:permission:assign-user-role']" type="primary" link @click="handleRole(scope.row)">分配</el-button>
+                      <el-dropdown v-if="checkPermi(['system:user:delete', 'system:user:update-password', 'system:user:update', 'bpm:task:manager-query'])" trigger="click">
+                        <el-button type="primary" link aria-label="更多操作">...</el-button>
+                        <template #dropdown>
+                          <el-dropdown-menu>
+                            <el-dropdown-item v-if="checkPermi(['system:user:delete'])" @click="handleDelete(scope.row.id)">删除</el-dropdown-item>
+                            <el-dropdown-item v-if="checkPermi(['system:user:update-password'])" @click="handleResetPwd(scope.row)">重置密码</el-dropdown-item>
+                            <el-dropdown-item v-if="scope.row.loginLocked !== 1 && checkPermi(['system:user:update'])" @click="handleLock(scope.row)">锁定</el-dropdown-item>
+                            <el-dropdown-item v-if="scope.row.loginLocked === 1 && checkPermi(['system:user:update'])" @click="handleUnlock(scope.row)">解锁</el-dropdown-item>
+                            <el-dropdown-item v-if="checkPermi(['system:user:update'])" :disabled="scope.row.status !== CommonStatusEnum.ENABLE" @click="directSupervisorRef?.open(scope.row.id)">设置直属主管</el-dropdown-item>
+                            <el-dropdown-item v-if="checkPermi(['system:user:update'])" :disabled="Boolean(scope.row.lifecycleDeactivatedTime)" @click="openLifecycleDeactivate(scope.row)">离职/转岗</el-dropdown-item>
+                            <el-dropdown-item v-if="checkPermi(['bpm:task:manager-query'])" @click="openAccountHandover(scope.row)">交接待办</el-dropdown-item>
+                          </el-dropdown-menu>
+                        </template>
+                      </el-dropdown>
                     </div>
                   </div>
                 </template>
@@ -357,7 +309,7 @@
   <!-- 分配角色 -->
   <UserAssignRoleForm ref="assignRoleFormRef" @success="getList" />
   <!-- 离职/转岗联动停用 -->
-  <UserLifecycleDeactivateForm ref="lifecycleDeactivateFormRef" @success="refreshAfterLifecycleChange" />
+  <UserLifecycleDeactivateForm ref="lifecycleDeactivateFormRef" @success="refreshAfterLifecycleChange" @handover="openLifecycleHandover" />
   <UserDirectSupervisorDialog ref="directSupervisorRef" />
 </template>
 <script lang="ts" setup>
@@ -396,7 +348,7 @@ import {
 
 defineOptions({ name: 'SystemUser' })
 
-const handoverRef = ref()
+const handoverRef = ref<InstanceType<typeof SupervisorHandoverDialog>>()
 const message = useMessage() // 消息弹窗
 const { t } = useI18n() // 国际化
 const route = useRoute()
@@ -586,8 +538,8 @@ const supervisorImpactText = async (ids: number[]) => {
   const affected = await UserApi.getSupervisorImpact(ids)
   return affected.length
     ? '将解除以下部门的主管配置：' + affected.map((dept) => dept.name).join('、') +
-      '。下级部门将重新按上级主管路由；没有上级主管的审批会被阻止。已有待办须显式交接。'
-    : '已有待办不会自动转移，如需调整请办理交接。'
+      '。下级部门将重新按上级主管路由；没有上级主管的审批会被阻止。停用后将自动打开待办交接确认。'
+    : '停用后将自动打开待办交接确认，已有待办经确认后才转移。'
 }
 const refreshAfterLifecycleChange = async () => {
   await loadDeptMetadata()
@@ -605,6 +557,7 @@ const handleStatusChange = async (row: UserApi.UserVO) => {
     // 发起修改状态
     await UserApi.updateUserStatus(row.id, row.status)
     saved = true
+    if (row.status === CommonStatusEnum.DISABLE) await openAccountHandover(row, '账号已停用，请确认未完成待办的接收人。')
     await loadDeptMetadata()
     await getList()
   } catch (error) {
@@ -743,6 +696,28 @@ const handleResetPwd = async (row: UserApi.UserVO) => {
   }
 }
 
+/** 锁定用户 */
+const handleLock = async (row: UserApi.UserVO) => {
+  let reason: string
+  try {
+    const result = await message.prompt(
+      '锁定后30分钟内无法通过密码登录，可由管理员提前解锁。请输入锁定"' + row.username + '"用户的原因',
+      '锁定用户',
+      {
+        inputPlaceholder: '请输入锁定原因',
+        inputValidator: (value) => !!value?.trim() || '锁定原因不能为空'
+      }
+    )
+    reason = result.value.trim()
+  } catch (error) {
+    if (error === 'cancel' || error === 'close') return
+    throw error
+  }
+  await UserApi.lockUser(row.id, reason)
+  message.success('锁定成功')
+  await getList()
+}
+
 /** 解锁用户 */
 const handleUnlock = async (row: UserApi.UserVO) => {
   let reason: string
@@ -777,6 +752,12 @@ const lifecycleDeactivateFormRef = ref()
 const openLifecycleDeactivate = (row: UserApi.UserVO) => {
   lifecycleDeactivateFormRef.value.open(row)
 }
+
+const openAccountHandover = (row: Pick<UserApi.UserVO, 'id' | 'username' | 'nickname'>, notice = '请选择未完成待办并确认接收人；未交接事项可从本账号的“交接待办”继续办理。') =>
+  handoverRef.value?.open({ assigneeUserId: row.id, assigneeName: row.nickname || row.username,
+    reason: '', notice })
+const openLifecycleHandover = (row: Pick<UserApi.UserVO, 'id' | 'username' | 'nickname'>) =>
+  openAccountHandover(row, '离职/转岗停用已登记，请办理现有待办交接；定时生效前新增的待办仍需另行交接。')
 
 /** 初始化 */
 onMounted(async () => {

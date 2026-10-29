@@ -1,8 +1,5 @@
 <template>
   <ContentWrap class="scheme-d-basic-data-page scheme-d-basic-data-page--mdm-enterprise">
-    <div class="mb-16px flex items-center gap-8px">
-      <span class="text-18px font-600 text-[var(--el-text-color-primary)]">基础数据 / 关联公司</span>
-    </div>
     <UnifiedListTemplate
       table-key="mdm.enterprise.main"
       :query-model="queryParams"

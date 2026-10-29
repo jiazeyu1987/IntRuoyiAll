@@ -105,6 +105,38 @@ public class MesDvMachineryServiceImpl implements MesDvMachineryService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void deleteAllMachineryAndWorkshops() {
+        // 使用完整列表，不受页面筛选、分页和启用状态限制；沿用租户隔离及逻辑删除。
+        List<MesDvMachineryDO> machineryList = machineryMapper.selectList();
+        var page = new cn.iocoder.yudao.module.mes.controller.admin.md.workstation.vo.workshop.MesMdWorkshopPageReqVO();
+        page.setPageSize(cn.iocoder.yudao.framework.common.pojo.PageParam.PAGE_SIZE_NONE);
+        List<MesMdWorkshopDO> workshops = workshopService.getWorkshopPage(page).getList();
+        for (MesDvMachineryDO machinery : machineryList) {
+            deleteMachinery(machinery.getId());
+        }
+        for (MesMdWorkshopDO workshop : workshops) {
+            workshopService.deleteWorkshop(workshop.getId());
+        }
+        List<MesDvMachineryTypeDO> remaining = new ArrayList<>(
+                machineryTypeService.getMachineryTypeList(new MesDvMachineryTypeListReqVO()));
+        // 先删除叶子类型，再删除父类型，保留单条删除的子类型和设备关联校验。
+        while (!remaining.isEmpty()) {
+            Set<Long> parentIds = remaining.stream().map(MesDvMachineryTypeDO::getParentId)
+                    .collect(Collectors.toSet());
+            List<MesDvMachineryTypeDO> leaves = remaining.stream()
+                    .filter(type -> !parentIds.contains(type.getId())).collect(Collectors.toList());
+            if (leaves.isEmpty()) {
+                throw exception(cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.DV_MACHINERY_TYPE_PARENT_IS_CHILD);
+            }
+            for (MesDvMachineryTypeDO type : leaves) {
+                machineryTypeService.deleteMachineryType(type.getId());
+            }
+            remaining.removeAll(leaves);
+        }
+    }
+
+    @Override
     public void deleteMachinery(Long id) {
         validateMachineryExists(id);
         if (checkPlanMachineryService.getCheckPlanMachineryCountByMachineryId(id) > 0) {
@@ -238,15 +270,33 @@ public class MesDvMachineryServiceImpl implements MesDvMachineryService {
                         "设备类型编码[" + importItem.getMachineryTypeCode() + "]不存在");
                 return;
             }
-            if (StrUtil.isBlank(importItem.getWorkshopCode())) {
-                respVO.getFailureCodes().put(key, "车间编码不能为空");
-                return;
-            }
-            MesMdWorkshopDO workshop = workshopCodeMap.get(importItem.getWorkshopCode());
-            if (workshop == null) {
-                respVO.getFailureCodes().put(key,
-                        "车间编码[" + importItem.getWorkshopCode() + "]不存在");
-                return;
+            String workshopCode = StrUtil.trim(importItem.getWorkshopCode());
+            String workshopName = StrUtil.trim(importItem.getWorkshopName());
+            MesMdWorkshopDO workshop;
+            if (StrUtil.isNotBlank(workshopCode)) {
+                workshop = workshopCodeMap.get(workshopCode);
+                if (workshop == null) {
+                    respVO.getFailureCodes().put(key, "车间编码[" + workshopCode + "]不存在或未启用");
+                    return;
+                }
+                if (StrUtil.isNotBlank(workshopName) && !workshopName.equals(workshop.getName())) {
+                    respVO.getFailureCodes().put(key, "所属车间与车间编码不一致");
+                    return;
+                }
+            } else {
+                if (StrUtil.isBlank(workshopName)) {
+                    respVO.getFailureCodes().put(key, "所属车间或所属车间编码至少填写一项");
+                    return;
+                }
+                List<MesMdWorkshopDO> matches = allWorkshops.stream()
+                        .filter(item -> workshopName.equals(item.getName())).collect(Collectors.toList());
+                if (matches.size() != 1) {
+                    respVO.getFailureCodes().put(key, matches.isEmpty()
+                            ? "所属车间[" + workshopName + "]不存在或未启用"
+                            : "所属车间[" + workshopName + "]存在重名，请填写所属车间编码");
+                    return;
+                }
+                workshop = matches.get(0);
             }
             if (importItem.getStandardHourlyCapacity() != null
                     && importItem.getStandardHourlyCapacity().compareTo(BigDecimal.ZERO) <= 0) {

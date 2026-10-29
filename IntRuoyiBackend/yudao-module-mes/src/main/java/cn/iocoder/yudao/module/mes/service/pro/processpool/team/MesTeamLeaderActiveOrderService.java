@@ -33,6 +33,10 @@ public interface MesTeamLeaderActiveOrderService {
 
     List<MesTeamLeaderActiveOrderRow> listActiveOrders(Long leaderUserId);
 
+    /** Shared read projection; callers must enforce their own access scope. */
+    List<MesTeamLeaderActiveOrderRow> projectActiveOrders(
+            List<cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO> activeOrders);
+
     PageResult<MesTeamLeaderActiveOrderRow> pageVoidedActiveOrders(Long leaderUserId,
                                                                    MesTeamLeaderVoidedActiveOrderPageReqVO reqVO);
 

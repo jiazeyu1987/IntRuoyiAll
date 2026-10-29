@@ -19,7 +19,8 @@ public interface MesProEdhrWorkTaskMapper extends BaseMapperX<MesProEdhrWorkTask
     MesProEdhrWorkTaskDO selectByIdAndTenantForUpdate(@org.apache.ibatis.annotations.Param("id") Long id,
             @org.apache.ibatis.annotations.Param("tenantId") Long tenantId);
 
-    List<String> APPROVAL_CENTER_TASK_TYPES = List.of("REVIEW", "APPROVE", "RELEASE_APPROVE");
+    List<String> APPROVAL_CENTER_TASK_TYPES = List.of("REVIEW", "APPROVE", "RELEASE_APPROVE",
+            "PQC_PRODUCTION_RELEASE", "DEVIATION_APPROVE", "RECORD_CHANGE_APPROVE");
     List<String> PRODUCTION_RELEASE_REPORT_NODE_TYPES = List.of(
             "INCOMING_INSPECTION_REPORT",
             "STERILIZATION_REPORT",
@@ -36,7 +37,7 @@ public interface MesProEdhrWorkTaskMapper extends BaseMapperX<MesProEdhrWorkTask
         query.apply("tenant_id = {0}", tenant)
                 .eq(MesProEdhrWorkTaskDO::getDeleted, false);
         if (done) {
-            query.in(MesProEdhrWorkTaskDO::getTaskType, "REVIEW", "APPROVE", "RELEASE_APPROVE", "PQC_PRODUCTION_RELEASE")
+            query.in(MesProEdhrWorkTaskDO::getTaskType, APPROVAL_CENTER_TASK_TYPES)
                     .eq(MesProEdhrWorkTaskDO::getStatus, MesProEdhrWorkTaskStatus.DONE);
             return applyDoneTaskVisibility(query, actor);
         }
@@ -44,20 +45,17 @@ public interface MesProEdhrWorkTaskMapper extends BaseMapperX<MesProEdhrWorkTask
                 .and(assigned -> {
                     assigned.in(MesProEdhrWorkTaskDO::getTaskType, APPROVAL_CENTER_TASK_TYPES);
                     if (actor != null) assigned.eq(MesProEdhrWorkTaskDO::getAssigneeUserId, actor);
-                    assigned.apply("(batch_execution_id IS NULL OR batch_execution_id NOT IN"
-                            + " (SELECT id FROM mes_pro_edhr_batch_execution WHERE deleted = 0"
-                            + " AND tenant_id = {0} AND status IN (30,40,50,60)))", tenant);
+                    assigned.apply(MesOpenWorkTaskVisibility.OPEN_BATCH_SQL);
                 })
                 .or(candidate -> {
+                    // Candidate membership alone never turns an execution task into an approval.
+                    candidate.and(kind -> kind.in(MesProEdhrWorkTaskDO::getTaskType, APPROVAL_CENTER_TASK_TYPES)
+                            .or(signature -> signature.eq(MesProEdhrWorkTaskDO::getTaskType, "FILL")
+                                    .isNotNull(MesProEdhrWorkTaskDO::getSignatureCellKey)
+                                    .apply("TRIM(signature_cell_key) <> ''")));
                     if (actor != null) candidate.apply("CONCAT(',', candidate_user_snapshot, ',') LIKE {0}",
                             "%," + actor + ",%");
-                    // Preserve ARCHIVE's existing closed-batch exception within B only.
-                    candidate.apply("(batch_execution_id IS NULL OR batch_execution_id NOT IN"
-                            + " (SELECT id FROM mes_pro_edhr_batch_execution WHERE deleted = 0"
-                            + " AND tenant_id = {0} AND status IN (30,40,50,60))"
-                            + " OR (task_type = 'ARCHIVE' AND batch_execution_id NOT IN"
-                            + " (SELECT id FROM mes_pro_edhr_batch_execution WHERE deleted = 0"
-                            + " AND tenant_id = {0} AND status IN (40,50,60))))", tenant);
+                    candidate.apply(MesOpenWorkTaskVisibility.OPEN_BATCH_SQL);
                     if (req.getNodeTypes() != null && !req.getNodeTypes().isEmpty()) {
                         if (!PRODUCTION_RELEASE_REPORT_NODE_TYPES.containsAll(req.getNodeTypes())) {
                             candidate.apply("1 = 0");
@@ -87,6 +85,8 @@ public interface MesProEdhrWorkTaskMapper extends BaseMapperX<MesProEdhrWorkTask
                                                           String status) {
         return selectPage(reqVO, applyOpenWorkTaskBatchVisibility(
                 baseMyWrapper(reqVO, assigneeUserId, true), reqVO.getTaskType())
+                .apply(MesOpenDossierTaskVisibility.OPEN_SQL)
+                .apply(MesOpenPqcCorrectionTaskVisibility.OPEN_SQL)
                 .eq(MesProEdhrWorkTaskDO::getStatus, status)
                 .orderByDesc(MesProEdhrWorkTaskDO::getId));
     }
@@ -95,6 +95,8 @@ public interface MesProEdhrWorkTaskMapper extends BaseMapperX<MesProEdhrWorkTask
                                                           Long assigneeUserId) {
         return selectPage(reqVO, applyOpenWorkTaskBatchVisibility(
                 baseMyWrapper(reqVO, assigneeUserId, true), reqVO.getTaskType())
+                .apply(MesOpenDossierTaskVisibility.OPEN_SQL)
+                .apply(MesOpenPqcCorrectionTaskVisibility.OPEN_SQL)
                 .in(MesProEdhrWorkTaskDO::getStatus,
                         MesProEdhrWorkTaskStatus.TODO, MesProEdhrWorkTaskStatus.OVERDUE)
                 .orderByDesc(MesProEdhrWorkTaskDO::getId));
@@ -119,7 +121,7 @@ public interface MesProEdhrWorkTaskMapper extends BaseMapperX<MesProEdhrWorkTask
     default PageResult<MesProEdhrWorkTaskDO> selectApprovalCenterDonePage(MesProEdhrWorkTaskPageReqVO reqVO,
                                                                           Long assigneeUserId) {
         LambdaQueryWrapperX<MesProEdhrWorkTaskDO> wrapper = baseMyFilterWrapper(reqVO);
-        wrapper.in(MesProEdhrWorkTaskDO::getTaskType, "REVIEW", "APPROVE", "RELEASE_APPROVE", "PQC_PRODUCTION_RELEASE");
+        wrapper.in(MesProEdhrWorkTaskDO::getTaskType, APPROVAL_CENTER_TASK_TYPES);
         return selectPage(reqVO, applyDoneTaskVisibility(wrapper, assigneeUserId)
                 .eq(MesProEdhrWorkTaskDO::getStatus, MesProEdhrWorkTaskStatus.DONE)
                 .orderByDesc(MesProEdhrWorkTaskDO::getCompletedAt)
@@ -140,6 +142,8 @@ public interface MesProEdhrWorkTaskMapper extends BaseMapperX<MesProEdhrWorkTask
                 .eqIfPresent(MesProEdhrWorkTaskDO::getStatus, status);
         if (MesProEdhrWorkTaskStatus.TODO.equals(status) || MesProEdhrWorkTaskStatus.OVERDUE.equals(status)) {
             applyOpenWorkTaskBatchVisibility(wrapper, taskType);
+            wrapper.apply(MesOpenDossierTaskVisibility.OPEN_SQL);
+            wrapper.apply(MesOpenPqcCorrectionTaskVisibility.OPEN_SQL);
         }
         return selectCount(wrapper);
     }
@@ -196,6 +200,14 @@ public interface MesProEdhrWorkTaskMapper extends BaseMapperX<MesProEdhrWorkTask
 
     default List<MesProEdhrWorkTaskDO> selectDueActiveTasks(LocalDateTime now, int limit) {
         return selectList(new LambdaQueryWrapperX<MesProEdhrWorkTaskDO>()
+                .apply("tenant_id = {0}", cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId())
+                // Frozen production responsibilities stay open with their original deadline; QA/deviation decisions remain actionable.
+                .apply("(task_type LIKE 'DEVIATION_%' OR NOT EXISTS (SELECT 1 FROM mes_pro_edhr_batch_execution b"
+                        + " WHERE b.id=mes_pro_edhr_work_task.batch_execution_id AND b.tenant_id=mes_pro_edhr_work_task.tenant_id"
+                        + " AND b.deleted=0 AND b.status=15))")
+                .apply("(task_type LIKE 'DEVIATION_%' OR NOT EXISTS (SELECT 1 FROM mes_pro_work_order w"
+                        + " WHERE w.id=mes_pro_edhr_work_task.work_order_id AND w.tenant_id=mes_pro_edhr_work_task.tenant_id"
+                        + " AND w.deleted=0 AND w.temporary_frozen=1))")
                 .in(MesProEdhrWorkTaskDO::getStatus, MesProEdhrWorkTaskStatus.TODO, MesProEdhrWorkTaskStatus.DOING)
                 .isNotNull(MesProEdhrWorkTaskDO::getDueTime)
                 .le(MesProEdhrWorkTaskDO::getDueTime, now)
@@ -212,6 +224,7 @@ public interface MesProEdhrWorkTaskMapper extends BaseMapperX<MesProEdhrWorkTask
                         .setReason(reason)
                         .setRemark(reason),
                 new LambdaUpdateWrapper<MesProEdhrWorkTaskDO>()
+                        .apply("tenant_id = {0}", cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId())
                         .eq(MesProEdhrWorkTaskDO::getId, id)
                         .in(MesProEdhrWorkTaskDO::getStatus,
                                 MesProEdhrWorkTaskStatus.TODO, MesProEdhrWorkTaskStatus.DOING));
@@ -417,7 +430,7 @@ public interface MesProEdhrWorkTaskMapper extends BaseMapperX<MesProEdhrWorkTask
     }
 
     private LambdaQueryWrapperX<MesProEdhrWorkTaskDO> baseMyFilterWrapper(MesProEdhrWorkTaskPageReqVO reqVO) {
-        return new LambdaQueryWrapperX<MesProEdhrWorkTaskDO>()
+        return MesMarketReleaseHandoverMapper.readable(new LambdaQueryWrapperX<MesProEdhrWorkTaskDO>(),"batch_execution_id")
                 .eqIfPresent(MesProEdhrWorkTaskDO::getTaskType, reqVO.getTaskType())
                 .eqIfPresent(MesProEdhrWorkTaskDO::getBatchExecutionId, reqVO.getBatchExecutionId())
                 .likeIfPresent(MesProEdhrWorkTaskDO::getWorkOrderCode, reqVO.getWorkOrderCode())
@@ -439,7 +452,7 @@ public interface MesProEdhrWorkTaskMapper extends BaseMapperX<MesProEdhrWorkTask
 
     private LambdaQueryWrapperX<MesProEdhrWorkTaskDO> baseApprovalCenterWrapper(MesProEdhrWorkTaskPageReqVO reqVO,
                                                                                 Long assigneeUserId) {
-        return new LambdaQueryWrapperX<MesProEdhrWorkTaskDO>()
+        return MesMarketReleaseHandoverMapper.readable(new LambdaQueryWrapperX<MesProEdhrWorkTaskDO>(),"batch_execution_id")
                 .eqIfPresent(MesProEdhrWorkTaskDO::getAssigneeUserId, assigneeUserId)
                 .in(MesProEdhrWorkTaskDO::getTaskType, APPROVAL_CENTER_TASK_TYPES)
                 .eqIfPresent(MesProEdhrWorkTaskDO::getTaskType, reqVO.getTaskType())
@@ -451,7 +464,7 @@ public interface MesProEdhrWorkTaskMapper extends BaseMapperX<MesProEdhrWorkTask
 
     private LambdaQueryWrapperX<MesProEdhrWorkTaskDO> excludeTerminalBatchWrapper(
             LambdaQueryWrapperX<MesProEdhrWorkTaskDO> wrapper) {
-        return excludeBatchStatusWrapper(wrapper, TERMINAL_BATCH_STATUS_SQL);
+        return applyOpenWorkTaskBatchVisibility(wrapper, null);
     }
 
     private LambdaQueryWrapperX<MesProEdhrWorkTaskDO> applyOpenWorkTaskBatchVisibility(
@@ -475,7 +488,7 @@ public interface MesProEdhrWorkTaskMapper extends BaseMapperX<MesProEdhrWorkTask
                         .eq(MesProEdhrWorkTaskDO::getStatus, MesProEdhrWorkTaskStatus.DONE)
                         .apply("EXISTS (SELECT 1 FROM mes_pro_process_pool_active_order_release_application pa"
                                 + " JOIN system_users pu ON pu.id = pa.pqc_decided_by AND pu.tenant_id = pa.tenant_id"
-                                + " AND pu.deleted = 0"
+                                + " AND pu.deleted = 0 AND pu.status = 0"
                                 + " WHERE pa.id = mes_pro_edhr_work_task.business_scope_id"
                                 + " AND pa.pqc_release_work_task_id = mes_pro_edhr_work_task.id"
                                 + " AND pa.work_order_id = mes_pro_edhr_work_task.work_order_id"

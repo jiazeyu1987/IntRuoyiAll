@@ -1,69 +1,7 @@
 <template>
-  <doc-alert title="【生产】生产报工" url="https://doc.iocoder.cn/mes/pro/feedback/" />
 
-  <ContentWrap v-if="activeTab === 'import-record'">
-    <el-form
-      class="feedback-import-query-form -mb-15px"
-      :model="importQueryParams"
-      ref="importQueryFormRef"
-      :inline="true"
-      label-width="100px"
-    >
-      <el-form-item label="记录编号" prop="id">
-        <el-input
-          v-model="importQueryParams.id"
-          placeholder="请输入记录编号"
-          clearable
-          @keyup.enter="handleImportQuery"
-          class="!w-180px"
-        />
-      </el-form-item>
-      <el-form-item label="正式报工编号" prop="feedbackId">
-        <el-input
-          v-model="importQueryParams.feedbackId"
-          placeholder="请输入正式报工编号"
-          clearable
-          @keyup.enter="handleImportQuery"
-          class="!w-180px"
-        />
-      </el-form-item>
-      <el-form-item label="归属状态" prop="attributionStatus">
-        <el-select
-          v-model="importQueryParams.attributionStatus"
-          placeholder="请选择归属状态"
-          clearable
-          class="!w-240px"
-        >
-          <el-option label="待归属" value="PENDING" />
-          <el-option label="已归属" value="ATTRIBUTED" />
-        </el-select>
-      </el-form-item>
-      <el-form-item>
-        <el-button @click="handleImportQuery"><Icon icon="ep:search" class="mr-5px" /> 搜索</el-button>
-        <el-button @click="resetImportQuery"><Icon icon="ep:refresh" class="mr-5px" /> 重置</el-button>
-      </el-form-item>
-      <el-form-item class="feedback-import-toolbar">
-        <el-button
-          type="primary"
-          plain
-          @click="handleThirdPartyImport"
-          v-hasPermi="['mes:pro-feedback:create']"
-        >
-          <Icon icon="ep:upload-filled" class="mr-5px" /> 第三方导入
-        </el-button>
-        <el-button class="app-test-button"
-          v-if="testModeEnabled"
-          type="warning"
-          plain
-          :loading="simulateImportLoading"
-          @click="handleSimulateImport"
-          v-hasPermi="['mes:pro-feedback:create']"
-        >
-          <Icon icon="ep:magic-stick" class="mr-5px" /> 模拟报工
-        </el-button>
-      </el-form-item>
-    </el-form>
-  </ContentWrap>
+
+
 
   <ContentWrap v-if="activeTab === 'feedback'">
     <el-alert
@@ -248,25 +186,7 @@
 
   <ContentWrap v-else>
     <div class="feedback-import-batch-summary mb-12px">
-      <div class="feedback-import-batch-summary__header">
-        <div>
-          <div class="feedback-import-batch-summary__title">当前导入批次</div>
-          <div class="feedback-import-batch-summary__subtitle">
-            归属会按所选订单工序生成草稿正式报工；字段补齐后通过页面顶部确认报工一次性提交本批；提交正式报工后回写排产进度。
-          </div>
-        </div>
-        <div class="feedback-import-batch-summary__actions">
-          <el-button
-            v-hasPermi="['mes:pro-feedback:update']"
-            type="primary"
-            :disabled="!currentImportRecordIds.length"
-            :loading="confirmBatchLoading"
-            @click="handleConfirmBatch"
-          >
-            确认报工
-          </el-button>
-        </div>
-      </div>
+
       <div class="feedback-import-batch-summary__metrics">
         <div class="feedback-import-batch-summary__metric">
           <span>来源文件</span>
@@ -307,151 +227,235 @@
         </template>
       </el-alert>
     </div>
-    <el-table
-      v-loading="importLoading"
-      :data="importRecordList"
-      stripe
-      row-key="id"
-      :cell-class-name="resolveImportRecordCellClassName"
-    >
-      <el-table-column label="工单" prop="workOrderCode" min-width="150" />
-      <el-table-column label="产品编码" prop="itemCode" min-width="140" />
-      <el-table-column label="产品名称" prop="itemName" min-width="160" />
-      <el-table-column label="规格" prop="specification" min-width="120" />
-      <el-table-column label="工序" min-width="180">
-        <template #default="scope">
-          <div class="feedback-import-process">
-            <span class="feedback-import-process__line">{{ scope.row.processCode || '--' }}</span>
-            <span class="feedback-import-process__line">{{ scope.row.processName || '--' }}</span>
-          </div>
-        </template>
-      </el-table-column>
-      <el-table-column label="报工数量" prop="feedbackQuantity" width="100" align="right" />
-      <el-table-column label="缓存池数量" prop="surplusPoolQuantity" width="110" align="right" />
-      <el-table-column
-        label="报工时间"
-        prop="feedbackTime"
-        width="180"
-        :formatter="dateFormatter"
-        align="center"
-      />
-      <el-table-column label="归属结果" min-width="220">
-        <template #default="scope">
-          <div class="feedback-import-result">
-            <strong
-              :class="
-                scope.row.attributionStatus === 'ATTRIBUTED'
-                  ? 'feedback-import-result__status feedback-import-result__status--success'
-                  : 'feedback-import-result__status feedback-import-result__status--warning'
-              "
-            >
-              {{
-                scope.row.attributionStatus === 'ATTRIBUTED'
-                  ? isImportRecordSkippedExternalOtherOrder(scope.row)
-                    ? '其他订单'
-                    : '已归属'
-                  : '待归属'
-              }}
-            </strong>
-            <small v-if="scope.row.feedbackId">正式报工编号 #{{ scope.row.feedbackId }}</small>
-            <small v-if="scope.row.attributionStatus === 'ATTRIBUTED'">
-              归属时间：{{ formatImportAttributionTime(scope.row.attributionTime) }}
-            </small>
-            <small v-if="scope.row.linkedFeedbackCount">
-              关联正式报工：{{ scope.row.linkedFeedbackCount }} 条
-            </small>
-            <small v-if="isImportRecordSkippedExternalOtherOrder(scope.row)">
-              该行未生成正式报工草稿，确认报工时将跳过
-            </small>
-          </div>
-        </template>
-      </el-table-column>
-      <el-table-column label="报工人" min-width="180">
-        <template #default="scope">
-          <UserSelectV2
-            v-if="isImportRecordEditable(scope.row)"
-            v-model="scope.row.feedbackUserId"
-            placeholder="请选择报工人"
-          />
-          <span v-else class="text-[#909399]">本批跳过</span>
-        </template>
-      </el-table-column>
-      <el-table-column label="报工时间" min-width="210">
-        <template #default="scope">
-          <el-date-picker
-            v-if="isImportRecordEditable(scope.row)"
-            v-model="scope.row.feedbackTime"
-            type="datetime"
-            value-format="x"
-            placeholder="请选择报工时间"
-            class="!w-1/1"
-          />
-          <span v-else class="text-[#909399]">本批跳过</span>
-        </template>
-      </el-table-column>
-      <el-table-column label="当前审批人" min-width="180">
-        <template #default="scope">
-          <UserSelectV2
-            v-if="isImportRecordEditable(scope.row)"
-            v-model="scope.row.approveUserId"
-            placeholder="请选择当前审批人"
-          />
-          <span v-else class="text-[#909399]">本批跳过</span>
-        </template>
-      </el-table-column>
-      <el-table-column label="备注" min-width="220">
-        <template #default="scope">
-          <el-input
-            v-if="isImportRecordEditable(scope.row)"
-            v-model="scope.row.remark"
-            placeholder="请输入备注"
-            clearable
-          />
-          <span v-else class="text-[#909399]">确认报工时将跳过</span>
-        </template>
-      </el-table-column>
-      <el-table-column label="操作" align="center" width="240" fixed="right">
-        <template #default="scope">
-          <el-button
-            v-if="scope.row.attributionStatus === 'PENDING'"
-            v-hasPermi="['mes:pro-feedback:update']"
-            link
-            type="primary"
-            @click="openAttribution(scope.row)"
-          >
-            选择归属
-          </el-button>
-          <el-button
-            v-if="
-              scope.row.attributionStatus === 'ATTRIBUTED' &&
-              scope.row.canModifyAttribution
-            "
-            v-hasPermi="['mes:pro-feedback:update']"
-            link
-            type="warning"
-            @click="openAttribution(scope.row)"
-          >
-            修改归属
-          </el-button>
-          <span
-            v-if="
-              scope.row.attributionStatus === 'ATTRIBUTED' &&
-              !scope.row.canModifyAttribution &&
-              scope.row.modifyBlockedReason
-            "
-            class="text-[#909399]"
-          >
-            {{ scope.row.modifyBlockedReason }}
-          </span>
-        </template>
-      </el-table-column>
-    </el-table>
-    <Pagination
+    <UnifiedListTemplate
+      table-key="mes.feedback.importBatch"
+      :query-model="importQueryParams"
       :total="importTotal"
       v-model:page="importQueryParams.pageNo"
       v-model:limit="importQueryParams.pageSize"
       @pagination="getImportRecordList"
-    />
+    >
+      <template #filters>
+        <el-form
+          class="feedback-import-query-form -mb-15px"
+          :model="importQueryParams"
+          ref="importQueryFormRef"
+          :inline="true"
+          label-width="100px"
+        >
+          <el-form-item label="记录编号" prop="id">
+            <el-input
+              v-model="importQueryParams.id"
+              placeholder="请输入记录编号"
+              clearable
+              @keyup.enter="handleImportQuery"
+              class="!w-180px"
+            />
+          </el-form-item>
+          <el-form-item label="正式报工编号" prop="feedbackId">
+            <el-input
+              v-model="importQueryParams.feedbackId"
+              placeholder="请输入正式报工编号"
+              clearable
+              @keyup.enter="handleImportQuery"
+              class="!w-180px"
+            />
+          </el-form-item>
+          <el-form-item label="归属状态" prop="attributionStatus">
+            <el-select
+              v-model="importQueryParams.attributionStatus"
+              placeholder="请选择归属状态"
+              clearable
+              class="!w-240px"
+            >
+              <el-option label="待归属" value="PENDING" />
+              <el-option label="已归属" value="ATTRIBUTED" />
+            </el-select>
+          </el-form-item>
+        </el-form>
+      </template>
+      <template #actions>
+        <el-button @click="handleImportQuery">
+          <Icon icon="ep:search" class="mr-5px" />
+          搜索
+        </el-button>
+        <el-button @click="resetImportQuery">
+          <Icon icon="ep:refresh" class="mr-5px" />
+          重置
+        </el-button>
+
+        <el-button
+          type="primary"
+          plain
+          @click="handleThirdPartyImport"
+          v-hasPermi="['mes:pro-feedback:create']"
+        >
+          <Icon icon="ep:upload-filled" class="mr-5px" />
+          第三方导入
+        </el-button>
+        <el-button
+          class="app-test-button"
+          v-if="testModeEnabled"
+          type="warning"
+          plain
+          :loading="simulateImportLoading"
+          @click="handleSimulateImport"
+          v-hasPermi="['mes:pro-feedback:create']"
+        >
+          <Icon icon="ep:magic-stick" class="mr-5px" />
+          模拟报工
+        </el-button>
+
+        <el-button
+          v-hasPermi="['mes:pro-feedback:update']"
+          type="primary"
+          :disabled="!currentImportRecordIds.length"
+          :loading="confirmBatchLoading"
+          @click="handleConfirmBatch"
+        >
+          确认报工
+        </el-button>
+      </template>
+      <template #table>
+        <el-table
+          border
+          v-loading="importLoading"
+          :data="importRecordList"
+          stripe
+          row-key="id"
+          :cell-class-name="resolveImportRecordCellClassName"
+        >
+          <el-table-column label="工单" prop="workOrderCode" min-width="150" />
+          <el-table-column label="产品编码" prop="itemCode" min-width="140" />
+          <el-table-column label="产品名称" prop="itemName" min-width="160" />
+          <el-table-column label="规格" prop="specification" min-width="120" />
+          <el-table-column label="工序" min-width="180">
+            <template #default="scope">
+              <div class="feedback-import-process">
+                <span class="feedback-import-process__line">{{ scope.row.processCode || '--' }}</span>
+                <span class="feedback-import-process__line">{{ scope.row.processName || '--' }}</span>
+              </div>
+            </template>
+          </el-table-column>
+          <el-table-column label="报工数量" prop="feedbackQuantity" width="100" align="right" />
+          <el-table-column label="缓存池数量" prop="surplusPoolQuantity" width="110" align="right" />
+          <el-table-column
+            label="报工时间"
+            prop="feedbackTime"
+            width="180"
+            :formatter="dateFormatter"
+            align="center"
+          />
+          <el-table-column label="归属结果" min-width="220">
+            <template #default="scope">
+              <div class="feedback-import-result">
+                <strong
+                  :class="
+                    scope.row.attributionStatus === 'ATTRIBUTED'
+                      ? 'feedback-import-result__status feedback-import-result__status--success'
+                      : 'feedback-import-result__status feedback-import-result__status--warning'
+                  "
+                >
+                  {{
+                    scope.row.attributionStatus === 'ATTRIBUTED'
+                      ? isImportRecordSkippedExternalOtherOrder(scope.row)
+                        ? '其他订单'
+                        : '已归属'
+                      : '待归属'
+                  }}
+                </strong>
+                <small v-if="scope.row.feedbackId">正式报工编号 #{{ scope.row.feedbackId }}</small>
+                <small v-if="scope.row.attributionStatus === 'ATTRIBUTED'">
+                  归属时间：{{ formatImportAttributionTime(scope.row.attributionTime) }}
+                </small>
+                <small v-if="scope.row.linkedFeedbackCount">
+                  关联正式报工：{{ scope.row.linkedFeedbackCount }} 条
+                </small>
+                <small v-if="isImportRecordSkippedExternalOtherOrder(scope.row)">
+                  该行未生成正式报工草稿，确认报工时将跳过
+                </small>
+              </div>
+            </template>
+          </el-table-column>
+          <el-table-column label="报工人" min-width="180">
+            <template #default="scope">
+              <UserSelectV2
+                v-if="isImportRecordEditable(scope.row)"
+                v-model="scope.row.feedbackUserId"
+                placeholder="请选择报工人"
+              />
+              <span v-else class="text-[#909399]">本批跳过</span>
+            </template>
+          </el-table-column>
+          <el-table-column label="报工时间" min-width="210">
+            <template #default="scope">
+              <el-date-picker
+                v-if="isImportRecordEditable(scope.row)"
+                v-model="scope.row.feedbackTime"
+                type="datetime"
+                value-format="x"
+                placeholder="请选择报工时间"
+                class="!w-1/1"
+              />
+              <span v-else class="text-[#909399]">本批跳过</span>
+            </template>
+          </el-table-column>
+          <el-table-column label="当前审批人" min-width="180">
+            <template #default="scope">
+              <UserSelectV2
+                v-if="isImportRecordEditable(scope.row)"
+                v-model="scope.row.approveUserId"
+                placeholder="请选择当前审批人"
+              />
+              <span v-else class="text-[#909399]">本批跳过</span>
+            </template>
+          </el-table-column>
+          <el-table-column label="备注" min-width="220">
+            <template #default="scope">
+              <el-input
+                v-if="isImportRecordEditable(scope.row)"
+                v-model="scope.row.remark"
+                placeholder="请输入备注"
+                clearable
+              />
+              <span v-else class="text-[#909399]">确认报工时将跳过</span>
+            </template>
+          </el-table-column>
+          <el-table-column label="操作" align="center" width="240" fixed="right">
+            <template #default="scope">
+              <el-button
+                v-if="scope.row.attributionStatus === 'PENDING'"
+                v-hasPermi="['mes:pro-feedback:update']"
+                link
+                type="primary"
+                @click="openAttribution(scope.row)"
+              >
+                选择归属
+              </el-button>
+              <el-button
+                v-if="scope.row.attributionStatus === 'ATTRIBUTED' && scope.row.canModifyAttribution"
+                v-hasPermi="['mes:pro-feedback:update']"
+                link
+                type="warning"
+                @click="openAttribution(scope.row)"
+              >
+                修改归属
+              </el-button>
+              <span
+                v-if="
+                  scope.row.attributionStatus === 'ATTRIBUTED' &&
+                  !scope.row.canModifyAttribution &&
+                  scope.row.modifyBlockedReason
+                "
+                class="text-[#909399]"
+              >
+                {{ scope.row.modifyBlockedReason }}
+              </span>
+            </template>
+          </el-table-column>
+        </el-table>
+      </template>
+    </UnifiedListTemplate>
   </ContentWrap>
 
   <component

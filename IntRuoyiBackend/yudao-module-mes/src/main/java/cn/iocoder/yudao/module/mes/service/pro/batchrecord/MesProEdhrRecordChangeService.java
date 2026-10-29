@@ -10,6 +10,10 @@ import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrRecor
 
 public interface MesProEdhrRecordChangeService {
 
+    EdhrRecordChangeRespVO decide(cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrRecordChangeDecideReqVO reqVO);
+
+    EdhrRecordChangeRespVO resubmit(cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrRecordChangeResubmitReqVO reqVO);
+
     EdhrRecordChangeRespVO requestVoidExecution(EdhrRecordChangeRequestReqVO reqVO);
 
     EdhrRecordChangeRespVO approveVoidExecution(EdhrRecordChangeApproveReqVO reqVO);

@@ -44,11 +44,12 @@ assertIncludes(batchRecordApi, 'WORD_IMPORT_REQUEST_TIMEOUT')
 
 const parserPage = assertFile('src/views/form-center/parser/index.vue')
 assertIncludes(parserPage, "name: 'FormCenterParser'")
-assertIncludes(parserPage, '表单解析')
+assertIncludes(parserPage, '生产解析')
+assertIncludes(parserPage, '检验解析')
 assertIncludes(parserPage, '生产批记录')
 assertIncludes(parserPage, 'QA检验规程')
 assertIncludes(parserPage, '过程检验记录')
-assertIncludes(parserPage, 'handleProductionBatchRecord')
+assertIncludes(parserPage, 'handleProductionFileChange')
 assertIncludes(parserPage, 'handleUnsupportedParseType')
 assertIncludes(parserPage, 'accept=".doc,.docx"')
 assertIncludes(parserPage, 'BatchRecordReportApi')
@@ -275,10 +276,10 @@ const parserButtons = parserPage.match(/<el-button[\s\S]*?<\/el-button>/g) || []
 const productionButton = parserButtons.find((button) => button.includes('生产批记录'))
 const qaButton = parserButtons.find((button) => button.includes('QA检验规程'))
 const processButton = parserButtons.find((button) => button.includes('过程检验记录'))
-if (!productionButton || !productionButton.includes('handleProductionBatchRecord')) {
+if (!productionButton || !parserPage.includes(':on-change="handleProductionFileChange"')) {
   throw new Error('生产批记录按钮必须打开 Word 上传解析流程')
 }
-if (!qaButton || !qaButton.includes('handleQaInspectionRegulation')) {
+if (!qaButton || !parserPage.includes(':on-change="handleQaRegulationFileChange"')) {
   throw new Error('QA检验规程按钮必须打开独立 QA Word 上传解析流程')
 }
 if (qaButton.includes('handleProductionBatchRecord')) {

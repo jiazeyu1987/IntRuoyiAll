@@ -30,7 +30,6 @@ public class MesPqcProductionReleaseDecisionResult {
     private Boolean hasActualLoss;
     private BigDecimal lossQuantity;
     private String lossSourceSnapshotHash;
-    private List<MesProductionReleaseReportUploadTaskReceipt> reportUploadTasks;
     private String sourceSnapshotHash;
     private String reportSnapshotHash;
     private Integer version;

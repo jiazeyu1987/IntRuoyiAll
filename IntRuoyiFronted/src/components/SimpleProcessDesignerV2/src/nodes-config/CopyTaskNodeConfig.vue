@@ -100,14 +100,13 @@
               prop="userIds"
               span="24"
             >
-              <el-select v-model="configForm.userIds" clearable multiple style="width: 100%">
-                <el-option
-                  v-for="item in userOptions"
-                  :key="item.id"
-                  :label="item.nickname"
-                  :value="item.id"
-                />
-              </el-select>
+              <UserSelectV2
+                v-model="configForm.userIds"
+                clearable
+                multiple
+                style="width: 100%"
+                :user-options="userOptions"
+              />
             </el-form-item>
             <el-form-item
               v-if="configForm.candidateStrategy === CandidateStrategy.USER_GROUP"
@@ -253,6 +252,7 @@
   </el-drawer>
 </template>
 <script setup lang="ts">
+import UserSelectV2 from '@/views/system/user/components/UserSelectV2.vue'
 import {
   SimpleFlowNode,
   CandidateStrategy,

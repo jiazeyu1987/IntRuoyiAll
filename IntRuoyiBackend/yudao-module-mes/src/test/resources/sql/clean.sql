@@ -97,3 +97,5 @@ DELETE FROM "dcc_project_code";
 DELETE FROM "mes_md_item";
 
 DELETE FROM mes_pro_edhr_nonconformance_review;
+
+DELETE FROM mes_pro_edhr_market_release_handover;

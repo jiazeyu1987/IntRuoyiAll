@@ -7,6 +7,7 @@ import lombok.Data;
 @Data
 public class DccPositionAssignmentSaveReqVO {
     @NotBlank(message = "分配类型不能为空")
+    @jakarta.validation.constraints.Pattern(regexp = "USER|POST|DIRECT_SUPERVISOR|DEPT_LEADER", message = "不支持的审批角色分配类型")
     private String assignmentType;
     private Long systemPostId;
     private Long userId;

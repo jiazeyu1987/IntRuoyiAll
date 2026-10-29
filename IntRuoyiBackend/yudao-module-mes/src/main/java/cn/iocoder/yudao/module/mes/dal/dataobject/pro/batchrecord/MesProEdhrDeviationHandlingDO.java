@@ -51,4 +51,5 @@ public class MesProEdhrDeviationHandlingDO extends BaseDO {
     private String verificationContent;
     private Integer contentVersion;
     private String contentHash;
+    private String reviewerAssignmentsJson;
 }

@@ -37,6 +37,7 @@ function picker(readUsers, selected) {
  const identity={};new Function('exports',ts.transpileModule(fs.readFileSync('src/views/dcc/controlled-file/relations/project-reference-contract.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText)(identity)
  new Function('exports','require',ts.transpileModule(compiled,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText)(exports,name=>{
   if(name==='vue')return vue
+    if (name === '@/views/system/user/components/UserSelectV2.vue') return { default: { render: () => vue.h('user-selector') } }
   if(name==='@/api/system/user')return{getSimpleUserList:readUsers}
   if(name==='../relations/project-reference-contract')return identity
   throw Error(name)

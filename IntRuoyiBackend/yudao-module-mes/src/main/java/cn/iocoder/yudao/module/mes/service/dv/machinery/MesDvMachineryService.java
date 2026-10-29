@@ -22,6 +22,9 @@ import static cn.iocoder.yudao.framework.common.util.collection.CollectionUtils.
  */
 public interface MesDvMachineryService {
 
+    /** 全量删除当前租户设备、车间和设备类型，任一关联限制触发时整体回滚。 */
+    void deleteAllMachineryAndWorkshops();
+
     /**
      * 创建设备
      *

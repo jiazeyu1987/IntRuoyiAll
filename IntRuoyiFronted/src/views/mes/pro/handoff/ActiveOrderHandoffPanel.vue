@@ -1,29 +1,55 @@
 <template>
   <el-card v-show="!hideWhenEmpty || tasks.length > 0 || Boolean(error)" data-active-order-handoff-panel class="mb-4">
-    <template #header><span>我的生产交接</span><el-button class="ml-4" :loading="loading" @click="load">刷新交接</el-button></template>
+
     <el-alert v-if="error" :title="error" type="error" :closable="false" class="mb-4" />
-    <el-table ref="handoffTableRef" :data="pagedTasks" v-loading="loading" row-key="id">
-      <el-table-column label="交接编号" prop="id" width="120" />
-      <el-table-column label="当轮订单" prop="activeOrderId" width="150" />
-      <el-table-column label="交接事项"><template #default="{ row }">{{ labels[row.taskType] }}</template></el-table-column>
-      <el-table-column label="原因 / 业务意见" prop="reason" min-width="200" />
-      <el-table-column label="状态" width="95"><template #default="{ row }">{{ states[row.status] }}</template></el-table-column>
-      <el-table-column label="操作" width="225"><template #default="{ row }">
-        <el-button link type="primary" :disabled="row.status === 'CANCELED'" @click="openTask(row)">{{ row.status === 'TODO' ? '处理原轮次' : '查看原轮次' }}</el-button>
-        <el-button link type="primary" @click="showReceipts(row)">通知回执</el-button>
-      </template></el-table-column>
-    </el-table>
-    <el-pagination
-      v-if="tasks.length"
-      :current-page="page"
-      :page-size="PAGE_SIZE"
+    <UnifiedListTemplate
+      table-key="mes.handoff.mine"
       :total="tasks.length"
-      :disabled="loading"
-      background
-      layout="total, prev, pager, next, jumper"
-      class="mt-4"
-      @update:current-page="changePage"
-    />
+      :page="page"
+      :limit="handoffPageSize"
+      @update:page="changePage"
+      @update:limit="changePageSize"
+      class="unified-list-template--contained"
+      data-list-viewport="embedded"
+    >
+      <template #actions>
+        <el-button class="ml-4" :loading="loading" @click="load">刷新交接</el-button>
+      </template>
+      <template #table>
+        <el-table
+          stripe
+          border
+          ref="handoffTableRef"
+          :data="pagedTasks"
+          v-loading="loading"
+          row-key="id"
+        >
+          <el-table-column label="交接编号" prop="id" width="120" />
+          <el-table-column label="当轮订单" prop="activeOrderId" width="150" />
+          <el-table-column label="交接事项">
+            <template #default="{ row }">{{ labels[row.taskType] }}</template>
+          </el-table-column>
+          <el-table-column label="原因 / 业务意见" prop="reason" min-width="200" />
+          <el-table-column label="状态" width="95">
+            <template #default="{ row }">{{ states[row.status] }}</template>
+          </el-table-column>
+          <el-table-column label="操作" width="225">
+            <template #default="{ row }">
+              <el-button
+                link
+                type="primary"
+                :disabled="row.status === 'CANCELED'"
+                @click="openTask(row)"
+              >
+                {{ row.status === 'TODO' ? '处理原轮次' : '查看原轮次' }}
+              </el-button>
+              <el-button link type="primary" @click="showReceipts(row)">通知回执</el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+      </template>
+    </UnifiedListTemplate>
+
     <el-dialog v-model="resultOpen" title="原周期作废交接结果" width="680px">
       <el-descriptions v-if="result" :column="1" border>
         <el-descriptions-item label="活跃周期">{{ result.activeOrderId }}</el-descriptions-item>
@@ -76,6 +102,7 @@
   </el-card>
 </template>
 <script setup lang="ts">
+import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import { ref, computed, nextTick, onMounted, onBeforeUnmount, watch } from 'vue'
 import type { TableInstance } from 'element-plus'
 withDefaults(defineProps<{ hideWhenEmpty?: boolean }>(), { hideWhenEmpty: false })
@@ -100,9 +127,14 @@ let completionEpoch = 0
 const tasks = ref<api.HandoffTask[]>([]), loading = ref(false), error = ref('')
 const PAGE_SIZE = 100
 const page = ref(1)
-const pagedTasks = computed(() => tasks.value.slice((page.value - 1) * PAGE_SIZE, page.value * PAGE_SIZE))
+const handoffPageSize = ref(PAGE_SIZE)
+const pagedTasks = computed(() => tasks.value.slice((page.value - 1) * handoffPageSize.value, page.value * handoffPageSize.value))
 const changePage = (nextPage: number) => {
-  page.value = Math.min(Math.max(1, nextPage), Math.max(1, Math.ceil(tasks.value.length / PAGE_SIZE)))
+  page.value = Math.min(Math.max(1, nextPage), Math.max(1, Math.ceil(tasks.value.length / handoffPageSize.value)))
+}
+const changePageSize = (size: number) => {
+  handoffPageSize.value = size
+  changePage(1)
 }
 const selected = ref<api.HandoffTask>(), receipts = ref<api.HandoffReceipt[]>([])
 const receiptResponsibility = computed(() => {

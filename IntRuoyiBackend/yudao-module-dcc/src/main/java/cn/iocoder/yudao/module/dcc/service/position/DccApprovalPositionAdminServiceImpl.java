@@ -75,6 +75,9 @@ public class DccApprovalPositionAdminServiceImpl implements DccApprovalPositionA
         if (DccUploaderDerivedPositionSupport.isUploaderDerivedPosition(position) && !reqVOList.isEmpty()) {
             throw exception(APPROVAL_POSITION_UPLOADER_DERIVED_ASSIGNMENT_NOT_ALLOWED, position.getName());
         }
+        for (DccPositionAssignmentSaveReqVO row : reqVOList) {
+            DccPositionAssignmentTypes.validate(row.getAssignmentType(), row.getUserId(), row.getSystemPostId());
+        }
         assignmentMapper.delete(DccPositionAssignmentDO::getPositionId, positionId);
         if (DccUploaderDerivedPositionSupport.isUploaderDerivedPosition(position)) {
             return List.of();

@@ -343,6 +343,12 @@ class MesProEdhrFormalReverseTraceAdapterTest {
         String snapshot = "{\"pickListBindingItems\":{\"8001\":[{\"id\":9001,\"pickListItemId\":9002,\"materialNumber\":\"MAT-01\",\"materialName\":\"原料\",\"lotNumber\":\"LOT-01\",\"sourceModifyTime\":\"2026-09-25T01:00:00\"}]},\"pqcDetails\":[{\"id\":7001,\"routeProcessId\":3001,\"regulationVersionId\":7101,\"sampleNo\":2,\"itemCode\":\"APPEARANCE\",\"itemName\":\"外观\",\"standardText\":\"PASS\",\"standardLowerLimit\":0,\"standardUpperLimit\":1,\"standardUnit\":\"级\",\"standardPrecision\":0,\"resultType\":\"NUMBER\",\"itemResult\":\"1\",\"measuredValue\":\"1\",\"judgement\":\"PASS\",\"selectedEquipmentId\":8801,\"selectedEquipmentCode\":\"PQC-01\",\"selectedEquipmentName\":\"检验台\",\"selectedEquipmentNumber\":\"EQ-8801\",\"aggregatedAt\":\"2026-09-25T01:00:00\"}]}";
         stubReceipt(snapshot);
 
+        var materialItem = adapter(Category.MATERIAL).readCatalog(batch).items().get(0);
+        assertEquals("MAT-01", materialItem.getSourceContext().get("materialNumber"));
+        assertEquals("LOT-01", materialItem.getSourceContext().get("lotNumber"));
+        var equipmentItem = adapter(Category.EQUIPMENT).readCatalog(batch).items().get(0);
+        assertEquals("PQC-01", equipmentItem.getSourceContext().get("selectedEquipmentCode"));
+        assertEquals("检验台", equipmentItem.getSourceContext().get("selectedEquipmentName"));
         var inspection = adapter(Category.INSPECTION);
         var catalog = inspection.readCatalog(batch);
         var inspectionItem = catalog.items().stream().filter(item -> item.getEvidenceKey().contains("APPEARANCE")).findFirst().orElseThrow();

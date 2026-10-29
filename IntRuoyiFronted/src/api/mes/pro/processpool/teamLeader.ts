@@ -726,6 +726,9 @@ export interface TeamLeaderActiveOrderReworkSourceRespVO {
 }
 
 export interface TeamLeaderActiveOrderOperationFactRespVO {
+  handoverFromName?: string
+  handoverToName?: string
+  handoverReason?: string
   id: number
   operationType: string
   operationName?: string
@@ -780,6 +783,7 @@ export interface ActiveOrderDossierFilesReqVO {
 export interface ActiveOrderDossierFileUploadReqVO extends ActiveOrderDossierFilesReqVO {
   categoryKey: string
   file: File | Blob
+  workTaskId?: number | string
 }
 
 export interface ActiveOrderDossierFileDeleteReqVO extends ActiveOrderDossierFilesReqVO {
@@ -818,6 +822,7 @@ export interface TeamLeaderActiveOrderRespVO {
   releaseApplicationId?: string
   pqcReleaseWorkTaskId?: string
   releaseApplicationStatus?: TeamLeaderActiveOrderReleaseApplicationStatus
+  releaseCorrectionReceivable?: boolean
   releaseSourceSnapshotHash?: string
   releaseApplicationVersion?: number
   quantityConflict?: boolean
@@ -1153,6 +1158,7 @@ export const uploadActiveOrderDossierFile = async (
     formData.append('applicationId', String(data.applicationId))
   }
   formData.append('categoryKey', data.categoryKey)
+  if (data.workTaskId !== undefined) formData.append('workTaskId', String(data.workTaskId))
   formData.append('file', data.file)
   const response = await request.upload<ActiveOrderDossierFileUploadApiResp>({
     url: '/mes/pro/process-pool/team-leader/active-order/dossier-files/upload',

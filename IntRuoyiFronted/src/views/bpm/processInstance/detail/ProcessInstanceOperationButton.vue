@@ -163,20 +163,14 @@
           label-width="100px"
         >
           <el-form-item label="抄送人" prop="copyUserIds">
-            <el-select
+            <UserSelectV2
               v-model="copyForm.copyUserIds"
               clearable
               style="width: 100%"
               multiple
               placeholder="请选择抄送人"
-            >
-              <el-option
-                v-for="item in userOptions"
-                :key="item.id"
-                :label="item.nickname"
-                :value="item.id"
-              />
-            </el-select>
+              :user-options="userOptions"
+            />
           </el-form-item>
           <el-form-item label="抄送意见" prop="copyReason">
             <el-input
@@ -226,14 +220,12 @@
           label-width="100px"
         >
           <el-form-item label="新审批人" prop="assigneeUserId">
-            <el-select v-model="transferForm.assigneeUserId" clearable style="width: 100%">
-              <el-option
-                v-for="item in userOptions"
-                :key="item.id"
-                :label="item.nickname"
-                :value="item.id"
-              />
-            </el-select>
+            <UserSelectV2
+              v-model="transferForm.assigneeUserId"
+              clearable
+              style="width: 100%"
+              :user-options="userOptions"
+            />
           </el-form-item>
           <el-form-item label="审批意见" prop="reason">
             <el-input
@@ -283,14 +275,12 @@
           label-width="100px"
         >
           <el-form-item label="接收人" prop="delegateUserId">
-            <el-select v-model="delegateForm.delegateUserId" clearable style="width: 100%">
-              <el-option
-                v-for="item in userOptions"
-                :key="item.id"
-                :label="item.nickname"
-                :value="item.id"
-              />
-            </el-select>
+            <UserSelectV2
+              v-model="delegateForm.delegateUserId"
+              clearable
+              style="width: 100%"
+              :user-options="userOptions"
+            />
           </el-form-item>
           <el-form-item label="审批意见" prop="reason">
             <el-input
@@ -340,14 +330,13 @@
           label-width="100px"
         >
           <el-form-item label="加签处理人" prop="addSignUserIds">
-            <el-select v-model="addSignForm.addSignUserIds" multiple clearable style="width: 100%">
-              <el-option
-                v-for="item in userOptions"
-                :key="item.id"
-                :label="item.nickname"
-                :value="item.id"
-              />
-            </el-select>
+            <UserSelectV2
+              v-model="addSignForm.addSignUserIds"
+              multiple
+              clearable
+              style="width: 100%"
+              :user-options="userOptions"
+            />
           </el-form-item>
           <el-form-item label="审批意见" prop="reason">
             <el-input
@@ -393,7 +382,7 @@
           :rules="deleteSignFormRule"
           label-width="100px"
         >
-          <el-form-item label="减签人员" prop="deleteSignTaskId">
+          <el-form-item label="减签任务" prop="deleteSignTaskId">
             <el-select v-model="deleteSignForm.deleteSignTaskId" clearable style="width: 100%">
               <el-option
                 v-for="item in runningTask.children"
@@ -543,6 +532,7 @@
   <SignDialog ref="signRef" @success="handleSignFinish" />
 </template>
 <script lang="ts" setup>
+import UserSelectV2 from '@/views/system/user/components/UserSelectV2.vue'
 import { useUserStoreWithOut } from '@/store/modules/user'
 import { setConfAndFields2 } from '@/utils/formCreate'
 import * as TaskApi from '@/api/bpm/task'
@@ -699,7 +689,7 @@ const deleteSignForm = reactive({
   reason: ''
 })
 const deleteSignFormRule = reactive<FormRules<typeof deleteSignForm>>({
-  deleteSignTaskId: [{ required: true, message: '减签人员不能为空', trigger: 'change' }],
+  deleteSignTaskId: [{ required: true, message: '请选择减签任务', trigger: 'change' }],
   reason: [{ required: true, message: '审批意见不能为空', trigger: 'blur' }]
 })
 
@@ -1082,7 +1072,7 @@ const handleReCreate = async () => {
 const getDeleteSignUserLabel = (task: any): string => {
   const deptName = task?.assigneeUser?.deptName || task?.ownerUser?.deptName
   const nickname = task?.assigneeUser?.nickname || task?.ownerUser?.nickname
-  return `${nickname} ( 所属部门：${deptName} )`
+  return `${nickname}（所属部门：${deptName}；任务：${task.id}）`
 }
 /** 处理减签 */
 const handlerDeleteSign = async () => {

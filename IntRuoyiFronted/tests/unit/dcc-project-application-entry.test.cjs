@@ -55,7 +55,7 @@ function routeHost(get = async id => row(id)) {
     message: { success() {}, warning() {} }, getList: async () => {}
   }
   const source = parse(page).descriptor.scriptSetup.content
-  vm.runInNewContext(ts.transpileModule(declarations(source, ['projectRequestAccess', 'projectProductActorScope', 'canPerformProjectAction', 'loadProjectProductRequests', 'openProjectProductDialog', 'consumeProjectProductRequestRoute', 'closeProjectProductRequestEntry', 'handleProjectProductAction']) + '\nexports.consume=consumeProjectProductRequestRoute;exports.refresh=loadProjectProductRequests;exports.close=closeProjectProductRequestEntry;exports.handle=handleProjectProductAction;', { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText, state)
+  vm.runInNewContext(ts.transpileModule(declarations(source, ['projectRequestAccess', 'projectProductActorScope', 'canPerformProjectAction', 'loadProjectProductRequests', 'openProjectProductDialog', 'consumeProjectProductRequestRoute', 'closeProjectProductRequestEntry']) + '\nexports.consume=consumeProjectProductRequestRoute;exports.refresh=loadProjectProductRequests;exports.close=closeProjectProductRequestEntry;', { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText, state)
   return { state, calls, ...state.exports }
 }
 test('formal exact request GET preserves original Long ID and refuses response identity drift', async () => {
@@ -99,19 +99,27 @@ test('late request cannot replace the newly selected original or reopen a closed
   assert.equal(h.state.projectProductDialogVisible.value, false)
   assert.equal(h.state.projectProductRequests.value.length, 0)
 })
-test('actual original review and approval handlers retain exact ID through existing opinion wrappers and reread', async () => {
-  const writes = [], api = moduleAt('src/api/dcc/controlledFile/projectProductRequests.ts', {
-    require: () => ({ default: { post: async query => { writes.push(query); return { ...row(requestId), status: query.url.includes('/review/') ? 'PENDING_APPROVAL' : 'COMPLETED' } } } })
-  })
-  for (const node of ['review', 'approve']) {
-    const actualRow = { ...row(requestId), configuredReviewerUserId: '7', status: node === 'review' ? 'PENDING_REVIEW' : 'PENDING_APPROVAL' }
-    const h = routeHost(async () => actualRow)
-    h.state.reviewDccProjectProductRequest = api.reviewDccProjectProductRequest
-    h.state.approveDccProjectProductRequest = api.approveDccProjectProductRequest
-    await h.consume(); await h.handle(h.state.projectProductRequests.value[0], node, true)
-    assert.equal(writes[writes.length - 1].url, `/dcc/project-product-requests/${requestId}/${node}/approve`)
-    assert.equal(writes[writes.length - 1].data.reason, '实际办理意见')
-    assert.deepEqual(h.calls, [requestId, requestId])
+test('project records retain applicant actions while decisions move to approval center', () => {
+  assert.equal(page.includes('dcc-project-product-records-open'), false)
+  assert.equal(page.includes('handleProjectProductAction'), false)
+  assert.equal(page.includes('审核通过'), false)
+  assert.equal(page.includes('批准通过'), false)
+  assert.ok(page.includes('修改后重提'))
+  assert.ok(page.includes('重试写入'))
+  assert.ok(page.includes("path: '/approval-center/todo'"))
+})
+test('approval center opens its existing decision dialog only for actionable pending project tasks', () => {
+  const source = parse(read('src/views/approval-center/index.vue')).descriptor.scriptSetup.content
+  const context = { exports: {}, queryParams: { viewType: 'TODO' }, bpmMissingPermissionReason: () => '' }
+  vm.runInNewContext(ts.transpileModule(declarations(source, ['canReview']) + '\nexports.canReview=canReview', { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText, context)
+  for (const sourceTaskType of ['DCC_PROJECT_PRODUCT_REVIEW', 'DCC_PROJECT_PRODUCT_APPROVAL']) {
+    const task = { moduleCode: 'DCC', sourceTaskType, availableActions: ['APPROVE', 'REJECT'] }
+    assert.equal(context.exports.canReview(task), true)
+    assert.equal(context.exports.canReview({ ...task, availableActions: [] }), false)
+    assert.equal(context.exports.canReview({ ...task, businessDeleted: true }), false)
+    context.queryParams.viewType = 'DONE'
+    assert.equal(context.exports.canReview(task), false)
+    context.queryParams.viewType = 'TODO'
   }
 })
 test('actual notification helper navigates only the dedicated exact same-origin project request contract', async () => {

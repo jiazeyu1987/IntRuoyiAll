@@ -100,7 +100,7 @@ class DccRegistrationCertificateUploadServiceTest {
     void setUp() {
         uploadService = new DccRegistrationCertificateUploadService(
                 commandMutex, commandService, requestMapper, requestFileMapper, fileMapper, snapshotMapper, versionMapper,
-                projectCodeFileAssociationService, fileService, projectCodeService, companyScopeApi, enterpriseApi, businessClock,
+                projectCodeFileAssociationService, fileService, projectCodeService, enterpriseApi, businessClock,
                 businessEventNotifier);
         lenient().doAnswer(invocation -> {
             Supplier<?> action = invocation.getArgument(1);
@@ -310,7 +310,7 @@ class DccRegistrationCertificateUploadServiceTest {
     }
 
     @Test
-    void listOwnerCompaniesReturnsOnlyTenantOwnedCandidatesInUserCompanyScope() {
+    void listOwnerCompaniesReturnsAllEnabledTenantOwnedCandidatesWithoutUserScope() {
         MdmEnterpriseRespDTO candidate = MdmEnterpriseRespDTO.builder()
                 .id(501L)
                 .tenantId(TENANT_ID)
@@ -332,27 +332,28 @@ class DccRegistrationCertificateUploadServiceTest {
         when(enterpriseApi.listEnabledEnterprises(
                 Set.of(MdmEnterpriseTypeEnum.OWNED_COMPANY.getType()), "上海", 20))
                 .thenReturn(List.of(candidate, otherCandidate));
-        when(companyScopeApi.getEnabledCompanyIdsForUser(ACTOR_ID)).thenReturn(Set.of(501L));
 
         List<MdmEnterpriseRespDTO> result = uploadService.listOwnerCompanies(TENANT_ID, ACTOR_ID, "上海");
 
-        assertEquals(1, result.size());
+        assertEquals(2, result.size());
         assertEquals(501L, result.get(0).getId());
         assertEquals("上海七木医疗器械有限公司", result.get(0).getName());
-        verify(companyScopeApi).getEnabledCompanyIdsForUser(ACTOR_ID);
+        verify(companyScopeApi, never()).getEnabledCompanyIdsForUser(ACTOR_ID);
+        assertEquals(502L, result.get(1).getId());
         verify(companyScopeApi, never()).validateUserCompanyAccess(any(), any());
     }
 
     @Test
-    void submitUploadForApprovalRejectsUnauthorizedOwnerCompanyIdWithChineseMessage() {
+    void submitUploadForApprovalRejectsUnavailableOwnerCompany() {
         org.mockito.Mockito.doThrow(new ServiceException(REGISTRATION_CERTIFICATE_COMPANY_SCOPE_DENIED))
-                .when(companyScopeApi).validateUserCompanyAccess(ACTOR_ID, 999L);
+                .when(enterpriseApi).getEnabledEnterprises(List.of(999L),
+                        Set.of(MdmEnterpriseTypeEnum.OWNED_COMPANY.getType()));
 
         ServiceException exception = assertThrows(ServiceException.class, () -> uploadService.submitUploadForApproval(
                 TENANT_ID, ACTOR_ID, "UPLOAD-KEY-UNAUTHORIZED-COMPANY", "TRACE-UNAUTHORIZED-COMPANY",
                 uploadCommand(1001L, 999L, "一次性使用无菌导管", false, true, List.of())));
 
-        assertEquals("当前账号无该公司注册证上传权限，请选择已授权公司", exception.getMessage());
+        assertEquals(REGISTRATION_CERTIFICATE_COMPANY_SCOPE_DENIED.getCode(), exception.getCode());
         verify(commandService, never()).createDraft(any(), any(), any(), any(), any());
     }
 

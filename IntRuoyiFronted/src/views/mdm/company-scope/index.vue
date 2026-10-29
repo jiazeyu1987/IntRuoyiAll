@@ -3,9 +3,6 @@
     class="scheme-d-basic-data-page scheme-d-basic-data-page--mdm-company-scope"
     data-testid="mdm-company-scope-page"
   >
-    <div class="mb-16px flex items-center gap-8px">
-      <span class="text-18px font-600 text-[var(--el-text-color-primary)]">基础数据 / 授权公司</span>
-    </div>
     <el-alert
       v-if="loadError"
       class="company-scope-load-error"
@@ -36,11 +33,11 @@
       <template #actions>
         <el-button
           type="primary"
-          @click="openScopeForm('create')"
+          @click="openCreateDialog"
           v-hasPermi="['mdm:company-scope:create']"
         >
           <Icon icon="ep:plus" class="mr-5px" />
-          新增授权公司
+          新建
         </el-button>
       </template>
       <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
@@ -52,49 +49,22 @@
           border
           :empty-text="companyScopeEmptyText"
           :show-overflow-tooltip="true"
-          :row-key="getCompanyScopeRowKey"
+          row-key="id"
           @sort-change="handleTemplateSortChange"
         >
           <el-table-column
-            v-if="isCompanyScopeColumnVisible('scopeType')"
-            label="范围类型"
-            prop="scopeType"
-            :width="getCompanyScopeColumnWidthString('scopeType', 100)"
-            v-bind="sortColumnAttrs('scopeType')"
-          >
-            <template #default="{ row }">
-              <el-tag :type="row.scopeType === MdmCompanyScopeApi.MDM_COMPANY_SCOPE_TYPE_USER ? 'primary' : 'warning'">
-                {{ formatScopeType(row.scopeType) }}
-              </el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column
-            v-if="isCompanyScopeColumnVisible('principalName')"
-            label="用户 / 角色"
-            prop="principalName"
-            :min-width="getCompanyScopeColumnMinWidthString('principalName', 160)"
-            v-bind="sortColumnAttrs('principalName')"
-          />
-          <el-table-column
-            v-if="isCompanyScopeColumnVisible('principalCode')"
-            label="账号 / 编码"
-            prop="principalCode"
-            :min-width="getCompanyScopeColumnMinWidthString('principalCode', 160)"
-            v-bind="sortColumnAttrs('principalCode')"
-          />
-          <el-table-column
-            v-if="isCompanyScopeColumnVisible('companyDisplayLabel')"
+            v-if="isCompanyScopeColumnVisible('name')"
             label="公司名称"
-            prop="companyDisplayLabel"
-            :min-width="getCompanyScopeColumnMinWidthString('companyDisplayLabel', 200)"
-            v-bind="sortColumnAttrs('companyDisplayLabel')"
+            prop="name"
+            :min-width="getCompanyScopeColumnMinWidthString('name', 200)"
+            v-bind="sortColumnAttrs('name')"
           />
           <el-table-column
-            v-if="isCompanyScopeColumnVisible('companyCode')"
+            v-if="isCompanyScopeColumnVisible('enterpriseCode')"
             label="公司编码"
-            prop="companyCode"
-            :min-width="getCompanyScopeColumnMinWidthString('companyCode', 160)"
-            v-bind="sortColumnAttrs('companyCode')"
+            prop="enterpriseCode"
+            :min-width="getCompanyScopeColumnMinWidthString('enterpriseCode', 160)"
+            v-bind="sortColumnAttrs('enterpriseCode')"
           />
           <el-table-column
             v-if="isCompanyScopeColumnVisible('status')"
@@ -104,8 +74,8 @@
             v-bind="sortColumnAttrs('status')"
           >
             <template #default="{ row }">
-              <el-tag :type="row.status === MdmCompanyScopeApi.MDM_COMPANY_SCOPE_STATUS_ENABLE ? 'success' : 'info'">
-                {{ formatStatus(row.status) }}
+              <el-tag :type="row.status === 'ENABLE' ? 'success' : 'info'">
+                {{ row.status === 'ENABLE' ? '启用' : '停用' }}
               </el-tag>
             </template>
           </el-table-column>
@@ -127,80 +97,38 @@
               <el-button
                 link
                 type="primary"
-                @click="openScopeForm('update', row)"
+                @click="openEditDialog(row)"
                 v-hasPermi="['mdm:company-scope:update']"
-              >
-                编辑
-              </el-button>
+              >编辑</el-button>
               <el-button
                 link
-                type="danger"
-                @click="handleDelete(row)"
-                v-hasPermi="['mdm:company-scope:delete']"
-              >
-                删除授权公司
-              </el-button>
+                :type="row.status === 'ENABLE' ? 'warning' : 'success'"
+                @click="toggleCompanyStatus(row)"
+                v-hasPermi="['mdm:company-scope:update']"
+              >{{ row.status === 'ENABLE' ? '停用' : '启用' }}</el-button>
             </template>
           </el-table-column>
         </el-table>
       </template>
     </UnifiedListTemplate>
   </ContentWrap>
-
   <el-dialog
     v-model="formVisible"
-    :title="formType === 'create' ? '新增授权公司' : '编辑授权公司'"
-    width="640px"
+    :title="formType === 'create' ? '新建所属公司' : '编辑所属公司'"
+    width="520px"
+    @closed="resetForm"
   >
-    <el-form ref="formRef" :model="formData" :rules="formRules" label-width="112px">
-      <el-form-item label="授权类型" prop="scopeType">
-        <el-radio-group
-          v-model="formData.scopeType"
-          :disabled="formType === 'update'"
-          @change="handleScopeTypeChange"
-        >
-          <el-radio-button :label="MdmCompanyScopeApi.MDM_COMPANY_SCOPE_TYPE_USER">用户</el-radio-button>
-          <el-radio-button :label="MdmCompanyScopeApi.MDM_COMPANY_SCOPE_TYPE_ROLE">角色</el-radio-button>
-        </el-radio-group>
-      </el-form-item>
-      <el-form-item
-        v-if="formData.scopeType === MdmCompanyScopeApi.MDM_COMPANY_SCOPE_TYPE_USER"
-        label="授权用户"
-        prop="principalId"
-      >
-        <UserSelectV2 v-model="formData.principalId" placeholder="请选择授权用户" />
-      </el-form-item>
-      <el-form-item v-else label="授权角色" prop="principalId">
-        <RoleSelect v-model="formData.principalId" placeholder="请选择授权角色" />
-      </el-form-item>
-      <el-form-item label="授权公司" prop="companyId">
-        <el-select
-          v-model="formData.companyId"
-          class="!w-1/1"
-          filterable
-          clearable
-          :loading="ownedCompanyLoading"
-          placeholder="请选择授权公司"
-        >
-          <el-option
-            v-for="item in ownedCompanyOptions"
-            :key="item.id"
-            :label="formatOwnedCompanyOption(item)"
-            :value="item.id"
-          />
-        </el-select>
-      </el-form-item>
-      <el-form-item label="状态" prop="status">
-        <el-radio-group v-model="formData.status">
-          <el-radio-button :label="MdmCompanyScopeApi.MDM_COMPANY_SCOPE_STATUS_ENABLE">启用</el-radio-button>
-          <el-radio-button :label="MdmCompanyScopeApi.MDM_COMPANY_SCOPE_STATUS_DISABLE">停用</el-radio-button>
-        </el-radio-group>
+    <el-form ref="formRef" :model="formData" :rules="formRules" label-width="92px">
+      <el-form-item label="公司名称" prop="name">
+        <el-input v-model="formData.name" maxlength="255" placeholder="请输入公司名称" />
       </el-form-item>
     </el-form>
     <template #footer>
       <div class="company-scope-dialog-footer">
         <el-button @click="formVisible = false">取消</el-button>
-        <el-button type="primary" :loading="formSubmitting" @click="submitScopeForm">保存</el-button>
+        <el-button type="primary" :loading="formSubmitting" @click="submitForm">
+          保存
+        </el-button>
       </div>
     </template>
   </el-dialog>
@@ -213,86 +141,55 @@ import { dateFormatter2 } from '@/utils/formatTime'
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import { useTableQuickFilter, type TableQuickFilterDefinition } from '@/hooks/web/useTableQuickFilter'
 import { useUserTableColumns, type UserTableColumnDefinition } from '@/hooks/web/useUserTableColumns'
-import UserSelectV2 from '@/views/system/user/components/UserSelectV2.vue'
-import RoleSelect from '@/views/system/role/components/RoleSelect.vue'
-import * as MdmEnterpriseApi from '@/api/mdm/enterprise'
-import type { MdmEnterpriseSimpleRespVO } from '@/api/mdm/enterprise'
-import * as MdmCompanyScopeApi from '@/api/mdm/companyScope'
-import type {
-  MdmCompanyScopePageReqVO,
-  MdmCompanyScopeRespVO,
-  MdmCompanyScopeSaveReqVO
+import {
+  createEnabledCompany,
+  getOwnedCompanyPage,
+  updateOwnedCompany,
+  updateOwnedCompanyStatus
 } from '@/api/mdm/companyScope'
+import type { MdmEnterpriseRespVO } from '@/api/mdm/enterprise'
 
 defineOptions({ name: 'MdmCompanyScope' })
 
 const message = useMessage()
-
 const loading = ref(false)
 const total = ref(0)
-const list = ref<MdmCompanyScopeRespVO[]>([])
+const list = ref<MdmEnterpriseRespVO[]>([])
 const loadError = ref('')
 const formVisible = ref(false)
 const formSubmitting = ref(false)
 const formType = ref<'create' | 'update'>('create')
+const editingCompanyId = ref<number>()
 const formRef = ref<FormInstance>()
-const ownedCompanyLoading = ref(false)
-const ownedCompanyOptions = ref<MdmEnterpriseSimpleRespVO[]>([])
-
-type CompanyScopePageQuery = MdmCompanyScopePageReqVO & {
-  pageNo: number
-  pageSize: number
+const formData = reactive({ name: '' })
+const formRules: FormRules = {
+  name: [{ required: true, message: '请输入公司名称', trigger: 'blur' }]
 }
-
-const queryParams = reactive<CompanyScopePageQuery>({
+const queryParams = reactive({
   pageNo: 1,
   pageSize: 10,
-  keyword: undefined,
-  scopeType: undefined,
-  status: undefined
+  keyword: undefined as string | undefined,
+  status: undefined as string | undefined
 })
-
 const companyScopeQuickFilterDefinitions: TableQuickFilterDefinition[] = [
   {
-    key: 'keyword',
-    label: '关键词',
-    type: 'text',
-    queryParamKey: 'keyword',
-    placeholder: '用户、角色或公司'
+    key: 'keyword', label: '关键词', type: 'text', queryParamKey: 'keyword',
+    placeholder: '公司名称或编码'
   },
   {
-    key: 'scopeType',
-    label: '范围类型',
-    type: 'select',
-    queryParamKey: 'scopeType',
-    options: [
-      { label: '用户', value: MdmCompanyScopeApi.MDM_COMPANY_SCOPE_TYPE_USER },
-      { label: '角色', value: MdmCompanyScopeApi.MDM_COMPANY_SCOPE_TYPE_ROLE }
-    ]
-  },
-  {
-    key: 'status',
-    label: '状态',
-    type: 'select',
-    queryParamKey: 'status',
-    options: [
-      { label: '启用', value: MdmCompanyScopeApi.MDM_COMPANY_SCOPE_STATUS_ENABLE },
-      { label: '停用', value: MdmCompanyScopeApi.MDM_COMPANY_SCOPE_STATUS_DISABLE }
+    key: 'status', label: '状态', type: 'select', queryParamKey: 'status', options: [
+      { label: '启用', value: 'ENABLE' },
+      { label: '停用', value: 'DISABLE' }
     ]
   }
 ]
-
 const companyScopeDefaultColumns: UserTableColumnDefinition[] = [
-  { key: 'scopeType', label: '范围类型', width: 100, sortable: false },
-  { key: 'principalName', label: '用户 / 角色', minWidth: 160, sortable: false },
-  { key: 'principalCode', label: '账号 / 编码', minWidth: 160, sortable: false },
-  { key: 'companyDisplayLabel', label: '公司名称', minWidth: 200, sortable: false },
-  { key: 'companyCode', label: '公司编码', minWidth: 160, sortable: false },
+  { key: 'name', label: '公司名称', minWidth: 200, sortable: false },
+  { key: 'enterpriseCode', label: '公司编码', minWidth: 160, sortable: false },
   { key: 'status', label: '状态', width: 100, sortable: false },
   { key: 'updateTime', label: '更新时间', width: 180, sortable: false },
   { key: 'actions', label: '操作', width: 150, sortable: false, hideable: false, business: false }
 ]
-
 const {
   columns: companyScopeColumns,
   saving: companyScopeColumnSaving,
@@ -302,194 +199,92 @@ const {
   saveConfig: saveCompanyScopeColumnConfig
 } = useUserTableColumns('mdm.companyScope.main', companyScopeDefaultColumns)
 
-const formatScopeType = (scopeType?: string | null) =>
-  scopeType === MdmCompanyScopeApi.MDM_COMPANY_SCOPE_TYPE_USER
-    ? '用户'
-    : scopeType === MdmCompanyScopeApi.MDM_COMPANY_SCOPE_TYPE_ROLE
-      ? '角色'
-      : scopeType || '-'
-
-const formatStatus = (status?: string | null) =>
-  status === MdmCompanyScopeApi.MDM_COMPANY_SCOPE_STATUS_ENABLE ? '启用' : '停用'
-
-type CompanyScopeFormData = Omit<MdmCompanyScopeSaveReqVO, 'principalId' | 'companyId'> & {
-  principalId?: number
-  companyId?: number
-}
-
-const formData = reactive<CompanyScopeFormData>({
-  id: undefined,
-  scopeType: MdmCompanyScopeApi.MDM_COMPANY_SCOPE_TYPE_USER,
-  principalId: undefined,
-  companyId: undefined,
-  status: MdmCompanyScopeApi.MDM_COMPANY_SCOPE_STATUS_ENABLE
-})
-
-const formRules: FormRules = {
-  scopeType: [{ required: true, message: '请选择授权类型', trigger: 'change' }],
-  principalId: [{ required: true, message: '请选择授权对象', trigger: 'change' }],
-  companyId: [{ required: true, message: '请选择授权公司', trigger: 'change' }],
-  status: [{ required: true, message: '请选择状态', trigger: 'change' }]
-}
-
 const resolvePageErrorMessage = (error: unknown) => {
   const record = error as {
     message?: string
     msg?: string
     response?: { data?: { msg?: string; message?: string } }
   }
-  return (
-    record?.response?.data?.msg ||
-    record?.response?.data?.message ||
-    record?.msg ||
-    record?.message ||
-    '企业公司范围加载失败，请查看网络或后端错误后重试。'
-  )
+  return record?.response?.data?.msg || record?.response?.data?.message || record?.msg ||
+    record?.message || '公司列表加载失败，请查看网络或后端错误后重试。'
 }
-
 const getList = async () => {
   loading.value = true
   loadError.value = ''
   try {
-    const data = await MdmCompanyScopeApi.getCompanyScopePage(queryParams)
+    const data = await getOwnedCompanyPage(queryParams)
     list.value = data.list
     total.value = data.total
   } catch (error) {
-    const errorMessage = resolvePageErrorMessage(error)
-    loadError.value = errorMessage
+    loadError.value = resolvePageErrorMessage(error)
     list.value = []
     total.value = 0
-    message.error(errorMessage)
+    message.error(loadError.value)
   } finally {
     loading.value = false
   }
 }
-
-const companyScopeEmptyText = '当前暂无企业公司范围配置'
-
-const resetScopeForm = () => {
-  Object.assign(formData, {
-    id: undefined,
-    scopeType: MdmCompanyScopeApi.MDM_COMPANY_SCOPE_TYPE_USER,
-    principalId: undefined,
-    companyId: undefined,
-    status: MdmCompanyScopeApi.MDM_COMPANY_SCOPE_STATUS_ENABLE
-  })
+const companyScopeEmptyText = '当前暂无所属公司'
+const resetForm = () => {
+  editingCompanyId.value = undefined
+  formData.name = ''
   formRef.value?.clearValidate()
 }
-
-const loadOwnedCompanies = async () => {
-  ownedCompanyLoading.value = true
-  try {
-    ownedCompanyOptions.value = await MdmEnterpriseApi.getEnterpriseSimpleList({
-      type: MdmEnterpriseApi.MDM_ENTERPRISE_TYPE_OWNED_COMPANY,
-      status: MdmEnterpriseApi.MDM_ENTERPRISE_STATUS_ENABLE
-    })
-  } finally {
-    ownedCompanyLoading.value = false
-  }
-}
-
-const openScopeForm = async (type: 'create' | 'update', row?: MdmCompanyScopeRespVO) => {
-  resetScopeForm()
-  formType.value = type
-  await loadOwnedCompanies()
-  if (type === 'update' && row) {
-    Object.assign(formData, {
-      id: row.id,
-      scopeType: row.scopeType,
-      principalId: row.principalId,
-      companyId: row.companyId,
-      status: row.status
-    })
-  }
+const openCreateDialog = async () => {
+  resetForm()
+  formType.value = 'create'
   formVisible.value = true
   await nextTick()
   formRef.value?.clearValidate()
 }
-
-const handleScopeTypeChange = () => {
-  formData.principalId = undefined
-  formRef.value?.clearValidate('principalId')
+const openEditDialog = async (row: MdmEnterpriseRespVO) => {
+  resetForm()
+  formType.value = 'update'
+  editingCompanyId.value = row.id
+  formData.name = row.name
+  formVisible.value = true
+  await nextTick()
+  formRef.value?.clearValidate()
 }
-
-const formatOwnedCompanyOption = (item: MdmEnterpriseSimpleRespVO) => {
-  const parts = [item.name, item.enterpriseCode].filter(Boolean)
-  return parts.join(' - ')
-}
-
-const getCompanyScopeRowKey = (row: MdmCompanyScopeRespVO) => `${row.scopeType}:${row.id}`
-
-const buildScopePayload = (): MdmCompanyScopeSaveReqVO => {
-  if (!formData.principalId || !formData.companyId) {
-    throw new Error('授权公司表单未完整填写')
-  }
-  return {
-    id: formData.id,
-    scopeType: formData.scopeType,
-    principalId: formData.principalId,
-    companyId: formData.companyId,
-    status: formData.status
-  }
-}
-
-const submitScopeForm = async () => {
-  if (!(await formRef.value?.validate())) {
-    return
-  }
-  const payload = buildScopePayload()
+const submitForm = async () => {
+  if (!(await formRef.value?.validate())) return
   formSubmitting.value = true
   try {
     if (formType.value === 'create') {
-      await MdmCompanyScopeApi.createCompanyScope(payload)
+      await createEnabledCompany(formData.name.trim())
+      message.success('公司已创建，公司编码已自动生成')
     } else {
-      await MdmCompanyScopeApi.updateCompanyScope(payload)
+      if (!editingCompanyId.value) throw new Error('公司编号缺失')
+      await updateOwnedCompany(editingCompanyId.value, formData.name.trim())
+      message.success('公司信息已更新')
     }
-    message.success('授权公司已保存')
     formVisible.value = false
     await getList()
   } finally {
     formSubmitting.value = false
   }
 }
-
-const handleDelete = async (row: MdmCompanyScopeRespVO) => {
-  try {
-    await message.delConfirm(`确认删除授权公司“${row.companyDisplayLabel}”吗？`)
-  } catch {
-    return
-  }
-  loading.value = true
-  try {
-    await MdmCompanyScopeApi.deleteCompanyScope(row.scopeType, row.id)
-    message.success('授权公司已删除')
-    await getList()
-  } finally {
-    loading.value = false
-  }
+const toggleCompanyStatus = async (row: MdmEnterpriseRespVO) => {
+  const nextStatus = row.status === 'ENABLE' ? 'DISABLE' : 'ENABLE'
+  await updateOwnedCompanyStatus(row.id, nextStatus)
+  message.success(`公司已${nextStatus === 'ENABLE' ? '启用' : '停用'}`)
+  await getList()
 }
-
 const companyScopeQuickFilter = useTableQuickFilter(
-  'mdm.companyScope.main',
-  companyScopeQuickFilterDefinitions,
-  queryParams,
-  getList
+  'mdm.companyScope.main', companyScopeQuickFilterDefinitions, queryParams, getList
 )
-
-onMounted(() => {
-  void getList()
-})
+onMounted(() => { void getList() })
 </script>
 
 <style scoped>
-.company-scope-load-error {
-  margin: 12px;
-  width: auto;
-}
-
 .company-scope-dialog-footer {
   display: flex;
   justify-content: flex-end;
   gap: 12px;
+}
+
+.company-scope-load-error {
+  margin: 12px;
+  width: auto;
 }
 </style>

@@ -1080,11 +1080,7 @@ public class MesTeamLeaderActiveOrderSimulationService {
                 .routeId(task.getRouteId())
                 .qaProcessId(task.getQaProcessId())
                 .actualEmployeeId(leaderUserId)
-                .deviceAccountId(pieceBuildResult.selectedEquipment() == null ? null : leaderUserId)
-                .deviceId(pieceBuildResult.selectedEquipment() == null ? null
-                        : pieceBuildResult.selectedEquipment().equipmentId())
-                .workstationId(pieceBuildResult.selectedEquipment() == null ? null
-                        : pieceBuildResult.selectedEquipment().workstationId())
+                // Task-based PQC keeps inspection equipment in item evidence, independently of production workstations.
                 .templateType(SIMULATION_TEMPLATE_TYPE_PQC)
                 .feedbackSourceType(PQC_INSPECTION_TASK_SOURCE_TYPE)
                 .feedbackSourceId(task.getId())
@@ -1231,8 +1227,7 @@ public class MesTeamLeaderActiveOrderSimulationService {
                     "PQC任务检验设备配置不完整，taskId=" + task.getId());
         }
         return new PqcEquipment(selected.equipmentId(), selected.equipmentCode().trim(),
-                selected.equipmentName().trim(), selected.equipmentNumber().trim(),
-                null);
+                selected.equipmentName().trim(), selected.equipmentNumber().trim());
     }
 
     private Long resolvePqcTaskDccProjectCodeId(MesPqcInspectionTaskDO task) {
@@ -1681,8 +1676,7 @@ public class MesTeamLeaderActiveOrderSimulationService {
     private record SimulationDevice(Long deviceId, String deviceCode, String deviceName) {
     }
 
-    private record PqcEquipment(Long equipmentId, String equipmentCode, String equipmentName, String equipmentNumber,
-                                Long workstationId) {
+    private record PqcEquipment(Long equipmentId, String equipmentCode, String equipmentName, String equipmentNumber) {
     }
 
     private record PqcPieceBuildResult(List<MesPqcInspectionPieceDetailDO> pieceDetails,

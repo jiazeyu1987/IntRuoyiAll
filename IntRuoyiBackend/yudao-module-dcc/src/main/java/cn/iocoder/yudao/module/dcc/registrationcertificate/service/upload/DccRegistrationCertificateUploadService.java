@@ -23,7 +23,6 @@ import cn.iocoder.yudao.module.dcc.registrationcertificate.service.association.D
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.notification.event.DccRegistrationCertificateBusinessEventNotifier;
 import cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectCodeService;
 import cn.iocoder.yudao.module.infra.service.file.FileService;
-import cn.iocoder.yudao.module.mdm.api.companyscope.MdmCompanyScopeApi;
 import cn.iocoder.yudao.module.mdm.api.enterprise.MdmEnterpriseApi;
 import cn.iocoder.yudao.module.mdm.api.enterprise.dto.MdmEnterpriseRespDTO;
 import cn.iocoder.yudao.module.mdm.enums.MdmEnterpriseTypeEnum;
@@ -93,7 +92,6 @@ public class DccRegistrationCertificateUploadService {
     private final DccRegistrationCertificateProjectCodeFileAssociationService projectCodeFileAssociationService;
     private final FileService fileService;
     private final DccProjectCodeService projectCodeService;
-    private final MdmCompanyScopeApi companyScopeApi;
     private final MdmEnterpriseApi enterpriseApi;
     private final DccRegistrationCertificateBusinessClock businessClock;
     private final DccRegistrationCertificateBusinessEventNotifier businessEventNotifier;
@@ -109,7 +107,6 @@ public class DccRegistrationCertificateUploadService {
             DccRegistrationCertificateProjectCodeFileAssociationService projectCodeFileAssociationService,
             FileService fileService,
             DccProjectCodeService projectCodeService,
-            MdmCompanyScopeApi companyScopeApi,
             MdmEnterpriseApi enterpriseApi,
             DccRegistrationCertificateBusinessClock businessClock,
             DccRegistrationCertificateBusinessEventNotifier businessEventNotifier) {
@@ -123,7 +120,6 @@ public class DccRegistrationCertificateUploadService {
         this.projectCodeFileAssociationService = require(projectCodeFileAssociationService, "projectCodeFileAssociationService");
         this.fileService = require(fileService, "fileService");
         this.projectCodeService = require(projectCodeService, "projectCodeService");
-        this.companyScopeApi = require(companyScopeApi, "companyScopeApi");
         this.enterpriseApi = require(enterpriseApi, "enterpriseApi");
         this.businessClock = require(businessClock, "businessClock");
         this.businessEventNotifier = require(businessEventNotifier, "businessEventNotifier");
@@ -153,10 +149,6 @@ public class DccRegistrationCertificateUploadService {
         if (tenantId == null || tenantId <= 0 || actorId == null || actorId <= 0) {
             throw new ServiceException(REGISTRATION_CERTIFICATE_COMPANY_SCOPE_DENIED);
         }
-        Set<Long> enabledCompanyIds = companyScopeApi.getEnabledCompanyIdsForUser(actorId);
-        if (enabledCompanyIds == null || enabledCompanyIds.isEmpty()) {
-            throw new ServiceException(REGISTRATION_CERTIFICATE_COMPANY_SCOPE_DENIED);
-        }
         List<MdmEnterpriseRespDTO> enterprises = enterpriseApi.listEnabledEnterprises(
                 OWNED_COMPANY, normalizeText(keyword), OWNER_COMPANY_CANDIDATE_LIMIT);
         if (enterprises == null || enterprises.isEmpty()) {
@@ -171,7 +163,6 @@ public class DccRegistrationCertificateUploadService {
             }
         }
         return enterprises.stream()
-                .filter(enterprise -> enabledCompanyIds.contains(enterprise.getId()))
                 .sorted(Comparator.comparing(MdmEnterpriseRespDTO::getId))
                 .toList();
     }

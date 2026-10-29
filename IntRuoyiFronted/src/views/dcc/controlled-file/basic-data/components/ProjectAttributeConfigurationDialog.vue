@@ -5,9 +5,7 @@
     <el-alert v-if="historicalMissing" title="历史未记录，请主动补齐项目默认属性与负责人账号" type="info" :closable="false" />
     <el-form v-loading="loading" label-width="140px" :disabled="loading">
       <el-form-item label="项目负责人账号" required>
-        <el-select v-model="leaderId" filterable placeholder="选择正式系统账号">
-          <el-option v-for="user in users" :key="user.id" :value="user.id" :label="user.nickname + '（' + (user.username || '#' + user.id) + '）'" />
-        </el-select>
+        <UserSelectV2 v-model="leaderId" :disabled="loading" placeholder="选择正式系统账号" :clearable="false" :user-options="users" />
       </el-form-item>
       <ProjectAttributesFields v-model="attributes" />
       <el-form-item label="修改原因" required><el-input v-model="changeReason" maxlength="500" /></el-form-item>
@@ -20,6 +18,7 @@
   </Dialog>
 </template>
 <script setup lang="ts">
+import UserSelectV2 from '@/views/system/user/components/UserSelectV2.vue'
 import { ref, watch, onBeforeUnmount } from 'vue'
 import { getSimpleUserList } from '@/api/system/user'
 import { configureProjectAttributes, getProjectAttributeConfiguration } from '@/api/dcc/controlledFile/projectAttributes'

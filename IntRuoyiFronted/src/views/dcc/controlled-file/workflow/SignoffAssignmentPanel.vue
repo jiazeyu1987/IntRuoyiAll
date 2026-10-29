@@ -2,9 +2,7 @@
   <section>
     <slot name="frozen-evidence" ></slot>
     <p>{{ departmentName }}：先签名指派本部门人员，再由被指派人正式会签。本人属于本部门时可以指派本人。</p>
-    <el-select v-model="selected" filterable clearable placeholder="搜索并选择本部门会签人" :disabled="busy || assigned">
-      <el-option v-for="user in users" :key="String(user.id)" :label="user.departmentName ? `${user.name}（${user.departmentName}）` : user.name" :value="user.id" />
-    </el-select>
+    <UserSelectV2 v-model="selected" clearable placeholder="搜索并选择本部门会签人" :disabled="busy || assigned" :user-options="users.map(user => ({ ...user, nickname: user.name, deptName: user.departmentName }))" />
     <el-input v-model="reason" placeholder="指派意见" :disabled="busy || assigned" />
     <el-input v-model="password" type="password" show-password placeholder="当前账号签名密码" :disabled="busy || assigned" />
     <slot name="relation-arrangements" :disabled="busy || assigned"></slot>
@@ -14,6 +12,7 @@
   </section>
 </template>
 <script setup lang="ts">
+import UserSelectV2 from '@/views/system/user/components/UserSelectV2.vue'
 import { ref, watch, onBeforeUnmount } from 'vue'
 import { isWorkflowId, submitSignoffAssignment, type SignoffAssignment, type WorkflowId, type ArrangementCommand } from './workflow-actions'
 const props = withDefaults(defineProps<{

@@ -26,6 +26,7 @@ export interface ProProcessVO {
   code: string // 工序编码
   name: string // 工序名称
   attention?: string // 工艺要求
+  sopFileUrl?: string | null // 工序 SOP 文件地址；空字符串表示解除绑定
   status: number // 状态
   manualShiftCapacity?: number // 人工班产能
   machineryQuantityTotal?: number // 关联设备台数

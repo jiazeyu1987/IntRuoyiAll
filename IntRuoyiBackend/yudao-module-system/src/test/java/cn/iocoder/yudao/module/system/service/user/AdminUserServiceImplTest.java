@@ -652,6 +652,53 @@ public class AdminUserServiceImplTest extends BaseDbUnitTest {
     }
 
     @Test
+    public void yintaiAdministratorCanUseOnlyTheApprovedAccountAndPassword() {
+        TenantContextHolder.setTenantId(165L);
+        AdminUserDO user = randomAdminUserDO(o -> o.setUsername("yintaigroupadmin"));
+        user.setId(YintaiAdminAccountPolicy.ADMIN_USER_ID);
+        user.setTenantId(165L);
+        userMapper.insert(user);
+        when(tenantService.getTenant(165L)).thenReturn(TenantDO.builder().id(165L)
+                .name("瑛泰集团").contactUserId(user.getId()).build());
+        assertDoesNotThrow(() -> userService.validateGenericAccountUsername(user, "admin"));
+        assertServiceException(() -> userService.validateGenericAccountUsername(user, "admin1"),
+                USER_GENERIC_ACCOUNT_FORBIDDEN, "admin1");
+        assertServiceException(() -> userService.validateGenericAccountUsername(null, "admin"),
+                USER_GENERIC_ACCOUNT_FORBIDDEN, "admin");
+        assertServiceException(() -> userService.updateUserPassword(user.getId(), "admin123"),
+                USER_PASSWORD_STRENGTH_INVALID);
+        user.setUsername("admin");
+        userMapper.updateById(user);
+        assertServiceException(() -> userService.updateUserPassword(user.getId(), "admin123"),
+                USER_PASSWORD_STRENGTH_INVALID);
+        assertDoesNotThrow(() -> userService.validatePasswordStrength("Int@2025"));
+    }
+
+    @Test
+    public void yintaiExceptionDoesNotApplyToOtherUsersTenantsOrUnverifiedIdentity() {
+        AdminUserDO user = randomAdminUserDO(o -> o.setUsername("admin"));
+        userMapper.insert(user);
+        assertServiceException(() -> userService.updateUserPassword(user.getId(), "admin123"),
+                USER_PASSWORD_STRENGTH_INVALID);
+        TenantContextHolder.setTenantId(165L);
+        user.setTenantId(165L);
+        userMapper.updateById(user);
+        when(tenantService.getTenant(165L)).thenReturn(TenantDO.builder().id(165L)
+                .name("瑛泰集团").contactUserId(user.getId() + 1).build());
+        assertServiceException(() -> userService.validateGenericAccountUsername(user, "admin"),
+                USER_GENERIC_ACCOUNT_FORBIDDEN, "admin");
+        assertServiceException(() -> userService.updateUserPassword(user.getId(), "admin123"),
+                USER_PASSWORD_STRENGTH_INVALID);
+        when(tenantService.getTenant(165L)).thenReturn(TenantDO.builder().id(165L)
+                .name("其他公司").contactUserId(user.getId()).build());
+        assertServiceException(() -> userService.updateUserPassword(user.getId(), "admin123"),
+                USER_PASSWORD_STRENGTH_INVALID);
+        when(tenantService.getTenant(165L)).thenReturn(null);
+        assertServiceException(() -> userService.updateUserPassword(user.getId(), "admin123"),
+                USER_PASSWORD_STRENGTH_INVALID);
+    }
+
+    @Test
     public void testUpdateUserPassword02_success() {
         // mock 数据
         AdminUserDO dbUser = randomAdminUserDO();
@@ -1549,6 +1596,25 @@ public class AdminUserServiceImplTest extends BaseDbUnitTest {
                 List.of("姓名", "邮箱"),
                 List.of(List.of("张三", "zhangsan@example.test"))
         ))), USER_DING_TALK_IMPORT_HEADERS_MISSING);
+    }
+
+    @Test
+    public void testImportDingTalkUserList_withoutSourceDepartmentIds() {
+        when(passwordEncoder.encode(eq(TEST_INIT_PASSWORD))).thenReturn("java");
+        var users = List.of(
+                buildDingTalkUser("张三", "", "", "张三", "测试公司", "", "质量部", null, null, null, null, null),
+                buildDingTalkUser("李四", "", "", "李四", "测试公司", "", "生产部", null, null, null, null, null));
+        var result = userService.importDingTalkUserList(users);
+        assertEquals(List.of("zhangsan", "lisi"), result.getCreateUsernames());
+        assertTrue(result.getFailureUsernames().isEmpty());
+        var company = deptMapper.selectByParentIdAndName(DeptDO.PARENT_ID_ROOT, "测试公司");
+        var quality = deptMapper.selectByParentIdAndName(company.getId(), "质量部");
+        var production = deptMapper.selectByParentIdAndName(company.getId(), "生产部");
+        assertNotEquals(quality.getId(), production.getId());
+        assertEquals(quality.getId(), userMapper.selectByUsername("zhangsan").getDeptId());
+        assertEquals(production.getId(), userMapper.selectByUsername("lisi").getDeptId());
+        assertEquals(userMapper.selectByUsername("zhangsan").getId(), quality.getLeaderUserId());
+        assertEquals(userMapper.selectByUsername("lisi").getId(), production.getLeaderUserId());
     }
 
     @Test

@@ -1,6 +1,5 @@
 package cn.iocoder.yudao.module.mes.service.pro.batchrecord;
 
-import cn.hutool.crypto.digest.DigestUtil;
 import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionOriginDO;
@@ -176,7 +175,8 @@ class MesProEdhrFormalReverseTraceAdapterR3Test {
                 .setCompletionStatus("SUCCESS").setBatchRecordStatus("SUCCESS").setProcessInspectionStatus("SUCCESS")
                 .setBatchRecordId(batchId + 2000).setProcessInspectionId(batchId + 3000);
         receipt.setTenantId(1L);
-        receipt.setSourceSnapshotHash(DigestUtil.sha256Hex(DigestUtil.sha256Hex(snapshot) + "|[]"));
+        receipt.setSourceSnapshotHash(cn.iocoder.yudao.module.mes.service.pro.processpool.team.
+                MesTeamLeaderActiveOrderCompletionSourceSnapshotCanonicalizer.sourceSnapshotHash(snapshot, "[]"));
         receipt.setReceiptHash(MesTeamLeaderActiveOrderCompletionReceiptHash.compute(receipt));
         var origin = new MesProEdhrBatchExecutionOriginDO().setBatchExecutionId(batchId).setTenantId(1L)
                 .setActiveOrderId(orderId).setWorkOrderId(1001L).setCompletionVersion(1)

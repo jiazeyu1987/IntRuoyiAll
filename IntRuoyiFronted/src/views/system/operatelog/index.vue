@@ -1,81 +1,91 @@
 <template>
-  <doc-alert title="系统日志" url="https://doc.iocoder.cn/system-log/" />
+
 
   <ContentWrap>
-    <!-- 搜索工作栏 -->
-    <el-form
-      class="-mb-15px"
-      :model="queryParams"
-      ref="queryFormRef"
-      :inline="true"
-      label-width="68px"
+    <UnifiedListTemplate
+      table-key="system.operateLog.main"
+      :query-model="queryParams"
+      :total="total"
+      v-model:page="queryParams.pageNo"
+      v-model:limit="queryParams.pageSize"
+      @pagination="getList"
     >
-      <el-form-item label="操作人" prop="userId">
-        <el-select
-          v-model="queryParams.userId"
-          clearable
-          filterable
-          placeholder="请输入操作人员"
-          class="!w-240px"
+      <template #filters>
+        <el-form
+          class="-mb-15px"
+          :model="queryParams"
+          ref="queryFormRef"
+          :inline="true"
+          label-width="68px"
         >
-          <el-option
-            v-for="user in userList"
-            :key="user.id"
-            :label="user.nickname"
-            :value="user.id"
-          />
-        </el-select>
-      </el-form-item>
-      <el-form-item label="操作模块" prop="type">
-        <el-input
-          v-model="queryParams.type"
-          placeholder="请输入操作模块"
-          clearable
-          @keyup.enter="handleQuery"
-          class="!w-240px"
-        />
-      </el-form-item>
-      <el-form-item label="操作名" prop="subType">
-        <el-input
-          v-model="queryParams.subType"
-          placeholder="请输入操作名"
-          clearable
-          @keyup.enter="handleQuery"
-          class="!w-240px"
-        />
-      </el-form-item>
-      <el-form-item label="操作内容" prop="action">
-        <el-input
-          v-model="queryParams.action"
-          placeholder="请输入操作名"
-          clearable
-          @keyup.enter="handleQuery"
-          class="!w-240px"
-        />
-      </el-form-item>
-      <el-form-item label="操作时间" prop="createTime">
-        <el-date-picker
-          v-model="queryParams.createTime"
-          value-format="YYYY-MM-DD HH:mm:ss"
-          type="daterange"
-          start-placeholder="开始日期"
-          end-placeholder="结束日期"
-          :default-time="[new Date('1 00:00:00'), new Date('1 23:59:59')]"
-          class="!w-240px"
-        />
-      </el-form-item>
-      <el-form-item label="业务编号" prop="bizId">
-        <el-input
-          v-model="queryParams.bizId"
-          placeholder="请输入业务编号"
-          clearable
-          @keyup.enter="handleQuery"
-          class="!w-240px"
-        />
-      </el-form-item>
-      <el-form-item>
-        <el-button @click="handleQuery"><Icon icon="ep:search" class="mr-5px" /> 搜索</el-button>
-        <el-button @click="resetQuery"><Icon icon="ep:refresh" class="mr-5px" /> 重置</el-button>
+          <el-form-item label="操作人" prop="userId">
+            <UserSelectV2
+              allow-inactive
+              v-model="queryParams.userId"
+              clearable
+              placeholder="请输入操作人员"
+              class="!w-240px"
+              :user-options="userList"
+            />
+          </el-form-item>
+          <el-form-item label="操作模块" prop="type">
+            <el-input
+              v-model="queryParams.type"
+              placeholder="请输入操作模块"
+              clearable
+              @keyup.enter="handleQuery"
+              class="!w-240px"
+            />
+          </el-form-item>
+          <el-form-item label="操作名" prop="subType">
+            <el-input
+              v-model="queryParams.subType"
+              placeholder="请输入操作名"
+              clearable
+              @keyup.enter="handleQuery"
+              class="!w-240px"
+            />
+          </el-form-item>
+          <el-form-item label="操作内容" prop="action">
+            <el-input
+              v-model="queryParams.action"
+              placeholder="请输入操作名"
+              clearable
+              @keyup.enter="handleQuery"
+              class="!w-240px"
+            />
+          </el-form-item>
+          <el-form-item label="操作时间" prop="createTime">
+            <el-date-picker
+              v-model="queryParams.createTime"
+              value-format="YYYY-MM-DD HH:mm:ss"
+              type="daterange"
+              start-placeholder="开始日期"
+              end-placeholder="结束日期"
+              :default-time="[new Date('1 00:00:00'), new Date('1 23:59:59')]"
+              class="!w-240px"
+            />
+          </el-form-item>
+          <el-form-item label="业务编号" prop="bizId">
+            <el-input
+              v-model="queryParams.bizId"
+              placeholder="请输入业务编号"
+              clearable
+              @keyup.enter="handleQuery"
+              class="!w-240px"
+            />
+          </el-form-item>
+        </el-form>
+      </template>
+      <template #actions>
+        <el-button @click="handleQuery">
+          <Icon icon="ep:search" class="mr-5px" />
+          搜索
+        </el-button>
+        <el-button @click="resetQuery">
+          <Icon icon="ep:refresh" class="mr-5px" />
+          重置
+        </el-button>
         <el-button
           type="success"
           plain
@@ -83,55 +93,50 @@
           :loading="exportLoading"
           v-hasPermi="['system:operate-log:export']"
         >
-          <Icon icon="ep:download" class="mr-5px" /> 导出
+          <Icon icon="ep:download" class="mr-5px" />
+          导出
         </el-button>
-      </el-form-item>
-    </el-form>
-  </ContentWrap>
-
-  <!-- 列表 -->
-  <ContentWrap>
-    <el-table v-loading="loading" :data="list">
-      <el-table-column label="日志编号" align="center" prop="id" width="100" />
-      <el-table-column label="操作人" align="center" prop="userName" width="120" />
-      <el-table-column label="操作模块" align="center" prop="type" width="120" />
-      <el-table-column label="操作名" align="center" prop="subType" width="160" />
-      <el-table-column label="操作内容" align="center" prop="action" />
-      <el-table-column
-        label="操作时间"
-        align="center"
-        prop="createTime"
-        width="180"
-        :formatter="dateFormatter"
-      />
-      <el-table-column label="业务编号" align="center" prop="bizId" width="120" />
-      <el-table-column label="操作 IP" align="center" prop="userIp" width="120" />
-      <el-table-column label="操作" align="center" fixed="right" width="60">
-        <template #default="scope">
-          <el-button
-            link
-            type="primary"
-            @click="openDetail(scope.row)"
-            v-hasPermi="['system:operate-log:query']"
-          >
-            详情
-          </el-button>
-        </template>
-      </el-table-column>
-    </el-table>
-    <!-- 分页 -->
-    <Pagination
-      :total="total"
-      v-model:page="queryParams.pageNo"
-      v-model:limit="queryParams.pageSize"
-      @pagination="getList"
-    />
-  </ContentWrap>
+      </template>
+      <template #table>
+        <el-table stripe border v-loading="loading" :data="list">
+          <el-table-column label="日志编号" align="center" prop="id" width="100" />
+          <el-table-column label="操作人" align="center" prop="userName" width="120" />
+          <el-table-column label="操作模块" align="center" prop="type" width="120" />
+          <el-table-column label="操作名" align="center" prop="subType" width="160" />
+          <el-table-column label="操作内容" align="center" prop="action" />
+          <el-table-column
+            label="操作时间"
+            align="center"
+            prop="createTime"
+            width="180"
+            :formatter="dateFormatter"
+          />
+          <el-table-column label="业务编号" align="center" prop="bizId" width="120" />
+          <el-table-column label="操作 IP" align="center" prop="userIp" width="120" />
+          <el-table-column label="操作" align="center" fixed="right" width="60">
+            <template #default="scope">
+              <el-button
+                link
+                type="primary"
+                @click="openDetail(scope.row)"
+                v-hasPermi="['system:operate-log:query']"
+              >
+                详情
+              </el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+        <!-- 分页 -->
+      </template>
+    </UnifiedListTemplate>
+</ContentWrap>
 
   <!-- 表单弹窗：详情 -->
   <OperateLogDetail ref="detailRef" />
 </template>
 <script lang="ts" setup>
+import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
+import UserSelectV2 from '@/views/system/user/components/UserSelectV2.vue'
 import { isSearchFormInputEmpty } from '@/utils/search'
 import { dateFormatter } from '@/utils/formatTime'
 import download from '@/utils/download'

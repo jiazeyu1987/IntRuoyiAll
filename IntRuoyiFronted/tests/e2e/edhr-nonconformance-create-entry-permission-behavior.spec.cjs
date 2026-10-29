@@ -20,6 +20,9 @@ function harness(permissions, query = {}) {
   const ast = ts.createSourceFile('page.ts', descriptor.scriptSetup.content, ts.ScriptTarget.Latest, true)
   const script = ast.statements.filter(s => !ts.isImportDeclaration(s) && !ts.isExportDeclaration(s)).map(s => s.getText(ast)).join('\n')
   const context = {
+    useUserTableColumns: (_key, columns) => ({ columns: vue.ref(columns), saving: vue.ref(false), isColumnVisible: () => true, getColumnWidth: () => undefined, handleHeaderDragend() {}, saveConfig() {} }),
+    useTableQuickFilter: () => ({ state: {}, selectedDefinition: vue.ref(), operatorOptions: vue.ref([]), updateState() {}, applyQuickFilter() {} }),
+    useUserStore: () => ({ getUser: { id: 50 } }),
     ...vue, useApprovalCenterInvalidationStore: () => ({ syncSession: () => ({ key: "test-session" }) }), defineOptions() {}, useRoute: () => route,
     useMessage: () => ({ error() {}, success() {} }),
     onMounted: fn => mounted.push(fn), onBeforeUnmount: fn => unmounted.push(fn),
@@ -37,7 +40,7 @@ function harness(permissions, query = {}) {
     uploadNonconformanceReviewMaterial: async () => { writes.push('upload'); throw Error('read entry must not upload') }
   }
   const compiled = ts.transpileModule(script, { compilerOptions: { module: ts.ModuleKind.None, target: ts.ScriptTarget.ES2022 } }).outputText
-  const page = Function(...Object.keys(context), `${compiled}; return { createDialogVisible, reviewDialogVisible, selectedReview, selectedActiveOrderId, errorText, disposeForm, openCreateDialog, openReviewDialog, canCreateReview: typeof canCreateReview === 'undefined' ? undefined : canCreateReview };`)(...Object.values(context))
+  const page = Function(...Object.keys(context), `${compiled}; return { createDialogVisible, reviewDialogVisible, selectedReview, selectedActiveOrderId, errorText, disposeForm, openCreateDialog, openReviewDialog, canCreateReview: typeof canCreateReview === 'undefined' ? undefined : canCreateReview, entryForm, submitCreateReview, canDisposeSelectedReview };`)(...Object.values(context))
   return { page, route, candidates, lists, exactReads, writes, mount: async () => { mounted.forEach(fn => fn()); await tick() }, close: () => { unmounted.forEach(fn => fn()); stops.forEach(stop => stop()) } }
 }
 
@@ -113,4 +116,17 @@ test('取消路线负责人配置后，页面保留评审材料上传入口', ()
   assert.match(descriptor.template.content, /aria-label="上传评审材料"/)
   const built = compileTemplate({ source: descriptor.template.content, filename: 'nonconformance.vue', id: 'nonconformance' })
   assert.deepEqual(built.errors, [])
+})
+
+
+test('explicit QA selection is mandatory before a creation request is sent', async () => {
+  const h=harness([queryPermission,createPermission]);await h.mount();await h.page.openCreateDialog();
+  h.page.entryForm.nonconformanceReason='task owned deviation';
+  await h.page.submitCreateReview();assert.deepEqual(h.writes,[]);h.close()
+})
+test('only the explicitly assigned QA can see the disposition controls', async () => {
+  const h=harness([queryPermission,disposePermission]);await h.mount();
+  h.page.openReviewDialog({ ...review, qaReviewerUserId: 51 });assert.equal(h.page.canDisposeSelectedReview.value,false);
+  h.page.openReviewDialog({ ...review, qaReviewerUserId: 50 });assert.equal(h.page.canDisposeSelectedReview.value,true);
+  h.page.openReviewDialog({ ...review });assert.equal(h.page.canDisposeSelectedReview.value,false);h.close()
 })

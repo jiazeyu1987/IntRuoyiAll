@@ -40,30 +40,58 @@ public class DccProjectProductTaskDelegate {
             boolean role=roleRequest(request);
             if (context.getViewType() == ApprovalTaskViewType.TODO) {
                 if(role){
-                    if("PENDING_REVIEW".equals(request.getStatus()) && (context.isGlobalView() || reviewerRoles.canReview(context.getLoginUserId(),request)))rows.add(summary(request,REVIEW,false));
+                    if("PENDING_REVIEW".equals(request.getStatus()) && (context.isGlobalView() || reviewerRoles.canReview(context.getLoginUserId(),request)))rows.add(summary(request,REVIEW,false,context.getLoginUserId()));
                     continue;
                 }
                 if ("PENDING_REVIEW".equals(request.getStatus()) && request.getConfiguredReviewerUserId() != null
                         && (context.isGlobalView() || Objects.equals(request.getConfiguredReviewerUserId(), context.getLoginUserId())
-                        && actors.canUpdate(context.getLoginUserId()))) rows.add(summary(request, REVIEW, false));
+                        && actors.canUpdate(context.getLoginUserId()))) rows.add(summary(request, REVIEW, false, context.getLoginUserId()));
                 if ("PENDING_APPROVAL".equals(request.getStatus()) && (context.isGlobalView() || approver)) {
-                    rows.add(summary(request, APPROVAL, false));
+                    rows.add(summary(request, APPROVAL, false, context.getLoginUserId()));
                 }
             } else if (context.getViewType() == ApprovalTaskViewType.DONE) {
                 if (request.getReviewerUserId() != null && request.getReviewedTime() != null
                         && (context.isGlobalView() || Objects.equals(request.getReviewerUserId(), context.getLoginUserId()))) {
-                    rows.add(summary(request, REVIEW, true));
+                    rows.add(summary(request, REVIEW, true, context.getLoginUserId()));
                 }
                 if (!role && request.getApproverUserId() != null && request.getApprovedTime() != null
                         && (context.isGlobalView() || Objects.equals(request.getApproverUserId(), context.getLoginUserId()))) {
-                    rows.add(summary(request, APPROVAL, true));
+                    rows.add(summary(request, APPROVAL, true, context.getLoginUserId()));
                 }
             } else throw new IllegalArgumentException("PROJECT_TASK_VIEW_UNSUPPORTED");
         }
         return rows.stream().filter(row -> matches(row, context.getKeyword())).toList();
     }
 
-    private ApprovalTaskSummary summary(DccProjectProductCreateRequestDO request, String type, boolean done) {
+    public void review(ApprovalTaskReviewContext context) {
+        if (context.getModuleCode() != ApprovalModuleCode.DCC || !supports(context.getSourceTaskType())
+                || context.getProcessInstanceId() != null) throw new IllegalArgumentException("PROJECT_TASK_SOURCE_INVALID");
+        String key = context.getBusinessKey();
+        if (key == null || !key.matches("[1-9][0-9]*")) throw new IllegalArgumentException("PROJECT_TASK_ID_INVALID");
+        var request = service.getRequest(context.getLoginUserId(), Long.valueOf(key));
+        if (!Objects.equals(context.getSourceTaskId(), taskId(request, context.getSourceTaskType())))
+            throw new IllegalArgumentException("PROJECT_TASK_SOURCE_ID_MISMATCH");
+        if (context.getResult() != ApprovalTaskReviewResult.APPROVE && context.getResult() != ApprovalTaskReviewResult.REJECT)
+            throw new IllegalArgumentException("PROJECT_TASK_RESULT_INVALID");
+        boolean review = REVIEW.equals(context.getSourceTaskType());
+        if (!canDecide(request, context.getSourceTaskType(), context.getLoginUserId()))
+            throw new IllegalArgumentException("PROJECT_TASK_DECISION_FORBIDDEN");
+        boolean approve = context.getResult() == ApprovalTaskReviewResult.APPROVE;
+        if (review) service.review(context.getLoginUserId(), request.getId(), context.getReason(), approve);
+        else service.approve(context.getLoginUserId(), request.getId(), context.getReason(), approve);
+    }
+
+    private boolean canDecide(DccProjectProductCreateRequestDO request, String type, Long actor) {
+        if (!actors.canQuery(actor)) return false;
+        if (REVIEW.equals(type) && "PENDING_REVIEW".equals(request.getStatus())) {
+            return roleRequest(request) ? reviewerRoles.canReview(actor, request)
+                    : Objects.equals(actor, request.getConfiguredReviewerUserId()) && actors.canUpdate(actor);
+        }
+        return APPROVAL.equals(type) && !roleRequest(request) && "PENDING_APPROVAL".equals(request.getStatus())
+                && actors.isApprover(actor);
+    }
+
+    private ApprovalTaskSummary summary(DccProjectProductCreateRequestDO request, String type, boolean done, Long actor) {
         boolean role=roleRequest(request);
         boolean review = REVIEW.equals(type);
         boolean rejected = review ? request.getReviewReason() == null && "REJECTED".equals(request.getStatus())
@@ -80,10 +108,11 @@ public class DccProjectProductTaskDelegate {
                 .taskCompletedAt(done ? review ? request.getReviewedTime() : request.getApprovedTime() : null)
                 .approvalResult(done ? rejected ? ApprovalTaskReviewResult.REJECT : ApprovalTaskReviewResult.APPROVE : null)
                 .approvalRemark(done ? rejected ? request.getRejectReason() : review ? request.getReviewReason() : request.getApprovalReason() : null)
-                .requiresSignature(false).detailRoute("/mdm/product-catalog")
+                .requiresSignature(true).detailRoute("/mdm/product-catalog")
                 .detailQuery(Map.of("requestId", request.getId().toString(), "requestOpen", "records", "from", "approval-center"))
-                .availableActions(Set.of("PROCESS_IN_MODULE"))
-                .capabilities(Set.of(ApprovalTaskCapability.TIMELINE, ApprovalTaskCapability.NOTIFICATION, ApprovalTaskCapability.AUDIT)).build();
+                .availableActions(!done && canDecide(request, type, actor) ? Set.of("APPROVE", "REJECT") : Set.of())
+                .capabilities(Set.of(ApprovalTaskCapability.TIMELINE, ApprovalTaskCapability.NOTIFICATION,
+                        ApprovalTaskCapability.AUDIT, ApprovalTaskCapability.SIGNATURE_AUTHORIZATION)).build();
     }
 
     public List<ApprovalTaskTimelineEntry> timeline(ApprovalTaskTimelineQueryContext context) {

@@ -26,9 +26,6 @@
       @pagination="handlePagination"
     >
       <template #actions>
-        <el-button @click="machineryTypeQuickFilter.resetQuickFilter">
-          <Icon icon="ep:refresh" class="mr-5px" /> 重置
-        </el-button>
         <el-button
           type="primary"
           plain
@@ -36,9 +33,6 @@
           v-hasPermi="['mes:dv-machinery-type:create']"
         >
           <Icon icon="ep:plus" class="mr-5px" /> 新增
-        </el-button>
-        <el-button type="danger" plain @click="toggleExpandAll">
-          <Icon icon="ep:sort" class="mr-5px" /> 展开/折叠
         </el-button>
       </template>
 
@@ -53,8 +47,7 @@
           :stripe="true"
           :show-overflow-tooltip="true"
           row-key="id"
-          :default-expand-all="isExpandAll"
-          v-if="refreshTable"
+          default-expand-all
           @header-dragend="handleMachineryTypeHeaderDragend"
         >
           <el-table-column
@@ -257,16 +250,6 @@ const handleDelete = async (id: number) => {
     // 刷新列表
     await getList()
   } catch {}
-}
-
-/** 展开/折叠操作 */
-const isExpandAll = ref(true) // 是否展开，默认全部展开
-const refreshTable = ref(true) // 重新渲染表格状态
-const toggleExpandAll = async () => {
-  refreshTable.value = false
-  isExpandAll.value = !isExpandAll.value
-  await nextTick()
-  refreshTable.value = true
 }
 
 /** 初始化 **/

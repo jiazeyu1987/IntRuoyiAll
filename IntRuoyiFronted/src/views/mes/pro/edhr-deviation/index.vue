@@ -23,13 +23,13 @@
         <el-button v-if="selectedCritical.length > 0" v-hasPermi="['mes:pro-edhr-nonconformance-review:deviation-create']" type="danger" @click="openBatchNcr">批量发起不合格审批（{{ selectedCritical.length }}）</el-button>
       </template>
       <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
-        <el-table height="100%" v-loading="loading" :data="rows" empty-text="没有偏差" row-key="id" @selection-change="handleSelectionChange" @sort-change="handleTemplateSortChange">
+        <el-table border :allow-drag-last-column="true" height="100%" v-loading="loading" :data="rows" empty-text="没有偏差" row-key="id" @selection-change="handleSelectionChange" @sort-change="handleTemplateSortChange">
           <el-table-column type="selection" width="48" :selectable="isCriticalOpen" />
           <el-table-column prop="deviationCode" label="偏差编号" min-width="180" v-bind="sortColumnAttrs('deviationCode')" />
           <el-table-column prop="batchExecutionCode" label="关联批记录" min-width="180" />
           <el-table-column prop="batchCode" label="批号" min-width="140" />
-          <el-table-column prop="level" label="等级" width="100" v-bind="sortColumnAttrs('level')"><template #default="{ row }"><el-tag :type="row.level === 'CRITICAL' ? 'danger' : 'warning'">{{ row.level === 'CRITICAL' ? '重大（关键）' : '普通' }}</el-tag></template></el-table-column>
-          <el-table-column prop="status" label="状态" width="100" v-bind="sortColumnAttrs('status')"><template #default="{ row }">{{ row.status === 'OPEN' ? '未处理' : '已处理' }}</template></el-table-column>
+          <el-table-column prop="level" label="等级" width="100" v-bind="sortColumnAttrs('level')"><template #default="{ row }"><el-tag :type="row.level === 'CRITICAL' ? 'danger' : 'warning'">{{ row.level === 'CRITICAL' ? '重大' : '普通' }}</el-tag></template></el-table-column>
+          <el-table-column prop="status" label="状态" width="100" v-bind="sortColumnAttrs('status')"><template #default="{ row }"><span :style="{ color: row.status === 'OPEN' ? 'var(--el-color-danger)' : 'var(--el-color-success)' }">{{ row.status === 'OPEN' ? '未处理' : '已处理' }}</span></template></el-table-column>
           <el-table-column prop="transferToNcrBlockedReason" label="转审说明" min-width="240" show-overflow-tooltip />
           <el-table-column prop="initiatedAt" label="发起时间" min-width="180" v-bind="sortColumnAttrs('initiatedAt')"><template #default="{ row }">{{ formatTime(row.initiatedAt) }}</template></el-table-column>
           <el-table-column label="操作" width="100" fixed="right"><template #default="{ row }"><el-button link type="primary" @click="openDetail(row.id)">详情</el-button></template></el-table-column>
@@ -41,7 +41,7 @@
       <el-alert v-if="createError" :title="createError" type="error" :closable="false" show-icon class="mb-12px" />
       <el-form ref="createFormRef" :model="createForm" :rules="createRules" label-width="110px">
         <el-form-item label="批记录" prop="batchExecutionId"><el-select v-model="createForm.batchExecutionId" filterable remote clearable :remote-method="loadBatchOptions" :loading="batchLoading" placeholder="请选择正式批记录" style="width: 100%"><el-option v-for="item in batchOptions" :key="item.batchExecutionId" :label="`${item.batchExecutionCode || item.batchCode || item.batchExecutionId} / ${item.productName || '—'}`" :value="item.batchExecutionId" /></el-select></el-form-item>
-        <el-form-item label="等级" prop="level"><el-radio-group v-model="createForm.level"><el-radio label="NORMAL">普通</el-radio><el-radio label="CRITICAL">重大（关键）</el-radio></el-radio-group></el-form-item>
+        <el-form-item label="等级" prop="level"><el-radio-group v-model="createForm.level"><el-radio label="NORMAL">普通</el-radio><el-radio label="CRITICAL">重大</el-radio></el-radio-group></el-form-item>
         <el-form-item label="分类" prop="categoryCodes"><el-checkbox-group v-model="createForm.categoryCodes"><el-checkbox v-for="item in categoryOptions" :key="item.value" :label="item.value">{{ item.label }}</el-checkbox></el-checkbox-group></el-form-item>
         <el-form-item label="偏差描述" prop="description"><el-input v-model="createForm.description" type="textarea" :rows="3" maxlength="4000" show-word-limit /></el-form-item>
         <el-form-item label="等级依据" prop="levelBasis"><el-input v-model="createForm.levelBasis" type="textarea" :rows="2" maxlength="4000" show-word-limit /></el-form-item>
@@ -56,6 +56,7 @@
       <el-form label-width="110px">
         <el-form-item label="不合格原因" required><el-input v-model="batchNcrForm.nonconformanceReason" type="textarea" :rows="4" maxlength="500" /></el-form-item>
         <el-form-item label="备注"><el-input v-model="batchNcrForm.remark" type="textarea" :rows="2" maxlength="500" /></el-form-item>
+        <el-form-item label="QA评审责任人" required><UserSelectV2 v-model="batchNcrForm.qaReviewerUserId" placeholder="请选择具备QA处置权限的责任人" /></el-form-item>
         <el-form-item label="签名密码" required><el-input v-model="batchNcrForm.signaturePassword" type="password" show-password autocomplete="new-password" /></el-form-item>
       </el-form>
       <template #footer><el-button @click="batchNcrVisible = false">取消</el-button><el-button type="danger" :loading="batchNcrLoading" @click="submitBatchNcr">签名并发起</el-button></template>
@@ -72,6 +73,7 @@ import { useTableQuickFilter, type TableQuickFilterDefinition } from '@/hooks/we
 import { useUserTableColumns, type UserTableColumnDefinition } from '@/hooks/web/useUserTableColumns'
 import dayjs from 'dayjs'
 import DeviationDetail from './DeviationDetail.vue'
+import UserSelectV2 from '@/views/system/user/components/UserSelectV2.vue'
 import { createCriticalDeviationReview } from '@/api/mes/pro/edhr/nonconformanceReview'
 import { useApprovalCenterInvalidationStore } from '@/store/modules/approvalCenterInvalidation'
 import { createFormalActionGuard } from '@/store/modules/approvalCenterInvalidationState'
@@ -84,7 +86,7 @@ const rows = ref<DeviationRespVO[]>([])
 const selectedCritical = ref<DeviationRespVO[]>([])
 const batchNcrVisible = ref(false)
 const batchNcrLoading = ref(false)
-const batchNcrForm = reactive({ nonconformanceReason: '', remark: '', signaturePassword: '' })
+const batchNcrForm = reactive({ nonconformanceReason: '', remark: '', signaturePassword: '', qaReviewerUserId: undefined as string | number | undefined })
 const batchNcrGuard = createFormalActionGuard(() => JSON.stringify([
   approvalInvalidation.syncSession().key, route.fullPath,
   selectedCritical.value.map(row => [row.id, row.batchExecutionId])
@@ -116,7 +118,7 @@ const listColumns: UserTableColumnDefinition[] = [
 const { columns: listColumnState } = useUserTableColumns('mes.pro.edhr.deviation.main', listColumns)
 const filterDefinitions: TableQuickFilterDefinition[] = [
   { key: 'search', label: '关键词', type: 'text', queryParamKey: 'search', placeholder: '偏差编号、批号或批记录' },
-  { key: 'level', label: '等级', type: 'select', queryParamKey: 'level', options: [{ label: '普通', value: 'NORMAL' }, { label: '重大（关键）', value: 'CRITICAL' }] },
+  { key: 'level', label: '等级', type: 'select', queryParamKey: 'level', options: [{ label: '普通', value: 'NORMAL' }, { label: '重大', value: 'CRITICAL' }] },
   { key: 'initiatedAt', label: '发起时间', type: 'dateRange', queryParamKey: 'initiatedAt' }
 ]
 let requestSerial = 0
@@ -180,6 +182,7 @@ const openBatchNcr = () => {
   resetBatchNcrContext()
   if (!selectedCritical.value.length || !selectedCritical.value.every(isCriticalOpen)) return
   batchNcrForm.nonconformanceReason = ''
+  batchNcrForm.qaReviewerUserId = undefined
   batchNcrForm.remark = ''
   batchNcrForm.signaturePassword = ''
   batchNcrVisible.value = true
@@ -188,9 +191,11 @@ const submitBatchNcr = async () => {
   if (batchNcrLoading.value) return
   const reason = batchNcrForm.nonconformanceReason.trim()
   const password = batchNcrForm.signaturePassword.trim()
+  if (!batchNcrForm.qaReviewerUserId) { message.error('请选择QA评审责任人'); return }
   if (!reason || !password || !selectedCritical.value.length || !selectedCritical.value.every(isCriticalOpen)) return
   const batchExecutionId = selectedCritical.value[0].batchExecutionId
   const payload = {
+    qaReviewerUserId: batchNcrForm.qaReviewerUserId,
     batchExecutionId, deviationIds: selectedCritical.value.map(row => row.id),
     nonconformanceReason: reason, remark: batchNcrForm.remark.trim() || undefined,
     idempotencyKey: `EDHR_DEVIATION_NCR_BATCH_${batchExecutionId}_${Date.now()}`, signaturePassword: password

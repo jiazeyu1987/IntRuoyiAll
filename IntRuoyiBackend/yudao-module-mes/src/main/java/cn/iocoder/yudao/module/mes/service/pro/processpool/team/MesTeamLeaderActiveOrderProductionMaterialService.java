@@ -28,6 +28,13 @@ public class MesTeamLeaderActiveOrderProductionMaterialService {
     public List<MesKingdeeProductionMaterialListRespVO> getList(Long leaderUserId, Long activeOrderId) {
         // Reuse the formal detail's current owner, ACTIVE status and source validation.
         MesTeamLeaderActiveOrderDetail detail = detailService.getDetail(leaderUserId, activeOrderId);
+        return getListForValidatedDetail(detail);
+    }
+
+    /** Read materials after the caller has validated its own business scope (live order or formal batch). */
+    @Transactional(readOnly = true)
+    public List<MesKingdeeProductionMaterialListRespVO> getListForValidatedDetail(MesTeamLeaderActiveOrderDetail detail) {
+        Long activeOrderId = detail.getActiveOrderId();
         String productionOrderNo = detail.getWorkOrderCode();
         if (productionOrderNo == null || productionOrderNo.isBlank()) {
             throw new IllegalStateException("ACTIVE_ORDER_PRODUCTION_ORDER_NO_REQUIRED:" + activeOrderId);

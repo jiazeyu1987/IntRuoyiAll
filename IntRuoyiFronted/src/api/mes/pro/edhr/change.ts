@@ -20,34 +20,46 @@ export interface EdhrRecordChangePageReqVO extends PageParam {
 }
 
 export interface EdhrRecordChangeRequestReqVO {
-  batchExecutionId?: number
-  executionId?: number
+  batchExecutionId?: EdhrRouteId
+  executionId?: EdhrRouteId
   sourceArchiveId?: number
   reasonCategory?: string
   reasonText?: string
   password?: string
   comment?: string
+  approverUserId?: EdhrRouteId
   startUserSelectAssignees?: Record<string, number[]>
 }
 
 export interface EdhrRecordChangeApproveReqVO {
-  changeEventId: number
+  changeEventId: EdhrRouteId
+  approverUserId?: EdhrRouteId
   password?: string
   comment?: string
 }
 
 export interface EdhrRecordChangeRespVO {
-  id: number
+  id: EdhrRouteId
   changeCode?: string
   changeType?: string
   targetScope?: string
-  batchExecutionId?: number
-  executionId?: number
+  batchExecutionId?: EdhrRouteId
+  executionId?: EdhrRouteId
   sourceExecutionId?: number
-  newExecutionId?: number
+  newExecutionId?: EdhrRouteId
   changeStatus?: string
   reasonCategory?: string
   reasonText?: string
+  requestedBy?: EdhrRouteId
+  approverUserId?: EdhrRouteId
+  approvalWorkTaskId?: number
+  canApprove?: boolean
+  canResubmit?: boolean
+  correctionWorkTaskId?: EdhrRouteId
+  previousChangeEventId?: EdhrRouteId
+  decisionReason?: string
+  revisionWorkTaskId?: EdhrRouteId
+  revisionActionUrl?: string
   requestSignatureId?: number
   approvalSignatureId?: number
   previousStatus?: string
@@ -128,5 +140,14 @@ export const approveSupplement = async (data: EdhrRecordChangeApproveReqVO) =>
 export const getEdhrRecordChangePage = async (params: EdhrRecordChangePageReqVO) =>
   request.get<PageResult<EdhrRecordChangeRespVO[]>>({ url: '/mes/pro/edhr-change/page', params })
 
-export const getEdhrRecordChange = async (id: number) =>
+export const getEdhrRecordChange = async (id: EdhrRouteId) =>
   request.get<EdhrRecordChangeRespVO>({ url: '/mes/pro/edhr-change/get', params: { id } })
+
+export const getEdhrRecordChangeApprovers = async () =>
+  request.get<Array<{ id: EdhrRouteId; nickname: string; username: string }>>({ url: '/mes/pro/edhr-change/approvers' })
+
+export const decideEdhrRecordChange = async (data: { changeEventId: EdhrRouteId; decision: 'REJECTED' | 'RETURNED'; reason: string; password: string }) =>
+  request.post<EdhrRecordChangeRespVO>({ url: '/mes/pro/edhr-change/decide', data })
+
+export const resubmitEdhrRecordChange = async (data: EdhrRecordChangeRequestReqVO & { changeEventId: EdhrRouteId }) =>
+  request.post<EdhrRecordChangeRespVO>({ url: '/mes/pro/edhr-change/resubmit', data })

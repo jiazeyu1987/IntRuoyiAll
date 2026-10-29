@@ -1,19 +1,12 @@
 import {
-  getEdhrBatchExecutionPage,
-  type EdhrBatchExecutionRespVO
+  getEdhrBatchHistoryPage,
+  type EdhrBatchHistoryRowRespVO
 } from '@/api/mes/pro/edhr/batchExecution'
 import { type HistorySource } from './historyPagination'
 
-export const historyTypes = [
-  { value: 'execution', label: '批次执行', permission: 'mes:pro-edhr-batch-execution:query' },
-  { value: 'history', label: '历史追溯', permission: 'mes:pro-edhr-batch-execution:query' }
-] as const
-export type HistoryType = (typeof historyTypes)[number]['value']
 export interface HistoryRow {
   key: string
   id: string | number
-  recordType: HistoryType
-  typeLabel: string
   recordCode?: string
   batchExecutionId?: number
   batchExecutionCode?: string
@@ -21,82 +14,66 @@ export interface HistoryRow {
   workOrderCode?: string
   batchCode?: string
   productName?: string
-  occurredAt?: string | number
+  startedAt?: string | number
+  pqcReleasedAt?: string | number
+  releaseApprovedAt?: string | number
   statusLabel?: string
 }
 export interface HistoryFilters {
-  recordType: HistoryType | ''
   workOrderCode?: string
   batchCode?: string
   productName?: string
   releaseApprovedTime?: string[]
+  tracePerson?: string
+  traceEquipment?: string
+  traceMaterial?: string
+  traceMaterialLot?: string
 }
-const batchStatuses: Record<number, string> = {
-  0: '已创建',
-  10: '执行中',
-  15: '冻结中',
-  20: '待关闭',
-  25: '需返工',
-  30: '已关闭',
-  40: '已归档',
-  50: '质量终态',
-  60: '已作废'
-}
-
 export function buildHistorySources(
   filters: HistoryFilters,
   hasPermission: (permissions: string[]) => boolean
 ): HistorySource<HistoryRow>[] {
-  const allowed = historyTypes.filter((item) => hasPermission([item.permission]))
-  if (filters.recordType && !allowed.some((item) => item.value === filters.recordType))
-    throw new Error('没有查询该类型记录的权限。')
-  if (!allowed.length) throw new Error('没有历史追溯记录的查询权限。')
-  const selected = filters.recordType
-  const query = selected
-    ? {
-        workOrderCode: filters.workOrderCode?.trim() || undefined,
-        batchCode: filters.batchCode?.trim() || undefined
-      }
-    : {}
-  return allowed
-    .filter((item) => !selected || selected === item.value)
-    .map((item) => ({
+  if (!hasPermission(['mes:pro-edhr-batch-execution:query'])) {
+    throw new Error('没有历史追溯记录的查询权限。')
+  }
+  return [
+    {
       load: async (pageNo, pageSize) => {
-        const page = { pageNo, pageSize }
-        const wrap = (row: Omit<HistoryRow, 'key' | 'recordType' | 'typeLabel'>): HistoryRow => ({
-          ...row,
-          key: item.value + ':' + row.id,
-          recordType: item.value,
-          typeLabel: item.label
-        })
-        const data = await getEdhrBatchExecutionPage({
-          ...page,
-          ...query,
-          productName: selected ? filters.productName?.trim() || undefined : undefined,
-          ...(item.value === 'history'
-            ? {
-                releasedOnly: true,
-                releaseApprovedTime: selected ? filters.releaseApprovedTime : undefined
-              }
-            : { excludeStatuses: [40, 50, 60], excludeReleased: true })
+        const data = await getEdhrBatchHistoryPage({
+          pageNo,
+          pageSize,
+          completedTraceOnly: true,
+          excludeStatuses: [50],
+          releasedOnly: filters.releaseApprovedTime?.length ? true : undefined,
+          workOrderCode: filters.workOrderCode?.trim() || undefined,
+          productName: filters.productName?.trim() || undefined,
+          batchCode: filters.batchCode?.trim() || undefined,
+          releaseApprovedTime: filters.releaseApprovedTime,
+          tracePerson: filters.tracePerson?.trim() || undefined,
+          traceEquipment: filters.traceEquipment?.trim() || undefined,
+          traceMaterial: filters.traceMaterial?.trim() || undefined,
+          traceMaterialLot: filters.traceMaterialLot?.trim() || undefined
         })
         return {
           total: data.total,
-          list: data.list.map((row: EdhrBatchExecutionRespVO) =>
-            wrap({
+          list: data.list.map((row: EdhrBatchHistoryRowRespVO): HistoryRow => {
+            const status = Number(row.status)
+            if (
+              status === 50 ||
+              (status !== 40 && status !== 60 && row.releaseStatus !== 'RELEASED')
+            ) {
+              throw new Error('历史追溯接口返回了非已放行或已作废的批记录。')
+            }
+            return {
               ...row,
+              key: 'history:' + row.id,
               batchExecutionId: row.id,
               recordCode: row.batchExecutionCode,
-              occurredAt: item.value === 'history' ? row.releaseApprovedAt : row.createTime,
-              statusLabel:
-                Number(row.status) === 40
-                  ? '已归档'
-                  : row.releaseStatus === 'RELEASED'
-                    ? '已放行'
-                    : batchStatuses[Number(row.status)] || String(row.status ?? '--')
-            })
-          )
+              statusLabel: status === 60 ? '已作废' : '已放行'
+            }
+          })
         }
       }
-    }))
+    }
+  ]
 }

@@ -4,6 +4,10 @@ import cn.hutool.core.util.StrUtil;
 import cn.iocoder.yudao.framework.common.enums.CommonStatusEnum;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.position.DccApprovalPositionDO;
 import cn.iocoder.yudao.module.dcc.dal.mysql.position.DccApprovalPositionMapper;
+import cn.iocoder.yudao.module.dcc.dal.mysql.position.DccPositionAssignmentMapper;
+import cn.iocoder.yudao.module.dcc.dal.dataobject.position.DccPositionAssignmentDO;
+import cn.iocoder.yudao.module.system.service.user.AdminUserDirectSupervisorService;
+import jakarta.annotation.Resource;
 import cn.iocoder.yudao.module.system.dal.dataobject.dept.DeptDO;
 import cn.iocoder.yudao.module.system.dal.dataobject.user.AdminUserDO;
 import cn.iocoder.yudao.module.system.service.dept.DeptService;
@@ -13,6 +17,7 @@ import org.springframework.stereotype.Component;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.LinkedHashSet;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.APPROVAL_POSITION_NOT_EXISTS;
@@ -26,10 +31,14 @@ public class DccApprovalPositionRuntimeResolver {
     private final DccApprovalPositionMapper positionMapper;
     private final AdminUserService adminUserService;
     private final DeptService deptService;
+    @Resource private DccPositionAssignmentMapper assignmentMapper;
+    @Resource private AdminUserDirectSupervisorService directSupervisorService;
 
     public boolean isUploaderDerivedPosition(Long positionId) {
         DccApprovalPositionDO position = positionMapper.selectById(positionId);
-        return DccUploaderDerivedPositionSupport.isUploaderDerivedPosition(position);
+        return position != null && (DccUploaderDerivedPositionSupport.isUploaderDerivedPosition(position)
+                || assignmentMapper.selectActiveListByPositionId(positionId).stream()
+                    .anyMatch(row -> DccPositionAssignmentTypes.isRelationship(row.getAssignmentType())));
     }
 
     public List<Long> resolveUserIds(Long positionId, Long submitterUserId, boolean allowDeferredContext) {
@@ -37,7 +46,9 @@ public class DccApprovalPositionRuntimeResolver {
         if (position == null) {
             throw exception(APPROVAL_POSITION_NOT_EXISTS);
         }
-        if (!DccUploaderDerivedPositionSupport.isUploaderDerivedPosition(position)) {
+        boolean nativePosition = DccUploaderDerivedPositionSupport.isUploaderDerivedPosition(position);
+        List<DccPositionAssignmentDO> assignments = nativePosition ? List.of() : assignmentMapper.selectActiveListByPositionId(positionId);
+        if (!nativePosition && assignments.stream().noneMatch(row -> DccPositionAssignmentTypes.isRelationship(row.getAssignmentType()))) {
             return List.of();
         }
         if (submitterUserId == null) {
@@ -46,11 +57,35 @@ public class DccApprovalPositionRuntimeResolver {
             }
             throw exception(APPROVAL_POSITION_UPLOADER_CONTEXT_REQUIRED, position.getName());
         }
-        if (DccUploaderDerivedPositionSupport.isDirectManagerPositionName(position.getName())
-                || DccUploaderDerivedPositionSupport.isDepartmentScopedPositionName(position.getName())) {
+        if (DccUploaderDerivedPositionSupport.isDirectManagerPositionName(position.getName())) {
+            return resolveDirectSupervisor(position.getName(), submitterUserId);
+        }
+        if (DccUploaderDerivedPositionSupport.isDepartmentScopedPositionName(position.getName())) {
             return resolveSubmitterDepartmentLeaderUserIds(position.getName(), submitterUserId);
         }
-        return List.of();
+        LinkedHashSet<Long> users = new LinkedHashSet<>();
+        for (DccPositionAssignmentDO row : assignments) {
+            DccPositionAssignmentTypes.validate(row.getAssignmentType(), row.getUserId(), row.getSystemPostId());
+            switch (row.getAssignmentType()) {
+                case DccPositionAssignmentTypes.DIRECT_SUPERVISOR -> users.addAll(resolveDirectSupervisor(position.getName(), submitterUserId));
+                case DccPositionAssignmentTypes.DEPT_LEADER -> users.addAll(resolveSubmitterDepartmentLeaderUserIds(position.getName(), submitterUserId));
+                case "USER" -> users.add(row.getUserId());
+                case "POST" -> adminUserService.getUserListByPostIds(List.of(row.getSystemPostId())).forEach(user -> users.add(user.getId()));
+                default -> throw mappingInvalid(position.getName(), "unsupported_relationship");
+            }
+        }
+        for (Long userId : users) requireLocalEnabledUserById(userId, position.getName(), "local_resolved_account_missing");
+        return List.copyOf(users);
+    }
+
+    private List<Long> resolveDirectSupervisor(String name, Long submitterId) {
+        requireLocalEnabledUserById(submitterId, name, "local_submitter_missing");
+        var relation = directSupervisorService.getDirectSupervisorRelation(submitterId);
+        if (relation == null || !Objects.equals(relation.getUserId(), submitterId)
+                || relation.getSupervisorUserId() == null || Objects.equals(relation.getSupervisorUserId(), submitterId)) {
+            throw mappingInvalid(name, "申请人的直属主管未配置或关系无效，请在用户管理维护直属主管");
+        }
+        return List.of(requireLocalEnabledUserById(relation.getSupervisorUserId(), name, "直属主管账号不存在或已停用").getId());
     }
 
     private List<Long> resolveSubmitterDepartmentLeaderUserIds(String positionName, Long submitterUserId) {

@@ -14,6 +14,7 @@ import cn.iocoder.yudao.framework.tenant.config.TenantProperties;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.framework.tenant.core.util.TenantUtils;
 import cn.iocoder.yudao.module.system.controller.admin.permission.vo.role.RoleSaveReqVO;
+import cn.iocoder.yudao.module.system.controller.admin.permission.vo.rolecategory.RoleCategorySaveReqVO;
 import cn.iocoder.yudao.module.system.controller.admin.tenant.vo.tenant.TenantPageReqVO;
 import cn.iocoder.yudao.module.system.controller.admin.tenant.vo.tenant.TenantSaveReqVO;
 import cn.iocoder.yudao.module.system.convert.tenant.TenantConvert;
@@ -27,6 +28,7 @@ import cn.iocoder.yudao.module.system.enums.permission.RoleTypeEnum;
 import cn.iocoder.yudao.module.system.service.permission.MenuService;
 import cn.iocoder.yudao.module.system.service.permission.PermissionService;
 import cn.iocoder.yudao.module.system.service.permission.RoleService;
+import cn.iocoder.yudao.module.system.service.permission.RoleCategoryService;
 import cn.iocoder.yudao.module.system.service.tenant.handler.TenantInfoHandler;
 import cn.iocoder.yudao.module.system.service.tenant.handler.TenantMenuHandler;
 import cn.iocoder.yudao.module.system.service.user.AdminUserService;
@@ -77,6 +79,8 @@ public class TenantServiceImpl implements TenantService {
     private AdminUserService userService;
     @Resource
     private RoleService roleService;
+    @Resource
+    private RoleCategoryService roleCategoryService;
     @Resource
     private MenuService menuService;
     @Resource
@@ -147,10 +151,17 @@ public class TenantServiceImpl implements TenantService {
     }
 
     private Long createRole(TenantPackageDO tenantPackage) {
+        // 与历史角色分类迁移保持一致，在新租户内初始化管理员所属的菜单分类。
+        Long categoryId = roleCategoryService.createRoleCategory(new RoleCategorySaveReqVO()
+                .setName("菜单").setCode("menu").setSort(60)
+                .setStatus(CommonStatusEnum.ENABLE.getStatus()).setRemark("菜单权限角色"));
+        if (categoryId == null || categoryId <= 0) {
+            throw new IllegalStateException("TENANT_ADMIN_ROLE_CATEGORY_CREATE_FAILED");
+        }
         // 创建角色
         RoleSaveReqVO reqVO = new RoleSaveReqVO();
         reqVO.setName(RoleCodeEnum.TENANT_ADMIN.getName()).setCode(RoleCodeEnum.TENANT_ADMIN.getCode())
-                .setSort(0).setRemark("系统自动生成");
+                .setCategoryId(categoryId).setSort(0).setRemark("系统自动生成");
         Long roleId = roleService.createRole(reqVO, RoleTypeEnum.SYSTEM.getType());
         // 分配权限
         permissionService.assignTenantRoleMenu(TenantContextHolder.getRequiredTenantId(), roleId, tenantPackage.getMenuIds(),

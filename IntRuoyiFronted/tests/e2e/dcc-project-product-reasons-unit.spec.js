@@ -83,12 +83,7 @@ async function run(){
  assert.equal(calls.filter(call=>call[0]==='retry').length,0,'空重试原因不能提交')
  prompts.push(' 修复后本次明确重试 ');await bindings.handleProjectProductRetry({id:5})
  assert.deepEqual(JSON.parse(JSON.stringify(calls.find(call=>call[0]==='retry'))),['retry',5,{reason:'修复后本次明确重试'}])
- const beforeReview=calls.length
- await bindings.handleProjectProductAction({id:'9223372036854775700',status:'PENDING_REVIEW',configuredReviewerUserId:'7'},'review',true)
- assert.equal(calls.length,beforeReview,'未冻结为审核人的当前用户不能触发审核')
- prompts.push('本次审核意见')
- await bindings.handleProjectProductAction({id:'9223372036854775700',status:'PENDING_REVIEW',configuredReviewerUserId:'9'},'review',true)
- assert.equal(calls.at(-1)[0],'review');assert.equal(calls.at(-1)[1],'9223372036854775700')
+ assert.equal(bindings.handleProjectProductAction,undefined,'项目目录不再提供审批办理，统一使用审批中心')
  // Actual wrapper must transmit the new retry body, not drop the collected reason.
  const apiExports={},transport=[]
  vm.runInNewContext(compile(fs.readFileSync(path.join(root,'src/api/dcc/controlledFile/projectProductRequests.ts'),'utf8')),

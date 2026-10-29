@@ -8,8 +8,10 @@ import cn.iocoder.yudao.module.system.controller.admin.dept.vo.post.PostPageReqV
 import cn.iocoder.yudao.module.system.controller.admin.dept.vo.post.PostSaveReqVO;
 import cn.iocoder.yudao.module.system.dal.dataobject.dept.PostDO;
 import cn.iocoder.yudao.module.system.dal.mysql.dept.PostMapper;
+import cn.iocoder.yudao.module.system.service.permission.GlobalApprovalAuthorityCoordinator;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.annotation.Import;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import jakarta.annotation.Resource;
 import java.util.Arrays;
@@ -24,6 +26,8 @@ import static cn.iocoder.yudao.framework.test.core.util.RandomUtils.*;
 import static cn.iocoder.yudao.module.system.enums.ErrorCodeConstants.*;
 import static java.util.Collections.singletonList;
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.Mockito.doThrow;
 
 /**
  * {@link PostServiceImpl} 的单元测试类
@@ -39,6 +43,9 @@ public class PostServiceImplTest extends BaseDbUnitTest {
     @Resource
     private PostMapper postMapper;
 
+    @MockitoBean
+    private GlobalApprovalAuthorityCoordinator approvalAuthority;
+
     @Test
     public void testCreatePost_success() {
         // 准备参数
@@ -53,6 +60,50 @@ public class PostServiceImplTest extends BaseDbUnitTest {
         // 校验记录的属性是否正确
         PostDO post = postMapper.selectById(postId);
         assertPojoEquals(reqVO, post, "id");
+        assertEquals("GW-001", post.getCode());
+    }
+
+    @Test
+    public void testCreatePost_generatesConsecutiveCodesWithoutClientCode() {
+        // 历史业务编码不占用 GW 流水号。
+        postMapper.insert(randomPostDO(o -> o.setCode("WORKSHOP_DIRECTOR")));
+        Long first = postService.createPost(newPostRequest("生产组长"));
+        Long second = postService.createPost(newPostRequest("生产操作员"));
+        assertEquals("GW-001", postMapper.selectById(first).getCode());
+        assertEquals("GW-002", postMapper.selectById(second).getCode());
+    }
+
+    @Test
+    public void testCreatePost_usesHighestNumberIncludingDisabledAndDeletedPosts() {
+        postMapper.insert(randomPostDO(o -> o.setCode("GW-002")));
+        postMapper.insert(randomPostDO(o -> {
+            o.setCode("GW-009");
+            o.setStatus(CommonStatusEnum.DISABLE.getStatus());
+        }));
+        PostDO deleted = randomPostDO(o -> o.setCode("GW-012"));
+        postMapper.insert(deleted);
+        postMapper.deleteById(deleted.getId());
+        assertNull(postMapper.selectById(deleted.getId()));
+
+        Long id = postService.createPost(newPostRequest("质量负责人"));
+        assertEquals("GW-013", postMapper.selectById(id).getCode());
+    }
+
+    @Test
+    public void testCreatePost_keepsGrowingPastThreeDigitsAndReadsCaseInsensitiveHistory() {
+        postMapper.insert(randomPostDO(o -> o.setCode("gw-999")));
+        Long id = postService.createPost(newPostRequest("文控专员"));
+        assertEquals("GW-1000", postMapper.selectById(id).getCode());
+    }
+
+    @Test
+    public void testCreatePost_rollsBackWhenAuthorityRevisionCannotBeWritten() {
+        doThrow(new IllegalStateException("authority write failed"))
+                .when(approvalAuthority).incrementLockedTenants(anyList());
+        assertThrows(IllegalStateException.class,
+                () -> postService.createPost(newPostRequest("生产组长")));
+        assertNull(postMapper.selectByName("生产组长"));
+        assertTrue(postMapper.selectGeneratedCodesForUpdate().isEmpty());
     }
 
     @Test
@@ -72,6 +123,7 @@ public class PostServiceImplTest extends BaseDbUnitTest {
         // 校验是否更新正确
         PostDO post = postMapper.selectById(reqVO.getId());
         assertPojoEquals(reqVO, post);
+        assertEquals(postDO.getCode(), post.getCode(), "编辑岗位不得重编或覆盖编码");
     }
 
     @Test
@@ -109,23 +161,14 @@ public class PostServiceImplTest extends BaseDbUnitTest {
     }
 
     @Test
-    public void testValidatePost_codeDuplicateForUpdate() {
-        // mock 数据
-        PostDO postDO = randomPostDO();
+    public void testUpdatePost_preservesLegacyBusinessCode() {
+        PostDO postDO = randomPostDO(o -> o.setCode("WORKSHOP_DIRECTOR"));
         postMapper.insert(postDO);
-        // mock 数据：稍后模拟重复它的 code
-        PostDO codePostDO = randomPostDO();
-        postMapper.insert(codePostDO);
-        // 准备参数
-        PostSaveReqVO reqVO = randomPojo(PostSaveReqVO.class, o -> {
-            // 设置更新的 ID
-            o.setId(postDO.getId());
-            // 模拟 code 重复
-            o.setCode(codePostDO.getCode());
-        });
-
-        // 调用, 并断言异常
-        assertServiceException(() -> postService.updatePost(reqVO), POST_CODE_DUPLICATE);
+        PostSaveReqVO reqVO = newPostRequest("车间主任").setId(postDO.getId());
+        postService.updatePost(reqVO);
+        PostDO updated = postMapper.selectById(postDO.getId());
+        assertEquals("车间主任", updated.getName());
+        assertEquals("WORKSHOP_DIRECTOR", updated.getCode());
     }
 
     @Test
@@ -243,6 +286,11 @@ public class PostServiceImplTest extends BaseDbUnitTest {
             o.setStatus(randomCommonStatus()); // 保证 status 的范围
         };
         return randomPojo(PostDO.class, ArrayUtils.append(consumer, consumers));
+    }
+
+    private static PostSaveReqVO newPostRequest(String name) {
+        return new PostSaveReqVO().setName(name).setSort(0)
+                .setStatus(CommonStatusEnum.ENABLE.getStatus()).setRemark("");
     }
 
 }

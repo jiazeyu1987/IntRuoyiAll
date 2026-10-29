@@ -22,6 +22,7 @@ public class UserDisplayService {
     @Resource private RoleMapper roleMapper;
     @Resource private UserPostMapper userPostMapper;
     @Resource private UserRoleMapper userRoleMapper;
+    @Resource private cn.iocoder.yudao.module.system.service.tenant.TenantService tenantService;
 
     @DataPermission(enable = false)
     public List<UserRespVO> describe(List<AdminUserDO> users) {
@@ -41,7 +42,14 @@ public class UserDisplayService {
         Map<Long, List<UserPostDO>> postsByUser = postLinks.stream().collect(Collectors.groupingBy(UserPostDO::getUserId));
         Map<Long, List<UserRoleDO>> rolesByUser = roleLinks.stream().collect(Collectors.groupingBy(UserRoleDO::getUserId));
         List<UserRespVO> result = UserConvert.INSTANCE.convertList(users, departments);
+        var yintaiTenant = YintaiAdminAccountPolicy.TENANT_ID.equals(
+                cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getTenantId())
+                ? tenantService.getTenant(YintaiAdminAccountPolicy.TENANT_ID) : null;
+        Map<Long, AdminUserDO> usersById = users.stream()
+                .collect(Collectors.toMap(AdminUserDO::getId, Function.identity()));
         for (UserRespVO user : result) {
+            user.setYintaiAdminUsernameAllowed(YintaiAdminAccountPolicy.isAdministrator(
+                    usersById.get(user.getId()), yintaiTenant));
             List<Long> assignedPosts = postsByUser.getOrDefault(user.getId(), List.of()).stream()
                     .map(UserPostDO::getPostId).distinct().sorted().toList();
             user.setPostIds(new LinkedHashSet<>(assignedPosts));

@@ -1,42 +1,54 @@
 <template>
   <div class="keyword-workbench">
-    <div class="keyword-workbench__toolbar">
-      <div class="keyword-workbench__filters">
-        <el-input
-          v-model="filters.keyword"
-          class="keyword-workbench__search"
-          clearable
-          placeholder="请输入中文关键词或 English Keyword"
-          @keyup.enter="handleSearch"
-        />
-        <el-button type="primary" @click="handleSearch">查询</el-button>
-        <el-button @click="handleReset">重置</el-button>
-      </div>
-      <el-button type="primary" @click="openCreate">新增关键词</el-button>
-    </div>
-
-    <el-table v-loading="loading" :data="rows" row-key="id" class="keyword-workbench__table">
-      <el-table-column label="中文关键词" min-width="260" prop="nameZh" />
-      <el-table-column label="English Keyword" min-width="320" prop="nameEn" />
-      <el-table-column label="更新时间" min-width="180">
-        <template #default="{ row }">
-          {{ formatDate(row.updateTime) }}
-        </template>
-      </el-table-column>
-      <el-table-column label="操作" width="160" fixed="right">
-        <template #default="{ row }">
-          <el-button link type="primary" @click="openEdit(row.id)">编辑</el-button>
-          <el-button link type="danger" @click="handleDelete(row.id)">删除</el-button>
-        </template>
-      </el-table-column>
-    </el-table>
-
-    <Pagination
+    <UnifiedListTemplate
+      table-key="showroom.keyword.main"
+      :query-model="filters"
       :page="pagination.pageNo"
       :limit="pagination.pageSize"
       :total="pagination.total"
       @pagination="handlePageChange"
-    />
+    >
+      <template #filters>
+        <div>
+          <el-input
+            v-model="filters.keyword"
+            class="keyword-workbench__search"
+            clearable
+            placeholder="请输入中文关键词或 English Keyword"
+            @keyup.enter="handleSearch"
+          />
+        </div>
+      </template>
+      <template #actions>
+        <el-button type="primary" @click="handleSearch">查询</el-button>
+        <el-button @click="handleReset">重置</el-button>
+        <el-button type="primary" @click="openCreate">新增关键词</el-button>
+      </template>
+      <template #table>
+        <el-table
+          stripe
+          border
+          v-loading="loading"
+          :data="rows"
+          row-key="id"
+          class="keyword-workbench__table"
+        >
+          <el-table-column label="中文关键词" min-width="260" prop="nameZh" />
+          <el-table-column label="English Keyword" min-width="320" prop="nameEn" />
+          <el-table-column label="更新时间" min-width="180">
+            <template #default="{ row }">
+              {{ formatDate(row.updateTime) }}
+            </template>
+          </el-table-column>
+          <el-table-column label="操作" width="160" fixed="right">
+            <template #default="{ row }">
+              <el-button link type="primary" @click="openEdit(row.id)">编辑</el-button>
+              <el-button link type="danger" @click="handleDelete(row.id)">删除</el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+      </template>
+    </UnifiedListTemplate>
 
     <el-dialog v-model="dialogVisible" :title="dialogTitle" width="560px" destroy-on-close>
       <el-form label-width="120px">
@@ -56,6 +68,7 @@
 </template>
 
 <script setup lang="ts">
+import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import { onMounted, reactive, ref } from 'vue'
 import { formatDate } from '@/utils/formatTime'
 import {

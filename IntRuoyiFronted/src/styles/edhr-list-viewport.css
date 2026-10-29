@@ -1,4 +1,4 @@
-/* Only tables selected inside the eDHR navigation container receive these rules. */
+/* Only standard list tables and selected eDHR tables receive these rules. */
 .edhr-viewport-table.el-table {
   height: var(--edhr-list-height) !important;
   max-height: none !important;

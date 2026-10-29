@@ -1,6 +1,8 @@
 package cn.iocoder.yudao.module.mes.service.pro.batchrecord;
 
 import cn.hutool.crypto.digest.DigestUtil;
+import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrNonconformanceReviewDO;
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
 import cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
@@ -36,6 +38,8 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.function.Predicate;
+import java.util.stream.Collectors;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_DEVIATION_BATCH_MARKET_RELEASED;
@@ -74,6 +78,8 @@ public class MesProEdhrDeviationServiceImpl implements MesProEdhrDeviationServic
     private MesProEdhrNonconformanceReviewMapper nonconformanceReviewMapper;
     @Resource
     private MesProEdhrBatchExecutionOriginMapper batchExecutionOriginMapper;
+    @Resource
+    private MesProEdhrWorkTaskService workTaskService;
 
     @Override
     public List<MesProEdhrDeviationBatchOptionRespVO> getBatchOptionsByActiveOrder(Long activeOrderId) {
@@ -250,6 +256,10 @@ public class MesProEdhrDeviationServiceImpl implements MesProEdhrDeviationServic
             throw exception(PRO_EDHR_DEVIATION_CREATE_FAILED);
         }
         appendInitiationAudit(tenantId, deviation, canonicalContent, contentHash);
+        if (deviation.getReceiverId() != null) {
+            workTaskService.assignDeviationTask(deviation, MesProEdhrWorkTaskService.TASK_TYPE_DEVIATION_RECEIVE,
+                    deviation.getReceiverId(), "偏差接收与初始调查：" + deviation.getDeviationCode());
+        }
         return toResp(deviation);
     }
 
@@ -260,7 +270,44 @@ public class MesProEdhrDeviationServiceImpl implements MesProEdhrDeviationServic
                 new Page<>(reqVO.getPageNo(), reqVO.getPageSize()), tenantId, reqVO.getStatus(),
                 reqVO.getLevel(), reqVO.getBatchExecutionId(), reqVO.getSearch(), reqVO.getSortField(),
                 reqVO.getSortOrder(), reqVO.getInitiatedAtStart(), reqVO.getInitiatedAtEnd());
-        return new PageResult<>(page.getRecords().stream().map(this::toRespWithTransferEligibility).toList(), page.getTotal());
+        List<Long> batchIds = page.getRecords().stream()
+                .filter(row -> STATUS_OPEN.equals(row.getStatus()) && LEVEL_CRITICAL.equals(row.getLevel()))
+                .map(MesProEdhrDeviationDO::getBatchExecutionId).filter(Objects::nonNull).distinct().toList();
+        Map<Long, MesProEdhrBatchExecutionDO> batches = batchIds.isEmpty() ? Map.of()
+                : batchExecutionMapper.selectList(new LambdaQueryWrapperX<MesProEdhrBatchExecutionDO>()
+                        .eq(MesProEdhrBatchExecutionDO::getTenantId, tenantId)
+                        .in(MesProEdhrBatchExecutionDO::getId, batchIds)).stream()
+                        .collect(Collectors.toMap(MesProEdhrBatchExecutionDO::getId, batch -> batch));
+        List<Long> reviewableBatchIds = batches.values().stream()
+                .filter(batch -> batchTransferBlockedReason(batch) == null)
+                .map(MesProEdhrBatchExecutionDO::getId).toList();
+        Map<Long, Long> pendingCounts = reviewableBatchIds.isEmpty() ? Map.of()
+                : nonconformanceReviewMapper.selectList(new LambdaQueryWrapperX<MesProEdhrNonconformanceReviewDO>()
+                        .select(MesProEdhrNonconformanceReviewDO::getBatchExecutionId)
+                        .eq(MesProEdhrNonconformanceReviewDO::getTenantId, tenantId)
+                        .in(MesProEdhrNonconformanceReviewDO::getBatchExecutionId, reviewableBatchIds)
+                        .eq(MesProEdhrNonconformanceReviewDO::getReviewStatus,
+                                MesProEdhrNonconformanceReviewMapper.STATUS_PENDING_REVIEW)).stream()
+                        .collect(Collectors.groupingBy(MesProEdhrNonconformanceReviewDO::getBatchExecutionId,
+                                Collectors.counting()));
+        List<Long> reviewIds = page.getRecords().stream().map(MesProEdhrDeviationDO::getNonconformanceReviewId)
+                .filter(Objects::nonNull).distinct().toList();
+        Map<Long, MesProEdhrNonconformanceReviewDO> reviews = reviewIds.isEmpty() ? Map.of()
+                : nonconformanceReviewMapper.selectList(new LambdaQueryWrapperX<MesProEdhrNonconformanceReviewDO>()
+                        .eq(MesProEdhrNonconformanceReviewDO::getTenantId, tenantId)
+                        .in(MesProEdhrNonconformanceReviewDO::getId, reviewIds)).stream()
+                        .collect(Collectors.toMap(MesProEdhrNonconformanceReviewDO::getId, review -> review));
+        return new PageResult<>(page.getRecords().stream().map(row -> applyTransferEligibility(row,
+                toResp(row, row.getNonconformanceReviewId() == null ? null : reviews.get(row.getNonconformanceReviewId())),
+                row.getBatchExecutionId() == null ? null : batches.get(row.getBatchExecutionId()),
+                batchId -> {
+                    long count = pendingCounts.getOrDefault(batchId, 0L);
+                    if (count > 1) {
+                        throw new org.apache.ibatis.exceptions.TooManyResultsException(
+                                "Expected one result (or null) to be returned by selectOne(), but found: " + count);
+                    }
+                    return count == 1;
+                })).toList(), page.getTotal());
     }
 
     @Override
@@ -278,16 +325,35 @@ public class MesProEdhrDeviationServiceImpl implements MesProEdhrDeviationServic
 
     private MesProEdhrDeviationRespVO toRespWithTransferEligibility(MesProEdhrDeviationDO deviation) {
         MesProEdhrDeviationRespVO response = toResp(deviation);
+        MesProEdhrBatchExecutionDO batch = STATUS_OPEN.equals(deviation.getStatus())
+                && LEVEL_CRITICAL.equals(deviation.getLevel())
+                ? batchExecutionMapper.selectByTenantIdAndId(
+                        TenantContextHolder.getRequiredTenantId(), deviation.getBatchExecutionId()) : null;
+        return applyTransferEligibility(deviation, response, batch,
+                batchId -> nonconformanceReviewMapper.selectPendingByBatchExecutionId(batchId) != null);
+    }
+
+    private MesProEdhrDeviationRespVO applyTransferEligibility(MesProEdhrDeviationDO deviation,
+            MesProEdhrDeviationRespVO response, MesProEdhrBatchExecutionDO batch, Predicate<Long> hasPendingReview) {
         response.setCanTransferToNcr(false);
         if (!STATUS_OPEN.equals(deviation.getStatus()) || !LEVEL_CRITICAL.equals(deviation.getLevel())) {
             return response.setTransferToNcrBlockedReason("仅未关闭的关键偏差可以转不合格审批");
         }
-        MesProEdhrBatchExecutionDO batch = batchExecutionMapper.selectByTenantIdAndId(
-                TenantContextHolder.getRequiredTenantId(), deviation.getBatchExecutionId());
-        if (batch == null || batch.getStatus() == null) {
-            return response.setTransferToNcrBlockedReason("关联批次状态缺失，不能转审，请联系管理员核对；偏差调查记录仍可查看");
+        String reason = batchTransferBlockedReason(batch);
+        if (reason != null) {
+            return response.setTransferToNcrBlockedReason(reason);
         }
-        String reason = switch (batch.getStatus()) {
+        if (hasPendingReview.test(batch.getId())) {
+            return response.setTransferToNcrBlockedReason("关联批次已有待处置不合格审批，暂不能重复转审；可继续常规调查，原评审处理后请刷新转审状态");
+        }
+        return response.setCanTransferToNcr(true);
+    }
+
+    private String batchTransferBlockedReason(MesProEdhrBatchExecutionDO batch) {
+        if (batch == null || batch.getStatus() == null) {
+            return "关联批次状态缺失，不能转审，请联系管理员核对；偏差调查记录仍可查看";
+        }
+        return switch (batch.getStatus()) {
             case MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_REJECTED ->
                     "原批次已返工退役，不能再发起不合格审批；请继续调查并按常规关闭偏差";
             case MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_VOIDED ->
@@ -299,13 +365,6 @@ public class MesProEdhrDeviationServiceImpl implements MesProEdhrDeviationServic
                     "关联批次已冻结，暂不能重复转审；可继续常规调查，原评审处理后请刷新转审状态";
             default -> null;
         };
-        if (reason != null) {
-            return response.setTransferToNcrBlockedReason(reason);
-        }
-        if (nonconformanceReviewMapper.selectPendingByBatchExecutionId(batch.getId()) != null) {
-            return response.setTransferToNcrBlockedReason("关联批次已有待处置不合格审批，暂不能重复转审；可继续常规调查，原评审处理后请刷新转审状态");
-        }
-        return response.setCanTransferToNcr(true);
     }
 
     @Override
@@ -433,6 +492,14 @@ public class MesProEdhrDeviationServiceImpl implements MesProEdhrDeviationServic
     }
 
     private MesProEdhrDeviationRespVO toResp(MesProEdhrDeviationDO deviation) {
+        MesProEdhrNonconformanceReviewDO review = nonconformanceReviewMapper != null
+                && deviation.getNonconformanceReviewId() != null
+                ? nonconformanceReviewMapper.selectById(deviation.getNonconformanceReviewId()) : null;
+        return toResp(deviation, review);
+    }
+
+    private MesProEdhrDeviationRespVO toResp(MesProEdhrDeviationDO deviation,
+            MesProEdhrNonconformanceReviewDO review) {
         MesProEdhrDeviationRespVO response = new MesProEdhrDeviationRespVO()
                 .setId(deviation.getId())
                 .setDeviationCode(deviation.getDeviationCode())
@@ -462,14 +529,11 @@ public class MesProEdhrDeviationServiceImpl implements MesProEdhrDeviationServic
                 .setInitiatedAt(deviation.getInitiatedAt())
                 .setInitiatorSignatureId(deviation.getInitiatorSignatureId())
                 .setInitiatorContentHash(deviation.getInitiatorContentHash());
-        if (nonconformanceReviewMapper != null && deviation.getNonconformanceReviewId() != null) {
-            var review = nonconformanceReviewMapper.selectById(deviation.getNonconformanceReviewId());
-            if (review != null) {
-                response.setNonconformanceReviewCode(review.getReviewCode())
-                        .setNonconformanceReviewStatus(review.getReviewStatus())
-                        .setNonconformanceDisposition(review.getDisposition())
-                        .setNonconformanceClosedAt(review.getClosedAt());
-            }
+        if (review != null) {
+            response.setNonconformanceReviewCode(review.getReviewCode())
+                    .setNonconformanceReviewStatus(review.getReviewStatus())
+                    .setNonconformanceDisposition(review.getDisposition())
+                    .setNonconformanceClosedAt(review.getClosedAt());
         }
         return response;
     }

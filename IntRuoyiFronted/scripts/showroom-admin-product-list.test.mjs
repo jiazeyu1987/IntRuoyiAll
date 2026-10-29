@@ -95,6 +95,7 @@ const loadProductListSetup = (overrides = {}) => {
       if (specifier === 'vue') {
         return vueStub
       }
+      if (specifier === '@/components/UnifiedListTemplate/index.vue') return { default: {} }
       throw new Error(`Unexpected dependency: ${specifier}`)
     },
     reactive: vueStub.reactive,
@@ -383,7 +384,7 @@ test('ProductListTable renders required product list columns', () => {
   assert.ok(source.indexOf('label="封面"') < source.indexOf('label="状态"'))
   assert.match(
     source,
-    /label="操作"[\s\S]*:width="manageProducts \? 360 : rowEditableExists \? 240 : 180"/
+    /label="操作"[\s\S]*:width="manageProducts \? 370 : rowEditableExists \? 240 : 180"/
   )
 
   assert.match(source, /<el-table\b/)
@@ -434,11 +435,11 @@ test('ProductListTable toolbar only exposes product name search with adjacent qu
   const source = readText('src/views/showroom-admin/components/ProductListTable.vue')
   const toolbarBlock = sliceBetween(
     source,
-    '<div class="showroom-product-list__toolbar">',
-    '<div v-if="showNarrationTaskBanner"'
+    '<template #filters>',
+    '<template #table>'
   )
 
-  assert.match(toolbarBlock, /class="showroom-product-list__search-group"/)
+  assert.match(source, /<UnifiedListTemplate\b[\s\S]*table-key="showroom\.product\.main"/)
   assert.match(toolbarBlock, /placeholder="搜索产品名称"/)
   assert.doesNotMatch(toolbarBlock, /placeholder="搜索产品编码 \/ 中文名 \/ 英文名"/)
   assert.doesNotMatch(toolbarBlock, /showroom-product-list__tenant/)
@@ -457,7 +458,7 @@ test('ProductListTable toolbar only exposes product name search with adjacent qu
   )
   assert.ok(
     toolbarBlock.indexOf('@click="resetFilters"') <
-      toolbarBlock.indexOf('class="showroom-product-list__actions"'),
+      toolbarBlock.indexOf("@click=\"emit('create')\""),
     '查询和重置按钮应放在页面级操作按钮左侧'
   )
   assert.match(
@@ -598,7 +599,7 @@ test('row-level product audio resolves the latest draft revision before currentR
   const handler = source.match(
     /const handleGenerateProductNarrationAudioFromRow = async[\s\S]*?(?=\nconst handleGenerateProductNarrationScript = async)/
   )?.[0] || ''
-  assert.match(handler, /const sourceRevisionId = resolveProductAudioSourceRevisionId\(product\)/)
+  assert.match(handler, /const sourceRevisionId =[\s\S]*resolveProductAudioSourceRevisionId\(product\)/)
   assert.match(handler, /sourceRevisionId/)
   assert.match(handler, /formatShowroomStructuredError\(error, '产品音频生成'\)/)
 })

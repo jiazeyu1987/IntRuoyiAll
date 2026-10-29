@@ -38,7 +38,9 @@ public class MesEdhrManagedHandoffMaterialAssociationStore {
                 || !Objects.equals(app.getReleaseApprovalWorkTaskId(),task) || !"MANAGER_RELEASE_PENDING".equals(app.getApplicationStatus())
                 || !Objects.equals(app.getReportSnapshotHash(),payload.get("reportSnapshotHash").textValue())
                 || app.getVersion()==null || app.getVersion()<payload.get("initializedApplicationVersion").intValue()
-                || !Objects.equals(tx.getVersion(),payload.get("releaseTransactionVersion").intValue())
+                // Handover/reclaim advances the release transaction version while preserving
+                // the same verified source association for the current owner.
+                || tx.getVersion()==null || tx.getVersion() < payload.get("releaseTransactionVersion").intValue()
                 || !cn.hutool.crypto.digest.DigestUtil.sha256Hex(tx.getPrecheckSnapshotJson()).equals(payload.get("precheckSnapshotHash").textValue()))
             throw new IllegalStateException("HANDOFF_CURRENT_APPLICATION_MISMATCH");
         requireSourceRequest(row, app);

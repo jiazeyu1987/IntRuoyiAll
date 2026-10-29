@@ -29,6 +29,32 @@ public class MesProEdhrRecordChangeController {
     @Resource
     private MesProEdhrRecordChangeService edhrRecordChangeService;
 
+    @Resource
+    private cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesEdhrRecordChangeTaskService recordChangeTaskService;
+
+    @GetMapping("/approvers")
+    @PreAuthorize("@ss.hasAnyPermissions('mes:pro-edhr-change:reopen', 'mes:pro-edhr-change:supplement', 'mes:pro-edhr-change:void')")
+    public CommonResult<java.util.List<cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrRecordChangeApproverRespVO>> approvers(
+            @RequestParam(value = "nickname", defaultValue = "") String nickname) {
+        return success(recordChangeTaskService.approvers(nickname));
+    }
+
+    @PostMapping("/decide")
+    @Operation(summary = "签名驳回或退回补正记录变更")
+    @PreAuthorize("@ss.hasPermission('mes:pro-edhr-change:approve')")
+    public CommonResult<EdhrRecordChangeRespVO> decide(@Valid @RequestBody
+            cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrRecordChangeDecideReqVO reqVO) {
+        return success(edhrRecordChangeService.decide(reqVO));
+    }
+
+    @PostMapping("/resubmit")
+    @Operation(summary = "原申请人补正并签名重新提交")
+    @PreAuthorize("@ss.hasAnyPermissions('mes:pro-edhr-change:reopen', 'mes:pro-edhr-change:supplement', 'mes:pro-edhr-change:void')")
+    public CommonResult<EdhrRecordChangeRespVO> resubmit(@Valid @RequestBody
+            cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrRecordChangeResubmitReqVO reqVO) {
+        return success(edhrRecordChangeService.resubmit(reqVO));
+    }
+
     @PostMapping("/void-execution/request")
     @Operation(summary = "申请作废eDHR执行记录")
     @PreAuthorize("@ss.hasPermission('mes:pro-edhr-change:void')")

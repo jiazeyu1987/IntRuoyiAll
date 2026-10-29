@@ -40,6 +40,7 @@ export class ProjectBrowserState {
   projects: DccDiscoveredProject[] = []
   projectsTotal = 0
   projectPage = 1
+  projectPageSize = 20
   projectKeyword = ''
   projectLoading = false
   projectError = ''
@@ -55,7 +56,7 @@ export class ProjectBrowserState {
   keyword = ''
   appliedKeyword = ''
   pageNo = 1
-  readonly pageSize = 20
+  pageSize = 20
   rows: FileCandidate[] = []
   total = 0
   loading = false
@@ -85,7 +86,7 @@ export class ProjectBrowserState {
     const token = ++this.projectsSequence
     this.projectLoading = true; this.projectError = ''; this.projects = []; this.projectsTotal = 0
     try {
-      const page = await getProjectDiscoveryPage({ pageNo: this.projectPage, pageSize: 20, keyword: this.projectKeyword })
+      const page = await getProjectDiscoveryPage({ pageNo: this.projectPage, pageSize: this.projectPageSize, keyword: this.projectKeyword })
       if (token !== this.projectsSequence) return
       this.projects = page.list; this.projectsTotal = page.total
     } catch (error) { if (token === this.projectsSequence) this.projectError = errorText(error) }

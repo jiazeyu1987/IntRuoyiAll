@@ -72,6 +72,10 @@ public class MesProEdhrWorkTaskRespVO {
 
     private String inactionReason;
 
+    private Boolean actionable;
+
+    private String blockedReason;
+
     private String signatureCellKey;
 
     private Integer signatureRowIndex;

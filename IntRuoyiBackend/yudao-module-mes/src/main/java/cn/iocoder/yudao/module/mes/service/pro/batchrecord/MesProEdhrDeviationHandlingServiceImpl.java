@@ -67,6 +67,10 @@ public class MesProEdhrDeviationHandlingServiceImpl implements MesProEdhrDeviati
     private final MesProBatchRecordExecutionSignatureService signatureService;
     private final MesProEdhrOperationAuditService operationAuditService;
     @Resource
+    private MesProEdhrWorkTaskService workTaskService;
+    @Resource
+    private MesProEdhrDeviationReviewTaskService reviewTaskService;
+    @Resource
     private ElectronicSignatureQueryService signatureQueryService;
     @Resource
     private cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService gxpAuditService;
@@ -105,6 +109,7 @@ public class MesProEdhrDeviationHandlingServiceImpl implements MesProEdhrDeviati
                                                    MesProEdhrDeviationHandlingSaveReqVO reqVO) {
         requireActor(actorUserId);
         requirePermission("mes:pro-edhr-deviation:handle");
+        gxpAuditService.acquireLedgerLock();
         Long tenantId = TenantContextHolder.getRequiredTenantId();
         MesProEdhrDeviationDO deviation = deviationMapper.selectByTenantAndIdForUpdate(tenantId, deviationId);
         if (deviation == null) {
@@ -121,11 +126,16 @@ public class MesProEdhrDeviationHandlingServiceImpl implements MesProEdhrDeviati
             if (expectedVersion != 0) {
                 throw exception(PRO_EDHR_DEVIATION_HANDLING_VERSION_CONFLICT, deviationId);
             }
+            validateReviewerAssignments(deviation, next);
             next.setContentVersion(1);
             next.setContentHash(contentHash(next));
             if (handlingMapper.insert(next) != 1 || next.getId() == null) {
                 throw exception(PRO_EDHR_DEVIATION_HANDLING_NOT_EXISTS, deviationId);
             }
+            syncCorrectiveTask(deviation, next);
+            dispatchReviewTasks(deviation, next);
+            workTaskService.completeDeviationTask(deviationId,
+                    MesProEdhrWorkTaskService.TASK_TYPE_DEVIATION_RECEIVE, "已提交偏差调查记录");
             return toResp(next);
         }
         if (!Objects.equals(current.getContentVersion(), expectedVersion)) {
@@ -134,6 +144,7 @@ public class MesProEdhrDeviationHandlingServiceImpl implements MesProEdhrDeviati
         if (!hasText(reqVO.getRevisionReason())) {
             throw exception(PRO_EDHR_DEVIATION_HANDLING_REVISION_REASON_REQUIRED, deviationId);
         }
+        validateReviewerAssignments(deviation, next);
         String beforeContent = canonicalContent(current);
         next.setId(current.getId())
                 .setContentVersion(current.getContentVersion() + 1)
@@ -141,6 +152,11 @@ public class MesProEdhrDeviationHandlingServiceImpl implements MesProEdhrDeviati
         if (handlingMapper.updateContent(tenantId, deviationId, expectedVersion, next) != 1) {
             throw exception(PRO_EDHR_DEVIATION_HANDLING_VERSION_CONFLICT, deviationId);
         }
+        syncCorrectiveTask(deviation, next);
+        reviewTaskService.cancelAll(deviationId, "偏差处理内容已修订，原版本签署任务失效");
+        dispatchReviewTasks(deviation, next);
+        workTaskService.completeDeviationTask(deviationId,
+                MesProEdhrWorkTaskService.TASK_TYPE_DEVIATION_RECEIVE, "已提交偏差调查记录");
         Map<String, Object> revisionMetadata = new TreeMap<>();
         revisionMetadata.put("revisionReason", reqVO.getRevisionReason().trim());
         revisionMetadata.put("beforeContent", beforeContent);
@@ -164,6 +180,16 @@ public class MesProEdhrDeviationHandlingServiceImpl implements MesProEdhrDeviati
                 .setAfterSummaryHash(next.getContentHash())
                 .setMetadataJson(JSON.toJSONString(revisionMetadata)));
         return toResp(next);
+    }
+
+    private void syncCorrectiveTask(MesProEdhrDeviationDO deviation, MesProEdhrDeviationHandlingDO handling) {
+        if (handling.getCompletedAt() != null) {
+            workTaskService.completeDeviationTask(deviation.getId(),
+                    MesProEdhrWorkTaskService.TASK_TYPE_DEVIATION_CORRECT, "已提交纠正措施完成记录");
+        } else {
+            workTaskService.assignDeviationTask(deviation, MesProEdhrWorkTaskService.TASK_TYPE_DEVIATION_CORRECT,
+                    handling.getCorrectiveOwnerId(), "执行偏差纠正措施：" + deviation.getDeviationCode());
+        }
     }
 
     @Override
@@ -194,9 +220,25 @@ public class MesProEdhrDeviationHandlingServiceImpl implements MesProEdhrDeviati
                 || !Objects.equals(handling.getContentHash(), expectedContentHash)) {
             throw exception(PRO_EDHR_DEVIATION_HANDLING_VERSION_CONFLICT, deviationId);
         }
-        return signatureService.recordDeviationHandlingSignature(actorUserId, deviationId, handling.getId(),
+        if (!requiredNodes(deviation).contains(node) || !readyForReview(handling)
+                || !Objects.equals(reviewerAssignments(handling).get(node), actorUserId)) {
+            throw exception(PRO_EDHR_DEVIATION_HANDLING_PERMISSION_DENIED, node);
+        }
+        var signatures = effectiveSignatures(deviation, handling, requiredNodes(deviation));
+        if (signatures.containsKey(node)) return signatures.get(node);
+        var task = reviewTaskService.require(deviationId, handling, node, actorUserId);
+        Long signatureId = signatureService.recordDeviationHandlingSignature(actorUserId, deviationId, handling.getId(),
                 deviation.getDeviationCode(), node, handling.getContentVersion(), handling.getContentHash(),
                 password, comment);
+        if (signatureId == null || signatureId <= 0) {
+            throw new IllegalStateException("偏差节点签名未返回有效证据编号");
+        }
+        reviewTaskService.completeSigned(task, signatureId, comment);
+        signatures.put(node, signatureId);
+        if (signatures.keySet().containsAll(requiredNodes(deviation))) {
+            reviewTaskService.assign(deviation, handling, "CLOSE", reviewerAssignments(handling).get(NODE_QA));
+        }
+        return signatureId;
     }
 
     @Override
@@ -223,8 +265,11 @@ public class MesProEdhrDeviationHandlingServiceImpl implements MesProEdhrDeviati
                 || !Objects.equals(handling.getContentHash(), expectedContentHash)) {
             throw exception(PRO_EDHR_DEVIATION_HANDLING_VERSION_CONFLICT, deviationId);
         }
-        if (!isComplete(handling)) {
+        if (!readyForReview(handling)) {
             throw exception(PRO_EDHR_DEVIATION_HANDLING_REQUIRED, deviationId);
+        }
+        if (!Objects.equals(reviewerAssignments(handling).get(NODE_QA), actorUserId)) {
+            throw exception(PRO_EDHR_DEVIATION_HANDLING_PERMISSION_DENIED, "CLOSE");
         }
         List<String> requiredNodes = MesProEdhrDeviationServiceImpl.LEVEL_CRITICAL.equals(deviation.getLevel())
                 ? List.of(NODE_PREPARER, NODE_VERIFIER, NODE_DEPARTMENT_OWNER, NODE_QA,
@@ -238,6 +283,7 @@ public class MesProEdhrDeviationHandlingServiceImpl implements MesProEdhrDeviati
         if (deviation.getInitiatorSignatureId() == null) {
             throw exception(PRO_EDHR_DEVIATION_HANDLING_SIGNATURE_REQUIRED, "INITIATOR", deviationId);
         }
+        var closeTask = reviewTaskService.require(deviationId, handling, "CLOSE", actorUserId);
         LocalDateTime closedAt = LocalDateTime.now(MesProEdhrDeviationNumberGenerator.BUSINESS_ZONE);
         signatures.put("INITIATOR", deviation.getInitiatorSignatureId());
         String closeSignatures = JSON.toJSONString(new TreeMap<>(signatures));
@@ -245,6 +291,12 @@ public class MesProEdhrDeviationHandlingServiceImpl implements MesProEdhrDeviati
                 actorUserId, expectedContentVersion, expectedContentHash, closeSignatures) != 1) {
             throw exception(PRO_EDHR_DEVIATION_HANDLING_CLOSE_FAILED, deviationId);
         }
+        workTaskService.completeDeviationTask(deviationId, MesProEdhrWorkTaskService.TASK_TYPE_DEVIATION_RECEIVE,
+                "偏差已正式关闭");
+        workTaskService.completeDeviationTask(deviationId, MesProEdhrWorkTaskService.TASK_TYPE_DEVIATION_CORRECT,
+                "偏差已正式关闭");
+        reviewTaskService.complete(closeTask);
+        reviewTaskService.cancelAll(deviationId, "偏差已正式关闭");
         operationAuditService.recordInCallerTransaction(new MesProEdhrOperationAuditCommand()
                 .setRequestId("EDHR_DEVIATION_CLOSE:" + deviationId + ":" + expectedContentVersion)
                 .setObjectType("EDHR_DEVIATION").setObjectId(deviationId.toString())
@@ -260,6 +312,33 @@ public class MesProEdhrDeviationHandlingServiceImpl implements MesProEdhrDeviati
 
     String contentHash(MesProEdhrDeviationHandlingDO handling) {
         return DigestUtil.sha256Hex(canonicalContent(handling));
+    }
+
+    private List<String> requiredNodes(MesProEdhrDeviationDO deviation) {
+        return MesProEdhrDeviationServiceImpl.LEVEL_CRITICAL.equals(deviation.getLevel())
+                ? List.of(NODE_PREPARER, NODE_VERIFIER, NODE_DEPARTMENT_OWNER, NODE_QA,
+                NODE_QUALITY_OWNER, NODE_MANAGEMENT_REP) : COMMON_NODES;
+    }
+
+    private void validateReviewerAssignments(MesProEdhrDeviationDO deviation,
+                                               MesProEdhrDeviationHandlingDO handling) {
+        var assignments = reviewerAssignments(handling);
+        var required = requiredNodes(deviation);
+        if (!required.containsAll(assignments.keySet())) {
+            throw exception(PRO_EDHR_DEVIATION_HANDLING_NODE_INVALID, assignments.keySet());
+        }
+        if (isComplete(handling) && !assignments.keySet().containsAll(required)) {
+            throw exception(PRO_EDHR_DEVIATION_HANDLING_REQUIRED, deviation.getId());
+        }
+        assignments.forEach(reviewTaskService::validateAssignee);
+    }
+
+    private void dispatchReviewTasks(MesProEdhrDeviationDO deviation, MesProEdhrDeviationHandlingDO handling) {
+        if (!readyForReview(handling)) return;
+        var assignments = reviewerAssignments(handling);
+        for (String node : requiredNodes(deviation)) {
+            reviewTaskService.assign(deviation, handling, node, assignments.get(node));
+        }
     }
 
     private String canonicalContent(MesProEdhrDeviationHandlingDO handling) {
@@ -283,6 +362,7 @@ public class MesProEdhrDeviationHandlingServiceImpl implements MesProEdhrDeviati
         content.put("handlingConclusion", handling.getHandlingConclusion());
         content.put("verificationResult", handling.getVerificationResult());
         content.put("verificationContent", handling.getVerificationContent());
+        content.put("reviewerAssignments", reviewerAssignments(handling));
         return JSON.toJSONString(content);
     }
 
@@ -296,11 +376,17 @@ public class MesProEdhrDeviationHandlingServiceImpl implements MesProEdhrDeviati
                 && hasText(handling.getVerificationContent());
     }
 
+    private boolean readyForReview(MesProEdhrDeviationHandlingDO handling) {
+        return isComplete(handling)
+                && (handling.getCorrectiveOwnerId() == null || handling.getCompletedAt() != null);
+    }
+
     private Map<String, Long> effectiveSignatures(MesProEdhrDeviationDO deviation,
                                                   MesProEdhrDeviationHandlingDO handling,
                                                   List<String> nodes) {
         Map<String, Long> result = new LinkedHashMap<>();
         for (String node : nodes) {
+            Long designatedActor = reviewerAssignments(handling).get(node);
             String actionType = actionByNode(node);
             String intent = "偏差 " + deviation.getDeviationCode() + " 处理节点 " + node;
             String subjectId = MesBatchRecordSignatureSubjectAdapter.encodeSubjectId(
@@ -316,9 +402,11 @@ public class MesProEdhrDeviationHandlingServiceImpl implements MesProEdhrDeviati
                     .eq("subject_id", subjectId)
                     .eq("subject_version", MesBatchRecordSignatureSubjectAdapter.subjectVersion(subjectId))
                     .eq("verification_status", "VALID")
+                    .eq(designatedActor != null, "actor_id", designatedActor)
                     .orderByDesc("id")
                     .last("LIMIT 1"));
             if (signature == null || signature.getId() == null
+                    || (designatedActor != null && !Objects.equals(designatedActor, signature.getActorId()))
                     || !Objects.equals(signature.getSubjectVersion(),
                     MesBatchRecordSignatureSubjectAdapter.subjectVersion(subjectId))) {
                 continue;
@@ -362,7 +450,9 @@ public class MesProEdhrDeviationHandlingServiceImpl implements MesProEdhrDeviati
                 .setCapaAttachmentsJson(trimToNull(reqVO.getCapaAttachmentsJson()))
                 .setHandlingConclusion(trimToNull(reqVO.getHandlingConclusion()))
                 .setVerificationResult(trimToNull(reqVO.getVerificationResult()))
-                .setVerificationContent(trimToNull(reqVO.getVerificationContent()));
+                .setVerificationContent(trimToNull(reqVO.getVerificationContent()))
+                .setReviewerAssignmentsJson(JSON.toJSONString(new TreeMap<>(
+                        reqVO.getReviewerAssignments() == null ? Map.of() : reqVO.getReviewerAssignments())));
     }
 
     private MesProEdhrDeviationHandlingRespVO toResp(MesProEdhrDeviationHandlingDO handling) {
@@ -388,7 +478,17 @@ public class MesProEdhrDeviationHandlingServiceImpl implements MesProEdhrDeviati
                 .setVerificationResult(handling.getVerificationResult())
                 .setVerificationContent(handling.getVerificationContent())
                 .setContentVersion(handling.getContentVersion())
-                .setContentHash(handling.getContentHash());
+                .setContentHash(handling.getContentHash())
+                .setReviewReady(readyForReview(handling))
+                .setReviewerAssignments(reviewerAssignments(handling));
+    }
+
+    private Map<String, Long> reviewerAssignments(MesProEdhrDeviationHandlingDO handling) {
+        if (!hasText(handling.getReviewerAssignmentsJson())) {
+            return Map.of();
+        }
+        return JSON.parseObject(handling.getReviewerAssignmentsJson(),
+                new com.alibaba.fastjson.TypeReference<TreeMap<String, Long>>() { });
     }
 
     private MesProEdhrDeviationHandlingRespVO toResp(MesProEdhrDeviationDO deviation,

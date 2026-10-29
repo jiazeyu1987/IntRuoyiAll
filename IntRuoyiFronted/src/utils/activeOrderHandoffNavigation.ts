@@ -45,8 +45,10 @@ export const resolveActiveOrderHandoffTarget = (params: Record<string, unknown>)
   if (url.pathname === '/user/profile' && url.searchParams.get('tab') !== 'notifyMessage') throw new Error('作废结果必须打开本人通知记录')
   return { type: 'activeOrderHandoff', label: '处理当轮交接', actionUrl: params.actionUrl, path: url.pathname, query: Object.fromEntries(url.searchParams.entries()) }
 }
-export const navigateToActiveOrderHandoff = async (router: Router, target: ActiveOrderHandoffTarget) => {
+export const navigateToActiveOrderHandoff = async (router: Router, target: ActiveOrderHandoffTarget, isCurrent: () => boolean = () => true) => {
+  if (!isCurrent()) throw new Error('工作台导航上下文已变化。')
   const context = await handoffNavigationContext(target.query.handoffTaskId)
+  if (!isCurrent()) throw new Error('工作台导航上下文已变化。')
   if (!context || context.task.actionUrl !== target.actionUrl || String(context.task.id) !== target.query.handoffTaskId
     || String(context.task.activeOrderId) !== target.query.activeOrderId || String(context.task.roundId) !== target.query.roundId
     || context.task.taskType !== target.query.handoffType) throw new Error('交接通知与正式任务不一致，请刷新')

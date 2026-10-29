@@ -5,6 +5,11 @@ import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.framework.test.core.ut.BaseMockitoUnitTest;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.position.DccApprovalPositionDO;
 import cn.iocoder.yudao.module.dcc.dal.mysql.position.DccApprovalPositionMapper;
+import cn.iocoder.yudao.module.dcc.dal.mysql.position.DccPositionAssignmentMapper;
+import cn.iocoder.yudao.module.dcc.dal.dataobject.position.DccPositionAssignmentDO;
+import cn.iocoder.yudao.module.system.service.user.AdminUserDirectSupervisorService;
+import cn.iocoder.yudao.module.system.api.user.dto.AdminUserDirectSupervisorRespDTO;
+import org.springframework.test.util.ReflectionTestUtils;
 import cn.iocoder.yudao.module.system.dal.dataobject.dept.DeptDO;
 import cn.iocoder.yudao.module.system.dal.dataobject.user.AdminUserDO;
 import cn.iocoder.yudao.module.system.service.dept.DeptService;
@@ -20,6 +25,7 @@ import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.APPROVAL_POSI
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
@@ -31,39 +37,43 @@ class DccApprovalPositionRuntimeResolverTest extends BaseMockitoUnitTest {
     private AdminUserService adminUserService;
     @Mock
     private DeptService deptService;
+    @Mock private DccPositionAssignmentMapper assignmentMapper;
+    @Mock private AdminUserDirectSupervisorService directSupervisorService;
 
     private DccApprovalPositionRuntimeResolver resolver;
 
     @BeforeEach
     void setUpResolver() {
         resolver = new DccApprovalPositionRuntimeResolver(positionMapper, adminUserService, deptService);
+        ReflectionTestUtils.setField(resolver, "assignmentMapper", assignmentMapper);
+        ReflectionTestUtils.setField(resolver, "directSupervisorService", directSupervisorService);
     }
 
     @Test
-    void resolveUserIds_directManagerPosition_usesLocalSubmitterDepartmentLeader() {
+    void resolveUserIds_directManagerPosition_usesStoredDirectSupervisor() {
         when(positionMapper.selectById(900302L)).thenReturn(position(900302L, "编制人直接主管"));
         when(adminUserService.getUser(99L)).thenReturn(localUser(99L, "uploader", 10L));
-        when(deptService.getDept(10L)).thenReturn(dept(10L, 101L));
+        when(directSupervisorService.getDirectSupervisorRelation(99L)).thenReturn(new AdminUserDirectSupervisorRespDTO(1L, 99L, 101L, 1L));
         when(adminUserService.getUser(101L)).thenReturn(localUser(101L, "leader", 10L));
 
         List<Long> result = resolver.resolveUserIds(900302L, 99L, false);
 
         assertEquals(List.of(101L), result);
+        verifyNoInteractions(deptService);
     }
 
     @Test
-    void resolveUserIds_directManagerPosition_withoutLocalLeader_returnsPreciseLocalBlocker() {
+    void resolveUserIds_directManagerPosition_withoutSupervisorDoesNotUseDepartmentLeader() {
         when(positionMapper.selectById(900302L)).thenReturn(position(900302L, "编制人直接主管"));
         when(adminUserService.getUser(99L)).thenReturn(localUser(99L, "uploader", 10L));
-        when(deptService.getDept(10L)).thenReturn(dept(10L, null));
+        when(directSupervisorService.getDirectSupervisorRelation(99L)).thenReturn(new AdminUserDirectSupervisorRespDTO(1L, 99L, null, 1L));
 
         ServiceException exception = assertThrows(ServiceException.class,
                 () -> resolver.resolveUserIds(900302L, 99L, false));
 
         assertEquals(APPROVAL_POSITION_UPLOADER_MAPPING_INVALID.getCode(), exception.getCode());
-        assertEquals(
-                "Approval position runtime mapping failed: 编制人直接主管 requires a local department leader for the submitter",
-                exception.getMessage());
+        assertTrue(exception.getMessage().contains("直属主管未配置"));
+        verifyNoInteractions(deptService);
         assertFalse(exception.getMessage().contains("IntAuth"));
     }
 
@@ -94,6 +104,45 @@ class DccApprovalPositionRuntimeResolverTest extends BaseMockitoUnitTest {
         when(positionMapper.selectById(900334L)).thenReturn(position(900334L, "部门授权代表"));
 
         assertFalse(resolver.isUploaderDerivedPosition(900334L));
+    }
+
+    @Test
+    void explicitRelationshipsResolveAgainstEachApplicantAndDeduplicate() {
+        when(positionMapper.selectById(1L)).thenReturn(position(1L, "动态审核"));
+        when(assignmentMapper.selectActiveListByPositionId(1L)).thenReturn(List.of(
+                DccPositionAssignmentDO.builder().assignmentType("DIRECT_SUPERVISOR").active(true).build(),
+                DccPositionAssignmentDO.builder().assignmentType("DEPT_LEADER").active(true).build(),
+                DccPositionAssignmentDO.builder().assignmentType("USER").userId(101L).active(true).build()));
+        when(adminUserService.getUser(99L)).thenReturn(localUser(99L, "applicant", 10L));
+        when(adminUserService.getUser(101L)).thenReturn(localUser(101L, "supervisor", 20L));
+        when(adminUserService.getUser(102L)).thenReturn(localUser(102L, "head", 10L));
+        when(deptService.getDept(10L)).thenReturn(dept(10L, 102L));
+        when(directSupervisorService.getDirectSupervisorRelation(99L)).thenReturn(new AdminUserDirectSupervisorRespDTO(1L, 99L, 101L, 1L));
+        assertTrue(resolver.isUploaderDerivedPosition(1L));
+        assertEquals(List.of(101L, 102L), resolver.resolveUserIds(1L, 99L, false));
+        when(adminUserService.getUser(98L)).thenReturn(localUser(98L, "another-applicant", 10L));
+        when(directSupervisorService.getDirectSupervisorRelation(98L)).thenReturn(new AdminUserDirectSupervisorRespDTO(1L, 98L, 102L, 3L));
+        assertEquals(List.of(102L, 101L), resolver.resolveUserIds(1L, 98L, false));
+    }
+
+    @Test
+    void explicitRelationshipMissingContextBlocksExecutionButAllowsDeferredPreview() {
+        when(positionMapper.selectById(1L)).thenReturn(position(1L, "动态审核"));
+        when(assignmentMapper.selectActiveListByPositionId(1L)).thenReturn(List.of(
+                DccPositionAssignmentDO.builder().assignmentType("DIRECT_SUPERVISOR").active(true).build()));
+        assertEquals(List.of(), resolver.resolveUserIds(1L, null, true));
+        assertThrows(ServiceException.class, () -> resolver.resolveUserIds(1L, null, false));
+    }
+
+    @Test
+    void missingRelationshipCannotBeHiddenByAnotherFixedAssignee() {
+        when(positionMapper.selectById(1L)).thenReturn(position(1L, "动态审核"));
+        when(assignmentMapper.selectActiveListByPositionId(1L)).thenReturn(List.of(
+                DccPositionAssignmentDO.builder().assignmentType("USER").userId(102L).active(true).build(),
+                DccPositionAssignmentDO.builder().assignmentType("DIRECT_SUPERVISOR").active(true).build()));
+        when(adminUserService.getUser(99L)).thenReturn(localUser(99L, "applicant", 10L));
+        when(directSupervisorService.getDirectSupervisorRelation(99L)).thenReturn(new AdminUserDirectSupervisorRespDTO(1L, 99L, null, 1L));
+        assertThrows(ServiceException.class, () -> resolver.resolveUserIds(1L, 99L, false));
     }
 
     private static DccApprovalPositionDO position(Long id, String name) {

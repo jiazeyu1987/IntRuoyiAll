@@ -4,7 +4,6 @@ import cn.iocoder.yudao.module.mes.controller.admin.pro.productionrelease.vo.Mes
 import cn.iocoder.yudao.module.mes.controller.admin.pro.productionrelease.vo.MesPqcProductionReleaseDecisionRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.productionrelease.vo.MesPqcProductionReleasePageItemRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.productionrelease.vo.MesPqcProductionReleaseRejectReqVO;
-import cn.iocoder.yudao.module.mes.controller.admin.pro.productionrelease.vo.MesProductionReleaseReportUploadTaskRespVO;
 import cn.iocoder.yudao.module.mes.service.pro.productionrelease.pqc.MesPqcProductionReleasePageItem;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -30,7 +29,7 @@ class MesProductionReleaseControllerJsonTest {
                 .setApplicationId(9007199254740993L)
                 .setPqcReleaseWorkTaskId(9007199254740994L)
                 .setDecision("APPROVE")
-                .setStatus("REPORT_UPLOAD_PENDING")
+                .setStatus("MANAGER_RELEASE_PENDING")
                 .setBatchExecutionId(9007199254740995L)
                 .setBatchRecordEvidenceIds(List.of(9007199254740996L))
                 .setProcessInspectionEvidenceIds(List.of(9007199254740997L))
@@ -38,12 +37,6 @@ class MesProductionReleaseControllerJsonTest {
                 .setLossReportEvidenceIds(List.of(9007199254740999L))
                 .setLossReportFormCenterInstanceIds(List.of(9007199254741010L))
                 .setLossReportFieldAuditIds(List.of(9007199254741011L))
-                .setReportUploadTasks(List.of(new MesProductionReleaseReportUploadTaskRespVO()
-                        .setNodeType("INCOMING_INSPECTION_REPORT")
-                        .setBatchTaskId(9007199254741000L)
-                        .setWorkTaskId(9007199254741001L)
-                        .setCandidateUserIds(List.of(9007199254741002L))
-                        .setStatus("TODO")))
                 .setVersion(2)
                 .setDecidedBy(9007199254741003L);
 
@@ -59,9 +52,6 @@ class MesProductionReleaseControllerJsonTest {
         assertEquals("9007199254741010", json.get("lossReportFormCenterInstanceIds").get(0).asText());
         assertTrue(json.get("lossReportFormCenterInstanceIds").get(0).isTextual());
         assertTrue(json.get("lossReportFieldAuditIds").get(0).isTextual());
-        assertTrue(json.get("reportUploadTasks").get(0).get("batchTaskId").isTextual());
-        assertTrue(json.get("reportUploadTasks").get(0).get("workTaskId").isTextual());
-        assertTrue(json.get("reportUploadTasks").get(0).get("candidateUserIds").get(0).isTextual());
     }
 
     @Test

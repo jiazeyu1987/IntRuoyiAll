@@ -13,7 +13,9 @@ export const ACCESS_SUBJECT_TYPE_OPTIONS = [
 
 export const POSITION_ASSIGNMENT_TYPE_OPTIONS = [
   { label: '指定用户', value: 'USER' },
-  { label: '组织角色', value: 'POST' }
+  { label: '组织角色', value: 'POST' },
+  { label: '申请人的直接主管', value: 'DIRECT_SUPERVISOR' },
+  { label: '申请人的部门负责人', value: 'DEPT_LEADER' }
 ]
 
 export const ROUTE_CANDIDATE_SOURCE_OPTIONS = [

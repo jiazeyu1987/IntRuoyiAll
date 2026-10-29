@@ -239,7 +239,11 @@
             align="center"
             prop="issueMethod"
             :width="getDetailColumnWidthString('issueMethod', 120)"
-          />
+          >
+            <template #default="{ row }">
+              {{ String(row.issueMethod) === '1' ? '直接领料' : row.issueMethod || '' }}
+            </template>
+          </el-table-column>
           <el-table-column
             v-if="isDetailColumnVisible('productionOrderLink')"
             column-key="productionOrderLink"

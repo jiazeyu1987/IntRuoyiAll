@@ -25,19 +25,12 @@
         </el-col>
         <el-col :span="8">
           <el-form-item label="负责人" prop="chargeUserId">
-            <el-select
+            <UserSelectV2
               v-model="formData.chargeUserId"
-              placeholder="请选择负责人"
-              clearable
+              :user-options="userList"
+              placeholder="请选择人员"
               class="!w-1/1"
-            >
-              <el-option
-                v-for="user in userList"
-                :key="user.id"
-                :label="user.nickname"
-                :value="user.id"
-              />
-            </el-select>
+            />
           </el-form-item>
         </el-col>
       </el-row>
@@ -87,6 +80,7 @@
 </template>
 
 <script setup lang="ts">
+import UserSelectV2 from '@/views/system/user/components/UserSelectV2.vue'
 import { WmWarehouseApi, WmWarehouseVO } from '@/api/mes/wm/warehouse'
 import { AutoCodeRecordApi } from '@/api/mes/md/autocode/record'
 import * as UserApi from '@/api/system/user'

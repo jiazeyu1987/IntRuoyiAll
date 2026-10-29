@@ -16,8 +16,6 @@
       <el-descriptions-item label="QA签名编号"><span data-active-order-rework-qa-signature>{{ source.qaSignature.signatureId }}</span></el-descriptions-item>
       <el-descriptions-item label="QA签署时间">{{ formatDateTimeValue(source.qaSignature.signedAt) }}</el-descriptions-item>
       <el-descriptions-item label="证据核验">{{ source.qaSignatureVerification.verificationStatus }}</el-descriptions-item>
-      <el-descriptions-item label="签名内容哈希" :span="2">{{ source.qaSignatureEvidence.contentHash }}</el-descriptions-item>
-      <el-descriptions-item label="签名证据哈希" :span="2">{{ source.qaSignatureEvidence.evidenceHash }}</el-descriptions-item>
     </el-descriptions>
   </section>
 </template>

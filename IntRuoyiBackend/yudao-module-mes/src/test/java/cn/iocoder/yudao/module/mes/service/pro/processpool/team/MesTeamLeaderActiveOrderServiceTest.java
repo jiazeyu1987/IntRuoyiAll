@@ -130,6 +130,7 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -2058,121 +2059,44 @@ class MesTeamLeaderActiveOrderServiceTest {
     }
 
     @Test
-    void copyLatestSimulationActiveOrderShouldCreateIndependentWorkOrderFromSourceFrozenContext() {
-        MesProcessPoolActiveOrderDO sourceActiveOrder = existingActiveOrder(8101L, "ACTIVE", 7)
-                .setRouteVersionId(7702L)
-                .setQaRegulationId(7101L)
-                .setQaRegulationVersionId(7102L);
-        MesProWorkOrderDO sourceWorkOrder = confirmedWorkOrder(new BigDecimal("200"))
-                .setName("来源生产工单")
-                .setType(1)
-                .setOrderSourceType(1)
-                .setOrderSourceCode("ERP-9001")
-                .setClientId(3001L)
-                .setVendorId(4001L)
-                .setRequestDate(LocalDateTime.of(2026, 9, 1, 8, 0));
-        MesProWorkOrderDO copiedWorkOrder = confirmedWorkOrder(9101L,
-                "SIM-COPY-WO-9001-SIMCOPYunit", new BigDecimal("200"), 1001L)
-                .setName("来源生产工单-测试复制-SIMCOPYunit")
-                .setType(1)
-                .setOrderSourceType(1)
-                .setOrderSourceCode("ERP-9001")
-                .setClientId(3001L)
-                .setVendorId(4001L)
-                .setRequestDate(LocalDateTime.of(2026, 9, 1, 8, 0));
-        MesProcessPoolActiveOrderProcessSnapshotDO sourceSnapshot = frozenProcessSnapshot()
-                .setRouteVersionId(7702L)
-                .setRouteProcessId(710201L)
-                .setProcessId(710301L)
-                .setProcessCodeSnapshot("SRC-PROC-01")
-                .setProcessNameSnapshot("来源冻结工序");
-        MesPqcInspectionTaskDO sourcePqcTask = frozenPqcTask(8301L, "FIRST", "FIRST", 5)
-                .setRouteVersionId(7702L)
-                .setRouteProcessId(710201L)
-                .setProcessId(710301L)
-                .setDccProjectCodeId(147L)
-                .setDccProjectCode("DCC-SRC")
-                .setDccProjectName("来源DCC项目")
-                .setQaRegulationId(7101L)
-                .setRegulationVersionId(7102L)
-                .setQaRegulationVersionNo("SRC-A/1")
-                .setActualInspectionQuantity(3)
-                .setTaskStatus(MesPqcInspectionTaskDO.TASK_STATUS_CONFIRMED)
-                .setSubmittedContentHash("source-hash")
-                .setSubmittedEventId(8801L);
-        when(activeOrderMapper.selectByIdForUpdate(8101L)).thenReturn(sourceActiveOrder);
-        when(workOrderService.validateWorkOrderExists(9001L)).thenReturn(sourceWorkOrder);
-        when(workOrderService.createWorkOrder(any(MesProWorkOrderSaveReqVO.class))).thenReturn(9101L);
-        when(workOrderService.validateWorkOrderExists(9101L)).thenReturn(copiedWorkOrder);
+    void copyLatestSimulationActiveOrderUsesFormalCurrentConfigurationWithoutCopyingLegacyPqcTasks() {
+        var source = existingActiveOrder(8101L, "ACTIVE", 7)
+                .setRouteVersionId(7702L).setQaRegulationId(7101L).setQaRegulationVersionId(7102L);
+        var sourceWork = confirmedWorkOrder(new BigDecimal("200"))
+                .setName("来源生产工单").setType(1).setOrderSourceType(1).setOrderSourceCode("ERP-9001")
+                .setRequestDate(LocalDateTime.of(2026,9,1,8,0));
+        var copiedWork = confirmedWorkOrder(9101L,"SIM-COPY-WO-9001-SIMCOPYunit",new BigDecimal("200"),1001L)
+                .setName("来源生产工单-测试复制-SIMCOPYunit").setRequestDate(sourceWork.getRequestDate());
+        when(activeOrderMapper.selectByIdForUpdate(8101L)).thenReturn(source);
+        when(workOrderService.validateWorkOrderExists(9001L)).thenReturn(sourceWork);
+        when(workOrderService.createWorkOrder(any())).thenReturn(9101L);
+        when(workOrderService.validateWorkOrderExists(9101L)).thenReturn(copiedWork);
+        stubFormalRouteQaContext(1001L,448L,publishedRegulation(9902L));
         when(activeOrderMapper.insert(any(MesProcessPoolActiveOrderDO.class))).thenAnswer(invocation -> {
-            MesProcessPoolActiveOrderDO activeOrder = invocation.getArgument(0);
-            activeOrder.setId(8201L);
+            MesProcessPoolActiveOrderDO created=invocation.getArgument(0);
+            created.setId(8201L);
+            when(activeOrderMapper.selectById(8201L)).thenReturn(created);
             return 1;
         });
-        when(processSnapshotMapper.selectListByActiveOrderIdForUpdate(8101L))
-                .thenReturn(List.of(sourceSnapshot));
-        when(pqcInspectionTaskMapper.selectListByActiveOrderIdForUpdate(8101L))
-                .thenReturn(List.of(sourcePqcTask));
-        when(routeVersionMapper.selectById(7702L)).thenReturn(MesProRouteVersionDO.builder()
-                .id(7702L).routeId(922119L).versionNo("SRC-V1").build());
         when(processSnapshotMapper.insertBatch(any())).thenReturn(Boolean.TRUE);
-
-        MesTeamLeaderActiveOrderSimulationCopyResult result = service.copyLatestSimulationActiveOrder(
-                3001L, 8101L, "SIMCOPY-unit");
-
-        assertEquals(8201L, result.getActiveOrderId());
-        assertEquals(9101L, result.getWorkOrderId());
-        assertEquals("SIM-COPY-WO-9001-SIMCOPYunit", result.getWorkOrderCode());
-        assertEquals(7702L, result.getRouteVersionId());
-        assertEquals(7102L, result.getQaRegulationVersionId());
-        verify(workOrderService).createWorkOrder(argThat((MesProWorkOrderSaveReqVO request) ->
-                Objects.equals("SIM-COPY-WO-9001-SIMCOPYunit", request.getCode())
-                        && Objects.equals("来源生产工单-测试复制-SIMCOPYunit", request.getName())
-                        && Objects.equals(1001L, request.getProductId())
-                        && new BigDecimal("200").compareTo(request.getQuantity()) == 0
-                        && Objects.equals(MesProWorkOrderTypeEnum.SELF.getType(), request.getType())
-                        && request.getOrderSourceCode().startsWith("SIM-COPY:WO-9001:")
-                        && BigDecimal.ZERO.compareTo(request.getQuantityProduced()) == 0
-                        && BigDecimal.ZERO.compareTo(request.getQuantityScheduled()) == 0
-                        && request.getRemark().contains("sourceActiveOrderId=8101")
-                        && request.getRemark().contains("simulationRunId=SIMCOPY-unit")));
+        var result=service.copyLatestSimulationActiveOrder(3001L,8101L,"SIMCOPY-unit");
+        assertEquals(8201L,result.getActiveOrderId());
+        assertEquals(9101L,result.getWorkOrderId());
+        assertEquals(448L,result.getRouteVersionId());
+        assertEquals(9902L,result.getQaRegulationVersionId());
         verify(workOrderService).confirmWorkOrder(9101L);
-        verify(processSnapshotMapper).selectListByActiveOrderIdForUpdate(8101L);
-        verify(pqcInspectionTaskMapper).selectListByActiveOrderIdForUpdate(8101L);
-        verify(activeOrderMapper).insert(argThat((MesProcessPoolActiveOrderDO activeOrder) ->
-                Objects.equals(9101L, activeOrder.getWorkOrderId())
-                        && Objects.equals(7702L, activeOrder.getRouteVersionId())
-                        && Objects.equals(7101L, activeOrder.getQaRegulationId())
-                        && Objects.equals(7102L, activeOrder.getQaRegulationVersionId())
-                        && Boolean.TRUE.equals(activeOrder.getSimulated())
-                        && Objects.equals("LATEST_VERSION_COPY", activeOrder.getSimulationStage())
-                        && Objects.equals("SIMCOPY-unit", activeOrder.getSimulationRunId())));
-        verify(processSnapshotMapper).insertBatch(argThat(snapshots -> snapshots != null
-                && snapshots.size() == 1
-                && snapshots.stream().allMatch(snapshot -> snapshot.getId() == null
-                && Objects.equals(8201L, snapshot.getActiveOrderId())
-                && Objects.equals(9101L, snapshot.getWorkOrderId())
-                && Objects.equals(7702L, snapshot.getRouteVersionId())
-                && Objects.equals("SRC-PROC-01", snapshot.getProcessCodeSnapshot())
-                && Boolean.TRUE.equals(snapshot.getSimulated())
-                && Objects.equals("SIMCOPY-unit", snapshot.getSimulationRunId()))));
-        verify(pqcInspectionTaskMapper).insert(argThat((MesPqcInspectionTaskDO task) ->
-                task.getId() == null
-                        && Objects.equals(8201L, task.getActiveOrderId())
-                        && Objects.equals(9101L, task.getWorkOrderId())
-                        && Objects.equals(7702L, task.getRouteVersionId())
-                        && Objects.equals(710201L, task.getRouteProcessId())
-                        && Objects.equals(710301L, task.getProcessId())
-                        && Objects.equals(7101L, task.getQaRegulationId())
-                        && Objects.equals(7102L, task.getRegulationVersionId())
-                        && Objects.equals("SRC-A/1", task.getQaRegulationVersionNo())
-                        && Objects.equals(0, task.getActualInspectionQuantity())
-                        && Objects.equals(MesPqcInspectionTaskDO.TASK_STATUS_PENDING, task.getTaskStatus())
-                        && task.getSubmittedContentHash() == null
-                        && task.getSubmittedEventId() == null
-                        && Boolean.TRUE.equals(task.getSimulated())
-                        && Objects.equals("SIMCOPY-unit", task.getSimulationRunId())));
-        verify(inspectionRegulationMapper, never()).selectListByDccProjectCodeIds(any());
+        verify(handoffService,never()).productionReady(anyLong(),anyLong());
+        verify(pqcInspectionTaskMapper,never()).selectListByActiveOrderIdForUpdate(8101L);
+        verify(processSnapshotMapper,never()).selectListByActiveOrderIdForUpdate(8101L);
+        var tasks=org.mockito.ArgumentCaptor.forClass(MesPqcInspectionTaskDO.class);
+        verify(pqcInspectionTaskMapper,atLeastOnce()).insert(tasks.capture());
+        for(var task:tasks.getAllValues()) {
+            assertEquals(8201L,task.getActiveOrderId());
+            assertNull(task.getRouteProcessId());assertNull(task.getProcessId());
+            assertNotNull(task.getInspectionItemPlanJson());
+            assertEquals(0,task.getActualInspectionQuantity());
+            assertEquals("SIMCOPY-unit",task.getSimulationRunId());
+        }
     }
 
     @Test
@@ -2217,6 +2141,7 @@ class MesTeamLeaderActiveOrderServiceTest {
 
         assertEquals(8101L, result.getActiveOrderId());
         assertEquals(MesTeamLeaderActiveOrderAddResult.ACTION_ADD, result.getAction());
+        verify(handoffService).productionReady(8101L, activeOrderReq().getLeaderUserId());
         verify(routeProductMapper).selectListByItemIds(List.of(1002L));
         verify(inspectionRegulationMapper).selectListByDccProjectCodeIds(List.of(147L));
         ArgumentCaptor<MesProcessPoolActiveOrderDO> captor =

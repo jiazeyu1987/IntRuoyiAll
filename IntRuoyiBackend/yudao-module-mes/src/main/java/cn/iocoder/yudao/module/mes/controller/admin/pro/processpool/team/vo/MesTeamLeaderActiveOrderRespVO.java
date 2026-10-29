@@ -96,6 +96,8 @@ public class MesTeamLeaderActiveOrderRespVO {
 
     @Schema(description = "生产放行申请状态", example = "PQC_RELEASE_PENDING")
     private String releaseApplicationStatus;
+    @Schema(description = "当前生产组长作为原申请人可接收该正式驳回的补正任务")
+    private Boolean releaseCorrectionReceivable;
 
     @Schema(description = "生产放行正式来源快照哈希")
     private String releaseSourceSnapshotHash;

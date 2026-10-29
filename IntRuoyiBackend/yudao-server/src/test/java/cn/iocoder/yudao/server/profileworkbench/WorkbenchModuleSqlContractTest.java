@@ -46,9 +46,74 @@ class WorkbenchModuleSqlContractTest {
  }
  @Test void currentQualificationUsesLockedMesStatusAndWorkOrderSingleTableAndTrainingNowait(){
   var args=new HashMap<String,Object>();args.put("q",query().partition(null));args.put("id",7L);args.put("lockedBatchStatus",30L);
-  String mes=sql(MES+"identityEdhr",args);assertTrue(mes.contains("NOT IN (40,50,60)"));assertTrue(mes.matches(".*task_type\\s*=\\s*'ARCHIVE'.*"));assertFalse(mes.contains("NOT EXISTS"));assertTrue(mes.contains("FOR UPDATE"));assertTrue(mes.contains("LOCATE(CONCAT(',',"));
+  String mes=sql(MES+"identityEdhr",args);assertTrue(mes.contains("NOT IN (40,50,60)"));assertTrue(mes.matches(".*task_type\\s*=\\s*'ARCHIVE'.*"));assertTrue(mes.contains("dossier_order"));assertTrue(mes.contains("dossier_void.change_type"));assertTrue(mes.contains("FOR UPDATE"));assertTrue(mes.contains("LOCATE(CONCAT(',',"));
   String wo=sql(MES+"identityWorkOrder",args);assertFalse(wo.contains("md_item"));assertFalse(wo.contains("user_id"));assertTrue(wo.contains("temporary_frozen=0"));
   assertTrue(sql(DCC+"identityTraining",args).endsWith("FOR UPDATE NOWAIT"));
   String invalid=sql(SHOW+"countInvalidNotifications",args);assertTrue(invalid.contains("n.id IS NULL"));assertTrue(invalid.contains("a.status = 'OPEN'"));
+ }
+
+ @Test void qaHandoffUsesDistinctIdentityOnlyForCurrentActionableCandidateAndFrozenTasksStayVisible(){
+  var args=new HashMap<String,Object>();args.put("q",query().partition(null));args.put("fetchLimit",101);args.put("after",null);
+  for(String statement:List.of("countEdhr","chunkEdhr")) {
+   String value=sql(MES+statement,args);
+   assertTrue(value.contains("UNION ALL"));assertTrue(value.contains("CONCAT('EDHR_WORK_TASK:handoff:',h.id)"));
+   assertTrue(value.contains("h.task_type IN ('QA_DECISION_HANDOFF','QA_REVIEW')"));assertTrue(value.contains("h.status='TODO' AND h.notification_only=0"));
+   assertTrue(value.contains("FIND_IN_SET(?,h.candidate_user_snapshot)>0"));assertTrue(value.contains("ao.active_status='ACTIVE'"));
+   assertTrue(value.contains("frozen.status=15"));assertTrue(value.contains("('FILL','REVIEW','APPROVE','REWORK','ARCHIVE','CLOSE')"));
+   assertTrue(value.contains("THEN '批次冻结，暂不可处理'"));
+  }
+  args.put("id",7L);String identity=sql(MES+"identityHandoff",args);
+  assertTrue(identity.endsWith("FOR UPDATE"));assertTrue(identity.contains("AND h.id=?"));
+ }
+ @Test void edhrWorkbenchIncludesOnlyRegisteredExecutionAndApprovalHandoffs(){
+  var args=new HashMap<String,Object>();args.put("q",query().partition(null));args.put("fetchLimit",101);args.put("after",null);
+  String count=sql(MES+"countEdhr",args);
+  String chunk=sql(MES+"chunkEdhr",args);
+  for(String statement:List.of(count,chunk)){
+   assertTrue(statement.contains("UNION ALL"));
+   assertTrue(statement.contains("'QA_DECISION_HANDOFF','QA_REVIEW'"));
+   assertTrue(statement.contains("mes_pro_edhr_work_task.task_type"));
+   String ordinaryWhere=statement.substring(statement.indexOf("WHERE mes_pro_edhr_work_task.tenant_id"),
+    statement.indexOf("UNION ALL"));
+   assertFalse(java.util.regex.Pattern.compile("(?i)AND\\s+mes_pro_edhr_work_task\\.task_type\\s+IN\\s*\\(").matcher(ordinaryWhere).find(),
+    "new assigned execution and approval tasks must not be silently omitted by a static task-type whitelist");
+   assertTrue(statement.contains("'RECORD_CHANGE_APPROVE'"), "record-change approval must remain visible for batch status 30/50");
+  }
+ }
+
+ @Test void tenantParserPreservesAllFilteredCountAndChunkParametersAndVisibility() {
+  var tenant = new com.baomidou.mybatisplus.extension.plugins.inner.TenantLineInnerInterceptor(
+   new com.baomidou.mybatisplus.extension.plugins.handler.TenantLineHandler() {
+    @Override public net.sf.jsqlparser.expression.Expression getTenantId() {
+     return new net.sf.jsqlparser.expression.LongValue(2);
+    }
+   });
+  var counts=List.of(DCC+"countDistribution",DCC+"countTraining",MES+"countEdhr",MES+"countWorkOrder",SHOW+"countAssignment");
+  var chunks=List.of(DCC+"chunkDistribution",DCC+"chunkTraining",MES+"chunkEdhr",MES+"chunkWorkOrder",SHOW+"chunkAssignment");
+  for(String visibility:List.of("visible","hidden","all")) for(int variant=0;variant<9;variant++) {
+   var q=new QueryContext();q.setTenantId(2L);q.setUserId(3L);q.setVisibility("all".equals(visibility)?null:visibility);q.freezeVisibility(1);
+   if(variant==0 || variant>=3 && variant<=5)q.setTaskType("批记录");
+   if(variant==1 || variant==2 || variant==3 || variant==4 || variant>=7) {
+    q.setFilterField(variant>=7?"statusLabel":variant%2==0?"source":"detail");
+    q.setFilterOperator(variant%2==0?"contains":"eq");q.setFilterValue("é");
+   }
+   if(variant>=3 && variant<=5){q.setSortKey(variant==3?"detail":"statusLabel");q.setSortOrder(variant%2==0?"asc":"desc");}
+   var args=new HashMap<String,Object>();args.put("q",q);args.put("fetchLimit",101);
+   args.put("after",variant==2 || variant==4 || variant==5?new ChunkCursor("FIXTURE","批记录","来源","é","待处理",null,null,"row-😀"):null);
+   for(int source=0;source<counts.size();source++) for(String statement:List.of(counts.get(source),chunks.get(source))) {
+    var bound=configuration.getMappedStatement(statement).getBoundSql(args);
+    // Do not normalize whitespace before parsing: that previously hid the runtime truncation.
+    String parsed=tenant.parserSingle(bound.getSql(),null);
+    String context=statement+" / "+visibility+" / "+variant;
+    assertEquals(bound.getParameterMappings().size(),parsed.chars().filter(c->c=='?').count(),context);
+    assertEquals(!"all".equals(visibility),parsed.contains("system_profile_workbench_task_visibility"),context);
+    if(!"all".equals(visibility)) {
+     assertTrue(parsed.contains("v.user_id = ?"),context);
+     assertTrue(parsed.contains("CONVERT( v.task_key USING utf8mb4 )"),context);
+     assertEquals("visible".equals(visibility),parsed.contains("NOT EXISTS (SELECT 1 FROM system_profile_workbench_task_visibility"),context);
+    }
+    if(statement.contains("chunk"))assertTrue(parsed.endsWith("LIMIT ?"),context);
+   }
+  }
  }
 }

@@ -50,6 +50,17 @@ import static cn.iocoder.yudao.framework.common.pojo.CommonResult.success;
 public class MesQaInspectionRegulationController {
 
     @Resource
+    private cn.iocoder.yudao.module.mes.service.qa.regulation.MesSimplePqcPublishService simplePqcPublishService;
+
+    @PostMapping("/simple-parser/publish")
+    @Operation(summary = "简易PQC解析原子发布规程及检验设备配置")
+    @PreAuthorize("@ss.hasPermission('mes:qc-template:update')")
+    public CommonResult<MesQaInspectionRegulationPublishedVersionRespVO> publishSimpleParser(
+            @Valid @RequestBody MesQaInspectionRegulationSaveReqVO request) {
+        return success(simplePqcPublishService.publish(request));
+    }
+
+    @Resource
     private MesQaInspectionRegulationService regulationService;
 
     @Resource

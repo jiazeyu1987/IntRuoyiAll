@@ -54,7 +54,13 @@ const extractArrowBlock = (source, anchor) => {
 const pqcContentStart = panelSource.indexOf('class="frontline-work-panel frontline-pqc-content-panel"')
 const pqcFillStart = panelSource.indexOf('class="frontline-work-panel frontline-pqc-fill-panel"')
 assert.ok(pqcContentStart >= 0 && pqcFillStart > pqcContentStart, 'PQC left content panel must exist.')
-const pqcContentTemplate = panelSource.slice(pqcContentStart, pqcFillStart)
+const pqcRuleStart = panelSource.indexOf('class="frontline-work-panel frontline-pqc-rule-panel"')
+assert.ok(pqcRuleStart > pqcFillStart, 'PQC right quantity panel must precede the inspection rule panel.')
+const pqcFillTemplate = panelSource.slice(pqcFillStart, pqcRuleStart)
+assert.doesNotMatch(panelSource.slice(pqcContentStart, pqcFillStart), /data-frontline-error-slot/,
+  'PQC must not retain an error slot in the left inspection panel.')
+assert.ok(pqcFillTemplate.indexOf('data-frontline-error-slot') > pqcFillTemplate.indexOf('data-pqc-scrap-quantity'),
+  'PQC errors must appear below the quantity inputs in the right panel.')
 
 const productionContentStart = panelSource.indexOf(
   'class="frontline-work-panel panel quantity-panel frontline-production-quantity-panel"'
@@ -69,13 +75,13 @@ assert.ok(
 const productionContentTemplate = panelSource.slice(productionContentStart, productionDeviceStart)
 
 for (const [name, template] of [
-  ['PQC', pqcContentTemplate],
+  ['PQC', pqcFillTemplate],
   ['production', productionContentTemplate]
 ]) {
   assert.match(
     template,
     /class="frontline-inline-error-slot"[\s\S]*data-frontline-error-slot[\s\S]*role="alert"[\s\S]*aria-live="assertive"/,
-    `${name} left panel must reserve the fullscreen-visible inline error slot.`
+    `${name} panel must reserve the fullscreen-visible inline error slot.`
   )
   assert.match(
     template,

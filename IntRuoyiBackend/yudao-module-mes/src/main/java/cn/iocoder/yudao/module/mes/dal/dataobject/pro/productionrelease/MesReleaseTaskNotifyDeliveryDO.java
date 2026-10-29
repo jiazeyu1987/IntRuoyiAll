@@ -21,6 +21,7 @@ public class MesReleaseTaskNotifyDeliveryDO extends BaseDO {
     private Long tenantId;
     private Long workTaskId;
     private String eventType;
+    private Long eventRevision;
     private Long userId;
     private String businessKey;
     private String templateCode;

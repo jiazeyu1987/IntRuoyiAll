@@ -77,7 +77,6 @@ class MesReleaseParentAffectedStateTest extends BaseDbUnitTest {
     @MockitoBean private MesProcessPoolActiveOrderMapper activeOrders;
     @MockitoBean private MesPqcReleaseDossierPort dossier;
     @MockitoBean private MesProductionReleaseBatchExecutionPort batchPort;
-    @MockitoBean private MesProductionReleaseReportStageInitializer reportStage;
     @MockitoBean private MesProductionReleaseManagerStageInitializer managerStage;
     @MockitoBean private MesReleaseFlowAuditRecorder specializedAudit;
     @MockitoBean private MesProBatchRecordExecutionSignatureService signatures;

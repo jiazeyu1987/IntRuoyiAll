@@ -1,5 +1,5 @@
 <template>
-  <el-table
+  <el-table border stripe
     :data="rows"
     :row-key="(row) => row.key"
     v-loading="loading"

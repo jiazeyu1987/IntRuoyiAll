@@ -11,6 +11,7 @@ import java.time.LocalDateTime;
 @Schema(description = "正式放行工作任务站内信投递回执")
 public class MesReleaseTaskNotifyDeliveryRespVO {
     private String id;
+    private Boolean retryAllowed;
     private String workTaskId;
     private String userId;
     @Schema(allowableValues = {"PENDING", "FAILED", "SENT"})

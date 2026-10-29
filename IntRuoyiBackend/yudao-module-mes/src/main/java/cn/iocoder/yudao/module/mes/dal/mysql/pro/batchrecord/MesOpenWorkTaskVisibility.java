@@ -23,7 +23,12 @@ public final class MesOpenWorkTaskVisibility {
             excluded = "(b.status IN (" + MesProEdhrWorkTaskMapper.ARCHIVE_TODO_EXCLUDED_BATCH_STATUS_SQL + ")"
                     + " OR (b.status = 30 AND (" + TASK + ".task_type IS NULL OR " + TASK + ".task_type != 'ARCHIVE')))";
         }
-        return "(" + TASK + ".batch_execution_id IS NULL OR NOT EXISTS ("
+        return "(" + TASK + ".batch_execution_id IS NULL OR (" + TASK + ".task_type IN ('PQC_RELEASE_CORRECTION','RECORD_CHANGE_APPROVE','RECORD_CHANGE_CORRECTION')"
+                + " AND EXISTS (SELECT 1 FROM mes_pro_edhr_batch_execution change_batch"
+                + " WHERE change_batch.id = " + TASK + ".batch_execution_id"
+                + " AND change_batch.tenant_id = " + TASK + ".tenant_id"
+                + " AND change_batch.deleted = 0 AND ((" + TASK + ".task_type IN ('RECORD_CHANGE_APPROVE','RECORD_CHANGE_CORRECTION') AND change_batch.status IN (30,50))"
+                + " OR (" + TASK + ".task_type = 'PQC_RELEASE_CORRECTION' AND change_batch.status = 30)))) OR NOT EXISTS ("
                 + "SELECT 1 FROM mes_pro_edhr_batch_execution b WHERE b.id = " + TASK + ".batch_execution_id"
                 + " AND b.tenant_id = " + TASK + ".tenant_id AND b.deleted = 0 AND " + excluded + "))";
     }

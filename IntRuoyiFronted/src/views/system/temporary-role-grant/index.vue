@@ -6,9 +6,12 @@
     <el-form ref="queryFormRef" :model="queryParams" class="temporary-role-grant-toolbar" label-position="top" @submit.prevent>
       <div class="temporary-role-grant-toolbar__filters">
         <el-form-item label="被授权用户" prop="userId">
-          <el-select v-model="queryParams.userId" clearable filterable placeholder="请选择用户">
-            <el-option v-for="user in userOptions" :key="user.id" :label="user.nickname || user.username" :value="user.id" />
-          </el-select>
+          <UserSelectV2 allow-inactive
+            v-model="queryParams.userId"
+            clearable
+            placeholder="请选择用户"
+            :user-options="userOptions"
+          />
         </el-form-item>
         <el-form-item label="临时角色" prop="roleId">
           <el-select v-model="queryParams.roleId" clearable filterable placeholder="请选择角色">
@@ -97,9 +100,11 @@
   <Dialog v-model="createDialogVisible" title="新增临时角色授权" width="620px">
     <el-form ref="createFormRef" :model="createForm" :rules="createRules" label-width="120px">
       <el-form-item label="被授权用户" prop="userId">
-        <el-select v-model="createForm.userId" filterable placeholder="请选择用户">
-          <el-option v-for="user in userOptions" :key="user.id" :label="user.nickname || user.username" :value="user.id" />
-        </el-select>
+        <UserSelectV2
+          v-model="createForm.userId"
+          placeholder="请选择用户"
+          :user-options="userOptions"
+        />
       </el-form-item>
       <el-form-item label="临时角色" prop="roleId">
         <el-select v-model="createForm.roleId" filterable placeholder="请选择角色">
@@ -143,6 +148,7 @@
 </template>
 
 <script setup lang="ts">
+import UserSelectV2 from '@/views/system/user/components/UserSelectV2.vue'
 import * as TemporaryRoleGrantApi from '@/api/system/temporaryRoleGrant'
 import * as RoleApi from '@/api/system/role'
 import * as UserApi from '@/api/system/user'

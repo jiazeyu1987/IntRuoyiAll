@@ -20,6 +20,7 @@ import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatc
 public class MesProEdhrBatchActiveOrderDetailService {
 
     private final MesProEdhrBatchExecutionService batchExecutionService;
+    private final MesMarketReleaseAccess marketReleaseAccess;
     private final MesProcessPoolActiveOrderMapper activeOrderMapper;
     private final MesTeamLeaderActiveOrderDetailService detailService;
 
@@ -60,6 +61,7 @@ public class MesProEdhrBatchActiveOrderDetailService {
     }
 
     private void requireActiveOrderSource(Long activeOrderId) {
+        marketReleaseAccess.requireActiveOrderReadable(activeOrderId);
         if (activeOrderId == null || activeOrderId <= 0) {
             throw new IllegalStateException("EDHR_BATCH_ACTIVE_ORDER_SOURCE_MISSING");
         }

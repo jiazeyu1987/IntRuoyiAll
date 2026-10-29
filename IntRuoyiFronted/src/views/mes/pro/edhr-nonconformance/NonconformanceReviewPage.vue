@@ -3,23 +3,6 @@
     <div class="edhr-ncr" data-edhr-ncr-page>
 
 
-      <div class="edhr-ncr__header">
-        <div>
-          <div class="edhr-ncr__subtitle">冻结后禁止报工、PQC提交、PQC放行</div>
-        </div>
-        <div class="edhr-ncr__header-actions">
-          <el-button
-            v-if="canCreateReview"
-            type="primary"
-            data-edhr-ncr-open-create
-            @click="openCreateDialog"
-          >
-            新建
-          </el-button>
-          <el-button data-edhr-ncr-refresh @click="loadReviews">刷新</el-button>
-        </div>
-      </div>
-
       <el-alert v-if="errorText" :title="errorText" type="error" :closable="false" show-icon />
 
       <el-tabs
@@ -31,68 +14,84 @@
         <el-tab-pane label="进行中" name="pending" />
       </el-tabs>
 
-      <div class="edhr-ncr__section">
-        <div class="edhr-ncr__section-head">
-          <div class="edhr-ncr__section-title">
-            {{ activeTab === 'pending' ? '进行中的不合格评审' : '全部不合格评审' }}
-          </div>
-          <el-tag type="warning">{{ total }} 条</el-tag>
-        </div>
+      <UnifiedListTemplate
+        single-line-toolbar
+        :table-key="REVIEW_TABLE_KEY"
+        :query-model="queryParams"
+        :filter-definitions="reviewFilterDefinitions"
+        :quick-filter-state="reviewQuickFilter.state"
+        :selected-filter-definition="reviewQuickFilter.selectedDefinition.value"
+        :operator-options="reviewQuickFilter.operatorOptions.value"
+        :columns="reviewColumns"
+        :column-saving="columnSaving"
+        :total="total"
+        v-model:page="queryParams.pageNo"
+        v-model:limit="queryParams.pageSize"
+        @update:quick-filter-state="reviewQuickFilter.updateState"
+        @quick-filter-query="reviewQuickFilter.applyQuickFilter"
+        @column-change="saveColumnConfig"
+        @pagination="loadReviews"
+      >
+        <template #actions>
+          <el-button v-if="canCreateReview" type="primary" plain data-edhr-ncr-open-create @click="openCreateDialog">
+            <Icon icon="ep:plus" class="mr-5px" /> 新建
+          </el-button>
+          <el-button data-edhr-ncr-refresh @click="loadReviews">刷新</el-button>
+        </template>
+        <template #table>
+          <el-table height="100%"
+            v-loading="listLoading"
+            :data="reviews"
+            border
+            data-user-table-column-explicit
+            :data-user-table-key="REVIEW_TABLE_KEY"
+            @header-dragend="handleHeaderDragend"
+            stripe
+            :show-overflow-tooltip="true"
+            empty-text="暂无不合格评审"
+          >
+            <el-table-column v-if="isColumnVisible('reviewCode')" label="评审单" prop="reviewCode" :width="getColumnWidth('reviewCode')" :min-width="220">
+              <template #default="{ row }">
+                <div class="edhr-ncr__strong">{{ row.reviewCode || '--' }}</div>
+                <div class="edhr-ncr__muted">{{ resolveSourceTypeLabel(row.sourceType) }}</div>
+              </template>
+            </el-table-column>
+            <el-table-column v-if="isColumnVisible('workOrderCode')" label="生产工单" prop="workOrderCode" :width="getColumnWidth('workOrderCode')" :min-width="210">
+              <template #default="{ row }">
+                <div>{{ row.workOrderCode || '--' }}</div>
+                <div class="edhr-ncr__muted">{{ row.batchCode || '--' }}</div>
+              </template>
+            </el-table-column>
+            <el-table-column v-if="isColumnVisible('nonconformanceReason')" label="不合格原因" prop="nonconformanceReason" :width="getColumnWidth('nonconformanceReason')" :min-width="220" />
+            <el-table-column v-if="isColumnVisible('reviewStatus')" label="状态" prop="reviewStatus" :width="getColumnWidth('reviewStatus')" :min-width="110">
+              <template #default="{ row }">
+                <el-tag :type="row.reviewStatus === REVIEW_STATUS_PENDING_REVIEW ? 'warning' : 'success'">
+                  {{ resolveReviewStatusLabel(row.reviewStatus) }}
+                </el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column v-if="isColumnVisible('disposition')" label="处置结论" prop="disposition" :width="getColumnWidth('disposition')" :min-width="120">
+              <template #default="{ row }">{{ resolveDispositionLabel(row.disposition) }}</template>
+            </el-table-column>
+            <el-table-column v-if="isColumnVisible('frozenAt')" label="冻结时间" prop="frozenAt" :width="getColumnWidth('frozenAt')" :min-width="170">
+              <template #default="{ row }">{{ formatDateTime(row.frozenAt) }}</template>
+            </el-table-column>
+            <el-table-column v-if="isColumnVisible('actions')" label="操作" prop="actions" :width="getColumnWidth('actions')" :min-width="110" fixed="right">
+              <template #default="{ row }">
+                <el-button
+                  link
+                  type="primary"
+                  data-edhr-ncr-review-process
+                  @click.stop="openReviewDialog(row)"
+                >
+                  {{ row.reviewStatus === REVIEW_STATUS_PENDING_REVIEW ? '处理' : '查看' }}
+                </el-button>
+              </template>
+            </el-table-column>
+          </el-table>
 
-        <el-table height="100%"
-          v-loading="listLoading"
-          :data="reviews"
-          stripe
-          :show-overflow-tooltip="true"
-          empty-text="暂无不合格评审"
-        >
-          <el-table-column label="评审单" min-width="220">
-            <template #default="{ row }">
-              <div class="edhr-ncr__strong">{{ row.reviewCode || '--' }}</div>
-              <div class="edhr-ncr__muted">{{ resolveSourceTypeLabel(row.sourceType) }}</div>
-            </template>
-          </el-table-column>
-          <el-table-column label="生产工单" min-width="210">
-            <template #default="{ row }">
-              <div>{{ row.workOrderCode || '--' }}</div>
-              <div class="edhr-ncr__muted">{{ row.batchCode || '--' }}</div>
-            </template>
-          </el-table-column>
-          <el-table-column label="不合格原因" min-width="220" prop="nonconformanceReason" />
-          <el-table-column label="状态" width="110">
-            <template #default="{ row }">
-              <el-tag :type="row.reviewStatus === REVIEW_STATUS_PENDING_REVIEW ? 'warning' : 'success'">
-                {{ resolveReviewStatusLabel(row.reviewStatus) }}
-              </el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column label="处置结论" width="120">
-            <template #default="{ row }">{{ resolveDispositionLabel(row.disposition) }}</template>
-          </el-table-column>
-          <el-table-column label="冻结时间" width="170">
-            <template #default="{ row }">{{ formatDateTime(row.frozenAt) }}</template>
-          </el-table-column>
-          <el-table-column label="操作" width="110" fixed="right">
-            <template #default="{ row }">
-              <el-button
-                link
-                type="primary"
-                data-edhr-ncr-review-process
-                @click.stop="openReviewDialog(row)"
-              >
-                {{ row.reviewStatus === REVIEW_STATUS_PENDING_REVIEW ? '处理' : '查看' }}
-              </el-button>
-            </template>
-          </el-table-column>
-        </el-table>
-
-        <Pagination
-          :total="total"
-          v-model:page="queryParams.pageNo"
-          v-model:limit="queryParams.pageSize"
-          @pagination="loadReviews"
-        />
-      </div>
+        </template>
+      </UnifiedListTemplate>
     </div>
 
     <el-dialog
@@ -130,6 +129,9 @@
             <div><span class="edhr-ncr__label">订单状态</span>{{ selectedActiveOrder.businessStatus || selectedActiveOrder.activeStatus || '--' }}</div>
           </div>
         </el-form-item>
+        <el-form-item label="QA评审责任人" required>
+          <UserSelectV2 v-model="entryForm.qaReviewerUserId" placeholder="请选择具备QA处置权限的责任人" data-edhr-ncr-create-reviewer />
+        </el-form-item>
         <el-form-item label="不合格原因" required>
           <el-input
             v-model="entryForm.nonconformanceReason"
@@ -156,29 +158,41 @@
     <el-dialog
       v-model="reviewDialogVisible"
       :title="reviewDialogTitle"
-      width="820px"
+      width="1080px"
+      class="edhr-ncr-review-dialog"
+      top="7vh"
       destroy-on-close
       data-edhr-ncr-review-dialog
     >
       <template v-if="selectedReview">
-        <div class="edhr-ncr__summary">
-          <div><span class="edhr-ncr__label">评审单号</span><span>{{ selectedReview.reviewCode || '--' }}</span></div>
-          <div><span class="edhr-ncr__label">评审编号</span><span data-edhr-ncr-review-id>{{ selectedReview.id }}</span></div>
-          <div><span class="edhr-ncr__label">来源</span><span>{{ resolveSourceTypeLabel(selectedReview.sourceType) }}</span></div>
-          <div><span class="edhr-ncr__label">生产工单</span><span>{{ selectedReview.workOrderCode || '--' }}</span></div>
-          <div><span class="edhr-ncr__label">批号</span><span>{{ selectedReview.batchCode || '--' }}</span></div>
-          <div><span class="edhr-ncr__label">不合格原因</span><span>{{ selectedReview.nonconformanceReason || '--' }}</span></div>
-          <div><span class="edhr-ncr__label">冻结时间</span><span>{{ formatDateTime(selectedReview.frozenAt) }}</span></div>
-        </div>
+        <section class="edhr-ncr__review-info">
+          <h3 class="edhr-ncr__section-title">评审信息</h3>
+          <div class="edhr-ncr__review-grid">
+            <div><span>评审单号</span><span>{{ selectedReview.reviewCode || '--' }}</span></div>
+            <div><span>评审编号</span><span data-edhr-ncr-review-id>{{ selectedReview.id }}</span></div>
+            <div><span>来源</span><span>{{ resolveSourceTypeLabel(selectedReview.sourceType) }}</span></div>
+            <div><span>冻结时间</span><span>{{ formatDateTime(selectedReview.frozenAt) }}</span></div>
+            <div class="edhr-ncr__review-wide"><span>生产工单</span><span>{{ selectedReview.workOrderCode || '--' }}</span></div>
+            <div class="edhr-ncr__review-wide"><span>批号</span><span>{{ selectedReview.batchCode || '--' }}</span></div>
+            <div class="edhr-ncr__review-wide"><span>不合格原因</span><span>{{ selectedReview.nonconformanceReason || '--' }}</span></div>
+          </div>
+        </section>
 
+        <div v-if="selectedReview.reviewStatus === REVIEW_STATUS_PENDING_REVIEW && !selectedReview.qaReviewerUserId && canCreateReview && !selectedReviewReadOnly" class="mb-12px">
+          <el-alert title="此评审尚未指定QA责任人，请明确指派后办理。" type="warning" :closable="false" />
+          <UserSelectV2 v-model="unassignedReviewerId" placeholder="请选择QA评审责任人" />
+          <el-button type="primary" :loading="assigningReviewer" @click="assignSelectedReviewer">指派QA</el-button>
+        </div>
+        <el-alert v-if="selectedReview.reviewStatus === REVIEW_STATUS_PENDING_REVIEW && !canDisposeSelectedReview && selectedReview.qaReviewerUserId" title="仅本评审已指派的QA责任人可以上传材料并处置。" type="info" :closable="false" />
         <el-alert v-if="selectedReviewReadOnly" title="此交接仅供查看原轮次结果，不能再次处置。" type="info" :closable="false" />
-        <template v-if="selectedReview.reviewStatus === REVIEW_STATUS_PENDING_REVIEW && !selectedReviewReadOnly">
-          <el-form label-width="110px" :model="disposeForm" class="edhr-ncr__dispose-form">
+        <template v-if="canDisposeSelectedReview && !selectedReviewReadOnly">
+          <h3 class="edhr-ncr__section-title edhr-ncr__processing-title">评审处理</h3>
+          <el-form label-width="162px" :model="disposeForm" class="edhr-ncr__dispose-form">
             <el-form-item label="评审材料" required data-edhr-ncr-review-material>
               <div>
-                <input type="file" multiple aria-label="上传评审材料" :disabled="disposeLoading" @change="handleMaterialUpload" />
+                <input class="edhr-ncr__file-input" type="file" multiple aria-label="上传评审材料" :disabled="disposeLoading" @change="handleMaterialUpload" />
                 <p v-if="materialUploadsPending">正在上传 {{ materialUploadsPending }} 份材料…</p>
-                <ul>
+                <ul v-if="disposeForm.reviewMaterialUrls.length" class="edhr-ncr__material-list">
                   <li v-for="url in disposeForm.reviewMaterialUrls" :key="url">
                     {{ disposeForm.reviewMaterialNames[url] }}
                     <el-button link type="danger" :disabled="disposeLoading" @click="removeReviewMaterial(url)">移除</el-button>
@@ -203,38 +217,15 @@
                 show-password
                 autocomplete="new-password"
                 placeholder="请输入本人电子签名密码"
-              />
+              >
+                <template #prefix><Icon icon="ep:lock" /></template>
+              </el-input>
             </el-form-item>
-            <el-form-item>
-              <div class="edhr-ncr__buttons">
-                <el-button
-                  type="success"
-                  :loading="disposeLoading"
-                  data-edhr-ncr-concession-release
-                  @click="handleDispose(DISPOSITION_CONCESSION_RELEASE)"
-                >
-                  让步放行
-                </el-button>
-                <el-button
-                  type="warning"
-                  :loading="disposeLoading"
-                  @click="handleDispose(DISPOSITION_REWORK)"
-                >
-                  返工
-                </el-button>
-                <el-button
-                  type="danger"
-                  :loading="disposeLoading"
-                  @click="handleDispose(DISPOSITION_VOID)"
-                >
-                  作废
-                </el-button>
-              </div>
-            </el-form-item>
+
           </el-form>
         </template>
 
-        <template v-else>
+        <template v-else-if="selectedReview.reviewStatus !== REVIEW_STATUS_PENDING_REVIEW">
           <el-result
             icon="success"
             data-edhr-ncr-disposition-result
@@ -250,7 +241,35 @@
         </template>
       </template>
       <template #footer>
-        <el-button @click="reviewDialogVisible = false">关闭</el-button>
+        <div class="edhr-ncr__review-footer">
+          <el-button @click="reviewDialogVisible = false">关闭</el-button>
+          <div v-if="canDisposeSelectedReview && !selectedReviewReadOnly" class="edhr-ncr__buttons">
+                <el-button
+                  type="primary"
+                  :loading="disposeLoading"
+                  data-edhr-ncr-concession-release
+                  @click="handleDispose(DISPOSITION_CONCESSION_RELEASE)"
+                >
+                  让步放行
+                </el-button>
+                <el-button
+                  type="warning"
+                  plain
+                  :loading="disposeLoading"
+                  @click="handleDispose(DISPOSITION_REWORK)"
+                >
+                  返工
+                </el-button>
+                <el-button
+                  type="danger"
+                  plain
+                  :loading="disposeLoading"
+                  @click="handleDispose(DISPOSITION_VOID)"
+                >
+                  作废
+                </el-button>
+              </div>
+        </div>
       </template>
     </el-dialog>
   </ContentWrap>
@@ -258,6 +277,11 @@
 
 <script setup lang="ts">
 import '@/views/mes/pro/edhr-batch/record-viewport.css'
+import UserSelectV2 from '@/views/system/user/components/UserSelectV2.vue'
+import { useUserStore } from '@/store/modules/user'
+import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
+import { useUserTableColumns } from '@/hooks/web/useUserTableColumns'
+import { useTableQuickFilter, type TableQuickFilterDefinition } from '@/hooks/web/useTableQuickFilter'
 import { useApprovalCenterInvalidationStore } from '@/store/modules/approvalCenterInvalidation'
 const approvalInvalidation = useApprovalCenterInvalidationStore()
 import { parseExactIntegerJson } from '@/utils/exactIntegerJson'
@@ -271,6 +295,7 @@ import {
   SOURCE_TYPE_PQC_RELEASE,
   SOURCE_TYPE_PQC_SUBMISSION,
   createNonconformanceReview,
+  assignNonconformanceReviewer,
   disposeNonconformanceReview,
   uploadNonconformanceReviewMaterial,
   getNonconformanceReviewActiveOrderList,
@@ -314,13 +339,45 @@ const queryParams = reactive({
   pageSize: 10
 })
 
+const REVIEW_TABLE_KEY = 'mes-pro-edhr-nonconformance-review'
+const {
+  columns: reviewColumns,
+  saving: columnSaving,
+  isColumnVisible,
+  getColumnWidth,
+  handleHeaderDragend,
+  saveConfig: saveColumnConfig
+} = useUserTableColumns(REVIEW_TABLE_KEY, [
+  { key: 'reviewCode', label: '评审单', minWidth: 220 },
+  { key: 'workOrderCode', label: '生产工单', minWidth: 210 },
+  { key: 'nonconformanceReason', label: '不合格原因', minWidth: 220 },
+  { key: 'reviewStatus', label: '状态', minWidth: 110 },
+  { key: 'disposition', label: '处置结论', minWidth: 120 },
+  { key: 'frozenAt', label: '冻结时间', minWidth: 170 },
+  { key: 'actions', label: '操作', minWidth: 110, hideable: false },
+])
+const reviewFilterDefinitions: TableQuickFilterDefinition[] = [
+  { key: 'reviewCode', label: '评审单号', type: 'text', queryParamKey: 'reviewCode', operators: ['contains'] },
+  { key: 'workOrderCode', label: '生产工单', type: 'text', queryParamKey: 'workOrderCode', operators: ['contains'] },
+  { key: 'batchCode', label: '批次号', type: 'text', queryParamKey: 'batchCode', operators: ['contains'] }
+]
+const reviewQuickFilter = useTableQuickFilter(
+  REVIEW_TABLE_KEY, reviewFilterDefinitions, queryParams, () => loadReviews()
+)
+
 const entryActiveOrderId = computed<number | undefined>(() => {
   const routeId = parsePositiveRouteQueryId(route.query.activeOrderId)
   return routeId ? Number(routeId) : undefined
 })
 const autoCreate = computed(() => route.query.autoCreate === '1')
 const canCreateReview = computed(() => hasPermission(['mes:pro-edhr-nonconformance-review:create']))
-const entryForm = reactive({ nonconformanceReason: '' })
+const entryForm = reactive({ nonconformanceReason: '', qaReviewerUserId: undefined as string | number | undefined })
+const unassignedReviewerId = ref<string | number>()
+const assigningReviewer = ref(false)
+const canDisposeSelectedReview = computed(() => selectedReview.value?.reviewStatus === REVIEW_STATUS_PENDING_REVIEW &&
+  selectedReview.value?.qaReviewerUserId != null &&
+  String(selectedReview.value.qaReviewerUserId) === String(useUserStore().getUser.id) &&
+  hasPermission(['mes:pro-edhr-nonconformance-review:dispose']))
 
 const selectedActiveOrder = computed(() =>
   activeOrderCandidates.value.find((order) => order.id === selectedActiveOrderId.value)
@@ -354,6 +411,7 @@ const invalidateCreateContext = () => {
 }
 const invalidateReviewContext = () => {
   selectedReviewReadOnly.value = false
+  assigningReviewer.value = false
   invalidateCreateContext()
   reviewContextGeneration++
   materialContextGeneration++
@@ -586,12 +644,14 @@ const closeCreateDialog = () => {
   createDialogVisible.value = false
   selectedActiveOrderId.value = undefined
   entryForm.nonconformanceReason = ''
+  entryForm.qaReviewerUserId = undefined
 }
 
 const openReviewDialog = (review: EdhrNonconformanceReviewRespVO) => {
   invalidateReviewContext()
   errorText.value = ''
   selectedReview.value = review
+  unassignedReviewerId.value = undefined
   fillDisposeForm(review)
   reviewDialogVisible.value = true
 }
@@ -600,6 +660,10 @@ const submitCreateReview = async () => {
   if (createLoading.value || !createDialogVisible.value) return
   if (!selectedActiveOrderId.value) {
     message.error('请选择活跃订单后再发起不合格评审。')
+    return
+  }
+  if (!entryForm.qaReviewerUserId) {
+    message.error('请选择QA评审责任人。')
     return
   }
   const reason = entryForm.nonconformanceReason.trim()
@@ -618,6 +682,7 @@ const submitCreateReview = async () => {
   try {
     const review = await createNonconformanceReview({
       activeOrderId: selectedActiveOrderId.value,
+      qaReviewerUserId: entryForm.qaReviewerUserId,
       nonconformanceReason: reason
     }, { ignoreErrorMessage: true, isRequestContextCurrent: isCurrent , isSuccessReceiptContextCurrent: (() => { const receiptSessionKey = approvalInvalidation.syncSession().key; return () => approvalInvalidation.isCurrent(receiptSessionKey) })()})
     writeSucceeded = true
@@ -639,9 +704,32 @@ const submitCreateReview = async () => {
   }
 }
 
+const assignSelectedReviewer = async () => {
+  const review = selectedReview.value
+  const reviewer = unassignedReviewerId.value
+  if (!review || !review.activeOrderId || !reviewer || assigningReviewer.value) return
+  const generation = reviewContextGeneration
+  const sessionKey = approvalInvalidation.syncSession().key
+  const isCurrent = () => generation === reviewContextGeneration && reviewDialogVisible.value && approvalInvalidation.isCurrent(sessionKey)
+  const event = approvalInvalidation.captureHandoffSourceSuccess('ACTIVE_ORDER', review.activeOrderId)
+  assigningReviewer.value = true
+  try {
+    const receipt = await assignNonconformanceReviewer(review.id, reviewer, { ignoreErrorMessage: true, isRequestContextCurrent: isCurrent, isSuccessReceiptContextCurrent: () => approvalInvalidation.isCurrent(sessionKey) })
+    approvalInvalidation.publishEdhrSuccess(event)
+    if (!isCurrent()) return
+    selectedReview.value = receipt
+    message.success('QA评审责任已指派，已生成评审待办。')
+    await loadReviews()
+  } catch (error) {
+    if (isCurrent()) message.error(resolveErrorMessage(error, 'QA指派失败。'))
+  } finally {
+    if (isCurrent()) assigningReviewer.value = false
+  }
+}
+
 const handleDispose = async (disposition: EdhrNonconformanceReviewDisposition) => {
   if (disposeLoading.value || !reviewDialogVisible.value) return
-  if (selectedReviewReadOnly.value) {
+  if (!canDisposeSelectedReview.value || selectedReviewReadOnly.value) {
     message.error('原轮次交接只允许查看，不能再次处置。')
     return
   }
@@ -901,41 +989,11 @@ onMounted(() => { void loadReviewEntry() })
   gap: 16px;
 }
 
-.edhr-ncr__header,
-.edhr-ncr__section {
-  padding: 16px;
-  background: #fff;
-  border: 1px solid #dbe3ef;
-  border-radius: 8px;
-}
-
-.edhr-ncr__header,
-.edhr-ncr__section-head,
-.edhr-ncr__buttons {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.edhr-ncr__header-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.edhr-ncr__subtitle,
 .edhr-ncr__muted {
   margin-top: 4px;
   font-size: 12px;
   line-height: 1.5;
   color: #4b5563;
-}
-
-.edhr-ncr__section-title {
-  margin-bottom: 12px;
-  font-weight: 700;
-  color: #172033;
 }
 
 .edhr-ncr__strong {
@@ -975,6 +1033,9 @@ onMounted(() => { void loadReviewEntry() })
 }
 
 .edhr-ncr__buttons {
+  display: flex;
+  align-items: center;
+  gap: 12px;
   justify-content: flex-start;
   flex-wrap: wrap;
 }
@@ -983,5 +1044,72 @@ onMounted(() => { void loadReviewEntry() })
   .edhr-ncr__source-summary {
     grid-template-columns: 1fr;
   }
+}
+</style>
+
+<style>
+.el-dialog.edhr-ncr-review-dialog {
+  --el-color-primary: #00a6a6;
+  --el-color-primary-light-9: #effafa;
+  --el-dialog-padding-primary: 0;
+  width: min(1080px, calc(100vw - 32px));
+  padding: 0;
+  overflow: hidden;
+  border-radius: 12px;
+  color: #192335;
+}
+.edhr-ncr-review-dialog .el-dialog__header {
+  margin: 0;
+  padding: 25px 30px 20px;
+  border-bottom: 1px solid #dce2eb;
+}
+.edhr-ncr-review-dialog .el-dialog__title {
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 32px;
+  color: #192335;
+}
+.edhr-ncr-review-dialog .el-dialog__headerbtn { top: 20px; right: 18px; font-size: 24px; }
+.edhr-ncr-review-dialog .el-dialog__body { padding: 15px 30px 24px; color: #192335; }
+.edhr-ncr-review-dialog .el-dialog__footer { padding: 24px 30px; border-top: 1px solid #dce2eb; }
+.edhr-ncr-review-dialog .edhr-ncr__section-title { margin: 0 0 18px; font-size: 23px; font-weight: 700; line-height: 32px; color: #192335; }
+.edhr-ncr-review-dialog .edhr-ncr__review-info { padding: 14px 16px 10px; border-radius: 8px; background: #f3f6fa; }
+.edhr-ncr-review-dialog .edhr-ncr__review-grid { display: grid; grid-template-columns: 59% 41%; font-size: 18px; }
+.edhr-ncr-review-dialog .edhr-ncr__review-grid > div { display: grid; grid-template-columns: 144px minmax(0, 1fr); align-items: baseline; padding: 11px 0; line-height: 27px; }
+.edhr-ncr-review-dialog .edhr-ncr__review-grid > div:nth-child(even) { grid-template-columns: 122px minmax(0, 1fr); }
+.edhr-ncr-review-dialog .edhr-ncr__review-grid > div > span:first-child { color: #506583; }
+.edhr-ncr-review-dialog .edhr-ncr__review-grid > div > span:last-child { overflow-wrap: anywhere; }
+.edhr-ncr-review-dialog .edhr-ncr__review-grid > .edhr-ncr__review-wide:nth-child(n) { grid-column: 1 / -1; grid-template-columns: 144px minmax(0, 1fr); border-top: 1px solid #e1e7ef; }
+.edhr-ncr-review-dialog .edhr-ncr__processing-title { margin: 20px 8px 18px; }
+.edhr-ncr-review-dialog .edhr-ncr__dispose-form { margin: 0 6px 0 8px; }
+.edhr-ncr-review-dialog .el-form-item { margin-bottom: 24px; }
+.edhr-ncr-review-dialog .el-form-item:last-child { margin-bottom: 0; }
+.edhr-ncr-review-dialog .el-form-item__label { justify-content: flex-start; align-items: center; font-size: 18px; color: #192335; min-height: 42px; }
+.edhr-ncr-review-dialog .el-form-item__content { min-width: 0; }
+.edhr-ncr-review-dialog .el-textarea__inner { min-height: 126px; padding: 12px 16px; font-size: 18px; border-radius: 6px; }
+.edhr-ncr-review-dialog .el-input__wrapper { min-height: 54px; padding: 0 18px; border-radius: 6px; }
+.edhr-ncr-review-dialog .el-input__inner { font-size: 18px; }
+.edhr-ncr-review-dialog .el-input__prefix { margin-right: 10px; font-size: 22px; }
+.edhr-ncr-review-dialog .edhr-ncr__file-input { max-width: 100%; font-size: 18px; color: #8c97ab; }
+.edhr-ncr-review-dialog .edhr-ncr__file-input::file-selector-button { margin-right: 18px; padding: 8px 19px; border: 1px solid #00a6a6; border-radius: 6px; background: #f5fdfd; color: #00a6a6; font: inherit; font-weight: 600; cursor: pointer; }
+.edhr-ncr-review-dialog .edhr-ncr__file-input:disabled::file-selector-button { cursor: not-allowed; opacity: .6; }
+.edhr-ncr-review-dialog .edhr-ncr__material-list { margin: 8px 0 0; padding-left: 20px; overflow-wrap: anywhere; }
+.edhr-ncr-review-dialog .edhr-ncr__review-footer { display: flex; justify-content: space-between; gap: 16px; }
+.edhr-ncr-review-dialog .edhr-ncr__buttons { gap: 16px; }
+.edhr-ncr-review-dialog .edhr-ncr__review-footer .el-button { min-width: 112px; height: 54px; margin: 0; font-size: 20px; border-radius: 6px; }
+.edhr-ncr-review-dialog .edhr-ncr__review-footer .el-button--primary { min-width: 140px; font-weight: 600; }
+@media (width <= 760px) {
+  .edhr-ncr-review-dialog .el-dialog__header { padding: 20px; }
+  .edhr-ncr-review-dialog .el-dialog__body, .edhr-ncr-review-dialog .el-dialog__footer { padding: 16px; }
+  .edhr-ncr-review-dialog .edhr-ncr__review-grid { grid-template-columns: 1fr; font-size: 14px; }
+  .edhr-ncr-review-dialog .edhr-ncr__review-grid > div,
+  .edhr-ncr-review-dialog .edhr-ncr__review-grid > div:nth-child(even),
+  .edhr-ncr-review-dialog .edhr-ncr__review-grid > .edhr-ncr__review-wide:nth-child(n) { grid-template-columns: 100px minmax(0, 1fr); }
+  .edhr-ncr-review-dialog .el-form-item { flex-direction: column; }
+  .edhr-ncr-review-dialog .el-form-item__label { width: auto !important; }
+  .edhr-ncr-review-dialog .el-form-item__content { margin-left: 0 !important; }
+  .edhr-ncr-review-dialog .edhr-ncr__review-footer { flex-wrap: wrap; }
+  .edhr-ncr-review-dialog .edhr-ncr__buttons { gap: 8px; }
+  .edhr-ncr-review-dialog .edhr-ncr__review-footer .el-button { min-width: 80px; height: 44px; font-size: 16px; }
 }
 </style>

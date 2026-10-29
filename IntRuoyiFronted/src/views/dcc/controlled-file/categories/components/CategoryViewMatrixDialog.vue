@@ -65,7 +65,7 @@
         </el-table-column>
         <el-table-column label="对应主体" min-width="240">
           <template #default="{ row }">
-            <UserSelect v-if="row.subjectType === 'USER'" :model-value="row.subjectId"
+            <UserSelectV2 v-if="row.subjectType === 'USER'" :model-value="row.subjectId"
               placeholder="请选择系统用户" @change="(user) => handleUserChange(row, user)" />
             <RoleSelect v-else-if="row.subjectType === 'ROLE'" :model-value="row.subjectId"
               placeholder="请选择权限角色" @change="(role) => handleRoleChange(row, role)" />
@@ -212,7 +212,7 @@ import { getSimplePostList, type PostVO } from '@/api/system/post'
 import { getApprovalPositionList, type ControlledFileApprovalPositionVO } from '@/api/dcc/controlledFile/approvalPositions'
 import type { UserVO } from '@/api/system/user'
 import type { RoleVO } from '@/api/system/role'
-import UserSelect from '@/views/system/user/components/UserSelect.vue'
+import UserSelectV2 from '@/views/system/user/components/UserSelectV2.vue'
 import RoleSelect from '@/views/system/role/components/RoleSelect.vue'
 import { defaultProps } from '@/utils/tree'
 import { applyDepartmentAutoMatchToViewMatrixRules } from './viewMatrixDepartmentMatcher'

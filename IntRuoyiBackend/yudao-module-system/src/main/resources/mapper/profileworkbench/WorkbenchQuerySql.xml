@@ -37,27 +37,20 @@ FROM (<include refid="${baseRef}"/>) b
 <include refid="cn.iocoder.yudao.module.system.api.workbench.WorkbenchQuerySql.conditions"/>
 </where>
 </sql>
-<sql id="conditions">
-<if test="q.taskType != null">AND CAST(CONVERT(r.task_type USING utf8mb4) AS BINARY)=CAST(CONVERT(#{q.taskType} USING utf8mb4) AS BINARY)</if>
-<if test="q.filterField != null and q.filterValue != ''">
+<!-- Keep optional boundaries adjacent: JSQLParser treats consecutive blank lines as an end of statement. -->
+<sql id="conditions"><if test="q.taskType != null">AND CAST(CONVERT(r.task_type USING utf8mb4) AS BINARY)=CAST(CONVERT(#{q.taskType} USING utf8mb4) AS BINARY)</if><if test="q.filterField != null and q.filterValue != ''">
 AND <choose><when test="q.filterOperator == 'eq'"><include refid="cn.iocoder.yudao.module.system.api.workbench.WorkbenchQuerySql.filterText"/>=CAST(CONVERT(#{q.filterValue} USING utf8mb4) AS BINARY)</when>
-<when test="q.filterOperator == 'contains'">LOCATE(CAST(CONVERT(#{q.filterValue} USING utf8mb4) AS BINARY),<include refid="cn.iocoder.yudao.module.system.api.workbench.WorkbenchQuerySql.filterText"/>) &gt; 0</when><otherwise><bind name="rejectedQuery" value="@cn.iocoder.yudao.module.system.api.workbench.SortContract@rejectQuery()"/></otherwise></choose>
-</if>
-<if test="q.visibilityFilter.partition != null">
+<when test="q.filterOperator == 'contains'">LOCATE(CAST(CONVERT(#{q.filterValue} USING utf8mb4) AS BINARY),<include refid="cn.iocoder.yudao.module.system.api.workbench.WorkbenchQuerySql.filterText"/>) &gt; 0</when><otherwise><bind name="rejectedQuery" value="@cn.iocoder.yudao.module.system.api.workbench.SortContract@rejectQuery()"/></otherwise></choose></if><if test="q.visibilityFilter.partition != null">
 AND <if test="q.visibilityFilter.partition == 'visible'">NOT</if> EXISTS(
  SELECT 1 FROM system_profile_workbench_task_visibility v
  WHERE v.tenant_id=#{q.visibilityFilter.tenantId} AND v.user_id=#{q.visibilityFilter.userId} AND v.deleted=0
- AND CAST(CONVERT(v.task_key USING utf8mb4) AS BINARY)=CAST(CONVERT(r.task_key USING utf8mb4) AS BINARY))
-</if>
-</sql>
-<sql id="after">
-<if test="after != null">
+ AND CAST(CONVERT(v.task_key USING utf8mb4) AS BINARY)=CAST(CONVERT(r.task_key USING utf8mb4) AS BINARY))</if></sql>
+<sql id="after"><if test="after != null">
 AND (
 <if test="q.sortKey != null">
  <include refid="cn.iocoder.yudao.module.system.api.workbench.WorkbenchQuerySql.sortText"/> <choose><when test="q.sortOrder == 'desc'">&lt;</when><when test="q.sortOrder == 'asc'">&gt;</when><otherwise><bind name="rejectedQuery" value="@cn.iocoder.yudao.module.system.api.workbench.SortContract@rejectQuery()"/></otherwise></choose> <include refid="cn.iocoder.yudao.module.system.api.workbench.WorkbenchQuerySql.cursorText"/>
  OR (<include refid="cn.iocoder.yudao.module.system.api.workbench.WorkbenchQuerySql.sortText"/>=<include refid="cn.iocoder.yudao.module.system.api.workbench.WorkbenchQuerySql.cursorText"/> AND
-</if>
-(
+</if>(
  r.due_group &gt; CASE WHEN #{after.dueAt} IS NULL THEN 1 ELSE 0 END
  OR (r.due_group=CASE WHEN #{after.dueAt} IS NULL THEN 1 ELSE 0 END
  AND r.due_sort &gt; CAST(COALESCE(#{after.dueAt},'1970-01-01 00:00:00.000000') AS DATETIME(6)))
@@ -68,11 +61,8 @@ AND (
  AND r.due_sort=CAST(COALESCE(#{after.dueAt},'1970-01-01 00:00:00.000000') AS DATETIME(6))
  AND r.created_sort=CAST(CASE WHEN #{after.dueAt} IS NULL THEN COALESCE(#{after.createdAt},'1970-01-01 00:00:00.000000') ELSE '1970-01-01 00:00:00.000000' END AS DATETIME(6))
  AND CAST(CONVERT(r.row_order_key USING utf8mb4) AS BINARY) &lt; CAST(CONVERT(#{after.rowOrderKey} USING utf8mb4) AS BINARY))
-)
-<if test="q.sortKey != null">)</if>
-)
-</if>
-</sql>
+)<if test="q.sortKey != null">)</if>
+)</if></sql>
 <sql id="order">
 ORDER BY <if test="q.sortKey != null"><include refid="cn.iocoder.yudao.module.system.api.workbench.WorkbenchQuerySql.sortText"/> <choose><when test="q.sortOrder == 'desc'">DESC</when><when test="q.sortOrder == 'asc'">ASC</when><otherwise><bind name="rejectedQuery" value="@cn.iocoder.yudao.module.system.api.workbench.SortContract@rejectQuery()"/></otherwise></choose>,</if>
 r.due_group ASC,r.due_sort ASC,r.created_sort DESC,CAST(CONVERT(r.row_order_key USING utf8mb4) AS BINARY) DESC

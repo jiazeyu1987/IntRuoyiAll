@@ -23,14 +23,12 @@
             </el-select>
           </el-form-item>
           <el-form-item :label="ruleAssigneeLabel" prop="assigneeUserId">
-            <el-select v-model="archiveRuleForm.assigneeUserId" class="!w-100%" filterable>
-              <el-option
-                v-for="user in userOptions"
-                :key="user.id"
-                :label="formatUserOptionLabel(user)"
-                :value="user.id"
-              />
-            </el-select>
+            <UserSelectV2
+              v-model="archiveRuleForm.assigneeUserId"
+              :user-options="userOptions"
+              placeholder="请选择人员"
+              class="!w-1/1"
+            />
           </el-form-item>
           <el-form-item label="实际派发源">
             <div class="edhr-work-task-page__dispatch-source">
@@ -73,15 +71,16 @@
       </Dialog>
 </template>
 <script setup lang="ts">
+import UserSelectV2 from '@/views/system/user/components/UserSelectV2.vue'
 import { computed, reactive, ref, watch, onBeforeUnmount } from 'vue'
 import { useApprovalCenterInvalidationStore } from '@/store/modules/approvalCenterInvalidation'
 import { ProRouteApi, type ProRouteVO } from '@/api/mes/pro/route'
 import { getSimpleUserList, type UserVO } from '@/api/system/user'
 import type { FormInstance, FormRules } from 'element-plus'
 import {
- getEdhrRouteArchiveRule, getEdhrRouteCloseRule, getEdhrRouteReleaseApprovalRule,
- saveEdhrRouteArchiveRule, saveEdhrRouteCloseRule, saveEdhrRouteReleaseApprovalRule,
- type EdhrWorkTaskArchiveRuleReqVO, type EdhrWorkTaskCloseRuleReqVO,
+ getEdhrRouteArchiveRule, getEdhrRouteReleaseApprovalRule,
+ saveEdhrRouteArchiveRule, saveEdhrRouteReleaseApprovalRule,
+ type EdhrWorkTaskArchiveRuleReqVO,
  type EdhrWorkTaskReleaseApprovalRuleReqVO, type EdhrWorkTaskAssignmentRuleRespVO
 } from '@/api/mes/pro/edhr/workTask'
 const message = useMessage()
@@ -92,14 +91,14 @@ const ruleContext = () => JSON.stringify([session.syncSession().key, ruleDialogM
 const archiveRuleDialogVisible = ref(false)
 const archiveRuleLoading = ref(false)
 const archiveRuleSaving = ref(false)
-const ruleDialogMode = ref<'CLOSE' | 'ARCHIVE' | 'RELEASE_APPROVE'>('ARCHIVE')
+const ruleDialogMode = ref<'ARCHIVE' | 'RELEASE_APPROVE'>('ARCHIVE')
 const archiveRuleFormRef = ref<FormInstance>()
 const routeOptions = ref<ProRouteVO[]>([])
 const userOptions = ref<UserVO[]>([])
 const currentArchiveRule = ref<EdhrWorkTaskAssignmentRuleRespVO | null>(null)
 const archiveRuleForm = reactive<
   Partial<
-    EdhrWorkTaskArchiveRuleReqVO & EdhrWorkTaskCloseRuleReqVO & EdhrWorkTaskReleaseApprovalRuleReqVO
+    EdhrWorkTaskArchiveRuleReqVO & EdhrWorkTaskReleaseApprovalRuleReqVO
   >
 >({
   routeId: undefined,
@@ -110,7 +109,7 @@ const archiveRuleForm = reactive<
 })
 const archiveRuleRules: FormRules<
   Partial<
-    EdhrWorkTaskArchiveRuleReqVO & EdhrWorkTaskCloseRuleReqVO & EdhrWorkTaskReleaseApprovalRuleReqVO
+    EdhrWorkTaskArchiveRuleReqVO & EdhrWorkTaskReleaseApprovalRuleReqVO
   >
 > = {
   routeId: [{ required: true, message: '请选择工艺路线', trigger: 'change' }],
@@ -120,17 +119,14 @@ const archiveRuleRules: FormRules<
 }
 
 const ruleDialogTitle = computed(() => {
-  if (ruleDialogMode.value === 'CLOSE') return '关闭规则'
   if (ruleDialogMode.value === 'RELEASE_APPROVE') return '放行规则'
   return '归档规则'
 })
 const ruleAssigneeLabel = computed(() => {
-  if (ruleDialogMode.value === 'CLOSE') return '关闭责任人'
   if (ruleDialogMode.value === 'RELEASE_APPROVE') return '放行审批责任人'
   return '归档责任人'
 })
 const ruleActionLabel = computed(() => {
-  if (ruleDialogMode.value === 'CLOSE') return '批次关闭'
   if (ruleDialogMode.value === 'RELEASE_APPROVE') return '最终放行审批'
   return '最终归档'
 })
@@ -194,18 +190,8 @@ const resolveArchiveRuleDispatchHint = () => {
     : '责任人与实际责任源不一致，请保存规则后重新加载确认。'
 }
 
-const formatUserOptionLabel = (user: UserVO) => {
-  if (user.nickname && user.username) return `${user.nickname}（${user.username}）`
-  return user.nickname || user.username || String(user.id)
-}
-
 const openArchiveRuleDialog = async () => {
   ruleDialogMode.value = 'ARCHIVE'
-  await openRuleDialog()
-}
-
-const openCloseRuleDialog = async () => {
-  ruleDialogMode.value = 'CLOSE'
   await openRuleDialog()
 }
 
@@ -244,9 +230,7 @@ const loadArchiveRuleByRoute = async () => {
   archiveRuleLoading.value = true
   try {
     const rule =
-      ruleDialogMode.value === 'CLOSE'
-        ? await getEdhrRouteCloseRule(archiveRuleForm.routeId)
-        : ruleDialogMode.value === 'RELEASE_APPROVE'
+      ruleDialogMode.value === 'RELEASE_APPROVE'
           ? await getEdhrRouteReleaseApprovalRule(archiveRuleForm.routeId)
           : await getEdhrRouteArchiveRule(archiveRuleForm.routeId)
     if (!current()) return
@@ -277,7 +261,7 @@ const submitArchiveRule = async () => {
   }
   archiveRuleSaving.value = true
   try {
-    const payload: EdhrWorkTaskArchiveRuleReqVO & EdhrWorkTaskCloseRuleReqVO = {
+    const payload: EdhrWorkTaskArchiveRuleReqVO = {
       routeId: archiveRuleForm.routeId,
       assigneeUserId: archiveRuleForm.assigneeUserId,
       dueMinutes: archiveRuleForm.dueMinutes!,
@@ -285,9 +269,7 @@ const submitArchiveRule = async () => {
       remark: archiveRuleForm.remark?.trim() || undefined
     }
     const savedRule =
-      ruleDialogMode.value === 'CLOSE'
-        ? await saveEdhrRouteCloseRule(payload)
-        : ruleDialogMode.value === 'RELEASE_APPROVE'
+      ruleDialogMode.value === 'RELEASE_APPROVE'
           ? await saveEdhrRouteReleaseApprovalRule({
               routeId: archiveRuleForm.routeId,
               candidateSourceType: 'USER',
@@ -315,5 +297,5 @@ const submitArchiveRule = async () => {
 watch(archiveRuleDialogVisible, (visible) => { if (!visible) ruleReadGeneration++ })
 watch(() => session.syncSession().key, () => { archiveRuleDialogVisible.value = false })
 onBeforeUnmount(() => { ruleReadGeneration++ })
-defineExpose({ openArchiveRuleDialog, openCloseRuleDialog, openReleaseApprovalRuleDialog })
+defineExpose({ openArchiveRuleDialog, openReleaseApprovalRuleDialog })
 </script>

@@ -10,14 +10,21 @@ export interface PostVO {
   createTime?: Date
 }
 
+export type PostSaveVO = Omit<PostVO, 'code' | 'createTime'>
+
 // 查询岗位列表
 export const getPostPage = async (params: PageParam) => {
   return await request.get({ url: '/system/post/page', params })
 }
 
 // 获取岗位精简信息列表
-export const getSimplePostList = async (options?: { ignoreErrorMessage?: boolean }): Promise<PostVO[]> => {
-  return await request.get({ url: '/system/post/simple-list', ignoreErrorMessage: options?.ignoreErrorMessage })
+export const getSimplePostList = async (options?: {
+  ignoreErrorMessage?: boolean
+}): Promise<PostVO[]> => {
+  return await request.get({
+    url: '/system/post/simple-list',
+    ignoreErrorMessage: options?.ignoreErrorMessage
+  })
 }
 
 // 查询岗位详情
@@ -26,12 +33,12 @@ export const getPost = async (id: number) => {
 }
 
 // 新增岗位
-export const createPost = async (data: PostVO) => {
+export const createPost = async (data: PostSaveVO) => {
   return await request.post({ url: '/system/post/create', data })
 }
 
 // 修改岗位
-export const updatePost = async (data: PostVO) => {
+export const updatePost = async (data: PostSaveVO) => {
   return await request.put({ url: '/system/post/update', data })
 }
 

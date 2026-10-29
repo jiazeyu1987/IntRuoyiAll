@@ -729,12 +729,65 @@ public class AdminUserServiceImpl implements AdminUserService {
             }
         }
 
-        Set<Long> deptIds = getDeptCondition(reqVO.getDeptId());
+        if (reqVO.getPostId() != null) {
+            Set<Long> postUserIds = convertSet(userPostMapper.selectListByPostIds(singleton(reqVO.getPostId())), UserPostDO::getUserId);
+            if (userIds == null) userIds = postUserIds;
+            else { userIds = new HashSet<>(userIds); userIds.retainAll(postUserIds); }
+            if (CollUtil.isEmpty(userIds)) return PageResult.empty();
+        }
+        List<Set<Long>> fixedUserScopes = new ArrayList<>();
+        if (reqVO.getScopeRoleId() != null) fixedUserScopes.add(permissionService.getUserRoleIdListByRoleId(singleton(reqVO.getScopeRoleId())));
+        if (reqVO.getScopePostId() != null) fixedUserScopes.add(convertSet(userPostMapper.selectListByPostIds(singleton(reqVO.getScopePostId())), UserPostDO::getUserId));
+        if (reqVO.getIds() != null) fixedUserScopes.add(new HashSet<>(reqVO.getIds()));
+        for (Set<Long> scope : fixedUserScopes) {
+            if (userIds == null) userIds = new HashSet<>(scope);
+            else { userIds = new HashSet<>(userIds); userIds.retainAll(scope); }
+            if (userIds.isEmpty()) return PageResult.empty();
+        }
+        Set<Long> deptIds = reqVO.getDeptId() != null && Boolean.FALSE.equals(reqVO.getIncludeChildDepts())
+                ? new HashSet<>(singleton(reqVO.getDeptId())) : getDeptCondition(reqVO.getDeptId());
+        boolean hasDepartmentFilter = reqVO.getDeptId() != null;
+        if (CollUtil.isNotEmpty(reqVO.getDeptIds())) {
+            Set<Long> selectedDeptIds = new HashSet<>();
+            for (Long selectedDeptId : reqVO.getDeptIds()) {
+                if (Boolean.FALSE.equals(reqVO.getIncludeChildDepts())) selectedDeptIds.add(selectedDeptId);
+                else selectedDeptIds.addAll(getDeptCondition(selectedDeptId));
+            }
+            if (hasDepartmentFilter) deptIds.retainAll(selectedDeptIds);
+            else deptIds = selectedDeptIds;
+            if (deptIds.isEmpty()) return PageResult.empty();
+            hasDepartmentFilter = true;
+        }
+        if (reqVO.getScopeDeptId() != null) {
+            Set<Long> scope = getDeptCondition(reqVO.getScopeDeptId());
+            if (!hasDepartmentFilter) deptIds = scope;
+            else deptIds.retainAll(scope);
+            if (deptIds.isEmpty()) return PageResult.empty();
+        }
+        Set<Long> excludedUserIds = Collections.emptySet();
+        if (hasDepartmentFilter && ("LEADER".equals(reqVO.getDeptLeaderMode())
+                || "MEMBER".equals(reqVO.getDeptLeaderMode()))) {
+            Set<Long> leaderIds = new HashSet<>(convertSet(deptService.getDeptList(deptIds), DeptDO::getLeaderUserId));
+            leaderIds.remove(null);
+            if ("LEADER".equals(reqVO.getDeptLeaderMode())) {
+                if (userIds == null) userIds = leaderIds;
+                else { userIds = new HashSet<>(userIds); userIds.retainAll(leaderIds); }
+                if (CollUtil.isEmpty(userIds)) return PageResult.empty();
+                // Department heads may belong to a different home department. Only the fixed business scope still applies.
+                Set<Long> leaderHomeDeptScope = reqVO.getScopeDeptId() == null
+                        ? Collections.emptySet() : getDeptCondition(reqVO.getScopeDeptId());
+                return userMapper.selectPage(reqVO, leaderHomeDeptScope, userIds);
+            }
+            excludedUserIds = leaderIds;
+        }
         if (reqVO.getDeptId() == null) {
+            if (!excludedUserIds.isEmpty()) return userMapper.selectPage(reqVO, deptIds, userIds, excludedUserIds);
             return userMapper.selectPage(reqVO, deptIds, userIds);
         }
 
-        List<AdminUserDO> matchedUsers = userMapper.selectListForPage(reqVO, deptIds, userIds);
+        List<AdminUserDO> matchedUsers = excludedUserIds.isEmpty()
+                ? userMapper.selectListForPage(reqVO, deptIds, userIds)
+                : userMapper.selectListForPage(reqVO, deptIds, userIds, excludedUserIds);
         if (CollUtil.isEmpty(matchedUsers)) {
             return PageResult.empty();
         }
@@ -756,6 +809,7 @@ public class AdminUserServiceImpl implements AdminUserService {
         AdminUserDO user = lockUserForPostEdit(id);
         UserPostSnapshot snapshot = lockAndValidateUserPosts(user, Collections.emptySet());
         UserEditRespVO response = UserConvert.INSTANCE.convertForUpdate(user, snapshot.assignedPosts());
+        response.setYintaiAdminUsernameAllowed(isYintaiAdministrator(user));
         DeptDO dept = deptService.getDept(user.getDeptId());
         if (dept != null) {
             response.setDeptName(dept.getName());
@@ -899,7 +953,7 @@ public class AdminUserServiceImpl implements AdminUserService {
             // 校验用户存在
             AdminUserDO user = validateUserExists(id);
             // 校验用户名不是通用账户
-            validateGenericAccountUsername(username);
+            validateGenericAccountUsername(user, username);
             // 校验用户名唯一
             validateUsernameUnique(id, username);
             // 校验手机号唯一
@@ -931,6 +985,21 @@ public class AdminUserServiceImpl implements AdminUserService {
         if (AdminUserGenericAccountPolicy.isGenericUsername(username)) {
             throw exception(USER_GENERIC_ACCOUNT_FORBIDDEN, StrUtil.trim(username));
         }
+    }
+
+    @VisibleForTesting
+    void validateGenericAccountUsername(AdminUserDO user, String username) {
+        if ("admin".equals(username) && isYintaiAdministrator(user)) {
+            return;
+        }
+        validateGenericAccountUsername(username);
+    }
+
+    private boolean isYintaiAdministrator(AdminUserDO user) {
+        return user != null && YintaiAdminAccountPolicy.TENANT_ID.equals(TenantContextHolder.getTenantId())
+                && YintaiAdminAccountPolicy.TENANT_ID.equals(user.getTenantId())
+                && YintaiAdminAccountPolicy.isAdministrator(user,
+                        tenantService.getTenant(YintaiAdminAccountPolicy.TENANT_ID));
     }
 
     @VisibleForTesting
@@ -1035,6 +1104,20 @@ public class AdminUserServiceImpl implements AdminUserService {
             return username;
         }
         return Normalizer.normalize(StrUtil.trim(username), Normalizer.Form.NFC).toLowerCase(Locale.ROOT);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    @LogRecord(type = SYSTEM_USER_TYPE, subType = "锁定用户", bizNo = "{{#id}}",
+            success = "锁定了用户【{{#user.nickname}}】30分钟，原因：{{#reason}}")
+    public void lockUser(Long id, String reason) {
+        if (StrUtil.isBlank(reason)) {
+            throw new IllegalArgumentException("锁定原因不能为空");
+        }
+        AdminUserDO user = lockSignatureIdentity(id);
+        userMapper.updateById(new AdminUserDO().setId(id)
+                .setLoginLocked(1).setLoginLockedTime(LocalDateTime.now()));
+        LogRecordContext.putVariable("user", user);
     }
 
     public static boolean isLoginLockActive(AdminUserDO user, LocalDateTime now) {
@@ -1201,7 +1284,8 @@ public class AdminUserServiceImpl implements AdminUserService {
                 parentId = targetDept.getId();
             }
             String targetDeptPath = String.join(" / ", pathParts);
-            if (pathParts.size() > 1) {
+            // 精简员工表按完整路径定位部门；仅在源文件提供正式部门ID时核对其映射。
+            if (pathParts.size() > 1 && StrUtil.isNotBlank(importUser.getSourceDepartmentId())) {
                 String sourceDepartmentId = StrUtil.trim(importUser.getSourceDepartmentId());
                 String existingSourceDeptId = pathSourceDeptIdMap.get(targetDeptPath);
                 if (existingSourceDeptId != null && !StrUtil.equals(existingSourceDeptId, sourceDepartmentId)) {

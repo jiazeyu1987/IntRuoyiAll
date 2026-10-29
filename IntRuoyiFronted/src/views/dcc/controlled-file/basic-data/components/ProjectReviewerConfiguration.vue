@@ -10,9 +10,7 @@
         <span v-else>尚未配置</span>
       </el-form-item>
       <el-form-item label="审核人" required>
-        <el-select v-model="selectedUserId" filterable :disabled="busy || loading" placeholder="选择启用账号">
-          <el-option v-for="user in users" :key="user.id" :value="user.id" :label="user.name" />
-        </el-select>
+        <UserSelectV2 v-model="selectedUserId" :disabled="busy || loading" placeholder="选择启用账号" :clearable="false" :user-options="users.map(user => ({ ...user, nickname: user.name }))" />
       </el-form-item>
       <el-form-item label="配置原因" required>
         <el-input v-model="reason" type="textarea" maxlength="500" show-word-limit :disabled="busy || loading" />
@@ -27,6 +25,7 @@
 </template>
 
 <script setup lang="ts">
+import UserSelectV2 from '@/views/system/user/components/UserSelectV2.vue'
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { ElMessageBox } from 'element-plus'
 import { useUserStore } from '@/store/modules/user'

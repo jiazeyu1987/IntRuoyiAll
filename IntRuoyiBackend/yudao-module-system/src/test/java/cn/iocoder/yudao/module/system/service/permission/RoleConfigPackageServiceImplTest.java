@@ -230,7 +230,7 @@ class RoleConfigPackageServiceImplTest extends BaseDbUnitTest {
         reset(permissionService);
         org.mockito.Mockito.when(permissionService.getRoleMenuListByRoleId(role.getId())).thenReturn(Set.of(menu.getId()));
 
-        byte[] data = roleConfigPackageService.exportPackage();
+        byte[] data = roleConfigPackageService.exportPackage(List.of(role.getCategoryId()));
         RoleConfigPackageServiceImpl.RoleConfigPackage payload = JsonUtils.parseObject(data, RoleConfigPackageServiceImpl.RoleConfigPackage.class);
         RoleConfigPackageServiceImpl.RoleConfigItem item = payload.getRoles().stream()
                 .filter(current -> "scheduler".equals(current.getCode()))

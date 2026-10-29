@@ -47,6 +47,7 @@ public class MesTeamLeaderActiveOrderRow {
     private Long releaseApplicationId;
     private Long pqcReleaseWorkTaskId;
     private String releaseApplicationStatus;
+    private Boolean releaseCorrectionReceivable;
     private String releaseSourceSnapshotHash;
     private Integer releaseApplicationVersion;
     private Boolean quantityConflict;

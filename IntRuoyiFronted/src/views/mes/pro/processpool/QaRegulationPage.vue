@@ -1,16 +1,5 @@
 <template>
   <div class="qa-regulation-page" data-qa-regulation-page>
-    <ContentWrap class="qa-regulation-page__workspace-tabs-wrap">
-      <el-tabs
-        v-model="regulationWorkspaceTab"
-        class="qa-regulation-page__workspace-tabs"
-        data-qa-regulation-workspace-tabs
-      >
-        <el-tab-pane label="QA检验规程" name="qa" data-qa-regulation-qa-workspace-tab />
-        <el-tab-pane label="通用检验规程" name="common" data-qa-regulation-common-workspace-tab />
-      </el-tabs>
-    </ContentWrap>
-
     <ContentWrap
       v-show="regulationWorkspaceTab === 'qa'"
       class="qa-regulation-page__project-wrap"
@@ -693,106 +682,99 @@
                 :image-size="72"
               />
               <template v-else>
-                <div class="qa-regulation-page__common-set-detail-head">
-                  <div class="qa-regulation-page__common-set-detail-title">
-                    <strong>套版本</strong>
-                    <span>{{ selectedCommonRegulationSet.setName }}</span>
-                    <el-tag effect="plain">{{ selectedCommonRegulationSet.setCode }}</el-tag>
-                  </div>
-                  <el-button
-                    type="primary"
-                    plain
-                    data-qa-common-set-version-create
-                    @click="openCommonRegulationSetVersionDialog(selectedCommonRegulationSet)"
-                  >
-                    <Icon class="mr-5px" icon="ep:plus" />
-                    新增套版本
-                  </el-button>
-                </div>
-                <el-table
-                  :data="selectedCommonRegulationSet.versions || []"
-                  row-key="id"
-                  border
-                  stripe
-                  highlight-current-row
-                  :current-row-key="selectedCommonRegulationSetVersionPreviewId"
-                  empty-text="该套暂无版本"
-                  max-height="320"
-                  data-qa-common-set-version-table
-                  @row-click="selectCommonRegulationSetVersion"
+
+                <UnifiedListTemplate
+                  table-key="mes.qa.commonRegulation.versions"
+                  :rows="selectedCommonRegulationSet.versions || []"
+                  class="unified-list-template--contained"
+                  data-list-viewport="embedded"
                 >
-                  <el-table-column label="套版本" prop="versionNo" width="120">
-                    <template #default="{ row }">
-                      <div class="qa-regulation-page__common-set-version-cell">
-                        <strong>{{ row.versionNo }}</strong>
-                        <el-tag
-                          v-if="
-                            Number(row.id) === Number(selectedCommonRegulationSet.currentVersionId)
-                          "
-                          size="small"
-                          type="success"
-                          effect="plain"
-                        >
-                          当前
-                        </el-tag>
-                      </div>
-                    </template>
-                  </el-table-column>
-                  <el-table-column label="状态" width="100" align="center">
-                    <template #default="{ row }">
-                      <el-tag
-                        :type="resolveQaRegulationLifecycleStatusTagType(row.lifecycleStatus)"
-                        effect="plain"
+                  <template #actions>
+                    <el-button
+                      type="primary"
+                      plain
+                      data-qa-common-set-version-create
+                      @click="openCommonRegulationSetVersionDialog(selectedCommonRegulationSet)"
+                    >
+                      <Icon class="mr-5px" icon="ep:plus" />
+                      新增套版本
+                    </el-button>
+                  </template>
+                  <template #table="{ rows: standardRows }">
+                    <el-table
+                      :data="standardRows"
+                      row-key="id"
+                      border
+                      stripe
+                      highlight-current-row
+                      :current-row-key="selectedCommonRegulationSetVersionPreviewId"
+                      empty-text="该套暂无版本"
+                      data-qa-common-set-version-table
+                      @row-click="selectCommonRegulationSetVersion"
+                    >
+                      <el-table-column label="套版本" prop="versionNo" width="120">
+                        <template #default="{ row }">
+                          <div class="qa-regulation-page__common-set-version-cell">
+                            <strong>{{ row.versionNo }}</strong>
+                            <el-tag
+                              v-if="Number(row.id) === Number(selectedCommonRegulationSet.currentVersionId)"
+                              size="small"
+                              type="success"
+                              effect="plain"
+                            >
+                              当前
+                            </el-tag>
+                          </div>
+                        </template>
+                      </el-table-column>
+                      <el-table-column label="状态" width="100" align="center">
+                        <template #default="{ row }">
+                          <el-tag
+                            :type="resolveQaRegulationLifecycleStatusTagType(row.lifecycleStatus)"
+                            effect="plain"
+                          >
+                            {{ resolveQaRegulationLifecycleStatusText(row.lifecycleStatus) }}
+                          </el-tag>
+                        </template>
+                      </el-table-column>
+                      <el-table-column label="生效日期" prop="effectiveDate" width="130" align="center" />
+                      <el-table-column label="成员数" width="100" align="center">
+                        <template #default="{ row }">{{ row.members?.length || 0 }}</template>
+                      </el-table-column>
+                      <el-table-column label="包含规程" min-width="320" show-overflow-tooltip>
+                        <template #default="{ row }">
+                          {{ row.members?.map((member) => member.commonRegulationName).join('、') || '未配置' }}
+                        </template>
+                      </el-table-column>
+                      <el-table-column
+                        label="操作"
+                        width="160"
+                        :fixed="isCommonRegulationSetWideViewport ? 'right' : false"
+                        align="center"
                       >
-                        {{ resolveQaRegulationLifecycleStatusText(row.lifecycleStatus) }}
-                      </el-tag>
-                    </template>
-                  </el-table-column>
-                  <el-table-column
-                    label="生效日期"
-                    prop="effectiveDate"
-                    width="130"
-                    align="center"
-                  />
-                  <el-table-column label="成员数" width="100" align="center">
-                    <template #default="{ row }">{{ row.members?.length || 0 }}</template>
-                  </el-table-column>
-                  <el-table-column label="包含规程" min-width="320" show-overflow-tooltip>
-                    <template #default="{ row }">
-                      {{
-                        row.members?.map((member) => member.commonRegulationName).join('、') ||
-                        '未配置'
-                      }}
-                    </template>
-                  </el-table-column>
-                  <el-table-column
-                    label="操作"
-                    width="160"
-                    :fixed="isCommonRegulationSetWideViewport ? 'right' : false"
-                    align="center"
-                  >
-                    <template #default="{ row }">
-                      <el-button
-                        link
-                        type="primary"
-                        :disabled="!canEditCommonSetVersion(row)"
-                        @click.stop="
-                          openCommonRegulationSetVersionDialog(selectedCommonRegulationSet, row)
-                        "
-                      >
-                        编辑
-                      </el-button>
-                      <el-button
-                        link
-                        type="danger"
-                        :disabled="!canEditCommonSetVersion(row)"
-                        @click.stop="deleteCommonRegulationSetVersion(row)"
-                      >
-                        删除
-                      </el-button>
-                    </template>
-                  </el-table-column>
-                </el-table>
+                        <template #default="{ row }">
+                          <el-button
+                            link
+                            type="primary"
+                            :disabled="!canEditCommonSetVersion(row)"
+                            @click.stop="openCommonRegulationSetVersionDialog(selectedCommonRegulationSet, row)"
+                          >
+                            编辑
+                          </el-button>
+                          <el-button
+                            link
+                            type="danger"
+                            :disabled="!canEditCommonSetVersion(row)"
+                            @click.stop="deleteCommonRegulationSetVersion(row)"
+                          >
+                            删除
+                          </el-button>
+                        </template>
+                      </el-table-column>
+                    </el-table>
+                  </template>
+                </UnifiedListTemplate>
+
               </template>
             </div>
 
@@ -927,7 +909,7 @@
                   <template
                     #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }"
                   >
-                    <el-table
+                    <el-table stripe
                       :data="pagedCommonRegulationItems"
                       row-key="rowKey"
                       border
@@ -1583,7 +1565,7 @@
             @column-reset="resetQaItemsColumnConfig"
           >
             <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
-              <el-table
+              <el-table stripe
                 :data="pagedQaRegulationItems"
                 border
                 size="small"
@@ -2014,7 +1996,7 @@
               @column-reset="resetQaChecksColumnConfig"
             >
               <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
-                <el-table
+                <el-table stripe
                   :data="pagedQaRegulationCompletenessChecks"
                   border
                   size="small"
@@ -2089,7 +2071,7 @@
               @column-reset="resetQaPqcPreviewColumnConfig"
             >
               <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
-                <el-table
+                <el-table stripe
                   :data="pagedQaPqcTaskPreviewRows"
                   border
                   size="small"
@@ -2335,7 +2317,7 @@ import { useTestMode } from '@/store/modules/testMode'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import type { UploadFile, UploadUserFile } from 'element-plus'
 import { useClipboard, useMediaQuery } from '@vueuse/core'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import UserTableColumnSettings from '@/components/UserTableColumnSettings/index.vue'
 import {
@@ -2486,7 +2468,10 @@ const DCC_PROJECT_CODE_PAGE_SIZE = 200
 const QA_REGULATION_LAST_DCC_PROJECT_CODE_ID_STORAGE_KEY =
   'int-ruoyi:qa-regulation:last-dcc-project-code-id'
 
-const regulationWorkspaceTab = ref<RegulationWorkspaceTabName>('qa')
+const props = withDefaults(defineProps<{ workspace?: RegulationWorkspaceTabName }>(), {
+  workspace: 'qa'
+})
+const regulationWorkspaceTab = computed(() => props.workspace)
 const qaActiveTab = ref<QaRegulationTabName>('overview')
 const commonRegulationActiveTab = ref<CommonRegulationTabName>('overview')
 const qaItemsQuery = reactive<QaLocalListQuery>({ pageNo: 1, pageSize: 10 })
@@ -2712,6 +2697,7 @@ const qaCurrentPublishedVersionLoadError = ref('')
 let qaCurrentPublishedVersionLoadSerial = 0
 
 const route = useRoute()
+const router = useRouter()
 const { copy: copyQaProjectSelectionToClipboard } = useClipboard({ legacy: true })
 const isCommonRegulationSetWideViewport = useMediaQuery('(min-width: 900px)')
 
@@ -4056,10 +4042,12 @@ const viewCurrentCommonRegulation = () => {
     ElMessage.warning('当前产品未关联通用检验规程')
     return
   }
-  regulationWorkspaceTab.value = 'common'
-  if (binding.commonRegulationSetId) {
-    handleCommonRegulationSetSwitch(binding.commonRegulationSetId)
-  }
+  void router.push({
+    path: '/mes/pro/process-pool/common-regulation',
+    query: binding.commonRegulationSetId
+      ? { commonRegulationSetId: String(binding.commonRegulationSetId) }
+      : {}
+  })
 }
 
 const reloadCommonRegulationSets = async () => {
@@ -4496,7 +4484,6 @@ const submitQaWordImport = async () => {
     if (importCommonRegulation) {
       await loadCommonRegulationVersionOptions()
       selectedCommonRegulationVersionId.value = savedResult.publishedVersionId
-      regulationWorkspaceTab.value = 'common'
       qaWordImportDialogVisible.value = false
       const routeText = savedResult.route === 'CREATE' ? '新建' : '升版'
       ElMessage.success(
@@ -4619,14 +4606,23 @@ const initializeQaRegulationPage = async () => {
 
 const initializeCommonRegulationWorkspace = async () => {
   await loadCommonRegulationVersionOptions()
+  if (props.workspace === 'common' && route.query.commonRegulationSetId) {
+    const setId = resolvePositiveId(route.query.commonRegulationSetId, '通用规程套 ID')
+    if (!commonRegulationSets.value.some((set) => set.id === setId)) {
+      throw new Error('指定的通用规程套不存在或无权查看')
+    }
+    handleCommonRegulationSetSwitch(setId)
+  }
 }
 
 onMounted(() => {
-  void initializeQaRegulationPage().catch((error) => {
-    const message = resolveDccProjectCodeErrorMessage(error)
-    dccProjectCodeLoadError.value = message
-    ElMessage.error(message)
-  })
+  if (props.workspace === 'qa') {
+    void initializeQaRegulationPage().catch((error) => {
+      const message = resolveDccProjectCodeErrorMessage(error)
+      dccProjectCodeLoadError.value = message
+      ElMessage.error(message)
+    })
+  }
   void initializeCommonRegulationWorkspace().catch((error) => {
     ElMessage.error(resolveDccProjectCodeErrorMessage(error))
   })
@@ -5175,23 +5171,6 @@ const runQaPublishPrecheck = async () => {
   color: #172033;
   font-size: 20px;
   font-weight: 700;
-}
-
-.qa-regulation-page__workspace-tabs-wrap {
-  margin-bottom: 0 !important;
-}
-
-.qa-regulation-page__workspace-tabs-wrap :deep(.el-card__body) {
-  padding-top: 10px !important;
-  padding-bottom: 0 !important;
-}
-
-.qa-regulation-page__workspace-tabs :deep(.el-tabs__header) {
-  margin-bottom: 0;
-}
-
-.qa-regulation-page__workspace-tabs :deep(.el-tabs__content) {
-  display: none;
 }
 
 .qa-regulation-page__hint {

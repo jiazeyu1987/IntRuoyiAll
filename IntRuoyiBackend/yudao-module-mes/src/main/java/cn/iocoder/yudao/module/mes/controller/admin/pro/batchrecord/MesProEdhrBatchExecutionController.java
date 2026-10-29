@@ -3,11 +3,9 @@ package cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord;
 import cn.iocoder.yudao.framework.common.pojo.CommonResult;
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
 import cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils;
-import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionCloseReqVO;
-import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionGoldenFingerBulkVoidReqVO;
-import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionGoldenFingerBulkVoidRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionOpenOrCreateReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionPageReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchHistoryRowRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionQualityRejectReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionReexecuteReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionRespVO;
@@ -92,6 +90,8 @@ public class MesProEdhrBatchExecutionController {
     @Resource
     private MesProEdhrBatchActiveOrderDetailService batchActiveOrderDetailService;
     @Resource
+    private cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderProductionMaterialService productionMaterialService;
+    @Resource
     private MesProEdhrBatchTraceabilityService batchTraceabilityService;
     @Resource
     private MesProEdhrBatchTraceTxCProducer batchTraceTxCProducer;
@@ -126,6 +126,12 @@ public class MesProEdhrBatchExecutionController {
         return success(batchExecutionService.getPage(reqVO));
     }
 
+    @GetMapping("/history-page")
+    @PreAuthorize("@ss.hasPermission('mes:pro-edhr-batch-execution:query')")
+    public CommonResult<PageResult<EdhrBatchHistoryRowRespVO>> getHistoryPage(@Valid EdhrBatchExecutionPageReqVO reqVO) {
+        return success(batchExecutionService.getHistoryPage(reqVO));
+    }
+
     @GetMapping("/get")
     @PreAuthorize("@ss.hasPermission('mes:pro-edhr-batch-execution:query')")
     public CommonResult<EdhrBatchExecutionRespVO> get(@RequestParam("id") Long id) {
@@ -142,6 +148,17 @@ public class MesProEdhrBatchExecutionController {
                 : batchActiveOrderDetailService.getDetail(batchExecutionId);
         return success(MesProcessPoolTeamLeaderController.toActiveOrderDetailRespVO(
                 detail));
+    }
+
+    @GetMapping("/active-order-production-material-lists")
+    @PreAuthorize("@ss.hasPermission('mes:pro-edhr-batch-execution:query')")
+    public CommonResult<List<cn.iocoder.yudao.module.mes.controller.admin.pro.workorder.vo.kingdee.MesKingdeeProductionMaterialListRespVO>> getActiveOrderProductionMaterialLists(
+            @RequestParam(value = "batchExecutionId", required = false) Long batchExecutionId,
+            @RequestParam(value = "activeOrderId", required = false) Long activeOrderId) {
+        MesTeamLeaderActiveOrderDetail detail = activeOrderId != null
+                ? batchActiveOrderDetailService.getDetailByActiveOrderId(activeOrderId)
+                : batchActiveOrderDetailService.getDetail(batchExecutionId);
+        return success(productionMaterialService.getListForValidatedDetail(detail));
     }
 
     @GetMapping("/audit/page")
@@ -202,13 +219,6 @@ public class MesProEdhrBatchExecutionController {
     public CommonResult<EdhrBatchExecutionRespVO> reexecuteRejectedBatch(
             @Valid @RequestBody EdhrBatchExecutionReexecuteReqVO reqVO) {
         return success(batchExecutionService.reexecuteRejectedBatch(reqVO));
-    }
-
-    @PostMapping("/golden-finger/bulk-void")
-    @PreAuthorize("@ss.hasPermission('mes:pro-batch-record-execution:golden-finger')")
-    public CommonResult<EdhrBatchExecutionGoldenFingerBulkVoidRespVO> goldenFingerBulkVoid(
-            @Valid @RequestBody EdhrBatchExecutionGoldenFingerBulkVoidReqVO reqVO) {
-        return success(batchExecutionService.goldenFingerBulkVoid(reqVO));
     }
 
     @PostMapping("/local-state-sample")
@@ -427,12 +437,6 @@ public class MesProEdhrBatchExecutionController {
                 .setExecutorUserId(executorUserId)
                 .setApproverUserId(approverUserId)
                 .setArchiverUserId(archiverUserId)));
-    }
-
-    @PostMapping("/close")
-    @PreAuthorize("@ss.hasPermission('mes:pro-edhr-batch-execution:close')")
-    public CommonResult<EdhrBatchExecutionRespVO> close(@Valid @RequestBody EdhrBatchExecutionCloseReqVO reqVO) {
-        return success(batchExecutionService.close(reqVO));
     }
 
     @PostMapping("/quality-reject")

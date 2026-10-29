@@ -35,7 +35,30 @@ public class UserPageReqVO extends PageParam {
     @Schema(description = "部门编号，同时筛选子部门", example = "1024")
     private Long deptId;
 
+    @Schema(description = "多个部门编号，部门间取并集，是否包含子部门由 includeChildDepts 决定")
+    private java.util.List<@jakarta.validation.constraints.Positive Long> deptIds;
+    @Schema(description = "所选部门内人员范围：ALL 全部，MEMBER 组员，LEADER 部门主管")
+    @jakarta.validation.constraints.Pattern(regexp = "ALL|MEMBER|LEADER")
+    private String deptLeaderMode;
+
+    @jakarta.validation.constraints.AssertTrue(message = "请选择部门后再筛选组员或主管")
+    public boolean isDepartmentMemberFilterValid() {
+        return deptLeaderMode == null || "ALL".equals(deptLeaderMode)
+                || deptId != null || (deptIds != null && !deptIds.isEmpty());
+    }
+
     @Schema(description = "角色编号", example = "1024")
     private Long roleId;
+    @Schema(description = "用户昵称，模糊匹配")
+    private String nickname;
+    @Schema(description = "岗位编号")
+    private Long postId;
+    @Schema(description = "是否包含子部门，默认包含")
+    private Boolean includeChildDepts;
+    @Schema(description = "固定部门范围（含子部门），与筛选部门取交集")
+    private Long scopeDeptId;
+    private Long scopeRoleId;
+    private Long scopePostId;
+    private java.util.List<Long> ids;
 
 }

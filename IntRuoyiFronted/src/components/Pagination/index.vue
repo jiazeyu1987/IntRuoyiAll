@@ -10,7 +10,7 @@
     :total="total"
     :small="isSmall"
     class="float-right mb-15px mt-15px"
-    layout="total, sizes, prev, pager, next, jumper"
+    :layout="layout"
     @keydown.enter.capture="handleJumperEnter"
     @size-change="handleSizeChange"
     @current-change="handleCurrentChange"
@@ -40,6 +40,10 @@ watchEffect(() => {
 })
 
 const props = defineProps({
+  layout: {
+    type: String,
+    default: 'total, sizes, prev, pager, next, jumper'
+  },
   // 总条目数
   total: {
     required: true,

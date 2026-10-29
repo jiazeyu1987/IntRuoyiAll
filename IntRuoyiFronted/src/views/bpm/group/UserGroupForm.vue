@@ -14,14 +14,12 @@
         <el-input v-model="formData.description" placeholder="请输入描述" type="textarea" />
       </el-form-item>
       <el-form-item label="成员" prop="userIds">
-        <el-select v-model="formData.userIds" multiple placeholder="请选择成员">
-          <el-option
-            v-for="user in userList"
-            :key="user.id"
-            :label="user.nickname"
-            :value="user.id"
-          />
-        </el-select>
+        <UserSelectV2
+          v-model="formData.userIds"
+          multiple
+          placeholder="请选择成员"
+          :user-options="userList"
+        />
       </el-form-item>
       <el-form-item label="状态" prop="status">
         <el-radio-group v-model="formData.status">
@@ -42,6 +40,7 @@
   </Dialog>
 </template>
 <script lang="ts" setup>
+import UserSelectV2 from '@/views/system/user/components/UserSelectV2.vue'
 import { DICT_TYPE, getIntDictOptions } from '@/utils/dict'
 import { CommonStatusEnum } from '@/utils/constants'
 import * as UserGroupApi from '@/api/bpm/userGroup'

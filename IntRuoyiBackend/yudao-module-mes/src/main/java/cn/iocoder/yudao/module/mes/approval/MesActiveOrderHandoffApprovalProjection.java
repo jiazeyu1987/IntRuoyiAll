@@ -37,6 +37,7 @@ public class MesActiveOrderHandoffApprovalProjection {
                 .eq(MesActiveOrderHandoffTaskDO::getTenantId,tenant())):tasks.own(tenant(),context.getLoginUserId());
         return rows.stream().filter(t->!Boolean.TRUE.equals(t.getNotificationOnly()))
                 .filter(t->context.getViewType()==ApprovalTaskViewType.TODO?"TODO".equals(t.getStatus())&&handoff.current(t)
+                                && !"QA_DECISION_HANDOFF".equals(t.getTaskType())
                         :"DONE".equals(t.getStatus())&&(context.isGlobalView()||Objects.equals(t.getCompletedBy(),context.getLoginUserId())))
                 .filter(t->context.getKeyword()==null||context.getKeyword().isBlank()
                         ||(label(t.getTaskType())+" "+t.getActiveOrderId()+" "+t.getWorkOrderId()+" "+t.getReason()).contains(context.getKeyword().trim()))
@@ -60,7 +61,9 @@ public class MesActiveOrderHandoffApprovalProjection {
                 .currentNodeCode(task.getTaskType()).currentNodeName(label(task.getTaskType())).initiatorUserId(task.getInitiatedBy())
                 .assigneeUserId(outcome.taskCompletedByUserId()).taskCreatedAt(task.getCreateTime()).taskCompletedAt(task.getCompletedAt())
                 .detailRoute(path).detailQuery(query).decisionDetailRoute(path).decisionDetailQuery(query)
-                .requiresSignature(true).availableActions("TODO".equals(task.getStatus()) && missing.isEmpty() && ownResultAllowed?Set.of("PROCESS_IN_MODULE"):Set.of())
+                .requiresSignature(!"QA_DECISION_HANDOFF".equals(task.getTaskType()))
+                .availableActions("TODO".equals(task.getStatus()) && !"QA_DECISION_HANDOFF".equals(task.getTaskType())
+                        && missing.isEmpty() && ownResultAllowed?Set.of("PROCESS_IN_MODULE"):Set.of())
                 .capabilities(CAPABILITIES).build(), outcome);
     }
     private static List<String> requiredNavigationPermissions(MesActiveOrderHandoffTaskDO task, String path) {
@@ -72,7 +75,8 @@ public class MesActiveOrderHandoffApprovalProjection {
                             : List.of("mes:pro-feedback:query", "mes:pro-feedback:create");
             case "/mes/pro/process-pool/production-leader", "/mes/pro/process-pool/pqc-leader" ->
                     List.of("mes:pro-process-pool-team-leader:query");
-            case "/mes/pro/feedback/edhr-nonconformance-review" -> List.of("mes:pro-edhr-nonconformance-review:query");
+            case "/mes/pro/feedback/edhr-nonconformance-review" -> List.of("mes:pro-edhr-nonconformance-review:query",
+                    "mes:pro-edhr-nonconformance-review:dispose");
             case "/user/profile" -> List.of(); // Own notification reads require the authenticated user, not a menu permission.
             default -> throw failure("交接目标页权限合同未定义");
         };

@@ -1016,6 +1016,9 @@
             placeholder="请输入重开原因"
           />
         </el-form-item>
+        <el-form-item label="审批人" required>
+          <RecordChangeUserSelect v-model="reopenApproverUserId" :load-user-options="getEdhrRecordChangeApprovers" exclude-current-user placeholder="请选择本次变更审批人" />
+        </el-form-item>
         <el-form-item label="签名密码" required>
           <el-input
             v-model="reopenForm.password"
@@ -1216,29 +1219,48 @@
       </template>
     </Dialog>
 
-    <el-drawer
+    <el-drawer class="edhr-detail-surface"
       v-model="archivePrintDrawerVisible"
       title="归档打印"
-      size="520px"
+      size="760px"
       data-edhr-archive-drawer
     >
-      <el-descriptions v-if="latestBatchArchive" :column="1" border class="mb-16px">
-        <el-descriptions-item label="归档版本">
-          <span data-edhr-archive-version>V{{ latestBatchArchive.archiveVersion || '--' }}</span>
-        </el-descriptions-item>
-        <el-descriptions-item label="归档状态">
-          <span data-edhr-archive-status>{{ latestBatchArchive.archiveStatus || '--' }}</span>
-        </el-descriptions-item>
-        <el-descriptions-item label="长期归档格式">
-          <el-tag v-if="latestBatchArchivePdfAValid" type="success">
-            {{ latestBatchArchive.pdfaProfile }} 已校验
-          </el-tag>
-          <span v-else>PDF/A 未验证</span>
-        </el-descriptions-item>
-        <el-descriptions-item label="校验时间">
-          {{ formatReviewTime(latestBatchArchive.pdfaValidatedAt) }}
-        </el-descriptions-item>
-      </el-descriptions>
+      <div v-if="latestBatchArchive" class="mb-16px">
+        <dl class="edhr-detail-summary">
+          <div>
+            <dt>归档版本</dt>
+            <dd>
+              <span data-edhr-archive-version>V{{ latestBatchArchive.archiveVersion || "--" }}</span>
+            </dd>
+          </div>
+          <div>
+            <dt>归档状态</dt>
+            <dd>
+              <span data-edhr-archive-status>{{ latestBatchArchive.archiveStatus || "--" }}</span>
+            </dd>
+          </div>
+        </dl>
+        <section class="edhr-detail-section">
+          <h3>归档校验</h3>
+          <dl class="edhr-detail-fields">
+            <div>
+              <dt>长期归档格式</dt>
+              <dd>
+                <el-tag v-if="latestBatchArchivePdfAValid" type="success">
+                  {{ latestBatchArchive.pdfaProfile }} 已校验
+                </el-tag>
+                <span v-else>PDF/A 未验证</span>
+              </dd>
+            </div>
+            <div>
+              <dt>校验时间</dt>
+              <dd>
+                {{ formatReviewTime(latestBatchArchive.pdfaValidatedAt) }}
+              </dd>
+            </div>
+          </dl>
+        </section>
+      </div>
       <div class="edhr-batch-detail__group-actions">
         <el-button
           v-hasPermi="['mes:pro-edhr-batch-execution-archive:create']"
@@ -1279,7 +1301,7 @@
       </el-table>
     </el-drawer>
 
-    <el-drawer v-model="traceRecordDrawerVisible" title="追溯记录" size="72%">
+    <el-drawer class="edhr-detail-surface" v-model="traceRecordDrawerVisible" title="追溯记录" size="72%">
       <el-alert
         v-if="releaseActionError"
         :title="releaseActionError"
@@ -1293,25 +1315,91 @@
           <el-skeleton v-if="reviewLoading" :rows="6" animated />
           <el-alert v-else-if="reviewError" :title="reviewError" type="error" :closable="false" show-icon />
           <template v-else-if="reviewTimeline?.batchEvents?.length">
-            <el-descriptions
-              v-for="(event, index) in reviewTimeline.batchEvents"
-              :key="index"
-              :column="1"
-              border
-            >
-              <el-descriptions-item label="批次执行编号">{{ event.batchExecutionCode || '未记录' }}</el-descriptions-item>
-              <el-descriptions-item label="批次执行ID">{{ event.batchExecutionId ?? '未记录' }}</el-descriptions-item>
-              <el-descriptions-item label="状态">{{ event.status == null ? '未记录' : resolveBatchStatusLabel(event.status) }}</el-descriptions-item>
-              <el-descriptions-item label="创建时间">{{ event.createTime == null || event.createTime === '' ? '未记录' : formatReviewTime(event.createTime) }}</el-descriptions-item>
-              <el-descriptions-item label="聚合摘要">{{ event.aggregateHash || '未记录' }}</el-descriptions-item>
-              <el-descriptions-item label="关闭人员编号">{{ event.closedBy ?? '未记录' }}</el-descriptions-item>
-              <el-descriptions-item label="关闭时间">{{ event.closedAt == null || event.closedAt === '' ? '未记录' : formatReviewTime(event.closedAt) }}</el-descriptions-item>
-              <el-descriptions-item label="关闭签名编号">{{ event.closeSignatureId ?? '未记录' }}</el-descriptions-item>
-              <el-descriptions-item label="拒收人员编号">{{ event.rejectedBy ?? '未记录' }}</el-descriptions-item>
-              <el-descriptions-item label="拒收时间">{{ event.rejectedAt == null || event.rejectedAt === '' ? '未记录' : formatReviewTime(event.rejectedAt) }}</el-descriptions-item>
-              <el-descriptions-item label="拒收签名编号">{{ event.rejectSignatureId ?? '未记录' }}</el-descriptions-item>
-              <el-descriptions-item label="拒收原因">{{ event.rejectReason || '未记录' }}</el-descriptions-item>
-            </el-descriptions>
+            <div v-for="(event, index) in reviewTimeline.batchEvents" :key="index">
+              <dl class="edhr-detail-summary">
+                <div>
+                  <dt>批次执行编号</dt>
+                  <dd>{{ event.batchExecutionCode || "未记录" }}</dd>
+                </div>
+                <div>
+                  <dt>状态</dt>
+                  <dd>{{ event.status == null ? "未记录" : resolveBatchStatusLabel(event.status) }}</dd>
+                </div>
+                <div>
+                  <dt>创建时间</dt>
+                  <dd>
+                    {{
+                      event.createTime == null || event.createTime === ""
+                        ? "未记录"
+                        : formatReviewTime(event.createTime)
+                    }}
+                  </dd>
+                </div>
+              </dl>
+              <section class="edhr-detail-section">
+                <h3>关闭信息</h3>
+                <dl class="edhr-detail-fields">
+                  <div>
+                    <dt>关闭人员编号</dt>
+                    <dd>{{ event.closedBy ?? "未记录" }}</dd>
+                  </div>
+                  <div>
+                    <dt>关闭时间</dt>
+                    <dd>
+                      {{
+                        event.closedAt == null || event.closedAt === ""
+                          ? "未记录"
+                          : formatReviewTime(event.closedAt)
+                      }}
+                    </dd>
+                  </div>
+                </dl>
+              </section>
+              <section class="edhr-detail-section">
+                <h3>拒收信息</h3>
+                <dl class="edhr-detail-fields edhr-detail-fields--soft">
+                  <div>
+                    <dt>拒收人员编号</dt>
+                    <dd>{{ event.rejectedBy ?? "未记录" }}</dd>
+                  </div>
+                  <div>
+                    <dt>拒收时间</dt>
+                    <dd>
+                      {{
+                        event.rejectedAt == null || event.rejectedAt === ""
+                          ? "未记录"
+                          : formatReviewTime(event.rejectedAt)
+                      }}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>拒收原因</dt>
+                    <dd>{{ event.rejectReason || "未记录" }}</dd>
+                  </div>
+                </dl>
+              </section>
+              <details class="edhr-detail-proof">
+                <summary>追溯标识<span>展开查看</span></summary>
+                <dl class="edhr-detail-fields">
+                  <div>
+                    <dt>批次执行ID</dt>
+                    <dd>{{ event.batchExecutionId ?? "未记录" }}</dd>
+                  </div>
+                  <div>
+                    <dt>聚合摘要</dt>
+                    <dd>{{ event.aggregateHash || "未记录" }}</dd>
+                  </div>
+                  <div>
+                    <dt>关闭签名编号</dt>
+                    <dd>{{ event.closeSignatureId ?? "未记录" }}</dd>
+                  </div>
+                  <div>
+                    <dt>拒收签名编号</dt>
+                    <dd>{{ event.rejectSignatureId ?? "未记录" }}</dd>
+                  </div>
+                </dl>
+              </details>
+            </div>
           </template>
           <el-empty v-else description="暂无批次信息" />
         </el-tab-pane>
@@ -1527,6 +1615,7 @@
 </template>
 
 <script setup lang="ts">
+import '@/views/mes/pro/edhr/shared/detail-surface.scss'
 import { useTestMode } from '@/store/modules/testMode'
 
 import { ElMessageBox, type UploadInstance, type UploadRequestOptions } from 'element-plus'
@@ -1610,7 +1699,8 @@ import {
   type TeamLeaderActiveOrderDetailRespVO
 } from '@/api/mes/pro/processpool/teamLeader'
 import dayjs from 'dayjs'
-import { requestReopenBatch } from '@/api/mes/pro/edhr/change'
+import { requestReopenBatch, getEdhrRecordChangeApprovers } from '@/api/mes/pro/edhr/change'
+import RecordChangeUserSelect from '@/views/system/user/components/UserSelect.vue'
 import {
   buildEdhrSpecialNodeAttachmentPreviewSource,
   type OnlineFilePreviewSource
@@ -1816,6 +1906,7 @@ const UX_CHECKLIST_ITEMS = [
   }
 ]
 const reopenDialogVisible = ref(false)
+const reopenApproverUserId = ref<string | number>()
 const reexecuteDialogVisible = ref(false)
 const specialNodeSkipDialogVisible = ref(false)
 const specialNodeCompleteDialogVisible = ref(false)
@@ -2876,7 +2967,7 @@ const resolveReleaseStageViewModel = (stageKey: ReleaseStageKey): ReleaseStageVi
     case 'archived':
       return {
         key: 'archived',
-        stageLabel: '已归档',
+        stageLabel: '已放行',
         badgeLabel: resolveBatchStatusLabel(batchStatus.value),
         tagType: 'success',
         description: '批次已完成归档，当前阶段只需要查看归档和追溯证据。',
@@ -3602,8 +3693,8 @@ const resolveBatchStatusLabel = (status?: number) => {
     [EDHR_BATCH_STATUS_READY_TO_CLOSE]: '待关闭',
     [EDHR_BATCH_STATUS_REWORK_REQUIRED]: '需返工/需修订',
     [EDHR_BATCH_STATUS_CLOSED]: '已关闭',
-    [EDHR_BATCH_STATUS_ARCHIVED]: '已归档',
-    [EDHR_BATCH_STATUS_REJECTED]: '质量已拒收',
+    [EDHR_BATCH_STATUS_ARCHIVED]: '已放行',
+    [EDHR_BATCH_STATUS_REJECTED]: '已返工',
     [EDHR_BATCH_STATUS_VOIDED]: '已作废'
   }
   return status == null ? '--' : labels[status] || String(status)
@@ -4328,7 +4419,7 @@ const resolveArchiveStatusSummary = () => {
       ? `${versionText} ${latestArchive.pdfaProfile} 已校验`
       : `${versionText} ${latestArchive.archiveStatus} · PDF/A 未验证`
   }
-  if (batchStatus.value === EDHR_BATCH_STATUS_ARCHIVED) return '已归档'
+  if (batchStatus.value === EDHR_BATCH_STATUS_ARCHIVED) return '已放行'
   return canGenerateArchive.value ? '可生成归档' : '暂无归档'
 }
 
@@ -4930,6 +5021,7 @@ const handlePrintArchive = async () => {
 }
 
 const resetReopenForm = () => {
+  reopenApproverUserId.value = undefined
   reopenForm.reasonCategory = ''
   reopenForm.reasonText = ''
   reopenForm.password = ''
@@ -4964,6 +5056,10 @@ const submitReopenBatch = async () => {
     reopenError.value = '原因说明不能为空。'
     return
   }
+  if (!reopenApproverUserId.value) {
+    reopenError.value = '请选择本次变更审批人。'
+    return
+  }
   if (!reopenForm.password.trim()) {
     reopenError.value = '签名密码不能为空。'
     return
@@ -4974,6 +5070,7 @@ const submitReopenBatch = async () => {
   try {
     await requestReopenBatch({
       batchExecutionId: detail.value.id,
+      approverUserId: reopenApproverUserId.value,
       reasonCategory: reopenForm.reasonCategory,
       reasonText: reopenForm.reasonText.trim(),
       password: reopenForm.password.trim(),

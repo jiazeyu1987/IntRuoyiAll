@@ -61,6 +61,7 @@ const formLoading = ref(false)
 const formRef = ref()
 const targetUserText = ref('')
 const supervisorImpact = ref('')
+const targetUser = ref<UserApi.UserVO>()
 const formData = ref<UserApi.UserLifecycleDeactivateReqVO>({
   id: 0,
   documentType: 'RESIGNATION',
@@ -98,15 +99,18 @@ const open = async (user: UserApi.UserVO) => {
   }
   const affected = await UserApi.getSupervisorImpact([user.id])
   resetForm(user)
+  targetUser.value = user
   supervisorImpact.value = affected.length
-    ? '到生效时间才解除主管配置：' + affected.map((dept) => dept.name).join('、') + '。已有待办需另外办理交接。'
-    : '未担任部门主管。到生效时间停用账号，已有待办需另外办理交接。'
+    ? '到生效时间才解除主管配置：' +
+      affected.map((dept) => dept.name).join('、') +
+      '。登记后将自动打开现有待办交接确认。'
+    : '到生效时间停用账号。登记后将自动打开现有待办交接确认。'
   dialogVisible.value = true
 }
 
 defineExpose({ open })
 
-const emit = defineEmits(['success'])
+const emit = defineEmits(['success', 'handover'])
 const submitForm = async () => {
   if (!formRef.value) return
   const valid = await formRef.value.validate()
@@ -116,6 +120,7 @@ const submitForm = async () => {
     await UserApi.recordUserLifecycleDeactivation(formData.value)
     message.success('离职/转岗联动停用已登记')
     dialogVisible.value = false
+    emit('handover', targetUser.value)
     emit('success')
   } finally {
     formLoading.value = false

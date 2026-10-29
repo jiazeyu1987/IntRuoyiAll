@@ -149,6 +149,10 @@ public class DccApprovalPositionConfigPackageServiceImpl implements DccApprovalP
         if (item.getAssignments() == null) {
             throw exception(CONFIG_PACKAGE_CONTENT_INVALID, "审批角色配置包缺少 assignments，code={}", item.getCode());
         }
+        for (DccPositionAssignmentConfigItem assignment : item.getAssignments()) {
+            if (assignment == null) throw exception(CONFIG_PACKAGE_CONTENT_INVALID, "审批角色分配项不能为空");
+            DccPositionAssignmentTypes.validate(assignment.getAssignmentType(), assignment.getUserId(), assignment.getSystemPostId());
+        }
     }
 
     @Data

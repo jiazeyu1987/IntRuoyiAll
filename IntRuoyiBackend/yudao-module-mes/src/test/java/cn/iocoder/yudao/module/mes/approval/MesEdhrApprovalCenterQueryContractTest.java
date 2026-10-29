@@ -8,9 +8,11 @@ import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdh
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrWorkTaskDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.handoff.MesActiveOrderHandoffTaskDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrWorkTaskMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesOpenWorkTaskVisibility;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.handoff.MesActiveOrderHandoffTaskMapper;
 import com.baomidou.mybatisplus.core.MybatisConfiguration;
 import com.baomidou.mybatisplus.core.conditions.Wrapper;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.config.GlobalConfig;
 import com.baomidou.mybatisplus.core.injector.DefaultSqlInjector;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
@@ -62,13 +64,14 @@ public class MesEdhrApprovalCenterQueryContractTest {
             insert(db, 3, "FILL", 112, "112", null, 1, 0);
             insert(db, 4, "FILL", 112, "12,112", null, 1, 0);
             insert(db, 5, "FILL", 12, "112", null, 1, 0);
+            db.createStatement().execute("UPDATE mes_pro_edhr_work_task SET signature_cell_key='cell-1' WHERE task_type='FILL'");
             assertEquals(List.of(1L, 2L, 4L), ids(db, work.approvalCenterQuery(new MesProEdhrWorkTaskPageReqVO(), 12L, 1L, false, "TODO")));
             assertEquals(List.of(1L, 2L, 3L, 4L, 5L), ids(db, work.approvalCenterQuery(new MesProEdhrWorkTaskPageReqVO(), null, 1L, false, "TODO")));
         }
     }
 
     @Test
-    void terminalBatchExclusionArchiveExceptionTenantAndDeletedApplyBeforeUnionCount() throws Exception {
+    void terminalBatchExclusionTenantAndDeletedApplyBeforeApprovalUnionCount() throws Exception {
         try (Connection db = fixture()) {
             db.createStatement().execute("INSERT INTO mes_pro_edhr_batch_execution VALUES (7,1,0,30),(8,1,0,40),(9,2,0,40)");
             insert(db, 1, "REVIEW", 12, "12", 7L, 1, 0);
@@ -77,7 +80,53 @@ public class MesEdhrApprovalCenterQueryContractTest {
             insert(db, 4, "APPROVE", 12, "12", 9L, 1, 0);
             insert(db, 5, "APPROVE", 12, "12", null, 2, 0);
             insert(db, 6, "APPROVE", 12, "12", null, 1, 1);
-            assertEquals(List.of(2L, 4L), ids(db, work.approvalCenterQuery(new MesProEdhrWorkTaskPageReqVO(), 12L, 1L, false, "TODO")));
+            assertEquals(List.of(4L), ids(db, work.approvalCenterQuery(new MesProEdhrWorkTaskPageReqVO(), 12L, 1L, false, "TODO")),
+                    "ARCHIVE is an execution task, never a candidate approval merely because its batch is closed");
+            var personalArchive = new LambdaQueryWrapperX<MesProEdhrWorkTaskDO>()
+                    .apply(MesOpenWorkTaskVisibility.ownerWrapperSql(), 12L)
+                    .apply(MesOpenWorkTaskVisibility.batchSql("ARCHIVE"))
+                    .eq(MesProEdhrWorkTaskDO::getTaskType, "ARCHIVE")
+                    .eq(MesProEdhrWorkTaskDO::getStatus, "TODO");
+            assertEquals(List.of(2L), ids(db, personalArchive), "the closed-batch archive exception remains in personal execution tasks");
+        }
+    }
+
+    @Test
+    void onlyExplicitApprovalAndSignatureFillEnterApprovalCenterAndRecordChangeIgnoresBatch30And50ButNot60() throws Exception {
+        try (Connection db = fixture()) {
+            db.createStatement().execute("INSERT INTO mes_pro_edhr_batch_execution VALUES (30,1,0,30),(50,1,0,50),(60,1,0,60)");
+            insertTyped(db, 1, "FILL", null, null);
+            insertTyped(db, 2, "FILL", "cell-1", null);
+            insertTyped(db, 3, "DEVIATION_SIGN", null, null);
+            insertTyped(db, 4, "DEVIATION_CLOSE", null, null);
+            insertTyped(db, 5, "DOSSIER_COMPLETE", null, null);
+            insertTyped(db, 6, "PQC_RELEASE_CORRECTION", null, null);
+            insertTyped(db, 7, "DEVIATION_APPROVE", null, null);
+            insertTyped(db, 8, "RECORD_CHANGE_APPROVE", null, 30L);
+            insertTyped(db, 9, "RECORD_CHANGE_APPROVE", null, 50L);
+            insertTyped(db, 10, "RECORD_CHANGE_APPROVE", null, 60L);
+            insertTyped(db, 11, "FILL", "", null);
+            insertTyped(db, 12, "FILL", "   ", null);
+            insertTyped(db, 13, "RECORD_CHANGE_APPROVE", null, 30L);
+            insertTyped(db, 14, "RECORD_CHANGE_APPROVE", null, 50L);
+            insertTyped(db, 15, "RECORD_CHANGE_APPROVE", null, 60L);
+            insertTyped(db, 16, "DEVIATION_SIGN", "cell-not-an-approval", null);
+            insertTyped(db, 17, "DEVIATION_CLOSE", "cell-not-an-approval", null);
+            insertTyped(db, 18, "DOSSIER_COMPLETE", "cell-not-an-approval", null);
+            insertTyped(db, 19, "PQC_RELEASE_CORRECTION", "cell-not-an-approval", null);
+            db.createStatement().execute("UPDATE mes_pro_edhr_work_task SET assignee_user_id=112 WHERE id IN (13,14,15)");
+
+            assertEquals(List.of(2L, 7L, 8L, 9L, 13L, 14L), ids(db,
+                    work.approvalCenterQuery(new MesProEdhrWorkTaskPageReqVO(), 12L, 1L, false, "TODO")));
+            assertEquals(List.of(2L, 7L, 8L, 9L, 13L, 14L), ids(db,
+                    work.approvalCenterQuery(new MesProEdhrWorkTaskPageReqVO(), null, 1L, false, "TODO")),
+                    "the all-users approval view must not reintroduce execution tasks");
+            var personalOpenTasks = new LambdaQueryWrapperX<MesProEdhrWorkTaskDO>()
+                    .apply(MesOpenWorkTaskVisibility.ownerWrapperSql(), 12L)
+                    .apply(MesOpenWorkTaskVisibility.batchSql("RECORD_CHANGE_APPROVE"))
+                    .eq(MesProEdhrWorkTaskDO::getTaskType, "RECORD_CHANGE_APPROVE")
+                    .eq(MesProEdhrWorkTaskDO::getStatus, "TODO");
+            assertEquals(List.of(8L, 9L, 13L, 14L), ids(db, personalOpenTasks));
         }
     }
 
@@ -133,6 +182,7 @@ public class MesEdhrApprovalCenterQueryContractTest {
         var query = handoffs.approvalCenterQuery(1L, 12L, false, false, "  PQC_%  ");
         String sql = query.getSqlSegment();
         assertTrue(sql.contains("notification_only IS NULL OR notification_only ="));
+        assertTrue(sql.contains("CAST(task_type AS BINARY) <> CAST('QA_DECISION_HANDOFF' AS BINARY)"));
         assertTrue(sql.contains("FIND_IN_SET("));
         assertTrue(sql.contains("ao.tenant_id = mes_active_order_handoff_task.tenant_id"));
         assertTrue(sql.contains("ao.deleted = 0 AND CAST(ao.active_status AS BINARY) = CAST('ACTIVE' AS BINARY)"));
@@ -152,7 +202,7 @@ public class MesEdhrApprovalCenterQueryContractTest {
         assertTrue(global.getSqlSegment().contains("tenant_id ="));
     }
 
-    @Test void generatedDonePredicateRetainsDisabledFormalPqcAndQaActorsButRejectsTenantAndDeleted() throws Exception {
+    @Test void generatedDonePredicateRequiresEnabledFormalPqcAndQaActorsButRejectsTenantAndDeleted() throws Exception {
         try (Connection db = fixture()) {
             for (String column : List.of("business_scope_type VARCHAR","business_scope_id BIGINT","work_order_id BIGINT",
                     "reason VARCHAR","completed_at TIMESTAMP","review_source_type VARCHAR","review_source_id BIGINT")) {
@@ -174,7 +224,7 @@ public class MesEdhrApprovalCenterQueryContractTest {
             db.createStatement().execute("INSERT INTO mes_pro_edhr_nonconformance_review VALUES"
                     + "(96,1,0,'closed',180,93,92,'2026-10-07 11:00:00',18,'void'),"
                     + "(97,1,0,'closed',180,93,92,'2026-10-07 10:00:00',12,'void')");
-            assertEquals(List.of(1L,2L,3L),ids(db,work.approvalCenterQuery(new MesProEdhrWorkTaskPageReqVO(),12L,1L,true,"TODO")));
+            assertEquals(List.of(3L),ids(db,work.approvalCenterQuery(new MesProEdhrWorkTaskPageReqVO(),12L,1L,true,"TODO")));
             db.createStatement().execute("UPDATE system_users SET status=0");
             assertEquals(List.of(1L,2L,3L),ids(db,work.approvalCenterQuery(new MesProEdhrWorkTaskPageReqVO(),12L,1L,true,"TODO")));
             db.createStatement().execute("UPDATE system_users SET tenant_id=2");
@@ -206,17 +256,17 @@ public class MesEdhrApprovalCenterQueryContractTest {
         try (Connection db = fixture()) {
             db.createStatement().execute("CREATE ALIAS FIND_IN_SET FOR 'cn.iocoder.yudao.module.mes.approval.MesEdhrApprovalCenterQueryContractTest.findInSet'");
             db.createStatement().execute("CREATE TABLE mes_pro_process_pool_active_order(id BIGINT, tenant_id BIGINT, deleted INT, active_status VARCHAR)");
-            db.createStatement().execute("CREATE TABLE mes_active_order_handoff_task(id BIGINT, tenant_id BIGINT, deleted BOOLEAN, notification_only BOOLEAN, candidate_user_snapshot VARCHAR, completed_by BIGINT, active_order_id BIGINT, status VARCHAR)");
+            db.createStatement().execute("CREATE TABLE mes_active_order_handoff_task(id BIGINT, tenant_id BIGINT, deleted BOOLEAN, notification_only BOOLEAN, candidate_user_snapshot VARCHAR, completed_by BIGINT, active_order_id BIGINT, status VARCHAR, task_type VARCHAR)");
             db.createStatement().execute("INSERT INTO mes_pro_process_pool_active_order VALUES (1,1,0,'ACTIVE'),(2,1,0,'SUPERSEDED'),(3,2,0,'ACTIVE'),(4,1,1,'ACTIVE')");
             db.createStatement().execute("INSERT INTO mes_active_order_handoff_task VALUES"
-                    + "(1,1,FALSE,NULL,'12',NULL,1,'TODO'),(2,1,FALSE,FALSE,'12,112',NULL,1,'TODO'),"
-                    + "(3,1,FALSE,TRUE,'12',NULL,1,'TODO'),(4,1,FALSE,NULL,'12',NULL,2,'TODO'),"
-                    + "(5,1,FALSE,NULL,'12',NULL,3,'TODO'),(6,1,FALSE,NULL,'12',NULL,4,'TODO'),"
-                    + "(7,1,TRUE,NULL,'12',NULL,1,'TODO'),(8,2,FALSE,NULL,'12',NULL,3,'TODO'),"
-                    + "(9,1,FALSE,NULL,'112',NULL,1,'TODO'),(10,1,FALSE,NULL,'12',12,2,'DONE'),"
-                    + "(11,1,FALSE,NULL,'12',112,2,'DONE'),(12,1,FALSE,NULL,'112',12,2,'DONE')");
-            assertEquals(List.of(1L, 2L), idsForTable(db, handoffs.approvalCenterQuery(1L,12L,false,false,null), "mes_active_order_handoff_task"));
-            assertEquals(List.of(1L, 2L, 9L), idsForTable(db, handoffs.approvalCenterQuery(1L,12L,true,false,null), "mes_active_order_handoff_task"));
+                    + "(1,1,FALSE,NULL,'12',NULL,1,'TODO','QA_DECISION_HANDOFF'),(2,1,FALSE,FALSE,'12,112',NULL,1,'TODO','PRODUCTION_REVIEW'),"
+                    + "(3,1,FALSE,TRUE,'12',NULL,1,'TODO','QA_DECISION_HANDOFF'),(4,1,FALSE,NULL,'12',NULL,2,'TODO','PQC_HANDOFF'),"
+                    + "(5,1,FALSE,NULL,'12',NULL,3,'TODO','QA_REVIEW'),(6,1,FALSE,NULL,'12',NULL,4,'TODO','PRODUCTION_HANDOFF'),"
+                    + "(7,1,TRUE,NULL,'12',NULL,1,'TODO','PRODUCTION_REVIEW'),(8,2,FALSE,NULL,'12',NULL,3,'TODO','PRODUCTION_REVIEW'),"
+                    + "(9,1,FALSE,NULL,'112',NULL,1,'TODO','PRODUCTION_REVIEW'),(10,1,FALSE,NULL,'12',12,2,'DONE','PRODUCTION_REVIEW'),"
+                    + "(11,1,FALSE,NULL,'12',112,2,'DONE','PQC_REVIEW'),(12,1,FALSE,NULL,'112',12,2,'DONE','QA_REVIEW')");
+            assertEquals(List.of(2L), idsForTable(db, handoffs.approvalCenterQuery(1L,12L,false,false,null), "mes_active_order_handoff_task"));
+            assertEquals(List.of(2L, 9L), idsForTable(db, handoffs.approvalCenterQuery(1L,12L,true,false,null), "mes_active_order_handoff_task"));
             assertEquals(List.of(10L), idsForTable(db, handoffs.approvalCenterQuery(1L,12L,false,true,null), "mes_active_order_handoff_task"));
             assertEquals(List.of(10L, 11L, 12L), idsForTable(db, handoffs.approvalCenterQuery(1L,12L,true,true,null), "mes_active_order_handoff_task"));
         }
@@ -420,24 +470,36 @@ public class MesEdhrApprovalCenterQueryContractTest {
 
     private Connection fixture() throws SQLException {
         Connection db = DriverManager.getConnection("jdbc:h2:mem:" + UUID.randomUUID() + ";MODE=MySQL", "sa", "");
-        db.createStatement().execute("CREATE TABLE mes_pro_edhr_work_task (id BIGINT, tenant_id BIGINT, deleted BOOLEAN, task_type VARCHAR, assignee_user_id BIGINT, candidate_user_snapshot VARCHAR, batch_execution_id BIGINT, batch_code VARCHAR, batch_task_id BIGINT, status VARCHAR)");
+        db.createStatement().execute("CREATE TABLE mes_pro_edhr_work_task (id BIGINT, tenant_id BIGINT, deleted BOOLEAN, task_type VARCHAR, assignee_user_id BIGINT, candidate_user_snapshot VARCHAR, batch_execution_id BIGINT, batch_code VARCHAR, batch_task_id BIGINT, status VARCHAR, signature_cell_key VARCHAR)");
         db.createStatement().execute("CREATE TABLE mes_pro_edhr_batch_execution (id BIGINT,tenant_id BIGINT,deleted INT,status INT)");
         return db;
     }
 
     private void insert(Connection db, long id, String type, long owner, String candidates, Long batch, long tenant, int deleted) throws SQLException {
-        try (PreparedStatement sql = db.prepareStatement("INSERT INTO mes_pro_edhr_work_task VALUES (?,?,?,?,?,?,?,?,?,?)")) {
+        try (PreparedStatement sql = db.prepareStatement("INSERT INTO mes_pro_edhr_work_task (id,tenant_id,deleted,task_type,assignee_user_id,candidate_user_snapshot,batch_execution_id,batch_code,batch_task_id,status) VALUES (?,?,?,?,?,?,?,?,?,?)")) {
             sql.setLong(1, id); sql.setLong(2, tenant); sql.setBoolean(3, deleted != 0); sql.setString(4, type);
             sql.setLong(5, owner); sql.setString(6, candidates); sql.setObject(7, batch);
             sql.setString(8, "batch-" + id); sql.setObject(9, null); sql.setString(10, "TODO"); sql.executeUpdate();
         }
     }
 
-    private List<Long> ids(Connection db, LambdaQueryWrapperX<MesProEdhrWorkTaskDO> query) throws SQLException {
+    private void insertTyped(Connection db, long id, String type, String signatureCellKey, Long batch) throws SQLException {
+        try (PreparedStatement sql = db.prepareStatement("INSERT INTO mes_pro_edhr_work_task (id,tenant_id,deleted,task_type,assignee_user_id,candidate_user_snapshot,batch_execution_id,batch_code,batch_task_id,status,signature_cell_key) VALUES (?,?,FALSE,?,12,'12',?, ?,NULL,'TODO',?)")) {
+            sql.setLong(1, id);
+            sql.setLong(2, 1L);
+            sql.setString(3, type);
+            sql.setObject(4, batch);
+            sql.setString(5, "batch-" + id);
+            sql.setString(6, signatureCellKey);
+            sql.executeUpdate();
+        }
+    }
+
+    private List<Long> ids(Connection db, LambdaQueryWrapper<MesProEdhrWorkTaskDO> query) throws SQLException {
         return idsForTable(db, query, "mes_pro_edhr_work_task");
     }
 
-    private List<Long> idsForTable(Connection db, LambdaQueryWrapperX<?> query, String table) throws SQLException {
+    private List<Long> idsForTable(Connection db, LambdaQueryWrapper<?> query, String table) throws SQLException {
         String segment = query.getSqlSegment();
         var matcher = Pattern.compile("#\\{ew\\.paramNameValuePairs\\.(\\w+)\\}").matcher(segment);
         var values = new ArrayList<Object>();

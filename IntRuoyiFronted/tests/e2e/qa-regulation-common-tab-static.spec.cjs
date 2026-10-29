@@ -9,16 +9,14 @@ const pagePath = path.join(
 )
 const pageSource = fs.readFileSync(pagePath, 'utf8')
 
-assert.match(
+assert.doesNotMatch(
   pageSource,
-  /data-qa-regulation-workspace-tabs[\s\S]*label="QA检验规程"[\s\S]*label="通用检验规程"/,
-  'The page must expose QA and common inspection regulations as separate first-level tabs.'
+  /data-qa-regulation-workspace-tabs/,
+  'Independent menu pages must not retain the nested workspace switch.'
 )
-assert.match(
-  pageSource,
-  /data-qa-regulation-common-workspace-tab/,
-  'The independent common regulation tab must have a stable selector.'
-)
+const routes = fs.readFileSync(path.join(workspaceRoot, 'IntRuoyiFronted/src/router/modules/remaining.ts'), 'utf8')
+assert.ok(routes.includes("path: 'pro/process-pool/common-regulation'"))
+assert.match(routes, /CommonRegulationPage.vue/)
 assert.match(
   pageSource,
   /v-show="regulationWorkspaceTab === 'common'"[\s\S]*data-qa-regulation-common-workspace/,

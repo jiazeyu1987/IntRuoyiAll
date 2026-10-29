@@ -90,6 +90,8 @@ export default ({command, mode}: ConfigEnv): UserConfig => {
         'dayjs/plugin/weekYear.js',
         'qrcode',
         'jsbarcode',
+        'docxtemplater',
+        'pizzip',
         'vue-router',
         'vue-types',
         'vue-i18n',

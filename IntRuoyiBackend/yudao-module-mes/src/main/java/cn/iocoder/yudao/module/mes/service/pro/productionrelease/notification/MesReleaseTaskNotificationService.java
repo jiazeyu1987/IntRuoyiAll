@@ -27,6 +27,7 @@ public class MesReleaseTaskNotificationService {
     @Resource private MesReleaseTaskNotificationAudit audit;
     @Resource private PermissionApi permissionApi;
     @Resource private MesProEdhrWorkTaskMapper workTaskMapper;
+    @Resource private cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesMarketReleaseAccess marketReleaseAccess;
 
     @Transactional(propagation = Propagation.MANDATORY, rollbackFor = Exception.class)
     public void scheduleAssigned(MesProEdhrWorkTaskDO task, Long initiatedBy) {
@@ -76,10 +77,66 @@ public class MesReleaseTaskNotificationService {
         });
     }
 
+    @Transactional(propagation = Propagation.MANDATORY, rollbackFor = Exception.class)
+    public void scheduleHandover(MesProEdhrWorkTaskDO task, Long actorId, Long recipient,
+                                 Long handoverId, boolean recalled, String reason, String originalName) {
+        Long tenant = TenantContextHolder.getRequiredTenantId();
+        MesReleaseTaskNotificationContract.taskTemplate(task);
+        String event = recalled ? "RECALLED" : "HANDED_OVER";
+        Map<String,String> params = new LinkedHashMap<>();
+        params.put("workOrderCode",task.getWorkOrderCode()); params.put("batchCode",task.getBatchCode());
+        params.put("workTaskId",task.getId().toString()); params.put("reason",reason);
+        params.put("originalName",originalName);
+        params.put("actionUrl",recalled ? "/user/profile" : task.getActionUrl());
+        var row = new MesReleaseTaskNotifyDeliveryDO().setTenantId(tenant).setWorkTaskId(task.getId())
+                .setEventType(event).setEventRevision(handoverId).setUserId(recipient)
+                .setBusinessKey("MES_MARKET_RELEASE:"+event+":"+handoverId)
+                .setTemplateCode("MES_MARKET_RELEASE_"+event).setTemplateParamsJson(JsonUtils.toJsonString(params))
+                .setInitiatedBy(actorId).setStatus("PENDING").setAttemptCount(0).setRowVersion(0);
+        audit.lock();
+        if(deliveryMapper.insert(row)!=1) throw new IllegalStateException("交接通知保存失败");
+        audit.handoverCreated(row);
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override public void afterCommit() {
+                Long previous=TenantContextHolder.getTenantId();
+                try { TenantContextHolder.setTenantId(tenant); dispatchService.dispatchAssigned(tenant,task.getId()); }
+                catch(RuntimeException failure) { log.error("Handover notification delivery failed: tenant={}, task={}, failure={}",tenant,task.getId(),MesReleaseTaskNotificationContract.safeError(failure)); }
+                finally { if(previous==null) TenantContextHolder.clear(); else TenantContextHolder.setTenantId(previous); }
+            }
+        });
+    }
+
+    public boolean canRetry(Long actor,MesReleaseTaskNotifyDeliveryDO row) {
+        if(!List.of("PENDING","FAILED").contains(row.getStatus())) return false;
+        if (MesReleaseTaskNotificationContract.outcome(row.getEventType())) {
+            return java.util.Objects.equals(row.getUserId(),actor)
+                    && permissionApi.hasAnyPermissions(actor,MesReleaseTaskNotificationContract.QUERY_PERMISSION);
+        }
+        var task=workTaskMapper.selectById(row.getWorkTaskId());
+        if(task==null || task.getBatchExecutionId()==null) return false;
+        var scope=marketReleaseAccess.get(task.getBatchExecutionId(),actor);
+        if(!scope.visible()) return false;
+        if(row.getEventRevision()!=null && row.getEventRevision()>0) {
+            return scope.original() && java.util.Objects.equals(scope.handoverId(),row.getEventRevision())
+                    && (scope.active() ? "HANDED_OVER" : "RECALLED").equals(row.getEventType());
+        }
+        return java.util.Objects.equals(row.getUserId(),actor)
+                && MesReleaseTaskNotificationContract.candidates(task.getCandidateUserSnapshot()).contains(actor);
+    }
+
     public List<MesReleaseTaskNotifyDeliveryDO> listForTask(Long tenantId, Long actorId, Long workTaskId) {
         MesReleaseTaskNotificationContract.tenant(tenantId);
+        var deliveries = deliveryMapper.selectTaskDeliveries(tenantId, workTaskId);
+        var ownOutcomes = deliveries.stream().filter(row -> MesReleaseTaskNotificationContract.outcome(row.getEventType())
+                && java.util.Objects.equals(row.getUserId(), actorId)).toList();
+        if (!ownOutcomes.isEmpty() && permissionApi.hasAnyPermissions(actorId, MesReleaseTaskNotificationContract.QUERY_PERMISSION)) {
+            return ownOutcomes;
+        }
         MesProEdhrWorkTaskDO task = workTaskMapper.selectById(workTaskId);
-        MesReleaseTaskNotificationContract.access(permissionApi, tenantId, actorId, task);
-        return deliveryMapper.selectTaskDeliveries(tenantId, workTaskId);
+        if(task!=null && task.getBatchExecutionId()!=null) marketReleaseAccess.requireReadable(task.getBatchExecutionId());
+        boolean original=task!=null && task.getBatchExecutionId()!=null && marketReleaseAccess.get(task.getBatchExecutionId(),actorId).original();
+        if(!original || !permissionApi.hasAnyPermissions(actorId,MesReleaseTaskNotificationContract.QUERY_PERMISSION))
+            MesReleaseTaskNotificationContract.access(permissionApi, tenantId, actorId, task);
+        return deliveries.stream().filter(row -> !MesReleaseTaskNotificationContract.outcome(row.getEventType())).toList();
     }
 }

@@ -112,6 +112,7 @@ import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRec
 
 @Service
 public class MesProBatchRecordExecutionFieldAuditServiceImpl implements MesProBatchRecordExecutionFieldAuditService {
+    @Resource private MesMarketReleaseAccess marketReleaseAccess;
 
     private static final int EXECUTION_STATUS_DRAFT = 0;
     private static final int EXECUTION_STATUS_FILL_COMPLETED = MesProEdhrApprovalStatusMapping.EXECUTION_STATUS_FILL_COMPLETED;
@@ -154,6 +155,7 @@ public class MesProBatchRecordExecutionFieldAuditServiceImpl implements MesProBa
     private MesProBatchRecordExecutionAttachmentService attachmentService;
     @Resource
     private MesProEdhrWorkTaskService workTaskService;
+    @Resource @org.springframework.context.annotation.Lazy private MesEdhrRecordChangeEditGuard recordChangeEditGuard;
     @Resource
     private MesProEdhrPreReleaseEditabilityService preReleaseEditabilityService;
     @Resource
@@ -196,11 +198,17 @@ public class MesProBatchRecordExecutionFieldAuditServiceImpl implements MesProBa
         command.setChanges(sortedChanges)
                 .setReasonText(StrUtil.trim(command.getReasonText()));
 
+        marketReleaseAccess.requireExecutionAccess(command.getExecutionId(),true);
         MesProBatchRecordExecutionDO execution = executionMapper.selectByIdForUpdate(command.getExecutionId());
         if (execution == null) {
             throw exception(PRO_BATCH_RECORD_EXECUTION_NOT_EXISTS);
         }
-        boolean draftExecution = Objects.equals(execution.getStatus(), EXECUTION_STATUS_DRAFT);
+        boolean reopenedExecution = Objects.equals(execution.getStatus(), 5);
+        if (reopenedExecution) {
+            if (!requireWorkTaskValidation) throw exception(PRO_BATCH_RECORD_EXECUTION_STATUS_INVALID);
+            recordChangeEditGuard.requireReopened(execution, command.getWorkTaskId());
+        }
+        boolean draftExecution = Objects.equals(execution.getStatus(), EXECUTION_STATUS_DRAFT) || reopenedExecution;
         boolean preReleaseEditableExecution = Objects.equals(execution.getStatus(), EXECUTION_STATUS_FILL_COMPLETED);
         if (!draftExecution && (!requireWorkTaskValidation || !preReleaseEditableExecution)) {
             throw exception(PRO_BATCH_RECORD_EXECUTION_STATUS_INVALID);
@@ -210,10 +218,10 @@ public class MesProBatchRecordExecutionFieldAuditServiceImpl implements MesProBa
                 && goldenFingerPermissionService.hasGoldenFingerPermission(currentUserId);
         if (requireWorkTaskValidation) {
             if (draftExecution) {
-                MesProEdhrWorkTaskDO workTask = goldenFingerMode
+                MesProEdhrWorkTaskDO workTask = goldenFingerMode && !reopenedExecution
                         ? workTaskService.validateGoldenFingerFillTaskForExecution(command.getWorkTaskId(), execution.getId())
                         : workTaskService.validateWritableFillTaskForExecution(command.getWorkTaskId(), execution.getId());
-                if (!goldenFingerMode) {
+                if (!goldenFingerMode || reopenedExecution) {
                     validateBatchSharedFillScope(command, execution, workTask);
                 }
             } else {
@@ -459,6 +467,7 @@ public class MesProBatchRecordExecutionFieldAuditServiceImpl implements MesProBa
 
     @Override
     public MesProBatchRecordExecutionFieldAuditHashVerification verifyChain(Long executionId) {
+        marketReleaseAccess.requireExecutionAccess(executionId,false);
         MesProBatchRecordExecutionDO execution = executionMapper.selectById(executionId);
         if (execution == null || StrUtil.isBlank(execution.getFieldAuditHeadHash())
                 || execution.getFieldAuditRevision() == null || StrUtil.isBlank(execution.getCellValuesHash())) {
@@ -771,7 +780,8 @@ public class MesProBatchRecordExecutionFieldAuditServiceImpl implements MesProBa
 
     private LambdaQueryWrapperX<MesProBatchRecordExecutionFieldAuditItemDO> buildItemQuery(
             MesProBatchRecordExecutionFieldAuditPageReqVO reqVO) {
-        return new LambdaQueryWrapperX<MesProBatchRecordExecutionFieldAuditItemDO>()
+        return cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesMarketReleaseHandoverMapper.readable(new LambdaQueryWrapperX<MesProBatchRecordExecutionFieldAuditItemDO>(),
+                "(SELECT e.batch_execution_id FROM mes_pro_batch_record_execution e WHERE e.id=mes_pro_batch_record_execution_field_audit_item.execution_id)")
                 .eqIfPresent(MesProBatchRecordExecutionFieldAuditItemDO::getExecutionId, reqVO.getExecutionId())
                 .eqIfPresent(MesProBatchRecordExecutionFieldAuditItemDO::getAuditBatchId, reqVO.getAuditBatchId())
                 .eqIfPresent(MesProBatchRecordExecutionFieldAuditItemDO::getFieldPath, reqVO.getFieldPath())

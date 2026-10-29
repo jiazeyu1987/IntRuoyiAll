@@ -45,7 +45,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -69,19 +68,12 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
             MesProEdhrWorkTaskStatus.TODO,
             MesProEdhrWorkTaskStatus.DOING,
             MesProEdhrWorkTaskStatus.OVERDUE);
-    private static final Set<String> REQUIRED_REPORT_NODE_TYPES = Set.of(
-            "INCOMING_INSPECTION_REPORT",
-            "STERILIZATION_REPORT",
-            "FINISHED_PRODUCT_INSPECTION_REPORT",
-            "FINISHED_PRODUCT_INSPECTION_RECORD");
-
     private final MesProcessPoolActiveOrderReleaseApplicationMapper applicationMapper;
     private final MesProcessPoolActiveOrderMapper activeOrderMapper;
     private final MesProWorkOrderMapper workOrderMapper;
     private final MesProEdhrWorkTaskMapper workTaskMapper;
     private final MesPqcReleaseDossierPort dossierPort;
     private final MesProductionReleaseBatchExecutionPort batchExecutionPort;
-    private final MesProductionReleaseReportStageInitializer reportStageInitializer;
     private final MesProductionReleaseManagerStageInitializer managerStageInitializer;
     private final MesReleaseFlowAuditRecorder auditRecorder;
     private final MesProBatchRecordExecutionSignatureService signatureService;
@@ -102,14 +94,13 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
             MesProEdhrWorkTaskMapper workTaskMapper,
             MesPqcReleaseDossierPort dossierPort,
             MesProductionReleaseBatchExecutionPort batchExecutionPort,
-            MesProductionReleaseReportStageInitializer reportStageInitializer,
             MesProductionReleaseManagerStageInitializer managerStageInitializer,
             MesReleaseFlowAuditRecorder auditRecorder,
             MesProBatchRecordExecutionSignatureService signatureService,
             MesProEdhrNonconformanceReviewService nonconformanceReviewService,
             MesProEdhrNonconformanceReviewMapper nonconformanceReviewMapper) {
         this(applicationMapper, activeOrderMapper, workOrderMapper, workTaskMapper, dossierPort, batchExecutionPort,
-                reportStageInitializer, managerStageInitializer, auditRecorder, signatureService, nonconformanceReviewService,
+                managerStageInitializer, auditRecorder, signatureService, nonconformanceReviewService,
                 nonconformanceReviewMapper, Clock.systemUTC());
     }
 
@@ -120,7 +111,6 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
             MesProEdhrWorkTaskMapper workTaskMapper,
             MesPqcReleaseDossierPort dossierPort,
             MesProductionReleaseBatchExecutionPort batchExecutionPort,
-            MesProductionReleaseReportStageInitializer reportStageInitializer,
             MesProductionReleaseManagerStageInitializer managerStageInitializer,
             MesReleaseFlowAuditRecorder auditRecorder,
             MesProBatchRecordExecutionSignatureService signatureService,
@@ -133,7 +123,6 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
         this.workTaskMapper = workTaskMapper;
         this.dossierPort = dossierPort;
         this.batchExecutionPort = batchExecutionPort;
-        this.reportStageInitializer = reportStageInitializer;
         this.managerStageInitializer = managerStageInitializer;
         this.auditRecorder = auditRecorder;
         this.signatureService = signatureService;
@@ -145,6 +134,9 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
     @jakarta.annotation.Resource private cn.iocoder.yudao.module.system.service.signature.SystemSignatureAuthenticationService signatureAuthentication;
     @jakarta.annotation.Resource private org.springframework.transaction.PlatformTransactionManager transactionManager;
     @jakarta.annotation.Resource private MesPqcReleaseAuthenticatedSignatureService authenticatedSignatures;
+    @jakarta.annotation.Resource
+    private cn.iocoder.yudao.module.mes.service.pro.productionrelease.notification.MesReleaseOutcomeNotificationService outcomeNotifications;
+    @jakarta.annotation.Resource private MesPqcReleaseCorrectionService correctionService;
 
     @Override
     @Transactional(propagation = org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED)
@@ -204,7 +196,6 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
                 .setLossReportFormCenterInstanceIds(List.of())
                 .setLossReportFieldAuditIds(List.of())
                 .setLossReportFieldAuditHeadHashes(List.of())
-                .setReportUploadTasks(List.of())
                 .setUdiControlDocumentNo(udiControlDocumentNo)
                 .setReportSnapshotHash(activeOrderFactsSnapshotHash)
                 .setVersion(command.getExpectedVersion() + 2)
@@ -239,6 +230,7 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
         appendPqcProductionReleaseGxpAudit(application, workTask, result,
                 "mes.pqc.production-release.approve",
                 "MesPqcProductionReleaseServiceImpl#approve", affectedBefore);
+        outcomeNotifications.schedulePqc(application, workTask, actorUserId, true, opinion);
         return result;
     }
 
@@ -283,6 +275,7 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
                 actorUserId, decidedAt, reason, JSON.toJSONString(result));
         requireCasSuccess(updated, application);
         requireTaskCompletion(workTaskMapper.completePqcDecisionTask(workTask.getId(), decidedAt, "REJECT"), application);
+        correctionService.create(application, actorUserId, reason);
         recordDecisionAudit(application, workTask, result, idempotencyKey,
                 MesReleaseFlowAuditEventType.PQC_PRODUCTION_RELEASE_REJECTED);
         appendPqcProductionReleaseGxpAudit(application, workTask, result,
@@ -315,6 +308,9 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
         after.put("decidedBy", result.getDecidedBy());
         after.put("decidedAt", result.getDecidedAt());
         after.put("rejectReason", result.getRejectReason());
+        if ("REJECT".equals(result.getDecision())) {
+            after.put("correctionTask", correctionService.find(application.getId()));
+        }
         after.put("sourceSnapshotHash", result.getSourceSnapshotHash());
         after.put("reportSnapshotHash", result.getReportSnapshotHash());
         after.put("udiControlDocumentNo", result.getUdiControlDocumentNo());
@@ -424,60 +420,21 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
                         applications.stream().map(MesProcessPoolActiveOrderReleaseApplicationDO::getId).toList(),
                         TenantContextHolder.getTenantId())
                 .forEach(review -> reviewsByApplicationId.putIfAbsent(review.getSourceId(), review));
-        List<Long> activeOrderIds = applications.stream()
-                .map(MesProcessPoolActiveOrderReleaseApplicationDO::getActiveOrderId)
-                .filter(Objects::nonNull).distinct().toList();
-        List<MesProcessPoolActiveOrderReleaseApplicationDO> allRoundApplications =
-                applicationMapper.selectListByActiveOrderIds(activeOrderIds);
-        List<MesProEdhrNonconformanceReviewDO> activeOrderReviews =
-                nonconformanceReviewMapper.selectListByActiveOrderIds(activeOrderIds,
-                        TenantContextHolder.getTenantId());
+        List<Long> unresolvedApplicationIds = applications.stream()
+                .filter(application -> !reviewsByApplicationId.containsKey(application.getId()))
+                .map(MesProcessPoolActiveOrderReleaseApplicationDO::getId).toList();
+        if (!unresolvedApplicationIds.isEmpty()) {
+            applicationMapper.selectPqcPageRoundReviews(unresolvedApplicationIds, TenantContextHolder.getTenantId())
+                    .forEach(review -> reviewsByApplicationId.put(review.getApplicationId(), review));
+        }
         List<MesPqcProductionReleasePageItem> pageRows = new java.util.ArrayList<>();
         for (MesProcessPoolActiveOrderReleaseApplicationDO application : applications) {
             MesProEdhrNonconformanceReviewDO review = reviewsByApplicationId.get(application.getId());
-            if (review == null) {
-                review = resolveActiveOrderReview(application, allRoundApplications, activeOrderReviews);
-            }
             String viewStatus = VIEW_STATUS_COMPLETED.equals(query.getViewStatus())
                     ? resolveCompletedViewStatus(application, review) : query.getViewStatus();
             pageRows.add(toPageItem(application, review, viewStatus));
         }
         return new PageResult<>(pageRows, applicationPage.getTotal());
-    }
-
-    private MesProEdhrNonconformanceReviewDO resolveActiveOrderReview(
-            MesProcessPoolActiveOrderReleaseApplicationDO application,
-            List<MesProcessPoolActiveOrderReleaseApplicationDO> allApplications,
-            List<MesProEdhrNonconformanceReviewDO> reviews) {
-        if (application.getActiveOrderId() == null) {
-            return null;
-        }
-        return reviews.stream()
-                .filter(review -> MesProEdhrNonconformanceReviewService.SOURCE_TYPE_ACTIVE_ORDER
-                        .equals(review.getSourceType()))
-                .filter(review -> Objects.equals(review.getActiveOrderId(), application.getActiveOrderId()))
-                .filter(review -> {
-                    LocalDateTime reviewAt = reviewAt(review);
-                    return reviewAt != null && (application.getAppliedAt() == null
-                            || !reviewAt.isBefore(application.getAppliedAt()));
-                })
-                .filter(review -> allApplications.stream().noneMatch(next ->
-                        Objects.equals(next.getActiveOrderId(), application.getActiveOrderId())
-                                && next.getAppliedAt() != null && application.getAppliedAt() != null
-                                && next.getAppliedAt().isAfter(application.getAppliedAt())
-                                && !next.getAppliedAt().isAfter(reviewAt(review))))
-                .max(java.util.Comparator.comparing(MesProEdhrNonconformanceReviewDO::getId))
-                .orElse(null);
-    }
-
-    private LocalDateTime reviewAt(MesProEdhrNonconformanceReviewDO review) {
-        if (review.getFrozenAt() != null) {
-            return review.getFrozenAt();
-        }
-        if (review.getClosedAt() != null) {
-            return review.getClosedAt();
-        }
-        return review.getCreateTime();
     }
 
     private void requireApproveCommand(Long actorUserId, MesPqcProductionReleaseApproveCommand command) {
@@ -828,36 +785,6 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
         return result;
     }
 
-    private MesProductionReleaseReportStageInitializationResult requireReportStage(
-            MesProcessPoolActiveOrderReleaseApplicationDO application,
-            MesProductionReleaseReportStageInitializationResult result) {
-        if (result == null || StrUtil.isBlank(result.getReportSnapshotHash())
-                || result.getReportUploadTasks() == null || result.getReportUploadTasks().size() != 4) {
-            throw reportOwnerBlocker(application, "four frozen report upload tasks are required");
-        }
-        Set<String> nodeTypes = new HashSet<>();
-        for (MesProductionReleaseReportUploadTaskReceipt task : result.getReportUploadTasks()) {
-            if (task == null || task.getBatchTaskId() == null || task.getWorkTaskId() == null
-                    || task.getCandidateUserIds() == null || task.getCandidateUserIds().isEmpty()
-                    || !MesProEdhrWorkTaskStatus.TODO.equals(task.getStatus())
-                    || !REQUIRED_REPORT_NODE_TYPES.contains(task.getNodeType())
-                    || !nodeTypes.add(task.getNodeType())) {
-                throw reportOwnerBlocker(application, "report upload task receipt is incomplete or duplicated");
-            }
-        }
-        if (!nodeTypes.equals(REQUIRED_REPORT_NODE_TYPES)) {
-            throw reportOwnerBlocker(application, "report upload task node set is incomplete");
-        }
-        return result;
-    }
-
-    private MesReleaseFlowBlockerException reportOwnerBlocker(
-            MesProcessPoolActiveOrderReleaseApplicationDO application, String reason) {
-        return blocker(MesReleaseFlowBlockerType.REPORT_OWNER_REQUIRED, application,
-                "REPORT_UPLOAD_STAGE", String.valueOf(application.getId()), reason,
-                "configure all four frozen report owners before PQC approval");
-    }
-
     private MesPqcProductionReleaseDecisionResult baseResult(
             MesProcessPoolActiveOrderReleaseApplicationDO application,
             MesProEdhrWorkTaskDO workTask) {
@@ -871,7 +798,6 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
                 .setLossReportFormCenterInstanceIds(List.of())
                 .setLossReportFieldAuditIds(List.of())
                 .setLossReportFieldAuditHeadHashes(List.of())
-                .setReportUploadTasks(List.of())
                 .setSourceSnapshotHash(application.getSourceSnapshotHash());
     }
 

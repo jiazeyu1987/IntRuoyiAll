@@ -1,9 +1,10 @@
 <template>
   <ContentWrap class="form-parser-page">
     <div class="form-parser-page__head">
-      <h2>表单解析</h2>
+      <h2>{{ parserKind === 'production' ? '生产解析' : '检验解析' }}</h2>
       <div class="form-parser-page__actions">
         <el-upload
+          v-if="parserKind === 'production'"
           ref="uploadRef"
           v-model:file-list="fileList"
           :auto-upload="false"
@@ -20,7 +21,6 @@
               :disabled="qaRegulationLoading"
               :loading="productionLoading"
               type="primary"
-              @click="handleProductionBatchRecord"
             >
               <Icon icon="ep:upload-filled" />
               生产批记录
@@ -28,6 +28,7 @@
           </template>
         </el-upload>
         <el-upload
+          v-if="parserKind === 'inspection'"
           ref="qaRegulationUploadRef"
           v-model:file-list="qaRegulationFileList"
           :auto-upload="false"
@@ -42,7 +43,6 @@
               class="scheme-d-btn scheme-d-btn--neutral"
               :disabled="productionLoading"
               :loading="qaRegulationLoading"
-              @click="handleQaInspectionRegulation"
             >
               <Icon icon="ep:document" />
               QA检验规程
@@ -52,6 +52,7 @@
         <el-button
           class="scheme-d-btn scheme-d-btn--neutral"
           :disabled="productionLoading || qaRegulationLoading"
+          v-if="parserKind === 'inspection'"
           @click="handleUnsupportedParseType('过程检验记录')"
         >
           <Icon icon="ep:document-checked" />
@@ -60,8 +61,7 @@
       </div>
     </div>
 
-    <el-tabs v-model="activeParserResultTab" class="form-parser-result-tabs">
-      <el-tab-pane label="生产批记录" name="production-batch-record">
+      <template v-if="parserKind === 'production'">
         <el-empty
           v-if="!lastResult || !previewRecognitionJson"
           description="请选择生产批记录 Word 文件"
@@ -86,6 +86,14 @@
             <el-button @click="downloadCurrentRecognitionJson">
               <Icon icon="ep:download" />
               下载当前JSON
+            </el-button>
+            <el-button :loading="excelExportLoading" @click="downloadRecognitionExcel">
+              <Icon icon="ep:download" />
+              下载为Excel
+            </el-button>
+            <el-button :loading="wordExportLoading" @click="downloadRecognitionWordCollection">
+              <Icon icon="ep:download" />
+              下载为Word集合
             </el-button>
           </div>
         </div>
@@ -442,12 +450,11 @@
             </button>
           </div>
         </el-dialog>
-      </el-tab-pane>
+      </template>
 
-      <el-tab-pane label="QA检验规程" name="qa-inspection-regulation">
+      <template v-if="parserKind === 'inspection'">
         <QaInspectionRegulationParserPanel ref="qaRegulationParserRef" />
-      </el-tab-pane>
-    </el-tabs>
+      </template>
 
     <el-dialog
       v-model="publishDialogVisible"
@@ -532,6 +539,7 @@
 <script setup lang="ts">
 import type { UploadFile, UploadFiles, UploadInstance, UploadUserFile } from 'element-plus'
 import download from '@/utils/download'
+import productionWordTemplateUrl from '@/assets/templates/production-process.docx?url'
 import {
   BatchRecordReportApi,
   type BatchRecordTotalRecognitionPublishResultVO
@@ -543,62 +551,17 @@ import {
 } from '@/api/dcc/controlledFile/projectCodes'
 import QaInspectionRegulationParserPanel from './components/QaInspectionRegulationParserPanel.vue'
 
+import type {
+  BatchRecordTotalRecognitionEquipmentOption,
+  BatchRecordTotalRecognitionParameter,
+  BatchRecordTotalRecognitionEquipmentGroup,
+  BatchRecordTotalRecognitionProcess,
+  BatchRecordTotalRecognitionJson
+} from './productionRecognition'
+
 defineOptions({ name: 'FormCenterParser' })
 
-interface BatchRecordTotalRecognitionProduct {
-  name?: string
-  code?: string
-}
-
-interface BatchRecordTotalRecognitionMaterial {
-  code?: string | null
-  name?: string
-  sourceCodeLabel?: string | null
-}
-
-interface BatchRecordTotalRecognitionEquipmentOption {
-  code?: string | null
-  name?: string
-  sourceCodeLabel?: string | null
-}
-
-interface BatchRecordTotalRecognitionParameterUi {
-  control?: string
-  defaultValue?: unknown
-  step?: unknown
-  min?: unknown
-  max?: unknown
-  unit?: string
-  displayName?: string
-  options?: unknown[]
-}
-
-interface BatchRecordTotalRecognitionParameter {
-  name?: string
-  referenceValue?: string
-  actualValue?: string
-  ui?: BatchRecordTotalRecognitionParameterUi
-}
-
-interface BatchRecordTotalRecognitionEquipmentGroup {
-  equipmentOptions?: BatchRecordTotalRecognitionEquipmentOption[]
-  parameters?: BatchRecordTotalRecognitionParameter[]
-  selectionMode?: string
-}
-
-interface BatchRecordTotalRecognitionProcess {
-  name: string
-  criticalProcess?: boolean
-  inputs?: BatchRecordTotalRecognitionMaterial[]
-  outputs?: BatchRecordTotalRecognitionMaterial[]
-  equipmentGroups?: BatchRecordTotalRecognitionEquipmentGroup[]
-}
-
-interface BatchRecordTotalRecognitionJson {
-  product: BatchRecordTotalRecognitionProduct
-  schemaVersion: number
-  processes: BatchRecordTotalRecognitionProcess[]
-}
+defineProps<{ parserKind: 'production' | 'inspection' }>()
 
 interface ProductionBatchRecordParseResult {
   parseTypeName: string
@@ -629,8 +592,9 @@ const jsonEditorInputRef = ref<{ textarea?: HTMLTextAreaElement }>()
 const fileList = ref<UploadUserFile[]>([])
 const qaRegulationFileList = ref<UploadUserFile[]>([])
 const productionLoading = ref(false)
+const excelExportLoading = ref(false)
+const wordExportLoading = ref(false)
 const qaRegulationLoading = ref(false)
-const activeParserResultTab = ref('production-batch-record')
 const lastResult = ref<ProductionBatchRecordParseResult>()
 const lastDownloadName = ref('')
 const editableRecognitionJson = ref('')
@@ -723,17 +687,6 @@ const buildPreviewDeviceKey = (
   equipmentIndex: number
 ) => `${processIndex}:${groupIndex}:${equipmentIndex}`
 
-const handleProductionBatchRecord = () => {
-  activeParserResultTab.value = 'production-batch-record'
-  if (productionLoading.value) {
-    return
-  }
-}
-
-const handleQaInspectionRegulation = () => {
-  activeParserResultTab.value = 'qa-inspection-regulation'
-}
-
 const handleUnsupportedParseType = (label: string) => {
   message.warning(`${label}解析暂未开放`)
 }
@@ -749,7 +702,6 @@ const handleQaRegulationExceed = (_files: File[], uploadFiles: UploadUserFile[])
 }
 
 const handleProductionFileChange = async (uploadFile: UploadFile, uploadFiles: UploadFiles) => {
-  activeParserResultTab.value = 'production-batch-record'
   fileList.value = uploadFiles.slice(-1)
   const rawFile = uploadFile.raw
   if (!rawFile) {
@@ -766,7 +718,6 @@ const handleProductionFileChange = async (uploadFile: UploadFile, uploadFiles: U
 }
 
 const handleQaRegulationFileChange = async (uploadFile: UploadFile, uploadFiles: UploadFiles) => {
-  activeParserResultTab.value = 'qa-inspection-regulation'
   qaRegulationFileList.value = uploadFiles.slice(-1)
   const rawFile = uploadFile.raw
   if (!rawFile) {
@@ -917,6 +868,81 @@ const downloadCurrentRecognitionJson = () => {
     type: 'application/json;charset=utf-8'
   })
   download.json(jsonBlob, lastDownloadName.value || buildJsonDownloadName(lastResult.value?.sourceFileName))
+}
+
+const downloadRecognitionExcel = async () => {
+  if (excelExportLoading.value) return
+  excelExportLoading.value = true
+  try {
+    const mapping = parseTotalRecognitionJson(editableRecognitionJson.value)
+    const { utils, writeFileXLSX } = await import('xlsx')
+    const workbook = utils.book_new()
+    type ExcelCell = string | number | boolean
+    const cell = (value: unknown): ExcelCell => {
+      if (value === undefined || value === null) return ''
+      if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') return value
+      return JSON.stringify(value)
+    }
+    const appendSheet = (name: string, rows: ExcelCell[][]) => {
+      const sheet = utils.aoa_to_sheet(rows)
+      sheet['!cols'] = rows[0].map(() => ({ wch: 24 }))
+      sheet['!autofilter'] = { ref: sheet['!ref']! }
+      utils.book_append_sheet(workbook, sheet, name)
+    }
+    const processes: ExcelCell[][] = [['工序序号', '工序名称', '关键工序']]
+    const materials: ExcelCell[][] = [['工序序号', '工序名称', '物料方向', '物料编码', '物料名称', '原始编码标签']]
+    const equipment: ExcelCell[][] = [['工序序号', '工序名称', '设备组序号', '选择模式', '设备编码', '设备名称', '原始编码标签']]
+    const parameters: ExcelCell[][] = [['工序序号', '工序名称', '设备组序号', '参数名称', '参考值', '实际值', '显示名称', '控件', '默认值', '步长', '最小值', '最大值', '单位', '选项']]
+    mapping.processes.forEach((process, index) => {
+      const prefix = [index + 1, process.name]
+      processes.push([...prefix, cell(process.criticalProcess)])
+      for (const [direction, items] of [['输入', process.inputs], ['输出', process.outputs]] as const) {
+        items?.forEach((item) => materials.push([
+          ...prefix, direction, cell(item.code), cell(item.name), cell(item.sourceCodeLabel)
+        ]))
+      }
+      process.equipmentGroups?.forEach((group, groupIndex) => {
+        group.equipmentOptions?.forEach((item) => equipment.push([
+          ...prefix, groupIndex + 1, cell(group.selectionMode), cell(item.code), cell(item.name), cell(item.sourceCodeLabel)
+        ]))
+        group.parameters?.forEach((parameter) => parameters.push([
+          ...prefix, groupIndex + 1, cell(parameter.name), cell(parameter.referenceValue), cell(parameter.actualValue),
+          cell(parameter.ui?.displayName), cell(parameter.ui?.control), cell(parameter.ui?.defaultValue),
+          cell(parameter.ui?.step), cell(parameter.ui?.min), cell(parameter.ui?.max), cell(parameter.ui?.unit), cell(parameter.ui?.options)
+        ]))
+      })
+    })
+    appendSheet('产品信息', [['产品名称', '产品编码', '结构版本'], [cell(mapping.product?.name), cell(mapping.product?.code), mapping.schemaVersion]])
+    appendSheet('工序', processes)
+    appendSheet('物料', materials)
+    appendSheet('设备', equipment)
+    appendSheet('参数', parameters)
+    writeFileXLSX(workbook, buildJsonDownloadName(lastResult.value?.sourceFileName).replace(/\.json$/i, '.xlsx'))
+  } catch (error) {
+    message.error(resolveParseErrorMessage(error, 'Excel 导出失败'))
+  } finally {
+    excelExportLoading.value = false
+  }
+}
+
+const downloadRecognitionWordCollection = async () => {
+  if (wordExportLoading.value) return
+  wordExportLoading.value = true
+  try {
+    const mapping = parseTotalRecognitionJson(editableRecognitionJson.value)
+    if (!mapping.processes.length) throw new Error('没有可导出的工序')
+    const response = await fetch(productionWordTemplateUrl)
+    if (!response.ok) throw new Error(`Word 模板加载失败（${response.status}）`)
+    const template = await response.arrayBuffer()
+    const { createProductionWordCollection } = await import('./productionWordExport')
+    const bytes = createProductionWordCollection(mapping, template, lastResult.value?.sourceFileName ?? '')
+    const filename = buildJsonDownloadName(lastResult.value?.sourceFileName).replace(/\.json$/i, '-Word集合.zip')
+    download.zip(new Blob([bytes], { type: 'application/zip' }), filename)
+  } catch (error) {
+    message.error(resolveParseErrorMessage(error, 'Word 集合导出失败'))
+  } finally {
+    wordExportLoading.value = false
+  }
 }
 
 const formatPublishProjectCodeOption = (projectCode: DccProjectCodeRespVO) => {
@@ -1393,6 +1419,7 @@ const resolveParseErrorMessage = (error: unknown, fallback: string) => {
 </script>
 
 <style lang="scss" scoped>
+@use './components/frontlinePreview.scss';
 .form-parser-page {
   min-height: calc(100vh - 160px);
 
@@ -1434,30 +1461,6 @@ const resolveParseErrorMessage = (error: unknown, fallback: string) => {
 
   :deep(.iconify) {
     margin-right: 6px;
-  }
-}
-
-.form-parser-result-tabs {
-  min-width: 0;
-
-  :deep(.el-tabs__header) {
-    margin-bottom: 14px;
-  }
-
-  :deep(.el-tabs__item) {
-    min-width: 132px;
-    height: 42px;
-    padding: 0 18px;
-    color: #52635b;
-    font-weight: 700;
-  }
-
-  :deep(.el-tabs__item.is-active) {
-    color: #168a68;
-  }
-
-  :deep(.el-tabs__active-bar) {
-    background-color: #168a68;
   }
 }
 
@@ -1565,450 +1568,6 @@ const resolveParseErrorMessage = (error: unknown, fallback: string) => {
   line-height: 20px;
   text-align: right;
   white-space: nowrap;
-}
-
-.form-parser-frontline-shell {
-  display: flex;
-  overflow: hidden;
-  flex-direction: column;
-  border: 1px solid #cfd9d4;
-  border-radius: 8px;
-  background: #eef5f0;
-}
-
-.form-parser-frontline-header {
-  display: grid;
-  grid-template-columns: minmax(0, 480px);
-  gap: 10px;
-  justify-content: center;
-  padding: 10px;
-}
-
-.form-parser-process-switcher,
-.form-parser-production-panel,
-.form-parser-equipment-panel,
-.form-parser-frontline-footer {
-  border: 1px solid #cad6d0;
-  border-radius: 8px;
-  background: #fff;
-}
-
-.form-parser-process-switcher {
-  display: grid;
-  min-height: 72px;
-  grid-template-columns: 74px minmax(0, 1fr) 74px;
-  gap: 10px;
-  padding: 10px;
-}
-
-.form-parser-nav-button,
-.form-parser-process-card {
-  border: 1px solid #cad6d0;
-  border-radius: 8px;
-  background: #fff;
-  color: #071814;
-}
-
-.form-parser-nav-button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  font-size: 34px;
-
-  &:disabled {
-    color: #a9b4af;
-    cursor: not-allowed;
-  }
-}
-
-.form-parser-process-card {
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-
-  span {
-    color: #50645e;
-    font-size: 16px;
-    font-weight: 700;
-    line-height: 20px;
-  }
-
-  strong {
-    display: block;
-    max-width: 100%;
-    overflow: hidden;
-    color: #071814;
-    font-size: 26px;
-    font-weight: 900;
-    line-height: 34px;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-}
-
-.form-parser-frontline-body {
-  display: grid;
-  grid-template-columns: minmax(300px, 0.92fr) minmax(360px, 1.08fr);
-  gap: 12px;
-  padding: 0 10px 10px;
-}
-
-.form-parser-production-panel,
-.form-parser-equipment-panel {
-  min-width: 0;
-  min-height: 500px;
-  padding: 16px;
-}
-
-.form-parser-quantity-row {
-  display: grid;
-  align-items: center;
-  grid-template-columns: 130px minmax(150px, 1fr) 34px;
-  gap: 12px;
-  margin-bottom: 14px;
-  color: #071814;
-
-  span {
-    font-size: 20px;
-    font-weight: 800;
-  }
-
-  b {
-    font-size: 18px;
-  }
-
-  :deep(.el-input-number) {
-    width: 100%;
-  }
-}
-
-.form-parser-quantity-row--readonly {
-  strong {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 40px;
-    border: 1px solid #d7e0dc;
-    border-radius: 8px;
-    background: #edf3f0;
-    font-size: 28px;
-    line-height: 36px;
-  }
-}
-
-.form-parser-material-block {
-  margin-top: 20px;
-}
-
-.form-parser-block-title {
-  margin-bottom: 10px;
-  color: #10231f;
-  font-size: 18px;
-  font-weight: 800;
-  line-height: 24px;
-}
-
-.form-parser-material-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-}
-
-.form-parser-material-chip {
-  max-width: 100%;
-  padding: 8px 12px;
-  border: 1px solid #d0dbd6;
-  border-radius: 8px;
-  background: #fff;
-  color: #0f2922;
-  cursor: pointer;
-  font-size: 14px;
-  font-weight: 700;
-  line-height: 20px;
-  text-align: left;
-  word-break: break-word;
-}
-
-.form-parser-material-chip--output {
-  border-color: #1c8b69;
-  background: #f1fbf7;
-}
-
-.form-parser-confirm-strip {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
-  margin-bottom: 14px;
-}
-
-.form-parser-confirm-card {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  min-height: 44px;
-  border: 1px solid #cfd9d4;
-  border-radius: 8px;
-  background: #fff;
-  color: #12352c;
-  cursor: pointer;
-  font-size: 14px;
-  font-weight: 800;
-
-  .iconify {
-    color: #9aa7a2;
-    font-size: 20px;
-  }
-}
-
-.form-parser-confirm-card--active {
-  border-color: #168767;
-  color: #12352c;
-
-  .iconify {
-    color: #168767;
-  }
-}
-
-.form-parser-device-list {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.form-parser-device-tabs {
-  display: grid;
-  grid-template-columns: repeat(var(--frontline-device-tab-count, 1), minmax(0, 1fr));
-  gap: 12px;
-  min-width: 0;
-}
-
-.form-parser-device-tab-card {
-  display: grid;
-  grid-template-rows: minmax(0, 1fr) 36px;
-  min-width: 0;
-  height: 110px;
-  overflow: hidden;
-  border: 3px solid #cad6d0;
-  border-radius: 20px;
-  background: #f8faf8;
-
-  &.active {
-    border-color: #15815f;
-  }
-}
-
-.form-parser-device-tab {
-  position: relative;
-  min-width: 0;
-  min-height: 0;
-  overflow: hidden;
-  padding: 0 38px;
-  border: 0;
-  background: #20352d;
-  color: #fff;
-  cursor: pointer;
-  font-size: 20px;
-  font-weight: 900;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.form-parser-device-tab-selection {
-  position: absolute;
-  top: 10px;
-  left: 10px;
-  display: grid;
-  place-items: center;
-  width: 24px;
-  height: 24px;
-  border: 2px solid #fff;
-  border-radius: 5px;
-  color: #fff;
-  font-size: 17px;
-  line-height: 1;
-}
-
-.form-parser-device-tab-card.active .form-parser-device-tab-selection {
-  border-color: #9ce0c1;
-  background: #15815f;
-}
-
-.form-parser-device-tab-code {
-  display: block;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.form-parser-device-metering-validity {
-  display: grid;
-  align-items: center;
-  justify-content: center;
-  grid-template-columns: 18px auto;
-  gap: 6px;
-  min-width: 0;
-  min-height: 36px;
-  padding: 0 6px;
-  background: #fff;
-  color: #071814;
-  cursor: default;
-
-  input {
-    position: absolute;
-    opacity: 0;
-    pointer-events: none;
-  }
-
-  span {
-    display: grid;
-    place-items: center;
-    width: 18px;
-    height: 18px;
-    border-radius: 5px;
-    background: #15815f;
-    color: #fff;
-    font-size: 14px;
-    font-weight: 900;
-    line-height: 1;
-  }
-
-  em {
-    min-width: 0;
-    overflow: hidden;
-    font-size: 14px;
-    font-style: normal;
-    font-weight: 900;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-}
-
-.form-parser-device-current {
-  display: grid;
-  align-content: start;
-  gap: 10px;
-  min-width: 0;
-  min-height: 280px;
-  overflow: auto;
-  padding: 14px;
-  border: 3px solid #cad6d0;
-  border-radius: 24px;
-  background: #fbfdfb;
-}
-
-.form-parser-parameter-list {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  padding: 14px;
-}
-
-.form-parser-parameter-field {
-  display: grid;
-  align-items: center;
-  grid-template-columns: minmax(128px, 0.45fr) minmax(220px, 0.55fr);
-  gap: 12px;
-}
-
-.form-parser-parameter-field__label {
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
-  gap: 2px;
-
-  span {
-    color: #071814;
-    font-size: 16px;
-    font-weight: 900;
-    line-height: 22px;
-  }
-
-  em {
-    color: #335f55;
-    font-size: 12px;
-    font-style: normal;
-    font-weight: 700;
-    line-height: 16px;
-  }
-}
-
-.form-parser-parameter-field__control {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-
-  :deep(.el-input-number),
-  :deep(.el-select),
-  :deep(.el-input) {
-    width: 100%;
-  }
-
-  b {
-    flex: 0 0 auto;
-    color: #071814;
-    font-size: 16px;
-    font-weight: 900;
-  }
-}
-
-.form-parser-empty-text,
-.form-parser-frontline-empty {
-  color: #6b7280;
-  font-size: 13px;
-  font-weight: 700;
-  line-height: 20px;
-}
-
-.form-parser-empty-text--panel {
-  display: flex;
-  min-height: 220px;
-  align-items: center;
-  justify-content: center;
-  border: 1px dashed #cbd5d1;
-  border-radius: 8px;
-}
-
-.form-parser-frontline-empty {
-  display: flex;
-  min-height: 360px;
-  align-items: center;
-  justify-content: center;
-  margin: 0 10px 10px;
-  border: 1px dashed #cbd5d1;
-  border-radius: 8px;
-  background: #fff;
-}
-
-.form-parser-frontline-footer {
-  display: grid;
-  grid-template-columns: minmax(140px, 0.32fr) minmax(220px, 0.68fr);
-  gap: 12px;
-  padding: 12px;
-  border-width: 1px 0 0;
-  border-radius: 0;
-}
-
-.form-parser-footer-button {
-  min-height: 54px;
-  border: 1px solid #cfd9d4;
-  border-radius: 8px;
-  background: #fff;
-  color: #1f2937;
-  cursor: default;
-  font-size: 24px;
-  font-weight: 800;
-}
-
-.form-parser-footer-button--primary {
-  border-color: #168767;
-  background: #168767;
-  color: #fff;
 }
 
 .form-parser-process-selector {

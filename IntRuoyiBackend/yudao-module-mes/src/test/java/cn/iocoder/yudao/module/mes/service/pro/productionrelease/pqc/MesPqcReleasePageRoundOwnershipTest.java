@@ -41,6 +41,8 @@ class MesPqcReleasePageRoundOwnershipTest extends BaseDbUnitTest {
     @BeforeEach
     void setUpRoundFixture() {
         jdbcTemplate = new JdbcTemplate(dataSource);
+        cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesSignatureDetailFixture.installJsonFunctions(jdbcTemplate);
+        jdbcTemplate.execute("CREATE DOMAIN IF NOT EXISTS UNSIGNED AS BIGINT");
         jdbcTemplate.execute("""
                 CREATE TABLE IF NOT EXISTS mes_pro_edhr_nonconformance_review (
                     id BIGINT PRIMARY KEY,
@@ -64,6 +66,7 @@ class MesPqcReleasePageRoundOwnershipTest extends BaseDbUnitTest {
                     review_opinion VARCHAR(500),
                     qa_signature VARCHAR(500),
                     qa_user_id BIGINT,
+                    qa_reviewer_user_id BIGINT,
                     frozen_at TIMESTAMP,
                     closed_at TIMESTAMP,
                     unfrozen_at TIMESTAMP,
@@ -83,7 +86,7 @@ class MesPqcReleasePageRoundOwnershipTest extends BaseDbUnitTest {
         insertReview(101L, 1001L, 1001L, "closed", "rework", "first-round rework",
                 LocalDateTime.of(2026, 9, 1, 10, 0), LocalDateTime.of(2026, 9, 2, 10, 0));
         service = new MesPqcProductionReleaseServiceImpl(
-                applicationMapper, null, null, null, null, null, null, null, null, null, null,
+                applicationMapper, null, null, null, null, null, null, null, null, null,
                 reviewMapper, Clock.systemUTC());
     }
 
@@ -248,6 +251,95 @@ class MesPqcReleasePageRoundOwnershipTest extends BaseDbUnitTest {
         wrapper.setPropertyValue("applicationId", applicationId);
         wrapper.setPropertyValue("pqcReleaseWorkTaskId", taskId);
         return query;
+    }
+
+    @Test
+    void pageRoundDecorationDoesNotMaterializeReviewEvidence() {
+        String largeEvidence = "{\"evidence\":\"" + "x".repeat(32768) + "\"}";
+        jdbcTemplate.update("UPDATE mes_pro_edhr_nonconformance_review "
+                + "SET review_materials_json = ?, trace_snapshot_json = ? WHERE id = 101",
+                largeEvidence, largeEvidence);
+        var rows = applicationMapper.selectPqcPageRoundReviews(List.of(1L), TENANT_ID);
+        assertEquals(1, rows.size());
+        var review = rows.get(0);
+        assertEquals(101L, review.getId());
+        assertEquals("closed", review.getReviewStatus());
+        assertEquals("rework", review.getDisposition());
+        assertEquals("first-round rework", review.getNonconformanceReason());
+        assertEquals(LocalDateTime.of(2026, 9, 2, 10, 0), review.getClosedAt());
+        org.junit.jupiter.api.Assertions.assertNull(review.getReviewMaterialsJson());
+        org.junit.jupiter.api.Assertions.assertNull(review.getTraceSnapshotJson());
+    }
+
+    @Test
+    void pageDecorationIsBoundedToRequestedRoundsAndPreservesTimestampRules() {
+        seedApplicationAndTask(2L);
+        LocalDateTime boundary = LocalDateTime.of(2026, 9, 4, 9, 0);
+        insertReview(102L, 1001L, 1001L, "closed", "void", "next round", boundary, boundary);
+        insertReview(103L, 1001L, 1001L, "closed", "void", "latest same-round review", boundary.plusHours(1), boundary.plusHours(1));
+        insertReview(104L, 1001L, 1001L, "closed", "void", "deleted", boundary, boundary);
+        jdbcTemplate.update("UPDATE mes_pro_edhr_nonconformance_review SET deleted = TRUE WHERE id = 104");
+        insertReview(105L, 1001L, 1001L, "closed", "void", "other tenant", boundary, boundary);
+        jdbcTemplate.update("UPDATE mes_pro_edhr_nonconformance_review SET tenant_id = 2 WHERE id = 105");
+        // The real schema requires frozen_at; reject invalid fixtures rather than relaxing that constraint.
+        assertThrows(org.springframework.dao.DataIntegrityViolationException.class, () ->
+                insertReview(106L, 1001L, 1001L, "closed", "void", "no freeze time", null, null));
+        var voided = service.getPqcReleasePage(ACTOR_USER_ID, exactQuery("VOIDED", 2L, 102L));
+        assertEquals(1L, voided.getTotal());
+        assertEquals(103L, voided.getList().get(0).getNonconformanceReviewId());
+        var rows = applicationMapper.selectPqcPageRoundReviews(List.of(1L, 2L), TENANT_ID);
+        var byApplication = rows.stream().collect(java.util.stream.Collectors.toMap(
+                MesProcessPoolActiveOrderReleaseApplicationMapper.PqcApplicationReview::getApplicationId,
+                MesProcessPoolActiveOrderReleaseApplicationMapper.PqcApplicationReview::getId));
+        assertEquals(java.util.Map.of(1L, 101L, 2L, 103L), byApplication);
+        assertEquals(1, applicationMapper.selectPqcPageRoundReviews(List.of(2L), TENANT_ID).size());
+        assertTrue(applicationMapper.selectPqcPageRoundReviews(List.of(2L), 2L).isEmpty());
+        jdbcTemplate.update("UPDATE mes_pro_process_pool_active_order_release_application SET applied_at = "
+                + "(SELECT applied_at FROM mes_pro_process_pool_active_order_release_application WHERE id = 1) WHERE id = 2");
+        assertEquals(List.of(103L, 103L), applicationMapper.selectPqcPageRoundReviews(List.of(1L, 2L), TENANT_ID)
+                .stream().map(r -> r.getId()).toList());
+    }
+
+    @Test
+    void strictNextRoundBoundaryIgnoresDeletedAndOtherTenantApplicationsButNotInvisibleTasks() {
+        seedApplicationAndTask(2L);
+        seedApplicationAndTask(3L);
+        seedApplicationAndTask(4L);
+        seedApplicationAndTask(5L);
+        LocalDateTime boundary = LocalDateTime.of(2026, 9, 4, 9, 0);
+        jdbcTemplate.update("UPDATE mes_pro_process_pool_active_order_release_application "
+                + "SET active_order_id = 1001, applied_at = ? WHERE id IN (3, 4, 5)", boundary.minusHours(1));
+        jdbcTemplate.update("UPDATE mes_pro_process_pool_active_order_release_application SET deleted = TRUE WHERE id = 3");
+        jdbcTemplate.update("UPDATE mes_pro_process_pool_active_order_release_application SET tenant_id = 2 WHERE id = 4");
+        jdbcTemplate.update("UPDATE mes_pro_process_pool_active_order_release_application SET applied_at = ? WHERE id = 5", boundary);
+        jdbcTemplate.update("UPDATE mes_pro_edhr_work_task SET candidate_user_snapshot = '1900,9001' WHERE id IN (102, 105)");
+        insertReview(102L, 1001L, 1001L, "closed", "void", "before next round",
+                boundary.minusMinutes(1), boundary.minusMinutes(1));
+        insertReview(103L, 1001L, 1001L, "closed", "rework", "exact next round",
+                boundary, boundary);
+        try {
+            assertEquals(List.of(1L), ids(page("VOIDED", 1)));
+            assertEquals(102L, page("VOIDED", 1).getList().get(0).getNonconformanceReviewId());
+            assertEquals(0L, page("REWORKED", 1).getTotal());
+            var rows = applicationMapper.selectPqcPageRoundReviews(List.of(1L, 2L, 5L), TENANT_ID);
+            var byApplication = rows.stream().collect(java.util.stream.Collectors.toMap(
+                    MesProcessPoolActiveOrderReleaseApplicationMapper.PqcApplicationReview::getApplicationId,
+                    MesProcessPoolActiveOrderReleaseApplicationMapper.PqcApplicationReview::getId));
+            assertEquals(java.util.Map.of(1L, 102L, 2L, 103L, 5L, 103L), byApplication);
+        } finally {
+            jdbcTemplate.update("UPDATE mes_pro_process_pool_active_order_release_application SET tenant_id = ? WHERE id = 4", TENANT_ID);
+        }
+    }
+
+    @Test
+    void pageDecorationKeepsDirectPqcReviewPriority() {
+        seedApplicationAndTask(4L);
+        LocalDateTime at = LocalDateTime.of(2026, 9, 12, 10, 0);
+        insertReview(201L, 1004L, 1004L, "pending_review", null, "active order", at, null);
+        insertReview(200L, 4L, 1004L, "pending_review", null, "direct PQC", at, null);
+        jdbcTemplate.update("UPDATE mes_pro_edhr_nonconformance_review SET source_type = 'PQC_RELEASE' WHERE id = 200");
+        var result = service.getPqcReleasePage(ACTOR_USER_ID, exactQuery("RELEASED", 4L, 104L));
+        assertEquals(200L, result.getList().get(0).getNonconformanceReviewId());
     }
 
     private void assertPage(String viewStatus, long total, long expectedApplicationId) {

@@ -4,7 +4,7 @@
     <!-- 顶部：人员选择 -->
     <el-form :inline="true" label-width="80px" class="mb-10px">
       <el-form-item label="人员">
-        <UserSelectV2
+        <UserSelectV2 allow-inactive
           v-model="userId"
           placeholder="请输入人员姓名搜索"
           class="!w-200px"

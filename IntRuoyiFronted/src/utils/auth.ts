@@ -106,7 +106,9 @@ const cacheSafeLoginForm = (loginForm: LoginFormType) => {
   }
 }
 
-const decryptLoginForm = (loginForm?: Partial<LoginFormType>) => {
+function decryptLoginForm(loginForm: Partial<LoginFormType>): LoginFormType
+function decryptLoginForm(loginForm?: Partial<LoginFormType>): LoginFormType | undefined
+function decryptLoginForm(loginForm?: Partial<LoginFormType>): LoginFormType | undefined {
   if (!loginForm) {
     return undefined
   }

@@ -20,6 +20,7 @@
             </span>
           </template>
           <ProfileWorkbench />
+          <PqcReleaseCorrection v-if="route.query.releaseCorrectionTaskId" />
         </el-tab-pane>
         <el-tab-pane name="notifyMessage" lazy>
           <template #label>
@@ -65,6 +66,7 @@ import { useUserStore } from '@/store/modules/user'
 import BusinessConfigMigrationNotice from '@/views/system/config-migration/BusinessConfigMigrationNotice.vue'
 import MyNotifyMessageList from '@/views/system/notify/my/components/MyNotifyMessageList.vue'
 import { BasicInfo, ProfileWorkbench, ResetPwd, UserSocial } from './components'
+import PqcReleaseCorrection from './components/PqcReleaseCorrection.vue'
 
 const { t } = useI18n()
 const route = useRoute()

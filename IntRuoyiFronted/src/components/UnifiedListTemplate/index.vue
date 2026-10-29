@@ -4,8 +4,30 @@
     :class="{ 'unified-list-template--single-line-toolbar': singleLineToolbar }"
     :data-table-key="tableKey"
   >
+    <div
+      v-if="showQueryForm !== false && $slots.filters"
+      class="unified-list-template__query-form unified-list-template__custom-query"
+    >
+      <div class="unified-list-template__filters"><slot name="filters"></slot></div>
+      <div class="unified-list-template__toolbar">
+        <slot name="actions"></slot>
+        <UserTableColumnSettings
+          v-if="showColumnSettings !== false && columns.length"
+          :columns="columns"
+          :saving="columnSaving"
+          :show-reset="showColumnReset"
+          @change="$emit('column-change', $event)"
+          @reset="$emit('column-reset')"
+        />
+      </div>
+    </div>
     <el-form
-      v-if="showQueryForm !== false"
+      v-else-if="
+        showQueryForm !== false &&
+        ($slots.actions ||
+          shouldRenderStandardConditionFilter ||
+          (showColumnSettings !== false && columns.length))
+      "
       class="unified-list-template__query-form"
       :model="queryModel"
       :inline="true"
@@ -35,7 +57,7 @@
         <div class="unified-list-template__toolbar">
           <slot name="actions"></slot>
           <UserTableColumnSettings
-            v-if="showColumnSettings !== false"
+            v-if="showColumnSettings !== false && columns.length"
             class="unified-list-template__column-settings"
             :columns="columns"
             :saving="columnSaving"
@@ -50,6 +72,7 @@
     <div class="unified-list-template__table-shell">
       <slot
         name="table"
+        :rows="pageRows"
         :sort-state="normalizedSortState"
         :sortable-columns="standardSortableColumns"
         :sortable-column-map="standardSortableColumnMap"
@@ -59,19 +82,20 @@
     </div>
 
     <Pagination
-      :total="total"
-      :page="page"
-      :limit="limit"
+      :total="resolvedTotal"
+      :page="resolvedPage"
+      :limit="resolvedLimit"
       :storage-key="tableKey"
-      @update:page="$emit('update:page', $event)"
-      @update:limit="$emit('update:limit', $event)"
+      :layout="paginationLayout"
+      @update:page="updatePage"
+      @update:limit="updateLimit"
       @pagination="$emit('pagination', $event)"
     />
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import TableMultiFilter from '@/components/TableMultiFilter/index.vue'
 import UserTableColumnSettings from '@/components/UserTableColumnSettings/index.vue'
 import type {
@@ -119,12 +143,14 @@ type UnifiedListPaginationPayload = {
   limit?: number
 }
 
-type UnifiedListSortableColumnInput = string | {
-  key: string
-  prop?: string
-  sortable?: boolean | 'custom'
-  sortOrders?: UnifiedListSortOrder[]
-}
+type UnifiedListSortableColumnInput =
+  | string
+  | {
+      key: string
+      prop?: string
+      sortable?: boolean | 'custom'
+      sortOrders?: UnifiedListSortOrder[]
+    }
 
 type UnifiedListSortableColumn = {
   key: string
@@ -133,45 +159,58 @@ type UnifiedListSortableColumn = {
   sortOrders?: UnifiedListSortOrder[]
 }
 
-const props = withDefaults(defineProps<{
-  tableKey: string
-  queryModel: Record<string, any>
-  labelWidth?: string
-  queryFormTestId?: string
-  filterDefinitions: TableQuickFilterDefinition[]
-  showQuickFilter?: boolean
-  showQuickFilterLabel?: boolean
-  quickFilterState: QuickFilterState
-  selectedFilterDefinition?: TableQuickFilterDefinition
-  operatorOptions: TableQuickFilterOperator[]
-  showMultiFilter?: boolean
-  multiFilterDefinitions?: ListMultiFilterDefinition[]
-  multiFilterState?: ListMultiFilterState
-  showFilterReset?: boolean
-  showMultiFilterOperators?: boolean
-  columns: UserTableColumnState[]
-  columnSaving?: boolean
-  showColumnSettings?: boolean
-  showColumnReset?: boolean
-  showQueryForm?: boolean
-  singleLineToolbar?: boolean
-  sortableColumns?: UnifiedListSortableColumnInput[]
-  sortState?: UnifiedListSortState
-  total: number
-  page: number
-  limit: number
-}>(), {
-  showQueryForm: true,
-  showQuickFilter: true,
-  showQuickFilterLabel: true,
-  showMultiFilter: false,
-  multiFilterDefinitions: () => [],
-  showFilterReset: true,
-  showMultiFilterOperators: true,
-  showColumnSettings: true,
-  showColumnReset: false,
-  singleLineToolbar: false
-})
+const props = withDefaults(
+  defineProps<{
+    tableKey: string
+    queryModel?: Record<string, any>
+    labelWidth?: string
+    queryFormTestId?: string
+    filterDefinitions?: TableQuickFilterDefinition[]
+    showQuickFilter?: boolean
+    showQuickFilterLabel?: boolean
+    quickFilterState?: QuickFilterState
+    selectedFilterDefinition?: TableQuickFilterDefinition
+    operatorOptions?: TableQuickFilterOperator[]
+    showMultiFilter?: boolean
+    multiFilterDefinitions?: ListMultiFilterDefinition[]
+    multiFilterState?: ListMultiFilterState
+    showFilterReset?: boolean
+    showMultiFilterOperators?: boolean
+    columns?: UserTableColumnState[]
+    columnSaving?: boolean
+    showColumnSettings?: boolean
+    showColumnReset?: boolean
+    showQueryForm?: boolean
+    singleLineToolbar?: boolean
+    sortableColumns?: UnifiedListSortableColumnInput[]
+    sortState?: UnifiedListSortState
+    rows?: any[]
+    paginationLayout?: string
+    total?: number
+    page?: number
+    limit?: number
+  }>(),
+  {
+    queryModel: () => ({}),
+    filterDefinitions: () => [],
+    quickFilterState: () => ({ conditions: [], appliedConditions: [] }),
+    operatorOptions: () => [],
+    columns: () => [],
+    total: 0,
+    page: 1,
+    limit: 20,
+    showQueryForm: true,
+    showQuickFilter: true,
+    showQuickFilterLabel: true,
+    showMultiFilter: false,
+    multiFilterDefinitions: () => [],
+    showFilterReset: true,
+    showMultiFilterOperators: true,
+    showColumnSettings: true,
+    showColumnReset: false,
+    singleLineToolbar: true
+  }
+)
 
 const emit = defineEmits<{
   'update:quickFilterState': [state: QuickFilterState]
@@ -189,6 +228,40 @@ const emit = defineEmits<{
   pagination: [payload: UnifiedListPaginationPayload]
 }>()
 
+// Local arrays are paged here; server lists keep their existing page/limit contract.
+const localPage = ref(1)
+const localLimit = ref(20)
+const resolvedTotal = computed(() => (props.rows === undefined ? props.total : props.rows.length))
+const resolvedPage = computed(() => (props.rows === undefined ? props.page : localPage.value))
+const resolvedLimit = computed(() => (props.rows === undefined ? props.limit : localLimit.value))
+const pageRows = computed(() =>
+  props.rows?.slice(
+    (resolvedPage.value - 1) * resolvedLimit.value,
+    resolvedPage.value * resolvedLimit.value
+  )
+)
+const updatePage = (page: number) => {
+  if (props.rows !== undefined) localPage.value = page
+  emit('update:page', page)
+}
+const updateLimit = (limit: number) => {
+  if (props.rows !== undefined) {
+    localLimit.value = limit
+    localPage.value = 1
+  }
+  emit('update:limit', limit)
+}
+watch(resolvedTotal, (total) => {
+  if (props.rows !== undefined)
+    localPage.value = Math.min(localPage.value, Math.max(1, Math.ceil(total / localLimit.value)))
+})
+watch(
+  () => props.rows,
+  (rows) => {
+    if (rows !== undefined) localPage.value = 1
+  }
+)
+
 const DEFAULT_COLUMN_SORTABLE = false
 const STANDARD_SORT_ORDERS: UnifiedListSortOrder[] = ['ascending', 'descending', null]
 
@@ -204,7 +277,9 @@ const quickDefinitionsAsMultiFilterDefinitions = computed<ListMultiFilterDefinit
 
 const shouldRenderStandardConditionFilter = computed(() => {
   if (props.showMultiFilter === true) return true
-  return props.showQuickFilter !== false && quickDefinitionsAsMultiFilterDefinitions.value.length > 0
+  return (
+    props.showQuickFilter !== false && quickDefinitionsAsMultiFilterDefinitions.value.length > 0
+  )
 })
 
 const resolvedQuickFilterStateAsMultiFilter = computed<ListMultiFilterState>(() => ({
@@ -228,7 +303,9 @@ const resolvedStandardFilterState = computed(() =>
 const normalizeSortOrder = (order: unknown): UnifiedListSortOrder =>
   order === 'ascending' || order === 'descending' ? order : null
 
-const normalizeSortableColumn = (column: UnifiedListSortableColumnInput): UnifiedListSortableColumn => {
+const normalizeSortableColumn = (
+  column: UnifiedListSortableColumnInput
+): UnifiedListSortableColumn => {
   if (typeof column === 'string') {
     return {
       key: column,
@@ -245,9 +322,7 @@ const normalizeSortableColumn = (column: UnifiedListSortableColumnInput): Unifie
 }
 
 const isDefaultSortableColumn = (column: UserTableColumnState) =>
-  column.sortable !== false &&
-  column.business !== false &&
-  column.hideable !== false
+  column.sortable !== false && column.business !== false && column.hideable !== false
 
 const standardSortableColumns = computed<UnifiedListSortableColumn[]>(() => {
   const sortableByKey = new Map<string, UnifiedListSortableColumn>()
@@ -290,7 +365,8 @@ const normalizedSortState = computed<UnifiedListSortState>(() => {
 const getStandardSortColumnAttrs = (columnKeyOrConfig: string | UnifiedListSortableColumnInput) => {
   const inlineColumn =
     typeof columnKeyOrConfig === 'string' ? undefined : normalizeSortableColumn(columnKeyOrConfig)
-  const lookupKey = typeof columnKeyOrConfig === 'string' ? columnKeyOrConfig : columnKeyOrConfig.key
+  const lookupKey =
+    typeof columnKeyOrConfig === 'string' ? columnKeyOrConfig : columnKeyOrConfig.key
   const sortableColumn = inlineColumn || standardSortableColumnMap.value.get(lookupKey)
   if (!sortableColumn) {
     return {
@@ -304,7 +380,11 @@ const getStandardSortColumnAttrs = (columnKeyOrConfig: string | UnifiedListSorta
   }
 }
 
-const handleStandardSortChange = (payload?: { prop?: string; order?: string | null; column?: any }) => {
+const handleStandardSortChange = (payload?: {
+  prop?: string
+  order?: string | null
+  column?: any
+}) => {
   const payloadProp = String(payload?.prop || payload?.column?.property || '')
   const sortableColumn = standardSortableColumnMap.value.get(payloadProp)
   const nextState: UnifiedListSortState = {
@@ -320,7 +400,8 @@ const getConditionId = (condition: Partial<ListMultiFilterCondition>, index = 0)
   condition.id || condition.key || `condition-${index + 1}`
 
 const getActiveConditionFromState = (state: ListMultiFilterState) => {
-  const activeId = state.activeConditionId || (state.conditions[0] ? getConditionId(state.conditions[0], 0) : '')
+  const activeId =
+    state.activeConditionId || (state.conditions[0] ? getConditionId(state.conditions[0], 0) : '')
   return state.conditions.find((condition, index) => getConditionId(condition, index) === activeId)
 }
 
@@ -333,7 +414,12 @@ const toQuickFilterState = (state: ListMultiFilterState): QuickFilterState => {
     value:
       activeCondition?.valueEnd !== undefined
         ? [activeCondition.value as string | number, activeCondition.valueEnd as string | number]
-        : activeCondition?.value as string | number | boolean | Array<string | number> | undefined,
+        : (activeCondition?.value as
+            | string
+            | number
+            | boolean
+            | Array<string | number>
+            | undefined),
     conditions: [...(state.conditions || [])],
     appliedConditions: [...state.appliedConditions],
     activeConditionId: state.activeConditionId
@@ -385,6 +471,114 @@ const handleStandardFilterRemove = (conditionId: string) => {
 .unified-list-template {
   display: flex;
   flex-direction: column;
+  min-width: 0;
+}
+
+.unified-list-template > .unified-list-template__query-form.unified-list-template__custom-query {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) fit-content(55%);
+  align-items: start;
+}
+
+.unified-list-template__filters,
+.unified-list-template__custom-query > .unified-list-template__toolbar {
+  min-width: 0;
+  overflow-x: auto;
+}
+
+.unified-list-template__filters :deep(.el-form),
+.unified-list-template__filters > :deep(div) {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+}
+
+.unified-list-template__filters :deep(.el-form-item) {
+  flex: 1 1 200px;
+  min-width: 180px;
+  margin: 0;
+}
+
+.unified-list-template__filters :deep(.el-form-item__content) {
+  min-width: 0;
+}
+.unified-list-template__filters :deep(.el-input),
+.unified-list-template__filters :deep(.el-select),
+.unified-list-template__filters :deep(.el-date-editor) {
+  width: 100% !important;
+  min-width: 110px;
+}
+.unified-list-template__custom-query > .unified-list-template__toolbar {
+  flex-wrap: nowrap;
+  justify-content: flex-start;
+}
+.unified-list-template__custom-query > .unified-list-template__toolbar > :deep(*) {
+  flex-shrink: 0;
+}
+.unified-list-template__custom-query
+  > .unified-list-template__toolbar
+  > :deep(.el-button + .el-button) {
+  margin-left: 0;
+}
+.unified-list-template__filters :deep(.el-form-item__label) {
+  white-space: nowrap;
+  height: 32px;
+  line-height: 32px;
+  margin-bottom: 0;
+}
+.unified-list-template__table-shell > :deep(.el-table) {
+  --el-table-border-color: #dbe3ef;
+}
+
+.unified-list-template--contained {
+  height: var(--unified-list-height, 360px);
+  min-height: 0;
+}
+.unified-list-template--contained > .unified-list-template__table-shell {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+.unified-list-template--contained > .unified-list-template__table-shell > :deep(.el-table) {
+  height: 100%;
+  flex: 1;
+  min-height: 0;
+}
+.unified-list-template--contained > .unified-list-template__query-form,
+.unified-list-template--contained > :deep(.el-pagination) {
+  flex-shrink: 0;
+}
+.unified-list-template--contained :deep(.el-table__inner-wrapper) {
+  height: 100%;
+}
+.unified-list-template--contained :deep(.el-table__body-wrapper) {
+  flex: 1;
+  min-height: 0;
+}
+.unified-list-template--contained :deep(.el-table__body-wrapper > .el-scrollbar),
+.unified-list-template--contained :deep(.el-scrollbar__wrap) {
+  height: 100%;
+  max-height: none !important;
+}
+:global(.standard-list-page) {
+  height: calc(
+    100dvh - var(--top-tool-height) - var(--tags-view-height) - var(--app-content-padding)
+  );
+  margin-bottom: 0;
+}
+:global(.standard-list-page > .el-card__body) {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+:global(.standard-list-page > .el-card__body > .unified-list-template--contained) {
+  flex: 1;
+  height: auto;
 }
 
 .unified-list-template__query-form {
@@ -446,6 +640,14 @@ const handleStandardFilterRemove = (conditionId: string) => {
 
 .unified-list-template__table-shell :deep(.el-table) {
   border-radius: 8px;
+  font-size: 14px;
+}
+
+.unified-list-template__table-shell :deep(.el-table th.el-table__cell) {
+  height: 46px;
+  background: #f7f9fc;
+  color: #172033;
+  font-weight: 600;
 }
 
 .unified-list-template__table-shell :deep(.el-table th.is-sortable) {
@@ -465,14 +667,14 @@ const handleStandardFilterRemove = (conditionId: string) => {
 @media (min-width: 1181px) {
   .unified-list-template--single-line-toolbar .unified-list-template__query-form {
     display: grid;
-    grid-template-columns: minmax(720px, 1fr) auto;
+    grid-template-columns: minmax(0, 1fr) minmax(0, auto);
     align-items: start;
   }
 
   .unified-list-template--single-line-toolbar .unified-list-template__multi-filter {
     grid-column: 1;
     grid-row: 1;
-    min-width: 720px;
+    min-width: 0;
   }
 
   .unified-list-template--single-line-toolbar .unified-list-template__toolbar-actions {

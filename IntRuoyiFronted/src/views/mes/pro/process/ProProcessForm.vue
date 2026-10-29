@@ -62,6 +62,14 @@
           placeholder="请输入工序说明"
         />
       </el-form-item>
+      <el-form-item label="SOP文件" prop="sopFileUrl">
+        <UploadFile
+          v-model="processSopFileUrl"
+          :limit="1"
+          :file-type="['pdf', 'png', 'jpg', 'jpeg', 'webp']"
+          :disabled="isDetail || formLoading"
+        />
+      </el-form-item>
       <el-form-item label="备注" prop="remark">
         <el-input v-model="formData.remark" type="textarea" placeholder="请输入备注" />
       </el-form-item>
@@ -147,6 +155,7 @@ import { getIntDictOptions, DICT_TYPE } from '@/utils/dict'
 import { ProProcessApi, ProProcessRouteVO, ProProcessVO } from '@/api/mes/pro/process'
 import { ProRouteProcessApi } from '@/api/mes/pro/route/process'
 import ProProcessContentList from './ProProcessContentList.vue'
+import { UploadFile } from '@/components/UploadFile'
 
 defineOptions({ name: 'ProProcessForm' })
 const emit = defineEmits(['success']) // 定义 success 事件，用于操作成功后的回调
@@ -175,6 +184,7 @@ const formData = ref<ProProcessVO>({
   code: '',
   name: '',
   attention: '',
+  sopFileUrl: '',
   status: 0,
   manualShiftCapacity: undefined,
   remark: ''
@@ -184,6 +194,10 @@ const formRules = computed(() => ({
   name: [{ required: true, message: '工序名称不能为空', trigger: 'blur' }],
   status: [{ required: true, message: '状态不能为空', trigger: 'change' }]
 }))
+const processSopFileUrl = computed({
+  get: () => formData.value.sopFileUrl ?? '',
+  set: (url: string) => { formData.value.sopFileUrl = url }
+})
 const formRef = ref() // 表单 Ref
 const canShowAssociatedConfig = computed(() =>
   Boolean(formData.value.id && selectedRouteId.value && selectedRouteProcessId.value && !routeContextError.value)
@@ -222,6 +236,7 @@ const open = async (type: string, id?: number, context: ProProcessFormOpenContex
       )
       formData.value = {
         ...fetchedData,
+        sopFileUrl: fetchedData.sopFileUrl ?? '',
         routeList: fetchedData.routeList?.length ? fetchedData.routeList : context.row?.routeList
       }
       applyRouteContext(formData.value, context.routeId)
@@ -337,6 +352,7 @@ const resetForm = () => {
     code: '',
     name: '',
     attention: '',
+    sopFileUrl: '',
     status: 0,
     manualShiftCapacity: undefined,
     remark: ''

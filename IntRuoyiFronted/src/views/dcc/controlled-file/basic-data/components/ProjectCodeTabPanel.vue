@@ -1,8 +1,5 @@
 <template>
   <ContentWrap class="scheme-d-basic-data-page scheme-d-basic-data-page--dcc-project-code">
-    <div class="mb-16px flex items-center gap-8px">
-      <span class="text-18px font-600 text-[var(--el-text-color-primary)]">基础数据 / DCC项目代码</span>
-    </div>
     <UnifiedListTemplate
       class="dcc-project-code-list-template"
       table-key="dcc.projectCode.main"
@@ -27,82 +24,6 @@
       <template #actions>
         <el-button data-testid="dcc-project-request-create-open" v-hasPermi="['dcc:project-code:create']"
           type="primary" plain @click="openProjectRequestEntry('create')">新建项目申请</el-button>
-        <el-button data-testid="dcc-project-request-records-open" v-hasPermi="['dcc:project-code:query']"
-          @click="openProjectRequestEntry('records')">项目申请与审批</el-button>
-        <el-button
-          class="scheme-d-btn scheme-d-btn--primary"
-          type="primary"
-          plain
-          data-testid="dcc-product-onboarding-open"
-          :disabled="batchAiCategoryRunning || listUnclassifiedAutoClassifyRunning"
-          @click="openProductOnboardingDialog"
-          v-hasPermi="['dcc:project-code:create', 'dcc:project-code:update']"
-        >
-          <Icon icon="ep:connection" class="mr-5px" />
-          产品建档申请
-        </el-button>
-        <el-button
-          v-if="canRunProjectCodeListNameAutoClassify"
-          class="scheme-d-btn scheme-d-btn--primary"
-          type="primary"
-          plain
-          data-testid="dcc-project-code-list-auto-classify-unclassified"
-          :loading="listUnclassifiedAutoClassifyRunning"
-          :disabled="
-            loading ||
-            exportLoading ||
-            previewLoading ||
-            confirmLoading ||
-            aiCategoryRunning ||
-            batchAiCategoryRunning ||
-            listUnclassifiedAutoClassifyRunning ||
-            unclassifiedAutoClassifyRunning
-          "
-          @click="handleListAutoClassifyUnclassifiedProjectCodes"
-        >
-          <Icon icon="ep:magic-stick" class="mr-5px" />
-          按文件名归类未分类
-        </el-button>
-        <el-button
-          class="scheme-d-btn scheme-d-btn--primary"
-          :disabled="batchAiCategoryRunning || listUnclassifiedAutoClassifyRunning"
-          @click="openImportDialog"
-          v-hasPermi="['dcc:project-code:import']"
-        >
-          <Icon icon="ep:upload" class="mr-5px" />
-          导入
-        </el-button>
-        <el-button
-          class="scheme-d-btn scheme-d-btn--warning"
-          :loading="exportLoading"
-          :disabled="batchAiCategoryRunning || listUnclassifiedAutoClassifyRunning"
-          @click="handleExport"
-          v-hasPermi="['dcc:project-code:export']"
-        >
-          <Icon icon="ep:download" class="mr-5px" />
-          导出
-        </el-button>
-        <el-button
-          v-if="canRunBatchAiCategory"
-          class="scheme-d-btn scheme-d-btn--primary"
-          type="primary"
-          plain
-          data-testid="dcc-project-code-batch-ai-category"
-          :loading="batchAiCategoryRunning"
-          :disabled="
-            loading ||
-            exportLoading ||
-            previewLoading ||
-            confirmLoading ||
-            aiCategoryRunning ||
-            listUnclassifiedAutoClassifyRunning ||
-            unclassifiedAutoClassifyRunning
-          "
-          @click="handleBatchAiCategoryProjectCodes"
-        >
-          <Icon icon="ep:magic-stick" class="mr-5px" />
-          批量AI分类
-        </el-button>
       </template>
       <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
         <div
@@ -1084,20 +1005,14 @@
   <Dialog v-model="assignmentDialogVisible" class="scheme-d-form-control" title="分配修正任务" width="920px">
     <el-form label-width="96px">
       <el-form-item label="被分配人">
-        <el-select
+        <UserSelectV2
           v-model="assignmentForm.assigneeUserId"
           class="!w-full"
-          filterable
-          :loading="assignmentUsersLoading"
+          :candidate-loading="assignmentUsersLoading"
           placeholder="请选择用户"
-        >
-          <el-option
-            v-for="user in assignmentUsers"
-            :key="user.id"
-            :label="`${user.nickname || user.username} / ${user.username}`"
-            :value="user.id"
-          />
-        </el-select>
+          :clearable="false"
+          :user-options="assignmentUsers"
+        />
       </el-form-item>
       <el-form-item label="分配范围">
         <el-radio-group v-model="assignmentForm.scopeMode">
@@ -1334,20 +1249,14 @@
         </el-table-column>
         <el-table-column label="授权主体" min-width="220">
           <template #default="{ row }">
-            <el-select
+            <UserSelectV2
               v-if="row.subjectType === 'USER'"
               v-model="row.subjectId"
               class="!w-full"
-              filterable
-              :loading="projectAccessRuleUsersLoading"
-            >
-              <el-option
-                v-for="user in projectAccessRuleUsers"
-                :key="user.id"
-                :label="`${user.nickname || user.username} / ${user.username}`"
-                :value="user.id"
-              />
-            </el-select>
+              :candidate-loading="projectAccessRuleUsersLoading"
+              :clearable="false"
+              :user-options="projectAccessRuleUsers"
+            />
             <el-input-number
               v-else
               v-model="row.subjectId"
@@ -1438,6 +1347,7 @@
 </template>
 
 <script lang="ts" setup>
+import UserSelectV2 from '@/views/system/user/components/UserSelectV2.vue'
 import { onActivated } from 'vue'
 import { dateFormatter2 } from '@/utils/formatTime'
 import { checkPermi, checkRole } from '@/utils/permission'

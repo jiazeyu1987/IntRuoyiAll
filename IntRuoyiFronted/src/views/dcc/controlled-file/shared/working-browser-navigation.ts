@@ -34,7 +34,7 @@ export const buildWorkingBrowserRoute = (file: {
 }
 
 export const resolveWorkingBrowserSelection = (
-  row: { masterId?: string | number }, options: Array<{ id: string | number }>,
+  row: { masterId?: string | number | null }, options: Array<{ id: string | number }>,
   query: { workingFileId?: unknown; workingMasterId?: unknown }
 ): string | undefined => {
   if (query.workingFileId === undefined && query.workingMasterId === undefined) return undefined

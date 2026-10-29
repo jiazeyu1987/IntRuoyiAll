@@ -101,7 +101,7 @@ public class MesProEdhrBatchStageResolver {
             case "IN_RELEASE" -> "放行审批中";
             case "RELEASE_REJECTED" -> "放行退回";
             case "RELEASED" -> "已放行";
-            case "ARCHIVED" -> "已归档";
+            case "ARCHIVED" -> "已放行";
             default -> "待开始";
         };
     }

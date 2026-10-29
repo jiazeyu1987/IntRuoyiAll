@@ -16,16 +16,11 @@
       ><template #default="{ row }">{{ getDccVersionDisplayText(row.versionNo) }}</template></el-table-column>
       <el-table-column label="负责人"
         ><template #default="{ row }"
-          ><el-select
+          ><UserSelectV2
             v-if="selected(row.masterId)"
             v-model="selected(row.masterId)!.assigneeUserId"
             :disabled="disabled"
-            filterable
-            ><el-option
-              v-for="user in users"
-              :key="user.id"
-              :label="user.name"
-              :value="user.id" /></el-select></template
+             :clearable="false" :user-options="users.map(user => ({ ...user, nickname: user.name }))" /></template
       ></el-table-column>
       <el-table-column label="整改期限"
         ><template #default="{ row }"
@@ -40,6 +35,7 @@
   </section>
 </template>
 <script setup lang="ts">
+import UserSelectV2 from '@/views/system/user/components/UserSelectV2.vue'
 import { ref, watch } from 'vue'
 import { getDccVersionDisplayText } from '../shared/version-display'
 import type { ArrangementCommand, ArrangementForm } from '../relations/arrangement-form'

@@ -14,8 +14,12 @@
           <p>更正原因：<span data-correction-reason>{{ row.reason }}</span></p>
           <el-table :data="row.changes" aria-label="正式修订字段差异">
             <el-table-column prop="fieldName" label="修改字段" />
-            <el-table-column prop="beforeValue" label="本次修改前" />
-            <el-table-column prop="afterValue" label="本次修改后" />
+            <el-table-column label="本次修改前">
+              <template #default="{ row: change }"><BusinessEvidenceDetails title="修改前" :field="change.fieldCode" :source="JSON.stringify(change.beforeValue)" /></template>
+            </el-table-column>
+            <el-table-column label="本次修改后">
+              <template #default="{ row: change }"><BusinessEvidenceDetails title="修改后" :field="change.fieldCode" :source="JSON.stringify(change.afterValue)" /></template>
+            </el-table-column>
           </el-table>
           <el-button data-active-order-correction-signature :disabled="row.verificationStatus !== 'VALID'" @click="$emit('signature', row.signatureId)">
             查看 {{ row.signerName }} 的补正签名证据
@@ -27,6 +31,7 @@
 </template>
 
 <script setup lang="ts">
+import BusinessEvidenceDetails from './BusinessEvidenceDetails.vue'
 import { watch, onBeforeUnmount } from 'vue'
 import { formatDateTimeValue } from '@/utils/formatTime'
 import { getActiveOrderCorrections } from '@/api/mes/pro/edhr/activeOrderCorrection'

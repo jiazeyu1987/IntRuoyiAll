@@ -1,37 +1,41 @@
 <template>
   <ContentWrap>
-    <el-form
-      ref="queryFormRef"
-      class="-mb-15px"
-      :inline="true"
-      :model="queryParams"
-      label-width="82px"
-    >
-      <el-form-item label="目录名称" prop="name">
-        <el-input
-          v-model="queryParams.name"
-          class="!w-240px"
-          clearable
-          placeholder="请输入目录名称"
-          @keyup.enter="handleQuery"
-        />
-      </el-form-item>
-      <el-form-item label="启用状态" prop="active">
-        <el-select
-          v-model="queryParams.active"
-          class="!w-180px"
-          clearable
-          placeholder="请选择启用状态"
+    <UnifiedListTemplate table-key="dcc.controlledFile.directories.main" :query-model="queryParams">
+      <template #filters>
+        <el-form
+          ref="queryFormRef"
+          class="-mb-15px"
+          :inline="true"
+          :model="queryParams"
+          label-width="82px"
         >
-          <el-option
-            v-for="item in ACTIVE_STATUS_OPTIONS"
-            :key="String(item.value)"
-            :label="item.label"
-            :value="item.value"
-          />
-        </el-select>
-      </el-form-item>
-      <el-form-item>
+          <el-form-item label="目录名称" prop="name">
+            <el-input
+              v-model="queryParams.name"
+              class="!w-240px"
+              clearable
+              placeholder="请输入目录名称"
+              @keyup.enter="handleQuery"
+            />
+          </el-form-item>
+          <el-form-item label="启用状态" prop="active">
+            <el-select
+              v-model="queryParams.active"
+              class="!w-180px"
+              clearable
+              placeholder="请选择启用状态"
+            >
+              <el-option
+                v-for="item in ACTIVE_STATUS_OPTIONS"
+                :key="String(item.value)"
+                :label="item.label"
+                :value="item.value"
+              />
+            </el-select>
+          </el-form-item>
+        </el-form>
+      </template>
+      <template #actions>
         <el-button @click="handleQuery">
           <Icon icon="ep:search" class="mr-5px" />
           查询
@@ -65,113 +69,114 @@
           <Icon icon="ep:download" class="mr-5px" />
           NAS同步
         </el-button>
-      </el-form-item>
-    </el-form>
-  </ContentWrap>
-
-  <ContentWrap>
-    <el-alert
-      v-if="loadErrorMessage"
-      :closable="false"
-      show-icon
-      title="受控文件目录加载失败"
-      type="error"
-      class="mb-12px"
-      data-testid="dcc-controlled-file-directory-load-error"
-    >
-      <template #default>
-        {{ loadErrorMessage }}
       </template>
-    </el-alert>
+      <template #table>
+        <el-alert
+          v-if="loadErrorMessage"
+          :closable="false"
+          show-icon
+          title="受控文件目录加载失败"
+          type="error"
+          class="mb-12px"
+          data-testid="dcc-controlled-file-directory-load-error"
+        >
+          <template #default>
+            {{ loadErrorMessage }}
+          </template>
+        </el-alert>
 
-    <el-table
-      ref="directoryTableRef"
-      v-loading="loading"
-      :data="filteredDirectories"
-      data-user-table-column-explicit
-      row-key="id"
-      :default-expand-all="isExpandAll"
-      v-if="refreshTable"
-      lazy
-      :load="loadDirectoryChildren"
-      :tree-props="{ children: 'children', hasChildren: 'hasChildren' }"
-    >
-      <el-table-column
-        class-name="dcc-directory-name-column"
-        label="目录名称"
-        min-width="280"
-        prop="name"
-        show-overflow-tooltip
-      >
-        <template #default="{ row }">
-          <div
-            :class="['directory-name-cell', { 'is-expandable': isDirectoryExpandable(row) }]"
-            role="button"
-            :tabindex="isDirectoryExpandable(row) ? 0 : -1"
-            :aria-disabled="!isDirectoryExpandable(row)"
-            :aria-label="`${row.name} 展开或折叠目录`"
-            @click="toggleDirectoryRow(row)"
-            @keydown.enter.prevent="toggleDirectoryRow(row)"
-            @keydown.space.prevent="toggleDirectoryRow(row)"
+        <el-table
+          stripe
+          border
+          ref="directoryTableRef"
+          v-loading="loading"
+          :data="filteredDirectories"
+          data-user-table-column-explicit
+          row-key="id"
+          :default-expand-all="isExpandAll"
+          v-if="refreshTable"
+          lazy
+          :load="loadDirectoryChildren"
+          :tree-props="{ children: 'children', hasChildren: 'hasChildren' }"
+        >
+          <el-table-column
+            class-name="dcc-directory-name-column"
+            label="目录名称"
+            min-width="280"
+            prop="name"
+            show-overflow-tooltip
           >
-            <span
-              class="directory-folder-toggle"
-              :class="resolveDirectoryFolderBorderClass(row)"
-              aria-hidden="true"
-            >
-              <Icon icon="ep:folder" />
-            </span>
-            <span class="directory-name-cell__text" :title="row.name">{{ row.name }}</span>
-            <el-tag
-              v-if="resolveDirectoryChildLoadError(row)"
-              type="danger"
-              size="small"
-              :title="resolveDirectoryChildLoadError(row)"
-            >
-              子目录加载失败
-            </el-tag>
-          </div>
-        </template>
-      </el-table-column>
-      <el-table-column align="center" fixed="right" label="操作" width="320">
-        <template #default="{ row }">
-          <el-button
-            v-hasPermi="['dcc:controlled-file:access-rule:manage']"
-            link
-            type="primary"
-            @click="openAccessRules(row)"
-          >
-            访问规则
-          </el-button>
-          <el-button
-            v-hasPermi="['dcc:controlled-file:directory:manage']"
-            link
-            type="primary"
-            @click="openForm('create', row)"
-          >
-            新建
-          </el-button>
-          <el-button
-            v-hasPermi="['dcc:controlled-file:directory:manage']"
-            link
-            type="primary"
-            @click="openForm('update', row)"
-          >
-            编辑
-          </el-button>
-          <el-button
-            v-hasPermi="['dcc:controlled-file:directory:manage']"
-            link
-            type="danger"
-            :loading="deleteLoadingId === row.id || deletePrecheckLoadingId === row.id"
-            @click="handleDeleteParentFolder(row)"
-          >
-            删除
-          </el-button>
-        </template>
-      </el-table-column>
-    </el-table>
-  </ContentWrap>
+            <template #default="{ row }">
+              <div
+                :class="['directory-name-cell', { 'is-expandable': isDirectoryExpandable(row) }]"
+                role="button"
+                :tabindex="isDirectoryExpandable(row) ? 0 : -1"
+                :aria-disabled="!isDirectoryExpandable(row)"
+                :aria-label="`${row.name} 展开或折叠目录`"
+                @click="toggleDirectoryRow(row)"
+                @keydown.enter.prevent="toggleDirectoryRow(row)"
+                @keydown.space.prevent="toggleDirectoryRow(row)"
+              >
+                <span
+                  class="directory-folder-toggle"
+                  :class="resolveDirectoryFolderBorderClass(row)"
+                  aria-hidden="true"
+                >
+                  <Icon icon="ep:folder" />
+                </span>
+                <span class="directory-name-cell__text" :title="row.name">{{ row.name }}</span>
+                <el-tag
+                  v-if="resolveDirectoryChildLoadError(row)"
+                  type="danger"
+                  size="small"
+                  :title="resolveDirectoryChildLoadError(row)"
+                >
+                  子目录加载失败
+                </el-tag>
+              </div>
+            </template>
+          </el-table-column>
+          <el-table-column align="center" fixed="right" label="操作" width="320">
+            <template #default="{ row }">
+              <el-button
+                v-hasPermi="['dcc:controlled-file:access-rule:manage']"
+                link
+                type="primary"
+                @click="openAccessRules(row)"
+              >
+                访问规则
+              </el-button>
+              <el-button
+                v-hasPermi="['dcc:controlled-file:directory:manage']"
+                link
+                type="primary"
+                @click="openForm('create', row)"
+              >
+                新建
+              </el-button>
+              <el-button
+                v-hasPermi="['dcc:controlled-file:directory:manage']"
+                link
+                type="primary"
+                @click="openForm('update', row)"
+              >
+                编辑
+              </el-button>
+              <el-button
+                v-hasPermi="['dcc:controlled-file:directory:manage']"
+                link
+                type="danger"
+                :loading="deleteLoadingId === row.id || deletePrecheckLoadingId === row.id"
+                @click="handleDeleteParentFolder(row)"
+              >
+                删除
+              </el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+      </template>
+    </UnifiedListTemplate>
+</ContentWrap>
 
   <DirectoryForm
     v-if="directoryFormMounted"
@@ -221,6 +226,7 @@
 </template>
 
 <script lang="ts" setup>
+import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import { isSearchFormInputEmpty } from '@/utils/search'
 import {
   deleteDirectorySubtree,

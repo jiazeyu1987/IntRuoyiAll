@@ -74,4 +74,13 @@ class ProjectionS4WriterTest {
         assertThrows(IllegalStateException.class,()->execute("owner.NotifyMessageMapper","INSERT INTO system_notify_message(id,content) VALUES(1,'changed') ON DUPLICATE KEY UPDATE content='changed'",SqlCommandType.INSERT));
         verify(executor,times(1)).update(any(),any());
     }
+
+    @Test void handoffCompletionAndCycleClosureRequireFenceAndMarkRefresh() throws Throwable {
+        for(String table:new String[]{"mes_active_order_handoff_task","mes_pro_process_pool_active_order"}) {
+            assertThrows(IllegalStateException.class,()->update("owner.CustomImportMapper","UPDATE "+table+" SET status='DONE'"));
+            var held=new ProjectionWriteContext(Scope.TENANT,2,connection);ProjectionWriteContext.CURRENT.set(held);
+            assertEquals(1,update("owner.CustomImportMapper","UPDATE "+table+" SET status='DONE'"));
+            assertTrue(held.changed);assertFalse(held.securityChanged);ProjectionWriteContext.CURRENT.remove();
+        }
+    }
 }

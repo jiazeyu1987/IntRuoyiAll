@@ -1,7 +1,7 @@
 const { test } = require('node:test'), assert = require('node:assert/strict')
 const fs = require('node:fs'), path = require('node:path'), vm = require('node:vm'), ts = require('typescript')
 const root = path.resolve(__dirname, '../..'), read = file => fs.readFileSync(path.join(root, file), 'utf8')
-const raw = JSON.parse(read('../doc/tasks/20261011-dcc-w02-types-matrix/immutable-public-matrix-v2.fixture.json'))
+const raw = JSON.parse(read('tests/fixtures/immutable-public-matrix-v2.fixture.json'))
 const attrs = { targetMarkets: ['CE'], licenseHolder: 'Y', actualManufacturer: 'N', documentTransfer: 'N' }
 const draft = matrix => ({ controlledFileId: '91', projectId: '5', applicationType: 'UPLOAD', defaultSource: attrs, actual: attrs,
   canSubmit: false, unavailableReason: 'NOT_SUBMITTED', effectiveMode: null, effectiveDate: null, needTraining: false,

@@ -18,11 +18,13 @@ import java.util.Set;
 @Service
 public class MesEdhrBatchLifecycleGuard {
     public static final ErrorCode BLOCKED = new ErrorCode(1_040_760_456, "批次生命周期冲突：{}");
+    @Resource private MesMarketReleaseAccess marketReleaseAccess;
     @Resource private MesProEdhrNonconformanceReviewMapper reviewMapper;
     @Resource private MesProEdhrRecordChangeEventMapper changeMapper;
     @Resource private MesProEdhrBatchExecutionMapper batchMapper;
 
     public void requireIndependentVoidAllowed(MesProEdhrBatchExecutionDO batch) {
+        if(batch!=null) marketReleaseAccess.requireWritable(batch.getId());
         require(batch != null && batch.getId() != null, "缺少正式批次");
         var pending = reviewMapper.selectPendingByBatchExecutionId(batch.getId());
         require(pending == null, "存在待审NCR，请通过QA不合格评审处置，不得独立作废");
@@ -32,6 +34,7 @@ public class MesEdhrBatchLifecycleGuard {
     }
 
     public void requireReleaseAllowed(Long batchId) {
+        marketReleaseAccess.requireWritable(batchId);
         require(batchId != null && batchId > 0, "缺少正式批次");
         Long count = changeMapper.selectCount(new LambdaQueryWrapperX<MesProEdhrRecordChangeEventDO>()
                 .eq(MesProEdhrRecordChangeEventDO::getBatchExecutionId, batchId)

@@ -200,36 +200,49 @@
             <template #title>
               已折叠人员（{{ foldedProductionPersonnelRows.length }}人）
             </template>
-            <el-button class="mb-12px" @click="restoreAllProductionPersonnel">
-              全部恢复显示
-            </el-button>
-            <el-table :data="foldedProductionPersonnelRows" row-key="id" border stripe>
-              <el-table-column label="显示名" min-width="140">
-                <template #default="{ row }">
-                  <span
-                    class="team-leader-workbench__personnel-name"
-                    :class="{ 'is-disabled': row.enabled === false }"
-                  >{{ row.displayName || row.employeeName || '--' }}</span>
-                </template>
-              </el-table-column>
-              <el-table-column label="来源" width="110">
-                <template #default="{ row }">{{ formatEmployeeType(row.employeeType) }}</template>
-              </el-table-column>
-              <el-table-column label="状态" width="100">
-                <template #default="{ row }">
-                  <el-tag :type="row.enabled === false ? 'danger' : 'success'" effect="plain">
-                    {{ row.enabled === false ? '已禁用' : '可选择' }}
-                  </el-tag>
-                </template>
-              </el-table-column>
-              <el-table-column label="操作" width="130" fixed="right">
-                <template #default="{ row }">
-                  <el-button link type="primary" @click="restoreProductionPersonnel(row)">
-                    恢复显示
-                  </el-button>
-                </template>
-              </el-table-column>
-            </el-table>
+
+            <UnifiedListTemplate
+              table-key="mes.teamLeader.foldedPersonnel"
+              :rows="foldedProductionPersonnelRows"
+              class="unified-list-template--contained"
+              data-list-viewport="embedded"
+            >
+              <template #actions>
+                <el-button class="mb-12px" @click="restoreAllProductionPersonnel">全部恢复显示</el-button>
+              </template>
+              <template #table="{ rows: standardRows }">
+                <el-table :data="standardRows" row-key="id" border stripe>
+                  <el-table-column label="显示名" min-width="140">
+                    <template #default="{ row }">
+                      <span
+                        class="team-leader-workbench__personnel-name"
+                        :class="{ 'is-disabled': row.enabled === false }"
+                      >
+                        {{ row.displayName || row.employeeName || '--' }}
+                      </span>
+                    </template>
+                  </el-table-column>
+                  <el-table-column label="来源" width="110">
+                    <template #default="{ row }">{{ formatEmployeeType(row.employeeType) }}</template>
+                  </el-table-column>
+                  <el-table-column label="状态" width="100">
+                    <template #default="{ row }">
+                      <el-tag :type="row.enabled === false ? 'danger' : 'success'" effect="plain">
+                        {{ row.enabled === false ? '已禁用' : '可选择' }}
+                      </el-tag>
+                    </template>
+                  </el-table-column>
+                  <el-table-column label="操作" width="130" fixed="right">
+                    <template #default="{ row }">
+                      <el-button link type="primary" @click="restoreProductionPersonnel(row)">
+                        恢复显示
+                      </el-button>
+                    </template>
+                  </el-table-column>
+                </el-table>
+              </template>
+            </UnifiedListTemplate>
+
           </el-collapse-item>
         </el-collapse>
 
@@ -652,7 +665,7 @@
                         <span>损耗 {{ material.lossQuantityText }}</span>
                         <span>{{ material.lossDetailText }}</span>
                       </div>
-                      <el-table
+                      <el-table stripe
                         :data="material.devices"
                         border
                         size="small"
@@ -1448,7 +1461,7 @@
             v-model:limit="pqcDetailQuery.pageSize"
           >
             <template #table>
-              <el-table
+              <el-table stripe
                 :data="pagedPqcDetailRows"
                 border
                 size="small"
@@ -1682,6 +1695,9 @@
               >
                 {{ formatActiveOrderReleaseStatus(row.releaseApplicationStatus) }}
               </el-tag>
+              <el-button v-if="row.releaseCorrectionReceivable && row.releaseApplicationId" link type="primary"
+                v-hasPermi="['mes:pro-process-pool-team-leader:maintain']" :disabled="row.readBlocked || receivingPqcCorrection"
+                data-pqc-correction-receive @click="receivePqcCorrection(row.releaseApplicationId)">接收补正任务</el-button>
             </template>
           </el-table-column>
           <el-table-column label="加入时间" min-width="170">
@@ -4090,6 +4106,7 @@ const approvalInvalidation = useApprovalCenterInvalidationStore()
 import { applyWithNoReplenishmentConfirmation } from './activeOrderReplenishmentConfirmation'
 import { h, watch, toRaw } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { receivePqcReleaseCorrection } from '@/api/mes/pro/productionRelease/correction'
 import { handoffNavigationContext } from '@/api/mes/pro/handoff'
 import { isClosedHandoffCompletion, resolveActiveOrderHandoffTarget } from '@/utils/activeOrderHandoffNavigation'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -4444,6 +4461,17 @@ const props = withDefaults(
 const abnormalFormRef = ref()
 const activeLeaderTab = ref<WorkbenchLeaderTab>(props.leaderType)
 const router = useRouter()
+const receivingPqcCorrection = ref(false)
+const receivePqcCorrection = async (applicationId: number | string) => {
+  if (receivingPqcCorrection.value) return
+  receivingPqcCorrection.value = true
+  try {
+    const taskId = await receivePqcReleaseCorrection(String(applicationId))
+    await router.push({ path: '/user/profile', query: { tab: 'workbench', releaseCorrectionTaskId: taskId } })
+  } catch (error) {
+    ElMessage.error(error instanceof Error ? error.message : String(error))
+  } finally { receivingPqcCorrection.value = false }
+}
 const route = useRoute()
 const activePqcModuleTab = ref<'personnel' | 'management' | 'equipment' | 'detail' | 'history'>(
   'management'

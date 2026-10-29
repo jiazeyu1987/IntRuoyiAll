@@ -9,6 +9,18 @@ import java.util.List;
 
 @Mapper
 public interface MesActiveOrderHandoffTaskMapper extends BaseMapperX<MesActiveOrderHandoffTaskDO> {
+    @Select("SELECT h.* FROM mes_active_order_handoff_task h WHERE h.tenant_id=#{tenant} AND h.deleted=FALSE"
+            + " AND h.status='TODO' AND h.notification_only=FALSE AND h.task_type IN ('QA_REVIEW','QA_DECISION_HANDOFF')"
+            + " AND h.due_time IS NOT NULL AND h.due_time<=#{now} AND h.overdue_notified_at IS NULL"
+            + " AND EXISTS (SELECT 1 FROM mes_pro_process_pool_active_order ao WHERE ao.id=h.active_order_id"
+            + " AND ao.tenant_id=h.tenant_id AND ao.deleted=FALSE AND ao.active_status='ACTIVE')"
+            + " AND (h.task_type='QA_REVIEW' OR EXISTS (SELECT 1 FROM mes_pro_work_order w WHERE w.id=h.work_order_id"
+            + " AND w.tenant_id=h.tenant_id AND w.deleted=FALSE AND w.temporary_frozen=FALSE))"
+            + " ORDER BY h.due_time,h.id LIMIT #{limit} FOR UPDATE")
+    List<MesActiveOrderHandoffTaskDO> due(@Param("tenant") Long tenant, @Param("now") LocalDateTime now, @Param("limit") int limit);
+    @Update("UPDATE mes_active_order_handoff_task SET overdue_notified_at=#{now},update_time=#{now}"
+            + " WHERE id=#{id} AND tenant_id=#{tenant} AND deleted=FALSE AND status='TODO' AND overdue_notified_at IS NULL")
+    int markOverdueNotified(@Param("tenant") Long tenant,@Param("id") Long id,@Param("now") LocalDateTime now);
     default LambdaQueryWrapperX<MesActiveOrderHandoffTaskDO> approvalCenterQuery(
             Long tenant, Long actor, boolean global, boolean done, String keyword) {
         var query = new LambdaQueryWrapperX<MesActiveOrderHandoffTaskDO>();
@@ -17,6 +29,9 @@ public interface MesActiveOrderHandoffTaskMapper extends BaseMapperX<MesActiveOr
                 .apply("CAST(status AS BINARY) = CAST({0} AS BINARY)", done ? "DONE" : "TODO")
                 .and(notification -> notification.isNull(MesActiveOrderHandoffTaskDO::getNotificationOnly)
                         .or().eq(MesActiveOrderHandoffTaskDO::getNotificationOnly, false));
+        if (!done) {
+            query.apply("CAST(task_type AS BINARY) <> CAST('QA_DECISION_HANDOFF' AS BINARY)");
+        }
         if (!global) {
             query.apply("FIND_IN_SET({0}, candidate_user_snapshot) > 0", actor);
             if (done) query.eq(MesActiveOrderHandoffTaskDO::getCompletedBy, actor);

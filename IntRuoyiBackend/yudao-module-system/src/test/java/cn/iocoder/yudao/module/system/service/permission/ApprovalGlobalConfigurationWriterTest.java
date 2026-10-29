@@ -37,6 +37,23 @@ class ApprovalGlobalConfigurationWriterTest {
     }
     @AfterEach void clear() { TenantContextHolder.clear(); }
 
+    @Test void postCreationReadsCurrentSequenceOnlyAfterLockingGlobalAuthority() {
+        PostMapper mapper = mock(PostMapper.class);
+        PostServiceImpl service = new PostServiceImpl();
+        ReflectionTestUtils.setField(service, "postMapper", mapper);
+        ReflectionTestUtils.setField(service, "approvalAuthority", global);
+        when(mapper.selectGeneratedCodesForUpdate()).thenReturn(List.of("GW-009"));
+        when(mapper.insert(any(PostDO.class))).thenReturn(1);
+
+        service.createPost(new PostSaveReqVO().setName("生产组长").setSort(0).setStatus(0));
+
+        var order = inOrder(global, mapper);
+        order.verify(global).lockGlobalRoleTenants();
+        order.verify(mapper).selectGeneratedCodesForUpdate();
+        order.verify(mapper).insert(argThat((PostDO row) -> "GW-010".equals(row.getCode())));
+        order.verify(global).incrementLockedTenants(allTenants);
+    }
+
     @Test void sharedPostDisableSerializesEveryAffectedTenantBeforePostRead() {
         PostMapper mapper = mock(PostMapper.class);
         PostServiceImpl service = new PostServiceImpl();
@@ -46,7 +63,7 @@ class ApprovalGlobalConfigurationWriterTest {
         when(mapper.selectById(12L)).thenReturn(existing);
         when(mapper.updateById(any(PostDO.class))).thenReturn(1);
         PostSaveReqVO request = new PostSaveReqVO(); request.setId(12L); request.setName("approver");
-        request.setCode("approver"); request.setStatus(1);
+        request.setStatus(1);
         service.updatePost(request);
         var order = inOrder(global, mapper);
         order.verify(global).lockGlobalRoleTenants();
@@ -114,20 +131,30 @@ class ApprovalGlobalConfigurationWriterTest {
     }
 
     @Test void departmentLeaderChangeUsesFormalLocalAuthorityBeforeBusinessRead() {
+        com.baomidou.mybatisplus.core.metadata.TableInfoHelper.initTableInfo(
+                new org.apache.ibatis.builder.MapperBuilderAssistant(
+                        new com.baomidou.mybatisplus.core.MybatisConfiguration(), "global-writer-test"), DeptDO.class);
         DeptMapper mapper = mock(DeptMapper.class);
         DeptServiceImpl service = new DeptServiceImpl();
         ReflectionTestUtils.setField(service, "deptMapper", mapper);
         ReflectionTestUtils.setField(service, "approvalAuthority", local);
+        ReflectionTestUtils.setField(service, "supervisorService",
+                mock(cn.iocoder.yudao.module.system.service.dept.DeptSupervisorService.class));
         DeptDO existing = new DeptDO(); existing.setId(12L);
         when(mapper.selectById(12L)).thenReturn(existing);
         when(mapper.updateById(any(DeptDO.class))).thenReturn(1);
+        when(mapper.update(isNull(), any(com.baomidou.mybatisplus.core.conditions.Wrapper.class))).thenReturn(1);
         DeptSaveReqVO request = new DeptSaveReqVO(); request.setId(12L); request.setName("production");
         request.setLeaderUserId(29L); request.setStatus(0);
         service.updateDept(request);
         var order = inOrder(local, mapper);
         order.verify(local).lockTenantApprovalAuthority(7L);
         order.verify(mapper).selectById(12L);
-        order.verify(mapper).updateById(argThat((DeptDO row) -> row.getLeaderUserId() == 29L));
+        order.verify(mapper).updateById(argThat((DeptDO row) -> row.getLeaderUserId() == null));
+        order.verify(mapper).update(isNull(), argThat(update ->
+                update.getSqlSet().contains("leader_user_id")
+                        && ((com.baomidou.mybatisplus.core.conditions.AbstractWrapper<?, ?, ?>) update)
+                        .getParamNameValuePairs().containsValue(29L)));
         order.verify(local).incrementLockedAuthorityRevision(7L, 3L);
         verifyNoInteractions(global);
     }

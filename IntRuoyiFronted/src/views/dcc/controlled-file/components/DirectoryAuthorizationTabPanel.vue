@@ -161,7 +161,8 @@
                 v-bind="sortColumnAttrs('subject')"
               >
                 <template #default="{ row }">
-                  <el-select
+                  <UserSelectV2 v-if="row.subjectType === 'USER'" v-model="row.subjectId" :user-options="users" class="w-full" clearable placeholder="请选择用户" />
+              <el-select v-else
                     v-model="row.subjectId"
                     class="w-full"
                     clearable
@@ -242,6 +243,7 @@
 </template>
 
 <script lang="ts" setup>
+import UserSelectV2 from '@/views/system/user/components/UserSelectV2.vue'
 import { defaultProps } from '@/utils/tree'
 import {
   deleteDirectoryAccessRules,

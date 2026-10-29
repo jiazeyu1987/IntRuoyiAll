@@ -83,7 +83,7 @@
         />
       </el-form-item>
       <el-form-item label="检测人员" prop="inspectorUserId">
-        <UserSelectV2
+        <UserSelectV2 allow-inactive
           v-model="queryParams.inspectorUserId"
           placeholder="请选择检测人员"
           clearable

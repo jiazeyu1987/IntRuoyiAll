@@ -128,10 +128,11 @@
                 v-if="activeVisibilityTab !== 'hidden'"
                 link
                 type="primary"
-                :disabled="!actionsReady || Boolean(actionTaskKey)"
+                :disabled="!actionsReady || Boolean(actionTaskKey) || Boolean(row.action.payload.blockedReason)"
+                :title="row.action.payload.blockedReason"
                 @click="openTodo(row)"
               >
-                进入/处理
+                {{ row.action.payload.blockedReason ? '暂不可处理' : '进入/处理' }}
               </el-button>
               <el-button
                 v-if="activeVisibilityTab !== 'hidden'"

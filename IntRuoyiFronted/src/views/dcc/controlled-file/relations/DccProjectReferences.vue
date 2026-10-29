@@ -1,10 +1,10 @@
 <template>
   <div>
     <el-alert v-if="error" :title="error" type="error" :closable="false" show-icon />
-    <el-button v-if="isProjectLeader" :disabled="busy || loading || savedReadFailure" @click="openSelector">引用</el-button>
+    <el-button v-if="!embeddedToolbar && isProjectLeader" :disabled="busy || loading || savedReadFailure" @click="openSelector">引用</el-button>
     <el-button v-if="isProjectLeader" data-testid="dcc-folder-cancel-reference"
       :disabled="busy || loading || savedReadFailure || !selectedReference" @click="selectedReference && prepareCancel(selectedReference)">取消引用</el-button>
-    <el-button data-testid="dcc-folder-refresh-references" :disabled="busy || loading" @click="refresh">刷新引用列表</el-button>
+    <el-button v-if="!embeddedToolbar" data-testid="dcc-folder-refresh-references" :disabled="busy || loading" @click="refresh">刷新引用列表</el-button>
     <DccFileSelector v-model="selectorVisible" :source="selectorSource" purpose="reference" :directories="directories" :selected="[]" :load-page="loadPage" :open-preview="openPreview" :persist="createSelected" @confirmed="referencesCreated">
       <template #confirmation-fields><el-input v-model="referenceReason" :disabled="busy" placeholder="引用原因（必填）" type="textarea" /></template>
     </DccFileSelector>
@@ -54,7 +54,7 @@ import DccFileSelector from './DccFileSelector.vue'
 import type { SelectorSource, DirectoryNode } from './DccFileSelector.vue'
 import type { FileCandidate, SelectorPage, SelectorQuery } from './selector-state'
 import type { ReferenceRow } from './project-reference-contract'
-const props = defineProps<{ contextKey: string; selectionContextKey?: string; projectId: string; folderId: string; folderName: string; isProjectLeader: boolean; selectorSource: SelectorSource; directories: DirectoryNode[]; loadPage: (query: SelectorQuery) => Promise<SelectorPage>; openPreview: (row: FileCandidate) => Promise<unknown>;
+const props = defineProps<{ embeddedToolbar?: boolean; contextKey: string; selectionContextKey?: string; projectId: string; folderId: string; folderName: string; isProjectLeader: boolean; selectorSource: SelectorSource; directories: DirectoryNode[]; loadPage: (query: SelectorQuery) => Promise<SelectorPage>; openPreview: (row: FileCandidate) => Promise<unknown>;
   openReferencePreview?: (row: ReferenceRow, isCurrent: () => boolean) => Promise<unknown>;
   openReferenceTrace?: (row: ReferenceRow, isCurrent: () => boolean) => Promise<unknown>;
   createReferences: (projectId: string, folderId: string, selectedFileIds: string[], reason: string) => Promise<ReferenceRow[]>; loadReferences: (projectId: string, folderId: string) => Promise<ReferenceRow[]>; cancelReference: (projectId: string, folderId: string, masterId: string, referenceId: string, reason: string) => Promise<number> }>()
@@ -145,6 +145,8 @@ watch(() => props.selectionContextKey, () => {
   readSequence++; readingReferenceId.value = ''; selectedReference.value = undefined; pending.value = undefined; confirmVisible.value = false; reason.value = ''
 })
 onBeforeUnmount(() => { generation++; readSequence++; readingReferenceId.value = ''; rows.value = [] })
+const cancelSelectedReference = () => { if (selectedReference.value) prepareCancel(selectedReference.value) }
+defineExpose({ openSelector, cancelSelectedReference, refresh, selectedReference, loading, busy, savedReadFailure })
 </script>
 <style scoped>
 .reference-file-name.is-reference { color: #b85a00; }

@@ -22,6 +22,7 @@ public class MesQaInspectionRegulationParseRespVO {
     private String regulationName;
     private String versionNo;
     private String effectiveDate;
+    private String ruleSourceText;
     private List<InspectionProcess> processes;
 
     @Data

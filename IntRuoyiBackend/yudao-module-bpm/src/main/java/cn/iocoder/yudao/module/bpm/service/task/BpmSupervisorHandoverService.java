@@ -49,11 +49,19 @@ public class BpmSupervisorHandoverService {
     @Resource private BusinessApprovalRequestMapper requestMapper;
     @Resource private FormActionInstanceMapper formMapper;
 
-    public PageResult<BpmSupervisorHandoverRespVO> getPage(PageParam page, Long assigneeUserId) {
+    public PageResult<BpmSupervisorHandoverRespVO> getPage(PageParam page, Long assigneeUserId, Long applicantUserId) {
+        if (assigneeUserId == null) throw exception(HANDOVER_REJECTED, "请指定原处理人");
         var query = taskService.createTaskQuery().active()
                 .taskTenantId(String.valueOf(TenantContextHolder.getRequiredTenantId()))
+                .taskAssignee(assigneeUserId.toString())
                 .orderByTaskCreateTime().desc();
-        if (assigneeUserId != null) query.taskAssignee(assigneeUserId.toString());
+        if (applicantUserId != null) {
+            var processes = runtimeService.createProcessInstanceQuery()
+                    .processInstanceTenantId(String.valueOf(TenantContextHolder.getRequiredTenantId()))
+                    .startedBy(applicantUserId.toString()).list();
+            if (processes.isEmpty()) return PageResult.empty();
+            query.processInstanceIdIn(processes.stream().map(org.flowable.engine.runtime.ProcessInstance::getId).toList());
+        }
         long total = query.count();
         if (total == 0) return PageResult.empty();
         List<Task> tasks = query.listPage((page.getPageNo() - 1) * page.getPageSize(), page.getPageSize());
@@ -64,6 +72,9 @@ public class BpmSupervisorHandoverService {
         for (Task task : tasks) {
             var user = StrUtil.isBlank(task.getAssignee()) ? null : users.get(Long.valueOf(task.getAssignee()));
             String blocker = blocker(task);
+            if (blocker == null && applicantUserId != null && !isApplicantSupervisorTask(task)) {
+                blocker = "该节点不按申请人的主管分配，请使用原流程的转办入口";
+            }
             result.add(new BpmSupervisorHandoverRespVO().setId(task.getId()).setName(task.getName())
                     .setProcessInstanceId(task.getProcessInstanceId()).setAssigneeUserId(task.getAssignee())
                     .setAssigneeName(user == null ? null : user.getNickname())
@@ -99,6 +110,16 @@ public class BpmSupervisorHandoverService {
         if (process == null || Objects.equals(process.getStartUserId(), target.getId().toString())) {
             throw exception(HANDOVER_REJECTED, "接收人不能是申请人，或流程已结束");
         }
+        if (request.getApplicantUserId() != null) {
+            if (!Objects.equals(process.getStartUserId(), request.getApplicantUserId().toString())
+                    || !isApplicantSupervisorTask(task)) {
+                throw exception(HANDOVER_REJECTED, "该待办不属于本次员工主管变更");
+            }
+            var relation = adminUserApi.getDirectSupervisorRelation(request.getApplicantUserId());
+            if (!Objects.equals(relation.getSupervisorUserId(), target.getId())) {
+                throw exception(HANDOVER_REJECTED, "员工的直属主管已变化，请重新读取后办理交接");
+            }
+        }
         var actor = adminUserApi.getUser(actorId);
         if (actor == null) throw exception(HANDOVER_REJECTED, "操作人不存在");
         // 保持待审状态，阻止分配监听器按历史去重自动审批。
@@ -109,6 +130,21 @@ public class BpmSupervisorHandoverService {
                         + "）；原因：" + request.getReason().trim());
         if (StrUtil.isBlank(task.getOwner())) taskService.setOwner(task.getId(), task.getAssignee());
         taskService.setAssignee(task.getId(), target.getId().toString());
+    }
+
+    private boolean isApplicantSupervisorTask(Task task) {
+        var model = repositoryService.getBpmnModel(task.getProcessDefinitionId());
+        var element = BpmnModelUtils.getFlowElementById(model, task.getTaskDefinitionKey());
+        Integer strategy = BpmnModelUtils.parseCandidateStrategy(element);
+        if (Objects.equals(strategy, BpmTaskCandidateStrategyEnum.START_USER_DEPT_LEADER.getStrategy())
+                || Objects.equals(strategy, BpmTaskCandidateStrategyEnum.START_USER_DEPT_LEADER_MULTI.getStrategy())) return true;
+        if (Objects.equals(strategy, BpmTaskCandidateStrategyEnum.MIXED.getStrategy())) {
+            var entries = JsonUtils.parseArray(BpmnModelUtils.parseCandidateParam(element), BpmTaskCandidateMixedStrategy.Entry.class);
+            return entries != null && entries.stream().anyMatch(entry ->
+                    Objects.equals(entry.getStrategy(), BpmTaskCandidateStrategyEnum.START_USER_DEPT_LEADER.getStrategy()));
+        }
+        return Objects.equals(BpmnModelUtils.parseAssignStartUserHandlerType(element),
+                BpmUserTaskAssignStartUserHandlerTypeEnum.TRANSFER_DEPT_LEADER.getType());
     }
 
     private String blocker(Task task) {

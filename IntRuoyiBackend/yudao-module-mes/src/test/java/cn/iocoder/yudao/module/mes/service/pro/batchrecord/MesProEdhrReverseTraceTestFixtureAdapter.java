@@ -48,6 +48,24 @@ final class MesProEdhrReverseTraceTestFixtureAdapter implements MesProEdhrRevers
     }
 
     @Override
+    public Map<Long, CatalogResult> readCatalogs(List<MesProEdhrBatchExecutionDO> batches) {
+        // In-memory test fixture only: no mapper or production source reads.
+        Map<Long, CatalogResult> results = new LinkedHashMap<>();
+        for (MesProEdhrBatchExecutionDO batch : batches) results.put(batch.getId(), readCatalog(batch));
+        return results;
+    }
+
+    @Override
+    public Map<Category, Map<Long, CatalogResult>> readCatalogs(
+            List<MesProEdhrBatchExecutionDO> batches, java.util.Set<Category> categories) {
+        Map<Category, Map<Long, CatalogResult>> results = new java.util.EnumMap<>(Category.class);
+        for (Category requested : categories) {
+            results.put(requested, new MesProEdhrReverseTraceTestFixtureAdapter(requested, qualifiedCatalog).readCatalogs(batches));
+        }
+        return results;
+    }
+
+    @Override
     public EvaluationResult evaluate(MesProEdhrBatchExecutionDO batch, List<Condition> conditions) {
         return new EvaluationResult(sourceVersion(batch), "fixture-source-" + batch.getId(), "COMPLETE", null, null,
                 conditions.stream().map(condition -> new ConditionMatch(condition.getConditionId(), true,

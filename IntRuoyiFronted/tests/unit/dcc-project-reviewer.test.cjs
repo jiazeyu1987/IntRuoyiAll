@@ -77,6 +77,7 @@ function configurationComponent({ confirm = async () => true, permitted = true, 
     throw new Error(name)
   })
   const dependencies = {
+    '@/views/system/user/components/UserSelectV2.vue': { default: { render: () => Vue.h('user-selector') } },
     vue: Vue, 'element-plus': { ElMessageBox: { confirm } },
     '@/utils/permission': { checkPermi: () => permitted, checkRole: () => permitted },
     '@/store/modules/user': { useUserStore: () => ({ getIsSetUser: true, getRoles: permitted ? ['doc_control'] : [],

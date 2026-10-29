@@ -254,6 +254,11 @@ export interface FrontlineDeviceRouteProcessVO {
   productionSubmitCandidates?: FrontlinePqcProductionSubmitCandidateVO[]
 }
 
+export interface FrontlineProcessSopVO {
+  processId: number
+  fileUrl?: string | null
+}
+
 export interface FrontlinePqcInspectionTypeRuleVO {
   key: FrontlinePqcInspectionRuleKey
   inspectionType: FrontlinePqcInspectionType
@@ -1279,6 +1284,19 @@ export const ProFeedbackApi = {
       url: `/mes/pro/feedback/frontline/device-account/active-order/processes`,
       params: { activeOrderId },
       isRequestContextCurrent: options?.isRequestContextCurrent,
+      ignoreErrorMessage: true
+    })
+  },
+  // 读取当前活跃订单范围内工序的 SOP 文件绑定
+  getFrontlineProductionProcessSop: async (params: {
+    activeOrderId: number
+    routeId: number
+    routeProcessId: number
+    processId: number
+  }) => {
+    return await request.get<FrontlineProcessSopVO>({
+      url: `/mes/pro/feedback/frontline/device-account/process-sop`,
+      params,
       ignoreErrorMessage: true
     })
   },

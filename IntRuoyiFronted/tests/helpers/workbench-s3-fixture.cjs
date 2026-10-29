@@ -65,6 +65,8 @@ function fixture(options = {}) {
   deps['@/workbench/contracts']=evaluate(read('src/workbench/contracts.ts'))
   deps['@/api/mes/pro/edhr/batchExecution']={openEdhrBatchTask:options.open}
   deps['@/utils/edhrWorkTaskNavigation']=evaluate(read('src/utils/edhrWorkTaskNavigation.ts'))
+  deps['@/api/mes/pro/handoff']={handoffNavigationContext:options.handoffContext || (async()=>{throw new Error('handoff fixture context required')})}
+  deps['@/utils/activeOrderHandoffNavigation']=evaluate(read('src/utils/activeOrderHandoffNavigation.ts'))
   const unit=evaluate(read('src/workbench-sources/mes/registration.ts')).default
   activeUnits={mes:{default:unit}}
   activeDirectory={...dir,sources:unit.sources.map(s=>s.descriptor)}

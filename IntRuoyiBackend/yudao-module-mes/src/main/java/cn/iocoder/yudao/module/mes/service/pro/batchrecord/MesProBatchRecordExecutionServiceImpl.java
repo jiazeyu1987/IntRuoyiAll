@@ -163,6 +163,7 @@ import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRec
 
 @Service
 public class MesProBatchRecordExecutionServiceImpl implements MesProBatchRecordExecutionService {
+    @Resource @org.springframework.context.annotation.Lazy private MesEdhrRecordChangeEditGuard recordChangeEditGuard;
 
     private static final int EXECUTION_STATUS_DRAFT = MesProEdhrApprovalStatusMapping.EXECUTION_STATUS_DRAFT;
     private static final int EXECUTION_STATUS_SUBMITTED = MesProEdhrApprovalStatusMapping.EXECUTION_STATUS_SUBMITTED;
@@ -561,9 +562,14 @@ public class MesProBatchRecordExecutionServiceImpl implements MesProBatchRecordE
     @Transactional(rollbackFor = Exception.class)
     public void submitBatchRecordExecution(MesProBatchRecordExecutionSubmitReqVO reqVO) {
         MesProBatchRecordExecutionDO execution = getSubmittableExecution(reqVO.getId());
+        boolean reopenedExecution = Objects.equals(execution.getStatus(), 5);
+        if (reopenedExecution) {
+            recordChangeEditGuard.requireReopened(execution, reqVO.getWorkTaskId());
+            workTaskService.validateWritableFillTaskForExecution(reqVO.getWorkTaskId(), execution.getId());
+        }
         boolean preReleaseResubmit = Objects.equals(execution.getStatus(), EXECUTION_STATUS_FILL_COMPLETED);
         Long userId = requireLoginUserId();
-        if (goldenFingerPermissionService.hasGoldenFingerPermission(userId)) {
+        if (!reopenedExecution && goldenFingerPermissionService.hasGoldenFingerPermission(userId)) {
             if (preReleaseResubmit) {
                 preReleaseEditabilityService.requireSubmittedOrdinaryGoldenFingerEditable(execution, reqVO.getWorkTaskId());
             } else {
@@ -1287,6 +1293,7 @@ public class MesProBatchRecordExecutionServiceImpl implements MesProBatchRecordE
             throw exception(PRO_BATCH_RECORD_EXECUTION_NOT_EXISTS);
         }
         if (!Objects.equals(execution.getStatus(), EXECUTION_STATUS_DRAFT)
+                && !Objects.equals(execution.getStatus(), 5)
                 && !Objects.equals(execution.getStatus(), EXECUTION_STATUS_FILL_COMPLETED)) {
             throw exception(PRO_BATCH_RECORD_EXECUTION_STATUS_INVALID);
         }

@@ -26,26 +26,18 @@
           :disabled="isPqcProcessNavigationBlocked"
           @click="openPicker('order')"
         >
-          <div class="frontline-order-summary__field is-order">
-            <span>生产订单</span>
-            <strong
-              class="frontline-order-summary__value is-order"
-              data-pqc-order-code
+          <div class="frontline-production-order-summary" :aria-label="productionActiveOrderSummaryLabel">
+            <div class="frontline-production-order-summary__value">
+              <div class="frontline-production-order-summary__code" data-pqc-order-code>{{ productionOrderLabel }}</div>
+              <div v-if="selectedActiveOrder" class="frontline-production-order-summary__product" data-pqc-product-name>{{ productionProductNameLabel }}</div>
+            </div>
+            <div
+              v-if="selectedActiveOrder"
+              class="frontline-production-order-quantity"
+              data-pqc-product-quantity
             >
-              {{ productionOrderLabel }}
-            </strong>
-          </div>
-          <div v-if="selectedActiveOrder" class="frontline-order-summary__field">
-            <span>产品名称</span>
-            <strong class="frontline-order-summary__value" data-pqc-product-name>
-              {{ selectedActiveOrder.productName }}
-            </strong>
-          </div>
-          <div v-if="selectedActiveOrder" class="frontline-order-summary__field is-quantity">
-            <span>产品数量</span>
-            <strong class="frontline-order-summary__value" data-pqc-product-quantity>
-              {{ selectedOrderQuantityLabel }}
-            </strong>
+              {{ selectedProductionOrderQuantityLabel }} 件
+            </div>
           </div>
         </button>
         <div
@@ -69,8 +61,8 @@
             :disabled="isPqcProcessNavigationBlocked"
             @click="openPicker('process')"
           >
-            <span>检验工序</span>
-            <strong>{{ selectedProcessLabel }}</strong>
+            <div class="top-label">检验工序</div>
+            <div class="top-value">{{ selectedProcessLabel }}</div>
           </button>
           <button
             class="frontline-production-process-nav-button"
@@ -84,21 +76,16 @@
           </button>
         </div>
         <button
-          class="frontline-top-card is-login-employee"
+          class="frontline-top-card frontline-production-employee-card is-login-employee"
           type="button"
           data-pqc-login-employee-card
           disabled
           aria-disabled="true"
         >
-          <span>员工</span>
-          <strong>{{ selectedEmployeeLabel }}</strong>
+          <div class="top-label">员工</div>
+          <div class="top-value">{{ selectedEmployeeLabel }}</div>
         </button>
         <div class="frontline-return-actions">
-        <button
-          v-hasPermi="['mes:pro-feedback:query']"
-          type="button" data-frontline-own-return-entry
-          class="frontline-return-button" @click="returnCorrectionPanel?.open()"
-        >退回待修改</button>
         <button
           class="frontline-home-button frontline-pqc-fullscreen-toggle"
           type="button"
@@ -108,6 +95,15 @@
           @click="handlePqcFullscreenToggle"
         >
           {{ pqcFullscreenActionText }}
+        </button>
+        <button
+          class="frontline-home-button frontline-pqc-facts-button"
+          type="button"
+          data-pqc-facts-button
+          :disabled="!activePqcTabItem || isPqcProcessNavigationBlocked"
+          @click="activePqcTabItem && openPqcFactsDialog(activePqcTabItem.key)"
+        >
+          方法和标准
         </button>
         </div>
       </header>
@@ -187,80 +183,49 @@
       </div>
 
       <div
-        v-if="activePqcStandardItem"
+        v-if="activePqcFactsItem"
         class="frontline-pqc-fact-dialog"
-        data-pqc-standard-dialog
+        data-pqc-facts-dialog
         role="dialog"
         aria-modal="true"
-        aria-labelledby="pqc-standard-dialog-title"
-        @click.self="closePqcStandardDialog"
+        aria-labelledby="pqc-facts-dialog-title"
+        @click.self="closePqcFactsDialog"
       >
-        <section class="frontline-pqc-fact-dialog__panel" data-pqc-standard-dialog-panel>
+        <section class="frontline-pqc-fact-dialog__panel" data-pqc-facts-dialog-panel>
           <header class="frontline-pqc-fact-dialog__header">
             <div>
-              <span class="frontline-pqc-fact-dialog__eyebrow">接收标准</span>
-              <h3 id="pqc-standard-dialog-title">{{ activePqcStandardItem.label }}</h3>
+              <span class="frontline-pqc-fact-dialog__eyebrow">方法和标准</span>
+              <h3 id="pqc-facts-dialog-title">{{ activePqcFactsItem.label }}</h3>
             </div>
             <button
               type="button"
               class="frontline-pqc-fact-dialog__close"
-              aria-label="关闭接收标准弹框"
-              @click="closePqcStandardDialog"
+              aria-label="关闭方法和标准弹框"
+              @click="closePqcFactsDialog"
             >
               ×
             </button>
           </header>
-          <div class="frontline-pqc-fact-dialog__body is-standard">
+          <div class="frontline-pqc-fact-dialog__body is-combined">
             <article class="frontline-pqc-fact-dialog__detail" data-pqc-standard-detail-text>
-              <span>标准说明</span>
-              <p>{{ activePqcStandardItem.standardText || '未配置接收标准说明' }}</p>
+              <span>接收标准</span>
+              <p>{{ activePqcFactsItem.standardText || '未配置接收标准说明' }}</p>
             </article>
-          </div>
-          <footer class="frontline-pqc-fact-dialog__footer">
-            <button type="button" @click="closePqcStandardDialog">关闭</button>
-          </footer>
-        </section>
-      </div>
-
-      <div
-        v-if="activePqcMethodItem"
-        class="frontline-pqc-fact-dialog"
-        data-pqc-method-dialog
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="pqc-method-dialog-title"
-        @click.self="closePqcMethodDialog"
-      >
-        <section class="frontline-pqc-fact-dialog__panel" data-pqc-method-dialog-panel>
-          <header class="frontline-pqc-fact-dialog__header">
-            <div>
-              <span class="frontline-pqc-fact-dialog__eyebrow">检验方法</span>
-              <h3 id="pqc-method-dialog-title">{{ activePqcMethodItem.samplingPlanText }}</h3>
-            </div>
-            <button
-              type="button"
-              class="frontline-pqc-fact-dialog__close"
-              aria-label="关闭检验方法弹框"
-              @click="closePqcMethodDialog"
-            >
-              ×
-            </button>
-          </header>
-          <div class="frontline-pqc-fact-dialog__body">
             <article class="frontline-pqc-fact-dialog__detail" data-pqc-method-detail-text>
-              <span>方法说明</span>
-              <p>{{ formatPqcMethodSummary(activePqcMethodItem) }}</p>
+              <span>检验方法</span>
+              <p>{{ formatPqcMethodSummary(activePqcFactsItem) }}</p>
             </article>
-            <article
-              class="frontline-pqc-fact-dialog__detail is-equipment"
-              data-pqc-method-equipment-text
-            >
+            <article class="frontline-pqc-fact-dialog__detail" data-pqc-sampling-plan-text>
+              <span>抽样方案</span>
+              <p>{{ activePqcFactsItem.samplingPlanText }}</p>
+            </article>
+            <article class="frontline-pqc-fact-dialog__detail is-equipment" data-pqc-method-equipment-text>
               <span>检验器具及设备</span>
-              <p>{{ activePqcMethodItem.inspectionTool }}</p>
+              <p>{{ activePqcFactsItem.inspectionTool }}</p>
             </article>
           </div>
           <footer class="frontline-pqc-fact-dialog__footer">
-            <button type="button" @click="closePqcMethodDialog">关闭</button>
+            <button type="button" @click="closePqcFactsDialog">关闭</button>
           </footer>
         </section>
       </div>
@@ -271,6 +236,28 @@
           data-frontline-pqc-inspection-content
         >
           <div class="frontline-pqc-inspection-list">
+            <nav
+              v-if="pqcInspectionItems.length"
+              class="pqc-item-tabs"
+              :style="{ '--pqc-item-columns': Math.min(pqcInspectionItems.length, 3) }"
+              data-pqc-inspection-tabs
+              aria-label="PQC检验项目切换"
+            >
+              <h3 class="frontline-pqc-section-title">检验项目</h3>
+              <button
+                v-for="item in pqcInspectionItems"
+                :key="item.key"
+                type="button"
+                class="pqc-item-tab"
+                data-pqc-inspection-tab
+                :data-pqc-inspection-item-code="item.key"
+                :class="{ active: activePqcTabKey === item.key }"
+                :aria-pressed="activePqcTabKey === item.key"
+                @click="selectPqcInspectionTab(item.key)"
+              >
+                <strong>{{ formatPqcInspectionItemTabLabel(item) }}</strong>
+              </button>
+            </nav>
             <article
               v-if="activePqcTabItem"
               class="frontline-pqc-content-item"
@@ -280,7 +267,6 @@
             >
               <div class="pqc-utility-strip" :aria-label="`${activePqcTabItem.label}质检信息`">
                 <div
-                  v-if="hasPqcEquipmentOptions(activePqcTabItem)"
                   class="pqc-select-card"
                   data-pqc-equipment-card
                   :class="{
@@ -292,7 +278,7 @@
                   <span>
                     <strong>检验设备</strong>
                     <input
-                      v-if="isPqcCustomEquipmentSelection(activePqcTabItem.key)"
+                      v-if="hasPqcEquipmentOptions(activePqcTabItem) && isPqcCustomEquipmentSelection(activePqcTabItem.key)"
                       class="pqc-select-custom-input"
                       :value="getPqcCustomEquipmentText(activePqcTabItem.key)"
                       maxlength="64"
@@ -301,10 +287,10 @@
                       placeholder="请输入检验设备"
                       @input="updatePqcCustomEquipmentText(activePqcTabItem.key, $event)"
                     />
-                    <span v-else>{{ getPqcSelectedEquipmentLabel(activePqcTabItem) }}</span>
+                    <span v-else>{{ hasPqcEquipmentOptions(activePqcTabItem) ? getPqcSelectedEquipmentLabel(activePqcTabItem) : '无设备' }}</span>
                   </span>
                   <button
-                    v-if="isPqcCustomEquipmentSelection(activePqcTabItem.key)"
+                    v-if="hasPqcEquipmentOptions(activePqcTabItem) && isPqcCustomEquipmentSelection(activePqcTabItem.key)"
                     type="button"
                     class="pqc-select-custom-return"
                     data-pqc-custom-equipment-return
@@ -313,9 +299,9 @@
                   >
                     选项
                   </button>
-                  <em v-else aria-hidden="true">&gt;</em>
+                  <em v-else-if="hasPqcEquipmentOptions(activePqcTabItem)" aria-hidden="true">&gt;</em>
                   <select
-                    v-if="!isPqcCustomEquipmentSelection(activePqcTabItem.key)"
+                    v-if="hasPqcEquipmentOptions(activePqcTabItem) && !isPqcCustomEquipmentSelection(activePqcTabItem.key)"
                     class="pqc-select-native"
                     :value="getPqcItemSelection(activePqcTabItem.key).selectedEquipmentId ?? ''"
                     data-pqc-equipment-select
@@ -342,26 +328,9 @@
                   </div>
                 </div>
 
-                <button
-                  type="button"
-                  class="pqc-fact-card is-primary"
-                  data-pqc-standard-button
-                  @click="openPqcStandardDialog(activePqcTabItem.key)"
-                >
-                  <strong>接收标准</strong>
-                  <span>{{ formatPqcStandardSummary(activePqcTabItem) }}</span>
-                </button>
-                <button
-                  type="button"
-                  class="pqc-fact-card"
-                  data-pqc-method-button
-                  @click="openPqcMethodDialog(activePqcTabItem.key)"
-                >
-                  <strong>检验方法</strong>
-                  <span>{{ formatPqcMethodSummary(activePqcTabItem) }}</span>
-                </button>
               </div>
 
+              <h3 class="frontline-pqc-section-title">检验操作</h3>
               <div
                 class="frontline-pqc-choice-actions"
                 :class="{ 'is-number': activePqcTabItem.type === 'number' }"
@@ -404,56 +373,40 @@
               {{ pqcInspectionEmptyText }}
             </div>
 
-            <nav
-              v-if="pqcInspectionItems.length"
-              class="pqc-item-tabs"
-              data-pqc-inspection-tabs
-              aria-label="PQC检验项目切换"
-            >
-              <button
-                v-for="item in pqcInspectionItems"
-                :key="item.key"
-                type="button"
-                class="pqc-item-tab"
-                data-pqc-inspection-tab
-                :data-pqc-inspection-item-code="item.key"
-                :class="{ active: activePqcTabKey === item.key }"
-                :aria-pressed="activePqcTabKey === item.key"
-                @click="selectPqcInspectionTab(item.key)"
-              >
-                <strong>{{ formatPqcInspectionItemTabLabel(item) }}</strong>
-              </button>
-            </nav>
-            <div
-              class="frontline-inline-error-slot"
-              data-frontline-error-slot
-              :class="{ 'is-visible': Boolean(frontlineErrorMessage) }"
-              role="alert"
-              aria-live="assertive"
-              aria-atomic="true"
-            >
-              <template v-if="frontlineErrorMessage">
-                <Icon icon="ep:warning-filled" :size="28" aria-hidden="true" />
-                <span data-frontline-error-message>{{ frontlineErrorMessage }}</span>
-                <button
-                  type="button"
-                  data-frontline-error-dismiss
-                  aria-label="关闭错误提示"
-                  @click="clearFrontlineError"
-                >
-                  <Icon icon="ep:close" :size="24" aria-hidden="true" />
-                </button>
-              </template>
-            </div>
+
+
           </div>
         </section>
 
         <section class="frontline-work-panel frontline-pqc-fill-panel">
+          <h3 class="frontline-pqc-section-title">数量填写</h3>
           <div class="frontline-pqc-form-area">
             <div class="frontline-pqc-number-field">
               <label for="frontlinePqcInspectionQuantity">检验</label>
-              <input id="frontlinePqcInspectionQuantity" :value="pqcDraft.inspectionQuantity ?? ''"
-                type="number" data-pqc-inspection-quantity readonly aria-label="本次最大抽样数量" />
+              <button
+                type="button"
+                aria-label="检验减少"
+                @click="adjustPqcQuantity('inspectionQuantity', -1)"
+              >
+                -
+              </button>
+              <input
+                id="frontlinePqcInspectionQuantity"
+                :value="pqcDraft.inspectionQuantity ?? ''"
+                type="number"
+                min="0"
+                inputmode="numeric"
+                data-pqc-inspection-quantity
+                aria-label="检验数量"
+                @input="updatePqcQuantity('inspectionQuantity', $event)"
+              />
+              <button
+                type="button"
+                aria-label="检验增加"
+                @click="adjustPqcQuantity('inspectionQuantity', 1)"
+              >
+                +
+              </button>
               <span>件</span>
             </div>
             <div class="frontline-pqc-number-field">
@@ -483,6 +436,27 @@
               </button>
               <span>件</span>
             </div>
+          </div>
+          <div
+            class="frontline-inline-error-slot"
+            data-frontline-error-slot
+            :class="{ 'is-visible': Boolean(frontlineErrorMessage) }"
+            role="alert"
+            aria-live="assertive"
+            aria-atomic="true"
+          >
+            <template v-if="frontlineErrorMessage">
+              <Icon icon="ep:warning-filled" :size="28" aria-hidden="true" />
+              <span data-frontline-error-message>{{ frontlineErrorMessage }}</span>
+              <button
+                type="button"
+                data-frontline-error-dismiss
+                aria-label="关闭错误提示"
+                @click="clearFrontlineError"
+              >
+                <Icon icon="ep:close" :size="24" aria-hidden="true" />
+              </button>
+            </template>
           </div>
         </section>
         <section
@@ -600,7 +574,12 @@
                 data-frontline-production-order-code
                 data-frontline-production-active-order-summary
               >
-                {{ productionOrderLabel }}<br />{{ productionProductNameLabel }}
+                <span class="frontline-production-order-summary__code">
+                  {{ productionOrderLabel }}
+                </span><br />
+                <span class="frontline-production-order-summary__product">
+                  {{ productionProductNameLabel }}
+                </span>
               </span>
               <span
                 class="frontline-production-order-quantity"
@@ -666,22 +645,30 @@
             <div class="top-label">员工</div>
             <div class="top-value">{{ selectedEmployeeLabel }}</div>
           </button>
-          <div class="frontline-return-actions">
-          <button
-            v-hasPermi="['mes:pro-feedback:query']"
-            type="button" data-frontline-own-return-entry
-            class="frontline-return-button" @click="returnCorrectionPanel?.open()"
-          >退回待修改</button>
-          <button
-            class="frontline-home-button home-btn frontline-production-fullscreen-toggle"
-            type="button"
-            data-production-fullscreen-toggle
-            :aria-label="productionFullscreenActionText"
-            :aria-pressed="isProductionFullscreen"
-            @click="handleProductionFullscreenToggle"
-          >
-            {{ productionFullscreenActionText }}
-          </button>
+          <div class="frontline-return-actions frontline-production-top-actions">
+            <button
+              class="frontline-home-button home-btn frontline-production-fullscreen-toggle"
+              type="button"
+              data-production-fullscreen-toggle
+              :aria-label="productionFullscreenActionText"
+              :aria-pressed="isProductionFullscreen"
+              @click="handleProductionFullscreenToggle"
+            >
+              {{ productionFullscreenActionText }}
+            </button>
+            <button
+              class="frontline-home-button frontline-production-sop-button"
+              type="button"
+              data-production-sop-button
+              :class="{ 'is-unbound': !productionSopLoading && !productionSopLoadError && !productionSopFileUrl }"
+              :disabled="productionSopLoading"
+              :aria-busy="productionSopLoading"
+              aria-label="查看当前工序SOP"
+              :title="productionSopLoadError || (productionSopFileUrl ? '查看当前工序SOP' : '当前工序没有上传SOP文件')"
+              @click="openProductionSop"
+            >
+              SOP
+            </button>
           </div>
         </header>
 
@@ -887,7 +874,11 @@
                 :disabled="payloadLoading"
                 @click="switchProductionMaterial(material.key)"
               >
-                <strong>{{ formatProductionMaterialTabLabel(material) }}</strong>
+                <strong>
+                  {{ material.materialName }}<small
+                    v-if="formatProductionMaterialTabLabel(material) !== material.materialName"
+                  > / {{ material.materialCode }}</small>
+                </strong>
               </button>
             </section>
             <div
@@ -930,19 +921,29 @@
                 class="frontline-production-device-card device-tab-card"
                 :class="{ active: selectedProductionDeviceKeys.includes(device.key) }"
               >
-                <button
-                  class="device-tab"
-                  type="button"
-                  role="checkbox"
-                  :aria-checked="selectedProductionDeviceKeys.includes(device.key)"
-                  :disabled="payloadLoading"
-                  @click="toggleProductionDeviceSelection(device)"
-                >
-                  <span class="device-tab-selection" aria-hidden="true">
-                    {{ selectedProductionDeviceKeys.includes(device.key) ? '✓' : '' }}
-                  </span>
-                  <span class="device-tab-code">{{ device.label }}</span>
-                </button>
+                <div class="frontline-production-device-header">
+                  <button
+                    class="device-tab"
+                    type="button"
+                    :aria-label="`${device.label}设备参数`"
+                    :aria-pressed="selectedProductionDeviceKey === device.key"
+                    :disabled="payloadLoading"
+                    @click="selectedProductionDeviceKeys.includes(device.key)
+                      ? showProductionDeviceParameters(device)
+                      : toggleProductionDeviceSelection(device)"
+                  >
+                    <span class="device-tab-code">{{ device.label }}</span>
+                  </button>
+                  <button
+                    class="device-tab-selection"
+                    type="button"
+                    role="checkbox"
+                    :aria-label="`${device.label}设备选取`"
+                    :aria-checked="selectedProductionDeviceKeys.includes(device.key)"
+                    :disabled="payloadLoading"
+                    @click="toggleProductionDeviceSelection(device)"
+                  ></button>
+                </div>
                 <label class="frontline-production-device-metering-validity">
                   <input
                     type="checkbox"
@@ -955,17 +956,6 @@
                   <span aria-hidden="true">✓</span>
                   <em>在计量效期内</em>
                 </label>
-                <button
-                  class="frontline-production-device-parameters-button"
-                  type="button"
-                  :aria-label="`${device.label}填写参数`"
-                  :aria-pressed="selectedProductionDeviceKey === device.key"
-                  :disabled="payloadLoading || !selectedProductionDeviceKeys.includes(device.key)"
-                  data-frontline-production-device-parameters
-                  @click="showProductionDeviceParameters(device)"
-                >
-                  填写参数
-                </button>
               </div>
             </div>
             <div
@@ -1223,6 +1213,46 @@
     </div>
 
     <div
+      v-if="productionSopDialogOpen && !isPqcMode"
+      class="frontline-production-sop-modal"
+      @click.self="closeProductionSop"
+      @keydown.esc.stop="closeProductionSop"
+    >
+      <section
+        class="frontline-production-sop-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="frontlineProductionSopTitle"
+      >
+        <header>
+          <h3 id="frontlineProductionSopTitle">{{ selectedProcessLabel }} · SOP</h3>
+          <button ref="productionSopCloseButtonRef" type="button" @click="closeProductionSop">关闭</button>
+        </header>
+        <div class="frontline-production-sop-body">
+          <div v-if="productionSopLoadError" role="alert">
+            <p>SOP读取失败：{{ productionSopLoadError }}</p>
+            <button type="button" :disabled="productionSopLoading" @click="productionSopRefreshKey += 1">重试</button>
+          </div>
+          <p v-else-if="productionSopLoading || productionSopPreviewLoading" role="status">正在读取SOP文件…</p>
+          <p v-else-if="!productionSopFileUrl" role="status">{{ deviceState.selectedProcess ? '当前工序没有上传SOP文件' : '请先选择工序' }}</p>
+          <p v-else-if="productionSopPreviewError" role="alert">SOP文件加载失败：{{ productionSopPreviewError }}</p>
+          <img
+            v-else-if="productionSopIsImage && productionSopPreviewUrl"
+            :src="productionSopPreviewUrl"
+            :alt="`${selectedProcessLabel} SOP`"
+            @error="productionSopPreviewError = '图片内容无法显示，请检查文件或重新上传'"
+          />
+          <iframe
+            v-else-if="productionSopPreviewUrl"
+            :src="productionSopPreviewUrl"
+            :title="`${selectedProcessLabel} SOP文件`"
+            @error="productionSopPreviewError = 'PDF内容无法显示，请检查文件或重新上传'"
+          ></iframe>
+        </div>
+      </section>
+    </div>
+
+    <div
       v-if="submitConfirmationOpen && !isPqcMode"
       class="frontline-production-submit-confirmation-modal"
       data-production-submit-confirmation-dialog
@@ -1437,7 +1467,7 @@ import { cloneDeep } from 'lodash-es'
 const approvalInvalidation = useApprovalCenterInvalidationStore()
 import FrontlineReturnCorrectionPanel from './FrontlineReturnCorrectionPanel.vue'
 const returnCorrectionPanel = ref<InstanceType<typeof FrontlineReturnCorrectionPanel>>()
-import { isAxiosError } from 'axios'
+import axios, { isAxiosError } from 'axios'
 import {
   FRONTLINE_FIELD_CODES,
   FRONTLINE_PQC_RESULTS,
@@ -1897,8 +1927,7 @@ const pqcDraft = reactive({
 
 const pqcTaskDrafts = reactive<Record<PqcTaskDraftKey, PqcTaskDraftState>>({})
 const activePqcInspectionKey = ref<PqcInspectionItemKey>()
-const activePqcStandardKey = ref<PqcInspectionItemKey>()
-const activePqcMethodKey = ref<PqcInspectionItemKey>()
+const activePqcFactsKey = ref<PqcInspectionItemKey>()
 const selectedPqcInspectionKey = ref<PqcInspectionItemKey>()
 const selectedPqcInspectionRuleKey = ref<FrontlinePqcInspectionRuleKey>()
 const activePqcTaskOptionId = ref<number>()
@@ -1935,6 +1964,9 @@ const productionStageStyle = computed(() => {
     '--frontline-production-top-action-font-size': `${42 / scale}px`,
     '--frontline-production-return-action-font-size': `${18 / scale}px`,
     '--frontline-production-footer-action-font-size': `${54 / scale}px`,
+    '--frontline-production-home-font-size': `${22 / scale}px`,
+    '--frontline-production-reset-font-size': `${30 / scale}px`,
+    '--frontline-production-submit-font-size': `${36 / scale}px`,
     width: `${PRODUCTION_CANVAS_WIDTH * scale}px`,
     height: `${PRODUCTION_CANVAS_HEIGHT * scale}px`
   }
@@ -1969,7 +2001,7 @@ const productionOrderLabel = computed(() => {
   if (!workOrderCode) {
     throw new Error(`一线活跃订单缺少正式订单号：workOrderId=${selectedOrder.workOrderId}`)
   }
-  return workOrderCode
+  return Array.from(workOrderCode).slice(-20).join('')
 })
 
 const productionProductNameLabel = computed(() => {
@@ -2008,12 +2040,6 @@ const formatProductionQuantity = (quantity: number) => {
   return String(quantity)
 }
 
-const selectedOrderQuantityLabel = computed(() =>
-  selectedActiveOrder.value
-    ? formatProductionQuantity(selectedActiveOrder.value.quantity)
-    : ''
-)
-
 const selectedProductionOrderQuantityLabel = computed(() =>
   selectedActiveOrder.value
     ? formatProductionQuantity(selectedActiveOrder.value.quantity)
@@ -2036,6 +2062,101 @@ const selectedProductionProcessSubmittedQuantityLabel = computed(() => {
 })
 
 const selectedProcessLabel = computed(() => formatProcessLabel(deviceState.selectedProcess))
+
+const productionSopFileUrl = ref('')
+const productionSopLoading = ref(false)
+const productionSopLoadError = ref('')
+const productionSopPreviewError = ref('')
+const productionSopPreviewLoading = ref(false)
+const productionSopPreviewUrl = ref('')
+let productionSopPreviewRequestId = 0
+const productionSopDialogOpen = ref(false)
+const productionSopRefreshKey = ref(0)
+const productionSopCloseButtonRef = ref<HTMLButtonElement>()
+const productionSopIsImage = computed(() =>
+  /\.(?:png|jpe?g|webp)(?:\?|$)/i.test(productionSopFileUrl.value)
+)
+
+const releaseProductionSopPreview = () => {
+  productionSopPreviewRequestId += 1
+  if (productionSopPreviewUrl.value) URL.revokeObjectURL(productionSopPreviewUrl.value)
+  productionSopPreviewUrl.value = ''
+  productionSopPreviewLoading.value = false
+  productionSopPreviewError.value = ''
+}
+
+const openProductionSop = async () => {
+  releaseProductionSopPreview()
+  productionSopDialogOpen.value = true
+  await nextTick()
+  productionSopCloseButtonRef.value?.focus()
+  if (!productionSopDialogOpen.value || !productionSopFileUrl.value || productionSopLoadError.value) return
+  const requestId = ++productionSopPreviewRequestId
+  const fileUrl = productionSopFileUrl.value
+  productionSopPreviewLoading.value = true
+  try {
+    // 文件下载接口返回 attachment，读取为 Blob 后才能在页面内预览。
+    const response = await axios.get<Blob>(fileUrl, { responseType: 'blob' })
+    if (requestId !== productionSopPreviewRequestId) return
+    if (response.data.type.includes('json')) {
+      const error = JSON.parse(await response.data.text())
+      throw new Error(error.msg || '文件服务未返回SOP文件内容')
+    }
+    if (!response.data.size) throw new Error('SOP文件内容为空')
+    const extension = new URL(fileUrl, window.location.origin).pathname.split('.').pop()?.toLowerCase()
+    const contentTypes: Record<string, string> = {
+      pdf: 'application/pdf', png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', webp: 'image/webp'
+    }
+    if (!extension || !contentTypes[extension]) throw new Error('当前SOP文件格式不支持在线预览')
+    const contentType = contentTypes[extension]
+    productionSopPreviewUrl.value = URL.createObjectURL(new Blob([response.data], { type: contentType }))
+  } catch (error) {
+    if (requestId === productionSopPreviewRequestId) productionSopPreviewError.value = resolveErrorMessage(error)
+  } finally {
+    if (requestId === productionSopPreviewRequestId) productionSopPreviewLoading.value = false
+  }
+}
+
+const closeProductionSop = () => {
+  productionSopDialogOpen.value = false
+  releaseProductionSopPreview()
+}
+
+watch(
+  () => {
+    const order = selectedActiveOrder.value
+    const process = deviceState.selectedProcess
+    return !isPqcMode.value && order && process && 'routeProcessId' in process
+      ? [order.activeOrderId, process.routeId, process.routeProcessId, process.processId, productionSopRefreshKey.value] as const
+      : undefined
+  },
+  async (context, previousContext, onCleanup) => {
+    let stale = false
+    onCleanup(() => { stale = true })
+    const isRetry = context && previousContext && context.slice(0, 4).every((id, index) => id === previousContext[index])
+    if (!isRetry) productionSopDialogOpen.value = false
+    productionSopFileUrl.value = ''
+    productionSopLoadError.value = ''
+    releaseProductionSopPreview()
+    productionSopLoading.value = Boolean(context)
+    if (!context) return
+    const [activeOrderId, routeId, routeProcessId, processId] = context
+    try {
+      const result = await ProFeedbackApi.getFrontlineProductionProcessSop({ activeOrderId, routeId, routeProcessId, processId })
+      if (stale) return
+      if (result.processId !== processId) throw new Error('SOP文件与当前工序不一致')
+      productionSopFileUrl.value = result.fileUrl?.trim() ?? ''
+      if (productionSopDialogOpen.value) await openProductionSop()
+    } catch (error) {
+      if (stale) return
+      productionSopLoadError.value = resolveErrorMessage(error)
+      await openProductionSop()
+    } finally {
+      if (!stale) productionSopLoading.value = false
+    }
+  },
+  { immediate: true }
+)
 
 const selectedEmployeeLabel = computed(() =>
   isPqcMode.value
@@ -2306,15 +2427,9 @@ const activePqcTabItem = computed(() =>
     : undefined
 )
 
-const activePqcStandardItem = computed(() =>
-  activePqcStandardKey.value
-    ? pqcTaskInspectionItemMap.value[activePqcStandardKey.value]
-    : undefined
-)
-
-const activePqcMethodItem = computed(() =>
-  activePqcMethodKey.value
-    ? pqcTaskInspectionItemMap.value[activePqcMethodKey.value]
+const activePqcFactsItem = computed(() =>
+  activePqcFactsKey.value
+    ? pqcTaskInspectionItemMap.value[activePqcFactsKey.value]
     : undefined
 )
 
@@ -3645,8 +3760,7 @@ const clearPqcPieceValues = () => {
     delete pqcItemSelections[key]
   }
   activePqcInspectionKey.value = undefined
-  activePqcStandardKey.value = undefined
-  activePqcMethodKey.value = undefined
+  activePqcFactsKey.value = undefined
   selectedPqcInspectionKey.value = undefined
   pqcPieceDraftValues.value = []
 }
@@ -3794,10 +3908,6 @@ const returnToPqcEquipmentOptions = (itemKey: PqcInspectionItemKey) => {
   selection.selectedEquipmentNumber = undefined
 }
 
-const openPqcStandardDialog = (itemKey: PqcInspectionItemKey) => {
-  activePqcStandardKey.value = itemKey
-}
-
 const requirePqcInspectionDisplayFields = (item: PqcInspectionItem) => {
   const missingFields: string[] = []
   if (!item.inspectionTool?.trim()) {
@@ -3825,7 +3935,7 @@ const assertPqcCurrentProcessInspectionDisplayFieldsReady = () => {
   }
 }
 
-const openPqcMethodDialog = (itemKey: PqcInspectionItemKey) => {
+const openPqcFactsDialog = (itemKey: PqcInspectionItemKey) => {
   const item = pqcTaskInspectionItemMap.value[itemKey]
   if (!item) {
     showFrontlineError(`PQC检验项目${itemKey}不在当前QA规程快照中。`)
@@ -3837,15 +3947,11 @@ const openPqcMethodDialog = (itemKey: PqcInspectionItemKey) => {
     showFrontlineError(error)
     return
   }
-  activePqcMethodKey.value = itemKey
+  activePqcFactsKey.value = itemKey
 }
 
-const closePqcStandardDialog = () => {
-  activePqcStandardKey.value = undefined
-}
-
-const closePqcMethodDialog = () => {
-  activePqcMethodKey.value = undefined
+const closePqcFactsDialog = () => {
+  activePqcFactsKey.value = undefined
 }
 
 const applyPqcTaskSnapshotToDraft = (
@@ -3994,13 +4100,6 @@ const getPqcSelectedEquipmentLabel = (item: PqcInspectionItem) => {
 
 const formatPqcInspectionItemTabLabel = (item: PqcInspectionItem) =>
   item.itemName || '未配置检验项目名称'
-
-const formatPqcStandardSummary = (item: PqcInspectionItem) => {
-  if (item.standardText) {
-    return item.standardText
-  }
-  return '未配置接收标准'
-}
 
 const normalizePqcInspectionMethodLabel = (inspectionMethod: string) => {
   const trimmedMethod = inspectionMethod.trim()
@@ -6698,6 +6797,7 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
+  releaseProductionSopPreview()
   ++initialHandoffEpoch; initialHandoffPageMounted = false
   resolveProductionFormalSubmitConfirmation(false)
   closeProductionSubmitSuccessDialog()
@@ -6719,7 +6819,6 @@ onUnmounted(() => {
 <style scoped lang="scss">
 .frontline-return-actions { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
 .frontline-return-actions > button { flex: 1; min-height: 40px; width: 100%; }
-.frontline-return-button { border: 1px solid #334155; border-radius: 8px; background: #fff; color: #1e293b; font-size: 18px; font-weight: 600; cursor: pointer; }
 .frontline-production-stage .frontline-return-actions > button {
   font-size: var(--frontline-production-return-action-font-size);
   line-height: 1.2;
@@ -6746,11 +6845,14 @@ onUnmounted(() => {
   overflow-y: auto;
   background: #dfe8e2;
   color: #111a15;
-  font-family:
-    "Microsoft YaHei UI",
-    "PingFang SC",
-    "Noto Sans CJK SC",
-    sans-serif;
+  font-family: "Microsoft YaHei";
+
+  :deep(button),
+  :deep(input),
+  :deep(select),
+  :deep(textarea) {
+    font-family: inherit;
+  }
 }
 
 .frontline-operator-screen,
@@ -6794,7 +6896,7 @@ onUnmounted(() => {
     position: relative;
     width: auto;
     height: auto;
-    grid-template-rows: minmax(118px, auto) minmax(0, 1fr);
+    grid-template-rows: clamp(130px, 7.8125vw, 150px) minmax(0, 1fr);
     min-height: 820px;
   }
 }
@@ -6804,6 +6906,9 @@ onUnmounted(() => {
   inset: 0;
   transform: scale(var(--frontline-production-scale, 1));
   transform-origin: top left;
+  font-family: inherit;
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
 }
 
 .frontline-operator-screen button,
@@ -6852,17 +6957,11 @@ onUnmounted(() => {
   height: 100%;
   min-height: 0;
   margin: 0;
-  grid-template-rows: minmax(118px, auto) minmax(0, 1fr);
+  grid-template-rows: clamp(130px, 7.8125vw, 150px) minmax(0, 1fr);
   gap: 16px;
   padding: 16px;
   border-radius: 18px;
   box-shadow: 0 18px 46px rgba(36, 50, 43, 0.12);
-}
-
-.frontline-operator-panel.is-pqc-fullscreen .frontline-operator-top.is-pqc,
-.frontline-operator-panel:fullscreen .frontline-operator-top.is-pqc {
-  grid-template-columns: minmax(280px, 1.35fr) minmax(230px, 1fr) minmax(280px, 1.1fr) minmax(120px, 0.45fr) 150px;
-  gap: 12px;
 }
 
 .frontline-operator-panel.is-pqc-fullscreen .frontline-operator-main.is-pqc,
@@ -6870,25 +6969,6 @@ onUnmounted(() => {
   grid-template-columns: minmax(0, 1.28fr) minmax(0, 0.92fr);
   grid-template-rows: minmax(0, 1fr) 112px;
   gap: 18px 22px;
-}
-
-.frontline-operator-panel.is-pqc-fullscreen .frontline-operator-screen.is-pqc .frontline-top-card,
-.frontline-operator-panel:fullscreen .frontline-operator-screen.is-pqc .frontline-top-card {
-  padding: 14px 16px;
-
-  span {
-    font-size: 16px;
-  }
-
-  strong {
-    margin-top: 6px;
-    font-size: 22px;
-  }
-}
-
-.frontline-operator-panel.is-pqc-fullscreen .frontline-operator-screen.is-pqc .frontline-home-button,
-.frontline-operator-panel:fullscreen .frontline-operator-screen.is-pqc .frontline-home-button {
-  font-size: 56px;
 }
 
 .frontline-operator-panel.is-pqc-fullscreen .frontline-pqc-fill-panel,
@@ -6909,7 +6989,7 @@ onUnmounted(() => {
 
 .frontline-operator-panel.is-pqc-fullscreen .frontline-pqc-submit-bar,
 .frontline-operator-panel:fullscreen .frontline-pqc-submit-bar {
-  grid-template-columns: 280px 360px minmax(0, 1fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 24px;
 }
 
@@ -6927,8 +7007,8 @@ onUnmounted(() => {
   gap: 20px;
 
   &.is-pqc {
-    grid-template-columns: minmax(280px, 1.35fr) minmax(230px, 1fr) minmax(280px, 1.1fr) minmax(120px, 0.45fr) 150px;
-    gap: 12px;
+    grid-template-columns: minmax(0, 1.45fr) minmax(0, 1.55fr) minmax(0, 0.6fr) minmax(160px, 0.55fr);
+    gap: clamp(12px, 1.04vw, 20px);
   }
 }
 
@@ -7026,6 +7106,44 @@ onUnmounted(() => {
   word-break: normal;
 }
 
+.frontline-production-stage,
+.frontline-operator-top.is-pqc {
+  .frontline-top-card .top-label {
+    font-size: 20px;
+    font-weight: 400;
+  }
+
+  .frontline-top-card .top-value {
+    font-size: 36px;
+    font-weight: 600;
+  }
+
+  .frontline-production-employee-card .top-value {
+    font-size: 32px;
+  }
+
+  .frontline-production-order-summary__code,
+  .frontline-production-order-summary__product {
+    color: inherit;
+    line-height: inherit;
+  }
+
+  .frontline-production-order-summary__code {
+    font-size: 16px;
+    font-weight: 400;
+  }
+
+  .frontline-production-order-summary__product {
+    font-size: 24px;
+    font-weight: 600;
+  }
+
+  .frontline-production-order-quantity {
+    font-size: 24px;
+    font-weight: 500;
+  }
+}
+
 .frontline-top-card.is-login-employee {
   cursor: default;
   opacity: 1;
@@ -7041,9 +7159,9 @@ onUnmounted(() => {
 }
 
 .frontline-pqc-process-nav-card {
-  grid-template-columns: 72px minmax(0, 1fr) 72px;
-  gap: 10px;
-  padding: 10px 12px;
+  grid-template-columns: clamp(72px, 7.29vw, 140px) minmax(0, 1fr) clamp(72px, 7.29vw, 140px);
+  gap: 12px;
+  padding: 14px 16px;
 }
 
 .frontline-production-process-current {
@@ -7072,8 +7190,8 @@ onUnmounted(() => {
 
 .frontline-production-process-submitted span {
   color: var(--frontline-muted);
-  font-size: 22px;
-  font-weight: 800;
+  font-size: 20px;
+  font-weight: 400;
   line-height: 1;
 }
 
@@ -7081,8 +7199,8 @@ onUnmounted(() => {
   min-width: 0;
   overflow: hidden;
   color: var(--frontline-ink);
-  font-size: 28px;
-  font-weight: 900;
+  font-size: 20px;
+  font-weight: 600;
   line-height: 1;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -7145,27 +7263,27 @@ onUnmounted(() => {
 }
 
 .frontline-pqc-process-nav-card .frontline-production-process-nav-button {
-  padding: 0 4px;
-  border-radius: 16px;
+  padding: 0 10px;
+  border-radius: 22px;
 }
 
 .frontline-pqc-process-nav-card .frontline-production-process-nav-icon {
-  width: 48px;
-  height: 30px;
+  width: clamp(48px, 4.06vw, 78px);
+  height: clamp(30px, 2.4vw, 46px);
 }
 
 .frontline-pqc-process-nav-card .frontline-production-process-nav-icon::before {
   right: 4px;
-  left: 8px;
-  height: 9px;
+  left: 10px;
+  height: clamp(9px, 0.73vw, 14px);
 }
 
 .frontline-pqc-process-nav-card .frontline-production-process-nav-icon::after {
   left: 4px;
-  width: 22px;
-  height: 22px;
-  border-left: 9px solid currentColor;
-  border-bottom: 9px solid currentColor;
+  width: clamp(22px, 1.77vw, 34px);
+  height: clamp(22px, 1.77vw, 34px);
+  border-left: clamp(9px, 0.73vw, 14px) solid currentColor;
+  border-bottom: clamp(9px, 0.73vw, 14px) solid currentColor;
 }
 
 .frontline-production-process-current:disabled,
@@ -7175,26 +7293,33 @@ onUnmounted(() => {
 }
 
 .frontline-operator-top.is-pqc {
+  font-family: "Microsoft YaHei";
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+
   .frontline-top-card {
+    padding: 14px 20px;
+    color: var(--frontline-ink);
+  }
+
+  .frontline-pqc-process-nav-card {
     padding: 14px 16px;
+  }
 
-    span {
-      font-size: 18px;
-      font-weight: 800;
-    }
+  .frontline-production-process-current .top-value {
+    max-width: 100%;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    text-wrap: balance;
+  }
 
-    strong {
-      margin-top: 6px;
-      overflow: visible;
-      font-size: 26px;
-      text-overflow: clip;
-      white-space: normal;
-      overflow-wrap: anywhere;
-    }
+  .frontline-production-order-quantity {
+    color: var(--frontline-muted);
   }
 
   .frontline-home-button {
-    font-size: 30px;
+    font-size: 22px;
+    font-weight: 500;
   }
 }
 
@@ -7223,42 +7348,6 @@ onUnmounted(() => {
   [role='status'] {
     margin-top: 6px;
     font-size: 14px !important;
-  }
-}
-
-.frontline-top-card--order-summary {
-  display: grid;
-  grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr) minmax(112px, auto);
-  gap: 14px;
-  align-items: stretch;
-  padding: 14px 16px;
-}
-
-.frontline-order-summary__field {
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
-  justify-content: center;
-  padding-left: 14px;
-  border-left: 2px solid var(--frontline-line);
-
-  &.is-order {
-    padding-left: 0;
-    border-left: 0;
-  }
-}
-
-.frontline-order-summary__value {
-  margin-top: 6px !important;
-  overflow: visible !important;
-  font-size: 22px !important;
-  line-height: 1.15 !important;
-  text-overflow: clip !important;
-  white-space: normal !important;
-  overflow-wrap: anywhere;
-
-  &.is-order {
-    font-size: 24px !important;
   }
 }
 
@@ -7348,13 +7437,14 @@ onUnmounted(() => {
   }
 
   strong {
-    font-size: 24px;
+    font-size: 20px;
+    font-weight: 500;
     line-height: 1.1;
   }
 
   small {
     font-size: 16px;
-    font-weight: 800;
+    font-weight: 400;
     line-height: 1.1;
   }
 
@@ -7428,8 +7518,8 @@ onUnmounted(() => {
   }
 
   label {
-    font-size: 36px;
-    font-weight: 900;
+    font-size: 26px;
+    font-weight: 500;
     line-height: 1.15;
   }
 
@@ -7443,17 +7533,18 @@ onUnmounted(() => {
     background: #f8faf8;
     color: var(--frontline-ink);
     text-align: center;
-    font-weight: 900;
+    font-weight: 600;
   }
 
   button {
     padding: 0;
-    font-size: 50px;
+    font-size: 32px;
+    font-weight: 500;
     cursor: pointer;
   }
 
   input {
-    font-size: 52px;
+    font-size: 40px;
 
     &[readonly] {
       background: #eef3ef;
@@ -7461,8 +7552,8 @@ onUnmounted(() => {
   }
 
   span {
-    font-size: 34px;
-    font-weight: 800;
+    font-size: 22px;
+    font-weight: 400;
   }
 }
 
@@ -7495,7 +7586,7 @@ onUnmounted(() => {
   border-radius: 16px;
   background: #f8faf8;
   color: var(--frontline-ink);
-  font-weight: 900;
+  font-weight: 500;
   text-align: left;
 
   &.active {
@@ -7506,12 +7597,12 @@ onUnmounted(() => {
 
 .frontline-production-defect-name {
   min-width: 0;
-  font-size: 24px;
+  font-size: 20px;
   line-height: 1.15;
 }
 
-.frontline-production-defect-step,
-.frontline-production-defect-qty {
+.frontline-production-defect-card .frontline-production-defect-step,
+.frontline-production-defect-card .frontline-production-defect-qty {
   width: 100%;
   height: 54px;
   min-width: 0;
@@ -7520,22 +7611,23 @@ onUnmounted(() => {
   background: #ffffff;
   color: var(--frontline-ink);
   text-align: center;
-  font-weight: 900;
+  font-weight: 600;
 }
 
-.frontline-production-defect-step {
+.frontline-production-defect-card .frontline-production-defect-step {
   padding: 0;
-  font-size: 34px;
+  font-size: 24px;
+  font-weight: 500;
   cursor: pointer;
 }
 
-.frontline-production-defect-qty {
-  font-size: 30px;
+.frontline-production-defect-card .frontline-production-defect-qty {
+  font-size: 22px;
 }
 
 .frontline-production-defect-unit {
-  font-size: 24px;
-  font-weight: 900;
+  font-size: 22px;
+  font-weight: 400;
   white-space: nowrap;
 }
 
@@ -7556,9 +7648,9 @@ onUnmounted(() => {
 
 .frontline-production-device-card {
   display: grid;
-  grid-template-rows: minmax(0, 1fr) 36px 28px;
+  grid-template-rows: minmax(0, 1fr) 36px;
   min-width: 0;
-  height: 138px;
+  height: 110px;
   border: 3px solid var(--frontline-line);
   border-radius: 20px;
   background: #f8faf8;
@@ -7569,16 +7661,24 @@ onUnmounted(() => {
   }
 }
 
+.frontline-production-device-header {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+}
+
 .frontline-production-device-card .device-tab {
   position: relative;
+  width: 100%;
+  height: 100%;
   min-width: 0;
   min-height: 0;
   padding: 0 38px;
   border: 0;
   background: var(--frontline-dark);
   color: #ffffff;
-  font-size: 30px;
-  font-weight: 900;
+  font-size: 16px;
+  font-weight: 400;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -7621,7 +7721,7 @@ onUnmounted(() => {
     min-width: 0;
     font-size: 14px;
     font-style: normal;
-    font-weight: 900;
+    font-weight: 500;
     letter-spacing: 0;
     white-space: nowrap;
   }
@@ -7640,27 +7740,6 @@ onUnmounted(() => {
 
 .frontline-production-device-card.active .frontline-production-device-metering-validity {
   color: var(--frontline-ink);
-}
-
-.frontline-production-device-parameters-button {
-  min-width: 0;
-  border: 0;
-  border-top: 1px solid var(--frontline-line);
-  background: #ffffff;
-  color: var(--frontline-ink);
-  font-size: 14px;
-  font-weight: 900;
-  cursor: pointer;
-
-  &[aria-pressed='true'] {
-    background: #15815f;
-    color: #ffffff;
-  }
-
-  &:disabled {
-    opacity: 0.48;
-    cursor: default;
-  }
 }
 
 .frontline-production-device-current {
@@ -7782,8 +7861,8 @@ onUnmounted(() => {
   border-radius: 24px;
   background: #fbfdfb;
   color: var(--frontline-ink);
-  font-size: 42px;
-  font-weight: 900;
+  font-size: 28px;
+  font-weight: 400;
 }
 
 .frontline-production-clearance-confirmations {
@@ -7807,7 +7886,7 @@ onUnmounted(() => {
   min-width: 0;
 }
 
-.frontline-production-clearance-label {
+.frontline-production-clearance-confirmation .frontline-production-clearance-label {
   display: grid;
   grid-template-columns: auto auto;
   justify-content: center;
@@ -7820,8 +7899,8 @@ onUnmounted(() => {
   border-radius: 14px;
   background: #ffffff;
   color: var(--frontline-ink);
-  font-size: 24px;
-  font-weight: 900;
+  font-size: 16px;
+  font-weight: 500;
   cursor: pointer;
 
   span,
@@ -7832,8 +7911,8 @@ onUnmounted(() => {
 
   small {
     color: #256d85;
-    font-size: 17px;
-    font-weight: 900;
+    font-size: 16px;
+    font-weight: 500;
   }
 }
 
@@ -7850,8 +7929,8 @@ onUnmounted(() => {
   border-radius: 14px;
   background: #ffffff;
   color: var(--frontline-ink);
-  font-size: 20px;
-  font-weight: 900;
+  font-size: 16px;
+  font-weight: 500;
   cursor: pointer;
 
   input {
@@ -8152,8 +8231,6 @@ onUnmounted(() => {
 .frontline-production-submit-button {
   border: 0;
   border-radius: 28px;
-  font-size: 54px;
-  font-weight: 900;
   cursor: pointer;
 }
 
@@ -8161,6 +8238,8 @@ onUnmounted(() => {
   border: 3px solid var(--frontline-line);
   background: #ffffff;
   color: var(--frontline-ink);
+  font-size: 30px;
+  font-weight: 500;
 
   &:disabled {
     cursor: not-allowed;
@@ -8172,6 +8251,8 @@ onUnmounted(() => {
   border: 0;
   background: #15815f;
   color: #ffffff;
+  font-size: 36px;
+  font-weight: 600;
 
   &:disabled {
     cursor: not-allowed;
@@ -8366,21 +8447,129 @@ onUnmounted(() => {
     max(300px, calc(var(--frontline-production-footer-action-font-size, 54px) * 2 + 24px)) 1fr;
 }
 
-.frontline-production-stage .frontline-production-fullscreen-toggle {
-  font-size: var(--frontline-production-top-action-font-size, 42px);
+.frontline-production-stage .frontline-production-top-actions {
+  display: grid;
+  grid-template-rows: repeat(2, minmax(0, 1fr));
+  min-height: 0;
+}
+
+.frontline-production-stage .frontline-production-top-actions > button {
+  border-radius: 16px;
+}
+
+.frontline-production-stage .frontline-production-fullscreen-toggle,
+.frontline-production-stage .frontline-production-sop-button {
+  font-size: var(--frontline-production-home-font-size, 22px);
+  font-weight: 500;
   white-space: nowrap;
+}
+
+.frontline-production-stage .frontline-production-sop-button {
+  background: #0e7490;
+  color: #ffffff;
+}
+
+.frontline-production-stage .frontline-production-sop-button.is-unbound {
+  background: #e5e7eb;
+  color: #6b7280;
+}
+
+.frontline-production-sop-modal {
+  position: absolute;
+  inset: 0;
+  z-index: 118;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(17, 26, 21, 0.56);
+}
+
+.frontline-production-sop-dialog {
+  display: flex;
+  flex-direction: column;
+  width: min(1400px, 100%);
+  height: min(960px, 90vh);
+  min-height: 0;
+  overflow: hidden;
+  border: 3px solid var(--frontline-line);
+  border-radius: 22px;
+  background: #ffffff;
+
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 16px 24px;
+    border-bottom: 1px solid var(--frontline-line);
+  }
+
+  h3 {
+    margin: 0;
+    font-size: 26px;
+    font-weight: 600;
+  }
+
+  button {
+    padding: 8px 20px;
+    border: 2px solid var(--frontline-line);
+    border-radius: 12px;
+    background: var(--frontline-dark);
+    color: #ffffff;
+    font-size: 22px;
+    font-weight: 500;
+    cursor: pointer;
+  }
+}
+
+.frontline-production-sop-body {
+  display: grid;
+  flex: 1;
+  min-height: 0;
+  place-items: center;
+  overflow: auto;
+  background: #f8faf8;
+
+  p {
+    padding: 24px;
+    font-size: 24px;
+    overflow-wrap: anywhere;
+  }
+
+  img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+  }
+
+  iframe {
+    width: 100%;
+    height: 100%;
+    border: 0;
+    background: #ffffff;
+  }
 }
 
 .frontline-production-stage .frontline-production-reset-button,
 .frontline-production-stage .frontline-production-submit-button {
-  font-size: var(--frontline-production-footer-action-font-size, 54px);
   white-space: nowrap;
+}
+
+.frontline-production-stage .frontline-production-reset-button {
+  font-size: var(--frontline-production-reset-font-size, 30px);
+  font-weight: 500;
+}
+
+.frontline-production-stage .frontline-production-submit-button {
+  font-size: var(--frontline-production-submit-font-size, 36px);
+  font-weight: 600;
 }
 
 .frontline-pqc-inspection-list {
   display: grid;
-  grid-template-rows: auto minmax(88px, auto) minmax(0, 1fr);
-  gap: 16px;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  align-content: start;
+  gap: 32px;
   min-height: 100%;
 }
 
@@ -8394,7 +8583,7 @@ onUnmounted(() => {
 .frontline-pqc-content-item {
   display: grid;
   align-content: start;
-  gap: 14px;
+  gap: 18px;
   min-width: 0;
   padding-bottom: 0;
   overflow: visible;
@@ -8406,13 +8595,12 @@ onUnmounted(() => {
 
 .pqc-utility-strip {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr);
   gap: 8px;
   min-width: 0;
 }
 
-.pqc-select-card,
-.pqc-fact-card {
+.pqc-select-card {
   position: relative;
   display: grid;
   min-width: 0;
@@ -8547,47 +8735,14 @@ onUnmounted(() => {
   cursor: pointer;
 }
 
-.pqc-fact-card {
-  align-content: center;
-  gap: 3px;
-  padding: 7px 16px;
-  cursor: pointer;
-
-  strong,
-  span {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  strong {
-    font-size: 28px;
-    font-weight: 900;
-    line-height: 1;
-  }
-
-  span {
-    color: var(--frontline-muted);
-    font-size: 17px;
-    font-weight: 900;
-    line-height: 1;
-  }
-
-  &.is-primary {
-    border-color: #8cb9a1;
-    background: #dff2ea;
-    color: #15815f;
-  }
-}
-
 .frontline-pqc-fact-dialog {
   position: absolute;
   inset: 0;
   z-index: 80;
   display: grid;
+  grid-template-rows: minmax(0, 1fr);
   place-items: center;
-  padding: 34px;
+  padding: 24px;
   background:
     radial-gradient(circle at 20% 18%, rgba(255, 255, 255, 0.88), transparent 30%),
     rgba(20, 31, 25, 0.42);
@@ -8597,8 +8752,8 @@ onUnmounted(() => {
 .frontline-pqc-fact-dialog__panel {
   display: flex;
   flex-direction: column;
-  width: min(920px, 100%);
-  max-height: calc(100vh - 88px);
+  width: min(1120px, 100%);
+  max-height: min(100%, calc(100vh - 88px));
   overflow: hidden;
   border: 3px solid rgba(139, 181, 159, 0.65);
   border-radius: 32px;
@@ -8610,17 +8765,18 @@ onUnmounted(() => {
 
 .frontline-pqc-fact-dialog__header {
   display: flex;
+  flex-shrink: 0;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 22px;
-  padding: 28px 30px 18px;
+  gap: 16px;
+  padding: 16px 20px 12px;
   border-bottom: 1px solid rgba(139, 181, 159, 0.42);
 
   h3 {
-    margin: 8px 0 0;
+    margin: 6px 0 0;
     color: #111a15;
-    font-size: 42px;
-    font-weight: 950;
+    font-size: 26px;
+    font-weight: 600;
     line-height: 1.05;
   }
 }
@@ -8628,13 +8784,13 @@ onUnmounted(() => {
 .frontline-pqc-fact-dialog__eyebrow {
   display: inline-flex;
   align-items: center;
-  min-height: 30px;
-  padding: 4px 12px;
+  min-height: 24px;
+  padding: 3px 10px;
   border-radius: 999px;
   background: #dff2ea;
   color: #15815f;
-  font-size: 18px;
-  font-weight: 950;
+  font-size: 14px;
+  font-weight: 600;
   letter-spacing: 0.08em;
 }
 
@@ -8642,14 +8798,14 @@ onUnmounted(() => {
   display: grid;
   flex: 0 0 auto;
   place-items: center;
-  width: 56px;
-  height: 56px;
+  width: 40px;
+  height: 40px;
   border: 0;
   border-radius: 999px;
   background: #24322b;
   color: #ffffff;
   font: inherit;
-  font-size: 34px;
+  font-size: 26px;
   font-weight: 900;
   line-height: 1;
   cursor: pointer;
@@ -8663,34 +8819,35 @@ onUnmounted(() => {
 .frontline-pqc-fact-dialog__body {
   display: grid;
   grid-template-columns: minmax(0, 1.36fr) minmax(270px, 0.64fr);
-  gap: 20px;
+  gap: 12px;
   min-height: 0;
-  padding: 24px 30px 30px;
+  padding: 16px 20px;
   overflow: auto;
 }
 
-.frontline-pqc-fact-dialog__body.is-standard {
-  grid-template-columns: minmax(0, 1fr);
+.frontline-pqc-fact-dialog__body.is-combined {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
 }
 
 .frontline-pqc-fact-dialog__detail {
   min-width: 0;
-  padding: 24px;
+  padding: 14px 16px;
   border: 2px solid rgba(139, 181, 159, 0.5);
-  border-radius: 24px;
+  border-radius: 16px;
   background: #ffffff;
 
   span {
     color: #15815f;
-    font-size: 18px;
-    font-weight: 950;
+    font-size: 16px;
+    font-weight: 600;
   }
 
   p {
-    margin: 14px 0 0;
+    margin: 8px 0 0;
     color: #18231d;
-    font-size: 28px;
-    font-weight: 850;
+    font-size: 18px;
+    font-weight: 400;
     line-height: 1.45;
     overflow-wrap: anywhere;
     white-space: pre-wrap;
@@ -8699,19 +8856,20 @@ onUnmounted(() => {
 
 .frontline-pqc-fact-dialog__footer {
   display: flex;
+  flex-shrink: 0;
   justify-content: flex-end;
-  padding: 0 30px 28px;
+  padding: 0 20px 16px;
 
   button {
-    min-width: 148px;
-    min-height: 52px;
+    min-width: 112px;
+    min-height: 42px;
     border: 0;
     border-radius: 999px;
     background: #15815f;
     color: #ffffff;
     font: inherit;
-    font-size: 24px;
-    font-weight: 950;
+    font-size: 18px;
+    font-weight: 600;
     cursor: pointer;
 
     &:focus-visible {
@@ -8727,29 +8885,44 @@ onUnmounted(() => {
   }
 
   .frontline-pqc-fact-dialog__panel {
-    max-height: calc(100vh - 32px);
+    max-height: min(100%, calc(100vh - 32px));
     border-radius: 24px;
   }
 
   .frontline-pqc-fact-dialog__header {
-    padding: 22px 22px 14px;
+    padding: 16px 18px 12px;
 
     h3 {
-      font-size: 32px;
+      font-size: 24px;
     }
   }
 
-  .frontline-pqc-fact-dialog__body {
+  .frontline-pqc-fact-dialog__body.is-combined {
     grid-template-columns: 1fr;
-    padding: 18px 22px 24px;
+    padding: 12px 18px;
   }
 
   .frontline-pqc-fact-dialog__detail p {
-    font-size: 22px;
+    font-size: 16px;
   }
 
   .frontline-pqc-fact-dialog__footer {
-    padding: 0 22px 22px;
+    padding: 0 18px 16px;
+  }
+}
+
+.frontline-operator-top.is-pqc .frontline-pqc-facts-button {
+  border-color: #8cb9a1;
+  background: #dff2ea;
+  color: #116b4e;
+
+  &:hover:enabled {
+    background: #cce8db;
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
   }
 }
 
@@ -8775,8 +8948,8 @@ onUnmounted(() => {
 .frontline-pqc-choice-actions {
   display: grid;
   grid-template-columns: 1fr 1fr 1.5fr;
-  gap: 8px;
-  min-height: 78px;
+  gap: 14px;
+  min-height: 96px;
 
   &.is-number {
     grid-template-columns: minmax(0, 1fr);
@@ -8784,14 +8957,14 @@ onUnmounted(() => {
 
   > button {
     min-width: 0;
-    padding: 8px 12px;
+    padding: 16px 18px;
     border: 3px solid var(--frontline-line);
     border-radius: 18px;
     background: #f8faf8;
     color: var(--frontline-ink);
     font: inherit;
-    font-size: 29px;
-    font-weight: 900;
+    font-size: 26px;
+    font-weight: 600;
     white-space: nowrap;
     cursor: pointer;
 
@@ -8825,13 +8998,13 @@ onUnmounted(() => {
     }
 
     span {
-      font-size: 30px;
-      line-height: 1;
+      font-size: 26px;
+      line-height: 1.3;
     }
 
     em {
       color: var(--frontline-muted);
-      font-size: 25px;
+      font-size: 22px;
       font-style: normal;
       white-space: nowrap;
     }
@@ -8846,96 +9019,82 @@ onUnmounted(() => {
 }
 
 .pqc-item-tabs {
-  position: relative;
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(104px, 1fr));
-  gap: 8px;
-  align-items: start;
-  min-height: 104px;
-  padding: 0 10px 8px;
-  border-top: 3px solid #8cb9a1;
-  background: transparent;
+  grid-template-columns: repeat(var(--pqc-item-columns, 1), minmax(0, 1fr));
+  gap: 16px;
+  align-content: start;
+  min-width: 0;
+}
 
-  &::before {
-    position: absolute;
-    inset: 0 0 auto;
-    height: 24px;
-    border-radius: 0 0 20px 20px;
-    background: linear-gradient(180deg, rgba(223, 242, 234, 0.9), rgba(223, 242, 234, 0));
-    content: "";
-    pointer-events: none;
-  }
+.pqc-item-tabs > .frontline-pqc-section-title {
+  grid-column: 1 / -1;
 }
 
 .pqc-item-tab {
-  position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 0;
-  align-items: center;
+  place-items: center;
   min-width: 0;
-  min-height: 68px;
-  margin-top: -3px;
-  padding: 9px 10px 8px;
-  border: 3px solid var(--frontline-line);
-  border-top: 0;
-  border-radius: 0 0 16px 16px;
-  background: #fbfdfb;
+  min-height: 96px;
+  padding: 18px 20px;
+  border: 2px solid var(--frontline-line);
+  border-radius: 18px;
+  background: #f8faf8;
   color: var(--frontline-ink);
   font: inherit;
   text-align: center;
-  box-shadow: inset 0 7px 0 rgba(203, 214, 206, 0.38);
   cursor: pointer;
-
-  &::before {
-    position: absolute;
-    top: 0;
-    right: 11px;
-    left: 11px;
-    height: 5px;
-    border-radius: 0 0 999px 999px;
-    background: transparent;
-    content: "";
-  }
 
   strong {
     min-width: 0;
-    overflow: visible;
-    font-size: 20px;
-    font-weight: 900;
-    line-height: 1.05;
+    font-size: 22px;
+    font-weight: 600;
+    line-height: 1.45;
     white-space: normal;
-    word-break: break-word;
+    overflow-wrap: anywhere;
+    text-wrap: balance;
   }
 
   &.active {
     border-color: #d9a441;
     background: #fff4bf;
     color: #111a15;
-    box-shadow: 0 8px 18px rgba(98, 76, 24, 0.12);
-    transform: translateY(3px);
-
-    &::before {
-      display: none;
-      background: transparent;
-    }
+    box-shadow: inset 0 0 0 1px #d9a441;
   }
 
   &:focus-visible {
-    outline: 5px solid #86c8ad;
-    outline-offset: 2px;
+    outline: 4px solid #86c8ad;
+    outline-offset: 3px;
+  }
+}
+
+.frontline-operator-screen.is-pqc .frontline-pqc-section-title {
+  margin: 0;
+  color: var(--frontline-muted);
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+@media (max-width: 900px) {
+  .pqc-item-tabs {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
 .frontline-pqc-fill-panel {
   grid-column: 2;
   grid-row: 1;
-  grid-template-rows: auto minmax(min-content, 1fr);
+  grid-template-rows: auto auto minmax(0, 1fr);
   align-content: stretch;
-  gap: 16px;
+  gap: 24px;
   overflow-x: hidden;
   overflow-y: auto;
   padding: 22px;
+}
+
+.frontline-pqc-fill-panel > .frontline-inline-error-slot {
+  align-self: start;
+  min-height: 100px;
 }
 
 .frontline-pqc-rule-panel {
@@ -8988,10 +9147,10 @@ onUnmounted(() => {
   display: grid;
   align-content: start;
   align-self: stretch;
-  gap: 12px;
+  gap: 28px;
   min-width: 0;
   min-height: 0;
-  padding: 14px 12px;
+  padding: 28px 18px;
   border: 3px solid var(--frontline-line);
   border-radius: 24px;
   background: #fbfdfb;
@@ -9025,19 +9184,19 @@ onUnmounted(() => {
 .frontline-pqc-number-field {
   display: grid;
   grid-template-columns: 116px 52px minmax(42px, 1fr) 52px 36px;
-  gap: 6px;
+  gap: 10px;
   align-items: center;
   min-width: 0;
 
   label {
     font-size: 25px;
-    font-weight: 900;
+    font-weight: 600;
   }
 
   button,
   input {
     width: 100%;
-    height: 58px;
+    height: 76px;
     min-width: 0;
     border: 3px solid var(--frontline-line);
     border-radius: 16px;
@@ -9066,7 +9225,7 @@ onUnmounted(() => {
   display: grid;
   grid-column: 1;
   grid-row: 2;
-  grid-template-columns: 280px 360px minmax(0, 1fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 24px;
   min-height: 0;
 }
@@ -9149,11 +9308,14 @@ onUnmounted(() => {
   place-items: center;
   width: 24px;
   height: 24px;
+  padding: 0;
   border: 2px solid #ffffff;
   border-radius: 5px;
+  background: transparent;
   color: #ffffff;
   font-size: 17px;
   line-height: 1;
+  cursor: pointer;
 }
 
 .frontline-production-device-card.active .device-tab-selection {

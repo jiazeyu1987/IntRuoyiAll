@@ -14,9 +14,9 @@ const matrix = () => ({ approverUserId: APPROVER, documentControlUserId: CONTROL
 
 // Real SFC template/setup and Vue updates. Element Plus widgets are explicit isolated UI ports.
 const ElSelect = vue.defineComponent({
-  props: ['modelValue', 'multiple', 'disabled', 'placeholder'], emits: ['update:modelValue'],
+  props: ['modelValue', 'multiple', 'disabled', 'placeholder', 'userOptions'], emits: ['update:modelValue'],
   setup: (props, { attrs, slots, emit }) => () => vue.h('selector', {
-    ...attrs, modelValue: props.modelValue, multiple: props.multiple, disabled: props.disabled,
+    ...attrs, modelValue: props.modelValue, multiple: props.multiple, disabled: props.disabled, userOptions: props.userOptions,
     onUserChange: value => emit('update:modelValue', value)
   }, slots.default?.())
 })
@@ -34,6 +34,7 @@ function component() {
   const source = compileScript(descriptor, { id: 'g03-custom-editor', inlineTemplate: true })
   const context = { exports: {}, Error, require: name => {
     if (name === 'vue') return vue
+    if (name === '@/views/system/user/components/UserSelectV2.vue') return { default: ElSelect }
     if (name === 'element-plus') return { ElSelect, ElOption, ElFormItem }
     throw new Error('Unexpected production dependency: ' + name)
   } }
@@ -227,5 +228,19 @@ test('available safe numeric directory identities normalize to exact strings in 
       applicationCustomMatrix: { approverUserId: '99', documentControlUserId: '100' }, selectedSignoffDepartmentIds: ['51']
     })
     assert.deepEqual(h.events, [])
+  } finally { h.app.unmount() }
+})
+
+
+test('unified account pickers receive only enabled business accounts with exact Long identities', async () => {
+  const h = await mount({ users: [{ id: APPROVER, name: '批准人甲' }, { id: CONTROL, name: '文控乙' }, { id: '77', name: '停用人', status: 1 }] })
+  try {
+    for (const field of ['dcc-custom-approver', 'dcc-custom-document-control']) {
+      const candidates = h.field(field).props.userOptions
+      assert.deepEqual(plain(candidates.map(user => user.id)), [APPROVER, CONTROL])
+      assert.deepEqual(plain(candidates.map(user => user.nickname)), ['批准人甲', '文控乙'])
+      assert.ok(candidates.every(user => typeof user.id === 'string'))
+      assert.ok(!candidates.some(user => user.id === DEPT))
+    }
   } finally { h.app.unmount() }
 })

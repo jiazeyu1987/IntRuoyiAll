@@ -27,6 +27,7 @@
         :source="detail.reworkSource"
       />
       <ActiveOrderCorrectionHistoryPanel
+        v-if="!hideCorrectionHistory"
         :context="signatureEvidenceContext"
         @signature="signatureEvidenceViewer.open"
       />
@@ -76,18 +77,6 @@
           data-active-order-summary-tab
         >
           <section class="team-leader-workbench__active-order-summary">
-            <table class="team-leader-workbench__active-order-summary-table" data-active-order-production-submission-status>
-              <caption>当前订单各工序正式生产提交状态（完整明细）</caption>
-              <thead><tr><th>工序编码</th><th>工序名称</th><th>正式提交数</th><th>提交数量</th></tr></thead>
-              <tbody>
-                <tr v-for="process in detail.processes" :key="`${process.routeProcessId}-${process.processId}`" data-production-submission-status-row>
-                  <td>{{ process.processCode }}</td>
-                  <td>{{ process.processName }}</td>
-                  <td>{{ process.submissionCount }}</td>
-                  <td>{{ process.submittedQuantity }}</td>
-                </tr>
-              </tbody>
-            </table>
             <table
               class="team-leader-workbench__active-order-summary-table"
               data-active-order-summary-product-table
@@ -298,199 +287,7 @@
               </tbody>
             </table>
 
-            <table
-              v-if="detail.operationFacts?.length"
-              class="team-leader-workbench__active-order-summary-table"
-              data-active-order-summary-operation-facts-table
-            >
-              <tbody>
-                <tr>
-                  <th colspan="4" class="team-leader-workbench__active-order-summary-title">
-                    活跃订单操作事实
-                  </th>
-                </tr>
-                <tr>
-                  <th>操作</th>
-                  <th>操作人</th>
-                  <th>结果</th>
-                  <th>发生时间</th>
-                </tr>
-                <template v-for="fact in detail.operationFacts" :key="fact.id">
-                  <tr
-                    data-active-order-operation-fact
-                    :data-active-order-operation-type="fact.operationType"
-                  >
-                    <td>{{ formatActiveOrderOperationType(fact) }}</td>
-                    <td>{{ fact.actorName }}</td>
-                    <td>{{ formatActiveOrderOperationResultStatus(fact.resultStatus) }}</td>
-                    <td>{{ formatDateTime(fact.occurredAt) }}</td>
-                  </tr>
-                  <tr v-if="hasNonconformanceEvidence(fact)" data-active-order-operation-ncr-trace>
-                    <td colspan="4">
-                      <div
-                        class="team-leader-workbench__operation-fact-evidence"
-                        data-active-order-operation-ncr-evidence
-                      >
-                        <div class="team-leader-workbench__operation-fact-evidence-grid">
-                          <div class="team-leader-workbench__operation-fact-evidence-item">
-                            <span class="team-leader-workbench__operation-fact-evidence-label">
-                              不合格原因
-                            </span>
-                            <span class="team-leader-workbench__operation-fact-evidence-value">
-                              {{ fact.nonconformanceReason || '--' }}
-                            </span>
-                          </div>
-                          <div
-                            v-if="fact.operationType !== 'NONCONFORMANCE_REVIEW_CREATE'"
-                            class="team-leader-workbench__operation-fact-evidence-item"
-                          >
-                            <span class="team-leader-workbench__operation-fact-evidence-label">
-                              评审意见
-                            </span>
-                            <span class="team-leader-workbench__operation-fact-evidence-value">
-                              {{ fact.reviewOpinion || '--' }}
-                            </span>
-                          </div>
-                          <div
-                            v-if="fact.operationType !== 'NONCONFORMANCE_REVIEW_CREATE'"
-                            class="team-leader-workbench__operation-fact-evidence-item"
-                          >
-                            <span class="team-leader-workbench__operation-fact-evidence-label">
-                              处置结果
-                            </span>
-                            <span class="team-leader-workbench__operation-fact-evidence-value">
-                              {{ resolveNonconformanceDispositionLabel(fact.disposition) }}
-                            </span>
-                          </div>
-                          <div class="team-leader-workbench__operation-fact-evidence-item">
-                            <span class="team-leader-workbench__operation-fact-evidence-label">
-                              电子签名
-                            </span>
-                            <button
-                              type="button"
-                              class="team-leader-workbench__signature-link team-leader-workbench__operation-fact-evidence-value"
-                              data-active-order-summary-operation-signature
-                              :disabled="!fact.signatureId"
-                              @click="openActiveOrderSignatureRecord(toOperationFactSignature(fact))"
-                            >
-                              {{ formatOperationFactSignatureText(fact) }}
-                            </button>
-                          </div>
-                          <div
-                            v-if="
-                              fact.operationType !== 'NONCONFORMANCE_REVIEW_CREATE' &&
-                              resolveNonconformanceReviewMaterials(fact).length
-                            "
-                            class="team-leader-workbench__operation-fact-evidence-item"
-                          >
-                            <span class="team-leader-workbench__operation-fact-evidence-label">
-                              评审材料
-                            </span>
-                            <div
-                              class="team-leader-workbench__operation-fact-evidence-value"
-                            >
-                              <div
-                                v-for="(material, materialIndex) in resolveNonconformanceReviewMaterials(fact)"
-                                :key="materialIndex"
-                              >
-                                <el-button
-                                  link
-                                  type="primary"
-                                  class="team-leader-workbench__operation-fact-evidence-value"
-                                  data-active-order-ncr-review-material-preview
-                                  @click="previewNonconformanceReviewMaterial(material)"
-                                >
-                                  {{ material.fileName }}
-                                </el-button>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </td>
-                  </tr>
-                </template>
-              </tbody>
-            </table>
-            <section
-              v-if="showSummaryTab"
-              class="team-leader-workbench__active-order-gxp-audit"
-              data-active-order-gxp-audit
-            >
-              <div class="team-leader-workbench__active-order-summary-title">
-                统一 GxP 审计追踪
-              </div>
-              <el-alert
-                v-if="gxpAuditError"
-                :title="gxpAuditError"
-                type="error"
-                :closable="false"
-                show-icon
-                data-active-order-gxp-audit-error
-              />
-              <el-table
-                v-else
-                v-loading="gxpAuditLoading"
-                :data="gxpAuditEvents"
-                size="small"
-                stripe
-                data-active-order-gxp-audit-table
-              >
-                <el-table-column label="操作" min-width="220">
-                  <template #default="{ row }">
-                    {{ formatGxpAuditOperation(row) }}
-                  </template>
-                </el-table-column>
-                <el-table-column label="实际执行人 / 认证账号" min-width="140">
-                  <template #default="{ row }">
-                    <div>执行人：{{ formatGxpAuditActorSnapshot(row.performedByJson, '执行人') }}</div>
-                    <div>认证账号：{{ formatGxpAuditActorSnapshot(row.authenticatedActorJson, '认证账号') }}</div>
-                  </template>
-                </el-table-column>
-                <el-table-column label="结果" width="110">
-                  <template #default="{ row }">
-                    {{ formatGxpAuditResult(row.resultStatus) }}
-                  </template>
-                </el-table-column>
-                <el-table-column label="发生时间" min-width="170">
-                  <template #default="{ row }">
-                    {{ formatDateTime(row.serverOccurredAt) }}
-                  </template>
-                </el-table-column>
-                <el-table-column label="完整性" width="120">
-                  <template #default="{ row }">
-                    {{ formatGxpAuditIntegrity(row.integrityStatus) }}
-                  </template>
-                </el-table-column>
-                <el-table-column label="详情" width="90" fixed="right">
-                  <template #default="{ row }">
-                    <el-button
-                      link
-                      type="primary"
-                      data-active-order-gxp-audit-detail
-                      @click="openGxpAuditEvent(row)"
-                    >
-                      查看
-                    </el-button>
-                  </template>
-                </el-table-column>
-              </el-table>
-              <el-pagination
-                v-if="!gxpAuditError && gxpAuditTotal > gxpAuditPageSize"
-                v-model:current-page="gxpAuditPageNo"
-                :page-size="gxpAuditPageSize"
-                :total="gxpAuditTotal"
-                layout="total, prev, pager, next"
-                background
-                data-active-order-gxp-audit-pagination
-                @current-change="loadGxpAudit"
-              />
-              <el-empty
-                v-if="!gxpAuditLoading && !gxpAuditError && !gxpAuditEvents.length"
-                :image-size="48"
-                description="当前对象暂无统一 GxP 审计记录"
-              />
-            </section>
+
           </section>
         </el-tab-pane>
         <el-tab-pane v-if="showSummaryTab" label="偏差" name="deviation" data-active-order-deviation-tab>
@@ -783,7 +580,6 @@
                       </tr>
                       <tr data-active-order-production-record-device-row>
                         <td colspan="12">
-                          <details open v-if="row.originalBusinessIdentityJson"><summary>原提交业务身份</summary><pre data-original-event-business-identity>{{ row.originalBusinessIdentityJson }}</pre></details>
                           <div
                             v-if="buildProductionRecordRowDeviceGroups(row).length"
                             class="team-leader-workbench__production-record-device-row-content"
@@ -906,37 +702,29 @@
                       </h3>
                       <span>{{ detail.routeName }}</span>
                     </div>
-                    <div class="team-leader-workbench__production-record-meta">
-                      <div>
-                        <span>生产订单</span>
-                        <strong>{{ detail.workOrderCode }}</strong>
-                      </div>
-                      <div>
-                        <span>生产批号</span>
-                        <strong>{{ detail.batchCode || '未记录' }}</strong>
-                      </div>
-                      <div>
-                        <span>产品规格</span>
-                        <strong>{{ activeOrderProductSpecificationText }}</strong>
-                      </div>
-                      <div>
-                        <span>PQC提交</span>
-                        <strong>{{ pqcProcess.submissions.length }} 次</strong>
-                      </div>
-                    </div>
+                    <el-alert
+                      v-if="hasUnclassifiedPqcSubmissions(pqcProcess.submissions)"
+                      title="存在未明确首检、巡检时段或末检类型的记录，请核查检验分类。"
+                      type="error" :closable="false" show-icon
+                    />
+                    <el-tabs
+                      :key="`${pqcProcess.key}:${buildPqcInspectionTabs(pqcProcess.submissions).map(tab => tab.label).join('|')}`"
+                      :model-value="resolvePqcInspectionActiveTab(pqcProcess)"
+                      class="team-leader-workbench__active-order-detail-inner-tabs"
+                      data-active-order-pqc-inspection-type-tabs
+                    >
+                      <el-tab-pane
+                        v-for="inspectionTab in buildPqcInspectionTabs(pqcProcess.submissions)"
+                        :key="inspectionTab.label"
+                        :name="inspectionTab.label"
+                        :label="inspectionTab.label"
+                      >
                     <div
-                      v-for="submission in pqcProcess.submissions"
+                      v-for="submission in inspectionTab.submissions"
                       :key="`pqc-original-${submission.pqcTaskId}-${submission.submittedEventId}`"
                       class="team-leader-workbench__pqc-original-submission-block"
                       data-active-order-pqc-original-submission-block
                     >
-                      <div class="team-leader-workbench__production-record-section-title">
-                        {{ resolvePqcInspectionTypeText(submission) }}
-                        <span>提交事件：{{ formatPqcSubmissionEventIds(submission) }}</span>
-                      </div>
-                      <div v-for="identity in submission.originalBusinessIdentities ?? []" :key="identity">
-                        <span>原提交业务身份</span><pre data-original-event-business-identity>{{ identity }}</pre>
-                      </div>
                       <div class="team-leader-workbench__production-record-meta">
                         <div>
                           <span>检验日期</span>
@@ -1028,6 +816,8 @@
                       </table>
                       <el-empty v-else :image-size="56" description="暂无PQC原始提交明细" />
                     </div>
+                      </el-tab-pane>
+                    </el-tabs>
                   </section>
                 </el-tab-pane>
               </el-tabs>
@@ -1236,11 +1026,11 @@
             <section
               v-for="document in pickListDocuments"
               :key="document.key"
-              class="team-leader-workbench__pick-list-document"
+              class="team-leader-workbench__pick-list-document order-document"
               data-active-order-pick-list-document
             >
               <h3>生产领料单</h3>
-              <div class="team-leader-workbench__pick-list-head">
+              <div class="team-leader-workbench__pick-list-head order-document__description">
                 <div>
                   <span>生产领料单号：</span>
                   <template
@@ -1308,8 +1098,13 @@
         >
           <div
             v-if="replenishmentMaterials.length"
-            class="team-leader-workbench__active-order-detail-table-shell"
+            class="team-leader-workbench__active-order-detail-table-shell order-document"
           >
+            <h3>生产补料单</h3>
+            <div class="order-document__description">
+              <div><span>生产订单编号：</span><strong>{{ detail.workOrderCode }}</strong></div>
+              <div><span>物料条目：</span><strong>{{ replenishmentMaterials.length }}</strong></div>
+            </div>
             <el-table
               :data="replenishmentMaterials"
               size="small"
@@ -1372,9 +1167,6 @@
             productionMaterialListLoading ? 'loading' : productionMaterialListError ? 'error' : 'success'
           "
         >
-          <p data-active-order-production-material-list-scope>
-            当前活跃订单生产用料清单 · 生产工单：{{ detail.workOrderCode }}
-          </p>
           <el-alert
             v-if="productionMaterialListError"
             :title="productionMaterialListError"
@@ -1397,47 +1189,13 @@
             <section
               v-for="document in productionMaterialListDocuments"
               :key="document.key"
-              class="team-leader-workbench__production-material-list-document"
+              class="team-leader-workbench__production-material-list-document order-document"
               data-active-order-production-material-list-document
             >
               <h3>生产用料清单</h3>
-              <div class="team-leader-workbench__production-material-list-head">
-                <div>
-                  <span>生产订单号：</span>
-                  <strong>{{ document.productionOrderNo }}</strong>
-                </div>
-                <div>
-                  <span>生产车间：</span>
-                  <strong>{{ document.workshopName }}</strong>
-                </div>
-                <div>
-                  <span>单据编号：</span>
-                  <strong>{{ document.sourceBillNo }}</strong>
-                </div>
-                <div>
-                  <span>产品代码：</span>
-                  <strong>{{ document.productCode }}</strong>
-                </div>
-                <div>
-                  <span>产品名称：</span>
-                  <strong>{{ document.productName }}</strong>
-                </div>
-                <div>
-                  <span>规格型号：</span>
-                  <strong>{{ document.productSpecification }}</strong>
-                </div>
-                <div>
-                  <span>单位：</span>
-                  <strong>{{ document.unitName }}</strong>
-                </div>
-                <div>
-                  <span>生产数量：</span>
-                  <strong>{{ document.productionQuantity }}</strong>
-                </div>
-                <div>
-                  <span>生产组织：</span>
-                  <strong>{{ document.productionOrganization }}</strong>
-                </div>
+              <div class="order-document__description">
+                <div><span>单据编号：</span><strong>{{ document.sourceBillNo }}</strong></div>
+                <div><span>物料条目：</span><strong>{{ document.rows.length }}</strong></div>
               </div>
               <table class="team-leader-workbench__production-material-list-table">
                 <thead>
@@ -1467,28 +1225,10 @@
                     <td>{{ resolveProductionMaterialListActualUsage(row) }}</td>
                     <td>{{ formatDate(row.demandTime) }}</td>
                     <td>{{ resolveProductionMaterialListWarehouse(row) }}</td>
-                    <td>{{ row.issueMethod || '' }}</td>
+                    <td>{{ String(row.issueMethod) === '1' ? '直接领料' : row.issueMethod || '' }}</td>
                   </tr>
                 </tbody>
               </table>
-              <div class="team-leader-workbench__production-material-list-footer">
-                <div>
-                  <span>创建人：</span>
-                  <strong>{{ document.creatorName }}</strong>
-                </div>
-                <div>
-                  <span>创建日期：</span>
-                  <strong>{{ document.createDate }}</strong>
-                </div>
-                <div>
-                  <span>审核人：</span>
-                  <strong>{{ document.auditorName }}</strong>
-                </div>
-                <div>
-                  <span>审核日期：</span>
-                  <strong>{{ document.auditDate }}</strong>
-                </div>
-              </div>
             </section>
           </div>
           <el-empty
@@ -1505,53 +1245,54 @@
           name="workOrder"
           data-team-leader-active-order-detail-work-order-tab
         >
+          <section class="order-document">
+            <h3>生产工单</h3>
           <div
-            class="team-leader-workbench__work-order-highlight-grid"
+            class="order-document__description"
             data-active-order-work-order-highlight
           >
-            <div class="team-leader-workbench__work-order-highlight-card is-primary">
+            <div>
               <span>工单编号</span>
               <el-button
                 link
                 type="primary"
-                class="team-leader-workbench__work-order-highlight-value"
                 data-active-order-work-order-link
                 @click="openWorkOrderList(activeOrderWorkOrderDisplay.workOrderCode)"
               >
                 {{ activeOrderWorkOrderDisplay.workOrderCode }}
               </el-button>
             </div>
-            <div class="team-leader-workbench__work-order-highlight-card is-primary">
+            <div>
               <span>批次号</span>
-              <strong class="team-leader-workbench__work-order-highlight-value">
+              <strong >
                 {{ activeOrderWorkOrderDisplay.batchCode }}
               </strong>
             </div>
-            <div class="team-leader-workbench__work-order-highlight-card is-primary">
+            <div>
               <span>数量</span>
-              <strong class="team-leader-workbench__work-order-highlight-value">
+              <strong >
                 {{ activeOrderWorkOrderDisplay.quantity }}
               </strong>
             </div>
-            <div class="team-leader-workbench__work-order-highlight-card">
+            <div>
               <span>规格型号</span>
               <strong>{{ activeOrderWorkOrderDisplay.productSpecification }}</strong>
             </div>
-            <div class="team-leader-workbench__work-order-highlight-card">
+            <div>
               <span>产品代码</span>
               <strong>{{ activeOrderWorkOrderDisplay.productCode }}</strong>
             </div>
-            <div class="team-leader-workbench__work-order-highlight-card">
+            <div>
               <span>产品名称</span>
               <strong>{{ activeOrderWorkOrderDisplay.productName }}</strong>
             </div>
-            <div class="team-leader-workbench__work-order-highlight-card">
+            <div>
               <span>创建时间</span>
               <strong>{{ activeOrderWorkOrderDisplay.createTime }}</strong>
             </div>
           </div>
           <div
-            class="team-leader-workbench__active-order-detail-table-shell team-leader-workbench__work-order-list-shell"
+            class="team-leader-workbench__active-order-detail-table-shell order-document__list"
             data-active-order-work-order-standard-list
           >
             <el-table
@@ -1603,6 +1344,7 @@
               </el-table-column>
             </el-table>
           </div>
+          </section>
         </el-tab-pane>
         <el-tab-pane
           v-for="category in dossierFileTabDefinitions"
@@ -1620,6 +1362,13 @@
                 <strong>{{ category.label }}</strong>
                 <span>资料归属：当前活跃订单</span>
               </div>
+              <DossierResponsibilityAssignment
+                v-if="auditScopeTypeValue === 'TEAM' && detail?.activeOrderId"
+                :active-order-id="detail.activeOrderId"
+                :category-key="category.key"
+                :category-label="category.label"
+                :disabled="activeOrderDossierMutationLocked"
+              />
               <el-upload
                 :disabled="activeOrderDossierMutationLocked"
                 :show-file-list="false"
@@ -1716,6 +1465,131 @@
               description="暂无文件"
             />
           </section>
+        </el-tab-pane>
+        <el-tab-pane
+          v-if="showSummaryTab"
+          label="操作记录"
+          name="operationRecords"
+          data-active-order-operation-records-tab
+        >
+            <table
+              v-if="detail.operationFacts?.length"
+              class="team-leader-workbench__active-order-summary-table"
+              data-active-order-summary-operation-facts-table
+            >
+              <tbody>
+                <tr>
+                  <th colspan="4" class="team-leader-workbench__active-order-summary-title">
+                    操作记录
+                  </th>
+                </tr>
+                <tr>
+                  <th>操作</th>
+                  <th>操作人</th>
+                  <th>结果</th>
+                  <th>发生时间</th>
+                </tr>
+                <template v-for="fact in detail.operationFacts" :key="fact.id">
+                  <tr
+                    data-active-order-operation-fact
+                    :data-active-order-operation-type="fact.operationType"
+                  >
+                    <td>{{ formatActiveOrderOperationType(fact) }}</td>
+                    <td>{{ fact.actorName }}</td>
+                    <td>{{ formatActiveOrderOperationResultStatus(fact.resultStatus) }}</td>
+                    <td>{{ formatDateTime(fact.occurredAt) }}</td>
+                  </tr>
+                  <tr v-if="fact.handoverReason" data-market-release-handover-history>
+                    <td colspan="4">原办理人：{{ fact.handoverFromName }}；接收人：{{ fact.handoverToName }}；原因：{{ fact.handoverReason }}</td>
+                  </tr>
+                  <tr v-if="hasNonconformanceEvidence(fact)" data-active-order-operation-ncr-trace>
+                    <td colspan="4">
+                      <div
+                        class="team-leader-workbench__operation-fact-evidence"
+                        data-active-order-operation-ncr-evidence
+                      >
+                        <div class="team-leader-workbench__operation-fact-evidence-grid">
+                          <div class="team-leader-workbench__operation-fact-evidence-item">
+                            <span class="team-leader-workbench__operation-fact-evidence-label">
+                              不合格原因
+                            </span>
+                            <span class="team-leader-workbench__operation-fact-evidence-value">
+                              {{ fact.nonconformanceReason || '--' }}
+                            </span>
+                          </div>
+                          <div
+                            v-if="fact.operationType !== 'NONCONFORMANCE_REVIEW_CREATE'"
+                            class="team-leader-workbench__operation-fact-evidence-item"
+                          >
+                            <span class="team-leader-workbench__operation-fact-evidence-label">
+                              评审意见
+                            </span>
+                            <span class="team-leader-workbench__operation-fact-evidence-value">
+                              {{ fact.reviewOpinion || '--' }}
+                            </span>
+                          </div>
+                          <div
+                            v-if="fact.operationType !== 'NONCONFORMANCE_REVIEW_CREATE'"
+                            class="team-leader-workbench__operation-fact-evidence-item"
+                          >
+                            <span class="team-leader-workbench__operation-fact-evidence-label">
+                              处置结果
+                            </span>
+                            <span class="team-leader-workbench__operation-fact-evidence-value">
+                              {{ resolveNonconformanceDispositionLabel(fact.disposition) }}
+                            </span>
+                          </div>
+                          <div class="team-leader-workbench__operation-fact-evidence-item">
+                            <span class="team-leader-workbench__operation-fact-evidence-label">
+                              电子签名
+                            </span>
+                            <button
+                              type="button"
+                              class="team-leader-workbench__signature-link team-leader-workbench__operation-fact-evidence-value"
+                              data-active-order-summary-operation-signature
+                              :disabled="!fact.signatureId"
+                              @click="openActiveOrderSignatureRecord(toOperationFactSignature(fact))"
+                            >
+                              {{ formatOperationFactSignatureText(fact) }}
+                            </button>
+                          </div>
+                          <div
+                            v-if="
+                              fact.operationType !== 'NONCONFORMANCE_REVIEW_CREATE' &&
+                              resolveNonconformanceReviewMaterials(fact).length
+                            "
+                            class="team-leader-workbench__operation-fact-evidence-item"
+                          >
+                            <span class="team-leader-workbench__operation-fact-evidence-label">
+                              评审材料
+                            </span>
+                            <div
+                              class="team-leader-workbench__operation-fact-evidence-value"
+                            >
+                              <div
+                                v-for="(material, materialIndex) in resolveNonconformanceReviewMaterials(fact)"
+                                :key="materialIndex"
+                              >
+                                <el-button
+                                  link
+                                  type="primary"
+                                  class="team-leader-workbench__operation-fact-evidence-value"
+                                  data-active-order-ncr-review-material-preview
+                                  @click="previewNonconformanceReviewMaterial(material)"
+                                >
+                                  {{ material.fileName }}
+                                </el-button>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                  </tr>
+                </template>
+              </tbody>
+            </table>
+          <el-empty v-else :image-size="56" description="暂无操作记录" />
         </el-tab-pane>
       </el-tabs>
       <el-dialog
@@ -1869,7 +1743,6 @@
                 </tr>
                 <tr data-active-order-production-record-device-row>
                   <td colspan="12">
-                          <details open v-if="row.originalBusinessIdentityJson"><summary>原提交业务身份</summary><pre data-original-event-business-identity>{{ row.originalBusinessIdentityJson }}</pre></details>
                     <div
                       v-if="buildProductionRecordRowDeviceGroups(row).length"
                       class="team-leader-workbench__production-record-device-row-content"
@@ -2149,77 +2022,41 @@
         />
         <el-empty v-else description="暂无可预览附件" />
       </Dialog>
-      <Dialog
-        title="统一 GxP 审计详情"
-        v-model="gxpAuditDetailVisible"
-        width="900px"
-        destroy-on-close
-      >
-        <el-alert
-          v-if="gxpAuditDetailError"
-          :title="gxpAuditDetailError"
-          type="error"
-          :closable="false"
-          show-icon
-        />
-        <el-skeleton v-else-if="gxpAuditDetailLoading" :rows="8" animated />
-        <template v-else-if="selectedGxpAuditEvent">
-          <el-descriptions :column="2" border size="small">
-            <el-descriptions-item label="操作编号">
-              {{ selectedGxpAuditEvent.operationId || '--' }}
-            </el-descriptions-item>
-            <el-descriptions-item label="事件编号">
-              {{ selectedGxpAuditEvent.id }}
-            </el-descriptions-item>
-            <el-descriptions-item label="对象">
-              {{ selectedGxpAuditEvent.subjectType || '--' }} / {{ selectedGxpAuditEvent.subjectId || '--' }}
-            </el-descriptions-item>
-            <el-descriptions-item label="原因">
-              {{ selectedGxpAuditEvent.reason || selectedGxpAuditEvent.reasonCode || '--' }}
-            </el-descriptions-item>
-            <el-descriptions-item label="实际执行人">
-              {{ formatGxpAuditActorSnapshot(selectedGxpAuditEvent.performedByJson, '执行人') }}
-            </el-descriptions-item>
-            <el-descriptions-item label="认证账号">
-              {{ formatGxpAuditActorSnapshot(selectedGxpAuditEvent.authenticatedActorJson, '认证账号') }}
-            </el-descriptions-item>
-            <el-descriptions-item label="变更前" :span="2">
-              <pre class="team-leader-workbench__gxp-audit-json">{{ formatGxpAuditJson(selectedGxpAuditEvent.beforeStateJson) }}</pre>
-            </el-descriptions-item>
-            <el-descriptions-item label="变更后" :span="2">
-              <pre class="team-leader-workbench__gxp-audit-json">{{ formatGxpAuditJson(selectedGxpAuditEvent.afterStateJson) }}</pre>
-            </el-descriptions-item>
-          </el-descriptions>
-        </template>
-      </Dialog>
-      <Dialog
-        title="业务签名证据"
+      <el-dialog
+        title="电子签名详情"
         v-model="signatureEvidenceViewer.state.visible"
-        width="900px"
+        width="min(760px, calc(100vw - 32px))"
+        class="active-order-signature-dialog"
         destroy-on-close
         @close="signatureEvidenceViewer.close"
       >
-        <el-alert
-          v-if="signatureEvidenceViewer.state.error"
-          :title="signatureEvidenceViewer.state.error" type="error" :closable="false" show-icon
-          data-active-order-signature-error />
+        <template #header><h2 class="signature-detail__title">电子签名详情</h2><p class="signature-detail__subtitle">查看签署信息与签署说明</p></template>
+        <el-alert v-if="signatureEvidenceViewer.state.error" :title="signatureEvidenceViewer.state.error" type="error" :closable="false" show-icon data-active-order-signature-error />
         <el-skeleton v-else-if="signatureEvidenceViewer.state.loading" :rows="8" animated />
-        <el-descriptions
-          v-else-if="signatureEvidenceViewer.state.selected" :column="2" border size="small"
-          data-active-order-signature-evidence>
-          <el-descriptions-item label="签名编号">{{ signatureEvidenceViewer.state.selected.evidence.id }}</el-descriptions-item>
-          <el-descriptions-item label="业务动作">{{ signatureEvidenceViewer.state.selected.evidence.actionCode }}</el-descriptions-item>
-          <el-descriptions-item label="业务记录签名人">{{ signatureEvidenceViewer.state.selected.signerName || '未记录' }}</el-descriptions-item>
-          <el-descriptions-item label="原签时姓名快照">
-            {{ signatureEvidenceViewer.state.selected.evidence.actorDisplayName || '未记录' }}
-            <span v-if="signatureEvidenceViewer.state.selected.evidence.actorDisplayName && signatureEvidenceViewer.state.selected.verification.verificationStatus !== 'VALID'">（未核验）</span>
-          </el-descriptions-item>
-          <el-descriptions-item label="签署账号编号">{{ signatureEvidenceViewer.state.selected.evidence.actorId }}</el-descriptions-item>
-          <el-descriptions-item label="签署时间">{{ signatureEvidenceViewer.state.selected.evidence.signedAt == null ? '签署时间未记录' : formatDateTime(signatureEvidenceViewer.state.selected.evidence.signedAt) }}</el-descriptions-item>
-          <el-descriptions-item label="业务时区">{{ signatureEvidenceViewer.state.selected.evidence.timeZone || '未记录' }}</el-descriptions-item>
-          <el-descriptions-item label="签名含义">{{ signatureEvidenceViewer.state.selected.evidence.meaningLabel || '未记录' }}</el-descriptions-item>
-          <el-descriptions-item label="认证方式">{{ signatureEvidenceViewer.state.selected.evidence.authenticationMethod || '未记录' }}</el-descriptions-item>
-          <el-descriptions-item label="签署原因" :span="2">{{ signatureEvidenceViewer.state.selected.evidence.reason || '未记录' }}</el-descriptions-item>
+        <div v-else-if="signatureEvidenceViewer.state.selected" class="signature-detail" data-active-order-signature-evidence>
+          <div class="signature-detail__summary">
+            <div class="signature-detail__person"><span class="signature-detail__avatar"><Icon icon="ep:user" :size="26" /></span><div><span>签署人</span><strong>{{ signatureEvidenceViewer.state.selected.signerName || '未记录' }}</strong></div></div>
+            <div><span>业务动作</span><strong>{{ signatureActionLabel(signatureEvidenceViewer.state.selected.evidence.actionCode) }}</strong></div>
+            <div><span>签署时间</span><strong>{{ signatureEvidenceViewer.state.selected.evidence.signedAt == null ? '签署时间未记录' : formatDateTime(signatureEvidenceViewer.state.selected.evidence.signedAt) }}</strong></div>
+          </div>
+          <section class="signature-detail__section">
+            <h3>签署信息</h3>
+            <dl class="signature-detail__fields">
+              <div><dt>原签时姓名</dt><dd>{{ signatureEvidenceViewer.state.selected.evidence.actorDisplayName || '未记录' }}</dd></div>
+              <div><dt>签名含义</dt><dd>{{ signatureEvidenceViewer.state.selected.evidence.meaningLabel || '未记录' }}</dd></div>
+              <div><dt>签署账号编号</dt><dd>{{ signatureEvidenceViewer.state.selected.evidence.actorId }}</dd></div>
+              <div><dt>业务时区</dt><dd>{{ signatureEvidenceViewer.state.selected.evidence.timeZone || '未记录' }}</dd></div>
+              <div><dt>认证方式</dt><dd>{{ signatureAuthenticationLabel(signatureEvidenceViewer.state.selected.evidence.authenticationMethod) }}</dd></div>
+              <div><dt>签名编号</dt><dd>{{ signatureEvidenceViewer.state.selected.evidence.id }}</dd></div>
+            </dl>
+          </section>
+          <section class="signature-detail__section">
+            <h3>签署说明</h3>
+            <dl class="signature-detail__fields signature-detail__fields--single"><div><dt>签署原因</dt><dd>{{ signatureEvidenceViewer.state.selected.evidence.reason || '未记录' }}</dd></div></dl>
+          </section>
+          <details class="signature-detail__verification">
+            <summary><strong>核验详情</strong><span>完整性、时间及审计关联信息</span><Icon icon="ep:arrow-right" :size="16" /></summary>
+            <el-descriptions :column="1" border size="small">
           <el-descriptions-item label="原记录完整性状态">{{ signatureEvidenceViewer.state.selected.evidence.verificationStatus || '未记录' }}</el-descriptions-item>
           <el-descriptions-item label="本次完整性核验">
             <el-tag :type="signatureVerificationDisplay(signatureEvidenceViewer.state.selected.verification).type">
@@ -2233,11 +2070,12 @@
           <el-descriptions-item label="时间来源">{{ signatureVerificationDisplay(signatureEvidenceViewer.state.selected.verification).timeSource }}</el-descriptions-item>
           <el-descriptions-item label="时间信任">{{ signatureVerificationDisplay(signatureEvidenceViewer.state.selected.verification).timeTrust }}</el-descriptions-item>
           <el-descriptions-item label="核验原因" :span="2">{{ signatureVerificationDisplay(signatureEvidenceViewer.state.selected.verification).reasons }}</el-descriptions-item>
-          <el-descriptions-item label="内容摘要" :span="2"><pre class="team-leader-workbench__gxp-audit-json">{{ signatureEvidenceViewer.state.selected.evidence.contentHash }}</pre></el-descriptions-item>
-          <el-descriptions-item label="证据摘要" :span="2"><pre class="team-leader-workbench__gxp-audit-json">{{ signatureEvidenceViewer.state.selected.evidence.evidenceHash }}</pre></el-descriptions-item>
-          <el-descriptions-item label="原签署内容快照" :span="2"><pre class="team-leader-workbench__gxp-audit-json">{{ signatureEvidenceViewer.state.selected.evidence.canonicalContentJson }}</pre></el-descriptions-item>
-        </el-descriptions>
-      </Dialog>
+
+            </el-descriptions>
+          </details>
+        </div>
+        <template #footer><el-button class="signature-detail__close" type="primary" @click="signatureEvidenceViewer.close">关闭</el-button></template>
+      </el-dialog>
     </template>
   </div>
 </template>
@@ -2273,12 +2111,10 @@ import {
   getActiveOrderDossierFiles,
   uploadActiveOrderDossierFile
 } from '@/api/mes/pro/processpool/teamLeader'
+import DossierResponsibilityAssignment from './DossierResponsibilityAssignment.vue'
 import {
-  getActiveOrderGxpAuditEvent,
-  getActiveOrderGxpAuditPage,
   type ActiveOrderAuditScope,
-  type ActiveOrderAuditIdentity,
-  type GxpAuditEventRespVO
+  type ActiveOrderAuditIdentity
 } from '@/api/mes/pro/edhr/activeOrderAudit'
 import type { ProWorkOrderVO } from '@/api/mes/pro/workorder'
 import type { ErpProductionMaterialListVO } from '@/api/erp/production/material-list'
@@ -2300,6 +2136,7 @@ import DeviationTracePane from '@/views/mes/pro/edhr/components/DeviationTracePa
 import { getDeviationBatchOptionsByActiveOrder, type DeviationBatchOptionRespVO } from '@/api/mes/pro/edhr/deviation'
 
 const props = defineProps<{
+  hideCorrectionHistory?: boolean
   detail?: TeamLeaderActiveOrderDetailRespVO
   sourceWorkOrder?: ProWorkOrderVO
   productionMaterialLists?: ErpProductionMaterialListVO[]
@@ -2336,19 +2173,6 @@ const dossierFileUploadingKey = ref('')
 const dossierPreviewDialogVisible = ref(false)
 const selectedDossierPreviewSource = ref<OnlineFilePreviewSource | null>(null)
 const selectedDossierPreviewTitle = ref('')
-const gxpAuditLoading = ref(false)
-const gxpAuditError = ref('')
-const gxpAuditEvents = ref<GxpAuditEventRespVO[]>([])
-const gxpAuditPageNo = ref(1)
-const gxpAuditPageSize = 50
-const gxpAuditTotal = ref(0)
-const gxpAuditDetailVisible = ref(false)
-const gxpAuditDetailLoading = ref(false)
-const gxpAuditDetailError = ref('')
-const selectedGxpAuditEvent = ref<GxpAuditEventRespVO>()
-let gxpAuditRequestId = 0
-let gxpAuditDetailRequestId = 0
-
 type DossierContextIdentity = {
   activeOrderId: number | string
   applicationId?: number | string
@@ -2438,6 +2262,22 @@ const signatureEvidenceContext = computed<SignatureBusinessContext | undefined>(
   if (identity === undefined) return undefined
   return { scope, identity, activeOrderId: props.detail.activeOrderId }
 })
+const signatureActionLabel = (code: string) => {
+  const labels: Record<string, string> = {
+    PRODUCTION_SUBMIT: '生产提交', TEAM_LEADER_REVIEW: '组长复核',
+    PQC_SUBMIT: 'PQC检验提交', PQC_RELEASE: '生产放行', MARKET_RELEASE: '上市放行'
+  }
+  return labels[code] ?? code
+}
+const signatureAuthenticationLabel = (method?: string) => {
+  const labels: Record<string, string> = {
+    PASSWORD: '密码确认', SESSION_PLUS_PASSWORD: '登录账号密码确认',
+    SESSION_PLUS_SELECTED_USER_PASSWORD: '指定人员密码确认',
+    SESSION_PLUS_EMPLOYEE_PROFILE_PASSWORD: '员工档案密码确认'
+  }
+  return method ? labels[method] ?? method : '未记录'
+}
+
 const signatureEvidenceViewer = createActiveOrderSignatureEvidenceViewer(
   () => signatureEvidenceContext.value, getActiveOrderSignatureEvidence
 )
@@ -2529,135 +2369,6 @@ const resolveInitialActiveTab = () => {
 }
 
 const formatDateTime = (value?: string | number | Date) => formatDateTimeValue(value)
-
-const formatGxpAuditOperation = (event: GxpAuditEventRespVO) =>
-  event.operationId || event.action || '未识别操作'
-
-const formatGxpAuditActorSnapshot = (value: string | undefined, label: string) => {
-  if (!value?.trim()) return '未记录'
-  let snapshot: unknown
-  try {
-    snapshot = JSON.parse(value)
-  } catch {
-    return `${label}快照损坏`
-  }
-  if (!snapshot || typeof snapshot !== 'object' || Array.isArray(snapshot)) {
-    return `${label}快照损坏`
-  }
-  const displayName = (snapshot as Record<string, unknown>).displayName
-  if (displayName === undefined || displayName === null) return '未记录'
-  if (typeof displayName !== 'string') return `${label}快照损坏`
-  return displayName.trim() || '未记录'
-}
-
-const formatGxpAuditResult = (resultStatus?: string) => {
-  if (resultStatus === 'SUCCESS') return '成功'
-  if (resultStatus === 'FAILED') return '失败'
-  if (resultStatus === 'DENIED') return '拒绝'
-  return resultStatus || '未记录'
-}
-
-const formatGxpAuditIntegrity = (status?: string) => {
-  if (status === 'NOT_VERIFIED') return '待核验'
-  if (status === 'INVALID') return '无效'
-  return status || '未记录'
-}
-
-const formatGxpAuditJson = (value?: string) => {
-  if (!value) return '未记录'
-  try {
-    return JSON.stringify(JSON.parse(value), null, 2)
-  } catch {
-    return value
-  }
-}
-
-const resetGxpAuditDetail = () => {
-  gxpAuditDetailRequestId += 1
-  selectedGxpAuditEvent.value = undefined
-  gxpAuditDetailError.value = ''
-  gxpAuditDetailLoading.value = false
-}
-
-const gxpAuditScopeIsValid = (value: unknown): value is ActiveOrderAuditIdentity => {
-  const validId = (id: unknown) => typeof id === 'number'
-    ? Number.isSafeInteger(id) && id > 0
-    : typeof id === 'string' && /^[1-9]\d*$/.test(id)
-  if (auditScopeTypeValue.value !== 'BATCH') return validId(value)
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return false
-  const keys = Object.keys(value)
-  return keys.length === 1 && ['activeOrderId', 'batchExecutionId'].includes(keys[0]) &&
-    validId((value as Record<string, unknown>)[keys[0]])
-}
-
-const loadGxpAudit = async () => {
-  const requestId = ++gxpAuditRequestId
-  const scopeType = auditScopeTypeValue.value
-  const scopeId = auditScopeIdValue.value
-  const pageNo = gxpAuditPageNo.value
-  const isCurrent = () => requestId === gxpAuditRequestId &&
-    scopeType === auditScopeTypeValue.value && scopeId === auditScopeIdValue.value &&
-    pageNo === gxpAuditPageNo.value && showSummaryTab.value && !props.loading && !props.error
-  gxpAuditEvents.value = []
-  gxpAuditTotal.value = 0
-  gxpAuditError.value = ''
-  if (!showSummaryTab.value || props.loading || props.error) {
-    gxpAuditLoading.value = false
-    return
-  }
-  if (!gxpAuditScopeIsValid(scopeId)) {
-    gxpAuditLoading.value = false
-    gxpAuditError.value = '缺少有效的审计查询身份，无法加载统一 GxP 审计记录。'
-    return
-  }
-  gxpAuditLoading.value = true
-  gxpAuditError.value = ''
-  try {
-    const page = await getActiveOrderGxpAuditPage(scopeType, scopeId, {
-      pageNo,
-      pageSize: gxpAuditPageSize
-    })
-    if (!isCurrent()) return
-    gxpAuditEvents.value = Array.isArray(page?.list) ? page.list : []
-    gxpAuditTotal.value = Number(page?.total || 0)
-  } catch (error) {
-    if (!isCurrent()) return
-    gxpAuditEvents.value = []
-    gxpAuditTotal.value = 0
-    gxpAuditError.value = error instanceof Error && error.message
-      ? error.message
-      : '统一 GxP 审计查询失败，请重试。'
-  } finally {
-    if (isCurrent()) gxpAuditLoading.value = false
-  }
-}
-
-const openGxpAuditEvent = async (event: GxpAuditEventRespVO) => {
-  const requestId = ++gxpAuditDetailRequestId
-  const scopeType = auditScopeTypeValue.value
-  const scopeId = auditScopeIdValue.value
-  if (!showSummaryTab.value || props.loading || props.error || !gxpAuditScopeIsValid(scopeId)) return
-  const isCurrent = () => requestId === gxpAuditDetailRequestId &&
-    scopeType === auditScopeTypeValue.value && scopeId === auditScopeIdValue.value &&
-    showSummaryTab.value && !props.loading && !props.error && gxpAuditDetailVisible.value
-  selectedGxpAuditEvent.value = undefined
-  gxpAuditDetailVisible.value = true
-  gxpAuditDetailLoading.value = true
-  gxpAuditDetailError.value = ''
-  try {
-    const detail = await getActiveOrderGxpAuditEvent(scopeType, scopeId, event.id)
-    if (!isCurrent()) return
-    if (!detail) throw new Error('统一 GxP 审计事件不存在或不属于当前对象。')
-    selectedGxpAuditEvent.value = detail
-  } catch (error) {
-    if (!isCurrent()) return
-    gxpAuditDetailError.value = error instanceof Error && error.message
-      ? error.message
-      : '统一 GxP 审计详情加载失败。'
-  } finally {
-    if (isCurrent()) gxpAuditDetailLoading.value = false
-  }
-}
 
 const activeOrderOperationTypeLabels: Record<string, string> = {
   RESET_FIXED_TEST_ORDER: '重置指定测试订单',
@@ -3181,10 +2892,7 @@ const formatActiveOrderSignatureCellText = (
   const signerName = String(signature.signerName || '').trim() || '签名人未记录'
   const signedAt = signature.signedAt == null ? '-' : formatDateTime(signature.signedAt)
   const signedAtText = signedAt && signedAt !== '-' ? signedAt : '签名时间未记录'
-  const status = signature.verification ? `；${signatureVerificationDisplay(signature.verification).label}` : ''
-  const nameState = signature.signerNameStatus === 'UNVERIFIED_SNAPSHOT' ? '；签时姓名未核验'
-    : signature.signerNameStatus === 'NOT_RECORDED' ? '；签时姓名未记录' : ''
-  return `${simulated ? '模拟记录：' : ''}${signerName}（${signedAtText}）${status}${nameState}`
+  return `${simulated ? '模拟记录：' : ''}${signerName}（${signedAtText}）`
 }
 
 const openActiveOrderSignatureRecord = (
@@ -3575,17 +3283,6 @@ const formatPqcSubmissionQuantity = (value?: number | string) => {
   return text ? `${text} 件` : '未记录'
 }
 
-const formatPqcSubmissionEventIds = (
-  submission: TeamLeaderActiveOrderPqcSubmissionDetailRespVO
-) => {
-  const eventIds = (submission.submittedEventIds?.length
-    ? submission.submittedEventIds
-    : [submission.submittedEventId]
-  )
-    .map((eventId) => normalizeActiveOrderPqcText(eventId))
-    .filter(Boolean)
-  return eventIds.length ? eventIds.join('、') : '未记录'
-}
 
 const buildActiveOrderPqcSubmittedItemRows = (
   submission: TeamLeaderActiveOrderPqcSubmissionDetailRespVO
@@ -4098,8 +3795,7 @@ const formatSummaryDate = (value?: string | number | Date) => {
 }
 
 const formatSummaryCycleDate = (value?: string | number | Date) => {
-  const dateText = formatSummaryDate(value)
-  return dateText ? dateText.replaceAll('-', '.') : blankSummaryField
+  return formatSummaryDate(value)
 }
 
 const summaryProductionCycleText = computed(() => {
@@ -4251,25 +3947,6 @@ const formatLossReportSignaturesDateText = (
   return texts.length ? texts.join('；') : blankSummaryField
 }
 
-const formatPqcLossReason = (
-  submission: TeamLeaderActiveOrderPqcSubmissionDetailRespVO
-) => {
-  const processInspectionItems = submission.processInspectionItems ?? []
-  const negativeItems = processInspectionItems.filter(
-    (item) => normalizePqcPassFailText(item.judgement || item.itemResult || item.measuredValue) === '不通过'
-  )
-  const sourceItems = negativeItems.length ? negativeItems : processInspectionItems
-  const reasons = sourceItems
-    .map((item) => {
-      const itemName = normalizeActiveOrderPqcText(item.itemName || item.itemCode)
-      const measuredValue = normalizeActiveOrderPqcText(item.measuredValue || item.itemResult)
-      const judgement = normalizeActiveOrderPqcText(item.judgement)
-      return [itemName, measuredValue, judgement].filter(Boolean).join(' / ')
-    })
-    .filter(Boolean)
-  return reasons.length ? formatActiveOrderPqcItemUniqueSummary(reasons) : blankSummaryField
-}
-
 const pqcLossReportRows = computed<ActiveOrderPqcLossReportRow[]>(() => {
   const rows: ActiveOrderPqcLossReportRow[] = []
   for (const submission of props.detail?.pqcSubmissions ?? []) {
@@ -4293,7 +3970,7 @@ const pqcLossReportRows = computed<ActiveOrderPqcLossReportRow[]>(() => {
         unqualifiedDateText: formatSummaryCycleDate(submission.businessDate) || blankSummaryField,
         processNameText: submission.qaProcessName || blankSummaryField,
         unqualifiedQuantityText: formatTraceQuantity(scrapQuantity),
-        unqualifiedReasonText: formatPqcLossReason(submission),
+        unqualifiedReasonText: '检测用',
         disposalMethodText: '☑ 报废　☐ 其他：',
         productionOperatorDateText,
         inspectorConfirmationDateText: formatLossReportSignatureDateText(latestPqcSubmitterSignature),
@@ -4360,6 +4037,22 @@ const resolvePqcInspectionTypeText = (pqcSubmission: TeamLeaderActiveOrderPqcSub
   if (inspectionType === 'PROCESS') return '巡检'
   return inspectionType || '检验'
 }
+
+const pqcInspectionTabLabels = ['首检', '上午巡检', '下午巡检', '末检'] as const
+
+const buildPqcInspectionTabs = (submissions: TeamLeaderActiveOrderPqcSubmissionDetailRespVO[]) =>
+  pqcInspectionTabLabels
+    .map(label => ({
+      label,
+      submissions: submissions.filter(submission => resolvePqcInspectionTypeText(submission) === label)
+    }))
+    .filter(tab => tab.submissions.length > 0)
+
+const resolvePqcInspectionActiveTab = (process: ActiveOrderDetailPqcProcessGroup) =>
+  buildPqcInspectionTabs(process.submissions)[0]?.label || ''
+
+const hasUnclassifiedPqcSubmissions = (submissions: TeamLeaderActiveOrderPqcSubmissionDetailRespVO[]) =>
+  submissions.some(submission => !pqcInspectionTabLabels.some(label => label === resolvePqcInspectionTypeText(submission)))
 
 const buildDossierFileTabName = (categoryKey: string) => `dossierFile:${categoryKey}`
 
@@ -4684,21 +4377,6 @@ watch(
   { immediate: true, deep: true, flush: 'sync' }
 )
 
-watch(
-  () => [auditScopeTypeValue.value, auditScopeIdValue.value, showSummaryTab.value, props.loading, props.error],
-  () => {
-    resetGxpAuditDetail()
-    gxpAuditDetailVisible.value = false
-    gxpAuditPageNo.value = 1
-    void loadGxpAudit()
-  },
-  { immediate: true, flush: 'sync' }
-)
-
-watch(gxpAuditDetailVisible, (visible) => {
-  if (!visible) resetGxpAuditDetail()
-}, { flush: 'sync' })
-
 onBeforeUnmount(() => {
   dossierRequestContext.invalidate()
   dossierFiles.value = undefined
@@ -4717,6 +4395,22 @@ onBeforeUnmount(() => {
   min-height: 180px;
   max-width: 100%;
   overflow-x: hidden;
+  color: var(--el-text-color-primary);
+  font-family: "Microsoft YaHei", "微软雅黑", sans-serif;
+  font-size: 13px;
+}
+
+.team-leader-workbench__active-order-detail :deep(*) {
+  font-family: inherit;
+}
+
+.team-leader-workbench__active-order-detail :deep(.el-table),
+.team-leader-workbench__active-order-detail :deep(.el-table th),
+.team-leader-workbench__active-order-detail :deep(.el-table td),
+.team-leader-workbench__active-order-detail :deep(.el-tabs__item),
+.team-leader-workbench__active-order-detail :deep(.el-descriptions__label),
+.team-leader-workbench__active-order-detail :deep(.el-descriptions__content) {
+  font-size: 13px;
 }
 
 .team-leader-workbench__active-order-detail-record-boundary {
@@ -4773,26 +4467,6 @@ onBeforeUnmount(() => {
   min-width: 0;
   max-width: 100%;
   overflow-x: hidden;
-}
-
-.team-leader-workbench__active-order-gxp-audit {
-  display: grid;
-  gap: 10px;
-  margin-top: 16px;
-  padding: 12px;
-  border: 1px solid #e2e8f0;
-  border-radius: 4px;
-  background: #ffffff;
-}
-
-.team-leader-workbench__gxp-audit-json {
-  max-height: 260px;
-  margin: 0;
-  padding: 10px;
-  overflow: auto;
-  white-space: pre-wrap;
-  word-break: break-word;
-  background: #f8fafc;
 }
 
 .team-leader-workbench__active-order-summary-table {
@@ -5034,145 +4708,126 @@ onBeforeUnmount(() => {
   overflow-wrap: anywhere;
 }
 
-.team-leader-workbench__work-order-highlight-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 10px;
-  max-width: 100%;
-}
-
-.team-leader-workbench__work-order-highlight-card {
-  display: grid;
-  gap: 7px;
-  min-width: 0;
-  padding: 12px;
-  border: 1px solid var(--el-border-color-light);
-  border-radius: 6px;
-  background: var(--el-bg-color);
-}
-
-.team-leader-workbench__work-order-highlight-card.is-primary {
-  border-color: var(--el-color-primary-light-7);
-  background: var(--el-color-primary-light-9);
-}
-
-.team-leader-workbench__work-order-highlight-card span {
-  color: var(--el-text-color-secondary);
-  font-size: 12px;
-}
-
-.team-leader-workbench__work-order-highlight-card strong,
-.team-leader-workbench__work-order-highlight-value {
-  min-width: 0;
-  color: var(--el-text-color-primary);
-  font-size: 15px;
-  font-weight: 700;
-  line-height: 1.35;
-  overflow-wrap: anywhere;
-  word-break: break-word;
-}
-
-.team-leader-workbench__work-order-list-shell {
-  margin-top: 12px;
-}
-
-.team-leader-workbench__work-order-list-emphasis,
-.team-leader-workbench__work-order-list-link {
-  font-weight: 700;
-}
-
-.team-leader-workbench__production-material-list-error {
-  margin-bottom: 12px;
-}
-
-.team-leader-workbench__production-material-list-documents {
-  display: grid;
-  gap: 18px;
-  max-width: 100%;
-  overflow-x: hidden;
-}
-
-.team-leader-workbench__production-material-list-document {
+/* Shared paper layout for pick, replenishment, material and work-order documents. */
+.order-document {
   display: grid;
   gap: 0;
+  min-width: 0;
   max-width: 100%;
   overflow: hidden;
-  border: 1px solid var(--el-border-color);
+  border: 1px solid var(--el-border-color-light);
   background: var(--el-bg-color);
 }
 
-.team-leader-workbench__production-material-list-document h3 {
+.order-document h3 {
   margin: 0;
   padding: 10px 12px;
-  border-bottom: 1px solid var(--el-border-color);
+  border-bottom: 1px solid var(--el-border-color-light);
   background: var(--el-fill-color-lighter);
   text-align: center;
   font-size: 17px;
   font-weight: 700;
+  line-height: 24px;
 }
 
-.team-leader-workbench__production-material-list-head {
+.order-document__description {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  border-bottom: 1px solid var(--el-border-color);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  border-bottom: 1px solid var(--el-border-color-light);
 }
 
-.team-leader-workbench__production-material-list-head > div,
-.team-leader-workbench__production-material-list-footer > div {
+.order-document__description > div {
   display: flex;
   align-items: center;
+  gap: 6px;
   min-width: 0;
   min-height: 36px;
   padding: 6px 10px;
-  border-right: 1px solid var(--el-border-color);
-  border-bottom: 1px solid var(--el-border-color);
+  border-bottom: 1px solid var(--el-border-color-light);
 }
 
-.team-leader-workbench__production-material-list-head > div:nth-child(3n),
-.team-leader-workbench__production-material-list-footer > div:nth-child(4n) {
-  border-right: 0;
+.order-document__description > div:nth-child(odd) {
+  border-right: 1px solid var(--el-border-color-light);
 }
 
-.team-leader-workbench__production-material-list-head > div:nth-last-child(-n + 3),
-.team-leader-workbench__production-material-list-footer > div {
+.order-document__description > div:last-child,
+.order-document__description > div:nth-last-child(2):nth-child(odd) {
   border-bottom: 0;
 }
 
-.team-leader-workbench__production-material-list-head span,
-.team-leader-workbench__production-material-list-footer span {
-  flex: 0 0 auto;
+.order-document__description > div:last-child:nth-child(odd) {
+  grid-column: 1 / -1;
+  border-right: 0;
+}
+
+.order-document__description span {
+  flex-shrink: 0;
   font-weight: 700;
 }
 
-.team-leader-workbench__production-material-list-head strong,
-.team-leader-workbench__production-material-list-footer strong {
+.order-document__description strong,
+.order-document__description :deep(.el-button) {
   min-width: 0;
-  font-weight: 500;
+  height: auto;
+  white-space: normal;
   overflow-wrap: anywhere;
+  font-weight: 400;
+  line-height: 24px;
+}
+
+.order-document :deep(.el-table),
+.team-leader-workbench__production-material-list-table {
+  font-size: 12px;
+  color: var(--el-text-color-regular);
+  --el-table-header-bg-color: var(--el-fill-color-light);
+  --el-table-header-text-color: var(--el-text-color-secondary);
+  --el-table-border-color: var(--el-border-color-light);
+}
+
+.order-document :deep(.el-table .cell) {
+  padding: 0 8px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  line-height: 23px;
+}
+
+.order-document :deep(.el-table__cell) {
+  padding: 4px 0;
+}
+
+.order-document :deep(.el-table__header th) {
+  font-weight: 700;
+}
+
+.order-document :deep(.el-table .el-button),
+.team-leader-workbench__work-order-list-emphasis {
+  height: auto;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  font-size: inherit;
+  font-weight: 400;
 }
 
 .team-leader-workbench__production-material-list-table {
   width: 100%;
-  max-width: 100%;
   border-collapse: collapse;
   table-layout: fixed;
-  font-size: 12px;
 }
 
 .team-leader-workbench__production-material-list-table th,
 .team-leader-workbench__production-material-list-table td {
-  min-height: 32px;
-  padding: 7px 6px;
-  border-right: 1px solid var(--el-border-color);
-  border-bottom: 1px solid var(--el-border-color);
-  text-align: center;
+  padding: 4px 8px;
+  border-right: 1px solid var(--el-border-color-light);
+  border-bottom: 1px solid var(--el-border-color-light);
+  text-align: left;
   vertical-align: middle;
-  word-break: break-word;
   overflow-wrap: anywhere;
+  line-height: 23px;
 }
 
 .team-leader-workbench__production-material-list-table th {
   background: var(--el-fill-color-light);
+  color: var(--el-text-color-secondary);
   font-weight: 700;
 }
 
@@ -5181,70 +4836,30 @@ onBeforeUnmount(() => {
   border-right: 0;
 }
 
-.team-leader-workbench__production-material-list-footer {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+.team-leader-workbench__production-material-list-error {
+  margin-bottom: 12px;
 }
 
-.team-leader-workbench__pick-list-documents {
+.team-leader-workbench__pick-list-documents,
+.team-leader-workbench__production-material-list-documents {
   display: grid;
   gap: 18px;
-  max-width: 100%;
-  overflow-x: hidden;
-}
-
-.team-leader-workbench__pick-list-document {
-  display: grid;
-  gap: 0;
-  max-width: 100%;
-  overflow: hidden;
-  border: 1px solid var(--el-border-color);
-  background: var(--el-bg-color);
-}
-
-.team-leader-workbench__pick-list-document h3 {
-  margin: 0;
-  padding: 10px 12px;
-  border-bottom: 1px solid var(--el-border-color);
-  background: var(--el-fill-color-lighter);
-  text-align: center;
-  font-size: 17px;
-  font-weight: 700;
-}
-
-.team-leader-workbench__pick-list-head {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  border-bottom: 1px solid var(--el-border-color);
-}
-
-.team-leader-workbench__pick-list-head > div {
-  display: flex;
-  align-items: center;
   min-width: 0;
-  min-height: 36px;
-  padding: 6px 10px;
-  border-right: 1px solid var(--el-border-color);
-  border-bottom: 1px solid var(--el-border-color);
+  max-width: 100%;
 }
 
-.team-leader-workbench__pick-list-head > div:nth-child(2n) {
-  border-right: 0;
-}
+@media (max-width: 768px) {
+  .order-document__description {
+    grid-template-columns: minmax(0, 1fr);
+  }
 
-.team-leader-workbench__pick-list-head > div:nth-last-child(-n + 2) {
-  border-bottom: 0;
-}
+  .order-document__description > div:nth-child(odd) {
+    border-right: 0;
+  }
 
-.team-leader-workbench__pick-list-head span {
-  flex: 0 0 auto;
-  font-weight: 700;
-}
-
-.team-leader-workbench__pick-list-head strong {
-  min-width: 0;
-  font-weight: 500;
-  overflow-wrap: anywhere;
+  .order-document__description > div:nth-last-child(2):nth-child(odd) {
+    border-bottom: 1px solid var(--el-border-color-light);
+  }
 }
 
 .team-leader-workbench__dossier-file-panel {
@@ -5762,6 +5377,49 @@ onBeforeUnmount(() => {
 
   .team-leader-workbench__operation-fact-evidence-grid {
     grid-template-columns: 1fr;
+  }
+}
+</style>
+
+<style lang="scss">
+.active-order-signature-dialog {
+  padding: 20px;
+  border-radius: 8px;
+  color: var(--el-text-color-primary);
+  .el-dialog__header { padding: 0 28px 16px 0; margin: 0; }
+  .el-dialog__body { padding: 0; max-height: calc(100vh - 220px); overflow-y: auto; }
+  .el-dialog__footer { margin-top: 12px; padding: 10px 0 0; border-top: 1px solid var(--el-border-color-lighter); }
+  .signature-detail__title { margin: 0; font-size: 21px; font-weight: 600; line-height: 1.4; }
+  .signature-detail__subtitle { margin: 5px 0 0; color: var(--el-text-color-secondary); font-size: 12px; line-height: 1.6; }
+  .signature-detail__summary { display: grid; grid-template-columns: 1.2fr 1fr 1.35fr; align-items: center; padding: 16px; background: #eaf7f7; border-radius: 5px; gap: 18px; }
+  .signature-detail__summary > div { min-width: 0; }
+  .signature-detail__summary > div + div { border-left: 1px solid #cde6e7; padding-left: 18px; }
+  .signature-detail__summary span:not(.signature-detail__avatar) { display: block; color: #697b83; font-size: 12px; margin-bottom: 4px; }
+  .signature-detail__summary strong { display: block; color: #17242b; font-size: 17px; font-weight: 600; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+  .signature-detail__person { display: flex; align-items: center; gap: 12px; }
+  .signature-detail__avatar { display: flex; align-items: center; justify-content: center; width: 46px; height: 46px; flex-shrink: 0; background: #dbf1f2; border: 1px solid #c6eaec; border-radius: 50%; color: #009c9a; }
+  .signature-detail__section { padding: 16px 0; border-bottom: 1px solid var(--el-border-color-lighter); }
+  .signature-detail__section h3 { margin: 0 0 12px; font-size: 15px; font-weight: 600; }
+  .signature-detail__fields { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 28px; margin: 0; font-size: 13px; }
+  .signature-detail__fields > div { display: grid; grid-template-columns: 88px minmax(0, 1fr); gap: 8px; line-height: 1.6; }
+  .signature-detail__fields dt { color: var(--el-text-color-secondary); }
+  .signature-detail__fields dd { margin: 0; overflow-wrap: anywhere; white-space: pre-wrap; }
+  .signature-detail__fields--single { grid-template-columns: 1fr; }
+  .signature-detail__verification { border: 1px solid var(--el-border-color-lighter); border-radius: 5px; }
+  .signature-detail__verification summary { display: flex; align-items: center; gap: 16px; cursor: pointer; padding: 12px 14px; font-size: 13px; list-style: none; }
+  .signature-detail__verification summary::-webkit-details-marker { display: none; }
+  .signature-detail__verification summary span { color: var(--el-text-color-secondary); font-size: 12px; }
+  .signature-detail__verification summary > .el-icon { margin-left: auto; flex-shrink: 0; }
+  .signature-detail__verification[open] summary > .el-icon { transform: rotate(90deg); }
+  .signature-detail__verification .el-descriptions { padding: 0 12px 12px; overflow-wrap: anywhere; }
+  .signature-detail__close { background: #009c9a; border-color: #009c9a; min-width: 80px; }
+  .signature-detail__close:hover { background: #008784; border-color: #008784; }
+  @media (max-width: 600px) {
+    padding: 16px;
+    .signature-detail__summary { grid-template-columns: 1fr; gap: 12px; }
+    .signature-detail__summary > div + div { border-left: 0; border-top: 1px solid #cde6e7; padding: 10px 0 0; }
+    .signature-detail__fields { grid-template-columns: 1fr; }
+    .signature-detail__verification summary { flex-wrap: wrap; gap: 8px; }
   }
 }
 </style>

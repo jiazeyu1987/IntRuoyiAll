@@ -242,7 +242,14 @@
               </el-table-column>
               <el-table-column label="DCC 授权对象" min-width="220">
                 <template #default="{ row }">
+                  <UserSelectV2
+                    v-if="getMappingDraft(row).targetSubjectType === 'USER'"
+                    v-model="getMappingDraft(row).targetSubjectId"
+                    :user-options="users"
+                    placeholder="请选择授权用户"
+                  />
                   <el-select
+                    v-else
                     v-model="getMappingDraft(row).targetSubjectId"
                     filterable
                     clearable
@@ -389,6 +396,7 @@
 </template>
 
 <script setup lang="ts">
+import UserSelectV2 from '@/views/system/user/components/UserSelectV2.vue'
 import { ElMessageBox } from 'element-plus'
 import {
   applyNasPermissionRestore,

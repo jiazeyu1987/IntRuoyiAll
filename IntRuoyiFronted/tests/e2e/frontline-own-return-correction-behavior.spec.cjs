@@ -40,16 +40,19 @@ function harness(mode = 'production', permissions = ['mes:pro-feedback:query', '
   const panel = Function(...Object.keys(context), `${code};return {open,openTask,choose,resubmit,clearSensitive,visible,rows,draft,reason,password,errorText,result,busy};`)(...Object.values(context))
   return { panel, reads, writes, emits, setDetail: value => { detail = value }, setSave: fn => { save = fn } }
 }
-test('actual dialog template compiles and both frontline screens offer the return entry', () => {
+test('actual dialog template compiles and neither frontline screen offers the return button', () => {
   const compiled = compileTemplate({ source: descriptor.template.content, filename, id: 'own-return' })
   assert.deepEqual(compiled.errors, [])
   const parent = parse(fs.readFileSync(path.resolve(__dirname, '../../src/views/mes/pro/feedback/FrontlineFixedTemplatePanel.vue'), 'utf8')).descriptor
   const walk = node => [node, ...(node.children || []).flatMap(walk)]
   const buttons = walk(parent.template.ast).filter(n => n.type === 1 && n.props.some(p => p.type === 6 && p.name === 'data-frontline-own-return-entry'))
-  assert.equal(buttons.length, 2)
-  for (const button of buttons) assert.ok(button.props.some(p => p.type === 7 && p.name === 'hasPermi'))
+  assert.equal(buttons.length, 0)
+  assert.doesNotMatch(parent.template.content, /退回待修改/)
+  for (const marker of ['data-pqc-fullscreen-toggle', 'data-production-fullscreen-toggle']) {
+    assert.ok(walk(parent.template.ast).some(n => n.type === 1 && n.tag === 'button' && n.props.some(p => p.type === 6 && p.name === marker)))
+  }
 })
-test('both production header actions retain readable 18px text after the actual stage scaling', () => {
+test('production home action retains readable 18px text after the actual stage scaling', () => {
   const parent = parse(fs.readFileSync(path.resolve(__dirname, '../../src/views/mes/pro/feedback/FrontlineFixedTemplatePanel.vue'), 'utf8')).descriptor
   const ast = ts.createSourceFile('parent.ts', parent.scriptSetup.content, ts.ScriptTarget.Latest, true)
   const declaration = ast.statements.filter(ts.isVariableStatement).flatMap(s => [...s.declarationList.declarations])

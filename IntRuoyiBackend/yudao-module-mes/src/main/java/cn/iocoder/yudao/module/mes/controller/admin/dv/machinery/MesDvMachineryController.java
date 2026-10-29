@@ -59,6 +59,10 @@ public class MesDvMachineryController {
     @Resource
     private MesDvMachineryService machineryService;
     @Resource
+    private cn.iocoder.yudao.module.mes.service.dv.machinery.MesDvMachineryTypeWorkbookService typeWorkbookService;
+    @Resource
+    private cn.iocoder.yudao.module.mes.service.dv.machinery.MesDvMachineryWorkbookService workbookService;
+    @Resource
     private MesDvMachineryFinalSheetSyncService machineryFinalSheetSyncService;
     @Resource
     private MesDvMachineryTypeService machineryTypeService;
@@ -77,6 +81,14 @@ public class MesDvMachineryController {
     @PreAuthorize("@ss.hasPermission('mes:dv-machinery:update')")
     public CommonResult<Boolean> updateMachinery(@Valid @RequestBody MesDvMachinerySaveReqVO updateReqVO) {
         machineryService.updateMachinery(updateReqVO);
+        return success(true);
+    }
+
+    @DeleteMapping("/delete-all-with-workshops")
+    @Operation(summary = "删除当前租户全部设备台账、车间和设备类型，关联限制触发时整体取消")
+    @PreAuthorize("@ss.hasPermission('mes:dv-machinery:delete') and @ss.hasPermission('mes:md-workshop:delete') and @ss.hasPermission('mes:dv-machinery-type:delete')")
+    public CommonResult<Boolean> deleteAllMachineryAndWorkshops() {
+        machineryService.deleteAllMachineryAndWorkshops();
         return success(true);
     }
 
@@ -117,8 +129,8 @@ public class MesDvMachineryController {
                                      HttpServletResponse response) throws IOException {
         pageReqVO.setPageSize(PageParam.PAGE_SIZE_NONE);
         List<MesDvMachineryDO> list = machineryService.getMachineryPage(pageReqVO).getList();
-        ExcelUtils.write(response, "\u8BBE\u5907\u53F0\u8D26.xls", "\u6570\u636E", MesDvMachineryRespVO.class,
-                buildMachineryRespVOList(list));
+        workbookService.write(response, MesDvMachineryRespVO.class,
+                buildMachineryRespVOList(list), workbookService.workshops(), typeWorkbookService.exportTypes());
     }
 
     @GetMapping("/simple-list")
@@ -140,13 +152,21 @@ public class MesDvMachineryController {
                         .specification("\u578B\u53F7A")
                         .machineryTypeCode("MT-001")
                         .workshopCode("WS-001")
-                        .processName("\u793A\u4F8B\u5DE5\u5E8F")
                         .standardHourlyCapacity(new BigDecimal("180"))
-                        .status(0)
                         .build()
         );
-        ExcelUtils.write(response, "\u8BBE\u5907\u5BFC\u5165\u6A21\u677F.xls", "\u8BBE\u5907\u5217\u8868",
-                MesDvMachineryImportExcelVO.class, list);
+        cn.iocoder.yudao.module.mes.controller.admin.dv.machinery.vo.MesDvWorkshopExcelVO workshop =
+                new cn.iocoder.yudao.module.mes.controller.admin.dv.machinery.vo.MesDvWorkshopExcelVO();
+        workshop.setCode("WS-001");
+        workshop.setName("示例车间");
+        workshop.setStatus(0);
+        cn.iocoder.yudao.module.mes.controller.admin.dv.machinery.vo.MesDvMachineryTypeExcelVO type =
+                new cn.iocoder.yudao.module.mes.controller.admin.dv.machinery.vo.MesDvMachineryTypeExcelVO();
+        type.setCode("MT-001");
+        type.setName("示例设备类型");
+        type.setStatus(0);
+        type.setSort(0);
+        workbookService.write(response, MesDvMachineryImportExcelVO.class, list, List.of(workshop), List.of(type));
     }
 
     @PostMapping("/import")
@@ -159,8 +179,7 @@ public class MesDvMachineryController {
     public CommonResult<MesDvMachineryImportRespVO> importExcel(@RequestParam("file") MultipartFile file,
                                                                 @RequestParam(value = "updateSupport", required = false,
                                                                         defaultValue = "false") Boolean updateSupport) throws Exception {
-        List<MesDvMachineryImportExcelVO> list = ExcelUtils.read(file, MesDvMachineryImportExcelVO.class);
-        return success(machineryService.importMachineryList(list, updateSupport));
+        return success(workbookService.read(file, updateSupport));
     }
 
     @PostMapping("/sync-final-sheet")
@@ -181,9 +200,9 @@ public class MesDvMachineryController {
                 convertSet(list, MesDvMachineryDO::getWorkshopId));
         return BeanUtils.toBean(list, MesDvMachineryRespVO.class, vo -> {
             MapUtils.findAndThen(machineryTypeMap, vo.getMachineryTypeId(),
-                    machineryType -> vo.setMachineryTypeName(machineryType.getName()));
+                    machineryType -> { vo.setMachineryTypeName(machineryType.getName()); vo.setMachineryTypeCode(machineryType.getCode()); });
             MapUtils.findAndThen(workshopMap, vo.getWorkshopId(),
-                    workshop -> vo.setWorkshopName(workshop.getName()));
+                    workshop -> { vo.setWorkshopName(workshop.getName()); vo.setWorkshopCode(workshop.getCode()); });
         });
     }
 }

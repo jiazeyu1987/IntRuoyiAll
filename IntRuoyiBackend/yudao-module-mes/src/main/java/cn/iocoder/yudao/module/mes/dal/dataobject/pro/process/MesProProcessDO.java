@@ -45,6 +45,10 @@ public class MesProProcessDO extends BaseDO {
      */
     private String attention;
     /**
+     * 工序 SOP 文件地址；未绑定时为空。
+     */
+    private String sopFileUrl;
+    /**
      * 状态
      *
      * 枚举 {@link cn.iocoder.yudao.framework.common.enums.CommonStatusEnum}

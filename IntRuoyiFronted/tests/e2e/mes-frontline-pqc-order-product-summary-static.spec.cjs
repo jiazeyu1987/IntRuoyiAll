@@ -62,10 +62,11 @@ for (const token of [
   'data-pqc-order-code',
   'data-pqc-product-name',
   'data-pqc-product-quantity',
-  '<span>产品名称</span>',
-  '<span>产品数量</span>',
-  '{{ selectedActiveOrder.productName }}',
-  '{{ selectedOrderQuantityLabel }}'
+  'class="frontline-production-order-summary"',
+  'class="frontline-production-order-summary__value"',
+  'class="frontline-production-order-quantity"',
+  '{{ productionProductNameLabel }}',
+  '{{ selectedProductionOrderQuantityLabel }} 件'
 ]) {
   assert.ok(header.includes(token), `PQC order summary must include: ${token}`)
 }
@@ -81,33 +82,43 @@ assert.match(
   'Production quantity formatting must reject invalid values and remove insignificant trailing zeros.'
 )
 
-const summaryCard = extractBlock(panel, '.frontline-top-card--order-summary {')
+assert.doesNotMatch(
+  header,
+  /frontline-order-summary__field|<span>生产订单<\/span>|<span>产品名称<\/span>|<span>产品数量<\/span>/,
+  'PQC must use the production layout without the old three-column field labels.'
+)
+
+const summaryCard = extractBlock(panel, '.frontline-production-order-summary {')
 for (const token of [
   'display: grid;',
-  'grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr) minmax(112px, auto);',
-  'gap: 14px;',
-  'padding: 14px 16px;'
+  'grid-template-columns: minmax(0, 1fr) minmax(92px, 0.35fr);',
+  'gap: 12px;',
+  'align-items: center;'
 ]) {
   assert.ok(summaryCard.includes(token), `Order summary card style must include: ${token}`)
 }
 
-const pqcTop = extractBlock(panel, '\n.frontline-operator-top.is-pqc {')
+const sharedTypography = extractBlock(panel, '.frontline-production-stage,\n.frontline-operator-top.is-pqc {')
 for (const token of [
-  'font-size: 18px;',
-  'font-size: 26px;',
-  'overflow: visible;',
-  'text-overflow: clip;',
-  'white-space: normal;',
-  'overflow-wrap: anywhere;'
+  'font-size: 16px;',
+  'font-size: 20px;',
+  'font-size: 24px;',
+  'font-size: 32px;',
+  'font-size: 36px;',
+  'font-weight: 400;',
+  'font-weight: 600;'
 ]) {
-  assert.ok(pqcTop.includes(token), `PQC compact top bar must include: ${token}`)
+  assert.ok(sharedTypography.includes(token), `Both headers must share typography: ${token}`)
 }
+const pqcTop = extractBlock(panel.slice(panel.lastIndexOf('\n.frontline-operator-top.is-pqc {')), '\n.frontline-operator-top.is-pqc {')
+assert.ok(pqcTop.includes('text-wrap: balance;'), 'Long PQC process names must wrap in balanced lines.')
+assert.doesNotMatch(pqcTop, /font-size: clamp\(/, 'PQC must not override shared typography with larger viewport-based fonts.')
 
 for (const token of [
-  'grid-template-rows: minmax(118px, auto) minmax(0, 1fr);',
-  'grid-template-columns: minmax(480px, 1.45fr) minmax(360px, 1.2fr) minmax(140px, 0.45fr) 150px;'
+  'grid-template-rows: clamp(130px, 7.8125vw, 150px) minmax(0, 1fr);',
+  'grid-template-columns: minmax(0, 1.45fr) minmax(0, 1.55fr) minmax(0, 0.6fr) minmax(160px, 0.55fr);'
 ]) {
   assert.ok(panel.includes(token), `PQC responsive layout must include: ${token}`)
 }
 
-console.log('PASS: frontline PQC displays the selected order product summary without top-bar truncation')
+console.log('PASS: frontline PQC uses the production order, product, and quantity layout')

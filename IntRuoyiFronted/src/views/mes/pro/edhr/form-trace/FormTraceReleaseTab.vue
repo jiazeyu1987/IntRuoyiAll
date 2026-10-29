@@ -440,8 +440,8 @@ const resolveBatchExecutionTraceStatusLabel = (status?: number | string | null) 
     [EDHR_BATCH_STATUS_READY_TO_CLOSE]: '待关闭',
     [EDHR_BATCH_STATUS_REWORK_REQUIRED]: '需返工',
     [EDHR_BATCH_STATUS_CLOSED]: '已关闭',
-    [EDHR_BATCH_STATUS_ARCHIVED]: '已归档',
-    [EDHR_BATCH_STATUS_REJECTED]: '质量终态',
+    [EDHR_BATCH_STATUS_ARCHIVED]: '已放行',
+    [EDHR_BATCH_STATUS_REJECTED]: '已返工',
     [EDHR_BATCH_STATUS_VOIDED]: '已作废'
   }
   return Number.isFinite(normalizedStatus) ? labels[normalizedStatus] || String(normalizedStatus) : '--'

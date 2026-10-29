@@ -1,8 +1,5 @@
 <template>
   <ContentWrap class="scheme-d-basic-data-page scheme-d-basic-data-page--mdm-product">
-    <div class="mb-16px flex items-center gap-8px">
-      <span class="text-18px font-600 text-[var(--el-text-color-primary)]">基础数据 / 展厅主数据</span>
-    </div>
     <UnifiedListTemplate
       table-key="mdm.product.main"
       :query-model="queryParams"

@@ -96,6 +96,7 @@
           <el-table-column label="追溯" width="220" fixed="right">
             <template #default="{ row }">
               <div class="edhr-release-page__actions">
+                <MarketReleaseNegativeDecision :release-transaction-id="row.releaseTransactionId" :pending="row.releaseStatus === 'PENDING_APPROVAL'" @changed="getList" />
                 <el-button
                   v-hasPermi="['mes:pro-edhr-nonconformance-review:create']"
                   link
@@ -240,6 +241,7 @@
 </template>
 
 <script setup lang="ts">
+import MarketReleaseNegativeDecision from '../production-release/components/MarketReleaseNegativeDecision.vue'
 import {
   getEdhrRelease,
   getEdhrReleaseCheckItemPage,
@@ -287,6 +289,7 @@ const openSignedDossier = async (row: EdhrReleaseRowVO) => {
   signedDossierVisible.value = true
   signedDossierLoading.value = true
   try {
+    if (!row.releaseTransactionId) throw new Error('放行记录缺少正式放行事务编号')
     const detail = await getEdhrRelease(row.releaseTransactionId)
     if (request !== signedDossierRequest) return
     if (!detail.signedDossierManifestJson) throw new Error('该历史放行记录未签署独立资料清单')

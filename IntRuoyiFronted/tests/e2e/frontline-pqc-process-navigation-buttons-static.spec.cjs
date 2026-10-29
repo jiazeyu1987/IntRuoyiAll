@@ -144,20 +144,20 @@ assert.match(
 
 assert.match(
   source,
-  /\.frontline-operator-top[\s\S]*&\.is-pqc\s*\{[\s\S]*grid-template-columns:\s*minmax\(480px,\s*1\.45fr\)\s+minmax\(360px,\s*1\.2fr\)\s+minmax\(140px,\s*0\.45fr\)\s+150px;/,
-  'PQC top grid must widen the process card and shrink the employee card.'
+  /\.frontline-operator-top[\s\S]*&\.is-pqc\s*\{[\s\S]*grid-template-columns:\s*minmax\(0,\s*1\.45fr\)\s+minmax\(0,\s*1\.55fr\)\s+minmax\(0,\s*0\.6fr\)\s+minmax\(160px,\s*0\.55fr\);/,
+  'PQC top grid must follow the production order, process, employee and action proportions.'
 )
-assert.match(
+assert.doesNotMatch(
   source,
-  /\.frontline-operator-panel\.is-pqc-fullscreen \.frontline-operator-top\.is-pqc,[\s\S]*?\.frontline-operator-panel:fullscreen \.frontline-operator-top\.is-pqc\s*\{[\s\S]*grid-template-columns:\s*minmax\(480px,\s*1\.45fr\)\s+minmax\(360px,\s*1\.2fr\)\s+minmax\(140px,\s*0\.45fr\)\s+150px;[\s\S]*gap:\s*12px/,
-  'PQC fullscreen top grid must use the same widened process and narrowed employee proportions.'
+  /\.frontline-operator-panel:fullscreen \.frontline-operator-top\.is-pqc\s*\{/,
+  'PQC fullscreen must reuse the normal header grid rather than override its proportions.'
 )
 
 const pqcNavCardStyle = extractStyleBlock('.frontline-pqc-process-nav-card')
 for (const [pattern, message] of [
-  [/grid-template-columns:\s*72px minmax\(0,\s*1fr\) 72px;/, 'PQC process nav card must reserve compact arrow tracks around a larger label area.'],
-  [/gap:\s*10px;/, 'PQC process nav card must keep arrows close enough for the enlarged process label.'],
-  [/padding:\s*10px 12px;/, 'PQC process nav card must stay compact inside the top bar.']
+  [/grid-template-columns:\s*clamp\(72px, 7\.29vw, 140px\) minmax\(0,\s*1fr\) clamp\(72px, 7\.29vw, 140px\);/, 'PQC process arrows must scale to production-sized tracks.'],
+  [/gap:\s*12px;/, 'PQC process nav card must use production spacing.'],
+  [/padding:\s*14px 16px;/, 'PQC process nav card must use production padding.']
 ]) {
   assert.match(pqcNavCardStyle, pattern, message)
 }

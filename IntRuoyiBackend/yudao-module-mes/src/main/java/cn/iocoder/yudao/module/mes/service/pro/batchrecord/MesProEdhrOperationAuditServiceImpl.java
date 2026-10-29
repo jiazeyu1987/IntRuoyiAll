@@ -31,6 +31,7 @@ public class MesProEdhrOperationAuditServiceImpl implements MesProEdhrOperationA
 
     @Resource
     private MesProEdhrOperationAuditEventMapper auditEventMapper;
+    @Resource private MesMarketReleaseAccess marketReleaseAccess;
 
     @Override
     @Transactional(propagation = Propagation.REQUIRES_NEW, rollbackFor = Exception.class)
@@ -75,6 +76,7 @@ public class MesProEdhrOperationAuditServiceImpl implements MesProEdhrOperationA
         if (event == null) {
             throw exception(PRO_EDHR_OPERATION_AUDIT_NOT_EXISTS);
         }
+        if(event.getBatchExecutionId()!=null) marketReleaseAccess.requireReadable(event.getBatchExecutionId());
         return toResp(event);
     }
 

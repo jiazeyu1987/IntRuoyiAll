@@ -6,6 +6,7 @@ import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
 import cn.iocoder.yudao.module.system.controller.admin.dept.vo.post.PostPageReqVO;
 import cn.iocoder.yudao.module.system.dal.dataobject.dept.PostDO;
 import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Select;
 
 import java.util.Collection;
 import java.util.Collections;
@@ -13,6 +14,12 @@ import java.util.List;
 
 @Mapper
 public interface PostMapper extends BaseMapperX<PostDO> {
+
+    /**
+     * 在全局岗位写锁内读取最新编码，包含逻辑删除记录，避免并发重号及删除后复用编号。
+     */
+    @Select("SELECT code FROM system_post WHERE UPPER(code) LIKE 'GW-%' ORDER BY id FOR UPDATE")
+    List<String> selectGeneratedCodesForUpdate();
 
     default List<PostDO> selectListByIdsForUpdate(Collection<Long> ids) {
         if (ids.isEmpty()) {

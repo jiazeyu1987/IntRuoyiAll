@@ -231,6 +231,19 @@ public class ReleaseWorkflowService {
                 List.of("workflow/cancel.json"), true);
     }
 
+    /** Preserve uncertain execution as a manual recovery case without releasing its lease. */
+    ReleaseWorkflowRecord isolateUnconfirmedTermination(String workflowId, long expectedStateVersion) {
+        ReleaseWorkflowRecord current = store.require(workflowId);
+        if (current.stateVersion() != expectedStateVersion) {
+            throw new ReleaseWorkflowStore.CasConflictException(workflowId, expectedStateVersion,
+                    current.stateVersion());
+        }
+        validateTransition(current.state(), ReleaseWorkflowRecord.State.RECOVERY_REQUIRED);
+        return store.update(current, expectedStateVersion, ReleaseWorkflowRecord.State.RECOVERY_REQUIRED,
+                VERIFIER_ACTOR, "RELEASE_WORKFLOW_OPERATION_TERMINATION_UNCONFIRMED", current.state().name(),
+                false, List.of("operation/" + current.operationId()), false);
+    }
+
     public List<ReleaseWorkflowRecord> recoverStaleWorkflows(Instant now) {
         Duration timeout = properties.getReleaseWorkflow().getHeartbeatTimeout();
         return store.list().stream()

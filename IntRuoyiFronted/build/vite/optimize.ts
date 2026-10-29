@@ -9,6 +9,8 @@ const include = [
   'dayjs',
   'qrcode',
   'jsbarcode',
+  'docxtemplater',
+  'pizzip',
   'unocss',
   'vue-router',
   'vue-types',

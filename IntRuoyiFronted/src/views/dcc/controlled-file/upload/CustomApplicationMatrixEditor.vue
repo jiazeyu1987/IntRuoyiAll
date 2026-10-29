@@ -14,24 +14,18 @@
       </ElSelect>
     </ElFormItem>
     <ElFormItem label="本次批准人" required>
-      <ElSelect
-        data-testid="dcc-custom-approver" :model-value="displayedSelection.matrix?.approverUserId ?? null"
-        filterable clearable class="w-full" placeholder="选择本次批准人"
+      <UserSelectV2
+        data-testid="dcc-custom-approver" :model-value="displayedSelection.matrix?.approverUserId ?? undefined"
+        clearable class="w-full" placeholder="选择本次批准人"
         :disabled="editingDisabled" @update:model-value="value => updateAccount('approverUserId', value)"
-      >
-        <ElOption v-for="user in directory.users" :key="user.id" :value="user.id" :label="accountLabel(user)" />
-        <ElOption v-if="unavailableAccount('approverUserId')" :value="displayedSelection.matrix?.approverUserId" :label="`账号ID ${displayedSelection.matrix?.approverUserId}（当前不可用）`" disabled />
-      </ElSelect>
+       :user-options="directory.users.map(user => ({ ...user, nickname: user.name }))" />
     </ElFormItem>
     <ElFormItem label="本次文控审核人" required>
-      <ElSelect
-        data-testid="dcc-custom-document-control" :model-value="displayedSelection.matrix?.documentControlUserId ?? null"
-        filterable clearable class="w-full" placeholder="选择本次文控审核人"
+      <UserSelectV2
+        data-testid="dcc-custom-document-control" :model-value="displayedSelection.matrix?.documentControlUserId ?? undefined"
+        clearable class="w-full" placeholder="选择本次文控审核人"
         :disabled="editingDisabled" @update:model-value="value => updateAccount('documentControlUserId', value)"
-      >
-        <ElOption v-for="user in directory.users" :key="user.id" :value="user.id" :label="accountLabel(user)" />
-        <ElOption v-if="unavailableAccount('documentControlUserId')" :value="displayedSelection.matrix?.documentControlUserId" :label="`账号ID ${displayedSelection.matrix?.documentControlUserId}（当前不可用）`" disabled />
-      </ElSelect>
+       :user-options="directory.users.map(user => ({ ...user, nickname: user.name }))" />
     </ElFormItem>
     <p v-if="loading" class="text-12px">正在读取启用部门和账号目录...</p>
     <p v-if="visibleError" role="alert" class="text-12px text-[var(--el-color-danger)]">{{ visibleError }}</p>
@@ -53,6 +47,7 @@ export interface CustomMatrixDirectoryRow {
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import UserSelectV2 from '@/views/system/user/components/UserSelectV2.vue'
 import { ElFormItem, ElOption, ElSelect } from 'element-plus'
 
 const props = withDefaults(defineProps<{
@@ -134,7 +129,6 @@ const displayedSelection = computed(() => {
 })
 const editingDisabled = computed(() => props.approvalSourceMode !== 'APPLICATION_CUSTOM' || props.disabled
   || props.loading || Boolean(props.directoryError) || Boolean(directory.value.error) || Boolean(displayedSelection.value.error))
-const accountLabel = (row: Option): string => row.deptName ? `${row.name}（${row.deptName}）` : row.name
 const requireAvailableAccount = (field: AccountField, id: string): void => {
   if (!directory.value.users.some(row => row.id === id)) throw new Error(`${accountNames[field]}（账号ID ${id}）当前不可用，请核对启用账号目录`)
 }
@@ -142,10 +136,6 @@ const requireAvailableDepartments = (ids: string[]): void => {
   for (const id of ids) {
     if (!directory.value.departments.some(row => row.id === id)) throw new Error(`本次会签部门（部门ID ${id}）当前不可用，请核对启用部门目录`)
   }
-}
-const unavailableAccount = (field: AccountField): boolean => {
-  const id = displayedSelection.value.matrix?.[field]
-  return id != null && !directory.value.users.some(row => row.id === id)
 }
 const unavailableDepartments = computed(() => (displayedSelection.value.departments ?? [])
   .filter(id => !directory.value.departments.some(row => row.id === id)))

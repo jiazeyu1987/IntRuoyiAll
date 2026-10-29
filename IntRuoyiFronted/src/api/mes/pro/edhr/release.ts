@@ -126,12 +126,18 @@ export interface EdhrReleaseApproveReqVO {
 }
 
 export interface EdhrReleaseRejectReqVO {
+  workTaskId?: string
+  expectedVersion?: number
+  password?: string
+  qaReviewerUserId?: string | number
   releaseTransactionId: string
   idempotencyKey: string
   rejectReason: string
 }
 
 export interface EdhrReleaseWithdrawReqVO {
+  workTaskId?: string
+  expectedVersion?: number
   releaseTransactionId: string
   idempotencyKey: string
   withdrawReason: string

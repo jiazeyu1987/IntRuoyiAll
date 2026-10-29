@@ -26,7 +26,7 @@ export interface DccTaskLike {
   children?: DccTaskLike[]
   status?: number
   assigneeUserId?: number | string
-  assignee?: number | string
+  assignee?: number | string | null
   assigneeUser?: {
     id?: number
     nickname?: string

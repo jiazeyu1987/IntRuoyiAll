@@ -83,6 +83,9 @@ public interface AdminUserService {
      */
     void resetUserLoginFailure(Long id, String reason);
 
+    /** 手动锁定用户，沿用登录锁定时长。 */
+    void lockUser(Long id, String reason);
+
     /**
      * 使用当前实名账号的密码执行正式电子签名重新认证。
      *

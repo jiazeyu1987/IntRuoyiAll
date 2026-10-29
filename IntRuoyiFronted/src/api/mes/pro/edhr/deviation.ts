@@ -72,6 +72,10 @@ export interface DeviationHandlingRespVO {
   deviationId: number
   contentVersion?: number
   contentHash?: string
+  reviewerAssignments?: Record<string, number | string>
+  reviewReady?: boolean
+  effectiveSignatureIds?: Record<string, number | string>
+  correctiveOwnerId?: number | string
   nonconformanceReviewCode?: string
   investigationStartedAt?: string
   plannedCompletedAt?: string

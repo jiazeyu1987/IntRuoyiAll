@@ -3,6 +3,8 @@ package cn.iocoder.yudao.module.mes.controller.admin.pro.feedback;
 import cn.iocoder.yudao.framework.common.pojo.CommonResult;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.vo.frontline.MesFrontlineActiveOrderRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.vo.frontline.MesFrontlineActiveOrderProcessRespVO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.process.MesProProcessDO;
+import cn.iocoder.yudao.module.mes.service.pro.process.MesProProcessService;
 import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineActiveOrderCandidate;
 import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineActiveOrderProcess;
 import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineActiveOrderProcessService;
@@ -21,6 +23,10 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -34,6 +40,8 @@ class MesFrontlineActiveOrderControllerTest {
     private MesTeamLeaderActiveOrderService activeOrderService;
     @Mock
     private MesFrontlineActiveOrderProcessService activeOrderProcessService;
+    @Mock
+    private MesProProcessService processService;
 
     @InjectMocks
     private MesFrontlineDeviceAccountController controller;
@@ -138,5 +146,51 @@ class MesFrontlineActiveOrderControllerTest {
         assertEquals(new BigDecimal("150.000000"), process.getTargetQuantity());
         assertEquals(new BigDecimal("45.000000"), process.getSubmittedQuantity());
         assertEquals(4001L, process.getWorkstationId());
+    }
+
+    @Test
+    void getProductionProcessSop_returnsCurrentProcessBinding() {
+        when(contextService.resolveResponsibleLeaderUserId(null)).thenReturn(7001L);
+        when(processService.getProcess(3001L)).thenReturn(MesProProcessDO.builder()
+                .id(3001L).sopFileUrl("https://files.example.test/sop/cleaning.pdf").build());
+
+        var result = controller.getProductionProcessSop(48L, 2001L, 980645L, 3001L).getData();
+
+        assertEquals(3001L, result.getProcessId());
+        assertEquals("https://files.example.test/sop/cleaning.pdf", result.getFileUrl());
+        org.mockito.Mockito.verify(activeOrderProcessService)
+                .requireProcess(7001L, 48L, 2001L, 980645L, 3001L);
+    }
+
+    @Test
+    void getProductionProcessSop_returnsUnboundWithoutInventingFile() {
+        when(contextService.resolveResponsibleLeaderUserId(null)).thenReturn(7001L);
+        when(processService.getProcess(3001L)).thenReturn(MesProProcessDO.builder().id(3001L).build());
+
+        var result = controller.getProductionProcessSop(48L, 2001L, 980645L, 3001L).getData();
+
+        assertEquals(3001L, result.getProcessId());
+        assertNull(result.getFileUrl());
+    }
+
+    @Test
+    void getProductionProcessSop_rejectsProcessOutsideActiveOrderBeforeReadingFile() {
+        when(contextService.resolveResponsibleLeaderUserId(null)).thenReturn(7001L);
+        doThrow(new IllegalArgumentException("工序不属于当前活跃订单"))
+                .when(activeOrderProcessService).requireProcess(7001L, 48L, 2001L, 980645L, 3001L);
+
+        assertThrows(IllegalArgumentException.class,
+                () -> controller.getProductionProcessSop(48L, 2001L, 980645L, 3001L));
+
+        verifyNoInteractions(processService);
+    }
+
+    @Test
+    void getProductionProcessSop_reportsDeletedProcessInsteadOfUnbound() {
+        when(contextService.resolveResponsibleLeaderUserId(null)).thenReturn(7001L);
+        var error = assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,
+                () -> controller.getProductionProcessSop(48L, 2001L, 980645L, 3001L));
+        assertEquals(cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_NOT_EXISTS.getCode(),
+                error.getCode());
     }
 }

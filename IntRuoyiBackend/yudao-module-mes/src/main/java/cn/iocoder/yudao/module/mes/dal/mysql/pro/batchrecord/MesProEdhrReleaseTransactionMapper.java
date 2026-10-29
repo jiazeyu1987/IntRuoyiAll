@@ -45,6 +45,28 @@ public interface MesProEdhrReleaseTransactionMapper extends BaseMapperX<MesProEd
                 .orderByDesc(MesProEdhrReleaseTransactionDO::getId));
     }
 
+    /** Latest persisted release, including rejected/withdrawn, matching descending history's first row. */
+    default List<MesProEdhrReleaseTransactionDO> selectLatestByBatchExecutionIds(Collection<Long> batchExecutionIds) {
+        if (batchExecutionIds == null || batchExecutionIds.isEmpty()) return List.of();
+        return selectLatestByBatchExecutionIdsInternal(batchExecutionIds,
+                cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId());
+    }
+
+    @Select("""
+            <script>
+            SELECT r.* FROM mes_pro_edhr_release_transaction r
+            WHERE r.tenant_id = #{tenantId} AND r.deleted = 0
+              AND r.batch_execution_id IN
+              <foreach collection="batchIds" item="id" open="(" separator="," close=")">#{id}</foreach>
+              AND r.id = (SELECT MAX(latest.id) FROM mes_pro_edhr_release_transaction latest
+                  WHERE latest.tenant_id = r.tenant_id AND latest.deleted = 0
+                    AND latest.batch_execution_id = r.batch_execution_id)
+            ORDER BY r.id DESC
+            </script>
+            """)
+    List<MesProEdhrReleaseTransactionDO> selectLatestByBatchExecutionIdsInternal(
+            @Param("batchIds") Collection<Long> batchIds, @Param("tenantId") Long tenantId);
+
     default MesProEdhrReleaseTransactionDO selectByIdForUpdate(Long id) {
         if (id == null) {
             return null;

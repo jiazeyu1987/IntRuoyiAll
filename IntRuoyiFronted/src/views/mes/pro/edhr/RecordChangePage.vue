@@ -30,6 +30,7 @@
         </el-form-item>
         <el-form-item>
           <el-button type="primary" @click="handleQuery">查询</el-button>
+          <el-button v-hasPermi="['mes:pro-edhr-change:reopen', 'mes:pro-edhr-change:supplement', 'mes:pro-edhr-change:void']" @click="openRequest">申请变更</el-button>
         </el-form-item>
       </el-form>
 
@@ -146,9 +147,12 @@
             width="180"
             :formatter="edhrDateTimeFormatter"
           />
-          <el-table-column label="操作" width="100" fixed="right">
+          <el-table-column label="操作" width="180" fixed="right">
             <template #default="{ row }">
               <el-button link type="primary" @click="openDetail(row)">详情</el-button>
+              <el-button v-if="row.canResubmit" link type="primary" @click="openDecision(row, 'resubmit')">补正重提</el-button>
+              <el-button v-if="row.canApprove" v-hasPermi="['mes:pro-edhr-change:approve']" link type="primary" @click="openDecision(row, 'approve')">审批</el-button>
+              <el-button v-if="row.changeStatus === 'DRAFT' && String(row.requestedBy) === String(currentUserId)" v-hasPermi="['mes:pro-edhr-change:supplement']" link type="primary" @click="openDecision(row, 'submit')">提交草稿</el-button>
             </template>
           </el-table-column>
         </el-table>
@@ -212,6 +216,11 @@
           </el-button>
           <span v-else class="edhr-record-change__object-link--disabled">--</span>
         </el-descriptions-item>
+        <el-descriptions-item v-if="selectedChange?.newExecutionId" label="补录新修订">{{ selectedChange.newExecutionId }}</el-descriptions-item>
+        <el-descriptions-item label="上一申请轮次">{{ selectedChange?.previousChangeEventId || '--' }}</el-descriptions-item>
+        <el-descriptions-item label="决定原因" :span="2">{{ selectedChange?.decisionReason || '--' }}</el-descriptions-item>
+        <el-descriptions-item label="指定审批人">{{ selectedChange?.approverUserId || '--' }}</el-descriptions-item>
+        <el-descriptions-item label="审批待办">{{ selectedChange?.approvalWorkTaskId || '--' }}</el-descriptions-item>
         <el-descriptions-item label="原因分类">{{ selectedChange?.reasonCategory || '--' }}</el-descriptions-item>
         <el-descriptions-item label="申请时间">
           {{ formatEdhrDateTime(selectedChange?.requestedAt) }}
@@ -219,6 +228,9 @@
         <el-descriptions-item label="原因说明" :span="2">{{ selectedChange?.reasonText || '--' }}</el-descriptions-item>
       </el-descriptions>
 
+      <el-button v-if="selectedChange?.canResubmit" type="primary" @click="openDecision(selectedChange!, 'resubmit')">补正并重新提交</el-button>
+      <el-button v-if="selectedChange?.canApprove" v-hasPermi="['mes:pro-edhr-change:approve']" type="primary" class="mt-12px" @click="openDecision(selectedChange!, 'approve')">审批此变更</el-button>
+      <el-button v-if="selectedChange?.revisionActionUrl" type="primary" class="mt-12px" @click="router.push(selectedChange.revisionActionUrl)">办理获批修改任务</el-button>
       <el-collapse v-model="detailEvidenceNames" class="edhr-record-change__evidence-collapse">
         <el-collapse-item title="链路证据" name="chain-evidence">
           <div class="edhr-record-change__evidence-grid">
@@ -250,6 +262,54 @@
         </el-collapse-item>
       </el-collapse>
     </Dialog>
+    <Dialog :title="actionMode === 'approve' ? '审批记录变更' : actionMode === 'resubmit' ? '补正并重新提交' : actionMode === 'submit' ? '提交补录草稿' : '申请记录变更'" v-model="actionVisible" width="560px">
+      <el-alert v-if="actionError" :title="actionError" type="error" :closable="false" show-icon class="mb-12px" />
+      <el-form label-width="100px" @submit.prevent>
+        <template v-if="actionMode === 'request'">
+          <el-form-item label="变更类型" required>
+            <el-select v-model="actionForm.changeType">
+              <el-option label="重开" value="REOPEN" />
+              <el-option label="补录" value="SUPPLEMENT" />
+              <el-option label="单张记录作废" value="VOID" />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="变更对象" required>
+            <el-radio-group v-model="actionForm.targetScope" :disabled="['SUPPLEMENT', 'VOID'].includes(actionForm.changeType)">
+              <el-radio value="BATCH">批次</el-radio><el-radio value="EXECUTION">执行记录</el-radio>
+            </el-radio-group>
+          </el-form-item>
+          <el-form-item label="批次 ID" required><el-input v-model="actionForm.batchExecutionId" placeholder="请输入真实批次 ID" /></el-form-item>
+          <el-form-item v-if="actionForm.targetScope === 'EXECUTION'" label="执行记录 ID" required><el-input v-model="actionForm.executionId" placeholder="请输入真实执行记录 ID" /></el-form-item>
+          <el-alert v-if="actionForm.changeType === 'VOID'" type="warning" :closable="false" show-icon class="mb-12px" :title="`本次仅申请作废批次 #${actionForm.batchExecutionId || '待填写'} 中的执行记录 #${actionForm.executionId || '待填写'}。批准后该记录及其归档失效。`" />
+          <el-form-item label="原因分类" required><el-input v-model="actionForm.reasonCategory" /></el-form-item>
+          <el-form-item label="原因说明" required><el-input v-model="actionForm.reasonText" type="textarea" :rows="3" /></el-form-item>
+        </template>
+        <template v-else>
+          <el-form-item label="变更编号">{{ actionRecord?.changeCode }}</el-form-item>
+          <el-form-item label="变更对象">{{ resolveChangeTypeLabel(actionRecord?.changeType) }} · 批次 {{ formatObjectId(actionRecord?.batchExecutionId) }}<template v-if="actionRecord?.targetScope === 'EXECUTION'"> · 执行记录 {{ formatObjectId(actionRecord?.executionId) }}</template></el-form-item>
+          <el-form-item label="原因说明">{{ actionRecord?.reasonText }}</el-form-item>
+        </template>
+        <template v-if="actionMode === 'resubmit'">
+          <el-alert :title="actionRecord?.decisionReason" type="warning" :closable="false" class="mb-12px" />
+          <el-form-item label="原因分类" required><el-input v-model="actionForm.reasonCategory" /></el-form-item>
+          <el-form-item label="补正说明" required><el-input v-model="actionForm.reasonText" type="textarea" :rows="3" maxlength="500" /></el-form-item>
+        </template>
+        <template v-if="actionMode === 'approve'">
+          <el-form-item label="审批决定" required><el-radio-group v-model="decision"><el-radio value="APPROVE">批准</el-radio><el-radio value="REJECTED">驳回终止</el-radio><el-radio value="RETURNED">退回补正</el-radio></el-radio-group></el-form-item>
+          <el-form-item v-if="decision !== 'APPROVE'" label="决定原因" required><el-input v-model="decisionReason" type="textarea" maxlength="500" :rows="3" /></el-form-item>
+        </template>
+        <el-form-item v-if="actionMode !== 'approve'" label="审批人" required>
+          <RecordChangeUserSelect v-model="actionForm.approverUserId" :load-user-options="getEdhrRecordChangeApprovers" exclude-current-user placeholder="请选择本次变更审批人" />
+        </el-form-item>
+        <el-form-item label="签名密码" required><el-input v-model="actionForm.password" type="password" show-password autocomplete="new-password" placeholder="请输入当前账号密码" /></el-form-item>
+        <el-form-item label="备注"><el-input v-model="actionForm.comment" type="textarea" :rows="2" /></el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="actionVisible = false">取消</el-button>
+        <el-button v-if="actionMode === 'request' && actionForm.changeType === 'SUPPLEMENT'" :loading="actionLoading" @click="performAction(true)">保存草稿</el-button>
+        <el-button type="primary" :loading="actionLoading" @click="performAction(false)">{{ actionMode === 'approve' ? '签名确认决定' : '签名提交' }}</el-button>
+      </template>
+    </Dialog>
   </ContentWrap>
 </template>
 
@@ -273,8 +333,78 @@ import {
   type EdhrRecordChangeRespVO
 } from '@/api/mes/pro/edhr/change'
 import { parsePositiveRouteQueryId } from '@/utils/routeQueryId'
+import { useUserStore } from '@/store/modules/user'
+import RecordChangeUserSelect from '@/views/system/user/components/UserSelect.vue'
+import { decideEdhrRecordChange, resubmitEdhrRecordChange, getEdhrRecordChangeApprovers, requestVoidExecution, approveVoidExecution, requestReopenBatch, requestReopenExecution, requestSupplement, saveSupplementDraft, submitSupplement, approveReopenBatch, approveReopenExecution, approveSupplement } from '@/api/mes/pro/edhr/change'
 
 defineOptions({ name: 'MesProFeedbackEdhrRecordChange' })
+
+const currentUserId = computed(() => useUserStore().getUser.id)
+const actionVisible = ref(false)
+const actionLoading = ref(false)
+const actionError = ref('')
+const decision = ref<'APPROVE' | 'REJECTED' | 'RETURNED'>('APPROVE')
+const decisionReason = ref('')
+const actionMode = ref<'request' | 'submit' | 'approve' | 'resubmit'>('request')
+const actionRecord = ref<EdhrRecordChangeRespVO>()
+const actionForm = reactive({
+  changeType: 'REOPEN', targetScope: 'BATCH', batchExecutionId: undefined as string | undefined,
+  executionId: undefined as string | undefined, approverUserId: undefined as string | number | undefined,
+  reasonCategory: '', reasonText: '', password: '', comment: ''
+})
+watch(() => actionForm.changeType, type => { if (['SUPPLEMENT', 'VOID'].includes(type)) actionForm.targetScope = 'EXECUTION' })
+const resetSigning = () => { actionForm.password = ''; actionForm.comment = ''; actionForm.approverUserId = undefined; actionError.value = '' }
+const openRequest = () => {
+  resetSigning()
+  actionMode.value = 'request'
+  actionForm.batchExecutionId = parsePositiveRouteQueryId(queryParams.batchExecutionId) || undefined
+  actionForm.executionId = parsePositiveRouteQueryId(queryParams.executionId) || undefined
+  actionForm.reasonCategory = ''; actionForm.reasonText = ''
+  actionVisible.value = true
+}
+const openDecision = (row: EdhrRecordChangeRespVO, mode: 'submit' | 'approve' | 'resubmit') => {
+  resetSigning(); decision.value = 'APPROVE'; decisionReason.value = '';
+  actionForm.reasonCategory = row.reasonCategory || ''; actionForm.reasonText = row.reasonText || '';
+  actionRecord.value = row; actionMode.value = mode; actionVisible.value = true
+}
+const performAction = async (draft: boolean) => {
+  if (actionLoading.value) return
+  if (!actionForm.password.trim()) { actionError.value = '请输入本人签名密码。'; return }
+  if (!draft && actionMode.value !== 'approve' && !actionForm.approverUserId) { actionError.value = '请选择本次变更审批人。'; return }
+  if (actionMode.value === 'request' && (!parsePositiveRouteQueryId(actionForm.batchExecutionId) || !actionForm.reasonCategory.trim() || !actionForm.reasonText.trim() || (actionForm.targetScope === 'EXECUTION' && !parsePositiveRouteQueryId(actionForm.executionId)))) {
+    actionError.value = '请填写完整的变更对象与变更原因。'; return
+  }
+  if (actionMode.value === 'resubmit' && (!actionForm.reasonCategory.trim() || !actionForm.reasonText.trim())) { actionError.value = '请填写原因分类与补正说明。'; return }
+  if (actionMode.value === 'approve' && decision.value !== 'APPROVE' && !decisionReason.value.trim()) { actionError.value = '请填写决定原因。'; return }
+  actionLoading.value = true; actionError.value = ''
+  try {
+    if (actionMode.value === 'request') {
+      const payload = { ...actionForm, approverUserId: actionForm.approverUserId ? actionForm.approverUserId : undefined,
+        executionId: actionForm.targetScope === 'EXECUTION' ? actionForm.executionId : undefined }
+      if (draft) await saveSupplementDraft(payload)
+      else if (actionForm.changeType === 'VOID') await requestVoidExecution(payload)
+      else if (actionForm.changeType === 'SUPPLEMENT') await requestSupplement(payload)
+      else if (actionForm.targetScope === 'BATCH') await requestReopenBatch(payload)
+      else await requestReopenExecution(payload)
+    } else {
+      if (!actionRecord.value?.id) throw new Error('变更记录身份缺失，请重新加载。')
+      const payload = { changeEventId: actionRecord.value.id, password: actionForm.password, comment: actionForm.comment,
+        approverUserId: actionForm.approverUserId ? actionForm.approverUserId : undefined }
+      if (actionMode.value === 'resubmit') await resubmitEdhrRecordChange({ ...payload, reasonCategory: actionForm.reasonCategory, reasonText: actionForm.reasonText })
+      else if (actionMode.value === 'approve' && decision.value !== 'APPROVE') await decideEdhrRecordChange({ changeEventId: actionRecord.value.id, password: actionForm.password, decision: decision.value, reason: decisionReason.value })
+      else if (actionMode.value === 'submit') await submitSupplement(payload)
+      else if (actionRecord.value.changeType === 'VOID' && actionRecord.value.targetScope === 'EXECUTION') await approveVoidExecution(payload)
+      else if (actionRecord.value.changeType === 'SUPPLEMENT') await approveSupplement(payload)
+      else if (actionRecord.value.targetScope === 'BATCH') await approveReopenBatch(payload)
+      else await approveReopenExecution(payload)
+    }
+    actionVisible.value = false; actionForm.password = ''
+    message.success(draft ? '补录草稿已保存' : actionMode.value === 'approve' ? (decision.value === 'APPROVE' ? '变更已批准，原申请人已收到结果通知' : decision.value === 'RETURNED' ? '已退回，原申请人已收到补正待办与通知' : '已驳回终止，原申请人已收到结果通知') : '申请已提交，指定审批人已收到待办及通知')
+    await getList()
+    if (detailDialogVisible.value && selectedChange.value?.id) await openDetail(selectedChange.value)
+  } catch (error) { actionError.value = resolveErrorMessage(error, '记录变更操作失败。') }
+  finally { actionLoading.value = false }
+}
 
 const route = useRoute()
 const router = useRouter()
@@ -308,6 +438,8 @@ const changeStatusOptions = [
   { label: '已提交', value: EDHR_CHANGE_STATUS_SUBMITTED },
   { label: '已批准', value: EDHR_CHANGE_STATUS_APPROVED },
   { label: '已拒绝', value: EDHR_CHANGE_STATUS_REJECTED },
+  { label: '待补正', value: 'RETURNED' },
+  { label: '已补正重提', value: 'RESUBMITTED' },
   { label: '已生效', value: EDHR_CHANGE_STATUS_EFFECTIVE }
 ]
 
@@ -340,6 +472,7 @@ const resolveChangeStatusLabel = (status?: string) => {
     [EDHR_CHANGE_STATUS_SUBMITTED]: '已提交',
     [EDHR_CHANGE_STATUS_APPROVED]: '已批准',
     [EDHR_CHANGE_STATUS_REJECTED]: '已拒绝',
+    RETURNED: '待补正', RESUBMITTED: '已补正重提',
     [EDHR_CHANGE_STATUS_EFFECTIVE]: '已生效'
   }
   return status ? labels[status] || status : '--'
@@ -371,9 +504,9 @@ const resolveExecutionStatusLabel = (status?: string) => {
   return labels[status] || status
 }
 
-const isPositiveId = (value?: number) => Number.isFinite(Number(value)) && Number(value) > 0
+const isPositiveId = (value?: string | number) => Number.isFinite(Number(value)) && Number(value) > 0
 
-const formatObjectId = (value?: number) => (isPositiveId(value) ? `#${Number(value)}` : '--')
+const formatObjectId = (value?: string | number) => (isPositiveId(value) ? `#${value}` : '--')
 
 const canOpenBatchExecution = (row?: Pick<EdhrRecordChangeRespVO, 'batchExecutionId'>) =>
   isPositiveId(row?.batchExecutionId)
@@ -446,7 +579,16 @@ const openExecution = async (row?: Pick<EdhrRecordChangeRespVO, 'executionId'>) 
   })
 }
 
-onMounted(getList)
+watch(() => route.query.changeEventId, async (value) => {
+  const eventId = parsePositiveRouteQueryId(value)
+  if (eventId) await openDetail({ id: eventId })
+})
+
+onMounted(async () => {
+  await getList()
+  const eventId = parsePositiveRouteQueryId(route.query.changeEventId)
+  if (eventId) await openDetail({ id: eventId })
+})
 </script>
 
 <style scoped>

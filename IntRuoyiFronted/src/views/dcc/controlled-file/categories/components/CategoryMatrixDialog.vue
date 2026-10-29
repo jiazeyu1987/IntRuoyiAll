@@ -116,7 +116,7 @@
         </el-table-column>
         <el-table-column label="对应部门" min-width="260">
           <template #default="{ row }">
-            <UserSelect
+            <UserSelectV2
               v-if="row.subjectType === 'USER'"
               :model-value="row.subjectId"
               :disabled="isPreviewMode"
@@ -369,7 +369,7 @@ import type { RoleVO } from '@/api/system/role'
 import type { UserVO } from '@/api/system/user'
 import { defaultProps } from '@/utils/tree'
 import RoleSelect from '@/views/system/role/components/RoleSelect.vue'
-import UserSelect from '@/views/system/user/components/UserSelect.vue'
+import UserSelectV2 from '@/views/system/user/components/UserSelectV2.vue'
 import { applyDepartmentAutoMatchToViewMatrixRules } from './viewMatrixDepartmentMatcher'
 import {
   createApprovalMatrixDraft,

@@ -33,4 +33,6 @@ public class MesActiveOrderHandoffTaskDO extends TenantBaseDO {
     private Long completedBy;
     private Long completionSourceId;
     private LocalDateTime completedAt;
+    private LocalDateTime dueTime;
+    private LocalDateTime overdueNotifiedAt;
 }

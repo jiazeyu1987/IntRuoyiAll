@@ -2136,14 +2136,12 @@ public class MesStage1ActiveOrderCompleteSimulationServiceImpl
                                          LocalDateTime sourceModifyTime, Map<String, Object> trace) {
     }
 
-    private record PqcStage1ProgressIdentity(Long routeProcessId, Long processId,
-                                             Long regulationVersionId, Long qaProcessId, String qaItemCode,
+    private record PqcStage1ProgressIdentity(Long regulationVersionId, Long qaProcessId,
                                              String inspectionRuleKey, String inspectionType,
                                              LocalDate businessDate, String shiftCode, Integer roundNo) {
 
         private static PqcStage1ProgressIdentity of(MesPqcInspectionTaskDO task) {
-            return new PqcStage1ProgressIdentity(task.getRouteProcessId(), task.getProcessId(),
-                    task.getRegulationVersionId(), task.getQaProcessId(), task.getQaItemCode().trim(),
+            return new PqcStage1ProgressIdentity(task.getRegulationVersionId(), task.getQaProcessId(),
                     task.getInspectionRuleKey().trim(),
                     normalizeStage1PqcInspectionType(task.getInspectionType()), task.getBusinessDate(),
                     task.getShiftCode().trim(), task.getRoundNo());

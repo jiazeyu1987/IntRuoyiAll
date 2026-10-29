@@ -27,7 +27,6 @@ const HIDDEN_MODULE_MENU_PATHS = new Set([
   '/mes/md/unit-measure',
   '/mes/md/item',
   '/mes/pro/mes-process',
-  '/system/tenant',
   '/system/dept',
   '/system/dict',
   '/system/messages',

@@ -33,7 +33,7 @@
       <el-table-column label="到期时间" min-width="170"><template #default="{ row }">{{ formatEdhrDateTime(row.dueTime) }}</template></el-table-column>
       <el-table-column label="完成时间" min-width="170"><template #default="{ row }">{{ formatEdhrDateTime(row.completedAt) }}</template></el-table-column>
       <el-table-column label="操作" fixed="right" width="100">
-        <template #default="{ row }"><el-button link type="primary" @click="openTask(row)">{{ view === 'done' ? '查看' : '进入/处理' }}</el-button></template>
+        <template #default="{ row }"><el-button link type="primary" :title="row.blockedReason" :disabled="view !== 'done' && row.actionable === false" @click="openTask(row)">{{ view === 'done' ? '查看' : row.actionable === false ? '暂不可处理' : '进入/处理' }}</el-button></template>
       </el-table-column>
     </el-table>
     <Pagination v-model:page="query.pageNo" v-model:limit="query.pageSize" :total="total" @pagination="load" />
@@ -56,7 +56,7 @@ const loading = ref(false)
 const error = ref('')
 let generation = 0
 const context = () => JSON.stringify([invalidation.syncSession().key, view.value, query, visible.value])
-const taskTypeLabel = (type: string) => ({ FILL: '填写', REVIEW: '审核', APPROVE: '批准', REWORK: '驳回修改', ARCHIVE: '最终归档', RELEASE_APPROVE: '最终放行审批', PQC_PRODUCTION_RELEASE: 'PQC生产放行' }[type] || type)
+const taskTypeLabel = (type: string) => ({ FILL: '填写', REVIEW: '审核', APPROVE: '批准', REWORK: '驳回修改', ARCHIVE: '最终归档', RELEASE_APPROVE: '最终放行审批', PQC_PRODUCTION_RELEASE: 'PQC生产放行', DEVIATION_RECEIVE: '偏差调查', DEVIATION_CORRECT: '偏差纠正', DEVIATION_SIGN: '偏差签署', DEVIATION_APPROVE: '偏差质量审核', DEVIATION_CLOSE: '偏差关闭', RECORD_CHANGE_APPROVE: '记录变更审批', RECORD_CHANGE_CORRECTION: '记录变更补正', DOSSIER_COMPLETE: '资料补齐', PQC_RELEASE_CORRECTION: '放行补正' }[type] || type)
 const load = async () => {
   const currentGeneration = ++generation
   const key = context()

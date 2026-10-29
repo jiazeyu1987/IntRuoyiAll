@@ -2,6 +2,7 @@ param(
     [Nullable[int]]$Slot = $null,
     [switch]$Build,
     [string[]]$ExtraArgs = @(),
+    [string]$IntAuthEnvFile,
     [ValidatePattern('^[A-Za-z0-9][A-Za-z0-9_-]*$')]
     [string]$SpringProfile = 'local'
 )
@@ -10,6 +11,32 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 . "$PSScriptRoot\branch-runtime-profile.ps1"
+
+function Import-IntAuthServiceToken {
+    param([Parameter(Mandatory = $true)][string]$Path)
+    if (-not [System.IO.File]::Exists($Path)) {
+        throw 'The specified IntAuth environment file does not exist.'
+    }
+    $entries = @([System.IO.File]::ReadAllLines($Path) | Where-Object { $_ -match '^\s*INTERNAL_SERVICE_TOKEN\s*=' })
+    if ($entries.Count -ne 1) {
+        throw 'IntAuth environment file must define INTERNAL_SERVICE_TOKEN exactly once.'
+    }
+    $serviceToken = ($entries[0] -split '=', 2)[1].Trim()
+    if ($serviceToken.Length -ge 2 -and
+        (($serviceToken.StartsWith('"') -and $serviceToken.EndsWith('"')) -or
+         ($serviceToken.StartsWith("'") -and $serviceToken.EndsWith("'")))) {
+        $serviceToken = $serviceToken.Substring(1, $serviceToken.Length - 2)
+    }
+    if ([string]::IsNullOrWhiteSpace($serviceToken)) {
+        throw 'IntAuth INTERNAL_SERVICE_TOKEN is empty.'
+    }
+    # Pass the credential through the child environment, never Java arguments or logs.
+    $env:INTERNAL_SERVICE_TOKEN = $serviceToken
+}
+
+if ($IntAuthEnvFile) {
+    Import-IntAuthServiceToken -Path $IntAuthEnvFile
+}
 
 $repoRoot = Get-CurrentRepoRoot
 $branch = Get-GitValue -RepoRoot $repoRoot -Arguments @('branch', '--show-current')

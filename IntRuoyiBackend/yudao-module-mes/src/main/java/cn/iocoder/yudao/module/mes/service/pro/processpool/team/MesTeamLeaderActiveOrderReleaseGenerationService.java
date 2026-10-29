@@ -107,6 +107,21 @@ public class MesTeamLeaderActiveOrderReleaseGenerationService {
     @Transactional(rollbackFor = Exception.class)
     public MesTeamLeaderActiveOrderReleaseApplicationResult generate(
             Long leaderUserId, MesTeamLeaderActiveOrderReleaseApplyCommand command) {
+        return generate(leaderUserId, command, null);
+    }
+
+    /** Called only after the original applicant's correction task has been locked and validated. */
+    @Transactional(rollbackFor = Exception.class)
+    public MesTeamLeaderActiveOrderReleaseApplicationResult generateCorrection(
+            Long leaderUserId, MesTeamLeaderActiveOrderReleaseApplyCommand command, Long rejectedApplicationId) {
+        if (rejectedApplicationId == null || rejectedApplicationId <= 0) {
+            throw new IllegalArgumentException("补正必须关联正式驳回申请");
+        }
+        return generate(leaderUserId, command, rejectedApplicationId);
+    }
+
+    private MesTeamLeaderActiveOrderReleaseApplicationResult generate(
+            Long leaderUserId, MesTeamLeaderActiveOrderReleaseApplyCommand command, Long rejectedApplicationId) {
         String requestKey = validateCommand(leaderUserId, command);
         Long tenantId = requireTenantId();
         MesProcessPoolActiveOrderDO activeOrder = requireActiveOrder(command.getActiveOrderId(), leaderUserId);
@@ -114,9 +129,13 @@ public class MesTeamLeaderActiveOrderReleaseGenerationService {
         String batchCode = requireBatchCode(workOrder);
         Long latestReworkCycleId = latestReworkCycleId(activeOrder.getId());
         String businessKey = businessKey(tenantId, activeOrder, workOrder, batchCode, latestReworkCycleId);
+        if (rejectedApplicationId != null) {
+            businessKey = DigestUtil.sha256Hex(businessKey + "|CORRECTION:" + rejectedApplicationId);
+        }
 
         MesProcessPoolActiveOrderReleaseApplicationDO existing =
-                findExistingApplication(activeOrder.getId(), requestKey, businessKey);
+                rejectedApplicationId == null ? findExistingApplication(activeOrder.getId(), requestKey, businessKey)
+                        : applicationMapper.selectByBusinessIdempotencyKey(activeOrder.getId(), businessKey);
         if (existing != null) {
             return persistenceService.toResult(requireCurrentApplication(existing));
         }
@@ -465,6 +484,12 @@ public class MesTeamLeaderActiveOrderReleaseGenerationService {
                 applicationMapper.selectByRequestIdempotencyKey(activeOrderId, requestKey);
         if (requestExisting != null) {
             return requestExisting;
+        }
+        // A correction creates a new immutable application. Ordinary apply must read that latest round,
+        // and must never resurrect the first round through its original business key.
+        MesProcessPoolActiveOrderReleaseApplicationDO latest = applicationMapper.selectLatestByActiveOrderId(activeOrderId);
+        if (latest != null && !isReworkClosedReleaseApplication(latest)) {
+            return latest;
         }
         MesProcessPoolActiveOrderReleaseApplicationDO businessExisting =
                 applicationMapper.selectByBusinessIdempotencyKey(activeOrderId, businessKey);

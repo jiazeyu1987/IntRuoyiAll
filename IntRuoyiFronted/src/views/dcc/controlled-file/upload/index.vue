@@ -696,54 +696,13 @@ import {
 } from '@/api/dcc/controlledFile/projectCodes'
 import { getFileTypeTaxonomyUploadOptions, resolveFileTypeActiveCategory, type DccFileTypeTaxonomyUploadOption } from '@/api/dcc/controlledFile/fileTypeTaxonomies'
 import { buildUploadFileTypePaths, uploadFileTypeIdentity } from './file-type-options'
-import {
-  cleanupControlledFileUploadSession,
-  cleanupControlledFileUploadTicket,
-  createControlledFileUploadSessionId,
-  getControlledFileCurrentVersion,
-  getControlledFileUploadDirectoryTree,
-  getControlledFileUploadNameOptions,
-  checkControlledFileRouteReadiness,
-  previewControlledFileProjectProduct,
-  submitControlledFile,
-  createWorkingControlledFile,
-  uploadControlledFilePreview,
-  type ControlledFileCurrentVersionRespVO,
-  type ControlledFileProjectProduct,
-  type ControlledFileRouteReadinessVO,
-  type ControlledFileUploadDirectoryNodeVO,
-  type ControlledFileUploadDirectoryTreeVO,
-  type ControlledFileUploadNameOptionVO,
-  type ControlledFileUploadRespVO
-} from '@/api/dcc/controlledFile/workflow'
+import { cleanupControlledFileUploadSession, cleanupControlledFileUploadTicket, createControlledFileUploadSessionId, getControlledFileCurrentVersion, getControlledFileUploadDirectoryTree, checkControlledFileRouteReadiness, previewControlledFileProjectProduct, submitControlledFile, createWorkingControlledFile, uploadControlledFilePreview, type ControlledFileCurrentVersionRespVO, type ControlledFileProjectProduct, type ControlledFileRouteReadinessVO, type ControlledFileUploadDirectoryNodeVO, type ControlledFileUploadDirectoryTreeVO, type ControlledFileUploadNameOptionVO, type ControlledFileUploadRespVO } from '@/api/dcc/controlledFile/workflow';
 import {
   DCC_ACTION_PROJECTION_MISSING_REASON,
   hasDccControlledFileActionProjection,
   resolveDccActionProjectionReadonlyReason
 } from '../shared/lifecycle'
-import {
-  applySubmitFailureFeedback,
-  buildSubmitFailureFeedback,
-  clearSubmitFieldErrors,
-  createUploadSubmitterService,
-  EDITABLE_SOURCE_ACCEPT,
-  buildUploadConfirmationSummary,
-  EDITABLE_SOURCE_MESSAGE,
-  formatPreviewFileSize,
-  resolveUploadErrorMessage,
-  resolveUploadPreviewErrorMessage,
-  isFileNumberChainConflictMessage,
-  isDccProductRequiredForCategoryCode,
-  validateDrawingPdfUpload,
-  validateControlledFileSelection,
-  validateSingleUploadFileSelection,
-  validateDccProjectProductCode,
-  buildUploadEffectiveChoice,
-  validateUploadTickets,
-  validateUploadPreviewResponse,
-  type UploadFormDraft,
-  type UploadConfirmationRow
-} from './submitter'
+import { applySubmitFailureFeedback, buildSubmitFailureFeedback, clearSubmitFieldErrors, createUploadSubmitterService, EDITABLE_SOURCE_ACCEPT, buildUploadConfirmationSummary, formatPreviewFileSize, resolveUploadErrorMessage, resolveUploadPreviewErrorMessage, isFileNumberChainConflictMessage, isDccProductRequiredForCategoryCode, validateDrawingPdfUpload, validateControlledFileSelection, validateSingleUploadFileSelection, validateDccProjectProductCode, buildUploadEffectiveChoice, validateUploadTickets, validateUploadPreviewResponse, type UploadFormDraft, type UploadConfirmationRow } from './submitter';
 
 defineOptions({ name: 'DccControlledFileUpload' })
 
@@ -888,15 +847,7 @@ const VERSION_NO_PATTERN = /^[Vv]?\d+(?:\.\d+)*$/
 const WINDCHILL_VERSION_PATTERN = /^[A-Z]+(?:\/[1-9]\d*)+$/i
 const resolveTodayDate = () => formatToDate(new Date())
 const isVersionNoTextValid = (versionNo?: string | null) => VERSION_NO_PATTERN.test((versionNo || '').trim())
-const resolveNextMajorVersionNo = (currentVersionNo: string | null | undefined) => {
-  const matched = (currentVersionNo || '').trim().match(/^[Vv]?(\d+)(?:\.\d+)*$/)
-  if (!matched) {
-    return DEFAULT_MANUAL_VERSION_NO
-  }
-  const majorVersion = Number(matched[1])
-  const nextMajorVersion = Number.isFinite(majorVersion) ? majorVersion + 1 : 1
-  return `V${nextMajorVersion}.0`
-}
+
 
 const resolveProcessTypeByRoute = () =>
   route.path.includes('/external') ? 'EXTERNAL_REVIEW' : 'CONTROLLED_FILE'
@@ -1050,11 +1001,7 @@ const selectedFileTypeTaxonomyBoundCategories = computed(() => {
 const availableCategories = computed(() =>
   selectedFileTypeTaxonomyBoundCategories.value.filter((category) => category.active)
 )
-const selectedFileTypeTaxonomyAutoCategory = computed(() =>
-  !isExternalReview.value && availableCategories.value.length === 1
-    ? availableCategories.value[0]
-    : undefined
-)
+
 const categoryPreflightMessage = computed(() => {
   if (!isExternalReview.value && (fileTypeOptionsError.value || fileTypeCategoryError.value)) return fileTypeOptionsError.value || fileTypeCategoryError.value
   if (categoryOptionsError.value) {
@@ -1106,13 +1053,6 @@ const uploadSubmitterService = createUploadSubmitterService({
   submit: submitControlledFile,
   createWorking: createWorkingControlledFile
 })
-
-const canLoadUploadNameOptions = computed(
-  () =>
-    Boolean(formData.dccProjectCodeId) &&
-    Boolean(formData.fileTypeTaxonomyId) &&
-    isFileTypeTaxonomyDepthValid.value
-)
 
 const formatProjectCodeOptionLabel = (project: DccDiscoveredProject) =>
   [project.projectName, project.projectCode].filter(Boolean).join(' · ')
@@ -1328,9 +1268,11 @@ const syncAutoCategoryFromSelectedFileTypeTaxonomy = async () => {
     if (sequence !== fileTypeCategoryRequestSequence || String(formData.fileTypeTaxonomyId) !== String(typeId)) return
     const matches = availableCategories.value.filter(category => String(category.id) === uploadFileTypeIdentity(categoryId))
     if (availableCategories.value.length !== 1 || matches.length !== 1) throw new Error('文件类型没有唯一可用的正式分类')
-    formData.categoryId = matches[0].id
+    const resolvedCategoryId = matches[0].id
+    if (resolvedCategoryId == null) throw new Error('正式分类缺少编号')
+    formData.categoryId = resolvedCategoryId
     void applyDccProjectCodeProductNumber()
-    if (!isNormalNewUpload.value) await loadUploadDirectoryTree(formData.categoryId)
+    if (!isNormalNewUpload.value) await loadUploadDirectoryTree(resolvedCategoryId)
   } catch (error) {
     if (sequence === fileTypeCategoryRequestSequence && String(formData.fileTypeTaxonomyId) === String(typeId)) {
       formData.categoryId = null
@@ -1612,53 +1554,11 @@ const loadBaseData = async () => {
   }
 }
 
-const buildUploadNameOptionsKey = () => {
-  if (!canLoadUploadNameOptions.value || !formData.dccProjectCodeId || !formData.fileTypeTaxonomyId) {
-    return ''
-  }
-  return `${formData.dccProjectCodeId}:${formData.fileTypeTaxonomyId}`
-}
 
-const loadUploadNameOptions = async (dccProjectCodeId: number | string, fileTypeTaxonomyId: number | string) => {
-  const requestKey = `${dccProjectCodeId}:${fileTypeTaxonomyId}`
-  uploadNameOptionsLoading.value = true
-  try {
-    const options = await getControlledFileUploadNameOptions({
-      dccProjectCodeId,
-      fileTypeTaxonomyId
-    })
-    if (buildUploadNameOptionsKey() !== requestKey) {
-      return
-    }
-    uploadNameOptions.value = options
-    uploadNameOptionsLoadedKey.value = requestKey
-  } catch (error) {
-    if (buildUploadNameOptionsKey() === requestKey) {
-      uploadNameOptions.value = []
-      uploadNameOptionsLoadedKey.value = ''
-      message.error(resolveUploadErrorMessage(error, '历史文件名称加载失败，请查看错误提示后重试'))
-    }
-    throw error
-  } finally {
-    if (buildUploadNameOptionsKey() === requestKey) {
-      uploadNameOptionsLoading.value = false
-    }
-  }
-}
 
-const ensureUploadNameOptionsLoaded = async () => {
-  const optionsKey = buildUploadNameOptionsKey()
-  if (!optionsKey) {
-    return
-  }
-  if (uploadNameOptionsLoadedKey.value === optionsKey) {
-    return
-  }
-  if (!canLoadUploadNameOptions.value || !formData.dccProjectCodeId || !formData.fileTypeTaxonomyId) {
-    return
-  }
-  await loadUploadNameOptions(formData.dccProjectCodeId, formData.fileTypeTaxonomyId)
-}
+
+
+
 
 const uploadProjectAttributesEdited = ref(false)
 const uploadProjectAttributesKey = (attributes: AttributeSnapshot['actual']) => JSON.stringify({

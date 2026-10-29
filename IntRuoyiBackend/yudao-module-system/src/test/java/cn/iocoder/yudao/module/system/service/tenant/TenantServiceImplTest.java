@@ -4,6 +4,10 @@ import cn.iocoder.yudao.framework.common.enums.CommonStatusEnum;
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
 import cn.iocoder.yudao.framework.tenant.config.TenantProperties;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
+import cn.iocoder.yudao.framework.tenant.core.db.TenantDatabaseInterceptor;
+import cn.iocoder.yudao.framework.mybatis.core.util.MyBatisUtils;
+import com.baomidou.mybatisplus.extension.plugins.MybatisPlusInterceptor;
+import com.baomidou.mybatisplus.extension.plugins.inner.TenantLineInnerInterceptor;
 import cn.iocoder.yudao.framework.test.core.ut.BaseDbUnitTest;
 import cn.iocoder.yudao.module.system.controller.admin.tenant.vo.tenant.TenantPageReqVO;
 import cn.iocoder.yudao.module.system.controller.admin.tenant.vo.tenant.TenantSaveReqVO;
@@ -12,6 +16,10 @@ import cn.iocoder.yudao.module.system.dal.dataobject.permission.RoleDO;
 import cn.iocoder.yudao.module.system.dal.dataobject.tenant.TenantDO;
 import cn.iocoder.yudao.module.system.dal.dataobject.tenant.TenantPackageDO;
 import cn.iocoder.yudao.module.system.dal.mysql.tenant.TenantMapper;
+import cn.iocoder.yudao.module.system.dal.mysql.permission.RoleCategoryMapper;
+import cn.iocoder.yudao.module.system.dal.mysql.permission.ApprovalAuthorityRevisionMapper;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService;
+import cn.iocoder.yudao.module.system.service.permission.RoleCategoryServiceImpl;
 import cn.iocoder.yudao.module.system.enums.permission.RoleCodeEnum;
 import cn.iocoder.yudao.module.system.enums.permission.RoleTypeEnum;
 import cn.iocoder.yudao.module.system.service.permission.MenuService;
@@ -25,6 +33,11 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.annotation.Import;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Lazy;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.beans.factory.InitializingBean;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import java.time.LocalDateTime;
@@ -53,7 +66,7 @@ import static org.mockito.Mockito.*;
  *
  * @author 瑛泰源码
  */
-@Import(TenantServiceImpl.class)
+@Import({TenantServiceImpl.class, RoleCategoryServiceImpl.class, TenantServiceImplTest.TenantSqlConfiguration.class})
 public class TenantServiceImplTest extends BaseDbUnitTest {
 
     @Resource
@@ -61,6 +74,14 @@ public class TenantServiceImplTest extends BaseDbUnitTest {
 
     @Resource
     private TenantMapper tenantMapper;
+    @Resource
+    private RoleCategoryMapper roleCategoryMapper;
+    @Resource
+    private JdbcTemplate jdbcTemplate;
+    @MockitoBean
+    private ApprovalAuthorityRevisionMapper approvalAuthorityRevisionMapper;
+    @MockitoBean
+    private GxpAuditService approvalAuditService;
 
     @MockitoBean
     private TenantProperties tenantProperties;
@@ -79,6 +100,7 @@ public class TenantServiceImplTest extends BaseDbUnitTest {
     public void setUp() {
         // 清理租户上下文
         TenantContextHolder.clear();
+        when(approvalAuthorityRevisionMapper.initializeNewTenant(anyLong())).thenReturn(1);
     }
 
     @Test
@@ -135,6 +157,7 @@ public class TenantServiceImplTest extends BaseDbUnitTest {
 
     @Test
     public void testCreateTenant() {
+        tenantMapper.insert(randomPojo(TenantDO.class, o -> o.setId(1L)));
         // mock 套餐 100L
         TenantPackageDO tenantPackage = randomPojo(TenantPackageDO.class, o -> o.setId(100L));
         when(tenantPackageService.validTenantPackage(eq(100L))).thenReturn(tenantPackage);
@@ -144,6 +167,14 @@ public class TenantServiceImplTest extends BaseDbUnitTest {
             assertEquals(RoleCodeEnum.TENANT_ADMIN.getCode(), role.getCode());
             assertEquals(0, role.getSort());
             assertEquals("系统自动生成", role.getRemark());
+            assertNotNull(role.getCategoryId());
+            var category = roleCategoryMapper.selectById(role.getCategoryId());
+            assertNotNull(category);
+            assertEquals("menu", category.getCode());
+            assertEquals("菜单", category.getName());
+            assertEquals(CommonStatusEnum.ENABLE.getStatus(), category.getStatus());
+            assertEquals(TenantContextHolder.getRequiredTenantId(), category.getTenantId());
+            assertNotEquals(1L, category.getTenantId());
             return true;
         }), eq(RoleTypeEnum.SYSTEM.getType()))).thenReturn(200L);
         // mock 用户 300L
@@ -167,9 +198,11 @@ public class TenantServiceImplTest extends BaseDbUnitTest {
         }).setId(null); // 设置为 null，方便后面校验
 
         // 调用
+        TenantContextHolder.setTenantId(1L);
         Long tenantId = tenantService.createTenant(reqVO);
         // 断言
         assertNotNull(tenantId);
+        assertEquals(1L, TenantContextHolder.getTenantId());
         // 校验记录的属性是否正确
         TenantDO tenant = tenantMapper.selectById(tenantId);
         assertPojoEquals(reqVO, tenant, "id");
@@ -180,6 +213,41 @@ public class TenantServiceImplTest extends BaseDbUnitTest {
         // verify 分配角色
         verify(permissionService).initializeTenantAdministrator(eq(tenantId), eq(300L), eq(200L),
                 eq("租户创建时分配租户管理员角色"), anyString());
+    }
+
+    @Test
+    public void testCreateTenant_rollsBackCategoryWhenUserCreationFails() {
+        TenantPackageDO tenantPackage = randomPojo(TenantPackageDO.class, o -> o.setId(100L));
+        when(tenantPackageService.validTenantPackage(100L)).thenReturn(tenantPackage);
+        when(roleService.createRole(any(), eq(RoleTypeEnum.SYSTEM.getType()))).thenReturn(200L);
+        when(userService.createUser(any())).thenThrow(new IllegalStateException("USER_CREATE_FAILED"));
+        TenantSaveReqVO request = randomPojo(TenantSaveReqVO.class, o -> o.setId(null)
+                .setPackageId(100L).setWebsites(Collections.emptyList()).setUsername("testadmin")
+                .setPassword("IsolatedTestOnly123"));
+        TenantContextHolder.setTenantId(1L);
+
+        var failure = assertThrows(IllegalStateException.class, () -> tenantService.createTenant(request));
+
+        assertEquals("USER_CREATE_FAILED", failure.getMessage());
+        assertEquals(0L, tenantMapper.selectCount());
+        assertEquals(0L, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM system_role_category", Long.class));
+        assertEquals(1L, TenantContextHolder.getTenantId());
+        verify(permissionService, never()).initializeTenantAdministrator(anyLong(), anyLong(), anyLong(), anyString(), anyString());
+    }
+
+    @TestConfiguration(proxyBeanMethods = false)
+    static class TenantSqlConfiguration {
+        @Bean
+        JdbcTemplate tenantTestJdbcTemplate(javax.sql.DataSource dataSource) {
+            return new JdbcTemplate(dataSource);
+        }
+
+        @Bean
+        @Lazy(false)
+        InitializingBean tenantCategorySqlInterceptor(MybatisPlusInterceptor interceptor) {
+            return () -> MyBatisUtils.addInterceptor(interceptor,
+                    new TenantLineInnerInterceptor(new TenantDatabaseInterceptor(new TenantProperties())), 0);
+        }
     }
 
     @Test

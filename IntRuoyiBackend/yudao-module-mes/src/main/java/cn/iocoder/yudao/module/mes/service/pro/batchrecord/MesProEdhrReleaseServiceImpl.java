@@ -110,6 +110,7 @@ import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatc
 
 @Service
 public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
+    @jakarta.annotation.Resource private MesMarketReleaseAccess marketReleaseAccess;
     @jakarta.annotation.Resource private cn.iocoder.yudao.module.system.api.permission.ApprovalAuthorityApi approvalAuthority;
     @Resource private MesEdhrReleaseSubmissionMaterialAssociationStore submissionMaterials;
     @Resource private cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseMaterialGateReceiptPort materialReceipts;
@@ -209,6 +210,8 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
     @Resource
     private MesProEdhrWorkTaskService workTaskService;
     @Resource
+    private cn.iocoder.yudao.module.mes.service.pro.productionrelease.notification.MesReleaseOutcomeNotificationService outcomeNotifications;
+    @Resource
     private MesProEdhrOperationAuditService operationAuditService;
     @Resource
     private FormActionInstanceMapper formActionInstanceMapper;
@@ -288,6 +291,7 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
                 .collect(Collectors.toMap(MesProEdhrBatchExecutionDO::getId,
                         Function.identity(), (left, right) -> left, LinkedHashMap::new));
         List<MesProEdhrReleaseRespVO> filteredList = transactions.stream()
+                .filter(transaction -> marketReleaseAccess.get(transaction.getBatchExecutionId(),SecurityFrameworkUtils.getLoginUserId()).visible())
                 .map(transaction -> toResp(requireBatchExecutionForTransaction(transaction, batchById), transaction))
                 .filter(item -> batchExecutionStatusMatches(reqVO, item))
                 .toList();
@@ -324,9 +328,56 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
         return result;
     }
 
+    @Resource private cn.iocoder.yudao.module.system.api.permission.PermissionApi negativeDecisionPermissions;
+    @Resource private cn.iocoder.yudao.module.mes.service.pro.productionrelease.pqc.MesPqcReleaseCorrectionService marketCorrectionService;
+
+    private void requireNegativePermission(MesReleaseFinalizationCommand command, String permission) {
+        if (!negativeDecisionPermissions.hasAnyPermissions(command.getActorUserId(), permission)) throw new cn.iocoder.yudao.framework.common.exception.ServiceException(403, "无上市放行负向决定权限");
+    }
+
+    private MesProductionReleaseManagerApprovalResult prepareManagedNegative(MesReleaseFinalizationCommand command) {
+        if (!managerApprovalService.isManagedReleaseTransaction(command.getReleaseTransactionId())) return null;
+        var prepared = managerApprovalService.prepareNegativeDecision(command);
+        var app = prepared.getApplication();
+        command.setReleaseApplicationId(app.getId()).setActiveOrderId(app.getActiveOrderId());
+        return prepared;
+    }
+
+    private void completeManagedNegative(MesReleaseFinalizationCommand command,
+            MesProductionReleaseManagerApprovalResult prepared, MesProEdhrReleaseTransactionDO transaction) {
+        if (prepared == null) return;
+        boolean rejected = command.getAction() == MesReleaseFinalizationAction.REJECT;
+        managerApprovalService.completeNegativeDecision(prepared,
+                rejected ? "MARKET_RELEASE_REJECTED" : "MARKET_RELEASE_WITHDRAWN");
+        if (rejected) {
+            var request = new cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrNonconformanceReviewCreateReqVO();
+            request.setActiveOrderId(prepared.getApplication().getActiveOrderId());
+            request.setBatchExecutionId(transaction.getBatchExecutionId());
+            request.setQaReviewerUserId(command.getQaReviewerUserId());
+            request.setNonconformanceReason(command.getDecisionReason());
+            request.setRemark("上市放行不予批准；原放行事务:" + transaction.getId());
+            var review = nonconformanceReviewService.create(request);
+            if (review == null || review.getId() == null || review.getId() <= 0
+                    || !Objects.equals(review.getActiveOrderId(), request.getActiveOrderId())
+                    || !Objects.equals(review.getBatchExecutionId(), transaction.getBatchExecutionId())
+                    || !Objects.equals(review.getWorkOrderId(), prepared.getApplication().getWorkOrderId())
+                    || !Objects.equals(review.getQaReviewerUserId(), command.getQaReviewerUserId())
+                    || !"ACTIVE_ORDER".equals(review.getSourceType())
+                    || !Objects.equals(review.getSourceId(), request.getActiveOrderId())
+                    || !"PENDING_REVIEW".equals(review.getReviewStatus()))
+                throw new IllegalStateException("上市拒绝未取得同一正式订单及批次的QA处置交接回执");
+        } else {
+            Long correctionTask = marketCorrectionService.create(prepared.getApplication(), command.getActorUserId(), command.getDecisionReason());
+            if (correctionTask == null || correctionTask <= 0)
+                throw new IllegalStateException("上市撤回未取得原申请人的正式补正任务回执");
+        }
+        outcomeNotifications.scheduleMarketNegative(prepared.getApplication(), transaction,
+                prepared.getWorkTask(), command.getActorUserId(), rejected, command.getDecisionReason());
+    }
+
     private MesProEdhrReleaseRespVO finalizeReject(MesReleaseFinalizationCommand command) {
         requireTransactionForUpdate(command.getReleaseTransactionId());
-        managerApprovalService.assertActionSupported(command.getReleaseTransactionId(), EVENT_TYPE_REJECT);
+        requireNegativePermission(command, "mes:pro-edhr-release:reject");
         String idempotencyKey = requireIdempotencyKey(command.getIdempotencyKey());
         String reason = requireReason(command.getDecisionReason());
         Long actorUserId = requireFinalizationActor(command);
@@ -340,6 +391,7 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
             return toResp(requireBatchExecution(replay.getBatchExecutionId()), replay);
         }
 
+        MesProductionReleaseManagerApprovalResult negative = prepareManagedNegative(command);
         reportManagementSummaryService.lockProductionEventsByReleaseTransactionId(
                 command.getReleaseTransactionId());
         MesProEdhrReleaseTransactionDO transaction = requireTransactionForUpdate(
@@ -352,7 +404,8 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
             requirePrecheckPassed(transaction);
             requireReleaseOwner(batch, actorUserId);
         } else if (STATUS_PENDING_APPROVAL.equals(fromStatus)) {
-            approvalTask = workTaskService.validateReleaseApprovalTask(null, transaction.getId());
+            approvalTask = negative == null ? workTaskService.validateReleaseApprovalTask(null, transaction.getId())
+                    : negative.getWorkTask();
             if (approvalTask == null || approvalTask.getId() == null) {
                 throw exception(PRO_EDHR_RELEASE_SIGNOFF_REQUIRED);
             }
@@ -360,16 +413,20 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
             throw exception(PRO_EDHR_RELEASE_STATUS_INVALID);
         }
 
+        if (negative != null) {
+            Long signature = executionSignatureService.recordBatchActionSignature(actorUserId, batch.getId(),
+                    requireReleaseSignaturePassword(command.getNegativeDecisionPassword()), reason,
+                    "MARKET_RELEASE_REJECT", "不予上市放行", finalizationPayloadHash);
+            if (signature == null || signature <= 0) throw new IllegalStateException("不予放行电子签名未取得正式回执");
+            command.setSignatureId(signature).setSignoffEvidenceHash(finalizationPayloadHash);
+        }
         GxpAuditStateEnvelope auditBefore = releaseTerminalState(transaction);
-        releaseTransactionMapper.updateById(new MesProEdhrReleaseTransactionDO()
-                .setId(transaction.getId())
-                .setReleaseStatus(STATUS_REJECTED)
-                .setRejectedBy(actorUserId)
-                .setRejectedAt(occurredAt)
-                .setRejectReason(reason));
+        persistNegativeTransaction(transaction, new MesProEdhrReleaseTransactionDO()
+                .setId(transaction.getId()).setReleaseStatus(STATUS_REJECTED)
+                .setRejectedBy(actorUserId).setRejectedAt(occurredAt).setRejectReason(reason), negative);
         transaction = releaseTransactionMapper.selectById(transaction.getId());
         MesProEdhrReleaseDecisionDO decision = recordFinalizationDecision(command, transaction,
-                STATUS_REJECTED, finalizationPayloadHash, null, reason, occurredAt);
+                STATUS_REJECTED, finalizationPayloadHash, command.getSignoffEvidenceHash(), reason, occurredAt);
         releaseTransactionMapper.updateById(new MesProEdhrReleaseTransactionDO()
                 .setId(transaction.getId())
                 .setReleaseDecisionId(decision.getId())
@@ -379,18 +436,19 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
         if (approvalTask != null) {
             workTaskService.completeReleaseApprovalTask(approvalTask.getId(), transaction.getId(), "REJECT", reason);
         }
+        completeManagedNegative(command, negative, transaction);
         recordTransactionEvent(transaction, EVENT_TYPE_REJECT, fromStatus, STATUS_REJECTED,
-                actorUserId, reason, null, idempotencyKey, null, occurredAt, finalizationPayloadHash);
+                actorUserId, reason, null, idempotencyKey, command.getSignoffEvidenceHash(), occurredAt, finalizationPayloadHash);
         recordTerminalOperationAudit(batch, transaction, EVENT_TYPE_REJECT, fromStatus, STATUS_REJECTED,
                 actorUserId, reason, null, idempotencyKey, null, occurredAt);
         appendReleaseTerminalAudit(batch, transaction, decision, auditBefore,
                 "mes.market-release.reject", "finalizeReject", reason);
-        return toResp(batch, transaction);
+        return toResp(requireBatchExecution(batch.getId()), transaction);
     }
 
     private MesProEdhrReleaseRespVO finalizeWithdraw(MesReleaseFinalizationCommand command) {
-        requireTransactionForUpdate(command.getReleaseTransactionId());
-        managerApprovalService.assertActionSupported(command.getReleaseTransactionId(), EVENT_TYPE_WITHDRAW);
+        requireWithdrawalTransaction(command);
+        requireNegativePermission(command, "mes:pro-edhr-release:withdraw");
         String idempotencyKey = requireIdempotencyKey(command.getIdempotencyKey());
         String reason = requireReason(command.getDecisionReason());
         Long actorUserId = requireFinalizationActor(command);
@@ -400,25 +458,22 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
                         command.getReleaseTransactionId(), EVENT_TYPE_WITHDRAW, idempotencyKey);
         if (existingEvent != null) {
             requireSameFinalizationPayload(existingEvent, finalizationPayloadHash);
-            MesProEdhrReleaseTransactionDO replay = requireTransactionForUpdate(command.getReleaseTransactionId());
+            MesProEdhrReleaseTransactionDO replay = requireWithdrawalTransaction(command);
             return toResp(requireBatchExecution(replay.getBatchExecutionId()), replay);
         }
 
+        MesProductionReleaseManagerApprovalResult negative = prepareManagedNegative(command);
         reportManagementSummaryService.lockProductionEventsByReleaseTransactionId(
                 command.getReleaseTransactionId());
-        MesProEdhrReleaseTransactionDO transaction = requireTransactionForUpdate(
-                command.getReleaseTransactionId());
+        MesProEdhrReleaseTransactionDO transaction = requireWithdrawalTransaction(command);
         requirePendingApproval(transaction);
         String fromStatus = transaction.getReleaseStatus();
         LocalDateTime occurredAt = now();
 
         GxpAuditStateEnvelope auditBefore = releaseTerminalState(transaction);
-        releaseTransactionMapper.updateById(new MesProEdhrReleaseTransactionDO()
-                .setId(transaction.getId())
-                .setReleaseStatus(STATUS_WITHDRAWN)
-                .setWithdrawnBy(actorUserId)
-                .setWithdrawnAt(occurredAt)
-                .setWithdrawReason(reason));
+        persistNegativeTransaction(transaction, new MesProEdhrReleaseTransactionDO()
+                .setId(transaction.getId()).setReleaseStatus(STATUS_WITHDRAWN)
+                .setWithdrawnBy(actorUserId).setWithdrawnAt(occurredAt).setWithdrawReason(reason), negative);
         transaction = releaseTransactionMapper.selectById(transaction.getId());
         MesProEdhrReleaseDecisionDO decision = recordFinalizationDecision(command, transaction,
                 STATUS_WITHDRAWN, finalizationPayloadHash, null, reason, occurredAt);
@@ -429,6 +484,7 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
         transaction.setReleaseDecisionId(decision.getId())
                 .setFinalizationPayloadHash(finalizationPayloadHash);
         workTaskService.cancelReleaseApprovalTask(transaction.getId(), reason);
+        completeManagedNegative(command, negative, transaction);
         recordTransactionEvent(transaction, EVENT_TYPE_WITHDRAW, fromStatus, STATUS_WITHDRAWN,
                 actorUserId, reason, null, idempotencyKey, null, occurredAt, finalizationPayloadHash);
         MesProEdhrBatchExecutionDO batch = requireBatchExecution(transaction.getBatchExecutionId());
@@ -437,6 +493,33 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
         appendReleaseTerminalAudit(batch, transaction, decision, auditBefore,
                 "mes.market-release.withdraw", "finalizeWithdraw", reason);
         return toResp(batch, transaction);
+    }
+
+    private void persistNegativeTransaction(MesProEdhrReleaseTransactionDO current,
+            MesProEdhrReleaseTransactionDO patch, MesProductionReleaseManagerApprovalResult managed) {
+        int updated;
+        if (managed == null) updated = releaseTransactionMapper.updateById(patch);
+        else updated = releaseTransactionMapper.update(patch.setVersion(Math.addExact(current.getVersion(), 1)),
+                new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<MesProEdhrReleaseTransactionDO>()
+                        .eq(MesProEdhrReleaseTransactionDO::getId, current.getId())
+                        .eq(MesProEdhrReleaseTransactionDO::getVersion, current.getVersion())
+                        .eq(MesProEdhrReleaseTransactionDO::getReleaseStatus, STATUS_PENDING_APPROVAL));
+        if (updated != 1) throw exception(PRO_EDHR_RELEASE_STATUS_INVALID);
+    }
+
+    private MesProEdhrReleaseTransactionDO requireWithdrawalTransaction(MesReleaseFinalizationCommand command) {
+        var observed = releaseTransactionMapper.selectById(command.getReleaseTransactionId());
+        if (observed == null) throw exception(PRO_EDHR_BATCH_EXECUTION_NOT_EXISTS);
+        var application = resolveReleaseApplication(observed);
+        if (application == null) return requireTransactionForUpdate(command.getReleaseTransactionId());
+        if (!Objects.equals(application.getAppliedBy(), command.getActorUserId()))
+            throw new IllegalArgumentException("仅原申请人可撤回上市放行申请");
+        var batch = batchExecutionMapper.selectByTenantIdAndIdForUpdate(TenantContextHolder.getRequiredTenantId(), observed.getBatchExecutionId());
+        if (batch == null) throw exception(PRO_EDHR_BATCH_EXECUTION_NOT_EXISTS);
+        var locked = releaseTransactionMapper.selectByIdForUpdate(observed.getId());
+        if (locked == null || !Objects.equals(locked.getBatchExecutionId(), batch.getId()))
+            throw exception(PRO_EDHR_BATCH_EXECUTION_NOT_EXISTS);
+        return locked;
     }
 
     private Long requireFinalizationActor(MesReleaseFinalizationCommand command) {
@@ -1019,6 +1102,9 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
             closeUpstreamAfterRelease(command, released, decision);
             reportManagementSummaryService.refreshByReleaseTransactionId(command.getReleaseTransactionId());
             appendMarketReleaseGxpAudit(command, released, decision, auditBefore);
+            MesProcessPoolActiveOrderReleaseApplicationDO application = resolveReleaseApplication(released);
+            outcomeNotifications.scheduleMarketApproved(application, released,
+                    workTaskMapper.selectById(command.getWorkTaskId()), command.getActorUserId(), command.getApprovalOpinion());
             return toResp(result.getBatchExecution(), released);
         }
         String finalizationPayloadHash = finalizationPayloadHash(command, evidence);
@@ -1141,6 +1227,9 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
                 .setAction(MesReleaseFinalizationAction.REJECT)
                 .setReleaseTransactionId(reqVO.getReleaseTransactionId())
                 .setIdempotencyKey(reqVO.getIdempotencyKey())
+                .setWorkTaskId(reqVO.getWorkTaskId()).setExpectedVersion(reqVO.getExpectedVersion())
+                .setQaReviewerUserId(reqVO.getQaReviewerUserId()).setNegativeDecisionPassword(reqVO.getPassword())
+                .setPasswordReauthenticated(true)
                 .setDecisionReason(reqVO.getRejectReason())
                 .setActorUserId(SecurityFrameworkUtils.getLoginUserId()));
     }
@@ -1152,17 +1241,20 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
                 .setAction(MesReleaseFinalizationAction.WITHDRAW)
                 .setReleaseTransactionId(reqVO.getReleaseTransactionId())
                 .setIdempotencyKey(reqVO.getIdempotencyKey())
+                .setWorkTaskId(reqVO.getWorkTaskId()).setExpectedVersion(reqVO.getExpectedVersion())
                 .setDecisionReason(reqVO.getWithdrawReason())
                 .setActorUserId(SecurityFrameworkUtils.getLoginUserId()));
     }
 
     @Override
     public PageResult<MesProEdhrReleaseCheckItemRespVO> getCheckItemPage(MesProEdhrReleaseCheckItemPageReqVO reqVO) {
+        requireTransaction(reqVO.getReleaseTransactionId());
         return BeanUtils.toBean(releaseCheckItemMapper.selectPage(reqVO), MesProEdhrReleaseCheckItemRespVO.class);
     }
 
     @Override
     public PageResult<MesProEdhrReleaseEventRespVO> getEventPage(MesProEdhrReleaseEventPageReqVO reqVO) {
+        requireTransaction(reqVO.getReleaseTransactionId());
         return BeanUtils.toBean(releaseTransactionEventMapper.selectPage(reqVO), MesProEdhrReleaseEventRespVO.class);
     }
 
@@ -1214,6 +1306,7 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
     }
 
     private MesProEdhrBatchExecutionDO requireBatchExecution(Long batchExecutionId) {
+        marketReleaseAccess.requireReadable(batchExecutionId);
         MesProEdhrBatchExecutionDO batch = batchExecutionId == null ? null : batchExecutionMapper.selectById(batchExecutionId);
         if (batch == null) {
             throw exception(PRO_EDHR_BATCH_EXECUTION_NOT_EXISTS);
@@ -1227,10 +1320,12 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
         if (transaction == null) {
             throw exception(PRO_EDHR_BATCH_EXECUTION_NOT_EXISTS);
         }
+        marketReleaseAccess.requireReadable(transaction.getBatchExecutionId());
         return transaction;
     }
 
     private MesProEdhrBatchExecutionDO lockBatchForContentMutation(Long batchId) {
+        marketReleaseAccess.requireWritable(batchId);
         Long tenantId = TenantContextHolder.getRequiredTenantId();
         MesProEdhrBatchExecutionDO batch = batchExecutionMapper.selectByTenantIdAndIdForUpdate(tenantId, batchId);
         if (batch == null || !Objects.equals(batch.getTenantId(), tenantId) || !Objects.equals(batch.getId(), batchId)) {
@@ -2070,6 +2165,7 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
                 command.getSignoffEvidenceHash(),
                 command.getApprovalOpinion(),
                 command.getDecisionReason(),
+                String.valueOf(command.getQaReviewerUserId()),
                 JSON.toJSONString(command.getIndependentPrerequisiteReceipt()),
                 JSON.toJSONString(command.getMaterialGateReceipt()));
     }
@@ -2182,6 +2278,7 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
         snapshot.put("sourceSnapshotHash", command.getSourceSnapshotHash());
         snapshot.put("signoffSubjectId", command.getSignoffSubjectId());
         snapshot.put("signatureId", command.getSignatureId());
+        snapshot.put("qaReviewerUserId", command.getQaReviewerUserId());
         snapshot.put("approvalContentPolicyVersion", command.getApprovalContentPolicyVersion());
         snapshot.put("signedDossierManifestJson", command.getSignedDossierManifestJson());
         snapshot.put("signoffEvidenceHash", command.getSignoffEvidenceHash());

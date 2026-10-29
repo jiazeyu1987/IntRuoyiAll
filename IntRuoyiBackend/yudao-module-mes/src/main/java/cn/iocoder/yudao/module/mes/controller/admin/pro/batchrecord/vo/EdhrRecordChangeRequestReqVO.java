@@ -26,6 +26,9 @@ public class EdhrRecordChangeRequestReqVO {
 
     private String comment;
 
+    /** Explicit independent reviewer for a single-record void, reopen or supplement request. */
+    private Long approverUserId;
+
     private Map<String, List<Long>> startUserSelectAssignees;
 
 }

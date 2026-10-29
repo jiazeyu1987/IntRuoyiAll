@@ -13,6 +13,7 @@ import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrPerm
 @Service
 public class MesProEdhrPermissionGateServiceImpl implements MesProEdhrPermissionGateService {
 
+    @Resource private MesMarketReleaseAccess marketReleaseAccess;
     @Resource
     private MesProEdhrPermissionScopeService permissionScopeService;
 
@@ -21,6 +22,11 @@ public class MesProEdhrPermissionGateServiceImpl implements MesProEdhrPermission
         if (command == null || StrUtil.isBlank(command.getAbility())) {
             throw exception(PRO_EDHR_PERMISSION_CONTEXT_MISSING);
         }
+        boolean write=!List.of("VIEW","AUDIT_VIEW").contains(command.getAbility());
+        if(command.getBatchExecutionId()!=null) {
+            if(write) marketReleaseAccess.requireWritable(command.getBatchExecutionId());
+            else marketReleaseAccess.requireReadable(command.getBatchExecutionId());
+        } else if(command.getExecutionId()!=null) marketReleaseAccess.requireExecutionAccess(command.getExecutionId(),write);
         MesProEdhrPermissionEvaluateResult result = permissionScopeService.evaluate(
                 new MesProEdhrPermissionEvaluateCommand()
                         .setScopeId(command.getScopeId())

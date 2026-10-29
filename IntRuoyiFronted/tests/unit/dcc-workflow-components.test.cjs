@@ -19,6 +19,7 @@ function component(name) {
   const compiled = compileScript(descriptor, { id: name })
   const exported = compileModule(compiled.content, id => {
     if (id === 'vue') return vue
+    if (id === '@/views/system/user/components/UserSelectV2.vue') return { default: { render: () => vue.h('user-selector') } }
     if (id === './workflow-actions') return actions
     throw new Error(`Unexpected component dependency: ${id}`)
   }).default

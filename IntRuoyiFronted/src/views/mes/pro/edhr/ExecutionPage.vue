@@ -4121,12 +4121,13 @@ const isReadonly = computed(() => {
   if (!hasFillTaskContext.value || isInactiveRevisionDraft.value) {
     return true
   }
-  if (execution.value?.status === EDHR_EXECUTION_STATUS.DRAFT || isPreReleaseEditable.value) {
+  if (execution.value?.status === EDHR_EXECUTION_STATUS.DRAFT || execution.value?.status === EDHR_EXECUTION_STATUS.REOPENED || isPreReleaseEditable.value) {
     return false
   }
   return true
 })
 const executionStatusText = computed(() => {
+  if (execution.value?.status === EDHR_EXECUTION_STATUS.REOPENED) return '已获批重开（按修改待办追加审计后重新提交）'
   if (execution.value?.status === EDHR_EXECUTION_STATUS.SUBMITTED) {
     return '待审批（审批关闭后才可归档）'
   }

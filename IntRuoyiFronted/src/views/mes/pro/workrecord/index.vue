@@ -14,7 +14,7 @@
       label-width="100px"
     >
       <el-form-item label="用户" prop="userId">
-        <UserSelectV2 v-model="queryParams.userId" placeholder="请选择用户" class="!w-240px" />
+        <UserSelectV2 allow-inactive v-model="queryParams.userId" placeholder="请选择用户" class="!w-240px" />
       </el-form-item>
       <el-form-item label="工作站" prop="workstationId">
         <MdWorkstationSelect

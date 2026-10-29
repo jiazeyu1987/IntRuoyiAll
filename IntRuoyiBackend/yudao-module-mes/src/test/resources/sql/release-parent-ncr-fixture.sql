@@ -25,6 +25,7 @@ CREATE TABLE IF NOT EXISTS mes_pro_edhr_nonconformance_review (
     idempotency_key VARCHAR(128),
     payload_hash CHAR(64),
     qa_user_id BIGINT,
+    qa_reviewer_user_id BIGINT,
     frozen_at TIMESTAMP NOT NULL,
     closed_at TIMESTAMP,
     unfrozen_at TIMESTAMP,

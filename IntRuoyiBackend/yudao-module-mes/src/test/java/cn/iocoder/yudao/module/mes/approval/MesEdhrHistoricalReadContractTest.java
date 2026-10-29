@@ -69,6 +69,30 @@ class MesEdhrHistoricalReadContractTest {
     }
     @AfterEach void cleanup() { TenantContextHolder.clear(); }
 
+    @ParameterizedTest @ValueSource(strings={"concession_release","rework","void"})
+    void qaHandoffDecisionReadsTheExactSignedDispositionAndRejectsChangedContent(String disposition) {
+        qa(disposition);
+        review.setQaReviewerUserId(188L).setReviewMaterialUrl("review.pdf").setReviewMaterialFileId(44L)
+                .setReviewMaterialsJson("{\"activeMaterials\":[{\"fileId\":44}]}");
+        String hash=MesEdhrQaDispositionAggregateHash.build(review,disposition,review.getReviewMaterialUrl(),
+                review.getReviewMaterialFileId(),review.getReviewMaterialsJson(),review.getReviewOpinion(),188L);
+        review.setTraceSnapshotJson(JsonUtils.toJsonString(Map.of("qaSignatureSnapshotJson",Map.of(
+                "reviewId",96L,"qaUserId",188L,"disposition",disposition,"actionType","QA_DISPOSITION",
+                "signatureId",88L,"aggregateHash",hash))));
+        evidence("QA_DISPOSITION",review.getReviewOpinion(),188L,96L,hash);
+        var handoff=new cn.iocoder.yudao.module.mes.dal.dataobject.pro.handoff.MesActiveOrderHandoffTaskDO()
+                .setId(600L).setActiveOrderId(180L).setWorkOrderId(93L).setSourceId(96L).setRoundId(96L)
+                .setSourceType("NONCONFORMANCE_REVIEW").setTaskType("QA_REVIEW").setCandidateUserSnapshot("188")
+                .setStatus("DONE").setCompletedBy(188L).setCompletedAt(AT).setCompletionSourceId(96L)
+                .setActionUrl("/mes/pro/feedback/edhr-nonconformance-review?activeOrderId=180&reviewId=96&handoffTaskId=600&roundId=96&handoffType=QA_REVIEW");
+        handoff.setTenantId(1L);
+        var outcome=reader.readAuthorizedHandoff(handoff);
+        assertEquals(cn.iocoder.yudao.module.bpm.approval.core.ApprovalTaskReviewResult.APPROVE,outcome.approvalResult());
+        assertEquals(disposition,outcome.decisionSourceStatus());assertEquals(review.getReviewOpinion(),outcome.approvalRemark());
+        review.setReviewOpinion("unsigned altered opinion");
+        assertThrows(IllegalStateException.class,()->reader.readAuthorizedHandoff(handoff));
+    }
+
     @ParameterizedTest @org.junit.jupiter.params.provider.NullSource
     @ValueSource(strings={"PQC_RELEASE","", " ","真实用户意见", "真实用户意见\n第二行，保留标点"})
     void formalPqcReceiptAndSignatureKeepDecisionWhenOpinionIsAbsentOrAmbiguous(String original) {

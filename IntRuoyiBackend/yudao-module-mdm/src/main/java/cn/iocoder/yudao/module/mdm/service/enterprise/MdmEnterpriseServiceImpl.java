@@ -44,6 +44,7 @@ import static cn.iocoder.yudao.module.mdm.enums.ErrorCodeConstants.MDM_ENTERPRIS
 public class MdmEnterpriseServiceImpl implements MdmEnterpriseService {
 
     private static final String ENTERPRISE_CODE_UNIQUE_CONSTRAINT = "uk_mdm_enterprise_tenant_code";
+    private static final String GENERATED_COMPANY_CODE_PREFIX = "Company-";
 
     @Resource
     private MdmEnterpriseMapper enterpriseMapper;
@@ -78,6 +79,76 @@ public class MdmEnterpriseServiceImpl implements MdmEnterpriseService {
             throw exception(MDM_ENTERPRISE_BATCH_RESULT_INVALID);
         }
         return enterprise.getId();
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Long createEnabledOwnedCompany(String name) {
+        String normalizedName = requireText(name, "name");
+        Long tenantId = TenantContextHolder.getRequiredTenantId();
+        if (!Objects.equals(tenantId, enterpriseMapper.lockTenantForCompanyCodeGeneration(tenantId))) {
+            throw exception(MDM_ENTERPRISE_TENANT_MISMATCH, tenantId);
+        }
+        List<String> companyCodes = enterpriseMapper.selectCompanyCodesForGeneration(tenantId);
+        if (companyCodes == null) {
+            throw exception(MDM_ENTERPRISE_BATCH_RESULT_INVALID);
+        }
+        long currentCode = companyCodes.stream()
+                .filter(code -> code != null && code.matches("(?i)Company-[0-9]+"))
+                .mapToLong(code -> parseGeneratedCompanyCode(code.substring(GENERATED_COMPANY_CODE_PREFIX.length())))
+                .max()
+                .orElse(0L);
+        long nextCode;
+        try {
+            nextCode = Math.addExact(currentCode, 1);
+        } catch (ArithmeticException invalidSequence) {
+            throw exception(MDM_ENTERPRISE_BATCH_RESULT_INVALID);
+        }
+        String generatedCode = GENERATED_COMPANY_CODE_PREFIX + String.format(Locale.ROOT, "%03d", nextCode);
+        MdmEnterpriseDO enterprise = MdmEnterpriseDO.builder()
+                .enterpriseCode(generatedCode)
+                .name(normalizedName)
+                .type(MdmEnterpriseTypeEnum.OWNED_COMPANY.getType())
+                .status(MdmEnterpriseStatusEnum.ENABLE.getStatus())
+                .revision(1)
+                .build();
+        int affectedRows;
+        try {
+            affectedRows = enterpriseMapper.insert(enterprise);
+        } catch (DuplicateKeyException duplicateKeyException) {
+            if (!isEnterpriseCodeUniqueConflict(duplicateKeyException)) {
+                throw duplicateKeyException;
+            }
+            throw exception(MDM_ENTERPRISE_CODE_DUPLICATE);
+        }
+        if (affectedRows != 1 || enterprise.getId() == null || enterprise.getId() <= 0) {
+            throw exception(MDM_ENTERPRISE_BATCH_RESULT_INVALID);
+        }
+        return enterprise.getId();
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void updateOwnedCompanyName(Long id, String name) {
+        MdmEnterpriseDO existing = requireOwnedCompany(id);
+        MdmEnterpriseDO update = MdmEnterpriseDO.builder()
+                .id(existing.getId())
+                .name(requireText(name, "name"))
+                .revision(nextRevision(existing))
+                .build();
+        requireSingleAffectedRow(enterpriseMapper.updateById(update));
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void updateOwnedCompanyStatus(Long id, String status) {
+        MdmEnterpriseDO existing = requireOwnedCompany(id);
+        MdmEnterpriseDO update = MdmEnterpriseDO.builder()
+                .id(existing.getId())
+                .status(requireStatus(status))
+                .revision(nextRevision(existing))
+                .build();
+        requireSingleAffectedRow(enterpriseMapper.updateById(update));
     }
 
     @Override
@@ -229,6 +300,14 @@ public class MdmEnterpriseServiceImpl implements MdmEnterpriseService {
         return enterprise;
     }
 
+    private MdmEnterpriseDO requireOwnedCompany(Long id) {
+        MdmEnterpriseDO enterprise = requireEnterprise(id);
+        if (!MdmEnterpriseTypeEnum.OWNED_COMPANY.getType().equals(enterprise.getType())) {
+            throw exception(MDM_ENTERPRISE_TYPE_MISMATCH, id);
+        }
+        return enterprise;
+    }
+
     private Integer nextRevision(MdmEnterpriseDO enterprise) {
         if (enterprise.getRevision() == null || enterprise.getRevision() <= 0) {
             throw exception(MDM_ENTERPRISE_BATCH_RESULT_INVALID);
@@ -301,6 +380,14 @@ public class MdmEnterpriseServiceImpl implements MdmEnterpriseService {
             throw exception(MDM_ENTERPRISE_FIELD_REQUIRED, field);
         }
         return normalized;
+    }
+
+    private long parseGeneratedCompanyCode(String value) {
+        try {
+            return Long.parseLong(value);
+        } catch (NumberFormatException invalidNumber) {
+            throw exception(MDM_ENTERPRISE_BATCH_RESULT_INVALID);
+        }
     }
 
     private String requireType(String value) {

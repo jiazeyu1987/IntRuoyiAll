@@ -24,6 +24,7 @@ export const edhrPageIcons: Record<string, string> = {
   'mes/pro/workorder/index': 'lucide:clipboard-list',
   'mes/pro/batchrecordformlist/index': 'lucide:panels-top-left',
   'form-center/template/index': 'lucide:layout-template',
+  'form-center/simple-parser/index': 'lucide:file-pen-line',
   'mes/pro/edhr-form/FormPage': 'lucide:file-pen-line',
   'mes/pro/edhr-batch/BatchRecordTestPage': 'lucide:flask-conical',
   'mes/pro/processpool/QaRegulationPage': 'lucide:shield-check',

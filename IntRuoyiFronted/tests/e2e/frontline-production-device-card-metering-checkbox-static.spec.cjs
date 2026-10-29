@@ -134,8 +134,8 @@ assert.doesNotMatch(
 
 const cardStyleBlock = extractCssBlock(panel, '.frontline-production-device-card')
 for (const token of [
-  'grid-template-rows: minmax(0, 1fr) 36px 28px;',
-  'height: 138px;',
+  'grid-template-rows: minmax(0, 1fr) 36px;',
+  'height: 110px;',
   'overflow: hidden;'
 ]) {
   assert.ok(cardStyleBlock.includes(token), 'device card style must include ' + token)

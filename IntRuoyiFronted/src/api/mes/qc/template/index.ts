@@ -36,6 +36,7 @@ export interface QaInspectionRegulationParsedProcessVO {
 }
 
 export interface QaInspectionRegulationParseVO {
+  ruleSourceText?: string
   schemaVersion: number
   sourceFileName: string
   regulationCode: string
@@ -437,6 +438,8 @@ export interface PqcItemEquipmentBatchConfigSaveReqVO extends PqcItemEquipmentCo
 
 // MES 质检方案 API
 export const QcTemplateApi = {
+  publishSimplePqc: async (data: QaInspectionRegulationSaveReqVO): Promise<QaInspectionRegulationPublishedVersionVO> =>
+    request.post({ url: '/mes/qa/inspection-regulation/simple-parser/publish', data }),
   // 表单解析页只读解析 QA Word，不创建草稿或版本
   parseQaInspectionRegulationJson: async (
     file: File

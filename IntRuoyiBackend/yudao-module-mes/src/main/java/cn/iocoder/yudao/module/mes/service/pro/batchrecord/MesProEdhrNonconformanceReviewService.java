@@ -28,6 +28,8 @@ public interface MesProEdhrNonconformanceReviewService {
 
     MesProEdhrNonconformanceReviewRespVO create(MesProEdhrNonconformanceReviewCreateReqVO reqVO);
 
+    MesProEdhrNonconformanceReviewRespVO assignReviewer(Long id, Long qaReviewerUserId);
+
     List<MesProEdhrNonconformanceReviewActiveOrderRespVO> listActiveOrderCandidates();
     MesProEdhrNonconformanceReviewRespVO createCriticalDeviationReview(Long actorUserId,
             cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrDeviationNcrCreateReqVO reqVO);

@@ -126,8 +126,8 @@ public class RoleController {
     @Operation(summary = "导出角色配置包")
     @PreAuthorize("@ss.hasPermission('system:role:export')")
     @ApiAccessLog(operateType = EXPORT)
-    public void exportConfigPackage(HttpServletResponse response) throws IOException {
-        byte[] data = roleConfigPackageService.exportPackage();
+    public void exportConfigPackage(@RequestParam("categoryIds") java.util.List<Long> categoryIds, HttpServletResponse response) throws IOException {
+        byte[] data = roleConfigPackageService.exportPackage(categoryIds);
         response.addHeader("Content-Disposition",
                 "attachment;filename=" + HttpUtils.encodeUtf8("权限角色配置包.json"));
         response.setContentType("application/json;charset=UTF-8");

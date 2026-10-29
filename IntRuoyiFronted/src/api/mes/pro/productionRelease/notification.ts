@@ -1,6 +1,7 @@
 import request from '@/config/axios'
 
 export interface ReleaseTaskNotificationReceipt {
+  retryAllowed: boolean
   id: string
   workTaskId: string
   userId: string

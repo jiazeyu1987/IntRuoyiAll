@@ -172,6 +172,8 @@ import static cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLe
 @Service
 @Validated
 public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveOrderService {
+    @jakarta.annotation.Resource private cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrNonconformanceReviewMapper correctionReviewMapper;
+
 
     private static final Logger LOGGER = LoggerFactory.getLogger(MesTeamLeaderActiveOrderServiceImpl.class);
 
@@ -999,7 +1001,10 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
         appendActiveOrderGxpAudit("mes.active-order.add",
                 "cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderServiceImpl#addActiveOrder",
                 "生产组长加入活跃订单", null, activeOrder, "JOIN");
-        handoffService.productionReady(activeOrder.getId(), reqBO.getLeaderUserId());
+        // Test copies prepare isolated simulation data; only formal orders dispatch production work.
+        if (!Boolean.TRUE.equals(reqBO.getSimulated())) {
+            handoffService.productionReady(activeOrder.getId(), reqBO.getLeaderUserId());
+        }
         return addResult(activeOrder.getId(), ACTION_ADD, reqBO.getWorkOrderId(), null);
     }
 
@@ -1314,8 +1319,12 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
         Long copiedWorkOrderId = workOrderService.createWorkOrder(createReqVO);
         workOrderService.confirmWorkOrder(copiedWorkOrderId);
         MesProWorkOrderDO copiedWorkOrder = workOrderService.validateWorkOrderExists(copiedWorkOrderId);
-        MesProcessPoolActiveOrderDO copiedActiveOrder = createSimulationCopyFromSourceFrozenContext(
-                leaderUserId, sourceActiveOrder, copiedWorkOrder, simulationRunId);
+        MesTeamLeaderActiveOrderAddResult added = addActiveOrder(MesTeamLeaderActiveOrderAddReqBO.builder()
+                .leaderUserId(leaderUserId).workOrderId(copiedWorkOrder.getId())
+                .idempotencyKey(simulationRunId).simulated(Boolean.TRUE)
+                .simulationStage(SIMULATION_STAGE_LATEST_VERSION_COPY).simulationRunId(simulationRunId)
+                .build());
+        MesProcessPoolActiveOrderDO copiedActiveOrder = activeOrderMapper.selectById(added.getActiveOrderId());
         if (copiedActiveOrder == null || !Boolean.TRUE.equals(copiedActiveOrder.getSimulated())
                 || !Objects.equals(SIMULATION_STAGE_LATEST_VERSION_COPY, copiedActiveOrder.getSimulationStage())
                 || !Objects.equals(simulationRunId, copiedActiveOrder.getSimulationRunId())) {
@@ -1336,184 +1345,6 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
                 .routeVersionNo(routeVersion.getVersionNo())
                 .qaRegulationVersionId(copiedActiveOrder.getQaRegulationVersionId())
                 .simulationRunId(simulationRunId)
-                .build();
-    }
-
-    private MesProcessPoolActiveOrderDO createSimulationCopyFromSourceFrozenContext(
-            Long leaderUserId, MesProcessPoolActiveOrderDO sourceActiveOrder,
-            MesProWorkOrderDO copiedWorkOrder, String simulationRunId) {
-        requireSimulationCopySourceFrozenContext(sourceActiveOrder, copiedWorkOrder);
-        BigDecimal erpFixedQuantity = activeOrderQuantitySnapshot(copiedWorkOrder);
-        if (sourceActiveOrder.getErpFixedQuantitySnapshot() == null
-                || sourceActiveOrder.getErpFixedQuantitySnapshot().compareTo(erpFixedQuantity) != 0) {
-            throw exception(PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_REQUIRED,
-                    "测试复制源订单数量快照与复制工单数量不一致，sourceActiveOrderId="
-                            + sourceActiveOrder.getId() + "，workOrderId=" + copiedWorkOrder.getId());
-        }
-        List<MesProcessPoolActiveOrderProcessSnapshotDO> sourceSnapshots =
-                processSnapshotMapper.selectListByActiveOrderIdForUpdate(sourceActiveOrder.getId());
-        if (sourceSnapshots == null || sourceSnapshots.isEmpty()) {
-            throw exception(PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_REQUIRED,
-                    "测试复制源订单缺少冻结工序快照，sourceActiveOrderId=" + sourceActiveOrder.getId());
-        }
-        List<MesPqcInspectionTaskDO> sourcePqcTasks =
-                pqcInspectionTaskMapper.selectListByActiveOrderIdForUpdate(sourceActiveOrder.getId());
-        if (sourcePqcTasks == null || sourcePqcTasks.isEmpty()) {
-            throw exception(PRO_PQC_INSPECTION_TASK_GENERATION_BLOCKED,
-                    "测试复制源订单缺少冻结PQC任务，sourceActiveOrderId=" + sourceActiveOrder.getId());
-        }
-        LocalDateTime joinedAt = LocalDateTime.now();
-        MesProcessPoolActiveOrderDO copiedActiveOrder = MesProcessPoolActiveOrderDO.builder()
-                .leaderUserId(leaderUserId)
-                .workOrderId(copiedWorkOrder.getId())
-                .routeId(sourceActiveOrder.getRouteId())
-                .routeVersionId(sourceActiveOrder.getRouteVersionId())
-                .dccProjectCodeId(sourceActiveOrder.getDccProjectCodeId())
-                .qaRegulationId(sourceActiveOrder.getQaRegulationId())
-                .qaRegulationVersionId(sourceActiveOrder.getQaRegulationVersionId())
-                .erpFixedQuantitySnapshot(erpFixedQuantity)
-                .activeStatus(STATUS_ACTIVE)
-                .businessStatus(STATUS_ACTIVE)
-                .joinedAt(joinedAt)
-                .sortOrder(nextSortOrderForLeader(leaderUserId))
-                .simulated(Boolean.TRUE)
-                .simulationStage(SIMULATION_STAGE_LATEST_VERSION_COPY)
-                .simulationRunId(simulationRunId)
-                .version(0)
-                .build();
-        try {
-            activeOrderMapper.insert(copiedActiveOrder);
-        } catch (DuplicateKeyException ex) {
-            MesProcessPoolActiveOrderDO existing = selectExistingActiveOrder(copiedWorkOrder.getId(),
-                    sourceActiveOrder.getRouteId(), sourceActiveOrder.getRouteVersionId());
-            if (existing != null && Boolean.TRUE.equals(existing.getSimulated())
-                    && Objects.equals(SIMULATION_STAGE_LATEST_VERSION_COPY, existing.getSimulationStage())
-                    && Objects.equals(simulationRunId, existing.getSimulationRunId())) {
-                return existing;
-            }
-            throw ex;
-        }
-        if (copiedActiveOrder.getId() == null) {
-            throw new IllegalStateException("SIMULATION_COPY_ACTIVE_ORDER_ID_NOT_GENERATED");
-        }
-        insertSimulationCopyProcessSnapshots(copiedActiveOrder, sourceSnapshots);
-        insertSimulationCopyPqcTasks(copiedActiveOrder, sourcePqcTasks);
-        TeamMaintenanceAuditSupport.insertAudit(auditMapper, leaderUserId, "ADD_SIMULATION_COPY_ACTIVE_ORDER",
-                "ACTIVE_ORDER", copiedActiveOrder.getId(), "sourceActiveOrderId=" + sourceActiveOrder.getId(),
-                copiedActiveOrder.toString());
-        return copiedActiveOrder;
-    }
-
-    private void requireSimulationCopySourceFrozenContext(MesProcessPoolActiveOrderDO sourceActiveOrder,
-                                                          MesProWorkOrderDO copiedWorkOrder) {
-        if (sourceActiveOrder == null || sourceActiveOrder.getId() == null
-                || sourceActiveOrder.getRouteId() == null || sourceActiveOrder.getRouteVersionId() == null
-                || sourceActiveOrder.getDccProjectCodeId() == null || sourceActiveOrder.getQaRegulationId() == null
-                || sourceActiveOrder.getQaRegulationVersionId() == null || sourceActiveOrder.getWorkOrderId() == null) {
-            throw exception(PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_REQUIRED,
-                    "测试复制源订单缺少冻结路线或QA身份，sourceActiveOrderId="
-                            + (sourceActiveOrder == null ? null : sourceActiveOrder.getId()));
-        }
-        if (copiedWorkOrder == null || copiedWorkOrder.getId() == null || copiedWorkOrder.getQuantity() == null
-                || copiedWorkOrder.getQuantity().signum() <= 0) {
-            throw exception(PRO_WORK_ORDER_NOT_EXISTS, copiedWorkOrder == null ? null : copiedWorkOrder.getId());
-        }
-    }
-
-    private void insertSimulationCopyProcessSnapshots(
-            MesProcessPoolActiveOrderDO copiedActiveOrder,
-            List<MesProcessPoolActiveOrderProcessSnapshotDO> sourceSnapshots) {
-        List<MesProcessPoolActiveOrderProcessSnapshotDO> copiedSnapshots = sourceSnapshots.stream()
-                .map(source -> copySimulationProcessSnapshot(copiedActiveOrder, source))
-                .toList();
-        if (!Boolean.TRUE.equals(processSnapshotMapper.insertBatch(copiedSnapshots))) {
-            throw new IllegalStateException("Failed to insert simulation copy process snapshots");
-        }
-    }
-
-    private static MesProcessPoolActiveOrderProcessSnapshotDO copySimulationProcessSnapshot(
-            MesProcessPoolActiveOrderDO copiedActiveOrder,
-            MesProcessPoolActiveOrderProcessSnapshotDO source) {
-        if (source == null || source.getRouteProcessId() == null || source.getProcessId() == null) {
-            throw exception(PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_REQUIRED,
-                    "测试复制源订单存在不完整工序快照，activeOrderId=" + copiedActiveOrder.getId());
-        }
-        return MesProcessPoolActiveOrderProcessSnapshotDO.builder()
-                .activeOrderId(copiedActiveOrder.getId())
-                .workOrderId(copiedActiveOrder.getWorkOrderId())
-                .routeId(copiedActiveOrder.getRouteId())
-                .routeVersionId(copiedActiveOrder.getRouteVersionId())
-                .routeProcessId(source.getRouteProcessId())
-                .processId(source.getProcessId())
-                .processCodeSnapshot(source.getProcessCodeSnapshot())
-                .processNameSnapshot(source.getProcessNameSnapshot())
-                .erpFixedQuantitySnapshot(copiedActiveOrder.getErpFixedQuantitySnapshot())
-                .productionQuantityFactorSnapshot(source.getProductionQuantityFactorSnapshot())
-                .plannedQuantitySnapshot(source.getPlannedQuantitySnapshot())
-                .parameterSnapshotJson(source.getParameterSnapshotJson())
-                .deviceSelectionSnapshotJson(source.getDeviceSelectionSnapshotJson())
-                .deviceSelectionSnapshotSha256(source.getDeviceSelectionSnapshotSha256())
-                .parameterSnapshotSha256(source.getParameterSnapshotSha256())
-                .parameterSnapshotState(source.getParameterSnapshotState())
-                .lossReasonSnapshotJson(source.getLossReasonSnapshotJson())
-                .lossReasonSnapshotSha256(source.getLossReasonSnapshotSha256())
-                .overagePercentSnapshot(source.getOveragePercentSnapshot())
-                .productionConfigSnapshotJson(source.getProductionConfigSnapshotJson())
-                .productionConfigSnapshotSha256(source.getProductionConfigSnapshotSha256())
-                .productionConfigMigrationSource(source.getProductionConfigMigrationSource())
-                .productionConfigMigratedAt(LocalDateTime.now())
-                .simulated(Boolean.TRUE)
-                .simulationStage(copiedActiveOrder.getSimulationStage())
-                .simulationRunId(copiedActiveOrder.getSimulationRunId())
-                .build();
-    }
-
-    private void insertSimulationCopyPqcTasks(MesProcessPoolActiveOrderDO copiedActiveOrder,
-                                              List<MesPqcInspectionTaskDO> sourcePqcTasks) {
-        LocalDate businessDate = resolvePqcBusinessDate(copiedActiveOrder);
-        for (MesPqcInspectionTaskDO sourceTask : sourcePqcTasks) {
-            insertPqcInspectionTask(copySimulationPqcTask(copiedActiveOrder, sourceTask, businessDate));
-        }
-    }
-
-    private static MesPqcInspectionTaskDO copySimulationPqcTask(MesProcessPoolActiveOrderDO copiedActiveOrder,
-                                                                MesPqcInspectionTaskDO sourceTask,
-                                                                LocalDate businessDate) {
-        if (sourceTask == null || sourceTask.getRouteProcessId() != null || sourceTask.getProcessId() != null
-                || sourceTask.getQaRegulationId() == null || sourceTask.getRegulationVersionId() == null
-                || sourceTask.getQaProcessId() == null || sourceTask.getInspectionType() == null
-                || sourceTask.getInspectionRuleKey() == null || sourceTask.getPlannedInspectionQuantity() == null) {
-            throw exception(PRO_PQC_INSPECTION_TASK_GENERATION_BLOCKED,
-                    "测试复制源订单存在不完整PQC任务，activeOrderId=" + copiedActiveOrder.getId());
-        }
-        MesPqcInspectionItemPlan.require(sourceTask);
-        return MesPqcInspectionTaskDO.builder()
-                .activeOrderId(copiedActiveOrder.getId())
-                .workOrderId(copiedActiveOrder.getWorkOrderId())
-                .routeId(copiedActiveOrder.getRouteId())
-                .routeVersionId(copiedActiveOrder.getRouteVersionId())
-                .routeProcessId(sourceTask.getRouteProcessId())
-                .processId(sourceTask.getProcessId())
-                .dccProjectCodeId(sourceTask.getDccProjectCodeId())
-                .dccProjectCode(sourceTask.getDccProjectCode())
-                .dccProjectName(sourceTask.getDccProjectName())
-                .qaRegulationId(sourceTask.getQaRegulationId())
-                .qaProcessId(sourceTask.getQaProcessId())
-                .qaItemCode(sourceTask.getQaItemCode())
-                .regulationVersionId(sourceTask.getRegulationVersionId())
-                .qaRegulationVersionNo(sourceTask.getQaRegulationVersionNo())
-                .inspectionType(sourceTask.getInspectionType())
-                .inspectionRuleKey(sourceTask.getInspectionRuleKey())
-                .businessDate(businessDate)
-                .shiftCode(sourceTask.getShiftCode())
-                .roundNo(sourceTask.getRoundNo())
-                .plannedInspectionQuantity(sourceTask.getPlannedInspectionQuantity())
-                .inspectionItemPlanJson(sourceTask.getInspectionItemPlanJson())
-                .actualInspectionQuantity(0)
-                .taskStatus(PQC_STATUS_PENDING)
-                .simulated(Boolean.TRUE)
-                .simulationStage(copiedActiveOrder.getSimulationStage())
-                .simulationRunId(copiedActiveOrder.getSimulationRunId())
                 .build();
     }
 
@@ -3132,7 +2963,11 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
         if (leaderUserId == null) {
             throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "activeOrderList");
         }
-        List<MesProcessPoolActiveOrderDO> activeOrders = activeOrderMapper.selectActiveListByLeader(leaderUserId);
+        return projectActiveOrders(activeOrderMapper.selectActiveListByLeader(leaderUserId));
+    }
+
+    @Override
+    public List<MesTeamLeaderActiveOrderRow> projectActiveOrders(List<MesProcessPoolActiveOrderDO> activeOrders) {
         if (activeOrders.isEmpty()) {
             return Collections.emptyList();
         }
@@ -3946,7 +3781,17 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
                 .setAbnormal(abnormal != null)
                 .setAbnormalReason(abnormal == null ? null : abnormal.getAbnormalDescription())
                 .setAbnormalReportedAt(abnormal == null ? null : abnormal.getReportedAt())
+                .setReleaseApplicationId(releaseApplication == null ? null : releaseApplication.getId())
+                .setPqcReleaseWorkTaskId(releaseApplication == null ? null : releaseApplication.getPqcReleaseWorkTaskId())
                 .setReleaseApplicationStatus(releaseApplication == null ? null : releaseApplication.getApplicationStatus())
+                .setReleaseSourceSnapshotHash(releaseApplication == null ? null : releaseApplication.getSourceSnapshotHash())
+                .setReleaseApplicationVersion(releaseApplication == null ? null : releaseApplication.getVersion())
+                .setReleaseCorrectionReceivable(releaseApplication != null
+                        && cn.iocoder.yudao.module.mes.service.pro.productionrelease.pqc.MesPqcReleaseCorrectionService.isCorrectable(releaseApplication)
+                        && (!"MARKET_RELEASE_REJECTED".equals(releaseApplication.getApplicationStatus())
+                            || cn.iocoder.yudao.module.mes.service.pro.productionrelease.pqc.MesPqcReleaseCorrectionService.isConcessionFor(releaseApplication,
+                                correctionReviewMapper.selectLatestBySource("ACTIVE_ORDER", activeOrder.getId())))
+                        && Objects.equals(activeOrder.getLeaderUserId(), releaseApplication.getAppliedBy()))
                 .setQuantityConflict(progress.hasQuantityConflict())
                 .setHasQuantityConflict(progress.hasQuantityConflict())
                 .setQuantityConflictProcessCount(progress.quantityConflictProcessCount())

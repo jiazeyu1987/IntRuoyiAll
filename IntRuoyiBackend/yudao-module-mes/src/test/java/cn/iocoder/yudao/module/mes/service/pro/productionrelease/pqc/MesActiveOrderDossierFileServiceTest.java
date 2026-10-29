@@ -34,6 +34,7 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.verify;
 
@@ -389,11 +390,15 @@ class MesActiveOrderDossierFileServiceTest {
         verify(fixture.operationAuditService).recordInCallerTransaction(any());
     }
 
-    @Test
-    void actualDeleteUsesDeleteAuthorizationAndChecksLifecycleOnce() throws Exception {
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    void actualDeleteUsesDeleteAuthorizationAndChecksLifecycleOnce(boolean marketCorrection) throws Exception {
         var f = fixture();
         var guard = mock(cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesEdhrBatchLifecycleGuard.class);
         ReflectionTestUtils.setField(f.service, "lifecycleGuard", guard);
+        var correction = mock(MesPqcReleaseCorrectionService.class);
+        when(correction.requireMarketCorrectionMutation(7L, 10L, 55L)).thenReturn(marketCorrection);
+        ReflectionTestUtils.setField(f.service, "correctionService", correction);
         when(f.activeOrderMapper.selectById(10L)).thenReturn(new MesProcessPoolActiveOrderDO()
                 .setId(10L).setWorkOrderId(20L).setLeaderUserId(7L));
         when(f.applicationMapper.selectById(55L)).thenReturn(new MesProcessPoolActiveOrderReleaseApplicationDO()
@@ -405,7 +410,8 @@ class MesActiveOrderDossierFileServiceTest {
         when(f.adminUserApi.getUser(7L)).thenReturn(user(7L, "组长"));
         f.service.delete(7L, new MesActiveOrderDossierFileService.DeleteCommand(10L, 55L, "OTHER_FILE", 8001L));
         verify(f.readScope).requireMutation(7L, 10L, 55L, true);
-        verify(guard).requireDossierMutable(40L);
+        verify(correction).requireMarketCorrectionMutation(7L, 10L, 55L);
+        verify(guard, times(marketCorrection ? 0 : 1)).requireDossierMutable(40L);
         verify(f.fileService, never()).deleteFile(7001L);
     }
 
@@ -443,6 +449,7 @@ class MesActiveOrderDossierFileServiceTest {
                 dossierFileMapper, nonconformanceReviewMapper, adminUserApi, fileService, operationAuditService);
         var transactions = mock(org.springframework.transaction.PlatformTransactionManager.class);
         when(transactions.getTransaction(any())).thenAnswer(call -> new org.springframework.transaction.support.SimpleTransactionStatus());
+        ReflectionTestUtils.setField(service, "correctionService", mock(MesPqcReleaseCorrectionService.class));
         ReflectionTestUtils.setField(service, "transactions", transactions);
         var staging = mock(MesDossierUploadStagingService.class);
         ReflectionTestUtils.setField(service, "staging", staging);
@@ -462,6 +469,7 @@ class MesActiveOrderDossierFileServiceTest {
         ReflectionTestUtils.setField(service, "gxpAuditService", gxpAuditService);
         ReflectionTestUtils.setField(service, "nonconformanceReviewService", mock(cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrNonconformanceReviewService.class));
         ReflectionTestUtils.setField(service, "dossierReadScopeService", readScope);
+        ReflectionTestUtils.setField(service, "dossierCompletionService", mock(MesActiveOrderDossierCompletionService.class));
         ReflectionTestUtils.setField(service, "lifecycleGuard", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesEdhrBatchLifecycleGuard.class));
         when(readScope.requireMutation(any(), any(), any(), org.mockito.ArgumentMatchers.anyBoolean())).thenAnswer(call -> {
             Long actor = call.getArgument(0), activeId = call.getArgument(1), appId = call.getArgument(2);
@@ -473,6 +481,8 @@ class MesActiveOrderDossierFileServiceTest {
             }
             return new MesActiveOrderDossierReadScopeService.Context(active, app);
         });
+        when(readScope.requireMutation(any(), any(), any(), org.mockito.ArgumentMatchers.anyBoolean(), any())).thenAnswer(call ->
+                readScope.requireMutation(call.getArgument(0), call.getArgument(1), call.getArgument(2), call.getArgument(3)));
         return new Fixture(applicationMapper, activeOrderMapper, dossierFileMapper,
                 nonconformanceReviewMapper, adminUserApi, fileService, operationAuditService, gxpAuditService, readScope, service);
     }

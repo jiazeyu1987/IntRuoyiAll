@@ -19,6 +19,7 @@ export interface ControlledFileApprovalPositionVO {
   remark?: string
   createTime?: number
   assignments: ControlledFilePositionAssignmentVO[]
+  supportedAssignmentTypes?: string[]
 }
 
 export interface ControlledFileApprovalPositionCreateReqVO {

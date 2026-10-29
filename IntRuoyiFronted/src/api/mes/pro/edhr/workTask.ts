@@ -62,6 +62,8 @@ export interface EdhrWorkTaskRespVO {
   sourceUserName?: string
   responsibilitySource?: string
   inactionReason?: string
+  actionable?: boolean
+  blockedReason?: string
   signatureCellKey?: string
   signatureRowIndex?: number
   signatureColumnIndex?: number
@@ -94,14 +96,6 @@ export interface EdhrWorkTaskStatsRespVO {
 }
 
 export interface EdhrWorkTaskArchiveRuleReqVO {
-  routeId: number
-  assigneeUserId: number
-  dueMinutes: number
-  enabled: boolean
-  remark?: string
-}
-
-export interface EdhrWorkTaskCloseRuleReqVO {
   routeId: number
   assigneeUserId: number
   dueMinutes: number
@@ -192,26 +186,6 @@ export const saveEdhrRouteArchiveRule = async (data: EdhrWorkTaskArchiveRuleReqV
     isRequestContextCurrent: options?.isRequestContextCurrent,
     isSuccessReceiptContextCurrent: options?.isSuccessReceiptContextCurrent,
     url: '/mes/pro/edhr-work-task/route-archive-rule',
-    data
-  })
-}
-
-export const getEdhrRouteCloseRule = async (routeId: number, options?: { ignoreErrorMessage?: boolean; isRequestContextCurrent?: () => boolean; isSuccessReceiptContextCurrent?: () => boolean }) => {
-  return await request.get<EdhrWorkTaskAssignmentRuleRespVO>({
-    ignoreErrorMessage: options?.ignoreErrorMessage,
-    isRequestContextCurrent: options?.isRequestContextCurrent,
-    isSuccessReceiptContextCurrent: options?.isSuccessReceiptContextCurrent,
-    url: '/mes/pro/edhr-work-task/route-close-rule',
-    params: { routeId }
-  })
-}
-
-export const saveEdhrRouteCloseRule = async (data: EdhrWorkTaskCloseRuleReqVO, options?: { ignoreErrorMessage?: boolean; isRequestContextCurrent?: () => boolean; isSuccessReceiptContextCurrent?: () => boolean }) => {
-  return await request.post<EdhrWorkTaskAssignmentRuleRespVO>({
-    ignoreErrorMessage: options?.ignoreErrorMessage,
-    isRequestContextCurrent: options?.isRequestContextCurrent,
-    isSuccessReceiptContextCurrent: options?.isSuccessReceiptContextCurrent,
-    url: '/mes/pro/edhr-work-task/route-close-rule',
     data
   })
 }

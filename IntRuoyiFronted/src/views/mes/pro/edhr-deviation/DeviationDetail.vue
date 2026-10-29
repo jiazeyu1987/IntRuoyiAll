@@ -1,33 +1,156 @@
 <template>
-  <div v-loading="loading">
+  <div v-loading="loading" class="edhr-detail-surface">
     <el-alert v-if="error" type="error" :closable="false" :title="error" />
     <template v-else-if="detail">
-      <el-descriptions :column="1" border>
-        <el-descriptions-item label="偏差编号">{{ detail.deviationCode }}</el-descriptions-item>
-        <el-descriptions-item label="关联批记录"><el-button v-if="detail.batchExecutionId" link type="primary" @click="openBatch">{{ detail.batchExecutionCode || detail.batchExecutionId }}</el-button><span v-else>—</span></el-descriptions-item>
-        <el-descriptions-item label="批号">{{ detail.batchCode || '—' }}</el-descriptions-item>
-        <el-descriptions-item label="等级">{{ detail.level === 'CRITICAL' ? '重大（关键）' : '普通' }}</el-descriptions-item>
-        <el-descriptions-item label="状态">{{ detail.status === 'OPEN' ? '未处理' : '已处理' }}</el-descriptions-item>
-        <el-descriptions-item label="发现部门">{{ detail.discoveryDepartmentName || '—' }}</el-descriptions-item>
-        <el-descriptions-item label="发现人">{{ detail.discovererName || '—' }}</el-descriptions-item>
-        <el-descriptions-item label="发现时间">{{ formatTime(detail.discoveredAt) }}</el-descriptions-item>
-        <el-descriptions-item label="发现地点">{{ detail.discoveryLocation || '—' }}</el-descriptions-item>
-        <el-descriptions-item label="产品名称">{{ detail.productName || '—' }}</el-descriptions-item>
-        <el-descriptions-item label="产品规格">{{ detail.productSpecification || '—' }}</el-descriptions-item>
-        <el-descriptions-item label="设备或系统">{{ detail.equipmentOrSystem || '—' }}</el-descriptions-item>
-        <el-descriptions-item label="报告时间">{{ formatTime(detail.reportedAt) }}</el-descriptions-item>
-        <el-descriptions-item label="接收人">{{ detail.receiverName || '—' }}</el-descriptions-item>
-        <el-descriptions-item label="偏差类别">{{ detail.categoryCodesJson || '—' }}</el-descriptions-item>
-        <el-descriptions-item label="偏差描述">{{ detail.description || '—' }}</el-descriptions-item>
-        <el-descriptions-item label="紧急措施">{{ detail.emergencyAction || '—' }}</el-descriptions-item>
-        <el-descriptions-item label="等级依据">{{ detail.levelBasis || '—' }}</el-descriptions-item>
-        <el-descriptions-item label="关闭方式">{{ detail.closeReason === 'TRANSFERRED_TO_NCR' ? '转不合格审批关闭' : detail.closeReason === 'NORMAL_COMPLETED' ? '常规闭环' : '—' }}</el-descriptions-item>
-        <el-descriptions-item label="关联不合格评审"><el-button v-if="detail.nonconformanceReviewId" link type="primary" @click="openReview">{{ detail.nonconformanceReviewCode || `#${detail.nonconformanceReviewId}` }}</el-button><span v-else>—</span></el-descriptions-item>
-        <el-descriptions-item label="评审处置">{{ detail.nonconformanceDisposition || detail.nonconformanceReviewStatus || '—' }}</el-descriptions-item>
-        <el-descriptions-item label="发起电子签名">{{ detail.initiatorSignatureId ? `已签署 #${detail.initiatorSignatureId}` : '待签署' }}</el-descriptions-item>
-        <el-descriptions-item label="签名正文摘要">{{ detail.initiatorContentHash || '—' }}</el-descriptions-item>
-        <el-descriptions-item label="发起时间">{{ formatTime(detail.initiatedAt) }}</el-descriptions-item>
-      </el-descriptions>
+      <div>
+        <dl class="edhr-detail-summary">
+          <div>
+            <dt>偏差编号</dt>
+            <dd>{{ detail.deviationCode }}</dd>
+          </div>
+          <div>
+            <dt>等级</dt>
+            <dd>{{ detail.level === "CRITICAL" ? "重大（关键）" : "普通" }}</dd>
+          </div>
+          <div>
+            <dt>状态</dt>
+            <dd>{{ detail.status === "OPEN" ? "未处理" : "已处理" }}</dd>
+          </div>
+        </dl>
+        <section class="edhr-detail-section">
+          <h3>关联业务</h3>
+          <dl class="edhr-detail-fields">
+            <div>
+              <dt>关联批记录</dt>
+              <dd>
+                <el-button v-if="detail.batchExecutionId" link type="primary" @click="openBatch">{{
+                  detail.batchExecutionCode || detail.batchExecutionId
+                }}</el-button
+                ><span v-else>—</span>
+              </dd>
+            </div>
+            <div>
+              <dt>批号</dt>
+              <dd>{{ detail.batchCode || "—" }}</dd>
+            </div>
+            <div>
+              <dt>产品名称</dt>
+              <dd>{{ detail.productName || "—" }}</dd>
+            </div>
+            <div>
+              <dt>产品规格</dt>
+              <dd>{{ detail.productSpecification || "—" }}</dd>
+            </div>
+            <div>
+              <dt>设备或系统</dt>
+              <dd>{{ detail.equipmentOrSystem || "—" }}</dd>
+            </div>
+          </dl>
+        </section>
+        <section class="edhr-detail-section">
+          <h3>发现与接收</h3>
+          <dl class="edhr-detail-fields">
+            <div>
+              <dt>发现部门</dt>
+              <dd>{{ detail.discoveryDepartmentName || "—" }}</dd>
+            </div>
+            <div>
+              <dt>发现人</dt>
+              <dd>{{ detail.discovererName || "—" }}</dd>
+            </div>
+            <div>
+              <dt>发现时间</dt>
+              <dd>{{ formatTime(detail.discoveredAt) }}</dd>
+            </div>
+            <div>
+              <dt>发现地点</dt>
+              <dd>{{ detail.discoveryLocation || "—" }}</dd>
+            </div>
+            <div>
+              <dt>报告时间</dt>
+              <dd>{{ formatTime(detail.reportedAt) }}</dd>
+            </div>
+            <div>
+              <dt>接收人</dt>
+              <dd>{{ detail.receiverName || "—" }}</dd>
+            </div>
+          </dl>
+        </section>
+        <section class="edhr-detail-section">
+          <h3>偏差说明</h3>
+          <dl class="edhr-detail-fields edhr-detail-fields--soft">
+            <div>
+              <dt>偏差类别</dt>
+              <dd>
+                <BusinessEvidenceDetails
+                  title="类别"
+                  field="categoryCodesJson"
+                  :source="detail.categoryCodesJson"
+                />
+              </dd>
+            </div>
+            <div>
+              <dt>偏差描述</dt>
+              <dd>{{ detail.description || "—" }}</dd>
+            </div>
+            <div>
+              <dt>紧急措施</dt>
+              <dd>{{ detail.emergencyAction || "—" }}</dd>
+            </div>
+            <div>
+              <dt>等级依据</dt>
+              <dd>{{ detail.levelBasis || "—" }}</dd>
+            </div>
+          </dl>
+        </section>
+        <section class="edhr-detail-section">
+          <h3>处置与签署</h3>
+          <dl class="edhr-detail-fields">
+            <div>
+              <dt>关闭方式</dt>
+              <dd>
+                {{
+                  detail.closeReason === "TRANSFERRED_TO_NCR"
+                    ? "转不合格审批关闭"
+                    : detail.closeReason === "NORMAL_COMPLETED"
+                      ? "常规闭环"
+                      : "—"
+                }}
+              </dd>
+            </div>
+            <div>
+              <dt>关联不合格评审</dt>
+              <dd>
+                <el-button
+                  v-if="detail.nonconformanceReviewId"
+                  link
+                  type="primary"
+                  @click="openReview"
+                  >{{
+                    detail.nonconformanceReviewCode || `#${detail.nonconformanceReviewId}`
+                  }}</el-button
+                ><span v-else>—</span>
+              </dd>
+            </div>
+            <div>
+              <dt>评审处置</dt>
+              <dd>
+                {{ detail.nonconformanceDisposition || detail.nonconformanceReviewStatus || "—" }}
+              </dd>
+            </div>
+            <div>
+              <dt>发起电子签名</dt>
+              <dd>
+                {{ detail.initiatorSignatureId ? `已签署 #${detail.initiatorSignatureId}` : "待签署" }}
+              </dd>
+            </div>
+            <div>
+              <dt>发起时间</dt>
+              <dd>{{ formatTime(detail.initiatedAt) }}</dd>
+            </div>
+          </dl>
+        </section>
+      </div>
       <section
         v-if="props.readonly && detail.closeReason === 'TRANSFERRED_TO_NCR' && detail.nonconformanceReviewId"
         class="ncr-disposition-evidence"
@@ -39,21 +162,60 @@
         </el-alert>
         <el-alert v-else-if="ncrReviewLoading" type="info" :closable="false" title="正在读取不合格审批处置记录" />
         <el-alert v-else-if="ncrSignatureEvidenceError" type="error" :closable="false" :title="ncrSignatureEvidenceError" />
-        <el-descriptions v-else-if="ncrReviewDetail?.reviewStatus === 'pending_review'" :column="1" border>
-          <el-descriptions-item label="评审状态">待QA处置</el-descriptions-item>
-          <el-descriptions-item label="不合格原因">{{ ncrReviewDetail.nonconformanceReason || '—' }}</el-descriptions-item>
-        </el-descriptions>
-        <el-descriptions v-else-if="ncrReviewDetail && ncrSignatureEvidence" :column="1" border>
-          <el-descriptions-item label="评审状态">已处置</el-descriptions-item>
-          <el-descriptions-item label="不合格原因">{{ ncrReviewDetail.nonconformanceReason || '—' }}</el-descriptions-item>
-          <el-descriptions-item label="处置方式">{{ resolveNcrDisposition(ncrReviewDetail.disposition) }}</el-descriptions-item>
-          <el-descriptions-item label="评审实际意见">{{ ncrReviewDetail.reviewOpinion || '—' }}</el-descriptions-item>
-          <el-descriptions-item label="QA处置签署人">{{ ncrReviewDetail.qaUserId ? `用户 #${ncrReviewDetail.qaUserId}` : '—' }}</el-descriptions-item>
-          <el-descriptions-item label="处置签名记录">{{ ncrReviewDetail.qaSignature || `#${ncrSignatureEvidence.signatureId}` }}</el-descriptions-item>
-          <el-descriptions-item label="签名记录编号">{{ ncrSignatureEvidence.signatureId }}</el-descriptions-item>
-          <el-descriptions-item label="处置签署时间">{{ formatTime(ncrSignatureEvidence.signedAt) }}</el-descriptions-item>
-          <el-descriptions-item label="签名正文摘要">{{ ncrSignatureEvidence.aggregateHash }}</el-descriptions-item>
-        </el-descriptions>
+        <div v-else-if="ncrReviewDetail?.reviewStatus === 'pending_review'">
+          <section class="edhr-detail-section">
+            <h3>处理记录</h3>
+            <dl class="edhr-detail-fields">
+              <div>
+                <dt>评审状态</dt>
+                <dd>待QA处置</dd>
+              </div>
+              <div>
+                <dt>不合格原因</dt>
+                <dd>{{ ncrReviewDetail.nonconformanceReason || "—" }}</dd>
+              </div>
+            </dl>
+          </section>
+        </div>
+        <div v-else-if="ncrReviewDetail && ncrSignatureEvidence">
+          <section class="edhr-detail-section">
+            <h3>处理记录</h3>
+            <dl class="edhr-detail-fields">
+              <div>
+                <dt>评审状态</dt>
+                <dd>已处置</dd>
+              </div>
+              <div>
+                <dt>不合格原因</dt>
+                <dd>{{ ncrReviewDetail.nonconformanceReason || "—" }}</dd>
+              </div>
+              <div>
+                <dt>处置方式</dt>
+                <dd>{{ resolveNcrDisposition(ncrReviewDetail.disposition) }}</dd>
+              </div>
+              <div>
+                <dt>评审实际意见</dt>
+                <dd>{{ ncrReviewDetail.reviewOpinion || "—" }}</dd>
+              </div>
+              <div>
+                <dt>QA处置签署人</dt>
+                <dd>{{ ncrReviewDetail.qaUserId ? `用户 #${ncrReviewDetail.qaUserId}` : "—" }}</dd>
+              </div>
+              <div>
+                <dt>处置签名记录</dt>
+                <dd>{{ ncrReviewDetail.qaSignature || `#${ncrSignatureEvidence.signatureId}` }}</dd>
+              </div>
+              <div>
+                <dt>签名记录编号</dt>
+                <dd>{{ ncrSignatureEvidence.signatureId }}</dd>
+              </div>
+              <div>
+                <dt>处置签署时间</dt>
+                <dd>{{ formatTime(ncrSignatureEvidence.signedAt) }}</dd>
+              </div>
+            </dl>
+          </section>
+        </div>
       </section>
       <div v-if="detail.status === 'OPEN' && detail.level === 'CRITICAL' && !props.readonly" class="mt-12px">
         <el-button
@@ -79,34 +241,102 @@
           <div class="handling-card__header">
             <span>唯一处理记录</span>
             <div v-if="detail.status === 'OPEN' && !props.readonly" class="handling-card__actions">
-              <el-button size="small" type="primary" :loading="handlingSaving" @click="saveHandling">保存处理</el-button>
-              <el-button size="small" :disabled="!handling.id" @click="openSignDialog(signForm.node)">签署当前节点</el-button>
-              <el-button size="small" type="success" :loading="closing" :disabled="!handling.id" @click="closeHandling">常规关闭</el-button>
+              <el-button v-hasPermi="['mes:pro-edhr-deviation:handle']" size="small" type="primary" :loading="handlingSaving" @click="saveHandling">保存处理</el-button>
+              <el-button v-if="mySignNodes.length" size="small" :disabled="!handling.id" @click="openSignDialog(mySignNodes[0])">签署本人节点</el-button>
+              <el-button v-if="canCloseHandling" size="small" type="success" :loading="closing" :disabled="!handling.id" @click="closeHandling">常规关闭</el-button>
             </div>
             </div>
         </template>
-        <el-descriptions :column="1" border>
-          <el-descriptions-item label="内容版本">{{ handling.contentVersion || '—' }}</el-descriptions-item>
-          <el-descriptions-item label="处理结论">{{ handling.handlingConclusion || '—' }}</el-descriptions-item>
-          <el-descriptions-item label="验证结果">{{ handling.verificationResult || '—' }}</el-descriptions-item>
-          <el-descriptions-item label="关联评审">{{ handling.nonconformanceReviewCode || '—' }}</el-descriptions-item>
-        </el-descriptions>
-        <el-descriptions v-if="props.readonly" :column="1" border class="handling-readonly">
-          <el-descriptions-item label="调查开始">{{ handling.investigationStartedAt || '—' }}</el-descriptions-item>
-          <el-descriptions-item label="计划完成">{{ handling.plannedCompletedAt || '—' }}</el-descriptions-item>
-          <el-descriptions-item label="实际完成">{{ handling.completedAt || '—' }}</el-descriptions-item>
-          <el-descriptions-item label="调查成员">{{ handling.investigationMembersJson || '—' }}</el-descriptions-item>
-          <el-descriptions-item label="根因分析">{{ handling.rootCauseAnalysis || '—' }}</el-descriptions-item>
-          <el-descriptions-item label="影响范围">{{ handling.impactScope || '—' }}</el-descriptions-item>
-          <el-descriptions-item label="风险评估">{{ handling.riskAssessment || '—' }}</el-descriptions-item>
-          <el-descriptions-item label="产品处置">{{ handling.productDisposition || '—' }}</el-descriptions-item>
-          <el-descriptions-item label="整改责任人">{{ handling.correctiveOwnerName || '—' }}</el-descriptions-item>
-          <el-descriptions-item label="整改期限">{{ handling.correctiveDueAt || '—' }}</el-descriptions-item>
-          <el-descriptions-item label="CAPA">{{ handling.capaRequired ? '是' : '否' }}{{ handling.capaCode ? ` / ${handling.capaCode}` : '' }}</el-descriptions-item>
-          <el-descriptions-item label="CAPA附件">{{ handling.capaAttachmentsJson || '—' }}</el-descriptions-item>
-          <el-descriptions-item label="验证内容">{{ handling.verificationContent || '—' }}</el-descriptions-item>
-        </el-descriptions>
-        <el-form v-if="detail.status === 'OPEN' && !props.readonly" :model="handlingForm" label-width="110px" class="handling-form">
+        <div>
+          <section class="edhr-detail-section">
+            <h3>处理记录</h3>
+            <dl class="edhr-detail-fields">
+              <div>
+                <dt>内容版本</dt>
+                <dd>{{ handling.contentVersion || "—" }}</dd>
+              </div>
+              <div>
+                <dt>处理结论</dt>
+                <dd>{{ handling.handlingConclusion || "—" }}</dd>
+              </div>
+              <div>
+                <dt>验证结果</dt>
+                <dd>{{ handling.verificationResult || "—" }}</dd>
+              </div>
+              <div>
+                <dt>关联评审</dt>
+                <dd>{{ handling.nonconformanceReviewCode || "—" }}</dd>
+              </div>
+            </dl>
+          </section>
+        </div>
+        <div v-if="props.readonly || !canEditHandling || detail.status !== 'OPEN'" class="handling-readonly">
+          <section class="edhr-detail-section">
+            <h3>处理记录</h3>
+            <dl class="edhr-detail-fields">
+              <div>
+                <dt>调查开始</dt>
+                <dd>{{ handling.investigationStartedAt || "—" }}</dd>
+              </div>
+              <div>
+                <dt>计划完成</dt>
+                <dd>{{ handling.plannedCompletedAt || "—" }}</dd>
+              </div>
+              <div>
+                <dt>实际完成</dt>
+                <dd>{{ handling.completedAt || "—" }}</dd>
+              </div>
+              <div>
+                <dt>调查成员</dt>
+                <dd>
+                  <BusinessEvidenceDetails title="成员信息" :source="handling.investigationMembersJson" />
+                </dd>
+              </div>
+              <div>
+                <dt>根因分析</dt>
+                <dd>{{ handling.rootCauseAnalysis || "—" }}</dd>
+              </div>
+              <div>
+                <dt>影响范围</dt>
+                <dd>{{ handling.impactScope || "—" }}</dd>
+              </div>
+              <div>
+                <dt>风险评估</dt>
+                <dd>{{ handling.riskAssessment || "—" }}</dd>
+              </div>
+              <div>
+                <dt>产品处置</dt>
+                <dd>{{ handling.productDisposition || "—" }}</dd>
+              </div>
+              <div>
+                <dt>整改责任人</dt>
+                <dd>{{ handling.correctiveOwnerName || "—" }}</dd>
+              </div>
+              <div>
+                <dt>整改期限</dt>
+                <dd>{{ handling.correctiveDueAt || "—" }}</dd>
+              </div>
+              <div>
+                <dt>CAPA</dt>
+                <dd>
+                  {{ handling.capaRequired ? "是" : "否"
+                  }}{{ handling.capaCode ? ` / ${handling.capaCode}` : "" }}
+                </dd>
+              </div>
+              <div>
+                <dt>CAPA附件</dt>
+                <dd>
+                  <BusinessEvidenceDetails title="附件信息" :source="handling.capaAttachmentsJson" />
+                </dd>
+              </div>
+              <div>
+                <dt>验证内容</dt>
+                <dd>{{ handling.verificationContent || "—" }}</dd>
+              </div>
+            </dl>
+          </section>
+        </div>
+        <el-form v-if="detail.status === 'OPEN' && !props.readonly && canEditHandling" :model="handlingForm" label-width="110px" class="handling-form">
           <el-form-item v-if="handlingForm.expectedContentVersion > 0" label="修订原因" required><el-input v-model="handlingForm.revisionReason" type="textarea" maxlength="500" show-word-limit placeholder="请说明本次修改原因" /></el-form-item>
           <el-form-item label="根因分析"><el-input v-model="handlingForm.rootCauseAnalysis" type="textarea" :rows="2" /></el-form-item>
           <el-form-item label="影响范围"><el-input v-model="handlingForm.impactScope" type="textarea" :rows="2" /></el-form-item>
@@ -116,13 +346,21 @@
           <el-form-item label="计划完成"><el-date-picker v-model="handlingForm.plannedCompletedAt" type="datetime" value-format="YYYY-MM-DDTHH:mm:ss" /></el-form-item>
           <el-form-item label="实际完成"><el-date-picker v-model="handlingForm.completedAt" type="datetime" value-format="YYYY-MM-DDTHH:mm:ss" /></el-form-item>
           <el-form-item label="调查成员"><el-input v-model="handlingForm.investigationMembersJson" type="textarea" :rows="2" /></el-form-item>
-          <el-form-item label="整改责任人"><el-input v-model="handlingForm.correctiveOwnerName" /></el-form-item>
+          <el-form-item label="整改责任人"><UserSelectV2 v-model="handlingForm.correctiveOwnerId" placeholder="请选择纠正措施责任人" @change="value => handlingForm.correctiveOwnerName = value?.nickname || ''" /></el-form-item>
           <el-form-item label="整改期限"><el-date-picker v-model="handlingForm.correctiveDueAt" type="datetime" value-format="YYYY-MM-DDTHH:mm:ss" /></el-form-item>
           <el-form-item label="CAPA"><el-switch v-model="handlingForm.capaRequired" /><el-input v-if="handlingForm.capaRequired" v-model="handlingForm.capaCode" class="ml-8px" placeholder="CAPA编号" /></el-form-item>
           <el-form-item label="处理结论"><el-select v-model="handlingForm.handlingConclusion"><el-option label="闭环完成" value="CLOSED_LOOP" /></el-select></el-form-item>
           <el-form-item label="验证结果"><el-select v-model="handlingForm.verificationResult"><el-option label="通过" value="PASS" /></el-select></el-form-item>
           <el-form-item label="验证内容"><el-input v-model="handlingForm.verificationContent" type="textarea" :rows="2" /></el-form-item>
+          <el-form-item v-for="node in signNodeOptions" :key="node" :label="`${nodeLabels[node]}责任人`" required>
+            <UserSelectV2 v-model="handlingForm.reviewerAssignments[node]" :placeholder="`请选择${nodeLabels[node]}责任人`" />
+          </el-form-item>
         </el-form>
+        <el-table v-if="handling.id" :data="assignedResponsibilities" size="small" border class="mb-12px">
+          <el-table-column prop="label" label="签署职责" min-width="160" />
+          <el-table-column prop="owner" label="指定责任人" min-width="120" />
+          <el-table-column prop="status" label="当前版本状态" min-width="140" />
+        </el-table>
         <el-divider v-if="handling.signatureEvidence?.length" />
         <div v-if="handling.signatureEvidence?.length" class="signature-evidence">
           <div class="signature-evidence__title">当前版本电子签名证据</div>
@@ -137,8 +375,6 @@
             <el-table-column prop="timeEvidenceId" label="时间证据" min-width="220" show-overflow-tooltip />
             <el-table-column prop="verificationStatus" label="验证状态" width="120" />
             <el-table-column prop="policyVersion" label="策略版本" min-width="180" />
-            <el-table-column prop="contentHash" label="正文摘要" min-width="220" show-overflow-tooltip />
-            <el-table-column prop="evidenceHash" label="证据摘要" min-width="220" show-overflow-tooltip />
           </el-table>
         </div>
         <el-divider v-if="handling.signatureHistory?.length" />
@@ -153,9 +389,6 @@
             <el-table-column prop="timeEvidenceId" label="时间证据" min-width="220" show-overflow-tooltip />
             <el-table-column prop="verificationStatus" label="验证状态" width="120" />
             <el-table-column prop="policyVersion" label="策略版本" min-width="180" />
-            <el-table-column prop="subjectVersion" label="主题版本" min-width="220" show-overflow-tooltip />
-            <el-table-column prop="contentHash" label="正文摘要" min-width="220" show-overflow-tooltip />
-            <el-table-column prop="evidenceHash" label="证据摘要" min-width="220" show-overflow-tooltip />
           </el-table>
         </div>
         <el-divider v-if="handling.revisionHistory?.length" />
@@ -166,9 +399,7 @@
               <div>修订原因：{{ revision.revisionReason || '—' }}</div>
               <div>版本：{{ revision.beforeContentVersion || '—' }} → {{ revision.afterContentVersion || '—' }}</div>
               <div>操作人：{{ revision.actorUsername || revision.actorUserId || '—' }}</div>
-              <div class="revision-history__hash">审计摘要：{{ revision.auditHash || '—' }}</div>
-              <details class="revision-history__content"><summary>查看修订前后正文</summary><pre>修订前：{{ revision.beforeContent || '—' }}
-修订后：{{ revision.afterContent || '—' }}</pre></details>
+              <BusinessEvidenceDetails title="修订前后内容" :source="revision.beforeContent" :after-source="revision.afterContent" compare />
             </el-timeline-item>
           </el-timeline>
         </div>
@@ -177,7 +408,7 @@
     </template>
     <el-dialog v-model="signVisible" title="电子签名" width="480px">
       <el-form :model="signForm" label-width="100px">
-        <el-form-item label="签名节点"><el-select v-model="signForm.node"><el-option v-for="node in signNodeOptions" :key="node" :label="node" :value="node" /></el-select></el-form-item>
+        <el-form-item label="签名节点"><el-select v-model="signForm.node"><el-option v-for="node in mySignNodes" :key="node" :label="nodeLabels[node]" :value="node" /></el-select></el-form-item>
         <el-form-item label="密码"><el-input v-model="signForm.password" type="password" show-password /></el-form-item>
         <el-form-item label="签名意见"><el-input v-model="signForm.comment" type="textarea" /></el-form-item>
       </el-form>
@@ -186,6 +417,7 @@
     <el-dialog v-model="ncrCreateVisible" title="发起不合格审批" width="520px" destroy-on-close>
       <el-alert v-if="ncrCreateError" :title="ncrCreateError" type="error" :closable="false" show-icon class="mb-12px" />
       <el-form :model="ncrCreateForm" label-width="110px">
+        <el-form-item label="QA评审责任人" required><UserSelectV2 v-model="ncrCreateForm.qaReviewerUserId" placeholder="请选择具备QA处置权限的责任人" /></el-form-item>
         <el-form-item label="不合格原因" required>
           <el-input v-model="ncrCreateForm.nonconformanceReason" type="textarea" :rows="4" maxlength="500" show-word-limit />
         </el-form-item>
@@ -205,6 +437,9 @@
 </template>
 
 <script setup lang="ts">
+import UserSelectV2 from '@/views/system/user/components/UserSelectV2.vue'
+import '@/views/mes/pro/edhr/shared/detail-surface.scss'
+import BusinessEvidenceDetails from '../processpool/components/BusinessEvidenceDetails.vue'
 import { closeDeviationHandling, getDeviation, getDeviationHandling, saveDeviationHandling, signDeviationHandling, type DeviationHandlingRespVO, type DeviationRespVO } from '@/api/mes/pro/edhr/deviation'
 import { createCriticalDeviationReview, getNonconformanceReview, type EdhrNonconformanceReviewRespVO } from '@/api/mes/pro/edhr/nonconformanceReview'
 import { ElMessage } from 'element-plus'
@@ -213,6 +448,7 @@ import dayjs from 'dayjs'
 import { useApprovalCenterInvalidationStore } from '@/store/modules/approvalCenterInvalidation'
 import { createFormalActionGuard } from '@/store/modules/approvalCenterInvalidationState'
 import { useUserStore } from '@/store/modules/user'
+import { checkPermi } from '@/utils/permission'
 const message = useMessage()
 const approvalInvalidation = useApprovalCenterInvalidationStore()
 const signatureUser = computed(() => useUserStore().getUser)
@@ -235,7 +471,7 @@ const signVisible = ref(false)
 const ncrCreateVisible = ref(false)
 const ncrCreateLoading = ref(false)
 const ncrCreateError = ref('')
-const createHandlingForm = () => ({ expectedContentVersion: 0, revisionReason: '', investigationStartedAt: '', plannedCompletedAt: '', completedAt: '', investigationMembersJson: '', rootCauseAnalysis: '', impactScope: '', riskAssessment: '', productDisposition: '', nonconformanceReviewCode: '', correctiveOwnerName: '', correctiveDueAt: '', capaRequired: false, capaCode: '', capaAttachmentsJson: '', handlingConclusion: 'CLOSED_LOOP', verificationResult: 'PASS', verificationContent: '' })
+const createHandlingForm = () => ({ expectedContentVersion: 0, revisionReason: '', investigationStartedAt: '', plannedCompletedAt: '', completedAt: '', investigationMembersJson: '', rootCauseAnalysis: '', impactScope: '', riskAssessment: '', productDisposition: '', nonconformanceReviewCode: '', correctiveOwnerId: undefined as number | string | undefined, correctiveOwnerName: '', correctiveDueAt: '', reviewerAssignments: {} as Record<string, number | string | undefined>, capaRequired: false, capaCode: '', capaAttachmentsJson: '', handlingConclusion: 'CLOSED_LOOP', verificationResult: 'PASS', verificationContent: '' })
 const handlingForm = reactive(createHandlingForm())
 let savedFormSnapshot = ''
 let loadSequence = 0
@@ -250,7 +486,7 @@ const resetHandling = () => {
 }
 
 const signForm = reactive({ node: 'PREPARER', password: '', comment: '' })
-const ncrCreateForm = reactive({ nonconformanceReason: '', remark: '', signaturePassword: '', idempotencyKey: '' })
+const ncrCreateForm = reactive({ qaReviewerUserId: undefined as string | number | undefined, nonconformanceReason: '', remark: '', signaturePassword: '', idempotencyKey: '' })
 const ncrCreateGuard = createFormalActionGuard(() => JSON.stringify([approvalInvalidation.syncSession().key, router.currentRoute.value.fullPath, props.id]))
 const resetNcrCreateContext = () => { ncrCreateGuard.invalidate(); ncrCreateLoading.value = false; ncrCreateForm.signaturePassword = '' }
 watch(ncrCreateVisible, resetNcrCreateContext, { flush: 'sync' })
@@ -262,6 +498,23 @@ const signNodeOptions = computed(() => {
   if (detail.value?.level === 'CRITICAL') nodes.push('MANAGEMENT_REP')
   return nodes
 })
+const nodeLabels: Record<string, string> = { PREPARER: '编制', VERIFIER: '核验', DEPARTMENT_OWNER: '部门负责人确认', QA: 'QA关闭确认', QUALITY_OWNER: '质量负责人批准', MANAGEMENT_REP: '管理者代表批准' }
+const nodePermissions: Record<string, string> = { PREPARER: 'handle', VERIFIER: 'verify', DEPARTMENT_OWNER: 'department-confirm', QA: 'qa-close', QUALITY_OWNER: 'quality-approve', MANAGEMENT_REP: 'critical-management-approve' }
+const canEditHandling = computed(() => checkPermi(['mes:pro-edhr-deviation:handle']))
+const mySignNodes = computed(() => signNodeOptions.value.filter(node =>
+  handling.value?.reviewReady === true
+  && String(handling.value?.reviewerAssignments?.[node] ?? '') === String(signatureUser.value.id ?? '')
+  && !handling.value?.effectiveSignatureIds?.[node]
+  && checkPermi([`mes:pro-edhr-deviation:${nodePermissions[node]}`])))
+const canCloseHandling = computed(() => String(handling.value?.reviewerAssignments?.QA ?? '') === String(signatureUser.value.id ?? '')
+  && handling.value?.reviewReady === true
+  && checkPermi(['mes:pro-edhr-deviation:qa-close'])
+  && signNodeOptions.value.every(node => Boolean(handling.value?.effectiveSignatureIds?.[node])))
+const assignedResponsibilities = computed(() => signNodeOptions.value.map(node => ({
+  label: nodeLabels[node],
+  owner: handling.value?.reviewerAssignments?.[node] ? `用户 #${handling.value.reviewerAssignments[node]}` : '尚未指定',
+  status: handling.value?.effectiveSignatureIds?.[node] ? '已签署' : handling.value?.reviewReady === true ? '待签署' : '等待处理记录完成'
+})))
 const router = useRouter()
 const formatTime = (value?: string | number) => {
   if (value == null || value === '') return '—'
@@ -352,6 +605,7 @@ const openNcrCreateDialog = () => {
   if (props.readonly || !detail.value || detail.value.status !== 'OPEN' || detail.value.level !== 'CRITICAL') return
   if (detail.value.canTransferToNcr !== true) return
   ncrCreateError.value = ''
+  ncrCreateForm.qaReviewerUserId = undefined
   ncrCreateForm.nonconformanceReason = ''
   ncrCreateForm.remark = ''
   ncrCreateForm.signaturePassword = ''
@@ -373,6 +627,10 @@ const submitNcrCreate = async () => {
     ncrCreateError.value = current.transferToNcrBlockedReason || '转审资格未就绪，请刷新转审状态'
     return
   }
+  if (!ncrCreateForm.qaReviewerUserId) {
+    ncrCreateError.value = '请选择QA评审责任人'
+    return
+  }
   if (!nonconformanceReason || !signaturePassword) {
     ncrCreateError.value = '不合格原因和签名密码不能为空'
     return
@@ -380,6 +638,7 @@ const submitNcrCreate = async () => {
   ncrCreateLoading.value = true
   ncrCreateError.value = ''
   const payload = {
+    qaReviewerUserId: ncrCreateForm.qaReviewerUserId,
     batchExecutionId: current.batchExecutionId, deviationIds: [current.id], nonconformanceReason,
     remark: ncrCreateForm.remark.trim() || undefined, idempotencyKey: ncrCreateForm.idempotencyKey, signaturePassword
   }
@@ -418,7 +677,9 @@ const applyHandling = (record?: DeviationHandlingRespVO) => {
         riskAssessment: record.riskAssessment || '',
         productDisposition: record.productDisposition || '',
         nonconformanceReviewCode: record.nonconformanceReviewCode || '',
+        correctiveOwnerId: record.correctiveOwnerId,
         correctiveOwnerName: record.correctiveOwnerName || '',
+        reviewerAssignments: { ...(record.reviewerAssignments || {}) },
         correctiveDueAt: record.correctiveDueAt || '',
         capaRequired: record.capaRequired || false,
         capaCode: record.capaCode || '',
@@ -496,12 +757,18 @@ const saveHandling = async () => {
     ElMessage.error('请填写修订原因后保存')
     return
   }
+  if (signNodeOptions.value.some(node => !handlingForm.reviewerAssignments[node])) {
+    ElMessage.error('请为每个签署职责指定责任人')
+    return
+  }
   const id = props.id
   const sequence = loadSequence
   handlingSaving.value = true
   try {
     const record = await saveDeviationHandling(id, {
       ...handlingForm,
+      correctiveOwnerId: handlingForm.correctiveOwnerId,
+      reviewerAssignments: { ...handlingForm.reviewerAssignments },
       investigationStartedAt: normalizeOptionalDateTime(handlingForm.investigationStartedAt),
       plannedCompletedAt: normalizeOptionalDateTime(handlingForm.plannedCompletedAt),
       completedAt: normalizeOptionalDateTime(handlingForm.completedAt),
@@ -527,6 +794,10 @@ const canSignSavedHandling = () => {
 }
 const openSignDialog = (node: string) => {
   if (props.readonly || !canSignSavedHandling()) return
+  if (!mySignNodes.value.includes(node)) {
+    ElMessage.error('当前账号不是该签署节点的指定责任人')
+    return
+  }
   signForm.node = node
   signForm.password = ''
   signForm.comment = ''
@@ -550,6 +821,10 @@ const normalizeOptionalJson = (value: string) => {
 const normalizeOptionalDateTime = (value: string | null | undefined) => value?.trim() ? value : null
 const signHandling = async () => {
   if (props.readonly || !canSignSavedHandling()) return
+  if (!mySignNodes.value.includes(signForm.node)) {
+    ElMessage.error('当前账号没有该节点的有效签署任务')
+    return
+  }
   const id = props.id
   const sequence = loadSequence
   const reviewed = handling.value!
@@ -613,7 +888,7 @@ const load = async () => {
   ncrCreateError.value = ''
   ncrReviewError.value = ''
   ncrSignatureEvidenceError.value = ''
-  Object.assign(ncrCreateForm, { nonconformanceReason: '', remark: '', signaturePassword: '', idempotencyKey: '' })
+  Object.assign(ncrCreateForm, { qaReviewerUserId: undefined, nonconformanceReason: '', remark: '', signaturePassword: '', idempotencyKey: '' })
   loading.value = true
   error.value = ''
   handlingError.value = ''

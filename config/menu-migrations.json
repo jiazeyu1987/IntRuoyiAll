@@ -1,5 +1,99 @@
 {
   "changes": [
+    {"source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/batchrecordreport/MesSimpleParserPublishController.java", "kind": "permission", "value": "form:parser:query", "reason": "简易解析设备查询复用20260908_bpm_form_parser_menu.sql已有表单解析查询权限，仅用于解析页设备列表读取，不新增菜单、权限或角色及租户套餐授权。"},
+{"source": "IntRuoyiFronted/src/views/mes/dv/machinery/index.vue", "kind": "permission", "value": "mes:dv-machinery-type:delete", "reason": "高级删除同时清理设备类型，复用已有类型删除权限并与设备、车间删除权限取交集，不新增角色授权。"},
+{"source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/machinery/MesDvMachineryController.java", "kind": "permission", "value": "mes:dv-machinery-type:delete", "reason": "高级删除同时清理设备类型，复用已有类型删除权限并与设备、车间删除权限取交集，不新增角色授权。"},
+{"source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/dv/machinery/MesDvMachineryTypeWorkbookService.java", "kind": "permission", "value": "mes:dv-machinery-type:query", "reason": "三表设备导入导出复用现有设备类型查询、新增和更新权限，不新增菜单、权限标识或角色租户授权。"},
+{"source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/dv/machinery/MesDvMachineryTypeWorkbookService.java", "kind": "permission", "value": "mes:dv-machinery-type:create", "reason": "三表设备导入导出复用现有设备类型查询、新增和更新权限，不新增菜单、权限标识或角色租户授权。"},
+{"source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/dv/machinery/MesDvMachineryTypeWorkbookService.java", "kind": "permission", "value": "mes:dv-machinery-type:update", "reason": "三表设备导入导出复用现有设备类型查询、新增和更新权限，不新增菜单、权限标识或角色租户授权。"},
+{"source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/dv/machinery/MesDvMachineryWorkbookService.java", "kind": "permission", "value": "mes:md-workshop:create", "reason": "设备与车间双表导入导出复用现有车间权限，按实际新增、更新和导出操作校验，不新增菜单、权限标识或角色租户授权。"},
+{"source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/dv/machinery/MesDvMachineryWorkbookService.java", "kind": "permission", "value": "mes:md-workshop:update", "reason": "设备与车间双表导入导出复用现有车间权限，按实际新增、更新和导出操作校验，不新增菜单、权限标识或角色租户授权。"},
+{"source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/dv/machinery/MesDvMachineryWorkbookService.java", "kind": "permission", "value": "mes:md-workshop:export", "reason": "设备与车间双表导入导出复用现有车间权限，按实际新增、更新和导出操作校验，不新增菜单、权限标识或角色租户授权。"},
+{"source": "IntRuoyiFronted/src/views/mes/dv/machinery/index.vue", "kind": "permission", "value": "mes:md-workshop:delete", "reason": "设备台账高级删除复用已有车间删除权限，且同时要求已有设备删除权限；不新增菜单、权限或角色授权。"},
+{"source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/dv/machinery/MesDvMachineryController.java", "kind": "permission", "value": "mes:md-workshop:delete", "reason": "设备台账高级删除复用已有车间删除权限，且同时要求已有设备删除权限；不新增菜单、权限或角色授权。"},
+{"source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/qa/regulation/MesQaInspectionRegulationController.java", "kind": "permission", "value": "mes:qc-template:update", "reason": "简易PQC原子发布复用已有QA规程及PQC设备配置修改权限，不新增权限或扩大角色授权。"},
+{
+  "source": "IntRuoyiFronted/src/views/form-center/simple-pqc-parser/index.vue",
+  "kind": "page",
+  "value": "form-center/simple-pqc-parser/index",
+  "migrations": [
+    "IntRuoyiBackend/sql/mysql/20261028_simple_pqc_parser_menu.sql"
+  ]
+},
+{
+  "source": "IntRuoyiFronted/src/views/form-center/simple-pqc-parser/index.vue",
+  "kind": "permission",
+  "value": "mes:qc-template:update",
+  "reason": "简易PQC解析复用现有QA正式发布接口及mes:qc-template:update权限，不新增发布权限或扩大角色授权。"
+},
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/batchrecordreport/MesSimpleParserPublishController.java",
+      "kind": "permission",
+      "value": "form:parser:production-batch-record:publish",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261028_simple_parser_publish_menu.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/form-center/parser/SimpleParserPage.vue",
+      "kind": "permission",
+      "value": "form:parser:production-batch-record:publish",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261028_simple_parser_publish_menu.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/form-center/simple-parser/index.vue",
+      "kind": "page",
+      "value": "form-center/simple-parser/index",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261027_simple_production_parser_menu.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/mes/pro/edhr-batch/components/BatchIntegrityCheck.vue",
+      "kind": "permission",
+      "value": "mes:pro-edhr-batch-execution:query",
+      "reason": "历史页校验按钮复用已有查询权限与可见范围；不新增权限或角色、租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/batchrecord/MesProEdhrBatchIntegrityController.java",
+      "kind": "permission",
+      "value": "mes:pro-edhr-batch-execution:query",
+      "reason": "历史完整性校验复用既有批记录查询权限并按可见范围逐块校验；不新增权限、菜单、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/mes/pro/edhr-batch/components/BatchIntegrityCheck.vue",
+      "kind": "menu",
+      "value": "历史批次独立完整性校验",
+      "reason": "历史追溯页内组件，复用现有历史菜单与批记录查询权限；不新增路由或独立页面，无需菜单迁移。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/form-center/parser/SimpleParserPage.vue",
+      "kind": "menu",
+      "value": "简易解析",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261027_simple_production_parser_menu.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/form-center/parser/SimpleParserPage.vue",
+      "kind": "permission",
+      "value": "form:parser:production-batch-record",
+      "reason": "简易解析复用现有生产解析的导入与发布按钮权限，新增同级菜单由20261027_simple_production_parser_menu.sql仅授权既有生产解析角色和租户套餐，不新增权限标识。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/batchrecord/MesProEdhrBatchExecutionController.java",
+      "kind": "permission",
+      "value": "mes:pro-edhr-batch-execution:query",
+      "reason": "批记录详情生产用料清单只读接口复用现有批记录查询权限，并按正式批次或活跃订单校验来源；未新增菜单、权限标识、角色及租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/mes/pro/processpool/components/BusinessEvidenceDetails.vue",
+      "kind": "menu",
+      "value": "活跃订单详情业务证据可读展示",
+      "reason": "内部展示组件，仅复用现有活跃订单详情权限；不新增页面入口、菜单、路由或权限标识，无需角色及租户套餐迁移。"
+    },
     {
       "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/handoff/MesActiveOrderHandoffService.java",
       "kind": "permission",
@@ -252,10 +346,34 @@
       "reason": "工作台来源适配器/投影导出复用业务模块已有 mes:pro-edhr-work-task:query 权限，只读取当前授权决定可见任务；不新增权限、办理入口或角色/租户套餐授权。"
     },
     {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesEdhrWorkbenchSource.java",
+      "kind": "permission",
+      "value": "mes:pro-process-pool-team-leader:query",
+      "reason": "工作台只读QA结果交接时复用现有班组长查询权限，读取本人当前活跃周期任务；不新增菜单、权限或角色/租户套餐授权。"
+    },
+    {
       "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/workorder/MesWorkOrderWorkbenchSource.java",
       "kind": "permission",
       "value": "mes:pro-work-order:query",
       "reason": "工作台来源适配器/投影导出复用业务模块已有 mes:pro-work-order:query 权限，只读取当前授权决定可见任务；不新增权限、办理入口或角色/租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProEdhrWorkTaskServiceImpl.java",
+      "kind": "permission",
+      "value": "mes:pro-edhr-deviation:query",
+      "reason": "偏差责任人任务仅指派给可查询偏差的已授权用户；复用20260924_mes_edhr_deviation_management.sql既有权限，不新增授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProEdhrWorkTaskServiceImpl.java",
+      "kind": "permission",
+      "value": "mes:pro-edhr-deviation:handle",
+      "reason": "偏差责任人任务仅指派给可处理偏差的已授权用户；复用20260924_mes_edhr_deviation_management.sql既有权限，不新增授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProEdhrWorkTaskServiceImpl.java",
+      "kind": "permission",
+      "value": "mes:pro-edhr-work-task:query",
+      "reason": "偏差责任人任务要求可查询个人工作任务；复用20260611_mes_edhr_work_task_flow.sql既有权限，不新增菜单、角色或租户套餐授权。"
     },
     {
       "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/workbench/MesProjectionExport.java",
@@ -268,6 +386,12 @@
       "kind": "permission",
       "value": "mes:pro-edhr-work-task:query",
       "reason": "工作台来源适配器/投影导出复用业务模块已有 mes:pro-edhr-work-task:query 权限，只读取当前授权决定可见任务；不新增权限、办理入口或角色/租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/workbench/MesProjectionExport.java",
+      "kind": "permission",
+      "value": "mes:pro-process-pool-team-leader:query",
+      "reason": "工作台投影导出复用既有班组长查询权限，按正式交接候选人与活跃周期导出；不新增权限、菜单或角色/租户套餐授权。"
     },
     {
       "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/workbench/MesProjectionExport.java",
@@ -447,7 +571,13 @@
       "source": "IntRuoyiFronted/src/views/system/user/index.vue",
       "kind": "permission",
       "value": "bpm:task:manager-query",
-      "reason": "已有用户管理页面的主管待办交接入口复用既有 bpm:task:manager-query 权限，不新增页面路由、菜单、权限标识、角色授权或租户套餐授权。"
+      "reason": "已有用户管理页面在账号停用后自动打开交接确认，并保留账号行交接入口，复用既有 bpm:task:manager-query 权限，不新增页面路由、菜单、权限标识、角色授权或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/system/user/SupervisorHandoverDialog.vue",
+      "kind": "permission",
+      "value": "bpm:task:manager-query",
+      "reason": "账号停用及直属主管变更联动复用内部交接弹窗和现有待办管理查询权限；无权限时明确提示，不新增菜单、权限、角色或租户套餐授权。"
     },
     {
       "source": "IntRuoyiFronted/src/views/infra/config/ConfigForm.vue",
@@ -1282,6 +1412,386 @@
       "kind": "permission",
       "value": "mes:pro-edhr-batch-execution:query",
       "reason": "批记录历史来源选项复用既有批次执行查询权限 mes:pro-edhr-batch-execution:query；内部数据配置无独立菜单，不新增角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/router/modules/remaining.ts",
+      "kind": "router",
+      "value": "f9cfb89d2e2f5f766d7078441c395c5020d2e01f1ba6203934201151223a5d35",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261026_split_inspection_regulation_menus.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/mes/pro/processpool/CommonRegulationPage.vue",
+      "kind": "menu",
+      "value": "/mes/pro/process-pool/common-regulation",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261026_split_inspection_regulation_menus.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/form-center/parser/ProductionParserPage.vue",
+      "kind": "menu",
+      "value": "/mdm/form-center/parser",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261027_split_form_parser_menus.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/form-center/parser/InspectionParserPage.vue",
+      "kind": "menu",
+      "value": "/mdm/form-center/inspection-parser",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261027_split_form_parser_menus.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/mes/pro/in-process-order/index.vue",
+      "kind": "page",
+      "value": "mes/pro/in-process-order/index",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261027_in_process_order_menu.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/inprocess/MesInProcessOrderController.java",
+      "kind": "permission",
+      "value": "mes:pro-in-process-order:query",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261027_in_process_order_menu.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiBackend/sql/mysql/20261027_rename_batch_execution_market_release.sql",
+      "kind": "menu",
+      "value": "批次执行页签更名为上市放行",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261027_rename_batch_execution_market_release.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiFronted/src/router/modules/remaining.ts",
+      "kind": "router",
+      "value": "b69ab467b530c65daa13c07118d2459ca136209959eab248c70ff1bf813a76cb",
+      "reason": "仅将现有批次执行路由页签标题更名为上市放行，复用菜单900033及mes:pro-edhr-batch-execution:query权限，角色和租户套餐授权不变；菜单名称由20261027_rename_batch_execution_market_release.sql同步更新。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/batchrecord/MesMarketReleaseHandoverController.java",
+      "kind": "permission",
+      "value": "mes:pro-edhr-batch-execution:query",
+      "reason": "上市放行单内交接与回收复用现有上市放行、批记录查询和工作任务权限，不增加菜单或全局角色授权；办理权限另按该单正式交接记录校验，接收人沿用现有放行任务动态授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/batchrecord/MesMarketReleaseHandoverController.java",
+      "kind": "permission",
+      "value": "mes:pro-edhr-release:approve",
+      "reason": "上市放行单内交接与回收复用现有上市放行、批记录查询和工作任务权限，不增加菜单或全局角色授权；办理权限另按该单正式交接记录校验，接收人沿用现有放行任务动态授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/batchrecord/MesMarketReleaseHandoverController.java",
+      "kind": "permission",
+      "value": "mes:pro-edhr-release:query",
+      "reason": "上市放行单内交接与回收复用现有上市放行、批记录查询和工作任务权限，不增加菜单或全局角色授权；办理权限另按该单正式交接记录校验，接收人沿用现有放行任务动态授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesMarketReleaseHandoverService.java",
+      "kind": "permission",
+      "value": "mes:pro-edhr-release:approve",
+      "reason": "上市放行单内交接与回收复用现有上市放行、批记录查询和工作任务权限，不增加菜单或全局角色授权；办理权限另按该单正式交接记录校验，接收人沿用现有放行任务动态授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/system/user/components/UserSelectDialogV2.vue",
+      "kind": "permission",
+      "value": "system:user:query",
+      "reason": "统一人员选择内部组件复用既有用户查询权限决定是否展示管理分页的手机与创建时间字段；无该权限仅使用精简身份查询，不新增菜单、权限标识或角色及租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/mes/pro/edhr-batch/BatchExecutionListPage.vue",
+      "kind": "permission",
+      "value": "mes:pro-edhr-release:query",
+      "reason": "上市放行列表内交接、回收沿用已有上市放行查询权限及原角色/套餐授权；不新建权限，服务端另校验该单原办理人和当前交接归属。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/approval/MesActiveOrderHandoffApprovalProjection.java",
+      "kind": "permission",
+      "value": "mes:pro-edhr-nonconformance-review:dispose",
+      "reason": "不合格QA显式指派及审批/个人工作台读取复用现有QA查询、处置权限与原菜单；只对正式任务候选本人开放，不新增权限标识、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/approval/MesProEdhrApprovalTaskAdapter.java",
+      "kind": "permission",
+      "value": "mes:pro-edhr-change:approve",
+      "reason": "不合格QA显式指派及审批/个人工作台读取复用现有QA查询、处置权限与原菜单；只对正式任务候选本人开放，不新增权限标识、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/approval/MesProEdhrApprovalTaskAdapter.java",
+      "kind": "permission",
+      "value": "mes:pro-edhr-change:query",
+      "reason": "不合格QA显式指派及审批/个人工作台读取复用现有QA查询、处置权限与原菜单；只对正式任务候选本人开放，不新增权限标识、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/approval/MesProEdhrApprovalTaskAdapter.java",
+      "kind": "permission",
+      "value": "mes:pro-edhr-deviation:critical-management-approve",
+      "reason": "不合格QA显式指派及审批/个人工作台读取复用现有QA查询、处置权限与原菜单；只对正式任务候选本人开放，不新增权限标识、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/approval/MesProEdhrApprovalTaskAdapter.java",
+      "kind": "permission",
+      "value": "mes:pro-edhr-deviation:qa-close",
+      "reason": "不合格QA显式指派及审批/个人工作台读取复用现有QA查询、处置权限与原菜单；只对正式任务候选本人开放，不新增权限标识、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/approval/MesProEdhrApprovalTaskAdapter.java",
+      "kind": "permission",
+      "value": "mes:pro-edhr-deviation:quality-approve",
+      "reason": "不合格QA显式指派及审批/个人工作台读取复用现有QA查询、处置权限与原菜单；只对正式任务候选本人开放，不新增权限标识、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/approval/MesProEdhrApprovalTaskAdapter.java",
+      "kind": "permission",
+      "value": "mes:pro-edhr-deviation:query",
+      "reason": "不合格QA显式指派及审批/个人工作台读取复用现有QA查询、处置权限与原菜单；只对正式任务候选本人开放，不新增权限标识、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/processpool/team/MesActiveOrderDossierFileController.java",
+      "kind": "permission",
+      "value": "mes:pro-edhr-work-task:query",
+      "reason": "活跃订单资料责任指派及PQC驳回补正复用现有资料上传、工作待办与生产组长维护权限；按正式订单归属和指定本人校验，不新增菜单、权限标识、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/productionrelease/MesPqcReleaseCorrectionController.java",
+      "kind": "permission",
+      "value": "mes:pro-edhr-work-task:query",
+      "reason": "活跃订单资料责任指派及PQC驳回补正复用现有资料上传、工作待办与生产组长维护权限；按正式订单归属和指定本人校验，不新增菜单、权限标识、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/productionrelease/MesPqcReleaseCorrectionController.java",
+      "kind": "permission",
+      "value": "mes:pro-process-pool-team-leader:maintain",
+      "reason": "活跃订单资料责任指派及PQC驳回补正复用现有资料上传、工作待办与生产组长维护权限；按正式订单归属和指定本人校验，不新增菜单、权限标识、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesEdhrRecordChangeTaskService.java",
+      "kind": "permission",
+      "value": "mes:pro-edhr-change:approve",
+      "migrations": ["IntRuoyiBackend/sql/mysql/20261028_mes_edhr_record_change_approver_role.sql"]
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesEdhrRecordChangeTaskService.java",
+      "kind": "permission",
+      "value": "mes:pro-edhr-change:query",
+      "migrations": ["IntRuoyiBackend/sql/mysql/20261028_mes_edhr_record_change_approver_role.sql"]
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesEdhrRecordChangeTaskService.java",
+      "kind": "permission",
+      "value": "mes:pro-edhr-work-task:query",
+      "migrations": ["IntRuoyiBackend/sql/mysql/20261028_mes_edhr_record_change_approver_role.sql"]
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesEdhrWorkbenchSource.java",
+      "kind": "permission",
+      "value": "mes:pro-edhr-nonconformance-review:query",
+      "reason": "不合格QA显式指派及审批/个人工作台读取复用现有QA查询、处置权限与原菜单；只对正式任务候选本人开放，不新增权限标识、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProEdhrDeviationReviewTaskService.java",
+      "kind": "permission",
+      "value": "mes:pro-edhr-deviation:critical-management-approve",
+      "reason": "偏差处理显式职责派单及签署沿用现有偏差各节点权限与个人待办权限；保留既定五/六类职责，不新增菜单、权限标识、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProEdhrDeviationReviewTaskService.java",
+      "kind": "permission",
+      "value": "mes:pro-edhr-deviation:department-confirm",
+      "reason": "偏差处理显式职责派单及签署沿用现有偏差各节点权限与个人待办权限；保留既定五/六类职责，不新增菜单、权限标识、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProEdhrDeviationReviewTaskService.java",
+      "kind": "permission",
+      "value": "mes:pro-edhr-deviation:handle",
+      "reason": "偏差处理显式职责派单及签署沿用现有偏差各节点权限与个人待办权限；保留既定五/六类职责，不新增菜单、权限标识、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProEdhrDeviationReviewTaskService.java",
+      "kind": "permission",
+      "value": "mes:pro-edhr-deviation:qa-close",
+      "reason": "偏差处理显式职责派单及签署沿用现有偏差各节点权限与个人待办权限；保留既定五/六类职责，不新增菜单、权限标识、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProEdhrDeviationReviewTaskService.java",
+      "kind": "permission",
+      "value": "mes:pro-edhr-deviation:quality-approve",
+      "reason": "偏差处理显式职责派单及签署沿用现有偏差各节点权限与个人待办权限；保留既定五/六类职责，不新增菜单、权限标识、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProEdhrDeviationReviewTaskService.java",
+      "kind": "permission",
+      "value": "mes:pro-edhr-deviation:query",
+      "reason": "偏差处理显式职责派单及签署沿用现有偏差各节点权限与个人待办权限；保留既定五/六类职责，不新增菜单、权限标识、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProEdhrDeviationReviewTaskService.java",
+      "kind": "permission",
+      "value": "mes:pro-edhr-deviation:verify",
+      "reason": "偏差处理显式职责派单及签署沿用现有偏差各节点权限与个人待办权限；保留既定五/六类职责，不新增菜单、权限标识、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProEdhrDeviationReviewTaskService.java",
+      "kind": "permission",
+      "value": "mes:pro-edhr-work-task:query",
+      "reason": "偏差处理显式职责派单及签署沿用现有偏差各节点权限与个人待办权限；保留既定五/六类职责，不新增菜单、权限标识、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/handoff/MesActiveOrderHandoffService.java",
+      "kind": "permission",
+      "value": "mes:pro-edhr-nonconformance-review:query",
+      "reason": "不合格QA显式指派及审批/个人工作台读取复用现有QA查询、处置权限与原菜单；只对正式任务候选本人开放，不新增权限标识、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/productionrelease/pqc/MesActiveOrderDossierCompletionService.java",
+      "kind": "permission",
+      "value": "mes:pro-edhr-batch-execution:upload",
+      "reason": "活跃订单资料责任指派及PQC驳回补正复用现有资料上传、工作待办与生产组长维护权限；按正式订单归属和指定本人校验，不新增菜单、权限标识、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/productionrelease/pqc/MesActiveOrderDossierCompletionService.java",
+      "kind": "permission",
+      "value": "mes:pro-edhr-work-task:query",
+      "reason": "活跃订单资料责任指派及PQC驳回补正复用现有资料上传、工作待办与生产组长维护权限；按正式订单归属和指定本人校验，不新增菜单、权限标识、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/productionrelease/pqc/MesActiveOrderDossierCompletionService.java",
+      "kind": "permission",
+      "value": "mes:pro-process-pool-team-leader:maintain",
+      "reason": "活跃订单资料责任指派及PQC驳回补正复用现有资料上传、工作待办与生产组长维护权限；按正式订单归属和指定本人校验，不新增菜单、权限标识、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/productionrelease/pqc/MesPqcReleaseCorrectionService.java",
+      "kind": "permission",
+      "value": "mes:pro-edhr-work-task:query",
+      "reason": "活跃订单资料责任指派及PQC驳回补正复用现有资料上传、工作待办与生产组长维护权限；按正式订单归属和指定本人校验，不新增菜单、权限标识、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/productionrelease/pqc/MesPqcReleaseCorrectionService.java",
+      "kind": "permission",
+      "value": "mes:pro-process-pool-team-leader:maintain",
+      "reason": "活跃订单资料责任指派及PQC驳回补正复用现有资料上传、工作待办与生产组长维护权限；按正式订单归属和指定本人校验，不新增菜单、权限标识、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/workbench/MesProjectionExport.java",
+      "kind": "permission",
+      "value": "mes:pro-edhr-nonconformance-review:query",
+      "reason": "不合格QA显式指派及审批/个人工作台读取复用现有QA查询、处置权限与原菜单；只对正式任务候选本人开放，不新增权限标识、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/router/modules/remaining.ts",
+      "kind": "router",
+      "value": "1e7bbe2453e21a48086587b0cd82637722d4ca6cefa1d253071059c36721d86f",
+      "reason": "批记录资料补齐为已有个人任务的隐藏内部处理页，复用mes:pro-edhr-work-task:query及资料上传权限；不新增菜单和权限标识，不增加角色或租户套餐授权。其余既有路由变更沿用本文件已登记决定。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/mes/pro/edhr-deviation/DeviationDetail.vue",
+      "kind": "permission",
+      "value": "mes:pro-edhr-deviation:qa-close",
+      "reason": "偏差处理显式职责派单及签署沿用现有偏差各节点权限与个人待办权限；保留既定五/六类职责，不新增菜单、权限标识、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/mes/pro/edhr-nonconformance/NonconformanceReviewPage.vue",
+      "kind": "permission",
+      "value": "mes:pro-edhr-nonconformance-review:dispose",
+      "reason": "不合格QA显式指派及审批/个人工作台读取复用现有QA查询、处置权限与原菜单；只对正式任务候选本人开放，不新增权限标识、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/mes/pro/edhr/RecordChangePage.vue",
+      "kind": "permission",
+      "value": "mes:pro-edhr-change:approve",
+      "reason": "重开补录申请及本人审批沿用现有记录变更查询、重开、补录、审批与个人待办权限；审批责任显式选择并禁止自审，不新增菜单、权限标识、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/mes/pro/edhr/RecordChangePage.vue",
+      "kind": "permission",
+      "value": "mes:pro-edhr-change:reopen",
+      "reason": "重开补录申请及本人审批沿用现有记录变更查询、重开、补录、审批与个人待办权限；审批责任显式选择并禁止自审，不新增菜单、权限标识、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/mes/pro/edhr/RecordChangePage.vue",
+      "kind": "permission",
+      "value": "mes:pro-edhr-change:supplement",
+      "reason": "重开补录申请及本人审批沿用现有记录变更查询、重开、补录、审批与个人待办权限；审批责任显式选择并禁止自审，不新增菜单、权限标识、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/mes/pro/processpool/components/DossierResponsibilityAssignment.vue",
+      "kind": "permission",
+      "value": "mes:pro-process-pool-team-leader:maintain",
+      "reason": "活跃订单资料责任指派及PQC驳回补正复用现有资料上传、工作待办与生产组长维护权限；按正式订单归属和指定本人校验，不新增菜单、权限标识、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-bpm/src/main/java/cn/iocoder/yudao/module/bpm/workbench/EdhrVoidWorkbenchSource.java",
+      "kind": "permission",
+      "value": "bpm:task:query",
+      "reason": "独立批次作废仅将现有正式BPM任务只读投影到个人工作台；可见性同时要求既有审批待办查询、流程详情查询和任务审批权限，确保打开原流程页面并完成审批。不新增审批、菜单、权限标识、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-bpm/src/main/java/cn/iocoder/yudao/module/bpm/workbench/EdhrVoidWorkbenchSource.java",
+      "kind": "permission",
+      "value": "bpm:process-instance:query",
+      "reason": "独立批次作废仅将现有正式BPM任务只读投影到个人工作台；可见性同时要求既有审批待办查询、流程详情查询和任务审批权限，确保打开原流程页面并完成审批。不新增审批、菜单、权限标识、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-bpm/src/main/java/cn/iocoder/yudao/module/bpm/workbench/EdhrVoidWorkbenchSource.java",
+      "kind": "permission",
+      "value": "bpm:task:update",
+      "reason": "独立批次作废仅将现有正式BPM任务只读投影到个人工作台；可见性同时要求既有审批待办查询、流程详情查询和任务审批权限，确保打开原流程页面并完成审批。不新增审批、菜单、权限标识、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/batchrecord/MesEdhrTaskDeadlineController.java",
+      "kind": "permission",
+      "value": "mes:pro-edhr-work-task-rule:query",
+      "reason": "业务时限配置从现有工艺路线页面进入，复用既有任务规则查询与维护权限，无新增菜单、权限标识、目标角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/batchrecord/MesEdhrTaskDeadlineController.java",
+      "kind": "permission",
+      "value": "mes:pro-edhr-work-task-rule:update",
+      "reason": "业务时限配置从现有工艺路线页面进入，复用既有任务规则查询与维护权限，无新增菜单、权限标识、目标角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/mes/pro/production-release/components/MarketReleaseNegativeDecision.vue",
+      "kind": "permission",
+      "value": "mes:pro-edhr-release:reject",
+      "reason": "上市放行负向办理组件复用现有放行驳回/撤回权限，后端核对正式任务与原申请人；不新增权限、菜单、角色及租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/mes/pro/production-release/components/MarketReleaseNegativeDecision.vue",
+      "kind": "permission",
+      "value": "mes:pro-edhr-release:withdraw",
+      "reason": "上市放行负向办理组件复用现有放行驳回/撤回权限，后端核对正式任务与原申请人；不新增权限、菜单、角色及租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesEdhrRecordChangeTaskService.java",
+      "kind": "permission",
+      "value": "mes:pro-edhr-change:reopen",
+      "reason": "重开退回补正待办仅由原申请人按既有重开权限办理，复用现有记录变更菜单，无新增权限、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesEdhrRecordChangeTaskService.java",
+      "kind": "permission",
+      "value": "mes:pro-edhr-change:supplement",
+      "reason": "补录退回补正待办仅由原申请人按既有补录权限办理，复用现有记录变更菜单，无新增权限、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesEdhrRecordChangeTaskService.java",
+      "kind": "permission",
+      "value": "mes:pro-edhr-change:void",
+      "reason": "单张记录作废退回补正复用现有作废权限，仅原申请人办理原补正待办，沿用记录变更菜单，不新增权限、角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/mes/pro/edhr/RecordChangePage.vue",
+      "kind": "permission",
+      "value": "mes:pro-edhr-change:void",
+      "reason": "现有记录变更页增加单张记录作废申请，复用既有作废权限，指定独立审批人并展示目标记录，不新增菜单、权限、角色或租户套餐授权。"
     }
   ]
 }

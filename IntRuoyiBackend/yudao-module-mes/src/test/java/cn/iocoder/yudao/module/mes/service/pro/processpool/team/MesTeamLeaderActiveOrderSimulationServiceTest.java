@@ -216,15 +216,13 @@ class MesTeamLeaderActiveOrderSimulationServiceTest {
         MesPqcInspectionTaskDO pendingPqcTask = pqcTask(MesPqcInspectionTaskDO.TASK_STATUS_PENDING);
         MesPqcInspectionTaskDO secondProcessPqcTask = pqcTask(MesPqcInspectionTaskDO.TASK_STATUS_PENDING)
                 .setId(8302L)
-                .setRouteProcessId(5002L)
-                .setProcessId(6002L);
+                .setRoundNo(2);
         MesPqcInspectionTaskDO confirmedPqcTask = pqcTask(MesPqcInspectionTaskDO.TASK_STATUS_CONFIRMED)
                 .setActualInspectionQuantity(1)
                 .setSubmittedEventId(8001L);
         MesPqcInspectionTaskDO secondConfirmedPqcTask = pqcTask(MesPqcInspectionTaskDO.TASK_STATUS_CONFIRMED)
                 .setId(8302L)
-                .setRouteProcessId(5002L)
-                .setProcessId(6002L)
+                .setRoundNo(2)
                 .setActualInspectionQuantity(1)
                 .setSubmittedEventId(8002L);
         List<MesProcessPoolReportAllocationDO> completedAllocations = List.of(
@@ -367,12 +365,9 @@ class MesTeamLeaderActiveOrderSimulationServiceTest {
                 .createPqcInspectionEvent(pqcCaptor.capture());
         assertEquals(List.of(10005L, 10007L), pqcCaptor.getAllValues().stream()
                 .map(MesProcessPoolCreatePqcInspectionReqDTO::getSignatureId).toList());
-        assertEquals(List.of(3001L, 3001L), pqcCaptor.getAllValues().stream()
-                .map(MesProcessPoolCreatePqcInspectionReqDTO::getDeviceAccountId).toList());
-        assertEquals(List.of(1701L, 1701L), pqcCaptor.getAllValues().stream()
-                .map(MesProcessPoolCreatePqcInspectionReqDTO::getDeviceId).toList());
-        assertEquals(List.of(801L, 802L), pqcCaptor.getAllValues().stream()
-                .map(MesProcessPoolCreatePqcInspectionReqDTO::getWorkstationId).toList());
+        assertTrue(pqcCaptor.getAllValues().stream().allMatch(request ->
+                request.getDeviceAccountId() == null && request.getDeviceId() == null && request.getWorkstationId() == null),
+                "Independent QA tasks carry equipment in item evidence, without a production workstation");
         assertTrue(pqcCaptor.getAllValues().stream()
                 .allMatch(req -> req.getRawPayload().contains("\"selectedEquipment\"")));
         assertTrue(pqcCaptor.getAllValues().stream()
@@ -591,7 +586,6 @@ class MesTeamLeaderActiveOrderSimulationServiceTest {
                 147L, 9903L, List.of("COMMON-001"))).thenReturn(Map.of("COMMON-001", List.of(
                 new MesPqcItemEquipmentOption("COMMON-001", 2701L, "PQC-COMMON-001",
                         "通用PQC设备", "PQC-COMMON-NO-001", true, 1))));
-        when(routeProcessMapper.selectByIdIgnoreDeleted(5001L)).thenReturn(routeProcess(5001L, 6001L, 801L));
 
         Object selectedEquipment = org.springframework.test.util.ReflectionTestUtils.invokeMethod(service,
                 "resolveDefaultPqcEquipment", activeOrder, commonTask, commonItem);
@@ -693,16 +687,14 @@ class MesTeamLeaderActiveOrderSimulationServiceTest {
                 .workOrderId(9001L)
                 .routeId(922119L)
                 .routeVersionId(448L)
-                .routeProcessId(5001L)
-                .processId(6001L)
                 .qaProcessId(19902L)
-                .qaItemCode("FIRST-001")
                 .regulationVersionId(9902L)
                 .inspectionType("FIRST")
                 .inspectionRuleKey("FIRST")
                 .businessDate(LocalDate.of(2026, 8, 20))
                 .shiftCode("FIRST")
                 .roundNo(1)
+                .inspectionItemPlanJson("{\"FIRST-001\":1}")
                 .plannedInspectionQuantity(1)
                 .actualInspectionQuantity(0)
                 .taskStatus(status)

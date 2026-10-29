@@ -48,6 +48,7 @@ class MesEdhrApprovalOutcomeReaderTest {
     @BeforeEach void init() {
         TenantContextHolder.setTenantId(1L);
         reader = new MesEdhrApprovalOutcomeReader(tasks, transactions, decisions, applications, actors, signatures, signoff, executionFinal);
+        ReflectionTestUtils.setField(reader, "deviationOutcomeReader", org.mockito.Mockito.mock(MesEdhrDeviationApprovalOutcomeReader.class));
     }
     @AfterEach void cleanup() { TenantContextHolder.clear(); }
 
@@ -356,6 +357,35 @@ class MesEdhrApprovalOutcomeReaderTest {
         task.setTenantId(2L);
         task.setCompletedBy(188L).setCompletionSourceId(91L);
         assertThrows(IllegalStateException.class, () -> reader.readAuthorizedHandoff(task));
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"concession_release", "rework", "void"})
+    void qaDecisionUsesVerifiedOriginalReviewAndFrozenReviewer(String disposition) {
+        var task = qaHandoff();
+        var review = new MesProEdhrNonconformanceReviewDO().setId(190L).setTenantId(1L).setActiveOrderId(180L)
+                .setWorkOrderId(93L).setQaReviewerUserId(188L).setQaUserId(188L).setClosedAt(AT)
+                .setReviewStatus("closed").setDisposition(disposition).setReviewOpinion(OPINION);
+        when(actors.readVerifiedQaReview(177L, 190L)).thenReturn(review);
+        var result = reader.readAuthorizedHandoff(task);
+        assertEquals(ApprovalTaskReviewResult.APPROVE, result.approvalResult());
+        assertEquals(disposition, result.decisionSourceStatus());assertEquals(OPINION, result.approvalRemark());
+        assertEquals(188L, result.actorUserId());assertEquals(AT, result.actedAt());
+        assertEquals("190", result.evidenceId());
+        review.setQaReviewerUserId(189L);
+        assertThrows(IllegalStateException.class, () -> reader.readAuthorizedHandoff(task));
+        review.setQaReviewerUserId(188L).setTenantId(2L);
+        assertThrows(IllegalStateException.class, () -> reader.readAuthorizedHandoff(task));
+    }
+    @Test void pendingQaNeverInventsDecisionOrReadsCompletionSignature() {
+        var task=qaHandoff().setStatus("TODO").setCompletedAt(null).setCompletedBy(null).setCompletionSourceId(null);
+        var result=reader.readAuthorizedHandoff(task);assertEquals("WAIT",result.taskOutcome());assertNull(result.approvalResult());
+        verifyNoInteractions(actors,signatures);
+    }
+    private static MesActiveOrderHandoffTaskDO qaHandoff() {
+        return handoff().setTaskType("QA_REVIEW").setSourceType("NONCONFORMANCE_REVIEW").setSourceId(190L).setRoundId(190L)
+                .setStatus("DONE").setCompletedBy(188L).setCompletedAt(AT).setCompletionSourceId(190L)
+                .setActionUrl("/mes/pro/feedback/edhr-nonconformance-review?activeOrderId=180&reviewId=190&handoffTaskId=177&roundId=190&handoffType=QA_REVIEW");
     }
 
     private static MesActiveOrderHandoffTaskDO handoff() {

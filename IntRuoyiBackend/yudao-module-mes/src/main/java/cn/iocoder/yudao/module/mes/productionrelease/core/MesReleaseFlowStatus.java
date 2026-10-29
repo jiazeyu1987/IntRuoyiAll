@@ -8,6 +8,8 @@ public final class MesReleaseFlowStatus {
     public static final String PQC_RELEASE_REJECTED = "PQC_RELEASE_REJECTED";
     public static final String REPORT_UPLOAD_PENDING = "REPORT_UPLOAD_PENDING";
     public static final String MANAGER_RELEASE_PENDING = "MANAGER_RELEASE_PENDING";
+    public static final String MARKET_RELEASE_REJECTED = "MARKET_RELEASE_REJECTED";
+    public static final String MARKET_RELEASE_WITHDRAWN = "MARKET_RELEASE_WITHDRAWN";
     public static final String RELEASED = "RELEASED";
     public static final String NONCONFORMANCE_REWORK = "NONCONFORMANCE_REWORK";
     public static final String NONCONFORMANCE_VOID = "NONCONFORMANCE_VOID";
@@ -17,7 +19,7 @@ public final class MesReleaseFlowStatus {
             PQC_RELEASE_REJECTED,
             REPORT_UPLOAD_PENDING,
             MANAGER_RELEASE_PENDING,
-            RELEASED, NONCONFORMANCE_REWORK, NONCONFORMANCE_VOID);
+            MARKET_RELEASE_REJECTED, MARKET_RELEASE_WITHDRAWN, RELEASED, NONCONFORMANCE_REWORK, NONCONFORMANCE_VOID);
 
     private MesReleaseFlowStatus() {
     }
@@ -32,7 +34,8 @@ public final class MesReleaseFlowStatus {
                     || REPORT_UPLOAD_PENDING.equals(toStatus);
             case REPORT_UPLOAD_PENDING -> REPORT_UPLOAD_PENDING.equals(toStatus)
                     || MANAGER_RELEASE_PENDING.equals(toStatus);
-            case MANAGER_RELEASE_PENDING -> RELEASED.equals(toStatus);
+            case MANAGER_RELEASE_PENDING -> RELEASED.equals(toStatus)
+                    || MARKET_RELEASE_REJECTED.equals(toStatus) || MARKET_RELEASE_WITHDRAWN.equals(toStatus);
             default -> false;
         };
     }

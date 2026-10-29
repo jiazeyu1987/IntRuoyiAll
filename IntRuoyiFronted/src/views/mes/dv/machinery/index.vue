@@ -5,7 +5,7 @@
   <el-row :gutter="20">
     <el-col :span="4" :xs="24">
       <ContentWrap class="h-1/1">
-        <MachineryTypeTree @node-click="handleTypeNodeClick" />
+        <MachineryTypeTree ref="machineryTypeTreeRef" @node-click="handleTypeNodeClick" />
       </ContentWrap>
     </el-col>
     <el-col :span="20" :xs="24">
@@ -41,23 +41,37 @@
             >
               <Icon icon="ep:plus" class="mr-5px" /> 新增
             </el-button>
-            <el-button
-              v-hasPermi="['mes:dv-machinery:import']"
-              type="warning"
-              plain
-              @click="handleImport"
+            <el-dropdown
+              v-if="canShowAdvanced"
+              trigger="click"
+              :disabled="deleteAllLoading || exportLoading"
             >
-              <Icon icon="ep:upload" class="mr-5px" /> 导入
-            </el-button>
-            <el-button
-              v-hasPermi="['mes:dv-machinery:export']"
-              type="success"
-              plain
-              :loading="exportLoading"
-              @click="handleExport"
-            >
-              <Icon icon="ep:download" class="mr-5px" /> 导出
-            </el-button>
+              <el-button :loading="deleteAllLoading || exportLoading">
+                高级 <Icon icon="ep:arrow-down" class="ml-5px" />
+              </el-button>
+              <template #dropdown>
+                <el-dropdown-menu>
+                  <el-dropdown-item
+                    v-if="checkPermi(['mes:dv-machinery:import'])"
+                    @click="handleImport"
+                    >导入</el-dropdown-item
+                  >
+                  <el-dropdown-item
+                    v-if="checkPermi(['mes:dv-machinery:export'])"
+                    @click="handleExport"
+                    >导出</el-dropdown-item
+                  >
+                  <el-dropdown-item
+                    v-if="canDeleteAll"
+                    divided
+                    :disabled="deleteAllLoading"
+                    @click="handleDeleteAll"
+                  >
+                    <span class="text-red-500">删除全部设备台账、车间和设备类型</span>
+                  </el-dropdown-item>
+                </el-dropdown-menu>
+              </template>
+            </el-dropdown>
           </template>
 
           <template #table>
@@ -201,6 +215,8 @@
 </template>
 
 <script setup lang="ts">
+import { ElMessageBox } from 'element-plus'
+import { checkPermi } from '@/utils/permission'
 import { dateFormatter } from '@/utils/formatTime'
 import download from '@/utils/download'
 import { DvMachineryApi, DvMachineryVO } from '@/api/mes/dv/machinery'
@@ -211,8 +227,14 @@ import { DICT_TYPE, getIntDictOptions } from '@/utils/dict'
 import { BarcodeDetail } from '@/views/mes/wm/barcode/components'
 import { BarcodeBizTypeEnum } from '@/views/mes/utils/constants'
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
-import { useUserTableColumns, type UserTableColumnDefinition } from '@/hooks/web/useUserTableColumns'
-import { useTableQuickFilter, type TableQuickFilterDefinition } from '@/hooks/web/useTableQuickFilter'
+import {
+  useUserTableColumns,
+  type UserTableColumnDefinition
+} from '@/hooks/web/useUserTableColumns'
+import {
+  useTableQuickFilter,
+  type TableQuickFilterDefinition
+} from '@/hooks/web/useTableQuickFilter'
 
 defineOptions({ name: 'MesDvMachinery' })
 
@@ -256,6 +278,47 @@ const queryParams = reactive({
   status: undefined as number | string | undefined
 })
 const exportLoading = ref(false)
+const machineryTypeTreeRef = ref<InstanceType<typeof MachineryTypeTree>>()
+const deleteAllLoading = ref(false)
+const canDeleteAll = computed(
+  () =>
+    checkPermi(['mes:dv-machinery:delete']) &&
+    checkPermi(['mes:md-workshop:delete']) &&
+    checkPermi(['mes:dv-machinery-type:delete'])
+)
+const canShowAdvanced = computed(
+  () => canDeleteAll.value || checkPermi(['mes:dv-machinery:import', 'mes:dv-machinery:export'])
+)
+const handleDeleteAll = async () => {
+  if (deleteAllLoading.value) return
+  deleteAllLoading.value = true
+  try {
+    try {
+      await ElMessageBox.confirm(
+        '将删除当前租户全部设备台账、车间设置和设备类型数据，不受当前筛选和分页限制。存在点检计划、点检、保养、维修或工作站关联时，整次删除取消。是否继续？',
+        '删除全部数据',
+        { type: 'warning', confirmButtonText: '继续', cancelButtonText: '取消' }
+      )
+      await ElMessageBox.confirm(
+        '再次确认：删除后无法在页面恢复，确定删除全部设备台账、车间设置和设备类型数据？',
+        '最终确认',
+        { type: 'error', confirmButtonText: '确认删除全部', cancelButtonText: '取消' }
+      )
+    } catch (error) {
+      if (error === 'cancel' || error === 'close') return
+      throw error
+    }
+    await DvMachineryApi.deleteAllWithWorkshops()
+    message.success('设备台账、车间设置和设备类型数据已全部删除')
+    queryParams.machineryTypeId = undefined
+    machineryTypeTreeRef.value?.reset()
+    await machineryTypeTreeRef.value?.loadTree()
+    queryParams.pageNo = 1
+    await getList()
+  } finally {
+    deleteAllLoading.value = false
+  }
+}
 
 const machineryQuickFilterDefinitions = computed<TableQuickFilterDefinition[]>(() => [
   {
@@ -349,7 +412,7 @@ const handleExport = async () => {
     await message.exportConfirm()
     exportLoading.value = true
     const data = await DvMachineryApi.exportMachinery(queryParams)
-    download.excel(data, '设备台账.xls')
+    download.excel(data, '设备台账.xlsx')
   } catch {
   } finally {
     exportLoading.value = false

@@ -245,6 +245,9 @@ public class MesTeamLeaderActiveOrderDetail {
     @Data
     @Accessors(chain = true)
     public static class OperationFact {
+        private String handoverFromName;
+        private String handoverToName;
+        private String handoverReason;
         private Long id;
         private String operationType;
         private String operationName;

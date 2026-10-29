@@ -257,6 +257,7 @@ operations:
   sourceLocators:
   - cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderReleaseApplicationServiceImpl#apply
   - cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderReleaseApplicationServiceImpl#applyGenerated
+  - cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderReleaseApplicationServiceImpl#applyCorrection
   domain: MES
   subjectType: PRODUCTION_RELEASE_APPLICATION
   actionType: CREATE
@@ -287,6 +288,38 @@ operations:
   - BDD-D07-APPROVE
   - BDD-D07-IDEMPOTENCY
   - BDD-D07-AUDIT-FAILURE
+  ownerRole: mes-owner
+  applicability: GXP
+- operationId: mes.pqc-release.correction-resubmit
+  sourceType: SERVICE_METHOD
+  sourceLocators:
+  - cn.iocoder.yudao.module.mes.service.pro.productionrelease.pqc.MesPqcReleaseCorrectionService#resubmit
+  domain: MES
+  subjectType: PQC_RELEASE_CORRECTION
+  actionType: UPDATE
+  reasonPolicy: USER_REQUIRED
+  signaturePolicy: NONE
+  statePolicy: PRESENT_TO_PRESENT
+  snapshotProfile: PQC_RELEASE
+  retentionClass: GXP_MES_RELEASE
+  testIds:
+  - MesPqcReleaseCorrectionServiceTest
+  ownerRole: mes-owner
+  applicability: GXP
+- operationId: mes.pqc-release.correction-receive
+  sourceType: SERVICE_METHOD
+  sourceLocators:
+  - cn.iocoder.yudao.module.mes.service.pro.productionrelease.pqc.MesPqcReleaseCorrectionService#receive
+  domain: MES
+  subjectType: PQC_RELEASE_CORRECTION
+  actionType: CREATE
+  reasonPolicy: USER_REQUIRED
+  signaturePolicy: NONE
+  statePolicy: ABSENT_TO_PRESENT
+  snapshotProfile: PQC_RELEASE
+  retentionClass: GXP_MES_RELEASE
+  testIds:
+  - MesPqcReleaseCorrectionServiceTest
   ownerRole: mes-owner
   applicability: GXP
 - operationId: mes.pqc.production-release.reject
@@ -950,10 +983,43 @@ operations:
   - MesProEdhrNonconformanceReviewApplicationScopeTest#ncr02UnsignedCreationTakesLedgerLockBeforeActiveOrderLock
   ownerRole: mes-owner
   applicability: GXP
+- operationId: mes.market-release.handover
+  sourceType: SERVICE_METHOD
+  sourceLocators:
+  - cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesMarketReleaseHandoverService#handover
+  domain: MES
+  subjectType: MES_MARKET_RELEASE_HANDOVER
+  actionType: ADD
+  reasonPolicy: USER_REQUIRED
+  signaturePolicy: NONE
+  statePolicy: ABSENT_TO_PRESENT
+  snapshotProfile: APPLICATION
+  retentionClass: GXP_MES_WORK_TASK
+  testIds:
+  - MesMarketReleaseHandoverTest#handoverAndRecallAreExclusiveAndAudited
+  ownerRole: mes-owner
+  applicability: GXP
+- operationId: mes.market-release.recall
+  sourceType: SERVICE_METHOD
+  sourceLocators:
+  - cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesMarketReleaseHandoverService#recall
+  domain: MES
+  subjectType: MES_MARKET_RELEASE_HANDOVER
+  actionType: UPDATE
+  reasonPolicy: USER_REQUIRED
+  signaturePolicy: NONE
+  statePolicy: PRESENT_TO_PRESENT
+  snapshotProfile: APPLICATION
+  retentionClass: GXP_MES_WORK_TASK
+  testIds:
+  - MesMarketReleaseHandoverTest#handoverAndRecallAreExclusiveAndAudited
+  ownerRole: mes-owner
+  applicability: GXP
 - operationId: mes.release-task-notification.created
   sourceType: SERVICE_METHOD
   sourceLocators:
   - cn.iocoder.yudao.module.mes.service.pro.productionrelease.notification.MesReleaseTaskNotificationService#scheduleAssigned
+  - cn.iocoder.yudao.module.mes.service.pro.productionrelease.notification.MesReleaseTaskNotificationService#scheduleHandover
   domain: MES
   subjectType: MES_RELEASE_NOTIFY_DELIVERY
   actionType: ADD
@@ -1016,6 +1082,22 @@ operations:
   testIds:
   - MesReleaseTaskNotificationReliabilityTest#missingTemplateDoesNotRollBackBusinessAndPersistsVisibleFailureAfterCommit
   - MesReleaseTaskNotificationReliabilityTest#committedPlatformMessageStillRequiresEnabledTemplateOnReplayThenRecoversSameId
+  ownerRole: mes-owner
+  applicability: GXP
+- operationId: mes.active-order-handoff.qa-reviewer-assigned
+  sourceType: SERVICE_METHOD
+  sourceLocators:
+  - cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrNonconformanceReviewServiceImpl#assignReviewer
+  domain: MES
+  subjectType: NONCONFORMANCE_REVIEW
+  actionType: UPDATE
+  reasonPolicy: USER_REQUIRED
+  signaturePolicy: NONE
+  statePolicy: PRESENT_TO_PRESENT
+  snapshotProfile: APPLICATION
+  retentionClass: GXP_MES_WORK_TASK
+  testIds:
+  - MesNcrReviewerAssignmentTest#historicalUnassignedReviewNeedsExplicitResponsibilityAndPersistsIt
   ownerRole: mes-owner
   applicability: GXP
 - operationId: mes.active-order-handoff.task-created
@@ -1868,6 +1950,8 @@ coverageScope:
   - mes.active-order.complete
   - mes.pqc-release.apply
   - mes.pqc.production-release.approve
+  - mes.pqc-release.correction-resubmit
+  - mes.pqc-release.correction-receive
   - mes.pqc.production-release.reject
   - mes.market-release.approve
   - mes.active-order.close-by-release
@@ -1905,11 +1989,14 @@ coverageScope:
   - edhr.field-save-evidence.bind
   - mes.production-report.correct
   - mes.nonconformance.active-order.create
+  - mes.market-release.handover
+  - mes.market-release.recall
   - mes.release-task-notification.created
   - mes.release-task-notification.attempted
   - mes.release-task-notification.sent
   - mes.release-task-notification.failed
   - mes.active-order-handoff.task-created
+  - mes.active-order-handoff.qa-reviewer-assigned
   - mes.active-order-handoff.task-closed
   - mes.active-order-handoff.delivery-created
   - mes.active-order-handoff.delivery-attempt

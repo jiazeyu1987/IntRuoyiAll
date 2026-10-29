@@ -3,6 +3,7 @@ package cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team;
 import cn.iocoder.yudao.framework.common.pojo.CommonResult;
 import cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils;
 import cn.iocoder.yudao.module.mes.service.pro.productionrelease.pqc.MesActiveOrderDossierFileService;
+import cn.iocoder.yudao.module.mes.service.pro.productionrelease.pqc.MesActiveOrderDossierCompletionService;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -24,6 +25,26 @@ import static cn.iocoder.yudao.framework.common.pojo.CommonResult.success;
 public class MesActiveOrderDossierFileController {
 
     private final MesActiveOrderDossierFileService dossierFileService;
+    private final MesActiveOrderDossierCompletionService completionService;
+
+    @GetMapping("/responsibilities")
+    @PreAuthorize("@ss.hasPermission('mes:pro-process-pool-team-leader:maintain')")
+    public CommonResult<java.util.List<MesActiveOrderDossierCompletionService.Responsibility>> responsibilities(@RequestParam Long activeOrderId) {
+        return success(completionService.responsibilities(SecurityFrameworkUtils.getLoginUserId(), activeOrderId));
+    }
+
+    @PostMapping("/assign")
+    @PreAuthorize("@ss.hasPermission('mes:pro-process-pool-team-leader:maintain')")
+    public CommonResult<Long> assign(@RequestBody AssignReqVO request) {
+        return success(completionService.assign(SecurityFrameworkUtils.getLoginUserId(), request.getActiveOrderId(),
+                request.getCategoryKey(), request.getAssigneeUserId(), request.getReason()).getId());
+    }
+
+    @GetMapping("/completion-task")
+    @PreAuthorize("@ss.hasPermission('mes:pro-edhr-work-task:query')")
+    public CommonResult<MesActiveOrderDossierCompletionService.TaskDetail> task(@RequestParam Long workTaskId) {
+        return success(completionService.get(SecurityFrameworkUtils.getLoginUserId(), workTaskId));
+    }
 
     @GetMapping
     @PreAuthorize("@ss.hasAnyPermissions('mes:pro-process-pool-team-leader:query', 'mes:pro-production-release:query', 'mes:pro-edhr-batch-execution:upload')")
@@ -40,10 +61,11 @@ public class MesActiveOrderDossierFileController {
             @RequestParam("activeOrderId") Long activeOrderId,
             @RequestParam(value = "applicationId", required = false) Long applicationId,
             @RequestParam("categoryKey") String categoryKey,
+            @RequestParam(value = "workTaskId", required = false) Long workTaskId,
             @RequestParam("file") MultipartFile file) throws IOException {
         return success(dossierFileService.upload(SecurityFrameworkUtils.getLoginUserId(),
                 new MesActiveOrderDossierFileService.UploadCommand(activeOrderId, applicationId, categoryKey,
-                        file.getOriginalFilename(), file.getContentType(), file.getBytes())));
+                        file.getOriginalFilename(), file.getContentType(), file.getBytes(), workTaskId)));
     }
 
     @PostMapping("/delete")
@@ -53,6 +75,14 @@ public class MesActiveOrderDossierFileController {
                 new MesActiveOrderDossierFileService.DeleteCommand(reqVO.getActiveOrderId(),
                         reqVO.getApplicationId(), reqVO.getCategoryKey(), reqVO.getAttachmentId()));
         return success(true);
+    }
+
+    @Data
+    public static class AssignReqVO {
+        private Long activeOrderId;
+        private String categoryKey;
+        private Long assigneeUserId;
+        private String reason;
     }
 
     @Data

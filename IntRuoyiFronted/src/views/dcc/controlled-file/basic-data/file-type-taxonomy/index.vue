@@ -1,10 +1,5 @@
 <template>
   <ContentWrap class="scheme-d-basic-data-page scheme-d-basic-data-page--dcc-file-type-taxonomy">
-    <div class="mb-16px flex items-center gap-8px">
-      <span class="text-18px font-600 text-[var(--el-text-color-primary)]">DCC文件分类</span>
-      <el-tag class="scheme-d-tag" effect="plain" size="small">五级分类</el-tag>
-    </div>
-
     <UnifiedListTemplate
       class="dcc-file-type-taxonomy-list-template"
       table-key="dcc.fileTypeTaxonomy.main"

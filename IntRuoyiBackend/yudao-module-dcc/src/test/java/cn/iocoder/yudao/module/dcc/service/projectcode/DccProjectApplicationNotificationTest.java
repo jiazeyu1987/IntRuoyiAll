@@ -145,7 +145,7 @@ class DccProjectApplicationNotificationTest extends BaseDbUnitTest {
         var page=adapter.page(ApprovalTaskQueryContext.of(2L,ApprovalTaskViewType.TODO,ApprovalModuleCode.DCC,null,1,10));
         assertEquals(1,page.getTotal());var row=page.getList().get(0);
         assertEquals(String.valueOf(id),row.getBusinessKey());assertEquals("DCC_PROJECT_PRODUCT_REVIEW",row.getSourceTaskType());
-        assertNull(row.getProcessInstanceId());assertEquals(Boolean.FALSE,row.getRequiresSignature());assertEquals(Set.of("PROCESS_IN_MODULE"),row.getAvailableActions());
+        assertNull(row.getProcessInstanceId());assertEquals(Boolean.TRUE,row.getRequiresSignature());assertEquals(Set.of("APPROVE","REJECT"),row.getAvailableActions());
     }
 
     @Test void lateFailureAfterActualOfficialMessageInsertRollsBackAllSameTransactionRows() {

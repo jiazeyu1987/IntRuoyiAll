@@ -8,6 +8,8 @@ import cn.iocoder.yudao.module.system.dal.dataobject.user.AdminUserDO;
 import cn.iocoder.yudao.module.system.service.dept.PostConfigPackageService;
 import cn.iocoder.yudao.module.system.service.permission.PermissionService;
 import cn.iocoder.yudao.module.system.service.permission.RoleConfigPackageService;
+import cn.iocoder.yudao.module.system.service.permission.RoleCategoryService;
+import cn.iocoder.yudao.module.system.dal.dataobject.permission.RoleCategoryDO;
 import cn.iocoder.yudao.module.system.service.permission.RoleService;
 import cn.iocoder.yudao.module.system.service.user.AdminUserService;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -44,6 +46,8 @@ class MesProSchedulerWorkbenchFullConfigPackageServiceTest {
     @Mock
     private RoleConfigPackageService roleConfigPackageService;
     @Mock
+    private RoleCategoryService roleCategoryService;
+    @Mock
     private MesProSchedulerWorkbenchRouteConfigPackageService routeConfigPackageService;
     @Mock
     private MesProSchedulerWorkbenchManualReplanDataPackageService manualReplanDataPackageService;
@@ -62,7 +66,9 @@ class MesProSchedulerWorkbenchFullConfigPackageServiceTest {
     void exportPackage_shouldContainAllSubPackagesAndUserRoleBindings() throws Exception {
         when(postConfigPackageService.exportPackage()).thenReturn("{\"packageVersion\":\"1\",\"posts\":[]}"
                 .getBytes(StandardCharsets.UTF_8));
-        when(roleConfigPackageService.exportPackage()).thenReturn("{\"packageVersion\":\"1\",\"roles\":[]}"
+        when(roleCategoryService.getRoleCategoryList()).thenReturn(List.of(
+                new RoleCategoryDO().setId(21L), new RoleCategoryDO().setId(22L)));
+        when(roleConfigPackageService.exportPackage(List.of(21L, 22L))).thenReturn("{\"packageVersion\":\"1\",\"roles\":[]}"
                 .getBytes(StandardCharsets.UTF_8));
         when(routeConfigPackageService.exportPackage()).thenReturn("{\"packageVersion\":\"scheduler-route-config.v1\",\"routes\":[]}"
                 .getBytes(StandardCharsets.UTF_8));

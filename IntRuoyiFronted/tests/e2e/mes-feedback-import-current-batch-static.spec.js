@@ -7,11 +7,11 @@ const workspaceRoot = path.resolve(frontendRoot, '..')
 const pagePath = path.resolve(frontendRoot, 'src/views/mes/pro/feedback/index.vue')
 const reqVoPath = path.resolve(
   workspaceRoot,
-  'ruoyi-vue-pro/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/feedback/vo/importrecord/MesProFeedbackImportRecordPageReqVO.java'
+  'IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/feedback/vo/importrecord/MesProFeedbackImportRecordPageReqVO.java'
 )
 const mapperPath = path.resolve(
   workspaceRoot,
-  'ruoyi-vue-pro/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/dal/mysql/pro/feedback/MesProFeedbackImportRecordMapper.java'
+  'IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/dal/mysql/pro/feedback/MesProFeedbackImportRecordMapper.java'
 )
 
 for (const filePath of [pagePath, reqVoPath, mapperPath]) {

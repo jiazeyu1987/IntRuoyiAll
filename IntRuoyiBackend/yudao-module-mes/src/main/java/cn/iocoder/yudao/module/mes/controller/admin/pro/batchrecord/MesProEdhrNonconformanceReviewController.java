@@ -42,6 +42,14 @@ public class MesProEdhrNonconformanceReviewController {
     @Resource
     private MesProEdhrNonconformanceReviewService nonconformanceReviewService;
 
+    @PostMapping("/assign-reviewer")
+    @Operation(summary = "为尚未分派的待评审单明确指派QA责任人")
+    @PreAuthorize("@ss.hasPermission('mes:pro-edhr-nonconformance-review:create')")
+    public CommonResult<MesProEdhrNonconformanceReviewRespVO> assignReviewer(
+            @Valid @RequestBody cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrNonconformanceReviewerAssignReqVO reqVO) {
+        return success(nonconformanceReviewService.assignReviewer(reqVO.getId(), reqVO.getQaReviewerUserId()));
+    }
+
     @PostMapping("/create")
     @Operation(summary = "创建 eDHR 不合格评审单并冻结批次")
     @PreAuthorize("@ss.hasPermission('mes:pro-edhr-nonconformance-review:create')")

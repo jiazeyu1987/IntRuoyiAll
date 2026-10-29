@@ -11,7 +11,6 @@ import cn.hutool.crypto.digest.DigestUtil;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrCandidateResolver.MesProEdhrCandidateContract;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrWorkTaskArchiveRuleReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrWorkTaskAssignmentRuleRespVO;
-import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrWorkTaskCloseRuleReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrWorkTaskPageReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrWorkTaskReleaseApprovalRuleReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrWorkTaskRespVO;
@@ -20,6 +19,7 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatc
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionTaskDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrProcessFormPermissionRuleDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrReleaseTransactionDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrDeviationDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrWorkTaskAssignmentRuleDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrWorkTaskDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationDO;
@@ -92,6 +92,8 @@ import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrWork
 
 @Service
 public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService {
+    @Resource private MesEdhrTaskDeadlineService taskDeadlineService;
+    @Resource private MesMarketReleaseAccess marketReleaseAccess;
 
     private static final String BUSINESS_SCOPE_TYPE_BATCH_TASK = "BATCH_TASK";
     private static final String BUSINESS_SCOPE_TYPE_BATCH_ARCHIVE = "BATCH_ARCHIVE";
@@ -350,19 +352,6 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
     }
 
     @Override
-    public MesProEdhrWorkTaskAssignmentRuleRespVO getCloseRuleByRoute(Long routeId) {
-        return getRouteRuleByRoute(routeId, TASK_TYPE_CLOSE);
-    }
-
-    @Override
-    @Transactional(rollbackFor = Exception.class)
-    public MesProEdhrWorkTaskAssignmentRuleRespVO saveCloseRule(MesProEdhrWorkTaskCloseRuleReqVO reqVO) {
-        saveRouteRule(reqVO.getRouteId(), reqVO.getAssigneeUserId(), reqVO.getDueMinutes(),
-                reqVO.getEnabled(), reqVO.getRemark(), TASK_TYPE_CLOSE);
-        return getCloseRuleByRoute(reqVO.getRouteId());
-    }
-
-    @Override
     public MesProEdhrWorkTaskAssignmentRuleRespVO getReleaseApprovalRuleByRoute(Long routeId) {
         return getRouteRuleByRoute(routeId, TASK_TYPE_RELEASE_APPROVE);
     }
@@ -454,6 +443,7 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
 
     @Override
     public MesProEdhrWorkTaskDO validateWritableFillTaskForExecution(Long workTaskId, Long executionId) {
+        marketReleaseAccess.requireExecutionAccess(executionId,true);
         MesProEdhrWorkTaskDO workTask = workTaskMapper.selectById(workTaskId);
         if (workTask == null) {
             throw exception(PRO_EDHR_WORK_TASK_NOT_EXISTS);
@@ -475,7 +465,8 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
         var batch = batchExecutionMapper.selectByIdForUpdate(workTask.getBatchExecutionId());
         if (batch == null || !Objects.equals(batch.getTenantId(), TenantContextHolder.getRequiredTenantId())
                 || !Objects.equals(batch.getWorkOrderId(), workTask.getWorkOrderId())
-                || batch.getStatus() == null || !Set.of(0, 10, 20, 25).contains(batch.getStatus())) {
+                || batch.getStatus() == null || (!Set.of(0, 10, 20, 25).contains(batch.getStatus())
+                && !(Integer.valueOf(70).equals(batch.getStatus()) && "RECORD_CHANGE".equals(workTask.getBusinessScopeType())))) {
             throw exception(PRO_BATCH_RECORD_EXECUTION_WRITE_TASK_INVALID, "批次已冻结或关闭，禁止写入");
         }
         var order = workOrderMapper.selectByIdForUpdate(batch.getWorkOrderId());
@@ -490,6 +481,7 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
 
     @Override
     public MesProEdhrWorkTaskDO validateGoldenFingerFillTaskForExecution(Long workTaskId, Long executionId) {
+        marketReleaseAccess.requireExecutionAccess(executionId,true);
         MesProEdhrWorkTaskDO workTask = workTaskMapper.selectById(workTaskId);
         if (workTask == null || !Objects.equals(workTask.getExecutionId(), executionId)) {
             throw exception(PRO_EDHR_WORK_TASK_NOT_EXISTS);
@@ -540,6 +532,7 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
     }
 
     private void validateAssignedTask(MesProEdhrWorkTaskDO workTask, Long executionId, String... expectedTaskTypes) {
+        if(workTask!=null && workTask.getBatchExecutionId()!=null) marketReleaseAccess.requireWritable(workTask.getBatchExecutionId());
         if (workTask == null) {
             throw exception(PRO_EDHR_WORK_TASK_NOT_EXISTS);
         }
@@ -619,6 +612,12 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
                 : batchTaskMapper.selectByIds(batchTaskIds).stream()
                 .collect(Collectors.toMap(MesProEdhrBatchExecutionTaskDO::getId,
                         task -> task, (left, right) -> left, LinkedHashMap::new));
+        Set<Long> batchExecutionIds = list.stream().map(MesProEdhrWorkTaskDO::getBatchExecutionId)
+                .filter(Objects::nonNull).collect(Collectors.toCollection(LinkedHashSet::new));
+        Map<Long, MesProEdhrBatchExecutionDO> batchExecutionMap = batchExecutionIds.isEmpty() ? Map.of()
+                : batchExecutionMapper.selectBatchIds(batchExecutionIds).stream()
+                .collect(Collectors.toMap(MesProEdhrBatchExecutionDO::getId,
+                        batch -> batch, (left, right) -> left, LinkedHashMap::new));
         Set<Long> applicationIds = list.stream()
                 .filter(task -> Objects.equals(BUSINESS_SCOPE_TYPE_RELEASE_APPLICATION, task.getBusinessScopeType()))
                 .map(MesProEdhrWorkTaskDO::getBusinessScopeId)
@@ -647,7 +646,8 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
                         transaction -> transaction, (left, right) -> left, LinkedHashMap::new));
         List<MesProEdhrWorkTaskRespVO> rows = list.stream()
                 .map(task -> toWorkTaskResp(task, currentUserId, userMap, roleNameMap, deptMap,
-                        batchTaskMap, applicationById, applicationByBatchExecutionId, releaseTransactionById))
+                        batchTaskMap, batchExecutionMap, applicationById, applicationByBatchExecutionId,
+                        releaseTransactionById))
                 .toList();
         return new PageResult<>(rows, page.getTotal());
     }
@@ -658,6 +658,7 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
                                                     Map<Long, String> roleNameMap,
                                                      Map<Long, DeptRespDTO> deptMap,
                                                      Map<Long, MesProEdhrBatchExecutionTaskDO> batchTaskMap,
+                                                     Map<Long, MesProEdhrBatchExecutionDO> batchExecutionMap,
                                                      Map<Long, MesProcessPoolActiveOrderReleaseApplicationDO> applicationById,
                                                      Map<Long, MesProcessPoolActiveOrderReleaseApplicationDO> applicationByBatchExecutionId,
                                                      Map<Long, MesProEdhrReleaseTransactionDO> releaseTransactionById) {
@@ -667,7 +668,11 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
         respVO.setCandidatePoolName(resolveCandidatePoolName(task, userMap, roleNameMap, deptMap));
         respVO.setCandidateSnapshotDisplay(resolveCandidateSnapshotDisplay(task, userMap));
         respVO.setResponsibilitySource(resolveResponsibilitySource(task));
-        respVO.setInactionReason(resolveInactionReason(task, currentUserId));
+        String blockedReason = resolveFrozenBatchBlockedReason(task, batchExecutionMap);
+        respVO.setActionable(blockedReason == null && isProcessableStatus(task.getStatus()));
+        respVO.setBlockedReason(blockedReason);
+        respVO.setInactionReason(blockedReason == null
+                ? resolveInactionReason(task, currentUserId) : blockedReason);
         MesProEdhrBatchExecutionTaskDO batchTask = task.getBatchTaskId() == null
                 ? null : batchTaskMap.get(task.getBatchTaskId());
         if (batchTask != null) {
@@ -689,6 +694,25 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
             }
         }
         return respVO;
+    }
+
+    private String resolveFrozenBatchBlockedReason(MesProEdhrWorkTaskDO task,
+                                                   Map<Long, MesProEdhrBatchExecutionDO> batchExecutionMap) {
+        if (!isOrdinaryBatchTask(task.getTaskType()) || task.getBatchExecutionId() == null) {
+            return null;
+        }
+        MesProEdhrBatchExecutionDO batch = batchExecutionMap.get(task.getBatchExecutionId());
+        if (batch != null && Objects.equals(batch.getStatus(),
+                MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_FROZEN)) {
+            return "批次已冻结，待不合格/偏差处理解除后才能继续此任务";
+        }
+        return null;
+    }
+
+    private boolean isOrdinaryBatchTask(String taskType) {
+        return TASK_TYPE_FILL.equals(taskType) || TASK_TYPE_REVIEW.equals(taskType)
+                || TASK_TYPE_APPROVE.equals(taskType) || TASK_TYPE_REWORK.equals(taskType)
+                || TASK_TYPE_ARCHIVE.equals(taskType) || TASK_TYPE_CLOSE.equals(taskType);
     }
 
     private void collectCandidateSnapshotUserIds(String candidateUserSnapshot, Set<Long> userIds) {
@@ -853,6 +877,66 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
 
     @Override
     @Transactional(rollbackFor = Exception.class)
+    public MesProEdhrWorkTaskDO assignDeviationTask(MesProEdhrDeviationDO deviation, String taskType,
+                                                     Long assigneeUserId, String reason) {
+        if (!TASK_TYPE_DEVIATION_RECEIVE.equals(taskType) && !TASK_TYPE_DEVIATION_CORRECT.equals(taskType)) {
+            throw new IllegalArgumentException("Unsupported deviation task type: " + taskType);
+        }
+        if (deviation == null || deviation.getId() == null || (assigneeUserId != null && assigneeUserId <= 0)) {
+            throw new IllegalArgumentException("Deviation and deviation id are required");
+        }
+        if (assigneeUserId != null) {
+            validateAssignee(assigneeUserId);
+            if (!permissionApi.hasAnyPermissions(assigneeUserId, "mes:pro-edhr-deviation:query")
+                    || !permissionApi.hasAnyPermissions(assigneeUserId, "mes:pro-edhr-deviation:handle")
+                    || !permissionApi.hasAnyPermissions(assigneeUserId, "mes:pro-edhr-work-task:query")) {
+                throw exception(PRO_EDHR_WORK_TASK_ASSIGNEE_INVALID);
+            }
+        }
+        String scopeType = "EDHR_DEVIATION";
+        MesProEdhrWorkTaskDO existing = workTaskMapper.selectActiveByBusinessScopeAndType(
+                scopeType, deviation.getId(), taskType);
+        if (existing != null && Objects.equals(existing.getAssigneeUserId(), assigneeUserId)) {
+            return existing;
+        }
+        if (existing != null) {
+            cancelTaskAndRevokeRuntimeEntitlement(existing, "偏差责任人变更", LocalDateTime.now());
+        }
+        if (assigneeUserId == null) {
+            return null;
+        }
+        MesProEdhrWorkTaskDO task = new MesProEdhrWorkTaskDO()
+                .setTaskType(taskType)
+                .setBusinessScopeType(scopeType)
+                .setBusinessScopeId(deviation.getId())
+                .setBatchExecutionId(deviation.getBatchExecutionId())
+                .setWorkOrderId(deviation.getWorkOrderId())
+                .setWorkOrderCode(deviation.getWorkOrderCode())
+                .setBatchCode(deviation.getBatchCode())
+                .setAssigneeUserId(assigneeUserId)
+                .setCandidateUserSnapshot(String.valueOf(assigneeUserId))
+                .setReason(reason)
+                .setRemark(reason);
+        if (existing != null) task.setDueTime(existing.getDueTime());
+        return createTask(task, null, existing == null);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void completeDeviationTask(Long deviationId, String taskType, String result) {
+        if (!TASK_TYPE_DEVIATION_RECEIVE.equals(taskType) && !TASK_TYPE_DEVIATION_CORRECT.equals(taskType)) {
+            throw new IllegalArgumentException("Unsupported deviation task type: " + taskType);
+        }
+        MesProEdhrWorkTaskDO task = workTaskMapper.selectActiveByBusinessScopeAndType(
+                "EDHR_DEVIATION", deviationId, taskType);
+        if (task == null) {
+            return;
+        }
+        completeTask(task, result, result);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
     public void createInitialFillTask(MesProEdhrBatchExecutionDO batch) {
         List<MesProEdhrBatchExecutionTaskDO> batchTasks = batchTaskMapper.selectListByBatchExecutionId(batch.getId());
         createCompanionFillTasksForActiveAnchors(batch, batchTasks);
@@ -990,6 +1074,7 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
     @Override
     public MesProEdhrWorkTaskDO validateReleaseApprovalTask(Long workTaskId, Long releaseTransactionId) {
         MesProEdhrWorkTaskDO workTask = resolveReleaseApprovalTask(workTaskId, releaseTransactionId);
+        marketReleaseAccess.requireWritable(workTask.getBatchExecutionId());
         if (!isAssignedOrCandidate(workTask, requireLoginUserId())) {
             throw exception(PRO_EDHR_WORK_TASK_ASSIGNEE_MISMATCH);
         }
@@ -1002,6 +1087,7 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
     @Override
     public MesProEdhrWorkTaskDO getReleaseApprovalTaskForReview(Long workTaskId, Long releaseTransactionId) {
         MesProEdhrWorkTaskDO workTask = resolveReleaseApprovalTask(workTaskId, releaseTransactionId);
+        marketReleaseAccess.requireWritable(workTask.getBatchExecutionId());
         if (!isAssignedOrCandidate(workTask, requireLoginUserId())) {
             throw exception(PRO_EDHR_WORK_TASK_ASSIGNEE_MISMATCH);
         }
@@ -1966,6 +2052,63 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
+    public MesProEdhrWorkTaskDO createRecordChangeRework(Long changeEventId, Long sourceExecutionId,
+                                                        Long targetExecutionId, String reason) {
+        if (changeEventId == null || sourceExecutionId == null || targetExecutionId == null) {
+            throw new IllegalArgumentException("记录变更与原执行记录身份不能为空");
+        }
+        var existing = workTaskMapper.selectActiveByBusinessScopeAndType("RECORD_CHANGE", changeEventId, TASK_TYPE_REWORK);
+        if (existing != null) {
+            if (!Objects.equals(existing.getExecutionId(), targetExecutionId)) throw new IllegalStateException("记录变更待办指向其它执行记录");
+            return existing;
+        }
+        var history = workTaskMapper.selectList(new cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX<MesProEdhrWorkTaskDO>()
+                .eq(MesProEdhrWorkTaskDO::getExecutionId, sourceExecutionId)
+                .in(MesProEdhrWorkTaskDO::getTaskType, TASK_TYPE_FILL, TASK_TYPE_REWORK)
+                .eq(MesProEdhrWorkTaskDO::getStatus, MesProEdhrWorkTaskStatus.DONE)
+                .orderByDesc(MesProEdhrWorkTaskDO::getId));
+        if (history.isEmpty()) throw new IllegalStateException("原执行记录缺少已完成的正式填写责任快照，无法派发修改任务");
+        var source = history.get(0);
+        if (source.getCompletedAt() == null || source.getAssigneeUserId() == null
+                || StrUtil.isBlank(source.getCandidateSourceType()) || StrUtil.isBlank(source.getCandidateUserSnapshot())) {
+            throw new IllegalStateException("原填写责任快照不完整，无法派发修改任务");
+        }
+        var batch = source.getBatchExecutionId() == null ? null : batchExecutionMapper.selectByIdForUpdate(source.getBatchExecutionId());
+        if (batch == null || !Objects.equals(batch.getWorkOrderId(), source.getWorkOrderId())
+                || batch.getStatus() == null || !Set.of(0, 10, 20, 25, 70).contains(batch.getStatus())) {
+            throw new IllegalStateException("原执行记录所属批次当前不可修改，请先完成批次重开或解除冻结");
+        }
+        var order = workOrderMapper.selectByIdForUpdate(batch.getWorkOrderId());
+        if (order == null || !cn.iocoder.yudao.module.mes.enums.pro.MesProWorkOrderStatusEnum.CONFIRMED.getStatus().equals(order.getStatus())) {
+            throw new IllegalStateException("原生产工单已关闭，不能派发记录变更修改任务");
+        }
+        nonconformanceReviewService.ensureWorkOrderNotFrozen(batch.getWorkOrderId(), "记录变更修改派单");
+        validateProcessFormResponsibilityScopeSnapshot(source);
+        for (Long userId : parseCandidateUserIds(source.getCandidateUserSnapshot())) {
+            validateAssignee(userId);
+            if (!permissionApi.hasAnyPermissions(userId, "mes:pro-edhr-work-task:query")) {
+                throw new IllegalStateException("原填写责任人缺少工作待办权限：" + userId);
+            }
+        }
+        var task = new MesProEdhrWorkTaskDO()
+                .setTaskType(TASK_TYPE_REWORK).setBusinessScopeType("RECORD_CHANGE").setBusinessScopeId(changeEventId)
+                .setBatchExecutionId(source.getBatchExecutionId()).setBatchTaskId(source.getBatchTaskId())
+                .setExecutionId(targetExecutionId).setSourceExecutionId(sourceExecutionId)
+                .setWorkOrderId(source.getWorkOrderId()).setWorkOrderCode(source.getWorkOrderCode())
+                .setBatchCode(source.getBatchCode()).setRouteId(source.getRouteId())
+                .setRouteProcessId(source.getRouteProcessId()).setProcessId(source.getProcessId()).setProcessName(source.getProcessName())
+                .setAssigneeUserId(source.getAssigneeUserId()).setCandidateSourceType(source.getCandidateSourceType())
+                .setCandidateSourceId(source.getCandidateSourceId()).setCandidateUserSnapshot(source.getCandidateUserSnapshot())
+                .setResponsibilitySourceType(source.getResponsibilitySourceType()).setResponsibilitySourceKey(source.getResponsibilitySourceKey())
+                .setResponsibilitySourceVersion(source.getResponsibilitySourceVersion()).setResponsibilitySourceDigest(source.getResponsibilitySourceDigest())
+                .setResponsibilityScopeJson(source.getResponsibilityScopeJson()).setOwnershipLocked(source.getOwnershipLocked())
+                .setReviewSourceType("RECORD_CHANGE").setReviewSourceId(changeEventId).setReviewSourceName("记录变更修改")
+                .setSourceUserId(requireLoginUserId()).setReason(reason).setRemark(reason);
+        return createTask(task);
+    }
+
+    @Override
     public MesProEdhrWorkTaskDO getActiveByExecutionAndType(Long executionId, String taskType) {
         List<MesProEdhrWorkTaskDO> tasks = workTaskMapper.selectActiveListByExecutionAndType(executionId, taskType);
         if (tasks.isEmpty()) {
@@ -2271,11 +2414,16 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
     }
 
     private MesProEdhrWorkTaskDO createTask(MesProEdhrWorkTaskDO task, MesProEdhrBatchExecutionDO batchContext) {
+        return createTask(task, batchContext, true);
+    }
+
+    private MesProEdhrWorkTaskDO createTask(MesProEdhrWorkTaskDO task, MesProEdhrBatchExecutionDO batchContext,
+                                          boolean calculateDeadline) {
         fillBusinessScope(task);
         task.setStatus(MesProEdhrWorkTaskStatus.TODO)
                 .setSignatureCellKey(StrUtil.blankToDefault(task.getSignatureCellKey(), ""))
                 .setTaskCode("EDHRT-" + System.currentTimeMillis())
-                .setDueTime(calculateDueTime(task, batchContext))
+                .setDueTime(calculateDeadline ? calculateDueTime(task, batchContext) : task.getDueTime())
                 .setActionUrl("");
         workTaskMapper.insert(task);
         task.setActionUrl(buildActionUrl(task));
@@ -2716,6 +2864,22 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
                 "ROUTE|" + task.getRouteProcessId() + "|" + reportId + "|" + versionId);
     }
 
+
+    @Override
+    public void syncMarketReleaseHandoverEntitlements(MesProEdhrWorkTaskDO task, Long originalUserId) {
+        // ponytail: keep existing page entitlements; per-batch authorization denies original-handler writes.
+        Set<Long> users = new java.util.LinkedHashSet<>(parseCandidateUserIds(task.getCandidateUserSnapshot()));
+        users.add(java.util.Objects.requireNonNull(originalUserId));
+        auxiliaryAudit.entitlements(task, ENTITLEMENT_POLICY_RELEASE_APPROVER_MINIMAL, users,
+                () -> permissionApi.syncEntitlementClaims(SystemEntitlementSyncReqDTO.builder()
+                        .tenantId(requireTenantIdForEntitlement()).sourceType(ENTITLEMENT_SOURCE_TYPE_WORK_TASK)
+                        .sourceKey(buildWorkTaskEntitlementSourceKey(task)).sourceVersion(String.valueOf(task.getId()))
+                        .sourceDigest(buildRuntimeWorkTaskSourceDigest(task))
+                        .policyCode(ENTITLEMENT_POLICY_RELEASE_APPROVER_MINIMAL).resolvedUserIds(users)
+                        .operatorUserId(SecurityFrameworkUtils.getLoginUserId())
+                        .operatorUsername(SecurityFrameworkUtils.getLoginUserNickname()).build()));
+    }
+
     private void syncRuntimeTaskEntitlement(MesProEdhrWorkTaskDO task) {
         if (!requiresRuntimeTaskEntitlement(task)) {
             return;
@@ -2884,6 +3048,11 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
     }
 
     private LocalDateTime calculateDueTime(MesProEdhrWorkTaskDO task, MesProEdhrBatchExecutionDO batchContext) {
+        if (MesEdhrTaskDeadlineService.TYPES.contains(task.getTaskType())
+                || ("RECORD_CHANGE".equals(task.getBusinessScopeType()) && TASK_TYPE_REWORK.equals(task.getTaskType()))) {
+            taskDeadlineService.applyToWorkTask(task);
+            return task.getDueTime();
+        }
         if (TASK_TYPE_FILL.equals(task.getTaskType())) {
             MesProEdhrBatchExecutionTaskDO batchTask = batchTaskMapper.selectById(task.getBatchTaskId());
             MesProEdhrBatchExecutionDO batch = batchContext != null
@@ -2907,9 +3076,6 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
             if (hasRouteBindingCandidateSource(findRouteBinding(batchTask))) {
                 return null;
             }
-        }
-        if (TASK_TYPE_RELEASE_APPROVE.equals(task.getTaskType())) {
-            return null;
         }
         MesProEdhrWorkTaskAssignmentRuleDO rule = isRouteLevelTaskType(task.getTaskType())
                 ? requireRouteRule(task.getRouteId(), task.getTaskType())
@@ -2938,7 +3104,8 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
     }
 
     private void sendNotify(MesProEdhrWorkTaskDO task) {
-        String templateCode = resolveNotifyTemplateCode(task.getTaskType());
+        String templateCode = "RECORD_CHANGE".equals(task.getBusinessScopeType()) && TASK_TYPE_REWORK.equals(task.getTaskType())
+                ? "MES_EDHR_RECORD_CHANGE_REWORK" : resolveNotifyTemplateCode(task.getTaskType());
         Map<String, Object> templateParams = Map.of(
                 "workOrderCode", Objects.toString(task.getWorkOrderCode(), ""),
                 "batchCode", Objects.toString(task.getBatchCode(), ""),
@@ -2981,20 +3148,41 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
     }
 
     private void sendOverdueNotify(MesProEdhrWorkTaskDO task) {
-        NotifySendSingleToUserReqDTO reqDTO = new NotifySendSingleToUserReqDTO();
-        reqDTO.setUserId(task.getAssigneeUserId());
-        reqDTO.setTemplateCode("MES_EDHR_WORK_TASK_OVERDUE");
-        reqDTO.setTemplateParams(Map.of(
-                "workOrderCode", Objects.toString(task.getWorkOrderCode(), ""),
-                "batchCode", Objects.toString(task.getBatchCode(), ""),
-                "processName", Objects.toString(task.getProcessName(), ""),
-                "dueTime", Objects.toString(task.getDueTime(), ""),
-                "actionUrl", task.getActionUrl(),
-                "workTaskId", task.getId()));
-        notifyMessageSendApi.sendSingleMessageToAdmin(reqDTO);
+        // Once assigned, responsibility belongs to that person. Only unassigned tasks notify the frozen pool.
+        Set<Long> recipients = task.getAssigneeUserId() == null
+                ? parseCandidateUserIds(task.getCandidateUserSnapshot()) : Set.of(task.getAssigneeUserId());
+        if (recipients.isEmpty()) throw exception(PRO_EDHR_WORK_TASK_CANDIDATE_POOL_EMPTY);
+        for (Long userId : recipients) {
+            AdminUserRespDTO user = adminUserApi.getUser(userId);
+            if (user == null || !Objects.equals(userId, user.getId())
+                    || !Objects.equals(user.getTenantId(), TenantContextHolder.getRequiredTenantId())
+                    || !CommonStatusEnum.isEnable(user.getStatus())) {
+                throw exception(PRO_EDHR_WORK_TASK_ASSIGNEE_INVALID);
+            }
+            NotifySendSingleToUserReqDTO reqDTO = new NotifySendSingleToUserReqDTO();
+            reqDTO.setUserId(userId);
+            reqDTO.setTemplateCode("MES_EDHR_WORK_TASK_OVERDUE");
+            reqDTO.setTemplateParams(Map.of(
+                    "workOrderCode", Objects.toString(task.getWorkOrderCode(), ""),
+                    "batchCode", Objects.toString(task.getBatchCode(), ""),
+                    "processName", Objects.toString(task.getProcessName(), ""),
+                    "dueTime", Objects.toString(task.getDueTime(), ""),
+                    "actionUrl", task.getActionUrl(),
+                    "workTaskId", task.getId()));
+            Long messageId = notifyMessageSendApi.sendSingleMessageToAdmin(reqDTO);
+            if (messageId == null || messageId <= 0) {
+                throw new IllegalStateException("超期提醒未取得有效站内信回执，任务=" + task.getId() + "，接收人=" + userId);
+            }
+        }
     }
 
     private String resolveNotifyTemplateCode(String taskType) {
+        if (TASK_TYPE_DEVIATION_RECEIVE.equals(taskType)) {
+            return "MES_EDHR_DEVIATION_RECEIVE_ASSIGNED";
+        }
+        if (TASK_TYPE_DEVIATION_CORRECT.equals(taskType)) {
+            return "MES_EDHR_DEVIATION_CORRECT_ASSIGNED";
+        }
         if (TASK_TYPE_REVIEW.equals(taskType)) {
             return "MES_EDHR_REVIEW_TASK_ASSIGNED";
         }
@@ -3014,6 +3202,10 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
     }
 
     private String buildActionUrl(MesProEdhrWorkTaskDO task) {
+        if (TASK_TYPE_DEVIATION_RECEIVE.equals(task.getTaskType())
+                || TASK_TYPE_DEVIATION_CORRECT.equals(task.getTaskType())) {
+            return "/mes/pro/feedback/edhr-deviation?deviationId=" + task.getBusinessScopeId();
+        }
         if (TASK_TYPE_RELEASE_APPROVE.equals(task.getTaskType())) {
             return "/mes/pro/feedback/edhr-batch-execution/detail?id=" + task.getBatchExecutionId()
                     + "&workTaskId=" + task.getId()

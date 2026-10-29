@@ -91,13 +91,32 @@ public class ApprovalFlowableTaskQueryService {
         if(!done && !context.isGlobalView()) {
             var query=tasks.createTaskQuery().taskCandidateOrAssigned(user.toString());
             if(!(query instanceof TaskQueryImpl actual)) throw new IllegalStateException("APPROVAL_QUERY_FLOWABLE_VERSION_UNSUPPORTED");
-            groups=management.executeCommand(commandContext->actual.getCandidateGroups());
+            groups=management.executeCommand(new CandidateGroupsRead(actual));
         }
         p.put("candidateGroups",groups);
         boolean role=!done && !context.isGlobalView()
                 && permissions.hasAnyRoles(user,"dcc_registration_certificate_approver");
         p.put("registrationUpload",role && permissions.hasAnyPermissions(user,"dcc:registration-certificate:upload:approve"));
         p.put("registrationDownload",role && permissions.hasAnyPermissions(user,"dcc:registration-certificate:access-request:approve"));
+        return p;
+    }
+
+    /** Explicit engine read command, also used while exporting a workbench generation. */
+    public static final class CandidateGroupsRead implements org.flowable.common.engine.impl.interceptor.Command<Collection<String>> {
+        private final TaskQueryImpl query;
+        public CandidateGroupsRead(TaskQueryImpl query){this.query=Objects.requireNonNull(query);}
+        @Override public Collection<String> execute(org.flowable.common.engine.impl.interceptor.CommandContext context){return query.getCandidateGroups();}
+    }
+
+    /** Restricted adapter for the existing formal batch-void approval, never a global BPM inbox. */
+    public Map<String,Object> edhrVoidWorkbenchParameters(long tenant,long user,boolean export) {
+        if (!Objects.equals(TenantContextHolder.getRequiredTenantId(),tenant))
+            throw new IllegalStateException("EDHR_VOID_WORKBENCH_TENANT_MISMATCH");
+        var context=ApprovalTaskQueryContext.of(user,ApprovalTaskViewType.TODO,
+                cn.iocoder.yudao.module.bpm.approval.core.ApprovalModuleCode.BPM,null,1,100,export);
+        var p=parameters(context,"BPM",false);
+        p.put("edhrVoidOnly",true);
+        verify(p);
         return p;
     }
 

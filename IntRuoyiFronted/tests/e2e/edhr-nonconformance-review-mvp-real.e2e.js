@@ -46,6 +46,7 @@ const SOURCE_ROUTE_CODE = process.env.NCR_E2E_SOURCE_ROUTE_CODE || 'RT000028'
 const RESTORE_ROUTE_ONLY = process.env.NCR_E2E_RESTORE_ROUTE_ONLY === '1'
 const INDEPENDENT_PAGE_ONLY = process.env.NCR_E2E_INDEPENDENT_PAGE_ONLY === '1'
 const INDEPENDENT_PAGE_CREATE = process.env.NCR_E2E_INDEPENDENT_PAGE_CREATE === '1'
+const QA_REVIEWER_USERNAME = process.env.NCR_E2E_QA_REVIEWER_USERNAME || ''
 const INDEPENDENT_PAGE_DISPOSE = process.env.NCR_E2E_INDEPENDENT_PAGE_DISPOSE === '1'
 const INDEPENDENT_PAGE_SIGNATURE_PASSWORD = process.env.NCR_E2E_INDEPENDENT_PAGE_SIGNATURE_PASSWORD || PASSWORD
 const PQC_ENTRY_ONLY = process.env.NCR_E2E_PQC_ENTRY_ONLY === '1'
@@ -361,8 +362,18 @@ async function verifyIndependentReviewPageOnly(page) {
     const activeOrders = Array.isArray(activeOrderBody.data) ? activeOrderBody.data : []
     assert.ok(activeOrders.length > 0, 'independent create E2E requires one active order candidate')
     const activeOrder = activeOrders[0]
+    assert.ok(QA_REVIEWER_USERNAME, 'Set NCR_E2E_QA_REVIEWER_USERNAME to the explicitly responsible, authorized QA account')
     await page.locator('[data-edhr-ncr-active-order]').waitFor({ state: 'visible', timeout: 30000 })
     await page.locator('[data-edhr-ncr-create-reason]').fill(`${RUN_ID} 活跃订单不合格原因`)
+    await page.locator('[data-edhr-ncr-create-reviewer]').click()
+    const reviewerDialog = page.locator('.el-dialog:visible').filter({ has: page.locator('[data-user-table-key="system.user.selectDialog"]') })
+    await reviewerDialog.locator('.el-form-item').filter({ hasText: '用户名称' }).locator('input').fill(QA_REVIEWER_USERNAME)
+    await reviewerDialog.getByRole('button', { name: '搜索', exact: true }).click()
+    const reviewerRow = reviewerDialog.locator('tbody tr').filter({ hasText: QA_REVIEWER_USERNAME })
+    await reviewerRow.waitFor({ state: 'visible', timeout: 30000 })
+    assert.equal(await reviewerRow.count(), 1, 'explicit QA username must resolve to one account')
+    await reviewerRow.click()
+    await reviewerDialog.getByRole('button', { name: '确定', exact: true }).click()
     const createResponse = page.waitForResponse(
       (response) => new URL(response.url()).pathname.endsWith('/mes/pro/edhr-nonconformance-review/create')
         && response.request().method() === 'POST',
@@ -398,7 +409,7 @@ async function verifyIndependentReviewPageOnly(page) {
     const fileInput = page.locator('.edhr-ncr__dispose-form input[type="file"]').first()
     await fileInput.waitFor({ state: 'attached', timeout: 30000 })
     const uploadResponse = page.waitForResponse(
-      (response) => new URL(response.url()).pathname.endsWith('/infra/file/upload'),
+      (response) => new URL(response.url()).pathname.endsWith(`/mes/pro/edhr-nonconformance-review/${createdReview.id}/materials/upload`),
       { timeout: 60000 }
     )
     await fileInput.setInputFiles(materialFile)

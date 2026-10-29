@@ -1,146 +1,232 @@
 <template>
   <div class="followup-management" data-testid="dcc-publication-followup-management">
     <ContentWrap>
-      <header class="management-header">
-        <div>
-          <h1>发布后续</h1>
-        </div>
-        <el-button :loading="loading" @click="loadPage">
-          <Icon icon="ep:refresh-right" class="mr-5px" />刷新
-        </el-button>
-      </header>
-      <el-form :model="filters" class="management-filters" label-position="top">
-        <el-form-item label="文件编号"><el-input v-model="filters.fileNumber" clearable /></el-form-item>
-        <el-form-item label="发布版本"><el-input v-model="filters.versionNo" clearable /></el-form-item>
-        <el-form-item label="批次状态">
-          <el-select v-model="filters.batchStatus" clearable><el-option v-for="item in batchStatuses" :key="item" :label="batchStatusLabel(item)" :value="item" /></el-select>
-        </el-form-item>
-        <el-form-item label="任务状态">
-          <el-select v-model="filters.taskStatus" clearable><el-option v-for="item in taskStatuses" :key="item" :label="impactTaskStatusLabel(item)" :value="item" /></el-select>
-        </el-form-item>
-        <el-form-item label="通知状态">
-          <el-select v-model="filters.notificationStatus" clearable><el-option v-for="item in notificationStatuses" :key="item" :label="notificationStatusLabel(item)" :value="item" /></el-select>
-        </el-form-item>
-        <el-form-item label="负责人 ID"><el-input v-model="filters.assigneeUserId" clearable /></el-form-item>
-        <div class="filter-actions">
+      <UnifiedListTemplate
+        table-key="dcc.publicationFollowup.main"
+        :query-model="filters"
+        v-model:page="pageNo"
+        v-model:limit="pageSize"
+        :total="total"
+        @pagination="loadPage"
+      >
+        <template #filters>
+          <el-form :model="filters" class="management-filters" label-position="left">
+            <el-form-item label="文件编号">
+              <el-input v-model="filters.fileNumber" clearable />
+            </el-form-item>
+            <el-form-item label="发布版本">
+              <el-input v-model="filters.versionNo" clearable />
+            </el-form-item>
+            <el-form-item label="批次状态">
+              <el-select v-model="filters.batchStatus" clearable>
+                <el-option
+                  v-for="item in batchStatuses"
+                  :key="item"
+                  :label="batchStatusLabel(item)"
+                  :value="item"
+                />
+              </el-select>
+            </el-form-item>
+            <el-form-item label="任务状态">
+              <el-select v-model="filters.taskStatus" clearable>
+                <el-option
+                  v-for="item in taskStatuses"
+                  :key="item"
+                  :label="impactTaskStatusLabel(item)"
+                  :value="item"
+                />
+              </el-select>
+            </el-form-item>
+            <el-form-item label="通知状态">
+              <el-select v-model="filters.notificationStatus" clearable>
+                <el-option
+                  v-for="item in notificationStatuses"
+                  :key="item"
+                  :label="notificationStatusLabel(item)"
+                  :value="item"
+                />
+              </el-select>
+            </el-form-item>
+            <el-form-item label="负责人 ID">
+              <el-input v-model="filters.assigneeUserId" clearable />
+            </el-form-item>
+          </el-form>
+        </template>
+        <template #actions>
+          <el-button :loading="loading" @click="loadPage">
+            <Icon icon="ep:refresh-right" class="mr-5px" />
+            刷新
+          </el-button>
           <el-button type="primary" @click="search">查询</el-button>
           <el-button @click="reset">重置</el-button>
-        </div>
-      </el-form>
-    </ContentWrap>
-
-    <ContentWrap>
-      <el-alert
-        v-if="loadError"
-        role="alert"
-        type="error"
-        :closable="false"
-        show-icon
-        title="发布后续加载失败"
-        :description="loadError"
-      />
-      <el-alert
-        v-if="actionError"
-        role="alert"
-        type="error"
-        :closable="false"
-        show-icon
-        title="发布后续操作失败"
-        :description="actionError"
-      />
-      <el-table v-loading="loading" :data="rows" empty-text="暂无发布后续记录" row-key="id">
-        <el-table-column type="expand">
-          <template #default="{ row }">
-            <div class="expanded-grid">
-              <section>
-                <h2>通知明细</h2>
-                <el-table :data="row.notificationDeliveries" size="small" empty-text="无通知收件人">
-                  <el-table-column label="收件人" min-width="150">
-                    <template #default="scope">{{ scope.row.userName || scope.row.userId }}</template>
-                  </el-table-column>
-                  <el-table-column label="通知状态" width="110">
-                    <template #default="scope">{{ notificationStatusLabel(scope.row.status) }}</template>
-                  </el-table-column>
-                  <el-table-column label="收件原因" min-width="220">
-                    <template #default="scope">{{ scope.row.reasonSummaries.join('；') }}</template>
-                  </el-table-column>
-                  <el-table-column label="错误" min-width="180" prop="lastErrorSummary" />
-                  <el-table-column label="操作" width="90">
-                    <template #default="scope">
-                      <el-button
-                        v-if="scope.row.status === 'PENDING' || scope.row.status === 'FAILED'"
-                        link
-                        type="primary"
-                        :loading="retryingDeliveryId === scope.row.id"
-                        :disabled="Boolean(retryingDeliveryId)"
-                        @click="retry(scope.row)"
-                      >重试</el-button>
-                    </template>
-                  </el-table-column>
-                </el-table>
-              </section>
-              <section data-testid="dcc-management-publication-timeline">
-                <h2>完整时间线</h2>
-                <PublicationFollowupTimeline :timeline="row.timeline" />
-              </section>
-              <section>
-                <h2>影响评估</h2>
-                <el-table :data="row.impactTasks" size="small" empty-text="无需评估">
-                  <el-table-column label="相关文件" min-width="180" prop="relatedFileName" />
-                  <el-table-column label="方向" width="140">
-                    <template #default="scope">{{ scope.row.relationDirections.map(relationDirectionLabel).join(' / ') }}</template>
-                  </el-table-column>
-                  <el-table-column label="负责人" min-width="130" prop="assigneeUserName" />
-                  <el-table-column label="任务状态" width="120">
-                    <template #default="scope">{{ impactTaskStatusLabel(scope.row.taskStatus) }}</template>
-                  </el-table-column>
-                  <el-table-column label="评估结论" min-width="140">
-                    <template #default="scope">{{ scope.row.decision ? impactDecisionLabel(scope.row.decision) : '尚未提交' }}</template>
-                  </el-table-column>
-                  <el-table-column label="升版跟踪" width="140">
-                    <template #default="scope">{{ revisionTrackingStatusLabel(scope.row.revisionTrackingStatus) }}</template>
-                  </el-table-column>
-                  <el-table-column label="操作" width="110">
-                    <template #default="scope">
-                      <el-button
-                        v-if="scope.row.taskStatus === 'COMPLETED'"
-                        link
-                        type="primary"
-                        :loading="reopeningTaskId === scope.row.id"
-                        :disabled="Boolean(reopeningTaskId)"
-                        @click="reopenImpact(scope.row)"
-                      >重新打开</el-button>
-                    </template>
-                  </el-table-column>
-                </el-table>
-              </section>
-            </div>
-          </template>
-        </el-table-column>
-        <el-table-column label="文件编号" min-width="160" prop="fileNumber" />
-        <el-table-column label="文件名称" min-width="220" prop="fileName" />
-        <el-table-column label="发布版本" width="110" prop="versionNo" />
-        <el-table-column label="批次状态" width="140">
-          <template #default="{ row }">{{ batchStatusLabel(row.status) }}</template>
-        </el-table-column>
-        <el-table-column label="通知" width="100">
-          <template #default="{ row }">{{ row.notificationDeliveries.length }}</template>
-        </el-table-column>
-        <el-table-column label="任务" width="100">
-          <template #default="{ row }">{{ row.impactTasks.length }}</template>
-        </el-table-column>
-        <el-table-column label="操作" width="100">
-          <template #default="{ row }">
-            <el-button link type="primary" @click="openFile(row.publishedControlledFileId)">文件详情</el-button>
-          </template>
-        </el-table-column>
-      </el-table>
-      <Pagination v-model:page="pageNo" v-model:limit="pageSize" :total="total" @pagination="loadPage" />
-    </ContentWrap>
+        </template>
+        <template #table>
+          <el-alert
+            v-if="loadError"
+            role="alert"
+            type="error"
+            :closable="false"
+            show-icon
+            title="发布后续加载失败"
+            :description="loadError"
+          />
+          <el-alert
+            v-if="actionError"
+            role="alert"
+            type="error"
+            :closable="false"
+            show-icon
+            title="发布后续操作失败"
+            :description="actionError"
+          />
+          <el-table
+            stripe
+            border
+            v-loading="loading"
+            :data="rows"
+            empty-text="暂无发布后续记录"
+            row-key="id"
+          >
+            <el-table-column type="expand">
+              <template #default="{ row }">
+                <div class="expanded-grid">
+                  <section>
+                    <UnifiedListTemplate
+                      table-key="dcc.publicationFollowup.notifications"
+                      :rows="row.notificationDeliveries"
+                      class="unified-list-template--contained"
+                      data-list-viewport="embedded"
+                    >
+                      <template #table="{ rows: detailRows }">
+                        <el-table
+                          stripe
+                          border
+                          :data="detailRows"
+                          size="small"
+                          empty-text="无通知收件人"
+                        >
+                          <el-table-column label="收件人" min-width="150">
+                            <template #default="scope">
+                              {{ scope.row.userName || scope.row.userId }}
+                            </template>
+                          </el-table-column>
+                          <el-table-column label="通知状态" width="110">
+                            <template #default="scope">
+                              {{ notificationStatusLabel(scope.row.status) }}
+                            </template>
+                          </el-table-column>
+                          <el-table-column label="收件原因" min-width="220">
+                            <template #default="scope">
+                              {{ scope.row.reasonSummaries.join('；') }}
+                            </template>
+                          </el-table-column>
+                          <el-table-column label="错误" min-width="180" prop="lastErrorSummary" />
+                          <el-table-column label="操作" width="90">
+                            <template #default="scope">
+                              <el-button
+                                v-if="scope.row.status === 'PENDING' || scope.row.status === 'FAILED'"
+                                link
+                                type="primary"
+                                :loading="retryingDeliveryId === scope.row.id"
+                                :disabled="Boolean(retryingDeliveryId)"
+                                @click="retry(scope.row)"
+                              >
+                                重试
+                              </el-button>
+                            </template>
+                          </el-table-column>
+                        </el-table>
+                      </template>
+                    </UnifiedListTemplate>
+                  </section>
+                  <section data-testid="dcc-management-publication-timeline">
+                    <h2>完整时间线</h2>
+                    <PublicationFollowupTimeline :timeline="row.timeline" />
+                  </section>
+                  <section>
+                    <UnifiedListTemplate
+                      table-key="dcc.publicationFollowup.impactTasks"
+                      :rows="row.impactTasks"
+                      class="unified-list-template--contained"
+                      data-list-viewport="embedded"
+                    >
+                      <template #table="{ rows: detailRows }">
+                        <el-table stripe border :data="detailRows" size="small" empty-text="无需评估">
+                          <el-table-column label="相关文件" min-width="180" prop="relatedFileName" />
+                          <el-table-column label="方向" width="140">
+                            <template #default="scope">
+                              {{ scope.row.relationDirections.map(relationDirectionLabel).join(' / ') }}
+                            </template>
+                          </el-table-column>
+                          <el-table-column label="负责人" min-width="130" prop="assigneeUserName" />
+                          <el-table-column label="任务状态" width="120">
+                            <template #default="scope">
+                              {{ impactTaskStatusLabel(scope.row.taskStatus) }}
+                            </template>
+                          </el-table-column>
+                          <el-table-column label="评估结论" min-width="140">
+                            <template #default="scope">
+                              {{
+                                scope.row.decision
+                                  ? impactDecisionLabel(scope.row.decision)
+                                  : '尚未提交'
+                              }}
+                            </template>
+                          </el-table-column>
+                          <el-table-column label="升版跟踪" width="140">
+                            <template #default="scope">
+                              {{ revisionTrackingStatusLabel(scope.row.revisionTrackingStatus) }}
+                            </template>
+                          </el-table-column>
+                          <el-table-column label="操作" width="110">
+                            <template #default="scope">
+                              <el-button
+                                v-if="scope.row.taskStatus === 'COMPLETED'"
+                                link
+                                type="primary"
+                                :loading="reopeningTaskId === scope.row.id"
+                                :disabled="Boolean(reopeningTaskId)"
+                                @click="reopenImpact(scope.row)"
+                              >
+                                重新打开
+                              </el-button>
+                            </template>
+                          </el-table-column>
+                        </el-table>
+                      </template>
+                    </UnifiedListTemplate>
+                  </section>
+                </div>
+              </template>
+            </el-table-column>
+            <el-table-column label="文件编号" min-width="160" prop="fileNumber" />
+            <el-table-column label="文件名称" min-width="220" prop="fileName" />
+            <el-table-column label="发布版本" width="110" prop="versionNo" />
+            <el-table-column label="批次状态" width="140">
+              <template #default="{ row }">{{ batchStatusLabel(row.status) }}</template>
+            </el-table-column>
+            <el-table-column label="通知" width="100">
+              <template #default="{ row }">{{ row.notificationDeliveries.length }}</template>
+            </el-table-column>
+            <el-table-column label="任务" width="100">
+              <template #default="{ row }">{{ row.impactTasks.length }}</template>
+            </el-table-column>
+            <el-table-column label="操作" width="100">
+              <template #default="{ row }">
+                <el-button link type="primary" @click="openFile(row.publishedControlledFileId)">
+                  文件详情
+                </el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+        </template>
+      </UnifiedListTemplate>
+</ContentWrap>
   </div>
 </template>
 
 <script lang="ts" setup>
+import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import { ElMessageBox } from 'element-plus'
 import {
   getPublicationFollowupManagementPage,

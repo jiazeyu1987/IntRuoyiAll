@@ -30,6 +30,7 @@ class MesActiveOrderHandoffLifecycleTest {
  order=MesProcessPoolActiveOrderDO.builder().id(413L).workOrderId(274L).routeId(98L).leaderUserId(341L).activeStatus("ACTIVE").build();order.setTenantId(1L);when(orders.selectByIdForUpdate(413L)).thenReturn(order);when(orders.selectById(413L)).thenReturn(order);
  event=MesProProcessPoolEventDO.builder().id(176L).eventType("PRODUCTION_SUBMIT").actualEmployeeId(342L).signatureUserId(342L).signatureId(901L).deviceAccountId(1L).routeProcessId(91L).rawPayload("{\"activeOrderId\":413}").build();event.setTenantId(1L);when(events.selectById(176L)).thenReturn(event);
  when(tasks.insert(any(MesActiveOrderHandoffTaskDO.class))).thenReturn(1);when(owners.productionLeader(order)).thenReturn(341L);
+  ReflectionTestUtils.setField(service,"deadlineService",mock(cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesEdhrTaskDeadlineService.class));
   ReflectionTestUtils.setField(owners,"handoffTasks",tasks);ReflectionTestUtils.setField(owners,"orders",orders);
   when(owners.frozenPqcReviewers(any(),any())).thenCallRealMethod();
  }
@@ -42,23 +43,59 @@ class MesActiveOrderHandoffLifecycleTest {
   verify(delivery).schedule(captured.getValue());
   verifyNoInteractions((MesPqcInspectionTaskMapper)ReflectionTestUtils.getField(service,"pqcTasks"));
  }
- @Test void reviewDispositionRequiresBusinessPermissionWithoutRouteAssignment() {
+ @Test void reviewDispositionRequiresFrozenTaskAndBusinessPermission() {
+  assertThrows(RuntimeException.class,()->service.assertQaCanDispose(91L,413L,345L));
+  var task=qaTask(91L);when(tasks.byIdentity(413L,"QA_REVIEW","NONCONFORMANCE_REVIEW",91L,91L)).thenReturn(task);
   assertDoesNotThrow(()->service.assertQaCanDispose(91L,413L,345L));
-  verify(owners).user(345L,"mes:pro-edhr-nonconformance-review:dispose");
-  verifyNoInteractions(tasks);
-  doThrow(new IllegalStateException("denied")).when(owners).user(346L,"mes:pro-edhr-nonconformance-review:dispose");
   assertThrows(RuntimeException.class,()->service.assertQaCanDispose(91L,413L,346L));
+  task.setStatus("CANCELED");assertThrows(RuntimeException.class,()->service.assertQaCanDispose(91L,413L,345L));
+  verify(owners,atLeastOnce()).user(345L,"mes:pro-edhr-nonconformance-review:dispose");
  }
- @Test void dispositionCompletesWithoutConfiguredQaTaskAndNotifiesProductionLeader() {
+ @Test void explicitReviewerCreatesOneFrozenTaskAndNotification() {
+  var review=new cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrNonconformanceReviewDO()
+    .setId(91L).setActiveOrderId(413L).setWorkOrderId(274L).setReviewStatus("pending_review").setNonconformanceReason("检验异常");
+  service.qaReviewCreated(review,345L,343L);
+  var captured=ArgumentCaptor.forClass(MesActiveOrderHandoffTaskDO.class);verify(tasks).insert(captured.capture());
+  var task=captured.getValue();assertEquals("QA_REVIEW",task.getTaskType());assertEquals("345",task.getCandidateUserSnapshot());
+  assertEquals(91L,task.getSourceId());assertEquals(91L,task.getRoundId());assertFalse(task.getNotificationOnly());assertEquals("TODO",task.getStatus());
+  assertTrue(task.getActionUrl().startsWith("/mes/pro/feedback/edhr-nonconformance-review?"));
+  assertEquals("91",MesActiveOrderHandoffContract.actionQuery(task).get("reviewId"));
+  verify(owners).user(345L,"mes:pro-edhr-nonconformance-review:dispose");verify(owners).user(345L,"mes:pro-edhr-nonconformance-review:query");
+  verify(delivery).schedule(task);
+  when(tasks.byIdentity(413L,"QA_REVIEW","NONCONFORMANCE_REVIEW",91L,91L)).thenReturn(task);
+  service.qaReviewCreated(review,345L,343L);verify(tasks,times(1)).insert(any(MesActiveOrderHandoffTaskDO.class));verify(delivery,times(1)).schedule(any());
+  assertThrows(RuntimeException.class,()->service.qaReviewCreated(review,346L,343L));
+ }
+ @Test void missingOrUnqualifiedReviewerCannotCreateTask() {
+  var review=new cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrNonconformanceReviewDO()
+    .setId(91L).setActiveOrderId(413L).setWorkOrderId(274L).setReviewStatus("pending_review");
+  assertThrows(RuntimeException.class,()->service.qaReviewCreated(review,null,343L));
+  doThrow(new IllegalStateException("not a tenant QA")).when(owners).user(345L,"mes:pro-edhr-nonconformance-review:dispose");
+  assertThrows(RuntimeException.class,()->service.qaReviewCreated(review,345L,343L));verify(tasks,never()).insert(any(MesActiveOrderHandoffTaskDO.class));verifyNoInteractions(delivery);
+ }
+ @Test void dispositionCompletesFrozenQaTaskAndNotifiesProductionLeader() {
   var review=new cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrNonconformanceReviewDO()
     .setId(91L).setWorkOrderId(274L).setReviewStatus("closed").setQaUserId(345L)
     .setClosedAt(LocalDateTime.now()).setDisposition("concession_release").setReviewOpinion("评审材料已核实");
+  var task=qaTask(91L);when(tasks.byIdentity(413L,"QA_REVIEW","NONCONFORMANCE_REVIEW",91L,91L)).thenReturn(task);stubClose(task,345L,91L);
   service.qaDisposed(review,413L,null,345L);
   var captured=ArgumentCaptor.forClass(MesActiveOrderHandoffTaskDO.class);verify(tasks).insert(captured.capture());
-  assertEquals("QA_DECISION_HANDOFF",captured.getValue().getTaskType());
-  assertEquals("341",captured.getValue().getCandidateUserSnapshot());
-  verify(delivery).schedule(captured.getValue());
-  verify(tasks,never()).close(any(),any(),any(),any(),any(),any(),any());
+  assertEquals("QA_DECISION_HANDOFF",captured.getValue().getTaskType());assertEquals("341",captured.getValue().getCandidateUserSnapshot());
+  assertEquals("TODO",captured.getValue().getStatus());assertFalse(captured.getValue().getNotificationOnly());verify(delivery).schedule(captured.getValue());
+  verify(tasks).close(eq(1L),eq(task.getId()),eq(0),eq("DONE"),eq(345L),eq(91L),eq(review.getClosedAt()));
+ }
+ @Test void voidDispositionCreatesCompletedNotificationOnlyResult(){
+  var review=new cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrNonconformanceReviewDO()
+    .setId(92L).setWorkOrderId(274L).setReviewStatus("closed").setQaUserId(345L)
+    .setClosedAt(LocalDateTime.now()).setDisposition("void").setReviewOpinion("批次作废");
+  var task=qaTask(92L);when(tasks.byIdentity(413L,"QA_REVIEW","NONCONFORMANCE_REVIEW",92L,92L)).thenReturn(task);stubClose(task,345L,92L);
+  service.qaDisposed(review,413L,null,345L);
+  var captured=ArgumentCaptor.forClass(MesActiveOrderHandoffTaskDO.class);verify(tasks).insert(captured.capture());
+  assertEquals("DONE",captured.getValue().getStatus());assertTrue(captured.getValue().getNotificationOnly());verify(delivery).schedule(captured.getValue());
+ }
+ private MesActiveOrderHandoffTaskDO qaTask(Long reviewId) {
+  return MesActiveOrderHandoffContractTest.review().setTaskType("QA_REVIEW").setSourceType("NONCONFORMANCE_REVIEW")
+    .setSourceId(reviewId).setRoundId(reviewId).setCandidateUserSnapshot("345");
  }
  @Test void oldCycleQaCandidateCannotDispose(){order.setActiveStatus("VOID");var task=MesActiveOrderHandoffContractTest.review().setCandidateUserSnapshot("345");when(tasks.byIdentity(413L,"QA_REVIEW","NONCONFORMANCE_REVIEW",91L,91L)).thenReturn(task);assertThrows(RuntimeException.class,()->service.assertQaCanDispose(91L,413L,345L));}
  @Test void voidResultRemainsReadOnlyAfterOrderDeletion(){var t=MesActiveOrderHandoffContractTest.review().setTaskType("QA_DECISION_HANDOFF").setSourceType("NONCONFORMANCE_REVIEW").setSourceId(91L).setRoundId(91L).setCandidateUserSnapshot("341").setStatus("DONE").setReason("void：正式作废").setActionUrl("/user/profile?activeOrderId=413&reviewId=91&handoffTaskId=1900000000000000001&roundId=91&handoffType=QA_DECISION_HANDOFF&tab=notifyMessage");when(tasks.selectById(t.getId())).thenReturn(t);when(orders.selectById(413L)).thenReturn(null);var context=service.navigationContext(t.getId(),341L);assertFalse(context.current());assertFalse(context.processable());assertEquals(91L,context.task().getSourceId());}
@@ -290,7 +327,7 @@ class MesActiveOrderHandoffLifecycleTest {
   @Test void equalEventReviewAndRevisionIdsPersistIndependentRoundsAndReplaySameRound() throws Exception {
   var ds=new org.springframework.jdbc.datasource.DriverManagerDataSource("jdbc:h2:mem:handoff_equal_"+UUID.randomUUID()+";MODE=MySQL;DATABASE_TO_UPPER=false;DB_CLOSE_DELAY=-1","sa","");
   var jdbc=new org.springframework.jdbc.core.JdbcTemplate(ds);
-  jdbc.execute("CREATE TABLE mes_active_order_handoff_task(id BIGINT PRIMARY KEY,tenant_id BIGINT,active_order_id BIGINT,work_order_id BIGINT,route_process_id BIGINT,task_type VARCHAR(40),source_type VARCHAR(40),source_id BIGINT,round_id BIGINT,candidate_user_snapshot VARCHAR(100),responsibility_snapshot_json VARCHAR(5000),initiated_by BIGINT,notification_only BOOLEAN,status VARCHAR(20),action_url VARCHAR(1000),reason VARCHAR(2000),row_version INT,completed_by BIGINT,completion_source_id BIGINT,completed_at TIMESTAMP,creator VARCHAR(64),updater VARCHAR(64),create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,update_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,deleted BOOLEAN DEFAULT FALSE,UNIQUE(tenant_id,active_order_id,task_type,source_type,source_id,round_id))");
+  jdbc.execute("CREATE TABLE mes_active_order_handoff_task(id BIGINT PRIMARY KEY,tenant_id BIGINT,active_order_id BIGINT,work_order_id BIGINT,route_process_id BIGINT,task_type VARCHAR(40),source_type VARCHAR(40),source_id BIGINT,round_id BIGINT,candidate_user_snapshot VARCHAR(100),responsibility_snapshot_json VARCHAR(5000),initiated_by BIGINT,notification_only BOOLEAN,status VARCHAR(20),action_url VARCHAR(1000),reason VARCHAR(2000),row_version INT,completed_by BIGINT,completion_source_id BIGINT,completed_at TIMESTAMP,due_time TIMESTAMP,overdue_notified_at TIMESTAMP,creator VARCHAR(64),updater VARCHAR(64),create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,update_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,deleted BOOLEAN DEFAULT FALSE,UNIQUE(tenant_id,active_order_id,task_type,source_type,source_id,round_id))");
   var config=new com.baomidou.mybatisplus.core.MybatisConfiguration();config.setMapUnderscoreToCamelCase(true);config.addMapper(MesActiveOrderHandoffTaskMapper.class);
   var factory=new com.baomidou.mybatisplus.extension.spring.MybatisSqlSessionFactoryBean();factory.setDataSource(ds);factory.setConfiguration(config);
   var session=new org.mybatis.spring.SqlSessionTemplate(factory.getObject());var realTasks=session.getMapper(MesActiveOrderHandoffTaskMapper.class);

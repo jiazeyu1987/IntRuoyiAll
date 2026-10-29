@@ -188,14 +188,14 @@ assert(
 )
 
 assert(
-  pqcReleaseSource.includes('batchExecutionPort.openOrCreate') &&
-    pqcReleaseSource.includes('dossierPort.write') &&
-    pqcReleaseSource.includes('reportStageInitializer.initializeRequiredReportStage') &&
+  pqcReleaseSource.includes('requireExistingBatchExecutionId(application)') &&
+    pqcReleaseSource.includes('.setStatus(MesReleaseFlowStatus.MANAGER_RELEASE_PENDING)') &&
+    !pqcReleaseSource.includes('reportStageInitializer') &&
     dossierPortSource.includes('sourceSnapshotHasher.hash') &&
     dossierPortSource.includes('authoritative production or inspection sources changed after SP-1') &&
     !/releaseService\s*\.\s*submit\s*\(/.test(applicationServiceSource) &&
     !applicationServiceSource.includes('MesProEdhrReleaseSubmitReqVO'),
-  'PQC approval must be the first step that opens the release batch execution and writes the dossier from frozen active-order sources.'
+  'PQC approval must reuse the formal batch and proceed to manager release without legacy report-upload tasks.'
 )
 
 const pqcAuthorizationBlock = sliceBetween(

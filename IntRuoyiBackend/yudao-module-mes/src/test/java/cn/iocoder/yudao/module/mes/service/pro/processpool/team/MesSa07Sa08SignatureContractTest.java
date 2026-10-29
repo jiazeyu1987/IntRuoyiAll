@@ -106,7 +106,8 @@ class MesSa07Sa08SignatureContractTest extends BaseDbUnitTest {
         var batchService = mock(MesProEdhrBatchExecutionService.class);
         when(batchService.get(800L)).thenReturn(new cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionRespVO()
                 .setActiveOrderId(101L).setWorkOrderId(12L));
-        var details = new MesProEdhrBatchActiveOrderDetailService(batchService, orders, detailService);
+        var details = new MesProEdhrBatchActiveOrderDetailService(batchService,
+                mock(MesMarketReleaseAccess.class), orders, detailService);
         var application = new MesProcessPoolActiveOrderReleaseApplicationDO().setId(701L).setActiveOrderId(101L).setWorkOrderId(12L);
         when(applications.selectById(701L)).thenReturn(application);
         var pqcAuthorization = mock(cn.iocoder.yudao.module.mes.service.pro.productionrelease.pqc.MesPqcProductionReleaseService.class);

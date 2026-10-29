@@ -62,6 +62,64 @@ class MesReleaseTaskNotificationReliabilityTest {
     void clearTenant() { TenantContextHolder.clear(); }
 
     @Test
+    void pqcOutcomeOnlyNotifiesOriginalApplicantAndRepeatedSchedulingIsIdempotent() throws Exception {
+        Fixture f = new Fixture();
+        var app = new cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationDO()
+                .setId(224L).setAppliedBy(341L).setPqcReleaseWorkTaskId(900L);
+        f.task.setStatus("DONE");
+        when(f.templates.getNotifyTemplateByCodeFromCache("MES_EDHR_RELEASE_PQC_REJECTED")).thenReturn(f.template);
+        f.business.executeWithoutResult(tx -> {
+            invoke(f.outcomes, "schedulePqc", app, f.task, 346L, false, "资料不完整");
+            invoke(f.outcomes, "schedulePqc", app, f.task, 346L, false, "资料不完整");
+            assertEquals(1, f.count("mes_pro_edhr_release_task_notify_delivery"));
+            assertEquals(0, f.count("system_notify_message"));
+        });
+        assertEquals(1, f.count("system_notify_message"));
+        assertEquals(341L, f.jdbc.queryForObject("SELECT user_id FROM system_notify_message", Long.class));
+        assertEquals("DONE", f.task.getStatus());
+        assertTrue(f.jdbc.queryForObject("SELECT template_params_json FROM mes_pro_edhr_release_task_notify_delivery", String.class)
+                .contains("/user/profile"));
+        verify(f.taskMapper, never()).insert(any(MesProEdhrWorkTaskDO.class));
+        verify(f.taskMapper, never()).updateById(any(MesProEdhrWorkTaskDO.class));
+    }
+
+    @Test
+    void failedOutcomeRemainsReadableAndRetryableOnlyByRecipientOutsideCandidateList() throws Exception {
+        Fixture f = new Fixture();
+        var app = new cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationDO()
+                .setId(224L).setAppliedBy(341L).setPqcReleaseWorkTaskId(900L);
+        f.business.executeWithoutResult(tx -> invoke(f.outcomes, "schedulePqc", app, f.task, 346L, true, "通过"));
+        Long id = f.jdbc.queryForObject("SELECT id FROM mes_pro_edhr_release_task_notify_delivery", Long.class);
+        assertEquals("FAILED", f.status(id));
+        List<?> recipientRows = (List<?>) invoke(f.service, "listForTask", 1L, 341L, 900L);
+        assertEquals(1, recipientRows.size());
+        assertThrows(RuntimeException.class, () -> f.retry(347L, id, f.version(id), "他人重试"));
+        assertEquals(0, ((List<?>) invoke(f.service, "listForTask", 1L, 346L, 900L)).size());
+        when(f.templates.getNotifyTemplateByCodeFromCache("MES_EDHR_RELEASE_PQC_APPROVED")).thenReturn(f.template);
+        f.retry(341L, id, f.version(id), "修复通知模板后补发");
+        assertEquals("SENT", f.status(id));
+        assertEquals(1, f.count("system_notify_message"));
+    }
+
+    @Test
+    void marketApprovalResultUsesApplicationApplicantAndCannotUseUnrelatedTask() throws Exception {
+        Fixture f = new Fixture();
+        var app = new cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationDO()
+                .setId(224L).setAppliedBy(341L).setReleaseTransactionId(800L).setReleaseApprovalWorkTaskId(900L);
+        var tx = new cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrReleaseTransactionDO()
+                .setId(800L).setSubmittedBy(999L).setReleaseStatus("RELEASED");
+        f.task.setTaskType("RELEASE_APPROVE").setBusinessScopeType("RELEASE_TRANSACTION")
+                .setBusinessScopeId(800L).setBatchExecutionId(700L).setStatus("DONE")
+                .setActionUrl("/mes/pro/feedback/edhr-batch-execution?batchExecutionId=700&releaseTransactionId=800&workTaskId=900&action=marketRelease");
+        when(f.templates.getNotifyTemplateByCodeFromCache("MES_EDHR_RELEASE_MARKET_APPROVED")).thenReturn(f.template);
+        f.business.executeWithoutResult(status -> invoke(f.outcomes, "scheduleMarketApproved", app, tx, f.task, 346L, "通过"));
+        assertEquals(341L, f.jdbc.queryForObject("SELECT user_id FROM system_notify_message", Long.class));
+        app.setReleaseApprovalWorkTaskId(901L);
+        assertThrows(RuntimeException.class, () -> f.business.executeWithoutResult(status ->
+                invoke(f.outcomes, "scheduleMarketApproved", app, tx, f.task, 346L, "通过")));
+    }
+
+    @Test
     void allFrozenRecipientsPersistBeforeCommitAndMessagesStartAfterCommit() throws Exception {
         Fixture f = new Fixture();
         f.business.executeWithoutResult(tx -> {
@@ -411,7 +469,7 @@ class MesReleaseTaskNotificationReliabilityTest {
     private static final class Fixture {
         final JdbcTemplate jdbc;
         final TransactionTemplate business;
-        final Object service, dispatch, transactions, sender;
+        final Object service, dispatch, transactions, sender, outcomes;
         final MesProEdhrWorkTaskMapper taskMapper = mock(MesProEdhrWorkTaskMapper.class);
         final PermissionApi permissions = mock(PermissionApi.class);
         final NotifyTemplateService templates = mock(NotifyTemplateService.class);
@@ -491,6 +549,10 @@ class MesReleaseTaskNotificationReliabilityTest {
             field(serviceTarget, "audit", audit);
             field(serviceTarget, "permissionApi", permissions); field(serviceTarget, "workTaskMapper", taskMapper);
             service = proxy(serviceTarget, manager);
+            Object outcomeTarget = instance(PKG + "MesReleaseOutcomeNotificationService");
+            field(outcomeTarget, "deliveryMapper", deliveryMapper);
+            field(outcomeTarget, "dispatchService", dispatch); field(outcomeTarget, "audit", audit);
+            outcomes = proxy(outcomeTarget, manager);
         }
 
         void createSchema() {
@@ -498,6 +560,7 @@ class MesReleaseTaskNotificationReliabilityTest {
                     CREATE TABLE mes_pro_edhr_release_task_notify_delivery (
                       id BIGINT AUTO_INCREMENT PRIMARY KEY, tenant_id BIGINT NOT NULL,
                       work_task_id BIGINT NOT NULL, event_type VARCHAR(32) NOT NULL, user_id BIGINT NOT NULL,
+                      event_revision BIGINT DEFAULT 0 NOT NULL,
                       business_key VARCHAR(255) NOT NULL, template_code VARCHAR(128) NOT NULL,
                       template_params_json VARCHAR(12000) NOT NULL, initiated_by BIGINT NOT NULL,
                       status VARCHAR(16) NOT NULL, attempt_count INT DEFAULT 0 NOT NULL,

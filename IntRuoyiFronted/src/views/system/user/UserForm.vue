@@ -44,7 +44,11 @@
       </el-row>
       <el-row>
         <el-col :span="12">
-          <el-form-item v-if="formData.id === undefined" label="用户名称" prop="username">
+          <el-form-item
+            v-if="formData.id === undefined || formData.yintaiAdminUsernameAllowed === true"
+            label="用户名称"
+            prop="username"
+          >
             <el-input v-model="formData.username" placeholder="请输入用户名称" />
           </el-form-item>
         </el-col>
@@ -129,15 +133,15 @@ const message = useMessage() // 消息弹窗
 const dialogVisible = ref(false) // 弹窗的是否展示
 const dialogTitle = ref('') // 弹窗的标题
 const formLoading = ref(false) // 表单的加载中：1）修改时的数据加载；2）提交的按钮禁用
-const formReady = ref(false)
-const formLoadError = ref('')
-let formRequestId = 0
+
+
+
 const formType = ref('') // 表单的类型：create - 新增；update - 修改
 const postSelectionReady = ref(false)
 const formError = ref('')
 let openGeneration = 0
 type UserFormData = Partial<Omit<UserApi.UserVO, 'deptId' | 'postIds'>> & {
-  deptId: number | ''
+  deptId: number | null
   postIds: string[]
   password?: string
   roleIds?: number[]

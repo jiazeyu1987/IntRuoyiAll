@@ -8,6 +8,7 @@ export async function loadHistoryPage<T>(
   pageNo: number,
   pageSize: number
 ) {
+  if (sources.length === 1) return sources[0].load(pageNo, pageSize)
   const heads = await Promise.all(sources.map((source) => source.load(1, pageSize)))
   const total = heads.reduce((sum, page) => sum + page.total, 0)
   const start = (pageNo - 1) * pageSize

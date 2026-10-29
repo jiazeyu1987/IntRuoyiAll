@@ -79,6 +79,8 @@ import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_P
 @Service
 @Validated
 public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderActiveOrderDetailService {
+    @jakarta.annotation.Resource private cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesMarketReleaseAccess marketReleaseAccess;
+
     @jakarta.annotation.Resource private cn.iocoder.yudao.module.signature.service.ElectronicSignatureVerifiedFactService verifiedSignatureFacts;
     @jakarta.annotation.Resource
     private cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrRecordChangeEventMapper recordChangeEventMapper;
@@ -211,6 +213,7 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
     private MesTeamLeaderActiveOrderDetail buildDetail(MesProcessPoolActiveOrderDO activeOrder, Long activeOrderId,
                                                         boolean archivedFormalSource, PqcSignaturePurpose signaturePurpose,
                                                         Long signatureId) {
+        marketReleaseAccess.requireActiveOrderReadable(activeOrderId);
         List<MesTeamLeaderActiveOrderDetailReadDO> rows = archivedFormalSource && "REWORKED".equals(activeOrder.getBusinessStatus())
                 ? detailReadMapper.selectArchivedReworkByActiveOrderId(activeOrderId, activeOrder.getTenantId())
                 : detailReadMapper.selectByActiveOrderId(activeOrderId);
@@ -573,6 +576,7 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
                 .setId(event.getId())
                 .setOperationType(requireTextValue(event.getOperationType(), activeOrderId))
                 .setOperationName(requireTextValue(event.getActionName(), activeOrderId))
+                .setHandoverFromName(metadata.getString("handoverFromName")).setHandoverToName(metadata.getString("handoverToName")).setHandoverReason(metadata.getString("handoverReason"))
                 .setSourceType(requireTextValue(event.getObjectType(), activeOrderId))
                 .setSourceId(requireTextValue(event.getObjectId(), activeOrderId))
                 .setActorUserId(event.getActorUserId())

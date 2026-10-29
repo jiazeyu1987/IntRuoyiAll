@@ -2,7 +2,7 @@ const fs = require('node:fs')
 const path = require('node:path')
 const assert = require('node:assert/strict')
 
-const root = process.cwd()
+const root = path.resolve(__dirname, '../..')
 const contractPath = 'docs/edhr/existing-edhr-frontend-contract.md'
 
 const read = (relativePath) => {
@@ -143,7 +143,8 @@ for (const pagePath of [
   'src/views/mes/pro/edhr-batch/BatchExecutionDetailPage.vue',
   'src/views/mes/pro/edhr-batch/BatchExecutionReviewPage.vue',
   'src/views/mes/pro/edhr-batch/BatchRecordHistoryPage.vue',
-  'src/views/mes/pro/edhr-work-task/WorkTaskBoardPage.vue'
+  'src/views/Profile/components/ProductionTaskRecords.vue',
+  'src/views/mes/pro/route/RouteTaskRulesDialog.vue'
 ]) {
   read(pagePath)
 }
@@ -158,12 +159,14 @@ for (const permission of [
 
 const batchDetailPage = read('src/views/mes/pro/edhr-batch/BatchExecutionDetailPage.vue')
 for (const permission of [
-  'mes:pro-edhr-batch-execution:close',
   'mes:pro-edhr-batch-execution-archive:create',
-  'mes:pro-edhr-batch-execution:quality-reject',
   'mes:pro-edhr-change:reopen'
 ]) {
   assertIncludes(batchDetailPage, permission, `BatchExecutionDetailPage must keep permission gate ${permission}`)
 }
 
 console.log('PASS: eDHR existing frontend contract static inventory')
+
+assert.equal(fs.existsSync(path.resolve(root, 'src/views/mes/pro/edhr-work-task/WorkTaskBoardPage.vue')), false, 'Retired board must not return')
+const batchListPage = read('src/views/mes/pro/edhr-batch/BatchExecutionListPage.vue')
+for (const permission of ['mes:pro-production-release:pqc-reject', 'mes:pro-edhr-release:approve', 'mes:pro-edhr-change:void']) assertIncludes(batchListPage, permission, `Current batch actions require ${permission}`)

@@ -1,41 +1,49 @@
 <template>
-  <doc-alert title="功能权限" url="https://doc.iocoder.cn/resource-permission" />
-  <doc-alert title="菜单路由" url="https://doc.iocoder.cn/vue3/route/" />
+
+
 
   <!-- 搜索工作栏 -->
-  <ContentWrap>
-    <el-form
-      ref="queryFormRef"
-      :inline="true"
-      :model="queryParams"
-      class="-mb-15px"
-      label-width="68px"
+  <ContentWrap class="standard-list-page">
+    <UnifiedListTemplate
+      class="unified-list-template--contained"
+      table-key="system.menu.main"
+      :query-model="queryParams"
     >
-      <el-form-item label="菜单名称" prop="name">
-        <el-input
-          v-model="queryParams.name"
-          class="!w-240px"
-          clearable
-          placeholder="请输入菜单名称"
-          @keyup.enter="handleQuery"
-        />
-      </el-form-item>
-      <el-form-item label="状态" prop="status">
-        <el-select
-          v-model="queryParams.status"
-          class="!w-240px"
-          clearable
-          placeholder="请选择菜单状态"
+      <template #filters>
+        <el-form
+          ref="queryFormRef"
+          :inline="true"
+          :model="queryParams"
+          class="-mb-15px"
+          label-width="68px"
         >
-          <el-option
-            v-for="dict in getIntDictOptions(DICT_TYPE.COMMON_STATUS)"
-            :key="dict.value"
-            :label="dict.label"
-            :value="dict.value"
-          />
-        </el-select>
-      </el-form-item>
-      <el-form-item>
+          <el-form-item label="菜单名称" prop="name">
+            <el-input
+              v-model="queryParams.name"
+              class="!w-240px"
+              clearable
+              placeholder="请输入菜单名称"
+              @keyup.enter="handleQuery"
+            />
+          </el-form-item>
+          <el-form-item label="状态" prop="status">
+            <el-select
+              v-model="queryParams.status"
+              class="!w-240px"
+              clearable
+              placeholder="请选择菜单状态"
+            >
+              <el-option
+                v-for="dict in getIntDictOptions(DICT_TYPE.COMMON_STATUS)"
+                :key="dict.value"
+                :label="dict.label"
+                :value="dict.value"
+              />
+            </el-select>
+          </el-form-item>
+        </el-form>
+      </template>
+      <template #actions>
         <el-button @click="handleQuery()">
           <Icon class="mr-5px" icon="ep:search" />
           搜索
@@ -61,32 +69,31 @@
           <Icon class="mr-5px" icon="ep:refresh" />
           刷新菜单缓存
         </el-button>
-      </el-form-item>
-    </el-form>
-  </ContentWrap>
-
-  <!-- 列表 -->
-  <ContentWrap>
-    <el-auto-resizer>
-      <template #default="{ width }">
-        <el-table-v2
-          v-model:expanded-row-keys="expandedRowKeys"
-          :columns="columns"
-          :data="list"
-          :expand-column-key="columns[0].key"
-          :height="1000"
-          :width="width"
-          fixed
-          row-key="id"
-        />
       </template>
-    </el-auto-resizer>
-  </ContentWrap>
+      <template #table>
+        <el-auto-resizer>
+          <template #default="{ width, height }">
+            <el-table-v2
+              v-model:expanded-row-keys="expandedRowKeys"
+              :columns="columns"
+              :data="list"
+              :expand-column-key="columns[0].key"
+              :height="height"
+              :width="width"
+              fixed
+              row-key="id"
+            />
+          </template>
+        </el-auto-resizer>
+      </template>
+    </UnifiedListTemplate>
+</ContentWrap>
 
   <!-- 表单弹窗：添加/修改 -->
   <MenuForm ref="formRef" @success="getList" />
 </template>
 <script lang="tsx" setup>
+import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import { isSearchFormInputEmpty } from '@/utils/search'
 import { DICT_TYPE, getIntDictOptions } from '@/utils/dict'
 import { handleTree } from '@/utils/tree'

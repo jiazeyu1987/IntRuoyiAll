@@ -62,14 +62,23 @@ public class RoleConfigPackageServiceImpl implements RoleConfigPackageService {
     private PermissionService permissionService;
 
     @Override
-    public byte[] exportPackage() {
+    public byte[] exportPackage(List<Long> categoryIds) {
+        if (categoryIds == null || categoryIds.isEmpty()) {
+            throw exception0(CONFIG_PACKAGE_CONTENT_INVALID.getCode(), "请选择导出的角色分类");
+        }
+        List<RoleCategoryDO> categories = roleCategoryMapper.selectListOrderBySort().stream()
+                .filter(category -> categoryIds.contains(category.getId())).toList();
+        if (categories.size() != new java.util.HashSet<>(categoryIds).size()) {
+            throw exception0(CONFIG_PACKAGE_CONTENT_INVALID.getCode(), "所选角色分类不存在");
+        }
         Map<Long, String> menuKeyById = buildMenuKeyById();
         RoleConfigPackage payload = new RoleConfigPackage();
         payload.setPackageVersion(PACKAGE_VERSION);
-        payload.setCategories(roleCategoryMapper.selectListOrderBySort().stream()
+        payload.setCategories(categories.stream()
                 .map(this::toCategoryItem)
                 .toList());
         payload.setRoles(roleMapper.selectList().stream()
+                .filter(role -> categoryIds.contains(role.getCategoryId()))
                 .sorted(Comparator.comparing(RoleDO::getSort).thenComparing(RoleDO::getId))
                 .map(role -> toItem(role, menuKeyById))
                 .toList());

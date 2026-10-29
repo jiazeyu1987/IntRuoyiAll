@@ -10,6 +10,13 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 class MesProEdhrNonconformanceReviewControllerPermissionTest {
 
     @Test
+    void assigningPreviouslyUnassignedReviewRequiresCreatePermission() throws Exception {
+        var method = MesProEdhrNonconformanceReviewController.class.getDeclaredMethod("assignReviewer",
+                cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrNonconformanceReviewerAssignReqVO.class);
+        assertEquals("@ss.hasPermission('mes:pro-edhr-nonconformance-review:create')", method.getAnnotation(PreAuthorize.class).value());
+    }
+
+    @Test
     void activeOrderListUsesCreatePermission() throws Exception {
         var method = MesProEdhrNonconformanceReviewController.class
                 .getDeclaredMethod("getActiveOrderList");

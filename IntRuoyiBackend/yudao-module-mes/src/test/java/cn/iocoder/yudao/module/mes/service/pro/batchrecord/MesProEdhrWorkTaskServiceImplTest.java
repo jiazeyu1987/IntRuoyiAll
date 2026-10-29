@@ -8,7 +8,6 @@ import cn.iocoder.yudao.framework.test.core.ut.BaseDbUnitTest;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrWorkTaskArchiveRuleReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrWorkTaskAssignmentRuleRespVO;
-import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrWorkTaskCloseRuleReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrWorkTaskPageReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrWorkTaskReleaseApprovalRuleReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrWorkTaskRespVO;
@@ -18,6 +17,7 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatc
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionOriginDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrProcessFormPermissionRuleDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrReleaseTransactionDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrDeviationDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrWorkTaskAssignmentRuleDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrWorkTaskDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecordreport.MesProBatchRecordReportDO;
@@ -86,7 +86,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-@Import({MesProEdhrWorkTaskServiceImpl.class, MesProEdhrCandidateResolver.class, MesProEdhrWorkTaskServiceImplTest.SqlDialect.class})
+@Import({MesProEdhrWorkTaskServiceImpl.class, MesEdhrTaskDeadlineService.class, MesProEdhrCandidateResolver.class, MesProEdhrWorkTaskServiceImplTest.SqlDialect.class})
 class MesProEdhrWorkTaskServiceImplTest extends BaseDbUnitTest {
 
     @org.springframework.boot.test.context.TestConfiguration
@@ -95,7 +95,9 @@ class MesProEdhrWorkTaskServiceImplTest extends BaseDbUnitTest {
         org.apache.ibatis.plugin.Interceptor mysqlBitsForIsolatedH2() { return new MesNcrScopeAuditTransactionTest.MysqlBitsForH2(); }
     }
     @MockitoBean private MesProEdhrNonconformanceReviewService nonconformanceReviewService;
+    @MockitoBean private MesMarketReleaseAccess marketReleaseAccess;
     @Resource private cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesProWorkOrderMapper workOrders;
+    @Resource private javax.sql.DataSource dataSource;
     @Resource
     private MesProEdhrWorkTaskService workTaskService;
     @Resource
@@ -141,6 +143,7 @@ class MesProEdhrWorkTaskServiceImplTest extends BaseDbUnitTest {
     @BeforeEach
     void setTenant() {
         TenantContextHolder.setTenantId(122L);
+        new org.springframework.jdbc.core.JdbcTemplate(dataSource).execute("CREATE TABLE IF NOT EXISTS mes_pro_process_pool_active_order (id BIGINT PRIMARY KEY, tenant_id BIGINT, deleted BOOLEAN DEFAULT FALSE, work_order_id BIGINT, leader_user_id BIGINT, active_status VARCHAR(32), business_status VARCHAR(32))");
         org.mockito.Mockito.doAnswer(call -> { call.getArgument(3, Runnable.class).run(); return null; })
                 .when(auxiliaryAudit).entitlements(any(), any(), any(), any());
         org.mockito.Mockito.doAnswer(call -> { call.getArgument(1, java.util.function.Supplier.class).get(); return null; })
@@ -200,6 +203,75 @@ class MesProEdhrWorkTaskServiceImplTest extends BaseDbUnitTest {
             assertEquals(fillTask.getId(), myPage.getList().get(0).getId());
             assertEquals(fillTask.getActionUrl(), myPage.getList().get(0).getActionUrl());
         }
+    }
+
+    @Test
+    void approvedRecordChangeCopiesCompletedFillerSnapshotInsteadOfCurrentRuleOwner() {
+        var source = insertFillTask(8801L, 9801L, "record-change-source").setStatus("DONE")
+                .setCompletedAt(LocalDateTime.now()).setCandidateSourceType("USER").setCandidateSourceId(99L)
+                .setCandidateUserSnapshot("99");
+        workTaskMapper.updateById(source);
+        when(adminUserApi.getUser(99L)).thenReturn(adminUser(99L, CommonStatusEnum.ENABLE.getStatus()));
+        when(permissionApi.hasAnyPermissions(99L, "mes:pro-edhr-work-task:query")).thenReturn(true);
+        insertAssignmentRule(source.getRouteProcessId(), MesProEdhrWorkTaskService.TASK_TYPE_REWORK, 120);
+        try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(20L);
+            var task = workTaskService.createRecordChangeRework(700L, source.getExecutionId(), 8802L, "批准补录");
+            assertEquals("REWORK", task.getTaskType());
+            assertEquals("RECORD_CHANGE", task.getBusinessScopeType());
+            assertEquals(700L, task.getBusinessScopeId());
+            assertEquals(99L, task.getAssigneeUserId());
+            assertEquals("99", task.getCandidateUserSnapshot());
+            assertEquals(8802L, task.getExecutionId());
+            assertEquals(source.getExecutionId(), task.getSourceExecutionId());
+            assertTrue(task.getActionUrl().contains("workTaskId=" + task.getId()));
+            assertEquals(task.getId(), workTaskService.createRecordChangeRework(700L, source.getExecutionId(), 8802L, "批准补录").getId());
+        }
+        var notice = ArgumentCaptor.forClass(NotifySendSingleToUserReqDTO.class);
+        verify(notifyMessageSendApi).sendSingleMessageToAdmin(notice.capture());
+        assertEquals("MES_EDHR_RECORD_CHANGE_REWORK", notice.getValue().getTemplateCode());
+        assertEquals(99L, notice.getValue().getUserId());
+    }
+
+    @Test
+    void recordChangeWithoutCompletedFillerFailsWithoutInventingOwner() {
+        assertThrows(IllegalStateException.class, () -> workTaskService.createRecordChangeRework(700L, 999999L, 999999L, "批准重开"));
+        assertTrue(workTaskMapper.selectList().isEmpty());
+    }
+
+    @Test
+    void deviationTasksNotifyAssignedOwnerReassignAndComplete() {
+        insertBatch(batchForInitialFill(3101L, 4001L).setStatus(10).setTenantId(122L));
+        when(adminUserApi.getUser(2101L)).thenReturn(new AdminUserRespDTO().setId(2101L).setStatus(0));
+        when(adminUserApi.getUser(2102L)).thenReturn(new AdminUserRespDTO().setId(2102L).setStatus(0));
+        when(permissionApi.hasAnyPermissions(2101L, "mes:pro-edhr-deviation:query")).thenReturn(true);
+        when(permissionApi.hasAnyPermissions(2101L, "mes:pro-edhr-deviation:handle")).thenReturn(true);
+        when(permissionApi.hasAnyPermissions(2101L, "mes:pro-edhr-work-task:query")).thenReturn(true);
+        when(permissionApi.hasAnyPermissions(2102L, "mes:pro-edhr-deviation:query")).thenReturn(true);
+        when(permissionApi.hasAnyPermissions(2102L, "mes:pro-edhr-deviation:handle")).thenReturn(true);
+        when(permissionApi.hasAnyPermissions(2102L, "mes:pro-edhr-work-task:query")).thenReturn(true);
+        MesProEdhrDeviationDO deviation = new MesProEdhrDeviationDO().setId(9901L)
+                .setBatchExecutionId(3101L).setWorkOrderId(4101L)
+                .setWorkOrderCode("WO-1").setBatchCode("B-1");
+
+        MesProEdhrWorkTaskDO first = workTaskService.assignDeviationTask(deviation,
+                MesProEdhrWorkTaskService.TASK_TYPE_DEVIATION_RECEIVE, 2101L, "接收偏差");
+        assertEquals("EDHR_DEVIATION", first.getBusinessScopeType());
+        assertEquals(9901L, first.getBusinessScopeId());
+        assertEquals(2101L, first.getAssigneeUserId());
+        assertEquals(MesProEdhrWorkTaskStatus.TODO, first.getStatus());
+        verify(notifyMessageSendApi).sendSingleMessageToAdmin(any(NotifySendSingleToUserReqDTO.class));
+
+        MesProEdhrWorkTaskDO reassigned = workTaskService.assignDeviationTask(deviation,
+                MesProEdhrWorkTaskService.TASK_TYPE_DEVIATION_RECEIVE, 2102L, "接收偏差");
+        assertEquals(MesProEdhrWorkTaskStatus.CANCELED, workTaskMapper.selectById(first.getId()).getStatus());
+        assertEquals(2102L, reassigned.getAssigneeUserId());
+
+        workTaskService.completeDeviationTask(9901L,
+                MesProEdhrWorkTaskService.TASK_TYPE_DEVIATION_RECEIVE, "已调查");
+        MesProEdhrWorkTaskDO completed = workTaskMapper.selectById(reassigned.getId());
+        assertEquals(MesProEdhrWorkTaskStatus.DONE, completed.getStatus());
+        assertEquals("已调查:已调查", completed.getReason());
     }
 
     @Test
@@ -1777,6 +1849,13 @@ class MesProEdhrWorkTaskServiceImplTest extends BaseDbUnitTest {
                 .setAssigneeUserId(99L)
                 .setBatchExecutionId(1001L);
         workTaskMapper.updateById(activeTask);
+        MesProEdhrBatchExecutionDO frozenBatch = batchForInitialFill(1003L, 4103L)
+                .setStatus(MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_FROZEN);
+        insertBatch(frozenBatch);
+        MesProEdhrWorkTaskDO frozenTask = insertFillTask(5203L, 2203L, "frozen-batch")
+                .setAssigneeUserId(99L)
+                .setBatchExecutionId(frozenBatch.getId());
+        workTaskMapper.updateById(frozenTask);
         MesProEdhrBatchExecutionDO voidedBatch = batchForInitialFill(1002L, 4102L)
                 .setStatus(MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_VOIDED);
         insertBatch(voidedBatch);
@@ -1793,13 +1872,18 @@ class MesProEdhrWorkTaskServiceImplTest extends BaseDbUnitTest {
             PageResult<MesProEdhrWorkTaskRespVO> page = workTaskService.getMyPage(reqVO);
             MesProEdhrWorkTaskStatsRespVO stats = workTaskService.getStats();
 
-            assertEquals(1L, page.getTotal());
+            assertEquals(2L, page.getTotal());
             assertTrue(page.getList().stream()
                     .anyMatch(task -> Objects.equals(task.getId(), activeTask.getId())));
             assertFalse(page.getList().stream()
                     .anyMatch(task -> Objects.equals(task.getId(), voidedTask.getId())));
-            assertEquals(1L, stats.getTodoCount());
-            assertEquals(1L, stats.getFillCount());
+            MesProEdhrWorkTaskRespVO blockedTask = page.getList().stream()
+                    .filter(task -> Objects.equals(task.getId(), frozenTask.getId())).findFirst().orElseThrow();
+            assertFalse(blockedTask.getActionable());
+            assertEquals("批次已冻结，待不合格/偏差处理解除后才能继续此任务", blockedTask.getBlockedReason());
+            assertEquals(blockedTask.getBlockedReason(), blockedTask.getInactionReason());
+            assertEquals(2L, stats.getTodoCount());
+            assertEquals(2L, stats.getFillCount());
         }
     }
 
@@ -1846,7 +1930,10 @@ class MesProEdhrWorkTaskServiceImplTest extends BaseDbUnitTest {
 
     @Test
     void processOverdueTasks_marksOnlyDueTodoAndDoingTasksAndSendsNotify() {
+        when(notifyMessageSendApi.sendSingleMessageToAdmin(any())).thenReturn(5001L);
         LocalDateTime now = LocalDateTime.of(2026, 6, 12, 10, 0);
+        for (long id : new long[] {99}) when(adminUserApi.getUser(id))
+                .thenReturn(new AdminUserRespDTO().setId(id).setTenantId(122L).setStatus(0));
         MesProEdhrWorkTaskDO dueTodo = insertFillTask(601L, 2601L, "601")
                 .setDueTime(now.minusMinutes(1));
         workTaskMapper.updateById(dueTodo);
@@ -1878,6 +1965,94 @@ class MesProEdhrWorkTaskServiceImplTest extends BaseDbUnitTest {
         assertEquals(MesProEdhrWorkTaskStatus.TODO, workTaskMapper.selectById(futureTodo.getId()).getStatus());
         assertEquals(MesProEdhrWorkTaskStatus.DONE, workTaskMapper.selectById(doneTask.getId()).getStatus());
         verify(notifyMessageSendApi, org.mockito.Mockito.times(2)).sendSingleMessageToAdmin(any(NotifySendSingleToUserReqDTO.class));
+    }
+
+    @Test
+    void overdueCandidateSnapshotNotifiesEveryFrozenCandidateOnlyOnce() {
+        when(notifyMessageSendApi.sendSingleMessageToAdmin(any())).thenReturn(5001L);
+        var now = LocalDateTime.now();
+        var task = insertFillTask(701L, 2701L, "candidate-overdue")
+                .setAssigneeUserId(null).setCandidateUserSnapshot("701,702,701").setDueTime(now.minusMinutes(1));
+        workTaskMapper.updateById(task);
+        new org.springframework.jdbc.core.JdbcTemplate(dataSource).update("UPDATE mes_pro_edhr_work_task SET assignee_user_id=NULL WHERE id=?", task.getId());
+        for (long id : new long[] {701,702}) when(adminUserApi.getUser(id))
+                .thenReturn(new AdminUserRespDTO().setId(id).setTenantId(122L).setStatus(0));
+        assertEquals(1, workTaskService.processOverdueTasks(now, 20));
+        assertEquals(0, workTaskService.processOverdueTasks(now.plusMinutes(1), 20));
+        var sent = ArgumentCaptor.forClass(NotifySendSingleToUserReqDTO.class);
+        verify(notifyMessageSendApi, times(2)).sendSingleMessageToAdmin(sent.capture());
+        assertEquals(Set.of(701L,702L), sent.getAllValues().stream().map(NotifySendSingleToUserReqDTO::getUserId).collect(java.util.stream.Collectors.toSet()));
+    }
+
+    @Test
+    void overdueAssignedTaskNotifiesOnlyCurrentAssignee() {
+        when(notifyMessageSendApi.sendSingleMessageToAdmin(any())).thenReturn(5001L);
+        var now=LocalDateTime.now().withNano(0);
+        var task=insertFillTask(704L,2704L,"assigned-overdue").setCandidateUserSnapshot("701,702").setDueTime(now.minusMinutes(1));
+        workTaskMapper.updateById(task);
+        when(adminUserApi.getUser(99L)).thenReturn(new AdminUserRespDTO().setId(99L).setTenantId(122L).setStatus(0));
+        assertEquals(1,workTaskService.processOverdueTasks(now,20));
+        var sent=ArgumentCaptor.forClass(NotifySendSingleToUserReqDTO.class);
+        verify(notifyMessageSendApi).sendSingleMessageToAdmin(sent.capture()); assertEquals(99L,sent.getValue().getUserId());
+    }
+
+    @Test
+    void frozenProductionTaskRetainsDeadlineWithoutReminderUntilUnfrozen() {
+        when(notifyMessageSendApi.sendSingleMessageToAdmin(any())).thenReturn(5001L);
+        var now=LocalDateTime.now().withNano(0);
+        var task=insertFillTask(705L,2705L,"frozen-overdue").setDueTime(now.minusMinutes(1));workTaskMapper.updateById(task);
+        batchExecutionMapper.updateById(new MesProEdhrBatchExecutionDO().setId(1001L).setStatus(15));
+        assertEquals(0,workTaskService.processOverdueTasks(now,20));
+        assertEquals(task.getDueTime(),workTaskMapper.selectById(task.getId()).getDueTime());
+        org.mockito.Mockito.verifyNoInteractions(notifyMessageSendApi);
+        batchExecutionMapper.updateById(new MesProEdhrBatchExecutionDO().setId(1001L).setStatus(10));
+        when(adminUserApi.getUser(99L)).thenReturn(new AdminUserRespDTO().setId(99L).setTenantId(122L).setStatus(0));
+        assertEquals(1,workTaskService.processOverdueTasks(now,20));
+    }
+
+    @Test
+    void overdueForeignTenantCandidateFailsBeforeSending() {
+        var now = LocalDateTime.now();
+        var task = insertFillTask(703L, 2703L, "foreign-overdue").setDueTime(now.minusMinutes(1));
+        workTaskMapper.updateById(task);
+        when(adminUserApi.getUser(99L)).thenReturn(new AdminUserRespDTO().setId(99L).setTenantId(999L).setStatus(0));
+        assertThrows(ServiceException.class, () -> workTaskService.processOverdueTasks(now,20));
+        org.mockito.Mockito.verifyNoInteractions(notifyMessageSendApi);
+        assertEquals(MesProEdhrWorkTaskStatus.TODO, workTaskMapper.selectById(task.getId()).getStatus());
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.NullSource
+    @org.junit.jupiter.params.provider.ValueSource(longs={0,-1})
+    void overdueMissingReceiptRollsBackStatusAndRemainsRetryable(Long invalidReceipt) {
+        var now=LocalDateTime.now().withNano(0);
+        var task=insertFillTask(706L,2706L,"missing-receipt").setDueTime(now.minusMinutes(1));
+        workTaskMapper.updateById(task);
+        when(adminUserApi.getUser(99L)).thenReturn(new AdminUserRespDTO().setId(99L).setTenantId(122L).setStatus(0));
+        when(notifyMessageSendApi.sendSingleMessageToAdmin(any())).thenReturn(invalidReceipt,5001L);
+        assertThrows(IllegalStateException.class,()->workTaskService.processOverdueTasks(now,20));
+        var failed=workTaskMapper.selectById(task.getId());
+        assertEquals(MesProEdhrWorkTaskStatus.TODO,failed.getStatus());
+        assertNull(failed.getOverdueAt());
+        assertEquals(task.getDueTime(),failed.getDueTime());
+        assertEquals(1,workTaskService.processOverdueTasks(now,20));
+        assertEquals(MesProEdhrWorkTaskStatus.OVERDUE,workTaskMapper.selectById(task.getId()).getStatus());
+        assertEquals(0,workTaskService.processOverdueTasks(now.plusMinutes(1),20));
+        verify(notifyMessageSendApi,times(2)).sendSingleMessageToAdmin(any());
+    }
+
+    @Test
+    void overdueDisabledTemplateExceptionRollsBackStatusBeforeRetry() {
+        var now=LocalDateTime.now().withNano(0);
+        var task=insertFillTask(707L,2707L,"disabled-template").setDueTime(now.minusMinutes(1));
+        workTaskMapper.updateById(task);
+        when(adminUserApi.getUser(99L)).thenReturn(new AdminUserRespDTO().setId(99L).setTenantId(122L).setStatus(0));
+        var disabled=cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception(
+                cn.iocoder.yudao.module.system.enums.ErrorCodeConstants.NOTIFY_SEND_TEMPLATE_DISABLED);
+        when(notifyMessageSendApi.sendSingleMessageToAdmin(any())).thenThrow(disabled).thenReturn(5001L);
+        assertEquals(disabled,assertThrows(ServiceException.class,()->workTaskService.processOverdueTasks(now,20)));
+        assertEquals(MesProEdhrWorkTaskStatus.TODO,workTaskMapper.selectById(task.getId()).getStatus());
+        assertEquals(1,workTaskService.processOverdueTasks(now,20));
     }
 
     @Test
@@ -2176,43 +2351,6 @@ class MesProEdhrWorkTaskServiceImplTest extends BaseDbUnitTest {
     }
 
     @Test
-    void saveCloseRule_createsAndUpdatesRouteCloseAssignmentRule() {
-        insertRoute(4105L);
-        when(adminUserApi.getUser(188L)).thenReturn(adminUser(188L, CommonStatusEnum.ENABLE.getStatus()));
-        when(adminUserApi.getUser(189L)).thenReturn(adminUser(189L, CommonStatusEnum.ENABLE.getStatus()));
-
-        try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
-            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(99L);
-            MesProEdhrWorkTaskAssignmentRuleRespVO created = workTaskService.saveCloseRule(
-                closeRuleReq(4105L, 188L, 120, true, "批次关闭责任人"));
-
-        assertNotNull(created.getId());
-        assertEquals("ROUTE", created.getScopeType());
-        assertEquals(4105L, created.getScopeId());
-        assertEquals(MesProEdhrWorkTaskService.TASK_TYPE_CLOSE, created.getTaskType());
-        assertEquals(188L, created.getAssigneeUserId());
-        assertEquals("USER", created.getCandidateSourceType());
-        assertEquals(188L, created.getCandidateSourceId());
-        assertEquals(120, created.getDueMinutes());
-        assertEquals(true, created.getEnabled());
-        assertEquals("批次关闭责任人", created.getRemark());
-
-        MesProEdhrWorkTaskAssignmentRuleRespVO updated = workTaskService.saveCloseRule(
-                closeRuleReq(4105L, 189L, 180, false, "暂停批次关闭"));
-
-        assertEquals(created.getId(), updated.getId());
-        assertEquals(189L, updated.getAssigneeUserId());
-        assertEquals("USER", updated.getCandidateSourceType());
-        assertEquals(189L, updated.getCandidateSourceId());
-        assertEquals(180, updated.getDueMinutes());
-        assertEquals(false, updated.getEnabled());
-        assertEquals("暂停批次关闭", updated.getRemark());
-        assertEquals(1, assignmentRuleMapper.selectListByScopeAndType(
-                "ROUTE", 4105L, MesProEdhrWorkTaskService.TASK_TYPE_CLOSE).size());
-        }
-    }
-
-    @Test
     void validateAndCompleteArchiveTask_requiresAssigneeAndClosesTodo() {
         MesProEdhrBatchExecutionDO batch = batchForArchive(1002L, 4102L);
         insertArchiveAssignmentRule(batch.getRouteId(), 188L, 240);
@@ -2288,6 +2426,9 @@ class MesProEdhrWorkTaskServiceImplTest extends BaseDbUnitTest {
                 .setCandidateUserSnapshot("288")
                 .setAssigneeUserId(288L);
         workTaskMapper.updateById(fillTask);
+        if (batchExecutionMapper.selectById(fillTask.getBatchExecutionId()) == null) {
+            insertBatch(batchForInitialFill(fillTask.getBatchExecutionId(), fillTask.getRouteId()).setStatus(10).setTenantId(122L));
+        }
         insertProcessFormFillRule(5190L, "REPORT-REASSIGN-001", 78090L, "USERS", "389,390", 90);
         when(adminUserApi.getUserList(List.of(389L, 390L))).thenReturn(List.of(
                 adminUser(389L, CommonStatusEnum.ENABLE.getStatus()),
@@ -2329,6 +2470,9 @@ class MesProEdhrWorkTaskServiceImplTest extends BaseDbUnitTest {
                 .setCandidateUserSnapshot("288")
                 .setAssigneeUserId(288L);
         workTaskMapper.updateById(fillTask);
+        if (batchExecutionMapper.selectById(fillTask.getBatchExecutionId()) == null) {
+            insertBatch(batchForInitialFill(fillTask.getBatchExecutionId(), fillTask.getRouteId()).setStatus(10).setTenantId(122L));
+        }
         insertProcessFormFillRule(5192L, "REPORT-REASSIGN-003", 78092L, "USERS", "389,390", 90);
         when(adminUserApi.getUserList(List.of(389L, 390L))).thenReturn(List.of(
                 adminUser(389L, CommonStatusEnum.ENABLE.getStatus()),
@@ -2367,6 +2511,9 @@ class MesProEdhrWorkTaskServiceImplTest extends BaseDbUnitTest {
                 .setCandidateUserSnapshot("288")
                 .setAssigneeUserId(288L);
         workTaskMapper.updateById(fillTask);
+        if (batchExecutionMapper.selectById(fillTask.getBatchExecutionId()) == null) {
+            insertBatch(batchForInitialFill(fillTask.getBatchExecutionId(), fillTask.getRouteId()).setStatus(10).setTenantId(122L));
+        }
         insertProcessFormFillRule(5193L, "REPORT-REASSIGN-004", 78093L, "USERS", "389,390", 90);
         when(adminUserApi.getUserList(List.of(389L, 390L))).thenReturn(List.of(
                 adminUser(389L, CommonStatusEnum.ENABLE.getStatus()),
@@ -2707,6 +2854,8 @@ class MesProEdhrWorkTaskServiceImplTest extends BaseDbUnitTest {
                 .setActionUrl("/mes/pro/feedback/edhr-execution/detail?id=" + executionId + "&workTaskId=1")
                 .setSignatureCellKey("");
         workTaskMapper.insert(task);
+        new org.springframework.jdbc.core.JdbcTemplate(dataSource).update(
+                "UPDATE mes_pro_edhr_work_task SET tenant_id = ? WHERE id = ?", 122L, task.getId());
         return task;
     }
 
@@ -2736,6 +2885,8 @@ class MesProEdhrWorkTaskServiceImplTest extends BaseDbUnitTest {
                 .setStatus(MesProEdhrWorkTaskStatus.TODO)
                 .setActionUrl("/mes/pro/feedback/edhr-execution/detail?id=" + executionId);
         workTaskMapper.insert(task);
+        new org.springframework.jdbc.core.JdbcTemplate(dataSource).update(
+                "UPDATE mes_pro_edhr_work_task SET tenant_id = ? WHERE id = ?", 122L, task.getId());
         return task;
     }
 
@@ -2776,6 +2927,7 @@ class MesProEdhrWorkTaskServiceImplTest extends BaseDbUnitTest {
     }
 
     private void insertBatch(MesProEdhrBatchExecutionDO batch) {
+        if (batch.getTenantId() == null) batch.setTenantId(122L);
         batchExecutionMapper.insert(batch);
     }
 
@@ -2991,16 +3143,6 @@ class MesProEdhrWorkTaskServiceImplTest extends BaseDbUnitTest {
     private MesProEdhrWorkTaskArchiveRuleReqVO archiveRuleReq(Long routeId, Long assigneeUserId, Integer dueMinutes,
                                                               Boolean enabled, String remark) {
         return new MesProEdhrWorkTaskArchiveRuleReqVO()
-                .setRouteId(routeId)
-                .setAssigneeUserId(assigneeUserId)
-                .setDueMinutes(dueMinutes)
-                .setEnabled(enabled)
-                .setRemark(remark);
-    }
-
-    private MesProEdhrWorkTaskCloseRuleReqVO closeRuleReq(Long routeId, Long assigneeUserId, Integer dueMinutes,
-                                                          Boolean enabled, String remark) {
-        return new MesProEdhrWorkTaskCloseRuleReqVO()
                 .setRouteId(routeId)
                 .setAssigneeUserId(assigneeUserId)
                 .setDueMinutes(dueMinutes)

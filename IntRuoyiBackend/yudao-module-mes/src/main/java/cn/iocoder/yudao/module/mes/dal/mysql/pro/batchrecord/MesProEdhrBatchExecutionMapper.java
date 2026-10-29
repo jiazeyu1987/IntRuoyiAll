@@ -148,7 +148,16 @@ public interface MesProEdhrBatchExecutionMapper extends BaseMapperX<MesProEdhrBa
         return selectList(buildPageQuery(reqVO));
     }
 
-    private LambdaQueryWrapperX<MesProEdhrBatchExecutionDO> buildPageQuery(EdhrBatchExecutionPageReqVO reqVO) {
+    /** Stable descending keyset scan for predicates that require formal business evidence. */
+    default List<MesProEdhrBatchExecutionDO> selectScanWindow(EdhrBatchExecutionPageReqVO reqVO, Long beforeId) {
+        var query = buildPageQuery(reqVO);
+        if (beforeId != null) {
+            query.lt(MesProEdhrBatchExecutionDO::getId, beforeId);
+        }
+        return selectList(query.last("LIMIT 128"));
+    }
+
+    default LambdaQueryWrapperX<MesProEdhrBatchExecutionDO> buildPageQuery(EdhrBatchExecutionPageReqVO reqVO) {
         LambdaQueryWrapperX<MesProEdhrBatchExecutionDO> queryWrapper = new LambdaQueryWrapperX<MesProEdhrBatchExecutionDO>()
                 .inIfPresent(MesProEdhrBatchExecutionDO::getId, reqVO.getBatchExecutionIds())
                 .likeIfPresent(MesProEdhrBatchExecutionDO::getBatchExecutionCode, reqVO.getBatchExecutionCode())
@@ -161,6 +170,7 @@ public interface MesProEdhrBatchExecutionMapper extends BaseMapperX<MesProEdhrBa
                 .likeIfPresent(MesProEdhrBatchExecutionDO::getRouteCode, reqVO.getRouteCode())
                 .eqIfPresent(MesProEdhrBatchExecutionDO::getStatus, reqVO.getStatus())
                 .betweenIfPresent(MesProEdhrBatchExecutionDO::getCreateTime, reqVO.getCreateTime());
+        MesMarketReleaseHandoverMapper.readable(queryWrapper,"mes_pro_edhr_batch_execution.id");
         if (reqVO.getStatuses() != null && !reqVO.getStatuses().isEmpty()) {
             queryWrapper.in(MesProEdhrBatchExecutionDO::getStatus, reqVO.getStatuses());
         }

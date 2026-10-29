@@ -19,7 +19,11 @@ export const EDHR_WORK_TASK_NOTIFY_PATHS = new Set([
   EDHR_EXECUTION_DETAIL_PATH,
   EDHR_EXECUTION_FORM_PATH,
   EDHR_APPROVAL_DETAIL_PATH,
-  PQC_PRODUCTION_RELEASE_PATH
+  PQC_PRODUCTION_RELEASE_PATH,
+  '/mes/pro/feedback/edhr-deviation',
+  '/mes/pro/feedback/edhr-change',
+  '/mes/pro/feedback/edhr-dossier-completion',
+  '/user/profile'
 ])
 
 export type EdhrWorkTaskRouteLike = {

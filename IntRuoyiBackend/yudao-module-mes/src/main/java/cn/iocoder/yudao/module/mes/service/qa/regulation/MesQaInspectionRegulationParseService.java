@@ -39,8 +39,30 @@ public class MesQaInspectionRegulationParseService {
                 .regulationName(parsed.regulationName())
                 .versionNo(parsed.versionNo())
                 .effectiveDate(parsed.effectiveDate().toString())
+                .ruleSourceText(readRuleSource(file))
                 .processes(groupItemsByProcess(parsed))
                 .build();
+    }
+
+    private String readRuleSource(MultipartFile file) {
+        try (var document = new org.apache.poi.xwpf.usermodel.XWPFDocument(file.getInputStream())) {
+            java.util.Set<String> lines = new java.util.LinkedHashSet<>();
+            document.getTables().forEach(table -> table.getRows().forEach(row -> row.getTableCells().forEach(cell -> {
+                String text = cell.getText().trim();
+                if (text.startsWith("备注")) lines.add(text);
+            })));
+            boolean inRules = false;
+            for (var paragraph : document.getParagraphs()) {
+                String text = paragraph.getText().trim();
+                if (text.contains("判定规则")) { inRules = true; continue; }
+                if (inRules && (text.equals("相关文件") || text.equals("相关记录") || text.equals("附件"))) break;
+                if (inRules && text.matches("^[6-9][.、\\s].*")) break;
+                if (inRules && !text.isBlank()) lines.add(text);
+            }
+            return String.join("\n", lines);
+        } catch (IOException ex) {
+            throw exception(QA_INSPECTION_REGULATION_WORD_IMPORT_INVALID, "读取检验规则失败：" + ex.getMessage());
+        }
     }
 
     private static List<MesQaInspectionRegulationParseRespVO.InspectionProcess> groupItemsByProcess(

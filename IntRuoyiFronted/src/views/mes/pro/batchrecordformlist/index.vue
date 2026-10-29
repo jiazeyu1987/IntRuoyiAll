@@ -62,7 +62,7 @@
               v-loading="listLoading"
               :data="list"
               row-key="rowKey"
-              max-height="calc(100vh - 260px)"
+              height="100%"
               highlight-current-row
               border
               @row-click="selectReport"
@@ -2399,10 +2399,14 @@ watch(
 }
 
 .batch-record-form-layout {
+  --form-panel-height: max(640px, calc(100dvh - var(--top-tool-height) - var(--tags-view-height) - var(--app-content-padding)));
+
   display: grid;
   grid-template-columns: minmax(640px, 58%) minmax(420px, 42%);
+  grid-template-rows: minmax(0, 1fr);
   gap: 14px;
-  min-height: 640px;
+  height: var(--form-panel-height);
+  box-sizing: border-box;
   padding: 14px;
   border: 1px solid #dbe3ef;
   border-radius: 8px;
@@ -2412,6 +2416,28 @@ watch(
 .batch-record-form-layout__list,
 .batch-record-form-preview {
   min-width: 0;
+  min-height: 0;
+}
+
+.batch-record-form-layout__list {
+  display: flex;
+  flex-direction: column;
+}
+
+.batch-record-form-layout__list :deep(.unified-list-template),
+.batch-record-form-layout__list :deep(.unified-list-template__table-shell) {
+  flex: 1;
+  min-height: 0;
+}
+
+.batch-record-form-layout__list :deep(.unified-list-template__table-shell) {
+  overflow: hidden;
+}
+
+.batch-record-form-layout__list :deep(.unified-list-template__query-form),
+.batch-record-form-layout__list :deep(.el-pagination),
+.batch-record-form-layout__alert {
+  flex-shrink: 0;
 }
 
 .batch-record-form-layout__alert {
@@ -2576,6 +2602,8 @@ watch(
 @media (max-width: 1280px) {
   .batch-record-form-layout {
     grid-template-columns: 1fr;
+    grid-template-rows: repeat(2, var(--form-panel-height));
+    height: auto;
   }
 }
 </style>

@@ -6,6 +6,7 @@ import lombok.Data;
 import lombok.experimental.Accessors;
 
 import java.time.LocalDateTime;
+import java.util.Map;
 
 @Data
 @Accessors(chain = true)
@@ -13,6 +14,9 @@ public class MesProEdhrDeviationHandlingSaveReqVO {
 
     @NotNull
     private Integer expectedContentVersion;
+    /** Explicitly selected people for the established signature responsibilities. */
+    @Size(max = 6)
+    private Map<String, Long> reviewerAssignments;
     @Size(max = 1000)
     private String revisionReason;
     private LocalDateTime investigationStartedAt;

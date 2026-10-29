@@ -226,21 +226,14 @@
             </div>
           </el-form-item>
           <el-form-item v-if="requiresTargetUser" label="目标处理人">
-            <el-select
+            <UserSelectV2
               v-model="interventionForm.targetUserId"
-              class="!w-100%"
-              filterable
-              clearable
-              :loading="targetUserLoading"
-              placeholder="选择目标处理人"
-            >
-              <el-option
-                v-for="user in targetUserOptions"
-                :key="user.id"
-                :label="resolveTargetUserLabel(user)"
-                :value="user.id"
-              />
-            </el-select>
+              :user-options="targetUserOptions"
+              placeholder="请选择人员"
+              class="!w-1/1"
+              :candidate-loading="targetUserLoading"
+              :candidate-error="targetUserError"
+            />
           </el-form-item>
           <el-form-item label="原因分类">
             <el-input v-model="interventionForm.reasonCategory" />
@@ -270,6 +263,7 @@
 </template>
 
 <script setup lang="ts">
+import UserSelectV2 from '@/views/system/user/components/UserSelectV2.vue'
 import {
   getEdhrFlowEventPage,
   getEdhrFlowInterventionPage,
@@ -296,6 +290,7 @@ const loading = ref(false)
 const eventLoading = ref(false)
 const interventionSubmitting = ref(false)
 const targetUserLoading = ref(false)
+const targetUserError = ref('')
 const loadError = ref('')
 const actionError = ref('')
 const interventionError = ref('')
@@ -497,12 +492,14 @@ const validateInterventionForm = () => {
 }
 
 const loadTargetUserOptions = async () => {
+  targetUserError.value = ''
   targetUserLoading.value = true
   try {
     targetUserOptions.value = await UserApi.getSimpleUserList()
   } catch (error) {
     targetUserOptions.value = []
-    interventionError.value = resolveErrorMessage(error, '目标处理人列表加载失败。')
+    targetUserError.value = resolveErrorMessage(error, '目标处理人列表加载失败。')
+    interventionError.value = targetUserError.value
     message.error(interventionError.value)
   } finally {
     targetUserLoading.value = false
@@ -659,10 +656,6 @@ const resolveIntegrityTag = (result?: string) => {
   if (result === 'PASS') return 'success'
   if (result === 'FAIL') return 'danger'
   return 'warning'
-}
-
-const resolveTargetUserLabel = (user: UserApi.UserVO) => {
-  return `${user.nickname || user.username || user.id} / ${user.username || '--'} / ${user.id}`
 }
 
 const formatDateTime = (value?: string | number) => {

@@ -457,3 +457,13 @@ test('page discovering changed directory explicitly asks reload, next user read 
  assert.equal(f.requests.filter(r=>r.url.endsWith('/context')).length,before+1)
  assert.equal(f.page.total.value,0);assert.equal(f.badge.todoTotal,0);assert.deepEqual(f.page.loadErrorMessages.value,[]);f.scope.stop()
 })
+
+ test('actual personal workbench handoff uses formal navigation and stale context never routes',async()=>{
+  const context=deferred();const item={id:'handoff:77',taskType:'QA_DECISION_HANDOFF',businessScopeId:'90',actionUrl:'/mes/pro/process-pool/production-leader?activeOrderId=90&reviewId=9&handoffTaskId=77&roundId=9&handoffType=QA_DECISION_HANDOFF'}
+  const f=fixture({mes:true,item,handoffContext:()=>context.promise});
+  try {
+   await f.page.loadWorkbench();const action=f.page.openTodo(f.page.todoRows.value[0]);await tick();f.hooks.unmount();
+   context.resolve({task:{id:'77',activeOrderId:'90',roundId:'9',taskType:'QA_DECISION_HANDOFF',actionUrl:item.actionUrl,status:'TODO'},current:true,processable:true});
+   await action;assert.equal(f.routes.length,0)
+  } finally {f.scope.stop()}
+ })

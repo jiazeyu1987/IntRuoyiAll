@@ -1,54 +1,73 @@
 <template>
   <ContentWrap>
-    <div class="mb-12px text-12px text-[var(--el-text-color-secondary)]">
-      组织角色：控制组织岗位归属。
-    </div>
-    <!-- 搜索工作栏 -->
-    <el-form
-      class="-mb-15px"
-      :model="queryParams"
-      ref="queryFormRef"
-      :inline="true"
-      label-width="68px"
+    <UnifiedListTemplate
+      table-key="system.post.main"
+      :query-model="queryParams"
+      :total="total"
+      v-model:page="queryParams.pageNo"
+      v-model:limit="queryParams.pageSize"
+      @pagination="getList"
     >
-      <el-form-item label="组织角色名称" prop="name">
-        <el-input
-          v-model="queryParams.name"
-          placeholder="请输入组织角色名称"
-          clearable
-          class="!w-240px"
-          @keyup.enter="handleQuery"
-        />
-      </el-form-item>
-      <el-form-item label="组织角色编码" prop="code">
-        <el-input
-          v-model="queryParams.code"
-          placeholder="请输入组织角色编码"
-          clearable
-          class="!w-240px"
-          @keyup.enter="handleQuery"
-        />
-      </el-form-item>
-      <el-form-item label="状态" prop="status">
-        <el-select v-model="queryParams.status" placeholder="请选择状态" clearable class="!w-240px">
-          <el-option
-            v-for="dict in getIntDictOptions(DICT_TYPE.COMMON_STATUS)"
-            :key="dict.value"
-            :label="dict.label"
-            :value="dict.value"
-          />
-        </el-select>
-      </el-form-item>
-      <el-form-item>
-        <el-button @click="handleQuery"><Icon icon="ep:search" class="mr-5px" /> 搜索</el-button>
-        <el-button @click="resetQuery"><Icon icon="ep:refresh" class="mr-5px" /> 重置</el-button>
+      <template #filters>
+        <el-form
+          class="-mb-15px"
+          :model="queryParams"
+          ref="queryFormRef"
+          :inline="true"
+          label-width="68px"
+        >
+          <el-form-item label="组织角色名称" prop="name">
+            <el-input
+              v-model="queryParams.name"
+              placeholder="请输入组织角色名称"
+              clearable
+              class="!w-240px"
+              @keyup.enter="handleQuery"
+            />
+          </el-form-item>
+          <el-form-item label="组织角色编码" prop="code">
+            <el-input
+              v-model="queryParams.code"
+              placeholder="请输入组织角色编码"
+              clearable
+              class="!w-240px"
+              @keyup.enter="handleQuery"
+            />
+          </el-form-item>
+          <el-form-item label="状态" prop="status">
+            <el-select
+              v-model="queryParams.status"
+              placeholder="请选择状态"
+              clearable
+              class="!w-240px"
+            >
+              <el-option
+                v-for="dict in getIntDictOptions(DICT_TYPE.COMMON_STATUS)"
+                :key="dict.value"
+                :label="dict.label"
+                :value="dict.value"
+              />
+            </el-select>
+          </el-form-item>
+        </el-form>
+      </template>
+      <template #actions>
+        <el-button @click="handleQuery">
+          <Icon icon="ep:search" class="mr-5px" />
+          搜索
+        </el-button>
+        <el-button @click="resetQuery">
+          <Icon icon="ep:refresh" class="mr-5px" />
+          重置
+        </el-button>
         <el-button
           type="primary"
           plain
           @click="openForm('create')"
           v-hasPermi="['system:post:create']"
         >
-          <Icon icon="ep:plus" class="mr-5px" /> 新增组织角色
+          <Icon icon="ep:plus" class="mr-5px" />
+          新增组织角色
         </el-button>
         <el-button
           type="success"
@@ -57,7 +76,8 @@
           :loading="exportLoading"
           v-hasPermi="['system:post:export']"
         >
-          <Icon icon="ep:download" class="mr-5px" /> 导出配置包
+          <Icon icon="ep:download" class="mr-5px" />
+          导出配置包
         </el-button>
         <el-button
           type="warning"
@@ -66,7 +86,8 @@
           :loading="importLoading"
           v-hasPermi="['system:post:create', 'system:post:update']"
         >
-          <Icon icon="ep:upload" class="mr-5px" /> 导入配置包
+          <Icon icon="ep:upload" class="mr-5px" />
+          导入配置包
         </el-button>
         <el-button
           type="danger"
@@ -75,68 +96,68 @@
           @click="handleDeleteBatch"
           v-hasPermi="['system:post:delete']"
         >
-          <Icon icon="ep:delete" class="mr-5px" /> 批量删除
+          <Icon icon="ep:delete" class="mr-5px" />
+          批量删除
         </el-button>
-      </el-form-item>
-    </el-form>
-  </ContentWrap>
-
-  <!-- 列表 -->
-  <ContentWrap>
-    <el-table v-loading="loading" :data="list" @selection-change="handleRowCheckboxChange">
-      <el-table-column type="selection" width="55" />
-      <el-table-column label="组织角色编号" align="center" prop="id" />
-      <el-table-column label="组织角色名称" align="center" prop="name" />
-      <el-table-column label="组织角色编码" align="center" prop="code" />
-      <el-table-column label="组织角色顺序" align="center" prop="sort" />
-      <el-table-column label="组织角色备注" align="center" prop="remark" />
-      <el-table-column label="状态" align="center" prop="status">
-        <template #default="scope">
-          <dict-tag :type="DICT_TYPE.COMMON_STATUS" :value="scope.row.status" />
-        </template>
-      </el-table-column>
-      <el-table-column
-        label="创建时间"
-        align="center"
-        prop="createTime"
-        width="180"
-        :formatter="dateFormatter"
-      />
-      <el-table-column label="操作" align="center">
-        <template #default="scope">
-          <el-button
-            link
-            type="primary"
-            @click="openForm('update', scope.row.id)"
-            v-hasPermi="['system:post:update']"
-          >
-            编辑
-          </el-button>
-          <el-button
-            link
-            type="danger"
-            @click="handleDelete(scope.row.id)"
-            v-hasPermi="['system:post:delete']"
-          >
-            删除
-          </el-button>
-        </template>
-      </el-table-column>
-    </el-table>
-    <!-- 分页 -->
-    <Pagination
-      :total="total"
-      v-model:page="queryParams.pageNo"
-      v-model:limit="queryParams.pageSize"
-      @pagination="getList"
-    />
-  </ContentWrap>
+      </template>
+      <template #table>
+        <el-table
+          stripe
+          border
+          v-loading="loading"
+          :data="list"
+          @selection-change="handleRowCheckboxChange"
+        >
+          <el-table-column type="selection" width="55" />
+          <el-table-column label="组织角色编号" align="center" prop="id" />
+          <el-table-column label="组织角色名称" align="center" prop="name" />
+          <el-table-column label="组织角色编码" align="center" prop="code" />
+          <el-table-column label="组织角色顺序" align="center" prop="sort" />
+          <el-table-column label="组织角色备注" align="center" prop="remark" />
+          <el-table-column label="状态" align="center" prop="status">
+            <template #default="scope">
+              <dict-tag :type="DICT_TYPE.COMMON_STATUS" :value="scope.row.status" />
+            </template>
+          </el-table-column>
+          <el-table-column
+            label="创建时间"
+            align="center"
+            prop="createTime"
+            width="180"
+            :formatter="dateFormatter"
+          />
+          <el-table-column label="操作" align="center">
+            <template #default="scope">
+              <el-button
+                link
+                type="primary"
+                @click="openForm('update', scope.row.id)"
+                v-hasPermi="['system:post:update']"
+              >
+                编辑
+              </el-button>
+              <el-button
+                link
+                type="danger"
+                @click="handleDelete(scope.row.id)"
+                v-hasPermi="['system:post:delete']"
+              >
+                删除
+              </el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+        <!-- 分页 -->
+      </template>
+    </UnifiedListTemplate>
+</ContentWrap>
 
   <!-- 表单弹窗：添加/修改 -->
   <PostForm ref="formRef" @success="getList" />
   <input ref="importInputRef" accept=".json" class="hidden" type="file" @change="handleImportFileChange" />
 </template>
 <script lang="ts" setup>
+import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import { isSearchFormInputEmpty } from '@/utils/search'
 import { DICT_TYPE, getIntDictOptions } from '@/utils/dict'
 import { dateFormatter } from '@/utils/formatTime'

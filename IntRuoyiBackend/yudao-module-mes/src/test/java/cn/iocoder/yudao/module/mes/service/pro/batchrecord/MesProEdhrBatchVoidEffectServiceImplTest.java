@@ -32,6 +32,7 @@ class MesProEdhrBatchVoidEffectServiceImplTest extends BaseDbUnitTest {
     @Resource private cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrWorkTaskMapper realTasks;
     @Resource private cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrRecordChangeEventMapper changes;
 
+    @MockitoBean private MesMarketReleaseAccess marketReleaseAccess;
     @MockitoBean private cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService gxpAuditService;
     @MockitoBean private cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrNonconformanceReviewMapper reviewMapper;
 
@@ -196,6 +197,7 @@ class MesProEdhrBatchVoidEffectServiceImplTest extends BaseDbUnitTest {
     private org.springframework.jdbc.core.JdbcTemplate jdbc;
     @org.junit.jupiter.api.BeforeEach void jdbcFixture(){
         jdbc=new org.springframework.jdbc.core.JdbcTemplate(dataSource);
+        cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesSignatureDetailFixture.installJsonFunctions(jdbc);
         jdbc.execute("CREATE TABLE IF NOT EXISTS mes_pro_edhr_nonconformance_review(id BIGINT PRIMARY KEY,tenant_id BIGINT,source_type VARCHAR(40),source_id BIGINT,active_order_id BIGINT,deleted BOOLEAN DEFAULT FALSE,frozen_at TIMESTAMP,review_status VARCHAR(40),disposition VARCHAR(40),closed_at TIMESTAMP)");
     }
 

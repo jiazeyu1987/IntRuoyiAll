@@ -15,7 +15,7 @@
       <div class="el-upload__text">将文件拖到此处，或<em>点击上传</em></div>
       <template #tip>
         <div class="el-upload__tip text-center">
-          <span>仅允许导入钉钉在职员工的 xls、xlsx 文件。</span>
+          <span>支持钉钉在职员工 xls、xlsx 文件，含员工UserID、姓名、1至7级部门及部门主管；邮箱、工号、主部门ID可不提供。缺少主部门ID时按完整部门路径识别。</span>
         </div>
       </template>
     </el-upload>
@@ -59,8 +59,8 @@ const submitForm = async () => {
     formData.append('file', fileList.value[0].raw as Blob)
     const response = await UserApi.importDingTalkUsers(formData)
     submitFormSuccess(response)
-  } catch {
-    submitFormError()
+  } catch (error) {
+    message.error(error instanceof Error ? error.message : String(error))
   } finally {
     formLoading.value = false
   }
@@ -100,11 +100,6 @@ const submitFormSuccess = (response: any) => {
   message.alert(text)
   dialogVisible.value = false
   emits('success')
-}
-
-/** 上传错误提示 */
-const submitFormError = () => {
-  message.error('上传失败，请您重新上传！')
 }
 
 /** 重置表单 */

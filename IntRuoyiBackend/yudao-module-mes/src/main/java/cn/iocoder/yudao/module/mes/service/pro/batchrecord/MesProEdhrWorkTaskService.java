@@ -3,7 +3,6 @@ package cn.iocoder.yudao.module.mes.service.pro.batchrecord;
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrWorkTaskArchiveRuleReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrWorkTaskAssignmentRuleRespVO;
-import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrWorkTaskCloseRuleReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrWorkTaskPageReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrWorkTaskReleaseApprovalRuleReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrWorkTaskRespVO;
@@ -13,11 +12,14 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatc
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionTaskDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrProcessFormPermissionRuleDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrReleaseTransactionDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrDeviationDO;
 
 import java.time.LocalDateTime;
 import java.util.List;
 
 public interface MesProEdhrWorkTaskService {
+    void syncMarketReleaseHandoverEntitlements(MesProEdhrWorkTaskDO task, Long originalUserId);
+
 
     String TASK_TYPE_FILL = "FILL";
     String TASK_TYPE_REVIEW = "REVIEW";
@@ -26,6 +28,8 @@ public interface MesProEdhrWorkTaskService {
     String TASK_TYPE_ARCHIVE = "ARCHIVE";
     String TASK_TYPE_CLOSE = "CLOSE";
     String TASK_TYPE_RELEASE_APPROVE = "RELEASE_APPROVE";
+    String TASK_TYPE_DEVIATION_RECEIVE = "DEVIATION_RECEIVE";
+    String TASK_TYPE_DEVIATION_CORRECT = "DEVIATION_CORRECT";
 
     PageResult<MesProEdhrWorkTaskRespVO> getMyPage(MesProEdhrWorkTaskPageReqVO reqVO);
 
@@ -54,10 +58,6 @@ public interface MesProEdhrWorkTaskService {
 
     MesProEdhrWorkTaskAssignmentRuleRespVO saveArchiveRule(MesProEdhrWorkTaskArchiveRuleReqVO reqVO);
 
-    MesProEdhrWorkTaskAssignmentRuleRespVO getCloseRuleByRoute(Long routeId);
-
-    MesProEdhrWorkTaskAssignmentRuleRespVO saveCloseRule(MesProEdhrWorkTaskCloseRuleReqVO reqVO);
-
     MesProEdhrWorkTaskAssignmentRuleRespVO getReleaseApprovalRuleByRoute(Long routeId);
 
     MesProEdhrWorkTaskAssignmentRuleRespVO saveReleaseApprovalRule(MesProEdhrWorkTaskReleaseApprovalRuleReqVO reqVO);
@@ -80,6 +80,11 @@ public interface MesProEdhrWorkTaskService {
 
     MesProEdhrWorkTaskDO createReleaseApprovalTaskAfterSubmit(MesProEdhrReleaseTransactionDO transaction,
                                                               MesProEdhrBatchExecutionDO batch);
+
+    MesProEdhrWorkTaskDO assignDeviationTask(MesProEdhrDeviationDO deviation, String taskType,
+                                             Long assigneeUserId, String reason);
+
+    void completeDeviationTask(Long deviationId, String taskType, String result);
 
     MesProEdhrWorkTaskDO validateArchiveTask(Long workTaskId, Long batchExecutionId);
 
@@ -167,6 +172,8 @@ public interface MesProEdhrWorkTaskService {
 
     MesProEdhrWorkTaskDO completeReviewAndCreateRework(Long workTaskId, Long rejectedExecutionId,
                                                        Long revisionExecutionId, String reason);
+
+    MesProEdhrWorkTaskDO createRecordChangeRework(Long changeEventId, Long sourceExecutionId, Long targetExecutionId, String reason);
 
     MesProEdhrWorkTaskDO getActiveByExecutionAndType(Long executionId, String taskType);
 

@@ -65,6 +65,7 @@ public class MesProBatchRecordExecutionSignatureService {
     public static final String ACTION_PRODUCTION_SUBMIT = "PRODUCTION_SUBMIT";
     public static final String ACTION_PQC_SUBMIT = "PQC_SUBMIT";
     public static final String ACTION_PQC_RELEASE = "PQC_RELEASE";
+    public static final String ACTION_MARKET_RELEASE_REJECT = "MARKET_RELEASE_REJECT";
     public static final String ACTION_MARKET_RELEASE = "MARKET_RELEASE";
     public static final String ACTION_TEAM_LEADER_REVIEW = "TEAM_LEADER_REVIEW";
     public static final String ACTION_BATCH_VOID_REQUEST = "BATCH_VOID_REQUEST";
@@ -852,7 +853,7 @@ public class MesProBatchRecordExecutionSignatureService {
                 businessOccurredAt(signatureTimeEvidence),
                 businessTimeZone(signatureTimeEvidence));
         if (!Set.of(ACTION_PRODUCTION_SUBMIT, ACTION_PQC_SUBMIT, ACTION_PQC_RELEASE, ACTION_QA_DISPOSITION,
-                ACTION_MARKET_RELEASE).contains(actionType)) {
+                ACTION_MARKET_RELEASE, ACTION_MARKET_RELEASE_REJECT).contains(actionType)) {
             return electronicSignatureService.sign(command);
         }
         AdminUserDO signer = adminUserService.getUser(actorId);

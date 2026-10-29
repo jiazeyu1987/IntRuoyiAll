@@ -33,6 +33,8 @@ public class MesProEdhrDeviationHandlingRespVO {
     private String verificationContent;
     private Integer contentVersion;
     private String contentHash;
+    private Map<String, Long> reviewerAssignments;
+    private Boolean reviewReady;
     private Map<String, Long> effectiveSignatureIds;
     private List<SignatureEvidence> signatureEvidence;
     private List<SignatureEvidence> signatureHistory;

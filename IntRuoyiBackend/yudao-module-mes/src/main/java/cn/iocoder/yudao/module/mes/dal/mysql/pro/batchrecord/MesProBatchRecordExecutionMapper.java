@@ -47,7 +47,7 @@ public interface MesProBatchRecordExecutionMapper extends BaseMapperX<MesProBatc
                                    @Param("auditBatchId") Long auditBatchId);
 
     default PageResult<MesProBatchRecordExecutionDO> selectPage(MesProBatchRecordExecutionPageReqVO reqVO) {
-        return selectPage(reqVO, new LambdaQueryWrapperX<MesProBatchRecordExecutionDO>()
+        return selectPage(reqVO, MesMarketReleaseHandoverMapper.readable(new LambdaQueryWrapperX<MesProBatchRecordExecutionDO>(),"batch_execution_id")
                 .eqIfPresent(MesProBatchRecordExecutionDO::getTemplateId, reqVO.getTemplateId())
                 .eqIfPresent(MesProBatchRecordExecutionDO::getWorkOrderId, reqVO.getWorkOrderId())
                 .eqIfPresent(MesProBatchRecordExecutionDO::getBatchExecutionId, reqVO.getBatchExecutionId())
@@ -67,7 +67,7 @@ public interface MesProBatchRecordExecutionMapper extends BaseMapperX<MesProBatc
     }
 
     default PageResult<MesProBatchRecordExecutionDO> selectDomainTracePage(MesProBatchRecordDomainTracePageReqVO reqVO) {
-        return selectPage(reqVO, new LambdaQueryWrapperX<MesProBatchRecordExecutionDO>()
+        return selectPage(reqVO, MesMarketReleaseHandoverMapper.readable(new LambdaQueryWrapperX<MesProBatchRecordExecutionDO>(),"batch_execution_id")
                 .eqIfPresent(MesProBatchRecordExecutionDO::getId, reqVO.getExecutionId())
                 .likeIfPresent(MesProBatchRecordExecutionDO::getExecutionCode, reqVO.getExecutionCode())
                 .likeIfPresent(MesProBatchRecordExecutionDO::getWorkOrderCode, reqVO.getWorkOrderCode())
@@ -89,7 +89,7 @@ public interface MesProBatchRecordExecutionMapper extends BaseMapperX<MesProBatc
     default PageResult<MesProBatchRecordExecutionDO> selectTrackingPage(MesProBatchRecordExecutionTrackingPageReqVO reqVO,
                                                                         Collection<Long> routeProcessIds,
                                                                         Collection<Long> actorMatchedExecutionIds) {
-        return selectPage(reqVO, new LambdaQueryWrapperX<MesProBatchRecordExecutionDO>()
+        return selectPage(reqVO, MesMarketReleaseHandoverMapper.readable(new LambdaQueryWrapperX<MesProBatchRecordExecutionDO>(),"batch_execution_id")
                 .likeIfPresent(MesProBatchRecordExecutionDO::getExecutionCode, reqVO.getExecutionCode())
                 .likeIfPresent(MesProBatchRecordExecutionDO::getWorkOrderCode, reqVO.getWorkOrderCode())
                 .likeIfPresent(MesProBatchRecordExecutionDO::getBatchCode, reqVO.getBatchCode())

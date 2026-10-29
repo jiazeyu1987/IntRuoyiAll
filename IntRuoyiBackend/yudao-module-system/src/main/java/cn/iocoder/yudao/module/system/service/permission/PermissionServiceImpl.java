@@ -167,6 +167,12 @@ public class PermissionServiceImpl implements PermissionService {
             return false;
         }
 
+        if (TenantAdminBusinessPolicy.isTenantAdmin(roles)
+                && TenantAdminBusinessPolicy.isBusinessPermission(permission)) {
+            return menuService.getMenuList(menuIds).stream()
+                    .anyMatch(TenantAdminBusinessPolicy::isBusinessMenu);
+        }
+
         // 判断是否有权限
         Set<Long> roleIds = convertSet(roles, RoleDO::getId);
         for (Long menuId : menuIds) {
@@ -311,7 +317,12 @@ public class PermissionServiceImpl implements PermissionService {
             return convertSet(menuService.getMenuList(), MenuDO::getId);
         }
         // 如果是非管理员的情况下，获得拥有的菜单编号
-        return convertSet(roleMenuMapper.selectListByRoleId(roleIds), RoleMenuDO::getMenuId);
+        Set<Long> menuIds = new HashSet<>(convertSet(roleMenuMapper.selectListByRoleId(roleIds), RoleMenuDO::getMenuId));
+        if (TenantAdminBusinessPolicy.isTenantAdmin(roleService.getRoleListFromCache(roleIds))) {
+            menuService.getMenuList().stream().filter(TenantAdminBusinessPolicy::isBusinessMenu)
+                    .map(MenuDO::getId).forEach(menuIds::add);
+        }
+        return menuIds;
     }
 
     @Override

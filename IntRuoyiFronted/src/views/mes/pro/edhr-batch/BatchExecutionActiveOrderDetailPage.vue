@@ -2,51 +2,33 @@
   <ContentWrap>
     <ActiveOrderDetailLayout data-edhr-batch-active-order-detail-page>
       <div class="edhr-batch-active-order-detail">
-        <div class="edhr-batch-active-order-detail__toolbar">
-          <el-button data-edhr-batch-source-detail-back @click="goBack">返回</el-button>
+        <el-tooltip content="返回" placement="top">
           <el-button
-            v-if="canOpenReverseTrace"
-            type="primary"
-            plain
-            data-edhr-detail-reverse-trace
-            @click="reverseTraceVisible = true"
+            class="edhr-batch-active-order-detail__back"
+            aria-label="返回"
+            circle
+            data-edhr-batch-source-detail-back
+            @click="goBack"
           >
-            反查关联批次
+            <Icon icon="ep:back" :size="18" />
           </el-button>
-        </div>
-        <el-tabs v-model="activeTab" class="edhr-batch-active-order-detail__tabs">
-          <el-tab-pane label="批记录详情" name="detail">
-            <ActiveOrderSubmissionDetailPanel
-              :detail="detail"
-              :loading="loading"
-              :error="error"
-              :initial-active-tab="initialActiveTab"
-              audit-scope-type="BATCH"
-              :audit-scope-id="auditDetailQuery"
-              record-scope="FORMAL_BATCH_SOURCE_DETAIL"
-              @retry="loadDetail"
-            />
-          </el-tab-pane>
-          <el-tab-pane label="偏差" name="deviation">
-            <el-skeleton v-if="deviationLoading" :rows="4" animated />
-            <el-alert
-              v-else-if="deviationError"
-              :title="deviationError"
-              type="error"
-              :closable="false"
-              show-icon
-            >
-              <el-button link type="primary" @click="loadDeviationBatches">重试</el-button>
-            </el-alert>
-            <template v-else-if="deviationBatches.length">
-              <section v-for="batch in deviationBatches" :key="batch.batchExecutionId">
-                <h3 v-if="deviationBatches.length > 1">{{ batch.batchExecutionCode }}</h3>
-                <DeviationTracePane :batch-execution-id="batch.batchExecutionId" />
-              </section>
-            </template>
-            <el-empty v-else description="暂无正式批记录，无法查看偏差" />
-          </el-tab-pane>
-        </el-tabs>
+        </el-tooltip>
+        <fieldset class="market-release-readonly" :disabled="marketReleaseReadOnly">
+        <ActiveOrderSubmissionDetailPanel
+          hide-correction-history
+          :detail="detail"
+          :production-material-lists="productionMaterialLists"
+          :production-material-list-loading="productionMaterialListLoading"
+          :production-material-list-error="productionMaterialListError"
+          :loading="loading"
+          :error="error"
+          :initial-active-tab="initialActiveTab"
+          audit-scope-type="BATCH"
+          :audit-scope-id="auditDetailQuery"
+          record-scope="FORMAL_BATCH_SOURCE_DETAIL"
+          @retry="loadDetail"
+        />
+        </fieldset>
         <BatchReverseTracePanel
           v-model:visible="reverseTraceVisible"
           :anchor-batch-execution-id="batchExecutionId"
@@ -58,18 +40,16 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, onActivated, onDeactivated, ref, watch } from 'vue'
+import { getMarketReleaseAccess } from '@/api/mes/pro/edhr/marketReleaseHandover'
+import { ElMessage } from 'element-plus'
 import { useRoute, useRouter } from 'vue-router'
 import ActiveOrderSubmissionDetailPanel from '@/views/mes/pro/processpool/components/ActiveOrderSubmissionDetailPanel.vue'
 import ActiveOrderDetailLayout from '@/views/mes/pro/processpool/components/ActiveOrderDetailLayout.vue'
-import DeviationTracePane from '@/views/mes/pro/edhr/components/DeviationTracePane.vue'
 import BatchReverseTracePanel from './components/BatchReverseTracePanel.vue'
 import { canReverseTrace, readReverseTraceState, reverseTraceHistoryPath } from './reverseTraceState'
-import { getEdhrBatchActiveOrderDetail, type EdhrRouteId } from '@/api/mes/pro/edhr/batchExecution'
-import {
-  getDeviationBatchOptionsByActiveOrder,
-  type DeviationBatchOptionRespVO
-} from '@/api/mes/pro/edhr/deviation'
+import { getEdhrBatchActiveOrderDetail, getEdhrBatchActiveOrderProductionMaterialLists, type EdhrRouteId } from '@/api/mes/pro/edhr/batchExecution'
+import type { ErpProductionMaterialListVO } from '@/api/erp/production/material-list'
 import type { TeamLeaderActiveOrderDetailRespVO } from '@/api/mes/pro/processpool/teamLeader'
 
 defineOptions({ name: 'MesProEdhrBatchExecutionActiveOrderDetail' })
@@ -78,12 +58,11 @@ const route = useRoute()
 const router = useRouter()
 
 const detail = ref<TeamLeaderActiveOrderDetailRespVO>()
+const productionMaterialLists = ref<ErpProductionMaterialListVO[]>([])
+const productionMaterialListLoading = ref(false)
+const productionMaterialListError = ref('')
 const loading = ref(false)
 const error = ref('')
-const activeTab = ref<'detail' | 'deviation'>('detail')
-const deviationBatches = ref<DeviationBatchOptionRespVO[]>([])
-const deviationLoading = ref(false)
-const deviationError = ref('')
 const reverseTraceVisible = ref(false)
 const batchExecutionId = computed(() => {
   const value = typeof route.query.batchExecutionId === 'string' ? route.query.batchExecutionId.trim() : ''
@@ -154,51 +133,39 @@ const resolveErrorMessage = (errorValue: unknown) => {
   return responseMessage?.msg || responseMessage?.message || '活跃订单详情批记录加载失败。'
 }
 
-let deviationSequence = 0
-const loadDeviationBatches = async () => {
-  const sequence = ++deviationSequence
-  deviationLoading.value = true
-  deviationError.value = ''
-  deviationBatches.value = []
+let detailSequence = 0
+const loadProductionMaterialLists = async (query: ReturnType<typeof resolveDetailQuery>, sequence: number) => {
+  productionMaterialListLoading.value = true
   try {
-    const query = resolveDetailQuery()
-    const batches = query.activeOrderId
-      ? await getDeviationBatchOptionsByActiveOrder(Number(query.activeOrderId))
-      : [{ batchExecutionId: Number(query.batchExecutionId) }]
-    if (sequence !== deviationSequence) return
-    deviationBatches.value = batches
+    const rows = await getEdhrBatchActiveOrderProductionMaterialLists(query)
+    if (sequence !== detailSequence) return
+    if (!Array.isArray(rows)) throw new Error('生产用料清单返回格式错误')
+    productionMaterialLists.value = rows
   } catch (errorValue) {
-    if (sequence !== deviationSequence) return
-    deviationError.value = resolveErrorMessage(errorValue)
+    if (sequence !== detailSequence) return
+    productionMaterialListError.value = `生产用料清单加载失败：${resolveErrorMessage(errorValue)}`
   } finally {
-    if (sequence === deviationSequence) deviationLoading.value = false
+    if (sequence === detailSequence) productionMaterialListLoading.value = false
   }
 }
 
-watch(
-  () => [activeTab.value, route.query.batchExecutionId, route.query.activeOrderId],
-  () => {
-    deviationSequence++
-    deviationBatches.value = []
-    deviationError.value = ''
-    deviationLoading.value = false
-    if (activeTab.value === 'deviation') void loadDeviationBatches()
-  }
-)
-
-let detailSequence = 0
 const loadDetail = async () => {
   const sequence = ++detailSequence
   loading.value = true
   error.value = ''
   detail.value = undefined
+  productionMaterialLists.value = []
+  productionMaterialListLoading.value = false
+  productionMaterialListError.value = ''
   try {
-    const result = await getEdhrBatchActiveOrderDetail(resolveDetailQuery())
+    const query = resolveDetailQuery()
+    const result = await getEdhrBatchActiveOrderDetail(query)
     if (sequence !== detailSequence) return
     if (!result.processes?.length) {
       throw new Error('活跃订单缺少正式工序目标，无法展示详情批记录。')
     }
     detail.value = result
+    void loadProductionMaterialLists(query, sequence)
   } catch (errorValue) {
     if (sequence !== detailSequence) return
     error.value = resolveErrorMessage(errorValue)
@@ -228,8 +195,38 @@ watch(
   }
 )
 
+const marketReleaseReadOnly = ref(true)
+let accessTimer: ReturnType<typeof setInterval> | undefined
+let accessGeneration = 0
+let accessChecking = false
+const refreshMarketReleaseAccess = async () => {
+  if (accessChecking || document.hidden) return
+  const scope = JSON.stringify(resolveDetailQuery()), generation = accessGeneration
+  accessChecking = true
+  try {
+    const state = await getMarketReleaseAccess(resolveDetailQuery())
+    if (generation === accessGeneration && scope === JSON.stringify(resolveDetailQuery())) marketReleaseReadOnly.value = !state.writable
+  } catch (failure) {
+    if (generation !== accessGeneration || scope !== JSON.stringify(resolveDetailQuery())) return
+    detailSequence++; detail.value = undefined; productionMaterialLists.value = []; reverseTraceVisible.value = false
+    marketReleaseReadOnly.value = true
+    ElMessage.error(failure instanceof Error ? failure.message : '该批记录访问权限已变化，请重新进入列表。')
+    await router.replace('/mes/pro/feedback/edhr-batch-execution')
+  } finally { accessChecking = false }
+}
+const stopMarketReleaseAccess = () => { accessGeneration++; clearInterval(accessTimer) }
+const startMarketReleaseAccess = () => {
+  stopMarketReleaseAccess()
+  void refreshMarketReleaseAccess()
+  accessTimer = setInterval(refreshMarketReleaseAccess, 5000)
+}
+onMounted(startMarketReleaseAccess)
+onActivated(startMarketReleaseAccess)
+onDeactivated(stopMarketReleaseAccess)
+onBeforeUnmount(stopMarketReleaseAccess)
+
 onMounted(loadDetail)
-onBeforeUnmount(() => { detailSequence++; deviationSequence++; loading.value = false })
+onBeforeUnmount(() => { detailSequence++; loading.value = false })
 
 watch(
   () => [route.query.tab, route.query.batchExecutionId, reverseTraceRestoreKey.value, canOpenReverseTrace.value],
@@ -242,8 +239,23 @@ watch(
 
 <style scoped>
 .edhr-batch-active-order-detail {
+  position: relative;
   display: grid;
   gap: 12px;
   min-width: 0;
 }
+.edhr-batch-active-order-detail__back {
+  position: absolute;
+  top: 18px;
+  right: 0;
+  z-index: 2;
+}
+.edhr-batch-active-order-detail :deep(.team-leader-workbench__active-order-detail-summary) {
+  margin-right: 44px;
+}
+</style>
+
+<style scoped>
+.market-release-readonly { border: 0; margin: 0; padding: 0; min-width: 0; }
+.market-release-readonly:disabled { opacity: 0.65; }
 </style>

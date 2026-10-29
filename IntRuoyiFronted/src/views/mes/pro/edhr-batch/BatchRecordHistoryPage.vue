@@ -5,153 +5,79 @@
       data-edhr-batch-history-page
       data-edhr-history-standard-list
     >
-      <el-form
-        :inline="true"
-        :model="queryParams"
-        class="edhr-history-standard-list__toolbar edhr-single-line-query"
-        @submit.prevent
-      >
-        <el-form-item label="类型">
-          <el-select
-            v-model="queryParams.recordType"
-            clearable
-            placeholder="全部类型"
-            class="!w-180px"
-            @change="handleTypeChange"
-          >
-            <el-option
-              v-for="item in availableTypes"
-              :key="item.value"
-              :label="item.label"
-              :value="item.value"
-            />
-          </el-select>
-        </el-form-item>
-        <el-form-item
-          v-if="queryParams.recordType"
-          label="工单号"
-        >
-          <el-input
-            v-model="queryParams.workOrderCode"
-            clearable
-            class="!w-190px"
-            data-edhr-history-work-order-filter
-            @keyup.enter="handleQuery"
-          />
-        </el-form-item>
-        <el-form-item v-if="isBatchType" label="产品名称">
-          <el-input
-            v-model="queryParams.productName"
-            clearable
-            class="!w-190px"
-            data-edhr-history-product-name-filter
-            @keyup.enter="handleQuery"
-          />
-        </el-form-item>
-        <el-form-item
-          v-if="queryParams.recordType"
-          label="批次号"
-        >
-          <el-input
-            v-model="queryParams.batchCode"
-            clearable
-            class="!w-190px"
-            data-edhr-history-batch-code-filter
-            @keyup.enter="handleQuery"
-          />
-        </el-form-item>
-        <el-form-item v-if="queryParams.recordType === 'history'" label="放行时间">
-          <el-date-picker
-            v-model="queryParams.releaseApprovedTime"
-            type="datetimerange"
-            value-format="YYYY-MM-DD HH:mm:ss"
-            range-separator="至"
-            start-placeholder="开始时间"
-            end-placeholder="结束时间"
-            class="!w-360px"
-            data-edhr-history-release-time-filter
-          />
-        </el-form-item>
-        <el-form-item>
-          <el-button type="primary" data-edhr-history-query @click="handleQuery">查询</el-button>
-          <el-button data-edhr-history-reset @click="resetQuery">重置</el-button>
-        </el-form-item>
-      </el-form>
-
       <el-alert v-if="loadError" :title="loadError" type="error" :closable="false" show-icon />
-
-      <el-table
-        height="100%"
-        v-loading="loading"
-        :data="batchList"
-        row-key="key"
-        border
-        stripe
-        data-edhr-history-table
-        data-edhr-history-batch-list
+      <UnifiedListTemplate
+        table-key="mes.pro.edhr-batch-history"
+        single-line-toolbar
+        :show-filter-reset="false"
+        :query-model="queryParams"
+        :filter-definitions="filterDefinitions"
+        :quick-filter-state="quickFilter.state"
+        :selected-filter-definition="quickFilter.selectedDefinition.value"
+        :operator-options="quickFilter.operatorOptions.value"
+        :columns="columns"
+        :column-saving="columnSaving"
+        :total="total"
+        v-model:page="queryParams.pageNo"
+        v-model:limit="queryParams.pageSize"
+        @update:quick-filter-state="updateQuickFilterState"
+        @quick-filter-query="quickFilter.applyQuickFilter"
+        @column-change="saveColumnConfig"
+        @pagination="getBatchList"
       >
-        <el-table-column prop="recordCode" label="记录编号" min-width="200" show-overflow-tooltip />
-        <el-table-column label="批次执行编码" min-width="230" show-overflow-tooltip>
-          <template #default="{ row }">
-            <span data-edhr-history-batch-item>{{ row.batchExecutionCode }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column label="工单号" min-width="220" show-overflow-tooltip>
-          <template #default="{ row }">
-            <span data-edhr-history-work-order-code>{{ row.workOrderCode }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column
-          prop="productName"
-          label="产品名称"
-          min-width="180"
-          show-overflow-tooltip
-        />
-        <el-table-column label="批次号" min-width="220" show-overflow-tooltip>
-          <template #default="{ row }">
-            <span data-edhr-history-batch-code>{{ row.batchCode }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column label="业务时间" min-width="180">
-          <template #default="{ row }">{{ formatTime(row.occurredAt) }}</template>
-        </el-table-column>
-        <el-table-column label="状态" width="120">
-          <template #default="{ row }">
-            <el-tag data-edhr-history-batch-status>{{ row.statusLabel }}</el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column label="操作" width="220" fixed="right">
-          <template #default="{ row }">
-            <ReleaseTaskNotificationEntry
-              v-if="row.recordType === 'history'"
-              v-hasPermi="['mes:pro-edhr-work-task:query']"
-              :batch-execution-id="row.batchExecutionId"
-              :release-transaction-id="row.releaseTransactionId"
-            />
-            <el-button
-              link
-              type="primary"
-              data-edhr-history-detail-action
-              @click="openActiveOrderDetail(row)"
+        <template #actions><BatchIntegrityCheck /></template>
+        <template #table>
+          <el-table
+            v-loading="loading || columnLoading"
+            :data="batchList"
+            height="100%"
+            row-key="key"
+            border
+            stripe
+            show-overflow-tooltip
+            data-edhr-history-table
+            data-edhr-history-batch-list
+            data-user-table-column-explicit
+            data-user-table-key="mes.pro.edhr-batch-history"
+            @header-dragend="handleHeaderDragend"
+          >
+            <el-table-column
+              v-for="column in visibleColumns"
+              :key="column.key"
+              :column-key="column.key"
+              :prop="column.key"
+              :label="column.label"
+              :width="getColumnWidthString(column.key, column.width)"
+              :fixed="column.key === 'operation' ? 'right' : false"
+              align="center"
             >
-              详情
-            </el-button>
-            <el-button
-              v-if="row.recordType === 'history' && reverseTraceAllowed"
-              link
-              type="primary"
-              data-edhr-history-reverse-trace
-              @click="openReverseTrace(row)"
-            >
-              反查
-            </el-button>
-          </template>
-        </el-table-column>
-        <template #empty>
-          <el-empty :description="loadError ? '加载失败，请重试' : '暂无追溯记录'" />
+              <template #default="{ row }">
+                <el-button
+                  v-if="column.key === 'operation'"
+                  link
+                  type="primary"
+                  data-edhr-history-detail-action
+                  @click="openActiveOrderDetail(row)"
+                  >详情</el-button
+                >
+                <el-tag v-else-if="column.key === 'statusLabel'" data-edhr-history-batch-status>{{
+                  row.statusLabel
+                }}</el-tag>
+                <span
+                  v-else-if="
+                    ['startedAt', 'pqcReleasedAt', 'releaseApprovedAt'].includes(column.key)
+                  "
+                  >{{ formatTime(row[column.key]) }}</span
+                >
+                <span v-else>{{ row[column.key] }}</span>
+              </template>
+            </el-table-column>
+            <template #empty>
+              <el-empty :description="loadError ? '加载失败，请重试' : '暂无追溯记录'" />
+            </template>
+          </el-table>
         </template>
-      </el-table>
-
+      </UnifiedListTemplate>
       <el-alert
         v-if="reverseTraceNotice"
         :title="reverseTraceNotice"
@@ -165,44 +91,38 @@
         :restore-key="reverseTraceRestoreKey"
         :history-list-state="queryParams"
       />
-
-      <Pagination
-        v-model:page="queryParams.pageNo"
-        v-model:limit="queryParams.pageSize"
-        :total="total"
-        @pagination="getBatchList"
-      />
     </div>
   </ContentWrap>
 </template>
 
 <script setup lang="ts">
 import '@/views/mes/pro/edhr-batch/record-viewport.css'
-import ReleaseTaskNotificationEntry from '../production-release/components/ReleaseTaskNotificationEntry.vue'
 import dayjs from 'dayjs'
 import { ElMessage } from 'element-plus'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
+import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
+import {
+  useTableQuickFilter,
+  type TableQuickFilterDefinition,
+  type TableQuickFilterState
+} from '@/hooks/web/useTableQuickFilter'
+import {
+  useUserTableColumns,
+  type UserTableColumnDefinition
+} from '@/hooks/web/useUserTableColumns'
 import { useRoute, useRouter } from 'vue-router'
 
+import BatchIntegrityCheck from './components/BatchIntegrityCheck.vue'
 import BatchReverseTracePanel from './components/BatchReverseTracePanel.vue'
 import { canReverseTrace, readReverseTraceState } from './reverseTraceState'
 import { hasPermission } from '@/directives/permission/hasPermi'
 import { loadHistoryPage } from './historyPagination'
-import {
-  buildHistorySources,
-  historyTypes,
-  type HistoryRow,
-  type HistoryFilters
-} from './historySources'
+import { buildHistorySources, type HistoryRow, type HistoryFilters } from './historySources'
 const router = useRouter()
 const route = useRoute()
 const loading = ref(false)
 const loadError = ref('')
 const batchList = ref<HistoryRow[]>([])
-const availableTypes = computed(() =>
-  historyTypes.filter((item) => hasPermission([item.permission]))
-)
-const isBatchType = computed(() => ['execution', 'history'].includes(queryParams.recordType))
 const total = ref(0)
 let listRequestSequence = 0
 const reverseTraceVisible = ref(false)
@@ -217,13 +137,16 @@ const reverseTraceNotice = computed(() =>
 let historyMounted = false
 
 const queryParams = reactive<HistoryFilters & { pageNo: number; pageSize: number }>({
-  recordType: '',
   pageNo: 1,
-  pageSize: 10,
+  pageSize: 20,
   workOrderCode: '',
   productName: '',
   batchCode: '',
-  releaseApprovedTime: undefined
+  releaseApprovedTime: undefined,
+  tracePerson: '',
+  traceEquipment: '',
+  traceMaterial: '',
+  traceMaterialLot: ''
 })
 
 const formatTime = (value?: string | number | null) => {
@@ -255,28 +178,100 @@ const getBatchList = async () => {
   }
 }
 
-const handleQuery = () => {
-  queryParams.pageNo = 1
-  void getBatchList()
-}
-
-const handleTypeChange = () => {
-  queryParams.workOrderCode = ''
-  queryParams.productName = ''
-  queryParams.batchCode = ''
-  queryParams.releaseApprovedTime = undefined
-  handleQuery()
-}
-
-const resetQuery = () => {
-  queryParams.recordType = ''
-  queryParams.pageNo = 1
-  queryParams.pageSize = 10
-  queryParams.workOrderCode = ''
-  queryParams.productName = ''
-  queryParams.batchCode = ''
-  queryParams.releaseApprovedTime = undefined
-  void getBatchList()
+const filterDefinitions: TableQuickFilterDefinition[] = [
+  {
+    key: 'workOrderCode',
+    label: '工单号',
+    type: 'text',
+    queryParamKey: 'workOrderCode',
+    operators: ['contains']
+  },
+  {
+    key: 'productName',
+    label: '产品名称',
+    type: 'text',
+    queryParamKey: 'productName',
+    operators: ['contains']
+  },
+  {
+    key: 'batchCode',
+    label: '生产批号',
+    type: 'text',
+    queryParamKey: 'batchCode',
+    operators: ['contains']
+  },
+  {
+    key: 'tracePerson',
+    label: '人员',
+    placeholder: '姓名或工号/账号',
+    type: 'text',
+    queryParamKey: 'tracePerson',
+    operators: ['contains']
+  },
+  {
+    key: 'traceEquipment',
+    label: '设备',
+    placeholder: '设备编码或名称',
+    type: 'text',
+    queryParamKey: 'traceEquipment',
+    operators: ['contains']
+  },
+  {
+    key: 'traceMaterial',
+    label: '物料',
+    placeholder: '物料编码或名称',
+    type: 'text',
+    queryParamKey: 'traceMaterial',
+    operators: ['contains']
+  },
+  {
+    key: 'traceMaterialLot',
+    label: '物料批号',
+    type: 'text',
+    queryParamKey: 'traceMaterialLot',
+    operators: ['contains']
+  },
+  {
+    key: 'releaseApprovedTime',
+    label: '上市放行时间',
+    type: 'dateRange',
+    queryParamKey: 'releaseApprovedTime',
+    operators: ['between']
+  }
+]
+const defaultColumns: UserTableColumnDefinition[] = [
+  { key: 'recordCode', label: '记录编号', width: 200 },
+  { key: 'batchExecutionCode', label: '批次执行编码', width: 210 },
+  { key: 'workOrderCode', label: '工单号', width: 220 },
+  { key: 'productName', label: '产品名称', width: 200 },
+  { key: 'batchCode', label: '生产批号', width: 210 },
+  { key: 'startedAt', label: '开始时间', width: 180 },
+  { key: 'pqcReleasedAt', label: 'PQC放行时间', width: 180 },
+  { key: 'releaseApprovedAt', label: '上市放行时间', width: 180 },
+  { key: 'statusLabel', label: '状态', width: 100 },
+  { key: 'operation', label: '操作', width: 90 }
+]
+const {
+  columns,
+  loading: columnLoading,
+  saving: columnSaving,
+  isColumnVisible,
+  getColumnWidthString,
+  handleHeaderDragend,
+  saveConfig: saveColumnConfig
+} = useUserTableColumns('mes.pro.edhr-batch-history', defaultColumns)
+const visibleColumns = computed(() => columns.value.filter((column) => isColumnVisible(column.key)))
+const quickFilter = useTableQuickFilter(
+  'mes.pro.edhr-batch-history',
+  filterDefinitions,
+  queryParams,
+  getBatchList
+)
+const updateQuickFilterState = async (next: Partial<TableQuickFilterState>) => {
+  const previousCount = quickFilter.state.conditions?.length ?? 0
+  quickFilter.updateState(next)
+  if (next.conditions && next.conditions.length < previousCount)
+    await quickFilter.applyQuickFilter()
 }
 
 const openActiveOrderDetail = async (batch: HistoryRow) => {
@@ -291,17 +286,6 @@ const openActiveOrderDetail = async (batch: HistoryRow) => {
       from: '/mes/pro/feedback/edhr-batch-history'
     }
   })
-}
-
-const openReverseTrace = (batch: HistoryRow) => {
-  if (!reverseTraceAllowed.value) return
-  if (!batch.batchExecutionId) {
-    ElMessage.error('当前历史追溯记录缺少批次执行编号，无法反查。')
-    return
-  }
-  reverseTraceBatchExecutionId.value = String(batch.batchExecutionId)
-  reverseTraceRestoreKey.value = undefined
-  reverseTraceVisible.value = true
 }
 
 watch(
@@ -333,7 +317,6 @@ watch(
 
 onMounted(() => {
   if (!readReverseTraceState(route.query.reverseTraceRestore)?.historyListState) {
-    if (route.query.workOrderCode || route.query.batchCode) queryParams.recordType = 'history'
     queryParams.workOrderCode = String(route.query.workOrderCode || '').trim()
     queryParams.batchCode = String(route.query.batchCode || '').trim()
   }
@@ -341,52 +324,3 @@ onMounted(() => {
   void getBatchList()
 })
 </script>
-
-<style scoped>
-.edhr-history-standard-list {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.edhr-history-standard-list__toolbar {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0 8px;
-  border: 1px solid #dbe3ef;
-
-  background: #ffffff;
-  padding: 12px 16px 4px;
-}
-
-.edhr-history-standard-list :deep(.el-table) {
-  width: 100%;
-}
-
-@media (min-width: 1181px) {
-  .edhr-single-line-query {
-    display: flex;
-    flex-wrap: nowrap;
-    gap: 12px;
-    align-items: center;
-  }
-  .edhr-single-line-query > :deep(.el-form-item) {
-    flex: 1 1 0;
-    min-width: 0;
-    margin-right: 0;
-  }
-  .edhr-single-line-query > :deep(.el-form-item:last-child) {
-    flex: 0 0 auto;
-  }
-  .edhr-single-line-query :deep(.el-form-item__content) {
-    min-width: 0;
-    flex-wrap: nowrap;
-  }
-  .edhr-single-line-query :deep(.el-input),
-  .edhr-single-line-query :deep(.el-select),
-  .edhr-single-line-query :deep(.el-date-editor) {
-    width: 100% !important;
-    min-width: 0;
-  }
-}
-</style>

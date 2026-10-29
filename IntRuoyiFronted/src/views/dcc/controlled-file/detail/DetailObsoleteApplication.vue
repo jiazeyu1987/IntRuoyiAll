@@ -259,6 +259,7 @@ const prepare = async () => {
   if (busy.value || !inputsSaved.value || !session.draft?.approvalMatrixAfter) return
   const draft = session.draft, key = scopeKey(), original = fingerprint()
   const after = draft.approvalMatrixAfter
+  if (!after) return
   pending.value = true
   try {
     requireEligible()
@@ -282,7 +283,7 @@ const submit = async () => {
   try {
     requireEligible()
     const actual = validateAttributes(snapshot.value!.actual)
-    const choice = (value: string) => {
+    const choice = (value: string | undefined) => {
       if (value === 'Y') return '是'
       if (value === 'N') return '否'
       if (value === 'NA') return '不适用'

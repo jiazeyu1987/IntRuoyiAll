@@ -50,14 +50,6 @@ export interface MesProductionReleaseFailureRespVO {
   blockers: MesProductionReleaseBlockerRespVO[]
 }
 
-export interface MesProductionReleaseReportUploadTaskRespVO {
-  nodeType: string
-  batchTaskId: string
-  workTaskId: string
-  candidateUserIds: string[]
-  status: string
-}
-
 export interface MesPqcProductionReleaseApproveReqVO {
   applicationId: string
   pqcReleaseWorkTaskId: string
@@ -90,7 +82,6 @@ export interface MesPqcProductionReleaseDecisionRespVO {
   lossReportFormCenterInstanceIds: string[]
   lossReportFieldAuditIds: string[]
   lossReportFieldAuditHeadHashes: string[]
-  reportUploadTasks: MesProductionReleaseReportUploadTaskRespVO[]
   sourceSnapshotHash: string
   reportSnapshotHash?: string
   version: number

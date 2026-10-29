@@ -21,6 +21,7 @@ import cn.iocoder.yudao.module.system.enums.permission.RoleCodeEnum;
 import cn.iocoder.yudao.module.system.service.auth.AdminAuthService;
 import cn.iocoder.yudao.module.system.service.permission.MenuService;
 import cn.iocoder.yudao.module.system.service.permission.PermissionService;
+import cn.iocoder.yudao.module.system.service.permission.TenantAdminBusinessPolicy;
 import cn.iocoder.yudao.module.system.service.permission.RoleService;
 import cn.iocoder.yudao.module.system.service.social.SocialClientService;
 import cn.iocoder.yudao.module.system.service.user.AdminUserService;
@@ -171,19 +172,19 @@ public class AuthController {
         List<MenuDO> permissionMenuList = getEnabledMenuList(grantedMenuIds);
         List<MenuDO> menuList = menuService.filterDisableMenus(getEnabledMenuList(
                 expandMenuIdsWithParents(permissionMenuList)));
-        if (roles.stream().noneMatch(role -> RoleCodeEnum.SRM_ADMIN.getCode().equals(role.getCode()))) {
+        if (!TenantAdminBusinessPolicy.isTenantAdmin(roles) && roles.stream().noneMatch(role -> RoleCodeEnum.SRM_ADMIN.getCode().equals(role.getCode()))) {
             permissionMenuList = filterSrmMenus(permissionMenuList);
             menuList = filterSrmMenus(menuList);
         }
-        if (!isAdminUser(user)) {
+        if (!TenantAdminBusinessPolicy.isTenantAdmin(roles) && !isAdminUser(user)) {
             permissionMenuList = filterDccAdminMenu(permissionMenuList);
             menuList = filterDccAdminMenu(menuList);
         }
-        if (roles.stream().noneMatch(role -> RoleCodeEnum.PUHUI_SCHEDULE_ADMIN.getCode().equals(role.getCode()))) {
+        if (!TenantAdminBusinessPolicy.isTenantAdmin(roles) && roles.stream().noneMatch(role -> RoleCodeEnum.PUHUI_SCHEDULE_ADMIN.getCode().equals(role.getCode()))) {
             permissionMenuList = filterPuhuiScheduleMenu(permissionMenuList);
             menuList = filterPuhuiScheduleMenu(menuList);
         }
-        if (roles.stream().noneMatch(role -> FINANCE_INVOICE_VOUCHER_PRINT_ROLE_CODE.equals(role.getCode()))) {
+        if (!TenantAdminBusinessPolicy.isTenantAdmin(roles) && roles.stream().noneMatch(role -> FINANCE_INVOICE_VOUCHER_PRINT_ROLE_CODE.equals(role.getCode()))) {
             permissionMenuList = filterInvoiceVoucherPrintMenu(permissionMenuList);
             menuList = filterInvoiceVoucherPrintMenu(menuList);
         }
@@ -406,7 +407,7 @@ public class AuthController {
     }
 
     private static boolean hasInvoiceVoucherPrintRole(List<RoleDO> roles) {
-        return roles.stream().anyMatch(role -> FINANCE_INVOICE_VOUCHER_PRINT_ROLE_CODE.equals(role.getCode()));
+        return TenantAdminBusinessPolicy.isTenantAdmin(roles) || roles.stream().anyMatch(role -> FINANCE_INVOICE_VOUCHER_PRINT_ROLE_CODE.equals(role.getCode()));
     }
 
     private static String formatInvoiceVoucherPrintTicketKey(String ticket) {

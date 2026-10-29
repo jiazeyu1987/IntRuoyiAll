@@ -686,7 +686,23 @@
                       :value="item.value"
                     />
                   </el-select>
+                  <UserSelectV2
+                    v-if="owner.candidateSourceType === 'USERS'"
+                    :model-value="owner.candidateSourceIds"
+                    :candidate-loading="recordBindingUserOptionsLoading"
+                    :candidate-error="recordBindingUserOptionsError"
+                    :selected-users="buildBatchRecordAttachmentOwnerCandidateOptions(owner).map(option => ({ id: option.value, nickname: option.label }))"
+                    :user-options="recordBindingUserOptions"
+                    :load-user-options="loadRecordBindingPickerOptions"
+                    :disabled="batchRecordAttachmentOwnerControlsDisabled"
+                    data-batch-record-attachment-owner-candidate
+                    placeholder="请选择人员"
+                    multiple
+                    @update:model-value="(value) => handleBatchRecordAttachmentOwnerCandidateIdsChange(owner, value as number[])"
+                    @visible-change="(visible) => visible && (recordBindingUserOptionsError = '')"
+                  />
                   <el-select
+                    v-else
                     :model-value="owner.candidateSourceIds"
                     data-batch-record-attachment-owner-candidate
                     filterable
@@ -810,7 +826,23 @@
                       :value="item.value"
                     />
                   </el-select>
+                  <UserSelectV2
+                    v-if="leader.candidateSourceType === 'USERS'"
+                    :model-value="leader.candidateSourceIds"
+                    :candidate-loading="recordBindingUserOptionsLoading"
+                    :candidate-error="recordBindingUserOptionsError"
+                    :selected-users="buildRouteStartProductionLeaderCandidateOptions(leader).map(option => ({ id: option.value, nickname: option.label }))"
+                    :user-options="recordBindingUserOptions"
+                    :load-user-options="loadRecordBindingPickerOptions"
+                    :disabled="routeStartProductionLeaderControlsDisabled"
+                    data-route-start-production-leader-candidate
+                    placeholder="请选择人员"
+                    multiple
+                    @update:model-value="(value) => handleRouteStartProductionLeaderCandidateIdsChange(leader, value as number[])"
+                    @visible-change="(visible) => visible && (recordBindingUserOptionsError = '')"
+                  />
                   <el-select
+                    v-else
                     :model-value="leader.candidateSourceIds"
                     data-route-start-production-leader-candidate
                     filterable
@@ -879,7 +911,21 @@
                 <el-radio-button label="USER">具体人员</el-radio-button>
                 <el-radio-button label="ROLE_GROUP">权限角色</el-radio-button>
               </el-radio-group>
+              <UserSelectV2
+                v-if="releaseApprovalRuleForm.candidateSourceType === 'USER'"
+                v-model="releaseApprovalRuleForm.candidateSourceId"
+                :candidate-loading="releaseApprovalRuleUserOptionsLoading"
+                :selected-users="releaseApprovalRuleCandidateOptions.map(option => ({ id: option.value, nickname: option.label }))"
+                :user-options="releaseApprovalRuleUserOptions"
+                :load-user-options="loadReleaseApprovalRulePickerOptions"
+                :candidate-error="releaseApprovalRuleUserOptionsError"
+                :disabled="releaseApprovalRuleControlsDisabled"
+                data-flow-release-owner-candidate
+                placeholder="请选择人员"
+                @visible-change="(visible) => visible && (releaseApprovalRuleUserOptionsError = '')"
+              />
               <el-select
+                v-else
                 v-model="releaseApprovalRuleForm.candidateSourceId"
                 data-flow-release-owner-candidate
                 clearable
@@ -1300,7 +1346,22 @@
                                 :value="item.value"
                               />
                             </el-select>
+                            <UserSelectV2
+                              v-if="binding.candidateSourceType === 'USERS'"
+                              :model-value="getRecordBindingCandidateSourceId(binding)"
+                              :candidate-loading="recordBindingUserOptionsLoading"
+                              :candidate-error="recordBindingUserOptionsError"
+                              :selected-users="buildRecordBindingCandidateOptions(binding).map(option => ({ id: option.value, nickname: option.label }))"
+                              :user-options="recordBindingUserOptions"
+                              :load-user-options="loadRecordBindingPickerOptions"
+                              :disabled="recordBindingEditorDisabled"
+                              data-route-process-setting-field="candidate-source-id"
+                              placeholder="请选择人员"
+                              @update:model-value="(value) => handleSelectedRecordBindingCandidateIdChange(binding, value as number | undefined)"
+                              @visible-change="(visible) => visible && (recordBindingUserOptionsError = '')"
+                            />
                             <el-select
+                              v-else
                               :model-value="getRecordBindingCandidateSourceId(binding)"
                               clearable
                               data-route-process-setting-field="candidate-source-id"
@@ -2008,6 +2069,7 @@
 </template>
 
 <script setup lang="ts">
+import UserSelectV2 from '@/views/system/user/components/UserSelectV2.vue'
 import RouteCraftBinding from './components/RouteCraftBinding.vue'
 import '@vue-flow/core/dist/style.css'
 import '@vue-flow/core/dist/theme-default.css'
@@ -2579,6 +2641,7 @@ const formTemplateOptions = ref<FormTemplateListItemVO[]>([])
 const formTemplateOptionLoading = ref(false)
 const recordBindingUserOptions = ref<UserVO[]>([])
 const recordBindingUserOptionsLoading = ref(false)
+const recordBindingUserOptionsError = ref('')
 const recordBindingRoleOptions = ref<RoleVO[]>([])
 const recordBindingRoleOptionsLoading = ref(false)
 const processFormBindingCopyPopoverVisible = ref(false)
@@ -2624,6 +2687,7 @@ const releaseApprovalRuleSaving = ref(false)
 const releaseApprovalRuleLoaded = ref(false)
 const releaseApprovalRuleLoadError = ref('')
 const releaseApprovalRuleUserOptionsLoading = ref(false)
+const releaseApprovalRuleUserOptionsError = ref('')
 const releaseApprovalRuleUserOptions = ref<UserVO[]>([])
 const releaseApprovalRuleRoleOptionsLoading = ref(false)
 const releaseApprovalRuleRoleOptions = ref<RoleVO[]>([])
@@ -4105,12 +4169,22 @@ const buildFormTemplateOptionLabel = (item: FormTemplateListItemVO) => item.temp
 
 const loadRecordBindingUserOptions = async () => {
   if (recordBindingUserOptions.value.length > 0) return
+  recordBindingUserOptionsError.value = ''
   recordBindingUserOptionsLoading.value = true
   try {
     recordBindingUserOptions.value = await getSimpleUserList()
+  } catch (error) {
+    recordBindingUserOptions.value = []
+    recordBindingUserOptionsError.value = resolveErrorMessage(error, '填写人员候选加载失败。')
+    throw error
   } finally {
     recordBindingUserOptionsLoading.value = false
   }
+}
+
+const loadRecordBindingPickerOptions = async () => {
+  await loadRecordBindingUserOptions()
+  return recordBindingUserOptions.value
 }
 
 const loadRecordBindingRoleOptions = async () => {
@@ -9516,16 +9590,27 @@ const fillReleaseApprovalRuleForm = (rule?: EdhrWorkTaskAssignmentRuleRespVO | n
 
 const loadReleaseApprovalRuleUserOptions = async () => {
   if (releaseApprovalRuleUserOptions.value.length > 0) return
+  releaseApprovalRuleUserOptionsError.value = ''
   releaseApprovalRuleUserOptionsLoading.value = true
   try {
     releaseApprovalRuleUserOptions.value = await getSimpleUserList()
   } catch (error) {
+    releaseApprovalRuleUserOptions.value = []
     const errorMessage = resolveErrorMessage(error, '放行责任人用户列表加载失败。')
+    releaseApprovalRuleUserOptionsError.value = errorMessage
     releaseApprovalRuleLoadError.value = errorMessage
     message.error(errorMessage)
   } finally {
     releaseApprovalRuleUserOptionsLoading.value = false
   }
+}
+
+const loadReleaseApprovalRulePickerOptions = async () => {
+  await loadReleaseApprovalRuleUserOptions()
+  if (releaseApprovalRuleUserOptionsError.value) {
+    throw new Error(releaseApprovalRuleUserOptionsError.value)
+  }
+  return releaseApprovalRuleUserOptions.value
 }
 
 const loadReleaseApprovalRuleRoleOptions = async () => {

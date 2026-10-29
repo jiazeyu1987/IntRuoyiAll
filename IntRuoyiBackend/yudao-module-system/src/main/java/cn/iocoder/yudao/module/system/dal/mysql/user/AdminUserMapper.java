@@ -97,24 +97,38 @@ public interface AdminUserMapper extends BaseMapperX<AdminUserDO> {
     }
 
     default PageResult<AdminUserDO> selectPage(UserPageReqVO reqVO, Collection<Long> deptIds, Collection<Long> userIds) {
+        return selectPage(reqVO, deptIds, userIds, java.util.Collections.emptySet());
+    }
+
+    default PageResult<AdminUserDO> selectPage(UserPageReqVO reqVO, Collection<Long> deptIds,
+                                              Collection<Long> userIds, Collection<Long> excludedUserIds) {
         return selectPage(reqVO, new LambdaQueryWrapperX<AdminUserDO>()
                 .likeIfPresent(AdminUserDO::getUsername, reqVO.getUsername())
+                .likeIfPresent(AdminUserDO::getNickname, reqVO.getNickname())
                 .likeIfPresent(AdminUserDO::getMobile, reqVO.getMobile())
                 .eqIfPresent(AdminUserDO::getStatus, reqVO.getStatus())
                 .betweenIfPresent(AdminUserDO::getCreateTime, reqVO.getCreateTime())
                 .inIfPresent(AdminUserDO::getDeptId, deptIds)
                 .inIfPresent(AdminUserDO::getId, userIds)
+                .notIn(cn.hutool.core.collection.CollUtil.isNotEmpty(excludedUserIds), AdminUserDO::getId, excludedUserIds)
                 .orderByDesc(AdminUserDO::getId));
     }
 
     default List<AdminUserDO> selectListForPage(UserPageReqVO reqVO, Collection<Long> deptIds, Collection<Long> userIds) {
+        return selectListForPage(reqVO, deptIds, userIds, java.util.Collections.emptySet());
+    }
+
+    default List<AdminUserDO> selectListForPage(UserPageReqVO reqVO, Collection<Long> deptIds,
+                                               Collection<Long> userIds, Collection<Long> excludedUserIds) {
         return selectList(new LambdaQueryWrapperX<AdminUserDO>()
                 .likeIfPresent(AdminUserDO::getUsername, reqVO.getUsername())
+                .likeIfPresent(AdminUserDO::getNickname, reqVO.getNickname())
                 .likeIfPresent(AdminUserDO::getMobile, reqVO.getMobile())
                 .eqIfPresent(AdminUserDO::getStatus, reqVO.getStatus())
                 .betweenIfPresent(AdminUserDO::getCreateTime, reqVO.getCreateTime())
                 .inIfPresent(AdminUserDO::getDeptId, deptIds)
                 .inIfPresent(AdminUserDO::getId, userIds)
+                .notIn(cn.hutool.core.collection.CollUtil.isNotEmpty(excludedUserIds), AdminUserDO::getId, excludedUserIds)
                 .orderByDesc(AdminUserDO::getId));
     }
 

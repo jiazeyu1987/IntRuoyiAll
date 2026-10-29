@@ -152,7 +152,8 @@ export interface ControlledFileSubmitReqVO extends Omit<ApprovalMatrixConfirmati
   directoryId?: number | string | null
   sessionId: string
   idempotencyKey: string
-  readOnlyUploadTicket: string
+  // Required by runtime validation for CONTROLLED_FILE; EXTERNAL_REVIEW requires originalUploadTicket.
+  readOnlyUploadTicket?: string
   editableUploadTicket?: string
   originalUploadTicket?: string
   sourceUploadTicket?: string
@@ -197,7 +198,7 @@ export interface ControlledFileSubmitIterationReqVO extends Omit<ApprovalMatrixC
   revisionChangeType: 'INITIAL' | 'PARTIAL' | 'REPLACEMENT'
   changeDescription: string
   projectAttributes: import('@/views/dcc/controlled-file/project-attributes/state').ProjectAttributes
-  selectedSignoffDepartmentIds: Array<number | string>
+  selectedSignoffDepartmentIds: Array<number | string> | null
   selectedDistributionDepartmentIds: Array<number | string>
   needTraining: boolean
   selectedSignoffUserIds?: number[]

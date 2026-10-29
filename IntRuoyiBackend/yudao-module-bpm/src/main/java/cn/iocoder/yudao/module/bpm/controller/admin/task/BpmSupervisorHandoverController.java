@@ -21,8 +21,9 @@ public class BpmSupervisorHandoverController {
     @GetMapping("/page")
     @PreAuthorize("@ss.hasPermission('bpm:task:manager-query')")
     public CommonResult<PageResult<BpmSupervisorHandoverRespVO>> page(
-            @Valid PageParam page, @RequestParam(required = false) @Positive Long assigneeUserId) {
-        return success(service.getPage(page, assigneeUserId));
+            @Valid PageParam page, @RequestParam @Positive Long assigneeUserId,
+            @RequestParam(required = false) @Positive Long applicantUserId) {
+        return success(service.getPage(page, assigneeUserId, applicantUserId));
     }
 
     @PutMapping

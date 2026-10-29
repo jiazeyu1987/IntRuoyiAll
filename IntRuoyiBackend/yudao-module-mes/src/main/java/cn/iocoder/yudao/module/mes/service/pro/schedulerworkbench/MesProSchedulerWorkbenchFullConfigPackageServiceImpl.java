@@ -10,6 +10,8 @@ import cn.iocoder.yudao.module.system.dal.dataobject.user.AdminUserDO;
 import cn.iocoder.yudao.module.system.service.dept.PostConfigPackageService;
 import cn.iocoder.yudao.module.system.service.permission.PermissionService;
 import cn.iocoder.yudao.module.system.service.permission.RoleConfigPackageService;
+import cn.iocoder.yudao.module.system.service.permission.RoleCategoryService;
+import cn.iocoder.yudao.module.system.dal.dataobject.permission.RoleCategoryDO;
 import cn.iocoder.yudao.module.system.service.permission.RoleService;
 import cn.iocoder.yudao.module.system.service.user.AdminUserService;
 import jakarta.annotation.Resource;
@@ -45,6 +47,8 @@ public class MesProSchedulerWorkbenchFullConfigPackageServiceImpl
     @Resource
     private RoleConfigPackageService roleConfigPackageService;
     @Resource
+    private RoleCategoryService roleCategoryService;
+    @Resource
     private MesProSchedulerWorkbenchRouteConfigPackageService routeConfigPackageService;
     @Resource
     private MesProSchedulerWorkbenchManualReplanDataPackageService manualReplanDataPackageService;
@@ -60,7 +64,8 @@ public class MesProSchedulerWorkbenchFullConfigPackageServiceImpl
     @Override
     public byte[] exportPackage() {
         byte[] postBytes = postConfigPackageService.exportPackage();
-        byte[] roleBytes = roleConfigPackageService.exportPackage();
+        byte[] roleBytes = roleConfigPackageService.exportPackage(roleCategoryService.getRoleCategoryList()
+                .stream().map(RoleCategoryDO::getId).toList());
         byte[] routeBytes = routeConfigPackageService.exportPackage();
         byte[] manualReplanDataBytes = manualReplanDataPackageService.exportPackage();
         FullConfigPackage payload = new FullConfigPackage();

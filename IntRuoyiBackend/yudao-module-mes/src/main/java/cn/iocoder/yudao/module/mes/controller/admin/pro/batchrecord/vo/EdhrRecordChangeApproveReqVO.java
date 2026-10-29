@@ -18,4 +18,7 @@ public class EdhrRecordChangeApproveReqVO {
 
     private String comment;
 
+    /** Explicit authorized reviewer, used when submitting a reopen or supplement request. */
+    private Long approverUserId;
+
 }

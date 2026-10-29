@@ -58,6 +58,7 @@ const visibleText = node => node.text + node.children.filter(child => child.type
 
 function renderOperations(row, permissions) {
   const clicked = []
+  const warnings = []
   const users = { permissions: new Set(permissions) }
   const permissionSource = fs.readFileSync(path.join(root, 'src/directives/permission/hasPermi.ts'), 'utf8')
   const permissionAst = ts.createSourceFile('hasPermi.ts', permissionSource, ts.ScriptTarget.Latest, true)
@@ -73,6 +74,7 @@ function renderOperations(row, permissions) {
     setup: () => ({
       row,
       ...state,
+      getList: () => {},
       openActiveOrderDetail: value => clicked.push(['detail', value]),
       openReleaseDialog: value => clicked.push(['release', value]),
       handleRejectClick: value => clicked.push(['reject', value]),
@@ -86,14 +88,26 @@ function renderOperations(row, permissions) {
     props: ['workTaskId', 'batchExecutionId', 'releaseTransactionId'],
     setup: (props, { attrs }) => () => vue.h('span', attrs)
   })
+  app.component('MarketReleaseHandover', {
+    setup: () => () => [vue.h('button', { 'data-test-handover': true }, '交接'), vue.h('span', '交接窗口')]
+  })
+  app.config.warnHandler = message => warnings.push(message)
   installPermission(app)
   const container = makeNode('root')
   app.mount(container)
-  return { app, clicked, buttons: descendants(container).filter(node => node.type === 'button') }
+  return { app, clicked, warnings, buttons: descendants(container).filter(node => node.type === 'button') }
 }
 
 const ownedBatch = () => ({ id: '900000001225', activeOrderId: '1009200409', batchExecutionCode: 'EDHR-OWNED-1225', status: 15, releaseActionLocked: true })
 const approvePermission = 'mes:pro-edhr-release:approve'
+
+test('handover action renders without applying a runtime directive to its fragment component', () => {
+  const view = renderOperations(ownedBatch(), [approvePermission, 'mes:pro-edhr-release:query'])
+  try {
+    assert.equal(view.buttons.filter(button => button.props['data-test-handover']).length, 1)
+    assert.equal(view.warnings.some(warning => warning.includes('Runtime directive used on component')), false)
+  } finally { view.app.unmount() }
+})
 
 test('MANAGER-ENTRY01: release-locked owned batch exposes formal market-release entry and exact clicked identity', () => {
   const row = ownedBatch()
@@ -178,9 +192,9 @@ function releaseHarness(rows) {
   const writes = [], queries = [], navigation = [], invalidations = []
   const sessionKey = 'ordinary-test-tenant-session'
   const context = {
-    selectedReleaseBatch: vue.ref(), releaseContext: vue.ref(), releaseCompletedReadOnly: vue.ref(false), releaseTransactionMissing: vue.ref(false), releaseError: vue.ref(''),
-    releaseForm: vue.reactive({ password: '', idempotencyKey: '' }), releaseDialogVisible: vue.ref(false), releaseContextLoading: vue.ref(false), releaseLoading: vue.ref(false),
-    message: { error() {}, success() {}, warning() {} }, generateUUID: () => 'unique-key',
+    selectedReleaseBatch: vue.ref(), releaseContext: vue.ref(), releasePreview: vue.ref(), releaseCompletedReadOnly: vue.ref(false), releaseTransactionMissing: vue.ref(false), releaseError: vue.ref(''),
+    releaseForm: vue.reactive({ password: '', reason: '', idempotencyKey: '' }), releaseDialogVisible: vue.ref(false), releaseContextLoading: vue.ref(false), releaseLoading: vue.ref(false),
+    message: { error() {}, success() {}, warning() {} }, crypto: { randomUUID: () => '409ca1df-f5b1-4c8e-b506-dca2a21a0f65' },
     route: { fullPath: '/mes/pro/feedback/edhr-batch-execution' },
     approvalInvalidation: {
       syncSession: () => ({ key: sessionKey }),
@@ -189,21 +203,24 @@ function releaseHarness(rows) {
       publishEdhrSuccess: event => invalidations.push(event)
     },
     getEdhrReleasePage: async query => { queries.push(query); return { list: rows } },
-    approveEdhrRelease: async request => { writes.push(request) }, router: { push: async route => { navigation.push(route) } },
+    getApprovalReviewPreview: async () => formalPreview(),
+    reviewApprovalTask: async request => { writes.push(request); return { receiptId: 'receipt-1', signatureId: 'signature-1', prepareId: request.prepareId, idempotencyKey: request.idempotencyKey } }, router: { push: async route => { navigation.push(route) } },
     resolveErrorMessage: (error, defaultMessage) => error.message || defaultMessage
   }
   return { ...productionFunctions(['marketReleaseRouteGeneration', 'marketReleaseWrites', 'marketReleaseWriteScope', 'isDefinitiveMarketReleaseFailure', 'resetMarketReleaseDialog', 'openReleaseDialog', 'submitRelease'], context), context, writes, queries, navigation, invalidations }
 }
 const formalContext = () => ({ batchExecutionId: '900000001225', releaseTransactionId: '226', releaseApprovalWorkTaskId: '2735', version: 7, approvalSignoffEvidenceHash: 'formal-signoff-hash' })
+const formalPreview = () => ({ prepareId: 'prepared-2735', content: { subjectVersion: 'version-7', contentHash: 'preview-hash', contentPolicyVersion: 'approval-content-active-order-v2', canonicalBusinessContentJson: '{"batch":"900000001225"}', allowedActions: ['APPROVE'] } })
 
-test('existing formal dialog selects exact batch and submits full transaction/task/version/signoff/password contract', async () => {
+test('formal dialog signs the exact task and preview content after collecting the opinion', async () => {
   const h = releaseHarness([{ ...formalContext(), batchExecutionId: 'other', releaseTransactionId: 'wrong' }, formalContext()])
   await h.openReleaseDialog(ownedBatch())
   assert.equal(h.context.releaseContext.value.releaseTransactionId, '226')
   assert.equal(h.writes.length, 0, '打开入口只能读取，不得批准')
   h.context.releaseForm.password = 'test-only-password'
+  h.context.releaseForm.reason = '  核对资料后同意放行  '
   await h.submitRelease()
-  assert.deepEqual(h.writes, [{ releaseTransactionId: '226', workTaskId: '2735', expectedVersion: 7, idempotencyKey: 'EDHR-MARKET-RELEASE-900000001225-unique-key', signoffEvidenceHash: 'formal-signoff-hash', password: 'test-only-password' }])
+  assert.deepEqual(h.writes, [{ moduleCode: 'EDHR', sourceTaskType: 'EDHR_WORK_TASK', sourceTaskId: '2735', result: 'APPROVE', reason: '核对资料后同意放行', idempotencyKey: '409ca1df-f5b1-4c8e-b506-dca2a21a0f65', signaturePassword: 'test-only-password', prepareId: 'prepared-2735', expectedSubjectVersion: 'version-7', expectedContentHash: 'preview-hash', contentPolicyVersion: 'approval-content-active-order-v2' }])
   assert.equal(h.navigation[0].query.batchExecutionId, '900000001225')
   assert.equal(h.invalidations.length, 1)
   assert.equal(h.invalidations[0].sourceTaskId, '2735', '成功后必须失效同一正式审批待办')
@@ -221,7 +238,30 @@ test('missing exact formal batch context and missing password cannot submit an a
   assert.equal(missing.writes.length, 0)
   const noPassword = releaseHarness([formalContext()])
   await noPassword.openReleaseDialog(ownedBatch())
+  noPassword.context.releaseForm.reason = '同意放行'
   await noPassword.submitRelease()
   assert.match(noPassword.context.releaseError.value, /电子签名密码/)
   assert.equal(noPassword.writes.length, 0)
+})
+
+test('missing preview or opinion blocks signing and a malformed receipt never claims success', async () => {
+  const h = releaseHarness([formalContext()])
+  await h.openReleaseDialog(ownedBatch())
+  h.context.releaseForm.password = 'test-only-password'
+  await h.submitRelease()
+  assert.match(h.context.releaseError.value, /放行意见/)
+  h.context.releaseForm.reason = '同意放行'
+  h.context.releasePreview.value = undefined
+  await h.submitRelease()
+  assert.match(h.context.releaseError.value, /完整放行资料/)
+  assert.equal(h.writes.length, 0)
+  h.context.releasePreview.value = formalPreview()
+  h.context.reviewApprovalTask = async () => true
+  // Recreate with the actual production function and a response without a signed receipt.
+  const action = productionFunctions(['submitRelease'], { ...h.context, marketReleaseWrites: new Map(), marketReleaseRouteGeneration: 0, marketReleaseWriteScope: () => 'task-2735', isDefinitiveMarketReleaseFailure: () => false })
+  await action.submitRelease()
+  assert.equal(h.context.releaseDialogVisible.value, true)
+  assert.equal(h.navigation.length, 0)
+  assert.equal(h.invalidations.length, 0)
+  assert.match(h.context.releaseError.value, /回执未确认成功/)
 })

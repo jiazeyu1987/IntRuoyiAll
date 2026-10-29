@@ -74,20 +74,14 @@
       prop="candidateParam"
       span="24"
     >
-      <el-select
+      <UserSelectV2
         v-model="userTaskForm.candidateParam"
         clearable
         multiple
         style="width: 100%"
         @change="updateElementTask"
-      >
-        <el-option
-          v-for="item in userOptions"
-          :key="item.id"
-          :label="item.nickname"
-          :value="item.id"
-        />
-      </el-select>
+        :user-options="userOptions"
+      />
     </el-form-item>
     <el-form-item
       v-if="userTaskForm.candidateStrategy === CandidateStrategy.USER_GROUP"
@@ -206,6 +200,7 @@
 </template>
 
 <script lang="ts" setup>
+import UserSelectV2 from '@/views/system/user/components/UserSelectV2.vue'
 import {
   CANDIDATE_STRATEGY,
   CandidateStrategy,

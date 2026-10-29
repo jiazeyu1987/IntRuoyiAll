@@ -348,6 +348,10 @@ public class DccApprovalTaskAdapter implements ApprovalTaskProvider {
 
     @Override
     public void review(ApprovalTaskReviewContext context) {
+        if (DccProjectProductTaskDelegate.supports(context.getSourceTaskType())) {
+            projectApplications.review(context);
+            return;
+        }
         requireSourceTaskType(context.getSourceTaskType());
         Long fileId = parseBusinessKey(requireText(context.getBusinessKey(),
                 "APPROVAL_BUSINESS_KEY_REQUIRED: DCC review requires controlled file business key"));

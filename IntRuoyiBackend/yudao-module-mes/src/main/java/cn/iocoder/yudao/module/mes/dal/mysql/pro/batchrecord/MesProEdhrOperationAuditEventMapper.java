@@ -13,7 +13,7 @@ import java.util.List;
 public interface MesProEdhrOperationAuditEventMapper extends BaseMapperX<MesProEdhrOperationAuditEventDO> {
 
     default PageResult<MesProEdhrOperationAuditEventDO> selectPage(MesProEdhrOperationAuditPageReqVO reqVO) {
-        return selectPage(reqVO, new LambdaQueryWrapperX<MesProEdhrOperationAuditEventDO>()
+        return selectPage(reqVO, MesMarketReleaseHandoverMapper.readable(new LambdaQueryWrapperX<MesProEdhrOperationAuditEventDO>(),"batch_execution_id")
                 .eqIfPresent(MesProEdhrOperationAuditEventDO::getBatchExecutionId, reqVO.getBatchExecutionId())
                 .eqIfPresent(MesProEdhrOperationAuditEventDO::getExecutionId, reqVO.getExecutionId())
                 .eqIfPresent(MesProEdhrOperationAuditEventDO::getWorkTaskId, reqVO.getWorkTaskId())

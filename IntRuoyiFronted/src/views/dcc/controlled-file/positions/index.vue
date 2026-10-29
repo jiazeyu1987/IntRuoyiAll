@@ -1,46 +1,54 @@
 <template>
   <ContentWrap>
-    <el-form
-      ref="queryFormRef"
-      class="position-toolbar -mb-15px"
-      :inline="true"
-      :model="queryParams"
-      label-width="82px"
+    <UnifiedListTemplate
+      table-key="dcc.controlledFile.positions.main"
+      :query-model="queryParams"
+      :rows="filteredPositions"
     >
-      <el-form-item label="审批角色编码" prop="code">
-        <el-input
-          v-model="queryParams.code"
-          class="!w-220px"
-          clearable
-          placeholder="请输入审批角色编码"
-          @keyup.enter="handleQuery"
-        />
-      </el-form-item>
-      <el-form-item label="审批角色名称" prop="name">
-        <el-input
-          v-model="queryParams.name"
-          class="!w-220px"
-          clearable
-          placeholder="请输入审批角色名称"
-          @keyup.enter="handleQuery"
-        />
-      </el-form-item>
-      <el-form-item label="启用状态" prop="active">
-        <el-select
-          v-model="queryParams.active"
-          class="!w-180px"
-          clearable
-          placeholder="请选择启用状态"
+      <template #filters>
+        <el-form
+          ref="queryFormRef"
+          class="position-toolbar -mb-15px"
+          :inline="true"
+          :model="queryParams"
+          label-width="82px"
         >
-          <el-option
-            v-for="item in ACTIVE_STATUS_OPTIONS"
-            :key="String(item.value)"
-            :label="item.label"
-            :value="item.value"
-          />
-        </el-select>
-      </el-form-item>
-      <el-form-item>
+          <el-form-item label="审批角色编码" prop="code">
+            <el-input
+              v-model="queryParams.code"
+              class="!w-220px"
+              clearable
+              placeholder="请输入审批角色编码"
+              @keyup.enter="handleQuery"
+            />
+          </el-form-item>
+          <el-form-item label="审批角色名称" prop="name">
+            <el-input
+              v-model="queryParams.name"
+              class="!w-220px"
+              clearable
+              placeholder="请输入审批角色名称"
+              @keyup.enter="handleQuery"
+            />
+          </el-form-item>
+          <el-form-item label="启用状态" prop="active">
+            <el-select
+              v-model="queryParams.active"
+              class="!w-180px"
+              clearable
+              placeholder="请选择启用状态"
+            >
+              <el-option
+                v-for="item in ACTIVE_STATUS_OPTIONS"
+                :key="String(item.value)"
+                :label="item.label"
+                :value="item.value"
+              />
+            </el-select>
+          </el-form-item>
+        </el-form>
+      </template>
+      <template #actions>
         <el-button @click="handleQuery">
           <Icon icon="ep:search" class="mr-5px" />
           查询
@@ -82,63 +90,59 @@
           <Icon icon="ep:upload" class="mr-5px" />
           导入配置包
         </el-button>
-      </el-form-item>
-      <el-form-item class="position-toolbar-context-item">
+
         <div class="position-toolbar-context" data-testid="dcc-position-toolbar-summary">
           <span class="position-toolbar-context__count">{{ positionToolbarSummaryText }}</span>
           <span class="position-toolbar-context__filter">{{ positionToolbarFilterText }}</span>
         </div>
-      </el-form-item>
-    </el-form>
-  </ContentWrap>
+      </template>
+      <template #table="{ rows: standardRows }">
 
-  <ContentWrap>
-    <div class="mb-12px text-12px text-[var(--el-text-color-secondary)]">
-      审批角色：控制 DCC 审批语义与分配。
-    </div>
-    <el-table v-loading="loading" :data="filteredPositions">
-      <el-table-column label="审批角色编码" min-width="150" prop="code" show-overflow-tooltip />
-      <el-table-column label="审批角色名称" min-width="180" prop="name" show-overflow-tooltip />
-      <el-table-column label="审批角色摘要" min-width="240">
-        <template #default="{ row }">
-          <div class="position-summary" data-testid="dcc-position-summary">
-            <div class="position-summary__line">
-              <el-tag :type="getBooleanTagType(row.active)" size="small">
-                启用：{{ formatBooleanLabel(row.active) }}
+        <el-table stripe border v-loading="loading" :data="standardRows">
+          <el-table-column label="审批角色编码" min-width="150" prop="code" show-overflow-tooltip />
+          <el-table-column label="审批角色名称" min-width="180" prop="name" show-overflow-tooltip />
+          <el-table-column label="审批角色摘要" min-width="240">
+            <template #default="{ row }">
+              <div class="position-summary" data-testid="dcc-position-summary">
+                <div class="position-summary__line">
+                  <el-tag :type="getBooleanTagType(row.active)" size="small">
+                    启用：{{ formatBooleanLabel(row.active) }}
+                  </el-tag>
+                  <span class="position-summary__meta">
+                    人数：{{ getPositionAssignmentCountLabel(row) }}
+                  </span>
+                </div>
+                <div class="position-summary__meta">
+                  创建：{{ formatDateTimeValue(row.createTime, '-') }}
+                </div>
+              </div>
+            </template>
+          </el-table-column>
+          <el-table-column label="分配摘要" min-width="260">
+            <template #default="{ row }">
+              {{ getAssignmentSummary(row) }}
+            </template>
+          </el-table-column>
+          <el-table-column label="操作" align="center" fixed="right" width="120">
+            <template #default="{ row }">
+              <el-button
+                v-if="!isUploaderDerivedPosition(row)"
+                link
+                type="primary"
+                @click="openAssignmentDialog(row)"
+                v-hasPermi="['dcc:controlled-file:position:manage']"
+              >
+                维护分配
+              </el-button>
+              <el-tag v-else :type="isAuthorizedRepresentativePosition(row) ? 'warning' : 'info'">
+                {{ isAuthorizedRepresentativePosition(row) ? '来源待定' : '按上传人计算' }}
               </el-tag>
-              <span class="position-summary__meta">
-                人数：{{ getPositionAssignmentCountLabel(row) }}
-              </span>
-            </div>
-            <div class="position-summary__meta">
-              创建：{{ formatDateTimeValue(row.createTime, '-') }}
-            </div>
-          </div>
-        </template>
-      </el-table-column>
-      <el-table-column label="分配摘要" min-width="260">
-        <template #default="{ row }">
-          {{ getAssignmentSummary(row) }}
-        </template>
-      </el-table-column>
-      <el-table-column label="操作" align="center" fixed="right" width="120">
-        <template #default="{ row }">
-          <el-button
-            v-if="!isUploaderDerivedPosition(row)"
-            link
-            type="primary"
-            @click="openAssignmentDialog(row)"
-            v-hasPermi="['dcc:controlled-file:position:manage']"
-          >
-            维护分配
-          </el-button>
-          <el-tag v-else :type="isAuthorizedRepresentativePosition(row) ? 'warning' : 'info'">
-            {{ isAuthorizedRepresentativePosition(row) ? '来源待定' : '按上传人计算' }}
-          </el-tag>
-        </template>
-      </el-table-column>
-    </el-table>
-  </ContentWrap>
+            </template>
+          </el-table-column>
+        </el-table>
+      </template>
+    </UnifiedListTemplate>
+</ContentWrap>
 
   <Dialog v-model="createDialogVisible" title="新增审批角色" width="520px">
     <el-form
@@ -184,12 +188,19 @@
         新增审批角色分配
       </el-button>
     </div>
+    <el-form-item label="选择人员或关系">
+      <UserSelectV2
+        :model-value="assignmentUserIds" :relationships="assignmentRelationships"
+        multiple :allow-relationships="supportsRelationshipAssignments" :user-options="users" :disabled="saveLoading"
+        placeholder="选择固定人员或申请人关系" @selection-change="applyAssignmentSelection" />
+      <span v-if="!supportsRelationshipAssignments" class="ml-8px text-12px">后端尚未启用关系规则，暂不能配置申请人关系。</span>
+    </el-form-item>
     <el-table :data="assignmentRows" empty-text="当前审批角色暂无分配">
       <el-table-column label="分配类型" width="150">
         <template #default="{ row }">
           <el-select v-model="row.assignmentType" class="w-full" @change="handleAssignmentTypeChange(row)">
             <el-option
-              v-for="item in POSITION_ASSIGNMENT_TYPE_OPTIONS"
+              v-for="item in availableAssignmentTypes"
               :key="item.value"
               :label="item.label"
               :value="item.value"
@@ -199,23 +210,16 @@
       </el-table-column>
       <el-table-column label="分配对象" min-width="260">
         <template #default="{ row }">
-          <el-select
+          <UserSelectV2
             v-if="row.assignmentType === 'USER'"
             v-model="row.userId"
             class="w-full"
             clearable
-            filterable
             placeholder="请选择用户"
-          >
-            <el-option
-              v-for="item in users"
-              :key="item.id"
-              :label="formatDccSimpleUserLabel(item)"
-              :value="item.id"
-            />
-          </el-select>
+            :user-options="users"
+          />
           <el-select
-            v-else
+            v-else-if="row.assignmentType === 'POST'"
             v-model="row.systemPostId"
             class="w-full"
             clearable
@@ -229,6 +233,7 @@
               :value="item.id"
             />
           </el-select>
+          <el-tag v-else effect="plain">{{ relationshipLabel(row.assignmentType) }}</el-tag>
         </template>
       </el-table-column>
       <el-table-column label="启用" align="center" width="90">
@@ -256,6 +261,8 @@
 </template>
 
 <script lang="ts" setup>
+import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
+import UserSelectV2 from '@/views/system/user/components/UserSelectV2.vue'
 import { isSearchFormInputEmpty } from '@/utils/search'
 import download from '@/utils/download'
 import { formatDateTimeValue } from '@/utils/formatTime'
@@ -272,6 +279,7 @@ import {
 import { getSimpleUserList, type UserVO } from '@/api/system/user'
 import { getSimplePostList, type PostVO } from '@/api/system/post'
 import { ACTIVE_STATUS_OPTIONS, POSITION_ASSIGNMENT_TYPE_OPTIONS, getOptionLabel } from '../shared/options'
+import { USER_RELATIONSHIPS, type UserId, type UserRelationship, type UserPickerSelection } from '@/views/system/user/components/userPicker'
 import { formatBooleanLabel, formatDccSimpleUserLabel, getBooleanTagType } from '../shared/utils'
 
 defineOptions({ name: 'DccControlledFilePositions' })
@@ -421,7 +429,7 @@ const getPositionAssignmentCountLabel = (row: ControlledFileApprovalPositionVO) 
   if (isUploaderDerivedPosition(row)) {
     return '动态'
   }
-  return String(getActiveAssignments(row).length)
+  return getActiveAssignments(row).some(item => isRelationship(item.assignmentType)) ? '动态' : String(getActiveAssignments(row).length)
 }
 
 const getAssignmentSummary = (row: ControlledFileApprovalPositionVO) => {
@@ -433,6 +441,7 @@ const getAssignmentSummary = (row: ControlledFileApprovalPositionVO) => {
   }
   const summary = getActiveAssignments(row)
     .map((item) => {
+      if (isRelationship(item.assignmentType)) return relationshipLabel(item.assignmentType)
       if (item.assignmentType === 'USER') {
         const user = users.value.find((candidate) => candidate.id === item.userId)
         return user ? formatDccSimpleUserLabel(user) : `用户#${item.userId}`
@@ -480,6 +489,25 @@ const handleAssignmentTypeChange = (row: ControlledFilePositionAssignmentVO) => 
   row.systemPostId = undefined
 }
 
+const isRelationship = (type: string): type is UserRelationship => USER_RELATIONSHIPS.some(option => option.value === type)
+const supportsRelationshipAssignments = computed(() => USER_RELATIONSHIPS.every(option =>
+  currentPosition.value?.supportedAssignmentTypes?.includes(option.value)))
+const availableAssignmentTypes = computed(() => POSITION_ASSIGNMENT_TYPE_OPTIONS.filter(option =>
+  !isRelationship(option.value) || supportsRelationshipAssignments.value))
+const relationshipLabel = (type: string) => USER_RELATIONSHIPS.find(option => option.value === type)?.label || '未识别关系'
+const assignmentUserIds = computed<UserId[]>(() => assignmentRows.value.filter(row => row.assignmentType === 'USER' && row.userId != null).map(row => row.userId!))
+const assignmentRelationships = computed(() => [...new Set(assignmentRows.value.map(row => row.assignmentType).filter(isRelationship))])
+const applyAssignmentSelection = (selection: UserPickerSelection) => {
+  const previous = assignmentRows.value
+  assignmentRows.value = [
+    ...previous.filter(row => row.assignmentType === 'POST'),
+    ...selection.users.map(user => previous.find(row => row.assignmentType === 'USER' && String(row.userId) === String(user.id))
+      || { assignmentType: 'USER', userId: user.id as number, active: true, changeReason: '' }),
+    ...selection.relationships.map(type => previous.find(row => row.assignmentType === type)
+      || { assignmentType: type, active: true, changeReason: '' })
+  ]
+}
+
 const submitCreatePosition = async () => {
   await createFormRef.value?.validate()
   createLoading.value = true
@@ -498,9 +526,13 @@ const saveAssignments = async () => {
   if (!currentPosition.value?.id) {
     return
   }
+  if (!supportsRelationshipAssignments.value && assignmentRows.value.some(row => isRelationship(row.assignmentType))) {
+    message.warning('后端尚未启用关系规则，不能保存动态关系配置')
+    return
+  }
   const invalidRow = assignmentRows.value.find(
     (item) =>
-      !item.assignmentType ||
+      !POSITION_ASSIGNMENT_TYPE_OPTIONS.some(option => option.value === item.assignmentType) ||
       (item.assignmentType === 'USER' && !item.userId) ||
       (item.assignmentType === 'POST' && !item.systemPostId)
   )
@@ -573,7 +605,8 @@ onMounted(() => {
   display: flex;
   min-height: 32px;
   min-width: 0;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  white-space: nowrap;
   align-items: center;
   justify-content: flex-end;
   gap: 8px;

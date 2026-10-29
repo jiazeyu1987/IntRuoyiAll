@@ -23,8 +23,14 @@
   </sql>
   <sql id="authorized">
     t.TENANT_ID_=#{tenantText}
-    <if test="taskId != null">AND t.ID_=#{taskId}</if>
-    <if test="registrationOnly != null and registrationOnly">AND (<include refid="registrationCandidate"/>)</if>
+    <if test="edhrVoidOnly != null and edhrVoidOnly">
+      AND CAST(t.TENANT_ID_ AS BINARY)=CAST(#{tenantText} AS BINARY)
+      AND CAST(d.KEY_ AS BINARY)=CAST('mes-edhr-batch-execution-void-v1' AS BINARY)
+      AND CAST(d.TENANT_ID_ AS BINARY)=CAST(#{tenantText} AS BINARY)
+      AND CAST(p.TENANT_ID_ AS BINARY)=CAST(#{tenantText} AS BINARY)
+    </if>
+    <if test="taskId != null">AND t.ID_=#{taskId}<if test="edhrVoidOnly != null and edhrVoidOnly"> AND CAST(t.ID_ AS BINARY)=CAST(#{taskId} AS BINARY)</if></if>
+    <if test="registrationOnly != null and registrationOnly">AND (<include refid="cn.iocoder.yudao.module.bpm.dal.mysql.approval.ApprovalFlowableTaskQueryMapper.registrationCandidate"/>)</if>
     <choose><when test="done">
       AND t.END_TIME_ IS NOT NULL AND (t.TASK_DEF_KEY_ IS NULL OR t.TASK_DEF_KEY_ != #{startNode})
       <if test="!global">AND t.ASSIGNEE_=#{userText}</if>
@@ -33,6 +39,7 @@
       <if test="!global">
         AND (t.ASSIGNEE_=#{userText} OR (t.ASSIGNEE_ IS NULL AND EXISTS (
           SELECT 1 FROM ACT_RU_IDENTITYLINK il WHERE CAST(il.TASK_ID_ AS BINARY)=CAST(t.ID_ AS BINARY)
+          <if test="edhrVoidOnly != null and edhrVoidOnly">AND il.TYPE_='candidate' AND CAST(il.TASK_ID_ AS BINARY)=CAST(t.ID_ AS BINARY)</if>
           <choose><when test="candidateGroups != null">
             AND il.TYPE_='candidate' AND (il.USER_ID_=#{userText}
             <if test="candidateGroups.size() > 0">OR il.GROUP_ID_ IN
@@ -41,7 +48,7 @@
           </when><otherwise>
             AND (il.USER_ID_=#{userText} OR il.GROUP_ID_ IN (SELECT m.GROUP_ID_ FROM ACT_ID_MEMBERSHIP m WHERE m.USER_ID_=#{userText}))
           </otherwise></choose>
-        )) OR (<include refid="registrationCandidate"/>))
+        )) OR (<include refid="cn.iocoder.yudao.module.bpm.dal.mysql.approval.ApprovalFlowableTaskQueryMapper.registrationCandidate"/>))
       </if>
     </otherwise></choose>
     <if test="keyword != null">
@@ -70,7 +77,7 @@
       <otherwise>AND o.projection_code IN ('NATIVE_BPM','NATIVE_FORM','NATIVE_BUSINESS','NATIVE_EXTERNAL_EDHR')</otherwise>
     </choose>
   </sql>
-  <select id="countBrokenProvenance" resultType="long">
+  <select id="countBrokenProvenance" timeout="10" resultType="long">
     SELECT COUNT(DISTINCT t.ID_) FROM <include refid="source"/> WHERE <include refid="authorized"/>
     AND (o.id IS NULL OR p.PROC_INST_ID_ IS NULL OR d.ID_ IS NULL
       OR CAST(o.process_definition_id AS BINARY) != CAST(t.PROC_DEF_ID_ AS BINARY)
@@ -100,7 +107,7 @@
       OR (SELECT COUNT(*) FROM bpm_form_action_instance x WHERE x.tenant_id=#{tenant}
         AND CAST(x.bpm_process_instance_id AS BINARY)=CAST(t.PROC_INST_ID_ AS BINARY))>1)
   </select>
-  <select id="ownerships" resultType="cn.iocoder.yudao.module.bpm.dal.dataobject.approval.BpmApprovalProcessOwnershipDO">
+  <select id="ownerships" timeout="10" resultType="cn.iocoder.yudao.module.bpm.dal.dataobject.approval.BpmApprovalProcessOwnershipDO">
     SELECT DISTINCT o.* FROM <include refid="source"/> WHERE <include refid="authorized"/>
   </select>
   <select id="count" resultType="long">

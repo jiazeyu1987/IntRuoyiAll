@@ -47,6 +47,8 @@ public class MesReleaseFinalizationCommand {
     @JsonIgnore private String signedDossierManifestJson;
     private String approvalOpinion;
     private String decisionReason;
+    private Long qaReviewerUserId;
+    @JsonIgnore @lombok.ToString.Exclude private String negativeDecisionPassword;
     /** HTTP callers may submit only receipt identifiers; authoritative payloads come from the owner port. */
     @JsonIgnore
     private IndependentBatchPrerequisiteReceipt independentPrerequisiteReceipt;

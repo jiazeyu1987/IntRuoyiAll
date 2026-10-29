@@ -36,19 +36,30 @@
         <el-tab-pane label="已处理" :name="PQC_RELEASE_VIEW_COMPLETED" />
       </el-tabs>
 
-      <el-form :inline="true" :model="queryParams" class="pqc-release-page__filters">
-        <el-form-item label="工单号">
-          <el-input
-            v-model="queryParams.workOrderCode"
-            clearable
-            class="!w-200px"
-            data-pqc-production-release-work-order-filter
-          />
-        </el-form-item>
-        <el-form-item label="批次号">
-          <el-input v-model="queryParams.batchCode" clearable class="!w-200px" />
-        </el-form-item>
-        <el-form-item>
+      <UnifiedListTemplate
+        table-key="mes.pro.productionRelease.main"
+        :query-model="queryParams"
+        :total="total"
+        v-model:page="queryParams.pageNo"
+        v-model:limit="queryParams.pageSize"
+        @pagination="getList()"
+      >
+        <template #filters>
+          <el-form :inline="true" :model="queryParams" class="pqc-release-page__filters">
+            <el-form-item label="工单号">
+              <el-input
+                v-model="queryParams.workOrderCode"
+                clearable
+                class="!w-200px"
+                data-pqc-production-release-work-order-filter
+              />
+            </el-form-item>
+            <el-form-item label="批次号">
+              <el-input v-model="queryParams.batchCode" clearable class="!w-200px" />
+            </el-form-item>
+          </el-form>
+        </template>
+        <template #actions>
           <el-button
             type="primary"
             :icon="Search"
@@ -58,108 +69,109 @@
             查询
           </el-button>
           <el-button :icon="RefreshLeft" @click="resetQuery">重置</el-button>
-        </el-form-item>
-      </el-form>
+        </template>
+        <template #table>
+          <el-alert v-if="loadError" :title="loadError" type="error" :closable="false" show-icon />
 
-      <el-alert v-if="loadError" :title="loadError" type="error" :closable="false" show-icon />
-
-      <el-table
-        v-loading="loading"
-        :data="list"
-        data-pqc-production-release-list
-        stripe
-        row-key="applicationId"
-        empty-text="当前状态暂无生产放行记录"
-      >
-        <el-table-column label="生产对象" min-width="240">
-          <template #default="{ row }">
-            <div class="pqc-release-page__primary" data-pqc-production-release-work-order-code>
-              {{ row.workOrderCode || '--' }}
-            </div>
-            <div class="pqc-release-page__secondary">批次：{{ row.batchCode || '--' }}</div>
-          </template>
-        </el-table-column>
-        <el-table-column label="申请" min-width="180">
-          <template #default="{ row }">
-            <div>申请编号：{{ row.applicationId }}</div>
-            <div class="pqc-release-page__secondary">{{ formatDateTime(row.appliedAt) }}</div>
-          </template>
-        </el-table-column>
-        <el-table-column :label="activeView === PQC_RELEASE_VIEW_COMPLETED ? '放行结果' : '状态'" width="150">
-          <template #default="{ row }">
-            <el-tag :type="resolveStatusTagType(row)">{{ resolveStatusLabel(row) }}</el-tag>
-            <div v-if="row.underReview" class="pqc-release-page__secondary">QA评审中</div>
-          </template>
-        </el-table-column>
-        <el-table-column label="处置信息" min-width="240">
-          <template #default="{ row }">
-            <template v-if="row.nonconformanceReason">
-              <div>{{ row.nonconformanceReason }}</div>
-              <div class="pqc-release-page__secondary">
-                {{ formatDateTime(row.nonconformanceClosedAt) }}
-              </div>
-            </template>
-            <template v-else-if="row.approvalReady === false">
-              <div>{{ row.approvalBlockerReason || '放行资料尚未就绪' }}</div>
-              <div v-if="row.approvalBlockerSuggestion" class="pqc-release-page__secondary">
-                {{ row.approvalBlockerSuggestion }}
-              </div>
-            </template>
-            <span v-else class="pqc-release-page__secondary">--</span>
-          </template>
-        </el-table-column>
-        <el-table-column label="操作" width="320" fixed="right">
-          <template #default="{ row }">
-            <div class="pqc-release-page__actions">
-              <ReleaseTaskNotificationEntry
-                v-hasPermi="['mes:pro-edhr-work-task:query']"
-                :work-task-id="row.pqcReleaseWorkTaskId"
-              />
-              <el-button
-                link
-                type="primary"
-                :disabled="!hasActiveOrderDetail(row)"
-                :title="hasActiveOrderDetail(row) ? '查看订单详情' : '缺少正式活跃订单来源，无法查看详情'"
-                data-pqc-production-release-detail
-                @click="openActiveOrderDetail(row)"
-              >
-                详情
-              </el-button>
-              <template v-if="activeView === PQC_RELEASE_VIEW_PENDING">
-                <el-button
-                  v-hasPermi="['mes:pro-production-release:pqc-approve']"
-                  link
-                  type="success"
-                  :disabled="row.underReview || row.approvalReady === false"
-                  :title="row.approvalBlockerReason || '放行'"
-                  data-pqc-production-release-approve
-                  @click="openReleaseDialog(row)"
-                >
-                  放行
-                </el-button>
-                <el-button
-                  v-hasPermi="['mes:pro-edhr-nonconformance-review:create']"
-                  link
-                  type="danger"
-                  :disabled="row.underReview || Boolean(row.nonconformanceDisposition)"
-                  data-pqc-production-release-nonconformance
-                  :data-pqc-production-release-application-id="String(row.applicationId)"
-                  @click="openNonconformanceReview(row)"
-                >
-                  不合格审查
-                </el-button>
+          <el-table
+            border
+            v-loading="loading"
+            :data="list"
+            data-pqc-production-release-list
+            stripe
+            row-key="applicationId"
+            empty-text="当前状态暂无生产放行记录"
+          >
+            <el-table-column label="生产对象" min-width="240">
+              <template #default="{ row }">
+                <div class="pqc-release-page__primary" data-pqc-production-release-work-order-code>
+                  {{ row.workOrderCode || '--' }}
+                </div>
+                <div class="pqc-release-page__secondary">批次：{{ row.batchCode || '--' }}</div>
               </template>
-            </div>
-          </template>
-        </el-table-column>
-      </el-table>
+            </el-table-column>
+            <el-table-column label="申请" min-width="180">
+              <template #default="{ row }">
+                <div>申请编号：{{ row.applicationId }}</div>
+                <div class="pqc-release-page__secondary">{{ formatDateTime(row.appliedAt) }}</div>
+              </template>
+            </el-table-column>
+            <el-table-column
+              :label="activeView === PQC_RELEASE_VIEW_COMPLETED ? '放行结果' : '状态'"
+              width="150"
+            >
+              <template #default="{ row }">
+                <el-tag :type="resolveStatusTagType(row)">{{ resolveStatusLabel(row) }}</el-tag>
+                <div v-if="row.underReview" class="pqc-release-page__secondary">QA评审中</div>
+              </template>
+            </el-table-column>
+            <el-table-column label="处置信息" min-width="240">
+              <template #default="{ row }">
+                <template v-if="row.nonconformanceReason">
+                  <div>{{ row.nonconformanceReason }}</div>
+                  <div class="pqc-release-page__secondary">
+                    {{ formatDateTime(row.nonconformanceClosedAt) }}
+                  </div>
+                </template>
+                <template v-else-if="row.approvalReady === false">
+                  <div>{{ row.approvalBlockerReason || '放行资料尚未就绪' }}</div>
+                  <div v-if="row.approvalBlockerSuggestion" class="pqc-release-page__secondary">
+                    {{ row.approvalBlockerSuggestion }}
+                  </div>
+                </template>
+                <span v-else class="pqc-release-page__secondary">--</span>
+              </template>
+            </el-table-column>
+            <el-table-column label="操作" width="320" fixed="right">
+              <template #default="{ row }">
+                <div class="pqc-release-page__actions">
+                  <ReleaseTaskNotificationEntry
+                    v-hasPermi="['mes:pro-edhr-work-task:query']"
+                    :work-task-id="row.pqcReleaseWorkTaskId"
+                  />
+                  <el-button
+                    link
+                    type="primary"
+                    :disabled="!hasActiveOrderDetail(row)"
+                    :title="
+                      hasActiveOrderDetail(row) ? '查看订单详情' : '缺少正式活跃订单来源，无法查看详情'
+                    "
+                    data-pqc-production-release-detail
+                    @click="openActiveOrderDetail(row)"
+                  >
+                    详情
+                  </el-button>
+                  <template v-if="activeView === PQC_RELEASE_VIEW_PENDING">
+                    <el-button
+                      v-hasPermi="['mes:pro-production-release:pqc-approve']"
+                      link
+                      type="success"
+                      :disabled="row.underReview || row.approvalReady === false"
+                      :title="row.approvalBlockerReason || '放行'"
+                      data-pqc-production-release-approve
+                      @click="openReleaseDialog(row)"
+                    >
+                      放行
+                    </el-button>
+                    <el-button
+                      v-hasPermi="['mes:pro-edhr-nonconformance-review:create']"
+                      link
+                      type="danger"
+                      :disabled="row.underReview || Boolean(row.nonconformanceDisposition)"
+                      data-pqc-production-release-nonconformance
+                      :data-pqc-production-release-application-id="String(row.applicationId)"
+                      @click="openNonconformanceReview(row)"
+                    >
+                      不合格审查
+                    </el-button>
+                  </template>
+                </div>
+              </template>
+            </el-table-column>
+          </el-table>
+        </template>
+      </UnifiedListTemplate>
 
-      <Pagination
-        :total="total"
-        v-model:page="queryParams.pageNo"
-        v-model:limit="queryParams.pageSize"
-        @pagination="getList()"
-      />
     </div>
 
     <Dialog
@@ -251,6 +263,7 @@
 </template>
 
 <script setup lang="ts">
+import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import ReleaseTaskNotificationEntry from './components/ReleaseTaskNotificationEntry.vue'
 import CryptoJS from 'crypto-js'
 import { RefreshLeft, Search } from '@element-plus/icons-vue'
@@ -741,7 +754,7 @@ const confirmReleasedReceipt = (result: MesPqcProductionReleaseDecisionRespVO, r
 }
 
 const applyReleaseSuccess = async (
-  row: MesPqcProductionReleasePageItemRespVO,
+  _row: MesPqcProductionReleasePageItemRespVO,
   result: MesPqcProductionReleaseDecisionRespVO,
   request: FrozenPqcReleaseRequest,
   recovered: boolean,

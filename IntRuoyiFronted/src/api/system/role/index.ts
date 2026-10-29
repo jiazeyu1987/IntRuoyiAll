@@ -69,9 +69,10 @@ export const exportRole = (params: any) => {
   })
 }
 
-export const exportRoleConfigPackage = () => {
+export const exportRoleConfigPackage = (categoryIds: number[]) => {
   return request.download({
-    url: '/system/role/config-package/export'
+    url: '/system/role/config-package/export',
+    params: { categoryIds: categoryIds.join(',') }
   })
 }
 

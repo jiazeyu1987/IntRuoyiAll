@@ -28,7 +28,6 @@ import cn.iocoder.yudao.module.infra.service.file.FileService;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionArchiveDownloadRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionArchiveGenerateReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionArchiveRespVO;
-import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionCloseReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionOpenOrCreateReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionPageReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionQualityRejectReqVO;
@@ -143,7 +142,6 @@ import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.text.PDFTextStripper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.function.Executable;
 import org.mockito.ArgumentCaptor;
 import org.mockito.MockedStatic;
 import org.springframework.context.annotation.Import;
@@ -188,8 +186,6 @@ import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatc
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_BATCH_EXECUTION_ARCHIVE_REGENERATE_REQUIRED;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_BATCH_EXECUTION_ARCHIVE_STORAGE_EVIDENCE_INVALID;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_BATCH_EXECUTION_ARCHIVE_STORAGE_FAILED;
-import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_BATCH_EXECUTION_CLOSE_BLOCKED;
-import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_BATCH_EXECUTION_CLOSE_PRECHECK_REQUIRED;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_BATCH_EXECUTION_DEFAULT_REPORT_REQUIRED;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_BATCH_EXECUTION_NOT_VISIBLE;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_BATCH_EXECUTION_OWNER_INVALID;
@@ -4016,7 +4012,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     }
 
     @Test
-    void openOrCreate_skipsUnconfiguredRouteProcessAndCloseRequiresConfiguredTasks() {
+    void openOrCreate_skipsUnconfiguredRouteProcess() {
         Fixture fixture = insertRouteFixture(true, false);
 
         EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
@@ -4030,21 +4026,6 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
         assertEquals(5, batch.getTasks().size());
         assertEquals(Boolean.TRUE, routeTask(batch, 0).getRequiredFlag());
 
-        assertCloseBlocked(() -> batchExecutionService.close(new EdhrBatchExecutionCloseReqVO()
-                .setId(batch.getId())
-                .setPassword("secret")
-                .setComment("close")));
-
-        bindApprovedExecution(routeTask(batch, 0).getId(), 7101L, true, true, true);
-        skipAllSpecialNodes(batch);
-        completeFinalInspectionDossier(batch.getId());
-        markBatchOwner(batch.getId(), 0L);
-        markReleasePrecheckPassed(batch.getId());
-        EdhrBatchExecutionRespVO closed = batchExecutionService.close(new EdhrBatchExecutionCloseReqVO()
-                .setId(batch.getId())
-                .setPassword("secret")
-                .setComment("close"));
-        assertEquals(MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_CLOSED, closed.getStatus());
     }
 
     @Test
@@ -5557,72 +5538,6 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     }
 
     @Test
-    void close_requiresReleasePrecheckPassedBeforeBatchClose() {
-        Fixture fixture = insertRouteFixture(true, true);
-        EdhrBatchExecutionRespVO notPrechecked = prepareClosableBatch(
-                fixture, "BATCH-CLOSE-PRECHECK-MISSING", 0L);
-
-        assertServiceException(() -> batchExecutionService.close(new EdhrBatchExecutionCloseReqVO()
-                        .setId(notPrechecked.getId())
-                        .setPassword("secret")
-                        .setComment("close without release precheck")),
-                PRO_EDHR_BATCH_EXECUTION_CLOSE_PRECHECK_REQUIRED);
-        assertEquals(MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_READY_TO_CLOSE,
-                batchExecutionMapper.selectById(notPrechecked.getId()).getStatus());
-
-        EdhrBatchExecutionRespVO failedPrecheck = prepareClosableBatch(
-                fixture, "BATCH-CLOSE-PRECHECK-FAILED", 0L);
-        markReleasePrecheckFailed(failedPrecheck.getId());
-
-        assertServiceException(() -> batchExecutionService.close(new EdhrBatchExecutionCloseReqVO()
-                        .setId(failedPrecheck.getId())
-                        .setPassword("secret")
-                        .setComment("close after failed release precheck")),
-                PRO_EDHR_BATCH_EXECUTION_CLOSE_PRECHECK_REQUIRED);
-        assertEquals(MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_READY_TO_CLOSE,
-                batchExecutionMapper.selectById(failedPrecheck.getId()).getStatus());
-    }
-
-    @Test
-    void close_allowsBatchCloseOnlyAfterReleasePrecheckPassed() {
-        Fixture fixture = insertRouteFixture(true, true);
-        EdhrBatchExecutionRespVO batch = prepareClosableBatch(
-                fixture, "BATCH-CLOSE-PRECHECK-PASSED", 0L);
-        markReleasePrecheckPassed(batch.getId());
-
-        EdhrBatchExecutionRespVO closed = batchExecutionService.close(new EdhrBatchExecutionCloseReqVO()
-                .setId(batch.getId())
-                .setPassword("secret")
-                .setComment("close after release precheck passed"));
-
-        assertEquals(MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_CLOSED, closed.getStatus());
-        assertNotNull(batchExecutionMapper.selectById(batch.getId()).getClosedAt());
-    }
-
-    @Test
-    void close_allowsFillCompletedOrdinaryTasksWithSubmitSignatureOnly() {
-        Fixture fixture = insertRouteFixture(true, true);
-        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
-                .setWorkOrderId(fixture.workOrderId())
-                .setBatchCode("BATCH-CLOSE")
-                .setRouteId(fixture.routeId()));
-        bindFillCompletedExecution(routeTask(batch, 0).getId(), 7001L);
-        bindFillCompletedExecution(routeTask(batch, 1).getId(), 7002L);
-        completeFinalInspectionDossier(batch.getId());
-        skipAllSpecialNodes(batch);
-        markBatchOwner(batch.getId(), 0L);
-        markReleasePrecheckPassed(batch.getId());
-
-        EdhrBatchExecutionRespVO closed = batchExecutionService.close(new EdhrBatchExecutionCloseReqVO()
-                .setId(batch.getId())
-                .setPassword("secret")
-                .setComment("close batch"));
-        assertEquals(MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_CLOSED, closed.getStatus());
-        assertTrue(closed.getCanArchive());
-        assertNotNull(batchExecutionMapper.selectById(batch.getId()).getClosedAt());
-    }
-
-    @Test
     void openOrCreate_generatesMultipleTasksForSameRouteProcessFromBatchUseConfig() {
         Fixture fixture = insertRouteFixture(false, false);
         MesProRouteProcessDO routeProcess = routeProcessMapper.selectListByRouteId(fixture.routeId()).get(0);
@@ -6630,7 +6545,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     }
 
     @Test
-    void optionalSharedRouteTask_skipMarksTaskDoneAndDoesNotBlockClose() {
+    void optionalSharedRouteTask_skipMarksTaskDone() {
         Fixture fixture = insertRouteFixture(false, false);
         MesProRouteProcessDO firstProcess = routeProcessMapper.selectListByRouteId(fixture.routeId()).get(0);
         String mainReport = insertReport("RPT-OPTIONAL-SKIP-MAIN", "可选跳过主表");
@@ -6698,24 +6613,6 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
         assertNotNull(persistedWorkTask.getCompletedAt());
         verify(workTaskService).completeOptionalFillTaskBySkip(workTask.getId(), "本工序无需填写过程检验单");
 
-        bindApprovedExecution(routeTasks(batch).stream()
-                .filter(task -> "PROCESS".equals(task.getInstanceScope()))
-                .findFirst()
-                .orElseThrow()
-                .getId(), 9422L, true, true, true);
-        skipAllSpecialNodes(batch);
-        completeFinalInspectionDossier(batch.getId());
-        markBatchOwner(batch.getId(), 0L);
-        markReleasePrecheckPassed(batch.getId());
-        EdhrBatchExecutionRespVO closed = batchExecutionService.close(new EdhrBatchExecutionCloseReqVO()
-                .setId(batch.getId())
-                .setPassword("secret")
-                .setComment("close with optional shared form skipped"));
-        assertEquals(MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_CLOSED, closed.getStatus());
-        MesProEdhrBatchExecutionDO closedBatch = batchExecutionMapper.selectById(batch.getId());
-        assertEquals(9201L, closedBatch.getCloseSignatureId());
-        verify(signatureService).recordBatchActionSignature(eq(0L), eq(batch.getId()), eq("secret"),
-                eq("close with optional shared form skipped"), eq("BATCH_CLOSE"), any(), any());
     }
 
     @Test
@@ -6942,33 +6839,6 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     }
 
     @Test
-    void close_pendingEdhrRecordChange_blocksClose() {
-        Fixture fixture = insertRouteFixture(true, false);
-        EdhrBatchExecutionRespVO created = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
-                .setWorkOrderId(fixture.workOrderId())
-                .setBatchCode("BATCH-PENDING-CHANGE")
-                .setRouteId(fixture.routeId()));
-        Long taskId = batchTaskMapper.selectListByBatchExecutionId(created.getId()).get(0).getId();
-        Long executionId = randomLongId();
-        bindApprovedExecution(taskId, executionId, true, true, true);
-        recordChangeEventMapper.insert(MesProEdhrRecordChangeEventDO.builder()
-                .changeCode("CHG-PENDING-" + randomLongId())
-                .changeType("SUPPLEMENT")
-                .targetScope("EXECUTION")
-                .batchExecutionId(created.getId())
-                .executionId(executionId)
-                .changeStatus("SUBMITTED")
-                .reasonCategory("PRODUCTION_SUPPLEMENT")
-                .reasonText("补录审批未完成")
-                .build());
-
-        assertCloseBlocked(() -> batchExecutionService.close(new EdhrBatchExecutionCloseReqVO()
-                        .setId(created.getId())
-                        .setPassword("secret")
-                        .setComment("close")));
-    }
-
-    @Test
     void get_pendingVoidChange_locksNormalTaskActionsAndOnlyAllowsWithdraw() {
         Fixture fixture = insertRouteFixture(true, false);
         EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
@@ -7045,7 +6915,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     }
 
     @Test
-    void releasePendingApproval_blocksCloseArchiveAndQualityReject() {
+    void releasePendingApproval_blocksArchiveAndQualityReject() {
         Fixture fixture = insertRouteFixture(true, true);
         EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
@@ -7063,12 +6933,6 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                 .setBlockingCheckCount(0)
                 .setFailedCheckCount(0)
                 .setRequiredCheckCount(6));
-
-        assertServiceException(() -> batchExecutionService.close(new EdhrBatchExecutionCloseReqVO()
-                        .setId(batch.getId())
-                        .setPassword("secret")
-                        .setComment("close while release pending")),
-                PRO_EDHR_RELEASE_STATUS_INVALID);
 
         batchExecutionMapper.updateById(new MesProEdhrBatchExecutionDO()
                 .setId(batch.getId())
@@ -7091,47 +6955,6 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                         .setPassword("secret")
                         .setReason("release pending")),
                 PRO_EDHR_RELEASE_STATUS_INVALID);
-    }
-
-    @Test
-    void close_goldenFingerBypassesReleaseAndVoidActionLocks() {
-        Fixture fixture = insertRouteFixture(true, true);
-        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
-                .setWorkOrderId(fixture.workOrderId())
-                .setBatchCode("BATCH-GF-ACTION-LOCK-BYPASS")
-                .setRouteId(fixture.routeId()));
-        bindApprovedExecution(routeTask(batch, 0).getId(), 7731L, true, true, true);
-        bindApprovedExecution(routeTask(batch, 1).getId(), 7732L, true, true, true);
-        skipAllSpecialNodes(batch);
-        completeFinalInspectionDossier(batch.getId());
-        markBatchOwner(batch.getId(), 0L);
-        releaseTransactionMapper.insert(new MesProEdhrReleaseTransactionDO()
-                .setBatchExecutionId(batch.getId())
-                .setReleaseCode("REL-GF-ACTION-LOCK-" + randomLongId())
-                .setReleaseStatus(MesProEdhrReleaseServiceImpl.STATUS_PENDING_APPROVAL)
-                .setBlockingCheckCount(0)
-                .setFailedCheckCount(0)
-                .setRequiredCheckCount(6));
-        recordChangeEventMapper.insert(MesProEdhrRecordChangeEventDO.builder()
-                .changeCode("CHG-GF-ACTION-LOCK-" + randomLongId())
-                .changeType("VOID")
-                .targetScope("BATCH")
-                .batchExecutionId(batch.getId())
-                .changeStatus("SUBMITTED")
-                .reasonCategory("PRODUCTION_VOID")
-                .reasonText("作废申请待审批")
-                .requestedBy(10001L)
-                .requestedAt(LocalDateTime.now())
-                .bpmProcessInstanceId("BPM-GF-ACTION-LOCK-" + randomLongId())
-                .build());
-        when(goldenFingerPermissionService.hasGoldenFingerPermission(0L)).thenReturn(true);
-
-        EdhrBatchExecutionRespVO closed = batchExecutionService.close(new EdhrBatchExecutionCloseReqVO()
-                .setId(batch.getId())
-                .setPassword("secret")
-                .setComment("golden finger closes with action locks"));
-
-        assertEquals(MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_CLOSED, closed.getStatus());
     }
 
     @Test
@@ -7210,173 +7033,6 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
         assertEquals(fillTask.getId(), lockedTask.getActiveWorkTaskId());
         assertEquals(List.of(), lockedTask.getAllowedActions());
         assertEquals("批次已作废，只能追溯审计", lockedTask.getDisabledReason());
-    }
-
-    @Test
-    void close_withBlockersReturnsDetailsAndKeepsBatchUnchanged() {
-        Fixture fixture = insertRouteFixture(true, false);
-        EdhrBatchExecutionRespVO created = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
-                .setWorkOrderId(fixture.workOrderId())
-                .setBatchCode("BATCH-CLOSE-BLOCKERS")
-                .setRouteId(fixture.routeId()));
-        MesProEdhrBatchExecutionDO before = batchExecutionMapper.selectById(created.getId());
-
-        ServiceException exception = assertThrows(ServiceException.class,
-                () -> batchExecutionService.close(new EdhrBatchExecutionCloseReqVO()
-                        .setId(created.getId())
-                        .setPassword("secret")
-                        .setComment("close with blockers")));
-
-        assertEquals(PRO_EDHR_BATCH_EXECUTION_CLOSE_BLOCKED.getCode(), exception.getCode());
-        assertTrue(exception.getMessage().contains("第一工序: 未打开电子批记录"));
-        assertFalse(exception.getMessage().contains("成品检卷宗项"));
-        MesProEdhrBatchExecutionDO after = batchExecutionMapper.selectById(created.getId());
-        assertEquals(before.getStatus(), after.getStatus());
-        assertEquals(before.getClosedAt(), after.getClosedAt());
-        assertEquals(before.getCloseSignatureId(), after.getCloseSignatureId());
-    }
-
-    @Test
-    void closeCreatesArchiveWorkTaskAfterBatchClosedWhenFinalInspectionDossierPending() {
-        Fixture fixture = insertRouteFixture(true, true);
-        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
-                .setWorkOrderId(fixture.workOrderId())
-                .setBatchCode("BATCH-CLOSE-ARCHIVE-TASK")
-                .setRouteId(fixture.routeId()));
-        bindApprovedExecution(routeTask(batch, 0).getId(), 7011L, true, true, true);
-        bindApprovedExecution(routeTask(batch, 1).getId(), 7012L, true, true, true);
-        skipAllSpecialNodes(batch);
-        markBatchOwner(batch.getId(), 0L);
-        markReleasePrecheckPassed(batch.getId());
-
-        EdhrBatchExecutionRespVO closed = batchExecutionService.close(new EdhrBatchExecutionCloseReqVO()
-                .setId(batch.getId())
-                .setPassword("secret")
-                .setComment("close batch and create archive task"));
-
-        assertEquals(MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_CLOSED, closed.getStatus());
-        MesProEdhrBatchExecutionDO updated = batchExecutionMapper.selectById(batch.getId());
-        assertEquals(9201L, updated.getCloseSignatureId());
-        assertEquals(0, batchSignatureMapper.selectListByBatchExecutionId(batch.getId()).stream()
-                .filter(signature -> "BATCH_CLOSE".equals(signature.getActionType()))
-                .count());
-        verify(signatureService).recordBatchActionSignature(eq(0L), eq(batch.getId()), eq("secret"),
-                eq("close batch and create archive task"), eq("BATCH_CLOSE"), any(), any());
-        ArgumentCaptor<MesProEdhrBatchExecutionDO> batchCaptor =
-                ArgumentCaptor.forClass(MesProEdhrBatchExecutionDO.class);
-        verify(workTaskService).createArchiveTaskAfterBatchClose(batchCaptor.capture());
-        assertEquals(batch.getId(), batchCaptor.getValue().getId());
-        assertEquals(MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_CLOSED, batchCaptor.getValue().getStatus());
-    }
-
-    @Test
-    void close_wrongSignaturePassword_rejectsWithoutSignatureOrStatusChange() {
-        Fixture fixture = insertRouteFixture(true, true);
-        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
-                .setWorkOrderId(fixture.workOrderId())
-                .setBatchCode("BATCH-CLOSE-WRONG-PASSWORD")
-                .setRouteId(fixture.routeId()));
-        bindApprovedExecution(routeTask(batch, 0).getId(), 7111L, true, true, true);
-        bindApprovedExecution(routeTask(batch, 1).getId(), 7112L, true, true, true);
-        skipAllSpecialNodes(batch);
-        completeFinalInspectionDossier(batch.getId());
-        markBatchOwner(batch.getId(), 188L);
-        markReleasePrecheckPassed(batch.getId());
-        MesProEdhrBatchExecutionDO before = batchExecutionMapper.selectById(batch.getId());
-        int signatureCountBefore = batchSignatureMapper.selectListByBatchExecutionId(batch.getId()).size();
-        doThrow(new ServiceException(USER_PASSWORD_FAILED))
-                .when(signatureService).recordBatchActionSignature(eq(188L), eq(batch.getId()), eq("wrong-pass"),
-                        any(), eq("BATCH_CLOSE"), any(), any());
-
-        try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
-            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(188L);
-            ServiceException exception = assertThrows(ServiceException.class,
-                    () -> batchExecutionService.close(new EdhrBatchExecutionCloseReqVO()
-                            .setId(batch.getId())
-                            .setPassword("wrong-pass")
-                            .setComment("wrong password close")));
-            assertEquals(USER_PASSWORD_FAILED.getCode(), exception.getCode());
-        }
-
-        MesProEdhrBatchExecutionDO after = batchExecutionMapper.selectById(batch.getId());
-        assertEquals(before.getStatus(), after.getStatus());
-        assertNull(after.getClosedAt());
-        assertNull(after.getCloseSignatureId());
-        List<MesProEdhrBatchExecutionSignatureDO> signatures =
-                batchSignatureMapper.selectListByBatchExecutionId(batch.getId());
-        assertEquals(signatureCountBefore, signatures.size());
-        assertTrue(signatures.stream().noneMatch(item -> "BATCH_CLOSE".equals(item.getActionType())));
-    }
-
-    @Test
-    void close_rejectsNonBatchCreatorAndAllowsBatchOwner() {
-        Fixture fixture = insertRouteFixture(true, true);
-        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
-                .setWorkOrderId(fixture.workOrderId())
-                .setBatchCode("BATCH-CLOSE-OWNER")
-                .setRouteId(fixture.routeId()));
-        bindApprovedExecution(routeTask(batch, 0).getId(), 7021L, true, true, true);
-        bindApprovedExecution(routeTask(batch, 1).getId(), 7022L, true, true, true);
-        skipAllSpecialNodes(batch);
-        completeFinalInspectionDossier(batch.getId());
-        markBatchOwner(batch.getId(), 188L);
-        markReleasePrecheckPassed(batch.getId());
-
-        try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
-            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(189L);
-            ServiceException exception = assertThrows(ServiceException.class,
-                    () -> batchExecutionService.close(new EdhrBatchExecutionCloseReqVO()
-                            .setId(batch.getId())
-                            .setPassword("secret")
-                            .setComment("non owner close")));
-            assertEquals(PRO_EDHR_BATCH_EXECUTION_OWNER_INVALID.getCode(), exception.getCode());
-        }
-
-        try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
-            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(188L);
-            EdhrBatchExecutionRespVO closed = batchExecutionService.close(new EdhrBatchExecutionCloseReqVO()
-                    .setId(batch.getId())
-                    .setPassword("secret")
-                    .setComment("owner close"));
-            assertEquals(MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_CLOSED, closed.getStatus());
-            assertEquals(188L, batchExecutionMapper.selectById(batch.getId()).getClosedBy());
-        }
-    }
-
-    @Test
-    void close_usesRouteCloseRuleInsteadOfBatchCreator() {
-        Fixture fixture = insertRouteFixture(true, true);
-        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
-                .setWorkOrderId(fixture.workOrderId())
-                .setBatchCode("BATCH-CLOSE-ROUTE-RULE")
-                .setRouteId(fixture.routeId()));
-        bindApprovedExecution(routeTask(batch, 0).getId(), 7031L, true, true, true);
-        bindApprovedExecution(routeTask(batch, 1).getId(), 7032L, true, true, true);
-        skipAllSpecialNodes(batch);
-        completeFinalInspectionDossier(batch.getId());
-        markBatchCreatorOnly(batch.getId(), 188L);
-        insertCloseAssignmentRule(fixture.routeId(), 189L);
-        markReleasePrecheckPassed(batch.getId());
-
-        try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
-            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(188L);
-            ServiceException exception = assertThrows(ServiceException.class,
-                    () -> batchExecutionService.close(new EdhrBatchExecutionCloseReqVO()
-                            .setId(batch.getId())
-                            .setPassword("secret")
-                            .setComment("creator is not route close owner")));
-            assertEquals(PRO_EDHR_BATCH_EXECUTION_OWNER_INVALID.getCode(), exception.getCode());
-        }
-
-        try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
-            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(189L);
-            EdhrBatchExecutionRespVO closed = batchExecutionService.close(new EdhrBatchExecutionCloseReqVO()
-                    .setId(batch.getId())
-                    .setPassword("secret")
-                    .setComment("route close owner"));
-            assertEquals(MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_CLOSED, closed.getStatus());
-            assertEquals(189L, batchExecutionMapper.selectById(batch.getId()).getClosedBy());
-        }
     }
 
     @Test
@@ -8950,11 +8606,6 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
         role.setCode(code);
         role.setStatus(CommonStatusEnum.ENABLE.getStatus());
         return role;
-    }
-
-    private void assertCloseBlocked(Executable executable) {
-        ServiceException exception = assertThrows(ServiceException.class, executable);
-        assertEquals(PRO_EDHR_BATCH_EXECUTION_CLOSE_BLOCKED.getCode(), exception.getCode());
     }
 
     private EdhrBatchExecutionTaskRespVO routeTask(EdhrBatchExecutionRespVO batch, int index) {

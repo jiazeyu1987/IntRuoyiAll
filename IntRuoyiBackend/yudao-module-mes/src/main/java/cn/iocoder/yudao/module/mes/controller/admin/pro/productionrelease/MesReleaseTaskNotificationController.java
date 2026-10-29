@@ -29,7 +29,7 @@ public class MesReleaseTaskNotificationController {
     @PreAuthorize("@ss.hasPermission('mes:pro-edhr-work-task:query')")
     public CommonResult<List<MesReleaseTaskNotifyDeliveryRespVO>> list(@RequestParam @Positive Long workTaskId) {
         return success(notificationService.listForTask(TenantContextHolder.getRequiredTenantId(), getLoginUserId(), workTaskId)
-                .stream().map(MesReleaseTaskNotifyDeliveryRespVO::from).toList());
+                .stream().map(row -> { var value=MesReleaseTaskNotifyDeliveryRespVO.from(row); value.setRetryAllowed(notificationService.canRetry(getLoginUserId(),row)); return value; }).toList());
     }
 
     @PostMapping("/retry")

@@ -28,6 +28,9 @@
       @pagination="getList"
     >
       <template #actions>
+        <el-button v-hasPermi="['mes:pro-edhr-work-task-rule:update']" @click="taskRulesRef?.openArchiveRuleDialog()">归档规则</el-button>
+        <el-button v-hasPermi="['mes:pro-edhr-work-task-rule:update']" @click="taskRulesRef?.openReleaseApprovalRuleDialog()">放行规则</el-button>
+        <el-button v-hasPermi="['mes:pro-edhr-work-task-rule:update']" @click="taskDeadlinesRef?.open()">业务处理时限</el-button>
         <el-button
           type="primary"
           plain
@@ -479,9 +482,15 @@
       </el-table>
     </div>
   </Dialog>
+  <RouteTaskRulesDialog ref="taskRulesRef" />
+  <RouteTaskDeadlinesDialog ref="taskDeadlinesRef" />
 </template>
 
 <script setup lang="ts">
+import RouteTaskRulesDialog from './RouteTaskRulesDialog.vue'
+import RouteTaskDeadlinesDialog from './RouteTaskDeadlinesDialog.vue'
+const taskDeadlinesRef = ref<InstanceType<typeof RouteTaskDeadlinesDialog>>()
+const taskRulesRef = ref<InstanceType<typeof RouteTaskRulesDialog>>()
 import { until } from '@vueuse/core'
 import { getIntDictOptions, DICT_TYPE } from '@/utils/dict'
 import { dateFormatter, formatDateTimeValue } from '@/utils/formatTime'

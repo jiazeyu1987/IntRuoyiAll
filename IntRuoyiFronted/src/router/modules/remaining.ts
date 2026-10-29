@@ -1871,6 +1871,20 @@ const remainingRouter: AppRouteRecordRaw[] = [
         }
       },
       {
+        path: 'pro/feedback/edhr-dossier-completion',
+        component: () => import('@/views/mes/pro/edhr-batch/DossierCompletionPage.vue'),
+        name: 'MesProFeedbackEdhrDossierCompletion',
+        meta: {
+          noCache: true,
+          hidden: true,
+          canTo: true,
+          icon: '',
+          title: '批记录资料补齐',
+          activeMenu: '/mes/pro/feedback/edhr-batch-execution',
+          permission: ['mes:pro-edhr-work-task:query']
+        }
+      },
+      {
         path: 'pro/feedback/edhr-change',
         component: () => import('@/views/mes/pro/edhr/RecordChangePage.vue'),
         name: 'MesProFeedbackEdhrRecordChange',
@@ -1949,7 +1963,7 @@ const remainingRouter: AppRouteRecordRaw[] = [
           hidden: true,
           canTo: true,
           icon: '',
-          title: 'eDHR批次执行',
+          title: '上市放行',
           activeMenu: '/mes/pro/feedback/edhr-batch-execution',
           permission: ['mes:pro-edhr-batch-execution:query']
         }
@@ -2186,8 +2200,22 @@ const remainingRouter: AppRouteRecordRaw[] = [
           hidden: true,
           canTo: true,
           icon: '',
-          title: 'QA 规程配置',
+          title: 'QA检验规程',
           activeMenu: '/mes/pro/process-pool/qa-regulation',
+          permission: ['mes:qa-inspection-regulation:query']
+        }
+      },
+      {
+        path: 'pro/process-pool/common-regulation',
+        component: () => import('@/views/mes/pro/processpool/CommonRegulationPage.vue'),
+        name: 'MesProProcessPoolCommonRegulation',
+        meta: {
+          noCache: true,
+          hidden: true,
+          canTo: true,
+          icon: '',
+          title: '通用检验规程',
+          activeMenu: '/mes/pro/process-pool/common-regulation',
           permission: ['mes:qa-inspection-regulation:query']
         }
       },
