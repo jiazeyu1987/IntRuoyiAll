@@ -30,7 +30,7 @@ public class InvoiceVoucherPrintAssistantProcessStarterImpl implements InvoiceVo
         Path scriptPath = properties.getAssistantScriptPath();
 
         List<String> command = new ArrayList<>();
-        command.add(properties.getNodeCommand());
+        command.add(properties.getNodeCommandPath().toString());
         command.add(scriptPath.toString());
 
         ProcessBuilder processBuilder = new ProcessBuilder(command);
@@ -72,9 +72,9 @@ public class InvoiceVoucherPrintAssistantProcessStarterImpl implements InvoiceVo
         if (StrUtil.isBlank(properties.getNodeCommand())) {
             blockers.add("node-command");
         } else {
-            Path nodeCommandPath = Path.of(properties.getNodeCommand());
-            if (nodeCommandPath.isAbsolute() && !Files.isRegularFile(nodeCommandPath.toAbsolutePath().normalize())) {
-                blockers.add("node-command=" + nodeCommandPath.toAbsolutePath().normalize());
+            Path nodeCommandPath = properties.getNodeCommandPath();
+            if (!Files.isRegularFile(nodeCommandPath)) {
+                blockers.add("node-command=" + nodeCommandPath);
             }
         }
         if (StrUtil.isBlank(properties.getTicketValidateUrl())) {
