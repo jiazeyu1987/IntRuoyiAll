@@ -4,12 +4,21 @@
 
   <ContentWrap>
     <UnifiedListTemplate
+      @query="handleQuery"
+      @reset="resetQuery"
       table-key="mes.qc.indicator.main"
       :query-model="queryParams"
       :total="total"
       v-model:page="queryParams.pageNo"
       v-model:limit="queryParams.pageSize"
       @pagination="getList"
+      :load-filter-rows="loadColumnFilterRows0"
+      @filtered-rows="list = $event"
+      :list-rows="list"
+      @column-filter-reset="getList"
+      :columns="listFilterColumns0"
+      :show-column-settings="false"
+      :column-filter-definitions="listColumnFilterDefinitions0"
     >
       <template #filters>
         <el-form
@@ -70,14 +79,6 @@
         </el-form>
       </template>
       <template #actions>
-        <el-button @click="handleQuery">
-          <Icon icon="ep:search" class="mr-5px" />
-          搜索
-        </el-button>
-        <el-button @click="resetQuery">
-          <Icon icon="ep:refresh" class="mr-5px" />
-          重置
-        </el-button>
         <el-button
           type="primary"
           plain
@@ -98,11 +99,11 @@
           导出
         </el-button>
       </template>
-      <template #table>
+      <template #table="{ resolveRows }">
         <el-table
           border
           v-loading="loading"
-          :data="list"
+          :data="resolveRows(list)"
           :stripe="true"
           :show-overflow-tooltip="true"
         >
@@ -158,6 +159,9 @@
 </template>
 
 <script setup lang="ts">
+import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+import { getDictOptions as listColumnDictOptions } from '@/utils/dict'
+
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import { isSearchFormInputEmpty } from '@/utils/search'
 import { dateFormatter } from '@/utils/formatTime'
@@ -251,6 +255,67 @@ const handleExport = async () => {
 onMounted(() => {
   getList()
 })
+
+const loadColumnFilterRows0 = async () => {
+  const params = { ...queryParams }
+  const rows = await loadAllListPages<any>((pagination) =>
+    QcIndicatorApi.getIndicatorPage({ ...params, ...pagination })
+  )
+  return rows
+}
+
+const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'type',
+    label: '检测项类型',
+    type: 'select',
+    options: listColumnDictOptions(DICT_TYPE.MES_INDICATOR_TYPE)
+  },
+  {
+    key: 'resultType',
+    label: '结果值类型',
+    type: 'select',
+    options: listColumnDictOptions(DICT_TYPE.MES_QC_RESULT_TYPE)
+  }
+])
+
+const listFilterColumns0 = [
+  {
+    key: 'code',
+    label: '检测项编码',
+    visible: true
+  },
+  {
+    key: 'name',
+    label: '检测项名称',
+    visible: true
+  },
+  {
+    key: 'type',
+    label: '检测项类型',
+    visible: true
+  },
+  {
+    key: 'tool',
+    label: '检测工具',
+    visible: true
+  },
+  {
+    key: 'resultType',
+    label: '结果值类型',
+    visible: true
+  },
+  {
+    key: 'remark',
+    label: '备注',
+    visible: true
+  },
+  {
+    key: 'createTime',
+    label: '创建时间',
+    visible: true
+  }
+]
 </script>
 
 <style scoped>

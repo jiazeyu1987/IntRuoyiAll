@@ -26,6 +26,9 @@ public class KingdeeProductionPickListSyncJob implements JobHandler, ErpKingdeeF
     @Override
     @TenantJob
     public String execute(String param) {
+        if (param != null && param.startsWith(WINDOW_SYNC_JOB_PREFIX)) {
+            return executeWindowSync(param);
+        }
         if (ErpKingdeeFullSyncHandler.FULL_SYNC_JOB_PARAM.equals(param)) {
             return executeFullSync();
         }
@@ -53,7 +56,15 @@ public class KingdeeProductionPickListSyncJob implements JobHandler, ErpKingdeeF
     @Override
     public String executeFullSync() {
         LocalDateTime windowEnd = LocalDateTime.now();
-        LocalDateTime windowStart = windowEnd.toLocalDate().minusDays(365).atStartOfDay();
+        return executeFullSync(windowEnd.toLocalDate().minusDays(365).atStartOfDay(), windowEnd, false);
+    }
+
+    @Override
+    public String executeFullSync(LocalDateTime windowStart, LocalDateTime windowEnd) {
+        return executeFullSync(windowStart, windowEnd, true);
+    }
+
+    private String executeFullSync(LocalDateTime windowStart, LocalDateTime windowEnd, boolean recent) {
         AtomicReference<ErpKingdeeProductionPickListSyncResult> resultReference =
                 new AtomicReference<>();
         syncRuntimeService.executeSync(ErpKingdeeSyncCommand.builder()
@@ -63,10 +74,10 @@ public class KingdeeProductionPickListSyncJob implements JobHandler, ErpKingdeeF
                 .initialWindowStart(windowStart)
                 .windowEnd(windowEnd)
                 .build(), context -> {
-            ErpKingdeeProductionPickListSyncResult result = productionPickListService.syncAllSkipExisting(
-                    context.getWindowStart(), context.getWindowEnd());
+            ErpKingdeeProductionPickListSyncResult result = recent ? productionPickListService.syncRecentSkipExisting(windowStart, windowEnd)
+                    : productionPickListService.syncAllSkipExisting(context.getWindowStart(), context.getWindowEnd());
             resultReference.set(result);
-            return ErpKingdeeSyncRunResult.success(context.getWindowEnd(),
+            return ErpKingdeeSyncRunResult.success(recent ? null : context.getWindowEnd(),
                     result.getCreatedCount(), result.getUpdatedCount(), result.getSkippedCount(), 0);
         });
         ErpKingdeeProductionPickListSyncResult result = resultReference.get();

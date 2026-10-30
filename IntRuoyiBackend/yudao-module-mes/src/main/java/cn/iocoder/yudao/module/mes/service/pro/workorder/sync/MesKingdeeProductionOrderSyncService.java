@@ -8,6 +8,9 @@ public interface MesKingdeeProductionOrderSyncService {
 
     MesKingdeeProductionOrderSyncResult syncWorkOrdersFull();
 
+    MesKingdeeProductionOrderSyncResult syncWorkOrdersFull(java.time.LocalDateTime windowStart,
+                                                        java.time.LocalDateTime windowEnd);
+
     MesKingdeeProductionOrderSyncResult syncWorkOrders(ErpKingdeeSyncContext context);
 
 }

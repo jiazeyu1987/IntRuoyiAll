@@ -71,7 +71,6 @@ public class MesProRouteProcessServiceImpl implements MesProRouteProcessService 
         // 1.3 校验唯一性
         validateSortUnique(null, createReqVO.getRouteId(), createReqVO.getSort());
         validateProcessUnique(null, createReqVO.getRouteId(), createReqVO.getProcessId());
-        validateKeyProcessUnique(null, createReqVO.getRouteId(), createReqVO.getKeyFlag());
 
         // 2. 插入
         MesProRouteProcessDO routeProcess = BeanUtils.toBean(createReqVO, MesProRouteProcessDO.class);
@@ -96,7 +95,6 @@ public class MesProRouteProcessServiceImpl implements MesProRouteProcessService 
         // 1.4 校验唯一性
         validateSortUnique(updateReqVO.getId(), updateReqVO.getRouteId(), updateReqVO.getSort());
         validateProcessUnique(updateReqVO.getId(), updateReqVO.getRouteId(), updateReqVO.getProcessId());
-        validateKeyProcessUnique(updateReqVO.getId(), updateReqVO.getRouteId(), updateReqVO.getKeyFlag());
 
         // 2. 更新
         MesProRouteProcessDO updateObj = BeanUtils.toBean(updateReqVO, MesProRouteProcessDO.class);
@@ -158,16 +156,6 @@ public class MesProRouteProcessServiceImpl implements MesProRouteProcessService 
         MesProRouteProcessDO existing = routeProcessMapper.selectByRouteIdAndProcessId(routeId, processId);
         if (existing != null && !existing.getId().equals(id)) {
             throw exception(PRO_ROUTE_PROCESS_DUPLICATE);
-        }
-    }
-
-    private void validateKeyProcessUnique(Long id, Long routeId, Boolean keyFlag) {
-        if (!Boolean.TRUE.equals(keyFlag)) {
-            return;
-        }
-        MesProRouteProcessDO existing = routeProcessMapper.selectKeyProcessByRouteId(routeId);
-        if (existing != null && !existing.getId().equals(id)) {
-            throw exception(PRO_ROUTE_PROCESS_KEY_DUPLICATE);
         }
     }
 

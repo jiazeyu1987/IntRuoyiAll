@@ -20,11 +20,16 @@
       @quick-filter-query="recordQuickFilter.applyQuickFilter"
       @column-change="saveRecordColumnConfig"
       @pagination="getRecordList"
+      :load-filter-rows="loadColumnFilterRows0"
+      @filtered-rows="recordList = $event"
+      :list-rows="recordList"
+      @column-filter-reset="getRecordList"
+      :column-filter-definitions="listColumnFilterDefinitions0"
     >
       <template #actions>
         <el-button :loading="recordLoading" @click="getRecordList">刷新</el-button>
       </template>
-      <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+      <template #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
         <el-alert
           v-if="recordLoadError"
           class="codex-test-record-error"
@@ -36,7 +41,7 @@
           v-loading="recordLoading"
           data-user-table-column-explicit
           data-user-table-key="system.codex-test.records"
-          :data="recordList"
+          :data="resolveRows(recordList)"
           border
           :stripe="true"
           empty-text="暂无测试记录"
@@ -228,6 +233,8 @@
 </template>
 
 <script lang="ts" setup>
+import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+
 import { useTestMode } from '@/store/modules/testMode'
 
 import * as CodexTestApi from '@/api/system/codexTestManagement'
@@ -447,6 +454,35 @@ onMounted(async () => {
   await getTenantOptions()
   await getRecordList()
 })
+
+const loadColumnFilterRows0 = async () => {
+  const params = { ...recordQueryParams }
+  const rows = await loadAllListPages<any>((pagination) =>
+    CodexTestApi.getCodexTestExecutionPage({ ...params, ...pagination })
+  )
+  return rows
+}
+
+const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'targetTenantId',
+    label: '测试租户',
+    type: 'text',
+    getValue: (row) => [formatTenantLabel(row)].join(' ')
+  },
+  {
+    key: 'executionMode',
+    label: '方法',
+    type: 'text',
+    getValue: (row) => [formatExecutionMode(row.executionMode)].join(' ')
+  },
+  {
+    key: 'status',
+    label: '结果',
+    type: 'text',
+    getValue: (row) => [statusText(row.status)].join(' ')
+  }
+])
 </script>
 
 <style lang="scss" scoped>

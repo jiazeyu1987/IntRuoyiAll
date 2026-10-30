@@ -26,6 +26,11 @@
       @quick-filter-query="routeQuickFilter.applyQuickFilter"
       @column-change="saveRouteColumnConfig"
       @pagination="getList"
+      :load-filter-rows="loadColumnFilterRows0"
+      @filtered-rows="list = $event"
+      :list-rows="list"
+      @column-filter-reset="getList"
+      :column-filter-definitions="listColumnFilterDefinitions0"
     >
       <template #actions>
         <el-button v-hasPermi="['mes:pro-edhr-work-task-rule:update']" @click="taskRulesRef?.openArchiveRuleDialog()">归档规则</el-button>
@@ -57,12 +62,12 @@
           <Icon icon="ep:download" class="mr-5px" /> 导出
         </el-button>
       </template>
-      <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+      <template #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
         <el-table
           v-loading="loading"
           data-user-table-column-explicit
           :data-user-table-key="ROUTE_LIST_TABLE_KEY"
-          :data="list"
+          :data="resolveRows(list)"
           height="100%"
           border
           :stripe="true"
@@ -240,14 +245,6 @@
               </el-button>
               <el-button
                 link
-                type="primary"
-                @click="openRouteProcessTemplateDialog(scope.row)"
-                v-hasPermi="['mes:pro-route:update']"
-              >
-                工序模板
-              </el-button>
-              <el-button
-                link
                 type="danger"
                 @click="handleDelete(scope.row.id)"
                 v-hasPermi="['mes:pro-route:delete']"
@@ -269,8 +266,6 @@
   />
   <!-- 多 Sheet 路线 Excel 导入对话框 -->
   <RouteWorkbookExcelImportForm ref="routeWorkbookExcelImportFormRef" @success="getList" />
-  <!-- 员工工序模板导入对话框 -->
-  <RouteProcessTemplateImportForm ref="routeProcessTemplateImportFormRef" @success="getList" />
   <Dialog v-model="copyDialogVisible" title="复制工艺路线" width="520px">
     <el-form label-width="96px">
       <el-form-item label="源路线">
@@ -487,6 +482,8 @@
 </template>
 
 <script setup lang="ts">
+import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+
 import RouteTaskRulesDialog from './RouteTaskRulesDialog.vue'
 import RouteTaskDeadlinesDialog from './RouteTaskDeadlinesDialog.vue'
 const taskDeadlinesRef = ref<InstanceType<typeof RouteTaskDeadlinesDialog>>()
@@ -526,9 +523,6 @@ defineOptions({ name: 'MesProRoute' })
 const RouteForm = defineAsyncComponent(() => import('./RouteForm.vue'))
 const RouteWorkbookExcelImportForm = defineAsyncComponent(
   () => import('./RouteWorkbookExcelImportForm.vue')
-)
-const RouteProcessTemplateImportForm = defineAsyncComponent(
-  () => import('./RouteProcessTemplateImportForm.vue')
 )
 
 const message = useMessage() // 消息弹窗
@@ -685,7 +679,6 @@ const copyForm = reactive({
 })
 const formRef = ref() // 表单弹窗
 const routeWorkbookExcelImportFormRef = ref()
-const routeProcessTemplateImportFormRef = ref()
 
 const routeQuickFilterDefinitions: TableQuickFilterDefinition[] = [
   {
@@ -1328,11 +1321,6 @@ const handleRouteWorkbookExcelImport = () => {
   routeWorkbookExcelImportFormRef.value.open()
 }
 
-/** 员工工序模板 */
-const openRouteProcessTemplateDialog = (row: ProRouteVO) => {
-  routeProcessTemplateImportFormRef.value.open(row)
-}
-
 /** 删除按钮操作 */
 const handleDelete = async (id: number) => {
   try {
@@ -1415,6 +1403,29 @@ onMounted(async () => {
   }
   await loadListFromRoute()
 })
+
+const loadColumnFilterRows0 = async () => {
+  const params = { ...queryParams }
+  const rows = await loadAllListPages<any>((pagination) =>
+    ProRouteApi.getRoutePage({ ...params, ...pagination })
+  )
+  return rows
+}
+
+const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'flowGraphConfigured',
+    label: '关系图',
+    type: 'text',
+    getValue: (row) => [row.flowGraphConfigured ? '已设' : '未设'].join(' ')
+  },
+  {
+    key: 'pendingRouteVersionNo',
+    label: '待发布版本',
+    type: 'text',
+    getValue: (row) => [formatPendingRouteVersion(row)].join(' ')
+  }
+])
 </script>
 
 <style scoped>

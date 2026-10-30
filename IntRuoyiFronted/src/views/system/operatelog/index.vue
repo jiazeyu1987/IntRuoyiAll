@@ -3,12 +3,20 @@
 
   <ContentWrap>
     <UnifiedListTemplate
+      @query="handleQuery"
+      @reset="resetQuery"
       table-key="system.operateLog.main"
       :query-model="queryParams"
       :total="total"
       v-model:page="queryParams.pageNo"
       v-model:limit="queryParams.pageSize"
       @pagination="getList"
+      :load-filter-rows="loadColumnFilterRows0"
+      @filtered-rows="list = $event"
+      :list-rows="list"
+      @column-filter-reset="getList"
+      :columns="listFilterColumns0"
+      :show-column-settings="false"
     >
       <template #filters>
         <el-form
@@ -78,14 +86,6 @@
         </el-form>
       </template>
       <template #actions>
-        <el-button @click="handleQuery">
-          <Icon icon="ep:search" class="mr-5px" />
-          搜索
-        </el-button>
-        <el-button @click="resetQuery">
-          <Icon icon="ep:refresh" class="mr-5px" />
-          重置
-        </el-button>
         <el-button
           type="success"
           plain
@@ -97,8 +97,8 @@
           导出
         </el-button>
       </template>
-      <template #table>
-        <el-table stripe border v-loading="loading" :data="list">
+      <template #table="{ resolveRows }">
+        <el-table stripe border v-loading="loading" :data="resolveRows(list)">
           <el-table-column label="日志编号" align="center" prop="id" width="100" />
           <el-table-column label="操作人" align="center" prop="userName" width="120" />
           <el-table-column label="操作模块" align="center" prop="type" width="120" />
@@ -135,6 +135,10 @@
   <OperateLogDetail ref="detailRef" />
 </template>
 <script lang="ts" setup>
+import type { ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+
+import { loadAllListPages } from '@/hooks/web/useListColumnFilter'
+
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import UserSelectV2 from '@/views/system/user/components/UserSelectV2.vue'
 import { isSearchFormInputEmpty } from '@/utils/search'
@@ -220,4 +224,55 @@ onMounted(async () => {
   // 获得用户列表
   userList.value = await UserApi.getSimpleUserList()
 })
+
+const loadColumnFilterRows0 = async () => {
+  const params = { ...queryParams }
+  const rows = await loadAllListPages<any>((pagination) =>
+    OperateLogApi.getOperateLogPage({ ...params, ...pagination })
+  )
+  return rows
+}
+
+const listFilterColumns0 = [
+  {
+    key: 'id',
+    label: '日志编号',
+    visible: true
+  },
+  {
+    key: 'userName',
+    label: '操作人',
+    visible: true
+  },
+  {
+    key: 'type',
+    label: '操作模块',
+    visible: true
+  },
+  {
+    key: 'subType',
+    label: '操作名',
+    visible: true
+  },
+  {
+    key: 'action',
+    label: '操作内容',
+    visible: true
+  },
+  {
+    key: 'createTime',
+    label: '操作时间',
+    visible: true
+  },
+  {
+    key: 'bizId',
+    label: '业务编号',
+    visible: true
+  },
+  {
+    key: 'userIp',
+    label: '操作 IP',
+    visible: true
+  }
+]
 </script>

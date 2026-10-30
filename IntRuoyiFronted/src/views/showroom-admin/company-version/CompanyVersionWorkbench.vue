@@ -65,9 +65,12 @@
             :rows="historyRows"
             class="unified-list-template--contained"
             data-list-viewport="embedded"
+            :columns="listFilterColumns0"
+            :show-column-settings="false"
+            :column-filter-definitions="[...listColumnFilterDefinitions0, ...allColumnDisplayFilters0]"
           >
-            <template #table="{ rows: standardRows }">
-              <el-table stripe border :data="standardRows" row-key="revisionId" empty-text="暂无历史版本">
+            <template #table="{ resolveRows, rows: standardRows }">
+              <el-table stripe border :data="resolveRows(standardRows)" row-key="revisionId" empty-text="暂无历史版本">
                 <el-table-column label="版本" width="110">
                   <template #default="{ row }">
                     <strong>V{{ row.revisionNo }}</strong>
@@ -238,6 +241,8 @@
 </template>
 
 <script setup lang="ts">
+import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import { ShowroomAdminApi, type ShowroomCompanyRevisionRestoreReqVO } from '@/api/showroom-admin'
 import { getVersionCenterDetail } from '@/api/showroom-admin/version-center'
@@ -465,6 +470,66 @@ const handleRestoreHistoryRevision = async (revision: CompanyVersionHistory) => 
 onMounted(() => {
   void loadCompanyCurrent()
 })
+
+const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'status',
+    label: '状态',
+    type: 'text',
+    getValue: (row) => [resolveCompanyHistoryStatusText(row.status)].join(' ')
+  },
+  {
+    key: 'diffItems',
+    label: '差异条数',
+    type: 'text',
+    getValue: (row) => [row.diffItems.length].join(' ')
+  }
+])
+
+const listFilterColumns0 = [
+  {
+    key: 'revisionNo',
+    label: '版本',
+    visible: true
+  },
+  {
+    key: 'status',
+    label: '状态',
+    visible: true
+  },
+  {
+    key: 'displayColumn2',
+    label: '变更摘要',
+    visible: true
+  },
+  {
+    key: 'diffItems',
+    label: '差异条数',
+    visible: true
+  }
+]
+
+const allColumnDisplayFilters0: ListColumnFilterDefinition[] = [
+  { key: 'revisionNo', label: '版本', type: 'text', getValue: (row) => [row.revisionNo].join(' ') },
+  {
+    key: 'status',
+    label: '状态',
+    type: 'text',
+    getValue: (row) => [resolveCompanyHistoryStatusText(row.status)].join(' ')
+  },
+  {
+    key: 'displayColumn2',
+    label: '变更摘要',
+    type: 'text',
+    getValue: (row) => [resolveHistoryPreview(row)].join(' ')
+  },
+  {
+    key: 'diffItems',
+    label: '差异条数',
+    type: 'text',
+    getValue: (row) => [row.diffItems.length].join(' ')
+  }
+]
 </script>
 
 <style scoped>

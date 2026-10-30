@@ -20,13 +20,18 @@
       @quick-filter-query="trainingMineQuickFilter.applyQuickFilter"
       @column-change="saveTrainingMineColumnConfig"
       @pagination="getList"
+      :load-filter-rows="loadColumnFilterRows0"
+      @filtered-rows="list = $event"
+      :list-rows="list"
+      @column-filter-reset="getList"
+      :column-filter-definitions="listColumnFilterDefinitions0"
     >
-      <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+      <template #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
         <el-table
           v-loading="loading"
           data-user-table-column-explicit
           data-user-table-key="dcc.controlledFile.trainingMine.main"
-          :data="list"
+          :data="resolveRows(list)"
           border
           :stripe="true"
           empty-text="当前暂无培训任务"
@@ -121,6 +126,8 @@
 </template>
 
 <script lang="ts" setup>
+import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+
 import {
   getFileCategoryList,
   type ControlledFileCategoryVO
@@ -249,6 +256,38 @@ onMounted(async () => {
   await loadBaseData()
   await getList()
 })
+
+const loadColumnFilterRows0 = async () => {
+  const params = { ...queryParams }
+  const rows = await loadAllListPages<any>((pagination) =>
+    getMyTrainingTaskPage({ ...params, ...pagination })
+  )
+  return rows.map((item) => ({
+    ...item,
+    trainingSummary: getTrainingTaskSummary(item)
+  }))
+}
+
+const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'departmentNames',
+    label: '来源部门',
+    type: 'text',
+    getValue: (row) => [buildDepartmentNames(row.departmentIds, deptNameMap.value)].join(' ')
+  },
+  {
+    key: 'trainingSummary',
+    label: '培训摘要',
+    type: 'text',
+    getValue: (row) =>
+      [
+        row.trainingSummary.statusLabel,
+        row.trainingSummary.progressText,
+        row.trainingSummary.hintText,
+        row.trainingSummary.timeText
+      ].join(' ')
+  }
+])
 </script>
 
 <style scoped>

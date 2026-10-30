@@ -828,6 +828,19 @@ public class MesProcessPoolTeamLeaderController {
                 .toList());
     }
 
+    @GetMapping("/employee-profile/stale-scopes")
+    @PreAuthorize("@ss.hasPermission('mes:pro-process-pool-team-leader:maintain')")
+    public CommonResult<List<cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderRuntimeConfigService.StaleEmployeeScope>> listStaleEmployeeScopes() {
+        return success(runtimeConfigService.listStaleEmployeeScopes(SecurityFrameworkUtils.getLoginUserId()));
+    }
+
+    @PutMapping("/employee-profile/stale-scopes/disable")
+    @PreAuthorize("@ss.hasPermission('mes:pro-process-pool-team-leader:maintain')")
+    public CommonResult<Boolean> disableStaleEmployeeScope(@RequestParam("scopeId") Long scopeId) {
+        runtimeConfigService.disableStaleEmployeeScope(SecurityFrameworkUtils.getLoginUserId(), scopeId);
+        return success(true);
+    }
+
     @GetMapping("/employee-profile/formal-candidates")
     @Operation(summary = "按姓名搜索全量系统正式工")
     @PreAuthorize("@ss.hasPermission('mes:pro-process-pool-team-leader:maintain')")

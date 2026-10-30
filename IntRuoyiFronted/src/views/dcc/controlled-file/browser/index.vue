@@ -110,6 +110,11 @@
           @column-change="saveDccBrowserColumnConfig"
           @column-reset="resetDccBrowserColumnConfig"
           @pagination="handlePagination"
+          :load-filter-rows="loadColumnFilterRows0"
+          @filtered-rows="list = $event"
+          :list-rows="list"
+          @column-filter-reset="handlePagination"
+          :column-filter-definitions="listColumnFilterDefinitions0"
         >
           <template #extra-filters>
           <el-form-item class="browser-search-scope-filter" label-width="0">
@@ -220,13 +225,13 @@
             </el-form-item>
           </template>
 
-          <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+          <template #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
         <el-table
           v-loading="loading"
           border
           data-user-table-column-explicit
           :data-user-table-key="DCC_BROWSER_COLUMN_TABLE_KEY"
-          :data="list"
+          :data="resolveRows(list)"
           :empty-text="tableEmptyText"
           height="100%"
           @header-dragend="handleDccBrowserHeaderDragend"
@@ -1145,6 +1150,8 @@
 </template>
 
 <script lang="ts" setup>
+import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+
 import ControlledFileWorkbenchEntry from '../shared/ControlledFileWorkbenchEntry.vue'
 import CheckinAttachmentsPanel from './CheckinAttachmentsPanel.vue'
 import { formatControlledFileDateTime } from '../detail/presentation'
@@ -3966,6 +3973,70 @@ onBeforeUnmount(() => {
   checkinDrawingPdfRequestSequence++
   stopBatchRecognitionPolling()
 })
+
+const loadColumnFilterRows0 = async () => {
+  const params = buildBrowserRequestParams(true)
+  const workingQuery = workingBrowserIdentityQuery(route.query)
+  const rows = await loadAllListPages<any>((pagination) =>
+    getControlledFileBrowserPage({ ...params, ...pagination })
+  )
+  return rows.map((item) => ({
+    ...item,
+    selectedVersionId: resolveInitialSelectedVersionId(item, workingQuery)
+  }))
+}
+
+const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'fileName',
+    label: '文件名称',
+    type: 'text',
+    getValue: (row) =>
+      [
+        getBrowserFileDisplayName(row),
+        getBrowserFileDisplayName(row),
+        getBrowserCurrentActiveRowSummary(row).versionKindText,
+        getBrowserCurrentActiveRowSummary(row).versionNo,
+        getBrowserCurrentActiveRowSummary(row).directoryPath,
+        getBrowserCurrentActiveRowSummary(row).publishedFileStatus,
+        getBrowserCurrentActiveRowSummary(row).stampedFileStatus,
+        getBrowserCurrentActiveRowSummary(row).currentVersionSource
+      ].join(' ')
+  },
+  {
+    key: 'fileNumber',
+    label: '文件编号',
+    type: 'text',
+    getValue: (row) =>
+      [
+        getSelectedVersion(row).fileNumber,
+        getBrowserCurrentActiveRowSummary(row).versionKindText,
+        getBrowserCurrentActiveRowSummary(row).versionNo,
+        getBrowserCurrentActiveRowSummary(row).directoryPath,
+        getBrowserCurrentActiveRowSummary(row).publishedFileStatus,
+        getBrowserCurrentActiveRowSummary(row).stampedFileStatus,
+        getBrowserCurrentActiveRowSummary(row).currentVersionSource
+      ].join(' ')
+  },
+  {
+    key: 'directory',
+    label: '所在目录',
+    type: 'text',
+    getValue: (row) => [getBrowserDirectoryPath(row.directoryId)].join(' ')
+  },
+  {
+    key: 'category',
+    label: '类别',
+    type: 'text',
+    getValue: (row) => [categoryNameMap.value.get(row.categoryId) || '-'].join(' ')
+  },
+  {
+    key: 'remark',
+    label: '备注',
+    type: 'text',
+    getValue: (row) => [getSelectedVersion(row).remark || '-'].join(' ')
+  }
+])
 </script>
 
 <style lang="scss" scoped>

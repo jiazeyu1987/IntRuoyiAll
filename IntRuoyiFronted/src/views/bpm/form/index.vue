@@ -3,6 +3,7 @@
 
   <ContentWrap>
     <UnifiedListTemplate
+      :reset-filters="resetQuery"
       table-key="bpm.form.main"
       :query-model="queryParams"
       label-width="88px"
@@ -22,12 +23,13 @@
       @column-change="saveFormColumnConfig"
       @column-reset="resetFormColumnConfig"
       @pagination="getList"
+      :load-filter-rows="loadColumnFilterRows0"
+      @filtered-rows="list = $event"
+      :list-rows="list"
+      @column-filter-reset="getList"
+      :column-filter-definitions="listColumnFilterDefinitions0"
     >
       <template #actions>
-        <el-button @click="resetQuery">
-          <Icon class="mr-5px" icon="ep:refresh" />
-          重置
-        </el-button>
         <el-button
           v-hasPermi="['bpm:form:create']"
           plain
@@ -39,10 +41,10 @@
         </el-button>
       </template>
 
-      <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+      <template #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
         <el-table
           v-loading="loading"
-          :data="list"
+          :data="resolveRows(list)"
           border
           :stripe="true"
           :show-overflow-tooltip="true"
@@ -147,6 +149,9 @@
 </template>
 
 <script lang="ts" setup>
+import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+import { getDictOptions as listColumnDictOptions } from '@/utils/dict'
+
 import { computed } from 'vue'
 import { DICT_TYPE, getIntDictOptions } from '@/utils/dict'
 import { dateFormatter } from '@/utils/formatTime'
@@ -281,4 +286,21 @@ watch(
 onMounted(() => {
   getList()
 })
+
+const loadColumnFilterRows0 = async () => {
+  const params = { ...queryParams }
+  const rows = await loadAllListPages<any>((pagination) =>
+    FormApi.getFormPage({ ...params, ...pagination })
+  )
+  return rows
+}
+
+const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'status',
+    label: '状态',
+    type: 'select',
+    options: listColumnDictOptions(DICT_TYPE.COMMON_STATUS)
+  }
+])
 </script>

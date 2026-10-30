@@ -886,15 +886,17 @@
         v-model:limit="routeSnapshotListState.pageSize"
         @column-change="saveRouteSnapshotColumnConfig"
         @column-reset="resetRouteSnapshotColumnConfig"
+        :filter-rows="routeSnapshotRows"
+        :column-filter-definitions="listColumnFilterDefinitions0"
       >
         <template #actions>
           <div class="text-15px font-600">审批路线快照</div>
         </template>
-        <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+        <template #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
       <el-table
         data-user-table-column-explicit
         data-user-table-key="dcc.controlledFile.detail.routeSnapshot"
-        :data="pagedRouteSnapshotRows"
+        :data="resolveRows(pagedRouteSnapshotRows)"
         border
         :stripe="true"
         :show-overflow-tooltip="true"
@@ -1029,15 +1031,17 @@
         v-model:limit="versionHistoryListState.pageSize"
         @column-change="saveVersionHistoryColumnConfig"
         @column-reset="resetVersionHistoryColumnConfig"
+        :filter-rows="versionHistoryRows"
+        :column-filter-definitions="listColumnFilterDefinitions1"
       >
         <template #actions>
           <div class="text-15px font-600">版本历史</div>
         </template>
-        <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+        <template #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
       <el-table
         data-user-table-column-explicit
         data-user-table-key="dcc.controlledFile.detail.versionHistory"
-        :data="pagedVersionHistoryRows"
+        :data="resolveRows(pagedVersionHistoryRows)"
         border
         :stripe="true"
         :show-overflow-tooltip="true"
@@ -1223,6 +1227,8 @@
         v-model:limit="distributionStatusListState.pageSize"
         @column-change="saveDistributionStatusColumnConfig"
         @column-reset="resetDistributionStatusColumnConfig"
+        :filter-rows="distributionStatusRows"
+        :column-filter-definitions="listColumnFilterDefinitions2"
       >
         <template #actions>
           <div class="mb-12px flex items-center justify-between gap-12px">
@@ -1247,7 +1253,7 @@
             </div>
           </div>
         </template>
-        <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+        <template #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
           <el-alert
             v-if="fileDetail?.distributionCompleted"
             class="mb-12px"
@@ -1261,7 +1267,7 @@
           <el-table
             data-user-table-column-explicit
             data-user-table-key="dcc.controlledFile.detail.distributionStatus"
-            :data="pagedDistributionStatusRows"
+            :data="resolveRows(pagedDistributionStatusRows)"
             data-testid="dcc-detail-distribution-section"
             border
             :stripe="true"
@@ -1400,6 +1406,8 @@
         v-model:limit="controlledPrintRecordListState.pageSize"
         @column-change="saveControlledPrintRecordColumnConfig"
         @column-reset="resetControlledPrintRecordColumnConfig"
+        :filter-rows="controlledPrintRecordRows"
+        :column-filter-definitions="listColumnFilterDefinitions3"
       >
         <template #actions>
           <div class="detail-table-header">
@@ -1422,7 +1430,7 @@
             </el-button>
           </div>
         </template>
-        <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+        <template #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
           <el-alert
             class="mb-12px"
             data-testid="dcc-controlled-print-policy-hint"
@@ -1444,7 +1452,7 @@
             ref="controlledPrintRecordsTableRef"
             data-user-table-column-explicit
             data-user-table-key="dcc.controlledFile.detail.controlledPrintRecords"
-            :data="pagedControlledPrintRecordRows"
+            :data="resolveRows(pagedControlledPrintRecordRows)"
             :loading="controlledPrintRecordsLoading"
             :row-key="(row) => row.id"
             :row-class-name="getControlledPrintRecordRowClassName"
@@ -1590,6 +1598,8 @@
         v-model:limit="trainingStatusListState.pageSize"
         @column-change="saveTrainingStatusColumnConfig"
         @column-reset="resetTrainingStatusColumnConfig"
+        :filter-rows="trainingStatusRows"
+        :column-filter-definitions="listColumnFilterDefinitions4"
       >
         <template #actions>
           <div class="flex items-center gap-12px">
@@ -1599,7 +1609,7 @@
             </el-tag>
           </div>
         </template>
-        <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+        <template #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
           <div class="detail-training-overview" data-testid="dcc-detail-training-completion-overview">
             <div class="detail-training-overview__item">
               <div class="detail-training-overview__label">完成进度</div>
@@ -1634,7 +1644,7 @@
           <el-table
             data-user-table-column-explicit
             data-user-table-key="dcc.controlledFile.detail.trainingStatus"
-            :data="pagedTrainingStatusRows"
+            :data="resolveRows(pagedTrainingStatusRows)"
             border
             :stripe="true"
             :show-overflow-tooltip="true"
@@ -1711,7 +1721,7 @@
         data-list-viewport="embedded"
         :query-model="detailListQueryModel"
         :filter-definitions="detailListFilterDefinitions"
-        :show-query-form="false"
+        :show-query-form="true"
         :show-quick-filter="false"
         :quick-filter-state="detailListQuickFilterState"
         :operator-options="detailListOperatorOptions"
@@ -1719,12 +1729,13 @@
         :total="signatureTraceRows.length"
         v-model:page="signatureTraceListState.pageNo"
         v-model:limit="signatureTraceListState.pageSize"
+        :filter-rows="signatureTraceRows"
       >
-        <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+        <template #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
           <el-table
             data-user-table-column-explicit
             data-user-table-key="dcc.controlledFile.detail.signatureTrace"
-            :data="pagedSignatureTraceRows"
+            :data="resolveRows(pagedSignatureTraceRows)"
             border
             :stripe="true"
             :show-overflow-tooltip="true"
@@ -2822,6 +2833,8 @@
 </template>
 
 <script lang="ts" setup>
+import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+
 import ControlledFileBrowseRecords from './ControlledFileBrowseRecords.vue'
 import { assertRelationApplicationSelection, type DetailRelationApplicationSelection } from './relation-contract'
 import { getDccVersionDisplayText } from '../shared/version-display'
@@ -6765,7 +6778,7 @@ const buildDistributionReceiptPrintHtml = () => {
   <meta charset="utf-8" />
   <title>DCC发放回执</title>
   <style>
-    body { font-family: Arial, "Microsoft YaHei", sans-serif; color: #1f2329; margin: 24px; }
+    body { font-family: "Microsoft YaHei"; color: #1f2329; margin: 24px; }
     h1 { font-size: 20px; margin: 0 0 16px; }
     table { border-collapse: collapse; width: 100%; font-size: 12px; }
     th, td { border: 1px solid #333; padding: 6px 8px; text-align: left; vertical-align: top; }
@@ -6948,7 +6961,7 @@ const buildProcessPrintHtml = (printData: unknown) => {
   <meta charset="utf-8" />
   <title>DCC流程打印</title>
   <style>
-    body { font-family: Arial, "Microsoft YaHei", sans-serif; color: #1f2329; margin: 24px; }
+    body { font-family: "Microsoft YaHei"; color: #1f2329; margin: 24px; }
     h1 { font-size: 20px; margin: 0 0 16px; }
     table { border-collapse: collapse; width: 100%; font-size: 13px; margin-bottom: 18px; }
     th, td { border: 1px solid #333; padding: 7px 9px; text-align: left; vertical-align: top; }
@@ -7526,6 +7539,123 @@ watch(
   },
   { flush: 'sync' }
 )
+
+const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'stageDisplayName',
+    label: '阶段',
+    type: 'text',
+    getValue: (row) => [row.stageDisplayName, row.stageMetaText].join(' ')
+  },
+  {
+    key: 'candidateText',
+    label: '候选摘要',
+    type: 'text',
+    getValue: (row) =>
+      [row.candidateSourceLabel, row.candidateText, row.candidateSourceLabel].join(' ')
+  },
+  {
+    key: 'approvalRequirementText',
+    label: '审批要求',
+    type: 'text',
+    getValue: (row) =>
+      [
+        row.approvalStatusLabel,
+        row.approveMethodLabel,
+        row.approveRatioText,
+        row.approvalProgressText,
+        row.approvalHint
+      ].join(' ')
+  }
+])
+
+const listColumnFilterDefinitions1 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'versionNo',
+    label: '版本',
+    type: 'text',
+    getValue: (row) => [getDccVersionDisplayText(row.versionNo)].join(' ')
+  },
+  {
+    key: 'changeReasonText',
+    label: '升版原因/变更说明',
+    type: 'text',
+    getValue: (row) => [getVersionChangeReasonText(row)].join(' ')
+  },
+  {
+    key: 'distributionMedium',
+    label: '发放方式',
+    type: 'text',
+    getValue: (row) => [getDistributionMediumLabel(row.distributionMedium)].join(' ')
+  },
+  {
+    key: 'status',
+    label: '状态',
+    type: 'text',
+    getValue: (row) => [getDetailStatusLabel(row.status)].join(' ')
+  },
+  {
+    key: 'successorVersionSummary',
+    label: '后继版本',
+    type: 'text',
+    getValue: (row) => [getSuccessorVersionSummary(row)].join(' ')
+  }
+])
+
+const listColumnFilterDefinitions2 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'distributionSummaryText',
+    label: '分发摘要',
+    type: 'text',
+    getValue: (row) =>
+      [
+        getDistributionStatusLabel(row.status, fileDetail.value),
+        getDistributionMediumLabel(row.distributionMedium),
+        getDistributionAckUserSummary(row, userNameMap.value),
+        formatControlledFileDateTime(row.acknowledgedAt)
+      ].join(' ')
+  },
+  {
+    key: 'recoverySummaryText',
+    label: '回收摘要',
+    type: 'text',
+    getValue: (row) =>
+      [getDistributionRecoverUserSummary(row), formatControlledFileDateTime(row.recoveredAt)].join(
+        ' '
+      )
+  }
+])
+
+const listColumnFilterDefinitions3 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'versionNo',
+    label: '版本',
+    type: 'text',
+    getValue: (row) => [getDccVersionDisplayText(row.versionNo)].join(' ')
+  },
+  {
+    key: 'approvalStatus',
+    label: '审批/打印状态',
+    type: 'text',
+    getValue: (row) => [row.approvalStatusText].join(' ')
+  }
+])
+
+const listColumnFilterDefinitions4 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'trainingSummaryText',
+    label: '培训摘要',
+    type: 'text',
+    getValue: (row) =>
+      [
+        row.trainingSummary.statusLabel,
+        row.trainingSummary.progressText,
+        row.trainingSummary.eligibilityLabel,
+        row.trainingSummary.departmentStatusLabel,
+        row.trainingSummary.acknowledgedAtText
+      ].join(' ')
+  }
+])
 </script>
 
 <style scoped>
@@ -8089,7 +8219,7 @@ watch(
 }
 
 .signature-hash {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
+  font-family: var(--app-font-family);
   font-size: 12px;
   color: var(--el-text-color-regular);
 }

@@ -9,6 +9,8 @@
     />
 
     <UnifiedListTemplate
+      :query-loading="recordLoading"
+      :reset-filters="resetRecordFilters"
       class="signature-governance-records__list"
       table-key="signature.governance.records"
       :query-model="queryParams"
@@ -27,18 +29,19 @@
       @quick-filter-query="recordQuickFilter.applyQuickFilter"
       @column-change="saveRecordColumnConfig"
       @pagination="loadRecordPage"
+      :load-filter-rows="loadColumnFilterRows0"
+      @filtered-rows="recordList = $event"
+      :list-rows="recordList"
+      @column-filter-reset="loadRecordPage"
+      :column-filter-definitions="listColumnFilterDefinitions0"
     >
-      <template #actions>
-        <el-button :loading="recordLoading" @click="resetRecordFilters">重置</el-button>
-        <el-button type="primary" :loading="recordLoading" @click="loadRecordPage">查询</el-button>
-      </template>
 
-      <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+      <template #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
         <el-table
           v-loading="recordLoading"
           data-user-table-column-explicit
           data-user-table-key="signature.governance.records"
-          :data="recordList"
+          :data="resolveRows(recordList)"
           :empty-text="recordError || '暂无签名记录'"
           :show-overflow-tooltip="true"
           @header-dragend="handleRecordHeaderDragend"
@@ -236,6 +239,8 @@
 </template>
 
 <script lang="ts" setup>
+import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import {
   downloadSignatureGovernanceRecordPdf,
@@ -711,6 +716,61 @@ onMounted(async () => {
 onBeforeUnmount(() => {
   revokeRecordPdfPreviewUrl()
 })
+
+const loadColumnFilterRows0 = async () => {
+  const params = buildPageParams()
+  const rows = await loadAllListPages<any>((pagination) =>
+    resolveRecordPageLoader()({ ...params, ...pagination })
+  )
+  return rows
+}
+
+const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'sourceLabel',
+    label: '来源',
+    type: 'text',
+    getValue: (row) => [formatSourceLabel(row)].join(' ')
+  },
+  {
+    key: 'businessRecordCode',
+    label: '业务记录',
+    type: 'text',
+    getValue: (row) =>
+      [row.businessRecordCode || row.globalId, formatBusinessRecordName(row)].join(' ')
+  },
+  {
+    key: 'actorDeptPost',
+    label: '部门/岗位',
+    type: 'text',
+    getValue: (row) =>
+      [formatValue(row.actorDeptNameSnapshot), formatValue(row.actorPostNamesSnapshot)].join(' ')
+  },
+  {
+    key: 'actorRoleNamesSnapshot',
+    label: '角色',
+    type: 'text',
+    getValue: (row) => [formatValue(row.actorRoleNamesSnapshot)].join(' ')
+  },
+  {
+    key: 'signatureSummary',
+    label: '签名摘要',
+    type: 'text',
+    getValue: (row) =>
+      [
+        formatSignatureMeaningText(row),
+        formatSignatureSummaryText(row),
+        formatSourceTableLabel(row.sourceTable)
+      ].join(' ')
+  },
+  {
+    key: 'evidenceSummary',
+    label: '证据摘要',
+    type: 'text',
+    getValue: (row) =>
+      [formatEvidenceStatusText(row.evidenceStatus), formatHash(row.evidenceHash)].join(' ')
+  }
+])
 </script>
 
 <style scoped>

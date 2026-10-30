@@ -16,9 +16,14 @@
     </div>
     <div v-show="!allowRelationships || activeTab === 'users'">
     <UnifiedListTemplate
+      @query="handleQuery"
+      @reset="resetQuery"
       table-key="system.user.selectDialog"
+      label-width="68px"
       :query-model="queryParams"
-      :show-quick-filter="false" :quick-filter-state="{}" :operator-options="[]"
+      :show-quick-filter="false"
+      :quick-filter-state="{}"
+      :operator-options="[]"
       :filter-definitions="userSelectQuickFilterDefinitions"
       :columns="userSelectColumns"
       :column-saving="userSelectColumnSaving"
@@ -29,8 +34,14 @@
       v-model:page="queryParams.pageNo"
       v-model:limit="queryParams.pageSize"
       @pagination="getList"
+      :load-filter-rows="loadColumnFilterRows0"
+      @filtered-rows="list = $event"
+      :list-rows="list"
+      @column-filter-reset="getList"
+      :column-filter-definitions="listColumnFilterDefinitions0"
     >
-      <template #extra-filters>
+      <template #filters>
+        <el-form :inline="true" :model="queryParams" label-width="68px">
         <el-form-item label="用户昵称"
           ><el-input v-model="queryParams.nickname" clearable @keyup.enter="handleQuery"
         /></el-form-item>
@@ -89,10 +100,9 @@
           ><el-select v-model="queryParams.status" clearable style="width: 100px"
             ><el-option label="启用" :value="0" /><el-option label="停用" :value="1" /></el-select
         ></el-form-item>
+      </el-form>
       </template>
-      <template #actions><el-button @click="handleQuery">搜索</el-button
-        ><el-button @click="resetQuery">重置</el-button
-        ><el-button
+      <template #actions><el-button
           v-if="multiple && queryParams.deptIds.length"
           :disabled="loading || candidateLoading || !!candidateError || !!error"
           @click="selectAllFiltered">选择筛选结果全部人员</el-button
@@ -108,7 +118,7 @@
           "
           >重新加载</el-button
         ></template>
-      <template #table>
+      <template #table="{ resolveRows }">
         <div class="mb-12px flex flex-wrap gap-8px">
           <span>已选 {{ selected.length }} 人</span>
           <el-tag v-for="row in selected" :key="String(row.id)" closable @close="remove(row.id)">{{
@@ -121,7 +131,7 @@
           data-user-table-key="system.user.selectDialog"
           @header-dragend="handleUserSelectHeaderDragend"
           v-loading="loading || candidateLoading"
-          :data="list"
+          :data="resolveRows(list)"
           height="390"
           border
           @row-click="toggle"
@@ -207,6 +217,8 @@
   </Dialog>
 </template>
 <script setup lang="ts">
+import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import { useUserTableColumns, type UserTableColumnDefinition } from '@/hooks/web/useUserTableColumns'
 import { hasPermission } from '@/directives/permission/hasPermi'
@@ -558,4 +570,21 @@ watch(visible, (value) => {
   emit('visible-change', value)
 })
 defineExpose({ open })
+
+const loadColumnFilterRows0 = async () => {
+  if (businessMode.value) return filteredBusinessCandidates()
+  const loadPage = canQueryUsers.value ? UserApi.getUserPage : UserApi.getSelectionPage
+  return normalizeOptions(
+    await loadAllListPages<any>((pagination) => loadPage({ ...remoteQuery(), ...pagination }))
+  )
+}
+
+const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'status',
+    label: '状态',
+    type: 'text',
+    getValue: (row) => [row.status === 1 ? '停用' : row.status === 0 ? '启用' : '—'].join(' ')
+  }
+])
 </script>

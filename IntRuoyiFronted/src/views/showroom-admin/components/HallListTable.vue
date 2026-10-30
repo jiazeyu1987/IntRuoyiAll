@@ -1,6 +1,15 @@
 <template>
   <div class="hall-list-table">
-    <UnifiedListTemplate table-key="showroom.hall.main" :rows="filteredHalls">
+    <UnifiedListTemplate
+      @query="emitSearch"
+      @reset="resetSearch"
+      :query-loading="loading"
+      table-key="showroom.hall.main"
+      :rows="filteredHalls"
+      :columns="listFilterColumns0"
+      :column-filter-definitions="hallAudioFilters"
+      :show-column-settings="false"
+    >
       <template #filters>
         <div>
           <el-input
@@ -53,21 +62,13 @@
           <Icon icon="ep:microphone" class="mr-5px" />
           一键语音
         </el-button>
-        <el-button :loading="loading" @click="emitSearch">
-          <Icon icon="ep:search" class="mr-5px" />
-          查询
-        </el-button>
-        <el-button @click="resetSearch">
-          <Icon icon="ep:refresh-left" class="mr-5px" />
-          重置
-        </el-button>
       </template>
-      <template #table="{ rows: standardRows }">
+      <template #table="{ resolveRows, rows: standardRows }">
         <el-table
           stripe
           border
           v-loading="loading"
-          :data="standardRows"
+          :data="resolveRows(standardRows)"
           row-key="hallId"
           class="hall-list-table__grid"
           empty-text="暂无展柜数据"
@@ -140,6 +141,8 @@
 </template>
 
 <script setup lang="ts">
+import type { ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 defineOptions({ name: 'HallListTable' })
 
@@ -379,6 +382,68 @@ const resetSearch = () => {
 const hasReadyAudio = (narration: HallNarrationSummary | null) => {
   return Boolean(narration?.audioReady && narration.audioUrl)
 }
+
+
+
+const listFilterColumns0 = [
+  {
+    key: 'name',
+    label: '展柜名称',
+    visible: true
+  },
+  {
+    key: 'nameEn',
+    label: '英文名称',
+    visible: true
+  },
+  {
+    key: 'hallCode',
+    label: '展柜编码',
+    visible: true
+  },
+  {
+    key: 'description',
+    label: '描述',
+    visible: true
+  },
+  {
+    key: 'productCount',
+    label: '展项数量',
+    visible: true
+  },
+  {
+    key: 'displayColumn5',
+    label: '中文语音',
+    visible: true
+  },
+  {
+    key: 'displayColumn6',
+    label: '英文语音',
+    visible: true
+  }
+]
+const hallAudioFilters: ListColumnFilterDefinition[] = [
+  {
+    key: 'displayColumn5',
+    label: '中文语音',
+    type: 'select',
+    options: [
+      { label: '已生成', value: true },
+      { label: '未生成', value: false }
+    ],
+    getValue: (row) => hasReadyAudio(row.zhNarration)
+  },
+  {
+    key: 'displayColumn6',
+    label: '英文语音',
+    type: 'select',
+    options: [
+      { label: '已生成', value: true },
+      { label: '未生成', value: false }
+    ],
+    getValue: (row) => hasReadyAudio(row.enNarration)
+  }
+]
 </script>
 
 <style scoped>

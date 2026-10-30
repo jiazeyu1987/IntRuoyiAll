@@ -26,7 +26,7 @@ public class RuntimeControlProperties implements InitializingBean {
     public static final String PROD_SERVER_HOST = "172.30.30.57";
     public static final String BACKUP_SERVER_HOST = "172.30.30.59";
 
-    private String repoRoot = "D:/ProjectPackage/Int/IntRuoyi/ruoyi-vue-pro";
+    private String repoRoot = ".";
     private String stateDir = "E:/Int/CacheData/IntRuoyi/runtime-control";
     private Duration statusCommandTimeout = Duration.ofSeconds(60);
     private Map<String, Environment> environments = defaultEnvironments();
@@ -39,7 +39,7 @@ public class RuntimeControlProperties implements InitializingBean {
     public static RuntimeControlProperties createDefaultForTests(Path stateDir) {
         RuntimeControlProperties properties = new RuntimeControlProperties();
         properties.setStateDir(stateDir.toString());
-        properties.setRepoRoot("D:/ProjectPackage/Int/IntRuoyi/ruoyi-vue-pro");
+        properties.setRepoRoot(".");
         properties.releaseWorkflow.setApprovedMaintenanceCommit("a".repeat(40));
         properties.releaseWorkflow.setApprovedApplicationCommit("b".repeat(40));
         properties.releaseWorkflow.setApprovedFrontendCommit("b".repeat(40));

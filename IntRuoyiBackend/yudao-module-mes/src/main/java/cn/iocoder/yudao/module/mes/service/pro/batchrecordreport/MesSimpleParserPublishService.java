@@ -227,7 +227,7 @@ public class MesSimpleParserPublishService {
         if (processes.isEmpty() || processes.size()>200) throw invalid("工序数量应为 1 至 200");
         String productName=text(object(root.get("product")),"name",128);
         Plan plan=new Plan(processes,productName);
-        JSONArray processRows=new JSONArray(),deviceRows=new JSONArray(),craftRows=new JSONArray(),materialRows=new JSONArray(),warnings=new JSONArray(),state=new JSONArray();
+        JSONArray processRows=new JSONArray(),deviceRows=new JSONArray(),craftRows=new JSONArray(),materialRows=new JSONArray(),unmatchedMaterials=new JSONArray(),warnings=new JSONArray(),state=new JSONArray();
         List<MesProRouteDO> routes=routeMapper.selectList(new LambdaQueryWrapperX<MesProRouteDO>()
                 .apply("TRIM(name) = {0}",routeName).last(lock?"FOR UPDATE":""));
         if (!routes.isEmpty()) plan.blockers.add("路线名称已存在，请填写新的路线名称");
@@ -272,8 +272,12 @@ public class MesSimpleParserPublishService {
                     var query=new LambdaQueryWrapperX<MesMdItemDO>();
                     if(code!=null) query.eq(MesMdItemDO::getCode,code); else query.eq(MesMdItemDO::getName,materialName);
                     List<MesMdItemDO> items=itemMapper.selectList(query.last(lock?"FOR UPDATE":""));
+                    if(items.isEmpty()) {
+                        unmatchedMaterials.add(context+"目录中不存在匹配物料，本次不绑定，可在工艺路线中补充");
+                        continue;
+                    }
                     if(items.size()!=1 || !Objects.equals(items.get(0).getStatus(),0)) {
-                        plan.blockers.add(context+(items.isEmpty()?"目录中不存在匹配物料":items.size()>1?"目录匹配不唯一":"目录物料未启用"));
+                        plan.blockers.add(context+(items.size()>1?"目录匹配不唯一":"目录物料未启用"));
                         continue;
                     }
                     MesMdItemDO item=items.get(0);
@@ -362,7 +366,7 @@ public class MesSimpleParserPublishService {
         JSONObject result=plan.result;
         result.put("requestId",uuid(request.getRequestId())); result.put("routeName",routeName); result.put("processCount",processes.size());
         result.put("processRows",processRows); result.put("deviceRows",deviceRows); result.put("craftRows",craftRows);
-        result.put("materialRows",materialRows); result.put("warnings",warnings);
+        result.put("materialRows",materialRows); result.put("unmatchedMaterials",unmatchedMaterials); result.put("warnings",warnings);
         result.put("route",Map.of("name",routeName,"action","CREATE")); result.put("blockers",plan.blockers);
         result.put("previewToken",canonical.sha256(JSON.toJSONString(Map.of("requestHash",requestHash(request),"records",state,
                 "tenant",TenantContextHolder.getRequiredTenantId(),"user",getLoginUserId()))));

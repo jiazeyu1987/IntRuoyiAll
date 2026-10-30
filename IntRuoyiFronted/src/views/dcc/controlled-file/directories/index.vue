@@ -1,6 +1,15 @@
 <template>
   <ContentWrap>
-    <UnifiedListTemplate table-key="dcc.controlledFile.directories.main" :query-model="queryParams">
+    <UnifiedListTemplate
+      @query="handleQuery"
+      @reset="resetQuery"
+      table-key="dcc.controlledFile.directories.main"
+      :query-model="queryParams"
+      :filter-rows="filteredDirectories"
+      :columns="listFilterColumns0"
+      :column-filter-definitions="allColumnDisplayFilters0"
+      :show-column-settings="false"
+    >
       <template #filters>
         <el-form
           ref="queryFormRef"
@@ -36,14 +45,8 @@
         </el-form>
       </template>
       <template #actions>
-        <el-button @click="handleQuery">
-          <Icon icon="ep:search" class="mr-5px" />
-          查询
-        </el-button>
-        <el-button @click="resetQuery">
-          <Icon icon="ep:refresh" class="mr-5px" />
-          重置
-        </el-button>
+
+
         <el-button
           v-hasPermi="['dcc:controlled-file:directory:manage']"
           plain
@@ -70,7 +73,7 @@
           NAS同步
         </el-button>
       </template>
-      <template #table>
+      <template #table="{ resolveRows }">
         <el-alert
           v-if="loadErrorMessage"
           :closable="false"
@@ -90,7 +93,7 @@
           border
           ref="directoryTableRef"
           v-loading="loading"
-          :data="filteredDirectories"
+          :data="resolveRows(filteredDirectories)"
           data-user-table-column-explicit
           row-key="id"
           :default-expand-all="isExpandAll"
@@ -226,6 +229,8 @@
 </template>
 
 <script lang="ts" setup>
+import type { ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import { isSearchFormInputEmpty } from '@/utils/search'
 import {
@@ -519,6 +524,20 @@ const submitDeleteParentFolder = async () => {
 onMounted(() => {
   getList()
 })
+
+
+
+const listFilterColumns0 = [
+  {
+    key: 'name',
+    label: '目录名称',
+    visible: true
+  }
+]
+
+const allColumnDisplayFilters0: ListColumnFilterDefinition[] = [
+  { key: 'name', label: '目录名称', type: 'text', getValue: (row) => [row.name].join(' ') }
+]
 </script>
 
 <style scoped>

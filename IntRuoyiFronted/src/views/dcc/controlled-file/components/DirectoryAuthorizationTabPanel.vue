@@ -88,6 +88,8 @@
           @quick-filter-query="directoryAuthorizationQuickFilter.applyQuickFilter"
           @column-change="saveDirectoryAuthorizationColumnConfig"
           @pagination="handleDirectoryAuthorizationPagination"
+          :filter-rows="filteredDirectoryAuthorizationRules"
+          :column-filter-definitions="listColumnFilterDefinitions0"
         >
           <template #actions>
             <el-button type="primary" plain @click="toggleDirectoryPicker">
@@ -115,12 +117,12 @@
               保存规则
             </el-button>
           </template>
-          <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+          <template #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
             <el-table
               v-loading="loading"
               data-user-table-column-explicit
               data-user-table-key="dcc.controlledFile.permission.directoryAuthorization"
-              :data="paginatedDirectoryAuthorizationRules"
+              :data="resolveRows(paginatedDirectoryAuthorizationRules)"
               border
               :stripe="true"
               :show-overflow-tooltip="true"
@@ -243,6 +245,8 @@
 </template>
 
 <script lang="ts" setup>
+import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+
 import UserSelectV2 from '@/views/system/user/components/UserSelectV2.vue'
 import { defaultProps } from '@/utils/tree'
 import {
@@ -760,6 +764,15 @@ onMounted(async () => {
     await loadDirectoryAuthorizationData()
   }
 })
+
+const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'permissionSummary',
+    label: '权限摘要',
+    type: 'text',
+    getValue: (row) => [row.active ? '已启用' : '已停用'].join(' ')
+  }
+])
 </script>
 
 <style scoped>

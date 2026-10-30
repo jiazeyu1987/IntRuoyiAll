@@ -18,6 +18,9 @@ public interface ErpKingdeeProductionReplenishmentListService {
     ErpKingdeeProductionReplenishmentListSyncResult syncAllSkipExisting(
             LocalDateTime windowStart, LocalDateTime windowEnd);
 
+    ErpKingdeeProductionReplenishmentListSyncResult syncRecentSkipExisting(
+            LocalDateTime windowStart, LocalDateTime windowEnd);
+
     ErpKingdeeProductionReplenishmentListSyncResult syncModifiedBetween(
             LocalDateTime windowStart, LocalDateTime windowEnd);
 

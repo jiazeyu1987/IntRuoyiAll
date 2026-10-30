@@ -77,6 +77,7 @@ const initGaugeChart = (el: any, value: number, color: string) => {
   try {
     const chart = echarts.init(el)
     chart.setOption({
+      textStyle: { fontFamily: 'Microsoft YaHei' },
       series: [
         {
           type: 'gauge',
@@ -107,7 +108,7 @@ const initGaugeChart = (el: any, value: number, color: string) => {
             valueAnimation: true,
             fontSize: 24,
             fontWeight: 'bold',
-            fontFamily: 'Inter, sans-serif',
+            fontFamily: 'Microsoft YaHei',
             color: color,
             offsetCenter: [0, '0'],
             formatter: (value: number) => {

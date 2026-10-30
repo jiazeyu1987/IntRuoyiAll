@@ -7,6 +7,16 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 
 class TenantAdminBusinessPolicyTest {
+    @Test void tenantAdministratorCanReadEverySignatureGovernanceSection() {
+        for (String section : List.of("policy", "retention", "periodic-review", "csv-package")) {
+            String permission = "signature-governance:" + section + ":query";
+            assertTrue(TenantAdminBusinessPolicy.isBusinessPermission(permission));
+            assertTrue(TenantAdminBusinessPolicy.isBusinessMenu(new MenuDO().setStatus(0).setPermission(permission)));
+            assertFalse(TenantAdminBusinessPolicy.isBusinessPermission("signature-governance:" + section + ":manage"));
+        }
+        assertTrue(TenantAdminBusinessPolicy.isBusinessMenu(new MenuDO().setStatus(0).setPath("/signature-governance")));
+        assertTrue(TenantAdminBusinessPolicy.isBusinessMenu(new MenuDO().setStatus(0).setComponent("signature-governance/index")));
+    }
     @Test void onlyEnabledTenantAdministratorReceivesBusinessAccess() {
         assertTrue(TenantAdminBusinessPolicy.isTenantAdmin(List.of(new RoleDO().setCode("tenant_admin").setStatus(0))));
         assertFalse(TenantAdminBusinessPolicy.isTenantAdmin(List.of(new RoleDO().setCode("tenant_admin").setStatus(1))));

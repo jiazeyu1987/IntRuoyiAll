@@ -142,15 +142,6 @@
           <Icon icon="ep:download" class="mr-5px" /> 导出
         </el-button>
         <el-button
-          type="warning"
-          plain
-          @click="handleSyncKingdeePurchaseOrders"
-          :loading="kingdeeSyncLoading"
-          v-hasPermi="['erp:purchase-order:sync-kingdee']"
-        >
-          <Icon icon="ep:refresh" class="mr-5px" /> 增量同步
-        </el-button>
-        <el-button
           type="danger"
           plain
           @click="handleDelete(selectionList.map((item) => item.id))"
@@ -160,6 +151,7 @@
           <Icon icon="ep:delete" class="mr-5px" /> 删除
         </el-button>
       </el-form-item>
+      <el-form-item><RecentFullSyncButton sync-type="PURCHASE_ORDER" /></el-form-item>
     </el-form>
   </ContentWrap>
 
@@ -286,12 +278,12 @@
 </template>
 
 <script setup lang="ts">
+import RecentFullSyncButton from '@/views/erp/components/RecentFullSyncButton.vue'
 import { isSearchFormInputEmpty } from '@/utils/search'
 import { getIntDictOptions, DICT_TYPE } from '@/utils/dict'
 import { dateFormatter2 } from '@/utils/formatTime'
 import download from '@/utils/download'
 import { PurchaseOrderApi, PurchaseOrderVO } from '@/api/erp/purchase/order'
-import { ErpKingdeeSyncApi } from '@/api/erp/sync'
 import PurchaseOrderForm from './PurchaseOrderForm.vue'
 import { ProductApi, ProductVO } from '@/api/erp/product/product'
 import { UserVO } from '@/api/system/user'
@@ -323,7 +315,6 @@ const queryParams = reactive({
 })
 const queryFormRef = ref() // 搜索的表单
 const exportLoading = ref(false) // 导出的加载中
-const kingdeeSyncLoading = ref(false) // 金蝶同步的加载中
 const productList = ref<ProductVO[]>([]) // 产品列表
 const supplierList = ref<SupplierVO[]>([]) // 供应商列表
 const userList = ref<UserVO[]>([]) // 用户列表
@@ -377,16 +368,6 @@ const handleDelete = async (ids: number[]) => {
 }
 
 /** 金蝶同步按钮操作 */
-const handleSyncKingdeePurchaseOrders = async () => {
-  kingdeeSyncLoading.value = true
-  try {
-    await ErpKingdeeSyncApi.runIncrementalSync('PURCHASE_ORDER')
-    message.success('采购订单增量同步任务已提交')
-    await getList()
-  } finally {
-    kingdeeSyncLoading.value = false
-  }
-}
 
 /** 审批/反审批操作 */
 const handleUpdateStatus = async (id: number, status: number) => {

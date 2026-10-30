@@ -20,8 +20,13 @@
         @column-change="saveApprovalColumnConfig"
         @column-reset="resetApprovalColumnConfig"
         @pagination="handlePagination"
+        :load-filter-rows="loadColumnFilterRows0"
+        @filtered-rows="list = $event"
+        :list-rows="list"
+        @column-filter-reset="handlePagination"
+        :column-filter-definitions="listColumnFilterDefinitions0"
       >
-        <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+        <template #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
           <div class="approval-center__table-scope" data-user-table-column-explicit-scope>
             <el-alert
               v-if="loadError"
@@ -37,7 +42,7 @@
               class="approval-center__table"
               data-user-table-column-explicit
               :data-user-table-key="approvalCenterTableKey"
-              :data="list"
+              :data="resolveRows(list)"
               row-key="id"
               border
               stripe
@@ -458,6 +463,8 @@
 </template>
 
 <script lang="ts" setup>
+import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+
 import { ElMessage } from 'element-plus'
 import { edhrReadDisplay, bpmMissingPermissionReason, canProcessBpmInModule, bpmModuleDecisionLocation, compactApprovalCapabilities, APPROVAL_CAPABILITIES_DEFAULT_WIDTH } from './approvalReadDisplay'
 import { formatDate } from '@/utils/formatTime'
@@ -1736,6 +1743,97 @@ watch(
     applyRouteQueryAndLoad()
   }
 )
+
+const loadColumnFilterRows0 = async () => {
+  return loadAllListPages((pagination) => getApprovalTaskPage({ ...queryParams, ...pagination }))
+}
+
+const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'source',
+    label: '审批来源',
+    type: 'text',
+    getValue: (row) =>
+      [resolveModuleName(row.moduleCode), resolveSourceTaskTypeLabel(row)].join(' ')
+  },
+  {
+    key: 'businessSummary',
+    label: '业务摘要',
+    type: 'text',
+    getValue: (row) =>
+      [
+        resolveBusinessTitleLabel(row),
+        resolveBusinessIdentifierLabel(row),
+        edhrReadDisplay(row).taskLabel,
+        edhrReadDisplay(row).sourceStatus,
+        edhrReadDisplay(row).businessStatus,
+        edhrReadDisplay(row).decisionLabel,
+        edhrReadDisplay(row).decisionSourceStatus,
+        edhrReadDisplay(row).opinion,
+        row.sourceRemark,
+        row.terminationReason,
+        ...resolveVisibleDccKeyFields(row).flatMap((field) => [field.label, field.value]),
+        ...resolveVisibleBusinessContextTags(row).map(resolveBusinessContextTagLabel)
+      ].join(' ')
+  },
+  {
+    key: 'applicant',
+    label: '申请人',
+    type: 'text',
+    getValue: (row) => [resolveApplicantLabel(row)].join(' ')
+  },
+  {
+    key: 'node',
+    label: '节点',
+    type: 'text',
+    getValue: (row) => [resolveNodeNameLabel(row), resolveNodeSubLabel(row)].join(' ')
+  },
+  {
+    key: 'reviewer',
+    label: '审核人',
+    type: 'text',
+    getValue: (row) => [resolveReviewerLabel(row)].join(' ')
+  },
+  {
+    key: 'approvalResult',
+    label: '审批结果',
+    type: 'text',
+    getValue: (row) =>
+      [
+        edhrReadDisplay(row).decisionLabel,
+        edhrReadDisplay(row).decisionSourceStatus,
+        resolveApprovalResultLabel(row.approvalResult)
+      ].join(' ')
+  },
+  {
+    key: 'approvalRemark',
+    label: '备注',
+    type: 'text',
+    getValue: (row) =>
+      [
+        edhrReadDisplay(row).opinion,
+        row.sourceRemark,
+        row.terminationReason,
+        edhrReadDisplay(row).evidenceType,
+        edhrReadDisplay(row).evidenceId,
+        resolveApprovalRemark(row)
+      ].join(' ')
+  },
+  {
+    key: 'time',
+    label: '时间',
+    type: 'text',
+    getValue: (row) =>
+      [
+        formatEdhrTime(row.taskCreatedAt),
+        formatEdhrTime(row.taskCompletedAt),
+        edhrReadDisplay(row).completionActorIdentity,
+        formatEdhrTime(row.decisionAt),
+        formatApprovalTime(row.taskCreatedAt || row.initiatedAt),
+        formatApprovalTime(row.taskCompletedAt)
+      ].join(' ')
+  }
+])
 </script>
 
 <style scoped>

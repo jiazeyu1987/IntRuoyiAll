@@ -28,6 +28,8 @@ public class MesFrontlineSubmitAuthorizationServiceImpl implements MesFrontlineS
     private final MesReportAllocationReleaseStateService releaseStateService;
     @jakarta.annotation.Resource
     private cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesProWorkOrderMapper workOrderMapper;
+    @jakarta.annotation.Resource
+    private MesFrontlineSequenceGuard sequenceGuard;
 
     @Override
     public void authorizeNewSubmission(Long employeeId, String identityDomain) {
@@ -74,6 +76,7 @@ public class MesFrontlineSubmitAuthorizationServiceImpl implements MesFrontlineS
             throw exception(PRO_FRONTLINE_SUBMIT_CONTEXT_REQUIRED, "workOrder.notConfirmed");
         }
         requireFrozenActiveOrderProcess(activeOrder, routeProcessId, processId);
+        sequenceGuard.requireAllowed(activeOrder, routeProcessId);
     }
 
     private void assertActiveOrderOpenForProduction(MesProcessPoolActiveOrderDO activeOrder) {

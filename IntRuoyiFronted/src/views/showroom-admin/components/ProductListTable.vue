@@ -1,12 +1,21 @@
 <template>
   <div class="showroom-product-list">
     <UnifiedListTemplate
+      @query="emitSearch"
+      @reset="resetFilters"
+      :query-loading="loading"
       table-key="showroom.product.main"
       :total="pageTotal"
       :page="pageNo"
       :limit="pageSize"
       @update:page="handlePageChange"
       @update:limit="emit('page-change', { pageNo: 1, pageSize: $event })"
+      :load-filter-rows="loadColumnFilterRows0"
+      @filtered-rows="publishFilteredProducts"
+      :list-rows="columnFilterListRows"
+      :columns="listFilterColumns0"
+      :column-filter-definitions="allColumnDisplayFilters0"
+      :show-column-settings="false"
     >
       <template #filters>
         <div>
@@ -20,8 +29,6 @@
         </div>
       </template>
       <template #actions>
-        <el-button type="primary" :loading="loading" @click="emitSearch">查询</el-button>
-        <el-button @click="resetFilters">重置</el-button>
         <el-button v-if="manageProducts" type="primary" @click="emit('create')">新增</el-button>
         <el-button
           v-if="manageProducts"
@@ -111,7 +118,7 @@
           一键封面
         </el-button>
       </template>
-      <template #table>
+      <template #table="{ resolveRows }">
         <div v-if="showNarrationTaskBanner" class="showroom-product-list__task-banner">
           <div class="showroom-product-list__task-header">
             <span class="showroom-product-list__task-title">一键讲解任务</span>
@@ -239,7 +246,7 @@
         <el-table
           stripe
           v-loading="loading"
-          :data="normalizedRows"
+          :data="resolveRows(normalizedRows)"
           border
           class="showroom-product-list__table"
           :row-class-name="resolveProductRowClassName"
@@ -377,6 +384,11 @@
 </template>
 
 <script lang="ts" setup>
+import { shallowRef, toRaw } from 'vue'
+import type { ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+
+import { loadAllListPages } from '@/hooks/web/useListColumnFilter'
+
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 defineOptions({ name: 'ProductListTable' })
 
@@ -562,6 +574,7 @@ interface TranslatePublishTaskStatus {
 
 const props = defineProps<{
   products: unknown[]
+  loadFilterRows: () => Promise<unknown[]>
   loading?: boolean
   manageProducts?: boolean
   canBatchGeneratePublishedMedia?: boolean
@@ -623,6 +636,7 @@ const emit = defineEmits<{
   publish: [product: Record<string, unknown>]
   'page-change': [pagination: { pageNo: number; pageSize: number }]
   search: [filters: ProductListFilters]
+  filteredRows: [rows: unknown[]]
   delete: [product: Record<string, unknown>]
 }>()
 
@@ -1523,6 +1537,124 @@ const resetFilters = () => {
   draftFilters.approvalStatus = ''
   emitSearch()
 }
+
+const publishedProducts = shallowRef<unknown[]>()
+const publishedFilterRows = shallowRef<any[]>()
+const columnFilterListRows = computed(() =>
+  toRaw(props.products) === toRaw(publishedProducts.value)
+    ? publishedFilterRows.value
+    : props.products
+)
+const publishFilteredProducts = (rows: any[]) => {
+  const products = rows.map((row) => row.__filterSource)
+  publishedFilterRows.value = rows
+  publishedProducts.value = products
+  emit('filteredRows', products)
+}
+
+const loadColumnFilterRows0 = async () => {
+  const rows = await props.loadFilterRows()
+  return normalizeProductRows(rows).map((row, index) => ({ ...row, __filterSource: rows[index] }))
+}
+
+const listFilterColumns0 = [
+  {
+    key: 'nameCn',
+    label: '中文名称',
+    visible: true
+  },
+  {
+    key: 'legacyProductCode',
+    label: '旧产品编号',
+    visible: true
+  },
+  {
+    key: 'revisionNo',
+    label: '当前版本',
+    visible: true
+  },
+  {
+    key: 'approvalText',
+    label: '审批状态',
+    visible: true
+  },
+  {
+    key: 'pipelineLayout',
+    label: 'BU',
+    visible: true
+  },
+  {
+    key: 'ownerTypeText',
+    label: '持证人',
+    visible: true
+  },
+  {
+    key: 'lifecycleText',
+    label: '获证状态',
+    visible: true
+  },
+  {
+    key: 'targetMarket',
+    label: '在售国家',
+    visible: true
+  },
+  {
+    key: 'coverImageUrl',
+    label: '封面',
+    visible: true
+  },
+  {
+    key: 'displayColumn9',
+    label: '状态',
+    visible: true
+  }
+]
+
+const allColumnDisplayFilters0: ListColumnFilterDefinition[] = [
+  {
+    key: 'displayColumn9',
+    label: '状态',
+    type: 'text',
+    getValue: (row) =>
+      row.contentStatusItems
+        .map((item) => `${item.shortLabel} ${item.ready ? 'OK' : 'MISS'}`)
+        .join(' ')
+  },
+  {
+    key: 'revisionNo',
+    label: '当前版本',
+    type: 'text',
+    getValue: (row) => [row.revisionNo].join(' ')
+  },
+  {
+    key: 'approvalText',
+    label: '审批状态',
+    type: 'text',
+    getValue: (row) => [row.approvalText].join(' ')
+  },
+  {
+    key: 'pipelineLayout',
+    label: 'BU',
+    type: 'text',
+    getValue: (row) => [row.pipelineLayout || '未填写'].join(' ')
+  },
+  {
+    key: 'lifecycleText',
+    label: '获证状态',
+    type: 'text',
+    getValue: (row) => [row.lifecycleText].join(' ')
+  },
+  {
+    key: 'coverImageUrl',
+    label: '封面',
+    type: 'select',
+    options: [
+      { label: '有', value: true },
+      { label: '无', value: false }
+    ],
+    getValue: (row) => Boolean(row.coverImageUrl)
+  }
+]
 </script>
 
 <style scoped>

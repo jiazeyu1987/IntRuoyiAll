@@ -20,6 +20,8 @@
       @quick-filter-query="taxonomyQuickFilter.applyQuickFilter"
       @column-change="saveTaxonomyColumnConfig"
       @pagination="handlePagination"
+      :filter-rows="filteredTreeRows"
+      :column-filter-definitions="listColumnFilterDefinitions0"
     >
       <template #actions>
         <el-button
@@ -34,13 +36,13 @@
         </el-button>
       </template>
 
-      <template #table>
+      <template #table="{ resolveRows }">
         <el-table
           v-loading="loading"
           class="dcc-file-type-taxonomy-resizable-table"
           data-user-table-column-explicit
           data-user-table-key="dcc.fileTypeTaxonomy.main"
-          :data="paginatedTreeRows"
+          :data="resolveRows(paginatedTreeRows)"
           border
           :allow-drag-last-column="true"
           :stripe="true"
@@ -217,6 +219,8 @@
 </template>
 
 <script lang="ts" setup>
+import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import FileTypeCategoryMappingDialog from './FileTypeCategoryMappingDialog.vue'
 import type { FormRules } from 'element-plus'
@@ -554,6 +558,21 @@ const handleDelete = async (row: DccFileTypeTaxonomyVO) => {
 }
 
 onMounted(loadData)
+
+const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'taxonomyPath',
+    label: '完整路径',
+    type: 'text',
+    getValue: (row) => [row.id ? taxonomyPathMap.value.get(row.id) || row.name : row.name].join(' ')
+  },
+  {
+    key: 'active',
+    label: '状态',
+    type: 'text',
+    getValue: (row) => [row.active ? '启用' : '停用'].join(' ')
+  }
+])
 </script>
 
 <style scoped>

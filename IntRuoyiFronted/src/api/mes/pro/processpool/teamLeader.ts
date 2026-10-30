@@ -1378,6 +1378,13 @@ export const getProductionPersonnelList = async (params?: TeamProductionPersonne
   })
 }
 
+export const getStaleProductionEmployeeScopes = () => request.get<Array<{ id: number; employeeUserId: number }>>({
+  url: '/mes/pro/process-pool/team-leader/employee-profile/stale-scopes'
+})
+export const disableStaleProductionEmployeeScope = (scopeId: number) => request.put({
+  url: '/mes/pro/process-pool/team-leader/employee-profile/stale-scopes/disable', params: { scopeId }
+})
+
 export const getPqcPersonnelList = async (params?: TeamPqcPersonnelListReqVO) => {
   return await request.get<TeamPqcPersonnelRespVO[]>({
     url: '/mes/pro/process-pool/team-leader/pqc-personnel/list',

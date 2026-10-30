@@ -3,12 +3,21 @@
 
   <ContentWrap>
     <UnifiedListTemplate
+      @query="handleQuery"
+      @reset="resetQuery"
       table-key="mes.md.workshop.main"
       :query-model="queryParams"
       :total="total"
       v-model:page="queryParams.pageNo"
       v-model:limit="queryParams.pageSize"
       @pagination="getList"
+      :load-filter-rows="loadColumnFilterRows0"
+      @filtered-rows="list = $event"
+      :list-rows="list"
+      @column-filter-reset="getList"
+      :columns="listFilterColumns0"
+      :show-column-settings="false"
+      :column-filter-definitions="[...listColumnFilterDefinitions0, ...allColumnDisplayFilters0]"
     >
       <template #filters>
         <el-form
@@ -54,14 +63,6 @@
         </el-form>
       </template>
       <template #actions>
-        <el-button @click="handleQuery">
-          <Icon icon="ep:search" class="mr-5px" />
-          搜索
-        </el-button>
-        <el-button @click="resetQuery">
-          <Icon icon="ep:refresh" class="mr-5px" />
-          重置
-        </el-button>
         <el-button
           type="primary"
           plain
@@ -72,11 +73,11 @@
           新增
         </el-button>
       </template>
-      <template #table>
+      <template #table="{ resolveRows }">
         <el-table
           border
           v-loading="loading"
-          :data="list"
+          :data="resolveRows(list)"
           :stripe="true"
           :show-overflow-tooltip="true"
         >
@@ -127,6 +128,9 @@
 </template>
 
 <script setup lang="ts">
+import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+import { getDictOptions as listColumnDictOptions } from '@/utils/dict'
+
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import { isSearchFormInputEmpty } from '@/utils/search'
 import { MdWorkshopApi, MdWorkshopVO } from '@/api/mes/md/workstation/workshop'
@@ -201,6 +205,60 @@ const handleDelete = async (id: number) => {
 onMounted(() => {
   getList()
 })
+
+const loadColumnFilterRows0 = async () => {
+  const params = { ...queryParams }
+  const rows = await loadAllListPages<any>((pagination) =>
+    MdWorkshopApi.getWorkshopPage({ ...params, ...pagination })
+  )
+  return rows
+}
+
+const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'status',
+    label: '状态',
+    type: 'select',
+    options: listColumnDictOptions(DICT_TYPE.COMMON_STATUS)
+  }
+])
+
+const listFilterColumns0 = [
+  {
+    key: 'code',
+    label: '车间编码',
+    visible: true
+  },
+  {
+    key: 'name',
+    label: '车间名称',
+    visible: true
+  },
+  {
+    key: 'area',
+    label: '面积',
+    visible: true
+  },
+  {
+    key: 'chargeUserName',
+    label: '负责人',
+    visible: true
+  },
+  {
+    key: 'status',
+    label: '状态',
+    visible: true
+  },
+  {
+    key: 'remark',
+    label: '备注',
+    visible: true
+  }
+]
+
+const allColumnDisplayFilters0: ListColumnFilterDefinition[] = [
+  { key: 'code', label: '车间编码', type: 'text', getValue: (row) => [row.code].join(' ') }
+]
 </script>
 
 <style scoped>

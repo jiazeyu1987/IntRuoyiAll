@@ -53,14 +53,14 @@ public class RoleCategoryController {
 
     @GetMapping("/list")
     @Operation(summary = "获得角色分类列表")
-    @PreAuthorize("@ss.hasPermission('system:role-category:query')")
+    @PreAuthorize("@permissionRolePageAccess.canRead()")
     public CommonResult<List<RoleCategoryRespVO>> getRoleCategoryList() {
         return success(BeanUtils.toBean(roleCategoryService.getRoleCategoryList(), RoleCategoryRespVO.class));
     }
 
     @GetMapping("/enabled-list")
     @Operation(summary = "获得启用角色分类列表")
-    @PreAuthorize("@ss.hasPermission('system:role-category:query')")
+    @PreAuthorize("@permissionRolePageAccess.canRead()")
     public CommonResult<List<RoleCategoryRespVO>> getEnabledRoleCategoryList() {
         return success(BeanUtils.toBean(roleCategoryService.getEnabledRoleCategoryList(), RoleCategoryRespVO.class));
     }

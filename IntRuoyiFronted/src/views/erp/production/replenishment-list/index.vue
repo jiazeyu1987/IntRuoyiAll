@@ -1,7 +1,6 @@
 <template>
   <ContentWrap class="production-sync-list erp-viewport-list">
     <UnifiedListTemplate
-      :show-filter-reset="false"
       table-key="erp.production.replenishmentList.main"
       single-line-toolbar
       :query-model="queryParams"
@@ -20,24 +19,20 @@
       @quick-filter-query="applyReplenishmentListQuickFilter"
       @column-change="saveReplenishmentListColumnConfig"
       @pagination="getList"
+      :load-filter-rows="loadColumnFilterRows0"
+      @filtered-rows="list = $event"
+      :list-rows="list"
+      @column-filter-reset="getList"
     >
       <template #actions>
-        <el-button
-          type="primary"
-          plain
-          :loading="syncLoading"
-          @click="handleKingdeeSync"
-          v-hasPermi="['erp:kingdee-sync:query']"
-        >
-          <Icon icon="ep:refresh-right" class="mr-5px" /> 增量同步
-        </el-button>
+        <RecentFullSyncButton sync-type="PRODUCTION_REPLENISHMENT_LIST" />
       </template>
 
-      <template #table>
+      <template #table="{ resolveRows }">
         <el-table
           class="replenishment-list-table replenishment-list-table--locked"
           v-loading="loading || replenishmentListColumnLoading"
-          :data="list"
+          :data="resolveRows(list)"
           border
           stripe
           show-overflow-tooltip
@@ -242,6 +237,9 @@
   </ContentWrap>
 </template>
 <script setup lang="ts">
+import { loadAllListPages } from '@/hooks/web/useListColumnFilter'
+
+import RecentFullSyncButton from '@/views/erp/components/RecentFullSyncButton.vue'
 import '@/views/erp/components/viewport-list.css'
 
 import { erpListIntegerColumnFormatter } from '@/views/erp/utils/integerDisplay'
@@ -251,7 +249,6 @@ import {
   ErpProductionReplenishmentListApi,
   type ErpProductionReplenishmentListVO
 } from '@/api/erp/production/replenishment-list'
-import { ErpKingdeeSyncApi } from '@/api/erp/sync'
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import {
   useTableQuickFilter,
@@ -422,10 +419,8 @@ const replenishmentListQuickFilterDefinitions: TableQuickFilterDefinition[] = [
   }
 ]
 
-const message = useMessage()
 const route = useRoute()
 const loading = ref(true)
-const syncLoading = ref(false)
 const list = ref<ErpProductionReplenishmentListVO[]>([])
 const total = ref(0)
 const queryParams = reactive({
@@ -480,21 +475,19 @@ const applyRouteQuery = () => {
   }
 }
 
-const handleKingdeeSync = async () => {
-  syncLoading.value = true
-  try {
-    await ErpKingdeeSyncApi.runIncrementalSync('PRODUCTION_REPLENISHMENT_LIST')
-    message.success('生产补料单列表增量同步任务已提交')
-    await getList()
-  } finally {
-    syncLoading.value = false
-  }
-}
 
 onMounted(() => {
   applyRouteQuery()
   getList()
 })
+
+const loadColumnFilterRows0 = async () => {
+  const params = { ...queryParams }
+  const rows = await loadAllListPages<any>((pagination) =>
+    ErpProductionReplenishmentListApi.getPage({ ...params, ...pagination })
+  )
+  return rows
+}
 </script>
 
 <style scoped>

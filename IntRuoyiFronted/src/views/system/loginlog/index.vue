@@ -3,12 +3,21 @@
 
   <ContentWrap>
     <UnifiedListTemplate
+      @query="handleQuery"
+      @reset="resetQuery"
       table-key="system.loginLog.main"
       :query-model="queryParams"
       :total="total"
       v-model:page="queryParams.pageNo"
       v-model:limit="queryParams.pageSize"
       @pagination="getList"
+      :load-filter-rows="loadColumnFilterRows0"
+      @filtered-rows="list = $event"
+      :list-rows="list"
+      @column-filter-reset="getList"
+      :columns="listFilterColumns0"
+      :show-column-settings="false"
+      :column-filter-definitions="listColumnFilterDefinitions0"
     >
       <template #filters>
         <el-form
@@ -50,14 +59,6 @@
         </el-form>
       </template>
       <template #actions>
-        <el-button @click="handleQuery">
-          <Icon icon="ep:search" class="mr-5px" />
-          搜索
-        </el-button>
-        <el-button @click="resetQuery">
-          <Icon icon="ep:refresh" class="mr-5px" />
-          重置
-        </el-button>
         <el-button
           type="success"
           plain
@@ -69,8 +70,8 @@
           导出
         </el-button>
       </template>
-      <template #table>
-        <el-table stripe border v-loading="loading" :data="list">
+      <template #table="{ resolveRows }">
+        <el-table stripe border v-loading="loading" :data="resolveRows(list)">
           <el-table-column label="日志编号" align="center" prop="id" />
           <el-table-column label="登录类型" align="center" prop="logType">
             <template #default="scope">
@@ -114,6 +115,9 @@
   <LoginLogDetail ref="detailRef" />
 </template>
 <script lang="ts" setup>
+import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+import { getDictOptions as listColumnDictOptions } from '@/utils/dict'
+
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import { isSearchFormInputEmpty } from '@/utils/search'
 import { DICT_TYPE } from '@/utils/dict'
@@ -192,4 +196,65 @@ const handleExport = async () => {
 onMounted(() => {
   getList()
 })
+
+const loadColumnFilterRows0 = async () => {
+  const params = { ...queryParams }
+  const rows = await loadAllListPages<any>((pagination) =>
+    LoginLogApi.getLoginLogPage({ ...params, ...pagination })
+  )
+  return rows
+}
+
+const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'logType',
+    label: '登录类型',
+    type: 'select',
+    options: listColumnDictOptions(DICT_TYPE.SYSTEM_LOGIN_TYPE)
+  },
+  {
+    key: 'result',
+    label: '登陆结果',
+    type: 'select',
+    options: listColumnDictOptions(DICT_TYPE.SYSTEM_LOGIN_RESULT)
+  }
+])
+
+const listFilterColumns0 = [
+  {
+    key: 'id',
+    label: '日志编号',
+    visible: true
+  },
+  {
+    key: 'logType',
+    label: '登录类型',
+    visible: true
+  },
+  {
+    key: 'username',
+    label: '用户名称',
+    visible: true
+  },
+  {
+    key: 'userIp',
+    label: '登录地址',
+    visible: true
+  },
+  {
+    key: 'userAgent',
+    label: '浏览器',
+    visible: true
+  },
+  {
+    key: 'result',
+    label: '登陆结果',
+    visible: true
+  },
+  {
+    key: 'createTime',
+    label: '登录日期',
+    visible: true
+  }
+]
 </script>

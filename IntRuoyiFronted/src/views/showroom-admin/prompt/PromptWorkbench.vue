@@ -129,12 +129,15 @@
             :rows="historyRows"
             class="unified-list-template--contained"
             data-list-viewport="embedded"
+            :columns="listFilterColumns0"
+            :show-column-settings="false"
+            :column-filter-definitions="[...listColumnFilterDefinitions0, ...allColumnDisplayFilters0]"
           >
-            <template #table="{ rows: standardRows }">
+            <template #table="{ resolveRows, rows: standardRows }">
               <el-table
                 stripe
                 border
-                :data="standardRows"
+                :data="resolveRows(standardRows)"
                 row-key="promptVersionId"
                 empty-text="暂无提示词历史版本"
               >
@@ -234,6 +237,8 @@
 </template>
 
 <script setup lang="ts">
+import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import {
   ShowroomAdminApi,
@@ -359,6 +364,87 @@ const openHistoryPreview = (row: ShowroomImagePromptHistoryItemRespVO) => {
 onMounted(() => {
   void loadData()
 })
+
+const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'creator',
+    label: '创建人',
+    type: 'text',
+    getValue: (row) => [resolveCreator(row.creator)].join(' ')
+  }
+])
+
+const listFilterColumns0 = [
+  {
+    key: 'versionNo',
+    label: '版本',
+    visible: true
+  },
+  {
+    key: 'changeNote',
+    label: '版本说明',
+    visible: true
+  },
+  {
+    key: 'displayColumn2',
+    label: '占位符',
+    visible: true
+  },
+  {
+    key: 'useCount',
+    label: '使用次数',
+    visible: true
+  },
+  {
+    key: 'lastUsedAt',
+    label: '最近使用时间',
+    visible: true
+  },
+  {
+    key: 'creator',
+    label: '创建人',
+    visible: true
+  },
+  {
+    key: 'createTime',
+    label: '创建时间',
+    visible: true
+  }
+]
+
+const allColumnDisplayFilters0: ListColumnFilterDefinition[] = [
+  { key: 'versionNo', label: '版本', type: 'text', getValue: (row) => [row.versionNo].join(' ') },
+  {
+    key: 'changeNote',
+    label: '版本说明',
+    type: 'text',
+    getValue: (row) => [row.changeNote || '未填写版本说明'].join(' ')
+  },
+  {
+    key: 'displayColumn2',
+    label: '占位符',
+    type: 'text',
+    getValue: (row) => row.placeholderCodes.map(formatPlaceholder).join(' ')
+  },
+  {
+    key: 'lastUsedAt',
+    label: '最近使用时间',
+    type: 'text',
+    getValue: (row) => [formatDateTime(row.lastUsedAt, '尚未使用')].join(' ')
+  },
+  {
+    key: 'creator',
+    label: '创建人',
+    type: 'text',
+    getValue: (row) => [resolveCreator(row.creator)].join(' ')
+  },
+  {
+    key: 'createTime',
+    label: '创建时间',
+    type: 'text',
+    getValue: (row) => [formatDateTime(row.createTime)].join(' ')
+  }
+]
 </script>
 
 <style scoped>

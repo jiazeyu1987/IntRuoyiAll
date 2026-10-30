@@ -52,7 +52,7 @@ public class DccProductCatalogServiceImpl implements DccProductCatalogService {
     private static final String NODE_TYPE_CATEGORY_LEVEL2 = "categoryLevel2";
     private static final String NODE_TYPE_PRODUCT = "product";
     private static final String NODE_TYPE_DETAIL = "detail";
-    private static final Set<String> SUPPORTED_DATA_SOURCES = Set.of("瑛泰产品");
+    private static final Set<String> SUPPORTED_DATA_SOURCES = Set.of("瑛泰产品", "子公司产品");
     private static final Pattern EXPIRY_DATE_PATTERN = Pattern.compile(
             "(?:有效期至|有效期)\\s*[:：]?\\s*([0-9]{4})\\s*[./\\-/年]\\s*([0-9]{1,2})\\s*[./\\-/月]\\s*([0-9]{1,2})\\s*(?:日)?");
     private static final DateTimeFormatter NORMALIZED_DATE_FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE;

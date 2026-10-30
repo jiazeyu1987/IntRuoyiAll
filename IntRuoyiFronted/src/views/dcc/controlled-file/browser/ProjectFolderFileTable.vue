@@ -1,6 +1,6 @@
 <template>
   <el-table border stripe
-    :data="rows"
+    :data="resolveRows ? resolveRows(rows) : rows"
     :row-key="(row) => row.key"
     v-loading="loading"
     highlight-current-row
@@ -113,6 +113,7 @@ import { buildFolderFileRows, type FolderFileRow } from './folder-file-list'
 import { getDccControlledFileStatusLabel, type DccControlledFileStatus } from '../shared/lifecycle'
 const props = defineProps<{
   files: FileCandidate[]
+  resolveRows?: (rows: FolderFileRow[]) => FolderFileRow[]
   references: ReferenceRow[]
   usage: Record<string, { referenceProjectCount: number; referenced: boolean }>
   keyword: string

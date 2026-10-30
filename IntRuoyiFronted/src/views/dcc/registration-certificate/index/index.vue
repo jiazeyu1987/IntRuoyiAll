@@ -30,6 +30,11 @@
             @pagination="loadPage"
             v-model:sort-state="currentSortState"
             @sort-change="handleCurrentSortChange"
+            :load-filter-rows="loadColumnFilterRows0"
+            @filtered-rows="list = $event"
+            :list-rows="list"
+            @column-filter-reset="loadPage"
+            :column-filter-definitions="listColumnFilterDefinitions0"
           >
             <template #actions>
               <el-button v-hasPermi="['dcc:registration-certificate:config:query']" @click="configRouter.push({ name: 'DccRegistrationCertificateConfig' })">注册证配置</el-button>
@@ -44,14 +49,14 @@
               </el-button>
             </template>
 
-            <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+            <template #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
               <div class="registration-certificate-current-table-scroll-region">
                 <el-table
                   v-loading="loading"
                   class="registration-certificate-current-table"
                   data-user-table-column-explicit
                   :data-user-table-key="CURRENT_TABLE_KEY"
-                  :data="list"
+                  :data="resolveRows(list)"
                   height="100%"
                   border
                   :stripe="true"
@@ -266,13 +271,18 @@
             @pagination="loadOldIndexPage"
             v-model:sort-state="oldSortState"
             @sort-change="handleOldSortChange"
+            :load-filter-rows="loadColumnFilterRows1"
+            @filtered-rows="oldList = $event"
+            :list-rows="oldList"
+            @column-filter-reset="loadOldIndexPage"
+            :column-filter-definitions="listColumnFilterDefinitions1"
           >
-            <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+            <template #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
               <el-table
                 v-loading="oldLoading"
                 data-user-table-column-explicit
                 :data-user-table-key="OLD_TABLE_KEY"
-                :data="oldList"
+                :data="resolveRows(oldList)"
                 border
                 :stripe="true"
                 :show-overflow-tooltip="true"
@@ -426,6 +436,8 @@
 </template>
 
 <script setup lang="ts">
+import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+
 const configRouter = useRouter()
 import { computed, onActivated, onMounted, reactive, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
@@ -1044,6 +1056,63 @@ watch(
     await loadPage()
   }
 )
+
+const loadColumnFilterRows0 = async () => {
+  const params = { ...queryParams }
+  const rows = await loadAllListPages<any>((pagination) =>
+    getRegistrationCertificatePage({ ...params, ...pagination })
+  )
+  return rows
+}
+
+const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'status',
+    label: '状态',
+    type: 'text',
+    getValue: (row) => [formatRegistrationCertificateStatus(row.status)].join(' ')
+  },
+  {
+    key: 'reminder',
+    label: '提醒状态',
+    type: 'text',
+    getValue: (row) => [formatRegistrationCertificateReminder(row.visualState)].join(' ')
+  },
+  {
+    key: 'hasProjectCode',
+    label: '项目代码',
+    type: 'text',
+    getValue: (row) => [formatMissingMarker(row.hasProjectCode)].join(' ')
+  },
+  {
+    key: 'hasRegistrationFile',
+    label: '注册证文件',
+    type: 'text',
+    getValue: (row) => [formatMissingMarker(row.hasRegistrationFile)].join(' ')
+  }
+])
+
+const loadColumnFilterRows1 = async () => {
+  const params = { ...oldQueryParams }
+  const rows = await loadAllListPages<any>((pagination) =>
+    getRegistrationCertificateOldIndexPage({ ...params, ...pagination })
+  )
+  return rows
+}
+
+const listColumnFilterDefinitions1 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'status',
+    label: '状态',
+    type: 'text',
+    getValue: (row) =>
+      [
+        row.status === 'OLD'
+          ? '已失效，失效日期 ' + formatRegistrationCertificateDate(row.expiryDate)
+          : formatRegistrationCertificateStatus(row.status)
+      ].join(' ')
+  }
+])
 </script>
 
 <style scoped>

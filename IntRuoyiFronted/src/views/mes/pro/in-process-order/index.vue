@@ -4,13 +4,13 @@
     <UnifiedListTemplate
       table-key="mes.pro.in-process-order"
       single-line-toolbar
-      :show-filter-reset="false"
       :query-model="queryParams"
       :filter-definitions="filterDefinitions"
       :quick-filter-state="quickFilter.state"
       :selected-filter-definition="quickFilter.selectedDefinition.value"
       :operator-options="quickFilter.operatorOptions.value"
       :columns="columns"
+      :column-filter-definitions="statusColumnFilter"
       :column-saving="columnSaving"
       :total="total"
       v-model:page="queryParams.pageNo"
@@ -19,11 +19,15 @@
       @quick-filter-query="quickFilter.applyQuickFilter"
       @column-change="saveColumnConfig"
       @pagination="getList"
+      :load-filter-rows="loadColumnFilterRows0"
+      @filtered-rows="list = $event"
+      :list-rows="list"
+      @column-filter-reset="getList"
     >
-      <template #table>
+      <template #table="{ resolveRows }">
         <el-table
           v-loading="loading || columnLoading"
-          :data="list"
+          :data="resolveRows(list)"
           height="100%"
           border
           stripe
@@ -82,6 +86,8 @@
 </template>
 
 <script setup lang="ts">
+import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+
 import { computed, onActivated, onMounted, reactive, ref } from 'vue'
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import {
@@ -196,6 +202,31 @@ onActivated(() => {
   if (activated) getList()
   activated = true
 })
+
+const loadColumnFilterRows0 = async () => {
+  const params = { ...queryParams }
+  const rows = await loadAllListPages<any>((pagination) =>
+    getInProcessOrderPage({ ...params, ...pagination })
+  )
+  return rows
+}
+const statusColumnFilter: ListColumnFilterDefinition[] = [
+  {
+    key: 'status',
+    label: '状态',
+    type: 'text',
+    getValue: (row) =>
+      row.readBlocked
+        ? '数据异常'
+        : row.businessStatus === 'VERSION_UPGRADE_PENDING'
+          ? '升版审批中'
+          : row.abnormal
+            ? '异常处理中'
+            : row.businessStatus === 'COMPLETED'
+              ? '已完工待放行'
+              : '在制'
+  }
+]
 </script>
 
 <style scoped>

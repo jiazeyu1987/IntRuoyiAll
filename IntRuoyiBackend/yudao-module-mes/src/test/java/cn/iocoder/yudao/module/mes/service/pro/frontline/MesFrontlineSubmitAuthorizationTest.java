@@ -35,6 +35,8 @@ class MesFrontlineSubmitAuthorizationTest {
     private cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesProWorkOrderMapper workOrderMapper;
 
     private MesFrontlineSubmitAuthorizationServiceImpl submitAuthorizationService;
+    @Mock
+    private MesFrontlineSequenceGuard sequenceGuard;
 
     @Test
     void newSystemUserSubmissionDoesNotRequireActualEmployeeMenuPermission() {
@@ -60,6 +62,7 @@ class MesFrontlineSubmitAuthorizationTest {
         submitAuthorizationService = new MesFrontlineSubmitAuthorizationServiceImpl(
                 contextService, activeOrderMapper, processSnapshotMapper, sessionSnapshotService, releaseStateService);
         org.springframework.test.util.ReflectionTestUtils.setField(submitAuthorizationService, "workOrderMapper", workOrderMapper);
+        org.springframework.test.util.ReflectionTestUtils.setField(submitAuthorizationService, "sequenceGuard", sequenceGuard);
         org.mockito.Mockito.lenient().when(workOrderMapper.selectByIdForUpdate(41L)).thenReturn(
                 cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesProWorkOrderDO.builder().id(41L).status(1).build());
     }
@@ -137,6 +140,9 @@ class MesFrontlineSubmitAuthorizationTest {
 
         assertDoesNotThrow(() -> submitAuthorizationService.authorizeActiveOrder(
                 9001L, 81L, 41L, 21L, 71L, 31L));
+        org.mockito.Mockito.verify(sequenceGuard).requireAllowed(
+                org.mockito.ArgumentMatchers.argThat(order -> order.getId().equals(81L)),
+                org.mockito.ArgumentMatchers.eq(71L));
     }
 
     @Test

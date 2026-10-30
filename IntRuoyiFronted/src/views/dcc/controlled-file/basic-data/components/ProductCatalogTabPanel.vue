@@ -22,8 +22,11 @@
       @column-reset="resetProductCatalogColumnConfig"
       @sort-change="handleProductCatalogSortChange"
       @pagination="getList"
+      :filter-rows="selectedProductCatalogRows"
+      :column-filter-definitions="listColumnFilterDefinitions0"
     >
       <template #actions>
+        <CatalogWorkbookActions @success="getList" />
         <el-button
           class="scheme-d-btn scheme-d-btn--success"
           type="primary"
@@ -36,7 +39,7 @@
           新建项目代码及产品
         </el-button>
       </template>
-      <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+      <template #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
         <div class="dcc-product-catalog-split-layout">
           <aside class="dcc-product-catalog-tree-panel">
             <div class="dcc-product-catalog-tree-title">产品分类</div>
@@ -75,7 +78,7 @@
                 class="dcc-product-catalog-resizable-table"
                 data-user-table-column-explicit
                 data-user-table-key="dcc.productCatalog.main"
-                :data="selectedProductCatalogRows"
+                :data="resolveRows(selectedProductCatalogRows)"
                 height="100%"
                 scrollbar-always-on
                 border
@@ -617,6 +620,7 @@
     </el-form>
     <template #footer>
       <div class="scheme-d-dialog-footer">
+        <el-button v-if="bindingRelations.length" v-hasPermi="['dcc:project-code:update']" type="danger" :disabled="bindingLoading" @click="removeBindings">解除已有绑定（{{ bindingRelations.length }}）</el-button>
         <el-button class="scheme-d-btn scheme-d-btn--success" type="primary" :loading="bindingLoading" @click="submitBinding">确定绑定</el-button>
         <el-button class="scheme-d-btn scheme-d-btn--neutral" :disabled="bindingLoading" @click="bindingVisible = false">取消</el-button>
       </div>
@@ -625,6 +629,9 @@
 </template>
 
 <script lang="ts" setup>
+import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+
+import CatalogWorkbookActions from './CatalogWorkbookActions.vue'
 import UserSelectV2 from '@/views/system/user/components/UserSelectV2.vue'
 import type { FormRules } from 'element-plus'
 import { confirmProjectProductApplication } from './project-product-confirmation'
@@ -672,7 +679,7 @@ import {
   type DccProjectRequestId
 } from '@/api/dcc/controlledFile/projectProductRequests'
 import { getProjectCodePage, type DccProjectCodeRespVO } from '@/api/dcc/controlledFile/projectCodes'
-import { createDccDataRelation } from '@/api/dcc/dataRelations'
+import { createDccDataRelation, deleteDccDataRelation, getDccDataRelationsByProductCatalogId, type DccDataRelationRespVO } from '@/api/dcc/dataRelations'
 import {
   getRegistrationCertificatePage,
   type DccRegistrationCertificatePageItemVO
@@ -695,6 +702,7 @@ const bindingVisible = ref(false)
 const bindingLoading = ref(false)
 const bindingCertificateLoading = ref(false)
 const bindingRow = ref<DccProductCatalogRespVO>()
+const bindingRelations = ref<DccDataRelationRespVO[]>([])
 const bindingProjectCodeOptions = ref<DccProjectCodeRespVO[]>([])
 const bindingCertificateOptions = ref<DccRegistrationCertificatePageItemVO[]>([])
 const bindingFormData = reactive({
@@ -1540,12 +1548,31 @@ const resetBindingForm = () => {
 
 const openBinding = async (row: DccProductCatalogRespVO) => {
   bindingRow.value = row
+  bindingRelations.value = []
   resetBindingForm()
   bindingVisible.value = true
   bindingLoading.value = true
   try {
     const page = await getProjectCodePage({ pageNo: 1, pageSize: 200, status: 'ENABLE' })
     bindingProjectCodeOptions.value = page.list
+    bindingRelations.value = await getDccDataRelationsByProductCatalogId(row.id)
+  } finally {
+    bindingLoading.value = false
+  }
+}
+
+const removeBindings = async () => {
+  if (bindingLoading.value || !bindingRelations.value.length) return
+  await message.confirm('确认解除当前租户与此目录的已有项目及注册证绑定吗？其他租户的绑定不受影响。')
+  bindingLoading.value = true
+  try {
+    for (const relation of [...bindingRelations.value]) {
+      await deleteDccDataRelation(relation.id)
+      bindingRelations.value = bindingRelations.value.filter((item) => item.id !== relation.id)
+    }
+    message.success('已解除绑定')
+    bindingVisible.value = false
+    await getList()
   } finally {
     bindingLoading.value = false
   }
@@ -1724,6 +1751,15 @@ onBeforeUnmount(closeProjectProductRequestEntry)
 onMounted(async () => {
   await getList()
 })
+
+const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'productStatus',
+    label: '产品状态',
+    type: 'text',
+    getValue: (row) => [formatProductStatus(row.productStatus)].join(' ')
+  }
+])
 </script>
 
 <style scoped>

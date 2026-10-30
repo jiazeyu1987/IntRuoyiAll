@@ -146,7 +146,7 @@ function formatOrderStatus(order: any) {
     .discounts-money {
       font-size: 16px;
       line-height: normal;
-      font-family: OPPOSANS;
+      font-family: var(--app-font-family);
     }
 
     .pay-color {

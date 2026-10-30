@@ -37,6 +37,10 @@
       @quick-filter-query="todoQuickFilter.applyQuickFilter"
       @column-change="saveTodoColumnConfig"
       @pagination="handleTodoPagination"
+      :load-filter-rows="loadColumnFilterRows"
+      @filtered-rows="todoRows = $event"
+      :list-rows="todoRows"
+      @column-filter-reset="loadWorkbench()"
     >
       <template #actions>
         <el-button v-hasPermi="['mes:pro-edhr-work-task:query']" @click="productionRecordsRef?.open()">生产任务记录</el-button>
@@ -55,13 +59,13 @@
           刷新
         </el-button>
       </template>
-      <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+      <template #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
         <el-table
           v-loading="loading && total === undefined && !silentLoading"
           data-testid="profile-unified-todo-list"
           data-user-table-column-explicit
           data-user-table-key="profile.workbench.todo"
-          :data="todoRows"
+          :data="resolveRows(todoRows)"
           border
           :stripe="true"
           row-key="taskKey"
@@ -96,11 +100,17 @@
             v-if="isTodoColumnVisible('detail')"
             label="待办详情"
             prop="detail"
+            :show-overflow-tooltip="false"
             :min-width="getTodoColumnMinWidthString('detail', 360)"
             v-bind="sortColumnAttrs('detail')"
           >
             <template #default="{ row }">
-              <span class="profile-workbench__detail">{{ row.detail }}</span>
+              <div class="profile-workbench__detail">
+                <div class="profile-workbench__detail-title">{{ row.detail.split('\n')[0] }}</div>
+                <div v-if="row.detail.includes('\n')" class="profile-workbench__detail-meta">
+                  {{ row.detail.slice(row.detail.indexOf('\n') + 1) }}
+                </div>
+              </div>
             </template>
           </el-table-column>
           <el-table-column
@@ -132,7 +142,7 @@
                 :title="row.action.payload.blockedReason"
                 @click="openTodo(row)"
               >
-                {{ row.action.payload.blockedReason ? '暂不可处理' : '进入/处理' }}
+                {{ row.action.payload.blockedReason ? '暂不可处理' : getTodoActionLabel(row) }}
               </el-button>
               <el-button
                 v-if="activeVisibilityTab !== 'hidden'"
@@ -165,6 +175,7 @@
 
 <script lang="ts" setup>
 import ProductionTaskRecords from './ProductionTaskRecords.vue'
+import { loadAllListPages } from '@/hooks/web/useListColumnFilter'
 const productionRecordsRef = ref<InstanceType<typeof ProductionTaskRecords>>()
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
@@ -393,6 +404,21 @@ const loadWorkbench = async (options?: { silent?: boolean }): Promise<boolean> =
   }
 }
 
+const loadColumnFilterRows = async () => {
+  const context = currentContext
+  const lease = currentLease
+  if (!context || !lease || !isWorkbenchReadCurrent(lease)) throw new Error('请先刷新当前工作台')
+  const sources = authorizedWorkbenchSources()
+  return loadAllListPages(async ({ pageNo, pageSize }) => {
+    if (!isWorkbenchReadCurrent(lease) || currentContext !== context)
+      throw new Error('工作台上下文已变更，请重新查询')
+    const page = await getProfileWorkbenchTodoPage(context, pageNo, pageSize, sources)
+    if (!isWorkbenchReadCurrent(lease) || currentContext !== context)
+      throw new Error('工作台上下文已变更，请重新查询')
+    return { list: page.rows, total: page.filteredTotal }
+  })
+}
+
 const getTaskTypeTagType = (taskType: TodoTaskType) => {
   if (taskType === '文控') return 'success'
   if (taskType === '批记录') return 'warning'
@@ -401,11 +427,42 @@ const getTaskTypeTagType = (taskType: TodoTaskType) => {
   return ''
 }
 
+const getTodoActionLabel = (row: ProfileWorkbenchTodoRow) => {
+  if (row.sourceId === 'DCC_DISTRIBUTION') return '去签收'
+  if (row.sourceId === 'DCC_TRAINING') return row.statusLabel === '待确认' ? '去确认' : '去学习'
+  if (row.sourceId === 'EDHR_WORK_TASK') {
+    const labels: Record<string, string> = {
+      FILL: '去填写',
+      REVIEW: '去复核',
+      APPROVE: '去批准',
+      REWORK: '去修改',
+      ARCHIVE: '去归档',
+      CLOSE: '去关闭',
+      RELEASE_APPROVE: '去审批',
+      PQC_PRODUCTION_RELEASE: '去放行',
+      DOSSIER_COMPLETE: '去补齐',
+      PQC_RELEASE_CORRECTION: '去补正',
+      RECORD_CHANGE_CORRECTION: '去补正',
+      RECORD_CHANGE_APPROVE: '去审批',
+      DEVIATION_RECEIVE: '去调查',
+      DEVIATION_CORRECT: '去纠正',
+      DEVIATION_SIGN: '去签署',
+      DEVIATION_APPROVE: '去审核',
+      DEVIATION_CLOSE: '去关闭',
+      QA_REVIEW: '去评审',
+      QA_DECISION_HANDOFF: '去接手'
+    }
+    return labels[row.action.payload.taskType] ?? '查看任务'
+  }
+  return '查看任务'
+}
+
 const openTodo = async (row: ProfileWorkbenchTodoRow) => {
   const lease = currentLease
   const generation = requestGeneration
   if (!lease || !isWorkbenchReadCurrent(lease)) return
-  const callerCurrent = () => !disposed && generation === requestGeneration && isWorkbenchReadCurrent(lease)
+  const callerCurrent = () =>
+    !disposed && generation === requestGeneration && isWorkbenchReadCurrent(lease)
   try {
     await openWorkbenchAction(router, row.sourceId, row.action, callerCurrent)
   } catch (error) {
@@ -415,10 +472,18 @@ const openTodo = async (row: ProfileWorkbenchTodoRow) => {
   }
 }
 
-const runVisibilityAction = async (row: ProfileWorkbenchTodoRow, restore: boolean, confirmed = false) => {
+const runVisibilityAction = async (
+  row: ProfileWorkbenchTodoRow,
+  restore: boolean,
+  confirmed = false
+) => {
   if (visibilityWritePending.value || (actionTaskKey.value && !confirmed)) return
-  if (!currentContext || !currentLease || !isWorkbenchReadCurrent(currentLease) ||
-    !todoRows.value.some(item => item.taskKey === row.taskKey)) {
+  if (
+    !currentContext ||
+    !currentLease ||
+    !isWorkbenchReadCurrent(currentLease) ||
+    !todoRows.value.some((item) => item.taskKey === row.taskKey)
+  ) {
     ElMessage.error('任务上下文已失效，请重新加载。')
     actionTaskKey.value = ''
     return
@@ -427,8 +492,11 @@ const runVisibilityAction = async (row: ProfileWorkbenchTodoRow, restore: boolea
   let lease = currentLease
   const identity = workbenchIdentityKey()
   const actionGeneration = ++visibilityActionGeneration
-  const ownsAction = () => !disposed && actionGeneration === visibilityActionGeneration &&
-    identity === workbenchIdentityKey() && isWorkbenchReadCurrent(lease)
+  const ownsAction = () =>
+    !disposed &&
+    actionGeneration === visibilityActionGeneration &&
+    identity === workbenchIdentityKey() &&
+    isWorkbenchReadCurrent(lease)
   actionTaskKey.value = row.taskKey
   visibilityWritePending.value = true
   profileWorkbenchTodoBadgeStore.clearPageSnapshot()
@@ -448,12 +516,27 @@ const runVisibilityAction = async (row: ProfileWorkbenchTodoRow, restore: boolea
     const refreshed = await refresh
     if (!ownsAction() || refreshGeneration !== requestGeneration) return
     if (refreshed) ElMessage.success(restore ? '任务已恢复' : '任务已隐藏，可在已隐藏中恢复')
-    else loadErrorMessages.value.unshift(restore ? '任务已恢复，但列表刷新失败，请重试。' : '任务已隐藏，但列表刷新失败，请重试。')
+    else
+      loadErrorMessages.value.unshift(
+        restore ? '任务已恢复，但列表刷新失败，请重试。' : '任务已隐藏，但列表刷新失败，请重试。'
+      )
   } catch (error) {
     if (!ownsAction()) return
-    profileWorkbenchTodoBadgeStore.tryCommit(badge, { loaded: false, loading: false, error: resolveErrorMessage(error, '任务操作失败') })
-    loadErrorMessages.value = [resolveErrorMessage(error, writeSucceeded ? '任务操作已成功，但列表刷新失败，请重试。' :
-      restore ? '恢复任务失败，请重试。' : '隐藏任务失败，请重试。')]
+    profileWorkbenchTodoBadgeStore.tryCommit(badge, {
+      loaded: false,
+      loading: false,
+      error: resolveErrorMessage(error, '任务操作失败')
+    })
+    loadErrorMessages.value = [
+      resolveErrorMessage(
+        error,
+        writeSucceeded
+          ? '任务操作已成功，但列表刷新失败，请重试。'
+          : restore
+            ? '恢复任务失败，请重试。'
+            : '隐藏任务失败，请重试。'
+      )
+    ]
   } finally {
     if (ownsAction()) {
       visibilityWritePending.value = false
@@ -466,16 +549,23 @@ const handleHideTodo = async (row: ProfileWorkbenchTodoRow) => {
   const lease = beginWorkbenchRead()
   const generation = requestGeneration
   const actionGeneration = ++visibilityActionGeneration
-  const ownsConfirmation = () => !disposed && actionGeneration === visibilityActionGeneration &&
-    generation === requestGeneration && isWorkbenchReadCurrent(lease)
+  const ownsConfirmation = () =>
+    !disposed &&
+    actionGeneration === visibilityActionGeneration &&
+    generation === requestGeneration &&
+    isWorkbenchReadCurrent(lease)
   actionTaskKey.value = row.taskKey
   try {
-    await ElMessageBox.confirm(`确认隐藏“${row.detail || row.source}”？可在“已隐藏”中恢复。`, '隐藏个人工作台任务',
-      { confirmButtonText: '隐藏', cancelButtonText: '取消', type: 'warning' })
+    await ElMessageBox.confirm(
+      `确认隐藏“${row.detail || row.source}”？可在“已隐藏”中恢复。`,
+      '隐藏个人工作台任务',
+      { confirmButtonText: '隐藏', cancelButtonText: '取消', type: 'warning' }
+    )
     if (!ownsConfirmation()) return
     await runVisibilityAction(row, false, true)
   } catch (error) {
-    if (ownsConfirmation() && error !== 'cancel' && error !== 'close') ElMessage.error(resolveErrorMessage(error, '隐藏确认失败'))
+    if (ownsConfirmation() && error !== 'cancel' && error !== 'close')
+      ElMessage.error(resolveErrorMessage(error, '隐藏确认失败'))
   } finally {
     if (ownsConfirmation()) actionTaskKey.value = ''
   }
@@ -498,7 +588,12 @@ const handleTodoPagination = () => {
   if (total.value !== undefined) void loadWorkbench()
 }
 const todoQuickFilter = useTableQuickFilter(
-  TODO_TABLE_KEY, todoQuickFilterDefinitions, queryParams, async () => { await loadWorkbench() }
+  TODO_TABLE_KEY,
+  todoQuickFilterDefinitions,
+  queryParams,
+  async () => {
+    await loadWorkbench()
+  }
 )
 
 watch(
@@ -512,15 +607,20 @@ watch(
   },
   { flush: 'sync' }
 )
-watch(workbenchLifetime, () => {
-  invalidatePage(preservingSnapshotDisplay)
-  if (workbenchInvalidationReason.value) loadErrorMessages.value = [workbenchInvalidationReason.value]
-  if (!refreshingAfterWrite) {
-    visibilityActionGeneration += 1
-    visibilityWritePending.value = false
-    actionTaskKey.value = ''
-  }
-}, { flush: 'sync' })
+watch(
+  workbenchLifetime,
+  () => {
+    invalidatePage(preservingSnapshotDisplay)
+    if (workbenchInvalidationReason.value)
+      loadErrorMessages.value = [workbenchInvalidationReason.value]
+    if (!refreshingAfterWrite) {
+      visibilityActionGeneration += 1
+      visibilityWritePending.value = false
+      actionTaskKey.value = ''
+    }
+  },
+  { flush: 'sync' }
+)
 let releaseFocusRefresh: (() => void) | undefined
 onBeforeUnmount(() => {
   releaseFocusRefresh?.()
@@ -590,6 +690,22 @@ onMounted(() => {
 
 .profile-workbench__detail {
   color: #263247;
+  min-width: 0;
+  padding: 4px 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  line-height: 1.6;
+}
+
+.profile-workbench__detail-title {
+  font-weight: 600;
+}
+
+.profile-workbench__detail-meta {
+  margin-top: 4px;
+  color: #6b7280;
+  font-size: 12px;
+  white-space: pre-line;
 }
 
 .profile-workbench__status {

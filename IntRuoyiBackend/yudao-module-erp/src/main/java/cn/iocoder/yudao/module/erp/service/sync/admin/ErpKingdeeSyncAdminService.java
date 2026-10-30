@@ -17,4 +17,6 @@ public interface ErpKingdeeSyncAdminService {
     ErpKingdeeFullSyncRespVO runIncrementalSync(String syncType);
 
     ErpKingdeeFullSyncRespVO runFullSync(String syncType);
+
+    ErpKingdeeFullSyncRespVO runRecentFullSync(String syncType, int days, long clickedAt);
 }

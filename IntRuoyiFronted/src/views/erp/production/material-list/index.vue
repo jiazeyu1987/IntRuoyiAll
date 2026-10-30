@@ -2,7 +2,6 @@
 <template>
   <ContentWrap class="erp-viewport-list">
     <UnifiedListTemplate
-      :show-filter-reset="false"
       table-key="erp.production.material-list.main"
       single-line-toolbar
       :query-model="queryParams"
@@ -19,22 +18,19 @@
       @quick-filter-query="quickFilter.applyQuickFilter"
       @column-change="saveColumnConfig"
       @pagination="getList"
+      :load-filter-rows="loadColumnFilterRows0"
+      @filtered-rows="list = $event"
+      :list-rows="list"
+      @column-filter-reset="getList"
+      :column-filter-definitions="listColumnFilterDefinitions0"
     >
       <template #actions>
-        <el-button
-          type="primary"
-          plain
-          :loading="kingdeeSyncLoading"
-          @click="handleIncrementalSync"
-          v-hasPermi="['erp:kingdee-sync:query']"
-        >
-          <Icon icon="ep:refresh-right" class="mr-5px" /> 增量同步
-        </el-button>
+        <RecentFullSyncButton sync-type="PRODUCTION_MATERIAL_LIST" />
       </template>
-      <template #table>
+      <template #table="{ resolveRows }">
         <el-table
           v-loading="loading || columnLoading"
-          :data="list"
+          :data="resolveRows(list)"
           :stripe="true"
           :show-overflow-tooltip="true"
           class="erp-production-material-list__table"
@@ -264,6 +260,9 @@
   </el-dialog>
 </template>
 <script setup lang="ts">
+import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+
+import RecentFullSyncButton from '@/views/erp/components/RecentFullSyncButton.vue'
 import '@/views/erp/components/viewport-list.css'
 
 import { erpListIntegerColumnFormatter } from '@/views/erp/utils/integerDisplay'
@@ -279,7 +278,6 @@ import {
   type UserTableColumnDefinition
 } from '@/hooks/web/useUserTableColumns'
 import { dateFormatter } from '@/utils/formatTime'
-import { ErpKingdeeSyncApi } from '@/api/erp/sync'
 import {
   ErpProductionMaterialListApi,
   ErpProductionMaterialListDetailVO,
@@ -391,7 +389,6 @@ const message = useMessage()
 const route = useRoute()
 const router = useRouter()
 const loading = ref(true)
-const kingdeeSyncLoading = ref(false)
 const detailLoading = ref(false)
 const list = ref<ErpProductionMaterialListGroupVO[]>([])
 const detailList = ref<ErpProductionMaterialListDetailVO[]>([])
@@ -469,16 +466,6 @@ const openDetailDialog = async (row: ErpProductionMaterialListGroupVO) => {
 
 /** 重置按钮操作 */
 
-const handleIncrementalSync = async () => {
-  kingdeeSyncLoading.value = true
-  try {
-    await ErpKingdeeSyncApi.runIncrementalSync('PRODUCTION_MATERIAL_LIST')
-    message.success('生产用料清单增量同步任务已提交')
-    await getList()
-  } finally {
-    kingdeeSyncLoading.value = false
-  }
-}
 
 watch(detailDialogVisible, (visible) => {
   if (visible) {
@@ -583,6 +570,28 @@ onMounted(() => {
   applyRouteQuery()
   getList()
 })
+
+const loadColumnFilterRows0 = async () => {
+  const params = { ...queryParams }
+  const rows = await loadAllListPages<any>((pagination) =>
+    ErpProductionMaterialListApi.getGroupPage({ ...params, ...pagination })
+  )
+  return rows
+}
+
+const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'productionOrderSummary',
+    label: '生产工单',
+    type: 'text',
+    getValue: (row) =>
+      [
+        row.productionOrderSummary,
+        row.productionOrderSummary || '无',
+        row.productionOrderCount
+      ].join(' ')
+  }
+])
 </script>
 
 <style scoped lang="scss">

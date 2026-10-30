@@ -6,7 +6,6 @@
     <UnifiedListTemplate
       table-key="mes.pro.process.main"
       single-line-toolbar
-      :show-filter-reset="false"
       :query-model="queryParams"
       label-width="88px"
       :filter-definitions="processQuickFilterDefinitions"
@@ -25,6 +24,11 @@
       @column-change="saveProcessColumnConfig"
       @column-reset="resetProcessColumnConfig"
       @pagination="getList"
+      :load-filter-rows="loadColumnFilterRows0"
+      @filtered-rows="list = $event"
+      :list-rows="list"
+      @column-filter-reset="getList"
+      :column-filter-definitions="listColumnFilterDefinitions0"
     >
       <template #actions>
         <el-button
@@ -36,13 +40,13 @@
           <Icon icon="ep:plus" class="mr-5px" /> 新增
         </el-button>
       </template>
-      <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+      <template #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
         <el-table
           v-loading="loading"
           class="process-main-table"
           data-user-table-column-explicit
           data-user-table-key="mes.pro.process.main"
-          :data="list"
+          :data="resolveRows(list)"
           height="100%"
           border
           :stripe="true"
@@ -217,6 +221,9 @@
 </template>
 
 <script setup lang="ts">
+import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+import { getDictOptions as listColumnDictOptions } from '@/utils/dict'
+
 import { getIntDictOptions, DICT_TYPE } from '@/utils/dict'
 import { dateFormatter } from '@/utils/formatTime'
 import {
@@ -520,6 +527,29 @@ watch(
   }
 )
 
+
+const loadColumnFilterRows0 = async () => {
+  const params = buildProcessPageParams()
+  const rows = await loadAllListPages<any>((pagination) =>
+    ProProcessApi.getProcessPage({ ...params, ...pagination })
+  )
+  return rows
+}
+
+const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'productionQuantityFactor',
+    label: '生产系数',
+    type: 'text',
+    getValue: (row) => [formatCapacity(row.productionQuantityFactor)].join(' ')
+  },
+  {
+    key: 'status',
+    label: '状态',
+    type: 'select',
+    options: listColumnDictOptions(DICT_TYPE.COMMON_STATUS)
+  }
+])
 </script>
 
 <style scoped>

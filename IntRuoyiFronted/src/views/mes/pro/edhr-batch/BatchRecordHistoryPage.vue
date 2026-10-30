@@ -9,7 +9,6 @@
       <UnifiedListTemplate
         table-key="mes.pro.edhr-batch-history"
         single-line-toolbar
-        :show-filter-reset="false"
         :query-model="queryParams"
         :filter-definitions="filterDefinitions"
         :quick-filter-state="quickFilter.state"
@@ -24,12 +23,16 @@
         @quick-filter-query="quickFilter.applyQuickFilter"
         @column-change="saveColumnConfig"
         @pagination="getBatchList"
+        :load-filter-rows="loadColumnFilterRows0"
+        @filtered-rows="batchList = $event"
+        :list-rows="batchList"
+        @column-filter-reset="getBatchList"
       >
         <template #actions><BatchIntegrityCheck /></template>
-        <template #table>
+        <template #table="{ resolveRows }">
           <el-table
             v-loading="loading || columnLoading"
-            :data="batchList"
+            :data="resolveRows(batchList)"
             height="100%"
             row-key="key"
             border
@@ -96,6 +99,8 @@
 </template>
 
 <script setup lang="ts">
+import { loadAllListPages } from '@/hooks/web/useListColumnFilter'
+
 import '@/views/mes/pro/edhr-batch/record-viewport.css'
 import dayjs from 'dayjs'
 import { ElMessage } from 'element-plus'
@@ -323,4 +328,11 @@ onMounted(() => {
   historyMounted = true
   void getBatchList()
 })
+
+const loadColumnFilterRows0 = async () => {
+  const sources = buildHistorySources({ ...queryParams }, hasPermission)
+  return loadAllListPages((pagination) =>
+    loadHistoryPage(sources, pagination.pageNo, pagination.pageSize)
+  )
+}
 </script>

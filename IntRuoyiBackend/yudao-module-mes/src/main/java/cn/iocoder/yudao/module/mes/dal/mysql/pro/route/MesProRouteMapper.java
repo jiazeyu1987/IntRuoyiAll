@@ -20,6 +20,23 @@ import java.util.List;
 @Mapper
 public interface MesProRouteMapper extends BaseMapperX<MesProRouteDO> {
 
+    /** Historical terminal records remain readable; unfinished business prevents route deletion. */
+    @Select("""
+            SELECT EXISTS (
+                SELECT 1 FROM mes_pro_process_pool_active_order
+                WHERE route_id = #{routeId} AND deleted = 0 AND active_status = 'ACTIVE'
+            ) OR EXISTS (
+                SELECT 1 FROM mes_pro_schedule_order
+                WHERE route_id = #{routeId} AND deleted = 0
+                  AND (status IS NULL OR status NOT IN (3, 4))
+            ) OR EXISTS (
+                SELECT 1 FROM mes_pro_edhr_batch_execution
+                WHERE route_id = #{routeId} AND deleted = 0
+                  AND (status IS NULL OR status NOT IN (30, 40, 50, 60))
+            )
+            """)
+    boolean existsUnfinishedBusinessByRouteId(@Param("routeId") Long routeId);
+
     default MesProRouteDO selectByIdForUpdate(Long id) {
         if (id == null) {
             return null;

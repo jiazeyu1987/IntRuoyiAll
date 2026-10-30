@@ -17,6 +17,8 @@
       <el-tabs v-model="productManageTab" @tab-change="handleProductManageTabChange">
         <el-tab-pane label="产品" name="product">
           <ProductListTable
+            :load-filter-rows="loadProductColumnFilterRows"
+            @filtered-rows="productRows = $event"
             :batch-audio-auto-check-enabled="batchProductAudioAutoCheckState?.enabled"
             :batch-audio-auto-check-label="batchProductAudioAutoCheckLabel"
             :batch-generating-sales-countries="batchGeneratingProductSalesCountries"
@@ -64,6 +66,8 @@
         </el-tab-pane>
         <el-tab-pane label="奖项" name="award">
           <AwardListTable
+            :load-filter-rows="loadAwardColumnFilterRows"
+            @filtered-rows="awardRows = $event"
             :awards="awardRows"
             :generating-cover-award-id="generatingCoverAwardId"
             :keyword="awardKeyword"
@@ -825,6 +829,7 @@ import {
   normalizeNarrationVersion,
   type ShowroomNarrationVersionRecord
 } from '@/views/showroom-admin/narration/contracts'
+import { loadAllListPages } from '@/hooks/web/useListColumnFilter'
 import ProductListTable from '@/views/showroom-admin/components/ProductListTable.vue'
 import AwardListTable from '@/views/showroom-admin/components/AwardListTable.vue'
 import ProductAudioDialog from '@/views/showroom-admin/product/ProductAudioDialog.vue'
@@ -2197,6 +2202,9 @@ const loadProductNarrationDraft = async (productId: number, sourceRevisionId: nu
     productNarrationLoading.value = false
   }
 }
+
+const loadProductColumnFilterRows = () => loadAllListPages<any>(pagination => ShowroomAdminApi.getProductPage(buildProductPageParams(pagination.pageNo, pagination.pageSize)))
+const loadAwardColumnFilterRows = () => loadAllListPages<any>(pagination => ShowroomAdminApi.getAwardPage({ ...pagination, keyword: awardKeyword.value.trim() || undefined }))
 
 const loadProductRows = async () => {
   const productPage = normalizeObject(

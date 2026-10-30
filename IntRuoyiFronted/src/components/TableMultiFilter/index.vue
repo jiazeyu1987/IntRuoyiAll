@@ -69,23 +69,20 @@
         @update="updateCondition"
         @query="onQuery"
       />
-
-      <el-button type="primary" @click="onQuery">
-        <Icon icon="ep:search" class="mr-5px" />
-        查询
-      </el-button>
-      <el-button v-if="showReset" @click="clearAllConditions">
-        <Icon icon="ep:refresh-left" class="mr-5px" />
-        重置
-      </el-button>
     </div>
 
+    <ListFilterActions
+      v-if="showActions && conditionTabs.length > 0"
+      @query="onQuery"
+      @reset="clearAllConditions"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue'
 import { ElMessage } from 'element-plus'
+import ListFilterActions from '@/components/ListFilterActions/index.vue'
 import TableMultiFilterField from './MultiFilterField.vue'
 import {
   getDefaultMultiFilterOperator,
@@ -103,11 +100,11 @@ const props = withDefaults(defineProps<{
   tableKey: string
   filterDefinitions: ListMultiFilterDefinition[]
   state: ListMultiFilterState
-  showReset?: boolean
+  showActions?: boolean
   showOperators?: boolean
   maxInlineFilters?: number
 }>(), {
-  showReset: true,
+  showActions: true,
   showOperators: true,
   maxInlineFilters: 4
 })
@@ -213,6 +210,10 @@ const removeActiveConditionTab = () => {
   const nextConditions = conditionTabs.value.filter(
     (condition, index) => getConditionId(condition, index) !== removedConditionId
   )
+  if (nextConditions.length === 0) {
+    clearAllConditions()
+    return
+  }
   emitState(nextConditions, nextConditions[0]?.id || nextConditions[0]?.key)
   emit('remove', removedConditionId)
 }

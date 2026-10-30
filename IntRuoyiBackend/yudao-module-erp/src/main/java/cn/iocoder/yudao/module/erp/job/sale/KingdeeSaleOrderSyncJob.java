@@ -26,6 +26,9 @@ public class KingdeeSaleOrderSyncJob implements JobHandler, ErpKingdeeFullSyncHa
     @Override
     @TenantJob
     public String execute(String param) {
+        if (param != null && param.startsWith(WINDOW_SYNC_JOB_PREFIX)) {
+            return executeWindowSync(param);
+        }
         if (ErpKingdeeFullSyncHandler.FULL_SYNC_JOB_PARAM.equals(param)) {
             return executeFullSync();
         }
@@ -50,15 +53,23 @@ public class KingdeeSaleOrderSyncJob implements JobHandler, ErpKingdeeFullSyncHa
     @Override
     public String executeFullSync() {
         LocalDateTime windowEnd = LocalDateTime.now();
+        return executeFullSync(null, windowEnd);
+    }
+
+    @Override
+    public String executeFullSync(LocalDateTime windowStart, LocalDateTime windowEnd) {
         AtomicReference<ErpKingdeeSaleOrderSyncResult> resultReference = new AtomicReference<>();
         syncRuntimeService.executeSync(ErpKingdeeSyncCommand.builder()
                 .syncType(ErpKingdeeSyncTypeEnum.SALE_ORDER)
                 .triggerType(ErpKingdeeSyncTriggerTypeEnum.FULL)
+                .forceInitialWindowStart(windowStart != null)
+                .initialWindowStart(windowStart)
                 .windowEnd(windowEnd)
                 .build(), context -> {
-            ErpKingdeeSaleOrderSyncResult result = saleOrderSyncService.syncSaleOrdersFullSkipExisting();
+            ErpKingdeeSaleOrderSyncResult result = windowStart == null ? saleOrderSyncService.syncSaleOrdersFullSkipExisting()
+                    : saleOrderSyncService.syncSaleOrdersFullSkipExisting(windowStart, windowEnd);
             resultReference.set(result);
-            return ErpKingdeeSyncRunResult.success(context.getWindowEnd(),
+            return ErpKingdeeSyncRunResult.success(windowStart == null ? context.getWindowEnd() : null,
                     result.getCreatedCount(), result.getUpdatedCount(), result.getSkippedCount(), 0);
         });
         ErpKingdeeSaleOrderSyncResult result = resultReference.get();

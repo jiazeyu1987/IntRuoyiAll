@@ -180,14 +180,19 @@
         v-model:limit="queryParams.pageSize"
         @update:quick-filter-state="handleQuickFilterStateUpdate"
         @pagination="getHistoryList"
+        :load-filter-rows="loadColumnFilterRows0"
+        @filtered-rows="historyList = $event"
+        :list-rows="historyList"
+        @column-filter-reset="getHistoryList"
+        :column-filter-definitions="listColumnFilterDefinitions0"
       >
         <template #actions>
           <el-button :loading="historyLoading" @click="getHistoryList">刷新列表</el-button>
         </template>
-        <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+        <template #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
           <el-table
             v-loading="historyLoading"
-            :data="historyList"
+            :data="resolveRows(historyList)"
             border
             @sort-change="handleTemplateSortChange"
           >
@@ -278,6 +283,8 @@
 </template>
 
 <script setup lang="ts">
+import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+
 import { ElMessageBox } from 'element-plus'
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import { checkPermi } from '@/utils/permission'
@@ -549,6 +556,36 @@ const openBackupDetail = (row: BackupPlanBackupPointVO) => {
 }
 
 onMounted(loadAll)
+
+const loadColumnFilterRows0 = async () => {
+  const params = { ...queryParams }
+  const rows = await loadAllListPages<any>((pagination) =>
+    getBackupPlanHistoryPage({ ...params, ...pagination })
+  )
+  return rows
+}
+
+const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'backupId',
+    label: '生成时间',
+    type: 'text',
+    getValue: (row) => [formatBackupGeneratedTime(row)].join(' ')
+  },
+  {
+    key: 'recoverabilityStatus',
+    label: '结果',
+    type: 'text',
+    getValue: (row) => [row.recoverabilityStatus === 'RECOVERABLE' ? '成功' : '需检查'].join(' ')
+  },
+  {
+    key: 'recoverabilityStatus',
+    label: '是否可恢复',
+    type: 'text',
+    getValue: (row) =>
+      [row.recoverabilityStatus === 'RECOVERABLE' ? '可恢复' : '不可恢复'].join(' ')
+  }
+])
 </script>
 
 <style scoped>

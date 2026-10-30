@@ -61,12 +61,18 @@
   --transition-time-02: 0.2s;
 }
 
+html:root {
+  --app-font-family: "Microsoft YaHei";
+  --el-font-family: var(--app-font-family);
+}
+
 .dark {
   --app-content-bg-color: var(--el-bg-color);
 }
 
 html,
 body {
+  font-family: var(--app-font-family);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }

@@ -82,7 +82,7 @@ public class RoleController {
 
     @GetMapping("/get")
     @Operation(summary = "获得角色信息")
-    @PreAuthorize("@ss.hasPermission('system:role:query')")
+    @PreAuthorize("@permissionRolePageAccess.canRead()")
     public CommonResult<RoleRespVO> getRole(@RequestParam("id") Long id) {
         RoleDO role = roleService.getRole(id);
         return success(buildRoleRespVO(role));
@@ -90,7 +90,7 @@ public class RoleController {
 
     @GetMapping("/page")
     @Operation(summary = "获得角色分页")
-    @PreAuthorize("@ss.hasPermission('system:role:query')")
+    @PreAuthorize("@permissionRolePageAccess.canRead()")
     public CommonResult<PageResult<RoleRespVO>> getRolePage(RolePageReqVO pageReqVO) {
         PageResult<RoleDO> pageResult = roleService.getRolePage(pageReqVO);
         PageResult<RoleRespVO> result = BeanUtils.toBean(pageResult, RoleRespVO.class);

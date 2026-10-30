@@ -19,6 +19,14 @@ function setup(overrides) {
     require: id => {
       if (id === 'vue') return vue
       if (id.endsWith('.vue')) return { default: {} }
+      if (id === '@/hooks/web/useListColumnFilter') {
+        const result = {}
+        const helper = ts.transpileModule(fs.readFileSync('src/hooks/web/useListColumnFilter.ts', 'utf8'), {
+          compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 }
+        }).outputText
+        vm.runInNewContext(helper, { exports: result, require: () => vue })
+        return result
+      }
       throw new Error(`Unexpected runtime dependency: ${id}`)
     }
   })

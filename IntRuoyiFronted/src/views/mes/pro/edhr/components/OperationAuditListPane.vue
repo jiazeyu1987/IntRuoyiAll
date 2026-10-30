@@ -1,6 +1,8 @@
 <template>
   <div class="edhr-operation-audit-pane">
     <UnifiedListTemplate
+      :query-loading="loading"
+      :reset-filters="resetQuery"
       single-line-toolbar
       table-key="mes.pro.edhr.operationAudit"
       :query-model="queryParams"
@@ -19,6 +21,11 @@
       @quick-filter-query="operationAuditQuickFilter.applyQuickFilter"
       @column-change="saveOperationAuditColumnConfig"
       @pagination="getList"
+      :load-filter-rows="loadColumnFilterRows0"
+      @filtered-rows="list = $event"
+      :list-rows="list"
+      @column-filter-reset="getList"
+      :column-filter-definitions="listColumnFilterDefinitions0"
     >
       <template #extra-filters>
         <el-form-item v-if="showObjectFilters" label="对象类型" required>
@@ -69,12 +76,7 @@
         </el-form-item>
       </template>
 
-      <template #actions>
-        <el-button :loading="loading" type="primary" @click="handleQuery">查询</el-button>
-        <el-button @click="resetQuery">重置</el-button>
-      </template>
-
-      <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+      <template #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
         <el-alert
           v-if="loadError"
           :title="loadError"
@@ -88,7 +90,7 @@
           v-loading="loading"
           data-user-table-column-explicit
           data-user-table-key="mes.pro.edhr.operationAudit"
-          :data="list"
+          :data="resolveRows(list)"
           border
           stripe
           row-key="id"
@@ -321,6 +323,8 @@
 </template>
 
 <script setup lang="ts">
+import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+
 import '@/views/mes/pro/edhr/shared/detail-surface.scss'
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import {
@@ -553,10 +557,6 @@ const openDetail = async (id: number) => {
   }
 }
 
-const handleQuery = () => {
-  queryParams.pageNo = 1
-  getList()
-}
 
 const resetQuery = async () => {
   queryParams.pageNo = 1
@@ -583,7 +583,10 @@ const resetQuery = async () => {
     operationAuditQuickFilter.updateState({
       fieldKey: operationAuditQuickFilterDefinitions[0]?.key,
       operator: 'contains',
-      value: undefined
+      value: undefined,
+      conditions: [],
+      appliedConditions: [],
+      activeConditionId: undefined
     })
     return
   }
@@ -606,6 +609,53 @@ watch(
 )
 
 defineExpose({ reload: getList })
+
+const loadColumnFilterRows0 = async () => {
+  const params = buildQuery()
+  const rows = await loadAllListPages<any>((pagination) =>
+    EdhrOperationAuditApi.getPage({ ...params, ...pagination })
+  )
+  return rows
+}
+
+const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'object',
+    label: '对象',
+    type: 'text',
+    getValue: (row) =>
+      [
+        resolveOperationAuditObjectTypeLabel(row.objectType),
+        row.objectId || '--',
+        row.executionId || '--'
+      ].join(' ')
+  },
+  {
+    key: 'action',
+    label: '动作',
+    type: 'text',
+    getValue: (row) =>
+      [resolveOperationActionLabel(row), resolveOperationTypeLabel(row.operationType)].join(' ')
+  },
+  {
+    key: 'resultStatus',
+    label: '结果',
+    type: 'text',
+    getValue: (row) => [resolveResultStatusLabel(row.resultStatus)].join(' ')
+  },
+  {
+    key: 'permissionDecision',
+    label: '权限决策',
+    type: 'text',
+    getValue: (row) => [resolvePermissionDecisionLabel(row.permissionDecision)].join(' ')
+  },
+  {
+    key: 'actor',
+    label: '操作者',
+    type: 'text',
+    getValue: (row) => [row.actorUsername || row.actorUserId || '--'].join(' ')
+  }
+])
 </script>
 
 <style scoped>

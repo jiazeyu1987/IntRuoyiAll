@@ -7,6 +7,8 @@ import showroomRoutes from '@/router/modules/showroom'
 import { flatMultiLevelRoutes, generateRoute } from '@/utils/routerHelper'
 import { CACHE_KEY, useCache } from '@/hooks/web/useCache'
 import { isUrl } from '@/utils/is'
+import { filterSignatureMenus } from '@/utils/signatureAccess'
+import { useUserStore } from './user'
 
 const { wsCache } = useCache()
 const permissionControlledStaticRoutes = showroomRoutes
@@ -801,14 +803,20 @@ export const usePermissionStore = defineStore('permission', {
   }),
   getters: {
     getRouters(): AppRouteRecordRaw[] {
-      const routes = orderRootMenus(filterHiddenModuleMenus(this.routers))
+      const user = useUserStore()
+      const routes = orderRootMenus(filterSignatureMenus(
+        filterHiddenModuleMenus(this.routers), user.getRoles, user.getPermissions
+      ))
       return useTestModeStore().enabled === true ? routes : filterTestModeMenus(routes)
     },
     getAddRouters(): AppRouteRecordRaw[] {
       return flatMultiLevelRoutes(cloneDeep(this.addRouters))
     },
     getMenuTabRouters(): AppRouteRecordRaw[] {
-      const routes = filterHiddenModuleMenus(this.menuTabRouters)
+      const user = useUserStore()
+      const routes = filterSignatureMenus(
+        filterHiddenModuleMenus(this.menuTabRouters), user.getRoles, user.getPermissions
+      )
       return useTestModeStore().enabled === true
         ? routes
         : filterTestModeMenus(routes)

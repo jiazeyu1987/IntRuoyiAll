@@ -677,7 +677,7 @@ defineExpose({ parseWordFile })
 }
 
 .qa-parser-json-input :deep(textarea) {
-  font-family: Consolas, 'Courier New', monospace;
+  font-family: var(--app-font-family);
   font-size: 13px;
   line-height: 1.65;
   resize: vertical;

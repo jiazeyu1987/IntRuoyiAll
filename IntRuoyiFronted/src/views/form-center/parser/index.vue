@@ -1538,7 +1538,7 @@ const resolveParseErrorMessage = (error: unknown, fallback: string) => {
 
 .form-parser-json-input {
   :deep(.el-textarea__inner) {
-    font-family: 'Cascadia Mono', Consolas, monospace;
+    font-family: var(--app-font-family);
     font-size: 13px;
     line-height: 20px;
     white-space: pre;

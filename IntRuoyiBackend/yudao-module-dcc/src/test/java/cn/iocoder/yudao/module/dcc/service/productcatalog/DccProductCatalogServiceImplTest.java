@@ -180,6 +180,14 @@ class DccProductCatalogServiceImplTest extends BaseMockitoUnitTest {
         verify(productCatalogMapper).deleteById(30L);
     }
 
+    @Test
+    void deleteSubsidiaryCatalogUsesTheSameStableRowKey() {
+        when(productCatalogMapper.selectByRowKey("子公司产品", 34))
+                .thenReturn(row(430L, "子公司产品", 34, "子公司目录"));
+        service.deleteProductCatalog("子公司产品", 34);
+        verify(productCatalogMapper).deleteById(430L);
+    }
+
     private DccProductCatalogDO row(Long id, String dataSource, Integer originalRowNo, String product) {
         return DccProductCatalogDO.builder()
                 .id(id)

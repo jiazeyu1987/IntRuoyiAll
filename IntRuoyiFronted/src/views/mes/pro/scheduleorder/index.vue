@@ -12,6 +12,9 @@
       >
         <el-tab-pane label="排产工单" name="scheduleOrders">
           <ScheduleOrderMainList
+            :load-filter-rows="loadMainColumnFilterRows"
+            @filtered-rows="scheduleOrderList = $event"
+            :list-rows="scheduleOrderList"
             :query-model="scheduleOrderQueryParams"
             :filter-definitions="scheduleOrderQuickFilterDefinitions"
             :quick-filter-state="scheduleOrderQuickFilter.state"
@@ -37,6 +40,7 @@
             @column-reset="resetScheduleOrderColumnConfig"
             @sort-change="handleScheduleOrderSortChange"
             @pagination="getScheduleOrderList"
+            :column-filter-definitions="mainListColumnFilters"
           >
             <template #actions>
               <div class="schedule-order-pool__tab-actions">
@@ -95,13 +99,13 @@
                 />
               </div>
             </template>
-            <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+            <template #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
               <el-table
                 ref="scheduleOrderTableRef"
                 v-loading="scheduleOrderLoading"
                 data-user-table-column-explicit
                 data-user-table-key="mes.pro.scheduleOrder.main"
-                :data="scheduleOrderList"
+                :data="resolveRows(scheduleOrderList)"
                 :height="scheduleOrderTableHeight"
                 border
                 :stripe="true"
@@ -527,6 +531,11 @@
               @column-change="saveWorkOrderAdmissionColumnConfig"
               @column-reset="resetWorkOrderAdmissionColumnConfig"
               @pagination="getWorkOrderAdmissionList"
+              :load-filter-rows="loadColumnFilterRows0"
+              @filtered-rows="workOrderAdmissionList = $event"
+              :list-rows="workOrderAdmissionList"
+              @column-filter-reset="getWorkOrderAdmissionList"
+              :column-filter-definitions="listColumnFilterDefinitions0"
             >
               <template #actions>
                 <div
@@ -560,14 +569,14 @@
                 </div>
               </template>
 
-              <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+              <template #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
                 <div class="schedule-order-pool__admission-table-shell">
                   <el-table
                     v-loading="workOrderAdmissionLoading"
                     data-user-table-column-explicit
                     data-user-table-key="mes.pro.scheduleOrder.admissionDiff"
                     class="schedule-order-pool__admission-table"
-                    :data="workOrderAdmissionList"
+                    :data="resolveRows(workOrderAdmissionList)"
                     border
                     :stripe="true"
                     :show-overflow-tooltip="true"
@@ -1154,16 +1163,18 @@
           :quick-filter-state="scheduleOrderViewListQuickFilterState"
           :operator-options="scheduleOrderViewListOperatorOptions"
           :columns="operationLogColumns"
-          :show-query-form="false"
+          :show-query-form="true"
           :show-column-settings="false"
           :total="0"
           :page="1"
           :limit="20"
+          :filter-rows="operationLogList"
+          :column-filter-definitions="listColumnFilterDefinitions1"
         >
-          <template #table>
+          <template #table="{ resolveRows }">
             <el-table
               v-loading="operationLogLoading"
-              :data="operationLogList"
+              :data="resolveRows(operationLogList)"
               data-user-table-column-explicit
               data-user-table-key="mes.pro.scheduleOrder.operationLog"
               border
@@ -1194,15 +1205,16 @@
                       :quick-filter-state="scheduleOrderViewListQuickFilterState"
                       :operator-options="scheduleOrderViewListOperatorOptions"
                       :columns="operationLogDiffColumns"
-                      :show-query-form="false"
+                      :show-query-form="true"
                       :show-column-settings="false"
                       :total="0"
                       :page="1"
                       :limit="20"
+                      :filter-rows="buildOperationLogDiffRows(row)"
                     >
-                      <template #table>
+                      <template #table="{ resolveRows }">
                         <el-table
-                          :data="buildOperationLogDiffRows(row)"
+                          :data="resolveRows(buildOperationLogDiffRows(row))"
                           data-user-table-column-explicit
                           data-user-table-key="mes.pro.scheduleOrder.operationLogDiff"
                           border
@@ -1337,6 +1349,7 @@
         title="该工单已由有权限人员完成；汇总按 100% 展示，以下工序仍保留真实进度，可撤销完成。"
       />
       <UnifiedListTemplate
+        :reset-filters="processRouteQuickFilter.resetQuickFilter"
         table-key="mes.pro.scheduleOrder.processRoute"
         :query-model="processRouteQuickFilterParams"
         :filter-definitions="processRouteQuickFilterDefinitions"
@@ -1355,18 +1368,17 @@
         @column-change="saveProcessRouteColumnConfig"
         @column-reset="resetProcessRouteColumnConfig"
         @pagination="handleProcessRoutePagination"
+        :filter-rows="processRouteMatchedList"
+        :column-filter-definitions="listColumnFilterDefinitions3"
       >
-        <template #actions>
-          <el-button @click="processRouteQuickFilter.resetQuickFilter">重置</el-button>
-        </template>
-        <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+        <template #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
           <div class="schedule-order-pool__process-dialog-table">
             <el-table
               class="schedule-order-pool__process-summary-table"
               data-user-table-column-explicit
               data-user-table-key="mes.pro.scheduleOrder.processRoute"
               v-loading="processLoading"
-              :data="processRouteFilteredList"
+              :data="resolveRows(processRouteFilteredList)"
               max-height="calc(100vh - 292px)"
               :stripe="true"
               :show-overflow-tooltip="true"
@@ -1435,15 +1447,16 @@
                       :quick-filter-state="feedbackHistoryQuickFilterState"
                       :operator-options="feedbackHistoryOperatorOptions"
                       :columns="feedbackHistoryColumns"
-                      :show-query-form="false"
+                      :show-query-form="true"
                       :show-column-settings="false"
                       :total="0"
                       :page="1"
                       :limit="20"
+                      :filter-rows="row.feedbackHistoryList || []"
                     >
-                      <template #table>
+                      <template #table="{ resolveRows }">
                         <el-table
-                          :data="row.feedbackHistoryList || []"
+                          :data="resolveRows(row.feedbackHistoryList || [])"
                           data-user-table-column-explicit
                           data-user-table-key="mes.pro.scheduleOrder.feedbackHistory"
                           border
@@ -1710,16 +1723,18 @@
         :quick-filter-state="scheduleOrderViewListQuickFilterState"
         :operator-options="scheduleOrderViewListOperatorOptions"
         :columns="dailyCompareColumns"
-        :show-query-form="false"
+        :show-query-form="true"
         :show-column-settings="false"
         :total="0"
         :page="1"
         :limit="20"
+        :filter-rows="dailyCompareList"
+        :column-filter-definitions="listColumnFilterDefinitions5"
       >
-        <template #table>
+        <template #table="{ resolveRows }">
           <el-table
             v-loading="dailyCompareLoading"
-            :data="dailyCompareList"
+            :data="resolveRows(dailyCompareList)"
             data-user-table-column-explicit
             data-user-table-key="mes.pro.scheduleOrder.dailyCompare"
             border
@@ -2211,6 +2226,8 @@
 </template>
 
 <script setup lang="ts">
+import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+
 import dayjs from 'dayjs'
 import { ElMessageBox, ElNotification } from 'element-plus'
 import download from '@/utils/download'
@@ -2307,6 +2324,7 @@ type ScheduleOrderTemplateSortChangeHandler = (payload?: {
 }) => void
 
 type ScheduleOrderMainListSlotProps = {
+  resolveRows: <T>(rows: T[]) => T[]
   sortState: ScheduleOrderTemplateSortState
   sortableColumns: ScheduleOrderTemplateSortableColumn[]
   sortableColumnMap: Map<string, ScheduleOrderTemplateSortableColumn>
@@ -3386,6 +3404,11 @@ const buildPreflightRequestIfReady = (): MesProScheduleOrderPreflightReqVO | und
     startTime: currentRequest.startTime,
     capacityMode: currentRequest.runtimeCapacityBasis
   }
+}
+
+const loadMainColumnFilterRows = async () => {
+  const rows = await loadAllListPages<any>(pagination => MesProScheduleOrderApi.getScheduleOrderPage({ ...scheduleOrderQueryParams, ...pagination }))
+  return scheduleOrderQueryParams.sortField && scheduleOrderQueryParams.sortOrder ? rows : sortScheduleOrderListForDisplay(rows)
 }
 
 const getScheduleOrderList = async () => {
@@ -5061,6 +5084,202 @@ onMounted(async () => {
     openReplanDrawer()
   }
 })
+
+const loadColumnFilterRows0 = async () => {
+  const params = { ...workOrderAdmissionQueryParams }
+  const rows = await loadAllListPages<any>((pagination) =>
+    MesProScheduleOrderApi.getAdmissionDiff({ ...params, ...pagination })
+  )
+  return rows
+}
+
+const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'analysis',
+    label: '分析',
+    type: 'text',
+    getValue: (row) =>
+      [row.selectable ? '可加入' : row.message || getReasonCodeText(row.reasonCode)].join(' ')
+  },
+  {
+    key: 'quantity',
+    label: '总数量',
+    type: 'text',
+    getValue: (row) => [formatQuantity(row.quantity)].join(' ')
+  },
+  {
+    key: 'admissionStatus',
+    label: '入池状态',
+    type: 'text',
+    getValue: (row) => [getAdmissionStatusText(row.admissionStatus)].join(' ')
+  },
+  {
+    key: 'message',
+    label: '不可排原因',
+    type: 'text',
+    getValue: (row) =>
+      [getReasonCodeText(row.reasonCode), row.message || getReasonCodeText(row.reasonCode)].join(
+        ' '
+      )
+  }
+])
+
+const listColumnFilterDefinitions1 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'operationType',
+    label: '操作类型',
+    type: 'text',
+    getValue: (row) => [getOperationTypeText(row.operationType)].join(' ')
+  },
+  {
+    key: 'diffCount',
+    label: '字段差异',
+    type: 'text',
+    getValue: (row) => [buildOperationLogDiffRows(row).length].join(' ')
+  }
+])
+
+const listColumnFilterDefinitions3 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'capacityMode',
+    label: '排产策略',
+    type: 'text',
+    getValue: (row) => [getProcessCapacityModeText(row.capacityMode)].join(' ')
+  },
+  {
+    key: 'hourlyCapacityTotal',
+    label: '小时产能',
+    type: 'text',
+    getValue: (row) => [formatCapacityIntegerNumber(row.hourlyCapacityTotal)].join(' ')
+  },
+  {
+    key: 'capacitySource',
+    label: '产能来源',
+    type: 'text',
+    getValue: (row) => [getCapacitySourceText(row.capacitySource)].join(' ')
+  },
+  {
+    key: 'shiftCapacityTotal',
+    label: '班次产能',
+    type: 'text',
+    getValue: (row) => [formatCapacityIntegerNumber(row.shiftCapacityTotal)].join(' ')
+  },
+  {
+    key: 'plannedQuantity',
+    label: '需要多少个',
+    type: 'text',
+    getValue: (row) => [formatQuantity(row.plannedQuantity)].join(' ')
+  },
+  {
+    key: 'effectiveCompletedQuantity',
+    label: '做了多少个',
+    type: 'text',
+    getValue: (row) => [formatQuantity(row.effectiveCompletedQuantity)].join(' ')
+  },
+  {
+    key: 'status',
+    label: '状态',
+    type: 'text',
+    getValue: (row) => [getProcessProgressStatusText(row)].join(' ')
+  },
+  {
+    key: 'shiftStatus',
+    label: '班次状态',
+    type: 'text',
+    getValue: (row) => [getProcessRouteShiftStatusText(row)].join(' ')
+  }
+])
+
+const listColumnFilterDefinitions5 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'plannedQuantity',
+    label: '计划数量',
+    type: 'text',
+    getValue: (row) => [formatQuantity(row.plannedQuantity)].join(' ')
+  },
+  {
+    key: 'actualQuantity',
+    label: '实际报工',
+    type: 'text',
+    getValue: (row) => [formatQuantity(row.actualQuantity)].join(' ')
+  },
+  {
+    key: 'diffQuantity',
+    label: '差异',
+    type: 'text',
+    getValue: (row) => [formatQuantity(row.diffQuantity)].join(' ')
+  },
+  {
+    key: 'status',
+    label: '状态',
+    type: 'text',
+    getValue: (row) => [row.statusLabel || getDailyCompareStatusText(row.status)].join(' ')
+  }
+])
+
+const mainListColumnFilters: ListColumnFilterDefinition[] = [
+  {
+    key: 'displayColumn1',
+    label: '重排状态',
+    type: 'text',
+    getValue: (row) => [getScheduleOrderReplanBlockReason(row)].join(' ')
+  },
+  {
+    key: 'code',
+    label: '排产工单号',
+    type: 'text',
+    getValue: (row) => [row.code || '--'].join(' ')
+  },
+  {
+    key: 'erpWorkOrderCode',
+    label: '来源生产工单号',
+    type: 'text',
+    getValue: (row) =>
+      [getScheduleOrderSourceCodeText(row), row.latestBlockingIssueMessage || '存在阻断问题'].join(
+        ' '
+      )
+  },
+  {
+    key: 'productCode',
+    label: '产品编号',
+    type: 'text',
+    getValue: (row) => [row.productCode || '--'].join(' ')
+  },
+  {
+    key: 'progressPercent',
+    label: '数量/进度',
+    type: 'text',
+    getValue: (row) =>
+      [formatQuantity(row.totalQuantity ?? row.quantity), formatPercent(row.progressPercent)].join(
+        ' '
+      )
+  },
+  {
+    key: 'productionMaterialList',
+    label: '生产用料清单',
+    type: 'text',
+    getValue: (row) =>
+      [row.productionMaterialListSummary || `共 ${row.productionMaterialListCount} 张`].join(' ')
+  },
+  {
+    key: 'currentProcessName',
+    label: '当前工序',
+    type: 'text',
+    getValue: (row) =>
+      [
+        row.currentProcessName || row.currentProcessCode || row.currentProcessId,
+        row.currentProcessName || row.currentProcessCode || row.currentProcessId,
+        formatPercent(row.currentProcessProgressPercent)
+      ].join(' ')
+  },
+  {
+    key: 'displayColumn16',
+    label: '删除信息',
+    type: 'text',
+    getValue: (row) =>
+      [formatDateTime(row.removedFromScheduleTime), row.removedFromScheduleReason || '-'].join(' ')
+  }
+]
 </script>
 
 <style scoped>
@@ -5944,7 +6163,7 @@ onMounted(async () => {
   border-radius: 6px;
   background: #f7f9fc;
   color: #263247;
-  font-family: Consolas, 'Courier New', monospace;
+  font-family: var(--app-font-family);
   font-size: 12px;
   line-height: 18px;
   white-space: pre-wrap;

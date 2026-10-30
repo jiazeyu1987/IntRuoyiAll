@@ -380,6 +380,7 @@
               :closable="false"
             />
             <ProcessWipTable
+              :filter-rows="sortedProcessWipStatistics"
               v-loading="processWipLoading"
               :query-model="processWipQuickFilterParams"
               :filter-definitions="schedulerWorkbenchProcessWipQuickFilterDefinitions"
@@ -398,18 +399,19 @@
               @column-reset="resetProcessWipColumnConfig"
               @sort-change="handleProcessWipSortChange"
               @pagination="handleProcessWipPagination"
+              :column-filter-definitions="wipListColumnFilters"
             >
               <template #actions>
                 <el-button type="primary" @click="openSchedulerSettingsDialog">
                   排产设置
                 </el-button>
               </template>
-              <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+              <template #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
                 <el-table
                   v-if="pagedProcessWipStatistics.length"
                   data-user-table-column-explicit
                   data-user-table-key="mes.pro.schedulerWorkbench.processWip"
-                  :data="pagedProcessWipStatistics"
+                  :data="resolveRows(pagedProcessWipStatistics)"
                   class="scheduler-workbench__process-wip-table"
                   border
                   :row-key="getProcessWipRowKey"
@@ -669,15 +671,17 @@
               :quick-filter-state="standardListQuickFilterState"
               :operator-options="standardListOperatorOptions"
               :columns="routeActiveOrderColumns"
-              :show-query-form="false"
+              :show-query-form="true"
               :show-column-settings="false"
               :total="0"
               :page="1"
               :limit="20"
+              :filter-rows="summary.routeActiveOrders || []"
+              :column-filter-definitions="listColumnFilterDefinitions0"
             >
-              <template #table>
+              <template #table="{ resolveRows }">
                 <el-table
-                  :data="summary.routeActiveOrders || []"
+                  :data="resolveRows(summary.routeActiveOrders || [])"
                   data-user-table-column-explicit
                   data-user-table-key="mes.pro.schedulerWorkbench.routeActiveOrders"
                   border
@@ -797,15 +801,17 @@
                     :quick-filter-state="standardListQuickFilterState"
                     :operator-options="standardListOperatorOptions"
                     :columns="replanOrderColumns"
-                    :show-query-form="false"
+                    :show-query-form="true"
                     :show-column-settings="false"
                     :total="0"
                     :page="1"
                     :limit="20"
+                    :filter-rows="replanExplanation.orders || []"
+                    :column-filter-definitions="listColumnFilterDefinitions1"
                   >
-                    <template #table>
+                    <template #table="{ resolveRows }">
                       <el-table
-                        :data="replanExplanation.orders || []"
+                        :data="resolveRows(replanExplanation.orders || [])"
                         data-user-table-column-explicit
                         data-user-table-key="mes.pro.schedulerWorkbench.replan.orders"
                         border
@@ -845,15 +851,17 @@
                     :quick-filter-state="standardListQuickFilterState"
                     :operator-options="standardListOperatorOptions"
                     :columns="replanWorkOrderColumns"
-                    :show-query-form="false"
+                    :show-query-form="true"
                     :show-column-settings="false"
                     :total="0"
                     :page="1"
                     :limit="20"
+                    :filter-rows="replanExplanation.workOrders || []"
+                    :column-filter-definitions="listColumnFilterDefinitions2"
                   >
-                    <template #table>
+                    <template #table="{ resolveRows }">
                       <el-table
-                        :data="replanExplanation.workOrders || []"
+                        :data="resolveRows(replanExplanation.workOrders || [])"
                         data-user-table-column-explicit
                         data-user-table-key="mes.pro.schedulerWorkbench.replan.workOrders"
                         border
@@ -908,15 +916,17 @@
                         :quick-filter-state="standardListQuickFilterState"
                         :operator-options="standardListOperatorOptions"
                         :columns="replanProcessColumns"
-                        :show-query-form="false"
+                        :show-query-form="true"
                         :show-column-settings="false"
                         :total="0"
                         :page="1"
                         :limit="20"
+                        :filter-rows="workOrder.processes || []"
+                        :column-filter-definitions="listColumnFilterDefinitions3"
                       >
-                        <template #table>
+                        <template #table="{ resolveRows }">
                           <el-table
-                            :data="workOrder.processes || []"
+                            :data="resolveRows(workOrder.processes || [])"
                             data-user-table-column-explicit
                             data-user-table-key="mes.pro.schedulerWorkbench.replan.processes"
                             border
@@ -989,15 +999,17 @@
                     :quick-filter-state="standardListQuickFilterState"
                     :operator-options="standardListOperatorOptions"
                     :columns="protectedTaskColumns"
-                    :show-query-form="false"
+                    :show-query-form="true"
                     :show-column-settings="false"
                     :total="0"
                     :page="1"
                     :limit="20"
+                    :filter-rows="replanExplanation.protectedTasks || []"
+                    :column-filter-definitions="listColumnFilterDefinitions4"
                   >
-                    <template #table>
+                    <template #table="{ resolveRows }">
                       <el-table
-                        :data="replanExplanation.protectedTasks || []"
+                        :data="resolveRows(replanExplanation.protectedTasks || [])"
                         data-user-table-column-explicit
                         data-user-table-key="mes.pro.schedulerWorkbench.replan.protectedTasks"
                         border
@@ -1032,15 +1044,17 @@
                     :quick-filter-state="standardListQuickFilterState"
                     :operator-options="standardListOperatorOptions"
                     :columns="materialColumns"
-                    :show-query-form="false"
+                    :show-query-form="true"
                     :show-column-settings="false"
                     :total="0"
                     :page="1"
                     :limit="20"
+                    :filter-rows="replanExplanation.materials || []"
+                    :column-filter-definitions="listColumnFilterDefinitions5"
                   >
-                    <template #table>
+                    <template #table="{ resolveRows }">
                       <el-table
-                        :data="replanExplanation.materials || []"
+                        :data="resolveRows(replanExplanation.materials || [])"
                         data-user-table-column-explicit
                         data-user-table-key="mes.pro.schedulerWorkbench.replan.materials"
                         border
@@ -1058,15 +1072,16 @@
                               :quick-filter-state="standardListQuickFilterState"
                               :operator-options="standardListOperatorOptions"
                               :columns="materialContributionColumns"
-                              :show-query-form="false"
+                              :show-query-form="true"
                               :show-column-settings="false"
                               :total="0"
                               :page="1"
                               :limit="20"
+                              :filter-rows="row.orderContributions || []"
                             >
-                              <template #table>
+                              <template #table="{ resolveRows }">
                                 <el-table
-                                  :data="row.orderContributions || []"
+                                  :data="resolveRows(row.orderContributions || [])"
                                   data-user-table-column-explicit
                                   data-user-table-key="mes.pro.schedulerWorkbench.replan.materialContributions"
                                   size="small"
@@ -1111,15 +1126,17 @@
                     :quick-filter-state="standardListQuickFilterState"
                     :operator-options="standardListOperatorOptions"
                     :columns="issueColumns"
-                    :show-query-form="false"
+                    :show-query-form="true"
                     :show-column-settings="false"
                     :total="0"
                     :page="1"
                     :limit="20"
+                    :filter-rows="nonMaterialReplanIssues"
+                    :column-filter-definitions="listColumnFilterDefinitions7"
                   >
-                    <template #table>
+                    <template #table="{ resolveRows }">
                       <el-table
-                        :data="nonMaterialReplanIssues"
+                        :data="resolveRows(nonMaterialReplanIssues)"
                         data-user-table-column-explicit
                         data-user-table-key="mes.pro.schedulerWorkbench.replan.issues"
                         border
@@ -1173,6 +1190,8 @@
 </template>
 
 <script setup lang="ts">
+import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+
 import dayjs from 'dayjs'
 import { ElMessage } from 'element-plus'
 import download from '@/utils/download'
@@ -2397,6 +2416,181 @@ onBeforeUnmount(() => {
   cancelDeferredSchedulerWorkbenchSecondaryLoad()
   window.removeEventListener('focus', handleReplanExplanationWindowFocus)
 })
+
+const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'products',
+    label: '关联产品',
+    type: 'text',
+    getValue: (row) => [routeActiveProductsText(row)].join(' ')
+  }
+])
+
+const listColumnFilterDefinitions1 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'quantity',
+    label: '数量',
+    type: 'text',
+    getValue: (row) => [formatExplanationNumber(row.quantity)].join(' ')
+  }
+])
+
+const listColumnFilterDefinitions2 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'processes',
+    label: '工序数',
+    type: 'text',
+    getValue: (row) => [row.processes?.length || 0].join(' ')
+  },
+  {
+    key: 'processes',
+    label: '工序顺序',
+    type: 'text',
+    getValue: (row) =>
+      [(row.processes || []).map((process) => process.processName).join(' → ') || '—'].join(' ')
+  }
+])
+
+const listColumnFilterDefinitions3 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'result',
+    label: '结果',
+    type: 'text',
+    getValue: (row) => (row.bottleneck ? '瓶颈' : '正常')
+  },
+  {
+    key: 'scheduledQuantity',
+    label: '数量',
+    type: 'text',
+    getValue: (row) => [formatExplanationNumber(row.scheduledQuantity)].join(' ')
+  },
+  {
+    key: 'shiftNames',
+    label: '班次',
+    type: 'text',
+    getValue: (row) => [(row.shiftNames || []).join('、') || '—'].join(' ')
+  },
+  {
+    key: 'workstationNames',
+    label: '工作站',
+    type: 'text',
+    getValue: (row) => [(row.workstationNames || []).join('、') || '—'].join(' ')
+  },
+  {
+    key: 'currentWorkerCount',
+    label: '人员',
+    type: 'text',
+    getValue: (row) => [row.currentWorkerCount || 0, row.configuredWorkerCount || 0].join(' ')
+  },
+  {
+    key: 'effectiveHourlyCapacity',
+    label: '班次产能',
+    type: 'text',
+    getValue: (row) => [formatExplanationNumber(row.effectiveHourlyCapacity)].join(' ')
+  },
+  {
+    key: 'plannedDurationMinutes',
+    label: '预计时长',
+    type: 'text',
+    getValue: (row) => [formatExplanationDuration(row.plannedDurationMinutes)].join(' ')
+  }
+])
+
+const listColumnFilterDefinitions4 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'protectionReason',
+    label: '保护原因',
+    type: 'text',
+    getValue: (row) => [formatProtectionReason(row.protectionReason)].join(' ')
+  }
+])
+
+const listColumnFilterDefinitions5 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'requiredQty',
+    label: '需要数量',
+    type: 'text',
+    getValue: (row) => [formatExplanationNumber(row.requiredQty)].join(' ')
+  },
+  {
+    key: 'availableQty',
+    label: '可用数量',
+    type: 'text',
+    getValue: (row) => [formatExplanationNumber(row.availableQty)].join(' ')
+  },
+  {
+    key: 'shortageQty',
+    label: '缺少数量',
+    type: 'text',
+    getValue: (row) => [formatExplanationNumber(row.shortageQty)].join(' ')
+  }
+])
+
+const listColumnFilterDefinitions7 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'severity',
+    label: '级别',
+    type: 'text',
+    getValue: (row) => [row.severity === 'BLOCKING' ? '阻断' : '提醒'].join(' ')
+  }
+])
+
+const wipListColumnFilters: ListColumnFilterDefinition[] = [
+  {
+    key: 'routeCode',
+    label: '工艺路线编码',
+    type: 'text',
+    getValue: (row) => [row.routeCode || '无路线编码'].join(' ')
+  },
+  {
+    key: 'routeName',
+    label: '工艺路线名称',
+    type: 'text',
+    getValue: (row) => [row.routeName || row.routeCode || '未命名工艺路线'].join(' ')
+  },
+  {
+    key: 'processCode',
+    label: '工序编号',
+    type: 'text',
+    getValue: (row) => [row.processCode || '无工序编码'].join(' ')
+  },
+  {
+    key: 'processName',
+    label: '工序名称',
+    type: 'text',
+    getValue: (row) => [row.processName || row.processCode || '未命名工序'].join(' ')
+  },
+  {
+    key: 'wipOrderCount',
+    label: '在制单数',
+    type: 'text',
+    getValue: (row) => [formatIntegerNumber(row.wipOrderCount)].join(' ')
+  },
+  {
+    key: 'shiftCapacityTotal',
+    label: '班次产能',
+    type: 'text',
+    getValue: (row) => [row.resourceStatusReason || '资源缺失'].join(' ')
+  },
+  {
+    key: 'shiftStatus',
+    label: '班次状态',
+    type: 'text',
+    getValue: (row) => [getProcessWipShiftStatusText(row)].join(' ')
+  },
+  {
+    key: 'unfinishedDemandQuantity',
+    label: '未完需求',
+    type: 'text',
+    getValue: (row) => [formatNumber(row.unfinishedDemandQuantity)].join(' ')
+  },
+  {
+    key: 'todayFeedbackQuantity',
+    label: '今日报工',
+    type: 'text',
+    getValue: (row) => [formatNumber(row.todayFeedbackQuantity)].join(' ')
+  }
+]
 </script>
 
 <style scoped>

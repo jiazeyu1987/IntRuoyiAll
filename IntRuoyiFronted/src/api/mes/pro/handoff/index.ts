@@ -2,6 +2,7 @@ import request from '@/config/axios'
 
 const base = '/mes/pro/active-order-handoff'
 export interface HandoffTask {
+  notificationOnly?: boolean
   id: number | string; activeOrderId: number | string; workOrderId: number | string
   routeProcessId?: number | string
   taskType: string; sourceType: string; sourceId: number | string; roundId: number | string

@@ -15,6 +15,10 @@ import cn.iocoder.yudao.module.system.enums.permission.DataScopeEnum;
 import cn.iocoder.yudao.module.system.enums.permission.MenuTypeEnum;
 import cn.iocoder.yudao.module.system.enums.permission.RoleTypeEnum;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.BeforeEach;
+import cn.iocoder.yudao.module.system.api.permission.ApprovalAuthorityApi;
+import cn.iocoder.yudao.module.system.api.permission.dto.ApprovalAuthorityRevisionDTO;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
@@ -26,6 +30,7 @@ import java.util.Set;
 import static cn.iocoder.yudao.framework.test.core.util.AssertUtils.assertServiceException;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
@@ -48,6 +53,18 @@ class RoleConfigPackageServiceImplTest extends BaseDbUnitTest {
 
     @MockitoBean
     private PermissionService permissionService;
+
+    @MockitoBean
+    private ApprovalAuthorityApi approvalAuthority;
+
+    @MockitoBean
+    private GxpAuditService gxpAuditService;
+
+    @BeforeEach
+    void prepareAuthority() {
+        org.mockito.Mockito.when(approvalAuthority.lockTenantApprovalAuthority(org.mockito.ArgumentMatchers.anyLong()))
+                .thenAnswer(call -> new ApprovalAuthorityRevisionDTO(call.getArgument(0), 1L));
+    }
 
     @Test
     void importPackage_shouldReturnBusinessErrorWhenJsonInvalid() {
@@ -337,7 +354,7 @@ class RoleConfigPackageServiceImplTest extends BaseDbUnitTest {
     }
 
     @Test
-    void importPackage_shouldFailFastWhenPackageCategoryMissingInTargetEnv() {
+    void importPackage_shouldCreatePackageCategoryAndReuseItOnRepeatedImport() {
         RoleConfigPackageServiceImpl.RoleConfigItem item = new RoleConfigPackageServiceImpl.RoleConfigItem();
         item.setCode("scheduler");
         item.setName("排产员");
@@ -350,14 +367,47 @@ class RoleConfigPackageServiceImplTest extends BaseDbUnitTest {
 
         RoleConfigPackageServiceImpl.RoleConfigPackage payload = new RoleConfigPackageServiceImpl.RoleConfigPackage();
         payload.setPackageVersion("3");
+        var category = categoryItem("scheduling", "排产");
+        category.setSort(30);
+        category.setStatus(CommonStatusEnum.DISABLE.getStatus());
+        category.setRemark("包内分类备注");
+        payload.setCategories(List.of(category));
+        payload.setRoles(List.of(item));
+
+        roleConfigPackageService.importPackage(JsonUtils.toJsonByte(payload));
+        RoleCategoryDO created = roleCategoryMapper.selectByCode("scheduling");
+        assertEquals("排产", created.getName());
+        assertEquals(30, created.getSort());
+        assertEquals(CommonStatusEnum.DISABLE.getStatus(), created.getStatus());
+        assertEquals("包内分类备注", created.getRemark());
+        assertEquals(created.getId(), roleMapper.selectByCode("scheduler").getCategoryId());
+
+        category.setName("不覆盖已有分类");
+        roleConfigPackageService.importPackage(JsonUtils.toJsonByte(payload));
+        assertEquals(1, roleCategoryMapper.selectList().size());
+        assertEquals(created.getId(), roleCategoryMapper.selectByCode("scheduling").getId());
+        assertEquals("排产", roleCategoryMapper.selectByCode("scheduling").getName());
+    }
+
+    @Test
+    void importPackage_shouldRollbackNewCategoryWhenRoleMenuMissing() {
+        var item = new RoleConfigPackageServiceImpl.RoleConfigItem();
+        item.setCode("scheduler");
+        item.setName("排产员");
+        item.setSort(1);
+        item.setStatus(CommonStatusEnum.ENABLE.getStatus());
+        item.setCategoryCode("scheduling");
+        item.setMenuKeys(List.of("permission:system:role:query"));
+        var payload = new RoleConfigPackageServiceImpl.RoleConfigPackage();
+        payload.setPackageVersion("3");
         payload.setCategories(List.of(categoryItem("scheduling", "排产")));
         payload.setRoles(List.of(item));
 
-        ServiceException exception = assertThrows(ServiceException.class,
+        assertThrows(ServiceException.class,
                 () -> roleConfigPackageService.importPackage(JsonUtils.toJsonByte(payload)));
 
-        assertEquals(ErrorCodeConstants.CONFIG_PACKAGE_REFERENCE_MISSING.getCode(), exception.getCode());
-        assertEquals("配置包引用缺失，原因：分类标识【scheduling】在目标环境不存在", exception.getMessage());
+        assertNull(roleCategoryMapper.selectByCode("scheduling"));
+        assertNull(roleMapper.selectByCode("scheduler"));
     }
 
     private Long insertCategory(String code, String name) {

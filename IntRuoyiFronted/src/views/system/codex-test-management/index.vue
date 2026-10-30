@@ -37,6 +37,11 @@
           @quick-filter-query="caseQuickFilter.applyQuickFilter"
           @column-change="saveCaseColumnConfig"
           @pagination="handleCasePagination"
+          :load-filter-rows="loadColumnFilterRows0"
+          @filtered-rows="caseList = $event"
+          :list-rows="caseList"
+          @column-filter-reset="handleCasePagination"
+          :column-filter-definitions="listColumnFilterDefinitions0"
         >
           <template #extra-filters>
             <el-form-item class="codex-test-tenant-filter" label="测试租户">
@@ -98,12 +103,12 @@
             </el-button>
           </template>
 
-          <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+          <template #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
             <el-table
               v-loading="caseLoading"
               data-user-table-column-explicit
               data-user-table-key="system.codexTestManagement.cases"
-              :data="caseList"
+              :data="resolveRows(caseList)"
               border
               row-key="id"
               :show-overflow-tooltip="true"
@@ -521,6 +526,8 @@
 </template>
 
 <script lang="ts" setup>
+import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+
 import { useTestMode } from '@/store/modules/testMode'
 
 import type { FormInstance, FormRules } from 'element-plus'
@@ -1224,6 +1231,41 @@ onMounted(async () => {
   await getCaseList()
 })
 
+
+const loadColumnFilterRows0 = async () => {
+  const params = { ...queryParams }
+  const rows = await loadAllListPages<any>((pagination) =>
+    CodexTestApi.getCodexTestCasePage({ ...params, ...pagination })
+  )
+  return rows
+}
+
+const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'project',
+    label: '项目',
+    type: 'text',
+    getValue: (row) => [resolveCaseProject(row)].join(' ')
+  },
+  {
+    key: 'nodeChainName',
+    label: '节点串',
+    type: 'text',
+    getValue: (row) => [row.nodeChainName, row.nodeChainSort].join(' ')
+  },
+  {
+    key: 'parallelSafe',
+    label: '并行安全',
+    type: 'text',
+    getValue: (row) => [row.parallelSafe ? '是' : '否'].join(' ')
+  },
+  {
+    key: 'status',
+    label: '状态',
+    type: 'text',
+    getValue: (row) => [row.status === 'ENABLE' ? '启用' : '禁用'].join(' ')
+  }
+])
 </script>
 
 <style lang="scss" scoped>

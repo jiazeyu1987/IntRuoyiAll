@@ -4,6 +4,8 @@
 
   <ContentWrap class="standard-list-page">
     <UnifiedListTemplate
+      @query="handleQuery"
+      @reset="resetQuery"
       class="unified-list-template--contained"
       table-key="system.role.main"
       :query-model="queryParams"
@@ -11,6 +13,13 @@
       v-model:page="queryParams.pageNo"
       :total="total"
       @pagination="getList"
+      :load-filter-rows="loadColumnFilterRows0"
+      @filtered-rows="list = $event"
+      :list-rows="list"
+      @column-filter-reset="getList"
+      :columns="listFilterColumns0"
+      :show-column-settings="false"
+      :column-filter-definitions="[...listColumnFilterDefinitions0, ...allColumnDisplayFilters0]"
     >
       <template #filters>
         <el-form
@@ -33,10 +42,6 @@
         </el-form>
       </template>
       <template #actions>
-        <el-button class="permission-role-toolbar__action" @click="handleQuery">
-          <Icon class="mr-5px" icon="ep:search" />
-          搜索
-        </el-button>
         <el-button
           v-hasPermi="['system:role:create']"
           class="permission-role-toolbar__action"
@@ -87,7 +92,7 @@
           @change="saveRoleColumnConfig"
         />
       </template>
-      <template #table>
+      <template #table="{ resolveRows }">
         <div class="permission-role-layout">
           <aside class="permission-role-category">
             <div class="permission-role-category__header">
@@ -147,7 +152,7 @@
               stripe
               border
               v-loading="loading"
-              :data="list"
+              :data="resolveRows(list)"
               :row-class-name="getRoleRowClassName"
               data-user-table-column-explicit
               data-user-table-key="system.role.main"
@@ -325,6 +330,9 @@
   <input ref="importInputRef" accept=".json" class="hidden" type="file" @change="handleImportFileChange" />
 </template>
 <script lang="ts" setup>
+import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+import { getDictOptions as listColumnDictOptions } from '@/utils/dict'
+
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import { isSearchFormInputEmpty } from '@/utils/search'
 import { DICT_TYPE } from '@/utils/dict'
@@ -545,7 +553,7 @@ const handleImportFileChange = async (event: Event) => {
     formData.append('file', file)
     await RoleApi.importRoleConfigPackage(formData)
     message.success('权限角色配置包导入成功')
-    await getList()
+    await refreshCategories()
   } finally {
     importLoading.value = false
   }
@@ -553,12 +561,16 @@ const handleImportFileChange = async (event: Event) => {
 
 /** 初始化 */
 onMounted(async () => {
-  await getCategoryList()
-  const hasRouteRole = await syncRoleQueryFromRoute()
-  if (!hasRouteRole && categoryList.value.length > 0) {
-    queryParams.categoryId = categoryList.value[0].id
+  try {
+    await getCategoryList()
+    const hasRouteRole = await syncRoleQueryFromRoute()
+    if (!hasRouteRole && categoryList.value.length > 0) {
+      queryParams.categoryId = categoryList.value[0].id
+    }
+    await getList()
+  } finally {
+    loading.value = false
   }
-  await getList()
 })
 
 watch(
@@ -568,6 +580,97 @@ watch(
     await getList()
   }
 )
+
+const loadColumnFilterRows0 = async () => {
+  const params = { ...queryParams }
+  const rows = await loadAllListPages<any>((pagination) =>
+    RoleApi.getRolePage({ ...params, ...pagination })
+  )
+  return rows
+}
+
+const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'type',
+    label: '权限角色类型',
+    type: 'select',
+    options: listColumnDictOptions(DICT_TYPE.SYSTEM_ROLE_TYPE)
+  },
+  {
+    key: 'status',
+    label: '状态',
+    type: 'select',
+    options: listColumnDictOptions(DICT_TYPE.COMMON_STATUS)
+  }
+])
+
+const listFilterColumns0 = [
+  {
+    key: 'id',
+    label: '权限角色编号',
+    visible: true
+  },
+  {
+    key: 'name',
+    label: '权限角色名称',
+    visible: true
+  },
+  {
+    key: 'categoryName',
+    label: '所属分类',
+    visible: true
+  },
+  {
+    key: 'type',
+    label: '权限角色类型',
+    visible: true
+  },
+  {
+    key: 'assignedUserCount',
+    label: '分配人数',
+    visible: true
+  },
+  {
+    key: 'code',
+    label: '权限角色标识',
+    visible: true
+  },
+  {
+    key: 'sort',
+    label: '显示顺序',
+    visible: true
+  },
+  {
+    key: 'remark',
+    label: '备注',
+    visible: true
+  },
+  {
+    key: 'status',
+    label: '状态',
+    visible: true
+  },
+  {
+    key: 'createTime',
+    label: '创建时间',
+    visible: true
+  }
+]
+
+const allColumnDisplayFilters0: ListColumnFilterDefinition[] = [
+  {
+    key: 'categoryName',
+    label: '所属分类',
+    type: 'text',
+    getValue: (row) => [row.categoryName].join(' ')
+  },
+  {
+    key: 'assignedUserCount',
+    label: '分配人数',
+    type: 'text',
+    getValue: (row) => [row.assignedUserCount].join(' ')
+  }
+]
 </script>
 <style lang="scss" scoped>
 .permission-role-toolbar {

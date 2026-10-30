@@ -26,6 +26,8 @@
       @quick-filter-query="handleQuery"
       @column-change="saveModelColumnConfig"
       @column-reset="resetModelColumnConfig"
+      :filter-rows="filteredModelList"
+      :column-filter-definitions="listColumnFilterDefinitions0"
     >
       <template #actions>
         <el-button
@@ -38,13 +40,13 @@
         </el-button>
       </template>
 
-      <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+      <template #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
         <el-table
           v-loading="loading"
           class="bpm-model-unified-table"
           data-user-table-column-explicit
           data-user-table-key="bpm.model.main"
-          :data="pagedModelList"
+          :data="resolveRows(pagedModelList)"
           border
           :stripe="true"
           :show-overflow-tooltip="true"
@@ -531,6 +533,9 @@
 </template>
 
 <script lang="ts" setup>
+import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+import { getDictOptions as listColumnDictOptions } from '@/utils/dict'
+
 import { getIntDictOptions, DICT_TYPE } from '@/utils/dict'
 import { CategoryApi, CategoryVO } from '@/api/bpm/category'
 import * as ModelApi from '@/api/bpm/model'
@@ -1932,6 +1937,49 @@ onMounted(() => {
   getList()
 })
 
+
+const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'name',
+    label: '流程名',
+    type: 'text',
+    getValue: (row) =>
+      [subString(resolveModelDisplayName(row), 0, 2), resolveModelDisplayName(row)].join(' ')
+  },
+  {
+    key: 'startUserIds',
+    label: '可见范围',
+    type: 'text',
+    getValue: (row) =>
+      [
+        row.startUsers[0].nickname,
+        row.startDepts[0].name,
+        row.startDepts[0].name,
+        row.startDepts.length,
+        row.startUsers[0].nickname,
+        row.startUsers.length
+      ].join(' ')
+  },
+  {
+    key: 'type',
+    label: '流程类型',
+    type: 'select',
+    options: listColumnDictOptions(DICT_TYPE.BPM_MODEL_TYPE)
+  },
+  {
+    key: 'formType',
+    label: '表单信息',
+    type: 'text',
+    getValue: (row) => [row.formName, row.formCustomCreatePath].join(' ')
+  },
+  {
+    key: 'deployment',
+    label: '最后发布',
+    type: 'text',
+    getValue: (row) =>
+      [formatDate(row.processDefinition.deploymentTime), row.processDefinition.version].join(' ')
+  }
+])
 </script>
 
 <style lang="scss" scoped>

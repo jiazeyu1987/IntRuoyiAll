@@ -24,6 +24,8 @@
       @column-change="saveMachineryTypeColumnConfig"
       @column-reset="resetMachineryTypeColumnConfig"
       @pagination="handlePagination"
+      :filter-rows="machineryTypeTreeRows"
+      :column-filter-definitions="listColumnFilterDefinitions0"
     >
       <template #actions>
         <el-button
@@ -36,13 +38,13 @@
         </el-button>
       </template>
 
-      <template #table>
+      <template #table="{ resolveRows }">
         <el-table
           v-loading="loading"
           class="machinery-type-table"
           data-user-table-column-explicit
           data-user-table-key="mes.dv.machineryType.main"
-          :data="paginatedMachineryTypeRows"
+          :data="resolveRows(paginatedMachineryTypeRows)"
           border
           :stripe="true"
           :show-overflow-tooltip="true"
@@ -131,6 +133,9 @@
 </template>
 
 <script setup lang="ts">
+import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+import { getDictOptions as listColumnDictOptions } from '@/utils/dict'
+
 import { getIntDictOptions, DICT_TYPE } from '@/utils/dict'
 import { dateFormatter } from '@/utils/formatTime'
 import { handleTree } from '@/utils/tree'
@@ -256,6 +261,15 @@ const handleDelete = async (id: number) => {
 onMounted(() => {
   getList()
 })
+
+const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'status',
+    label: '状态',
+    type: 'select',
+    options: listColumnDictOptions(DICT_TYPE.COMMON_STATUS)
+  }
+])
 </script>
 
 <style scoped>

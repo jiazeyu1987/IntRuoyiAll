@@ -13,7 +13,7 @@ import java.util.Map;
  *
  * @author 瑛泰源码
  */
-public interface MesProRouteProcessService {
+public interface MesProRouteProcessService extends cn.iocoder.yudao.module.mes.api.process.MesProcessIdentityApi {
 
     /**
      * 创建工艺路线工序

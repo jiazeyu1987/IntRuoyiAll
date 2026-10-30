@@ -23,6 +23,11 @@
       @column-change="saveRepairColumnConfig"
       @column-reset="resetRepairColumnConfig"
       @pagination="getList"
+      :load-filter-rows="loadColumnFilterRows0"
+      @filtered-rows="list = $event"
+      :list-rows="list"
+      @column-filter-reset="getList"
+      :column-filter-definitions="listColumnFilterDefinitions0"
     >
       <template #actions>
         <el-button
@@ -44,13 +49,13 @@
         </el-button>
       </template>
 
-      <template #table>
+      <template #table="{ resolveRows }">
         <el-table
           v-loading="loading"
           class="repair-standard-list-table"
           data-user-table-column-explicit
           data-user-table-key="mes.dv.repair.main"
-          :data="list"
+          :data="resolveRows(list)"
           border
           :stripe="true"
           :show-overflow-tooltip="true"
@@ -206,6 +211,9 @@
 </template>
 
 <script setup lang="ts">
+import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+import { getDictOptions as listColumnDictOptions } from '@/utils/dict'
+
 import { dateFormatter } from '@/utils/formatTime'
 import { getIntDictOptions, DICT_TYPE } from '@/utils/dict'
 import download from '@/utils/download'
@@ -356,6 +364,29 @@ const handleExport = async () => {
 onMounted(() => {
   getList()
 })
+
+const loadColumnFilterRows0 = async () => {
+  const params = { ...queryParams }
+  const rows = await loadAllListPages<any>((pagination) =>
+    DvRepairApi.getRepairPage({ ...params, ...pagination })
+  )
+  return rows
+}
+
+const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'result',
+    label: '维修结果',
+    type: 'select',
+    options: listColumnDictOptions(DICT_TYPE.MES_DV_REPAIR_RESULT)
+  },
+  {
+    key: 'status',
+    label: '单据状态',
+    type: 'select',
+    options: listColumnDictOptions(DICT_TYPE.MES_DV_REPAIR_STATUS)
+  }
+])
 </script>
 
 <style scoped>

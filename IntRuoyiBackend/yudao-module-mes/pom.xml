@@ -27,6 +27,8 @@
     </build>
 
     <dependencies>
+        <dependency><groupId>cn.iocoder.boot</groupId><artifactId>yudao-module-mes-device</artifactId><version>${revision}</version></dependency>
+
         <dependency>
             <groupId>cn.iocoder.boot</groupId>
             <artifactId>yudao-module-system</artifactId>
@@ -120,6 +122,38 @@
     </dependencies>
 
     <profiles>
+        <profile>
+            <id>mes-device-integration-tests</id>
+            <build><plugins>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-compiler-plugin</artifactId>
+                    <configuration><testIncludes>
+                        <testInclude>**/MesMdWorkstationCapacityServiceTest.java</testInclude>
+                        <testInclude>**/MesFrontlineDeviceAccountContextServiceTest.java</testInclude>
+                        <testInclude>**/MesFrontlineDeviceSelectionValidationTest.java</testInclude>
+                        <testInclude>**/MesProRouteScheduleConfigServiceImplTest.java</testInclude>
+                        <testInclude>**/MesProRouteResourceServiceImplTest.java</testInclude>
+                        <testInclude>**/MesProRouteProcessServiceImplTest.java</testInclude>
+                        <testInclude>**/MesPqcItemEquipmentConfigServiceImplTest.java</testInclude>
+                    </testIncludes></configuration>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-surefire-plugin</artifactId>
+                    <configuration><includes>
+                        <include>**/MesMdWorkstationCapacityServiceTest.java</include>
+                        <include>**/MesFrontlineDeviceAccountContextServiceTest.java</include>
+                        <include>**/MesFrontlineDeviceSelectionValidationTest.java</include>
+                        <include>**/MesProRouteScheduleConfigServiceImplTest.java</include>
+                        <include>**/MesProRouteResourceServiceImplTest.java</include>
+                        <include>**/MesProRouteProcessServiceImplTest.java</include>
+                        <include>**/MesPqcItemEquipmentConfigServiceImplTest.java</include>
+                    </includes></configuration>
+                </plugin>
+            </plugins></build>
+        </profile>
+
         <profile>
             <id>mes-edhr-list-performance-tests</id>
             <properties>

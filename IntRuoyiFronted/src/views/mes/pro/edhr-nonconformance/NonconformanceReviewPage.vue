@@ -31,6 +31,11 @@
         @quick-filter-query="reviewQuickFilter.applyQuickFilter"
         @column-change="saveColumnConfig"
         @pagination="loadReviews"
+        :load-filter-rows="loadColumnFilterRows0"
+        @filtered-rows="reviews = $event"
+        :list-rows="reviews"
+        @column-filter-reset="loadReviews"
+        :column-filter-definitions="listColumnFilterDefinitions0"
       >
         <template #actions>
           <el-button v-if="canCreateReview" type="primary" plain data-edhr-ncr-open-create @click="openCreateDialog">
@@ -38,10 +43,10 @@
           </el-button>
           <el-button data-edhr-ncr-refresh @click="loadReviews">刷新</el-button>
         </template>
-        <template #table>
+        <template #table="{ resolveRows }">
           <el-table height="100%"
             v-loading="listLoading"
-            :data="reviews"
+            :data="resolveRows(reviews)"
             border
             data-user-table-column-explicit
             :data-user-table-key="REVIEW_TABLE_KEY"
@@ -98,13 +103,15 @@
       v-model="createDialogVisible"
       title="新建不合格评审"
       width="720px"
+      class="edhr-ncr-create-dialog"
+      top="8vh"
       destroy-on-close
       data-edhr-ncr-create-dialog
       :data-entry-active-order-id="entryActiveOrderId || ''"
       :data-selected-active-order-id="selectedActiveOrderId || ''"
     >
-      <el-form label-width="110px" :model="entryForm">
-        <el-form-item label="活跃订单" required>
+      <el-form label-position="top" :model="entryForm">
+        <el-form-item v-if="!entryActiveOrderId" label="活跃订单" required>
           <el-select
             v-model="selectedActiveOrderId"
             data-edhr-ncr-active-order
@@ -122,13 +129,12 @@
             />
           </el-select>
         </el-form-item>
-        <el-form-item v-if="selectedActiveOrder" label="订单信息">
-          <div class="edhr-ncr__source-summary">
-            <div><span class="edhr-ncr__label">生产工单</span>{{ selectedActiveOrder.workOrderCode || '--' }}</div>
-            <div><span class="edhr-ncr__label">批号</span>{{ selectedActiveOrder.batchCode || '--' }}</div>
-            <div><span class="edhr-ncr__label">订单状态</span>{{ selectedActiveOrder.businessStatus || selectedActiveOrder.activeStatus || '--' }}</div>
-          </div>
-        </el-form-item>
+        <section v-if="selectedActiveOrder" class="edhr-ncr-create-dialog__order" aria-label="订单信息">
+          <dl>
+            <div><dt>生产工单</dt><dd>{{ selectedActiveOrder.workOrderCode || '--' }}</dd></div>
+            <div><dt>批号</dt><dd>{{ selectedActiveOrder.batchCode || '--' }}</dd></div>
+          </dl>
+        </section>
         <el-form-item label="QA评审责任人" required>
           <UserSelectV2 v-model="entryForm.qaReviewerUserId" placeholder="请选择具备QA处置权限的责任人" data-edhr-ncr-create-reviewer />
         </el-form-item>
@@ -137,8 +143,8 @@
             v-model="entryForm.nonconformanceReason"
             data-edhr-ncr-create-reason
             type="textarea"
-            :rows="3"
-            placeholder="请输入不合格原因"
+            :rows="4"
+            placeholder="请描述不合格现象、发生环节及相关情况"
           />
         </el-form-item>
       </el-form>
@@ -276,6 +282,8 @@
 </template>
 
 <script setup lang="ts">
+import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+
 import '@/views/mes/pro/edhr-batch/record-viewport.css'
 import UserSelectV2 from '@/views/system/user/components/UserSelectV2.vue'
 import { useUserStore } from '@/store/modules/user'
@@ -980,6 +988,41 @@ watch(
 )
 
 onMounted(() => { void loadReviewEntry() })
+
+const loadColumnFilterRows0 = async () => {
+  const params = buildReviewQuery()
+  const rows = await loadAllListPages<any>((pagination) =>
+    getNonconformanceReviewPage({ ...params, ...pagination })
+  )
+  return rows
+}
+
+const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'reviewCode',
+    label: '评审单',
+    type: 'text',
+    getValue: (row) => [row.reviewCode || '--', resolveSourceTypeLabel(row.sourceType)].join(' ')
+  },
+  {
+    key: 'workOrderCode',
+    label: '生产工单',
+    type: 'text',
+    getValue: (row) => [row.workOrderCode || '--', row.batchCode || '--'].join(' ')
+  },
+  {
+    key: 'reviewStatus',
+    label: '状态',
+    type: 'text',
+    getValue: (row) => [resolveReviewStatusLabel(row.reviewStatus)].join(' ')
+  },
+  {
+    key: 'disposition',
+    label: '处置结论',
+    type: 'text',
+    getValue: (row) => [resolveDispositionLabel(row.disposition)].join(' ')
+  }
+])
 </script>
 
 <style scoped>
@@ -1048,6 +1091,62 @@ onMounted(() => { void loadReviewEntry() })
 </style>
 
 <style>
+.el-dialog.edhr-ncr-create-dialog {
+  width: min(720px, calc(100vw - 32px));
+  padding: 0;
+  overflow: hidden;
+  border-radius: 12px;
+}
+.edhr-ncr-create-dialog .el-dialog__header {
+  margin: 0;
+  padding: 26px 32px 22px;
+  border-bottom: 1px solid var(--el-border-color-lighter);
+}
+.edhr-ncr-create-dialog .el-dialog__title {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--el-text-color-primary);
+}
+.edhr-ncr-create-dialog .el-dialog__headerbtn { top: 12px; right: 12px; }
+.edhr-ncr-create-dialog .el-dialog__body {
+  max-height: 68vh;
+  overflow-y: auto;
+  padding: 28px 32px 32px;
+}
+.edhr-ncr-create-dialog .el-form-item { margin-bottom: 30px; }
+.edhr-ncr-create-dialog .el-form-item:last-child { margin-bottom: 0; }
+.edhr-ncr-create-dialog .el-form-item__label {
+  height: auto;
+  margin-bottom: 12px;
+  line-height: 22px;
+  font-weight: 500;
+  color: var(--el-text-color-primary);
+}
+.edhr-ncr-create-dialog .el-form-item__content { min-width: 0; }
+.edhr-ncr-create-dialog .el-select { width: 100%; }
+.edhr-ncr-create-dialog .el-select__wrapper,
+.edhr-ncr-create-dialog .el-input__wrapper { min-height: 40px; border-radius: 6px; }
+.edhr-ncr-create-dialog .el-textarea__inner { padding: 12px 14px; line-height: 1.7; border-radius: 6px; }
+.edhr-ncr-create-dialog__order {
+  margin: 0 0 32px;
+  padding: 22px 24px;
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 8px;
+  background: var(--el-fill-color-light);
+}
+.edhr-ncr-create-dialog__order dl { display: grid; gap: 22px; margin: 0; }
+.edhr-ncr-create-dialog__order dl > div { display: grid; grid-template-columns: 72px minmax(0, 1fr); gap: 16px; font-size: 14px; line-height: 1.8; }
+.edhr-ncr-create-dialog__order dt { color: var(--el-text-color-secondary); }
+.edhr-ncr-create-dialog__order dd { margin: 0; overflow-wrap: anywhere; color: var(--el-text-color-primary); font-variant-numeric: tabular-nums; }
+.edhr-ncr-create-dialog .el-dialog__footer { padding: 20px 32px; border-top: 1px solid var(--el-border-color-lighter); }
+.edhr-ncr-create-dialog .el-dialog__footer .el-button { height: 38px; min-width: 84px; border-radius: 6px; }
+@media (width <= 520px) {
+  .edhr-ncr-create-dialog .el-dialog__header { padding: 20px; }
+  .edhr-ncr-create-dialog .el-dialog__body { padding: 18px 20px 22px; }
+  .edhr-ncr-create-dialog .el-dialog__footer { padding: 14px 20px; }
+  .edhr-ncr-create-dialog__order { padding: 14px; }
+  .edhr-ncr-create-dialog__order dl > div { grid-template-columns: 1fr; gap: 2px; }
+}
 .el-dialog.edhr-ncr-review-dialog {
   --el-color-primary: #00a6a6;
   --el-color-primary-light-9: #effafa;

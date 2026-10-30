@@ -31,6 +31,11 @@
           @column-change="saveMachineryColumnConfig"
           @column-reset="resetMachineryColumnConfig"
           @pagination="getList"
+          :load-filter-rows="loadColumnFilterRows0"
+          @filtered-rows="list = $event"
+          :list-rows="list"
+          @column-filter-reset="getList"
+          :column-filter-definitions="listColumnFilterDefinitions0"
         >
           <template #actions>
             <el-button
@@ -74,13 +79,13 @@
             </el-dropdown>
           </template>
 
-          <template #table>
+          <template #table="{ resolveRows }">
             <el-table
               v-loading="loading"
               class="machinery-main-table"
               data-user-table-column-explicit
               data-user-table-key="mes.dv.machinery.main"
-              :data="list"
+              :data="resolveRows(list)"
               border
               :stripe="true"
               :show-overflow-tooltip="true"
@@ -215,6 +220,9 @@
 </template>
 
 <script setup lang="ts">
+import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+import { getDictOptions as listColumnDictOptions } from '@/utils/dict'
+
 import { ElMessageBox } from 'element-plus'
 import { checkPermi } from '@/utils/permission'
 import { dateFormatter } from '@/utils/formatTime'
@@ -435,6 +443,23 @@ watch(
     tryOpenDetailFromRoute()
   }
 )
+
+const loadColumnFilterRows0 = async () => {
+  const params = { ...queryParams }
+  const rows = await loadAllListPages<any>((pagination) =>
+    DvMachineryApi.getMachineryPage({ ...params, ...pagination })
+  )
+  return rows
+}
+
+const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'status',
+    label: '设备状态',
+    type: 'select',
+    options: listColumnDictOptions(DICT_TYPE.MES_DV_MACHINERY_STATUS)
+  }
+])
 </script>
 
 <style scoped>

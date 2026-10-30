@@ -10,6 +10,8 @@ import { isEnabledTargetProjectLeader, mapReferenceDirectoryNodes, mapReferenceR
   bindReferencePermissions, assertReferenceTraceIdentity, type ReferenceRow } from '../relations/project-reference-contract'
 import type { DirectoryNode } from '../relations/DccFileSelector.vue'
 import type { FileCandidate, SelectorQuery } from '../relations/selector-state'
+import { loadAllListPages } from '@/hooks/web/useListColumnFilter'
+import { buildFolderFileRows } from './folder-file-list'
 
 export const PROJECT_BROWSER_VERSION_VIEWS = [
   { value: 'LATEST_CONTROLLED', label: '当前生效受控版本', group: '浏览范围' },
@@ -91,6 +93,33 @@ export class ProjectBrowserState {
       this.projects = page.list; this.projectsTotal = page.total
     } catch (error) { if (token === this.projectsSequence) this.projectError = errorText(error) }
     finally { if (token === this.projectsSequence) this.projectLoading = false }
+  }
+  loadProjectFilterRows() {
+    const keyword = this.projectKeyword
+    return loadAllListPages(pagination => getProjectDiscoveryPage({ ...pagination, keyword }))
+  }
+  async loadFileFilterRows() {
+    if (this.scope === 'project' && !this.project) throw new Error('请先选择项目')
+    if (this.scope === 'directory' && (!this.project || !this.folder?.folderId)) throw new Error('请先选择项目逻辑文件夹')
+    const context = this.contextKey
+    const scope = this.scope
+    const keyword = this.keyword
+    const versionView = this.versionView
+    const projectId = this.project?.id
+    const folderId = this.folder?.folderId
+    const files = await loadAllListPages(pagination => loadDccProjectBrowserPage(this.tenantId, {
+      ...pagination, keyword,
+      ...(scope !== 'global' ? { projectId } : {}),
+      ...(scope === 'directory' ? { folderId } : {})
+    }, browserVersionOptions(versionView)))
+    const usageEntries = await Promise.all(files.map(async file => {
+      const usage = await getProjectReferenceUsage(file.controlledFileId)
+      if (referenceIdentity(usage.masterId) !== file.masterId) throw new Error('引用计数文件身份不一致')
+      return [file.masterId, usage] as const
+    }))
+    const references = scope === 'directory' ? await this.loadReferences(projectId!, folderId!) : []
+    if (context !== this.contextKey || scope !== this.scope || versionView !== this.versionView) throw new Error('项目文件列表上下文已变更，请重新查询')
+    return buildFolderFileRows(files, references, Object.fromEntries(usageEntries), keyword, versionView)
   }
   invalidateFiles() {
     this.filesSequence++; this.loading = false; this.rows = []; this.total = 0; this.usage = {}; this.error = ''

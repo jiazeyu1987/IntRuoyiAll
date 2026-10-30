@@ -14,6 +14,7 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class DccElectronicSignatureAuthorizationControllerTest {
 
@@ -23,7 +24,7 @@ class DccElectronicSignatureAuthorizationControllerTest {
             "@ss.hasRole('electronic_signature_admin')";
 
     @Test
-    void authorizationAdministrationEndpointsRequireElectronicSignatureAdminRole() throws NoSuchMethodException {
+    void authorizationEndpointsAllowTenantAdministratorReadsAndKeepDedicatedWriteRole() throws NoSuchMethodException {
         List<Method> adminEndpoints = List.of(
                 DccElectronicSignatureAuthorizationController.class.getMethod("getAuthorizationPage",
                         DccElectronicSignatureAuthorizationPageReqVO.class),
@@ -42,6 +43,9 @@ class DccElectronicSignatureAuthorizationControllerTest {
                     endpoint.getName() + " must retain the DCC signature manage permission");
             assertTrue(preAuthorize.value().contains(ELECTRONIC_SIGNATURE_ADMIN_ROLE),
                     endpoint.getName() + " must require the electronic signature admin role");
+            boolean readEndpoint = endpoint.getName().startsWith("get");
+            assertEquals(readEndpoint, preAuthorize.value().contains("@ss.hasRole('tenant_admin')"),
+                    "Tenant administrators gain read access only: " + endpoint.getName());
         }
     }
 

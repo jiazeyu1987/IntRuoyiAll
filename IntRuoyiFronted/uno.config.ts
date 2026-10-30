@@ -3,6 +3,13 @@ import { defineConfig, toEscapedSelector as e, presetUno } from 'unocss'
 
 export default defineConfig({
   // ...UnoCSS options
+  theme: {
+    fontFamily: {
+      sans: 'var(--app-font-family)',
+      serif: 'var(--app-font-family)',
+      mono: 'var(--app-font-family)'
+    }
+  },
   rules: [
     [
       /^custom-hover$/,

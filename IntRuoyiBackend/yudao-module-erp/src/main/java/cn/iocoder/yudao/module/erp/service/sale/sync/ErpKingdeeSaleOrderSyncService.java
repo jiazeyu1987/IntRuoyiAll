@@ -8,6 +8,8 @@ public interface ErpKingdeeSaleOrderSyncService {
 
     ErpKingdeeSaleOrderSyncResult syncSaleOrdersFullSkipExisting();
 
+    ErpKingdeeSaleOrderSyncResult syncSaleOrdersFullSkipExisting(LocalDateTime windowStart, LocalDateTime windowEnd);
+
     ErpKingdeeSaleOrderSyncResult syncSaleOrdersModifiedBetween(LocalDateTime windowStart, LocalDateTime windowEnd);
 
 }

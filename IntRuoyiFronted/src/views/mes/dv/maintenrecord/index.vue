@@ -23,6 +23,11 @@
       @column-change="saveMaintenRecordColumnConfig"
       @column-reset="resetMaintenRecordColumnConfig"
       @pagination="getList"
+      :load-filter-rows="loadColumnFilterRows0"
+      @filtered-rows="list = $event"
+      :list-rows="list"
+      @column-filter-reset="getList"
+      :column-filter-definitions="listColumnFilterDefinitions0"
     >
       <template #actions>
         <el-button
@@ -44,13 +49,13 @@
         </el-button>
       </template>
 
-      <template #table>
+      <template #table="{ resolveRows }">
         <el-table
           v-loading="loading"
           class="mainten-record-standard-list-table"
           data-user-table-column-explicit
           data-user-table-key="mes.dv.maintenRecord.main"
-          :data="list"
+          :data="resolveRows(list)"
           border
           :stripe="true"
           :show-overflow-tooltip="true"
@@ -161,6 +166,9 @@
 </template>
 
 <script setup lang="ts">
+import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+import { getDictOptions as listColumnDictOptions } from '@/utils/dict'
+
 import { dateFormatter } from '@/utils/formatTime'
 import { DICT_TYPE } from '@/utils/dict'
 import download from '@/utils/download'
@@ -277,6 +285,23 @@ const handleExport = async () => {
 onMounted(() => {
   getList()
 })
+
+const loadColumnFilterRows0 = async () => {
+  const params = { ...queryParams }
+  const rows = await loadAllListPages<any>((pagination) =>
+    DvMaintenRecordApi.getMaintenRecordPage({ ...params, ...pagination })
+  )
+  return rows
+}
+
+const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'status',
+    label: '状态',
+    type: 'select',
+    options: listColumnDictOptions(DICT_TYPE.MES_MAINTEN_RECORD_STATUS)
+  }
+])
 </script>
 
 <style scoped>

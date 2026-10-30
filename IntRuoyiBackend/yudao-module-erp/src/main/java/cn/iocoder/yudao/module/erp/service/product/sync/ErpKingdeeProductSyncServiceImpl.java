@@ -14,6 +14,7 @@ import cn.iocoder.yudao.module.erp.service.purchase.sync.ErpKingdeeMaterial;
 import cn.iocoder.yudao.module.erp.service.purchase.sync.ErpKingdeeMaterialClient;
 import cn.iocoder.yudao.module.erp.service.purchase.sync.ErpKingdeeProperties;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.annotation.Validated;
@@ -30,6 +31,7 @@ import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionU
 import static cn.iocoder.yudao.module.erp.enums.ErrorCodeConstants.KINGDEE_PURCHASE_ORDER_RESPONSE_INVALID;
 
 @Service
+@Slf4j
 @Validated
 @RequiredArgsConstructor
 public class ErpKingdeeProductSyncServiceImpl implements ErpKingdeeProductSyncService {
@@ -52,9 +54,16 @@ public class ErpKingdeeProductSyncServiceImpl implements ErpKingdeeProductSyncSe
     @Override
     @Transactional(rollbackFor = Exception.class)
     public ErpKingdeeProductSyncResult syncProductsFullSkipExisting() {
+        return syncProductsFullSkipExisting(null, null);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public ErpKingdeeProductSyncResult syncProductsFullSkipExisting(LocalDateTime windowStart, LocalDateTime windowEnd) {
         ErpKingdeeProperties kingdeeProperties = kingdeeConfigService.getEffectiveProperties();
         kingdeeProperties.validateProductSyncConfig();
-        List<ErpKingdeeMaterial> materials = materialClient.fetchMaterials(kingdeeProperties);
+        List<ErpKingdeeMaterial> materials = (windowStart == null ? materialClient.fetchMaterials(kingdeeProperties)
+                : materialClient.fetchMaterialsModifiedBetween(kingdeeProperties, windowStart, windowEnd));
         return syncMaterials(materials, true);
     }
 
@@ -79,11 +88,14 @@ public class ErpKingdeeProductSyncServiceImpl implements ErpKingdeeProductSyncSe
 
     private ErpKingdeeProductSyncResult syncMaterials(List<ErpKingdeeMaterial> materials,
                                                       boolean skipExisting) {
+        long writeStarted = System.nanoTime();
+        if (skipExisting) log.info("[material-full] stage=prepare-write tenant={} fetched={}", cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getTenantId(), materials.size());
         Map<String, ErpKingdeeMaterial> materialsByNumber = new LinkedHashMap<>();
         for (ErpKingdeeMaterial material : materials) {
             materialsByNumber.putIfAbsent(material.getMaterialNumber(), material);
         }
         List<ErpProductDO> existingProducts = productMapper.selectListByBarCodes(materialsByNumber.keySet());
+        if (skipExisting) log.info("[material-full] stage=existing-products-loaded unique={} existing={}", materialsByNumber.size(), existingProducts.size());
         Map<String, ErpProductDO> existingProductMap = new LinkedHashMap<>();
         for (ErpProductDO product : existingProducts) {
             existingProductMap.put(product.getBarCode(), product);
@@ -94,18 +106,20 @@ public class ErpKingdeeProductSyncServiceImpl implements ErpKingdeeProductSyncSe
         List<ErpProductDO> productsToCreate = new ArrayList<>();
         List<ErpProductDO> productsToUpdate = new ArrayList<>();
         ErpKingdeeProductSyncResult result = new ErpKingdeeProductSyncResult();
+        int processed = 0;
         for (ErpKingdeeMaterial material : materialsByNumber.values()) {
+            if (skipExisting && processed++ % 1000 == 0) log.info("[material-full] stage=prepare-progress processed={} total={} elapsedMs={}", processed - 1, materialsByNumber.size(), (System.nanoTime() - writeStarted) / 1_000_000);
+            ErpProductDO existingProduct = existingProductMap.get(material.getMaterialNumber());
+            if (skipExisting && existingProduct != null) {
+                result.addSkipped(material.getMaterialNumber());
+                continue;
+            }
             Long categoryId = ensureCategoryId(material, categoryIds, !skipExisting);
             Long unitId = ensureUnitId(material, unitIds);
             Integer status = resolveStatus(material);
-            ErpProductDO existingProduct = existingProductMap.get(material.getMaterialNumber());
             if (existingProduct == null) {
                 productsToCreate.add(buildCreateProduct(material, categoryId, unitId, status));
                 result.addCreated(material.getMaterialNumber());
-                continue;
-            }
-            if (skipExisting) {
-                result.addSkipped(material.getMaterialNumber());
                 continue;
             }
             ErpProductDO updateProduct = buildUpdateProduct(existingProduct, material, categoryId, unitId, status);
@@ -116,6 +130,7 @@ public class ErpKingdeeProductSyncServiceImpl implements ErpKingdeeProductSyncSe
             productsToUpdate.add(updateProduct);
             result.addUpdated(material.getMaterialNumber());
         }
+        if (skipExisting) log.info("[material-full] stage=write-start create={} update={} skipped={}", productsToCreate.size(), productsToUpdate.size(), result.getSkippedCount());
         if (CollUtil.isNotEmpty(productsToCreate)) {
             productMapper.insertBatch(productsToCreate, 1000);
         }
@@ -127,6 +142,7 @@ public class ErpKingdeeProductSyncServiceImpl implements ErpKingdeeProductSyncSe
                 }
             }
         }
+        if (skipExisting) log.info("[material-full] stage=write-complete-awaiting-commit created={} elapsedMs={}", result.getCreatedCount(), (System.nanoTime() - writeStarted) / 1_000_000);
         return result;
     }
 

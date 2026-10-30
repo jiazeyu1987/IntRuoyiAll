@@ -42,6 +42,32 @@ public interface MesKingdeeProductionMaterialListMapper extends BaseMapperX<MesK
                 .orderByDesc(MesKingdeeProductionMaterialListDO::getId));
     }
 
+    default List<MesKingdeeProductionMaterialListDO> selectBySourceLines(
+            Collection<MesKingdeeProductionMaterialListDO> keys) {
+        List<MesKingdeeProductionMaterialListDO> keyList = new java.util.ArrayList<>(keys);
+        List<MesKingdeeProductionMaterialListDO> result = new java.util.ArrayList<>();
+        // Bound expression depth: the configured JSQLParser serialization cache overflows on 1000 ORs.
+        for (int offset = 0; offset < keyList.size(); offset += 100) {
+            List<MesKingdeeProductionMaterialListDO> batch = keyList.subList(offset, Math.min(offset + 100, keyList.size()));
+            LambdaQueryWrapperX<MesKingdeeProductionMaterialListDO> query = new LambdaQueryWrapperX<>();
+            // Existing payloads can be large; deduplication/backfill needs only these columns.
+            query.select(MesKingdeeProductionMaterialListDO::getId,
+                    MesKingdeeProductionMaterialListDO::getSourceBillNo,
+                    MesKingdeeProductionMaterialListDO::getProductionOrderNo,
+                    MesKingdeeProductionMaterialListDO::getProductionOrderLineNo,
+                    MesKingdeeProductionMaterialListDO::getChildMaterialCode,
+                    MesKingdeeProductionMaterialListDO::getDrawingNumber,
+                    MesKingdeeProductionMaterialListDO::getDemandTime);
+            query.and(group -> batch.forEach(key -> group.or(line -> line
+                    .eq(MesKingdeeProductionMaterialListDO::getSourceBillNo, key.getSourceBillNo())
+                    .eq(MesKingdeeProductionMaterialListDO::getProductionOrderNo, key.getProductionOrderNo())
+                    .eq(MesKingdeeProductionMaterialListDO::getProductionOrderLineNo, key.getProductionOrderLineNo())
+                    .eq(MesKingdeeProductionMaterialListDO::getChildMaterialCode, key.getChildMaterialCode()))));
+            result.addAll(selectList(query));
+        }
+        return result;
+    }
+
     default MesKingdeeProductionMaterialListDO selectBySourceLine(String sourceBillNo, String productionOrderNo,
                                                                   Integer productionOrderLineNo,
                                                                   String childMaterialCode) {

@@ -1,6 +1,5 @@
 <template>
   <UnifiedListTemplate
-    :show-filter-reset="false"
     :table-key="tableKey"
     single-line-toolbar
     :query-model="query"
@@ -16,11 +15,12 @@
     @update:quick-filter-state="quickFilter.updateState"
     @quick-filter-query="quickFilter.applyQuickFilter"
     @column-change="saveConfig"
+    :filter-rows="props.rows"
   >
     <template #actions><slot name="actions"></slot></template>
-    <template #table>
+    <template #table="{ resolveRows }">
       <slot
-        :rows="pageRows"
+        :rows="resolveRows(pageRows)"
         :is-column-visible="isColumnVisible"
         :get-column-width-string="getColumnWidthString"
         :handle-header-dragend="handleHeaderDragend"
@@ -86,4 +86,6 @@ watch(
     if (query.pageNo > lastPage) query.pageNo = lastPage
   }
 )
+
+
 </script>

@@ -21,24 +21,21 @@
       @quick-filter-query="applyStockMoveQuickFilter"
       @column-change="saveStockMoveColumnConfig"
       @pagination="getList"
+      :load-filter-rows="loadColumnFilterRows0"
+      @filtered-rows="list = $event"
+      :list-rows="list"
+      @column-filter-reset="getList"
+      :column-filter-definitions="listColumnFilterDefinitions0"
     >
       <template #actions>
-        <el-button
-          type="primary"
-          plain
-          :loading="syncLoading"
-          @click="handleKingdeeSync"
-          v-hasPermi="['erp:kingdee-sync:query']"
-        >
-          <Icon icon="ep:refresh-right" class="mr-5px" /> 增量同步
-        </el-button>
+        <RecentFullSyncButton sync-type="STOCK_MOVE" />
       </template>
 
-      <template #table>
+      <template #table="{ resolveRows }">
         <el-table
           class="stock-move-table stock-move-table--locked"
           v-loading="loading || stockMoveColumnLoading"
-          :data="list"
+          :data="resolveRows(list)"
           height="calc(100vh - 304px)"
           border
           stripe
@@ -149,8 +146,10 @@
 </template>
 
 <script setup lang="ts">
+import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+
+import RecentFullSyncButton from '@/views/erp/components/RecentFullSyncButton.vue'
 import { ErpKingdeeStockMoveApi, type ErpKingdeeStockMoveVO } from '@/api/erp/stock/kingdeeStockMove'
-import { ErpKingdeeSyncApi } from '@/api/erp/sync'
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import { useTableQuickFilter, type TableQuickFilterDefinition } from '@/hooks/web/useTableQuickFilter'
 import { useUserTableColumns, type UserTableColumnDefinition } from '@/hooks/web/useUserTableColumns'
@@ -202,9 +201,7 @@ const stockMoveQuickFilterDefinitions: TableQuickFilterDefinition[] = [
   }
 ]
 
-const message = useMessage()
 const loading = ref(true)
-const syncLoading = ref(false)
 const list = ref<ErpKingdeeStockMoveVO[]>([])
 const total = ref(0)
 const queryParams = reactive({
@@ -262,18 +259,31 @@ async function getList() {
   }
 }
 
-const handleKingdeeSync = async () => {
-  syncLoading.value = true
-  try {
-    await ErpKingdeeSyncApi.runIncrementalSync('STOCK_MOVE')
-    message.success('金蝶调拨单增量同步任务已提交')
-    await getList()
-  } finally {
-    syncLoading.value = false
-  }
-}
 
 onMounted(getList)
+
+const loadColumnFilterRows0 = async () => {
+  const params = { ...queryParams, billDate: getBillDateRequestRange() }
+  const rows = await loadAllListPages<any>((pagination) =>
+    ErpKingdeeStockMoveApi.getStockMovePage({ ...params, ...pagination })
+  )
+  return rows
+}
+
+const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'fromWarehouseName',
+    label: '调出仓库',
+    type: 'text',
+    getValue: (row) => [firstItem(row)?.fromWarehouseName || '-'].join(' ')
+  },
+  {
+    key: 'toWarehouseName',
+    label: '调入仓库',
+    type: 'text',
+    getValue: (row) => [firstItem(row)?.toWarehouseName || '-'].join(' ')
+  }
+])
 </script>
 
 <style scoped>

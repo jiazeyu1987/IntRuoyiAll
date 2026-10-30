@@ -1,12 +1,21 @@
 <template>
   <div class="keyword-workbench">
     <UnifiedListTemplate
+      @query="handleSearch"
+      @reset="handleReset"
       table-key="showroom.keyword.main"
       :query-model="filters"
       :page="pagination.pageNo"
       :limit="pagination.pageSize"
       :total="pagination.total"
       @pagination="handlePageChange"
+      :load-filter-rows="loadColumnFilterRows0"
+      @filtered-rows="rows = $event"
+      :list-rows="rows"
+      @column-filter-reset="handlePageChange({ page: pagination.pageNo, limit: pagination.pageSize })"
+      :columns="listFilterColumns0"
+      :column-filter-definitions="allColumnDisplayFilters0"
+      :show-column-settings="false"
     >
       <template #filters>
         <div>
@@ -20,16 +29,14 @@
         </div>
       </template>
       <template #actions>
-        <el-button type="primary" @click="handleSearch">查询</el-button>
-        <el-button @click="handleReset">重置</el-button>
         <el-button type="primary" @click="openCreate">新增关键词</el-button>
       </template>
-      <template #table>
+      <template #table="{ resolveRows }">
         <el-table
           stripe
           border
           v-loading="loading"
-          :data="rows"
+          :data="resolveRows(rows)"
           row-key="id"
           class="keyword-workbench__table"
         >
@@ -68,6 +75,10 @@
 </template>
 
 <script setup lang="ts">
+import type { ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+
+import { loadAllListPages } from '@/hooks/web/useListColumnFilter'
+
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import { onMounted, reactive, ref } from 'vue'
 import { formatDate } from '@/utils/formatTime'
@@ -215,6 +226,45 @@ const handleDelete = async (id: number) => {
 onMounted(async () => {
   await loadRows()
 })
+
+const loadColumnFilterRows0 = async () => {
+  const params = {
+    pageNo: pagination.pageNo,
+    pageSize: pagination.pageSize,
+    keyword: filters.keyword?.trim() || undefined
+  }
+  const rows = await loadAllListPages<any>((pagination) =>
+    ShowroomAdminApi.getKeywordPage({ ...params, ...pagination })
+  )
+  return rows
+}
+
+const listFilterColumns0 = [
+  {
+    key: 'nameZh',
+    label: '中文关键词',
+    visible: true
+  },
+  {
+    key: 'nameEn',
+    label: 'English Keyword',
+    visible: true
+  },
+  {
+    key: 'updateTime',
+    label: '更新时间',
+    visible: true
+  }
+]
+
+const allColumnDisplayFilters0: ListColumnFilterDefinition[] = [
+  {
+    key: 'updateTime',
+    label: '更新时间',
+    type: 'text',
+    getValue: (row) => [formatDate(row.updateTime)].join(' ')
+  }
+]
 </script>
 
 <style scoped>

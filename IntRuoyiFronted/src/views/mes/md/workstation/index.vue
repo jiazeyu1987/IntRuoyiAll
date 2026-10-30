@@ -23,6 +23,11 @@
       @column-change="saveWorkstationColumnConfig"
       @column-reset="resetWorkstationColumnConfig"
       @pagination="getList"
+      :load-filter-rows="loadColumnFilterRows0"
+      @filtered-rows="list = $event"
+      :list-rows="list"
+      @column-filter-reset="getList"
+      :column-filter-definitions="listColumnFilterDefinitions0"
     >
       <template #actions>
         <el-button
@@ -44,13 +49,13 @@
         </el-button>
       </template>
 
-      <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+      <template #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
         <el-table
           v-loading="loading"
           class="workstation-main-table"
           data-user-table-column-explicit
           data-user-table-key="mes.md.workstation.main"
-          :data="list"
+          :data="resolveRows(list)"
           :height="workstationMainTableHeight"
           border
           :stripe="true"
@@ -300,6 +305,9 @@
 </template>
 
 <script setup lang="ts">
+import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+import { getDictOptions as listColumnDictOptions } from '@/utils/dict'
+
 import { dateFormatter } from '@/utils/formatTime'
 import download from '@/utils/download'
 import { MdWorkstationApi, type MdWorkstationVO } from '@/api/mes/md/workstation'
@@ -626,6 +634,61 @@ watch(
     tryOpenDetailFromRoute()
   }
 )
+
+const loadColumnFilterRows0 = async () => {
+  const params = buildWorkstationPageParams()
+  const rows = await loadAllListPages<any>((pagination) =>
+    MdWorkstationApi.getWorkstationPage({ ...params, ...pagination })
+  )
+  return rows
+}
+
+const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'configuredWorkerCount',
+    label: '理论配置人数',
+    type: 'text',
+    getValue: (row) => [row.configuredWorkerCount ?? 0].join(' ')
+  },
+  {
+    key: 'currentWorkerCount',
+    label: '当前在岗人数',
+    type: 'text',
+    getValue: (row) => [row.currentWorkerCount ?? 0].join(' ')
+  },
+  {
+    key: 'singleStandardHourlyCapacity',
+    label: '人工标准小时产能',
+    type: 'text',
+    getValue: (row) =>
+      [formatWorkstationIntegerCapacity(row.singleStandardHourlyCapacity, '-')].join(' ')
+  },
+  {
+    key: 'machineryStandardHourlyCapacity',
+    label: '设备标准小时产能',
+    type: 'text',
+    getValue: (row) =>
+      [formatWorkstationIntegerCapacity(row.machineryStandardHourlyCapacity)].join(' ')
+  },
+  {
+    key: 'shiftHours',
+    label: '班次小时',
+    type: 'text',
+    getValue: (row) => [row.shiftHours ?? '-'].join(' ')
+  },
+  {
+    key: 'todayCapacity',
+    label: '班次产能',
+    type: 'text',
+    getValue: (row) => [formatWorkstationIntegerCapacity(row.todayCapacity)].join(' ')
+  },
+  {
+    key: 'status',
+    label: '状态',
+    type: 'select',
+    options: listColumnDictOptions(DICT_TYPE.COMMON_STATUS)
+  }
+])
 </script>
 
 <style scoped>

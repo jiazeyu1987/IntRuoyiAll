@@ -12,7 +12,7 @@ public final class TenantAdminBusinessPolicy {
     private static final Set<String> MODULES = Set.of("ai", "bpm", "crm", "dcc", "erp",
             "iot", "mall", "member", "mes", "mdm", "mp", "pay", "report", "showroom",
             "signature", "srm", "product", "trade", "promotion", "statistics");
-    private static final Set<String> BUSINESS_PATHS = Set.of("controlled-file", "form-center");
+    private static final Set<String> BUSINESS_PATHS = Set.of("controlled-file", "form-center", "signature-governance");
 
     private TenantAdminBusinessPolicy() { }
 
@@ -22,6 +22,10 @@ public final class TenantAdminBusinessPolicy {
     }
 
     public static boolean isBusinessPermission(String permission) {
+        // 租户管理员可查看全部电子签名治理内容；治理写操作仍按原权限授权。
+        if (permission != null && permission.startsWith("signature-governance:") && permission.endsWith(":query")) {
+            return true;
+        }
         return permission != null && permission.contains(":")
                 && MODULES.contains(permission.substring(0, permission.indexOf(':')));
     }

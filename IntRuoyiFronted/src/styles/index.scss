@@ -4,6 +4,27 @@
 @use './scheme-d-controls.scss';
 @use './test-buttons.scss';
 
+button,
+input,
+optgroup,
+select,
+textarea,
+pre,
+code,
+kbd,
+samp,
+::file-selector-button {
+  font-family: var(--app-font-family);
+}
+
+// 富文本编辑器的代码区域自带字体，需要覆盖其组件样式。
+body .w-e-text-container [data-slate-editor] pre > code,
+body .w-e-text-container [data-slate-editor] pre > code *,
+body .w-e-text-container [data-slate-editor] code,
+body .w-e-text-container [data-slate-editor] kbd {
+  font-family: var(--app-font-family);
+}
+
 .reset-margin [class*='el-icon'] + span {
   margin-left: 2px !important;
 }

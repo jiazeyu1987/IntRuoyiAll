@@ -192,4 +192,22 @@ class ErpKingdeeProductSyncServiceImplTest {
         return material;
     }
 
+    @Test
+    void recentFullSync_skipsExistingMaterialEvenWhenErpValuesChanged() {
+        LocalDateTime end = LocalDateTime.of(2026, 10, 30, 12, 30);
+        LocalDateTime start = end.minusDays(7);
+        ErpKingdeeMaterial material = buildMaterial("MAT-OLD", "Changed", "Changed spec",
+                "NEW_CATEGORY", "Changed category", "BOX", "A");
+        when(materialClient.fetchMaterialsModifiedBetween(kingdeeProperties, start, end)).thenReturn(List.of(material));
+        when(productMapper.selectListByBarCodes(any(Collection.class)))
+                .thenReturn(List.of(new ErpProductDO().setId(1L).setBarCode("MAT-OLD").setName("Original")));
+        ErpKingdeeProductSyncResult result = syncService.syncProductsFullSkipExisting(start, end);
+        assertEquals(1, result.getSkippedCount());
+        assertEquals(0, result.getCreatedCount());
+        assertEquals(0, result.getUpdatedCount());
+        verify(productMapper, org.mockito.Mockito.never()).updateErpMaterialSnapshot(any());
+        verify(productMapper, org.mockito.Mockito.never()).insertBatch(any(Collection.class), eq(1000));
+        org.mockito.Mockito.verifyNoInteractions(productCategoryMapper, productUnitMapper);
+    }
+
 }

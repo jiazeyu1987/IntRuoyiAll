@@ -41,7 +41,7 @@ public class DccElectronicSignatureAuthorizationController {
 
     @GetMapping("/page")
     @Operation(summary = "获取DCC电子签名授权分页")
-    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:signature:manage') and @ss.hasRole('electronic_signature_admin')")
+    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:signature:manage') and (@ss.hasRole('electronic_signature_admin') or @ss.hasRole('tenant_admin'))")
     public CommonResult<PageResult<DccElectronicSignatureAuthorizationRespVO>> getAuthorizationPage(
             @Valid DccElectronicSignatureAuthorizationPageReqVO reqVO) {
         return success(managementService.getAuthorizationPage(reqVO));
@@ -59,7 +59,7 @@ public class DccElectronicSignatureAuthorizationController {
 
     @GetMapping("/{userId}/audits/page")
     @Operation(summary = "获取DCC电子签名授权审计分页")
-    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:signature:manage') and @ss.hasRole('electronic_signature_admin')")
+    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:signature:manage') and (@ss.hasRole('electronic_signature_admin') or @ss.hasRole('tenant_admin'))")
     public CommonResult<PageResult<DccElectronicSignatureAuthorizationAuditRespVO>> getAuthorizationAuditPage(
             @PathVariable("userId") Long userId,
             @Valid DccElectronicSignatureAuthorizationAuditPageReqVO reqVO) {

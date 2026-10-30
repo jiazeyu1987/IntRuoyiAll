@@ -14,15 +14,28 @@ public interface ErpKingdeeSyncRunMapper extends BaseMapperX<ErpKingdeeSyncRunDO
     default ErpKingdeeSyncRunDO selectRunningBySyncType(String syncType) {
         return selectOne(new LambdaQueryWrapperX<ErpKingdeeSyncRunDO>()
                 .eq(ErpKingdeeSyncRunDO::getSyncType, syncType)
-                .eq(ErpKingdeeSyncRunDO::getStatus, ErpKingdeeSyncRunStatusEnum.RUNNING.getStatus()));
+                .in(ErpKingdeeSyncRunDO::getStatus, 10, 40));
+    }
+
+    default int addProductionMaterialListProgress(Long runId, int created, int updated, int skipped) {
+        return update(null, new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<ErpKingdeeSyncRunDO>()
+                .eq(ErpKingdeeSyncRunDO::getId, runId)
+                .eq(ErpKingdeeSyncRunDO::getSyncType,
+                        cn.iocoder.yudao.module.erp.enums.sync.ErpKingdeeSyncTypeEnum.PRODUCTION_MATERIAL_LIST.getType())
+                .eq(ErpKingdeeSyncRunDO::getStatus, ErpKingdeeSyncRunStatusEnum.RUNNING.getStatus())
+                .setSql("created_count = created_count + {0}", created)
+                .setSql("updated_count = updated_count + {0}", updated)
+                .setSql("skipped_count = skipped_count + {0}", skipped));
     }
 
     default PageResult<ErpKingdeeSyncRunDO> selectPage(ErpKingdeeSyncRunPageReqVO reqVO) {
-        return selectPage(reqVO, new LambdaQueryWrapperX<ErpKingdeeSyncRunDO>()
+        LambdaQueryWrapperX<ErpKingdeeSyncRunDO> query = new LambdaQueryWrapperX<ErpKingdeeSyncRunDO>()
                 .eqIfPresent(ErpKingdeeSyncRunDO::getSyncType, reqVO.getSyncType())
-                .eqIfPresent(ErpKingdeeSyncRunDO::getStatus, reqVO.getStatus())
                 .betweenIfPresent(ErpKingdeeSyncRunDO::getStartedAt, reqVO.getStartedAt())
-                .orderByDesc(ErpKingdeeSyncRunDO::getId));
+                .orderByDesc(ErpKingdeeSyncRunDO::getId);
+        if (Integer.valueOf(10).equals(reqVO.getStatus())) query.in(ErpKingdeeSyncRunDO::getStatus, 10, 40);
+        else query.eqIfPresent(ErpKingdeeSyncRunDO::getStatus, reqVO.getStatus());
+        return selectPage(reqVO, query);
     }
 
 }

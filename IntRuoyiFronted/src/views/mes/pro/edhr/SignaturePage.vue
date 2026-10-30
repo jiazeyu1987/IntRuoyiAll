@@ -21,15 +21,20 @@
         @quick-filter-query="signatureQuickFilter.applyQuickFilter"
         @column-change="saveSignatureColumnConfig"
         @pagination="getList"
+        :load-filter-rows="loadColumnFilterRows0"
+        @filtered-rows="list = $event"
+        :list-rows="list"
+        @column-filter-reset="getList"
+        :column-filter-definitions="listColumnFilterDefinitions0"
       >
-        <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+        <template #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
         <el-alert v-if="loadError" :title="loadError" type="error" :closable="false" show-icon />
 
         <el-table
           v-loading="loading"
           data-user-table-column-explicit
           data-user-table-key="mes.pro.edhr.signature.history"
-          :data="list"
+          :data="resolveRows(list)"
           stripe
           :show-overflow-tooltip="true"
           empty-text="暂无签名记录"
@@ -224,6 +229,8 @@
 </template>
 
 <script setup lang="ts">
+import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+
 import { ContentWrap } from '@/components/ContentWrap'
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import { useUserTableColumns, type UserTableColumnDefinition } from '@/hooks/web/useUserTableColumns'
@@ -419,6 +426,68 @@ const openExecution = async (row: EdhrSignatureSummaryVO) => {
 }
 
 onMounted(() => getList())
+
+const loadColumnFilterRows0 = async () => {
+  const params = {
+    pageNo: queryParams.pageNo,
+    pageSize: queryParams.pageSize,
+    executionId: parsePositiveRouteQueryId(queryParams.executionId) || undefined,
+    executionCode: queryParams.executionCode?.trim() || undefined,
+    actionType: queryParams.actionType,
+    actorId: Number.isFinite(queryParams.actorId) ? queryParams.actorId : undefined,
+    actorName: queryParams.actorName?.trim() || undefined,
+    processInstanceId: queryParams.processInstanceId?.trim() || undefined,
+    bpmTaskId: queryParams.bpmTaskId?.trim() || undefined
+  }
+  const rows = await loadAllListPages<any>((pagination) =>
+    getEdhrExecutionSignaturePage({ ...params, ...pagination })
+  )
+  return rows
+}
+
+const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'actionType',
+    label: '动作结果',
+    type: 'text',
+    getValue: (row) => [formatSignatureAction(row.actionType)].join(' ')
+  },
+  {
+    key: 'actorDeptPost',
+    label: '部门/岗位',
+    type: 'text',
+    getValue: (row) =>
+      [
+        formatSnapshotValue(row.actorDeptNameSnapshot),
+        formatSnapshotValue(row.actorPostNamesSnapshot)
+      ].join(' ')
+  },
+  {
+    key: 'actorRoleNamesSnapshot',
+    label: '角色',
+    type: 'text',
+    getValue: (row) => [formatSnapshotValue(row.actorRoleNamesSnapshot)].join(' ')
+  },
+  {
+    key: 'signaturePurpose',
+    label: '签名目的',
+    type: 'text',
+    getValue: (row) => [formatSnapshotValue(row.signaturePurpose || row.meaningText)].join(' ')
+  },
+  {
+    key: 'signatureConfirm',
+    label: '签名确认',
+    type: 'text',
+    getValue: (row) =>
+      [formatSignatureMode(row.signatureMode), row.passwordVerified ? '通过' : '失败'].join(' ')
+  },
+  {
+    key: 'comment',
+    label: '意见/原因',
+    type: 'text',
+    getValue: (row) => [row.reason || row.comment || '--'].join(' ')
+  }
+])
 </script>
 
 <style scoped>
@@ -493,7 +562,7 @@ onMounted(() => getList())
   grid-column: 1 / -1;
 }
 .edhr-signature-evidence__hash {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
+  font-family: var(--app-font-family);
 }
 .edhr-signature__execution-link {
   padding: 0;

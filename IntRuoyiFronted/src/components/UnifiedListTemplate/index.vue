@@ -8,7 +8,26 @@
       v-if="showQueryForm !== false && $slots.filters"
       class="unified-list-template__query-form unified-list-template__custom-query"
     >
-      <div class="unified-list-template__filters"><slot name="filters"></slot></div>
+      <div class="unified-list-template__filter-panel">
+        <div class="unified-list-template__filters"><slot name="filters"></slot></div>
+        <TableMultiFilter
+          v-if="columnFilteringEnabled"
+          :table-key="tableKey"
+          :filter-definitions="resolvedStandardFilterDefinitions"
+          :state="columnFilter.state.value"
+          :show-actions="false"
+          @update:state="handleStandardFilterStateUpdate"
+          @query="handleStandardFilterQuery"
+          @reset="handleStandardFilterReset"
+          @remove="handleStandardFilterRemove"
+        />
+        <ListFilterActions
+          :loading="queryLoading || columnFilter.loading.value"
+          :query-button-attrs="queryButtonAttrs"
+          @query="handleCustomFilterQuery"
+          @reset="handleCustomFilterReset"
+        />
+      </div>
       <div class="unified-list-template__toolbar">
         <slot name="actions"></slot>
         <UserTableColumnSettings
@@ -25,6 +44,7 @@
       v-else-if="
         showQueryForm !== false &&
         ($slots.actions ||
+          $slots['extra-filters'] ||
           shouldRenderStandardConditionFilter ||
           (showColumnSettings !== false && columns.length))
       "
@@ -34,24 +54,39 @@
       :label-width="labelWidth"
       :data-testid="queryFormTestId"
     >
-      <el-form-item
-        v-if="shouldRenderStandardConditionFilter"
-        class="unified-list-template__multi-filter"
-      >
-        <TableMultiFilter
-          :table-key="tableKey"
-          :filter-definitions="resolvedStandardFilterDefinitions"
-          :state="resolvedStandardFilterState"
-          :show-operators="showMultiFilterOperators"
-          :show-reset="showFilterReset"
-          @update:state="handleStandardFilterStateUpdate"
+      <div class="unified-list-template__filter-panel">
+        <el-form-item
+          v-if="shouldRenderStandardConditionFilter"
+          class="unified-list-template__multi-filter"
+        >
+          <TableMultiFilter
+            :table-key="tableKey"
+            :filter-definitions="resolvedStandardFilterDefinitions"
+            :state="resolvedStandardFilterState"
+            :show-operators="showMultiFilterOperators"
+            :show-actions="false"
+            @update:state="handleStandardFilterStateUpdate"
+            @query="handleStandardFilterQuery"
+            @reset="handleStandardFilterReset"
+            @remove="handleStandardFilterRemove"
+          />
+        </el-form-item>
+
+        <div v-if="$slots['extra-filters']" class="unified-list-template__extra-filters">
+          <slot name="extra-filters"></slot>
+        </div>
+
+        <ListFilterActions
+          v-if="
+            shouldRenderStandardConditionFilter &&
+            (resolvedStandardFilterState.conditions.length > 0 || $slots['extra-filters'])
+          "
+          :loading="queryLoading || columnFilter.loading.value"
+          :query-button-attrs="queryButtonAttrs"
           @query="handleStandardFilterQuery"
           @reset="handleStandardFilterReset"
-          @remove="handleStandardFilterRemove"
         />
-      </el-form-item>
-
-      <slot name="extra-filters"></slot>
+      </div>
 
       <el-form-item class="unified-list-template__toolbar-actions">
         <div class="unified-list-template__toolbar">
@@ -69,10 +104,17 @@
       </el-form-item>
     </el-form>
 
+    <el-alert
+      v-if="columnFilter.error.value"
+      :title="columnFilter.error.value"
+      type="error"
+      :closable="false"
+    />
     <div class="unified-list-template__table-shell">
       <slot
         name="table"
         :rows="pageRows"
+        :resolve-rows="resolveRows"
         :sort-state="normalizedSortState"
         :sortable-columns="standardSortableColumns"
         :sortable-column-map="standardSortableColumnMap"
@@ -89,14 +131,15 @@
       :layout="paginationLayout"
       @update:page="updatePage"
       @update:limit="updateLimit"
-      @pagination="$emit('pagination', $event)"
+      @pagination="handlePagination"
     />
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, ref, watch } from 'vue'
+import { computed, nextTick, ref, toRaw, watch } from 'vue'
 import TableMultiFilter from '@/components/TableMultiFilter/index.vue'
+import ListFilterActions from '@/components/ListFilterActions/index.vue'
 import UserTableColumnSettings from '@/components/UserTableColumnSettings/index.vue'
 import type {
   ListMultiFilterCondition,
@@ -109,6 +152,11 @@ import type {
   TableQuickFilterOperator
 } from '@/hooks/web/useTableQuickFilter'
 import type { UserTableColumnState } from '@/hooks/web/useUserTableColumns'
+import {
+  buildListColumnFilters,
+  useListColumnFilter,
+  type ListColumnFilterDefinition
+} from '@/hooks/web/useListColumnFilter'
 
 defineOptions({ name: 'UnifiedListTemplate' })
 
@@ -174,7 +222,9 @@ const props = withDefaults(
     showMultiFilter?: boolean
     multiFilterDefinitions?: ListMultiFilterDefinition[]
     multiFilterState?: ListMultiFilterState
-    showFilterReset?: boolean
+    queryLoading?: boolean
+    queryButtonAttrs?: Record<string, unknown>
+    resetFilters?: () => void | Promise<void>
     showMultiFilterOperators?: boolean
     columns?: UserTableColumnState[]
     columnSaving?: boolean
@@ -185,6 +235,10 @@ const props = withDefaults(
     sortableColumns?: UnifiedListSortableColumnInput[]
     sortState?: UnifiedListSortState
     rows?: any[]
+    filterRows?: any[]
+    loadFilterRows?: () => Promise<any[]>
+    listRows?: any[]
+    columnFilterDefinitions?: ListColumnFilterDefinition[]
     paginationLayout?: string
     total?: number
     page?: number
@@ -204,7 +258,6 @@ const props = withDefaults(
     showQuickFilterLabel: true,
     showMultiFilter: false,
     multiFilterDefinitions: () => [],
-    showFilterReset: true,
     showMultiFilterOperators: true,
     showColumnSettings: true,
     showColumnReset: false,
@@ -213,6 +266,8 @@ const props = withDefaults(
 )
 
 const emit = defineEmits<{
+  query: []
+  reset: []
   'update:quickFilterState': [state: QuickFilterState]
   'quick-filter-query': []
   'update:multiFilterState': [state: ListMultiFilterState]
@@ -221,6 +276,8 @@ const emit = defineEmits<{
   'multi-filter-remove': [key: string]
   'column-change': [columns: UserTableColumnState[]]
   'column-reset': []
+  'filtered-rows': [rows: any[]]
+  'column-filter-reset': []
   'update:page': [page: number]
   'update:limit': [limit: number]
   'update:sortState': [state: UnifiedListSortState]
@@ -231,28 +288,83 @@ const emit = defineEmits<{
 // Local arrays are paged here; server lists keep their existing page/limit contract.
 const localPage = ref(1)
 const localLimit = ref(20)
-const resolvedTotal = computed(() => (props.rows === undefined ? props.total : props.rows.length))
-const resolvedPage = computed(() => (props.rows === undefined ? props.page : localPage.value))
-const resolvedLimit = computed(() => (props.rows === undefined ? props.limit : localLimit.value))
+const columnFilteringEnabled = computed(
+  () => props.filterRows !== undefined || !!props.loadFilterRows || props.rows !== undefined
+)
+const columnDefinitions = computed(() =>
+  buildListColumnFilters(props.columns, [
+    ...(props.filterDefinitions as ListColumnFilterDefinition[]),
+    ...props.multiFilterDefinitions,
+    ...(props.columnFilterDefinitions || [])
+  ])
+)
+const columnFilter = useListColumnFilter(
+  columnDefinitions,
+  () => props.filterRows ?? props.rows,
+  () => props.loadFilterRows
+)
+const resolvedTotal = computed(() =>
+  columnFilter.active.value
+    ? columnFilter.rows.value.length
+    : props.rows === undefined
+      ? props.total
+      : props.rows.length
+)
+const resolvedPage = computed(() =>
+  columnFilter.active.value || props.rows !== undefined ? localPage.value : props.page
+)
+const resolvedLimit = computed(() =>
+  columnFilter.active.value || props.rows !== undefined ? localLimit.value : props.limit
+)
 const pageRows = computed(() =>
-  props.rows?.slice(
+  (columnFilter.active.value ? columnFilter.rows.value : props.rows)?.slice(
     (resolvedPage.value - 1) * resolvedLimit.value,
     resolvedPage.value * resolvedLimit.value
   )
 )
+let publishedRows: any[] | undefined
+watch(pageRows, (rows) => {
+  if (columnFilter.active.value && props.loadFilterRows && rows) {
+    if (
+      publishedRows?.length === rows.length &&
+      rows.every((row, index) => toRaw(row) === toRaw(publishedRows![index]))
+    )
+      return
+    publishedRows = rows
+    emit('filtered-rows', rows)
+  }
+})
+watch(
+  () => props.listRows,
+  (rows) => {
+    if (
+      rows &&
+      toRaw(rows) !== toRaw(publishedRows) &&
+      (columnFilter.active.value || columnFilter.loading.value)
+    ) {
+      columnFilter.invalidate()
+      void columnFilter.apply()
+    }
+  }
+)
+const resolveRows = <T,>(original: T[]): T[] =>
+  columnFilter.active.value ? (pageRows.value as T[]) : original
 const updatePage = (page: number) => {
-  if (props.rows !== undefined) localPage.value = page
+  if (props.rows !== undefined || columnFilter.active.value) localPage.value = page
   emit('update:page', page)
 }
 const updateLimit = (limit: number) => {
-  if (props.rows !== undefined) {
+  if (props.rows !== undefined || columnFilter.active.value) {
     localLimit.value = limit
     localPage.value = 1
   }
   emit('update:limit', limit)
 }
+const handlePagination = (payload: UnifiedListPaginationPayload) => {
+  if (!columnFilter.active.value) emit('pagination', payload)
+}
 watch(resolvedTotal, (total) => {
-  if (props.rows !== undefined)
+  if (props.rows !== undefined || columnFilter.active.value)
     localPage.value = Math.min(localPage.value, Math.max(1, Math.ceil(total / localLimit.value)))
 })
 watch(
@@ -276,6 +388,7 @@ const quickDefinitionsAsMultiFilterDefinitions = computed<ListMultiFilterDefinit
 )
 
 const shouldRenderStandardConditionFilter = computed(() => {
+  if (columnFilteringEnabled.value) return columnDefinitions.value.length > 0
   if (props.showMultiFilter === true) return true
   return (
     props.showQuickFilter !== false && quickDefinitionsAsMultiFilterDefinitions.value.length > 0
@@ -289,15 +402,19 @@ const resolvedQuickFilterStateAsMultiFilter = computed<ListMultiFilterState>(() 
 }))
 
 const resolvedStandardFilterDefinitions = computed(() =>
-  props.showMultiFilter === true
-    ? props.multiFilterDefinitions
-    : quickDefinitionsAsMultiFilterDefinitions.value
+  columnFilteringEnabled.value
+    ? columnDefinitions.value
+    : props.showMultiFilter === true
+      ? props.multiFilterDefinitions
+      : quickDefinitionsAsMultiFilterDefinitions.value
 )
 
 const resolvedStandardFilterState = computed(() =>
-  props.showMultiFilter === true
-    ? resolvedMultiFilterState.value
-    : resolvedQuickFilterStateAsMultiFilter.value
+  columnFilteringEnabled.value
+    ? columnFilter.state.value
+    : props.showMultiFilter === true
+      ? resolvedMultiFilterState.value
+      : resolvedQuickFilterStateAsMultiFilter.value
 )
 
 const normalizeSortOrder = (order: unknown): UnifiedListSortOrder =>
@@ -427,6 +544,10 @@ const toQuickFilterState = (state: ListMultiFilterState): QuickFilterState => {
 }
 
 const handleStandardFilterStateUpdate = (state: ListMultiFilterState) => {
+  if (columnFilteringEnabled.value) {
+    columnFilter.state.value = state
+    return
+  }
   if (props.showMultiFilter === true) {
     emit('update:multiFilterState', state)
     return
@@ -434,7 +555,15 @@ const handleStandardFilterStateUpdate = (state: ListMultiFilterState) => {
   emit('update:quickFilterState', toQuickFilterState(state))
 }
 
-const handleStandardFilterQuery = () => {
+const handleStandardFilterQuery = async () => {
+  if (columnFilteringEnabled.value) {
+    await columnFilter.apply()
+    localPage.value = 1
+    localLimit.value = props.limit
+    emit('update:page', 1)
+    if (!columnFilter.active.value && props.loadFilterRows) emit('column-filter-reset')
+    return
+  }
   if (props.showMultiFilter === true) {
     emit('multi-filter-query')
     return
@@ -442,7 +571,35 @@ const handleStandardFilterQuery = () => {
   emit('quick-filter-query')
 }
 
+const handleCustomFilterQuery = async () => {
+  if (columnFilteringEnabled.value && columnFilter.state.value.conditions.length) {
+    updatePage(1)
+    emit('query')
+    await nextTick()
+    await handleStandardFilterQuery()
+    return
+  }
+  updatePage(1)
+  await nextTick()
+  emit('query')
+}
+const handleCustomFilterReset = () => {
+  columnFilter.reset()
+  publishedRows = undefined
+  updatePage(1)
+  emit('reset')
+}
+
 const handleStandardFilterReset = async () => {
+  if (columnFilteringEnabled.value) {
+    columnFilter.reset()
+    publishedRows = undefined
+    localPage.value = 1
+    emit('update:page', 1)
+    if (props.resetFilters) await props.resetFilters()
+    else if (props.loadFilterRows) emit('column-filter-reset')
+    return
+  }
   if (props.showMultiFilter === true) {
     emit('multi-filter-reset')
     return
@@ -457,10 +614,18 @@ const handleStandardFilterReset = async () => {
     activeConditionId: undefined
   })
   await nextTick()
+  if (props.resetFilters) {
+    await props.resetFilters()
+    return
+  }
   emit('quick-filter-query')
 }
 
 const handleStandardFilterRemove = (conditionId: string) => {
+  if (columnFilteringEnabled.value) {
+    void handleStandardFilterQuery()
+    return
+  }
   if (props.showMultiFilter === true) {
     emit('multi-filter-remove', conditionId)
   }
@@ -486,10 +651,25 @@ const handleStandardFilterRemove = (conditionId: string) => {
   overflow-x: auto;
 }
 
+.unified-list-template__filter-panel {
+  display: flex;
+  flex: 1 1 100%;
+  flex-direction: column;
+  min-width: 0;
+  gap: 8px;
+}
+
+.unified-list-template__extra-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
 .unified-list-template__filters :deep(.el-form),
 .unified-list-template__filters > :deep(div) {
   display: flex;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
   margin: 0;
@@ -675,6 +855,11 @@ const handleStandardFilterRemove = (conditionId: string) => {
     grid-column: 1;
     grid-row: 1;
     min-width: 0;
+  }
+
+  .unified-list-template--single-line-toolbar .unified-list-template__filter-panel {
+    grid-column: 1;
+    grid-row: 1;
   }
 
   .unified-list-template--single-line-toolbar .unified-list-template__toolbar-actions {

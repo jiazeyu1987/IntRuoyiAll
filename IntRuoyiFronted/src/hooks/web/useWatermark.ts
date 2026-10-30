@@ -27,7 +27,7 @@ export function useWatermark(appendEl: HTMLElement | null = document.body) {
     const cans = can.getContext('2d')
     if (cans) {
       cans.rotate((-20 * Math.PI) / 120)
-      cans.font = '15px Vedana'
+      cans.font = '15px "Microsoft YaHei"'
       cans.fillStyle = appStore.getIsDark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.15)'
       cans.textAlign = 'left'
       cans.textBaseline = 'middle'

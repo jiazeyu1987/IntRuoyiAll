@@ -1,7 +1,6 @@
 <template>
   <ContentWrap class="production-sync-list erp-viewport-list">
     <UnifiedListTemplate
-      :show-filter-reset="false"
       table-key="erp.production.pickList.main"
       single-line-toolbar
       :query-model="queryParams"
@@ -20,25 +19,20 @@
       @quick-filter-query="applyPickListQuickFilter"
       @column-change="savePickListColumnConfig"
       @pagination="getList"
+      :load-filter-rows="loadColumnFilterRows0"
+      @filtered-rows="list = $event"
+      :list-rows="list"
+      @column-filter-reset="getList"
     >
       <template #actions>
-        <el-button
-          type="primary"
-          plain
-          :loading="syncLoading"
-          @click="handleKingdeeSync"
-          v-hasPermi="['erp:kingdee-sync:query']"
-          data-production-pick-list-sync-kingdee
-        >
-          <Icon icon="ep:refresh-right" class="mr-5px" /> 增量同步
-        </el-button>
+        <RecentFullSyncButton sync-type="PRODUCTION_PICK_LIST" />
       </template>
 
-      <template #table>
+      <template #table="{ resolveRows }">
         <el-table
           class="pick-list-table pick-list-table--locked"
           v-loading="loading || pickListColumnLoading"
-          :data="list"
+          :data="resolveRows(list)"
           border
           stripe
           show-overflow-tooltip
@@ -243,6 +237,9 @@
   </ContentWrap>
 </template>
 <script setup lang="ts">
+import { loadAllListPages } from '@/hooks/web/useListColumnFilter'
+
+import RecentFullSyncButton from '@/views/erp/components/RecentFullSyncButton.vue'
 import '@/views/erp/components/viewport-list.css'
 
 import { erpListIntegerColumnFormatter } from '@/views/erp/utils/integerDisplay'
@@ -252,7 +249,6 @@ import {
   ErpProductionPickListApi,
   type ErpProductionPickListVO
 } from '@/api/erp/production/pick-list'
-import { ErpKingdeeSyncApi } from '@/api/erp/sync'
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import {
   useTableQuickFilter,
@@ -423,10 +419,8 @@ const pickListQuickFilterDefinitions: TableQuickFilterDefinition[] = [
   }
 ]
 
-const message = useMessage()
 const route = useRoute()
 const loading = ref(true)
-const syncLoading = ref(false)
 const list = ref<ErpProductionPickListVO[]>([])
 const total = ref(0)
 const queryParams = reactive({
@@ -476,21 +470,19 @@ const applyRouteQuery = () => {
   }
 }
 
-const handleKingdeeSync = async () => {
-  syncLoading.value = true
-  try {
-    await ErpKingdeeSyncApi.runIncrementalSync('PRODUCTION_PICK_LIST')
-    message.success('生产领料单列表增量同步任务已提交')
-    await getList()
-  } finally {
-    syncLoading.value = false
-  }
-}
 
 onMounted(() => {
   applyRouteQuery()
   getList()
 })
+
+const loadColumnFilterRows0 = async () => {
+  const params = { ...queryParams }
+  const rows = await loadAllListPages<any>((pagination) =>
+    ErpProductionPickListApi.getPage({ ...params, ...pagination })
+  )
+  return rows
+}
 </script>
 
 <style scoped>

@@ -33,6 +33,11 @@
       @column-change="saveFeedbackColumnConfig"
       @column-reset="resetFeedbackColumnConfig"
       @pagination="getList"
+      :load-filter-rows="loadColumnFilterRows0"
+      @filtered-rows="list = $event"
+      :list-rows="list"
+      @column-filter-reset="getList"
+      :column-filter-definitions="listColumnFilterDefinitions0"
     >
       <template #actions>
         <div class="feedback-filter-action-relocation">
@@ -58,14 +63,14 @@
           <el-button @click="resetQuery"><Icon icon="ep:refresh" class="mr-5px" /> 重置</el-button>
         </div>
       </template>
-      <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+      <template #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
         <div class="feedback-main-table-scroll-region">
           <el-table
             v-loading="loading"
             class="feedback-main-table"
             data-user-table-column-explicit
             data-user-table-key="mes.pro.feedback.main"
-            :data="list"
+            :data="resolveRows(list)"
             height="100%"
             border
             :stripe="true"
@@ -228,12 +233,21 @@
       </el-alert>
     </div>
     <UnifiedListTemplate
+      @query="handleImportQuery"
+      @reset="resetImportQuery"
       table-key="mes.feedback.importBatch"
       :query-model="importQueryParams"
       :total="importTotal"
       v-model:page="importQueryParams.pageNo"
       v-model:limit="importQueryParams.pageSize"
       @pagination="getImportRecordList"
+      :load-filter-rows="loadColumnFilterRows1"
+      @filtered-rows="importRecordList = $event"
+      :list-rows="importRecordList"
+      @column-filter-reset="getImportRecordList"
+      :columns="listFilterColumns1"
+      :show-column-settings="false"
+      :column-filter-definitions="[...listColumnFilterDefinitions1, ...allColumnDisplayFilters1]"
     >
       <template #filters>
         <el-form
@@ -275,14 +289,6 @@
         </el-form>
       </template>
       <template #actions>
-        <el-button @click="handleImportQuery">
-          <Icon icon="ep:search" class="mr-5px" />
-          搜索
-        </el-button>
-        <el-button @click="resetImportQuery">
-          <Icon icon="ep:refresh" class="mr-5px" />
-          重置
-        </el-button>
 
         <el-button
           type="primary"
@@ -316,11 +322,11 @@
           确认报工
         </el-button>
       </template>
-      <template #table>
+      <template #table="{ resolveRows }">
         <el-table
           border
           v-loading="importLoading"
-          :data="importRecordList"
+          :data="resolveRows(importRecordList)"
           stripe
           row-key="id"
           :cell-class-name="resolveImportRecordCellClassName"
@@ -473,6 +479,8 @@
 </template>
 
 <script setup lang="ts">
+import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+
 import { useTestMode } from '@/store/modules/testMode'
 
 import type { Component } from 'vue'
@@ -1230,6 +1238,192 @@ onMounted(async () => {
   await applyRouteQuery()
   await handleTabChange()
 })
+
+const loadColumnFilterRows0 = async () => {
+  const params = buildFeedbackPageParams()
+  const rows = await loadAllListPages<any>((pagination) =>
+    ProFeedbackApi.getFeedbackPage({ ...params, ...pagination })
+  )
+  return rows
+}
+
+const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'excelProductCode',
+    label: '产品代码',
+    type: 'text',
+    getValue: (row) => [resolveFeedbackProductCode(row)].join(' ')
+  },
+  {
+    key: 'excelProductName',
+    label: '产品名称',
+    type: 'text',
+    getValue: (row) => [resolveFeedbackProductName(row)].join(' ')
+  },
+  {
+    key: 'excelProcessCode',
+    label: '工序编码',
+    type: 'text',
+    getValue: (row) => [resolveFeedbackProcessCode(row)].join(' ')
+  },
+  {
+    key: 'excelProcessName',
+    label: '工序名称',
+    type: 'text',
+    getValue: (row) => [resolveFeedbackProcessName(row)].join(' ')
+  },
+  {
+    key: 'excelEmployeeName',
+    label: '人员名称',
+    type: 'text',
+    getValue: (row) => [resolveFeedbackEmployeeName(row)].join(' ')
+  }
+])
+
+const loadColumnFilterRows1 = async () => {
+  const params = buildImportRecordPageParams()
+  const rows = await loadAllListPages<any>((pagination) =>
+    ProFeedbackApi.getImportRecordPage({ ...params, ...pagination })
+  )
+  return applyImportRecordDrafts(rows)
+}
+
+const listColumnFilterDefinitions1 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'processCode',
+    label: '工序',
+    type: 'text',
+    getValue: (row) => [row.processCode || '--', row.processName || '--'].join(' ')
+  },
+  {
+    key: 'attributionStatus',
+    label: '归属结果',
+    type: 'text',
+    getValue: (row) =>
+      [
+        row.attributionStatus === 'ATTRIBUTED'
+          ? isImportRecordSkippedExternalOtherOrder(row)
+            ? '其他订单'
+            : '已归属'
+          : '待归属',
+        row.feedbackId,
+        formatImportAttributionTime(row.attributionTime),
+        row.linkedFeedbackCount
+      ].join(' ')
+  }
+])
+
+const listFilterColumns1 = [
+  {
+    key: 'workOrderCode',
+    label: '工单',
+    visible: true
+  },
+  {
+    key: 'itemCode',
+    label: '产品编码',
+    visible: true
+  },
+  {
+    key: 'itemName',
+    label: '产品名称',
+    visible: true
+  },
+  {
+    key: 'specification',
+    label: '规格',
+    visible: true
+  },
+  {
+    key: 'processCode',
+    label: '工序',
+    visible: true
+  },
+  {
+    key: 'feedbackQuantity',
+    label: '报工数量',
+    visible: true
+  },
+  {
+    key: 'surplusPoolQuantity',
+    label: '缓存池数量',
+    visible: true
+  },
+  {
+    key: 'feedbackTime',
+    label: '报工时间',
+    visible: true
+  },
+  {
+    key: 'attributionStatus',
+    label: '归属结果',
+    visible: true
+  },
+  {
+    key: 'displayColumn9',
+    label: '报工人',
+    visible: true
+  },
+  {
+    key: 'displayColumn10',
+    label: '报工时间',
+    visible: true
+  },
+  {
+    key: 'displayColumn11',
+    label: '当前审批人',
+    visible: true
+  },
+  {
+    key: 'displayColumn12',
+    label: '备注',
+    visible: true
+  }
+]
+
+const allColumnDisplayFilters1: ListColumnFilterDefinition[] = [
+  {
+    key: 'displayColumn9',
+    label: '报工人',
+    type: 'text',
+    getValue: (row) => row.feedbackUserNickname || row.feedbackUserId
+  },
+  {
+    key: 'displayColumn10',
+    label: '报工时间',
+    type: 'dateRange',
+    getValue: (row) => row.feedbackTime
+  },
+  {
+    key: 'displayColumn11',
+    label: '当前审批人',
+    type: 'text',
+    getValue: (row) => row.approveUserNickname || row.approveUserId
+  },
+  { key: 'displayColumn12', label: '备注', type: 'text', getValue: (row) => row.remark },
+  {
+    key: 'processCode',
+    label: '工序',
+    type: 'text',
+    getValue: (row) => [row.processCode || '--', row.processName || '--'].join(' ')
+  },
+  {
+    key: 'attributionStatus',
+    label: '归属结果',
+    type: 'text',
+    getValue: (row) =>
+      [
+        row.attributionStatus === 'ATTRIBUTED'
+          ? isImportRecordSkippedExternalOtherOrder(row)
+            ? '其他订单'
+            : '已归属'
+          : '待归属',
+        row.feedbackId,
+        formatImportAttributionTime(row.attributionTime),
+        row.linkedFeedbackCount
+      ].join(' ')
+  }
+]
 </script>
 
 <style scoped>

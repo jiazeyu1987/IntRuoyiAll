@@ -18,6 +18,11 @@
       @quick-filter-query="handleQuery"
       @column-change="saveEnterpriseColumnConfig"
       @pagination="getList"
+      :load-filter-rows="loadColumnFilterRows0"
+      @filtered-rows="list = $event"
+      :list-rows="list"
+      @column-filter-reset="getList"
+      :column-filter-definitions="listColumnFilterDefinitions0"
     >
       <template #actions>
         <el-button
@@ -30,13 +35,13 @@
           新增
         </el-button>
       </template>
-      <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+      <template #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
         <el-table
           v-loading="loading"
           class="mdm-enterprise-resizable-table"
           data-user-table-column-explicit
           data-user-table-key="mdm.enterprise.main"
-          :data="list"
+          :data="resolveRows(list)"
           border
           :allow-drag-last-column="true"
           :show-overflow-tooltip="true"
@@ -185,6 +190,8 @@
 </template>
 
 <script setup lang="ts">
+import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+
 import { isSearchFormInputEmpty } from '@/utils/search'
 import type { FormInstance, FormRules } from 'element-plus'
 import { dateFormatter2 } from '@/utils/formatTime'
@@ -435,6 +442,29 @@ watch(
     await getList()
   }
 )
+
+const loadColumnFilterRows0 = async () => {
+  const params = { ...queryParams }
+  const rows = await loadAllListPages<any>((pagination) =>
+    MdmEnterpriseApi.getEnterprisePage({ ...params, ...pagination })
+  )
+  return rows
+}
+
+const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'type',
+    label: '公司类型',
+    type: 'text',
+    getValue: (row) => [formatEnterpriseType(row.type)].join(' ')
+  },
+  {
+    key: 'status',
+    label: '状态',
+    type: 'text',
+    getValue: (row) => [formatStatus(row.status)].join(' ')
+  }
+])
 </script>
 
 <style scoped>

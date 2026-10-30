@@ -23,6 +23,11 @@
         @column-change="saveEdhrBatchExecutionColumnConfig"
         @column-reset="resetEdhrBatchExecutionColumnConfig"
         @pagination="getList"
+        :load-filter-rows="loadColumnFilterRows0"
+        @filtered-rows="list = $event"
+        :list-rows="list"
+        @column-filter-reset="getList"
+        :column-filter-definitions="listColumnFilterDefinitions0"
       >
         <template #actions>
           <UserTableColumnSettings
@@ -35,7 +40,7 @@
           />
         </template>
 
-        <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+        <template #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
           <el-alert
             v-if="loadError"
             :title="loadError"
@@ -48,7 +53,7 @@
             v-loading="loading"
             data-user-table-column-explicit
             data-user-table-key="mes.pro.edhrBatch.execution.main"
-            :data="list"
+            :data="resolveRows(list)"
             row-key="id"
             :row-class-name="({ row }) => row.marketReleaseAccess?.writable === false ? 'market-release-readonly-row' : ''"
             stripe
@@ -868,6 +873,8 @@
 </template>
 
 <script setup lang="ts">
+import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+
 import '@/views/mes/pro/edhr/shared/detail-surface.scss'
 import '@/views/mes/pro/edhr-batch/record-viewport.css'
 import MarketReleaseNegativeDecision from '../production-release/components/MarketReleaseNegativeDecision.vue'
@@ -2089,6 +2096,39 @@ watch(releaseDialogVisible, (visible) => {
 }, { flush: 'sync' })
 onBeforeUnmount(() => { resetMarketReleaseDialog() })
 onDeactivated(() => { releaseDialogVisible.value = false; resetMarketReleaseDialog() })
+
+const loadColumnFilterRows0 = async () => {
+  const params = { ...buildQuery(), summaryOnly: true }
+  const rows = await loadAllListPages<any>((pagination) =>
+    getEdhrBatchExecutionPage({ ...params, ...pagination })
+  )
+  return rows.filter(isVisibleBatchExecutionRow)
+}
+
+const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'product',
+    label: '产品',
+    type: 'text',
+    getValue: (row) => [row.productName || row.productCode || '--'].join(' ')
+  },
+  {
+    key: 'route',
+    label: '路线',
+    type: 'text',
+    getValue: (row) => [row.routeName || row.routeCode].join(' ')
+  },
+  {
+    key: 'status',
+    label: '状态',
+    type: 'text',
+    getValue: (row) =>
+      [
+        resolveBatchStatusLabel(row.status),
+        row.mainStageLabel || resolveBatchMainStageLabel(row)
+      ].join(' ')
+  }
+])
 </script>
 
 <style scoped>

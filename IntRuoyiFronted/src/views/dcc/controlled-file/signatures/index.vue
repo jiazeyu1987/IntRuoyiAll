@@ -21,9 +21,14 @@
           @quick-filter-query="recordQuickFilter.applyQuickFilter"
           @column-change="saveRecordColumnConfig"
           @pagination="loadRecordPage"
+          :load-filter-rows="loadColumnFilterRows0"
+          @filtered-rows="recordList = $event"
+          :list-rows="recordList"
+          @column-filter-reset="loadRecordPage"
+          :column-filter-definitions="listColumnFilterDefinitions0"
         >
-          <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
-        <el-table v-loading="recordLoading" data-user-table-column-explicit data-user-table-key="dcc.electronicSignature.records" :data="recordList" class="mt-16px" @header-dragend="handleRecordHeaderDragend" @sort-change="handleTemplateSortChange">
+          <template #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+        <el-table v-loading="recordLoading" data-user-table-column-explicit data-user-table-key="dcc.electronicSignature.records" :data="resolveRows(recordList)" class="mt-16px" @header-dragend="handleRecordHeaderDragend" @sort-change="handleTemplateSortChange">
           <el-table-column v-if="isRecordColumnVisible('fileName')" label="文件名称" prop="fileName" :min-width="getRecordColumnMinWidthString('fileName', 220)" show-overflow-tooltip v-bind="sortColumnAttrs('fileName')">
             <template #default="{ row }">
               <el-button link type="primary" @click="openControlledFileDetail(row.controlledFileId)">
@@ -197,9 +202,14 @@
           @quick-filter-query="authorizationQuickFilter.applyQuickFilter"
           @column-change="saveAuthorizationColumnConfig"
           @pagination="loadAuthorizationPage"
+          :load-filter-rows="loadColumnFilterRows1"
+          @filtered-rows="authorizationList = $event"
+          :list-rows="authorizationList"
+          @column-filter-reset="loadAuthorizationPage"
+          :column-filter-definitions="listColumnFilterDefinitions1"
         >
-          <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
-        <el-table v-loading="authorizationLoading" data-user-table-column-explicit data-user-table-key="dcc.electronicSignature.authorizations" :data="authorizationList" class="mt-16px" @header-dragend="handleAuthorizationHeaderDragend" @sort-change="handleTemplateSortChange">
+          <template #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+        <el-table v-loading="authorizationLoading" data-user-table-column-explicit data-user-table-key="dcc.electronicSignature.authorizations" :data="resolveRows(authorizationList)" class="mt-16px" @header-dragend="handleAuthorizationHeaderDragend" @sort-change="handleTemplateSortChange">
           <el-table-column v-if="isAuthorizationColumnVisible('user')" label="用户" prop="user" :min-width="getAuthorizationColumnMinWidthString('user', 180)" v-bind="sortColumnAttrs('user')">
             <template #default="{ row }">
               {{ getAuthorizationUserLabel(row) }}
@@ -224,6 +234,7 @@
           <el-table-column v-if="isAuthorizationColumnVisible('electronicSignatureEnabled')" label="启用签名" prop="electronicSignatureEnabled" align="center" :width="getAuthorizationColumnWidthString('electronicSignatureEnabled', 150)" v-bind="sortColumnAttrs('electronicSignatureEnabled')">
             <template #default="{ row }">
               <el-switch
+                :disabled="!canManageAuthorizations"
                 :model-value="row.electronicSignatureEnabled"
                 :loading="authorizationUpdatingUserIds.includes(row.userId)"
                 active-text="启用"
@@ -260,7 +271,7 @@
             <template #default="{ row }">
               <div class="signature-action-row">
                 <el-button
-                  v-if="row.locked"
+                  v-if="row.locked && canManageAuthorizations"
                   link
                   type="primary"
                   :loading="authorizationUpdatingUserIds.includes(row.userId)"
@@ -386,13 +397,18 @@
       @column-change="saveAuthorizationAuditColumnConfig"
       @column-reset="resetAuthorizationAuditColumnConfig"
       @pagination="loadAuthorizationAuditPage"
+      :load-filter-rows="loadColumnFilterRows2"
+      @filtered-rows="authorizationAuditDrawer.list = $event"
+      :list-rows="authorizationAuditDrawer.list"
+      @column-filter-reset="loadAuthorizationAuditPage"
+      :column-filter-definitions="listColumnFilterDefinitions2"
     >
-      <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+      <template #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
         <el-table
           v-loading="authorizationAuditDrawer.loading"
           data-user-table-column-explicit
           data-user-table-key="dcc.electronicSignature.authorizationAudit"
-          :data="authorizationAuditDrawer.list"
+          :data="resolveRows(authorizationAuditDrawer.list)"
           empty-text="暂无授权审计"
           @header-dragend="handleAuthorizationAuditHeaderDragend"
           @sort-change="handleTemplateSortChange"
@@ -455,7 +471,10 @@
 </template>
 
 <script lang="ts" setup>
+import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+
 import { ContentWrap } from '@/components/ContentWrap'
+import { useUserStore } from '@/store/modules/user'
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import { useUserTableColumns, type UserTableColumnDefinition } from '@/hooks/web/useUserTableColumns'
 import {
@@ -497,6 +516,10 @@ import { openControlledFileViewer } from '../shared/viewer-navigation'
 import { dateTimeValueFormatter, formatDateTimeValue } from '@/utils/formatTime'
 
 defineOptions({ name: 'DccControlledFileSignatures' })
+const userStore = useUserStore()
+const canManageAuthorizations = computed(() =>
+  userStore.getRoles.includes('electronic_signature_admin') || userStore.getRoles.includes('super_admin')
+)
 
 type ActiveTab = 'records' | 'authorizations'
 type AuthorizationActionMode = 'enable' | 'disable' | 'unlock'
@@ -1114,11 +1137,138 @@ onMounted(async () => {
 onBeforeUnmount(() => {
   revokeSignaturePdfPreviewUrl()
 })
+
+const loadColumnFilterRows0 = async () => {
+  const params = buildRecordQueryParams()
+  const rows = await loadAllListPages<any>((pagination) =>
+    getDccElectronicSignaturePage({ ...params, ...pagination })
+  )
+  return rows
+}
+
+const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'controlledFileStatus',
+    label: '文件状态',
+    type: 'text',
+    getValue: (row) =>
+      [getDccControlledFileStatusLabel(toControlledFileStatus(row.controlledFileStatus))].join(' ')
+  },
+  {
+    key: 'actorDeptPost',
+    label: '部门/岗位',
+    type: 'text',
+    getValue: (row) =>
+      [
+        formatDccSignatureSnapshotValue(row.actorDeptNameSnapshot),
+        formatDccSignatureSnapshotValue(row.actorPostNamesSnapshot)
+      ].join(' ')
+  },
+  {
+    key: 'actorRoleNamesSnapshot',
+    label: '角色',
+    type: 'text',
+    getValue: (row) => [formatDccSignatureSnapshotValue(row.actorRoleNamesSnapshot)].join(' ')
+  },
+  {
+    key: 'signatureSummary',
+    label: '签名摘要',
+    type: 'text',
+    getValue: (row) =>
+      [
+        getDccSignatureMeaningLabel(row.meaningCode),
+        getDccSignatureTaskActionLabel(row.taskActionResult),
+        formatDccSignatureSnapshotValue(row.signaturePurpose || row.meaningCode),
+        formatDateTimeValue(row.signedAt)
+      ].join(' ')
+  },
+  {
+    key: 'evidenceSummary',
+    label: '证据摘要',
+    type: 'text',
+    getValue: (row) =>
+      [
+        getDccControlledCopyHashStatusLabel(row.controlledCopyHashStatus),
+        getDccSignatureEvidenceStatusLabel(row.evidenceStatus),
+        formatDccSignatureSnapshotValue(row.snapshotStatus),
+        formatDccSignatureSnapshotValue(row.signatureImageVerifiedStatus),
+        formatDccHashShort(row.signatureImageSha256Short || row.signatureImageSha256)
+      ].join(' ')
+  }
+])
+
+const loadColumnFilterRows1 = async () => {
+  const params = {
+    ...authorizationQueryParams,
+    username: authorizationQueryParams.username?.trim() || undefined,
+    mobile: authorizationQueryParams.mobile?.trim() || undefined
+  }
+  const rows = await loadAllListPages<any>((pagination) =>
+    getDccElectronicSignatureAuthorizationPage({ ...params, ...pagination })
+  )
+  return rows
+}
+
+const listColumnFilterDefinitions1 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'user',
+    label: '用户',
+    type: 'text',
+    getValue: (row) => [getAuthorizationUserLabel(row)].join(' ')
+  },
+  {
+    key: 'status',
+    label: '用户状态',
+    type: 'text',
+    getValue: (row) => [row.status === 0 ? '启用' : '禁用'].join(' ')
+  },
+  {
+    key: 'authorizationState',
+    label: '授权状态',
+    type: 'text',
+    getValue: (row) => [getDccSignatureAuthorizationStateLabel(row.authorizationState)].join(' ')
+  },
+  {
+    key: 'locked',
+    label: '锁定',
+    type: 'text',
+    getValue: (row) => [row.locked ? '已锁定' : '未锁定'].join(' ')
+  },
+  {
+    key: 'lockedUntil',
+    label: '锁定至',
+    type: 'text',
+    getValue: (row) => [formatDateTimeValue(row.lockedUntil, '-')].join(' ')
+  }
+])
+
+const loadColumnFilterRows2 = async () => {
+  const target = authorizationAuditDrawer.target
+  if (!target) throw new Error('请选择授权审计人员')
+  return loadAllListPages((pagination) =>
+    getDccElectronicSignatureAuthorizationAuditPage(target.userId, pagination)
+  )
+}
+
+const listColumnFilterDefinitions2 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'beforeState',
+    label: '变更前',
+    type: 'text',
+    getValue: (row) => [getDccSignatureAuthorizationStateLabel(row.beforeState)].join(' ')
+  },
+  {
+    key: 'afterState',
+    label: '变更后',
+    type: 'text',
+    getValue: (row) => [getDccSignatureAuthorizationStateLabel(row.afterState)].join(' ')
+  }
+])
 </script>
 
 <style scoped>
 .signature-hash {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
+  font-family: var(--app-font-family);
   font-size: 12px;
   color: var(--el-text-color-regular);
   word-break: break-all;

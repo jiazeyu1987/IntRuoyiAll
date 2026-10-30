@@ -29,6 +29,11 @@
       @quick-filter-query="companyScopeQuickFilter.applyQuickFilter"
       @column-change="saveCompanyScopeColumnConfig"
       @pagination="getList"
+      :load-filter-rows="loadColumnFilterRows0"
+      @filtered-rows="list = $event"
+      :list-rows="list"
+      @column-filter-reset="getList"
+      :column-filter-definitions="listColumnFilterDefinitions0"
     >
       <template #actions>
         <el-button
@@ -40,12 +45,12 @@
           新建
         </el-button>
       </template>
-      <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+      <template #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
         <el-table
           v-loading="loading"
           data-user-table-column-explicit
           data-user-table-key="mdm.companyScope.main"
-          :data="list"
+          :data="resolveRows(list)"
           border
           :empty-text="companyScopeEmptyText"
           :show-overflow-tooltip="true"
@@ -135,6 +140,8 @@
 </template>
 
 <script setup lang="ts">
+import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+
 import { nextTick, onMounted, reactive, ref } from 'vue'
 import type { FormInstance, FormRules } from 'element-plus'
 import { dateFormatter2 } from '@/utils/formatTime'
@@ -274,6 +281,23 @@ const companyScopeQuickFilter = useTableQuickFilter(
   'mdm.companyScope.main', companyScopeQuickFilterDefinitions, queryParams, getList
 )
 onMounted(() => { void getList() })
+
+const loadColumnFilterRows0 = async () => {
+  const params = { ...queryParams }
+  const rows = await loadAllListPages<any>((pagination) =>
+    getOwnedCompanyPage({ ...params, ...pagination })
+  )
+  return rows
+}
+
+const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'status',
+    label: '状态',
+    type: 'text',
+    getValue: (row) => [row.status === 'ENABLE' ? '启用' : '停用'].join(' ')
+  }
+])
 </script>
 
 <style scoped>

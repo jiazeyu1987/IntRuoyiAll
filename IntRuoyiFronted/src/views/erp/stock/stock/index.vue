@@ -4,7 +4,6 @@
 
   <ContentWrap class="erp-viewport-list">
     <UnifiedListTemplate
-      :show-filter-reset="false"
       table-key="erp.stock.stock.main"
       single-line-toolbar
       :query-model="queryParams"
@@ -21,8 +20,13 @@
       @quick-filter-query="quickFilter.applyQuickFilter"
       @column-change="saveColumnConfig"
       @pagination="getList"
+      :load-filter-rows="loadColumnFilterRows0"
+      @filtered-rows="list = $event"
+      :list-rows="list"
+      @column-filter-reset="getList"
     >
       <template #actions>
+        <RecentFullSyncButton sync-type="STOCK" />
         <el-button
           v-show="false"
           type="primary"
@@ -42,20 +46,11 @@
         >
           <Icon icon="ep:download" class="mr-5px" /> 导出
         </el-button>
-        <el-button
-          type="primary"
-          plain
-          @click="handleSyncKingdeeStocks"
-          :loading="kingdeeSyncLoading"
-          v-hasPermi="['erp:stock:query']"
-        >
-          <Icon icon="ep:refresh-right" class="mr-5px" /> 增量同步
-        </el-button>
       </template>
-      <template #table>
+      <template #table="{ resolveRows }">
         <el-table
           v-loading="loading || columnLoading"
-          :data="list"
+          :data="resolveRows(list)"
           :stripe="true"
           :show-overflow-tooltip="true"
           border
@@ -111,6 +106,9 @@
   </ContentWrap>
 </template>
 <script setup lang="ts">
+import { loadAllListPages } from '@/hooks/web/useListColumnFilter'
+
+import RecentFullSyncButton from '@/views/erp/components/RecentFullSyncButton.vue'
 import '@/views/erp/components/viewport-list.css'
 
 import { erpListIntegerColumnFormatter } from '@/views/erp/utils/integerDisplay'
@@ -125,7 +123,6 @@ import {
 } from '@/hooks/web/useUserTableColumns'
 import download from '@/utils/download'
 import { StockApi, StockVO } from '@/api/erp/stock/stock'
-import { ErpKingdeeSyncApi } from '@/api/erp/sync'
 import { ProductApi, ProductVO } from '@/api/erp/product/product'
 import { WarehouseApi, WarehouseVO } from '@/api/erp/stock/warehouse'
 
@@ -150,7 +147,6 @@ const productList = ref<ProductVO[]>([]) // 产品列表
 const warehouseList = ref<WarehouseVO[]>([]) // 仓库列表
 
 /** 查询列表 */
-const kingdeeSyncLoading = ref(false)
 
 const getList = async () => {
   loading.value = true
@@ -202,18 +198,6 @@ const handleExport = async () => {
 }
 
 /** 初始化 **/
-const handleSyncKingdeeStocks = async () => {
-  kingdeeSyncLoading.value = true
-  try {
-    await ErpKingdeeSyncApi.runIncrementalSync('STOCK')
-    message.success('ERP 库存增量同步任务已提交')
-    await getList()
-    productList.value = await ProductApi.getProductSimpleList()
-    warehouseList.value = await WarehouseApi.getWarehouseSimpleList()
-  } finally {
-    kingdeeSyncLoading.value = false
-  }
-}
 void handleDelete
 
 const filterDefinitions = computed<TableQuickFilterDefinition[]>(() => [
@@ -287,4 +271,12 @@ onMounted(async () => {
   productList.value = await ProductApi.getProductSimpleList()
   warehouseList.value = await WarehouseApi.getWarehouseSimpleList()
 })
+
+const loadColumnFilterRows0 = async () => {
+  const params = { ...queryParams }
+  const rows = await loadAllListPages<any>((pagination) =>
+    StockApi.getStockPage({ ...params, ...pagination })
+  )
+  return rows
+}
 </script>

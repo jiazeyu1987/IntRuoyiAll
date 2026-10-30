@@ -100,6 +100,15 @@ public class MesKingdeeProductionOrderSyncServiceImpl implements MesKingdeeProdu
 
     @Override
     @Transactional(rollbackFor = Exception.class)
+    public MesKingdeeProductionOrderSyncResult syncWorkOrdersFull(LocalDateTime windowStart, LocalDateTime windowEnd) {
+        ErpKingdeeProperties properties = kingdeeConfigService.getEffectiveProperties();
+        properties.validateBaseConfig();
+        return syncProductionOrders(properties,
+                productionOrderClient.fetchProductionOrdersModifiedBetween(properties, windowStart, windowEnd), false, true);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
     public MesKingdeeProductionOrderSyncResult syncWorkOrders(ErpKingdeeSyncContext context) {
         ErpKingdeeProperties kingdeeProperties = kingdeeConfigService.getEffectiveProperties();
         kingdeeProperties.validateBaseConfig();
@@ -111,6 +120,11 @@ public class MesKingdeeProductionOrderSyncServiceImpl implements MesKingdeeProdu
             ErpKingdeeProperties kingdeeProperties,
             List<ErpKingdeeProductionOrder> productionOrders,
             boolean verifyInactiveOrders) {
+        return syncProductionOrders(kingdeeProperties, productionOrders, verifyInactiveOrders, false);
+    }
+
+    private MesKingdeeProductionOrderSyncResult syncProductionOrders(ErpKingdeeProperties kingdeeProperties,
+            List<ErpKingdeeProductionOrder> productionOrders, boolean verifyInactiveOrders, boolean skipExisting) {
         // The outer transaction can update other orders before later cancelling a void order.
         // Acquire the shared audit ledger before its first business read/write lock.
         gxpAuditService.acquireLedgerLock();
@@ -133,6 +147,10 @@ public class MesKingdeeProductionOrderSyncServiceImpl implements MesKingdeeProdu
             }
             MesKingdeeProductionOrderSyncRecordDO syncRecord = selectSyncRecord(productionOrder);
             MesProWorkOrderDO existingWorkOrder = resolveExistingWorkOrder(syncRecord, sourceKey, workOrderCode);
+            if (skipExisting && existingWorkOrder != null) {
+                result.addSkipped(sourceKey);
+                continue;
+            }
             Long productId = ensureMesItem(productionOrder);
             if (existingWorkOrder == null) {
                 Long workOrderId = workOrderService.createWorkOrder(buildCreateReqVO(productionOrder, productId));

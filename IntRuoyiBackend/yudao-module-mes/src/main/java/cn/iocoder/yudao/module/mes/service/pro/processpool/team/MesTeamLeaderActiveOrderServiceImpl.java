@@ -947,6 +947,9 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
                 ? requireProductionRouteSourceForAdd(workOrder)
                 : resolveVersionUpgradeRouteSource(workOrder, reqBO.getTargetRouteVersionId());
         Long routeId = routeSource.routeId();
+        if (routeMapper.selectByIdForUpdate(routeId) == null) {
+            throw exception(cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_ROUTE_NOT_EXISTS);
+        }
         Long routeVersionId = routeSource.routeVersionId();
         MesProcessPoolActiveOrderDO existing = selectExistingActiveOrder(reqBO.getWorkOrderId(), routeId,
                 routeVersionId);
@@ -1042,9 +1045,11 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
         for (MesProcessPoolActiveOrderDO order : activeOrders) {
             requireCleanupIdentity(simulationOwner, order.getTenantId(), order.getSimulated(),
                     order.getSimulationStage(), order.getSimulationRunId(), true);
-            if (!Objects.equals(order.getLeaderUserId(), leaderUserId)
-                    || !Objects.equals(order.getWorkOrderId(), workOrder.getId())) {
-                throw exception(PRO_PROCESS_POOL_SIMULATION_COPY_CLEANUP_BLOCKED, "simulation owner mismatch");
+            // The fixed-test maintenance entry can reset historical cycles across leaders.
+            // Scope is established by tenant and the exact fixed work order, not its former operator.
+            if (!Objects.equals(order.getWorkOrderId(), workOrder.getId())) {
+                throw exception(PRO_PROCESS_POOL_SIMULATION_COPY_CLEANUP_BLOCKED,
+                        "测试工单历史活跃记录不属于指定工单，activeOrderId=" + order.getId());
             }
         }
         List<Long> activeOrderIds = activeOrders.stream().map(MesProcessPoolActiveOrderDO::getId)
@@ -2764,6 +2769,9 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
                 .version(removed.getVersion())
                 .build();
         ActiveOrderRebuildSnapshotSource snapshotSource = resolveActiveOrderSnapshotSource(recoveryTarget);
+        if (routeMapper.selectByIdForUpdate(snapshotSource.routeSource().routeId()) == null) {
+            throw exception(cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_ROUTE_NOT_EXISTS);
+        }
         LocalDateTime rejoinedAt = LocalDateTime.now();
         Long sortOrder = nextSortOrderForLeader(reqBO.getLeaderUserId());
         int updated = activeOrderMapper.reactivateRemovedActiveOrder(removed.getId(), reqBO.getLeaderUserId(),

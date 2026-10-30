@@ -19,6 +19,11 @@
       @column-change="saveRouteColumnConfig"
       @column-reset="resetRouteColumnConfig"
       @pagination="handleRoutePagination"
+      :load-filter-rows="loadColumnFilterRows0"
+      @filtered-rows="paginatedRoutes = $event"
+      :list-rows="paginatedRoutes"
+      @column-filter-reset="handleRoutePagination"
+      :column-filter-definitions="listColumnFilterDefinitions0"
     >
       <template #actions>
         <el-button type="primary" @click="handleCreateRoute">
@@ -30,12 +35,12 @@
           查询路线
         </el-button>
       </template>
-      <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+      <template #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
         <el-table
           v-loading="loading"
           data-user-table-column-explicit
           data-user-table-key="dcc.controlledFile.routes.main"
-          :data="paginatedRoutes"
+          :data="resolveRows(paginatedRoutes)"
           border
           :stripe="true"
           :show-overflow-tooltip="true"
@@ -145,19 +150,21 @@
       :operator-options="[]"
       :columns="routePreviewColumns"
       :column-saving="routePreviewColumnSaving"
-      :show-query-form="false"
+      :show-query-form="true"
       :total="routePreviewTotal"
       v-model:page="previewQueryParams.pageNo"
       v-model:limit="previewQueryParams.pageSize"
       @column-change="saveRoutePreviewColumnConfig"
       @column-reset="resetRoutePreviewColumnConfig"
       @pagination="handleRoutePreviewPagination"
+      :filter-rows="previewRows"
+      :column-filter-definitions="listColumnFilterDefinitions1"
     >
-      <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+      <template #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
         <el-table
           data-user-table-column-explicit
           data-user-table-key="dcc.controlledFile.routes.preview"
-          :data="paginatedPreviewRows"
+          :data="resolveRows(paginatedPreviewRows)"
           border
           :stripe="true"
           :show-overflow-tooltip="true"
@@ -224,6 +231,8 @@
 </template>
 
 <script lang="ts" setup>
+import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+
 import {
   deleteApprovalRoute,
   getApprovalRoutePage,
@@ -641,6 +650,70 @@ onMounted(async () => {
   await loadInitialCategoryOptions()
   await handleQuery()
 })
+
+const loadColumnFilterRows0 = async () => {
+  return loadAllListPages((pagination) => getApprovalRoutePage({ ...queryParams, ...pagination }))
+}
+
+const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'categoryName',
+    label: '文件类别',
+    type: 'text',
+    getValue: (row) => [row.categoryName || '未解析类别', row.categoryId || '-'].join(' ')
+  },
+  {
+    key: 'actionType',
+    label: '动作类型',
+    type: 'text',
+    getValue: (row) => [formatRouteActionType(row.actionType)].join(' ')
+  },
+  {
+    key: 'node1',
+    label: '节点1',
+    type: 'text',
+    getValue: (row) => [formatRouteNodeAssignees(row, 1)].join(' ')
+  },
+  {
+    key: 'node2',
+    label: '节点2',
+    type: 'text',
+    getValue: (row) => [formatRouteNodeAssignees(row, 2)].join(' ')
+  },
+  {
+    key: 'node3',
+    label: '节点3',
+    type: 'text',
+    getValue: (row) => [formatRouteNodeAssignees(row, 3)].join(' ')
+  },
+  {
+    key: 'node4',
+    label: '节点4',
+    type: 'text',
+    getValue: (row) => [formatRouteNodeAssignees(row, 4)].join(' ')
+  }
+])
+
+const listColumnFilterDefinitions1 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'approvalMode',
+    label: '审批方式',
+    type: 'text',
+    getValue: (row) => [getOptionLabel(ROUTE_PREVIEW_MODE_OPTIONS, row.approvalMode)].join(' ')
+  },
+  {
+    key: 'candidateSourceIds',
+    label: '候选集合',
+    type: 'text',
+    getValue: (row) => [resolvePreviewCandidateNames(row)].join(' ')
+  },
+  {
+    key: 'resolvedUserIds',
+    label: '解析审批人',
+    type: 'text',
+    getValue: (row) => [resolveUserNames(row.resolvedUserIds)].join(' ')
+  }
+])
 </script>
 
 <style scoped>

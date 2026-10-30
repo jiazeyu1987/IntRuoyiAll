@@ -688,6 +688,9 @@
                   :rows="selectedCommonRegulationSet.versions || []"
                   class="unified-list-template--contained"
                   data-list-viewport="embedded"
+                  :columns="listFilterColumns0"
+                  :show-column-settings="false"
+                  :column-filter-definitions="[...listColumnFilterDefinitions0, ...allColumnDisplayFilters0]"
                 >
                   <template #actions>
                     <el-button
@@ -700,9 +703,9 @@
                       新增套版本
                     </el-button>
                   </template>
-                  <template #table="{ rows: standardRows }">
+                  <template #table="{ resolveRows, rows: standardRows }">
                     <el-table
-                      :data="standardRows"
+                      :data="resolveRows(standardRows)"
                       row-key="id"
                       border
                       stripe
@@ -899,18 +902,20 @@
                   :columns="qaItemsColumns"
                   :column-saving="qaItemsColumnSaving"
                   :show-column-settings="false"
-                  :show-query-form="false"
+                  :show-query-form="true"
                   :total="commonRegulationItems.length"
                   v-model:page="commonRegulationItemsQuery.pageNo"
                   v-model:limit="commonRegulationItemsQuery.pageSize"
                   @column-change="saveQaItemsColumnConfig"
                   @column-reset="resetQaItemsColumnConfig"
+                  :filter-rows="commonRegulationItems"
+                  :column-filter-definitions="listColumnFilterDefinitions1"
                 >
                   <template
-                    #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }"
+                    #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }"
                   >
                     <el-table stripe
-                      :data="pagedCommonRegulationItems"
+                      :data="resolveRows(pagedCommonRegulationItems)"
                       row-key="rowKey"
                       border
                       size="small"
@@ -1557,16 +1562,18 @@
             :columns="qaItemsColumns"
             :column-saving="qaItemsColumnSaving"
             :show-column-settings="false"
-            :show-query-form="false"
+            :show-query-form="true"
             :total="qaRegulationItems.length"
             v-model:page="qaItemsQuery.pageNo"
             v-model:limit="qaItemsQuery.pageSize"
             @column-change="saveQaItemsColumnConfig"
             @column-reset="resetQaItemsColumnConfig"
+            :filter-rows="qaRegulationItems"
+            :column-filter-definitions="listColumnFilterDefinitions2"
           >
-            <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+            <template #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
               <el-table stripe
-                :data="pagedQaRegulationItems"
+                :data="resolveRows(pagedQaRegulationItems)"
                 border
                 size="small"
                 data-user-table-column-explicit
@@ -1994,10 +2001,12 @@
               v-model:limit="qaChecksQuery.pageSize"
               @column-change="saveQaChecksColumnConfig"
               @column-reset="resetQaChecksColumnConfig"
+              :filter-rows="qaRegulationPublishChecks"
+              :column-filter-definitions="listColumnFilterDefinitions3"
             >
-              <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+              <template #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
                 <el-table stripe
-                  :data="pagedQaRegulationCompletenessChecks"
+                  :data="resolveRows(pagedQaRegulationCompletenessChecks)"
                   border
                   size="small"
                   data-user-table-column-explicit
@@ -2069,10 +2078,11 @@
               v-model:limit="qaPqcPreviewQuery.pageSize"
               @column-change="saveQaPqcPreviewColumnConfig"
               @column-reset="resetQaPqcPreviewColumnConfig"
+              :filter-rows="qaPqcTaskPreviewRows"
             >
-              <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+              <template #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
                 <el-table stripe
-                  :data="pagedQaPqcTaskPreviewRows"
+                  :data="resolveRows(pagedQaPqcTaskPreviewRows)"
                   border
                   size="small"
                   data-user-table-column-explicit
@@ -2312,6 +2322,8 @@
 </template>
 
 <script setup lang="ts">
+import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+
 import { useTestMode } from '@/store/modules/testMode'
 
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -5149,6 +5161,130 @@ const runQaPublishPrecheck = async () => {
     qaRegulationPublishing.value = false
   }
 }
+
+const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'lifecycleStatus',
+    label: '状态',
+    type: 'text',
+    getValue: (row) => [resolveQaRegulationLifecycleStatusText(row.lifecycleStatus)].join(' ')
+  },
+  {
+    key: 'members',
+    label: '成员数',
+    type: 'text',
+    getValue: (row) => [row.members?.length || 0].join(' ')
+  },
+  {
+    key: 'members',
+    label: '包含规程',
+    type: 'text',
+    getValue: (row) =>
+      [row.members?.map((member) => member.commonRegulationName).join('、') || '未配置'].join(' ')
+  }
+])
+
+const listColumnFilterDefinitions1 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'samplingPlan',
+    label: '原抽样方案',
+    type: 'text',
+    getValue: (row) => [formatQaItemSamplingPlan(row)].join(' ')
+  },
+  {
+    key: 'sourceOriginalExcerpt',
+    label: '原文依据',
+    type: 'text',
+    getValue: (row) =>
+      [
+        row.sourceOriginalPage || '未记录',
+        row.sourceOriginalItem || row.sourceDocumentTitle,
+        row.sourceOriginalExcerpt || '该通用规程未记录原文摘录。',
+        row.sourceOriginalMethod
+      ].join(' ')
+  }
+])
+
+const listColumnFilterDefinitions2 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'samplingPlan',
+    label: '原抽样方案',
+    type: 'text',
+    getValue: (row) => [formatQaItemSamplingPlan(row)].join(' ')
+  },
+  {
+    key: 'sourceOriginalExcerpt',
+    label: '原文依据',
+    type: 'text',
+    getValue: (row) =>
+      [
+        row.sourceOriginalPage || '待补充',
+        row.sourceOriginalItem || '待补充原文项目',
+        row.sourceOriginalExcerpt || 'QA 手工新增项目需补充对应 PDF/规程原文摘录。',
+        row.sourceOriginalMethod
+      ].join(' ')
+  }
+])
+
+const listColumnFilterDefinitions3 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'status',
+    label: '状态',
+    type: 'text',
+    getValue: (row) => [row.passed ? '已满足' : '需补齐'].join(' ')
+  }
+])
+
+const listFilterColumns0 = [
+  {
+    key: 'versionNo',
+    label: '套版本',
+    visible: true
+  },
+  {
+    key: 'lifecycleStatus',
+    label: '状态',
+    visible: true
+  },
+  {
+    key: 'effectiveDate',
+    label: '生效日期',
+    visible: true
+  },
+  {
+    key: 'members',
+    label: '成员数',
+    visible: true
+  },
+  {
+    key: 'displayColumn4',
+    label: '包含规程',
+    visible: true
+  }
+]
+
+const allColumnDisplayFilters0: ListColumnFilterDefinition[] = [
+  { key: 'versionNo', label: '套版本', type: 'text', getValue: (row) => [row.versionNo].join(' ') },
+  {
+    key: 'lifecycleStatus',
+    label: '状态',
+    type: 'text',
+    getValue: (row) => [resolveQaRegulationLifecycleStatusText(row.lifecycleStatus)].join(' ')
+  },
+  {
+    key: 'members',
+    label: '成员数',
+    type: 'text',
+    getValue: (row) => [row.members?.length || 0].join(' ')
+  },
+  {
+    key: 'displayColumn4',
+    label: '包含规程',
+    type: 'text',
+    getValue: (row) =>
+      [row.members?.map((member) => member.commonRegulationName).join('、') || '未配置'].join(' ')
+  }
+]
 </script>
 
 <style scoped>

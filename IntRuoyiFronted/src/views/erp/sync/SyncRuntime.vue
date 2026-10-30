@@ -185,24 +185,6 @@
               >
             </template>
           </el-table-column>
-          <el-table-column
-            v-if="false"
-            column-key="actions"
-            label="手动补跑"
-            :width="getColumnWidthString('actions', 130)"
-          >
-            <template #default="{ row }">
-              <el-button
-                type="primary"
-                plain
-                :loading="runningHandlerName === row.handlerName"
-                @click="runSyncJob(row)"
-                v-hasPermi="['erp:kingdee-sync:query']"
-              >
-                <Icon icon="ep:refresh-right" class="mr-5px" /> 增量同步
-              </el-button>
-            </template>
-          </el-table-column>
         </el-table>
       </template>
     </ErpLocalList>
@@ -210,7 +192,6 @@
 
   <ContentWrap v-show="activeList === 'history'" class="erp-runtime-history">
     <UnifiedListTemplate
-      :show-filter-reset="false"
       table-key="erp.sync.runs"
       single-line-toolbar
       :query-model="queryParams"
@@ -227,6 +208,11 @@
       @quick-filter-query="runFilter.applyQuickFilter"
       @column-change="saveRunColumns"
       @pagination="getRunList"
+      :load-filter-rows="loadColumnFilterRows0"
+      @filtered-rows="list = $event"
+      :list-rows="list"
+      @column-filter-reset="getRunList"
+      :column-filter-definitions="listColumnFilterDefinitions0"
     >
       <template #actions>
         <el-button type="primary" plain @click="getList" v-hasPermi="['erp:kingdee-sync:query']">
@@ -241,10 +227,10 @@
           <Icon icon="ep:plus" class="mr-5px" /> 新增ERP工单
         </el-button>
       </template>
-      <template #table
+      <template #table="{ resolveRows }"
         ><el-table
           v-loading="loading"
-          :data="list"
+          :data="resolveRows(list)"
           :stripe="true"
           :show-overflow-tooltip="true"
           border
@@ -346,6 +332,8 @@
   </div>
 </template>
 <script setup lang="ts">
+import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+
 const activeList = ref('history')
 import { erpListIntegerColumnFormatter } from '@/views/erp/utils/integerDisplay'
 import ErpLocalList from '@/views/erp/components/ErpLocalList.vue'
@@ -403,7 +391,7 @@ const message = useMessage()
 const { push } = useRouter()
 
 const syncTypes = [
-  { type: 'PRODUCT', label: 'ERP 商品', handlerName: 'kingdeeProductItemSyncJob' },
+  { type: 'PRODUCT', label: '物料列表', handlerName: 'kingdeeProductItemSyncJob' },
   { type: 'STOCK', label: 'ERP 库存', handlerName: 'kingdeeStockSyncJob' },
   { type: 'STOCK_MOVE', label: '金蝶调拨单', handlerName: 'kingdeeStockMoveSyncJob' },
   { type: 'PURCHASE_ORDER', label: '采购订单', handlerName: 'kingdeePurchaseOrderSyncJob' },
@@ -431,7 +419,6 @@ const loading = ref(false)
 const watermarkLoading = ref(false)
 const list = ref<ErpKingdeeSyncRunVO[]>([])
 const total = ref(0)
-const runningHandlerName = ref('')
 const watermarks = ref<Record<string, string | undefined>>({})
 const lastProductionOrderClosure = ref<{
   erpBillNo: string
@@ -579,24 +566,6 @@ const openJobLogPage = (handlerName: string) => {
   push({ name: 'InfraJobLog', query: { handlerName } })
 }
 
-const runSyncJob = async (row: { type: string; handlerName: string; label: string }) => {
-  runningHandlerName.value = row.handlerName
-  try {
-    await ErpKingdeeSyncApi.runIncrementalSync(row.type)
-    if (row.handlerName === 'kingdeeProductionOrderSyncJob' && lastProductionOrderClosure.value) {
-      lastProductionOrderClosure.value = {
-        ...lastProductionOrderClosure.value,
-        syncSubmitted: true,
-        syncHandlerName: row.handlerName,
-        confirmedAt: new Date().toISOString()
-      }
-    }
-    message.success(`${row.label} 增量同步任务已提交`)
-    await getList()
-  } finally {
-    runningHandlerName.value = ''
-  }
-}
 
 const runFilters: TableQuickFilterDefinition[] = [
   { key: 'syncType', label: '同步类型', type: 'select', queryParamKey: 'syncType', options: syncTypes.map(item => ({label:item.label,value:item.type})) },
@@ -676,4 +645,27 @@ const { columns: runColumns, saving: runColumnSaving, isColumnVisible: isRunColu
 const runFilter = useTableQuickFilter('erp.sync.runs', runFilters, queryParams, getRunList)
 
 onMounted(getList)
+
+const loadColumnFilterRows0 = async () => {
+  const params = { ...queryParams }
+  const rows = await loadAllListPages<any>((pagination) =>
+    ErpKingdeeSyncApi.getRunPage({ ...params, ...pagination })
+  )
+  return rows
+}
+
+const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'syncType',
+    label: '同步类型',
+    type: 'text',
+    getValue: (row) => [getSyncTypeLabel(row.syncType)].join(' ')
+  },
+  {
+    key: 'status',
+    label: '状态',
+    type: 'text',
+    getValue: (row) => [getStatusLabel(row.status)].join(' ')
+  }
+])
 </script>

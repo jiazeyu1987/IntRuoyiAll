@@ -13,7 +13,7 @@
         <el-tab-pane label="工艺库" name="crafts">
           <UnifiedListTemplate
             :table-key="CRAFT_TABLE_KEY"
-          single-line-toolbar
+            single-line-toolbar
             class="craft-library__list"
             :query-model="craftQuery"
             :filter-definitions="[]"
@@ -35,6 +35,7 @@
             @multi-filter-remove="craftFilter.removeConditionAndApply"
             @column-change="craftColumnControl.saveConfig"
             @sort-change="craftQuery.pageNo = 1"
+            :filter-rows="filteredCrafts"
           >
             <template #actions>
               <el-button
@@ -49,10 +50,10 @@
                 ><Icon icon="ep:refresh" class="mr-5px" />刷新</el-button
               >
             </template>
-            <template #table="{ sortColumnAttrs, handleSortChange }">
+            <template #table="{ resolveRows, sortColumnAttrs, handleSortChange }">
               <el-table
                 v-loading="loading"
-                :data="pagedCrafts"
+                :data="resolveRows(pagedCrafts)"
                 height="100%"
                 scrollbar-always-on
                 border
@@ -99,7 +100,7 @@
         <el-tab-pane label="工艺修改记录" name="changes" lazy>
           <UnifiedListTemplate
             :table-key="CHANGE_TABLE_KEY"
-          single-line-toolbar
+            single-line-toolbar
             class="craft-library__list"
             :query-model="changeQuery"
             :filter-definitions="[]"
@@ -121,16 +122,17 @@
             @multi-filter-remove="changeFilter.removeConditionAndApply"
             @column-change="changeColumnControl.saveConfig"
             @sort-change="changeQuery.pageNo = 1"
+            :filter-rows="filteredChanges"
           >
             <template #actions>
               <el-button :loading="loading" @click="load"
                 ><Icon icon="ep:refresh" class="mr-5px" />刷新</el-button
               >
             </template>
-            <template #table="{ sortColumnAttrs, handleSortChange }">
+            <template #table="{ resolveRows, sortColumnAttrs, handleSortChange }">
               <el-table
                 v-loading="loading"
-                :data="pagedChanges"
+                :data="resolveRows(pagedChanges)"
                 height="100%"
                 scrollbar-always-on
                 border
@@ -808,6 +810,8 @@ function showHistory(change: CraftChange) {
   historyVisible.value = true
 }
 onMounted(load)
+
+
 </script>
 <style scoped>
 .craft-library {

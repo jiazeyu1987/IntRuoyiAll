@@ -18,13 +18,15 @@
     @column-change="savePolicyColumnConfig"
     @column-reset="resetPolicyColumnConfig"
     @pagination="handlePagination"
+    :filter-rows="filteredRows"
+    :column-filter-definitions="listColumnFilterDefinitions0"
   >
-    <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+    <template #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
       <el-table
         v-loading="loading"
         data-user-table-column-explicit
         :data-user-table-key="tableKey"
-        :data="pagedRows"
+        :data="resolveRows(pagedRows)"
         :show-overflow-tooltip="true"
         :empty-text="emptyText"
         @header-dragend="handlePolicyHeaderDragend"
@@ -63,6 +65,8 @@
 </template>
 
 <script lang="ts" setup>
+import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import { useUserTableColumns, type UserTableColumnDefinition } from '@/hooks/web/useUserTableColumns'
 import {
@@ -173,4 +177,13 @@ watch(
   () => props.rows,
   () => handlePagination()
 )
+
+const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'blocker',
+    label: '关键阻断',
+    type: 'text',
+    getValue: (row) => [resolveFirstBlocker(row)].join(' ')
+  }
+])
 </script>

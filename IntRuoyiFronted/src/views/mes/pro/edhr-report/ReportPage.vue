@@ -642,15 +642,7 @@ onMounted(() => {
   color: #172033;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-  font-family:
-    ui-monospace,
-    SFMono-Regular,
-    Menlo,
-    Monaco,
-    Consolas,
-    'Liberation Mono',
-    'Courier New',
-    monospace;
+  font-family: var(--app-font-family);
   font-size: 12px;
   line-height: 1.5;
 }

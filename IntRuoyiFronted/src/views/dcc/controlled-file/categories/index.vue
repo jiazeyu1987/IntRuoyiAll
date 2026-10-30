@@ -32,6 +32,8 @@
             @quick-filter-query="categoryQuickFilter.applyQuickFilter"
             @column-change="saveCategoryColumnConfig"
             @pagination="handleCategoryPagination"
+            :filter-rows="filteredCategories"
+            :column-filter-definitions="listColumnFilterDefinitions0"
           >
             <template #actions>
               <el-button
@@ -44,12 +46,12 @@
                 新增类别
               </el-button>
             </template>
-            <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+            <template #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
               <el-table
                 v-loading="loading"
                 data-user-table-column-explicit
                 data-user-table-key="dcc.controlledFile.permission.categories"
-                :data="paginatedCategories"
+                :data="resolveRows(paginatedCategories)"
                 border
                 :stripe="true"
                 :show-overflow-tooltip="true"
@@ -255,6 +257,8 @@
 </template>
 
 <script lang="ts" setup>
+import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+
 import { checkPermi } from '@/utils/permission'
 import ControlledFileWorkbenchEntry from '../shared/ControlledFileWorkbenchEntry.vue'
 import FileTypeTaxonomyPanel from '../basic-data/file-type-taxonomy/index.vue'
@@ -657,6 +661,43 @@ watch(activeTab, async (tab) => {
     }
   })
 })
+
+const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'taxonomyStageName',
+    label: '阶段',
+    type: 'text',
+    getValue: (row) => [formatCategoryTaxonomyStageLabel(row)].join(' ')
+  },
+  {
+    key: 'directory',
+    label: '绑定目录',
+    type: 'text',
+    getValue: (row) =>
+      [row.directoryId ? directoryPathMap.value.get(row.directoryId) || '-' : '-'].join(' ')
+  },
+  {
+    key: 'fileTypeTaxonomy',
+    label: '默认文件分类',
+    type: 'text',
+    getValue: (row) =>
+      [
+        row.fileTypeTaxonomyId ? taxonomyPathMap.value.get(row.fileTypeTaxonomyId) || '-' : '-'
+      ].join(' ')
+  },
+  {
+    key: 'governance',
+    label: '治理摘要',
+    type: 'text',
+    getValue: (row) =>
+      [
+        formatBooleanLabel(row.active),
+        formatRequirementLabel(row.distributionRequired),
+        formatRequirementLabel(row.trainingRequired),
+        formatDateTimeValue(row.createTime, '-')
+      ].join(' ')
+  }
+])
 </script>
 
 <style scoped>

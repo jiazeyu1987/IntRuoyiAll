@@ -7,6 +7,11 @@ package cn.iocoder.yudao.framework.quartz.core.handler;
  */
 public interface JobHandler {
 
+    /** Whether a failed execution may be restarted by the scheduler. */
+    default boolean supportsAutomaticRetry() {
+        return true;
+    }
+
     /**
      * 执行任务
      *

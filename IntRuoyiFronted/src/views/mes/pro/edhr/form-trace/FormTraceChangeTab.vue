@@ -1,6 +1,8 @@
 <template>
   <div class="edhr-form-trace-change">
     <UnifiedListTemplate
+      :query-loading="loading"
+      :reset-filters="resetQuery"
       single-line-toolbar
       table-key="mes.pro.edhr.formTrace.change"
       :query-model="queryParams"
@@ -19,16 +21,14 @@
       @quick-filter-query="changeQuickFilter.applyQuickFilter"
       @column-change="saveChangeColumnConfig"
       @pagination="getList"
+      :load-filter-rows="loadColumnFilterRows0"
+      @filtered-rows="list = $event"
+      :list-rows="list"
+      @column-filter-reset="getList"
+      :column-filter-definitions="listColumnFilterDefinitions0"
     >
-      <template #actions>
-        <el-button :loading="loading" type="primary" @click="handleQuery">
-          <Icon icon="ep:search" class="mr-5px" />
-          查询
-        </el-button>
-        <el-button @click="resetQuery">重置</el-button>
-      </template>
 
-      <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+      <template #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
         <el-alert
           v-if="loadError"
           :title="loadError"
@@ -41,7 +41,7 @@
           v-loading="loading"
           data-user-table-column-explicit
           data-user-table-key="mes.pro.edhr.formTrace.change"
-          :data="list"
+          :data="resolveRows(list)"
           border
           stripe
           row-key="id"
@@ -399,6 +399,8 @@
 </template>
 
 <script setup lang="ts">
+import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+
 import '@/views/mes/pro/edhr/shared/detail-surface.scss'
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import {
@@ -650,11 +652,6 @@ async function getList() {
   }
 }
 
-const handleQuery = () => {
-  queryParams.pageNo = 1
-  getList()
-}
-
 const resetQuery = async () => {
   queryParams.pageNo = 1
   queryParams.pageSize = props.pageSize
@@ -738,6 +735,64 @@ watch(
 )
 
 defineExpose({ reload: getList })
+
+const loadColumnFilterRows0 = async () => {
+  const params = {
+    pageNo: queryParams.pageNo,
+    pageSize: queryParams.pageSize,
+    changeType: EDHR_FORM_TRACE_CHANGE_TYPE,
+    targetScope: queryParams.targetScope || undefined,
+    batchExecutionId: queryParams.batchExecutionId,
+    executionId: queryParams.executionId,
+    changeStatus: queryParams.changeStatus || undefined
+  }
+  const rows = await loadAllListPages<any>((pagination) =>
+    getEdhrRecordChangePage({ ...params, ...pagination })
+  )
+  return rows
+}
+
+const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'changeType',
+    label: '类型',
+    type: 'text',
+    getValue: (row) => [resolveChangeTypeLabel(row.changeType)].join(' ')
+  },
+  {
+    key: 'changeStatus',
+    label: '状态',
+    type: 'text',
+    getValue: (row) => [resolveChangeStatusLabel(row.changeStatus)].join(' ')
+  },
+  {
+    key: 'targetObject',
+    label: '对象',
+    type: 'text',
+    getValue: (row) =>
+      [
+        resolveTargetScopeLabel(row.targetScope),
+        formatObjectId(row.batchExecutionId),
+        formatObjectId(row.executionId)
+      ].join(' ')
+  },
+  {
+    key: 'statusChange',
+    label: '状态变化',
+    type: 'text',
+    getValue: (row) =>
+      [
+        resolveExecutionStatusLabel(row.previousStatus),
+        resolveExecutionStatusLabel(row.newStatus)
+      ].join(' ')
+  },
+  {
+    key: 'reason',
+    label: '原因',
+    type: 'text',
+    getValue: (row) => [row.reasonCategory || '--', row.reasonText || '--'].join(' ')
+  }
+])
 </script>
 
 <style scoped>

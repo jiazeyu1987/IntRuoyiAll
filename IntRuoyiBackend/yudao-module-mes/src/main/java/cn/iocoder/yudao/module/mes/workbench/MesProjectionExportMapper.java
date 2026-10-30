@@ -6,5 +6,4 @@ import java.util.List;
 public interface MesProjectionExportMapper {
  List<MesEdhrWorkbenchRow> exportHandoff(@Param("q") QueryContext query);
  List<MesEdhrWorkbenchRow> exportEdhr(@Param("q") QueryContext query);
- List<MesWorkOrderWorkbenchRow> exportWorkOrder(@Param("q") QueryContext query);
 }

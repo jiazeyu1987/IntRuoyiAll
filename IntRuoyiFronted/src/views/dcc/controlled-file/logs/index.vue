@@ -19,8 +19,13 @@
       @quick-filter-query="logQuickFilter.applyQuickFilter"
       @column-change="saveLogColumnConfig"
       @pagination="getList"
+      :load-filter-rows="loadColumnFilterRows0"
+      @filtered-rows="list = $event"
+      :list-rows="list"
+      @column-filter-reset="getList"
+      :column-filter-definitions="listColumnFilterDefinitions0"
     >
-      <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+      <template #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
         <el-alert
           v-if="loadError"
           class="logs-load-error"
@@ -32,7 +37,7 @@
           v-loading="loading"
           data-user-table-column-explicit
           data-user-table-key="dcc.controlledFile.logs"
-          :data="list"
+          :data="resolveRows(list)"
           border
           :stripe="true"
           :empty-text="controlledFileLogEmptyText"
@@ -219,6 +224,8 @@
 </template>
 
 <script lang="ts" setup>
+import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+
 import {
   getControlledFileLogPage,
   type DccControlledFileLogPageReqVO,
@@ -436,6 +443,65 @@ const openLogDetail = (row: DccControlledFileLogRespVO) => {
 onMounted(() => {
   getList()
 })
+
+const loadColumnFilterRows0 = async () => {
+  const params = { ...queryParams }
+  const rows = await loadAllListPages<any>((pagination) =>
+    getControlledFileLogPage({ ...params, ...pagination })
+  )
+  return rows
+}
+
+const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'logType',
+    label: '日志类型',
+    type: 'text',
+    getValue: (row) => [getLogTypeLabel(row.logType)].join(' ')
+  },
+  {
+    key: 'actionLabel',
+    label: '动作',
+    type: 'text',
+    getValue: (row) => [displayText(row.actionLabel)].join(' ')
+  },
+  {
+    key: 'fileNumber',
+    label: '文件编号',
+    type: 'text',
+    getValue: (row) => [displayText(row.fileNumber)].join(' ')
+  },
+  {
+    key: 'fileName',
+    label: '文件名称',
+    type: 'text',
+    getValue: (row) => [displayText(row.fileName)].join(' ')
+  },
+  {
+    key: 'operatorName',
+    label: '操作人',
+    type: 'text',
+    getValue: (row) => [displayOperator(row)].join(' ')
+  },
+  {
+    key: 'relatedObject',
+    label: '关联对象',
+    type: 'text',
+    getValue: (row) => [displayText(row.relatedObject)].join(' ')
+  },
+  {
+    key: 'summary',
+    label: '摘要',
+    type: 'text',
+    getValue: (row) => [displayText(row.summary)].join(' ')
+  },
+  {
+    key: 'resultLabel',
+    label: '结果',
+    type: 'text',
+    getValue: (row) => [displayText(row.resultLabel)].join(' ')
+  }
+])
 </script>
 
 <style scoped>

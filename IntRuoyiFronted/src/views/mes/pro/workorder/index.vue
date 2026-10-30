@@ -4,7 +4,7 @@
 
   <ContentWrap class="erp-viewport-list">
     <UnifiedListTemplate
-      :show-filter-reset="false"
+      :reset-filters="resetQuery"
       table-key="mes.pro.workorder.main"
       single-line-toolbar
       :query-model="queryParams"
@@ -23,8 +23,14 @@
       @quick-filter-query="workOrderQuickFilter.applyQuickFilter"
       @column-change="saveWorkOrderColumnConfig"
       @pagination="getList"
+      :load-filter-rows="loadColumnFilterRows0"
+      @filtered-rows="list = $event"
+      :list-rows="list"
+      @column-filter-reset="getList"
+      :column-filter-definitions="listColumnFilterDefinitions0"
     >
       <template #actions>
+        <RecentFullSyncButton sync-type="PRODUCTION_ORDER" />
         <el-button
           v-show="false"
           v-if="isAdminUser"
@@ -36,17 +42,6 @@
           ><Icon icon="ep:download" class="mr-5px" /> 导出</el-button
         >
         <el-button
-          type="primary"
-          plain
-          v-if="isAdminUser"
-          @click="handleSyncKingdeeWorkOrders"
-          :loading="kingdeeSyncLoading"
-          data-work-order-sync-kingdee
-          v-hasPermi="['mes:pro-work-order:create']"
-        >
-          <Icon icon="ep:refresh-right" class="mr-5px" /> 增量同步
-        </el-button>
-        <el-button
           v-show="false"
           class="app-test-button"
           v-if="testModeEnabled && isAdminUser"
@@ -57,16 +52,14 @@
           v-hasPermi="['mes:pro-work-order:create-erp']"
           >AI E2E固定订单</el-button
         >
-        <el-button v-show="false" @click="resetQuery"
-          ><Icon icon="ep:refresh" class="mr-5px" /> 重置</el-button
-        >
+
       </template>
-      <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+      <template #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
         <el-table
           v-loading="loading"
           data-user-table-column-explicit
           data-user-table-key="mes.pro.workorder.main"
-          :data="list"
+          :data="resolveRows(list)"
           border
           :stripe="true"
           :show-overflow-tooltip="true"
@@ -403,6 +396,10 @@
   </el-dialog>
 </template>
 <script setup lang="ts">
+import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+import { getDictOptions as listColumnDictOptions } from '@/utils/dict'
+
+import RecentFullSyncButton from '@/views/erp/components/RecentFullSyncButton.vue'
 import '@/views/erp/components/viewport-list.css'
 
 import { erpListIntegerColumnFormatter, formatErpListInteger } from '@/views/erp/utils/integerDisplay'
@@ -418,7 +415,6 @@ import {
   type ProWorkOrderVO
 } from '@/api/mes/pro/workorder'
 import { MdItemApi, type MdItemVO } from '@/api/mes/md/item'
-import { ErpKingdeeSyncApi } from '@/api/erp/sync'
 import WorkOrderForm from './WorkOrderForm.vue'
 import { useTreeTableExpand } from '@/utils/treeExpand'
 import { checkRole } from '@/utils/permission'
@@ -486,7 +482,6 @@ const queryParams = reactive({
   quickFilter: undefined as any
 })
 const exportLoading = ref(false) // 导出的加载中
-const kingdeeSyncLoading = ref(false) // 金蝶同步加载中
 const erpCreateLoadingId = ref<number | null>(null) // 行级创建 ERP 订单加载中
 const aiE2eDialog = reactive({
   visible: false,
@@ -605,16 +600,6 @@ const loadListFromRoute = async () => {
   openedRouteDetailId.value = openId
   openForm('detail', Number(openId))
 }
-const handleSyncKingdeeWorkOrders = async () => {
-  kingdeeSyncLoading.value = true
-  try {
-    await ErpKingdeeSyncApi.runIncrementalSync('PRODUCTION_ORDER')
-    message.success('生产工单增量同步任务已提交')
-    await getList()
-  } finally {
-    kingdeeSyncLoading.value = false
-  }
-}
 const handleCreateKingdeeProductionOrder = async (row: WorkOrderTreeRow) => {
   await message.confirm(`确认根据生产工单 ${row.code} 创建 ERP 测试生产订单？`)
   erpCreateLoadingId.value = row.id
@@ -674,6 +659,29 @@ watch(
   }
 )
 onMounted(loadListFromRoute)
+
+const loadColumnFilterRows0 = async () => {
+  const params = { ...queryParams }
+  const rows = await loadAllListPages<any>((pagination) =>
+    ProWorkOrderApi.getWorkOrderPage({ ...params, ...pagination })
+  )
+  return handleTree(rows, 'id', 'parentId') as WorkOrderTreeRow[]
+}
+
+const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'quantity',
+    label: '计划数量',
+    type: 'text',
+    getValue: (row) => [formatErpListInteger(row.quantity)].join(' ')
+  },
+  {
+    key: 'status',
+    label: '工单状态',
+    type: 'select',
+    options: listColumnDictOptions(DICT_TYPE.MES_PRO_WORK_ORDER_STATUS)
+  }
+])
 </script>
 
 <style scoped>

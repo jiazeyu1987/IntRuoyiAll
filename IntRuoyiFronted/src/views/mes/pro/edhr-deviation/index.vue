@@ -17,13 +17,18 @@
       @update:quick-filter-state="quickFilter.updateState"
       @quick-filter-query="quickFilter.applyQuickFilter"
       @sort-change="handleSortChange"
+      :load-filter-rows="loadColumnFilterRows0"
+      @filtered-rows="rows = $event"
+      :list-rows="rows"
+      @column-filter-reset="load"
+      :column-filter-definitions="listColumnFilterDefinitions0"
     >
       <template #actions>
         <el-button v-hasPermi="['mes:pro-edhr-deviation:create']" type="primary" @click="openCreate">发起偏差</el-button>
         <el-button v-if="selectedCritical.length > 0" v-hasPermi="['mes:pro-edhr-nonconformance-review:deviation-create']" type="danger" @click="openBatchNcr">批量发起不合格审批（{{ selectedCritical.length }}）</el-button>
       </template>
-      <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
-        <el-table border :allow-drag-last-column="true" height="100%" v-loading="loading" :data="rows" empty-text="没有偏差" row-key="id" @selection-change="handleSelectionChange" @sort-change="handleTemplateSortChange">
+      <template #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+        <el-table border :allow-drag-last-column="true" height="100%" v-loading="loading" :data="resolveRows(rows)" empty-text="没有偏差" row-key="id" @selection-change="handleSelectionChange" @sort-change="handleTemplateSortChange">
           <el-table-column type="selection" width="48" :selectable="isCriticalOpen" />
           <el-table-column prop="deviationCode" label="偏差编号" min-width="180" v-bind="sortColumnAttrs('deviationCode')" />
           <el-table-column prop="batchExecutionCode" label="关联批记录" min-width="180" />
@@ -65,6 +70,8 @@
 </template>
 
 <script setup lang="ts">
+import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+
 import '@/views/mes/pro/edhr-batch/record-viewport.css'
 import { createDeviation, getDeviationBatchOptions, getDeviationPage, type DeviationBatchOptionRespVO, type DeviationCreateReqVO, type DeviationRespVO } from '@/api/mes/pro/edhr/deviation'
 import type { FormInstance, FormRules } from 'element-plus'
@@ -256,4 +263,31 @@ const applyHistoryEntry = () => {
 }
 watch(() => route.query.deviationId, applyHistoryEntry)
 onMounted(() => { applyHistoryEntry(); void load() })
+
+const loadColumnFilterRows0 = async () => {
+  const params = {
+    ...query,
+    initiatedAtStart: query.initiatedAt?.[0],
+    initiatedAtEnd: query.initiatedAt?.[1]
+  }
+  const rows = await loadAllListPages<any>((pagination) =>
+    getDeviationPage({ ...params, ...pagination })
+  )
+  return rows
+}
+
+const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'level',
+    label: '等级',
+    type: 'text',
+    getValue: (row) => [row.level === 'CRITICAL' ? '重大' : '普通'].join(' ')
+  },
+  {
+    key: 'status',
+    label: '状态',
+    type: 'text',
+    getValue: (row) => [row.status === 'OPEN' ? '未处理' : '已处理'].join(' ')
+  }
+])
 </script>

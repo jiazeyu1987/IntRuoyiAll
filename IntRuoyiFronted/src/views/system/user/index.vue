@@ -30,6 +30,11 @@
           @quick-filter-query="handleQuery"
           @column-change="saveUserColumnConfig"
           @pagination="getList"
+          :load-filter-rows="loadColumnFilterRows0"
+          @filtered-rows="list = $event"
+          :list-rows="list"
+          @column-filter-reset="getList"
+          :column-filter-definitions="listColumnFilterDefinitions0"
         >
           <template #actions>
             <el-dropdown
@@ -77,13 +82,13 @@
               </template>
             </el-dropdown>
           </template>
-          <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+          <template #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
             <el-table
               v-loading="loading"
               class="system-user-resizable-table"
               data-user-table-column-explicit
               data-user-table-key="system.user.main"
-              :data="list"
+              :data="resolveRows(list)"
               row-key="id"
               border
               :allow-drag-last-column="true"
@@ -313,6 +318,8 @@
   <UserDirectSupervisorDialog ref="directSupervisorRef" />
 </template>
 <script lang="ts" setup>
+import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+
 import { DICT_TYPE, getIntDictOptions } from '@/utils/dict'
 import { checkPermi } from '@/utils/permission'
 import { isNavigationFailure } from 'vue-router'
@@ -773,6 +780,22 @@ watch(
     await getList()
   }
 )
+
+const loadColumnFilterRows0 = async () => {
+  const rows = await loadAllListPages<any>((pagination) =>
+    UserApi.getUserPage({ ...queryParams, ...pagination })
+  )
+  return buildUserTableRows(rows)
+}
+
+const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'loginLocked',
+    label: '锁定状态',
+    type: 'text',
+    getValue: (row) => [row.loginLocked === 1 ? '已锁定' : '未锁定'].join(' ')
+  }
+])
 </script>
 
 <style scoped>

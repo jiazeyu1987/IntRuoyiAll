@@ -25,6 +25,7 @@
             @quick-filter-query="productionLeaderQuickFilter.applyQuickFilter"
             @column-change="saveProductionLeaderColumnConfig"
             @pagination="handleProductionLeaderPagination"
+            :filter-rows="filteredProductionLeaderRows"
           >
             <template #actions>
               <el-form-item class="edhr-batch-record-test-page__tenant-filter" label="测试租户">
@@ -77,7 +78,7 @@
               </el-button>
             </template>
 
-            <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+            <template #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
               <el-alert
                 v-if="loadError"
                 class="edhr-batch-record-test-page__alert"
@@ -89,7 +90,7 @@
               <el-table
                 data-user-table-column-explicit
                 data-user-table-key="mes.pro.edhrBatchRecordTest.productionLeader"
-                :data="pagedProductionLeaderRows"
+                :data="resolveRows(pagedProductionLeaderRows)"
                 border
                 row-key="id"
                 :show-overflow-tooltip="true"
@@ -188,6 +189,7 @@
             @quick-filter-query="frontlinePqcQuickFilter.applyQuickFilter"
             @column-change="saveFrontlinePqcColumnConfig"
             @pagination="handleFrontlinePqcPagination"
+            :filter-rows="filteredFrontlinePqcRows"
           >
             <template #actions>
               <el-form-item class="edhr-batch-record-test-page__tenant-filter" label="测试租户">
@@ -240,7 +242,7 @@
               </el-button>
             </template>
 
-            <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+            <template #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
               <el-alert
                 v-if="loadError"
                 class="edhr-batch-record-test-page__alert"
@@ -252,7 +254,7 @@
               <el-table
                 data-user-table-column-explicit
                 data-user-table-key="mes.pro.edhrBatchRecordTest.frontlinePqc"
-                :data="pagedFrontlinePqcRows"
+                :data="resolveRows(pagedFrontlinePqcRows)"
                 border
                 row-key="id"
                 :show-overflow-tooltip="true"
@@ -351,6 +353,7 @@
             @quick-filter-query="frontlineProductionQuickFilter.applyQuickFilter"
             @column-change="saveFrontlineProductionColumnConfig"
             @pagination="handleFrontlineProductionPagination"
+            :filter-rows="filteredFrontlineProductionRows"
           >
             <template #actions>
               <el-form-item class="edhr-batch-record-test-page__tenant-filter" label="测试租户">
@@ -403,7 +406,7 @@
               </el-button>
             </template>
 
-            <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+            <template #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
               <el-alert
                 v-if="loadError"
                 class="edhr-batch-record-test-page__alert"
@@ -415,7 +418,7 @@
               <el-table
                 data-user-table-column-explicit
                 data-user-table-key="mes.pro.edhrBatchRecordTest.frontlineProduction"
-                :data="pagedFrontlineProductionRows"
+                :data="resolveRows(pagedFrontlineProductionRows)"
                 border
                 row-key="id"
                 :show-overflow-tooltip="true"
@@ -518,6 +521,7 @@
             @quick-filter-query="orderAllocationQuickFilter.applyQuickFilter"
             @column-change="saveOrderAllocationColumnConfig"
             @pagination="handleOrderAllocationPagination"
+            :filter-rows="filteredOrderAllocationRows"
           >
             <template #actions>
               <el-form-item class="edhr-batch-record-test-page__tenant-filter" label="测试租户">
@@ -570,7 +574,7 @@
               </el-button>
             </template>
 
-            <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+            <template #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
               <el-alert
                 v-if="loadError"
                 class="edhr-batch-record-test-page__alert"
@@ -582,7 +586,7 @@
               <el-table
                 data-user-table-column-explicit
                 data-user-table-key="mes.pro.edhrBatchRecordTest.orderAllocation"
-                :data="pagedOrderAllocationRows"
+                :data="resolveRows(pagedOrderAllocationRows)"
                 border
                 row-key="id"
                 :show-overflow-tooltip="true"
@@ -681,6 +685,7 @@
             @quick-filter-query="batchRecordMappingQuickFilter.applyQuickFilter"
             @column-change="saveBatchRecordMappingColumnConfig"
             @pagination="handleBatchRecordMappingPagination"
+            :filter-rows="filteredBatchRecordMappingRows"
           >
             <template #actions>
               <el-form-item class="edhr-batch-record-test-page__tenant-filter" label="测试租户">
@@ -733,7 +738,7 @@
               </el-button>
             </template>
 
-            <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+            <template #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
               <el-alert
                 v-if="loadError"
                 class="edhr-batch-record-test-page__alert"
@@ -745,7 +750,7 @@
               <el-table
                 data-user-table-column-explicit
                 data-user-table-key="mes.pro.edhrBatchRecordTest.batchRecordMapping"
-                :data="pagedBatchRecordMappingRows"
+                :data="resolveRows(pagedBatchRecordMappingRows)"
                 border
                 row-key="id"
                 :show-overflow-tooltip="true"
@@ -2707,6 +2712,8 @@ onMounted(async () => {
 onBeforeUnmount(() => {
   stopResultPolling()
 })
+
+
 </script>
 
 <style scoped lang="scss">

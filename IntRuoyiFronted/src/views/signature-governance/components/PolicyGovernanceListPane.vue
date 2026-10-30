@@ -18,6 +18,7 @@
       @column-change="saveColumnConfig"
       @column-reset="resetColumnConfig"
       @pagination="handlePagination"
+      :filter-rows="filteredRows"
     >
       <template #actions>
         <el-button
@@ -30,12 +31,12 @@
         </el-button>
       </template>
 
-      <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+      <template #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
         <el-table
           v-loading="policyLoading"
           data-user-table-column-explicit
           data-user-table-key="signature.governance.policy.list"
-          :data="pagedRows"
+          :data="resolveRows(pagedRows)"
           :empty-text="policyError || '暂无统一策略结果'"
           :show-overflow-tooltip="true"
           @header-dragend="handleHeaderDragend"
@@ -263,4 +264,6 @@ watch(rows, () => handlePagination())
 onMounted(() => {
   void loadCurrentPolicy()
 })
+
+
 </script>

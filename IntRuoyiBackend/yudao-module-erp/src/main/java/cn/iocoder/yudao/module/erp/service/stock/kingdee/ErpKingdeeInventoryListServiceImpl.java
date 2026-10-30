@@ -47,9 +47,16 @@ public class ErpKingdeeInventoryListServiceImpl implements ErpKingdeeInventoryLi
     @Override
     @Transactional(rollbackFor = Exception.class)
     public ErpKingdeeInventoryListSyncResult syncAllSkipExisting() {
+        return syncAllSkipExisting(null, null);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public ErpKingdeeInventoryListSyncResult syncAllSkipExisting(LocalDateTime windowStart, LocalDateTime windowEnd) {
         ErpKingdeeProperties properties = kingdeeConfigService.getEffectiveProperties();
         properties.validateBaseConfig();
-        List<ErpKingdeeInventoryRow> rows = inventoryClient.fetchInventoryRows(properties);
+        List<ErpKingdeeInventoryRow> rows = (windowStart == null ? inventoryClient.fetchInventoryRows(properties)
+                : inventoryClient.fetchInventoryRowsModifiedBetween(properties, windowStart, windowEnd));
         ErpKingdeeInventoryListSyncResult result = new ErpKingdeeInventoryListSyncResult();
         LocalDateTime now = LocalDateTime.now();
         for (ErpKingdeeInventoryRow row : rows) {

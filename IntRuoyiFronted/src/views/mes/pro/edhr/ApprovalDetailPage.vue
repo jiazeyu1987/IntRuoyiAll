@@ -911,7 +911,7 @@ onMounted(() => {
 }
 
 .edhr-detail__hash {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
+  font-family: var(--app-font-family);
   overflow-wrap: anywhere;
 }
 </style>

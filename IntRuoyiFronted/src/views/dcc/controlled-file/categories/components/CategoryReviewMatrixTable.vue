@@ -20,6 +20,8 @@
       @quick-filter-query="reviewMatrixQuickFilter.applyQuickFilter"
       @column-change="saveReviewMatrixColumnConfig"
       @pagination="handleReviewMatrixPagination"
+      :filter-rows="rows"
+      :column-filter-definitions="listColumnFilterDefinitions0"
     >
       <template #actions>
         <el-button plain type="primary" @click="openUserLookupDialog">
@@ -27,12 +29,12 @@
           按人反查
         </el-button>
       </template>
-      <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+      <template #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
         <el-table
           v-loading="loading"
           data-user-table-column-explicit
           data-user-table-key="dcc.controlledFile.permission.reviewMatrix"
-          :data="paginatedReviewMatrixRows"
+          :data="resolveRows(paginatedReviewMatrixRows)"
           border
           :stripe="true"
           :show-overflow-tooltip="true"
@@ -141,6 +143,8 @@
 </template>
 
 <script lang="ts" setup>
+import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+
 import { onBeforeUnmount } from 'vue'
 import {
   deleteCategoryApprovalMatrix,
@@ -346,6 +350,21 @@ onMounted(async () => {
     await loadRows()
   }
 })
+
+const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'signoffRules',
+    label: '审核规则',
+    type: 'text',
+    getValue: (row) => [formatStageRuleSummary(row.rules, 'SIGNOFF')].join(' ')
+  },
+  {
+    key: 'approvalRules',
+    label: '批准规则',
+    type: 'text',
+    getValue: (row) => [formatStageRuleSummary(row.rules, 'APPROVAL')].join(' ')
+  }
+])
 </script>
 
 <style scoped>

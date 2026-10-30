@@ -913,7 +913,7 @@ onMounted(async () => {
 .edhr-dhr-template__hash,
 .edhr-dhr-template__json {
   color: #263247;
-  font-family: ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace;
+  font-family: var(--app-font-family);
   font-size: 12px;
   overflow-wrap: anywhere;
 }

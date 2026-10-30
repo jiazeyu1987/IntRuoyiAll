@@ -39,9 +39,14 @@ const theme = computed(() => {
 })
 
 const options = computed(() => {
-  return Object.assign(props.options, {
-    darkMode: unref(theme)
-  })
+  return {
+    ...props.options,
+    darkMode: unref(theme),
+    textStyle: {
+      ...props.options.textStyle,
+      fontFamily: 'Microsoft YaHei'
+    }
+  }
 })
 
 const elRef = ref<ElRef>()

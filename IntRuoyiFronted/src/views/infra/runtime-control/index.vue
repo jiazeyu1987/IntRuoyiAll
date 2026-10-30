@@ -2538,7 +2538,7 @@ watch(
   padding: 8px 10px;
   overflow: auto;
   color: #172033;
-  font-family: Consolas, 'Courier New', monospace;
+  font-family: var(--app-font-family);
   font-size: 12px;
   line-height: 1.5;
   white-space: pre-wrap;
@@ -2926,7 +2926,7 @@ watch(
   padding: 12px;
   overflow: auto;
   color: #172033;
-  font-family: Consolas, 'Courier New', monospace;
+  font-family: var(--app-font-family);
   font-size: 12px;
   line-height: 1.55;
   white-space: pre-wrap;

@@ -1,6 +1,8 @@
 <template>
   <div class="edhr-form-trace-audit">
     <UnifiedListTemplate
+      :query-loading="loading"
+      :reset-filters="resetQuery"
       table-key="mes.pro.edhr.formTrace.audit"
       :query-model="queryParams"
       :filter-definitions="auditQuickFilterDefinitions"
@@ -18,16 +20,14 @@
       @quick-filter-query="auditQuickFilter.applyQuickFilter"
       @column-change="saveAuditColumnConfig"
       @pagination="getList"
+      :load-filter-rows="loadColumnFilterRows0"
+      @filtered-rows="list = $event"
+      :list-rows="list"
+      @column-filter-reset="getList"
+      :column-filter-definitions="listColumnFilterDefinitions0"
     >
-      <template #actions>
-        <el-button :loading="loading" type="primary" @click="handleQuery">
-          <Icon icon="ep:search" class="mr-5px" />
-          查询
-        </el-button>
-        <el-button @click="resetQuery">重置</el-button>
-      </template>
 
-      <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+      <template #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
         <el-alert
           v-if="loadError"
           :title="loadError"
@@ -40,7 +40,7 @@
           v-loading="loading"
           data-user-table-column-explicit
           data-user-table-key="mes.pro.edhr.formTrace.audit"
-          :data="list"
+          :data="resolveRows(list)"
           border
           stripe
           row-key="executionId"
@@ -226,6 +226,8 @@
 </template>
 
 <script setup lang="ts">
+import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import { EDHR_EXECUTION_STATUS } from '@/api/mes/pro/edhr/approval'
 import {
@@ -433,11 +435,6 @@ async function getList() {
   }
 }
 
-const handleQuery = () => {
-  queryParams.pageNo = 1
-  getList()
-}
-
 const resetQuery = async () => {
   queryParams.pageNo = 1
   queryParams.pageSize = 10
@@ -502,6 +499,80 @@ const openBatch = (row: EdhrTrackingRowVO) => {
 }
 
 onMounted(() => getList())
+
+const loadColumnFilterRows0 = async () => {
+  const params = {
+    pageNo: queryParams.pageNo,
+    pageSize: queryParams.pageSize,
+    executionCode: queryParams.executionCode.trim() || undefined,
+    workOrderCode: queryParams.workOrderCode.trim() || undefined,
+    batchCode: queryParams.batchCode.trim() || undefined,
+    processId: normalizePositiveProcessId(queryParams.processId),
+    workstationId: Number.isFinite(queryParams.workstationId)
+      ? queryParams.workstationId
+      : undefined,
+    status: queryParams.status as any,
+    submittedBy: Number.isFinite(queryParams.submittedBy) ? queryParams.submittedBy : undefined,
+    approvedBy: Number.isFinite(queryParams.approvedBy) ? queryParams.approvedBy : undefined,
+    processInstanceId: queryParams.processInstanceId.trim() || undefined,
+    actorName: queryParams.actorName.trim() || undefined
+  }
+  const rows = await loadAllListPages<any>((pagination) =>
+    getEdhrTrackingPage({ ...params, ...pagination })
+  )
+  return rows
+}
+
+const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'execution',
+    label: '执行编号',
+    type: 'text',
+    getValue: (row) => [resolveExecutionDisplay(row), resolveExecutionDisplay(row)].join(' ')
+  },
+  {
+    key: 'productionContext',
+    label: '生产上下文',
+    type: 'text',
+    getValue: (row) =>
+      [
+        row.workOrderCode || '--',
+        row.workOrderCode || '--',
+        row.batchCode || '--',
+        row.batchCode || '--',
+        row.processName || '--',
+        row.workstationName || '--'
+      ].join(' ')
+  },
+  {
+    key: 'stage',
+    label: '当前阶段',
+    type: 'text',
+    getValue: (row) =>
+      [
+        resolveStatusLabel(row.status),
+        row.currentNodeName || '--',
+        row.currentAssigneeNames?.join('、') || '--'
+      ].join(' ')
+  },
+  {
+    key: 'lastEvent',
+    label: '最后处理',
+    type: 'text',
+    getValue: (row) =>
+      [
+        formatTrackingEvent(row.lastEventType),
+        formatTrackingLastEventAt(row.lastEventAt),
+        row.lastEventReason || '--'
+      ].join(' ')
+  },
+  {
+    key: 'archiveStatus',
+    label: '归档状态',
+    type: 'text',
+    getValue: (row) => [formatArchiveStatusLabel(row.archiveStatus)].join(' ')
+  }
+])
 </script>
 
 <style scoped>

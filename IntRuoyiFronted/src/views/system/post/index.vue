@@ -1,12 +1,21 @@
 <template>
   <ContentWrap>
     <UnifiedListTemplate
+      @query="handleQuery"
+      @reset="resetQuery"
       table-key="system.post.main"
       :query-model="queryParams"
       :total="total"
       v-model:page="queryParams.pageNo"
       v-model:limit="queryParams.pageSize"
       @pagination="getList"
+      :load-filter-rows="loadColumnFilterRows0"
+      @filtered-rows="list = $event"
+      :list-rows="list"
+      @column-filter-reset="getList"
+      :columns="listFilterColumns0"
+      :show-column-settings="false"
+      :column-filter-definitions="listColumnFilterDefinitions0"
     >
       <template #filters>
         <el-form
@@ -52,14 +61,6 @@
         </el-form>
       </template>
       <template #actions>
-        <el-button @click="handleQuery">
-          <Icon icon="ep:search" class="mr-5px" />
-          搜索
-        </el-button>
-        <el-button @click="resetQuery">
-          <Icon icon="ep:refresh" class="mr-5px" />
-          重置
-        </el-button>
         <el-button
           type="primary"
           plain
@@ -100,12 +101,12 @@
           批量删除
         </el-button>
       </template>
-      <template #table>
+      <template #table="{ resolveRows }">
         <el-table
           stripe
           border
           v-loading="loading"
-          :data="list"
+          :data="resolveRows(list)"
           @selection-change="handleRowCheckboxChange"
         >
           <el-table-column type="selection" width="55" />
@@ -157,6 +158,9 @@
   <input ref="importInputRef" accept=".json" class="hidden" type="file" @change="handleImportFileChange" />
 </template>
 <script lang="ts" setup>
+import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+import { getDictOptions as listColumnDictOptions } from '@/utils/dict'
+
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import { isSearchFormInputEmpty } from '@/utils/search'
 import { DICT_TYPE, getIntDictOptions } from '@/utils/dict'
@@ -293,4 +297,59 @@ const handleImportFileChange = async (event: Event) => {
 onMounted(() => {
   getList()
 })
+
+const loadColumnFilterRows0 = async () => {
+  const params = { ...queryParams }
+  const rows = await loadAllListPages<any>((pagination) =>
+    PostApi.getPostPage({ ...params, ...pagination })
+  )
+  return rows
+}
+
+const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'status',
+    label: '状态',
+    type: 'select',
+    options: listColumnDictOptions(DICT_TYPE.COMMON_STATUS)
+  }
+])
+
+const listFilterColumns0 = [
+  {
+    key: 'id',
+    label: '组织角色编号',
+    visible: true
+  },
+  {
+    key: 'name',
+    label: '组织角色名称',
+    visible: true
+  },
+  {
+    key: 'code',
+    label: '组织角色编码',
+    visible: true
+  },
+  {
+    key: 'sort',
+    label: '组织角色顺序',
+    visible: true
+  },
+  {
+    key: 'remark',
+    label: '组织角色备注',
+    visible: true
+  },
+  {
+    key: 'status',
+    label: '状态',
+    visible: true
+  },
+  {
+    key: 'createTime',
+    label: '创建时间',
+    visible: true
+  }
+]
 </script>

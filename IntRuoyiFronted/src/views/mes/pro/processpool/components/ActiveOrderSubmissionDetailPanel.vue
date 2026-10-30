@@ -32,7 +32,7 @@
         @signature="signatureEvidenceViewer.open"
       />
       <div
-        v-if="!embedded"
+        v-if="!embedded && !hideOrderSummary"
         class="team-leader-workbench__active-order-detail-summary"
       >
         <div>
@@ -490,30 +490,30 @@
                     row-key="materialCode"
                     class="team-leader-workbench__production-record-table"
                   >
-                    <el-table-column label="输入物料编码" width="135">
+                    <el-table-column label="输入物料编码" min-width="135">
                       <template #default="{ row }">{{ row.materialCode || '未记录' }}</template>
                     </el-table-column>
-                    <el-table-column label="输入物料名称" width="150">
+                    <el-table-column label="输入物料名称" min-width="150">
                       <template #default="{ row }">{{ row.materialName || '未记录' }}</template>
                     </el-table-column>
-                    <el-table-column label="规格型号" width="135">
+                    <el-table-column label="规格型号" min-width="135">
                       <template #default="{ row }">{{ row.materialSpecification || '未记录' }}</template>
                     </el-table-column>
-                    <el-table-column label="批号" width="170">
+                    <el-table-column label="批号" min-width="170">
                       <template #default="{ row }">
                         <span data-active-order-production-record-input-material-batch>
                           {{ formatActiveOrderBatchCodes(row.batchCodes) }}
                         </span>
                       </template>
                     </el-table-column>
-                    <el-table-column label="领料单号" width="190">
+                    <el-table-column label="领料单号" min-width="190">
                       <template #default="{ row }">
                         <span data-active-order-production-record-input-material-pick-list>
                           {{ formatProductionInputMaterialPickListEvidence(row) }}
                         </span>
                       </template>
                     </el-table-column>
-                    <el-table-column label="实发数量" width="105">
+                    <el-table-column label="实发数量" min-width="105">
                       <template #default="{ row }">{{ formatTraceQuantity(row.actualQuantity) }}</template>
                     </el-table-column>
                   </el-table>
@@ -1063,24 +1063,24 @@
               table-layout="fixed"
               class="team-leader-workbench__active-order-submission-table"
             >
-              <el-table-column label="物料编码" prop="materialCode" width="140" />
+              <el-table-column label="物料编码" prop="materialCode" min-width="140" />
               <el-table-column label="物料名称" prop="materialName" />
-              <el-table-column label="规格型号" width="150">
+              <el-table-column label="规格型号" min-width="150">
                 <template #default="{ row: material }">
                   {{ material.materialSpecification || '-' }}
                 </template>
               </el-table-column>
-              <el-table-column label="批号" width="180">
+              <el-table-column label="批号" min-width="180">
                 <template #default="{ row: material }">
                   {{ formatActiveOrderBatchCodes(material.batchCodes) }}
                 </template>
               </el-table-column>
-              <el-table-column label="实发数量" width="120">
+              <el-table-column label="实发数量" min-width="120">
                 <template #default="{ row: material }">
                   {{ formatTraceQuantity(material.actualQuantity) }}
                 </template>
               </el-table-column>
-              <el-table-column label="对应工序" width="160">
+              <el-table-column label="对应工序" min-width="160">
                 <template #default="{ row: material }">
                   {{ material.sourceProcessNames.join('、') || '-' }}
                 </template>
@@ -1113,7 +1113,7 @@
               table-layout="fixed"
               class="team-leader-workbench__active-order-submission-table"
             >
-              <el-table-column label="补料单" width="180">
+              <el-table-column label="补料单" min-width="180">
                 <template #default="{ row: material }">
                   <template
                     v-for="link in renderActiveOrderDocumentLinks(material.sourceReplenishmentListNos, material.sourceReplenishmentListIds, 'replenishment')"
@@ -1128,29 +1128,29 @@
                   </span>
                 </template>
               </el-table-column>
-              <el-table-column label="物料编码" prop="materialCode" width="140" />
+              <el-table-column label="物料编码" prop="materialCode" min-width="140" />
               <el-table-column label="物料名称" prop="materialName" />
-              <el-table-column label="规格型号" width="150">
+              <el-table-column label="规格型号" min-width="150">
                 <template #default="{ row: material }">
                   {{ material.materialSpecification || '-' }}
                 </template>
               </el-table-column>
-              <el-table-column label="批号" width="180">
+              <el-table-column label="批号" min-width="180">
                 <template #default="{ row: material }">
                   {{ formatActiveOrderBatchCodes(material.batchCodes) }}
                 </template>
               </el-table-column>
-              <el-table-column label="申请数量" width="120">
+              <el-table-column label="申请数量" min-width="120">
                 <template #default="{ row: material }">
                   {{ formatTraceQuantity(material.requestedQuantity) }}
                 </template>
               </el-table-column>
-              <el-table-column label="实发数量" width="120">
+              <el-table-column label="实发数量" min-width="120">
                 <template #default="{ row: material }">
                   {{ formatTraceQuantity(material.actualQuantity) }}
                 </template>
               </el-table-column>
-              <el-table-column label="对应工序" width="160">
+              <el-table-column label="对应工序" min-width="160">
                 <template #default="{ row: material }">
                   {{ material.sourceProcessNames.join('、') || '-' }}
                 </template>
@@ -1416,7 +1416,7 @@
               row-key="attachmentId"
               class="team-leader-workbench__active-order-submission-table"
             >
-              <el-table-column label="文件名" width="220">
+              <el-table-column label="文件名" min-width="220">
                 <template #default="{ row }">
                   <el-button
                     link
@@ -1428,16 +1428,16 @@
                   </el-button>
                 </template>
               </el-table-column>
-              <el-table-column label="大小" width="120">
+              <el-table-column label="大小" min-width="120">
                 <template #default="{ row }">{{ formatDossierFileSize(row.fileSize) }}</template>
               </el-table-column>
-              <el-table-column label="上传人" width="140">
+              <el-table-column label="上传人" min-width="140">
                 <template #default="{ row }">{{ row.operatorName || row.operatorId || '-' }}</template>
               </el-table-column>
-              <el-table-column label="上传时间" width="180">
+              <el-table-column label="上传时间" min-width="180">
                 <template #default="{ row }">{{ formatDateTime(row.operatedAt) }}</template>
               </el-table-column>
-              <el-table-column label="操作" width="120" fixed="right">
+              <el-table-column label="操作" min-width="120" fixed="right">
                 <template #default="{ row }">
                   <el-button
                     link
@@ -1653,30 +1653,30 @@
               row-key="materialCode"
               class="team-leader-workbench__production-record-table"
             >
-              <el-table-column label="输入物料编码" width="135">
+              <el-table-column label="输入物料编码" min-width="135">
                 <template #default="{ row }">{{ row.materialCode || '未记录' }}</template>
               </el-table-column>
-              <el-table-column label="输入物料名称" width="150">
+              <el-table-column label="输入物料名称" min-width="150">
                 <template #default="{ row }">{{ row.materialName || '未记录' }}</template>
               </el-table-column>
-              <el-table-column label="规格型号" width="135">
+              <el-table-column label="规格型号" min-width="135">
                 <template #default="{ row }">{{ row.materialSpecification || '未记录' }}</template>
               </el-table-column>
-              <el-table-column label="批号" width="170">
+              <el-table-column label="批号" min-width="170">
                 <template #default="{ row }">
                   <span data-active-order-production-record-input-material-batch>
                     {{ formatActiveOrderBatchCodes(row.batchCodes) }}
                   </span>
                 </template>
               </el-table-column>
-              <el-table-column label="领料单号" width="190">
+              <el-table-column label="领料单号" min-width="190">
                 <template #default="{ row }">
                   <span data-active-order-production-record-input-material-pick-list>
                     {{ formatProductionInputMaterialPickListEvidence(row) }}
                   </span>
                 </template>
               </el-table-column>
-              <el-table-column label="实发数量" width="105">
+              <el-table-column label="实发数量" min-width="105">
                 <template #default="{ row }">{{ formatTraceQuantity(row.actualQuantity) }}</template>
               </el-table-column>
             </el-table>
@@ -2137,6 +2137,7 @@ import { getDeviationBatchOptionsByActiveOrder, type DeviationBatchOptionRespVO 
 
 const props = defineProps<{
   hideCorrectionHistory?: boolean
+  hideOrderSummary?: boolean
   detail?: TeamLeaderActiveOrderDetailRespVO
   sourceWorkOrder?: ProWorkOrderVO
   productionMaterialLists?: ErpProductionMaterialListVO[]
@@ -4396,7 +4397,7 @@ onBeforeUnmount(() => {
   max-width: 100%;
   overflow-x: hidden;
   color: var(--el-text-color-primary);
-  font-family: "Microsoft YaHei", "微软雅黑", sans-serif;
+  font-family: var(--app-font-family);
   font-size: 13px;
 }
 
@@ -4411,6 +4412,27 @@ onBeforeUnmount(() => {
 .team-leader-workbench__active-order-detail :deep(.el-descriptions__label),
 .team-leader-workbench__active-order-detail :deep(.el-descriptions__content) {
   font-size: 13px;
+}
+
+/* 所有详情列表（含子组件、原生表格和 Element Plus 表格）统一单元格排版。 */
+.team-leader-workbench__active-order-detail :deep(table th),
+.team-leader-workbench__active-order-detail :deep(table td) {
+  text-align: center !important;
+  vertical-align: middle !important;
+}
+
+.team-leader-workbench__active-order-detail :deep(table),
+.team-leader-workbench__active-order-detail :deep(table *) {
+  font-family: var(--app-font-family) !important;
+}
+
+.team-leader-workbench__active-order-detail :deep(table th *),
+.team-leader-workbench__active-order-detail :deep(table td *) {
+  text-align: center !important;
+}
+
+.team-leader-workbench__active-order-detail :deep(table .team-leader-workbench__signature-stack) {
+  align-items: center;
 }
 
 .team-leader-workbench__active-order-detail-record-boundary {
@@ -5166,12 +5188,12 @@ onBeforeUnmount(() => {
 }
 
 .team-leader-workbench__production-record-device-table {
-  width: 410px;
+  width: 100%;
   max-width: 100%;
 }
 
 .team-leader-workbench__production-record-device-parameter-table {
-  width: 440px;
+  width: 100%;
   max-width: 100%;
 }
 

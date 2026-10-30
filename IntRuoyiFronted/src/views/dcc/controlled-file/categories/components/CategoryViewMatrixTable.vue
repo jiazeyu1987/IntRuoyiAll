@@ -19,6 +19,8 @@
       @quick-filter-query="viewMatrixQuickFilter.applyQuickFilter"
       @column-change="saveViewMatrixColumnConfig"
       @pagination="handleViewMatrixPagination"
+      :filter-rows="rows"
+      :column-filter-definitions="listColumnFilterDefinitions0"
     >
       <template #actions>
         <el-button
@@ -31,12 +33,12 @@
           按人反查
         </el-button>
       </template>
-      <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+      <template #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
         <el-table
           v-loading="loading"
           data-user-table-column-explicit
           data-user-table-key="dcc.controlledFile.permission.viewMatrix"
-          :data="paginatedViewMatrixRows"
+          :data="resolveRows(paginatedViewMatrixRows)"
           border
           :stripe="true"
           :show-overflow-tooltip="true"
@@ -170,6 +172,8 @@
 </template>
 
 <script lang="ts" setup>
+import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+
 import {
   getCategoryViewMatrixRows,
   previewCategoryViewMatrixEffectiveAccess,
@@ -368,6 +372,15 @@ onMounted(async () => {
     await loadRows()
   }
 })
+
+const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'viewRules',
+    label: '可查阅',
+    type: 'text',
+    getValue: (row) => [formatRules(row.rules)].join(' ')
+  }
+])
 </script>
 
 <style scoped>

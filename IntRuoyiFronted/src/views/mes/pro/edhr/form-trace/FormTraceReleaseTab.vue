@@ -1,6 +1,8 @@
 <template>
   <div class="edhr-form-trace-release">
     <UnifiedListTemplate
+      :query-loading="loading"
+      :reset-filters="resetQuery"
       single-line-toolbar
       :table-key="releaseTraceTableKey"
       :query-model="queryParams"
@@ -19,16 +21,14 @@
       @quick-filter-query="releaseQuickFilter.applyQuickFilter"
       @column-change="saveReleaseColumnConfig"
       @pagination="getList"
+      :load-filter-rows="loadColumnFilterRows0"
+      @filtered-rows="list = $event"
+      :list-rows="list"
+      @column-filter-reset="getList"
+      :column-filter-definitions="listColumnFilterDefinitions0"
     >
-      <template #actions>
-        <el-button :loading="loading" type="primary" @click="handleQuery">
-          <Icon icon="ep:search" class="mr-5px" />
-          查询
-        </el-button>
-        <el-button @click="resetQuery">重置</el-button>
-      </template>
 
-      <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+      <template #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
         <el-alert
           v-if="loadError"
           :title="loadError"
@@ -49,7 +49,7 @@
           v-loading="loading"
           data-user-table-column-explicit
           :data-user-table-key="releaseTraceTableKey"
-          :data="list"
+          :data="resolveRows(list)"
           border
           stripe
           row-key="batchExecutionId"
@@ -285,6 +285,8 @@
 </template>
 
 <script setup lang="ts">
+import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import {
   getEdhrReleaseCheckItemPage,
@@ -486,11 +488,6 @@ async function getList() {
   }
 }
 
-const handleQuery = () => {
-  queryParams.pageNo = 1
-  getList()
-}
-
 const resetQuery = async () => {
   queryParams.pageNo = 1
   queryParams.pageSize = 10
@@ -611,6 +608,77 @@ const formatDateTime = (value?: string | number) => {
 }
 
 onMounted(() => getList())
+
+const loadColumnFilterRows0 = async () => {
+  const params = buildQuery()
+  const rows = await loadAllListPages<any>((pagination) =>
+    getEdhrReleasePage({ ...params, ...pagination })
+  )
+  return rows
+}
+
+const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'releaseObject',
+    label: objectColumnLabel,
+    type: 'text',
+    getValue: (row) => [row.batchExecutionCode, row.workOrderCode, row.batchCode].join(' ')
+  },
+  {
+    key: 'releaseStatus',
+    label: statusColumnLabel,
+    type: 'text',
+    getValue: (row) =>
+      [
+        resolveReleaseStatusLabel(row.releaseStatus),
+        resolveBatchExecutionTraceStatusLabel(row.batchExecutionStatus),
+        row.precheckSummary
+      ].join(' ')
+  },
+  {
+    key: 'productRoute',
+    label: '产品/路线',
+    type: 'text',
+    getValue: (row) =>
+      [
+        row.productName || '--',
+        row.productCode || '--',
+        row.routeName || row.routeCode || '--'
+      ].join(' ')
+  },
+  {
+    key: 'checkSummary',
+    label: '检查摘要',
+    type: 'text',
+    getValue: (row) =>
+      [
+        row.blockingCheckCount || 0,
+        row.failedCheckCount || 0,
+        formatDateTime(row.lastPrecheckAt)
+      ].join(' ')
+  },
+  {
+    key: 'qualityGate',
+    label: '质量门禁',
+    type: 'text',
+    getValue: (row) =>
+      [
+        resolveReleaseCheckResultLabel(row.dhrStatus),
+        resolveReleaseCheckResultLabel(row.inspectionStatus),
+        resolveReleaseCheckResultLabel(row.inventoryStatus),
+        resolveReleaseCheckResultLabel(row.deviationStatus),
+        resolveReleaseCheckResultLabel(row.reworkStatus),
+        resolveReleaseCheckResultLabel(row.scrapStatus)
+      ].join(' ')
+  },
+  {
+    key: 'traceActions',
+    label: '追溯',
+    type: 'text',
+    getValue: (row) =>
+      [printLoadingBatchExecutionId === row.batchExecutionId ? '打印中...' : '打印'].join(' ')
+  }
+])
 </script>
 
 <style scoped>

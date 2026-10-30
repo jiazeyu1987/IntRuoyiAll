@@ -133,6 +133,19 @@ public class SchedulerManager {
         scheduler.triggerJob(new JobKey(jobHandlerName), data);
     }
 
+    /** One-shot trigger retained until completion; duplicate submissions fail atomically across nodes. */
+    public void triggerUniqueJob(Long jobId, String handlerName, String handlerParam, String triggerName)
+            throws SchedulerException {
+        validateScheduler();
+        scheduler.scheduleJob(TriggerBuilder.newTrigger()
+                .withIdentity(triggerName, "ERP_FULL_SYNC")
+                .forJob(new JobKey(handlerName))
+                .usingJobData(JobDataKeyEnum.JOB_ID.name(), jobId)
+                .usingJobData(JobDataKeyEnum.JOB_HANDLER_NAME.name(), handlerName)
+                .usingJobData(JobDataKeyEnum.JOB_HANDLER_PARAM.name(), handlerParam)
+                .startNow().build());
+    }
+
     private Trigger buildTrigger(String jobHandlerName, String jobHandlerParam, String cronExpression,
                                  Integer retryCount, Integer retryInterval) {
         return TriggerBuilder.newTrigger()

@@ -5,9 +5,14 @@
   <!-- 搜索工作栏 -->
   <ContentWrap class="standard-list-page">
     <UnifiedListTemplate
+      @query="handleQuery()"
+      @reset="resetQuery"
       class="unified-list-template--contained"
       table-key="system.menu.main"
       :query-model="queryParams"
+      :filter-rows="list"
+      :columns="columns.map((column) => ({ key: column.key, label: column.title, visible: true }))"
+      :show-column-settings="false"
     >
       <template #filters>
         <el-form
@@ -44,14 +49,6 @@
         </el-form>
       </template>
       <template #actions>
-        <el-button @click="handleQuery()">
-          <Icon class="mr-5px" icon="ep:search" />
-          搜索
-        </el-button>
-        <el-button @click="resetQuery">
-          <Icon class="mr-5px" icon="ep:refresh" />
-          重置
-        </el-button>
         <el-button
           v-hasPermi="['system:menu:create']"
           plain
@@ -70,13 +67,13 @@
           刷新菜单缓存
         </el-button>
       </template>
-      <template #table>
+      <template #table="{ resolveRows }">
         <el-auto-resizer>
           <template #default="{ width, height }">
             <el-table-v2
               v-model:expanded-row-keys="expandedRowKeys"
               :columns="columns"
-              :data="list"
+              :data="resolveRows(list)"
               :expand-column-key="columns[0].key"
               :height="height"
               :width="width"
@@ -326,4 +323,6 @@ const handleStatusChanged = async (menu: MenuVO, val: number) => {
 onMounted(() => {
   getList()
 })
+
+
 </script>

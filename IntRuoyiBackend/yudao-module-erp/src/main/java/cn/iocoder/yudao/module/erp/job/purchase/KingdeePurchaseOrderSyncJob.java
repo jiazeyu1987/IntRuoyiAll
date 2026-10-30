@@ -26,6 +26,9 @@ public class KingdeePurchaseOrderSyncJob implements JobHandler, ErpKingdeeFullSy
     @Override
     @TenantJob
     public String execute(String param) {
+        if (param != null && param.startsWith(WINDOW_SYNC_JOB_PREFIX)) {
+            return executeWindowSync(param);
+        }
         if (ErpKingdeeFullSyncHandler.FULL_SYNC_JOB_PARAM.equals(param)) {
             return executeFullSync();
         }
@@ -50,15 +53,23 @@ public class KingdeePurchaseOrderSyncJob implements JobHandler, ErpKingdeeFullSy
     @Override
     public String executeFullSync() {
         LocalDateTime windowEnd = LocalDateTime.now();
+        return executeFullSync(null, windowEnd);
+    }
+
+    @Override
+    public String executeFullSync(LocalDateTime windowStart, LocalDateTime windowEnd) {
         AtomicReference<ErpKingdeePurchaseOrderSyncResult> resultReference = new AtomicReference<>();
         syncRuntimeService.executeSync(ErpKingdeeSyncCommand.builder()
                 .syncType(ErpKingdeeSyncTypeEnum.PURCHASE_ORDER)
                 .triggerType(ErpKingdeeSyncTriggerTypeEnum.FULL)
+                .forceInitialWindowStart(windowStart != null)
+                .initialWindowStart(windowStart)
                 .windowEnd(windowEnd)
                 .build(), context -> {
-            ErpKingdeePurchaseOrderSyncResult result = purchaseOrderSyncService.syncPurchaseOrdersFullSkipExisting();
+            ErpKingdeePurchaseOrderSyncResult result = windowStart == null ? purchaseOrderSyncService.syncPurchaseOrdersFullSkipExisting()
+                    : purchaseOrderSyncService.syncPurchaseOrdersFullSkipExisting(windowStart, windowEnd);
             resultReference.set(result);
-            return ErpKingdeeSyncRunResult.success(context.getWindowEnd(),
+            return ErpKingdeeSyncRunResult.success(windowStart == null ? context.getWindowEnd() : null,
                     result.getCreatedCount(), result.getUpdatedCount(), result.getSkippedCount(), 0);
         });
         ErpKingdeePurchaseOrderSyncResult result = resultReference.get();

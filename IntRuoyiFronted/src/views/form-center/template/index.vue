@@ -7,6 +7,7 @@
     <div class="form-template-workbench">
       <section class="form-template-workbench__list">
         <UnifiedListTemplate
+          :reset-filters="resetQuery"
           table-key="form.center.template"
           :query-model="queryParams"
           label-width="88px"
@@ -25,12 +26,13 @@
           @column-change="saveTemplateColumnConfig"
           @column-reset="resetTemplateColumnConfig"
           @pagination="getList"
+          :load-filter-rows="loadColumnFilterRows0"
+          @filtered-rows="list = $event"
+          :list-rows="list"
+          @column-filter-reset="getList"
+          :column-filter-definitions="listColumnFilterDefinitions0"
         >
           <template #actions>
-            <el-button class="scheme-d-btn scheme-d-btn--warning" @click="resetQuery">
-              <Icon class="mr-5px" icon="ep:refresh" />
-              重置
-            </el-button>
             <el-button
               v-hasPermi="['form:template:create']"
               class="scheme-d-btn scheme-d-btn--primary"
@@ -43,10 +45,10 @@
             </el-button>
           </template>
 
-          <template #table="{ sortColumnAttrs, handleSortChange }">
+          <template #table="{ resolveRows, sortColumnAttrs, handleSortChange }">
             <el-table
               v-loading="loading"
-              :data="list"
+              :data="resolveRows(list)"
               :row-key="templateRowKey"
               max-height="calc(100vh - 260px)"
               highlight-current-row
@@ -524,6 +526,8 @@
 </template>
 
 <script setup lang="ts">
+import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+
 import { useTestMode } from '@/store/modules/testMode'
 
 import download from '@/utils/download'
@@ -1644,6 +1648,35 @@ watch(
     }
   }
 )
+
+const loadColumnFilterRows0 = async () => {
+  const params = { ...queryParams }
+  const rows = await loadAllListPages<any>((pagination) =>
+    TemplateApi.getTemplatePool({ ...params, ...pagination })
+  )
+  return rows
+}
+
+const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'currentEffectiveVersion',
+    label: '当前生效版本',
+    type: 'text',
+    getValue: (row) => [row.versionNo].join(' ')
+  },
+  {
+    key: 'pendingVersion',
+    label: '待发布版本',
+    type: 'text',
+    getValue: (row) => [row.versionNo, statusLabel(row.status)].join(' ')
+  },
+  {
+    key: 'status',
+    label: '状态',
+    type: 'text',
+    getValue: (row) => [statusLabel(row.status)].join(' ')
+  }
+])
 </script>
 
 <style scoped>

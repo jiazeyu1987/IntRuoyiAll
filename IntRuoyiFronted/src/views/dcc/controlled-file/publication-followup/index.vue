@@ -2,12 +2,21 @@
   <div class="followup-management" data-testid="dcc-publication-followup-management">
     <ContentWrap>
       <UnifiedListTemplate
+        @query="search"
+        @reset="reset"
         table-key="dcc.publicationFollowup.main"
         :query-model="filters"
         v-model:page="pageNo"
         v-model:limit="pageSize"
         :total="total"
         @pagination="loadPage"
+        :load-filter-rows="loadColumnFilterRows0"
+        @filtered-rows="rows = $event"
+        :list-rows="rows"
+        @column-filter-reset="loadPage"
+        :columns="listFilterColumns0"
+        :show-column-settings="false"
+        :column-filter-definitions="[...listColumnFilterDefinitions0, ...allColumnDisplayFilters0]"
       >
         <template #filters>
           <el-form :model="filters" class="management-filters" label-position="left">
@@ -57,10 +66,10 @@
             <Icon icon="ep:refresh-right" class="mr-5px" />
             刷新
           </el-button>
-          <el-button type="primary" @click="search">查询</el-button>
-          <el-button @click="reset">重置</el-button>
+
+
         </template>
-        <template #table>
+        <template #table="{ resolveRows }">
           <el-alert
             v-if="loadError"
             role="alert"
@@ -83,7 +92,7 @@
             stripe
             border
             v-loading="loading"
-            :data="rows"
+            :data="resolveRows(rows)"
             empty-text="暂无发布后续记录"
             row-key="id"
           >
@@ -96,12 +105,15 @@
                       :rows="row.notificationDeliveries"
                       class="unified-list-template--contained"
                       data-list-viewport="embedded"
+                      :columns="listFilterColumns1"
+                      :show-column-settings="false"
+                      :column-filter-definitions="[...listColumnFilterDefinitions1, ...allColumnDisplayFilters1]"
                     >
-                      <template #table="{ rows: detailRows }">
+                      <template #table="{ resolveRows, rows: detailRows }">
                         <el-table
                           stripe
                           border
-                          :data="detailRows"
+                          :data="resolveRows(detailRows)"
                           size="small"
                           empty-text="无通知收件人"
                         >
@@ -149,9 +161,12 @@
                       :rows="row.impactTasks"
                       class="unified-list-template--contained"
                       data-list-viewport="embedded"
+                      :columns="listFilterColumns2"
+                      :show-column-settings="false"
+                      :column-filter-definitions="[...listColumnFilterDefinitions2, ...allColumnDisplayFilters2]"
                     >
-                      <template #table="{ rows: detailRows }">
-                        <el-table stripe border :data="detailRows" size="small" empty-text="无需评估">
+                      <template #table="{ resolveRows, rows: detailRows }">
+                        <el-table stripe border :data="resolveRows(detailRows)" size="small" empty-text="无需评估">
                           <el-table-column label="相关文件" min-width="180" prop="relatedFileName" />
                           <el-table-column label="方向" width="140">
                             <template #default="scope">
@@ -226,6 +241,8 @@
 </template>
 
 <script lang="ts" setup>
+import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import { ElMessageBox } from 'element-plus'
 import {
@@ -342,6 +359,244 @@ const reopenImpact = async (task: DccPublicationImpactTaskVO) => {
 }
 
 onMounted(loadPage)
+
+const loadColumnFilterRows0 = async () => {
+  const params = {
+    pageNo: pageNo.value,
+    pageSize: pageSize.value,
+    fileNumber: filters.fileNumber || undefined,
+    versionNo: filters.versionNo || undefined,
+    batchStatus: filters.batchStatus || undefined,
+    taskStatus: filters.taskStatus || undefined,
+    notificationStatus: filters.notificationStatus || undefined,
+    assigneeUserId: filters.assigneeUserId || undefined
+  }
+  const rows = await loadAllListPages<any>((pagination) =>
+    getPublicationFollowupManagementPage({ ...params, ...pagination })
+  )
+  return rows
+}
+
+const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'status',
+    label: '批次状态',
+    type: 'text',
+    getValue: (row) => [batchStatusLabel(row.status)].join(' ')
+  },
+  {
+    key: 'notificationDeliveries',
+    label: '通知',
+    type: 'text',
+    getValue: (row) => [row.notificationDeliveries.length].join(' ')
+  },
+  {
+    key: 'impactTasks',
+    label: '任务',
+    type: 'text',
+    getValue: (row) => [row.impactTasks.length].join(' ')
+  }
+])
+
+const listColumnFilterDefinitions1 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'status',
+    label: '通知状态',
+    type: 'text',
+    getValue: (row) => [notificationStatusLabel(row.status)].join(' ')
+  },
+  {
+    key: 'reasonSummaries',
+    label: '收件原因',
+    type: 'text',
+    getValue: (row) => [row.reasonSummaries.join('；')].join(' ')
+  }
+])
+
+const listColumnFilterDefinitions2 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'relationDirections',
+    label: '方向',
+    type: 'text',
+    getValue: (row) => [row.relationDirections.map(relationDirectionLabel).join(' / ')].join(' ')
+  },
+  {
+    key: 'taskStatus',
+    label: '任务状态',
+    type: 'text',
+    getValue: (row) => [impactTaskStatusLabel(row.taskStatus)].join(' ')
+  },
+  {
+    key: 'decision',
+    label: '评估结论',
+    type: 'text',
+    getValue: (row) => [row.decision ? impactDecisionLabel(row.decision) : '尚未提交'].join(' ')
+  },
+  {
+    key: 'revisionTrackingStatus',
+    label: '升版跟踪',
+    type: 'text',
+    getValue: (row) => [revisionTrackingStatusLabel(row.revisionTrackingStatus)].join(' ')
+  }
+])
+
+const listFilterColumns0 = [
+  {
+    key: 'fileNumber',
+    label: '文件编号',
+    visible: true
+  },
+  {
+    key: 'fileName',
+    label: '文件名称',
+    visible: true
+  },
+  {
+    key: 'versionNo',
+    label: '发布版本',
+    visible: true
+  },
+  {
+    key: 'status',
+    label: '批次状态',
+    visible: true
+  },
+  {
+    key: 'notificationDeliveries',
+    label: '通知',
+    visible: true
+  },
+  {
+    key: 'impactTasks',
+    label: '任务',
+    visible: true
+  }
+]
+
+const allColumnDisplayFilters0: ListColumnFilterDefinition[] = [
+  {
+    key: 'status',
+    label: '批次状态',
+    type: 'text',
+    getValue: (row) => [batchStatusLabel(row.status)].join(' ')
+  },
+  {
+    key: 'notificationDeliveries',
+    label: '通知',
+    type: 'text',
+    getValue: (row) => [row.notificationDeliveries.length].join(' ')
+  },
+  {
+    key: 'impactTasks',
+    label: '任务',
+    type: 'text',
+    getValue: (row) => [row.impactTasks.length].join(' ')
+  }
+]
+
+const listFilterColumns1 = [
+  {
+    key: 'userName',
+    label: '收件人',
+    visible: true
+  },
+  {
+    key: 'status',
+    label: '通知状态',
+    visible: true
+  },
+  {
+    key: 'reasonSummaries',
+    label: '收件原因',
+    visible: true
+  },
+  {
+    key: 'lastErrorSummary',
+    label: '错误',
+    visible: true
+  }
+]
+
+const allColumnDisplayFilters1: ListColumnFilterDefinition[] = [
+  {
+    key: 'userName',
+    label: '收件人',
+    type: 'text',
+    getValue: (row) => [row.userName || row.userId].join(' ')
+  },
+  {
+    key: 'status',
+    label: '通知状态',
+    type: 'text',
+    getValue: (row) => [notificationStatusLabel(row.status)].join(' ')
+  },
+  {
+    key: 'reasonSummaries',
+    label: '收件原因',
+    type: 'text',
+    getValue: (row) => [row.reasonSummaries.join('；')].join(' ')
+  }
+]
+
+const listFilterColumns2 = [
+  {
+    key: 'relatedFileName',
+    label: '相关文件',
+    visible: true
+  },
+  {
+    key: 'relationDirections',
+    label: '方向',
+    visible: true
+  },
+  {
+    key: 'assigneeUserName',
+    label: '负责人',
+    visible: true
+  },
+  {
+    key: 'taskStatus',
+    label: '任务状态',
+    visible: true
+  },
+  {
+    key: 'decision',
+    label: '评估结论',
+    visible: true
+  },
+  {
+    key: 'revisionTrackingStatus',
+    label: '升版跟踪',
+    visible: true
+  }
+]
+
+const allColumnDisplayFilters2: ListColumnFilterDefinition[] = [
+  {
+    key: 'relationDirections',
+    label: '方向',
+    type: 'text',
+    getValue: (row) => [row.relationDirections.map(relationDirectionLabel).join(' / ')].join(' ')
+  },
+  {
+    key: 'taskStatus',
+    label: '任务状态',
+    type: 'text',
+    getValue: (row) => [impactTaskStatusLabel(row.taskStatus)].join(' ')
+  },
+  {
+    key: 'decision',
+    label: '评估结论',
+    type: 'text',
+    getValue: (row) => [row.decision ? impactDecisionLabel(row.decision) : '尚未提交'].join(' ')
+  },
+  {
+    key: 'revisionTrackingStatus',
+    label: '升版跟踪',
+    type: 'text',
+    getValue: (row) => [revisionTrackingStatusLabel(row.revisionTrackingStatus)].join(' ')
+  }
+]
 </script>
 
 <style scoped>

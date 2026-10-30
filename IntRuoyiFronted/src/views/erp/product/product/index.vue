@@ -4,7 +4,6 @@
 
   <ContentWrap class="erp-viewport-list">
     <UnifiedListTemplate
-      :show-filter-reset="false"
       table-key="erp.product.product.main"
       single-line-toolbar
       :query-model="queryParams"
@@ -21,41 +20,30 @@
       @quick-filter-query="quickFilter.applyQuickFilter"
       @column-change="saveColumnConfig"
       @pagination="getList"
+      :load-filter-rows="loadColumnFilterRows0"
+      @filtered-rows="list = $event"
+      :list-rows="list"
+      @column-filter-reset="getList"
+      :column-filter-definitions="listColumnFilterDefinitions0"
     >
       <template #actions>
-        <el-button
-          v-show="false"
-          type="primary"
-          plain
-          @click="openForm('create')"
-          v-hasPermi="['erp:product:create']"
-        >
-          <Icon icon="ep:plus" class="mr-5px" /> 新增
-        </el-button>
-        <el-button
-          v-show="false"
-          type="success"
-          plain
-          @click="handleExport"
-          :loading="exportLoading"
-          v-hasPermi="['erp:product:export']"
-        >
-          <Icon icon="ep:download" class="mr-5px" /> 导出
-        </el-button>
-        <el-button
-          type="primary"
-          plain
-          @click="handleSyncKingdeeProducts"
-          :loading="kingdeeSyncLoading"
-          v-hasPermi="['erp:product:create']"
-        >
-          <Icon icon="ep:refresh-right" class="mr-5px" /> 增量同步
-        </el-button>
+        <RecentFullSyncButton sync-type="PRODUCT" />
+        <el-dropdown trigger="click" v-hasPermi="['erp:product:create', 'erp:product:export']">
+          <el-button type="primary" plain :loading="exportLoading">
+            高级 <Icon icon="ep:arrow-down" class="ml-5px" />
+          </el-button>
+          <template #dropdown>
+            <el-dropdown-menu>
+              <el-dropdown-item v-hasPermi="['erp:product:create']" @click="importVisible = true">导入物料</el-dropdown-item>
+              <el-dropdown-item v-hasPermi="['erp:product:export']" :disabled="exportLoading" @click="handleExport">导出物料</el-dropdown-item>
+            </el-dropdown-menu>
+          </template>
+        </el-dropdown>
       </template>
-      <template #table>
+      <template #table="{ resolveRows }">
         <el-table
           v-loading="loading || columnLoading"
-          :data="list"
+          :data="resolveRows(list)"
           :stripe="true"
           :show-overflow-tooltip="true"
           border
@@ -183,9 +171,22 @@
     </UnifiedListTemplate>
   </ContentWrap>
 
+  <Dialog v-model="importVisible" title="导入物料" width="520px" :fullscreen="false">
+    <el-upload :auto-upload="false" :limit="1" accept=".xls,.xlsx" v-model:file-list="importFiles">
+      <el-button :disabled="importLoading">选择 Excel 文件</el-button>
+    </el-upload>
+    <template #footer>
+      <el-button type="primary" :loading="importLoading" @click="handleImport">开始导入</el-button>
+      <el-button :disabled="importLoading" @click="importVisible = false">关闭</el-button>
+    </template>
+  </Dialog>
   <ProductForm ref="formRef" @success="getList" />
 </template>
 <script setup lang="ts">
+import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+import { getDictOptions as listColumnDictOptions } from '@/utils/dict'
+
+import RecentFullSyncButton from '@/views/erp/components/RecentFullSyncButton.vue'
 import '@/views/erp/components/viewport-list.css'
 
 import { erpListIntegerColumnFormatter } from '@/views/erp/utils/integerDisplay'
@@ -201,7 +202,6 @@ import {
 import { dateFormatter } from '@/utils/formatTime'
 import download from '@/utils/download'
 import { ProductApi, ProductVO } from '@/api/erp/product/product'
-import { ErpKingdeeSyncApi } from '@/api/erp/sync'
 import { ProductCategoryApi, ProductCategoryVO } from '@/api/erp/product/category'
 import ProductForm from './ProductForm.vue'
 import { DICT_TYPE } from '@/utils/dict'
@@ -222,8 +222,22 @@ const queryParams = reactive({
   categoryId: undefined
 })
 
+const importVisible = ref(false)
+const importLoading = ref(false)
+const importFiles = ref<import('element-plus').UploadUserFile[]>([])
+const handleImport = async () => {
+  const file = importFiles.value[0]?.raw
+  if (!file) { message.warning('请选择 Excel 文件'); return }
+  importLoading.value = true
+  try {
+    const count = await ProductApi.importProducts(file)
+    message.success(`成功导入 ${count} 条物料`)
+    importVisible.value = false
+    importFiles.value = []
+    await getList()
+  } finally { importLoading.value = false }
+}
 const exportLoading = ref(false)
-const kingdeeSyncLoading = ref(false)
 const categoryList = ref<ProductCategoryVO[]>([])
 
 const getList = async () => {
@@ -256,24 +270,12 @@ const handleExport = async () => {
     await message.exportConfirm()
     exportLoading.value = true
     const data = await ProductApi.exportProduct(queryParams)
-    download.excel(data, '产品.xls')
-  } catch {
+    download.excel(data, '物料.xls')
   } finally {
     exportLoading.value = false
   }
 }
 
-const handleSyncKingdeeProducts = async () => {
-  kingdeeSyncLoading.value = true
-  try {
-    await ErpKingdeeSyncApi.runIncrementalSync('PRODUCT')
-    message.success('ERP 商品增量同步任务已提交')
-    await loadCategoryList()
-    await getList()
-  } finally {
-    kingdeeSyncLoading.value = false
-  }
-}
 
 const loadCategoryList = async () => {
   const categoryData = await ProductCategoryApi.getProductCategorySimpleList()
@@ -386,4 +388,21 @@ onMounted(async () => {
   await getList()
   await loadCategoryList()
 })
+
+const loadColumnFilterRows0 = async () => {
+  const params = { ...queryParams }
+  const rows = await loadAllListPages<any>((pagination) =>
+    ProductApi.getProductPage({ ...params, ...pagination })
+  )
+  return rows
+}
+
+const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'status',
+    label: '状态',
+    type: 'select',
+    options: listColumnDictOptions(DICT_TYPE.COMMON_STATUS)
+  }
+])
 </script>

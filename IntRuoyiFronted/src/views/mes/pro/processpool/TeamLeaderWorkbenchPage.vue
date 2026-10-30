@@ -102,6 +102,16 @@
       ]"
     >
       <el-tab-pane label="生产人员档案" name="productionPersonnel">
+        <el-dialog v-model="staleEmployeeScopesVisible" title="遗留人员责任" width="600px">
+          <el-alert title="以下责任没有对应的启用人员档案。停用仅移除本班组的遗留责任，保留人员原班组和历史记录。" type="warning" :closable="false" />
+          <el-table :data="staleEmployeeScopes" v-loading="staleEmployeeScopesLoading">
+            <el-table-column prop="id" label="责任记录ID" />
+            <el-table-column prop="employeeUserId" label="人员身份ID" />
+            <el-table-column label="操作"><template #default="{ row }">
+              <el-button :disabled="staleEmployeeScopesLoading" @click="disableStaleEmployeeScope(row.id)">停用遗留责任</el-button>
+            </template></el-table-column>
+          </el-table>
+        </el-dialog>
         <UnifiedListTemplate
           single-line-toolbar
           table-key="mes.processPool.teamLeader.productionPersonnel"
@@ -118,6 +128,8 @@
           @update:page="handleProductionPersonnelPageChange"
           @update:limit="handleProductionPersonnelPageSizeChange"
           @pagination="refreshProductionPersonnel"
+          :filter-rows="visibleProductionPersonnelRows"
+          :column-filter-definitions="listColumnFilterDefinitions0"
         >
           <template #extra-filters>
             <el-form-item>
@@ -129,12 +141,13 @@
                 <Icon icon="ep:plus" class="mr-5px" />
                 新增人员
               </el-button>
+              <el-button @click="showStaleEmployeeScopes">遗留人员责任</el-button>
             </el-form-item>
           </template>
-          <template #table>
+          <template #table="{ resolveRows }">
             <el-table
               v-loading="productionPersonnelLoading"
-              :data="pagedProductionPersonnelRows"
+              :data="resolveRows(pagedProductionPersonnelRows)"
               border
               stripe
               data-team-leader-production-personnel-list
@@ -206,12 +219,15 @@
               :rows="foldedProductionPersonnelRows"
               class="unified-list-template--contained"
               data-list-viewport="embedded"
+              :columns="listFilterColumns1"
+              :show-column-settings="false"
+              :column-filter-definitions="[...listColumnFilterDefinitions1, ...allColumnDisplayFilters1]"
             >
               <template #actions>
                 <el-button class="mb-12px" @click="restoreAllProductionPersonnel">全部恢复显示</el-button>
               </template>
-              <template #table="{ rows: standardRows }">
-                <el-table :data="standardRows" row-key="id" border stripe>
+              <template #table="{ resolveRows, rows: standardRows }">
+                <el-table :data="resolveRows(standardRows)" row-key="id" border stripe>
                   <el-table-column label="显示名" min-width="140">
                     <template #default="{ row }">
                       <span
@@ -413,6 +429,8 @@
       @update:page="handlePqcPersonnelPageChange"
       @update:limit="handlePqcPersonnelPageSizeChange"
       @pagination="refreshPqcPersonnel"
+      :filter-rows="pqcPersonnelRows"
+      :column-filter-definitions="listColumnFilterDefinitions2"
     >
       <template #actions>
         <el-button
@@ -424,10 +442,10 @@
           新增
         </el-button>
       </template>
-      <template #table>
+      <template #table="{ resolveRows }">
         <el-table
           v-loading="pqcPersonnelLoading"
-          :data="pagedPqcPersonnelRows"
+          :data="resolveRows(pagedPqcPersonnelRows)"
           border
           stripe
           data-pqc-leader-personnel-list
@@ -626,14 +644,19 @@
       @column-change="saveSubmissionColumnConfig"
       @column-reset="resetSubmissionColumnConfig"
       @pagination="getSubmissionList"
+      :load-filter-rows="loadColumnFilterRows3"
+      @filtered-rows="submissionList = $event"
+      :list-rows="submissionList"
+      @column-filter-reset="getSubmissionList"
+      :column-filter-definitions="listColumnFilterDefinitions3"
     >
-      <template #table>
+      <template #table="{ resolveRows }">
         <el-table
           v-loading="loading"
           data-user-table-column-explicit
           data-user-table-key="mes.processPool.teamLeader.submissions"
           :class="{ 'team-leader-workbench__submission-table--single-line': activeLeaderTab === 'PQC' }"
-          :data="submissionList"
+          :data="resolveRows(submissionList)"
           border
           stripe
           :show-overflow-tooltip="true"
@@ -1454,15 +1477,16 @@
             :quick-filter-state="pqcDetailQuickFilterState"
             :operator-options="pqcDetailOperatorOptions"
             :columns="pqcDetailColumns"
-            :show-query-form="false"
+            :show-query-form="true"
             :show-column-settings="false"
             :total="pqcDetailTotal"
             v-model:page="pqcDetailQuery.pageNo"
             v-model:limit="pqcDetailQuery.pageSize"
+            :filter-rows="pqcDetailRows"
           >
-            <template #table>
+            <template #table="{ resolveRows }">
               <el-table stripe
-                :data="pagedPqcDetailRows"
+                :data="resolveRows(pagedPqcDetailRows)"
                 border
                 size="small"
                 data-pqc-leader-item-snapshot-table
@@ -1578,7 +1602,9 @@
       :total="activeOrderTotal"
       v-model:page="activeOrderQuery.pageNo"
       v-model:limit="activeOrderQuery.pageSize"
-      >
+      :filter-rows="filteredActiveOrderRows"
+      :column-filter-definitions="listColumnFilterDefinitions5"
+    >
       <template #actions>
         <el-input
           v-model="activeOrderWorkOrderKeyword"
@@ -1624,10 +1650,10 @@
           一键清理生产数据
         </el-button>
       </template>
-      <template #table>
+      <template #table="{ resolveRows }">
         <el-table
           v-loading="activeOrderLoading"
-          :data="pagedActiveOrderRows"
+          :data="resolveRows(pagedActiveOrderRows)"
           row-key="id"
           border
           stripe
@@ -4098,6 +4124,8 @@
 </template>
 
 <script setup lang="ts">
+import { type ListColumnFilterDefinition, loadAllListPages } from '@/hooks/web/useListColumnFilter'
+
 import { useTestMode } from '@/store/modules/testMode'
 
 import { useApprovalCenterInvalidationStore } from '@/store/modules/approvalCenterInvalidation'
@@ -4136,6 +4164,8 @@ import {
   saveTeamLeaderProcessOverageLimit,
   getTeamLeaderResponsibleRouteList,
   getProductionPersonnelList,
+  getStaleProductionEmployeeScopes,
+  disableStaleProductionEmployeeScope,
   getTeamLeaderActiveOrderDetail,
   getTeamLeaderActiveOrderList,
   getTeamLeaderActiveOrderRelease,
@@ -4494,7 +4524,7 @@ const activeOrderRebuildSubmittingId = ref<number | string>()
 const activeOrderVersionUpgradeSubmittingId = ref<number | string>()
 const activeOrderSimulationSubmittingId = ref<number | string>()
 const activeOrderTestResetSubmitting = ref(false)
-const activeOrderTestResetReceipt = ref<{ state: 'success' | 'unknown'; message: string }>()
+const activeOrderTestResetReceipt = ref<{ state: 'success' | 'rejected' | 'unknown'; message: string }>()
 const activeOrderTestResetBlocked = computed(() =>
   activeOrderTestResetSubmitting.value ||
   maintenanceSubmitting.value ||
@@ -6031,6 +6061,31 @@ const refreshProductionPersonnel = async () => {
   } finally {
     productionPersonnelLoading.value = false
   }
+}
+
+const staleEmployeeScopesVisible = ref(false)
+const staleEmployeeScopesLoading = ref(false)
+const staleEmployeeScopes = ref<Array<{ id: number; employeeUserId: number }>>([])
+const showStaleEmployeeScopes = async () => {
+  staleEmployeeScopesLoading.value = true
+  try {
+    staleEmployeeScopes.value = await getStaleProductionEmployeeScopes()
+    staleEmployeeScopesVisible.value = true
+  } catch (error) {
+    ElMessage.error(resolveErrorMessage(error, '遗留人员责任加载失败'))
+  } finally { staleEmployeeScopesLoading.value = false }
+}
+const disableStaleEmployeeScope = async (scopeId: number) => {
+  if (staleEmployeeScopesLoading.value) return
+  try {
+    await ElMessageBox.confirm('停用此条遗留责任？人员原班组和历史记录将保留。', '停用遗留责任')
+    staleEmployeeScopesLoading.value = true
+    await disableStaleProductionEmployeeScope(scopeId)
+    ElMessage.success('遗留责任已停用')
+    staleEmployeeScopes.value = await getStaleProductionEmployeeScopes()
+  } catch (error) {
+    if (error !== 'cancel' && error !== 'close') ElMessage.error(resolveErrorMessage(error, '停用遗留责任失败'))
+  } finally { staleEmployeeScopesLoading.value = false }
 }
 
 const handleProductionPersonnelPageChange = (page: number) => {
@@ -10375,6 +10430,13 @@ const handleResetFixedSimulationActiveOrder = async () => {
     )
   } catch (error) {
     const reason = resolveErrorMessage(error, '请稍后刷新核对')
+    // This business rejection rolls back the reset transaction; transport failures remain uncertain.
+    if (!writeCompleted && Number((error as { code?: number | string })?.code) === 1040760394) {
+      const rejectedMessage = `测试订单重置已拒绝，本次未完成重置：${reason}`
+      activeOrderTestResetReceipt.value = { state: 'rejected', message: rejectedMessage }
+      ElMessage.error(rejectedMessage)
+      return
+    }
     activeOrderTestResetReceipt.value = {
       state: 'unknown',
       message: `重置结果需要核对：${reason}；请刷新列表核对，不要再次重置`
@@ -10703,6 +10765,226 @@ onMounted(() => {
     }
   }
 })
+
+const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'employeeType',
+    label: '来源',
+    type: 'text',
+    getValue: (row) => [formatEmployeeType(row.employeeType)].join(' ')
+  },
+  {
+    key: 'enabled',
+    label: '状态',
+    type: 'text',
+    getValue: (row) => [row.enabled === false ? '已禁用' : '可选择'].join(' ')
+  }
+])
+
+const listColumnFilterDefinitions1 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'employeeType',
+    label: '来源',
+    type: 'text',
+    getValue: (row) => [formatEmployeeType(row.employeeType)].join(' ')
+  },
+  {
+    key: 'enabled',
+    label: '状态',
+    type: 'text',
+    getValue: (row) => [row.enabled === false ? '已禁用' : '可选择'].join(' ')
+  }
+])
+
+const listColumnFilterDefinitions2 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'enabled',
+    label: '状态',
+    type: 'text',
+    getValue: (row) => [row.enabled === false ? '已禁用' : '已启用'].join(' ')
+  }
+])
+
+const loadColumnFilterRows3 = async () => {
+  const params = buildSubmissionParams()
+  const rows = await loadAllListPages<any>((pagination) =>
+    getTeamLeaderSubmissionPage({ ...params, ...pagination })
+  )
+  await enrichSubmissionMaterialNames(rows)
+  return rows
+}
+
+const listColumnFilterDefinitions3 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'employeeUser',
+    label: employeeColumnLabel.value,
+    type: 'text',
+    getValue: (row) => row.actualEmployeeUserName
+  },
+  {
+    key: 'completionQuantity',
+    label: completionQuantityColumnLabel.value,
+    type: 'text',
+    getValue: (row) => resolveSubmissionCompletionQuantity(row)
+  },
+  {
+    key: 'process',
+    label: '工序',
+    type: 'text',
+    getValue: (row) => [row.processName || row.processCode || '--'].join(' ')
+  },
+  {
+    key: 'clearanceWorkplace',
+    label: '清场',
+    type: 'text',
+    getValue: (row) => [resolveProductionClearanceConfirmationText(row, 'workplace')].join(' ')
+  },
+  {
+    key: 'clearanceMaterial',
+    label: '物料',
+    type: 'text',
+    getValue: (row) => [resolveProductionClearanceConfirmationText(row, 'material')].join(' ')
+  },
+  {
+    key: 'clearanceCleaning',
+    label: '清洁',
+    type: 'text',
+    getValue: (row) => [resolveProductionClearanceConfirmationText(row, 'cleaning')].join(' ')
+  },
+  {
+    key: 'workOrder',
+    label: '生产工单',
+    type: 'text',
+    getValue: (row) => [row.workOrderCode || row.workOrderName || '--'].join(' ')
+  },
+  {
+    key: 'lossQuantity',
+    label: '损耗数量',
+    type: 'text',
+    getValue: (row) => [resolveSubmissionLossQuantity(row)].join(' ')
+  },
+  {
+    key: 'reportUnallocatedQuantity',
+    label: '未分配数量',
+    type: 'text',
+    getValue: (row) => [row.reportUnallocatedQuantity ?? row.outputQuantity ?? '--'].join(' ')
+  },
+  {
+    key: 'product',
+    label: '产品',
+    type: 'text',
+    getValue: (row) => [row.productCode || row.productName || '--'].join(' ')
+  },
+  {
+    key: 'inspectionTask',
+    label: '检验类型/轮次',
+    type: 'text',
+    getValue: (row) =>
+      [
+        resolvePqcInspectionTypeText(row.inspectionType),
+        row.roundNo || '--',
+        formatSubmissionSourceEventIds(row).split(' ').join('、')
+      ].join(' ')
+  },
+  {
+    key: 'approvedBy',
+    label: '处理人',
+    type: 'text',
+    getValue: (row) =>
+      [row.submissionReviewLeaderUserName || row.submissionReviewLeaderUserId || '--'].join(' ')
+  },
+  {
+    key: 'reviewStatus',
+    label: '处理结果',
+    type: 'text',
+    getValue: (row) => [resolveSubmissionReviewStatusText(row.submissionReviewStatus)].join(' ')
+  },
+  {
+    key: 'reviewRemark',
+    label: '处理说明',
+    type: 'text',
+    getValue: (row) => [row.submissionReviewRemark || '--'].join(' ')
+  },
+  {
+    key: 'approvedBy',
+    label: '审核通过人',
+    type: 'text',
+    getValue: (row) =>
+      [row.submissionReviewLeaderUserName || row.submissionReviewLeaderUserId || '--'].join(' ')
+  }
+])
+
+const listColumnFilterDefinitions5 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'erpFixedQuantitySnapshot',
+    label: 'ERP生产数量',
+    type: 'text',
+    getValue: (row) => [formatActiveOrderErpQuantity(row.erpFixedQuantitySnapshot)].join(' ')
+  },
+  {
+    key: 'productionProgressPercent',
+    label: '生产进度',
+    type: 'text',
+    getValue: (row) =>
+      [
+        row.readBlocked ? '未知' : formatActiveOrderProgressPercent(row.productionProgressPercent)
+      ].join(' ')
+  },
+  {
+    key: 'inspectionProgressPercent',
+    label: '检验进度',
+    type: 'text',
+    getValue: (row) =>
+      [
+        row.readBlocked ? '未知' : formatActiveOrderProgressPercent(row.inspectionProgressPercent)
+      ].join(' ')
+  },
+  {
+    key: 'releaseApplicationStatus',
+    label: '放行申请',
+    type: 'text',
+    getValue: (row) => [formatActiveOrderReleaseStatus(row.releaseApplicationStatus)].join(' ')
+  }
+])
+
+const listFilterColumns1 = [
+  {
+    key: 'displayName',
+    label: '显示名',
+    visible: true
+  },
+  {
+    key: 'employeeType',
+    label: '来源',
+    visible: true
+  },
+  {
+    key: 'enabled',
+    label: '状态',
+    visible: true
+  }
+]
+
+const allColumnDisplayFilters1: ListColumnFilterDefinition[] = [
+  {
+    key: 'displayName',
+    label: '显示名',
+    type: 'text',
+    getValue: (row) => [row.displayName || row.employeeName || '--'].join(' ')
+  },
+  {
+    key: 'employeeType',
+    label: '来源',
+    type: 'text',
+    getValue: (row) => [formatEmployeeType(row.employeeType)].join(' ')
+  },
+  {
+    key: 'enabled',
+    label: '状态',
+    type: 'text',
+    getValue: (row) => [row.enabled === false ? '已禁用' : '可选择'].join(' ')
+  }
+]
 </script>
 
 <style scoped>

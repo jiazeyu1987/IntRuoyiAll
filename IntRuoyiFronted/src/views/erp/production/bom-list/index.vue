@@ -2,7 +2,6 @@
 <template>
   <ContentWrap class="erp-viewport-list">
     <UnifiedListTemplate
-      :show-filter-reset="false"
       table-key="erp.production.bom-list.main"
       single-line-toolbar
       :query-model="queryParams"
@@ -19,22 +18,18 @@
       @quick-filter-query="quickFilter.applyQuickFilter"
       @column-change="saveColumnConfig"
       @pagination="getList"
+      :load-filter-rows="loadColumnFilterRows0"
+      @filtered-rows="list = $event"
+      :list-rows="list"
+      @column-filter-reset="getList"
     >
       <template #actions>
-        <el-button
-          type="primary"
-          plain
-          :loading="kingdeeSyncLoading"
-          @click="handleIncrementalSync"
-          v-hasPermi="['erp:kingdee-sync:query']"
-        >
-          <Icon icon="ep:refresh-right" class="mr-5px" /> 增量同步
-        </el-button>
+        <RecentFullSyncButton sync-type="BOM" />
       </template>
-      <template #table>
+      <template #table="{ resolveRows }">
         <el-table
           v-loading="loading || columnLoading"
-          :data="list"
+          :data="resolveRows(list)"
           :stripe="true"
           :show-overflow-tooltip="true"
           border
@@ -167,6 +162,9 @@
   </ContentWrap>
 </template>
 <script setup lang="ts">
+import { loadAllListPages } from '@/hooks/web/useListColumnFilter'
+
+import RecentFullSyncButton from '@/views/erp/components/RecentFullSyncButton.vue'
 import '@/views/erp/components/viewport-list.css'
 
 import { erpListIntegerColumnFormatter } from '@/views/erp/utils/integerDisplay'
@@ -181,13 +179,10 @@ import {
 } from '@/hooks/web/useUserTableColumns'
 import { dateFormatter } from '@/utils/formatTime'
 import { ErpBomListApi, ErpBomListVO } from '@/api/erp/production/bom-list'
-import { ErpKingdeeSyncApi } from '@/api/erp/sync'
 
 defineOptions({ name: 'ErpBomList' })
 
-const message = useMessage()
 const loading = ref(true)
-const kingdeeSyncLoading = ref(false)
 const list = ref<ErpBomListVO[]>([])
 const total = ref(0)
 const queryParams = reactive({
@@ -211,16 +206,6 @@ const getList = async () => {
   }
 }
 
-const handleIncrementalSync = async () => {
-  kingdeeSyncLoading.value = true
-  try {
-    await ErpKingdeeSyncApi.runIncrementalSync('BOM')
-    message.success('产品 BOM 增量同步任务已提交')
-    await getList()
-  } finally {
-    kingdeeSyncLoading.value = false
-  }
-}
 
 onActivated(() => {
   getList()
@@ -368,4 +353,12 @@ const quickFilter = useTableQuickFilter(
 onMounted(() => {
   getList()
 })
+
+const loadColumnFilterRows0 = async () => {
+  const params = { ...queryParams }
+  const rows = await loadAllListPages<any>((pagination) =>
+    ErpBomListApi.getPage({ ...params, ...pagination })
+  )
+  return rows
+}
 </script>

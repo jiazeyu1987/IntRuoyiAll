@@ -150,7 +150,7 @@ export const buildPreviewWatermarkBackground = (
           x="0"
           y="0"
           font-size="${overlay.fontSize}"
-          font-family="Segoe UI, PingFang SC, Microsoft YaHei, sans-serif"
+          font-family="Microsoft YaHei"
           fill="${overlay.textColor}"
           fill-opacity="${overlay.opacity}"
         >${escapeXml(watermarkText)}</text>
@@ -205,7 +205,7 @@ export const drawControlledPreviewStamp = (
   context.strokeRect(x, y, boxWidth, boxHeight)
   context.fillStyle = CONTROLLED_PREVIEW_STAMP_COLOR
   context.globalAlpha = 1
-  context.font = `700 ${textSize}px "Microsoft YaHei", "PingFang SC", sans-serif`
+  context.font = `700 ${textSize}px "Microsoft YaHei"`
   context.textAlign = 'center'
   context.textBaseline = 'middle'
   context.fillText(

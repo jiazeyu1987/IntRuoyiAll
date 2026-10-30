@@ -3,7 +3,7 @@ const fs = require('node:fs')
 const path = require('node:path')
 
 const REPO_ROOT = path.resolve(process.env.APPROVAL_CENTER_E2E_REPO_ROOT || path.join(process.cwd(), '..'))
-const REGISTRY_PATH = 'D:\\IntRuoyiWorktree\\.ports\\worktree-ports.json'
+const REGISTRY_PATH = path.join(REPO_ROOT, 'intrruoyi-runtime', 'worktree-ports.json')
 const TENANT = process.env.APPROVAL_CENTER_E2E_TENANT || '测试租户'
 const USERNAME = process.env.APPROVAL_CENTER_E2E_USERNAME || 'admin'
 const PASSWORD = process.env.APPROVAL_CENTER_E2E_PASSWORD || ''

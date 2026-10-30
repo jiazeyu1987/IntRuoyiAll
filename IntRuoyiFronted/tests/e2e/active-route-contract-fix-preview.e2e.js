@@ -11,7 +11,13 @@ const BROWSER_EXECUTABLE =
   process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH ||
   'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe'
 const OUTPUT_DIR = path.resolve(
-  'D:/ProjectPackage/Int/IntRuoyi/doc/tasks/20260710-active-route-contract-fix/e2e-output'
+  __dirname,
+  '..',
+  '..',
+  '..',
+  '.runtime',
+  'e2e-output',
+  'active-route-contract-fix-preview'
 )
 
 async function login(page) {

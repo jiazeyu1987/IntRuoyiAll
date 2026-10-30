@@ -50,6 +50,7 @@
       @column-change="saveColumnConfig"
       @column-reset="resetColumnConfig"
       @pagination="handlePagination"
+      :filter-rows="filteredRows"
     >
       <template #extra-filters>
         <el-form-item label="签名样本">
@@ -84,11 +85,11 @@
         </el-button>
       </template>
 
-      <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+      <template #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
         <el-table
           data-user-table-column-explicit
           data-user-table-key="signature.governance.csvPackage.list"
-          :data="pagedRows"
+          :data="resolveRows(pagedRows)"
           :empty-text="csvError || candidateAutoFillError || '暂无CSV质量包记录'"
           :show-overflow-tooltip="true"
           @header-dragend="handleHeaderDragend"
@@ -940,6 +941,8 @@ watch(rows, () => handlePagination())
 onMounted(() => {
   void loadDccSignatureCandidates()
 })
+
+
 </script>
 
 <style scoped>

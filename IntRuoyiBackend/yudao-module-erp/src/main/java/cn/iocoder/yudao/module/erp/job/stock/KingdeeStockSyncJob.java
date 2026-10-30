@@ -29,6 +29,9 @@ public class KingdeeStockSyncJob implements JobHandler, ErpKingdeeFullSyncHandle
     @Override
     @TenantJob
     public String execute(String param) {
+        if (param != null && param.startsWith(WINDOW_SYNC_JOB_PREFIX)) {
+            return executeWindowSync(param);
+        }
         if (ErpKingdeeFullSyncHandler.FULL_SYNC_JOB_PARAM.equals(param)) {
             return executeFullSync();
         }
@@ -54,18 +57,27 @@ public class KingdeeStockSyncJob implements JobHandler, ErpKingdeeFullSyncHandle
     @Override
     public String executeFullSync() {
         LocalDateTime windowEnd = LocalDateTime.now();
+        return executeFullSync(null, windowEnd);
+    }
+
+    @Override
+    public String executeFullSync(LocalDateTime windowStart, LocalDateTime windowEnd) {
         AtomicReference<ErpKingdeeStockSyncResult> stockResultReference = new AtomicReference<>();
         AtomicReference<ErpKingdeeInventoryListSyncResult> inventoryResultReference = new AtomicReference<>();
         syncRuntimeService.executeSync(ErpKingdeeSyncCommand.builder()
                 .syncType(ErpKingdeeSyncTypeEnum.STOCK)
                 .triggerType(ErpKingdeeSyncTriggerTypeEnum.FULL)
+                .forceInitialWindowStart(windowStart != null)
+                .initialWindowStart(windowStart)
                 .windowEnd(windowEnd)
                 .build(), context -> {
-            ErpKingdeeStockSyncResult stockResult = stockSyncService.syncStocksFullSkipExisting();
-            ErpKingdeeInventoryListSyncResult inventoryResult = inventoryListService.syncAllSkipExisting();
+            ErpKingdeeStockSyncResult stockResult = windowStart == null ? stockSyncService.syncStocksFullSkipExisting()
+                    : stockSyncService.syncStocksFullSkipExisting(windowStart, windowEnd);
+            ErpKingdeeInventoryListSyncResult inventoryResult = windowStart == null ? inventoryListService.syncAllSkipExisting()
+                    : inventoryListService.syncAllSkipExisting(windowStart, windowEnd);
             stockResultReference.set(stockResult);
             inventoryResultReference.set(inventoryResult);
-            return ErpKingdeeSyncRunResult.success(context.getWindowEnd(),
+            return ErpKingdeeSyncRunResult.success(windowStart == null ? context.getWindowEnd() : null,
                     stockResult.getSyncedCount() - stockResult.getSkippedCount() + inventoryResult.getCreatedCount(),
                     0, stockResult.getSkippedCount() + inventoryResult.getSkippedCount(), 0);
         });

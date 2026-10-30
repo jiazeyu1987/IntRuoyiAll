@@ -18,6 +18,11 @@
       @quick-filter-query="handleQuery"
       @column-change="saveProductColumnConfig"
       @pagination="getList"
+      :load-filter-rows="loadColumnFilterRows0"
+      @filtered-rows="list = $event"
+      :list-rows="list"
+      @column-filter-reset="getList"
+      :column-filter-definitions="listColumnFilterDefinitions0"
     >
       <template #actions>
         <el-button
@@ -47,13 +52,13 @@
           导出
         </el-button>
       </template>
-      <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+      <template #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
         <el-table
           v-loading="loading"
           class="mdm-product-resizable-table"
           data-user-table-column-explicit
           data-user-table-key="mdm.product.main"
-          :data="list"
+          :data="resolveRows(list)"
           border
           :allow-drag-last-column="true"
           :show-overflow-tooltip="true"
@@ -320,6 +325,8 @@
 </template>
 
 <script setup lang="ts">
+import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+
 import { isSearchFormInputEmpty } from '@/utils/search'
 import type { FormInstance, FormRules, UploadFile, UploadUserFile } from 'element-plus'
 import download from '@/utils/download'
@@ -701,6 +708,23 @@ watch(
     await getList()
   }
 )
+
+const loadColumnFilterRows0 = async () => {
+  const params = { ...queryParams }
+  const rows = await loadAllListPages<any>((pagination) =>
+    ProductApi.getProductPage({ ...params, ...pagination })
+  )
+  return rows
+}
+
+const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'status',
+    label: '状态',
+    type: 'text',
+    getValue: (row) => [formatStatus(row.status)].join(' ')
+  }
+])
 </script>
 
 <style scoped>

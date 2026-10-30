@@ -254,6 +254,8 @@ class MesTeamLeaderActiveOrderServiceTest {
 
     @BeforeEach
     void setUp() {
+        org.mockito.Mockito.lenient().when(routeMapper.selectByIdForUpdate(org.mockito.ArgumentMatchers.anyLong()))
+                .thenAnswer(call -> routeMapper.selectById((Long) call.getArgument(0)));
         cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.setTenantId(1L);
         service = new MesTeamLeaderActiveOrderServiceImpl(activeOrderMapper, workOrderService, workOrderMapper,
                 itemMapper, auditMapper, scheduleOrderMapper, scheduleOrderProcessMapper, routeProductMapper, routeMapper,

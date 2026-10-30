@@ -7,6 +7,8 @@
     >
       <el-tab-pane label="表单填写日志" name="FORM_FILL">
     <UnifiedListTemplate
+      :query-loading="loading"
+      :reset-filters="resetQuery"
       single-line-toolbar
       class="edhr-form-fill-log-page"
       table-key="mes.pro.edhr.formFillLog.main"
@@ -26,16 +28,14 @@
       @quick-filter-query="formFillLogQuickFilter.applyQuickFilter"
       @column-change="saveFormFillLogColumnConfig"
       @pagination="getList"
+      :load-filter-rows="loadColumnFilterRows0"
+      @filtered-rows="list = $event"
+      :list-rows="list"
+      @column-filter-reset="getList"
+      :column-filter-definitions="listColumnFilterDefinitions0"
     >
-      <template #actions>
-        <el-button :loading="loading" type="primary" @click="getList">
-          <Icon icon="ep:search" class="mr-5px" />
-          查询
-        </el-button>
-        <el-button @click="resetQuery">重置</el-button>
-      </template>
 
-      <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+      <template #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
         <el-alert
           v-if="loadError"
           :title="loadError"
@@ -48,7 +48,7 @@
           v-loading="loading"
           data-user-table-column-explicit
           data-user-table-key="mes.pro.edhr.formFillLog.main"
-          :data="list"
+          :data="resolveRows(list)"
           border
           stripe
           row-key="auditBatchId"
@@ -194,11 +194,21 @@
           class="edhr-form-fill-log-page__alert"
         />
         <UnifiedListTemplate
+          @query="getProductionReportRevisionList"
+          @reset="resetProductionReportRevisionQuery"
+          :query-loading="productionReportRevisionLoading"
           table-key="mes.edhr.productionReportRevision"
           v-model:page="productionReportRevisionQuery.pageNo"
           v-model:limit="productionReportRevisionQuery.pageSize"
           :total="productionReportRevisionTotal"
           @pagination="getProductionReportRevisionList"
+          :load-filter-rows="loadColumnFilterRows1"
+          @filtered-rows="productionReportRevisionList = $event"
+          :list-rows="productionReportRevisionList"
+          @column-filter-reset="getProductionReportRevisionList"
+          :columns="listFilterColumns1"
+          :column-filter-definitions="allColumnDisplayFilters1"
+          :show-column-settings="false"
         >
           <template #filters>
             <div class="edhr-form-fill-log-page__revision-toolbar">
@@ -228,21 +238,12 @@
               />
             </div>
           </template>
-          <template #actions>
-            <el-button
-              type="primary"
-              :loading="productionReportRevisionLoading"
-              @click="getProductionReportRevisionList"
-            >
-              查询
-            </el-button>
-            <el-button @click="resetProductionReportRevisionQuery">重置</el-button>
-          </template>
-          <template #table>
+
+          <template #table="{ resolveRows }">
             <el-table
               v-loading="productionReportRevisionLoading"
               data-production-report-revision-log-table
-              :data="productionReportRevisionList"
+              :data="resolveRows(productionReportRevisionList)"
               border
               stripe
               row-key="revisionId"
@@ -408,6 +409,8 @@
 </template>
 
 <script setup lang="ts">
+import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import {
   getFormFillLogDetail,
@@ -738,6 +741,128 @@ onMounted(() => {
   void getList()
   void getProductionReportRevisionList()
 })
+
+const loadColumnFilterRows0 = async () => {
+  const params = buildQuery()
+  const rows = await loadAllListPages<any>((pagination) =>
+    getFormFillLogPage({ ...params, ...pagination })
+  )
+  return rows
+}
+
+const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'batchCode',
+    label: '批号',
+    type: 'text',
+    getValue: (row) =>
+      [row.batchCode, row.batchCode || '--', resolveEvidenceLabel(row.contextStatus)].join(' ')
+  },
+  {
+    key: 'workOrderCode',
+    label: '生产工单号',
+    type: 'text',
+    getValue: (row) =>
+      [row.workOrderCode, row.workOrderCode || '--', resolveEvidenceLabel(row.contextStatus)].join(
+        ' '
+      )
+  },
+  {
+    key: 'contextStatus',
+    label: '证据状态',
+    type: 'text',
+    getValue: (row) => [resolveEvidenceLabel(row.contextStatus)].join(' ')
+  }
+])
+
+const loadColumnFilterRows1 = async () => {
+  const params = buildProductionReportRevisionQuery()
+  const rows = await loadAllListPages<any>((pagination) =>
+    getProductionReportRevisionLogPage({ ...params, ...pagination })
+  )
+  return rows
+}
+
+const listFilterColumns1 = [
+  {
+    key: 'workOrderCode',
+    label: '生产工单号',
+    visible: true
+  },
+  {
+    key: 'processName',
+    label: '工序',
+    visible: true
+  },
+  {
+    key: 'actualEmployeeName',
+    label: '原报工人',
+    visible: true
+  },
+  {
+    key: 'submittedAt',
+    label: '原提交时间',
+    visible: true
+  },
+  {
+    key: 'modifiedByName',
+    label: '修改人',
+    visible: true
+  },
+  {
+    key: 'modifiedAt',
+    label: '修改时间',
+    visible: true
+  },
+  {
+    key: 'changeReason',
+    label: '修改原因',
+    visible: true
+  },
+  {
+    key: 'fieldCount',
+    label: '修改字段数',
+    visible: true
+  },
+  {
+    key: 'changeSummary',
+    label: '修改摘要',
+    visible: true
+  }
+]
+
+const allColumnDisplayFilters1: ListColumnFilterDefinition[] = [
+  {
+    key: 'workOrderCode',
+    label: '生产工单号',
+    type: 'text',
+    getValue: (row) => [row.workOrderCode || row.workOrderName || '--'].join(' ')
+  },
+  {
+    key: 'processName',
+    label: '工序',
+    type: 'text',
+    getValue: (row) => [row.processName || row.processCode || '--'].join(' ')
+  },
+  {
+    key: 'actualEmployeeName',
+    label: '原报工人',
+    type: 'text',
+    getValue: (row) => [row.actualEmployeeName || '--'].join(' ')
+  },
+  {
+    key: 'submittedAt',
+    label: '原提交时间',
+    type: 'text',
+    getValue: (row) => [formatFormLogDateTime(row.submittedAt)].join(' ')
+  },
+  {
+    key: 'modifiedAt',
+    label: '修改时间',
+    type: 'text',
+    getValue: (row) => [formatFormLogDateTime(row.modifiedAt)].join(' ')
+  }
+]
 </script>
 
 <style scoped>

@@ -32,13 +32,18 @@
       @quick-filter-query="historicalImportQuickFilter.applyQuickFilter"
       @column-change="saveHistoricalImportColumnConfig"
       @pagination="getList"
+      :load-filter-rows="loadColumnFilterRows0"
+      @filtered-rows="list = $event"
+      :list-rows="list"
+      @column-filter-reset="getList"
+      :column-filter-definitions="listColumnFilterDefinitions0"
     >
-      <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+      <template #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
         <el-table
           v-loading="loading"
           data-user-table-column-explicit
           data-user-table-key="dcc.registrationCertificate.historicalImport"
-          :data="list"
+          :data="resolveRows(list)"
           border
           :empty-text="historicalImportEmptyText"
           :show-overflow-tooltip="true"
@@ -154,6 +159,8 @@
 </template>
 
 <script setup lang="ts">
+import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+
 import { onMounted, reactive, ref } from 'vue'
 import { dateFormatter2 } from '@/utils/formatTime'
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
@@ -270,6 +277,35 @@ const historicalImportQuickFilter = useTableQuickFilter(
 onMounted(() => {
   void getList()
 })
+
+const loadColumnFilterRows0 = async () => {
+  const params = { ...queryParams }
+  const rows = await loadAllListPages<any>((pagination) =>
+    DccHistoricalImportApi.getHistoricalImportPage({ ...params, ...pagination })
+  )
+  return rows
+}
+
+const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'versionNo',
+    label: '版本',
+    type: 'text',
+    getValue: (row) => [row.versionNo == null ? '-' : row.versionNo].join(' ')
+  },
+  {
+    key: 'result',
+    label: '结果',
+    type: 'text',
+    getValue: (row) => [formatResult(row.result)].join(' ')
+  },
+  {
+    key: 'restrictedReasons',
+    label: '受限原因',
+    type: 'text',
+    getValue: (row) => [formatRestrictedReasons(row.restrictedReasons)].join(' ')
+  }
+])
 </script>
 
 <style scoped>

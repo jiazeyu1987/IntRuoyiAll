@@ -282,7 +282,7 @@ class MesSimpleParserPublishServiceTest {
         when(itemMapper.selectList(any())).thenReturn(List.of(item));assertEquals(1,service.preview(req).getJSONArray("blockers").size());
         assertEquals(0,count("created_resource"));
     }
-    @Test void unresolvedMaterialsAreAllListedAndPreventEveryBusinessWrite() {
+    @Test void ambiguousDisabledAndMalformedMaterialsStillPreventBusinessWrites() {
         var req=request();var source=((JSONObject)req.getRecognitionJson()).getJSONArray("processes");
         source.getJSONObject(0).put("inputs",JSON.parseArray("""
                 [{"code":"MISSING","name":"缺失原料"},{"code":"DUP","name":"重复原料"},{"code":"OK","name":"识别别名"}]
@@ -298,13 +298,13 @@ class MesSimpleParserPublishServiceTest {
                 List.of(),List.of(enabled,enabled),List.of(enabled),List.of(disabled),List.of(enabled));
         String original=JSON.toJSONString(req.getRecognitionJson());
         var preview=service.preview(req);var blockers=preview.getJSONArray("blockers");
-        assertEquals(5,blockers.size());
-        assertTrue(blockers.getString(0).contains("工序 1（同名工序）输入物料（编码：MISSING，名称：缺失原料）"));
-        assertTrue(blockers.getString(1).contains("目录匹配不唯一"));
-        assertTrue(blockers.getString(2).contains("工序 2（同名工序）输出物料（编码：OFF，名称：停用产物）"));
-        assertTrue(blockers.getString(2).contains("未启用"));
-        assertTrue(blockers.getString(3).contains("精确匹配"));
-        assertTrue(blockers.getString(4).contains("未提供编码或名称"));
+        assertEquals(4,blockers.size());
+        assertTrue(preview.getJSONArray("unmatchedMaterials").getString(0).contains("工序 1（同名工序）输入物料（编码：MISSING，名称：缺失原料）"));
+        assertTrue(blockers.getString(0).contains("目录匹配不唯一"));
+        assertTrue(blockers.getString(1).contains("工序 2（同名工序）输出物料（编码：OFF，名称：停用产物）"));
+        assertTrue(blockers.getString(1).contains("未启用"));
+        assertTrue(blockers.getString(2).contains("精确匹配"));
+        assertTrue(blockers.getString(3).contains("未提供编码或名称"));
         assertEquals(2,preview.getJSONArray("processRows").size());
         assertEquals(2,preview.getJSONArray("craftRows").size());
         assertEquals(1,preview.getJSONArray("deviceRows").size());
@@ -317,9 +317,51 @@ class MesSimpleParserPublishServiceTest {
         verifyNoInteractions(processes,crafts,devices,routes,configs);
         req.setPreviewToken(preview.getString("previewToken"));
         var error=assertThrows(ServiceException.class,()->service.publish(req));
-        assertTrue(error.getMessage().contains("缺失原料"));assertTrue(error.getMessage().contains("停用产物"));
+        assertFalse(error.getMessage().contains("缺失原料"));assertTrue(error.getMessage().contains("停用产物"));
         verifyNoInteractions(processes,crafts,devices,routes,configs);
         assertEquals(0,count("created_resource"));assertEquals(0,count("mes_simple_parser_publish_receipt"));
+    }
+    @Test void missingMaterialsAllowPublishAndOnlyMatchedIdsAreBound() {
+        var req=request();var source=((JSONObject)req.getRecognitionJson()).getJSONArray("processes");
+        source.getJSONObject(0).put("inputs",JSON.parseArray("""
+                [{"code":"MISSING","name":"缺失原料"},{"code":"OK","name":"目录原料"}]
+                """));
+        source.getJSONObject(1).put("outputs",JSON.parseArray("[{\"name\":\"未建档产物\"}]"));
+        var enabled=new cn.iocoder.yudao.module.mes.dal.dataobject.md.item.MesMdItemDO();
+        enabled.setId(77L);enabled.setCode("OK");enabled.setName("目录原料");enabled.setStatus(0);
+        when(itemMapper.selectList(any())).thenReturn(List.of(),List.of(enabled),List.of(),List.of(),List.of(enabled),List.of());
+        String original=JSON.toJSONString(req.getRecognitionJson());
+        var preview=service.preview(req);
+        assertTrue(preview.getJSONArray("blockers").isEmpty());
+        assertEquals(2,preview.getJSONArray("unmatchedMaterials").size());
+        assertTrue(preview.getJSONArray("unmatchedMaterials").getString(0).contains("本次不绑定"));
+        assertEquals(0,count("created_resource"));
+        req.setPreviewToken(preview.getString("previewToken"));var result=service.publish(req);
+        assertEquals(9L,result.getLong("routeId"));
+        assertEquals(preview.getJSONArray("unmatchedMaterials"),result.getJSONArray("unmatchedMaterials"));
+        var capture=org.mockito.ArgumentCaptor.forClass(Map.class);
+        verify(configs).saveConfigSnapshots(eq(21L),eq("snapshot"),capture.capture());
+        var batch=((JSONObject)JSON.toJSON(capture.getValue())).getJSONArray("batchUseConfigs");
+        assertEquals(List.of(77L),batch.getJSONObject(0).getJSONArray("inputMaterialIds").toJavaList(Long.class));
+        assertTrue(batch.getJSONObject(1).getJSONArray("outputMaterialIds").isEmpty());
+        assertEquals(original,JSON.toJSONString(req.getRecognitionJson()));
+        verify(itemMapper,never()).insert(any(cn.iocoder.yudao.module.mes.dal.dataobject.md.item.MesMdItemDO.class));
+        assertEquals(result.getLong("routeId"),service.publish(req).getLong("routeId"));
+        verify(routes,times(1)).createRouteWithProcesses(any());
+    }
+    @Test void newlyMatchedMaterialAfterPreviewRequiresFreshConfirmation() {
+        var req=request();
+        ((JSONObject)req.getRecognitionJson()).getJSONArray("processes").getJSONObject(0)
+                .put("inputs",JSON.parseArray("[{\"code\":\"MAT\",\"name\":\"原料\"}]"));
+        when(itemMapper.selectList(any())).thenReturn(List.of());
+        var preview=service.preview(req);assertTrue(preview.getJSONArray("blockers").isEmpty());
+        req.setPreviewToken(preview.getString("previewToken"));
+        var item=new cn.iocoder.yudao.module.mes.dal.dataobject.md.item.MesMdItemDO();
+        item.setId(77L);item.setCode("MAT");item.setName("原料");item.setStatus(0);
+        when(itemMapper.selectList(any())).thenReturn(List.of(item));
+        assertThrows(ServiceException.class,()->service.publish(req));
+        verifyNoInteractions(processes,crafts,devices,routes,configs);
+        assertEquals(0,count("mes_simple_parser_publish_receipt"));
     }
     @Test void parameterConversionPreservesZeroRangesAndRejectsUnrepresentableStep() {
         var input=JSON.parseArray("""

@@ -63,10 +63,17 @@ public class ErpKingdeeStockSyncServiceImpl implements ErpKingdeeStockSyncServic
     @Override
     @Transactional(rollbackFor = Exception.class)
     public ErpKingdeeStockSyncResult syncStocksFullSkipExisting() {
+        return syncStocksFullSkipExisting(null, null);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public ErpKingdeeStockSyncResult syncStocksFullSkipExisting(LocalDateTime windowStart, LocalDateTime windowEnd) {
         ErpKingdeeProperties kingdeeProperties = kingdeeConfigService.getEffectiveProperties();
         kingdeeProperties.validateBaseConfig();
-        List<ErpKingdeeInventoryRow> rows = inventoryClient.fetchInventoryRows(kingdeeProperties);
-        return syncRows(rows, true);
+        List<ErpKingdeeInventoryRow> rows = (windowStart == null ? inventoryClient.fetchInventoryRows(kingdeeProperties)
+                : inventoryClient.fetchInventoryRowsModifiedBetween(kingdeeProperties, windowStart, windowEnd));
+        return syncRows(windowStart == null ? rows : fetchGroupSnapshots(kingdeeProperties, rows), true);
     }
 
     @Override
@@ -76,6 +83,11 @@ public class ErpKingdeeStockSyncServiceImpl implements ErpKingdeeStockSyncServic
         kingdeeProperties.validateBaseConfig();
         List<ErpKingdeeInventoryRow> rows = inventoryClient.fetchInventoryRowsModifiedBetween(
                 kingdeeProperties, windowStart, windowEnd);
+        return syncRows(fetchGroupSnapshots(kingdeeProperties, rows), false);
+    }
+
+    private List<ErpKingdeeInventoryRow> fetchGroupSnapshots(ErpKingdeeProperties kingdeeProperties,
+                                                            List<ErpKingdeeInventoryRow> rows) {
         Map<List<String>, ErpKingdeeInventoryRow> groups = new LinkedHashMap<>();
         for (ErpKingdeeInventoryRow row : rows) {
             groups.putIfAbsent(List.of(row.getMaterialNumber(), row.getStockOrgNumber(), row.getWarehouseNumber()), row);
@@ -92,7 +104,7 @@ public class ErpKingdeeStockSyncServiceImpl implements ErpKingdeeStockSyncServic
                 snapshots.addAll(snapshot);
             }
         }
-        return syncRows(snapshots, false);
+        return snapshots;
     }
 
     private ErpKingdeeStockSyncResult syncRows(List<ErpKingdeeInventoryRow> rows, boolean skipExisting) {

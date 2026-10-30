@@ -37,6 +37,11 @@
           @quick-filter-query="recordFormQuickFilter.applyQuickFilter"
           @column-change="saveRecordFormColumnConfig"
           @pagination="getList"
+          :load-filter-rows="loadColumnFilterRows0"
+          @filtered-rows="list = $event"
+          :list-rows="list"
+          @column-filter-reset="getList"
+          :column-filter-definitions="listColumnFilterDefinitions0"
         >
           <template #actions>
             <el-button
@@ -57,10 +62,10 @@
               />
             </div>
           </template>
-          <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+          <template #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
             <el-table
               v-loading="listLoading"
-              :data="list"
+              :data="resolveRows(list)"
               row-key="rowKey"
               height="100%"
               highlight-current-row
@@ -523,6 +528,8 @@
 </template>
 
 <script setup lang="ts">
+import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+
 import { ElLoading, ElMessageBox } from 'element-plus'
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { formatDateTimeValue } from '@/utils/formatTime'
@@ -2206,6 +2213,32 @@ watch(
     await getList()
   }
 )
+
+const loadColumnFilterRows0 = async () => {
+  const rows = await loadAllListPages<any>((pagination) =>
+    BatchRecordReportApi.getGeneratedReportPage({
+      ...queryParams,
+      reportId: normalizeRouteQueryText(route.query.reportId) || undefined,
+      ...pagination
+    })
+  )
+  return rows.map(toRecordFormRow)
+}
+
+const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'formSlotType',
+    label: '类型',
+    type: 'text',
+    getValue: (row) => [resolveFormSlotTypeLabel(row.formSlotType)].join(' ')
+  },
+  {
+    key: 'versionStatus',
+    label: '状态',
+    type: 'text',
+    getValue: (row) => [resolveVersionStatusPresentation(row.versionStatus).label].join(' ')
+  }
+])
 </script>
 
 <style scoped>

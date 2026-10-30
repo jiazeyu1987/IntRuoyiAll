@@ -20,12 +20,17 @@
       @column-change="saveProjectCodeColumnConfig"
       @sort-change="handleSortChange"
       @pagination="getList"
+      :load-filter-rows="loadColumnFilterRows0"
+      @filtered-rows="list = $event"
+      :list-rows="list"
+      @column-filter-reset="getList"
+      :column-filter-definitions="listColumnFilterDefinitions0"
     >
       <template #actions>
         <el-button data-testid="dcc-project-request-create-open" v-hasPermi="['dcc:project-code:create']"
           type="primary" plain @click="openProjectRequestEntry('create')">新建项目申请</el-button>
       </template>
-      <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+      <template #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
         <div
           v-if="listUnclassifiedAutoClassifyProgressVisible"
           class="dcc-project-code-batch-ai-category-progress"
@@ -133,7 +138,7 @@
           v-loading="loading"
           data-user-table-column-explicit
           data-user-table-key="dcc.projectCode.main"
-          :data="list"
+          :data="resolveRows(list)"
           border
           :stripe="true"
           :show-overflow-tooltip="true"
@@ -1347,6 +1352,8 @@
 </template>
 
 <script lang="ts" setup>
+import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+
 import UserSelectV2 from '@/views/system/user/components/UserSelectV2.vue'
 import { onActivated } from 'vue'
 import { dateFormatter2 } from '@/utils/formatTime'
@@ -3772,6 +3779,59 @@ watch(
     }
   }
 )
+
+const loadColumnFilterRows0 = async () => {
+  const params = { ...queryParams }
+  const rows = await loadAllListPages<any>((pagination) =>
+    getProjectCodePage({ ...params, ...pagination })
+  )
+  return rows
+}
+
+const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'associatedFileCount',
+    label: '关联文件数',
+    type: 'text',
+    getValue: (row) => [row.associatedFileCount ?? 0].join(' ')
+  },
+  {
+    key: 'routeStatus',
+    label: '工艺路线',
+    type: 'text',
+    getValue: (row) =>
+      [
+        formatDccProjectGovernanceStatus(getDccProjectGovernance(row.projectName)?.routeStatus),
+        formatDccProjectGovernanceVersions(
+          getDccProjectGovernance(row.projectName)?.routeVersionNos
+        )
+      ].join(' ')
+  },
+  {
+    key: 'mainBatchRecordStatus',
+    label: '主批记录',
+    type: 'text',
+    getValue: (row) =>
+      [
+        formatDccProjectGovernanceStatus(
+          getDccProjectGovernance(row.projectName)?.mainBatchRecordStatus
+        ),
+        formatDccProjectGovernanceVersions(
+          getDccProjectGovernance(row.projectName)?.mainBatchRecordVersionNos
+        )
+      ].join(' ')
+  },
+  {
+    key: 'qaRegulationStatus',
+    label: 'QA规程',
+    type: 'text',
+    getValue: (row) =>
+      [
+        formatQaRegulationStatus(getQaRegulationProjectStatus(row.id)),
+        formatQaRegulationPublishedVersion(getQaRegulationProjectStatus(row.id))
+      ].join(' ')
+  }
+])
 </script>
 
 <style scoped>

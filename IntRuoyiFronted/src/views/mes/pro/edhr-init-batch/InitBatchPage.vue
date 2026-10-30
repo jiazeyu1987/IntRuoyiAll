@@ -595,7 +595,7 @@ onMounted(() => {
 
 .edhr-init-batch__hash {
   color: #263247;
-  font-family: ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace;
+  font-family: var(--app-font-family);
   font-size: 12px;
   overflow-wrap: anywhere;
 }

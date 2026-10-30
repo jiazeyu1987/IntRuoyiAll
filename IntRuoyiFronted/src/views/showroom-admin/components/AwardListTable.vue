@@ -1,11 +1,21 @@
 <template>
   <div class="showroom-award-list">
     <UnifiedListTemplate
+      @query="emitSearch"
+      @reset="resetSearch"
+      :query-loading="loading"
       table-key="showroom.award.main"
       v-model:limit="localPageSize"
       v-model:page="localPageNo"
       :total="pageTotal"
       @pagination="emitPageChange"
+      :load-filter-rows="loadColumnFilterRows0"
+      :list-rows="awards"
+      @filtered-rows="emit('filteredRows', $event)"
+      @column-filter-reset="emitPageChange"
+      :columns="listFilterColumns0"
+      :show-column-settings="false"
+      :column-filter-definitions="[...listColumnFilterDefinitions0, ...allColumnDisplayFilters0]"
     >
       <template #filters>
         <div>
@@ -18,12 +28,9 @@
           />
         </div>
       </template>
-      <template #actions>
-        <el-button type="primary" :loading="loading" @click="emitSearch">查询</el-button>
-        <el-button @click="resetSearch">重置</el-button>
-      </template>
-      <template #table>
-        <el-table stripe v-loading="loading" :data="awards" border row-key="awardId">
+
+      <template #table="{ resolveRows }">
+        <el-table stripe v-loading="loading" :data="resolveRows(awards)" border row-key="awardId">
           <el-table-column label="奖项编码" width="130" prop="awardCode" show-overflow-tooltip />
           <el-table-column label="中文名称" min-width="180" prop="nameCn" show-overflow-tooltip />
           <el-table-column label="英文名称" min-width="180" show-overflow-tooltip>
@@ -73,6 +80,8 @@
 </template>
 
 <script setup lang="ts">
+import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import type { ShowroomAwardPageRowRespVO } from '@/api/showroom-admin'
 
@@ -80,6 +89,7 @@ defineOptions({ name: 'AwardListTable' })
 
 const props = defineProps<{
   awards: ShowroomAwardPageRowRespVO[]
+  loadFilterRows: () => Promise<ShowroomAwardPageRowRespVO[]>
   loading?: boolean
   generatingCoverAwardId?: number | null
   keyword?: string
@@ -90,6 +100,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   search: [keyword: string]
+  filteredRows: [rows: ShowroomAwardPageRowRespVO[]]
   pageChange: [pagination: { pageNo: number; pageSize: number }]
   edit: [award: ShowroomAwardPageRowRespVO]
   generateCover: [award: ShowroomAwardPageRowRespVO]
@@ -118,6 +129,82 @@ const resetSearch = () => {
 const emitPageChange = () => {
   emit('pageChange', { pageNo: localPageNo.value, pageSize: localPageSize.value })
 }
+
+const loadColumnFilterRows0 = async () => {
+  return props.loadFilterRows()
+}
+
+const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'incomplete',
+    label: '状态',
+    type: 'text',
+    getValue: (row) => [row.incomplete ? '待完善' : '已发布'].join(' ')
+  }
+])
+
+const listFilterColumns0 = [
+  {
+    key: 'awardCode',
+    label: '奖项编码',
+    visible: true
+  },
+  {
+    key: 'nameCn',
+    label: '中文名称',
+    visible: true
+  },
+  {
+    key: 'nameEn',
+    label: '英文名称',
+    visible: true
+  },
+  {
+    key: 'issuer',
+    label: '颁发单位',
+    visible: true
+  },
+  {
+    key: 'awardDateText',
+    label: '日期/期限',
+    visible: true
+  },
+  {
+    key: 'coverImageUrl',
+    label: '封面',
+    visible: true
+  },
+  {
+    key: 'incomplete',
+    label: '状态',
+    visible: true
+  }
+]
+
+const allColumnDisplayFilters0: ListColumnFilterDefinition[] = [
+  {
+    key: 'nameEn',
+    label: '英文名称',
+    type: 'text',
+    getValue: (row) => [row.nameEn || '未填写'].join(' ')
+  },
+  {
+    key: 'coverImageUrl',
+    label: '封面',
+    type: 'select',
+    options: [
+      { label: '有', value: true },
+      { label: '无', value: false }
+    ],
+    getValue: (row) => Boolean(row.coverImageUrl)
+  },
+  {
+    key: 'incomplete',
+    label: '状态',
+    type: 'text',
+    getValue: (row) => [row.incomplete ? '待完善' : '已发布'].join(' ')
+  }
+]
 </script>
 
 <style scoped>

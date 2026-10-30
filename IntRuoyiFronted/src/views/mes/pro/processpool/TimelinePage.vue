@@ -815,7 +815,7 @@ onMounted(() => getList())
   border-radius: 6px;
   background: #f8fafc;
   color: #172033;
-  font-family: Consolas, 'Courier New', monospace;
+  font-family: var(--app-font-family);
   font-size: 12px;
   line-height: 1.6;
   white-space: pre-wrap;

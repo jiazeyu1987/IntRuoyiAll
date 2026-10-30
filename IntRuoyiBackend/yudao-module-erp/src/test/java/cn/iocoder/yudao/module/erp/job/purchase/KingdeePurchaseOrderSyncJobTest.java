@@ -97,4 +97,31 @@ class KingdeePurchaseOrderSyncJobTest {
         Assertions.assertThrows(IllegalStateException.class, () -> job.execute(""));
     }
 
+    @Test
+    void boundedFullSync_usesClickWindowSkipExistingAndDoesNotAdvanceWatermark() {
+        ErpKingdeePurchaseOrderSyncService service = mock(ErpKingdeePurchaseOrderSyncService.class);
+        ErpKingdeeSyncRuntimeService runtime = mock(ErpKingdeeSyncRuntimeService.class);
+        LocalDateTime end = LocalDateTime.of(2026, 10, 30, 15, 32);
+        LocalDateTime start = end.minusDays(7);
+        ErpKingdeePurchaseOrderSyncResult result = new ErpKingdeePurchaseOrderSyncResult();
+        result.addCreated(1L);
+        result.addSkipped("existing");
+        when(service.syncPurchaseOrdersFullSkipExisting(start, end)).thenReturn(result);
+        when(runtime.executeSync(any(), any())).thenAnswer(invocation -> {
+            ErpKingdeeSyncCommand command = invocation.getArgument(0);
+            assertEquals(start, command.getInitialWindowStart());
+            assertEquals(end, command.getWindowEnd());
+            assertTrue(command.isForceInitialWindowStart());
+            ErpKingdeeSyncTask task = invocation.getArgument(1);
+            var completed = task.run(ErpKingdeeSyncContext.builder().windowStart(start).windowEnd(end).build());
+            Assertions.assertNull(completed.getWatermarkTime());
+            assertEquals(1, completed.getSkippedCount());
+            return completed;
+        });
+        new KingdeePurchaseOrderSyncJob(service, runtime).execute(
+                cn.iocoder.yudao.module.erp.service.sync.admin.ErpKingdeeFullSyncHandler.windowParam(start, end));
+        verify(service).syncPurchaseOrdersFullSkipExisting(start, end);
+        verify(service, never()).syncPurchaseOrdersModifiedBetween(any(), any());
+    }
+
 }

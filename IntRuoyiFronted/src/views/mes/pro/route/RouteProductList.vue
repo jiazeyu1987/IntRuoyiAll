@@ -22,6 +22,8 @@
       @quick-filter-query="routeProductQuickFilter.applyQuickFilter"
       @column-change="saveRouteProductColumnConfig"
       @column-reset="resetRouteProductColumnConfig"
+      :filter-rows="sortedRouteProductList"
+      :column-filter-definitions="listColumnFilterDefinitions0"
     >
       <template #actions>
         <el-button
@@ -45,13 +47,13 @@
         </el-button>
       </template>
 
-      <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+      <template #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
         <el-table
           v-loading="loading"
           class="route-product-list__table"
           data-user-table-column-explicit
           data-user-table-key="mes.pro.route.product"
-          :data="pagedRouteProductList"
+          :data="resolveRows(pagedRouteProductList)"
           border
           :stripe="true"
           :show-overflow-tooltip="true"
@@ -270,6 +272,9 @@
 </template>
 
 <script setup lang="ts">
+import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+import { getDictOptions as listColumnDictOptions } from '@/utils/dict'
+
 import { DICT_TYPE } from '@/utils/dict'
 import { CommonStatusEnum } from '@/utils/constants'
 import { ProRouteProductApi, type ProRouteProductVO } from '@/api/mes/pro/route/product'
@@ -701,6 +706,15 @@ watch(
   },
   { immediate: true }
 )
+
+const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'productionTime',
+    label: '生产用时',
+    type: 'select',
+    options: listColumnDictOptions(DICT_TYPE.MES_TIME_UNIT_TYPE)
+  }
+])
 </script>
 
 <style scoped>

@@ -220,6 +220,7 @@ class MesFrontlineActiveOrderProcessServiceTest {
         return MesProProcessPoolEventDO.builder()
                 .id(PRODUCTION_EVENT_ID)
                 .eventType(MesProProcessPoolEventDO.EVENT_TYPE_PRODUCTION_SUBMIT)
+                .reportOutputQuantity(new BigDecimal("40.000000"))
                 .workOrderId(1001L)
                 .routeId(ROUTE_ID)
                 .routeProcessId(FROZEN_ROUTE_PROCESS_ID)

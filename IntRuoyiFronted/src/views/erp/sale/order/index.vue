@@ -142,15 +142,6 @@
           <Icon icon="ep:download" class="mr-5px" /> 导出
         </el-button>
         <el-button
-          type="warning"
-          plain
-          @click="handleSyncKingdeeSaleOrders"
-          :loading="kingdeeSyncLoading"
-          v-hasPermi="['erp:sale-order:create']"
-        >
-          <Icon icon="ep:refresh" class="mr-5px" /> 增量同步
-        </el-button>
-        <el-button
           type="danger"
           plain
           @click="handleDelete(selectionList.map((item) => item.id))"
@@ -160,6 +151,7 @@
           <Icon icon="ep:delete" class="mr-5px" /> 删除
         </el-button>
       </el-form-item>
+      <el-form-item><RecentFullSyncButton sync-type="SALE_ORDER" /></el-form-item>
     </el-form>
   </ContentWrap>
 
@@ -286,12 +278,12 @@
 </template>
 
 <script setup lang="ts">
+import RecentFullSyncButton from '@/views/erp/components/RecentFullSyncButton.vue'
 import { isSearchFormInputEmpty } from '@/utils/search'
 import { getIntDictOptions, DICT_TYPE } from '@/utils/dict'
 import { dateFormatter2 } from '@/utils/formatTime'
 import download from '@/utils/download'
 import { SaleOrderApi, SaleOrderVO } from '@/api/erp/sale/order'
-import { ErpKingdeeSyncApi } from '@/api/erp/sync'
 import SaleOrderForm from './SaleOrderForm.vue'
 import { ProductApi, ProductVO } from '@/api/erp/product/product'
 import { UserVO } from '@/api/system/user'
@@ -328,7 +320,6 @@ const customerList = ref<CustomerVO[]>([]) // 客户列表
 const userList = ref<UserVO[]>([]) // 用户列表
 
 /** 查询列表 */
-const kingdeeSyncLoading = ref(false)
 
 const getList = async () => {
   loading.value = true
@@ -412,16 +403,6 @@ const handleSelectionChange = (rows: SaleOrderVO[]) => {
 }
 
 /** 初始化 **/
-const handleSyncKingdeeSaleOrders = async () => {
-  kingdeeSyncLoading.value = true
-  try {
-    await ErpKingdeeSyncApi.runIncrementalSync('SALE_ORDER')
-    message.success('销售订单增量同步任务已提交')
-    await getList()
-  } finally {
-    kingdeeSyncLoading.value = false
-  }
-}
 
 onMounted(async () => {
   await getList()

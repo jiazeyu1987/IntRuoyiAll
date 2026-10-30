@@ -23,6 +23,11 @@
         @column-change="saveNotifyColumnConfig"
         @column-reset="resetNotifyColumnConfig"
         @pagination="getList"
+        :load-filter-rows="loadColumnFilterRows0"
+        @filtered-rows="list = $event"
+        :list-rows="list"
+        @column-filter-reset="getList"
+        :column-filter-definitions="listColumnFilterDefinitions0"
       >
         <template #actions>
           <el-button @click="handleUpdateAll">
@@ -30,14 +35,14 @@
           </el-button>
         </template>
 
-        <template #table>
+        <template #table="{ resolveRows }">
           <el-table
             ref="notifyTableRef"
             v-loading="loading"
             class="my-notify-message-list__table"
             data-user-table-column-explicit
             data-user-table-key="system.notify.my-message"
-            :data="list"
+            :data="resolveRows(list)"
             row-key="id"
             border
             :stripe="true"
@@ -77,15 +82,16 @@
                   aria-label="打开消息内容"
                   @click.stop="handleNotifyContentClick(scope.row)"
                 >
-                  {{ scope.row.templateContent || '-' }}
+                  <BusinessMessageContent :description="describeNotifyMessage(scope.row)" :show-context="false" />
                 </button>
                 <span
                   v-else
                   class="my-notify-message-list__content-text"
                   :title="scope.row.templateContent || '-'"
                 >
-                  {{ scope.row.templateContent || '-' }}
+                  <BusinessMessageContent :description="describeNotifyMessage(scope.row)" :show-context="false" />
                 </span>
+                <BusinessMessageContext :fields="describeNotifyMessage(scope.row).fields" />
               </template>
             </el-table-column>
             <el-table-column
@@ -128,11 +134,17 @@
 </template>
 
 <script lang="ts" setup>
+import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+import { getDictOptions as listColumnDictOptions } from '@/utils/dict'
+
 import type { TableInstance } from 'element-plus'
 import { DICT_TYPE, getBoolDictOptions } from '@/utils/dict'
 import { dateFormatter } from '@/utils/formatTime'
 import * as NotifyMessageApi from '@/api/system/notify/message'
 import MyNotifyMessageDetail from '../MyNotifyMessageDetail.vue'
+import BusinessMessageContent from '@/components/BusinessMessageContent/BusinessMessageContent.vue'
+import BusinessMessageContext from '@/components/BusinessMessageContent/BusinessMessageContext.vue'
+import { describeNotifyMessage } from '@/utils/businessMessagePresentation'
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import ActiveOrderHandoffPanel from '@/views/mes/pro/handoff/ActiveOrderHandoffPanel.vue'
 import { hasPermission } from '@/directives/permission/hasPermi'
@@ -345,6 +357,23 @@ const handleUpdateAll = async () => {
 onMounted(() => {
   getList()
 })
+
+const loadColumnFilterRows0 = async () => {
+  const params = { ...queryParams }
+  const rows = await loadAllListPages<any>((pagination) =>
+    NotifyMessageApi.getMyNotifyMessagePage({ ...params, ...pagination })
+  )
+  return mergeReadTimeOverrides(rows)
+}
+
+const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'readStatus',
+    label: '是否已读',
+    type: 'select',
+    options: listColumnDictOptions(DICT_TYPE.INFRA_BOOLEAN_STRING)
+  }
+])
 </script>
 
 <style scoped>
@@ -361,12 +390,10 @@ onMounted(() => {
   width: 100%;
   max-width: 100%;
   padding: 0;
-  overflow: hidden;
   color: #1677ff;
   font: inherit;
   text-align: left;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: normal;
   cursor: pointer;
   background: transparent;
   border: 0;
@@ -376,10 +403,8 @@ onMounted(() => {
   display: block;
   width: 100%;
   max-width: 100%;
-  overflow: hidden;
   text-align: left;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: normal;
 }
 
 .my-notify-message-list__content-link:hover,

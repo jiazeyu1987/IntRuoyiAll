@@ -4,23 +4,9 @@
       <el-button data-pqc-production-release-detail-back @click="detailVisible = false">
         返回
       </el-button>
-      <el-descriptions
-        v-if="detailRow && orderDetail && !detailLoading && !detailError"
-        :column="1"
-        border
-        data-pqc-production-release-detail-identity
-      >
-        <el-descriptions-item label="生产放行申请编号">
-          <span data-pqc-production-release-detail-application-id>{{ detailRow.applicationId }}</span>
-        </el-descriptions-item>
-        <el-descriptions-item label="生产订单号">
-          <span data-pqc-production-release-detail-work-order>{{ detailRow.workOrderCode || '--' }}</span>
-        </el-descriptions-item>
-        <el-descriptions-item label="批次执行编号">
-          <span data-pqc-production-release-detail-batch-execution-id>{{ detailRow.batchExecutionId || '--' }}</span>
-        </el-descriptions-item>
-      </el-descriptions>
       <ActiveOrderSubmissionDetailPanel
+        hide-correction-history
+        hide-order-summary
         :detail="orderDetail?.detail"
         :production-material-lists="orderDetail?.productionMaterialLists || []"
         :loading="detailLoading"
@@ -37,12 +23,22 @@
       </el-tabs>
 
       <UnifiedListTemplate
+        @query="handleQuery"
+        @reset="resetQuery"
+        :query-button-attrs="{ 'data-pqc-production-release-query': '' }"
         table-key="mes.pro.productionRelease.main"
         :query-model="queryParams"
         :total="total"
         v-model:page="queryParams.pageNo"
         v-model:limit="queryParams.pageSize"
         @pagination="getList()"
+        :load-filter-rows="loadColumnFilterRows0"
+        @filtered-rows="list = $event"
+        :list-rows="list"
+        @column-filter-reset="getList()"
+        :columns="listFilterColumns0"
+        :show-column-settings="false"
+        :column-filter-definitions="[...listColumnFilterDefinitions0, ...allColumnDisplayFilters0]"
       >
         <template #filters>
           <el-form :inline="true" :model="queryParams" class="pqc-release-page__filters">
@@ -59,24 +55,14 @@
             </el-form-item>
           </el-form>
         </template>
-        <template #actions>
-          <el-button
-            type="primary"
-            :icon="Search"
-            data-pqc-production-release-query
-            @click="handleQuery"
-          >
-            查询
-          </el-button>
-          <el-button :icon="RefreshLeft" @click="resetQuery">重置</el-button>
-        </template>
-        <template #table>
+
+        <template #table="{ resolveRows }">
           <el-alert v-if="loadError" :title="loadError" type="error" :closable="false" show-icon />
 
           <el-table
             border
             v-loading="loading"
-            :data="list"
+            :data="resolveRows(list)"
             data-pqc-production-release-list
             stripe
             row-key="applicationId"
@@ -128,7 +114,7 @@
                   <ReleaseTaskNotificationEntry
                     v-hasPermi="['mes:pro-edhr-work-task:query']"
                     :work-task-id="row.pqcReleaseWorkTaskId"
-                  />
+                  >交接</ReleaseTaskNotificationEntry>
                   <el-button
                     link
                     type="primary"
@@ -263,10 +249,11 @@
 </template>
 
 <script setup lang="ts">
+import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import ReleaseTaskNotificationEntry from './components/ReleaseTaskNotificationEntry.vue'
 import CryptoJS from 'crypto-js'
-import { RefreshLeft, Search } from '@element-plus/icons-vue'
 import ActiveOrderSubmissionDetailPanel from '../processpool/components/ActiveOrderSubmissionDetailPanel.vue'
 import ActiveOrderDetailLayout from '../processpool/components/ActiveOrderDetailLayout.vue'
 import {
@@ -934,6 +921,100 @@ const retryOrderDetail = () => {
 }
 
 onMounted(() => openPqcReleaseFromRoute())
+
+const loadColumnFilterRows0 = async () => {
+  const params = {
+    pageNo: queryParams.pageNo,
+    pageSize: queryParams.pageSize,
+    viewStatus: activeView.value,
+    applicationId: queryParams.applicationId,
+    pqcReleaseWorkTaskId: queryParams.pqcReleaseWorkTaskId,
+    workOrderCode: queryParams.workOrderCode.trim() || undefined,
+    batchCode: queryParams.batchCode.trim() || undefined
+  }
+  const rows = await loadAllListPages<any>((pagination) =>
+    getPqcProductionReleasePage({ ...params, ...pagination })
+  )
+  return rows
+}
+
+const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'releaseStatusDisplay',
+    label: activeView.value === PQC_RELEASE_VIEW_COMPLETED ? '放行结果' : '状态',
+    type: 'text',
+    getValue: (row) => [resolveStatusLabel(row), row.underReview ? 'QA评审中' : ''].join(' ')
+  },
+  {
+    key: 'workOrderCode',
+    label: '生产对象',
+    type: 'text',
+    getValue: (row) => [row.workOrderCode || '--', row.batchCode || '--'].join(' ')
+  },
+  {
+    key: 'applicationId',
+    label: '申请',
+    type: 'text',
+    getValue: (row) => [row.applicationId, formatDateTime(row.appliedAt)].join(' ')
+  },
+  {
+    key: 'nonconformanceReason',
+    label: '处置信息',
+    type: 'text',
+    getValue: (row) =>
+      [
+        row.nonconformanceReason,
+        formatDateTime(row.nonconformanceClosedAt),
+        row.approvalBlockerReason || '放行资料尚未就绪',
+        row.approvalBlockerSuggestion
+      ].join(' ')
+  }
+])
+
+const listFilterColumns0 = [
+  {
+    key: 'workOrderCode',
+    label: '生产对象',
+    visible: true
+  },
+  {
+    key: 'applicationId',
+    label: '申请',
+    visible: true
+  },
+  {
+    key: 'nonconformanceReason',
+    label: '处置信息',
+    visible: true
+  }
+]
+
+const allColumnDisplayFilters0: ListColumnFilterDefinition[] = [
+  {
+    key: 'workOrderCode',
+    label: '生产对象',
+    type: 'text',
+    getValue: (row) => [row.workOrderCode || '--', row.batchCode || '--'].join(' ')
+  },
+  {
+    key: 'applicationId',
+    label: '申请',
+    type: 'text',
+    getValue: (row) => [row.applicationId, formatDateTime(row.appliedAt)].join(' ')
+  },
+  {
+    key: 'nonconformanceReason',
+    label: '处置信息',
+    type: 'text',
+    getValue: (row) =>
+      [
+        row.nonconformanceReason,
+        formatDateTime(row.nonconformanceClosedAt),
+        row.approvalBlockerReason || '放行资料尚未就绪',
+        row.approvalBlockerSuggestion
+      ].join(' ')
+  }
+]
 </script>
 
 <style scoped>
@@ -961,8 +1042,14 @@ onMounted(() => openPqcReleaseFromRoute())
 
 .pqc-release-page__actions {
   display: flex;
+  flex-wrap: wrap;
+  gap: 10px 16px;
   align-items: center;
   min-height: 32px;
+}
+
+.pqc-release-page__actions :deep(.el-button) {
+  margin: 0;
 }
 
 .pqc-release-dialog {

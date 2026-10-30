@@ -2,6 +2,9 @@
   <section class="project-browser" data-testid="dcc-project-browser">
     <aside>
       <UnifiedListTemplate
+        @query="searchProjects"
+        @reset="resetProjects"
+        :query-loading="state.projectLoading"
         class="unified-list-template--contained project-browser__projects"
         table-key="dcc.projectBrowser.projects"
         pagination-layout="total, prev, next"
@@ -9,6 +12,12 @@
         v-model:page="state.projectPage"
         v-model:limit="state.projectPageSize"
         @pagination="state.loadProjects()"
+        :load-filter-rows="() => state.loadProjectFilterRows()"
+        :columns="projectFilterColumns"
+        :show-column-settings="false"
+        @filtered-rows="state.projects = $event"
+        :list-rows="state.projects"
+        @column-filter-reset="state.loadProjects()"
       >
         <template #filters>
           <div>
@@ -20,10 +29,8 @@
             />
           </div>
         </template>
-        <template #actions>
-          <el-button :loading="state.projectLoading" @click="searchProjects">查找项目</el-button>
-        </template>
-        <template #table>
+
+        <template #table="{ resolveRows }">
           <el-alert
             v-if="state.projectError"
             :title="state.projectError"
@@ -33,7 +40,7 @@
           <el-table
             stripe
             border
-            :data="state.projects"
+            :data="resolveRows(state.projects)"
             v-loading="state.projectLoading"
             highlight-current-row
             @row-click="selectProject"
@@ -59,6 +66,9 @@
       <p v-if="state.scope === 'project'">{{ state.project?.projectName }} / 全部文件夹</p>
       <p v-if="state.scope === 'directory'">{{ state.project?.projectName }} / {{ state.folder?.name || '请选择文件夹' }}</p>
       <UnifiedListTemplate
+        @query="state.search(state.scope)"
+        @reset="resetFiles"
+        :query-loading="state.loading"
         class="unified-list-template--contained project-browser__files"
         style="height: auto; flex: 1"
         table-key="dcc.projectBrowser.files"
@@ -66,6 +76,13 @@
         v-model:page="state.pageNo"
         v-model:limit="state.pageSize"
         @pagination="state.loadFiles()"
+        :load-filter-rows="() => state.loadFileFilterRows()"
+        @filtered-rows="applyFileFilterRows"
+        :list-rows="fileFilterListRows"
+        :columns="fileFilterColumns"
+        :column-filter-definitions="fileFilterDefinitions"
+        :show-column-settings="false"
+        @column-filter-reset="state.loadFiles()"
       >
         <template #filters>
           <div>
@@ -101,7 +118,7 @@
           </div>
         </template>
         <template #actions>
-          <el-button :loading="state.loading" @click="state.search(state.scope)">搜索</el-button>
+
           <el-button
             v-if="state.scope === 'directory' && state.folder"
             @click="operationVisible = true"
@@ -144,7 +161,7 @@
             </el-button>
           </template>
         </template>
-        <template #table>
+        <template #table="{ resolveRows }">
           <el-alert v-if="state.error" :title="state.error" type="error" :closable="false" />
           <el-alert v-if="state.actorError" :title="state.actorError" type="error" :closable="false" />
           <DccProjectReferences
@@ -184,6 +201,7 @@
               }"
             >
               <ProjectFolderFileTable
+                :resolve-rows="resolveRows"
                 :files="state.rows"
                 :references="rows"
                 :usage="state.usage"
@@ -204,6 +222,7 @@
           </DccProjectReferences>
           <ProjectFolderFileTable
             v-else
+            :resolve-rows="resolveRows"
             :files="state.rows"
             :references="[]"
             :usage="state.usage"
@@ -231,7 +250,7 @@
 </template>
 <script setup lang="ts">
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
-import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { computed, onMounted, reactive, ref, shallowRef, toRaw, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { getTenantId, getVisitTenantId } from '@/utils/auth'
 import { useUserStore } from '@/store/modules/user'
@@ -249,19 +268,71 @@ import { referenceIdentity, type ReferenceRow } from '../relations/project-refer
 import { buildControlledFileViewerPath, buildControlledFileTraceabilityPath } from '../view/presentation'
 import { serializeDccBodyReadContext } from '@/api/dcc/controlledFile/bodyReadContext'
 import { ProjectBrowserState, PROJECT_BROWSER_VERSION_VIEWS } from './project-browser'
+import type { FolderFileRow } from './folder-file-list'
+import type { ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+import { getDccControlledFileStatusLabel, type DccControlledFileStatus } from '../shared/lifecycle'
+const projectFilterColumns = [
+  { key: 'projectName', label: '项目', visible: true },
+  { key: 'projectCode', label: '编码', visible: true }
+]
+const fileFilterColumns = [
+  { key: 'file.fileName', label: '文件名称', visible: true },
+  { key: 'file.fileNumber', label: '编号', visible: true },
+  { key: 'file.projectName', label: '所属项目', visible: true },
+  { key: 'file.folderName', label: '来源文件夹', visible: true },
+  { key: 'file.versionNo', label: '版本', visible: true },
+  { key: 'file.status', label: '状态', visible: true },
+  { key: 'projectCount', label: '引用情况', visible: true }
+]
+const fileFilterDefinitions: ListColumnFilterDefinition[] = [
+  { key: 'file.projectName', label: '所属项目', type: 'text', getValue: row => row.reference?.sourceProjectName || row.file.projectName },
+  { key: 'file.status', label: '状态', type: 'text', getValue: row => getDccControlledFileStatusLabel(row.file.status as DccControlledFileStatus) },
+  { key: 'projectCount', label: '引用情况', type: 'text', getValue: row => `${row.reference ? '引用 ' : ''}${row.projectCount} 个项目` }
+]
 const route = useRoute(), router = useRouter(), user = useUserStore()
 const state = reactive(new ProjectBrowserState(referenceIdentity(getVisitTenantId() || getTenantId()), referenceIdentity(user.getUser.id)))
-const versionViewGroups = [...new Set(PROJECT_BROWSER_VERSION_VIEWS.map(option => option.group))].map(name => ({
-  name, options: PROJECT_BROWSER_VERSION_VIEWS.filter(option => option.group === name)
+const publishedFileRows = shallowRef<FileCandidate[]>()
+const publishedFileFilterRows = shallowRef<FolderFileRow[]>()
+const fileFilterListRows = computed(() =>
+  toRaw(state.rows) === toRaw(publishedFileRows.value) ? publishedFileFilterRows.value : state.rows
+)
+const applyFileFilterRows = (rows: FolderFileRow[]) => {
+  publishedFileFilterRows.value = rows
+  state.rows = rows.filter((row) => !row.reference).map((row) => row.file as FileCandidate)
+  publishedFileRows.value = state.rows
+  state.usage = Object.fromEntries(
+    rows
+      .filter((row) => row.projectCount != null)
+      .map((row) => [
+        row.file.masterId,
+        { referenceProjectCount: row.projectCount!, referenced: row.referenced }
+      ])
+  )
+}
+const versionViewGroups = [
+  ...new Set(PROJECT_BROWSER_VERSION_VIEWS.map((option) => option.group))
+].map((name) => ({
+  name,
+  options: PROJECT_BROWSER_VERSION_VIEWS.filter((option) => option.group === name)
 }))
 const projectReferences = ref<InstanceType<typeof DccProjectReferences>>()
 const operationVisible = ref(false)
 const folderEditor = ref<InstanceType<typeof ProjectFolderEditor>>()
 const openFolderMaintenance = async (mode: 'create' | 'update' | 'delete') => {
-  const project = state.project, folder = state.folder
-  if (!project || state.folderLoading || state.folderError || !checkPermi(['dcc:project-code:update'])) return
+  const project = state.project,
+    folder = state.folder
+  if (
+    !project ||
+    state.folderLoading ||
+    state.folderError ||
+    !checkPermi(['dcc:project-code:update'])
+  )
+    return
   if (mode !== 'create' && (!folder?.folderId || folder.projectId !== project.id)) return
-  if (!folderEditor.value) { state.folderError = '项目文件夹维护组件尚未加载，请重新选择项目'; return }
+  if (!folderEditor.value) {
+    state.folderError = '项目文件夹维护组件尚未加载，请重新选择项目'
+    return
+  }
   if (mode === 'delete') await folderEditor.value.openDelete(project.id, folder!.folderId!)
   else if (mode === 'update') await folderEditor.value.open(project.id, folder!.folderId!)
   else await folderEditor.value.open(project.id)
@@ -270,72 +341,161 @@ const handleFolderMaintenanceSaved = async (projectId: number | string) => {
   const current = state.project
   if (current && current.id === String(projectId)) await state.selectProject(current.id)
 }
-const relationsVisible = ref(false), relationsSource = ref<FileCandidate>()
-const usageVisible = ref(false), usageSource = ref<ReferenceUsageSource>()
-const listContextKey = computed(() => JSON.stringify([state.contextKey, state.scope, state.appliedKeyword, state.versionView, state.pageNo, state.pageSize]))
+const relationsVisible = ref(false),
+  relationsSource = ref<FileCandidate>()
+const usageVisible = ref(false),
+  usageSource = ref<ReferenceUsageSource>()
+const listContextKey = computed(() =>
+  JSON.stringify([
+    state.contextKey,
+    state.scope,
+    state.appliedKeyword,
+    state.versionView,
+    state.pageNo,
+    state.pageSize
+  ])
+)
 const openRelationsRow = (row: FileCandidate) => {
-  if (state.loading || !state.rows.some(file => file.controlledFileId === row.controlledFileId)) return
-  relationsSource.value = JSON.parse(JSON.stringify(row)); relationsVisible.value = true
+  if (state.loading || !state.rows.some((file) => file.controlledFileId === row.controlledFileId))
+    return
+  relationsSource.value = JSON.parse(JSON.stringify(row))
+  relationsVisible.value = true
 }
 const openUsage = (source: ReferenceUsageSource) => {
   if (state.loading) return
-  usageSource.value = JSON.parse(JSON.stringify(source)); usageVisible.value = true
+  usageSource.value = JSON.parse(JSON.stringify(source))
+  usageVisible.value = true
 }
-watch(() => [listContextKey.value, state.loading], () => { relationsVisible.value = false; relationsSource.value = undefined }, { flush: 'sync' })
-watch(() => [listContextKey.value, state.loading], () => { usageVisible.value = false; usageSource.value = undefined }, { flush: 'sync' })
+watch(
+  () => [listContextKey.value, state.loading],
+  () => {
+    relationsVisible.value = false
+    relationsSource.value = undefined
+  },
+  { flush: 'sync' }
+)
+watch(
+  () => [listContextKey.value, state.loading],
+  () => {
+    usageVisible.value = false
+    usageSource.value = undefined
+  },
+  { flush: 'sync' }
+)
 const selectorSource = computed<SelectorSource>(() => ({
-  contextKey: state.contextKey, tenantId: state.tenantId, projectId: state.project!.id,
-  folderId: state.folder!.folderId, projectName: state.project!.projectName, folderName: state.folder!.name,
-  fileName: '请选择文件', fileNumber: '', versionNo: ''
+  contextKey: state.contextKey,
+  tenantId: state.tenantId,
+  projectId: state.project!.id,
+  folderId: state.folder!.folderId,
+  projectName: state.project!.projectName,
+  folderName: state.folder!.name,
+  fileName: '请选择文件',
+  fileNumber: '',
+  versionNo: ''
 }))
-const searchProjects = () => { state.projectPage = 1; return state.loadProjects() }
-const selectProject = (project: { id: string }) => { operationVisible.value = false; return state.selectProject(project.id) }
-const selectFolder = (node: DirectoryNode) => { operationVisible.value = false; return state.selectFolder(node) }
+const searchProjects = () => {
+  state.projectPage = 1
+  return state.loadProjects()
+}
+const resetProjects = () => {
+  state.projectKeyword = ''
+  return searchProjects()
+}
+const resetFiles = () => {
+  state.keyword = ''
+  state.versionView = 'LATEST_CONTROLLED'
+  return state.search(state.scope)
+}
+const selectProject = (project: { id: string }) => {
+  operationVisible.value = false
+  return state.selectProject(project.id)
+}
+const selectFolder = (node: DirectoryNode) => {
+  operationVisible.value = false
+  return state.selectFolder(node)
+}
 const changeScope = (scope: string | number) => {
-  if (scope !== 'global' && scope !== 'project' && scope !== 'directory') throw new Error('请选择正式项目浏览范围')
+  if (scope !== 'global' && scope !== 'project' && scope !== 'directory')
+    throw new Error('请选择正式项目浏览范围')
   return state.search(scope)
 }
 const loadPage = (query: SelectorQuery) => state.loadPage(query)
 const loadReferences = (project: string, folder: string) => state.loadReferences(project, folder)
-const createReferences = (project: string, folder: string, ids: string[], reason: string) => state.createReferences(project, folder, ids, reason)
-const cancelReference = (project: string, folder: string, master: string, id: string, reason: string) => state.cancelReference(project, folder, master, id, reason)
+const createReferences = (project: string, folder: string, ids: string[], reason: string) =>
+  state.createReferences(project, folder, ids, reason)
+const cancelReference = (
+  project: string,
+  folder: string,
+  master: string,
+  id: string,
+  reason: string
+) => state.cancelReference(project, folder, master, id, reason)
 const previewReference = async (row: ReferenceRow, isCurrent: () => boolean) => {
   const selected = await state.readReferenceForAction(row)
   if (!isCurrent()) return
-  await preview(selected.selectedVersion, serializeDccBodyReadContext(selected.reference.selectedControlledFileId, {
-    intent: 'VERSION_HISTORY', controlledFileId: selected.reference.selectedControlledFileId,
-    expectedVersionNo: selected.selectedVersion.versionNo
-  }))
+  await preview(
+    selected.selectedVersion,
+    serializeDccBodyReadContext(selected.reference.selectedControlledFileId, {
+      intent: 'VERSION_HISTORY',
+      controlledFileId: selected.reference.selectedControlledFileId,
+      expectedVersionNo: selected.selectedVersion.versionNo
+    })
+  )
 }
 const traceReference = async (row: ReferenceRow, isCurrent: () => boolean) => {
   const selected = await state.readReferenceTrace(row)
   if (!isCurrent()) return
-  await router.push(buildControlledFileTraceabilityPath(selected.reference.selectedControlledFileId,
-    'browser', route.fullPath, 'trace'))
+  await router.push(
+    buildControlledFileTraceabilityPath(
+      selected.reference.selectedControlledFileId,
+      'browser',
+      route.fullPath,
+      'trace'
+    )
+  )
 }
 const preview = async (row: FileCandidate, bodyReadContext?: string) => {
   if (!row.canPreview) throw new Error('没有该文件正文查看权限')
-  const opened = window.open(buildControlledFileViewerPath(row.controlledFileId, 'project-browser', route.fullPath, bodyReadContext), '_blank')
+  const opened = window.open(
+    buildControlledFileViewerPath(
+      row.controlledFileId,
+      'project-browser',
+      route.fullPath,
+      bodyReadContext
+    ),
+    '_blank'
+  )
   if (!opened) throw new Error('预览窗口未能打开，请允许此站点打开新窗口')
   opened.opener = null
 }
 const openOperation = async (rows: FileCandidate[]) => {
   if (rows.length !== 1) throw new Error('请选择一个文件')
-  await router.push({ path: `/dcc/controlled-file/detail/${referenceIdentity(rows[0].controlledFileId)}`, query: { management: '1', from: 'project-browser', returnTo: route.fullPath } })
+  await router.push({
+    path: `/dcc/controlled-file/detail/${referenceIdentity(rows[0].controlledFileId)}`,
+    query: { management: '1', from: 'project-browser', returnTo: route.fullPath }
+  })
 }
 const previewRow = async (row: FileCandidate) => {
   try {
-    const bodyReadContext = row.status === 'SUPERSEDED' || row.status === 'OBSOLETE'
-      ? serializeDccBodyReadContext(row.controlledFileId, {
-        intent: 'VERSION_HISTORY', controlledFileId: row.controlledFileId,
-        expectedVersionNo: row.versionNo
-      })
-      : undefined
+    const bodyReadContext =
+      row.status === 'SUPERSEDED' || row.status === 'OBSOLETE'
+        ? serializeDccBodyReadContext(row.controlledFileId, {
+            intent: 'VERSION_HISTORY',
+            controlledFileId: row.controlledFileId,
+            expectedVersionNo: row.versionNo
+          })
+        : undefined
     await preview(row, bodyReadContext)
-  } catch (error) { state.error = error instanceof Error ? error.message : String(error) }
+  } catch (error) {
+    state.error = error instanceof Error ? error.message : String(error)
+  }
 }
 const openOperationRow = async (row: FileCandidate) => {
-  try { await openOperation([row]) } catch (error) { state.error = error instanceof Error ? error.message : String(error) }
+  try {
+    await openOperation([row])
+  } catch (error) {
+    state.error = error instanceof Error ? error.message : String(error)
+  }
 }
 onMounted(() => Promise.all([state.loadProjects(), state.loadActor(), state.loadFiles()]))
 </script>

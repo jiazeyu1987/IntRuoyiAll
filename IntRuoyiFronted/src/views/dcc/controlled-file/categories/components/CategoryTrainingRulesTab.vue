@@ -27,6 +27,8 @@
       @quick-filter-query="quickFilter.applyQuickFilter"
       @column-change="saveColumnConfig"
       @pagination="handlePagination"
+      :filter-rows="filteredRows"
+      :column-filter-definitions="listColumnFilterDefinitions0"
     >
       <template #actions>
         <el-button type="primary" plain :loading="loading" @click="loadData">
@@ -34,12 +36,12 @@
           刷新
         </el-button>
       </template>
-      <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+      <template #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
         <el-table
           v-loading="loading"
           data-user-table-column-explicit
           data-user-table-key="dcc.controlledFile.permission.trainingRules"
-          :data="paginatedRows"
+          :data="resolveRows(paginatedRows)"
           border
           :stripe="true"
           :show-overflow-tooltip="true"
@@ -164,6 +166,8 @@
 </template>
 
 <script lang="ts" setup>
+import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+
 import { getSimpleDeptList, type DeptVO } from '@/api/system/dept'
 import {
   getCategoryTrainingRules,
@@ -524,6 +528,15 @@ onMounted(async () => {
     await loadData()
   }
 })
+
+const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'required',
+    label: '培训要求',
+    type: 'text',
+    getValue: (row) => [formatRequirementLabel(row.required)].join(' ')
+  }
+])
 </script>
 
 <style scoped>

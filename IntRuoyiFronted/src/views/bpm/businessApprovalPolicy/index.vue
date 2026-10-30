@@ -3,6 +3,7 @@
 
   <ContentWrap v-hasPermi="['bpm:business-approval-policy:query']">
     <UnifiedListTemplate
+      :reset-filters="resetQuery"
       table-key="bpm.business-approval-policy.main"
       :query-model="queryParams"
       label-width="88px"
@@ -22,9 +23,13 @@
       @column-change="saveBusinessApprovalPolicyColumnConfig"
       @column-reset="resetBusinessApprovalPolicyColumnConfig"
       @pagination="getList"
+      :load-filter-rows="loadColumnFilterRows0"
+      @filtered-rows="list = $event"
+      :list-rows="list"
+      @column-filter-reset="getList"
+      :column-filter-definitions="listColumnFilterDefinitions0"
     >
       <template #actions>
-        <el-button @click="resetQuery"><Icon icon="ep:refresh" class="mr-5px" /> 重置</el-button>
         <el-button
           type="primary"
           plain
@@ -35,10 +40,10 @@
         </el-button>
       </template>
 
-      <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+      <template #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
         <el-table
           v-loading="loading"
-          :data="list"
+          :data="resolveRows(list)"
           border
           :stripe="true"
           :show-overflow-tooltip="true"
@@ -276,6 +281,8 @@
 </template>
 
 <script setup lang="ts">
+import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+
 import { computed } from 'vue'
 import { dateFormatter } from '@/utils/formatTime'
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
@@ -656,4 +663,69 @@ const handlePolicyModeSwitch = async (row: BusinessApprovalPolicyVO, enabled: bo
 onMounted(() => {
   getList()
 })
+
+const loadColumnFilterRows0 = async () => {
+  const params = { ...queryParams }
+  const rows = await loadAllListPages<any>((pagination) =>
+    BusinessApprovalPolicyApi.getPolicyPage({ ...params, ...pagination })
+  )
+  return rows
+}
+
+const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'dataDomain',
+    label: '数据域',
+    type: 'text',
+    getValue: (row) => [formatPolicyDataDomain(row.dataDomain)].join(' ')
+  },
+  {
+    key: 'systemCode',
+    label: '系统编码',
+    type: 'text',
+    getValue: (row) => [formatPolicySystemCode(row.systemCode)].join(' ')
+  },
+  {
+    key: 'objectType',
+    label: '对象类型',
+    type: 'text',
+    getValue: (row) => [formatPolicyObjectType(row.objectType)].join(' ')
+  },
+  {
+    key: 'actionCode',
+    label: '动作编码',
+    type: 'text',
+    getValue: (row) => [formatPolicyActionCode(row.actionCode)].join(' ')
+  },
+  {
+    key: 'objectState',
+    label: '对象状态',
+    type: 'text',
+    getValue: (row) => [formatPolicyObjectState(row.objectState)].join(' ')
+  },
+  {
+    key: 'policyMode',
+    label: '审批模式',
+    type: 'text',
+    getValue: (row) => [formatPolicyMode(row.policyMode)].join(' ')
+  },
+  {
+    key: 'approvalSwitch',
+    label: '审批开关',
+    type: 'text',
+    getValue: (row) => [formatPolicySwitchUnavailable(row)].join(' ')
+  },
+  {
+    key: 'effectExecutorCode',
+    label: '领域执行器',
+    type: 'text',
+    getValue: (row) => [formatPolicyEffectExecutorCode(row.effectExecutorCode)].join(' ')
+  },
+  {
+    key: 'status',
+    label: '状态',
+    type: 'text',
+    getValue: (row) => [formatPolicyStatus(row.status)].join(' ')
+  }
+])
 </script>

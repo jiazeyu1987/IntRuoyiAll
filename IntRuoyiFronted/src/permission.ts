@@ -103,6 +103,11 @@ router.beforeEach(async (to, from, next) => {
         const requiredPermission = managementEntryPermissions[to.path]
         if (
           requiredPermission &&
+          // A granted organization-role page permits reading; action buttons keep their own permissions.
+          !(
+            to.path === '/system/role/organization-role' &&
+            router.getRoutes().some((route) => route.path === to.path)
+          ) &&
           !userStore.getPermissions.has('*:*:*') &&
           !userStore.getPermissions.has(requiredPermission)
         ) {

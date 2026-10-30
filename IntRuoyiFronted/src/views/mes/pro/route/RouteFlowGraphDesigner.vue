@@ -8435,14 +8435,7 @@ const syncRouteNodeCheckFlag = (routeProcessId: number, checkFlag: boolean) => {
 const handleKeyProcessToggle = async (enabled: boolean) => {
   if (!selectedNode.value || !isProcessDetailFieldEditable('keyFlag')) return
   if (Boolean(selectedNode.value.keyFlag) === enabled) return
-  if (enabled) {
-    routeNodes.value = routeNodes.value.map((node) => ({
-      ...node,
-      keyFlag: Number(node.routeProcessId) === Number(selectedNode.value?.routeProcessId)
-    }))
-  } else {
-    syncRouteNodeKeyFlag(selectedNode.value.routeProcessId, false)
-  }
+  syncRouteNodeKeyFlag(selectedNode.value.routeProcessId, enabled)
   markGraphDraftChanged()
   syncFlowElements()
   message.warning('关键工序已保存为草稿，请点击顶部保存后生效。')

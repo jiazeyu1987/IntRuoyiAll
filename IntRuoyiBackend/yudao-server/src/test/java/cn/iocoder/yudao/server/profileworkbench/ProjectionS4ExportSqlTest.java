@@ -31,11 +31,6 @@ class ProjectionS4ExportSqlTest {
         assertTrue(sql.contains("candidate_user_snapshot"));assertTrue(sql.contains("assignee_user_id AS owner_user_id"));
         assertFalse(sql.contains("FIND_IN_SET"));assertFalse(sql.contains("assignee_user_id = ?"));
     }
-    @Test void workOrderFullExportPreservesSharedQueueEligibilityAndTenantProductLabels() throws Exception {
-        String sql=sql("mes","MesProjectionExportMapper","exportWorkOrder");
-        assertTrue(sql.contains("w.status = 1 AND w.type = 1 AND w.temporary_frozen = 0"));
-        assertTrue(sql.contains("i.tenant_id = ? AND i.deleted = 0"));assertTrue(sql.contains("COLLATE utf8mb4_unicode_ci"));
-    }
     @Test void dccFullExportsKeepFormalRecipientAndTrainingRoots() throws Exception {
         String distribution=sql("dcc","DccProjectionExportMapper","exportDistribution");
         String training=sql("dcc","DccProjectionExportMapper","exportTraining");

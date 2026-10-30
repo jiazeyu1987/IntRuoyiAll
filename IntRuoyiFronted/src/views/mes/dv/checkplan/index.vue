@@ -23,6 +23,11 @@
       @column-change="saveCheckPlanColumnConfig"
       @column-reset="resetCheckPlanColumnConfig"
       @pagination="getList"
+      :load-filter-rows="loadColumnFilterRows0"
+      @filtered-rows="list = $event"
+      :list-rows="list"
+      @column-filter-reset="getList"
+      :column-filter-definitions="listColumnFilterDefinitions0"
     >
       <template #actions>
         <el-button
@@ -44,13 +49,13 @@
         </el-button>
       </template>
 
-      <template #table>
+      <template #table="{ resolveRows }">
         <el-table
           v-loading="loading"
           class="check-plan-standard-list-table"
           data-user-table-column-explicit
           data-user-table-key="mes.dv.checkPlan.main"
-          :data="list"
+          :data="resolveRows(list)"
           border
           :stripe="true"
           :show-overflow-tooltip="true"
@@ -195,6 +200,9 @@
 </template>
 
 <script setup lang="ts">
+import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+import { getDictOptions as listColumnDictOptions } from '@/utils/dict'
+
 import { dateFormatter, dateFormatter2 } from '@/utils/formatTime'
 import download from '@/utils/download'
 import { DvCheckPlanApi, DvCheckPlanVO } from '@/api/mes/dv/checkplan'
@@ -363,6 +371,35 @@ const handleExport = async () => {
 onMounted(async () => {
   await getList()
 })
+
+const loadColumnFilterRows0 = async () => {
+  const params = { ...queryParams }
+  const rows = await loadAllListPages<any>((pagination) =>
+    DvCheckPlanApi.getCheckPlanPage({ ...params, ...pagination })
+  )
+  return rows
+}
+
+const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
+  {
+    key: 'type',
+    label: '方案类型',
+    type: 'select',
+    options: listColumnDictOptions(DICT_TYPE.MES_DV_SUBJECT_TYPE)
+  },
+  {
+    key: 'cycleType',
+    label: '周期类型',
+    type: 'select',
+    options: listColumnDictOptions(DICT_TYPE.MES_DV_CYCLE_TYPE)
+  },
+  {
+    key: 'status',
+    label: '状态',
+    type: 'select',
+    options: listColumnDictOptions(DICT_TYPE.MES_DV_CHECK_PLAN_STATUS)
+  }
+])
 </script>
 
 <style scoped>
