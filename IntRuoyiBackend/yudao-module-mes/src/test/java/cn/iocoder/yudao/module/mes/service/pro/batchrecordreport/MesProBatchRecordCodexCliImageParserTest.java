@@ -366,12 +366,12 @@ class MesProBatchRecordCodexCliImageParserTest {
         setField(parser, "codexCommand", "codex-fixture.cmd");
         setField(parser, "codexModel", "");
         setField(parser, "codexReasoningEffort", "minimal");
-        setField(parser, "codexWorkingDirectory", "D:\\ProjectPackage\\Int\\IntRuoyi");
+        setField(parser, "codexWorkingDirectory", ".");
 
         List<String> command = buildCommand(parser);
 
         assertEquals(true, command.contains("-C"));
-        assertEquals("D:\\ProjectPackage\\Int\\IntRuoyi", command.get(command.indexOf("-C") + 1));
+        assertEquals(".", command.get(command.indexOf("-C") + 1));
     }
 
     @Test

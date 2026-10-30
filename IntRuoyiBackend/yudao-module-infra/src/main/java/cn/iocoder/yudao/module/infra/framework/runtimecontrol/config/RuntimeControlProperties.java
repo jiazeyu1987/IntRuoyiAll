@@ -27,7 +27,7 @@ public class RuntimeControlProperties implements InitializingBean {
     public static final String BACKUP_SERVER_HOST = "172.30.30.59";
 
     private String repoRoot = ".";
-    private String stateDir = "E:/Int/CacheData/IntRuoyi/runtime-control";
+    private String stateDir = ".runtime/runtime-control";
     private Duration statusCommandTimeout = Duration.ofSeconds(60);
     private Map<String, Environment> environments = defaultEnvironments();
     private List<String> components = List.of("intruoyi-frontend", "intruoyi-backend", "intruoyi-full", "website-frontend");
@@ -354,7 +354,7 @@ public class RuntimeControlProperties implements InitializingBean {
         private String approvedApplicationCommit = "";
         private String approvedFrontendCommit = "";
         private String maintenanceRepoRoot = "D:/ProjectPackage/Int/IntRuoyiMaintance";
-        private String applicationRepoRoot = "E:/IntRuoyi";
+        private String applicationRepoRoot = "..";
         private String publishScriptPath = "ops/deploy/publish-int-ruoyi.ps1";
         private String expectedPublishScriptSha256 = "";
         private String presetId = "preset-app-release";
@@ -424,7 +424,7 @@ public class RuntimeControlProperties implements InitializingBean {
     public static class StorageGuard {
 
         private String monitorPath = ".";
-        private String logDir = "E:/Int/CacheData/IntRuoyi/runtime";
+        private String logDir = ".runtime/runtime/logs";
         private Double diskUsageWarnPercent = 85.0;
         private Double diskUsageNoGoPercent = 95.0;
         private Long logDirWarnBytes = 1024L * 1024L * 1024L;

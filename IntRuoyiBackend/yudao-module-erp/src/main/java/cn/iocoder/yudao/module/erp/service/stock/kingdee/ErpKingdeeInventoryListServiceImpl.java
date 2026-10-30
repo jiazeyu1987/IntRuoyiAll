@@ -123,4 +123,12 @@ public class ErpKingdeeInventoryListServiceImpl implements ErpKingdeeInventoryLi
         return true;
     }
 
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public int syncByCode(String code) {
+        ErpKingdeeProperties properties = kingdeeConfigService.getEffectiveProperties();
+        return syncRows(inventoryClient.fetchInventoryRowsByCode(properties, code), false);
+    }
+
 }

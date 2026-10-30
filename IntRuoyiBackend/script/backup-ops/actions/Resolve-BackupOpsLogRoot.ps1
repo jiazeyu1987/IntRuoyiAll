@@ -33,7 +33,8 @@ try {
     $resolvedLogRoot = if ([System.IO.Path]::IsPathRooted($logRoot)) {
         [System.IO.Path]::GetFullPath($logRoot)
     } else {
-        [System.IO.Path]::GetFullPath((Join-Path (Get-Location) $logRoot))
+        $backendRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..\..'))
+        [System.IO.Path]::GetFullPath((Join-Path $backendRoot $logRoot))
     }
 
     [Console]::Write($resolvedLogRoot)

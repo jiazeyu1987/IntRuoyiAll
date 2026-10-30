@@ -6,7 +6,6 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrReleaseTr
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderCompletionBackfillMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationMapper;
-import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesIndependentBatchPrerequisiteReceiptService;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchTraceabilityService;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderCompletionFlow6ReceiptPort;
 import org.junit.jupiter.api.Test;
@@ -43,7 +42,6 @@ class MesReleaseAuthoritativeContextConfigurationTest {
             registerMock(context, cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderPickListBindingMapper.class);
             registerMock(context, MesTeamLeaderActiveOrderCompletionFlow6ReceiptPort.class);
             registerMock(context, MesProEdhrBatchTraceabilityService.class);
-            registerMock(context, MesIndependentBatchPrerequisiteReceiptService.class);
             context.register(MesReleaseAuthoritativeContextPortImpl.class,
                     MesReleaseAuthoritativeContextConfiguration.class);
 

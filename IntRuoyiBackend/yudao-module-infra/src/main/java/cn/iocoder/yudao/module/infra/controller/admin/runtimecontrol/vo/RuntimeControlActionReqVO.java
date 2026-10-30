@@ -61,7 +61,7 @@ public class RuntimeControlActionReqVO {
     @Schema(description = "测试验证结论；标记测试通过必填")
     private String testConclusion;
 
-    @Schema(description = "测试服数据库快应用 SQL 文件路径", example = "D:/tmp/test-db-hotfix.sql")
+    @Schema(description = "测试服数据库快应用 SQL 文件路径", example = ".runtime/tmp/test-db-hotfix.sql")
     private String sqlPath;
 
     @Schema(description = "回滚目标镜像标签，内部脚本参数，由服务端候选解析；请求传入将被拒绝")

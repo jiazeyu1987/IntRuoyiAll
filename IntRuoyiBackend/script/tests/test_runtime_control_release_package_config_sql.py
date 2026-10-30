@@ -25,7 +25,7 @@ def test_release_package_config_seed_defines_backend_runtime_base_values():
         assert config_key in SQL
 
     assert "'offline-tar'" in SQL
-    assert "D:/ProjectPackage/Int/BaseImages/intruoyi-backend-runtime-base-2026.06.05-jre21-noble-docker29.2.1.tar" in SQL
+    assert ".runtime/base-images/intruoyi-backend-runtime-base-2026.06.05-jre21-noble-docker29.2.1.tar" in SQL
     assert "5bcd568b46ba9f28bfa7ac8ee67e283aea95bd585a89842a14cc40827fa71603" in SQL
     assert "intruoyi-backend-runtime-base:2026.06.05-jre21-noble-docker29.2.1" in SQL
     assert "sha256:b4f7d85f325665c3b372379e6d352c3c8be2d3a08add68ac0dc151f720160be7" in SQL

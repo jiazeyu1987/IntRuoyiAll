@@ -9,178 +9,207 @@
       v-loading="formLoading"
       :disabled="isDetail"
     >
-      <el-tabs
-        v-model="activeTab"
-        class="route-form-content__tabs"
-        @tab-change="handleRouteTabChange"
-      >
-        <el-tab-pane label="基础信息" name="basic">
-          <el-descriptions v-if="formData.id" title="已保存流程" :column="3">
-            <el-descriptions-item label="流程编号"><span data-route-created-id>{{ formData.id }}</span></el-descriptions-item>
-            <el-descriptions-item label="状态"><span data-route-created-status :data-status="formData.status">{{ formData.status === 0 ? '启用' : formData.status === 1 ? '停用' : '状态未确认' }}</span></el-descriptions-item>
-            <el-descriptions-item label="活动版本"><span data-route-created-version>{{ formData.activeRouteVersionNo }}</span></el-descriptions-item>
-          </el-descriptions>
-          <el-row :gutter="20">
-            <el-col v-if="formType !== 'create'" :span="12">
-              <el-form-item label="编码" prop="code">
-                <el-input v-model="formData.code" placeholder="请输入编码" :disabled="isHeaderReadonly" />
+      <template v-if="!formData.id">
+        <el-form-item label="名称" prop="name">
+          <el-input v-model="formData.name" placeholder="请输入名称" :disabled="isHeaderReadonly" />
+        </el-form-item>
+        <el-form-item v-if="formType === 'create'" label="工序" prop="processIds" required>
+          <div class="route-create-processes" data-route-create-processes>
+            <el-select
+              v-model="formData.processIds"
+              multiple
+              filterable
+              :loading="processOptionsLoading"
+              :disabled="processOptionsLoading || Boolean(processOptionsError)"
+              placeholder="请选择工序，按选择先后排列"
+              data-route-create-process-select
+            >
+              <el-option
+                v-for="process in processOptions"
+                :key="process.id"
+                :value="process.id!"
+                :label="`${process.name}（${process.code}）`"
+                :data-process-id="process.id"
+                :data-process-name="process.name"
+                :data-process-code="process.code"
+              />
+            </el-select>
+            <el-alert
+              v-if="processOptionsError"
+              :title="processOptionsError"
+              type="error"
+              :closable="false"
+              data-route-create-process-error
+            />
+            <ol v-if="selectedProcesses.length" data-route-create-process-order>
+              <li
+                v-for="process in selectedProcesses"
+                :key="process.id"
+                :data-process-id="process.id"
+              >
+                {{ process.name }}（{{ process.code }}）
+              </li>
+            </ol>
+          </div>
+        </el-form-item>
+        <el-form-item label="备注" prop="remark">
+          <el-input
+            v-model="formData.remark"
+            type="textarea"
+            placeholder="请输入备注"
+            :disabled="isHeaderReadonly"
+          />
+        </el-form-item>
+      </template>
+      <template v-else>
+        <RouteFlowGraphDesigner
+          ref="routeFlowGraphDesignerRef"
+          :route-id="formData.id"
+          :route-name="formData.name"
+          :active-route-version-no="formData.activeRouteVersionNo"
+          :form-type="productionConfigFormType"
+          :submitting="formLoading"
+          :target-route-process-id="targetRouteProcessId"
+          :route-version-edit-context="routeFlowVersionEditContext"
+          @request-back="handleFlowGraphBackRequest"
+          @request-submit="handleSubmitRequest"
+          @select-start-setting="handleStartSettingSelect"
+          :initial-start-setting="initialStartSetting"
+        >
+          <template #edit-action>
+            <el-button
+              v-if="canRequestCandidateEdit"
+              type="primary"
+              :loading="routeVersionActionLoading"
+              @click="emit('request-candidate-edit')"
+            >
+              修改
+            </el-button>
+          </template>
+          <template #start-setting="{ setting }">
+            <div
+              v-if="setting === 'basic'"
+              class="route-start-basic"
+              data-route-start-setting="basic"
+            >
+              <el-form-item
+                v-if="formType !== 'create'"
+                label="编码"
+                prop="code"
+                label-position="top"
+                label-width="auto"
+              >
+                <el-input
+                  v-model="formData.code"
+                  placeholder="请输入编码"
+                  :disabled="isHeaderReadonly"
+                />
               </el-form-item>
-            </el-col>
-            <el-col :span="12">
-              <el-form-item label="名称" prop="name">
+              <el-form-item label="名称" prop="name" label-position="top" label-width="auto">
                 <el-input
                   v-model="formData.name"
                   placeholder="请输入名称"
-                  :disabled="isHeaderReadonly"
+                  :disabled="isRouteNameReadonly"
                 />
               </el-form-item>
-            </el-col>
-            <el-col v-if="formData.id" :span="12">
-              <el-form-item label="负责人" prop="ownerName">
-                <el-autocomplete
-                  v-model="formData.ownerName"
-                  :fetch-suggestions="fetchOwnerSuggestions"
-                  placeholder="请输入负责人"
-                  clearable
-                  trigger-on-focus
-                  :disabled="isHeaderReadonly"
-                  @select="handleOwnerCandidateSelect"
-                >
-                  <template #default="{ item }">
-                    <div class="route-owner-suggestion">
-                      <span class="route-owner-suggestion__name">{{ item.value }}</span>
-                      <span class="route-owner-suggestion__dept">{{ item.deptPathText }}</span>
-                    </div>
-                  </template>
-                </el-autocomplete>
-              </el-form-item>
-            </el-col>
-          </el-row>
-          <el-form-item v-if="formType === 'create'" label="工序" prop="processIds" required>
-            <div class="route-create-processes" data-route-create-processes>
-              <el-select
-                v-model="formData.processIds"
-                multiple
-                filterable
-                :loading="processOptionsLoading"
-                :disabled="processOptionsLoading || Boolean(processOptionsError)"
-                placeholder="请选择工序，按选择先后排列"
-                data-route-create-process-select
+              <el-button
+                v-if="hasRouteVersionPageContext && !isRouteNameReadonly"
+                class="route-start-basic__save"
+                type="primary"
+                size="small"
+                :loading="formLoading"
+                :disabled="!hasRouteNameDraftChanges"
+                @click="handleSaveRouteNameDraft"
               >
-                <el-option
-                  v-for="process in processOptions"
-                  :key="process.id"
-                  :value="process.id!"
-                  :label="`${process.name}（${process.code}）`"
-                  :data-process-id="process.id"
-                  :data-process-name="process.name"
-                  :data-process-code="process.code"
-                />
-              </el-select>
-              <el-alert v-if="processOptionsError" :title="processOptionsError" type="error" :closable="false" data-route-create-process-error />
-              <ol v-if="selectedProcesses.length" data-route-create-process-order>
-                <li v-for="process in selectedProcesses" :key="process.id" :data-process-id="process.id">
-                  {{ process.name }}（{{ process.code }}）
-                </li>
-              </ol>
+                保存
+              </el-button>
             </div>
-          </el-form-item>
-          <el-form-item label="备注" prop="remark">
-            <el-input
-              v-model="formData.remark"
-              type="textarea"
-              placeholder="请输入备注"
-              :disabled="isHeaderReadonly"
-            />
-          </el-form-item>
-        </el-tab-pane>
-        <template v-if="formData.id">
-          <el-tab-pane label="流转关系图" name="flow" lazy>
-            <RouteFlowGraphDesigner
-              ref="routeFlowGraphDesignerRef"
-              :route-id="formData.id"
-              :route-name="formData.name"
-              :active-route-version-no="formData.activeRouteVersionNo"
-              :form-type="productionConfigFormType"
-              :submitting="formLoading"
-              :target-route-process-id="targetRouteProcessId"
-              :route-version-edit-context="routeFlowVersionEditContext"
-              @request-back="handleFlowGraphBackRequest"
-              @request-submit="handleSubmitRequest"
-            />
-          </el-tab-pane>
-          <el-tab-pane label="关联产品" name="product" lazy>
-            <RouteProductList
-              :routeId="formData.id"
-              :form-type="productionConfigFormType"
-              :route-version-edit-context="routeVersionEditContext"
-              :submitting="formLoading"
-              @request-submit="handleSubmitRequest"
-            />
-          </el-tab-pane>
-          <el-tab-pane label="DCC项目代码" name="dcc" lazy>
-            <div class="route-dcc-project-binding" v-loading="dccProjectBindingLoading">
-              <el-alert
-                v-if="dccProjectBindingError"
-                :title="dccProjectBindingError"
-                type="error"
-                :closable="false"
-                show-icon
-              >
-                <template #default>
-                  <el-button type="primary" link @click="loadDccProjectData">重新加载</el-button>
-                </template>
-              </el-alert>
-              <template v-else>
-              <el-alert
-                title="QA 规程只通过 DCC 项目代码关联。这里保存的是工艺路线与 DCC 项目代码的正式关系，不保存 QA 规程。"
-                type="info"
-                :closable="false"
-                show-icon
+            <div v-else-if="setting === 'product'" data-route-start-setting="product">
+              <h4>关联产品</h4>
+
+              <RouteProductList
+                :routeId="formData.id"
+                :form-type="productionConfigFormType"
+                :route-version-edit-context="routeVersionEditContext"
+                :submitting="formLoading"
+                @request-submit="handleSubmitRequest"
               />
-              <el-form-item label="项目代码">
-                <el-select
-                  v-model="dccProjectBindingForm.dccProjectCodeId"
-                  class="route-dcc-project-binding__select"
-                  filterable
-                  remote
-                  clearable
-                  reserve-keyword
-                  :remote-method="loadDccProjectCodeOptions"
-                  :loading="dccProjectCodeLoading"
-                  placeholder="请输入项目名称或项目代码搜索"
-                >
-                  <el-option
-                    v-for="projectCode in dccProjectCodeOptions"
-                    :key="projectCode.id"
-                    :label="formatDccProjectCodeOption(projectCode)"
-                    :value="projectCode.id"
-                  />
-                </el-select>
-              </el-form-item>
-              <el-space>
-                <el-button
-                  type="primary"
-                  :disabled="!dccProjectBindingForm.dccProjectCodeId"
-                  @click="saveDccProjectBinding"
-                >
-                  保存DCC项目代码
-                </el-button>
-                <el-button
-                  :disabled="!dccProjectBinding.bound"
-                  @click="deleteDccProjectBinding"
-                >
-                  解除绑定
-                </el-button>
-                <span class="route-dcc-project-binding__version">
-                  当前关系版本：{{ dccProjectBinding.version }}
-                </span>
-              </el-space>
-              </template>
             </div>
-          </el-tab-pane>
-        </template>
-      </el-tabs>
+            <div v-else-if="setting === 'dcc'" data-route-start-setting="dcc">
+              <div class="route-dcc-project-binding" v-loading="dccProjectBindingLoading">
+                <el-alert
+                  v-if="dccProjectBindingError"
+                  :title="dccProjectBindingError"
+                  type="error"
+                  :closable="false"
+                  show-icon
+                >
+                  <template #default>
+                    <el-button type="primary" link @click="loadDccProjectData">重新加载</el-button>
+                  </template>
+                </el-alert>
+                <template v-else>
+                  <el-form-item
+                    label="项目代码"
+                    label-position="top"
+                    label-width="auto"
+                    class="route-dcc-project-binding__field"
+                  >
+                    <el-select
+                      v-model="dccProjectBindingForm.dccProjectCodeId"
+                      class="route-dcc-project-binding__select"
+                      filterable
+                      remote
+                      clearable
+                      reserve-keyword
+                      :remote-method="loadDccProjectCodeOptions"
+                      :loading="dccProjectCodeLoading"
+                      :disabled="!canEditStartSettings"
+                      placeholder="请输入项目名称或项目代码搜索"
+                    >
+                      <el-option
+                        v-for="projectCode in dccProjectCodeOptions"
+                        :key="projectCode.id"
+                        :label="formatDccProjectCodeOption(projectCode)"
+                        :value="projectCode.id"
+                      />
+                    </el-select>
+                  </el-form-item>
+                  <el-button
+                    class="route-dcc-project-binding__save"
+                    type="primary"
+                    size="small"
+                    :disabled="!canEditStartSettings || dccProjectBindingLoading || !dccProjectBindingForm.dccProjectCodeId"
+                    @click="saveDccProjectBinding"
+                  >
+                    保存
+                  </el-button>
+                  <dl
+                    v-if="savedDccProjectCode"
+                    class="route-dcc-project-binding__saved"
+                    aria-label="已保存的关联项目"
+                    data-route-saved-dcc-project
+                  >
+                    <div>
+                      <dt>项目代码</dt>
+                      <dd>{{ savedDccProjectCode.projectCode }}</dd>
+                    </div>
+                    <div>
+                      <dt>名称</dt>
+                      <dd>{{ savedDccProjectCode.projectName }}</dd>
+                    </div>
+                    <div>
+                      <dt>编号</dt>
+                      <dd>{{ savedDccProjectCode.id }}</dd>
+                    </div>
+                  </dl>
+                  <p v-else class="route-dcc-project-binding__empty">暂未保存关联项目</p>
+                </template>
+              </div>
+            </div>
+          </template>
+        </RouteFlowGraphDesigner>
+      </template>
     </el-form>
   </div>
 </template>
@@ -192,18 +221,21 @@ import {
   ProRouteApi,
   ProRouteVO,
   type MesRouteId,
+  type ProRouteVersionVO,
   type RouteDccProjectBindingVO,
   type RouteVersionEditContext
 } from '@/api/mes/pro/route'
 import {
   DCC_PROJECT_CODE_STATUS_ENABLE,
+  getProjectCode,
   getProjectCodePage,
   type DccProjectCodeRespVO
 } from '@/api/dcc/controlledFile/projectCodes'
 import { ProProcessApi, type ProProcessVO } from '@/api/mes/pro/process'
-import * as DeptApi from '@/api/system/dept'
-import * as UserApi from '@/api/system/user'
+import { ProRouteProductApi, type ProRouteProductVO } from '@/api/mes/pro/route/product'
 import { isRouteConfirmCancel, resolveRouteOperationErrorMessage } from './routeError'
+import { resolveSameSourceDraftCandidateForProductionConfig } from './routeCandidateEntry'
+import { checkPermi } from '@/utils/permission'
 
 defineOptions({ name: 'RouteFormContent' })
 
@@ -214,6 +246,7 @@ const props = withDefaults(
   defineProps<{
     mode?: 'dialog' | 'page'
     basicReadonly?: boolean
+    pageEditing?: boolean
     targetRouteProcessId?: number
     routeVersionEditContext?: RouteVersionEditContext
     routeVersionActionLoading?: boolean
@@ -221,6 +254,7 @@ const props = withDefaults(
   {
     mode: 'dialog',
     basicReadonly: false,
+    pageEditing: false,
     routeVersionActionLoading: false
   }
 )
@@ -229,7 +263,8 @@ const emit = defineEmits([
   'back',
   'request-upgrade',
   'request-candidate-edit',
-  'request-route-version-submit'
+  'request-route-version-submit',
+  'name-draft-saved'
 ])
 
 const message = useMessage()
@@ -252,17 +287,15 @@ const routeFlowVersionEditContext = computed<RouteVersionEditContext | undefined
 const isEditable = computed(() => ['create', 'update'].includes(formType.value))
 const isEnable = computed(() => formType.value === 'enable')
 const isDetail = computed(() => ['detail', 'enable'].includes(formType.value))
-const isHeaderReadonly = computed(() => basicReadonly.value || ['enable', 'detail'].includes(formType.value))
-const isProductTabActive = computed(() => activeTab.value === 'product')
-const YINGTAI_ROOT_NAME = '瑛泰医疗'
-const PRODUCTION_CENTER_NAME = '生产制造中心'
-type RouteFormInitialTab =
-  | 'basic'
-  | 'flow'
-  | 'product'
-  | 'dcc'
+const isHeaderReadonly = computed(
+  () => basicReadonly.value || ['enable', 'detail'].includes(formType.value)
+)
+const isProductTabActive = computed(() => selectedStartSetting.value === 'product')
+type RouteFormInitialTab = 'basic' | 'flow' | 'product' | 'dcc'
 
 const activeTab = ref<RouteFormInitialTab>('basic')
+const initialStartSetting = ref<'basic' | 'product' | 'dcc'>()
+const selectedStartSetting = ref<'basic' | 'product' | 'dcc'>()
 const formData = ref<ProRouteVO & { processIds: number[] }>({
   id: undefined,
   code: '',
@@ -275,26 +308,40 @@ const formData = ref<ProRouteVO & { processIds: number[] }>({
 const processOptions = ref<ProProcessVO[]>([])
 const processOptionsLoading = ref(false)
 const processOptionsError = ref('')
-const selectedProcesses = computed(() => formData.value.processIds.map((id) =>
-  processOptions.value.find((process) => process.id === id)!
-))
+const selectedProcesses = computed(() =>
+  formData.value.processIds.map((id) => processOptions.value.find((process) => process.id === id)!)
+)
 const formRules = reactive({
-  code: [{ validator: (_rule: unknown, value: string, callback: (error?: Error) => void) => {
-    callback(formType.value !== 'create' && !value?.trim() ? new Error('编码不能为空') : undefined)
-  }, trigger: 'blur' }],
+  code: [
+    {
+      validator: (_rule: unknown, value: string, callback: (error?: Error) => void) => {
+        callback(
+          formType.value !== 'create' && !value?.trim() ? new Error('编码不能为空') : undefined
+        )
+      },
+      trigger: 'blur'
+    }
+  ],
   name: [{ required: true, whitespace: true, message: '名称不能为空', trigger: 'blur' }],
-  processIds: [{ validator: (_rule: unknown, value: number[], callback: (error?: Error) => void) => {
-    callback(formType.value === 'create' && !value?.length ? new Error('请至少选择一个工序') : undefined)
-  }, trigger: 'change' }]
+  processIds: [
+    {
+      validator: (_rule: unknown, value: number[], callback: (error?: Error) => void) => {
+        callback(
+          formType.value === 'create' && !value?.length
+            ? new Error('请至少选择一个工序')
+            : undefined
+        )
+      },
+      trigger: 'change'
+    }
+  ]
 })
 const formRef = ref()
 const routeFlowGraphDesignerRef =
-  ref<InstanceType<typeof import('./RouteFlowGraphDesigner.vue')['default']>>()
+  ref<InstanceType<(typeof import('./RouteFlowGraphDesigner.vue'))['default']>>()
 const pendingFlowAutoLayout = ref(false)
 const pendingFlowAutoLayoutKey = ref('')
 const completedFlowAutoLayoutEntryKey = ref('')
-const ownerLeaderCandidates = ref<RouteOwnerCandidate[]>([])
-let ownerLeaderCandidatesPromise: Promise<void> | undefined
 const dccProjectBinding = ref<RouteDccProjectBindingVO>({
   routeId: 0,
   dccProjectCodeId: undefined,
@@ -306,31 +353,106 @@ const dccProjectBindingLoading = ref(false)
 const dccProjectBindingError = ref('')
 const dccProjectCodeLoading = ref(false)
 const dccProjectCodeOptions = ref<DccProjectCodeRespVO[]>([])
+const savedDccProjectCode = ref<DccProjectCodeRespVO>()
 
 const isDraftCandidateVersion = computed(
   () => routeVersionEditContext.value?.lifecycleStatus === 'DRAFT'
 )
-const hasRouteVersionPageContext = computed(() => mode.value === 'page' && Boolean(formData.value.id))
-const productionConfigFormType = computed(() =>
-  hasRouteVersionPageContext.value && !isDraftCandidateVersion.value ? 'detail' : formType.value
+const hasRouteVersionPageContext = computed(
+  () => mode.value === 'page' && Boolean(formData.value.id)
 )
+const productionConfigFormType = computed(() =>
+  hasRouteVersionPageContext.value && (!props.pageEditing || !isDraftCandidateVersion.value)
+    ? 'detail' : formType.value
+)
+const canEditStartSettings = computed(
+  () => productionConfigFormType.value === 'update' && checkPermi(['mes:pro-route:update'])
+)
+const canRequestCandidateEdit = computed(() => {
+  if (!hasRouteVersionPageContext.value || props.pageEditing || isDetail.value ||
+      !checkPermi(['mes:pro-route:version-update'])) return false
+  const context = routeVersionEditContext.value
+  return !context || isDraftCandidateVersion.value ||
+    (context.lifecycleStatus === 'ACTIVE' &&
+      String(context.routeVersionId) === String(formData.value.activeRouteVersionId))
+})
+const savedRouteName = ref('')
+const hasRouteNameDraftChanges = computed(() => formData.value.name !== savedRouteName.value)
+const isRouteNameReadonly = computed(() => {
+  if (!hasRouteVersionPageContext.value) return isHeaderReadonly.value
+  return isDetail.value ||
+    !props.pageEditing || !isDraftCandidateVersion.value ||
+    !checkPermi(['mes:pro-route:version-update']) ||
+    !isEditable.value
+})
 
-type RouteOwnerCandidate = {
-  value: string
-  userId: number
-  deptPathText: string
+const persistRouteNameDraft = async () => {
+  if (!hasRouteVersionPageContext.value || !hasRouteNameDraftChanges.value) return
+  if (isRouteNameReadonly.value) throw new Error('当前版本不允许修改名称')
+  await formRef.value.validateField('name')
+  const name = formData.value.name.trim()
+  let candidate: ProRouteVersionVO
+  if (isDraftCandidateVersion.value) {
+    candidate = await ProRouteApi.getRouteVersion(routeVersionEditContext.value!.routeVersionId)
+  } else {
+    const versions = await ProRouteApi.getRouteVersionList(formData.value.id!)
+    const existing = resolveSameSourceDraftCandidateForProductionConfig(
+      formData.value, versions, '保存名称草稿'
+    )
+    candidate = existing || await ProRouteApi.createRouteCandidateVersion({
+      routeId: formData.value.id!,
+      sourceRouteVersionId: formData.value.activeRouteVersionId,
+      changeReason: '修改工艺路线名称'
+    })
+  }
+  if (String(candidate.routeId) !== String(formData.value.id) || candidate.lifecycleStatus !== 'DRAFT') {
+    throw new Error('保存名称失败：版本不属于当前路线或已离开草稿状态')
+  }
+  const current = await ProRouteApi.getRouteVersionName(candidate.id)
+  if (isDraftCandidateVersion.value && current.name !== savedRouteName.value) {
+    throw new Error('草稿名称已被修改，请重新进入页面后再保存')
+  }
+  await ProRouteApi.saveRouteVersionName({
+    routeVersionId: candidate.id,
+    name,
+    expectedRouteSnapshotSha256: current.routeSnapshotSha256
+  })
+  formData.value.name = name
+  savedRouteName.value = name
+  if (!isDraftCandidateVersion.value) emit('name-draft-saved', candidate)
+}
+
+const handleSaveRouteNameDraft = async () => {
+  formLoading.value = true
+  try {
+    await persistRouteNameDraft()
+    message.success('名称已保存到草稿，发布后生效')
+    emit('success')
+    if (props.mode === 'page') emit('back')
+  } catch (error) {
+    message.error(resolveRouteOperationErrorMessage(error, '保存名称草稿失败'))
+  } finally {
+    formLoading.value = false
+  }
 }
 
 const open = async (type: string, id?: MesRouteId, initialTab: RouteFormInitialTab = 'basic') => {
   formType.value = type
-  activeTab.value = id ? initialTab : 'basic'
+  activeTab.value = id ? 'flow' : 'basic'
+  initialStartSetting.value = id && initialTab !== 'flow' ? initialTab : undefined
+  selectedStartSetting.value = initialStartSetting.value
   resetForm()
   formLoading.value = true
   let shouldTriggerFlowAutoLayout = false
-  const shouldLoadDccProjectData = activeTab.value === 'dcc'
   try {
     if (id) {
-      formData.value = { ...await ProRouteApi.getRoute(id), processIds: [] }
+      formData.value = { ...(await ProRouteApi.getRoute(id)), processIds: [] }
+      if (routeVersionEditContext.value) {
+        const versionName = await ProRouteApi.getRouteVersionName(routeVersionEditContext.value.routeVersionId)
+        if (String(versionName.routeId) !== String(id)) throw new Error('加载名称失败：版本不属于当前路线')
+        formData.value.name = versionName.name
+      }
+      savedRouteName.value = formData.value.name
     } else if (type === 'create') {
       processOptionsLoading.value = true
       try {
@@ -345,9 +467,6 @@ const open = async (type: string, id?: MesRouteId, initialTab: RouteFormInitialT
         processOptionsLoading.value = false
       }
     }
-    if (id && initialTab === 'basic' && !isHeaderReadonly.value) {
-      await ensureOwnerLeaderCandidatesLoaded()
-    }
     shouldTriggerFlowAutoLayout = activeTab.value === 'flow'
   } finally {
     formLoading.value = false
@@ -355,13 +474,14 @@ const open = async (type: string, id?: MesRouteId, initialTab: RouteFormInitialT
   if (shouldTriggerFlowAutoLayout) {
     triggerFlowAutoLayout()
   }
-  if (shouldLoadDccProjectData) {
-    await loadDccProjectData()
-  }
 }
 
 const assertRouteCandidateVersionWritable = () => {
-  if (routeVersionEditContext.value && !isDraftCandidateVersion.value) {
+  if (hasRouteVersionPageContext.value && !props.pageEditing) {
+    throw new Error('当前为只读浏览，请先点击修改。')
+  }
+  const canSaveNameDraft = hasRouteNameDraftChanges.value && !isRouteNameReadonly.value
+  if (routeVersionEditContext.value && !isDraftCandidateVersion.value && !canSaveNameDraft) {
     const errorMessage = '当前候选版本已离开草稿状态，仅允许查看。'
     message.error(errorMessage)
     throw new Error(errorMessage)
@@ -379,16 +499,25 @@ const submitForm = async () => {
     const successMessage = formType.value === 'create' ? '新增成功' : '保存成功'
     const data = { ...formData.value }
     if (formType.value === 'create') {
-      const res = await ProRouteApi.createRoute({
-        name: data.name.trim(), remark: data.remark, processIds: [...data.processIds]
-      }, { ignoreErrorMessage: true })
+      const res = await ProRouteApi.createRoute(
+        {
+          name: data.name.trim(),
+          remark: data.remark,
+          processIds: [...data.processIds]
+        },
+        { ignoreErrorMessage: true }
+      )
       formData.value.id = res
       formType.value = 'update'
-      formData.value = { ...await ProRouteApi.getRoute(res), processIds: [] }
+      formData.value = { ...(await ProRouteApi.getRoute(res)), processIds: [] }
+      savedRouteName.value = formData.value.name
+      activeTab.value = 'flow'
+      initialStartSetting.value = 'basic'
     } else if (shouldPersistRouteHeaderOnSubmit()) {
       await ProRouteApi.updateRoute(data)
     }
     await saveFlowGraphAfterRouteSave(shouldSaveFlowGraph)
+    await persistRouteNameDraft()
     message.success(successMessage)
     emit('success')
   } catch (error) {
@@ -408,6 +537,7 @@ const submitForm = async () => {
 const handleSubmitRequest = async () => {
   try {
     await submitForm()
+    if (props.mode === 'page') emit('back')
   } catch (error) {
     if (isRouteConfirmCancel(error)) return
     message.error(resolveRouteOperationErrorMessage(error, '保存工艺路线失败'))
@@ -420,8 +550,11 @@ const isDuplicateRouteNameError = (error: unknown) => {
 }
 
 const shouldSaveFlowGraphOnSubmit = () =>
-  formType.value === 'update' && Boolean(formData.value.id) && activeTab.value === 'flow'
-const shouldPersistRouteHeaderOnSubmit = () => !routeVersionEditContext.value
+  formType.value === 'update' &&
+  Boolean(formData.value.id) &&
+  activeTab.value === 'flow' &&
+  routeFlowVersionEditContext.value?.lifecycleStatus === 'DRAFT'
+const shouldPersistRouteHeaderOnSubmit = () => !routeVersionEditContext.value && !hasRouteVersionPageContext.value
 
 const requireFlowGraphDesigner = () => {
   const designer = routeFlowGraphDesignerRef.value
@@ -444,13 +577,14 @@ const saveFlowGraphAfterRouteSave = async (shouldSaveFlowGraph: boolean) => {
 }
 
 const hasFlowGraphWorkspaceDraftChanges = () =>
-  activeTab.value === 'flow' &&
-  Boolean(routeFlowGraphDesignerRef.value?.hasWorkspaceDraftChanges?.())
+  (hasRouteVersionPageContext.value && hasRouteNameDraftChanges.value) || (activeTab.value === 'flow' &&
+  Boolean(routeFlowGraphDesignerRef.value?.hasWorkspaceDraftChanges?.()))
 
 const hasRouteCandidateDraftChanges = () =>
   isDraftCandidateVersion.value && hasFlowGraphWorkspaceDraftChanges()
 
 const discardRouteCandidateDraftChanges = () => {
+  formData.value.name = savedRouteName.value
   if (activeTab.value === 'flow') {
     routeFlowGraphDesignerRef.value?.discardWorkspaceDraftChanges?.()
   }
@@ -458,7 +592,7 @@ const discardRouteCandidateDraftChanges = () => {
 
 const confirmFlowGraphDraftSaveBeforeExit = async () => {
   const designer = routeFlowGraphDesignerRef.value
-  if (activeTab.value !== 'flow' || !designer || !designer.hasWorkspaceDraftChanges()) return true
+  if (!hasFlowGraphWorkspaceDraftChanges()) return true
   try {
     await ElMessageBox.confirm('工作区有变动，是否保存？', '退出确认', {
       confirmButtonText: '保存',
@@ -470,7 +604,8 @@ const confirmFlowGraphDraftSaveBeforeExit = async () => {
     return true
   } catch (error) {
     if (error === 'cancel') {
-      designer.discardWorkspaceDraftChanges()
+      formData.value.name = savedRouteName.value
+      designer?.discardWorkspaceDraftChanges()
       return true
     }
     return false
@@ -504,6 +639,7 @@ const handleEnable = async () => {
 }
 
 const resetForm = () => {
+  savedRouteName.value = ''
   formData.value = {
     id: undefined,
     code: '',
@@ -525,6 +661,7 @@ const resetForm = () => {
   dccProjectBindingForm.dccProjectCodeId = undefined
   dccProjectBindingError.value = ''
   dccProjectCodeOptions.value = []
+  savedDccProjectCode.value = undefined
 }
 
 const buildFlowAutoLayoutEntryKey = () => {
@@ -579,13 +716,9 @@ const runPendingFlowAutoLayout = async () => {
   completedFlowAutoLayoutEntryKey.value = pendingKey
 }
 
-const handleRouteTabChange = (tabName: string | number) => {
-  if (tabName === 'flow') {
-    triggerFlowAutoLayout()
-  }
-  if (tabName === 'dcc') {
-    void loadDccProjectData()
-  }
+const handleStartSettingSelect = (setting: 'basic' | 'product' | 'dcc' | undefined) => {
+  selectedStartSetting.value = setting
+  if (setting === 'dcc') void loadDccProjectData()
 }
 
 const loadDccProjectData = async () => {
@@ -608,7 +741,11 @@ const loadDccProjectBinding = async (routeId: MesRouteId) => {
   dccProjectBindingLoading.value = true
   try {
     const data = await ProRouteApi.getRouteDccProjectBinding(routeId)
+    const projectCode = data.bound && data.dccProjectCodeId
+      ? await getProjectCode(data.dccProjectCodeId)
+      : undefined
     dccProjectBinding.value = data
+    savedDccProjectCode.value = projectCode
     dccProjectBindingForm.dccProjectCodeId = data.dccProjectCodeId ?? undefined
   } finally {
     dccProjectBindingLoading.value = false
@@ -637,44 +774,42 @@ const formatDccProjectCodeOption = (projectCode: DccProjectCodeRespVO) =>
   [projectCode.projectCode, projectCode.projectName, projectCode.id].filter(Boolean).join(' / ')
 
 const saveDccProjectBinding = async () => {
-  if (!formData.value.id || !dccProjectBindingForm.dccProjectCodeId) return
+  if (dccProjectBindingLoading.value || !formData.value.id || !dccProjectBindingForm.dccProjectCodeId) return
   dccProjectBindingLoading.value = true
   try {
+    if (!canEditStartSettings.value) throw new Error('当前为只读浏览，请先点击修改。')
+    const routeId = formData.value.id
+    const routeVersionId = isDraftCandidateVersion.value
+      ? routeVersionEditContext.value?.routeVersionId
+      : undefined
+    const projectCode = await getProjectCode(dccProjectBindingForm.dccProjectCodeId)
+    const formalProducts: ProRouteProductVO[] = await ProRouteProductApi.getRouteProductListByRoute(routeId)
+    const draftProducts: ProRouteProductVO[] = routeVersionId
+      ? await ProRouteProductApi.getRouteProductListByRoute(routeId, routeVersionId)
+      : []
+    const products = [...new Map([...formalProducts, ...draftProducts]
+      .map(product => [product.itemId, product])).values()]
+    if (products.length > 0) {
+      await ElMessageBox.confirm(
+        `绑定项目“${projectCode.projectCode} / ${projectCode.projectName}”将解除${routeVersionId ? '正式关联及当前草稿中的' : '当前'} ${products.length} 个产品的关联，并清除对应的路线产品 BOM 配置。产品主数据保留。是否继续？`,
+        '确认解除产品关联',
+        { confirmButtonText: '确认解除并保存', cancelButtonText: '取消', type: 'warning' }
+      )
+    }
     const data = await ProRouteApi.saveRouteDccProjectBinding({
-      routeId: formData.value.id,
-      dccProjectCodeId: dccProjectBindingForm.dccProjectCodeId,
-      expectedVersion: dccProjectBinding.value.version
+      routeId,
+      routeVersionId,
+      dccProjectCodeId: projectCode.id,
+      expectedVersion: dccProjectBinding.value.version,
+      confirmedProductItemIds: products.map(product => product.itemId)
     })
     dccProjectBinding.value = data
+    savedDccProjectCode.value = projectCode
     dccProjectBindingForm.dccProjectCodeId = data.dccProjectCodeId ?? undefined
-    message.success('DCC项目代码已保存')
-  } catch (error) {
-    message.error(resolveRouteOperationErrorMessage(error, '保存DCC项目代码失败'))
-    throw error
-  } finally {
-    dccProjectBindingLoading.value = false
-  }
-}
-
-const deleteDccProjectBinding = async () => {
-  if (!formData.value.id || !dccProjectBinding.value.bound) return
-  try {
-    await message.confirm('确认解除当前工艺路线与DCC项目代码的关系吗？')
+    message.success(products.length > 0 ? '项目已保存，原产品关联已解除' : 'DCC项目代码已保存')
   } catch (error) {
     if (isRouteConfirmCancel(error)) return
-    throw error
-  }
-  dccProjectBindingLoading.value = true
-  try {
-    const data = await ProRouteApi.deleteRouteDccProjectBinding(
-      formData.value.id,
-      dccProjectBinding.value.version
-    )
-    dccProjectBinding.value = data
-    dccProjectBindingForm.dccProjectCodeId = undefined
-    message.success('DCC项目代码已解除')
-  } catch (error) {
-    message.error(resolveRouteOperationErrorMessage(error, '解除DCC项目代码失败'))
+    message.error(resolveRouteOperationErrorMessage(error, '保存DCC项目代码失败'))
     throw error
   } finally {
     dccProjectBindingLoading.value = false
@@ -691,103 +826,10 @@ watch(
   { flush: 'post' }
 )
 
-const ensureOwnerLeaderCandidatesLoaded = async () => {
-  if (ownerLeaderCandidates.value.length > 0) return
-  if (!ownerLeaderCandidatesPromise) {
-    ownerLeaderCandidatesPromise = loadOwnerLeaderCandidates().finally(() => {
-      ownerLeaderCandidatesPromise = undefined
-    })
-  }
-  await ownerLeaderCandidatesPromise
-}
-
-const loadOwnerLeaderCandidates = async () => {
-  const [depts, users] = await Promise.all([DeptApi.getDeptList({}), UserApi.getSimpleUserList()])
-  ownerLeaderCandidates.value = buildOwnerLeaderCandidates(depts, users)
-}
-
-const buildOwnerLeaderCandidates = (depts: DeptApi.DeptVO[], users: UserApi.UserVO[]) => {
-  const rootDept = depts.find((dept) => dept.parentId === 0 && dept.name === YINGTAI_ROOT_NAME)
-  if (!rootDept) {
-    console.error(`[RouteFormContent] root department not found: ${YINGTAI_ROOT_NAME}`)
-    return []
-  }
-  const productionCenterDept = depts.find(
-    (dept) => dept.parentId === rootDept.id && dept.name === PRODUCTION_CENTER_NAME
-  )
-  if (!productionCenterDept) {
-    console.error(`[RouteFormContent] production center not found: ${PRODUCTION_CENTER_NAME}`)
-    return []
-  }
-
-  const childrenByParentId = new Map<number, DeptApi.DeptVO[]>()
-  for (const dept of depts) {
-    const children = childrenByParentId.get(dept.parentId) || []
-    children.push(dept)
-    childrenByParentId.set(dept.parentId, children)
-  }
-  const userById = new Map(users.map((user) => [user.id, user]))
-  const candidateByUserId = new Map<number, RouteOwnerCandidate>()
-
-  const walkDept = (deptId: number, pathParts: string[]) => {
-    const children = childrenByParentId.get(deptId) || []
-    for (const child of children) {
-      const childPathText = [...pathParts, child.name].join(' / ')
-      if (typeof child.leaderUserId === 'number') {
-        const leaderUser = userById.get(child.leaderUserId)
-        if (leaderUser?.nickname) {
-          const existed = candidateByUserId.get(leaderUser.id)
-          if (existed) {
-            if (!existed.deptPathText.includes(childPathText)) {
-              existed.deptPathText = `${existed.deptPathText}；${childPathText}`
-            }
-          } else {
-            candidateByUserId.set(leaderUser.id, {
-              value: leaderUser.nickname,
-              userId: leaderUser.id,
-              deptPathText: childPathText
-            })
-          }
-        }
-      }
-      walkDept(child.id, [...pathParts, child.name])
-    }
-  }
-
-  walkDept(productionCenterDept.id, [rootDept.name, productionCenterDept.name])
-
-  return [...candidateByUserId.values()].sort((a, b) =>
-    a.deptPathText.localeCompare(b.deptPathText, 'zh-CN')
-  )
-}
-
-const fetchOwnerSuggestions = async (
-  queryString: string,
-  cb: (items: RouteOwnerCandidate[]) => void
-) => {
-  await ensureOwnerLeaderCandidatesLoaded()
-  const keyword = queryString.trim().toLowerCase()
-  if (!keyword) {
-    cb(ownerLeaderCandidates.value)
-    return
-  }
-  cb(
-    ownerLeaderCandidates.value.filter((candidate) => {
-      return (
-        candidate.value.toLowerCase().includes(keyword) ||
-        candidate.deptPathText.toLowerCase().includes(keyword)
-      )
-    })
-  )
-}
-
-const handleOwnerCandidateSelect = (item: RouteOwnerCandidate) => {
-  formData.value.ownerName = item.value
-}
-
 defineExpose({
   open,
   submitForm,
+  handleSubmitRequest,
   handleEnable,
   formLoading,
   isEditable,
@@ -808,47 +850,99 @@ defineExpose({
 
 .route-create-processes {
   width: 100%;
-  ol { margin: 8px 0 0; padding-left: 24px; list-style: decimal; }
+  ol {
+    margin: 8px 0 0;
+    padding-left: 24px;
+    list-style: decimal;
+  }
 }
 
 .route-form-content.is-page {
   padding: 16px 18px 0;
 }
 
-.route-form-content__tabs {
-  margin-top: 6px;
-}
-
-.route-owner-suggestion {
+.route-start-basic {
   display: flex;
   flex-direction: column;
-  line-height: 1.4;
+  gap: 18px;
+  padding-top: 4px;
 }
 
-.route-owner-suggestion__name {
-  color: #172033;
-  font-size: 14px;
+.route-start-basic :deep(.el-form-item) {
+  margin-bottom: 0;
 }
 
-.route-owner-suggestion__dept {
-  color: #6b7280;
-  font-size: 12px;
+.route-start-basic__save {
+  align-self: flex-start;
+}
+
+.route-start-basic :deep(.el-form-item__label) {
+  margin-bottom: 6px;
+  color: #606266;
+  font-size: 13px;
+  line-height: 20px;
+}
+
+.route-start-basic :deep(.el-input__inner),
+.route-start-basic :deep(.el-textarea__inner) {
+  font-size: 13px;
 }
 
 .route-dcc-project-binding {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
   max-width: 760px;
   padding-top: 12px;
 }
 
-.route-dcc-project-binding__select {
-  width: 420px;
+.route-dcc-project-binding__field {
+  margin-bottom: 0;
 }
 
-.route-dcc-project-binding__version {
-  color: #64748b;
+.route-dcc-project-binding__select {
+  width: 100%;
+}
+
+.route-dcc-project-binding__select :deep(.el-select__wrapper) {
+  font-size: 12px;
+}
+
+.route-dcc-project-binding__save {
+  align-self: flex-start;
+}
+
+.route-dcc-project-binding__saved {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 6px 0 0;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.route-dcc-project-binding__saved > div {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.route-dcc-project-binding__saved dt {
+  flex: 0 0 52px;
+  color: #606266;
+}
+
+.route-dcc-project-binding__saved dd {
+  min-width: 0;
+  margin: 0;
+  color: #303133;
+  overflow-wrap: anywhere;
+}
+
+.route-dcc-project-binding__empty {
+  margin: 6px 0 0;
+  color: #909399;
   font-size: 13px;
 }
+
 </style>

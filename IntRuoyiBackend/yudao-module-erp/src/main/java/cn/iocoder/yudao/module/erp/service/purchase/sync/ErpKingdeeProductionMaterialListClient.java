@@ -20,4 +20,6 @@ public interface ErpKingdeeProductionMaterialListClient {
     List<ErpKingdeeProductionMaterialList> fetchProductionMaterialListsByProductionOrderNos(
             ErpKingdeeProperties properties, Collection<String> productionOrderNos);
 
+
+    List<ErpKingdeeProductionMaterialList> fetchProductionMaterialListsByCode(ErpKingdeeProperties properties, String code);
 }

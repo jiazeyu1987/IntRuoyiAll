@@ -124,9 +124,11 @@ class DccW01ProjectAccessIdentityTest {
         verifyNoInteractions(permissions);
     }
 
-    @Test void superAdminOwnsExistingAndNewProjectsWithoutExplicitRulesOrAssignment() {
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"super_admin", "tenant_admin"})
+    void administratorOwnsExistingAndNewProjectsWithoutExplicitRulesOrAssignment(String roleCode) {
         when(users.getUser(99L)).thenReturn(user());
-        when(permissions.hasAnyRoles(99L, "super_admin")).thenReturn(true);
+        grantAdministratorRole(roleCode);
         var added = DccProjectCodeDO.builder().id(101L).status("ENABLE").build();
         added.setTenantId(1L);
         when(projects.selectById(101L)).thenReturn(added);
@@ -144,9 +146,11 @@ class DccW01ProjectAccessIdentityTest {
         verifyNoInteractions(rules, assignments);
     }
 
-    @Test void superAdminCannotOwnForeignTenantOrMissingProjects() {
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"super_admin", "tenant_admin"})
+    void administratorCannotOwnForeignTenantOrMissingProjects(String roleCode) {
         when(users.getUser(99L)).thenReturn(user());
-        when(permissions.hasAnyRoles(99L, "super_admin")).thenReturn(true);
+        grantAdministratorRole(roleCode);
         var foreign = DccProjectCodeDO.builder().id(101L).status("ENABLE").build();
         foreign.setTenantId(2L);
         when(projects.selectById(101L)).thenReturn(foreign);
@@ -162,8 +166,10 @@ class DccW01ProjectAccessIdentityTest {
         assertEquals(List.of(100L), service.listReadableProjectIds(99L));
     }
 
-    @Test void superAdminRoleCannotOverrideDisabledOrForeignAccountIdentity() {
-        lenient().when(permissions.hasAnyRoles(99L, "super_admin")).thenReturn(true);
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"super_admin", "tenant_admin"})
+    void administratorRoleCannotOverrideDisabledOrForeignAccountIdentity(String roleCode) {
+        grantAdministratorRole(roleCode);
         for (var invalid : List.of(user().setStatus(1), user().setStatus(null),
                 user().setTenantId(2L), user().setId(98L))) {
             when(users.getUser(99L)).thenReturn(invalid);
@@ -173,5 +179,11 @@ class DccW01ProjectAccessIdentityTest {
             assertThrows(ServiceException.class, () -> service.listReadableProjectIds(99L));
         }
         verifyNoInteractions(permissions, rules, assignments);
+    }
+
+    private void grantAdministratorRole(String roleCode) {
+        lenient().when(permissions.hasAnyRoles(eq(99L), any(String[].class)))
+                .thenAnswer(invocation -> java.util.Arrays.asList((String[]) invocation.getRawArguments()[1])
+                        .contains(roleCode));
     }
 }

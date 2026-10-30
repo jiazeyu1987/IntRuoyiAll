@@ -18,4 +18,7 @@ public interface ErpKingdeeInventoryListService {
 
     int syncModifiedBetween(LocalDateTime windowStart, LocalDateTime windowEnd);
 
+
+    int syncByCode(String code);
+
 }

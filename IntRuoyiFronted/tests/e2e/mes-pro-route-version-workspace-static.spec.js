@@ -31,7 +31,6 @@ assert.match(
 )
 for (const permission of [
   'mes:pro-route:version-query',
-  'mes:pro-route:version-create',
   'mes:pro-route:version-submit',
   'mes:pro-route:version-withdraw',
   'mes:pro-route:version-cancel',
@@ -43,10 +42,10 @@ for (const permission of [
     `版本工作区按钮必须使用后端声明的权限：${permission}`
   )
 }
-assert.match(
+assert.doesNotMatch(
   routeIndex,
-  /route-version-workspace__active-version/,
-  '版本工作区必须显示当前 ACTIVE 版本。'
+  /route-version-workspace__summary|mes-route-version-workspace-state-strip/,
+  '版本弹窗不再显示路线摘要、顶部候选按钮及候选版本工作区说明。'
 )
 assert.match(
   routeIndex,
@@ -58,11 +57,17 @@ assert.match(
   /resolveRouteVersionStatusLabel\(version\.lifecycleStatus\)/,
   '版本工作区必须把 lifecycleStatus 转成人可读状态。'
 )
+assert.doesNotMatch(
+  routeIndex,
+  /查阻断项|loadRouteVersionBlockers/,
+  '版本列表不再提供查阻断项按钮。'
+)
 assert.match(
   routeIndex,
-  /loadRouteVersionBlockers\(version\.id\)/,
-  '版本工作区必须提供发布阻断项查询入口。'
+  /label="最后保存" prop="lastSavedUserName"/,
+  '版本列表必须显示最后保存草稿的用户。'
 )
+assert.doesNotMatch(routeIndex, /label="来源版本"/)
 assert.match(
   routeIndex,
   /submitRouteCandidateVersion\(version\)/,

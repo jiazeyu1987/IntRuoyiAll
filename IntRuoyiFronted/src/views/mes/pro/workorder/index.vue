@@ -4,6 +4,7 @@
 
   <ContentWrap class="erp-viewport-list">
     <UnifiedListTemplate
+      ref="codeSyncListTemplate"
       :reset-filters="resetQuery"
       table-key="mes.pro.workorder.main"
       single-line-toolbar
@@ -30,6 +31,8 @@
       :column-filter-definitions="listColumnFilterDefinitions0"
     >
       <template #actions>
+        <SyncByCodeButton sync-type="PRODUCTION_ORDER" code-label="工单编号" :on-synced="handleCodeSynced" />
+        <el-button v-if="queryParams.syncCode" plain @click="clearCodeSyncFilter">显示全部</el-button>
         <RecentFullSyncButton sync-type="PRODUCTION_ORDER" />
         <el-button
           v-show="false"
@@ -396,6 +399,9 @@
   </el-dialog>
 </template>
 <script setup lang="ts">
+import SyncByCodeButton from '@/views/erp/components/SyncByCodeButton.vue'
+import { useErpCodeSyncFilter } from '@/views/erp/components/useErpCodeSyncFilter'
+
 import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
 import { getDictOptions as listColumnDictOptions } from '@/utils/dict'
 
@@ -473,6 +479,7 @@ const loading = ref(true) // 列表的加载中
 const list = ref<WorkOrderTreeRow[]>([]) // 列表的数据
 const total = ref(0) // 列表的总页数
 const queryParams = reactive({
+  syncCode: undefined as string | undefined,
   pageNo: 1,
   pageSize: 10,
   code: undefined as string | undefined,
@@ -682,6 +689,11 @@ const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() =
     options: listColumnDictOptions(DICT_TYPE.MES_PRO_WORK_ORDER_STATUS)
   }
 ])
+
+const codeSyncListTemplate = ref<InstanceType<typeof UnifiedListTemplate>>()
+const { handleCodeSynced, clearCodeSyncFilter } = useErpCodeSyncFilter(
+  queryParams, workOrderQuickFilter.state, getList, () => codeSyncListTemplate.value!.resetColumnFilters()
+)
 </script>
 
 <style scoped>

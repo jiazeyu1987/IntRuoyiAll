@@ -24,6 +24,7 @@ public interface ErpKingdeeProductionReplenishmentListMapper extends BaseMapperX
     default PageResult<ErpKingdeeProductionReplenishmentListDO> selectPageByProductionReplenishmentListIds(
             ErpProductionReplenishmentListPageReqVO reqVO, Collection<Long> productionReplenishmentListIds) {
         return selectPage(reqVO, new LambdaQueryWrapperX<ErpKingdeeProductionReplenishmentListDO>()
+                .eqIfPresent(ErpKingdeeProductionReplenishmentListDO::getSourceBillNo, reqVO.getSyncCode())
                 .inIfPresent(ErpKingdeeProductionReplenishmentListDO::getId, productionReplenishmentListIds)
                 .likeIfPresent(ErpKingdeeProductionReplenishmentListDO::getSourceBillNo,
                         reqVO.getSourceBillNo())

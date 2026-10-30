@@ -47,7 +47,17 @@
     />
     <el-empty v-if="!draft" description="选择产品，导入 Word，然后直接修改识别结果" />
     <template v-else>
-      <el-form :disabled="published" label-position="top">
+      <el-radio-group v-model="viewMode" aria-label="解析查看模式">
+        <el-radio-button value="edit">编辑内容</el-radio-button>
+        <el-radio-button value="trial">试填预览</el-radio-button>
+      </el-radio-group>
+      <SimplePqcTrialPreview
+        v-if="viewMode === 'trial'"
+        :draft="draft"
+        :process-index="processIndex"
+        @select-process="selectProcess"
+      />
+      <el-form v-show="viewMode === 'edit'" :disabled="published" label-position="top">
         <div class="metadata">
           <el-form-item label="规程名称"><el-input v-model="draft.regulationName" /></el-form-item>
           <el-form-item label="文件编号"><el-input v-model="draft.regulationCode" /></el-form-item>
@@ -55,45 +65,6 @@
             ><el-date-picker v-model="draft.effectiveDate" value-format="YYYY-MM-DD"
           /></el-form-item>
         </div>
-        <p
-          >{{ sourceName }} · 发布版本 {{ draft.versionNo }} · {{ draft.processes.length }} 道工序 /
-          {{ itemCount }} 个项目</p
-        >
-        <el-alert
-          title="Word 中的 AQL 与系统巡检抽样比例含义不同。请核对抽样要求和比例，再勾选确认。"
-          type="warning"
-          :closable="false"
-        />
-        <el-checkbox v-model="samplingConfirmed"
-          >已核对首检数量、巡检抽样比例与 Word 抽样要求</el-checkbox
-        >
-        <el-collapse>
-          <el-collapse-item title="检验规则（首检、巡检、末检及异常处理）" name="rules">
-            <p class="rule-source">{{ ruleSourceText }}</p>
-            <el-button v-if="baseline" @click="reuseRules">使用当前 QA 的检验规则</el-button>
-            <el-switch
-              v-model="draft.finalInspectionApplicable"
-              active-text="适用末检"
-              @change="syncFinal"
-            />
-            <el-input
-              v-if="!draft.finalInspectionApplicable"
-              v-model="draft.finalInspectionNotApplicableReason"
-              placeholder="确认末检不适用的依据"
-            />
-            <div v-for="rule in draft.inspectionTypeRules" :key="rule.key" class="rule">
-              <strong>{{ rule.label }}</strong>
-              <el-input v-model="rule.taskRule" placeholder="检验触发和抽样要求" />
-              <el-input v-model="rule.releaseGate" placeholder="放行及异常处理要求" />
-              <el-input-number
-                v-if="rule.key === 'FINAL' && draft.finalInspectionApplicable"
-                v-model="rule.fixedQuantity"
-                :min="1"
-                aria-label="末检数量"
-              />
-            </div>
-          </el-collapse-item>
-        </el-collapse>
         <div class="workspace">
           <aside>
             <el-button @click="addProcess">添加工序</el-button>
@@ -197,10 +168,7 @@
                 /></el-form-item>
               </div>
               <el-form-item label="抽样要求"
-                ><el-input
-                  v-model="item.samplingPlanText"
-                  type="textarea"
-                  @input="samplingConfirmed = false"
+                ><el-input v-model="item.samplingPlanText" type="textarea"
               /></el-form-item>
               <div class="metadata">
                 <el-form-item
@@ -210,12 +178,8 @@
                 /></el-form-item>
                 <el-form-item
                   v-if="item.applicableInspectionTypes.includes('PATROL')"
-                  label="系统巡检抽样比例（%，需确认）"
-                  ><el-input-number
-                    v-model="item.patrolInspectionRatio"
-                    :min="0.0001"
-                    :max="100"
-                    @change="samplingConfirmed = false"
+                  label="系统巡检抽样比例（%）"
+                  ><el-input-number v-model="item.patrolInspectionRatio" :min="0.0001" :max="100"
                 /></el-form-item>
               </div>
               <el-form-item label="检验器具及设备要求"
@@ -260,6 +224,26 @@
         <p>{{
           baseline ? '更新已有规程并发布新版本，原版本保留为历史版本。' : '新建检验规程并发布。'
         }}</p>
+        <el-form :disabled="published" label-position="top">
+          <el-form-item label="末检适用性">
+            <el-switch
+              v-model="draft.finalInspectionApplicable"
+              active-text="适用末检"
+              @change="syncFinal"
+            />
+          </el-form-item>
+          <el-form-item v-if="!draft.finalInspectionApplicable" label="末检不适用依据">
+            <el-input v-model="draft.finalInspectionNotApplicableReason" />
+          </el-form-item>
+          <template v-for="rule in draft.inspectionTypeRules" :key="rule.key">
+            <el-form-item
+              v-if="rule.key === 'FINAL' && draft.finalInspectionApplicable"
+              label="末检数量"
+            >
+              <el-input-number v-model="rule.fixedQuantity" :min="1" aria-label="末检数量" />
+            </el-form-item>
+          </template>
+        </el-form>
         <el-alert
           v-for="issue in issues"
           :key="issue"
@@ -313,6 +297,7 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import SimplePqcTrialPreview from '../parser/components/SimplePqcTrialPreview.vue'
 import type { UploadFile } from 'element-plus'
 import {
   QcTemplateApi,
@@ -335,30 +320,22 @@ const projects = ref<DccProjectCodeRespVO[]>([])
 const draft = ref<Draft>()
 const baseline = ref<QaInspectionRegulationPublishedVersionVO | null>(null)
 const machinery = ref<DvMachineryVO[]>([])
-const sourceName = ref('')
-const ruleSourceText = ref('')
 const busy = ref(false)
 const error = ref('')
 const published = ref(false)
-const samplingConfirmed = ref(false)
 const confirmedUnbound = ref<string[]>([])
 const previewVisible = ref(false)
+const viewMode = ref<'edit' | 'trial'>('edit')
 const processIndex = ref(0)
 const itemIndex = ref(0)
 const process = computed(() => draft.value?.processes[processIndex.value])
 const item = computed(() => process.value?.items[itemIndex.value])
-const itemCount = computed(() => draft.value?.processes.reduce((n, p) => n + p.items.length, 0))
 const selectedProject = computed(
   () => projects.value.find((p) => p.id === projectId.value)?.projectName
 )
 const changes = computed(() => (draft.value ? differences(draft.value, baseline.value) : []))
 const issues = computed(() =>
-  draft.value
-    ? [
-        ...validateDraft(draft.value, confirmedUnbound.value),
-        ...(!samplingConfirmed.value ? ['请核对并确认抽样规则'] : [])
-      ]
-    : []
+  draft.value ? validateDraft(draft.value, confirmedUnbound.value) : []
 )
 const matchingItem = computed(() => {
   const ps =
@@ -450,10 +427,8 @@ async function importWord(upload: UploadFile) {
       versions.map((v) => v.versionNo)
     )
     draft.value = next
-    sourceName.value = upload.name
-    ruleSourceText.value = parsed.ruleSourceText || ''
     published.value = false
-    samplingConfirmed.value = false
+    viewMode.value = 'edit'
     confirmedUnbound.value = []
     processIndex.value = 0
     itemIndex.value = 0
@@ -554,12 +529,6 @@ async function applyEquipment() {
     i.equipmentOptions = copy(item.value!.equipmentOptions)
   })
 }
-function reuseRules() {
-  draft.value!.inspectionTypeRules = copy(baseline.value!.inspectionTypeRules)
-  draft.value!.finalInspectionApplicable = baseline.value!.finalInspectionApplicable
-  draft.value!.finalInspectionNotApplicableReason =
-    baseline.value!.finalInspectionNotApplicableReason
-}
 function reuseItem() {
   const old = matchingItem.value!
   const fields = [
@@ -599,9 +568,6 @@ function saveLocal() {
       draft: draft.value,
       projectId: projectId.value,
       projects: projects.value,
-      sourceName: sourceName.value,
-      ruleSourceText: ruleSourceText.value,
-      samplingConfirmed: samplingConfirmed.value,
       confirmedUnbound: confirmedUnbound.value,
       published: published.value
     })
@@ -618,9 +584,7 @@ async function restoreLocal() {
     projects.value = saved.projects
     await loadResources()
     draft.value = saved.draft
-    sourceName.value = saved.sourceName
-    ruleSourceText.value = saved.ruleSourceText || ''
-    samplingConfirmed.value = saved.samplingConfirmed
+    viewMode.value = 'edit'
     confirmedUnbound.value = saved.confirmedUnbound || []
     published.value = saved.published
     processIndex.value = 0
@@ -714,12 +678,6 @@ aside {
 .process button.active {
   background: var(--el-color-primary-light-9);
   color: var(--el-color-primary);
-}
-.rule {
-  display: grid;
-  grid-template-columns: 100px 1fr 1fr;
-  gap: 12px;
-  margin: 12px 0;
 }
 article {
   border-bottom: 1px solid var(--el-border-color);

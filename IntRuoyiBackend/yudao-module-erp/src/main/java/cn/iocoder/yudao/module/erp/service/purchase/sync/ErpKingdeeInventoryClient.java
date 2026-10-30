@@ -15,4 +15,6 @@ public interface ErpKingdeeInventoryClient {
                                                                    LocalDateTime windowStart,
                                                                    LocalDateTime windowEnd);
 
+
+    List<ErpKingdeeInventoryRow> fetchInventoryRowsByCode(ErpKingdeeProperties properties, String code);
 }

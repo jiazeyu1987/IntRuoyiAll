@@ -55,6 +55,7 @@ public interface MesProWorkOrderMapper extends BaseMapperX<MesProWorkOrderDO> {
     default PageResult<MesProWorkOrderDO> selectPageByProductIds(MesProWorkOrderPageReqVO reqVO,
                                                                  Collection<Long> productIds) {
         LambdaQueryWrapperX<MesProWorkOrderDO> queryWrapper = new LambdaQueryWrapperX<MesProWorkOrderDO>()
+                .eqIfPresent(MesProWorkOrderDO::getCode, reqVO.getSyncCode())
                 .likeIfPresent(MesProWorkOrderDO::getCode, reqVO.getCode())
                 .likeIfPresent(MesProWorkOrderDO::getName, reqVO.getName())
                 .eqIfPresent(MesProWorkOrderDO::getType, reqVO.getType())

@@ -18,4 +18,7 @@ public interface MesKingdeeBomListService {
 
     int syncModifiedBetween(LocalDateTime windowStart, LocalDateTime windowEnd);
 
+
+    int syncByCode(String code);
+
 }

@@ -27,6 +27,12 @@ public class MesProRouteVersionRespVO {
     @Schema(description = "来源路线版本编号")
     private Long sourceRouteVersionId;
 
+    @Schema(description = "最后保存草稿的用户编号，历史未记录时为空")
+    private Long lastSavedBy;
+
+    @Schema(description = "最后保存草稿的用户姓名")
+    private String lastSavedUserName;
+
     @Schema(description = "提交人")
     private Long submittedBy;
 

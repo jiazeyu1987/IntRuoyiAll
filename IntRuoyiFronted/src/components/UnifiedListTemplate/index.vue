@@ -630,6 +630,15 @@ const handleStandardFilterRemove = (conditionId: string) => {
     emit('multi-filter-remove', conditionId)
   }
 }
+
+defineExpose({
+  resetColumnFilters: () => {
+    columnFilter.reset()
+    publishedRows = undefined
+    localPage.value = 1
+    localLimit.value = props.limit
+  }
+})
 </script>
 
 <style scoped>

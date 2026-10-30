@@ -234,4 +234,13 @@ public class ErpKingdeeProductionReplenishmentListServiceImpl
         return record;
     }
 
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public int syncByCode(String code) {
+        ErpKingdeeProperties properties = kingdeeConfigService.getEffectiveProperties();
+        var result = syncReplenishmentLists(productionReplenishmentListClient.fetchByCode(properties, code), false);
+        return result.getCreatedCount() + result.getUpdatedCount();
+    }
+
 }

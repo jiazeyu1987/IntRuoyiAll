@@ -4,9 +4,13 @@ import cn.iocoder.yudao.framework.common.pojo.CommonResult;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.version.MesProRouteVersionBlockerRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.version.MesProRouteVersionCreateReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.version.MesProRouteVersionRespVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.version.MesProRouteVersionNameSaveReqVO;
+import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteCandidateConfigService;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteVersionDO;
 import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteVersionBusinessApprovalSubmitService;
 import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteVersionWorkflowService;
+import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
+import cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -17,8 +21,11 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import java.lang.reflect.Method;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -30,8 +37,67 @@ class MesProRouteVersionControllerTest {
     @Mock
     private MesProRouteVersionWorkflowService workflowService;
 
+    @Mock
+    private MesProRouteCandidateConfigService candidateConfigService;
+
+    @Mock
+    private AdminUserApi adminUserApi;
+
     @InjectMocks
     private MesProRouteVersionController controller;
+
+    @Test
+    void listVersions_showsActualLastDraftSaverWithoutInferringHistoricalUsers() {
+        MesProRouteVersionDO draft = MesProRouteVersionDO.builder().id(2002L).routeId(20L)
+                .lifecycleStatus("DRAFT").lastSavedBy(31L).submittedBy(99L).build();
+        draft.setUpdater("99");
+        MesProRouteVersionDO published = MesProRouteVersionDO.builder().id(2001L).routeId(20L)
+                .lifecycleStatus("ACTIVE").lastSavedBy(32L).publishedBy(99L).build();
+        MesProRouteVersionDO historical = MesProRouteVersionDO.builder().id(2000L).routeId(20L)
+                .submittedBy(99L).publishedBy(99L).build();
+        AdminUserRespDTO first = new AdminUserRespDTO();
+        first.setId(31L);
+        first.setNickname("草稿保存人");
+        AdminUserRespDTO second = new AdminUserRespDTO();
+        second.setId(32L);
+        second.setNickname("发布前保存人");
+        when(workflowService.listByRouteId(20L)).thenReturn(List.of(draft, published, historical));
+        when(adminUserApi.getUserMap(Set.of(31L, 32L))).thenReturn(Map.of(31L, first, 32L, second));
+
+        var result = controller.listByRouteId(20L).getData();
+
+        assertEquals(31L, result.get(0).getLastSavedBy());
+        assertEquals("草稿保存人", result.get(0).getLastSavedUserName());
+        assertEquals("发布前保存人", result.get(1).getLastSavedUserName());
+        assertNull(result.get(2).getLastSavedBy());
+        assertNull(result.get(2).getLastSavedUserName());
+        verify(adminUserApi).getUserMap(Set.of(31L, 32L));
+    }
+
+    @Test
+    void saveVersionName_delegatesToDraftServiceWithVersionUpdatePermission() throws Exception {
+        MesProRouteVersionNameSaveReqVO request = new MesProRouteVersionNameSaveReqVO();
+        request.setRouteVersionId(1002L);
+        request.setName("新名称");
+        request.setExpectedRouteSnapshotSha256("expected-hash");
+        assertEquals(Boolean.TRUE, controller.saveVersionName(request).getData());
+        verify(candidateConfigService).saveRouteName(1002L, "expected-hash", "新名称");
+        Method method = MesProRouteVersionController.class.getDeclaredMethod(
+                "saveVersionName", MesProRouteVersionNameSaveReqVO.class);
+        assertEquals("@ss.hasPermission('mes:pro-route:version-update')",
+                method.getAnnotation(PreAuthorize.class).value());
+    }
+
+    @Test
+    void getVersionName_readsSelectedVersionSnapshot() {
+        when(workflowService.getVersion(1002L)).thenReturn(MesProRouteVersionDO.builder()
+                .id(1002L).routeId(10L).routeSnapshotSha256("hash")
+                .routeSnapshotJson("{\"routeName\":\"草稿名称\"}").build());
+        var data = controller.getVersionName(1002L).getData();
+        assertEquals("草稿名称", data.get("name"));
+        assertEquals(10L, data.get("routeId"));
+        assertEquals("hash", data.get("routeSnapshotSha256"));
+    }
 
     @Test
     void submitCandidate_shouldDelegateToPlatformBusinessApprovalWithoutSignatureAndReturnPendingVersion() {

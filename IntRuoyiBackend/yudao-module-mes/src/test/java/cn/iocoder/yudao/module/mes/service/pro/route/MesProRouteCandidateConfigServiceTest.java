@@ -1,9 +1,12 @@
 package cn.iocoder.yudao.module.mes.service.pro.route;
 
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
+import cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteVersionDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolTeamDeviceMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteVersionMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteMapper;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteDO;
 import cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
@@ -26,6 +29,8 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.times;
 import static org.mockito.ArgumentMatchers.any;
 
 @ExtendWith(MockitoExtension.class)
@@ -42,6 +47,99 @@ class MesProRouteCandidateConfigServiceTest {
 
     @Mock
     private MesProcessPoolTeamDeviceMapper teamDeviceMapper;
+
+    @Mock
+    private MesProRouteMapper routeMapper;
+
+    @Test
+    void successfulDraftSaves_recordCurrentSaverAtomicallyForNameAndConfig() {
+        MesProRouteVersionDO candidate = nameDraft("DRAFT");
+        candidate.setLastSavedBy(10L);
+        try (var security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(31L);
+            service.saveRouteName(2002L, "original-hash", "新名称");
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(32L);
+            service.saveConfigSnapshot(2002L, "attachments", List.of());
+        }
+        ArgumentCaptor<MesProRouteVersionDO> updates = ArgumentCaptor.forClass(MesProRouteVersionDO.class);
+        verify(routeVersionMapper, times(2)).update(updates.capture(), any());
+        assertEquals(31L, updates.getAllValues().get(0).getLastSavedBy());
+        assertEquals(32L, updates.getAllValues().get(1).getLastSavedBy());
+        assertEquals(10L, candidate.getLastSavedBy());
+        assertTrue(updates.getAllValues().stream().allMatch(update -> update.getRouteSnapshotSha256() != null));
+    }
+
+    @Test
+    void rejectedDraftSave_doesNotOverwriteLastSaver() {
+        MesProRouteVersionDO candidate = nameDraft("DRAFT");
+        candidate.setLastSavedBy(10L);
+        try (var security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(32L);
+            assertThrows(ServiceException.class, () -> service.saveRouteName(2002L, "stale-hash", "新名称"));
+        }
+        assertEquals(10L, candidate.getLastSavedBy());
+        verify(routeVersionMapper, never()).update(any(MesProRouteVersionDO.class), any());
+    }
+
+    private MesProRouteVersionDO nameDraft(String status) {
+        MesProRouteVersionDO candidate = MesProRouteVersionDO.builder()
+                .id(2002L).routeId(9001L).active(false).lifecycleStatus(status)
+                .routeSnapshotSha256("original-hash")
+                .routeSnapshotJson("{\"routeId\":9001,\"routeCode\":\"R-001\",\"routeName\":\"原名称\",\"configSnapshots\":{\"products\":[{\"id\":12}]}}")
+                .build();
+        when(routeVersionMapper.selectById(2002L)).thenReturn(candidate);
+        return candidate;
+    }
+
+    @Test
+    void saveRouteName_preservesConfigsAndOnlyUpdatesDraftSnapshot() {
+        MesProRouteVersionDO candidate = nameDraft("DRAFT");
+        service.saveRouteName(2002L, "original-hash", "  新名称  ");
+        ArgumentCaptor<MesProRouteVersionDO> captor = ArgumentCaptor.forClass(MesProRouteVersionDO.class);
+        verify(routeVersionMapper).update(captor.capture(), any());
+        MesProRouteVersionDO update = captor.getValue();
+        JSONObject snapshot = JSON.parseObject(update.getRouteSnapshotJson());
+        assertEquals("新名称", snapshot.getString("routeName"));
+        assertEquals("R-001", snapshot.getString("routeCode"));
+        assertEquals(12, snapshot.getJSONObject("configSnapshots").getJSONArray("products").getJSONObject(0).getIntValue("id"));
+        assertEquals("DRAFT", update.getLifecycleStatus());
+        assertFalse(update.getActive());
+        assertEquals("原名称", JSON.parseObject(candidate.getRouteSnapshotJson()).getString("routeName"));
+        assertEquals(new MesProRouteSnapshotCanonicalizer().sha256(update.getRouteSnapshotJson()), update.getRouteSnapshotSha256());
+        verify(routeMapper, never()).updateById(any(MesProRouteDO.class));
+    }
+
+    @Test
+    void saveRouteName_rejectsNonDraftVersion() {
+        nameDraft("PENDING_APPROVAL");
+        ServiceException error = assertThrows(ServiceException.class,
+                () -> service.saveRouteName(2002L, "original-hash", "新名称"));
+        assertEquals(ErrorCodeConstants.PRO_ROUTE_VERSION_CANDIDATE_NOT_PUBLISHABLE.getCode(), error.getCode());
+        verify(routeVersionMapper, never()).update(any(MesProRouteVersionDO.class), any());
+    }
+
+    @Test
+    void saveRouteName_rejectsActiveVersionAndStaleHash() {
+        MesProRouteVersionDO candidate = nameDraft("DRAFT");
+        assertThrows(ServiceException.class, () -> service.saveRouteName(2002L, "stale", "新名称"));
+        candidate.setActive(true);
+        assertThrows(ServiceException.class, () -> service.saveRouteName(2002L, "original-hash", "新名称"));
+        verify(routeVersionMapper, never()).update(any(MesProRouteVersionDO.class), any());
+    }
+
+    @Test
+    void saveRouteName_rejectsBlankDuplicateAndConcurrentWrite() {
+        assertThrows(RuntimeException.class, () -> service.saveRouteName(2002L, "original-hash", "  "));
+        nameDraft("DRAFT");
+        when(routeMapper.selectByName("重复名称")).thenReturn(MesProRouteDO.builder().id(9002L).build());
+        ServiceException duplicate = assertThrows(ServiceException.class,
+                () -> service.saveRouteName(2002L, "original-hash", "重复名称"));
+        assertEquals(ErrorCodeConstants.PRO_ROUTE_NAME_DUPLICATE.getCode(), duplicate.getCode());
+        when(routeVersionMapper.update(any(MesProRouteVersionDO.class), any())).thenReturn(0);
+        ServiceException conflict = assertThrows(ServiceException.class,
+                () -> service.saveRouteName(2002L, "original-hash", "新名称"));
+        assertEquals(ErrorCodeConstants.PRO_ROUTE_VERSION_CONFLICT.getCode(), conflict.getCode());
+    }
 
     @BeforeEach
     void setUp() {

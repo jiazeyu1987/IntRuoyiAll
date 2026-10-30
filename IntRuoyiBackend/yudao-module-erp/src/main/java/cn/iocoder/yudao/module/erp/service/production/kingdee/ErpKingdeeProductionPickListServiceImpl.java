@@ -234,4 +234,13 @@ public class ErpKingdeeProductionPickListServiceImpl
         return record;
     }
 
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public int syncByCode(String code) {
+        ErpKingdeeProperties properties = kingdeeConfigService.getEffectiveProperties();
+        var result = syncPickLists(productionPickListClient.fetchByCode(properties, code), false);
+        return result.getCreatedCount() + result.getUpdatedCount();
+    }
+
 }

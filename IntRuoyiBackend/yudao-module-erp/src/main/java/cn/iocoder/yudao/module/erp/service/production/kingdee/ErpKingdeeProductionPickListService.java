@@ -24,4 +24,7 @@ public interface ErpKingdeeProductionPickListService {
     ErpKingdeeProductionPickListSyncResult syncModifiedBetween(
             LocalDateTime windowStart, LocalDateTime windowEnd);
 
+
+    int syncByCode(String code);
+
 }

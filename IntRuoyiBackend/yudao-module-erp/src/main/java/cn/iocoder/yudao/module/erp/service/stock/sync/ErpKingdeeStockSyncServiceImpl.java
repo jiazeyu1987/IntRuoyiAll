@@ -273,4 +273,14 @@ public class ErpKingdeeStockSyncServiceImpl implements ErpKingdeeStockSyncServic
         return unit.getId();
     }
 
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public int syncByCode(String code) {
+        ErpKingdeeProperties properties = kingdeeConfigService.getEffectiveProperties();
+        List<ErpKingdeeInventoryRow> rows = inventoryClient.fetchInventoryRowsByCode(properties, code);
+        syncRows(rows, false);
+        return rows.size();
+    }
+
 }

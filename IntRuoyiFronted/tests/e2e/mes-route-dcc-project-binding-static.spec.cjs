@@ -16,7 +16,7 @@ assert.match(api, /expectedVersion\??:\s*number/, 'route-DCC save/delete API mus
 
 assert.match(routeForm, /dccProjectBinding/i, 'route edit form must keep DCC binding as its own state')
 assert.match(routeForm, /saveRouteDccProjectBinding\(/, 'DCC binding save must be a separate request from route save')
-assert.match(routeForm, /deleteRouteDccProjectBinding\(/, 'DCC binding unbind must call the dedicated route-DCC API')
+assert.doesNotMatch(routeForm, /@click="deleteDccProjectBinding"|const deleteDccProjectBinding|当前关系版本：|QA 规程只通过/, 'project settings must omit the removed explanation, unbind action and version display')
 assert.doesNotMatch(routeForm, /submitForm[\s\S]{0,400}saveRouteDccProjectBinding/, 'route save must not masquerade as DCC binding save success')
 
 assert.match(controller, /@GetMapping\("\/dcc-project-binding"\)/, 'backend must expose GET route-DCC binding')

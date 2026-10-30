@@ -33,6 +33,7 @@ public class DccProjectAccessServiceImpl implements DccProjectAccessService {
     private static final Set<String> SUBJECT_TYPES = Set.of("USER", "DEPT", "ROLE", "POSITION");
     private static final Set<String> ACCESS_LEVELS = Set.of("OWNER", "EDIT", "VIEW");
     private static final String SUPER_ADMIN_ROLE_CODE = "super_admin";
+    private static final String TENANT_ADMIN_ROLE_CODE = "tenant_admin";
 
     @Resource
     private DccProjectAccessRuleMapper accessRuleMapper;
@@ -205,9 +206,9 @@ public class DccProjectAccessServiceImpl implements DccProjectAccessService {
                 .anyMatch(rule -> matches(rule, userId, user, roleIds, deptIds));
     }
 
-    /** Super administrators own all projects in their tenant, including newly created projects. */
+    /** Administrators own all projects in their tenant, including imported and newly created projects. */
     private boolean isProjectAdministrator(Long userId) {
-        return permissionApi.hasAnyRoles(userId, SUPER_ADMIN_ROLE_CODE);
+        return permissionApi.hasAnyRoles(userId, SUPER_ADMIN_ROLE_CODE, TENANT_ADMIN_ROLE_CODE);
     }
 
     private boolean matches(DccProjectAccessRuleDO rule, Long userId, AdminUserRespDTO user,

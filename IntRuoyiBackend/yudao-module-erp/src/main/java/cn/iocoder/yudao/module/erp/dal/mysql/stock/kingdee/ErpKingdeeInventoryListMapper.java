@@ -12,6 +12,7 @@ public interface ErpKingdeeInventoryListMapper extends BaseMapperX<ErpKingdeeInv
 
     default PageResult<ErpKingdeeInventoryListDO> selectPage(ErpKingdeeInventoryListPageReqVO reqVO) {
         return selectPage(reqVO, new LambdaQueryWrapperX<ErpKingdeeInventoryListDO>()
+                .eqIfPresent(ErpKingdeeInventoryListDO::getMaterialNumber, reqVO.getSyncCode())
                 .likeIfPresent(ErpKingdeeInventoryListDO::getMaterialNumber, reqVO.getMaterialNumber())
                 .likeIfPresent(ErpKingdeeInventoryListDO::getMaterialName, reqVO.getMaterialName())
                 .likeIfPresent(ErpKingdeeInventoryListDO::getWarehouseName, reqVO.getWarehouseName())

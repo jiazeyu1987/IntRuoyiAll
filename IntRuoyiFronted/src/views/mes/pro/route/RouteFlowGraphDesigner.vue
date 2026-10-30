@@ -60,6 +60,7 @@
           <Icon :icon="isRouteFlowMaximized ? 'ep:close' : 'ep:full-screen'" class="mr-5px" />
           {{ isRouteFlowMaximized ? '恢复' : '最大化' }}
         </el-button>
+        <slot name="edit-action"></slot>
         <el-button
           :disabled="routeFlowWriteControlsDisabled || loading || routeNodes.length === 0"
           @click="handleAutoLayout"
@@ -199,6 +200,27 @@
             <h4>{{ boundaryLabel(selectedBoundaryType) }}</h4>
             <template v-if="selectedBoundaryType === 'START'">
               <div class="route-flow-graph-designer__selected-detail-list">
+                <div
+                  v-for="setting in routeStartSettings"
+                  :key="setting.key"
+                  class="route-flow-graph-designer__selected-detail-item"
+                  :class="{ 'is-selected': selectedBoundaryDetailFieldKey === setting.key }"
+                  :data-flow-boundary-field="setting.key"
+                >
+                  <div class="route-flow-graph-designer__selected-detail-content">
+                    <button
+                      class="route-flow-graph-designer__selected-detail-button"
+                      :aria-pressed="selectedBoundaryDetailFieldKey === setting.key"
+                      :aria-label="'设置' + setting.label"
+                      data-flow-action="select-boundary-detail-field"
+                      :title="'设置' + setting.label"
+                      type="button"
+                      @click="handleSelectBoundaryDetailField(setting.key)"
+                    >
+                      <span>{{ setting.label }}</span>
+                    </button>
+                  </div>
+                </div>
                 <div
                   class="route-flow-graph-designer__selected-detail-item"
                   :class="{ 'is-selected': selectedBoundaryDetailFieldKey === 'batchRecordAttachment' }"
@@ -604,9 +626,11 @@
           class="route-flow-graph-designer__panel-section route-flow-graph-designer__selected-field-section"
           data-flow-panel="selected-field-detail"
         >
-          <h4>字段明细</h4>
+          <template v-if="selectedStartSetting">
+            <slot name="start-setting" :setting="selectedStartSetting"></slot>
+          </template>
           <p
-            v-if="!selectedProcessDetailField && !(selectedBoundaryType === 'END' && selectedBoundaryDetailFieldKey === 'releaseOwner') && !(selectedBoundaryType === 'START' && selectedBoundaryDetailFieldKey === 'batchRecordAttachment') && !(selectedBoundaryType === 'START' && selectedBoundaryDetailFieldKey === 'productionLeader')"
+            v-else-if="!selectedProcessDetailField && !(selectedBoundaryType === 'END' && selectedBoundaryDetailFieldKey === 'releaseOwner') && !(selectedBoundaryType === 'START' && selectedBoundaryDetailFieldKey === 'batchRecordAttachment') && !(selectedBoundaryType === 'START' && selectedBoundaryDetailFieldKey === 'productionLeader')"
             class="route-flow-graph-designer__selected-field-empty"
           >
             点击左侧字段查看明细
@@ -2229,7 +2253,8 @@ type FormSlotViewSummaryItem = {
   processIndependentSummary: string
 }
 type ProcessDetailCapacitySourceFocus = 'resource' | 'schedule'
-type BoundaryDetailFieldKey = 'releaseOwner' | 'batchRecordAttachment' | 'productionLeader'
+type RouteStartSetting = 'basic' | 'product' | 'dcc'
+type BoundaryDetailFieldKey = RouteStartSetting | 'releaseOwner' | 'batchRecordAttachment' | 'productionLeader'
 type BatchRecordAttachmentOwnerDraft = ProRouteBatchRecordAttachmentOwnerVO & {
   candidateSourceType: EdhrProcessFormCandidateSourceType
   candidateSourceIds: number[]
@@ -2288,6 +2313,7 @@ const props = defineProps<{
   activeRouteVersionNo?: string
   formType: string
   submitting: boolean
+  initialStartSetting?: RouteStartSetting
   targetRouteProcessId?: number
   routeVersionEditContext?: RouteVersionEditContext
 }>()
@@ -2295,6 +2321,7 @@ const emit = defineEmits<{
   saved: []
   'request-submit': []
   'request-back': []
+  'select-start-setting': [setting: RouteStartSetting | undefined]
 }>()
 
 const message = useMessage()
@@ -2348,7 +2375,7 @@ const currentRouteVersionViewLabel = computed(
     `当前查看：${resolveCurrentRouteVersionViewName(props.routeVersionEditContext?.lifecycleStatus)} ${currentRouteVersionNoText.value}`
 )
 const requireCandidateRouteVersionId = (actionName: string) => {
-  if (!isDraftCandidateEdit.value) {
+  if (!isEditable.value || !isDraftCandidateEdit.value) {
     throw new Error(`${actionName}失败：${CANDIDATE_EDIT_REQUIRED_MESSAGE}`)
   }
   return props.routeVersionEditContext!.routeVersionId
@@ -2360,7 +2387,7 @@ const resolveRouteFlowGraphReadRouteVersionId = () =>
   props.routeVersionEditContext?.lifecycleStatus === 'ACTIVE'
     ? undefined
     : props.routeVersionEditContext?.routeVersionId
-const { fitView, setCenter } = useVueFlow()
+const { fitView, fitBounds, setCenter } = useVueFlow()
 
 const NODE_WIDTH = 156
 const NODE_HEIGHT = 68
@@ -2607,6 +2634,17 @@ const invalidRouteProcessIds = ref<Set<number>>(new Set())
 const selectedRouteProcessId = ref<number | null>(null)
 const selectedBoundaryType = ref<RouteFlowBoundaryType | null>(null)
 const selectedBoundaryDetailFieldKey = ref<BoundaryDetailFieldKey>()
+const routeStartSettings: Array<{ key: RouteStartSetting; label: string }> = [
+  { key: 'basic', label: '基础信息' },
+  { key: 'product', label: '关联产品' },
+  { key: 'dcc', label: '关联项目' }
+]
+const selectedStartSetting = computed(() =>
+  selectedBoundaryType.value === 'START'
+    ? routeStartSettings.find(setting => setting.key === selectedBoundaryDetailFieldKey.value)?.key
+    : undefined
+)
+
 const selectedEdgeKey = ref('')
 const connectionPopoverVisible = ref(false)
 const connectionSourceInputText = ref('')
@@ -7984,8 +8022,17 @@ const autoLayoutOnEntry = async () => {
 }
 
 const handleFitScreen = () => {
-  if (flowNodes.value.length === 0) return
-  fitView({ padding: 0.18, duration: 260, maxZoom: 1 })
+  const nodes = displayFlowNodes.value
+  if (nodes.length === 0) return
+  const x = Math.min(...nodes.map((node) => node.position.x))
+  const y = Math.min(...nodes.map((node) => node.position.y))
+  const right = Math.max(...nodes.map((node) => node.position.x +
+    (isBoundaryNodeId(node.id) ? BOUNDARY_NODE_WIDTH : NODE_WIDTH)))
+  const bottom = Math.max(...nodes.map((node) => node.position.y +
+    (isBoundaryNodeId(node.id) ? BOUNDARY_NODE_HEIGHT : NODE_HEIGHT)))
+  void fitBounds({ x, y, width: right - x, height: bottom - y }, {
+    padding: 0.18, duration: 260
+  })
 }
 
 const refreshRouteFlowViewport = async () => {
@@ -8225,13 +8272,10 @@ const handleBoundaryNodeSelect = (boundaryType: RouteFlowBoundaryType) => {
   selectedRouteProcessId.value = null
   selectedBoundaryType.value = boundaryType
   selectedBoundaryDetailFieldKey.value =
-    boundaryType === 'START' ? 'batchRecordAttachment' : 'releaseOwner'
+    boundaryType === 'START' ? 'basic' : 'releaseOwner'
   selectedEdgeKey.value = ''
   if (boundaryType === 'END') {
     void loadReleaseApprovalRuleDetail()
-  }
-  if (boundaryType === 'START') {
-    void loadBatchRecordAttachmentOwners()
   }
 }
 
@@ -10301,12 +10345,32 @@ watch(
   { immediate: true }
 )
 
+watch(selectedStartSetting, (setting) => {
+  emit('select-start-setting', setting)
+  void refreshRouteFlowViewport()
+})
+
+let appliedInitialStartSettingKey = ''
+watch(
+  () => [loading.value, props.routeId, props.routeVersionEditContext?.routeVersionId, props.initialStartSetting] as const,
+  ([busy, routeId, versionId, setting]) => {
+    if (busy || !setting) return
+    const entryKey = `${routeId}:${versionId}:${setting}`
+    if (appliedInitialStartSettingKey === entryKey) return
+    appliedInitialStartSettingKey = entryKey
+    handleBoundaryNodeSelect('START')
+    handleSelectBoundaryDetailField(setting)
+  },
+  { immediate: true }
+)
+
 const handleRouteProcessSettingColumnConfigChanged = () => {
   void loadRouteProcessSettingColumnConfig()
 }
 
 onMounted(() => {
   void loadProcessDetailFieldConfig()
+  window.addEventListener('resize', refreshRouteFlowViewport)
   window.addEventListener('keydown', handleCanvasDeleteKeydown)
   window.addEventListener('keydown', handleRouteFlowMaximizeKeydown)
   window.addEventListener('beforeunload', handleBeforeUnload)
@@ -10317,6 +10381,7 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  window.removeEventListener('resize', refreshRouteFlowViewport)
   window.removeEventListener('keydown', handleCanvasDeleteKeydown)
   window.removeEventListener('keydown', handleRouteFlowMaximizeKeydown)
   window.removeEventListener('beforeunload', handleBeforeUnload)
@@ -10562,8 +10627,10 @@ defineExpose({
 }
 
 .route-flow-graph-designer__main {
+  --detail-panel-width: 260px;
+
   display: grid;
-  grid-template-columns: 220px minmax(0, 1fr) 260px;
+  grid-template-columns: 220px minmax(0, 1fr) var(--detail-panel-width);
   min-height: 0;
   flex: 1;
   background: #ffffff;
@@ -10799,6 +10866,9 @@ defineExpose({
 
 .route-flow-graph-designer__panel {
   display: flex;
+  box-sizing: border-box;
+  width: var(--detail-panel-width);
+  min-width: 0;
   flex-direction: column;
   gap: 12px;
   padding: 12px;
@@ -10824,6 +10894,7 @@ defineExpose({
 
 .route-flow-graph-designer__selected-field-section {
   flex: 1 1 auto;
+  min-width: 0;
   min-height: 0;
   padding: 10px;
   overflow-y: auto;

@@ -4,6 +4,7 @@
 
   <ContentWrap class="erp-viewport-list">
     <UnifiedListTemplate
+      ref="codeSyncListTemplate"
       table-key="erp.stock.stock.main"
       single-line-toolbar
       :query-model="queryParams"
@@ -26,6 +27,8 @@
       @column-filter-reset="getList"
     >
       <template #actions>
+        <SyncByCodeButton sync-type="STOCK" code-label="物料编码" :on-synced="handleCodeSynced" />
+        <el-button v-if="queryParams.syncCode" plain @click="clearCodeSyncFilter">显示全部</el-button>
         <RecentFullSyncButton sync-type="STOCK" />
         <el-button
           v-show="false"
@@ -59,6 +62,11 @@
           data-user-table-key="erp.stock.stock.main"
           @header-dragend="handleHeaderDragend"
          height="100%">
+          <el-table-column
+            v-if="isColumnVisible('productBarCode')"
+            column-key="productBarCode" label="物料编码" prop="productBarCode" fixed="left"
+            :min-width="getColumnWidthString('productBarCode', 160)"
+          />
           <el-table-column
             v-if="isColumnVisible('productName')"
             column-key="productName"
@@ -106,6 +114,9 @@
   </ContentWrap>
 </template>
 <script setup lang="ts">
+import SyncByCodeButton from '@/views/erp/components/SyncByCodeButton.vue'
+import { useErpCodeSyncFilter } from '@/views/erp/components/useErpCodeSyncFilter'
+
 import { loadAllListPages } from '@/hooks/web/useListColumnFilter'
 
 import RecentFullSyncButton from '@/views/erp/components/RecentFullSyncButton.vue'
@@ -136,6 +147,7 @@ const loading = ref(true) // 列表的加载中
 const list = ref<StockVO[]>([]) // 列表的数据
 const total = ref(0) // 列表的总页数
 const queryParams = reactive({
+  syncCode: undefined as string | undefined,
   pageNo: 1,
   pageSize: 10,
   productId: undefined,
@@ -218,6 +230,7 @@ const filterDefinitions = computed<TableQuickFilterDefinition[]>(() => [
   }
 ])
 const defaultColumns: UserTableColumnDefinition[] = [
+  { key: 'productBarCode', label: '物料编码', sortable: false, minWidth: 160 },
   {
     key: 'productName',
     label: '产品名称',
@@ -279,4 +292,9 @@ const loadColumnFilterRows0 = async () => {
   )
   return rows
 }
+
+const codeSyncListTemplate = ref<InstanceType<typeof UnifiedListTemplate>>()
+const { handleCodeSynced, clearCodeSyncFilter } = useErpCodeSyncFilter(
+  queryParams, quickFilter.state, getList, () => codeSyncListTemplate.value!.resetColumnFilters()
+)
 </script>

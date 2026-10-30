@@ -289,6 +289,7 @@ public interface ErrorCodeConstants {
     ErrorCode PRO_ROUTE_FLOW_CONFIG_GLOBAL_FORM_GROUP_INCONSISTENT = new ErrorCode(1_040_271_054, "工艺流程动态表单全局联动组配置不一致：{}");
     ErrorCode PRO_ROUTE_VERSION_STALE = new ErrorCode(1_040_271_029, "工艺路线版本已变更，请刷新后再操作，routeId={}，expectedRouteVersionId={}，activeRouteVersionId={}");
     ErrorCode PRO_ROUTE_VERSION_NOT_EXISTS = new ErrorCode(1_040_271_030, "工艺路线版本不存在，routeVersionId={}");
+    ErrorCode PRO_ROUTE_VERSION_PUBLISH_POLICY_NOT_FOUND = new ErrorCode(1_040_271_057, "当前租户未配置已发布的工艺路线版本发布策略，请在平台业务审批策略中配置并发布后重试");
     ErrorCode PRO_ROUTE_VERSION_ACTIVE_NOT_EXISTS = new ErrorCode(1_040_271_031, "工艺路线缺少当前生效版本，routeId={}");
     ErrorCode PRO_ROUTE_VERSION_CONFLICT = new ErrorCode(1_040_271_032, "工艺路线当前生效版本已变化，routeId={}，expectedActiveVersionId={}，actualActiveVersionId={}");
     ErrorCode PRO_ROUTE_VERSION_CANDIDATE_NOT_PUBLISHABLE = new ErrorCode(1_040_271_033, "工艺路线候选版本未满足发布条件，routeVersionId={}，status={}");
@@ -446,6 +447,8 @@ public interface ErrorCodeConstants {
             "DCC 项目代码缺少 MDM 产品主档关系：dccProjectCodeId={}");
     ErrorCode PRO_ROUTE_DCC_PRODUCT_MASTER_MISMATCH = new ErrorCode(1_040_501_507,
             "工艺路线与 DCC 项目代码的 MDM 产品主档不一致：routeId={}，routeProductMasterId={}，dccProductMasterId={}");
+    ErrorCode PRO_ROUTE_DCC_PRODUCT_CLEAR_CONFIRM_REQUIRED = new ErrorCode(1_040_501_508,
+            "请重新确认当前关联产品后保存项目，关联产品将被解除：routeId={}");
     ErrorCode PRO_ROUTE_IMPORT_PROCESS_CONFLICT = new ErrorCode(1_040_501_407, "工序编码 {} 的名称不一致，本地：{}，导入：{}");
     ErrorCode PRO_ROUTE_IMPORT_PROCESS_NAME_EXISTS = new ErrorCode(1_040_501_408, "工序名称 {} 已存在但编码不一致");
     ErrorCode PRO_ROUTE_IMPORT_CHECK_PROCESS_INVALID = new ErrorCode(1_040_501_409, "检验工序映射无效：{}");

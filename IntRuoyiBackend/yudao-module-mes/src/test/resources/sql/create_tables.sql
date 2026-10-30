@@ -1558,6 +1558,7 @@ CREATE TABLE IF NOT EXISTS "mes_pro_route_version" (
     "active" bit NOT NULL DEFAULT TRUE,
     "lifecycle_status" varchar(32) NOT NULL DEFAULT 'ACTIVE',
     "source_route_version_id" bigint DEFAULT NULL,
+    "last_saved_by" bigint DEFAULT NULL,
     "route_snapshot_json" clob DEFAULT NULL,
     "route_snapshot_sha256" varchar(64) DEFAULT NULL,
     "route_snapshot_format_version" varchar(32) DEFAULT NULL,

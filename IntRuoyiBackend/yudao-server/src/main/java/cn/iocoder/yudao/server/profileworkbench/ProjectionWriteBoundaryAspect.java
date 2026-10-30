@@ -34,7 +34,7 @@ public class ProjectionWriteBoundaryAspect {
     private static final Set<String> NON_INDEX_ROOTS=Set.of("DccControlledFileMessageDeliveryService","DccPublicationNotificationDispatchOrchestrator",
         "DccPublicationNotificationTransactionServiceImpl","DccElectronicSignatureFailureAuditServiceImpl","DccControlledFileAccessAuditService",
         "DccControlledFileFinalizationFailureService","MesActiveOrderHandoffDeliveryTransactionService","MesReleaseTaskNotificationPlatformSender",
-        "MesIndependentBatchPrerequisiteReceiptServiceImpl","NotifySendServiceImpl");
+        "NotifySendServiceImpl");
     // Current user queries have been traced to reads only; lockUserForSessionMutation
     // deliberately belongs to its caller's existing session transaction.
     private static final Set<String> USER_READS=Set.of("getUserByUsername","getUserByMobile","getUserPage","getUser",

@@ -31,6 +31,7 @@ public interface MesKingdeeProductionMaterialListMapper extends BaseMapperX<MesK
     default PageResult<MesKingdeeProductionMaterialListDO> selectPage(
             MesKingdeeProductionMaterialListPageReqVO reqVO) {
         return selectPage(reqVO, new LambdaQueryWrapperX<MesKingdeeProductionMaterialListDO>()
+                .eqIfPresent(MesKingdeeProductionMaterialListDO::getSourceBillNo, reqVO.getSyncCode())
                 .likeIfPresent(MesKingdeeProductionMaterialListDO::getSourceBillNo, reqVO.getSourceBillNo())
                 .likeIfPresent(MesKingdeeProductionMaterialListDO::getProductCode, reqVO.getProductCode())
                 .eqIfPresent(MesKingdeeProductionMaterialListDO::getProductionOrderNo, reqVO.getProductionOrderNo())

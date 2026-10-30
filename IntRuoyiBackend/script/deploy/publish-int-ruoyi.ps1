@@ -203,7 +203,8 @@ function New-ReleaseDockerBuildContext {
 }
 
 function Resolve-LocalCacheRoot([string]$ConfiguredRoot) {
-    $defaultLocalCacheRoot = 'E:\Int\CacheData\IntRuoyi'
+    $backendRepoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
+    $defaultLocalCacheRoot = Join-Path $backendRepoRoot '.runtime\cache'
     $effectiveRoot = if ([string]::IsNullOrWhiteSpace($ConfiguredRoot)) {
         $defaultLocalCacheRoot
     } else {
@@ -211,7 +212,11 @@ function Resolve-LocalCacheRoot([string]$ConfiguredRoot) {
     }
 
     try {
-        $resolvedRoot = [System.IO.Path]::GetFullPath($effectiveRoot)
+        $resolvedRoot = if ([System.IO.Path]::IsPathRooted($effectiveRoot)) {
+            [System.IO.Path]::GetFullPath($effectiveRoot)
+        } else {
+            [System.IO.Path]::GetFullPath((Join-Path $backendRepoRoot $effectiveRoot))
+        }
     } catch {
         Fail "Invalid local cache root: $effectiveRoot. $($_.Exception.Message)"
     }

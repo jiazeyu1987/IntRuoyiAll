@@ -23,7 +23,7 @@ class MesProBatchRecordRouteBRecognizerTest {
 
     private static final Path PILOT_SAMPLE = BatchRecordReportTestFixtures.pressurePumpRecordDoc();
     private static final Path FIXED_SAMPLE = Path.of(
-            "D:\\ProjectPackage\\Int\\IntRuoyi\\resource\\\u6279\u8bb0\u5f55\u6a21\u677f.doc");
+            "../../resource/\u6279\u8bb0\u5f55\u6a21\u677f.doc");
     private static final Path PRESS_BALLOON_PUMP_SAMPLE = Path.of(
             "E:\\\u6279\u8BB0\u5F55\\RE-PP-IDPR-01\uFF08A 1\uFF09 \u6309\u538B\u5F0F\u7403\u56CA\u6269\u5F20\u538B\u529B\u6CF5\u751F\u4EA7\u8BB0\u5F55--2026.02.02\u751F\u6548.doc");
 

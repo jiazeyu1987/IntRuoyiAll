@@ -48,6 +48,12 @@ public class MesProRouteRespVO {
     @Schema(description = "关联产品编号", example = "PRD-TAB-STD-001、PRD-TAB-PKG-002")
     private String productCodes;
 
+    @Schema(description = "正式关联产品数量", example = "3")
+    private Integer productCount;
+
+    @Schema(description = "正式关联项目代码", example = "INT-001")
+    private String dccProjectCode;
+
     @Schema(description = "关系图是否已设置", example = "true")
     private Boolean flowGraphConfigured;
 

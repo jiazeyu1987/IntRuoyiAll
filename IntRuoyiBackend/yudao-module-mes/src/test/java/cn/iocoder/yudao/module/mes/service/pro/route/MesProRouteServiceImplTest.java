@@ -1,6 +1,14 @@
 package cn.iocoder.yudao.module.mes.service.pro.route;
 
 import cn.iocoder.yudao.framework.common.enums.CommonStatusEnum;
+import cn.iocoder.yudao.framework.common.pojo.PageResult;
+import cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectCodeDO;
+import cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectCodeMapper;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.MesProRoutePageReqVO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesRouteDccProjectBindingDO;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesRouteDccProjectBindingMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteProcessFlowEdgeMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteProcessFlowBoundaryEdgeMapper;
 import cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils;
 import cn.iocoder.yudao.framework.test.core.util.AssertUtils;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
@@ -59,6 +67,7 @@ import java.lang.reflect.Method;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static java.util.Collections.emptyList;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
@@ -78,6 +87,44 @@ import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class MesProRouteServiceImplTest {
+
+    @Mock
+    private MesRouteDccProjectBindingMapper routeDccProjectBindingMapper;
+    @Mock
+    private DccProjectCodeMapper dccProjectCodeMapper;
+    @Mock
+    private MesProRouteProcessFlowEdgeMapper routeProcessFlowEdgeMapper;
+    @Mock
+    private MesProRouteProcessFlowBoundaryEdgeMapper routeProcessFlowBoundaryEdgeMapper;
+
+    @Test
+    void pageShowsDistinctFormalProductCountAndBoundProjectCode() {
+        var request = new MesProRoutePageReqVO();
+        when(routeMapper.selectPage(request)).thenReturn(new PageResult<>(
+                List.of(MesProRouteDO.builder().id(11L).build(), MesProRouteDO.builder().id(12L).build(),
+                        MesProRouteDO.builder().id(13L).build()), 3L));
+        when(routeProductMapper.selectListByRouteIds(Set.of(11L, 12L, 13L))).thenReturn(List.of(
+                MesProRouteProductDO.builder().id(1L).routeId(11L).itemId(101L).build(),
+                MesProRouteProductDO.builder().id(2L).routeId(11L).itemId(102L).build(),
+                MesProRouteProductDO.builder().id(3L).routeId(11L).itemId(101L).build()));
+        when(routeDccProjectBindingMapper.selectCurrentListByRouteIds(Set.of(11L, 12L, 13L)))
+                .thenReturn(List.of(MesRouteDccProjectBindingDO
+                        .builder().routeId(12L).dccProjectCodeId(201L).build()));
+        var project = new DccProjectCodeDO();
+        project.setId(201L);
+        project.setProjectCode("INT-201");
+        when(dccProjectCodeMapper.selectByIds(Set.of(201L))).thenReturn(List.of(project));
+
+        var page = routeService.getRoutePageRespVO(request);
+        assertEquals(3L, page.getTotal());
+        assertEquals(2, page.getList().get(0).getProductCount());
+        assertEquals(0, page.getList().get(1).getProductCount());
+        assertEquals("INT-201", page.getList().get(1).getDccProjectCode());
+        assertEquals(0, page.getList().get(2).getProductCount());
+        assertNull(page.getList().get(2).getDccProjectCode());
+        verify(routeDccProjectBindingMapper).selectCurrentListByRouteIds(Set.of(11L, 12L, 13L));
+        verify(dccProjectCodeMapper).selectByIds(Set.of(201L));
+    }
 
     @Test
     void deletionReferenceQueryDistinguishesTerminalDeletedAndOtherRoutes() throws Exception {

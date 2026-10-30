@@ -3,7 +3,7 @@ param(
     [ValidatePattern('^[A-Za-z0-9._-]+$')]
     [string]$Version,
     [string]$ImageRepository = 'intruoyi-backend-runtime-base',
-    [string]$OutputDirectory = 'D:\ProjectPackage\Int\BaseImages'
+    [string]$OutputDirectory = '.runtime\base-images'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -54,7 +54,11 @@ if (-not (Test-Path -LiteralPath $dockerfile -PathType Leaf)) {
     Fail "Backend runtime base Dockerfile missing: $dockerfile"
 }
 
-$resolvedOutputDirectory = [System.IO.Path]::GetFullPath($OutputDirectory)
+$resolvedOutputDirectory = if ([System.IO.Path]::IsPathRooted($OutputDirectory)) {
+    [System.IO.Path]::GetFullPath($OutputDirectory)
+} else {
+    [System.IO.Path]::GetFullPath((Join-Path $backendRepo $OutputDirectory))
+}
 New-Item -ItemType Directory -Force -Path $resolvedOutputDirectory | Out-Null
 
 $image = "${ImageRepository}:$Version"

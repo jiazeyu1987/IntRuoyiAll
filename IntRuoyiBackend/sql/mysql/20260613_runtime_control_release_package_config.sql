@@ -16,7 +16,7 @@ FROM (
   SELECT 'runtime-control', 1,
          '运行控制台-后端基础运行镜像离线包路径',
          'runtime-control.release-package.backend-runtime-base-tar-path',
-         'D:/ProjectPackage/Int/BaseImages/intruoyi-backend-runtime-base-2026.06.05-jre21-noble-docker29.2.1.tar',
+         '.runtime/base-images/intruoyi-backend-runtime-base-2026.06.05-jre21-noble-docker29.2.1.tar',
          b'1',
          '运行控制台构建 release 包时传给发布脚本的 -BackendRuntimeBaseTarPath。'
   UNION ALL

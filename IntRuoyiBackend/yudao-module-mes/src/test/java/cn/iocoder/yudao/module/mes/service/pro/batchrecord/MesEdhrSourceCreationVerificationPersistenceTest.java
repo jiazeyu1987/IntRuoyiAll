@@ -56,9 +56,7 @@ import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesEdhrSourceO
         "yudao.info.base-package=cn.iocoder.yudao.ac02.binding.r3.scan_none",
         "mybatis-plus.global-config.db-config.id-type=AUTO", "mybatis-plus.global-config.db-config.logic-delete-value=1",
         "mybatis-plus.global-config.db-config.logic-not-delete-value=0", "mybatis-plus.configuration.map-underscore-to-camel-case=true",
-        "mybatis-plus.configuration.local-cache-scope=STATEMENT",
-        "mes.pro.edhr.independent-receipt.issuer-system=AC02_BINDING_R3_TEST_ONLY_ISSUER",
-        "mes.pro.edhr.independent-receipt.signing-secret=AC02_BINDING_R3_TEST_ONLY_HMAC_NOT_PRODUCTION"
+        "mybatis-plus.configuration.local-cache-scope=STATEMENT"
 })
 class MesEdhrSourceCreationVerificationPersistenceTest {
     private static final long T = 76103L, A = 7610301L, C = 7610302L, B = 7610303L;
@@ -240,7 +238,7 @@ class MesEdhrSourceCreationVerificationPersistenceTest {
     @Test void commitThenNewReaderObjectsKeepOriginalCreatorAndAllBindingFacts() {
         SupportMaterial support = tx().execute(s -> writeSupportMaterial("COMMIT", 9007199254740991L)); assertNotNull(support);
         login(B); tx().executeWithoutResult(s -> {
-            var newReader = new MesEdhrSourceCreationVerificationService(independent, materials, completions, owner,
+            var newReader = new MesEdhrSourceCreationVerificationService(materials, completions, owner,
                     new MesEdhrSourceCreationBindingStore(bindingMapper), shared, new MesEdhrSourceCreationProtocolRegistry());
             var proof = newReader.requireMaterialCreation(T, support.row().getBatchExecutionId(), support.row().getReceiptId());
             assertEquals("MATERIAL_READY_V1", proof.ownerProtocol()); assertEquals(support.event().eventId(), proof.creationEventId());

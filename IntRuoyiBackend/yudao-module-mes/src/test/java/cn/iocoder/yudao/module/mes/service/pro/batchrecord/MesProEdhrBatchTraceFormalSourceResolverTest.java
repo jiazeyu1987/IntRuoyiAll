@@ -43,25 +43,16 @@ class MesProEdhrBatchTraceFormalSourceResolverTest {
     }
 
     @Test
-    void independentReceiptMustBeServerVerifiedAndCannotUseActiveFields() {
-        JSONObject metadata = metadata("MANUAL", "independent-1", "credential-hash", "snapshot-i");
-        MesIndependentBatchPrerequisiteReceipt receipt = new MesIndependentBatchPrerequisiteReceipt()
-                .setReceiptId("independent-1").setTenantId(7L).setEntryType("MANUAL")
-                .setSourceSnapshotHash("snapshot-i").setReceiptHash("credential-hash");
-        assertEquals(1, MesProEdhrBatchTraceFormalSourceResolver
-                .resolveIndependent(7L, receipt, metadata, evidence()).size());
-    }
-
-    @Test
-    void missingPersistedEvidenceBlocksWithStableCode() {
-        JSONObject metadata = metadata("MANUAL", "independent-1", "credential-hash", "snapshot-i");
-        MesIndependentBatchPrerequisiteReceipt receipt = new MesIndependentBatchPrerequisiteReceipt()
-                .setReceiptId("independent-1").setTenantId(7L).setEntryType("MANUAL")
-                .setSourceSnapshotHash("snapshot-i").setReceiptHash("credential-hash");
-        MesProEdhrBatchTraceFormalSourceResolver.MesProEdhrBatchTraceFormalSourceBlocked error =
-                assertThrows(MesProEdhrBatchTraceFormalSourceResolver.MesProEdhrBatchTraceFormalSourceBlocked.class,
-                        () -> MesProEdhrBatchTraceFormalSourceResolver.resolveIndependent(7L, receipt, metadata, null));
-        assertEquals("FORMAL_SOURCE_EVIDENCE_REQUIRED", error.getReasonCode());
+    void missingPersistedEvidenceStillBlocksActiveOrder() {
+        JSONObject metadata = metadata("ACTIVE_ORDER_COMPLETION", "900", "receipt-hash", "snapshot-a");
+        metadata.put("activeOrderId", 10L); metadata.put("workOrderId", 20L);
+        MesFlow6CompletionBackfillReceipt receipt = new MesFlow6CompletionBackfillReceipt()
+                .setReceiptId(900L).setTenantId(7L).setStatus("BACKFILL_SUCCEEDED")
+                .setReceiptHash("receipt-hash").setSourceSnapshotHash("snapshot-a")
+                .setActiveOrderId(10L).setWorkOrderId(20L);
+        var failure = assertThrows(MesProEdhrBatchTraceFormalSourceResolver.MesProEdhrBatchTraceFormalSourceBlocked.class,
+                () -> MesProEdhrBatchTraceFormalSourceResolver.resolveActive(7L, receipt, metadata, null));
+        assertEquals("FORMAL_SOURCE_EVIDENCE_REQUIRED", failure.getReasonCode());
     }
 
     private static JSONObject metadata(String entryType, String credentialId, String credentialHash, String snapshotHash) {

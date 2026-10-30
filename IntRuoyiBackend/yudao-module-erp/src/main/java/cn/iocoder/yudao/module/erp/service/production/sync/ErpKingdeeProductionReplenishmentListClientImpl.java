@@ -430,4 +430,47 @@ public class ErpKingdeeProductionReplenishmentListClientImpl implements ErpKingd
         }
     }
 
+
+    @Override
+    public List<ErpKingdeeProductionReplenishmentList> fetchByCode(ErpKingdeeProperties properties, String code) {
+        properties.validateBaseConfig();
+        String cookieHeader = login(properties);
+        int startRow = 0;
+        Map<String, ErpKingdeeProductionReplenishmentList> result = new LinkedHashMap<>();
+        while (true) {
+            Map<String, Object> query = new LinkedHashMap<>();
+            query.put("FormId", FORM_ID);
+            query.put("FieldKeys", INCREMENTAL_FIELD_KEYS);
+            query.put("FilterString", "FBillNo = '" + code.replace("'", "''") + "'");
+            query.put("OrderString", "FID ASC,FEntity_FEntryID ASC");
+            query.put("StartRow", startRow);
+            query.put("Limit", INCREMENTAL_QUERY_PAGE_LIMIT);
+            JsonNode rows = postQuery(properties, cookieHeader, query, "ERP bill query by code");
+            validateRows(rows);
+            if (rows.isEmpty()) {
+                break;
+            }
+            addRows(rows, result, true);
+            if (rows.size() < INCREMENTAL_QUERY_PAGE_LIMIT) {
+                break;
+            }
+            startRow += rows.size();
+        }
+        java.util.Set<String> ids = new java.util.LinkedHashSet<>();
+        for (var order : result.values()) {
+            for (var line : order.getLines()) {
+                String id = line.getProductionMaterialListEntryId();
+                if (id != null && !id.isBlank() && !"0".equals(id)) { ids.add(id); }
+            }
+        }
+        var sequences = new ErpKingdeeProductionMaterialLineResolver(restTemplate).resolve(properties, cookieHeader, ids);
+        for (var order : result.values()) {
+            for (var line : order.getLines()) {
+                line.setProductionMaterialListLineNo(sequences.get(line.getProductionMaterialListEntryId()));
+            }
+        }
+        return new ArrayList<>(result.values());
+    }
+
+
 }

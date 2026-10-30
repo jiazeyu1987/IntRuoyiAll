@@ -9,7 +9,7 @@ const routePage = fs.readFileSync(routePagePath, 'utf8')
 const routeApi = fs.readFileSync(routeApiPath, 'utf8')
 
 const templateMatch = routePage.match(
-  /<UnifiedListTemplate[\s\S]*?table-key="mes\.pro\.route\.main"[\s\S]*?<\/UnifiedListTemplate>/
+  /<UnifiedListTemplate[\s\S]*?:table-key="ROUTE_LIST_TABLE_KEY"[\s\S]*?<\/UnifiedListTemplate>/
 )
 assert.ok(templateMatch, '工艺路线列表必须继续使用标准列表模板。')
 const template = templateMatch[0]
@@ -70,7 +70,7 @@ assert.match(
 
 const activeVersionColumnIndex = template.indexOf("isRouteColumnVisible('activeRouteVersionNo')")
 const pendingVersionColumnIndex = template.indexOf("isRouteColumnVisible('pendingRouteVersionNo')")
-const productColumnIndex = template.indexOf("isRouteColumnVisible('productCodes')")
+const productColumnIndex = template.indexOf("isRouteColumnVisible('productCount')")
 assert.ok(
   activeVersionColumnIndex > -1
     && pendingVersionColumnIndex > activeVersionColumnIndex

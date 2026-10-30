@@ -859,7 +859,6 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
         unitMaterialSources.clear(); unitMaterialFacts.clear(); unitSubmissionAssociations.clear();
         when(sourceCreation.requireCompletionCreation(any(), any())).thenThrow(new IllegalStateException("TEST_SCOPE_NOT_TRUSTED_CENTER"));
         when(sourceCreation.requireCompletionTransactionId(any(), any())).thenThrow(new IllegalStateException("TEST_SCOPE_NOT_TRUSTED_CENTER"));
-        when(sourceCreation.requireIndependentCreation(any(), any())).thenThrow(new IllegalStateException("TEST_SCOPE_NOT_TRUSTED_CENTER"));
         when(sourceCreation.requireMaterialCreation(any(), any(), any())).thenThrow(new IllegalStateException("TEST_SCOPE_NOT_TRUSTED_CENTER"));
         when(centerSignatureFacts.requireVerifiedFact(any())).thenThrow(new IllegalStateException("TEST_SCOPE_NOT_TRUSTED_CENTER"));
         when(approvalCreationEvents.requireVerifiedEvent(any(), any())).thenThrow(new IllegalStateException("TEST_SCOPE_NOT_TRUSTED_CENTER"));

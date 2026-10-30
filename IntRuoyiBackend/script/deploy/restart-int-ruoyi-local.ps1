@@ -20,7 +20,7 @@ $RepoRoot = $PortContext.BackendPath
 $FrontendDir = $PortContext.FrontendPath
 $BackendDir = Join-Path $RepoRoot 'yudao-server'
 $RuntimeDir = Join-Path $PortContext.WorkspaceRoot "output\runtime\$($PortContext.Name)"
-$RuntimeControlStateDir = Join-Path $RepoRoot 'runtime\runtime-control'
+$RuntimeControlStateDir = '.runtime\runtime-control'
 $FrontendPort = [int]$PortContext.FrontendPort
 $BackendPort = [int]$PortContext.BackendPort
 $OnlyOfficeBaseUrl = 'http://127.0.0.1:8080'
@@ -1622,7 +1622,7 @@ Remove-Item -Path 'Env:\CODEX_TEST_RUNNER_TOKEN' -ErrorAction SilentlyContinue
   "--spring.data.redis.host=$LocalDockerRuntimeHost"
   "--spring.data.redis.port=26379"
   "--logging.file.name=$backendLogFile"
-  "--yudao.runtime-control.repo-root=$RepoRoot"
+  '--yudao.runtime-control.repo-root=.'
   "--yudao.runtime-control.state-dir=$RuntimeControlStateDir"
   "--yudao.runtime-control.storage-guard.log-dir=$backendLogDir"
 )

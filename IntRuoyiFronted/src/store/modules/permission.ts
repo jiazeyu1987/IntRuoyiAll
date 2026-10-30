@@ -57,12 +57,20 @@ const ROOT_MENU_ORDER = [
   '/mes/edhr-batch-processing',
   '/system'
 ]
-const orderRootMenus = (routes: AppRouteRecordRaw[]) => {
+const orderMenus = (routes: AppRouteRecordRaw[]) => {
   const rank = (route: AppRouteRecordRaw) => {
     const index = ROOT_MENU_ORDER.indexOf(`/${route.path.replace(/^\/+|\/+$/g, '')}`)
     return index === -1 ? ROOT_MENU_ORDER.length : index
   }
-  return [...routes].sort((left, right) => rank(left) - rank(right))
+  return [...routes].sort((left, right) => rank(left) - rank(right)).map((route) => {
+    if (route.path !== '/system' || !route.children) return route
+    const signatureRank = (child: AppRouteRecordRaw) =>
+      child.path === '/signature-governance' ? 0 : 1
+    return {
+      ...route,
+      children: [...route.children].sort((left, right) => signatureRank(left) - signatureRank(right))
+    }
+  })
 }
 const moveProjectCodeToMasterData = (routes: AppRouteRecordRaw[]) => {
   const projectPath = '/mes/md/dcc-project-code'
@@ -804,7 +812,7 @@ export const usePermissionStore = defineStore('permission', {
   getters: {
     getRouters(): AppRouteRecordRaw[] {
       const user = useUserStore()
-      const routes = orderRootMenus(filterSignatureMenus(
+      const routes = orderMenus(filterSignatureMenus(
         filterHiddenModuleMenus(this.routers), user.getRoles, user.getPermissions
       ))
       return useTestModeStore().enabled === true ? routes : filterTestModeMenus(routes)
@@ -814,9 +822,9 @@ export const usePermissionStore = defineStore('permission', {
     },
     getMenuTabRouters(): AppRouteRecordRaw[] {
       const user = useUserStore()
-      const routes = filterSignatureMenus(
+      const routes = orderMenus(filterSignatureMenus(
         filterHiddenModuleMenus(this.menuTabRouters), user.getRoles, user.getPermissions
-      )
+      ))
       return useTestModeStore().enabled === true
         ? routes
         : filterTestModeMenus(routes)

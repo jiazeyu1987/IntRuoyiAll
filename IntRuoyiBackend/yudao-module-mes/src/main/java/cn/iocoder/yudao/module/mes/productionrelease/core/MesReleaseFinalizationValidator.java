@@ -67,25 +67,6 @@ public final class MesReleaseFinalizationValidator {
             require(command.getActiveOrderExpectedVersion() != null,
                     MesReleaseFlowBlockerType.STATE_VERSION_CONFLICT,
                     "active-order owner version is required for controlled release closure");
-        } else {
-            IndependentBatchPrerequisiteReceipt receipt =
-                    evidence == null ? null : evidence.getIndependentPrerequisiteReceipt();
-            requireText(command.getIndependentPrerequisiteReceiptId(),
-                    MesReleaseFlowBlockerType.BATCH_RECORD_SOURCE_REQUIRED,
-                    "independent prerequisite receipt id is required");
-            require(receipt != null
-                            && command.getIndependentPrerequisiteReceiptId().equals(receipt.getReceiptId())
-                            && receipt.isValidFor(command.getOrigin().name(), clock)
-                            && command.getBatchExecutionId().equals(receipt.getBatchExecutionId())
-                            && Objects.equals(command.getSourceRelation(), receipt.getSourceRelation())
-                            && Objects.equals(command.getSourceSnapshotHash(), receipt.getSourceSnapshotHash()),
-                    MesReleaseFlowBlockerType.BATCH_RECORD_SOURCE_REQUIRED,
-                    IndependentBatchPrerequisiteReceipt.CANONICAL_NAME
-                            + " must be backend-issued, valid, unrevoked, unexpired and bound to the batch");
-            require(command.getActiveOrderId() == null && command.getPickListId() == null
-                            && command.getCompletionBackfillReceiptId() == null,
-                    MesReleaseFlowBlockerType.RELEASE_TRANSACTION_NOT_PROCESSABLE,
-                    "independent finalization must not fabricate active-order completion fields");
         }
     }
 
@@ -118,18 +99,6 @@ public final class MesReleaseFinalizationValidator {
             require(command.getActiveOrderExpectedVersion() != null,
                     MesReleaseFlowBlockerType.STATE_VERSION_CONFLICT,
                     "active-order owner version is required for controlled release closure");
-        } else {
-            require(command.getIndependentPrerequisiteReceipt() != null
-                            && command.getIndependentPrerequisiteReceipt().isValidAt(clock)
-                            && command.getBatchExecutionId().equals(
-                            command.getIndependentPrerequisiteReceipt().getBatchExecutionId())
-                            && Objects.equals(command.getSourceRelation(),
-                            command.getIndependentPrerequisiteReceipt().getSourceRelation())
-                            && Objects.equals(command.getSourceSnapshotHash(),
-                            command.getIndependentPrerequisiteReceipt().getSourceSnapshotHash()),
-                    MesReleaseFlowBlockerType.BATCH_RECORD_SOURCE_REQUIRED,
-                    IndependentBatchPrerequisiteReceipt.CANONICAL_NAME
-                            + " must be valid, unrevoked, unexpired and bound to batchExecutionId");
         }
     }
 
@@ -144,6 +113,9 @@ public final class MesReleaseFinalizationValidator {
         require(command.getOrigin() != null,
                 MesReleaseFlowBlockerType.RELEASE_TRANSACTION_NOT_PROCESSABLE,
                 "origin is required so source-specific prerequisites cannot be inferred");
+        require(command.getOrigin() == MesReleaseOrigin.ACTIVE_ORDER,
+                MesReleaseFlowBlockerType.RELEASE_TRANSACTION_NOT_PROCESSABLE,
+                "独立凭证功能已删除，请使用活跃订单完工来源");
         require(command.getEntryType() != null && !command.getEntryType().isBlank(),
                 MesReleaseFlowBlockerType.RELEASE_TRANSACTION_NOT_PROCESSABLE, "entryType is required");
         require(entryTypeMatchesOrigin(command),

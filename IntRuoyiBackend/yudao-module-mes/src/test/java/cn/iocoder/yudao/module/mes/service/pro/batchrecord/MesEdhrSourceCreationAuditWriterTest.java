@@ -8,13 +8,24 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 class MesEdhrSourceCreationAuditWriterTest {
+    @Test void sharedIntegrityStartsWithoutIndependentReceiptConfiguration() {
+        try (var context = new org.springframework.context.annotation.AnnotationConfigApplicationContext()) {
+            context.setEnvironment(new org.springframework.mock.env.MockEnvironment());
+            context.register(MesEdhrSourceOwnerIntegrity.class);
+            context.refresh();
+            assertNotNull(context.getBean(MesEdhrSourceOwnerIntegrity.class));
+            assertNull(context.getEnvironment().getProperty("mes.pro.edhr.independent-receipt.issuer-system"));
+            assertNull(context.getEnvironment().getProperty("mes.pro.edhr.independent-receipt.signing-secret"));
+        }
+    }
+
     @org.junit.jupiter.api.BeforeEach void tenant(){cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.setTenantId(1L);}
     @org.junit.jupiter.api.AfterEach void clearTenant(){cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.clear();}
     @Test void ledgerIsAcquiredBeforeAuthority() {
         var audit = mock(GxpAuditService.class);
         var authority = mock(cn.iocoder.yudao.module.system.api.permission.ApprovalAuthorityApi.class);
         var writer = new MesEdhrSourceCreationAuditWriter(audit, mock(MesEdhrSourceCreationBindingStore.class),
-                mock(MesEdhrSourceOwnerIntegrity.class), mock(GxpCreationAuditVerificationService.class));
+                mock(MesEdhrSourceOwnerIntegrity.class));
         org.springframework.test.util.ReflectionTestUtils.setField(writer, "approvalAuthority", authority);
         cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.setTenantId(1L);
         try {
@@ -31,7 +42,7 @@ class MesEdhrSourceCreationAuditWriterTest {
         var row = row();
         when(integrity.materialTypes(row)).thenReturn((ArrayNode)new ObjectMapper().readTree(row.getMaterialTypeKeysJson()));
         when(audit.append(any())).thenThrow(new IllegalStateException("AUDIT_UNAVAILABLE"));
-        var writer = new MesEdhrSourceCreationAuditWriter(audit, bindings, integrity, events);
+        var writer = new MesEdhrSourceCreationAuditWriter(audit, bindings, integrity);
         assertThrows(IllegalStateException.class, () -> writer.material(row));
         verifyNoInteractions(bindings);
     }
@@ -42,7 +53,7 @@ class MesEdhrSourceCreationAuditWriterTest {
         var row = row();
         when(integrity.materialTypes(row)).thenReturn((ArrayNode)new ObjectMapper().readTree(row.getMaterialTypeKeysJson()));
         when(audit.append(any())).thenReturn(new GxpAuditAppendResult(9L, 1L, "a".repeat(64), true));
-        var writer = new MesEdhrSourceCreationAuditWriter(audit, bindings, integrity, mock(GxpCreationAuditVerificationService.class));
+        var writer = new MesEdhrSourceCreationAuditWriter(audit, bindings, integrity);
         assertThrows(IllegalStateException.class, () -> writer.material(row));
         verifyNoInteractions(bindings);
     }

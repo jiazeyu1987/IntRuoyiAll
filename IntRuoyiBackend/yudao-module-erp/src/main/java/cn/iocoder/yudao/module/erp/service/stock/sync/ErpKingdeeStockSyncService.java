@@ -12,4 +12,7 @@ public interface ErpKingdeeStockSyncService {
 
     ErpKingdeeStockSyncResult syncStocksModifiedBetween(LocalDateTime windowStart, LocalDateTime windowEnd);
 
+
+    int syncByCode(String code);
+
 }

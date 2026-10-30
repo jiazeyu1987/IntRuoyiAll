@@ -107,15 +107,14 @@ class EdhrReleaseContentResolverTest {
         ((ObjectNode)content).put("contentPolicyVersion","approval-content-v1");
         assertThrows(IllegalArgumentException.class,()->f.semantic.validate(content));
     }
-    @Test void fourQuadrantsProjectExactOwnerReceiptAndFourVerifiedFileContents() throws Exception {
-        for(boolean active:new boolean[]{true,false})for(boolean managed:new boolean[]{true,false}){
+    @Test void activeBranchesProjectExactOwnerReceiptAndFourVerifiedFileContents() throws Exception {
+        for(boolean active:new boolean[]{true})for(boolean managed:new boolean[]{true,false}){
             var f=new Fixture(active,managed);var result=f.resolver.prepare(2L,"EDHR_WORK_TASK","10",null);
             assertEquals(ApprovalContentJson.canonical(f.root),result.canonicalBusinessContentJson());
             assertEquals(ApprovalContentJson.hash(f.root),result.contentHash());
             assertEquals(f.semantic.subjectVersion(f.root,guard()),result.subjectVersion());
             assertEquals(4,result.attachments().size());assertEquals(List.of("APPROVE"),result.allowedActions());
-            if(active){verify(f.completion).requireVerifiedByReceiptId(80L,1L);verifyNoInteractions(f.independent);}
-            else{verify(f.independent).getCreationVerifiedByReceiptId(1L,"independent-80","MANUAL",H);verifyNoInteractions(f.completion);}
+            verify(f.completion).requireVerifiedByReceiptId(80L,1L);
             verify(f.rows).selectCurrentOpen(20L,false);
             for(int i=0;i<4;i++)verify(f.files).getFileContent(1L,"report-"+i);
             assertEquals(result.contentHash(),f.resolver.lockAndAuthorize(2L,result.identity()).contentHash());
@@ -123,10 +122,15 @@ class EdhrReleaseContentResolverTest {
             verify(f.releases).readForApproval(10L,2L,true);
         }
     }
+    @Test void retiredIndependentApprovalCannotLoadOrApproveReceipt() throws Exception {
+        var f=new Fixture(false,true);
+        assertThrows(IllegalArgumentException.class,()->f.resolver.prepare(2L,"EDHR_WORK_TASK","10",null));
+        verifyNoInteractions(f.completion,f.materials,f.files);
+    }
     @Test void changedFilesAndChangedMaterialManifestAreRejected() throws Exception {
         var f=new Fixture(true,false);when(f.files.getFileContent(1L,"report-0")).thenReturn("tampered".getBytes(java.nio.charset.StandardCharsets.UTF_8));
         var tampered=f;assertThrows(IllegalArgumentException.class,()->tampered.resolver.prepare(2L,"EDHR_WORK_TASK","10",null));
-        f=new Fixture(false,true);when(f.materials.evaluate(30L)).thenReturn(new MesProEdhrFourMaterialGateResult("MATERIALS_READY",true,"b".repeat(64),f.attachments));
+        f=new Fixture(true,true);when(f.materials.evaluate(30L)).thenReturn(new MesProEdhrFourMaterialGateResult("MATERIALS_READY",true,"b".repeat(64),f.attachments));
         var changed=f;assertThrows(IllegalArgumentException.class,()->changed.resolver.prepare(2L,"EDHR_WORK_TASK","10",null));
     }
     @Test void currentRowsMustMatchFrozenSnapshotAndPersistedCounts() throws Exception {
@@ -165,7 +169,6 @@ class EdhrReleaseContentResolverTest {
         final MesProEdhrReleaseService releases=mock(MesProEdhrReleaseService.class);
         final MesProEdhrReleaseCheckItemMapper rows=mock(MesProEdhrReleaseCheckItemMapper.class);
         final MesTeamLeaderActiveOrderCompletionFlow6ReceiptPort completion=mock(MesTeamLeaderActiveOrderCompletionFlow6ReceiptPort.class);
-        final MesIndependentBatchPrerequisiteReceiptService independent=mock(MesIndependentBatchPrerequisiteReceiptService.class);
         final MesProEdhrFourMaterialGateService materials=mock(MesProEdhrFourMaterialGateService.class);
         final FileService files=mock(FileService.class);
         final EdhrReleaseContentSemanticValidator semantic=new EdhrReleaseContentSemanticValidator(new EdhrReleaseContentPolicy());
@@ -204,10 +207,6 @@ class EdhrReleaseContentResolverTest {
                 var c=(ObjectNode)root.at("/finalization/completionBackfillReceipt").deepCopy();
                 c.put("createdAt","2026-10-10T10:00:00").put("formalSourceSnapshotJson",c.get("formalSourceSnapshotJsonRaw").asText()).put("signatureSnapshotJson",c.get("signatureSnapshotJsonRaw").asText()).put("lossConditionFactsJson","[]").put("zeroLossConfirmationSnapshot",c.get("zeroLossConfirmationSnapshotRaw").asText()).put("batchRecordSourceIdsJson","[82]").put("processInspectionSourceIdsJson","[83]");
                 when(completion.requireVerifiedByReceiptId(80L,1L)).thenReturn(new MesEdhrVerifiedCompletionReceiptFact(map(c,MesFlow6CompletionBackfillReceipt.class),provenance,"completion-1"));
-            }else{
-                var c=(ObjectNode)root.at("/finalization/independentPrerequisiteReceipt").deepCopy();
-                c.put("issuedAt","2026-10-10T10:00:00").put("expiresAt","2026-10-11T10:00:00").put("canonicalPayload",c.get("canonicalPayloadRaw").asText());
-                when(independent.getCreationVerifiedByReceiptId(1L,"independent-80","MANUAL",H)).thenReturn(new MesEdhrVerifiedIndependentReceiptFact(map(c,MesIndependentBatchPrerequisiteReceipt.class),provenance));
             }
             index=0;for(var m:root.at("/finalization/materialManifest/materials")){
                 var n=(ObjectNode)m.deepCopy();n.put("id",200+index);
@@ -217,7 +216,7 @@ class EdhrReleaseContentResolverTest {
                 when(files.presignGetUrl(file.getUrl(),900)).thenReturn("https://files.invalid/signed-"+index++);
             }
             when(materials.evaluate(30L)).thenReturn(new MesProEdhrFourMaterialGateResult("MATERIALS_READY",true,H,attachments));
-            resolver=new EdhrReleaseContentResolver(releases,new EdhrReleasePrecheckContentReader(rows),semantic,completion,independent,materials,files);
+            resolver=new EdhrReleaseContentResolver(releases,new EdhrReleasePrecheckContentReader(rows),semantic,completion,materials,files);
         }
     }
 }

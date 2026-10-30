@@ -13,4 +13,7 @@ public interface MesKingdeeProductionOrderSyncService {
 
     MesKingdeeProductionOrderSyncResult syncWorkOrders(ErpKingdeeSyncContext context);
 
+
+    int syncByCode(String code);
+
 }

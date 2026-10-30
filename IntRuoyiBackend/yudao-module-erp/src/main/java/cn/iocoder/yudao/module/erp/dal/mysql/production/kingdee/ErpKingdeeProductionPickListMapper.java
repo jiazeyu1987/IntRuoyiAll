@@ -24,6 +24,7 @@ public interface ErpKingdeeProductionPickListMapper extends BaseMapperX<ErpKingd
     default PageResult<ErpKingdeeProductionPickListDO> selectPageByProductionPickListIds(
             ErpProductionPickListPageReqVO reqVO, Collection<Long> productionPickListIds) {
         return selectPage(reqVO, new LambdaQueryWrapperX<ErpKingdeeProductionPickListDO>()
+                .eqIfPresent(ErpKingdeeProductionPickListDO::getSourceBillNo, reqVO.getSyncCode())
                 .inIfPresent(ErpKingdeeProductionPickListDO::getId, productionPickListIds)
                 .likeIfPresent(ErpKingdeeProductionPickListDO::getSourceBillNo,
                         reqVO.getSourceBillNo())

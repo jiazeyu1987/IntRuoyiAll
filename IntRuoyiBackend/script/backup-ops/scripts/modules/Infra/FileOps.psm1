@@ -853,7 +853,12 @@ function Get-BackupOpsWorkspaceRoot {
         [object]$Config
     )
 
-    return [string](Get-BackupOpsRequiredFileConfigValue -Config $Config -Path @('backup', 'localWorkspaceRoot') -Code 'INTBK-2002' -Reason '缺少本地备份工作目录配置。' -Action '请先补齐 backup.localWorkspaceRoot 后再执行备份。')
+    $workspaceRoot = [string](Get-BackupOpsRequiredFileConfigValue -Config $Config -Path @('backup', 'localWorkspaceRoot') -Code 'INTBK-2002' -Reason '缺少本地备份工作目录配置。' -Action '请先补齐 backup.localWorkspaceRoot 后再执行备份。')
+    if ([System.IO.Path]::IsPathRooted($workspaceRoot)) {
+        return [System.IO.Path]::GetFullPath($workspaceRoot)
+    }
+    $backendRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..\..\..\..'))
+    return [System.IO.Path]::GetFullPath((Join-Path $backendRoot $workspaceRoot))
 }
 
 function New-BackupOpsBackupWorkspace {

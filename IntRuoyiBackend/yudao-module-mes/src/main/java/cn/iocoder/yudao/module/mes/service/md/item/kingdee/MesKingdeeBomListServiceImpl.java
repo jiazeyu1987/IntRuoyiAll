@@ -138,4 +138,12 @@ public class MesKingdeeBomListServiceImpl implements MesKingdeeBomListService {
         bomListMapper.insert(row);
     }
 
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public int syncByCode(String code) {
+        ErpKingdeeProperties properties = kingdeeConfigService.getEffectiveProperties();
+        return syncLines(bomClient.fetchApprovedBomByParentMaterialNumber(properties, code));
+    }
+
 }

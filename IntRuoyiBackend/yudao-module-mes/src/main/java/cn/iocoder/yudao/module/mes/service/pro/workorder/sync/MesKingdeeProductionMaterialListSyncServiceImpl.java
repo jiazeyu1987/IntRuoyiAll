@@ -172,4 +172,20 @@ public class MesKingdeeProductionMaterialListSyncServiceImpl implements MesKingd
         return null;
     }
 
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public int syncByCode(String code) {
+        ErpKingdeeProperties properties = configService.getEffectiveProperties();
+        List<ErpKingdeeProductionMaterialList> rows = client.fetchProductionMaterialListsByCode(properties, code);
+        // A manual synchronization belongs only to the current tenant.
+        MesKingdeeProductionMaterialListSyncResult result = new MesKingdeeProductionMaterialListSyncResult();
+        for (ErpKingdeeProductionMaterialList row : rows) {
+            List<MesProWorkOrderDO> orders = workOrderMapper.selectListByCodes(Collections.singleton(row.getProductionOrderNo()));
+            if (orders.isEmpty()) { upsertRow(row, null, result, false); }
+            else { for (MesProWorkOrderDO order : orders) { upsertRow(row, order, result, false); } }
+        }
+        return result.getCreatedCount() + result.getUpdatedCount();
+    }
+
 }

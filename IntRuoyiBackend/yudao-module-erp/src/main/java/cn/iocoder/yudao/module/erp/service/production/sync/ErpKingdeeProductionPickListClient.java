@@ -13,4 +13,6 @@ public interface ErpKingdeeProductionPickListClient {
     List<ErpKingdeeProductionPickList> fetchProductionPickListsModifiedBetween(
             ErpKingdeeProperties properties, LocalDateTime windowStart, LocalDateTime windowEnd);
 
+
+    List<ErpKingdeeProductionPickList> fetchByCode(ErpKingdeeProperties properties, String code);
 }

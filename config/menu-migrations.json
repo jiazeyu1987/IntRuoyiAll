@@ -1,5 +1,7 @@
 {
   "changes": [
+    {"source": "IntRuoyiFronted/src/views/mes/pro/route/RouteFormContent.vue", "kind": "permission", "value": "mes:pro-route:update", "reason": "工艺流程内部表单区分浏览与修改，关联项目保存复用现有工艺路线更新权限，与既有保存接口一致；未新增菜单、独立页面、权限标识、角色或租户套餐授权。"},
+    {"source": "IntRuoyiFronted/src/views/mes/pro/route/RouteFormContent.vue", "kind": "permission", "value": "mes:pro-route:version-update", "reason": "工艺流程内部修改入口和草稿名称编辑复用现有候选版本修改权限；未新增菜单、独立页面、权限标识、角色或租户套餐授权。"},
     {"source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/feedback/MesFrontlineSequenceSettingController.java", "kind": "permission", "value": "infra:config:query", "reason": "当前租户工序顺序配置复用基础配置既有查询和更新权限，不新增菜单、权限或角色及租户套餐授权；配置入口位于既有基础配置页。"},
     {"source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/feedback/MesFrontlineSequenceSettingController.java", "kind": "permission", "value": "infra:config:update", "reason": "当前租户工序顺序配置复用基础配置既有查询和更新权限，不新增菜单、权限或角色及租户套餐授权；配置入口位于既有基础配置页。"},
 
@@ -1882,6 +1884,8 @@
       "kind": "permission",
       "value": "mes:pro-edhr-change:void",
       "reason": "现有记录变更页增加单张记录作废申请，复用既有作废权限，指定独立审批人并展示目标记录，不新增菜单、权限、角色或租户套餐授权。"
-    }
+    },
+    {"source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/workorder/MesErpCodeSyncController.java", "kind": "permission", "value": "erp:kingdee-sync:query", "reason": "按编号同步沿用现有ERP同步菜单、权限及角色和租户套餐授权，不新增菜单或权限。"},
+    {"source": "IntRuoyiFronted/src/views/erp/components/SyncByCodeButton.vue", "kind": "permission", "value": "erp:kingdee-sync:query", "reason": "按编号同步沿用现有ERP同步菜单、权限及角色和租户套餐授权，不新增菜单或权限。"}
   ]
 }

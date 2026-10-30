@@ -12,7 +12,6 @@ import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesBatchExecutionEntr
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesBatchExecutionProvisionCommand;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrProductionReleaseBatchCommand;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesIndependentBatchPrerequisiteReceipt;
-import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesIndependentBatchPrerequisiteReceiptService;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesFlow6CompletionBackfillReceipt;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderCompletionFlow6ReceiptPort;
@@ -37,7 +36,7 @@ class MesProductionReleaseBatchExecutionPortTest {
     @Mock private MesProEdhrBatchExecutionMapper batchExecutionMapper;
     @Mock private MesProEdhrBatchProvisioningRecordMapper provisioningRecordMapper;
     @Mock private MesProEdhrBatchExecutionService batchExecutionService;
-    @Mock private MesIndependentBatchPrerequisiteReceiptService independentReceiptService;
+
     @Mock private MesTeamLeaderActiveOrderCompletionFlow6ReceiptPort completionReceiptPort;
 
     private MesProductionReleaseBatchExecutionPort port;
@@ -108,7 +107,6 @@ class MesProductionReleaseBatchExecutionPortTest {
                 .setTenantId(1L);
 
         port.openOrCreate(command);
-        verify(independentReceiptService, never()).verify(any(), org.mockito.ArgumentMatchers.eq(1L));
     }
 
     @Test
@@ -127,7 +125,6 @@ class MesProductionReleaseBatchExecutionPortTest {
                 batchExecutionMapper, provisioningRecordMapper, batchExecutionService, completionReceiptPort);
 
         assertEquals(902L, isolatedPort.openOrCreate(command));
-        verify(independentReceiptService, never()).verify(any(), org.mockito.ArgumentMatchers.eq(1L));
         verify(batchExecutionService).openOrCreateFromProductionRelease(
                 org.mockito.ArgumentMatchers.argThat((MesProEdhrProductionReleaseBatchCommand provision) ->
                         provision.getIndependentReceipt() == null));

@@ -8,6 +8,10 @@ import cn.iocoder.yudao.framework.common.pojo.PageResult;
 import cn.iocoder.yudao.framework.common.util.object.BeanUtils;
 import cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
+import cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectCodeDO;
+import cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectCodeMapper;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesRouteDccProjectBindingDO;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesRouteDccProjectBindingMapper;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.MesProRoutePageReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.MesProRouteRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.MesProRouteSaveReqVO;
@@ -119,6 +123,10 @@ public class MesProRouteServiceImpl implements MesProRouteService {
     private MesProRouteMapper routeMapper;
     @Resource
     private MesProRouteProductMapper routeProductMapper;
+    @Resource
+    private MesRouteDccProjectBindingMapper routeDccProjectBindingMapper;
+    @Resource
+    private DccProjectCodeMapper dccProjectCodeMapper;
     @Resource
     private MesProRouteProcessMapper routeProcessMapper;
     @Resource
@@ -1410,7 +1418,12 @@ public class MesProRouteServiceImpl implements MesProRouteService {
         Map<Long, String> ownerByRouteId = buildOwnerByRouteId(routeIds);
         Map<Long, String> keyProcessByRouteId = buildKeyProcessByRouteId(routeIds);
         Map<Long, String> lastProcessByRouteId = buildLastProcessByRouteId(routeIds);
-        Map<Long, String> productCodesByRouteId = buildProductCodesByRouteId(routeIds);
+        List<MesProRouteProductDO> routeProducts = routeProductMapper.selectListByRouteIds(routeIds);
+        Map<Long, String> productCodesByRouteId = buildProductCodesByRouteId(routeProducts);
+        Map<Long, Set<Long>> productIdsByRouteId = routeProducts.stream()
+                .collect(Collectors.groupingBy(MesProRouteProductDO::getRouteId,
+                        Collectors.mapping(MesProRouteProductDO::getItemId, Collectors.toSet())));
+        Map<Long, String> dccProjectCodesByRouteId = buildDccProjectCodesByRouteId(routeIds);
         Map<Long, Boolean> flowGraphConfiguredByRouteId = buildFlowGraphConfiguredByRouteId(routeIds);
         Map<Long, Map<String, Boolean>> flowConfigEnabledByRouteId = buildRouteFlowConfigEnabledByRouteId(routeIds);
         List<MesProRouteVersionDO> routeVersions = routeVersionMapper.selectListByRouteIds(routeIds);
@@ -1424,6 +1437,8 @@ public class MesProRouteServiceImpl implements MesProRouteService {
             route.setKeyProcessName(keyProcessByRouteId.get(route.getId()));
             route.setLastProcessName(lastProcessByRouteId.get(route.getId()));
             route.setProductCodes(productCodesByRouteId.get(route.getId()));
+            route.setProductCount(productIdsByRouteId.getOrDefault(route.getId(), Collections.emptySet()).size());
+            route.setDccProjectCode(dccProjectCodesByRouteId.get(route.getId()));
             route.setFlowGraphConfigured(Boolean.TRUE.equals(flowGraphConfiguredByRouteId.get(route.getId())));
             Map<String, Boolean> flowConfigEnabled = flowConfigEnabledByRouteId.getOrDefault(route.getId(), Collections.emptyMap());
             route.setScheduleRouteEnabled(Boolean.TRUE.equals(flowConfigEnabled.get(MesProRouteFlowConfigTypeEnum.SCHEDULE.getType())));
@@ -1567,8 +1582,27 @@ public class MesProRouteServiceImpl implements MesProRouteService {
         return keyProcessNameByRouteId;
     }
 
-    private Map<Long, String> buildProductCodesByRouteId(Set<Long> routeIds) {
-        List<MesProRouteProductDO> routeProducts = routeProductMapper.selectListByRouteIds(routeIds);
+    private Map<Long, String> buildDccProjectCodesByRouteId(Set<Long> routeIds) {
+        List<MesRouteDccProjectBindingDO> bindings = routeDccProjectBindingMapper.selectCurrentListByRouteIds(routeIds);
+        if (bindings.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        Set<Long> projectIds = bindings.stream().map(MesRouteDccProjectBindingDO::getDccProjectCodeId)
+                .collect(Collectors.toSet());
+        Map<Long, DccProjectCodeDO> projects = dccProjectCodeMapper.selectByIds(projectIds).stream()
+                .collect(Collectors.toMap(DccProjectCodeDO::getId, project -> project));
+        Map<Long, String> result = new HashMap<>();
+        for (MesRouteDccProjectBindingDO binding : bindings) {
+            DccProjectCodeDO project = projects.get(binding.getDccProjectCodeId());
+            if (project == null) {
+                throw new IllegalStateException("工艺路线关联项目不存在：" + binding.getDccProjectCodeId());
+            }
+            result.put(binding.getRouteId(), project.getProjectCode());
+        }
+        return result;
+    }
+
+    private Map<Long, String> buildProductCodesByRouteId(List<MesProRouteProductDO> routeProducts) {
         if (CollUtil.isEmpty(routeProducts)) {
             return Collections.emptyMap();
         }

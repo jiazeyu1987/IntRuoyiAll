@@ -17,4 +17,6 @@ public class ErpKingdeeInventoryListPageReqVO extends PageParam {
     private String warehouseName;
     private String lotNumber;
 
+
+    private String syncCode;
 }

@@ -6,6 +6,8 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProces
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteVersionDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolTeamDeviceMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteVersionMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteMapper;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteDO;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONArray;
@@ -24,6 +26,7 @@ import java.util.Objects;
 import java.util.Set;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
+import static cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils.getLoginUserId;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_ROUTE_VERSION_CANDIDATE_NOT_PUBLISHABLE;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_ROUTE_VERSION_CONFLICT;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_ROUTE_VERSION_NOT_EXISTS;
@@ -48,6 +51,20 @@ public class MesProRouteCandidateConfigServiceImpl implements MesProRouteCandida
     private MesProRouteVersionMapper routeVersionMapper;
     @Resource
     private MesProcessPoolTeamDeviceMapper teamDeviceMapper;
+    @Resource
+    private MesProRouteMapper routeMapper;
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void saveRouteName(Long candidateRouteVersionId, String expectedRouteSnapshotSha256, String name) {
+        if (StrUtil.isBlank(name)) {
+            throw cn.iocoder.yudao.module.mes.service.pro.craft.MesProCraftParameters.invalid("名称不能为空");
+        }
+        if (StrUtil.isBlank(expectedRouteSnapshotSha256)) {
+            throw exception(PRO_ROUTE_VERSION_CONFLICT, candidateRouteVersionId, null, null);
+        }
+        saveConfigSnapshotsInternal(candidateRouteVersionId, expectedRouteSnapshotSha256, Map.of(), name.trim());
+    }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -76,6 +93,11 @@ public class MesProRouteCandidateConfigServiceImpl implements MesProRouteCandida
 
     private void saveConfigSnapshotsInternal(Long candidateRouteVersionId, String expectedRouteSnapshotSha256,
                                              Map<String, Object> incomingConfigSnapshots) {
+        saveConfigSnapshotsInternal(candidateRouteVersionId, expectedRouteSnapshotSha256, incomingConfigSnapshots, null);
+    }
+
+    private void saveConfigSnapshotsInternal(Long candidateRouteVersionId, String expectedRouteSnapshotSha256,
+                                             Map<String, Object> incomingConfigSnapshots, String routeName) {
         craftService.lockCatalog();
         MesProRouteVersionDO candidate = routeVersionMapper.selectById(candidateRouteVersionId);
         if (candidate == null) {
@@ -93,7 +115,7 @@ public class MesProRouteCandidateConfigServiceImpl implements MesProRouteCandida
             throw exception(PRO_ROUTE_VERSION_CONFLICT, candidate.getRouteId(),
                     expectedRouteSnapshotSha256, candidate.getRouteSnapshotSha256());
         }
-        if (incomingConfigSnapshots == null || incomingConfigSnapshots.isEmpty()
+        if (incomingConfigSnapshots == null || (incomingConfigSnapshots.isEmpty() && routeName == null)
                 || StrUtil.isBlank(candidate.getRouteSnapshotJson())) {
             throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, candidate.getId());
         }
@@ -101,6 +123,16 @@ public class MesProRouteCandidateConfigServiceImpl implements MesProRouteCandida
         JSONObject snapshot = JSON.parseObject(candidate.getRouteSnapshotJson());
         if (snapshot == null || snapshot.isEmpty()) {
             throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, candidate.getId());
+        }
+        if (routeName != null) {
+            MesProRouteDO existing = routeMapper.selectByName(routeName);
+            if (existing != null && !Objects.equals(existing.getId(), candidate.getRouteId())) {
+                throw exception(cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_ROUTE_NAME_DUPLICATE);
+            }
+            snapshot.put("routeName", routeName);
+            snapshot.put("name", routeName);
+            persistDraftSnapshot(candidate, snapshot);
+            return;
         }
         JSONObject configSnapshots = snapshot.getJSONObject(SNAPSHOT_CONFIGS_KEY);
         if (configSnapshots == null) {
@@ -126,10 +158,15 @@ public class MesProRouteCandidateConfigServiceImpl implements MesProRouteCandida
         validateProductionProcessConfigs(candidate.getId(), configSnapshots);
         validateProductionDevicesExist(candidate.getId(), configSnapshots);
 
+        persistDraftSnapshot(candidate, snapshot);
+    }
+
+    private void persistDraftSnapshot(MesProRouteVersionDO candidate, JSONObject snapshot) {
         MesProRouteVersionDO update = new MesProRouteVersionDO();
         update.setId(candidate.getId());
         update.setActive(Boolean.FALSE);
         update.setLifecycleStatus(candidate.getLifecycleStatus());
+        update.setLastSavedBy(getLoginUserId());
         MesProRouteVersionSnapshotIdentityWriter.apply(update, snapshot.toJSONString());
         LambdaUpdateWrapper<MesProRouteVersionDO> updateWrapper = new LambdaUpdateWrapper<MesProRouteVersionDO>()
                 .eq(MesProRouteVersionDO::getId, candidate.getId())

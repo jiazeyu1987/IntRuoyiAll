@@ -11,9 +11,9 @@ async (page) => {
     rememberMe: true
   }
   const redScreenshotPath =
-    'D:/ProjectPackage/Int/IntRuoyi/yudao-ui-admin-vue3/output/playwright/login-tenant-name-default-red.png'
+    'output/playwright/login-tenant-name-default-red.png'
   const greenScreenshotPath =
-    'D:/ProjectPackage/Int/IntRuoyi/yudao-ui-admin-vue3/output/playwright/login-tenant-name-default-green.png'
+    'output/playwright/login-tenant-name-default-green.png'
 
   const openPage = async (path) => {
     await page.goto(`${frontendBase}${path}`, {

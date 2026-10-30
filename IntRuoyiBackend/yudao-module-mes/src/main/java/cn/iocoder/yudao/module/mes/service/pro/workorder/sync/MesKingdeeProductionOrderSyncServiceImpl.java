@@ -764,4 +764,15 @@ public class MesKingdeeProductionOrderSyncServiceImpl implements MesKingdeeProdu
         return left.compareTo(right);
     }
 
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public int syncByCode(String code) {
+        ErpKingdeeProperties properties = kingdeeConfigService.getEffectiveProperties();
+        properties.validateBaseConfig();
+        var orders = productionOrderClient.fetchProductionOrdersByBillNos(properties, java.util.List.of(code));
+        var result = syncProductionOrders(properties, orders, false);
+        return result.getCreatedCount() + result.getUpdatedCount();
+    }
+
 }

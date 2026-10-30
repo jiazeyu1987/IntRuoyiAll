@@ -19,6 +19,7 @@ public interface MesKingdeeBomListMapper extends BaseMapperX<MesKingdeeBomListDO
 
     default PageResult<MesKingdeeBomListDO> selectPage(MesKingdeeBomListPageReqVO reqVO) {
         return selectPage(reqVO, new LambdaQueryWrapperX<MesKingdeeBomListDO>()
+                .eqIfPresent(MesKingdeeBomListDO::getParentMaterialCode, reqVO.getSyncCode())
                 .likeIfPresent(MesKingdeeBomListDO::getBomNumber, reqVO.getBomNumber())
                 .likeIfPresent(MesKingdeeBomListDO::getParentMaterialCode, reqVO.getParentMaterialCode())
                 .likeIfPresent(MesKingdeeBomListDO::getParentMaterialName, reqVO.getParentMaterialName())

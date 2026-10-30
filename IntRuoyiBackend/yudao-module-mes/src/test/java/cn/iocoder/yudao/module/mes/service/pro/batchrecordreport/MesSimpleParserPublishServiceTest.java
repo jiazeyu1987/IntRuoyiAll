@@ -182,6 +182,11 @@ class MesSimpleParserPublishServiceTest {
         JSONObject production=saved.getJSONArray("productionProcessConfigs").getJSONObject(0);
         assertNotNull(production.getLong("craftId"));assertEquals(25,production.getJSONArray("parameterRules").getJSONObject(0).getIntValue("defaultValue"));
         assertTrue(saved.getJSONArray("batchUseConfigs").getJSONObject(0).getJSONArray("formBindings").isEmpty());
+        for (Object value : saved.getJSONArray("batchUseConfigs")) {
+            JSONObject batch = (JSONObject) value;
+            assertEquals("SEQUENTIAL", batch.getString("executionMode"));
+            assertFalse(batch.getBooleanValue("enabled"));
+        }
         assertEquals(77L,saved.getJSONArray("batchUseConfigs").getJSONObject(0).getJSONArray("inputMaterialIds").getLong(0));
         req.setRouteName("改动内容");assertThrows(ServiceException.class,()->service.publish(req));
     }

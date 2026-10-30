@@ -7,15 +7,11 @@ import java.util.*;
 /** A closed MES protocol set; policy registration cannot silently expand creation semantics. */
 @Component
 public class MesEdhrSourceCreationProtocolRegistry {
-    public enum Kind { ISSUE, REVOKE, MATERIAL, RELATED_SUBMISSION, RELATED_HANDOFF, COMPLETION_MAIN, COMPLETION_PART }
+    public enum Kind { MATERIAL, RELATED_SUBMISSION, RELATED_HANDOFF, COMPLETION_MAIN, COMPLETION_PART }
     private record Rule(String target, String operation, String locator, String subject, String action, Kind kind) {}
     private static final String BATCH = "cn.iocoder.yudao.module.mes.service.pro.batchrecord.";
     private static final String TEAM = "cn.iocoder.yudao.module.mes.service.pro.processpool.team.";
     private static final List<Rule> RULES = List.of(
-            new Rule("INDEPENDENT_BATCH_PREREQUISITE_RECEIPT", "mes.independent-batch-prerequisite-receipt.issue",
-                    BATCH + "MesIndependentBatchPrerequisiteReceiptServiceImpl#issue", "INDEPENDENT_BATCH_PREREQUISITE_RECEIPT", "CREATE", Kind.ISSUE),
-            new Rule("INDEPENDENT_BATCH_PREREQUISITE_RECEIPT", "mes.independent-batch-prerequisite-receipt.revoke",
-                    BATCH + "MesIndependentBatchPrerequisiteReceiptServiceImpl#revoke", "INDEPENDENT_BATCH_PREREQUISITE_RECEIPT", "REVOKE", Kind.REVOKE),
             new Rule("EDHR_MATERIAL_GATE_RECEIPT", "mes.edhr.material-gate.receipt.create",
                     BATCH + "MesReleaseMaterialGateReceiptPortImpl#persistReady", "EDHR_MATERIAL_GATE_RECEIPT", "CREATE", Kind.MATERIAL),
             new Rule("EDHR_MATERIAL_GATE_RECEIPT", "mes.market-release.submit",

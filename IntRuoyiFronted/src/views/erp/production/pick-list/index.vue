@@ -1,6 +1,7 @@
 <template>
   <ContentWrap class="production-sync-list erp-viewport-list">
     <UnifiedListTemplate
+      ref="codeSyncListTemplate"
       table-key="erp.production.pickList.main"
       single-line-toolbar
       :query-model="queryParams"
@@ -25,6 +26,8 @@
       @column-filter-reset="getList"
     >
       <template #actions>
+        <SyncByCodeButton sync-type="PRODUCTION_PICK_LIST" code-label="生产领料单号" :on-synced="handleCodeSynced" />
+        <el-button v-if="queryParams.syncCode" plain @click="clearCodeSyncFilter">显示全部</el-button>
         <RecentFullSyncButton sync-type="PRODUCTION_PICK_LIST" />
       </template>
 
@@ -237,6 +240,9 @@
   </ContentWrap>
 </template>
 <script setup lang="ts">
+import SyncByCodeButton from '@/views/erp/components/SyncByCodeButton.vue'
+import { useErpCodeSyncFilter } from '@/views/erp/components/useErpCodeSyncFilter'
+
 import { loadAllListPages } from '@/hooks/web/useListColumnFilter'
 
 import RecentFullSyncButton from '@/views/erp/components/RecentFullSyncButton.vue'
@@ -424,6 +430,7 @@ const loading = ref(true)
 const list = ref<ErpProductionPickListVO[]>([])
 const total = ref(0)
 const queryParams = reactive({
+  syncCode: undefined as string | undefined,
   pageNo: 1,
   pageSize: 10,
   sourceBillNo: undefined as string | undefined,
@@ -483,6 +490,11 @@ const loadColumnFilterRows0 = async () => {
   )
   return rows
 }
+
+const codeSyncListTemplate = ref<InstanceType<typeof UnifiedListTemplate>>()
+const { handleCodeSynced, clearCodeSyncFilter } = useErpCodeSyncFilter(
+  queryParams, pickListQuickFilterState, getList, () => codeSyncListTemplate.value!.resetColumnFilters()
+)
 </script>
 
 <style scoped>

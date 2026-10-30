@@ -18,4 +18,6 @@ public class ErpStockPageReqVO extends PageParam {
     @Schema(description = "仓库编号", example = "2802")
     private Long warehouseId;
 
+
+    private String syncCode;
 }

@@ -52,25 +52,6 @@ public final class MesProEdhrBatchTraceFormalSourceResolver {
         return requireEvidence(persistedEvidence);
     }
 
-    public static JSONArray resolveIndependent(Long tenantId, MesIndependentBatchPrerequisiteReceipt receipt,
-                                               JSONObject metadata, JSONArray persistedEvidence) {
-        if (receipt == null) {
-            throw blocked("FORMAL_SOURCE_RECEIPT_REQUIRED", "Flow 9 prerequisite receipt is missing");
-        }
-        if (!Objects.equals(tenantId, receipt.getTenantId())
-                || !Objects.equals(receipt.getEntryType(), metadata.getString("entryType"))
-                || !Objects.equals(receipt.getSourceSnapshotHash(), metadata.getString("sourceSnapshotHash"))) {
-            throw blocked("SOURCE_SNAPSHOT_HASH_MISMATCH", "Flow 9 receipt identity or snapshot changed");
-        }
-        require(metadata, "sourceCredentialId");
-        require(metadata, "sourceCredentialHash");
-        if (!Objects.equals(receipt.getReceiptId(), metadata.getString("sourceCredentialId"))
-                || !Objects.equals(receipt.getReceiptHash(), metadata.getString("sourceCredentialHash"))) {
-            throw blocked("SOURCE_SNAPSHOT_HASH_MISMATCH", "Flow 9 credential witness does not match Flow 6 context");
-        }
-        return requireEvidence(persistedEvidence);
-    }
-
     private static JSONArray requireEvidence(JSONArray evidence) {
         if (evidence == null || evidence.isEmpty()) {
             throw blocked("FORMAL_SOURCE_EVIDENCE_REQUIRED",

@@ -46,4 +46,6 @@ public class ErpStockRespVO {
     @ExcelProperty("仓库名称")
     private String warehouseName;
 
+
+    private String productBarCode;
 }

@@ -13,4 +13,6 @@ public interface ErpKingdeeProductionReplenishmentListClient {
     List<ErpKingdeeProductionReplenishmentList> fetchProductionReplenishmentListsModifiedBetween(
             ErpKingdeeProperties properties, LocalDateTime windowStart, LocalDateTime windowEnd);
 
+
+    List<ErpKingdeeProductionReplenishmentList> fetchByCode(ErpKingdeeProperties properties, String code);
 }

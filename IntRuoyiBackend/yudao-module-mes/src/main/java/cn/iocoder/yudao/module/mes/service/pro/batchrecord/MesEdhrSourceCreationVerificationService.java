@@ -23,7 +23,6 @@ import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesEdhrSourceC
 public class MesEdhrSourceCreationVerificationService {
     @jakarta.annotation.Resource private MesEdhrReleaseSubmissionMaterialAssociationMapper submissionAssociations;
     @jakarta.annotation.Resource private MesEdhrManagedHandoffMaterialAssociationMapper managedAssociations;
-    private final MesIndependentBatchPrerequisiteReceiptMapper independent;
     private final MesProEdhrMaterialGateReceiptMapper materials;
     private final MesProcessPoolActiveOrderCompletionReceiptMapper completions;
     private final MesEdhrSourceOwnerIntegrity owner;
@@ -31,72 +30,11 @@ public class MesEdhrSourceCreationVerificationService {
     private final GxpCreationAuditVerificationService shared;
     private final MesEdhrSourceCreationProtocolRegistry registry;
 
-    public MesEdhrSourceCreationVerificationService(MesIndependentBatchPrerequisiteReceiptMapper independent,
-            MesProEdhrMaterialGateReceiptMapper materials, MesProcessPoolActiveOrderCompletionReceiptMapper completions,
+    public MesEdhrSourceCreationVerificationService(MesProEdhrMaterialGateReceiptMapper materials, MesProcessPoolActiveOrderCompletionReceiptMapper completions,
             MesEdhrSourceOwnerIntegrity owner, MesEdhrSourceCreationBindingStore bindings,
             GxpCreationAuditVerificationService shared, MesEdhrSourceCreationProtocolRegistry registry) {
-        this.independent = independent; this.materials = materials; this.completions = completions;
+        this.materials = materials; this.completions = completions;
         this.owner = owner; this.bindings = bindings; this.shared = shared; this.registry = registry;
-    }
-
-    public MesEdhrSourceCreationEvidence requireIndependentCreation(Long tenantId, String receiptId) {
-        MesEdhrSourceCreationBindingStore.tenant(tenantId); MesEdhrSourceCreationBindingStore.text(receiptId, 128);
-        var row = independent.selectByReceiptId(tenantId, receiptId);
-        require(row != null, "SOURCE_ROW_MISSING"); source(row.getTenantId(), row.getId(), tenantId);
-        eq(receiptId, row.getReceiptId()); positiveStored(row.getCredentialVersion());
-        ObjectNode request = owner.independentRequest(row);
-        String version = row.getCredentialVersion().toString(); String target = "INDEPENDENT_BATCH_PREREQUISITE_RECEIPT";
-        if (cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditDevelopmentMode.disabled()) {
-            if ("ISSUED".equals(row.getStatus())) {
-                require(row.getRevokedAt() == null && row.getRevocationReason() == null, "SOURCE_LIFECYCLE_MISMATCH");
-            } else if ("REVOKED".equals(row.getStatus())) {
-                require(row.getRevokedAt() != null && row.getRevocationReason() != null
-                        && !row.getRevocationReason().isBlank(), "SOURCE_LIFECYCLE_MISMATCH");
-            } else throw fail("SOURCE_LIFECYCLE_MISMATCH");
-            return developmentProof("INDEPENDENT_ISSUE_V1", row.getId(), receiptId, version, row.getReceiptHash());
-        }
-        var binding = forward(tenantId, "INDEPENDENT_ISSUE_V1", row.getId(), receiptId, version, row.getReceiptHash());
-        var candidates = candidates(tenantId, target, row.getId(), version, row.getReceiptHash());
-        var issue = one(candidates, ISSUE);
-        ObjectNode state = decodeIssue(issue.columns().afterStateJson());
-        ObjectNode expected = issueState(row, request);
-        require(state.equals(expected), "SOURCE_OWNER_INTEGRITY_FAILED");
-        String key = MesEdhrSourceCreationCodec.issueAuditKey(tenantId, row.getEntryType(), row.getIdempotencyKey());
-        header(issue, "INDEPENDENT_RECEIPT:" + receiptId, version, row.getIssuerUserId(), "ABSENT", "ISSUED", version, version,
-                row.getBusinessReason(), "MES_INDEPENDENT_RECEIPT_ISSUE", "USER", key, key);
-        eq("{}", issue.columns().beforeStateJson());
-        exactRelations(issue, List.of(anchor(target, row.getId(), version, row.getReceiptHash())));
-        exactEvidence(issue, List.of(new GxpAuditEvidence("INDEPENDENT_PREREQUISITE_RECEIPT", receiptId, version, row.getReceiptHash(), "CREATION")));
-        matchBinding(tenantId, binding, issue, state);
-        List<VerifiedAuditEventFact> revokes = byKind(candidates, REVOKE);
-        if ("ISSUED".equals(row.getStatus())) {
-            require(row.getRevokedAt() == null && row.getRevocationReason() == null && revokes.isEmpty(), "SOURCE_LIFECYCLE_MISMATCH");
-            require(bindings.readBySourceRow(tenantId, "INDEPENDENT_REVOKE_V1", row.getId()).isEmpty()
-                    && bindings.readByReceiptVersion(tenantId, "INDEPENDENT_REVOKE_V1", receiptId, version).isEmpty(), "SOURCE_LIFECYCLE_MISMATCH");
-        } else if ("REVOKED".equals(row.getStatus())) {
-            require(revokes.size() == 1 && row.getRevokedAt() != null && row.getRevocationReason() != null
-                    && !row.getRevocationReason().isBlank(), "SOURCE_LIFECYCLE_MISMATCH");
-            var revoke = revokes.get(0); var c = revoke.columns();
-            ObjectNode revoked;
-            try { revoked = MesEdhrSourceCreationCodec.decodeRevokeStateV1(bytes(c.afterStateJson())); }
-            catch (IllegalArgumentException e) { throw new IllegalStateException("SOURCE_LIFECYCLE_MISMATCH", e); }
-            eq(issue.columns().afterStateJson(), c.beforeStateJson());
-            require(state.equals(revoked.get("creationState")), "SOURCE_LIFECYCLE_MISMATCH");
-            eqNode(revoked, "creationEventId", LongNode.valueOf(issue.eventId())); eqNode(revoked, "creationEventHash", TextNode.valueOf(issue.eventHash()));
-            ObjectNode revokeRequest = (ObjectNode) revoked.get("revocationRequest");
-            eqNode(revokeRequest, "authenticatedActor", LongNode.valueOf(c.actorId()));
-            eqNode(revoked, "revokedAt", TextNode.valueOf(second(row.getRevokedAt())));
-            eqNode(revoked, "revocationReason", TextNode.valueOf(row.getRevocationReason()));
-            String revokeKey = MesEdhrSourceCreationCodec.revokeAuditKey(tenantId, receiptId, row.getCredentialVersion());
-            header(revoke, "INDEPENDENT_RECEIPT:" + receiptId, version, c.actorId(), "ISSUED", "REVOKED", version, version,
-                    row.getRevocationReason(), "MES_INDEPENDENT_RECEIPT_REVOKE", "USER", revokeKey, revokeKey);
-            exactRelations(revoke, List.of(anchor(target, row.getId(), version, row.getReceiptHash()),
-                    new GxpAuditRelation("SOURCE", "GXP_AUDIT_EVENT", issue.eventId().toString(), null, issue.eventHash())));
-            exactEvidence(revoke, List.of());
-            var revokeBinding = forward(tenantId, "INDEPENDENT_REVOKE_V1", row.getId(), receiptId, version, row.getReceiptHash());
-            matchBinding(tenantId, revokeBinding, revoke, revoked);
-        } else throw fail("SOURCE_LIFECYCLE_MISMATCH");
-        return proof("INDEPENDENT_ISSUE_V1", row.getId(), receiptId, version, row.getReceiptHash(), issue);
     }
 
     public MesEdhrSourceCreationEvidence requireMaterialCreation(Long tenantId, Long batchExecutionId, String receiptId) {
@@ -228,23 +166,7 @@ public class MesEdhrSourceCreationVerificationService {
                 && Objects.equals(f.requestHash(), text(state.get("requestHash"))), "SOURCE_BINDING_MISMATCH");
         require(List.of(binding).equals(bindings.readByCreationEvent(tenant, event.eventId())), "SOURCE_REVERSE_BINDING_CONFLICT");
     }
-    private static ObjectNode issueState(MesIndependentBatchPrerequisiteReceiptDO row, ObjectNode request) {
-        var hash = MesEdhrSourceCreationCodec.encodeIssueRequestV1(request).sha256();
-        ObjectNode state = JsonNodeFactory.instance.objectNode().put("codecVersion", "MES-OC-JSON-V1").put("stateKind", "ISSUE_STATE_V1")
-                .put("sourceRowId", row.getId()).put("receiptId", row.getReceiptId()).put("credentialVersion", row.getCredentialVersion())
-                .put("issuerUserRole", row.getIssuerUserRole()).put("issuedAt", second(row.getIssuedAt())).put("expiresAt", second(row.getExpiresAt()))
-                .put("status", "ISSUED").putNull("revokedAt").putNull("revocationReason").put("legacyOwnerAuditToken", row.getAuditEventId())
-                .put("canonicalPayloadRaw", row.getCanonicalPayload()).put("sourceEvidenceJsonRaw", row.getSourceEvidenceJson())
-                .put("payloadHash", row.getPayloadHash()).put("signature", row.getSignature()).put("receiptHash", row.getReceiptHash())
-                .put("requestHashVersion", "INDEPENDENT_ISSUE_REQUEST_V1").put("requestHash", hash);
-        state.set("request", request);
-        try { return MesEdhrSourceCreationCodec.decodeIssueStateV1(MesEdhrSourceCreationCodec.encodeIssueStateV1(state).utf8Bytes()); }
-        catch (IllegalArgumentException e) { throw new IllegalStateException("SOURCE_OWNER_INTEGRITY_FAILED", e); }
-    }
-    private static ObjectNode decodeIssue(String raw) {
-        try { return MesEdhrSourceCreationCodec.decodeIssueStateV1(bytes(raw)); }
-        catch (IllegalArgumentException e) { throw new IllegalStateException("SOURCE_OWNER_INTEGRITY_FAILED", e); }
-    }
+
     private void related(MesEdhrSourceCreationProtocolRegistry.Kind kind, VerifiedAuditEventFact event,
             MesProEdhrMaterialGateReceiptDO row, VerifiedAuditEventFact creation) {
         var c = event.columns();

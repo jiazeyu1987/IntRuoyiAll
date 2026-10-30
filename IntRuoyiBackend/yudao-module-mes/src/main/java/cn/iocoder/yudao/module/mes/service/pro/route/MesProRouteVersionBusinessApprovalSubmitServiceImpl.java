@@ -3,6 +3,8 @@ package cn.iocoder.yudao.module.mes.service.pro.route;
 import cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.bpm.businessapproval.model.BusinessApprovalContext;
+import cn.iocoder.yudao.module.bpm.businessapproval.model.BusinessApprovalException;
+import cn.iocoder.yudao.module.bpm.businessapproval.service.BusinessApprovalErrorCode;
 import cn.iocoder.yudao.module.bpm.businessapproval.service.BusinessApprovalOrchestrator;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteVersionDO;
 import com.alibaba.fastjson.JSON;
@@ -18,6 +20,7 @@ import java.util.Map;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_ROUTE_VERSION_CANDIDATE_NOT_PUBLISHABLE;
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_ROUTE_VERSION_PUBLISH_POLICY_NOT_FOUND;
 
 @Service
 @Validated
@@ -42,7 +45,14 @@ public class MesProRouteVersionBusinessApprovalSubmitServiceImpl
             return candidate;
         }
         requireDraftCandidate(candidate);
-        businessApprovalOrchestrator.submit(buildPublishContext(candidate, requireApplicantUserId()));
+        try {
+            businessApprovalOrchestrator.submit(buildPublishContext(candidate, requireApplicantUserId()));
+        } catch (BusinessApprovalException ex) {
+            if (ex.getErrorCode() == BusinessApprovalErrorCode.BUSINESS_APPROVAL_POLICY_NOT_FOUND) {
+                throw exception(PRO_ROUTE_VERSION_PUBLISH_POLICY_NOT_FOUND);
+            }
+            throw ex;
+        }
         return workflowService.getVersion(routeVersionId);
     }
 

@@ -18,7 +18,6 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPool
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderPickListBindingMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationMapper;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesIndependentBatchPrerequisiteReceipt;
-import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesIndependentBatchPrerequisiteReceiptService;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchTraceLinkType;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchTraceabilityService;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesFlow6CompletionBackfillReceipt;
@@ -54,14 +53,14 @@ class MesReleaseAuthoritativeContextPortImplTest {
     @Mock ObjectProvider<MesReleaseMaterialGateReceiptPort> materialGateReceiptPort;
     @Mock MesReleaseMaterialGateReceiptPort materialGatePort;
     @Mock MesProEdhrBatchTraceabilityService traceabilityService;
-    @Mock MesIndependentBatchPrerequisiteReceiptService independentReceiptService;
+
 
     @Mock cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrWorkTaskMapper approvalTasks;
     @Mock cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesEdhrReleaseMaterialSelectionRegistry selections;
     private MesReleaseAuthoritativeContextPortImpl port() {
         var port=new MesReleaseAuthoritativeContextPortImpl(releaseTransactionMapper,batchExecutionMapper,
             applicationMapper,originMapper,activeOrderMapper,backfillMapper,pickListBindingMapper,
-            completionReceiptPort,materialGateReceiptPort,traceabilityService,independentReceiptService);
+            completionReceiptPort,materialGateReceiptPort,traceabilityService);
         org.springframework.test.util.ReflectionTestUtils.setField(port,"approvalTasks",approvalTasks);
         org.springframework.test.util.ReflectionTestUtils.setField(port,"materialSelections",selections);
         org.mockito.Mockito.lenient().when(approvalTasks.selectById(50L)).thenReturn(
@@ -90,7 +89,7 @@ class MesReleaseAuthoritativeContextPortImplTest {
     }
 
     @Test
-    void independentEntryReadsPersistedReceiptAndDoesNotRequireActiveOrder() {
+    void independentEntryIsRejectedBeforeReceiptOrMaterialLoading() {
         TenantContextHolder.setTenantId(1L);
         MesProEdhrReleaseTransactionDO transaction = new MesProEdhrReleaseTransactionDO()
                 .setId(10L).setBatchExecutionId(20L).setReleaseStatus("PENDING_APPROVAL").setVersion(3);
@@ -107,21 +106,10 @@ class MesReleaseAuthoritativeContextPortImplTest {
         MesProEdhrBatchTraceSourcePrecheckRespVO source = new MesProEdhrBatchTraceSourcePrecheckRespVO()
                 .setBatchExecutionId(20L).setOriginLinkId(61L).setTraceLinkHash("trace-hash")
                 .setSourceSnapshotHash("source-snapshot").setRelationStatus("CAPTURED");
-        MesReleaseMaterialGateReceipt gate = completeGate("independent-gate", 20L, "source-snapshot");
-        MesIndependentBatchPrerequisiteReceipt receipt = independentReceipt();
-
         when(releaseTransactionMapper.selectById(10L)).thenReturn(transaction);
         when(applicationMapper.selectListByReleaseTransactionId(10L)).thenReturn(List.of(application));
         when(batchExecutionMapper.selectById(20L)).thenReturn(batch);
         when(originMapper.selectListByBatchExecutionId(20L)).thenReturn(List.of(origin));
-        when(traceabilityService.resolveSourcePrecheck(org.mockito.ArgumentMatchers.any()))
-                .thenReturn(source);
-        when(materialGateReceiptPort.orderedStream()).thenReturn(Stream.of(materialGatePort));
-        when(materialGatePort.getVerifiedByReceiptId(1L, 20L, "independent-gate", "source-snapshot"))
-                .thenReturn(gate);
-        when(independentReceiptService.getVerifiedByReceiptId(1L, "independent-1", "MANUAL", "source-snapshot"))
-                .thenReturn(receipt);
-
         MesReleaseFinalizationCommand command = new MesReleaseFinalizationCommand()
                 .setReleaseTransactionId(10L).setReleaseApplicationId(30L).setBatchExecutionId(20L)
                 .setWorkTaskId(50L).setOrigin(MesReleaseOrigin.MANUAL).setEntryType("MANUAL")
@@ -129,13 +117,9 @@ class MesReleaseAuthoritativeContextPortImplTest {
                 .setMaterialGateReceiptId("independent-gate").setActorUserId(100L)
                 .setExpectedVersion(3).setIdempotencyKey("release-idem").setSignoffEvidenceHash("signoff");
 
-        MesReleaseFinalizationEvidence evidence = port().require(command);
+        assertThrows(MesReleaseFlowBlockerException.class, () -> port().require(command));
+        org.mockito.Mockito.verifyNoInteractions(completionReceiptPort, materialGateReceiptPort, traceabilityService);
 
-        assertSame(gate, evidence.getMaterialGateReceipt());
-        assertEquals("independent-1", evidence.getIndependentPrerequisiteReceipt().getReceiptId());
-        assertEquals(20L, evidence.getIndependentPrerequisiteReceipt().getBatchExecutionId());
-        assertNull(command.getActiveOrderId());
-        assertNull(command.getPickListId());
     }
 
     @Test

@@ -2,6 +2,7 @@
 <template>
   <ContentWrap class="erp-viewport-list">
     <UnifiedListTemplate
+      ref="codeSyncListTemplate"
       table-key="erp.production.material-list.main"
       single-line-toolbar
       :query-model="queryParams"
@@ -25,6 +26,8 @@
       :column-filter-definitions="listColumnFilterDefinitions0"
     >
       <template #actions>
+        <SyncByCodeButton sync-type="PRODUCTION_MATERIAL_LIST" code-label="单据编号" :on-synced="handleCodeSynced" />
+        <el-button v-if="queryParams.syncCode" plain @click="clearCodeSyncFilter">显示全部</el-button>
         <RecentFullSyncButton sync-type="PRODUCTION_MATERIAL_LIST" />
       </template>
       <template #table="{ resolveRows }">
@@ -260,6 +263,9 @@
   </el-dialog>
 </template>
 <script setup lang="ts">
+import SyncByCodeButton from '@/views/erp/components/SyncByCodeButton.vue'
+import { useErpCodeSyncFilter } from '@/views/erp/components/useErpCodeSyncFilter'
+
 import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
 
 import RecentFullSyncButton from '@/views/erp/components/RecentFullSyncButton.vue'
@@ -399,6 +405,7 @@ const detailDialogTitle = computed(() =>
   currentSourceBillNo.value ? `单据明细 - ${currentSourceBillNo.value}` : '单据明细'
 )
 const queryParams = reactive({
+  syncCode: undefined as string | undefined,
   pageNo: 1,
   pageSize: 10,
   sourceBillNo: undefined as string | undefined,
@@ -592,6 +599,11 @@ const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() =
       ].join(' ')
   }
 ])
+
+const codeSyncListTemplate = ref<InstanceType<typeof UnifiedListTemplate>>()
+const { handleCodeSynced, clearCodeSyncFilter } = useErpCodeSyncFilter(
+  queryParams, quickFilter.state, getList, () => codeSyncListTemplate.value!.resetColumnFilters()
+)
 </script>
 
 <style scoped lang="scss">

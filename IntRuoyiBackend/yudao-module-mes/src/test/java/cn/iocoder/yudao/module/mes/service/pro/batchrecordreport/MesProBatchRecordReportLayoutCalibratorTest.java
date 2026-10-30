@@ -20,7 +20,7 @@ class MesProBatchRecordReportLayoutCalibratorTest {
 
     private static final Path PILOT_SAMPLE = BatchRecordReportTestFixtures.pressurePumpRecordDoc();
     private static final Path FIXED_SAMPLE = Path.of(
-            "D:\\ProjectPackage\\Int\\IntRuoyi\\resource\\批记录模板.doc");
+            "../../resource/批记录模板.doc");
     private static final Path PRESSURE_PUMP_SAMPLE = BatchRecordReportTestFixtures.pressurePumpRecordDoc();
 
     private final MesProBatchRecordDocParser parser = new MesProBatchRecordDocParser();

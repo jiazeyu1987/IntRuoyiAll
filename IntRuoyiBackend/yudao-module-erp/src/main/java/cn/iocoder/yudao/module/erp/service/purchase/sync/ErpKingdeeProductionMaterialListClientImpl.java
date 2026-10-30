@@ -475,4 +475,24 @@ public class ErpKingdeeProductionMaterialListClientImpl implements ErpKingdeePro
         return new ArrayList<>(normalized);
     }
 
+
+    @Override
+    public List<ErpKingdeeProductionMaterialList> fetchProductionMaterialListsByCode(ErpKingdeeProperties properties, String code) {
+        properties.validateProductionOrderSyncConfig();
+        String cookie = login(properties);
+        String filter = "FBillNo = '" + code.replace("'", "''") + "'";
+        List<ErpKingdeeProductionMaterialList> result = new ArrayList<>();
+        int offset = 0;
+        int limit = Math.min(PAGE_LIMIT, properties.getProductionOrder().getQueryLimit());
+        while (true) {
+            JsonNode rows = executeBillQuery(properties, cookie, filter, offset, limit);
+            if (!rows.isArray()) {
+                throw exception(KINGDEE_PRODUCTION_ORDER_RESPONSE_INVALID, "PRD_PPBOM response is not an array");
+            }
+            for (JsonNode row : rows) { result.add(buildRow(row)); }
+            if (rows.size() < limit) { break; }
+            offset += rows.size();
+        }
+        return result;
+    }
 }

@@ -20,6 +20,8 @@ export interface ProRouteVO {
   remark?: string // 备注
   lastProcessName?: string // 末道工序
   productCodes?: string // 关联产品编号
+  productCount?: number // 正式关联产品数量
+  dccProjectCode?: string // 正式关联项目代码
   flowGraphConfigured?: boolean // 关系图是否已设置
   activeRouteVersionId?: number // 当前激活路线版本编号
   activeRouteVersionNo?: string // 当前激活路线版本号
@@ -90,8 +92,10 @@ export interface RouteDccProjectBindingVO {
 
 export interface RouteDccProjectBindingSaveReqVO {
   routeId: number
+  routeVersionId?: MesRouteId
   dccProjectCodeId: number
   expectedVersion?: number
+  confirmedProductItemIds: number[]
 }
 
 export interface ProRouteScheduleConfigVO {
@@ -127,6 +131,8 @@ export interface ProRouteVersionVO {
   active: boolean
   lifecycleStatus: ProRouteVersionLifecycleStatus
   sourceRouteVersionId?: number
+  lastSavedBy?: number
+  lastSavedUserName?: string
   submittedBy?: number
   submittedTime?: string
   approvalProcessInstanceId?: string
@@ -139,6 +145,13 @@ export interface RouteVersionEditContext {
   routeVersionId: MesRouteId
   versionNo: string
   lifecycleStatus: ProRouteVersionLifecycleStatus
+}
+
+export interface RouteVersionNameVO {
+  routeVersionId: MesRouteId
+  routeId: MesRouteId
+  name: string
+  routeSnapshotSha256: string
 }
 
 export interface ProRouteVersionCreateReqVO {
@@ -558,6 +571,21 @@ export const ProRouteApi = {
       url: `${PRO_ROUTE_VERSION_BASE_URL}/production-process-config/save`,
       data
     })
+  },
+
+  getRouteVersionName: async (id: MesRouteId) => {
+    return await request.get<RouteVersionNameVO>({
+      url: `${PRO_ROUTE_VERSION_BASE_URL}/name`,
+      params: { id }
+    })
+  },
+
+  saveRouteVersionName: async (data: {
+    routeVersionId: MesRouteId
+    name: string
+    expectedRouteSnapshotSha256: string
+  }) => {
+    return await request.post({ url: `${PRO_ROUTE_VERSION_BASE_URL}/name/save`, data })
   },
 
   // 查询候选版本发布阻断项

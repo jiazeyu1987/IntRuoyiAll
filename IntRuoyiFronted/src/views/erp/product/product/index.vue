@@ -4,6 +4,7 @@
 
   <ContentWrap class="erp-viewport-list">
     <UnifiedListTemplate
+      ref="codeSyncListTemplate"
       table-key="erp.product.product.main"
       single-line-toolbar
       :query-model="queryParams"
@@ -27,6 +28,8 @@
       :column-filter-definitions="listColumnFilterDefinitions0"
     >
       <template #actions>
+        <SyncByCodeButton sync-type="PRODUCT" code-label="条码" :on-synced="handleCodeSynced" />
+        <el-button v-if="queryParams.syncCode" plain @click="clearCodeSyncFilter">显示全部</el-button>
         <RecentFullSyncButton sync-type="PRODUCT" />
         <el-dropdown trigger="click" v-hasPermi="['erp:product:create', 'erp:product:export']">
           <el-button type="primary" plain :loading="exportLoading">
@@ -183,6 +186,9 @@
   <ProductForm ref="formRef" @success="getList" />
 </template>
 <script setup lang="ts">
+import SyncByCodeButton from '@/views/erp/components/SyncByCodeButton.vue'
+import { useErpCodeSyncFilter } from '@/views/erp/components/useErpCodeSyncFilter'
+
 import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
 import { getDictOptions as listColumnDictOptions } from '@/utils/dict'
 
@@ -215,6 +221,7 @@ const loading = ref(true)
 const list = ref<ProductVO[]>([])
 const total = ref(0)
 const queryParams = reactive({
+  syncCode: undefined as string | undefined,
   pageNo: 1,
   pageSize: 10,
   name: undefined,
@@ -405,4 +412,9 @@ const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() =
     options: listColumnDictOptions(DICT_TYPE.COMMON_STATUS)
   }
 ])
+
+const codeSyncListTemplate = ref<InstanceType<typeof UnifiedListTemplate>>()
+const { handleCodeSynced, clearCodeSyncFilter } = useErpCodeSyncFilter(
+  queryParams, quickFilter.state, getList, () => codeSyncListTemplate.value!.resetColumnFilters()
+)
 </script>

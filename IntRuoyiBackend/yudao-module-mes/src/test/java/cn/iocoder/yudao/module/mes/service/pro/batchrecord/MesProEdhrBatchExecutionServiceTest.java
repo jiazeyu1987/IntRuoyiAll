@@ -361,8 +361,6 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     @MockitoBean
     private MesProEdhrBatchProvisioningRecordMapper provisioningRecordMapper;
     @MockitoBean
-    private MesIndependentBatchPrerequisiteReceiptService independentBatchPrerequisiteReceiptService;
-    @MockitoBean
     private MesProBatchRecordCellLinkAutoPersistService cellLinkAutoPersistService;
     @MockitoBean
     private MesProBatchRecordCellLinkService cellLinkService;

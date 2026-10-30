@@ -3,6 +3,9 @@
 <mapper namespace="cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesKingdeeProductionMaterialListMapper">
 
     <sql id="MatchedBillFilters">
+        <if test="reqVO.syncCode != null and reqVO.syncCode != ''">
+            AND matched.source_bill_no = #{reqVO.syncCode}
+        </if>
         <if test="reqVO.sourceBillNo != null and reqVO.sourceBillNo != ''">
             AND matched.source_bill_no LIKE CONCAT('%', #{reqVO.sourceBillNo}, '%')
         </if>

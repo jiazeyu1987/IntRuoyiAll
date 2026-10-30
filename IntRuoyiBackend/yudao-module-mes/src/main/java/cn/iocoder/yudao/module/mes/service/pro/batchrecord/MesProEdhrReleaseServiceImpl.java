@@ -744,9 +744,11 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
         var source = batchTraceabilityService.resolveSourcePrecheck(new MesProEdhrBatchTraceSourcePrecheckCommand().setBatchExecutionId(observed.batch().getId()));
         if (!Objects.equals(origin.getTenantId(), observed.tenantId()) || !Objects.equals(origin.getSourceSnapshotHash(), source.getSourceSnapshotHash()))
             throw new IllegalStateException("APPROVAL_SOURCE_ORIGIN_MISMATCH");
-        MesEdhrSourceCreationEvidence provenance = "ACTIVE_ORDER_COMPLETION".equals(origin.getEntryType())
-                ? sourceCreation.requireCompletionCreation(observed.tenantId(), origin.getCompletionBackfillReceiptId())
-                : sourceCreation.requireIndependentCreation(observed.tenantId(), origin.getSourceCredentialId());
+        if (!"ACTIVE_ORDER_COMPLETION".equals(origin.getEntryType())) {
+            throw new IllegalStateException("独立凭证功能已删除，请使用活跃订单完工来源");
+        }
+        MesEdhrSourceCreationEvidence provenance = sourceCreation.requireCompletionCreation(
+                observed.tenantId(), origin.getCompletionBackfillReceiptId());
         var selection = materialSelection.requireCurrentVerified(observed.tenantId(), observed.transaction(), observed.task(), managed);
         var applications = releaseApplicationMapper.selectListByReleaseTransactionId(observed.transaction().getId());
         if (managed && (applications == null || applications.size() != 1)) throw new IllegalStateException("MANAGED_APPLICATION_REQUIRED");

@@ -31,6 +31,7 @@ import java.math.BigDecimal;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.doThrow;
@@ -202,6 +203,7 @@ class MesProRouteVersionWorkflowServiceTest {
         String refreshedSnapshot = validSnapshotJsonWithBatchBinding();
         MesProRouteVersionDO active = activeVersion();
         active.setRouteSnapshotJson(staleActiveSnapshot);
+        active.setLastSavedBy(31L);
         when(routeVersionMapper.selectActiveByRouteIdForUpdate(9001L)).thenReturn(active);
         when(routeVersionMapper.selectMaxVersionNoByRouteId(9001L)).thenReturn("V1");
         when(routeService.buildCurrentRouteSnapshotJson(9001L, 1001L)).thenReturn(refreshedSnapshot);
@@ -223,6 +225,7 @@ class MesProRouteVersionWorkflowServiceTest {
                 "后续候选版本必须从当前工序配置生成包含 formBindings 的完整快照");
         verify(routeService).buildCurrentRouteSnapshotJson(9001L, 1001L);
         assertEquals("V2", candidate.getVersionNo());
+        assertNull(candidate.getLastSavedBy(), "新建草稿不得继承来源版本保存人");
     }
 
     @Test

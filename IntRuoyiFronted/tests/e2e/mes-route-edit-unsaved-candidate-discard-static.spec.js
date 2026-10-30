@@ -42,8 +42,8 @@ assert.match(
 )
 assert.match(
   editPage,
-  /const\s+shouldPromptUnsavedCandidateDraftBeforeExit\s*=\s*computed\([\s\S]*lifecycleStatus\s*===\s*'DRAFT'[\s\S]*isListEditCandidateDraftExitGuardEnabled[\s\S]*hasRouteCandidateDraftChanges/,
-  'DRAFT 候选版本离开前必须触发草稿保存提示：列表直建草稿始终提示，已有草稿存在页面未保存改动时也必须提示。'
+  /const\s+shouldPromptUnsavedCandidateDraftBeforeExit\s*=\s*computed\([\s\S]*lifecycleStatus\s*===\s*'DRAFT'[\s\S]*hasRouteCandidateDraftChanges/,
+  'DRAFT 候选版本只有存在页面未保存改动时才提示保存，包括列表直建草稿。'
 )
 
 assert.match(
@@ -65,22 +65,23 @@ assert.match(
 const leaveConfirm = getFunctionBody(editPage, 'confirmUnsavedCandidateDraftBeforeExit')
 assert.match(
   leaveConfirm,
-  /ElMessageBox\.confirm\([\s\S]*保存草稿[\s\S]*不保存草稿[\s\S]*distinguishCancelAndClose:\s*true/,
-  '退出列表直建候选草稿时，必须显示“保存草稿 / 不保存草稿”并区分关闭弹框。'
+  /ElMessageBox\.confirm\([\s\S]*confirmButtonText:\s*'保存'[\s\S]*cancelButtonText:\s*'不保存'[\s\S]*distinguishCancelAndClose:\s*true/,
+  '退出编辑草稿时，必须提供保存和不保存，并区分关闭弹框。'
 )
 assert.match(
   leaveConfirm,
   /await\s+content\.submitForm\(\)/,
   '用户选择“保存草稿”且存在未保存变更时，必须先保存候选草稿再离开页面，且不弹保存后发布提示。'
 )
+const discardDraft = getFunctionBody(editPage, 'discardListEditCandidateDraft')
+assert.match(discardDraft, /ProRouteApi\.cancelRouteCandidateVersion\(context\.routeVersionId\)/,
+  '丢弃本次列表直建草稿时必须调用候选版本取消接口。')
+assert.match(leaveConfirm,
+  /!shouldPromptUnsavedCandidateDraftBeforeExit\.value[\s\S]*shouldDiscardListEditCandidateDraftBeforeExit\.value[\s\S]*discardListEditCandidateDraft\(false\)/,
+  '未修改的列表直建草稿直接丢弃退出，不提示保存。')
 assert.match(
   leaveConfirm,
-  /isListEditCandidateDraftExitGuardEnabled\.value[\s\S]*ProRouteApi\.cancelRouteCandidateVersion\(context\.routeVersionId\)/,
-  '用户选择“不保存草稿”时，必须调用候选版本取消接口丢弃本次列表直建草稿。'
-)
-assert.match(
-  leaveConfirm,
-  /error\s*===\s*'cancel'[\s\S]*cancelRouteCandidateVersion/,
+  /error\s*===\s*'cancel'[\s\S]*discardListEditCandidateDraft\(\)/,
   'Element Plus cancel 分支必须表示“不保存草稿”并丢弃候选版本。'
 )
 assert.match(

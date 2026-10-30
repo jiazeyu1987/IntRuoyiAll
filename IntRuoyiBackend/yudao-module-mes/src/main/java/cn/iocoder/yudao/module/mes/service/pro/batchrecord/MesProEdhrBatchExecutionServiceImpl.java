@@ -476,8 +476,6 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
     @Resource
     private MesBatchExecutionEntryContractService batchExecutionEntryContractService;
     @Resource
-    private MesIndependentBatchPrerequisiteReceiptService independentBatchPrerequisiteReceiptService;
-    @Resource
     private MesBatchExecutionAuthoritativeContextResolver authoritativeContextResolver;
     @Resource
     private MesProEdhrBatchProvisioningRecordMapper provisioningRecordMapper;

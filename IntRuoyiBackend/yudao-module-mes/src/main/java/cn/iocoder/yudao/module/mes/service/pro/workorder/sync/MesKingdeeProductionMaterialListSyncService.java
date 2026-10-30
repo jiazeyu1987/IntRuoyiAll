@@ -14,4 +14,7 @@ public interface MesKingdeeProductionMaterialListSyncService {
 
     MesKingdeeProductionMaterialListSyncResult syncByProductionOrderNos(Collection<String> productionOrderNos);
 
+
+    int syncByCode(String code);
+
 }

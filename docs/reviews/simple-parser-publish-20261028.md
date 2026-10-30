@@ -105,3 +105,12 @@ Word 识别结果保持简易解析样式，由用户修改后，预览新建/�
 - Playwright：在 8081 使用瑛泰集团 yintaigroupadmin，真实导入指定同名 DOCX，识别 15 道工序；目录 45 台，B09393 仅一项，名称只读，发布预览显示“使用已有”。页面异常 0。
 - 只验证到发布预览，未确认发布。只读数据库复核：该租户 B09393 台账仍为 1 条、执行设备为 0 条。完整路线仍有物料匹配阻塞，不属于本次设备判定修复的通过结论。
 - 证据：output/playwright/simple-parser-device-identity-20261029.json、simple-parser-device-B09393-existing.png、simple-parser-device-B09393-preview-reuse.png。
+
+## 2026-10-29：缺少目录物料不再阻止确认发布
+
+- 按用户新要求替代此前“未知物料阻塞”的规则：目录没有匹配项时列入未匹配物料提示，允许发布；仅绑定已匹配物料，不猜测编码、不创建物料。多义、停用、空身份校验保留。未匹配明细保存在发布回执，预览与创建结果均可查看。
+- Maven 专项 17 项、前端 6 项测试及 ESLint 通过；完整后端构建和源码/产物一致性校验通过，本机 48081 加载新包。
+- Playwright 在项目指定的芋道源码租户，通过真实页面导入原始指定 DOCX，识别 15 道工序，将粗洗清洗次数由 2 改成 3；4 项未知物料保留，确认按钮可用。实际点击发布成功：GYLC-0055（980224），新建 15 道工序、9 个工艺，使用 18 台已有设备，生成禁用路线及 V2 草稿（777）。
+- 标准路线页面显示全部 15 道工序、B09393 和工艺 GY-0044 的清洗次数目标 3。只读数据库逐工序核对 43 处已匹配物料引用全部一致，4 项未匹配物料未写入绑定；回执保留 4 项提示。
+- 执行期间服务重启产生预览失败与登录刷新，浏览器记录 3 次 AxiosError；服务就绪后发布完成。测试辅助脚本的选择器歧义已按实际 DOM 调整，不涉及产品代码。
+- 证据：output/playwright/simple-parser-material-optional-20261029.json、simple-parser-material-optional-preview.png、simple-parser-material-optional-created.png、simple-parser-material-optional-route.png、simple-parser-material-optional-snapshot.json。仅验证本次允许缺料发布，不表示该路线已满足生产启用条件或与原路线完全一致。

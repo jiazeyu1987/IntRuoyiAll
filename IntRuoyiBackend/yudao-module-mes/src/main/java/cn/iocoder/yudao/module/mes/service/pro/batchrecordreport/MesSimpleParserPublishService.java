@@ -195,6 +195,7 @@ public class MesSimpleParserPublishService {
             productions.add(config);
             JSONObject batch=new JSONObject(true);
             batch.put("routeProcessId",routeProcessId); batch.put("enabled",false);
+            batch.put("executionMode","SEQUENTIAL");
             batch.put("inputMaterialIds",plan.materialIds.get(i+":inputs"));
             batch.put("outputMaterialIds",plan.materialIds.get(i+":outputs"));
             // 批记录、表单槽位与开始配置均不由 Word 推断。
