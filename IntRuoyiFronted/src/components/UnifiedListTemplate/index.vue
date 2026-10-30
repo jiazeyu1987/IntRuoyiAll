@@ -25,6 +25,7 @@
       v-else-if="
         showQueryForm !== false &&
         ($slots.actions ||
+          $slots['extra-filters'] ||
           shouldRenderStandardConditionFilter ||
           (showColumnSettings !== false && columns.length))
       "

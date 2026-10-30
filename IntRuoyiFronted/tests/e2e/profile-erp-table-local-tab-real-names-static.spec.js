@@ -17,13 +17,14 @@ assert.ok(syncTypesMatch, 'syncTypes 配置块必须可解析。')
 const syncTypesBlock = syncTypesMatch[0]
 
 const expectedLocalNames = [
-  "localTabName: '产品信息 / 物料产品管理'",
-  "localTabName: '产品库存'",
-  "localTabName: '库存调拨'",
+  "localTabName: '物料'",
+  "localTabName: '即时库存'",
+  "localTabName: '金蝶调拨单'",
   "localTabName: '采购订单'",
   "localTabName: '销售订单'",
-  "localTabName: '生产工单'",
-  "localTabName: '生产领料单列表'",
+  "localTabName: '生产订单'",
+  "localTabName: '生产领料单'",
+  "localTabName: '生产补料单'",
   "localTabName: '生产用料清单'",
   "localTabName: '物料清单'"
 ]

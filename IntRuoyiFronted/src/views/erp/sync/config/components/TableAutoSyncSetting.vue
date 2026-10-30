@@ -94,6 +94,22 @@
       <el-tab-pane label="同步对象" name="configuration" />
       <el-tab-pane label="运行中任务" name="running" />
     </el-tabs>
+    <div class="profile-erp-table-sync__progress-toolbar">
+      <span>
+        页面可见时每 5 秒刷新；最近刷新：{{ progressUpdatedAtLabel }}
+        <span v-if="progressRefreshError" class="text-red-500">（刷新失败）</span>
+      </span>
+      <el-button :loading="runLoading || runningJobLoading" @click="refreshVisibleRunProgress(false)">
+        刷新进度
+      </el-button>
+    </div>
+    <el-alert
+      title="已处理行数包含新增、更新和跳过；待统计表示尚未上报数量。任务失败不等于已统计出失败行数。"
+      type="info"
+      :closable="false"
+      show-icon
+      class="mb-3"
+    />
     <fieldset
       v-show="activeList === 'configuration'"
       :disabled="loading || saving || connectionSaving"
@@ -164,7 +180,39 @@
                 label="新增行数"
                 :min-width="getColumnWidthString('createdCount', 110)"
               >
-                <template #default="{ row }">{{ resolveCreatedCount(row.latestRun) }}</template>
+                <template #default="{ row }">{{ resolveRunCount(row.latestRun, 'createdCount') }}</template>
+              </el-table-column>
+              <el-table-column
+                v-if="isColumnVisible('processedCount')"
+                column-key="processedCount"
+                label="已处理行数"
+                :min-width="getColumnWidthString('processedCount', 110)"
+              >
+                <template #default="{ row }">{{ resolveProcessedCount(row.latestRun) }}</template>
+              </el-table-column>
+              <el-table-column
+                v-if="isColumnVisible('updatedCount')"
+                column-key="updatedCount"
+                label="更新行数"
+                :min-width="getColumnWidthString('updatedCount', 110)"
+              >
+                <template #default="{ row }">{{ resolveRunCount(row.latestRun, 'updatedCount') }}</template>
+              </el-table-column>
+              <el-table-column
+                v-if="isColumnVisible('skippedCount')"
+                column-key="skippedCount"
+                label="跳过行数"
+                :min-width="getColumnWidthString('skippedCount', 110)"
+              >
+                <template #default="{ row }">{{ resolveRunCount(row.latestRun, 'skippedCount') }}</template>
+              </el-table-column>
+              <el-table-column
+                v-if="isColumnVisible('failedCount')"
+                column-key="failedCount"
+                label="失败行数"
+                :min-width="getColumnWidthString('failedCount', 110)"
+              >
+                <template #default="{ row }">{{ resolveRunCount(row.latestRun, 'failedCount') }}</template>
               </el-table-column>
               <el-table-column
                 v-if="isColumnVisible('latestStatus')"
@@ -176,6 +224,7 @@
                   <el-tag :type="resolveLatestSyncStatusTagType(row.latestRun)">
                     {{ formatLatestSyncStatus(row.latestRun) }}
                   </el-tag>
+                  <div class="profile-erp-table-sync__progress-hint">{{ describeSyncRunProgress(row.latestRun) }}</div>
                 </template>
               </el-table-column>
               <el-table-column
@@ -188,7 +237,6 @@
                 <template #default="{ row }">{{ resolveFailureReason(row.latestRun) }}</template>
               </el-table-column>
               <el-table-column
-                v-if="false"
                 column-key="actions"
                 label="操作"
                 fixed="right"
@@ -235,7 +283,7 @@
       <div class="profile-erp-table-sync__running-header">
         <div class="profile-erp-table-sync__running-title">正在进行的同步 Job</div>
         <div class="profile-erp-table-sync__running-subtitle"
-          >仅显示当前运行中的 ERP 同步任务。</div
+          >显示运行记录标记为运行中的 ERP 任务，结束后自动移出此列表。</div
         >
       </div>
       <ErpLocalList
@@ -274,12 +322,36 @@
               <template #default="{ row }">{{ formatDateTimeValue(row.startedAt, '-') }}</template>
             </el-table-column>
             <el-table-column
+              v-if="isColumnVisible('processedCount')"
+              column-key="processedCount"
+              label="已处理行数"
+              :min-width="getColumnWidthString('processedCount', 110)"
+            >
+              <template #default="{ row }">{{ resolveProcessedCount(row) }}</template>
+            </el-table-column>
+            <el-table-column
+              v-if="isColumnVisible('skippedCount')"
+              column-key="skippedCount"
+              label="跳过行数"
+              :min-width="getColumnWidthString('skippedCount', 110)"
+            >
+              <template #default="{ row }">{{ resolveRunCount(row, 'skippedCount') }}</template>
+            </el-table-column>
+            <el-table-column
+              v-if="isColumnVisible('progressStatus')"
+              column-key="progressStatus"
+              label="统计状态"
+              :min-width="getColumnWidthString('progressStatus', 230)"
+            >
+              <template #default="{ row }">{{ describeSyncRunProgress(row) }}</template>
+            </el-table-column>
+            <el-table-column
               v-if="isColumnVisible('col2')"
               column-key="col2"
               label="新增行数"
               :min-width="getColumnWidthString('col2', 110)"
             >
-              <template #default="{ row }">{{ resolveRunCount(row.createdCount) }}</template>
+              <template #default="{ row }">{{ resolveRunCount(row, 'createdCount') }}</template>
             </el-table-column>
             <el-table-column
               v-if="isColumnVisible('col3')"
@@ -287,7 +359,7 @@
               label="更新行数"
               :min-width="getColumnWidthString('col3', 110)"
             >
-              <template #default="{ row }">{{ resolveRunCount(row.updatedCount) }}</template>
+              <template #default="{ row }">{{ resolveRunCount(row, 'updatedCount') }}</template>
             </el-table-column>
             <el-table-column
               v-if="isColumnVisible('col4')"
@@ -295,7 +367,18 @@
               label="失败行数"
               :min-width="getColumnWidthString('col4', 110)"
             >
-              <template #default="{ row }">{{ resolveRunCount(row.failedCount) }}</template>
+              <template #default="{ row }">{{ resolveRunCount(row, 'failedCount') }}</template>
+            </el-table-column>
+            <el-table-column label="中断处理" fixed="right" :min-width="180">
+              <template #default="{ row }">
+                <el-button
+                  link
+                  type="danger"
+                  :disabled="!canRunSync"
+                  :loading="recoveringRunId === row.id"
+                  @click="handleRecoverRun(row)"
+                >核验并结束中断记录</el-button>
+              </template>
             </el-table-column>
           </el-table>
         </template>
@@ -306,6 +389,9 @@
 <script setup lang="ts">
 const activeList = ref('configuration')
 import { formatErpListInteger } from '@/views/erp/utils/integerDisplay'
+import { useDocumentVisibility, useTimeoutPoll } from '@vueuse/core'
+import { describeSyncRunProgress, getSyncRunCount, getSyncRunProcessedCount } from '../../syncRunProgress'
+import type { SyncRunCountKey } from '../../syncRunProgress'
 import ErpLocalList from '@/views/erp/components/ErpLocalList.vue'
 import type { UserTableColumnDefinition } from '@/hooks/web/useUserTableColumns'
 import type { TableQuickFilterDefinition } from '@/hooks/web/useTableQuickFilter'
@@ -341,6 +427,10 @@ const syncConfigurationColumns: UserTableColumnDefinition[] = [
     width: 110,
     sortable: false
   },
+  { key: 'processedCount', label: '已处理行数', width: 110, sortable: false },
+  { key: 'updatedCount', label: '更新行数', width: 110, sortable: false },
+  { key: 'skippedCount', label: '跳过行数', width: 110, sortable: false },
+  { key: 'failedCount', label: '失败行数', width: 110, sortable: false },
   {
     key: 'latestStatus',
     label: '同步成功/失败',
@@ -372,6 +462,9 @@ const syncConfigurationFilters: TableQuickFilterDefinition[] = [
 ]
 
 const runningJobsColumns: UserTableColumnDefinition[] = [
+  { key: 'processedCount', label: '已处理行数', width: 110, sortable: false },
+  { key: 'skippedCount', label: '跳过行数', width: 110, sortable: false },
+  { key: 'progressStatus', label: '统计状态', width: 230, sortable: false },
   {
     key: 'col0',
     label: 'ERP表格名称',
@@ -405,7 +498,7 @@ const runningJobsColumns: UserTableColumnDefinition[] = [
 ]
 const runningJobsFilters: TableQuickFilterDefinition[] = []
 
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { hasErpConfigCapability } from '@/utils/businessConfigAccess'
 import { ErpKingdeeConfigApi } from '@/api/erp/config'
 import type {
@@ -462,20 +555,20 @@ const REQUIRED_CONNECTION_OPTIONS: Record<ErpKingdeeConnectionType, string> = {
 const syncTypes: ProfileErpSyncType[] = [
   {
     syncType: 'PRODUCT',
-    erpTableName: 'ERP 商品',
-    localTabName: '产品信息 / 物料产品管理',
+    erpTableName: '物料列表',
+    localTabName: '物料',
     handlerName: 'kingdeeProductItemSyncJob'
   },
   {
     syncType: 'STOCK',
     erpTableName: 'ERP 库存',
-    localTabName: '产品库存',
+    localTabName: '即时库存',
     handlerName: 'kingdeeStockSyncJob'
   },
   {
     syncType: 'STOCK_MOVE',
     erpTableName: '金蝶调拨单',
-    localTabName: '库存调拨',
+    localTabName: '金蝶调拨单',
     handlerName: 'kingdeeStockMoveSyncJob'
   },
   {
@@ -493,19 +586,19 @@ const syncTypes: ProfileErpSyncType[] = [
   {
     syncType: 'PRODUCTION_ORDER',
     erpTableName: '生产工单',
-    localTabName: '生产工单',
+    localTabName: '生产订单',
     handlerName: 'kingdeeProductionOrderSyncJob'
   },
   {
     syncType: 'PRODUCTION_PICK_LIST',
     erpTableName: '生产领料单列表',
-    localTabName: '生产领料单列表',
+    localTabName: '生产领料单',
     handlerName: 'kingdeeProductionPickListSyncJob'
   },
   {
     syncType: 'PRODUCTION_REPLENISHMENT_LIST',
     erpTableName: '生产补料单列表',
-    localTabName: '生产补料单列表',
+    localTabName: '生产补料单',
     handlerName: 'kingdeeProductionReplenishmentListSyncJob'
   },
   {
@@ -537,8 +630,41 @@ const latestRunsLoaded = ref(false)
 const latestRunsError = ref('')
 const runningRunsLoaded = ref(false)
 const runningRunsError = ref('')
+const latestRunsUpdatedAt = ref<number>()
+const runningRunsUpdatedAt = ref<number>()
+const progressRefreshError = computed(() =>
+  activeList.value === 'running' ? runningRunsError.value : latestRunsError.value
+)
+const progressUpdatedAtLabel = computed(() => {
+  const timestamp = activeList.value === 'running' ? runningRunsUpdatedAt.value : latestRunsUpdatedAt.value
+  return timestamp === undefined ? '尚未成功读取' : formatDateTimeValue(timestamp, '-')
+})
 const latestRuns = ref<ErpKingdeeSyncRunVO[]>([])
 const runningSyncRuns = ref<ErpKingdeeSyncRunVO[]>([])
+const recoveringRunId = ref<number>()
+const handleRecoverRun = async (row: ErpKingdeeSyncRunVO) => {
+  if (!requireCapability(canRunSync.value)) return
+  try {
+    await ElMessageBox.confirm(
+      '将检查整个 Quartz 集群。仅在没有该任务执行实例时，才将此记录标记为中断失败并保留已提交计数；仍在执行的任务会被拒绝。',
+      '核验中断记录',
+      { type: 'warning', confirmButtonText: '核验并结束', cancelButtonText: '取消' }
+    )
+  } catch (action) {
+    if (action === 'cancel' || action === 'close') return
+    throw action
+  }
+  recoveringRunId.value = row.id
+  try {
+    await ErpKingdeeSyncApi.recoverRun(row.id)
+    ElMessage.success('已结束中断记录，已提交计数保留；可在同步对象中重新发起全量同步')
+    await Promise.all([loadLatestRuns(), loadRunningSyncRuns()])
+  } catch (error) {
+    ElMessage.error(resolveErrorMessage(error, '中断记录核验失败'))
+  } finally {
+    recoveringRunId.value = undefined
+  }
+}
 const jobsByHandlerName = ref<Record<string, JobApi.JobVO>>({})
 const selectedSyncTypes = ref<string[]>([])
 const syncTableRef = ref()
@@ -629,13 +755,6 @@ const resolveLatestSyncStatusTagType = (latestRun?: ErpKingdeeSyncRunVO) => {
   return 'info'
 }
 
-const resolveCreatedCount = (latestRun?: ErpKingdeeSyncRunVO) => {
-  if (!latestRun) return '-'
-  if (typeof latestRun.createdCount === 'number')
-    return formatErpListInteger(latestRun.createdCount)
-  return '-'
-}
-
 const resolveLatestRunTime = (latestRun?: ErpKingdeeSyncRunVO) => {
   if (!latestRun) return '-'
   return formatDateTimeValue(latestRun.endedAt || latestRun.startedAt, '-')
@@ -650,8 +769,15 @@ const resolveFailureReason = (latestRun?: ErpKingdeeSyncRunVO) => {
 const resolveSyncTypeName = (syncType: string) =>
   syncTypes.find((item) => item.syncType === syncType)?.erpTableName || `未知ERP表格（${syncType}）`
 
-const resolveRunCount = (value?: number) =>
-  typeof value === 'number' ? formatErpListInteger(value) : '-'
+const resolveRunCount = (run: ErpKingdeeSyncRunVO | undefined, key: SyncRunCountKey) => {
+  const value = getSyncRunCount(run, key)
+  return typeof value === 'number' ? formatErpListInteger(value) : value
+}
+
+const resolveProcessedCount = (run?: ErpKingdeeSyncRunVO) => {
+  const value = getSyncRunProcessedCount(run)
+  return typeof value === 'number' ? formatErpListInteger(value) : value
+}
 
 const syncSelectedRows = async () => {
   await nextTick()
@@ -724,11 +850,16 @@ const loadJobs = async () => {
   }
 }
 
-const loadLatestRuns = async () => {
-  latestRunsLoaded.value = false
-  latestRunsError.value = ''
-  latestRuns.value = []
-  runLoading.value = true
+let latestRunsRequest: Promise<void> | undefined
+const loadLatestRuns = (background = false): Promise<void> => {
+  if (latestRunsRequest) return latestRunsRequest
+  latestRunsRequest = fetchLatestRuns(background).finally(() => {
+    latestRunsRequest = undefined
+  })
+  return latestRunsRequest
+}
+const fetchLatestRuns = async (background: boolean) => {
+  runLoading.value = !background
   try {
     const latestRunList = await Promise.all(
       syncTypes.map(async (item) => {
@@ -743,7 +874,12 @@ const loadLatestRuns = async () => {
     )
     latestRuns.value = latestRunList.filter((item): item is ErpKingdeeSyncRunVO => Boolean(item))
     latestRunsLoaded.value = true
+    latestRunsError.value = ''
+    latestRunsUpdatedAt.value = Date.now()
   } catch (error) {
+    latestRuns.value = []
+    latestRunsLoaded.value = false
+    latestRunsUpdatedAt.value = undefined
     latestRunsError.value = resolveErrorMessage(error, '同步运行结果加载失败')
     throw error
   } finally {
@@ -751,11 +887,16 @@ const loadLatestRuns = async () => {
   }
 }
 
-const loadRunningSyncRuns = async () => {
-  runningRunsLoaded.value = false
-  runningRunsError.value = ''
-  runningSyncRuns.value = []
-  runningJobLoading.value = true
+let runningRunsRequest: Promise<void> | undefined
+const loadRunningSyncRuns = (background = false): Promise<void> => {
+  if (runningRunsRequest) return runningRunsRequest
+  runningRunsRequest = fetchRunningSyncRuns(background).finally(() => {
+    runningRunsRequest = undefined
+  })
+  return runningRunsRequest
+}
+const fetchRunningSyncRuns = async (background: boolean) => {
+  runningJobLoading.value = !background
   try {
     const page = await ErpKingdeeSyncApi.getRunPage({
       pageNo: 1,
@@ -765,7 +906,12 @@ const loadRunningSyncRuns = async () => {
     if (!Array.isArray(page?.list)) throw new Error('运行中的同步Job返回格式无效')
     runningSyncRuns.value = page.list
     runningRunsLoaded.value = true
+    runningRunsError.value = ''
+    runningRunsUpdatedAt.value = Date.now()
   } catch (error) {
+    runningSyncRuns.value = []
+    runningRunsLoaded.value = false
+    runningRunsUpdatedAt.value = undefined
     runningRunsError.value = resolveErrorMessage(error, '运行中的同步 Job 加载失败')
     throw error
   } finally {
@@ -1008,10 +1154,76 @@ watch(
   { flush: 'post' }
 )
 
-onMounted(loadData)
+let initialProgressLoaded = false
+const progressViewActive = ref(false)
+const documentVisibility = useDocumentVisibility()
+const refreshVisibleRunProgress = async (background = true) => {
+  const refresh = activeList.value === 'running' ? loadRunningSyncRuns : loadLatestRuns
+  // Loaders expose errors and clear stale counters; polling must remain available after a failed read.
+  const [result] = await Promise.allSettled([refresh(background)])
+  if (result.status === 'rejected' && !background) {
+    ElMessage.error(resolveErrorMessage(result.reason, '同步进度刷新失败'))
+  }
+}
+const { pause: pauseProgressPolling, resume: resumeProgressPolling } = useTimeoutPoll(
+  refreshVisibleRunProgress,
+  5000
+)
+const updateProgressPolling = () => {
+  if (
+    initialProgressLoaded &&
+    progressViewActive.value &&
+    documentVisibility.value === 'visible' &&
+    canRunSync.value
+  ) {
+    resumeProgressPolling()
+  } else {
+    pauseProgressPolling()
+  }
+}
+onMounted(async () => {
+  progressViewActive.value = true
+  await loadData()
+  initialProgressLoaded = true
+  updateProgressPolling()
+})
+onActivated(() => {
+  progressViewActive.value = true
+  updateProgressPolling()
+})
+onDeactivated(() => {
+  progressViewActive.value = false
+  pauseProgressPolling()
+})
+onBeforeUnmount(() => {
+  progressViewActive.value = false
+  pauseProgressPolling()
+})
+watch([documentVisibility, canRunSync], updateProgressPolling)
+watch(activeList, () => {
+  if (progressViewActive.value && documentVisibility.value === 'visible') {
+    void refreshVisibleRunProgress()
+  }
+})
 </script>
 
 <style scoped>
+.profile-erp-table-sync__progress-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+  color: #606266;
+  font-size: 13px;
+}
+.profile-erp-table-sync__progress-hint {
+  margin-top: 4px;
+  color: #606266;
+  font-size: 12px;
+}
+
 .profile-erp-table-sync {
   width: 100%;
   max-width: none;

@@ -233,7 +233,7 @@ class MesProAutoScheduleContractTest {
         ReflectionTestUtils.setField(autoScheduleService, "routeSnapshotResolver", routeSnapshotResolver);
         ReflectionTestUtils.setField(autoScheduleService, "schedulePlanner", schedulePlanner);
         ReflectionTestUtils.setField(autoScheduleService, "scheduleApplier", scheduleApplier);
-        lenient().when(routeService.getRouteMapIgnoreDeleted(any())).thenReturn(Collections.emptyMap());
+        lenient().when(routeService.getRouteMap(any())).thenReturn(Collections.emptyMap());
         lenient().when(routeScheduleConfigMapper.selectListByRouteVersionId(anyLong()))
                 .thenReturn(Collections.<MesProRouteScheduleConfigDO>emptyList());
         org.mockito.Mockito.lenient().when(routeFlowConfigMapper.selectByRouteIdAndUseType(
@@ -419,6 +419,8 @@ class MesProAutoScheduleContractTest {
     @Test
     void preview_shouldWarnAndKeepGeneratedTasksWhenProductionMaterialListMissing() {
         scheduleOrder.setCode("SCH-APPLY-501");
+        when(routeService.getRouteMap(any())).thenReturn(Map.of(20L,
+                cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteDO.builder().id(20L).build()));
         MesMdWorkstationDO workstation = MesMdWorkstationDO.builder()
                 .id(30L)
                 .name("WS-1")

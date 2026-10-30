@@ -112,6 +112,30 @@ class MesProRouteServiceImplTest {
     }
 
     @Test
+    void deletionReferenceQueryDistinguishesTerminalDeletedAndOtherRoutes() throws Exception {
+        String sql = String.join(" ", MesProRouteMapper.class
+                .getMethod("existsUnfinishedBusinessByRouteId", Long.class)
+                .getAnnotation(org.apache.ibatis.annotations.Select.class).value())
+                .replace("#{routeId}", "12");
+        try (var connection = java.sql.DriverManager.getConnection("jdbc:h2:mem:route_delete_refs;MODE=MySQL");
+             var statement = connection.createStatement()) {
+            statement.execute("CREATE TABLE mes_pro_process_pool_active_order(route_id BIGINT, deleted INT, active_status VARCHAR)");
+            statement.execute("CREATE TABLE mes_pro_schedule_order(route_id BIGINT, deleted INT, status INT)");
+            statement.execute("CREATE TABLE mes_pro_edhr_batch_execution(route_id BIGINT, deleted INT, status INT)");
+            statement.execute("INSERT INTO mes_pro_process_pool_active_order VALUES(12,0,'CLOSED'),(12,1,'ACTIVE'),(99,0,'ACTIVE')");
+            statement.execute("INSERT INTO mes_pro_schedule_order VALUES(12,0,3),(12,0,4),(12,1,0),(99,0,0)");
+            statement.execute("INSERT INTO mes_pro_edhr_batch_execution VALUES(12,0,30),(12,0,40),(12,0,50),(12,0,60),(12,1,10),(99,0,10)");
+            try (var rows = statement.executeQuery(sql)) { rows.next(); assertFalse(rows.getBoolean(1)); }
+            for (String table : List.of("mes_pro_process_pool_active_order", "mes_pro_schedule_order", "mes_pro_edhr_batch_execution")) {
+                String status = table.endsWith("active_order") ? "'ACTIVE'" : "0";
+                statement.execute("INSERT INTO " + table + " VALUES(12,0," + status + ")");
+                try (var rows = statement.executeQuery(sql)) { rows.next(); assertTrue(rows.getBoolean(1), table); }
+                statement.execute("DELETE FROM " + table);
+            }
+        }
+    }
+
+    @Test
     void processChange_afterArchive_shouldNotCreateAnyDraftForAnUninitializedCurrentGraph() {
         var route = MesProRouteDO.builder().id(9001L).code("RT-9001").name("route").build();
         var legacy = MesProRouteVersionDO.builder().id(5L).routeId(9001L)
@@ -133,6 +157,39 @@ class MesProRouteServiceImplTest {
             verify(routeVersionMapper, never()).insert(any(MesProRouteVersionDO.class));
             org.mockito.Mockito.verifyNoInteractions(platformAdapter);
         }
+    }
+
+    @Test
+    void deletedRouteDetailMustNotReadHistoricalRow() {
+        AssertUtils.assertServiceException(() -> routeService.getRouteRespVO(12L),
+                ErrorCodeConstants.PRO_ROUTE_NOT_EXISTS);
+        verify(routeMapper, never()).selectByIdIgnoreDeleted(anyLong());
+    }
+
+    @Test
+    void unfinishedBusinessPreventsAllDeletionSideEffects() {
+        when(routeMapper.selectByIdForUpdate(12L)).thenReturn(MesProRouteDO.builder()
+                .id(12L).status(CommonStatusEnum.DISABLE.getStatus()).build());
+        when(routeMapper.existsUnfinishedBusinessByRouteId(12L)).thenReturn(true);
+        var error = org.junit.jupiter.api.Assertions.assertThrows(
+                cn.iocoder.yudao.framework.common.exception.ServiceException.class,
+                () -> routeService.deleteRoute(12L));
+        assertTrue(error.getMessage().contains("仍被活跃订单"));
+        verify(routeMapper, never()).deleteById(anyLong());
+        org.mockito.Mockito.verifyNoInteractions(routeVersionMapper, routeProcessFlowService,
+                routeProcessService, routeProductService, routeProductBomService);
+    }
+
+    @Test
+    void unusedDisabledRouteCanBeDeleted() {
+        when(routeMapper.selectByIdForUpdate(12L)).thenReturn(MesProRouteDO.builder()
+                .id(12L).status(CommonStatusEnum.DISABLE.getStatus()).build());
+        routeService.deleteRoute(12L);
+        verify(routeProcessFlowService).deleteByRouteId(12L);
+        verify(routeProcessService).deleteRouteProcessByRouteId(12L);
+        verify(routeProductService).deleteRouteProductByRouteId(12L);
+        verify(routeProductBomService).deleteRouteProductBomByRouteId(12L);
+        verify(routeMapper).deleteById(12L);
     }
 
     @InjectMocks
@@ -739,7 +796,7 @@ class MesProRouteServiceImplTest {
                 .active(Boolean.TRUE)
                 .lifecycleStatus("ACTIVE")
                 .routeSnapshotJson("""
-                        {"routeId":9006,"configSnapshots":{"batchRecordAttachmentOwners":[{"attachmentCode":"INCOMING_INSPECTION_REPORT","candidateSourceType":"USERS","candidateSourceIds":[912398],"candidateSourceNames":["张三"]},{"attachmentCode":"STERILIZATION_REPORT","candidateSourceType":"USERS","candidateSourceIds":[912398],"candidateSourceNames":["张三"]},{"attachmentCode":"FINISHED_PRODUCT_INSPECTION_REPORT","candidateSourceType":"USERS","candidateSourceIds":[912399],"candidateSourceNames":["李四"]},{"attachmentCode":"FINISHED_PRODUCT_INSPECTION_RECORD","candidateSourceType":"USERS","candidateSourceIds":[912399],"candidateSourceNames":["李四"]}]}}
+                        {"routeId":9006,"configSnapshots":{"productionProcessConfigSchemaVersion":1,"productionProcessConfigs":[{"routeProcessId":9306,"processId":9406,"overagePercent":0,"lossReasons":[],"deviceSelectionGroups":[],"parameterRules":[]}],"batchRecordAttachmentOwners":[{"attachmentCode":"INCOMING_INSPECTION_REPORT","candidateSourceType":"USERS","candidateSourceIds":[912398],"candidateSourceNames":["张三"]},{"attachmentCode":"STERILIZATION_REPORT","candidateSourceType":"USERS","candidateSourceIds":[912398],"candidateSourceNames":["张三"]},{"attachmentCode":"FINISHED_PRODUCT_INSPECTION_REPORT","candidateSourceType":"USERS","candidateSourceIds":[912399],"candidateSourceNames":["李四"]},{"attachmentCode":"FINISHED_PRODUCT_INSPECTION_RECORD","candidateSourceType":"USERS","candidateSourceIds":[912399],"candidateSourceNames":["李四"]}]}}
                         """)
                 .build());
         org.mockito.Mockito.doAnswer(invocation -> {
@@ -757,6 +814,9 @@ class MesProRouteServiceImplTest {
         when(routeFlowProcessConfigMapper.selectListByRouteIdAndUseType(
                 targetRouteId, MesProRouteFlowConfigTypeEnum.BATCH.getType()))
                 .thenReturn(List.of(targetBatchUseConfig));
+        when(routeFlowProcessBatchRecordMapper.selectListByRouteIdAndUseType(
+                targetRouteId, MesProRouteFlowConfigTypeEnum.BATCH.getType()))
+                .thenReturn(List.of());
         MesProRouteProcessFlowGraphRespVO graph = new MesProRouteProcessFlowGraphRespVO();
         graph.setRouteId(targetRouteId);
         MesProRouteProcessFlowNodeRespVO node = new MesProRouteProcessFlowNodeRespVO();
@@ -778,6 +838,11 @@ class MesProRouteServiceImplTest {
         JSONObject snapshot = JSON.parseObject(update.getRouteSnapshotJson());
         assertEquals(targetRouteId, snapshot.getLong("routeId"));
         assertEquals(targetCode, snapshot.getString("routeCode"));
+        assertEquals(targetVersionId, snapshot.getLong("routeVersionId"));
+        JSONObject copiedProductionConfig = snapshot.getJSONObject("configSnapshots")
+                .getJSONArray("productionProcessConfigs").getJSONObject(0);
+        assertEquals(9307L, copiedProductionConfig.getLong("routeProcessId"));
+        assertEquals(9406L, copiedProductionConfig.getLong("processId"));
         assertEquals(1, snapshot.getJSONObject("configSnapshots").getJSONArray("products").size());
         assertEquals(1, snapshot.getJSONObject("configSnapshots").getJSONArray("scheduleConfigs").size());
         assertEquals(1, snapshot.getJSONObject("configSnapshots").getJSONArray("scheduleUseConfigs").size());

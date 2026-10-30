@@ -24,14 +24,19 @@
           v-loading="loading"
           row-key="id"
         >
-          <el-table-column label="交接编号" prop="id" width="120" />
-          <el-table-column label="当轮订单" prop="activeOrderId" width="150" />
-          <el-table-column label="交接事项">
+          <el-table-column label="交接编号" prop="id" width="190" />
+          <el-table-column label="当轮订单" prop="activeOrderId" width="120" />
+          <el-table-column label="交接事项" width="150">
             <template #default="{ row }">{{ labels[row.taskType] }}</template>
           </el-table-column>
-          <el-table-column label="原因 / 业务意见" prop="reason" min-width="200" />
+          <el-table-column label="交接说明" prop="reason" min-width="400">
+            <template #default="{ row }">
+              <BusinessMessageContent :description="describeHandoffMessage(row.taskType, row.reason)" :show-context="false" :show-title="false" />
+              <BusinessMessageContext :fields="describeHandoffMessage(row.taskType, row.reason).fields" />
+            </template>
+          </el-table-column>
           <el-table-column label="状态" width="95">
-            <template #default="{ row }">{{ states[row.status] }}</template>
+            <template #default="{ row }">{{ row.taskType === 'NCR_FREEZE_NOTICE' && row.status === 'DONE' ? '仅告知' : states[row.status] }}</template>
           </el-table-column>
           <el-table-column label="操作" width="225">
             <template #default="{ row }">
@@ -41,7 +46,7 @@
                 :disabled="row.status === 'CANCELED'"
                 @click="openTask(row)"
               >
-                {{ row.status === 'TODO' ? '处理原轮次' : '查看原轮次' }}
+                {{ row.taskType === 'NCR_FREEZE_NOTICE' ? '查看通知' : row.status === 'TODO' ? '处理原轮次' : '查看原轮次' }}
               </el-button>
               <el-button link type="primary" @click="showReceipts(row)">通知回执</el-button>
             </template>
@@ -50,15 +55,15 @@
       </template>
     </UnifiedListTemplate>
 
-    <el-dialog v-model="resultOpen" title="原周期作废交接结果" width="680px">
+    <el-dialog v-model="resultOpen" :title="result?.taskType === 'NCR_FREEZE_NOTICE' ? '工单/批次冻结通知' : '原周期作废交接结果'" width="680px">
       <el-descriptions v-if="result" :column="1" border>
         <el-descriptions-item label="活跃周期">{{ result.activeOrderId }}</el-descriptions-item>
         <el-descriptions-item label="原评审 / 轮次">{{ result.sourceId }} / {{ result.roundId }}</el-descriptions-item>
-        <el-descriptions-item label="正式处置意见">{{ result.reason }}</el-descriptions-item>
-        <el-descriptions-item label="完成者">{{ result.completedBy }}</el-descriptions-item>
-        <el-descriptions-item label="完成时间">{{ result.completedAt }}</el-descriptions-item>
+        <el-descriptions-item label="交接说明"><BusinessMessageContent :description="describeHandoffMessage(result.taskType, result.reason)" /></el-descriptions-item>
+        <el-descriptions-item v-if="result.taskType !== 'NCR_FREEZE_NOTICE'" label="完成者">{{ result.completedBy }}</el-descriptions-item>
+        <el-descriptions-item :label="result.taskType === 'NCR_FREEZE_NOTICE' ? '通知时间' : '完成时间'">{{ formatDateTimeValue(result.completedAt) }}</el-descriptions-item>
       </el-descriptions>
-      <el-alert title="这是原周期已正式完成的作废结果，只能查看。" type="info" :closable="false" class="mt-4" />
+      <el-alert :title="result?.taskType === 'NCR_FREEZE_NOTICE' ? '这是交接发生时的冻结通知，仅供查看；当前冻结状态以正式业务页面为准。' : '这是原周期已正式完成的作废结果，只能查看。'" type="info" :closable="false" class="mt-4" />
     </el-dialog>
     <el-dialog v-model="completedResultOpen" title="原周期交接完成记录" width="760px" @update:model-value="completedResultVisibilityChanged">
       <section data-active-order-handoff-completed-result>
@@ -72,7 +77,7 @@
           <el-descriptions-item label="交接事项">{{ labels[completedResult.taskType] }}</el-descriptions-item>
           <el-descriptions-item label="原正式来源"><span data-handoff-completed-source>{{ completedResult.sourceType }} / {{ completedResult.sourceId }}</span></el-descriptions-item>
           <el-descriptions-item label="原轮次"><span data-handoff-completed-round-id>{{ completedResult.roundId }}</span></el-descriptions-item>
-          <el-descriptions-item label="原通知原因 / 业务意见">{{ completedResult.reason }}</el-descriptions-item>
+          <el-descriptions-item label="原交接说明"><BusinessMessageContent :description="describeHandoffMessage(completedResult.taskType, completedResult.reason)" /></el-descriptions-item>
           <el-descriptions-item label="实际完成者"><span data-handoff-completed-actor>{{ completedResult.completedBy }}</span></el-descriptions-item>
           <el-descriptions-item label="实际完成时间">{{ formatDateTimeValue(completedResult.completedAt) }}</el-descriptions-item>
           <el-descriptions-item label="完成来源编号"><span data-handoff-completed-completion-source>{{ completedResult.completionSourceId }}</span></el-descriptions-item>
@@ -111,6 +116,9 @@ import * as api from '@/api/mes/pro/handoff'
 import { resolveActiveOrderHandoffTarget, navigateToActiveOrderHandoff, isClosedHandoffCompletion } from '@/utils/activeOrderHandoffNavigation'
 import { formatDateTimeValue } from '@/utils/formatTime'
 import { readHandoffReceiptCandidates } from '@/utils/handoffReceiptResponsibility'
+import BusinessMessageContent from '@/components/BusinessMessageContent/BusinessMessageContent.vue'
+import BusinessMessageContext from '@/components/BusinessMessageContent/BusinessMessageContext.vue'
+import { describeHandoffMessage, HANDOFF_TASK_LABELS } from '@/utils/businessMessagePresentation'
 const router = useRouter(), route = useRoute()
 const handoffTableRef = ref<TableInstance>()
 const refreshLayout = async () => {
@@ -144,7 +152,7 @@ const receiptResponsibility = computed(() => {
 })
 const receiptOpen = ref(false), receiptLoading = ref(false), receiptError = ref(''), retryReason = ref(''), retrying = ref(false)
 let listEpoch = 0, receiptEpoch = 0
-const labels: Record<string, string> = { PRODUCTION_HANDOFF: '生产接手', PRODUCTION_REVIEW: '生产组长复核', PQC_HANDOFF: 'PQC检验接手', PQC_REVIEW: 'PQC组长复核', PRODUCTION_RETURN: '本人生产退回更正', PQC_RETURN: '本人PQC退回更正', QA_REVIEW: 'QA不合格评审', QA_DECISION_HANDOFF: 'QA处置结果交接' }
+const labels = HANDOFF_TASK_LABELS
 const states: Record<string, string> = { TODO: '待处理', DONE: '已完成', CANCELED: '周期已关闭' }
 const deliveryStates = { PENDING: '待投递', FAILED: '投递失败', SENT: '已发送' }
 const failure = (e: unknown) => e instanceof Error ? e.message : String(e)
@@ -192,11 +200,14 @@ const openVoidResult = async () => {
     if (epoch !== resultEpoch) return
     const task = context.task
     const target = resolveActiveOrderHandoffTarget({ actionUrl: task.actionUrl, handoffTaskId: task.id, handoffType: task.taskType, activeOrderId: task.activeOrderId })
-    if (!target || target.path !== '/user/profile' || task.taskType !== 'QA_DECISION_HANDOFF' || task.status !== 'DONE'
-      || !task.reason.startsWith('void：') || context.processable || route.query.handoffReadOnly !== '1'
+    const readOnlyResult = task.taskType === 'NCR_FREEZE_NOTICE'
+      ? task.notificationOnly === true && (context.current || isClosedHandoffCompletion(context))
+      : task.taskType === 'QA_DECISION_HANDOFF' && task.reason.startsWith('void：')
+    if (!target || target.path !== '/user/profile' || !readOnlyResult || task.status !== 'DONE'
+      || context.processable || route.query.handoffReadOnly !== '1'
       || Object.entries(target.query).some(([key, value]) => route.query[key] !== value)
       || Object.keys(route.query).some(key => !Object.hasOwn(target.query, key) && key !== 'handoffReadOnly'))
-      throw new Error('作废结果入口与原任务、周期或轮次不一致')
+      throw new Error('交接通知入口与原任务、周期或轮次不一致')
     result.value = task; resultOpen.value = true
   } catch (e) { if (epoch === resultEpoch) error.value = failure(e) }
 }

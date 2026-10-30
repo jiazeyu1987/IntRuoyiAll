@@ -1144,7 +1144,10 @@
     "20261028_mes_process_sop_file.sql",
     "20261028_simple_parser_publish_menu.sql",
     "20261028_simple_parser_publish_receipt.sql",
-    "20261028_simple_pqc_parser_menu.sql"
+    "20261028_simple_pqc_parser_menu.sql",
+    "20261029_edhr_form_read_permissions.sql",
+    "20261029_erp_material_list_menu_name.sql",
+    "20261030_dcc_catalog_workbook_origin.sql"
   ],
   "migrationScopes": [
     {

@@ -3,7 +3,6 @@ package cn.iocoder.yudao.module.erp.service.purchase.sync;
 import cn.hutool.core.util.StrUtil;
 import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import com.fasterxml.jackson.databind.JsonNode;
-import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -13,9 +12,15 @@ import org.springframework.stereotype.Component;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.client.RestClientException;
 
 import java.math.BigDecimal;
 import java.net.URLEncoder;
+import java.net.SocketTimeoutException;
+import java.net.SocketException;
+import java.io.EOFException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -36,8 +41,10 @@ import static cn.iocoder.yudao.module.erp.enums.ErrorCodeConstants.KINGDEE_PRODU
 import static cn.iocoder.yudao.module.erp.enums.ErrorCodeConstants.KINGDEE_PRODUCTION_ORDER_RESPONSE_INVALID;
 
 @Component
-@RequiredArgsConstructor
 public class ErpKingdeeProductionMaterialListClientImpl implements ErpKingdeeProductionMaterialListClient {
+
+    private static final Logger log = LoggerFactory.getLogger(ErpKingdeeProductionMaterialListClientImpl.class);
+    private static final int MAX_QUERY_ATTEMPTS = 3;
 
     private static final String AUTH_SERVICE =
             "Kingdee.BOS.WebApi.ServicesStub.AuthService.ValidateUser.common.kdsvc";
@@ -60,7 +67,7 @@ public class ErpKingdeeProductionMaterialListClientImpl implements ErpKingdeePro
             "FMaterialID2.F_PAEZ_TUHAO",
             "FMustQty",
             "FIssueType",
-            "FNeedDate",
+            "FNeedDate2",
             "FModifyDate");
     private static final int INDEX_ENTRY_ID = 0;
     private static final int INDEX_BILL_NO = 1;
@@ -86,15 +93,19 @@ public class ErpKingdeeProductionMaterialListClientImpl implements ErpKingdeePro
     private static final DateTimeFormatter KINGDEE_DATE_TIME_FORMAT =
             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
-    @Qualifier("erpKingdeeRestTemplate")
     private final RestTemplate restTemplate;
 
+    public ErpKingdeeProductionMaterialListClientImpl(
+            @Qualifier("erpKingdeeProductionMaterialListRestTemplate") RestTemplate restTemplate) {
+        this.restTemplate = restTemplate;
+    }
+
     @Override
-    public List<ErpKingdeeProductionMaterialList> fetchProductionMaterialLists(
-            ErpKingdeeProperties properties) {
+    public void forEachProductionMaterialListPage(ErpKingdeeProperties properties,
+            java.util.function.Consumer<List<ErpKingdeeProductionMaterialList>> pageConsumer) {
         properties.validateProductionOrderSyncConfig();
         String cookieHeader = login(properties);
-        List<ErpKingdeeProductionMaterialList> result = new ArrayList<>();
+        java.util.Objects.requireNonNull(pageConsumer, "pageConsumer");
         int startRow = 0;
         while (true) {
             int limit = Math.min(PAGE_LIMIT, properties.getProductionOrder().getQueryLimit());
@@ -105,15 +116,16 @@ public class ErpKingdeeProductionMaterialListClientImpl implements ErpKingdeePro
             if (rows.isEmpty()) {
                 break;
             }
+            List<ErpKingdeeProductionMaterialList> page = new ArrayList<>(rows.size());
             for (JsonNode row : rows) {
-                result.add(buildRow(row));
+                page.add(buildRow(row));
             }
+            pageConsumer.accept(page);
             if (rows.size() < limit) {
                 break;
             }
             startRow += rows.size();
         }
-        return result;
     }
 
     @Override
@@ -204,7 +216,9 @@ public class ErpKingdeeProductionMaterialListClientImpl implements ErpKingdeePro
 
     private ErpKingdeeProductionMaterialList buildRow(JsonNode row) {
         if (!row.isArray() || row.size() < FIELD_COUNT) {
-            throw exception(KINGDEE_PRODUCTION_ORDER_RESPONSE_INVALID, "PRD_PPBOM row field count mismatch");
+            throw exception(KINGDEE_PRODUCTION_ORDER_RESPONSE_INVALID,
+                    "PRD_PPBOM row field count mismatch: expected " + FIELD_COUNT
+                            + ", actual " + row.size() + ", type " + row.getNodeType());
         }
         return ErpKingdeeProductionMaterialList.builder()
                 .formId(ErpKingdeeProductionMaterialList.FORM_ID)
@@ -224,7 +238,7 @@ public class ErpKingdeeProductionMaterialListClientImpl implements ErpKingdeePro
                 .drawingNumber(optionalText(row, INDEX_DRAWING_NUMBER))
                 .requiredQuantity(parseRequiredDecimal(row, INDEX_REQUIRED_QUANTITY, "FMustQty"))
                 .issueMethod(optionalText(row, INDEX_ISSUE_METHOD))
-                .demandTime(parseDateTime(optionalText(row, INDEX_DEMAND_TIME), "FNeedDate"))
+                .demandTime(parseDateTime(optionalText(row, INDEX_DEMAND_TIME), "FNeedDate2"))
                 .sourceModifyTime(parseDateTime(optionalText(row, INDEX_SOURCE_MODIFY_TIME), "FModifyDate"))
                 .rawPayload(JsonUtils.toJsonString(row))
                 .build();
@@ -234,11 +248,72 @@ public class ErpKingdeeProductionMaterialListClientImpl implements ErpKingdeePro
                                   Map<String, Object> payload, String label) {
         MultiValueMap<String, String> body = new LinkedMultiValueMap<>();
         body.add("data", JsonUtils.toJsonString(payload));
-        ResponseEntity<String> response = restTemplate.postForEntity(
-                buildServiceUrl(properties.getBaseUrl(), serviceName),
-                new HttpEntity<>(body, buildFormHeaders(cookieHeader)),
-                String.class);
-        return parseJson(response.getBody(), label);
+        for (int attempt = 1; ; attempt++) {
+            long started = System.nanoTime();
+            ResponseEntity<String> response;
+            try {
+                response = restTemplate.postForEntity(
+                    buildServiceUrl(properties.getBaseUrl(), serviceName),
+                    new HttpEntity<>(body, buildFormHeaders(cookieHeader)), String.class);
+            } catch (RestClientException ex) {
+                Throwable cause = ex.getMostSpecificCause();
+                if (!(cause instanceof SocketTimeoutException || cause instanceof SocketException
+                        || cause instanceof EOFException)) {
+                    throw ex;
+                }
+                log.warn("PRD_PPBOM query failed: startRow={}, limit={}, attempt={}/{}, elapsedMs={}, cause={}",
+                        payload.get("StartRow"), payload.get("Limit"), attempt, MAX_QUERY_ATTEMPTS,
+                        (System.nanoTime() - started) / 1_000_000, cause.getClass().getSimpleName());
+                if (attempt >= MAX_QUERY_ATTEMPTS) {
+                    throw new RestClientException("金蝶生产用料清单读取超时或连接中断（PRD_PPBOM，StartRow="
+                            + payload.get("StartRow") + "，Limit=" + payload.get("Limit")
+                            + "），连续3次尝试失败，本次同步已失败，请检查金蝶查询耗时及网络连接", ex);
+                }
+                try {
+                    waitBeforeRetry(attempt);
+                } catch (InterruptedException interrupted) {
+                    Thread.currentThread().interrupt();
+                    RestClientException cancelled = new RestClientException("生产用料清单同步等待重试时被中断", interrupted);
+                    cancelled.addSuppressed(ex);
+                    throw cancelled;
+                }
+                continue;
+            }
+            JsonNode result = parseJson(response.getBody(), label);
+            rejectQueryErrors(result);
+            log.info("PRD_PPBOM query completed: startRow={}, limit={}, attempt={}, elapsedMs={}",
+                    payload.get("StartRow"), payload.get("Limit"), attempt,
+                    (System.nanoTime() - started) / 1_000_000);
+            return result;
+        }
+    }
+
+    void waitBeforeRetry(int failedAttempt) throws InterruptedException {
+        Thread.sleep(failedAttempt == 1 ? 5_000L : 15_000L);
+    }
+
+    private void rejectQueryErrors(JsonNode node) {
+        if (node.isArray()) {
+            for (JsonNode child : node) {
+                if (child.isContainerNode()) {
+                    rejectQueryErrors(child);
+                }
+            }
+            return;
+        }
+        JsonNode status = node.path("Result").path("ResponseStatus");
+        if (status.isObject() && status.path("IsSuccess").isBoolean()
+                && !status.path("IsSuccess").booleanValue()) {
+            List<String> messages = new ArrayList<>();
+            for (JsonNode error : status.path("Errors")) {
+                if (error.path("Message").isTextual()) {
+                    messages.add(error.path("Message").textValue());
+                }
+            }
+            throw exception(KINGDEE_PRODUCTION_ORDER_REQUEST_FAIL,
+                    "PRD_PPBOM ExecuteBillQuery failed (ErrorCode="
+                            + status.path("ErrorCode").asText() + "): " + String.join("; ", messages));
+        }
     }
 
     private JsonNode executeBillQuery(ErpKingdeeProperties properties, String cookieHeader, String filterString,
@@ -247,7 +322,8 @@ public class ErpKingdeeProductionMaterialListClientImpl implements ErpKingdeePro
         query.put("FormId", ErpKingdeeProductionMaterialList.FORM_ID);
         query.put("FieldKeys", FIELD_KEYS);
         query.put("FilterString", filterString);
-        query.put("OrderString", "FMoBillNo ASC,FMoEntrySeq ASC,FMOEntryID ASC");
+        // Include the persisted business key so children of the same production line have stable page boundaries.
+        query.put("OrderString", "FMoBillNo ASC,FMoEntrySeq ASC,FMOEntryID ASC,FBillNo ASC,FMaterialID2.FNumber ASC");
         query.put("StartRow", startRow);
         query.put("Limit", limit);
         JsonNode responseJson = postJsonData(properties, cookieHeader, QUERY_SERVICE,

@@ -364,6 +364,11 @@ public class MesProRouteServiceImpl implements MesProRouteService {
         MesProRouteVersionDO targetVersion = createRouteVersion(targetRoute, "V1",
                 sourceVersion == null ? null : sourceVersion.getId());
         JSONObject inheritedRouteLevelConfigSnapshots = extractReusableRouteLevelConfigSnapshots(sourceVersion);
+        if (inheritedRouteLevelConfigSnapshots == null && sourceVersion != null) {
+            inheritedRouteLevelConfigSnapshots = new JSONObject(true);
+        }
+        inheritCopiedProductionProcessConfigs(inheritedRouteLevelConfigSnapshots, sourceVersion,
+                copiedRouteProcessIds);
         if (sourceVersion != null) {
             copyScheduleConfigs(sourceRouteId, sourceVersion.getId(), targetVersion.getId(), copiedRouteProcessIds);
         }
@@ -467,10 +472,19 @@ public class MesProRouteServiceImpl implements MesProRouteService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void deleteRoute(Long id) {
-        // 1.1 校验存在
-        validateRouteExists(id);
+        // Serialize deletion with new business binding to this route.
+        MesProRouteDO route = routeMapper.selectByIdForUpdate(id);
+        if (route == null) {
+            throw exception(PRO_ROUTE_NOT_EXISTS);
+        }
         // 1.2 已启用的工艺路线，不允许删除
-        validateRouteNotEnable(id);
+        if (CommonStatusEnum.ENABLE.getStatus().equals(route.getStatus())) {
+            throw exception(PRO_ROUTE_IS_ENABLE);
+        }
+        if (routeMapper.existsUnfinishedBusinessByRouteId(id)) {
+            throw cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.invalidParamException(
+                    "工艺流程仍被活跃订单、未完成排产或批次执行引用，请先结束相关业务后再删除");
+        }
         // 1.3 删除路线前必须结束其开放候选，避免留下无法再编辑或发布的孤立草稿
         cancelOpenCandidateBeforeDelete(id);
 
@@ -967,10 +981,14 @@ public class MesProRouteServiceImpl implements MesProRouteService {
                                              JSONObject inheritedConfigSnapshots) {
         JSONObject configSnapshots = buildCompleteRouteConfigSnapshots(route.getId(), routeVersionId);
         inheritConfigSnapshotIfMissing(configSnapshots, inheritedConfigSnapshots, BATCH_RECORD_ATTACHMENT_OWNERS_KEY);
+        if (inheritedConfigSnapshots != null && inheritedConfigSnapshots.containsKey(PRODUCTION_PROCESS_CONFIGS_KEY)) {
+            configSnapshots.put(PRODUCTION_PROCESS_CONFIGS_KEY,
+                    inheritedConfigSnapshots.get(PRODUCTION_PROCESS_CONFIGS_KEY));
+        }
         MesProRouteVersionDO update = new MesProRouteVersionDO();
         update.setId(routeVersionId);
         MesProRouteVersionSnapshotIdentityWriter.apply(update,
-                buildRouteSnapshotJson(route, configSnapshots));
+                buildRouteSnapshotJson(route, routeVersionId, configSnapshots));
         routeVersionMapper.updateById(update);
     }
 
@@ -980,7 +998,8 @@ public class MesProRouteServiceImpl implements MesProRouteService {
         if (route == null) {
             throw exception(PRO_ROUTE_NOT_EXISTS);
         }
-        return buildRouteSnapshotJson(route, buildCompleteRouteConfigSnapshots(routeId, routeVersionId));
+        return buildRouteSnapshotJson(route, routeVersionId,
+                buildCompleteRouteConfigSnapshots(routeId, routeVersionId));
     }
 
     private JSONObject buildCompleteRouteConfigSnapshots(Long routeId, Long routeVersionId) {
@@ -1258,6 +1277,37 @@ public class MesProRouteServiceImpl implements MesProRouteService {
         return reusableConfigSnapshots.isEmpty() ? null : reusableConfigSnapshots;
     }
 
+    private void inheritCopiedProductionProcessConfigs(JSONObject inheritedConfigSnapshots,
+                                                       MesProRouteVersionDO sourceVersion,
+                                                       Map<Long, Long> copiedRouteProcessIds) {
+        if (sourceVersion == null || inheritedConfigSnapshots == null) {
+            return;
+        }
+        JSONObject sourceConfigSnapshots = extractConfigSnapshots(sourceVersion);
+        if (sourceConfigSnapshots == null || !sourceConfigSnapshots.containsKey(PRODUCTION_PROCESS_CONFIGS_KEY)) {
+            return;
+        }
+        Object rawConfigs = sourceConfigSnapshots.get(PRODUCTION_PROCESS_CONFIGS_KEY);
+        if (!(rawConfigs instanceof JSONArray sourceConfigs)) {
+            throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, sourceVersion.getId());
+        }
+        JSONArray copiedConfigs = new JSONArray();
+        for (Object rawConfig : sourceConfigs) {
+            if (!(rawConfig instanceof JSONObject sourceConfig)) {
+                throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, sourceVersion.getId());
+            }
+            Long sourceRouteProcessId = sourceConfig.getLong("routeProcessId");
+            Long targetRouteProcessId = copiedRouteProcessIds.get(sourceRouteProcessId);
+            if (targetRouteProcessId == null) {
+                throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, sourceVersion.getId());
+            }
+            JSONObject copiedConfig = JSON.parseObject(sourceConfig.toJSONString());
+            copiedConfig.put("routeProcessId", targetRouteProcessId);
+            copiedConfigs.add(copiedConfig);
+        }
+        inheritedConfigSnapshots.put(PRODUCTION_PROCESS_CONFIGS_KEY, copiedConfigs);
+    }
+
     private void inheritConfigSnapshotIfMissing(JSONObject targetConfigSnapshots,
                                                 JSONObject inheritedConfigSnapshots,
                                                 String configKey) {
@@ -1270,8 +1320,16 @@ public class MesProRouteServiceImpl implements MesProRouteService {
     }
 
     private String buildRouteSnapshotJson(MesProRouteDO route, JSONObject configSnapshots) {
+        return buildRouteSnapshotJson(route, null, configSnapshots);
+    }
+
+    private String buildRouteSnapshotJson(MesProRouteDO route, Long routeVersionId,
+                                          JSONObject configSnapshots) {
         JSONObject snapshot = new JSONObject(true);
         snapshot.put("routeId", route.getId());
+        if (routeVersionId != null) {
+            snapshot.put("routeVersionId", routeVersionId);
+        }
         snapshot.put("routeCode", route.getCode());
         snapshot.put("routeName", route.getName());
         snapshot.put("id", route.getId());
@@ -1290,10 +1348,7 @@ public class MesProRouteServiceImpl implements MesProRouteService {
     public MesProRouteRespVO getRouteRespVO(Long id) {
         MesProRouteDO route = routeMapper.selectById(id);
         if (route == null) {
-            route = routeMapper.selectByIdIgnoreDeleted(id);
-        }
-        if (route == null) {
-            return null;
+            throw exception(PRO_ROUTE_NOT_EXISTS);
         }
         MesProRouteRespVO respVO = BeanUtils.toBean(route, MesProRouteRespVO.class);
         enrichRouteDisplayFields(List.of(respVO));
@@ -1509,36 +1564,24 @@ public class MesProRouteServiceImpl implements MesProRouteService {
             return Collections.emptyMap();
         }
 
-        Map<Long, MesProRouteProcessDO> keyProcessByRouteId = new HashMap<>();
-        for (MesProRouteProcessDO routeProcess : routeProcesses) {
-            if (!Boolean.TRUE.equals(routeProcess.getKeyFlag())) {
-                continue;
-            }
-            MesProRouteProcessDO current = keyProcessByRouteId.get(routeProcess.getRouteId());
-            if (current == null
-                    || Comparator.comparing(MesProRouteProcessDO::getSort, Comparator.nullsLast(Integer::compareTo))
-                    .thenComparing(MesProRouteProcessDO::getId, Comparator.nullsLast(Long::compareTo))
-                    .compare(routeProcess, current) < 0) {
-                keyProcessByRouteId.put(routeProcess.getRouteId(), routeProcess);
-            }
-        }
-
-        Set<Long> processIds = keyProcessByRouteId.values().stream()
-                .map(MesProRouteProcessDO::getProcessId)
-                .filter(ObjUtil::isNotNull)
-                .collect(Collectors.toSet());
+        Map<Long, List<MesProRouteProcessDO>> keyProcessesByRouteId = routeProcesses.stream()
+                .filter(row -> Boolean.TRUE.equals(row.getKeyFlag()))
+                .sorted(Comparator.comparing(MesProRouteProcessDO::getSort, Comparator.nullsLast(Integer::compareTo))
+                        .thenComparing(MesProRouteProcessDO::getId, Comparator.nullsLast(Long::compareTo)))
+                .collect(Collectors.groupingBy(MesProRouteProcessDO::getRouteId));
+        Set<Long> processIds = keyProcessesByRouteId.values().stream().flatMap(Collection::stream)
+                .map(MesProRouteProcessDO::getProcessId).filter(ObjUtil::isNotNull).collect(Collectors.toSet());
         Map<Long, MesProProcessDO> processMap = processIds.isEmpty()
                 ? Collections.emptyMap()
                 : processMapper.selectListByIds(processIds).stream()
                 .collect(Collectors.toMap(MesProProcessDO::getId, process -> process));
-
         Map<Long, String> keyProcessNameByRouteId = new HashMap<>();
-        for (Map.Entry<Long, MesProRouteProcessDO> entry : keyProcessByRouteId.entrySet()) {
-            MesProProcessDO process = processMap.get(entry.getValue().getProcessId());
-            if (process != null) {
-                keyProcessNameByRouteId.put(entry.getKey(), process.getName());
-            }
-        }
+        keyProcessesByRouteId.forEach((routeId, rows) -> {
+            String names = rows.stream().map(row -> processMap.get(row.getProcessId()))
+                    .filter(Objects::nonNull).map(MesProProcessDO::getName)
+                    .collect(Collectors.joining("、"));
+            keyProcessNameByRouteId.put(routeId, names);
+        });
         return keyProcessNameByRouteId;
     }
 

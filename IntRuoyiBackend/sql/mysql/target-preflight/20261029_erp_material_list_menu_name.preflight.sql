@@ -1,0 +1,2 @@
+-- release-target-preflight: migrationId=20261029_erp_material_list_menu_name; allowedEnvironments=test,backup,prod
+SELECT CASE WHEN (SELECT COUNT(*) FROM system_menu WHERE id=2565 AND deleted=0 AND type=2 AND component='erp/product/product/index' AND name IN ('产品信息','物料','物料列表'))=1 THEN 'TARGET_PREFLIGHT_PASS:20261029_erp_material_list_menu_name' ELSE 'TARGET_PREFLIGHT_BLOCKED:20261029_erp_material_list_menu_name:BASELINE_CONFLICT' END;

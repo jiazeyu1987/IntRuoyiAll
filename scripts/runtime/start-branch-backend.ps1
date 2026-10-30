@@ -1,6 +1,8 @@
 param(
     [Nullable[int]]$Slot = $null,
     [switch]$Build,
+    [switch]$NoDebug,
+    [int]$DebugPort = 0,
     [string[]]$ExtraArgs = @(),
     [string]$IntAuthEnvFile,
     [ValidatePattern('^[A-Za-z0-9][A-Za-z0-9_-]*$')]
@@ -44,6 +46,13 @@ $context = Resolve-BranchRuntimeContext -RepoRoot $repoRoot -Branch $branch -Req
 $profile = $context.Profile
 $ports = $context.Ports
 $backendRoot = Join-Path $repoRoot 'IntRuoyiBackend'
+if ($DebugPort -eq 0) { $DebugPort = 5005 + ($ports.BackendPort - 48081) }
+if (-not $NoDebug) {
+    if ($DebugPort -lt 1024 -or $DebugPort -gt 65535) { throw 'Invalid debug port.' }
+    if (Get-NetTCPConnection -LocalPort $DebugPort -State Listen -ErrorAction SilentlyContinue) {
+        throw "Debug port $DebugPort is already occupied."
+    }
+}
 $jarPath = Join-Path $backendRoot 'yudao-server\target\yudao-server-exec.jar'
 
 $listeners = @(Get-NetTCPConnection -LocalPort $ports.BackendPort -State Listen -ErrorAction SilentlyContinue)
@@ -80,6 +89,10 @@ $javaArgs = @(
     "--server.port=$($ports.BackendPort)",
     "--spring.profiles.active=$SpringProfile"
 ) + $ExtraArgs
+if (-not $NoDebug) {
+    $javaArgs = @("-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=127.0.0.1:$DebugPort") + $javaArgs
+    Write-Host "Local Debug / HotSwap enabled on 127.0.0.1:$DebugPort."
+}
 
 Write-Host "Starting $($profile.Name) backend on $($ports.BackendPort)."
 & java @javaArgs

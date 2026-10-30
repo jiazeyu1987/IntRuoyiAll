@@ -24,7 +24,13 @@ public class KingdeeProductionMaterialListSyncJob implements JobHandler, ErpKing
     private final ErpKingdeeSyncRuntimeService syncRuntimeService;
 
     @Override
-    @TenantJob
+    public boolean supportsAutomaticRetry() {
+        // The client retries only the failed page; never restart the entire sync on failure.
+        return false;
+    }
+
+    @Override
+    @TenantJob(failOnError = true)
     public String execute(String param) {
         if (ErpKingdeeFullSyncHandler.FULL_SYNC_JOB_PARAM.equals(param)) {
             return executeFullSync();
@@ -50,18 +56,18 @@ public class KingdeeProductionMaterialListSyncJob implements JobHandler, ErpKing
     @Override
     public String executeFullSync() {
         LocalDateTime windowEnd = LocalDateTime.now();
-        AtomicReference<MesKingdeeProductionMaterialListSyncResult> resultReference = new AtomicReference<>();
+        AtomicReference<ErpKingdeeSyncRunResult> resultReference = new AtomicReference<>();
         syncRuntimeService.executeSync(ErpKingdeeSyncCommand.builder()
                 .syncType(ErpKingdeeSyncTypeEnum.PRODUCTION_MATERIAL_LIST)
                 .triggerType(ErpKingdeeSyncTriggerTypeEnum.FULL)
                 .windowEnd(windowEnd)
                 .build(), context -> {
-            MesKingdeeProductionMaterialListSyncResult result = syncService.syncAllSkipExisting();
+            ErpKingdeeSyncRunResult result = syncService.syncAllSkipExisting(context.getRunId());
             resultReference.set(result);
             return ErpKingdeeSyncRunResult.success(context.getWindowEnd(), result.getCreatedCount(),
                     result.getUpdatedCount(), result.getSkippedCount(), 0);
         });
-        MesKingdeeProductionMaterialListSyncResult result = resultReference.get();
+        ErpKingdeeSyncRunResult result = resultReference.get();
         return String.format("ERP production material list full sync: created=%d, updated=%d, skipped=%d",
                 result.getCreatedCount(), result.getUpdatedCount(), result.getSkippedCount());
     }

@@ -54,6 +54,10 @@ export interface ErpKingdeeFullSyncRespVO {
 }
 
 export const ErpKingdeeSyncApi = {
+  recoverRun: async (id: number): Promise<boolean> => {
+    return await request.post({ url: '/erp/kingdee-sync/run/recover', params: { id } })
+  },
+
   getRunPage: async (params: PageParam) => {
     return await request.get({ url: '/erp/kingdee-sync/run/page', params })
   },

@@ -35,7 +35,7 @@
             default-first-option
             filterable
             :placeholder="t('login.tenantNamePlaceholder')"
-            allow-create
+            :loading="tenantListLoading"
             @change="handleTenantNameChange"
             @visible-change="handleTenantDropdownVisibleChange"
           >
@@ -43,14 +43,14 @@
               <component :is="iconHouse" />
             </template>
             <el-option
-              v-for="item in tenantHistoryOptions"
-              :key="item.tenantName"
-              :label="item.tenantName"
-              :value="item.tenantName"
+              v-for="item in tenantOptions"
+              :key="item.id"
+              :label="item.name"
+              :value="item.name"
             >
               <div class="tenant-history-option">
-                <span class="tenant-history-name">{{ item.tenantName }}</span>
-                <span class="tenant-history-username">{{ item.username }}</span>
+                <span class="tenant-history-name">{{ item.name }}</span>
+                <span class="tenant-history-username">{{ authUtil.getLoginFormByTenantName(item.name)?.username }}</span>
               </div>
             </el-option>
           </el-select>
@@ -196,6 +196,7 @@ import { useIcon } from '@/hooks/web/useIcon'
 import * as authUtil from '@/utils/auth'
 import { usePermissionStore } from '@/store/modules/permission'
 import * as LoginApi from '@/api/login'
+import { getTenantList } from '@/api/system/tenant'
 import { LoginStateEnum, resolveLoginErrorMessage, useFormValid, useLoginState, useLoginTenant } from './useLogin'
 import { systemPasswordRule } from '@/views/system/user/systemPasswordPolicy'
 
@@ -244,7 +245,8 @@ const passwordChangeRules = {
   newPassword: [required, systemPasswordRule],
   confirmPassword: [required, { validator: validatePasswordConfirmation, trigger: 'blur' }]
 }
-const tenantHistoryOptions = ref<authUtil.LoginTenantHistoryRecord[]>([])
+const tenantOptions = ref<{ id: number; name: string }[]>([])
+const tenantListLoading = ref(false)
 const loginData = reactive({
   isShowPassword: false,
   tenantEnable: import.meta.env.VITE_APP_TENANT_ENABLE,
@@ -265,8 +267,14 @@ const getTenantId = async () => {
   return await resolveTenantId(loginData.tenantEnable, loginData.loginForm.tenantName)
 }
 // 记住我
-const syncTenantHistoryOptions = () => {
-  tenantHistoryOptions.value = authUtil.getLoginFormHistory()
+const loadTenantOptions = async () => {
+  if (loginData.tenantEnable !== 'true') return
+  tenantListLoading.value = true
+  try {
+    tenantOptions.value = await getTenantList()
+  } finally {
+    tenantListLoading.value = false
+  }
 }
 
 const applyLoginFormCache = (loginForm?: authUtil.LoginFormType) => {
@@ -303,7 +311,6 @@ const handleTenantDropdownVisibleChange = (visible: boolean) => {
 }
 
 const getLoginFormCache = () => {
-  syncTenantHistoryOptions()
   applyLoginFormCache(authUtil.getLoginForm())
 }
 // 根据域名，获得租户信息
@@ -441,6 +448,7 @@ watch(
 )
 onMounted(() => {
   getLoginFormCache()
+  loadTenantOptions()
   getTenantByWebsite()
 })
 </script>

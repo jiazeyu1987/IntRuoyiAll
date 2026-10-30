@@ -9,6 +9,19 @@ const registration: ModuleRegistration = {
     {
       descriptor: { sourceId: 'EDHR_WORK_TASK', ownerModule: 'mes', contractVersion: 1, sortRank: 2,
         label: 'eDHR工作任务', taskType: '批记录', policyId: 'mes.edhr.policy', actionKind: 'mes.edhr.open', payloadVersion: 1 },
+      actionLabel: (payload) => {
+        const labels: Record<string, string> = {
+          FILL: '去填写', REVIEW: '去复核', APPROVE: '去批准', REWORK: '去修改',
+          ARCHIVE: '去归档', CLOSE: '去关闭', RELEASE_APPROVE: '去审批',
+          PQC_PRODUCTION_RELEASE: '去放行', DOSSIER_COMPLETE: '去补齐',
+          PQC_RELEASE_CORRECTION: '去补正', RECORD_CHANGE_CORRECTION: '去补正',
+          RECORD_CHANGE_APPROVE: '去审批', DEVIATION_RECEIVE: '去调查',
+          DEVIATION_CORRECT: '去纠正', DEVIATION_SIGN: '去签署',
+          DEVIATION_APPROVE: '去审核', DEVIATION_CLOSE: '去关闭',
+          QA_REVIEW: '去评审', QA_DECISION_HANDOFF: '去接手'
+        }
+        return labels[payload.taskType] ?? '查看任务'
+      },
       open: async (router, payload, isCurrent) => {
         if (payload.blockedReason) throw new Error(payload.blockedReason)
         if (payload.taskType === 'QA_DECISION_HANDOFF' || payload.taskType === 'QA_REVIEW') {
@@ -24,12 +37,6 @@ const registration: ModuleRegistration = {
         if (!payload.taskType) throw new Error('eDHR 工作任务缺少正式任务类型。')
         return navigateToEdhrWorkTask(router, payload, window.location.origin, isCurrent)
       }
-    },
-    {
-      descriptor: { sourceId: 'WORK_ORDER', ownerModule: 'mes', contractVersion: 1, sortRank: 3,
-        label: '待排产工单', taskType: '排产', policyId: 'mes.workOrder.policy', actionKind: 'mes.workOrder.open', payloadVersion: 1 },
-      open: async (router, payload) => router.push({ path: '/mes/pro/work-order',
-        query: payload.code ? { code: payload.code } : undefined })
     }
   ]
 }

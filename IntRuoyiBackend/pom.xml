@@ -27,6 +27,8 @@
 <!--        <module>yudao-module-iot</module>-->
         <module>yudao-module-dcc</module>
         <module>yudao-module-mdm</module>
+        <module>yudao-module-mes-common</module>
+        <module>yudao-module-mes-device</module>
         <module>yudao-module-mes</module>
         <module>yudao-module-srm</module>
         <module>yudao-module-showroom</module>

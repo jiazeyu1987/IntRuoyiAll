@@ -518,7 +518,7 @@ class MesM9SimulationHistoryProtectionTest {
 
     @ParameterizedTest
     @ValueSource(strings={"formal", "missingRun", "differentOwner", "missingParent"})
-    void fixedResetRequiresOwnershipButNotSimulationTags(String scenario) {
+    void fixedResetRequiresParentButNotSameLeaderOrSimulationTags(String scenario) {
         var workOrder = MesProWorkOrderDO.builder().id(201L).build();
         workOrder.setTenantId(92820L);
         when(dependency(MesProWorkOrderMapper.class).selectByTenantIdAndCodeForUpdate(eq(92820L), anyString())).thenReturn(workOrder);
@@ -528,7 +528,7 @@ class MesM9SimulationHistoryProtectionTest {
         if (scenario.equals("differentOwner")) order.setLeaderUserId(3002L);
         when(dependency(MesProcessPoolActiveOrderMapper.class).selectList(any(com.baomidou.mybatisplus.core.conditions.Wrapper.class)))
                 .thenReturn(scenario.equals("missingParent") ? List.of() : List.of(order));
-        if (scenario.equals("formal") || scenario.equals("missingRun")) {
+        if (!scenario.equals("missingParent")) {
             var result = assertDoesNotThrow(() -> resetTargetWithSuccessfulReadd().resetFixedSimulationActiveOrder(3001L));
             assertEquals(201L, result.getWorkOrderId());
             verify(dependency(MesTeamLeaderDataCleanupMapper.class)).deleteActiveOrders(92820L, List.of(101L));
@@ -1096,19 +1096,40 @@ class MesM9SimulationHistoryProtectionTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings={"foreignTenant", "foreignOwner", "foreignWorkOrder"})
-    void fixedResetRejectsAnyCandidateOutsideItsTenantOwnerOrWorkOrderBeforeWrites(String scope) {
+    @ValueSource(strings={"foreignTenant", "foreignWorkOrder"})
+    void fixedResetRejectsAnyCandidateOutsideItsTenantOrWorkOrderBeforeWrites(String scope) {
         stubFixedResetOwner();
         var outside = parent();
         outside.setId(103L);
         if (scope.equals("foreignTenant")) outside.setTenantId(92821L);
-        if (scope.equals("foreignOwner")) outside.setLeaderUserId(3002L);
         if (scope.equals("foreignWorkOrder")) outside.setWorkOrderId(202L);
         when(dependency(MesProcessPoolActiveOrderMapper.class)
                 .selectList(any(com.baomidou.mybatisplus.core.conditions.Wrapper.class)))
                 .thenReturn(List.of(parent(), outside));
         rejectWrites = true;
         assertThrows(ServiceException.class, () -> service.resetFixedSimulationActiveOrder(3001L));
+    }
+
+    @Test
+    void fixedResetAllowsHistoricalCyclesAcrossLeadersAndReaddsForCurrentOperator() {
+        stubFixedResetOwner();
+        var original = parent();
+        original.setLeaderUserId(3002L);
+        var rework = parent();
+        rework.setId(103L);
+        rework.setLeaderUserId(3003L);
+        when(dependency(MesProcessPoolActiveOrderMapper.class)
+                .selectList(any(com.baomidou.mybatisplus.core.conditions.Wrapper.class)))
+                .thenReturn(List.of(original, rework));
+        var target = resetTargetWithSuccessfulReadd();
+
+        var result = assertDoesNotThrow(() -> target.resetFixedSimulationActiveOrder(3001L));
+
+        assertEquals(2L, result.getPreviousActiveOrderCount());
+        verify(dependency(MesTeamLeaderDataCleanupMapper.class))
+                .deleteActiveOrders(92820L, List.of(101L, 103L));
+        verify(target).addActiveOrder(argThat(request -> request.getWorkOrderId().equals(201L)
+                && request.getLeaderUserId().equals(3001L)));
     }
 
     @ParameterizedTest

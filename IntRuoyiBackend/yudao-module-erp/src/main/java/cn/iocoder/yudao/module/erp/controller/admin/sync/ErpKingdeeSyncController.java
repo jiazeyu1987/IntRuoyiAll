@@ -11,6 +11,7 @@ import cn.iocoder.yudao.module.erp.controller.admin.sync.vo.ErpKingdeeSyncRunRes
 import cn.iocoder.yudao.module.erp.controller.admin.sync.vo.ErpKingdeeSyncWatermarkRespVO;
 import cn.iocoder.yudao.module.erp.service.sync.admin.ErpKingdeeProductionOrderCreateService;
 import cn.iocoder.yudao.module.erp.service.sync.admin.ErpKingdeeSyncAdminService;
+import cn.iocoder.yudao.module.erp.service.sync.admin.ErpKingdeeSyncRunRecoveryService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.annotation.Resource;
@@ -21,6 +22,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -37,6 +39,23 @@ public class ErpKingdeeSyncController {
     private ErpKingdeeSyncAdminService syncAdminService;
     @Resource
     private ErpKingdeeProductionOrderCreateService productionOrderCreateService;
+
+    @Resource
+    private ErpKingdeeSyncRunRecoveryService runRecoveryService;
+
+    @PostMapping("/run/recover")
+    @Operation(summary = "核验集群并结束已中断的同步记录")
+    @PreAuthorize("@ss.hasPermission('erp:kingdee-sync:query')")
+    public CommonResult<Boolean> recoverRun(@RequestParam Long id) {
+        try {
+            runRecoveryService.recover(id);
+        } catch (IllegalStateException failure) {
+            throw cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception(
+                    cn.iocoder.yudao.module.erp.enums.ErrorCodeConstants.KINGDEE_TABLE_AUTO_SYNC_EXECUTE_FAILED,
+                    failure.getMessage());
+        }
+        return success(true);
+    }
 
     @GetMapping("/run/page")
     @Operation(summary = "分页查询 ERP 金蝶同步运行记录")

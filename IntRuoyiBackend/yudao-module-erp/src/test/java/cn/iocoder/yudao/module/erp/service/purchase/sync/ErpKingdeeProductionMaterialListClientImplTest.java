@@ -1,18 +1,28 @@
 package cn.iocoder.yudao.module.erp.service.purchase.sync;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.http.HttpStatus;
+import org.springframework.mock.http.client.MockClientHttpResponse;
 import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.client.RestClientException;
 
 import java.math.BigDecimal;
+import java.io.InputStream;
+import java.net.SocketTimeoutException;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Set;
 
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.content;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.header;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.method;
@@ -20,6 +30,183 @@ import static org.springframework.test.web.client.match.MockRestRequestMatchers.
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 
 class ErpKingdeeProductionMaterialListClientImplTest {
+
+    @Test
+    void plainTextJsonIsSupported() {
+        RestTemplate template = new ErpKingdeeRestTemplateConfiguration()
+                .erpKingdeeProductionMaterialListRestTemplate();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(template).build();
+        server.expect(requestTo(containsString("ValidateUser")))
+                .andRespond(withSuccess("{\"LoginResultType\":1}", MediaType.TEXT_PLAIN)
+                        .header(HttpHeaders.SET_COOKIE, "session=test; Path=/"));
+        server.expect(requestTo(containsString("ExecuteBillQuery")))
+                .andRespond(withSuccess("[]", MediaType.TEXT_PLAIN));
+        new ErpKingdeeProductionMaterialListClientImpl(template).forEachProductionMaterialListPage(
+                buildProperties(), page -> org.junit.jupiter.api.Assertions.fail("empty response must not emit a page"));
+        server.verify();
+    }
+
+    @Test
+    void responseBodyTimeoutReportsPageAndPreservesCause() {
+        RestTemplate template = new RestTemplate();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(template).build();
+        server.expect(requestTo(containsString("ValidateUser")))
+                .andRespond(withSuccess("{\"LoginResultType\":1}", MediaType.TEXT_PLAIN)
+                        .header(HttpHeaders.SET_COOKIE, "session=test; Path=/"));
+        SocketTimeoutException timeout = new SocketTimeoutException("Read timed out");
+        server.expect(org.springframework.test.web.client.ExpectedCount.times(3),
+                requestTo(containsString("ExecuteBillQuery"))).andRespond(request -> {
+            MockClientHttpResponse response = new MockClientHttpResponse(new InputStream() {
+                private boolean started;
+
+                @Override
+                public int read() throws SocketTimeoutException {
+                    if (!started) {
+                        started = true;
+                        return '[';
+                    }
+                    throw timeout;
+                }
+            }, HttpStatus.OK);
+            response.getHeaders().setContentType(MediaType.TEXT_PLAIN);
+            return response;
+        });
+        RestClientException error = assertThrows(RestClientException.class,
+                () -> new ErpKingdeeProductionMaterialListClientImpl(template) {
+                    @Override void waitBeforeRetry(int attempt) { }
+                }
+                        .forEachProductionMaterialListPage(buildProperties(), page -> { }));
+        assertTrue(error.getMessage().contains("生产用料清单读取超时"));
+        assertTrue(error.getMessage().contains("StartRow=0"));
+        assertEquals(timeout, error.getMostSpecificCause());
+        assertTrue(error.getMessage().contains("连续3次尝试失败"));
+        server.verify();
+    }
+
+    @Test
+    void retriesOnlyFailedPageAndContinuesWithoutDuplicatingRows() {
+        RestTemplate template = new RestTemplate();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(template).build();
+        java.util.concurrent.atomic.AtomicInteger committed = new java.util.concurrent.atomic.AtomicInteger();
+        java.util.ArrayList<Integer> waits = new java.util.ArrayList<>();
+        ErpKingdeeProductionMaterialListClientImpl client = new ErpKingdeeProductionMaterialListClientImpl(template) {
+            @Override void waitBeforeRetry(int attempt) { waits.add(attempt); }
+        };
+        ErpKingdeeProperties properties = buildProperties();
+        properties.getProductionOrder().setQueryLimit(1);
+        server.expect(requestTo(containsString("ValidateUser")))
+                .andRespond(withSuccess("{\"LoginResultType\":1}", MediaType.TEXT_PLAIN)
+                        .header(HttpHeaders.SET_COOKIE, "session=test"));
+        server.expect(requestTo(containsString("ExecuteBillQuery")))
+                .andExpect(content().string(containsString("%22StartRow%22%3A0")))
+                .andExpect(content().string(containsString("FBillNo+ASC%2CFMaterialID2.FNumber+ASC")))
+                .andRespond(withSuccess("[[1001,\"B001\",\"P001\",\"MO001\",1,\"C\",\"M001\",\"物料\",\"\",\"\",1,1,\"支\",\"\",1,\"\",\"\",\"\"]]", MediaType.TEXT_PLAIN));
+        server.expect(requestTo(containsString("ExecuteBillQuery")))
+                .andExpect(request -> assertEquals(1, committed.get()))
+                .andExpect(content().string(containsString("%22StartRow%22%3A1")))
+                .andRespond(org.springframework.test.web.client.response.MockRestResponseCreators.withException(new SocketTimeoutException()));
+        server.expect(requestTo(containsString("ExecuteBillQuery")))
+                .andExpect(request -> assertEquals(1, committed.get()))
+                .andExpect(content().string(containsString("%22StartRow%22%3A1")))
+                .andRespond(org.springframework.test.web.client.response.MockRestResponseCreators.withException(new java.net.SocketException("Connection reset")));
+        server.expect(requestTo(containsString("ExecuteBillQuery")))
+                .andExpect(request -> assertEquals(1, committed.get()))
+                .andExpect(content().string(containsString("%22StartRow%22%3A1")))
+                .andRespond(withSuccess("[]", MediaType.TEXT_PLAIN));
+        java.util.ArrayList<ErpKingdeeProductionMaterialList> received = new java.util.ArrayList<>();
+        client.forEachProductionMaterialListPage(properties, page -> { received.addAll(page); committed.incrementAndGet(); });
+        assertEquals(1, received.size());
+        assertEquals(List.of(1, 2), waits);
+        server.verify();
+    }
+
+    @Test
+    void consumerFailureStopsImmediatelyWithoutRetryingOrReadingNextPage() {
+        RestTemplate template = new RestTemplate();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(template).build();
+        server.expect(requestTo(containsString("ValidateUser")))
+                .andRespond(withSuccess("{\"LoginResultType\":1}", MediaType.TEXT_PLAIN)
+                        .header(HttpHeaders.SET_COOKIE, "session=test"));
+        server.expect(requestTo(containsString("ExecuteBillQuery")))
+                .andRespond(withSuccess("[[1001,\"B001\",\"P001\",\"MO001\",1,\"C\",\"M001\",\"物料\",\"\",\"\",1,1,\"支\",\"\",1,\"\",\"\",\"\"]]", MediaType.TEXT_PLAIN));
+        ErpKingdeeProperties properties = buildProperties();
+        properties.getProductionOrder().setQueryLimit(1);
+        IllegalStateException databaseFailure = new IllegalStateException("database failed");
+        assertEquals(databaseFailure, assertThrows(IllegalStateException.class, () ->
+                new ErpKingdeeProductionMaterialListClientImpl(template).forEachProductionMaterialListPage(
+                        properties, page -> { throw databaseFailure; })));
+        server.verify();
+    }
+
+    @Test
+    void interruptedBackoffStopsWithoutAnotherQuery() {
+        RestTemplate template = new RestTemplate();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(template).build();
+        server.expect(requestTo(containsString("ValidateUser")))
+                .andRespond(withSuccess("{\"LoginResultType\":1}", MediaType.TEXT_PLAIN)
+                        .header(HttpHeaders.SET_COOKIE, "session=test"));
+        server.expect(requestTo(containsString("ExecuteBillQuery")))
+                .andRespond(org.springframework.test.web.client.response.MockRestResponseCreators.withException(new SocketTimeoutException()));
+        try {
+            RestClientException failure = assertThrows(RestClientException.class, () ->
+                    new ErpKingdeeProductionMaterialListClientImpl(template) {
+                        @Override void waitBeforeRetry(int attempt) throws InterruptedException {
+                            throw new InterruptedException();
+                        }
+                    }.forEachProductionMaterialListPage(buildProperties(), page -> { }));
+            assertTrue(failure.getMessage().contains("被中断"));
+            assertTrue(Thread.currentThread().isInterrupted());
+            server.verify();
+        } finally {
+            Thread.interrupted();
+        }
+    }
+
+    @Test
+    void incompleteRowsStillFailWithoutSubstitutingMissingFields() {
+        RestTemplate restTemplate = new RestTemplate();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(restTemplate).build();
+        ErpKingdeeProductionMaterialListClientImpl client =
+                new ErpKingdeeProductionMaterialListClientImpl(restTemplate);
+        server.expect(requestTo("https://k3.example.com/K3Cloud/Kingdee.BOS.WebApi.ServicesStub.AuthService.ValidateUser.common.kdsvc"))
+                .andRespond(withSuccess("{\"LoginResultType\":1}", MediaType.APPLICATION_JSON)
+                        .header(HttpHeaders.SET_COOKIE, "kdservice-sessionid=abc; Path=/"));
+        server.expect(requestTo("https://k3.example.com/K3Cloud/Kingdee.BOS.WebApi.ServicesStub.DynamicFormService.ExecuteBillQuery.common.kdsvc"))
+                .andRespond(withSuccess("[[1001,\"PPBOM001\"]]", MediaType.APPLICATION_JSON));
+        ServiceException error = assertThrows(ServiceException.class,
+                () -> client.forEachProductionMaterialListPage(buildProperties(), page -> { }));
+        assertTrue(error.getMessage().contains("expected 18, actual 2"));
+        server.verify();
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {0, 1, 2})
+    void queryErrorsAreReportedBeforeParsingRows(int mode) {
+        RestTemplate restTemplate = new RestTemplate();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(restTemplate).build();
+        ErpKingdeeProductionMaterialListClientImpl client =
+                new ErpKingdeeProductionMaterialListClientImpl(restTemplate);
+        server.expect(requestTo("https://k3.example.com/K3Cloud/Kingdee.BOS.WebApi.ServicesStub.AuthService.ValidateUser.common.kdsvc"))
+                .andRespond(withSuccess("{\"LoginResultType\":1}", MediaType.APPLICATION_JSON)
+                        .header(HttpHeaders.SET_COOKIE, "kdservice-sessionid=abc; Path=/"));
+        server.expect(requestTo("https://k3.example.com/K3Cloud/Kingdee.BOS.WebApi.ServicesStub.DynamicFormService.ExecuteBillQuery.common.kdsvc"))
+                .andRespond(withSuccess("""
+                        [[{"Result":{"ResponseStatus":{"IsSuccess":false,"ErrorCode":"FIELD_INVALID","Errors":[{"Message":"查询字段不存在"}]}}}]]
+                        """, MediaType.APPLICATION_JSON));
+        ServiceException error = assertThrows(ServiceException.class, () -> {
+            if (mode == 0) {
+                client.forEachProductionMaterialListPage(buildProperties(), page -> { });
+            } else if (mode == 1) {
+                client.fetchProductionMaterialListsModifiedBetween(buildProperties(),
+                        LocalDateTime.of(2026, 10, 29, 0, 0), LocalDateTime.of(2026, 10, 30, 0, 0));
+            } else {
+                client.fetchProductionMaterialListsByProductionOrderNos(buildProperties(), Set.of("MO001"));
+            }
+        });
+        assertTrue(error.getMessage().contains("查询字段不存在"));
+        assertTrue(error.getMessage().contains("FIELD_INVALID"));
+        server.verify();
+    }
 
     @Test
     void fetchProductionMaterialListsModifiedBetween_queriesPrdPpbomAndParsesRows() {
@@ -44,7 +231,8 @@ class ErpKingdeeProductionMaterialListClientImplTest {
                 .andExpect(content().string(containsString("FMaterialID.FNumber")))
                 .andExpect(content().string(containsString("FMaterialID2.FNumber")))
                 .andExpect(content().string(containsString("FMaterialID2.F_PAEZ_TUHAO")))
-                .andExpect(content().string(containsString("FNeedDate")))
+                .andExpect(content().string(containsString("FNeedDate2")))
+                .andExpect(content().string(org.hamcrest.Matchers.not(containsString("FNeedDate%2C"))))
                 .andExpect(content().string(org.hamcrest.Matchers.not(containsString("FProductId"))))
                 .andExpect(content().string(org.hamcrest.Matchers.not(containsString("FMoStatus"))))
                 .andExpect(content().string(org.hamcrest.Matchers.not(containsString("FPlanBeginDate"))))

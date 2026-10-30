@@ -1,7 +1,6 @@
 package cn.iocoder.yudao.module.srm.dal.dataobject.supplier;
 
 import cn.iocoder.yudao.framework.mybatis.core.dataobject.BaseDO;
-import cn.iocoder.yudao.framework.tenant.core.aop.TenantIgnore;
 import com.baomidou.mybatisplus.annotation.KeySequence;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
@@ -10,7 +9,6 @@ import lombok.*;
 /**
  * SRM 只读引用 ERP 供应商主数据。
  */
-@TenantIgnore
 @TableName("erp_supplier")
 @KeySequence("erp_supplier_seq")
 @Data

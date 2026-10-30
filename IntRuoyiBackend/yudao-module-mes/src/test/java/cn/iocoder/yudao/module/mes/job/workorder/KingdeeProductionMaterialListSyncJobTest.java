@@ -26,6 +26,15 @@ import static org.mockito.Mockito.when;
 class KingdeeProductionMaterialListSyncJobTest {
 
     @Test
+    void failedTenantIsReportedAndWholeJobRetryIsDisabled() throws Exception {
+        KingdeeProductionMaterialListSyncJob job = new KingdeeProductionMaterialListSyncJob(
+                mock(MesKingdeeProductionMaterialListSyncService.class), mock(ErpKingdeeSyncRuntimeService.class));
+        Assertions.assertFalse(job.supportsAutomaticRetry());
+        assertTrue(KingdeeProductionMaterialListSyncJob.class.getMethod("execute", String.class)
+                .getAnnotation(cn.iocoder.yudao.framework.tenant.core.job.TenantJob.class).failOnError());
+    }
+
+    @Test
     void execute_shouldSyncProductionMaterialListsByRuntimeWindow() {
         MesKingdeeProductionMaterialListSyncService syncService =
                 mock(MesKingdeeProductionMaterialListSyncService.class);
@@ -73,14 +82,12 @@ class KingdeeProductionMaterialListSyncJobTest {
         MesKingdeeProductionMaterialListSyncService syncService =
                 mock(MesKingdeeProductionMaterialListSyncService.class);
         ErpKingdeeSyncRuntimeService runtimeService = mock(ErpKingdeeSyncRuntimeService.class);
-        MesKingdeeProductionMaterialListSyncResult result = new MesKingdeeProductionMaterialListSyncResult();
-        result.addCreated(100L);
-        result.addUpdated(102L);
-        result.addSkipped("BILL-101");
-        when(syncService.syncAllSkipExisting()).thenReturn(result);
+        cn.iocoder.yudao.module.erp.service.sync.runtime.ErpKingdeeSyncRunResult result =
+                cn.iocoder.yudao.module.erp.service.sync.runtime.ErpKingdeeSyncRunResult.success(null, 1, 1, 1, 0);
+        when(syncService.syncAllSkipExisting(91L)).thenReturn(result);
         when(runtimeService.executeSync(any(ErpKingdeeSyncCommand.class), any(ErpKingdeeSyncTask.class)))
                 .thenAnswer(invocation -> invocation.<ErpKingdeeSyncTask>getArgument(1).run(
-                        ErpKingdeeSyncContext.builder()
+                        ErpKingdeeSyncContext.builder().runId(91L)
                                 .syncType(ErpKingdeeSyncTypeEnum.PRODUCTION_MATERIAL_LIST)
                                 .triggerType(ErpKingdeeSyncTriggerTypeEnum.FULL)
                                 .windowEnd(LocalDateTime.of(2026, 6, 12, 9, 0))
@@ -91,7 +98,7 @@ class KingdeeProductionMaterialListSyncJobTest {
 
         assertTrue(output.contains("full sync"));
         assertTrue(output.contains("updated=1"));
-        verify(syncService).syncAllSkipExisting();
+        verify(syncService).syncAllSkipExisting(91L);
         verify(syncService, never()).syncModifiedBetween(any(), any());
     }
 

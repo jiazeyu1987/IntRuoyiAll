@@ -23,6 +23,7 @@ export interface SourceDirectory {
 }
 export interface SourceRegistration {
   descriptor: SourceDescriptor
+  actionLabel: (payload: Record<string, string>, statusLabel: string) => string
   open: (router: Router, payload: Record<string, string>, isCurrent?: () => boolean) => Promise<unknown>
 }
 export interface ModuleRegistration {

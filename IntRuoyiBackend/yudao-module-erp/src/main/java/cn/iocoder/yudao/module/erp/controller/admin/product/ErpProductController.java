@@ -51,6 +51,22 @@ public class ErpProductController {
     @Resource
     private ErpKingdeeProductSyncService kingdeeProductSyncService;
 
+    @Resource
+    private cn.iocoder.yudao.module.erp.service.product.ErpProductImportService productImportService;
+
+    @GetMapping("/import-template")
+    @PreAuthorize("@ss.hasPermission('erp:product:create')")
+    public void importTemplate(HttpServletResponse response) throws IOException {
+        ExcelUtils.write(response, "物料导入模板.xls", "数据", ErpProductRespVO.class, java.util.Collections.emptyList());
+    }
+
+    @PostMapping("/import")
+    @Operation(summary = "导入物料（仅新增，整批事务）")
+    @PreAuthorize("@ss.hasPermission('erp:product:create')")
+    public CommonResult<Integer> importProducts(@RequestParam("file") org.springframework.web.multipart.MultipartFile file) throws IOException {
+        return success(productImportService.importProducts(ExcelUtils.read(file, ErpProductRespVO.class)));
+    }
+
     @PostMapping("/create")
     @Operation(summary = "创建产品")
     @PreAuthorize("@ss.hasPermission('erp:product:create')")

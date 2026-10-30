@@ -1959,7 +1959,10 @@ public class MesProAutoScheduleServiceImpl implements MesProAutoScheduleService 
         }
         if (CollUtil.isNotEmpty(routeIds)) {
             computation.routeMap = Objects.requireNonNull(
-                    routeService.getRouteMapIgnoreDeleted(routeIds), "route map must not be null");
+                    routeService.getRouteMap(routeIds), "route map must not be null");
+            if (!computation.routeMap.keySet().containsAll(routeIds)) {
+                throw exception(cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_ROUTE_NOT_EXISTS);
+            }
         }
     }
 

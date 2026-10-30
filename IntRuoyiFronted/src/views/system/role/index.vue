@@ -545,7 +545,7 @@ const handleImportFileChange = async (event: Event) => {
     formData.append('file', file)
     await RoleApi.importRoleConfigPackage(formData)
     message.success('权限角色配置包导入成功')
-    await getList()
+    await refreshCategories()
   } finally {
     importLoading.value = false
   }
@@ -553,12 +553,16 @@ const handleImportFileChange = async (event: Event) => {
 
 /** 初始化 */
 onMounted(async () => {
-  await getCategoryList()
-  const hasRouteRole = await syncRoleQueryFromRoute()
-  if (!hasRouteRole && categoryList.value.length > 0) {
-    queryParams.categoryId = categoryList.value[0].id
+  try {
+    await getCategoryList()
+    const hasRouteRole = await syncRoleQueryFromRoute()
+    if (!hasRouteRole && categoryList.value.length > 0) {
+      queryParams.categoryId = categoryList.value[0].id
+    }
+    await getList()
+  } finally {
+    loading.value = false
   }
-  await getList()
 })
 
 watch(

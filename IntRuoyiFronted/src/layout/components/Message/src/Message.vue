@@ -1,6 +1,7 @@
 <script lang="ts" setup>
 import { formatDate } from '@/utils/formatTime'
 import * as NotifyMessageApi from '@/api/system/notify/message'
+import { describeNotifyMessage } from '@/utils/businessMessagePresentation'
 import { useUserStoreWithOut } from '@/store/modules/user'
 import { propTypes } from '@/utils/propTypes'
 import {
@@ -64,6 +65,14 @@ const splitMessageContent = (content: string) => {
 
 const getMessageDisplay = (item: NotifyMessageApi.NotifyMessageVO) => {
   const source = normalizeMessageText(item.templateNickname) || '站内信'
+  const description = describeNotifyMessage(item)
+  if (description.title) {
+    return {
+      source,
+      headline: description.title,
+      body: [description.body, ...description.fields.map(field => `${field.label}：${field.value}`)].join('\n')
+    }
+  }
   const content = removeSourcePrefix(stripEntryInfo(item.templateContent), source)
   const { headline, body } = splitMessageContent(content)
 

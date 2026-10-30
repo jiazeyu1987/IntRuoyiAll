@@ -102,6 +102,16 @@
       ]"
     >
       <el-tab-pane label="生产人员档案" name="productionPersonnel">
+        <el-dialog v-model="staleEmployeeScopesVisible" title="遗留人员责任" width="600px">
+          <el-alert title="以下责任没有对应的启用人员档案。停用仅移除本班组的遗留责任，保留人员原班组和历史记录。" type="warning" :closable="false" />
+          <el-table :data="staleEmployeeScopes" v-loading="staleEmployeeScopesLoading">
+            <el-table-column prop="id" label="责任记录ID" />
+            <el-table-column prop="employeeUserId" label="人员身份ID" />
+            <el-table-column label="操作"><template #default="{ row }">
+              <el-button :disabled="staleEmployeeScopesLoading" @click="disableStaleEmployeeScope(row.id)">停用遗留责任</el-button>
+            </template></el-table-column>
+          </el-table>
+        </el-dialog>
         <UnifiedListTemplate
           single-line-toolbar
           table-key="mes.processPool.teamLeader.productionPersonnel"
@@ -129,6 +139,7 @@
                 <Icon icon="ep:plus" class="mr-5px" />
                 新增人员
               </el-button>
+              <el-button @click="showStaleEmployeeScopes">遗留人员责任</el-button>
             </el-form-item>
           </template>
           <template #table>
@@ -4136,6 +4147,8 @@ import {
   saveTeamLeaderProcessOverageLimit,
   getTeamLeaderResponsibleRouteList,
   getProductionPersonnelList,
+  getStaleProductionEmployeeScopes,
+  disableStaleProductionEmployeeScope,
   getTeamLeaderActiveOrderDetail,
   getTeamLeaderActiveOrderList,
   getTeamLeaderActiveOrderRelease,
@@ -4494,7 +4507,7 @@ const activeOrderRebuildSubmittingId = ref<number | string>()
 const activeOrderVersionUpgradeSubmittingId = ref<number | string>()
 const activeOrderSimulationSubmittingId = ref<number | string>()
 const activeOrderTestResetSubmitting = ref(false)
-const activeOrderTestResetReceipt = ref<{ state: 'success' | 'unknown'; message: string }>()
+const activeOrderTestResetReceipt = ref<{ state: 'success' | 'rejected' | 'unknown'; message: string }>()
 const activeOrderTestResetBlocked = computed(() =>
   activeOrderTestResetSubmitting.value ||
   maintenanceSubmitting.value ||
@@ -6031,6 +6044,31 @@ const refreshProductionPersonnel = async () => {
   } finally {
     productionPersonnelLoading.value = false
   }
+}
+
+const staleEmployeeScopesVisible = ref(false)
+const staleEmployeeScopesLoading = ref(false)
+const staleEmployeeScopes = ref<Array<{ id: number; employeeUserId: number }>>([])
+const showStaleEmployeeScopes = async () => {
+  staleEmployeeScopesLoading.value = true
+  try {
+    staleEmployeeScopes.value = await getStaleProductionEmployeeScopes()
+    staleEmployeeScopesVisible.value = true
+  } catch (error) {
+    ElMessage.error(resolveErrorMessage(error, '遗留人员责任加载失败'))
+  } finally { staleEmployeeScopesLoading.value = false }
+}
+const disableStaleEmployeeScope = async (scopeId: number) => {
+  if (staleEmployeeScopesLoading.value) return
+  try {
+    await ElMessageBox.confirm('停用此条遗留责任？人员原班组和历史记录将保留。', '停用遗留责任')
+    staleEmployeeScopesLoading.value = true
+    await disableStaleProductionEmployeeScope(scopeId)
+    ElMessage.success('遗留责任已停用')
+    staleEmployeeScopes.value = await getStaleProductionEmployeeScopes()
+  } catch (error) {
+    if (error !== 'cancel' && error !== 'close') ElMessage.error(resolveErrorMessage(error, '停用遗留责任失败'))
+  } finally { staleEmployeeScopesLoading.value = false }
 }
 
 const handleProductionPersonnelPageChange = (page: number) => {
@@ -10375,6 +10413,13 @@ const handleResetFixedSimulationActiveOrder = async () => {
     )
   } catch (error) {
     const reason = resolveErrorMessage(error, '请稍后刷新核对')
+    // This business rejection rolls back the reset transaction; transport failures remain uncertain.
+    if (!writeCompleted && Number((error as { code?: number | string })?.code) === 1040760394) {
+      const rejectedMessage = `测试订单重置已拒绝，本次未完成重置：${reason}`
+      activeOrderTestResetReceipt.value = { state: 'rejected', message: rejectedMessage }
+      ElMessage.error(rejectedMessage)
+      return
+    }
     activeOrderTestResetReceipt.value = {
       state: 'unknown',
       message: `重置结果需要核对：${reason}；请刷新列表核对，不要再次重置`

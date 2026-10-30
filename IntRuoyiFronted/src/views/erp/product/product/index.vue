@@ -23,34 +23,18 @@
       @pagination="getList"
     >
       <template #actions>
-        <el-button
-          v-show="false"
-          type="primary"
-          plain
-          @click="openForm('create')"
-          v-hasPermi="['erp:product:create']"
-        >
-          <Icon icon="ep:plus" class="mr-5px" /> 新增
-        </el-button>
-        <el-button
-          v-show="false"
-          type="success"
-          plain
-          @click="handleExport"
-          :loading="exportLoading"
-          v-hasPermi="['erp:product:export']"
-        >
-          <Icon icon="ep:download" class="mr-5px" /> 导出
-        </el-button>
-        <el-button
-          type="primary"
-          plain
-          @click="handleSyncKingdeeProducts"
-          :loading="kingdeeSyncLoading"
-          v-hasPermi="['erp:product:create']"
-        >
-          <Icon icon="ep:refresh-right" class="mr-5px" /> 增量同步
-        </el-button>
+        <el-dropdown trigger="click" v-hasPermi="['erp:product:create', 'erp:product:export']">
+          <el-button type="primary" plain :loading="exportLoading || kingdeeSyncLoading">
+            高级 <Icon icon="ep:arrow-down" class="ml-5px" />
+          </el-button>
+          <template #dropdown>
+            <el-dropdown-menu>
+              <el-dropdown-item v-hasPermi="['erp:product:create']" @click="importVisible = true">导入物料</el-dropdown-item>
+              <el-dropdown-item v-hasPermi="['erp:product:export']" :disabled="exportLoading" @click="handleExport">导出物料</el-dropdown-item>
+              <el-dropdown-item v-hasPermi="['erp:product:create']" :disabled="kingdeeSyncLoading" @click="handleSyncKingdeeProducts">增量同步</el-dropdown-item>
+            </el-dropdown-menu>
+          </template>
+        </el-dropdown>
       </template>
       <template #table>
         <el-table
@@ -183,6 +167,15 @@
     </UnifiedListTemplate>
   </ContentWrap>
 
+  <Dialog v-model="importVisible" title="导入物料" width="520px" :fullscreen="false">
+    <el-upload :auto-upload="false" :limit="1" accept=".xls,.xlsx" v-model:file-list="importFiles">
+      <el-button :disabled="importLoading">选择 Excel 文件</el-button>
+    </el-upload>
+    <template #footer>
+      <el-button type="primary" :loading="importLoading" @click="handleImport">开始导入</el-button>
+      <el-button :disabled="importLoading" @click="importVisible = false">关闭</el-button>
+    </template>
+  </Dialog>
   <ProductForm ref="formRef" @success="getList" />
 </template>
 <script setup lang="ts">
@@ -222,6 +215,21 @@ const queryParams = reactive({
   categoryId: undefined
 })
 
+const importVisible = ref(false)
+const importLoading = ref(false)
+const importFiles = ref<import('element-plus').UploadUserFile[]>([])
+const handleImport = async () => {
+  const file = importFiles.value[0]?.raw
+  if (!file) { message.warning('请选择 Excel 文件'); return }
+  importLoading.value = true
+  try {
+    const count = await ProductApi.importProducts(file)
+    message.success(`成功导入 ${count} 条物料`)
+    importVisible.value = false
+    importFiles.value = []
+    await getList()
+  } finally { importLoading.value = false }
+}
 const exportLoading = ref(false)
 const kingdeeSyncLoading = ref(false)
 const categoryList = ref<ProductCategoryVO[]>([])
@@ -256,8 +264,7 @@ const handleExport = async () => {
     await message.exportConfirm()
     exportLoading.value = true
     const data = await ProductApi.exportProduct(queryParams)
-    download.excel(data, '产品.xls')
-  } catch {
+    download.excel(data, '物料.xls')
   } finally {
     exportLoading.value = false
   }
@@ -267,7 +274,7 @@ const handleSyncKingdeeProducts = async () => {
   kingdeeSyncLoading.value = true
   try {
     await ErpKingdeeSyncApi.runIncrementalSync('PRODUCT')
-    message.success('ERP 商品增量同步任务已提交')
+    message.success('物料列表增量同步任务已提交')
     await loadCategoryList()
     await getList()
   } finally {

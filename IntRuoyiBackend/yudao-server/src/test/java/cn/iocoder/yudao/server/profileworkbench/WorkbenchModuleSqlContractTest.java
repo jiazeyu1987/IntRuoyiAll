@@ -19,10 +19,11 @@ class WorkbenchModuleSqlContractTest {
  }
  QueryContext query(){return new WorkbenchQuerySpec("visible",null,new WorkbenchQuerySpec.QuickFilter("detail","contains","é"),new WorkbenchQuerySpec.Sort("detail","desc")).context(2,3,1);}
  String sql(String statement,Map<String,Object> parameters){return configuration.getMappedStatement(statement).getBoundSql(parameters).getSql().replaceAll("\\s+"," ");}
- @Test void allFiveCountsRejectBinaryDuplicateBaseBeforeFiltersAndChunksShareFixedOrder(){
-  var count=List.of(DCC+"countDistribution",DCC+"countTraining",MES+"countEdhr",MES+"countWorkOrder",SHOW+"countAssignment");
-  var chunk=List.of(DCC+"chunkDistribution",DCC+"chunkTraining",MES+"chunkEdhr",MES+"chunkWorkOrder",SHOW+"chunkAssignment");
-  for(int i=0;i<5;i++){
+ @Test void allModuleCountsRejectBinaryDuplicateBaseBeforeFiltersAndChunksShareFixedOrder(){
+  var count=List.of(DCC+"countDistribution",DCC+"countTraining",MES+"countEdhr",SHOW+"countAssignment");
+  var chunk=List.of(DCC+"chunkDistribution",DCC+"chunkTraining",MES+"chunkEdhr",SHOW+"chunkAssignment");
+  assertEquals(count.size(),chunk.size());
+  for(int i=0;i<count.size();i++){
    var q=query();String c=sql(count.get(i),Map.of("q",q));assertTrue(c.contains("COUNT(DISTINCT CAST(CONVERT(u.task_key USING utf8mb4) AS BINARY))"));assertTrue(c.contains("THEN COUNT(*) ELSE NULL END"));assertTrue(c.indexOf("COUNT(DISTINCT")<c.indexOf("system_profile_workbench_task_visibility"));assertFalse(c.contains(" IN (?)"));
    String all=sql(count.get(i),Map.of("q",q.partition(null)));
    assertTrue(all.contains("COUNT(DISTINCT CAST(CONVERT(r.task_key USING utf8mb4) AS BINARY))"));assertTrue(all.contains("THEN COUNT(*) ELSE NULL END"));
@@ -42,12 +43,11 @@ class WorkbenchModuleSqlContractTest {
  }
  @Test void directModuleInvalidQueryCannotUseSilentOtherwise(){
   var badSort=query();badSort.setSortKey("invalid");assertThrows(RuntimeException.class,()->sql(DCC+"countTraining",Map.of("q",badSort)));
-  var q=query();q.setVisibilityFilter(new VisibilityFilter(9,3,1,"visible"));var invalid=q;assertThrows(RuntimeException.class,()->sql(MES+"countWorkOrder",Map.of("q",invalid)));
+  var q=query();q.setVisibilityFilter(new VisibilityFilter(9,3,1,"visible"));var invalid=q;assertThrows(RuntimeException.class,()->sql(MES+"countEdhr",Map.of("q",invalid)));
  }
  @Test void currentQualificationUsesLockedMesStatusAndWorkOrderSingleTableAndTrainingNowait(){
   var args=new HashMap<String,Object>();args.put("q",query().partition(null));args.put("id",7L);args.put("lockedBatchStatus",30L);
   String mes=sql(MES+"identityEdhr",args);assertTrue(mes.contains("NOT IN (40,50,60)"));assertTrue(mes.matches(".*task_type\\s*=\\s*'ARCHIVE'.*"));assertTrue(mes.contains("dossier_order"));assertTrue(mes.contains("dossier_void.change_type"));assertTrue(mes.contains("FOR UPDATE"));assertTrue(mes.contains("LOCATE(CONCAT(',',"));
-  String wo=sql(MES+"identityWorkOrder",args);assertFalse(wo.contains("md_item"));assertFalse(wo.contains("user_id"));assertTrue(wo.contains("temporary_frozen=0"));
   assertTrue(sql(DCC+"identityTraining",args).endsWith("FOR UPDATE NOWAIT"));
   String invalid=sql(SHOW+"countInvalidNotifications",args);assertTrue(invalid.contains("n.id IS NULL"));assertTrue(invalid.contains("a.status = 'OPEN'"));
  }
@@ -88,8 +88,8 @@ class WorkbenchModuleSqlContractTest {
      return new net.sf.jsqlparser.expression.LongValue(2);
     }
    });
-  var counts=List.of(DCC+"countDistribution",DCC+"countTraining",MES+"countEdhr",MES+"countWorkOrder",SHOW+"countAssignment");
-  var chunks=List.of(DCC+"chunkDistribution",DCC+"chunkTraining",MES+"chunkEdhr",MES+"chunkWorkOrder",SHOW+"chunkAssignment");
+  var counts=List.of(DCC+"countDistribution",DCC+"countTraining",MES+"countEdhr",SHOW+"countAssignment");
+  var chunks=List.of(DCC+"chunkDistribution",DCC+"chunkTraining",MES+"chunkEdhr",SHOW+"chunkAssignment");
   for(String visibility:List.of("visible","hidden","all")) for(int variant=0;variant<9;variant++) {
    var q=new QueryContext();q.setTenantId(2L);q.setUserId(3L);q.setVisibility("all".equals(visibility)?null:visibility);q.freezeVisibility(1);
    if(variant==0 || variant>=3 && variant<=5)q.setTaskType("批记录");

@@ -117,6 +117,38 @@ class MesTeamLeaderRuntimeConfigServiceTest {
     }
 
     @Test
+    void disablesOnlyStaleCurrentLeaderScopeAndPreservesProfiles() {
+        TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new Configuration(), ""), MesProcessPoolTeamLeaderScopeDO.class);
+        var scope = MesProcessPoolTeamLeaderScopeDO.builder().id(44L).leaderUserId(3001L)
+                .leaderType("PRODUCTION").scopeType("EMPLOYEE").employeeUserId(964L).enabled(true).build();
+        scope.setTenantId(1L);
+        when(scopeMapper.selectOne(any(LambdaQueryWrapper.class))).thenReturn(scope);
+        when(scopeMapper.selectActiveScopesByLeader(3001L, "PRODUCTION")).thenReturn(List.of(scope));
+        when(employeeProfileMapper.selectList(any())).thenReturn(List.of());
+        service.disableStaleEmployeeScope(3001L, 44L);
+        verify(scopeMapper).updateById(org.mockito.ArgumentMatchers.argThat((MesProcessPoolTeamLeaderScopeDO row) ->
+                row.getId().equals(44L) && Boolean.FALSE.equals(row.getEnabled())));
+        verify(employeeProfileMapper, never()).updateById(any(MesProcessPoolTeamEmployeeProfileDO.class));
+        verify(auditMapper).insert(any(MesProcessPoolTeamMaintenanceAuditDO.class));
+    }
+
+    @Test
+    void rejectsScopeWithEnabledBindingBeforeWrites() {
+        TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new Configuration(), ""), MesProcessPoolTeamLeaderScopeDO.class);
+        var scope = MesProcessPoolTeamLeaderScopeDO.builder().id(44L).leaderUserId(3001L)
+                .leaderType("PRODUCTION").scopeType("EMPLOYEE").employeeUserId(964L).enabled(true).build();
+        scope.setTenantId(1L);
+        var profile = MesProcessPoolTeamEmployeeProfileDO.builder().id(88L).systemUserId(964L)
+                .leaderUserId(3001L).employeeType("FORMAL").enabled(true).build();
+        profile.setTenantId(1L);
+        when(scopeMapper.selectOne(any(LambdaQueryWrapper.class))).thenReturn(scope);
+        when(scopeMapper.selectActiveScopesByLeader(3001L, "PRODUCTION")).thenReturn(List.of(scope));
+        when(employeeProfileMapper.selectList(any())).thenReturn(List.of(profile));
+        assertThrows(ServiceException.class, () -> service.disableStaleEmployeeScope(3001L, 44L));
+        verify(scopeMapper, never()).updateById(any(MesProcessPoolTeamLeaderScopeDO.class));
+    }
+
+    @Test
     void weakTemporarySignatureCredentialIsRejectedBeforeIdentityOrDomainWrites() {
         var failure = assertThrows(IllegalArgumentException.class, () -> service.createTemporaryEmployee(
                 MesTeamTemporaryEmployeeCreateReqBO.builder().leaderUserId(3001L)

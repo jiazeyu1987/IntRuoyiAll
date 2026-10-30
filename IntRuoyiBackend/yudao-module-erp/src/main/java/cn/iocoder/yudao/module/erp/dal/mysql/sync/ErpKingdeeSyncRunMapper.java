@@ -17,6 +17,17 @@ public interface ErpKingdeeSyncRunMapper extends BaseMapperX<ErpKingdeeSyncRunDO
                 .eq(ErpKingdeeSyncRunDO::getStatus, ErpKingdeeSyncRunStatusEnum.RUNNING.getStatus()));
     }
 
+    default int addProductionMaterialListProgress(Long runId, int created, int updated, int skipped) {
+        return update(null, new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<ErpKingdeeSyncRunDO>()
+                .eq(ErpKingdeeSyncRunDO::getId, runId)
+                .eq(ErpKingdeeSyncRunDO::getSyncType,
+                        cn.iocoder.yudao.module.erp.enums.sync.ErpKingdeeSyncTypeEnum.PRODUCTION_MATERIAL_LIST.getType())
+                .eq(ErpKingdeeSyncRunDO::getStatus, ErpKingdeeSyncRunStatusEnum.RUNNING.getStatus())
+                .setSql("created_count = created_count + {0}", created)
+                .setSql("updated_count = updated_count + {0}", updated)
+                .setSql("skipped_count = skipped_count + {0}", skipped));
+    }
+
     default PageResult<ErpKingdeeSyncRunDO> selectPage(ErpKingdeeSyncRunPageReqVO reqVO) {
         return selectPage(reqVO, new LambdaQueryWrapperX<ErpKingdeeSyncRunDO>()
                 .eqIfPresent(ErpKingdeeSyncRunDO::getSyncType, reqVO.getSyncType())

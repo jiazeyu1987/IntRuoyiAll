@@ -29,6 +29,12 @@ export interface KingdeeProductSyncRespVO {
 
 // ERP 产品 API
 export const ProductApi = {
+  getImportTemplate: async () => request.download({ url: '/erp/product/import-template' }),
+  importProducts: async (file: File): Promise<number> => {
+    const data = new FormData()
+    data.append('file', file)
+    return request.post({ url: '/erp/product/import', data, headersType: 'multipart/form-data' })
+  },
   getProductPage: async (params: any) => {
     return await request.get({ url: `/erp/product/page`, params })
   },

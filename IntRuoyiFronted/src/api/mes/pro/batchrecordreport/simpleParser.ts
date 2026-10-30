@@ -40,6 +40,7 @@ export interface SimpleParserResult {
   route: { name: string; action: 'CREATE' }
   blockers: string[]
   warnings?: string[]
+  unmatchedMaterials?: string[]
   materialRows?: Array<{
     processIndex: number
     direction: 'inputs' | 'outputs'

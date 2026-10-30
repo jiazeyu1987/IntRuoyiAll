@@ -1263,6 +1263,7 @@
     >
       <section class="frontline-production-submit-confirmation-dialog">
         <h3 id="frontlineProductionSubmitConfirmationTitle">确认正式提交</h3>
+        <p class="frontline-production-submit-confirmation-employee">{{ selectedEmployeeLabel }}</p>
         <p data-production-submit-confirmation-message>
           {{ productionFormalSubmitConfirmationText }}
         </p>
@@ -1282,7 +1283,6 @@
             @keydown.enter.prevent="confirmProductionFormalSubmitConfirmation"
           />
         </label>
-        <button v-if="deviceState.selectedEmployee && !deviceState.selectedEmployee.systemUserId" type="button" :disabled="payloadLoading" @click="changeSelectedEmployeeSignaturePassword">员工设置签名密码</button>
         <div class="frontline-production-submit-confirmation-actions">
           <button
             type="button"
@@ -1460,7 +1460,7 @@
 
 <script setup lang="ts">
 import { ElMessageBox } from 'element-plus'
-import { changeEmployeeSignaturePassword, getEmployeeSignatureQualification } from '@/api/mes/pro/employeeSignatureCredential'
+import { getEmployeeSignatureQualification } from '@/api/mes/pro/employeeSignatureCredential'
 import { useApprovalCenterInvalidationStore } from '@/store/modules/approvalCenterInvalidation'
 import { createFormalActionGuard, createFormalWriteReceiptState } from '@/store/modules/approvalCenterInvalidationState'
 import { cloneDeep } from 'lodash-es'
@@ -1855,16 +1855,6 @@ const clearFrontlineError = () => {
 }
 const productionFormalSubmitConfirmationText = ref('')
 const productionSignaturePassword = ref('')
-const changeSelectedEmployeeSignaturePassword = async () => {
-  if (deviceState.selectedEmployee?.systemUserId || !context.actualEmployeeId || !deviceState.selectedActiveOrder?.activeOrderId || !context.routeId || !context.routeProcessId || !context.processId) throw new Error('缺少当前员工的正式生产范围')
-  const scope = { activeOrderId: deviceState.selectedActiveOrder.activeOrderId, routeId: context.routeId, routeProcessId: context.routeProcessId, processId: context.processId, employeeProfileId: context.actualEmployeeId, identityDomain: 'MES_EMPLOYEE_PROFILE' as const }
-  productionSignaturePassword.value = ''
-  await getEmployeeSignatureQualification(scope)
-  const old = await ElMessageBox.prompt('请输入员工当前签名密码', '员工设置签名密码', { inputType: 'password', inputPattern: /\S+/, inputErrorMessage: '当前密码不能为空' })
-  const next = await ElMessageBox.prompt('请输入符合密码强度要求的新密码', '员工设置签名密码', { inputType: 'password', inputPattern: /\S+/, inputErrorMessage: '新密码不能为空' })
-  const confirmed = await changeEmployeeSignaturePassword({ ...scope, currentPassword: old.value, newPassword: next.value })
-  if (confirmed !== true) throw new Error('签名密码变更未获得正式确认')
-}
 const createProductionSubmitDraftKey = () =>
   `draft-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
 const FRONTLINE_PRODUCTION_IDEMPOTENCY_KEY_MAX_LENGTH = 128
@@ -5096,49 +5086,11 @@ const resolveProductionLossQuantity = (materialDetails: ProFrontlineFeedbackMate
 const buildProductionFormalSubmitConfirmation = (
   materialDetails: ProFrontlineFeedbackMaterialReqVO[] = buildProductionMaterialDetailsPayload()
 ) => {
-  const progressQuantity = resolveProductionProgressQuantity(materialDetails)
-  const selectedDevices = buildProductionSelectedDevicesForSubmitScope(materialDetails)
-  const deviceParameterReadings = buildProductionParameterReadingsForSubmitScope(materialDetails)
-  const materialSummary = configuredProductionMaterials.value
-    .flatMap((material) => {
-      const detail = materialDetails.find((item) => item.materialId === material.materialId)
-      if (!detail) {
-        return []
-      }
-      return `${material.materialName}=完成${detail.outputQuantity}件、损耗${detail.lossQuantity}件`
-    })
-    .join('；') || '无批记录物料'
-  const deviceSummary = selectedDevices
-    .map((device) => device.deviceCode || device.deviceName || String(device.deviceId))
-    .join('、') || '无设备'
-  const parameterSummary = deviceParameterReadings.map((reading) => {
-    const value = reading.textValue ?? reading.value ?? ''
-    const statusLabel = reading.parameterStatus && reading.parameterStatus !== 'NORMAL'
-      ? '（参数异常）'
-      : ''
-    return `${reading.deviceCode || reading.deviceName || reading.deviceId}/${reading.parameterName || reading.parameterCode}=${value}${reading.unit || ''}${statusLabel}`
-  }).join('、')
   const totalCompletionQuantity = materialDetails.length > 0
     ? materialDetails.reduce((total, material) => total + material.outputQuantity, 0)
-    : progressQuantity
+    : resolveProductionProgressQuantity(materialDetails)
   const totalLossQuantity = resolveProductionLossQuantity(materialDetails)
-  const clearanceSummary = buildProductionClearanceConfirmationPayload()
-    .map((confirmation) => `${confirmation.label}=${confirmation.confirmed ? '是' : '否'}`)
-    .join('、')
-  return [
-    `生产订单：${productionOrderLabel.value}`,
-    `工序：${selectedProcessLabel.value}`,
-    `实际员工：${selectedEmployeeLabel.value}`,
-    `物料：${materialSummary}`,
-    `工序进度：${progressQuantity}件`,
-    `完成数量合计：${totalCompletionQuantity}件`,
-    `损耗数量合计：${totalLossQuantity}件`,
-    '完成数量为合格产出，损耗另计。',
-    `设备：${deviceSummary}`,
-    `设备参数：${parameterSummary || (selectedDevices.length ? '无数值参数' : '无设备参数')}`,
-    `清场确认：${clearanceSummary}`,
-    '正式提交后不可修改，请核对无误后确认。'
-  ].join('；')
+  return `完成${totalCompletionQuantity}个，损耗${totalLossQuantity}个`
 }
 
 const clearProductionFormalSubmitConfirmation = () => {
@@ -8295,6 +8247,13 @@ onUnmounted(() => {
   p {
     margin: 0;
   }
+}
+
+.frontline-production-submit-confirmation-employee {
+  color: #15815f;
+  text-align: center;
+  font-size: 32px;
+  font-weight: 900;
 }
 
 .frontline-production-submit-confirmation-signature {

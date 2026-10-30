@@ -17,6 +17,7 @@
     <div v-show="!allowRelationships || activeTab === 'users'">
     <UnifiedListTemplate
       table-key="system.user.selectDialog"
+      label-width="68px"
       :query-model="queryParams"
       :show-quick-filter="false" :quick-filter-state="{}" :operator-options="[]"
       :filter-definitions="userSelectQuickFilterDefinitions"

@@ -97,7 +97,7 @@ public class RoleConfigPackageServiceImpl implements RoleConfigPackageService {
         var authority = approvalAuthority.lockTenantApprovalAuthority(
                 cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId());
         approvalAuthority.incrementLockedAuthorityRevision(authority.tenantId(), authority.revision());
-        Map<String, Long> menuIdByKey = buildMenuIdByKey();
+        Map<String, Set<Long>> menuIdByKey = buildMenuIdByKey();
         Map<String, Long> categoryIdByCode = resolveCategories(payload.getCategories());
         for (RoleConfigItem item : payload.getRoles()) {
             Set<Long> menuIds = resolveMenuIds(item, menuIdByKey);
@@ -227,9 +227,13 @@ public class RoleConfigPackageServiceImpl implements RoleConfigPackageService {
         for (RoleCategoryConfigItem item : items) {
             RoleCategoryDO existing = roleCategoryMapper.selectByCode(item.getCode());
             if (existing == null) {
-                throw exception0(CONFIG_PACKAGE_REFERENCE_MISSING.getCode(),
-                        CONFIG_PACKAGE_REFERENCE_MISSING.getMsg(),
-                        "分类标识【" + item.getCode() + "】在目标环境不存在");
+                existing = new RoleCategoryDO();
+                existing.setCode(item.getCode());
+                existing.setName(item.getName());
+                existing.setSort(item.getSort());
+                existing.setStatus(item.getStatus());
+                existing.setRemark(item.getRemark());
+                roleCategoryMapper.insert(existing);
             }
             result.put(existing.getCode(), existing.getId());
         }
@@ -297,30 +301,34 @@ public class RoleConfigPackageServiceImpl implements RoleConfigPackageService {
         return keyById;
     }
 
-    private Map<String, Long> buildMenuIdByKey() {
-        Map<String, Long> result = new HashMap<>();
+    private Map<String, Set<Long>> buildMenuIdByKey() {
+        Map<String, Set<Long>> result = new HashMap<>();
         Map<Long, String> menuKeyById = buildMenuKeyById();
         for (Map.Entry<Long, String> entry : menuKeyById.entrySet()) {
-            Long duplicatedMenuId = result.put(entry.getValue(), entry.getKey());
-            if (duplicatedMenuId != null && !Objects.equals(duplicatedMenuId, entry.getKey())) {
+            Set<Long> menuIds = result.computeIfAbsent(entry.getValue(), key -> new LinkedHashSet<>());
+            // A permission key represents an authority shared by its page and buttons.
+            // Route keys identify individual menus and must remain unambiguous.
+            if (!entry.getValue().startsWith(MENU_KEY_PERMISSION_PREFIX)
+                    && !menuIds.isEmpty() && !menuIds.contains(entry.getKey())) {
                 throw exception(CONFIG_PACKAGE_REFERENCE_MISSING,
-                        "目标环境存在重复菜单标识【{}】",
-                        entry.getValue());
+                        "目标环境存在重复菜单标识【" + entry.getValue() + "】，菜单编号【"
+                                + menuIds.iterator().next() + "、" + entry.getKey() + "】");
             }
+            menuIds.add(entry.getKey());
         }
         return result;
     }
 
-    private Set<Long> resolveMenuIds(RoleConfigItem item, Map<String, Long> menuIdByKey) {
+    private Set<Long> resolveMenuIds(RoleConfigItem item, Map<String, Set<Long>> menuIdByKey) {
         LinkedHashSet<Long> result = new LinkedHashSet<>();
         List<String> missingMenuKeys = new ArrayList<>();
         for (String menuKey : item.getMenuKeys()) {
-            Long menuId = menuIdByKey.get(menuKey);
-            if (menuId == null) {
+            Set<Long> menuIds = menuIdByKey.get(menuKey);
+            if (menuIds == null) {
                 missingMenuKeys.add(menuKey);
                 continue;
             }
-            result.add(menuId);
+            result.addAll(menuIds);
         }
         if (!missingMenuKeys.isEmpty()) {
             throw exception0(CONFIG_PACKAGE_REFERENCE_MISSING.getCode(),

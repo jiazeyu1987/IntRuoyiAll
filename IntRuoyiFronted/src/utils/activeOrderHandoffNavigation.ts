@@ -10,6 +10,7 @@ const paths: Record<string, readonly string[]> = {
   PRODUCTION_REVIEW: ['/mes/pro/process-pool/production-leader'],
   PQC_REVIEW: ['/mes/pro/process-pool/pqc-leader'],
   QA_REVIEW: ['/mes/pro/feedback/edhr-nonconformance-review'],
+  NCR_FREEZE_NOTICE: ['/user/profile'],
   QA_DECISION_HANDOFF: ['/mes/pro/process-pool/production-leader', '/user/profile']
 }
 export interface ActiveOrderHandoffTarget {
@@ -31,9 +32,9 @@ export const resolveActiveOrderHandoffTarget = (params: Record<string, unknown>)
   const url = new URL(params.actionUrl, window.location.origin)
   const type = params.handoffType
   if (url.origin !== window.location.origin || url.hash || !paths[type]?.includes(url.pathname)) throw new Error('交接通知页面与类型不匹配')
-  const sourceKey = type === 'PRODUCTION_HANDOFF' ? 'cycleId' : type === 'PQC_HANDOFF' ? 'pqcTaskId' : type.startsWith('QA_') ? 'reviewId' : 'eventId'
+  const sourceKey = type === 'PRODUCTION_HANDOFF' ? 'cycleId' : type === 'PQC_HANDOFF' ? 'pqcTaskId' : type.startsWith('QA_') || type === 'NCR_FREEZE_NOTICE' ? 'reviewId' : 'eventId'
   const allowed = new Set(['activeOrderId', sourceKey, 'handoffTaskId', 'roundId', 'handoffType'])
-  if (type === 'QA_DECISION_HANDOFF' && url.pathname === '/user/profile') allowed.add('tab')
+  if (['QA_DECISION_HANDOFF', 'NCR_FREEZE_NOTICE'].includes(type) && url.pathname === '/user/profile') allowed.add('tab')
   if (type.endsWith('_RETURN')) { allowed.add('returnTaskId'); allowed.add('rejectedReviewId') }
   const keys = Array.from(url.searchParams.keys())
   if (keys.length !== allowed.size || new Set(keys).size !== keys.length || keys.some(key => !allowed.has(key))) throw new Error('交接通知参数不匹配或重复')
@@ -42,7 +43,7 @@ export const resolveActiveOrderHandoffTarget = (params: Record<string, unknown>)
     || url.searchParams.get('activeOrderId') !== String(params.activeOrderId)) throw new Error('交接通知与冻结周期不一致')
   if (type.endsWith('_RETURN') && (url.searchParams.get('returnTaskId') !== String(params.handoffTaskId)
     || url.searchParams.get('rejectedReviewId') !== url.searchParams.get('roundId'))) throw new Error('本人退回通知与原轮次不一致')
-  if (url.pathname === '/user/profile' && url.searchParams.get('tab') !== 'notifyMessage') throw new Error('作废结果必须打开本人通知记录')
+  if (url.pathname === '/user/profile' && url.searchParams.get('tab') !== 'notifyMessage') throw new Error('交接通知必须打开本人通知记录')
   return { type: 'activeOrderHandoff', label: '处理当轮交接', actionUrl: params.actionUrl, path: url.pathname, query: Object.fromEntries(url.searchParams.entries()) }
 }
 export const navigateToActiveOrderHandoff = async (router: Router, target: ActiveOrderHandoffTarget, isCurrent: () => boolean = () => true) => {
@@ -52,6 +53,12 @@ export const navigateToActiveOrderHandoff = async (router: Router, target: Activ
   if (!context || context.task.actionUrl !== target.actionUrl || String(context.task.id) !== target.query.handoffTaskId
     || String(context.task.activeOrderId) !== target.query.activeOrderId || String(context.task.roundId) !== target.query.roundId
     || context.task.taskType !== target.query.handoffType) throw new Error('交接通知与正式任务不一致，请刷新')
+  if (context.task.taskType === 'NCR_FREEZE_NOTICE') {
+    if (context.task.status !== 'DONE' || context.task.notificationOnly !== true || context.processable
+      || (!context.current && !isClosedHandoffCompletion(context))) throw new Error('冻结通知不是正式只读告知记录')
+    await router.push({ path: target.path, query: { ...target.query, handoffReadOnly: '1' } })
+    return
+  }
   if (isClosedHandoffCompletion(context) && target.path !== '/user/profile') {
     await router.push({ path: '/user/profile', query: { ...target.query,
       tab: 'notifyMessage', handoffReadOnly: '1', handoffResult: 'completed' } })

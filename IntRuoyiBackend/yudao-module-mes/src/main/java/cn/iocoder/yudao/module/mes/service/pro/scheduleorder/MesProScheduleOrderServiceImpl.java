@@ -288,7 +288,7 @@ public class MesProScheduleOrderServiceImpl implements MesProScheduleOrderServic
         if (routeProduct == null) {
             throw exception(PRO_SCHEDULE_ORDER_ROUTE_REQUIRED);
         }
-        MesProRouteDO route = routeMapper.selectById(routeProduct.getRouteId());
+        MesProRouteDO route = routeMapper.selectByIdForUpdate(routeProduct.getRouteId());
         if (route == null || ObjUtil.notEqual(route.getStatus(), CommonStatusEnum.ENABLE.getStatus())) {
             throw exception(PRO_SCHEDULE_ORDER_ROUTE_REQUIRED);
         }

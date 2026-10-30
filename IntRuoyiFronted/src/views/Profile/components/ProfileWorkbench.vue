@@ -96,11 +96,17 @@
             v-if="isTodoColumnVisible('detail')"
             label="待办详情"
             prop="detail"
+            :show-overflow-tooltip="false"
             :min-width="getTodoColumnMinWidthString('detail', 360)"
             v-bind="sortColumnAttrs('detail')"
           >
             <template #default="{ row }">
-              <span class="profile-workbench__detail">{{ row.detail }}</span>
+              <div class="profile-workbench__detail">
+                <div class="profile-workbench__detail-title">{{ row.detail.split('\n')[0] }}</div>
+                <div v-if="row.detail.includes('\n')" class="profile-workbench__detail-meta">
+                  {{ row.detail.slice(row.detail.indexOf('\n') + 1) }}
+                </div>
+              </div>
             </template>
           </el-table-column>
           <el-table-column
@@ -132,7 +138,7 @@
                 :title="row.action.payload.blockedReason"
                 @click="openTodo(row)"
               >
-                {{ row.action.payload.blockedReason ? '暂不可处理' : '进入/处理' }}
+                {{ row.action.payload.blockedReason ? '暂不可处理' : getTodoActionLabel(row) }}
               </el-button>
               <el-button
                 v-if="activeVisibilityTab !== 'hidden'"
@@ -188,7 +194,7 @@ import {
 import { useUserStore } from '@/store/modules/user'
 
 import { getAccessToken } from '@/utils/auth'
-import { authorizedWorkbenchSources, refreshWorkbenchDirectory, openWorkbenchAction, workbenchIdentityKey } from '@/workbench/registry'
+import { authorizedWorkbenchSources, refreshWorkbenchDirectory, openWorkbenchAction, workbenchIdentityKey, workbenchRegistry } from '@/workbench/registry'
 
 
 import { beginWorkbenchRead, isWorkbenchReadCurrent, invalidateWorkbenchContext, registerWorkbenchFocusRefresh, workbenchInvalidationReason, workbenchLifetime, type WorkbenchReadLease } from '@/workbench/queryContext'
@@ -401,6 +407,9 @@ const getTaskTypeTagType = (taskType: TodoTaskType) => {
   return ''
 }
 
+const getTodoActionLabel = (row: ProfileWorkbenchTodoRow) =>
+  workbenchRegistry.require(row.sourceId).actionLabel(row.action.payload, row.statusLabel)
+
 const openTodo = async (row: ProfileWorkbenchTodoRow) => {
   const lease = currentLease
   const generation = requestGeneration
@@ -590,6 +599,22 @@ onMounted(() => {
 
 .profile-workbench__detail {
   color: #263247;
+  min-width: 0;
+  padding: 4px 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  line-height: 1.6;
+}
+
+.profile-workbench__detail-title {
+  font-weight: 600;
+}
+
+.profile-workbench__detail-meta {
+  margin-top: 4px;
+  color: #6b7280;
+  font-size: 12px;
+  white-space: pre-line;
 }
 
 .profile-workbench__status {

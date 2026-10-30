@@ -6,9 +6,12 @@ const ts = require('typescript')
 const vue = require('vue')
 const { parse, compileTemplate } = require('vue/compiler-sfc')
 const root = path.resolve(__dirname, '../..')
+const presentation = {}
+Function('exports', ts.transpileModule(fs.readFileSync(path.join(root, 'src/utils/businessMessagePresentation.ts'), 'utf8'), { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS } }).outputText)(presentation)
 const flush = async () => { await Promise.resolve(); await vue.nextTick(); await Promise.resolve() }
 const deferred = () => { let resolve, reject; const promise = new Promise((ok, bad) => { resolve = ok; reject = bad }); return { promise, resolve, reject } }
 function script(file, bindings, names) {
+  bindings = { ...presentation, ...bindings }
   const descriptor = parse(fs.readFileSync(path.join(root, file), 'utf8')).descriptor
   const compiled = compileTemplate({ source: descriptor.template.content, filename: file, id: 'handoff-behavior' })
   assert.deepEqual(compiled.errors, [], '实际 SFC 模板须可编译')
@@ -34,6 +37,23 @@ test('旧周期和取消通知不跳转，不投影最新工单',async()=>{
 const voidTask=()=>({id:taskId,activeOrderId:'413',sourceId:'229',roundId:'229',taskType:'QA_DECISION_HANDOFF',status:'DONE',reason:'void：正式作废意见\n【工单：EDHR-413；工序：整单；发起人：QA本人（SYSTEM_USER）；状态：QA已正式作废，结果只读】',completedBy:'345',completedAt:'2026-10-05 11:00:00',actionUrl:'/user/profile?activeOrderId=413&reviewId=229&handoffTaskId='+taskId+'&roundId=229&handoffType=QA_DECISION_HANDOFF&tab=notifyMessage'})
 test('作废 DONE 在原周期关闭后跳转真实个人通知页并强制只读',async()=>{
  const task=voidTask(),nav=navigation({task,current:false,processable:false});let pushed;await nav.navigateToActiveOrderHandoff({push:async value=>pushed=value},nav.resolveActiveOrderHandoffTarget(params(task)));assert.equal(pushed.path,'/user/profile');assert.equal(pushed.query.tab,'notifyMessage');assert.equal(pushed.query.handoffReadOnly,'1');assert.equal(pushed.query.reviewId,'229')
+})
+const freezeTask=()=>({...voidTask(),taskType:'NCR_FREEZE_NOTICE',notificationOnly:true,reason:'NCR NCR-001 已冻结工单/批次，暂停受影响生产、检验和放行，等待QA正式处置：尺寸异常',actionUrl:voidTask().actionUrl.replace('QA_DECISION_HANDOFF','NCR_FREEZE_NOTICE')})
+test('正式冻结通知可解析并精确打开本人通知只读记录',async()=>{
+ const task=freezeTask(),nav=navigation({task,current:true,processable:false});let pushed
+ const target=nav.resolveActiveOrderHandoffTarget(params(task));assert.equal(target.query.reviewId,'229')
+ await nav.navigateToActiveOrderHandoff({push:async value=>pushed=value},target)
+ assert.equal(pushed.path,'/user/profile');assert.equal(pushed.query.handoffReadOnly,'1')
+ const p=panel({handoffNavigationContext:async()=>({task,current:true,processable:false})},{query:pushed.query})
+ await p.openVoidResult();assert.equal(p.resultOpen.value,true);assert.equal(p.result.value.id,taskId)
+})
+test('冻结通知拒绝办理状态、伪造通知属性及非法路径和参数',async()=>{
+ const task=freezeTask(),nav=navigation(null)
+ for(const actionUrl of [task.actionUrl.replace('/user/profile','/mes/pro/process-pool/production-leader'),task.actionUrl.replace('reviewId=229','eventId=229'),task.actionUrl.replace('tab=notifyMessage','tab=workbench'),task.actionUrl+'&reviewId=229']) assert.throws(()=>nav.resolveActiveOrderHandoffTarget({...params(task),actionUrl}))
+ for(const change of [{status:'TODO'},{notificationOnly:false}]){
+  const invalid={...task,...change},n=navigation({task:invalid,current:true,processable:false});let pushed=0
+  await assert.rejects(()=>n.navigateToActiveOrderHandoff({push:async()=>pushed++},n.resolveActiveOrderHandoffTarget(params(invalid))),/正式只读/);assert.equal(pushed,0)
+ }
 })
 function panel(api, route={query:{}}){const nav=navigation(null), unmount=[];const values=script('src/views/mes/pro/handoff/ActiveOrderHandoffPanel.vue',{defineExpose:()=>{},defineProps:()=>({}),withDefaults:(props,defaults)=>({...defaults,...props}),nextTick:vue.nextTick,ref:vue.ref,computed:vue.computed,watch:()=>{},onMounted:()=>{},onBeforeUnmount:fn=>unmount.push(fn),api,useRouter:()=>({push:async()=>{}}),useRoute:()=>route,resolveActiveOrderHandoffTarget:nav.resolveActiveOrderHandoffTarget,navigateToActiveOrderHandoff:nav.navigateToActiveOrderHandoff,isClosedHandoffCompletion:nav.isClosedHandoffCompletion},['tasks','page','PAGE_SIZE','pagedTasks','changePage','loading','error','load','showReceipts','receipts','receiptError','retryReason','retryable','retry','resultOpen','result','openVoidResult','completedResultOpen','completedResult','completedResultError','completedResultLoading','completionSnapshot','loadHandoffResult','closeCompletedResult','completedResultVisibilityChanged']);return{...values,unmount:()=>unmount.forEach(fn=>fn())}}
 const handoffRows = count => Array.from({length:count},(_,index)=>({

@@ -24,6 +24,7 @@
       @pagination="getList"
     >
       <template #actions>
+        <CatalogWorkbookActions @success="getList" />
         <el-button
           class="scheme-d-btn scheme-d-btn--success"
           type="primary"
@@ -625,6 +626,7 @@
 </template>
 
 <script lang="ts" setup>
+import CatalogWorkbookActions from './CatalogWorkbookActions.vue'
 import UserSelectV2 from '@/views/system/user/components/UserSelectV2.vue'
 import type { FormRules } from 'element-plus'
 import { confirmProjectProductApplication } from './project-product-confirmation'

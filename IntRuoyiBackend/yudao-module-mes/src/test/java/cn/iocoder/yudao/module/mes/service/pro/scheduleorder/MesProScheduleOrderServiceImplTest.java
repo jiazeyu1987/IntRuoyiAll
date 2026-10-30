@@ -196,6 +196,8 @@ class MesProScheduleOrderServiceImplTest {
 
     @org.junit.jupiter.api.BeforeEach
     void setUpRouteFlowContext() {
+        org.mockito.Mockito.lenient().when(routeMapper.selectByIdForUpdate(org.mockito.ArgumentMatchers.anyLong()))
+                .thenAnswer(call -> routeMapper.selectById((Long) call.getArgument(0)));
         org.mockito.Mockito.lenient().when(routeProcessService.getProcessIdentityMap(
                         org.mockito.ArgumentMatchers.anyCollection()))
                 .thenAnswer(invocation -> identityMap(invocation.getArgument(0)));

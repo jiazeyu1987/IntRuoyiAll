@@ -5,6 +5,7 @@ const registration: ModuleRegistration = {
   sources: [{
     descriptor: { sourceId: 'BPM_EDHR_VOID', ownerModule: 'bpm', contractVersion: 1, sortRank: 5,
       label: '批次作废审批', taskType: '批记录', policyId: 'bpm.edhrVoid.policy', actionKind: 'bpm.edhrVoid.open', payloadVersion: 1 },
+    actionLabel: () => '查看任务',
     open: async (router, payload, isCurrent) => {
       const { taskId, processInstanceId } = payload
       if (!taskId || taskId.trim() !== taskId || taskId.length > 80 ||

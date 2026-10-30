@@ -20,10 +20,13 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.annotation.Validated;
 
 import java.time.LocalDateTime;
+import cn.iocoder.yudao.module.erp.service.sync.runtime.ErpKingdeeSyncRunResult;
+import lombok.extern.slf4j.Slf4j;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 
+@Slf4j
 @Service
 @Validated
 @RequiredArgsConstructor
@@ -35,14 +38,30 @@ public class MesKingdeeProductionMaterialListSyncServiceImpl implements MesKingd
     private final MesProWorkOrderMapper workOrderMapper;
     private final MesProWorkOrderBomMapper workOrderBomMapper;
     private final MesMdItemMapper itemMapper;
+    private final MesKingdeeProductionMaterialListBatchWriter batchWriter;
 
     @Override
-    @Transactional(rollbackFor = Exception.class)
-    public MesKingdeeProductionMaterialListSyncResult syncAllSkipExisting() {
+    public ErpKingdeeSyncRunResult syncAllSkipExisting(Long runId) {
+        java.util.Objects.requireNonNull(runId, "生产用料清单同步任务编号不能为空");
         ErpKingdeeProperties properties = configService.getEffectiveProperties();
         properties.validateProductionOrderSyncConfig();
-        List<ErpKingdeeProductionMaterialList> rows = client.fetchProductionMaterialLists(properties);
-        return syncRows(rows, true);
+        int[] counts = new int[3];
+        long[] sourceRows = {0};
+        try {
+            client.forEachProductionMaterialListPage(properties, page -> {
+                ErpKingdeeSyncRunResult result = batchWriter.writePage(runId, page);
+                counts[0] = Math.addExact(counts[0], result.getCreatedCount());
+                counts[1] = Math.addExact(counts[1], result.getUpdatedCount());
+                counts[2] = Math.addExact(counts[2], result.getSkippedCount());
+                sourceRows[0] += page.size();
+                log.info("生产用料清单批次已提交: runId={}, sourceRows={}, created={}, updated={}, skipped={}",
+                        runId, sourceRows[0], counts[0], counts[1], counts[2]);
+            });
+        } catch (RuntimeException failure) {
+            throw new IllegalStateException("生产用料清单全量同步失败，已提交源数据 " + sourceRows[0]
+                    + " 行；已提交批次保留，重新全量同步会跳过已有记录。原因：" + failure.getMessage(), failure);
+        }
+        return ErpKingdeeSyncRunResult.success(null, counts[0], counts[1], counts[2], 0);
     }
 
     @Override
@@ -93,7 +112,7 @@ public class MesKingdeeProductionMaterialListSyncServiceImpl implements MesKingd
         }
         MesKingdeeProductionMaterialListDO existing = materialListMapper.selectBySourceLine(row.getBillNo(),
                 row.getProductionOrderNo(), row.getProductionOrderLineNo(), row.getChildMaterialCode());
-        if (skipExisting && existing != null && !shouldBackfillErpColumns(existing, row)) {
+        if (skipExisting && existing != null && !MesKingdeeProductionMaterialListRowMapping.shouldBackfillErpColumns(existing, row)) {
             result.addSkipped(row.getBillNo() + "|" + row.getProductionOrderNo() + "|"
                     + row.getProductionOrderLineNo() + "|" + row.getChildMaterialCode());
             return;
@@ -109,51 +128,11 @@ public class MesKingdeeProductionMaterialListSyncServiceImpl implements MesKingd
         result.addUpdated(existing.getId());
     }
 
-    private boolean shouldBackfillErpColumns(MesKingdeeProductionMaterialListDO existing,
-                                             ErpKingdeeProductionMaterialList row) {
-        return (StrUtil.isBlank(existing.getDrawingNumber()) && StrUtil.isNotBlank(row.getDrawingNumber()))
-                || (existing.getDemandTime() == null && row.getDemandTime() != null);
-    }
-
     private MesKingdeeProductionMaterialListDO buildRow(ErpKingdeeProductionMaterialList row, MesProWorkOrderDO workOrder) {
         MesMdItemDO productItem = resolveProductItem(row, workOrder);
         MesMdItemDO childItem = itemMapper.selectByCode(row.getChildMaterialCode());
-        String productCode = requireProductCode(row, productItem);
-        MesKingdeeProductionMaterialListDO target = MesKingdeeProductionMaterialListDO.builder()
-                .sourceFormId(row.getFormId())
-                .sourceBillNo(row.getBillNo())
-                .sourceEntryId(row.getEntryId())
-                .productCode(productCode)
-                .productionOrderNo(row.getProductionOrderNo())
-                .productionOrderLineNo(row.getProductionOrderLineNo())
-                .productionOrderStatus(row.getProductionOrderStatus())
-                .childMaterialCode(row.getChildMaterialCode())
-                .childMaterialName(row.getChildMaterialName())
-                .childMaterialSpecification(row.getChildMaterialSpecification())
-                .childMaterialType(row.getChildMaterialType())
-                .numerator(row.getNumerator())
-                .denominator(row.getDenominator())
-                .childUnitName(row.getChildUnitName())
-                .drawingNumber(row.getDrawingNumber())
-                .requiredQuantity(row.getRequiredQuantity())
-                .issueMethod(row.getIssueMethod())
-                .demandTime(row.getDemandTime())
-                .sourceModifyTime(row.getSourceModifyTime())
-                .lastSyncTime(LocalDateTime.now())
-                .rawPayload(row.getRawPayload())
-                .build();
-        if (workOrder != null) {
-            target.setWorkOrderId(workOrder.getId());
-            target.setWorkOrderCode(workOrder.getCode());
-            target.setProductId(workOrder.getProductId());
-            target.setWorkOrderBomId(resolveWorkOrderBomId(workOrder.getId(), childItem));
-        } else if (productItem != null) {
-            target.setProductId(productItem.getId());
-        }
-        if (childItem != null) {
-            target.setChildMaterialId(childItem.getId());
-        }
-        return target;
+        return MesKingdeeProductionMaterialListRowMapping.map(row, workOrder, productItem, childItem,
+                workOrder == null ? null : resolveWorkOrderBomId(workOrder.getId(), childItem));
     }
 
     private MesMdItemDO resolveProductItem(ErpKingdeeProductionMaterialList row, MesProWorkOrderDO workOrder) {
@@ -164,17 +143,6 @@ public class MesKingdeeProductionMaterialListSyncServiceImpl implements MesKingd
             return null;
         }
         return itemMapper.selectById(workOrder.getProductId());
-    }
-
-    private String requireProductCode(ErpKingdeeProductionMaterialList row, MesMdItemDO productItem) {
-        if (StrUtil.isNotBlank(row.getProductCode())) {
-            return row.getProductCode();
-        }
-        if (productItem != null && StrUtil.isNotBlank(productItem.getCode())) {
-            return productItem.getCode();
-        }
-        throw new IllegalStateException("ERP production material list missing product code and local work order product: "
-                + row.getProductionOrderNo());
     }
 
     private Long resolveWorkOrderBomId(Long workOrderId, MesMdItemDO childItem) {

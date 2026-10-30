@@ -13,6 +13,7 @@ import cn.iocoder.yudao.module.erp.service.sync.admin.ErpKingdeeFullSyncHandler;
 import cn.iocoder.yudao.module.mes.service.md.item.sync.MesKingdeeItemSyncResult;
 import cn.iocoder.yudao.module.mes.service.md.item.sync.MesKingdeeItemSyncService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
@@ -22,6 +23,7 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 
 @Component("kingdeeProductItemSyncJob")
+@Slf4j
 @RequiredArgsConstructor
 public class KingdeeProductItemSyncJob implements JobHandler, ErpKingdeeFullSyncHandler {
 
@@ -66,6 +68,8 @@ public class KingdeeProductItemSyncJob implements JobHandler, ErpKingdeeFullSync
 
     @Override
     public String executeFullSync() {
+        long fullStarted = System.nanoTime();
+        log.info("[material-full] stage=job-start tenant={}", cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getTenantId());
         LocalDateTime windowEnd = LocalDateTime.now();
         AtomicReference<ErpKingdeeProductSyncResult> productResultReference = new AtomicReference<>();
         AtomicReference<MesKingdeeItemSyncResult> itemResultReference = new AtomicReference<>();
@@ -75,8 +79,10 @@ public class KingdeeProductItemSyncJob implements JobHandler, ErpKingdeeFullSync
                 .windowEnd(windowEnd)
                 .build(), context -> {
             ErpKingdeeProductSyncResult productResult = productSyncService.syncProductsFullSkipExisting();
+            log.info("[material-full] stage=erp-committed-mes-start created={} skipped={}", productResult.getCreatedCount(), productResult.getSkippedCount());
             MesKingdeeItemSyncResult itemResult = itemSyncService.syncItemsByProductCodes(
                     productResult.getCreatedProductCodes());
+            log.info("[material-full] stage=mes-committed created={} updated={} skipped={}", itemResult.getCreatedCount(), itemResult.getUpdatedCount(), itemResult.getSkippedCount());
             productResultReference.set(productResult);
             itemResultReference.set(itemResult);
             return ErpKingdeeSyncRunResult.success(context.getWindowEnd(),
@@ -86,6 +92,7 @@ public class KingdeeProductItemSyncJob implements JobHandler, ErpKingdeeFullSync
         });
         ErpKingdeeProductSyncResult productResult = productResultReference.get();
         MesKingdeeItemSyncResult itemResult = itemResultReference.get();
+        log.info("[material-full] stage=job-complete elapsedMs={}", (System.nanoTime() - fullStarted) / 1_000_000);
         return String.format("ERP product full sync: productsCreated=%d, productsSkipped=%d, itemsCreated=%d",
                 productResult.getCreatedCount(), productResult.getSkippedCount(), itemResult.getCreatedCount());
     }

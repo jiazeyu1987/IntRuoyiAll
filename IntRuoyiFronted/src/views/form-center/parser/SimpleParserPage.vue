@@ -442,6 +442,21 @@
           type="error"
           :closable="false"
         />
+        <template v-if="publishPreview.unmatchedMaterials?.length">
+          <el-alert
+            :title="`有 ${publishPreview.unmatchedMaterials.length} 项物料未匹配，可以继续发布。本次只绑定已匹配物料，其余可在工艺路线中补充。`"
+            type="warning"
+            :closable="false"
+            show-icon
+          />
+          <el-collapse>
+            <el-collapse-item title="查看未匹配物料" name="unmatchedMaterials">
+              <p v-for="(material, i) in publishPreview.unmatchedMaterials" :key="i">{{
+                material
+              }}</p>
+            </el-collapse-item>
+          </el-collapse>
+        </template>
         <el-collapse v-if="publishPreview.warnings?.length"
           ><el-collapse-item title="目录名称核对说明" name="warnings"
             ><p v-for="(warning, i) in publishPreview.warnings" :key="i">{{

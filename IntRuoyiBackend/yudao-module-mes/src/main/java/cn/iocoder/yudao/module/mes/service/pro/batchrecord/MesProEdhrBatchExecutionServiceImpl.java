@@ -767,7 +767,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
             }
         }
         Long routeId = resolveRouteId(requestedRouteId, workOrder);
-        MesProRouteDO route = routeMapper.selectById(routeId);
+        MesProRouteDO route = routeMapper.selectByIdForUpdate(routeId);
         if (route == null) {
             throw exception(PRO_EDHR_BATCH_EXECUTION_ROUTE_NOT_EXISTS);
         }
@@ -1114,7 +1114,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
             return existing.getId();
         }
         MesProWorkOrderDO workOrder = validateSelectableWorkOrder(command.getWorkOrderId());
-        MesProRouteDO route = routeMapper.selectById(command.getRouteId());
+        MesProRouteDO route = routeMapper.selectByIdForUpdate(command.getRouteId());
         if (route == null || !CommonStatusEnum.isEnable(route.getStatus())) {
             throw exception(PRO_EDHR_BATCH_EXECUTION_ROUTE_NOT_EXISTS);
         }
@@ -1216,7 +1216,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
         }
         requireBatchActionUnlocked(source.getId());
         MesProWorkOrderDO workOrder = validateSelectableWorkOrder(source.getWorkOrderId());
-        MesProRouteDO route = routeMapper.selectById(source.getRouteId());
+        MesProRouteDO route = routeMapper.selectByIdForUpdate(source.getRouteId());
         if (route == null) {
             throw exception(PRO_EDHR_BATCH_EXECUTION_ROUTE_NOT_EXISTS);
         }
@@ -7091,18 +7091,10 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
             throw exception(PRO_EDHR_BATCH_EXECUTION_ROUTE_NOT_EXISTS);
         }
         MesProRouteDO route = routeMapper.selectById(batch.getRouteId());
-        boolean historicalDeletedRoute = false;
-        if (route == null) {
-            route = routeMapper.selectByIdIgnoreDeleted(batch.getRouteId());
-            historicalDeletedRoute = route != null;
-        }
         if (route == null) {
             throw exception(PRO_EDHR_BATCH_EXECUTION_ROUTE_NOT_EXISTS);
         }
         List<MesProRouteProcessDO> routeProcesses = routeProcessMapper.selectListByRouteId(route.getId());
-        if (routeProcesses.isEmpty() && historicalDeletedRoute) {
-            routeProcesses = routeProcessMapper.selectListByRouteIdsIgnoreDeleted(List.of(route.getId()));
-        }
         List<BatchTaskConfig> routeConfigs = resolveBatchTaskConfigs(batch, route, routeProcesses);
         List<MesProEdhrBatchExecutionTaskDO> insertedTasks = new ArrayList<>();
         for (BatchTaskConfig routeConfig : routeConfigs) {

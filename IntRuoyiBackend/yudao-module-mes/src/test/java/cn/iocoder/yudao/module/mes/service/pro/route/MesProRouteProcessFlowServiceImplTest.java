@@ -77,6 +77,31 @@ class MesProRouteProcessFlowServiceImplTest {
     private MesMdWorkstationService workstationService;
 
     @Test
+    void draftShouldPreserveMultipleKeyProcessesOnUpdateAndCreate() {
+        Long routeId = 9001L;
+        var request = new MesProRouteProcessFlowSaveReqVO();
+        request.setRouteId(routeId);
+        request.setRouteProcessUpdates(List.of(draftUpdate(12L, routeId, true)));
+        var create = new MesProRouteProcessSaveReqVO();
+        create.setClientRouteProcessId(-1L);
+        create.setRouteId(routeId);
+        create.setProcessId(103L);
+        create.setSort(3);
+        create.setKeyFlag(true);
+        request.setRouteProcessCreates(List.of(create));
+        when(processService.getProcess(103L)).thenReturn(processDefinition(103L, "PROC-003", "Third"));
+        Object result = org.springframework.test.util.ReflectionTestUtils.invokeMethod(flowService,
+                "validateRouteProcessDraftChanges", request, List.of(
+                        process(11L, routeId, 101L, 1, true),
+                        process(12L, routeId, 102L, 2, false)));
+        assertEquals(List.of(), org.springframework.test.util.ReflectionTestUtils.getField(result, "messages"));
+        @SuppressWarnings("unchecked")
+        var rows = (List<MesProRouteProcessDO>) org.springframework.test.util.ReflectionTestUtils.getField(result, "routeProcesses");
+        assertEquals(3, rows.size());
+        assertTrue(rows.stream().allMatch(row -> Boolean.TRUE.equals(row.getKeyFlag())));
+    }
+
+    @Test
     void getGraph_shouldReturnUninitializedWithoutCreatingEdges() {
         Long routeId = 9001L;
         when(routeMapper.selectById(routeId)).thenReturn(route(routeId));

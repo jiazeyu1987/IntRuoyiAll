@@ -403,7 +403,7 @@ const message = useMessage()
 const { push } = useRouter()
 
 const syncTypes = [
-  { type: 'PRODUCT', label: 'ERP 商品', handlerName: 'kingdeeProductItemSyncJob' },
+  { type: 'PRODUCT', label: '物料列表', handlerName: 'kingdeeProductItemSyncJob' },
   { type: 'STOCK', label: 'ERP 库存', handlerName: 'kingdeeStockSyncJob' },
   { type: 'STOCK_MOVE', label: '金蝶调拨单', handlerName: 'kingdeeStockMoveSyncJob' },
   { type: 'PURCHASE_ORDER', label: '采购订单', handlerName: 'kingdeePurchaseOrderSyncJob' },

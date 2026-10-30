@@ -30,12 +30,12 @@ const clone = x => structuredClone(x)
 const descriptors = units.flatMap(unit => unit.sources.map(source => source.descriptor))
 const directory = () => ({ contractVersion: 1, registryRevision: manifest.registryRevision, sources: clone(descriptors) })
 
-test('actual discovered six sources match both build manifests and keep labels/ranks', () => {
+test('actual discovered five sources match both build manifests and keep labels/ranks', () => {
   const registry = createSourceRegistry(units, manifest)
   assert.deepEqual(JSON.parse(fs.readFileSync(path.join(root, '../IntRuoyiBackend/yudao-server/src/main/resources/workbench-manifest.json'), 'utf8')), manifest)
-  assert.equal(registry.validateDirectory(directory()).sources.length, 6)
+  assert.equal(registry.validateDirectory(directory()).sources.length, 5)
   assert.deepEqual(descriptors.map(d => [d.sourceId, d.sortRank]).sort((a,b) => a[1]-b[1]), [
-    ['DCC_DISTRIBUTION',0],['DCC_TRAINING',1],['EDHR_WORK_TASK',2],['WORK_ORDER',3],['SHOWROOM_ASSIGNMENT',4],['BPM_EDHR_VOID',5]])
+    ['DCC_DISTRIBUTION',0],['DCC_TRAINING',1],['EDHR_WORK_TASK',2],['SHOWROOM_ASSIGNMENT',4],['BPM_EDHR_VOID',5]])
 })
 test('neutral Java API import whitelist and shared frontend consumers have no business source enum or policy/action switches', () => {
   const apiRoot = path.join(root, '../IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/api/workbench')
@@ -103,7 +103,7 @@ test('five real module handlers carry formal identities and MES invokes formal n
   const registry = createSourceRegistry(units, manifest), pushes = [], router = { push: async route => pushes.push(route) }
   await registry.require('DCC_DISTRIBUTION').open(router, { controlledFileId:'9007199254740993', distributionId:'2', recipientId:'3', version:'A/1', approvalProcessInstanceId:'original-round' })
   await registry.require('DCC_TRAINING').open(router, { controlledFileId:'1', progressId:'4' })
-  await registry.require('WORK_ORDER').open(router, { code:'WO-001' })
+  assert.throws(() => registry.require('WORK_ORDER'), /SOURCE_NOT_REGISTERED/)
   await registry.require('SHOWROOM_ASSIGNMENT').open(router, { assignmentId:'5' })
   const payload = { id:'6', taskType:'FILL', batchExecutionId:'7', batchTaskId:'8' }
   await registry.require('EDHR_WORK_TASK').open(router, payload)
@@ -113,8 +113,7 @@ test('five real module handlers carry formal identities and MES invokes formal n
   assert.equal(pushes[0].query.approvalProcessInstanceId, 'original-round')
   assert.equal(pushes[0].query.mode, 'distribution-read')
   assert.equal(pushes[1].params.progressId, '4')
-  assert.equal(pushes[2].query.code, 'WO-001')
-  assert.equal(pushes[3].query.assignmentId, '5')
+  assert.equal(pushes[2].query.assignmentId, '5')
   assert.deepEqual(formalCalls.at(-1).slice(0,2), [router, payload])
   assert.equal(formalCalls.at(-1)[2], 'https://local.test')
   await assert.rejects(() => registry.require('DCC_DISTRIBUTION').open(router, {}))
@@ -187,3 +186,13 @@ test('actual full Vue page handler owns directory generation identity and query'
   await assert.rejects(()=>source.open({}, {id:'77', taskType:'QA_DECISION_HANDOFF'}))
   assert.equal(formalCalls.length,1)
  })
+
+ test('registered action labels preserve task-specific user actions', () => {
+  const sources = new Map(units.flatMap(unit => unit.sources.map(source => [source.descriptor.sourceId, source])))
+  assert.equal(sources.get('DCC_DISTRIBUTION').actionLabel({}, ''), '去签收')
+  assert.equal(sources.get('DCC_TRAINING').actionLabel({}, '待确认'), '去确认')
+  assert.equal(sources.get('DCC_TRAINING').actionLabel({}, '待学习'), '去学习')
+  assert.equal(sources.get('EDHR_WORK_TASK').actionLabel({taskType: 'QA_DECISION_HANDOFF'}, ''), '去接手')
+  assert.equal(sources.get('EDHR_WORK_TASK').actionLabel({taskType: 'RECORD_CHANGE_CORRECTION'}, ''), '去补正')
+  for (const source of sources.values()) assert.equal(typeof source.actionLabel, 'function')
+})

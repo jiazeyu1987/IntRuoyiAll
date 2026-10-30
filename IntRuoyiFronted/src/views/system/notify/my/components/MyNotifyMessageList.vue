@@ -77,15 +77,16 @@
                   aria-label="打开消息内容"
                   @click.stop="handleNotifyContentClick(scope.row)"
                 >
-                  {{ scope.row.templateContent || '-' }}
+                  <BusinessMessageContent :description="describeNotifyMessage(scope.row)" :show-context="false" />
                 </button>
                 <span
                   v-else
                   class="my-notify-message-list__content-text"
                   :title="scope.row.templateContent || '-'"
                 >
-                  {{ scope.row.templateContent || '-' }}
+                  <BusinessMessageContent :description="describeNotifyMessage(scope.row)" :show-context="false" />
                 </span>
+                <BusinessMessageContext :fields="describeNotifyMessage(scope.row).fields" />
               </template>
             </el-table-column>
             <el-table-column
@@ -133,6 +134,9 @@ import { DICT_TYPE, getBoolDictOptions } from '@/utils/dict'
 import { dateFormatter } from '@/utils/formatTime'
 import * as NotifyMessageApi from '@/api/system/notify/message'
 import MyNotifyMessageDetail from '../MyNotifyMessageDetail.vue'
+import BusinessMessageContent from '@/components/BusinessMessageContent/BusinessMessageContent.vue'
+import BusinessMessageContext from '@/components/BusinessMessageContent/BusinessMessageContext.vue'
+import { describeNotifyMessage } from '@/utils/businessMessagePresentation'
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import ActiveOrderHandoffPanel from '@/views/mes/pro/handoff/ActiveOrderHandoffPanel.vue'
 import { hasPermission } from '@/directives/permission/hasPermi'
@@ -361,12 +365,10 @@ onMounted(() => {
   width: 100%;
   max-width: 100%;
   padding: 0;
-  overflow: hidden;
   color: #1677ff;
   font: inherit;
   text-align: left;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: normal;
   cursor: pointer;
   background: transparent;
   border: 0;
@@ -376,10 +378,8 @@ onMounted(() => {
   display: block;
   width: 100%;
   max-width: 100%;
-  overflow: hidden;
   text-align: left;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: normal;
 }
 
 .my-notify-message-list__content-link:hover,

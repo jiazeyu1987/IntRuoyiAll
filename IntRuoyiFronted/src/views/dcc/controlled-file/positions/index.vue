@@ -53,14 +53,6 @@
           <Icon icon="ep:search" class="mr-5px" />
           查询
         </el-button>
-        <el-button @click="resetQuery">
-          <Icon icon="ep:refresh" class="mr-5px" />
-          重置
-        </el-button>
-        <el-button plain type="info" @click="loadData">
-          <Icon icon="ep:refresh-right" class="mr-5px" />
-          刷新列表
-        </el-button>
         <el-button
           type="primary"
           plain
@@ -70,31 +62,6 @@
           <Icon icon="ep:plus" class="mr-5px" />
           新增审批角色
         </el-button>
-        <el-button
-          type="success"
-          plain
-          :loading="exportLoading"
-          @click="handleExport"
-          v-hasPermi="['dcc:controlled-file:position:manage']"
-        >
-          <Icon icon="ep:download" class="mr-5px" />
-          导出配置包
-        </el-button>
-        <el-button
-          type="warning"
-          plain
-          :loading="importLoading"
-          @click="openImport"
-          v-hasPermi="['dcc:controlled-file:position:manage']"
-        >
-          <Icon icon="ep:upload" class="mr-5px" />
-          导入配置包
-        </el-button>
-
-        <div class="position-toolbar-context" data-testid="dcc-position-toolbar-summary">
-          <span class="position-toolbar-context__count">{{ positionToolbarSummaryText }}</span>
-          <span class="position-toolbar-context__filter">{{ positionToolbarFilterText }}</span>
-        </div>
       </template>
       <template #table="{ rows: standardRows }">
 
@@ -257,20 +224,16 @@
       <el-button @click="dialogVisible = false">取消</el-button>
     </template>
   </Dialog>
-  <input ref="importInputRef" accept=".json" class="hidden" type="file" @change="handleImportFileChange" />
 </template>
 
 <script lang="ts" setup>
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import UserSelectV2 from '@/views/system/user/components/UserSelectV2.vue'
 import { isSearchFormInputEmpty } from '@/utils/search'
-import download from '@/utils/download'
 import { formatDateTimeValue } from '@/utils/formatTime'
 import {
   createApprovalPosition,
-  exportApprovalPositionConfigPackage,
   getApprovalPositionList,
-  importApprovalPositionConfigPackage,
   saveApprovalPositionAssignments,
   type ControlledFileApprovalPositionCreateReqVO,
   type ControlledFileApprovalPositionVO,
@@ -278,7 +241,7 @@ import {
 } from '@/api/dcc/controlledFile/approvalPositions'
 import { getSimpleUserList, type UserVO } from '@/api/system/user'
 import { getSimplePostList, type PostVO } from '@/api/system/post'
-import { ACTIVE_STATUS_OPTIONS, POSITION_ASSIGNMENT_TYPE_OPTIONS, getOptionLabel } from '../shared/options'
+import { ACTIVE_STATUS_OPTIONS, POSITION_ASSIGNMENT_TYPE_OPTIONS } from '../shared/options'
 import { USER_RELATIONSHIPS, type UserId, type UserRelationship, type UserPickerSelection } from '@/views/system/user/components/userPicker'
 import { formatBooleanLabel, formatDccSimpleUserLabel, getBooleanTagType } from '../shared/utils'
 
@@ -291,14 +254,11 @@ const AUTHORIZED_REPRESENTATIVE_POSITION_NAMES = new Set(['部门授权代表'])
 const loading = ref(false)
 const createLoading = ref(false)
 const saveLoading = ref(false)
-const exportLoading = ref(false)
-const importLoading = ref(false)
 const positions = ref<ControlledFileApprovalPositionVO[]>([])
 const users = ref<UserVO[]>([])
 const posts = ref<PostVO[]>([])
 const queryFormRef = ref()
 const createFormRef = ref()
-const importInputRef = ref<HTMLInputElement>()
 
 const queryParams = reactive<{
   code: string
@@ -351,24 +311,6 @@ const filteredPositions = computed(() => {
       appliedQueryParams.active === undefined || item.active === appliedQueryParams.active
     return codeMatch && nameMatch && activeMatch
   })
-})
-
-const positionToolbarSummaryText = computed(
-  () => `显示 ${filteredPositions.value.length} / 全部 ${visiblePositions.value.length} 个审批角色`
-)
-
-const positionToolbarFilterText = computed(() => {
-  const filters: string[] = []
-  if (appliedQueryParams.code) {
-    filters.push(`编码：${appliedQueryParams.code}`)
-  }
-  if (appliedQueryParams.name) {
-    filters.push(`名称：${appliedQueryParams.name}`)
-  }
-  if (appliedQueryParams.active !== undefined) {
-    filters.push(`状态：${getOptionLabel(ACTIVE_STATUS_OPTIONS, appliedQueryParams.active)}`)
-  }
-  return filters.length > 0 ? filters.join(' · ') : '全部审批角色'
 })
 
 const loadData = async () => {
@@ -551,40 +493,6 @@ const saveAssignments = async () => {
   }
 }
 
-const handleExport = async () => {
-  exportLoading.value = true
-  try {
-    const data = await exportApprovalPositionConfigPackage()
-    download.json(data, '审批角色配置包.json')
-    message.success('审批角色配置包已导出')
-  } finally {
-    exportLoading.value = false
-  }
-}
-
-const openImport = () => {
-  importInputRef.value?.click()
-}
-
-const handleImportFileChange = async (event: Event) => {
-  const input = event.target as HTMLInputElement
-  const file = input.files?.[0]
-  input.value = ''
-  if (!file) {
-    return
-  }
-  importLoading.value = true
-  try {
-    const formData = new FormData()
-    formData.append('file', file)
-    await importApprovalPositionConfigPackage(formData)
-    message.success('审批角色配置包导入成功')
-    await loadData()
-  } finally {
-    importLoading.value = false
-  }
-}
-
 onMounted(() => {
   loadData()
 })
@@ -595,33 +503,6 @@ onMounted(() => {
   display: flex;
   flex-wrap: wrap;
   align-items: flex-start;
-}
-
-.position-toolbar-context-item {
-  margin-left: auto;
-}
-
-.position-toolbar-context {
-  display: flex;
-  min-height: 32px;
-  min-width: 0;
-  flex-wrap: nowrap;
-  white-space: nowrap;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 8px;
-  color: #4b5563;
-  font-size: 13px;
-  line-height: 20px;
-}
-
-.position-toolbar-context__count {
-  color: #172033;
-  font-weight: 600;
-}
-
-.position-toolbar-context__filter {
-  min-width: 0;
 }
 
 .position-summary {
@@ -644,14 +525,4 @@ onMounted(() => {
   line-height: 18px;
 }
 
-@media (max-width: 768px) {
-  .position-toolbar-context-item {
-    margin-left: 0;
-    width: 100%;
-  }
-
-  .position-toolbar-context {
-    justify-content: flex-start;
-  }
-}
 </style>

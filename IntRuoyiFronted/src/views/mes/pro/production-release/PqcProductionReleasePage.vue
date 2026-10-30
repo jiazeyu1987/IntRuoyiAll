@@ -4,23 +4,9 @@
       <el-button data-pqc-production-release-detail-back @click="detailVisible = false">
         返回
       </el-button>
-      <el-descriptions
-        v-if="detailRow && orderDetail && !detailLoading && !detailError"
-        :column="1"
-        border
-        data-pqc-production-release-detail-identity
-      >
-        <el-descriptions-item label="生产放行申请编号">
-          <span data-pqc-production-release-detail-application-id>{{ detailRow.applicationId }}</span>
-        </el-descriptions-item>
-        <el-descriptions-item label="生产订单号">
-          <span data-pqc-production-release-detail-work-order>{{ detailRow.workOrderCode || '--' }}</span>
-        </el-descriptions-item>
-        <el-descriptions-item label="批次执行编号">
-          <span data-pqc-production-release-detail-batch-execution-id>{{ detailRow.batchExecutionId || '--' }}</span>
-        </el-descriptions-item>
-      </el-descriptions>
       <ActiveOrderSubmissionDetailPanel
+        hide-correction-history
+        hide-order-summary
         :detail="orderDetail?.detail"
         :production-material-lists="orderDetail?.productionMaterialLists || []"
         :loading="detailLoading"
@@ -128,7 +114,7 @@
                   <ReleaseTaskNotificationEntry
                     v-hasPermi="['mes:pro-edhr-work-task:query']"
                     :work-task-id="row.pqcReleaseWorkTaskId"
-                  />
+                  >交接</ReleaseTaskNotificationEntry>
                   <el-button
                     link
                     type="primary"
@@ -961,8 +947,14 @@ onMounted(() => openPqcReleaseFromRoute())
 
 .pqc-release-page__actions {
   display: flex;
+  flex-wrap: wrap;
+  gap: 10px 16px;
   align-items: center;
   min-height: 32px;
+}
+
+.pqc-release-page__actions :deep(.el-button) {
+  margin: 0;
 }
 
 .pqc-release-dialog {
