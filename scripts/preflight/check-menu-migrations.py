@@ -186,29 +186,55 @@ def validate_migrations(root: Path, read, paths: set[str], migrations: list[str]
     from script.release.release_migration_policy_gate import run_migration_policy_gate, MigrationPolicyError
     catalog_path = SQL_ROOT + "release-sources.json"
     catalog = json.loads(read(catalog_path)) if catalog_path in paths else {}
-    originals = set()
+    originals, historical = set(), {}
     for item in catalog.get("historicalMigrations", []):
         original = item["original"]
         if not isinstance(original, str) or not original.startswith("historical/") or ".." in Path(original).parts:
             raise GateError("Invalid archival original in release source catalog")
         originals.add(SQL_ROOT + original)
+        historical[SQL_ROOT + item["file"]] = item
     available = {}
     for path in paths:
         if path.startswith(SQL_ROOT) and path.endswith(".sql") and path not in originals:
             available.setdefault(Path(path).stem, []).append(path)
-    closure, visiting = set(), set()
+    closure, visiting, pending_forward, scheduled_forward = set(), set(), set(), set()
     with tempfile.TemporaryDirectory(prefix="menu-migration-") as temporary:
         sql_root = Path(temporary)
 
-        def collect(path: str) -> None:
-            if path in originals:
+        def collect(path: str, *, registered_original: bool = False) -> None:
+            if path in originals and not registered_original:
                 raise GateError(f"Archival original cannot satisfy menu migration coverage: {path}")
+            if path not in paths or not path.startswith(SQL_ROOT) or ".." in Path(path).parts:
+                raise GateError(f"Migration missing or outside {SQL_ROOT}: {path}")
+            if path in historical:
+                # The reviewed top-level source is not executed. The release
+                # catalog binds its ID to immutable bytes and any forward SQL.
+                # Use those actual inputs for both coverage and package checks.
+                entry = historical[path]
+                original = SQL_ROOT + entry["original"]
+                if entry["original"] != "historical/" + Path(path).name:
+                    raise GateError(f"Historical original has a different migration ID: {path}")
+                disposition = entry.get("disposition")
+                successors = entry.get("successors", [])
+                if disposition not in {"equivalent", "forward-migrations"} or not isinstance(successors, list):
+                    raise GateError(f"Unresolved historical migration: {path}")
+                if bool(successors) != (disposition == "forward-migrations") or any(
+                        not isinstance(name, str) or not re.fullmatch(r"20\d{6}_[A-Za-z0-9_]+\.sql", name)
+                        for name in successors):
+                    raise GateError(f"Invalid historical forward migrations: {path}")
+                # First resolve the immutable prerequisite graph. A forward
+                # change can depend on a later original; expanding it inside
+                # that original's prerequisites would invent a cycle.
+                for successor in successors:
+                    if successor not in scheduled_forward:
+                        scheduled_forward.add(successor)
+                        pending_forward.add(successor)
+                collect(original, registered_original=True)
+                return
             if path in visiting:
                 raise GateError(f"Migration dependency cycle: {path}")
             if path in closure:
                 return
-            if path not in paths or not path.startswith(SQL_ROOT) or ".." in Path(path).parts:
-                raise GateError(f"Migration missing or outside {SQL_ROOT}: {path}")
             source = read(path)
             if not METADATA_PATTERN.search(source):
                 raise GateError(f"Missing release-migration metadata: {path}")
@@ -230,6 +256,8 @@ def validate_migrations(root: Path, read, paths: set[str], migrations: list[str]
         try:
             for path in migrations:
                 collect(path)
+            while pending_forward:
+                collect(SQL_ROOT + pending_forward.pop())
             result = run_migration_policy_gate(sql_root, sql_paths=[sql_root / p[len(SQL_ROOT):] for p in closure])
             if any(item["type"] not in {"menu", "permission", "schema", "data", "config", "seed"}
                    for item in result["migrations"]):

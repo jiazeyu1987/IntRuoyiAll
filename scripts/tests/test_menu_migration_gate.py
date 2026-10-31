@@ -135,20 +135,82 @@ class MenuMigrationGateTest(unittest.TestCase):
             self.check(packaged_sql={SQL})
         self.assertEqual(self.check(packaged_sql={SQL, dependency})["status"], "passed")
 
-    def test_registered_archival_original_is_not_an_active_dependency(self):
+    def historical_dependency(self, *, forward=False):
+        dependency = gate.SQL_ROOT + "20261020_dependency.sql"
+        original = gate.SQL_ROOT + "historical/20261020_dependency.sql"
+        successor = gate.SQL_ROOT + "20261022_dependency_forward.sql"
+        sql = META.replace("type=menu", "type=schema") + "SELECT 1;\n"
+        self.write(dependency, sql)
+        self.write(original, sql)
+        item = {"file": Path(dependency).name, "original": "historical/20261020_dependency.sql",
+                "disposition": "forward-migrations" if forward else "equivalent",
+                "successors": [Path(successor).name] if forward else []}
+        self.write(gate.SQL_ROOT + "release-sources.json", json.dumps({"historicalMigrations": [item]}))
+        if forward:
+            self.write(successor, sql.replace("dependsOn=;", "dependsOn=20261020_dependency;"))
+        return dependency, original, successor
+
+    def test_registered_historical_dependency_uses_actual_original_in_package(self):
         self.cover(self.permission())
-        dependency = "IntRuoyiBackend/sql/mysql/20261020_dependency.sql"
-        original = "IntRuoyiBackend/sql/mysql/historical/20261020_dependency.sql"
-        self.write(dependency, META.replace("type=menu", "type=schema") + "SELECT 1;\n")
-        self.write(original, "-- Preserved original; not executable\n")
+        dependency, original, _ = self.historical_dependency()
         self.write(SQL, MIGRATION.replace("dependsOn=;", "dependsOn=20261020_dependency;"))
-        self.write(gate.SQL_ROOT + "release-sources.json", json.dumps({"historicalMigrations": [
-            {"file": "20261020_dependency.sql", "original": "historical/20261020_dependency.sql"}]}))
         self.git("add", ".")
         # Snapshot checks must use the staged catalog, not later local edits.
         self.write(gate.SQL_ROOT + "release-sources.json", "{}")
-        result = self.check(staged=True, packaged_sql={SQL, dependency})
-        self.assertEqual(result["requiredSql"], sorted([SQL, dependency]))
+        result = self.check(staged=True, packaged_sql={SQL, original})
+        self.assertEqual(result["requiredSql"], sorted([SQL, original]))
+        with self.assertRaisesRegex(gate.GateError, "omitted from release package"):
+            self.check(staged=True, packaged_sql={SQL, dependency})
+
+    def test_historical_dependency_requires_packaged_forward_successor(self):
+        self.cover(self.permission())
+        _, original, successor = self.historical_dependency(forward=True)
+        self.write(SQL, MIGRATION.replace("dependsOn=;", "dependsOn=20261020_dependency;"))
+        with self.assertRaisesRegex(gate.GateError, "omitted from release package"):
+            self.check(packaged_sql={SQL, original})
+        result = self.check(packaged_sql={SQL, original, successor})
+        self.assertEqual(result["requiredSql"], sorted([SQL, original, successor]))
+
+    def test_forward_dependency_on_later_original_is_not_a_false_cycle(self):
+        self.cover(self.permission())
+        dependency, original, successor = self.historical_dependency()
+        base = gate.SQL_ROOT + "20261019_base.sql"
+        base_original = gate.SQL_ROOT + "historical/20261019_base.sql"
+        schema = META.replace("type=menu", "type=schema") + "SELECT 1;\n"
+        self.write(dependency, schema.replace("dependsOn=;", "dependsOn=20261019_base;"))
+        self.write(original, schema.replace("dependsOn=;", "dependsOn=20261019_base;"))
+        self.write(base, schema)
+        self.write(base_original, schema)
+        self.write(successor, schema.replace("dependsOn=;", "dependsOn=20261020_dependency;"))
+        catalog = json.loads((self.root / (gate.SQL_ROOT + "release-sources.json")).read_text())
+        catalog["historicalMigrations"].append({"file": Path(base).name,
+            "original": "historical/20261019_base.sql", "disposition": "forward-migrations",
+            "successors": [Path(successor).name]})
+        self.write(gate.SQL_ROOT + "release-sources.json", json.dumps(catalog))
+        self.write(SQL, MIGRATION.replace("dependsOn=;", "dependsOn=20261020_dependency;"))
+        required = {SQL, original, base_original, successor}
+        self.assertEqual(self.check(packaged_sql=required)["requiredSql"], sorted(required))
+
+    def test_reviewed_historical_sql_cannot_supply_unexecuted_permission(self):
+        self.cover(self.permission())
+        dependency, original, successor = self.historical_dependency(forward=True)
+        self.write(dependency, MIGRATION)
+        self.write(SQL, MIGRATION.replace("mes:example:query", "mes:other:query").replace(
+            "dependsOn=;", "dependsOn=20261020_dependency;"))
+        with self.assertRaisesRegex(gate.GateError, "SQL does not contain the exact permission"):
+            self.check(packaged_sql={SQL, dependency, original, successor})
+
+    def test_missing_historical_original_or_forward_source_fails(self):
+        self.cover(self.permission())
+        _, original, successor = self.historical_dependency(forward=True)
+        self.write(SQL, MIGRATION.replace("dependsOn=;", "dependsOn=20261020_dependency;"))
+        (self.root / successor).unlink()
+        with self.assertRaisesRegex(gate.GateError, "Migration missing"):
+            self.check()
+        self.write(successor, META + "SELECT 1;\n")
+        (self.root / original).unlink()
+        with self.assertRaisesRegex(gate.GateError, "Migration missing"):
+            self.check()
 
     def test_unregistered_duplicate_dependency_remains_an_error(self):
         self.cover(self.permission())
