@@ -22,25 +22,17 @@ public enum GxpAuditMode {
     }
 
     public void validateEnvironment(Environment environment) {
-        if (this == FORMAL) return;
+        if (this != LOCAL_POLICY) return;
         if (!Arrays.equals(environment.getActiveProfiles(), new String[]{"local"})) {
-            throw new IllegalArgumentException("本地策略审计和关闭审计只允许用于单独的 local 环境。");
+            throw new IllegalArgumentException("本地策略审计只允许用于单独的 local 环境。");
         }
         for (String name : new String[]{"master", "slave"}) {
             String url = environment.getProperty("spring.datasource.dynamic.datasource." + name + ".url");
             if (url == null && "slave".equals(name)) continue;
-            if (url == null || !(LOOPBACK_MYSQL.matcher(url).matches()
-                    || this == DEVELOPMENT_DISABLED && isolatedCheckpointDatasource(environment, url))) {
+            if (url == null || !LOOPBACK_MYSQL.matcher(url).matches()) {
                 throw new IllegalArgumentException("当前数据库地址不允许使用所选 GxP 本地模式（" + name + "）。");
             }
         }
     }
 
-    private static boolean isolatedCheckpointDatasource(Environment environment, String url) {
-        String space = environment.getProperty("INTRUOYI_CHECKPOINT_SPACE");
-        if (space == null || !space.matches("checkpoint-[a-z0-9-]{1,40}")
-                || !space.equals(environment.getProperty("intruoyi.checkpoint.space-id"))) return false;
-        String prefix = "jdbc:mysql://" + space + "-mysql-1:3306/ruoyi-vue-pro";
-        return url.equals(prefix) || url.startsWith(prefix + "?");
-    }
 }

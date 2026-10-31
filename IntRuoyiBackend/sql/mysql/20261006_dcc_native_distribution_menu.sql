@@ -1,5 +1,5 @@
--- release-migration: allowedEnvironments=test,backup,prod; dependsOn=20260630_dcc_admin_full_config_menu,20260714_dcc_distribution_training_menu_retire; type=menu; riskLevel=low
--- G70 local tenant-1 delivery only: one permission button plus one exact enabled doc_control grant.
+-- release-migration: allowedEnvironments=test,backup,prod; dependsOn=20260630_dcc_admin_full_config_menu,20260714_dcc_distribution_training_menu_retire,20261024_dcc_document_control_role; type=menu; riskLevel=low
+-- G70 tenant-1 delivery: one permission button plus one exact enabled doc_control grant.
 -- Parent 6800 is already granted. Never enable retired 6808 or grant administrator page 6819.
 -- Run in a fresh dedicated connection with writers fenced; stop on error, never mysql --force.
 -- No old row UPDATE/DELETE, role/user/category/tenant-package changes or business schema DDL.
@@ -28,13 +28,13 @@ BEGIN
   SELECT COUNT(*) INTO v_count FROM system_role
     WHERE tenant_id = 1 AND code = 'doc_control' AND status = 0 AND deleted = b'0';
   SELECT COUNT(*) INTO v_exact FROM system_role
-    WHERE tenant_id = 1 AND id = 910233 AND BINARY code = BINARY 'doc_control' AND status = 0 AND deleted = b'0';
+    WHERE tenant_id = 1 AND BINARY code = BINARY 'doc_control' AND status = 0 AND deleted = b'0';
   IF v_count <> 1 OR v_exact <> 1 THEN
-    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'G70 exact unique tenant1 doc_control role910233 required';
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'G70 exact unique tenant1 doc_control role required';
   END IF;
-  SELECT id INTO v_role_id FROM system_role WHERE tenant_id = 1 AND id = 910233
+  SELECT id INTO v_role_id FROM system_role WHERE tenant_id = 1
     AND BINARY code = BINARY 'doc_control' AND status = 0 AND deleted = b'0' FOR UPDATE;
-  IF NOT (v_role_id = 910233) THEN
+  IF v_role_id IS NULL OR v_role_id<=0 THEN
     SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'G70 role identity changed';
   END IF;
   SELECT COUNT(*) INTO v_count FROM system_role_menu

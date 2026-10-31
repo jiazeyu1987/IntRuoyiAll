@@ -13,7 +13,7 @@ BEGIN
   END;
   START TRANSACTION;
   IF (SELECT COUNT(*) FROM system_menu WHERE parent_id=991516 AND type=2 AND deleted=b'0' AND (
-      (id=605071316 AND path='/mes/pro/production-release/pqc'
+      (id=605071315 AND path='/mes/production-release/pqc'
         AND component='mes/pro/production-release/PqcProductionReleasePage'
         AND name IN ('PQC生产放行','生产放行'))
       OR (id=900230 AND path='/mes/pro/feedback/edhr-work-task'
@@ -26,11 +26,11 @@ BEGIN
     SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Missing or changed production execution menus';
   END IF;
   UPDATE system_menu SET name=CASE id
-      WHEN 605071316 THEN '生产放行'
+      WHEN 605071315 THEN '生产放行'
       WHEN 900230 THEN '工作任务'
       WHEN 9008300 THEN '不合格评审'
     END, updater='rename-execution-menus', update_time=NOW()
-    WHERE id IN (605071316,900230,9008300);
+    WHERE id IN (605071315,900230,9008300);
   COMMIT;
 END$$
 DELIMITER ;

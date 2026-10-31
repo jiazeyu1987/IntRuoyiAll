@@ -1,6 +1,7 @@
 -- release-migration: allowedEnvironments=test,backup,prod; dependsOn=20260923_dcc_three_workflow_candidate_strategy_fix; type=seed; riskLevel=medium
 -- Purpose: publish DCC three-workflow BPMN version 3 with department-obligation multi-instance MATRIX_REVIEW.
 
+-- Ordinary process versions are not Flowable derived definitions.
 SET NAMES utf8mb4;
 
 CREATE TEMPORARY TABLE IF NOT EXISTS tmp_dcc_three_workflow_processes (
@@ -158,7 +159,7 @@ SELECT CONCAT(p.process_key, ':3:dcc-three-workflow-tenant-', t.tenant_id_text),
        CONCAT(p.process_key, '-deploy-v3-tenant-', t.tenant_id_text),
        old_procdef.RESOURCE_NAME_, old_procdef.DGRM_RESOURCE_NAME_, old_procdef.DESCRIPTION_,
        old_procdef.HAS_START_FORM_KEY_, old_procdef.HAS_GRAPHICAL_NOTATION_, 1,
-       t.tenant_id_text, old_procdef.ENGINE_VERSION_, old_procdef.ID_, old_procdef.DERIVED_FROM_ROOT_, 0
+       t.tenant_id_text, old_procdef.ENGINE_VERSION_, NULL, NULL, 0
 FROM tmp_dcc_three_workflow_processes p
 JOIN (SELECT '1' AS tenant_id_text UNION ALL SELECT '122') t
 JOIN act_re_procdef old_procdef

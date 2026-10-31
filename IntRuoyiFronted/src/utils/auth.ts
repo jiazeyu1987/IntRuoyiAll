@@ -17,6 +17,13 @@ const LegacyDefaultLoginPasswords = new Set(['', 'admin123'])
 const LoginFormCacheExpireSeconds = 30 * 24 * 60 * 60
 const LoginTenantHistoryLimit = 10
 
+// Session identity is local and non-secret. getRandomValues works on the
+// registered HTTP deployments as well as HTTPS, with no weaker RNG path.
+const createAuthSessionId = (): string =>
+  Array.from(crypto.getRandomValues(new Uint8Array(16)), (byte) =>
+    byte.toString(16).padStart(2, '0')
+  ).join('')
+
 const clearAuthenticatedUserCache = () => {
   wsCache.delete(CACHE_KEY.USER)
   wsCache.delete(CACHE_KEY.ROLE_ROUTERS)
@@ -40,7 +47,7 @@ export const getAuthSessionId = (): string | undefined => {
   if (!getAccessToken()) return undefined
   let sessionId = wsCache.get(AuthSessionIdKey) as string | undefined
   if (!sessionId) {
-    sessionId = crypto.randomUUID()
+    sessionId = createAuthSessionId()
     wsCache.set(AuthSessionIdKey, sessionId)
   }
   return sessionId
@@ -48,9 +55,10 @@ export const getAuthSessionId = (): string | undefined => {
 
 // 设置token
 export const setToken = (token: TokenType) => {
+  const sessionId = createAuthSessionId()
   clearAuthenticatedUserCache()
   setRefreshedToken(token)
-  wsCache.set(AuthSessionIdKey, crypto.randomUUID())
+  wsCache.set(AuthSessionIdKey, sessionId)
   contextRevision.value += 1
 }
 

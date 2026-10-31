@@ -23,7 +23,7 @@ BEGIN
     (6023,'物料清单','/erp/production/bom-list','erp/production/bom-list/index',50),
     (6021,'生产用料清单','/erp/production/material-list','erp/production/material-list/index',60),
     (6032,'生产领料单列表','/erp/production/pick-list','erp/production/pick-list/index',70),
-    (605071322,'生产补料单列表','/erp/production/replenishment-list','erp/production/replenishment-list/index',80),
+    (605071318,'生产补料单列表','/erp/production/replenishment-list','erp/production/replenishment-list/index',80),
     (6025,'即时库存','/erp/production/inventory-list','erp/production/inventory-list/index',90),
     (5530,'生产工单','/mes/pro/work-order','mes/pro/workorder/index',100);
   START TRANSACTION;

@@ -135,6 +135,39 @@ class MenuMigrationGateTest(unittest.TestCase):
             self.check(packaged_sql={SQL})
         self.assertEqual(self.check(packaged_sql={SQL, dependency})["status"], "passed")
 
+    def test_registered_archival_original_is_not_an_active_dependency(self):
+        self.cover(self.permission())
+        dependency = "IntRuoyiBackend/sql/mysql/20261020_dependency.sql"
+        original = "IntRuoyiBackend/sql/mysql/historical/20261020_dependency.sql"
+        self.write(dependency, META.replace("type=menu", "type=schema") + "SELECT 1;\n")
+        self.write(original, "-- Preserved original; not executable\n")
+        self.write(SQL, MIGRATION.replace("dependsOn=;", "dependsOn=20261020_dependency;"))
+        self.write(gate.SQL_ROOT + "release-sources.json", json.dumps({"historicalMigrations": [
+            {"file": "20261020_dependency.sql", "original": "historical/20261020_dependency.sql"}]}))
+        self.git("add", ".")
+        # Snapshot checks must use the staged catalog, not later local edits.
+        self.write(gate.SQL_ROOT + "release-sources.json", "{}")
+        result = self.check(staged=True, packaged_sql={SQL, dependency})
+        self.assertEqual(result["requiredSql"], sorted([SQL, dependency]))
+
+    def test_unregistered_duplicate_dependency_remains_an_error(self):
+        self.cover(self.permission())
+        for directory in ("", "historical/"):
+            self.write(gate.SQL_ROOT + directory + "20261020_dependency.sql", META + "SELECT 1;\n")
+        self.write(SQL, MIGRATION.replace("dependsOn=;", "dependsOn=20261020_dependency;"))
+        with self.assertRaisesRegex(gate.GateError, "Dependency missing or ambiguous"):
+            self.check()
+
+    def test_registered_archival_original_cannot_cover_a_new_menu(self):
+        finding = self.permission()
+        original = gate.SQL_ROOT + "historical/20261021_example_menu.sql"
+        self.write(original, MIGRATION)
+        self.write(gate.SQL_ROOT + "release-sources.json", json.dumps({"historicalMigrations": [
+            {"file": Path(SQL).name, "original": "historical/20261021_example_menu.sql"}]}))
+        self.decisions([{**finding, "migrations": [original]}])
+        with self.assertRaisesRegex(gate.GateError, "Archival original"):
+            self.check()
+
     def test_comments_cannot_fake_menu_grants_or_permission_binding(self):
         self.cover(self.permission())
         self.write(SQL, META + "/* " + MIGRATION.split("\n", 1)[1] + " */\nSELECT 1;")

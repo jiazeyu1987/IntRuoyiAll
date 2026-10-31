@@ -30,7 +30,7 @@
     </p>
     <p class="gxp-mode-setting__description">
       正式审计要求已批准并激活的匹配策略；本地策略审计会记录 LOCAL-DEV 审计；关闭审计会停止统一 GxP 记录和相关证据校验，保留业务权限及签名认证。
-      本地策略和关闭审计仅允许用于符合数据库限制的 local 环境，不删除历史记录，也不自动补齐关闭期间的审计。
+      本地策略审计仅允许用于符合数据库限制的 local 环境；关闭审计可用于开发阶段的服务器部署。不删除历史记录，也不自动补齐关闭期间的审计。
     </p>
     <el-alert v-if="!canUpdate" title="当前账号只有查看权限，不能修改 GxP 模式。" type="info" :closable="false" show-icon />
   </el-card>
@@ -46,7 +46,7 @@ const message = useMessage()
 const modeLabels: Record<GxpAuditMode, string> = {
   FORMAL: '正式审计',
   LOCAL_POLICY: '本地策略审计',
-  DEVELOPMENT_DISABLED: '关闭审计（本地开发）'
+  DEVELOPMENT_DISABLED: '关闭审计（开发模式）'
 }
 const configKey = 'system.gxp.audit-mode'
 const loading = ref(false)

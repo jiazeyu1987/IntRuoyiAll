@@ -1,0 +1,50 @@
+{
+  "replacement": "20261022_retire_historical_role_e2e_fixtures.sql",
+  "decision": "explicitly retire historical one-off E2E seeds; preserve deployed data and verify authorized tenant122/aoteman only",
+  "retirements": [
+    {
+      "file": "20260618_post_release_role_e2e_gate.sql",
+      "reason": "创建/重设租户1验收账号并扩大角色数据范围；本次仅允许122测试身份，不采纳账号fixture初始化。"
+    },
+    {
+      "file": "20260618_post_release_role_e2e_gate_password_fix.sql",
+      "reason": "历史验收密码修复不得作为本次发布重设任何用户凭据。"
+    },
+    {
+      "file": "20260618_post_release_role_e2e_gate_smoke_contract.sql",
+      "reason": "历史固定smoke账号与权限合同不等于现行业务账号迁移授权；不要求旧fixture用户存在。"
+    },
+    {
+      "file": "20260619_post_release_role_e2e_gate_smoke_username_fix.sql",
+      "reason": "历史fixture用户名修复不纳入本次发布；保留现有用户身份。"
+    },
+    {
+      "file": "20260619_post_release_role_e2e_gate_smoke_username_password_freshness_fix.sql",
+      "reason": "历史fixture凭据更新不纳入本次发布；不读取/修改密码或更新时间。"
+    },
+    {
+      "file": "20260619_post_release_role_e2e_gate_smoke_z_erp_job_permission_fix.sql",
+      "reason": "旧ERP smoke角色临时job按钮权限不复活；保留现行业务授权。"
+    },
+    {
+      "file": "20260619_post_release_role_e2e_gate_smoke_admin_resource_capacity_fix.sql",
+      "reason": "旧smoke管理员资源权限范围不自动扩展；不据验收fixture修改现有角色。"
+    },
+    {
+      "file": "20260619_post_release_role_e2e_gate_smoke_route_900026_line_fix.sql",
+      "reason": "旧smoke路线900026产线样本修复不作为发布业务数据写入；保留现有路线及关联。"
+    },
+    {
+      "file": "20260902_erp_finance_invoice_voucher_print_test_server_user_permission.sql",
+      "reason": "旧test-only人工授予admin/jiyingying账号打印角色，跨租户用户名定位且超出本次122账号范围；保留既有授权，不执行新增/恢复分配。"
+    },
+    {
+      "file": "20260903_dcc_registration_certificate_pengyongli_upload_role.sql",
+      "reason": "旧test-only tenant1实名上传角色分配超出本次测试租户122范围；不自动授予或撤销现有授权。"
+    },
+    {
+      "file": "20260903_dcc_registration_certificate_wanglixuan_upload_role.sql",
+      "reason": "注释称测试租户但实际SQL固定tenant1，旧test-only实名角色分配不纳入本次；不改变账号与既有授权。"
+    }
+  ]
+}

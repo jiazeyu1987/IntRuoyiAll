@@ -16,36 +16,44 @@ class GxpAuditDevelopmentModeTest {
         env.setActiveProfiles("local"); return env;
     }
     @ParameterizedTest @ValueSource(strings={"prod", "dev", "local,prod", ""})
-    void cannotDisableOutsideExclusiveLocal(String profiles) {
+    void localPolicyStillRequiresExclusiveLocal(String profiles) {
         var env=local(); env.setActiveProfiles(profiles.isEmpty()?new String[]{}:profiles.split(","));
-        assertThrows(IllegalStateException.class,()->new GxpAuditDevelopmentMode(env, cn.iocoder.yudao.module.infra.enums.config.GxpAuditMode.DEVELOPMENT_DISABLED));
+        assertThrows(IllegalStateException.class,()->new GxpAuditDevelopmentMode(env, cn.iocoder.yudao.module.infra.enums.config.GxpAuditMode.LOCAL_POLICY));
     }
-    @Test void cannotDisableWithRemoteMasterOrSlave() {
+    @Test void localPolicyStillRequiresLoopbackDatasources() {
         var remoteMaster=local().withProperty("spring.datasource.dynamic.datasource.master.url","jdbc:mysql://remote/db");
-        assertThrows(IllegalStateException.class,()->new GxpAuditDevelopmentMode(remoteMaster, cn.iocoder.yudao.module.infra.enums.config.GxpAuditMode.DEVELOPMENT_DISABLED));
+        assertThrows(IllegalStateException.class,()->new GxpAuditDevelopmentMode(remoteMaster, cn.iocoder.yudao.module.infra.enums.config.GxpAuditMode.LOCAL_POLICY));
         var env=local().withProperty("spring.datasource.dynamic.datasource.slave.url","jdbc:mysql://remote/db");
         var remoteSlave=env;
-        assertThrows(IllegalStateException.class,()->new GxpAuditDevelopmentMode(remoteSlave, cn.iocoder.yudao.module.infra.enums.config.GxpAuditMode.DEVELOPMENT_DISABLED));
+        assertThrows(IllegalStateException.class,()->new GxpAuditDevelopmentMode(remoteSlave, cn.iocoder.yudao.module.infra.enums.config.GxpAuditMode.LOCAL_POLICY));
     }
     @Test void defaultRemainsFormalAndDisabledStatusIsNeverAcceptedInFormalMode() {
         new GxpAuditDevelopmentMode(new MockEnvironment(), cn.iocoder.yudao.module.infra.enums.config.GxpAuditMode.FORMAL);
         assertFalse(GxpAuditDevelopmentMode.disabled());
         assertFalse(GxpAuditDevelopmentMode.auditBindingAccepted("DEVELOPMENT_DISABLED"));
     }
-    @Test void isolatedCheckpointRequiresMatchingSpaceAndBothDatasourceHosts() {
-        var env=local().withProperty("INTRUOYI_CHECKPOINT_SPACE", "checkpoint-c6")
-                .withProperty("intruoyi.checkpoint.space-id", "checkpoint-c6")
-                .withProperty("spring.datasource.dynamic.datasource.master.url",
-                        "jdbc:mysql://checkpoint-c6-mysql-1:3306/ruoyi-vue-pro?useSSL=false");
+    @ParameterizedTest @ValueSource(strings={"prod", "test", "backup", "local"})
+    void explicitDisabledModeWorksWithServerDatasource(String profile) {
+        var env=new MockEnvironment()
+                .withProperty("spring.datasource.dynamic.datasource.master.url", "jdbc:mysql://mysql:3306/ruoyi-vue-pro")
+                .withProperty("spring.datasource.dynamic.datasource.slave.url", "jdbc:mysql://replica:3306/ruoyi-vue-pro");
+        env.setActiveProfiles(profile);
         new GxpAuditDevelopmentMode(env, cn.iocoder.yudao.module.infra.enums.config.GxpAuditMode.DEVELOPMENT_DISABLED);
         assertTrue(GxpAuditDevelopmentMode.disabled());
-        env.withProperty("spring.datasource.dynamic.datasource.slave.url",
-                "jdbc:mysql://checkpoint-other-mysql-1:3306/ruoyi-vue-pro");
-        assertThrows(IllegalStateException.class, () -> new GxpAuditDevelopmentMode(env, cn.iocoder.yudao.module.infra.enums.config.GxpAuditMode.DEVELOPMENT_DISABLED));
-        env.withProperty("spring.datasource.dynamic.datasource.slave.url",
-                "jdbc:mysql://checkpoint-c6-mysql-1:3306/ruoyi-vue-pro")
-                .withProperty("intruoyi.checkpoint.space-id", "checkpoint-other");
-        assertThrows(IllegalStateException.class, () -> new GxpAuditDevelopmentMode(env, cn.iocoder.yudao.module.infra.enums.config.GxpAuditMode.DEVELOPMENT_DISABLED));
+        assertFalse(new GxpAuditDevelopmentMode(env, cn.iocoder.yudao.module.infra.enums.config.GxpAuditMode.DEVELOPMENT_DISABLED).localPolicyEnabled());
+    }
+    @Test void releaseStateDistinguishesSavedModeFromRunningMode() {
+        var configs=mock(cn.iocoder.yudao.module.infra.dal.mysql.config.ConfigMapper.class);
+        var row=new cn.iocoder.yudao.module.infra.dal.dataobject.config.ConfigDO();
+        row.setVisible(true); row.setType(1); row.setValue("DEVELOPMENT_DISABLED");
+        when(configs.selectByKey("system.gxp.audit-mode")).thenReturn(row);
+        var mode=new GxpAuditDevelopmentMode(new MockEnvironment(), configs);
+        assertEquals("DEVELOPMENT_DISABLED",mode.releaseState().get("gxpAuditMode"));
+        row.setValue("FORMAL");
+        assertEquals("DEVELOPMENT_DISABLED",mode.releaseState().get("gxpAuditMode"));
+        assertEquals("FORMAL",mode.releaseState().get("configuredGxpAuditMode"));
+        row.setVisible(false);
+        assertThrows(IllegalStateException.class,mode::releaseState);
     }
     @Test void disabledWriterAndQueriesNeverTouchAuditPersistence() {
         new GxpAuditDevelopmentMode(local(), cn.iocoder.yudao.module.infra.enums.config.GxpAuditMode.DEVELOPMENT_DISABLED);

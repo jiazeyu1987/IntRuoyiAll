@@ -93,13 +93,9 @@ incomplete_summary AS (
 SELECT CASE WHEN
   dependency_tables.dependency_table_count = 4
   AND typed_columns.typed_column_count = 4
-  AND (
-    candidate_summary.candidate_rule_count = 0
-    OR (
-      duplicate_summary.duplicate_target_count = 0
-      AND incomplete_summary.incomplete_target_count = 0
-    )
-  )
+  AND candidate_summary.candidate_rule_count > 0
+  AND duplicate_summary.duplicate_target_count = 0
+  AND incomplete_summary.incomplete_target_count = 0
 THEN 'TARGET_PREFLIGHT_PASS:20260811_mes_process_pool_cleaning_process_parameter_data' ELSE 'TARGET_PREFLIGHT_BLOCKED:20260811_mes_process_pool_cleaning_process_parameter_data' END
 FROM dependency_tables
 CROSS JOIN typed_columns

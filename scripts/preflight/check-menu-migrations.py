@@ -184,15 +184,25 @@ def validate_migrations(root: Path, read, paths: set[str], migrations: list[str]
     sys.path.insert(0, str(root / "IntRuoyiBackend"))
     from script.release.release_migration_manifest import METADATA_PATTERN, _parse_metadata
     from script.release.release_migration_policy_gate import run_migration_policy_gate, MigrationPolicyError
+    catalog_path = SQL_ROOT + "release-sources.json"
+    catalog = json.loads(read(catalog_path)) if catalog_path in paths else {}
+    originals = set()
+    for item in catalog.get("historicalMigrations", []):
+        original = item["original"]
+        if not isinstance(original, str) or not original.startswith("historical/") or ".." in Path(original).parts:
+            raise GateError("Invalid archival original in release source catalog")
+        originals.add(SQL_ROOT + original)
     available = {}
     for path in paths:
-        if path.startswith(SQL_ROOT) and path.endswith(".sql"):
+        if path.startswith(SQL_ROOT) and path.endswith(".sql") and path not in originals:
             available.setdefault(Path(path).stem, []).append(path)
     closure, visiting = set(), set()
     with tempfile.TemporaryDirectory(prefix="menu-migration-") as temporary:
         sql_root = Path(temporary)
 
         def collect(path: str) -> None:
+            if path in originals:
+                raise GateError(f"Archival original cannot satisfy menu migration coverage: {path}")
             if path in visiting:
                 raise GateError(f"Migration dependency cycle: {path}")
             if path in closure:
