@@ -1,6 +1,7 @@
 package cn.iocoder.yudao.module.mes.service.pro.processpool.team;
 
 import cn.hutool.extra.spring.SpringUtil;
+import cn.iocoder.yudao.framework.common.enums.UserTypeEnum;
 import cn.iocoder.yudao.framework.security.core.LoginUser;
 import cn.iocoder.yudao.framework.tenant.config.TenantProperties;
 import cn.iocoder.yudao.framework.tenant.config.YudaoTenantAutoConfiguration;
@@ -15,6 +16,8 @@ import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExec
 import cn.iocoder.yudao.module.mes.service.pro.productionrelease.MesReleaseAffectedStateCollector;
 import cn.iocoder.yudao.module.system.dal.dataobject.gxpaudit.*;
 import cn.iocoder.yudao.module.system.dal.mysql.gxpaudit.*;
+import cn.iocoder.yudao.module.system.dal.dataobject.user.AdminUserDO;
+import cn.iocoder.yudao.module.system.dal.mysql.user.AdminUserMapper;
 import cn.iocoder.yudao.module.system.service.gxpaudit.*;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
@@ -98,7 +101,7 @@ class MesCompletionAggregationAuditTransactionTest {
                 MesPqcInspectionPieceDetailDO.class, MesPqcProcessInspectionAggregateDetailDO.class,
                 MesProcessPoolSubmissionReviewDO.class, MesProProcessPoolEventRevisionDO.class,
                 GxpAuditEventDO.class, GxpAuditEventRelationDO.class, GxpAuditLedgerSequenceDO.class,
-                GxpAuditPolicyActivationDO.class, GxpAuditPolicyOperationDO.class)) createTable(row);
+                GxpAuditPolicyActivationDO.class, GxpAuditPolicyOperationDO.class, AdminUserDO.class)) createTable(row);
         var config = new MybatisConfiguration();
         config.setMapUnderscoreToCamelCase(true);
         config.addInterceptor(new MesActiveOrderMaintenanceAuditTransactionTest.MysqlBitLiteralForH2());
@@ -119,7 +122,7 @@ class MesCompletionAggregationAuditTransactionTest {
                 MesPqcInspectionPieceDetailMapper.class, MesPqcProcessInspectionAggregateDetailMapper.class,
                 MesProcessPoolSubmissionReviewMapper.class, MesProProcessPoolEventRevisionMapper.class,
                 GxpAuditEventMapper.class, GxpAuditEventRelationMapper.class, GxpAuditLedgerSequenceMapper.class,
-                GxpAuditPolicyActivationMapper.class, GxpAuditPolicyOperationMapper.class)) config.addMapper(mapper);
+                GxpAuditPolicyActivationMapper.class, GxpAuditPolicyOperationMapper.class, AdminUserMapper.class)) config.addMapper(mapper);
         var sessions = new SqlSessionTemplate(sqlFactory);
         completionReceiptMapper = sessions.getMapper(MesProcessPoolActiveOrderCompletionReceiptMapper.class);
         var tx = new DataSourceTransactionManager(source);
@@ -148,9 +151,13 @@ class MesCompletionAggregationAuditTransactionTest {
         var actor = new LoginUser();
         actor.setId(20L);
         actor.setTenantId(1L);
+        actor.setUserType(UserTypeEnum.ADMIN.getValue());
         actor.setInfo(Map.of("username", "completion-audit-test", LoginUser.INFO_KEY_NICKNAME, "completion-audit-test"));
+        jdbc.update("INSERT INTO system_users(id,tenant_id,status,username,nickname,deleted) VALUES(20,1,0,?,?,0)",
+                "completion-audit-test", "completion-audit-test");
         SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(actor, null));
         var writer = new GxpAuditServiceImpl();
+        inject(writer, "adminUserMapper", sessions.getMapper(AdminUserMapper.class));
         inject(writer, "auditEventMapper", sessions.getMapper(GxpAuditEventMapper.class));
         inject(writer, "eventRelationMapper", sessions.getMapper(GxpAuditEventRelationMapper.class));
         inject(writer, "ledgerSequenceMapper", sessions.getMapper(GxpAuditLedgerSequenceMapper.class));
@@ -189,8 +196,8 @@ class MesCompletionAggregationAuditTransactionTest {
         inject(sharedReader,"auditEventMapper",sessions.getMapper(GxpAuditEventMapper.class));
         inject(sharedReader,"eventRelationMapper",sessions.getMapper(GxpAuditEventRelationMapper.class));
         var creationReader=new cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesEdhrSourceCreationVerificationService(
-                null,null,completionReceiptMapper,
-                new cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesEdhrSourceOwnerIntegrity("",""),
+                null,completionReceiptMapper,
+                new cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesEdhrSourceOwnerIntegrity(),
                 null,sharedReader,new cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesEdhrSourceCreationProtocolRegistry());
         inject(completion,"creationVerifier",creationReader);
         completionCollector = new MesReleaseAffectedStateCollector(source);

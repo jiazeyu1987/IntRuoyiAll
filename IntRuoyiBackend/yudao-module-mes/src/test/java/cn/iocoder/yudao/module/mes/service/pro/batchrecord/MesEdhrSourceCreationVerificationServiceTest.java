@@ -332,6 +332,14 @@ class MesEdhrSourceCreationVerificationServiceTest {
         assertEquals("COMPLETION_MAIN_V1", proof.ownerProtocol()); assertEquals(7, proof.getClass().getRecordComponents().length);
         // This record assertion is not public complete→actual main/parts success evidence.
     }
+    private MesEdhrSourceCreationBindingDO bindingCopy(MesEdhrSourceCreationBindingDO row) {
+        return new MesEdhrSourceCreationBindingDO().setId(row.getId()).setTenantId(row.getTenantId())
+                .setOwnerProtocol(row.getOwnerProtocol()).setSourceRowId(row.getSourceRowId())
+                .setSourceReceiptId(row.getSourceReceiptId()).setSourceVersion(row.getSourceVersion())
+                .setSourceHash(row.getSourceHash()).setRequestHashVersion(row.getRequestHashVersion())
+                .setRequestHash(row.getRequestHash()).setCreationEventId(row.getCreationEventId())
+                .setCreationEventHash(row.getCreationEventHash());
+    }
     private void corruptBinding(MesEdhrSourceCreationBindingDO row, String field) {
         switch(field) {
             case "id" -> row.setId(399L); case "tenantId" -> row.setTenantId(2L); case "ownerProtocol" -> row.setOwnerProtocol("UNKNOWN_PROTOCOL");
