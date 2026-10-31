@@ -8,7 +8,8 @@ const compiler = appRequire('@vue/compiler-sfc')
 const ts = require('typescript')
 const { reactive, nextTick } = require('vue')
 const filename = 'src/views/form-center/parser/components/SimplePqcTrialPreview.vue'
-const { descriptor } = compiler.parse(fs.readFileSync(filename, 'utf8'), { filename })
+const parsed = compiler.parse(fs.readFileSync(filename, 'utf8'), { filename })
+const { descriptor } = parsed
 const compiled = compiler.compileScript(descriptor, { id: 'pqc-trial-test' })
 const ctx = {
   exports: {},
@@ -22,6 +23,17 @@ vm.runInNewContext(
     .outputText,
   ctx
 )
+
+test('PQC trial template compiles with the production Vue compiler', () => {
+  assert.deepEqual(parsed.errors, [])
+  const result = compiler.compileTemplate({
+    source: descriptor.template.content,
+    filename,
+    id: 'pqc-trial-test',
+    compilerOptions: { bindingMetadata: compiled.bindings }
+  })
+  assert.deepEqual(result.errors, [])
+})
 
 test('PQC trial isolates results by item/type and leaves the publication draft unchanged', async () => {
   const draft = reactive({

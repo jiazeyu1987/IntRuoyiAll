@@ -323,7 +323,7 @@
           type="button"
           :class="{ active: index === processIndex }"
           @click="
-            emit('select-process', index)
+            emit('select-process', index);
             processVisible = false
           "
           >{{ index + 1 }}. {{ p.processName }}</button
