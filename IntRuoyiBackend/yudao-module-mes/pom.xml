@@ -123,6 +123,48 @@
 
     <profiles>
         <profile>
+            <id>mes-fixed-order-initializer-tests</id>
+            <build><plugins>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId><artifactId>maven-compiler-plugin</artifactId>
+                    <configuration><skipMain>false</skipMain><skip>false</skip><testIncludes>
+                        <testInclude>**/MesFixedTestOrderInitializerTest.java</testInclude>
+                        <testInclude>**/MesM9SimulationHistoryProtectionTest.java</testInclude>
+                    </testIncludes></configuration>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId><artifactId>maven-surefire-plugin</artifactId>
+                    <configuration><skip>false</skip><skipTests>false</skipTests><includes>
+                        <include>**/MesFixedTestOrderInitializerTest.java</include>
+                        <include>**/MesM9SimulationHistoryProtectionTest.java</include>
+                    </includes></configuration>
+                </plugin>
+            </plugins></build>
+        </profile>
+        <profile>
+            <id>mes-fixed-test-reset-permission-tests</id>
+            <build><plugins>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-compiler-plugin</artifactId>
+                    <configuration><testIncludes>
+                        <testInclude>**/MesFixedTestOrderModeGuardTest.java</testInclude>
+                        <testInclude>**/MesProcessPoolTeamLeaderControllerTest.java</testInclude>
+                        <testInclude>**/MesM9SimulationHistoryProtectionTest.java</testInclude>
+                    </testIncludes></configuration>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-surefire-plugin</artifactId>
+                    <configuration><includes>
+                        <include>**/MesFixedTestOrderModeGuardTest.java</include>
+                        <include>**/MesProcessPoolTeamLeaderControllerTest.java</include>
+                        <include>**/MesM9SimulationHistoryProtectionTest.java</include>
+                    </includes></configuration>
+                </plugin>
+            </plugins></build>
+        </profile>
+        <profile>
             <id>mes-device-integration-tests</id>
             <build><plugins>
                 <plugin>

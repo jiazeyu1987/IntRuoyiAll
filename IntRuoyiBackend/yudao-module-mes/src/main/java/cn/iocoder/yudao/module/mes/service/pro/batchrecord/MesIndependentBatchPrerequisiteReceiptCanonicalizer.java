@@ -8,7 +8,7 @@ import java.util.HexFormat;
 import java.util.List;
 import java.util.StringJoiner;
 
-/** Fixed field-order canonical payload for the persisted independent prerequisite receipt. */
+/** Preserves the original bytes of historical receipt snapshots; performs no signing or verification. */
 public final class MesIndependentBatchPrerequisiteReceiptCanonicalizer {
 
     private MesIndependentBatchPrerequisiteReceiptCanonicalizer() {

@@ -643,6 +643,15 @@ export const QcTemplateApi = {
     })
   },
 
+  // 一次保存当前产品的通用规程列表，空列表表示解除全部绑定
+  saveCommonRegulationBindingList: async (data: {
+    dccProjectCodeId: number
+    commonRegulationVersionIds: number[]
+    changeReason?: string
+  }): Promise<QaCommonRegulationBindingVO | null> => {
+    return await request.post({ url: `/mes/qa/inspection-regulation/common-binding/save-list`, data })
+  },
+
   // 解除当前产品的通用检验规程绑定
   unbindCommonRegulation: async (
     dccProjectCodeId: number

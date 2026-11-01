@@ -756,6 +756,144 @@ class MesQaInspectionRegulationServiceTest {
     }
 
     @Test
+    void bindingListCreatesSeparatePublishedCompositionInRequestedOrder() {
+        when(dccProjectCodeMapper.selectById(DCC_PROJECT_ID))
+                .thenReturn(enabledDccProject().setProductMasterId(14L));
+        when(versionMapper.selectById(VERSION_ID)).thenReturn(publishedVersion());
+        when(regulationMapper.selectById(REGULATION_ID)).thenReturn(publishedRegulation()
+                .setOwnerModule(MesQaInspectionRegulationDO.OWNER_MODULE_MES_QA_COMMON));
+        when(versionMapper.selectById(82L)).thenReturn(publishedVersion().setId(82L).setRegulationId(81L));
+        when(regulationMapper.selectById(81L)).thenReturn(publishedRegulation().setId(81L)
+                .setCurrentVersionId(82L).setOwnerModule(MesQaInspectionRegulationDO.OWNER_MODULE_MES_QA_COMMON));
+        doAnswer(invocation -> {
+            invocation.<MesQaCommonRegulationSetDO>getArgument(0).setId(71L);
+            return 1;
+        }).when(commonRegulationSetMapper).insert(any(MesQaCommonRegulationSetDO.class));
+        var editor = org.mockito.Mockito.spy(service);
+        org.mockito.Mockito.doReturn(MesQaCommonRegulationSetRespVO.Version.builder().id(72L).build())
+                .when(editor).saveCommonRegulationSetVersion(any());
+        org.mockito.Mockito.doReturn(cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo
+                .MesQaCommonRegulationBindingRespVO.builder().bindingId(91L).build())
+                .when(editor).bindCommonRegulationVersion(any());
+        var request = bindingListRequest(List.of(82L, VERSION_ID));
+
+        assertEquals(91L, editor.saveCommonRegulationBindingList(request).getBindingId());
+
+        var set = ArgumentCaptor.forClass(MesQaCommonRegulationSetDO.class);
+        verify(commonRegulationSetMapper).insert(set.capture());
+        assertEquals("QA-COMMON-14", set.getValue().getSetCode());
+        var version = ArgumentCaptor.forClass(MesQaCommonRegulationSetVersionSaveReqVO.class);
+        verify(editor).saveCommonRegulationSetVersion(version.capture());
+        assertEquals(71L, version.getValue().getSetId());
+        assertEquals("PUBLISHED", version.getValue().getLifecycleStatus());
+        assertEquals(List.of(82L, VERSION_ID), version.getValue().getMembers().stream()
+                .map(MesQaCommonRegulationSetVersionSaveReqVO.Member::getCommonRegulationVersionId).toList());
+        assertEquals(List.of(10, 20), version.getValue().getMembers().stream()
+                .map(MesQaCommonRegulationSetVersionSaveReqVO.Member::getSort).toList());
+        var bind = ArgumentCaptor.forClass(MesQaCommonRegulationBindReqVO.class);
+        verify(editor).bindCommonRegulationVersion(bind.capture());
+        assertEquals(72L, bind.getValue().getCommonRegulationSetVersionId());
+        verify(commonRegulationSetMapper, never()).updateById(any(MesQaCommonRegulationSetDO.class));
+    }
+
+    @Test
+    void bindingListRejectsDuplicatesBeforeAnyCompositionWrite() {
+        when(dccProjectCodeMapper.selectById(DCC_PROJECT_ID))
+                .thenReturn(enabledDccProject().setProductMasterId(14L));
+        when(versionMapper.selectById(VERSION_ID)).thenReturn(publishedVersion());
+        when(regulationMapper.selectById(REGULATION_ID)).thenReturn(publishedRegulation()
+                .setOwnerModule(MesQaInspectionRegulationDO.OWNER_MODULE_MES_QA_COMMON));
+
+        var failure = assertThrows(ServiceException.class,
+                () -> service.saveCommonRegulationBindingList(bindingListRequest(List.of(VERSION_ID, VERSION_ID))));
+
+        assertTrue(failure.getMessage().contains("不能重复绑定"));
+        verifyNoInteractions(commonRegulationSetMapper, commonRegulationSetVersionMapper,
+                commonRegulationSetVersionMemberMapper);
+        verify(commonRegulationProductBindingMapper, never()).updateEnabledStatusByProductId(any(), any());
+    }
+
+    @Test
+    void bindingListRejectsUnpublishedMemberWithoutChangingSavedBinding() {
+        when(dccProjectCodeMapper.selectById(DCC_PROJECT_ID))
+                .thenReturn(enabledDccProject().setProductMasterId(14L));
+        when(versionMapper.selectById(VERSION_ID)).thenReturn(publishedVersion().setLifecycleStatus("DRAFT"));
+
+        var failure = assertThrows(ServiceException.class,
+                () -> service.saveCommonRegulationBindingList(bindingListRequest(List.of(VERSION_ID))));
+
+        assertEquals(QA_INSPECTION_REGULATION_VERSION_NOT_PUBLISHED.getCode(), failure.getCode());
+        verifyNoInteractions(commonRegulationSetMapper, commonRegulationSetVersionMapper,
+                commonRegulationSetVersionMemberMapper);
+        verify(commonRegulationProductBindingMapper, never()).updateEnabledStatusByProductId(any(), any());
+    }
+
+    @Test
+    void bindingListRejectsProductQaRegulationAsCommonMember() {
+        when(dccProjectCodeMapper.selectById(DCC_PROJECT_ID))
+                .thenReturn(enabledDccProject().setProductMasterId(14L));
+        when(versionMapper.selectById(VERSION_ID)).thenReturn(publishedVersion());
+        when(regulationMapper.selectById(REGULATION_ID)).thenReturn(publishedRegulation());
+
+        assertThrows(ServiceException.class,
+                () -> service.saveCommonRegulationBindingList(bindingListRequest(List.of(VERSION_ID))));
+
+        verifyNoInteractions(commonRegulationSetMapper, commonRegulationSetVersionMapper,
+                commonRegulationSetVersionMemberMapper);
+    }
+
+    @Test
+    void unchangedBindingListKeepsSharedPublishedSetAndRetiredMemberSnapshot() {
+        var current = cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation
+                .MesQaCommonRegulationProductBindingDO.builder().id(91L).productId(14L)
+                .commonRegulationSetId(71L).commonRegulationSetVersionId(72L)
+                .regulationId(REGULATION_ID).regulationVersionId(VERSION_ID).bindingStatus("ENABLED").build();
+        when(dccProjectCodeMapper.selectById(DCC_PROJECT_ID))
+                .thenReturn(enabledDccProject().setProductMasterId(14L));
+        when(commonRegulationProductBindingMapper.selectEnabledByProductId(14L)).thenReturn(current);
+        when(commonRegulationSetMapper.selectById(71L)).thenReturn(commonRegulationSet(71L, 72L));
+        when(commonRegulationSetVersionMapper.selectById(72L)).thenReturn(
+                MesQaCommonRegulationSetVersionDO.builder().id(72L).setId(71L)
+                        .versionNo("A/3").lifecycleStatus("PUBLISHED").build());
+        when(commonRegulationSetVersionMemberMapper.selectListBySetVersionId(72L)).thenReturn(List.of(
+                MesQaCommonRegulationSetVersionMemberDO.builder().setVersionId(72L)
+                        .regulationVersionId(VERSION_ID).sort(10).build()));
+        when(versionMapper.selectById(VERSION_ID)).thenReturn(publishedVersion().setLifecycleStatus("RETIRED"));
+        when(regulationMapper.selectById(REGULATION_ID)).thenReturn(publishedRegulation()
+                .setOwnerModule(MesQaInspectionRegulationDO.OWNER_MODULE_MES_QA_COMMON));
+
+        var saved = service.saveCommonRegulationBindingList(bindingListRequest(List.of(VERSION_ID)));
+
+        assertEquals(91L, saved.getBindingId());
+        assertEquals(72L, saved.getCommonRegulationSetVersionId());
+        verify(commonRegulationSetMapper, never()).insert(any(MesQaCommonRegulationSetDO.class));
+        verify(commonRegulationSetVersionMapper, never()).insert(any(MesQaCommonRegulationSetVersionDO.class));
+        verify(commonRegulationProductBindingMapper, never()).updateEnabledStatusByProductId(any(), any());
+    }
+
+    @Test
+    void emptyBindingListExplicitlyUnbindsTheSelectedProduct() {
+        when(dccProjectCodeMapper.selectById(DCC_PROJECT_ID))
+                .thenReturn(enabledDccProject().setProductMasterId(14L));
+
+        assertNull(service.saveCommonRegulationBindingList(bindingListRequest(List.of())));
+
+        verify(commonRegulationProductBindingMapper).updateEnabledStatusByProductId(14L, "DISABLED");
+        verifyNoInteractions(commonRegulationSetMapper, commonRegulationSetVersionMapper,
+                commonRegulationSetVersionMemberMapper);
+    }
+
+    private cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaCommonRegulationBindingListSaveReqVO
+            bindingListRequest(List<Long> versionIds) {
+        var request = new cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo
+                .MesQaCommonRegulationBindingListSaveReqVO();
+        request.setDccProjectCodeId(DCC_PROJECT_ID);
+        request.setCommonRegulationVersionIds(versionIds);
+        request.setChangeReason("绑定列表测试");
+        return request;
+    }
+
+    @Test
     void listCommonRegulationSets_exposesMemberFinalInspectionSnapshot() {
         long setId = 71L;
         long setVersionId = 72L;

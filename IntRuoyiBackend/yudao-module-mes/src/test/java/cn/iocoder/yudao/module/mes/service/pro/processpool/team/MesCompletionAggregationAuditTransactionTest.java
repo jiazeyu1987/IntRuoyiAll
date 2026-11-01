@@ -189,8 +189,8 @@ class MesCompletionAggregationAuditTransactionTest {
         inject(sharedReader,"auditEventMapper",sessions.getMapper(GxpAuditEventMapper.class));
         inject(sharedReader,"eventRelationMapper",sessions.getMapper(GxpAuditEventRelationMapper.class));
         var creationReader=new cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesEdhrSourceCreationVerificationService(
-                null,null,completionReceiptMapper,
-                new cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesEdhrSourceOwnerIntegrity("",""),
+                null,completionReceiptMapper,
+                new cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesEdhrSourceOwnerIntegrity(),
                 null,sharedReader,new cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesEdhrSourceCreationProtocolRegistry());
         inject(completion,"creationVerifier",creationReader);
         completionCollector = new MesReleaseAffectedStateCollector(source);

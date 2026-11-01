@@ -1054,14 +1054,14 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
         if (reqVO.getCompletionBackfillReceipt() != null) {
             return reqVO.getCompletionBackfillReceipt().getRouteId();
         }
-        return reqVO.getIndependentReceipt() == null ? null : reqVO.getIndependentReceipt().getRouteId();
+        return null;
     }
 
     private Long receiptRouteVersionId(EdhrBatchExecutionOpenOrCreateReqVO reqVO) {
         if (reqVO.getCompletionBackfillReceipt() != null) {
             return reqVO.getCompletionBackfillReceipt().getRouteVersionId();
         }
-        return reqVO.getIndependentReceipt() == null ? null : reqVO.getIndependentReceipt().getRouteVersionId();
+        return null;
     }
 
     private void requireEntryType(String actual, String... allowed) {
@@ -1658,14 +1658,14 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
         if (command.getCompletionBackfillReceipt() != null) {
             return command.getCompletionBackfillReceipt().getRouteId();
         }
-        return command.getIndependentReceipt() == null ? null : command.getIndependentReceipt().getRouteId();
+        return null;
     }
 
     private Long scheduleReceiptRouteVersionId(EdhrScheduleCompletionCreateCommand command) {
         if (command.getCompletionBackfillReceipt() != null) {
             return command.getCompletionBackfillReceipt().getRouteVersionId();
         }
-        return command.getIndependentReceipt() == null ? null : command.getIndependentReceipt().getRouteVersionId();
+        return null;
     }
 
     private Long resolveRouteId(Long expectedRouteId, MesProWorkOrderDO workOrder) {
@@ -9206,8 +9206,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
             }
             return existing;
         }
-        String sourceCredentialHash = command.getIndependentReceipt() == null
-                ? command.getCompletionBackfillReceiptHash() : command.getIndependentReceipt().getReceiptHash();
+        String sourceCredentialHash = command.getCompletionBackfillReceiptHash();
         MesProEdhrBatchProvisioningRecordDO record = new MesProEdhrBatchProvisioningRecordDO()
                 .setTenantId(tenantId).setBatchExecutionId(batch.getId())
                 .setEntryType(command.getEntryType()).setEntryBusinessId(command.getEntryBusinessId())
@@ -9258,8 +9257,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
         metadata.put("batchPickListRelationId", command.getBatchPickListRelationId());
         metadata.put("completionBackfillReceiptId", command.getCompletionBackfillReceiptId());
         metadata.put("completionBackfillReceiptHash", command.getCompletionBackfillReceiptHash());
-        metadata.put("sourceCredentialHash", command.getIndependentReceipt() == null
-                ? command.getCompletionBackfillReceiptHash() : command.getIndependentReceipt().getReceiptHash());
+        metadata.put("sourceCredentialHash", command.getCompletionBackfillReceiptHash());
         metadata.put("idempotencyKey", command.getIdempotencyKey());
         metadata.put("payloadHash", command.getPayloadHash());
         metadata.put("completionTransactionId", command.getCompletionTransactionId());
@@ -9309,8 +9307,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
         String witness = command.getIdempotencyKey();
         String suffix = DigestUtil.sha256Hex(witness == null ? String.valueOf(batch.getId()) : witness)
                 .substring(0, 32);
-        String sourceCredentialHash = command.getIndependentReceipt() == null
-                ? command.getCompletionBackfillReceiptHash() : command.getIndependentReceipt().getReceiptHash();
+        String sourceCredentialHash = command.getCompletionBackfillReceiptHash();
         MesProEdhrBatchProvisionedEvent event = new MesProEdhrBatchProvisionedEvent()
                 .setTenantId(TenantContextHolder.getRequiredTenantId())
                 .setBatchExecutionId(batch.getId()).setProvisioningReceiptId(provisioningReceiptId)

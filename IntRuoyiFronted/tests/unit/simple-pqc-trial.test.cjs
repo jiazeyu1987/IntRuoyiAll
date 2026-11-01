@@ -9,6 +9,11 @@ const ts = require('typescript')
 const { reactive, nextTick } = require('vue')
 const filename = 'src/views/form-center/parser/components/SimplePqcTrialPreview.vue'
 const { descriptor } = compiler.parse(fs.readFileSync(filename, 'utf8'), { filename })
+assert.deepEqual(
+  compiler.compileTemplate({ source: descriptor.template.content, filename, id: 'pqc-trial-test' })
+    .errors,
+  []
+)
 const compiled = compiler.compileScript(descriptor, { id: 'pqc-trial-test' })
 const ctx = {
   exports: {},
@@ -78,6 +83,17 @@ test('PQC trial isolates results by item/type and leaves the publication draft u
   await nextTick()
   state.state.value.values = [10, 21]
   assert.match(state.resultSummary.value, /合格 1 件 · 不合格 1 件/)
+  state.state.value.values = [10, undefined]
+  state.submitTrial()
+  assert.match(state.trialMessage.value, /请完成/)
+  state.openPieces()
+  state.pieceValues.value[1] = 12
+  assert.equal(state.state.value.values[1], undefined)
+  state.confirmPieces()
+  state.submitTrial()
+  assert.match(state.trialMessage.value, /检查完成/)
+  state.reset()
+  assert.equal(state.trialMessage.value, '')
   state.state.value.values = [undefined, undefined]
   assert.match(state.resultSummary.value, /未填写 2 件/)
   state.selectRule('FINAL')

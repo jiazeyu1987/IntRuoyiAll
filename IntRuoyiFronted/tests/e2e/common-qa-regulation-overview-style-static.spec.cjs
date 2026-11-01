@@ -36,13 +36,8 @@ assert.match(
 )
 assert.match(
   commonOverview,
-  /qa-regulation-page__overview-card[\s\S]*qa-regulation-page__common-binding-card[\s\S]*qa-regulation-page__common-binding-head/,
-  'Common overview must reuse the QA summary card header skeleton.'
-)
-assert.match(
-  commonOverview,
-  /data-qa-common-overview-summary[\s\S]*data-qa-common-overview-info[\s\S]*data-qa-common-overview-note/,
-  'Common overview must render the QA-style three-section summary, information, and note composition.'
+  /data-qa-common-overview-actions[\s\S]*data-qa-common-overview-info/,
+  'Common overview must retain management actions followed by regulation information.'
 )
 assert.match(
   commonOverview,
@@ -51,21 +46,14 @@ assert.match(
 )
 
 for (const selector of [
-  'data-qa-common-overview-summary',
+  'data-qa-common-overview-actions',
   'data-qa-common-overview-info',
-  'data-qa-common-overview-note',
-  'data-qa-common-overview-current',
-  'data-qa-common-overview-version',
-  'data-qa-common-overview-version-select',
-  'data-qa-common-overview-version-dropdown',
-  'data-qa-common-overview-compose',
-  'data-qa-common-overview-refresh',
+  '通用规程套信息',
+  'data-qa-common-overview-status',
   'data-qa-common-overview-version-create',
   'data-qa-common-overview-edit',
   'data-qa-common-overview-delete',
-  '通用规程套信息',
   '规程信息',
-  '备注',
   '套编号',
   '套名称',
   '当前版本',
@@ -110,10 +98,10 @@ assert.match(
   /\.qa-regulation-page__overview-card\s*\{/,
   'Shared overview-card styling must be declared.'
 )
-assert.match(
+assert.doesNotMatch(
   commonOverview,
-  /qa-regulation-page__overview-note/,
-  'Common overview must provide a QA-style explanation/notes card.'
+  /data-qa-common-overview-(?:summary|current|version-select|version-dropdown|compose|refresh|note)\b|<template #header>备注<\/template>/,
+  'Common overview must remove the redundant summary, refresh button, and notes card.'
 )
 assert.match(
   source,

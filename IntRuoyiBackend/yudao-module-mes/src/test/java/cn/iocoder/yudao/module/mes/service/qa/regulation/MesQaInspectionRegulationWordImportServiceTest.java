@@ -89,6 +89,80 @@ class MesQaInspectionRegulationWordImportServiceTest {
     }
 
     @Test
+    void previewCommonWord_doesNotPersistUntilConfirmation() throws Exception {
+        when(parser.parse(any(), any())).thenReturn(parsed("B/0"));
+        var request = importService.previewCommonWord(file(), DCC_PROJECT_ID);
+        assertEquals("MES_QA_COMMON", request.getOwnerModule());
+        assertEquals(0L, request.getExpectedDraftRevision());
+        assertEquals("表面清洁，无异物", request.getProcesses().get(0).getItems().get(0).getStandardText());
+        assertEquals(List.of(), request.getProcesses().get(0).getItems().get(0).getEquipmentOptions());
+        verify(regulationService, never()).saveDraft(any());
+        verify(regulationService, never()).publish(any());
+        verify(regulationMapper, never()).insert(any(MesQaInspectionRegulationDO.class));
+    }
+
+    @Test
+    void previewCommonWord_usesCommonSnapshotAndSuggestsUnusedVersion() throws Exception {
+        when(parser.parse(any(), any())).thenReturn(parsed("B/0"));
+        var common = publishedRegulation();
+        common.setOwnerModule("MES_QA_COMMON");
+        when(regulationMapper.selectByDccProjectCodeId(DCC_PROJECT_ID, "MES_QA_COMMON")).thenReturn(common);
+        var baseline = existingConfiguration();
+        baseline.getProcesses().get(0).getItems().get(0).setEquipmentOptions(List.of(
+                MesQaInspectionRegulationPublishedVersionRespVO.EquipmentOption.builder()
+                        .equipmentId(91L).equipmentCode("EQ-91").equipmentName("量具")
+                        .equipmentNumber("N-91").defaultFlag(true).sort(1).build()));
+        when(regulationService.getLockedCommonVersionForOrder(REGULATION_ID, PUBLISHED_VERSION_ID))
+                .thenReturn(baseline);
+        when(versionMapper.selectListByRegulationId(REGULATION_ID)).thenReturn(List.of(
+                MesQaInspectionRegulationVersionDO.builder().versionNo("B/0").build(),
+                MesQaInspectionRegulationVersionDO.builder().versionNo("B/1").build()));
+        var request = importService.previewCommonWord(file(), DCC_PROJECT_ID);
+        assertEquals("B/2", request.getVersionNo());
+        assertEquals(REGULATION_ID, request.getRegulationId());
+        assertEquals("LEGACY-I01", request.getProcesses().get(0).getItems().get(0).getItemCode());
+        assertEquals("NUMERIC", request.getProcesses().get(0).getItems().get(0).getResultType());
+        var option = request.getProcesses().get(0).getItems().get(0).getEquipmentOptions().get(0);
+        assertEquals("N-91", option.getEquipmentNumber());
+        option.setEquipmentNumber("EDITED");
+        assertEquals("N-91", baseline.getProcesses().get(0).getItems().get(0).getEquipmentOptions().get(0).getEquipmentNumber());
+        verify(regulationService, never()).getCurrent(any());
+        verify(regulationService, never()).saveDraft(any());
+        verify(regulationService, never()).publish(any());
+    }
+
+    @Test
+    void previewCommonWord_distinguishesDuplicateNamesByOriginalStandardAndMethod() throws Exception {
+        when(parser.parse(any(), any())).thenReturn(parsedWithItem("B/1", "大包装工序", "外观"));
+        when(regulationMapper.selectByDccProjectCodeId(DCC_PROJECT_ID, "MES_QA_COMMON"))
+                .thenReturn(publishedRegulation());
+        var baseline = existingAmbiguousTerminalNameConfiguration();
+        var second = baseline.getProcesses().get(0).getItems().get(1);
+        second.setSourceOriginalExcerpt("新标准");
+        second.setSourceOriginalMethod("目视检查");
+        when(regulationService.getLockedCommonVersionForOrder(REGULATION_ID, PUBLISHED_VERSION_ID))
+                .thenReturn(baseline);
+        var request = importService.previewCommonWord(file(), DCC_PROJECT_ID);
+        assertEquals("LEGACY-PACK-BOX", request.getProcesses().get(0).getItems().get(0).getItemCode());
+        second.setSourceOriginalMethod("不同的方法");
+        assertThrows(ServiceException.class, () -> importService.previewCommonWord(file(), DCC_PROJECT_ID));
+        verify(regulationService, never()).saveDraft(any());
+        verify(regulationService, never()).publish(any());
+    }
+
+    @Test
+    void previewCommonWord_rejectsExistingDraftWithoutOverwritingIt() throws Exception {
+        when(parser.parse(any(), any())).thenReturn(parsed("B/0"));
+        when(regulationMapper.selectByDccProjectCodeId(DCC_PROJECT_ID, "MES_QA_COMMON"))
+                .thenReturn(publishedRegulation());
+        when(versionMapper.selectListDraftByRegulationId(REGULATION_ID))
+                .thenReturn(List.of(MesQaInspectionRegulationVersionDO.builder().versionNo("B/1").build()));
+        assertThrows(ServiceException.class, () -> importService.previewCommonWord(file(), DCC_PROJECT_ID));
+        verify(regulationService, never()).saveDraft(any());
+        verify(regulationService, never()).publish(any());
+    }
+
+    @Test
     void importWordDraft_upgradesAndInheritsExactNamedItemConfiguration() throws Exception {
         MesQaInspectionRegulationDO regulation = publishedRegulation();
         when(parser.parse(any(), any())).thenReturn(parsed("B/1"));

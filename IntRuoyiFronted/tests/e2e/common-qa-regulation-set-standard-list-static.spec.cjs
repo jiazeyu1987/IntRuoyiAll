@@ -16,14 +16,13 @@ assert(
 )
 
 assert(
-  page.includes('data-qa-common-overview-summary') &&
-    page.includes('data-qa-common-overview-refresh') &&
+  page.includes('data-qa-common-overview-actions') &&
     page.includes('data-qa-common-set-create') &&
     page.includes('data-qa-common-overview-version-create') &&
     page.includes('data-qa-common-overview-edit') &&
     page.includes('data-qa-common-overview-delete') &&
     page.includes('selectedCommonRegulationSetVersionPreview'),
-  'RED: overview must preserve set management operations in the QA-style summary card'
+  'RED: overview must preserve set management operations in the actions card'
 )
 
 assert(

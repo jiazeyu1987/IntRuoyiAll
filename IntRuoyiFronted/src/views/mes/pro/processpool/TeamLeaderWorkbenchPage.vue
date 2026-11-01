@@ -1617,7 +1617,6 @@
         />
         <el-button class="app-test-button"
           v-if="testModeEnabled"
-          v-hasPermi="['mes:pro-process-pool-team-leader:maintain']"
           type="warning"
           :loading="activeOrderTestResetSubmitting"
           :disabled="activeOrderTestResetBlocked"
@@ -4526,6 +4525,7 @@ const activeOrderSimulationSubmittingId = ref<number | string>()
 const activeOrderTestResetSubmitting = ref(false)
 const activeOrderTestResetReceipt = ref<{ state: 'success' | 'rejected' | 'unknown'; message: string }>()
 const activeOrderTestResetBlocked = computed(() =>
+  !testModeEnabled.value ||
   activeOrderTestResetSubmitting.value ||
   maintenanceSubmitting.value ||
   activeOrderSimulationSubmittingId.value !== undefined ||

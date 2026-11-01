@@ -104,10 +104,10 @@ assert.match(
   /data-qa-regulation-configuration-status[\s\S]*qaConfigurationStatusText/,
   'QA page must expose an explicit backend configuration status.'
 )
-assert.match(
+assert.doesNotMatch(
   pageSource,
-  /<el-tab-pane[^>]*label="任务预览"[^>]*name="verification"/,
-  'QA page must expose the task preview tab so formal task empty state is visible.'
+  /<el-tab-pane[^>]*label="任务预览"|data-qa-pqc-task-preview/,
+  'QA page must not expose the removed task preview tab or its content.'
 )
 assert.match(
   pageSource,
@@ -134,20 +134,4 @@ assert.doesNotMatch(
   /parseQaInspectionSamplingPlan\(item\.samplingPlanText/,
   'Save and display must not reconstruct structured values from sampling-plan text.'
 )
-assert.match(
-  pageSource,
-  /if \(!qaConfigurationExists\.value && qaRegulationItems\.value\.length === 0\) \{\s*return \[\]/,
-  'Unconfigured DCC projects must not show frontend default task preview rows.'
-)
-assert.match(
-  pageSource,
-  /qaProcessName[\s\S]*itemName[\s\S]*inspectionTypeText[\s\S]*plannedQuantityText/,
-  'QA preview must identify the process, inspection item, inspection type and item-owned plan.'
-)
-assert.match(
-  pageSource,
-  /qaRegulationItems\.value\.flatMap\(\(item\)/,
-  'QA preview must expand from inspection items instead of global inspection rules.'
-)
-
 console.log('PASS: QA regulation item-level inspection display is wired')

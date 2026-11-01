@@ -319,7 +319,7 @@ public class MesProcessPoolTeamLeaderController {
 
     @PostMapping("/active-order/simulation/test-reset")
     @Operation(summary = "重置固定活跃订单测试数据并重新加入")
-    @PreAuthorize("@ss.hasPermission('mes:pro-process-pool-team-leader:maintain')")
+    @PreAuthorize("isAuthenticated()")
     public CommonResult<MesTeamLeaderActiveOrderTestResetRespVO> resetFixedSimulationActiveOrder() {
         MesTeamLeaderActiveOrderTestResetResult result = activeOrderService
                 .resetFixedSimulationActiveOrder(SecurityFrameworkUtils.getLoginUserId());

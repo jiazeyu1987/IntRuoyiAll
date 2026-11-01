@@ -21,9 +21,9 @@ const qaSecondaryTabs =
 assert(
   qaSecondaryTabs.includes('label="总览"') &&
     qaSecondaryTabs.includes('label="检验项目"') &&
-    qaSecondaryTabs.includes('label="任务预览"') &&
+    !qaSecondaryTabs.includes('label="任务预览"') &&
     !qaSecondaryTabs.includes('label="通用检验规程"'),
-  'RED: the QA detail tabs must contain only QA-owned views'
+  'RED: the QA detail tabs must contain overview and inspection items without task preview'
 )
 
 assert(

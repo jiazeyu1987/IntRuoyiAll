@@ -8,6 +8,9 @@ import subprocess
 
 
 def digest(path):
+    # Managed Windows worktrees can exceed MAX_PATH for Java package names.
+    if os.name == 'nt':
+        path = Path('\\\\?\\' + str(path.resolve()))
     with path.open('rb') as stream:
         return hashlib.file_digest(stream, 'sha256').hexdigest()
 

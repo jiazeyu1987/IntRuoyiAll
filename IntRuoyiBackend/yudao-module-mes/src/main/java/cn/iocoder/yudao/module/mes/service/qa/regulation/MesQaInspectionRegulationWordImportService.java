@@ -118,6 +118,59 @@ public class MesQaInspectionRegulationWordImportService {
     private record ImportBaseline(MesQaInspectionRegulationPublishedVersionRespVO snapshot,
                                   Long expectedDraftRevision) {}
 
+    /** Reuse the common Word import mapping without creating a draft or a formal version. */
+    @Transactional(readOnly = true)
+    public MesQaInspectionRegulationSaveReqVO previewCommonWord(MultipartFile file, Long dccProjectCodeId) {
+        requireEnabledDccProject(dccProjectCodeId);
+        String fileName = validateFile(file);
+        var parsed = parser.parse(readContent(file), fileName);
+        var regulation = regulationMapper.selectByDccProjectCodeId(dccProjectCodeId,
+                MesQaInspectionRegulationDO.OWNER_MODULE_MES_QA_COMMON);
+        MesQaInspectionRegulationPublishedVersionRespVO baseline = null;
+        Set<String> versions = new LinkedHashSet<>();
+        if (regulation != null) {
+            if (!versionMapper.selectListDraftByRegulationId(regulation.getId()).isEmpty()) {
+                throw exception(QA_INSPECTION_REGULATION_VERSION_CONFLICT, "请先处理该通用规程的未发布草稿");
+            }
+            baseline = regulationService.getLockedCommonVersionForOrder(
+                    regulation.getId(), regulation.getCurrentVersionId());
+            versionMapper.selectListByRegulationId(regulation.getId())
+                    .forEach(version -> versions.add(version.getVersionNo()));
+        }
+        var request = buildSaveRequest(dccProjectCodeId,
+                MesQaInspectionRegulationDO.OWNER_MODULE_MES_QA_COMMON, regulation, parsed, baseline).request();
+        request.setExpectedDraftRevision(0L);
+        // Suggest the next unused version, while leaving it editable before confirmation.
+        String candidate = parsed.versionNo();
+        if (versions.contains(candidate)) {
+            var matcher = java.util.regex.Pattern.compile("^(.*?)(\\d+)$").matcher(candidate);
+            String prefix = candidate + ".";
+            int number = 1;
+            if (matcher.matches()) {
+                prefix = matcher.group(1);
+                number = Integer.parseInt(matcher.group(2)) + 1;
+            }
+            while (versions.contains(prefix + number)) number++;
+            candidate = prefix + number;
+        }
+        request.setVersionNo(candidate);
+        // Common equipment belongs to the version snapshot, independently of product PQC configuration.
+        for (var process : request.getProcesses()) {
+            for (var item : process.getItems()) {
+                var existing = baseline == null ? null : baseline.getProcesses().stream()
+                        .flatMap(p -> p.getItems().stream())
+                        .filter(i -> Objects.equals(i.getItemCode(), item.getItemCode())).findFirst().orElse(null);
+                item.setEquipmentOptions(existing == null || existing.getEquipmentOptions() == null ? List.of()
+                        : existing.getEquipmentOptions().stream().map(option -> {
+                            var target = new MesQaInspectionRegulationSaveReqVO.EquipmentOption();
+                            org.springframework.beans.BeanUtils.copyProperties(option, target);
+                            return target;
+                        }).toList());
+            }
+        }
+        return request;
+    }
+
     private ImportBaseline validateVersionsAndLoadBaseline(
             MesQaInspectionRegulationDO regulation, String importedVersionNo) {
         List<MesQaInspectionRegulationVersionDO> drafts =
@@ -192,8 +245,22 @@ public class MesQaInspectionRegulationWordImportService {
             String parsedItemKey = itemKey(parsedItem.processName(), parsedItem.itemName());
             ExistingItem existing = baselineIndex.itemByName().get(parsedItemKey);
             if (existing == null && baselineIndex.ambiguousItemKeys().contains(parsedItemKey)) {
+                if (MesQaInspectionRegulationDO.OWNER_MODULE_MES_QA_COMMON.equals(ownerModule)) {
+                    var matches = baseline.getProcesses().stream()
+                            .flatMap(p -> p.getItems().stream().map(i -> new ExistingItem(p, i)))
+                            .filter(entry -> itemKey(entry.process().getProcessName(),
+                                    baselineItemName(entry.process(), entry.item())).equals(parsedItemKey))
+                            .filter(entry -> normalizedName(entry.item().getSourceOriginalExcerpt())
+                                    .equals(normalizedName(parsedItem.standardText())))
+                            .filter(entry -> normalizedName(entry.item().getSourceOriginalMethod())
+                                    .equals(normalizedName(parsedItem.inspectionMethod())))
+                            .toList();
+                    if (matches.size() == 1) existing = matches.get(0);
+                }
+                if (existing == null) {
                 throw exception(QA_INSPECTION_REGULATION_SNAPSHOT_INVALID,
                         "同名检验项目不唯一：" + parsedItem.processName() + " / " + parsedItem.itemName());
+                }
             }
             String itemCode = existing == null
                     ? generatedCode(parsed.regulationCode(), "I", globalItemIndex)

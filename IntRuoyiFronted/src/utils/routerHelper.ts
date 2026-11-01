@@ -173,6 +173,12 @@ const applyRouteMetaOverrides = (
   if (componentPath === 'form-center/simple-parser/index') {
     meta.noCache = true
   }
+  if (componentPath === 'form-center/simple-pqc-parser/index') {
+    // 未发布的解析及试填内容随页签保留，关闭页签时由 TagsView 释放。
+    meta.noCache = false
+    meta.keepAliveName = 'FormCenterSimplePqcParser'
+    meta.tagsViewKeyMode = 'path'
+  }
 }
 
 export const registerComponent = (componentPath: string) => {

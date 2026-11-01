@@ -6,6 +6,7 @@ import cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectCodeDO;
 import cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectCodeMapper;
 import cn.iocoder.yudao.module.dcc.enums.DccProjectCodeStatusConstants;
 import cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaCommonRegulationBindReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaCommonRegulationBindingListSaveReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaCommonRegulationBindingRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaCommonRegulationSetItemsUpgradeReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaCommonRegulationSetRespVO;
@@ -648,6 +649,75 @@ public class MesQaInspectionRegulationServiceImpl implements MesQaInspectionRegu
         commonRegulationProductBindingMapper.insert(binding);
         return buildCommonBindingResp(productProjectCode.getId(), productId, binding,
                 firstCommonVersion.regulation(), firstCommonVersion.version());
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public MesQaCommonRegulationBindingRespVO saveCommonRegulationBindingList(
+            MesQaCommonRegulationBindingListSaveReqVO reqVO) {
+        DccProjectCodeDO project = requireEnabledDccProjectCode(reqVO.getDccProjectCodeId());
+        Long productId = requireProductIdFromDccProjectCode(project);
+        List<Long> versionIds = reqVO.getCommonRegulationVersionIds();
+        if (versionIds == null) {
+            throw exception(QA_COMMON_REGULATION_BINDING_INVALID, "通用规程绑定列表不能为空");
+        }
+        if (versionIds.isEmpty()) {
+            return unbindCommonRegulation(project.getId());
+        }
+        MesQaCommonRegulationProductBindingDO current =
+                commonRegulationProductBindingMapper.selectEnabledByProductId(productId);
+        if (current != null) {
+            List<Long> currentVersionIds = current.getCommonRegulationSetVersionId() == null
+                    ? List.of(current.getRegulationVersionId())
+                    : requireCommonPublishedSetVersion(current.getCommonRegulationSetVersionId()).members()
+                            .stream().map(MesQaCommonRegulationSetVersionMemberDO::getRegulationVersionId).toList();
+            if (currentVersionIds.equals(versionIds)) {
+                return buildCommonBindingResp(project.getId(), productId, current);
+            }
+        }
+        Set<Long> seenRegulationIds = new LinkedHashSet<>();
+        for (Long versionId : versionIds) {
+            CommonPublishedVersion snapshot = requireCommonCurrentPublishedVersion(versionId);
+            if (!seenRegulationIds.add(snapshot.regulation().getId())) {
+                throw exception(QA_COMMON_REGULATION_BINDING_INVALID, "同一通用规程不能重复绑定");
+            }
+        }
+
+        // Publish a separate product composition; never edit a shared published set version.
+        String setCode = "QA-COMMON-" + productId;
+        MesQaCommonRegulationSetDO set = commonRegulationSetMapper.selectBySetCode(setCode);
+        if (set == null) {
+            set = MesQaCommonRegulationSetDO.builder()
+                    .setCode(setCode)
+                    .setName(project.getProjectCode() + " 通用规程组合")
+                    .setStatus(MesQaCommonRegulationSetDO.STATUS_ENABLED)
+                    .build();
+            commonRegulationSetMapper.insert(set);
+        }
+        int nextNumber = commonRegulationSetVersionMapper.selectListBySetId(set.getId()).size() + 1;
+        while (commonRegulationSetVersionMapper.selectBySetIdAndVersionNo(set.getId(), "A/" + nextNumber) != null) {
+            nextNumber++;
+        }
+        MesQaCommonRegulationSetVersionSaveReqVO versionReq = new MesQaCommonRegulationSetVersionSaveReqVO();
+        versionReq.setSetId(set.getId());
+        versionReq.setVersionNo("A/" + nextNumber);
+        versionReq.setLifecycleStatus(STATUS_PUBLISHED);
+        versionReq.setRemark(reqVO.getChangeReason());
+        List<MesQaCommonRegulationSetVersionSaveReqVO.Member> members = new ArrayList<>();
+        for (int index = 0; index < versionIds.size(); index++) {
+            MesQaCommonRegulationSetVersionSaveReqVO.Member member =
+                    new MesQaCommonRegulationSetVersionSaveReqVO.Member();
+            member.setCommonRegulationVersionId(versionIds.get(index));
+            member.setSort((index + 1) * 10);
+            members.add(member);
+        }
+        versionReq.setMembers(members);
+        MesQaCommonRegulationSetRespVO.Version saved = saveCommonRegulationSetVersion(versionReq);
+        MesQaCommonRegulationBindReqVO bindReq = new MesQaCommonRegulationBindReqVO();
+        bindReq.setDccProjectCodeId(project.getId());
+        bindReq.setCommonRegulationSetVersionId(saved.getId());
+        bindReq.setChangeReason(reqVO.getChangeReason());
+        return bindCommonRegulationVersion(bindReq);
     }
 
     @Override

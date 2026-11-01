@@ -41,11 +41,11 @@ const parsed = {
 test('Word content remains authoritative and missing decisions block publication', () => {
   const d = makeDraft(parsed, 129)
   assert.equal(d.processes[0].items[0].standardText, '无异物')
-  assert.ok(validateDraft(d).some((x) => x.includes('末检')))
+  assert.ok(validateDraft(d).some((x) => x.message.includes('末检')))
   d.finalInspectionNotApplicableReason = '规程未要求'
   assert.equal(validateDraft(d).length, 0)
   d.processes[0].items[0].inspectionTool = '量具'
-  assert.ok(validateDraft(d).some((x) => x.includes('设备编号')))
+  assert.ok(validateDraft(d).some((x) => x.message.includes('设备编号')))
 })
 test('existing immutable versions are never reused', () => {
   assert.equal(nextVersion('B/2', ['B/2', 'B/3', 'B/4', 'B/5']), 'B/6')
@@ -70,7 +70,23 @@ test('an explicit existing-QA unbound choice only exempts that item', () => {
   const d = makeDraft(parsed, 129)
   d.finalInspectionNotApplicableReason = '当前QA不适用末检'
   d.processes[0].items[0].inspectionTool = '气密性检测工装'
-  assert.ok(validateDraft(d).some((x) => x.includes('设备编号')))
+  assert.ok(validateDraft(d).some((x) => x.message.includes('设备编号')))
   assert.equal(validateDraft(d, ['I1']).length, 0)
-  assert.ok(validateDraft(d, ['OTHER']).some((x) => x.includes('设备编号')))
+  assert.ok(validateDraft(d, ['OTHER']).some((x) => x.message.includes('设备编号')))
+})
+
+test('publication issues locate duplicate item names without guessing the target', () => {
+  const d = makeDraft(parsed, 129)
+  const other = JSON.parse(JSON.stringify(d.processes[0]))
+  other.processCode = 'P2'
+  other.items[0].itemCode = 'I2'
+  other.items[0].inspectionTool = '量具'
+  d.processes.push(other)
+  const issues = validateDraft(d)
+  assert.equal(issues.find((i) => i.field === 'final').message, '请确认是否无需末检')
+  const equipment = issues.find((i) => i.field === 'equipment')
+  assert.equal(equipment.processIndex, 1)
+  assert.equal(equipment.itemIndex, 0)
+  assert.match(equipment.message, /设备编号/)
+  assert.equal(d.finalInspectionNotApplicableReason, '')
 })

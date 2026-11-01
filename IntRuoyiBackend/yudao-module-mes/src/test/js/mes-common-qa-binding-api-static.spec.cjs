@@ -28,6 +28,7 @@ const qaPage = readRepo('IntRuoyiFronted', 'src', 'views', 'mes', 'pro', 'proces
 
 assert(controller.includes('/common-binding/current')
   && controller.includes('/common-binding/published-versions')
+  && controller.includes('/common-binding/save-list')
   && controller.includes('/common-binding/bind')
   && controller.includes('/common-binding/unbind'),
   'QA regulation controller must expose current/list/bind/unbind common regulation binding endpoints.')
@@ -45,7 +46,7 @@ assert(service.includes('requireProductIdFromDccProjectCode')
   'Binding service must resolve the formal product id from selected DCC project code productMasterId.')
 assert(service.includes('OWNER_MODULE_MES_QA_COMMON')
   && service.includes('STATUS_PUBLISHED')
-  && service.includes('requireCommonPublishedVersion'),
+  && service.includes('requireCommonCurrentPublishedVersion'),
   'Binding service must only allow published MES_QA_COMMON regulation versions.')
 assert(service.includes('resolveOwnerModule(reqVO.getOwnerModule())')
   && service.includes('regulationMapper.selectByDccProjectCodeId(dccProjectCode.getId(), ownerModule)')
@@ -61,7 +62,7 @@ assert(service.includes('disableEnabledCommonRegulationBinding')
   && service.includes('STATUS_ENABLED'),
   'Binding service must disable an existing enabled product binding before inserting the new binding.')
 assert(serviceTest.includes('MesQaCommonRegulationProductBindingMapper')
-  && /new MesQaInspectionRegulationServiceImpl\([\s\S]*commonRegulationProductBindingMapper\)/.test(serviceTest),
+  && /new MesQaInspectionRegulationServiceImpl\([\s\S]*commonRegulationProductBindingMapper[\s\S]*commonRegulationSetVersionMemberMapper\)/.test(serviceTest),
   'Existing QA regulation service tests must inject the common regulation binding mapper mock.')
 
 assert(bindingMapper.includes('selectEnabledByProductId')
@@ -84,6 +85,7 @@ for (const file of requiredVos) {
 assert(frontendApi.includes('QaCommonRegulationBindingVO')
   && frontendApi.includes('getCurrentCommonRegulationBinding')
   && frontendApi.includes('listCommonRegulationPublishedVersions')
+  && frontendApi.includes('saveCommonRegulationBindingList')
   && frontendApi.includes('bindCommonRegulationVersion')
   && frontendApi.includes('unbindCommonRegulation'),
   'Frontend API wrapper must expose common regulation binding endpoints.')
@@ -93,7 +95,7 @@ assert(frontendApi.includes('ownerModule?: QaInspectionRegulationOwnerModule')
 assert(!qaPage.includes('通用检验规程绑定接口尚未接入')
   && !qaPage.includes('notifyCommonRegulationBindingApiPending'),
   'QA page must remove the pending placeholder and use the real binding API.')
-assert(/selectedCommonRegulationVersionId[\s\S]*commonRegulationVersionOptions/.test(qaPage)
+assert(/commonRegulationBindingRows[\s\S]*commonRegulationVersionOptions/.test(qaPage)
   && /handleBindCommonRegulationVersion/.test(qaPage)
   && /handleUnbindCommonRegulation/.test(qaPage),
   'QA page must load common versions, allow selecting a published version, and save/unbind it.')

@@ -303,7 +303,7 @@ class MesReleaseAuthoritativeContextPortImplTest {
                 .setProvisioningStatus("BATCH_READY"));
         when(originMapper.selectListByBatchExecutionId(20L)).thenReturn(List.of(
                 new MesProEdhrBatchExecutionOriginDO().setId(60L).setBatchExecutionId(20L)
-                        .setEntryType("MANUAL").setWorkOrderId(40L).setSourceSnapshotHash("source-snapshot")
+                        .setEntryType("ACTIVE_ORDER_COMPLETION").setWorkOrderId(40L).setSourceSnapshotHash("source-snapshot")
                         .setSourceCredentialHash("independent-hash")));
         when(traceabilityService.resolveSourcePrecheck(org.mockito.ArgumentMatchers.any()))
                 .thenReturn(new MesProEdhrBatchTraceSourcePrecheckRespVO().setBatchExecutionId(20L)
@@ -312,7 +312,7 @@ class MesReleaseAuthoritativeContextPortImplTest {
 
         MesReleaseFinalizationCommand command = new MesReleaseFinalizationCommand()
                 .setReleaseTransactionId(10L).setReleaseApplicationId(30L).setBatchExecutionId(20L)
-                .setWorkTaskId(50L).setOrigin(MesReleaseOrigin.MANUAL).setEntryType("MANUAL")
+                .setWorkTaskId(50L).setOrigin(MesReleaseOrigin.ACTIVE_ORDER).setEntryType("ACTIVE_ORDER_COMPLETION")
                 .setIndependentPrerequisiteReceiptId("independent-1").setMaterialGateReceiptId("client-fake")
                 .setMaterialGateReceipt(completeGate("client-fake", 20L, "source-snapshot"));
 

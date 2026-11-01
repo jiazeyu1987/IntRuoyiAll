@@ -332,6 +332,9 @@ class MesEdhrSourceCreationVerificationServiceTest {
         assertEquals("COMPLETION_MAIN_V1", proof.ownerProtocol()); assertEquals(7, proof.getClass().getRecordComponents().length);
         // This record assertion is not public complete→actual main/parts success evidence.
     }
+    private MesEdhrSourceCreationBindingDO bindingCopy(MesEdhrSourceCreationBindingDO row) {
+        return cn.iocoder.yudao.framework.common.util.object.BeanUtils.toBean(row, MesEdhrSourceCreationBindingDO.class);
+    }
     private void corruptBinding(MesEdhrSourceCreationBindingDO row, String field) {
         switch(field) {
             case "id" -> row.setId(399L); case "tenantId" -> row.setTenantId(2L); case "ownerProtocol" -> row.setOwnerProtocol("UNKNOWN_PROTOCOL");

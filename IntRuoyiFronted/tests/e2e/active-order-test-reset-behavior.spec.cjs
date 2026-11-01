@@ -17,6 +17,8 @@ const receipt = { workOrderCode: 'FIXED-TEST-01', activeOrderId: '90071992547410
 const createHarness = (overrides = {}) => {
   const calls = [], successes = [], errors = [], warnings = []
   const context = {
+    testModeEnabled: ref(true),
+    activeOrderTestResetReceipt: ref(undefined),
     activeOrderTestResetSubmitting: ref(false), maintenanceSubmitting: ref(false),
     activeOrderSimulationSubmittingId: ref(undefined), teamLeaderDataCleanupSubmitting: ref(false),
     activeOrderRebuildSubmittingId: ref(undefined),
@@ -36,6 +38,13 @@ const createHarness = (overrides = {}) => {
   vm.runInContext(ts.transpileModule(busy + '\n' + extract('handleResetFixedSimulationActiveOrder') + '\nglobalThis.run = handleResetFixedSimulationActiveOrder', { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText, context)
   return { context, calls, successes, errors, warnings, run: context.run }
 }
+
+test('disabled test mode blocks the reset handler even if it is invoked directly', async () => {
+  const h = createHarness({ testModeEnabled: ref(false) })
+  await h.run()
+  assert.equal(h.calls.length, 0)
+  assert.equal(h.successes.length, 0)
+})
 
 test('reset keeps the no-argument API and focuses the returned fixed order on page one', async () => {
   const h = createHarness()

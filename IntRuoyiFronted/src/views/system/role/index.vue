@@ -42,6 +42,7 @@
         </el-form>
       </template>
       <template #actions>
+        <EdhrPermissionTransfer @success="refreshCategories" />
         <el-button
           v-hasPermi="['system:role:create']"
           class="permission-role-toolbar__action"
@@ -348,6 +349,7 @@ import RoleForm from './RoleForm.vue'
 import RoleCategoryForm from './RoleCategoryForm.vue'
 import RoleAssignMenuForm from './RoleAssignMenuForm.vue'
 import RoleDataPermissionForm from './RoleDataPermissionForm.vue'
+import EdhrPermissionTransfer from './EdhrPermissionTransfer.vue'
 
 defineOptions({ name: 'SystemRole' })
 

@@ -20,10 +20,12 @@ assert.match(
   'QA overview must label the binding control as 关联通用检验规程.'
 )
 for (const selector of [
-  'data-qa-regulation-common-binding-current',
+  'data-qa-regulation-common-binding-list',
+  'data-qa-regulation-common-binding-add',
+  'data-qa-regulation-common-binding-remove',
   'data-qa-regulation-common-binding-status',
-  'data-qa-regulation-common-binding-scope',
-  'data-qa-regulation-common-binding-version',
+  'data-qa-regulation-common-binding-current',
+  'data-qa-regulation-common-binding-version-select',
   'data-qa-regulation-common-binding-view',
   'data-qa-regulation-common-binding-change',
   'data-qa-regulation-common-binding-disable'
@@ -32,7 +34,7 @@ for (const selector of [
 }
 assert.match(
   pageSource,
-  /QcTemplateApi\.bindCommonRegulationVersion/,
+  /QcTemplateApi\.saveCommonRegulationBindingList/,
   'QA overview common binding control must use the formal binding API.'
 )
 assert.doesNotMatch(

@@ -123,7 +123,7 @@ class MesQaInspectionRegulationWordParserTest {
         RuntimeException exception = assertThrows(RuntimeException.class,
                 () -> parser.parse(buildQaTemplate(false), "测试QA模板.docx"));
 
-        assertTrue(exception.getMessage().contains("生效日期"));
+        assertTrue(exception.getMessage().contains("生效/实施日期"), exception.getMessage());
     }
 
     @Test

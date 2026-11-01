@@ -57,9 +57,7 @@
           type="button"
           disabled
           ><div class="top-label">员工</div
-          ><div class="top-value">{{
-            userStore.getUser.nickname || userStore.getUser.username
-          }}</div></button
+          ><div class="top-value">{{ userStore.getUser.username }}</div></button
         >
         <div class="frontline-return-actions"
           ><button
@@ -322,10 +320,7 @@
           :key="p.processCode"
           type="button"
           :class="{ active: index === processIndex }"
-          @click="
-            emit('select-process', index)
-            processVisible = false
-          "
+          @click="chooseProcess(index)"
           >{{ index + 1 }}. {{ p.processName }}</button
         ></div
       ></el-dialog
@@ -379,18 +374,19 @@ const items = computed(
 const item = computed(
   () => items.value.find((i) => i.itemCode === selectedCode.value) ?? items.value[0]
 )
-const quantity = computed(() => {
+const quantity = computed(() => quantityFor(item.value))
+function quantityFor(currentItem: (typeof items.value)[number] | undefined) {
   const override = quantityOverrides[`${process.value?.processCode}/${selectedRuleKey.value}`]
   if (override != null) return override > 0 ? override : undefined
-  if (!item.value) return undefined
+  if (!currentItem) return undefined
   let count: number | undefined
-  if (inspectionType.value === 'FIRST') count = item.value.firstInspectionQuantity
-  else if (inspectionType.value === 'PATROL' && item.value.patrolInspectionRatio != null)
-    count = Math.ceil((batchQuantity.value * item.value.patrolInspectionRatio) / 100)
+  if (inspectionType.value === 'FIRST') count = currentItem.firstInspectionQuantity
+  else if (inspectionType.value === 'PATROL' && currentItem.patrolInspectionRatio != null)
+    count = Math.ceil((batchQuantity.value * currentItem.patrolInspectionRatio) / 100)
   else if (inspectionType.value === 'FINAL')
     count = props.draft.inspectionTypeRules.find((r) => r.key === 'FINAL')?.fixedQuantity
   return count != null && count > 0 ? Math.min(batchQuantity.value, count) : undefined
-})
+}
 const availableRules = computed(() =>
   props.draft.inspectionTypeRules.filter((r) =>
     availableTypes.value.includes(r.inspectionType as InspectionType)
@@ -468,15 +464,21 @@ const resultSummary = computed(() => {
     : `合格 ${pass} 件 · 不合格 ${fail} 件 · 未填写 ${pending} 件`
 })
 function bulk(value: string) {
+  trialMessage.value = ''
   if (state.value && quantity.value) state.value.values = Array(quantity.value).fill(value)
 }
 function reset() {
+  trialMessage.value = ''
   if (state.value) {
     state.value.values = Array(quantity.value ?? 0).fill(undefined)
     state.value.equipment = ''
   }
 }
 
+function chooseProcess(index: number) {
+  emit('select-process', index)
+  processVisible.value = false
+}
 function selectRule(key: string) {
   const rule = availableRules.value.find((r) => r.key === key)
   if (!rule) return
@@ -502,6 +504,7 @@ function openPieces() {
   pieceVisible.value = true
 }
 function confirmPieces() {
+  trialMessage.value = ''
   if (state.value) state.value.values = [...pieceValues.value]
   pieceVisible.value = false
 }
@@ -512,10 +515,37 @@ function stepPiece(index: number, delta: number) {
   )
 }
 function submitTrial() {
-  trialMessage.value =
-    !quantity.value || completedCount.value !== quantity.value
-      ? '请完成当前检验项目后再试填提交'
-      : '试填提交完成，仅供预览，不会生成检验记录'
+  trialMessage.value = ''
+  for (const currentItem of items.value) {
+    const current =
+      results[
+        `${process.value?.processCode}/${currentItem.itemCode}/${inspectionType.value}/${selectedRuleKey.value}`
+      ]
+    const count = quantityFor(currentItem)
+    if (
+      !count ||
+      !current ||
+      current.values.length !== count ||
+      current.values.some((v) => v == null || !String(v).trim())
+    ) {
+      trialMessage.value = `请完成“${currentItem.itemName}”后再试填提交`
+      return
+    }
+    if (currentItem.equipmentOptions.length && !current.equipment) {
+      trialMessage.value = `请为“${currentItem.itemName}”选择检验设备`
+      return
+    }
+    if (
+      currentItem.resultType === 'NUMERIC' &&
+      (currentItem.standardLowerLimit == null || currentItem.standardUpperLimit == null)
+    ) {
+      trialMessage.value = `请先在编辑内容中配置“${currentItem.itemName}”的数值上下限`
+      return
+    }
+  }
+  trialMessage.value = items.value.length
+    ? '当前检验类型试填检查完成，不会生成检验记录'
+    : '当前没有可试填的检验项目'
 }
 </script>
 <style scoped lang="scss">

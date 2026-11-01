@@ -42,6 +42,8 @@ class MesReleaseAuthoritativeContextConfigurationTest {
             registerMock(context, cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderPickListBindingMapper.class);
             registerMock(context, MesTeamLeaderActiveOrderCompletionFlow6ReceiptPort.class);
             registerMock(context, MesProEdhrBatchTraceabilityService.class);
+            registerMock(context, cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesEdhrReleaseMaterialSelectionRegistry.class);
+            registerMock(context, cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrWorkTaskMapper.class);
             context.register(MesReleaseAuthoritativeContextPortImpl.class,
                     MesReleaseAuthoritativeContextConfiguration.class);
 
@@ -66,6 +68,6 @@ class MesReleaseAuthoritativeContextConfigurationTest {
     }
 
     private <T> void registerMock(AnnotationConfigApplicationContext context, Class<T> type) {
-        context.registerBean(type, () -> Mockito.mock(type));
+        context.getBeanFactory().registerSingleton(type.getSimpleName(), Mockito.mock(type));
     }
 }

@@ -275,6 +275,11 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
     private MesFixedTestOrderDownstreamCleanupService fixedTestOrderDownstreamCleanupService;
     @Resource
     private cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffService handoffService;
+    @Resource
+    private MesFixedTestOrderModeGuard fixedTestOrderModeGuard;
+
+    @Resource
+    private MesFixedTestOrderInitializer fixedTestOrderInitializer;
 
     private static final String FIXED_TEST_WORK_ORDER_CODE =
             "SIM-COPY-CODX-PQC-20260807-SP-WO-05-OPYAO451788352161891";
@@ -1019,11 +1024,13 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
     @Override
     @Transactional(rollbackFor = Exception.class)
     public MesTeamLeaderActiveOrderTestResetResult resetFixedSimulationActiveOrder(Long leaderUserId) {
+        fixedTestOrderModeGuard.requireEnabled(leaderUserId);
         Long tenantId = TenantContextHolder.getTenantId();
         if (tenantId == null || tenantId <= 0 || leaderUserId == null) {
             throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "resetFixedSimulationActiveOrder");
         }
         gxpAuditService.acquireLedgerLock();
+        fixedTestOrderInitializer.initialize(leaderUserId);
         MesProWorkOrderDO workOrder = workOrderMapper.selectByTenantIdAndCodeForUpdate(
                 tenantId, FIXED_TEST_WORK_ORDER_CODE);
         if (workOrder == null || workOrder.getId() == null) {
@@ -1039,7 +1046,21 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
                         .orderByAsc(MesProcessPoolActiveOrderDO::getId)
                         .last("FOR UPDATE"));
         if (activeOrders.isEmpty()) {
-            throw exception(PRO_PROCESS_POOL_SIMULATION_COPY_CLEANUP_BLOCKED, "missing simulation owner");
+            fixedTestOrderInitializer.requireNoOrphanRuntime(tenantId, workOrder.getId());
+            workOrder.setStatus(MesProWorkOrderStatusEnum.CONFIRMED.getStatus())
+                    .setTemporaryFrozen(Boolean.FALSE).setQuantityProduced(BigDecimal.ZERO);
+            workOrderMapper.updateById(workOrder);
+            MesTeamLeaderActiveOrderAddResult added = addActiveOrder(MesTeamLeaderActiveOrderAddReqBO.builder()
+                    .leaderUserId(leaderUserId).workOrderId(workOrder.getId())
+                    .idempotencyKey("ACTIVE_ORDER_TEST_RESET:" + tenantId + ":" + workOrder.getId()).build());
+            if (added == null || added.getActiveOrderId() == null) throw new IllegalStateException("FIXED_ACTIVE_ORDER_TEST_RESET_ADD_FAILED");
+            TeamMaintenanceAuditSupport.insertAudit(auditMapper, leaderUserId, "RESET_FIXED_TEST_ORDER",
+                    "ACTIVE_ORDER", added.getActiveOrderId(), "workOrderId=" + workOrder.getId() + ",activeOrderIds=[]",
+                    "newActiveOrderId=" + added.getActiveOrderId() + ",firstActivation=true,retainedAuditEvidence=true");
+            return MesTeamLeaderActiveOrderTestResetResult.builder()
+                    .workOrderCode(FIXED_TEST_WORK_ORDER_CODE).workOrderId(workOrder.getId())
+                    .previousActiveOrderCount(0L).activeOrderId(added.getActiveOrderId()).action(added.getAction())
+                    .deletedEventCount(0L).deletedBatchExecutionCount(0L).deletedRecordExecutionCount(0L).build();
         }
         MesProcessPoolActiveOrderDO simulationOwner = activeOrders.get(0);
         for (MesProcessPoolActiveOrderDO order : activeOrders) {

@@ -58,7 +58,7 @@
         @select-process="selectProcess"
       />
       <el-form v-show="viewMode === 'edit'" :disabled="published" label-position="top">
-        <div class="metadata">
+        <div ref="metadataEditor" class="metadata">
           <el-form-item label="规程名称"><el-input v-model="draft.regulationName" /></el-form-item>
           <el-form-item label="文件编号"><el-input v-model="draft.regulationCode" /></el-form-item>
           <el-form-item label="生效日期"
@@ -87,7 +87,7 @@
               </template>
             </div>
           </aside>
-          <section v-if="process">
+          <section v-if="process" ref="itemEditor">
             <div class="toolbar">
               <el-input v-model="process.processName" aria-label="工序名称" style="width: 240px" />
               <el-button @click="addItem">添加检验项目</el-button>
@@ -185,12 +185,13 @@
               <el-form-item label="检验器具及设备要求"
                 ><el-input v-model="item.inspectionTool"
               /></el-form-item>
-              <el-form-item label="选择设备编号（名称自动带出）">
+              <el-form-item ref="equipmentEditor" label="选择设备编号（名称自动带出）">
                 <el-select
                   :model-value="item.equipmentOptions.map((e) => e.equipmentId)"
                   multiple
                   filterable
                   placeholder="选择设备编号"
+                  aria-label="选择设备编号"
                   @change="selectEquipment"
                 >
                   <el-option
@@ -218,6 +219,7 @@
       title="确认发布到 QA 检验规程"
       width="900px"
       :close-on-click-modal="false"
+      @closed="focusIssue"
     >
       <template v-if="draft">
         <p>{{ selectedProject }} · {{ draft.regulationName }} · {{ draft.versionNo }}</p>
@@ -233,7 +235,12 @@
             />
           </el-form-item>
           <el-form-item v-if="!draft.finalInspectionApplicable" label="末检不适用依据">
-            <el-input v-model="draft.finalInspectionNotApplicableReason" />
+            <el-input
+              v-model="draft.finalInspectionNotApplicableReason"
+              aria-label="末检不适用依据"
+              placeholder="确认无需末检可点击下方按钮，也可填写具体依据"
+            />
+            <el-button class="confirm-final" @click="confirmNoFinal">确认无需末检</el-button>
           </el-form-item>
           <template v-for="rule in draft.inspectionTypeRules" :key="rule.key">
             <el-form-item
@@ -244,13 +251,17 @@
             </el-form-item>
           </template>
         </el-form>
-        <el-alert
-          v-for="issue in issues"
-          :key="issue"
-          :title="issue"
-          type="error"
-          :closable="false"
-        />
+        <section v-if="issues.length" class="publish-issues" aria-label="发布前待确认事项">
+          <h3>还有 {{ issues.length }} 项需要确认</h3>
+          <p>补齐后即可发布。点击“去修改”会直接打开对应位置，已修改的内容会保留。</p>
+          <div v-for="(issue, index) in issues" :key="index" class="publish-issue">
+            <span>{{ issue.message }}</span>
+            <el-button v-if="issue.field === 'final'" size="small" @click="confirmNoFinal"
+              >确认无需末检</el-button
+            >
+            <el-button v-else size="small" @click="editIssue(issue)">去修改</el-button>
+          </div>
+        </section>
         <h3>与当前 QA 规程的差异（{{ changes.length }}）</h3>
         <p v-if="!changes.length">检验业务字段一致，发布版本单独管理。</p>
         <ul
@@ -296,7 +307,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, nextTick, ref } from 'vue'
 import SimplePqcTrialPreview from '../parser/components/SimplePqcTrialPreview.vue'
 import type { UploadFile } from 'element-plus'
 import {
@@ -311,7 +322,14 @@ import {
 import { DvMachineryApi, type DvMachineryVO } from '@/api/mes/dv/machinery'
 import { getTenantId } from '@/utils/auth'
 import { useUserStore } from '@/store/modules/user'
-import { makeDraft, nextVersion, validateDraft, differences, type Draft } from '../parser/simplePqc'
+import {
+  makeDraft,
+  nextVersion,
+  validateDraft,
+  differences,
+  type Draft,
+  type DraftIssue
+} from '../parser/simplePqc'
 
 defineOptions({ name: 'FormCenterSimplePqcParser' })
 const message = useMessage()
@@ -328,6 +346,10 @@ const previewVisible = ref(false)
 const viewMode = ref<'edit' | 'trial'>('edit')
 const processIndex = ref(0)
 const itemIndex = ref(0)
+const metadataEditor = ref<HTMLElement>()
+const itemEditor = ref<HTMLElement>()
+const equipmentEditor = ref<{ $el: HTMLElement }>()
+const pendingIssue = ref<DraftIssue>()
 const process = computed(() => draft.value?.processes[processIndex.value])
 const item = computed(() => process.value?.items[itemIndex.value])
 const selectedProject = computed(
@@ -553,6 +575,7 @@ function reuseItem() {
 function syncFinal() {
   const rule = draft.value!.inspectionTypeRules.find((r) => r.key === 'FINAL')!
   rule.required = draft.value!.finalInspectionApplicable
+  if (rule.required) draft.value!.finalInspectionNotApplicableReason = ''
   if (!rule.required)
     draft.value!.processes.forEach((p) =>
       p.items.forEach((i) => {
@@ -597,6 +620,32 @@ async function preview() {
     await loadResources()
     previewVisible.value = true
   })
+}
+function confirmNoFinal() {
+  draft.value!.finalInspectionNotApplicableReason = '经人工确认，本规程不适用末检。'
+}
+function editIssue(issue: DraftIssue) {
+  pendingIssue.value = issue
+  previewVisible.value = false
+  viewMode.value = 'edit'
+  if (issue.processIndex != null) {
+    selectProcess(issue.processIndex)
+    itemIndex.value = issue.itemIndex ?? 0
+  }
+}
+async function focusIssue() {
+  const issue = pendingIssue.value
+  if (!issue) return
+  pendingIssue.value = undefined
+  await nextTick()
+  const target =
+    issue.field === 'equipment'
+      ? equipmentEditor.value?.$el
+      : issue.field === 'metadata'
+        ? metadataEditor.value
+        : itemEditor.value
+  target?.scrollIntoView({ block: 'center' })
+  target?.querySelector<HTMLElement>('input, textarea, button')?.focus({ preventScroll: true })
 }
 async function publish() {
   if (issues.value.length || !draft.value || published.value) return
@@ -681,6 +730,25 @@ aside {
 }
 article {
   border-bottom: 1px solid var(--el-border-color);
+  padding: 8px 0;
+}
+.confirm-final {
+  margin-top: 8px;
+}
+.publish-issues {
+  padding: 16px;
+  border: 1px solid var(--el-color-warning-light-5);
+  border-radius: 4px;
+  background: var(--el-color-warning-light-9);
+}
+.publish-issues h3 {
+  margin: 0 0 8px;
+}
+.publish-issue {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
   padding: 8px 0;
 }
 @media (max-width: 900px) {

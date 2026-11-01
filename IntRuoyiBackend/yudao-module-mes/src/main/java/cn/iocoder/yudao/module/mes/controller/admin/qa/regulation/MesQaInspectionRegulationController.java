@@ -2,6 +2,7 @@ package cn.iocoder.yudao.module.mes.controller.admin.qa.regulation;
 
 import cn.iocoder.yudao.framework.common.pojo.CommonResult;
 import cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaCommonRegulationBindReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaCommonRegulationBindingListSaveReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaCommonRegulationBindingRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaCommonRegulationSetItemsUpgradeReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaCommonRegulationSetRespVO;
@@ -247,6 +248,14 @@ public class MesQaInspectionRegulationController {
     public CommonResult<MesQaCommonRegulationBindingRespVO> bindCommonRegulationVersion(
             @Valid @RequestBody MesQaCommonRegulationBindReqVO reqVO) {
         return success(regulationService.bindCommonRegulationVersion(reqVO));
+    }
+
+    @PostMapping("/common-binding/save-list")
+    @Operation(summary = "统一保存产品通用检验规程绑定列表")
+    @PreAuthorize("@ss.hasPermission('mes:qc-template:update')")
+    public CommonResult<MesQaCommonRegulationBindingRespVO> saveCommonRegulationBindingList(
+            @Valid @RequestBody MesQaCommonRegulationBindingListSaveReqVO reqVO) {
+        return success(regulationService.saveCommonRegulationBindingList(reqVO));
     }
 
     @PostMapping("/common-binding/unbind")
