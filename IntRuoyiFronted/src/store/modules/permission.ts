@@ -9,6 +9,7 @@ import { CACHE_KEY, useCache } from '@/hooks/web/useCache'
 import { isUrl } from '@/utils/is'
 import { filterSignatureMenus } from '@/utils/signatureAccess'
 import { useUserStore } from './user'
+import { retainFenbeitongMenu } from '@/utils/fenbeitongMenu'
 
 const { wsCache } = useCache()
 const permissionControlledStaticRoutes = showroomRoutes
@@ -119,6 +120,12 @@ const filterHiddenModuleMenus = (
   routes.flatMap((route) => {
     const path = route.path.startsWith('/') ? route.path : `${parentPath}/${route.path}`
     const normalizedPath = `/${path.replace(/^\/+|\/+$/g, '')}`
+    if (normalizedPath === '/erp') {
+      const children = retainFenbeitongMenu(route.children || [], normalizedPath)
+      return children.length
+        ? [{ ...route, children, redirect: '/erp/finance/fenbeitong-voucher' }]
+        : []
+    }
     if (
       HIDDEN_MODULE_MENU_PATHS.has(normalizedPath) ||
       route.meta?.title === '配置中心'

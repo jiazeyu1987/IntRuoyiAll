@@ -7,6 +7,7 @@ import {loadEnv} from 'vite'
 import {createVitePlugins} from './build/vite'
 import {exclude, include} from "./build/vite/optimize"
 import { installWindowsReadFileLimit } from './build/vite/windowsReadFileLimit.mjs'
+import { resolveFenbeitongAssistantUrl } from './src/utils/fenbeitongAssistant'
 
 gracefulify(fs)
 // 当前执行node命令时文件夹的地址(工作目录)
@@ -54,6 +55,9 @@ export default ({command, mode}: ConfigEnv): UserConfig => {
         Object.entries(process.env).filter(([key, value]) => key.startsWith('VITE_') && typeof value === 'string')
     ) as Record<string, string>
     env = {...env, ...processEnvOverrides}
+    if (isBuild && mode === 'prod' && !resolveFenbeitongAssistantUrl(env.VITE_FENBEITONG_ASSISTANT_URL || '', 'release-target')) {
+        throw new Error('生产构建必须配置 VITE_FENBEITONG_ASSISTANT_URL')
+    }
     const isBatchRecordPreviewMode = mode === 'batch-record-preview'
     const cliPort = getCliOptionValue(['--port', '-p'])
     const effectiveDevPort = cliPort || env.VITE_PORT

@@ -53,6 +53,7 @@ import {
   getFenbeitongAssistantStatus,
   startFenbeitongAssistant
 } from '@/api/login'
+import { resolveFenbeitongAssistantUrl } from '@/utils/fenbeitongAssistant'
 
 defineOptions({ name: 'ErpFenbeitongVoucher' })
 
@@ -64,7 +65,10 @@ const assistantStatusMessage = ref('')
 const assistantAccessUrl = ref('')
 
 const assistantBaseUrl = computed(() => {
-  return import.meta.env.VITE_FENBEITONG_ASSISTANT_URL?.trim() || ''
+  return resolveFenbeitongAssistantUrl(
+    import.meta.env.VITE_FENBEITONG_ASSISTANT_URL || '',
+    window.location.hostname
+  )
 })
 
 const buildAssistantAccessUrl = (baseUrl: string, ticket: string) => {

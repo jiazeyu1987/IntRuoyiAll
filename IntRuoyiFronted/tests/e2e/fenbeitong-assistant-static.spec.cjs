@@ -32,7 +32,7 @@ assert.match(loginApiSource, /startFenbeitongAssistant/)
 assert.match(loginApiSource, /\/system\/auth\/fenbeitong-assistant\/start/)
 
 assert.match(envTypes, /readonly VITE_FENBEITONG_ASSISTANT_URL: string/)
-assert.match(testEnv, /^VITE_FENBEITONG_ASSISTANT_URL=http:\/\/172\.30\.30\.58:18734\/$/m)
-assert.match(prodEnv, /^VITE_FENBEITONG_ASSISTANT_URL=$/m)
+assert.match(testEnv, /^VITE_FENBEITONG_ASSISTANT_URL=http:\/\/\{hostname\}:18734\/$/m)
+assert.match(prodEnv, /^VITE_FENBEITONG_ASSISTANT_URL=http:\/\/\{hostname\}:18734\/$/m)
 
 console.log('Fenbeitong assistant frontend static contract passed')
