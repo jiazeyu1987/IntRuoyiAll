@@ -13,7 +13,7 @@ const load = (file) => {
   return context.exports
 }
 const { resolveFenbeitongAssistantUrl: resolve } = load('src/utils/fenbeitongAssistant.ts')
-const { retainFenbeitongMenu: retain } = load('src/utils/fenbeitongMenu.ts')
+const { retainFinanceAssistantMenus: retain } = load('src/utils/financeAssistantMenus.ts')
 const voucherPath = '/erp/finance/fenbeitong-voucher'
 
 test('one frontend package connects to the assistant on each of the three hosts', () => {
@@ -53,11 +53,11 @@ test('no voucher authorization produces no ERP navigation', () => {
   assert.equal(retain([{ path: 'finance', children: [{ path: 'payable' }] }]).length, 0)
 })
 
-test('actual navigation filter keeps only the authorized voucher branch under ERP', () => {
+test('actual navigation filter keeps only authorized finance assistants under ERP', () => {
   const source = fs.readFileSync(path.join(root, 'src/store/modules/permission.ts'), 'utf8')
   const start = source.indexOf('const filterHiddenModuleMenus =')
   const end = source.indexOf('const SIGNATURE_GOVERNANCE_ROUTE_PATH', start)
-  const context = { retainFenbeitongMenu: retain, HIDDEN_MODULE_MENU_PATHS: new Set(['/erp', '/mes', '/infra']) }
+  const context = { retainFinanceAssistantMenus: retain, HIDDEN_MODULE_MENU_PATHS: new Set(['/erp', '/mes', '/infra']) }
   vm.runInNewContext(ts.transpileModule(source.slice(start, end) + '\nglobalThis.filter = filterHiddenModuleMenus', {
     compilerOptions: { module: ts.ModuleKind.CommonJS }
   }).outputText, context)
@@ -69,4 +69,28 @@ test('actual navigation filter keeps only the authorized voucher branch under ER
   assert.equal(result[1].path, '/erp')
   assert.equal(result[1].children[0].children.length, 1)
   assert.equal(context.filter([{ path: '/erp', children: [{ path: 'index' }] }]).length, 0)
+  const invoicePath = '/erp/finance/invoice-voucher-print'
+  for (const absolute of [false, true]) {
+    const result = context.filter([{ path: '/erp', children: [{
+      path: absolute ? '/erp/finance' : 'finance',
+      children: [{ path: absolute ? invoicePath : 'invoice-voucher-print' }]
+    }] }])
+    assert.equal(result.length, 1, 'invoice-only accounts must retain the ERP menu')
+    assert.equal(result[0].redirect, invoicePath, 'ERP must not redirect to an unauthorized voucher page')
+    assert.equal(result[0].children[0].redirect, invoicePath)
+  }
+})
+
+test('both authorized assistants remain visible without granting other ERP navigation', () => {
+  const menus = [{ path: 'finance', children: [
+    { path: 'invoice-voucher-print', meta: { title: '发票凭证打印' } },
+    { path: 'fenbeitong-voucher', meta: { title: '分贝通凭证' } },
+    { path: 'payable' }
+  ] }]
+  const before = JSON.stringify(menus)
+  const result = retain(menus)
+  assert.deepEqual(Array.from(result[0].children, m => m.path), ['invoice-voucher-print', 'fenbeitong-voucher'])
+  assert.equal(result[0].redirect, '/erp/finance/invoice-voucher-print')
+  assert.equal(JSON.stringify(menus), before)
+  assert.equal(retain([{ path: 'finance', children: [{ path: 'fenbeitong-voucher' }] }])[0].children.length, 1)
 })

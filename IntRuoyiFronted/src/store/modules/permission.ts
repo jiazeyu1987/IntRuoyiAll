@@ -9,7 +9,7 @@ import { CACHE_KEY, useCache } from '@/hooks/web/useCache'
 import { isUrl } from '@/utils/is'
 import { filterSignatureMenus } from '@/utils/signatureAccess'
 import { useUserStore } from './user'
-import { retainFenbeitongMenu } from '@/utils/fenbeitongMenu'
+import { retainFinanceAssistantMenus } from '@/utils/financeAssistantMenus'
 
 const { wsCache } = useCache()
 const permissionControlledStaticRoutes = showroomRoutes
@@ -121,9 +121,9 @@ const filterHiddenModuleMenus = (
     const path = route.path.startsWith('/') ? route.path : `${parentPath}/${route.path}`
     const normalizedPath = `/${path.replace(/^\/+|\/+$/g, '')}`
     if (normalizedPath === '/erp') {
-      const children = retainFenbeitongMenu(route.children || [], normalizedPath)
+      const children = retainFinanceAssistantMenus(route.children || [], normalizedPath)
       return children.length
-        ? [{ ...route, children, redirect: '/erp/finance/fenbeitong-voucher' }]
+        ? [{ ...route, children, redirect: children[0].redirect }]
         : []
     }
     if (
