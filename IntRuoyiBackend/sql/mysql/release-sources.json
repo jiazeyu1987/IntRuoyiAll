@@ -1150,7 +1150,8 @@
     "20261030_dcc_catalog_workbook_origin.sql",
     "20261030_frontline_process_sequence.sql",
     "20261030_mes_route_version_last_saved_by.sql",
-    "20261030_runtime_control_base_tar_portable_path.sql"
+    "20261030_runtime_control_base_tar_portable_path.sql",
+    "20261101_dcc_source_governance_all_environments.sql"
   ],
   "migrationScopes": [
     {
