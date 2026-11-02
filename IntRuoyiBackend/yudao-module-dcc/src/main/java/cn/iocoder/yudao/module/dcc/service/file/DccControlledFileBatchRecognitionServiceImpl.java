@@ -245,11 +245,16 @@ public class DccControlledFileBatchRecognitionServiceImpl implements DccControll
 
     @Override
     public void recoverInterruptedTasksOnStartup() {
-        int releasedTerminalClaimCount = recognitionClaimMapper.releaseClaimsOwnedByTerminalTasks();
-        if (releasedTerminalClaimCount > 0) {
-            log.info("[recoverInterruptedTasksOnStartup][releasedTerminalClaimCount({})]", releasedTerminalClaimCount);
+        if (recognitionClaimMapper.countClaimsOwnedByTerminalTasks() > 0) {
+            int releasedTerminalClaimCount = recognitionClaimMapper.releaseClaimsOwnedByTerminalTasks();
+            if (releasedTerminalClaimCount > 0) {
+                log.info("[recoverInterruptedTasksOnStartup][releasedTerminalClaimCount({})]", releasedTerminalClaimCount);
+            }
         }
         List<DccControlledFileBatchRecognitionTaskDO> runningTasks = taskMapper.selectRunningTasks();
+        if (runningTasks.isEmpty()) {
+            return;
+        }
         for (DccControlledFileBatchRecognitionTaskDO task : runningTasks) {
             recognitionClaimMapper.releaseClaimsByTaskId(task.getId());
         }

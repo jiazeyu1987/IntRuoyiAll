@@ -41,6 +41,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_PROJECT_CODE_RECOGNITION_CONFIG_MISSING;
@@ -204,6 +205,17 @@ class DccControlledFileBatchRecognitionServiceTest extends BaseMockitoUnitTest {
     }
 
     @Test
+    void recoverInterruptedTasksOnStartupDoesNotWriteWhenNoWorkExists() {
+        when(taskMapper.selectRunningTasks()).thenReturn(List.of());
+
+        service.recoverInterruptedTasksOnStartup();
+
+        verify(recognitionClaimMapper, never()).releaseClaimsOwnedByTerminalTasks();
+        verify(recognitionClaimMapper, never()).releaseClaimsByTaskId(any());
+        verify(taskMapper, never()).requeueRunningTasksOnStartup();
+    }
+
+    @Test
     void recoverInterruptedTasksOnStartupReleasesClaimsOwnedByRunningTasks() {
         DccControlledFileBatchRecognitionTaskDO runningTask = task(316L);
         runningTask.setStatus(DccControlledFileBatchRecognitionServiceImpl.TASK_STATUS_RUNNING);
@@ -218,13 +230,25 @@ class DccControlledFileBatchRecognitionServiceTest extends BaseMockitoUnitTest {
 
     @Test
     void recoverInterruptedTasksOnStartupReleasesClaimsOwnedByTerminalTasks() {
+        when(recognitionClaimMapper.countClaimsOwnedByTerminalTasks()).thenReturn(127L);
         when(recognitionClaimMapper.releaseClaimsOwnedByTerminalTasks()).thenReturn(127);
         when(taskMapper.selectRunningTasks()).thenReturn(List.of());
 
         service.recoverInterruptedTasksOnStartup();
 
         verify(recognitionClaimMapper).releaseClaimsOwnedByTerminalTasks();
-        verify(taskMapper).requeueRunningTasksOnStartup();
+        verify(taskMapper, never()).requeueRunningTasksOnStartup();
+    }
+
+    @Test
+    void recoverInterruptedTasksOnStartupPropagatesRequiredRecoveryWriteFailure() {
+        when(recognitionClaimMapper.countClaimsOwnedByTerminalTasks()).thenReturn(1L);
+        IllegalStateException readOnlyFailure = new IllegalStateException("read-only database");
+        when(recognitionClaimMapper.releaseClaimsOwnedByTerminalTasks()).thenThrow(readOnlyFailure);
+
+        assertSame(readOnlyFailure, assertThrows(IllegalStateException.class,
+                () -> service.recoverInterruptedTasksOnStartup()));
+        verify(taskMapper, never()).requeueRunningTasksOnStartup();
     }
 
     @Test

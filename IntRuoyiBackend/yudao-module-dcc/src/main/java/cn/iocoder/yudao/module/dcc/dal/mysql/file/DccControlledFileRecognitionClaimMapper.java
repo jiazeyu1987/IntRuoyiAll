@@ -56,6 +56,17 @@ public interface DccControlledFileRecognitionClaimMapper extends BaseMapperX<Dcc
             """)
     int releaseClaimsByTaskId(@Param("claimTaskId") Long claimTaskId);
 
+    @Select("""
+            SELECT COUNT(*)
+            FROM dcc_controlled_file_recognition_claim claim
+            INNER JOIN dcc_controlled_file_batch_recognition_task task
+                    ON task.id = claim.claim_task_id
+                   AND task.tenant_id = claim.tenant_id
+            WHERE claim.deleted = 0
+              AND task.status IN ('COMPLETED', 'FAILED', 'STOPPED')
+            """)
+    long countClaimsOwnedByTerminalTasks();
+
     @Delete("""
             DELETE claim
             FROM dcc_controlled_file_recognition_claim claim
