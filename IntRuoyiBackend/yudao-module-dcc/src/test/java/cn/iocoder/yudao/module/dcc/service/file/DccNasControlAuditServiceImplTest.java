@@ -50,6 +50,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyCollection;
@@ -103,6 +104,32 @@ class DccNasControlAuditServiceImplTest extends BaseMockitoUnitTest {
     @AfterEach
     void tearDown() {
         TenantContextHolder.clear();
+    }
+
+    @Test
+    void recoverInterruptedTasksOnStartupDoesNotWriteWhenNoWorkExists() {
+        auditService.recoverInterruptedTasksOnStartup();
+
+        verify(taskMapper, never()).recoverRunningTasksToWaiting();
+    }
+
+    @Test
+    void recoverInterruptedTasksOnStartupRecoversRunningTasks() {
+        when(taskMapper.selectRunningTaskCount()).thenReturn(1L);
+
+        auditService.recoverInterruptedTasksOnStartup();
+
+        verify(taskMapper).recoverRunningTasksToWaiting();
+    }
+
+    @Test
+    void recoverInterruptedTasksOnStartupPropagatesRequiredRecoveryWriteFailure() {
+        when(taskMapper.selectRunningTaskCount()).thenReturn(1L);
+        IllegalStateException failure = new IllegalStateException("read-only recovery blocked");
+        when(taskMapper.recoverRunningTasksToWaiting()).thenThrow(failure);
+
+        assertEquals(failure, assertThrows(IllegalStateException.class,
+                () -> auditService.recoverInterruptedTasksOnStartup()));
     }
 
     @Test

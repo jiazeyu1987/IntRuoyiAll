@@ -177,6 +177,62 @@ class DccControlledFileNasTransferServiceTest extends BaseMockitoUnitTest {
     }
 
     @Test
+    void recoverInterruptedTasksOnStartupDoesNotWriteWhenNoWorkExists() {
+        transferService.recoverInterruptedTasksOnStartup();
+
+        verify(taskMapper, never()).recoverRunningTasksToWaiting(any(LocalDateTime.class));
+        verify(taskItemMapper, never()).recoverRunningItemsToWaiting(anyLong());
+    }
+
+    @Test
+    void recoverInterruptedTasksOnStartupDoesNotWriteWaitingTasksWithoutRunningItems() {
+        when(taskMapper.selectUnfinishedTasks()).thenReturn(List.of(
+                DccControlledFileNasTransferTaskDO.builder().id(77L).status("WAITING").build()));
+
+        transferService.recoverInterruptedTasksOnStartup();
+
+        verify(taskMapper, never()).recoverRunningTasksToWaiting(any(LocalDateTime.class));
+        verify(taskItemMapper, never()).recoverRunningItemsToWaiting(anyLong());
+    }
+
+    @Test
+    void recoverInterruptedTasksOnStartupRecoversRunningTaskAndItems() {
+        when(taskMapper.selectUnfinishedTasks()).thenReturn(List.of(
+                DccControlledFileNasTransferTaskDO.builder().id(77L).status("RUNNING").build()));
+        when(taskItemMapper.selectRunningItemsByTaskId(77L)).thenReturn(List.of(
+                DccControlledFileNasTransferTaskItemDO.builder().id(88L).taskId(77L).status("RUNNING").build()));
+
+        transferService.recoverInterruptedTasksOnStartup();
+
+        verify(taskMapper).recoverRunningTasksToWaiting(any(LocalDateTime.class));
+        verify(taskItemMapper).recoverRunningItemsToWaiting(77L);
+    }
+
+    @Test
+    void recoverInterruptedTasksOnStartupRecoversOnlyRunningItemsOfWaitingTask() {
+        when(taskMapper.selectUnfinishedTasks()).thenReturn(List.of(
+                DccControlledFileNasTransferTaskDO.builder().id(77L).status("WAITING").build()));
+        when(taskItemMapper.selectRunningItemsByTaskId(77L)).thenReturn(List.of(
+                DccControlledFileNasTransferTaskItemDO.builder().id(88L).taskId(77L).status("RUNNING").build()));
+
+        transferService.recoverInterruptedTasksOnStartup();
+
+        verify(taskMapper, never()).recoverRunningTasksToWaiting(any(LocalDateTime.class));
+        verify(taskItemMapper).recoverRunningItemsToWaiting(77L);
+    }
+
+    @Test
+    void recoverInterruptedTasksOnStartupPropagatesRequiredRecoveryWriteFailure() {
+        when(taskMapper.selectUnfinishedTasks()).thenReturn(List.of(
+                DccControlledFileNasTransferTaskDO.builder().id(77L).status("RUNNING").build()));
+        IllegalStateException failure = new IllegalStateException("read-only recovery blocked");
+        when(taskMapper.recoverRunningTasksToWaiting(any(LocalDateTime.class))).thenThrow(failure);
+
+        assertEquals(failure, assertThrows(IllegalStateException.class,
+                () -> transferService.recoverInterruptedTasksOnStartup()));
+    }
+
+    @Test
     void createUncontrolledImportTask_doesNotRequireLegacyNasTransferInputs() throws Exception {
         Class<?> requestType = Class.forName("cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccNasUncontrolledImportSelectedReqVO");
         Method method = DccControlledFileNasTransferService.class

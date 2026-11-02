@@ -240,6 +240,9 @@ public class DccNasControlAuditServiceImpl implements DccNasControlAuditService 
 
     @Override
     public void recoverInterruptedTasksOnStartup() {
+        if (taskMapper.selectRunningTaskCount() == 0) {
+            return;
+        }
         int recovered = taskMapper.recoverRunningTasksToWaiting();
         if (recovered > 0) {
             log.info("[recoverInterruptedTasksOnStartup][recoveredNasControlAuditTasks({})]", recovered);

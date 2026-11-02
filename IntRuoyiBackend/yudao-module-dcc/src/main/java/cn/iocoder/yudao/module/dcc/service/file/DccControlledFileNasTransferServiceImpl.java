@@ -422,11 +422,18 @@ public class DccControlledFileNasTransferServiceImpl implements DccControlledFil
 
     @Override
     public void recoverInterruptedTasksOnStartup() {
+        List<DccControlledFileNasTransferTaskDO> unfinishedTasks = taskMapper.selectUnfinishedTasks();
+        if (unfinishedTasks.isEmpty()) {
+            return;
+        }
         LocalDateTime nextCheckAt = nextScheduledCheckTime();
-        int recoveredTaskCount = taskMapper.recoverRunningTasksToWaiting(nextCheckAt);
+        int recoveredTaskCount = unfinishedTasks.stream().anyMatch(task -> TASK_STATUS_RUNNING.equals(task.getStatus()))
+                ? taskMapper.recoverRunningTasksToWaiting(nextCheckAt) : 0;
         int recoveredItemCount = 0;
-        for (DccControlledFileNasTransferTaskDO task : taskMapper.selectUnfinishedTasks()) {
-            recoveredItemCount += taskItemMapper.recoverRunningItemsToWaiting(task.getId());
+        for (DccControlledFileNasTransferTaskDO task : unfinishedTasks) {
+            if (!taskItemMapper.selectRunningItemsByTaskId(task.getId()).isEmpty()) {
+                recoveredItemCount += taskItemMapper.recoverRunningItemsToWaiting(task.getId());
+            }
         }
         if (recoveredTaskCount > 0) {
             log.info("[recoverInterruptedTasksOnStartup][recoveredTaskCount({})][nextCheckAt({})]",

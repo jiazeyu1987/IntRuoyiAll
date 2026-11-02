@@ -33,6 +33,11 @@ public interface DccNasControlAuditTaskMapper extends BaseMapperX<DccNasControlA
                 .set(DccNasControlAuditTaskDO::getStartedAt, startedAt));
     }
 
+    default long selectRunningTaskCount() {
+        return selectCount(new LambdaQueryWrapperX<DccNasControlAuditTaskDO>()
+                .eq(DccNasControlAuditTaskDO::getStatus, "RUNNING"));
+    }
+
     default int recoverRunningTasksToWaiting() {
         return update(null, new LambdaUpdateWrapper<DccNasControlAuditTaskDO>()
                 .eq(DccNasControlAuditTaskDO::getStatus, "RUNNING")
