@@ -22,6 +22,7 @@ public class YudaoServerApplication {
         // 如果你碰到启动的问题，请认真阅读 https://doc.iocoder.cn/quick-start/ 文章
 
         SpringApplication.run(YudaoServerApplication.class, args);
+        org.slf4j.LoggerFactory.getLogger(YudaoServerApplication.class).info("IntRuoyi backend startup completed; release metadata: /actuator/release");
 //        new SpringApplicationBuilder(YudaoServerApplication.class)
 //                .applicationStartup(new BufferingApplicationStartup(20480))
 //                .run(args);
