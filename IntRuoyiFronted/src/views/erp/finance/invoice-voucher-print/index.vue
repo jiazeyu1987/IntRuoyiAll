@@ -53,6 +53,7 @@ import {
   getInvoiceVoucherPrintAssistantStatus,
   startInvoiceVoucherPrintAssistant
 } from '@/api/login'
+import { resolveInvoiceVoucherPrintAssistantUrl } from '@/utils/invoiceVoucherPrintAssistant'
 
 defineOptions({ name: 'ErpInvoiceVoucherPrint' })
 
@@ -64,7 +65,10 @@ const assistantStatusMessage = ref('')
 const assistantAccessUrl = ref('')
 
 const assistantBaseUrl = computed(() => {
-  return import.meta.env.VITE_INVOICE_VOUCHER_PRINT_ASSISTANT_URL?.trim() || ''
+  return resolveInvoiceVoucherPrintAssistantUrl(
+    import.meta.env.VITE_INVOICE_VOUCHER_PRINT_ASSISTANT_URL || '',
+    window.location.hostname
+  )
 })
 
 const buildAssistantAccessUrl = (baseUrl: string, ticket: string) => {
