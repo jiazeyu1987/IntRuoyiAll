@@ -16,6 +16,10 @@ import cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectCodeDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.relation.DccDataRelationDO;
 import cn.iocoder.yudao.module.dcc.dal.mysql.productcatalog.DccProductCatalogMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectCodeMapper;
+import cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectProductRelationMapper;
+import cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectProductIdentityClaimMapper;
+import cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectProductCreateRequestMapper;
+import cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectProductRelationDO;
 import cn.iocoder.yudao.module.dcc.dal.mysql.relation.DccDataRelationMapper;
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
@@ -30,6 +34,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -38,6 +43,9 @@ import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionU
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.DCC_PRODUCT_CATALOG_DATA_SOURCE_INVALID;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.DCC_PRODUCT_CATALOG_DIRECT_CREATE_NOT_ALLOWED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.DCC_PRODUCT_CATALOG_ROW_KEY_INVALID;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.DCC_PRODUCT_CATALOG_PROJECT_IDENTITY_MANAGED;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.DCC_PROJECT_PRODUCT_CREATE_DUPLICATE_PRODUCT_CODE;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.DCC_PROJECT_PRODUCT_CREATE_DUPLICATE_PRODUCT_NAME;
 
 @Service
 @Validated
@@ -65,6 +73,13 @@ public class DccProductCatalogServiceImpl implements DccProductCatalogService {
 
     @Resource
     private DccDataRelationMapper relationMapper;
+
+    @Resource
+    private DccProjectProductRelationMapper projectProductRelationMapper;
+    @Resource
+    private DccProjectProductIdentityClaimMapper identityClaimMapper;
+    @Resource
+    private DccProjectProductCreateRequestMapper createRequestMapper;
 
     @Resource
     private DccRegistrationExpiryExternalPageClient externalPageClient;
@@ -129,9 +144,63 @@ public class DccProductCatalogServiceImpl implements DccProductCatalogService {
         String dataSource = validateDataSource(reqVO.getDataSource());
         DccProductCatalogDO existing = requireRow(dataSource, reqVO.getOriginalRowNo());
         DccProductCatalogDO update = buildProductCatalogDO(reqVO);
+        update.setProduct(StrUtil.trim(reqVO.getProduct()));
+        update.setProductCode(StrUtil.trim(reqVO.getProductCode()));
+        DccProjectProductRelationDO relation = projectProductRelationMapper.selectByProductCatalogId(existing.getId());
+        Long requestId = relation == null ? null : relation.getRequestId();
+        if (relation != null && "ACTIVE".equals(relation.getRelationStatus())) {
+            DccProjectCodeDO project = Objects.requireNonNull(
+                    projectCodeMapper.selectById(relation.getProjectCodeId()), "正式关联项目不存在");
+            if (!Objects.equals(project.getProjectName(), StrUtil.trim(reqVO.getProjectName()))
+                    || !Objects.equals(project.getProjectCode(), StrUtil.trim(reqVO.getProjectCode()))) {
+                throw exception(DCC_PRODUCT_CATALOG_PROJECT_IDENTITY_MANAGED);
+            }
+            update.setProjectName(project.getProjectName());
+            update.setProjectCode(project.getProjectCode());
+        }
+        validateChangedProductIdentity(existing, update, requestId);
         update.setId(existing.getId());
         update.setDataSource(dataSource);
         update.setOriginalRowNo(existing.getOriginalRowNo());
+        productCatalogMapper.updateById(update);
+    }
+
+    private void validateChangedProductIdentity(DccProductCatalogDO existing, DccProductCatalogDO update,
+                                                Long requestId) {
+        String code = StrUtil.trimToEmpty(update.getProductCode());
+        if (!Objects.equals(code, StrUtil.trimToEmpty(existing.getProductCode())) && !code.isEmpty()) {
+            var claim = identityClaimMapper.selectByTypeAndValue("PRODUCT_CODE", code);
+            var request = createRequestMapper.selectActiveByProductCode(code);
+            if (productCatalogMapper.countOtherProductCode(code, existing.getId()) > 0
+                    || (claim != null && !Objects.equals(requestId, claim.getRequestId()))
+                    || (request != null && !Objects.equals(requestId, request.getId()))) {
+                throw exception(DCC_PROJECT_PRODUCT_CREATE_DUPLICATE_PRODUCT_CODE);
+            }
+        }
+        String name = StrUtil.trimToEmpty(update.getProduct());
+        if (!Objects.equals(name, StrUtil.trimToEmpty(existing.getProduct()))) {
+            var claim = identityClaimMapper.selectByTypeAndValue("PRODUCT_NAME", name);
+            var request = createRequestMapper.selectActiveByProductName(name);
+            if (productCatalogMapper.countOtherProductName(name, existing.getId()) > 0
+                    || (claim != null && !Objects.equals(requestId, claim.getRequestId()))
+                    || (request != null && !Objects.equals(requestId, request.getId()))) {
+                throw exception(DCC_PROJECT_PRODUCT_CREATE_DUPLICATE_PRODUCT_NAME);
+            }
+        }
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void synchronizeProjectIdentity(Long projectCodeId, String projectName, String projectCode) {
+        DccProjectProductRelationDO relation = projectProductRelationMapper.selectByProjectCodeId(projectCodeId);
+        if (relation == null || !"ACTIVE".equals(relation.getRelationStatus())) return;
+        // Deleted catalog rows stay deleted; the relation is never inferred from editable text.
+        DccProductCatalogDO catalog = productCatalogMapper.selectById(relation.getProductCatalogId());
+        if (catalog == null) return;
+        DccProductCatalogDO update = new DccProductCatalogDO();
+        update.setId(catalog.getId());
+        update.setProjectName(projectName);
+        update.setProjectCode(projectCode);
         productCatalogMapper.updateById(update);
     }
 
@@ -218,6 +287,17 @@ public class DccProductCatalogServiceImpl implements DccProductCatalogService {
             }
             row.setProjectCodeId(relation.getProjectCodeId());
             row.setRegistrationCertificateId(relation.getRegistrationCertificateId());
+        }
+        Map<Long, DccProjectProductRelationDO> formalRelations = new HashMap<>();
+        for (DccProjectProductRelationDO relation : projectProductRelationMapper.selectActiveByProductCatalogIds(productCatalogIds)) {
+            formalRelations.put(relation.getProductCatalogId(), relation);
+        }
+        for (DccProductCatalogRespVO row : rows) {
+            DccProjectProductRelationDO relation = formalRelations.get(row.getId());
+            if (relation != null) {
+                row.setProjectCodeId(relation.getProjectCodeId());
+                row.setProjectIdentityManaged(true);
+            }
         }
     }
 

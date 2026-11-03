@@ -627,4 +627,6 @@ public interface ErrorCodeConstants {
             "本次审批配置发生变化，需要确认后重新提交");
 
     ErrorCode DIRECT_SUPERVISOR_SOURCE_UNAVAILABLE = new ErrorCode(1_080_000_365, "{}");
+    ErrorCode DCC_PRODUCT_CATALOG_PROJECT_IDENTITY_MANAGED = new ErrorCode(1_080_000_366,
+            "关联项目名称和代码请在项目代码模块修改");
 }

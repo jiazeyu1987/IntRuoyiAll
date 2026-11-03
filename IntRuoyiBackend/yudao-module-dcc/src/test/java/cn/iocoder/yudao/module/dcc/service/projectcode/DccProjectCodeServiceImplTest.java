@@ -125,6 +125,24 @@ class DccProjectCodeServiceImplTest extends BaseDbUnitTest {
     private DccProjectCodeConfigurationStatusApi configurationStatusApi;
     @MockitoBean
     private MdmProductApi productApi;
+    @MockitoBean
+    private cn.iocoder.yudao.module.dcc.service.productcatalog.DccProductCatalogService productCatalogService;
+
+    @Test
+    void readablePageIncludesDisabledProjectsForRestorationByEditors() {
+        var project = DccProjectCodeDO.builder().projectName("停用待恢复").projectCode("RESTORE").status("DISABLE").build();
+        project.setTenantId(1L);
+        projectCodeMapper.insert(project);
+        cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.setTenantId(1L);
+        try {
+            when(projectAccess.listReadableProjectIds(99L)).thenReturn(List.of(project.getId()));
+            when(projectAccess.hasProjectEditorOrOwner(99L, project.getId())).thenReturn(true);
+            var req = new DccProjectCodePageReqVO(); req.setPageNo(1); req.setPageSize(10); req.setStatus("DISABLE");
+            assertEquals(1L, projectCodeService.getReadableProjectCodePage(99L, req).getTotal());
+            when(projectAccess.hasProjectEditorOrOwner(99L, project.getId())).thenReturn(false);
+            assertEquals(0L, projectCodeService.getReadableProjectCodePage(99L, req).getTotal());
+        } finally { cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.clear(); }
+    }
 
     @BeforeEach
     void setUpRegistrationCertificateAssociationDefaults() {

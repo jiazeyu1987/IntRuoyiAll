@@ -31,6 +31,7 @@ class DccProjectDiscoveryReadTest extends DccProjectFormalCombinationTest {
     @MockitoBean cn.iocoder.yudao.module.dcc.service.category.DccFileTypeTaxonomyAdminService taxonomy;
     @MockitoBean cn.iocoder.yudao.module.dcc.api.projectcode.DccProjectCodeConfigurationStatusApi configuration;
     @MockitoBean cn.iocoder.yudao.module.mdm.api.product.MdmProductApi products;
+    @MockitoBean cn.iocoder.yudao.module.dcc.service.productcatalog.DccProductCatalogService productCatalogService;
     @org.junit.jupiter.api.BeforeEach void discoveryAccounts() {
         when(certificateFiles.countAssociatedFilesByProjectCodeIds(any())).thenReturn(Map.of());
         when(certificateFiles.listAssociatedRows(any(),any(),any())).thenReturn(List.of());
@@ -45,6 +46,45 @@ class DccProjectDiscoveryReadTest extends DccProjectFormalCombinationTest {
     void view(Long project) {
         var rule=new DccProjectAccessRuleDO();rule.setTenantId(1L);rule.setDccProjectCodeId(project);rule.setSubjectType("USER");
         rule.setSubjectId(8L);rule.setAccessLevel("VIEW");rule.setActive(true);rule.setChangeReason("real discovery scope");rules.insert(rule);
+    }
+    @Test void projectTaxonomyReaderUsesFormalProjectScopeWithoutCategoryManagementPermission() throws Exception {
+        var allowed=project("TAXONOMY-READABLE",7L);view(allowed.getId());
+        when(permissions.hasAnyPermissions(8L,"dcc:controlled-file:query")).thenReturn(true);
+        var node=new cn.iocoder.yudao.module.dcc.dal.dataobject.category.DccFileTypeTaxonomyDO();
+        node.setId(301L);node.setCode("TECH");node.setName("技术文档");node.setActive(true);
+        when(taxonomy.getTaxonomyList()).thenReturn(List.of(node));
+        var before=discoveryBusinessState();
+        discoveryMvc().perform(get("/dcc/project-codes/{id}/file-type-taxonomies",allowed.getId()))
+                .andExpect(jsonPath("$.code").value(0))
+                .andExpect(jsonPath("$.data[0].id").value("301"))
+                .andExpect(jsonPath("$.data[0].name").value("技术文档"));
+        verify(taxonomy).getTaxonomyList();
+        assertEquals(before,discoveryBusinessState());
+    }
+    @ParameterizedTest @ValueSource(strings={"dcc:project-code:query","dcc:controlled-file:query"})
+    void projectTaxonomyReaderRequiresBothQueryMenus(String missing) throws Exception {
+        var allowed=project("TAXONOMY-MISSING-MENU",7L);view(allowed.getId());
+        when(permissions.hasAnyPermissions(8L,"dcc:controlled-file:query")).thenReturn(true);
+        when(permissions.hasAnyPermissions(8L,missing)).thenReturn(false);
+        discoveryMvc().perform(get("/dcc/project-codes/{id}/file-type-taxonomies",allowed.getId()))
+                .andExpect(jsonPath("$.code").value(403));
+        verify(taxonomy,never()).getTaxonomyList();
+    }
+    @ParameterizedTest @ValueSource(strings={"NO_RULE","INACTIVE_RULE","FOREIGN_PROJECT","CALLER_TENANT","DISABLED_PROJECT","DISABLED_ACCOUNT"})
+    void projectTaxonomyReaderRejectsInvalidProjectScope(String violation) throws Exception {
+        var target=project("TAXONOMY-SCOPE",7L);
+        if(!"NO_RULE".equals(violation)) view(target.getId());
+        when(permissions.hasAnyPermissions(8L,"dcc:controlled-file:query")).thenReturn(true);
+        if("INACTIVE_RULE".equals(violation)) jdbc.update("UPDATE dcc_project_access_rule SET active=FALSE WHERE dcc_project_code_id=?",target.getId());
+        if("FOREIGN_PROJECT".equals(violation)) jdbc.update("UPDATE dcc_project_code SET tenant_id=2 WHERE id=?",target.getId());
+        if("CALLER_TENANT".equals(violation)) TenantContextHolder.setTenantId(2L);
+        if("DISABLED_PROJECT".equals(violation)) jdbc.update("UPDATE dcc_project_code SET status='DISABLE' WHERE id=?",target.getId());
+        if("DISABLED_ACCOUNT".equals(violation)) when(users.getUser(8L)).thenReturn(new cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO().setId(8L).setTenantId(1L).setStatus(1));
+        try {
+            discoveryMvc().perform(get("/dcc/project-codes/{id}/file-type-taxonomies",target.getId()))
+                    .andExpect(jsonPath("$.code").value(cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.DCC_PROJECT_ACCESS_DENIED.getCode()));
+            verify(taxonomy,never()).getTaxonomyList();
+        } finally {TenantContextHolder.setTenantId(1L);}
     }
     @Test void discoveryPageFindsAllowedEmptyProjectWithoutLeakingUnscopedProject() throws Exception {
         var allowed=project("PUBLIC-EMPTY",7L);var hidden=project("PRIVATE-EMPTY",7L);view(allowed.getId());folder(allowed.getId(),"empty-directory");
@@ -84,6 +124,18 @@ class DccProjectDiscoveryReadTest extends DccProjectFormalCombinationTest {
         assertTrue(files.selectList().isEmpty());
     }
 
+    @ParameterizedTest @ValueSource(strings={"VIEW","EDIT","OWNER"})
+    void discoveryDisabledProjectCanBeFoundAndReopenedForRestorationByEditors(String level) throws Exception {
+        var project=project("DISABLED-RESTORE-"+level,7L);view(project.getId());
+        jdbc.update("UPDATE dcc_project_access_rule SET access_level=? WHERE dcc_project_code_id=? AND subject_id=8",level,project.getId());
+        project.setStatus("DISABLE");projects.updateById(project);
+        boolean mayRestore=!"VIEW".equals(level);
+        discoveryMvc().perform(get("/dcc/project-codes/page").param("status","DISABLE"))
+                .andExpect(jsonPath("$.code").value(0)).andExpect(jsonPath("$.data.total").value(mayRestore?1:0));
+        discoveryMvc().perform(get("/dcc/project-codes/{id}",project.getId()))
+                .andExpect(jsonPath("$.code").value(mayRestore?0:cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.DCC_PROJECT_ACCESS_DENIED.getCode()));
+    }
+
     @ParameterizedTest @ValueSource(strings={"NO_RULE","FOREIGN_RULE","EXPIRED_RULE","FUTURE_RULE","INACTIVE_RULE",
             "FOREIGN_PROJECT","DISABLED_PROJECT","DELETED_PROJECT","CALLER_TENANT","ADMIN_NO_RULE"})
     void discoveryScopeCannotLeakUnauthorizedProjectsOrDetailsAndIdChangedDirectory(String violation) throws Exception {
@@ -107,7 +159,12 @@ class DccProjectDiscoveryReadTest extends DccProjectFormalCombinationTest {
             default -> throw new IllegalArgumentException(violation);
         }
         try {
-            discoveryMvc().perform(get("/dcc/project-codes/page"))
+            if ("CALLER_TENANT".equals(violation)) {
+                // A caller outside the current tenant is rejected before project discovery.
+                discoveryMvc().perform(get("/dcc/project-codes/page"))
+                        .andExpect(jsonPath("$.code").value(cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.DCC_PROJECT_ACCESS_DENIED.getCode()))
+                        .andExpect(jsonPath("$.data").doesNotExist());
+            } else discoveryMvc().perform(get("/dcc/project-codes/page"))
                     .andExpect(jsonPath("$.code").value(0)).andExpect(jsonPath("$.data.total").value(0));
             discoveryMvc().perform(get("/dcc/project-codes/{id}",project.getId()))
                     .andExpect(jsonPath("$.code").value(cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.DCC_PROJECT_ACCESS_DENIED.getCode()))

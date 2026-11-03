@@ -64,6 +64,17 @@ class DccProjectAccessServiceImplTest {
         lenient().when(deptApi.getDept(20L)).thenReturn(null);
     }
     @AfterEach void clearTenant() { TenantContextHolder.clear(); }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"OWNER", "EDIT", "VIEW"})
+    void disabledProjectCanBeOpenedForRestorationOnlyByOwnerOrEditor(String level) {
+        var project = DccProjectCodeDO.builder().id(100L).status("DISABLE").build();
+        project.setTenantId(1L);
+        when(projectCodeMapper.selectById(100L)).thenReturn(project);
+        when(accessRuleMapper.selectActiveRules(eq(100L), any())).thenReturn(List.of(rule("USER", 99L, level)));
+        if ("VIEW".equals(level)) assertThrows(ServiceException.class, () -> service.assertProjectViewerOrAbove(99L, 100L));
+        else assertDoesNotThrow(() -> service.assertProjectViewerOrAbove(99L, 100L));
+    }
     @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.NullSource
     @org.junit.jupiter.params.provider.ValueSource(ints = {1})

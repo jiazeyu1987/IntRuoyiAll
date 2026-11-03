@@ -42,6 +42,82 @@ class DccProductCatalogServiceImplTest extends BaseMockitoUnitTest {
 
     @Mock
     private DccDataRelationMapper relationMapper;
+    @Mock private cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectProductRelationMapper projectProductRelationMapper;
+    @Mock private cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectProductIdentityClaimMapper identityClaimMapper;
+    @Mock private cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectProductCreateRequestMapper createRequestMapper;
+
+    @Test
+    void updateRejectsDuplicateCodeAndNameWithoutWriting() {
+        DccProductCatalogUpdateReqVO req = new DccProductCatalogUpdateReqVO();
+        copy(request("瑛泰产品", "更新产品"), req);
+        req.setProductCode("NEW-CODE");
+        req.setOriginalRowNo(2);
+        when(productCatalogMapper.selectByRowKey("瑛泰产品", 2)).thenReturn(row(20L, "瑛泰产品", 2, "旧产品"));
+        when(productCatalogMapper.countOtherProductCode(req.getProductCode(), 20L)).thenReturn(1L);
+        assertEquals(cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.DCC_PROJECT_PRODUCT_CREATE_DUPLICATE_PRODUCT_CODE.getCode(),
+                assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class, () -> service.updateProductCatalog(req)).getCode());
+        when(productCatalogMapper.countOtherProductCode(req.getProductCode(), 20L)).thenReturn(0L);
+        when(productCatalogMapper.countOtherProductName("更新产品", 20L)).thenReturn(1L);
+        assertEquals(cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.DCC_PROJECT_PRODUCT_CREATE_DUPLICATE_PRODUCT_NAME.getCode(),
+                assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class, () -> service.updateProductCatalog(req)).getCode());
+        verify(productCatalogMapper, org.mockito.Mockito.never()).updateById(any(DccProductCatalogDO.class));
+    }
+
+    @Test
+    void updateCannotTakeProductIdentityReservedByPendingApplication() {
+        DccProductCatalogUpdateReqVO req = new DccProductCatalogUpdateReqVO();
+        copy(request("瑛泰产品", "更新产品"), req);
+        req.setProductCode("PENDING-CODE");
+        req.setOriginalRowNo(2);
+        when(productCatalogMapper.selectByRowKey("瑛泰产品", 2)).thenReturn(row(20L, "瑛泰产品", 2, "旧产品"));
+        when(identityClaimMapper.selectByTypeAndValue("PRODUCT_CODE", req.getProductCode())).thenReturn(
+                cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectProductIdentityClaimDO.builder().requestId(99L).build());
+        assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class, () -> service.updateProductCatalog(req));
+        verify(productCatalogMapper, org.mockito.Mockito.never()).updateById(any(DccProductCatalogDO.class));
+    }
+
+    @Test
+    void formalProjectIdentityCannotBeChangedFromCatalog() {
+        DccProductCatalogUpdateReqVO req = new DccProductCatalogUpdateReqVO();
+        copy(request("瑛泰产品", "更新产品"), req);
+        req.setOriginalRowNo(2);
+        when(productCatalogMapper.selectByRowKey("瑛泰产品", 2)).thenReturn(row(20L, "瑛泰产品", 2, "旧产品"));
+        when(projectProductRelationMapper.selectByProductCatalogId(20L)).thenReturn(
+                cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectProductRelationDO.builder()
+                        .projectCodeId(100L).productCatalogId(20L).relationStatus("ACTIVE").build());
+        when(projectCodeMapper.selectById(100L)).thenReturn(DccProjectCodeDO.builder().projectName("正式项目").projectCode("FORMAL").build());
+        assertEquals(cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.DCC_PRODUCT_CATALOG_PROJECT_IDENTITY_MANAGED.getCode(),
+                assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class, () -> service.updateProductCatalog(req)).getCode());
+        verify(productCatalogMapper, org.mockito.Mockito.never()).updateById(any(DccProductCatalogDO.class));
+    }
+
+    @Test
+    void projectRenameSynchronizesOnlyCatalogBoundByStableId() {
+        when(projectProductRelationMapper.selectByProjectCodeId(100L)).thenReturn(
+                cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectProductRelationDO.builder()
+                        .projectCodeId(100L).productCatalogId(20L).relationStatus("ACTIVE").build());
+        when(productCatalogMapper.selectById(20L)).thenReturn(row(20L, "瑛泰产品", 2, "产品"));
+        service.synchronizeProjectIdentity(100L, "新项目名称", "NEW-CODE");
+        ArgumentCaptor<DccProductCatalogDO> captor = ArgumentCaptor.forClass(DccProductCatalogDO.class);
+        verify(productCatalogMapper).updateById(captor.capture());
+        assertEquals(20L, captor.getValue().getId());
+        assertEquals("新项目名称", captor.getValue().getProjectName());
+        assertEquals("NEW-CODE", captor.getValue().getProjectCode());
+        org.junit.jupiter.api.Assertions.assertNull(captor.getValue().getProduct());
+    }
+
+    @Test
+    void formalRelationExposesManagedIdentityWithoutRequiringCertificateBinding() {
+        DccProductCatalogPageReqVO req = new DccProductCatalogPageReqVO();
+        when(productCatalogMapper.selectPage(req)).thenReturn(new PageResult<>(List.of(row(20L, "瑛泰产品", 2, "产品")), 1L));
+        when(projectProductRelationMapper.selectActiveByProductCatalogIds(List.of(20L))).thenReturn(List.of(
+                cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectProductRelationDO.builder()
+                        .projectCodeId(100L).productCatalogId(20L).relationStatus("ACTIVE").build()));
+        var result = service.getProductCatalogPage(req).getList().get(0);
+        assertEquals(100L, result.getProjectCodeId());
+        assertEquals(true, result.getProjectIdentityManaged());
+        org.junit.jupiter.api.Assertions.assertNull(result.getRegistrationCertificateId());
+    }
 
     @Test
     void getProductCatalogPageShouldReadDatabasePage() {

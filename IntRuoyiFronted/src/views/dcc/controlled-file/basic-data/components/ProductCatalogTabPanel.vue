@@ -21,8 +21,7 @@
       @column-change="saveProductCatalogColumnConfig"
       @column-reset="resetProductCatalogColumnConfig"
       @sort-change="handleProductCatalogSortChange"
-      @pagination="getList"
-      :filter-rows="selectedProductCatalogRows"
+      :rows="selectedProductCatalogRows"
       :column-filter-definitions="listColumnFilterDefinitions0"
     >
       <template #actions>
@@ -39,7 +38,7 @@
           新建项目代码及产品
         </el-button>
       </template>
-      <template #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+      <template #table="{ rows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
         <div class="dcc-product-catalog-split-layout">
           <aside class="dcc-product-catalog-tree-panel">
             <div class="dcc-product-catalog-tree-title">产品分类</div>
@@ -78,7 +77,7 @@
                 class="dcc-product-catalog-resizable-table"
                 data-user-table-column-explicit
                 data-user-table-key="dcc.productCatalog.main"
-                :data="resolveRows(selectedProductCatalogRows)"
+                :data="rows"
                 height="100%"
                 scrollbar-always-on
                 border
@@ -541,10 +540,11 @@
         <el-input v-model="formData.productCode" placeholder="请输入产品编码" />
       </el-form-item>
       <el-form-item label="项目名称" prop="projectName">
-        <el-input v-model="formData.projectName" placeholder="请输入项目名称" />
+        <el-input v-model="formData.projectName" :disabled="projectIdentityManaged" placeholder="请输入项目名称" />
       </el-form-item>
       <el-form-item label="项目代码" prop="projectCode">
-        <el-input v-model="formData.projectCode" placeholder="请输入项目代码" />
+        <el-input v-model="formData.projectCode" :disabled="projectIdentityManaged" placeholder="请输入项目代码" />
+        <span v-if="projectIdentityManaged" class="text-12px text-gray-500">关联项目名称和代码请在项目代码模块修改</span>
       </el-form-item>
       <el-form-item label="注册证名称" prop="registrationCertificateName">
         <el-input v-model="formData.registrationCertificateName" placeholder="请输入注册证名称" />
@@ -770,12 +770,12 @@ const projectProductForm = reactive<DccProjectProductCreateReqVO>({
   remark: ''
 })
 const projectProductRules: FormRules = {
-  projectName: [{ required: true, message: '请输入项目名称', trigger: 'blur' }],
-  projectCode: [{ required: true, message: '请输入项目代码', trigger: 'blur' }],
+  projectName: [{ required: true, whitespace: true, message: '请输入项目名称', trigger: 'blur' }],
+  projectCode: [{ required: true, whitespace: true, message: '请输入项目代码', trigger: 'blur' }],
   projectLeaderUserId: [{ required: true, message: '请选择正式负责人账号', trigger: 'change' }],
   folderTemplateId: [{ required: true, message: '请选择目录模板', trigger: 'change' }],
-  productCode: [{ required: true, message: '请输入产品编码', trigger: 'blur' }],
-  productName: [{ required: true, message: '请输入产品名称', trigger: 'blur' }],
+  productCode: [{ required: true, whitespace: true, message: '请输入产品编码', trigger: 'blur' }],
+  productName: [{ required: true, whitespace: true, message: '请输入产品名称', trigger: 'blur' }],
   classification: [{ required: true, message: '请选择分类', trigger: 'change' }],
   creationReason: [{ validator: (_rule, value, callback) => {
     if (!projectProductResubmitRequestId.value && !String(value || '').trim()) callback(new Error('请填写新建申请原因'))
@@ -1231,7 +1231,9 @@ const submitProjectProductRequest = async () => {
   projectProductError.value = ''
   try {
     if (!projectRequestAccess().query || !checkPermi(['dcc:project-code:create'])) throw new Error('当前账号没有提交项目申请的权限')
-    const valid = await projectProductFormRef.value?.validate()
+    const valid = await projectProductFormRef.value?.validate((valid) => {
+      if (!valid) projectProductError.value = '请检查并补全标记的必填项'
+    })
     if (!valid || !current() || projectProductMode.value !== 'create') return
     validateAttributes(projectProductForm.defaultAttributes)
     const rejectedRequestId = projectProductResubmitRequestId.value
@@ -1634,10 +1636,12 @@ const openLinkedRegistrationCertificate = (row: DccProductCatalogRespVO) => {
   })
 }
 
+const projectIdentityManaged = ref(false)
 const openForm = (type: 'create' | 'update', row?: DccProductCatalogRespVO) => {
   formVisible.value = true
   formType.value = type
   resetFormData()
+  projectIdentityManaged.value = row?.projectIdentityManaged === true
   if (type === 'update' && row) {
     formData.value = {
       dataSource: row.dataSource,

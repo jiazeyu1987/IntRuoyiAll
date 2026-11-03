@@ -6,6 +6,7 @@ import cn.iocoder.yudao.framework.common.pojo.PageResult;
 import cn.iocoder.yudao.framework.common.util.object.BeanUtils;
 import cn.iocoder.yudao.framework.excel.core.util.ExcelUtils;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileRespVO;
+import cn.iocoder.yudao.module.dcc.controller.admin.category.vo.DccFileTypeTaxonomyRespVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.projectcode.vo.DccProjectCodeAssociatedFileAiCategoryRespVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.projectcode.vo.DccProjectCodeControlledFilePageReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.projectcode.vo.DccProjectCodeExportExcelVO;
@@ -19,6 +20,7 @@ import cn.iocoder.yudao.module.dcc.controller.admin.projectcode.vo.DccProjectCod
 import cn.iocoder.yudao.module.dcc.controller.admin.projectcode.vo.access.DccProjectAccessRuleBatchSaveReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.projectcode.vo.access.DccProjectAccessRuleRespVO;
 import cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectCodeService;
+import cn.iocoder.yudao.module.dcc.service.category.DccFileTypeTaxonomyAdminService;
 import cn.iocoder.yudao.module.dcc.service.projectcode.access.DccProjectAccessService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -55,6 +57,8 @@ public class DccProjectCodeController {
     private DccProjectCodeService projectCodeService;
     @Resource
     private DccProjectAccessService projectAccessService;
+    @Resource
+    private DccFileTypeTaxonomyAdminService taxonomyAdminService;
 
     @PostMapping("/create")
     @Operation(summary = "创建 DCC 项目代码")
@@ -116,6 +120,15 @@ public class DccProjectCodeController {
             @Valid @RequestBody DccProjectAccessRuleBatchSaveReqVO reqVO) {
         return success(BeanUtils.toBean(projectAccessService.replaceProjectAccessRules(id, reqVO.getRules()),
                 DccProjectAccessRuleRespVO.class));
+    }
+
+    @GetMapping("/{id:\\d+}/file-type-taxonomies")
+    @Operation(summary = "获得 DCC 项目关联文档只读分类树")
+    @PreAuthorize("@ss.hasPermission('dcc:project-code:query') and @ss.hasPermission('dcc:controlled-file:query')")
+    public CommonResult<List<DccFileTypeTaxonomyRespVO>> getProjectFileTypeTaxonomies(
+            @PathVariable("id") Long id) {
+        projectCodeService.getReadableProjectCode(getLoginUserId(), id);
+        return success(BeanUtils.toBean(taxonomyAdminService.getTaxonomyList(), DccFileTypeTaxonomyRespVO.class));
     }
 
     @GetMapping("/{id:\\d+}/controlled-files/page")

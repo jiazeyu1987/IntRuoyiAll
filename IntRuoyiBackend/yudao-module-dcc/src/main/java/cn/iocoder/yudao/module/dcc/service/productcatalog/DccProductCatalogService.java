@@ -22,6 +22,9 @@ public interface DccProductCatalogService {
 
     void updateProductCatalog(DccProductCatalogUpdateReqVO reqVO);
 
+    /** Synchronize only the formal project/product relation, using stable IDs. */
+    void synchronizeProjectIdentity(Long projectCodeId, String projectName, String projectCode);
+
     void deleteProductCatalog(String dataSource, Integer originalRowNo);
 
     List<DccProductCatalogRegistrationExpiryCompareRespVO> compareRegistrationExpiry(

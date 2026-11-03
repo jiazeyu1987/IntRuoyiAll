@@ -37,6 +37,9 @@ public class DccProductCatalogRespVO {
     @Schema(description = "绑定 DCC 项目代码 ID")
     private Long projectCodeId;
 
+    @Schema(description = "项目名称和代码由正式关联项目统一维护")
+    private Boolean projectIdentityManaged;
+
     @Schema(description = "绑定注册证 ID")
     private Long registrationCertificateId;
 

@@ -232,6 +232,12 @@ export const replaceProjectCodeAccessRules = async (
   return await request.put({ url: `/dcc/project-codes/${projectCodeId}/access-rules`, data })
 }
 
+export const getProjectCodeFileTypeTaxonomies = async (
+  id: number | string
+): Promise<DccFileTypeTaxonomyVO[]> => {
+  return await request.get({ url: `/dcc/project-codes/${id}/file-type-taxonomies` })
+}
+
 export const getProjectCodeControlledFilesPage = async (
   id: number | string,
   params: DccProjectCodeControlledFilePageReqVO

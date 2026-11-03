@@ -116,7 +116,8 @@ public class DccProjectProductTaskDelegate {
     }
 
     public List<ApprovalTaskTimelineEntry> timeline(ApprovalTaskTimelineQueryContext context) {
-        if (!supports(context.getSourceTaskType()) || context.getProcessInstanceId() != null) {
+        if (!supports(context.getSourceTaskType()) || (context.getProcessInstanceId() != null
+                && !context.getProcessInstanceId().isBlank())) {
             throw new IllegalArgumentException("PROJECT_TASK_SOURCE_INVALID");
         }
         Long id;

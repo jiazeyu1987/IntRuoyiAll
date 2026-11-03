@@ -171,4 +171,14 @@ public interface DccProductCatalogMapper extends BaseMapperX<DccProductCatalogDO
             LIMIT 1
             """)
     DccProductCatalogDO selectByNormalizedProductName(@Param("productName") String productName);
+
+    default Long countOtherProductCode(String productCode, Long id) {
+        return selectCount(new LambdaQueryWrapperX<DccProductCatalogDO>()
+                .apply("TRIM(product_code) = {0}", productCode).ne(DccProductCatalogDO::getId, id));
+    }
+
+    default Long countOtherProductName(String productName, Long id) {
+        return selectCount(new LambdaQueryWrapperX<DccProductCatalogDO>()
+                .apply("TRIM(product) = {0}", productName).ne(DccProductCatalogDO::getId, id));
+    }
 }

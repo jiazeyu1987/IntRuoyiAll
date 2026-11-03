@@ -47,6 +47,15 @@ test('cancel at the project/product review sends no create and retains input', a
   assert.equal(h.context.projectProductError.value, '')
   assert.equal(h.context.projectProductLoading.value, false)
 })
+test('invalid form reports a readable validation message and never opens confirmation or creates data', async () => {
+  const h = host()
+  h.context.projectProductFormRef.value.validate = async callback => { callback(false); return false }
+  await h.submit()
+  assert.equal(h.context.projectProductError.value, '请检查并补全标记的必填项')
+  assert.equal(h.confirmations.length, 0)
+  assert.equal(h.writes.length, 0)
+  assert.equal(h.context.projectProductLoading.value, false)
+})
 test('confirmed rejected request cannot drift to another request while review is open', async () => {
   const h = host({ rejectedId: '9007199254740993', confirm: async c => { c.projectProductResubmitRequestId.value = '9007199254740995' } })
   await h.submit()

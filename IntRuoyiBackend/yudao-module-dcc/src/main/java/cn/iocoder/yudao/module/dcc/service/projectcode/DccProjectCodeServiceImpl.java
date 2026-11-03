@@ -172,6 +172,8 @@ public class DccProjectCodeServiceImpl implements DccProjectCodeService {
     private DccProjectCodeConfigurationStatusApi configurationStatusApi;
     @Resource
     private MdmProductApi productApi;
+    @Resource
+    private cn.iocoder.yudao.module.dcc.service.productcatalog.DccProductCatalogService productCatalogService;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -188,6 +190,8 @@ public class DccProjectCodeServiceImpl implements DccProjectCodeService {
         validateProjectCodeUnique(normalizedReqVO.getProjectName(), normalizedReqVO.getProjectCode(),
                 normalizedReqVO.getId());
         updateProjectCodeFields(normalizedReqVO.getId(), normalizedReqVO, null);
+        productCatalogService.synchronizeProjectIdentity(normalizedReqVO.getId(),
+                normalizedReqVO.getProjectName(), normalizedReqVO.getProjectCode());
     }
 
     @Override
@@ -217,7 +221,10 @@ public class DccProjectCodeServiceImpl implements DccProjectCodeService {
     public PageResult<DccProjectCodeDO> getReadableProjectCodePage(Long userId, DccProjectCodePageReqVO reqVO) {
         List<Long> readable = projectAccess.listReadableProjectIds(userId);
         if (readable.isEmpty()) return new PageResult<>(List.of(), 0L);
-        return buildPageResult(listProjectCodesInDisplayOrder(reqVO, readable, true), reqVO);
+        List<DccProjectCodeDO> records = listProjectCodesInDisplayOrder(reqVO, readable, true);
+        records.removeIf(record -> !DccProjectCodeStatusConstants.ENABLE.equals(record.getStatus())
+                && !projectAccess.hasProjectEditorOrOwner(userId, record.getId()));
+        return buildPageResult(records, reqVO);
     }
 
     @Override
@@ -378,8 +385,7 @@ public class DccProjectCodeServiceImpl implements DccProjectCodeService {
         queryReqVO.setStatus(reqVO.getStatus());
         List<DccProjectCodeDO> records = new ArrayList<>(projectCodeMapper.selectPage(queryReqVO).getList());
         if (publicReader) records.removeIf(record -> !java.util.Objects.equals(record.getTenantId(),
-                cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId())
-                || !DccProjectCodeStatusConstants.ENABLE.equals(record.getStatus()));
+                cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId()));
         if (scopedProjectCodeIds != null) {
             Set<Long> scope = new LinkedHashSet<>(scopedProjectCodeIds);
             records.removeIf(record -> !scope.contains(record.getId()));

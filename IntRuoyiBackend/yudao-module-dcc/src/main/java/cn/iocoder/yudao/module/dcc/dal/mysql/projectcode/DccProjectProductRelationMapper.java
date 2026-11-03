@@ -10,6 +10,12 @@ import org.apache.ibatis.annotations.Param;
 @Mapper
 public interface DccProjectProductRelationMapper extends BaseMapperX<DccProjectProductRelationDO> {
 
+    default java.util.List<DccProjectProductRelationDO> selectActiveByProductCatalogIds(java.util.Collection<Long> ids) {
+        return selectList(new LambdaQueryWrapperX<DccProjectProductRelationDO>()
+                .in(DccProjectProductRelationDO::getProductCatalogId, ids)
+                .eq(DccProjectProductRelationDO::getRelationStatus, "ACTIVE"));
+    }
+
     @Select("""
             SELECT * FROM dcc_project_product_relation
             WHERE project_code_id = #{projectCodeId} AND product_catalog_id = #{productCatalogId}

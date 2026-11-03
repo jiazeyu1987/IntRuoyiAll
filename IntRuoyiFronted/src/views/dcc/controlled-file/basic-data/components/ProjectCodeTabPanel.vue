@@ -866,7 +866,7 @@
 
       <div class="dcc-project-code-associated-heading">
         <span>关联文档</span>
-        <div class="dcc-project-code-associated-heading-actions">
+        <div v-if="canQueryAssociatedFiles" class="dcc-project-code-associated-heading-actions">
           <span
             v-if="aiCategoryRunning"
             class="dcc-project-code-ai-category-percent"
@@ -934,10 +934,25 @@
           >
             分配记录
           </el-button>
-          <el-tag class="scheme-d-tag" size="small" type="info">共 {{ associatedFilesTotal }} 份</el-tag>
+          <el-tag v-if="!associatedFilesError" class="scheme-d-tag" size="small" type="info">共 {{ associatedFilesTotal }} 份</el-tag>
         </div>
       </div>
+      <el-alert
+        v-if="!canQueryAssociatedFiles"
+        title="需要项目查询和受控文件查询权限才能查看关联文档"
+        type="info"
+        :closable="false"
+        show-icon
+      />
+      <el-alert
+        v-else-if="associatedFilesError"
+        :title="associatedFilesError"
+        type="error"
+        :closable="false"
+        show-icon
+      />
       <div
+        v-else
         v-loading="associatedFilesLoading"
         class="dcc-project-code-associated-files"
         data-testid="dcc-project-code-associated-files"
@@ -1459,6 +1474,7 @@ import {
   getProjectCodeAccessRules,
   getProjectCode,
   getProjectCodeControlledFilesPage,
+  getProjectCodeFileTypeTaxonomies,
   getProjectCodeFileTemplate,
   getProjectCodeImportTemplate,
   getPendingProductOnboardingRequests,
@@ -1691,6 +1707,10 @@ const previewLoading = ref(false)
 const confirmLoading = ref(false)
 const detailLoading = ref(false)
 const associatedFilesLoading = ref(false)
+const associatedFilesError = ref('')
+const canQueryAssociatedFiles = computed(() =>
+  checkPermi(['dcc:project-code:query']) && checkPermi(['dcc:controlled-file:query'])
+)
 const importVisible = ref(false)
 const recognitionJsonImportVisible = ref(false)
 const recognitionJsonImporting = ref(false)
@@ -3042,6 +3062,7 @@ const handleDelete = async (row: DccProjectCodeRespVO) => {
 }
 
 const resetAssociatedFilesState = () => {
+  associatedFilesError.value = ''
   associatedNavigationFiles.value = []
   associatedFilesTotal.value = 0
   selectedAssociatedStageKey.value = ''
@@ -3094,7 +3115,7 @@ const getAssociatedFiles = async (
   const canApplyDetailResult = () =>
     typeof requestToken === 'undefined' || requestToken === detailRequestSequence
   const projectCodeId = projectCodeIdOverride ?? selectedProjectCode.value?.id
-  if (!projectCodeId) {
+  if (!projectCodeId || !canQueryAssociatedFiles.value) {
     if (canApplyDetailResult()) {
       resetAssociatedFilesState()
     }
@@ -3102,9 +3123,10 @@ const getAssociatedFiles = async (
   }
   if (canApplyDetailResult()) {
     associatedFilesLoading.value = true
+    associatedFilesError.value = ''
   }
   try {
-    await loadFileTypeTaxonomies()
+    const taxonomies = await getProjectCodeFileTypeTaxonomies(projectCodeId)
     const navigationFiles: ControlledFileVO[] = []
     const fetchNavigationPage = (pageNo: number) =>
       getProjectCodeControlledFilesPage(
@@ -3127,6 +3149,7 @@ const getAssociatedFiles = async (
     if (!canApplyDetailResult()) {
       return
     }
+    fileTypeTaxonomies.value = taxonomies
     associatedNavigationFiles.value = navigationFiles
     associatedFilesTotal.value = total
     resetAssociatedFilePage()
@@ -3160,7 +3183,13 @@ const fetchProjectCodeAssociatedFiles = async (projectCodeId: number | string) =
 }
 
 const loadAssociatedFilesForDetail = async (projectCodeId: number | string, requestToken: number) => {
-  await getAssociatedFiles(projectCodeId, requestToken)
+  try {
+    await getAssociatedFiles(projectCodeId, requestToken)
+  } catch (cause) {
+    if (requestToken === detailRequestSequence) {
+      associatedFilesError.value = `关联文档加载失败：${cause instanceof Error ? cause.message : String(cause)}`
+    }
+  }
 }
 
 const loadAssignmentUsers = async () => {
