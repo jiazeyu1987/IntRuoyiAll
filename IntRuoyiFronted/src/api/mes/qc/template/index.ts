@@ -112,6 +112,7 @@ export interface QaInspectionRegulationItemVO {
   sourceOriginalExcerpt?: string
   sourceOriginalMethod?: string
   equipmentOptions: QaInspectionRegulationItemEquipmentVO[]
+  equipmentUnboundReason?: string
 }
 
 export interface QaInspectionRegulationProcessVO {
@@ -123,6 +124,7 @@ export interface QaInspectionRegulationProcessVO {
 }
 
 export interface QaInspectionRegulationPublishedVersionVO {
+  commonRegulationVersions?: QaCommonRegulationVersionOptionVO[] | null
   draftRevision: number
   dccProjectCodeId: number
   regulationId: number
@@ -311,6 +313,7 @@ export interface QaCommonRegulationSetVersionOptionVO {
 }
 
 export interface QaInspectionRegulationSaveReqVO {
+  commonRegulationVersionIds?: number[]
   expectedDraftRevision: number
   regulationId?: number
   dccProjectCodeId: number
@@ -630,35 +633,6 @@ export const QcTemplateApi = {
   > => {
     return await request.get({
       url: `/mes/qa/inspection-regulation/common-binding/published-set-versions`
-    })
-  },
-
-  // 绑定当前产品的通用检验规程版本
-  bindCommonRegulationVersion: async (
-    data: QaCommonRegulationBindReqVO
-  ): Promise<QaCommonRegulationBindingVO> => {
-    return await request.post({
-      url: `/mes/qa/inspection-regulation/common-binding/bind`,
-      data
-    })
-  },
-
-  // 一次保存当前产品的通用规程列表，空列表表示解除全部绑定
-  saveCommonRegulationBindingList: async (data: {
-    dccProjectCodeId: number
-    commonRegulationVersionIds: number[]
-    changeReason?: string
-  }): Promise<QaCommonRegulationBindingVO | null> => {
-    return await request.post({ url: `/mes/qa/inspection-regulation/common-binding/save-list`, data })
-  },
-
-  // 解除当前产品的通用检验规程绑定
-  unbindCommonRegulation: async (
-    dccProjectCodeId: number
-  ): Promise<QaCommonRegulationBindingVO | null> => {
-    return await request.post({
-      url: `/mes/qa/inspection-regulation/common-binding/unbind`,
-      params: { dccProjectCodeId }
     })
   },
 

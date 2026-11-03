@@ -350,6 +350,13 @@ public class MesProRouteCandidateConfigServiceImpl implements MesProRouteCandida
         }
     }
 
+    /** Shared read-only checks for the formal route readiness inspection. */
+    public void validateProductionReadiness(Long routeVersionId, JSONObject configSnapshots) {
+        validateProductionProcessConfigs(routeVersionId, configSnapshots);
+        validateProductionDevicesExist(routeVersionId, configSnapshots);
+        craftService.validateBindings(configSnapshots);
+    }
+
     private void validateProductionDevicesExist(Long routeVersionId, JSONObject configSnapshots) {
         JSONArray configs = configSnapshots.getJSONArray("productionProcessConfigs");
         if (configs == null) {

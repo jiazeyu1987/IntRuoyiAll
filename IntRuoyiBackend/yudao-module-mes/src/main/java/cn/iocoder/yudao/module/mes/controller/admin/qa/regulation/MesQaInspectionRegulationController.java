@@ -1,8 +1,6 @@
 package cn.iocoder.yudao.module.mes.controller.admin.qa.regulation;
 
 import cn.iocoder.yudao.framework.common.pojo.CommonResult;
-import cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaCommonRegulationBindReqVO;
-import cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaCommonRegulationBindingListSaveReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaCommonRegulationBindingRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaCommonRegulationSetItemsUpgradeReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaCommonRegulationSetRespVO;
@@ -242,27 +240,4 @@ public class MesQaInspectionRegulationController {
         return success(regulationService.listCommonRegulationPublishedSetVersions());
     }
 
-    @PostMapping("/common-binding/bind")
-    @Operation(summary = "绑定产品当前通用检验规程版本")
-    @PreAuthorize("@ss.hasPermission('mes:qc-template:update')")
-    public CommonResult<MesQaCommonRegulationBindingRespVO> bindCommonRegulationVersion(
-            @Valid @RequestBody MesQaCommonRegulationBindReqVO reqVO) {
-        return success(regulationService.bindCommonRegulationVersion(reqVO));
-    }
-
-    @PostMapping("/common-binding/save-list")
-    @Operation(summary = "统一保存产品通用检验规程绑定列表")
-    @PreAuthorize("@ss.hasPermission('mes:qc-template:update')")
-    public CommonResult<MesQaCommonRegulationBindingRespVO> saveCommonRegulationBindingList(
-            @Valid @RequestBody MesQaCommonRegulationBindingListSaveReqVO reqVO) {
-        return success(regulationService.saveCommonRegulationBindingList(reqVO));
-    }
-
-    @PostMapping("/common-binding/unbind")
-    @Operation(summary = "解除产品当前通用检验规程绑定")
-    @PreAuthorize("@ss.hasPermission('mes:qc-template:update')")
-    public CommonResult<MesQaCommonRegulationBindingRespVO> unbindCommonRegulation(
-            @RequestParam("dccProjectCodeId") Long dccProjectCodeId) {
-        return success(regulationService.unbindCommonRegulation(dccProjectCodeId));
-    }
 }

@@ -7,7 +7,7 @@
       :closable="false"
       class="mb-12px"
     />
-    <el-form v-loading="state.loading" :disabled="state.saving || !state.ready" label-width="100px">
+    <el-form v-loading="state.loading" :disabled="state.saving || confirming || !state.ready" label-width="100px">
       <el-form-item label="目标账号">
         <span>{{
           state.relation ? `${state.relation.username}（${state.relation.nickname}）` : '正在读取'
@@ -30,7 +30,7 @@
           :user-options="state.candidates"
           :option-mapper="mapSupervisorOption"
           :clearable="false"
-          :disabled="state.saving || !state.ready"
+          :disabled="state.saving || confirming || !state.ready"
           placeholder="请选择启用账号"
           @change="selected"
         />
@@ -58,7 +58,7 @@
         v-hasPermi="['system:user:update']"
         type="primary"
         :loading="state.saving"
-        :disabled="!state.ready || state.loading"
+        :disabled="!state.ready || state.loading || confirming"
         @click="save"
         >保存关系</el-button
       >
@@ -78,6 +78,7 @@ import {
   getDirectSupervisorCandidates
 } from '@/api/system/user/directSupervisor'
 import {
+  SUPERVISOR_SAVE_CANCELLED,
   createSupervisorState,
   openSupervisor,
   closeSupervisor,
@@ -89,10 +90,30 @@ import {
 
 const emit = defineEmits<{ saved: [userId: string] }>()
 const state = reactive(createSupervisorState())
+const message = useMessage()
+const confirming = ref(false)
 const handoverRef = ref<InstanceType<typeof SupervisorHandoverDialog>>()
 const port: SupervisorPort = {
   get: getDirectSupervisor,
-  save: saveDirectSupervisor,
+  save: async (payload) => {
+    const sequence = state.sequence
+    const relation = state.relation!
+    const candidate = state.candidates.find((row) => String(row.id) === payload.supervisorUserId)
+    const oldSupervisor = relation.supervisorUserId
+      ? `${relation.supervisorUsername}（${relation.supervisorNickname}，ID：${relation.supervisorUserId}）`
+      : '未设置'
+    try {
+      await message.confirm(
+        `目标员工：${relation.username}（${relation.nickname}）\n原主管：${oldSupervisor}\n新主管：${payload.operation === 'CLEAR' ? '明确清空' : `${candidate?.username}（${candidate?.nickname}，ID：${payload.supervisorUserId}）`}\n原因：${payload.changeReason}\n保存仅变更直属主管关系，待办交接另行确认。取消本次确认，关系与待办均不变；保存成功后取消交接不会撤销关系。`,
+        '确认保存直属主管关系'
+      )
+    } catch (cause) {
+      if (cause === 'cancel' || cause === 'close') return SUPERVISOR_SAVE_CANCELLED
+      throw cause
+    }
+    if (sequence !== state.sequence || !state.visible) return SUPERVISOR_SAVE_CANCELLED
+    return saveDirectSupervisor(payload)
+  },
   candidates: getDirectSupervisorCandidates
 }
 const close = () => closeSupervisor(state)
@@ -105,10 +126,17 @@ const selected = () => {
 const open = (userId: number | string) =>
   openSupervisor(state, getVisitTenantId() || getTenantId(), userId, port)
 const save = async () => {
+  if (confirming.value || state.saving) return
+  confirming.value = true
   const target = state.userId
   const previous = state.relation
   const reason = state.reason.trim()
-  const result = await submitSupervisor(state, port)
+  let result
+  try {
+    result = await submitSupervisor(state, port)
+  } finally {
+    confirming.value = false
+  }
   // submitSupervisor 已校验请求代次；保存成功关闭弹窗会递增 sequence，不能再将成功结果作废。
   if (result && result.userId === target && state.userId === target) {
     emit('saved', result.userId)

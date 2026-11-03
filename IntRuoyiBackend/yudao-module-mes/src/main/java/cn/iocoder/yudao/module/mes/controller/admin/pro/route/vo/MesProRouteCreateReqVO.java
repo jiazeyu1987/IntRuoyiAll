@@ -14,6 +14,10 @@ import java.util.List;
 @Schema(description = "管理后台 - 新增工艺流程，编码由服务端生成")
 public class MesProRouteCreateReqVO {
 
+    @Schema(description = "所属项目代码ID，项目不得已有其他工艺流程", requiredMode = Schema.RequiredMode.REQUIRED)
+    @NotNull(message = "请选择项目代码")
+    private Long dccProjectCodeId;
+
     @NotBlank(message = "名称不能为空")
     @Size(max = 128, message = "名称不能超过128个字符")
     private String name;

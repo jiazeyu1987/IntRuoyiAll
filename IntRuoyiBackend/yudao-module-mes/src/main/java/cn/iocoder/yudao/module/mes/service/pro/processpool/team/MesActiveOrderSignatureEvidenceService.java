@@ -56,6 +56,7 @@ import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionU
 @Service
 @RequiredArgsConstructor
 public class MesActiveOrderSignatureEvidenceService {
+    @Resource private cn.iocoder.yudao.module.bpm.approval.content.ApprovalCenterReceiptService centerReceipts;
     @jakarta.annotation.Resource private cn.iocoder.yudao.module.signature.service.ElectronicSignatureVerifiedFactService verifiedSignatureFacts;
     private cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesSignatureContentProtocol.VerifiedMesSignatureContent verifiedContent(Long id) {
         return cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesSignatureContentProtocol.parseVerifiedContent(verifiedSignatureFacts.requireVerifiedFact(id), cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId());
@@ -462,13 +463,49 @@ public class MesActiveOrderSignatureEvidenceService {
                     .noneMatch(candidate -> candidate.trim().equals(String.valueOf(evidence.actorId())))
                 || !Objects.equals(transaction.getApprovalSignatureId(), evidence.id())
                 || !Objects.equals(transaction.getApprovedBy(), evidence.actorId())
-                || !Objects.equals(transaction.getApprovalSignoffEvidenceHash(), evidence.evidenceHash())
+                || !Objects.equals(transaction.getApprovalSignoffEvidenceHash(), evidence.evidenceHash()))
+            throw exception(EVIDENCE_INVALID);
+        var fact = verifiedSignatureFacts.requireVerifiedFact(evidence.id());
+        if ("V2".equals(fact.verification().evidenceFormatVersion())) {
+            String key = fact.idempotencyKey();
+            if (key == null || !key.startsWith("AC:") || !key.endsWith(":CENTER") || key.length() <= 10)
+                throw exception(EVIDENCE_INVALID);
+            var receipt = centerReceipts.findVerified(evidence.actorId(), key.substring(3, key.length() - 7));
+            requireCenterMarketReleaseBinding(task, transaction, receipt, evidence);
+        } else if (!"V1".equals(fact.verification().evidenceFormatVersion())
                 || !Objects.equals(marketSignoff.findVerifiedSignatureId(task.getId(), transaction.getApprovedBy(),
                         evidence.subjectId(), transaction.getApprovalSignoffEvidenceHash(), transaction.getApprovalOpinion())
                         .orElse(null), evidence.id())) throw exception(EVIDENCE_INVALID);
-        var verification = verifiedSignatureFacts.requireVerifiedFact(evidence.id()).verification();
+        var verification = fact.verification();
         requireVerification(evidence, verification);
         return new Result(detail.getActiveOrderId(), bindings.get(0).signerName(), evidence, verification);
+    }
+
+    /** The center receipt has already verified its signature, signed content and creation evidence. */
+    static void requireCenterMarketReleaseBinding(MesProEdhrWorkTaskDO task,
+            cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrReleaseTransactionDO transaction,
+            cn.iocoder.yudao.module.bpm.dal.dataobject.approval.BpmApprovalReviewReceiptDO receipt,
+            ElectronicSignatureEvidenceDTO evidence) {
+        if (receipt == null || !Objects.equals(receipt.getTenantId(), TenantContextHolder.getRequiredTenantId())
+                || !Objects.equals(receipt.getActorId(), evidence.actorId())
+                || !Objects.equals(receipt.getCenterSignatureId(), evidence.id())
+                || !Objects.equals(receipt.getCenterEvidenceHash(), evidence.evidenceHash())
+                || !Objects.equals(receipt.getSubjectVersion(), evidence.subjectVersion())
+                || !"APPROVE".equals(receipt.getActionCode()) || !"APPROVE".equals(receipt.getResultCode())
+                || !"RELEASED".equals(receipt.getResultingStatus())
+                || !Objects.equals(receipt.getReason(), transaction.getApprovalOpinion())
+                || !Objects.equals(evidence.subjectId(), "EDHR_RELEASE:" + transaction.getId())
+                || !Objects.equals(evidence.taskId(), task.getId().toString())) throw exception(EVIDENCE_INVALID);
+        var identity = JsonUtils.parseTree(receipt.getIdentityJson());
+        var links = JsonUtils.parseTree(receipt.getDomainLinksJson());
+        if (identity == null || links == null
+                || !"EDHR".equals(identity.path("ownerCode").asText())
+                || !"EDHR_WORK_TASK".equals(identity.path("sourceTaskType").asText())
+                || !task.getId().toString().equals(identity.path("sourceTaskId").asText())
+                || !"EDHR_RELEASE".equals(identity.path("domainSubjectType").asText())
+                || !transaction.getId().toString().equals(identity.path("domainSubjectId").asText())
+                || !transaction.getId().toString().equals(links.path("releaseId").asText()))
+            throw exception(EVIDENCE_INVALID);
     }
 
     private static void add(List<Binding> bindings, MesTeamLeaderActiveOrderDetail.SignatureDetail signature,

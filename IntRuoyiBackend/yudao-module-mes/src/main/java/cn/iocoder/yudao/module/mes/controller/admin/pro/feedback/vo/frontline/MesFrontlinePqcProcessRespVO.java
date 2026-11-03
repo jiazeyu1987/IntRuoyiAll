@@ -107,6 +107,8 @@ public class MesFrontlinePqcProcessRespVO {
         private String inspectionMethod;
         private String standardText;
         private String inspectionTool;
+        @Schema(description = "规程发布时的器具未绑定原因")
+        private String equipmentUnboundReason;
         private String samplingPlanText;
         private BigDecimal standardLowerLimit;
         private BigDecimal standardUpperLimit;

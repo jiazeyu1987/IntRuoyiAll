@@ -326,6 +326,7 @@
               </small>
             </div>
           </div>
+          <el-alert type="info" :closable="false" title="导入全部数据包时，每条工艺流程必须包含独占的项目关联；缺少项目代码或项目已被其他流程占用时，整包导入失败。" />
           <div class="scheduler-workbench__settings-actions">
             <el-button
               plain

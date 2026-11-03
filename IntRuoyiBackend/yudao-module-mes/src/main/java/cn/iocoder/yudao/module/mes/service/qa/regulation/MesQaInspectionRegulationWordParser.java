@@ -1,8 +1,13 @@
 package cn.iocoder.yudao.module.mes.service.qa.regulation;
 
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
+import org.apache.poi.hwpf.HWPFDocument;
+import org.apache.poi.hwpf.usermodel.HeaderStories;
+import org.apache.poi.hwpf.usermodel.Range;
+import org.apache.poi.hwpf.usermodel.Table;
+import org.apache.poi.hwpf.usermodel.TableCell;
+import org.apache.poi.hwpf.usermodel.TableRow;
 import org.apache.poi.xwpf.usermodel.XWPFDocument;
-import org.apache.poi.xwpf.usermodel.XWPFHeader;
 import org.apache.poi.xwpf.usermodel.XWPFParagraph;
 import org.apache.poi.xwpf.usermodel.XWPFTable;
 import org.apache.poi.xwpf.usermodel.XWPFTableCell;
@@ -19,9 +24,11 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -36,7 +43,9 @@ public class MesQaInspectionRegulationWordParser {
     private static final Pattern FIRST_QUANTITY_PATTERN = Pattern.compile(
             "(?:首件|首检)\\s*[：:]?\\s*(\\d+)\\s*件");
     private static final Pattern AQL_PATTERN = Pattern.compile(
-            "(?i)AQL\\s*[=＝:]\\s*(\\d+(?:\\.\\d+)?)");
+            "(?i)AQL\\s*[=＝:：]\\s*([+-]?\\d+(?:\\.\\d+)?)");
+    private static final Pattern PATROL_RATIO_PATTERN = Pattern.compile(
+            "巡检(?:抽样)?(?:比例|比率)\\s*[：:=＝]?\\s*([+-]?\\d+(?:\\.\\d+)?)\\s*[%％]");
     private static final Pattern SERIAL_PATTERN = Pattern.compile("\\d+");
     private static final Pattern PROCESS_NAME_SEPARATOR_PATTERN = Pattern.compile("[/／]+|\\s+");
     private static final Pattern ADJACENT_ROMAN_NUMBERED_PROCESS_PATTERN = Pattern.compile(
@@ -50,25 +59,158 @@ public class MesQaInspectionRegulationWordParser {
         if (content == null || content.length == 0) {
             throw invalid("上传文件不能为空");
         }
-        try (XWPFDocument document = new XWPFDocument(new ByteArrayInputStream(content))) {
+        String format = normalizeText(fileName).toLowerCase(Locale.ROOT).endsWith(".doc") ? "DOC" : "DOCX";
+        try {
+            WordContent document = "DOC".equals(format) ? readDoc(content) : readDocx(content);
             HeaderMetadata header = parseHeader(document);
             LocalDate effectiveDate = parseEffectiveDate(document, header.versionNo());
             List<ParsedItem> items = parseInspectionItems(document, header.regulationName());
             return new ParsedRegulation(header.regulationCode(), header.regulationName(),
-                    header.versionNo(), effectiveDate, items, normalizeText(fileName));
+                    header.versionNo(), effectiveDate, items, normalizeText(fileName), readRuleSource(document));
         } catch (ServiceException ex) {
             throw ex;
         } catch (Exception ex) {
-            throw invalid("文件不是可读取的 DOCX 文档：" + normalizeText(ex.getMessage()));
+            throw invalid("文件不是可读取的 " + format + " 文档：" + normalizeText(ex.getMessage()));
         }
     }
 
-    private HeaderMetadata parseHeader(XWPFDocument document) {
-        List<List<String>> rows = document.getHeaderList().stream()
-                .flatMap(header -> header.getTables().stream())
-                .flatMap(table -> table.getRows().stream())
-                .map(this::physicalRowTexts)
-                .toList();
+    private record WordTable(List<List<String>> physicalRows, List<List<String>> grid) {}
+
+    private record WordContent(List<List<String>> headerRows, List<WordTable> tables,
+                               List<String> paragraphs) {}
+
+    private WordContent readDocx(byte[] content) throws Exception {
+        try (XWPFDocument document = new XWPFDocument(new ByteArrayInputStream(content))) {
+            List<List<String>> headers = document.getHeaderList().stream()
+                    .flatMap(header -> header.getTables().stream())
+                    .flatMap(table -> table.getRows().stream()).map(this::physicalRowTexts).toList();
+            List<WordTable> tables = document.getTables().stream()
+                    .map(table -> new WordTable(table.getRows().stream().map(this::physicalRowTexts).toList(),
+                            buildLogicalGrid(table))).toList();
+            return new WordContent(headers, tables,
+                    document.getParagraphs().stream().map(XWPFParagraph::getText).toList());
+        }
+    }
+
+    private WordContent readDoc(byte[] content) throws Exception {
+        try (HWPFDocument document = new HWPFDocument(new ByteArrayInputStream(content))) {
+            HeaderStories stories = new HeaderStories(document);
+            List<List<String>> headers = new ArrayList<>();
+            for (Range range : new Range[]{stories.getFirstHeaderSubrange(),
+                    stories.getEvenHeaderSubrange(), stories.getOddHeaderSubrange()}) {
+                if (range != null) {
+                    readDocTables(range).forEach(table -> headers.addAll(table.physicalRows()));
+                }
+            }
+            Range body = document.getRange();
+            List<String> paragraphs = new ArrayList<>();
+            for (int index = 0; index < body.numParagraphs(); index++) {
+                var paragraph = body.getParagraph(index);
+                if (!paragraph.isInTable()) paragraphs.add(docText(paragraph.text()));
+            }
+            return new WordContent(headers, readDocTables(body), paragraphs);
+        }
+    }
+
+    private List<WordTable> readDocTables(Range range) {
+        List<WordTable> tables = new ArrayList<>();
+        int previousTableEnd = -1;
+        for (int index = 0; index < range.numParagraphs(); index++) {
+            var paragraph = range.getParagraph(index);
+            if (!paragraph.isInTable() || paragraph.getTableLevel() != 1
+                    || paragraph.getStartOffset() < previousTableEnd) continue;
+            Table table = range.getTable(paragraph);
+            tables.add(readDocTable(table));
+            previousTableEnd = table.getEndOffset();
+        }
+        return tables;
+    }
+
+    private WordTable readDocTable(Table table) {
+        // DOC encodes horizontal spans by cell positions; keep them aligned across rows.
+        TreeSet<Integer> edges = new TreeSet<>();
+        for (int rowIndex = 0; rowIndex < table.numRows(); rowIndex++) {
+            TableRow row = table.getRow(rowIndex);
+            for (int cellIndex = 0; cellIndex < row.numCells(); cellIndex++) {
+                TableCell cell = row.getCell(cellIndex);
+                edges.add(cell.getLeftEdge());
+                edges.add(cell.getLeftEdge() + Math.max(1, cell.getWidth()));
+            }
+        }
+        List<Integer> boundaries = new ArrayList<>(edges);
+        List<List<String>> physicalRows = new ArrayList<>();
+        List<List<String>> grid = new ArrayList<>();
+        Map<Integer, String> verticalValues = new HashMap<>();
+        for (int rowIndex = 0; rowIndex < table.numRows(); rowIndex++) {
+            TableRow row = table.getRow(rowIndex);
+            List<String> physical = new ArrayList<>();
+            List<String> logical = new ArrayList<>();
+            ensureSize(logical, boundaries.size() - 1);
+            String horizontalText = "";
+            for (int cellIndex = 0; cellIndex < row.numCells(); cellIndex++) {
+                TableCell cell = row.getCell(cellIndex);
+                String text = docCellText(cell);
+                if (cell.isMerged() && !cell.isFirstMerged()) text = horizontalText;
+                else horizontalText = text;
+                physical.add(displayCellText(text));
+                int start = boundaries.indexOf(cell.getLeftEdge());
+                int end = boundaries.indexOf(cell.getLeftEdge() + Math.max(1, cell.getWidth()));
+                for (int column = start; column < end; column++) {
+                    String resolved = text;
+                    if (cell.isVerticallyMerged() && !cell.isFirstVerticallyMerged()) {
+                        resolved = verticalValues.getOrDefault(column, "");
+                    } else if (cell.isFirstVerticallyMerged()) {
+                        verticalValues.put(column, text);
+                    } else {
+                        verticalValues.remove(column);
+                    }
+                    logical.set(column, resolved);
+                }
+            }
+            physicalRows.add(List.copyOf(physical));
+            grid.add(List.copyOf(logical));
+        }
+        return new WordTable(physicalRows, grid);
+    }
+
+    private String docCellText(TableCell cell) {
+        List<String> paragraphs = new ArrayList<>();
+        for (int index = 0; index < cell.numParagraphs(); index++) {
+            String text = docText(cell.getParagraph(index).text());
+            if (!text.isEmpty()) paragraphs.add(text);
+        }
+        return String.join(CELL_PARAGRAPH_SEPARATOR, paragraphs);
+    }
+
+    private static String docText(String text) {
+        return normalizeText(text.replace("\u0007", "").replace('\u000b', '\n').replace("\u000c", ""));
+    }
+
+    private String readRuleSource(WordContent document) {
+        Set<String> lines = new LinkedHashSet<>();
+        for (WordTable table : document.tables()) {
+            for (List<String> cells : table.physicalRows()) {
+                if (!cells.isEmpty() && cells.get(0).startsWith("备注")) {
+                    lines.add(String.join("\n", new LinkedHashSet<>(cells)));
+                }
+            }
+        }
+        boolean inRules = false;
+        for (String paragraph : document.paragraphs()) {
+            String text = normalizeText(paragraph);
+            if (text.contains("判定规则")) {
+                inRules = true;
+                continue;
+            }
+            if (inRules && (text.matches("^[6-9][.、\\s].*")
+                    || List.of("相关文件", "相关记录", "附件").contains(text))) break;
+            if (inRules && !text.isBlank()) lines.add(text);
+        }
+        return String.join("\n", lines);
+    }
+
+    private HeaderMetadata parseHeader(WordContent document) {
+        List<List<String>> rows = document.headerRows();
         if (rows.isEmpty()) {
             throw invalid("首页页眉表格不存在");
         }
@@ -137,10 +279,10 @@ public class MesQaInspectionRegulationWordParser {
         return longest.get(0);
     }
 
-    private LocalDate parseEffectiveDate(XWPFDocument document, String versionNo) {
+    private LocalDate parseEffectiveDate(WordContent document, String versionNo) {
         Set<LocalDate> effectiveDates = new LinkedHashSet<>();
-        for (XWPFTable table : document.getTables()) {
-            List<List<String>> grid = buildLogicalGrid(table);
+        for (WordTable table : document.tables()) {
+            List<List<String>> grid = table.grid();
             for (int headerIndex = 0; headerIndex < grid.size(); headerIndex++) {
                 List<String> header = grid.get(headerIndex);
                 int versionColumn = findExactColumn(header, "版本");
@@ -166,10 +308,10 @@ public class MesQaInspectionRegulationWordParser {
         return effectiveDates.iterator().next();
     }
 
-    private List<ParsedItem> parseInspectionItems(XWPFDocument document, String regulationName) {
+    private List<ParsedItem> parseInspectionItems(WordContent document, String regulationName) {
         List<InspectionTable> matches = new ArrayList<>();
-        for (XWPFTable table : document.getTables()) {
-            List<List<String>> grid = buildLogicalGrid(table);
+        for (WordTable table : document.tables()) {
+            List<List<String>> grid = table.grid();
             for (int rowIndex = 0; rowIndex < grid.size(); rowIndex++) {
                 InspectionColumns columns = resolveInspectionColumns(grid.get(rowIndex));
                 if (columns != null) {
@@ -364,16 +506,31 @@ public class MesQaInspectionRegulationWordParser {
             throw invalid("检验项目序号 " + serial + " 的首检数量必须大于 0");
         }
 
-        Set<BigDecimal> patrolRatios = collectDecimals(AQL_PATTERN, samplingPlanText);
+        Set<BigDecimal> aqlValues = collectDecimals(AQL_PATTERN, samplingPlanText);
+        if (aqlValues.size() > 1) {
+            throw invalid("检验项目序号 " + serial + " 的 AQL 数值不唯一");
+        }
+        BigDecimal aqlRatio = aqlValues.stream().findFirst().orElse(null);
+        if (aqlRatio != null && (aqlRatio.signum() <= 0 || aqlRatio.compareTo(BigDecimal.valueOf(100)) > 0)) {
+            throw invalid("检验项目序号 " + serial + " 的 AQL 数值作为巡检百分比必须大于 0 且不超过 100%");
+        }
+        Set<BigDecimal> patrolRatios = collectDecimals(PATROL_RATIO_PATTERN, samplingPlanText);
         if (patrolRatios.size() > 1) {
-            throw invalid("检验项目序号 " + serial + " 必须包含唯一有效的 AQL 比例");
+            throw invalid("检验项目序号 " + serial + " 的巡检抽样比例不唯一");
         }
         BigDecimal patrolRatio = patrolRatios.stream().findFirst().orElse(null);
-        if (patrolRatio != null && patrolRatio.compareTo(BigDecimal.ZERO) <= 0) {
-            throw invalid("检验项目序号 " + serial + " 的 AQL 比例必须大于 0");
+        if (patrolRatio != null && (patrolRatio.signum() <= 0 || patrolRatio.compareTo(BigDecimal.valueOf(100)) > 0)) {
+            throw invalid("检验项目序号 " + serial + " 的巡检抽样比例必须大于 0 且不超过 100%");
         }
-        if (firstQuantity == null && patrolRatio == null) {
-            throw invalid("检验项目序号 " + serial + " 必须包含首检数量或唯一有效的 AQL 比例");
+        if (aqlRatio != null && patrolRatio != null && aqlRatio.compareTo(patrolRatio) != 0) {
+            throw invalid("检验项目序号 " + serial + " 的 AQL 数值与显式巡检抽样比例冲突");
+        }
+        // 内部规则：AQL数值作为巡检百分比，不执行GB/T抽样表
+        if (aqlRatio != null) {
+            patrolRatio = aqlRatio;
+        }
+        if (firstQuantity == null && patrolRatio == null && aqlValues.isEmpty()) {
+            throw invalid("检验项目序号 " + serial + " 必须包含首检数量、巡检抽样比例或 AQL 抽样方案");
         }
         return new SamplingRule(firstQuantity, patrolRatio);
     }
@@ -597,13 +754,17 @@ public class MesQaInspectionRegulationWordParser {
 
     public record ParsedRegulation(String regulationCode, String regulationName,
                                    String versionNo, LocalDate effectiveDate,
-                                   List<ParsedItem> items, String fileName) {
+                                   List<ParsedItem> items, String fileName, String ruleSourceText) {
     }
 
     public record ParsedItem(String processName, String itemName, String standardText,
                              String inspectionMethod, String inspectionTool,
                              String samplingPlanText, Integer firstInspectionQuantity,
                              BigDecimal patrolInspectionRatio) {
+        public boolean patrolApplicable() {
+            return patrolInspectionRatio != null || AQL_PATTERN.matcher(samplingPlanText).find()
+                    || samplingPlanText.contains("巡检");
+        }
     }
 
     private record HeaderMetadata(String regulationCode, String regulationName, String versionNo) {

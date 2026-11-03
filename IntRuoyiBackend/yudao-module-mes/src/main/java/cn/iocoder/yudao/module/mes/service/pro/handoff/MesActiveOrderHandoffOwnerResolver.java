@@ -253,11 +253,20 @@ public class MesActiveOrderHandoffOwnerResolver {
     }
 
     private static boolean sameId(JsonNode node,String field,Long expected) {
-        return expected!=null&&node.path(field).isIntegralNumber()&&Objects.equals(node.path(field).longValue(),expected);
+        var value=node.path(field);
+        // NumberSerializer writes snowflake IDs as strings to preserve their exact value.
+        return expected!=null&&expected>0&&(value.isIntegralNumber()||value.isTextual())
+                &&expected.toString().equals(value.asText());
     }
     private static List<Long> frozenIds(JsonNode node) {
         require(node.isArray()&&!node.isEmpty(),"PQC冻结办理责任集合缺失");var ids=new TreeSet<Long>();
-        for(var value:node)require(value.isIntegralNumber()&&value.longValue()>0&&ids.add(value.longValue()),"PQC冻结办理责任身份无效或重复");
+        for(var value:node) {
+            String text=value.asText();
+            require((value.isIntegralNumber()||value.isTextual())&&text.matches("[1-9][0-9]{0,18}")
+                    &&new java.math.BigInteger(text).compareTo(java.math.BigInteger.valueOf(Long.MAX_VALUE))<=0,
+                    "PQC冻结办理责任身份无效或重复");
+            require(ids.add(Long.valueOf(text)),"PQC冻结办理责任身份无效或重复");
+        }
         return List.copyOf(ids);
     }
 

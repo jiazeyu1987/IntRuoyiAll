@@ -23,6 +23,7 @@ public class MesQaInspectionRegulationPublishedVersionRespVO {
     private Long publishedVersionId;
     private String versionNo;
     private Long draftRevision;
+    @com.fasterxml.jackson.annotation.JsonFormat(shape = com.fasterxml.jackson.annotation.JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd")
     private LocalDate effectiveDate;
     private LocalDateTime publishedAt;
     private Boolean immutable;
@@ -33,6 +34,8 @@ public class MesQaInspectionRegulationPublishedVersionRespVO {
     private String finalInspectionNotApplicableReason;
     private List<InspectionTypeRule> inspectionTypeRules;
     private List<InspectionProcess> processes;
+    @Schema(description = "该版本发布时的关联快照；null 表示旧版本未记录，空列表表示无关联")
+    private List<MesQaCommonRegulationVersionOptionRespVO> commonRegulationVersions;
 
     @Data
     @Builder
@@ -72,6 +75,8 @@ public class MesQaInspectionRegulationPublishedVersionRespVO {
         private String itemName;
         private String inspectionMethod;
         private String inspectionTool;
+        @Schema(description = "发布时的器具未绑定原因，执行前仍需检查当前有效设备配置")
+        private String equipmentUnboundReason;
         private String samplingPlanText;
         private String standardText;
         private BigDecimal standardLowerLimit;

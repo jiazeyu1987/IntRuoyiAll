@@ -69,13 +69,13 @@
           </el-table-column>
           <el-table-column
             prop="sourceLogicalKey"
-            label="来源逻辑键"
+            label="来源字段标识"
             min-width="160"
             show-overflow-tooltip
           />
           <el-table-column
             prop="targetLogicalKey"
-            label="目标逻辑键"
+            label="目标字段标识"
             min-width="160"
             show-overflow-tooltip
           />
@@ -89,9 +89,11 @@
           </el-table-column>
           <el-table-column label="匹配证据" min-width="180">
             <template #default="{ row }">
-              <span>{{ row.matchConfidence }}</span>
-              <div>{{ row.ruleType }}</div>
-              <pre class="version-review-evidence">{{ row.matchEvidenceJson }}</pre>
+              <ReadableData title="匹配依据" :source="row.matchEvidenceJson" />
+              <details
+                ><summary>匹配技术信息</summary> <p>匹配置信度：{{ row.matchConfidence }}</p
+                ><p>规则标识：{{ row.ruleType }}</p>
+              </details>
             </template>
           </el-table-column>
         </el-table>
@@ -152,6 +154,7 @@
 </template>
 
 <script setup lang="ts">
+import ReadableData from '@/components/BusinessData/ReadableData.vue'
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { ElMessageBox } from 'element-plus'
 import { hasPermission } from '@/directives/permission/hasPermi'

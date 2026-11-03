@@ -283,7 +283,7 @@
                         <el-button type="primary" link aria-label="更多操作">...</el-button>
                         <template #dropdown>
                           <el-dropdown-menu>
-                            <el-dropdown-item v-if="checkPermi(['system:user:delete'])" @click="handleDelete(scope.row.id)">删除</el-dropdown-item>
+                            <el-dropdown-item v-if="checkPermi(['system:user:delete'])" :disabled="deleteLoading" @click="handleDelete(scope.row)">删除</el-dropdown-item>
                             <el-dropdown-item v-if="checkPermi(['system:user:update-password'])" @click="handleResetPwd(scope.row)">重置密码</el-dropdown-item>
                             <el-dropdown-item v-if="scope.row.loginLocked !== 1 && checkPermi(['system:user:update'])" @click="handleLock(scope.row)">锁定</el-dropdown-item>
                             <el-dropdown-item v-if="scope.row.loginLocked === 1 && checkPermi(['system:user:update'])" @click="handleUnlock(scope.row)">解锁</el-dropdown-item>
@@ -517,7 +517,7 @@ const handleDeptNodeClick = async (deptId: number | undefined) => {
 
 const refreshDeptTreeAndList = async () => {
   queryParams.deptId = undefined
-  checkedIds.value = []
+  checkedUsers.value = []
   deptTreeRenderKey.value += 1
   await loadDeptMetadata()
   await getList()
@@ -541,12 +541,15 @@ const handleDingTalkImport = () => {
   dingTalkImportFormRef.value.open()
 }
 
-const supervisorImpactText = async (ids: number[]) => {
+const supervisorImpactText = async (ids: number[], operation: 'disable' | 'delete' = 'disable') => {
   const affected = await UserApi.getSupervisorImpact(ids)
-  return affected.length
+  const supervisorImpact = affected.length
     ? '将解除以下部门的主管配置：' + affected.map((dept) => dept.name).join('、') +
-      '。下级部门将重新按上级主管路由；没有上级主管的审批会被阻止。停用后将自动打开待办交接确认。'
-    : '停用后将自动打开待办交接确认，已有待办经确认后才转移。'
+      '。下级部门将重新按上级主管路由；没有上级主管的审批会被阻止。'
+    : ''
+  return supervisorImpact + (operation === 'delete'
+    ? '将删除用户及其角色、岗位关联，已有待办不会自动转移；如需交接，请取消并先办理“交接待办”。'
+    : '停用后将自动打开待办交接确认，已有待办经确认后才转移。')
 }
 const refreshAfterLifecycleChange = async () => {
   await loadDeptMetadata()
@@ -576,45 +579,60 @@ const handleStatusChange = async (row: UserApi.UserVO) => {
 }
 
 /** 删除按钮操作 */
-const handleDelete = async (id: number) => {
+type DeleteTarget = Pick<UserApi.UserVO, 'id' | 'username' | 'nickname'>
+const deleteLoading = ref(false)
+const describeDeleteTargets = (targets: DeleteTarget[]) => targets
+  .map((user) => `账号“${user.username}”（${user.nickname}，编号 ${user.id}）`).join('；')
+const handleDelete = async (row: DeleteTarget) => {
+  if (deleteLoading.value) return
+  const target = { id: row.id, username: row.username, nickname: row.nickname }
+  deleteLoading.value = true
   try {
-    const impact = await supervisorImpactText([id])
-    await message.delConfirm('确认删除该用户吗？' + impact)
+    const impact = await supervisorImpactText([target.id], 'delete')
+    await message.delConfirm(`确认删除以下 1 位用户吗？${describeDeleteTargets([target])}。${impact}`)
     // 发起删除
-    await UserApi.deleteUser(id)
+    await UserApi.deleteUser(target.id)
     await loadDeptMetadata()
     message.success(t('common.delSuccess'))
     // 刷新列表
     await getList()
   } catch (error) {
     if (error !== 'cancel' && error !== 'close') throw error
+  } finally {
+    deleteLoading.value = false
   }
 }
 
 /** 批量删除按钮操作 */
-const checkedIds = ref<number[]>([])
+const checkedUsers = ref<DeleteTarget[]>([])
 const handleRowCheckboxChange = (rows: UserApi.UserVO[]) => {
-  checkedIds.value = rows.map((row) => row.id)
+  checkedUsers.value = rows.map(({ id, username, nickname }) => ({ id, username, nickname }))
 }
 
 const handleDeleteBatch = async () => {
-  if (checkedIds.value.length === 0) {
+  if (deleteLoading.value) return
+  if (checkedUsers.value.length === 0) {
     message.warning('请选择需要删除的用户')
     return
   }
+  const targets = checkedUsers.value.map((user) => ({ ...user }))
+  const ids = targets.map((user) => user.id)
+  deleteLoading.value = true
   try {
     // 删除的二次确认
-    const impact = await supervisorImpactText(checkedIds.value)
-    await message.delConfirm('确认删除选中的用户吗？' + impact)
+    const impact = await supervisorImpactText(ids, 'delete')
+    await message.delConfirm(`确认删除以下 ${targets.length} 位用户吗？${describeDeleteTargets(targets)}。${impact}`)
     // 发起批量删除
-    await UserApi.deleteUserList(checkedIds.value)
+    await UserApi.deleteUserList(ids)
     await loadDeptMetadata()
-    checkedIds.value = []
+    checkedUsers.value = []
     message.success(t('common.delSuccess'))
     // 刷新列表
     await getList()
   } catch (error) {
     if (error !== 'cancel' && error !== 'close') throw error
+  } finally {
+    deleteLoading.value = false
   }
 }
 
@@ -662,7 +680,7 @@ const handleResetPwd = async (row: UserApi.UserVO) => {
   let password: string
   try {
     const result = await message.prompt(
-      '请输入"' + row.username + '"的新密码',
+      '请输入"' + row.username + '"的新密码。重置成功后，该用户的现有登录会话将失效，须重新登录并修改密码；如为当前账号，本次操作后将退出登录。',
       t('common.reminder'),
       { inputType: 'password' }
     )

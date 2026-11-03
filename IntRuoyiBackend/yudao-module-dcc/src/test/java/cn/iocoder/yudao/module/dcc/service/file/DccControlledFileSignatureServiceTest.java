@@ -417,7 +417,7 @@ class DccControlledFileSignatureServiceTest extends BaseMockitoUnitTest {
                         99L, 900L, "task-1", "MATRIX_REVIEW", "APPROVE", "secret", "looks good"),
                 CONTROLLED_FILE_APPROVER_POST_REQUIRED);
 
-        verify(signatureImageService, never()).requireActiveSnapshot(99L);
+        verify(signatureImageService, never()).requireSigningSnapshot(99L);
         verify(signatureEvidenceService, never()).createEvidence(
                 org.mockito.ArgumentMatchers.any(DccControlledFileSignatureEvidenceCreateReq.class));
         verify(signatureMapper, never()).insert(org.mockito.ArgumentMatchers.any(DccControlledFileSignatureDO.class));
@@ -553,7 +553,7 @@ class DccControlledFileSignatureServiceTest extends BaseMockitoUnitTest {
         when(postService.getPostList(Set.of(30L))).thenReturn(List.of(post));
         when(permissionService.getUserRoleIdListByUserId(99L)).thenReturn(Set.of(40L));
         when(roleService.getRoleList(Set.of(40L))).thenReturn(List.of(role));
-        when(signatureImageService.requireActiveSnapshot(99L)).thenReturn(signatureImageSnapshot());
+        when(signatureImageService.requireSigningSnapshot(99L)).thenReturn(signatureImageSnapshot());
     }
 
     private static DccElectronicSignatureImageSnapshot signatureImageSnapshot() {

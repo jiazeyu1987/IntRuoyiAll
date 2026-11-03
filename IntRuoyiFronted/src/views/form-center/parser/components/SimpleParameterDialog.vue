@@ -4,18 +4,24 @@
     title="编辑参数"
     width="620px"
     destroy-on-close
+    @opened="focusTarget"
     :close-on-click-modal="false"
   >
-    <el-form label-position="top" @submit.prevent>
+    <el-form ref="form" label-position="top" @submit.prevent>
       <div class="parameter-grid">
         <el-form-item label="参数名称"
-          ><el-input v-model="draft.name" aria-label="参数名称"
+          ><el-input v-model="draft.name" data-issue-field="name" aria-label="参数名称"
         /></el-form-item>
         <el-form-item label="显示名称"
           ><el-input v-model="draft.ui!.displayName" aria-label="参数显示名称"
         /></el-form-item>
         <el-form-item label="填写类型">
-          <el-select v-model="draft.ui!.control" aria-label="填写类型" @change="changeControl">
+          <el-select
+            v-model="draft.ui!.control"
+            data-issue-field="control"
+            aria-label="填写类型"
+            @change="changeControl"
+          >
             <el-option label="数字" value="number" /><el-option
               label="下拉选择"
               value="select"
@@ -27,24 +33,37 @@
         /></el-form-item>
         <template v-if="draft.ui!.control === 'number'">
           <el-form-item label="下限"
-            ><el-input v-model="minimum" aria-label="参数下限" clearable
+            ><el-input v-model="minimum" data-issue-field="minimum" aria-label="参数下限" clearable
           /></el-form-item>
           <el-form-item label="上限"
-            ><el-input v-model="maximum" aria-label="参数上限" clearable
+            ><el-input v-model="maximum" data-issue-field="maximum" aria-label="参数上限" clearable
           /></el-form-item>
           <el-form-item label="步长"
-            ><el-input v-model="step" aria-label="参数步长" clearable
+            ><el-input v-model="step" data-issue-field="step" aria-label="参数步长" clearable
           /></el-form-item>
         </template>
         <el-form-item label="默认值"
-          ><el-input v-model="defaultValue" aria-label="参数默认值" clearable
+          ><el-input
+            v-model="defaultValue"
+            data-issue-field="defaultValue"
+            aria-label="参数默认值"
+            clearable
         /></el-form-item>
       </div>
       <el-form-item v-if="draft.ui!.control === 'select'" label="下拉选项（每行一项）">
-        <el-input v-model="options" type="textarea" :rows="4" aria-label="下拉选项" />
+        <el-input
+          v-model="options"
+          data-issue-field="options"
+          type="textarea"
+          :rows="4"
+          aria-label="下拉选项"
+        />
       </el-form-item>
       <el-form-item label="原文参考值"
-        ><el-input v-model="draft.referenceValue" aria-label="原文参考值"
+        ><el-input
+          v-model="draft.referenceValue"
+          data-issue-field="referenceValue"
+          aria-label="原文参考值"
       /></el-form-item>
       <el-form-item label="参数归属">
         <el-select v-model="target" aria-label="参数归属">
@@ -86,7 +105,20 @@ const minimum = ref(''),
   target = ref(''),
   error = ref('')
 const asText = (value: unknown) => (value == null ? '' : String(value))
-function open(parameter: Parameter, location: string) {
+const form = ref<{ $el: HTMLElement }>()
+let requestedField: string | undefined
+function focusTarget() {
+  const element = form.value?.$el.querySelector<HTMLElement>(
+    `[data-issue-field="${requestedField || 'name'}"]`
+  )
+  element?.scrollIntoView({ block: 'center' })
+  ;(element?.matches('input, textarea')
+    ? element
+    : element?.querySelector<HTMLElement>('input, textarea, button')
+  )?.focus({ preventScroll: true })
+}
+function open(parameter: Parameter, location: string, field?: string) {
+  requestedField = field
   draft.value = clone(parameter)
   draft.value.ui ??= {}
   original.value = clone(parameter)

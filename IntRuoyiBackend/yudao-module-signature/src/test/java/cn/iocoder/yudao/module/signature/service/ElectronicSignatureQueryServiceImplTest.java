@@ -50,6 +50,8 @@ class ElectronicSignatureQueryServiceImplTest {
         records = mock(ElectronicSignatureRecordMapper.class); audits = mock(GxpAuditEventMapper.class);
         users = mock(AdminUserApi.class); adapter = mock(ElectronicSignatureSubjectAdapter.class);
         when(adapter.moduleCode()).thenReturn("MES");
+        when(adapter.serverTimeResolution(any(), any())).thenCallRealMethod();
+        when(adapter.bindServerSignedAt(any(), any(), any())).thenCallRealMethod();
         when(adapter.supportedActions()).thenReturn(Set.of(new SignatureActionDefinition("MES", "APPROVE", "TYPE", "APPROVE", "批准", "p1")));
         when(adapter.loadAndAuthorize(any())).thenReturn(new SignatureSubjectSnapshot("TYPE", "10", "v1",
                 "{\"value\":\"中文事实\",\"list\":[1,2]}", null, null, null, "pi", "task", "node", 1));
@@ -70,6 +72,12 @@ class ElectronicSignatureQueryServiceImplTest {
         policy.setActionType("CREATE"); policy.setReasonPolicy("USER_REQUIRED"); policy.setSignaturePolicy("REQUIRED");
         when(policyMapper.selectByPolicyVersionForUpdate(1L, "audit-p1", "signature.record.create")).thenReturn(policy);
         var auditWriter = new GxpAuditServiceImpl();
+        var auditUsers = mock(cn.iocoder.yudao.module.system.dal.mysql.user.AdminUserMapper.class);
+        var auditActor = new cn.iocoder.yudao.module.system.dal.dataobject.user.AdminUserDO();
+        auditActor.setId(7L); auditActor.setTenantId(1L); auditActor.setStatus(0);
+        auditActor.setUsername("operator"); auditActor.setNickname("设备操作员");
+        when(auditUsers.selectGxpAuditActor(1L, 7L)).thenReturn(auditActor);
+        ReflectionTestUtils.setField(auditWriter, "adminUserMapper", auditUsers);
         ReflectionTestUtils.setField(auditWriter, "auditEventMapper", audits);
         ReflectionTestUtils.setField(auditWriter, "ledgerSequenceMapper", ledgerMapper);
         ReflectionTestUtils.setField(auditWriter, "policyActivationMapper", activationMapper);
@@ -219,5 +227,26 @@ class ElectronicSignatureQueryServiceImplTest {
         assertThrows(IllegalStateException.class, () -> query.verifyEvidence(10L));
         doReturn(record).when(records).selectById(10L); record.setTenantId(2L);
         assertNull(query.getById(10L)); assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class, () -> query.verifyEvidence(10L));
+    }
+    @Test void subjectHistoryKeepsChronologicalOrderWithoutSortingLargeDossiersInMysql() {
+        com.baomidou.mybatisplus.core.metadata.TableInfoHelper.initTableInfo(
+                new org.apache.ibatis.builder.MapperBuilderAssistant(new com.baomidou.mybatisplus.core.MybatisConfiguration(), ""),
+                ElectronicSignatureRecordDO.class);
+        var at = java.time.LocalDateTime.of(2026, 11, 3, 9, 6);
+        String largeDossier = "{\"remark\":\"" + "测试".repeat(700000) + "\"}";
+        var later = new ElectronicSignatureRecordDO(); later.setId(30L); later.setSignedAt(at.plusSeconds(1));
+        var sameTimeHigherId = new ElectronicSignatureRecordDO(); sameTimeHigherId.setId(20L); sameTimeHigherId.setSignedAt(at);
+        var earlier = new ElectronicSignatureRecordDO(); earlier.setId(10L); earlier.setSignedAt(at); earlier.setCanonicalContentJson(largeDossier);
+        var missingTime = new ElectronicSignatureRecordDO(); missingTime.setId(40L);
+        when(records.selectList(any(com.baomidou.mybatisplus.core.conditions.Wrapper.class))).thenAnswer(call -> {
+            var wrapper = (com.baomidou.mybatisplus.core.conditions.Wrapper<?>) call.getArgument(0);
+            assertFalse(wrapper.getSqlSegment().contains("ORDER BY"), "Large dossier bodies must not enter MySQL filesort");
+            assertTrue(wrapper.getSqlSegment().contains("tenant_id"));
+            assertTrue(wrapper.getSqlSegment().contains("subject_id"));
+            return List.of(later, sameTimeHigherId, earlier, missingTime);
+        });
+        var result = query.listBySubject("BPM", "BPM_APPROVAL_TASK", "exact-subject");
+        assertEquals(List.of(40L, 10L, 20L, 30L), result.stream().map(ElectronicSignatureEvidenceDTO::id).toList());
+        assertEquals(largeDossier, result.get(1).canonicalContentJson());
     }
 }

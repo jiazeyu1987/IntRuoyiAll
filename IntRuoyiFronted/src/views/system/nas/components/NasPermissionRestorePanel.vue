@@ -347,8 +347,7 @@
               v-if="restorePreview"
               class="mb-10px grid grid-cols-2 gap-8px rounded-[6px] border border-[#dbe3ef] bg-[#fafcff] px-12px py-10px text-[12px] text-[#4b5563] md:grid-cols-4"
             >
-              <div>计划哈希：{{ restorePreview.planHash }}</div>
-              <div>恢复模式：{{ restorePreview.restoreMode }}</div>
+              <div>恢复模式：{{ restorePreview.restoreMode === 'REPLACE_DIRECTORY_RULES' ? '替换目录权限规则' : '未识别恢复模式，请查看技术详情' }}</div>
               <div>影响目录：{{ restorePreview.directoryCount }}</div>
               <div>计划规则：{{ restorePreview.ruleCount }}</div>
               <div v-if="restoreStatus">已完成目录：{{ restoreStatus.completedDirectoryCount }}</div>
@@ -357,15 +356,22 @@
               <div v-if="restoreStatus?.completedAt">完成时间：{{ restoreStatus.completedAt }}</div>
             </div>
 
+            <details v-if="restorePreview" class="mb-10px" style="overflow-wrap: anywhere">
+              <summary>恢复计划技术详情</summary>
+              <p>计划校验码：{{ restorePreview.planHash }}</p>
+              <p>恢复模式编码：{{ restorePreview.restoreMode }}</p>
+            </details>
+
             <el-table
               v-if="restorePreview?.blockers?.length"
               :data="restorePreview.blockers"
               class="mb-10px"
               max-height="220"
             >
-              <el-table-column label="阻断代码" width="180" prop="code" />
               <el-table-column label="NAS 路径" min-width="220" prop="nasPath" show-overflow-tooltip />
-              <el-table-column label="主体" min-width="180" prop="trusteeSid" show-overflow-tooltip />
+              <el-table-column label="技术详情" min-width="180">
+                <template #default="{ row }"><details style="overflow-wrap: anywhere"><summary>查看阻断信息</summary><p>阻断编码：{{ row.code }}</p><p>主体安全标识：{{ row.trusteeSid || '未记录' }}</p></details></template>
+              </el-table-column>
               <el-table-column label="原因" min-width="260" prop="message" show-overflow-tooltip />
             </el-table>
 
@@ -376,7 +382,7 @@
             >
               <el-table-column label="NAS 路径" min-width="240" prop="nasPath" show-overflow-tooltip />
               <el-table-column label="DCC 目录" width="110" prop="directoryId" />
-              <el-table-column label="主体类型" width="110" prop="subjectType" />
+              <el-table-column label="主体类型" width="110"><template #default="{ row }">{{ subjectTypeOptions.find((item) => item.value === row.subjectType)?.label || '未识别主体类型' }}</template></el-table-column>
               <el-table-column label="主体 ID" width="100" prop="subjectId" />
               <el-table-column label="可查看" width="90">
                 <template #default="{ row }">{{ row.canQuery ? '是' : '否' }}</template>

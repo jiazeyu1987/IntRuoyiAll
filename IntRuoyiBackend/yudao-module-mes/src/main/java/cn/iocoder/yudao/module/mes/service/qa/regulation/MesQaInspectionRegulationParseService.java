@@ -9,6 +9,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
@@ -39,30 +40,9 @@ public class MesQaInspectionRegulationParseService {
                 .regulationName(parsed.regulationName())
                 .versionNo(parsed.versionNo())
                 .effectiveDate(parsed.effectiveDate().toString())
-                .ruleSourceText(readRuleSource(file))
+                .ruleSourceText(parsed.ruleSourceText())
                 .processes(groupItemsByProcess(parsed))
                 .build();
-    }
-
-    private String readRuleSource(MultipartFile file) {
-        try (var document = new org.apache.poi.xwpf.usermodel.XWPFDocument(file.getInputStream())) {
-            java.util.Set<String> lines = new java.util.LinkedHashSet<>();
-            document.getTables().forEach(table -> table.getRows().forEach(row -> row.getTableCells().forEach(cell -> {
-                String text = cell.getText().trim();
-                if (text.startsWith("备注")) lines.add(text);
-            })));
-            boolean inRules = false;
-            for (var paragraph : document.getParagraphs()) {
-                String text = paragraph.getText().trim();
-                if (text.contains("判定规则")) { inRules = true; continue; }
-                if (inRules && (text.equals("相关文件") || text.equals("相关记录") || text.equals("附件"))) break;
-                if (inRules && text.matches("^[6-9][.、\\s].*")) break;
-                if (inRules && !text.isBlank()) lines.add(text);
-            }
-            return String.join("\n", lines);
-        } catch (IOException ex) {
-            throw exception(QA_INSPECTION_REGULATION_WORD_IMPORT_INVALID, "读取检验规则失败：" + ex.getMessage());
-        }
     }
 
     private static List<MesQaInspectionRegulationParseRespVO.InspectionProcess> groupItemsByProcess(
@@ -77,7 +57,7 @@ public class MesQaInspectionRegulationParseService {
             if (parsedItem.firstInspectionQuantity() != null) {
                 applicableInspectionTypes.add("FIRST");
             }
-            if (parsedItem.patrolInspectionRatio() != null) {
+            if (parsedItem.patrolApplicable()) {
                 applicableInspectionTypes.add("PATROL");
             }
             group.items().add(MesQaInspectionRegulationParseRespVO.InspectionItem.builder()
@@ -116,8 +96,9 @@ public class MesQaInspectionRegulationParseService {
         String originalName = file.getOriginalFilename();
         String normalizedPath = originalName == null ? "" : originalName.replace('\\', '/');
         String fileName = normalizedPath.substring(normalizedPath.lastIndexOf('/') + 1).trim();
-        if (fileName.isEmpty() || !fileName.toLowerCase().endsWith(".docx")) {
-            throw exception(QA_INSPECTION_REGULATION_WORD_IMPORT_INVALID, "仅支持 .docx 文件");
+        String lowerName = fileName.toLowerCase(Locale.ROOT);
+        if (!(lowerName.endsWith(".doc") || lowerName.endsWith(".docx"))) {
+            throw exception(QA_INSPECTION_REGULATION_WORD_IMPORT_INVALID, "仅支持 .doc 或 .docx 文件");
         }
         return fileName;
     }

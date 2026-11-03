@@ -52,8 +52,9 @@ class MesProProcessImportNumberingTest {
                 mock(MesProRouteProcessMapper.class), mock(MesProRouteProcessFlowEdgeMapper.class),
                 mock(MesProRouteOwnerPermissionService.class));
         ReflectionTestUtils.setField(excel, "processCreationService", creator);
+        ReflectionTestUtils.setField(excel, "projectGuard", mock(cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteProjectGuard.class));
         var result = excel.importExcel(new MockMultipartFile("file", "routes.xlsx",
-                "application/octet-stream", new byte[]{1}), 0);
+                "application/octet-stream", new byte[]{1}), 0, 10L);
         assertEquals(1, result.getProcessCreatedCount());
         assertEquals(1, result.getProcessReusedCount());
         ArgumentCaptor<MesProProcessDO> inserted = ArgumentCaptor.forClass(MesProProcessDO.class);

@@ -14,6 +14,33 @@ export type Draft = Omit<QaInspectionRegulationSaveReqVO, 'processes'> & {
   }>
 }
 
+type PatrolSampling = Pick<
+  QaInspectionRegulationItemVO,
+  'applicableInspectionTypes' | 'patrolInspectionRatio' | 'samplingPlanText'
+>
+
+export const AQL_PATROL_RATIO_RULE =
+  '内部抽样规则：按原文AQL数值作为巡检抽样比例（%），按批量计算并向上取整。'
+
+export const EQUIPMENT_UNBOUND_NOTICE = '保留原文器具要求，发布后执行前需补齐绑定'
+
+export function isNonSensoryTool(inspectionTool: string): boolean {
+  return !['目测', '手感', '目测、手感', '/', '无'].includes(inspectionTool.trim())
+}
+
+export function patrolRatioIssue(item: PatrolSampling): string | undefined {
+  if (
+    item.applicableInspectionTypes.includes('PATROL') &&
+    !(Number(item.patrolInspectionRatio) > 0)
+  )
+    return '请确认实际巡检抽样比例'
+}
+
+export function formatPatrolRatio(item: PatrolSampling): string {
+  if (!item.applicableInspectionTypes.includes('PATROL')) return '不适用'
+  return patrolRatioIssue(item) ? '待确认实际巡检抽样比例' : `${item.patrolInspectionRatio}%`
+}
+
 export function makeDraft(parsed: QaInspectionRegulationParseVO, projectId: number): Draft {
   return {
     dccProjectCodeId: projectId,
@@ -68,6 +95,7 @@ export function makeDraft(parsed: QaInspectionRegulationParseVO, projectId: numb
       items: p.items.map((i) => ({
         ...i,
         critical: false,
+        failureRule: parsed.ruleSourceText,
         equipmentOptions: [],
         sourceOriginalExcerpt: i.standardText,
         sourceOriginalMethod: i.inspectionMethod,
@@ -116,7 +144,8 @@ export function differences(
     'standardPrecision',
     'critical',
     'failureRule',
-    'equipmentOptions'
+    'equipmentOptions',
+    'equipmentUnboundReason'
   ] as const
   draft.processes.forEach((p) => {
     const matches = current.processes.filter((old) => old.processName === p.processName)
@@ -174,53 +203,81 @@ export interface DraftIssue {
   field: 'metadata' | 'final' | 'process' | 'item' | 'equipment'
   processIndex?: number
   itemIndex?: number
+  target?: string
 }
 
 export function validateDraft(draft: Draft, confirmedUnbound: string[] = []): DraftIssue[] {
   const errors: DraftIssue[] = []
   if (!draft.dccProjectCodeId) errors.push({ message: '请选择所属产品', field: 'metadata' })
-  if (!draft.regulationName.trim() || !draft.regulationCode.trim())
-    errors.push({ message: '请填写规程名称和文件编号', field: 'metadata' })
+  for (const [key, label] of [
+    ['regulationName', '规程名称'],
+    ['regulationCode', '文件编号']
+  ] as const)
+    if (!draft[key].trim())
+      errors.push({ message: `请填写${label}`, field: 'metadata', target: key })
   if (!draft.finalInspectionApplicable && !draft.finalInspectionNotApplicableReason?.trim())
     errors.push({ message: '请确认是否无需末检', field: 'final' })
-  if (!draft.processes.length) errors.push({ message: '请添加工序和检验项目', field: 'process' })
+  if (!draft.processes.length)
+    errors.push({ message: '请添加工序和检验项目', field: 'process', target: 'addProcess' })
   draft.processes.forEach((p, pi) => {
-    if (!p.processName.trim() || !p.items.length)
+    if (!p.processName.trim())
       errors.push({
-        message: `第${pi + 1}道工序缺少名称或检验项目`,
-        field: 'process',
-        processIndex: pi
+        message: `第${pi + 1}道工序缺少名称`,
+        field: 'item',
+        processIndex: pi,
+        target: 'processName'
+      })
+    if (!p.items.length)
+      errors.push({
+        message: `第${pi + 1}道工序缺少检验项目`,
+        field: 'item',
+        processIndex: pi,
+        target: 'addItem'
       })
     p.items.forEach((i, ii) => {
       const label = `${p.processName} / ${i.itemName || '未命名项目'}`
-      const add = (message: string, field: DraftIssue['field'] = 'item') =>
-        errors.push({ message: `${label}：${message}`, field, processIndex: pi, itemIndex: ii })
-      if (
-        !i.itemName.trim() ||
-        !i.standardText.trim() ||
-        !i.inspectionMethod.trim() ||
-        !i.inspectionTool.trim() ||
-        !i.samplingPlanText.trim()
-      )
-        add('请补全项目、标准、方法、器具和抽样要求')
-      if (!i.applicableInspectionTypes.length) add('请选择检验类型')
+      const add = (message: string, field: DraftIssue['field'] = 'item', target?: string) =>
+        errors.push({
+          message: `${label}：${message}`,
+          field,
+          processIndex: pi,
+          itemIndex: ii,
+          target
+        })
+      for (const [key, name] of [
+        ['itemName', '检验项目'],
+        ['standardText', '接受标准'],
+        ['inspectionMethod', '检验方法'],
+        ['inspectionTool', '器具要求'],
+        ['samplingPlanText', '抽样要求']
+      ] as const)
+        if (!i[key].trim()) add(`请填写${name}`, 'item', key)
+      if (!i.applicableInspectionTypes.length)
+        add('请选择检验类型', 'item', 'applicableInspectionTypes')
       if (i.applicableInspectionTypes.includes('FIRST') && !(Number(i.firstInspectionQuantity) > 0))
-        add('首检数量必须大于0')
-      if (i.applicableInspectionTypes.includes('PATROL') && !(Number(i.patrolInspectionRatio) > 0))
-        add('请确认系统巡检抽样比例')
+        add('首检数量必须大于0', 'item', 'firstInspectionQuantity')
+      const samplingIssue = patrolRatioIssue(i)
+      if (samplingIssue) add(samplingIssue, 'item', 'patrolInspectionRatio')
       if (
         i.resultType === 'NUMERIC' &&
         (i.standardLowerLimit == null ||
           i.standardUpperLimit == null ||
           i.standardLowerLimit > i.standardUpperLimit)
       )
-        add('请填写正确的上下限')
+        add(
+          '请填写正确的上下限',
+          'item',
+          i.standardLowerLimit == null ? 'standardLowerLimit' : 'standardUpperLimit'
+        )
       if (
-        !['目测', '手感', '目测、手感', '/', '无'].includes(i.inspectionTool.trim()) &&
+        isNonSensoryTool(i.inspectionTool) &&
         !i.equipmentOptions.length &&
+        !i.equipmentUnboundReason?.trim() &&
         !confirmedUnbound.includes(i.itemCode)
       )
-        add('请选择设备编号', 'equipment')
+        add('请选择设备编号，或填写器具暂未绑定原因', 'equipment')
+      if (i.equipmentOptions.length && i.equipmentUnboundReason?.trim())
+        add('已选择设备，请清除器具未绑定原因', 'equipment')
       if (i.equipmentOptions.some((e) => !e.equipmentId || !e.equipmentNumber.trim()))
         add('设备编号不完整', 'equipment')
     })

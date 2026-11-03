@@ -3834,6 +3834,27 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
                         stage1GeneratedTarget == null ? null : stage1GeneratedTarget.workOrderCode());
     }
 
+    @Override
+    public void checkFixedTestOrderProductionSource(Long routeId, Long routeVersionId) {
+        MesProWorkOrderDO workOrder = workOrderMapper.selectOne(
+                new LambdaQueryWrapperX<MesProWorkOrderDO>().eq(MesProWorkOrderDO::getCode, FIXED_TEST_WORK_ORDER_CODE));
+        if (workOrder == null) {
+            throw exception(PRO_WORK_ORDER_NOT_EXISTS, FIXED_TEST_WORK_ORDER_CODE);
+        }
+        ActiveOrderRouteSource source = requireProductionRouteSourceForAdd(workOrder);
+        if (!Objects.equals(source.routeId(), routeId) || !Objects.equals(source.routeVersionId(), routeVersionId)) {
+            throw new IllegalStateException("当前查看的路线版本不是固定测试订单重置后使用的正式路线版本");
+        }
+        BigDecimal quantity = activeOrderQuantitySnapshot(workOrder);
+        ActiveOrderQaSource qa = requireLatestQaSource(routeId, workOrder);
+        // Plan only: no insert, audit, task creation, locks or reset operations.
+        MesProcessPoolActiveOrderDO preview = MesProcessPoolActiveOrderDO.builder()
+                .workOrderId(workOrder.getId()).routeId(routeId).routeVersionId(routeVersionId)
+                .erpFixedQuantitySnapshot(quantity).build();
+        source.routeProcesses().forEach(process -> toProcessSnapshot(preview, process, quantity));
+        preparePqcTaskPlan(preview, qa);
+    }
+
     private ActiveOrderRouteSource requireProductionRouteSourceForAdd(MesProWorkOrderDO workOrder) {
         CandidateEligibilityContext context = buildRouteSourceContext(List.of(workOrder));
         RouteSourceResolution resolution = resolveProductionRouteSource(workOrder, context);

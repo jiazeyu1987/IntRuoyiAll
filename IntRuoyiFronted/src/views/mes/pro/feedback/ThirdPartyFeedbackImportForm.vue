@@ -160,6 +160,7 @@
 </template>
 
 <script setup lang="ts">
+import { showImportResult } from '@/utils/importResult'
 import { ProFeedbackApi, type ThirdPartyFeedbackImportResultVO } from '@/api/mes/pro/feedback'
 import type { UploadFile, UploadFiles, UploadUserFile } from 'element-plus'
 
@@ -284,14 +285,22 @@ const submitForm = async () => {
       importMode.value === 'DIRECT_WORK_REPORT'
         ? await ProFeedbackApi.importDirectWorkReportXlsx(uploadFormData)
         : await ProFeedbackApi.importThirdPartyXlsx(uploadFormData)
-    const importRecordIdsText = result.importRecordIds?.length ? result.importRecordIds.join('、') : '无'
     if (importMode.value === 'DIRECT_WORK_REPORT') {
       directImportResult.value = result
       directImportResultVisible.value = true
     } else {
-      message.alert(
-        `导入完成；工作表数：${result.sheetCount}；导入条数：${result.importedCount}；待归属条数：${result.pendingCount}；记录编号：${importRecordIdsText}`
-      )
+      showImportResult({
+        title: '第三方报工导入完成',
+        summary: `已导入 ${result.importedCount} 条报工记录，其中 ${result.pendingCount} 条需要确认归属。`,
+        stats: [
+          { label: '工作表', value: result.sheetCount },
+          { label: '导入记录', value: result.importedCount },
+          { label: '待确认归属', value: result.pendingCount }
+        ],
+        warning: result.pendingCount > 0,
+        guidance: result.pendingCount > 0 ? '请在报工记录列表中，为待归属记录确认对应的订单和工序。' : undefined,
+        sections: [{ title: '导入记录', columns: ['记录编号'], rows: (result.importRecordIds ?? []).map((id) => [String(id)]) }]
+      })
     }
     dialogVisible.value = false
     emits('success', result, importMode.value === 'DIRECT_WORK_REPORT' ? '李萍报工单' : '第三方导入')

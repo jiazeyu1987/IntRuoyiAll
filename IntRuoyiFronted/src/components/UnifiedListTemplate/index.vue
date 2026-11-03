@@ -29,7 +29,7 @@
         />
       </div>
       <div class="unified-list-template__toolbar">
-        <slot name="actions"></slot>
+        <slot name="actions" :filter-loading="columnFilter.loading.value" :filter-error="columnFilter.error.value"></slot>
         <UserTableColumnSettings
           v-if="showColumnSettings !== false && columns.length"
           :columns="columns"
@@ -90,7 +90,7 @@
 
       <el-form-item class="unified-list-template__toolbar-actions">
         <div class="unified-list-template__toolbar">
-          <slot name="actions"></slot>
+          <slot name="actions" :filter-loading="columnFilter.loading.value" :filter-error="columnFilter.error.value"></slot>
           <UserTableColumnSettings
             v-if="showColumnSettings !== false && columns.length"
             class="unified-list-template__column-settings"
@@ -632,6 +632,11 @@ const handleStandardFilterRemove = (conditionId: string) => {
 }
 
 defineExpose({
+  getColumnFilteredRows: () => {
+    if (columnFilter.loading.value) throw new Error('筛选尚未完成，请稍后导出')
+    if (columnFilter.error.value) throw new Error(columnFilter.error.value)
+    return columnFilter.active.value ? [...columnFilter.rows.value] : undefined
+  },
   resetColumnFilters: () => {
     columnFilter.reset()
     publishedRows = undefined

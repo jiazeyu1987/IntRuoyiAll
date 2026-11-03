@@ -87,6 +87,31 @@ class MesProBatchRecordRouteBRecognizerTest {
     private final MesProBatchRecordRouteBRecognizer recognizer = new MesProBatchRecordRouteBRecognizer();
 
     @Test
+    void recognizeDocxPressurePumpRecord_alignsOoxmlVisualGridsAfterWordCom() throws Exception {
+        Path source = Path.of(System.getProperty("mes.test.route-b.docx",
+                "../../resource/按压式球囊扩充压力泵IDI-001/RE-PP-IDI-01（A 1） 按压式球囊扩充压力泵生产记录--2026.02.02生效.docx"));
+        assertTrue(Files.isRegularFile(source), "DOCX production-record fixture must be available");
+        byte[] bytes = Files.readAllBytes(source);
+        List<MesProBatchRecordParsedTable> expected = new MesProBatchRecordDocParser()
+                .parseWord(bytes, source.getFileName().toString());
+
+        List<MesProBatchRecordParsedTable> actual = recognizer.recognize(
+                source, bytes, source.getFileName().toString());
+
+        assertEquals(16, actual.size());
+        assertIterableEquals(expected.stream().map(MesProBatchRecordParsedTable::getTableTitle).toList(),
+                actual.stream().map(MesProBatchRecordParsedTable::getTableTitle).toList());
+        assertIterableEquals(expected.stream().map(MesProBatchRecordParsedTable::getRowCount).toList(),
+                actual.stream().map(MesProBatchRecordParsedTable::getRowCount).toList());
+        assertTrue(actual.stream().allMatch(table -> table.getColumnWidths() != null
+                && table.getColumnWidths().size() == table.getColumnCount()
+                && table.getColumnWidths().stream().allMatch(width -> width > 0)));
+        assertContainsText(actual.get(0), "产品信息");
+        assertTrue(actual.stream().allMatch(table -> Boolean.TRUE.equals(table.getRouteBSource())));
+        assertTrue(actual.stream().allMatch(table -> table.getDocumentFrame() != null));
+    }
+
+    @Test
     void recognizePilotSample_returnsFifteenBusinessTemplatesViaWordCom() throws Exception {
         Assumptions.assumeTrue(Files.exists(PILOT_SAMPLE), "pilot sample doc fixture is not available on this machine");
         byte[] bytes = Files.readAllBytes(PILOT_SAMPLE);

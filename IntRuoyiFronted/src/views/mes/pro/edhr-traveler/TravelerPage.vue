@@ -289,7 +289,11 @@
         <el-descriptions-item label="批次">{{ currentTraveler.batchCode || '--' }}</el-descriptions-item>
         <el-descriptions-item label="SN">{{ currentTraveler.serialNo || '--' }}</el-descriptions-item>
         <el-descriptions-item label="工序">{{ currentTraveler.processName || '--' }}</el-descriptions-item>
-        <el-descriptions-item label="业务键">{{ currentTraveler.businessKeyHash || '--' }}</el-descriptions-item>
+        <el-descriptions-item label="技术详情">
+          <details class="traveler-technical"><summary>查看业务唯一性校验信息</summary>
+            <p>业务唯一性校验码：{{ currentTraveler.businessKeyHash || '未记录' }}</p>
+          </details>
+        </el-descriptions-item>
       </el-descriptions>
     </el-drawer>
 
@@ -301,8 +305,15 @@
         :show-overflow-tooltip="true"
         empty-text="暂无事件"
       >
-        <el-table-column label="事件" prop="eventType" min-width="160" />
-        <el-table-column label="结果" prop="resultStatus" width="120" />
+        <el-table-column label="事件" min-width="160">
+          <template #default="{ row }">
+            {{ travelerEventLabel(row.eventType) }}
+            <details class="traveler-technical"><summary>原始事件信息</summary><p>事件码：{{ row.eventType }}</p><p>结果码：{{ row.resultStatus }}</p></details>
+          </template>
+        </el-table-column>
+        <el-table-column label="结果" width="120">
+          <template #default="{ row }">{{ travelerResultLabel(row.resultStatus) }}</template>
+        </el-table-column>
         <el-table-column label="失败原因" prop="failureReason" min-width="220" />
         <el-table-column label="操作人" min-width="130">
           <template #default="{ row }">{{ row.operatorUsername || row.operatorUserId || '--' }}</template>
@@ -335,6 +346,7 @@ import {
   type EdhrTravelerTemplateRespVO
 } from '@/api/mes/pro/edhr/traveler'
 import { edhrDateTimeFormatter } from '@/views/mes/pro/edhr/shared/dateTime'
+import { travelerEventLabel, travelerResultLabel } from './travelerDisplay'
 
 const message = useMessage()
 
@@ -662,6 +674,8 @@ onMounted(() => {
 </script>
 
 <style scoped>
+.traveler-technical { overflow-wrap: anywhere; }
+.traveler-technical summary { cursor: pointer; color: var(--el-text-color-secondary); }
 .edhr-traveler-page {
   display: flex;
   flex-direction: column;

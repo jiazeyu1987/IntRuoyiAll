@@ -25,7 +25,9 @@
       @column-filter-reset="getList"
       :column-filter-definitions="listColumnFilterDefinitions0"
     >
-      <template #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+      <template
+        #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }"
+      >
         <el-alert
           v-if="loadError"
           class="logs-load-error"
@@ -175,10 +177,15 @@
       v-if="currentLog"
       data-testid="dcc-controlled-file-log-detail"
       :column="2"
+      :label-width="96"
       border
     >
       <el-descriptions-item label="发生时间">
-        {{ currentLog.occurredAt ? dateFormatter(currentLog, undefined as any, currentLog.occurredAt) : '-' }}
+        {{
+          currentLog.occurredAt
+            ? dateFormatter(currentLog, undefined as any, currentLog.occurredAt)
+            : '-'
+        }}
       </el-descriptions-item>
       <el-descriptions-item label="日志类型">
         {{ getLogTypeLabel(currentLog.logType) }}
@@ -192,8 +199,14 @@
       <el-descriptions-item label="文件编号">
         {{ displayText(currentLog.fileNumber) }}
       </el-descriptions-item>
-      <el-descriptions-item label="版本">
-        {{ getDccVersionDisplayText(currentLog.versionNo) }}
+      <el-descriptions-item
+        :label="currentLog.versionNo?.startsWith('INFRA_FILE:') ? '来源文件' : '版本'"
+      >
+        {{
+          currentLog.versionNo?.startsWith('INFRA_FILE:')
+            ? `文件编号 ${currentLog.versionNo.slice('INFRA_FILE:'.length)}`
+            : getDccVersionDisplayText(currentLog.versionNo)
+        }}
       </el-descriptions-item>
       <el-descriptions-item label="操作人">
         {{ displayOperator(currentLog) }}
@@ -216,14 +229,15 @@
       <el-descriptions-item label="原因" :span="2">
         {{ displayText(currentLog.reason) }}
       </el-descriptions-item>
-      <el-descriptions-item label="详情 JSON" :span="2">
-        <pre class="log-detail-json">{{ displayText(currentLog.detailJson) }}</pre>
+      <el-descriptions-item label="操作明细" :span="2">
+        <ReadableData title="操作记录" :source="currentLog.detailJson" />
       </el-descriptions-item>
     </el-descriptions>
   </Dialog>
 </template>
 
 <script lang="ts" setup>
+import ReadableData from '@/components/BusinessData/ReadableData.vue'
 import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
 
 import {
@@ -232,8 +246,14 @@ import {
   type DccControlledFileLogRespVO
 } from '@/api/dcc/controlledFile/logs'
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
-import { useTableQuickFilter, type TableQuickFilterDefinition } from '@/hooks/web/useTableQuickFilter'
-import { useUserTableColumns, type UserTableColumnDefinition } from '@/hooks/web/useUserTableColumns'
+import {
+  useTableQuickFilter,
+  type TableQuickFilterDefinition
+} from '@/hooks/web/useTableQuickFilter'
+import {
+  useUserTableColumns,
+  type UserTableColumnDefinition
+} from '@/hooks/web/useUserTableColumns'
 import { dateFormatter } from '@/utils/formatTime'
 import { getDccVersionDisplayText } from '../shared/version-display'
 
@@ -510,11 +530,4 @@ const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() =
   width: auto;
 }
 
-.log-detail-json {
-  max-height: 180px;
-  margin: 0;
-  overflow: auto;
-  white-space: pre-wrap;
-  word-break: break-word;
-}
 </style>

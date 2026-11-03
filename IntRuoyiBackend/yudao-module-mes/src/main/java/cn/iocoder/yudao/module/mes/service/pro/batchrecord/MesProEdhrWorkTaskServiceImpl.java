@@ -2186,6 +2186,26 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
         return MesProEdhrConditionalLossRequirement.isConditionalLoss(task) && !isCurrentlyRequired(task);
     }
 
+    @Override
+    public void checkRouteFillReadiness(Long routeId, Long routeVersionId, Long routeProcessId, Long processId,
+                                       Long routeBindingId, String reportId, Long batchRecordVersionId,
+                                       String formBindingKey, Long formTemplateVersionId) {
+        MesProEdhrBatchExecutionDO batch = new MesProEdhrBatchExecutionDO()
+                .setRouteId(routeId).setRouteVersionId(routeVersionId);
+        MesProEdhrBatchExecutionTaskDO task = new MesProEdhrBatchExecutionTaskDO()
+                .setRouteProcessId(routeProcessId).setProcessId(processId).setRouteBindingId(routeBindingId)
+                .setBatchRecordReportId(reportId).setBatchRecordVersionId(batchRecordVersionId)
+                .setFormBindingKey(formBindingKey).setFormTemplateVersionId(formTemplateVersionId);
+        MesProRouteProcessDO process = resolveFrozenRouteProcess(routeId, routeProcessId, processId);
+        List<MesProEdhrProcessFormPermissionRuleDO> rules = findProcessFormFillRules(batch, process, task);
+        MesProEdhrProcessFormPermissionRuleDO formRule = rules.isEmpty() ? null : rules.get(0);
+        MesProEdhrWorkTaskAssignmentRuleDO assignment = formRule == null ? findRule(process, TASK_TYPE_FILL) : null;
+        MesProRouteFlowProcessBatchRecordDO binding = formRule == null && assignment == null ? findRouteBinding(task) : null;
+        ProcessFormResponsibilitySnapshot responsibility = formRule == null ? null
+                : buildProcessFormResponsibilitySnapshot(rules, process, task);
+        resolveFillCandidate(formRule, assignment, binding, responsibility);
+    }
+
     private void createFillTask(MesProEdhrBatchExecutionDO batch, MesProEdhrBatchExecutionTaskDO batchTask,
                                 Long sourceUserId, String requiredSignatureCellKey) {
         if (isLossNotApplicable(batchTask)) return;

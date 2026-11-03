@@ -411,14 +411,12 @@
         <el-alert v-if="reviewPreviewError" :title="reviewPreviewError" type="error" :closable="false" />
         <template v-if="reviewPreview">
           <p>{{ reviewPreview.content.scopeText }}。签署本次展示的审批内容。</p>
-          <p>正文摘要：{{ reviewPreview.content.contentHash }}</p>
-          <div style="max-height: 380px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere;">
-            {{ JSON.stringify(JSON.parse(reviewPreview.content.canonicalBusinessContentJson), null, 2) }}
-          </div>
-          <p v-for="file in reviewPreview.content.attachments" :key="file.fileId">
+          <ReadableData title="本次审批资料" :source="reviewPreview.content.canonicalBusinessContentJson" :checksum="reviewPreview.content.contentHash" />
+          <div v-for="file in reviewPreview.content.attachments" :key="file.fileId">
             <a :href="file.readUrl" target="_blank" rel="noopener noreferrer">{{ file.fileName }}</a>
-            · 版本 {{ file.version }} · {{ file.fileSize }} 字节 · SHA256 {{ file.sha256 }}
-          </p>
+            · 版本 {{ file.version }} · {{ file.fileSize }} 字节
+            <details><summary>附件校验信息</summary><span style="overflow-wrap: anywhere">内容校验码：{{ file.sha256 }}</span></details>
+          </div>
         </template>
         <el-button :disabled="reviewSubmitting" @click="loadReviewPreview">重新预览</el-button>
       </section>
@@ -463,6 +461,8 @@
 </template>
 
 <script lang="ts" setup>
+import ReadableData from '@/components/BusinessData/ReadableData.vue'
+import { readBusinessEvidence } from '@/views/mes/pro/processpool/components/businessEvidenceDisplay'
 import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
 
 import { ElMessage } from 'element-plus'
@@ -1295,7 +1295,8 @@ const loadReviewPreview = async () => {
     const preview = await getApprovalReviewPreview({ moduleCode: task.moduleCode, sourceTaskType: task.sourceTaskType, sourceTaskId: task.sourceTaskId, processInstanceId: task.processInstanceId })
     if (generation !== reviewGeneration || !reviewDialogVisible.value) return
     if (!preview.prepareId || !preview.content.canonicalBusinessContentJson || !preview.content.allowedActions.includes('APPROVE')) throw new Error('审批正文响应不完整')
-    JSON.parse(preview.content.canonicalBusinessContentJson)
+    const presentation = readBusinessEvidence(preview.content.canonicalBusinessContentJson)
+    if (presentation.error) throw new Error(presentation.error)
     reviewPreview.value = preview
     reviewIdempotencyKey.value = crypto.randomUUID()
   } catch (error) {

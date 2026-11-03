@@ -143,6 +143,38 @@ class MesActiveOrderHandoffOwnerResolverTest {
    allowUser(344L,"mes:pro-process-pool:event-revision:update");assertThrows(RuntimeException.class,()->service.assertPqcLeaderCorrector(pqcEvent(),344L));
    verifyNoInteractions(scopes);assertEquals("343",task.getCandidateUserSnapshot());
   }
+  @Test void productionNumberSerializerPreservesSnowflakeReviewIdentityAndHandlers(){
+   var task=frozenResponsibilityFixture();
+   long eventId=2116486795638337536L,leaderId=2116486795638337537L,qaId=2116486795638337538L;
+   var event=pqcEvent().setId(eventId).setQaProcessId(qaId);
+   var pqc=pqcTask().setSubmittedEventId(eventId).setQaProcessId(qaId);
+   when(pqcTasks.selectById(55L)).thenReturn(pqc);allowUser(leaderId,"mes:pro-process-pool-team-leader:review");
+   task.setSourceId(eventId).setRoundId(eventId).setCandidateUserSnapshot(String.valueOf(leaderId));
+   var original=cn.iocoder.yudao.framework.common.util.json.JsonUtils.getObjectMapper();
+   var module=new com.fasterxml.jackson.databind.module.SimpleModule();
+   module.addSerializer(Long.class,cn.iocoder.yudao.framework.common.util.json.databind.NumberSerializer.INSTANCE);
+   var runtimeMapper=original.copy().registerModule(module);
+   try {
+    cn.iocoder.yudao.framework.common.util.json.JsonUtils.init(runtimeMapper);
+    var snapshot=new LinkedHashMap<String,Object>();
+    snapshot.put("identityDomain","SYSTEM_USER");snapshot.put("activeOrderId",413L);snapshot.put("workOrderId",274L);
+    snapshot.put("pqcTaskId",55L);snapshot.put("qaProcessId",qaId);snapshot.put("routeVersionId",17L);snapshot.put("regulationVersionId",19L);
+    snapshot.put("sourceType","PROCESS_POOL_EVENT");snapshot.put("sourceId",eventId);snapshot.put("roundId",eventId);snapshot.put("userIds",List.of(leaderId));
+    task.setResponsibilitySnapshotJson(cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(snapshot));
+    assertTrue(cn.iocoder.yudao.framework.common.util.json.JsonUtils.parseTree(task.getResponsibilitySnapshotJson()).path("sourceId").isTextual());
+    assertEquals(List.of(leaderId),service.frozenPqcReviewers(event,task));
+    task.setResponsibilitySnapshotJson(task.getResponsibilitySnapshotJson().replace(String.valueOf(eventId),String.valueOf(eventId+1)));
+    assertThrows(RuntimeException.class,()->service.frozenPqcReviewers(event,task));
+   } finally {cn.iocoder.yudao.framework.common.util.json.JsonUtils.init(original);}
+  }
+  @org.junit.jupiter.params.ParameterizedTest
+  @org.junit.jupiter.params.provider.ValueSource(strings={"0343","+343","343.0","3.43e2"," 343","9223372036854775808","0","-343","abc"})
+  void invalidFrozenHandlerStringsCannotGrantReview(String invalid){
+   var task=frozenResponsibilityFixture();allowUser(343L,"mes:pro-process-pool-team-leader:review");
+   var snapshot=(com.fasterxml.jackson.databind.node.ObjectNode)cn.iocoder.yudao.framework.common.util.json.JsonUtils.parseTree(task.getResponsibilitySnapshotJson());
+   snapshot.putArray("userIds").add(invalid);task.setResponsibilitySnapshotJson(snapshot.toString());
+   assertThrows(RuntimeException.class,()->service.frozenPqcReviewers(pqcEvent(),task));
+  }
   @org.junit.jupiter.params.ParameterizedTest
   @org.junit.jupiter.params.provider.ValueSource(strings={"disabled","foreign","noReviewPermission","noRevisionPermission","missing","conflictingSnapshot"})
   void frozenPqcResponsibilityStillRequiresExactTenantAndCurrentHandlingPermissions(String defect){

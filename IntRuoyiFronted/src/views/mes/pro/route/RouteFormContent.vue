@@ -10,6 +10,9 @@
       :disabled="isDetail"
     >
       <template v-if="!formData.id">
+        <el-form-item label="项目代码" prop="dccProjectCodeId" required>
+          <RouteProjectSelect v-model="formData.dccProjectCodeId" />
+        </el-form-item>
         <el-form-item label="名称" prop="name">
           <el-input v-model="formData.name" placeholder="请输入名称" :disabled="isHeaderReadonly" />
         </el-form-item>
@@ -155,25 +158,13 @@
                     label-width="auto"
                     class="route-dcc-project-binding__field"
                   >
-                    <el-select
+                    <RouteProjectSelect
+                      v-if="canEditStartSettings"
                       v-model="dccProjectBindingForm.dccProjectCodeId"
-                      class="route-dcc-project-binding__select"
-                      filterable
-                      remote
-                      clearable
-                      reserve-keyword
-                      :remote-method="loadDccProjectCodeOptions"
-                      :loading="dccProjectCodeLoading"
+                      :route-id="formData.id"
                       :disabled="!canEditStartSettings"
-                      placeholder="请输入项目名称或项目代码搜索"
-                    >
-                      <el-option
-                        v-for="projectCode in dccProjectCodeOptions"
-                        :key="projectCode.id"
-                        :label="formatDccProjectCodeOption(projectCode)"
-                        :value="projectCode.id"
-                      />
-                    </el-select>
+                    />
+                    <span v-else>{{ savedDccProjectCode ? `${savedDccProjectCode.projectCode} / ${savedDccProjectCode.projectName}` : '未关联项目代码' }}</span>
                   </el-form-item>
                   <el-button
                     class="route-dcc-project-binding__save"
@@ -215,6 +206,7 @@
 </template>
 
 <script setup lang="ts">
+import RouteProjectSelect from './RouteProjectSelect.vue'
 import { ElMessageBox } from 'element-plus'
 import { CommonStatusEnum } from '@/utils/constants'
 import {
@@ -226,9 +218,7 @@ import {
   type RouteVersionEditContext
 } from '@/api/mes/pro/route'
 import {
-  DCC_PROJECT_CODE_STATUS_ENABLE,
   getProjectCode,
-  getProjectCodePage,
   type DccProjectCodeRespVO
 } from '@/api/dcc/controlledFile/projectCodes'
 import { ProProcessApi, type ProProcessVO } from '@/api/mes/pro/process'
@@ -236,6 +226,7 @@ import { ProRouteProductApi, type ProRouteProductVO } from '@/api/mes/pro/route/
 import { isRouteConfirmCancel, resolveRouteOperationErrorMessage } from './routeError'
 import { resolveSameSourceDraftCandidateForProductionConfig } from './routeCandidateEntry'
 import { checkPermi } from '@/utils/permission'
+import { parsePositiveRouteQueryId } from '@/utils/routeQueryId'
 
 defineOptions({ name: 'RouteFormContent' })
 
@@ -276,8 +267,8 @@ const targetRouteProcessId = computed(() => props.targetRouteProcessId)
 const routeVersionEditContext = computed(() => props.routeVersionEditContext)
 const routeFlowVersionEditContext = computed<RouteVersionEditContext | undefined>(() => {
   if (routeVersionEditContext.value) return routeVersionEditContext.value
-  const routeVersionId = Number(formData.value.activeRouteVersionId)
-  if (!Number.isFinite(routeVersionId) || routeVersionId <= 0) return undefined
+  const routeVersionId = parsePositiveRouteQueryId(formData.value.activeRouteVersionId)
+  if (!routeVersionId) return undefined
   const versionNo = String(formData.value.activeRouteVersionNo || '').trim()
   if (!versionNo) {
     throw new Error('流转关系图加载失败：缺少生效路线版本号。')
@@ -296,7 +287,7 @@ type RouteFormInitialTab = 'basic' | 'flow' | 'product' | 'dcc'
 const activeTab = ref<RouteFormInitialTab>('basic')
 const initialStartSetting = ref<'basic' | 'product' | 'dcc'>()
 const selectedStartSetting = ref<'basic' | 'product' | 'dcc'>()
-const formData = ref<ProRouteVO & { processIds: number[] }>({
+const formData = ref<ProRouteVO & { processIds: number[]; dccProjectCodeId?: number }>({
   id: undefined,
   code: '',
   name: '',
@@ -312,6 +303,7 @@ const selectedProcesses = computed(() =>
   formData.value.processIds.map((id) => processOptions.value.find((process) => process.id === id)!)
 )
 const formRules = reactive({
+  dccProjectCodeId: [{ required: true, message: '请选择项目代码', trigger: 'change' }],
   code: [
     {
       validator: (_rule: unknown, value: string, callback: (error?: Error) => void) => {
@@ -351,8 +343,6 @@ const dccProjectBinding = ref<RouteDccProjectBindingVO>({
 const dccProjectBindingForm = reactive<{ dccProjectCodeId?: number }>({})
 const dccProjectBindingLoading = ref(false)
 const dccProjectBindingError = ref('')
-const dccProjectCodeLoading = ref(false)
-const dccProjectCodeOptions = ref<DccProjectCodeRespVO[]>([])
 const savedDccProjectCode = ref<DccProjectCodeRespVO>()
 
 const isDraftCandidateVersion = computed(
@@ -501,6 +491,7 @@ const submitForm = async () => {
     if (formType.value === 'create') {
       const res = await ProRouteApi.createRoute(
         {
+          dccProjectCodeId: data.dccProjectCodeId!,
           name: data.name.trim(),
           remark: data.remark,
           processIds: [...data.processIds]
@@ -660,7 +651,6 @@ const resetForm = () => {
   }
   dccProjectBindingForm.dccProjectCodeId = undefined
   dccProjectBindingError.value = ''
-  dccProjectCodeOptions.value = []
   savedDccProjectCode.value = undefined
 }
 
@@ -726,7 +716,6 @@ const loadDccProjectData = async () => {
   dccProjectBindingError.value = ''
   try {
     await loadDccProjectBinding(formData.value.id)
-    await loadDccProjectCodeOptions('')
   } catch (error) {
     const errorMessage = resolveRouteOperationErrorMessage(
       error,
@@ -751,27 +740,6 @@ const loadDccProjectBinding = async (routeId: MesRouteId) => {
     dccProjectBindingLoading.value = false
   }
 }
-
-const loadDccProjectCodeOptions = async (keyword = '') => {
-  dccProjectCodeLoading.value = true
-  try {
-    const page = await getProjectCodePage({
-      pageNo: 1,
-      pageSize: 20,
-      keyword,
-      status: DCC_PROJECT_CODE_STATUS_ENABLE
-    })
-    dccProjectCodeOptions.value = page.list || []
-  } catch (error) {
-    message.error(resolveRouteOperationErrorMessage(error, '加载DCC项目代码失败'))
-    throw error
-  } finally {
-    dccProjectCodeLoading.value = false
-  }
-}
-
-const formatDccProjectCodeOption = (projectCode: DccProjectCodeRespVO) =>
-  [projectCode.projectCode, projectCode.projectName, projectCode.id].filter(Boolean).join(' / ')
 
 const saveDccProjectBinding = async () => {
   if (dccProjectBindingLoading.value || !formData.value.id || !dccProjectBindingForm.dccProjectCodeId) return

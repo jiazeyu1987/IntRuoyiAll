@@ -86,7 +86,6 @@ public class DccProjectProductCreateWriteService {
         var before=productAudit.snapshot(requestId);
         folderTemplateService.generate(projectCode.getId(), request.getFolderTemplateId(), request.getFolderTemplateSnapshotJson());
         DccProductCatalogDO productCatalog = DccProductCatalogDO.builder()
-                .tenantId(cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId())
                 .dataSource(DATA_SOURCE)
                 .originalRowNo(originalRowNo)
                 .product(request.getProductName())
@@ -96,6 +95,7 @@ public class DccProjectProductCreateWriteService {
                 .classification(request.getClassification())
                 .remark(request.getRemark())
                 .build();
+        productCatalog.setTenantId(cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId());
         if (productCatalogMapper.insert(productCatalog) != 1 || productCatalog.getId() == null) {
             throw exception(WRITE_INCOMPLETE, "产品目录");
         }

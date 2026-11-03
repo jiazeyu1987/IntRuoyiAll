@@ -41,6 +41,7 @@
   </Dialog>
 </template>
 <script setup lang="ts">
+import { showRecordImportResult } from '@/utils/importResult'
 import { MdItemApi } from '@/api/mes/md/item'
 import { getAccessToken, getTenantId } from '@/utils/auth'
 import download from '@/utils/download'
@@ -90,21 +91,13 @@ const submitFormSuccess = (response: any) => {
     resetForm()
     return
   }
-  // 拼接提示语
   const data = response.data
-  let text = '上传成功数量：' + data.createCodes.length + ';'
-  for (let code of data.createCodes) {
-    text += '< ' + code + ' >'
-  }
-  text += '更新成功数量：' + data.updateCodes.length + ';'
-  for (const code of data.updateCodes) {
-    text += '< ' + code + ' >'
-  }
-  text += '更新失败数量：' + Object.keys(data.failureCodes).length + ';'
-  for (const code in data.failureCodes) {
-    text += '< ' + code + ': ' + data.failureCodes[code] + ' >'
-  }
-  message.alert(text)
+  showRecordImportResult({
+    entity: '物料编码',
+    created: data.createCodes,
+    updated: data.updateCodes,
+    failures: data.failureCodes,
+  })
   formLoading.value = false
   dialogVisible.value = false
   // 发送操作成功的事件

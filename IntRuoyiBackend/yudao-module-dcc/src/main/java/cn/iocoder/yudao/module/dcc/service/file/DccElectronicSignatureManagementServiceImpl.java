@@ -293,6 +293,11 @@ public class DccElectronicSignatureManagementServiceImpl implements DccElectroni
     }
 
     @Override
+    public DccElectronicSignatureImageRespVO initializeMyDefaultSignatureImage(Long userId) {
+        return signatureImageService.initializeMyDefaultSignatureImage(userId);
+    }
+
+    @Override
     public DccElectronicSignatureImageRespVO uploadMySignatureImage(Long userId, MultipartFile file,
                                                                     Long operatorId, String reason) {
         return signatureImageService.uploadMySignatureImage(userId, file, operatorId, reason);

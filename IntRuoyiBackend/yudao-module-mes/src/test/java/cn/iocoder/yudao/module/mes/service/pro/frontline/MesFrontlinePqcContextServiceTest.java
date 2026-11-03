@@ -175,6 +175,11 @@ class MesFrontlinePqcContextServiceTest {
     private MesFrontlinePqcContextService service;
     private boolean actualPersonnelScopes;
     private boolean selfSubmission;
+    private boolean explicitUnboundEquipment;
+    private boolean currentEquipmentConfigured;
+    private boolean missingLockedSnapshot;
+    private String lockedSnapshotOverride;
+    private boolean legacyUnboundEquipment;
     private boolean foreignPersonnelScope;
 
     @Test
@@ -459,6 +464,72 @@ class MesFrontlinePqcContextServiceTest {
     }
 
     @Test
+    void explicitUnboundEquipmentBlocksContextUntilRealConfigurationIsAdded() {
+        var source = qaPublishedItem("ID-001", List.of("FIRST"));
+        source.setInspectionTool("检测专用泵筒");
+        source.setEquipmentUnboundReason("原文要求泵筒，真实台账待补齐");
+        when(activeOrderMapper.selectById(ACTIVE_ORDER_ID)).thenReturn(activeOrder(ACTIVE_ORDER_ID, WORK_ORDER_ID,
+                LocalDateTime.of(2026, 8, 20, 8, 0)));
+        when(workOrderMapper.selectById(WORK_ORDER_ID)).thenReturn(workOrder(WORK_ORDER_ID));
+        when(routeMapper.selectByIdIgnoreDeleted(ROUTE_ID)).thenReturn(route());
+        when(regulationService.getLockedVersionForOrder(DCC_PROJECT_ID, REGULATION_ID, REGULATION_VERSION_ID))
+                .thenReturn(lockedQaAggregate("RETIRED", qaPublishedProcess(QA_PROCESS_ID, "ID-QA-001", "牢固度", 1, source)));
+        when(pqcTaskMapper.selectListByActiveOrderId(ACTIVE_ORDER_ID)).thenReturn(List.of());
+        var error = assertThrows(ServiceException.class, () -> service.listProcessesByActiveOrder(ACTIVE_ORDER_ID));
+        assertTrue(error.getMessage().contains("请先在QA补齐设备配置"));
+        assertTrue(error.getMessage().contains("原文要求泵筒，真实台账待补齐"));
+        when(pqcItemEquipmentConfigService.listEnabledEquipmentOptionsByProjectVersionAndItemCodes(anyLong(), anyLong(), any()))
+                .thenReturn(Map.of("ID-001", List.of(new MesPqcItemEquipmentOption(
+                        "ID-001", 1101L, "REAL-001", "检测专用泵筒", "REAL-001", true, 1))));
+        var result = service.listProcessesByActiveOrder(ACTIVE_ORDER_ID);
+        assertEquals(1, result.get(0).getInspectionItems().get(0).getEquipmentOptions().size());
+        assertEquals("原文要求泵筒，真实台账待补齐", result.get(0).getInspectionItems().get(0).getEquipmentUnboundReason());
+        verify(regulationService, org.mockito.Mockito.times(2)).getLockedVersionForOrder(DCC_PROJECT_ID, REGULATION_ID, REGULATION_VERSION_ID);
+    }
+
+    @Test
+    void directSubmitCannotBypassUnboundEquipmentGuard() {
+        explicitUnboundEquipment = true;
+        submitPqcInspectionPermitsAdjustedActualQuantityForEveryInspectionType("FIRST", "FIRST", "FIRST", "confirmed");
+    }
+
+    @Test
+    void directSubmitUsesCurrentEquipmentToReleaseHistoricalUnboundState() {
+        explicitUnboundEquipment = true;
+        currentEquipmentConfigured = true;
+        submitPqcInspectionPermitsAdjustedActualQuantityForEveryInspectionType("FIRST", "FIRST", "FIRST", "confirmed");
+    }
+
+    @Test
+    void directSubmitRejectsMissingLockedVersionSnapshot() {
+        explicitUnboundEquipment = true;
+        missingLockedSnapshot = true;
+        submitPqcInspectionPermitsAdjustedActualQuantityForEveryInspectionType("FIRST", "FIRST", "FIRST", "confirmed");
+    }
+
+    @Test
+    void directSubmitRejectsIncompleteLockedSnapshot() {
+        explicitUnboundEquipment = true;
+        lockedSnapshotOverride = "{\"processes\":[{\"items\":[{\"itemCode\":\"OTHER\"}]}]}";
+        submitPqcInspectionPermitsAdjustedActualQuantityForEveryInspectionType("FIRST", "FIRST", "FIRST", "confirmed");
+    }
+
+    @Test
+    void directSubmitRejectsDuplicateLockedSnapshotItem() {
+        explicitUnboundEquipment = true;
+        lockedSnapshotOverride = "{\"processes\":[{\"items\":[{\"itemCode\":\"ID-001\"},{\"itemCode\":\"ID-001\"}]}]}";
+        submitPqcInspectionPermitsAdjustedActualQuantityForEveryInspectionType("FIRST", "FIRST", "FIRST", "confirmed");
+    }
+
+    @Test
+    void historicalSnapshotWithoutUnboundReasonRemainsExecutable() {
+        explicitUnboundEquipment = true;
+        legacyUnboundEquipment = true;
+        lockedSnapshotOverride = "{\"processes\":[{\"items\":[{\"itemCode\":\"ID-001\",\"itemName\":\"目测\"}]}]}";
+        submitPqcInspectionPermitsAdjustedActualQuantityForEveryInspectionType("FIRST", "FIRST", "FIRST", "confirmed");
+    }
+
+    @Test
     void listProcessesAppliesLastSelectedEquipmentForActualEmployeeAndItem() {
         long loginUserId = 3001L;
         long actualEmployeeId = 3002L;
@@ -528,8 +599,13 @@ class MesFrontlinePqcContextServiceTest {
         long signatureId = 9301L;
         LocalDateTime submitTime = LocalDateTime.of(2026, 8, 19, 15, 30);
         MesProcessPoolActiveOrderDO activeOrder = activeOrder(ACTIVE_ORDER_ID, WORK_ORDER_ID, submitTime);
-        when(pqcTaskMapper.selectByIdForUpdate(pqcTaskId)).thenReturn(
-                pendingTask(pqcTaskId, inspectionType, ruleKey, shiftCode));
+        var pending = pendingTask(pqcTaskId, inspectionType, ruleKey, shiftCode);
+        if (explicitUnboundEquipment) {
+            pending.setQaItemCode(null);
+            pending.setPlannedInspectionQuantity(2);
+            pending.setInspectionItemPlanJson("{\"ID-001\":2}");
+        }
+        when(pqcTaskMapper.selectByIdForUpdate(pqcTaskId)).thenReturn(pending);
         when(activeOrderMapper.selectById(ACTIVE_ORDER_ID)).thenReturn(activeOrder);
         when(processSnapshotMapper.selectByActiveOrderAndProcess(ACTIVE_ORDER_ID, 30001L, 40001L))
                 .thenReturn(processSnapshot(30001L, 40001L));
@@ -551,7 +627,13 @@ class MesFrontlinePqcContextServiceTest {
         when(regulationProcessMapper.selectById(QA_PROCESS_ID)).thenReturn(MesQaInspectionRegulationProcessDO.builder()
                 .id(QA_PROCESS_ID).regulationVersionId(REGULATION_VERSION_ID).build());
         when(versionMapper.selectById(REGULATION_VERSION_ID)).thenReturn(MesQaInspectionRegulationVersionDO.builder()
-                .id(REGULATION_VERSION_ID).regulationId(REGULATION_ID).lifecycleStatus("PUBLISHED").build());
+                .id(REGULATION_VERSION_ID).regulationId(REGULATION_ID).lifecycleStatus("PUBLISHED")
+                .snapshotJson(lockedSnapshotOverride != null ? lockedSnapshotOverride : explicitUnboundEquipment && !missingLockedSnapshot ? "{\"processes\":[{\"items\":[{\"itemCode\":\"ID-001\",\"itemName\":\"牢固度\",\"equipmentUnboundReason\":\"检测专用泵筒待补齐真实台账\"}]}]}" : null).build());
+        if (currentEquipmentConfigured) {
+            when(pqcItemEquipmentConfigService.listEnabledEquipmentOptionsByProjectVersionAndItemCodes(anyLong(), anyLong(), any()))
+                    .thenReturn(Map.of("ID-001", List.of(new MesPqcItemEquipmentOption(
+                            "ID-001", 1101L, "REAL-001", "检测专用泵筒", "REAL-001", true, 1))));
+        }
         when(regulationMapper.selectById(REGULATION_ID)).thenReturn(MesQaInspectionRegulationDO.builder()
                 .id(REGULATION_ID).dccProjectCodeId(DCC_PROJECT_ID).build());
         when(dccProjectCodeMapper.selectById(DCC_PROJECT_ID)).thenReturn(DccProjectCodeDO.builder()
@@ -611,6 +693,21 @@ class MesFrontlinePqcContextServiceTest {
                 .clientSubmitTime(submitTime)
                 .build();
 
+        if (explicitUnboundEquipment && !currentEquipmentConfigured && !legacyUnboundEquipment) {
+            var error = assertThrows(ServiceException.class, () -> service.submitPqcInspection(loginUserId, command));
+            if (missingLockedSnapshot) {
+                assertTrue(error.getMessage().contains("lockedQaSnapshot缺失"));
+            } else if (lockedSnapshotOverride != null) {
+                assertTrue(error.getMessage().contains("lockedQaSnapshot.items"));
+            } else {
+                assertTrue(error.getMessage().contains("请先在QA补齐设备配置"));
+                assertTrue(error.getMessage().contains("检测专用泵筒待补齐真实台账"));
+            }
+            verify(signatureService, never()).validatePqcSubmitSignature(any(), any());
+            verify(eventService, never()).createPqcInspectionEvent(any());
+            verify(pqcTaskMapper, never()).updateSubmittedIfPending(anyLong(), any(), anyString(), anyString(), anyString());
+            return;
+        }
         if (!workState.equals("confirmed")) {
             var persisted = workOrder(WORK_ORDER_ID);
             persisted.setStatus(workState.equals("canceled") ? 3 : workState.equals("finished") ? 2 : 1);

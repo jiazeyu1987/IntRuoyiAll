@@ -60,6 +60,7 @@ class MesQaInspectionRegulationParseServiceTest {
         assertTrue(appearance.getStandardText().contains("表面应清洁"));
         assertTrue(appearance.getInspectionMethod().contains("300~700lx"));
         assertEquals(new BigDecimal("0.4"), appearance.getPatrolInspectionRatio());
+        assertTrue(appearance.getSamplingPlanText().contains("AQL=0.4"));
         assertTrue(appearance.getApplicableInspectionTypes().contains("PATROL"));
     }
 
@@ -84,15 +85,27 @@ class MesQaInspectionRegulationParseServiceTest {
                 .mapToInt(process -> process.getItems().size())
                 .sum();
         assertEquals(22, itemCount);
+        assertTrue(result.getProcesses().stream().flatMap(p -> p.getItems().stream())
+                .allMatch(item -> new BigDecimal("0.4").equals(item.getPatrolInspectionRatio())
+                        && item.getSamplingPlanText().contains("AQL=0.4")
+                        && item.getApplicableInspectionTypes().contains("PATROL")));
+        assertTrue(result.getRuleSourceText().contains("每一个检验项目均应合格"));
     }
 
     @Test
-    void parseWord_rejectsNonDocxWithoutReturningEmptyResult() {
+    void parseWord_rejectsUnreadableDocWithoutReturningEmptyResult() {
         MockMultipartFile file = new MockMultipartFile(
                 "file", "错误文件.doc", "application/msword", new byte[]{1, 2, 3});
 
         RuntimeException exception = assertThrows(RuntimeException.class, () -> service.parseWord(file));
 
-        assertTrue(exception.getMessage().contains("仅支持 .docx 文件"));
+        assertTrue(exception.getMessage().contains("文件不是可读取的 DOC 文档"));
+    }
+
+    @Test
+    void parseWord_rejectsUnsupportedFileType() {
+        var file = new MockMultipartFile("file", "错误文件.pdf", "application/pdf", new byte[]{1, 2, 3});
+        var error = assertThrows(RuntimeException.class, () -> service.parseWord(file));
+        assertTrue(error.getMessage().contains("仅支持 .doc 或 .docx 文件"));
     }
 }

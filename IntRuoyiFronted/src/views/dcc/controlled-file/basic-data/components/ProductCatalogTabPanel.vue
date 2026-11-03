@@ -168,7 +168,7 @@
               </el-table-column>
               <el-table-column
                 v-if="isProductCatalogColumnVisible('batchRecordTotalRecognitionJson')"
-                label="批记录识别JSON"
+                label="批记录识别资料"
                 prop="batchRecordTotalRecognitionJson"
                 :width="getProductCatalogColumnWidthString('batchRecordTotalRecognitionJson', 140)"
               >
@@ -181,7 +181,7 @@
                     data-testid="dcc-product-catalog-copy-recognition-json"
                     @click="copyProductCatalogBatchRecordTotalRecognitionJson(row)"
                   >
-                    复制JSON
+                    复制资料
                   </el-button>
                   <span v-else>-</span>
                 </template>
@@ -944,7 +944,7 @@ const productCatalogDefaultColumns: UserTableColumnDefinition[] = [
   { key: 'productCode', label: '产品编码', minWidth: 120 },
   { key: 'projectName', label: '项目名称', minWidth: 180, sortable: 'custom' },
   { key: 'projectCode', label: '项目代码', minWidth: 120, sortable: 'custom' },
-  { key: 'batchRecordTotalRecognitionJson', label: '批记录识别JSON', width: 140 },
+  { key: 'batchRecordTotalRecognitionJson', label: '批记录识别资料', width: 140 },
   { key: 'classification', label: '分类', minWidth: 120 },
   { key: 'registrationCertificateName', label: '注册证名称', minWidth: 220 },
   { key: 'registrationCertificateNumber', label: '注册证号', minWidth: 180 },
@@ -1534,7 +1534,7 @@ const copyProductCatalogBatchRecordTotalRecognitionJson = async (row: DccProduct
   }
   await copy()
   if (unref(copied)) {
-    message.success('批记录识别 JSON 已复制')
+    message.success('批记录识别资料已复制')
   }
 }
 

@@ -8,6 +8,7 @@ export interface SimpleParserDevice {
 
 export interface SimpleParserRequest {
   requestId: string
+  projectId: number
   routeName: string
   recognitionJson: Record<string, unknown>
   processSelections: Array<{
@@ -31,6 +32,9 @@ export interface SimpleParserRow {
 
 export interface SimpleParserResult {
   requestId: string
+  projectId: number
+  projectCode: string
+  projectName: string
   previewToken: string
   routeName: string
   processCount: number

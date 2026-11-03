@@ -58,7 +58,7 @@ export interface BatchRecordReportImportResultVO {
 
 export interface BatchRecordReportImportRouteProductOptionVO {
   optionKey: string
-  routeProductId?: number
+  routeProductId?: number | string
   routeId?: number
   routeCode?: string
   routeName?: string
@@ -344,7 +344,7 @@ export const BatchRecordReportApi = {
     upgrade: boolean,
     productNames: string[],
     rebuildBatchRecord = true,
-    selectedRouteProductIds: number[] = [],
+    selectedRouteProductIds: Array<number | string> = [],
     selectedProductNames: string[] = productNames,
     importAction: BatchRecordWordImportAction = upgrade ? 'UPGRADE' : 'REBUILD_V1',
     expectedSourceVersionId?: number,

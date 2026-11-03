@@ -2,7 +2,20 @@ import request from '@/config/axios'
 
 export type MesRouteId = number | string
 
+export interface RouteProjectOption {
+  id: number
+  projectCode: string
+  projectName: string
+  status: string
+  occupied: boolean
+  routeIds: number[]
+}
+
+export const getRouteProjectOptions = (keyword = ''): Promise<RouteProjectOption[]> =>
+  request.get({ url: '/mes/pro/route/dcc-project-options', params: { keyword } })
+
 export interface ProRouteCreateReqVO {
+  dccProjectCodeId: number
   name: string
   remark?: string
   processIds: number[]
@@ -78,6 +91,7 @@ export interface ProRouteResourceCapacityPreviewVO {
   blockingIssues: ProRouteResourceCapacityBlockingIssueVO[]
 }
 export interface ProRouteCopyReqVO {
+  dccProjectCodeId: number
   sourceRouteId: number
   targetCode: string
   targetName: string
@@ -101,7 +115,7 @@ export interface RouteDccProjectBindingSaveReqVO {
 export interface ProRouteScheduleConfigVO {
   id?: number
   routeVersionId: MesRouteId
-  routeProcessId: number
+  routeProcessId: MesRouteId
   capacityMode: 'RESOURCE_CALCULATED' | 'MANUAL_OVERRIDE' | 'FINITE_HOURLY' | 'INFINITE_FORMULA'
   hourlyCapacity?: number
   shiftHours?: number
@@ -310,7 +324,7 @@ export interface RouteFlowGraphVO extends RouteFlowValidationVO {
 }
 
 export interface RouteFlowGraphSaveReqVO {
-  routeId: number
+  routeId: MesRouteId
   routeVersionId?: MesRouteId
   graphVersion: number
   edges: RouteFlowEdgeVO[]
@@ -323,7 +337,7 @@ export interface RouteFlowGraphSaveReqVO {
 
 export interface RouteFlowRouteProcessCreateReqVO {
   clientRouteProcessId: number
-  routeId: number
+  routeId: MesRouteId
   processId: number
   sort: number
   linkType?: number
@@ -337,7 +351,7 @@ export interface RouteFlowRouteProcessCreateReqVO {
 
 export interface RouteFlowRouteProcessUpdateReqVO {
   id: number
-  routeId: number
+  routeId: MesRouteId
   processId: number
   sort: number
   workstationId?: number
@@ -355,6 +369,21 @@ export const PRO_ROUTE_IMPORT_PROCESS_TEMPLATE_XLSX_URL =
 export const PRO_ROUTE_VERSION_BASE_URL = '/mes/pro/route-version'
 
 // MES 工艺路线 API
+export interface RouteFullFlowReadinessVO {
+  routeId: MesRouteId
+  routeVersionId?: MesRouteId
+  versionNo?: string
+  checkedAt: string
+  overallStatus: 'BLOCKED' | 'PENDING'
+  items: Array<{
+    stage: string
+    name: string
+    status: 'PASS' | 'BLOCKED' | 'PENDING'
+    detail: string
+    action: string
+  }>
+}
+
 export const ProRouteApi = {
   // 查询工艺路线分页
   getRoutePage: async (params: any) => {
@@ -499,6 +528,14 @@ export const ProRouteApi = {
     options: Record<string, unknown> = {}
   ) => {
     return await request.post({ url: `/mes/pro/route-schedule-config/save`, data, ...options })
+  },
+
+  checkRouteFullFlowReadiness: async (routeId: MesRouteId, routeVersionId?: MesRouteId) => {
+    return await request.get<RouteFullFlowReadinessVO>({
+      url: '/mes/pro/route-process-flow/full-flow-readiness',
+      params: { routeId, routeVersionId },
+      ignoreErrorMessage: true
+    })
   },
 
   // 查询工艺路线工序流转关系图

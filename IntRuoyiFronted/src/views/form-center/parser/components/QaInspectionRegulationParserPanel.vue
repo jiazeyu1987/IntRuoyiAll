@@ -62,8 +62,8 @@
         <div>
           <div class="qa-parser-panel-title">一线PQC预览</div>
           <div class="qa-parser-panel-subtitle">
-            {{ qaPreviewJson.regulationName }}（{{ qaPreviewJson.regulationCode }}）
-            · {{ qaPreviewJson.versionNo }} · {{ qaPreviewJson.effectiveDate }}
+            {{ qaPreviewJson.regulationName }}（{{ qaPreviewJson.regulationCode }}） ·
+            {{ qaPreviewJson.versionNo }} · {{ qaPreviewJson.effectiveDate }}
           </div>
         </div>
       </header>
@@ -121,6 +121,7 @@
                 type="button"
                 class="is-pass"
                 :class="{ active: qaCurrentItemResult === 'PASS' }"
+                :disabled="!!qaSamplingIssue"
                 @click="setQaCurrentItemResult('PASS')"
               >
                 全部合格
@@ -129,6 +130,7 @@
                 type="button"
                 class="is-fail"
                 :class="{ active: qaCurrentItemResult === 'FAIL' }"
+                :disabled="!!qaSamplingIssue"
                 @click="setQaCurrentItemResult('FAIL')"
               >
                 全部不良
@@ -137,6 +139,7 @@
                 type="button"
                 class="is-piece"
                 :class="{ active: qaCurrentItemResult === 'PIECE' }"
+                :disabled="!!qaSamplingIssue"
                 @click="setQaCurrentItemResult('PIECE')"
               >
                 逐件选择
@@ -172,9 +175,15 @@
 
             <div class="qa-parser-number-field">
               <span>检验数量</span>
-              <el-input-number v-model="qaInspectionQuantity" :min="1" :precision="0" />
+              <el-input-number
+                v-model="qaInspectionQuantity"
+                :disabled="!!qaSamplingIssue"
+                :min="1"
+                :precision="0"
+              />
               <b>件</b>
             </div>
+            <p v-if="qaSamplingIssue" role="status">{{ qaSamplingIssue }}</p>
 
             <dl class="qa-parser-sampling-details">
               <div>
@@ -187,7 +196,7 @@
               </div>
               <div>
                 <dt>巡检比例</dt>
-                <dd>{{ formatPatrolRatio(qaCurrentItem.patrolInspectionRatio) }}</dd>
+                <dd>{{ formatPatrolRatio(qaCurrentItem) }}</dd>
               </div>
               <div>
                 <dt>结果类型</dt>
@@ -248,11 +257,11 @@
       </template>
     </div>
   </el-dialog>
-
 </template>
 
 <script setup lang="ts">
 import download from '@/utils/download'
+import { formatPatrolRatio, patrolRatioIssue } from '../simplePqc'
 import {
   QcTemplateApi,
   type QaInspectionRegulationParseVO,
@@ -279,16 +288,19 @@ const qaCurrentProcessIndex = ref(0)
 const qaCurrentItemIndex = ref(0)
 const qaProcessSelectorVisible = ref(false)
 const qaSelectedInspectionType = ref<QaInspectionType>('FIRST')
-const qaInspectionQuantity = ref(1)
+const qaInspectionQuantity = ref<number>()
 const qaItemResults = reactive<Record<string, QaPreviewResult | undefined>>({})
 const qaFactDialogVisible = ref(false)
 const qaFactDialogType = ref<QaFactDialogType>('standard')
 
-const qaCurrentProcess = computed(() =>
-  qaPreviewJson.value?.processes[qaCurrentProcessIndex.value]
-)
+const qaCurrentProcess = computed(() => qaPreviewJson.value?.processes[qaCurrentProcessIndex.value])
 
 const qaCurrentItem = computed(() => qaCurrentProcess.value?.items[qaCurrentItemIndex.value])
+const qaSamplingIssue = computed(() =>
+  qaSelectedInspectionType.value === 'PATROL' && qaCurrentItem.value
+    ? patrolRatioIssue(qaCurrentItem.value)
+    : undefined
+)
 
 const qaCurrentProcessTitle = computed(() => {
   if (!qaCurrentProcess.value) {
@@ -304,8 +316,8 @@ const canGoNextQaProcess = computed(() => {
   return qaCurrentProcessIndex.value < processCount - 1
 })
 
-const qaAvailableInspectionTypes = computed<QaInspectionType[]>(() =>
-  qaCurrentItem.value?.applicableInspectionTypes || []
+const qaAvailableInspectionTypes = computed<QaInspectionType[]>(
+  () => qaCurrentItem.value?.applicableInspectionTypes || []
 )
 
 const qaCurrentItemResult = computed(() =>
@@ -392,7 +404,10 @@ const initializeQaPreviewState = (mapping: QaInspectionRegulationParseVO) => {
 const initializeQaItemControls = (item?: QaInspectionRegulationParsedItemVO) => {
   const availableTypes = item?.applicableInspectionTypes || []
   qaSelectedInspectionType.value = availableTypes[0] || 'FIRST'
-  qaInspectionQuantity.value = Math.max(1, item?.firstInspectionQuantity || 1)
+  qaInspectionQuantity.value =
+    qaSamplingIssue.value || qaSelectedInspectionType.value === 'PATROL'
+      ? undefined
+      : item?.firstInspectionQuantity
 }
 
 const goPreviousQaProcess = () => {
@@ -428,11 +443,11 @@ const selectQaItem = (itemIndex: number) => {
 const selectQaInspectionType = (inspectionType: QaInspectionType) => {
   qaSelectedInspectionType.value = inspectionType
   qaInspectionQuantity.value =
-    inspectionType === 'FIRST' ? Math.max(1, qaCurrentItem.value?.firstInspectionQuantity || 1) : 1
+    inspectionType === 'FIRST' ? qaCurrentItem.value?.firstInspectionQuantity : undefined
 }
 
 const setQaCurrentItemResult = (result: QaPreviewResult) => {
-  if (qaCurrentItem.value) {
+  if (qaCurrentItem.value && !qaSamplingIssue.value) {
     qaItemResults[qaCurrentItem.value.itemCode] = result
   }
 }
@@ -579,7 +594,11 @@ const requireQaPositiveInteger = (value: unknown, path: string) => {
 }
 
 const validateQaOptionalNumber = (value: unknown, path: string) => {
-  if (value !== undefined && value !== null && (typeof value !== 'number' || !Number.isFinite(value))) {
+  if (
+    value !== undefined &&
+    value !== null &&
+    (typeof value !== 'number' || !Number.isFinite(value))
+  ) {
     throw new Error(`QA 检验规程 JSON ${path} 必须是数字或空值`)
   }
 }
@@ -590,17 +609,13 @@ const isRecordValue = (value: unknown): value is Record<string, unknown> =>
 const stringifyQaRecognitionJson = (mapping: QaInspectionRegulationParseVO) =>
   JSON.stringify(mapping, null, 2)
 
-const buildQaJsonDownloadName = (fileName: string) =>
-  `${fileName.replace(/\.docx$/i, '')}.json`
+const buildQaJsonDownloadName = (fileName: string) => `${fileName.replace(/\.docx$/i, '')}.json`
 
 const formatQaInspectionType = (inspectionType: QaInspectionType) =>
   inspectionType === 'FIRST' ? '首检' : '巡检'
 
 const formatOptionalNumber = (value: number | undefined, unit: string) =>
   value === undefined || value === null ? '不适用' : `${value}${unit}`
-
-const formatPatrolRatio = (value: number | undefined) =>
-  value === undefined || value === null ? '不适用' : `AQL ${value}`
 
 const compactText = (value: string) => (value.length > 32 ? `${value.slice(0, 32)}...` : value)
 

@@ -181,11 +181,18 @@
 
         <el-alert
           v-if="releaseError"
-          :title="releaseError"
+          :title="releaseError.split('\n诊断信息：')[0]"
           type="error"
           :closable="false"
           show-icon
-        />
+        >
+          <template v-if="releaseError.includes('\n诊断信息：')" #default>
+            <details class="pqc-release-error-details">
+              <summary>查看诊断信息（供管理员排查）</summary>
+              <div style="white-space: pre-wrap; overflow-wrap: anywhere">{{ releaseError.split('\n诊断信息：').slice(1).join('\n诊断信息：') }}</div>
+            </details>
+          </template>
+        </el-alert>
 
         <el-result v-if="releaseResult" icon="success" title="生产放行完成">
           <template #sub-title>
@@ -455,7 +462,7 @@ const requireCompletedPqcReleaseDetail = (
     String(signature?.signatureId) !== String(decision.signatureId) || signature?.role !== 'PQC_RELEASE' ||
     !verification || !exactId(verification.signatureId) ||
     String(verification.signatureId) !== String(signature.signatureId)) {
-    throw new Error('订单详情签名关联与正式生产放行回执不一致。')
+    throw new Error('放行详情中的签名与放行结果记录不一致，无法展示详情。请联系管理员核查。')
   }
   const dimensions = [verification.digestStatus, verification.timeConsistencyStatus, verification.auditBindingStatus]
   const overall = dimensions.includes('MISMATCH') ? 'MISMATCH' : dimensions.includes('MISSING') ? 'INCOMPLETE' : 'VALID'
@@ -473,7 +480,7 @@ const requireCompletedPqcReleaseDetail = (
     (signature.signerNameStatus === 'VERIFIED_SNAPSHOT' && (overall !== 'VALID' || !signature.signerName?.trim())) ||
     (signature.signerNameStatus === 'UNVERIFIED_SNAPSHOT' && (overall === 'VALID' || signature.signerName !== '签时姓名未核验')) ||
     (signature.signerNameStatus === 'NOT_RECORDED' && signature.signerName !== '未记录')) {
-    throw new Error('订单详情签名核验状态或姓名投影不一致。')
+    throw new Error('放行详情中的签名核验信息或签署人姓名不一致，无法展示可信的签名结果。请联系管理员核查。')
   }
 }
 
@@ -648,7 +655,7 @@ const openReleaseDialog = (row: MesPqcProductionReleasePageItemRespVO) => {
   releaseError.value = ''
   releaseResult.value = undefined
   releaseOutcomeUncertain.value = releaseRequestStates.has(releaseRequestScopeKey(row))
-  if (releaseOutcomeUncertain.value) releaseError.value = '本次申请已提交或结果尚未确认，请只读刷新正式回执后核对；禁止再次提交。'
+  if (releaseOutcomeUncertain.value) releaseError.value = '本次申请已提交或结果尚未确认，请勿重复提交。请刷新查看放行结果；仍无法确认时，请联系管理员。'
   releaseForm.signaturePassword = ''
   releaseForm.udiControlDocumentNo = ''
   releaseForm.approvalOpinion = ''
@@ -760,7 +767,7 @@ const applyReleaseSuccess = async (
   if (!isCurrent()) return
   if (loadError.value) {
     releaseError.value = `生产放行已成功，列表刷新失败：${loadError.value}`
-    message.warning(releaseError.value)
+    message.warning(releaseError.value.split('\n诊断信息：')[0])
   }
 }
 
@@ -783,8 +790,8 @@ const recoverUncertainRelease = async (
   } catch (receiptError) {
     if (!isCurrent()) return
     releaseOutcomeUncertain.value = true
-    releaseError.value = `生产放行响应不确定，正式回执无法证明本次请求成功，请只读刷新核对。` +
-      `写入错误：${resolveErrorMessage(writeError, '响应异常')}；回执错误：${resolveErrorMessage(receiptError, '查询失败')}`
+    releaseError.value = `暂时无法确认生产放行结果，请勿重复提交。请刷新查看放行结果；仍无法确认时，请联系管理员核查。\n诊断信息：` +
+      `提交请求：${resolveErrorMessage(writeError, '响应异常')}\n结果查询：${resolveErrorMessage(receiptError, '查询失败')}`
     return
   }
 }
@@ -851,7 +858,7 @@ const submitRelease = async () => {
       releaseForm.signaturePassword = ''
       releaseOutcomeUncertain.value = true
       releaseError.value =
-        `生产放行结果无法确认，当前错误不符合自动回执恢复条件，请只读核对；禁止再次提交：${resolveErrorMessage(error, '响应异常')}`
+        `暂时无法确认生产放行结果，请勿重复提交。请查看放行结果记录，并联系管理员核查。\n诊断信息：${resolveErrorMessage(error, '响应异常')}`
       releaseSubmitting.value = false
       return
     }
@@ -861,8 +868,8 @@ const submitRelease = async () => {
   } catch (error) {
     if (!isCurrent()) return
     releaseOutcomeUncertain.value = true
-    releaseError.value = `生产放行写入已完成，回执或列表读取未完成，请只读刷新核对：${resolveErrorMessage(error, '回执或读取失败。')}`
-    message.warning(releaseError.value)
+    releaseError.value = `生产放行已提交，但放行结果或列表未能加载。请勿重复提交，请刷新查看结果；仍无法查看时，请联系管理员。\n诊断信息：${resolveErrorMessage(error, '回执或读取失败。')}`
+    message.warning(releaseError.value.split('\n诊断信息：')[0])
   } finally {
     if (isCurrent()) releaseSubmitting.value = false
   }

@@ -78,11 +78,13 @@ class MesQaInspectionRegulationWordImportServiceTest {
         assertEquals(1, response.getItemCount());
         assertEquals(0, response.getInheritedItemCount());
         assertFalse(request.getFinalInspectionApplicable());
-        assertEquals("源 QA 模板未规定末检", request.getFinalInspectionNotApplicableReason());
+        assertEquals("原文未规定末检", request.getFinalInspectionNotApplicableReason());
         assertEquals(List.of("FIRST", "PATROL"),
                 request.getProcesses().get(0).getItems().get(0).getApplicableInspectionTypes());
         assertEquals(new BigDecimal("0.4"),
                 request.getProcesses().get(0).getItems().get(0).getPatrolInspectionRatio());
+        assertEquals("首件：5件；GB/T 2828.1，I，AQL=0.4",
+                request.getProcesses().get(0).getItems().get(0).getSamplingPlanText());
         assertTrue(request.getProcesses().get(0).getProcessCode().startsWith("PQC-TEST-001-P"));
         assertTrue(request.getProcesses().get(0).getItems().get(0).getItemCode()
                 .startsWith("PQC-TEST-001-I"));
@@ -96,9 +98,25 @@ class MesQaInspectionRegulationWordImportServiceTest {
         assertEquals(0L, request.getExpectedDraftRevision());
         assertEquals("表面清洁，无异物", request.getProcesses().get(0).getItems().get(0).getStandardText());
         assertEquals(List.of(), request.getProcesses().get(0).getItems().get(0).getEquipmentOptions());
+        assertEquals("备注：每班两次；不合格隔离后双倍检验", request.getProcesses().get(0).getItems().get(0).getFailureRule());
+        assertEquals(new BigDecimal("0.4"), request.getProcesses().get(0).getItems().get(0).getPatrolInspectionRatio());
+        assertEquals("首件：5件；GB/T 2828.1，I，AQL=0.4",
+                request.getProcesses().get(0).getItems().get(0).getSamplingPlanText());
         verify(regulationService, never()).saveDraft(any());
         verify(regulationService, never()).publish(any());
         verify(regulationMapper, never()).insert(any(MesQaInspectionRegulationDO.class));
+    }
+
+    @Test
+    void previewCommonWord_acceptsDocWithoutPersisting() {
+        when(parser.parse(any(), any())).thenReturn(parsed("B/0"));
+        byte[] content = {1, 2, 3};
+        var file = new MockMultipartFile("file", "通用规程.DOC", "application/msword", content);
+        var request = importService.previewCommonWord(file, DCC_PROJECT_ID);
+        assertEquals("MES_QA_COMMON", request.getOwnerModule());
+        verify(parser).parse(content, "通用规程.DOC");
+        verify(regulationService, never()).saveDraft(any());
+        verify(regulationService, never()).publish(any());
     }
 
     @Test
@@ -190,7 +208,7 @@ class MesQaInspectionRegulationWordImportServiceTest {
         assertEquals(new BigDecimal("1.2"), item.getStandardLowerLimit());
         assertEquals(new BigDecimal("2.4"), item.getStandardUpperLimit());
         assertTrue(item.getCritical());
-        assertEquals("原失败规则", item.getFailureRule());
+        assertEquals("备注：每班两次；不合格隔离后双倍检验\n原失败规则", item.getFailureRule());
         assertEquals("表面清洁，无异物", item.getStandardText());
         assertEquals("目视检查", item.getInspectionMethod());
         assertEquals(List.of("FIRST", "PATROL", "FINAL"), item.getApplicableInspectionTypes());
@@ -457,7 +475,7 @@ class MesQaInspectionRegulationWordImportServiceTest {
                 new MesQaInspectionRegulationWordParser.ParsedItem(
                         "清洗", "外观", "表面清洁，无异物", "目视检查", "目测",
                         "首件：5件；GB/T 2828.1，I，AQL=0.4", 5, new BigDecimal("0.4"))),
-                "测试QA模板.docx");
+                "测试QA模板.docx", "备注：每班两次；不合格隔离后双倍检验");
     }
 
     private static MesQaInspectionRegulationWordParser.ParsedRegulation parsedWithItem(
@@ -468,7 +486,7 @@ class MesQaInspectionRegulationWordImportServiceTest {
                 new MesQaInspectionRegulationWordParser.ParsedItem(
                         processName, itemName, "新标准", "目视检查", "目测",
                         "首件：5件；GB/T 2828.1，I，AQL=0.4", 5, new BigDecimal("0.4"))),
-                "测试QA模板.docx");
+                "测试QA模板.docx", "");
     }
 
     private static MesQaInspectionRegulationSaveRespVO savedDraft(

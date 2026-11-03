@@ -37,7 +37,7 @@ public interface MesProRouteService {
     /**
      * 复制工艺路线
      */
-    Long copyRoute(Long sourceRouteId, String targetCode, String targetName);
+    Long copyRoute(Long sourceRouteId, String targetCode, String targetName, Long dccProjectCodeId);
 
     /**
      * 工艺路线工序变更后维护路线版本。

@@ -96,8 +96,17 @@
           <el-descriptions-item label="开户行">{{ activeRow.bankName || '-' }}</el-descriptions-item>
           <el-descriptions-item label="银行账号">{{ activeRow.bankAccount || '-' }}</el-descriptions-item>
           <el-descriptions-item label="开户地址" :span="2">{{ activeRow.bankAddress || '-' }}</el-descriptions-item>
-          <el-descriptions-item label="资质附件 URL" :span="2">
-            <pre class="detail-pre">{{ activeRow.qualificationAttachmentUrls || '-' }}</pre>
+          <el-descriptions-item label="资质附件" :span="2">
+            <ol v-if="attachments.length" class="portal-attachments">
+              <li v-for="(attachment, index) in attachments" :key="index">
+                <strong>{{ attachment.name }}</strong>
+                <div v-if="attachment.host">来源：{{ attachment.host }}</div>
+                <div v-if="attachment.error" class="text-red-500">{{ attachment.error }}</div>
+                <details><summary>查看完整地址</summary><p>{{ attachment.address }}</p></details>
+              </li>
+            </ol>
+            <span v-else>未记录附件</span>
+            <details v-if="activeRow.qualificationAttachmentUrls"><summary>原始附件记录</summary><pre class="detail-pre">{{ activeRow.qualificationAttachmentUrls }}</pre></details>
           </el-descriptions-item>
           <el-descriptions-item label="状态">{{ activeRow.applicationStatusLabel || '-' }}</el-descriptions-item>
           <el-descriptions-item label="审核意见">{{ activeRow.auditRemark || '-' }}</el-descriptions-item>
@@ -130,6 +139,7 @@ import type { FormInstance, FormRules } from 'element-plus'
 import { ContentWrap } from '@/components/ContentWrap'
 import { Dialog } from '@/components/Dialog'
 import { dateTimeValueFormatter } from '@/utils/formatTime'
+import { readPortalAttachments } from './attachmentDisplay'
 import {
   SrmSupplierPortalApi,
   srmSupplierPortalStatusOptions,
@@ -148,6 +158,7 @@ const detailVisible = ref(false)
 const auditVisible = ref(false)
 const auditLoading = ref(false)
 const activeRow = ref<SrmSupplierPortalApplicationVO>()
+const attachments = computed(() => readPortalAttachments(activeRow.value?.qualificationAttachmentUrls))
 const auditMode = ref<'approve' | 'reject'>('approve')
 const auditFormRef = ref<FormInstance>()
 const openedRouteApplicationId = ref<number>()
@@ -346,6 +357,10 @@ onMounted(getList)
   word-break: break-all;
   font-family: inherit;
 }
+.portal-attachments { margin: 0 0 12px; padding-left: 22px; max-height: 360px; overflow: auto; overflow-wrap: anywhere; }
+.portal-attachments li { margin-bottom: 12px; }
+details { overflow-wrap: anywhere; }
+summary { cursor: pointer; color: var(--el-text-color-secondary); }
 
 @media (max-width: 768px) {
   .review-hero {

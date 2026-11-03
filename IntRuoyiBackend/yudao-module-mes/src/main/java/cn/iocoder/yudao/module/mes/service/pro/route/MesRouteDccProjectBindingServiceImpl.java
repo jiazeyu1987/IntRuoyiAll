@@ -40,6 +40,7 @@ public class MesRouteDccProjectBindingServiceImpl implements MesRouteDccProjectB
 
     @Resource
     private MesRouteDccProjectBindingMapper bindingMapper;
+    @Resource private MesProRouteProjectGuard projectGuard;
     @Resource
     private MesProRouteMapper routeMapper;
     @Resource
@@ -74,6 +75,7 @@ public class MesRouteDccProjectBindingServiceImpl implements MesRouteDccProjectB
         Long currentVersion = current != null ? current.getVersion() : currentVersion(reqVO.getRouteId());
         requireExpectedVersion(reqVO.getRouteId(), reqVO.getExpectedVersion(), currentVersion);
         requireEnabledDccProjectCode(reqVO.getDccProjectCodeId());
+        projectGuard.requireAvailable(reqVO.getDccProjectCodeId(), reqVO.getRouteId());
         clearConfirmedRouteProducts(reqVO);
         if (current != null && Objects.equals(current.getDccProjectCodeId(), reqVO.getDccProjectCodeId())) {
             return toResp(reqVO.getRouteId(), current, currentVersion);
@@ -160,6 +162,9 @@ public class MesRouteDccProjectBindingServiceImpl implements MesRouteDccProjectB
                 || confirmed.size() != itemIds.size()
                 || !new HashSet<>(itemIds).equals(new HashSet<>(confirmed))) {
             throw exception(PRO_ROUTE_DCC_PRODUCT_CLEAR_CONFIRM_REQUIRED, reqVO.getRouteId());
+        }
+        if (itemIds.isEmpty()) {
+            return;
         }
         if (draft != null) {
             candidateConfigService.saveConfigSnapshots(draft.getId(), draft.getRouteSnapshotSha256(),

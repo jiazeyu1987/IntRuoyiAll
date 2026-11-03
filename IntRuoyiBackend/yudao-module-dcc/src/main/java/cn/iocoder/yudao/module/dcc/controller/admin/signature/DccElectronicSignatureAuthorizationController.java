@@ -72,6 +72,12 @@ public class DccElectronicSignatureAuthorizationController {
         return success(managementService.getMySignatureImage(getLoginUserId()));
     }
 
+    @PostMapping("/my-image/initialize-default")
+    @Operation(summary = "为尚未设置图片的当前用户生成楷体默认签名")
+    public CommonResult<DccElectronicSignatureImageRespVO> initializeMyDefaultSignatureImage() {
+        return success(managementService.initializeMyDefaultSignatureImage(getLoginUserId()));
+    }
+
     @PostMapping("/my-image/upload")
     @Operation(summary = "上传当前用户DCC电子签名图片")
     public CommonResult<DccElectronicSignatureImageRespVO> uploadMySignatureImage(

@@ -81,6 +81,9 @@ import static cn.iocoder.yudao.module.mes.service.pro.route.importer.MesProRoute
 @Service
 @Validated
 public class MesProRouteWorkbookExportServiceImpl implements MesProRouteWorkbookExportService {
+    @jakarta.annotation.Resource
+    private cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteProjectGuard projectGuard;
+
 
     private static final String OWNER_PREFIX = "[owner]";
     private static final String OWNER_SUFFIX = "[/owner]";
@@ -211,7 +214,8 @@ public class MesProRouteWorkbookExportServiceImpl implements MesProRouteWorkbook
         for (MesProRouteDO route : routes) {
             RouteRemarkParts remarkParts = splitRouteRemark(route.getRemark());
             writeRow(sheet.createRow(rowIndex++), route.getCode(), route.getName(), route.getStatus(),
-                    remarkParts.ownerName(), route.getDescription(), remarkParts.visibleRemark());
+                    remarkParts.ownerName(), route.getDescription(), remarkParts.visibleRemark(),
+                    projectGuard.boundProjectCode(route.getId()));
         }
     }
 

@@ -37,6 +37,7 @@
 import * as PermissionApi from '@/api/system/permission'
 import * as UserApi from '@/api/system/user'
 import * as RoleApi from '@/api/system/role'
+import { confirmUserChange } from './user-change-confirmation'
 import { roleOptionLabel } from './role-option-label'
 
 defineOptions({ name: 'SystemUserAssignRoleForm' })
@@ -46,6 +47,9 @@ const message = useMessage() // 消息弹窗
 
 const dialogVisible = ref(false) // 弹窗的是否展示
 const formLoading = ref(false) // 表单的加载中：1）修改时的数据加载；2）提交的按钮禁用
+let generation = 0
+let originalRoles: number[] = []
+watch(dialogVisible, (visible) => { if (!visible) generation++ }, { flush: 'sync' })
 const roleOptionsReady = ref(false)
 const formData = ref({
   id: -1,
@@ -59,6 +63,7 @@ const roleList = ref([] as RoleApi.RoleVO[]) // 角色的列表
 
 /** 打开弹窗 */
 const open = async (row: UserApi.UserVO) => {
+  const current = ++generation
   dialogVisible.value = true
   resetForm()
   // 设置数据
@@ -72,11 +77,13 @@ const open = async (row: UserApi.UserVO) => {
       PermissionApi.getUserRoleList(row.id),
       RoleApi.getSimpleRoleList()
     ])
+    if (current !== generation || !dialogVisible.value) return
+    originalRoles = [...roleIds]
     roleList.value = availableRoles
     formData.value.roleIds = roleIds
     roleOptionsReady.value = true
   } finally {
-    formLoading.value = false
+    if (current === generation) formLoading.value = false
   }
 }
 defineExpose({ open }) // 提供 open 方法，用于打开弹窗
@@ -84,26 +91,35 @@ defineExpose({ open }) // 提供 open 方法，用于打开弹窗
 /** 提交表单 */
 const emit = defineEmits(['success']) // 定义 success 事件，用于操作成功后的回调
 const submitForm = async () => {
+  if (formLoading.value || !dialogVisible.value) return
   if (!roleOptionsReady.value) throw new Error('角色资料尚未加载完成，请重新打开后再分配')
-  // 校验表单
-  if (!formRef) return
-  const valid = await formRef.value.validate()
-  if (!valid) return
-  // 提交请求
+  if (!formRef.value) throw new Error('角色表单尚未就绪')
+  const current = generation
   formLoading.value = true
   try {
-    await PermissionApi.assignUserRole({
+    const valid = await formRef.value.validate()
+    if (!valid || current !== generation || !dialogVisible.value) return
+    const data = {
       userId: formData.value.id,
-      roleIds: formData.value.roleIds,
-      reason: formData.value.reason.trim(),
-      idempotencyKey: createPermissionAuditIdempotencyKey()
-    })
+      roleIds: [...formData.value.roleIds],
+      reason: formData.value.reason.trim()
+    }
+    if (!data.reason) { message.error('请输入角色变更原因'); return }
+    const labels = (ids: number[]) => ids.map((id) => {
+      const role = roleList.value.find((item) => item.id === id)
+      return role ? `${roleOptionLabel(role, roleList.value)}（ID:${id}）` : `角色（ID:${id}）`
+    }).join('、') || '无'
+    const content = `目标账号：${formData.value.username}（ID:${data.userId}）\n角色：${labels(originalRoles)} → ${labels(data.roleIds)}\n变更原因：${data.reason}`
+    if (!(await confirmUserChange(message.confirm, content))) return
+    if (current !== generation || !dialogVisible.value) return
+    await PermissionApi.assignUserRole({ ...data, idempotencyKey: createPermissionAuditIdempotencyKey() })
+    if (current !== generation || !dialogVisible.value) return
     message.success(t('common.updateSuccess'))
     dialogVisible.value = false
     // 发送操作成功的事件
     emit('success', true)
   } finally {
-    formLoading.value = false
+    if (current === generation) formLoading.value = false
   }
 }
 

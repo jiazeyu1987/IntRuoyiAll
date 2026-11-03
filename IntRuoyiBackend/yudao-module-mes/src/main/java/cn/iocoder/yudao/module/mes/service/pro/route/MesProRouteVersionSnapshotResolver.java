@@ -54,9 +54,8 @@ public class MesProRouteVersionSnapshotResolver {
         if (routeVersionId == null) {
             throw new IllegalArgumentException("routeVersionId is required");
         }
-        if (!Integer.valueOf(1).equals(routeVersionMapper.selectSnapshotIdentityEnforcementReady())) {
-            throw new IllegalStateException("route snapshot consumer enforcement is not ready");
-        }
+        // Validate the exact consumed version. Unrepaired legacy rows in other versions
+        // must not prevent a valid version from being used.
         MesProRouteVersionDO version = routeVersionMapper.selectById(routeVersionId);
         if (version == null) {
             throw new IllegalStateException("route version does not exist: " + routeVersionId);

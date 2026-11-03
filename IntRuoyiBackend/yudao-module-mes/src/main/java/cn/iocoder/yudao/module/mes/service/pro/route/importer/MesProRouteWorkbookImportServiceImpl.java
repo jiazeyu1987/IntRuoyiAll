@@ -93,6 +93,9 @@ import static cn.iocoder.yudao.module.mes.service.pro.route.importer.MesProRoute
 @Service
 @Validated
 public class MesProRouteWorkbookImportServiceImpl implements MesProRouteWorkbookImportService {
+    @jakarta.annotation.Resource
+    private cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteProjectGuard projectGuard;
+
 
     private static final List<String> ROUTE_FLOW_USE_TYPES = List.of("SCHEDULE", "BATCH");
 
@@ -147,6 +150,7 @@ public class MesProRouteWorkbookImportServiceImpl implements MesProRouteWorkbook
             reqVO.setOwnerName(routeRow.ownerName());
             reqVO.setDescription(routeRow.description());
             reqVO.setRemark(routeRow.remark());
+            reqVO.setDccProjectCodeId(projectGuard.requireProjectCode(routeRow.projectCode()));
             Long routeId = routeService.createRoute(reqVO);
             routeIdByCode.put(routeRow.code(), routeId);
             MesProRouteVersionDO activeVersion = routeVersionMapper.selectActiveByRouteId(routeId);
@@ -399,7 +403,8 @@ public class MesProRouteWorkbookImportServiceImpl implements MesProRouteWorkbook
             }
             Integer status = parseStatus(requiredCell(sheet, row, 2, "状态", formatter));
             rows.add(new RouteRow(routeCode, requiredCell(sheet, row, 1, "路线名称", formatter), status,
-                    cell(row, 3, formatter), cell(row, 4, formatter), cell(row, 5, formatter)));
+                    cell(row, 3, formatter), cell(row, 4, formatter), cell(row, 5, formatter),
+                    requiredCell(sheet, row, 6, "项目代码", formatter)));
         }
         return rows;
     }
@@ -655,7 +660,12 @@ public class MesProRouteWorkbookImportServiceImpl implements MesProRouteWorkbook
 
     private ResolvedWorkbook resolveAndValidate(ParsedWorkbook workbook) {
         Map<String, RouteRow> routeByCode = new LinkedHashMap<>();
+        Set<Long> projectIds = new LinkedHashSet<>();
         for (RouteRow route : workbook.routes()) {
+            Long projectId = projectGuard.requireProjectCode(route.projectCode());
+            if (!projectIds.add(projectId)) throw cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.invalidParamException(
+                    "导入文件中同一项目代码不能创建多条工艺流程：" + route.projectCode());
+            projectGuard.requireAvailable(projectId, null);
             if (routeMapper.selectByCode(route.code()) != null) {
                 throw exception(PRO_ROUTE_IMPORT_ROUTE_EXISTS, route.code());
             }
@@ -1017,7 +1027,7 @@ public class MesProRouteWorkbookImportServiceImpl implements MesProRouteWorkbook
                                     Map<String, MesMdItemDO> itemByCode) {
     }
 
-    private record RouteRow(String code, String name, Integer status, String ownerName, String description, String remark) {
+    private record RouteRow(String code, String name, Integer status, String ownerName, String description, String remark, String projectCode) {
     }
 
     private record RouteProcessRow(String routeCode, Integer sort, String processCode,

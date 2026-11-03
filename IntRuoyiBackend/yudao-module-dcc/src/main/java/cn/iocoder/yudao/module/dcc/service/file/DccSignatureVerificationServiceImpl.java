@@ -102,7 +102,7 @@ public class DccSignatureVerificationServiceImpl implements DccSignatureVerifica
         boolean delayed="DELAYED_EFFECTIVE_CONFIRM".equals(stageCode);
         LocalDateTime signedAt = delayed ? LocalDateTime.now() : LocalDateTime.now().withNano(0);
         SignatureActorSnapshot actorSnapshot = buildActorSnapshot(user, meaningCode);
-        DccElectronicSignatureImageSnapshot imageSnapshot = signatureImageService.requireActiveSnapshot(actorId);
+        DccElectronicSignatureImageSnapshot imageSnapshot = signatureImageService.requireSigningSnapshot(actorId);
         DccControlledFileSignatureEvidenceCreateReq evidenceRequest = DccControlledFileSignatureEvidenceCreateReq.builder()
                         .tenantId(TenantContextHolder.getRequiredTenantId())
                         .controlledFileId(controlledFileId)

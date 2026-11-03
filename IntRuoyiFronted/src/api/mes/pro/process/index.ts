@@ -1,4 +1,5 @@
 import request from '@/config/axios'
+import type { MesRouteId } from '@/api/mes/pro/route'
 
 export interface ProProcessRouteVO {
   id: number // 工艺路线编号
@@ -77,7 +78,7 @@ export const ProProcessApi = {
   },
 
   // 查询生产工序详情
-  getProcess: async (id: number, params?: { routeId?: number }) => {
+  getProcess: async (id: number, params?: { routeId?: MesRouteId }) => {
     return await request.get({ url: `/mes/pro/process/get`, params: { id, ...params } })
   },
 

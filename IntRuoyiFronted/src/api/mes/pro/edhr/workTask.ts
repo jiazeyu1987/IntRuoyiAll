@@ -1,4 +1,5 @@
 import request from '@/config/axios'
+import type { MesRouteId } from '@/api/mes/pro/route'
 
 interface EdhrWorkTaskRequestOptions {
   ignoreErrorMessage?: boolean
@@ -106,7 +107,7 @@ export interface EdhrWorkTaskArchiveRuleReqVO {
 export type EdhrWorkTaskReleaseApprovalCandidateSourceType = 'USER' | 'ROLE_GROUP'
 
 export interface EdhrWorkTaskReleaseApprovalRuleReqVO {
-  routeId: number
+  routeId: MesRouteId
   candidateSourceType: EdhrWorkTaskReleaseApprovalCandidateSourceType
   candidateSourceId: number
   enabled: boolean
@@ -190,7 +191,7 @@ export const saveEdhrRouteArchiveRule = async (data: EdhrWorkTaskArchiveRuleReqV
   })
 }
 
-export const getEdhrRouteReleaseApprovalRule = async (routeId: number, options?: { ignoreErrorMessage?: boolean; isRequestContextCurrent?: () => boolean; isSuccessReceiptContextCurrent?: () => boolean }) => {
+export const getEdhrRouteReleaseApprovalRule = async (routeId: MesRouteId, options?: { ignoreErrorMessage?: boolean; isRequestContextCurrent?: () => boolean; isSuccessReceiptContextCurrent?: () => boolean }) => {
   return await request.get<EdhrWorkTaskAssignmentRuleRespVO>({
     ignoreErrorMessage: options?.ignoreErrorMessage,
     isRequestContextCurrent: options?.isRequestContextCurrent,

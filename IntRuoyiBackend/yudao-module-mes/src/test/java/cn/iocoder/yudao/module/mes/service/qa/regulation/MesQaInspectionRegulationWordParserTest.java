@@ -26,6 +26,19 @@ class MesQaInspectionRegulationWordParserTest {
             new MesQaInspectionRegulationWordParser();
 
     @Test
+    void parse_readsBinaryDocAndRejectsProductionRecordAsInspectionRegulation() throws Exception {
+        var fixture = java.nio.file.Path.of("src/test/resources/fixtures/pressure-pump-record.doc");
+        byte[] bytes = java.nio.file.Files.readAllBytes(fixture);
+        Object document = org.springframework.test.util.ReflectionTestUtils.invokeMethod(parser, "readDoc", bytes);
+        var headers = (List<?>) org.springframework.test.util.ReflectionTestUtils.getField(document, "headerRows");
+        var tables = (List<?>) org.springframework.test.util.ReflectionTestUtils.getField(document, "tables");
+        assertTrue(!headers.isEmpty());
+        assertTrue(!tables.isEmpty());
+        var error = assertThrows(RuntimeException.class, () -> parser.parse(bytes, "生产记录.DOC"));
+        assertTrue(error.getMessage().contains("首页规程编号不存在"));
+    }
+
+    @Test
     void parse_reconstructsHeaderRevisionAndMergedInspectionRows() throws Exception {
         MesQaInspectionRegulationWordParser.ParsedRegulation parsed = parser.parse(
                 buildQaTemplate(true), "测试QA模板.docx");
@@ -44,13 +57,95 @@ class MesQaInspectionRegulationWordParserTest {
         assertEquals("目测", first.inspectionTool());
         assertEquals(5, first.firstInspectionQuantity());
         assertEquals(new BigDecimal("0.4"), first.patrolInspectionRatio());
+        assertTrue(first.patrolApplicable());
 
         MesQaInspectionRegulationWordParser.ParsedItem second = parsed.items().get(1);
         assertEquals("清洗", second.processName());
         assertEquals("旋转接头 / 牢固度", second.itemName());
         assertNull(second.firstInspectionQuantity());
         assertEquals(new BigDecimal("0.65"), second.patrolInspectionRatio());
+        assertTrue(second.patrolApplicable());
         assertTrue(parsed.items().stream().noneMatch(item -> item.itemName().contains("备注")));
+    }
+
+    @Test
+    void parse_preservesAqlAndGeneralRulesFromCompleteMecrDocument() throws Exception {
+        var file = java.nio.file.Path.of("..", "..", "resource", "通用检验规程",
+                "PQC-MECR-001（B 1）美联初包装过程检验规程--2026.08.10生效(1).docx");
+        var parsed = parser.parse(java.nio.file.Files.readAllBytes(file), file.getFileName().toString());
+        assertEquals(LocalDate.of(2026, 8, 10), parsed.effectiveDate());
+        assertEquals(4, parsed.items().size());
+        assertTrue(parsed.items().get(0).samplingPlanText().contains("AQL=0.25"));
+        assertEquals(3, parsed.items().stream().filter(item -> item.patrolApplicable()).count());
+        assertEquals(new BigDecimal("0.25"), parsed.items().get(0).patrolInspectionRatio());
+        assertTrue(parsed.items().stream().filter(item -> item.patrolApplicable())
+                .allMatch(item -> item.patrolInspectionRatio() != null));
+        assertTrue(parsed.ruleSourceText().contains("模具更换"));
+        assertTrue(parsed.ruleSourceText().contains("双倍检验"));
+        assertTrue(parsed.ruleSourceText().contains("每一个检验项目均应合格"));
+        assertTrue(parsed.ruleSourceText().contains("直到首检合格后方可进入正常生产"));
+    }
+
+    @Test
+    void parse_readsExplicitPatrolPercentWithoutAql() throws Exception {
+        var item = parseFirstSampling("首件：5件；巡检抽样比例：2%");
+        assertEquals(new BigDecimal("2"), item.patrolInspectionRatio());
+        assertEquals("首件：5件；巡检抽样比例：2%", item.samplingPlanText());
+    }
+
+    @Test
+    void parse_acceptsEquivalentAqlAndExplicitPercentAndPreservesSource() throws Exception {
+        String sampling = "首件：5件；GB/T 2828.1，I，AQL=0.4；AQL＝0.40；巡检抽样比例：0.40%";
+        var item = parseFirstSampling(sampling);
+        assertEquals(new BigDecimal("0.4"), item.patrolInspectionRatio());
+        assertEquals(sampling, item.samplingPlanText());
+    }
+
+    @Test
+    void parse_acceptsAqlPercentageUpperBoundary() throws Exception {
+        assertEquals(0, new BigDecimal("100").compareTo(
+                parseFirstSampling("首件：5件；AQL=100").patrolInspectionRatio()));
+    }
+
+    @Test
+    void parse_rejectsNonPositiveAndOverOneHundredAqlEvenWithFirstQuantity() {
+        for (String aql : List.of("0", "-0.4", "100.01")) {
+            var exception = assertThrows(RuntimeException.class,
+                    () -> parseFirstSampling("首件：5件；AQL=" + aql));
+            assertTrue(exception.getMessage().contains("大于 0 且不超过 100%"), exception.getMessage());
+        }
+    }
+
+    @Test
+    void parse_rejectsDifferentAqlValuesAndConflictingExplicitPercent() {
+        var multiple = assertThrows(RuntimeException.class,
+                () -> parseFirstSampling("首件：5件；AQL=0.4；AQL=0.65"));
+        assertTrue(multiple.getMessage().contains("AQL 数值不唯一"), multiple.getMessage());
+        var conflict = assertThrows(RuntimeException.class,
+                () -> parseFirstSampling("首件：5件；AQL=0.4；巡检抽样比例：2%"));
+        assertTrue(conflict.getMessage().contains("AQL 数值与显式巡检抽样比例冲突"), conflict.getMessage());
+    }
+
+    @Test
+    void parse_rejectsInvalidOrDifferentExplicitPercentValues() {
+        for (String sampling : List.of("首件：5件；巡检抽样比例：0%", "首件：5件；巡检抽样比例：-2%",
+                "首件：5件；巡检抽样比例：101%", "巡检抽样比例：1%；巡检抽样比例：2%")) {
+            var exception = assertThrows(RuntimeException.class, () -> parseFirstSampling(sampling));
+            assertTrue(exception.getMessage().contains("巡检抽样比例"), exception.getMessage());
+        }
+    }
+
+    private MesQaInspectionRegulationWordParser.ParsedItem parseFirstSampling(String sampling) throws Exception {
+        try (XWPFDocument document = new XWPFDocument(new java.io.ByteArrayInputStream(buildQaTemplate(true)));
+             ByteArrayOutputStream output = new ByteArrayOutputStream()) {
+            var cell = document.getTables().get(1).getRow(1).getTableCells().get(6);
+            while (!cell.getParagraphs().isEmpty()) {
+                cell.removeParagraph(0);
+            }
+            cell.addParagraph().createRun().setText(sampling);
+            document.write(output);
+            return parser.parse(output.toByteArray(), "抽样比例.docx").items().get(0);
+        }
     }
 
     @Test

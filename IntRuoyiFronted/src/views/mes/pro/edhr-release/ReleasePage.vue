@@ -40,18 +40,24 @@
           :show-overflow-tooltip="true"
           empty-text="暂无放行追溯记录"
         >
-          <el-table-column label="放行对象" min-width="250">
+          <el-table-column label="放行对象" min-width="250" :show-overflow-tooltip="false">
             <template #default="{ row }">
-              <div class="edhr-release-page__strong">{{ row.batchExecutionCode || '--' }}</div>
-              <div class="edhr-release-page__muted">工单：{{ row.workOrderCode || '--' }}</div>
-              <div class="edhr-release-page__muted">批次：{{ row.batchCode || '--' }}</div>
+              <div class="edhr-release-page__strong release-text-summary">{{ row.batchExecutionCode || '未记录批次执行号' }}</div>
+              <div class="edhr-release-page__muted release-text-summary">工单：{{ row.workOrderCode || '未记录' }}</div>
+              <details class="release-technical"><summary>完整放行对象</summary>
+                <p>批次执行号：{{ row.batchExecutionCode || '未记录' }}</p>
+                <p>工单号：{{ row.workOrderCode || '未记录' }}</p><p>批次号：{{ row.batchCode || '未记录' }}</p>
+              </details>
             </template>
           </el-table-column>
-          <el-table-column label="产品/路线" min-width="230">
+          <el-table-column label="产品与路线" min-width="230" :show-overflow-tooltip="false">
             <template #default="{ row }">
-              <div class="edhr-release-page__strong">{{ row.productName || '--' }}</div>
-              <div class="edhr-release-page__muted">产品：{{ row.productCode || '--' }}</div>
-              <div class="edhr-release-page__muted">路线：{{ row.routeName || row.routeCode || '--' }}</div>
+              <div class="edhr-release-page__strong release-text-summary">{{ row.productName || '未记录产品名称' }}</div>
+              <div class="edhr-release-page__muted release-text-summary">产品编码：{{ row.productCode || '未记录' }}</div>
+              <details class="release-technical"><summary>完整产品与路线</summary>
+                <p>产品名称：{{ row.productName || '未记录' }}</p><p>产品编码：{{ row.productCode || '未记录' }}</p>
+                <p>路线名称：{{ row.routeName || '未记录' }}</p><p>路线编码：{{ row.routeCode || '未记录' }}</p>
+              </details>
             </template>
           </el-table-column>
           <el-table-column label="放行状态" width="145">
@@ -137,15 +143,21 @@
       <div v-loading="signedDossierLoading">
         <el-alert v-if="signedDossierError" :title="signedDossierError" type="error" :closable="false" />
         <template v-if="signedDossier">
-          <p>资料修订：{{ signedDossier.revision }}　清单摘要：{{ signedDossier.manifestHash }}</p>
+          <p>资料修订：{{ signedDossier.revision }}</p>
+          <details class="release-technical"><summary>清单校验信息</summary><p>清单校验码：{{ signedDossier.manifestHash }}</p></details>
           <el-table :data="signedDossier.files" empty-text="本次签署的资料清单为空">
             <el-table-column label="文件名" prop="fileName" />
             <el-table-column label="资料类别">
-              <template #default="{ row }">{{ dossierCategoryLabels[row.categoryKey] || row.categoryKey }}</template>
+              <template #default="{ row }">{{ dossierCategoryLabels[row.categoryKey] || `未识别类别（${row.categoryKey}）` }}</template>
             </el-table-column>
-            <el-table-column label="文件编号" prop="fileId" />
-            <el-table-column label="大小（字节）" prop="fileSize" />
-            <el-table-column label="文件摘要" prop="sha256" min-width="300" />
+            <el-table-column label="文件大小">
+              <template #default="{ row }">{{ dossierFileSizeLabel(row.fileSize) }}</template>
+            </el-table-column>
+            <el-table-column label="技术详情" min-width="170">
+              <template #default="{ row }"><details class="release-technical"><summary>文件编号与校验码</summary>
+                <p>文件编号：{{ row.fileId }}</p><p>文件大小（字节）：{{ row.fileSize }}</p><p>文件校验码：{{ row.sha256 }}</p>
+              </details></template>
+            </el-table-column>
           </el-table>
         </template>
       </div>
@@ -265,6 +277,8 @@ import {
   resolveReleaseTagType
 } from '@/views/mes/pro/edhr/shared/releaseCheckPresentation'
 import { formatEdhrDateTime } from '@/views/mes/pro/edhr/shared/dateTime'
+import { dossierFileSizeLabel } from './releaseDisplay'
+import { parseExactIntegerJson } from '@/utils/exactIntegerJson'
 
 defineOptions({ name: 'MesProEdhrReleasePage' })
 
@@ -275,7 +289,7 @@ const dossierCategoryLabels: Record<string, string> = {
 interface SignedDossier {
   revision: string
   manifestHash: string
-  files: Array<{ fileName: string; categoryKey: string; fileId: string; fileSize: string; sha256: string }>
+  files: Array<{ fileName: string; categoryKey: string; fileId: string | number; fileSize: string | number; sha256: string }>
 }
 const signedDossier = ref<SignedDossier>()
 const signedDossierVisible = ref(false)
@@ -293,7 +307,7 @@ const openSignedDossier = async (row: EdhrReleaseRowVO) => {
     const detail = await getEdhrRelease(row.releaseTransactionId)
     if (request !== signedDossierRequest) return
     if (!detail.signedDossierManifestJson) throw new Error('该历史放行记录未签署独立资料清单')
-    signedDossier.value = JSON.parse(detail.signedDossierManifestJson)
+    signedDossier.value = parseExactIntegerJson(detail.signedDossierManifestJson)
   } catch (error) {
     if (request === signedDossierRequest) signedDossierError.value = error instanceof Error ? error.message : '读取已签资料失败'
   } finally {
@@ -489,6 +503,10 @@ onMounted(() => {
 </script>
 
 <style scoped>
+.release-text-summary { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow-wrap: anywhere; white-space: normal; }
+.release-technical { overflow-wrap: anywhere; white-space: normal; }
+.release-technical summary { cursor: pointer; color: var(--el-text-color-secondary); }
+.release-technical p { margin: 6px 0; }
 .edhr-release-page {
   display: flex;
   flex-direction: column;

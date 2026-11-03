@@ -23,7 +23,7 @@ public class DccProductCatalogRowNumberAllocator {
                 || !dataSource.equals(dataSource.trim()) || dataSource.length() > 64) {
             throw new IllegalArgumentException("DCC_PRODUCT_CATALOG_SEQUENCE_SOURCE_INVALID");
         }
-        // Scope follows uk(data_source,original_row_no), which spans tenants and logically deleted rows.
+        // Retain globally monotonic technical row numbers; business rows are tenant-scoped.
         // JDBC is intentional: this global technical table has no tenant column or business authority.
         var rows = jdbc.queryForList("SELECT last_row_no FROM dcc_product_catalog_source_sequence WHERE data_source=? FOR UPDATE",
                 Long.class, dataSource);

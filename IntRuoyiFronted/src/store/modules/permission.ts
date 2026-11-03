@@ -21,6 +21,8 @@ const HIDDEN_MODULE_MENU_PATHS = new Set([
   '/erp',
   '/mes/md/erp-stock',
   '/mdm/form-center/template',
+  '/mdm/form-center/parser',
+  '/mdm/form-center/inspection-parser',
   '/mes/pro/edhr-config',
   '/mes/pro/edhr-form',
   '/mes/pro/feedback/edhr-batch-test',

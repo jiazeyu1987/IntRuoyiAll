@@ -82,8 +82,16 @@ class MesProRouteWorkbookImportServiceTest {
     @Mock
     private MesProRouteProductBomService routeProductBomService;
 
+    @Mock
+    private cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteProjectGuard projectGuard;
     @InjectMocks
     private MesProRouteWorkbookImportServiceImpl importService;
+
+    @org.junit.jupiter.api.BeforeEach
+    void projectCode() {
+        org.mockito.Mockito.lenient().when(projectGuard.requireProjectCode("PROJECT-1")).thenReturn(10L);
+    }
+
 
     @Test
     void importWorkbook_replaysFullRouteGraphAndConfigSheets() throws Exception {
@@ -425,11 +433,30 @@ class MesProRouteWorkbookImportServiceTest {
                 && "过程记录".equals(binding.getFormTemplateNameSnapshot());
     }
 
+    @Test
+    void occupiedProjectRejectsWholeWorkbookBeforeRouteCreation() throws Exception {
+        org.mockito.Mockito.doThrow(cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.invalidParamException("项目已有流程"))
+                .when(projectGuard).requireAvailable(10L, null);
+        assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,
+                () -> importService.importWorkbook(fullWorkbookFile("occupied.xlsx")));
+        verify(routeService, never()).createRoute(any());
+        verify(routeProcessService, never()).createRouteProcess(any());
+    }
+
     private void sheet(Workbook workbook, String name, List<String> headers, List<String> values) {
         sheetRows(workbook, name, headers, values.isEmpty() ? List.of() : List.of(values));
     }
 
     private void sheetRows(Workbook workbook, String name, List<String> headers, List<List<String>> rows) {
+        if ("工艺路线".equals(name)) {
+            headers = new java.util.ArrayList<>(headers);
+            headers.add("项目代码");
+            rows = rows.stream().map(row -> {
+                var values = new java.util.ArrayList<>(row);
+                values.add("PROJECT-1");
+                return (List<String>) values;
+            }).toList();
+        }
         var sheet = workbook.createSheet(name);
         var headerRow = sheet.createRow(0);
         for (int i = 0; i < headers.size(); i++) {

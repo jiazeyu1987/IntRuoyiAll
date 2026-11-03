@@ -12,12 +12,12 @@ const pageSource = fs.readFileSync(pagePath, 'utf8')
 assert.match(
   pageSource,
   /data-qa-regulation-common-binding-control/,
-  'QA overview must expose the product-to-common-regulation binding control.'
+  'QA association tab must expose the product-to-common-regulation binding control.'
 )
 assert.match(
   pageSource,
   /关联通用检验规程/,
-  'QA overview must label the binding control as 关联通用检验规程.'
+  'QA association tab must label the binding control as 关联通用检验规程.'
 )
 for (const selector of [
   'data-qa-regulation-common-binding-list',
@@ -26,21 +26,24 @@ for (const selector of [
   'data-qa-regulation-common-binding-status',
   'data-qa-regulation-common-binding-current',
   'data-qa-regulation-common-binding-version-select',
-  'data-qa-regulation-common-binding-view',
-  'data-qa-regulation-common-binding-change',
-  'data-qa-regulation-common-binding-disable'
+  'data-qa-regulation-common-binding-publish-notice'
 ]) {
-  assert.ok(pageSource.includes(selector), `QA overview common binding control missing ${selector}`)
+  assert.ok(pageSource.includes(selector), `QA association tab common binding control missing ${selector}`)
 }
-assert.match(
+assert.doesNotMatch(
   pageSource,
-  /QcTemplateApi\.saveCommonRegulationBindingList/,
-  'QA overview common binding control must use the formal binding API.'
+  /QcTemplateApi\.(saveCommonRegulationBindingList|bindCommonRegulationVersion|unbindCommonRegulation)/,
+  'Association edits must never call an immediate-persistence API.'
 )
+assert.doesNotMatch(pageSource, /data-qa-regulation-common-binding-(switch|view|change|disable)/)
+const publish = pageSource.slice(pageSource.indexOf('const runQaPublishPrecheck ='))
+assert.match(publish, /payload\.commonRegulationVersionIds = commonRegulationBindingRows\.value\.map/)
+const saveDraft = pageSource.slice(pageSource.indexOf('const previewQaRegulationDraft ='), pageSource.indexOf('const runQaPublishPrecheck ='))
+assert.doesNotMatch(saveDraft, /payload\.commonRegulationVersionIds/)
 assert.doesNotMatch(
   pageSource,
   /通用检验规程绑定接口尚未接入|接口待接入/,
-  'QA overview common binding control must not retain the obsolete pending-interface state.'
+  'QA association tab common binding control must not retain the obsolete pending-interface state.'
 )
 
-console.log('PASS QA overview common binding control static contract')
+console.log('PASS QA association tab common binding control static contract')

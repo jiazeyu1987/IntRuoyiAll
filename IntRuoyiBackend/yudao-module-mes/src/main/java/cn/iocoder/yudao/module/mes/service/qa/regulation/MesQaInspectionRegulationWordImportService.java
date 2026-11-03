@@ -22,6 +22,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -39,7 +40,7 @@ public class MesQaInspectionRegulationWordImportService {
     private static final String STATUS_DRAFT = "DRAFT";
     private static final String STATUS_PUBLISHED = "PUBLISHED";
     private static final String STATUS_RETIRED = "RETIRED";
-    private static final String FINAL_NOT_APPLICABLE_REASON = "源 QA 模板未规定末检";
+    private static final String FINAL_NOT_APPLICABLE_REASON = "原文未规定末检";
     private static final int MAX_BUSINESS_CODE_LENGTH = 64;
 
     private final DccProjectCodeMapper dccProjectCodeMapper;
@@ -273,7 +274,7 @@ public class MesQaInspectionRegulationWordImportService {
                 inheritedItemCount++;
             }
             processGroup.items().add(buildItem(parsedItem, existing, itemCode,
-                    processGroup.items().size() + 1, finalInspectionApplicable, parsed.fileName()));
+                    processGroup.items().size() + 1, finalInspectionApplicable, parsed.fileName(), parsed.ruleSourceText()));
         }
 
         List<MesQaInspectionRegulationSaveReqVO.InspectionProcess> processes = new ArrayList<>();
@@ -321,7 +322,8 @@ public class MesQaInspectionRegulationWordImportService {
             String itemCode,
             int itemSort,
             boolean finalInspectionApplicable,
-            String fileName) {
+            String fileName,
+            String ruleSourceText) {
         MesQaInspectionRegulationPublishedVersionRespVO.InspectionItem inherited =
                 existing == null ? null : existing.item();
         MesQaInspectionRegulationSaveReqVO.InspectionItem item =
@@ -342,7 +344,7 @@ public class MesQaInspectionRegulationWordImportService {
         if (parsed.firstInspectionQuantity() != null) {
             applicableTypes.add("FIRST");
         }
-        if (parsed.patrolInspectionRatio() != null) {
+        if (parsed.patrolApplicable()) {
             applicableTypes.add("PATROL");
         }
         if (finalInspectionApplicable) {
@@ -352,7 +354,10 @@ public class MesQaInspectionRegulationWordImportService {
         item.setFirstInspectionQuantity(parsed.firstInspectionQuantity());
         item.setPatrolInspectionRatio(parsed.patrolInspectionRatio());
         item.setCritical(inherited != null && Boolean.TRUE.equals(inherited.getCritical()));
-        item.setFailureRule(inherited == null ? null : inherited.getFailureRule());
+        Set<String> rules = new LinkedHashSet<>();
+        if (StrUtil.isNotBlank(ruleSourceText)) rules.add(ruleSourceText);
+        if (inherited != null && StrUtil.isNotBlank(inherited.getFailureRule())) rules.add(inherited.getFailureRule());
+        item.setFailureRule(String.join("\n", rules));
         item.setSourceNote("导入自 QA 模板：" + fileName);
         item.setSourceOriginalItem(parsed.processName() + " / " + parsed.itemName());
         item.setSourceOriginalExcerpt(parsed.standardText());
@@ -473,8 +478,9 @@ public class MesQaInspectionRegulationWordImportService {
         String originalName = file.getOriginalFilename();
         String normalizedPath = originalName == null ? "" : originalName.replace('\\', '/');
         String fileName = normalizedPath.substring(normalizedPath.lastIndexOf('/') + 1).trim();
-        if (fileName.isEmpty() || !fileName.toLowerCase().endsWith(".docx")) {
-            throw exception(QA_INSPECTION_REGULATION_WORD_IMPORT_INVALID, "仅支持 .docx 文件");
+        String lowerName = fileName.toLowerCase(Locale.ROOT);
+        if (!(lowerName.endsWith(".doc") || lowerName.endsWith(".docx"))) {
+            throw exception(QA_INSPECTION_REGULATION_WORD_IMPORT_INVALID, "仅支持 .doc 或 .docx 文件");
         }
         return fileName;
     }

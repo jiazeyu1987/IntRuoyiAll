@@ -33,7 +33,7 @@ const props = defineProps({
 const isDark = computed(() => appStore.getIsDark)
 
 const theme = computed(() => {
-  const echartTheme: boolean | string = unref(isDark) ? true : 'auto'
+  const echartTheme: EChartsOption['darkMode'] = unref(isDark) ? true : 'auto'
 
   return echartTheme
 })

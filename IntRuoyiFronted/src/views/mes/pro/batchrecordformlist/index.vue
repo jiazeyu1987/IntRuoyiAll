@@ -1553,7 +1553,7 @@ const buildWordImportSelection = () => {
   const selectedOptions = preflight?.routeProductOptions.filter((option) => selectedKeys.has(option.optionKey)) || []
   const selectedRouteProductIds = selectedOptions
     .map((option) => option.routeProductId)
-    .filter((routeProductId): routeProductId is number => typeof routeProductId === 'number')
+    .filter((routeProductId): routeProductId is number | string => routeProductId != null)
   const selectedProductNames = selectedOptions
     .filter((option) => !option.routeProductId)
     .map((option) => option.productName)
@@ -1588,7 +1588,7 @@ type WordImportConfirmedSelection = {
   expectedRouteId?: number
   expectedRouteVersionId?: number
   expectedRouteCandidateVersionId?: number
-  selectedRouteProductIds: number[]
+  selectedRouteProductIds: Array<number | string>
   selectedProductNames: string[]
 }
 
@@ -1617,7 +1617,7 @@ const buildWordImportConfirmedSelection = (
       : undefined,
     selectedRouteProductIds: selectedOptions
       .map((option) => option.routeProductId)
-      .filter((routeProductId): routeProductId is number => typeof routeProductId === 'number'),
+      .filter((routeProductId): routeProductId is number | string => routeProductId != null),
     selectedProductNames: selectedOptions
       .filter((option) => !option.routeProductId)
       .map((option) => option.productName)
@@ -1896,7 +1896,7 @@ const runUploadedWordImport = async (
     expectedRouteId?: number
     expectedRouteVersionId?: number
     expectedRouteCandidateVersionId?: number
-    selectedRouteProductIds: number[]
+    selectedRouteProductIds: Array<number | string>
     selectedProductNames: string[]
   }
 ) => {

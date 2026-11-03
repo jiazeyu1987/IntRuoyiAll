@@ -206,7 +206,7 @@
           </el-table-column>
           <el-table-column
             v-if="isProjectCodeColumnVisible('batchRecordTotalRecognitionJson')"
-            label="批记录识别JSON"
+            label="批记录识别资料"
             prop="batchRecordTotalRecognitionJson"
             :width="getProjectCodeColumnWidthString('batchRecordTotalRecognitionJson', 140)"
           >
@@ -219,7 +219,7 @@
                 data-testid="dcc-project-code-copy-recognition-json"
                 @click="copyBatchRecordTotalRecognitionJson(row)"
               >
-                复制JSON
+                复制资料
               </el-button>
               <el-button
                 link
@@ -229,7 +229,7 @@
                 @click="openRecognitionJsonImport(row)"
                 v-hasPermi="['mes:pro-batch-record-template:update']"
               >
-                导入JSON
+                导入识别文件
               </el-button>
             </template>
           </el-table-column>
@@ -400,7 +400,7 @@
   <el-dialog
     v-model="recognitionJsonImportVisible"
     class="scheme-d-form-control"
-    title="导入批记录识别 JSON"
+    title="导入批记录识别资料"
     width="520px"
     destroy-on-close
   >
@@ -530,6 +530,56 @@
       <el-form-item label="项目代码" prop="projectCode">
         <el-input v-model="formData.projectCode" placeholder="请输入项目代码" />
       </el-form-item>
+      <el-form-item label="关联MDM产品" prop="productMasterId">
+        <div class="w-full">
+          <div class="flex gap-8px">
+            <el-select
+              v-model="formData.productMasterId"
+              class="flex-1"
+              filterable
+              :loading="bindingProductsLoading"
+              :disabled="!canQueryBindingProducts || bindingProductsLoading || bindingProductsFailed"
+              placeholder="请选择与当前项目对应的产品"
+              no-data-text="暂无产品，请先到产品主数据新增或导入"
+            >
+              <el-option
+                v-if="formData.productMasterId && !bindingProducts.some((product) => product.id === formData.productMasterId)"
+                :value="formData.productMasterId"
+                :label="`当前关联产品（ID：${formData.productMasterId}）`"
+                disabled
+              />
+              <el-option
+                v-for="product in bindingProducts"
+                :key="product.id"
+                :value="product.id"
+                :label="`${product.productCode} / ${product.nameCn}${product.modelSpecification ? ' / ' + product.modelSpecification : ''}${product.status !== MDM_PRODUCT_STATUS_ENABLE ? '（已停用）' : ''}`"
+                :disabled="product.status !== MDM_PRODUCT_STATUS_ENABLE"
+              />
+            </el-select>
+            <el-button
+              :disabled="!canQueryBindingProducts || bindingProductsLoading"
+              @click="loadBindingProducts"
+            >刷新</el-button>
+            <el-link
+              v-if="canQueryBindingProducts"
+              :href="router.resolve({ name: 'MdmProduct' }).href"
+              target="_blank"
+              rel="noopener"
+              type="primary"
+              :underline="false"
+            >产品主数据</el-link>
+          </div>
+          <div v-if="!canQueryBindingProducts" class="text-12px text-warning mt-4px">
+            需要产品主数据查询权限才能选择产品；当前关联保留。
+          </div>
+          <div v-else-if="bindingProductsFailed" class="text-12px text-danger mt-4px">
+            产品列表加载失败，请点击刷新重试。
+          </div>
+          <div v-else class="text-12px text-secondary mt-4px">
+            QA检验规程需要此关联。未找到产品时，请先到产品主数据新增或导入并启用，再刷新选择。
+          </div>
+        </div>
+      </el-form-item>
       <el-form-item label="类别" prop="category">
         <el-input v-model="formData.category" placeholder="请输入类别" />
       </el-form-item>
@@ -560,7 +610,7 @@
         <el-button
           class="scheme-d-btn scheme-d-btn--success"
           type="primary"
-          :disabled="formLoading"
+          :disabled="formLoading || bindingProductsLoading || bindingProductsFailed"
           @click="submitForm"
         >
           确定
@@ -1611,7 +1661,7 @@ const projectCodeDefaultColumns: UserTableColumnDefinition[] = [
   { key: 'projectCode', label: '项目代码', minWidth: 120 },
   { key: 'category', label: '类别', minWidth: 120 },
   { key: 'associatedFileCount', label: '关联文件数', width: 120, sortable: 'custom' },
-  { key: 'batchRecordTotalRecognitionJson', label: '批记录识别JSON', width: 140 },
+  { key: 'batchRecordTotalRecognitionJson', label: '批记录识别资料', width: 140 },
   { key: 'routeStatus', label: '工艺路线', width: 140 },
   { key: 'mainBatchRecordStatus', label: '主批记录', width: 150 },
   { key: 'qaRegulationStatus', label: 'QA规程', width: 130 },
@@ -1649,6 +1699,10 @@ const recognitionJsonImportFile = ref<File | null>(null)
 const detailDrawerVisible = ref(false)
 const formVisible = ref(false)
 const formLoading = ref(false)
+const bindingProducts = ref<MdmProductSimpleRespVO[]>([])
+const bindingProductsLoading = ref(false)
+const bindingProductsFailed = ref(false)
+const canQueryBindingProducts = computed(() => checkPermi(['mdm:product:query']))
 const formType = ref<'create' | 'update'>('create')
 const formRef = ref()
 const hasLoaded = ref(false)
@@ -2662,7 +2716,7 @@ const copyBatchRecordTotalRecognitionJson = async (row: DccProjectCodeRespVO) =>
   }
   await copy()
   if (unref(copied)) {
-    message.success('批记录识别 JSON 已复制')
+    message.success('批记录识别资料已复制')
   }
 }
 
@@ -2689,7 +2743,7 @@ const submitRecognitionJsonImport = async () => {
   recognitionJsonImporting.value = true
   try {
     await BatchRecordReportApi.importTotalRecognitionJson(project.id, file)
-    message.success('批记录识别 JSON 已导入，设备参数已同步')
+    message.success('批记录识别资料已导入，设备参数已同步')
     recognitionJsonImportVisible.value = false
     await getList()
   } finally {
@@ -2697,10 +2751,25 @@ const submitRecognitionJsonImport = async () => {
   }
 }
 
-const openForm = (type: 'create' | 'update', row?: DccProjectCodeRespVO) => {
+const loadBindingProducts = async () => {
+  bindingProductsLoading.value = true
+  bindingProductsFailed.value = false
+  try {
+    bindingProducts.value = await getProductSimpleList()
+  } catch (error) {
+    bindingProductsFailed.value = true
+    throw error
+  } finally {
+    bindingProductsLoading.value = false
+  }
+}
+
+const openForm = async (type: 'create' | 'update', row?: DccProjectCodeRespVO) => {
   formVisible.value = true
   formType.value = type
   resetFormData()
+  bindingProducts.value = []
+  bindingProductsFailed.value = false
   if (type === 'update' && row) {
     formData.value = {
       id: row.id,
@@ -2716,6 +2785,9 @@ const openForm = (type: 'create' | 'update', row?: DccProjectCodeRespVO) => {
       priority: row.priority || '',
       status: row.status
     }
+  }
+  if (canQueryBindingProducts.value) {
+    await loadBindingProducts()
   }
 }
 
@@ -2734,6 +2806,9 @@ const buildSavePayload = (): DccProjectCodeSaveReqVO => ({
 })
 
 const submitForm = async () => {
+  if (formLoading.value || bindingProductsLoading.value || bindingProductsFailed.value) {
+    return
+  }
   const valid = await formRef.value?.validate()
   if (!valid) {
     return

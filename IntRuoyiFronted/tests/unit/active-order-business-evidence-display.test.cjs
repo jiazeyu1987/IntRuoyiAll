@@ -37,6 +37,19 @@ test('malformed evidence reports failure without leaking raw data', () => {
     assert.ok(!result.rows.some(r => r.value.includes('{bad')))
   }
 })
+
+test('release remarks starting with brackets remain literal business text', () => {
+  const remark = '[固定测试订单初始化，参考租户1；仅用于测试]'
+  const result = readBusinessEvidence(JSON.stringify({
+    formalSourceSnapshotJsonRaw: JSON.stringify({
+      formalProductIssues: [{ remark }],
+      parameterRules: [{ optionValuesJson: '["自来水","纯化水"]' }]
+    }),
+    reason: '{测试放行备注}'
+  }))
+  assert.equal(result.error, '')
+  assert.deepEqual(result.rows.map(row => row.value), [remark, '自来水', '纯化水', '{测试放行备注}'])
+})
 test('detail components compile and expose no raw JSON or hash cells', () => {
   const { parse, compileTemplate } = require('vue/compiler-sfc')
   for (const file of [base + 'BusinessEvidenceDetails.vue', base + 'ActiveOrderSubmissionDetailPanel.vue', base + 'ActiveOrderReworkSourcePanel.vue', base + 'ActiveOrderCorrectionHistoryPanel.vue', 'src/views/mes/pro/edhr-deviation/DeviationDetail.vue']) {

@@ -11,6 +11,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.never;
 
 class MesProRouteVersionSnapshotResolverTest {
 
@@ -76,13 +78,18 @@ class MesProRouteVersionSnapshotResolverTest {
     }
 
     @Test
-    void resolve_shouldRejectBeforeDatabaseEnforcementIsReady() {
+    void resolve_shouldValidateExactVersionWithoutRequiringLegacyRowsToBeRepaired() {
         when(mapper.selectSnapshotIdentityEnforcementReady()).thenReturn(0);
+        String snapshot = snapshot(9L, 101L, "P1");
+        when(mapper.selectById(11L)).thenReturn(publishedVersion(11L, 9L, snapshot));
+        assertEquals(snapshot, resolver.resolveVersion(11L).routeSnapshotJson());
+        verify(mapper, never()).selectSnapshotIdentityEnforcementReady();
 
-        IllegalStateException error = assertThrows(IllegalStateException.class,
-                () -> resolver.resolveVersion(11L));
-
-        assertEquals("route snapshot consumer enforcement is not ready", error.getMessage());
+        MesProRouteVersionDO legacy = publishedVersion(12L, 9L, snapshot);
+        legacy.setRouteSnapshotSha256(null);
+        when(mapper.selectById(12L)).thenReturn(legacy);
+        assertEquals("route snapshot identity is not ready: 12", assertThrows(IllegalStateException.class,
+                () -> resolver.resolveVersion(12L)).getMessage());
     }
 
     @Test

@@ -1,6 +1,12 @@
 package cn.iocoder.yudao.module.system.controller.admin.user;
 
 import cn.hutool.core.collection.CollUtil;
+import cn.idev.excel.FastExcelFactory;
+import cn.idev.excel.exception.ExcelAnalysisException;
+import cn.idev.excel.support.ExcelTypeEnum;
+import cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil;
+import org.apache.poi.poifs.filesystem.FileMagic;
+import java.io.InputStream;
 import cn.iocoder.yudao.framework.apilog.core.annotation.ApiAccessLog;
 import cn.iocoder.yudao.framework.common.enums.CommonStatusEnum;
 import cn.iocoder.yudao.framework.common.pojo.CommonResult;
@@ -214,7 +220,7 @@ public class UserController {
             @RequestParam("ids") @jakarta.validation.constraints.Size(min = 1, max = 200) List<Long> ids) {
         for (Long id : ids) {
             if (id == null || userService.getUser(id) == null) {
-                throw cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception(
+                throw ServiceExceptionUtil.exception(
                         cn.iocoder.yudao.module.system.enums.ErrorCodeConstants.USER_NOT_EXISTS);
             }
         }
@@ -319,8 +325,37 @@ public class UserController {
     @PreAuthorize("@ss.hasPermission('system:user:import')")
     public CommonResult<UserImportRespVO> importExcel(@RequestParam("file") MultipartFile file,
                                                       @RequestParam(value = "updateSupport", required = false, defaultValue = "false") Boolean updateSupport) throws Exception {
-        List<UserImportExcelVO> list = ExcelUtils.read(file, UserImportExcelVO.class);
-        return success(userService.importUserList(list, updateSupport));
+        return success(userService.importUserList(readUserImport(file), updateSupport));
+    }
+
+    private List<UserImportExcelVO> readUserImport(MultipartFile file) throws IOException {
+        if (file.isEmpty()) {
+            throw ServiceExceptionUtil.invalidParamException("用户导入文件不能为空，请上传有效的 Excel 文件");
+        }
+        List<UserImportExcelVO> list;
+        try (InputStream input = FileMagic.prepareToCheckMagic(file.getInputStream())) {
+            FileMagic format = FileMagic.valueOf(input);
+            if (format != FileMagic.OLE2
+                    && format != FileMagic.OOXML) {
+                throw ServiceExceptionUtil.invalidParamException(
+                        "用户导入文件格式错误或文件已损坏，请使用用户导入模板");
+            }
+            list = FastExcelFactory.read(input, UserImportExcelVO.class, null)
+                    .excelType(format == FileMagic.OLE2
+                            ? ExcelTypeEnum.XLS : ExcelTypeEnum.XLSX)
+                    .autoCloseStream(false).doReadAllSync();
+        } catch (ExcelAnalysisException | IOException
+                 | org.apache.poi.openxml4j.exceptions.NotOfficeXmlFileException ex) {
+            var error = ServiceExceptionUtil.invalidParamException(
+                    "用户导入文件格式错误或文件已损坏，请使用用户导入模板");
+            error.initCause(ex);
+            throw error;
+        }
+        if (CollUtil.isEmpty(list)) {
+            throw ServiceExceptionUtil.exception(
+                    cn.iocoder.yudao.module.system.enums.ErrorCodeConstants.USER_IMPORT_LIST_IS_EMPTY);
+        }
+        return list;
     }
 
     @PostMapping("/import-dingtalk")
@@ -330,6 +365,53 @@ public class UserController {
     public CommonResult<UserDingTalkImportRespVO> importDingTalkExcel(@RequestParam("file") MultipartFile file) throws Exception {
         List<UserDingTalkImportExcelVO> list = userDingTalkImportExcelParser.parse(file.getInputStream());
         return success(userService.importDingTalkUserList(list));
+    }
+
+    @PostMapping("/import-preview")
+    @Operation(summary = "预览用户导入文件范围", description = "仅展示文件人员和组织范围，最终写入重新校验")
+    @PreAuthorize("@ss.hasPermission('system:user:import')")
+    public CommonResult<UserImportPreviewRespVO> previewImport(@RequestParam("file") MultipartFile file) throws IOException {
+        List<UserImportExcelVO> rows = readUserImport(file);
+        List<String> personnel = new java.util.ArrayList<>();
+        java.util.Set<String> organizations = new java.util.LinkedHashSet<>();
+        for (int i = 0; i < rows.size(); i++) {
+            UserImportExcelVO row = rows.get(i);
+            int line = i + 1;
+            personnel.add(previewValue(row.getUsername(), line, "账号") + " / "
+                    + previewValue(row.getNickname(), line, "姓名"));
+            organizations.add(row.getDeptId() == null ? "第" + line + "条记录：部门编号缺失"
+                    : "部门编号：" + row.getDeptId());
+        }
+        return success(new UserImportPreviewRespVO(rows.size(), personnel, new java.util.ArrayList<>(organizations)));
+    }
+
+    @PostMapping("/import-dingtalk-preview")
+    @Operation(summary = "预览钉钉导入文件范围", description = "仅展示文件人员和组织范围，最终写入重新校验")
+    @PreAuthorize("@ss.hasPermission('system:user:import')")
+    public CommonResult<UserImportPreviewRespVO> previewDingTalkImport(@RequestParam("file") MultipartFile file) throws IOException {
+        List<UserDingTalkImportExcelVO> rows;
+        try (InputStream input = file.getInputStream()) {
+            rows = userDingTalkImportExcelParser.parse(input);
+        }
+        List<String> personnel = new java.util.ArrayList<>();
+        java.util.Set<String> organizations = new java.util.LinkedHashSet<>();
+        for (int i = 0; i < rows.size(); i++) {
+            UserDingTalkImportExcelVO row = rows.get(i);
+            int line = i + 1;
+            personnel.add(previewValue(row.getEmployeeUserId(), line, "员工UserID") + " / "
+                    + previewValue(row.getName(), line, "姓名"));
+            List<String> path = Arrays.asList(row.getCompanyName(), row.getLevel2DepartmentName(),
+                    row.getLevel3DepartmentName(), row.getLevel4DepartmentName(), row.getLevel5DepartmentName(),
+                    row.getLevel6DepartmentName(), row.getLevel7DepartmentName());
+            String organization = path.stream().filter(value -> value != null && !value.isBlank())
+                    .map(String::trim).collect(java.util.stream.Collectors.joining(" / "));
+            organizations.add(organization.isBlank() ? "第" + line + "条记录：部门路径缺失" : organization);
+        }
+        return success(new UserImportPreviewRespVO(rows.size(), personnel, new java.util.ArrayList<>(organizations)));
+    }
+
+    private String previewValue(String value, int line, String field) {
+        return value == null || value.isBlank() ? "第" + line + "条记录：" + field + "缺失" : value.trim();
     }
 
 }

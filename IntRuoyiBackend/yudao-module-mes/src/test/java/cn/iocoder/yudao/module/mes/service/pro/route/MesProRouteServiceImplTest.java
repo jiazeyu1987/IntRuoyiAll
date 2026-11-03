@@ -183,6 +183,9 @@ class MesProRouteServiceImplTest {
         verify(routeMapper).deleteById(12L);
     }
 
+    @Mock
+    private cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteProjectGuard projectGuard;
+
     @InjectMocks
     private MesProRouteServiceImpl routeService;
 
@@ -686,8 +689,6 @@ class MesProRouteServiceImplTest {
             targetRoute.setId(targetRouteId);
             return 1;
         }).when(routeMapper).insert(any(MesProRouteDO.class));
-        when(routeProductMapper.selectListByRouteId(sourceRouteId)).thenReturn(emptyList());
-        when(routeProductBomMapper.selectList(sourceRouteId, null, null)).thenReturn(emptyList());
         when(routeProcessMapper.selectListByRouteId(sourceRouteId)).thenReturn(emptyList());
         when(routeVersionMapper.selectActiveByRouteId(sourceRouteId)).thenReturn(null);
         org.mockito.Mockito.doAnswer(invocation -> {
@@ -696,7 +697,7 @@ class MesProRouteServiceImplTest {
             return 1;
         }).when(routeVersionMapper).insert(any(MesProRouteVersionDO.class));
 
-        Long copiedRouteId = routeService.copyRoute(sourceRouteId, targetCode, targetName);
+        Long copiedRouteId = routeService.copyRoute(sourceRouteId, targetCode, targetName, 10L);
 
         assertEquals(targetRouteId, copiedRouteId);
         ArgumentCaptor<MesProRouteDO> routeCaptor = ArgumentCaptor.forClass(MesProRouteDO.class);
@@ -761,19 +762,7 @@ class MesProRouteServiceImplTest {
             targetRoute.setId(targetRouteId);
             return 1;
         }).when(routeMapper).insert(any(MesProRouteDO.class));
-        when(routeProductMapper.selectListByRouteId(sourceRouteId)).thenReturn(List.of(MesProRouteProductDO.builder()
-                .id(9706L)
-                .routeId(sourceRouteId)
-                .itemId(9806L)
-                .quantity(1)
-                .build()));
-        when(routeProductMapper.selectListByRouteId(targetRouteId)).thenReturn(List.of(MesProRouteProductDO.builder()
-                .id(9707L)
-                .routeId(targetRouteId)
-                .itemId(9806L)
-                .quantity(1)
-                .build()));
-        when(routeProductBomMapper.selectList(sourceRouteId, null, null)).thenReturn(List.of());
+        when(routeProductMapper.selectListByRouteId(targetRouteId)).thenReturn(List.of());
         when(routeProcessMapper.selectListByRouteId(sourceRouteId)).thenReturn(List.of(sourceProcess));
         org.mockito.Mockito.doAnswer(invocation -> {
             MesProRouteProcessDO targetProcess = invocation.getArgument(0);
@@ -818,7 +807,7 @@ class MesProRouteServiceImplTest {
         graph.setNodes(List.of(node));
         when(routeProcessFlowService.getGraph(targetRouteId)).thenReturn(graph);
 
-        Long copiedRouteId = routeService.copyRoute(sourceRouteId, targetCode, targetName);
+        Long copiedRouteId = routeService.copyRoute(sourceRouteId, targetCode, targetName, 10L);
 
         assertEquals(targetRouteId, copiedRouteId);
         ArgumentCaptor<MesProRouteVersionDO> updateCaptor = ArgumentCaptor.forClass(MesProRouteVersionDO.class);
@@ -834,7 +823,7 @@ class MesProRouteServiceImplTest {
                 .getJSONArray("productionProcessConfigs").getJSONObject(0);
         assertEquals(9307L, copiedProductionConfig.getLong("routeProcessId"));
         assertEquals(9406L, copiedProductionConfig.getLong("processId"));
-        assertEquals(1, snapshot.getJSONObject("configSnapshots").getJSONArray("products").size());
+        assertEquals(0, snapshot.getJSONObject("configSnapshots").getJSONArray("products").size());
         assertEquals(1, snapshot.getJSONObject("configSnapshots").getJSONArray("scheduleConfigs").size());
         assertEquals(1, snapshot.getJSONObject("configSnapshots").getJSONArray("scheduleUseConfigs").size());
         assertEquals(1, snapshot.getJSONObject("configSnapshots").getJSONArray("batchUseConfigs").size());
@@ -1063,7 +1052,7 @@ class MesProRouteServiceImplTest {
             security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(copierUserId);
             security.when(SecurityFrameworkUtils::getLoginUserNickname).thenReturn("aoteman");
 
-            routeService.copyRoute(sourceRouteId, targetCode, targetName);
+            routeService.copyRoute(sourceRouteId, targetCode, targetName, 10L);
         }
 
         ArgumentCaptor<MesProEdhrPermissionScopeSaveCommand> scopeCaptor =
@@ -1089,7 +1078,7 @@ class MesProRouteServiceImplTest {
     void writeMethodsThatCreateRouteVersions_shouldBeTransactionalWithPlatformRefs() throws NoSuchMethodException {
         assertTransactional("createRoute", MesProRouteSaveReqVO.class);
         assertTransactional("updateRoute", MesProRouteSaveReqVO.class);
-        assertTransactional("copyRoute", Long.class, String.class, String.class);
+        assertTransactional("copyRoute", Long.class, String.class, String.class, Long.class);
         assertTransactional("maintainRouteVersionAfterProcessChange", Long.class);
     }
 

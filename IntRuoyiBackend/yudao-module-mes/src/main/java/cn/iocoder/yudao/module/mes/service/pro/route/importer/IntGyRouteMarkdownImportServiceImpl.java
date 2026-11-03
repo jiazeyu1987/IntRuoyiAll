@@ -36,6 +36,9 @@ import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.*;
 @Service
 @Validated
 public class IntGyRouteMarkdownImportServiceImpl implements IntGyRouteMarkdownImportService {
+    @jakarta.annotation.Resource
+    private cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteProjectGuard projectGuard;
+
 
     @Resource
     private MesProProcessCreationService processCreationService;
@@ -64,10 +67,13 @@ public class IntGyRouteMarkdownImportServiceImpl implements IntGyRouteMarkdownIm
     @Override
     @Transactional(rollbackFor = Exception.class)
     public IntGyRouteMarkdownImportResult importMarkdown(String markdown, Integer processStatus,
-                                                         String checkProcessCodesByRouteCodeJson) {
+                                                         String checkProcessCodesByRouteCodeJson, Long dccProjectCodeId) {
         validateProcessStatus(processStatus);
         IntGyRouteMarkdownParser.ParseResult parseResult = parseMarkdown(markdown);
         List<IntGyRouteMarkdownParser.Route> routes = parseResult.routes();
+        if (parseResult.routes().size() != 1) throw cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.invalidParamException(
+                "本格式每次只能为一个项目导入一条工艺流程，请拆分文件");
+        projectGuard.requireAvailable(dccProjectCodeId, null);
         Map<String, List<String>> checkProcessCodesByRouteCode = parseCheckProcessCodes(checkProcessCodesByRouteCodeJson);
 
         validateRouteStructure(routes);
@@ -103,6 +109,7 @@ public class IntGyRouteMarkdownImportServiceImpl implements IntGyRouteMarkdownIm
             routeDO.setName(route.routeName());
             routeDO.setStatus(CommonStatusEnum.DISABLE.getStatus());
             routeMapper.insert(routeDO);
+            projectGuard.bindNewRoute(routeDO.getId(), dccProjectCodeId);
             routeOwnerPermissionService.bindCurrentUserAsOwner(routeDO.getId());
             routeCodes.add(route.routeCode());
 

@@ -1382,15 +1382,18 @@ public class AdminUserServiceImplTest extends BaseDbUnitTest {
     @Test
     public void testImportUserList_04() {
         // mock 数据
-        AdminUserDO dbUser = randomAdminUserDO();
+        AdminUserDO dbUser = randomAdminUserDO(o -> {
+            o.setEmail(randomEmail());
+            o.setMobile(randomMobile());
+        });
         userMapper.insert(dbUser);
         // 准备参数
         UserImportExcelVO importUser = randomPojo(UserImportExcelVO.class, o -> {
             o.setStatus(randomEle(CommonStatusEnum.values()).getStatus()); // 保证 status 的范围
             o.setSex(randomEle(SexEnum.values()).getSex()); // 保证 sex 的范围
             o.setUsername(dbUser.getUsername());
-            o.setEmail(randomEmail());
-            o.setMobile(randomMobile());
+            o.setEmail(dbUser.getEmail());
+            o.setMobile(dbUser.getMobile());
         });
         // mock deptService 的方法
         DeptDO dept = randomPojo(DeptDO.class, o -> {

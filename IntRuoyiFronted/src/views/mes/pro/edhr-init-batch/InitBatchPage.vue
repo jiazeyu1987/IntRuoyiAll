@@ -47,22 +47,36 @@
         >
           <el-table-column label="初始化批次" min-width="280">
             <template #default="{ row }">
-              <div class="edhr-init-batch__strong">{{ row.projectCode }} / {{ row.projectName }}</div>
-              <div class="edhr-init-batch__muted">版本 {{ row.dataVersion }} · 租户 {{ row.targetTenantId }}</div>
+              <div class="edhr-init-batch__strong"
+                >{{ row.projectCode }} / {{ row.projectName }}</div
+              >
+              <div class="edhr-init-batch__muted"
+                >版本 {{ row.dataVersion }} · 租户 {{ row.targetTenantId }}</div
+              >
             </template>
           </el-table-column>
-          <el-table-column label="目标环境" prop="targetEnvironment" width="110" />
+          <el-table-column label="目标环境" width="110"
+            ><template #default="{ row }">{{
+              environmentLabel(row.targetEnvironment)
+            }}</template></el-table-column
+          >
           <el-table-column label="状态" width="120">
             <template #default="{ row }">
-              <el-tag :type="resolveStatusTagType(row.status)">{{ resolveStatusLabel(row.status) }}</el-tag>
+              <el-tag :type="resolveStatusTagType(row.status)">{{
+                resolveStatusLabel(row.status)
+              }}</el-tag>
             </template>
           </el-table-column>
-          <el-table-column label="manifestHash" min-width="240">
+          <el-table-column label="交付清单" min-width="160">
             <template #default="{ row }">
-              <span class="edhr-init-batch__hash">{{ row.latestManifestHash || '--' }}</span>
+              <span>{{ row.latestManifestHash ? '已登记清单' : '尚未登记' }}</span>
+              <details v-if="row.latestManifestHash"
+                ><summary>查看清单校验码</summary
+                ><span style="overflow-wrap: anywhere">{{ row.latestManifestHash }}</span></details
+              >
             </template>
           </el-table-column>
-          <el-table-column label="manifest" width="110" align="center">
+          <el-table-column label="清单数量" width="110" align="center">
             <template #default="{ row }">
               {{ row.manifestCount || 0 }}
             </template>
@@ -75,7 +89,9 @@
             </template>
           </el-table-column>
           <el-table-column label="最后预检" prop="lastPrecheckAt" width="180">
-            <template #default="{ row }">{{ formatDateTimeValue(row.lastPrecheckAt, '-') }}</template>
+            <template #default="{ row }">{{
+              formatDateTimeValue(row.lastPrecheckAt, '-')
+            }}</template>
           </el-table-column>
           <el-table-column label="操作" width="260" fixed="right">
             <template #default="{ row }">
@@ -86,7 +102,7 @@
                   v-hasPermi="['mes:pro-edhr-init-batch:create']"
                   @click="openUploadDialog(row)"
                 >
-                  上传 manifest
+                  上传交付清单
                 </el-button>
                 <el-button
                   link
@@ -134,7 +150,12 @@
           </el-col>
           <el-col :span="12">
             <el-form-item label="目标租户" prop="targetTenantId">
-              <el-input-number v-model="createForm.targetTenantId" :min="1" :controls="false" class="!w-100%" />
+              <el-input-number
+                v-model="createForm.targetTenantId"
+                :min="1"
+                :controls="false"
+                class="!w-100%"
+              />
             </el-form-item>
           </el-col>
           <el-col :span="12">
@@ -144,7 +165,12 @@
           </el-col>
           <el-col :span="12">
             <el-form-item label="交付负责人" prop="ownerUserId">
-              <el-input-number v-model="createForm.ownerUserId" :min="1" :controls="false" class="!w-100%" />
+              <el-input-number
+                v-model="createForm.ownerUserId"
+                :min="1"
+                :controls="false"
+                class="!w-100%"
+              />
             </el-form-item>
           </el-col>
           <el-col :span="12">
@@ -159,7 +185,12 @@
           </el-col>
           <el-col :span="24">
             <el-form-item label="初始化范围" prop="initScopeJson">
-              <el-input v-model="createForm.initScopeJson" type="textarea" :rows="4" />
+              <el-checkbox-group v-model="initScopes">
+                <el-checkbox label="menu">菜单</el-checkbox
+                ><el-checkbox label="permission">权限</el-checkbox>
+                <el-checkbox label="template">模板</el-checkbox
+                ><el-checkbox label="masterData">主数据</el-checkbox>
+              </el-checkbox-group>
             </el-form-item>
           </el-col>
           <el-col :span="24">
@@ -171,11 +202,13 @@
       </el-form>
       <template #footer>
         <el-button @click="createDialogVisible = false">取消</el-button>
-        <el-button type="primary" :loading="createLoading" @click="handleCreate">确认创建</el-button>
+        <el-button type="primary" :loading="createLoading" @click="handleCreate"
+          >确认创建</el-button
+        >
       </template>
     </Dialog>
 
-    <Dialog title="上传 manifest" v-model="uploadDialogVisible" width="760px">
+    <Dialog title="上传交付清单" v-model="uploadDialogVisible" width="760px">
       <el-form ref="uploadFormRef" :model="uploadForm" :rules="uploadRules" label-width="116px">
         <el-row :gutter="16">
           <el-col :span="12">
@@ -185,12 +218,23 @@
           </el-col>
           <el-col :span="12">
             <el-form-item label="包类型" prop="packageType">
-              <el-input v-model="uploadForm.packageType" maxlength="64" />
+              <el-input
+                v-model="uploadForm.packageType"
+                maxlength="64"
+                placeholder="交付包中的正式类型标识"
+              />
             </el-form-item>
           </el-col>
           <el-col :span="24">
-            <el-form-item label="manifestHash" prop="manifestHash">
-              <el-input v-model="uploadForm.manifestHash" maxlength="64" />
+            <el-form-item label="清单校验码" prop="manifestHash">
+              <el-input
+                v-model="uploadForm.manifestHash"
+                maxlength="64"
+                placeholder="粘贴交付包提供的64位校验码"
+              />
+              <span class="edhr-init-batch__muted"
+                >用于核对同一份交付清单，请使用交付包中的正式校验码。</span
+              >
             </el-form-item>
           </el-col>
           <el-col :span="12">
@@ -199,18 +243,25 @@
             </el-form-item>
           </el-col>
           <el-col :span="12">
-            <el-form-item label="源文件URL">
+            <el-form-item label="源文件地址">
               <el-input v-model="uploadForm.sourceFileUrl" maxlength="512" />
             </el-form-item>
           </el-col>
           <el-col :span="24">
-            <el-form-item label="checksum">
-              <el-input v-model="uploadForm.checksumJson" type="textarea" :rows="2" />
+            <el-form-item label="文件校验记录">
+              <BusinessJsonInput ref="checksumInput" v-model="uploadForm.checksumJson" label="文件校验记录" file-only />
             </el-form-item>
           </el-col>
           <el-col :span="24">
-            <el-form-item label="manifestJson" prop="manifestJson">
-              <el-input v-model="uploadForm.manifestJson" type="textarea" :rows="8" />
+            <el-form-item label="交付清单内容" prop="manifestJson">
+              <BusinessJsonInput
+                ref="manifestInput"
+                v-model="uploadForm.manifestJson"
+                label="交付清单"
+                file-only
+                hint="请选择交付包中的正式清单文件，导入后核对业务明细。"
+                @imported="handleManifestImported"
+              />
             </el-form-item>
           </el-col>
         </el-row>
@@ -218,7 +269,7 @@
       <template #footer>
         <el-button @click="uploadDialogVisible = false">取消</el-button>
         <el-button type="primary" :loading="uploadLoading" @click="handleUploadManifest">
-          上传 manifest
+          上传交付清单
         </el-button>
       </template>
     </Dialog>
@@ -240,7 +291,13 @@
       >
         <el-table-column label="级别" width="100">
           <template #default="{ row }">
-            <el-tag :type="row.issueLevel === 'BLOCKER' ? 'danger' : 'warning'">{{ row.issueLevel }}</el-tag>
+            <el-tag :type="row.issueLevel === 'BLOCKER' ? 'danger' : 'warning'">{{
+              row.issueLevel === 'BLOCKER'
+                ? '阻塞问题'
+                : row.issueLevel === 'WARNING'
+                  ? '提醒'
+                  : `未知级别（${row.issueLevel}）`
+            }}</el-tag>
           </template>
         </el-table-column>
         <el-table-column label="源文件" prop="sourceFileName" min-width="180" />
@@ -265,6 +322,7 @@
 </template>
 
 <script setup lang="ts">
+import BusinessJsonInput from '@/components/BusinessData/BusinessJsonInput.vue'
 import { formatDateTimeValue } from '@/utils/formatTime'
 import {
   EdhrInitBatchApi,
@@ -297,6 +355,8 @@ const issueList = ref<EdhrInitIssueRespVO[]>([])
 const issueTotal = ref(0)
 const createFormRef = ref()
 const uploadFormRef = ref()
+const checksumInput = ref<InstanceType<typeof BusinessJsonInput>>()
+const manifestInput = ref<InstanceType<typeof BusinessJsonInput>>()
 
 const queryParams = reactive({
   pageNo: 1,
@@ -320,6 +380,17 @@ const createForm = reactive<EdhrInitBatchCreateReqVO>({
   initScopeJson: '{"scope":["menu","permission","template","masterData"]}',
   remark: ''
 })
+
+const initScopes = computed({
+  get: (): string[] => JSON.parse(createForm.initScopeJson).scope,
+  set: (scope: string[]) => {
+    createForm.initScopeJson = JSON.stringify({ scope })
+  }
+})
+const handleManifestImported = (file: File) => {
+  uploadForm.sourceFileName = file.name
+  uploadForm.fileSize = file.size
+}
 
 const uploadForm = reactive<EdhrInitManifestUploadReqVO>({
   initBatchId: 0,
@@ -351,9 +422,9 @@ const createRules = {
 
 const uploadRules = {
   packageType: [{ required: true, message: '包类型不能为空', trigger: 'blur' }],
-  manifestHash: [{ required: true, message: 'manifestHash 不能为空', trigger: 'blur' }],
+  manifestHash: [{ required: true, message: '请填写交付清单的正式校验码', trigger: 'blur' }],
   sourceFileName: [{ required: true, message: '源文件不能为空', trigger: 'blur' }],
-  manifestJson: [{ required: true, message: 'manifestJson 不能为空', trigger: 'blur' }]
+  manifestJson: [{ required: true, message: '请选择交付清单文件', trigger: 'blur' }]
 }
 
 const currentBatchLabel = computed(() => {
@@ -362,11 +433,15 @@ const currentBatchLabel = computed(() => {
 })
 
 const resolveErrorMessage = (error: unknown, fallback: string) => {
-  const responseMessage = (error as any)?.response?.data?.msg || (error as any)?.response?.data?.message
+  const responseMessage =
+    (error as any)?.response?.data?.msg || (error as any)?.response?.data?.message
   if (typeof responseMessage === 'string' && responseMessage.trim()) return responseMessage
   if (error instanceof Error && error.message.trim()) return error.message
   return fallback
 }
+
+const environmentLabel = (value: string) =>
+  ({ LOCAL: '本机', TEST: '测试', PROD: '生产' })[value] || `未知环境（${value}）`
 
 const resolveStatusLabel = (status?: EdhrInitBatchStatus) => {
   if (status === 'PRECHECK_FAILED') return '预检失败'
@@ -443,6 +518,10 @@ const openCreateDialog = () => {
 
 const handleCreate = async () => {
   await createFormRef.value?.validate()
+  if (!initScopes.value.length) {
+    message.error('请选择至少一项初始化范围')
+    return
+  }
   createLoading.value = true
   try {
     await EdhrInitBatchApi.create({
@@ -482,6 +561,15 @@ const openUploadDialog = (row: EdhrInitBatchRespVO) => {
 
 const handleUploadManifest = async () => {
   await uploadFormRef.value?.validate()
+  const validationError = manifestInput.value?.validate() || checksumInput.value?.validate(false)
+  if (validationError) {
+    message.error(validationError)
+    return
+  }
+  if (!/^[a-fA-F0-9]{64}$/.test(uploadForm.manifestHash.trim())) {
+    message.error('清单校验码必须为64位十六进制字符，请从交付包核对后填写')
+    return
+  }
   uploadLoading.value = true
   try {
     await EdhrInitBatchApi.uploadManifest({
@@ -491,13 +579,13 @@ const handleUploadManifest = async () => {
       sourceFileName: uploadForm.sourceFileName.trim(),
       sourceFileUrl: uploadForm.sourceFileUrl?.trim() || undefined,
       checksumJson: uploadForm.checksumJson?.trim() || undefined,
-      manifestJson: uploadForm.manifestJson.trim()
+      manifestJson: uploadForm.manifestJson
     })
     uploadDialogVisible.value = false
-    message.success('上传 manifest 成功')
+    message.success('交付清单上传成功')
     await getList()
   } catch (error) {
-    message.error(resolveErrorMessage(error, '上传 manifest 失败，请联系管理员。'))
+    message.error(resolveErrorMessage(error, '交付清单上传失败，请联系管理员。'))
   } finally {
     uploadLoading.value = false
   }

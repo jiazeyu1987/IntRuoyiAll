@@ -299,7 +299,7 @@ public class MesProBatchRecordTotalRecognitionExtractor {
                     throw new IllegalStateException("parameter values cannot be uniquely aligned: " + entry.getKey());
                 }
                 String referenceValue = values.size() == 1 ? values.get(0) : values.get(groupIndex);
-                groupParameters.add(toParameter(processName, entry.getKey(), referenceValue));
+                groupParameters.add(toParameter(entry.getKey(), referenceValue));
             }
             result.add(new EquipmentGroup(equipmentGroups.get(groupIndex), groupParameters,
                     selectionMode(processName)));
@@ -317,7 +317,7 @@ public class MesProBatchRecordTotalRecognitionExtractor {
         for (Map.Entry<String, List<String>> entry : parameters.entrySet()) {
             String domain = parameterDomain(entry.getKey());
             parametersByDomain.computeIfAbsent(domain, ignored -> new ArrayList<>())
-                    .add(toParameter(processName, entry.getKey(), entry.getValue().get(0)));
+                    .add(toParameter(entry.getKey(), entry.getValue().get(0)));
         }
 
         if (equipmentByDomain.size() == 1) {
@@ -551,25 +551,15 @@ public class MesProBatchRecordTotalRecognitionExtractor {
     public record EquipmentOption(String code, String name) {
     }
 
-    private Parameter toParameter(String processName, String name, String referenceValue) {
-        String effectiveReference = referenceValue;
-        if ("粗洗工序".equals(processName) && "清洗介质".equals(name)) {
-            effectiveReference = "自来水";
-        }
-        if ("清洗温度".equals(name) && "室温".equals(referenceValue)) {
-            effectiveReference = "20-30℃";
-        }
-        Ui ui = resolveUi(processName, name, effectiveReference);
-        return new Parameter(name, effectiveReference, ACTUAL_VALUE_PLACEHOLDER, ui);
+    private Parameter toParameter(String name, String referenceValue) {
+        Ui ui = resolveUi(name, referenceValue);
+        return new Parameter(name, referenceValue, ACTUAL_VALUE_PLACEHOLDER, ui);
     }
 
-    private Ui resolveUi(String processName, String name, String referenceValue) {
+    private Ui resolveUi(String name, String referenceValue) {
         if ("清洗介质".equals(name)) {
             return new Ui("select", referenceValue, null, null, null, null, null,
-                    "自来水".equals(referenceValue) ? List.of("自来水", "纯化水") : List.of(referenceValue));
-        }
-        if ("清洗温度".equals(name) && "20-30℃".equals(referenceValue)) {
-            return new Ui("number", BigDecimal.valueOf(26), BigDecimal.ONE, BigDecimal.valueOf(20), BigDecimal.valueOf(30), "℃", null, null);
+                    List.of(referenceValue));
         }
         String unit = unit(name, referenceValue);
         Matcher plusMinus = Pattern.compile("(-?\\d+(?:\\.\\d+)?)±(\\d+(?:\\.\\d+)?)").matcher(referenceValue);

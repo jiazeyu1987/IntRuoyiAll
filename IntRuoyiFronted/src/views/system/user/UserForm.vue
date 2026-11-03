@@ -123,6 +123,7 @@ import * as PostApi from '@/api/system/post'
 import * as DeptApi from '@/api/system/dept'
 import * as UserApi from '@/api/system/user'
 import { FormRules } from 'element-plus'
+import { sameSelection, confirmUserChange } from './user-change-confirmation'
 import { systemPasswordRule } from './systemPasswordPolicy'
 
 defineOptions({ name: 'SystemUserForm' })
@@ -140,6 +141,12 @@ const formType = ref('') // 表单的类型：create - 新增；update - 修改
 const postSelectionReady = ref(false)
 const formError = ref('')
 let openGeneration = 0
+let originalDepartment: number | null = null
+let originalPosts: string[] = []
+let originalPostLabels: string[] = []
+let originalDepartmentLabel = ''
+let originalAccount = ''
+let departmentNames = new Map<number, string>()
 type UserFormData = Partial<Omit<UserApi.UserVO, 'deptId' | 'postIds'>> & {
   deptId: number | null
   postIds: string[]
@@ -240,7 +247,7 @@ const validateAssignedPosts = (user: UserApi.UserEditVO, candidates: PostOption[
     if (post.status !== CommonStatusEnum.ENABLE && post.status !== CommonStatusEnum.DISABLE) {
       throw postIntegrityError()
     }
-    const candidate = candidates.find((item) => item.id === id)
+    const candidate = candidates.find((item) => item.id === String(id))
     if (
       (post.status === CommonStatusEnum.ENABLE && (!candidate || candidate.name !== name)) ||
       (post.status === CommonStatusEnum.DISABLE && candidate)
@@ -307,6 +314,12 @@ const open = async (type: string, id?: number) => {
       const { assignedPosts: _assignedPosts, ...details } = user
       formData.value = { ...details, postIds: assigned.ids }
     }
+    departmentNames = new Map(departments.map((dept) => [dept.id, dept.name]))
+    originalDepartment = user?.deptId ?? null
+    originalDepartmentLabel = originalDepartment === null ? '无' : `${departmentNames.get(originalDepartment) ?? '部门'}（ID:${originalDepartment}）`
+    originalPosts = [...(assigned?.ids ?? [])]
+    originalPostLabels = user?.assignedPosts.map((post) => `${post.name}（ID:${post.id}）`) ?? []
+    originalAccount = user ? `${user.username}（ID:${user.id}）` : ''
     deptList.value = departmentTree
     postList.value = candidates
     assignedDisabledPosts.value = assigned?.disabled ?? []
@@ -344,6 +357,21 @@ const submitForm = async () => {
     if (type === 'create') {
       await UserApi.createUser(data, { ignoreErrorMessage: true })
     } else {
+      const changes: string[] = []
+      if (originalDepartment !== (data.deptId ?? null)) {
+        const next = data.deptId == null ? '无' : `${departmentNames.get(data.deptId) ?? '部门'}（ID:${data.deptId}）`
+        changes.push(`部门：${originalDepartmentLabel} → ${next}`)
+      }
+      if (!sameSelection(originalPosts, data.postIds)) {
+        const labels = data.postIds.map((id) => {
+          const post = [...postList.value, ...assignedDisabledPosts.value].find((item) => item.id === String(id))
+          if (!post) throw postIntegrityError()
+          return `${post.name}（ID:${id}）`
+        })
+        changes.push(`岗位：${originalPostLabels.join('、') || '无'} → ${labels.join('、') || '无'}`)
+      }
+      if (changes.length && !(await confirmUserChange(message.confirm, `目标账号：${originalAccount}\n${changes.join('\n')}`))) return
+      if (generation !== openGeneration || !dialogVisible.value) return
       await UserApi.updateUser(data, { ignoreErrorMessage: true })
     }
     if (generation !== openGeneration || !dialogVisible.value) return

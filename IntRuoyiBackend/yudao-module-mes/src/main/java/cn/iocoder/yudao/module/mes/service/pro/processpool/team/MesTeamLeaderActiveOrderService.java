@@ -13,6 +13,9 @@ public interface MesTeamLeaderActiveOrderService {
 
     MesTeamLeaderActiveOrderTestResetResult resetFixedSimulationActiveOrder(Long leaderUserId);
 
+    /** Read-only use of the same route, quantity and QA planning gates as a fresh activation. */
+    void checkFixedTestOrderProductionSource(Long routeId, Long routeVersionId);
+
     MesTeamLeaderActiveOrderSimulationCopyResult copyLatestSimulationActiveOrder(
             Long leaderUserId, Long sourceActiveOrderId, String simulationRunId);
 

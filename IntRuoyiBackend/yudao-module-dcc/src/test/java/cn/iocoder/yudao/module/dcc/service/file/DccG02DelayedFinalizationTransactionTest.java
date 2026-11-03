@@ -258,7 +258,7 @@ public class DccG02DelayedFinalizationTransactionTest {
             var electronic=mock(DccElectronicSignatureAuthorizationService.class);
             var images=mock(DccElectronicSignatureImageService.class);
             var image=DccElectronicSignatureImageSnapshot.builder().imageId(1L).versionNo(1).fileId(9L).sha256("a".repeat(64)).contentType("image/png").fileSize(3L).imageStatus("ACTIVE").verifiedStatus("VALID").content(new byte[]{1,2,3}).build();
-            when(images.requireActiveSnapshot(99L)).thenReturn(image);
+            when(images.requireSigningSnapshot(99L)).thenReturn(image);
             when(images.verifySignatureSnapshot(any(cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileSignatureDO.class))).thenReturn(image);
             wire(f.verifier,"signatureImageService",images);
             wire(producer,"adminUserService",users,"deptService",depts,"postService",posts,"permissionService",permissions,"roleService",roles,

@@ -4,8 +4,7 @@
 
   <ContentWrap class="standard-list-page">
     <UnifiedListTemplate
-      @query="handleQuery"
-      @reset="resetQuery"
+      ref="roleListRef"
       class="unified-list-template--contained"
       table-key="system.role.main"
       :query-model="queryParams"
@@ -21,28 +20,7 @@
       :show-column-settings="false"
       :column-filter-definitions="[...listColumnFilterDefinitions0, ...allColumnDisplayFilters0]"
     >
-      <template #filters>
-        <el-form
-          ref="queryFormRef"
-          :model="queryParams"
-          class="permission-role-toolbar"
-          label-position="left"
-          @submit.prevent
-        >
-          <div class="permission-role-toolbar__filters">
-            <el-form-item label="权限角色名称" prop="name">
-              <el-input
-                v-model="queryParams.name"
-                clearable
-                placeholder="请输入权限角色名称"
-                @keyup.enter="handleQuery"
-              />
-            </el-form-item>
-          </div>
-        </el-form>
-      </template>
-      <template #actions>
-        <EdhrPermissionTransfer @success="refreshCategories" />
+      <template #actions="{ filterLoading, filterError }">
         <el-button
           v-hasPermi="['system:role:create']"
           class="permission-role-toolbar__action"
@@ -55,36 +33,43 @@
         </el-button>
         <el-button
           v-hasPermi="['system:role:export']"
-          :loading="exportLoading"
+          :loading="roleExcelExportLoading"
+          :disabled="loading || filterLoading || !!filterError"
           class="permission-role-toolbar__action"
           plain
           type="success"
-          @click="openExport"
+          title="导出当前分类和筛选条件内的全部匹配数据"
+          @click="handleRoleExcelExport"
         >
           <Icon class="mr-5px" icon="ep:download" />
-          导出
-        </el-button>
-        <el-button
-          v-hasPermi="['system:role:create', 'system:role:update']"
-          :loading="importLoading"
-          class="permission-role-toolbar__action"
-          plain
-          type="warning"
-          @click="openImport"
-        >
-          <Icon class="mr-5px" icon="ep:upload" />
-          导入
+          导出列表
         </el-button>
         <el-button
           v-hasPermi="['system:role:delete']"
-          :disabled="checkedIds.length === 0"
+          :disabled="selectedRoleIds.length === 0"
+          :loading="batchDeleteLoading"
           class="permission-role-toolbar__action"
           plain
           type="danger"
           @click="handleDeleteBatch"
         >
           <Icon class="mr-5px" icon="ep:delete" />
-          删除
+          批量删除
+        </el-button>
+        <EdhrPermissionTransfer
+          :export-loading="exportLoading"
+          :import-loading="importLoading"
+          @export-role="openExport"
+          @import-role="openImport"
+          @success="refreshCategories"
+        />
+        <el-button
+          v-hasPermi="['system:gxp-audit:query']"
+          class="permission-role-toolbar__action"
+          plain
+          @click="permissionAuditRef?.open()"
+        >
+          权限审计
         </el-button>
         <UserTableColumnSettings
           :columns="roleColumns"
@@ -155,10 +140,11 @@
               v-loading="loading"
               :data="resolveRows(list)"
               :row-class-name="getRoleRowClassName"
+              ref="roleTableRef"
               data-user-table-column-explicit
               data-user-table-key="system.role.main"
               @header-dragend="handleRoleHeaderDragend"
-              @selection-change="handleRowCheckboxChange"
+              @selection-change="handleSelectionChange"
             >
               <el-table-column
                 type="selection"
@@ -268,6 +254,14 @@
               >
                 <template #default="scope">
                   <el-button
+                    v-hasPermi="['system:user:query']"
+                    link
+                    type="primary"
+                    @click="assignedUsersRef?.open(scope.row)"
+                  >
+                    查看
+                  </el-button>
+                  <el-button
                     v-hasPermi="['system:role:update']"
                     link
                     type="primary"
@@ -288,8 +282,6 @@
                   <el-button
                     v-hasPermi="['system:permission:assign-role-data-scope']"
                     link
-                    preIcon="ep:coin"
-                    title="数据权限"
                     type="primary"
                     @click="openDataPermissionForm(scope.row)"
                   >
@@ -323,11 +315,12 @@
     </template>
   </el-dialog>
   <RoleForm ref="formRef" @success="getList" />
+  <RoleAssignedUsers ref="assignedUsersRef" />
   <RoleCategoryForm ref="categoryFormRef" @success="refreshCategories" />
   <!-- 表单弹窗：菜单权限 -->
   <RoleAssignMenuForm ref="assignMenuFormRef" @success="getList" />
-  <!-- 表单弹窗：数据权限 -->
   <RoleDataPermissionForm ref="dataPermissionFormRef" @success="getList" />
+  <PermissionAuditDialog ref="permissionAuditRef" />
   <input ref="importInputRef" accept=".json" class="hidden" type="file" @change="handleImportFileChange" />
 </template>
 <script lang="ts" setup>
@@ -335,7 +328,6 @@ import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/u
 import { getDictOptions as listColumnDictOptions } from '@/utils/dict'
 
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
-import { isSearchFormInputEmpty } from '@/utils/search'
 import { DICT_TYPE } from '@/utils/dict'
 import { dateFormatter } from '@/utils/formatTime'
 import download from '@/utils/download'
@@ -346,10 +338,12 @@ import {
   type UserTableColumnDefinition
 } from '@/hooks/web/useUserTableColumns'
 import RoleForm from './RoleForm.vue'
+import RoleAssignedUsers from './RoleAssignedUsers.vue'
 import RoleCategoryForm from './RoleCategoryForm.vue'
 import RoleAssignMenuForm from './RoleAssignMenuForm.vue'
 import RoleDataPermissionForm from './RoleDataPermissionForm.vue'
 import EdhrPermissionTransfer from './EdhrPermissionTransfer.vue'
+import PermissionAuditDialog from './PermissionAuditDialog.vue'
 
 defineOptions({ name: 'SystemRole' })
 
@@ -385,6 +379,11 @@ const total = ref(0) // 列表的总页数
 const list = ref<RoleApi.RoleVO[]>([]) // 列表的数据
 const categoryList = ref<RoleApi.RoleCategoryVO[]>([])
 const highlightedRoleId = ref<number>()
+const permissionAuditRef = ref<InstanceType<typeof PermissionAuditDialog>>()
+const roleTableRef = ref()
+const roleListRef = ref<InstanceType<typeof UnifiedListTemplate>>()
+const selectedRoleIds = ref<number[]>([])
+const batchDeleteLoading = ref(false)
 const queryParams = reactive({
   pageNo: 1,
   pageSize: 10,
@@ -394,8 +393,8 @@ const queryParams = reactive({
   status: undefined,
   createTime: []
 })
-const queryFormRef = ref() // 搜索的表单
 const exportLoading = ref(false) // 导出的加载中
+const roleExcelExportLoading = ref(false)
 const importLoading = ref(false)
 const importInputRef = ref<HTMLInputElement>()
 const selectedCategory = computed(() =>
@@ -404,6 +403,7 @@ const selectedCategory = computed(() =>
 
 /** 查询角色列表 */
 const getList = async () => {
+  clearRoleSelection()
   loading.value = true
   try {
     const data = await RoleApi.getRolePage(queryParams)
@@ -414,25 +414,15 @@ const getList = async () => {
   }
 }
 
-/** 搜索按钮操作 */
-const handleQuery = (skipEmptyReset = false) => {
-  if (skipEmptyReset !== true && isSearchFormInputEmpty(queryFormRef, queryParams)) {
-    resetQuery()
-    return
-  }
+/** 按当前分类查询角色 */
+const handleQuery = () => {
   queryParams.pageNo = 1
   getList()
 }
 
-/** 重置按钮操作 */
-const resetQuery = () => {
-  queryFormRef.value.resetFields()
-  queryParams.categoryId = selectedCategory.value?.id
-  handleQuery(true)
-}
-
 /** 添加/修改操作 */
 const formRef = ref()
+const assignedUsersRef = ref<InstanceType<typeof RoleAssignedUsers>>()
 const openForm = (type: string, id?: number) => {
   formRef.value.open(type, id)
 }
@@ -484,12 +474,6 @@ const handleDeleteCategory = async (category: RoleApi.RoleCategoryVO) => {
   await refreshCategories()
 }
 
-/** 数据权限操作 */
-const dataPermissionFormRef = ref()
-const openDataPermissionForm = async (row: RoleApi.RoleVO) => {
-  dataPermissionFormRef.value.open(row)
-}
-
 /** 菜单权限操作 */
 const assignMenuFormRef = ref()
 const openAssignMenuForm = async (row: RoleApi.RoleVO) => {
@@ -504,18 +488,66 @@ const handleDelete = async (id: number) => {
   await getList()
 }
 
-/** 批量删除按钮操作 */
-const checkedIds = ref<number[]>([])
-const handleRowCheckboxChange = (rows: RoleApi.RoleVO[]) => {
-  checkedIds.value = rows.map((row) => row.id)
+const clearRoleSelection = () => {
+  selectedRoleIds.value = []
+  roleTableRef.value?.clearSelection()
+}
+
+const handleSelectionChange = (rows: RoleApi.RoleVO[]) => {
+  selectedRoleIds.value = rows.map((row) => row.id)
 }
 
 const handleDeleteBatch = async () => {
-  await message.delConfirm()
-  await RoleApi.deleteRoleList(checkedIds.value)
-  checkedIds.value = []
-  message.success(t('common.delSuccess'))
-  await getList()
+  const ids = [...selectedRoleIds.value]
+  if (ids.length === 0) return
+  try {
+    await message.delConfirm(`是否删除选中的 ${ids.length} 个权限角色？`)
+  } catch (action) {
+    if (action === 'cancel' || action === 'close') return
+    throw action
+  }
+  batchDeleteLoading.value = true
+  try {
+    await RoleApi.deleteRoleList(ids)
+    message.success(t('common.delSuccess'))
+    await getList()
+  } finally {
+    batchDeleteLoading.value = false
+  }
+}
+
+const dataPermissionFormRef = ref<InstanceType<typeof RoleDataPermissionForm>>()
+const openDataPermissionForm = (row: RoleApi.RoleVO) => {
+  dataPermissionFormRef.value?.open(row)
+}
+
+const handleRoleExcelExport = async () => {
+  const filteredRows = roleListRef.value!.getColumnFilteredRows() as RoleApi.RoleVO[] | undefined
+  roleExcelExportLoading.value = true
+  try {
+    const data = await RoleApi.exportRole({
+      ...queryParams,
+      pageNo: 1
+    })
+    if (filteredRows !== undefined) {
+      const { read, utils, writeFileXLSX } = await import('xlsx')
+      const workbook = read(await data.arrayBuffer(), { type: 'array' })
+      const sheetName = workbook.SheetNames[0]
+      const rows = utils.sheet_to_json<unknown[]>(workbook.Sheets[sheetName], { header: 1 })
+      const idColumn = rows[0]?.indexOf('角色序号')
+      if (idColumn === undefined || idColumn < 0) throw new Error('角色导出文件缺少角色序号列')
+      const ids = new Set(filteredRows.map((row) => String(row.id)))
+      workbook.Sheets[sheetName] = utils.aoa_to_sheet([
+        rows[0],
+        ...rows.slice(1).filter((row) => ids.has(String(row[idColumn])))
+      ])
+      writeFileXLSX(workbook, '权限角色数据.xlsx')
+      return
+    }
+    download.excel(data, '权限角色数据.xlsx')
+  } finally {
+    roleExcelExportLoading.value = false
+  }
 }
 
 const exportDialogVisible = ref(false)
@@ -675,44 +707,6 @@ const allColumnDisplayFilters0: ListColumnFilterDefinition[] = [
 ]
 </script>
 <style lang="scss" scoped>
-.permission-role-toolbar {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.permission-role-toolbar__filters {
-  display: flex;
-  flex-wrap: nowrap;
-  width: 100%;
-  gap: 8px;
-  align-items: center;
-}
-
-.permission-role-toolbar__filters :deep(.el-form-item) {
-  margin-bottom: 0;
-}
-
-.permission-role-toolbar__filters :deep(.el-form-item__label) {
-  margin-bottom: 0;
-  color: #263247;
-  font-size: 13px;
-  font-weight: 500;
-  line-height: 32px;
-}
-
-.permission-role-toolbar__filters :deep(.el-input),
-.permission-role-toolbar__filters :deep(.el-select),
-.permission-role-toolbar__filters :deep(.el-date-editor) {
-  width: 100%;
-}
-
-.permission-role-toolbar__actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px 12px;
-}
-
 .permission-role-toolbar__action {
   min-width: 108px;
 }
@@ -840,10 +834,6 @@ const allColumnDisplayFilters0: ListColumnFilterDefinition[] = [
 }
 
 @media (max-width: 960px) {
-  .permission-role-toolbar__filters {
-    grid-template-columns: 1fr;
-  }
-
   .permission-role-toolbar__action {
     flex: 1 1 140px;
     min-width: 0;

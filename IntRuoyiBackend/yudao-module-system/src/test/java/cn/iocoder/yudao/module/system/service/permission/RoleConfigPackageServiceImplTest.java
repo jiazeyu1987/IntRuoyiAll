@@ -19,6 +19,8 @@ import org.junit.jupiter.api.BeforeEach;
 import cn.iocoder.yudao.module.system.api.permission.ApprovalAuthorityApi;
 import cn.iocoder.yudao.module.system.api.permission.dto.ApprovalAuthorityRevisionDTO;
 import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService;
+import cn.iocoder.yudao.module.system.service.tenant.TenantService;
+import cn.iocoder.yudao.module.system.service.tenant.handler.TenantMenuHandler;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
@@ -36,6 +38,9 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.ArgumentMatchers.any;
 
 @Import(RoleConfigPackageServiceImpl.class)
 class RoleConfigPackageServiceImplTest extends BaseDbUnitTest {
@@ -60,10 +65,23 @@ class RoleConfigPackageServiceImplTest extends BaseDbUnitTest {
     @MockitoBean
     private GxpAuditService gxpAuditService;
 
+    @MockitoBean
+    private TenantService tenantService;
+
     @BeforeEach
     void prepareAuthority() {
         org.mockito.Mockito.when(approvalAuthority.lockTenantApprovalAuthority(org.mockito.ArgumentMatchers.anyLong()))
                 .thenAnswer(call -> new ApprovalAuthorityRevisionDTO(call.getArgument(0), 1L));
+        allowTenantMenus(null);
+    }
+
+    private void allowTenantMenus(Set<Long> allowed) {
+        doAnswer(call -> {
+            Set<Long> ids = allowed != null ? allowed : menuMapper.selectList().stream()
+                    .map(MenuDO::getId).collect(java.util.stream.Collectors.toSet());
+            call.<TenantMenuHandler>getArgument(0).handle(ids);
+            return null;
+        }).when(tenantService).handleTenantMenu(any());
     }
 
     @Test
@@ -408,6 +426,95 @@ class RoleConfigPackageServiceImplTest extends BaseDbUnitTest {
 
         assertNull(roleCategoryMapper.selectByCode("scheduling"));
         assertNull(roleMapper.selectByCode("scheduler"));
+    }
+
+    @Test
+    void importPackage_shouldRejectPackageOutsidePermissionBeforeAnyWrite() {
+        MenuDO allowed = insertBoundaryMenu("system:role:query", "");
+        insertBoundaryMenu("system:role-category:create", "");
+        allowTenantMenus(Set.of(allowed.getId()));
+        var payload = boundaryPayload(List.of("permission:system:role:query",
+                "permission:system:role-category:create"));
+
+        ServiceException error = assertThrows(ServiceException.class,
+                () -> roleConfigPackageService.importPackage(JsonUtils.toJsonByte(payload)));
+
+        assertEquals(ErrorCodeConstants.CONFIG_PACKAGE_CONTENT_INVALID.getCode(), error.getCode());
+        org.junit.jupiter.api.Assertions.assertTrue(error.getMessage().contains("当前租户套餐外菜单"));
+        assertNull(roleCategoryMapper.selectByCode("package_boundary"));
+        assertNull(roleMapper.selectByCode("package_boundary_role"));
+        verifyNoInteractions(permissionService);
+        verify(approvalAuthority, never()).incrementLockedAuthorityRevision(any(), any());
+    }
+
+    @Test
+    void importPackage_shouldRejectOutsideRouteAndKeepEarlierRoleUnchanged() {
+        MenuDO allowed = insertBoundaryMenu("system:role:query", "");
+        insertBoundaryMenu("", "outside");
+        allowTenantMenus(Set.of(allowed.getId()));
+        var payload = boundaryPayload(List.of("permission:system:role:query"));
+        var invalid = new RoleConfigPackageServiceImpl.RoleConfigItem();
+        invalid.setCode("outside_route"); invalid.setName("套餐外目录"); invalid.setSort(2);
+        invalid.setStatus(0); invalid.setCategoryCode("package_boundary");
+        invalid.setMenuKeys(List.of("route:|3|outside|||套餐边界菜单"));
+        payload.setRoles(List.of(payload.getRoles().get(0), invalid));
+
+        ServiceException error = assertThrows(ServiceException.class,
+                () -> roleConfigPackageService.importPackage(JsonUtils.toJsonByte(payload)));
+
+        org.junit.jupiter.api.Assertions.assertTrue(error.getMessage().contains("当前租户套餐外菜单"));
+        assertNull(roleCategoryMapper.selectByCode("package_boundary"));
+        assertNull(roleMapper.selectByCode("package_boundary_role"));
+        assertNull(roleMapper.selectByCode("outside_route"));
+        verifyNoInteractions(permissionService);
+    }
+
+    @Test
+    void importPackage_shouldFailWhenTenantMenuBoundaryUnavailable() {
+        reset(tenantService);
+        var payload = boundaryPayload(List.of());
+
+        ServiceException error = assertThrows(ServiceException.class,
+                () -> roleConfigPackageService.importPackage(JsonUtils.toJsonByte(payload)));
+
+        org.junit.jupiter.api.Assertions.assertTrue(error.getMessage().contains("当前租户套餐菜单未提供"));
+        assertNull(roleCategoryMapper.selectByCode("package_boundary"));
+        verifyNoInteractions(permissionService);
+    }
+
+    @Test
+    void importPackage_shouldNotExpandSharedPermissionBeyondPackage() {
+        MenuDO allowed = insertBoundaryMenu("system:role:query", "");
+        insertBoundaryMenu("system:role:query", "");
+        allowTenantMenus(Set.of(allowed.getId()));
+
+        ServiceException error = assertThrows(ServiceException.class,
+                () -> roleConfigPackageService.importPackage(JsonUtils.toJsonByte(
+                        boundaryPayload(List.of("permission:system:role:query")))));
+
+        org.junit.jupiter.api.Assertions.assertTrue(error.getMessage().contains("当前租户套餐外菜单"));
+        assertNull(roleMapper.selectByCode("package_boundary_role"));
+        verifyNoInteractions(permissionService);
+    }
+
+    private MenuDO insertBoundaryMenu(String permission, String path) {
+        MenuDO menu = new MenuDO();
+        menu.setName("套餐边界菜单"); menu.setPermission(permission); menu.setType(MenuTypeEnum.BUTTON.getType());
+        menu.setSort(1); menu.setParentId(0L); menu.setPath(path); menu.setComponent("");
+        menu.setComponentName(""); menu.setStatus(0); menu.setVisible(true);
+        menu.setKeepAlive(false); menu.setAlwaysShow(false);
+        menuMapper.insert(menu);
+        return menu;
+    }
+
+    private RoleConfigPackageServiceImpl.RoleConfigPackage boundaryPayload(List<String> menuKeys) {
+        var item = new RoleConfigPackageServiceImpl.RoleConfigItem();
+        item.setCode("package_boundary_role"); item.setName("套餐边界角色"); item.setSort(1);
+        item.setStatus(0); item.setCategoryCode("package_boundary"); item.setMenuKeys(menuKeys);
+        var payload = new RoleConfigPackageServiceImpl.RoleConfigPackage();
+        payload.setPackageVersion("3"); payload.setCategories(List.of(categoryItem("package_boundary", "套餐边界")));
+        payload.setRoles(List.of(item));
+        return payload;
     }
 
     private Long insertCategory(String code, String name) {

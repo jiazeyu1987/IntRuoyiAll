@@ -61,6 +61,12 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class MesProRouteVersionAndCopyTest {
 
+    @Mock
+    private cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteProjectGuard projectGuard;
+
+    @Mock
+    private cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesRouteDccProjectBindingMapper routeDccProjectBindingMapper;
+
     @InjectMocks
     private MesProRouteServiceImpl routeService;
 
@@ -242,7 +248,7 @@ class MesProRouteVersionAndCopyTest {
             return 1;
         }).when(routeVersionMapper).insert(any(MesProRouteVersionDO.class));
 
-        Long copiedRouteId = routeService.copyRoute(sourceRouteId, "R-COPY-2", "copied");
+        Long copiedRouteId = routeService.copyRoute(sourceRouteId, "R-COPY-2", "copied", 10L);
 
         assertEquals(targetRouteId, copiedRouteId);
         ArgumentCaptor<MesProRouteScheduleConfigDO> configCaptor =
@@ -280,8 +286,6 @@ class MesProRouteVersionAndCopyTest {
         when(routeMapper.selectById(sourceRouteId)).thenReturn(sourceRoute);
         when(routeMapper.selectByCode("R-ACTIVE-REF-COPY")).thenReturn(null);
         when(routeMapper.selectByName("copied active ref route")).thenReturn(null);
-        when(routeProductMapper.selectListByRouteId(sourceRouteId)).thenReturn(List.of());
-        when(routeProductBomMapper.selectList(sourceRouteId, null, null)).thenReturn(List.of());
         when(routeProcessMapper.selectListByRouteId(sourceRouteId)).thenReturn(List.of());
         when(routeVersionMapper.selectActiveByRouteId(sourceRouteId)).thenReturn(sourceVersion);
         when(routeScheduleConfigMapper.selectListByRouteVersionId(460L)).thenReturn(List.of());
@@ -297,7 +301,7 @@ class MesProRouteVersionAndCopyTest {
         }).when(routeVersionMapper).insert(any(MesProRouteVersionDO.class));
 
         Long copiedRouteId = routeService.copyRoute(sourceRouteId, "R-ACTIVE-REF-COPY",
-                "copied active ref route");
+                "copied active ref route", 10L);
 
         assertEquals(targetRouteId, copiedRouteId);
         verify(controlledContentAdapter).recordActiveRegistered(argThat(version ->
@@ -353,7 +357,7 @@ class MesProRouteVersionAndCopyTest {
         }).when(routeVersionMapper).insert(any(MesProRouteVersionDO.class));
 
         ServiceException ex = assertThrows(ServiceException.class,
-                () -> routeService.copyRoute(sourceRouteId, "R-MISSING-CONFIG-2", "copied"));
+                () -> routeService.copyRoute(sourceRouteId, "R-MISSING-CONFIG-2", "copied", 10L));
 
         assertEquals(1_040_271_013, ex.getCode());
     }
@@ -444,7 +448,7 @@ class MesProRouteVersionAndCopyTest {
             return 1;
         }).when(routeFlowProcessConfigMapper).insert(any(MesProRouteFlowProcessConfigDO.class));
 
-        Long copiedRouteId = routeService.copyRoute(sourceRouteId, "R-USE-COPY", "copied use route");
+        Long copiedRouteId = routeService.copyRoute(sourceRouteId, "R-USE-COPY", "copied use route", 10L);
 
         assertEquals(targetRouteId, copiedRouteId);
 
@@ -473,7 +477,7 @@ class MesProRouteVersionAndCopyTest {
     }
 
     @Test
-    void copyRoute_shouldCopyProductAndProductBomBindingsToTargetRoute() {
+    void copyRoute_shouldNotCopySourceProjectProductBindings() {
         Long sourceRouteId = 22L;
         Long targetRouteId = 23L;
         MesProRouteDO sourceRoute = MesProRouteDO.builder()
@@ -482,62 +486,22 @@ class MesProRouteVersionAndCopyTest {
                 .name("source product route")
                 .status(CommonStatusEnum.ENABLE.getStatus())
                 .build();
-        MesProRouteProductDO sourceProduct = MesProRouteProductDO.builder()
-                .id(600L)
-                .routeId(sourceRouteId)
-                .itemId(700L)
-                .quantity(10)
-                .productionTime(new BigDecimal("2.5"))
-                .timeUnitType("HOUR")
-                .remark("source product binding")
-                .build();
-        MesProRouteProductBomDO sourceProductBom = MesProRouteProductBomDO.builder()
-                .id(601L)
-                .routeId(sourceRouteId)
-                .processId(800L)
-                .productId(700L)
-                .itemId(900L)
-                .quantity(new BigDecimal("1.25"))
-                .remark("source bom binding")
-                .build();
-
         when(routeMapper.selectById(sourceRouteId)).thenReturn(sourceRoute);
         when(routeMapper.selectByCode("R-PRODUCT-COPY")).thenReturn(null);
         when(routeProcessMapper.selectListByRouteId(sourceRouteId)).thenReturn(List.of());
         when(routeVersionMapper.selectActiveByRouteId(sourceRouteId)).thenReturn(null);
-        when(routeProductMapper.selectListByRouteId(sourceRouteId)).thenReturn(List.of(sourceProduct));
-        when(routeProductBomMapper.selectList(sourceRouteId, null, null)).thenReturn(List.of(sourceProductBom));
         doAnswer(invocation -> {
             MesProRouteDO data = invocation.getArgument(0);
             data.setId(targetRouteId);
             return 1;
         }).when(routeMapper).insert(any(MesProRouteDO.class));
 
-        Long copiedRouteId = routeService.copyRoute(sourceRouteId, "R-PRODUCT-COPY", "copied product route");
+        Long copiedRouteId = routeService.copyRoute(sourceRouteId, "R-PRODUCT-COPY", "copied product route", 10L);
 
         assertEquals(targetRouteId, copiedRouteId);
-        ArgumentCaptor<MesProRouteProductDO> productCaptor = ArgumentCaptor.forClass(MesProRouteProductDO.class);
-        verify(routeProductMapper).insert(productCaptor.capture());
-        MesProRouteProductDO copiedProduct = productCaptor.getValue();
-        assertNotEquals(600L, copiedProduct.getId());
-        assertEquals(targetRouteId, copiedProduct.getRouteId());
-        assertEquals(700L, copiedProduct.getItemId());
-        assertEquals(10, copiedProduct.getQuantity());
-        assertEquals(new BigDecimal("2.5"), copiedProduct.getProductionTime());
-        assertEquals("HOUR", copiedProduct.getTimeUnitType());
-        assertEquals("source product binding", copiedProduct.getRemark());
-
-        ArgumentCaptor<MesProRouteProductBomDO> productBomCaptor =
-                ArgumentCaptor.forClass(MesProRouteProductBomDO.class);
-        verify(routeProductBomMapper).insert(productBomCaptor.capture());
-        MesProRouteProductBomDO copiedProductBom = productBomCaptor.getValue();
-        assertNotEquals(601L, copiedProductBom.getId());
-        assertEquals(targetRouteId, copiedProductBom.getRouteId());
-        assertEquals(800L, copiedProductBom.getProcessId());
-        assertEquals(700L, copiedProductBom.getProductId());
-        assertEquals(900L, copiedProductBom.getItemId());
-        assertEquals(new BigDecimal("1.25"), copiedProductBom.getQuantity());
-        assertEquals("source bom binding", copiedProductBom.getRemark());
+        verify(routeProductMapper, never()).insert(any(MesProRouteProductDO.class));
+        verify(routeProductBomMapper, never()).insert(any(MesProRouteProductBomDO.class));
+        verify(projectGuard).bindNewRoute(targetRouteId, 10L);
     }
 
     @Test
@@ -585,7 +549,7 @@ class MesProRouteVersionAndCopyTest {
             return 1;
         }).when(routeVersionMapper).insert(any(MesProRouteVersionDO.class));
 
-        Long copiedRouteId = routeService.copyRoute(sourceRouteId, "R-FLOW-COPY-2", "flow copied");
+        Long copiedRouteId = routeService.copyRoute(sourceRouteId, "R-FLOW-COPY-2", "flow copied", 10L);
 
         assertEquals(targetRouteId, copiedRouteId);
         verify(routeProcessFlowService).copyGraph(eq(sourceRouteId), eq(targetRouteId),
@@ -610,7 +574,7 @@ class MesProRouteVersionAndCopyTest {
                 .name("delete flow")
                 .status(CommonStatusEnum.DISABLE.getStatus())
                 .build();
-        when(routeMapper.selectById(routeId)).thenReturn(route);
+        when(routeMapper.selectByIdForUpdate(routeId)).thenReturn(route);
         when(routeVersionMapper.selectOpenCandidateByRouteId(routeId)).thenReturn(draftCandidate);
         when(routeVersionMapper.updateById(any(MesProRouteVersionDO.class))).thenReturn(1);
 

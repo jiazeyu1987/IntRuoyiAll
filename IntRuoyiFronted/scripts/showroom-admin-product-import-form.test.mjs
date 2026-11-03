@@ -49,7 +49,8 @@ test('Showroom product import form uses real import APIs and exposes explicit mo
   assert.match(source, /defineEmits\(\['success'\]\)/)
   assert.match(source, /download\.excel\(/)
   assert.match(source, /FormData/)
-  assert.match(source, /产品 Excel 导入/)
+  assert.match(source, /产品资源包 \/ Excel 导入/)
+  assert.match(source, /accept="\.zip,\.xlsx,\.xls"/)
   assert.match(source, /产品更新底表导入/)
   assert.match(source, /展厅讲解软件产品资料更新底表\.xlsx/)
   assert.match(source, /下载模板/)
@@ -94,7 +95,10 @@ test('Showroom product import result dialog renders line breaks without raw HTML
   )
   assert.match(
     source,
-    /showroom-product-import-result__line/,
-    'Import result dialog should render each result line as an explicit safe text node'
+    /showImportResult\(/,
+    'Import result dialog should use the shared structured result presentation'
   )
+  const component = readText('src/components/ImportResultContent/ImportResultContent.vue')
+  assert.match(component, /\{\{ cell \}\}/, 'Each result cell must render as safe text')
+  assert.doesNotMatch(component, /v-html/, 'Imported content must not render as HTML')
 })

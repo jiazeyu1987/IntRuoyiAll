@@ -172,7 +172,8 @@
   </ContentWrap>
 </template>
 <script setup lang="ts">
-import { computed, ref, watch, onBeforeUnmount, markRaw } from 'vue'
+import { computed, ref, watch, onBeforeUnmount, markRaw, h } from 'vue'
+import ApplicationConfirmationContent from './ApplicationConfirmationContent.vue'
 import { ElMessageBox } from 'element-plus'
 import { generateUUID } from '@/utils'
 import { getSimpleDeptList } from '@/api/system/dept'
@@ -850,26 +851,51 @@ const confirmation = async (intent: string, body: string, details: string,
   const file = selectedApplicationFile.value || props.file
   readApplicationOrdinaryAttachmentExpectation(file)
   const choiceNames: Record<string, string> = { Y: '是', N: '否', NA: '不适用' }
-  const rows = [
-    `文件名称：${file.sourceOriginalFileName || file.fileName || file.title}；编号：${file.fileNumber || '未记录'}；版本：${getDccVersionDisplayText(file.versionNo)}`,
-    ...(revisionVersions ? [`来源受控版本：${getDccVersionDisplayText(revisionVersions.baselineVersionNo)}；送审工作正文：${getDccVersionDisplayText(body)}；目标受控版本：${getDccVersionDisplayText(revisionVersions.targetVersionNo)}`] : []),
-    `本次申请：${intent}；正文：${getDccVersionDisplayText(body)}；项目：${file.projectName || `项目ID ${snapshot.value.projectId}`}；项目文件夹ID：${file.projectFolderId ?? '未记录'}；文件类型：${[file.fileTypeLevel1, file.fileTypeLevel2, file.fileTypeLevel3, file.fileTypeLevel4, file.fileTypeLevel5].filter(Boolean).join(' / ') || `类别ID ${file.categoryId}`}`,
-    `编制人账号ID：${file.requesterId ?? '未记录'}；直属主管来自用户管理中的已配置关系，本轮按正式来源冻结并由主管本人独立签名`,
-    `生效方式：${effective.effectiveMode === 'AFTER_STANDARDIZATION_SIGNATURE' ? '文控审核后立即生效；生效时间来自本轮文控真实电子签名时间' : effective.effectiveMode === 'DELAYED' ? '延迟生效；文控审核及必要培训完成后，由原编制人选择生效时间并电子签名确认' : `按预设日期生效（历史申请）；预设生效日期：${effective.effectiveDate}`}`,
-    `会签部门：${signoff.map(id => departments.value.find(row => String(row.id) === id)!.name).join('、')}`,
-    `下发部门：${distribution.length ? distribution.map(id => departments.value.find(row => String(row.id) === id)!.name).join('、') : '未选择下发部门'}；受控且已生效后向所选下发部门全部人员下发`,
-    `批准人：${approverNames.value}；批准规则：${approvalRule.value || '未记录'}；培训：${needTraining.value ? '需要，本次上传人上传记录' : '不需要'}`,
-    `本次已保存附件：${file.attachments!.length ? file.attachments!.map(row => `${row.fileName}（${row.attachmentPurpose === 'ATTACHMENT' ? '普通附件' : '培训记录'}）`).join('；') : '无附件'}`,
-    ...approvalGroups.value.map(group => `原批准组 ${group.sourceNodeId}：${group.summary}`),
-    ...approvalCapabilityLimitations.value.map(limitation => `运行能力说明：${limitation}`),
-    `目标市场：${attributes.targetMarkets.join('、')}${attributes.otherMarket ? `（${attributes.otherMarket}）` : ''}；注册人：${choiceNames[attributes.licenseHolder!] || '未记录'}；生产方：${choiceNames[attributes.actualManufacturer!] || '未记录'}；文件转移：${choiceNames[attributes.documentTransfer!] || '未记录'}${attributes.transferTo ? `；转移至：${attributes.transferTo}` : ''}`,
-    `已保存关联：${file.relatedFiles?.length ? file.relatedFiles.map(related => `${related.fileName} · ${related.versionNo}`).join('；') : '未记录关联'}；申请说明：${details}`,
-    '生效与受控分别记录；新版受控且已生效时才启用并作废旧版。取消保留已填写内容。'
+  const sections = [
+    { title: '申请对象与版本', items: [
+      { label: '文件名称', value: String(file.sourceOriginalFileName || file.fileName || file.title) },
+      { label: '文件编号', value: file.fileNumber || '未记录' },
+      { label: '文件版本', value: getDccVersionDisplayText(file.versionNo) },
+      { label: '本次申请', value: intent },
+      { label: '送审工作正文', value: getDccVersionDisplayText(body) },
+      ...(revisionVersions ? [
+        { label: '来源受控版本', value: getDccVersionDisplayText(revisionVersions.baselineVersionNo) },
+        { label: '目标受控版本', value: getDccVersionDisplayText(revisionVersions.targetVersionNo) }
+      ] : []),
+      { label: '申请说明', value: details }
+    ] },
+    { title: '审批、培训与生效', items: [
+      { label: '生效方式', value: effective.effectiveMode === 'AFTER_STANDARDIZATION_SIGNATURE' ? '文控审核后立即生效；生效时间来自本轮文控真实电子签名时间' : effective.effectiveMode === 'DELAYED' ? '延迟生效；文控审核及必要培训完成后，由原编制人选择生效时间并电子签名确认' : `按预设日期生效（历史申请）；预设生效日期：${effective.effectiveDate}` },
+      { label: '主管签署', value: '直属主管来自用户管理中的已配置关系，本轮按正式来源冻结并由主管本人独立签名' },
+      { label: '会签部门', value: signoff.map(id => departments.value.find(row => String(row.id) === id)!.name) },
+      { label: '下发部门', value: distribution.length ? distribution.map(id => departments.value.find(row => String(row.id) === id)!.name) : '未选择下发部门' },
+      { label: '下发时机', value: '受控且已生效后向所选下发部门全部人员下发' },
+      { label: '批准人', value: approverNames.value }, { label: '批准规则', value: approvalRule.value || '未记录' },
+      { label: '培训要求', value: needTraining.value ? '需要，本次上传人上传记录' : '不需要' },
+      ...approvalCapabilityLimitations.value.map((value, index) => ({ label: `运行能力说明 ${index + 1}`, value }))
+    ] },
+    { title: `已保存附件（${file.attachments!.length}）与关联文件（${file.relatedFiles?.length ?? 0}）`, collapsed: true, items: [
+      { label: '附件', value: file.attachments!.length ? file.attachments!.map(row => `${row.fileName}（${row.attachmentPurpose === 'ATTACHMENT' ? '普通附件' : '培训记录'}）`) : '无附件' },
+      { label: '关联文件', value: file.relatedFiles?.length ? file.relatedFiles.map(related => `${related.fileName}（版本 ${related.versionNo}）`) : '未记录关联' }
+    ] },
+    { title: '项目属性与审批来源', collapsed: true, items: [
+      { label: '项目', value: file.projectName || `项目编号 ${snapshot.value.projectId}` },
+      { label: '项目文件夹编号', value: String(file.projectFolderId ?? '未记录') },
+      { label: '文件分类层级', value: [file.fileTypeLevel1, file.fileTypeLevel2, file.fileTypeLevel3, file.fileTypeLevel4, file.fileTypeLevel5].map((value, index) => value ? `第 ${index + 1} 级：${value}` : '').filter(Boolean).join('\n') || `类别编号 ${file.categoryId}` },
+      { label: '编制人账号编号', value: String(file.requesterId ?? '未记录') },
+      { label: '目标市场', value: attributes.targetMarkets.join('、') },
+      ...(attributes.otherMarket ? [{ label: '其他市场', value: attributes.otherMarket }] : []),
+      { label: '注册人', value: choiceNames[attributes.licenseHolder!] || '未记录' },
+      { label: '生产方', value: choiceNames[attributes.actualManufacturer!] || '未记录' },
+      { label: '文件转移', value: choiceNames[attributes.documentTransfer!] || '未记录' },
+      ...(attributes.transferTo ? [{ label: '转移至', value: attributes.transferTo }] : []),
+      ...approvalGroups.value.map(group => ({ label: `原批准组 ${group.sourceNodeId}`, value: group.summary }))
+    ] }
   ]
   await ElMessageBox.confirm(
-    rows.join('\n'),
+    h(ApplicationConfirmationContent, { sections }),
     '确认提交申请',
-    { type: 'warning' }
+    { type: 'warning', customClass: 'dcc-application-confirmation', confirmButtonText: '确认提交', cancelButtonText: '取消' }
   )
 }
 const submitRevision = async (command: RevisionCommand) => {

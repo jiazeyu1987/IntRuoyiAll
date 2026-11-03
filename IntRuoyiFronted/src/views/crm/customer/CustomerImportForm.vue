@@ -50,6 +50,7 @@
   </Dialog>
 </template>
 <script lang="ts" setup>
+import { showRecordImportResult } from '@/utils/importResult'
 import * as CustomerApi from '@/api/crm/customer'
 import download from '@/utils/download'
 import type { UploadUserFile } from 'element-plus'
@@ -108,21 +109,13 @@ const submitFormSuccess = (response: any) => {
     formLoading.value = false
     return
   }
-  // 拼接提示语
   const data = response.data
-  let text = '上传成功数量：' + data.createCustomerNames.length + ';'
-  for (let customerName of data.createCustomerNames) {
-    text += '< ' + customerName + ' >'
-  }
-  text += '更新成功数量：' + data.updateCustomerNames.length + ';'
-  for (const customerName of data.updateCustomerNames) {
-    text += '< ' + customerName + ' >'
-  }
-  text += '更新失败数量：' + Object.keys(data.failureCustomerNames).length + ';'
-  for (const customerName in data.failureCustomerNames) {
-    text += '< ' + customerName + ': ' + data.failureCustomerNames[customerName] + ' >'
-  }
-  message.alert(text)
+  showRecordImportResult({
+    entity: '客户',
+    created: data.createCustomerNames,
+    updated: data.updateCustomerNames,
+    failures: data.failureCustomerNames,
+  })
   formLoading.value = false
   dialogVisible.value = false
   // 发送操作成功的事件

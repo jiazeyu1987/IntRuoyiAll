@@ -665,6 +665,7 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
         item.setInspectionMethod(source.getInspectionMethod());
         item.setStandardText(source.getStandardText());
         item.setInspectionTool(source.getInspectionTool());
+        item.setEquipmentUnboundReason(source.getEquipmentUnboundReason());
         item.setSamplingPlanText(source.getSamplingPlanText());
         item.setStandardLowerLimit(source.getStandardLowerLimit());
         item.setStandardUpperLimit(source.getStandardUpperLimit());
@@ -704,6 +705,7 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
         inspectionItems.forEach(item -> {
             List<MesPqcItemEquipmentOption> options =
                     optionsByItemCode.getOrDefault(item.getItemCode(), List.of());
+            requireEquipmentReady(item.getItemName(), item.getEquipmentUnboundReason(), options);
             List<MesFrontlinePqcProcessRespVO.PqcEquipmentOption> responseOptions = options.stream()
                     .map(option -> toPqcEquipmentOptionRespVO(option, parametersByDeviceId))
                     .toList();
@@ -723,6 +725,7 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
             target.setInspectionMethod(source.getInspectionMethod());
             target.setStandardText(source.getStandardText());
             target.setInspectionTool(source.getInspectionTool());
+            target.setEquipmentUnboundReason(source.getEquipmentUnboundReason());
             target.setSamplingPlanText(source.getSamplingPlanText());
             target.setStandardLowerLimit(source.getStandardLowerLimit());
             target.setStandardUpperLimit(source.getStandardUpperLimit());
@@ -1599,6 +1602,37 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
         Map<String, List<MesPqcItemEquipmentOption>> equipmentByItem =
                 pqcItemEquipmentConfigService.listEnabledEquipmentOptionsByProjectVersionAndItemCodes(
                         regulationDccProjectCodeId, task.getRegulationVersionId(), expectedCodes);
+        // 提交必须重新核验任务锁定版本及当前配置，不能依赖客户端曾打开过上下文。
+        MesQaInspectionRegulationVersionDO lockedVersion = versionMapper.selectById(task.getRegulationVersionId());
+        if (lockedVersion == null) {
+            throw exception(PRO_FRONTLINE_PQC_TASK_IDENTITY_MISMATCH, pqcTaskIdentityText(task));
+        }
+        if (StrUtil.isBlank(lockedVersion.getSnapshotJson())) {
+            throw exception(PRO_FRONTLINE_PQC_RESULT_CONTRACT_INVALID, "lockedQaSnapshot缺失，无法核实器具绑定状态");
+        }
+        var snapshot = com.alibaba.fastjson.JSON.parseObject(lockedVersion.getSnapshotJson(),
+                cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaInspectionRegulationSaveReqVO.class);
+        if (snapshot == null || snapshot.getProcesses() == null) {
+            throw exception(PRO_FRONTLINE_PQC_RESULT_CONTRACT_INVALID, "lockedQaSnapshot.processes");
+        }
+        Map<String, cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaInspectionRegulationSaveReqVO.InspectionItem>
+                lockedItems = new LinkedHashMap<>();
+        for (var process : snapshot.getProcesses()) {
+            if (process == null || CollUtil.isEmpty(process.getItems())) {
+                throw exception(PRO_FRONTLINE_PQC_RESULT_CONTRACT_INVALID, "lockedQaSnapshot.items不完整");
+            }
+            for (var item : process.getItems()) {
+                if (item == null || StrUtil.isBlank(item.getItemCode())
+                        || lockedItems.putIfAbsent(item.getItemCode(), item) != null) {
+                    throw exception(PRO_FRONTLINE_PQC_RESULT_CONTRACT_INVALID, "lockedQaSnapshot.items缺少编号或重复");
+                }
+            }
+        }
+        if (!lockedItems.keySet().containsAll(expectedCodes)) {
+            throw exception(PRO_FRONTLINE_PQC_RESULT_CONTRACT_INVALID, "lockedQaSnapshot.items不完整");
+        }
+        expectedCodes.forEach(code -> requireEquipmentReady(lockedItems.get(code).getItemName(),
+                lockedItems.get(code).getEquipmentUnboundReason(), equipmentByItem.getOrDefault(code, List.of())));
         if (!MesPqcInspectionItemPlan.require(task).keySet().equals(expectedCodes)) {
             throw exception(PRO_FRONTLINE_PQC_TASK_IDENTITY_MISMATCH, pqcTaskIdentityText(task));
         }
@@ -1607,6 +1641,15 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
                         .stream()
                         .toList()))
                 .toList();
+    }
+
+    private static void requireEquipmentReady(String itemName, String unboundReason,
+                                             List<MesPqcItemEquipmentOption> currentOptions) {
+        // 旧版本未记录待绑定原因的空配置不自动升级为新阻断；真实动态配置补齐后即可执行。
+        if (StrUtil.isNotBlank(unboundReason) && CollUtil.isEmpty(currentOptions)) {
+            throw exception(PRO_FRONTLINE_PQC_RESULT_CONTRACT_INVALID,
+                    "检验项目【" + itemName + "】器具未绑定：" + unboundReason + "；请先在QA补齐设备配置");
+        }
     }
 
 

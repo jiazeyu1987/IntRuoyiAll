@@ -1184,10 +1184,13 @@ public class AdminUserServiceImpl implements AdminUserService {
                 respVO.getFailureUsernames().put(key, ex.getMessage());
                 return;
             }
+            AdminUserDO existUser = userMapper.selectByCanonicalUsernameIncludingDeleted(
+                    TenantContextHolder.getTenantId(), canonicalizeUsername(importUser.getUsername()));
             // 2.1.2 校验，判断是否有不符合的原因
             try {
                 validateGenericAccountUsername(importUser.getUsername());
-                validateUserForCreateOrUpdate(null, null, importUser.getMobile(), importUser.getEmail(),
+                validateUserForCreateOrUpdate(existUser != null && !Boolean.TRUE.equals(existUser.getDeleted())
+                                && isUpdateSupport ? existUser.getId() : null, null, importUser.getMobile(), importUser.getEmail(),
                         importUser.getDeptId(), null);
             } catch (ServiceException ex) {
                 respVO.getFailureUsernames().put(importUser.getUsername(), ex.getMessage());
@@ -1195,8 +1198,7 @@ public class AdminUserServiceImpl implements AdminUserService {
             }
 
             // 2.2.1 按规范化账号判断是否已存在，避免大小写、首尾空格、Unicode 表示差异绕过账号唯一性
-            AdminUserDO existUser = userMapper.selectByCanonicalUsernameIncludingDeleted(
-                    TenantContextHolder.getTenantId(), canonicalizeUsername(importUser.getUsername()));
+
             if (existUser != null && Boolean.TRUE.equals(existUser.getDeleted())) {
                 respVO.getFailureUsernames().put(importUser.getUsername(), USER_USERNAME_EXISTS.getMsg());
                 return;

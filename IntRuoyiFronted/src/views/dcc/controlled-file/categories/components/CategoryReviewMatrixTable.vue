@@ -72,11 +72,16 @@
             v-bind="sortColumnAttrs('signoffRules')"
           >
             <template #default="{ row }">
-              <el-tooltip :content="formatStageRuleSummary(row.rules, 'SIGNOFF')" placement="top">
-                <span class="matrix-cell-ellipsis">
-                  {{ formatStageRuleSummary(row.rules, 'SIGNOFF') }}
-                </span>
-              </el-tooltip>
+              <details v-if="activeStageRules(row.rules, 'SIGNOFF').length" class="matrix-rule-list">
+                <summary>{{ activeStageRules(row.rules, 'SIGNOFF').length }} 项审核规则</summary>
+                <ul>
+                  <li v-for="(rule, index) in activeStageRules(row.rules, 'SIGNOFF')" :key="index">
+                    <div>{{ ruleSubjectLabel(rule) }}</div>
+                    <small>{{ ruleParticipationLabel(rule.marker) }}</small>
+                  </li>
+                </ul>
+              </details>
+              <span v-else>未配置审核规则</span>
             </template>
           </el-table-column>
           <el-table-column
@@ -89,11 +94,16 @@
             v-bind="sortColumnAttrs('approvalRules')"
           >
             <template #default="{ row }">
-              <el-tooltip :content="formatStageRuleSummary(row.rules, 'APPROVAL')" placement="top">
-                <span class="matrix-cell-ellipsis">
-                  {{ formatStageRuleSummary(row.rules, 'APPROVAL') }}
-                </span>
-              </el-tooltip>
+              <details v-if="activeStageRules(row.rules, 'APPROVAL').length" class="matrix-rule-list">
+                <summary>{{ activeStageRules(row.rules, 'APPROVAL').length }} 项批准规则</summary>
+                <ul>
+                  <li v-for="(rule, index) in activeStageRules(row.rules, 'APPROVAL')" :key="index">
+                    <div>{{ ruleSubjectLabel(rule) }}</div>
+                    <small>{{ ruleParticipationLabel(rule.marker) }}</small>
+                  </li>
+                </ul>
+              </details>
+              <span v-else>未配置批准规则</span>
             </template>
           </el-table-column>
           <el-table-column
@@ -152,7 +162,6 @@ import {
   getFileCategoryList,
   requireCategoryApprovalSourceMode,
   type ControlledFileCategoryVO,
-  type ControlledFileCategoryReviewMatrixRuleVO,
   type ControlledFileCategoryReviewMatrixRowVO
 } from '@/api/dcc/controlledFile/fileCategories'
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
@@ -167,6 +176,7 @@ import {
 } from '@/hooks/web/useTableQuickFilter'
 import CategoryMatrixDialog from './CategoryMatrixDialog.vue'
 import CategoryReviewMatrixUserLookupDialog from './CategoryReviewMatrixUserLookupDialog.vue'
+import { activeStageRules, formatStageRuleSummary, ruleSubjectLabel, ruleParticipationLabel } from './reviewMatrixDisplay'
 
 type MatrixDialogMode = 'create' | 'edit' | 'preview'
 
@@ -244,22 +254,6 @@ const paginatedReviewMatrixRows = computed(() => {
   const start = (queryParams.pageNo - 1) * queryParams.pageSize
   return rows.value.slice(start, start + queryParams.pageSize)
 })
-
-const formatStageRuleSummary = (
-  rules: ControlledFileCategoryReviewMatrixRuleVO[] = [],
-  stageType: 'SIGNOFF' | 'APPROVAL'
-) => {
-  const labels = rules
-    .filter((rule) => rule.stageType === stageType && rule.active !== false)
-    .map((rule) => {
-      const main = rule.subjectLabel || rule.subjectName || rule.subjectDepartmentPath || '-'
-      return `${main} ${rule.marker || '未记录'}`.trim()
-    })
-  if (!labels.length) {
-    return '-'
-  }
-  return labels.join(' / ')
-}
 
 const loadRows = async () => {
   loading.value = true
@@ -419,14 +413,27 @@ const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() =
   white-space: nowrap;
 }
 
-.matrix-cell-ellipsis {
-  display: inline-block;
-  overflow: hidden;
-  max-width: 100%;
-  min-width: 0;
-  text-overflow: ellipsis;
-  vertical-align: middle;
-  white-space: nowrap;
+.matrix-rule-list {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.matrix-rule-list summary {
+  cursor: pointer;
+  color: var(--el-color-primary);
+}
+
+.matrix-rule-list ul {
+  padding-left: 20px;
+  margin: 8px 0;
+}
+
+.matrix-rule-list li {
+  margin-bottom: 8px;
+}
+
+.matrix-rule-list small {
+  color: var(--el-text-color-secondary);
 }
 
 .matrix-subject-summary {

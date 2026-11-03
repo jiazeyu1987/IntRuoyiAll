@@ -6,6 +6,13 @@ const vm = require('node:vm')
 const appRequire = createRequire(require.resolve('vue/package.json'))
 const compiler = appRequire('@vue/compiler-sfc')
 const ts = require('typescript')
+const samplingCtx = { exports: {} }
+vm.runInNewContext(
+  ts.transpileModule(fs.readFileSync('src/views/form-center/parser/simplePqc.ts', 'utf8'), {
+    compilerOptions: { module: ts.ModuleKind.CommonJS }
+  }).outputText,
+  samplingCtx
+)
 const { reactive, nextTick } = require('vue')
 const filename = 'src/views/form-center/parser/components/SimplePqcTrialPreview.vue'
 const { descriptor } = compiler.parse(fs.readFileSync(filename, 'utf8'), { filename })
@@ -20,13 +27,33 @@ const ctx = {
   require: (name) =>
     name === '@/store/modules/user'
       ? { useUserStore: () => ({ getUser: { nickname: '测试用户' } }) }
-      : require(name)
+      : name === '../simplePqc'
+        ? samplingCtx.exports
+        : require(name)
 }
 vm.runInNewContext(
   ts.transpileModule(compiled.content, { compilerOptions: { module: ts.ModuleKind.CommonJS } })
     .outputText,
   ctx
 )
+
+test('trial displays pending equipment binding without discarding the source requirement or reason', () => {
+  const draft = reactive({
+    inspectionTypeRules: [{ key: 'FIRST', inspectionType: 'FIRST', label: '首检' }],
+    processes: [{ processCode: 'P1', items: [{ itemCode: 'I1', itemName: '强度', resultType: 'BOOLEAN',
+      applicableInspectionTypes: ['FIRST'], firstInspectionQuantity: 5, equipmentOptions: [],
+      inspectionTool: '15N砝码', equipmentUnboundReason: '台账待登记，执行前补齐' }] }]
+  })
+  const original = JSON.stringify(draft)
+  const state = ctx.exports.default.setup(reactive({ draft, processIndex: 0 }), { expose() {}, emit() {} })
+  assert.equal(state.selectedEquipmentLabel.value, '器具待绑定')
+  assert.equal(state.item.value.equipmentUnboundReason, '台账待登记，执行前补齐')
+  assert.equal(state.item.value.inspectionTool, '15N砝码')
+  assert.equal(state.quantity.value, 5)
+  state.bulk('合格')
+  state.submitTrial()
+  assert.equal(JSON.stringify(draft), original)
+})
 
 test('PQC trial isolates results by item/type and leaves the publication draft unchanged', async () => {
   const draft = reactive({
@@ -100,4 +127,84 @@ test('PQC trial isolates results by item/type and leaves the publication draft u
   await nextTick()
   assert.equal(state.quantity.value, 2)
   assert.equal(JSON.stringify(draft), before)
+})
+
+test('missing patrol percentage still blocks trial quantity and submission', async () => {
+  const draft = reactive({
+    finalInspectionApplicable: false,
+    inspectionTypeRules: [{ key: 'PATROL_AM', inspectionType: 'PATROL', label: '上午巡检' }],
+    processes: [
+      {
+        processCode: 'P1',
+        items: [
+          {
+            itemCode: 'I1',
+            itemName: '气密性',
+            resultType: 'BOOLEAN',
+            applicableInspectionTypes: ['PATROL'],
+            patrolInspectionRatio: null,
+            samplingPlanText: '巡检：正常检验一次抽样方案Ⅱ，AQL=0.4',
+            equipmentOptions: []
+          }
+        ]
+      }
+    ]
+  })
+  const original = JSON.stringify(draft)
+  const state = ctx.exports.default.setup(reactive({ draft, processIndex: 0 }), {
+    expose() {},
+    emit() {}
+  })
+  await nextTick()
+  assert.equal(state.quantity.value, undefined)
+  assert.match(state.resultSummary.value, /请确认实际巡检抽样比例/)
+  assert.equal(state.state.value.values.length, 0)
+  state.stepQuantity(1)
+  state.setQuantity({ target: { value: '10' } })
+  assert.equal(state.quantity.value, undefined)
+  state.bulk('合格')
+  state.submitTrial()
+  assert.match(state.trialMessage.value, /请确认实际巡检抽样比例/)
+  assert.doesNotMatch(state.trialMessage.value, /检查完成/)
+  assert.equal(JSON.stringify(draft), original)
+})
+
+test('AQL trial applies returned internal percentages to the batch with upward rounding', async () => {
+  for (const ratio of [0.25, 0.4, 2.5]) {
+    const draft = reactive({
+      finalInspectionApplicable: false,
+      inspectionTypeRules: [{ key: 'PATROL_AM', inspectionType: 'PATROL', label: '上午巡检' }],
+      processes: [
+        {
+          processCode: 'P1',
+          items: [
+            {
+              itemCode: 'I1',
+              itemName: '外观',
+              resultType: 'BOOLEAN',
+              applicableInspectionTypes: ['PATROL'],
+              patrolInspectionRatio: ratio,
+              samplingPlanText: `GB/T 2828.1，AQL=${ratio}`,
+              equipmentOptions: []
+            }
+          ]
+        }
+      ]
+    })
+    const original = JSON.stringify(draft)
+    const state = ctx.exports.default.setup(reactive({ draft, processIndex: 0 }), {
+      expose() {},
+      emit() {}
+    })
+    for (const batch of [1, 100, 1001]) {
+      state.batchQuantity.value = batch
+      await nextTick()
+      assert.equal(state.quantity.value, Math.ceil((batch * ratio) / 100))
+      assert.equal(state.samplingIssue.value, undefined)
+      state.bulk('合格')
+      state.submitTrial()
+      assert.match(state.trialMessage.value, /检查完成/)
+    }
+    assert.equal(JSON.stringify(draft), original)
+  }
 })

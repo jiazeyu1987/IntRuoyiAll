@@ -58,12 +58,12 @@ assertMatch(
 assertNotMatch(
   componentSource,
   /releaseApprovalRuleForm\.dueMinutes|DEFAULT_RELEASE_APPROVAL_RULE_DUE_MINUTES|处理时限：/,
-  '工序结束放行责任人字段明细不得显示或保存处理时限。'
+  '工序开始放行责任人字段明细不得显示或保存处理时限。'
 )
 assertNotMatch(
   componentSource,
   /<span>字段值<\/span>[\s\S]*releaseApprovalRuleAssigneeLabel/,
-  '工序结束放行责任人字段明细不得显示默认字段值快照。'
+  '工序开始放行责任人字段明细不得显示默认字段值快照。'
 )
 
 console.log('PASS: MES route flow release owner candidate static contract')

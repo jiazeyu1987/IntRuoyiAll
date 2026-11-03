@@ -74,7 +74,9 @@
             </div>
             <div class="edhr-domain-trace-detail__summary-item">
               <div class="edhr-domain-trace-detail__label">阻塞数量</div>
-              <div class="edhr-domain-trace-detail__value">{{ resolveBlockerCount(detail) }} 项</div>
+              <div class="edhr-domain-trace-detail__value"
+                >{{ resolveBlockerCount(detail) }} 项</div
+              >
             </div>
             <div class="edhr-domain-trace-detail__summary-item">
               <div class="edhr-domain-trace-detail__label">追溯项数量</div>
@@ -89,10 +91,7 @@
           </div>
         </div>
 
-        <div
-          v-if="detail.nonconformanceReviews?.length"
-          class="edhr-domain-trace-detail__section"
-        >
+        <div v-if="detail.nonconformanceReviews?.length" class="edhr-domain-trace-detail__section">
           <div class="edhr-domain-trace-detail__section-title">不合格评审</div>
           <el-table
             :data="detail.nonconformanceReviews"
@@ -118,14 +117,21 @@
             <el-table-column label="评审信息" min-width="260">
               <template #default="{ row }">
                 <div>评审材料：{{ row.reviewMaterialUrl || '--' }}</div>
-                <div class="edhr-domain-trace-detail__muted">评审意见：{{ row.reviewOpinion || '--' }}</div>
-                <div class="edhr-domain-trace-detail__muted">电子签名：{{ row.qaSignature || '--' }}</div>
+                <div class="edhr-domain-trace-detail__muted"
+                  >评审意见：{{ row.reviewOpinion || '--' }}</div
+                >
+                <div class="edhr-domain-trace-detail__muted"
+                  >电子签名：{{ row.qaSignature || '--' }}</div
+                >
               </template>
             </el-table-column>
             <el-table-column label="时间" min-width="220">
               <template #default="{ row }">
                 <div>冻结：{{ formatEdhrDateTime(row.frozenAt, '--') }}</div>
-                <div v-if="row.disposition === 'concession_release'" class="edhr-domain-trace-detail__muted">
+                <div
+                  v-if="row.disposition === 'concession_release'"
+                  class="edhr-domain-trace-detail__muted"
+                >
                   解冻：{{ formatEdhrDateTime(row.unfrozenAt, '--') }}
                 </div>
                 <div v-if="row.disposition === 'rework'" class="edhr-domain-trace-detail__muted">
@@ -154,7 +160,9 @@
               <div class="edhr-domain-trace-detail__evidence-grid">
                 <div class="edhr-domain-trace-detail__evidence-item">
                   <div class="edhr-domain-trace-detail__label">追溯哈希</div>
-                  <div class="edhr-domain-trace-detail__value">{{ detail.domainTraceHash || '--' }}</div>
+                  <div class="edhr-domain-trace-detail__value">{{
+                    detail.domainTraceHash || '--'
+                  }}</div>
                 </div>
                 <div class="edhr-domain-trace-detail__evidence-item">
                   <div class="edhr-domain-trace-detail__label">快照编号</div>
@@ -177,12 +185,12 @@
           >
             <el-table-column label="追溯对象" min-width="220">
               <template #default="{ row }">
-                <div class="edhr-domain-trace-detail__strong">{{ row.itemKey || '--' }}</div>
-                <div class="edhr-domain-trace-detail__muted">{{ row.itemType || '--' }}</div>
+                <div class="edhr-domain-trace-detail__strong">{{ traceItemLabel(row.itemType) }}</div>
+                <div class="edhr-domain-trace-detail__muted">对象标识：{{ row.itemKey || '未记录' }}</div>
               </template>
             </el-table-column>
-            <el-table-column label="阻塞码" prop="blockerCode" width="180" />
-            <el-table-column label="阻塞说明" prop="blockerMessage" min-width="260" />
+            <el-table-column label="技术详情" width="180"><template #default="{ row }"><details style="overflow-wrap: anywhere"><summary>查看原始编码</summary><p>对象类型：{{ row.itemType }}</p><p>阻塞编码：{{ row.blockerCode || '未记录' }}</p><p>原始说明：{{ row.blockerMessage || '未记录' }}</p></details></template></el-table-column>
+            <el-table-column label="阻塞说明" min-width="260"><template #default="{ row }">{{ traceBlockerMessage(row) }}</template></el-table-column>
           </el-table>
         </div>
 
@@ -201,27 +209,31 @@
                   <div class="edhr-domain-trace-detail__evidence-grid">
                     <div class="edhr-domain-trace-detail__evidence-item">
                       <div class="edhr-domain-trace-detail__label">对象类型</div>
-                      <div class="edhr-domain-trace-detail__value">{{ row.itemType || '--' }}</div>
+                      <div class="edhr-domain-trace-detail__value">{{ traceItemLabel(row.itemType) }}</div>
                     </div>
                     <div class="edhr-domain-trace-detail__evidence-item">
                       <div class="edhr-domain-trace-detail__label">对象标识</div>
                       <div class="edhr-domain-trace-detail__value">{{ row.itemKey || '--' }}</div>
                     </div>
                     <div class="edhr-domain-trace-detail__evidence-item">
-                      <div class="edhr-domain-trace-detail__label">来源 ID</div>
+                      <div class="edhr-domain-trace-detail__label">来源编号</div>
                       <div class="edhr-domain-trace-detail__value">{{ row.sourceId || '--' }}</div>
                     </div>
                     <div class="edhr-domain-trace-detail__evidence-item">
                       <div class="edhr-domain-trace-detail__label">来源版本</div>
-                      <div class="edhr-domain-trace-detail__value">{{ row.sourceVersion || '--' }}</div>
+                      <div class="edhr-domain-trace-detail__value">{{
+                        row.sourceVersion || '--'
+                      }}</div>
                     </div>
-                    <div class="edhr-domain-trace-detail__evidence-item">
-                      <div class="edhr-domain-trace-detail__label">快照哈希</div>
-                      <div class="edhr-domain-trace-detail__value">{{ row.snapshotHash || '--' }}</div>
-                    </div>
-                    <div class="edhr-domain-trace-detail__evidence-item">
-                      <div class="edhr-domain-trace-detail__label">快照 JSON</div>
-                      <div class="edhr-domain-trace-detail__value">{{ row.snapshotJson || '--' }}</div>
+                    <div
+                      class="edhr-domain-trace-detail__evidence-item"
+                      style="grid-column: 1 / -1"
+                    >
+                      <ReadableData
+                        title="追溯资料"
+                        :source="row.snapshotJson"
+                        :checksum="row.snapshotHash"
+                      />
                     </div>
                   </div>
                 </div>
@@ -229,8 +241,10 @@
             </el-table-column>
             <el-table-column label="追溯对象" min-width="220">
               <template #default="{ row }">
-                <div class="edhr-domain-trace-detail__strong">{{ row.itemName || row.itemKey || '--' }}</div>
-                <div class="edhr-domain-trace-detail__muted">{{ row.itemType || '--' }}</div>
+                <div class="edhr-domain-trace-detail__strong">{{
+                  row.itemName || row.itemKey || '--'
+                }}</div>
+                <div class="edhr-domain-trace-detail__muted">{{ traceItemLabel(row.itemType) }}</div>
               </template>
             </el-table-column>
             <el-table-column label="来源" min-width="220">
@@ -261,6 +275,8 @@
 </template>
 
 <script setup lang="ts">
+import { traceItemLabel, traceBlockerMessage } from './traceDisplay'
+import ReadableData from '@/components/BusinessData/ReadableData.vue'
 import {
   EDHR_DOMAIN_TRACE_QUERY_PERMISSION,
   EDHR_DOMAIN_TRACE_STATUS_LABEL_MAP,
@@ -296,7 +312,8 @@ const ITEM_STATUS_LABEL_MAP: Record<string, string> = {
 }
 
 const resolveErrorMessage = (error: unknown, defaultMessage: string) => {
-  const responseMessage = (error as any)?.response?.data?.msg || (error as any)?.response?.data?.message
+  const responseMessage =
+    (error as any)?.response?.data?.msg || (error as any)?.response?.data?.message
   if (typeof responseMessage === 'string' && responseMessage.trim()) return responseMessage
   if (error instanceof Error && error.message.trim()) return error.message
   return defaultMessage
@@ -305,7 +322,7 @@ const resolveErrorMessage = (error: unknown, defaultMessage: string) => {
 const parseExecutionId = () => {
   const executionId = parsePositiveRouteQueryId(route.query.executionId)
   if (!executionId) {
-    loadError.value = '缺少 executionId，无法加载主数据追溯详情。'
+    loadError.value = '缺少执行记录编号，无法加载主数据追溯详情。'
     return undefined
   }
   return executionId
@@ -387,13 +404,8 @@ const resolveItemCount = (current: EdhrDomainTraceDetailRespVO) => {
 const blockedMessage = computed(() => {
   if (!detail.value || detail.value.status !== 'BLOCKED') return ''
   const firstBlocker = detail.value.blockers?.[0]
-  if (firstBlocker?.blockerMessage) {
-    return `主数据追溯校验未通过：${[firstBlocker.itemType, firstBlocker.itemKey, firstBlocker.blockerMessage].filter(Boolean).join(' / ')}`
-  }
-  if (firstBlocker?.blockerCode) {
-    return `主数据追溯校验未通过：${[firstBlocker.itemType, firstBlocker.itemKey, firstBlocker.blockerCode].filter(Boolean).join(' / ')}`
-  }
-  return '主数据追溯校验未通过：状态为 BLOCKED，但后端未返回阻塞项。'
+  if (firstBlocker) return `主数据追溯校验未通过。追溯对象：${traceItemLabel(firstBlocker.itemType)}。问题：${traceBlockerMessage(firstBlocker)}`
+  return '主数据追溯校验未通过，但未返回具体阻塞原因，请核查追溯记录。' 
 })
 
 const loadDetail = async () => {
@@ -413,7 +425,7 @@ const loadDetail = async () => {
   try {
     const data = await getEdhrDomainTraceDetail({ executionId })
     if (!data?.executionId) {
-      throw new Error('主数据追溯详情未返回有效 executionId。')
+      throw new Error('主数据追溯详情未返回有效执行记录编号。')
     }
     detail.value = data
   } catch (error) {

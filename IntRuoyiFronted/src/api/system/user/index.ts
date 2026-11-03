@@ -197,3 +197,29 @@ export const getSelectionList = async (
   }
   return rows
 }
+
+export interface UserImportPreview {
+  rowCount: number
+  personnel: string[]
+  organizations: string[]
+}
+
+interface UserImportPreviewResponse {
+  code: number
+  msg: string
+  data: UserImportPreview
+}
+
+const readUserImportPreview = async (url: string, data: FormData): Promise<UserImportPreview> => {
+  const response = await request.upload<UserImportPreviewResponse>({ url, data })
+  if (response.code !== 0 || !response.data) {
+    throw new Error(response.msg || '导入预览未返回有效数据')
+  }
+  return response.data
+}
+
+export const importUserPreview = (data: FormData): Promise<UserImportPreview> =>
+  readUserImportPreview('/system/user/import-preview', data)
+
+export const importDingTalkUserPreview = (data: FormData): Promise<UserImportPreview> =>
+  readUserImportPreview('/system/user/import-dingtalk-preview', data)

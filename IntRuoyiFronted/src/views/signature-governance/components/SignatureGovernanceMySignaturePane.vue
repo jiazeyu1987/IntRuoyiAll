@@ -44,6 +44,8 @@
       </div>
     </div>
 
+    <p class="signature-my-pane__hint">首次进入本页或实际签署需要图片时，系统会为尚未设置签名图片的用户按本人姓名生成并保存楷体默认签名。已有图片及已停用图片不会被覆盖。</p>
+
     <div class="signature-my-pane__reason" data-testid="dcc-my-signature-image-reason">
       <label class="signature-my-pane__reason-label" for="signature-image-reason">
         变更原因 <span aria-hidden="true">*</span>
@@ -87,10 +89,12 @@
             <span>文件</span>
             <strong>{{ mySignatureImage.fileName || mySignatureImage.fileId || '-' }}</strong>
           </div>
-          <div class="signature-my-pane__field">
-            <span>图片 hash</span>
-            <strong>{{ formatDccHashShort(mySignatureImage.sha256Short || mySignatureImage.sha256) }}</strong>
-          </div>
+          <details style="overflow-wrap: anywhere">
+            <summary>图片校验信息</summary>
+            <p v-if="mySignatureImage.sha256">校验码：{{ mySignatureImage.sha256 }}</p>
+            <p v-else-if="mySignatureImage.sha256Short">校验码摘要：{{ mySignatureImage.sha256Short }}（未提供完整值）</p>
+            <p v-else>未记录图片校验码</p>
+          </details>
           <div class="signature-my-pane__field">
             <span>上传时间</span>
             <strong>{{ formatSignatureImageDateTime(mySignatureImage.uploadedAt) }}</strong>
@@ -111,12 +115,11 @@ import type { UploadFile } from 'element-plus'
 import {
   disableDccElectronicSignatureImage,
   enableDccElectronicSignatureImage,
-  getMyDccElectronicSignatureImage,
+  initializeMyDefaultSignatureImage,
   uploadDccElectronicSignatureImage,
   type DccElectronicSignatureImageVO
 } from '@/api/dcc/controlledFile/signatures'
 import { formatDateTimeValue } from '@/utils/formatTime'
-import { formatDccHashShort } from '@/views/dcc/controlled-file/shared/signature-evidence'
 
 defineOptions({ name: 'SignatureGovernanceMySignaturePane' })
 
@@ -139,13 +142,70 @@ const resolveSignatureImagePreviewUrl = (fileUrl?: string) => {
   return value.startsWith('/') ? value : `/${value}`
 }
 
-const signatureImagePreviewUrl = computed(() =>
+const signatureImageSourceUrl = computed(() =>
   resolveSignatureImagePreviewUrl(mySignatureImage.value?.fileUrl)
 )
+const signatureImagePreviewUrl = ref('')
 
 const signatureImagePreviewList = computed(() =>
-  signatureImagePreviewUrl.value ? [signatureImagePreviewUrl.value] : []
+  signatureImageSourceUrl.value ? [signatureImageSourceUrl.value] : []
 )
+
+// Trim only the display copy so whitespace in an uploaded image cannot offset the signature.
+const createCenteredSignaturePreview = async (sourceUrl: string) => {
+  const image = new Image()
+  image.crossOrigin = 'anonymous'
+  await new Promise<void>((resolve, reject) => {
+    image.onload = () => resolve()
+    image.onerror = () => reject(new Error('签名图片加载失败'))
+    image.src = sourceUrl
+  })
+  const canvas = document.createElement('canvas')
+  canvas.width = image.naturalWidth
+  canvas.height = image.naturalHeight
+  const context = canvas.getContext('2d')
+  if (!context) throw new Error('无法生成签名预览')
+  context.drawImage(image, 0, 0)
+  const { data } = context.getImageData(0, 0, canvas.width, canvas.height)
+  let left = canvas.width
+  let top = canvas.height
+  let right = -1
+  let bottom = -1
+  for (let y = 0; y < canvas.height; y++) {
+    for (let x = 0; x < canvas.width; x++) {
+      const index = (y * canvas.width + x) * 4
+      if (data[index + 3] === 0 || Math.min(data[index], data[index + 1], data[index + 2]) >= 250) continue
+      left = Math.min(left, x)
+      right = Math.max(right, x)
+      top = Math.min(top, y)
+      bottom = Math.max(bottom, y)
+    }
+  }
+  if (right < left) throw new Error('签名图片没有可见字迹')
+  const width = right - left + 1
+  const height = bottom - top + 1
+  const preview = document.createElement('canvas')
+  const padding = Math.max(4, Math.round(height * 0.15))
+  preview.width = width + padding * 2
+  preview.height = height + padding * 2
+  const previewContext = preview.getContext('2d')
+  if (!previewContext) throw new Error('无法生成签名预览')
+  previewContext.drawImage(image, left, top, width, height, padding, padding, width, height)
+  return preview.toDataURL('image/png')
+}
+
+watch(signatureImageSourceUrl, async (sourceUrl, _previous, onCleanup) => {
+  let cancelled = false
+  onCleanup(() => { cancelled = true })
+  signatureImagePreviewUrl.value = ''
+  if (!sourceUrl) return
+  try {
+    const previewUrl = await createCenteredSignaturePreview(sourceUrl)
+    if (!cancelled) signatureImagePreviewUrl.value = previewUrl
+  } catch (error) {
+    if (!cancelled) setInlineError(error, '签名图片预览失败')
+  }
+})
 
 const formatSignatureImageDateTime = (value?: string | number | Date | null) => {
   return formatDateTimeValue(value, '-', '时间格式错误')
@@ -177,9 +237,9 @@ const loadMySignatureImage = async () => {
   signatureImageState.loading = true
   inlineError.value = ''
   try {
-    mySignatureImage.value = await getMyDccElectronicSignatureImage()
+    mySignatureImage.value = await initializeMyDefaultSignatureImage()
   } catch (error) {
-    setInlineError(error, '签名图片加载失败，请查看错误提示后重试。')
+    setInlineError(error, '签名图片初始化失败，请查看错误提示后重试。')
   } finally {
     signatureImageState.loading = false
   }
@@ -343,6 +403,10 @@ onMounted(() => {
 .signature-my-pane__preview :deep(.el-image) {
   width: 100%;
   height: 136px;
+}
+
+.signature-my-pane__preview :deep(.el-image__inner) {
+  object-position: center;
 }
 
 .signature-my-pane__fields {

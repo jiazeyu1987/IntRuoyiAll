@@ -113,7 +113,9 @@
             <div class="process-pool-event__main">
               <strong>{{ event.actualEmployeeUserName || '--' }}</strong>
               <span>{{ event.processName || '--' }}</span>
-              <el-tag effect="plain">{{ event.templateTypeName || event.templateType || '--' }}</el-tag>
+              <el-tag effect="plain">{{
+                event.templateTypeName || event.templateType || '--'
+              }}</el-tag>
             </div>
             <div class="process-pool-event__meta">
               <span>生产工单：{{ event.workOrderCode || '--' }}</span>
@@ -121,13 +123,17 @@
               <span>登录账号：{{ event.loginUserName || '--' }}</span>
               <span>电子签名员工：{{ event.signatureEmployeeUserName || '--' }}</span>
             </div>
-            <div class="process-pool-event__summary">提交摘要：{{ event.submittedSummary || '--' }}</div>
+            <div class="process-pool-event__summary"
+              >提交摘要：{{ submissionSummary(event.submittedSummary) }}</div
+            >
             <div class="process-pool-event__state">
               <el-tag :type="resolvePqcTagType(event.pqcResult)" effect="plain">
-                PQC：{{ event.pqcSummary || event.pqcResult || '--' }}
+                PQC：{{ statusLabel(event.pqcSummary || event.pqcResult) }}
               </el-tag>
-              <el-tag effect="plain">FIFO：{{ event.fifoAllocationStatus || '--' }}</el-tag>
-              <el-tag effect="plain">审核副本：{{ event.auditCopyStatus || '--' }}</el-tag>
+              <el-tag effect="plain"
+                >先进先出：{{ statusLabel(event.fifoAllocationStatus) }}</el-tag
+              >
+              <el-tag effect="plain">审核副本：{{ statusLabel(event.auditCopyStatus) }}</el-tag>
             </div>
           </div>
         </button>
@@ -149,7 +155,10 @@
           </div>
           <div class="process-pool-gantt__track">
             <div class="process-pool-gantt__bar" :style="resolveGanttBarStyle(event)">
-              <span>{{ formatTime(event.submittedAt) }} · {{ event.actualEmployeeUserName || '--' }}</span>
+              <span
+                >{{ formatTime(event.submittedAt) }} ·
+                {{ event.actualEmployeeUserName || '--' }}</span
+              >
             </div>
           </div>
         </button>
@@ -164,12 +173,7 @@
     </div>
   </ContentWrap>
 
-  <el-drawer
-    v-model="detailVisible"
-    title="工序池提交事件详情"
-    size="620px"
-    destroy-on-close
-  >
+  <el-drawer v-model="detailVisible" title="工序池提交事件详情" size="620px" destroy-on-close>
     <div v-loading="detailLoading" class="process-pool-detail">
       <el-descriptions v-if="detail" :column="1" border>
         <el-descriptions-item label="服务端提交时间">
@@ -197,35 +201,39 @@
           {{ detail.workOrderCode || '--' }}
         </el-descriptions-item>
         <el-descriptions-item label="提交摘要">
-          {{ detail.submittedSummary || '--' }}
+          {{ submissionSummary(detail.submittedSummary) }}
         </el-descriptions-item>
         <el-descriptions-item label="PQC">
-          {{ detail.pqcSummary || detail.pqcResult || '--' }}
+          {{ statusLabel(detail.pqcSummary || detail.pqcResult) }}
         </el-descriptions-item>
-        <el-descriptions-item label="FIFO 分配状态">
-          {{ detail.fifoAllocationStatus || '--' }}
+        <el-descriptions-item label="先进先出分配状态">
+          {{ statusLabel(detail.fifoAllocationStatus) }}
           <div class="process-pool-detail__muted">{{ detail.fifoAllocationSummary || '--' }}</div>
         </el-descriptions-item>
         <el-descriptions-item label="审核副本状态">
-          {{ detail.auditCopyStatus || '--' }}
+          {{ statusLabel(detail.auditCopyStatus) }}
           <div class="process-pool-detail__muted">{{ detail.auditCopySummary || '--' }}</div>
         </el-descriptions-item>
         <el-descriptions-item label="修改历史摘要">
           {{ detail.modificationHistorySummary || '--' }}
         </el-descriptions-item>
-        <el-descriptions-item label="原始 payload">
-          <pre class="process-pool-detail__payload">{{ detail.originalPayloadJson || '--' }}</pre>
+        <el-descriptions-item label="原始业务记录">
+          <ReadableData title="提交内容" :source="detail.originalPayloadJson" />
         </el-descriptions-item>
-        <el-descriptions-item label="readonlyActions">
+        <el-descriptions-item label="可执行操作">
           <div class="process-pool-detail__readonly">
             <el-tag effect="plain" type="info">
-              原始记录修改：{{ formatReadonlyFlag(detail.readonlyActions?.canModifyOriginalRecord) }}
+              原始记录修改：{{
+                formatReadonlyFlag(detail.readonlyActions?.canModifyOriginalRecord)
+              }}
             </el-tag>
             <el-tag effect="plain" type="info">
               审核副本生成：{{ formatReadonlyFlag(detail.readonlyActions?.canGenerateAuditCopy) }}
             </el-tag>
             <el-tag effect="plain" type="info">
-              FIFO 分配执行：{{ formatReadonlyFlag(detail.readonlyActions?.canExecuteFifoAllocation) }}
+              先进先出分配执行：{{
+                formatReadonlyFlag(detail.readonlyActions?.canExecuteFifoAllocation)
+              }}
             </el-tag>
           </div>
         </el-descriptions-item>
@@ -238,7 +246,11 @@
       >
         <div class="process-pool-detail__trace-head">
           <span>生产执行闭环 Trace</span>
-          <el-tag v-if="trace" :type="trace.complete === false ? 'danger' : 'success'" effect="dark">
+          <el-tag
+            v-if="trace"
+            :type="trace.complete === false ? 'danger' : 'success'"
+            effect="dark"
+          >
             {{ trace.complete === false ? '未闭环' : '已闭环' }}
           </el-tag>
         </div>
@@ -298,7 +310,9 @@
                   来源：{{ formatClosureEvidenceSourceIds(answer) }}
                 </div>
                 <div class="process-pool-detail__muted">
-                  只读复验：{{ formatReadOnlyVerificationEntries(answer.readOnlyVerificationEntries) }}
+                  只读复验：{{
+                    formatReadOnlyVerificationEntries(answer.readOnlyVerificationEntries)
+                  }}
                 </div>
               </el-descriptions-item>
               <el-descriptions-item label="同源校验">
@@ -338,6 +352,8 @@
 </template>
 
 <script setup lang="ts">
+import ReadableData from '@/components/BusinessData/ReadableData.vue'
+import { businessFieldLabel, readBusinessEvidence } from './components/businessEvidenceDisplay'
 import { ElMessage } from 'element-plus'
 import {
   getProductionExecutionTrace,
@@ -429,7 +445,8 @@ const queryParams = reactive<ProcessPoolTimelinePageReqVO>({
 })
 
 const resolveErrorMessage = (error: unknown, fallback: string) => {
-  const responseMessage = (error as any)?.response?.data?.msg || (error as any)?.response?.data?.message
+  const responseMessage =
+    (error as any)?.response?.data?.msg || (error as any)?.response?.data?.message
   if (typeof responseMessage === 'string' && responseMessage.trim()) return responseMessage
   if (error instanceof Error && error.message.trim()) return error.message
   return fallback
@@ -534,9 +551,7 @@ const formatTraceBlockers = (blockers?: ProductionExecutionTraceBlockerVO[]) => 
 const formatTraceSection = (section?: ProductionExecutionTraceSectionVO) => {
   if (!section) return '缺少分组'
   const blockerText = formatTraceBlockers(section.blockers)
-  return section.status === 'BLOCKED'
-    ? `${section.status} - ${blockerText}`
-    : section.status
+  return section.status === 'BLOCKED' ? `${section.status} - ${blockerText}` : section.status
 }
 
 const closureEvidenceAnswerLabel = (answerKey: string) =>
@@ -544,27 +559,39 @@ const closureEvidenceAnswerLabel = (answerKey: string) =>
 
 const formatClosureEvidenceValue = (value: unknown) => {
   if (value === null || value === undefined || value === '') return '--'
-  if (typeof value === 'object') return JSON.stringify(value)
+  if (typeof value === 'object') {
+    const result = readBusinessEvidence(JSON.stringify(value))
+    return result.error || result.rows.map((row) => `${row.label}：${row.value}`).join('；') || '未记录业务字段'
+  }
+  if (typeof value === 'boolean') return value ? '是' : '否'
   return String(value)
 }
 
 const formatClosureEvidenceSourceIds = (answer?: ProductionExecutionEvidenceAnswerVO) => {
   const sourceIds = answer?.sourceIds || {}
-  const entries = Object.entries(sourceIds).filter(([, value]) => value !== null && value !== undefined && value !== '')
-  if (entries.length === 0) return '缺少正式来源 ID'
-  return entries.map(([key, value]) => `${key}=${formatClosureEvidenceValue(value)}`).join('；')
+  const entries = Object.entries(sourceIds).filter(
+    ([, value]) => value !== null && value !== undefined && value !== ''
+  )
+  if (entries.length === 0) return '缺少正式来源编号'
+  return entries.map(([key, value]) => `${businessFieldLabel(key)}：${formatClosureEvidenceValue(value)}`).join('；')
 }
 
 const formatClosureEvidenceAnswer = (answer: ProductionExecutionEvidenceAnswerVO) => {
   const sameSourceText = answer.sameSource === false ? '同源失败' : '同源通过'
-  const blockerText = answer.blockers?.length ? `；阻塞：${formatTraceBlockers(answer.blockers)}` : ''
+  const blockerText = answer.blockers?.length
+    ? `；阻塞：${formatTraceBlockers(answer.blockers)}`
+    : ''
   return `${formatClosureEvidenceValue(answer.value)}；${sameSourceText}${blockerText}`
 }
 
-const formatReadOnlyVerificationEntries = (entries?: ProductionExecutionReadOnlyVerificationEntryVO[]) => {
+const formatReadOnlyVerificationEntries = (
+  entries?: ProductionExecutionReadOnlyVerificationEntryVO[]
+) => {
   if (!entries || entries.length === 0) return '缺少只读复验入口'
   return entries
-    .map((entry) => `${entry.verificationKey || '--'} ${entry.method || 'GET'} ${entry.path || '--'}`)
+    .map(
+      (entry) => `${entry.verificationKey || '--'} ${entry.method || 'GET'} ${entry.path || '--'}`
+    )
     .join('；')
 }
 
@@ -580,6 +607,41 @@ const formatDateTime = (value?: string | number | Date) => formatDateTimeValue(v
 const formatTime = (value?: string | number | Date) => {
   const formatted = formatDateTime(value)
   return formatted.length >= 16 ? formatted.slice(11, 16) : formatted
+}
+
+const statusLabel = (value?: string) => {
+  if (!value) return '未记录'
+  const labels: Record<string, string> = {
+    PENDING: '待处理',
+    SUBMITTED: '已提交',
+    SUCCESS: '通过',
+    FAILURE: '未通过',
+    APPROVED: '已通过',
+    REJECTED: '已退回'
+  }
+  return labels[value] || value
+}
+const submissionSummary = (value?: string) => {
+  if (!value) return '未记录'
+  const labels: Record<string, string> = {
+    PRODUCTION_REPORT: '生产报工',
+    PRODUCTION_SUBMIT: '生产提交',
+    PQC_INSPECTION: '过程质量检验'
+  }
+  return value
+    .split(' / ')
+    .map(
+      (part) =>
+        labels[part] ||
+        (
+          { PRODUCTION_SIMPLIFIED: '生产简化模板', PQC_SIMPLIFIED: '过程检验简化模板' } as Record<
+            string,
+            string
+          >
+        )[part] ||
+        part
+    )
+    .join(' / ')
 }
 
 const resolvePqcTagType = (pqcResult?: string) => {

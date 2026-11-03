@@ -51,11 +51,17 @@ test('unsaved PQC state survives tab switches and is released when the tab close
   const filename = 'src/views/form-center/simple-pqc-parser/index.vue'
   const descriptor = parse(read(filename), { filename }).descriptor
   const component = load(compileScript(descriptor, { id: 'pqc-cache' }).content, {
-    vue, '../parser/components/SimplePqcTrialPreview.vue': {},
+    '../parser/components/SimpleParserHeader.vue': {},
+    vue, 'vue-router': { useRouter: () => ({}) }, vuedraggable: {},
+      '../parser/components/ParserProcessToolbar.vue': {}, '../parser/components/ParserTrialNavigation.vue': {}, '../parser/components/ParserIssueList.vue': {},
+      './components/ParserProcessToolbar.vue': {}, './components/ParserTrialNavigation.vue': {}, './components/ParserIssueList.vue': {},
+      '../parser/useParserEditing': loadEditing(vue), './useParserEditing': loadEditing(vue),
+    '../parser/components/SimplePqcTrialPreview.vue': {},
     '@/api/mes/qc/template': {}, '@/api/mes/dv/machinery': {},
     '@/api/dcc/controlledFile/projectCodes': { getProjectCodePage: async () => ({ list: [] }) },
     '@/utils/auth': {}, '@/store/modules/user': {},
-    '../parser/simplePqc': load(read('src/views/form-center/parser/simplePqc.ts'), {})
+    '../parser/simplePqc': load(read('src/views/form-center/parser/simplePqc.ts'), {}),
+    '../parser/simplePqcWord': load(read('src/views/form-center/parser/simplePqcWord.ts'), { pizzip: require('pizzip') })
   }, { useMessage: () => ({}) }).default
   const originalSetup = component.setup
   let state, mounts = 0
@@ -122,3 +128,9 @@ test('unsaved PQC state survives tab switches and is released when the tab close
   assert.equal(state.draft.value, undefined)
   app.unmount()
 })
+
+function loadEditing(vue) {
+  const target = { exports: {}, require: () => vue }
+  vm.runInNewContext(ts.transpileModule(fs.readFileSync('src/views/form-center/parser/useParserEditing.ts', 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText, target)
+  return target.exports
+}

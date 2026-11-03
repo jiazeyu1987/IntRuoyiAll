@@ -2,6 +2,9 @@ package cn.iocoder.yudao.module.mes.service.pro.processpool.team;
 
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteSnapshotCanonicalizer;
+import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteControlledContentAdapter;
+import org.mockito.ArgumentCaptor;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteVersionDO;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.h2.jdbcx.JdbcDataSource;
@@ -14,10 +17,12 @@ import org.springframework.transaction.support.TransactionTemplate;
 import java.util.*;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
 import static cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesFixedTestOrderReferenceGraph.*;
 
 /** Isolated SQL tests; no connection to the application database and no production operations. */
 class MesFixedTestOrderInitializerTest {
+    final MesProRouteControlledContentAdapter controlledContentAdapter = mock(MesProRouteControlledContentAdapter.class);
     JdbcTemplate jdbc;
     TransactionTemplate tx;
     MesFixedTestOrderReferenceGraph graph;
@@ -184,7 +189,7 @@ class MesFixedTestOrderInitializerTest {
         fullReferenceWithMissingFormPermission(9908090475L);
         TenantContextHolder.setTenantId(165L);
         try {
-            var initializer = new MesFixedTestOrderInitializer(jdbc, canonicalizer);
+            var initializer = new MesFixedTestOrderInitializer(jdbc, canonicalizer, controlledContentAdapter);
             tx.executeWithoutResult(s -> initializer.initialize(77L));
             Long scope = jdbc.queryForObject("SELECT id FROM mes_pro_edhr_permission_scope WHERE tenant_id=165", Long.class);
             assertNotEquals(9908090475L, scope);
@@ -210,7 +215,7 @@ class MesFixedTestOrderInitializerTest {
         fullReferenceWithMissingFormPermission(9908090490L);
         TenantContextHolder.setTenantId(165L);
         try {
-            var failure = assertThrows(RuntimeException.class, () -> tx.executeWithoutResult(s -> new MesFixedTestOrderInitializer(jdbc, canonicalizer).initialize(77L)));
+            var failure = assertThrows(RuntimeException.class, () -> tx.executeWithoutResult(s -> new MesFixedTestOrderInitializer(jdbc, canonicalizer, controlledContentAdapter).initialize(77L)));
             assertTrue(failure.getMessage().contains("9908090490"));
             assertEquals(0, jdbc.queryForObject("SELECT COUNT(*) FROM mes_pro_edhr_permission_scope WHERE tenant_id=165", Integer.class));
             assertEquals(0, jdbc.queryForObject("SELECT COUNT(*) FROM mes_pro_work_order WHERE tenant_id=165", Integer.class));
@@ -223,7 +228,7 @@ class MesFixedTestOrderInitializerTest {
         jdbc.update("INSERT INTO mes_pro_edhr_permission_rule(id,tenant_id,deleted,scope_id,subject_type,subject_id,ability,decision,priority,status,version) VALUES(999,1,0,9908090475,'USER',100,'SIGN','ALLOW',10,'ENABLED',1)");
         TenantContextHolder.setTenantId(165L);
         try {
-            var failure = assertThrows(RuntimeException.class, () -> tx.executeWithoutResult(s -> new MesFixedTestOrderInitializer(jdbc, canonicalizer).initialize(77L)));
+            var failure = assertThrows(RuntimeException.class, () -> tx.executeWithoutResult(s -> new MesFixedTestOrderInitializer(jdbc, canonicalizer, controlledContentAdapter).initialize(77L)));
             assertTrue(failure.getMessage().contains("孤立规则"));
             assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM mes_pro_edhr_permission_rule WHERE tenant_id=1", Integer.class));
             assertEquals(0, jdbc.queryForObject("SELECT COUNT(*) FROM mes_pro_work_order WHERE tenant_id=165", Integer.class));
@@ -235,7 +240,7 @@ class MesFixedTestOrderInitializerTest {
         fullReferenceWithMissingFormPermission(9908090475L);
         TenantContextHolder.setTenantId(165L);
         try {
-            var initializer = new MesFixedTestOrderInitializer(jdbc, canonicalizer);
+            var initializer = new MesFixedTestOrderInitializer(jdbc, canonicalizer, controlledContentAdapter);
             tx.executeWithoutResult(s -> initializer.initialize(77L));
             jdbc.update("UPDATE mes_pro_edhr_permission_rule SET ability='SIGN' WHERE tenant_id=165 AND ability='VIEW'");
             var failure = assertThrows(RuntimeException.class, () -> tx.executeWithoutResult(s -> initializer.initialize(88L)));
@@ -281,7 +286,7 @@ class MesFixedTestOrderInitializerTest {
         ObjectNode json = snapshot();
         ObjectNode configs = (ObjectNode) json.get("configSnapshots");
         configs.putArray("routeStartProductionLeaders").addObject().put("productionLineId", 20L).putArray("candidateSourceIds").add(1L);
-        var initializer = new MesFixedTestOrderInitializer(jdbc, canonicalizer);
+        var initializer = new MesFixedTestOrderInitializer(jdbc, canonicalizer, controlledContentAdapter);
         ReflectionTestUtils.invokeMethod(initializer, "replaceStartLeaders", configs, 165L);
         var mapper = new MesFixedTestOrderSnapshotMapper(graph, jdbc, 165L);
         mapper.collect(json); graph.resolveAll(); mapper.remap(json);
@@ -293,7 +298,7 @@ class MesFixedTestOrderInitializerTest {
 
     @Test
     void missingSharedLeaderOrTenantFailsInsteadOfCopyingPrincipals() {
-        var initializer = new MesFixedTestOrderInitializer(jdbc, canonicalizer);
+        var initializer = new MesFixedTestOrderInitializer(jdbc, canonicalizer, controlledContentAdapter);
         assertThrows(RuntimeException.class, () -> ReflectionTestUtils.invokeMethod(initializer, "replaceStartLeaders", snapshot(), 165L));
         TenantContextHolder.clear();
         assertThrows(RuntimeException.class, () -> initializer.initialize(77L));
@@ -303,7 +308,7 @@ class MesFixedTestOrderInitializerTest {
     @Test
     void initializerCreatesMissingOrderThenReusesTheSameDefinitions() {
         fullReference();
-        var initializer = new MesFixedTestOrderInitializer(jdbc, canonicalizer);
+        var initializer = new MesFixedTestOrderInitializer(jdbc, canonicalizer, controlledContentAdapter);
         TenantContextHolder.setTenantId(165L);
         try {
             tx.executeWithoutResult(s -> initializer.initialize(77L));
@@ -326,11 +331,49 @@ class MesFixedTestOrderInitializerTest {
     }
 
     @Test
+    void initializerRegistersTheMappedActiveVersionOnImportAndReuse() {
+        fullReference();
+        TenantContextHolder.setTenantId(165L);
+        try {
+            var initializer = new MesFixedTestOrderInitializer(jdbc, canonicalizer, controlledContentAdapter);
+            tx.executeWithoutResult(s -> initializer.initialize(77L));
+            tx.executeWithoutResult(s -> initializer.initialize(88L));
+            var versions = ArgumentCaptor.forClass(MesProRouteVersionDO.class);
+            verify(controlledContentAdapter, times(2)).recordActiveRegisteredIfMissing(
+                    versions.capture(), anyLong(), eq("固定测试订单初始化登记正式工艺版本"));
+            Long versionId = jdbc.queryForObject("SELECT id FROM mes_pro_route_version WHERE tenant_id=165", Long.class);
+            Long routeId = jdbc.queryForObject("SELECT id FROM mes_pro_route WHERE tenant_id=165", Long.class);
+            for (var version : versions.getAllValues()) {
+                assertEquals(versionId, version.getId());
+                assertEquals(routeId, version.getRouteId());
+                assertEquals("V1", version.getVersionNo());
+                assertEquals(Boolean.TRUE, version.getActive());
+                assertEquals("ACTIVE", version.getLifecycleStatus());
+                assertNotEquals(60L, version.getId());
+            }
+        } finally { TenantContextHolder.clear(); }
+    }
+
+    @Test
+    void controlledVersionRegistrationFailureRollsBackImportedDefinitions() {
+        fullReference();
+        doThrow(new IllegalStateException("controlled content active ref drifted"))
+                .when(controlledContentAdapter).recordActiveRegisteredIfMissing(any(), eq(77L), anyString());
+        TenantContextHolder.setTenantId(165L);
+        try {
+            assertThrows(IllegalStateException.class, () -> tx.executeWithoutResult(s ->
+                    new MesFixedTestOrderInitializer(jdbc, canonicalizer, controlledContentAdapter).initialize(77L)));
+            assertEquals(0, jdbc.queryForObject("SELECT COUNT(*) FROM mes_pro_work_order WHERE tenant_id=165", Integer.class));
+            assertEquals(0, jdbc.queryForObject("SELECT COUNT(*) FROM mes_pro_route_version WHERE tenant_id=165", Integer.class));
+        } finally { TenantContextHolder.clear(); }
+    }
+
+    @Test
     void initializerUsesActiveCommonQaIdentityAndPreservesDisabledBindingHistory() {
         fullReference();
         TenantContextHolder.setTenantId(165L);
         try {
-            var initializer = new MesFixedTestOrderInitializer(jdbc, canonicalizer);
+            var initializer = new MesFixedTestOrderInitializer(jdbc, canonicalizer, controlledContentAdapter);
             tx.executeWithoutResult(s -> initializer.initialize(77L));
             Long product = jdbc.queryForObject("SELECT id FROM mdm_product WHERE tenant_id=165", Long.class);
             jdbc.execute("CREATE UNIQUE INDEX common_qa_active_identity ON mes_qa_common_regulation_product_binding(tenant_id,active_binding_key)");
@@ -356,7 +399,7 @@ class MesFixedTestOrderInitializerTest {
         jdbc.update("INSERT INTO mes_pro_craft(id,tenant_id,deleted,code,name,process_id,parameters_json,fingerprint) VALUES(950,165,0,'LOCAL-CRAFT','Keep local name',940,?,'stale-cache')", craftParameters());
         TenantContextHolder.setTenantId(165L);
         try {
-            var initializer = new MesFixedTestOrderInitializer(jdbc, canonicalizer);
+            var initializer = new MesFixedTestOrderInitializer(jdbc, canonicalizer, controlledContentAdapter);
             tx.executeWithoutResult(s -> initializer.initialize(77L));
             JsonNode copied = graph.parse(jdbc.queryForObject("SELECT route_snapshot_json FROM mes_pro_route_version WHERE tenant_id=165", String.class));
             JsonNode config = copied.path("configSnapshots").path("productionProcessConfigs").get(0);
@@ -377,7 +420,7 @@ class MesFixedTestOrderInitializerTest {
         jdbc.update("INSERT INTO mes_pro_craft(id,tenant_id,deleted,code,name,process_id,parameters_json) VALUES(950,165,0,'GY-0003','Other process craft',941,?),(951,165,0,'LOCAL-LIMIT','Other limit',940,?)", craftParameters(), craftParameters().replace("\"lowerLimit\":20", "\"lowerLimit\":19"));
         TenantContextHolder.setTenantId(165L);
         try {
-            var initializer = new MesFixedTestOrderInitializer(jdbc, canonicalizer);
+            var initializer = new MesFixedTestOrderInitializer(jdbc, canonicalizer, controlledContentAdapter);
             tx.executeWithoutResult(s -> initializer.initialize(77L));
             Long created = jdbc.queryForObject("SELECT id FROM mes_pro_craft WHERE tenant_id=165 AND code LIKE 'FT_%'", Long.class);
             assertNotEquals(950L, created); assertNotEquals(951L, created);
@@ -399,7 +442,7 @@ class MesFixedTestOrderInitializerTest {
         jdbc.update("INSERT INTO mes_pro_craft(id,tenant_id,deleted,code,name,process_id,parameters_json) VALUES(950,165,0,'LOCAL-1','One',940,?),(951,165,0,'LOCAL-2','Two',940,?)", craftParameters(), craftParameters());
         TenantContextHolder.setTenantId(165L);
         try {
-            var failure = assertThrows(RuntimeException.class, () -> tx.executeWithoutResult(s -> new MesFixedTestOrderInitializer(jdbc, canonicalizer).initialize(77L)));
+            var failure = assertThrows(RuntimeException.class, () -> tx.executeWithoutResult(s -> new MesFixedTestOrderInitializer(jdbc, canonicalizer, controlledContentAdapter).initialize(77L)));
             assertTrue(failure.getMessage().contains("多个参数完全相同"));
             assertEquals(0, jdbc.queryForObject("SELECT COUNT(*) FROM mes_pro_work_order WHERE tenant_id=165", Integer.class));
             assertEquals(2, jdbc.queryForObject("SELECT COUNT(*) FROM mes_pro_craft WHERE tenant_id=165", Integer.class));
@@ -411,7 +454,7 @@ class MesFixedTestOrderInitializerTest {
         fullReference();
         TenantContextHolder.setTenantId(165L);
         try {
-            var initializer = new MesFixedTestOrderInitializer(jdbc, canonicalizer);
+            var initializer = new MesFixedTestOrderInitializer(jdbc, canonicalizer, controlledContentAdapter);
             tx.executeWithoutResult(s -> initializer.initialize(77L));
             Long regulation = jdbc.queryForObject("SELECT id FROM mes_qa_inspection_regulation WHERE tenant_id=165", Long.class);
             Long version = jdbc.queryForObject("SELECT current_version_id FROM mes_qa_inspection_regulation WHERE id=?", Long.class, regulation);
@@ -435,7 +478,7 @@ class MesFixedTestOrderInitializerTest {
         fullReference();
         TenantContextHolder.setTenantId(165L);
         try {
-            var initializer = new MesFixedTestOrderInitializer(jdbc, canonicalizer);
+            var initializer = new MesFixedTestOrderInitializer(jdbc, canonicalizer, controlledContentAdapter);
             tx.executeWithoutResult(s -> initializer.initialize(77L));
             Long version = jdbc.queryForObject("SELECT id FROM mes_qa_inspection_regulation_version WHERE tenant_id=165", Long.class);
             ObjectNode snapshot = (ObjectNode) graph.parse(jdbc.queryForObject("SELECT snapshot_json FROM mes_qa_inspection_regulation_version WHERE id=?", String.class, version));
@@ -452,7 +495,7 @@ class MesFixedTestOrderInitializerTest {
         fullReference();
         TenantContextHolder.setTenantId(165L);
         try {
-            var initializer = new MesFixedTestOrderInitializer(jdbc, canonicalizer);
+            var initializer = new MesFixedTestOrderInitializer(jdbc, canonicalizer, controlledContentAdapter);
             tx.executeWithoutResult(s -> initializer.initialize(77L));
             Long regulation = jdbc.queryForObject("SELECT id FROM mes_qa_inspection_regulation WHERE tenant_id=165", Long.class);
             jdbc.update("UPDATE mes_qa_inspection_regulation_version SET lifecycle_status='DRAFT' WHERE tenant_id=165");
@@ -468,7 +511,7 @@ class MesFixedTestOrderInitializerTest {
         fullReference();
         TenantContextHolder.setTenantId(165L);
         try {
-            var initializer = new MesFixedTestOrderInitializer(jdbc, canonicalizer);
+            var initializer = new MesFixedTestOrderInitializer(jdbc, canonicalizer, controlledContentAdapter);
             tx.executeWithoutResult(s -> initializer.initialize(77L));
             addExistingCommonQaBinding();
             String before = jdbc.queryForObject("SELECT snapshot_json FROM mes_qa_inspection_regulation_version WHERE id=701", String.class);
@@ -487,7 +530,7 @@ class MesFixedTestOrderInitializerTest {
         fullReference();
         TenantContextHolder.setTenantId(165L);
         try {
-            var initializer = new MesFixedTestOrderInitializer(jdbc, canonicalizer);
+            var initializer = new MesFixedTestOrderInitializer(jdbc, canonicalizer, controlledContentAdapter);
             tx.executeWithoutResult(s -> initializer.initialize(77L));
             addExistingCommonQaBinding();
             jdbc.update("UPDATE mes_qa_inspection_regulation_version SET lifecycle_status='DRAFT' WHERE id=701");
@@ -503,7 +546,7 @@ class MesFixedTestOrderInitializerTest {
         fullReference();
         TenantContextHolder.setTenantId(165L);
         try {
-            var initializer = new MesFixedTestOrderInitializer(jdbc, canonicalizer);
+            var initializer = new MesFixedTestOrderInitializer(jdbc, canonicalizer, controlledContentAdapter);
             tx.executeWithoutResult(s -> initializer.initialize(77L));
             addExistingCommonQaBinding();
             jdbc.update("UPDATE mes_qa_common_regulation_set_version_member SET member_role='Other scope' WHERE id=803");
@@ -554,7 +597,7 @@ class MesFixedTestOrderInitializerTest {
         jdbc.execute("ALTER TABLE mes_wm_product_issue ADD CONSTRAINT reject_target_issue CHECK (tenant_id=1)");
         TenantContextHolder.setTenantId(165L);
         try {
-            var failure = assertThrows(org.springframework.dao.DataIntegrityViolationException.class, () -> tx.executeWithoutResult(s -> new MesFixedTestOrderInitializer(jdbc, canonicalizer).initialize(77L)));
+            var failure = assertThrows(org.springframework.dao.DataIntegrityViolationException.class, () -> tx.executeWithoutResult(s -> new MesFixedTestOrderInitializer(jdbc, canonicalizer, controlledContentAdapter).initialize(77L)));
             assertTrue(failure.getMessage().contains("reject_target_issue"));
             assertEquals(0, jdbc.queryForObject("SELECT COUNT(*) FROM mes_pro_work_order WHERE tenant_id=165", Integer.class));
             assertEquals(0, jdbc.queryForObject("SELECT COUNT(*) FROM mes_qa_inspection_regulation WHERE tenant_id=165", Integer.class));
@@ -571,7 +614,7 @@ class MesFixedTestOrderInitializerTest {
         jdbc.update("INSERT INTO mes_md_item(id,tenant_id,deleted,code,name,unit_measure_id) VALUES(911,165,0,'MATERIAL','Local material',700)");
         TenantContextHolder.setTenantId(165L);
         try {
-            var initializer = new MesFixedTestOrderInitializer(jdbc, canonicalizer);
+            var initializer = new MesFixedTestOrderInitializer(jdbc, canonicalizer, controlledContentAdapter);
             tx.executeWithoutResult(s -> initializer.initialize(77L));
             tx.executeWithoutResult(s -> initializer.initialize(88L));
             assertEquals(911L, jdbc.queryForObject("SELECT item_id FROM mes_wm_product_issue_line WHERE tenant_id=165", Long.class));
@@ -590,7 +633,7 @@ class MesFixedTestOrderInitializerTest {
         jdbc.update("INSERT INTO mes_md_item(id,tenant_id,deleted,code,name,unit_measure_id) VALUES(911,165,0,'MATERIAL','Material',700)");
         TenantContextHolder.setTenantId(165L);
         try {
-            var failure = assertThrows(RuntimeException.class, () -> tx.executeWithoutResult(s -> new MesFixedTestOrderInitializer(jdbc, canonicalizer).initialize(77L)));
+            var failure = assertThrows(RuntimeException.class, () -> tx.executeWithoutResult(s -> new MesFixedTestOrderInitializer(jdbc, canonicalizer, controlledContentAdapter).initialize(77L)));
             assertTrue(failure.getMessage().contains("mes_md_item/unit_measure_id"));
             assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM mes_md_unit_measure WHERE tenant_id=165", Integer.class));
             assertEquals(0, jdbc.queryForObject("SELECT COUNT(*) FROM mes_pro_work_order WHERE tenant_id=165", Integer.class));
@@ -604,7 +647,7 @@ class MesFixedTestOrderInitializerTest {
         jdbc.update("INSERT INTO mes_md_item(id,tenant_id,deleted,code,name,specification) VALUES(911,165,0,'MATERIAL','Local material label#','Box 20x30')");
         TenantContextHolder.setTenantId(165L);
         try {
-            tx.executeWithoutResult(s -> new MesFixedTestOrderInitializer(jdbc, canonicalizer).initialize(77L));
+            tx.executeWithoutResult(s -> new MesFixedTestOrderInitializer(jdbc, canonicalizer, controlledContentAdapter).initialize(77L));
             assertEquals(911L, jdbc.queryForObject("SELECT item_id FROM mes_wm_product_issue_line WHERE tenant_id=165", Long.class));
             assertEquals("Local material label#", jdbc.queryForObject("SELECT name FROM mes_md_item WHERE id=911", String.class));
             assertEquals("Material", jdbc.queryForObject("SELECT name FROM mes_md_item WHERE id=11 AND tenant_id=1", String.class));
@@ -617,7 +660,7 @@ class MesFixedTestOrderInitializerTest {
         addErpSyncedMaterial();
         TenantContextHolder.setTenantId(165L);
         try {
-            var initializer = new MesFixedTestOrderInitializer(jdbc, canonicalizer);
+            var initializer = new MesFixedTestOrderInitializer(jdbc, canonicalizer, controlledContentAdapter);
             tx.executeWithoutResult(s -> initializer.initialize(77L));
             tx.executeWithoutResult(s -> initializer.initialize(88L));
             assertEquals(911L, jdbc.queryForObject("SELECT item_id FROM mes_wm_product_issue_line WHERE tenant_id=165", Long.class));
@@ -634,7 +677,7 @@ class MesFixedTestOrderInitializerTest {
         jdbc.update("UPDATE erp_product SET standard='Another specification' WHERE tenant_id=165");
         TenantContextHolder.setTenantId(165L);
         try {
-            var failure = assertThrows(RuntimeException.class, () -> tx.executeWithoutResult(s -> new MesFixedTestOrderInitializer(jdbc, canonicalizer).initialize(77L)));
+            var failure = assertThrows(RuntimeException.class, () -> tx.executeWithoutResult(s -> new MesFixedTestOrderInitializer(jdbc, canonicalizer, controlledContentAdapter).initialize(77L)));
             assertTrue(failure.getMessage().contains("无法由两边有效ERP主档核实"));
             assertEquals("Current ERP specification", jdbc.queryForObject("SELECT specification FROM mes_md_item WHERE id=911", String.class));
             assertEquals(0, jdbc.queryForObject("SELECT COUNT(*) FROM mes_pro_work_order WHERE tenant_id=165", Integer.class));
@@ -656,7 +699,7 @@ class MesFixedTestOrderInitializerTest {
         jdbc.update("INSERT INTO mes_md_item(id,tenant_id,deleted,code,name,specification) VALUES(911,165,0,'MATERIAL','Material','Box 40x50')");
         TenantContextHolder.setTenantId(165L);
         try {
-            var failure = assertThrows(RuntimeException.class, () -> tx.executeWithoutResult(s -> new MesFixedTestOrderInitializer(jdbc, canonicalizer).initialize(77L)));
+            var failure = assertThrows(RuntimeException.class, () -> tx.executeWithoutResult(s -> new MesFixedTestOrderInitializer(jdbc, canonicalizer, controlledContentAdapter).initialize(77L)));
             assertTrue(failure.getMessage().contains("mes_md_item/specification"));
             assertEquals("Box 40x50", jdbc.queryForObject("SELECT specification FROM mes_md_item WHERE id=911", String.class));
             assertEquals(0, jdbc.queryForObject("SELECT COUNT(*) FROM mes_pro_work_order WHERE tenant_id=165", Integer.class));
@@ -669,7 +712,7 @@ class MesFixedTestOrderInitializerTest {
         jdbc.update("UPDATE erp_kingdee_production_pick_list_item SET material_number='/' WHERE tenant_id=1");
         TenantContextHolder.setTenantId(165L);
         try {
-            tx.executeWithoutResult(s -> new MesFixedTestOrderInitializer(jdbc, canonicalizer).initialize(77L));
+            tx.executeWithoutResult(s -> new MesFixedTestOrderInitializer(jdbc, canonicalizer, controlledContentAdapter).initialize(77L));
             assertEquals("/", jdbc.queryForObject("SELECT material_number FROM erp_kingdee_production_pick_list_item WHERE tenant_id=165", String.class));
             assertEquals(Set.of("PRODUCT", "MATERIAL"), new HashSet<>(jdbc.queryForList("SELECT code FROM mes_md_item WHERE tenant_id=165", String.class)));
             assertEquals(0, jdbc.queryForObject("SELECT COUNT(*) FROM mes_md_item WHERE code='/'", Integer.class));
@@ -691,7 +734,7 @@ class MesFixedTestOrderInitializerTest {
         jdbc.update("UPDATE mes_pro_route_version SET route_snapshot_json=?,route_snapshot_sha256=? WHERE id=60", canonical, canonicalizer.sha256(canonical));
         TenantContextHolder.setTenantId(165L);
         try {
-            var initializer = new MesFixedTestOrderInitializer(jdbc, canonicalizer);
+            var initializer = new MesFixedTestOrderInitializer(jdbc, canonicalizer, controlledContentAdapter);
             tx.executeWithoutResult(s -> initializer.initialize(77L));
             JsonNode copied = graph.parse(jdbc.queryForObject("SELECT route_snapshot_json FROM mes_pro_route_version WHERE tenant_id=165", String.class));
             long device = copied.path("configSnapshots").path("productionProcessConfigs").get(0).path("deviceSelectionGroups").get(0).path("deviceIds").get(0).longValue();
@@ -717,7 +760,7 @@ class MesFixedTestOrderInitializerTest {
                 TenantContextHolder.setTenantId(165L);
                 try {
                     start.await();
-                    tx.executeWithoutResult(s -> new MesFixedTestOrderInitializer(jdbc, canonicalizer).initialize(actor));
+                    tx.executeWithoutResult(s -> new MesFixedTestOrderInitializer(jdbc, canonicalizer, controlledContentAdapter).initialize(actor));
                 } catch (InterruptedException ex) { Thread.currentThread().interrupt(); throw new IllegalStateException(ex); }
                 finally { TenantContextHolder.clear(); }
             }));
@@ -733,7 +776,7 @@ class MesFixedTestOrderInitializerTest {
     void zeroHistoricalOwnerRejectsOnlyCurrentTenantLiveRuntimeAndNeverDeletesIt() {
         for (String table : List.of("mes_pro_process_pool_event", "mes_pro_edhr_batch_execution", "mes_pro_feedback", "mes_pro_process_pool", "mes_pqc_inspection_task", "mes_pro_process_pool_order_process_completion", "mes_pro_process_pool_work_order_abnormal"))
             jdbc.execute("CREATE TABLE " + table + " (id BIGINT,tenant_id BIGINT,work_order_id BIGINT,deleted INT)");
-        var initializer = new MesFixedTestOrderInitializer(jdbc, canonicalizer);
+        var initializer = new MesFixedTestOrderInitializer(jdbc, canonicalizer, controlledContentAdapter);
         jdbc.update("INSERT INTO mes_pro_process_pool_event VALUES(1,166,300,0),(2,165,301,0),(3,165,300,1)");
         assertDoesNotThrow(() -> initializer.requireNoOrphanRuntime(165L, 300L));
         jdbc.update("INSERT INTO mes_pro_process_pool_event VALUES(4,165,300,0)");

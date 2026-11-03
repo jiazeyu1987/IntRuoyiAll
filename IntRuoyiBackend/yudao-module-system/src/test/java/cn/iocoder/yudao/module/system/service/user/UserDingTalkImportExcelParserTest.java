@@ -41,11 +41,16 @@ class UserDingTalkImportExcelParserTest {
     }
 
     @Test
-    void requiresSourceIdWhenTheColumnIsPresent() throws Exception {
+    void allowsBlankSourceIdWhenTheColumnIsPresent() throws Exception {
         var headers = new java.util.ArrayList<>(HEADERS);
         headers.add("主部门ID");
         byte[] bytes = workbook(headers, List.of("001", "测试员工", "测试公司", "质量部", "", "", "", "", "", "", ""));
-        assertServiceException(() -> parser.parse(new ByteArrayInputStream(bytes)), USER_DING_TALK_IMPORT_SOURCE_DEPT_ID_REQUIRED);
+        var rows = parser.parse(new ByteArrayInputStream(bytes));
+        assertEquals(1, rows.size());
+        assertEquals("", rows.get(0).getSourceDepartmentId());
+        assertEquals("测试公司", rows.get(0).getCompanyName());
+        assertEquals("质量部", rows.get(0).getLevel2DepartmentName());
+        assertEquals("001", rows.get(0).getEmployeeUserId());
     }
 
     @Test

@@ -287,6 +287,9 @@
       <el-form-item label="源路线">
         <span>{{ copySourceRoute?.code || '-' }} {{ copySourceRoute?.name || '' }}</span>
       </el-form-item>
+      <el-form-item label="项目代码" required>
+        <RouteProjectSelect v-model="copyForm.dccProjectCodeId" v-if="copyDialogVisible" />
+      </el-form-item>
       <el-form-item label="副本编码" required>
         <el-input v-model="copyForm.targetCode" clearable placeholder="请输入副本路线编码" />
       </el-form-item>
@@ -412,6 +415,7 @@
 </template>
 
 <script setup lang="ts">
+import RouteProjectSelect from './RouteProjectSelect.vue'
 import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
 
 import { until } from '@vueuse/core'
@@ -526,6 +530,7 @@ const resetRouteQueryState = (pageSize = 10) => ({
 })
 const queryParams = reactive(resetRouteQueryState())
 const copyForm = reactive({
+  dccProjectCodeId: undefined as number | undefined,
   targetCode: '',
   targetName: ''
 })
@@ -726,6 +731,7 @@ const openCopyRouteDialog = (row: ProRouteVO) => {
     throw new Error('复制工艺路线失败：缺少源路线编号')
   }
   copySourceRoute.value = row
+  copyForm.dccProjectCodeId = undefined
   copyForm.targetCode = `${row.code}-COPY`
   copyForm.targetName = `${row.name}-副本`
   copyDialogVisible.value = true
@@ -739,10 +745,15 @@ const submitCopyRoute = async () => {
     message.warning('请填写副本编码和副本名称')
     return
   }
+  if (!copyForm.dccProjectCodeId) {
+    message.warning('请选择尚无工艺流程的项目代码')
+    return
+  }
   copySaving.value = true
   try {
     await ProRouteApi.copyRoute(
       {
+        dccProjectCodeId: copyForm.dccProjectCodeId,
         sourceRouteId: copySourceRoute.value.id,
         targetCode: copyForm.targetCode.trim(),
         targetName: copyForm.targetName.trim()

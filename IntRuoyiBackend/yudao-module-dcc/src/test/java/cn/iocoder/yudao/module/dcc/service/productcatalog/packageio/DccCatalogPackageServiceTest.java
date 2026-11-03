@@ -36,7 +36,7 @@ class DccCatalogPackageServiceTest {
             ddl.append(",tenant_id BIGINT,deleted INT DEFAULT 0,creator VARCHAR(64),updater VARCHAR(64),update_time TIMESTAMP)");
             jdbc.execute(ddl.toString());
         }
-        jdbc.execute("CREATE UNIQUE INDEX catalog_source_row ON dcc_product_catalog(data_source,original_row_no)");
+        jdbc.execute("CREATE UNIQUE INDEX catalog_source_row ON dcc_product_catalog(tenant_id,data_source,original_row_no)");
         jdbc.execute("CREATE TABLE system_users(id BIGINT,tenant_id BIGINT,deleted INT DEFAULT 0)");
         jdbc.execute("CREATE TABLE dcc_product_catalog_source_sequence(data_source VARCHAR(64) PRIMARY KEY,last_row_no INT)");
         jdbc.update("INSERT INTO dcc_product_catalog_source_sequence VALUES('W01',2)");
@@ -138,16 +138,16 @@ class DccCatalogPackageServiceTest {
         byte[] source = service.exportWorkbook();
         TenantContextHolder.setTenantId(11L);
         var first = service.importWorkbook(source);
-        assertEquals(9, first.get("created"));
-        assertEquals(1, first.get("updated"));
+        assertEquals(10, first.get("created"));
+        assertEquals(0, first.get("updated"));
         assertEquals(3, first.get("localReferences"));
         assertNull(jdbc.queryForObject("SELECT project_leader_user_id FROM dcc_project_code WHERE tenant_id=11", String.class));
-        assertEquals(0, jdbc.queryForObject("SELECT COUNT(*) FROM dcc_product_catalog WHERE tenant_id=11", Integer.class));
+        assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM dcc_product_catalog WHERE tenant_id=11", Integer.class));
         assertEquals("2", jdbc.queryForObject("SELECT original_row_no FROM dcc_product_catalog WHERE tenant_id=10", String.class));
-        assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM dcc_data_relation r JOIN dcc_registration_certificate c ON r.registration_certificate_id=c.id JOIN dcc_project_code p ON p.id=r.project_code_id JOIN dcc_product_catalog d ON d.id=r.product_catalog_id WHERE r.tenant_id=11 AND c.tenant_id=11 AND p.tenant_id=11 AND d.tenant_id=10", Integer.class));
+        assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM dcc_data_relation r JOIN dcc_registration_certificate c ON r.registration_certificate_id=c.id JOIN dcc_project_code p ON p.id=r.project_code_id JOIN dcc_product_catalog d ON d.id=r.product_catalog_id WHERE r.tenant_id=11 AND c.tenant_id=11 AND p.tenant_id=11 AND d.tenant_id=11", Integer.class));
         assertEquals(0, service.importWorkbook(source).get("created"));
         assertEquals(0, service.importWorkbook(service.exportWorkbook()).get("created"));
-        // The shared catalog identity is stable in both directions.
+        // Each tenant retains its own catalog identity in both directions.
         byte[] destination = service.exportWorkbook();
         TenantContextHolder.setTenantId(10L);
         jdbc.update("INSERT INTO system_users(id,tenant_id) VALUES(77,10)");
@@ -163,7 +163,7 @@ class DccCatalogPackageServiceTest {
         jdbc.update("UPDATE dcc_registration_certificate_snapshot SET entrusted_production='1',self_production='0' WHERE tenant_id=10");
         byte[] workbook = service.exportWorkbook();
         TenantContextHolder.setTenantId(11L);
-        assertEquals(9, service.importWorkbook(workbook).get("created"));
+        assertEquals(10, service.importWorkbook(workbook).get("created"));
         assertEquals("1", jdbc.queryForObject("SELECT category_changed FROM dcc_registration_certificate_version WHERE tenant_id=11", String.class));
         assertEquals("1", jdbc.queryForObject("SELECT entrusted_production FROM dcc_registration_certificate_snapshot WHERE tenant_id=11", String.class));
         assertEquals("0", jdbc.queryForObject("SELECT self_production FROM dcc_registration_certificate_snapshot WHERE tenant_id=11", String.class));
@@ -172,31 +172,33 @@ class DccCatalogPackageServiceTest {
         assertEquals("1", jdbc.queryForObject("SELECT entrusted_production FROM dcc_registration_certificate_snapshot WHERE tenant_id=11", String.class));
         assertEquals("0", jdbc.queryForObject("SELECT self_production FROM dcc_registration_certificate_snapshot WHERE tenant_id=11", String.class));
     }
-    @Test void exportsSharedCatalogFromEveryOwnerButOnlyCurrentTenantBindings() throws Exception {
-        jdbc.update("INSERT INTO dcc_product_catalog(id,data_source,original_row_no,product,tenant_id) VALUES(2,'W01','3','其他租户创建的共享目录',12)");
+    @Test void exportsOnlyCurrentTenantsCatalogAndBindings() throws Exception {
+        jdbc.update("INSERT INTO dcc_product_catalog(id,data_source,original_row_no,product,tenant_id) VALUES(2,'W01','3','其他租户目录',12)");
         var source = read(service.exportWorkbook());
-        assertEquals(2, source.stream().filter(s -> s.name().equals("DCC产品目录")).findFirst().orElseThrow().rows().size());
+        assertEquals(1, source.stream().filter(s -> s.name().equals("DCC产品目录")).findFirst().orElseThrow().rows().size());
         TenantContextHolder.setTenantId(11L);
         var target = read(service.exportWorkbook());
-        assertEquals(2, target.stream().filter(s -> s.name().equals("DCC产品目录")).findFirst().orElseThrow().rows().size());
+        assertTrue(target.stream().filter(s -> s.name().equals("DCC产品目录")).findFirst().orElseThrow().rows().isEmpty());
         assertTrue(target.stream().filter(s -> s.name().equals("DCC项目代码") || s.name().equals("目录项目注册证绑定")).allMatch(s -> s.rows().isEmpty()));
     }
-    @Test void crossTenantMergeUpdatesSameSharedCatalogAndPreservesAllTenantBindings() throws Exception {
+    @Test void crossTenantMergeUpdatesOnlyDestinationCatalogAndPreservesSourceBindings() throws Exception {
         when(security.hasAnyRoles("super_admin", "tenant_admin")).thenReturn(true);
         byte[] source = service.exportWorkbook();
         TenantContextHolder.setTenantId(11L);
         service.importWorkbook(source);
         var changed = read(source);
-        row(changed, "DCC产品目录").put("remark", "共享目录更新");
+        row(changed, "DCC产品目录").put("remark", "目标目录更新");
         assertEquals(0, service.importWorkbook(DccCatalogWorkbook.write(changed)).get("created"));
-        assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM dcc_product_catalog", Integer.class));
-        assertEquals("共享目录更新", jdbc.queryForObject("SELECT remark FROM dcc_product_catalog WHERE id=1 AND tenant_id=10", String.class));
-        assertEquals(2, jdbc.queryForObject("SELECT COUNT(*) FROM dcc_data_relation WHERE product_catalog_id='1'", Integer.class));
+        assertEquals(2, jdbc.queryForObject("SELECT COUNT(*) FROM dcc_product_catalog", Integer.class));
+        assertNull(jdbc.queryForObject("SELECT remark FROM dcc_product_catalog WHERE id=1 AND tenant_id=10", String.class));
+        assertEquals("目标目录更新", jdbc.queryForObject("SELECT remark FROM dcc_product_catalog WHERE tenant_id=11", String.class));
+        assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM dcc_data_relation WHERE product_catalog_id='1'", Integer.class));
+        assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM dcc_data_relation r JOIN dcc_product_catalog d ON d.id=r.product_catalog_id WHERE r.tenant_id=11 AND d.tenant_id=11 AND d.id<>1", Integer.class));
         assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM dcc_data_relation WHERE product_catalog_id='1' AND tenant_id=10", Integer.class));
         row(changed, "DCC产品目录").put("remark", "失败应回滚");
         row(changed, "注册证").put("status", "VOIDED");
         assertThrows(IllegalArgumentException.class, () -> service.importWorkbook(DccCatalogWorkbook.write(changed)));
-        assertEquals("共享目录更新", jdbc.queryForObject("SELECT remark FROM dcc_product_catalog WHERE id=1", String.class));
+        assertEquals("目标目录更新", jdbc.queryForObject("SELECT remark FROM dcc_product_catalog WHERE tenant_id=11", String.class));
     }
     @Test void importsFormalHistoryWithBaseSnapshotsAndRepeatsUnderDatabaseImmutabilityGuards() throws Exception {
         when(security.hasAnyRoles("super_admin", "tenant_admin")).thenReturn(true);
@@ -208,7 +210,7 @@ class DccCatalogPackageServiceTest {
             jdbc.execute("CREATE TRIGGER guard_" + table + " BEFORE UPDATE ON " + table + " FOR EACH ROW CALL '" + FormalFactTrigger.class.getName() + "'");
         byte[] workbook = service.exportWorkbook();
         TenantContextHolder.setTenantId(11L);
-        assertEquals(11, service.importWorkbook(workbook).get("created"));
+        assertEquals(12, service.importWorkbook(workbook).get("created"));
         assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM dcc_registration_certificate_version v JOIN dcc_registration_certificate_snapshot s ON s.id=v.base_snapshot_id WHERE v.tenant_id=11 AND s.tenant_id=11 AND v.version_no='2'", Integer.class));
         assertEquals(0, service.importWorkbook(workbook).get("created"));
         var changed = read(workbook);
@@ -249,7 +251,7 @@ class DccCatalogPackageServiceTest {
         jdbc.update("UPDATE dcc_registration_certificate_version SET status='VOIDED' WHERE tenant_id=10");
         byte[] workbook = service.exportWorkbook();
         TenantContextHolder.setTenantId(11L);
-        assertEquals(9, service.importWorkbook(workbook).get("created"));
+        assertEquals(10, service.importWorkbook(workbook).get("created"));
         assertEquals("VOIDED", jdbc.queryForObject("SELECT status FROM dcc_registration_certificate WHERE tenant_id=11", String.class));
         verifyNoInteractions((ControlledContentRegistrationProjectionService) ReflectionTestUtils.getField(service, "projection"));
     }

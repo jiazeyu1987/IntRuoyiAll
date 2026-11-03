@@ -7,7 +7,7 @@
             <h2>统一追溯报表</h2>
             <div class="edhr-report__subtitle">12 类标准报表</div>
           </div>
-          <el-tag type="success" effect="plain">FIRST_SLICE_READY</el-tag>
+          <el-tag type="info" effect="plain">只读报表</el-tag>
         </div>
 
         <el-form :inline="true" :model="catalogQueryParams" class="edhr-report__form" @submit.prevent>
@@ -55,7 +55,7 @@
       <section class="edhr-report__catalog">
         <div class="edhr-report__section-title">
           <span>标准报表目录</span>
-          <span class="edhr-report__muted">数据来源 / 权限 / 导出策略</span>
+          <span class="edhr-report__muted">数据来源、权限和导出策略</span>
         </div>
         <el-table
           v-loading="catalogLoading"
@@ -80,11 +80,11 @@
           <el-table-column label="状态" width="110">
             <template #default="{ row }">
               <el-tag :type="row.status === 'ACTIVE' ? 'success' : 'info'">
-                {{ row.status || '--' }}
+                {{ reportStatusLabel(row.status) }}
               </el-tag>
             </template>
           </el-table-column>
-          <el-table-column label="验收" prop="acceptanceStatus" min-width="160" />
+          <el-table-column label="验收" min-width="160"><template #default="{ row }">{{ reportStatusLabel(row.acceptanceStatus) }}</template></el-table-column>
           <el-table-column label="操作" width="120" fixed="right">
             <template #default="{ row }">
               <el-button
@@ -170,17 +170,17 @@
             </el-descriptions-item>
             <el-descriptions-item label="数据源状态">
               <el-tag :type="selectedDefinition.dataSourceStatus === 'READY' ? 'success' : 'danger'">
-                {{ selectedDefinition.dataSourceStatus || '--' }}
+                {{ reportStatusLabel(selectedDefinition.dataSourceStatus) }}
               </el-tag>
             </el-descriptions-item>
             <el-descriptions-item label="权限摘要" :span="2">
-              <pre>{{ selectedDefinition.permissionSummaryJson || '--' }}</pre>
+              <ReadableData :source="selectedDefinition.permissionSummaryJson" />
             </el-descriptions-item>
             <el-descriptions-item label="字段口径" :span="2">
-              <pre>{{ selectedDefinition.fieldCaliberJson || '--' }}</pre>
+              <ReadableData :source="selectedDefinition.fieldCaliberJson" />
             </el-descriptions-item>
             <el-descriptions-item label="筛选模型" :span="2">
-              <pre>{{ selectedDefinition.filterSchemaJson || '--' }}</pre>
+              <ReadableData :source="selectedDefinition.filterSchemaJson" />
             </el-descriptions-item>
           </el-descriptions>
         </div>
@@ -199,10 +199,10 @@
               {{ queryResult.dataSourceSummary || '--' }}
             </el-descriptions-item>
             <el-descriptions-item label="筛选快照" :span="2">
-              <pre>{{ queryResult.filterSnapshotJson || '--' }}</pre>
+              <ReadableData :source="queryResult.filterSnapshotJson" />
             </el-descriptions-item>
             <el-descriptions-item label="权限摘要" :span="2">
-              <pre>{{ queryResult.permissionSummaryJson || '--' }}</pre>
+              <ReadableData :source="queryResult.permissionSummaryJson" />
             </el-descriptions-item>
           </el-descriptions>
           <el-table
@@ -215,11 +215,14 @@
             <el-table-column
               v-for="columnKey in queryColumnKeys"
               :key="columnKey"
-              :label="columnKey"
+              :label="businessFieldLabel(columnKey)"
               :prop="columnKey"
               min-width="150"
             >
-              <template #default="{ row }">{{ formatCell(row[columnKey]) }}</template>
+              <template #default="{ row }">
+                <ReadableData v-if="row[columnKey] !== null && typeof row[columnKey] === 'object'" :title="businessFieldLabel(columnKey)" :source="JSON.stringify(row[columnKey])" />
+                <span v-else>{{ formatCell(row[columnKey], columnKey) }}</span>
+              </template>
             </el-table-column>
           </el-table>
         </div>
@@ -248,7 +251,7 @@
           <el-table-column label="结果" width="110">
             <template #default="{ row }">
               <el-tag :type="row.resultStatus === 'RECORDED' ? 'success' : 'danger'">
-                {{ row.resultStatus || '--' }}
+                {{ reportStatusLabel(row.resultStatus) }}
               </el-tag>
             </template>
           </el-table-column>
@@ -263,11 +266,11 @@
               <div class="edhr-report__audit-evidence">
                 <div>
                   <div class="edhr-report__evidence-title">筛选快照</div>
-                  <pre>{{ row.filterSnapshotJson || '--' }}</pre>
+                  <ReadableData :source="row.filterSnapshotJson" />
                 </div>
                 <div>
                   <div class="edhr-report__evidence-title">权限摘要</div>
-                  <pre>{{ row.permissionSummaryJson || '--' }}</pre>
+                  <ReadableData :source="row.permissionSummaryJson" />
                 </div>
               </div>
             </template>
@@ -285,6 +288,9 @@
 </template>
 
 <script setup lang="ts">
+import ReadableData from '@/components/BusinessData/ReadableData.vue'
+import { businessFieldLabel, businessValueLabel } from '@/views/mes/pro/processpool/components/businessEvidenceDisplay'
+import { reportStatusLabel, reportCellText } from './reportDisplay'
 import { ElMessage } from 'element-plus'
 import {
   getEdhrReportCatalogPage,
@@ -353,7 +359,7 @@ const resolveErrorMessage = (error: unknown, fallback: string) => {
 function assertPageResult<T>(data: unknown, label: string): PageResult<T[]> {
   const page = data as { list?: unknown; total?: unknown }
   if (!page || !Array.isArray(page.list) || typeof page.total !== 'number') {
-    throw new Error(`${label}响应结构异常，缺少 list/total。`)
+    throw new Error(`${label}响应结构异常，缺少记录列表或总数。`)
   }
   return page as PageResult<T[]>
 }
@@ -361,14 +367,14 @@ function assertPageResult<T>(data: unknown, label: string): PageResult<T[]> {
 const assertQueryResult = (data: unknown): EdhrReportQueryRespVO => {
   const result = data as EdhrReportQueryRespVO
   if (!result || !Array.isArray(result.rows)) {
-    throw new Error('报表查询响应结构异常，缺少 rows。')
+    throw new Error('报表查询响应结构异常，缺少查询结果列表。')
   }
   return result
 }
 
-const formatCell = (value: unknown) => {
+const formatCell = (value: unknown, field: string) => {
   if (value === null || value === undefined || value === '') return '--'
-  return String(value)
+  return reportCellText(field, businessValueLabel(field, value))
 }
 
 const buildCatalogQuery = (): EdhrReportCatalogPageReqVO => ({

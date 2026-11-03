@@ -19,7 +19,7 @@
       <template #tip>
         <div class="el-upload__tip text-center">
           <div class="el-upload__tip">
-            <el-checkbox v-model="updateSupport" />
+            <el-checkbox v-model="updateSupport" :disabled="formLoading" />
             是否更新已经存在的用户数据
           </div>
           <span>仅允许导入 xls、xlsx 格式文件。</span>
@@ -41,8 +41,11 @@
   </Dialog>
 </template>
 <script lang="ts" setup>
+import type { UploadUserFile } from 'element-plus'
+import { showRecordImportResult } from '@/utils/importResult'
+import { confirmUserImport } from './userImportConfirmation'
 import * as UserApi from '@/api/system/user'
-import { getAccessToken, getTenantId } from '@/utils/auth'
+import { getAccessToken, getTenantId, getVisitTenantId } from '@/utils/auth'
 import download from '@/utils/download'
 
 defineOptions({ name: 'SystemUserImportForm' })
@@ -55,11 +58,12 @@ const uploadRef = ref()
 const importUrl =
   import.meta.env.VITE_BASE_URL + import.meta.env.VITE_API_URL + '/system/user/import'
 const uploadHeaders = ref() // 上传 Header 头
-const fileList = ref([]) // 文件列表
+const fileList = ref<UploadUserFile[]>([]) // 文件列表
 const updateSupport = ref(0) // 是否更新已经存在的用户数据
 
 /** 打开弹窗 */
 const open = () => {
+  if (formLoading.value) return
   dialogVisible.value = true
   updateSupport.value = 0
   fileList.value = []
@@ -67,18 +71,59 @@ const open = () => {
 }
 defineExpose({ open }) // 提供 open 方法，用于打开弹窗
 
+let dialogGeneration = 0
+watch(dialogVisible, () => { dialogGeneration++ }, { flush: 'sync' })
+
 /** 提交表单 */
 const submitForm = async () => {
+  if (formLoading.value) return
   if (fileList.value.length == 0) {
     message.error('请上传文件')
     return
   }
+  const overwrite = updateSupport.value
+  const file = fileList.value[0]
+  if (!file.raw) {
+    message.error('文件内容不可用，请重新选择文件')
+    return
+  }
+  const visitTenant = getVisitTenantId()
+  const tenant = getTenantId()
+  const generation = dialogGeneration
+  const token = getAccessToken()
+  formLoading.value = true
+  try {
+    const previewData = new FormData()
+    previewData.append('file', file.raw)
+    const preview = await UserApi.importUserPreview(previewData)
+    if (!dialogVisible.value || generation !== dialogGeneration || fileList.value[0] !== file ||
+        getTenantId() !== tenant || getVisitTenantId() !== visitTenant || getAccessToken() !== token || updateSupport.value !== overwrite) {
+      formLoading.value = false
+      return
+    }
+    const confirmed = await confirmUserImport(file.name, overwrite ? 'update' : 'create', visitTenant || tenant, preview)
+    if (!confirmed || !dialogVisible.value || generation !== dialogGeneration ||
+        fileList.value[0] !== file || updateSupport.value !== overwrite || getTenantId() !== tenant || getVisitTenantId() !== visitTenant || getAccessToken() !== token) {
+      formLoading.value = false
+      return
+    }
+  } catch (error) {
+    formLoading.value = false
+    throw error
+  }
   // 提交请求
   uploadHeaders.value = {
-    Authorization: 'Bearer ' + getAccessToken(),
-    'tenant-id': getTenantId()
+    Authorization: 'Bearer ' + token,
+    'tenant-id': tenant,
+    ...(visitTenant ? { 'visit-tenant-id': visitTenant } : {})
   }
   formLoading.value = true
+  await nextTick()
+  if (!dialogVisible.value || generation !== dialogGeneration || fileList.value[0] !== file ||
+      updateSupport.value !== overwrite || getTenantId() !== tenant || getVisitTenantId() !== visitTenant || getAccessToken() !== token) {
+    formLoading.value = false
+    return
+  }
   uploadRef.value!.submit()
 }
 
@@ -90,21 +135,13 @@ const submitFormSuccess = (response: any) => {
     resetForm()
     return
   }
-  // 拼接提示语
   const data = response.data
-  let text = '上传成功数量：' + data.createUsernames.length + ';'
-  for (let username of data.createUsernames) {
-    text += '< ' + username + ' >'
-  }
-  text += '更新成功数量：' + data.updateUsernames.length + ';'
-  for (const username of data.updateUsernames) {
-    text += '< ' + username + ' >'
-  }
-  text += '更新失败数量：' + Object.keys(data.failureUsernames).length + ';'
-  for (const username in data.failureUsernames) {
-    text += '< ' + username + ': ' + data.failureUsernames[username] + ' >'
-  }
-  message.alert(text)
+  showRecordImportResult({
+    entity: '用户账号',
+    created: data.createUsernames,
+    updated: data.updateUsernames,
+    failures: data.failureUsernames,
+  })
   formLoading.value = false
   dialogVisible.value = false
   // 发送操作成功的事件

@@ -269,7 +269,10 @@
                 {{ currentVersionInfo.fileName || '-' }} · {{ currentVersionInfo.currentVersionNo || '-' }}
               </div>
               <div class="mt-4px text-[var(--el-text-color-secondary)]">
-                文件编号：{{ currentVersionInfo.fileNumber }}；状态：{{ currentVersionInfo.status || '-' }}
+                文件编号：{{ currentVersionInfo.fileNumber }}
+              </div>
+              <div class="mt-4px text-[var(--el-text-color-secondary)]">
+                状态：{{ currentVersionStatusLabel }}
               </div>
               <el-alert
                 class="mt-8px" :closable="false" type="error" show-icon
@@ -295,15 +298,21 @@
                 type="error"
                 show-icon
               />
-              <div class="mt-4px text-[var(--el-text-color-secondary)]">
-                原版本路径：{{ currentVersionInfo.originalFilePath || '-' }}
-              </div>
-              <div class="mt-4px text-[var(--el-text-color-secondary)]">
-                源文件路径：{{ currentVersionInfo.sourceFilePath || '-' }}
-              </div>
-              <div class="mt-4px text-[var(--el-text-color-secondary)]">
-                受控文件路径：{{ currentVersionInfo.stampedFilePath || currentVersionInfo.publishedFilePath || '-' }}
-              </div>
+              <dl class="current-version-files">
+                <template v-for="file in currentVersionFiles" :key="file.label">
+                  <dt>{{ file.label }}</dt>
+                  <dd>{{ file.name || '文件名未记录' }}</dd>
+                </template>
+              </dl>
+              <details class="current-version-storage">
+                <summary>查看存储信息与原始状态</summary>
+                <dl class="current-version-files">
+                  <dt>原始状态</dt><dd>{{ currentVersionInfo.status || '未记录' }}</dd>
+                  <template v-for="file in currentVersionFiles" :key="file.label">
+                    <dt>{{ file.label }}路径</dt><dd>{{ file.path || '路径未记录' }}</dd>
+                  </template>
+                </dl>
+              </details>
             </template>
             <template v-else>
               未查询到同编号受控版本，将创建新的受控文件主档，并按新建规则校验。
@@ -699,6 +708,7 @@ import { buildUploadFileTypePaths, uploadFileTypeIdentity } from './file-type-op
 import { cleanupControlledFileUploadSession, cleanupControlledFileUploadTicket, createControlledFileUploadSessionId, getControlledFileCurrentVersion, getControlledFileUploadDirectoryTree, checkControlledFileRouteReadiness, previewControlledFileProjectProduct, submitControlledFile, createWorkingControlledFile, uploadControlledFilePreview, type ControlledFileCurrentVersionRespVO, type ControlledFileProjectProduct, type ControlledFileRouteReadinessVO, type ControlledFileUploadDirectoryNodeVO, type ControlledFileUploadDirectoryTreeVO, type ControlledFileUploadNameOptionVO, type ControlledFileUploadRespVO } from '@/api/dcc/controlledFile/workflow';
 import {
   DCC_ACTION_PROJECTION_MISSING_REASON,
+  DCC_CONTROLLED_FILE_STATUS_DEFINITIONS,
   hasDccControlledFileActionProjection,
   resolveDccActionProjectionReadonlyReason
 } from '../shared/lifecycle'
@@ -763,6 +773,25 @@ const projectFileTemplateItems = ref<DccProjectFileTemplateItemRespVO[]>([])
 const uploadNameOptions = ref<ControlledFileUploadNameOptionVO[]>([])
 const uploadDirectoryTree = ref<ControlledFileUploadDirectoryTreeVO>()
 const currentVersionInfo = ref<ControlledFileCurrentVersionRespVO>()
+const currentVersionStatusLabel = computed(() => {
+  const status = currentVersionInfo.value?.status
+  if (!status) return '状态未记录'
+  return DCC_CONTROLLED_FILE_STATUS_DEFINITIONS.find((item) => item.value === status)?.label
+    ?? '状态无法识别，请查看原始状态'
+})
+const currentVersionFiles = computed(() => {
+  const info = currentVersionInfo.value
+  if (!info) return []
+  return [
+    { label: '原版本文件', name: info.originalFileName, path: info.originalFilePath },
+    { label: '源文件', name: info.sourceFileName, path: info.sourceFilePath },
+    {
+      label: '受控文件',
+      name: info.stampedFilePath ? info.stampedFileName : info.publishedFileName,
+      path: info.stampedFilePath || info.publishedFilePath
+    }
+  ]
+})
 const selectedHistoryVersion = ref<string | null>()
 const fileList = ref<UploadUserFile[]>([])
 const editableFileList = ref<UploadUserFile[]>([])
@@ -2998,6 +3027,16 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
+.current-version-files {
+  display: grid;
+  grid-template-columns: 120px minmax(0, 1fr);
+  gap: 8px 12px;
+  margin: 12px 0;
+}
+
+.current-version-files dt { color: var(--el-text-color-secondary); }
+.current-version-files dd { margin: 0; overflow-wrap: anywhere; white-space: pre-wrap; }
+.current-version-storage summary { cursor: pointer; color: var(--el-color-primary); }
 :global(.dcc-upload-submit-confirmation) {
   width: min(720px, calc(100vw - 32px));
   max-width: calc(100vw - 32px);

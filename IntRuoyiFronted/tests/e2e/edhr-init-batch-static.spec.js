@@ -43,7 +43,7 @@ for (const fragment of [
   'EdhrInitBatchApi.getIssuePage',
   '初始化批次',
   '创建批次',
-  '上传 manifest',
+  '上传交付清单',
   '执行预检',
   '预检问题',
   'manifestHash',

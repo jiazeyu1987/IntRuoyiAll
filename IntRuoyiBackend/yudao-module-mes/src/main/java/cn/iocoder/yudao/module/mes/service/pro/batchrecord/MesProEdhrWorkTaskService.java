@@ -18,6 +18,11 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 public interface MesProEdhrWorkTaskService {
+    /** Resolve real filling responsibility without creating tasks or entitlements. */
+    void checkRouteFillReadiness(Long routeId, Long routeVersionId, Long routeProcessId, Long processId,
+                                Long routeBindingId, String reportId, Long batchRecordVersionId,
+                                String formBindingKey, Long formTemplateVersionId);
+
     void syncMarketReleaseHandoverEntitlements(MesProEdhrWorkTaskDO task, Long originalUserId);
 
 

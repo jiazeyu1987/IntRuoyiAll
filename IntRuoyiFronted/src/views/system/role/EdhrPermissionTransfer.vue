@@ -1,8 +1,56 @@
 <template>
-  <el-button v-if="canExport" :loading="exporting" @click="exportFile"
-    >导出 eDHR 权限 Excel</el-button
-  >
-  <el-button v-if="canImport" @click="open">导入 eDHR 权限 Excel</el-button>
+  <el-dropdown v-if="canExportRole || canExport" trigger="click">
+    <el-button
+      plain
+      type="success"
+      :loading="exportLoading || exporting"
+      class="permission-transfer-action"
+    >
+      <Icon class="mr-5px" icon="ep:download" />
+      导出
+      <Icon class="ml-5px" icon="ep:arrow-down" />
+    </el-button>
+    <template #dropdown>
+      <el-dropdown-menu>
+        <el-dropdown-item
+          v-if="canExportRole"
+          :disabled="exportLoading"
+          @click="emit('exportRole')"
+        >
+          权限角色配置包（JSON）
+        </el-dropdown-item>
+        <el-dropdown-item v-if="canExport" :disabled="exporting" @click="exportFile">
+          eDHR 权限（Excel）
+        </el-dropdown-item>
+      </el-dropdown-menu>
+    </template>
+  </el-dropdown>
+  <el-dropdown v-if="canImportRole || canImport" trigger="click">
+    <el-button
+      plain
+      type="warning"
+      :loading="importLoading || busy"
+      class="permission-transfer-action"
+    >
+      <Icon class="mr-5px" icon="ep:upload" />
+      导入
+      <Icon class="ml-5px" icon="ep:arrow-down" />
+    </el-button>
+    <template #dropdown>
+      <el-dropdown-menu>
+        <el-dropdown-item
+          v-if="canImportRole"
+          :disabled="importLoading"
+          @click="emit('importRole')"
+        >
+          权限角色配置包（JSON）
+        </el-dropdown-item>
+        <el-dropdown-item v-if="canImport" :disabled="busy" @click="open">
+          eDHR 权限（Excel）
+        </el-dropdown-item>
+      </el-dropdown-menu>
+    </template>
+  </el-dropdown>
   <el-dialog
     v-model="visible"
     title="eDHR 账号角色权限迁移"
@@ -134,8 +182,11 @@ import { checkPermi } from '@/utils/permission'
 import download from '@/utils/download'
 import * as Transfer from '@/api/system/role/edhrPermissionTransfer'
 
-const emit = defineEmits<{ success: [] }>()
+defineProps<{ exportLoading: boolean; importLoading: boolean }>()
+const emit = defineEmits<{ success: []; exportRole: []; importRole: [] }>()
 const message = useMessage()
+const canExportRole = computed(() => checkPermi(['system:role:export']))
+const canImportRole = computed(() => checkPermi(['system:role:create', 'system:role:update']))
 const canExport = computed(() =>
   ['system:role:export', 'system:user:query'].every((p) => checkPermi([p]))
 )
@@ -254,6 +305,9 @@ const confirmImport = async () => {
 </script>
 
 <style scoped>
+.permission-transfer-action {
+  min-width: 108px;
+}
 .transfer-upload {
   display: flex;
   align-items: center;

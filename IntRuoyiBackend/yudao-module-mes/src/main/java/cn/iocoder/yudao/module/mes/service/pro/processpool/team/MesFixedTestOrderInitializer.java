@@ -4,6 +4,8 @@ import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.mes.service.pro.craft.MesProCraftParameters;
 import cn.iocoder.yudao.module.mes.enums.pro.MesProWorkOrderStatusEnum;
 import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteSnapshotCanonicalizer;
+import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteControlledContentAdapter;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteVersionDO;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -27,6 +29,7 @@ public class MesFixedTestOrderInitializer {
     static final String WORK_ORDER_CODE = "SIM-COPY-CODX-PQC-20260807-SP-WO-05-OPYAO451788352161891";
     private final JdbcTemplate jdbc;
     private final MesProRouteSnapshotCanonicalizer canonicalizer;
+    private final MesProRouteControlledContentAdapter controlledContentAdapter;
 
     @Transactional(propagation = Propagation.MANDATORY, rollbackFor = Exception.class)
     public void initialize(Long actor) {
@@ -130,6 +133,14 @@ public class MesFixedTestOrderInitializer {
             report.overrides.put("sample_key", "FIXED_TEST_TN" + tenant + "_VERSION_" + graph.mappedField(report, "batch_record_version_id"));
         }
         graph.insertAll();
+        // Imported active versions participate in the same controlled lifecycle as UI-created routes.
+        // Registration validates existing references and remains inside the reset transaction.
+        controlledContentAdapter.recordActiveRegisteredIfMissing(MesProRouteVersionDO.builder()
+                .id(number(graph.id("mes_pro_route_version", routeVersion.get("id"))))
+                .routeId(number(graph.id("mes_pro_route", routeId)))
+                .versionNo(String.valueOf(graph.mappedField(version, "version_no")))
+                .active(Boolean.TRUE).lifecycleStatus("ACTIVE").build(), actor,
+                "固定测试订单初始化登记正式工艺版本");
     }
 
     private void prepareProductQa(MesFixedTestOrderReferenceGraph graph, Map<String, Object> reference,

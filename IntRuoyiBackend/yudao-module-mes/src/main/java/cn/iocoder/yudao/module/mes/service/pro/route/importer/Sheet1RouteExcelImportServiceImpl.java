@@ -36,6 +36,9 @@ import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_ROUTE_IMP
 @Service
 @Validated
 public class Sheet1RouteExcelImportServiceImpl implements Sheet1RouteExcelImportService {
+    @jakarta.annotation.Resource
+    private cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteProjectGuard projectGuard;
+
 
     @Resource
     private MesProProcessCreationService processCreationService;
@@ -66,10 +69,13 @@ public class Sheet1RouteExcelImportServiceImpl implements Sheet1RouteExcelImport
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public Sheet1RouteExcelImportResult importExcel(MultipartFile file, Integer processStatus) {
+    public Sheet1RouteExcelImportResult importExcel(MultipartFile file, Integer processStatus, Long dccProjectCodeId) {
         validateProcessStatus(processStatus);
         validateFile(file);
         Sheet1RouteExcelParser.ParseResult parseResult = parse(file);
+        if (parseResult.routes().size() != 1) throw cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.invalidParamException(
+                "本格式每次只能为一个项目导入一条工艺流程，请拆分文件");
+        projectGuard.requireAvailable(dccProjectCodeId, null);
 
         AtomicInteger nextRouteSequence = new AtomicInteger(
                 maxSuffix(routeMapper.selectListByCodePrefix(ROUTE_CODE_PREFIX), ROUTE_CODE_PREFIX) + 1);
@@ -104,6 +110,7 @@ public class Sheet1RouteExcelImportServiceImpl implements Sheet1RouteExcelImport
             route.setRemark(String.join("\n", parsedRoute.materialCodes()));
             route.setStatus(CommonStatusEnum.DISABLE.getStatus());
             routeMapper.insert(route);
+            projectGuard.bindNewRoute(route.getId(), dccProjectCodeId);
             routeOwnerPermissionService.bindCurrentUserAsOwner(route.getId());
             routeCodes.add(route.getCode());
 

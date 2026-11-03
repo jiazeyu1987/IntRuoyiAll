@@ -64,7 +64,7 @@ public class UserDingTalkImportExcelParser {
                 if (isBlankRow(item)) {
                     continue;
                 }
-                validateRow(item, headerIndexMap.containsKey("主部门ID"));
+                validateRow(item);
                 rows.add(item);
             }
             if (rows.isEmpty()) {
@@ -78,7 +78,7 @@ public class UserDingTalkImportExcelParser {
         }
     }
 
-    private void validateRow(UserDingTalkImportExcelVO row, boolean hasSourceDepartmentColumn) {
+    private void validateRow(UserDingTalkImportExcelVO row) {
         if (isBlank(row.getName())) {
             throw exception(USER_DING_TALK_IMPORT_NAME_REQUIRED);
         }
@@ -90,19 +90,14 @@ public class UserDingTalkImportExcelParser {
                 row.getLevel5DepartmentName(), row.getLevel6DepartmentName(), row.getLevel7DepartmentName()
         );
         boolean blankSeen = false;
-        boolean hasDepartment = false;
         for (String level : levels) {
             if (isBlank(level)) {
                 blankSeen = true;
                 continue;
             }
-            hasDepartment = true;
             if (blankSeen) {
                 throw exception(USER_DING_TALK_IMPORT_LEVEL_GAP);
             }
-        }
-        if (hasSourceDepartmentColumn && hasDepartment && isBlank(row.getSourceDepartmentId())) {
-            throw exception(USER_DING_TALK_IMPORT_SOURCE_DEPT_ID_REQUIRED);
         }
     }
 

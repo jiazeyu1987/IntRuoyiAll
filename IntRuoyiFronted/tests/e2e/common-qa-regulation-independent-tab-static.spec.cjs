@@ -10,6 +10,7 @@ const page = fs.readFileSync(
 const commonPage = fs.readFileSync(
   path.join(process.cwd(), 'src/views/mes/pro/processpool/CommonRegulationPage.vue'), 'utf8'
 )
+const routes = fs.readFileSync(path.join(process.cwd(), 'src/router/modules/remaining.ts'), 'utf8')
 assert(
   !page.includes('data-qa-regulation-workspace-tabs') &&
     commonPage.includes('<QaRegulationPage workspace="common" />'),
@@ -43,7 +44,7 @@ assert(
 )
 
 assert(
-  page.includes("path: '/mes/pro/process-pool/common-regulation'") &&
+  routes.includes("path: 'pro/process-pool/common-regulation'") &&
     !page.includes("qaActiveTab.value = 'common'") &&
     !page.includes("type QaRegulationTabName = 'overview' | 'common'"),
   'RED: common regulation navigation must not reuse QA detail-tab state'

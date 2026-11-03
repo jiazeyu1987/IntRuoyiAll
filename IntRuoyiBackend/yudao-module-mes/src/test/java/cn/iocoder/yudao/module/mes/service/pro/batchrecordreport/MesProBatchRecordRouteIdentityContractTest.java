@@ -19,15 +19,16 @@ class MesProBatchRecordRouteIdentityContractTest {
                     + "MesProBatchRecordRouteGenerationServiceImpl.java");
 
     @Test
-    void wordImport_resolvesGovernedRouteOnlyThroughFormalProductBinding() throws Exception {
+    void wordImport_resolvesGovernedRouteThroughSelectedDccProjectBinding() throws Exception {
         String source = read(REPORT_SERVICE);
 
         assertFalse(source.contains("routeMapper.selectListByName(projectName)"),
                 "Word 导入预检不得按 DCC 项目名称猜测工艺路线。");
-        assertTrue(source.contains("dccProjectCodeMapper.selectEnabledListByProjectName(projectName)"),
-                "Word 导入预检必须从 DCC 项目代码关系开始定位产品。");
-        assertTrue(source.contains("routeProductMapper.selectListByItemIds(dccProductItemIds)"),
-                "Word 导入预检必须通过正式路线产品绑定定位路线。");
+        assertTrue(source.contains("routeDccProjectBindingMapper.selectCurrentListByDccProjectCodeId(selectedProjectCode.getId())"),
+                "Word 导入预检必须从选定 DCC 项目的正式流程关联定位路线。");
+        assertTrue(source.contains("routeDccProjectBindingMapper.selectCurrentByRouteId(route.getId())")
+                        && source.contains("!Objects.equals(currentBinding.getDccProjectCodeId(), selectedProjectCode.getId())"),
+                "产品关联定位到的流程也必须校验所属项目，不能使用其他项目的流程。");
     }
 
     @Test

@@ -60,7 +60,7 @@ class DccDelayedSignatureRoundtripTest {
         var bytePort=mock(FileService.class);when(bytePort.getFile(110L)).thenReturn(FileDO.builder().id(110L).configId(7L).path("g01-source.pdf").build());when(bytePort.getFileContent(7L,"g01-source.pdf")).thenReturn(new byte[]{1,2,3});
         var evidence=new DccControlledFileSignatureEvidenceServiceImpl();wire(evidence,"controlledFileMapper",files,"fileService",bytePort,"signatureEvidenceProperties",properties);
         var images=mock(DccElectronicSignatureImageService.class);var image=DccElectronicSignatureImageSnapshot.builder().imageId(501L).versionNo(1).fileId(1501L).fileUrl("g01-sign.png")
-                .sha256("image-sha").contentType("image/png").fileSize(50L).imageStatus("ACTIVE").verifiedStatus("VALID").content(new byte[]{7}).build();when(images.requireActiveSnapshot(99L)).thenReturn(image);when(images.verifySignatureSnapshot(any(DccControlledFileSignatureDO.class))).thenReturn(image);
+                .sha256("image-sha").contentType("image/png").fileSize(50L).imageStatus("ACTIVE").verifiedStatus("VALID").content(new byte[]{7}).build();when(images.requireSigningSnapshot(99L)).thenReturn(image);when(images.verifySignatureSnapshot(any(DccControlledFileSignatureDO.class))).thenReturn(image);
         var adapter=new DccControlledFileSignatureSubjectAdapter();wire(adapter,"signatureEvidenceService",evidence);
         var signatureService=new ElectronicSignatureServiceImpl();var accounts=mock(AdminUserApi.class);var ledger=mock(GxpAuditService.class);when(ledger.append(any())).thenReturn(new GxpAuditAppendResult(900L,1L,"a".repeat(64),false));
         wire(signatureService,"signatureRecordMapper",unified,"adminUserApi",accounts,"gxpAuditService",ledger,"subjectAdapters",List.of(adapter));

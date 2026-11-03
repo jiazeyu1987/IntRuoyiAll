@@ -32,8 +32,8 @@ assertMatch(
 )
 assertMatch(
   source,
-  /selectedBoundaryType === 'END'[\s\S]*data-flow-boundary-field="releaseOwner"[\s\S]*放行责任人/,
-  '选中工序结束节点时，左侧面板必须只显示放行责任人配置 item。'
+  /selectedBoundaryType === 'START'(?:(?!<template v-else)[\s\S])*data-flow-boundary-field="releaseOwner"[\s\S]*放行责任人/,
+  '选中工序开始节点时，左侧面板必须包含放行责任人配置 item。'
 )
 assertMatch(
   source,
@@ -42,8 +42,8 @@ assertMatch(
 )
 assertMatch(
   source,
-  /selectedBoundaryDetailFieldKey === 'releaseOwner'[\s\S]*data-flow-panel="release-owner-detail"/,
-  '右侧字段明细必须提供工序结束放行责任人明细面板。'
+  /selectedBoundaryType === 'START' && selectedBoundaryDetailFieldKey === 'releaseOwner'[\s\S]*<strong>工序开始<\/strong>[\s\S]*data-flow-panel="release-owner-detail"/,
+  '右侧字段明细必须提供工序开始放行责任人明细面板。'
 )
 assertMatch(
   source,
@@ -66,4 +66,14 @@ assert.doesNotMatch(
   '放行责任人配置不得继续显示或保存处理时限。'
 )
 
-console.log('PASS: MES route flow end release owner static contract')
+assert.doesNotMatch(
+  source,
+  /selectedBoundaryType === 'END' && selectedBoundaryDetailFieldKey === 'releaseOwner'|boundaryType === 'START' \? 'basic' : 'releaseOwner'|流转关系图工序结束放行责任人/,
+  '工序结束不得再展示或默认选中放行责任人，保存备注必须对应工序开始。'
+)
+assertMatch(
+  source,
+  /boundaryType === 'START' \? 'basic' : undefined/,
+  '工序结束不应默认选中字段，工序开始仍默认展示基本设置。'
+)
+console.log('PASS: MES route flow start release owner static contract')

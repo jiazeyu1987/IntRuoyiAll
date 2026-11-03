@@ -3,6 +3,7 @@
     <el-form
       ref="formRef"
       v-loading="formLoading"
+      :disabled="formLoading"
       :model="formData"
       :rules="formRules"
       label-width="118px"
@@ -93,6 +94,7 @@ const resetForm = (user: UserApi.UserVO) => {
 }
 
 const open = async (user: UserApi.UserVO) => {
+  if (formLoading.value) return
   if (user.lifecycleDeactivatedTime) {
     message.warning('该账号已按离职/转岗单联动停用')
     return
@@ -112,15 +114,27 @@ defineExpose({ open })
 
 const emit = defineEmits(['success', 'handover'])
 const submitForm = async () => {
-  if (!formRef.value) return
-  const valid = await formRef.value.validate()
-  if (!valid) return
+  if (!formRef.value || formLoading.value) return
   formLoading.value = true
+  const target = targetUser.value
   try {
-    await UserApi.recordUserLifecycleDeactivation(formData.value)
+    const valid = await formRef.value.validate()
+    if (!valid || !dialogVisible.value || targetUser.value !== target) return
+    const payload = { ...formData.value }
+    try {
+      await message.confirm(
+        `目标账号：${targetUserText.value}\n单据类型：${payload.documentType === 'RESIGNATION' ? '离职单' : '转岗单'}\n单号：${payload.documentNo}\n生效时间：${payload.effectiveTime.replace('T', ' ')}\n到期立即或由定时任务停用账号并解除主管配置；启用账号停用时现有登录会话失效。\n${supervisorImpact.value}\n待办不会自动转交，登记成功后另行确认交接；取消交接不会撤销本次登记。`,
+        '确认登记离职/转岗停用'
+      )
+    } catch (cause) {
+      if (cause === 'cancel' || cause === 'close') return
+      throw cause
+    }
+    if (!dialogVisible.value) return
+    await UserApi.recordUserLifecycleDeactivation(payload)
     message.success('离职/转岗联动停用已登记')
     dialogVisible.value = false
-    emit('handover', targetUser.value)
+    emit('handover', target)
     emit('success')
   } finally {
     formLoading.value = false

@@ -1,123 +1,147 @@
 <template>
-  <ContentWrap v-loading="busy">
-    <div class="toolbar">
-      <h2>简易通用解析</h2>
-      <el-select
-        v-model="projectId"
-        aria-label="规程所属项目"
-        placeholder="选择规程所属项目"
-        filterable
-        remote
-        :remote-method="searchProjects"
-        :disabled="!!draft && !published"
-        style="width: 320px"
-      >
-        <el-option
-          v-for="p in projects"
-          :key="p.id"
-          :value="p.id"
-          :label="`${p.projectCode} / ${p.projectName}`"
-        />
-      </el-select>
-      <el-upload
-        :auto-upload="false"
-        :show-file-list="false"
-        accept=".docx"
-        :on-change="importWord"
-        :disabled="!projectId || busy"
-      >
-        <el-button :disabled="!projectId || busy">解析通用规程</el-button>
-      </el-upload>
-      <el-button :disabled="!draft || published" @click="saveLocal">保存草稿</el-button>
-      <el-button @click="restoreLocal">恢复草稿</el-button>
-      <el-button @click="router.push('/mes/pro/process-pool/common-regulation')"
-        >管理通用规程套</el-button
-      >
-      <el-button
-        v-hasPermi="['mes:qc-template:update']"
-        type="primary"
-        :disabled="!draft || published"
-        @click="preview"
-        >预览发布</el-button
-      >
-    </div>
-    <el-alert
-      title="解析、修改和预览均不会导入正式规程；确认发布后，再到通用检验规程页面将文档加入对应规程套。"
-      type="info"
-      :closable="false"
+  <ContentWrap class="simple-parser-layout" v-loading="busy" :element-loading-text="busyText">
+    <SimpleParserHeader
+      v-model:project-id="projectId"
+      title="简易通用解析"
+      import-accept=".doc,.docx"
+      :projects="projects"
+      :busy="busy"
+      :has-content="!!draft"
+      :published="published"
+      publish-permission="mes:qc-template:update"
+      @search="searchProjects"
+      @import="importWord"
+      @export="exportWord"
+      @save="saveLocal"
+      @restore="restoreLocal"
+      @preview="preview"
     />
     <el-alert v-if="error" :title="error" type="error" :closable="false" />
-    <el-alert
-      v-if="published"
-      title="已正式导入并发布通用检验规程，可前往通用检验规程页面维护规程套和产品关联。"
-      type="success"
-      :closable="false"
+    <section v-if="published" class="parser-published-result">
+      <el-result
+        icon="success"
+        title="发布完成"
+        :sub-title="`${draft?.regulationName} · ${draft?.versionNo}`"
+      >
+        <template #extra>
+          <el-button type="primary" @click="viewResult">查看结果</el-button>
+          <el-upload
+            :auto-upload="false"
+            :show-file-list="false"
+            accept=".doc,.docx"
+            :disabled="busy || !projectId"
+            :on-change="importWord"
+          >
+            <el-button :disabled="busy || !projectId">重新导入</el-button>
+          </el-upload>
+        </template>
+      </el-result>
+    </section>
+    <ParserRegulationResult
+      v-if="publishedResult"
+      v-model="resultVisible"
+      :result="publishedResult"
+      :project-name="publishedProjectName"
     />
-    <el-empty
-      v-if="!draft"
-      description="选择规程所属项目，解析 Word 后编辑并预览，确认发布后才正式导入"
-    />
+    <el-empty v-if="!draft" description="先选择所属项目，再导入 Word，编辑后预览发布" />
     <template v-else>
-      <el-radio-group v-model="viewMode" aria-label="解析查看模式">
+      <el-radio-group v-model="viewMode" class="parser-mode-tabs" aria-label="解析查看模式">
         <el-radio-button value="edit">编辑内容</el-radio-button>
         <el-radio-button value="trial">试填预览</el-radio-button>
       </el-radio-group>
-      <SimplePqcTrialPreview
+      <p class="parser-draft-status">{{
+        dirty ? '有未保存修改' : savedAt ? `已保存：${savedAt}` : '内容已保存'
+      }}</p>
+      <ParserTrialNavigation
         v-if="viewMode === 'trial'"
+        :index="processIndex"
+        :names="draft.processes.map((p) => p.processName)"
+        @select="selectProcess"
+        @edit="viewMode = 'edit'"
+      />
+      <SimplePqcTrialPreview
+        v-show="viewMode === 'trial'"
+        :key="trialSession"
         :draft="draft"
         :process-index="processIndex"
         @select-process="selectProcess"
       />
       <el-form v-show="viewMode === 'edit'" :disabled="published" label-position="top">
-        <div ref="metadataEditor" class="metadata">
+        <div ref="metadataEditor" class="metadata parser-metadata">
           <el-form-item label="规程名称"
-            ><el-input v-model="draft.regulationName" aria-label="规程名称"
+            ><el-input
+              v-model="draft.regulationName"
+              data-issue-field="regulationName"
+              aria-label="规程名称"
           /></el-form-item>
           <el-form-item label="文件编号"
-            ><el-input v-model="draft.regulationCode" aria-label="文件编号"
+            ><el-input
+              v-model="draft.regulationCode"
+              data-issue-field="regulationCode"
+              aria-label="文件编号"
           /></el-form-item>
           <el-form-item label="发布版本"
-            ><el-input v-model="draft.versionNo" aria-label="发布版本"
+            ><el-input v-model="draft.versionNo" data-issue-field="versionNo" aria-label="发布版本"
           /></el-form-item>
           <el-form-item label="生效日期"
-            ><el-date-picker v-model="draft.effectiveDate" value-format="YYYY-MM-DD"
+            ><el-date-picker
+              v-model="draft.effectiveDate"
+              data-issue-field="effectiveDate"
+              value-format="YYYY-MM-DD"
           /></el-form-item>
         </div>
-        <div class="workspace">
-          <aside>
-            <el-button @click="addProcess">添加工序</el-button>
-            <div v-for="(p, pi) in draft.processes" :key="p.processCode" class="process">
-              <button
-                type="button"
-                :class="{ active: pi === processIndex }"
-                @click="selectProcess(pi)"
-                >{{ pi + 1 }}. {{ p.processName }}（{{ p.items.length }}项）</button
-              >
-              <template v-if="pi === processIndex">
-                <button
-                  v-for="(i, ii) in p.items"
-                  :key="i.itemCode"
-                  type="button"
-                  :class="{ active: ii === itemIndex }"
-                  @click="itemIndex = ii"
-                  >{{ ii + 1 }}. {{ i.itemName || '新检验项目' }}</button
-                >
+        <div ref="workspaceEditor" class="workspace parser-workspace">
+          <aside class="parser-sidebar">
+            <el-button data-issue-field="addProcess" @click="addProcess">添加工序</el-button>
+            <Draggable
+              :model-value="draft.processes"
+              @update:model-value="reorderProcesses"
+              data-issue-field="processes"
+              item-key="processCode"
+              handle=".parser-drag-handle"
+              :disabled="busy || published"
+            >
+              <template #item="{ element: p, index: pi }">
+                <div class="process">
+                  <span v-if="!published" class="parser-drag-handle" title="拖动排序">⠿</span>
+                  <button
+                    type="button"
+                    :class="{ active: pi === processIndex }"
+                    @click="selectProcess(pi)"
+                    >{{ pi + 1 }}. {{ p.processName }}（{{ p.items.length }}项）</button
+                  >
+                  <template v-if="pi === processIndex">
+                    <button
+                      v-for="(i, ii) in p.items"
+                      :key="i.itemCode"
+                      type="button"
+                      :class="{ active: ii === itemIndex }"
+                      @click="itemIndex = ii"
+                      >{{ ii + 1 }}. {{ i.itemName || '新检验项目' }}</button
+                    >
+                  </template>
+                </div>
               </template>
-            </div>
+            </Draggable>
           </aside>
-          <section v-if="process" ref="itemEditor">
+          <section v-if="process" ref="itemEditor" class="parser-editor">
+            <ParserProcessToolbar
+              :index="processIndex"
+              :count="draft.processes.length"
+              :can-undo="!!history.length"
+              :disabled="busy || published"
+              @undo="undo"
+              @move="moveProcess"
+              @remove="removeProcess"
+            />
             <div class="toolbar">
-              <el-input v-model="process.processName" aria-label="工序名称" style="width: 240px" />
-              <el-button @click="addItem">添加检验项目</el-button>
-              <el-button :disabled="processIndex === 0" @click="moveProcess(-1)"
-                >工序上移</el-button
-              >
-              <el-button
-                :disabled="processIndex === draft.processes.length - 1"
-                @click="moveProcess(1)"
-                >工序下移</el-button
-              >
-              <el-button type="danger" plain @click="removeProcess">删除工序</el-button>
+              <el-input
+                v-model="process.processName"
+                data-issue-field="processName"
+                aria-label="工序名称"
+                style="width: 240px"
+              />
+              <el-button data-issue-field="addItem" @click="addItem">添加检验项目</el-button>
             </div>
             <template v-if="item">
               <div class="toolbar">
@@ -141,11 +165,15 @@
                 <el-button type="danger" plain @click="removeItem">删除项目</el-button>
               </div>
               <el-form-item label="检验项目"
-                ><el-input v-model="item.itemName" aria-label="检验项目"
+                ><el-input
+                  v-model="item.itemName"
+                  data-issue-field="itemName"
+                  aria-label="检验项目"
               /></el-form-item>
               <el-form-item label="接受标准"
                 ><el-input
                   v-model="item.standardText"
+                  data-issue-field="standardText"
                   aria-label="接受标准"
                   type="textarea"
                   :autosize="{ minRows: 3, maxRows: 10 }"
@@ -153,19 +181,22 @@
               <el-form-item label="检验方法"
                 ><el-input
                   v-model="item.inspectionMethod"
+                  data-issue-field="inspectionMethod"
                   aria-label="检验方法"
                   type="textarea"
                   :autosize="{ minRows: 3, maxRows: 10 }"
               /></el-form-item>
               <div class="metadata">
                 <el-form-item label="结果填写方式"
-                  ><el-select v-model="item.resultType"
+                  ><el-select v-model="item.resultType" data-issue-field="resultType"
                     ><el-option label="合格 / 不合格" value="BOOLEAN" /><el-option
                       label="测量数值"
                       value="NUMERIC" /><el-option label="文字记录" value="TEXT" /></el-select
                 ></el-form-item>
                 <el-form-item label="适用检验"
-                  ><el-checkbox-group v-model="item.applicableInspectionTypes"
+                  ><el-checkbox-group
+                    v-model="item.applicableInspectionTypes"
+                    data-issue-field="applicableInspectionTypes"
                     ><el-checkbox value="FIRST">首检</el-checkbox
                     ><el-checkbox value="PATROL">巡检</el-checkbox
                     ><el-checkbox v-if="draft.finalInspectionApplicable" value="FINAL"
@@ -174,38 +205,66 @@
                   ></el-form-item
                 >
                 <el-form-item label="关键检验项目"
-                  ><el-switch v-model="item.critical"
+                  ><el-switch v-model="item.critical" data-issue-field="critical"
                 /></el-form-item>
               </div>
               <div v-if="item.resultType === 'NUMERIC'" class="metadata">
                 <el-form-item label="下限"
-                  ><el-input-number v-model="item.standardLowerLimit"
+                  ><el-input-number
+                    v-model="item.standardLowerLimit"
+                    data-issue-field="standardLowerLimit"
                 /></el-form-item>
                 <el-form-item label="上限"
-                  ><el-input-number v-model="item.standardUpperLimit"
+                  ><el-input-number
+                    v-model="item.standardUpperLimit"
+                    data-issue-field="standardUpperLimit"
                 /></el-form-item>
-                <el-form-item label="单位"><el-input v-model="item.standardUnit" /></el-form-item>
+                <el-form-item label="单位"
+                  ><el-input v-model="item.standardUnit" data-issue-field="standardUnit"
+                /></el-form-item>
                 <el-form-item label="小数位数"
-                  ><el-input-number v-model="item.standardPrecision" :min="0" :max="10"
+                  ><el-input-number
+                    v-model="item.standardPrecision"
+                    data-issue-field="standardPrecision"
+                    :min="0"
+                    :max="10"
                 /></el-form-item>
               </div>
               <el-form-item label="抽样要求"
-                ><el-input v-model="item.samplingPlanText" type="textarea"
+                ><el-input
+                  v-model="item.samplingPlanText"
+                  data-issue-field="samplingPlanText"
+                  type="textarea"
               /></el-form-item>
               <div class="metadata">
                 <el-form-item
                   v-if="item.applicableInspectionTypes.includes('FIRST')"
                   label="首检数量（件）"
-                  ><el-input-number v-model="item.firstInspectionQuantity" :min="1" :precision="0"
+                  ><el-input-number
+                    v-model="item.firstInspectionQuantity"
+                    data-issue-field="firstInspectionQuantity"
+                    :min="1"
+                    :precision="0"
                 /></el-form-item>
                 <el-form-item
                   v-if="item.applicableInspectionTypes.includes('PATROL')"
                   label="系统巡检抽样比例（%）"
-                  ><el-input-number v-model="item.patrolInspectionRatio" :min="0.0001" :max="100"
+                  ><el-input-number
+                    v-model="item.patrolInspectionRatio"
+                    data-issue-field="patrolInspectionRatio"
+                    :min="0.0001"
+                    :max="100"
                 /></el-form-item>
               </div>
+              <p
+                v-if="
+                  item.applicableInspectionTypes.includes('PATROL') &&
+                  /AQL/i.test(item.samplingPlanText)
+                "
+                >{{ AQL_PATROL_RATIO_RULE }}</p
+              >
               <el-form-item label="检验器具及设备要求"
-                ><el-input v-model="item.inspectionTool"
+                ><el-input v-model="item.inspectionTool" data-issue-field="inspectionTool"
               /></el-form-item>
               <el-form-item ref="equipmentEditor" label="选择设备编号（名称自动带出）">
                 <el-select
@@ -226,31 +285,55 @@
               </el-form-item>
               <el-button @click="applyEquipment">应用到相同器具要求的项目</el-button>
               <el-form-item label="不合格处理要求"
-                ><el-input v-model="item.failureRule" type="textarea"
+                ><el-input
+                  v-model="item.failureRule"
+                  data-issue-field="failureRule"
+                  type="textarea"
               /></el-form-item>
             </template>
           </section>
+          <section v-else class="parser-editor"
+            ><ParserProcessToolbar
+              :index="-1"
+              :count="0"
+              :can-undo="!!history.length"
+              :disabled="busy || published"
+              @undo="undo"
+              @move="moveProcess"
+              @remove="removeProcess" /><el-empty description="暂无工序，请添加工序"
+          /></section>
         </div>
       </el-form>
+      <ParserIssueList
+        v-if="!published"
+        :issues="issues"
+        @locate="(index) => editIssue(issues[index])"
+      />
     </template>
     <el-dialog
       v-model="previewVisible"
-      title="确认发布到通用检验规程"
-      width="900px"
+      title="预览发布"
+      width="min(1000px, 95vw)"
       :close-on-click-modal="false"
+      :close-on-press-escape="!busy"
+      :show-close="!busy"
       @closed="focusIssue"
+      @opened="focusFinalIssue"
     >
       <template v-if="draft">
-        <p>{{ selectedProject }} · {{ draft.regulationName }} · {{ draft.versionNo }}</p>
+        <p>所属项目：{{ selectedProject }}</p>
+        <h3>发布内容</h3>
+        <p>{{ draft.regulationName }} · {{ draft.versionNo }}</p>
         <p>{{
           draft.regulationId
             ? '发布通用规程新版本，历史规程及已绑定套版本保留。新版本需加入对应规程套后使用。'
             : '新建通用检验规程并发布，发布后可加入对应规程套。'
         }}</p>
-        <el-form :disabled="published" label-position="top">
+        <el-form ref="finalEditor" :disabled="published || busy" label-position="top">
           <el-form-item label="末检适用性">
             <el-switch
               v-model="draft.finalInspectionApplicable"
+              data-issue-field="finalInspectionApplicable"
               active-text="适用末检"
               @change="syncFinal"
             />
@@ -258,6 +341,7 @@
           <el-form-item v-if="!draft.finalInspectionApplicable" label="末检不适用依据">
             <el-input
               v-model="draft.finalInspectionNotApplicableReason"
+              data-issue-field="finalInspectionNotApplicableReason"
               aria-label="末检不适用依据"
               placeholder="确认无需末检可点击下方按钮，也可填写具体依据"
             />
@@ -272,17 +356,7 @@
             </el-form-item>
           </template>
         </el-form>
-        <section v-if="issues.length" class="publish-issues" aria-label="发布前待确认事项">
-          <h3>还有 {{ issues.length }} 项需要确认</h3>
-          <p>补齐后即可发布。点击“去修改”会直接打开对应位置，已修改的内容会保留。</p>
-          <div v-for="(issue, index) in issues" :key="index" class="publish-issue">
-            <span>{{ issue.message }}</span>
-            <el-button v-if="issue.field === 'final'" size="small" @click="confirmNoFinal"
-              >确认无需末检</el-button
-            >
-            <el-button v-else size="small" @click="editIssue(issue)">去修改</el-button>
-          </div>
-        </section>
+
         <el-collapse
           ><el-collapse-item
             v-for="p in draft.processes"
@@ -303,25 +377,36 @@
               ><p v-if="i.failureRule">不合格处理：{{ i.failureRule }}</p
               ><p
                 >抽样：{{ i.samplingPlanText }}；首检
-                {{ i.firstInspectionQuantity ?? '不适用' }} 件；巡检
-                {{ i.patrolInspectionRatio ?? '不适用' }}%</p
+                {{ i.firstInspectionQuantity ?? '不适用' }} 件；巡检 {{ formatPatrolRatio(i) }}</p
+              ><p
+                v-if="
+                  i.applicableInspectionTypes.includes('PATROL') && /AQL/i.test(i.samplingPlanText)
+                "
+                >{{ AQL_PATROL_RATIO_RULE }}</p
               ><p
                 >设备：{{
                   i.equipmentOptions
                     .map((e) => `${e.equipmentNumber} / ${e.equipmentName}`)
                     .join('、') || i.inspectionTool
                 }}</p
+              ><p v-if="i.equipmentUnboundReason"
+                >器具未绑定原因：{{ i.equipmentUnboundReason }}</p
               ></article
             >
           </el-collapse-item></el-collapse
         >
+        <ParserIssueList
+          :issues="issues"
+          :disabled="busy"
+          @locate="(index) => editIssue(issues[index])"
+        />
       </template>
       <template #footer
-        ><el-button @click="previewVisible = false">返回修改</el-button
+        ><el-button :disabled="busy" @click="previewVisible = false">返回修改</el-button
         ><el-button
           type="primary"
           :loading="busy"
-          :disabled="issues.length > 0 || published"
+          :disabled="busy || issues.length > 0 || published"
           @click="publish"
           >确认发布</el-button
         ></template
@@ -332,10 +417,18 @@
 
 <script setup lang="ts">
 import { computed, nextTick, ref } from 'vue'
+import Draggable from 'vuedraggable'
+import { useParserEditing } from '../parser/useParserEditing'
+import ParserProcessToolbar from '../parser/components/ParserProcessToolbar.vue'
+import ParserTrialNavigation from '../parser/components/ParserTrialNavigation.vue'
+import ParserIssueList from '../parser/components/ParserIssueList.vue'
+import SimpleParserHeader from '../parser/components/SimpleParserHeader.vue'
 import SimplePqcTrialPreview from '../parser/components/SimplePqcTrialPreview.vue'
+import ParserRegulationResult from '../parser/components/ParserRegulationResult.vue'
 import type { UploadFile } from 'element-plus'
 import { SimpleCommonParserApi } from '@/api/mes/qc/template/simpleCommonParser'
-import { useRouter } from 'vue-router'
+import { QcTemplateApi, type QaInspectionRegulationPublishedVersionVO } from '@/api/mes/qc/template'
+import { AQL_PATROL_RATIO_RULE, nextVersion, formatPatrolRatio } from '../parser/simplePqc'
 import {
   getProjectCodePage,
   type DccProjectCodeRespVO
@@ -345,10 +438,13 @@ import { getTenantId } from '@/utils/auth'
 import { useUserStore } from '@/store/modules/user'
 import { validateCommonDraft, type DraftIssue } from './draft'
 import type { SimpleCommonDraft as Draft } from '@/api/mes/qc/template/simpleCommonParser'
+import { createPqcWord, readPqcWord, pqcWordFilename, pqcWordMime } from '../parser/simplePqcWord'
 
 defineOptions({ name: 'FormCenterSimpleCommonParser' })
 const message = useMessage()
-const router = useRouter()
+const busyText = ref('正在处理，请稍候…')
+const trialSession = ref(0)
+const finalEditor = ref<{ $el: HTMLElement }>()
 const projectId = ref<number>()
 const projects = ref<DccProjectCodeRespVO[]>([])
 const draft = ref<Draft>()
@@ -356,11 +452,16 @@ const machinery = ref<DvMachineryVO[]>([])
 const busy = ref(false)
 const error = ref('')
 const published = ref(false)
+const publishedResult = ref<QaInspectionRegulationPublishedVersionVO>()
+const publishedProjectName = ref<string>()
+const resultVisible = ref(false)
 const previewVisible = ref(false)
 const viewMode = ref<'edit' | 'trial'>('edit')
 const processIndex = ref(0)
 const itemIndex = ref(0)
 const metadataEditor = ref<HTMLElement>()
+const workspaceEditor = ref<HTMLElement>()
+const finalIssuePending = ref(false)
 const itemEditor = ref<HTMLElement>()
 const equipmentEditor = ref<{ $el: HTMLElement }>()
 const pendingIssue = ref<DraftIssue>()
@@ -374,13 +475,53 @@ const issues = computed(() =>
     ? [
         ...validateCommonDraft(draft.value),
         ...(!draft.value.versionNo.trim()
-          ? [{ message: '请填写发布版本', field: 'metadata' as const }]
+          ? [{ message: '请填写发布版本', field: 'metadata' as const, target: 'versionNo' }]
           : [])
       ]
     : []
 )
 const copy = <T,>(value: T): T => JSON.parse(JSON.stringify(value))
-async function run(action: () => Promise<void>) {
+const {
+  history,
+  dirty,
+  savedAt,
+  reset: resetEditing,
+  markSaved,
+  undo
+} = useParserEditing(
+  () => (draft.value ? { draft: draft.value } : undefined),
+  (state) => {
+    const code = process.value?.processCode,
+      itemCode = item.value?.itemCode
+    draft.value = state.draft
+    processIndex.value = Math.max(
+      0,
+      state.draft.processes.findIndex((p) => p.processCode === code)
+    )
+    itemIndex.value = Math.max(
+      0,
+      process.value?.items.findIndex((i) => i.itemCode === itemCode) ?? 0
+    )
+  },
+  published
+)
+function reorderProcesses(list: Draft['processes']) {
+  if (busy.value || published.value) return
+  const code = process.value?.processCode
+  draft.value!.processes = list
+  normalize()
+  processIndex.value = Math.max(
+    0,
+    list.findIndex((p) => p.processCode === code)
+  )
+}
+function viewResult() {
+  resultVisible.value = true
+}
+
+async function run(action: () => Promise<void>, text = '正在处理，请稍候…') {
+  if (busy.value) return
+  busyText.value = text
   busy.value = true
   error.value = ''
   try {
@@ -405,7 +546,7 @@ async function searchProjects(keyword = '') {
   }
 }
 async function loadResources() {
-  if (!projectId.value) throw new Error('请选择规程所属项目')
+  if (!projectId.value) throw new Error('请先选择所属项目')
   const options: DvMachineryVO[] = []
   for (let pageNo = 1; ; pageNo++) {
     const page = await DvMachineryApi.getMachineryPage({ pageNo, pageSize: 100 })
@@ -417,23 +558,74 @@ async function loadResources() {
   }
   machinery.value = options
 }
+async function confirmReplace(text: string) {
+  try {
+    await message.confirm(text)
+    return true
+  } catch (reason) {
+    if (reason === 'cancel' || reason === 'close') return false
+    throw reason
+  }
+}
 async function importWord(upload: UploadFile) {
+  if (busy.value) return
   if (!upload.raw) return
   if (!projectId.value) {
-    message.error('请选择规程所属项目')
+    message.error('请先选择所属项目')
     return
   }
-  if (draft.value && !published.value)
-    await message.confirm('重新解析将替换当前未发布内容，是否继续？')
+  if (!/\.docx?$/i.test(upload.raw.name)) {
+    message.error('请选择 DOC 或 DOCX 文件')
+    return
+  }
+  if (dirty.value && !(await confirmReplace('导入新文档将替换当前未保存内容，是否继续？'))) return
   await run(async () => {
-    const parsed = await SimpleCommonParserApi.parse(upload.raw!, projectId.value!)
+    const restored = /\.docx$/i.test(upload.raw!.name)
+      ? readPqcWord(
+          await upload.raw!.arrayBuffer(),
+          String(getTenantId()),
+          projectId.value!,
+          'MES_QA_COMMON'
+        )
+      : null
+    const parsed = restored
+      ? restored.draft
+      : await SimpleCommonParserApi.parse(upload.raw!, projectId.value!)
+    if (restored) {
+      const versions = await QcTemplateApi.listCommonRegulationPublishedVersions()
+      parsed.versionNo = nextVersion(
+        parsed.versionNo,
+        versions.filter((v) => v.commonDccProjectCodeId === projectId.value).map((v) => v.versionNo)
+      )
+      parsed.expectedDraftRevision = 0
+    }
     await loadResources()
     draft.value = parsed
     published.value = false
+    publishedResult.value = undefined
+    publishedProjectName.value = undefined
+    resultVisible.value = false
     viewMode.value = 'edit'
     processIndex.value = 0
     itemIndex.value = 0
-  })
+    trialSession.value++
+    resetEditing()
+  }, '正在解析，请稍候…')
+}
+async function exportWord() {
+  if (!draft.value) return
+  await run(async () => {
+    const bytes = createPqcWord(copy(draft.value!), String(getTenantId()), [])
+    const url = URL.createObjectURL(new Blob([new Uint8Array(bytes)], { type: pqcWordMime }))
+    const link = document.createElement('a')
+    link.href = url
+    link.download = pqcWordFilename(draft.value!)
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    setTimeout(() => URL.revokeObjectURL(url), 1000)
+    message.success('Word 已导出，可通过“导入 Word”还原完整内容')
+  }, '正在导出，请稍候…')
 }
 function selectProcess(index: number) {
   processIndex.value = index
@@ -474,14 +666,14 @@ function addItem() {
   itemIndex.value = process.value!.items.length - 1
 }
 async function removeProcess() {
-  await message.confirm('删除此工序及其全部检验项目？')
+  if (!(await confirmReplace('删除此工序及其全部检验项目？删除后可撤销。'))) return
   draft.value!.processes.splice(processIndex.value, 1)
   processIndex.value = Math.max(0, processIndex.value - 1)
   itemIndex.value = 0
   normalize()
 }
 async function removeItem() {
-  await message.confirm('删除此检验项目？')
+  if (!(await confirmReplace('删除此检验项目？删除后可撤销。'))) return
   process.value!.items.splice(itemIndex.value, 1)
   itemIndex.value = Math.max(0, itemIndex.value - 1)
   normalize()
@@ -489,6 +681,7 @@ async function removeItem() {
 function moveProcess(offset: number) {
   const list = draft.value!.processes
   const i = processIndex.value
+  if (busy.value || published.value || i + offset < 0 || i + offset >= list.length) return
   ;[list[i], list[i + offset]] = [list[i + offset], list[i]]
   processIndex.value += offset
   normalize()
@@ -520,6 +713,7 @@ function selectEquipment(ids: number[]) {
       sort: index + 1
     }
   })
+  if (ids.length) item.value!.equipmentUnboundReason = undefined
 }
 async function applyEquipment() {
   const matches = draft
@@ -528,6 +722,7 @@ async function applyEquipment() {
   await message.confirm(`将当前设备选择应用到器具要求完全相同的 ${matches.length} 个项目？`)
   matches.forEach((i) => {
     i.equipmentOptions = copy(item.value!.equipmentOptions)
+    if (i.equipmentOptions.length) i.equipmentUnboundReason = undefined
   })
 }
 function syncFinal() {
@@ -543,33 +738,52 @@ function syncFinal() {
 }
 const storageKey = () => `simple-common:${getTenantId()}:${useUserStore().getUser.id}`
 function saveLocal() {
-  localStorage.setItem(
-    storageKey(),
-    JSON.stringify({
-      draft: draft.value,
-      projectId: projectId.value,
-      projects: projects.value,
-      published: published.value
-    })
-  )
-  message.success('草稿已保存')
+  try {
+    const time = new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', hour12: false })
+    localStorage.setItem(
+      storageKey(),
+      JSON.stringify({
+        draft: draft.value,
+        projectId: projectId.value,
+        projects: projects.value,
+        published: published.value,
+        publishedResult: publishedResult.value,
+        publishedProjectName: publishedProjectName.value,
+        savedAt: time
+      })
+    )
+    markSaved(time)
+    message.success('草稿已保存在当前浏览器')
+  } catch (cause) {
+    error.value = `${published.value ? '发布已成功，但本地结果保存失败' : '草稿保存失败'}：${String(cause)}`
+    message.error(error.value)
+  }
 }
 async function restoreLocal() {
+  if (busy.value) return
+  if (dirty.value && !(await confirmReplace('恢复草稿将替换当前未保存内容，是否继续？'))) return
   await run(async () => {
     const raw = localStorage.getItem(storageKey())
     if (!raw) throw new Error('没有已保存的草稿')
     const saved = JSON.parse(raw)
     if (!saved.draft?.processes || !saved.projectId || saved.draft.ownerModule !== 'MES_QA_COMMON')
       throw new Error('草稿内容无效')
+    if (saved.published && !saved.publishedResult?.publishedVersionId)
+      throw new Error('已发布草稿缺少正式结果，请重新导入文档后发布')
     projectId.value = saved.projectId
     projects.value = saved.projects
     await loadResources()
     draft.value = saved.draft
     viewMode.value = 'edit'
     published.value = saved.published
+    publishedResult.value = saved.publishedResult
+    publishedProjectName.value = saved.publishedProjectName
+    resultVisible.value = false
     processIndex.value = 0
     itemIndex.value = 0
-  })
+    trialSession.value++
+    resetEditing(true, saved.savedAt || '')
+  }, '正在恢复草稿，请稍候…')
 }
 async function preview() {
   normalize()
@@ -578,53 +792,74 @@ async function preview() {
 function confirmNoFinal() {
   draft.value!.finalInspectionNotApplicableReason = '经人工确认，本规程不适用末检。'
 }
-function editIssue(issue: DraftIssue) {
+async function editIssue(issue: DraftIssue) {
+  if (busy.value || published.value) return
+  if (issue.field === 'final') {
+    finalIssuePending.value = true
+    if (previewVisible.value) focusFinalIssue()
+    else previewVisible.value = true
+    return
+  }
   pendingIssue.value = issue
+  const closing = previewVisible.value
   previewVisible.value = false
   viewMode.value = 'edit'
   if (issue.processIndex != null) {
     selectProcess(issue.processIndex)
     itemIndex.value = issue.itemIndex ?? 0
   }
+  if (!closing) await focusIssue()
+}
+function focusFinalIssue() {
+  if (!finalIssuePending.value) return
+  finalIssuePending.value = false
+  const target = finalEditor.value?.$el.querySelector<HTMLElement>(
+    '[data-issue-field="finalInspectionNotApplicableReason"]'
+  )
+  target?.scrollIntoView({ block: 'center' })
+  ;(target?.matches('input, textarea')
+    ? target
+    : target?.querySelector<HTMLElement>('input, textarea')
+  )?.focus({ preventScroll: true })
 }
 async function focusIssue() {
   const issue = pendingIssue.value
   if (!issue) return
   pendingIssue.value = undefined
   await nextTick()
-  const target =
+  const container =
     issue.field === 'equipment'
       ? equipmentEditor.value?.$el
       : issue.field === 'metadata'
         ? metadataEditor.value
-        : itemEditor.value
+        : issue.field === 'process'
+          ? workspaceEditor.value
+          : itemEditor.value
+  const target = issue.target
+    ? container?.querySelector<HTMLElement>(`[data-issue-field="${issue.target}"]`)
+    : container
   target?.scrollIntoView({ block: 'center' })
-  target?.querySelector<HTMLElement>('input, textarea, button')?.focus({ preventScroll: true })
+  ;(target?.matches('input, textarea, button')
+    ? target
+    : target?.querySelector<HTMLElement>('input, textarea, button')
+  )?.focus({ preventScroll: true })
 }
 async function publish() {
   if (issues.value.length || !draft.value || published.value) return
   await run(async () => {
     const result = await SimpleCommonParserApi.publish(copy(draft.value!))
+    publishedResult.value = result
+    publishedProjectName.value = selectedProject.value
     published.value = true
     previewVisible.value = false
     saveLocal()
     message.success(`已发布通用规程 ${result.versionNo}`)
-  })
+  }, '正在发布，请稍候…')
 }
 void searchProjects()
 </script>
 
 <style scoped>
-.toolbar {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
-  margin-bottom: 16px;
-}
-.toolbar h2 {
-  margin: 0 auto 0 0;
-}
 .metadata {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -664,22 +899,6 @@ article {
 .confirm-final {
   margin-top: 8px;
 }
-.publish-issues {
-  padding: 16px;
-  border: 1px solid var(--el-color-warning-light-5);
-  border-radius: 4px;
-  background: var(--el-color-warning-light-9);
-}
-.publish-issues h3 {
-  margin: 0 0 8px;
-}
-.publish-issue {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 8px 0;
-}
 @media (max-width: 900px) {
   .workspace,
   .metadata {
@@ -687,3 +906,5 @@ article {
   }
 }
 </style>
+
+<style scoped src="../parser/simpleParserLayout.css"></style>

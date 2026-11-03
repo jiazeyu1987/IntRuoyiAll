@@ -143,9 +143,10 @@
                 <div class="signature-record-summary__meta">
                   签名图片：{{ formatDccSignatureSnapshotValue(row.signatureImageVerifiedStatus) }}
                 </div>
-                <div class="signature-record-summary__meta">
-                  图片 hash：{{ formatDccHashShort(row.signatureImageSha256Short || row.signatureImageSha256) }}
-                </div>
+                <details v-if="row.signatureImageSha256 || row.signatureImageSha256Short" class="signature-record-summary__meta">
+                  <summary>签名图片校验信息</summary>
+                  <span style="overflow-wrap: anywhere">{{ row.signatureImageSha256 || row.signatureImageSha256Short }}</span>
+                </details>
               </div>
             </template>
           </el-table-column>

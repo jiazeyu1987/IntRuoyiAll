@@ -84,6 +84,7 @@ class IntGyRouteMarkdownImportServiceImplTest {
         org.springframework.test.util.ReflectionTestUtils.setField(creator, "autoCodeRecordService", autoCodeRecordService);
         org.springframework.test.util.ReflectionTestUtils.setField(creator, "processMapper", processMapper);
         org.springframework.test.util.ReflectionTestUtils.setField(importService, "processCreationService", creator);
+        org.springframework.test.util.ReflectionTestUtils.setField(importService, "projectGuard", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteProjectGuard.class));
         cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.setTenantId(1L);
         AtomicLong serial = new AtomicLong();
         org.mockito.Mockito.lenient().when(autoCodeRecordService.generateAutoCode("PRO_PROCESS_GX_CODE", null))
@@ -119,7 +120,7 @@ class IntGyRouteMarkdownImportServiceImplTest {
         try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
             security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(creatorUserId);
             security.when(SecurityFrameworkUtils::getLoginUserNickname).thenReturn("intgy-importer");
-            result = importService.importMarkdown(markdown, CommonStatusEnum.ENABLE.getStatus(), null);
+            result = importService.importMarkdown(markdown, CommonStatusEnum.ENABLE.getStatus(), null, 10L);
         }
 
         assertEquals(2, result.getRouteCount());
@@ -184,7 +185,7 @@ class IntGyRouteMarkdownImportServiceImplTest {
         when(routeProcessMapper.insert(any(MesProRouteProcessDO.class))).thenAnswer(invocation -> {
             invocation.getArgument(0, MesProRouteProcessDO.class).setId(ids.incrementAndGet()); return 1;
         });
-        var result = importService.importMarkdown(markdown, 0, "{\"ROUTE-NEW\":[\"OLD-B\"]}");
+        var result = importService.importMarkdown(markdown, 0, "{\"ROUTE-NEW\":[\"OLD-B\"]}", 10L);
         assertEquals(2, result.getProcessCreatedCount());
         ArgumentCaptor<MesProProcessDO> processes = ArgumentCaptor.forClass(MesProProcessDO.class);
         verify(processMapper, times(2)).insert(processes.capture());
@@ -224,7 +225,7 @@ class IntGyRouteMarkdownImportServiceImplTest {
         });
 
         IntGyRouteMarkdownImportResult result = importService.importMarkdown(
-                markdown, CommonStatusEnum.ENABLE.getStatus(), null);
+                markdown, CommonStatusEnum.ENABLE.getStatus(), null, 10L);
 
         assertEquals(2, result.getRouteCount());
         assertEquals(50, result.getProcessCreatedCount());
@@ -242,7 +243,7 @@ class IntGyRouteMarkdownImportServiceImplTest {
         });
 
         assertServiceExceptionCode(() -> importService.importMarkdown(
-                        readFixture(), CommonStatusEnum.ENABLE.getStatus(), null),
+                        readFixture(), CommonStatusEnum.ENABLE.getStatus(), null, 10L),
                 PRO_ROUTE_IMPORT_ROUTE_EXISTS.getCode());
         verifyNoInsert();
     }
@@ -255,7 +256,7 @@ class IntGyRouteMarkdownImportServiceImplTest {
                         "| routeCode | ROUTE-YXN.044.02.1020 |");
 
         assertServiceExceptionCode(() -> importService.importMarkdown(
-                        duplicateRouteMarkdown, CommonStatusEnum.ENABLE.getStatus(), null),
+                        duplicateRouteMarkdown, CommonStatusEnum.ENABLE.getStatus(), null, 10L),
                 PRO_ROUTE_IMPORT_ROUTE_DUPLICATE.getCode());
         verifyNoInsert();
     }
@@ -266,7 +267,7 @@ class IntGyRouteMarkdownImportServiceImplTest {
                 .replace("| 2 | `Z3910` |", "| 1 | `Z3910` |");
 
         assertServiceExceptionCode(() -> importService.importMarkdown(
-                        duplicateSequenceMarkdown, CommonStatusEnum.ENABLE.getStatus(), null),
+                        duplicateSequenceMarkdown, CommonStatusEnum.ENABLE.getStatus(), null, 10L),
                 PRO_ROUTE_IMPORT_SEQUENCE_DUPLICATE.getCode());
         verifyNoInsert();
     }
@@ -277,7 +278,7 @@ class IntGyRouteMarkdownImportServiceImplTest {
                 .replace(" | FS | 1 |", " | FS | 0 |");
 
         assertServiceExceptionCode(() -> importService.importMarkdown(
-                        noFinalProcessMarkdown, CommonStatusEnum.ENABLE.getStatus(), null),
+                        noFinalProcessMarkdown, CommonStatusEnum.ENABLE.getStatus(), null, 10L),
                 PRO_ROUTE_IMPORT_FINAL_PROCESS_INVALID.getCode());
         verifyNoInsert();
     }
@@ -289,7 +290,7 @@ class IntGyRouteMarkdownImportServiceImplTest {
                         "| 29 | `W150` | W导管中盒(说明书) | `node-xlsx-route-yxn-044-02-1020-29-w150-73edc3a2b9` | FS | 1 |");
 
         assertServiceExceptionCode(() -> importService.importMarkdown(
-                        multipleFinalProcessMarkdown, CommonStatusEnum.ENABLE.getStatus(), null),
+                        multipleFinalProcessMarkdown, CommonStatusEnum.ENABLE.getStatus(), null, 10L),
                 PRO_ROUTE_IMPORT_FINAL_PROCESS_INVALID.getCode());
         verifyNoInsert();
     }
@@ -300,14 +301,14 @@ class IntGyRouteMarkdownImportServiceImplTest {
                 .replace(" | FS | 0 |", " | FS | 2 |");
 
         assertServiceExceptionCode(() -> importService.importMarkdown(
-                        invalidFinalFlagMarkdown, CommonStatusEnum.ENABLE.getStatus(), null),
+                        invalidFinalFlagMarkdown, CommonStatusEnum.ENABLE.getStatus(), null, 10L),
                 PRO_ROUTE_IMPORT_INVALID_MARKDOWN.getCode());
         verifyNoInsert();
     }
 
     @Test
     void importInvalidProcessStatus_failsBeforeAnyInsert() throws Exception {
-        assertServiceExceptionCode(() -> importService.importMarkdown(readFixture(), 9, null),
+        assertServiceExceptionCode(() -> importService.importMarkdown(readFixture(), 9, null, 10L),
                 PRO_ROUTE_IMPORT_PROCESS_STATUS_INVALID.getCode());
         verifyNoInsert();
     }
@@ -315,7 +316,7 @@ class IntGyRouteMarkdownImportServiceImplTest {
     @Test
     void importInvalidCheckProcessJsonNull_failsBeforeAnyInsert() throws Exception {
         assertServiceExceptionCode(() -> importService.importMarkdown(
-                        readFixture(), CommonStatusEnum.ENABLE.getStatus(), "null"),
+                        readFixture(), CommonStatusEnum.ENABLE.getStatus(), "null", 10L),
                 PRO_ROUTE_IMPORT_CHECK_PROCESS_INVALID.getCode());
         verifyNoInsert();
     }
@@ -325,7 +326,7 @@ class IntGyRouteMarkdownImportServiceImplTest {
         String checkJson = "{\"ROUTE-YXN.044.02.1020\":[\"NOT-IN-ROUTE\"]}";
 
         assertServiceExceptionCode(() -> importService.importMarkdown(
-                        readFixture(), CommonStatusEnum.ENABLE.getStatus(), checkJson),
+                        readFixture(), CommonStatusEnum.ENABLE.getStatus(), checkJson, 10L),
                 PRO_ROUTE_IMPORT_CHECK_PROCESS_INVALID.getCode());
         verifyNoInsert();
     }
@@ -353,7 +354,7 @@ class IntGyRouteMarkdownImportServiceImplTest {
         });
 
         IntGyRouteMarkdownImportResult result = importService.importMarkdown(
-                markdown, CommonStatusEnum.ENABLE.getStatus(), checkJson);
+                markdown, CommonStatusEnum.ENABLE.getStatus(), checkJson, 10L);
 
         assertEquals(2, result.getRouteCount());
         ArgumentCaptor<MesProProcessDO> processCaptor = ArgumentCaptor.forClass(MesProProcessDO.class);
@@ -385,7 +386,7 @@ class IntGyRouteMarkdownImportServiceImplTest {
                 """;
 
         assertServiceExceptionCode(() -> importService.importMarkdown(
-                        malformedMarkdown, CommonStatusEnum.ENABLE.getStatus(), null),
+                        malformedMarkdown, CommonStatusEnum.ENABLE.getStatus(), null, 10L),
                 PRO_ROUTE_IMPORT_INVALID_MARKDOWN.getCode());
         verifyNoInsert();
     }

@@ -19,7 +19,7 @@ import java.util.stream.Collectors;
 import static cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils.getLoginUserId;
 import static cn.iocoder.yudao.module.system.enums.controlledcontent.ControlledContentType.DCC_REGISTRATION_CERTIFICATE;
 
-/** Shares catalog rows globally and transfers tenant-owned data and bindings into the current tenant. */
+/** Transfers tenant-owned catalog rows, related data and bindings into the current tenant. */
 @Service
 public class DccCatalogPackageService {
     @Resource private JdbcTemplate jdbc;
@@ -208,7 +208,7 @@ public class DccCatalogPackageService {
         List<DccCatalogWorkbook.SheetData> sheets = new ArrayList<>();
         sheets.add(new DccCatalogWorkbook.SheetData("导入说明", List.of("format", "tenant", "说明"),
             List.of(Map.of("format", FORMAT, "tenant", String.valueOf(tenant), "说明",
-                "按业务标识合并，保留文件外数据。项目按名称及代码定位；产品目录全租户共享，按数据来源及原行号复用，绑定合并到当前租户。保留文本格式及关联标识。注册证正式状态不得修改；跨租户不迁移账号授权、人员及流程引用，保留目标已有引用。引用的历史主数据保留删除状态；快照与查询绑定明细按原数据分别迁移。附件及审批记录不迁移。"))));
+                "按业务标识合并，保留文件外数据。项目按名称及代码定位；产品目录按当前租户、数据来源及原行号合并，跨租户导入创建独立目录并重映射绑定。保留文本格式及关联标识。注册证正式状态不得修改；跨租户不迁移账号授权、人员及流程引用，保留目标已有引用。引用的历史主数据保留删除状态；快照与查询绑定明细按原数据分别迁移。附件及审批记录不迁移。"))));
         for (var spec : SPECS) sheets.add(new DccCatalogWorkbook.SheetData(spec.name(), spec.columns(), List.of()));
         return sheets;
     }
@@ -216,14 +216,13 @@ public class DccCatalogPackageService {
         Map<String, List<Map<String, String>>> result = new LinkedHashMap<>();
         for (var spec : SPECS) {
             String fields = spec.columns().stream().filter(c -> !VIRTUAL_FIELDS.contains(c)).collect(Collectors.joining(","));
-            boolean shared = spec.table().equals("dcc_product_catalog");
             List<Map<String, String>> rows = jdbc.query("SELECT " + fields + " FROM " + spec.table()
-                + " WHERE " + (shared ? "" : "tenant_id=? AND ") + (spec.columns().contains("deleted") ? "" : "deleted=0 AND ") + spec.filter() + " ORDER BY id" + (lock ? " FOR UPDATE" : ""),
+                + " WHERE tenant_id=? AND " + (spec.columns().contains("deleted") ? "" : "deleted=0 AND ") + spec.filter() + " ORDER BY id" + (lock ? " FOR UPDATE" : ""),
                 (rs, index) -> {
                     Map<String, String> row = new LinkedHashMap<>();
                     for (String field : fields.split(",")) row.put(field, rs.getString(field));
                     return row;
-                }, shared ? new Object[]{} : new Object[]{tenant});
+                }, tenant);
             result.put(spec.name(), rows);
         }
         for (var certificate : result.get("注册证")) {
@@ -414,11 +413,9 @@ public class DccCatalogPackageService {
         var fields = writable(spec, deferred);
         if (fields.isEmpty()) return;
         List<Object> args = fields.stream().map(field -> databaseValue(field, row.get(field))).collect(Collectors.toCollection(ArrayList::new));
-        boolean shared = spec.table().equals("dcc_product_catalog");
-        args.add(String.valueOf(getLoginUserId())); args.add(id);
-        if (!shared) args.add(tenant);
+        args.add(String.valueOf(getLoginUserId())); args.add(id); args.add(tenant);
         int affected = jdbc.update("UPDATE " + spec.table() + " SET " + fields.stream().map(f -> f + "=?").collect(Collectors.joining(","))
-            + ",updater=?,update_time=CURRENT_TIMESTAMP WHERE id=?" + (shared ? "" : " AND tenant_id=?")
+            + ",updater=?,update_time=CURRENT_TIMESTAMP WHERE id=? AND tenant_id=?"
             + (spec.columns().contains("deleted") ? "" : " AND deleted=0"), args.toArray());
         if (affected != 1) throw invalid(spec.name() + "：更新失败");
     }

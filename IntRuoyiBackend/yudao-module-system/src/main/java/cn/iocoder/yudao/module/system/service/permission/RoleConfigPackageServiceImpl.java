@@ -11,6 +11,7 @@ import cn.iocoder.yudao.module.system.dal.mysql.permission.RoleCategoryMapper;
 import cn.iocoder.yudao.module.system.dal.mysql.permission.RoleMapper;
 import cn.iocoder.yudao.module.system.enums.permission.DataScopeEnum;
 import cn.iocoder.yudao.module.system.enums.permission.RoleTypeEnum;
+import cn.iocoder.yudao.module.system.service.tenant.TenantService;
 import jakarta.annotation.Resource;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
@@ -27,6 +28,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception0;
@@ -60,6 +62,9 @@ public class RoleConfigPackageServiceImpl implements RoleConfigPackageService {
 
     @Resource
     private PermissionService permissionService;
+
+    @Resource
+    private TenantService tenantService;
 
     @Override
     public byte[] exportPackage(List<Long> categoryIds) {
@@ -96,11 +101,27 @@ public class RoleConfigPackageServiceImpl implements RoleConfigPackageService {
         gxpAuditService.acquireLedgerLock();
         var authority = approvalAuthority.lockTenantApprovalAuthority(
                 cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId());
-        approvalAuthority.incrementLockedAuthorityRevision(authority.tenantId(), authority.revision());
         Map<String, Set<Long>> menuIdByKey = buildMenuIdByKey();
-        Map<String, Long> categoryIdByCode = resolveCategories(payload.getCategories());
+        AtomicReference<Set<Long>> tenantMenuIds = new AtomicReference<>();
+        tenantService.handleTenantMenu(ids -> tenantMenuIds.set(Set.copyOf(ids)));
+        if (tenantMenuIds.get() == null) {
+            throw exception(CONFIG_PACKAGE_CONTENT_INVALID, "当前租户套餐菜单未提供，不能确认授权边界");
+        }
+        // Validate every role before creating categories or updating any role.
+        List<Set<Long>> menuIdsByRole = new ArrayList<>();
         for (RoleConfigItem item : payload.getRoles()) {
             Set<Long> menuIds = resolveMenuIds(item, menuIdByKey);
+            if (!tenantMenuIds.get().containsAll(menuIds)) {
+                throw exception(CONFIG_PACKAGE_CONTENT_INVALID,
+                        "角色【" + item.getCode() + "】包含当前租户套餐外菜单，不能导入");
+            }
+            menuIdsByRole.add(menuIds);
+        }
+        approvalAuthority.incrementLockedAuthorityRevision(authority.tenantId(), authority.revision());
+        Map<String, Long> categoryIdByCode = resolveCategories(payload.getCategories());
+        for (int index = 0; index < payload.getRoles().size(); index++) {
+            RoleConfigItem item = payload.getRoles().get(index);
+            Set<Long> menuIds = menuIdsByRole.get(index);
             Long categoryId = resolveCategoryId(item, categoryIdByCode);
             RoleDO existing = roleMapper.selectByCode(item.getCode());
             if (existing == null) {

@@ -30,6 +30,19 @@ public class MesProRouteProcessFlowController {
     @Resource
     private MesProRouteProcessFlowService flowService;
 
+    @Resource
+    private cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteFullFlowReadinessService readinessService;
+
+    @GetMapping("/full-flow-readiness")
+    @Operation(summary = "只读检测固定测试订单从重置到上市放行的条件")
+    @PreAuthorize("@ss.hasPermission('mes:pro-route:query')")
+    public CommonResult<cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteFullFlowReadinessService.Result> checkFullFlowReadiness(
+            @RequestParam("routeId") Long routeId,
+            @RequestParam(value = "routeVersionId", required = false) Long routeVersionId) {
+        return success(readinessService.check(routeId, routeVersionId,
+                cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils.getLoginUserId()));
+    }
+
     @GetMapping("/get")
     @Operation(summary = "获得工艺路线工序流转关系图")
     @Parameter(name = "routeId", description = "工艺路线编号", required = true)

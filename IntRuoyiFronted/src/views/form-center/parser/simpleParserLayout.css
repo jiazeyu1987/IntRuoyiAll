@@ -1,0 +1,94 @@
+.simple-parser-layout .parser-mode-tabs {
+  display: flex;
+  width: fit-content;
+  margin-bottom: 12px;
+}
+
+.simple-parser-layout .parser-metadata {
+  width: 100%;
+  min-width: 0;
+}
+
+.simple-parser-layout .metadata.parser-metadata {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0 16px;
+}
+
+.simple-parser-layout .parser-workspace {
+  display: grid;
+  grid-template-columns: 250px minmax(0, 1fr);
+  align-items: stretch;
+  gap: 24px;
+  margin-top: 20px;
+}
+
+.simple-parser-layout .parser-sidebar {
+  position: static;
+  min-width: 0;
+  max-height: none;
+  overflow: visible;
+  padding: 0 16px 0 0;
+  border: 0;
+  border-right: 1px solid var(--el-border-color);
+  border-radius: 0;
+}
+
+.simple-parser-layout .parser-editor {
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+}
+
+.simple-parser-layout .parser-editor .toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.simple-parser-layout .parser-editor .toolbar .el-select {
+  width: 240px;
+  max-width: 100%;
+}
+
+.simple-parser-layout .parser-editor .toolbar .el-button + .el-button {
+  margin-left: 0;
+}
+
+@media (max-width: 900px) {
+  .simple-parser-layout .parser-workspace,
+  .simple-parser-layout .metadata.parser-metadata {
+    grid-template-columns: 1fr;
+  }
+
+  .simple-parser-layout .parser-sidebar {
+    padding: 0 0 16px;
+    border-right: 0;
+    border-bottom: 1px solid var(--el-border-color);
+  }
+}
+
+.simple-parser-layout .parser-draft-status {
+  margin: 10px 0;
+  color: var(--el-text-color-secondary);
+  font-size: 13px;
+}
+.simple-parser-layout .parser-published-result :deep(.el-result__extra),
+.simple-parser-layout .published-result :deep(.el-result__extra) {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+}
+.simple-parser-layout .parser-drag-handle {
+  float: left;
+  padding: 10px 0;
+  cursor: grab;
+  color: var(--el-text-color-secondary);
+}
+.simple-parser-layout .process > button:first-of-type {
+  width: calc(100% - 16px);
+  margin-left: 16px;
+}

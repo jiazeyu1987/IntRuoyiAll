@@ -3019,7 +3019,7 @@ CREATE TABLE IF NOT EXISTS `dcc_product_catalog` (
   `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   `deleted` bit(1) NOT NULL DEFAULT 0,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_dcc_product_catalog_source_row` (`data_source`, `original_row_no`)
+  UNIQUE KEY `uk_dcc_product_catalog_tenant_source_row` (`tenant_id`, `data_source`, `original_row_no`)
 );
 
 CREATE TABLE IF NOT EXISTS dcc_product_catalog_source_sequence (

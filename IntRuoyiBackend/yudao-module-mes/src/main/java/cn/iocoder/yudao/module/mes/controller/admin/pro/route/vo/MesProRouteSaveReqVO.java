@@ -8,6 +8,8 @@ import lombok.Data;
 @Data
 public class MesProRouteSaveReqVO {
 
+    private Long dccProjectCodeId;
+
     @Schema(description = "编号", example = "1")
     private Long id;
 

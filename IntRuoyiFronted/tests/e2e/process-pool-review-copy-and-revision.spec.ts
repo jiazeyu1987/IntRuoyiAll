@@ -30,10 +30,7 @@ const REVIEW_SIGNATURE_SNAPSHOT = requireEnv('PROCESS_POOL_E2E_REVIEW_SIGNATURE_
 const REVIEW_FIELD_MAPPINGS = requireEnv('PROCESS_POOL_E2E_REVIEW_FIELD_MAPPINGS')
 
 const REVISION_EVENT_ID = requireEnv('PROCESS_POOL_E2E_REVISION_EVENT_ID')
-const REVISION_MODIFIED_BY_USER_ID = requireEnv('PROCESS_POOL_E2E_REVISION_MODIFIED_BY_USER_ID')
-const REVISION_SIGNATURE_ID = requireEnv('PROCESS_POOL_E2E_REVISION_SIGNATURE_ID')
-const REVISION_SIGNATURE_USER_ID = requireEnv('PROCESS_POOL_E2E_REVISION_SIGNATURE_USER_ID')
-const REVISION_SIGNATURE_SNAPSHOT = requireEnv('PROCESS_POOL_E2E_REVISION_SIGNATURE_SNAPSHOT')
+const REVISION_SIGNATURE_PASSWORD = requireEnv('PROCESS_POOL_E2E_REVISION_SIGNATURE_PASSWORD')
 const REVISION_AFTER_PAYLOAD = requireEnv('PROCESS_POOL_E2E_REVISION_AFTER_PAYLOAD')
 const REVISION_CHANGED_FIELDS = requireEnv('PROCESS_POOL_E2E_REVISION_CHANGED_FIELDS')
 const REVISION_CHANGE_REASON = requireEnv('PROCESS_POOL_E2E_REVISION_CHANGE_REASON')
@@ -56,7 +53,9 @@ async function login(page: Page) {
   await loginForm.waitFor({ state: 'visible', timeout: 30000 })
 
   const tenantInput = loginForm
-    .locator('.el-select input[role="combobox"], input.el-select__input, input[placeholder="请输入租户名称"]')
+    .locator(
+      '.el-select input[role="combobox"], input.el-select__input, input[placeholder="请输入租户名称"]'
+    )
     .first()
   await tenantInput.fill(TENANT_NAME)
   await tenantInput.press('Enter')
@@ -75,17 +74,24 @@ async function login(page: Page) {
     await target.fill('')
     await target.fill(USERNAME)
   }
-  await fillFirstVisible(loginForm.locator('input[type="password"], input[placeholder="请输入密码"]'), PASSWORD)
+  await fillFirstVisible(
+    loginForm.locator('input[type="password"], input[placeholder="请输入密码"]'),
+    PASSWORD
+  )
 
   const loginResponsePromise = page.waitForResponse(
-    (response) => response.url().includes('/system/auth/login') && response.request().method() === 'POST',
+    (response) =>
+      response.url().includes('/system/auth/login') && response.request().method() === 'POST',
     { timeout: 60000 }
   )
   await loginForm.getByRole('button', { name: '登录' }).click()
   const loginResponse = await loginResponsePromise
   const loginPayload = await loginResponse.json()
   expect(loginResponse.ok(), `login HTTP status ${loginResponse.status()}`).toBeTruthy()
-  expect(isSuccessPayload(loginPayload), `login code ${loginPayload.code}: ${loginPayload.msg || ''}`).toBeTruthy()
+  expect(
+    isSuccessPayload(loginPayload),
+    `login code ${loginPayload.code}: ${loginPayload.msg || ''}`
+  ).toBeTruthy()
   await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => null)
 }
 
@@ -113,11 +119,25 @@ async function fillFormInput(page: Page, label: string, value: string) {
   await target.fill(value)
 }
 
-async function fillFormTextarea(page: Page, label: string, value: string) {
-  const target = formItem(page, label).locator('textarea').first()
-  await target.waitFor({ state: 'visible', timeout: 30000 })
-  await target.fill('')
-  await target.fill(value)
+async function importBusinessFile(page: Page, label: string, source: string) {
+  await formItem(page, label)
+    .locator('input[type="file"]')
+    .setInputFiles({
+      name: 'formal-record.json',
+      mimeType: 'application/json',
+      buffer: Buffer.from(source, 'utf8')
+    })
+}
+
+async function selectField(page: Page, row: Locator, label: string, value: string) {
+  await row.getByRole('combobox', { name: label }).click()
+  await page.getByRole('option', { name: value, exact: true }).click()
+}
+const ORIGINAL_FIELD_LABELS: Record<string, string> = {
+  OUTPUT_QUANTITY: '输出数量',
+  QUALITY_STATUS: '质量状态',
+  ALLOCATABLE_STATUS: '可分配状态',
+  REMARK: '备注'
 }
 
 test.beforeAll(() => {
@@ -126,7 +146,6 @@ test.beforeAll(() => {
   }
   expectJson(REVIEW_SIGNATURE_SNAPSHOT, 'PROCESS_POOL_E2E_REVIEW_SIGNATURE_SNAPSHOT')
   expectJson(REVIEW_FIELD_MAPPINGS, 'PROCESS_POOL_E2E_REVIEW_FIELD_MAPPINGS')
-  expectJson(REVISION_SIGNATURE_SNAPSHOT, 'PROCESS_POOL_E2E_REVISION_SIGNATURE_SNAPSHOT')
   expectJson(REVISION_AFTER_PAYLOAD, 'PROCESS_POOL_E2E_REVISION_AFTER_PAYLOAD')
   expectJson(REVISION_CHANGED_FIELDS, 'PROCESS_POOL_E2E_REVISION_CHANGED_FIELDS')
 })
@@ -150,24 +169,58 @@ test('F5 generates and submits review copy from the independent page', async () 
   await withRealPage(async (page) => {
     await login(page)
     await page.goto(`${BASE_URL}${REVIEW_PATH}`, { waitUntil: 'domcontentloaded' })
-    await expect(page.locator('.process-pool-write__title').filter({ hasText: '审核副本处理' })).toBeVisible()
+    await expect(
+      page.locator('.process-pool-write__title').filter({ hasText: '审核副本处理' })
+    ).toBeVisible()
 
-    await fillFormInput(page, '工序池提交事件ID', REVIEW_EVENT_ID)
-    await fillFormInput(page, '审核人用户ID', REVIEWER_USER_ID)
-    await fillFormInput(page, '审核签名ID', REVIEW_SIGNATURE_ID)
-    await fillFormInput(page, '签名员工用户ID', REVIEW_SIGNATURE_USER_ID)
-    await fillFormTextarea(page, '审核签名快照JSON', REVIEW_SIGNATURE_SNAPSHOT)
-    await fillFormTextarea(page, '字段上下限映射JSON', REVIEW_FIELD_MAPPINGS)
+    await fillFormInput(page, '工序提交记录编号', REVIEW_EVENT_ID)
+    await fillFormInput(page, '审核人编号', REVIEWER_USER_ID)
+    await fillFormInput(page, '审核签名编号', REVIEW_SIGNATURE_ID)
+    await fillFormInput(page, '签名员工编号', REVIEW_SIGNATURE_USER_ID)
+    await importBusinessFile(page, '正式审核签名资料', REVIEW_SIGNATURE_SNAPSHOT)
+    for (const mapping of JSON.parse(REVIEW_FIELD_MAPPINGS)) {
+      await page.getByRole('button', { name: '添加审核字段', exact: true }).click()
+      const row = formItem(page, '字段上下限').locator('.el-table__body tr').last()
+      for (const [label, key] of Object.entries({
+        字段名称: 'fieldName',
+        字段标识: 'fieldCode',
+        下限: 'lowerLimit',
+        上限: 'upperLimit',
+        值类型: 'valueType'
+      })) {
+        if (mapping[key] !== undefined)
+          await row.getByLabel(label, { exact: true }).fill(String(mapping[key]))
+      }
+      if (mapping.affectsAllocation) {
+        await row.getByRole('switch', { name: '影响分配' }).click()
+        await row
+          .getByLabel('数量片段编号', { exact: true })
+          .fill(String(mapping.sourceQuantityFragmentId))
+        await selectField(page, row, '分配字段', ORIGINAL_FIELD_LABELS[mapping.allocationField])
+      }
+      if (mapping.templateFieldMetadataJson)
+        await row
+          .locator('input[type="file"]')
+          .setInputFiles({
+            name: 'field-metadata.json',
+            mimeType: 'application/json',
+            buffer: Buffer.from(mapping.templateFieldMetadataJson, 'utf8')
+          })
+    }
 
     const responsePromise = page.waitForResponse(
-      (response) => response.url().includes(REVIEW_ENDPOINT) && response.request().method() === 'POST',
+      (response) =>
+        response.url().includes(REVIEW_ENDPOINT) && response.request().method() === 'POST',
       { timeout: 60000 }
     )
     await page.getByRole('button', { name: '生成并提交审核副本' }).click()
     const response = await responsePromise
     const payload = await response.json()
     expect(response.ok(), `review copy HTTP status ${response.status()}`).toBeTruthy()
-    expect(isSuccessPayload(payload), `review copy code ${payload.code}: ${payload.msg || ''}`).toBeTruthy()
+    expect(
+      isSuccessPayload(payload),
+      `review copy code ${payload.code}: ${payload.msg || ''}`
+    ).toBeTruthy()
     await expect(page.getByText('审核副本编号：')).toBeVisible()
   })
 })
@@ -176,26 +229,48 @@ test('F6 updates original record from the independent page with a new signature'
   await withRealPage(async (page) => {
     await login(page)
     await page.goto(`${BASE_URL}${REVISION_PATH}`, { waitUntil: 'domcontentloaded' })
-    await expect(page.locator('.process-pool-write__title').filter({ hasText: '原始记录修改' })).toBeVisible()
+    await expect(
+      page.locator('.process-pool-write__title').filter({ hasText: '原始记录修改' })
+    ).toBeVisible()
 
-    await fillFormInput(page, '工序池提交事件ID', REVISION_EVENT_ID)
-    await fillFormInput(page, '修改人用户ID', REVISION_MODIFIED_BY_USER_ID)
-    await fillFormInput(page, '修改签名ID', REVISION_SIGNATURE_ID)
-    await fillFormInput(page, '签名员工用户ID', REVISION_SIGNATURE_USER_ID)
+    await fillFormInput(page, '工序提交记录编号', REVISION_EVENT_ID)
+    await fillFormInput(page, '电子签名密码', REVISION_SIGNATURE_PASSWORD)
     await fillFormInput(page, '变更原因', REVISION_CHANGE_REASON)
-    await fillFormTextarea(page, '修改后payload JSON', REVISION_AFTER_PAYLOAD)
-    await fillFormTextarea(page, '修改签名快照JSON', REVISION_SIGNATURE_SNAPSHOT)
-    await fillFormTextarea(page, '字段变更JSON', REVISION_CHANGED_FIELDS)
+    await importBusinessFile(page, '修改后业务资料', REVISION_AFTER_PAYLOAD)
+    for (const field of JSON.parse(REVISION_CHANGED_FIELDS)) {
+      await page.getByRole('button', { name: '添加变更字段', exact: true }).click()
+      const row = formItem(page, '字段变更明细').locator('.el-table__body tr').last()
+      for (const [label, key] of Object.entries({
+        字段名称: 'fieldName',
+        字段标识: 'fieldCode',
+        修改前: 'beforeValue',
+        修改后: 'afterValue'
+      })) {
+        if (field[key] !== undefined)
+          await row.getByLabel(label, { exact: true }).fill(String(field[key]))
+      }
+      if (field.affectsQuantityFragment) {
+        await row.getByRole('switch', { name: '影响数量片段' }).click()
+        await row
+          .getByLabel('数量片段编号', { exact: true })
+          .fill(String(field.sourceQuantityFragmentId))
+      }
+      await selectField(page, row, '原始字段', ORIGINAL_FIELD_LABELS[field.originalField])
+    }
 
     const responsePromise = page.waitForResponse(
-      (response) => response.url().includes(REVISION_ENDPOINT) && response.request().method() === 'POST',
+      (response) =>
+        response.url().includes(REVISION_ENDPOINT) && response.request().method() === 'POST',
       { timeout: 60000 }
     )
     await page.getByRole('button', { name: '修改并重新签名' }).click()
     const response = await responsePromise
     const payload = await response.json()
     expect(response.ok(), `event revision HTTP status ${response.status()}`).toBeTruthy()
-    expect(isSuccessPayload(payload), `event revision code ${payload.code}: ${payload.msg || ''}`).toBeTruthy()
+    expect(
+      isSuccessPayload(payload),
+      `event revision code ${payload.code}: ${payload.msg || ''}`
+    ).toBeTruthy()
     await expect(page.getByText('原始记录修改编号：')).toBeVisible()
   })
 })

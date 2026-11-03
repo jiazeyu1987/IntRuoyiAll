@@ -171,12 +171,14 @@ public class MesProRouteServiceImpl implements MesProRouteService {
     private MesProRouteControlledContentAdapter platformAdapter;
     @Resource
     private MesProRouteOwnerPermissionService routeOwnerPermissionService;
+    @Resource private MesProRouteProjectGuard projectGuard;
     @Resource
     private MesMdAutoCodeRecordService autoCodeRecordService;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public Long createRouteWithProcesses(MesProRouteCreateReqVO reqVO) {
+        projectGuard.requireAvailable(reqVO.getDccProjectCodeId(), null);
         String name = StrUtil.trim(reqVO.getName());
         if (StrUtil.isBlank(name)) {
             throw exception(cn.iocoder.yudao.framework.common.exception.enums.GlobalErrorCodeConstants.BAD_REQUEST,
@@ -205,6 +207,7 @@ public class MesProRouteServiceImpl implements MesProRouteService {
         MesProRouteDO route = MesProRouteDO.builder().code(code).name(name).remark(reqVO.getRemark())
                 .status(CommonStatusEnum.DISABLE.getStatus()).build();
         insertRoute(route);
+        projectGuard.bindNewRoute(route.getId(), reqVO.getDccProjectCodeId());
         List<MesProRouteProcessDO> routeProcesses = new ArrayList<>();
         for (int index = 0; index < processIds.size(); index++) {
             MesProRouteProcessDO routeProcess = MesProRouteProcessDO.builder()
@@ -301,6 +304,7 @@ public class MesProRouteServiceImpl implements MesProRouteService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public Long createRoute(MesProRouteSaveReqVO createReqVO) {
+        projectGuard.requireAvailable(createReqVO.getDccProjectCodeId(), null);
         createReqVO.setName(StrUtil.trim(createReqVO.getName()));
         // 1. 校验编码唯一性
         validateRouteCodeUnique(null, createReqVO.getCode());
@@ -310,6 +314,7 @@ public class MesProRouteServiceImpl implements MesProRouteService {
         route.setRemark(buildRouteRemark(createReqVO.getRemark(), createReqVO.getOwnerName()));
         route.setStatus(CommonStatusEnum.DISABLE.getStatus());
         insertRoute(route);
+        projectGuard.bindNewRoute(route.getId(), createReqVO.getDccProjectCodeId());
         createInitialRouteVersion(route);
         routeOwnerPermissionService.bindCurrentUserAsOwner(route.getId());
         return route.getId();
@@ -342,7 +347,8 @@ public class MesProRouteServiceImpl implements MesProRouteService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public Long copyRoute(Long sourceRouteId, String targetCode, String targetName) {
+    public Long copyRoute(Long sourceRouteId, String targetCode, String targetName, Long dccProjectCodeId) {
+        projectGuard.requireAvailable(dccProjectCodeId, null);
         MesProRouteDO sourceRoute = validateRouteExists(sourceRouteId);
         validateRouteCodeUnique(null, targetCode);
         String resolvedTargetName = resolveUniqueCopyRouteName(targetName);
@@ -355,9 +361,10 @@ public class MesProRouteServiceImpl implements MesProRouteService {
                 .remark(sourceRoute.getRemark())
                 .build();
         routeMapper.insert(targetRoute);
+        projectGuard.bindNewRoute(targetRoute.getId(), dccProjectCodeId);
         routeOwnerPermissionService.bindCurrentUserAsOwner(targetRoute.getId());
 
-        copyProductBindings(sourceRouteId, targetRoute.getId());
+        // 副本属于另一个项目，产品及 BOM 由目标项目重新配置。
 
         Map<Long, Long> copiedRouteProcessIds = new HashMap<>();
         for (MesProRouteProcessDO sourceProcess : routeProcessMapper.selectListByRouteId(sourceRouteId)) {
@@ -441,29 +448,6 @@ public class MesProRouteServiceImpl implements MesProRouteService {
         }
     }
 
-    private void copyProductBindings(Long sourceRouteId, Long targetRouteId) {
-        List<MesProRouteProductDO> sourceProducts = routeProductMapper.selectListByRouteId(sourceRouteId);
-        if (CollUtil.isNotEmpty(sourceProducts)) {
-            for (MesProRouteProductDO sourceProduct : sourceProducts) {
-                MesProRouteProductDO targetProduct = BeanUtils.toBean(sourceProduct, MesProRouteProductDO.class);
-                targetProduct.setId(null);
-                targetProduct.setRouteId(targetRouteId);
-                routeProductMapper.insert(targetProduct);
-            }
-        }
-
-        List<MesProRouteProductBomDO> sourceProductBoms = routeProductBomMapper.selectList(sourceRouteId, null, null);
-        if (CollUtil.isNotEmpty(sourceProductBoms)) {
-            for (MesProRouteProductBomDO sourceProductBom : sourceProductBoms) {
-                MesProRouteProductBomDO targetProductBom = BeanUtils.toBean(sourceProductBom,
-                        MesProRouteProductBomDO.class);
-                targetProductBom.setId(null);
-                targetProductBom.setRouteId(targetRouteId);
-                routeProductBomMapper.insert(targetProductBom);
-            }
-        }
-    }
-
     @Override
     public void updateRouteStatus(Long id, Integer status) {
         // 1.1 校验存在
@@ -502,6 +486,8 @@ public class MesProRouteServiceImpl implements MesProRouteService {
         routeProductService.deleteRouteProductByRouteId(id);
         routeProductBomService.deleteRouteProductBomByRouteId(id);
         // 2.2 删除工艺路线
+        routeDccProjectBindingMapper.delete(new cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX<MesRouteDccProjectBindingDO>()
+                .eq(MesRouteDccProjectBindingDO::getRouteId, id));
         routeMapper.deleteById(id);
     }
 

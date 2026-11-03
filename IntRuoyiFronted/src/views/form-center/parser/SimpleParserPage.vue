@@ -1,74 +1,68 @@
 <template>
   <ContentWrap
-    class="simple-parser"
-    v-loading="loading"
-    element-loading-text="正在识别文档，请稍候…"
+    class="simple-parser simple-parser-layout"
+    v-loading="busy"
+    :element-loading-text="busyText"
   >
-    <header class="page-head">
-      <div
-        ><h2>简易解析</h2
-        ><p>{{ filename || '导入 Word，直接修正识别内容，再预览并创建工艺流程。' }}</p></div
-      >
-      <div class="toolbar">
-        <el-button :disabled="busy" @click="restoreDraft">恢复草稿</el-button>
-        <el-upload
-          :auto-upload="false"
-          :show-file-list="false"
-          accept=".docx"
-          :disabled="busy"
-          :on-change="importWord"
-        >
-          <el-button
-            v-hasPermi="['form:parser:production-batch-record']"
-            type="primary"
-            :disabled="busy"
-            >导入 Word</el-button
-          >
-        </el-upload>
-      </div>
-    </header>
+    <SimpleParserHeader
+      v-model:project-id="projectId"
+      title="简易解析"
+      import-accept=".doc,.docx"
+      :projects="projects"
+      :project-loading="projectLoading"
+      :busy="busy"
+      :has-content="!!recognition"
+      :published="!!published"
+      import-permission="form:parser:production-batch-record"
+      publish-permission="form:parser:production-batch-record:publish"
+      @search="searchProjects"
+      @import="importWord"
+      @export="exportWord"
+      @save="saveDraft"
+      @restore="restoreDraft"
+      @preview="openPublish"
+    />
     <el-alert v-if="error" class="status-message" :title="error" type="error" :closable="false" />
-    <el-empty v-if="!recognition" description="选择生产记录 DOCX 文件开始识别" />
+    <el-empty v-if="!recognition" description="先选择所属项目，再导入 Word，编辑后预览发布" />
     <template v-else>
-      <el-form
-        class="route-name"
-        label-position="top"
-        :disabled="busy || !!published"
-        @submit.prevent
-      >
-        <el-form-item label="工艺流程名称"
-          ><el-input v-model="routeName" aria-label="工艺流程名称" maxlength="128"
-        /></el-form-item>
-      </el-form>
-      <div class="workbench-bar">
-        <el-radio-group v-model="mode"
-          ><el-radio-button value="edit">编辑内容</el-radio-button
-          ><el-radio-button value="trial">试填预览</el-radio-button></el-radio-group
-        >
-        <span class="review-summary"
-          >{{ processes.length }} 道工序<span v-if="issues.length">
-            · {{ issues.length }} 项待修正</span
-          ></span
-        >
-        <div class="toolbar">
-          <el-button :disabled="!history.length || busy || !!published" @click="undo"
-            >撤销</el-button
-          >
-          <el-button :disabled="busy" @click="saveDraft">保存草稿</el-button>
-          <el-button
-            v-hasPermi="['form:parser:production-batch-record:publish']"
-            type="primary"
-            :loading="previewLoading"
-            :disabled="busy || !!published"
-            @click="openPublish"
-            >发布预览</el-button
-          >
-        </div>
+      <el-radio-group v-model="mode" class="parser-mode-tabs" aria-label="解析查看模式">
+        <el-radio-button value="edit">编辑内容</el-radio-button>
+        <el-radio-button value="trial">试填预览</el-radio-button>
+      </el-radio-group>
+      <p class="parser-draft-status">{{
+        dirty ? '有未保存修改' : savedAt ? `已保存：${savedAt}` : '内容已保存'
+      }}</p>
+      <ParserTrialNavigation
+        v-if="mode === 'trial'"
+        :index="currentIndex"
+        :names="processes.map((p) => p.value.name)"
+        @select="(index) => selectProcess(processes[index].id)"
+        @edit="mode = 'edit'"
+      />
+      <div v-show="mode === 'trial'">
+        <KeepAlive :key="trialSession"
+          ><SimpleTrialPreview
+            v-if="current"
+            :key="current.id"
+            :process="current.value"
+            :process-index="currentIndex"
+            :processes="processes.map((p) => p.value)"
+            @select-process="(index) => selectProcess(processes[index].id)"
+        /></KeepAlive>
       </div>
-      <p class="draft-note"
-        >{{ dirty ? '有未保存的修改' : savedAt ? `草稿保存于 ${savedAt}` : '识别完成' }} ·
-        工序默认新建；设备按编号确认。请检查识别内容后发布。</p
-      >
+      <div v-show="mode === 'edit'" ref="metadataEditor" class="parser-metadata">
+        <el-form
+          class="route-name"
+          label-position="top"
+          :disabled="busy || !!published"
+          @submit.prevent
+        >
+          <el-form-item label="工艺流程名称"
+            ><el-input v-model="routeName" aria-label="工艺流程名称" maxlength="128"
+          /></el-form-item>
+        </el-form>
+        <p v-if="filename" class="source-filename">{{ filename }}</p>
+      </div>
       <el-alert v-if="deviceError" :title="deviceError" type="error" :closable="false">
         <el-button link type="primary" :loading="deviceLoading" @click="loadDevices"
           >重新加载设备列表</el-button
@@ -77,36 +71,42 @@
       <section v-if="published" class="published-result">
         <el-result
           icon="success"
-          title="已创建工艺流程"
+          title="发布完成"
           :sub-title="`${published.routeCode} · ${published.routeCandidateVersionNo || published.routeVersionNo}`"
         >
           <template #extra
-            ><el-button type="primary" @click="openRoute">查看工艺流程</el-button
-            ><el-button @click="showPublished">查看创建清单</el-button></template
+            ><el-button type="primary" @click="openRoute">查看结果</el-button
+            ><el-button @click="showPublished">查看创建清单</el-button
+            ><el-upload
+              v-hasPermi="['form:parser:production-batch-record']"
+              :auto-upload="false"
+              :show-file-list="false"
+              accept=".doc,.docx"
+              :disabled="busy || !projectId"
+              :on-change="importWord"
+              ><el-button :disabled="busy || !projectId">重新导入</el-button></el-upload
+            ></template
           >
         </el-result>
         <p>流程已保存为禁用路线及草稿候选，可在工艺流程中继续完成启用所需配置。</p>
       </section>
-      <div class="workbench">
-        <aside class="process-list">
+      <div v-show="mode === 'edit'" ref="workspaceEditor" class="workbench parser-workspace">
+        <aside class="process-list parser-sidebar">
           <div class="section-title"
-            ><strong>工序目录</strong
             ><el-button
               v-if="mode === 'edit'"
-              text
-              type="primary"
               :disabled="busy || !!published"
+              data-issue-field="addProcess"
               @click="insertProcess(processes.length)"
-              >新增工序</el-button
+              >添加工序</el-button
             ></div
           >
           <Draggable
-            v-model="processes"
+            :model-value="processes"
+            @update:model-value="reorderProcesses"
             item-key="id"
             handle=".drag-handle"
             :disabled="mode !== 'edit' || busy || !!published"
-            @start="snapshot"
-            @end="markChanged"
           >
             <template #item="{ element, index }"
               ><div class="process-item" :class="{ active: selectedId === element.id }"
@@ -120,23 +120,28 @@
             >
           </Draggable>
         </aside>
-        <main v-if="current" class="process-canvas">
-          <SimpleTrialPreview
-            v-if="mode === 'trial'"
-            :key="current.id"
-            :process="current.value"
-            :process-index="currentIndex"
-            :processes="processes.map((item) => item.value)"
-            @select-process="(index) => selectProcess(processes[index].id)"
+        <main v-if="current" ref="editor" class="process-canvas parser-editor">
+          <div class="workbench-bar">
+            <span class="review-summary"
+              >{{ processes.length }} 道工序<span v-if="issues.length">
+                · {{ issues.length }} 项待修正</span
+              ></span
+            >
+          </div>
+          <ParserProcessToolbar
+            :index="currentIndex"
+            :count="processes.length"
+            :can-undo="!!history.length"
+            :disabled="busy || !!published"
+            @undo="undo"
+            @move="moveProcess"
+            @remove="removeProcess"
           />
           <el-form
-            v-else
             :key="current.id"
             label-position="top"
             :disabled="busy || !!published"
             @submit.prevent
-            @focusin="beginEdit"
-            @change="markChanged"
           >
             <div class="section-title">
               <h3
@@ -145,15 +150,12 @@
                   current.processId ? `使用已有 ${current.processCode}` : '新建工序'
                 }}</el-tag></h3
               >
-              <div class="toolbar"
-                ><el-button @click="insertProcess(currentIndex + 1)">在后面插入</el-button
-                ><el-button text type="danger" @click="removeProcess">删除工序</el-button></div
-              >
             </div>
             <div class="process-form">
               <el-form-item label="工序名称"
                 ><el-input
                   v-model="current.value.name"
+                  data-issue-field="name"
                   aria-label="工序名称"
                   :readonly="!!current.processId"
                   maxlength="128"
@@ -164,7 +166,7 @@
                 ></el-form-item
               >
             </div>
-            <div class="reuse-process">
+            <div class="reuse-process" data-issue-field="reuse">
               <el-button
                 v-if="!reuseVisible && !current.processId"
                 link
@@ -216,6 +218,7 @@
                 v-for="(material, index) in current.value[direction.key]"
                 :key="index"
                 class="material-row"
+                :data-issue-field="`${direction.key}-${index}`"
               >
                 <el-autocomplete
                   :model-value="material.name || ''"
@@ -254,6 +257,7 @@
                 v-for="(group, g) in current.value.equipmentGroups"
                 :key="g"
                 class="equipment-group"
+                :data-issue-field="`group-${g}`"
               >
                 <div class="section-title"
                   ><strong>设备 / 参数组 {{ g + 1 }}</strong
@@ -270,6 +274,7 @@
                 >
                 <el-select
                   v-model="group.selectionMode"
+                  :data-issue-field="`selection-${g}`"
                   aria-label="设备选择方式"
                   class="selection-mode"
                   ><el-option label="单选设备" value="SINGLE" /><el-option
@@ -280,6 +285,7 @@
                   v-for="(equipment, e) in group.equipmentOptions"
                   :key="e"
                   class="equipment-row"
+                  :data-issue-field="`equipment-${g}-${e}`"
                 >
                   <el-select
                     :model-value="equipment.code || undefined"
@@ -397,10 +403,6 @@
                 </div>
               </section>
             </section>
-            <div v-if="currentIssues.length" class="issue-list"
-              ><strong>待修正</strong
-              ><p v-for="(issue, i) in currentIssues" :key="i">{{ issue.message }}</p></div
-            >
             <footer class="review-actions"
               ><span>检查完成后可切换工序，或直接查看发布清单。</span
               ><el-button :disabled="currentIndex >= processes.length - 1" @click="nextProcess"
@@ -409,8 +411,23 @@
             >
           </el-form>
         </main>
-        <el-empty v-else description="暂无工序，请添加工序" />
+        <section v-else class="parser-editor"
+          ><ParserProcessToolbar
+            :index="-1"
+            :count="0"
+            :can-undo="!!history.length"
+            :disabled="busy || !!published"
+            @undo="undo"
+            @move="moveProcess"
+            @remove="removeProcess" /><el-empty description="暂无工序，请添加工序"
+        /></section>
       </div>
+      <ParserIssueList
+        v-if="!published"
+        :issues="issues"
+        :disabled="busy"
+        @locate="(index) => editIssue(issues[index])"
+      />
     </template>
     <SimpleParameterDialog
       ref="parameterDialog"
@@ -419,12 +436,16 @@
     />
     <el-dialog
       v-model="publishVisible"
-      :title="published ? '创建结果' : '确认发布清单'"
+      :title="published ? '创建结果' : '预览发布'"
       width="min(1000px, 95vw)"
       :close-on-click-modal="false"
       :close-on-press-escape="!publishing"
       :show-close="!publishing"
+      @closed="focusIssue"
     >
+      <p>所属项目：{{ selectedProject?.projectCode }} / {{ selectedProject?.projectName }}</p>
+      <h3>发布内容</h3>
+      <p>{{ routeName }} · {{ processes.length }} 道工序</p>
       <template v-if="publishPreview">
         <el-alert
           v-if="!published"
@@ -435,13 +456,7 @@
         <p class="preview-flow"
           ><strong>{{ publishPreview.routeName }}</strong> · 新建工艺流程</p
         >
-        <el-alert
-          v-for="(blocker, i) in publishPreview.blockers"
-          :key="`blocker-${i}`"
-          :title="blocker"
-          type="error"
-          :closable="false"
-        />
+
         <template v-if="publishPreview.unmatchedMaterials?.length">
           <el-alert
             :title="`有 ${publishPreview.unmatchedMaterials.length} 项物料未匹配，可以继续发布。本次只绑定已匹配物料，其余可在工艺路线中补充。`"
@@ -534,16 +549,22 @@
         </el-tabs>
         <el-alert v-if="publishError" :title="publishError" type="error" :closable="false" />
       </template>
+      <ParserIssueList
+        v-if="!published"
+        :issues="previewIssues"
+        :disabled="busy"
+        @locate="(index) => editIssue(previewIssues[index])"
+      />
       <template #footer
         ><el-button :disabled="publishing" @click="publishVisible = false">{{
           published ? '关闭' : '返回修改'
         }}</el-button
-        ><el-button v-if="published" type="primary" @click="openRoute">查看工艺流程</el-button
+        ><el-button v-if="published" type="primary" @click="openRoute">查看结果</el-button
         ><el-button
           v-else
           type="primary"
           :loading="publishing"
-          :disabled="!publishPreview || !!publishPreview.blockers.length"
+          :disabled="busy || !publishPreview || !!previewIssues.length"
           @click="publish"
           >确认发布</el-button
         ></template
@@ -553,7 +574,8 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { getRouteProjectOptions } from '@/api/mes/pro/route'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { onBeforeRouteLeave, useRouter } from 'vue-router'
 import { ElMessageBox, type UploadFile } from 'element-plus'
 import Draggable from 'vuedraggable'
@@ -569,6 +591,10 @@ import { CraftApi, type Craft, type CraftParameter } from '@/api/mes/pro/craft'
 import { MdItemApi, type MdItemVO } from '@/api/mes/md/item'
 import { useUserStore } from '@/store/modules/user'
 import { getTenantId, getVisitTenantId } from '@/utils/auth'
+import {
+  getProjectCode,
+  type DccProjectCodeRespVO
+} from '@/api/dcc/controlledFile/projectCodes'
 import type {
   BatchRecordTotalRecognitionJson as Recognition,
   BatchRecordTotalRecognitionMaterial as Material,
@@ -582,25 +608,66 @@ import {
   type EditableProcess,
   type SimpleDraft
 } from './simpleRecognition'
+import SimpleParserHeader from './components/SimpleParserHeader.vue'
 import SimpleParameterDialog from './components/SimpleParameterDialog.vue'
 import SimpleTrialPreview from './components/SimpleTrialPreview.vue'
+import ParserProcessToolbar from './components/ParserProcessToolbar.vue'
+import ParserTrialNavigation from './components/ParserTrialNavigation.vue'
+import ParserIssueList from './components/ParserIssueList.vue'
+import { useParserEditing } from './useParserEditing'
+import type { ReviewIssue } from './simpleRecognition'
+import { exportSimpleWord, readSimpleWord, type SimpleWordContent } from './simpleWord'
+import wordTemplateUrl from '@/assets/templates/simple-parser-export.docx?url'
 
 defineOptions({ name: 'FormCenterSimpleParserWorkbench' })
 const message = useMessage(),
   router = useRouter()
+const projectId = ref<number>()
+const projects = ref<(DccProjectCodeRespVO & { occupied?: boolean })[]>([])
+const projectLoading = ref(false)
+const selectedProject = computed(() => projects.value.find((p) => p.id === projectId.value))
+let projectQuery = 0
+async function searchProjects(keyword = '') {
+  const query = ++projectQuery
+  projectLoading.value = true
+  try {
+    const list = await getRouteProjectOptions(keyword)
+    if (query !== projectQuery) return
+    const selected = selectedProject.value
+    projects.value =
+      selected && !list.some((p) => p.id === selected.id)
+        ? [selected, ...list]
+        : list
+  } catch (cause) {
+    if (query === projectQuery) error.value = `项目列表加载失败：${errorText(cause)}`
+  } finally {
+    if (query === projectQuery) projectLoading.value = false
+  }
+}
 const recognition = ref<Recognition>(),
   processes = ref<EditableProcess[]>([])
 const filename = ref(''),
   routeName = ref(''),
   selectedId = ref(''),
   mode = ref('edit'),
-  error = ref(''),
-  savedAt = ref(''),
-  dirty = ref(false)
+  error = ref('')
+const loadingText = ref('正在解析，请稍候…')
 const loading = ref(false),
+  exporting = ref(false),
   publishing = ref(false),
   previewLoading = ref(false)
-const busy = computed(() => loading.value || publishing.value || previewLoading.value)
+const busy = computed(
+  () => loading.value || exporting.value || publishing.value || previewLoading.value
+)
+const busyText = computed(() =>
+  publishing.value
+    ? '正在发布，请稍候…'
+    : exporting.value
+      ? '正在导出，请稍候…'
+      : previewLoading.value
+        ? '正在生成发布预览，请稍候…'
+        : loadingText.value
+)
 const requestId = ref<string>(crypto.randomUUID()),
   publishPreview = ref<SimpleParserResult>(),
   published = ref<SimpleParserResult>(),
@@ -629,20 +696,28 @@ const knownDevice = (code?: string | null) =>
   deviceOptions.value.find((device) => device.deviceCode === code)
 const issues = computed(() => {
   const result = reviewIssues(processes.value)
+  if (!routeName.value.trim()) result.unshift({ process: -1, message: '请填写工艺流程名称' })
+  if (!processes.value.length)
+    result.push({ process: -1, message: '请添加工序', target: 'addProcess' })
   const reusedProcesses = new Set<number>()
   processes.value.forEach((process, index) => {
     if (process.processId != null) {
       if (reusedProcesses.has(process.processId))
-        result.push({ process: index, message: '同一工艺流程不能重复选择同一个已有工序' })
+        result.push({
+          process: index,
+          message: '同一工艺流程不能重复选择同一个已有工序',
+          target: 'reuse'
+        })
       reusedProcesses.add(process.processId)
     }
     const codes = new Set<string>()
-    process.value.equipmentGroups?.forEach((group) =>
-      group.equipmentOptions?.forEach((equipment) => {
+    process.value.equipmentGroups?.forEach((group, g) =>
+      group.equipmentOptions?.forEach((equipment, e) => {
         if (equipment.code && codes.has(equipment.code))
           result.push({
             process: index,
-            message: `设备 ${equipment.code} 在本工序重复，请保留一处`
+            message: `设备 ${equipment.code} 在本工序重复，请保留一处`,
+            target: `equipment-${g}-${e}`
           })
         if (equipment.code) codes.add(equipment.code)
       })
@@ -650,52 +725,107 @@ const issues = computed(() => {
   })
   return result
 })
-const currentIssues = computed(() =>
-  issues.value.filter((issue) => issue.process === currentIndex.value)
-)
+const previewIssues = computed(() => [
+  ...issues.value,
+  ...(publishPreview.value?.blockers.map((message) => ({
+    message,
+    process: -1,
+    locatable: false
+  })) || [])
+])
+const pendingIssue = ref<ReviewIssue>()
+async function editIssue(issue: ReviewIssue) {
+  if (busy.value || published.value) return
+  pendingIssue.value = issue
+  const closing = publishVisible.value
+  publishVisible.value = false
+  if (!closing) await focusIssue()
+}
+async function focusIssue() {
+  const issue = pendingIssue.value
+  if (!issue) return
+  pendingIssue.value = undefined
+  mode.value = 'edit'
+  if (issue.process < 0) {
+    await nextTick()
+    const target =
+      issue.target === 'addProcess'
+        ? workspaceEditor.value?.querySelector<HTMLElement>('[data-issue-field="addProcess"]')
+        : metadataEditor.value?.querySelector<HTMLElement>('[aria-label="工艺流程名称"]')
+    target?.scrollIntoView({ block: 'center' })
+    target?.focus()
+    return
+  }
+  selectProcess(processes.value[issue.process].id)
+  await nextTick()
+  if (issue.parameter != null && issue.group != null) {
+    editParameter(issue.group, issue.parameter, issue.target)
+    return
+  }
+  const target = issue.target
+    ? editor.value?.querySelector<HTMLElement>(`[data-issue-field="${issue.target}"]`)
+    : editor.value
+  target?.scrollIntoView({ block: 'center' })
+  ;(target?.matches('input, textarea, button')
+    ? target
+    : target?.querySelector<HTMLElement>('input, textarea, button, [tabindex="0"]')
+  )?.focus({ preventScroll: true })
+}
 const errorText = (e: unknown) =>
   e instanceof Error ? e.message : typeof e === 'string' ? e : '操作失败，请按提示重试'
 const actionLabel = (action: string) => (action === 'CREATE' ? '新建' : '使用已有')
 const controlLabel = (control?: string) =>
   ({ number: '数字', select: '下拉选择', text: '文字', input: '文字' })[control || ''] ||
   '类型待确认'
-const history = ref<Array<{ processes: EditableProcess[]; selectedId: string; routeName: string }>>(
-  []
+const trialSession = ref(0)
+const editor = ref<HTMLElement>()
+const metadataEditor = ref<HTMLElement>()
+const workspaceEditor = ref<HTMLElement>()
+const publishedFlag = computed(() => !!published.value)
+const {
+  history,
+  dirty,
+  savedAt,
+  reset: resetEditing,
+  markSaved,
+  undo
+} = useParserEditing(
+  () =>
+    recognition.value ? { processes: processes.value, routeName: routeName.value } : undefined,
+  (state) => {
+    const index = currentIndex.value
+    processes.value = state.processes
+    routeName.value = state.routeName
+    if (!processes.value.some((p) => p.id === selectedId.value))
+      selectProcess(
+        processes.value[Math.max(0, Math.min(index, processes.value.length - 1))]?.id || ''
+      )
+  },
+  publishedFlag
 )
-let editing = false,
-  restoring = false
-function snapshot() {
-  if (published.value || !recognition.value) return
-  history.value.push(
-    clone({ processes: processes.value, selectedId: selectedId.value, routeName: routeName.value })
-  )
-  if (history.value.length > 40) history.value.shift()
-}
-function beginEdit(event: FocusEvent) {
-  if (
-    published.value ||
-    !(event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement)
-  )
-    return
-  if (!editing) {
-    snapshot()
-    editing = true
-  }
-}
-function markChanged() {
-  editing = false
-}
+let restoring = false
 function mutate(action: () => void) {
   if (published.value || busy.value) return
-  snapshot()
   action()
-  markChanged()
+}
+function reorderProcesses(list: EditableProcess[]) {
+  mutate(() => {
+    processes.value = list
+  })
+}
+function moveProcess(offset: number) {
+  const from = currentIndex.value,
+    to = from + offset
+  if (from < 0 || to < 0 || to >= processes.value.length) return
+  mutate(() => {
+    const [entry] = processes.value.splice(from, 1)
+    processes.value.splice(to, 0, entry)
+  })
 }
 watch(
-  [processes, routeName],
+  [processes, routeName, projectId],
   () => {
     if (restoring || !recognition.value || published.value) return
-    dirty.value = true
     requestId.value = crypto.randomUUID()
     publishPreview.value = undefined
     pendingRequest.value = undefined
@@ -703,17 +833,8 @@ watch(
   },
   { deep: true, flush: 'sync' }
 )
-function undo() {
-  const state = history.value.pop()
-  if (!state || published.value) return
-  processes.value = state.processes
-  selectedId.value = state.selectedId
-  routeName.value = state.routeName
-  editing = false
-}
 function selectProcess(id: string) {
   selectedId.value = id
-  editing = false
   reuseVisible.value = false
   craftOptions.value = []
   craftError.value = ''
@@ -743,51 +864,103 @@ async function confirmAction(text: string) {
 }
 async function importWord(upload: UploadFile) {
   if (busy.value) return
-  if (!upload.raw || !/\.docx$/i.test(upload.raw.name)) {
-    error.value = '请选择 DOCX 文件；旧版 DOC 请先另存为 DOCX'
+  if (!projectId.value) {
+    message.warning('请先选择所属项目')
+    return
+  }
+  if (!upload.raw || !/\.docx?$/i.test(upload.raw.name)) {
+    error.value = '请选择 DOC 或 DOCX 文件'
     return
   }
   if (dirty.value && !(await confirmAction('导入新文档将替换当前未保存内容，是否继续？'))) return
+  loadingText.value = '正在解析，请稍候…'
   loading.value = true
   error.value = ''
   try {
-    await loadDevices()
-    if (deviceError.value) throw new Error(deviceError.value)
-    const result = parseRecognition(
-      await BatchRecordReportApi.parseProductionBatchRecordTotalRecognitionJson(upload.raw)
-    )
+    const restored = /\.docx$/i.test(upload.raw.name)
+      ? await readSimpleWord(await upload.raw.arrayBuffer())
+      : undefined
+    let result: Recognition
+    if (restored) result = restored.recognition
+    else {
+      await loadDevices()
+      if (deviceError.value) throw new Error(deviceError.value)
+      result = parseRecognition(
+        await BatchRecordReportApi.parseProductionBatchRecordTotalRecognitionJson(upload.raw)
+      )
+    }
     restoring = true
     recognition.value = result
-    processes.value = result.processes.map((value) => ({
-      id: crypto.randomUUID(),
-      sourceName: value.name,
-      value: clone(value)
-    }))
-    processes.value.forEach((process) =>
-      process.value.equipmentGroups?.forEach((group) =>
-        group.equipmentOptions?.forEach((equipment) => {
-          const device = knownDevice(equipment.code)
-          if (device) equipment.name = device.deviceName
-        })
+    processes.value = restored
+      ? restored.processes
+      : result.processes.map((value) => ({
+          id: crypto.randomUUID(),
+          sourceName: value.name,
+          value: clone(value)
+        }))
+    if (!restored)
+      processes.value.forEach((process) =>
+        process.value.equipmentGroups?.forEach((group) =>
+          group.equipmentOptions?.forEach((equipment) => {
+            const device = knownDevice(equipment.code)
+            if (device) equipment.name = device.deviceName
+          })
+        )
       )
-    )
-    filename.value = upload.raw.name
-    routeName.value = `${result.product.name || '生产记录'}工艺流程`
+    filename.value = restored ? restored.filename : upload.raw.name
+    routeName.value = restored ? restored.routeName : `${result.product.name || '生产记录'}工艺流程`
     requestId.value = crypto.randomUUID()
     selectedId.value = processes.value[0]?.id || ''
     mode.value = 'edit'
-    savedAt.value = ''
-    history.value = []
     publishPreview.value = undefined
     published.value = undefined
     pendingRequest.value = undefined
-    dirty.value = true
-    message.success(`已识别 ${processes.value.length} 道工序，请检查识别内容`)
+    trialSession.value++
+    resetEditing()
+    reuseVisible.value = false
+    craftOptions.value = []
+    craftError.value = ''
+    if (current.value?.processId) void loadCrafts()
+    message.success(
+      restored
+        ? `已完整恢复 ${processes.value.length} 道工序`
+        : `已识别 ${processes.value.length} 道工序，请检查识别内容`
+    )
   } catch (cause) {
     error.value = errorText(cause)
   } finally {
     restoring = false
     loading.value = false
+  }
+}
+async function exportWord() {
+  if (busy.value || !recognition.value) return
+  exporting.value = true
+  error.value = ''
+  try {
+    // Preserve the editor exactly; publishing may separately resolve names from the device directory.
+    const content: SimpleWordContent = clone({
+      filename: filename.value,
+      routeName: routeName.value,
+      recognition: { ...recognition.value, processes: processes.value.map((p) => p.value) },
+      processes: processes.value
+    })
+    const response = await fetch(wordTemplateUrl)
+    if (!response.ok) throw new Error(`Word 模板加载失败（${response.status}）`)
+    const blob = await exportSimpleWord(await response.arrayBuffer(), content)
+    const href = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = href
+    link.download = `${(content.routeName.trim() || '简易解析').replace(/[\\/:*?"<>|\u0000-\u001f]/g, '_')}.docx`
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    setTimeout(() => URL.revokeObjectURL(href), 60_000)
+    message.success('Word 已导出，可再次导入恢复当前编辑内容')
+  } catch (cause) {
+    error.value = `Word 导出失败：${errorText(cause)}`
+  } finally {
+    exporting.value = false
   }
 }
 function insertProcess(index: number) {
@@ -1048,14 +1221,15 @@ const parameterTargets = computed(() =>
       ) || []
   )
 )
-function editParameter(group: number, parameter?: number) {
+function editParameter(group: number, parameter?: number, target?: string) {
   if (busy.value || published.value || current.value.craftSelections?.[group]) return
   parameterOrigin = { processId: current.value.id, group, parameter }
   parameterDialog.value?.open(
     parameter == null
       ? { name: '', ui: { control: 'number', step: 1 } }
       : current.value.value.equipmentGroups![group].parameters![parameter],
-    `${current.value.id}:${group}`
+    `${current.value.id}:${group}`,
+    target
   )
 }
 function saveParameter(parameter: Parameter, location: string) {
@@ -1096,6 +1270,7 @@ function output(): Recognition {
 function buildRequest(): SimpleParserRequest {
   return {
     requestId: requestId.value,
+    projectId: projectId.value!,
     routeName: routeName.value.trim(),
     recognitionJson: output() as unknown as Record<string, unknown>,
     processSelections: processes.value.map((process, processIndex) => ({
@@ -1114,6 +1289,7 @@ function draftKey() {
   return `form-center:simple-parser:v1:${tenant}:${user}`
 }
 function persistDraft() {
+  if (!selectedProject.value) throw new Error('请先选择所属项目')
   const time = new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', hour12: false })
   const draft: SimpleDraft = {
     version: 1,
@@ -1124,12 +1300,16 @@ function persistDraft() {
     reviewed: [],
     savedAt: time,
     requestId: requestId.value,
+    project: {
+      id: selectedProject.value.id,
+      projectCode: selectedProject.value.projectCode,
+      projectName: selectedProject.value.projectName
+    },
     routeName: routeName.value,
     published: published.value
   }
   localStorage.setItem(draftKey(), JSON.stringify(draft))
-  savedAt.value = time
-  dirty.value = false
+  markSaved(time)
 }
 function saveDraft() {
   try {
@@ -1140,7 +1320,10 @@ function saveDraft() {
   }
 }
 async function restoreDraft() {
+  if (busy.value) return
   if (dirty.value && !(await confirmAction('恢复草稿将替换当前未保存内容，是否继续？'))) return
+  loadingText.value = '正在恢复草稿，请稍候…'
+  loading.value = true
   try {
     const text = localStorage.getItem(draftKey())
     if (!text) {
@@ -1148,6 +1331,9 @@ async function restoreDraft() {
       return
     }
     const draft = JSON.parse(text) as SimpleDraft
+    if (!draft.project?.id) throw new Error('草稿缺少所属项目，请选择项目后重新导入 Word')
+    const project = await getProjectCode(draft.project.id)
+    if (project.status !== 'ENABLE') throw new Error('草稿所属项目已停用，无法恢复')
     if (
       draft.version !== 1 ||
       !Array.isArray(draft.processes) ||
@@ -1158,6 +1344,8 @@ async function restoreDraft() {
       JSON.stringify({ ...draft.recognition, processes: draft.processes.map((item) => item.value) })
     )
     restoring = true
+    projects.value = [project, ...projects.value.filter((p) => p.id !== project.id)]
+    projectId.value = project.id
     recognition.value = result
     processes.value = draft.processes
     filename.value = draft.filename
@@ -1167,9 +1355,8 @@ async function restoreDraft() {
     publishPreview.value = published.value
     pendingRequest.value = undefined
     selectedId.value = processes.value[0]?.id || ''
-    history.value = []
-    savedAt.value = draft.savedAt
-    dirty.value = false
+    trialSession.value++
+    resetEditing(true, draft.savedAt)
     error.value = ''
     mode.value = 'edit'
     if (current.value?.processId) await loadCrafts()
@@ -1178,22 +1365,20 @@ async function restoreDraft() {
     error.value = `草稿恢复失败：${errorText(cause)}`
   } finally {
     restoring = false
+    loading.value = false
   }
 }
 async function openPublish() {
+  if (busy.value || published.value) return
   error.value = ''
-  if (!routeName.value.trim()) {
-    message.warning('请填写工艺流程名称')
-    return
-  }
-  if (!processes.value.length) {
-    message.warning('至少需要一道工序')
+  if (!projectId.value) {
+    message.warning('请先选择所属项目')
     return
   }
   if (issues.value.length) {
-    selectProcess(processes.value[issues.value[0].process].id)
-    mode.value = 'edit'
-    message.warning(issues.value[0].message)
+    publishPreview.value = undefined
+    pendingRequest.value = undefined
+    publishVisible.value = true
     return
   }
   if (deviceError.value || deviceLoading.value) {
@@ -1222,8 +1407,9 @@ async function openPublish() {
 }
 async function publish() {
   if (
-    publishing.value ||
+    busy.value ||
     published.value ||
+    issues.value.length ||
     !pendingRequest.value ||
     publishPreview.value?.blockers.length
   )
@@ -1236,6 +1422,7 @@ async function publish() {
     const result = await SimpleParserApi.publish(pendingRequest.value)
     published.value = result
     publishPreview.value = result
+    publishVisible.value = false
     try {
       persistDraft()
     } catch (cause) {
@@ -1275,17 +1462,18 @@ function beforeUnload(event: BeforeUnloadEvent) {
 window.addEventListener('beforeunload', beforeUnload)
 onBeforeUnmount(() => window.removeEventListener('beforeunload', beforeUnload))
 onMounted(loadDevices)
-onBeforeRouteLeave(async () => {
+onMounted(() => searchProjects())
+onBeforeRouteLeave(() => {
   if (busy.value) {
     message.warning('正在处理，请稍后离开')
     return false
   }
-  return !dirty.value || (await confirmAction('修改尚未保存，确定离开？'))
+  // 切换页签由 KeepAlive 保留未保存内容；刷新或关闭浏览器仍由 beforeUnload 提醒。
+  return true
 })
 </script>
 
 <style scoped lang="scss">
-.page-head,
 .section-title,
 .toolbar,
 .workbench-bar,
@@ -1294,23 +1482,15 @@ onBeforeRouteLeave(async () => {
   align-items: center;
   gap: 12px;
 }
-.page-head,
 .section-title,
 .review-actions {
   justify-content: space-between;
 }
-.page-head {
-  align-items: flex-start;
-  h2 {
-    margin: 0 0 8px;
-    font-size: 22px;
-  }
-  p {
-    margin: 0;
-    font-size: 13px;
-    color: var(--el-text-color-secondary);
-    overflow-wrap: anywhere;
-  }
+.source-filename {
+  margin: 0;
+  font-size: 13px;
+  color: var(--el-text-color-secondary);
+  overflow-wrap: anywhere;
 }
 .toolbar {
   flex-wrap: wrap;
@@ -1319,11 +1499,11 @@ onBeforeRouteLeave(async () => {
   }
 }
 .route-name {
-  margin-top: 22px;
-  max-width: 840px;
+  width: 100%;
 }
 .workbench-bar {
   flex-wrap: wrap;
+  margin-bottom: 12px;
   .toolbar {
     margin-left: auto;
   }
@@ -1335,7 +1515,7 @@ onBeforeRouteLeave(async () => {
   font-size: 13px;
 }
 .draft-note {
-  margin: 16px 0 22px;
+  margin: 8px 0 0;
 }
 .status-message {
   margin-top: 16px;
@@ -1536,9 +1716,6 @@ onBeforeRouteLeave(async () => {
   }
 }
 @media (max-width: 760px) {
-  .page-head {
-    flex-wrap: wrap;
-  }
   .workbench {
     grid-template-columns: 1fr;
   }
@@ -1552,3 +1729,5 @@ onBeforeRouteLeave(async () => {
   }
 }
 </style>
+
+<style scoped src="./simpleParserLayout.css"></style>

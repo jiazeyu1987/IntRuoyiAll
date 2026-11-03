@@ -49,7 +49,8 @@
             show-icon
             class="edhr-batch-page__list-alert"
           />
-          <el-table height="100%"
+          <el-table
+            height="100%"
             v-loading="loading"
             data-user-table-column-explicit
             data-user-table-key="mes.pro.edhrBatch.execution.main"
@@ -399,11 +400,7 @@
         <section v-if="releasePreview" class="edhr-detail-section">
           <h3>放行资料预览</h3>
           <p>{{ releasePreview.content.scopeText }}</p>
-          <el-collapse>
-            <el-collapse-item title="查看本次签署的完整资料" name="release-content">
-              <pre style="max-height: 320px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere">{{ JSON.stringify(JSON.parse(releasePreview.content.canonicalBusinessContentJson), null, 2) }}</pre>
-            </el-collapse-item>
-          </el-collapse>
+          <ReadableData title="本次签署的完整资料" :source="releasePreview.content.canonicalBusinessContentJson" :checksum="releasePreview.content.contentHash" />
           <p v-for="file in releasePreview.content.attachments" :key="file.fileId">
             <a :href="file.readUrl" target="_blank" rel="noopener noreferrer">{{ file.fileName }}</a>
             · 版本 {{ file.version }}
@@ -843,7 +840,12 @@
         <el-table-column label="对象" prop="subject" min-width="180" />
         <el-table-column label="状态/动作" prop="action" min-width="180" />
         <el-table-column label="时间" prop="time" width="180" />
-        <el-table-column label="说明" prop="description" min-width="260" />
+        <el-table-column label="说明" min-width="260">
+          <template #default="{ row }">
+            <span>{{ row.description }}</span>
+            <details v-if="row.checksum"><summary>查看完整性校验码</summary><span style="overflow-wrap: anywhere">{{ row.checksum }}</span></details>
+          </template>
+        </el-table-column>
       </el-table>
     </Dialog>
 
@@ -873,6 +875,8 @@
 </template>
 
 <script setup lang="ts">
+import ReadableData from '@/components/BusinessData/ReadableData.vue'
+import { readBusinessEvidence } from '@/views/mes/pro/processpool/components/businessEvidenceDisplay'
 import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
 
 import '@/views/mes/pro/edhr/shared/detail-surface.scss'
@@ -1198,7 +1202,8 @@ const operationHistoryRows = computed(() => {
       subject: event.batchExecutionCode || selectedTraceBatch.value?.batchExecutionCode || '--',
       action: resolveBatchStatusLabel(event.status),
       time: formatTraceTime(event.closedAt || event.createTime),
-      description: event.aggregateHash ? `聚合哈希 ${event.aggregateHash}` : '批次状态事件'
+      description: '批次状态事件',
+      checksum: event.aggregateHash
     })),
     ...(timeline?.taskEvents || []).map((event) => ({
       type: '任务',
@@ -1226,7 +1231,8 @@ const operationHistoryRows = computed(() => {
       subject: archive.fileName || `归档 ${archive.id}`,
       action: archive.archiveStatus || archive.artifactType || '--',
       time: formatTraceTime(archive.generatedAt),
-      description: archive.contentHash ? `内容哈希 ${archive.contentHash}` : '最终归档版本'
+      description: '最终归档版本',
+      checksum: archive.contentHash
     }))
   ]
 })
@@ -1815,7 +1821,8 @@ const openReleaseDialog = async (
       if (!preview.prepareId || !preview.content.canonicalBusinessContentJson || !preview.content.allowedActions.includes('APPROVE')) {
         throw new Error('放行资料预览不完整，请重新打开后核对。')
       }
-      JSON.parse(preview.content.canonicalBusinessContentJson)
+      const presentation = readBusinessEvidence(preview.content.canonicalBusinessContentJson)
+      if (presentation.error) throw new Error(presentation.error)
       releasePreview.value = preview
     }
   } catch (error) {

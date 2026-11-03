@@ -259,10 +259,6 @@
                     </button>
                   </div>
                 </div>
-              </div>
-            </template>
-            <template v-else-if="selectedBoundaryType === 'END'">
-              <div class="route-flow-graph-designer__selected-detail-list">
                 <div
                   class="route-flow-graph-designer__selected-detail-item"
                   :class="{ 'is-selected': selectedBoundaryDetailFieldKey === 'releaseOwner' }"
@@ -285,23 +281,17 @@
               </div>
             </template>
             <template v-else>
-              <p>边界节点属性暂为只读，本次仅维护与工序的连接关系。</p>
-              <el-empty
-                v-if="selectedBoundaryRelations.length === 0"
-                :image-size="38"
-                description="暂无边界关系"
-              />
-              <div v-else class="route-flow-graph-designer__boundary-relation-list">
-                <div
-                  v-for="edge in selectedBoundaryRelations"
-                  :key="boundaryEdgeKey(edge)"
-                  class="route-flow-graph-designer__boundary-relation-item"
-                >
-                  <span>{{ boundaryEdgeSourceLabel(edge) }}</span>
-                  <Icon icon="ep:right" />
-                  <strong>{{ boundaryEdgeTargetLabel(edge) }}</strong>
-                </div>
-              </div>
+              <el-button
+                data-flow-action="check-full-flow-readiness"
+                type="primary"
+                plain
+                :disabled="loading || submitting || !props.routeId"
+                :loading="fullFlowReadinessLoading"
+                @click="handleCheckFullFlowReadiness"
+              >
+                <Icon icon="ep:circle-check" class="mr-5px" />
+                检测
+              </el-button>
             </template>
           </div>
         </template>
@@ -451,7 +441,7 @@
                 'has-flags': data.routeNode.keyFlag || data.routeNode.checkFlag,
                 'is-invalid': invalidRouteProcessIds.has(data.routeNode.routeProcessId),
                 'is-highlight': highlightedRouteProcessId === data.routeNode.routeProcessId,
-                'is-selected': selectedRouteProcessId === data.routeNode.routeProcessId,
+                'is-selected': sameRouteProcessId(selectedRouteProcessId, data.routeNode.routeProcessId),
                 'is-binding-bound': getRouteNodeBindingStatus(data.routeNode) === 'bound',
                 'is-binding-missing': getRouteNodeBindingStatus(data.routeNode) === 'missing'
               }"
@@ -630,7 +620,7 @@
             <slot name="start-setting" :setting="selectedStartSetting"></slot>
           </template>
           <p
-            v-else-if="!selectedProcessDetailField && !(selectedBoundaryType === 'END' && selectedBoundaryDetailFieldKey === 'releaseOwner') && !(selectedBoundaryType === 'START' && selectedBoundaryDetailFieldKey === 'batchRecordAttachment') && !(selectedBoundaryType === 'START' && selectedBoundaryDetailFieldKey === 'productionLeader')"
+            v-else-if="!selectedProcessDetailField && !(selectedBoundaryType === 'START' && selectedBoundaryDetailFieldKey === 'releaseOwner') && !(selectedBoundaryType === 'START' && selectedBoundaryDetailFieldKey === 'batchRecordAttachment') && !(selectedBoundaryType === 'START' && selectedBoundaryDetailFieldKey === 'productionLeader')"
             class="route-flow-graph-designer__selected-field-empty"
           >
             点击左侧字段查看明细
@@ -903,10 +893,10 @@
               </div>
             </div>
           </template>
-          <template v-else-if="selectedBoundaryType === 'END' && selectedBoundaryDetailFieldKey === 'releaseOwner'">
+          <template v-else-if="selectedBoundaryType === 'START' && selectedBoundaryDetailFieldKey === 'releaseOwner'">
             <div class="route-flow-graph-designer__selected-field-grid">
               <span>当前工序</span>
-              <strong>工序结束</strong>
+              <strong>工序开始</strong>
               <span>字段名称</span>
               <strong>放行责任人</strong>
               <span>字段来源</span>
@@ -1630,15 +1620,15 @@
                         </el-button>
                       </div>
                       <RouteCraftBinding
-                        v-if="routeProcessDeviceParameterConfig?.processId && props.routeVersionEditContext?.routeVersionId && selectedRouteProcessId"
-                        :key="selectedRouteProcessId"
+                        v-if="routeProcessDeviceParameterConfig?.processId && props.routeVersionEditContext?.routeVersionId && selectedNode"
+                        :key="selectedNode.routeProcessId"
                         :process-id="routeProcessDeviceParameterConfig.processId"
-                        :route-process-id="selectedRouteProcessId"
+                        :route-process-id="selectedNode?.routeProcessId"
                         :route-version-id="props.routeVersionEditContext.routeVersionId"
                         :snapshot-sha256="routeProcessDeviceParameterConfig.routeSnapshotSha256"
                         :bindings="routeProcessDeviceParameterConfig.craftBindings"
                         :devices="selectedRouteProcessDeviceParameterDevices"
-                        :disabled="recordBindingEditorDisabled || hasProductionProcessConfigJsonDraftChanges(selectedRouteProcessId)"
+                        :disabled="recordBindingEditorDisabled || hasProductionProcessConfigJsonDraftChanges(selectedNode.routeProcessId)"
                         @saved="refreshSelectedCraftBinding"
                       />
                       <el-skeleton
@@ -2089,6 +2079,51 @@
         </el-button>
       </template>
     </el-dialog>
+    <el-dialog
+      v-model="fullFlowReadinessVisible"
+      title="重置至上市放行条件检测"
+      width="min(1100px, 94vw)"
+      :z-index="2300"
+      append-to-body
+      destroy-on-close
+      data-flow-panel="full-flow-readiness"
+    >
+      <el-skeleton v-if="fullFlowReadinessLoading" :rows="5" animated />
+      <el-alert
+        v-if="fullFlowReadinessError"
+        :title="fullFlowReadinessError"
+        type="error"
+        :closable="false"
+        show-icon
+      />
+      <template v-if="fullFlowReadinessResult">
+        <el-alert
+          :title="fullFlowReadinessResult.overallStatus === 'BLOCKED' ? '存在阻断项，当前不具备完整流程条件' : '已检测的配置项通过，实际执行条件仍待验证'"
+          :description="`检测版本：${fullFlowReadinessResult.versionNo || '未发布'}。检测仅读取已保存的正式配置，不执行重置、报工或放行；待验证项完成前不能认定整条链路通过。`"
+          :type="fullFlowReadinessResult.overallStatus === 'BLOCKED' ? 'error' : 'warning'"
+          :closable="false"
+          show-icon
+          class="mb-16px"
+        />
+        <el-table :data="fullFlowReadinessResult.items" border max-height="60vh">
+          <el-table-column prop="stage" label="业务节点" width="160" />
+          <el-table-column prop="name" label="检测项" min-width="180" />
+          <el-table-column label="结果" width="100">
+            <template #default="{ row }">
+              <el-tag :type="row.status === 'PASS' ? 'success' : row.status === 'BLOCKED' ? 'danger' : 'warning'">
+                {{ row.status === 'PASS' ? '通过' : row.status === 'BLOCKED' ? '阻断' : '待验证' }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column prop="detail" label="检测详情" min-width="260" />
+          <el-table-column prop="action" label="处理建议" min-width="240" />
+        </el-table>
+      </template>
+      <template #footer>
+        <el-button @click="fullFlowReadinessVisible = false">关闭</el-button>
+        <el-button type="primary" :loading="fullFlowReadinessLoading" @click="handleCheckFullFlowReadiness">重新检测</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -2116,6 +2151,7 @@ import {
 } from '@vue-flow/core'
 import {
   ProRouteApi,
+  type RouteFullFlowReadinessVO,
   type MesRouteId,
   type ProRouteProductionProcessConfigVO,
   type ProRouteVO,
@@ -2222,8 +2258,9 @@ type RouteFlowVueEdge = Edge<{
   boundaryEdge?: RouteFlowBoundaryEdgeVO
 }>
 type ProcessDetailFieldKey = RouteProcessSettingColumnKey
+import { requireRouteProcessId, routeProcessIdKey, sameRouteProcessId } from './routeProcessIdentity'
 type RouteFlowLastSelectionState = {
-  routeProcessId: number
+  routeProcessId: MesRouteId
   detailFieldKey?: ProcessDetailFieldKey
 }
 type RouteFlowSelectionRestoreSource = 'explicit' | 'cache'
@@ -2308,7 +2345,7 @@ type HeightAwareTailChainLayoutOptions = {
 const DEFAULT_AUTO_LAYOUT_OPTIONS: AutoLayoutOptions = {}
 
 const props = defineProps<{
-  routeId: number
+  routeId: MesRouteId
   routeName: string
   activeRouteVersionNo?: string
   formType: string
@@ -2435,7 +2472,7 @@ type BatchRecordReportSelectOption = Pick<
 type RouteProcessMaterialKind = 'input' | 'output'
 type RouteProcessMaterialSuggestion = MdItemVO & { value: string }
 type SelectedProcessAttributes = {
-  routeProcessId?: number
+  routeProcessId?: MesRouteId
   routeVersionId?: MesRouteId
   routeScheduleConfigId?: number | null
   scheduleConfigVersion?: string | null
@@ -2452,7 +2489,7 @@ type SelectedProcessAttributes = {
   remark?: string | null
 }
 type SelectedProcessAttributesDraft = SelectedProcessAttributes & {
-  routeProcessId: number
+  routeProcessId: MesRouteId
   recordBindings: RouteFlowRecordBinding[]
   legacyBatchRecords: RouteFlowLegacyBatchRecord[]
 }
@@ -2631,7 +2668,7 @@ const pendingDeletedRouteProcessIds = ref<Set<number>>(new Set())
 const loadedRouteProcessIds = ref<Set<number>>(new Set())
 const nextDraftRouteProcessId = ref(-1)
 const invalidRouteProcessIds = ref<Set<number>>(new Set())
-const selectedRouteProcessId = ref<number | null>(null)
+const selectedRouteProcessId = ref<MesRouteId | null>(null)
 const selectedBoundaryType = ref<RouteFlowBoundaryType | null>(null)
 const selectedBoundaryDetailFieldKey = ref<BoundaryDetailFieldKey>()
 const routeStartSettings: Array<{ key: RouteStartSetting; label: string }> = [
@@ -2684,10 +2721,10 @@ const recordBindingRoleOptions = ref<RoleVO[]>([])
 const recordBindingRoleOptionsLoading = ref(false)
 const processFormBindingCopyPopoverVisible = ref(false)
 const processFormBindingCopySourceRouteProcessId = ref<number | null>(null)
-const selectedProcessAttributeDrafts = reactive<Record<number, SelectedProcessAttributesDraft>>({})
-const selectedProcessAttributeBaselines = reactive<Record<number, string>>({})
-const productionProcessConfigJsonDrafts = reactive<Record<number, string>>({})
-const productionProcessConfigJsonBaselines = reactive<Record<number, string>>({})
+const selectedProcessAttributeDrafts = reactive<Record<string, SelectedProcessAttributesDraft>>({})
+const selectedProcessAttributeBaselines = reactive<Record<string, string>>({})
+const productionProcessConfigJsonDrafts = reactive<Record<string, string>>({})
+const productionProcessConfigJsonBaselines = reactive<Record<string, string>>({})
 const selectedProcessRouteConfigCache = ref<SelectedProcessRouteConfigCache>()
 const routeProcessKeyFlagBaselines = reactive<Record<number, boolean>>({})
 const routeProcessCheckFlagBaselines = reactive<Record<number, boolean>>({})
@@ -2697,7 +2734,7 @@ const capacityOverrideSaving = ref(false)
 const capacityOverrideFormRef = ref()
 const capacityOverrideForm = reactive<{ hourlyCapacity?: number }>({})
 const capacityOverrideRouteVersionId = ref<MesRouteId | null>(null)
-const capacityOverrideRouteProcessId = ref<number | null>(null)
+const capacityOverrideRouteProcessId = ref<MesRouteId | null>(null)
 const capacityOverrideCandidateCreating = ref(false)
 const capacityOverrideRepairHourlyCapacity = ref<number | undefined>()
 const capacityWorkstationRepairDialogVisible = ref(false)
@@ -2857,7 +2894,7 @@ const capacityWorkstationRepairRules = {
 }
 
 const selectedNode = computed(() => {
-  return routeNodes.value.find((node) => node.routeProcessId === selectedRouteProcessId.value)
+  return routeNodes.value.find((node) => sameRouteProcessId(node.routeProcessId, selectedRouteProcessId.value))
 })
 const mergeRouteProcessRowWithNode = (
   row: ProRouteProcessVO | undefined,
@@ -2890,47 +2927,44 @@ const mergeRouteProcessRowWithNode = (
   }
 }
 const candidateAwareRouteProcessRows = computed(() => {
-  const rowsById = new Map<number, ProRouteProcessVO>()
+  const rowsById = new Map<string, ProRouteProcessVO>()
   routeProcessRows.value.forEach((row) => {
-    const routeProcessId = Number(row.id)
-    if (Number.isFinite(routeProcessId)) {
-      rowsById.set(routeProcessId, row)
-    }
+    const routeProcessId = routeProcessIdKey(row.id)
+    rowsById.set(routeProcessId, row)
   })
   routeNodes.value.forEach((node) => {
-    const routeProcessId = Number(node.routeProcessId)
-    if (!Number.isFinite(routeProcessId)) return
+    const routeProcessId = routeProcessIdKey(node.routeProcessId)
     rowsById.set(routeProcessId, mergeRouteProcessRowWithNode(rowsById.get(routeProcessId), node))
   })
   return Array.from(rowsById.values())
 })
 const selectedRouteProcess = computed(() => {
   return candidateAwareRouteProcessRows.value.find(
-    (row) => Number(row.id) === Number(selectedRouteProcessId.value)
+    (row) => sameRouteProcessId(row.id, selectedRouteProcessId.value)
   )
 })
 const selectedPredecessorRouteProcessIds = computed(() => {
   const routeProcessId = selectedRouteProcessId.value
   if (!routeProcessId) return []
   return routeEdges.value
-    .filter((edge) => Number(edge.targetRouteProcessId) === Number(routeProcessId))
+    .filter((edge) => sameRouteProcessId(edge.targetRouteProcessId, routeProcessId))
     .map((edge) => edge.sourceRouteProcessId)
 })
 const selectedSuccessorRouteProcessIds = computed(() => {
   const routeProcessId = selectedRouteProcessId.value
   if (!routeProcessId) return []
   return routeEdges.value
-    .filter((edge) => Number(edge.sourceRouteProcessId) === Number(routeProcessId))
+    .filter((edge) => sameRouteProcessId(edge.sourceRouteProcessId, routeProcessId))
     .map((edge) => edge.targetRouteProcessId)
 })
 const routeProcessRelationOptions = computed(() =>
   sortedActiveRouteNodes.value.filter(
-    (node) => Number(node.routeProcessId) !== Number(selectedRouteProcessId.value)
+    (node) => !sameRouteProcessId(node.routeProcessId, selectedRouteProcessId.value)
   )
 )
 const capacityWorkstationRepairTargetRouteProcess = computed(() => {
   const routeProcessId = capacityOverrideRouteProcessId.value || selectedProcessAttributes.routeProcessId
-  return candidateAwareRouteProcessRows.value.find((row) => Number(row.id) === Number(routeProcessId))
+  return candidateAwareRouteProcessRows.value.find((row) => sameRouteProcessId(row.id, routeProcessId))
 })
 const getBoundRouteProcessWorkstationId = (routeProcess?: ProRouteProcessVO) =>
   props.routeVersionEditContext
@@ -3194,7 +3228,7 @@ const handleProcessDetailLinkClick = async (link: ProcessDetailLinkItem) => {
 }
 
 const focusRouteProcessNode = async (routeProcessId: number) => {
-  if (!Number.isFinite(routeProcessId) || !findNode(routeProcessId)) {
+  if (!findNode(routeProcessId)) {
     throw new Error(`流转关系图定位失败：路线工序不存在 routeProcessId=${routeProcessId}`)
   }
   selectedRouteProcessId.value = routeProcessId
@@ -3502,7 +3536,7 @@ const isRouteNodeBatchRecordFormConfigured = (node: RouteFlowNodeVO) =>
 
 const isRouteNodeWorkstationBound = (node: RouteFlowNodeVO) => {
   const routeProcess = candidateAwareRouteProcessRows.value.find(
-    (row) => Number(row.id) === Number(node.routeProcessId)
+    (row) => sameRouteProcessId(row.id, node.routeProcessId)
   )
   return Boolean(getBoundRouteProcessWorkstationId(routeProcess))
 }
@@ -3634,17 +3668,15 @@ const formatRouteProcessMaterialSummaryLine = (item: MdItemVO) =>
 const isRouteProcessMaterialDetailField = (fieldKey?: ProcessDetailFieldKey) =>
   fieldKey === 'inputMaterialIds' || fieldKey === 'outputMaterialIds'
 
-const findProductionProcessConfig = (routeProcessId?: number | null) =>
+const findProductionProcessConfig = (routeProcessId?: MesRouteId | null) =>
   selectedProcessRouteConfigCache.value?.productionProcessConfigSnapshot.productionProcessConfigs.find(
-    (item) => Number(item.routeProcessId) === Number(routeProcessId)
+    (item) => sameRouteProcessId(item.routeProcessId, routeProcessId)
   )
 
 const normalizeProductionProcessConfig = (
   config: ProRouteProductionProcessConfigVO
 ): ProRouteProductionProcessConfigVO => ({
   ...config,
-  routeProcessId: Number(config.routeProcessId),
-  processId: Number(config.processId),
   lossReasons: Array.isArray(config.lossReasons) ? config.lossReasons : [],
   deviceSelectionGroups: Array.isArray(config.deviceSelectionGroups)
     ? config.deviceSelectionGroups
@@ -3668,7 +3700,7 @@ const buildDefaultProductionProcessConfig = (
 
 const ensureProductionProcessConfigJsonDraft = (node?: RouteFlowNodeVO) => {
   if (!node || !selectedProcessRouteConfigCache.value) return ''
-  const routeProcessId = Number(node.routeProcessId)
+  const routeProcessId = routeProcessIdKey(node.routeProcessId)
   if (productionProcessConfigJsonDrafts[routeProcessId] === undefined) {
     const config = findProductionProcessConfig(routeProcessId) ||
       buildDefaultProductionProcessConfig(node)
@@ -3692,19 +3724,19 @@ const updateProductionProcessConfigJsonDraft = (
   value: string
 ) => {
   if (!node) return
-  productionProcessConfigJsonDrafts[Number(node.routeProcessId)] = value
+  productionProcessConfigJsonDrafts[routeProcessIdKey(node.routeProcessId)] = value
 }
 
-const hasProductionProcessConfigJsonDraftChanges = (routeProcessId?: number) => {
+const hasProductionProcessConfigJsonDraftChanges = (routeProcessId?: MesRouteId) => {
   const routeProcessIds = routeProcessId === undefined
-    ? Object.keys(productionProcessConfigJsonDrafts).map(Number)
-    : [Number(routeProcessId)]
+    ? Object.keys(productionProcessConfigJsonDrafts)
+    : [routeProcessIdKey(routeProcessId)]
   return routeProcessIds.some((id) =>
     productionProcessConfigJsonDrafts[id] !== productionProcessConfigJsonBaselines[id]
   )
 }
 
-const syncProductionProcessConfigJsonDraftFromCache = (routeProcessId: number) => {
+const syncProductionProcessConfigJsonDraftFromCache = (routeProcessId: MesRouteId) => {
   const config = findProductionProcessConfig(routeProcessId)
   if (!config) {
     throw new Error(`设备参数保存后未读取到最新生产配置：routeProcessId=${routeProcessId}`)
@@ -3716,7 +3748,7 @@ const syncProductionProcessConfigJsonDraftFromCache = (routeProcessId: number) =
 
 const discardProductionProcessConfigJsonDraftChanges = () => {
   Object.keys(productionProcessConfigJsonDrafts).forEach((key) => {
-    const routeProcessId = Number(key)
+    const routeProcessId = routeProcessIdKey(key)
     const baseline = productionProcessConfigJsonBaselines[routeProcessId]
     if (baseline !== undefined) {
       productionProcessConfigJsonDrafts[routeProcessId] = baseline
@@ -3727,12 +3759,12 @@ const discardProductionProcessConfigJsonDraftChanges = () => {
 const parseProductionProcessConfigDraft = (
   node: RouteFlowNodeVO
 ): ProRouteProductionProcessConfigVO => {
-  const rawText = productionProcessConfigJsonDrafts[Number(node.routeProcessId)]
+  const rawText = productionProcessConfigJsonDrafts[routeProcessIdKey(node.routeProcessId)]
   if (!rawText?.trim()) throw new Error('生产配置不能为空。')
   const parsed = JSON.parse(rawText) as ProRouteProductionProcessConfigVO
   if (
-    Number(parsed.routeProcessId) !== Number(node.routeProcessId) ||
-    Number(parsed.processId) !== Number(node.processId)
+    !sameRouteProcessId(parsed.routeProcessId, node.routeProcessId) ||
+    !sameRouteProcessId(parsed.processId, node.processId)
   ) {
     throw new Error('生产配置的路线工序身份与当前工序不一致。')
   }
@@ -3767,7 +3799,7 @@ const saveSelectedProductionProcessConfig = async () => {
   const routeVersionId = requireCandidateRouteVersionId('生产配置保存')
   const parsedConfig = parseProductionProcessConfigDraft(node)
   const configs = cache.productionProcessConfigSnapshot.productionProcessConfigs
-    .filter((item) => Number(item.routeProcessId) !== Number(node.routeProcessId))
+    .filter((item) => !sameRouteProcessId(item.routeProcessId, node.routeProcessId))
     .map(normalizeProductionProcessConfig)
   configs.push(parsedConfig)
   try {
@@ -3781,8 +3813,8 @@ const saveSelectedProductionProcessConfig = async () => {
     const refreshed = await ProRouteApi.getRouteProductionProcessConfig(routeVersionId)
     cache.productionProcessConfigSnapshot = refreshed
     const text = JSON.stringify(parsedConfig, null, 2)
-    productionProcessConfigJsonDrafts[Number(node.routeProcessId)] = text
-    productionProcessConfigJsonBaselines[Number(node.routeProcessId)] = text
+    productionProcessConfigJsonDrafts[routeProcessIdKey(node.routeProcessId)] = text
+    productionProcessConfigJsonBaselines[routeProcessIdKey(node.routeProcessId)] = text
     resetSelectedRouteProcessDeviceParameterConfig()
     message.success('生产配置已保存')
   } catch (error) {
@@ -5174,7 +5206,7 @@ const getRouteProcessResourceStatusLabel = (value?: ProRouteProcessVO['resourceS
 }
 
 const formatRouteProcessPredecessors = (row?: ProRouteProcessVO) => {
-  if (selectedRouteProcessId.value && Number(row?.id) === Number(selectedRouteProcessId.value)) {
+  if (selectedRouteProcessId.value && sameRouteProcessId(row?.id, selectedRouteProcessId.value)) {
     return formatRouteProcessIdList(selectedPredecessorRouteProcessIds.value)
   }
   const relations = resolveRouteProcessPredecessors(row)
@@ -5185,7 +5217,7 @@ const formatRouteProcessPredecessors = (row?: ProRouteProcessVO) => {
 }
 
 const formatRouteProcessSuccessors = (row?: ProRouteProcessVO) => {
-  if (selectedRouteProcessId.value && Number(row?.id) === Number(selectedRouteProcessId.value)) {
+  if (selectedRouteProcessId.value && sameRouteProcessId(row?.id, selectedRouteProcessId.value)) {
     return formatRouteProcessIdList(selectedSuccessorRouteProcessIds.value)
   }
   const names = (row?.successors || [])
@@ -5459,8 +5491,8 @@ const readRouteFlowLastSelection = () => {
     | Partial<RouteFlowLastSelectionState>
     | undefined
   if (!cachedState) return undefined
-  const routeProcessId = Number(cachedState.routeProcessId)
-  if (!Number.isFinite(routeProcessId) || routeProcessId === 0) {
+  const routeProcessId = requireRouteProcessId(cachedState.routeProcessId)
+  if (!routeProcessId) {
     removeRouteFlowLastSelection()
     return undefined
   }
@@ -5477,8 +5509,8 @@ const readRouteFlowLastSelection = () => {
 }
 
 const persistRouteFlowLastSelection = (selection: RouteFlowLastSelectionState) => {
-  const routeProcessId = Number(selection.routeProcessId)
-  if (!Number.isFinite(routeProcessId) || routeProcessId === 0) {
+  const routeProcessId = requireRouteProcessId(selection.routeProcessId)
+  if (!routeProcessId) {
     removeRouteFlowLastSelection()
     return
   }
@@ -5504,16 +5536,16 @@ const clearRouteFlowLastSelectionDetailField = (fieldKey?: ProcessDetailFieldKey
 
 const clearRouteFlowLastSelectionRouteProcess = (routeProcessIds: Set<number>) => {
   const cachedSelection = readRouteFlowLastSelection()
-  if (!cachedSelection || !routeProcessIds.has(cachedSelection.routeProcessId)) return
+  if (!cachedSelection || !Array.from(routeProcessIds).some((id) => sameRouteProcessId(id, cachedSelection.routeProcessId))) return
   removeRouteFlowLastSelection()
 }
 
 const selectRouteProcessNode = (
-  routeProcessId: number,
+  routeProcessId: MesRouteId,
   options: { persist?: boolean } = {}
 ) => {
-  const nextRouteProcessId = Number(routeProcessId)
-  if (!Number.isFinite(nextRouteProcessId) || !findNode(nextRouteProcessId)) {
+  const nextRouteProcessId = requireRouteProcessId(routeProcessId)
+  if (!findNode(nextRouteProcessId)) {
     throw new Error(`流转关系图选择失败：路线工序不存在 routeProcessId=${routeProcessId}`)
   }
   selectedRouteProcessId.value = nextRouteProcessId
@@ -5583,7 +5615,7 @@ const loadSelectedRouteProcessDeviceParameterConfig = async () => {
     )
     if (
       requestId !== routeProcessDeviceParameterRequestId ||
-      Number(selectedRouteProcessId.value) !== Number(routeProcessId)
+      !sameRouteProcessId(selectedRouteProcessId.value, routeProcessId)
     ) {
       return
     }
@@ -5617,14 +5649,14 @@ const refreshProductionProcessConfigSnapshot = async (routeVersionId: MesRouteId
 const isRouteProcessDeviceParameterMutationCurrent = (
   requestId: number,
   routeVersionId: MesRouteId,
-  routeProcessId: number
+  routeProcessId: MesRouteId
 ) => requestId === routeProcessDeviceParameterRequestId &&
   String(props.routeVersionEditContext?.routeVersionId) === String(routeVersionId) &&
-  Number(selectedRouteProcessId.value) === Number(routeProcessId)
+  sameRouteProcessId(selectedRouteProcessId.value, routeProcessId)
 
 const refreshRouteProcessDeviceParameterStateAfterStaleMutation = async (
   routeVersionId: MesRouteId,
-  mutatedRouteProcessId: number
+  mutatedRouteProcessId: MesRouteId
 ) => {
   if (String(props.routeVersionEditContext?.routeVersionId) !== String(routeVersionId)) return
   await refreshProductionProcessConfigSnapshot(routeVersionId)
@@ -5645,13 +5677,13 @@ const saveSelectedRouteProcessDeviceParameterRule = async (
     return false
   }
   if (hasProductionProcessConfigJsonDraftChanges(routeProcessId)) {
-    message.error('设备参数保存失败：当前工序的版本化生产配置存在未保存修改，请先保存或撤销。')
+    message.error('设备参数保存失败：当前工序的生产配置有未保存的修改，请先保存或撤销。')
     return false
   }
   const routeVersionId = requireRouteProcessDeviceParameterVersionId()
   const snapshotSha256 = routeProcessDeviceParameterConfig.value?.routeSnapshotSha256
   if (!snapshotSha256) {
-    message.error('设备参数保存失败：缺少候选路线快照校验值，请刷新后重试。')
+    message.error('暂时无法保存设备参数：未能获取当前路线版本的校验信息。请刷新页面后重试；仍无法保存时，请联系管理员。')
     return false
   }
   if (!device.deviceId || !parameter.parameterCode || !parameter.standardText || !parameter.valueType) {
@@ -5683,7 +5715,7 @@ const saveSelectedRouteProcessDeviceParameterRule = async (
     writeSucceeded = true
     if (!isRouteProcessDeviceParameterMutationCurrent(requestId, routeVersionId, routeProcessId)) {
       await refreshRouteProcessDeviceParameterStateAfterStaleMutation(routeVersionId, routeProcessId)
-      message.warning('设备参数规则已保存；当前工序配置已按最新候选快照重新加载。')
+      message.warning('设备参数已保存，页面已更新为当前路线版本的最新配置。')
       return true
     }
     routeProcessDeviceParameterConfig.value = config
@@ -5719,11 +5751,11 @@ const deleteSelectedRouteProcessDeviceParameterRule = async (
   const routeProcessId = selectedRouteProcessId.value
   const snapshotSha256 = routeProcessDeviceParameterConfig.value?.routeSnapshotSha256
   if (!routeProcessId || !snapshotSha256) {
-    message.error('设备参数删除失败：缺少候选路线版本或快照校验值。')
+    message.error('暂时无法删除设备参数：未能获取当前路线版本的校验信息。请刷新页面后重试；仍无法删除时，请联系管理员。')
     return
   }
   if (hasProductionProcessConfigJsonDraftChanges(routeProcessId)) {
-    message.error('设备参数删除失败：当前工序的版本化生产配置存在未保存修改，请先保存或撤销。')
+    message.error('设备参数删除失败：当前工序的生产配置有未保存的修改，请先保存或撤销。')
     return
   }
   try {
@@ -5749,7 +5781,7 @@ const deleteSelectedRouteProcessDeviceParameterRule = async (
     writeSucceeded = true
     if (!isRouteProcessDeviceParameterMutationCurrent(requestId, routeVersionId, routeProcessId)) {
       await refreshRouteProcessDeviceParameterStateAfterStaleMutation(routeVersionId, routeProcessId)
-      message.warning('设备参数已删除；当前工序配置已按最新候选快照重新加载。')
+      message.warning('设备参数已删除，页面已更新为当前路线版本的最新配置。')
       return
     }
     routeProcessDeviceParameterConfig.value = config
@@ -5990,13 +6022,13 @@ const normalizeHourlyCapacity = (value?: number | string | null) => {
 const normalizeScheduleCapacityMode = (mode?: ProRouteScheduleConfigVO['capacityMode'] | null) =>
   mode === 'FINITE_HOURLY' ? 'MANUAL_OVERRIDE' : mode || 'RESOURCE_CALCULATED'
 
-const findRouteProcessConfig = <T extends { routeProcessId?: number | null }>(
+const findRouteProcessConfig = <T extends { routeProcessId?: MesRouteId | null }>(
   rows: T[] | undefined,
-  routeProcessId: number
-) => (rows || []).find((item) => Number(item.routeProcessId) === Number(routeProcessId))
+  routeProcessId: MesRouteId
+) => (rows || []).find((item) => sameRouteProcessId(item.routeProcessId, routeProcessId))
 
 const isRouteNodeProductionQuantityFactorOverridden = (node: RouteFlowNodeVO) => {
-  const routeProcessId = Number(node.routeProcessId)
+  const routeProcessId = routeProcessIdKey(node.routeProcessId)
   const draft = selectedProcessAttributeDrafts[routeProcessId]
   const scheduleRow = findRouteProcessConfig(
     selectedProcessRouteConfigCache.value?.scheduleConfigs,
@@ -6250,11 +6282,11 @@ const buildSelectedProcessAttributesDraft = (
 })
 
 const getOrCreateRouteProcessAttributeDraft = (
-  routeProcessId: number
+  routeProcessId: MesRouteId
 ): SelectedProcessAttributesDraft => {
   const existingDraft = selectedProcessAttributeDrafts[routeProcessId]
   if (existingDraft) return existingDraft
-  const node = routeNodes.value.find((item) => Number(item.routeProcessId) === Number(routeProcessId))
+  const node = routeNodes.value.find((item) => sameRouteProcessId(item.routeProcessId, routeProcessId))
   if (!node) {
     throw new Error(`工序独立同步失败：路线工序不存在 routeProcessId=${routeProcessId}`)
   }
@@ -6262,7 +6294,7 @@ const getOrCreateRouteProcessAttributeDraft = (
   if (!configCache) {
     throw new Error('工序独立同步失败：工序配置仍在加载，请稍后重试。')
   }
-  const routeProcess = routeProcessRows.value.find((row) => Number(row.id) === Number(routeProcessId))
+  const routeProcess = routeProcessRows.value.find((row) => sameRouteProcessId(row.id, routeProcessId))
   const serverDraft = buildSelectedProcessAttributesDraft(
     node,
     configCache.readableRouteVersionId,
@@ -6352,7 +6384,7 @@ const loadSelectedProcessAttributes = async (node: RouteFlowNodeVO, requestId: n
     const routeProcessId = node.routeProcessId
     if (!selectedProcessAttributeDrafts[routeProcessId]) {
       const routeProcess = routeProcessRows.value.find(
-        (row) => Number(row.id) === Number(node.routeProcessId)
+        (row) => sameRouteProcessId(row.id, node.routeProcessId)
       )
       const serverDraft = buildSelectedProcessAttributesDraft(
         node,
@@ -6621,7 +6653,7 @@ const tryOpenCapacityOverrideFromRouteQuery = async () => {
 
 const syncCapacityOverrideDraftBaseline = async (
   routeVersionId: MesRouteId,
-  routeProcessId: number
+  routeProcessId: MesRouteId
 ) => {
   const routeScheduleConfigs = await ProRouteApi.getScheduleConfigListByRouteVersion(routeVersionId)
   const routeScheduleConfig = findRouteProcessConfig(routeScheduleConfigs, routeProcessId)
@@ -7048,18 +7080,18 @@ const normalizeRouteQueryText = (value: unknown) => {
 }
 
 const resolveExplicitRouteFlowRouteProcessId = () => {
-  const routeProcessId = Number(
-    props.targetRouteProcessId || normalizeRouteQueryText(route.query.routeProcessId)
-  )
-  return Number.isFinite(routeProcessId) && routeProcessId > 0 ? routeProcessId : null
+  const value = props.targetRouteProcessId || normalizeRouteQueryText(route.query.routeProcessId)
+  if (!value) return null
+  const routeProcessId = requireRouteProcessId(value)
+  return String(routeProcessId).startsWith('-') ? null : routeProcessId
 }
 
 const restoreRouteFlowSelection = (
   selection: RouteFlowLastSelectionState,
   options: { source: RouteFlowSelectionRestoreSource }
 ) => {
-  const routeProcessId = Number(selection.routeProcessId)
-  if (!Number.isFinite(routeProcessId) || !findNode(routeProcessId)) {
+  const routeProcessId = requireRouteProcessId(selection.routeProcessId)
+  if (!findNode(routeProcessId)) {
     if (options.source === 'cache') {
       removeRouteFlowLastSelection()
     }
@@ -7233,10 +7265,7 @@ const selectedEdgeTarget = computed(() => {
 const selectedBoundaryEdge = computed(() => {
   return boundaryEdges.value.find((edge) => boundaryEdgeKey(edge) === selectedEdgeKey.value)
 })
-const selectedBoundaryRelations = computed(() => {
-  if (!selectedBoundaryType.value) return []
-  return boundaryEdges.value.filter((edge) => edge.boundaryType === selectedBoundaryType.value)
-})
+
 const visibleBoundaryRelationEdges = computed(() => {
   const routeProcessId = selectedRouteProcessId.value
   if (!routeProcessId) return boundaryEdges.value
@@ -7249,8 +7278,8 @@ const visibleRouteRelationEdges = computed(() => {
   if (!routeProcessId) return routeEdges.value
   return routeEdges.value.filter(
     (edge) =>
-      Number(edge.sourceRouteProcessId) === Number(routeProcessId) ||
-      Number(edge.targetRouteProcessId) === Number(routeProcessId)
+      sameRouteProcessId(edge.sourceRouteProcessId, routeProcessId) ||
+      sameRouteProcessId(edge.targetRouteProcessId, routeProcessId)
   )
 })
 function buildRouteProcessRelationListSummary() {
@@ -7506,7 +7535,7 @@ const removeRouteProcessesFromDraft = (removedRouteProcessIds: number[]) => {
   )
   if (
     selectedRouteProcessId.value !== null &&
-    removedRouteProcessIdSet.has(selectedRouteProcessId.value)
+    Array.from(removedRouteProcessIdSet).some((id) => sameRouteProcessId(id, selectedRouteProcessId.value))
   ) {
     selectedRouteProcessId.value = null
     selectedProcessDetail.value = undefined
@@ -7677,12 +7706,17 @@ const buildValidationErrorMessage = (result: RouteFlowValidationVO) => {
   )
 }
 
-const remapPersistedRouteProcessId = (
-  routeProcessId: number | undefined | null,
+function remapPersistedRouteProcessId(routeProcessId: number, idMap: Map<number, number>): number
+function remapPersistedRouteProcessId(routeProcessId: number | null, idMap: Map<number, number>): number | null
+function remapPersistedRouteProcessId(routeProcessId: number | undefined, idMap: Map<number, number>): number | undefined
+function remapPersistedRouteProcessId(routeProcessId: MesRouteId | null | undefined, idMap: Map<number, number>): MesRouteId | null | undefined
+function remapPersistedRouteProcessId(
+  routeProcessId: MesRouteId | undefined | null,
   persistedRouteProcessIdMap: Map<number, number>
-) => {
+) {
   if (routeProcessId === undefined || routeProcessId === null) return routeProcessId
-  return persistedRouteProcessIdMap.get(Number(routeProcessId)) ?? routeProcessId
+  return Array.from(persistedRouteProcessIdMap.entries())
+    .find(([id]) => sameRouteProcessId(id, routeProcessId))?.[1] ?? requireRouteProcessId(routeProcessId)
 }
 
 const normalizePersistedRouteProcessIdMap = (routeProcessIdMap?: Record<string, number>) => {
@@ -7762,25 +7796,25 @@ const applyPersistedRouteProcessIdMap = (routeProcessIdMap?: Record<string, numb
     routeProcessId: remapPersistedRouteProcessId(
       node.routeProcessId,
       persistedRouteProcessIdMap
-    ) as number
+    )
   }))
   routeEdges.value = routeEdges.value.map((edge) => ({
     ...edge,
     sourceRouteProcessId: remapPersistedRouteProcessId(
       edge.sourceRouteProcessId,
       persistedRouteProcessIdMap
-    ) as number,
+    ),
     targetRouteProcessId: remapPersistedRouteProcessId(
       edge.targetRouteProcessId,
       persistedRouteProcessIdMap
-    ) as number
+    )
   }))
   boundaryEdges.value = boundaryEdges.value.map((edge) => ({
     ...edge,
     routeProcessId: remapPersistedRouteProcessId(
       edge.routeProcessId,
       persistedRouteProcessIdMap
-    ) as number
+    )
   }))
   routeProcessRows.value = routeProcessRows.value
     .filter((row) => !persistedRouteProcessIdMap.has(Number(row.id)))
@@ -7803,12 +7837,12 @@ const applyPersistedRouteProcessIdMap = (routeProcessIdMap?: Record<string, numb
   selectedRouteProcessId.value = remapPersistedRouteProcessId(
     selectedRouteProcessId.value,
     persistedRouteProcessIdMap
-  ) as number | null
+  ) ?? null
   selectedEdgeKey.value = remapRouteProcessEdgeKey(selectedEdgeKey.value, persistedRouteProcessIdMap)
   highlightedRouteProcessId.value = remapPersistedRouteProcessId(
     highlightedRouteProcessId.value,
     persistedRouteProcessIdMap
-  ) as number | null
+  ) ?? null
   invalidRouteProcessIds.value = new Set(
     Array.from(invalidRouteProcessIds.value).map(
       (routeProcessId) =>
@@ -7819,24 +7853,24 @@ const applyPersistedRouteProcessIdMap = (routeProcessIdMap?: Record<string, numb
     connectionSourceRouteProcessId.value = remapPersistedRouteProcessId(
       connectionSourceRouteProcessId.value,
       persistedRouteProcessIdMap
-    ) as number
+    )
   }
   if (typeof connectionTargetRouteProcessId.value === 'number') {
     connectionTargetRouteProcessId.value = remapPersistedRouteProcessId(
       connectionTargetRouteProcessId.value,
       persistedRouteProcessIdMap
-    ) as number
+    )
   }
   if (selectedProcessAttributes.routeProcessId) {
     selectedProcessAttributes.routeProcessId = remapPersistedRouteProcessId(
       selectedProcessAttributes.routeProcessId,
       persistedRouteProcessIdMap
-    ) as number
+    ) ?? undefined
   }
   capacityOverrideRouteProcessId.value = remapPersistedRouteProcessId(
     capacityOverrideRouteProcessId.value,
     persistedRouteProcessIdMap
-  ) as number | null
+  ) ?? null
   remapSelectedProcessAttributeDrafts(persistedRouteProcessIdMap)
   syncFlowElements()
 }
@@ -7906,6 +7940,48 @@ const persistRouteProcessDraftChanges = async () => {
     ignoreErrorMessage: true
   })
 }
+
+const fullFlowReadinessVisible = ref(false)
+const fullFlowReadinessLoading = ref(false)
+const fullFlowReadinessError = ref('')
+const fullFlowReadinessResult = ref<RouteFullFlowReadinessVO>()
+let fullFlowReadinessRequestId = 0
+
+const handleCheckFullFlowReadiness = async () => {
+  const requestId = ++fullFlowReadinessRequestId
+  const routeId = props.routeId
+  const routeVersionId = props.routeVersionEditContext?.routeVersionId
+  fullFlowReadinessVisible.value = true
+  fullFlowReadinessResult.value = undefined
+  fullFlowReadinessError.value = ''
+  fullFlowReadinessLoading.value = true
+  try {
+    if (hasWorkspaceDraftChanges()) {
+      throw new Error('当前有未保存的修改，请先保存后重新检测。')
+    }
+    const result = await ProRouteApi.checkRouteFullFlowReadiness(routeId, routeVersionId)
+    if (requestId !== fullFlowReadinessRequestId || routeId !== props.routeId ||
+        String(routeVersionId) !== String(props.routeVersionEditContext?.routeVersionId)) return
+    fullFlowReadinessResult.value = result
+  } catch (error) {
+    if (requestId === fullFlowReadinessRequestId) {
+      const detail = resolveErrorMessage(error, '流程条件检测失败，请重试。')
+      fullFlowReadinessError.value = detail === 'Network Error'
+        ? '网络连接失败，请检查网络后重新检测。'
+        : detail
+    }
+  } finally {
+    if (requestId === fullFlowReadinessRequestId) fullFlowReadinessLoading.value = false
+  }
+}
+
+watch(() => [props.routeId, props.routeVersionEditContext?.routeVersionId], () => {
+  ++fullFlowReadinessRequestId
+  fullFlowReadinessVisible.value = false
+  fullFlowReadinessResult.value = undefined
+  fullFlowReadinessError.value = ''
+  fullFlowReadinessLoading.value = false
+})
 
 const hasWorkspaceDraftChanges = () =>
   graphDirty.value ||
@@ -8232,8 +8308,8 @@ const handleNodeDragStop = (event: NodeDragEvent) => {
   if (!canMutateRouteFlow.value) return
   const draggedNode = event.node
   if (isBoundaryNodeId(draggedNode.id)) return
-  const routeProcessId = Number(draggedNode.id)
-  const node = routeNodes.value.find((item) => item.routeProcessId === routeProcessId)
+  const routeProcessId = requireRouteProcessId(draggedNode.id)
+  const node = routeNodes.value.find((item) => sameRouteProcessId(item.routeProcessId, routeProcessId))
   if (!node) return
   node.x = Math.max(0, Math.round(draggedNode.position.x))
   node.y = Math.max(0, Math.round(draggedNode.position.y))
@@ -8249,7 +8325,7 @@ const handleNodeClick = (event: NodeMouseEvent) => {
     handleBoundaryNodeSelect('END')
     return
   }
-  const routeProcessId = Number(event.node.id)
+  const routeProcessId = requireRouteProcessId(event.node.id)
   selectRouteProcessNode(routeProcessId, { persist: true })
 }
 
@@ -8272,11 +8348,8 @@ const handleBoundaryNodeSelect = (boundaryType: RouteFlowBoundaryType) => {
   selectedRouteProcessId.value = null
   selectedBoundaryType.value = boundaryType
   selectedBoundaryDetailFieldKey.value =
-    boundaryType === 'START' ? 'basic' : 'releaseOwner'
+    boundaryType === 'START' ? 'basic' : undefined
   selectedEdgeKey.value = ''
-  if (boundaryType === 'END') {
-    void loadReleaseApprovalRuleDetail()
-  }
 }
 
 const handleEdgesChange = async (changes: EdgeChange[]) => {
@@ -8412,9 +8485,9 @@ const handleRouteProcessDelete = async () => {
   }
 }
 
-const isSelectedProcessDetailRequestCurrent = (requestId: number, routeProcessId: number) => {
+const isSelectedProcessDetailRequestCurrent = (requestId: number, routeProcessId: MesRouteId) => {
   if (requestId !== selectedProcessDetailRequestId) return false
-  return Number(selectedRouteProcessId.value) === Number(routeProcessId)
+  return sameRouteProcessId(selectedRouteProcessId.value, routeProcessId)
 }
 
 const loadSelectedProcessDetail = async (node?: RouteFlowNodeVO) => {
@@ -8730,7 +8803,7 @@ const handleRemoveProcessDetailField = async (fieldKey: ProcessDetailFieldKey) =
 }
 
 const addBoundaryEdge = (boundaryType: RouteFlowBoundaryType, routeProcessId: number) => {
-  if (!Number.isFinite(routeProcessId) || !findNode(routeProcessId)) {
+  if (!findNode(routeProcessId)) {
     message.warning('边界关系必须连接当前路线工序')
     return false
   }
@@ -8877,8 +8950,8 @@ const handleCanvasDeleteKeydown = async (event: KeyboardEvent) => {
   }
 }
 
-const focusNode = (routeProcessId: number) => {
-  const node = routeNodes.value.find((item) => item.routeProcessId === routeProcessId)
+const focusNode = (routeProcessId: MesRouteId) => {
+  const node = routeNodes.value.find((item) => sameRouteProcessId(item.routeProcessId, routeProcessId))
   if (!node) return
   setCenter((node.x || 0) + NODE_WIDTH / 2, (node.y || 0) + NODE_HEIGHT / 2, {
     zoom: 1,
@@ -9554,8 +9627,8 @@ const formatProcessDetailText = (value?: string | number | boolean | null) => {
   return String(value)
 }
 
-const findNode = (routeProcessId: number) => {
-  return routeNodes.value.find((node) => node.routeProcessId === routeProcessId)
+const findNode = (routeProcessId: MesRouteId) => {
+  return routeNodes.value.find((node) => sameRouteProcessId(node.routeProcessId, routeProcessId))
 }
 
 const resolveErrorMessage = (error: unknown, fallback: string) => {
@@ -10244,7 +10317,7 @@ const handleReleaseApprovalRuleSave = async () => {
       candidateSourceType: releaseApprovalRuleForm.candidateSourceType,
       candidateSourceId: releaseApprovalRuleForm.candidateSourceId,
       enabled: releaseApprovalRuleForm.enabled,
-      remark: releaseApprovalRuleForm.remark?.trim() || '流转关系图工序结束放行责任人'
+      remark: releaseApprovalRuleForm.remark?.trim() || '流转关系图工序开始放行责任人'
     })
     fillReleaseApprovalRuleForm(savedRule)
     releaseApprovalRuleLoaded.value = true

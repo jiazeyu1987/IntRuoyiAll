@@ -154,6 +154,19 @@ class DccControlledFileRouteReadinessServiceTest extends BaseMockitoUnitTest {
         return new AdminUserRespDTO().setId(id).setTenantId(1L).setStatus(0).setNickname(nickname).setPostIds(postIds);
     }
 
+    @Test
+    void participantWithGeneratableDefaultIsReadyBeforeFirstSigningWithoutReadingMissingImage() {
+        when(permissionApi.hasAnyPermissions(101L, "dcc:controlled-file:review")).thenReturn(true);
+        when(signatureAuthorizationService.getAuthorizationMap(List.of(101L))).thenReturn(Map.of(101L, true));
+        when(signatureImageService.canInitializeDefaultSignatureImage(101L)).thenReturn(true);
+
+        org.junit.jupiter.api.Assertions.assertDoesNotThrow(() ->
+                service.requireReadyParticipants("DOC_CONTROL_REVIEW", List.of(101L)));
+
+        org.mockito.Mockito.verify(signatureImageService, org.mockito.Mockito.never()).requireActiveSnapshot(101L);
+        org.mockito.Mockito.verify(signatureImageService, org.mockito.Mockito.never()).requireSigningSnapshot(101L);
+    }
+
     private DccElectronicSignatureImageSnapshot validImage() {
         return DccElectronicSignatureImageSnapshot.builder()
                 .imageId(501L)

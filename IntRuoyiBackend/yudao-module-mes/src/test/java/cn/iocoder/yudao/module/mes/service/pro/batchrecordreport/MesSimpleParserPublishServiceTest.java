@@ -4,6 +4,8 @@ import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecordreport.vo.SimpleParserPublishReqVO;
+import cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectCodeDO;
+import cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectCodeMapper;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.process.MesProProcessDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.dv.machinery.MesDvMachineryDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.dv.machinery.MesDvMachineryMapper;
@@ -46,6 +48,8 @@ class MesSimpleParserPublishServiceTest {
     private MesProProcessMapper processMapper;
     private MesProCraftMapper craftMapper;
     private MesMdItemMapper itemMapper;
+    private DccProjectCodeMapper projectMapper;
+    private MesProRouteProjectGuard projectGuard;
     private MockedStatic<SecurityFrameworkUtils> security;
     private final Map<Long,MesProProcessDO> createdProcesses=new HashMap<>();
 
@@ -56,6 +60,11 @@ class MesSimpleParserPublishServiceTest {
         jdbc=new JdbcTemplate(dataSource);
         jdbc.execute("create table mes_simple_parser_publish_receipt (tenant_id bigint, user_id bigint, request_id varchar(36), request_hash varchar(64), result_json clob, primary key(tenant_id,user_id,request_id))");
         jdbc.execute("create table created_resource (kind varchar(30), id bigint)");
+        jdbc.execute("create table project_binding (route_id bigint, project_id bigint)");
+        projectMapper=mock(DccProjectCodeMapper.class);
+        when(projectMapper.selectById(42L)).thenReturn(DccProjectCodeDO.builder()
+                .id(42L).projectCode("P42").projectName("所选项目").status("ENABLE").build());
+        projectGuard=mock(MesProRouteProjectGuard.class);
         processes=mock(MesProProcessService.class);crafts=mock(MesProCraftService.class);devices=mock(MesTeamLeaderRuntimeConfigService.class);
         routes=mock(MesProRouteService.class);configs=mock(MesProRouteCandidateConfigService.class);
         deviceMapper=mock(MesProcessPoolTeamDeviceMapper.class);processMapper=mock(MesProProcessMapper.class);
@@ -78,7 +87,12 @@ class MesSimpleParserPublishServiceTest {
             craft.setProcessId(req.getProcessId());craft.setParametersJson(req.getParameters().toJSONString());
             jdbc.update("insert into created_resource values('CRAFT',?)",craft.getId());return craft;
         });
-        when(routes.createRouteWithProcesses(any())).thenAnswer(call -> {jdbc.update("insert into created_resource values('ROUTE',9)");return 9L;});
+        when(routes.createRouteWithProcesses(any())).thenAnswer(call -> {
+            var req=(cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.MesProRouteCreateReqVO)call.getArgument(0);
+            jdbc.update("insert into created_resource values('ROUTE',9)");
+            jdbc.update("insert into project_binding values (?,?)",9L,req.getDccProjectCodeId());
+            return 9L;
+        });
         when(routeMapper.selectById(9L)).thenReturn(MesProRouteDO.builder().id(9L).code("GYLC-0009").status(1).build());
         var active=new MesProRouteVersionDO();active.setId(20L);active.setVersionNo("V1");when(versionMapper.selectActiveByRouteId(9L)).thenReturn(active);
         var candidate=new MesProRouteVersionDO();candidate.setId(21L);candidate.setVersionNo("V2");candidate.setRouteSnapshotSha256("snapshot");
@@ -90,6 +104,7 @@ class MesSimpleParserPublishServiceTest {
         fields.put("routeMapper",routeMapper);fields.put("versionMapper",versionMapper);fields.put("workflow",workflow);fields.put("jdbc",jdbc);
         fields.put("itemMapper",itemMapper);fields.put("craftMapper",craftMapper);
         fields.put("machineryMapper",machineryMapper);
+        fields.put("projectMapper",projectMapper);fields.put("projectGuard",projectGuard);
         fields.forEach((name,value)->ReflectionTestUtils.setField(target,name,value));
         ProxyFactory proxy=new ProxyFactory(target);proxy.setProxyTargetClass(true);
         proxy.addAdvice(new TransactionInterceptor(new DataSourceTransactionManager(dataSource),new AnnotationTransactionAttributeSource()));
@@ -98,6 +113,7 @@ class MesSimpleParserPublishServiceTest {
     @AfterEach void close(){security.close();TenantContextHolder.clear();}
     private SimpleParserPublishReqVO request() {
         var req=new SimpleParserPublishReqVO();req.setRequestId(UUID.randomUUID().toString());req.setRouteName("新路线");
+        req.setProjectId(42L);
         JSONObject process=JSON.parseObject("""
           {"name":"同名工序","criticalProcess":true,"inputs":[],"outputs":[],"equipmentGroups":[
             {"selectionMode":"SINGLE","equipmentOptions":[{"code":"EQ-1","name":"清洗设备"}],
@@ -107,6 +123,40 @@ class MesSimpleParserPublishServiceTest {
         return req;
     }
     private int count(String table){return jdbc.queryForObject("select count(*) from "+table,Integer.class);}
+    @Test void selectedProjectIsBoundOnceAndIncludedInPreview() {
+        var req=request();var preview=service.preview(req);
+        assertEquals(42L,preview.getLong("projectId"));assertEquals("P42",preview.getString("projectCode"));
+        req.setPreviewToken(preview.getString("previewToken"));service.publish(req);service.publish(req);
+        verify(routes,times(1)).createRouteWithProcesses(argThat(route -> route.getDccProjectCodeId().equals(42L)));
+        assertEquals(42L,jdbc.queryForObject("select project_id from project_binding where route_id=9",Long.class));
+        req.setProjectId(43L);
+        assertThrows(ServiceException.class,()->service.publish(req));
+    }
+    @Test void missingOrDisabledProjectPreventsWrites() {
+        var req=request();req.setProjectId(null);
+        assertThrows(ServiceException.class,()->service.preview(req));
+        req.setProjectId(43L);assertThrows(ServiceException.class,()->service.preview(req));
+        req.setProjectId(42L);req.setPreviewToken(service.preview(req).getString("previewToken"));
+        when(projectMapper.selectById(42L)).thenReturn(DccProjectCodeDO.builder().id(42L).status("DISABLE").build());
+        assertThrows(ServiceException.class,()->service.publish(req));
+        assertEquals(0,count("created_resource"));assertEquals(0,count("mes_simple_parser_publish_receipt"));
+    }
+    @Test void occupiedProjectCannotBePreviewedOrPublished() {
+        when(projectGuard.isOccupied(42L)).thenReturn(true);
+        assertThrows(ServiceException.class,()->service.preview(request()));
+        assertEquals(0,count("created_resource"));
+        verifyNoInteractions(routes);
+    }
+    @Test void bindingFailureRollsBackRouteCreation() {
+        var req=request();req.setPreviewToken(service.preview(req).getString("previewToken"));
+        doAnswer(call -> {
+            jdbc.update("insert into created_resource values('ROUTE',9)");
+            throw new IllegalStateException("绑定失败");
+        }).when(routes).createRouteWithProcesses(any());
+        assertThrows(IllegalStateException.class,()->service.publish(req));
+        assertEquals(0,count("created_resource"));assertEquals(0,count("project_binding"));
+        assertEquals(0,count("mes_simple_parser_publish_receipt"));
+    }
     @Test void ledgerDeviceIsReusedAndOnlyExecutionBindingIsCreatedOnce() {
         var ledger=MesDvMachineryDO.builder().id(980126L).code("EQ-1").name("台账名称").build();
         when(machineryMapper.selectList(any())).thenReturn(List.of(ledger));

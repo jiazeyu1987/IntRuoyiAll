@@ -1,6 +1,9 @@
 <template>
   <Dialog v-model="dialogVisible" title="导入工艺路线 Markdown" width="560">
     <el-form ref="formRef" :model="formData" :rules="formRules" label-width="110px">
+      <el-form-item label="项目代码" prop="dccProjectCodeId" required>
+        <RouteProjectSelect v-model="formData.dccProjectCodeId" v-if="dialogVisible" />
+      </el-form-item>
       <el-form-item label="工序状态" prop="processStatus">
         <el-select
           v-model="formData.processStatus"
@@ -44,7 +47,7 @@
       <div class="el-upload__text">将 Markdown 文件拖到此处，或<em>点击选择</em></div>
       <template #tip>
         <div class="el-upload__tip text-center">
-          <span>仅允许导入 .md、.markdown 格式文件。</span>
+          <span>仅允许导入 .md、.markdown 格式文件，每个文件只能包含一条工艺流程。</span>
         </div>
       </template>
     </el-upload>
@@ -57,6 +60,8 @@
 </template>
 
 <script setup lang="ts">
+import { showImportResult } from '@/utils/importResult'
+import RouteProjectSelect from './RouteProjectSelect.vue'
 import { DICT_TYPE, getIntDictOptions } from '@/utils/dict'
 import { ProRouteApi } from '@/api/mes/pro/route'
 import type { FormInstance, FormRules, UploadFile, UploadFiles, UploadUserFile } from 'element-plus'
@@ -67,6 +72,7 @@ defineOptions({ name: 'RouteMarkdownImportForm' })
 const message = useMessage()
 
 type FormDataType = {
+  dccProjectCodeId?: number
   processStatus: number | undefined
   checkProcessCodesByRouteCodeJson: string
 }
@@ -100,6 +106,7 @@ const validateCheckProcessJson = (_rule: any, value: string, callback: (error?: 
 }
 
 const formRules: FormRules<FormDataType> = {
+  dccProjectCodeId: [{ required: true, message: '请选择项目代码', trigger: 'change' }],
   processStatus: [{ required: true, message: '请选择导入后工序状态', trigger: 'change' }],
   checkProcessCodesByRouteCodeJson: [{ validator: validateCheckProcessJson, trigger: 'blur' }]
 }
@@ -129,6 +136,7 @@ const submitForm = async () => {
     const uploadFormData = new FormData()
     uploadFormData.append('file', selectedFile.value)
     uploadFormData.append('processStatus', String(formData.processStatus))
+    uploadFormData.append('dccProjectCodeId', String(formData.dccProjectCodeId))
     if (formData.checkProcessCodesByRouteCodeJson.trim()) {
       uploadFormData.append(
         'checkProcessCodesByRouteCodeJson',
@@ -137,14 +145,21 @@ const submitForm = async () => {
     }
 
     const result = await ProRouteApi.importIntGyMarkdown(uploadFormData)
-    const routeCodesText = result.routeCodes?.length ? result.routeCodes.join('、') : '无'
-    message.alert(
-      `导入完成；路线数：${result.routeCount}；新建工序数：${result.processCreatedCount}；复用工序数：${result.processReusedCount}；路线工序数：${result.routeProcessCount}；路线编码：${routeCodesText}`
-    )
+    showImportResult({
+      title: '工艺路线导入完成',
+      summary: `已导入 ${result.routeCount} 条工艺路线。`,
+      stats: [
+        { label: '工艺路线', value: result.routeCount },
+        { label: '路线工序', value: result.routeProcessCount },
+      { label: '新建工序', value: result.processCreatedCount },
+      { label: '沿用已有工序', value: result.processReusedCount },
+      ],
+      sections: [{ title: '路线明细', columns: ['路线编码'], rows: (result.routeCodes ?? []).map((code: string) => [code]) }]
+    })
     dialogVisible.value = false
     emits('success')
   } catch (error) {
-    message.error(resolveRouteOperationErrorMessage(error, '导入 Markdown 失败，请查看后端返回错误'))
+    message.error(resolveRouteOperationErrorMessage(error, '导入 Markdown 失败，请根据错误提示检查文件内容'))
   } finally {
     formLoading.value = false
   }
@@ -171,6 +186,7 @@ const handleExceed = () => {
 }
 
 const resetForm = async () => {
+  formData.dccProjectCodeId = undefined
   formLoading.value = false
   formData.processStatus = undefined
   formData.checkProcessCodesByRouteCodeJson = ''

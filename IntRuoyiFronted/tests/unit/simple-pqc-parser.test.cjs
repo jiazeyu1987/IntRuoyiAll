@@ -10,7 +10,18 @@ vm.runInNewContext(
   }).outputText,
   ctx
 )
-const { makeDraft, nextVersion, validateDraft, differences } = ctx.exports
+const { makeDraft, nextVersion, validateDraft, differences, patrolRatioIssue, formatPatrolRatio } =
+  ctx.exports
+const commonCtx = { exports: {}, require: () => ctx.exports }
+vm.runInNewContext(
+  ts.transpileModule(
+    fs.readFileSync('src/views/form-center/simple-common-parser/draft.ts', 'utf8'),
+    {
+      compilerOptions: { module: ts.ModuleKind.CommonJS }
+    }
+  ).outputText,
+  commonCtx
+)
 const parsed = {
   regulationCode: 'PQC-TEST',
   regulationName: '检验规程',
@@ -75,6 +86,30 @@ test('an explicit existing-QA unbound choice only exempts that item', () => {
   assert.ok(validateDraft(d, ['OTHER']).some((x) => x.message.includes('设备编号')))
 })
 
+test('a manual item reason permits publication without inventing an equipment binding', () => {
+  const d = makeDraft(parsed, 129)
+  d.finalInspectionNotApplicableReason = '原文未规定末检'
+  const item = d.processes[0].items[0]
+  item.inspectionTool = '15N砝码、秒表'
+  item.equipmentUnboundReason = '  '
+  assert.ok(validateDraft(d).some((issue) => issue.field === 'equipment'))
+  item.equipmentUnboundReason = '器具台账尚未登记，执行前由设备管理员补齐'
+  assert.equal(validateDraft(d).length, 0)
+  assert.equal(item.inspectionTool, '15N砝码、秒表')
+  assert.equal(item.equipmentOptions.length, 0)
+  const other = structuredClone(item)
+  other.itemCode = 'I2'
+  other.equipmentUnboundReason = ''
+  other.itemName = '另一检验项目'
+  d.processes[0].items.push(other)
+  assert.equal(validateDraft(d).filter((issue) => issue.field === 'equipment').length, 1)
+  const before = structuredClone(d)
+  item.equipmentUnboundReason = '已变更原因'
+  assert.ok(differences(d, before).some((difference) => difference.includes('equipmentUnboundReason')))
+  item.equipmentOptions.push({ equipmentId: 1, equipmentNumber: 'EQ1' })
+  assert.ok(validateDraft(d).some((issue) => issue.message.includes('清除器具未绑定原因')))
+})
+
 test('publication issues locate duplicate item names without guessing the target', () => {
   const d = makeDraft(parsed, 129)
   const other = JSON.parse(JSON.stringify(d.processes[0]))
@@ -89,4 +124,60 @@ test('publication issues locate duplicate item names without guessing the target
   assert.equal(equipment.itemIndex, 0)
   assert.match(equipment.message, /设备编号/)
   assert.equal(d.finalInspectionNotApplicableReason, '')
+})
+
+test('AQL internal percentage uses the returned ratio and still blocks genuinely missing ratios', () => {
+  const d = makeDraft(parsed, 255)
+  d.finalInspectionNotApplicableReason = '规程未要求'
+  const item = d.processes[0].items[0]
+  item.applicableInspectionTypes = ['FIRST', 'PATROL']
+  item.samplingPlanText = '首件5件；巡检：按正常检验一次抽样方案Ⅱ，AQL=0.4'
+  const original = item.samplingPlanText
+  for (const ratio of [undefined, null, 0]) {
+    item.patrolInspectionRatio = ratio
+    assert.equal(patrolRatioIssue(item), '请确认实际巡检抽样比例')
+    assert.equal(formatPatrolRatio(item), '待确认实际巡检抽样比例')
+    for (const validate of [validateDraft, commonCtx.exports.validateCommonDraft]) {
+      const issue = validate(d).find((i) => i.message.includes('请确认实际巡检抽样比例'))
+      assert.ok(issue)
+      assert.equal(issue.processIndex, 0)
+      assert.equal(issue.itemIndex, 0)
+    }
+  }
+  item.patrolInspectionRatio = 0.4
+  assert.equal(formatPatrolRatio(item), '0.4%')
+  assert.equal(validateDraft(d).length, 0)
+  assert.equal(commonCtx.exports.validateCommonDraft(d).length, 0)
+  assert.equal(item.samplingPlanText, original)
+  item.applicableInspectionTypes = ['FIRST']
+  item.patrolInspectionRatio = null
+  assert.equal(formatPatrolRatio(item), '不适用')
+  assert.equal(patrolRatioIssue(item), undefined)
+})
+
+test('new PQC drafts retain the complete parsed failure rule without rewriting its meaning', () => {
+  const source = JSON.parse(JSON.stringify(parsed))
+  source.ruleSourceText = '如有不合格品，隔离该批次并按《不合格品控制程序》处理。'
+  const d = makeDraft(source, 255)
+  assert.equal(d.processes[0].items[0].failureRule, source.ruleSourceText)
+  assert.equal(source.ruleSourceText, '如有不合格品，隔离该批次并按《不合格品控制程序》处理。')
+  assert.equal(
+    d.processes[0].items[0].samplingPlanText,
+    source.processes[0].items[0].samplingPlanText
+  )
+})
+
+test('parsed AQL percentage is preserved by draft mapping without deriving a second ratio', () => {
+  for (const ratio of [0.25, 0.4, 2.5]) {
+    const source = JSON.parse(JSON.stringify(parsed))
+    Object.assign(source.processes[0].items[0], {
+      applicableInspectionTypes: ['PATROL'],
+      samplingPlanText: `GB/T 2828.1，AQL=${ratio}`,
+      patrolInspectionRatio: ratio
+    })
+    const item = makeDraft(source, 255).processes[0].items[0]
+    assert.equal(item.patrolInspectionRatio, ratio)
+    assert.equal(formatPatrolRatio(item), `${ratio}%`)
+    assert.equal(patrolRatioIssue(item), undefined)
+  }
 })

@@ -25,6 +25,7 @@
 
       <el-table
         :data="rows"
+        max-height="560"
         empty-text="请选择用户后查看文件类型查阅能力"
         data-testid="dcc-user-lookup-table"
       >
@@ -33,15 +34,19 @@
         <el-table-column label="查阅来源" min-width="260">
           <template #default="{ row }">
             <div class="lookup-source-list">
-              <div v-if="row.viewSources?.length">
-                {{
-                  row.viewSources
-                    .map((item) =>
-                      item.stageNo ? `${item.stageNo}. ${item.stageName} / ${item.reason || item.source}` : item.reason || item.source
-                    )
-                    .join(' / ')
-                }}
-              </div>
+              <details v-if="row.viewSources?.length">
+                <summary>查看 {{ row.viewSources.length }} 项来源</summary>
+                <section v-for="group in groupReviewSources(row.viewSources)" :key="group.label" class="lookup-source-group">
+                  <strong>{{ group.label }}</strong>
+                  <ol>
+                    <li v-for="(source, index) in group.sources" :key="index">
+                      <div v-if="source.positionName">岗位：{{ source.positionName }}</div>
+                      <div>{{ source.reason || '来源说明未记录' }}</div>
+                      <small>来源编码：{{ source.source }}</small>
+                    </li>
+                  </ol>
+                </section>
+              </details>
               <div v-else>
                 {{ row.browseReason || row.downloadReason || '-' }}
               </div>
@@ -95,7 +100,7 @@
             }}
           </template>
         </el-table-column>
-        <el-table-column label="风险" min-width="180">
+        <el-table-column label="风险" min-width="280">
           <template #default="{ row }">
             <div class="lookup-risk-list">
               <el-tag
@@ -105,14 +110,21 @@
               >
                 无风险
               </el-tag>
-              <el-tag
-                v-for="risk in row.risks || []"
-                :key="`${risk.code}-${risk.message}`"
-                size="small"
-                :type="risk.blocking ? 'danger' : 'warning'"
-              >
-                {{ risk.code }}
-              </el-tag>
+              <template v-else>
+                <p class="lookup-risk-summary">{{ row.risks[0].message || '风险说明未记录，请核对风险详情' }}</p>
+                <details>
+                  <summary>查看全部 {{ row.risks.length }} 项风险</summary>
+                  <ul class="lookup-risk-details">
+                    <li v-for="(risk, index) in row.risks" :key="index">
+                      <el-tag size="small" :type="risk.blocking ? 'danger' : 'warning'">
+                        {{ risk.blocking ? '阻塞' : '提示' }}
+                      </el-tag>
+                      <p>{{ risk.message || '风险说明未记录' }}</p>
+                      <small>风险编码：{{ risk.code }}</small>
+                    </li>
+                  </ul>
+                </details>
+              </template>
             </div>
           </template>
         </el-table-column>
@@ -129,6 +141,7 @@ import {
   type ControlledFileCategoryReviewMatrixUserLookupVO
 } from '@/api/dcc/controlledFile/fileCategories'
 import { getSimpleUserList, type UserVO } from '@/api/system/user'
+import { groupReviewSources } from './reviewMatrixDisplay'
 
 defineOptions({ name: 'CategoryReviewMatrixUserLookupDialog' })
 
@@ -218,9 +231,46 @@ defineExpose({ open })
 }
 
 .lookup-risk-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
+  overflow-wrap: anywhere;
+}
+
+.lookup-source-list summary,
+.lookup-risk-list summary {
+  cursor: pointer;
+  color: var(--el-color-primary);
+}
+
+.lookup-source-group {
+  margin-top: 12px;
+  overflow-wrap: anywhere;
+}
+
+.lookup-source-group ol,
+.lookup-risk-details {
+  padding-left: 20px;
+  margin: 8px 0;
+}
+
+.lookup-source-group li,
+.lookup-risk-details li {
+  margin-bottom: 12px;
+}
+
+.lookup-risk-summary {
+  margin: 0 0 6px;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+
+.lookup-risk-details p {
+  margin: 6px 0;
+}
+
+.lookup-source-group small,
+.lookup-risk-details small {
+  color: var(--el-text-color-secondary);
 }
 
 @media (max-width: 960px) {

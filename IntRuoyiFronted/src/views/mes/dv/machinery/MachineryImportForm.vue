@@ -43,6 +43,7 @@
   </Dialog>
 </template>
 <script setup lang="ts">
+import { showRecordImportResult } from '@/utils/importResult'
 import { DvMachineryApi } from '@/api/mes/dv/machinery'
 import { getAccessToken, getTenantId } from '@/utils/auth'
 import download from '@/utils/download'
@@ -92,21 +93,18 @@ const submitFormSuccess = (response: any) => {
     resetForm()
     return
   }
-  // 拼接提示语
   const data = response.data
-  let text = '车间新增：' + data.workshopCreateCount + '；更新：' + data.workshopUpdateCount + '；复用：' + data.workshopReuseCount + '；设备上传成功数量：' + data.createCodes.length + ';'
-  for (let code of data.createCodes) {
-    text += '< ' + code + ' >'
-  }
-  text += '更新成功数量：' + data.updateCodes.length + ';'
-  for (const code of data.updateCodes) {
-    text += '< ' + code + ' >'
-  }
-  text += '更新失败数量：' + Object.keys(data.failureCodes).length + ';'
-  for (const code in data.failureCodes) {
-    text += '< ' + code + ': ' + data.failureCodes[code] + ' >'
-  }
-  message.alert(text)
+  showRecordImportResult({
+    entity: '设备编码',
+    created: data.createCodes,
+    updated: data.updateCodes,
+    failures: data.failureCodes,
+    stats: [
+      { label: '新建车间', value: data.workshopCreateCount },
+      { label: '更新车间', value: data.workshopUpdateCount },
+      { label: '沿用已有车间', value: data.workshopReuseCount }
+    ],
+  })
   formLoading.value = false
   dialogVisible.value = false
   // 发送操作成功的事件

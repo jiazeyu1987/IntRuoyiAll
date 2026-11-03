@@ -65,20 +65,35 @@
               <div class="edhr-dhr-template__expand">
                 <div>
                   <div class="edhr-dhr-template__section-title">模板版本</div>
-                  <el-table :data="row.versions || []" size="small" border empty-text="暂无模板版本">
+                  <el-table
+                    :data="row.versions || []"
+                    size="small"
+                    border
+                    empty-text="暂无模板版本"
+                  >
                     <el-table-column label="模板版本" prop="versionNo" width="140" />
                     <el-table-column label="变更摘要" prop="changeSummary" min-width="220" />
-                    <el-table-column label="创建时间" prop="createTime" width="180" :formatter="edhrDateTimeFormatter" />
+                    <el-table-column
+                      label="创建时间"
+                      prop="createTime"
+                      width="180"
+                      :formatter="edhrDateTimeFormatter"
+                    />
                     <el-table-column label="快照" min-width="240">
                       <template #default="scope">
-                        <span class="edhr-dhr-template__json">{{ scope.row.templateSnapshotJson || '--' }}</span>
+                        <ReadableData title="模板内容" :source="scope.row.templateSnapshotJson" />
                       </template>
                     </el-table-column>
                   </el-table>
                 </div>
                 <div>
                   <div class="edhr-dhr-template__section-title">绑定对象</div>
-                  <el-table :data="row.bindings || []" size="small" border empty-text="暂无绑定对象">
+                  <el-table
+                    :data="row.bindings || []"
+                    size="small"
+                    border
+                    empty-text="暂无绑定对象"
+                  >
                     <el-table-column label="绑定类型" width="120">
                       <template #default="scope">
                         {{ resolveBindingTypeLabel(scope.row.bindingType) }}
@@ -93,7 +108,9 @@
           </el-table-column>
           <el-table-column label="DHR模板" min-width="260">
             <template #default="{ row }">
-              <div class="edhr-dhr-template__strong">{{ row.templateCode }} / {{ row.templateName }}</div>
+              <div class="edhr-dhr-template__strong"
+                >{{ row.templateCode }} / {{ row.templateName }}</div
+              >
               <div class="edhr-dhr-template__muted">
                 DHR目录 {{ resolveCatalogName(row.catalogId) }} · 模板版本 {{ row.currentVersion }}
               </div>
@@ -101,7 +118,9 @@
           </el-table-column>
           <el-table-column label="状态" width="130">
             <template #default="{ row }">
-              <el-tag :type="resolveStatusTagType(row.status)">{{ resolveStatusLabel(row.status) }}</el-tag>
+              <el-tag :type="resolveStatusTagType(row.status)">{{
+                resolveStatusLabel(row.status)
+              }}</el-tag>
             </template>
           </el-table-column>
           <el-table-column label="审核状态" width="120">
@@ -135,7 +154,11 @@
           </el-table-column>
           <el-table-column label="签核证据" min-width="220">
             <template #default="{ row }">
-              <span class="edhr-dhr-template__hash">{{ row.signoffEvidenceHash || '--' }}</span>
+              <span>{{ row.signoffEvidenceHash ? '已登记签核证据' : '尚未登记' }}</span>
+              <details v-if="row.signoffEvidenceHash"
+                ><summary>查看证据校验码</summary
+                ><span style="overflow-wrap: anywhere">{{ row.signoffEvidenceHash }}</span></details
+              >
             </template>
           </el-table-column>
           <el-table-column label="操作" width="360" fixed="right">
@@ -227,12 +250,20 @@
       </el-form>
       <template #footer>
         <el-button @click="catalogDialogVisible = false">取消</el-button>
-        <el-button type="primary" :loading="catalogSaving" @click="submitCatalog">保存目录</el-button>
+        <el-button type="primary" :loading="catalogSaving" @click="submitCatalog"
+          >保存目录</el-button
+        >
       </template>
     </Dialog>
 
     <Dialog title="新建DHR模板" v-model="templateDialogVisible" width="760px">
-      <el-alert v-if="templateError" :title="templateError" type="error" :closable="false" show-icon />
+      <el-alert
+        v-if="templateError"
+        :title="templateError"
+        type="error"
+        :closable="false"
+        show-icon
+      />
       <el-form
         ref="templateFormRef"
         :model="templateForm"
@@ -290,7 +321,11 @@
           </el-col>
           <el-col :span="24">
             <el-form-item label="模板快照" prop="templateSnapshotJson">
-              <el-input v-model="templateForm.templateSnapshotJson" type="textarea" :rows="6" />
+              <BusinessJsonInput
+                ref="templateSnapshotInput"
+                v-model="templateForm.templateSnapshotJson"
+                label="模板内容"
+              />
             </el-form-item>
           </el-col>
           <el-col :span="24">
@@ -302,7 +337,9 @@
       </el-form>
       <template #footer>
         <el-button @click="templateDialogVisible = false">取消</el-button>
-        <el-button type="primary" :loading="templateSaving" @click="submitTemplate">保存模板</el-button>
+        <el-button type="primary" :loading="templateSaving" @click="submitTemplate"
+          >保存模板</el-button
+        >
       </template>
     </Dialog>
 
@@ -311,24 +348,43 @@
         <el-form-item label="DHR模板">
           <el-input :model-value="currentTemplateLabel" disabled />
         </el-form-item>
-        <el-form-item label="签核证据Hash" prop="signoffEvidenceHash">
-          <el-input v-model="signoffForm.signoffEvidenceHash" maxlength="128" />
+        <el-form-item label="签核证据校验码" prop="signoffEvidenceHash">
+          <el-input
+            v-model="signoffForm.signoffEvidenceHash"
+            maxlength="128"
+            placeholder="粘贴正式签核证据提供的校验码"
+          />
+          <span class="edhr-dhr-template__muted"
+            >请从正式签核证据记录中复制，用于关联并核对签核资料。</span
+          >
         </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="signoffDialogVisible = false">取消</el-button>
-        <el-button type="primary" :loading="actionLoading" @click="signoffTemplate">确认签核</el-button>
+        <el-button type="primary" :loading="actionLoading" @click="signoffTemplate"
+          >确认签核</el-button
+        >
       </template>
     </Dialog>
 
     <Dialog :title="impactDialogTitle" v-model="impactDialogVisible" width="640px">
       <el-alert v-if="impactError" :title="impactError" type="error" :closable="false" show-icon />
-      <el-form ref="impactFormRef" :model="impactForm" :rules="impactRules" label-width="112px" class="mt-12px">
+      <el-form
+        ref="impactFormRef"
+        :model="impactForm"
+        :rules="impactRules"
+        label-width="112px"
+        class="mt-12px"
+      >
         <el-form-item label="DHR模板">
           <el-input :model-value="currentTemplateLabel" disabled />
         </el-form-item>
         <el-form-item label="影响范围" prop="impactScopeJson">
-          <el-input v-model="impactForm.impactScopeJson" type="textarea" :rows="6" />
+          <BusinessJsonInput
+            ref="impactScopeInput"
+            v-model="impactForm.impactScopeJson"
+            label="影响范围"
+          />
         </el-form-item>
         <el-form-item label="确认影响" prop="impactConfirmed">
           <el-checkbox v-model="impactForm.impactConfirmed">已确认影响范围</el-checkbox>
@@ -374,9 +430,17 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="影响范围" prop="impactScopeJson" min-width="320" />
+        <el-table-column label="影响范围" min-width="320"
+          ><template #default="{ row }"
+            ><ReadableData title="影响范围" :source="row.impactScopeJson" /></template
+        ></el-table-column>
         <el-table-column label="确认人" prop="confirmedBy" width="120" />
-        <el-table-column label="确认时间" prop="confirmedAt" width="180" :formatter="edhrDateTimeFormatter" />
+        <el-table-column
+          label="确认时间"
+          prop="confirmedAt"
+          width="180"
+          :formatter="edhrDateTimeFormatter"
+        />
       </el-table>
       <Pagination
         :total="impactTotal"
@@ -389,6 +453,8 @@
 </template>
 
 <script setup lang="ts">
+import ReadableData from '@/components/BusinessData/ReadableData.vue'
+import BusinessJsonInput from '@/components/BusinessData/BusinessJsonInput.vue'
 import {
   EdhrDhrTemplateApi,
   approveTemplate as approveTemplateApi,
@@ -436,6 +502,8 @@ const impactDialogVisible = ref(false)
 const impactDrawerVisible = ref(false)
 const catalogFormRef = ref()
 const templateFormRef = ref()
+const templateSnapshotInput = ref<InstanceType<typeof BusinessJsonInput>>()
+const impactScopeInput = ref<InstanceType<typeof BusinessJsonInput>>()
 const signoffFormRef = ref()
 const impactFormRef = ref()
 const currentTemplate = ref<EdhrDhrTemplateRespVO>()
@@ -515,7 +583,7 @@ const templateRules = {
 }
 
 const signoffRules = {
-  signoffEvidenceHash: [{ required: true, message: '签核证据Hash不能为空', trigger: 'blur' }]
+  signoffEvidenceHash: [{ required: true, message: '请填写正式签核证据的校验码', trigger: 'blur' }]
 }
 
 const impactRules = {
@@ -544,7 +612,8 @@ const impactDialogTitle = computed(() => {
 })
 
 const resolveErrorMessage = (error: unknown, fallback: string) => {
-  const responseMessage = (error as any)?.response?.data?.msg || (error as any)?.response?.data?.message
+  const responseMessage =
+    (error as any)?.response?.data?.msg || (error as any)?.response?.data?.message
   if (typeof responseMessage === 'string' && responseMessage.trim()) return responseMessage
   if (error instanceof Error && error.message.trim()) return error.message
   return fallback
@@ -664,6 +733,11 @@ const openTemplateDialog = () => {
 
 const submitTemplate = async () => {
   await templateFormRef.value?.validate()
+  const validationError = templateSnapshotInput.value?.validate()
+  if (validationError) {
+    message.error(validationError)
+    return
+  }
   templateSaving.value = true
   templateError.value = ''
   try {
@@ -780,6 +854,11 @@ const submitImpact = async (
   successMessage: string
 ) => {
   await impactFormRef.value?.validate()
+  const validationError = impactScopeInput.value?.validate()
+  if (validationError) {
+    message.error(validationError)
+    return
+  }
   if (!currentTemplate.value) return
   actionLoading.value = true
   impactError.value = ''

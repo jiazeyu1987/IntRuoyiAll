@@ -33,6 +33,7 @@ class DccElectronicSignatureImageServiceImplTest extends BaseMockitoUnitTest {
     private FileService fileService;
     @Mock private AdminUserApi users;
     @Mock private ApprovalAuthorityApi authority;
+    @org.mockito.Spy private DefaultSignatureImageRenderer defaultSignatureImageRenderer = new DefaultSignatureImageRenderer();
 
     @InjectMocks
     private DccElectronicSignatureImageServiceImpl service;
@@ -97,4 +98,72 @@ class DccElectronicSignatureImageServiceImplTest extends BaseMockitoUnitTest {
         org.mockito.Mockito.verify(authority, org.mockito.Mockito.never()).incrementLockedAuthorityRevision(
                 org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.anyLong());
     }
+    @Test
+    void initializeDefault_preservesActiveAndDisabledAndUploadedImages() {
+        TenantContextHolder.setTenantId(7L);
+        when(authority.lockTenantApprovalAuthority(7L)).thenReturn(new ApprovalAuthorityRevisionDTO(7L, 3L));
+        for (var status : java.util.List.of("ACTIVE", "DISABLED", "UPLOADED")) {
+            var image = DccElectronicSignatureImageDO.builder().id(90L).userId(100L).versionNo(2)
+                    .fileId(6001L).imageStatus(status).active("ACTIVE".equals(status)).build();
+            when(signatureImageMapper.selectIdentityHistoryForUpdate(100L)).thenReturn(java.util.List.of(image));
+            when(fileService.getFile(6001L)).thenReturn(FileDO.builder().id(6001L).configId(10L)
+                    .path("dcc/signature-images/existing.png").build());
+            var result = service.initializeMyDefaultSignatureImage(100L);
+            assertEquals(90L, result.getId());
+            assertEquals(status, result.getImageStatus());
+            assertEquals("ACTIVE".equals(status), result.getActive());
+        }
+        verifyNoInteractions(defaultSignatureImageRenderer);
+        org.mockito.Mockito.verify(signatureImageMapper, org.mockito.Mockito.never()).insert(
+                org.mockito.ArgumentMatchers.any(DccElectronicSignatureImageDO.class));
+        org.mockito.Mockito.verify(authority, org.mockito.Mockito.never()).incrementLockedAuthorityRevision(7L, 3L);
+    }
+
+    @Test
+    void initializeDefault_rendersPersistedNameAndStoresEnabledVersionOnlyOnce() {
+        TenantContextHolder.setTenantId(7L);
+        when(authority.lockTenantApprovalAuthority(7L)).thenReturn(new ApprovalAuthorityRevisionDTO(7L, 3L));
+        when(signatureImageMapper.selectIdentityHistoryForUpdate(100L)).thenReturn(java.util.List.of());
+        var user = new cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO();
+        user.setId(100L); user.setNickname("张三");
+        when(users.getUser(100L)).thenReturn(user);
+        when(fileService.createFileAndReturnId(org.mockito.ArgumentMatchers.any(byte[].class),
+                org.mockito.ArgumentMatchers.eq("default-signature-100.png"),
+                org.mockito.ArgumentMatchers.eq("dcc/signature-images"),
+                org.mockito.ArgumentMatchers.eq("image/png"))).thenReturn(6001L);
+        when(fileService.getFile(6001L)).thenReturn(FileDO.builder().id(6001L).configId(10L)
+                .name("default-signature-100.png").path("dcc/signature-images/default-signature-100.png").build());
+        org.mockito.Mockito.doAnswer(invocation -> {
+            DccElectronicSignatureImageDO image = invocation.getArgument(0);
+            image.setId(90L);
+            when(signatureImageMapper.selectIdentityHistoryForUpdate(100L)).thenReturn(java.util.List.of(image));
+            return 1;
+        }).when(signatureImageMapper).insert(org.mockito.ArgumentMatchers.any(DccElectronicSignatureImageDO.class));
+        var result = service.initializeMyDefaultSignatureImage(100L);
+        assertEquals(1, result.getVersionNo());
+        assertEquals(true, result.getActive());
+        assertEquals("ACTIVE", result.getImageStatus());
+        assertEquals(64, result.getSha256().length());
+        assertEquals(result.getUploadedAt(), result.getEnabledAt());
+        assertEquals(result.getId(), service.initializeMyDefaultSignatureImage(100L).getId());
+        verify(defaultSignatureImageRenderer).render("张三");
+        verify(signatureImageMapper).insert(org.mockito.ArgumentMatchers.any(DccElectronicSignatureImageDO.class));
+        verify(authority).incrementLockedAuthorityRevision(7L, 3L);
+        var order = org.mockito.Mockito.inOrder(users, signatureImageMapper);
+        order.verify(users).lockSignatureIdentity(100L);
+        order.verify(signatureImageMapper).selectIdentityHistoryForUpdate(100L);
+    }
+
+    @Test
+    void initializeDefault_rejectsMissingRealNameBeforeWritingFile() {
+        TenantContextHolder.setTenantId(7L);
+        when(authority.lockTenantApprovalAuthority(7L)).thenReturn(new ApprovalAuthorityRevisionDTO(7L, 3L));
+        when(signatureImageMapper.selectIdentityHistoryForUpdate(100L)).thenReturn(java.util.List.of());
+        var user = new cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO();
+        user.setId(100L);
+        when(users.getUser(100L)).thenReturn(user);
+        assertThrows(IllegalArgumentException.class, () -> service.initializeMyDefaultSignatureImage(100L));
+        verifyNoInteractions(fileService);
+    }
+
 }

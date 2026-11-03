@@ -102,6 +102,9 @@ class MesProRouteWorkbookExportServiceTest {
     @Mock
     private MesDvMachineryProcessMapper machineryProcessMapper;
 
+    @Mock
+    private cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteProjectGuard projectGuard;
+
     @InjectMocks
     private MesProRouteWorkbookExportServiceImpl exportService;
 
@@ -148,10 +151,13 @@ class MesProRouteWorkbookExportServiceTest {
         when(routeProductBomMapper.selectList(eq(10L), eq(null), eq(null))).thenReturn(List.of());
         when(processMapper.selectListByIds(eq(Set.of(30L)))).thenReturn(List.of(process(30L, "PROC-A")));
 
+        when(projectGuard.boundProjectCode(10L)).thenReturn("PROJECT-1");
         byte[] bytes = exportService.exportWorkbook(reqVO);
 
         try (Workbook workbook = WorkbookFactory.create(new ByteArrayInputStream(bytes))) {
             assertNotNull(workbook.getSheet("工艺路线"));
+            assertEquals("项目代码", workbook.getSheet("工艺路线").getRow(0).getCell(6).getStringCellValue());
+            assertEquals("PROJECT-1", workbook.getSheet("工艺路线").getRow(1).getCell(6).getStringCellValue());
             assertNotNull(workbook.getSheet("路线工序"));
             assertNotNull(workbook.getSheet("流转关系"));
             assertNotNull(workbook.getSheet("边界关系"));

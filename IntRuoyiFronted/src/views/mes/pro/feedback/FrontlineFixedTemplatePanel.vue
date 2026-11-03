@@ -2681,11 +2681,11 @@ const resolveProductionBooleanParameterDefault = (
   parameter: FrontlineRuntimeDeviceParameterVO
 ) => {
   if (parameter.defaultValue === undefined || parameter.defaultValue === null) {
-    throw new Error(`BOOLEAN 设备参数缺少 0/1 默认值：${parameter.parameterCode}`)
+    throw new Error(`设备参数“${parameter.parameterCode}”未配置有效的是/否默认值（0 或 1），请联系配置人员。`)
   }
   const defaultValue = Number(parameter.defaultValue)
   if (defaultValue !== 0 && defaultValue !== 1) {
-    throw new Error(`BOOLEAN 设备参数缺少 0/1 默认值：${parameter.parameterCode}`)
+    throw new Error(`设备参数“${parameter.parameterCode}”未配置有效的是/否默认值（0 或 1），请联系配置人员。`)
   }
   return defaultValue === 1
 }
@@ -5597,42 +5597,42 @@ const assertProductionSubmitSnapshotContext = (formalContext: FrontlineFormalSub
   const selectedEmployee = deviceState.selectedEmployee
   const snapshotContext = deviceState.runtimeConfig?.productionSubmitContext
   if (!isFrontlineProductionProcess(selectedProcess)) {
-    throw new Error('当前提交快照缺少正式生产工序，无法提交。')
+    throw new Error('尚未获取到当前生产工序，无法提交。请重新选择活跃订单和工序。')
   }
   if (!snapshotContext) {
-    throw new Error('当前提交快照缺少正式运行配置，无法提交。')
+    throw new Error('当前工序的生产配置未加载完整，无法提交。请重新进入工序。')
   }
   if (
     formalContext.routeId !== selectedProcess.routeId ||
     formalContext.routeProcessId !== selectedProcess.routeProcessId ||
     formalContext.processId !== selectedProcess.processId
   ) {
-    throw new Error('当前提交快照与所选工序不一致，请重新选择活跃订单或工序。')
+    throw new Error('提交信息与当前所选工序不一致，请重新选择活跃订单或工序后提交。')
   }
   if (
     snapshotContext.routeId !== formalContext.routeId ||
     snapshotContext.routeProcessId !== formalContext.routeProcessId ||
     snapshotContext.processId !== formalContext.processId
   ) {
-    throw new Error('当前提交快照与运行配置不一致，请刷新后重试。')
+    throw new Error('工序配置与本次提交信息不一致，请刷新页面并核对后重新提交。')
   }
   if (!selectedEmployee || selectedEmployee.userId !== formalContext.signatureEmployeeId) {
-    throw new Error('当前提交快照与所选员工不一致，请重新选择员工。')
+    throw new Error('提交信息与当前所选员工不一致，请重新选择员工。')
   }
   if (!formalContext.frontlineSessionSnapshotId || !formalContext.frontlineSessionSnapshotHash) {
-    throw new Error('缺少一线生产会话快照，无法提交。')
+    throw new Error('本次生产填写所需的会话信息不完整，无法提交。请重新进入工序；仍有问题时，请联系管理员。')
   }
   if (
     snapshotContext.parameterSnapshotState === 'FROZEN' &&
     (!snapshotContext.deviceSelectionSnapshotJson || !snapshotContext.deviceSelectionSnapshotSha256)
   ) {
-    throw new Error('当前提交快照缺少设备选择快照，请重新进入工序。')
+    throw new Error('本次填写缺少设备确认信息，请重新进入工序并确认设备。')
   }
   if (
     snapshotContext.parameterSnapshotState === 'FROZEN' &&
     (!formalContext.productionConfigSnapshotJson || !formalContext.productionConfigSnapshotSha256)
   ) {
-    throw new Error('当前提交快照缺少生产配置快照，请重置活跃订单后重新进入工序。')
+    throw new Error('本次填写的生产配置不完整，请重置活跃订单后重新进入工序。')
   }
 }
 
@@ -5986,7 +5986,7 @@ const buildProductionDeviceParameterReadingsFromDraft = (
         }
         if (isBooleanParameter(parameter)) {
           if (typeof value !== 'boolean') {
-            throw new Error(`BOOLEAN 设备参数值无效：${parameter.parameterCode}`)
+            throw new Error(`设备参数“${parameter.parameterCode}”的值无效，请检查是/否选项。`)
           }
           const booleanValue = value
           return {

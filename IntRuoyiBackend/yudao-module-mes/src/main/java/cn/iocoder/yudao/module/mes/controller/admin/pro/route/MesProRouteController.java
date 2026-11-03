@@ -52,6 +52,14 @@ public class MesProRouteController {
 
     @Resource
     private MesProRouteService routeService;
+    @Resource private cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteProjectGuard projectGuard;
+
+    @GetMapping("/dcc-project-options")
+    @PreAuthorize("@ss.hasAnyPermissions('mes:pro-route:create', 'mes:pro-route:update', 'form:parser:production-batch-record:publish', 'form:parser:query', 'form:parser:production-batch-record', 'mes:pro-batch-record-template:import')")
+    public CommonResult<List<java.util.Map<String, Object>>> projectOptions(
+            @RequestParam(value = "keyword", required = false) String keyword) {
+        return success(projectGuard.options(keyword));
+    }
     @Resource
     private IntGyRouteMarkdownImportService routeMarkdownImportService;
     @Resource
@@ -74,7 +82,7 @@ public class MesProRouteController {
     @Operation(summary = "复制工艺路线并继承排产/批记录子配置")
     @PreAuthorize("@ss.hasPermission('mes:pro-route:create')")
     public CommonResult<Long> copyRoute(@Valid @RequestBody MesProRouteCopyReqVO reqVO) {
-        return success(routeService.copyRoute(reqVO.getSourceRouteId(), reqVO.getTargetCode(), reqVO.getTargetName()));
+        return success(routeService.copyRoute(reqVO.getSourceRouteId(), reqVO.getTargetCode(), reqVO.getTargetName(), reqVO.getDccProjectCodeId()));
     }
 
     @PostMapping("/import-intgy-md")
@@ -89,10 +97,11 @@ public class MesProRouteController {
             @RequestParam("file") MultipartFile file,
             @RequestParam("processStatus") Integer processStatus,
             @RequestParam(value = "checkProcessCodesByRouteCodeJson", required = false)
-                    String checkProcessCodesByRouteCodeJson) throws IOException {
+                    String checkProcessCodesByRouteCodeJson,
+            @RequestParam("dccProjectCodeId") Long dccProjectCodeId) throws IOException {
         String markdown = new String(file.getBytes(), StandardCharsets.UTF_8);
         return success(routeMarkdownImportService.importMarkdown(markdown, processStatus,
-                checkProcessCodesByRouteCodeJson));
+                checkProcessCodesByRouteCodeJson, dccProjectCodeId));
     }
 
     @PostMapping("/import-sheet1-xlsx")
@@ -104,8 +113,9 @@ public class MesProRouteController {
     @PreAuthorize("@ss.hasPermission('mes:pro-route:create')")
     public CommonResult<Sheet1RouteExcelImportResult> importSheet1Xlsx(
             @RequestParam("file") MultipartFile file,
-            @RequestParam("processStatus") Integer processStatus) {
-        return success(sheet1RouteExcelImportService.importExcel(file, processStatus));
+            @RequestParam("processStatus") Integer processStatus,
+            @RequestParam("dccProjectCodeId") Long dccProjectCodeId) {
+        return success(sheet1RouteExcelImportService.importExcel(file, processStatus, dccProjectCodeId));
     }
 
     @PostMapping("/import-workbook-xlsx")

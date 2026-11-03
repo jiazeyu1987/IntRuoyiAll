@@ -343,19 +343,7 @@
 
       <el-card class="detail-card" shadow="never">
         <template #header>历史记录</template>
-        <el-table :data="otherHistory">
-          <el-table-column label="事件" prop="eventType" min-width="150" />
-          <el-table-column label="对象" prop="itemType" min-width="150" />
-          <el-table-column label="操作人" prop="actorId" width="120" />
-          <el-table-column label="变更前" prop="beforeValueJson" min-width="220" show-overflow-tooltip />
-          <el-table-column label="变更后" prop="afterValueJson" min-width="220" show-overflow-tooltip />
-          <el-table-column label="批件文件" width="120">
-            <template #default="{ row }">
-              <el-tag v-if="row.businessFileId" type="success">可申请下载</el-tag>
-              <span v-else>-</span>
-            </template>
-          </el-table-column>
-        </el-table>
+        <CertificateHistoryTable :rows="otherHistory" />
       </el-card>
     </div>
 
@@ -399,6 +387,7 @@ import { checkPermi, checkRole } from '@/utils/permission'
 import { normalizeRouteQueryValue, parsePositiveRouteQueryId } from '@/utils/routeQueryId'
 import ProtectedPdfViewer from '@/views/dcc/controlled-file/view/index.vue'
 import RegistrationCertificateActionPanel from '../workflow/ActionPanel.vue'
+import CertificateHistoryTable from '../history/CertificateHistoryTable.vue'
 import {
   displayText,
   formatEntrustedEnterpriseNames,

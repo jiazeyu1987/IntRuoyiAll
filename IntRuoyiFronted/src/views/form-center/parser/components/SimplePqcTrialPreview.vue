@@ -118,6 +118,9 @@
                   ></div
                 ></div
               >
+              <p v-if="item.equipmentUnboundReason" role="status">
+                器具未绑定原因：{{ item.equipmentUnboundReason }}；{{ EQUIPMENT_UNBOUND_NOTICE }}
+              </p>
               <h3 class="frontline-pqc-section-title">检验操作</h3>
               <div
                 class="frontline-pqc-choice-actions"
@@ -143,8 +146,9 @@
                 >
                 <button class="manual" type="button" :disabled="!quantity" @click="openPieces"
                   ><span>{{ item.resultType === 'BOOLEAN' ? '逐件选择' : '逐件填写' }}</span
-                  ><em role="status" :aria-label="resultSummary"
-                    >已完成 {{ completedCount }}/{{ quantity ?? 0 }}</em
+                  ><em role="status" :aria-label="resultSummary">{{
+                    quantity == null ? resultSummary : `已完成 ${completedCount}/${quantity}`
+                  }}</em
                   ><strong aria-hidden="true">&gt;</strong></button
                 >
               </div>
@@ -154,13 +158,27 @@
         </section>
         <section class="frontline-work-panel frontline-pqc-fill-panel">
           <h3 class="frontline-pqc-section-title">数量填写</h3>
+          <p
+            v-if="item && inspectionType === 'PATROL' && /AQL/i.test(item.samplingPlanText)"
+            class="trial-note"
+            >{{ AQL_PATROL_RATIO_RULE }}</p
+          >
           <div class="frontline-pqc-form-area">
             <div class="frontline-pqc-number-field">
               <label for="trialPqcInspectionQuantity">检验</label>
-              <button type="button" aria-label="检验减少" @click="stepQuantity(-1)"> - </button>
+              <button
+                type="button"
+                aria-label="检验减少"
+                :disabled="!!samplingIssue"
+                @click="stepQuantity(-1)"
+              >
+                -
+              </button>
               <input
                 id="trialPqcInspectionQuantity"
                 :value="quantity ?? ''"
+                :disabled="!!samplingIssue"
+                :placeholder="samplingIssue ? '待确认抽样比例' : ''"
                 type="number"
                 min="0"
                 inputmode="numeric"
@@ -168,7 +186,14 @@
                 aria-label="检验数量"
                 @input="setQuantity($event)"
               />
-              <button type="button" aria-label="检验增加" @click="stepQuantity(1)"> + </button>
+              <button
+                type="button"
+                aria-label="检验增加"
+                :disabled="!!samplingIssue"
+                @click="stepQuantity(1)"
+              >
+                +
+              </button>
               <span>件</span>
             </div>
             <div class="frontline-pqc-number-field">
@@ -334,6 +359,7 @@
 import { computed, reactive, ref, watch } from 'vue'
 import { useUserStore } from '@/store/modules/user'
 import type { Draft } from '../simplePqc'
+import { AQL_PATROL_RATIO_RULE, EQUIPMENT_UNBOUND_NOTICE, patrolRatioIssue } from '../simplePqc'
 const props = defineProps<{ draft: Draft; processIndex: number }>()
 const emit = defineEmits<{ 'select-process': [index: number] }>()
 type InspectionType = 'FIRST' | 'PATROL' | 'FINAL'
@@ -375,10 +401,14 @@ const item = computed(
   () => items.value.find((i) => i.itemCode === selectedCode.value) ?? items.value[0]
 )
 const quantity = computed(() => quantityFor(item.value))
+const samplingIssue = computed(() =>
+  inspectionType.value === 'PATROL' && item.value ? patrolRatioIssue(item.value) : undefined
+)
 function quantityFor(currentItem: (typeof items.value)[number] | undefined) {
+  if (!currentItem || (inspectionType.value === 'PATROL' && patrolRatioIssue(currentItem)))
+    return undefined
   const override = quantityOverrides[`${process.value?.processCode}/${selectedRuleKey.value}`]
   if (override != null) return override > 0 ? override : undefined
-  if (!currentItem) return undefined
   let count: number | undefined
   if (inspectionType.value === 'FIRST') count = currentItem.firstInspectionQuantity
   else if (inspectionType.value === 'PATROL' && currentItem.patrolInspectionRatio != null)
@@ -400,7 +430,9 @@ const selectedEquipmentLabel = computed(() => {
     ? `${option.equipmentName} / ${option.equipmentNumber}`
     : item.value?.equipmentOptions.length
       ? '选择检验设备'
-      : '无设备'
+      : item.value?.equipmentUnboundReason
+        ? '器具待绑定'
+        : '无设备'
 })
 const key = computed(
   () =>
@@ -440,6 +472,7 @@ const completedCount = computed(
   () => state.value?.values.filter((v) => v != null && String(v).trim()).length ?? 0
 )
 const resultSummary = computed(() => {
+  if (samplingIssue.value) return samplingIssue.value
   if (!quantity.value || !state.value || !item.value) return '请先在编辑内容中配置检验数量'
   let pass = 0,
     fail = 0,
@@ -517,6 +550,11 @@ function stepPiece(index: number, delta: number) {
 function submitTrial() {
   trialMessage.value = ''
   for (const currentItem of items.value) {
+    const samplingIssue = inspectionType.value === 'PATROL' && patrolRatioIssue(currentItem)
+    if (samplingIssue) {
+      trialMessage.value = `“${currentItem.itemName}”：${samplingIssue}`
+      return
+    }
     const current =
       results[
         `${process.value?.processCode}/${currentItem.itemCode}/${inspectionType.value}/${selectedRuleKey.value}`

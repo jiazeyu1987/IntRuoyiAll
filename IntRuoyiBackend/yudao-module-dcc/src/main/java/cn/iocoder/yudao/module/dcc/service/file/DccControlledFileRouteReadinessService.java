@@ -170,10 +170,14 @@ public class DccControlledFileRouteReadinessService {
         Map<Long, Boolean> result = new LinkedHashMap<>();
         for (Long userId : userIds) {
             try {
+                if (signatureImageService.canInitializeDefaultSignatureImage(userId)) {
+                    result.put(userId, true);
+                    continue;
+                }
                 DccElectronicSignatureImageSnapshot snapshot = signatureImageService.requireActiveSnapshot(userId);
                 result.put(userId, snapshot != null && snapshot.getImageId() != null
                         && snapshot.getFileId() != null && "VALID".equals(snapshot.getVerifiedStatus()));
-            } catch (ServiceException ex) {
+            } catch (ServiceException | IllegalArgumentException ex) {
                 result.put(userId, false);
             } catch (NoSuchKeyException ex) {
                 result.put(userId, false);

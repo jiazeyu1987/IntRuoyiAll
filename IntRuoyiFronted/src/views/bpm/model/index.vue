@@ -1098,7 +1098,13 @@ const buildApprovalParticipantSimpleModel = (): SimpleModelNode => {
     throw new Error('请至少配置一个审核人')
   }
   const approverNode = buildParticipantSectionNode('approvers', participantConfigForm.approvers)
-  reviewerNode.childNode = approverNode
+  const endNode: SimpleModelNode = {
+    id: 'EndEvent',
+    type: NodeType.END_EVENT_NODE,
+    name: '结束'
+  }
+  if (approverNode) approverNode.childNode = endNode
+  reviewerNode.childNode = approverNode ?? endNode
   return {
     id: 'StartUserNode',
     type: NodeType.START_USER_NODE,

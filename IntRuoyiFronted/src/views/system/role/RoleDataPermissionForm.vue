@@ -7,7 +7,11 @@
       <el-form-item label="权限角色标识">
         <el-tag>{{ formData.code }}</el-tag>
       </el-form-item>
-      <el-form-item label="权限范围">
+      <el-form-item
+        label="权限范围"
+        prop="dataScope"
+        :rules="[{ required: true, message: '请选择数据权限范围', trigger: 'change' }]"
+      >
         <el-select v-model="formData.dataScope">
           <el-option
             v-for="item in getIntDictOptions(DICT_TYPE.SYSTEM_DATA_SCOPE)"
@@ -121,26 +125,32 @@ const checkStrictly = ref(true) // 是否严格模式，即父子不关联
 const open = async (row: RoleApi.RoleVO) => {
   dialogVisible.value = true
   resetForm()
-  // 加载 Dept 列表。注意，必须放在前面，不然下面 setChecked 没数据节点
-  deptOptions.value = handleTree(await DeptApi.getSimpleDeptList())
-  // 设置数据
-  formData.id = row.id
-  formData.name = row.name
-  formData.code = row.code
-  formData.dataScope = row.dataScope
-  await nextTick()
-  // 需要在 DOM 渲染完成后，再设置选中状态
-  row.dataScopeDeptIds?.forEach((deptId: number): void => {
-    treeRef.value.setChecked(deptId, true, false)
-  })
+  formLoading.value = true
+  try {
+    deptOptions.value = handleTree(await DeptApi.getSimpleDeptList())
+    formData.id = row.id
+    formData.name = row.name
+    formData.code = row.code
+    formData.dataScope = row.dataScope
+    formData.dataScopeDeptIds = [...(row.dataScopeDeptIds ?? [])]
+    await nextTick()
+    if (formData.dataScope === SystemDataScopeEnum.DEPT_CUSTOM) {
+      treeRef.value.setCheckedKeys(formData.dataScopeDeptIds)
+    }
+  } catch (error) {
+    dialogVisible.value = false
+    throw error
+  } finally {
+    formLoading.value = false
+  }
 }
 defineExpose({ open }) // 提供 open 方法，用于打开弹窗
 
 /** 提交表单 */
 const emit = defineEmits(['success']) // 定义 success 事件，用于操作成功后的回调
 const submitForm = async () => {
-  if (!formRef) return
-  const valid = await formRef.value.validate()
+  if (!formRef.value) return
+  const valid = await formRef.value.validate((valid: boolean) => valid)
   if (!valid) return
   formLoading.value = true
   try {

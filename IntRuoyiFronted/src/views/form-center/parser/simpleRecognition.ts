@@ -30,12 +30,17 @@ export interface SimpleDraft {
   reviewed: string[]
   savedAt: string
   requestId?: string
+  project?: { id: number; projectCode: string; projectName: string }
   routeName?: string
   published?: unknown
 }
 export interface ReviewIssue {
   process: number
   message: string
+  group?: number
+  parameter?: number
+  target?: string
+  locatable?: boolean
 }
 
 export const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value))
@@ -152,71 +157,101 @@ export function readWordSource(bytes: ArrayBuffer): SourceBlock[] {
   return result
 }
 
-export function checkParameter(parameter: Parameter): string[] {
-  const errors: string[] = []
-  if (!parameter.name?.trim()) errors.push('请填写参数名称')
+export function checkParameterFields(parameter: Parameter): { message: string; target: string }[] {
+  const errors: { message: string; target: string }[] = []
+  const add = (message: string, target: string) => errors.push({ message, target })
+  if (!parameter.name?.trim()) add('请填写参数名称', 'name')
   const ui = parameter.ui
   if (ui?.defaultValue != null && !['number', 'string'].includes(typeof ui.defaultValue))
-    errors.push('默认值必须是文字或数字，请核对识别结果')
-  if (!parameter.referenceValue?.trim()) errors.push('请填写参考值')
+    add('默认值必须是文字或数字，请核对识别结果', 'defaultValue')
+  if (!parameter.referenceValue?.trim()) add('请填写参考值', 'referenceValue')
   if (!ui || !['number', 'select', 'text'].includes(ui.control ?? '')) {
-    errors.push('请选择参数填写类型')
+    add('请选择参数填写类型', 'control')
     return errors
   }
   if (ui.control === 'number') {
-    if (ui.defaultValue == null || ui.defaultValue === '') errors.push('数字参数需要默认值')
-    if (ui.step == null || ui.step === '') errors.push('数字参数需要填写步长')
-    const values = [ui.min, ui.max, ui.step, ui.defaultValue].filter((v) => v != null && v !== '')
-    if (values.some((v) => !['string', 'number'].includes(typeof v) || !Number.isFinite(Number(v))))
-      errors.push('数值设置必须是有效数字')
+    if (ui.defaultValue == null || ui.defaultValue === '') add('数字参数需要默认值', 'defaultValue')
+    if (ui.step == null || ui.step === '') add('数字参数需要填写步长', 'step')
+    const invalid = (
+      [
+        ['minimum', ui.min],
+        ['maximum', ui.max],
+        ['step', ui.step],
+        ['defaultValue', ui.defaultValue]
+      ] as const
+    ).find(
+      ([, value]) =>
+        value != null &&
+        value !== '' &&
+        (!['string', 'number'].includes(typeof value) || !Number.isFinite(Number(value)))
+    )
+    if (invalid) add('数值设置必须是有效数字', invalid[0])
     const has = (v: unknown) => v != null && v !== ''
     if (has(ui.min) && has(ui.max) && Number(ui.min) > Number(ui.max))
-      errors.push('下限不能大于上限')
-    if (has(ui.step) && Number(ui.step) <= 0) errors.push('步长必须大于零')
+      add('下限不能大于上限', 'minimum')
+    if (has(ui.step) && Number(ui.step) <= 0) add('步长必须大于零', 'step')
     if (
       has(ui.defaultValue) &&
       ((has(ui.min) && Number(ui.defaultValue) < Number(ui.min)) ||
         (has(ui.max) && Number(ui.defaultValue) > Number(ui.max)))
     )
-      errors.push('默认值超出上下限')
+      add('默认值超出上下限', 'defaultValue')
   }
   if (ui.control === 'select') {
-    if (ui.defaultValue == null || ui.defaultValue === '') errors.push('请选择下拉默认值')
-    if (!ui.options?.length) errors.push('下拉选项不能为空')
+    if (ui.defaultValue == null || ui.defaultValue === '') add('请选择下拉默认值', 'defaultValue')
+    if (!ui.options?.length) add('下拉选项不能为空', 'options')
     if (ui.options?.some((v) => typeof v !== 'string' && typeof v !== 'number'))
-      errors.push('选项必须是文字或数字，请校对原始选项')
+      add('选项必须是文字或数字，请校对原始选项', 'options')
     if (ui.defaultValue != null && ui.defaultValue !== '' && !ui.options?.includes(ui.defaultValue))
-      errors.push('默认值不在下拉选项中')
+      add('默认值不在下拉选项中', 'defaultValue')
   }
   return errors
 }
 
+export function checkParameter(parameter: Parameter): string[] {
+  return checkParameterFields(parameter).map((issue) => issue.message)
+}
+
 export function reviewIssues(processes: EditableProcess[]): ReviewIssue[] {
   const issues: ReviewIssue[] = []
-  const add = (process: number, message: string) => issues.push({ process, message })
+  const add = (
+    process: number,
+    message: string,
+    target: string,
+    group?: number,
+    parameter?: number
+  ) => issues.push({ process, message, target, group, parameter })
   processes.forEach(({ value: p }, index) => {
-    if (!p.name.trim()) add(index, '请填写工序名称')
+    if (!p.name.trim()) add(index, '请填写工序名称', 'name')
     for (const direction of ['inputs', 'outputs'] as const) {
-      p[direction]?.forEach((material) => {
+      p[direction]?.forEach((material, m) => {
         if (!material.name?.trim())
-          add(index, `${direction === 'inputs' ? '输入' : '输出'}物料缺少名称`)
+          add(index, `${direction === 'inputs' ? '输入' : '输出'}物料缺少名称`, `${direction}-${m}`)
       })
     }
     p.equipmentGroups?.forEach((group, groupIndex) => {
       const label = `设备组${groupIndex + 1}`
       if (!group.equipmentOptions?.length && !group.parameters?.length)
-        add(index, `${label}为空，请补充内容或删除空组`)
+        add(index, `${label}为空，请补充内容或删除空组`, `group-${groupIndex}`)
       if (!group.equipmentOptions?.length && group.parameters?.length)
-        add(index, `${label}的参数尚未关联设备，现有发布流程要求先关联设备`)
+        add(index, `${label}的参数尚未关联设备，现有发布流程要求先关联设备`, `group-${groupIndex}`)
       if (!['SINGLE', 'MULTIPLE'].includes(group.selectionMode ?? ''))
-        add(index, `${label}请选择设备选择方式`)
-      group.equipmentOptions?.forEach((equipment) => {
-        if (!equipment.code?.trim()) add(index, `${label}缺少设备编号，请从设备列表选择`)
-        else if (!equipment.name?.trim()) add(index, `${label}设备名称缺失，请重新选择设备编号`)
+        add(index, `${label}请选择设备选择方式`, `selection-${groupIndex}`)
+      group.equipmentOptions?.forEach((equipment, e) => {
+        if (!equipment.code?.trim())
+          add(index, `${label}缺少设备编号，请从设备列表选择`, `equipment-${groupIndex}-${e}`)
+        else if (!equipment.name?.trim())
+          add(index, `${label}设备名称缺失，请重新选择设备编号`, `equipment-${groupIndex}-${e}`)
       })
-      group.parameters?.forEach((parameter) =>
-        checkParameter(parameter).forEach((error) =>
-          add(index, `${parameter.name || '未命名参数'}：${error}`)
+      group.parameters?.forEach((parameter, i) =>
+        checkParameterFields(parameter).forEach((issue) =>
+          add(
+            index,
+            `${parameter.name || '未命名参数'}：${issue.message}`,
+            issue.target,
+            groupIndex,
+            i
+          )
         )
       )
     })

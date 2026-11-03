@@ -46,6 +46,7 @@ import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.verifyNoInteractions;
 
 @ExtendWith(MockitoExtension.class)
 class MesRouteDccProjectBindingServiceTest {
@@ -53,6 +54,8 @@ class MesRouteDccProjectBindingServiceTest {
     @InjectMocks
     private MesRouteDccProjectBindingServiceImpl service;
 
+    @Mock
+    private MesProRouteProjectGuard projectGuard;
     @Mock
     private MesRouteDccProjectBindingMapper bindingMapper;
     @Mock
@@ -93,6 +96,36 @@ class MesRouteDccProjectBindingServiceTest {
         assertEquals(1L, result.getVersion());
         assertEquals(200L, result.getDccProjectCodeId());
         assertTrue(result.getBound());
+    }
+
+    @Test
+    void saveSameProjectWithoutProducts_keepsDraftSnapshotWithoutWriting() {
+        when(routeMapper.selectByIdForUpdate(100L)).thenReturn(route(100L));
+        when(bindingMapper.selectCurrentByRouteIdForUpdate(100L))
+                .thenReturn(binding(10L, 100L, 200L, 3L, false));
+        when(dccProjectCodeMapper.selectById(200L))
+                .thenReturn(dccProjectCode(200L, DccProjectCodeStatusConstants.ENABLE));
+        when(routeProductMapper.selectListByRouteId(100L)).thenReturn(List.of());
+        MesProRouteVersionDO draft = new MesProRouteVersionDO();
+        draft.setId(300L);
+        draft.setRouteId(100L);
+        draft.setActive(false);
+        draft.setLifecycleStatus(MesProRouteVersionLifecycleServiceImpl.STATUS_DRAFT);
+        when(routeVersionMapper.selectById(300L)).thenReturn(draft);
+        when(routeProductService.getRouteProductListByRouteId(100L, 300L)).thenReturn(List.of());
+
+        MesRouteDccProjectBindingRespVO result = service.saveBinding(new MesRouteDccProjectBindingSaveReqVO()
+                .setRouteId(100L).setRouteVersionId(300L).setDccProjectCodeId(200L)
+                .setExpectedVersion(3L).setConfirmedProductItemIds(List.of()));
+
+        assertEquals(200L, result.getDccProjectCodeId());
+        assertEquals(3L, result.getVersion());
+        assertTrue(result.getBound());
+        verify(projectGuard).requireAvailable(200L, 100L);
+        verify(bindingMapper, never()).markDeletedById(any());
+        verify(bindingMapper, never()).insert(any(MesRouteDccProjectBindingDO.class));
+        verify(routeProductMapper, never()).deleteByRouteId(any());
+        verifyNoInteractions(routeProductBomMapper, candidateConfigService);
     }
 
     @Test
@@ -371,6 +404,20 @@ class MesRouteDccProjectBindingServiceTest {
         ServiceException ex = assertThrows(ServiceException.class, () -> service.getBinding(100L));
 
         assertEquals(PRO_ROUTE_NOT_EXISTS.getCode(), ex.getCode());
+    }
+
+    @Test
+    void occupiedProjectDoesNotClearProductsOrReplaceBinding() {
+        when(routeMapper.selectByIdForUpdate(100L)).thenReturn(route(100L));
+        when(bindingMapper.selectMaxVersionByRouteIdIncludeDeleted(100L)).thenReturn(null);
+        when(dccProjectCodeMapper.selectById(200L)).thenReturn(dccProjectCode(200L, DccProjectCodeStatusConstants.ENABLE));
+        doThrow(cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.invalidParamException("项目已有流程"))
+                .when(projectGuard).requireAvailable(200L, 100L);
+        assertThrows(ServiceException.class, () -> service.saveBinding(initialRequest()));
+        verify(routeProductMapper, never()).deleteByRouteId(any());
+        verify(routeProductBomMapper, never()).deleteByRouteId(any());
+        verify(bindingMapper, never()).markDeletedById(any());
+        verify(bindingMapper, never()).insert(any(MesRouteDccProjectBindingDO.class));
     }
 
     private MesProRouteDO route(Long routeId) {

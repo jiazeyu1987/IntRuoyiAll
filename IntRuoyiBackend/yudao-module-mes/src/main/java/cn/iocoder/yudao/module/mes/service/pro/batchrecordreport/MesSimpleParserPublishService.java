@@ -7,6 +7,9 @@ import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecordreport.vo.Sim
 import cn.iocoder.yudao.module.mes.controller.admin.pro.craft.vo.MesProCraftSaveReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.process.vo.MesProProcessCreateReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.MesProRouteCreateReqVO;
+import cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectCodeDO;
+import cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectCodeMapper;
+import cn.iocoder.yudao.module.dcc.enums.DccProjectCodeStatusConstants;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.version.MesProRouteVersionCreateReqVO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.md.item.MesMdItemDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.dv.machinery.MesDvMachineryDO;
@@ -37,10 +40,14 @@ import static cn.iocoder.yudao.module.mes.service.pro.craft.MesProCraftParameter
 /** 单次预览、单次事务确认；只创建新路线，不通过名称复用工序或覆盖现有路线。 */
 @Service
 public class MesSimpleParserPublishService {
+    @jakarta.annotation.Resource
+    private cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteProjectGuard projectGuard;
+
     @Resource private MesProProcessService processService;
     @Resource private MesProCraftService craftService;
     @Resource private MesTeamLeaderRuntimeConfigService deviceService;
     @Resource private MesProRouteService routeService;
+    @Resource private DccProjectCodeMapper projectMapper;
     @Resource private MesProRouteVersionWorkflowService workflow;
     @Resource private MesProRouteCandidateConfigService candidateConfig;
     @Resource private MesProProcessMapper processMapper;
@@ -143,9 +150,11 @@ public class MesSimpleParserPublishService {
             processIds.add(id); row.put("id",id); row.put("code",process.getCode());
         }
         MesProRouteCreateReqVO routeRequest = new MesProRouteCreateReqVO();
+        routeRequest.setDccProjectCodeId(request.getProjectId());
         routeRequest.setName(request.getRouteName().trim()); routeRequest.setProcessIds(processIds);
         routeRequest.setRemark("简易解析确认创建，需完成路线治理配置后启用");
         Long routeId = routeService.createRouteWithProcesses(routeRequest);
+
         MesProRouteVersionDO active = versionMapper.selectActiveByRouteId(routeId);
         MesProRouteVersionCreateReqVO candidateRequest = new MesProRouteVersionCreateReqVO();
         candidateRequest.setRouteId(routeId); candidateRequest.setSourceRouteVersionId(active.getId());
@@ -221,6 +230,12 @@ public class MesSimpleParserPublishService {
 
     private Plan plan(SimpleParserPublishReqVO request, boolean lock) {
         uuid(request.getRequestId());
+        if (request.getProjectId() == null || request.getProjectId() <= 0) throw invalid("请选择工艺流程所属项目");
+        DccProjectCodeDO project = projectMapper.selectById(request.getProjectId());
+        if (project == null || !DccProjectCodeStatusConstants.ENABLE.equals(project.getStatus()))
+            throw invalid("所选项目不存在或已停用，请重新选择");
+        if (projectGuard.isOccupied(request.getProjectId()))
+            throw invalid("该项目代码已有工艺流程，请进入原流程维护");
         String routeName=requireText(request.getRouteName(),"路线名称",128);
         JSONObject root=JSON.parseObject(JSON.toJSONString(request.getRecognitionJson(), com.alibaba.fastjson.serializer.SerializerFeature.DisableCircularReferenceDetect));
         if (root==null || !(Objects.equals(2, root.getInteger("schemaVersion")) || Objects.equals(3, root.getInteger("schemaVersion")))) throw invalid("识别 JSON 版本无效");
@@ -366,6 +381,7 @@ public class MesSimpleParserPublishService {
         }
         JSONObject result=plan.result;
         result.put("requestId",uuid(request.getRequestId())); result.put("routeName",routeName); result.put("processCount",processes.size());
+        result.put("projectId",project.getId()); result.put("projectCode",project.getProjectCode()); result.put("projectName",project.getProjectName());
         result.put("processRows",processRows); result.put("deviceRows",deviceRows); result.put("craftRows",craftRows);
         result.put("materialRows",materialRows); result.put("unmatchedMaterials",unmatchedMaterials); result.put("warnings",warnings);
         result.put("route",Map.of("name",routeName,"action","CREATE")); result.put("blockers",plan.blockers);

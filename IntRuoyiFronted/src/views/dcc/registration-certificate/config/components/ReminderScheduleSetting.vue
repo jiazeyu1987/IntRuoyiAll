@@ -12,7 +12,7 @@
             仅拥有注册证配置权限的账号可查看；修改提醒启停和每日运行时间需要独立修改权限。
           </div>
         </div>
-        <el-tag type="info" effect="plain">Asia/Shanghai</el-tag>
+        <el-tag v-if="loaded" type="info" effect="plain">{{ timezoneLabel }}</el-tag>
       </div>
     </template>
 
@@ -51,7 +51,7 @@
         />
       </el-form-item>
       <el-form-item label="业务时区">
-        <el-input v-model="form.timezone" disabled />
+        <span v-if="loaded">{{ timezoneLabel }}</span>
       </el-form-item>
       <el-form-item label="接收规则">
         <el-alert
@@ -61,8 +61,11 @@
           show-icon
         />
       </el-form-item>
-      <el-form-item label="阈值规则">
-        <el-input v-model="form.thresholdDaysJson" type="textarea" :rows="3" readonly />
+      <el-form-item label="到期提醒节点">
+        <div v-if="loaded">
+          <el-space wrap><el-tag v-for="day in thresholdDays" :key="day" type="info">到期前 {{ day }} 天</el-tag></el-space>
+          <details class="mt-10px"><summary>配置技术详情</summary><p>业务时区：{{ form.timezone }}</p><p>原始天数配置：{{ form.thresholdDaysJson }}</p></details>
+        </div>
       </el-form-item>
       <el-form-item>
         <el-button :loading="loading" @click="loadConfig">刷新配置</el-button>
@@ -115,6 +118,9 @@ const form = reactive<RegistrationCertificateReminderConfigForm>({
   rowVersion: 0
 })
 
+const timezoneLabel = computed(() => form.timezone === 'Asia/Shanghai' ? '北京时间（UTC+8）' : form.timezone)
+const thresholdDays = computed<number[]>(() => loaded.value ? JSON.parse(form.thresholdDaysJson) : [])
+
 const resolveErrorMessage = (error: unknown, defaultMessage: string) => {
   if (error instanceof Error && error.message.trim()) return error.message
   const responseData =
@@ -139,6 +145,11 @@ const assertConfigShape = (data: DccRegistrationCertificateReminderConfigRespVO)
   }
   if (typeof data.thresholdDaysJson !== 'string' || !data.thresholdDaysJson.trim()) {
     throw new Error('注册证提醒配置返回格式无效：缺少阈值规则。')
+  }
+  let days: unknown
+  try { days = JSON.parse(data.thresholdDaysJson) } catch { throw new Error('注册证提醒配置无效：提醒天数格式错误。') }
+  if (!Array.isArray(days) || !days.length || days.some((day) => !Number.isInteger(day) || day < 0)) {
+    throw new Error('注册证提醒配置无效：提醒天数必须为非负整数列表。')
   }
   if (!data.thresholdRecipientUserIds || typeof data.thresholdRecipientUserIds !== 'object') {
     throw new Error('注册证提醒配置返回格式无效：缺少阈值收件人。')

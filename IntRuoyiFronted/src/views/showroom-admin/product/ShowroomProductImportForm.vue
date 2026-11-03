@@ -53,7 +53,8 @@ import {
 } from '@/api/showroom-admin'
 import download from '@/utils/download'
 import type { UploadUserFile } from 'element-plus'
-import { computed, h } from 'vue'
+import { computed } from 'vue'
+import { showImportResult } from '@/utils/importResult'
 
 defineOptions({ name: 'ShowroomProductImportForm' })
 
@@ -159,56 +160,33 @@ const normalizeProductImportResult = (payload: ProductImportResultPayload): Show
 }
 
 const handleImportSuccess = (result: ShowroomProductImportRespVO) => {
-  const textLines = [
-    `总行数：${result.totalRows}`,
-    `成功发布：${result.successCount}`,
-    `跳过无变化：${result.skippedCount}`,
-    `失败数量：${result.failureCount}`
-  ]
-  if (result.successProductCodes.length > 0) {
-    textLines.push(`成功产品：${result.successProductCodes.join('、')}`)
-  }
-  if (result.awardTotalRows || result.awardSuccessCount || result.awardFailureCount) {
-    textLines.push(
-      `奖项总行数：${result.awardTotalRows || 0}`,
-      `奖项成功发布：${result.awardSuccessCount || 0}`,
-      `奖项失败数量：${result.awardFailureCount || 0}`
-    )
-  }
-  if (result.successAwardCodes?.length) {
-    textLines.push(`成功奖项：${result.successAwardCodes.join('、')}`)
-  }
-  if (result.skippedProductCodes.length > 0) {
-    textLines.push(`跳过产品：${result.skippedProductCodes.join('、')}`)
-  }
-  if (result.awardWarnings?.length) {
-    textLines.push(...result.awardWarnings.map((warning) => `奖项提示：${warning}`))
-  }
-  if (result.failures.length > 0) {
-    textLines.push(
-      `失败明细：${result.failures
-        .map((failure) => `第${failure.rowNo}行 ${failure.productCode || '未填编码'}：${failure.reason}`)
-        .join('；')}`
-    )
-  }
-  if (result.awardFailures?.length) {
-    textLines.push(
-      `奖项失败明细：${result.awardFailures
-        .map((failure) => `第${failure.rowNo}行 ${failure.awardCode || '未填编码'}：${failure.reason}`)
-        .join('；')}`
-    )
-  }
-  message.alert(renderImportResultLines(textLines))
+  const failureCount = result.failureCount + (result.awardFailureCount ?? 0)
+  showImportResult({
+    title: failureCount ? '产品资料导入存在失败记录' : '产品资料导入完成',
+    summary: `成功发布 ${result.successCount} 个产品，跳过 ${result.skippedCount} 个无变化产品，${result.failureCount} 个产品处理失败。`,
+    warning: failureCount > 0 || (result.awardWarnings?.length ?? 0) > 0,
+    stats: [
+      { label: '产品总行数', value: result.totalRows },
+      { label: '成功发布产品', value: result.successCount },
+      { label: '跳过无变化产品', value: result.skippedCount },
+      { label: '产品处理失败', value: result.failureCount },
+      { label: '奖项总行数', value: result.awardTotalRows ?? 0 },
+      { label: '成功发布奖项', value: result.awardSuccessCount ?? 0 },
+      { label: '奖项处理失败', value: result.awardFailureCount ?? 0 }
+    ],
+    guidance: failureCount ? '请根据下方行号和失败原因修改文件，仅重新导入需要处理的记录。' : undefined,
+    sections: [
+      { title: '产品失败记录', columns: ['文件行号', '产品编码', '失败原因'], rows: result.failures.map((failure) => [String(failure.rowNo), failure.productCode || '未填编码', failure.reason]), expanded: true },
+      { title: '奖项失败记录', columns: ['文件行号', '奖项编码', '失败原因'], rows: (result.awardFailures ?? []).map((failure) => [String(failure.rowNo), failure.awardCode || '未填编码', failure.reason]), expanded: true },
+      { title: '奖项处理提示', columns: ['提示内容'], rows: (result.awardWarnings ?? []).map((warning) => [warning]), expanded: true },
+      { title: '成功发布的产品', columns: ['产品编码'], rows: result.successProductCodes.map((code) => [code]) },
+      { title: '跳过的产品', columns: ['产品编码'], rows: result.skippedProductCodes.map((code) => [code]) },
+      { title: '成功发布的奖项', columns: ['奖项编码'], rows: (result.successAwardCodes ?? []).map((code) => [code]) }
+    ]
+  })
   dialogVisible.value = false
   emits('success')
 }
-
-const renderImportResultLines = (textLines: string[]) =>
-  h(
-    'div',
-    { class: 'showroom-product-import-result' },
-    textLines.map((line) => h('div', { class: 'showroom-product-import-result__line' }, line))
-  )
 
 const resetForm = async () => {
   fileList.value = []
