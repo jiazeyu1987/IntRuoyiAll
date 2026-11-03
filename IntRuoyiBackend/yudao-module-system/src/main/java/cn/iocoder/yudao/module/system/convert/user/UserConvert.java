@@ -17,6 +17,7 @@ import cn.iocoder.yudao.module.system.dal.dataobject.user.AdminUserDO;
 import org.mapstruct.Mapper;
 import org.mapstruct.factory.Mappers;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 
@@ -27,17 +28,27 @@ public interface UserConvert {
 
     default UserEditRespVO convertForUpdate(AdminUserDO user, List<PostDO> assignedPosts) {
         UserEditRespVO response = BeanUtils.toBean(user, UserEditRespVO.class);
+        response.setLoginLocked(cn.iocoder.yudao.module.system.service.user.AdminUserServiceImpl
+                .isLoginLockActive(user, LocalDateTime.now()) ? 1 : 0);
         response.setPostIds(CollectionUtils.convertSet(assignedPosts, PostDO::getId));
         response.setAssignedPosts(BeanUtils.toBean(assignedPosts, UserEditRespVO.PostItem.class));
         return response;
     }
 
     default List<UserRespVO> convertList(List<AdminUserDO> list, Map<Long, DeptDO> deptMap) {
-        return CollectionUtils.convertList(list, user -> convert(user, deptMap.get(user.getDeptId())));
+        LocalDateTime now = LocalDateTime.now();
+        return CollectionUtils.convertList(list, user -> convert(user, deptMap.get(user.getDeptId()), now));
     }
 
     default UserRespVO convert(AdminUserDO user, DeptDO dept) {
+        return convert(user, dept, LocalDateTime.now());
+    }
+
+    default UserRespVO convert(AdminUserDO user, DeptDO dept, LocalDateTime now) {
         UserRespVO userVO = BeanUtils.toBean(user, UserRespVO.class);
+        // 展示当前有效锁状态，不改变持久锁记录或认证阶段的清锁时机。
+        userVO.setLoginLocked(cn.iocoder.yudao.module.system.service.user.AdminUserServiceImpl
+                .isLoginLockActive(user, now) ? 1 : 0);
         if (dept != null) {
             userVO.setDeptName(dept.getName());
         }

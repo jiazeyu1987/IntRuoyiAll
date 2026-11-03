@@ -13,6 +13,7 @@
     <el-col :span="20" :xs="24">
       <ContentWrap>
         <UnifiedListTemplate
+          ref="userListTemplateRef"
           table-key="system.user.main"
           :query-model="queryParams"
           label-width="68px"
@@ -41,12 +42,13 @@
               class="system-user-advanced-actions"
               trigger="click"
               @command="handleAdvancedCommand"
-              v-hasPermi="[
+              v-if="checkPermi([
                 'system:user:create',
                 'system:user:import',
                 'system:user:delete',
-                'system:dept:delete'
-              ]"
+                'system:dept:delete',
+                'system:user:export'
+              ])"
             >
               <el-button type="primary" plain>
                 <span>高级</span>
@@ -54,26 +56,28 @@
               </el-button>
               <template #dropdown>
                 <el-dropdown-menu>
-                  <el-dropdown-item command="create" v-hasPermi="['system:user:create']">
+                  <el-dropdown-item command="exportUsers" v-if="checkPermi(['system:user:export'])" :disabled="exportLoading">导出用户</el-dropdown-item>
+                  <el-dropdown-item command="exportGeneric" v-if="checkPermi(['system:user:export'])" :disabled="exportLoading">导出不合规清单</el-dropdown-item>
+                  <el-dropdown-item command="create" v-if="checkPermi(['system:user:create'])">
                     <Icon icon="ep:plus" />
                     <span class="ml-5px">新增</span>
                   </el-dropdown-item>
-                  <el-dropdown-item command="import" v-hasPermi="['system:user:import']">
+                  <el-dropdown-item command="import" v-if="checkPermi(['system:user:import'])">
                     <Icon icon="ep:upload" />
                     <span class="ml-5px">导入</span>
                   </el-dropdown-item>
-                  <el-dropdown-item command="dingTalkImport" v-hasPermi="['system:user:import']">
+                  <el-dropdown-item command="dingTalkImport" v-if="checkPermi(['system:user:import'])">
                     <Icon icon="ep:office-building" />
                     <span class="ml-5px">钉钉导入</span>
                   </el-dropdown-item>
-                  <el-dropdown-item command="deleteBatch" v-hasPermi="['system:user:delete']">
+                  <el-dropdown-item command="deleteBatch" v-if="checkPermi(['system:user:delete'])">
                     <Icon icon="ep:delete" />
                     <span class="ml-5px">批量删除</span>
                   </el-dropdown-item>
                   <el-dropdown-item
                     command="deleteDept"
                     :disabled="selectedDeptId === undefined"
-                    v-hasPermi="['system:dept:delete']"
+                    v-if="checkPermi(['system:dept:delete'])"
                   >
                     <Icon icon="ep:delete-filled" />
                     <span class="ml-5px">删除组织</span>
@@ -321,6 +325,8 @@
 import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
 
 import { DICT_TYPE, getIntDictOptions } from '@/utils/dict'
+import download from '@/utils/download'
+import { getAccessToken, getTenantId, getVisitTenantId } from '@/utils/auth'
 import { checkPermi } from '@/utils/permission'
 import { isNavigationFailure } from 'vue-router'
 import { useUserStore } from '@/store/modules/user'
@@ -653,8 +659,60 @@ const handleDeleteSelectedDept = async () => {
   } catch {}
 }
 
+const userListTemplateRef = ref()
+const exportLoading = ref(false)
+const handleUserExport = async (generic: boolean) => {
+  if (exportLoading.value) return
+  exportLoading.value = true
+  try {
+    const tenant = getTenantId()
+    const visit = getVisitTenantId()
+    const token = getAccessToken()
+    const query = JSON.stringify(queryParams)
+    const scope = generic ? undefined : userListTemplateRef.value.getExportScope()
+    const scopeKey = scope ? JSON.stringify(scope) : ''
+    const params = JSON.parse(query)
+    delete params.pageNo
+    delete params.pageSize
+    if (scope?.active) {
+      if (!scope.ids.length) throw new Error('当前筛选结果为空，无用户可导出')
+      params.ids = scope.ids
+    }
+    const range = generic
+      ? '当前租户全部通用账户不合规记录，不应用页面部门、查询或列筛选。'
+      : `当前已应用筛选的全部匹配用户（所有分页），不是仅当前页。${scope?.active ? `列筛选匹配 ${scope.ids.length} 位用户。` : ''}筛选参数：${JSON.stringify(params)}`
+    try {
+      await message.confirm(`导出类型：${generic ? '通用账户不合规清单' : '用户数据'}\n租户 ID：${visit || tenant}\n范围：${range}`, '确认导出类型及范围')
+    } catch (error) {
+      if (error === 'cancel' || error === 'close') return
+      throw error
+    }
+    const assertExportContext = () => {
+      if (getTenantId() !== tenant || getVisitTenantId() !== visit || getAccessToken() !== token ||
+        (!generic && (JSON.stringify(queryParams) !== query || JSON.stringify(userListTemplateRef.value.getExportScope()) !== scopeKey))) {
+        throw new Error('租户、登录状态或筛选范围已变化，请重新确认导出')
+      }
+    }
+    assertExportContext()
+    const data = generic ? await UserApi.exportGenericAccountUsers() : await UserApi.exportUser(params)
+    assertExportContext()
+    download.excel(data, generic ? '通用账户不合规清单.xlsx' : '用户数据.xlsx')
+  } catch (error) {
+    message.error(error instanceof Error ? error.message : String(error))
+    throw error
+  } finally {
+    exportLoading.value = false
+  }
+}
+
 const handleAdvancedCommand = async (command: string) => {
   switch (command) {
+    case 'exportUsers':
+      await handleUserExport(false)
+      break
+    case 'exportGeneric':
+      await handleUserExport(true)
+      break
     case 'create':
       openForm('create')
       break

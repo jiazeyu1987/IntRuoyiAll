@@ -118,7 +118,7 @@ export const deleteUserList = (ids: number[]) => {
 
 // 导出用户
 export const exportUser = (params: any) => {
-  return request.download({ url: '/system/user/export-excel', params })
+  return request.download({ url: '/system/user/export-excel', method: 'POST', data: params })
 }
 
 // 导出通用账户不合规清单

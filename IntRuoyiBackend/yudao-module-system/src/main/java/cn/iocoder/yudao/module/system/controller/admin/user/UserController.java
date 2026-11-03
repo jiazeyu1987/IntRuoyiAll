@@ -286,8 +286,17 @@ public class UserController {
         // 输出 Excel
         Map<Long, DeptDO> deptMap = deptService.getDeptMap(
                 convertList(list, AdminUserDO::getDeptId));
-        ExcelUtils.write(response, "用户数据.xls", "数据", UserRespVO.class,
+        ExcelUtils.write(response, "用户数据.xlsx", "数据", UserRespVO.class,
                 UserConvert.INSTANCE.convertList(list, deptMap));
+    }
+
+    @PostMapping("/export-excel")
+    @Operation(summary = "导出用户（JSON筛选条件）")
+    @PreAuthorize("@ss.hasPermission('system:user:export')")
+    @ApiAccessLog(operateType = EXPORT)
+    public void exportUserListPost(@Valid @RequestBody UserPageReqVO exportReqVO,
+                                   HttpServletResponse response) throws IOException {
+        exportUserList(exportReqVO, response);
     }
 
     @GetMapping("/export-generic-account-excel")
@@ -298,7 +307,7 @@ public class UserController {
         List<AdminUserDO> list = userService.getGenericAccountUserList();
         Map<Long, DeptDO> deptMap = deptService.getDeptMap(
                 convertList(list, AdminUserDO::getDeptId));
-        ExcelUtils.write(response, "通用账户不合规清单.xls", "数据", UserRespVO.class,
+        ExcelUtils.write(response, "通用账户不合规清单.xlsx", "数据", UserRespVO.class,
                 UserConvert.INSTANCE.convertList(list, deptMap));
     }
 

@@ -632,6 +632,15 @@ const handleStandardFilterRemove = (conditionId: string) => {
 }
 
 defineExpose({
+  getExportScope: () => {
+    if (columnFilter.loading.value) throw new Error('筛选范围仍在加载，请完成后再导出')
+    if (columnFilter.error.value) throw new Error(columnFilter.error.value)
+    return {
+      active: columnFilter.active.value,
+      ids: columnFilter.active.value ? columnFilter.rows.value.map((row: any) => row.id) : [],
+      state: JSON.stringify(columnFilter.state.value)
+    }
+  },
   getColumnFilteredRows: () => {
     if (columnFilter.loading.value) throw new Error('筛选尚未完成，请稍后导出')
     if (columnFilter.error.value) throw new Error(columnFilter.error.value)
