@@ -125,11 +125,18 @@ public class ShowroomProductCoverBatchTaskService {
     }
 
     public void recoverInterruptedTasksOnStartup() {
+        List<ShowroomProductCoverBatchTaskDO> unfinishedTasks = taskMapper.selectUnfinishedTasks();
+        if (unfinishedTasks.isEmpty()) {
+            return;
+        }
         LocalDateTime nextCheckAt = nextScheduledCheckTime();
-        int recoveredCount = taskMapper.recoverRunningTasksToWaiting(nextCheckAt);
+        int recoveredCount = unfinishedTasks.stream().anyMatch(task -> TASK_STATUS_RUNNING.equals(task.getStatus()))
+                ? taskMapper.recoverRunningTasksToWaiting(nextCheckAt) : 0;
         int recoveredItemCount = 0;
-        for (ShowroomProductCoverBatchTaskDO task : taskMapper.selectUnfinishedTasks()) {
-            recoveredItemCount += recoverStaleRunningItems(task.getId());
+        for (ShowroomProductCoverBatchTaskDO task : unfinishedTasks) {
+            if (!itemMapper.selectRunningItemsByTaskId(task.getId()).isEmpty()) {
+                recoveredItemCount += recoverStaleRunningItems(task.getId());
+            }
         }
         if (recoveredCount > 0) {
             log.info("[recoverInterruptedTasksOnStartup][recoveredCount({})][nextCheckAt({})]",
