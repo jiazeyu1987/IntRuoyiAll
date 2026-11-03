@@ -4,6 +4,8 @@ import cn.iocoder.yudao.framework.quartz.core.enums.JobDataKeyEnum;
 import cn.iocoder.yudao.framework.quartz.core.handler.JobHandlerInvoker;
 import org.quartz.*;
 
+import java.util.Objects;
+
 import static cn.iocoder.yudao.framework.common.exception.enums.GlobalErrorCodeConstants.NOT_IMPLEMENTED;
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception0;
 
@@ -28,6 +30,46 @@ public class SchedulerManager {
 
     public boolean isEnabled() {
         return scheduler != null;
+    }
+
+    /** Read the persisted definition without resetting triggers or their next fire time. */
+    public boolean matchesJob(Long jobId, String handlerName, String handlerParam, String cronExpression,
+                              Integer retryCount, Integer retryInterval, boolean paused) throws SchedulerException {
+        validateScheduler();
+        JobKey jobKey = new JobKey(handlerName);
+        JobDetail actual = scheduler.getJobDetail(jobKey);
+        if (actual == null) {
+            return false;
+        }
+        JobDetail expected = JobBuilder.newJob(JobHandlerInvoker.class).withIdentity(handlerName)
+                .usingJobData(JobDataKeyEnum.JOB_ID.name(), jobId)
+                .usingJobData(JobDataKeyEnum.JOB_HANDLER_NAME.name(), handlerName).build();
+        if (!actual.getJobClass().equals(expected.getJobClass())
+                || actual.isDurable() != expected.isDurable()
+                || actual.requestsRecovery() != expected.requestsRecovery()
+                || !actual.getJobDataMap().equals(expected.getJobDataMap())) {
+            return false;
+        }
+        Trigger stored = scheduler.getTrigger(new TriggerKey(handlerName));
+        if (!(stored instanceof CronTrigger cron)) {
+            return false;
+        }
+        CronTrigger expectedTrigger = (CronTrigger) buildTrigger(handlerName, handlerParam, cronExpression,
+                retryCount, retryInterval);
+        if (!new TriggerKey(handlerName).equals(cron.getKey())
+                || !jobKey.equals(cron.getJobKey())
+                || !cron.getCronExpression().equals(expectedTrigger.getCronExpression())
+                || !cron.getTimeZone().equals(expectedTrigger.getTimeZone())
+                || cron.getMisfireInstruction() != expectedTrigger.getMisfireInstruction()
+                || cron.getPriority() != expectedTrigger.getPriority()
+                || !Objects.equals(cron.getCalendarName(), expectedTrigger.getCalendarName())
+                || cron.getEndTime() != null
+                || !cron.getJobDataMap().equals(expectedTrigger.getJobDataMap())) {
+            return false;
+        }
+        Trigger.TriggerState state = scheduler.getTriggerState(cron.getKey());
+        return paused ? state == Trigger.TriggerState.PAUSED
+                : state == Trigger.TriggerState.NORMAL || state == Trigger.TriggerState.BLOCKED;
     }
 
     /**

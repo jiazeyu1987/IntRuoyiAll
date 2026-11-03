@@ -151,6 +151,12 @@ public class JobServiceImpl implements JobService {
 
         // 2. 遍历处理
         for (JobDO job : jobList) {
+            boolean paused = Objects.equals(job.getStatus(), JobStatusEnum.STOP.getStatus());
+            if (schedulerManager.matchesJob(job.getId(), job.getHandlerName(), job.getHandlerParam(),
+                    job.getCronExpression(), job.getRetryCount(), job.getRetryInterval(), paused)) {
+                log.info("[syncJob][id({}) handlerName({}) 定义及状态一致，无需同步]", job.getId(), job.getHandlerName());
+                continue;
+            }
             // 2.1 先删除，再创建
             schedulerManager.deleteJob(job.getHandlerName());
             schedulerManager.addJob(job.getId(), job.getHandlerName(), job.getHandlerParam(), job.getCronExpression(),
