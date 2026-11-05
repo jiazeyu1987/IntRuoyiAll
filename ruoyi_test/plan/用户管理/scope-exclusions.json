@@ -1,0 +1,31 @@
+{
+  "updatedAt": "2026-11-03T21:35:05+08:00",
+  "reason": "用户明确要求删除以下6个case，后续不验证",
+  "removedUCases": [
+    "U01-04",
+    "U19-03",
+    "U21-04",
+    "U02-04",
+    "U20-04",
+    "U23-04"
+  ],
+  "removedConfirmations": [
+    "C02"
+  ],
+  "removedSteps": [
+    "S12",
+    "S57",
+    "S58",
+    "S59"
+  ],
+  "retainedS50": "仅验证U18-01部门主管删除联动及独立待办用例；不验证删除后角色、岗位关联清理",
+  "counts": {
+    "functions": 24,
+    "U": 81,
+    "C": 18,
+    "S": 59,
+    "X": 11
+  },
+  "keepOriginalIds": true,
+  "historicalReports": "保留原执行记录，不将删除视为补测通过"
+}

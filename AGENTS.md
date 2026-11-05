@@ -32,6 +32,7 @@
 - 新增权限标识、新建 `src/views/**/index.vue` 页面、修改 `src/router/` 配置时，开发阶段必须在 `config/menu-migrations.json` 逐项关联新增的菜单/权限迁移 SQL；迁移使用现有 `release-migration` 元数据并包含目标角色、租户套餐授权。详情页、内部组件或复用现有菜单权限的情况必须填写具体免迁移原因，不得空白豁免。运行 `python scripts/preflight/check-menu-migrations.py`；提交前把关联记录、SQL 和源码一起暂存，再运行同命令加 `--staged`。禁止通过改检查基线、关闭 hook 或 CI 绕过失败。格式与边界见 `docs/menu-migration-development.md`。
 
 - Branch runtime port matrix: `docs\branch-runtime-ports.md`.
+- 主工作区默认端口：`int_main=8081/48081`。
 - `int_main_d=8101/48101`.
 - Additional worktree slot in `1..100`; reserve it with `reserve-worktree-slot.ps1` before starting services.
 

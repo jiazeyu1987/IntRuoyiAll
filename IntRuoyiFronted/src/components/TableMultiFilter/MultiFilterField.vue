@@ -35,7 +35,7 @@
       range-separator="至"
       start-placeholder="开始日期"
       end-placeholder="结束日期"
-      @update:model-value="updateValue"
+      @update:model-value="updateDateRange"
       @keyup.enter="$emit('query')"
     />
     <el-select-v2
@@ -182,9 +182,8 @@ const rangeValue = computed(() => {
   if (Array.isArray(props.condition?.value)) {
     return props.condition?.value
   }
-  return [props.condition?.value, props.condition?.valueEnd].filter(
-    (value) => value !== undefined && value !== null
-  )
+  const values = [props.condition?.value, props.condition?.valueEnd]
+  return values.every((value) => value == null) ? [] : values
 })
 
 const multiSelectValue = computed(() =>
@@ -229,11 +228,15 @@ const updateValue = (value?: ListMultiFilterValue) => {
   emitCondition({ value })
 }
 
+const updateDateRange = (value: ListMultiFilterScalar[] | null) => {
+  emitCondition({ value: value?.[0], valueEnd: value?.[1] })
+}
+
 const updateRangeValue = (index: 0 | 1, value?: ListMultiFilterScalar) => {
   const nextRange = [...rangeValue.value]
   nextRange[index] = value
   emitCondition({
-    value: nextRange as ListMultiFilterScalar[],
+    value: nextRange[0] as ListMultiFilterScalar | undefined,
     valueEnd: nextRange[1] as ListMultiFilterScalar | undefined
   })
 }

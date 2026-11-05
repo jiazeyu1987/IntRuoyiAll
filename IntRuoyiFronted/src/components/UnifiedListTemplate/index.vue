@@ -369,8 +369,11 @@ watch(resolvedTotal, (total) => {
 })
 watch(
   () => props.rows,
-  (rows) => {
-    if (rows !== undefined) localPage.value = 1
+  (rows, previousRows) => {
+    if (rows !== undefined) {
+      localPage.value = 1
+      if (previousRows === undefined) localLimit.value = props.limit
+    }
   }
 )
 

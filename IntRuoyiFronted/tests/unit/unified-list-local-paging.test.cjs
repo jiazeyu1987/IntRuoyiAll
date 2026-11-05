@@ -83,3 +83,14 @@ test('server paging remains externally controlled and the template does not slic
     assert.deepEqual(ctx.events, [['update:page', 5], ['update:limit', 20]])
   } finally { ctx.stop() }
 })
+
+test('entering full-result local mode keeps the selected server page size', async () => {
+  const ctx = setup({ page: 2, limit: 10, total: 45 })
+  try {
+    ctx.props.rows = Array.from({ length: 45 }, (_, id) => ({ id }))
+    await vue.nextTick()
+    assert.equal(ctx.state.resolvedPage.value, 1)
+    assert.equal(ctx.state.resolvedLimit.value, 10)
+    assert.equal(ctx.state.pageRows.value.length, 10)
+  } finally { ctx.stop() }
+})

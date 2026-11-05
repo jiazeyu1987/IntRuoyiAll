@@ -27,11 +27,14 @@
           :total="total"
           v-model:page="queryParams.pageNo"
           v-model:limit="queryParams.pageSize"
+          :rows="sortedUserRows"
+          :sort-state="userSortState"
           @update:quick-filter-state="userQuickFilter.updateState"
           @quick-filter-query="handleQuery"
           @column-change="saveUserColumnConfig"
-          @pagination="getList"
-          :load-filter-rows="loadColumnFilterRows0"
+          @pagination="handleUserPagination"
+          @sort-change="handleUserSortChange"
+          :load-filter-rows="userSortState.order ? undefined : loadColumnFilterRows0"
           @filtered-rows="list = $event"
           :list-rows="list"
           @column-filter-reset="getList"
@@ -96,13 +99,13 @@
               </template>
             </el-dropdown>
           </template>
-          <template #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+          <template #table="{ rows, resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
             <el-table
               v-loading="loading"
               class="system-user-resizable-table"
               data-user-table-column-explicit
               data-user-table-key="system.user.main"
-              :data="resolveRows(list)"
+              :data="rows ?? resolveRows(list)"
               row-key="id"
               border
               :allow-drag-last-column="true"
@@ -368,7 +371,9 @@ import {
   buildDeptLeaderLookup,
   formatDisplayNames,
   isDeptLeader,
-  sortUsersByDeptLeader
+  sortUsersByDeptLeader,
+  sortUserTableRows,
+  type UserTableSortOrder
 } from './utils'
 
 defineOptions({ name: 'SystemUser' })
@@ -412,19 +417,19 @@ const userQuickFilterDefinitions = computed<TableQuickFilterDefinition[]>(() => 
 
 const userDefaultColumns: UserTableColumnDefinition[] = [
   { key: 'selection', label: '选择', width: 55, hideable: false, business: false, sortable: false },
-  { key: 'id', label: '用户编号', width: 100 },
-  { key: 'username', label: '用户名称', minWidth: 120 },
-  { key: 'nickname', label: '用户昵称', minWidth: 120 },
-  { key: 'deptName', label: '部门', minWidth: 120 },
-  { key: 'roleNamesText', label: '角色', minWidth: 180 },
-  { key: 'postNamesText', label: '岗位', minWidth: 180 },
-  { key: 'mobile', label: '手机号码', width: 120 },
-  { key: 'status', label: '状态', width: 100 },
-  { key: 'loginLocked', label: '锁定状态', width: 100 },
-  { key: 'lifecycleDocumentNo', label: '离职/转岗单号', minWidth: 160, visible: false },
-  { key: 'lifecycleEffectiveTime', label: '停用生效时间', width: 180, visible: false },
-  { key: 'lifecycleDeactivatedTime', label: '联动停用时间', width: 180, visible: false },
-  { key: 'createTime', label: '创建时间', width: 180 },
+  { key: 'id', label: '用户编号', width: 100, sortable: 'custom' },
+  { key: 'username', label: '用户名称', minWidth: 120, sortable: 'custom' },
+  { key: 'nickname', label: '用户昵称', minWidth: 120, sortable: 'custom' },
+  { key: 'deptName', label: '部门', minWidth: 120, sortable: 'custom' },
+  { key: 'roleNamesText', label: '角色', minWidth: 180, sortable: 'custom' },
+  { key: 'postNamesText', label: '岗位', minWidth: 180, sortable: 'custom' },
+  { key: 'mobile', label: '手机号码', width: 120, sortable: 'custom' },
+  { key: 'status', label: '状态', width: 100, sortable: 'custom' },
+  { key: 'loginLocked', label: '锁定状态', width: 100, sortable: 'custom' },
+  { key: 'lifecycleDocumentNo', label: '离职/转岗单号', minWidth: 160, visible: false, sortable: 'custom' },
+  { key: 'lifecycleEffectiveTime', label: '停用生效时间', width: 180, visible: false, sortable: 'custom' },
+  { key: 'lifecycleDeactivatedTime', label: '联动停用时间', width: 180, visible: false, sortable: 'custom' },
+  { key: 'createTime', label: '创建时间', width: 180, sortable: 'custom' },
   { key: 'actions', label: '操作', width: 230, hideable: false, business: false, sortable: false }
 ]
 
@@ -441,6 +446,13 @@ const {
 const loading = ref(true) // 列表的加载中
 const total = ref(0) // 列表的总页数
 const list = ref<UserTableRow[]>([]) // 列表的数据
+const allUserRows = ref<UserTableRow[]>()
+const userSortState = ref<{ key?: keyof UserTableRow; order: UserTableSortOrder }>({ order: null })
+const sortedUserRows = computed(() =>
+  userSortState.value.order && userSortState.value.key && allUserRows.value
+    ? sortUserTableRows(allUserRows.value, userSortState.value.key, userSortState.value.order)
+    : undefined
+)
 const deptLeaderByDeptId = ref(new Map<number, number>())
 const deptNameById = ref(new Map<number, string>())
 const departments = ref<DeptApi.DeptVO[]>([])
@@ -502,8 +514,18 @@ const getList = async () => {
   const params = { ...queryParams }
   loading.value = true
   try {
+    if (userSortState.value.order) {
+      const users = await loadAllListPages<UserApi.UserListVO>((pagination) =>
+        UserApi.getUserPage({ ...params, ...pagination })
+      )
+      if (requestId !== listRequestId) return
+      allUserRows.value = buildUserTableRows(users)
+      total.value = users.length
+      return
+    }
     const data = await UserApi.getUserPage(params)
     if (requestId !== listRequestId) return
+    allUserRows.value = undefined
     const pageList = data.list as UserApi.UserListVO[]
     const orderedList = params.deptId !== undefined
       ? sortUsersByDeptLeader(pageList, deptLeaderByDeptId.value, params.deptId)
@@ -513,6 +535,16 @@ const getList = async () => {
   } finally {
     if (requestId === listRequestId) loading.value = false
   }
+}
+
+const handleUserSortChange = async ({ key, order }: { key?: keyof UserTableRow; order: UserTableSortOrder }) => {
+  userSortState.value = { key, order }
+  queryParams.pageNo = 1
+  if (!order || allUserRows.value === undefined) await getList()
+}
+
+const handleUserPagination = () => {
+  if (!userSortState.value.order) return getList()
 }
 
 const userQuickFilter = useTableQuickFilter(
