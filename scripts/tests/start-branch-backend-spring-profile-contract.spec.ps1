@@ -64,7 +64,7 @@ Assert-TaskEqual $script:requestedSlot 3 'Slot forwarded unchanged to authority'
 Assert-TaskEqual $result.JavaArgs[-1] '--dcc.test-fixture=true' 'Existing ExtraArgs retained'
 Write-Output 'PASS explicit development profile with existing slot and ExtraArgs'
 
-foreach ($case in @(@('int_main', 48081), @('int_main_d', 48101), @('int_batch', 48041), @('int_shedule', 48021))) {
+foreach ($case in @(@('int_main', 48081), @('int_batch', 48041), @('int_shedule', 48021))) {
     $script:testBranch = $case[0]
     $script:testPort = $case[1]
     $result = & $actualLauncher

@@ -493,6 +493,11 @@ public class MesTeamLeaderActiveOrderReleaseProcessInspectionWriterImpl
                 || !itemByCode.keySet().equals(MesPqcInspectionItemPlan.require(task).keySet())) {
             return aggregateItemCodes.stream().findFirst().orElse("*");
         }
+        var actualQuantities = source.getAggregateDetails().stream().collect(Collectors.groupingBy(
+                MesPqcProcessInspectionAggregateDetailDO::getItemCode, Collectors.summingInt(detail -> 1)));
+        if (!MesPqcInspectionItemPlan.matchesActualQuantities(task, actualQuantities, task.getActualInspectionQuantity())) {
+            return "*";
+        }
         for (Map.Entry<String, MesQaInspectionRegulationItemDO> entry : itemByCode.entrySet()) {
             List<MesPqcProcessInspectionAggregateDetailDO> details = source.getAggregateDetails().stream()
                     .filter(detail -> Objects.equals(entry.getKey(), detail.getItemCode()))
@@ -560,10 +565,9 @@ public class MesTeamLeaderActiveOrderReleaseProcessInspectionWriterImpl
         if (task.getActualInspectionQuantity() == null || task.getActualInspectionQuantity() <= 0) {
             return false;
         }
-        List<Integer> expected = IntStream.rangeClosed(1, MesPqcInspectionItemPlan.require(task).get(itemCode)).boxed().toList();
         List<Integer> actual = details.stream().map(MesPqcProcessInspectionAggregateDetailDO::getSampleNo)
-                .filter(Objects::nonNull).distinct().sorted().toList();
-        return expected.equals(actual);
+                .toList();
+        return MesPqcInspectionItemPlan.completeSamples(task, itemCode, actual);
     }
 
     private boolean matchesQaItem(MesQaInspectionRegulationItemDO item,
@@ -882,7 +886,9 @@ public class MesTeamLeaderActiveOrderReleaseProcessInspectionWriterImpl
                         .thenComparing(MesPqcProcessInspectionAggregateDetailDO::getSampleNo)
                         .thenComparing(MesPqcProcessInspectionAggregateDetailDO::getId))
                 .map(detail -> join("qaProcessId=" + source.getTask().getQaProcessId(),
-                        "stage=" + source.getTask().getInspectionRuleKey(), detail.getItemCode(),
+                        "stage=" + source.getTask().getInspectionRuleKey(),
+                        "round=" + source.getTask().getRoundNo(),
+                        "date=" + source.getTask().getBusinessDate(), detail.getItemCode(),
                         detail.getItemName(), detail.getInspectionMethod(),
                         detail.getStandardText(), mappedMeasuredValue(detail), detail.getJudgement()))
                 .collect(Collectors.joining(";"));
@@ -894,6 +900,8 @@ public class MesTeamLeaderActiveOrderReleaseProcessInspectionWriterImpl
                         LinkedHashMap::new, Collectors.counting()));
         return join("qaProcessId=" + source.getTask().getQaProcessId(),
                 "stage=" + source.getTask().getInspectionRuleKey(),
+                "round=" + source.getTask().getRoundNo(),
+                "date=" + source.getTask().getBusinessDate(),
                 "quantity=" + source.getTask().getActualInspectionQuantity(),
                 counts.entrySet().stream()
                         .map(entry -> entry.getKey() + "=" + entry.getValue())
@@ -1272,8 +1280,8 @@ public class MesTeamLeaderActiveOrderReleaseProcessInspectionWriterImpl
     }
 
     private String hashDccProject(DccProjectCodeDO project) {
-        return sha256(join("DCC_PROJECT_PRODUCT_IDENTITY_V1", project.getTenantId(), project.getId(),
-                project.getProductMasterId(), project.getProjectCode(), project.getProjectName()));
+        return sha256(join("DCC_PROJECT_IDENTITY_V2", project.getTenantId(), project.getId(),
+                project.getProjectCode(), project.getProjectName()));
     }
 
     private String hashQaDccProvenance(

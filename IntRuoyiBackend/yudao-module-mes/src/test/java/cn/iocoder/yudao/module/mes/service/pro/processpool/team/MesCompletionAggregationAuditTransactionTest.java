@@ -185,6 +185,7 @@ class MesCompletionAggregationAuditTransactionTest {
                 mock(MesActiveOrderTransferTraceService.class), aggregation);
         { org.springframework.test.util.ReflectionTestUtils.setField(completion, "handoffService", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffService.class)); }
         inject(completion, "gxpAuditService", audit);
+        inject(completion, "fixedTestCompletionSourceInitializer", mock(MesFixedTestOrderCompletionSourceInitializer.class));
         var sharedReader=new GxpCreationAuditVerificationService();
         inject(sharedReader,"auditEventMapper",sessions.getMapper(GxpAuditEventMapper.class));
         inject(sharedReader,"eventRelationMapper",sessions.getMapper(GxpAuditEventRelationMapper.class));

@@ -21,6 +21,7 @@ import java.util.stream.Collectors;
 @Component
 public class MesFormalProductionPickListSourceResolver {
 
+    private final MesLocalTestRunSourceGuard localSources;
     private final MesProWorkOrderMapper workOrderMapper;
     private final ErpKingdeeProductionPickListMapper pickListMapper;
     private final ErpKingdeeProductionPickListItemMapper pickListItemMapper;
@@ -28,7 +29,9 @@ public class MesFormalProductionPickListSourceResolver {
     public MesFormalProductionPickListSourceResolver(
             MesProWorkOrderMapper workOrderMapper,
             ErpKingdeeProductionPickListMapper pickListMapper,
-            ErpKingdeeProductionPickListItemMapper pickListItemMapper) {
+            ErpKingdeeProductionPickListItemMapper pickListItemMapper,
+            MesLocalTestRunSourceGuard localSources) {
+        this.localSources = localSources;
         this.workOrderMapper = workOrderMapper;
         this.pickListMapper = pickListMapper;
         this.pickListItemMapper = pickListItemMapper;
@@ -39,6 +42,7 @@ public class MesFormalProductionPickListSourceResolver {
         if (workOrder == null || StrUtil.isBlank(workOrder.getCode())) {
             throw invalid("WORK_ORDER_CODE_REQUIRED:" + workOrderId);
         }
+        boolean localTest = localSources.validate(workOrder, true);
         String productionOrderNo = StrUtil.trim(workOrder.getCode());
         List<ErpKingdeeProductionPickListItemDO> discovered =
                 pickListItemMapper.selectListByProductionOrderNo(productionOrderNo);
@@ -52,7 +56,7 @@ public class MesFormalProductionPickListSourceResolver {
                 .collect(Collectors.groupingBy(ErpKingdeeProductionPickListItemDO::getProductionPickListId,
                         LinkedHashMap::new, Collectors.toList()));
         List<Source> sources = grouped.entrySet().stream().sorted(Map.Entry.comparingByKey())
-                .map(entry -> validateSource(productionOrderNo, entry.getKey(), entry.getValue()))
+                .map(entry -> validateSource(productionOrderNo, entry.getKey(), entry.getValue(), localTest))
                 .toList();
         String resolutionHash = DigestUtil.sha256Hex(productionOrderNo + "|" + sources.stream()
                 .map(Source::hash).collect(Collectors.joining("|")));
@@ -60,17 +64,22 @@ public class MesFormalProductionPickListSourceResolver {
     }
 
     private Source validateSource(String productionOrderNo, Long pickListId,
-                                  List<ErpKingdeeProductionPickListItemDO> items) {
+                                  List<ErpKingdeeProductionPickListItemDO> items, boolean localTest) {
         ErpKingdeeProductionPickListDO header = pickListMapper.selectById(pickListId);
         if (header == null || StrUtil.isBlank(header.getSourceFid()) || StrUtil.isBlank(header.getSourceBillNo())
-                || !"C".equalsIgnoreCase(header.getDocumentStatus()) || items == null || items.isEmpty()) {
+                || !(localTest ? MesLocalTestRunSourceGuard.STATUS.equals(header.getDocumentStatus())
+                    && MesLocalTestRunSourceGuard.SOURCE.equals(header.getSourceFormId())
+                    : "C".equalsIgnoreCase(header.getDocumentStatus())
+                    && !MesLocalTestRunSourceGuard.SOURCE.equals(header.getSourceFormId()))
+                || items == null || items.isEmpty()) {
             throw invalid("FORMAL_PICK_LIST_HEADER_OR_STATUS_INVALID:" + pickListId);
         }
         if (items.stream().anyMatch(item -> item.getId() == null
                 || !Objects.equals(item.getProductionPickListId(), pickListId)
                 || !Objects.equals(StrUtil.trim(item.getProductionOrderNo()), productionOrderNo)
                 || StrUtil.isBlank(item.getSourceFid()) || StrUtil.isBlank(item.getSourceEntryId())
-                || StrUtil.isBlank(item.getSourceLineKey()) || StrUtil.isBlank(item.getMaterialNumber()))) {
+                || StrUtil.isBlank(item.getSourceLineKey()) || StrUtil.isBlank(item.getMaterialNumber())
+                || !localTest && MesLocalTestRunSourceGuard.SOURCE.equals(item.getSourceFormId()))) {
             throw invalid("FORMAL_PICK_LIST_ITEM_INVALID:" + pickListId);
         }
         List<ErpKingdeeProductionPickListItemDO> ordered = items.stream()

@@ -432,10 +432,15 @@ public class MesTeamLeaderActiveOrderReleaseGenerationService {
                     && detail.getRouteProcessId() == null && detail.getProcessId() == null);
             valid = valid && taskDetails.stream().map(MesPqcProcessInspectionAggregateDetailDO::getItemCode)
                     .collect(java.util.stream.Collectors.toSet()).equals(plan.keySet());
+            var actualQuantities = taskDetails.stream().collect(java.util.stream.Collectors.groupingBy(
+                    MesPqcProcessInspectionAggregateDetailDO::getItemCode, java.util.stream.Collectors.summingInt(detail -> 1)));
+            valid = valid && cn.iocoder.yudao.module.mes.service.pro.processpool.pqc.MesPqcInspectionItemPlan
+                    .matchesActualQuantities(task, actualQuantities, task.getActualInspectionQuantity());
             for (var entry : plan.entrySet()) {
                 var samples = taskDetails.stream().filter(detail -> Objects.equals(entry.getKey(), detail.getItemCode()))
-                        .map(MesPqcProcessInspectionAggregateDetailDO::getSampleNo).sorted().toList();
-                valid = valid && samples.equals(java.util.stream.IntStream.rangeClosed(1, entry.getValue()).boxed().toList());
+                        .map(MesPqcProcessInspectionAggregateDetailDO::getSampleNo).toList();
+                valid = valid && cn.iocoder.yudao.module.mes.service.pro.processpool.pqc.MesPqcInspectionItemPlan
+                        .completeSamples(task, entry.getKey(), samples);
             }
             if (!valid) throw blocker(MesReleaseFlowBlockerType.INSPECTION_PROGRESS_NOT_COMPLETED, null,
                     "PQC_INSPECTION_TASK", String.valueOf(task.getId()), null,

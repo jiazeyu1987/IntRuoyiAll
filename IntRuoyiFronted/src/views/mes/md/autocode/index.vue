@@ -11,6 +11,7 @@
       :inline="true"
       label-width="68px"
     >
+      <el-form-item label="所属项目" prop="projectId"><el-select v-model="queryParams.projectId" filterable clearable class="!w-240px" placeholder="全部可见项目"><el-option v-for="p in projects" :key="p.id" :value="p.id" :label="p.projectCode + ' / ' + p.projectName" /></el-select></el-form-item>
       <el-form-item label="规则编码" prop="code">
         <el-input
           v-model="queryParams.code"
@@ -66,6 +67,7 @@
   <!-- 列表 -->
   <ContentWrap>
     <el-table v-loading="loading" :data="list" :stripe="true" :show-overflow-tooltip="true">
+      <el-table-column label="所属项目" min-width="180"><template #default="{ row }">{{ row.projectId ? projectLabel(row.projectId) : '租户通用' }}</template></el-table-column>
       <el-table-column label="规则编码" align="center" prop="code" width="150" />
       <el-table-column label="规则名称" align="center" prop="name" width="200" />
       <el-table-column label="规则描述" align="center" prop="description" show-overflow-tooltip />
@@ -128,6 +130,7 @@ import { getIntDictOptions, DICT_TYPE } from '@/utils/dict'
 import { dateFormatter } from '@/utils/formatTime'
 import download from '@/utils/download'
 import { AutoCodeRuleApi, AutoCodeRuleVO } from '@/api/mes/md/autocode/rule'
+import { getRouteProjectOptions, type RouteProjectOption } from '@/api/mes/pro/route'
 import AutoCodeRuleForm from './AutoCodeRuleForm.vue'
 
 defineOptions({ name: 'MesAutoCodeRule' })
@@ -138,7 +141,10 @@ const { t } = useI18n()
 const loading = ref(true)
 const list = ref<AutoCodeRuleVO[]>([])
 const total = ref(0)
+const projects = ref<RouteProjectOption[]>([])
+const projectLabel = (id: number) => { const p = projects.value.find(p => p.id === id); return p ? `${p.projectCode} / ${p.projectName}` : `项目 ${id}` }
 const queryParams = reactive({
+  projectId: undefined as number | undefined,
   pageNo: 1,
   pageSize: 10,
   code: undefined,
@@ -207,6 +213,7 @@ const handleExport = async () => {
 
 /** 初始化 **/
 onMounted(async () => {
+  projects.value = await getRouteProjectOptions()
   await getList()
 })
 </script>

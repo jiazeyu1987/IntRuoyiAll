@@ -18,6 +18,11 @@ public class MesProRouteCreateReqVO {
     @NotNull(message = "请选择项目代码")
     private Long dccProjectCodeId;
 
+    @Schema(description = "各工序新建工作站统一所属车间", requiredMode = Schema.RequiredMode.REQUIRED)
+    @NotNull(message = "请选择工作站所属车间")
+    @Positive(message = "车间编号无效")
+    private Long workshopId;
+
     @NotBlank(message = "名称不能为空")
     @Size(max = 128, message = "名称不能超过128个字符")
     private String name;

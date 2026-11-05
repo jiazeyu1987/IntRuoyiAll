@@ -36,7 +36,7 @@ class MesProFrontlineFeedbackSubmitControllerTest {
 
         PreAuthorize preAuthorize = method.getAnnotation(PreAuthorize.class);
         assertNotNull(preAuthorize);
-        assertEquals("@ss.hasPermission('mes:pro-feedback:create')", preAuthorize.value());
+        assertEquals("isAuthenticated()", preAuthorize.value());
 
         Parameter body = method.getParameters()[0];
         assertNotNull(body.getAnnotation(RequestBody.class));

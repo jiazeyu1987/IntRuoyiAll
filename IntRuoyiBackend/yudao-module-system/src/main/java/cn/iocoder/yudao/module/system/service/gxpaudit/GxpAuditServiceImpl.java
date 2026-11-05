@@ -252,10 +252,30 @@ public class GxpAuditServiceImpl implements GxpAuditService {
         }
     }
 
+    // Market-release approval opinions are optional. Keep the empty opinion in both signed
+    // evidence and audit; all other actions continue to enforce their configured reason policy.
+    static boolean isOptionalMarketReleaseOpinion(GxpAuditCommand command) {
+        if (command.getAfterState() == null || StrUtil.isBlank(command.getAfterState().getCanonicalJson())) return false;
+        if (!"signature.record.create".equals(command.getOperationId())
+                && !"APPROVAL_CENTER_REVIEW_COMMIT".equals(command.getOperationId())) return false;
+        var state = JsonUtils.parseTree(command.getAfterState().getCanonicalJson());
+        if ("signature.record.create".equals(command.getOperationId())) {
+            return "BPM".equals(state.path("moduleCode").asText())
+                    && "BPM_APPROVAL_TASK".equals(state.path("subjectType").asText())
+                    && state.path("subjectId").asText().matches("EDHR_RELEASE:[1-9][0-9]*")
+                    && "APPROVE".equals(state.path("actionCode").asText());
+        }
+        var identity = state.path("identity");
+        return "EDHR".equals(identity.path("ownerCode").asText())
+                && "EDHR_WORK_TASK".equals(identity.path("sourceTaskType").asText())
+                && "EDHR_RELEASE".equals(identity.path("domainSubjectType").asText())
+                && "APPROVE".equals(state.path("action").asText());
+    }
+
     private void validatePolicyRequirements(GxpAuditCommand command, GxpAuditPolicyOperationDO policy) {
         if (("USER_REQUIRED".equals(policy.getReasonPolicy())
                 || StrUtil.startWith(policy.getReasonPolicy(), "REQUIRED"))
-                && StrUtil.isBlank(command.getReason())) {
+                && StrUtil.isBlank(command.getReason()) && !isOptionalMarketReleaseOpinion(command)) {
             throw exception(GXP_AUDIT_REASON_REQUIRED, command.getOperationId());
         }
         if (command.getBeforeState() == null || command.getAfterState() == null

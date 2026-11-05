@@ -29,6 +29,7 @@ import static cn.iocoder.yudao.module.dcc.service.projectcode.attributes.DccProj
 
 @Service
 public class DccProjectProductCreateWriteService {
+    @jakarta.annotation.Resource private org.springframework.context.ApplicationEventPublisher projectEvents;
 
     private static final String DATA_SOURCE = "瑛泰产品";
     private static final String RELATION_ACTIVE = "ACTIVE";
@@ -81,6 +82,7 @@ public class DccProjectProductCreateWriteService {
         }
         projectAccessService.initializeApprovedProjectLeaderOwner(projectCode.getId(),
                 request.getProjectLeaderUserId(), request.getWriteReason());
+        projectEvents.publishEvent(new cn.iocoder.yudao.module.dcc.api.projectcode.DccProjectCreatedEvent(projectCode.getId()));
         String version=productAudit.attemptVersion(request.getWriteAttemptNo());
         productAudit.validateReason(request.getWriteReason());
         var before=productAudit.snapshot(requestId);

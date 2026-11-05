@@ -41,9 +41,9 @@ assert(serviceInterface.includes('getCurrentCommonRegulationBinding')
   && serviceInterface.includes('bindCommonRegulationVersion')
   && serviceInterface.includes('unbindCommonRegulation'),
   'QA regulation service contract must expose binding read, version options, bind and unbind methods.')
-assert(service.includes('requireProductIdFromDccProjectCode')
-  && service.includes('projectCode.getProductMasterId()'),
-  'Binding service must resolve the formal product id from selected DCC project code productMasterId.')
+assert(service.includes('selectEnabledByProjectId')
+  && !service.includes('getProductMasterId()'),
+  'Binding service must use the selected DCC project without showroom MDM identity.')
 assert(service.includes('OWNER_MODULE_MES_QA_COMMON')
   && service.includes('STATUS_PUBLISHED')
   && service.includes('requireCommonCurrentPublishedVersion'),
@@ -65,9 +65,9 @@ assert(serviceTest.includes('MesQaCommonRegulationProductBindingMapper')
   && /new MesQaInspectionRegulationServiceImpl\([\s\S]*commonRegulationProductBindingMapper[\s\S]*commonRegulationSetVersionMemberMapper\)/.test(serviceTest),
   'Existing QA regulation service tests must inject the common regulation binding mapper mock.')
 
-assert(bindingMapper.includes('selectEnabledByProductId')
-  && bindingMapper.includes('updateEnabledStatusByProductId')
-  && bindingMapper.includes('selectByProductIdOrderByCreateTimeDesc'),
+assert(bindingMapper.includes('selectEnabledByProjectId')
+  && bindingMapper.includes('updateEnabledStatusByProjectId')
+  && bindingMapper.includes('selectByProjectIdOrderByCreateTimeDesc'),
   'Binding mapper must support current lookup, disabling previous binding, and history lookup.')
 assert(regulationMapper.includes('selectCommonList')
   && regulationMapper.includes('OWNER_MODULE_MES_QA_COMMON'),

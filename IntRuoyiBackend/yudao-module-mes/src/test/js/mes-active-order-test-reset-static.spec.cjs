@@ -86,7 +86,7 @@ assert.doesNotMatch(cleanupMapper, /selectEventIdsByWorkOrderIds[\s\S]*?deleted\
 assert.match(api, /resetFixedSimulationActiveOrder/)
 assert.match(api, /active-order\/simulation\/test-reset/)
 assert.match(workbench, /data-team-leader-reset-fixed-active-order/)
-assert.match(workbench, /重置指定测试订单/)
+assert.match(workbench, /\n\s+重置\s*\n/)
 assert.doesNotMatch(workbench.split("const handleResetFixedSimulationActiveOrder = async () => {")[1].split("const handleActiveOrderWorkOrderKeywordChange")[0], /ElMessageBox/)
 
 console.log('mes-active-order-test-reset-static: PASS')

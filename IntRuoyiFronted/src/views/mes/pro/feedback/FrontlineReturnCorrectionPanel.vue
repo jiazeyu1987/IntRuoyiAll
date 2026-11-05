@@ -167,7 +167,6 @@
       <el-button v-if="draft && !result" :disabled="busy" @click="back">返回列表</el-button>
       <el-button
         v-if="draft && !result"
-        v-hasPermi="['mes:pro-feedback:create']"
         type="primary"
         :loading="busy"
         @click="resubmit"
@@ -362,8 +361,8 @@ const openTask = async (query: Record<string, unknown>) => {
 const resubmit = async () => {
   if (busy.value) return
   errorText.value = ''
-  if (!checkPermi(['mes:pro-feedback:create'])) {
-    errorText.value = '没有本人签名重提的权限'
+  if (!checkPermi(['mes:pro-feedback:query'])) {
+    errorText.value = '没有本人退回表单的访问权限'
     password.value = ''
     return
   }

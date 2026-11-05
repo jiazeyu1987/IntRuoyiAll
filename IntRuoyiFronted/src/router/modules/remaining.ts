@@ -433,7 +433,7 @@ const remainingRouter: AppRouteRecordRaw[] = [
             name: 'ApprovalCenterBpmBusinessApprovalPolicy',
             meta: {
               noCache: true,
-              hidden: true,
+              hidden: false,
               canTo: true,
               title: '业务审批策略',
               activeMenu: '/approval-center/manager/business-approval-policy',

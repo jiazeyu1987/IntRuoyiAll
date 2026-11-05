@@ -555,7 +555,6 @@ import type {
   BatchRecordTotalRecognitionEquipmentOption,
   BatchRecordTotalRecognitionParameter,
   BatchRecordTotalRecognitionEquipmentGroup,
-  BatchRecordTotalRecognitionProcess,
   BatchRecordTotalRecognitionJson
 } from './productionRecognition'
 

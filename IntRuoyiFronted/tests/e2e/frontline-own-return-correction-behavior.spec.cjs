@@ -15,7 +15,7 @@ const stateModule = { exports: {} }
 const stateCode = ts.transpileModule(fs.readFileSync(path.resolve(__dirname, '../../src/store/modules/approvalCenterInvalidationState.ts'), 'utf8'),
   { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS } }).outputText
 Function('exports', 'module', stateCode)(stateModule.exports, stateModule)
-function harness(mode = 'production', permissions = ['mes:pro-feedback:query', 'mes:pro-feedback:create']) {
+function harness(mode = 'production', permissions = ['mes:pro-feedback:query']) {
   const ast = ts.createSourceFile('panel.ts', descriptor.scriptSetup.content, ts.ScriptTarget.Latest, true)
   const body = ast.statements.filter(s => !ts.isImportDeclaration(s)).map(s => s.getText(ast)).join('\n')
   const reads = [], writes = [], emits = [], allowed = new Set(permissions)

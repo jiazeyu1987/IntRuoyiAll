@@ -15,6 +15,12 @@ public class UserDingTalkImportRespVO {
     @Schema(description = "创建成功的用户名数组", requiredMode = Schema.RequiredMode.REQUIRED)
     private List<String> createUsernames;
 
+    @Schema(description = "匹配成功的已有用户账号", requiredMode = Schema.RequiredMode.REQUIRED)
+    private List<String> existingUsernames;
+
+    @Schema(description = "已自动授予电子签名授权的用户账号", requiredMode = Schema.RequiredMode.REQUIRED)
+    private List<String> authorizedUsernames;
+
     @Schema(description = "导入失败的用户集合，key 为用户名，value 为失败原因", requiredMode = Schema.RequiredMode.REQUIRED)
     private Map<String, String> failureUsernames;
 

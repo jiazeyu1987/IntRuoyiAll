@@ -36,6 +36,8 @@ public class ApprovalTaskTimelineReqVO {
                 .setSourceTaskType(sourceTaskType)
                 .setSourceTaskId(sourceTaskId)
                 .setBusinessKey(businessKey)
-                .setProcessInstanceId(processInstanceId);
+                // GET query serialization sends an absent optional id as an empty string.
+                // Native business tasks have no Flowable instance; preserve that absence.
+                .setProcessInstanceId(processInstanceId == null || processInstanceId.isBlank() ? null : processInstanceId);
     }
 }

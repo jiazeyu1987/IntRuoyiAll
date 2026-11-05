@@ -43,6 +43,10 @@
             {{ product.itemCode }}
           </button>
           <div class="route-product-list__row-actions">
+            <el-button link type="primary" size="small" :disabled="productionConfigActionDisabled"
+              @click="handleProductCommand('edit', product)">编辑</el-button>
+            <el-button link type="primary" size="small" :disabled="productionConfigActionDisabled"
+              @click="handleProductCommand('copy', product)">复制</el-button>
             <el-button
               link
               type="danger"
@@ -433,6 +437,11 @@ const openForm = async (type: string, row?: ProRouteProductVO) => {
   nextTick(() => formRef.value?.clearValidate())
 }
 
+
+
+
+
+/** 打开关联物料详情页 */
 const openCopyForm = async (row: ProRouteProductVO) => {
   const routeVersionId = requireCandidateRouteVersionId('产品复制打开')
   if (!(await checkProjectAssociation())) return
@@ -459,7 +468,6 @@ const handleProductCommand = (command: string, row: ProRouteProductVO) => {
   }
 }
 
-/** 打开关联物料详情页 */
 const handleOpenItemDetail = async (row: ProRouteProductVO) => {
   await push({
     name: 'MesMdItem',

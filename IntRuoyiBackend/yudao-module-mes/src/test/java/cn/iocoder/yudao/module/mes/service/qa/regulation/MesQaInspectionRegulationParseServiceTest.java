@@ -18,11 +18,11 @@ class MesQaInspectionRegulationParseServiceTest {
 
     private static final String REAL_FILE_NAME =
             "PQC-IDPR-001 (D 0）按压式球囊扩张压力泵组装过程检验规程--2025.10.24生效.docx";
-    private static final Path REAL_QA_DOCX = Path.of("..", "..", "resource", "按压式球囊扩张压力泵",
+    private static final Path REAL_QA_DOCX = Path.of("..", "..", "resource", "产品", "按压式球囊扩张压力泵IDPR-001",
             REAL_FILE_NAME);
     private static final String REAL_IDI_B2_FILE_NAME =
             "PQC-IDI-001（B 2）按压式球囊扩充压力泵组装过程检验规程--2026.01.04生效.docx";
-    private static final Path REAL_IDI_B2_QA_DOCX = Path.of("..", "..", "resource",
+    private static final Path REAL_IDI_B2_QA_DOCX = Path.of("..", "..", "resource", "产品",
             "按压式球囊扩充压力泵IDI-001", REAL_IDI_B2_FILE_NAME);
 
     private final MesQaInspectionRegulationParseService service =

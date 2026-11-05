@@ -232,6 +232,8 @@
                     </el-button>
                   </div>
                   <div v-else class="edhr-batch-page__actions">
+                    <el-button v-hasPermi="['mes:pro-edhr-change:void']" link type="danger"
+                      data-edhr-batch-action="void" @click="openVoidDialog(row)">作废</el-button>
                     <el-button
                       link
                       type="primary"
@@ -281,8 +283,8 @@
       </UnifiedListTemplate>
     </div>
 
-    <Dialog class="edhr-detail-surface" title="上市放行确认" v-model="releaseDialogVisible" width="760px" :fullscreen="false">
-      <template #title><div class="edhr-detail-heading"><h2>上市放行确认</h2><p>核对批次信息后完成正式上市放行</p></div></template>
+    <Dialog class="edhr-detail-surface" title="上市放行确认" v-model="releaseDialogVisible" width="560px" :fullscreen="false">
+      <template #title><div class="edhr-detail-heading"><h2>上市放行确认</h2></div></template>
       <el-alert
         v-if="releaseTransactionMissing"
         title="正式上市放行事务尚未生成。"
@@ -313,39 +315,6 @@
       >
         查看对应 PQC 待放行申请
       </el-button>
-      <div v-if="selectedReleaseBatch">
-        <dl class="edhr-detail-summary">
-          <div>
-            <dt>批次执行编码</dt>
-            <dd>
-              {{ selectedReleaseBatch.batchExecutionCode || selectedReleaseBatch.id }}
-            </dd>
-          </div>
-          <div>
-            <dt>当前状态</dt>
-            <dd>
-              {{ resolveBatchStatusLabel(selectedReleaseBatch.status) }}
-            </dd>
-          </div>
-        </dl>
-        <section class="edhr-detail-section">
-          <h3>批次信息</h3>
-          <dl class="edhr-detail-fields">
-            <div>
-              <dt>工单号</dt>
-              <dd>
-                {{ selectedReleaseBatch.workOrderCode || "--" }}
-              </dd>
-            </div>
-            <div>
-              <dt>批次号</dt>
-              <dd>
-                {{ selectedReleaseBatch.batchCode || "--" }}
-              </dd>
-            </div>
-          </dl>
-        </section>
-      </div>
       <el-alert
         v-if="releaseContextLoading"
         title="正在加载该批次的放行事务..."
@@ -394,21 +363,6 @@
         label-width="120px"
         class="mt-12px"
       >
-        <el-form-item label="正式放行事务编号">
-          <span data-edhr-release-transaction-id>{{ releaseContext.releaseTransactionId }}</span>
-        </el-form-item>
-        <section v-if="releasePreview" class="edhr-detail-section">
-          <h3>放行资料预览</h3>
-          <p>{{ releasePreview.content.scopeText }}</p>
-          <ReadableData title="本次签署的完整资料" :source="releasePreview.content.canonicalBusinessContentJson" :checksum="releasePreview.content.contentHash" />
-          <p v-for="file in releasePreview.content.attachments" :key="file.fileId">
-            <a :href="file.readUrl" target="_blank" rel="noopener noreferrer">{{ file.fileName }}</a>
-            · 版本 {{ file.version }}
-          </p>
-        </section>
-        <el-form-item label="放行意见" required>
-          <el-input v-model="releaseForm.reason" type="textarea" :rows="3" maxlength="4000" placeholder="请输入放行意见" />
-        </el-form-item>
         <el-form-item label="电子签名密码" required>
           <el-input
             v-model="releaseForm.password"
@@ -419,10 +373,8 @@
             @keyup.enter="submitRelease"
           />
         </el-form-item>
-        <el-form-item>
-          <span class="edhr-batch-page__field-hint">
-            核对上述资料后签署放行，签名将关联本次预览的完整资料。
-          </span>
+        <el-form-item label="放行意见">
+          <el-input v-model="releaseForm.reason" type="textarea" :rows="3" maxlength="4000" placeholder="请输入放行意见（选填）" />
         </el-form-item>
       </el-form>
       <template #footer>
@@ -875,8 +827,6 @@
 </template>
 
 <script setup lang="ts">
-import ReadableData from '@/components/BusinessData/ReadableData.vue'
-import { readBusinessEvidence } from '@/views/mes/pro/processpool/components/businessEvidenceDisplay'
 import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
 
 import '@/views/mes/pro/edhr/shared/detail-surface.scss'
@@ -899,7 +849,6 @@ import {
   getEdhrBatchExecution,
   getEdhrBatchExecutionPage,
   type EdhrBatchExecutionArchiveRespVO,
-  type EdhrBatchExecutionPageReqVO,
   type EdhrBatchExecutionRespVO,
   type EdhrBatchReviewTimelineRespVO,
   type EdhrRehearsalReadinessItem,
@@ -1821,8 +1770,6 @@ const openReleaseDialog = async (
       if (!preview.prepareId || !preview.content.canonicalBusinessContentJson || !preview.content.allowedActions.includes('APPROVE')) {
         throw new Error('放行资料预览不完整，请重新打开后核对。')
       }
-      const presentation = readBusinessEvidence(preview.content.canonicalBusinessContentJson)
-      if (presentation.error) throw new Error(presentation.error)
       releasePreview.value = preview
     }
   } catch (error) {
@@ -1873,10 +1820,6 @@ const submitRelease = async () => {
   const preview = releasePreview.value
   if (!preview) {
     releaseError.value = '请先读取完整放行资料。'
-    return
-  }
-  if (!releaseForm.reason.trim()) {
-    releaseError.value = '请输入放行意见。'
     return
   }
   if (!releaseForm.password.trim()) {
@@ -1981,6 +1924,8 @@ const openActiveOrderDetail = async (row: EdhrBatchExecutionRespVO) => {
     query: { batchExecutionId: String(row.id), from: 'execution' }
   })
 }
+
+
 
 const openVoidDialog = async (row: EdhrBatchExecutionRespVO) => {
   if (isPendingVoidBatch(row)) {

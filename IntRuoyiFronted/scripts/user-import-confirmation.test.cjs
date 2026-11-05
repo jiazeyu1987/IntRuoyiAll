@@ -4,7 +4,7 @@ async function test(name,change,ok=true){
  const a=source.indexOf('const submitForm = async'),b=source.indexOf('/**',a);let finish,count=0,calls=0,tenant=171,visit=172;const ref=value=>({value}),file={name:'a.xlsx',raw:new Blob(['data'])};
  const preview={rowCount:1,personnel:['user1'],organizations:['集团/生产']};
  const readPreview=async()=>{if(change==='previewfail')throw new Error('preview failed');return preview};
- const c={fileList:ref([file]),formLoading:ref(false),dialogVisible:ref(true),dialogGeneration:0,updateSupport:ref(true),uploadHeaders:ref(),message:{error(){}},getTenantId:()=>tenant,getVisitTenantId:()=>visit,getAccessToken:()=> 'token',nextTick:async()=>{},confirmUserImport:(filename,mode,id,range)=>{assert.equal(range,preview);count++;assert.equal(filename,'a.xlsx');assert.equal(id,172);return new Promise(r=>finish=r)},uploadRef:ref({submit(){calls++;assert.equal(c.uploadHeaders.value.Authorization,'Bearer token');assert.equal(c.uploadHeaders.value['tenant-id'],171);assert.equal(c.uploadHeaders.value['visit-tenant-id'],172);assert.equal(c.fileList.value[0],file)}}),FormData,UserApi:{importUserPreview:readPreview,importDingTalkUserPreview:readPreview,importDingTalkUsers:async data=>{calls++;assert.equal(await data.get('file').text(),'data');return {}}},submitFormSuccess(){}};
+ const c={fileList:ref([file]),formLoading:ref(false),dialogVisible:ref(true),dialogGeneration:0,updateSupport:ref(true),uploadHeaders:ref(),message:{error(){}},getTenantId:()=>tenant,getVisitTenantId:()=>visit,getAccessToken:()=> 'token',nextTick:async()=>{},confirmUserImport:raw=>{assert.equal(raw,file.raw);count++;return new Promise(r=>finish=r)},uploadRef:ref({submit(){calls++;assert.equal(c.uploadHeaders.value.Authorization,'Bearer token');assert.equal(c.uploadHeaders.value['tenant-id'],171);assert.equal(c.uploadHeaders.value['visit-tenant-id'],172);assert.equal(c.fileList.value[0],file)}}),FormData,UserApi:{importUserPreview:readPreview,importDingTalkUserPreview:readPreview,importDingTalkUsers:async data=>{calls++;assert.equal(await data.get('file').text(),'data');return {}}},submitFormSuccess(){}};
  vm.createContext(c);vm.runInContext(ts.transpile(source.slice(a,b),{target:ts.ScriptTarget.ES2022})+'\nthis.submit=submitForm',c);const pending=c.submit();if(change==='previewfail'){await assert.rejects(pending,/preview failed/);assert.equal(calls,0);assert.equal(count,0);return}await c.submit();await Promise.resolve();await Promise.resolve();if(change==='file')c.fileList.value=[{name:'b.xlsx'}];if(change==='tenant')tenant=2;if(change==='visit')visit=4;if(change==='close'){c.dialogVisible.value=false;c.dialogGeneration++}finish(ok);await pending;assert.equal(count,1);assert.equal(calls,ok&&!change?1:0);
 }
 (async()=>{for(const n of ['UserImportForm','UserDingTalkImportForm']){await test(n,null,false);for(const m of [null,'file','tenant','close'])await test(n,m);await test(n,'visit');await test(n,'previewfail');console.log(n+': actual handler cancellation, snapshots, duplicate guard and SFC PASS')}})().catch(e=>{console.error(e);process.exitCode=1});
@@ -19,12 +19,24 @@ async function testPreviewEnvelopeAndRendering() {
  c.request.upload=async()=>({code:0,msg:''});
  await assert.rejects(c.exports.importUserPreview(new FormData()),/./);
  const helper=fs.readFileSync('src/views/system/user/userImportConfirmation.ts','utf8');
- let rendered='';const h=(tag,props,children)=>{const value=children===undefined?props:children;return Array.isArray(value)?value.join(''):String(value??'')};
- const d={exports:{},ElMessageBox:{confirm:async node=>{rendered=node}},h,useUserStore:()=>({getUser:{username:'admin',deptId:9}})};vm.createContext(d);
+ let rendered='', title='', options;const h=(tag,props,children)=>{const value=children===undefined?props:children;return Array.isArray(value)?value.join(''):String(value??'')};
+ const d={exports:{},ElMessageBox:{confirm:async (node,heading,config)=>{rendered=node;title=heading;options=config}},h,useUserStore:()=>({getUser:{username:'admin',deptId:9}})};vm.createContext(d);
  const helperCode=helper.replace(/^import .*$/gm,'');
  vm.runInContext(ts.transpile(helperCode,{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}),d);
- assert.equal(await d.exports.confirmUserImport('a.xlsx','create',172,data),true);
- for(const text of ['2','alice','bob','集团/生产','172'])assert.ok(rendered.includes(text));
- console.log('Preview API envelope extraction, missing data rejection and actual confirmation render PASS');
+ assert.equal(await d.exports.confirmUserImport({name:'a.xlsx',webkitRelativePath:''}),true);
+ assert.equal(title,'确认导入文件');
+ assert.equal(rendered,'文件名称：a.xlsx');
+ assert.equal(options.confirmButtonText,'确认导入');
+ assert.equal(options.cancelButtonText,'取消');
+ assert.equal(options.closeOnClickModal,false);
+ assert.equal(await d.exports.confirmUserImport({name:'a.xlsx',webkitRelativePath:'员工/a.xlsx'}),true);
+ assert.equal(rendered,'文件名称：a.xlsx');
+ for(const action of ['cancel','close']) {
+  d.ElMessageBox.confirm=async()=>{throw action};
+  assert.equal(await d.exports.confirmUserImport({name:'a.xlsx',webkitRelativePath:''}),false);
+ }
+ d.ElMessageBox.confirm=async()=>{throw new Error('dialog failed')};
+ await assert.rejects(d.exports.confirmUserImport({name:'a.xlsx',webkitRelativePath:''}),/dialog failed/);
+ console.log('Preview validation, concise file confirmation, cancellation and error propagation PASS');
 }
 testPreviewEnvelopeAndRendering().catch(e=>{console.error(e);process.exitCode=1});

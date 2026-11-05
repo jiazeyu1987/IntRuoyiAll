@@ -3,6 +3,7 @@
     <h2>{{ title }}</h2>
     <div class="parser-actions">
       <el-select
+        v-if="requiresProject"
         :model-value="projectId"
         aria-label="所属项目"
         placeholder="选择所属项目"
@@ -27,10 +28,10 @@
         :auto-upload="false"
         :show-file-list="false"
         :accept="importAccept"
-        :disabled="busy || !projectId"
+        :disabled="busy || (requiresProject && !projectId)"
         :on-change="(file: UploadFile) => emit('import', file)"
       >
-        <el-button :disabled="busy || !projectId">导入 Word</el-button>
+        <el-button :disabled="busy || (requiresProject && !projectId)">导入 Word</el-button>
       </el-upload>
       <el-button v-if="canImport" :disabled="busy || !hasContent" @click="emit('export')"
         >导出 Word</el-button
@@ -42,7 +43,7 @@
       <el-button
         v-if="canPublish"
         type="primary"
-        :disabled="busy || !hasContent || published || !projectId || projects.some((p) => p.id === projectId && p.occupied)"
+        :disabled="busy || !hasContent || published || (requiresProject && (!projectId || projects.some((p) => p.id === projectId && p.occupied)))"
         @click="emit('preview')"
         >预览发布</el-button
       >
@@ -59,6 +60,7 @@ const props = withDefaults(
   defineProps<{
     title: string
     projectId?: number
+    requiresProject?: boolean
     projects: Array<{ id: number; projectCode: string; projectName: string; occupied?: boolean }>
     projectLoading?: boolean
     busy: boolean
@@ -68,7 +70,7 @@ const props = withDefaults(
     importAccept?: string
     publishPermission: string
   }>(),
-  { importAccept: '.docx' }
+  { importAccept: '.docx', requiresProject: true }
 )
 const emit = defineEmits<{
   'update:projectId': [value: number]

@@ -278,9 +278,11 @@ watch(
 defineExpose({ reload: getList })
 
 const loadColumnFilterRows0 = async () => {
+  const releaseTransactionId = currentReleaseTransactionId.value
+  if (!releaseTransactionId) throw new Error('缺少有效的放行事务编号，无法筛选事件')
   const params = {
     ...queryParams,
-    releaseTransactionId: currentReleaseTransactionId.value,
+    releaseTransactionId,
     eventType: queryParams.eventType || undefined
   }
   const rows = await loadAllListPages<any>((pagination) =>

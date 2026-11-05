@@ -2,21 +2,23 @@
   <section class="parser-issues" aria-label="待修正问题">
     <h3>待修正问题（{{ issues.length }}）</h3>
     <p v-if="!issues.length">检查通过，可以确认发布。</p>
-    <div v-for="(issue, index) in issues" :key="index" class="parser-issue">
+    <div v-for="(issue, index) in issues" :key="issueKey ? issueKey(issue) : index" class="parser-issue">
       <span>{{ issue.message }}</span>
-      <el-button
-        v-if="issue.locatable !== false"
-        link
-        type="primary"
-        :disabled="disabled"
-        @click="emit('locate', index)"
-        >定位修改</el-button
-      >
+      <slot name="action" :issue="issue" :index="index">
+        <el-button
+          v-if="issue.locatable !== false"
+          link
+          type="primary"
+          :disabled="disabled"
+          @click="emit('locate', index)"
+          >定位修改</el-button
+        >
+      </slot>
     </div>
   </section>
 </template>
-<script setup lang="ts">
-defineProps<{ issues: { message: string; locatable?: boolean }[]; disabled?: boolean }>()
+<script setup lang="ts" generic="T extends { message: string; locatable?: boolean }">
+defineProps<{ issues: T[]; disabled?: boolean; issueKey?: (issue: T) => string }>()
 const emit = defineEmits<{ locate: [index: number] }>()
 </script>
 <style scoped>

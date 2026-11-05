@@ -1383,7 +1383,11 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
                 || !cn.iocoder.yudao.module.mes.enums.pro.MesProWorkOrderStatusEnum.CONFIRMED.getStatus().equals(formalWorkOrder.getStatus())) {
             throw exception(PRO_FRONTLINE_PQC_TASK_IDENTITY_MISMATCH, "workOrder.notConfirmed");
         }
-        String rawPayload = buildPqcInspectionEventRawPayload(command, pieceDetails, inspectionResult);
+        var formalPayload = JsonUtils.parseObject(buildPqcInspectionEventRawPayload(command, pieceDetails, inspectionResult),
+                com.fasterxml.jackson.databind.node.ObjectNode.class);
+        formalPayload.set("inspectionItemPlan", JsonUtils.getObjectMapper().valueToTree(MesPqcInspectionItemPlan.require(task)));
+        formalPayload.set("inspectionSamplingPlan", JsonUtils.getObjectMapper().valueToTree(MesPqcInspectionItemPlan.requireSampling(task)));
+        String rawPayload = JsonUtils.toJsonString(formalPayload);
         String performedBy = MesFrontlineAuditIdentity.pqc(
                 requirePqcEmployee(loginUserId, command.getActualEmployeeId()));
         int taskUpdated = pqcTaskMapper.updateSubmittedIfPending(task.getId(), command.getActualInspectionQuantity(),
@@ -1747,7 +1751,7 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
             throw exception(PRO_FRONTLINE_PQC_TASK_IDENTITY_MISMATCH, pqcTaskIdentityText(task));
         }
         MesPqcInspectionItemPlan.require(task);
-        if (!Objects.equals(command.getActualInspectionQuantity(), task.getPlannedInspectionQuantity())) {
+        if (command.getActualInspectionQuantity() < task.getPlannedInspectionQuantity()) {
             throw exception(PRO_FRONTLINE_PQC_RESULT_CONTRACT_INVALID, "actualInspectionQuantity");
         }
         MesQaInspectionRegulationProcessDO qaProcess = regulationProcessMapper.selectById(task.getQaProcessId());
@@ -2082,7 +2086,7 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
             MesFrontlinePqcInspectionItem.EquipmentOption selectedEquipment =
                     resolveSelectedEquipment(item, itemResult);
             List<String> values = itemResult.getSampleValues();
-            if (values == null || values.size() != MesPqcInspectionItemPlan.require(task).get(item.itemCode())) {
+            if (values == null || values.size() < MesPqcInspectionItemPlan.require(task).get(item.itemCode())) {
                 throw exception(PRO_FRONTLINE_PQC_RESULT_CONTRACT_INVALID, "itemResults.sampleValues");
             }
             for (int sampleIndex = 0; sampleIndex < values.size(); sampleIndex += 1) {
@@ -2115,6 +2119,11 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
                         .judgement(validated.judgement())
                         .build());
             }
+        }
+        Map<String, Integer> actualQuantities = details.stream().collect(Collectors.groupingBy(
+                MesPqcInspectionPieceDetailDO::getItemCode, Collectors.summingInt(detail -> 1)));
+        if (!MesPqcInspectionItemPlan.matchesActualQuantities(task, actualQuantities, command.getActualInspectionQuantity())) {
+            throw exception(PRO_FRONTLINE_PQC_RESULT_CONTRACT_INVALID, "actualInspectionQuantity");
         }
         return details;
     }

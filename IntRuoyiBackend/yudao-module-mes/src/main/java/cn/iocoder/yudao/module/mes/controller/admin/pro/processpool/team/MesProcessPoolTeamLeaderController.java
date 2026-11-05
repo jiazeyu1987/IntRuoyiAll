@@ -154,6 +154,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -897,6 +898,14 @@ public class MesProcessPoolTeamLeaderController {
                 .employeeProfileId(reqVO.getEmployeeProfileId())
                 .enabled(reqVO.getEnabled())
                 .build());
+        return success(Boolean.TRUE);
+    }
+
+    @DeleteMapping("/employee-profile/delete")
+    @Operation(summary = "删除当前生产组长关联员工并解除责任关联")
+    @PreAuthorize("@ss.hasPermission('mes:pro-process-pool-team-leader:maintain')")
+    public CommonResult<Boolean> deleteEmployee(@RequestParam("employeeProfileId") Long employeeProfileId) {
+        runtimeConfigService.deleteEmployee(SecurityFrameworkUtils.getLoginUserId(), employeeProfileId);
         return success(Boolean.TRUE);
     }
 

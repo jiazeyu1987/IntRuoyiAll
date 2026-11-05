@@ -230,7 +230,7 @@
         {{ displayText(currentLog.reason) }}
       </el-descriptions-item>
       <el-descriptions-item label="操作明细" :span="2">
-        <ReadableData title="操作记录" :source="currentLog.detailJson" />
+        <ReadableData title="操作记录" :source="currentLog.detailJson ?? undefined" />
       </el-descriptions-item>
     </el-descriptions>
   </Dialog>

@@ -488,13 +488,72 @@ class RoleConfigPackageServiceImplTest extends BaseDbUnitTest {
         insertBoundaryMenu("system:role:query", "");
         allowTenantMenus(Set.of(allowed.getId()));
 
-        ServiceException error = assertThrows(ServiceException.class,
-                () -> roleConfigPackageService.importPackage(JsonUtils.toJsonByte(
-                        boundaryPayload(List.of("permission:system:role:query")))));
+        roleConfigPackageService.importPackage(JsonUtils.toJsonByte(
+                boundaryPayload(List.of("permission:system:role:query"))));
 
-        org.junit.jupiter.api.Assertions.assertTrue(error.getMessage().contains("当前租户套餐外菜单"));
-        assertNull(roleMapper.selectByCode("package_boundary_role"));
+        RoleDO role = roleMapper.selectByCode("package_boundary_role");
+        verify(permissionService).assignRoleMenu(eq(role.getId()), eq(Set.of(allowed.getId())), anyString(), anyString());
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"tenant_admin", "super_admin", "common"})
+    void exportPackage_shouldRoundTripRuntimeGrantsWithinSamePackage(String roleCode) {
+        MenuDO page = insertBoundaryMenu("system:role:query", "");
+        MenuDO button = insertBoundaryMenu("system:role:query", "");
+        MenuDO outsideDuplicate = insertBoundaryMenu("system:role:query", "");
+        MenuDO outside = insertBoundaryMenu("crm:customer:query", "");
+        Set<Long> packageMenus = Set.of(page.getId(), button.getId());
+        allowTenantMenus(packageMenus);
+        RoleDO role = insertExportRole(roleCode);
+        org.mockito.Mockito.when(permissionService.getRoleMenuListByRoleId(role.getId()))
+                .thenReturn(Set.of(page.getId(), button.getId(), outsideDuplicate.getId(), outside.getId()));
+
+        byte[] exported = roleConfigPackageService.exportPackage(List.of(role.getCategoryId()));
+        var payload = JsonUtils.parseObject(exported, RoleConfigPackageServiceImpl.RoleConfigPackage.class);
+        assertEquals(List.of("permission:system:role:query"), payload.getRoles().get(0).getMenuKeys());
+
+        roleConfigPackageService.importPackage(exported);
+
+        verify(permissionService).assignRoleMenu(eq(role.getId()), eq(packageMenus), anyString(), anyString());
+    }
+
+    @Test
+    void exportedPackage_shouldRejectSmallerTargetPackageBeforeAnyWrite() {
+        MenuDO menu = insertBoundaryMenu("system:role:query", "");
+        RoleDO role = insertExportRole("scheduler");
+        org.mockito.Mockito.when(permissionService.getRoleMenuListByRoleId(role.getId()))
+                .thenReturn(Set.of(menu.getId()));
+        byte[] exported = roleConfigPackageService.exportPackage(List.of(role.getCategoryId()));
+        allowTenantMenus(Set.of());
+        reset(permissionService);
+
+        ServiceException error = assertThrows(ServiceException.class,
+                () -> roleConfigPackageService.importPackage(exported));
+
+        org.junit.jupiter.api.Assertions.assertTrue(error.getMessage().contains("permission:system:role:query"));
         verifyNoInteractions(permissionService);
+        verify(approvalAuthority, never()).incrementLockedAuthorityRevision(any(), any());
+    }
+
+    @Test
+    void exportPackage_shouldFailWhenTenantMenuBoundaryUnavailable() {
+        RoleDO role = insertExportRole("scheduler");
+        reset(tenantService);
+
+        ServiceException error = assertThrows(ServiceException.class,
+                () -> roleConfigPackageService.exportPackage(List.of(role.getCategoryId())));
+
+        org.junit.jupiter.api.Assertions.assertTrue(error.getMessage().contains("当前租户套餐菜单未提供"));
+        verifyNoInteractions(permissionService);
+    }
+
+    private RoleDO insertExportRole(String code) {
+        RoleDO role = new RoleDO();
+        role.setCode(code); role.setName("套餐导出角色"); role.setSort(1); role.setStatus(0);
+        role.setType(RoleTypeEnum.CUSTOM.getType()); role.setDataScope(DataScopeEnum.ALL.getScope());
+        role.setCategoryId(insertCategory("export_boundary", "套餐导出"));
+        roleMapper.insert(role);
+        return role;
     }
 
     private MenuDO insertBoundaryMenu(String permission, String path) {

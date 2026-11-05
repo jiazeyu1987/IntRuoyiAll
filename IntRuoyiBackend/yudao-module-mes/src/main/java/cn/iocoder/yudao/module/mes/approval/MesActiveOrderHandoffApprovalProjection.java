@@ -69,10 +69,7 @@ public class MesActiveOrderHandoffApprovalProjection {
     private static List<String> requiredNavigationPermissions(MesActiveOrderHandoffTaskDO task, String path) {
         return switch (path) {
             case "/mes/pro/feedback/edhr-batch-production-fill", "/mes/pro/feedback/edhr-batch-pqc-fill" ->
-                    task.getTaskType().endsWith("_RETURN")
-                            ? List.of("mes:pro-feedback:query")
-                            // Initial selection resolves the actual employee through the formal switch endpoint.
-                            : List.of("mes:pro-feedback:query", "mes:pro-feedback:create");
+                    List.of("mes:pro-feedback:query");
             case "/mes/pro/process-pool/production-leader", "/mes/pro/process-pool/pqc-leader" ->
                     List.of("mes:pro-process-pool-team-leader:query");
             case "/mes/pro/feedback/edhr-nonconformance-review" -> List.of("mes:pro-edhr-nonconformance-review:query",

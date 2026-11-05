@@ -95,7 +95,8 @@ class MesFrontlinePqcSubmitReceiptControllerTest {
                         heldRole.set(role);
                         assertAllowed(method, proxy, args);
                         heldPermission.set(null);
-                        assertDenied(method, proxy, args);
+                        if (guard.value().contains("hasPermission")) assertDenied(method, proxy, args);
+                        else assertAllowed(method, proxy, args);
                         heldPermission.set(permission);
                     }
                 }

@@ -11,7 +11,7 @@ dotnet build .\IntRuoyi.Kingdee.BosEventPlugin.csproj -c Release
 If the Kingdee client DLL directory is different, pass:
 
 ```powershell
-dotnet build .\IntRuoyi.Kingdee.BosEventPlugin.csproj -c Release -p:KingdeeK3CloudClientDir="C:\Program Files (x86)\Kingdee\K3Cloud\DeskClient\K3CloudClient"
+dotnet build .\IntRuoyi.Kingdee.BosEventPlugin.csproj -c Release -p:KingdeeK3CloudClientDir="${ToolInstallPath}"
 ```
 
 ## Runtime Configuration

@@ -24,7 +24,7 @@ requireMatch(
 )
 requireMatch(
   batchPage,
-  /v-if="releaseContext\?\.releaseTransactionId"[\s\S]*?确认上市放行/,
+  /v-else-if="releaseContext\?\.releaseTransactionId"[\s\S]*?确认上市放行/,
   '只有已加载正式事务时才允许显示上市放行确认按钮。'
 )
 requireMatch(

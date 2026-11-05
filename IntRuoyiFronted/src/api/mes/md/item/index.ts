@@ -45,7 +45,7 @@ export const MdItemApi = {
   },
 
   // 查询物料产品详情
-  getItem: async (id: number) => {
+  getItem: async (id: number | string) => {
     return await request.get({ url: `/mes/md/item/get?id=` + id })
   },
 

@@ -29,6 +29,21 @@ public class MesErpCodeSyncController {
         return success(syncService.sync(request.getSyncType(), request.getCode()));
     }
 
+    @PostMapping("/production-order")
+    @Operation(summary = "生产组长按订单号同步至本地生产订单列表，不加入活跃订单")
+    @PreAuthorize("@ss.hasPermission('mes:pro-process-pool-team-leader:maintain')")
+    public CommonResult<MesErpCodeSyncService.Result> syncProductionOrder(
+            @Valid @RequestBody ProductionOrderRequest request) {
+        return success(syncService.sync("PRODUCTION_ORDER", request.getCode()));
+    }
+
+    @Data
+    public static class ProductionOrderRequest {
+        @NotBlank
+        @Size(max = 100)
+        private String code;
+    }
+
     @Data
     public static class Request {
         @NotBlank

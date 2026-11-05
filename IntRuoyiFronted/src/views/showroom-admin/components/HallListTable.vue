@@ -63,12 +63,12 @@
           一键语音
         </el-button>
       </template>
-      <template #table="{ resolveRows, rows: standardRows }">
+      <template #table="{ rows: standardRows }">
         <el-table
           stripe
           border
           v-loading="loading"
-          :data="resolveRows(standardRows)"
+          :data="standardRows"
           row-key="hallId"
           class="hall-list-table__grid"
           empty-text="暂无展柜数据"

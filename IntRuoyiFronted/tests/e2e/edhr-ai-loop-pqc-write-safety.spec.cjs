@@ -20,7 +20,7 @@ function load(hooks = {}) {
 const clone = value => JSON.parse(JSON.stringify(value))
 const order = { activeOrderId: '900', workOrderCode: 'LOCAL-SAFETY', quantity: 10 }
 const task = (id, code) => ({ pqcTaskId: id, inspectionRuleKey: 'FIRST', inspectionType: 'FIRST', businessDate: '2026-10-02',
-  shiftCode: 'DAY', roundNo: 1, plannedInspectionQuantity: 2, taskStatus: 'PENDING', inspectionItems: [{ itemCode: code, resultType: 'BOOLEAN' }] })
+  shiftCode: 'DAY', roundNo: 1, plannedInspectionQuantity: 2, taskStatus: 'PENDING', inspectionItems: [{ itemCode: code, plannedInspectionQuantity: 2, resultType: 'BOOLEAN' }] })
 const processRow = { activeOrderId: 900, regulationVersionId: 70, qaProcessId: 168,
   inspectionItems: [{ itemCode: 'A' }, { itemCode: 'B' }], pqcTaskOptions: [task(101, 'A'), task(102, 'A'), task(201, 'B'), task(202, 'B')] }
 const snapshots = processRow.pqcTaskOptions.map(t => ({ ...t, pqcTaskId: String(t.pqcTaskId), ruleKey: t.inspectionRuleKey,
@@ -95,8 +95,6 @@ async function reviewCase(code = 0, overrides = {}) {
     p => { p.pqcTaskOptions.reverse() },
     p => { p.pqcTaskOptions[0].plannedInspectionQuantity = 3 },
     p => { p.pqcTaskOptions[0].inspectionItems[0].resultType = 'NUMBER' },
-    // Item/rule clicks choose the first pending task across dates, before scope grouping.
-    p => { p.pqcTaskOptions.unshift({ ...task(91, 'A'), businessDate: '2026-10-01' }, { ...task(92, 'B'), businessDate: '2026-10-01' }) },
     p => { p.pqcTaskOptions.push(task(301, 'C')); p.inspectionItems.push({ itemCode: 'C' }) },
     p => { p.pqcTaskOptions.push(clone(p.pqcTaskOptions[0])) }
   ]) {
@@ -104,6 +102,9 @@ async function reviewCase(code = 0, overrides = {}) {
     assert.throws(() => safety.assertFreshPqcTaskGroup([changed], order, first))
   }
   const next = clone(processRow)
+  const anotherRound = clone(processRow)
+  anotherRound.pqcTaskOptions.unshift({ ...task(91, 'A'), businessDate: '2026-10-01' }, { ...task(92, 'B'), businessDate: '2026-10-01' })
+  assert.deepEqual(clone(safety.assertFreshPqcTaskGroup([anotherRound], order, first)), ['101', '201'])
   next.pqcTaskOptions.filter(t => [101, 201].includes(t.pqcTaskId)).forEach(t => { t.taskStatus = 'CONFIRMED' })
   assert.deepEqual(clone(safety.assertFreshPqcTaskGroup([next], order, second)), ['102', '202'])
   console.log('PASS: fresh explicit pending task IDs, per-item first task selection, consumed/replaced/reordered/extra/duplicate/drift rejection')

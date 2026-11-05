@@ -135,10 +135,10 @@ class ApprovalCenterControllerTest {
     @MethodSource("blankReviewReasons")
     void reviewRequestVoRejectsBlankOpinionForBothResults(ApprovalTaskReviewResult result, String reason) {
         try (var factory = Validation.buildDefaultValidatorFactory()) {
-            var violations = factory.getValidator().validate(reviewRequest(result, reason));
+            var violations = factory.getValidator().validate(reviewRequest(result, reason).setModuleCode(ApprovalModuleCode.BPM));
             assertTrue(!violations.isEmpty());
             assertTrue(violations.stream().allMatch(violation ->
-                    "reason".equals(violation.getPropertyPath().toString())
+                    "reasonValid".equals(violation.getPropertyPath().toString())
                             && "审核意见不能为空".equals(violation.getMessage())));
         }
         verifyNoInteractions(approvalCenterService);
@@ -153,11 +153,11 @@ class ApprovalCenterControllerTest {
             var mvcResult = standaloneSetup(controller).setValidator(validator).build().perform(
                     post("/approval-center/tasks/review")
                             .contentType(MediaType.APPLICATION_JSON)
-                            .content(new ObjectMapper().writeValueAsString(reviewRequest(result, reason))))
+                            .content(new ObjectMapper().writeValueAsString(reviewRequest(result, reason).setModuleCode(ApprovalModuleCode.BPM))))
                     .andExpect(status().isBadRequest()).andReturn();
             MethodArgumentNotValidException ex = assertInstanceOf(MethodArgumentNotValidException.class,
                     mvcResult.getResolvedException());
-            assertEquals("审核意见不能为空", ex.getBindingResult().getFieldError("reason").getDefaultMessage());
+            assertEquals("审核意见不能为空", ex.getBindingResult().getFieldError("reasonValid").getDefaultMessage());
         }
         verifyNoInteractions(approvalCenterService);
     }
@@ -180,6 +180,15 @@ class ApprovalCenterControllerTest {
         verify(reviewFacade).review(eq(100L), captor.capture());
         assertEquals(result, captor.getValue().getResult());
         assertEquals(originalReason, captor.getValue().getReason());
+    }
+
+    @ParameterizedTest
+    @MethodSource("blankReviewReasons")
+    void onlyEdhrApprovalAllowsBlankOpinion(ApprovalTaskReviewResult result, String reason) {
+        try (var factory = Validation.buildDefaultValidatorFactory()) {
+            var violations = factory.getValidator().validate(reviewRequest(result, reason));
+            assertEquals(result == ApprovalTaskReviewResult.APPROVE, violations.isEmpty());
+        }
     }
 
     private static ApprovalTaskReviewReqVO reviewRequest(ApprovalTaskReviewResult result, String reason) {

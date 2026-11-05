@@ -13,6 +13,14 @@
             <Icon icon="ep:back" :size="18" />
           </el-button>
         </el-tooltip>
+        <div v-if="canOpenReverseTrace" class="edhr-batch-active-order-detail__actions">
+          <el-button
+            type="primary"
+            plain
+            data-edhr-detail-reverse-trace
+            @click="reverseTraceVisible = true"
+          >反查关联批次</el-button>
+        </div>
         <fieldset class="market-release-readonly" :disabled="marketReleaseReadOnly">
         <ActiveOrderSubmissionDetailPanel
           hide-correction-history
@@ -249,6 +257,11 @@ watch(
   top: 18px;
   right: 0;
   z-index: 2;
+}
+.edhr-batch-active-order-detail__actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-right: 44px;
 }
 .edhr-batch-active-order-detail :deep(.team-leader-workbench__active-order-detail-summary) {
   margin-right: 44px;

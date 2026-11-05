@@ -172,6 +172,7 @@ public class MesProRouteServiceImpl implements MesProRouteService {
     @Resource
     private MesProRouteOwnerPermissionService routeOwnerPermissionService;
     @Resource private MesProRouteProjectGuard projectGuard;
+    @Resource private MesProRouteWorkstationService routeWorkstationService;
     @Resource
     private MesMdAutoCodeRecordService autoCodeRecordService;
 
@@ -179,6 +180,7 @@ public class MesProRouteServiceImpl implements MesProRouteService {
     @Transactional(rollbackFor = Exception.class)
     public Long createRouteWithProcesses(MesProRouteCreateReqVO reqVO) {
         projectGuard.requireAvailable(reqVO.getDccProjectCodeId(), null);
+        routeWorkstationService.requireWorkshop(reqVO.getWorkshopId());
         String name = StrUtil.trim(reqVO.getName());
         if (StrUtil.isBlank(name)) {
             throw exception(cn.iocoder.yudao.framework.common.exception.enums.GlobalErrorCodeConstants.BAD_REQUEST,
@@ -200,8 +202,8 @@ public class MesProRouteServiceImpl implements MesProRouteService {
             }
             processDefinitions.put(processId, process);
         }
-        String code = autoCodeRecordService.generateAutoCode(MesMdAutoCodeRuleCodeEnum.PRO_ROUTE_CODE.getCode());
-        if (code == null || !code.matches("GYLC-[0-9]{4,}")) {
+        String code = autoCodeRecordService.generateProjectCode(MesMdAutoCodeRuleCodeEnum.PRO_ROUTE_CODE.getCode(), reqVO.getDccProjectCodeId());
+        if (code == null || code.isBlank()) {
             throw exception(AUTO_CODE_GENERATE_FAILED);
         }
         MesProRouteDO route = MesProRouteDO.builder().code(code).name(name).remark(reqVO.getRemark())
@@ -212,6 +214,8 @@ public class MesProRouteServiceImpl implements MesProRouteService {
         for (int index = 0; index < processIds.size(); index++) {
             MesProRouteProcessDO routeProcess = MesProRouteProcessDO.builder()
                     .routeId(route.getId()).processId(processIds.get(index)).sort(index + 1)
+                    .workstationId(routeWorkstationService.create(route.getId(), index + 1,
+                            processDefinitions.get(processIds.get(index)), reqVO.getWorkshopId()))
                     .nextProcessId(index + 1 < processIds.size() ? processIds.get(index + 1) : null)
                     .linkType(MesProLinkTypeEnum.FINISH_START.getType())
                     .keyFlag(false).checkFlag(false).build();

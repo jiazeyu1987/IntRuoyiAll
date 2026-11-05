@@ -44,11 +44,15 @@ public class MesKingdeeProductionOrderCreateServiceImpl implements MesKingdeePro
     private final MesMdUnitMeasureService unitMeasureService;
     private final MesKingdeeProductionOrderSyncRecordMapper syncRecordMapper;
 
+    @jakarta.annotation.Resource
+    private cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesLocalTestRunSourceGuard localTestRunSourceGuard;
+
     @Override
     @Transactional(rollbackFor = Exception.class)
     public MesKingdeeProductionOrderCreateResult createAndSubmitProductionOrder(Long workOrderId) {
-        kingdeeConfigService.assertExternalWriteEnabled();
         MesProWorkOrderDO workOrder = workOrderService.validateWorkOrderExists(workOrderId);
+        rejectLocalTestInput(workOrder);
+        kingdeeConfigService.assertExternalWriteEnabled();
         validateWorkOrderEligible(workOrder);
         MesMdItemDO product = validateProduct(workOrder);
         MesMdUnitMeasureDO unitMeasure = validateUnitMeasure(product);
@@ -79,8 +83,9 @@ public class MesKingdeeProductionOrderCreateServiceImpl implements MesKingdeePro
     public MesKingdeeProductionOrderCreateResult createAndSubmitProductionOrder(
             Long workOrderId, MesKingdeeProductionOrderDeterministicCreateCommand command) {
         validateDeterministicCommand(command);
-        kingdeeConfigService.assertExternalWriteEnabled();
         MesProWorkOrderDO workOrder = workOrderService.validateWorkOrderExists(workOrderId);
+        rejectLocalTestInput(workOrder);
+        kingdeeConfigService.assertExternalWriteEnabled();
         validateWorkOrderEligible(workOrder);
         MesMdItemDO product = validateProduct(workOrder);
         MesMdUnitMeasureDO unitMeasure = validateUnitMeasure(product);
@@ -147,6 +152,12 @@ public class MesKingdeeProductionOrderCreateServiceImpl implements MesKingdeePro
         requireNoSingleQuote(command.getRunId().trim(), "AI E2E runId");
         requireNoSingleQuote(slot, "AI E2E slot");
         requireNoSingleQuote(command.getBatchNumber().trim(), "AI E2E batchNumber");
+    }
+
+    private void rejectLocalTestInput(MesProWorkOrderDO workOrder) {
+        if (localTestRunSourceGuard.isLocalInput(workOrder)) {
+            throw exception(PRO_WORK_ORDER_CREATE_ERP_STATUS_INVALID, "本地虚拟测试输入禁止创建真实 ERP 生产订单");
+        }
     }
 
     private void validateWorkOrderEligible(MesProWorkOrderDO workOrder) {

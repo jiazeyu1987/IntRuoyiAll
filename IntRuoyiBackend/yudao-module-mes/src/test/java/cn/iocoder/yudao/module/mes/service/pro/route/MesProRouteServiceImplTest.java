@@ -229,11 +229,14 @@ class MesProRouteServiceImplTest {
     private MesProProcessMapper processMapper;
     @Mock
     private MesMdAutoCodeRecordService autoCodeRecordService;
+    @Mock
+    private MesProRouteWorkstationService routeWorkstationService;
 
     private MesProRouteCreateReqVO creationRequest(List<Long> processIds) {
         MesProRouteCreateReqVO request = new MesProRouteCreateReqVO();
         request.setName("  新建流程  ");
         request.setProcessIds(processIds);
+        request.setWorkshopId(70L);
         return request;
     }
 
@@ -261,7 +264,7 @@ class MesProRouteServiceImplTest {
     @Test
     void createWithProcesses_concurrentNameConflictReturnsBusinessError() {
         when(processMapper.selectById(8L)).thenReturn(new MesProProcessDO());
-        when(autoCodeRecordService.generateAutoCode("PRO_ROUTE_CODE")).thenReturn("GYLC-0001");
+        when(autoCodeRecordService.generateProjectCode(org.mockito.ArgumentMatchers.eq("PRO_ROUTE_CODE"), org.mockito.ArgumentMatchers.any())).thenReturn("GYLC-0001");
         when(routeMapper.insert(any(MesProRouteDO.class))).thenThrow(
                 new org.springframework.dao.DuplicateKeyException("Duplicate uk_mes_pro_route_name_live"));
         AssertUtils.assertServiceException(() -> routeService.createRouteWithProcesses(creationRequest(List.of(8L))),
@@ -281,6 +284,8 @@ class MesProRouteServiceImplTest {
     }
 
     private void assertInitialCreation(List<Long> processIds) {
+        when(routeWorkstationService.create(eq(500L), org.mockito.ArgumentMatchers.anyInt(), any(), eq(70L)))
+                .thenAnswer(call -> 900L + (int) call.getArgument(1));
         java.util.List<MesProRouteProcessDO> insertedProcesses = new java.util.ArrayList<>();
         java.util.List<MesProRouteScheduleConfigDO> scheduleConfigs = new java.util.ArrayList<>();
         java.util.List<MesProRouteFlowProcessConfigDO> useConfigs = new java.util.ArrayList<>();
@@ -288,7 +293,7 @@ class MesProRouteServiceImplTest {
         for (Long id : processIds) {
             when(processMapper.selectById(id)).thenReturn(new MesProProcessDO());
         }
-        when(autoCodeRecordService.generateAutoCode("PRO_ROUTE_CODE")).thenReturn("GYLC-10000");
+        when(autoCodeRecordService.generateProjectCode(org.mockito.ArgumentMatchers.eq("PRO_ROUTE_CODE"), org.mockito.ArgumentMatchers.any())).thenReturn("GYLC-10000");
         org.mockito.Mockito.doAnswer(invocation -> {
             ((MesProRouteDO) invocation.getArgument(0)).setId(500L);
             return 1;
@@ -340,6 +345,7 @@ class MesProRouteServiceImplTest {
                 MesProRouteProcessFlowNodeRespVO node = new MesProRouteProcessFlowNodeRespVO();
                 node.setRouteProcessId(process.getId());
                 node.setProcessId(process.getProcessId());
+                node.setRouteProcessWorkstationId(process.getWorkstationId());
                 graph.getNodes().add(node);
             }
             return null;
@@ -369,6 +375,12 @@ class MesProRouteServiceImplTest {
         assertEquals(processIds, configs.getJSONArray("productionProcessConfigs").stream()
                 .map(value -> ((JSONObject) value).getLong("processId")).toList());
         assertEquals(processIds.size(), configs.getJSONObject("flowGraph").getJSONArray("nodes").size());
+        for (int i = 0; i < processIds.size(); i++) {
+            assertEquals(901L + i, insertedProcesses.get(i).getWorkstationId());
+            assertEquals(901L + i, configs.getJSONObject("flowGraph").getJSONArray("nodes")
+                    .getJSONObject(i).getLong("routeProcessWorkstationId"));
+            verify(routeWorkstationService).create(eq(500L), eq(i + 1), any(), eq(70L));
+        }
         assertEquals(processIds.size(), configs.getJSONArray("scheduleConfigs").size());
         assertEquals(processIds.size(), configs.getJSONArray("scheduleUseConfigs").size());
         assertEquals("V1", storedVersion[0].getVersionNo());
@@ -383,8 +395,15 @@ class MesProRouteServiceImplTest {
         org.springframework.jdbc.core.JdbcTemplate jdbc = new org.springframework.jdbc.core.JdbcTemplate(dataSource);
         jdbc.execute("CREATE TABLE route_create_test(id BIGINT PRIMARY KEY)");
         jdbc.execute("CREATE TABLE route_process_create_test(id BIGINT PRIMARY KEY)");
+        jdbc.execute("CREATE TABLE workstation_create_test(id BIGINT PRIMARY KEY)");
+        jdbc.execute("CREATE TABLE workstation_machine_create_test(id BIGINT PRIMARY KEY)");
+        when(routeWorkstationService.create(eq(500L), eq(1), any(), eq(70L))).thenAnswer(call -> {
+            jdbc.update("INSERT INTO workstation_create_test VALUES(900)");
+            jdbc.update("INSERT INTO workstation_machine_create_test VALUES(901)");
+            return 900L;
+        });
         when(processMapper.selectById(8L)).thenReturn(new MesProProcessDO());
-        when(autoCodeRecordService.generateAutoCode("PRO_ROUTE_CODE")).thenReturn("GYLC-0001");
+        when(autoCodeRecordService.generateProjectCode(org.mockito.ArgumentMatchers.eq("PRO_ROUTE_CODE"), org.mockito.ArgumentMatchers.any())).thenReturn("GYLC-0001");
         org.mockito.Mockito.doAnswer(invocation -> {
             ((MesProRouteDO) invocation.getArgument(0)).setId(500L);
             return jdbc.update("INSERT INTO route_create_test VALUES(500)");
@@ -405,6 +424,8 @@ class MesProRouteServiceImplTest {
                 () -> transactionalService.createRouteWithProcesses(creationRequest(List.of(8L))));
         assertEquals(0, jdbc.queryForObject("SELECT COUNT(*) FROM route_create_test", Integer.class));
         assertEquals(0, jdbc.queryForObject("SELECT COUNT(*) FROM route_process_create_test", Integer.class));
+        assertEquals(0, jdbc.queryForObject("SELECT COUNT(*) FROM workstation_create_test", Integer.class));
+        assertEquals(0, jdbc.queryForObject("SELECT COUNT(*) FROM workstation_machine_create_test", Integer.class));
         org.mockito.Mockito.verifyNoInteractions(platformAdapter);
     }
 

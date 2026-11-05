@@ -10,10 +10,9 @@ export type SimpleCommonDraft = Omit<QaInspectionRegulationSaveReqVO, 'processes
 
 const base = '/mes/qa/inspection-regulation/simple-common-parser'
 export const SimpleCommonParserApi = {
-  async parse(file: File, projectId: number): Promise<SimpleCommonDraft> {
+  async parse(file: File): Promise<SimpleCommonDraft> {
     const data = new FormData()
     data.append('file', file)
-    data.append('dccProjectCodeId', String(projectId))
     const result = await request.upload<{ data: SimpleCommonDraft }>({
       url: `${base}/parse`,
       data,

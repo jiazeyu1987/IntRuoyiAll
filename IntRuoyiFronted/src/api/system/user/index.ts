@@ -46,6 +46,8 @@ export type UserSaveVO = Omit<UserVO, 'deptId'> & { deptId: number | null }
 
 export interface UserDingTalkImportRespVO {
   createUsernames: string[]
+  existingUsernames: string[]
+  authorizedUsernames: string[]
   failureUsernames: Record<string, string>
   createdDeptPaths: string[]
   enabledDeptPaths: string[]
@@ -133,7 +135,8 @@ export const importUserTemplate = () => {
 
 // 钉钉组织导入
 export const importDingTalkUsers = async (formData: FormData) => {
-  return await request.upload({ url: '/system/user/import-dingtalk', data: formData })
+  // 整批创建账号、加密密码及电子签名授权可能超过普通请求的 30 秒超时。
+  return await request.upload({ url: '/system/user/import-dingtalk', data: formData, timeout: 300000 })
 }
 
 // 用户密码重置

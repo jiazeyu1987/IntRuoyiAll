@@ -12,4 +12,18 @@ public class MesReleaseFlowFailureRespVO {
     private String stage;
     private String currentStatus;
     private List<MesReleaseFlowBlocker> blockers;
+    private RejectedDecision rejectedDecision;
+
+    /** Returned only after the decision transaction has rolled back successfully. */
+    @Data
+    @Accessors(chain = true)
+    public static class RejectedDecision {
+        private String outcome;
+        private String applicationId;
+        private String workTaskId;
+        private String actorId;
+        private Integer expectedVersion;
+        private String idempotencyKey;
+        private String payloadHash;
+    }
 }

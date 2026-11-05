@@ -1214,7 +1214,18 @@ export const getTeamLeaderActiveOrderTransferTrace = async (activeOrderId: numbe
 export const searchTeamLeaderActiveOrderCandidates = async (keyword: string) => {
   return await request.get<TeamLeaderActiveOrderCandidateRespVO[]>({
     url: '/mes/pro/process-pool/team-leader/active-order/candidates',
+    ignoreErrorMessage: true,
     params: { keyword }
+  })
+}
+
+export const syncTeamLeaderProductionOrder = async (code: string) => {
+  return await request.post<{ code: string; syncedCount: number }>({
+    url: '/mes/erp-code-sync/production-order',
+    data: { code },
+    timeout: 180000,
+    ignoreErrorMessage: true,
+    skipAuthRefreshReplay: true
   })
 }
 
@@ -1343,6 +1354,19 @@ export const pushGeneratedTeamLeaderActiveOrderRelease = async (
   })
 }
 
+export interface TeamLeaderTestDataRespVO {
+  workOrderCode: string
+  documents: Array<{ name: string; createdCount: number; deletedCount: number }>
+}
+
+export const prepareFixedTestOrderData = async () => {
+  return await request.post<TeamLeaderTestDataRespVO>({
+    url: '/mes/pro/process-pool/team-leader/active-order/simulation/test-data',
+    timeout: 150000,
+    ignoreErrorMessage: true
+  })
+}
+
 export const resetFixedSimulationActiveOrder = async () => {
   return await request.post<TeamLeaderActiveOrderTestResetRespVO>({
     url: '/mes/pro/process-pool/team-leader/active-order/simulation/test-reset',
@@ -1378,12 +1402,12 @@ export const getProductionPersonnelList = async (params?: TeamProductionPersonne
   })
 }
 
-export const getStaleProductionEmployeeScopes = () => request.get<Array<{ id: number; employeeUserId: number }>>({
-  url: '/mes/pro/process-pool/team-leader/employee-profile/stale-scopes'
-})
-export const disableStaleProductionEmployeeScope = (scopeId: number) => request.put({
-  url: '/mes/pro/process-pool/team-leader/employee-profile/stale-scopes/disable', params: { scopeId }
-})
+export const deleteTeamProductionEmployee = async (employeeProfileId: number) => {
+  return await request.delete<boolean>({
+    url: '/mes/pro/process-pool/team-leader/employee-profile/delete',
+    params: { employeeProfileId }
+  })
+}
 
 export const getPqcPersonnelList = async (params?: TeamPqcPersonnelListReqVO) => {
   return await request.get<TeamPqcPersonnelRespVO[]>({

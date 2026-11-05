@@ -124,7 +124,7 @@ class MesProFeedbackControllerImportThirdPartyXlsxTest {
         assertArrayEquals(new String[]{"/import-third-party-xlsx"}, postMapping.value());
 
         PreAuthorize preAuthorize = method.getAnnotation(PreAuthorize.class);
-        assertEquals("@ss.hasPermission('mes:pro-feedback:create')", preAuthorize.value());
+        assertEquals("isAuthenticated()", preAuthorize.value());
 
         RequestParam fileParam = method.getParameters()[0].getAnnotation(RequestParam.class);
         assertEquals("file", fileParam.value());
@@ -139,7 +139,7 @@ class MesProFeedbackControllerImportThirdPartyXlsxTest {
         assertArrayEquals(new String[]{"/import-direct-work-report-xlsx"}, postMapping.value());
 
         PreAuthorize preAuthorize = method.getAnnotation(PreAuthorize.class);
-        assertEquals("@ss.hasPermission('mes:pro-feedback:create')", preAuthorize.value());
+        assertEquals("isAuthenticated()", preAuthorize.value());
 
         RequestParam fileParam = method.getParameters()[0].getAnnotation(RequestParam.class);
         assertEquals("file", fileParam.value());
@@ -153,7 +153,7 @@ class MesProFeedbackControllerImportThirdPartyXlsxTest {
         assertArrayEquals(new String[]{"/simulate-import-third-party-xlsx"}, postMapping.value());
 
         PreAuthorize preAuthorize = method.getAnnotation(PreAuthorize.class);
-        assertEquals("@ss.hasPermission('mes:pro-feedback:create')", preAuthorize.value());
+        assertEquals("isAuthenticated()", preAuthorize.value());
 
         RequestParam processCountParam = method.getParameters()[0].getAnnotation(RequestParam.class);
         assertEquals("processCount", processCountParam.value());

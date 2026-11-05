@@ -538,6 +538,17 @@ class MesM9SimulationHistoryProtectionTest {
             verify(dependency(MesFixedTestOrderInitializer.class)).requireNoOrphanRuntime(92820L, 201L);
             verify(dependency(MesTeamLeaderDataCleanupMapper.class), never()).deleteActiveOrders(anyLong(), any());
         }
+        verify(dependency(MesFixedTestOrderPickListInitializer.class)).prepareForReset(
+                MesFixedTestOrderInitializer.WORK_ORDER_CODE, 3001L);
+    }
+
+    @Test
+    void missingMaterialSourceFailureStopsResetBeforeRuntimeCleanup() {
+        doThrow(new IllegalStateException("invalid reference materials"))
+                .when(dependency(MesFixedTestOrderPickListInitializer.class))
+                .prepareForReset(MesFixedTestOrderInitializer.WORK_ORDER_CODE, 3001L);
+        assertThrows(IllegalStateException.class, () -> service.resetFixedSimulationActiveOrder(3001L));
+        verifyNoInteractions(dependency(MesTeamLeaderDataCleanupMapper.class), dependency(MesProWorkOrderMapper.class));
     }
 
     @ParameterizedTest
@@ -747,36 +758,65 @@ class MesM9SimulationHistoryProtectionTest {
                 .thenReturn(List.of(parent()));
     }
 
-    @Test
-    void firstActivationInitializesBeforeLookingUpOrderAndUsesTheNormalAddFlow() {
-        stubFixedResetOwner();
+    @ParameterizedTest
+    @ValueSource(longs = {1L, 170L, 92820L})
+    void everyTenantUsesItsOwnExistingOrderWithoutImportingReferenceDefinitions(long tenantId) {
+        TenantContextHolder.setTenantId(tenantId);
+        var workOrder = MesProWorkOrderDO.builder().id(201L).build();
+        workOrder.setTenantId(tenantId);
+        when(dependency(MesProWorkOrderMapper.class).selectByTenantIdAndCodeForUpdate(
+                tenantId, MesFixedTestOrderInitializer.WORK_ORDER_CODE)).thenReturn(workOrder);
         when(dependency(MesProcessPoolActiveOrderMapper.class).selectList(any(com.baomidou.mybatisplus.core.conditions.Wrapper.class))).thenReturn(List.of());
+        doThrow(MesFixedTestOrderReferenceGraph.blocked("reference missing or conflicting"))
+                .when(dependency(MesFixedTestOrderInitializer.class)).initialize(anyLong());
         var target = resetTargetWithSuccessfulReadd();
         var result = target.resetFixedSimulationActiveOrder(3001L);
         assertEquals(0L, result.getPreviousActiveOrderCount());
         assertEquals(102L, result.getActiveOrderId());
         var sequence = inOrder(dependency(MesFixedTestOrderModeGuard.class), dependency(MesFixedTestOrderInitializer.class), dependency(MesProWorkOrderMapper.class), target);
         sequence.verify(dependency(MesFixedTestOrderModeGuard.class)).requireEnabled(3001L);
-        sequence.verify(dependency(MesFixedTestOrderInitializer.class)).initialize(3001L);
-        sequence.verify(dependency(MesProWorkOrderMapper.class)).selectByTenantIdAndCodeForUpdate(92820L, MesFixedTestOrderInitializer.WORK_ORDER_CODE);
-        sequence.verify(dependency(MesFixedTestOrderInitializer.class)).requireNoOrphanRuntime(92820L, 201L);
+        sequence.verify(dependency(MesFixedTestOrderInitializer.class)).createWorkOrderIfMissing(3001L);
+        sequence.verify(dependency(MesFixedTestOrderInitializer.class)).ensureTestRouteProductBinding(3001L);
+        sequence.verify(dependency(MesProWorkOrderMapper.class)).selectByTenantIdAndCodeForUpdate(tenantId, MesFixedTestOrderInitializer.WORK_ORDER_CODE);
+        sequence.verify(dependency(MesFixedTestOrderInitializer.class)).requireNoOrphanRuntime(tenantId, 201L);
         sequence.verify(dependency(MesProWorkOrderMapper.class)).updateById(any(MesProWorkOrderDO.class));
         sequence.verify(target).addActiveOrder(argThat(request -> request.getWorkOrderId().equals(201L) && request.getLeaderUserId().equals(3001L)));
         verifyNoInteractions(dependency(MesTeamLeaderDataCleanupMapper.class));
+        verify(dependency(MesFixedTestOrderInitializer.class), never()).initialize(anyLong());
     }
 
     @Test
-    void missingOwnerWithRuntimeOrFailedInitializationDoesNotResetAnyFacts() {
+    void failedTestProductAutoBindingNeverCleansRuntimeFacts() {
+        var failure = MesFixedTestOrderReferenceGraph.blocked("ambiguous IDI project routes");
+        doThrow(failure).when(dependency(MesFixedTestOrderInitializer.class)).ensureTestRouteProductBinding(3001L);
+        rejectWrites = true;
+        assertSame(failure, assertThrows(ServiceException.class, () -> service.resetFixedSimulationActiveOrder(3001L)));
+        verifyNoInteractions(dependency(MesProWorkOrderMapper.class),
+                dependency(MesTeamLeaderDataCleanupMapper.class), dependency(MesProcessPoolActiveOrderMapper.class));
+    }
+
+    @Test
+    void missingOwnerWithRuntimeDoesNotResetAnyFacts() {
         stubFixedResetOwner();
         when(dependency(MesProcessPoolActiveOrderMapper.class).selectList(any(com.baomidou.mybatisplus.core.conditions.Wrapper.class))).thenReturn(List.of());
         doThrow(MesFixedTestOrderReferenceGraph.blocked("orphan runtime")).when(dependency(MesFixedTestOrderInitializer.class)).requireNoOrphanRuntime(92820L, 201L);
         rejectWrites = true;
         assertThrows(ServiceException.class, () -> service.resetFixedSimulationActiveOrder(3001L));
         verifyNoInteractions(dependency(MesTeamLeaderDataCleanupMapper.class));
-        doThrow(MesFixedTestOrderReferenceGraph.blocked("reference missing")).when(dependency(MesFixedTestOrderInitializer.class)).initialize(3001L);
-        clearInvocations(dependency(MesProWorkOrderMapper.class));
-        assertThrows(ServiceException.class, () -> service.resetFixedSimulationActiveOrder(3001L));
-        verifyNoInteractions(dependency(MesProWorkOrderMapper.class));
+        verify(dependency(MesFixedTestOrderInitializer.class), never()).initialize(anyLong());
+    }
+
+    @ParameterizedTest
+    @ValueSource(longs = {1L, 170L, 92820L})
+    void failedOrderCreationNeverResetsRuntimeFacts(long tenantId) {
+        TenantContextHolder.setTenantId(tenantId);
+        var failure = MesFixedTestOrderReferenceGraph.blocked("reference order missing");
+        doThrow(failure).when(dependency(MesFixedTestOrderInitializer.class)).createWorkOrderIfMissing(3001L);
+        rejectWrites = true;
+        var error = assertThrows(ServiceException.class, () -> service.resetFixedSimulationActiveOrder(3001L));
+        assertSame(failure, error);
+        verifyNoInteractions(dependency(MesProWorkOrderMapper.class),
+                dependency(MesTeamLeaderDataCleanupMapper.class), dependency(MesProcessPoolActiveOrderMapper.class));
     }
 
     @ParameterizedTest

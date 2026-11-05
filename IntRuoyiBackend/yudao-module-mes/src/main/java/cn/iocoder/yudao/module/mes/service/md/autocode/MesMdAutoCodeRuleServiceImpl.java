@@ -31,11 +31,13 @@ public class MesMdAutoCodeRuleServiceImpl implements MesMdAutoCodeRuleService {
     private MesMdAutoCodeRuleMapper ruleMapper;
     @Resource
     private MesMdAutoCodePartMapper partMapper;
+    @Resource private cn.iocoder.yudao.module.dcc.service.projectcode.access.DccProjectAccessService projectAccess;
 
     @Override
     public Long createAutoCodeRule(MesMdAutoCodeRuleSaveReqVO createReqVO) {
         // 校验规则编码的唯一性
-        validateRuleCodeUnique(null, createReqVO.getCode());
+        validateRuleScope(createReqVO.getProjectId(), createReqVO.getCode());
+        validateRuleCodeUnique(null, createReqVO.getCode(), createReqVO.getProjectId());
 
         // 插入
         MesMdAutoCodeRuleDO rule = BeanUtils.toBean(createReqVO, MesMdAutoCodeRuleDO.class);
@@ -48,7 +50,11 @@ public class MesMdAutoCodeRuleServiceImpl implements MesMdAutoCodeRuleService {
         // 校验存在
         validateAutoCodeRuleExists(updateReqVO.getId());
         // 校验规则编码的唯一性
-        validateRuleCodeUnique(updateReqVO.getId(), updateReqVO.getCode());
+        var previous = ruleMapper.selectById(updateReqVO.getId());
+        if (!java.util.Objects.equals(previous.getProjectId(), updateReqVO.getProjectId())) throw new IllegalArgumentException("不能修改规则所属项目");
+        if (!java.util.Objects.equals(previous.getCode(), updateReqVO.getCode())) throw new IllegalArgumentException("不能修改规则编码");
+        assertProjectAccess(previous, true);
+        validateRuleCodeUnique(updateReqVO.getId(), updateReqVO.getCode(), updateReqVO.getProjectId());
 
         // 更新
         MesMdAutoCodeRuleDO updateObj = BeanUtils.toBean(updateReqVO, MesMdAutoCodeRuleDO.class);
@@ -62,6 +68,7 @@ public class MesMdAutoCodeRuleServiceImpl implements MesMdAutoCodeRuleService {
         validateAutoCodeRuleExists(id);
 
         // 删除规则
+        assertProjectAccess(ruleMapper.selectById(id), true);
         ruleMapper.deleteById(id);
         // 级联删除规则组成
         partMapper.deleteByRuleId(id);
@@ -69,17 +76,21 @@ public class MesMdAutoCodeRuleServiceImpl implements MesMdAutoCodeRuleService {
 
     @Override
     public MesMdAutoCodeRuleDO getAutoCodeRule(Long id) {
-        return ruleMapper.selectById(id);
+        var rule = ruleMapper.selectById(id);
+        assertProjectAccess(rule, false);
+        return rule;
     }
 
     @Override
     public PageResult<MesMdAutoCodeRuleDO> getAutoCodeRulePage(MesMdAutoCodeRulePageReqVO pageReqVO) {
-        return ruleMapper.selectPage(pageReqVO);
+        if (pageReqVO.getProjectId() != null) projectAccess.assertProjectViewerOrAbove(cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils.getLoginUserId(), pageReqVO.getProjectId());
+        return ruleMapper.selectPage(pageReqVO, projectAccess.listReadableProjectIds(cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils.getLoginUserId()));
     }
 
     @Override
     public List<MesMdAutoCodeRuleDO> getAutoCodeRuleListByStatus(Integer status) {
-        return ruleMapper.selectListByStatus(status);
+        var readable = projectAccess.listReadableProjectIds(cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils.getLoginUserId());
+        return ruleMapper.selectListByStatus(status).stream().filter(r -> r.getProjectId() == null || readable.contains(r.getProjectId())).toList();
     }
 
     @Override
@@ -96,8 +107,22 @@ public class MesMdAutoCodeRuleServiceImpl implements MesMdAutoCodeRuleService {
 
     // ==================== 校验方法 ====================
 
-    private void validateRuleCodeUnique(Long id, String code) {
-        MesMdAutoCodeRuleDO rule = ruleMapper.selectByCode(code);
+    private void assertProjectAccess(MesMdAutoCodeRuleDO rule, boolean write) {
+        if (rule == null || rule.getProjectId() == null) return;
+        Long userId = cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils.getLoginUserId();
+        if (write) projectAccess.assertProjectEditorOrOwner(userId, rule.getProjectId());
+        else projectAccess.assertProjectViewerOrAbove(userId, rule.getProjectId());
+    }
+
+    private void validateRuleScope(Long projectId, String code) {
+        if (MesProjectAutoCodeService.supports(code) != (projectId != null)) throw new IllegalArgumentException("工序、工艺流程规则必须指定项目，其余规则使用租户范围");
+        if (projectId != null) projectAccess.assertProjectEditorOrOwner(cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils.getLoginUserId(), projectId);
+    }
+
+    private void validateRuleCodeUnique(Long id, String code, Long projectId) {
+        var query = new cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX<MesMdAutoCodeRuleDO>().eq(MesMdAutoCodeRuleDO::getCode, code);
+        if (projectId == null) query.isNull(MesMdAutoCodeRuleDO::getProjectId); else query.eq(MesMdAutoCodeRuleDO::getProjectId, projectId);
+        MesMdAutoCodeRuleDO rule = ruleMapper.selectOne(query);
         if (rule == null) {
             return;
         }

@@ -36,8 +36,69 @@ function parserHarness() {
     run: async action => action(), loadResources: async () => {}
   }
   return { context, actions: functionsFrom('src/views/form-center/simple-pqc-parser/index.vue',
-    ['selectEquipment', 'applyEquipment', 'reuseItem', 'saveLocal', 'restoreLocal'], context), saved, messages, first, other }
+    ['issueEquipment', 'selectIssueEquipment', 'selectEquipment', 'applyEquipment', 'reuseItem', 'saveLocal', 'restoreLocal'], context), saved, messages, first, other }
 }
+
+test('issue dropdown updates its own item without changing the active editor or preview', () => {
+  const h = parserHarness()
+  const issue = { field: 'equipment', processIndex: 0, itemIndex: 1 }
+  h.context.previewVisible = ref(true)
+  h.actions.selectIssueEquipment(issue, [10])
+  assert.equal(h.other.equipmentOptions[0].equipmentNumber, 'EQ10')
+  assert.equal(h.other.equipmentOptions[0].equipmentName, '15N砝码')
+  assert.equal(h.other.equipmentUnboundReason, undefined)
+  assert.equal(h.first.equipmentOptions.length, 0)
+  assert.equal(h.first.equipmentUnboundReason, '待登记')
+  assert.deepEqual(h.context.confirmedUnbound.value, ['I1'])
+  assert.equal(h.context.item.value, h.first)
+  assert.equal(h.context.previewVisible.value, true)
+  h.actions.saveLocal()
+  const saved = JSON.parse(h.saved.get('own-test'))
+  assert.equal(saved.draft.processes[0].items[1].equipmentOptions[0].equipmentNumber, 'EQ10')
+  h.actions.selectIssueEquipment(issue, [])
+  assert.equal(h.other.equipmentOptions.length, 0)
+  h.context.busy.value = true
+  h.actions.selectIssueEquipment(issue, [10])
+  assert.equal(h.other.equipmentOptions.length, 0)
+  h.context.busy.value = false
+  h.context.published.value = true
+  h.actions.selectIssueEquipment(issue, [10])
+  assert.equal(h.other.equipmentOptions.length, 0)
+  h.context.published.value = false
+  assert.throws(() => h.actions.selectIssueEquipment({ ...issue, itemIndex: 99 }, [10]), /检验项目不存在/)
+  assert.throws(() => h.actions.selectIssueEquipment(issue, [99]), /设备编号不存在/)
+  assert.equal(h.other.equipmentOptions.length, 0)
+})
+
+test('inline equipment changes participate in existing draft dirty tracking and undo', async () => {
+  const vue = require('vue')
+  const h = parserHarness()
+  h.context.draft = vue.ref(h.context.draft.value)
+  h.context.confirmedUnbound = vue.ref(['I1', 'I2'])
+  const moduleContext = { exports: {}, require: name => {
+    assert.equal(name, 'vue')
+    return vue
+  } }
+  vm.runInNewContext(ts.transpileModule(fs.readFileSync('src/views/form-center/parser/useParserEditing.ts', 'utf8'), {
+    compilerOptions: { module: ts.ModuleKind.CommonJS }
+  }).outputText, moduleContext)
+  const editing = moduleContext.exports.useParserEditing(
+    () => ({ draft: h.context.draft.value, confirmedUnbound: h.context.confirmedUnbound.value }),
+    state => {
+      h.context.draft.value = state.draft
+      h.context.confirmedUnbound.value = state.confirmedUnbound
+    }, vue.ref(false))
+  editing.reset(true)
+  await vue.nextTick()
+  h.actions.selectIssueEquipment({ field: 'equipment', processIndex: 0, itemIndex: 1 }, [10])
+  await vue.nextTick()
+  assert.equal(editing.dirty.value, true)
+  editing.undo()
+  await vue.nextTick()
+  assert.equal(h.context.draft.value.processes[0].items[1].equipmentOptions.length, 0)
+  assert.equal(h.context.draft.value.processes[0].items[1].equipmentUnboundReason, '另一项单独确认')
+  assert.equal(editing.dirty.value, false)
+})
 test('reusing a newly reasoned item never grants the historical unbound exemption', () => {
   const h = parserHarness()
   h.context.matchingItem = ref({ equipmentOptions: [], equipmentUnboundReason: '台账待登记' })

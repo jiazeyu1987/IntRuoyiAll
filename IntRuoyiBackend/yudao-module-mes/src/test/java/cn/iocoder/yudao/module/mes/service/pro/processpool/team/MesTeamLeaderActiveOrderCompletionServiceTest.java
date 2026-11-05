@@ -40,6 +40,8 @@ class MesTeamLeaderActiveOrderCompletionServiceTest {
     @Mock
     private MesTeamLeaderActiveOrderPickListCompletionSourceService pickListCompletionSourceService;
     @Mock
+    private MesFixedTestOrderCompletionSourceInitializer fixedTestCompletionSourceInitializer;
+    @Mock
     private MesActiveOrderTransferTraceService activeOrderTransferTraceService;
     @Mock
     private MesPqcProcessInspectionAggregationService processInspectionAggregationService;
@@ -59,6 +61,7 @@ class MesTeamLeaderActiveOrderCompletionServiceTest {
                 processInspectionAggregationService);
         { org.springframework.test.util.ReflectionTestUtils.setField(service, "handoffService", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffService.class)); }
         ReflectionTestUtils.setField(service, "gxpAuditService", gxpAuditService);
+        ReflectionTestUtils.setField(service, "fixedTestCompletionSourceInitializer", fixedTestCompletionSourceInitializer);
         ReflectionTestUtils.setField(service, "creationVerifier", creationVerifier);
         org.mockito.Mockito.lenient().when(creationVerifier.requireCompletionCreation(any(), any()))
                 .thenAnswer(i -> new cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesEdhrSourceCreationEvidence(
@@ -89,6 +92,9 @@ class MesTeamLeaderActiveOrderCompletionServiceTest {
 
         assertThrows(RuntimeException.class, () -> service.complete(20L, command()));
 
+        var sourceCalls = org.mockito.Mockito.inOrder(fixedTestCompletionSourceInitializer, backfillPort);
+        sourceCalls.verify(fixedTestCompletionSourceInitializer).prepare(order.getWorkOrderId(), 20L);
+        sourceCalls.verify(backfillPort).prepare(anyLong(), any(), any());
         verify(backfillPort, never()).write(any(), anyLong());
         verify(activeOrderMapper, never()).markCompleted(anyLong(), any(), anyLong());
         verify(receiptMapper, never()).insert(any(MesProcessPoolActiveOrderCompletionReceiptDO.class));

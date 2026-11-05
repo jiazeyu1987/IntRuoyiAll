@@ -4,7 +4,8 @@ const assert = require('node:assert/strict')
 
 const root = process.cwd()
 const runner = fs.readFileSync(path.resolve(root, 'tests/e2e/edhr-ai-loop/runner.cjs'), 'utf8')
-const frontlinePanel = fs.readFileSync(path.resolve(root, 'src/views/mes/pro/feedback/FrontlineFixedTemplatePanel.vue'), 'utf8')
+const frontlinePanel = fs.readFileSync(path.resolve(root, 'src/views/mes/pro/feedback/FrontlineFixedTemplatePanel.vue'), 'utf8') +
+  fs.readFileSync(path.resolve(root, 'src/views/mes/pro/feedback/FrontlinePqcInspectionTypeSelector.vue'), 'utf8')
 const teamLeaderPage = fs.readFileSync(path.resolve(root, 'src/views/mes/pro/processpool/TeamLeaderWorkbenchPage.vue'), 'utf8')
 const pqcLeaderPage = fs.readFileSync(path.resolve(root, 'src/views/mes/pro/processpool/PqcLeaderWorkbenchPage.vue'), 'utf8')
 

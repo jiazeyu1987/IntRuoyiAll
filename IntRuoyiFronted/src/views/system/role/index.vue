@@ -246,7 +246,7 @@
                 :width="getRoleColumnWidth('createTime')"
               />
               <el-table-column
-                :width="getRoleColumnWidth('actions')"
+                :width="Math.max(getRoleColumnWidth('actions') ?? 0, 350)"
                 column-key="actions"
                 align="center"
                 fixed="right"
@@ -288,6 +288,14 @@
                     数据权限
                   </el-button>
                   <el-button
+                    v-hasPermi="['system:permission:assign-user-role']"
+                    link
+                    type="primary"
+                    @click="assignUserFormRef?.open(scope.row)"
+                  >
+                    分配
+                  </el-button>
+                  <el-button
                     v-hasPermi="['system:role:delete']"
                     link
                     type="danger"
@@ -316,6 +324,7 @@
   </el-dialog>
   <RoleForm ref="formRef" @success="getList" />
   <RoleAssignedUsers ref="assignedUsersRef" />
+  <RoleAssignUserForm ref="assignUserFormRef" @success="getList" />
   <RoleCategoryForm ref="categoryFormRef" @success="refreshCategories" />
   <!-- 表单弹窗：菜单权限 -->
   <RoleAssignMenuForm ref="assignMenuFormRef" @success="getList" />
@@ -339,6 +348,7 @@ import {
 } from '@/hooks/web/useUserTableColumns'
 import RoleForm from './RoleForm.vue'
 import RoleAssignedUsers from './RoleAssignedUsers.vue'
+import RoleAssignUserForm from './RoleAssignUserForm.vue'
 import RoleCategoryForm from './RoleCategoryForm.vue'
 import RoleAssignMenuForm from './RoleAssignMenuForm.vue'
 import RoleDataPermissionForm from './RoleDataPermissionForm.vue'
@@ -363,7 +373,7 @@ const roleDefaultColumns: UserTableColumnDefinition[] = [
   { key: 'remark', label: '备注', minWidth: 180 },
   { key: 'status', label: '状态', width: 100 },
   { key: 'createTime', label: '创建时间', width: 180 },
-  { key: 'actions', label: '操作', width: 300, hideable: false, business: false }
+  { key: 'actions', label: '操作', width: 350, hideable: false, business: false }
 ]
 const {
   columns: roleColumns,
@@ -423,6 +433,7 @@ const handleQuery = () => {
 /** 添加/修改操作 */
 const formRef = ref()
 const assignedUsersRef = ref<InstanceType<typeof RoleAssignedUsers>>()
+const assignUserFormRef = ref<InstanceType<typeof RoleAssignUserForm>>()
 const openForm = (type: string, id?: number) => {
   formRef.value.open(type, id)
 }

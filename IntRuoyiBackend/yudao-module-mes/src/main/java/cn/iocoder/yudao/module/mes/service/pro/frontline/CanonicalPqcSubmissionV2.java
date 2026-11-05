@@ -28,6 +28,8 @@ public final class CanonicalPqcSubmissionV2 {
         canonical.put("qaItemCode", task.getQaItemCode());
         canonical.put("pqcTaskId", task.getId());
         canonical.put("inspectionRuleKey", task.getInspectionRuleKey());
+        canonical.put("inspectionItemPlanJson", task.getInspectionItemPlanJson());
+        canonical.put("inspectionSamplingPlanJson", task.getInspectionSamplingPlanJson());
         canonical.put("actualEmployeeId", command.getActualEmployeeId());
         canonical.put("productionSubmitEventId", command.getProductionSubmitEventId());
         canonical.put("actualInspectionQuantity", command.getActualInspectionQuantity());

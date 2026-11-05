@@ -19,6 +19,23 @@ class TenantAdminBusinessPermissionTest extends BaseMockitoUnitTest {
     @Mock private MenuService menuService;
     @Mock private RoleMenuMapper roleMenuMapper;
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(longs = {5L, 90001L})
+    void existingAndNewTenantAdminCanQueryPoliciesWithoutExplicitMenuGrants(Long roleId) {
+        var roleIds = Set.of(roleId);
+        when(roleService.getRoleListFromCache(roleIds)).thenAnswer(invocation -> new ArrayList<>(List.of(
+                new RoleDO().setId(roleId).setCode("tenant_admin").setStatus(0))));
+        MenuDO policy = new MenuDO().setId(605071300L)
+                .setPermission("bpm:business-approval-policy:query").setStatus(0);
+        when(roleMenuMapper.selectListByRoleId(roleIds)).thenReturn(List.of());
+        when(menuService.getMenuList()).thenReturn(List.of(policy));
+        when(menuService.getMenuIdListByPermissionFromCache(policy.getPermission())).thenReturn(List.of(policy.getId()));
+        when(menuService.getMenuList(List.of(policy.getId()))).thenReturn(List.of(policy));
+
+        assertTrue(service.getRoleMenuListByRoleId(roleIds).contains(policy.getId()));
+        assertTrue(service.hasAnyPermissionsInRoles(roleIds, policy.getPermission()));
+    }
+
     @Test void tenantAdminGetsBusinessMenuAndMatchingApiPermissionWithoutRoleMenuRows() {
         var roleIds = Set.of(5L);
         when(roleService.getRoleListFromCache(roleIds)).thenAnswer(invocation -> new ArrayList<>(List.of(

@@ -55,14 +55,21 @@
               align="center"
             >
               <template #default="{ row }">
-                <el-button
-                  v-if="column.key === 'operation'"
-                  link
-                  type="primary"
-                  data-edhr-history-detail-action
-                  @click="openActiveOrderDetail(row)"
-                  >详情</el-button
-                >
+                <template v-if="column.key === 'operation'">
+                  <el-button
+                    link
+                    type="primary"
+                    data-edhr-history-detail-action
+                    @click="openActiveOrderDetail(row)"
+                  >详情</el-button>
+                  <el-button
+                    v-if="reverseTraceAllowed && row.batchExecutionId"
+                    link
+                    type="primary"
+                    data-edhr-history-reverse-trace
+                    @click="openReverseTrace(row)"
+                  >反查关联批次</el-button>
+                </template>
                 <el-tag v-else-if="column.key === 'statusLabel'" data-edhr-history-batch-status>{{
                   row.statusLabel
                 }}</el-tag>
@@ -254,7 +261,7 @@ const defaultColumns: UserTableColumnDefinition[] = [
   { key: 'pqcReleasedAt', label: 'PQC放行时间', width: 180 },
   { key: 'releaseApprovedAt', label: '上市放行时间', width: 180 },
   { key: 'statusLabel', label: '状态', width: 100 },
-  { key: 'operation', label: '操作', width: 90 }
+  { key: 'operation', label: '操作', width: 190 }
 ]
 const {
   columns,
@@ -291,6 +298,13 @@ const openActiveOrderDetail = async (batch: HistoryRow) => {
       from: '/mes/pro/feedback/edhr-batch-history'
     }
   })
+}
+
+const openReverseTrace = (batch: HistoryRow) => {
+  if (!batch.batchExecutionId || !reverseTraceAllowed.value) return
+  reverseTraceBatchExecutionId.value = String(batch.batchExecutionId)
+  reverseTraceRestoreKey.value = undefined
+  reverseTraceVisible.value = true
 }
 
 watch(

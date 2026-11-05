@@ -9,7 +9,7 @@ const page = fs.readFileSync(path.join(repoRoot, 'src/views/mes/pro/processpool/
 assert.match(api, /resetFixedSimulationActiveOrder/)
 assert.match(api, /active-order\/simulation\/test-reset/)
 assert.match(page, /data-team-leader-reset-fixed-active-order/)
-assert.match(page, /重置指定测试订单/)
+assert.match(page, /\n\s+重置\s*\n/)
 const resetHandler = page.split('const handleResetFixedSimulationActiveOrder = async () => {')[1].split('const handleActiveOrderWorkOrderKeywordChange')[0]
 assert.doesNotMatch(resetHandler, /ElMessageBox|targetCode/, 'reset must execute directly without confirmation or order-code checking')
 assert.match(resetHandler, /await resetFixedSimulationActiveOrder\(\)/)

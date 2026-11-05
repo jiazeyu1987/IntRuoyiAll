@@ -519,13 +519,16 @@ public class MesOrderReleaseCompletenessServiceImpl implements MesOrderReleaseCo
         }
         Map<String, Integer> plan = cn.iocoder.yudao.module.mes.service.pro.processpool.pqc.MesPqcInspectionItemPlan.require(task);
         Set<String> actualItems = pieceDetails.stream().map(MesPqcInspectionPieceDetailDO::getItemCode).collect(Collectors.toSet());
-        if (!plan.keySet().equals(actualItems) || !Objects.equals(task.getActualInspectionQuantity(), task.getPlannedInspectionQuantity())) {
+        var actualQuantities = pieceDetails.stream().collect(Collectors.groupingBy(
+                MesPqcInspectionPieceDetailDO::getItemCode, Collectors.summingInt(detail -> 1)));
+        if (!plan.keySet().equals(actualItems) || !cn.iocoder.yudao.module.mes.service.pro.processpool.pqc.MesPqcInspectionItemPlan
+                .matchesActualQuantities(task, actualQuantities, task.getActualInspectionQuantity())) {
             return "逐件判定项目或检验数量与冻结计划不一致";
         }
         for (var entry : plan.entrySet()) {
             var samples = pieceDetails.stream().filter(detail -> Objects.equals(entry.getKey(), detail.getItemCode()))
-                    .map(MesPqcInspectionPieceDetailDO::getSampleNo).sorted().toList();
-            if (!IntStream.rangeClosed(1, entry.getValue()).boxed().toList().equals(samples)) {
+                    .map(MesPqcInspectionPieceDetailDO::getSampleNo).toList();
+            if (!cn.iocoder.yudao.module.mes.service.pro.processpool.pqc.MesPqcInspectionItemPlan.completeSamples(task, entry.getKey(), samples)) {
                 return "逐件判定样本号不完整，itemCode=" + entry.getKey();
             }
         }

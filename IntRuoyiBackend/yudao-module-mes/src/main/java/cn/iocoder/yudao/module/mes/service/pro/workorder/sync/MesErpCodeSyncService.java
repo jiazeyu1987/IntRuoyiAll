@@ -6,6 +6,7 @@ import cn.iocoder.yudao.module.erp.service.production.kingdee.ErpKingdeeProducti
 import cn.iocoder.yudao.module.erp.service.stock.kingdee.ErpKingdeeInventoryListService;
 import cn.iocoder.yudao.module.erp.service.stock.sync.ErpKingdeeStockSyncService;
 import cn.iocoder.yudao.module.mes.service.md.item.kingdee.MesKingdeeBomListService;
+import cn.iocoder.yudao.module.mes.service.md.item.sync.MesKingdeeItemSyncService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,6 +28,7 @@ public class MesErpCodeSyncService {
     private final ErpKingdeeProductionPickListService pickListService;
     private final ErpKingdeeProductionReplenishmentListService replenishmentListService;
     private final MesKingdeeProductionOrderSyncService productionOrderService;
+    private final MesKingdeeItemSyncService itemSyncService;
 
     // Targeted reads must not advance the incremental watermark or start a full sync.
     @Transactional(rollbackFor = Exception.class)
@@ -38,7 +40,12 @@ public class MesErpCodeSyncService {
         int count = switch (syncType) {
             case "PRODUCT" -> {
                 var result = productService.syncProductsByNumbers(List.of(code));
-                yield result.getCreatedCount() + result.getUpdatedCount() + result.getSkippedCount();
+                int productCount = result.getCreatedCount() + result.getUpdatedCount() + result.getSkippedCount();
+                if (productCount > 0) {
+                    // ERP 已存在但 MES 缺失的物料也需要补齐，才能用于路线产品绑定。
+                    itemSyncService.syncItemsByProductCodes(List.of(code));
+                }
+                yield productCount;
             }
             case "STOCK" -> stockService.syncByCode(code);
             case "INVENTORY_DETAIL" -> inventoryService.syncByCode(code);

@@ -86,6 +86,10 @@ public class AdminUserServiceImpl implements AdminUserService {
     @Resource
     private cn.iocoder.yudao.module.system.api.permission.ApprovalAuthorityApi approvalAuthority;
 
+    @Resource
+    @Lazy
+    private cn.iocoder.yudao.module.system.api.signature.UserSignatureAuthorizationApi signatureAuthorization;
+
     private AdminUserDO lockSignatureIdentity(Long userId) {
         AdminUserDO user = lockUserForSessionMutation(TenantContextHolder.getRequiredTenantId(), userId);
         if (user == null || Boolean.TRUE.equals(user.getDeleted())) throw exception(USER_NOT_EXISTS);
@@ -174,6 +178,7 @@ public class AdminUserServiceImpl implements AdminUserService {
 
         // 3. 记录操作日志上下文
         approvalAuthority.incrementLockedAuthorityRevision(authority.tenantId(), authority.revision());
+        signatureAuthorization.authorizeProvisionedUser(user.getId(), "新建用户自动授予电子签名授权");
         LogRecordContext.putVariable("user", user);
         return user.getId();
     }
@@ -1247,6 +1252,8 @@ public class AdminUserServiceImpl implements AdminUserService {
 
         UserDingTalkImportRespVO respVO = UserDingTalkImportRespVO.builder()
                 .createUsernames(new ArrayList<>())
+                .existingUsernames(new ArrayList<>())
+                .authorizedUsernames(new ArrayList<>())
                 .failureUsernames(new LinkedHashMap<>())
                 .createdDeptPaths(new ArrayList<>())
                 .enabledDeptPaths(new ArrayList<>())
@@ -1313,6 +1320,26 @@ public class AdminUserServiceImpl implements AdminUserService {
                 respVO.getFailureUsernames().put(resolveFailureKey(null, importUser, currentRowIndex), ex.getMessage());
                 continue;
             }
+            AdminUserDO existingUser = userMapper.selectByCanonicalUsernameIncludingDeleted(
+                    TenantContextHolder.getRequiredTenantId(), canonicalizeUsername(username));
+            if (existingUser != null) {
+                // Legacy imports have no persisted DingTalk employee ID. Match all stored identity
+                // fields before granting; a pinyin collision alone is never sufficient.
+                if (Boolean.TRUE.equals(existingUser.getDeleted())
+                        || !Objects.equals(existingUser.getNickname(), StrUtil.trim(importUser.getName()))
+                        || !Objects.equals(existingUser.getDeptId(), targetDept.getId())
+                        || !Objects.equals(StrUtil.trimToEmpty(existingUser.getEmail()),
+                                StrUtil.trimToEmpty(importUser.getEmail()))) {
+                    respVO.getFailureUsernames().put(username, "账号已存在，但姓名、部门或邮箱不匹配，无法自动授予电子签名授权");
+                    continue;
+                }
+                validateGenericAccountUsername(username);
+                signatureAuthorization.authorizeProvisionedUser(existingUser.getId(), "钉钉重复导入自动授予电子签名授权");
+                respVO.getExistingUsernames().add(existingUser.getUsername());
+                respVO.getAuthorizedUsernames().add(existingUser.getUsername());
+                createdUsersByName.computeIfAbsent(StrUtil.trim(importUser.getName()), key -> new ArrayList<>()).add(existingUser);
+                continue;
+            }
             try {
                 validateUserForCreateOrUpdate(null, username, null, importUser.getEmail(), targetDept.getId(), null);
             } catch (ServiceException ex) {
@@ -1333,8 +1360,13 @@ public class AdminUserServiceImpl implements AdminUserService {
                     .passwordUpdateTime(LocalDateTime.now())
                     .passwordCredentialStatus("RESET_REQUIRED")
                     .build();
-            userMapper.insert(user);
+            user.setTenantId(TenantContextHolder.getRequiredTenantId());
+            if (userMapper.insert(user) != 1 || user.getId() == null || user.getId() <= 0) {
+                throw new IllegalStateException("DINGTALK_USER_CREATE_ROW_COUNT");
+            }
+            signatureAuthorization.authorizeProvisionedUser(user.getId(), "钉钉导入新用户自动授予电子签名授权");
             respVO.getCreateUsernames().add(username);
+            respVO.getAuthorizedUsernames().add(username);
             createdUsersByName.computeIfAbsent(StrUtil.trim(importUser.getName()), key -> new ArrayList<>()).add(user);
         }
 

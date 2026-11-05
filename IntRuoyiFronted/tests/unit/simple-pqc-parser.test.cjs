@@ -156,6 +156,16 @@ test('inspection level is required independently of AQL', () => {
   assert.equal(inspectionLevelIssue(item), undefined)
 })
 
+test('common regulations validate without a project while product PQC still requires one', () => {
+  const d = makeDraft(parsed, 129)
+  d.ownerModule = 'MES_QA_COMMON'
+  d.processes[0].items[0].equipmentUnboundReason = '目测项目不需要设备'
+  d.finalInspectionNotApplicableReason = '经确认无需末检'
+  delete d.dccProjectCodeId
+  assert.equal(commonCtx.exports.validateCommonDraft(d).some((e) => /项目|产品/.test(e.message)), false)
+  assert.equal(validateDraft(d).some((e) => /请选择所属产品/.test(e.message)), true)
+})
+
 test('new PQC drafts retain the complete parsed failure rule without rewriting its meaning', () => {
   const source = JSON.parse(JSON.stringify(parsed))
   source.ruleSourceText = '如有不合格品，隔离该批次并按《不合格品控制程序》处理。'

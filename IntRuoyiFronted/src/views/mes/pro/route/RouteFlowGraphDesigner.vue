@@ -822,7 +822,7 @@
                       v-for="line in routeStartProductionLeaderProductionLines"
                       :key="line.productionLineId"
                       :label="formatRouteStartProductionLeaderProductionLineLabel(line)"
-                      :value="line.productionLineId"
+                      :value="String(line.productionLineId)"
                     />
                   </el-select>
                   <el-select
@@ -900,81 +900,12 @@
               <span>字段名称</span>
               <strong>放行责任人</strong>
               <span>字段来源</span>
-              <strong>最终放行规则</strong>
+              <strong>默认权限角色</strong>
             </div>
-            <div
-              v-loading="releaseApprovalRuleLoading"
+            <RouteReleaseOwners
               class="route-flow-graph-designer__selected-detail-editor"
               :data-flow-field-editor="selectedBoundaryDetailFieldKey"
-              data-flow-panel="release-owner-detail"
-            >
-              <el-alert
-                v-if="releaseApprovalRuleLoadError"
-                :title="releaseApprovalRuleLoadError"
-                :closable="false"
-                show-icon
-                type="error"
-              />
-              <el-radio-group
-                v-model="releaseApprovalRuleForm.candidateSourceType"
-                data-flow-release-owner-source-type
-                :disabled="releaseApprovalRuleControlsDisabled"
-                size="small"
-                @change="handleReleaseApprovalRuleSourceTypeChange"
-              >
-                <el-radio-button label="USER">具体人员</el-radio-button>
-                <el-radio-button label="ROLE_GROUP">权限角色</el-radio-button>
-              </el-radio-group>
-              <UserSelectV2
-                v-if="releaseApprovalRuleForm.candidateSourceType === 'USER'"
-                v-model="releaseApprovalRuleForm.candidateSourceId"
-                :candidate-loading="releaseApprovalRuleUserOptionsLoading"
-                :selected-users="releaseApprovalRuleCandidateOptions.map(option => ({ id: option.value, nickname: option.label }))"
-                :user-options="releaseApprovalRuleUserOptions"
-                :load-user-options="loadReleaseApprovalRulePickerOptions"
-                :candidate-error="releaseApprovalRuleUserOptionsError"
-                :disabled="releaseApprovalRuleControlsDisabled"
-                data-flow-release-owner-candidate
-                placeholder="请选择人员"
-                @visible-change="(visible) => visible && (releaseApprovalRuleUserOptionsError = '')"
-              />
-              <el-select
-                v-else
-                v-model="releaseApprovalRuleForm.candidateSourceId"
-                data-flow-release-owner-candidate
-                clearable
-                filterable
-                :disabled="releaseApprovalRuleControlsDisabled"
-                :loading="releaseApprovalRuleCandidateOptionsLoading"
-                placeholder="请选择放行责任人"
-                size="small"
-                :teleported="false"
-                @visible-change="(visible) => visible && loadReleaseApprovalRuleCandidateOptions()"
-              >
-                <el-option
-                  v-for="option in releaseApprovalRuleCandidateOptions"
-                  :key="option.value"
-                  :label="option.label"
-                  :value="option.value"
-                />
-              </el-select>
-              <span
-                v-if="releaseApprovalRuleForm.candidateSourceType === 'ROLE_GROUP'"
-                class="route-flow-graph-designer__selected-detail-note"
-              >
-                拥有该权限角色的人员均可放行
-              </span>
-              <el-button
-                data-flow-action="save-release-owner"
-                :disabled="releaseApprovalRuleControlsDisabled || !releaseApprovalRuleForm.candidateSourceId"
-                :loading="releaseApprovalRuleSaving"
-                size="small"
-                type="primary"
-                @click="handleReleaseApprovalRuleSave"
-              >
-                保存放行责任人
-              </el-button>
-            </div>
+            />
           </template>
           <template v-else-if="selectedProcessDetailField">
             <div class="route-flow-graph-designer__selected-field-grid">
@@ -2098,9 +2029,9 @@
       />
       <template v-if="fullFlowReadinessResult">
         <el-alert
-          :title="fullFlowReadinessResult.overallStatus === 'BLOCKED' ? '存在阻断项，当前不具备完整流程条件' : '已检测的配置项通过，实际执行条件仍待验证'"
-          :description="`检测版本：${fullFlowReadinessResult.versionNo || '未发布'}。检测仅读取已保存的正式配置，不执行重置、报工或放行；待验证项完成前不能认定整条链路通过。`"
-          :type="fullFlowReadinessResult.overallStatus === 'BLOCKED' ? 'error' : 'warning'"
+          :title="fullFlowReadinessResult.overallStatus === 'BLOCKED' ? '存在阻断项，请完善检测范围内的配置' : '当前检测范围内的配置项全部通过'"
+          :description="`检测版本：${fullFlowReadinessResult.versionNo || '未发布'}。检测仅读取已保存的正式配置。`"
+          :type="fullFlowReadinessResult.overallStatus === 'BLOCKED' ? 'error' : 'success'"
           :closable="false"
           show-icon
           class="mb-16px"
@@ -2110,8 +2041,8 @@
           <el-table-column prop="name" label="检测项" min-width="180" />
           <el-table-column label="结果" width="100">
             <template #default="{ row }">
-              <el-tag :type="row.status === 'PASS' ? 'success' : row.status === 'BLOCKED' ? 'danger' : 'warning'">
-                {{ row.status === 'PASS' ? '通过' : row.status === 'BLOCKED' ? '阻断' : '待验证' }}
+              <el-tag :type="row.status === 'PASS' ? 'success' : 'danger'">
+                {{ row.status === 'PASS' ? '通过' : '阻断' }}
               </el-tag>
             </template>
           </el-table-column>
@@ -2221,12 +2152,7 @@ import {
   getTemplatePool,
   type FormTemplateListItemVO
 } from '@/api/form-center/template'
-import {
-  getEdhrRouteReleaseApprovalRule,
-  saveEdhrRouteReleaseApprovalRule,
-  type EdhrWorkTaskAssignmentRuleRespVO,
-  type EdhrWorkTaskReleaseApprovalCandidateSourceType
-} from '@/api/mes/pro/edhr/workTask'
+import RouteReleaseOwners from './RouteReleaseOwners.vue'
 import type { EdhrProcessFormCandidateSourceType } from '@/api/mes/pro/edhr/processFormPermissionRule'
 import { getSimpleUserList, type UserVO } from '@/api/system/user'
 import { getSimpleRoleList, type RoleVO } from '@/api/system/role'
@@ -2297,21 +2223,12 @@ type BatchRecordAttachmentOwnerDraft = ProRouteBatchRecordAttachmentOwnerVO & {
   candidateSourceIds: number[]
   candidateSourceNames: string[]
 }
-type RouteStartProductionLeaderDraft = ProRouteStartProductionLeaderVO & {
+type RouteStartProductionLeaderDraft = Omit<ProRouteStartProductionLeaderVO, 'productionLineId'> & {
+  productionLineId: string
   draftKey: string
   candidateSourceType: EdhrProcessFormCandidateSourceType
   candidateSourceIds: number[]
   candidateSourceNames: string[]
-}
-type ReleaseApprovalRuleForm = {
-  candidateSourceType: EdhrWorkTaskReleaseApprovalCandidateSourceType
-  candidateSourceId?: number
-  enabled: boolean
-  remark: string
-}
-type ReleaseApprovalRuleCandidateOption = {
-  label: string
-  value: number
 }
 type RecordBindingCandidateOption = {
   label: string
@@ -2478,8 +2395,8 @@ type SelectedProcessAttributes = {
   scheduleConfigVersion?: string | null
   capacityMode?: ProRouteScheduleConfigVO['capacityMode'] | null
   productionQuantityFactor?: number
-  inputMaterialIds?: number[]
-  outputMaterialIds?: number[]
+  inputMaterialIds?: Array<number | string>
+  outputMaterialIds?: Array<number | string>
   hourlyCapacity?: number
   shiftHours?: number
   infiniteDurationQuantityFactor?: number
@@ -2757,16 +2674,6 @@ const selectedProcessDetailFieldToAdd = ref<ProcessDetailFieldKey>()
 const selectedProcessDetailFieldKeys = ref<ProcessDetailFieldKey[]>([])
 const showAllReadOnlyProcessFields = ref(false)
 const selectedProcessDetailFieldKey = ref<ProcessDetailFieldKey>()
-const releaseApprovalRuleLoading = ref(false)
-const releaseApprovalRuleSaving = ref(false)
-const releaseApprovalRuleLoaded = ref(false)
-const releaseApprovalRuleLoadError = ref('')
-const releaseApprovalRuleUserOptionsLoading = ref(false)
-const releaseApprovalRuleUserOptionsError = ref('')
-const releaseApprovalRuleUserOptions = ref<UserVO[]>([])
-const releaseApprovalRuleRoleOptionsLoading = ref(false)
-const releaseApprovalRuleRoleOptions = ref<RoleVO[]>([])
-const currentReleaseApprovalRule = ref<EdhrWorkTaskAssignmentRuleRespVO | null>(null)
 const batchRecordAttachmentOwnersLoading = ref(false)
 const batchRecordAttachmentOwnersSaving = ref(false)
 const batchRecordAttachmentOwnersInitializing = ref(false)
@@ -2815,12 +2722,6 @@ const routeProcessDeviceParameterForm = reactive<{
   decimalScale: 3
 })
 let routeStartProductionLeaderDraftSequence = 0
-const releaseApprovalRuleForm = reactive<ReleaseApprovalRuleForm>({
-  candidateSourceType: 'USER',
-  candidateSourceId: undefined,
-  enabled: true,
-  remark: ''
-})
 let selectedProcessDetailRequestId = 0
 let selectedProcessRouteConfigCachePromise:
   | { key: string; promise: Promise<SelectedProcessRouteConfigCache> }
@@ -3647,14 +3548,17 @@ const buildBatchRecordReportOptionLabel = (report: BatchRecordReportSelectOption
   return batchRecordName ? `${label}（${batchRecordName}）` : label
 }
 
+const normalizeRouteProcessMaterialId = (value: number | string) => {
+  if (typeof value === 'number' && !Number.isSafeInteger(value)) {
+    throw new Error('物料编号超出安全整数范围，请重新加载后选择物料')
+  }
+  const id = String(value).trim()
+  if (!/^[1-9]\d*$/.test(id)) throw new Error('物料编号必须为正整数')
+  return id
+}
+
 const normalizeRouteProcessMaterialIds = (values?: Array<number | string> | null) =>
-  Array.from(
-    new Set(
-      (values || [])
-        .map((value) => Number(value))
-        .filter((value) => Number.isFinite(value) && value > 0)
-    )
-  )
+  Array.from(new Set((values || []).map(normalizeRouteProcessMaterialId)))
 
 const formatRouteProcessMaterialOption = (item: MdItemVO) =>
   [item.code, item.name, item.specification].filter(Boolean).join(' / ')
@@ -3954,17 +3858,17 @@ const getSelectedRouteProcessMaterialIds = (kind: RouteProcessMaterialKind) =>
 
 const getAllSelectedRouteProcessMaterialIds = () =>
   new Set([
-    ...(selectedProcessAttributes.inputMaterialIds || []),
-    ...(selectedProcessAttributes.outputMaterialIds || [])
+    ...normalizeRouteProcessMaterialIds(selectedProcessAttributes.inputMaterialIds),
+    ...normalizeRouteProcessMaterialIds(selectedProcessAttributes.outputMaterialIds)
   ])
 
 const mergeRouteProcessMaterialOptions = (items: MdItemVO[]) => {
   const optionMap = new Map(
-    routeProcessMaterialOptions.value.map((item) => [Number(item.id), item])
+    routeProcessMaterialOptions.value.map((item) => [normalizeRouteProcessMaterialId(item.id), item])
   )
   items.forEach((item) => {
-    const materialId = Number(item?.id)
-    if (Number.isFinite(materialId) && materialId > 0) {
+    const materialId = normalizeRouteProcessMaterialId(item.id)
+    if (materialId) {
       optionMap.set(materialId, item)
     }
   })
@@ -3975,12 +3879,12 @@ const replaceRouteProcessMaterialOptions = (items: MdItemVO[]) => {
   const selectedIds = getAllSelectedRouteProcessMaterialIds()
   const optionMap = new Map(
     routeProcessMaterialOptions.value
-      .filter((item) => selectedIds.has(Number(item.id)))
-      .map((item) => [Number(item.id), item])
+      .filter((item) => selectedIds.has(normalizeRouteProcessMaterialId(item.id)))
+      .map((item) => [normalizeRouteProcessMaterialId(item.id), item])
   )
   items.forEach((item) => {
-    const materialId = Number(item?.id)
-    if (Number.isFinite(materialId) && materialId > 0) {
+    const materialId = normalizeRouteProcessMaterialId(item.id)
+    if (materialId) {
       optionMap.set(materialId, item)
     }
   })
@@ -4030,13 +3934,13 @@ const loadSelectedRouteProcessMaterialOptions = async (
 ) => {
   const selectedIds = normalizeRouteProcessMaterialIds(materialIds)
   const optionMap = new Map(
-    routeProcessMaterialOptions.value.map((item) => [Number(item.id), item])
+    routeProcessMaterialOptions.value.map((item) => [normalizeRouteProcessMaterialId(item.id), item])
   )
   const missingIds = selectedIds.filter((materialId) => !optionMap.has(materialId))
   if (missingIds.length > 0) {
     const items = await Promise.all(missingIds.map((materialId) => MdItemApi.getItem(materialId)))
     mergeRouteProcessMaterialOptions(items)
-    items.forEach((item) => optionMap.set(Number(item.id), item))
+    items.forEach((item) => optionMap.set(normalizeRouteProcessMaterialId(item.id), item))
   }
   selectedRouteProcessMaterialOptions.value = selectedIds
     .map((materialId) => optionMap.get(materialId))
@@ -4057,10 +3961,10 @@ const filterRouteProcessMaterialOptions = (
 }
 
 const buildRouteProcessMaterialOptions = (kind: RouteProcessMaterialKind): MdItemVO[] => {
-  const selectedIds = new Set(getSelectedRouteProcessMaterialIds(kind))
+  const selectedIds = new Set(normalizeRouteProcessMaterialIds(getSelectedRouteProcessMaterialIds(kind)))
   return filterRouteProcessMaterialOptions(
     kind,
-    routeProcessMaterialOptions.value.filter((item) => !selectedIds.has(Number(item.id)))
+    routeProcessMaterialOptions.value.filter((item) => !selectedIds.has(normalizeRouteProcessMaterialId(item.id)))
   )
 }
 
@@ -4083,13 +3987,13 @@ const handleRouteProcessMaterialSuggestionSelect = (
   kind: RouteProcessMaterialKind,
   item: RouteProcessMaterialSuggestion
 ) => {
-  const materialId = Number(item?.id)
-  if (recordBindingEditorDisabled.value || !Number.isFinite(materialId) || materialId <= 0) return
-  const materialIds = getSelectedRouteProcessMaterialIds(kind)
+  const materialId = normalizeRouteProcessMaterialId(item.id)
+  if (recordBindingEditorDisabled.value) return
+  const materialIds = normalizeRouteProcessMaterialIds(getSelectedRouteProcessMaterialIds(kind))
   if (!materialIds.includes(materialId)) {
     selectedRouteProcessMaterialOptions.value = [
       ...selectedRouteProcessMaterialOptions.value.filter(
-        (selectedItem) => Number(selectedItem.id) !== materialId
+        (selectedItem) => normalizeRouteProcessMaterialId(selectedItem.id) !== materialId
       ),
       item
     ]
@@ -4101,11 +4005,11 @@ const handleRouteProcessMaterialSuggestionSelect = (
 const getSelectedRouteProcessMaterialOptions = (kind: RouteProcessMaterialKind): MdItemVO[] => {
   const optionMap = new Map(
     [...selectedRouteProcessMaterialOptions.value, ...routeProcessMaterialOptions.value].map((item) => [
-      Number(item.id),
+      normalizeRouteProcessMaterialId(item.id),
       item
     ])
   )
-  return getSelectedRouteProcessMaterialIds(kind)
+  return normalizeRouteProcessMaterialIds(getSelectedRouteProcessMaterialIds(kind))
     .map((materialId) => optionMap.get(materialId))
     .filter((item): item is MdItemVO => Boolean(item))
 }
@@ -4117,11 +4021,11 @@ const buildRouteProcessMaterialSummaryValue = (kind: RouteProcessMaterialKind) =
     : '未配置'
 }
 
-const removeRouteProcessMaterial = (kind: RouteProcessMaterialKind, materialId: number) => {
+const removeRouteProcessMaterial = (kind: RouteProcessMaterialKind, materialId: number | string) => {
   if (recordBindingEditorDisabled.value) return
   handleRouteProcessMaterialIdsChange(
     kind,
-    getSelectedRouteProcessMaterialIds(kind).filter((id) => id !== materialId)
+    getSelectedRouteProcessMaterialIds(kind).filter((id) => String(id) !== String(materialId))
   )
 }
 const normalizeSelectedBatchRecordReportIds = (
@@ -9648,32 +9552,6 @@ const formatRoleOptionLabel = (role: RoleVO) => {
   return role.name || role.code || String(role.id)
 }
 
-const normalizeReleaseApprovalRuleCandidateSourceType = (
-  candidateSourceType?: string
-): EdhrWorkTaskReleaseApprovalCandidateSourceType => {
-  if (!candidateSourceType || candidateSourceType === 'USER') return 'USER'
-  if (candidateSourceType === 'ROLE_GROUP') return 'ROLE_GROUP'
-  throw new Error(`放行责任人候选类型不支持：${candidateSourceType}`)
-}
-
-const resolveReleaseApprovalRuleCandidateId = (
-  rule?: EdhrWorkTaskAssignmentRuleRespVO | null
-) => {
-  if (!rule) return undefined
-  if (normalizeReleaseApprovalRuleCandidateSourceType(rule.candidateSourceType) === 'ROLE_GROUP') {
-    return rule.candidateSourceId
-  }
-  return rule.candidateSourceId || rule.assigneeUserId
-}
-
-const resetReleaseApprovalRuleForm = () => {
-  currentReleaseApprovalRule.value = null
-  releaseApprovalRuleForm.candidateSourceType = 'USER'
-  releaseApprovalRuleForm.candidateSourceId = undefined
-  releaseApprovalRuleForm.enabled = true
-  releaseApprovalRuleForm.remark = ''
-}
-
 const resetBatchRecordAttachmentOwners = () => {
   batchRecordAttachmentOwnersLoaded.value = false
   batchRecordAttachmentOwnersLoadError.value = ''
@@ -9686,88 +9564,6 @@ const resetRouteStartProductionLeaders = () => {
   routeStartProductionLeaders.value = []
   routeStartProductionLeaderProductionLines.value = []
   routeStartProductionLeadersBaseline.value = ''
-}
-
-const fillReleaseApprovalRuleForm = (rule?: EdhrWorkTaskAssignmentRuleRespVO | null) => {
-  currentReleaseApprovalRule.value = rule || null
-  releaseApprovalRuleForm.candidateSourceType = normalizeReleaseApprovalRuleCandidateSourceType(
-    rule?.candidateSourceType
-  )
-  releaseApprovalRuleForm.candidateSourceId = resolveReleaseApprovalRuleCandidateId(rule)
-  releaseApprovalRuleForm.enabled = typeof rule?.enabled === 'boolean' ? rule.enabled : true
-  releaseApprovalRuleForm.remark = rule?.remark || ''
-}
-
-const loadReleaseApprovalRuleUserOptions = async () => {
-  if (releaseApprovalRuleUserOptions.value.length > 0) return
-  releaseApprovalRuleUserOptionsError.value = ''
-  releaseApprovalRuleUserOptionsLoading.value = true
-  try {
-    releaseApprovalRuleUserOptions.value = await getSimpleUserList()
-  } catch (error) {
-    releaseApprovalRuleUserOptions.value = []
-    const errorMessage = resolveErrorMessage(error, '放行责任人用户列表加载失败。')
-    releaseApprovalRuleUserOptionsError.value = errorMessage
-    releaseApprovalRuleLoadError.value = errorMessage
-    message.error(errorMessage)
-  } finally {
-    releaseApprovalRuleUserOptionsLoading.value = false
-  }
-}
-
-const loadReleaseApprovalRulePickerOptions = async () => {
-  await loadReleaseApprovalRuleUserOptions()
-  if (releaseApprovalRuleUserOptionsError.value) {
-    throw new Error(releaseApprovalRuleUserOptionsError.value)
-  }
-  return releaseApprovalRuleUserOptions.value
-}
-
-const loadReleaseApprovalRuleRoleOptions = async () => {
-  if (releaseApprovalRuleRoleOptions.value.length > 0) return
-  releaseApprovalRuleRoleOptionsLoading.value = true
-  try {
-    releaseApprovalRuleRoleOptions.value = await getSimpleRoleList()
-  } catch (error) {
-    const errorMessage = resolveErrorMessage(error, '放行责任人角色列表加载失败。')
-    releaseApprovalRuleLoadError.value = errorMessage
-    message.error(errorMessage)
-  } finally {
-    releaseApprovalRuleRoleOptionsLoading.value = false
-  }
-}
-
-const loadReleaseApprovalRuleCandidateOptions = async () => {
-  if (releaseApprovalRuleForm.candidateSourceType === 'ROLE_GROUP') {
-    await loadReleaseApprovalRuleRoleOptions()
-    return
-  }
-  await loadReleaseApprovalRuleUserOptions()
-}
-
-const loadReleaseApprovalRuleDetail = async () => {
-  if (!props.routeId) {
-    releaseApprovalRuleLoadError.value = '请先保存工艺路线，再配置放行责任人。'
-    return
-  }
-  releaseApprovalRuleLoading.value = true
-  releaseApprovalRuleLoadError.value = ''
-  try {
-    const [rule] = await Promise.all([
-      getEdhrRouteReleaseApprovalRule(props.routeId),
-      loadReleaseApprovalRuleUserOptions(),
-      loadReleaseApprovalRuleRoleOptions()
-    ])
-    fillReleaseApprovalRuleForm(rule || null)
-    releaseApprovalRuleLoaded.value = true
-  } catch (error) {
-    resetReleaseApprovalRuleForm()
-    const errorMessage = resolveErrorMessage(error, '放行责任人规则加载失败。')
-    releaseApprovalRuleLoadError.value = errorMessage
-    message.error(errorMessage)
-  } finally {
-    releaseApprovalRuleLoading.value = false
-  }
 }
 
 const normalizeBatchRecordAttachmentOwnerCandidateSourceType = (
@@ -9966,8 +9762,8 @@ const normalizeRouteStartProductionLeaderCandidateSourceType = (
 const createRouteStartProductionLeaderDraft = (
   leader?: Partial<ProRouteStartProductionLeaderVO>
 ): RouteStartProductionLeaderDraft => ({
-  productionLineId: Number(
-    leader?.productionLineId || routeStartProductionLeaderProductionLines.value[0]?.productionLineId || 0
+  productionLineId: String(
+    leader?.productionLineId ?? routeStartProductionLeaderProductionLines.value[0]?.productionLineId ?? ''
   ),
   productionLineCode: leader?.productionLineCode || null,
   productionLineName: leader?.productionLineName || null,
@@ -9983,7 +9779,7 @@ const createRouteStartProductionLeaderDraft = (
 
 const normalizeRouteStartProductionLeaders = (leaders: ProRouteStartProductionLeaderVO[]) =>
   leaders.map(createRouteStartProductionLeaderDraft).sort((first, second) => {
-    const lineSort = Number(first.productionLineId || 0) - Number(second.productionLineId || 0)
+    const lineSort = first.productionLineId.localeCompare(second.productionLineId, 'en', { numeric: true })
     if (lineSort !== 0) return lineSort
     return Number(first.sort || 0) - Number(second.sort || 0)
   })
@@ -10024,7 +9820,7 @@ const resolveRouteStartProductionLeaderProductionLine = (
   leader: Pick<RouteStartProductionLeaderDraft, 'productionLineId'>
 ) =>
   routeStartProductionLeaderProductionLines.value.find(
-    (line) => Number(line.productionLineId) === Number(leader.productionLineId)
+    (line) => String(line.productionLineId) === leader.productionLineId
   )
 
 const formatRouteStartProductionLeaderProcessSummary = (leader: RouteStartProductionLeaderDraft) => {
@@ -10135,11 +9931,11 @@ const handleRouteStartProductionLeaderProductionLineChange = (
   productionLineId: number | string
 ) => {
   if (routeStartProductionLeaderControlsDisabled.value) return
-  const normalizedProductionLineId = Number(productionLineId)
+  const normalizedProductionLineId = String(productionLineId)
   const productionLine = routeStartProductionLeaderProductionLines.value.find(
-    (item) => Number(item.productionLineId) === normalizedProductionLineId
+    (item) => String(item.productionLineId) === normalizedProductionLineId
   )
-  leader.productionLineId = Number.isFinite(normalizedProductionLineId) ? normalizedProductionLineId : 0
+  leader.productionLineId = normalizedProductionLineId
   leader.productionLineCode = productionLine?.productionLineCode || null
   leader.productionLineName = productionLine?.productionLineName || null
 }
@@ -10236,9 +10032,7 @@ const handleRouteStartProductionLeaderSave = async () => {
 
 const handleSelectBoundaryDetailField = (fieldKey: BoundaryDetailFieldKey) => {
   selectedBoundaryDetailFieldKey.value = fieldKey
-  if (fieldKey === 'releaseOwner' && !releaseApprovalRuleLoaded.value) {
-    void loadReleaseApprovalRuleDetail()
-  }
+
   if (fieldKey === 'batchRecordAttachment' && !batchRecordAttachmentOwnersLoaded.value) {
     void loadBatchRecordAttachmentOwners()
   }
@@ -10246,14 +10040,6 @@ const handleSelectBoundaryDetailField = (fieldKey: BoundaryDetailFieldKey) => {
     void loadRouteStartProductionLeaders()
   }
 }
-
-const releaseApprovalRuleControlsDisabled = computed(
-  () =>
-    routeFlowWriteControlsDisabled.value ||
-    releaseApprovalRuleLoading.value ||
-    releaseApprovalRuleSaving.value ||
-    !props.routeId
-)
 
 const batchRecordAttachmentOwnerControlsDisabled = computed(
   () =>
@@ -10273,63 +10059,6 @@ const routeStartProductionLeaderControlsDisabled = computed(
     !props.routeId ||
     !isDraftCandidateEdit.value
 )
-
-const releaseApprovalRuleCandidateOptionsLoading = computed(() =>
-  releaseApprovalRuleForm.candidateSourceType === 'ROLE_GROUP'
-    ? releaseApprovalRuleRoleOptionsLoading.value
-    : releaseApprovalRuleUserOptionsLoading.value
-)
-
-const releaseApprovalRuleCandidateOptions = computed<ReleaseApprovalRuleCandidateOption[]>(() =>
-  releaseApprovalRuleForm.candidateSourceType === 'ROLE_GROUP'
-    ? releaseApprovalRuleRoleOptions.value.map((role) => ({
-        label: formatRoleOptionLabel(role),
-        value: role.id
-      }))
-    : releaseApprovalRuleUserOptions.value.map((user) => ({
-        label: formatUserOptionLabel(user),
-        value: user.id
-      }))
-)
-
-const handleReleaseApprovalRuleSourceTypeChange = (candidateSourceType: string | number | boolean) => {
-  releaseApprovalRuleForm.candidateSourceType = normalizeReleaseApprovalRuleCandidateSourceType(
-    String(candidateSourceType)
-  )
-  releaseApprovalRuleForm.candidateSourceId = undefined
-  void loadReleaseApprovalRuleCandidateOptions()
-}
-
-const handleReleaseApprovalRuleSave = async () => {
-  if (!props.routeId) {
-    releaseApprovalRuleLoadError.value = '请先保存工艺路线，再配置放行责任人。'
-    return
-  }
-  if (!releaseApprovalRuleForm.candidateSourceId) {
-    releaseApprovalRuleLoadError.value = '请选择放行责任人。'
-    return
-  }
-  releaseApprovalRuleSaving.value = true
-  releaseApprovalRuleLoadError.value = ''
-  try {
-    const savedRule = await saveEdhrRouteReleaseApprovalRule({
-      routeId: props.routeId,
-      candidateSourceType: releaseApprovalRuleForm.candidateSourceType,
-      candidateSourceId: releaseApprovalRuleForm.candidateSourceId,
-      enabled: releaseApprovalRuleForm.enabled,
-      remark: releaseApprovalRuleForm.remark?.trim() || '流转关系图工序开始放行责任人'
-    })
-    fillReleaseApprovalRuleForm(savedRule)
-    releaseApprovalRuleLoaded.value = true
-    message.success('放行责任人已保存')
-  } catch (error) {
-    const errorMessage = resolveErrorMessage(error, '放行责任人保存失败。')
-    releaseApprovalRuleLoadError.value = errorMessage
-    message.error(errorMessage)
-  } finally {
-    releaseApprovalRuleSaving.value = false
-  }
-}
 
 const formatProcessOption = (process: ProProcessVO) => {
   return [process.code, process.name].filter(Boolean).join(' / ') || String(process.id)

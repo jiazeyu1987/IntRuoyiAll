@@ -67,7 +67,6 @@ assert.match(
 for (const [routeName, title] of [
   ['ApprovalCenterBpmForm', '流程表单'],
   ['ApprovalCenterBpmCategory', '流程分类'],
-  ['ApprovalCenterBpmBusinessApprovalPolicy', '业务审批策略'],
   ['ApprovalCenterBpmUserGroup', '用户分组'],
   ['ApprovalCenterBpmProcessExpression', '流程表达式'],
   ['ApprovalCenterFormCenter', '表单中心'],
@@ -82,6 +81,10 @@ for (const [routeName, title] of [
     `${title} must not display in the approval center side menu`
   )
 }
+
+const policyEntry = extractRouteEntry(approvalCenterBlock, 'ApprovalCenterBpmBusinessApprovalPolicy')
+assert.match(policyEntry, /hidden:\s*false/, '已授权业务审批策略必须显示')
+assert.match(permissionStore, /visibleWorkflowManagementRoute/, '业务审批策略显示时必须保留流程管理目录')
 
 for (const requiredDynamicGuard of [
   'normalizeApprovalCenterWorkflowManagementMenu',

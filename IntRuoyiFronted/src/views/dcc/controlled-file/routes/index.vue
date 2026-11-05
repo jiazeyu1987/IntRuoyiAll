@@ -30,10 +30,6 @@
           <Icon icon="ep:plus" class="mr-5px" />
           新增路线
         </el-button>
-        <el-button @click="handleQuery">
-          <Icon icon="ep:search" class="mr-5px" />
-          查询路线
-        </el-button>
       </template>
       <template #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
         <el-table

@@ -96,7 +96,7 @@ public class IntGyRouteMarkdownImportServiceImpl implements IntGyRouteMarkdownIm
             MesProProcessDO process = new MesProProcessDO();
             process.setName(entry.getValue());
             process.setStatus(processStatus);
-            processCreationService.create(process);
+            processCreationService.create(process, dccProjectCodeId);
             processIdByCode.put(entry.getKey(), process.getId());
             processCreatedCount++;
         }

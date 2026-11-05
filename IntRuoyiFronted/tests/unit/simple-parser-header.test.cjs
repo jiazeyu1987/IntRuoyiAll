@@ -89,6 +89,15 @@ test('all parser headers share button order, gating, project lock and action eve
     await vue.nextTick()
     assert.deepEqual(disabled(), [false, false, true, false, true])
     assert.equal(all('select')[0].props.disabled, false)
+    props.published = false
+    props.projectId = undefined
+    props.requiresProject = false
+    await vue.nextTick()
+    assert.equal(all('select').length, 0)
+    assert.deepEqual(disabled(), [false, false, false, false, false])
+    props.busy = true
+    await vue.nextTick()
+    assert.deepEqual(disabled(), [true, true, true, true, true])
   } finally { app.unmount() }
 })
 

@@ -55,7 +55,7 @@ public class MesProRouteController {
     @Resource private cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteProjectGuard projectGuard;
 
     @GetMapping("/dcc-project-options")
-    @PreAuthorize("@ss.hasAnyPermissions('mes:pro-route:create', 'mes:pro-route:update', 'form:parser:production-batch-record:publish', 'form:parser:query', 'form:parser:production-batch-record', 'mes:pro-batch-record-template:import')")
+    @PreAuthorize("@ss.hasAnyPermissions('mes:pro-process:create', 'mes:auto-code-rule:query', 'mes:auto-code-rule:create', 'mes:auto-code-rule:update', 'mes:pro-route:create', 'mes:pro-route:update', 'form:parser:production-batch-record:publish', 'form:parser:query', 'form:parser:production-batch-record', 'mes:pro-batch-record-template:import')")
     public CommonResult<List<java.util.Map<String, Object>>> projectOptions(
             @RequestParam(value = "keyword", required = false) String keyword) {
         return success(projectGuard.options(keyword));

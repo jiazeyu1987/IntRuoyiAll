@@ -28,10 +28,11 @@ test('read-only detection carries the exact viewed version and rejects unsaved c
   assert.match(request, /params: \{ routeId, routeVersionId \}/)
 })
 
-test('report distinguishes blockers and unverified runtime facts and compiles as Vue', () => {
-  assert.match(source, /待验证项完成前不能认定整条链路通过/)
+test('report shows the selected configuration outcome and compiles as Vue', () => {
+  assert.match(source, /当前检测范围内的配置项全部通过/)
+  assert.doesNotMatch(source, /待验证项完成前不能认定整条链路通过/)
   assert.match(source, /fullFlowReadinessError/)
-  assert.match(source, /row\.status === 'PASS' \? '通过' : row\.status === 'BLOCKED' \? '阻断' : '待验证'/)
+  assert.match(source, /row\.status === 'PASS' \? '通过' : '阻断'/)
   const { descriptor, errors } = parse(source, { filename })
   assert.deepEqual(errors, [])
   const result = compileTemplate({ source: descriptor.template.content, filename, id: 'readiness-test', compilerOptions: { expressionPlugins: ['typescript'] } })

@@ -56,8 +56,14 @@
               </el-button>
               <template #dropdown>
                 <el-dropdown-menu>
-                  <el-dropdown-item command="exportUsers" v-if="checkPermi(['system:user:export'])" :disabled="exportLoading">导出用户</el-dropdown-item>
-                  <el-dropdown-item command="exportGeneric" v-if="checkPermi(['system:user:export'])" :disabled="exportLoading">导出不合规清单</el-dropdown-item>
+                  <el-dropdown-item command="exportUsers" v-if="checkPermi(['system:user:export'])" :disabled="exportLoading">
+                    <Icon icon="ep:download" />
+                    <span class="ml-5px">导出用户</span>
+                  </el-dropdown-item>
+                  <el-dropdown-item command="exportGeneric" v-if="checkPermi(['system:user:export'])" :disabled="exportLoading">
+                    <Icon icon="ep:download" />
+                    <span class="ml-5px">导出不合规清单</span>
+                  </el-dropdown-item>
                   <el-dropdown-item command="create" v-if="checkPermi(['system:user:create'])">
                     <Icon icon="ep:plus" />
                     <span class="ml-5px">新增</span>
@@ -65,6 +71,10 @@
                   <el-dropdown-item command="import" v-if="checkPermi(['system:user:import'])">
                     <Icon icon="ep:upload" />
                     <span class="ml-5px">导入</span>
+                  </el-dropdown-item>
+                  <el-dropdown-item command="teamRoster" v-if="checkPermi(['system:user:import']) && checkPermi(['system:user:create']) && checkPermi(['system:permission:assign-user-role'])">
+                    <Icon icon="ep:upload" />
+                    <span class="ml-5px">从车间名单导入生产组长</span>
                   </el-dropdown-item>
                   <el-dropdown-item command="dingTalkImport" v-if="checkPermi(['system:user:import'])">
                     <Icon icon="ep:office-building" />
@@ -313,6 +323,7 @@
   <UserForm ref="formRef" @success="getList" />
   <!-- 用户导入对话框 -->
   <UserImportForm ref="importFormRef" @success="refreshAfterLifecycleChange" />
+  <TeamRosterImportDialog ref="teamRosterImportRef" @success="refreshAfterLifecycleChange" />
   <!-- 钉钉导入对话框 -->
   <UserDingTalkImportForm ref="dingTalkImportFormRef" @success="refreshAfterLifecycleChange" />
   <!-- 分配角色 -->
@@ -346,6 +357,7 @@ import * as UserApi from '@/api/system/user'
 import UserForm from './UserForm.vue'
 import SupervisorHandoverDialog from './SupervisorHandoverDialog.vue'
 import UserImportForm from './UserImportForm.vue'
+import TeamRosterImportDialog from '@/components/TeamRosterImportDialog.vue'
 import UserDingTalkImportForm from './UserDingTalkImportForm.vue'
 import UserAssignRoleForm from './UserAssignRoleForm.vue'
 import UserLifecycleDeactivateForm from './UserLifecycleDeactivateForm.vue'
@@ -705,6 +717,7 @@ const handleUserExport = async (generic: boolean) => {
   }
 }
 
+const teamRosterImportRef = ref<InstanceType<typeof TeamRosterImportDialog>>()
 const handleAdvancedCommand = async (command: string) => {
   switch (command) {
     case 'exportUsers':
@@ -718,6 +731,9 @@ const handleAdvancedCommand = async (command: string) => {
       break
     case 'import':
       handleImport()
+      break
+    case 'teamRoster':
+      teamRosterImportRef.value?.open('leader')
       break
     case 'dingTalkImport':
       handleDingTalkImport()

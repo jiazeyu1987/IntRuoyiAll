@@ -60,6 +60,18 @@
           <el-form-item label="工艺流程名称"
             ><el-input v-model="routeName" aria-label="工艺流程名称" maxlength="128"
           /></el-form-item>
+          <el-form-item label="工作站所属车间" required>
+            <div class="w-full">
+              <MdWorkshopSelect
+                v-model="workshopId"
+                aria-label="工作站所属车间"
+                :disabled="busy || !!published"
+              />
+              <div class="text-12px text-gray-500 mt-6px">
+                每道工序分别创建工作站，所选设备同时绑定到工作站。
+              </div>
+            </div>
+          </el-form-item>
         </el-form>
         <p v-if="filename" class="source-filename">{{ filename }}</p>
       </div>
@@ -443,42 +455,7 @@
       :show-close="!publishing"
       @closed="focusIssue"
     >
-      <p>所属项目：{{ selectedProject?.projectCode }} / {{ selectedProject?.projectName }}</p>
-      <h3>发布内容</h3>
-      <p>{{ routeName }} · {{ processes.length }} 道工序</p>
       <template v-if="publishPreview">
-        <el-alert
-          v-if="!published"
-          title="确认后将创建清单中的设备、工序、工艺和新工艺流程。流程先保存为禁用路线及草稿候选，再按现有规则配置与启用。"
-          type="info"
-          :closable="false"
-        />
-        <p class="preview-flow"
-          ><strong>{{ publishPreview.routeName }}</strong> · 新建工艺流程</p
-        >
-
-        <template v-if="publishPreview.unmatchedMaterials?.length">
-          <el-alert
-            :title="`有 ${publishPreview.unmatchedMaterials.length} 项物料未匹配，可以继续发布。本次只绑定已匹配物料，其余可在工艺路线中补充。`"
-            type="warning"
-            :closable="false"
-            show-icon
-          />
-          <el-collapse>
-            <el-collapse-item title="查看未匹配物料" name="unmatchedMaterials">
-              <p v-for="(material, i) in publishPreview.unmatchedMaterials" :key="i">{{
-                material
-              }}</p>
-            </el-collapse-item>
-          </el-collapse>
-        </template>
-        <el-collapse v-if="publishPreview.warnings?.length"
-          ><el-collapse-item title="目录名称核对说明" name="warnings"
-            ><p v-for="(warning, i) in publishPreview.warnings" :key="i">{{
-              warning
-            }}</p></el-collapse-item
-          ></el-collapse
-        >
         <el-tabs v-model="previewTab">
           <el-tab-pane :label="`工序（${publishPreview.processRows.length}）`" name="process"
             ><el-table :data="publishPreview.processRows" max-height="350"
@@ -505,7 +482,15 @@
                     actionLabel(row.action)
                   }}</el-tag></template
                 ></el-table-column
-              ><el-table-column label="设备编号" prop="code" /><el-table-column
+              ><el-table-column label="设备台账" width="100">
+                <template #default="{ row }">
+                  <el-tag :type="row.machineryAction === 'CREATE' ? 'success' : 'info'">
+                    {{ row.machineryAction === 'CREATE' ? '新建台账' : '复用台账' }}
+                  </el-tag>
+                </template>
+              </el-table-column>
+              <el-table-column label="新建台账类型" prop="machineryTypeName" min-width="130" />
+              <el-table-column label="设备编号" prop="code" /><el-table-column
                 label="设备名称"
                 prop="name" /></el-table
           ></el-tab-pane>
@@ -575,6 +560,7 @@
 
 <script setup lang="ts">
 import { getRouteProjectOptions } from '@/api/mes/pro/route'
+import MdWorkshopSelect from '@/views/mes/md/workstation/components/MdWorkshopSelect.vue'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { onBeforeRouteLeave, useRouter } from 'vue-router'
 import { ElMessageBox, type UploadFile } from 'element-plus'
@@ -591,10 +577,7 @@ import { CraftApi, type Craft, type CraftParameter } from '@/api/mes/pro/craft'
 import { MdItemApi, type MdItemVO } from '@/api/mes/md/item'
 import { useUserStore } from '@/store/modules/user'
 import { getTenantId, getVisitTenantId } from '@/utils/auth'
-import {
-  getProjectCode,
-  type DccProjectCodeRespVO
-} from '@/api/dcc/controlledFile/projectCodes'
+import { getProjectCode, type DccProjectCodeRespVO } from '@/api/dcc/controlledFile/projectCodes'
 import type {
   BatchRecordTotalRecognitionJson as Recognition,
   BatchRecordTotalRecognitionMaterial as Material,
@@ -623,6 +606,7 @@ defineOptions({ name: 'FormCenterSimpleParserWorkbench' })
 const message = useMessage(),
   router = useRouter()
 const projectId = ref<number>()
+const workshopId = ref<number>()
 const projects = ref<(DccProjectCodeRespVO & { occupied?: boolean })[]>([])
 const projectLoading = ref(false)
 const selectedProject = computed(() => projects.value.find((p) => p.id === projectId.value))
@@ -635,9 +619,7 @@ async function searchProjects(keyword = '') {
     if (query !== projectQuery) return
     const selected = selectedProject.value
     projects.value =
-      selected && !list.some((p) => p.id === selected.id)
-        ? [selected, ...list]
-        : list
+      selected && !list.some((p) => p.id === selected.id) ? [selected, ...list] : list
   } catch (cause) {
     if (query === projectQuery) error.value = `项目列表加载失败：${errorText(cause)}`
   } finally {
@@ -697,6 +679,7 @@ const knownDevice = (code?: string | null) =>
 const issues = computed(() => {
   const result = reviewIssues(processes.value)
   if (!routeName.value.trim()) result.unshift({ process: -1, message: '请填写工艺流程名称' })
+  if (!workshopId.value) result.unshift({ process: -1, message: '请选择工作站所属车间' })
   if (!processes.value.length)
     result.push({ process: -1, message: '请添加工序', target: 'addProcess' })
   const reusedProcesses = new Set<number>()
@@ -791,11 +774,14 @@ const {
   undo
 } = useParserEditing(
   () =>
-    recognition.value ? { processes: processes.value, routeName: routeName.value } : undefined,
+    recognition.value
+      ? { processes: processes.value, routeName: routeName.value, workshopId: workshopId.value }
+      : undefined,
   (state) => {
     const index = currentIndex.value
     processes.value = state.processes
     routeName.value = state.routeName
+    workshopId.value = state.workshopId
     if (!processes.value.some((p) => p.id === selectedId.value))
       selectProcess(
         processes.value[Math.max(0, Math.min(index, processes.value.length - 1))]?.id || ''
@@ -823,7 +809,7 @@ function moveProcess(offset: number) {
   })
 }
 watch(
-  [processes, routeName, projectId],
+  [processes, routeName, projectId, workshopId],
   () => {
     if (restoring || !recognition.value || published.value) return
     requestId.value = crypto.randomUUID()
@@ -1271,6 +1257,7 @@ function buildRequest(): SimpleParserRequest {
   return {
     requestId: requestId.value,
     projectId: projectId.value!,
+    workshopId: workshopId.value!,
     routeName: routeName.value.trim(),
     recognitionJson: output() as unknown as Record<string, unknown>,
     processSelections: processes.value.map((process, processIndex) => ({
@@ -1306,7 +1293,8 @@ function persistDraft() {
       projectName: selectedProject.value.projectName
     },
     routeName: routeName.value,
-    published: published.value
+    published: published.value,
+    workshopId: workshopId.value
   }
   localStorage.setItem(draftKey(), JSON.stringify(draft))
   markSaved(time)
@@ -1346,6 +1334,7 @@ async function restoreDraft() {
     restoring = true
     projects.value = [project, ...projects.value.filter((p) => p.id !== project.id)]
     projectId.value = project.id
+    workshopId.value = draft.workshopId
     recognition.value = result
     processes.value = draft.processes
     filename.value = draft.filename
@@ -1674,9 +1663,6 @@ onBeforeRouteLeave(() => {
 .error-text {
   color: var(--el-color-danger);
   font-size: 13px;
-}
-.preview-flow {
-  margin: 24px 0 16px;
 }
 .flow-preview {
   padding-left: 24px;

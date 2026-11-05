@@ -767,7 +767,7 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
         if (c == null || c.getSignatureId() == null || c.getSignatureId() <= 0 || c.getCenterReceiptId() == null || c.getCenterReceiptId() <= 0
                 || c.getSignatureCreationEventId() == null || c.getPrepareId() == null || c.getPrepareId().isBlank()
                 || c.getCanonicalHash() == null || !c.getCanonicalHash().matches("[0-9a-f]{64}")
-                || c.getReason() == null || c.getReason().isBlank()) throw new IllegalStateException("CENTER_TRUSTED_SIGNATURE_REQUIRED");
+                || c.getReason() == null) throw new IllegalStateException("CENTER_TRUSTED_SIGNATURE_REQUIRED");
         var graph = readForApproval(c.getWorkTaskId(), c.getActorId(), true);
         if (!Objects.equals(graph.transaction().getVersion(), c.getExpectedVersion())) throw new IllegalStateException("CENTER_RELEASE_VERSION_CHANGED");
         if (!cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditDevelopmentMode.disabled()) {

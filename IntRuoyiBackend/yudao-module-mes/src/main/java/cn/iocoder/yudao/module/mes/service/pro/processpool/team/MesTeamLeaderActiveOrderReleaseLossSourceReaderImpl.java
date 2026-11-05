@@ -41,6 +41,7 @@ public class MesTeamLeaderActiveOrderReleaseLossSourceReaderImpl
     @Resource
     private MesProductionSignatureEvidenceService productionSignatureEvidenceService;
 
+    private final MesLocalTestRunSourceGuard localSources;
     private final MesProProcessPoolEventMapper eventMapper;
     private final MesProFeedbackMapper feedbackMapper;
     private final MesProcessPoolReportAllocationMapper allocationMapper;
@@ -58,7 +59,9 @@ public class MesTeamLeaderActiveOrderReleaseLossSourceReaderImpl
             MesProWorkOrderMapper workOrderMapper,
             MesFrontlineProcessMaterialService materialService,
             ErpKingdeeProductionReplenishmentListItemMapper replenishmentItemMapper,
-            ErpKingdeeProductionReplenishmentListMapper replenishmentMapper) {
+            ErpKingdeeProductionReplenishmentListMapper replenishmentMapper,
+            MesLocalTestRunSourceGuard localSources) {
+        this.localSources = localSources;
         this.eventMapper = eventMapper;
         this.feedbackMapper = feedbackMapper;
         this.allocationMapper = allocationMapper;
@@ -282,6 +285,7 @@ public class MesTeamLeaderActiveOrderReleaseLossSourceReaderImpl
                     null, "生产订单编号缺失，无法查询正式补料单", "请补齐正式生产订单"));
             return result;
         }
+        boolean localTest = localSources.validate(workOrder, true);
         var items = replenishmentItemMapper.selectListByProductionOrderNo(workOrder.getCode());
         if (items == null) {
             throw new IllegalStateException("生产补料单查询未返回结果集合");
@@ -312,7 +316,12 @@ public class MesTeamLeaderActiveOrderReleaseLossSourceReaderImpl
         for (var item : items) {
             var header = headers.get(item.getProductionReplenishmentListId());
             if (item.getId() == null || header == null || StrUtil.isBlank(header.getSourceBillNo())
-                    || !"C".equals(header.getDocumentStatus()) || StrUtil.isBlank(item.getMaterialNumber())
+                    || !(localTest ? MesLocalTestRunSourceGuard.STATUS.equals(header.getDocumentStatus())
+                        && MesLocalTestRunSourceGuard.SOURCE.equals(header.getSourceFormId())
+                        : "C".equals(header.getDocumentStatus())
+                        && !MesLocalTestRunSourceGuard.SOURCE.equals(header.getSourceFormId())
+                        && !MesLocalTestRunSourceGuard.SOURCE.equals(item.getSourceFormId()))
+                    || StrUtil.isBlank(item.getMaterialNumber())
                     || StrUtil.isBlank(item.getMaterialName()) || !Objects.equals(workOrder.getCode(), item.getProductionOrderNo())
                     || item.getActualQuantity() == null || item.getActualQuantity().signum() < 0) {
                 blockers.add(blocker("LOSS_REPLENISHMENT_SOURCE_INVALID", null, "REPLENISHMENT_ITEM", item.getId(),

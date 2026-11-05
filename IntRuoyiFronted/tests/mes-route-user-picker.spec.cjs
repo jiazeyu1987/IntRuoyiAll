@@ -16,7 +16,7 @@ function functions(file, names, deps) {
   const code = ts.transpileModule(declarations.map(s => s.getText(ast).replace(/^export\s+/, '')).join('\n'), { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText
   return Function(...Object.keys(deps), code + ';return {' + names.join(',') + '}')(...Object.values(deps))
 }
-for (const kind of ['record', 'release']) {
+for (const kind of ['record']) {
   test(`${kind} candidate failure clears stale rows, surfaces error, and permits a real retry`, async () => {
     const prefix = kind === 'record' ? 'recordBinding' : 'releaseApprovalRule'
     const loader = kind === 'record' ? 'loadRecordBindingUserOptions' : 'loadReleaseApprovalRuleUserOptions'

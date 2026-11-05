@@ -66,7 +66,6 @@
 </template>
 
 <script setup lang="ts">
-import { loadAllListPages } from '@/hooks/web/useListColumnFilter'
 
 import type { PropType } from 'vue'
 import type { ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'

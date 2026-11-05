@@ -64,7 +64,8 @@ class MesTeamLeaderActiveOrderReleaseLossSourceReaderTest {
     void setUp() {
         reader = new MesTeamLeaderActiveOrderReleaseLossSourceReaderImpl(
                 eventMapper, feedbackMapper, allocationMapper, reviewMapper,
-                workOrderMapper, materialService, replenishmentItemMapper, replenishmentMapper);
+                workOrderMapper, materialService, replenishmentItemMapper, replenishmentMapper,
+                org.mockito.Mockito.mock(MesLocalTestRunSourceGuard.class));
         org.springframework.test.util.ReflectionTestUtils.setField(reader, "productionSignatureEvidenceService", signatureEvidenceService);
         org.mockito.Mockito.lenient().when(signatureEvidenceService.isValidForEvent(org.mockito.ArgumentMatchers.any())).thenReturn(true);
         when(workOrderMapper.selectByIdForUpdate(WORK_ORDER_ID))

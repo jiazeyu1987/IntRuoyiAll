@@ -22,6 +22,7 @@ export interface ProProcessBatchRecordFormLinkVO {
 
 // MES 生产工序 VO
 export interface ProProcessVO {
+  projectId?: number
   id?: number // 编号
   productName?: string // 产品名称
   code: string // 工序编码

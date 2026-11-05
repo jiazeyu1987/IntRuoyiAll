@@ -11,7 +11,7 @@
       <div class="unified-list-template__filter-panel">
         <div class="unified-list-template__filters"><slot name="filters"></slot></div>
         <TableMultiFilter
-          v-if="columnFilteringEnabled"
+          v-if="columnFilteringEnabled && shouldRenderStandardConditionFilter"
           :table-key="tableKey"
           :filter-definitions="resolvedStandardFilterDefinitions"
           :state="columnFilter.state.value"
@@ -389,7 +389,7 @@ const quickDefinitionsAsMultiFilterDefinitions = computed<ListMultiFilterDefinit
 
 const shouldRenderStandardConditionFilter = computed(() => {
   if (columnFilteringEnabled.value) return columnDefinitions.value.length > 0
-  if (props.showMultiFilter === true) return true
+  if (props.showMultiFilter === true) return props.multiFilterDefinitions.length > 0
   return (
     props.showQuickFilter !== false && quickDefinitionsAsMultiFilterDefinitions.value.length > 0
   )

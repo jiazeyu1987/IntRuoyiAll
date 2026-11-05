@@ -1,6 +1,17 @@
 <template>
   <Dialog v-model="dialogVisible" title="钉钉导入" width="420">
+    <div
+      v-if="formLoading"
+      class="flex flex-col items-center justify-center gap-16px py-40px"
+      role="status"
+      aria-live="polite"
+      aria-busy="true"
+    >
+      <Icon icon="ep:loading" class="animate-spin text-32px text-primary" />
+      <span>正在处理导入，请稍候…</span>
+    </div>
     <el-upload
+      v-show="!formLoading"
       ref="uploadRef"
       v-model:file-list="fileList"
       :auto-upload="false"
@@ -19,7 +30,7 @@
         </div>
       </template>
     </el-upload>
-    <template #footer>
+    <template v-if="!formLoading" #footer>
       <el-button :disabled="formLoading" type="primary" @click="submitForm">确 定</el-button>
       <el-button @click="dialogVisible = false">取 消</el-button>
     </template>
@@ -74,13 +85,13 @@ const submitForm = async () => {
   try {
     const previewData = new FormData()
     previewData.append('file', file.raw)
-    const preview = await UserApi.importDingTalkUserPreview(previewData)
+    await UserApi.importDingTalkUserPreview(previewData)
     if (!dialogVisible.value || generation !== dialogGeneration || fileList.value[0] !== file ||
         getTenantId() !== tenant || getVisitTenantId() !== visitTenant || getAccessToken() !== token) {
       formLoading.value = false
       return
     }
-    const confirmed = await confirmUserImport(file.name, 'dingtalk', visitTenant || tenant, preview)
+    const confirmed = await confirmUserImport(file.raw)
     if (!confirmed || !dialogVisible.value || generation !== dialogGeneration ||
         fileList.value[0] !== file || getTenantId() !== tenant || getVisitTenantId() !== visitTenant || getAccessToken() !== token) {
       formLoading.value = false
@@ -110,13 +121,19 @@ const submitFormSuccess = (response: any) => {
     return
   }
   const data: UserApi.UserDingTalkImportRespVO = response.data
+  if (!data || !Array.isArray(data.createUsernames) || !Array.isArray(data.existingUsernames) ||
+      !Array.isArray(data.authorizedUsernames)) {
+    throw new Error('钉钉导入结果缺少电子签名授权信息，前后端版本不一致。请管理员更新并重启后端后再核查本次导入结果。')
+  }
   const failureCount = Object.keys(data.failureUsernames).length
   showImportResult({
     title: failureCount ? '钉钉导入存在失败记录' : '钉钉导入完成',
-    summary: `已创建 ${data.createUsernames.length} 个用户，${failureCount} 个用户导入失败。`,
+    summary: `已创建 ${data.createUsernames.length} 个用户，匹配 ${data.existingUsernames.length} 个已有用户，${data.authorizedUsernames.length} 个用户已获得电子签名授权，${failureCount} 个用户导入失败。`,
     warning: failureCount > 0 || Object.keys(data.leaderSkippedDeptPaths).length > 0,
     stats: [
       { label: '创建用户', value: data.createUsernames.length },
+      { label: '匹配已有用户', value: data.existingUsernames.length },
+      { label: '电子签名已授权', value: data.authorizedUsernames.length },
       { label: '用户导入失败', value: failureCount },
       { label: '新建部门', value: data.createdDeptPaths.length },
       { label: '启用部门', value: data.enabledDeptPaths.length },
@@ -130,6 +147,8 @@ const submitFormSuccess = (response: any) => {
       { title: '导入失败的用户', columns: ['用户账号', '失败原因'], rows: Object.entries(data.failureUsernames), expanded: true },
       { title: '未设置负责人的部门', columns: ['部门', '原因'], rows: Object.entries(data.leaderSkippedDeptPaths), expanded: true },
       { title: '已创建的用户', columns: ['用户账号'], rows: data.createUsernames.map((name: string) => [name]) },
+      { title: '匹配的已有用户', columns: ['用户账号'], rows: data.existingUsernames.map((name: string) => [name]) },
+      { title: '电子签名已授权的用户', columns: ['用户账号'], rows: data.authorizedUsernames.map((name: string) => [name]) },
       { title: '新建的部门', columns: ['部门'], rows: data.createdDeptPaths.map((name: string) => [name]) },
       { title: '已启用的部门', columns: ['部门'], rows: data.enabledDeptPaths.map((name: string) => [name]) },
       { title: '已设置的部门负责人', columns: ['部门', '负责人'], rows: Object.entries(data.leaderAssignedDeptPaths) }

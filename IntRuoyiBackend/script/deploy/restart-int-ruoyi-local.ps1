@@ -47,6 +47,19 @@ $ShowroomMediaSampleObjects = @(
 )
 $RequiredLocalMySqlMigrations = @(
     [PSCustomObject]@{
+        Name = 'MES common QA binding project identity'
+        ProbeSql = @'
+SELECT CASE WHEN EXISTS (
+  SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE()
+    AND TABLE_NAME='mes_qa_common_regulation_product_binding' AND COLUMN_NAME='product_dcc_project_code_id'
+) AND EXISTS (
+  SELECT 1 FROM information_schema.STATISTICS WHERE TABLE_SCHEMA=DATABASE()
+    AND TABLE_NAME='mes_qa_common_regulation_product_binding' AND INDEX_NAME='uk_mes_qa_common_binding_active_project'
+) THEN 1 ELSE 0 END;
+'@
+        ScriptPath = Join-Path $RepoRoot 'sql\mysql\20261104_mes_qa_common_binding_project_identity.sql'
+    },
+    [PSCustomObject]@{
         Name = 'eDHR approval and signature V2 runtime schema'
         ProbeSql = @'
 SELECT CASE WHEN (

@@ -100,7 +100,10 @@ class MesActiveOrderDossierCompletionServiceTest {
     }
     @Test void recipientMustHaveUploadAndPersonalTodoPermissions() {
         when(permissions.hasAnyPermissions(8L, "mes:pro-edhr-batch-execution:upload")).thenReturn(false);
-        assertThrows(IllegalArgumentException.class, () -> service.assign(7L, 10L, "OTHER_FILE", 8L, "补件"));
+        var failure = assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,
+                () -> service.assign(7L, 10L, "OTHER_FILE", 8L, "补件"));
+        assertEquals(cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_ACTIVE_ORDER_DOSSIER_FILE_BLOCKED.getCode(), failure.getCode());
+        assertTrue(failure.getMessage().contains("资料责任人必须具备资料上传和个人待办权限"));
         verify(tasks, never()).insert(any(MesProEdhrWorkTaskDO.class));
     }
     @Test void reassignmentCancelsOldResponsibilityBeforeCreatingNewOne() {

@@ -29,16 +29,20 @@ class MesProBatchRecordProjectProcessTest {
         MesProProcessCreationService creation = mock(MesProProcessCreationService.class);
         ReflectionTestUtils.setField(service, "processMapper", mapper);
         ReflectionTestUtils.setField(service, "processCreationService", creation);
+        var resolver=mock(cn.iocoder.yudao.module.mes.service.pro.frontline.DccProjectResolver.class);
+        ReflectionTestUtils.setField(service,"projectCodeResolver",resolver);
+        when(resolver.requireEnabledByRoute(10L)).thenReturn(new cn.iocoder.yudao.module.mes.service.pro.frontline.DccProjectResolver.ResolvedProject(42L,"P42","项目甲"));
+        when(resolver.requireEnabledByRoute(20L)).thenReturn(new cn.iocoder.yudao.module.mes.service.pro.frontline.DccProjectResolver.ResolvedProject(43L,"P43","项目乙"));
         AtomicLong nextId = new AtomicLong(100);
-        when(creation.create(any())).thenAnswer(call -> {
+        when(creation.create(any(),any())).thenAnswer(call -> {
             MesProProcessDO process = call.getArgument(0);
             process.setId(nextId.incrementAndGet());
             process.setCode("GX-" + process.getId());
             return process.getId();
         });
 
-        MesProProcessDO first = ReflectionTestUtils.invokeMethod(service, "createProjectProcess", "粗洗工序", "项目甲");
-        MesProProcessDO second = ReflectionTestUtils.invokeMethod(service, "createProjectProcess", "粗洗工序", "项目乙");
+        MesProProcessDO first = ReflectionTestUtils.invokeMethod(service, "createProjectProcess", "粗洗工序", "项目甲", 10L);
+        MesProProcessDO second = ReflectionTestUtils.invokeMethod(service, "createProjectProcess", "粗洗工序", "项目乙", 20L);
 
         assertNotEquals(first.getId(), second.getId());
         assertNotEquals(first.getCode(), second.getCode());
@@ -46,8 +50,8 @@ class MesProBatchRecordProjectProcessTest {
         assertEquals("项目乙", second.getProductName());
         assertEquals("粗洗工序", first.getName());
         assertEquals(0, first.getStatus());
-        verify(creation).create(first);
-        verify(creation).create(second);
+        verify(creation).create(first, 42L);
+        verify(creation).create(second, 43L);
         verifyNoInteractions(mapper);
     }
 

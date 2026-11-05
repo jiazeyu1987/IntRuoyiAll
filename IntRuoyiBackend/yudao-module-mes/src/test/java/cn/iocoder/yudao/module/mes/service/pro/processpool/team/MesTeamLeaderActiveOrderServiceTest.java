@@ -251,6 +251,7 @@ class MesTeamLeaderActiveOrderServiceTest {
     @Mock
     private cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesTeamLeaderDataCleanupMapper dataCleanupMapper;
     private MesTeamLeaderActiveOrderService service;
+    @Mock private MesLocalTestRunSourceGuard localTestRunSourceGuard;
 
     @BeforeEach
     void setUp() {
@@ -275,6 +276,7 @@ class MesTeamLeaderActiveOrderServiceTest {
                 workOrderBomMapper, batchExecutionMapper, productIssueMapper, workOrderAbnormalMapper,
                 routeStartAuthorizationService, nonconformanceReviewService);
         org.springframework.test.util.ReflectionTestUtils.setField(service, "dataCleanupMapper", dataCleanupMapper);
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "localTestRunSourceGuard", localTestRunSourceGuard);
         org.springframework.test.util.ReflectionTestUtils.setField(service, "completionReceiptMapper", completionReceiptMapper);
         org.springframework.test.util.ReflectionTestUtils.setField(service, "completionBackfillMapper", completionBackfillMapper);
         lenient().when(completionReceiptMapper.selectByActiveOrderIdForUpdate(anyLong())).thenReturn(null);
@@ -802,7 +804,7 @@ class MesTeamLeaderActiveOrderServiceTest {
     }
 
     @Test
-    void shouldKeepCandidateVisibleButIneligibleWhenRouteItemProductMasterIsMissing() {
+    void shouldAllowCandidateWhenRouteItemHasNoShowroomMaster() {
         when(workOrderMapper.selectCandidatesByKeyword("WO-9", List.of()))
                 .thenReturn(List.of(confirmedWorkOrder()));
         stubFormalRouteQaContext(1001L, 448L, publishedRegulation(9902L));
@@ -814,13 +816,12 @@ class MesTeamLeaderActiveOrderServiceTest {
         List<MesTeamLeaderActiveOrderCandidateBO> candidates = service.searchActiveOrderCandidates("WO-9");
 
         assertEquals(1, candidates.size());
-        assertFalse(candidates.get(0).isEligible());
-        assertTrue(candidates.get(0).getIneligibleReason().contains("缺少 MDM 产品主档关系"));
+        assertTrue(candidates.get(0).isEligible());
         verifyNoActiveOrderWrites();
     }
 
     @Test
-    void shouldKeepCandidateVisibleButIneligibleWhenRouteProductMasterIsAmbiguous() {
+    void shouldAllowCandidateWithDifferentShowroomMastersWithinOneProject() {
         when(workOrderMapper.selectCandidatesByKeyword("WO-9", List.of()))
                 .thenReturn(List.of(confirmedWorkOrder()));
         stubFormalRouteQaContext(1001L, 448L, publishedRegulation(9902L));
@@ -832,13 +833,12 @@ class MesTeamLeaderActiveOrderServiceTest {
         List<MesTeamLeaderActiveOrderCandidateBO> candidates = service.searchActiveOrderCandidates("WO-9");
 
         assertEquals(1, candidates.size());
-        assertFalse(candidates.get(0).isEligible());
-        assertTrue(candidates.get(0).getIneligibleReason().contains("多个 MDM 产品主档"));
+        assertTrue(candidates.get(0).isEligible());
         verifyNoActiveOrderWrites();
     }
 
     @Test
-    void shouldKeepCandidateVisibleButIneligibleWhenRouteAndDccProductMasterDrifted() {
+    void shouldAllowCandidateWhenProjectShowroomMasterChanges() {
         when(workOrderMapper.selectCandidatesByKeyword("WO-9", List.of()))
                 .thenReturn(List.of(confirmedWorkOrder()));
         stubFormalRouteQaContext(1001L, 448L, publishedRegulation(9902L));
@@ -848,8 +848,7 @@ class MesTeamLeaderActiveOrderServiceTest {
         List<MesTeamLeaderActiveOrderCandidateBO> candidates = service.searchActiveOrderCandidates("WO-9");
 
         assertEquals(1, candidates.size());
-        assertFalse(candidates.get(0).isEligible());
-        assertTrue(candidates.get(0).getIneligibleReason().contains("MDM 产品主档不一致"));
+        assertTrue(candidates.get(0).isEligible());
         verifyNoActiveOrderWrites();
     }
 
@@ -1362,21 +1361,15 @@ class MesTeamLeaderActiveOrderServiceTest {
     }
 
     @Test
-    void shouldResolveCommonRegulationBindingByMdmProductMasterId() {
+    void shouldResolveCommonRegulationBindingByProjectWithoutShowroomMaster() {
         stubWorkOrderExists(confirmedWorkOrder(new BigDecimal("10")));
         JSONObject routeSnapshot = JSON.parseObject(activeRouteSnapshotJson(1));
         routeSnapshot.getJSONObject("configSnapshots").put("productionProcessConfigSchemaVersion", 1);
         stubFormalRouteQaContext(1001L, 448L, routeSnapshot.toJSONString(),
                 publishedRegulation(9902L, null, null));
-        when(itemMapper.selectById(1001L)).thenReturn(MesMdItemDO.builder()
-                .id(1001L)
-                .productMasterId(11L)
-                .code("IDI")
-                .name("按压式球囊扩充压力泵")
-                .build());
-        when(commonRegulationProductBindingMapper.selectEnabledByProductId(11L)).thenReturn(
+        when(commonRegulationProductBindingMapper.selectEnabledByProjectId(147L)).thenReturn(
                 MesQaCommonRegulationProductBindingDO.builder()
-                        .productId(11L)
+                        .productDccProjectCodeId(147L)
                         .commonRegulationSetId(8800L)
                         .commonRegulationSetVersionId(8801L)
                         .regulationId(9911L)
@@ -1439,7 +1432,7 @@ class MesTeamLeaderActiveOrderServiceTest {
 
         service.addActiveOrder(activeOrderReq());
 
-        verify(commonRegulationProductBindingMapper).selectEnabledByProductId(11L);
+        verify(commonRegulationProductBindingMapper).selectEnabledByProjectId(147L);
         ArgumentCaptor<MesPqcInspectionTaskDO> taskCaptor =
                 ArgumentCaptor.forClass(MesPqcInspectionTaskDO.class);
         verify(pqcInspectionTaskMapper, times(7)).insert(taskCaptor.capture());
@@ -1455,6 +1448,27 @@ class MesTeamLeaderActiveOrderServiceTest {
         ServiceException missingType = assertThrows(ServiceException.class,
                 () -> service.addActiveOrder(activeOrderReq()));
         assertTrue(missingType.getMessage().contains("通用检验规程套缺少必需检验类型对应项目"));
+    }
+
+    @Test
+    void missingPatrolLevelReportsRegulationAndItemBeforeInsertingTasks() {
+        stubWorkOrderExists(confirmedWorkOrder(new BigDecimal("3000")));
+        stubFormalRouteQaContext(1001L, 448L, activeRouteSnapshotJson(2),
+                publishedRegulation(9902L, null, null));
+        when(inspectionRegulationVersionMapper.selectLatestPublishedByRegulationId(9901L))
+                .thenReturn(publishedRegulationVersion(false, "项目不适用末检"));
+        when(inspectionRegulationProcessMapper.selectListByVersionIds(List.of(9902L))).thenReturn(List.of(
+                qaProcess(9902L, 19902L, "QA-P1", "装配", 1)));
+        when(inspectionRegulationItemMapper.selectListByVersionId(9902L)).thenReturn(List.of(
+                pqcItem(9902L, 19902L, "FIRST", 5, null),
+                pqcItem(9902L, 19902L, "PATROL", null, new BigDecimal("0.4"))
+                        .setItemCode("PATROL-MISSING").setInspectionLevel(null)));
+        ServiceException failure = assertThrows(ServiceException.class,
+                () -> service.addActiveOrder(activeOrderReq()));
+        assertTrue(failure.getMessage().contains("9902"));
+        assertTrue(failure.getMessage().contains("PATROL-MISSING"));
+        assertTrue(failure.getMessage().contains("巡检检验水平不能为空"));
+        verify(pqcInspectionTaskMapper, never()).insert(any(MesPqcInspectionTaskDO.class));
     }
 
     @Test
@@ -2533,7 +2547,7 @@ class MesTeamLeaderActiveOrderServiceTest {
     }
 
     @Test
-    void shouldRejectNewActiveOrderWhenDccProductMasterDriftedAfterRouteBinding() {
+    void shouldAddActiveOrderUsingProjectDespiteDifferentShowroomMaster() {
         stubWorkOrderExists(confirmedWorkOrder());
         stubCandidatePqcPrerequisites(publishedRegulation(9902L));
         when(routeProductMapper.selectListByRouteId(922119L)).thenReturn(List.of(
@@ -2543,9 +2557,11 @@ class MesTeamLeaderActiveOrderServiceTest {
         when(dccProjectCodeMapper.selectById(147L)).thenReturn(DccProjectCodeDO.builder()
                 .id(147L).productMasterId(12L).projectCode("ID").status("ENABLE").build());
 
-        assertThrows(ServiceException.class, () -> service.addActiveOrder(activeOrderReq()));
-
-        verifyNoActiveOrderWrites();
+        stubSuccessfulActiveOrderInsert();
+        var result = service.addActiveOrder(activeOrderReq());
+        assertEquals(8101L, result.getActiveOrderId());
+        verify(activeOrderMapper).insert(argThat((MesProcessPoolActiveOrderDO order) ->
+                Objects.equals(147L, order.getDccProjectCodeId())));
     }
 
     @Test

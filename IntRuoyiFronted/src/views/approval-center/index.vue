@@ -1653,7 +1653,7 @@ const resolveApprovalResultTagType = (result?: ApprovalTaskReviewResult) => {
 }
 
 const resolveApprovalRemark = (row: ApprovalTaskSummaryVO) => {
-  return row.approvalResult === 'REJECT' ? row.approvalRemark || '--' : ''
+  return row.approvalRemark || '--'
 }
 
 const formatApprovalTime = (value?: string | number | Date | null) => {

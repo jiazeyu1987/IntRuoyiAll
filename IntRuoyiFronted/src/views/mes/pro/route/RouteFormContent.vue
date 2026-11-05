@@ -16,6 +16,14 @@
         <el-form-item label="名称" prop="name">
           <el-input v-model="formData.name" placeholder="请输入名称" :disabled="isHeaderReadonly" />
         </el-form-item>
+        <el-form-item v-if="formType === 'create'" label="所属车间" prop="workshopId" required>
+          <div class="w-full">
+            <MdWorkshopSelect v-model="formData.workshopId" aria-label="工作站所属车间" />
+            <div class="text-12px text-gray-500 mt-6px">
+              每道工序将在此车间新建工作站，并绑定工序已配置的设备。
+            </div>
+          </div>
+        </el-form-item>
         <el-form-item v-if="formType === 'create'" label="工序" prop="processIds" required>
           <div class="route-create-processes" data-route-create-processes>
             <el-select
@@ -164,13 +172,21 @@
                       :route-id="formData.id"
                       :disabled="!canEditStartSettings"
                     />
-                    <span v-else>{{ savedDccProjectCode ? `${savedDccProjectCode.projectCode} / ${savedDccProjectCode.projectName}` : '未关联项目代码' }}</span>
+                    <span v-else>{{
+                      savedDccProjectCode
+                        ? `${savedDccProjectCode.projectCode} / ${savedDccProjectCode.projectName}`
+                        : '未关联项目代码'
+                    }}</span>
                   </el-form-item>
                   <el-button
                     class="route-dcc-project-binding__save"
                     type="primary"
                     size="small"
-                    :disabled="!canEditStartSettings || dccProjectBindingLoading || !dccProjectBindingForm.dccProjectCodeId"
+                    :disabled="
+                      !canEditStartSettings ||
+                      dccProjectBindingLoading ||
+                      !dccProjectBindingForm.dccProjectCodeId
+                    "
                     @click="saveDccProjectBinding"
                   >
                     保存
@@ -207,6 +223,7 @@
 
 <script setup lang="ts">
 import RouteProjectSelect from './RouteProjectSelect.vue'
+import MdWorkshopSelect from '@/views/mes/md/workstation/components/MdWorkshopSelect.vue'
 import { ElMessageBox } from 'element-plus'
 import { CommonStatusEnum } from '@/utils/constants'
 import {
@@ -217,10 +234,7 @@ import {
   type RouteDccProjectBindingVO,
   type RouteVersionEditContext
 } from '@/api/mes/pro/route'
-import {
-  getProjectCode,
-  type DccProjectCodeRespVO
-} from '@/api/dcc/controlledFile/projectCodes'
+import { getProjectCode, type DccProjectCodeRespVO } from '@/api/dcc/controlledFile/projectCodes'
 import { ProProcessApi, type ProProcessVO } from '@/api/mes/pro/process'
 import { ProRouteProductApi, type ProRouteProductVO } from '@/api/mes/pro/route/product'
 import { isRouteConfirmCancel, resolveRouteOperationErrorMessage } from './routeError'
@@ -287,7 +301,9 @@ type RouteFormInitialTab = 'basic' | 'flow' | 'product' | 'dcc'
 const activeTab = ref<RouteFormInitialTab>('basic')
 const initialStartSetting = ref<'basic' | 'product' | 'dcc'>()
 const selectedStartSetting = ref<'basic' | 'product' | 'dcc'>()
-const formData = ref<ProRouteVO & { processIds: number[]; dccProjectCodeId?: number }>({
+const formData = ref<
+  ProRouteVO & { processIds: number[]; dccProjectCodeId?: number; workshopId?: number }
+>({
   id: undefined,
   code: '',
   name: '',
@@ -304,6 +320,7 @@ const selectedProcesses = computed(() =>
 )
 const formRules = reactive({
   dccProjectCodeId: [{ required: true, message: '请选择项目代码', trigger: 'change' }],
+  workshopId: [{ required: true, message: '请选择工作站所属车间', trigger: 'change' }],
   code: [
     {
       validator: (_rule: unknown, value: string, callback: (error?: Error) => void) => {
@@ -353,27 +370,39 @@ const hasRouteVersionPageContext = computed(
 )
 const productionConfigFormType = computed(() =>
   hasRouteVersionPageContext.value && (!props.pageEditing || !isDraftCandidateVersion.value)
-    ? 'detail' : formType.value
+    ? 'detail'
+    : formType.value
 )
 const canEditStartSettings = computed(
   () => productionConfigFormType.value === 'update' && checkPermi(['mes:pro-route:update'])
 )
 const canRequestCandidateEdit = computed(() => {
-  if (!hasRouteVersionPageContext.value || props.pageEditing || isDetail.value ||
-      !checkPermi(['mes:pro-route:version-update'])) return false
+  if (
+    !hasRouteVersionPageContext.value ||
+    props.pageEditing ||
+    isDetail.value ||
+    !checkPermi(['mes:pro-route:version-update'])
+  )
+    return false
   const context = routeVersionEditContext.value
-  return !context || isDraftCandidateVersion.value ||
+  return (
+    !context ||
+    isDraftCandidateVersion.value ||
     (context.lifecycleStatus === 'ACTIVE' &&
       String(context.routeVersionId) === String(formData.value.activeRouteVersionId))
+  )
 })
 const savedRouteName = ref('')
 const hasRouteNameDraftChanges = computed(() => formData.value.name !== savedRouteName.value)
 const isRouteNameReadonly = computed(() => {
   if (!hasRouteVersionPageContext.value) return isHeaderReadonly.value
-  return isDetail.value ||
-    !props.pageEditing || !isDraftCandidateVersion.value ||
+  return (
+    isDetail.value ||
+    !props.pageEditing ||
+    !isDraftCandidateVersion.value ||
     !checkPermi(['mes:pro-route:version-update']) ||
     !isEditable.value
+  )
 })
 
 const persistRouteNameDraft = async () => {
@@ -387,15 +416,22 @@ const persistRouteNameDraft = async () => {
   } else {
     const versions = await ProRouteApi.getRouteVersionList(formData.value.id!)
     const existing = resolveSameSourceDraftCandidateForProductionConfig(
-      formData.value, versions, '保存名称草稿'
+      formData.value,
+      versions,
+      '保存名称草稿'
     )
-    candidate = existing || await ProRouteApi.createRouteCandidateVersion({
-      routeId: formData.value.id!,
-      sourceRouteVersionId: formData.value.activeRouteVersionId,
-      changeReason: '修改工艺路线名称'
-    })
+    candidate =
+      existing ||
+      (await ProRouteApi.createRouteCandidateVersion({
+        routeId: formData.value.id!,
+        sourceRouteVersionId: formData.value.activeRouteVersionId,
+        changeReason: '修改工艺路线名称'
+      }))
   }
-  if (String(candidate.routeId) !== String(formData.value.id) || candidate.lifecycleStatus !== 'DRAFT') {
+  if (
+    String(candidate.routeId) !== String(formData.value.id) ||
+    candidate.lifecycleStatus !== 'DRAFT'
+  ) {
     throw new Error('保存名称失败：版本不属于当前路线或已离开草稿状态')
   }
   const current = await ProRouteApi.getRouteVersionName(candidate.id)
@@ -438,8 +474,11 @@ const open = async (type: string, id?: MesRouteId, initialTab: RouteFormInitialT
     if (id) {
       formData.value = { ...(await ProRouteApi.getRoute(id)), processIds: [] }
       if (routeVersionEditContext.value) {
-        const versionName = await ProRouteApi.getRouteVersionName(routeVersionEditContext.value.routeVersionId)
-        if (String(versionName.routeId) !== String(id)) throw new Error('加载名称失败：版本不属于当前路线')
+        const versionName = await ProRouteApi.getRouteVersionName(
+          routeVersionEditContext.value.routeVersionId
+        )
+        if (String(versionName.routeId) !== String(id))
+          throw new Error('加载名称失败：版本不属于当前路线')
         formData.value.name = versionName.name
       }
       savedRouteName.value = formData.value.name
@@ -492,6 +531,7 @@ const submitForm = async () => {
       const res = await ProRouteApi.createRoute(
         {
           dccProjectCodeId: data.dccProjectCodeId!,
+          workshopId: data.workshopId!,
           name: data.name.trim(),
           remark: data.remark,
           processIds: [...data.processIds]
@@ -545,7 +585,8 @@ const shouldSaveFlowGraphOnSubmit = () =>
   Boolean(formData.value.id) &&
   activeTab.value === 'flow' &&
   routeFlowVersionEditContext.value?.lifecycleStatus === 'DRAFT'
-const shouldPersistRouteHeaderOnSubmit = () => !routeVersionEditContext.value && !hasRouteVersionPageContext.value
+const shouldPersistRouteHeaderOnSubmit = () =>
+  !routeVersionEditContext.value && !hasRouteVersionPageContext.value
 
 const requireFlowGraphDesigner = () => {
   const designer = routeFlowGraphDesignerRef.value
@@ -568,8 +609,9 @@ const saveFlowGraphAfterRouteSave = async (shouldSaveFlowGraph: boolean) => {
 }
 
 const hasFlowGraphWorkspaceDraftChanges = () =>
-  (hasRouteVersionPageContext.value && hasRouteNameDraftChanges.value) || (activeTab.value === 'flow' &&
-  Boolean(routeFlowGraphDesignerRef.value?.hasWorkspaceDraftChanges?.()))
+  (hasRouteVersionPageContext.value && hasRouteNameDraftChanges.value) ||
+  (activeTab.value === 'flow' &&
+    Boolean(routeFlowGraphDesignerRef.value?.hasWorkspaceDraftChanges?.()))
 
 const hasRouteCandidateDraftChanges = () =>
   isDraftCandidateVersion.value && hasFlowGraphWorkspaceDraftChanges()
@@ -730,9 +772,8 @@ const loadDccProjectBinding = async (routeId: MesRouteId) => {
   dccProjectBindingLoading.value = true
   try {
     const data = await ProRouteApi.getRouteDccProjectBinding(routeId)
-    const projectCode = data.bound && data.dccProjectCodeId
-      ? await getProjectCode(data.dccProjectCodeId)
-      : undefined
+    const projectCode =
+      data.bound && data.dccProjectCodeId ? await getProjectCode(data.dccProjectCodeId) : undefined
     dccProjectBinding.value = data
     savedDccProjectCode.value = projectCode
     dccProjectBindingForm.dccProjectCodeId = data.dccProjectCodeId ?? undefined
@@ -742,7 +783,12 @@ const loadDccProjectBinding = async (routeId: MesRouteId) => {
 }
 
 const saveDccProjectBinding = async () => {
-  if (dccProjectBindingLoading.value || !formData.value.id || !dccProjectBindingForm.dccProjectCodeId) return
+  if (
+    dccProjectBindingLoading.value ||
+    !formData.value.id ||
+    !dccProjectBindingForm.dccProjectCodeId
+  )
+    return
   dccProjectBindingLoading.value = true
   try {
     if (!canEditStartSettings.value) throw new Error('当前为只读浏览，请先点击修改。')
@@ -751,12 +797,16 @@ const saveDccProjectBinding = async () => {
       ? routeVersionEditContext.value?.routeVersionId
       : undefined
     const projectCode = await getProjectCode(dccProjectBindingForm.dccProjectCodeId)
-    const formalProducts: ProRouteProductVO[] = await ProRouteProductApi.getRouteProductListByRoute(routeId)
+    const formalProducts: ProRouteProductVO[] =
+      await ProRouteProductApi.getRouteProductListByRoute(routeId)
     const draftProducts: ProRouteProductVO[] = routeVersionId
       ? await ProRouteProductApi.getRouteProductListByRoute(routeId, routeVersionId)
       : []
-    const products = [...new Map([...formalProducts, ...draftProducts]
-      .map(product => [product.itemId, product])).values()]
+    const products = [
+      ...new Map(
+        [...formalProducts, ...draftProducts].map((product) => [product.itemId, product])
+      ).values()
+    ]
     if (products.length > 0) {
       await ElMessageBox.confirm(
         `绑定项目“${projectCode.projectCode} / ${projectCode.projectName}”将解除${routeVersionId ? '正式关联及当前草稿中的' : '当前'} ${products.length} 个产品的关联，并清除对应的路线产品 BOM 配置。产品主数据保留。是否继续？`,
@@ -769,7 +819,7 @@ const saveDccProjectBinding = async () => {
       routeVersionId,
       dccProjectCodeId: projectCode.id,
       expectedVersion: dccProjectBinding.value.version,
-      confirmedProductItemIds: products.map(product => product.itemId)
+      confirmedProductItemIds: products.map((product) => product.itemId)
     })
     dccProjectBinding.value = data
     savedDccProjectCode.value = projectCode
@@ -912,5 +962,4 @@ defineExpose({
   color: #909399;
   font-size: 13px;
 }
-
 </style>

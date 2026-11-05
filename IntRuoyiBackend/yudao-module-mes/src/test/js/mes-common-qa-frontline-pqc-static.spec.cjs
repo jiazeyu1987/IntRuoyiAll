@@ -41,8 +41,8 @@ assert(bindingDO.includes('mes_qa_common_regulation_product_binding')
   && bindingDO.includes('SCOPE_COMMON_PACKAGING')
   && bindingDO.includes('STATUS_ENABLED'),
   'Common QA product binding DO must model the formal product-current-version binding.');
-assert(bindingMapper.includes('selectEnabledByProductId')
-  && bindingMapper.includes('selectEnabledListByProductIds'),
+assert(bindingMapper.includes('selectEnabledByProjectId')
+  && bindingMapper.includes('selectEnabledListByProjectIds'),
   'Common QA product binding mapper must provide enabled binding lookups.');
 assert(migration.includes('mes_qa_common_regulation_product_binding')
   && migration.includes('uk_mes_qa_common_binding_active_product'),
@@ -67,7 +67,7 @@ assert(frontlinePqcService.includes('resolveLockedQaSources(activeOrder, workOrd
   'Frontline PQC process list must replay common QA sources from active-order task versions, not current product binding.');
 assert(frontlinePqcService.includes('resolveLockedCommonQaSourcesFromTasks'),
   'Frontline PQC process list must derive common QA locked sources from persisted PQC task versions.');
-assert(!frontlinePqcService.includes('selectEnabledByProductId'),
+assert(!frontlinePqcService.includes('selectEnabledByProjectId'),
   'Frontline PQC process list must not resolve common QA from the product current binding.');
 assert(frontlinePqcService.includes('LOCKED_QA_VERSION_STATUSES')
   && frontlinePqcService.includes('"PUBLISHED", "RETIRED"')

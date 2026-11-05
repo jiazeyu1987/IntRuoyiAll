@@ -1,8 +1,8 @@
 <template>
   <el-dialog v-model="visible" title="发布结果" width="min(1100px, 95vw)">
     <el-descriptions :column="2" border>
-      <el-descriptions-item label="所属项目">{{ projectName }}</el-descriptions-item>
-      <el-descriptions-item label="项目 ID">{{ result.dccProjectCodeId }}</el-descriptions-item>
+      <el-descriptions-item v-if="showProject" label="所属项目">{{ projectName }}</el-descriptions-item>
+      <el-descriptions-item v-if="showProject" label="项目 ID">{{ result.dccProjectCodeId }}</el-descriptions-item>
       <el-descriptions-item label="规程名称">{{ result.regulationName }}</el-descriptions-item>
       <el-descriptions-item label="文件编号">{{ result.regulationCode }}</el-descriptions-item>
       <el-descriptions-item label="版本">{{ result.versionNo }}</el-descriptions-item>
@@ -38,9 +38,10 @@ import type { QaInspectionRegulationPublishedVersionVO } from '@/api/mes/qc/temp
 import { EQUIPMENT_UNBOUND_NOTICE } from '../simplePqc'
 
 const visible = defineModel<boolean>({ required: true })
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   result: QaInspectionRegulationPublishedVersionVO
   projectName?: string
-}>()
+  showProject?: boolean
+}>(), { showProject: true })
 const itemCount = computed(() => props.result.processes.reduce((sum, p) => sum + p.items.length, 0))
 </script>

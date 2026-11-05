@@ -1,13 +1,14 @@
 import type { ActiveOrderSignatureEvidence } from '@/api/mes/pro/edhr/activeOrderSignature'
 
 type Verification = ActiveOrderSignatureEvidence['verification']
-const dimensions = { CONSISTENT: '一致', MISSING: '未记录', MISMATCH: '不一致' } as const
+const dimensions = { CONSISTENT: '一致', MISSING: '未记录', MISMATCH: '不一致', DEVELOPMENT_DISABLED: '已停用（本地开发）' } as const
 const statuses = {
   VALID: { label: '本地核验通过', type: 'success' },
   INCOMPLETE: { label: '证据未完整', type: 'warning' },
   MISMATCH: { label: '不一致', type: 'danger' }
 } as const
 const reasons: Record<string, string> = {
+  GXP_AUDIT_DEVELOPMENT_DISABLED: '本地开发环境已停用创建审计',
   AUDIT_LINK_MISSING: '创建审计未记录',
   AUDIT_LINK_DUPLICATE: '创建审计关联重复',
   AUDIT_INTEGRITY_FAILED: '创建审计完整性不一致',
@@ -24,12 +25,16 @@ const reasons: Record<string, string> = {
 }
 
 export const signatureVerificationDisplay = (verification: Verification) => ({
-  ...statuses[verification.verificationStatus],
+  ...(verification.verificationStatus === 'VALID' && verification.auditBindingStatus === 'DEVELOPMENT_DISABLED'
+    ? { label: '摘要与时间核验通过（审计已停用）', type: 'warning' as const }
+    : statuses[verification.verificationStatus]),
   digest: dimensions[verification.digestStatus],
   time: dimensions[verification.timeConsistencyStatus],
   audit: dimensions[verification.auditBindingStatus],
   scope: verification.verificationScope === 'LOCAL_DIGEST_TIME_AND_CREATION_AUDIT'
-    ? '本地摘要、签署时间值与创建审计' : verification.verificationScope,
+    ? verification.auditBindingStatus === 'DEVELOPMENT_DISABLED'
+      ? '本地摘要与签署时间值（创建审计已停用）' : '本地摘要、签署时间值与创建审计'
+    : verification.verificationScope,
   timeSource: verification.timeSource === 'SERVER_CLOCK' ? '服务器时钟' : '未知来源',
   timeTrust: verification.timeTrustStatus === 'NOT_BOUND' ? '未绑定外部可信时间' : verification.timeTrustStatus,
   reasons: verification.reasonCodes.length

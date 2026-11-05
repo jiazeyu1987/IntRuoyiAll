@@ -433,15 +433,15 @@
         </el-col>
       </el-row>
     </el-form>
-    <el-divider />
-    <div class="mb-8px flex items-center justify-between">
-      <span class="font-600">申请与审批记录</span>
-      <el-button link type="primary" :loading="projectProductRequestsLoading" @click="loadProjectProductRequests">
-        刷新
-      </el-button>
-    </div>
-    <el-alert v-if="projectProductMode === 'records'" title="项目审核、批准统一在审批中心办理；此处保留申请记录、修改重提和写入重试。" type="info" :closable="false" class="mb-12px" />
-    <el-button v-if="projectProductMode === 'records'" class="mb-12px" @click="router.push({ path: '/approval-center/todo', query: { moduleCode: 'DCC' } })">前往审批中心</el-button>
+    <template v-if="projectProductMode === 'create'">
+      <el-divider />
+      <div class="mb-8px flex items-center justify-between">
+        <span class="font-600">申请与审批记录</span>
+        <el-button link type="primary" :loading="projectProductRequestsLoading" @click="loadProjectProductRequests">
+          刷新
+        </el-button>
+      </div>
+    </template>
     <el-table
       v-loading="projectProductRequestsLoading"
       :data="projectProductRequests"

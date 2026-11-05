@@ -1,3 +1,5 @@
+> 路径整理说明：原项目外文件引用已移除，未收录的历史材料不作为当前验收证据；执行仍需真实输入，缺失时明确阻断。路径基准见仓库内 docs/document-paths.md。
+
 # DCC Controlled File Protection E2E Environment
 
 This file documents the required inputs for `tests/e2e/dcc-controlled-file-protection.e2e.js`.
@@ -5,6 +7,10 @@ The script is intentionally fail-fast. If any release gate or real test input is
 `BLOCKED: RG-*` and exits with code `2`. Do not replace these inputs with mock data.
 
 ## Run
+
+Run the commands in this document from `IntRuoyiFronted`. Upload paths below are relative to that directory.
+Replace `<task-input-directory>` with the actual directory under the repository's `resource/`; check the real files
+and required sizes before running. Missing input must block the test, not produce a successful result.
 
 ```powershell
 node --check tests\e2e\dcc-controlled-file-protection.e2e.js
@@ -171,7 +177,7 @@ page adds a real purpose control, configure `*_PURPOSE_SELECTOR` and `*_PURPOSE_
 $env:DCC_E2E_TC006_UPLOAD_PATH='<real-upload-route-with-missing-or-invalid-policy>'
 $env:DCC_E2E_TC006_CATEGORY_SELECTOR='<real-category-select-selector>'
 $env:DCC_E2E_TC006_CATEGORY_OPTION_SELECTOR='<real-category-option-without-source-policy>'
-$env:DCC_E2E_TC006_FILE_PATH='D:\path\to\allowed-size-real-sample.pdf'
+$env:DCC_E2E_TC006_FILE_PATH='../resource/<task-input-directory>/allowed-size-real-sample.pdf'
 $env:DCC_E2E_TC006_FILE_INPUT_SELECTOR='<real-file-input-selector>'
 $env:DCC_E2E_TC006_FIXED_PURPOSE_VALUE='SOURCE'
 $env:DCC_E2E_TC006_SUBMIT_SELECTOR='<real-submit-selector>'
@@ -184,7 +190,7 @@ $env:DCC_E2E_TC006_TEMP_EXPECT_JSON_CONTAINS='requestId||{requestId}||temporaryF
 $env:DCC_E2E_TC007_UPLOAD_PATH='<real-upload-route>'
 $env:DCC_E2E_TC007_CATEGORY_SELECTOR='<real-category-select-selector>'
 $env:DCC_E2E_TC007_CATEGORY_OPTION_SELECTOR='<real-category-option-with-source-size-policy>'
-$env:DCC_E2E_TC007_OVERSIZE_FILE_PATH='D:\path\to\oversized-real-sample.bin'
+$env:DCC_E2E_TC007_OVERSIZE_FILE_PATH='../resource/<task-input-directory>/oversized-real-sample.bin'
 $env:DCC_E2E_TC007_FILE_INPUT_SELECTOR='<real-file-input-selector>'
 $env:DCC_E2E_TC007_FIXED_PURPOSE_VALUE='SOURCE'
 $env:DCC_E2E_TC007_SUBMIT_SELECTOR='<real-submit-selector>'
@@ -209,7 +215,7 @@ $env:DCC_E2E_TC008_VERSION_SELECTOR='<real-version-input-selector>'
 $env:DCC_E2E_TC008_VERSION_VALUE='<unique-real-version>'
 $env:DCC_E2E_TC008_EFFECTIVE_DATE_SELECTOR='<real-effective-date-input-selector>'
 $env:DCC_E2E_TC008_EFFECTIVE_DATE_VALUE='<YYYY-MM-DD>'
-$env:DCC_E2E_TC008_FILE_PATH='D:\path\to\allowed-real-sample.pdf'
+$env:DCC_E2E_TC008_FILE_PATH='../resource/<task-input-directory>/allowed-real-sample.pdf'
 $env:DCC_E2E_TC008_FILE_INPUT_SELECTOR='<real-file-input-selector>'
 $env:DCC_E2E_TC008_FIXED_PURPOSE_VALUE='SOURCE'
 $env:DCC_E2E_TC008_UPLOAD_SUCCESS_SELECTOR='<real-upload-success-selector>'
@@ -226,7 +232,7 @@ $env:DCC_E2E_TC008_EXPIRED_TICKET_FAILURE_EXPECT_JSON_CONTAINS='<real-expired-or
 $env:DCC_E2E_TC009_FLOW_PATH='<real-upload-route>'
 $env:DCC_E2E_TC009_CATEGORY_SELECTOR='<real-category-select-selector>'
 $env:DCC_E2E_TC009_CATEGORY_OPTION_SELECTOR='<real-category-option-with-source-size-policy>'
-$env:DCC_E2E_TC009_FILE_PATH='D:\path\to\allowed-real-sample.pdf'
+$env:DCC_E2E_TC009_FILE_PATH='../resource/<task-input-directory>/allowed-real-sample.pdf'
 $env:DCC_E2E_TC009_FILE_INPUT_SELECTOR='<real-file-input-selector>'
 $env:DCC_E2E_TC009_UPLOAD_SUCCESS_SELECTOR='<real-upload-success-selector>'
 $env:DCC_E2E_TC009_REMOVE_SELECTOR='<real-source-upload-remove-icon-selector>'

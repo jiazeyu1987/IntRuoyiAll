@@ -1,4 +1,5 @@
 import request from '@/config/axios'
+import type { MesRouteId } from '@/api/mes/pro/route'
 
 export interface SimpleParserDevice {
   deviceCode: string
@@ -9,6 +10,7 @@ export interface SimpleParserDevice {
 export interface SimpleParserRequest {
   requestId: string
   projectId: number
+  workshopId: number
   routeName: string
   recognitionJson: Record<string, unknown>
   processSelections: Array<{
@@ -28,6 +30,10 @@ export interface SimpleParserRow {
   name: string
   action: 'CREATE' | 'REUSE'
   parameterCount?: number
+  machineryId?: number
+  machineryAction?: 'CREATE' | 'REUSE'
+  machineryTypeId?: number
+  machineryTypeName?: string
 }
 
 export interface SimpleParserResult {
@@ -35,6 +41,8 @@ export interface SimpleParserResult {
   projectId: number
   projectCode: string
   projectName: string
+  workshopId: number
+  workshopName: string
   previewToken: string
   routeName: string
   processCount: number
@@ -54,11 +62,11 @@ export interface SimpleParserResult {
     name: string
     sourceName?: string
   }>
-  routeId?: number
+  routeId?: MesRouteId
   routeCode?: string
-  routeVersionId?: number
+  routeVersionId?: MesRouteId
   routeVersionNo?: string
-  routeCandidateVersionId?: number
+  routeCandidateVersionId?: MesRouteId
   routeCandidateVersionNo?: string
 }
 

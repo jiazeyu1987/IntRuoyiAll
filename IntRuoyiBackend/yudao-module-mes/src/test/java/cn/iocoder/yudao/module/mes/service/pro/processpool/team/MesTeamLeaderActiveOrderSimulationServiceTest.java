@@ -62,6 +62,7 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
@@ -125,6 +126,8 @@ class MesTeamLeaderActiveOrderSimulationServiceTest {
     private MesProBatchRecordExecutionSignatureService signatureService;
 
     private MesTeamLeaderActiveOrderSimulationService service;
+    @Mock
+    private cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesOrderReleaseCompletenessService pqcCoverageService;
 
     @BeforeEach
     void setUp() {
@@ -138,7 +141,43 @@ class MesTeamLeaderActiveOrderSimulationServiceTest {
                 feedbackMaterialService, processPoolEventService,
                 processPoolEventMapper, pqcRecordMapper,
                 reportAllocationCommandService, pqcProcessInspectionAggregationService,
-                orderProcessCompletionService, signatureService);
+                orderProcessCompletionService, signatureService, pqcCoverageService);
+    }
+
+    @Test
+    void inspectionProgressRequiresMissingRoundsAndIgnoresCancelledRounds() {
+        var order = activeOrder();
+        var confirmed = pqcTask("CONFIRMED").setActualInspectionQuantity(1);
+        var cancelled = pqcTask("CANCELLED").setId(8302L);
+        when(pqcCoverageService.missingExpectedPqcTaskIdentities(order, List.of(confirmed)))
+                .thenReturn(List.of("PATROL"), List.of());
+        BigDecimal incomplete = org.springframework.test.util.ReflectionTestUtils.invokeMethod(service,
+                "calculateInspectionProgressPercent", order, java.util.Set.of(), List.of(confirmed, cancelled));
+        assertEquals(0, new BigDecimal("50").compareTo(incomplete));
+        BigDecimal complete = org.springframework.test.util.ReflectionTestUtils.invokeMethod(service,
+                "calculateInspectionProgressPercent", order, java.util.Set.of(), List.of(confirmed, cancelled));
+        assertEquals(0, new BigDecimal("100").compareTo(complete));
+    }
+
+    @Test
+    void simulationRejectsMissingPatrolRoundBeforeAnyBusinessWrites() {
+        var order = activeOrder();
+        when(activeOrderMapper.selectByIdForUpdate(8101L)).thenReturn(order);
+        when(routeVersionMapper.selectById(448L)).thenReturn(MesProRouteVersionDO.builder()
+                .id(448L).routeId(922119L)
+                .routeSnapshotJson("{\"routeId\":922119,\"configSnapshots\":{\"flowGraph\":{\"nodes\":[{\"routeProcessId\":5001,\"processId\":6001}]}}}").build());
+        when(processSnapshotMapper.selectListByActiveOrderIdForUpdate(8101L))
+                .thenReturn(List.of(processSnapshot(5001L, 6001L)));
+        var task = pqcTask("PENDING");
+        when(pqcInspectionTaskMapper.selectListByActiveOrderIdForUpdate(8101L)).thenReturn(List.of(task));
+        when(pqcCoverageService.missingExpectedPqcTaskIdentities(order, List.of(task)))
+                .thenReturn(List.of("PATROL"));
+        var error = assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,
+                () -> service.simulateActiveOrderCompletion(3001L, 8101L));
+        assertTrue(error.getMessage().contains("请先在一线PQC"));
+        verify(feedbackMapper, never()).insert(any(MesProFeedbackDO.class));
+        verify(pqcPieceDetailMapper, never()).insertBatch(any(List.class));
+        verify(signatureService, never()).recordStage1SimulationSignature(any(), any(), any(), any(), any());
     }
 
     @Test
@@ -365,6 +404,11 @@ class MesTeamLeaderActiveOrderSimulationServiceTest {
                 .createPqcInspectionEvent(pqcCaptor.capture());
         assertEquals(List.of(10005L, 10007L), pqcCaptor.getAllValues().stream()
                 .map(MesProcessPoolCreatePqcInspectionReqDTO::getSignatureId).toList());
+        for (var request : pqcCaptor.getAllValues()) {
+            var payload = cn.iocoder.yudao.framework.common.util.json.JsonUtils.parseTree(request.getRawPayload());
+            assertEquals(1, payload.path("inspectionItemPlan").path("FIRST-001").asInt());
+            assertTrue(payload.path("inspectionSamplingPlan").isObject());
+        }
         assertTrue(pqcCaptor.getAllValues().stream().allMatch(request ->
                 request.getDeviceAccountId() == null && request.getDeviceId() == null && request.getWorkstationId() == null),
                 "Independent QA tasks carry equipment in item evidence, without a production workstation");
@@ -719,6 +763,22 @@ class MesTeamLeaderActiveOrderSimulationServiceTest {
                 .standardUpperLimit(BigDecimal.ONE)
                 .standardPrecision(1)
                 .build();
+    }
+
+    @Test
+    void commonQaWithoutProjectUsesItsLockedSnapshotEquipment() {
+        var task = MesPqcInspectionTaskDO.builder().id(91L).qaRegulationId(81L).regulationVersionId(71L).build();
+        when(inspectionRegulationVersionMapper.selectById(71L)).thenReturn(
+                MesQaInspectionRegulationVersionDO.builder().id(71L).regulationId(81L)
+                        .snapshotJson("{\"processes\":[{\"items\":[{\"itemCode\":\"COMMON-1\",\"equipmentOptions\":[{\"equipmentId\":61,\"equipmentCode\":\"EQ1\",\"equipmentName\":\"Gauge\",\"equipmentNumber\":\"N1\"}]}]}]}").build());
+        when(inspectionRegulationMapper.selectById(81L)).thenReturn(
+                MesQaInspectionRegulationDO.builder().id(81L).ownerModule("MES_QA_COMMON").build());
+        Object options = org.springframework.test.util.ReflectionTestUtils.invokeMethod(service,
+                "resolvePqcTaskEquipmentOptions", task, "COMMON-1");
+        assertTrue(String.valueOf(options).contains("EQ1"));
+        verify(pqcItemEquipmentConfigService, never()).listEnabledEquipmentOptionsByProjectVersionAndItemCodes(any(), any(), any());
+        assertThrows(RuntimeException.class, () -> org.springframework.test.util.ReflectionTestUtils.invokeMethod(service,
+                "resolvePqcTaskEquipmentOptions", task, "MISSING"));
     }
 
     private void givenQaVersionDcc(Long versionId, Long regulationId, Long dccProjectCodeId) {

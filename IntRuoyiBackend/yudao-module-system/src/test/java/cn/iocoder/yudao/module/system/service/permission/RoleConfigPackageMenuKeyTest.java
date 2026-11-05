@@ -24,7 +24,7 @@ class RoleConfigPackageMenuKeyTest {
         Map<String, Set<Long>> mapping = ReflectionTestUtils.invokeMethod(service, "buildMenuIdByKey");
         RoleConfigPackageServiceImpl.RoleConfigItem item = new RoleConfigPackageServiceImpl.RoleConfigItem();
         item.setMenuKeys(List.of("permission:system:role:query", "permission:system:role:query"));
-        Set<Long> resolved = ReflectionTestUtils.invokeMethod(service, "resolveMenuIds", item, mapping);
+        Set<Long> resolved = ReflectionTestUtils.invokeMethod(service, "resolveMenuIds", item, mapping, Set.of(101L, 202L));
 
         assertEquals(Set.of(101L, 202L), resolved);
     }
@@ -62,7 +62,7 @@ class RoleConfigPackageMenuKeyTest {
         item.setCode("scheduler");
         item.setMenuKeys(List.of("permission:system:role:update"));
         ServiceException error = assertThrows(ServiceException.class,
-                () -> ReflectionTestUtils.invokeMethod(service, "resolveMenuIds", item, mapping));
+                () -> ReflectionTestUtils.invokeMethod(service, "resolveMenuIds", item, mapping, Set.of(101L)));
         assertTrue(error.getMessage().contains("permission:system:role:update"));
         assertEquals(ErrorCodeConstants.CONFIG_PACKAGE_REFERENCE_MISSING.getCode(), error.getCode());
     }

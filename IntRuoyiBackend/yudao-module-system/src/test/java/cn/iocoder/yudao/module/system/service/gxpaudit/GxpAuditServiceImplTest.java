@@ -428,6 +428,24 @@ class GxpAuditServiceImplTest extends BaseDbUnitTest {
     }
 
     @Test
+    void optionalOpinionIsLimitedToMarketReleaseApprovalEvidence() {
+        var input = command("signature.record.create", "optional-market-opinion");
+        var state = "{\"moduleCode\":\"BPM\",\"subjectType\":\"BPM_APPROVAL_TASK\",\"subjectId\":\"EDHR_RELEASE:123\",\"actionCode\":\"APPROVE\"}";
+        input.setAfterState(GxpAuditStateEnvelope.builder().state("SIGNED").canonicalJson(state).build());
+        assertTrue(GxpAuditServiceImpl.isOptionalMarketReleaseOpinion(input));
+        input.setAfterState(GxpAuditStateEnvelope.builder().state("SIGNED").canonicalJson(state.replace("APPROVE", "REJECT")).build());
+        assertFalse(GxpAuditServiceImpl.isOptionalMarketReleaseOpinion(input));
+        input.setAfterState(GxpAuditStateEnvelope.builder().state("SIGNED").canonicalJson(state.replace("EDHR_RELEASE", "OTHER")).build());
+        assertFalse(GxpAuditServiceImpl.isOptionalMarketReleaseOpinion(input));
+        input.setOperationId("APPROVAL_CENTER_REVIEW_COMMIT");
+        var receipt = "{\"identity\":{\"ownerCode\":\"EDHR\",\"sourceTaskType\":\"EDHR_WORK_TASK\",\"domainSubjectType\":\"EDHR_RELEASE\"},\"action\":\"APPROVE\"}";
+        input.setAfterState(GxpAuditStateEnvelope.builder().state("COMMITTED").canonicalJson(receipt).build());
+        assertTrue(GxpAuditServiceImpl.isOptionalMarketReleaseOpinion(input));
+        input.setAfterState(GxpAuditStateEnvelope.builder().state("COMMITTED").canonicalJson(receipt.replace("APPROVE", "REJECT")).build());
+        assertFalse(GxpAuditServiceImpl.isOptionalMarketReleaseOpinion(input));
+    }
+
+    @Test
     void append_shouldRejectMissingRequiredReason() {
         GxpAuditCommand command = command("edhr.execution.field.update", "idem-4");
         command.setReason(" ");

@@ -114,6 +114,8 @@ public class AdminUserServiceImplTest extends BaseDbUnitTest {
     @MockitoBean
     private ApprovalAuthorityApi approvalAuthority;
     @MockitoBean
+    private cn.iocoder.yudao.module.system.api.signature.UserSignatureAuthorizationApi signatureAuthorization;
+    @MockitoBean
     private PasswordEncoder passwordEncoder;
     @MockitoBean
     private TenantService tenantService;
@@ -174,6 +176,7 @@ public class AdminUserServiceImplTest extends BaseDbUnitTest {
         assertNotNull(user.getPasswordUpdateTime());
         assertEquals("RESET_REQUIRED", user.getPasswordCredentialStatus());
         assertEquals(CommonStatusEnum.ENABLE.getStatus(), user.getStatus());
+        verify(signatureAuthorization).authorizeProvisionedUser(userId, "新建用户自动授予电子签名授权");
         // 断言关联岗位
         List<UserPostDO> userPosts = userPostMapper.selectListByUserId(user.getId());
         assertEquals(1L, userPosts.get(0).getPostId());
@@ -1522,6 +1525,57 @@ public class AdminUserServiceImplTest extends BaseDbUnitTest {
     }
 
     @Test
+    public void testImportDingTalkUserList_reimportAuthorizesExistingWithoutResettingUser() {
+        when(passwordEncoder.encode(eq(TEST_INIT_PASSWORD))).thenReturn("original-password-hash");
+        var rows = List.of(buildDingTalkUser("董李娜", "donglina@example.test", "E001", "",
+                "测试公司", "dept-quality", "质量部", null, null, null, null, null));
+        var first = userService.importDingTalkUserList(rows);
+        AdminUserDO user = userMapper.selectByUsername("donglina");
+        assertEquals(List.of("donglina"), first.getCreateUsernames());
+        assertEquals(List.of("donglina"), first.getAuthorizedUsernames());
+        verify(signatureAuthorization).authorizeProvisionedUser(user.getId(), "钉钉导入新用户自动授予电子签名授权");
+        var originalPasswordTime = user.getPasswordUpdateTime();
+        clearInvocations(signatureAuthorization, passwordEncoder);
+
+        var second = userService.importDingTalkUserList(rows);
+        assertTrue(second.getCreateUsernames().isEmpty());
+        assertTrue(second.getFailureUsernames().isEmpty());
+        assertEquals(List.of("donglina"), second.getExistingUsernames());
+        assertEquals(List.of("donglina"), second.getAuthorizedUsernames());
+        verify(signatureAuthorization).authorizeProvisionedUser(user.getId(), "钉钉重复导入自动授予电子签名授权");
+        verify(passwordEncoder, never()).encode(anyString());
+        AdminUserDO unchanged = userMapper.selectByUsername("donglina");
+        assertEquals(user.getId(), unchanged.getId());
+        assertEquals("original-password-hash", unchanged.getPassword());
+        assertEquals(originalPasswordTime, unchanged.getPasswordUpdateTime());
+        assertEquals(user.getPasswordCredentialStatus(), unchanged.getPasswordCredentialStatus());
+        assertEquals(1L, userMapper.selectCount());
+    }
+
+    @Test
+    public void testImportDingTalkUserList_authorizationFailureRollsBackUsersAndDepartments() {
+        when(passwordEncoder.encode(eq(TEST_INIT_PASSWORD))).thenReturn("hash");
+        doThrow(new IllegalStateException("AUTHORIZATION_AUDIT_FAILED"))
+                .when(signatureAuthorization).authorizeProvisionedUser(anyLong(), anyString());
+        var rows = List.of(buildDingTalkUser("董李娜", "donglina@example.test", "E001", "",
+                "测试公司", "dept-quality", "质量部", null, null, null, null, null));
+        assertThrows(IllegalStateException.class, () -> userService.importDingTalkUserList(rows));
+        assertEquals(0L, userMapper.selectCount());
+        assertEquals(0L, deptMapper.selectCount());
+    }
+
+    @Test
+    public void testCreateUser_authorizationFailureRollsBackUser() {
+        when(passwordEncoder.encode(anyString())).thenReturn("hash");
+        doThrow(new IllegalStateException("AUTHORIZATION_WRITE_FAILED"))
+                .when(signatureAuthorization).authorizeProvisionedUser(anyLong(), anyString());
+        var request = new UserSaveReqVO().setUsername("operator01").setNickname("操作员")
+                .setPassword("Create@2026").setPostIds(Set.of());
+        assertThrows(IllegalStateException.class, () -> userService.createUser(request));
+        assertEquals(0L, userMapper.selectCount());
+    }
+
+    @Test
     public void testImportDingTalkUserList_duplicatePinyinAndExistingUsername() {
         when(passwordEncoder.encode(eq(TEST_INIT_PASSWORD))).thenReturn("java");
         userMapper.insert(randomAdminUserDO(o -> {
@@ -1542,7 +1596,8 @@ public class AdminUserServiceImplTest extends BaseDbUnitTest {
 
         assertTrue(respVO.getCreateUsernames().contains("liming2"));
         assertTrue(respVO.getCreateUsernames().contains("liming3"));
-        assertEquals(USER_USERNAME_EXISTS.getMsg(), respVO.getFailureUsernames().get("liming"));
+        assertEquals("账号已存在，但姓名、部门或邮箱不匹配，无法自动授予电子签名授权", respVO.getFailureUsernames().get("liming"));
+        verify(signatureAuthorization, never()).authorizeProvisionedUser(eq(userMapper.selectByUsername("liming").getId()), anyString());
         assertNotNull(userMapper.selectByUsername("liming2"));
         assertNotNull(userMapper.selectByUsername("liming3"));
     }

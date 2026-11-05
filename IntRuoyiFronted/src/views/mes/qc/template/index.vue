@@ -3,7 +3,6 @@
 
 
   <ContentWrap>
-    <el-button @click="samplingTableRef?.open()">抽样对照表</el-button>
     <UnifiedListTemplate
       @query="handleQuery"
       @reset="resetQuery"
@@ -80,6 +79,9 @@
         </el-form>
       </template>
       <template #actions>
+        <el-button plain @click="samplingTableRef?.open()" v-hasPermi="['mes:qc-template:query']">
+          抽样对照表
+        </el-button>
 
 
         <el-button
@@ -168,8 +170,6 @@
 </template>
 
 <script setup lang="ts">
-import SamplingTableDialog from './SamplingTableDialog.vue'
-const samplingTableRef = ref<InstanceType<typeof SamplingTableDialog>>()
 import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
 import { getDictOptions as listColumnDictOptions } from '@/utils/dict'
 
@@ -179,9 +179,11 @@ import { dateFormatter } from '@/utils/formatTime'
 import download from '@/utils/download'
 import { QcTemplateApi, QcTemplateVO } from '@/api/mes/qc/template'
 import TemplateForm from './TemplateForm.vue'
+import SamplingTableDialog from './SamplingTableDialog.vue'
 import { DICT_TYPE, getIntDictOptions } from '@/utils/dict'
 
 defineOptions({ name: 'MesQcTemplate' })
+const samplingTableRef = ref<InstanceType<typeof SamplingTableDialog>>()
 
 const message = useMessage() // 消息弹窗
 const { t } = useI18n() // 国际化

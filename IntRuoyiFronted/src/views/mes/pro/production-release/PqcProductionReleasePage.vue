@@ -197,7 +197,7 @@
         <el-result v-if="releaseResult" icon="success" title="生产放行完成">
           <template #sub-title>
             <span data-pqc-production-release-batch-execution-id>
-              批次执行 {{ releaseResult.batchExecutionId || '--' }} 已创建，后续进入资料上传。
+              批次执行 {{ releaseResult.batchExecutionId }} 已完成生产放行，已提交上市放行。
             </span>
           </template>
         </el-result>
@@ -465,11 +465,19 @@ const requireCompletedPqcReleaseDetail = (
     throw new Error('放行详情中的签名与放行结果记录不一致，无法展示详情。请联系管理员核查。')
   }
   const dimensions = [verification.digestStatus, verification.timeConsistencyStatus, verification.auditBindingStatus]
-  const overall = dimensions.includes('MISMATCH') ? 'MISMATCH' : dimensions.includes('MISSING') ? 'INCOMPLETE' : 'VALID'
-  if (dimensions.some((status) => !['CONSISTENT', 'MISSING', 'MISMATCH'].includes(status)) ||
+  const auditDisabled = verification.auditBindingStatus === 'DEVELOPMENT_DISABLED'
+  // V2 treats missing evidence as a mismatch; V1 retains its INCOMPLETE result.
+  const overall = verification.evidenceFormatVersion === 'V2'
+    ? verification.digestStatus === 'CONSISTENT' && verification.timeConsistencyStatus === 'CONSISTENT' &&
+      (verification.auditBindingStatus === 'CONSISTENT' || auditDisabled) ? 'VALID' : 'MISMATCH'
+    : dimensions.includes('MISMATCH') ? 'MISMATCH' : dimensions.includes('MISSING') ? 'INCOMPLETE' : 'VALID'
+  if ([verification.digestStatus, verification.timeConsistencyStatus].some((status) => !['CONSISTENT', 'MISSING', 'MISMATCH'].includes(status)) ||
+    !['CONSISTENT', 'MISSING', 'MISMATCH', 'DEVELOPMENT_DISABLED'].includes(verification.auditBindingStatus) ||
+    !Array.isArray(verification.reasonCodes) ||
+    (auditDisabled && !verification.reasonCodes.includes('GXP_AUDIT_DEVELOPMENT_DISABLED')) ||
     overall !== verification.verificationStatus || verification.verificationScope !== 'LOCAL_DIGEST_TIME_AND_CREATION_AUDIT' ||
     verification.timeTrustStatus !== 'NOT_BOUND' || !['SERVER_CLOCK', 'UNKNOWN'].includes(verification.timeSource) ||
-    !['V1', 'UNSUPPORTED'].includes(verification.evidenceFormatVersion) || !Array.isArray(verification.reasonCodes) ||
+    !['V1', 'V2', 'UNSUPPORTED'].includes(verification.evidenceFormatVersion) ||
     !isFormalSignedTime(verification.verifiedAt) ||
     (verification.digestStatus === 'CONSISTENT' && (!verification.storedContentHash || !verification.storedEvidenceHash ||
       verification.storedContentHash !== verification.calculatedContentHash || verification.storedEvidenceHash !== verification.calculatedEvidenceHash)) ||
@@ -548,9 +556,11 @@ const openPqcReleaseFromRoute = async () => {
     if (!isCurrent() || loadError.value || !context) return
     const row = list.value[0]
     if (!row || row.viewStatus !== PQC_RELEASE_VIEW_PENDING ||
-      row.applicationStatus !== 'PQC_RELEASE_PENDING' || row.underReview || row.approvalReady === false) {
+      row.applicationStatus !== 'PQC_RELEASE_PENDING' || row.underReview) {
       throw new Error(row?.approvalBlockerReason || '当前生产放行申请不符合待放行任务状态。')
     }
+    // A configuration blocker keeps the real pending record visible with its disabled action.
+    if (row.approvalReady === false) return
     if (!userStore.permissions.has('mes:pro-production-release:pqc-approve') && !userStore.permissions.has('*:*:*')) {
       throw new Error('当前账号没有生产放行权限。')
     }
@@ -725,6 +735,19 @@ const freezeReleaseRequest = (row: MesPqcProductionReleasePageItemRespVO) => {
 
 type FrozenPqcReleaseRequest = ReturnType<typeof freezeReleaseRequest> & { payloadHash: string }
 
+const managementRoleRejection = (error: unknown, request: FrozenPqcReleaseRequest): string | undefined => {
+  const failure = (error as any)?.details
+  const receipt = failure?.rejectedDecision
+  const blockers = failure?.blockers
+  if (receipt?.outcome !== 'ROLLED_BACK' || receipt.applicationId !== request.applicationId ||
+    receipt.workTaskId !== request.pqcReleaseWorkTaskId || receipt.actorId !== request.actorId ||
+    receipt.expectedVersion !== request.expectedVersion || receipt.idempotencyKey !== request.idempotencyKey ||
+    receipt.payloadHash !== request.payloadHash || !Array.isArray(blockers) || blockers.length !== 1 ||
+    blockers[0]?.blockerType !== 'MANAGEMENT_REPRESENTATIVE_ROLE_REQUIRED' ||
+    typeof blockers[0]?.reason !== 'string' || !blockers[0].reason.trim()) return
+  return blockers[0].reason
+}
+
 const assertReleasedReceipt = (result: MesPqcProductionReleaseDecisionRespVO, request: FrozenPqcReleaseRequest) => {
   if (requirePqcReleaseAuthority(result, request) !== 'APPROVED' ||
     result.decisionIdempotencyKey !== request.idempotencyKey ||
@@ -844,7 +867,18 @@ const submitRelease = async () => {
     }, { ignoreErrorMessage: true, isRequestContextCurrent: isCurrent , isSuccessReceiptContextCurrent: (() => { const receiptSessionKey = approvalInvalidation.syncSession().key; return () => approvalInvalidation.isCurrent(receiptSessionKey) })()})
     confirmReleasedReceipt(result, request)
   } catch (error) {
-    if (isReleaseTransportTimeout(error)) {
+    const roleRejection = managementRoleRejection(error, request)
+    if (roleRejection) {
+      releaseRequestStates.delete(request.scopeKey)
+      releaseIdempotencyKeys.delete(request.scopeKey)
+      releaseRequestOwner.pqcReleaseRequests!.requests.delete(request.scopeKey)
+      if (!isCurrent()) return
+      releaseForm.signaturePassword = ''
+      releaseOutcomeUncertain.value = false
+      releaseError.value = `${roleRejection}。请为管理者代表角色分配启用账号后重新放行。`
+      releaseSubmitting.value = false
+      return
+    } else if (isReleaseTransportTimeout(error)) {
       releaseRequestStates.set(request.scopeKey, 'UNCERTAIN')
       const receipt = await recoverUncertainRelease(request, error, isCurrent)
       if (!isCurrent()) return

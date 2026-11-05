@@ -66,7 +66,9 @@ public class MesActiveOrderDossierCompletionService {
         adminUserApi.validateUser(assignee);
         if (!permissionApi.hasAnyPermissions(assignee, "mes:pro-edhr-batch-execution:upload")
                 || !permissionApi.hasAnyPermissions(assignee, "mes:pro-edhr-work-task:query"))
-            throw new IllegalArgumentException("资料责任人必须具备资料上传和个人待办权限");
+            throw cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception(
+                    cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_ACTIVE_ORDER_DOSSIER_FILE_BLOCKED,
+                    "资料责任人必须具备资料上传和个人待办权限");
         var old = activeTask(activeOrderId, category);
         if (old != null && Objects.equals(old.getAssigneeUserId(), assignee) && currentRound(old)) return old;
         boolean transferWithinRound = old != null && currentRound(old);

@@ -3494,11 +3494,7 @@ const buildPqcInspectionRecordRows = (): ActiveOrderPqcInspectionRecordRow[] => 
           itemNameText: groupedItem.itemNameText,
           inspectionMethodText,
           standardText,
-          inspectionQuantityText:
-            submission.actualInspectionQuantity === undefined ||
-            submission.actualInspectionQuantity === null
-              ? '-'
-              : String(submission.actualInspectionQuantity),
+          inspectionQuantityText: formatActiveOrderPqcSubmittedSampleCount(sourceItems),
           resultText: formatPqcInspectionRecordResultText(
             measuredValuesText,
             sampleSummaryText

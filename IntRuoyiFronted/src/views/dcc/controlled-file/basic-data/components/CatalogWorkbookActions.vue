@@ -5,40 +5,42 @@
   <el-button v-if="canExport" :loading="exporting" :disabled="importing" @click="exportWorkbook">
     <Icon icon="ep:download" class="mr-5px" />导出
   </el-button>
-  <el-dialog
+  <Dialog
     v-model="dialogVisible"
-    title="导入 DCC 产品目录及绑定关系"
-    width="600px"
+    title="DCC 产品目录导入"
+    width="420"
     :close-on-click-modal="false"
     :close-on-press-escape="!importing"
-    :show-close="!importing"
+    :before-close="beforeClose"
+    @closed="resetFile"
   >
-    <el-alert
-      type="info"
-      :closable="false"
-      title="请使用完整 Excel 工作簿。产品目录全租户共享，导入复用已有目录；项目、注册证、公司及绑定关系合并到当前租户，保留文件外数据。校验失败整批不保存。"
-    />
-    <p
-      >包含产品目录、项目代码、注册证、关联公司、授权公司及绑定关系。注册证附件和审批记录不包含在内，不能通过导入改变正式状态。跨租户不迁移账号授权、人员及流程引用，保留目标已有引用。被引用的历史主数据保持原删除状态；快照及绑定明细按原数据迁移。</p
-    >
-    <input
-      ref="fileInput"
-      type="file"
+    <el-upload
+      ref="uploadRef"
+      v-model:file-list="fileList"
+      :auto-upload="false"
+      :limit="1"
+      :on-change="selectFile"
+      :on-exceed="handleExceed"
       accept=".xlsx"
       :disabled="importing"
+      action="none"
       aria-label="选择导入工作簿"
-      @change="selectFile"
-    />
+      drag
+    >
+      <Icon icon="ep:upload" />
+      <div class="el-upload__text">将文件拖到此处，或<em>点击上传</em></div>
+    </el-upload>
     <template #footer>
-      <el-button :disabled="importing" @click="dialogVisible = false">取消</el-button>
       <el-button type="primary" :disabled="!file" :loading="importing" @click="importWorkbook"
-        >确认合并导入</el-button
+        >确 定</el-button
       >
+      <el-button :disabled="importing" @click="dialogVisible = false">取 消</el-button>
     </template>
-  </el-dialog>
+  </Dialog>
 </template>
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import type { UploadInstance, UploadProps, UploadUserFile } from 'element-plus'
 import request from '@/config/axios'
 import download from '@/utils/download'
 import { checkPermi, checkRole } from '@/utils/permission'
@@ -49,8 +51,9 @@ const exporting = ref(false)
 const importing = ref(false)
 const busy = computed(() => exporting.value || importing.value)
 const dialogVisible = ref(false)
-const file = ref<File>()
-const fileInput = ref<HTMLInputElement>()
+const uploadRef = ref<UploadInstance>()
+const fileList = ref<UploadUserFile[]>([])
+const file = computed(() => fileList.value[0]?.raw)
 const canExport = computed(
   () =>
     checkRole(['super_admin', 'tenant_admin']) ||
@@ -77,15 +80,24 @@ const canImport = computed(
       'dcc:registration-certificate:config:update'
     ].every((p) => checkPermi([p]))
 )
-const selectFile = (event: Event) => {
-  file.value = undefined
-  const selected = (event.target as HTMLInputElement).files?.[0]
+const resetFile = () => {
+  fileList.value = []
+  uploadRef.value?.clearFiles()
+}
+const beforeClose = (done: () => void) => {
+  if (!importing.value) done()
+}
+const handleExceed: UploadProps['onExceed'] = () => {
+  message.error('只能上传一个文件，请先移除已选文件')
+}
+const selectFile: UploadProps['onChange'] = (uploadFile) => {
+  const selected = uploadFile.raw
   if (!selected) return
   if (!selected.name.toLowerCase().endsWith('.xlsx') || selected.size > 20 * 1024 * 1024) {
     message.error('请选择 20MB 以内的 .xlsx 文件')
+    resetFile()
     return
   }
-  file.value = selected
 }
 const exportWorkbook = async () => {
   exporting.value = true
@@ -115,8 +127,7 @@ const importWorkbook = async () => {
       `导入成功：新增 ${result.created} 条，更新 ${result.updated} 条（含绑定明细）${result.localReferences ? `；${result.localReferences} 项源租户人员或流程引用未迁移` : ''}`
     )
     dialogVisible.value = false
-    file.value = undefined
-    if (fileInput.value) fileInput.value.value = ''
+    resetFile()
     emit('success')
   } finally {
     importing.value = false

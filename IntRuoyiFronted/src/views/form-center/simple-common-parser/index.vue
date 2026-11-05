@@ -1,21 +1,32 @@
 <template>
   <ContentWrap class="simple-parser-layout" v-loading="busy" :element-loading-text="busyText">
     <SimpleParserHeader
-      v-model:project-id="projectId"
+      :requires-project="false"
       title="简易通用解析"
       import-accept=".doc,.docx"
-      :projects="projects"
+      :projects="[]"
       :busy="busy"
       :has-content="!!draft"
       :published="published"
       publish-permission="mes:qc-template:update"
-      @search="searchProjects"
       @import="importWord"
       @export="exportWord"
       @save="saveLocal"
       @restore="restoreLocal"
       @preview="preview"
     />
+    <el-button
+      v-hasPermi="['mes:qc-template:query']"
+      class="mb-16px"
+      @click="
+        router.push({
+          path: '/mes/pro/process-pool/common-regulation',
+          query: publishedResult ? { regulationId: publishedResult.regulationId } : {}
+        })
+      "
+    >
+      查看已发布规程
+    </el-button>
     <el-alert v-if="error" :title="error" type="error" :closable="false" />
     <section v-if="published" class="parser-published-result">
       <el-result
@@ -29,10 +40,10 @@
             :auto-upload="false"
             :show-file-list="false"
             accept=".doc,.docx"
-            :disabled="busy || !projectId"
+            :disabled="busy"
             :on-change="importWord"
           >
-            <el-button :disabled="busy || !projectId">重新导入</el-button>
+            <el-button :disabled="busy">重新导入</el-button>
           </el-upload>
         </template>
       </el-result>
@@ -41,9 +52,9 @@
       v-if="publishedResult"
       v-model="resultVisible"
       :result="publishedResult"
-      :project-name="publishedProjectName"
+      :show-project="false"
     />
-    <el-empty v-if="!draft" description="先选择所属项目，再导入 Word，编辑后预览发布" />
+    <el-empty v-if="!draft" description="导入通用规程 Word，编辑后预览发布" />
     <template v-else>
       <el-radio-group v-model="viewMode" class="parser-mode-tabs" aria-label="解析查看模式">
         <el-radio-button value="edit">编辑内容</el-radio-button>
@@ -316,13 +327,12 @@
       @opened="focusFinalIssue"
     >
       <template v-if="draft">
-        <p>所属项目：{{ selectedProject }}</p>
         <h3>发布内容</h3>
         <p>{{ draft.regulationName }} · {{ draft.versionNo }}</p>
         <p>{{
           draft.regulationId
-            ? '发布通用规程新版本，历史规程及已绑定套版本保留。新版本需加入对应规程套后使用。'
-            : '新建通用检验规程并发布，发布后可加入对应规程套。'
+            ? '发布通用规程新版本，历史版本和产品QA已有绑定保留。可在产品QA规程中选择关联新版。'
+            : '新建并发布通用检验规程，发布后可在通用规程页面维护，并在产品QA规程中关联。'
         }}</p>
         <el-form ref="finalEditor" :disabled="published || busy" label-position="top">
           <el-form-item label="末检适用性">
@@ -413,6 +423,7 @@
 <script setup lang="ts">
 import SamplingRuleEditor from '@/views/mes/qc/template/SamplingRuleEditor.vue'
 import { computed, nextTick, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import Draggable from 'vuedraggable'
 import { useParserEditing } from '../parser/useParserEditing'
 import ParserProcessToolbar from '../parser/components/ParserProcessToolbar.vue'
@@ -425,10 +436,6 @@ import type { UploadFile } from 'element-plus'
 import { SimpleCommonParserApi } from '@/api/mes/qc/template/simpleCommonParser'
 import { QcTemplateApi, type QaInspectionRegulationPublishedVersionVO } from '@/api/mes/qc/template'
 import { MATRIX_SAMPLING_RULE, nextVersion, formatInspectionLevel } from '../parser/simplePqc'
-import {
-  getProjectCodePage,
-  type DccProjectCodeRespVO
-} from '@/api/dcc/controlledFile/projectCodes'
 import { DvMachineryApi, type DvMachineryVO } from '@/api/mes/dv/machinery'
 import { getTenantId } from '@/utils/auth'
 import { useUserStore } from '@/store/modules/user'
@@ -438,18 +445,16 @@ import { createPqcWord, readPqcWord, pqcWordFilename, pqcWordMime } from '../par
 
 defineOptions({ name: 'FormCenterSimpleCommonParser' })
 const message = useMessage()
+const router = useRouter()
 const busyText = ref('正在处理，请稍候…')
 const trialSession = ref(0)
 const finalEditor = ref<{ $el: HTMLElement }>()
-const projectId = ref<number>()
-const projects = ref<DccProjectCodeRespVO[]>([])
 const draft = ref<Draft>()
 const machinery = ref<DvMachineryVO[]>([])
 const busy = ref(false)
 const error = ref('')
 const published = ref(false)
 const publishedResult = ref<QaInspectionRegulationPublishedVersionVO>()
-const publishedProjectName = ref<string>()
 const resultVisible = ref(false)
 const previewVisible = ref(false)
 const viewMode = ref<'edit' | 'trial'>('edit')
@@ -463,9 +468,6 @@ const equipmentEditor = ref<{ $el: HTMLElement }>()
 const pendingIssue = ref<DraftIssue>()
 const process = computed(() => draft.value?.processes[processIndex.value])
 const item = computed(() => process.value?.items[itemIndex.value])
-const selectedProject = computed(
-  () => projects.value.find((p) => p.id === projectId.value)?.projectName
-)
 const issues = computed(() =>
   draft.value
     ? [
@@ -529,20 +531,7 @@ async function run(action: () => Promise<void>, text = '正在处理，请稍候
     busy.value = false
   }
 }
-async function searchProjects(keyword = '') {
-  try {
-    const selected = projects.value.find((p) => p.id === projectId.value)
-    const result = (
-      await getProjectCodePage({ pageNo: 1, pageSize: 100, keyword, status: 'ENABLE' })
-    ).list
-    projects.value =
-      selected && !result.some((p) => p.id === selected.id) ? [selected, ...result] : result
-  } catch (e) {
-    error.value = `项目列表加载失败：${String(e)}`
-  }
-}
 async function loadResources() {
-  if (!projectId.value) throw new Error('请先选择所属项目')
   const options: DvMachineryVO[] = []
   for (let pageNo = 1; ; pageNo++) {
     const page = await DvMachineryApi.getMachineryPage({ pageNo, pageSize: 100 })
@@ -566,10 +555,6 @@ async function confirmReplace(text: string) {
 async function importWord(upload: UploadFile) {
   if (busy.value) return
   if (!upload.raw) return
-  if (!projectId.value) {
-    message.error('请先选择所属项目')
-    return
-  }
   if (!/\.docx?$/i.test(upload.raw.name)) {
     message.error('请选择 DOC 或 DOCX 文件')
     return
@@ -580,18 +565,18 @@ async function importWord(upload: UploadFile) {
       ? readPqcWord(
           await upload.raw!.arrayBuffer(),
           String(getTenantId()),
-          projectId.value!,
+          undefined,
           'MES_QA_COMMON'
         )
       : null
     const parsed = restored
       ? restored.draft
-      : await SimpleCommonParserApi.parse(upload.raw!, projectId.value!)
+      : await SimpleCommonParserApi.parse(upload.raw!)
     if (restored) {
-      const versions = await QcTemplateApi.listCommonRegulationPublishedVersions()
+      const versions = await QcTemplateApi.listCommonRegulationReleasedVersions()
       parsed.versionNo = nextVersion(
         parsed.versionNo,
-        versions.filter((v) => v.commonDccProjectCodeId === projectId.value).map((v) => v.versionNo)
+        versions.filter((v) => v.commonRegulationCode === parsed.regulationCode.trim()).map((v) => v.versionNo)
       )
       parsed.expectedDraftRevision = 0
     }
@@ -599,7 +584,6 @@ async function importWord(upload: UploadFile) {
     draft.value = parsed
     published.value = false
     publishedResult.value = undefined
-    publishedProjectName.value = undefined
     resultVisible.value = false
     viewMode.value = 'edit'
     processIndex.value = 0
@@ -740,11 +724,8 @@ function saveLocal() {
       storageKey(),
       JSON.stringify({
         draft: draft.value,
-        projectId: projectId.value,
-        projects: projects.value,
         published: published.value,
         publishedResult: publishedResult.value,
-        publishedProjectName: publishedProjectName.value,
         savedAt: time
       })
     )
@@ -762,18 +743,16 @@ async function restoreLocal() {
     const raw = localStorage.getItem(storageKey())
     if (!raw) throw new Error('没有已保存的草稿')
     const saved = JSON.parse(raw)
-    if (!saved.draft?.processes || !saved.projectId || saved.draft.ownerModule !== 'MES_QA_COMMON')
+    if (!saved.draft?.processes || saved.draft.ownerModule !== 'MES_QA_COMMON')
       throw new Error('草稿内容无效')
     if (saved.published && !saved.publishedResult?.publishedVersionId)
       throw new Error('已发布草稿缺少正式结果，请重新导入文档后发布')
-    projectId.value = saved.projectId
-    projects.value = saved.projects
     await loadResources()
     draft.value = saved.draft
+    delete draft.value!.dccProjectCodeId
     viewMode.value = 'edit'
     published.value = saved.published
     publishedResult.value = saved.publishedResult
-    publishedProjectName.value = saved.publishedProjectName
     resultVisible.value = false
     processIndex.value = 0
     itemIndex.value = 0
@@ -845,14 +824,12 @@ async function publish() {
   await run(async () => {
     const result = await SimpleCommonParserApi.publish(copy(draft.value!))
     publishedResult.value = result
-    publishedProjectName.value = selectedProject.value
     published.value = true
     previewVisible.value = false
     saveLocal()
     message.success(`已发布通用规程 ${result.versionNo}`)
   }, '正在发布，请稍候…')
 }
-void searchProjects()
 </script>
 
 <style scoped>

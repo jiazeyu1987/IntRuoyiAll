@@ -32,6 +32,7 @@ export interface SimpleDraft {
   requestId?: string
   project?: { id: number; projectCode: string; projectName: string }
   routeName?: string
+  workshopId?: number
   published?: unknown
 }
 export interface ReviewIssue {

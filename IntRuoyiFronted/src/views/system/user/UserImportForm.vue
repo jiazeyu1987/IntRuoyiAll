@@ -95,13 +95,13 @@ const submitForm = async () => {
   try {
     const previewData = new FormData()
     previewData.append('file', file.raw)
-    const preview = await UserApi.importUserPreview(previewData)
+    await UserApi.importUserPreview(previewData)
     if (!dialogVisible.value || generation !== dialogGeneration || fileList.value[0] !== file ||
         getTenantId() !== tenant || getVisitTenantId() !== visitTenant || getAccessToken() !== token || updateSupport.value !== overwrite) {
       formLoading.value = false
       return
     }
-    const confirmed = await confirmUserImport(file.name, overwrite ? 'update' : 'create', visitTenant || tenant, preview)
+    const confirmed = await confirmUserImport(file.raw)
     if (!confirmed || !dialogVisible.value || generation !== dialogGeneration ||
         fileList.value[0] !== file || updateSupport.value !== overwrite || getTenantId() !== tenant || getVisitTenantId() !== visitTenant || getAccessToken() !== token) {
       formLoading.value = false

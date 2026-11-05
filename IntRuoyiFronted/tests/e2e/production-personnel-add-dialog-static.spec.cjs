@@ -55,8 +55,8 @@ const dialogBlock = extractBlock(
 
 assert.match(
   listTemplateBlock,
-  /<template\s+#extra-filters>[\s\S]*data-team-leader-open-personnel-dialog[\s\S]*新增人员[\s\S]*<\/template>/,
-  '新增人员 button must render in the left-side list toolbar slot.'
+  /<template\s+#actions>[\s\S]*data-team-leader-open-personnel-dialog[\s\S]*新增人员[\s\S]*<\/template>/,
+  '新增人员 button must render in the list actions slot beside the filters.'
 )
 assert.match(
   listTemplateBlock,

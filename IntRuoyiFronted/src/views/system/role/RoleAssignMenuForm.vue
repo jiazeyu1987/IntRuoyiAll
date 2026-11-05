@@ -19,10 +19,13 @@
         />
       </el-form-item>
       <el-form-item label="菜单权限">
+        <el-checkbox v-model="checkStrictly" @change="preserveSelectedMenus">
+          父子独立选择（可仅授权目录）
+        </el-checkbox>
         <el-card class="w-full h-400px !overflow-y-scroll" shadow="never">
           <el-tree
             ref="treeRef"
-            :check-strictly="false"
+            :check-strictly="checkStrictly"
             :default-expand-all="false"
             :data="menuOptions"
             :props="defaultProps"
@@ -70,6 +73,14 @@ const formData = reactive<RoleAssignMenuFormData>(createDefaultFormData())
 const formRef = ref() // 表单 Ref
 const menuOptions = ref<any[]>([]) // 菜单树形结构
 const treeRef = ref() // 菜单树组件 Ref
+const checkStrictly = ref(false)
+
+const preserveSelectedMenus = async () => {
+  if (!checkStrictly.value) return
+  const selected = [...treeRef.value.getCheckedKeys(false), ...treeRef.value.getHalfCheckedKeys()]
+  await nextTick()
+  treeRef.value.setCheckedKeys(selected)
+}
 
 /** 打开弹窗 */
 const open = async (row: RoleApi.RoleVO) => {
@@ -125,6 +136,7 @@ const submitForm = async () => {
 /** 重置表单 */
 const resetForm = () => {
   // 重置表单
+  checkStrictly.value = false
   Object.assign(formData, createDefaultFormData())
   treeRef.value?.setCheckedNodes([])
   formRef.value?.resetFields()

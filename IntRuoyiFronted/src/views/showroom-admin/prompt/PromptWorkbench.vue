@@ -133,11 +133,11 @@
             :show-column-settings="false"
             :column-filter-definitions="[...listColumnFilterDefinitions0, ...allColumnDisplayFilters0]"
           >
-            <template #table="{ resolveRows, rows: standardRows }">
+            <template #table="{ rows: standardRows }">
               <el-table
                 stripe
                 border
-                :data="resolveRows(standardRows)"
+                :data="standardRows"
                 row-key="promptVersionId"
                 empty-text="暂无提示词历史版本"
               >

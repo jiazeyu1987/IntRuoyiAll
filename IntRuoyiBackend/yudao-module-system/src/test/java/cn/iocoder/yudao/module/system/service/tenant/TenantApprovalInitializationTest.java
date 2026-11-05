@@ -28,6 +28,7 @@ class TenantApprovalInitializationTest {
     private final RoleService roles = mock(RoleService.class);
     private final AdminUserService users = mock(AdminUserService.class);
     private final PermissionService permissions = mock(PermissionService.class);
+    private final org.springframework.context.ApplicationEventPublisher events = mock(org.springframework.context.ApplicationEventPublisher.class);
     private final TenantServiceImpl service = new TenantServiceImpl();
     private final TenantSaveReqVO request = new TenantSaveReqVO();
     @BeforeEach void setup() {
@@ -39,6 +40,10 @@ class TenantApprovalInitializationTest {
         ReflectionTestUtils.setField(service, "roleService", roles);
         ReflectionTestUtils.setField(service, "userService", users);
         ReflectionTestUtils.setField(service, "permissionService", permissions);
+        ReflectionTestUtils.setField(service, "eventPublisher", events);
+        var categories=mock(cn.iocoder.yudao.module.system.service.permission.RoleCategoryService.class);
+        when(categories.createRoleCategory(any())).thenReturn(5L);
+        ReflectionTestUtils.setField(service,"roleCategoryService",categories);
         request.setName("task tenant"); request.setPackageId(4L); request.setUsername("taskadmin");
         TenantPackageDO bundle = new TenantPackageDO(); bundle.setId(4L); bundle.setMenuIds(Set.of(2L));
         when(packages.validTenantPackage(4L)).thenReturn(bundle);
@@ -62,6 +67,7 @@ class TenantApprovalInitializationTest {
         order.verify(users).createUser(any());
         order.verify(permissions).initializeTenantAdministrator(eq(24L), eq(42L), eq(31L), anyString(), anyString());
         assertEquals(7L, TenantContextHolder.getRequiredTenantId());
+        verify(events).publishEvent(new cn.iocoder.yudao.module.system.api.tenant.TenantCreatedEvent(24L));
     }
     @Test void failedInitializationCannotCreateAdministratorOrRoleAndRestoresTenantContext() {
         doReturn(0).when(revisions).initializeNewTenant(24L);
@@ -73,5 +79,13 @@ class TenantApprovalInitializationTest {
         when(tenants.insert(any(TenantDO.class))).thenReturn(0);
         assertThrows(IllegalStateException.class, () -> service.createTenant(request));
         verifyNoInteractions(revisions, audit, roles, users, permissions);
+    }
+    @Test void moduleInitializationRunsInNewTenantAndFailurePropagates() {
+        doAnswer(call -> {
+            assertEquals(24L,TenantContextHolder.getRequiredTenantId());
+            throw new IllegalStateException("编码规则初始化失败");
+        }).when(events).publishEvent(any(cn.iocoder.yudao.module.system.api.tenant.TenantCreatedEvent.class));
+        assertThrows(IllegalStateException.class,()->service.createTenant(request));
+        assertEquals(7L,TenantContextHolder.getRequiredTenantId());
     }
 }

@@ -9,31 +9,6 @@ $script:MaximumWorktreeSlot = 100
 function Get-BranchRuntimeProfiles {
     @(
         [pscustomobject]@{
-            Name = 'int_main_d'
-            Branches = @('int_main')
-            DefaultForBranch = $false
-            FrontendBasePort = 8101
-            BackendBasePort = 48101
-            ExtendedFrontendStartPort = 8165
-            ExtendedBackendStartPort = 48165
-            SecondExtendedFrontendStartPort = 8216
-            SecondExtendedBackendStartPort = 48216
-            ThirdExtendedFrontendStartPort = 8266
-            ThirdExtendedBackendStartPort = 48266
-            FourthExtendedFrontendStartPort = 8316
-            FourthExtendedBackendStartPort = 48316
-            FifthExtendedFrontendStartPort = 8366
-            FifthExtendedBackendStartPort = 48366
-            SixthExtendedFrontendStartPort = 8416
-            SixthExtendedBackendStartPort = 48416
-            SeventhExtendedFrontendStartPort = 8466
-            SeventhExtendedBackendStartPort = 48466
-            EighthExtendedFrontendStartPort = 8516
-            EighthExtendedBackendStartPort = 48516
-            FrontendMode = 'branch-main-d'
-            EnvFile = 'IntRuoyiFronted\.env.branch-main-d'
-        },
-        [pscustomobject]@{
             Name = 'int_main'
             Branches = @('int_main')
             DefaultForBranch = $true

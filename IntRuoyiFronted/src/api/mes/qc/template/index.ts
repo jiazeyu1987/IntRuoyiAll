@@ -174,13 +174,12 @@ export interface QaInspectionRegulationVersionOptionVO {
 export interface QaCommonRegulationBindingVO {
   bindingId?: number
   productDccProjectCodeId: number
-  productId: number
   commonRegulationSetId?: number
   commonRegulationSetVersionId?: number
   commonRegulationSetCode?: string
   commonRegulationSetName?: string
   commonRegulationSetVersionNo?: string
-  commonDccProjectCodeId: number
+  commonDccProjectCodeId?: number
   commonRegulationId: number
   commonRegulationVersionId: number
   commonRegulationCode: string
@@ -194,7 +193,7 @@ export interface QaCommonRegulationBindingVO {
 }
 
 export interface QaCommonRegulationVersionOptionVO {
-  commonDccProjectCodeId: number
+  commonDccProjectCodeId?: number
   commonRegulationId: number
   commonRegulationVersionId: number
   commonRegulationCode: string
@@ -213,7 +212,7 @@ export interface QaCommonRegulationBindReqVO {
 
 export interface QaCommonRegulationSetMemberVO {
   id?: number
-  commonDccProjectCodeId: number
+  commonDccProjectCodeId?: number
   commonRegulationId: number
   commonRegulationVersionId: number
   commonRegulationCode: string
@@ -282,7 +281,6 @@ export interface QaCommonRegulationSetVersionSaveReqVO {
 export interface QaCommonRegulationSetItemsUpgradeMemberReqVO {
   commonRegulationId: number
   sourceCommonRegulationVersionId: number
-  commonDccProjectCodeId: number
   commonRegulationCode: string
   commonRegulationName: string
   versionNo: string
@@ -320,7 +318,7 @@ export interface QaInspectionRegulationSaveReqVO {
   commonRegulationVersionIds?: number[]
   expectedDraftRevision: number
   regulationId?: number
-  dccProjectCodeId: number
+  dccProjectCodeId?: number
   ownerModule?: QaInspectionRegulationOwnerModule
   regulationCode: string
   regulationName: string
@@ -573,6 +571,48 @@ export const QcTemplateApi = {
   listCommonRegulationPublishedVersions: async (): Promise<QaCommonRegulationVersionOptionVO[]> => {
     return await request.get({
       url: `/mes/qa/inspection-regulation/common-binding/published-versions`
+    })
+  },
+
+  // 查询全部已发布通用规程，包含已被新版替代的历史版本
+  listCommonRegulationReleasedVersions: async (): Promise<QaCommonRegulationVersionOptionVO[]> => {
+    return await request.get({
+      url: `/mes/qa/inspection-regulation/common-regulations/released-versions`
+    })
+  },
+
+  getCommonRegulationPublishedVersion: async (
+    versionId: number
+  ): Promise<QaInspectionRegulationPublishedVersionVO> => {
+    return await request.get({
+      url: `/mes/qa/inspection-regulation/common-regulations/published-version`,
+      params: { versionId }
+    })
+  },
+
+  deleteCommonRegulationVersion: async (versionId: number): Promise<boolean> => {
+    return await request.delete({
+      url: `/mes/qa/inspection-regulation/common-regulations/version`,
+      params: { versionId }
+    })
+  },
+
+  listCommonRegulationVersions: async (
+    regulationId: number
+  ): Promise<QaInspectionRegulationVersionOptionVO[]> => {
+    return await request.get({
+      url: `/mes/qa/inspection-regulation/common-regulations/versions`,
+      params: { regulationId }
+    })
+  },
+
+  getCommonRegulationEditorVersion: async (
+    regulationId: number,
+    versionId?: number
+  ): Promise<QaInspectionRegulationPublishedVersionVO> => {
+    return await request.get({
+      url: `/mes/qa/inspection-regulation/common-regulations/editor-version`,
+      params: { regulationId, versionId }
     })
   },
 

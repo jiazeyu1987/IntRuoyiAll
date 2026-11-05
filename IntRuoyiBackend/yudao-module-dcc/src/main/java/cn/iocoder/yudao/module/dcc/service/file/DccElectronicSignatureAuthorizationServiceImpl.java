@@ -29,7 +29,8 @@ import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FI
 
 @Service
 @Validated
-public class DccElectronicSignatureAuthorizationServiceImpl implements DccElectronicSignatureAuthorizationService {
+public class DccElectronicSignatureAuthorizationServiceImpl implements DccElectronicSignatureAuthorizationService,
+        cn.iocoder.yudao.module.system.api.signature.UserSignatureAuthorizationApi {
 
     public static final String STATE_UNAUTHORIZED = "UNAUTHORIZED";
     public static final String STATE_ENABLED = "ENABLED";
@@ -42,6 +43,22 @@ public class DccElectronicSignatureAuthorizationServiceImpl implements DccElectr
     private DccElectronicSignatureAuthorizationAuditService authorizationAuditService;
     @Resource
     private ApprovalAuthorityApi authority;
+
+    @Override
+    @Transactional(propagation = Propagation.MANDATORY, rollbackFor = Exception.class)
+    public void authorizeProvisionedUser(Long userId, String reason) {
+        if (userId == null || userId <= 0) throw exception(CONTROLLED_FILE_SIGNATURE_NOT_AUTHORIZED);
+        if (StrUtil.isBlank(reason)) throw exception(CONTROLLED_FILE_SIGNATURE_AUTH_REASON_REQUIRED);
+        authority.lockTenantApprovalAuthority(TenantContextHolder.getRequiredTenantId());
+        DccElectronicSignatureAuthorizationDO existing = authorizationMapper.selectByUserIdForUpdate(userId);
+        // An existing grant remains granted while temporarily locked. Import is not an unlock action.
+        if (existing != null && Boolean.TRUE.equals(existing.getElectronicSignatureEnabled())
+                && (STATE_ENABLED.equals(existing.getAuthorizationState()) || STATE_LOCKED.equals(existing.getAuthorizationState()))) {
+            return;
+        }
+        updateAuthorization(userId, true,
+                cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils.getLoginUserId(), reason);
+    }
 
     @Override
     public boolean isElectronicSignatureEnabled(Long userId) {

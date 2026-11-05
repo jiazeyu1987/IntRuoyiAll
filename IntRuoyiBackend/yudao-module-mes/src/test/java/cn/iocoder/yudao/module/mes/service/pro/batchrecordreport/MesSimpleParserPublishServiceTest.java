@@ -1,6 +1,7 @@
 package cn.iocoder.yudao.module.mes.service.pro.batchrecordreport;
 
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
+import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
 import cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecordreport.vo.SimpleParserPublishReqVO;
@@ -42,14 +43,19 @@ class MesSimpleParserPublishServiceTest {
     private MesProCraftService crafts;
     private MesTeamLeaderRuntimeConfigService devices;
     private MesProRouteService routes;
+    private MesProRouteWorkstationService workstations;
     private MesProRouteCandidateConfigService configs;
     private MesProcessPoolTeamDeviceMapper deviceMapper;
     private MesDvMachineryMapper machineryMapper;
+    private cn.iocoder.yudao.module.mes.dal.mysql.dv.machinery.MesDvMachineryTypeMapper machineryTypeMapper;
+    private cn.iocoder.yudao.module.mes.service.dv.machinery.MesDvMachineryService machineryService;
     private MesProProcessMapper processMapper;
     private MesProCraftMapper craftMapper;
     private MesMdItemMapper itemMapper;
     private DccProjectCodeMapper projectMapper;
     private MesProRouteProjectGuard projectGuard;
+    private cn.iocoder.yudao.module.mes.service.md.autocode.MesProjectAutoCodeService codeRules;
+    private cn.iocoder.yudao.module.mes.service.md.autocode.MesMdAutoCodePartService codeParts;
     private MockedStatic<SecurityFrameworkUtils> security;
     private final Map<Long,MesProProcessDO> createdProcesses=new HashMap<>();
 
@@ -65,11 +71,31 @@ class MesSimpleParserPublishServiceTest {
         when(projectMapper.selectById(42L)).thenReturn(DccProjectCodeDO.builder()
                 .id(42L).projectCode("P42").projectName("所选项目").status("ENABLE").build());
         projectGuard=mock(MesProRouteProjectGuard.class);
+        codeRules=mock(cn.iocoder.yudao.module.mes.service.md.autocode.MesProjectAutoCodeService.class);
+        codeParts=mock(cn.iocoder.yudao.module.mes.service.md.autocode.MesMdAutoCodePartService.class);
+        when(codeRules.ensure(eq(42L), anyString())).thenAnswer(call ->
+                cn.iocoder.yudao.module.mes.dal.dataobject.md.autocode.MesMdAutoCodeRuleDO.builder()
+                        .id(1L).code(call.getArgument(1)).status(0).build());
+        when(codeParts.getAutoCodePartListByRuleId(1L)).thenReturn(List.of(
+                cn.iocoder.yudao.module.mes.dal.dataobject.md.autocode.MesMdAutoCodePartDO.builder().id(1L).build()));
         processes=mock(MesProProcessService.class);crafts=mock(MesProCraftService.class);devices=mock(MesTeamLeaderRuntimeConfigService.class);
         routes=mock(MesProRouteService.class);configs=mock(MesProRouteCandidateConfigService.class);
+        workstations=mock(MesProRouteWorkstationService.class);
+        when(workstations.requireWorkshop(70L)).thenReturn(
+                cn.iocoder.yudao.module.mes.dal.dataobject.md.workstation.MesMdWorkshopDO.builder()
+                        .id(70L).name("选定车间").status(0).build());
         deviceMapper=mock(MesProcessPoolTeamDeviceMapper.class);processMapper=mock(MesProProcessMapper.class);
         machineryMapper=mock(MesDvMachineryMapper.class);
-        when(machineryMapper.selectList(any())).thenReturn(List.of());
+        machineryTypeMapper=mock(cn.iocoder.yudao.module.mes.dal.mysql.dv.machinery.MesDvMachineryTypeMapper.class);
+        machineryService=mock(cn.iocoder.yudao.module.mes.service.dv.machinery.MesDvMachineryService.class);
+        when(machineryTypeMapper.selectList(any(LambdaQueryWrapperX.class))).thenReturn(List.of(
+                cn.iocoder.yudao.module.mes.dal.dataobject.dv.machinery.MesDvMachineryTypeDO.builder()
+                        .id(99L).code("DEFAULT-MACHINERY-TYPE").name("默认设备类型").status(0).build()));
+        when(machineryService.createMachinery(any())).thenAnswer(call -> {
+            jdbc.update("insert into created_resource values('MACHINERY',980127)");return 980127L;
+        });
+        when(machineryMapper.selectList(any())).thenReturn(List.of(
+                MesDvMachineryDO.builder().id(980126L).code("EQ-1").name("清洗设备").build()));
         craftMapper=mock(MesProCraftMapper.class);itemMapper=mock(MesMdItemMapper.class);
         var routeMapper=mock(MesProRouteMapper.class);var versionMapper=mock(MesProRouteVersionMapper.class);
         var workflow=mock(MesProRouteVersionWorkflowService.class);
@@ -97,14 +123,21 @@ class MesSimpleParserPublishServiceTest {
         var active=new MesProRouteVersionDO();active.setId(20L);active.setVersionNo("V1");when(versionMapper.selectActiveByRouteId(9L)).thenReturn(active);
         var candidate=new MesProRouteVersionDO();candidate.setId(21L);candidate.setVersionNo("V2");candidate.setRouteSnapshotSha256("snapshot");
         candidate.setRouteSnapshotJson("{\"configSnapshots\":{\"flowGraph\":{\"nodes\":[{\"routeProcessId\":200,\"processId\":100,\"sort\":1},{\"routeProcessId\":201,\"processId\":101,\"sort\":2}]}}}");
+        var nodes = JSON.parseObject(candidate.getRouteSnapshotJson());
+        nodes.getJSONObject("configSnapshots").getJSONObject("flowGraph").getJSONArray("nodes")
+                .forEach(raw -> ((JSONObject) raw).put("routeProcessWorkstationId", ((JSONObject) raw).getLong("routeProcessId") + 700));
+        candidate.setRouteSnapshotJson(nodes.toJSONString());
         when(workflow.createCandidate(any())).thenReturn(candidate);
         var target=new MesSimpleParserPublishService();
         Map<String,Object> fields=new HashMap<>();fields.put("processService",processes);fields.put("craftService",crafts);fields.put("deviceService",devices);
         fields.put("routeService",routes);fields.put("candidateConfig",configs);fields.put("processMapper",processMapper);fields.put("deviceMapper",deviceMapper);
+        fields.put("routeWorkstationService",workstations);
         fields.put("routeMapper",routeMapper);fields.put("versionMapper",versionMapper);fields.put("workflow",workflow);fields.put("jdbc",jdbc);
         fields.put("itemMapper",itemMapper);fields.put("craftMapper",craftMapper);
         fields.put("machineryMapper",machineryMapper);
+        fields.put("machineryTypeMapper",machineryTypeMapper);fields.put("machineryService",machineryService);
         fields.put("projectMapper",projectMapper);fields.put("projectGuard",projectGuard);
+        fields.put("projectCodes",codeRules);
         fields.forEach((name,value)->ReflectionTestUtils.setField(target,name,value));
         ProxyFactory proxy=new ProxyFactory(target);proxy.setProxyTargetClass(true);
         proxy.addAdvice(new TransactionInterceptor(new DataSourceTransactionManager(dataSource),new AnnotationTransactionAttributeSource()));
@@ -114,6 +147,7 @@ class MesSimpleParserPublishServiceTest {
     private SimpleParserPublishReqVO request() {
         var req=new SimpleParserPublishReqVO();req.setRequestId(UUID.randomUUID().toString());req.setRouteName("新路线");
         req.setProjectId(42L);
+        req.setWorkshopId(70L);
         JSONObject process=JSON.parseObject("""
           {"name":"同名工序","criticalProcess":true,"inputs":[],"outputs":[],"equipmentGroups":[
             {"selectionMode":"SINGLE","equipmentOptions":[{"code":"EQ-1","name":"清洗设备"}],
@@ -123,6 +157,104 @@ class MesSimpleParserPublishServiceTest {
         return req;
     }
     private int count(String table){return jdbc.queryForObject("select count(*) from "+table,Integer.class);}
+    @Test void selectedWorkshopAndLedgerDeviceAreBoundToEachNewProcessStation() {
+        var req=request();var preview=service.preview(req);
+        assertEquals(70L,preview.getLong("workshopId"));
+        assertEquals("选定车间",preview.getString("workshopName"));
+        req.setPreviewToken(preview.getString("previewToken"));service.publish(req);
+        verify(routes).createRouteWithProcesses(argThat(route -> Long.valueOf(70).equals(route.getWorkshopId())));
+        verify(workstations).bindMachinery(900L,Set.of(980126L));
+        verify(workstations).bindMachinery(901L,Set.of(980126L));
+    }
+    @Test void absentLedgerIsCreatedOnceInSelectedWorkshopAndBoundToEveryProcessStation() {
+        when(machineryMapper.selectList(any())).thenReturn(List.of());
+        when(deviceMapper.selectList(any())).thenReturn(List.of(MesProcessPoolTeamDeviceDO.builder()
+                .id(50L).deviceCode("EQ-1").deviceName("清洗设备").enabled(true).deviceStatus("ENABLED").build()));
+        var req=request();var preview=service.preview(req);
+        assertTrue(preview.getJSONArray("blockers").isEmpty());
+        var row=preview.getJSONArray("deviceRows").getJSONObject(0);
+        assertEquals("CREATE",row.getString("machineryAction"));
+        assertEquals(99L,row.getLong("machineryTypeId"));
+        assertEquals("默认设备类型",row.getString("machineryTypeName"));
+        assertEquals(0,count("created_resource"));
+        req.setPreviewToken(preview.getString("previewToken"));
+        var result=service.publish(req);service.publish(req);
+        verify(machineryService,times(1)).createMachinery(argThat(create ->
+                "EQ-1".equals(create.getCode()) && "清洗设备".equals(create.getName())
+                        && Long.valueOf(99).equals(create.getMachineryTypeId())
+                        && Long.valueOf(70).equals(create.getWorkshopId()) && Integer.valueOf(1).equals(create.getStatus())));
+        verifyNoInteractions(devices);
+        verify(workstations).bindMachinery(900L,Set.of(980127L));
+        verify(workstations).bindMachinery(901L,Set.of(980127L));
+        assertEquals(980127L,result.getJSONArray("deviceRows").getJSONObject(0).getLong("machineryId"));
+        assertEquals(1,count("mes_simple_parser_publish_receipt"));
+    }
+    @Test void existingLedgerNeedsNoDefaultTypeAndIsNeverRecreated() {
+        var req=request();req.setPreviewToken(service.preview(req).getString("previewToken"));service.publish(req);
+        verifyNoInteractions(machineryService,machineryTypeMapper);
+    }
+    @Test void missingDisabledOrAmbiguousDefaultTypeBlocksAllWrites() {
+        when(machineryMapper.selectList(any())).thenReturn(List.of());
+        var disabled=cn.iocoder.yudao.module.mes.dal.dataobject.dv.machinery.MesDvMachineryTypeDO.builder()
+                .id(99L).code("DEFAULT-MACHINERY-TYPE").status(1).build();
+        for (var types:List.of(List.<cn.iocoder.yudao.module.mes.dal.dataobject.dv.machinery.MesDvMachineryTypeDO>of(),
+                List.of(disabled),List.of(disabled,disabled))) {
+            when(machineryTypeMapper.selectList(any(LambdaQueryWrapperX.class))).thenReturn(types);
+            var req=request();var preview=service.preview(req);
+            assertEquals(1,preview.getJSONArray("blockers").size());
+            assertTrue(preview.getJSONArray("blockers").getString(0).contains("默认设备类型"));
+            req.setPreviewToken(preview.getString("previewToken"));
+            assertThrows(ServiceException.class,()->service.publish(req));
+        }
+        verifyNoInteractions(machineryService,devices,routes);
+        assertEquals(0,count("created_resource"));assertEquals(0,count("mes_simple_parser_publish_receipt"));
+    }
+    @Test void defaultTypeChangesAfterPreviewRequireNewPreview() {
+        when(machineryMapper.selectList(any())).thenReturn(List.of());
+        var req=request();req.setPreviewToken(service.preview(req).getString("previewToken"));
+        when(machineryTypeMapper.selectList(any(LambdaQueryWrapperX.class))).thenReturn(List.of(
+                cn.iocoder.yudao.module.mes.dal.dataobject.dv.machinery.MesDvMachineryTypeDO.builder()
+                        .id(100L).code("DEFAULT-MACHINERY-TYPE").name("新的默认类型").status(0).build()));
+        assertThrows(ServiceException.class,()->service.publish(req));
+        verifyNoInteractions(machineryService);
+        assertEquals(0,count("created_resource"));assertEquals(0,count("mes_simple_parser_publish_receipt"));
+    }
+    @Test void laterFailureRollsBackNewLedgerAlongWithOtherResources() {
+        when(machineryMapper.selectList(any())).thenReturn(List.of());
+        var req=request();req.setPreviewToken(service.preview(req).getString("previewToken"));
+        doThrow(new IllegalStateException("设备绑定失败")).when(workstations).bindMachinery(anyLong(),any());
+        assertThrows(IllegalStateException.class,()->service.publish(req));
+        verify(machineryService).createMachinery(any());
+        assertEquals(0,count("created_resource"));assertEquals(0,count("project_binding"));
+        assertEquals(0,count("mes_simple_parser_publish_receipt"));
+    }
+    @Test void workstationDeviceFailureRollsBackAllParserResourcesAndReceipt() {
+        var req=request();req.setPreviewToken(service.preview(req).getString("previewToken"));
+        doThrow(new IllegalStateException("设备绑定失败")).when(workstations).bindMachinery(anyLong(),any());
+        assertThrows(IllegalStateException.class,()->service.publish(req));
+        assertEquals(0,count("created_resource"));assertEquals(0,count("project_binding"));
+        assertEquals(0,count("mes_simple_parser_publish_receipt"));
+    }
+    @Test void registeredProjectRulesAreEnsuredBeforePublish() {
+        var req=request();var preview=service.preview(req);
+        verify(codeRules).ensure(42L,"PRO_PROCESS_GX_CODE");
+        verify(codeRules).ensure(42L,"PRO_ROUTE_CODE");
+        assertTrue(preview.getJSONArray("blockers").isEmpty());
+        req.setPreviewToken(preview.getString("previewToken"));service.publish(req);
+        verify(processes,times(2)).createProcess(argThat(p -> Long.valueOf(42).equals(p.getProjectId())));
+    }
+    @Test void invalidRulePreventsAllBusinessWrites() {
+        when(codeRules.ensure(42L,"PRO_ROUTE_CODE")).thenThrow(new IllegalArgumentException("项目编码规则已停用"));
+        assertThrows(IllegalArgumentException.class,()->service.preview(request()));
+        verifyNoInteractions(processes,crafts,devices,routes,configs);
+        assertEquals(0,count("created_resource"));
+    }
+    @Test void disabledAfterPreviewCannotCreateResources() {
+        var req=request();req.setPreviewToken(service.preview(req).getString("previewToken"));
+        when(codeRules.ensure(42L,"PRO_ROUTE_CODE")).thenThrow(new IllegalArgumentException("项目编码规则已停用"));
+        assertThrows(IllegalArgumentException.class,()->service.publish(req));
+        assertEquals(0,count("created_resource"));assertEquals(0,count("mes_simple_parser_publish_receipt"));
+    }
     @Test void selectedProjectIsBoundOnceAndIncludedInPreview() {
         var req=request();var preview=service.preview(req);
         assertEquals(42L,preview.getLong("projectId"));assertEquals("P42",preview.getString("projectCode"));
@@ -305,6 +437,8 @@ class MesSimpleParserPublishServiceTest {
         assertThrows(ServiceException.class,()->service.preview(req));assertEquals(0,count("created_resource"));
     }
     @Test void directoryCodesResolveAliasesWithoutMutatingRecognizedInput() {
+        when(machineryMapper.selectList(any())).thenReturn(List.of(
+                MesDvMachineryDO.builder().id(980126L).code("EQ-1").name("目录清洗设备").build()));
         var req=request();
         var source=((JSONObject)req.getRecognitionJson()).getJSONArray("processes");
         source.getJSONObject(0).getJSONArray("equipmentGroups").getJSONObject(0).getJSONArray("equipmentOptions").getJSONObject(0).put("name","Word 设备别名甲");

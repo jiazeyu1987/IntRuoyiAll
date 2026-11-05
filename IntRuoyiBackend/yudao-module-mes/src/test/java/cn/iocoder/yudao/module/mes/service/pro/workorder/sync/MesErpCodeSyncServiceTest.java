@@ -8,6 +8,7 @@ import cn.iocoder.yudao.module.erp.service.production.kingdee.ErpKingdeeProducti
 import cn.iocoder.yudao.module.erp.service.stock.kingdee.ErpKingdeeInventoryListService;
 import cn.iocoder.yudao.module.erp.service.stock.sync.ErpKingdeeStockSyncService;
 import cn.iocoder.yudao.module.mes.service.md.item.kingdee.MesKingdeeBomListService;
+import cn.iocoder.yudao.module.mes.service.md.item.sync.MesKingdeeItemSyncService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -29,12 +30,13 @@ class MesErpCodeSyncServiceTest {
     @Mock private ErpKingdeeProductionPickListService picks;
     @Mock private ErpKingdeeProductionReplenishmentListService replenishments;
     @Mock private MesKingdeeProductionOrderSyncService orders;
+    @Mock private MesKingdeeItemSyncService items;
     private MesErpCodeSyncService service;
 
     @BeforeEach
     void setUp() {
         service = new MesErpCodeSyncService(products, stocks, inventory, bom, materials,
-                picks, replenishments, orders);
+                picks, replenishments, orders, items);
     }
 
     @Test
@@ -44,7 +46,7 @@ class MesErpCodeSyncServiceTest {
         assertEquals("PPBOM-001", result.code());
         assertEquals(3, result.syncedCount());
         verify(materials).syncByCode("PPBOM-001");
-        verifyNoInteractions(products, stocks, inventory, bom, picks, replenishments, orders);
+        verifyNoInteractions(products, stocks, inventory, bom, picks, replenishments, orders, items);
     }
 
     @Test
@@ -53,6 +55,25 @@ class MesErpCodeSyncServiceTest {
         result.addSkipped("MAT-001");
         when(products.syncProductsByNumbers(List.of("MAT-001"))).thenReturn(result);
         assertEquals(1, service.sync("PRODUCT", "MAT-001").syncedCount());
+        verify(items).syncItemsByProductCodes(List.of("MAT-001"));
+    }
+
+    @Test
+    void missingErpProductDoesNotCreateMesItem() {
+        when(products.syncProductsByNumbers(List.of("MISSING"))).thenReturn(new ErpKingdeeProductSyncResult());
+        assertThrows(ServiceException.class, () -> service.sync("PRODUCT", "MISSING"));
+        verifyNoInteractions(items);
+    }
+
+    @Test
+    void mesSyncFailureIsNotReportedAsSuccessfulErpSync() {
+        var result = new ErpKingdeeProductSyncResult();
+        result.addSkipped("MAT-001");
+        when(products.syncProductsByNumbers(List.of("MAT-001"))).thenReturn(result);
+        var failure = new IllegalStateException("MES物料同步失败");
+        when(items.syncItemsByProductCodes(List.of("MAT-001"))).thenThrow(failure);
+        assertSame(failure, assertThrows(IllegalStateException.class,
+                () -> service.sync("PRODUCT", "MAT-001")));
     }
 
     @Test
@@ -76,6 +97,6 @@ class MesErpCodeSyncServiceTest {
         assertThrows(ServiceException.class, () -> service.sync("UNKNOWN", "A"));
         assertThrows(ServiceException.class, () -> service.sync("BOM", "   "));
         assertThrows(ServiceException.class, () -> service.sync("BOM", "A\nB"));
-        verifyNoInteractions(products, stocks, inventory, bom, materials, picks, replenishments, orders);
+        verifyNoInteractions(products, stocks, inventory, bom, materials, picks, replenishments, orders, items);
     }
 }

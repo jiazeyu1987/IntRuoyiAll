@@ -16,6 +16,7 @@ export const getRouteProjectOptions = (keyword = ''): Promise<RouteProjectOption
 
 export interface ProRouteCreateReqVO {
   dccProjectCodeId: number
+  workshopId: number
   name: string
   remark?: string
   processIds: number[]
@@ -374,11 +375,11 @@ export interface RouteFullFlowReadinessVO {
   routeVersionId?: MesRouteId
   versionNo?: string
   checkedAt: string
-  overallStatus: 'BLOCKED' | 'PENDING'
+  overallStatus: 'BLOCKED' | 'PASS'
   items: Array<{
     stage: string
     name: string
-    status: 'PASS' | 'BLOCKED' | 'PENDING'
+    status: 'PASS' | 'BLOCKED'
     detail: string
     action: string
   }>

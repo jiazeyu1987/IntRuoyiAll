@@ -49,8 +49,7 @@ public class MesActiveOrderHandoffOwnerResolver {
 
     public void qualifiedPqcSubmitter(Long id) {
         identityUser(id);
-        require(permissions.hasAnyPermissions(id,"mes:pro-feedback:create")
-                ||permissions.hasAnyRoles(id,"pqc_permission","pqc_leader_permission"),"PQC本人提交缺少正式岗位办理权限");
+        require(permissions.hasAnyRoles(id,"pqc_permission","pqc_leader_permission"),"PQC本人提交缺少正式岗位办理权限");
     }
 
     private void identityUser(Long id) {
@@ -288,7 +287,7 @@ public class MesActiveOrderHandoffOwnerResolver {
             require(matches.size()==1,"生产人员责任缺少唯一启用的身份绑定，或正式账号与临时工身份发生冲突");
             var binding=matches.get(0);
             if("FORMAL".equals(binding.getEmployeeType())) {
-                user(binding.getSystemUserId(),"mes:pro-feedback:create");ids.add(binding.getSystemUserId());
+                identityUser(binding.getSystemUserId());ids.add(binding.getSystemUserId());
             }
         }
         require(!ids.isEmpty(),"生产接手缺少正式人员责任配置"); return snapshot(ids);

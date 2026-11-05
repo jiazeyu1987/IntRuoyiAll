@@ -2,217 +2,208 @@
 <template>
   <doc-alert title="【设备】设备类型、设备台账" url="https://doc.iocoder.cn/mes/dv/device/" />
 
-  <el-row :gutter="20">
-    <el-col :span="4" :xs="24">
-      <ContentWrap class="h-1/1">
-        <MachineryTypeTree ref="machineryTypeTreeRef" @node-click="handleTypeNodeClick" />
-      </ContentWrap>
-    </el-col>
-    <el-col :span="20" :xs="24">
-      <ContentWrap>
-        <UnifiedListTemplate
-          single-line-toolbar
-          table-key="mes.dv.machinery.main"
-          :query-model="queryParams"
-          label-width="100px"
-          :filter-definitions="machineryQuickFilterDefinitions"
-          :show-quick-filter-label="false"
-          :quick-filter-state="machineryQuickFilter.state"
-          :selected-filter-definition="machineryQuickFilter.selectedDefinition.value"
-          :operator-options="machineryQuickFilter.operatorOptions.value"
-          :columns="machineryColumns"
-          :column-saving="machineryColumnSaving"
-          :show-column-reset="false"
-          :total="total"
-          v-model:page="queryParams.pageNo"
-          v-model:limit="queryParams.pageSize"
-          @update:quick-filter-state="machineryQuickFilter.updateState"
-          @quick-filter-query="handleQuery"
-          @column-change="saveMachineryColumnConfig"
-          @column-reset="resetMachineryColumnConfig"
-          @pagination="getList"
-          :load-filter-rows="loadColumnFilterRows0"
-          @filtered-rows="list = $event"
-          :list-rows="list"
-          @column-filter-reset="getList"
-          :column-filter-definitions="listColumnFilterDefinitions0"
+  <ContentWrap>
+    <UnifiedListTemplate
+      single-line-toolbar
+      table-key="mes.dv.machinery.main"
+      :query-model="queryParams"
+      label-width="100px"
+      :filter-definitions="machineryQuickFilterDefinitions"
+      :show-quick-filter-label="false"
+      :quick-filter-state="machineryQuickFilter.state"
+      :selected-filter-definition="machineryQuickFilter.selectedDefinition.value"
+      :operator-options="machineryQuickFilter.operatorOptions.value"
+      :columns="machineryColumns"
+      :column-saving="machineryColumnSaving"
+      :show-column-reset="false"
+      :total="total"
+      v-model:page="queryParams.pageNo"
+      v-model:limit="queryParams.pageSize"
+      @update:quick-filter-state="machineryQuickFilter.updateState"
+      @quick-filter-query="handleQuery"
+      @column-change="saveMachineryColumnConfig"
+      @column-reset="resetMachineryColumnConfig"
+      @pagination="getList"
+      :load-filter-rows="loadColumnFilterRows0"
+      @filtered-rows="list = $event"
+      :list-rows="list"
+      @column-filter-reset="getList"
+      :column-filter-definitions="listColumnFilterDefinitions0"
+    >
+      <template #actions>
+        <el-button
+          v-hasPermi="['mes:dv-machinery:create']"
+          type="primary"
+          plain
+          @click="openForm('create')"
         >
-          <template #actions>
-            <el-button
-              v-hasPermi="['mes:dv-machinery:create']"
-              type="primary"
-              plain
-              @click="openForm('create')"
-            >
-              <Icon icon="ep:plus" class="mr-5px" /> 新增
-            </el-button>
-            <el-dropdown
-              v-if="canShowAdvanced"
-              trigger="click"
-              :disabled="deleteAllLoading || exportLoading"
-            >
-              <el-button :loading="deleteAllLoading || exportLoading">
-                高级 <Icon icon="ep:arrow-down" class="ml-5px" />
-              </el-button>
-              <template #dropdown>
-                <el-dropdown-menu>
-                  <el-dropdown-item
-                    v-if="checkPermi(['mes:dv-machinery:import'])"
-                    @click="handleImport"
-                    >导入</el-dropdown-item
-                  >
-                  <el-dropdown-item
-                    v-if="checkPermi(['mes:dv-machinery:export'])"
-                    @click="handleExport"
-                    >导出</el-dropdown-item
-                  >
-                  <el-dropdown-item
-                    v-if="canDeleteAll"
-                    divided
-                    :disabled="deleteAllLoading"
-                    @click="handleDeleteAll"
-                  >
-                    <span class="text-red-500">删除全部设备台账、车间和设备类型</span>
-                  </el-dropdown-item>
-                </el-dropdown-menu>
-              </template>
-            </el-dropdown>
+          <Icon icon="ep:plus" class="mr-5px" /> 新增
+        </el-button>
+        <el-dropdown
+          v-if="canShowAdvanced"
+          trigger="click"
+          :disabled="deleteAllLoading || exportLoading"
+        >
+          <el-button :loading="deleteAllLoading || exportLoading">
+            高级 <Icon icon="ep:arrow-down" class="ml-5px" />
+          </el-button>
+          <template #dropdown>
+            <el-dropdown-menu>
+              <el-dropdown-item
+                v-if="checkPermi(['mes:dv-machinery:import'])"
+                @click="handleImport"
+                >导入</el-dropdown-item
+              >
+              <el-dropdown-item
+                v-if="checkPermi(['mes:dv-machinery:export'])"
+                @click="handleExport"
+                >导出</el-dropdown-item
+              >
+              <el-dropdown-item
+                v-if="canDeleteAll"
+                divided
+                :disabled="deleteAllLoading"
+                @click="handleDeleteAll"
+              >
+                <span class="text-red-500">删除全部设备台账、车间和设备类型</span>
+              </el-dropdown-item>
+            </el-dropdown-menu>
           </template>
+        </el-dropdown>
+      </template>
 
-          <template #table="{ resolveRows }">
-            <el-table
-              v-loading="loading"
-              class="machinery-main-table"
-              data-user-table-column-explicit
-              data-user-table-key="mes.dv.machinery.main"
-              :data="resolveRows(list)"
-              border
-              :stripe="true"
-              :show-overflow-tooltip="true"
-              row-key="id"
-              @header-dragend="handleMachineryHeaderDragend"
-            >
-              <el-table-column
-                v-if="isMachineryColumnVisible('code')"
-                label="设备编码"
-                align="center"
-                prop="code"
-                :width="getMachineryColumnWidthString('code', 120)"
+      <template #table="{ resolveRows }">
+        <el-table
+          v-loading="loading"
+          class="machinery-main-table"
+          data-user-table-column-explicit
+          data-user-table-key="mes.dv.machinery.main"
+          :data="resolveRows(list)"
+          border
+          :stripe="true"
+          :show-overflow-tooltip="true"
+          row-key="id"
+          @header-dragend="handleMachineryHeaderDragend"
+        >
+          <el-table-column
+            v-if="isMachineryColumnVisible('code')"
+            label="设备编码"
+            align="center"
+            prop="code"
+            :width="getMachineryColumnWidthString('code', 120)"
+          >
+            <template #default="scope">
+              <el-link type="primary" @click="openForm('detail', scope.row.id)">
+                {{ scope.row.code }}
+              </el-link>
+            </template>
+          </el-table-column>
+          <el-table-column
+            v-if="isMachineryColumnVisible('name')"
+            label="设备名称"
+            align="center"
+            prop="name"
+            :min-width="getMachineryColumnMinWidthString('name', 150)"
+          />
+          <el-table-column
+            v-if="isMachineryColumnVisible('brand')"
+            label="品牌"
+            align="center"
+            prop="brand"
+            :width="getMachineryColumnWidthString('brand', 100)"
+          />
+          <el-table-column
+            v-if="isMachineryColumnVisible('specification')"
+            label="规格型号"
+            align="center"
+            prop="specification"
+            :width="getMachineryColumnWidthString('specification', 120)"
+          />
+          <el-table-column
+            v-if="isMachineryColumnVisible('machineryTypeName')"
+            label="设备类型"
+            align="center"
+            prop="machineryTypeName"
+            :width="getMachineryColumnWidthString('machineryTypeName', 120)"
+          />
+          <el-table-column
+            v-if="isMachineryColumnVisible('workshopName')"
+            label="所属车间"
+            align="center"
+            prop="workshopName"
+            :width="getMachineryColumnWidthString('workshopName', 120)"
+          />
+          <el-table-column
+            v-if="isMachineryColumnVisible('processName')"
+            label="工序名称"
+            align="center"
+            prop="processName"
+            :min-width="getMachineryColumnMinWidthString('processName', 160)"
+          />
+          <el-table-column
+            v-if="isMachineryColumnVisible('standardHourlyCapacity')"
+            label="设备标准小时产能"
+            align="center"
+            prop="standardHourlyCapacity"
+            :width="getMachineryColumnWidthString('standardHourlyCapacity', 140)"
+          />
+          <el-table-column
+            v-if="isMachineryColumnVisible('status')"
+            label="设备状态"
+            align="center"
+            prop="status"
+            :width="getMachineryColumnWidthString('status', 100)"
+          >
+            <template #default="scope">
+              <dict-tag :type="DICT_TYPE.MES_DV_MACHINERY_STATUS" :value="scope.row.status" />
+            </template>
+          </el-table-column>
+          <el-table-column
+            v-if="isMachineryColumnVisible('createTime')"
+            label="创建时间"
+            align="center"
+            prop="createTime"
+            :formatter="dateFormatter"
+            :width="getMachineryColumnWidthString('createTime', 180)"
+          />
+          <el-table-column
+            v-if="isMachineryColumnVisible('operation')"
+            label="操作"
+            align="center"
+            prop="operation"
+            :width="getMachineryColumnWidthString('operation', 170)"
+          >
+            <template #default="scope">
+              <el-button
+                v-hasPermi="['mes:dv-machinery:update']"
+                link
+                type="primary"
+                @click="openForm('update', scope.row.id)"
               >
-                <template #default="scope">
-                  <el-link type="primary" @click="openForm('detail', scope.row.id)">
-                    {{ scope.row.code }}
-                  </el-link>
-                </template>
-              </el-table-column>
-              <el-table-column
-                v-if="isMachineryColumnVisible('name')"
-                label="设备名称"
-                align="center"
-                prop="name"
-                :min-width="getMachineryColumnMinWidthString('name', 150)"
-              />
-              <el-table-column
-                v-if="isMachineryColumnVisible('brand')"
-                label="品牌"
-                align="center"
-                prop="brand"
-                :width="getMachineryColumnWidthString('brand', 100)"
-              />
-              <el-table-column
-                v-if="isMachineryColumnVisible('specification')"
-                label="规格型号"
-                align="center"
-                prop="specification"
-                :width="getMachineryColumnWidthString('specification', 120)"
-              />
-              <el-table-column
-                v-if="isMachineryColumnVisible('machineryTypeName')"
-                label="设备类型"
-                align="center"
-                prop="machineryTypeName"
-                :width="getMachineryColumnWidthString('machineryTypeName', 120)"
-              />
-              <el-table-column
-                v-if="isMachineryColumnVisible('workshopName')"
-                label="所属车间"
-                align="center"
-                prop="workshopName"
-                :width="getMachineryColumnWidthString('workshopName', 120)"
-              />
-              <el-table-column
-                v-if="isMachineryColumnVisible('processName')"
-                label="工序名称"
-                align="center"
-                prop="processName"
-                :min-width="getMachineryColumnMinWidthString('processName', 160)"
-              />
-              <el-table-column
-                v-if="isMachineryColumnVisible('standardHourlyCapacity')"
-                label="设备标准小时产能"
-                align="center"
-                prop="standardHourlyCapacity"
-                :width="getMachineryColumnWidthString('standardHourlyCapacity', 140)"
-              />
-              <el-table-column
-                v-if="isMachineryColumnVisible('status')"
-                label="设备状态"
-                align="center"
-                prop="status"
-                :width="getMachineryColumnWidthString('status', 100)"
+                编辑
+              </el-button>
+              <el-button
+                v-hasPermi="['mes:dv-machinery:delete']"
+                link
+                type="danger"
+                @click="handleDelete(scope.row.id)"
               >
-                <template #default="scope">
-                  <dict-tag :type="DICT_TYPE.MES_DV_MACHINERY_STATUS" :value="scope.row.status" />
-                </template>
-              </el-table-column>
-              <el-table-column
-                v-if="isMachineryColumnVisible('createTime')"
-                label="创建时间"
-                align="center"
-                prop="createTime"
-                :formatter="dateFormatter"
-                :width="getMachineryColumnWidthString('createTime', 180)"
-              />
-              <el-table-column
-                v-if="isMachineryColumnVisible('operation')"
-                label="操作"
-                align="center"
-                prop="operation"
-                :width="getMachineryColumnWidthString('operation', 170)"
+                删除
+              </el-button>
+              <el-button
+                v-hasPermi="['mes:dv-machinery:query']"
+                link
+                type="primary"
+                @click="handleBarcode(scope.row)"
               >
-                <template #default="scope">
-                  <el-button
-                    v-hasPermi="['mes:dv-machinery:update']"
-                    link
-                    type="primary"
-                    @click="openForm('update', scope.row.id)"
-                  >
-                    编辑
-                  </el-button>
-                  <el-button
-                    v-hasPermi="['mes:dv-machinery:delete']"
-                    link
-                    type="danger"
-                    @click="handleDelete(scope.row.id)"
-                  >
-                    删除
-                  </el-button>
-                  <el-button
-                    v-hasPermi="['mes:dv-machinery:query']"
-                    link
-                    type="primary"
-                    @click="handleBarcode(scope.row)"
-                  >
-                    条码
-                  </el-button>
-                </template>
-              </el-table-column>
-            </el-table>
-          </template>
-        </UnifiedListTemplate>
-      </ContentWrap>
-    </el-col>
-  </el-row>
+                条码
+              </el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+      </template>
+    </UnifiedListTemplate>
+  </ContentWrap>
 
   <MachineryForm ref="formRef" @success="getList" />
   <MachineryImportForm ref="importFormRef" @success="getList" />
@@ -229,7 +220,6 @@ import { dateFormatter } from '@/utils/formatTime'
 import download from '@/utils/download'
 import { DvMachineryApi, DvMachineryVO } from '@/api/mes/dv/machinery'
 import MachineryForm from './MachineryForm.vue'
-import MachineryTypeTree from './type/components/MachineryTypeTree.vue'
 import MachineryImportForm from './MachineryImportForm.vue'
 import { DICT_TYPE, getIntDictOptions } from '@/utils/dict'
 import { BarcodeDetail } from '@/views/mes/wm/barcode/components'
@@ -282,11 +272,9 @@ const total = ref(0)
 const queryParams = reactive({
   pageNo: 1,
   pageSize: 10,
-  machineryTypeId: undefined as number | undefined,
   status: undefined as number | string | undefined
 })
 const exportLoading = ref(false)
-const machineryTypeTreeRef = ref<InstanceType<typeof MachineryTypeTree>>()
 const deleteAllLoading = ref(false)
 const canDeleteAll = computed(
   () =>
@@ -318,9 +306,6 @@ const handleDeleteAll = async () => {
     }
     await DvMachineryApi.deleteAllWithWorkshops()
     message.success('设备台账、车间设置和设备类型数据已全部删除')
-    queryParams.machineryTypeId = undefined
-    machineryTypeTreeRef.value?.reset()
-    await machineryTypeTreeRef.value?.loadTree()
     queryParams.pageNo = 1
     await getList()
   } finally {
@@ -368,11 +353,6 @@ const machineryQuickFilter = useTableQuickFilter(
 const handleQuery = async () => {
   queryParams.pageNo = 1
   await machineryQuickFilter.applyQuickFilter()
-}
-
-const handleTypeNodeClick = (row: any) => {
-  queryParams.machineryTypeId = row?.id
-  handleQuery()
 }
 
 const formRef = ref()

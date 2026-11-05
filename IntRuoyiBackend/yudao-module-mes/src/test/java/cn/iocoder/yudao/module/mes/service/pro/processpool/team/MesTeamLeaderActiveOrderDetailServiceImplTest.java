@@ -564,6 +564,55 @@ class MesTeamLeaderActiveOrderDetailServiceImplTest {
         assertEquals(7701L, fact.getClass().getMethod("getSignatureId").invoke(fact));
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"DOSSIER_ASSIGN", "DOSSIER_REASSIGN", "DOSSIER_COMPLETE"})
+    void dossierResponsibilityEventsAppearWithoutInventingStateOrNameSnapshots(String operation) {
+        var event = dossierEvent(operation);
+        when(operationAuditEventMapper.selectSuccessfulListByActiveOrderId(8101L)).thenReturn(List.of(event));
+        List<MesTeamLeaderActiveOrderDetail.OperationFact> facts = org.springframework.test.util.ReflectionTestUtils
+                .invokeMethod(service, "resolveOperationFacts", 8101L);
+        assertEquals(1, facts.size());
+        assertEquals(operation, facts.get(0).getOperationType());
+        assertEquals(3001L, facts.get(0).getActorUserId());
+        assertEquals("用户ID：3001", facts.get(0).getActorName());
+        assertNull(facts.get(0).getSourceSnapshotHash());
+        org.mockito.Mockito.verifyNoInteractions(adminUserService);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"hash", "task", "order", "category", "attachment", "assignee", "operation"})
+    void dossierFactRejectsIncompleteOrConflictingResponsibilityEvidence(String invalid) {
+        var event = dossierEvent("DOSSIER_COMPLETE");
+        switch (invalid) {
+            case "hash" -> event.setAuditHash(null);
+            case "task" -> event.setWorkTaskId(null);
+            case "order" -> event.setObjectId("8102");
+            case "category" -> event.setMetadataJson(event.getMetadataJson().replace("OTHER_FILE", "UNKNOWN"));
+            case "attachment" -> event.setMetadataJson(event.getMetadataJson().replace("\"attachmentId\":91", "\"attachmentId\":null"));
+            case "assignee" -> event.setActorUserId(3002L);
+            case "operation" -> event.setOperationType("BATCH_REWORK");
+        }
+        when(operationAuditEventMapper.selectSuccessfulListByActiveOrderId(8101L)).thenReturn(List.of(event));
+        assertThrows(IllegalStateException.class, () -> org.springframework.test.util.ReflectionTestUtils
+                .invokeMethod(service, "resolveOperationFacts", 8101L));
+    }
+
+    @Test
+    void productionStateFactStillRequiresItsStateSnapshot() {
+        var event = dossierEvent("BATCH_REWORK").setObjectType("ACTIVE_ORDER").setActorUsername("生产组长甲");
+        when(operationAuditEventMapper.selectSuccessfulListByActiveOrderId(8101L)).thenReturn(List.of(event));
+        assertThrows(IllegalStateException.class, () -> org.springframework.test.util.ReflectionTestUtils
+                .invokeMethod(service, "resolveOperationFacts", 8101L));
+    }
+
+    private MesProEdhrOperationAuditEventDO dossierEvent(String operation) {
+        return MesProEdhrOperationAuditEventDO.builder().id(8802L).objectType("ACTIVE_ORDER_DOSSIER")
+                .objectId("8101").workTaskId(81L).operationType(operation).actionName("资料责任操作")
+                .actorUserId(3001L).resultStatus("SUCCESS").auditHash("a".repeat(64))
+                .metadataJson("{\"activeOrderId\":8101,\"categoryKey\":\"OTHER_FILE\",\"assigneeUserId\":3001,\"attachmentId\":91}")
+                .occurredAt(LocalDateTime.of(2026, 11, 5, 2, 20)).build();
+    }
+
     @Test
     void marketReleaseOperationFactReadsSignatureIdFromReleaseTransaction() {
         when(activeOrderMapper.selectById(8101L)).thenReturn(MesProcessPoolActiveOrderDO.builder()
@@ -727,6 +776,8 @@ class MesTeamLeaderActiveOrderDetailServiceImplTest {
     private ElectronicSignatureQueryService signatureQueryService;
     @Mock
     private AdminUserService adminUserService;
+    @Mock private MesLocalTestRunSourceGuard localSources;
+
     @InjectMocks
     private MesTeamLeaderActiveOrderDetailServiceImpl service;
 

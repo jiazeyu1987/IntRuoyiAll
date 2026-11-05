@@ -135,7 +135,6 @@
   <OperateLogDetail ref="detailRef" />
 </template>
 <script lang="ts" setup>
-import type { ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
 
 import { loadAllListPages } from '@/hooks/web/useListColumnFilter'
 
@@ -155,7 +154,7 @@ const message = useMessage() // 消息弹窗
 
 const loading = ref(true) // 列表的加载中
 const total = ref(0) // 列表的总页数
-const list = ref([]) // 列表的数据
+const list = ref<OperateLogApi.OperateLogVO[]>([]) // 列表的数据
 const queryParams = reactive({
   pageNo: 1,
   pageSize: 10,

@@ -87,7 +87,7 @@ class IntGyRouteMarkdownImportServiceImplTest {
         org.springframework.test.util.ReflectionTestUtils.setField(importService, "projectGuard", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteProjectGuard.class));
         cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.setTenantId(1L);
         AtomicLong serial = new AtomicLong();
-        org.mockito.Mockito.lenient().when(autoCodeRecordService.generateAutoCode("PRO_PROCESS_GX_CODE", null))
+        org.mockito.Mockito.lenient().when(autoCodeRecordService.generateProjectCode(org.mockito.ArgumentMatchers.eq("PRO_PROCESS_GX_CODE"), any()))
                 .thenAnswer(invocation -> "GX-" + String.format("%04d", serial.incrementAndGet()));
     }
 

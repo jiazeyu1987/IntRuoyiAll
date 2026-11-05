@@ -415,6 +415,7 @@ abstract class UserPostRetentionTestSupport extends BaseDbUnitTest {
     @Resource protected ObjectMapper objectMapper;
     @Resource protected PlatformTransactionManager transactionManager;
     @MockitoSpyBean protected UserPostMapper userPostMapper;
+    @MockitoBean protected cn.iocoder.yudao.module.system.api.signature.UserSignatureAuthorizationApi signatureAuthorization;
     @MockitoBean protected DeptService deptService;
     @MockitoBean protected PermissionService permissionService;
     @MockitoBean protected ApprovalAuthorityApi approvalAuthority;

@@ -469,6 +469,38 @@ const normalizeApprovalCenterWorkflowManagementMenu = (
   const hiddenApprovalCenterOaExampleRoute = oaExampleRoute
     ? hideApprovalCenterMenuRoute(oaExampleRoute)
     : undefined
+  // 已授权业务审批策略时保留流程管理目录，避免默认管理员菜单被统一隐藏。
+  const policyRoute = (workflowManagementRoute.children || []).find(
+    (child) => getRouteName(child) === 'ApprovalCenterBpmBusinessApprovalPolicy'
+      && !child.meta?.hidden
+  )
+  if (policyRoute) {
+    const visibleWorkflowManagementRoute = cloneDeep(workflowManagementRoute)
+    visibleWorkflowManagementRoute.meta = {
+      ...visibleWorkflowManagementRoute.meta,
+      hidden: false,
+      alwaysShow: true
+    }
+    visibleWorkflowManagementRoute.children = (visibleWorkflowManagementRoute.children || []).map(
+      (child) => isApprovalCenterBpmModelRoute(child)
+        || getRouteName(child) === 'ApprovalCenterBpmBusinessApprovalPolicy'
+        ? child : hideApprovalCenterMenuRoute(child)
+    )
+    visibleWorkflowManagementRoute.redirect = modelRoute && !modelRoute.meta?.hidden
+      ? `${APPROVAL_CENTER_ROUTE_PATH}/${APPROVAL_CENTER_BPM_MODEL_MENU_PATH}`
+      : `${APPROVAL_CENTER_ROUTE_PATH}/manager/business-approval-policy`
+    normalizedRoute.children = [
+      ...insertApprovalCenterModelMenuAfterCc(
+        approvalCenterChildren.filter((child) =>
+          !isApprovalCenterWorkflowManagementRoute(child)
+          && !isApprovalCenterBpmModelRoute(child)
+          && !isApprovalCenterOaExampleRoute(child)),
+        visibleWorkflowManagementRoute
+      ),
+      ...(hiddenApprovalCenterOaExampleRoute ? [hiddenApprovalCenterOaExampleRoute] : [])
+    ]
+    return normalizedRoute
+  }
   const hiddenWorkflowManagementRoute = hideApprovalCenterMenuRoute({
     ...workflowManagementRoute,
     children: (workflowManagementRoute.children || []).filter(

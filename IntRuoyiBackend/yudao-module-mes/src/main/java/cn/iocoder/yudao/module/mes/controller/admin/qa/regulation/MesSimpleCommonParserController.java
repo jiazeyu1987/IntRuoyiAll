@@ -29,8 +29,8 @@ public class MesSimpleCommonParserController {
     @Operation(summary = "只读解析通用规程供编辑及预览")
     @PreAuthorize("@ss.hasPermission('form:parser:query')")
     public CommonResult<MesQaInspectionRegulationSaveReqVO> parse(
-            @RequestParam("file") MultipartFile file, @RequestParam("dccProjectCodeId") Long projectId) {
-        return success(importer.previewCommonWord(file, projectId));
+            @RequestParam("file") MultipartFile file) {
+        return success(importer.previewCommonWord(file));
     }
 
     @PostMapping("/publish")

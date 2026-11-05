@@ -7,7 +7,7 @@ const ts = require('typescript')
 const helper = path.join(__dirname, 'components/activeOrderSignatureVerificationDisplay.ts')
 const panel = path.join(__dirname, 'components/ActiveOrderSubmissionDetailPanel.vue')
 const api = path.resolve(__dirname, '../../../../api/mes/pro/edhr/activeOrderSignature.ts')
-const source = fs.readFileSync(helper, 'utf8').replace(/^import .*\n/gm, '').replace(/export /g, '')
+const source = fs.readFileSync(helper, 'utf8').replace(/^import [^\r\n]*\r?\n/gm, '').replace(/export /g, '')
 const code = ts.transpileModule(source + '\nreturn signatureVerificationDisplay', {
   compilerOptions: { target: ts.ScriptTarget.ES2020 }
 }).outputText
@@ -36,6 +36,16 @@ test('missing creation audit is incomplete with its actual reason and dimension'
   assert.equal(result.audit, '未记录')
   assert.equal(result.time, '一致')
   assert.equal(result.reasons, '创建审计未记录（AUDIT_LINK_MISSING）')
+  assert.equal(result.timeTrust, '未绑定外部可信时间')
+})
+
+test('development audit is explicitly disabled and never displayed as a consistent creation audit', () => {
+  const result = display(fact('VALID', ['GXP_AUDIT_DEVELOPMENT_DISABLED'], 'CONSISTENT', 'DEVELOPMENT_DISABLED'))
+  assert.equal(result.label, '摘要与时间核验通过（审计已停用）')
+  assert.equal(result.type, 'warning')
+  assert.equal(result.audit, '已停用（本地开发）')
+  assert.equal(result.scope, '本地摘要与签署时间值（创建审计已停用）')
+  assert.equal(result.reasons, '本地开发环境已停用创建审计（GXP_AUDIT_DEVELOPMENT_DISABLED）')
   assert.equal(result.timeTrust, '未绑定外部可信时间')
 })
 

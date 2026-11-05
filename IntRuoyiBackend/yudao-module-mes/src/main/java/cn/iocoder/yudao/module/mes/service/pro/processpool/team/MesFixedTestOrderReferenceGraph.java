@@ -124,7 +124,7 @@ final class MesFixedTestOrderReferenceGraph {
                 "definition_id:mes_pro_batch_record_definition", "route_id:mes_pro_route");
         spec("mes_pro_batch_record_report", "sample_key,batch_record_name,form_slot_type,route_key,source_file_name,source_file_sha256,source_table_index,table_title,report_id,report_code,report_name,report_category_id,batch_record_definition_id,batch_record_version_id,form_definition_id,form_version_id,product_name,project_code", "batch_record_version_id,source_table_index",
                 "batch_record_definition_id:mes_pro_batch_record_definition", "batch_record_version_id:mes_pro_batch_record_version", "report_id:jimu_report", "report_category_id:jimu_report_category");
-        spec("mes_qa_inspection_regulation", "dcc_project_code_id,product_id,route_id,route_version_id,route_process_id,process_id,owner_module,regulation_code,regulation_name,lifecycle_status,current_version_id,active_dcc_project_code_id", "regulation_code",
+        spec("mes_qa_inspection_regulation", "dcc_project_code_id,product_id,route_id,route_version_id,route_process_id,process_id,owner_module,regulation_code,regulation_name,lifecycle_status,current_version_id,active_dcc_project_code_id", "owner_module,dcc_project_code_id",
                 "dcc_project_code_id:dcc_project_code", "product_id:mdm_product", "route_id:mes_pro_route", "route_version_id:mes_pro_route_version", "route_process_id:mes_pro_route_process", "process_id:mes_pro_process", "current_version_id:mes_qa_inspection_regulation_version", "active_dcc_project_code_id:dcc_project_code");
         spec("mes_qa_inspection_regulation_version", "regulation_id,version_no,lifecycle_status,effective_date,inspection_type_rules_json,published_at,retired_at,final_inspection_applicable,final_inspection_not_applicable_reason,snapshot_json,draft_revision", "regulation_id,version_no", "regulation_id:mes_qa_inspection_regulation");
         spec("mes_qa_inspection_regulation_process", "regulation_version_id,process_code,process_name,sort", "regulation_version_id,process_code", "regulation_version_id:mes_qa_inspection_regulation_version");
@@ -172,12 +172,19 @@ final class MesFixedTestOrderReferenceGraph {
     }
 
     Entry plan(String table, Object sourceId, Map<String, Object> source) {
+        return plan(table, sourceId, source, Map.of());
+    }
+
+    /** Overrides contain already resolved tenant-local values, so their source references are not imported. */
+    Entry plan(String table, Object sourceId, Map<String, Object> source, Map<String, Object> overrides) {
         Key key = new Key(table, normalize(sourceId));
         if (entries.containsKey(key)) return entries.get(key);
         Spec spec = requireSpec(table);
         Entry entry = new Entry(key, new LinkedHashMap<>(source));
+        entry.overrides.putAll(overrides);
         entries.put(key, entry);
         for (var ref : spec.references.entrySet()) {
+            if (overrides.containsKey(ref.getKey())) continue;
             Object value = entry.source.get(ref.getKey());
             if (ref.getValue().startsWith("@")) requirePrincipal(ref.getValue(), value);
             else include(ref.getValue(), value);
@@ -233,7 +240,12 @@ final class MesFixedTestOrderReferenceGraph {
         Spec spec = requireSpec(entry.key.table);
         List<Object> params = new ArrayList<>(); params.add(tenant);
         StringJoiner where = new StringJoiner(" AND ");
-        for (String field : spec.naturalKey.split(",")) {
+        // Product QA belongs to a DCC project; its document code can repeat across projects.
+        // Common QA is an independent catalog, identified by code within its owner module.
+        String naturalKey = entry.key.table.equals("mes_qa_inspection_regulation")
+                && "MES_QA_COMMON".equals(entry.source.get("owner_module"))
+                ? "owner_module,regulation_code" : spec.naturalKey;
+        for (String field : naturalKey.split(",")) {
             Object value = mappedField(entry, field);
             where.add(field + (value == null ? " IS NULL" : "=?"));
             if (value != null) params.add(value);
@@ -301,6 +313,9 @@ final class MesFixedTestOrderReferenceGraph {
                 if (entry.key.table.equals("mes_dv_machinery") && field.equals("status")) continue;
                 // Retain the local material label; specification, unit, category and product must still match.
                 if (entry.key.table.equals("mes_md_item") && field.equals("name")) continue;
+                // Category labels are maintained locally (ERP sync also localizes its built-in label).
+                // The code, parent, product/material kind and status still have to match.
+                if (entry.key.table.equals("mes_md_item_type") && field.equals("name")) continue;
                 if (entry.key.table.equals("mes_md_unit_measure") && field.equals("code")) continue;
                 if (entry.key.table.equals("mes_pro_craft")) {
                     if (Set.of("code", "name", "fingerprint").contains(field)) continue;

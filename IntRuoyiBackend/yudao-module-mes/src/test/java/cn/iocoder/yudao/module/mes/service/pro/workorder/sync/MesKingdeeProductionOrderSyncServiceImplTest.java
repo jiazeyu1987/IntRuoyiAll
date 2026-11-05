@@ -110,6 +110,50 @@ class MesKingdeeProductionOrderSyncServiceImplTest {
     }
 
     @Test
+    void syncByCode_reportsMissingOrderWithoutWritingLocalData() {
+        when(productionOrderClient.fetchProductionOrdersByBillNos(kingdeeProperties, List.of("MISSING")))
+                .thenReturn(List.of());
+        var error = assertThrows(ServiceException.class, () -> syncService.syncByCode(" MISSING "));
+        assertTrue(error.getMessage().contains("ERP中未找到生产订单 MISSING"));
+        org.mockito.Mockito.verifyNoInteractions(workOrderService, workOrderMapper, activeOrderMapper);
+    }
+
+    @Test
+    void syncByCode_reportsConnectionFailureInsteadOfMissingOrder() {
+        var cause = new org.springframework.web.client.ResourceAccessException("connection refused");
+        when(productionOrderClient.fetchProductionOrdersByBillNos(kingdeeProperties, List.of("MO-001")))
+                .thenThrow(cause);
+        var error = assertThrows(ServiceException.class, () -> syncService.syncByCode("MO-001"));
+        assertTrue(error.getMessage().contains("ERP连接或请求失败"));
+        org.junit.jupiter.api.Assertions.assertSame(cause, error.getCause());
+        org.mockito.Mockito.verifyNoInteractions(workOrderService, workOrderMapper, activeOrderMapper);
+    }
+
+    @Test
+    void syncByCode_writesLocalOrderWithoutJoiningActivePool() {
+        when(productionOrderClient.fetchProductionOrdersByBillNos(kingdeeProperties, List.of("881MO091049")))
+                .thenReturn(List.of(buildOrder()));
+        when(itemMapper.selectByCode("MAT-001")).thenReturn(new MesMdItemDO().setId(20L));
+        when(workOrderService.createWorkOrder(any())).thenReturn(501L);
+        assertEquals(1, syncService.syncByCode("881MO091049"));
+        verify(workOrderService).createWorkOrder(any());
+        verify(syncRecordMapper).insert(any(MesKingdeeProductionOrderSyncRecordDO.class));
+        org.mockito.Mockito.verifyNoInteractions(activeOrderMapper);
+        verify(productionOrderClient, never()).fetchProductionOrders(any());
+    }
+
+    @Test
+    void syncByCode_rejectsVoidedOrderInsteadOfReportingMissingOrSuccess() {
+        var order = buildOrder();
+        order.setDocumentStatus("Z");
+        when(productionOrderClient.fetchProductionOrdersByBillNos(kingdeeProperties, List.of("881MO091049")))
+                .thenReturn(List.of(order));
+        var error = assertThrows(ServiceException.class, () -> syncService.syncByCode("881MO091049"));
+        assertTrue(error.getMessage().contains("已作废"));
+        org.mockito.Mockito.verifyNoInteractions(workOrderService, workOrderMapper, activeOrderMapper);
+    }
+
+    @Test
     void syncWorkOrders_rejectsChangedBatchAfterFormalCompletion() {
         var order = buildOrder();
         order.setBatchNumber("ERP-NEW-BATCH");

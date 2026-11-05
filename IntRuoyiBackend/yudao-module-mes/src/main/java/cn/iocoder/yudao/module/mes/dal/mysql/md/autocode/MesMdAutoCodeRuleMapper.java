@@ -17,17 +17,21 @@ import java.util.List;
 @Mapper
 public interface MesMdAutoCodeRuleMapper extends BaseMapperX<MesMdAutoCodeRuleDO> {
 
-    default PageResult<MesMdAutoCodeRuleDO> selectPage(MesMdAutoCodeRulePageReqVO reqVO) {
+    default PageResult<MesMdAutoCodeRuleDO> selectPage(MesMdAutoCodeRulePageReqVO reqVO, List<Long> readableProjectIds) {
         return selectPage(reqVO, new LambdaQueryWrapperX<MesMdAutoCodeRuleDO>()
+                .eqIfPresent(MesMdAutoCodeRuleDO::getProjectId, reqVO.getProjectId())
                 .likeIfPresent(MesMdAutoCodeRuleDO::getCode, reqVO.getCode())
                 .likeIfPresent(MesMdAutoCodeRuleDO::getName, reqVO.getName())
                 .eqIfPresent(MesMdAutoCodeRuleDO::getStatus, reqVO.getStatus())
                 .betweenIfPresent(MesMdAutoCodeRuleDO::getCreateTime, reqVO.getCreateTime())
-                .orderByDesc(MesMdAutoCodeRuleDO::getId));
+                .orderByDesc(MesMdAutoCodeRuleDO::getId)
+.and(q -> { q.isNull(MesMdAutoCodeRuleDO::getProjectId);
+                    if (!readableProjectIds.isEmpty()) q.or().in(MesMdAutoCodeRuleDO::getProjectId, readableProjectIds); }));
     }
 
     default MesMdAutoCodeRuleDO selectByCode(String code) {
-        return selectOne(MesMdAutoCodeRuleDO::getCode, code);
+        return selectOne(new LambdaQueryWrapperX<MesMdAutoCodeRuleDO>()
+                .eq(MesMdAutoCodeRuleDO::getCode, code).isNull(MesMdAutoCodeRuleDO::getProjectId));
     }
 
     default List<MesMdAutoCodeRuleDO> selectListByStatus(Integer status) {

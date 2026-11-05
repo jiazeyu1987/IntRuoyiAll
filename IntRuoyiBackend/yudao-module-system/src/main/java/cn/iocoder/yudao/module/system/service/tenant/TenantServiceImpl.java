@@ -37,6 +37,8 @@ import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
+import org.springframework.context.ApplicationEventPublisher;
+import cn.iocoder.yudao.module.system.api.tenant.TenantCreatedEvent;
 import org.springframework.stereotype.Service;
 import org.springframework.validation.annotation.Validated;
 
@@ -85,6 +87,8 @@ public class TenantServiceImpl implements TenantService {
     private MenuService menuService;
     @Resource
     private PermissionService permissionService;
+    @Resource
+    private ApplicationEventPublisher eventPublisher;
 
     @Override
     public List<Long> getTenantIdList() {
@@ -135,6 +139,8 @@ public class TenantServiceImpl implements TenantService {
             Long userId = createUser(roleId, createReqVO);
             // 修改租户的管理员
             tenantMapper.updateById(new TenantDO().setId(tenant.getId()).setContactUserId(userId));
+            // 同步初始化业务模块；监听器失败时连同租户创建事务一起回滚。
+            eventPublisher.publishEvent(new TenantCreatedEvent(tenant.getId()));
         });
         return tenant.getId();
     }

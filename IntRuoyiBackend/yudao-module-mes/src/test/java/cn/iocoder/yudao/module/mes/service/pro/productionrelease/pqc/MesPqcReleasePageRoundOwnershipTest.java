@@ -88,6 +88,8 @@ class MesPqcReleasePageRoundOwnershipTest extends BaseDbUnitTest {
         service = new MesPqcProductionReleaseServiceImpl(
                 applicationMapper, null, null, null, null, null, null, null, null, null,
                 reviewMapper, Clock.systemUTC());
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "candidateResolver",
+                org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.productionrelease.role.MesProductionReleaseRequiredCandidateResolver.class));
     }
 
     @AfterEach

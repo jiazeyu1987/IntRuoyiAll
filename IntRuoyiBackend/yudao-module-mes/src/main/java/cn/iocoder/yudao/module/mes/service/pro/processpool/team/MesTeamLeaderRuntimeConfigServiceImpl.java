@@ -298,6 +298,39 @@ public class MesTeamLeaderRuntimeConfigServiceImpl implements MesTeamLeaderRunti
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void deleteEmployee(Long leaderUserId, Long employeeProfileId) {
+        if (leaderUserId == null || employeeProfileId == null) {
+            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "deleteEmployee");
+        }
+        Long tenantId = cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId();
+        MesProcessPoolTeamEmployeeProfileDO profile = employeeProfileMapper.selectSignatureIdentityForUpdate(
+                tenantId, employeeProfileId);
+        if (profile == null || !Objects.equals(profile.getTenantId(), tenantId)
+                || !Objects.equals(profile.getLeaderUserId(), leaderUserId)) {
+            throw exception(PRO_PROCESS_POOL_TEAM_EMPLOYEE_PROFILE_NOT_EXISTS, employeeProfileId);
+        }
+        var revision = qualificationAuthority.lockTenantApprovalAuthority(tenantId);
+        // Release active owner/name keys and archive the unique code for repeated re-add/delete.
+        MesProcessPoolTeamEmployeeProfileDO update = MesProcessPoolTeamEmployeeProfileDO.builder()
+                .id(profile.getId()).enabled(false).disabledAt(LocalDateTime.now())
+                .employeeCode("DELETED-" + profile.getId()).build();
+        if (employeeProfileMapper.updateById(update) != 1) {
+            throw new IllegalStateException("EMPLOYEE_PROFILE_DELETE_PREPARE_FAILED");
+        }
+        syncProductionEmployeeScopeEnabled(profile, false);
+        // Logical deletion retains the identity and historical report/signature references.
+        if (employeeProfileMapper.deleteById(profile.getId()) != 1) {
+            throw new IllegalStateException("EMPLOYEE_PROFILE_DELETE_FAILED");
+        }
+        qualificationAuthority.incrementLockedAuthorityRevision(revision.tenantId(), revision.revision());
+        TeamMaintenanceAuditSupport.insertAudit(auditMapper, leaderUserId, leaderUserId,
+                "DELETE_EMPLOYEE", "TEAM_EMPLOYEE_PROFILE", profile.getId(), "SUCCESS",
+                "删除生产人员：" + resolveProfileDisplayName(profile), profile.toString(),
+                "deleted=true;enabled=false;scopeEnabled=false;archivedEmployeeCode=" + update.getEmployeeCode());
+    }
+
+    @Override
     @org.springframework.transaction.annotation.Transactional(rollbackFor = Exception.class)
     public void resetTemporaryEmployeeSignaturePassword(MesTeamTempSignaturePasswordResetReqBO reqBO) {
         if (reqBO == null || reqBO.getLeaderUserId() == null || reqBO.getEmployeeProfileId() == null

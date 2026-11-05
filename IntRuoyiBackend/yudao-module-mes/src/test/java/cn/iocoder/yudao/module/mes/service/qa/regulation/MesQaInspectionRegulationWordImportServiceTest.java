@@ -31,6 +31,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -58,7 +60,7 @@ class MesQaInspectionRegulationWordImportServiceTest {
     void setUp() {
         importService = new MesQaInspectionRegulationWordImportService(
                 dccProjectCodeMapper, regulationMapper, versionMapper, parser, regulationService);
-        when(dccProjectCodeMapper.selectById(DCC_PROJECT_ID)).thenReturn(enabledDccProject());
+        lenient().when(dccProjectCodeMapper.selectById(DCC_PROJECT_ID)).thenReturn(enabledDccProject());
     }
 
     @Test
@@ -94,8 +96,10 @@ class MesQaInspectionRegulationWordImportServiceTest {
     @Test
     void previewCommonWord_doesNotPersistUntilConfirmation() throws Exception {
         when(parser.parse(any(), any())).thenReturn(parsed("B/0"));
-        var request = importService.previewCommonWord(file(), DCC_PROJECT_ID);
+        var request = importService.previewCommonWord(file());
         assertEquals("MES_QA_COMMON", request.getOwnerModule());
+        org.junit.jupiter.api.Assertions.assertNull(request.getDccProjectCodeId());
+        verifyNoInteractions(dccProjectCodeMapper);
         assertEquals(0L, request.getExpectedDraftRevision());
         assertEquals("表面清洁，无异物", request.getProcesses().get(0).getItems().get(0).getStandardText());
         assertEquals(List.of(), request.getProcesses().get(0).getItems().get(0).getEquipmentOptions());
@@ -113,10 +117,27 @@ class MesQaInspectionRegulationWordImportServiceTest {
         when(parser.parse(any(), any())).thenReturn(parsed("B/0"));
         byte[] content = {1, 2, 3};
         var file = new MockMultipartFile("file", "通用规程.DOC", "application/msword", content);
-        var request = importService.previewCommonWord(file, DCC_PROJECT_ID);
+        var request = importService.previewCommonWord(file);
         assertEquals("MES_QA_COMMON", request.getOwnerModule());
+        org.junit.jupiter.api.Assertions.assertNull(request.getDccProjectCodeId());
+        verifyNoInteractions(dccProjectCodeMapper);
         verify(parser).parse(content, "通用规程.DOC");
         verify(regulationService, never()).saveDraft(any());
+        verify(regulationService, never()).publish(any());
+    }
+
+    @Test
+    void previewCommonWordAfterCurrentDeletionReservesDeletedVersionNumbers() throws Exception {
+        when(parser.parse(any(), any())).thenReturn(parsed("B/1"));
+        when(regulationMapper.selectCommonByCode("PQC-TEST-001"))
+                .thenReturn(publishedRegulation().setCurrentVersionId(null).setLifecycleStatus("RETIRED"));
+        when(versionMapper.selectUsedVersionNos(REGULATION_ID)).thenReturn(List.of("B/0", "B/1"));
+
+        var request = importService.previewCommonWord(file());
+
+        assertEquals("B/2", request.getVersionNo());
+        assertEquals(REGULATION_ID, request.getRegulationId());
+        verify(regulationService, never()).getLockedCommonVersionForOrder(any(), any());
         verify(regulationService, never()).publish(any());
     }
 
@@ -125,7 +146,7 @@ class MesQaInspectionRegulationWordImportServiceTest {
         when(parser.parse(any(), any())).thenReturn(parsed("B/0"));
         var common = publishedRegulation();
         common.setOwnerModule("MES_QA_COMMON");
-        when(regulationMapper.selectByDccProjectCodeId(DCC_PROJECT_ID, "MES_QA_COMMON")).thenReturn(common);
+        when(regulationMapper.selectCommonByCode("PQC-TEST-001")).thenReturn(common);
         var baseline = existingConfiguration();
         baseline.getProcesses().get(0).getItems().get(0).setEquipmentOptions(List.of(
                 MesQaInspectionRegulationPublishedVersionRespVO.EquipmentOption.builder()
@@ -136,7 +157,7 @@ class MesQaInspectionRegulationWordImportServiceTest {
         when(versionMapper.selectListByRegulationId(REGULATION_ID)).thenReturn(List.of(
                 MesQaInspectionRegulationVersionDO.builder().versionNo("B/0").build(),
                 MesQaInspectionRegulationVersionDO.builder().versionNo("B/1").build()));
-        var request = importService.previewCommonWord(file(), DCC_PROJECT_ID);
+        var request = importService.previewCommonWord(file());
         assertEquals("B/2", request.getVersionNo());
         assertEquals(REGULATION_ID, request.getRegulationId());
         assertEquals("LEGACY-I01", request.getProcesses().get(0).getItems().get(0).getItemCode());
@@ -153,7 +174,7 @@ class MesQaInspectionRegulationWordImportServiceTest {
     @Test
     void previewCommonWord_distinguishesDuplicateNamesByOriginalStandardAndMethod() throws Exception {
         when(parser.parse(any(), any())).thenReturn(parsedWithItem("B/1", "大包装工序", "外观"));
-        when(regulationMapper.selectByDccProjectCodeId(DCC_PROJECT_ID, "MES_QA_COMMON"))
+        when(regulationMapper.selectCommonByCode("PQC-TEST-001"))
                 .thenReturn(publishedRegulation());
         var baseline = existingAmbiguousTerminalNameConfiguration();
         var second = baseline.getProcesses().get(0).getItems().get(1);
@@ -161,10 +182,10 @@ class MesQaInspectionRegulationWordImportServiceTest {
         second.setSourceOriginalMethod("目视检查");
         when(regulationService.getLockedCommonVersionForOrder(REGULATION_ID, PUBLISHED_VERSION_ID))
                 .thenReturn(baseline);
-        var request = importService.previewCommonWord(file(), DCC_PROJECT_ID);
+        var request = importService.previewCommonWord(file());
         assertEquals("LEGACY-PACK-BOX", request.getProcesses().get(0).getItems().get(0).getItemCode());
         second.setSourceOriginalMethod("不同的方法");
-        assertThrows(ServiceException.class, () -> importService.previewCommonWord(file(), DCC_PROJECT_ID));
+        assertThrows(ServiceException.class, () -> importService.previewCommonWord(file()));
         verify(regulationService, never()).saveDraft(any());
         verify(regulationService, never()).publish(any());
     }
@@ -172,11 +193,11 @@ class MesQaInspectionRegulationWordImportServiceTest {
     @Test
     void previewCommonWord_rejectsExistingDraftWithoutOverwritingIt() throws Exception {
         when(parser.parse(any(), any())).thenReturn(parsed("B/0"));
-        when(regulationMapper.selectByDccProjectCodeId(DCC_PROJECT_ID, "MES_QA_COMMON"))
+        when(regulationMapper.selectCommonByCode("PQC-TEST-001"))
                 .thenReturn(publishedRegulation());
         when(versionMapper.selectListDraftByRegulationId(REGULATION_ID))
                 .thenReturn(List.of(MesQaInspectionRegulationVersionDO.builder().versionNo("B/1").build()));
-        assertThrows(ServiceException.class, () -> importService.previewCommonWord(file(), DCC_PROJECT_ID));
+        assertThrows(ServiceException.class, () -> importService.previewCommonWord(file()));
         verify(regulationService, never()).saveDraft(any());
         verify(regulationService, never()).publish(any());
     }

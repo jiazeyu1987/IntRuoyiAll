@@ -18,9 +18,6 @@ public class MesQaCommonRegulationBindingRespVO {
     @Schema(description = "产品 QA 所选 DCC 项目代码 ID")
     private Long productDccProjectCodeId;
 
-    @Schema(description = "产品 ID，来自 DCC 项目代码 productMasterId")
-    private Long productId;
-
     @Schema(description = "通用检验规程套 ID")
     private Long commonRegulationSetId;
 

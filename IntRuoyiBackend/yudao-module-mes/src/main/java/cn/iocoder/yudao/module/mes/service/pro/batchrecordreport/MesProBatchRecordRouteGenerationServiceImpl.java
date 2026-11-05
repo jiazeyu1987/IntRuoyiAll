@@ -75,6 +75,7 @@ import static cn.iocoder.yudao.module.mes.service.pro.batchrecordreport.MesProBa
 @Service
 @Validated
 public class MesProBatchRecordRouteGenerationServiceImpl implements MesProBatchRecordRouteGenerationService {
+    @jakarta.annotation.Resource private cn.iocoder.yudao.module.mes.service.pro.frontline.DccProjectResolver projectCodeResolver;
     @jakarta.annotation.Resource
     private cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteProjectGuard projectGuard;
 
@@ -595,7 +596,7 @@ public class MesProBatchRecordRouteGenerationServiceImpl implements MesProBatchR
         MesProRouteVersionDO sourceRouteVersion = target.activeVersion();
         if (route == null) {
             projectGuard.requireAvailable(dccProjectCodeId, null);
-            String routeCode = generateRouteCode();
+            String routeCode = generateRouteCode(dccProjectCodeId);
             route = MesProRouteDO.builder()
                     .code(routeCode)
                     .name(batchRecordName)
@@ -631,7 +632,7 @@ public class MesProBatchRecordRouteGenerationServiceImpl implements MesProBatchR
 
         List<MesProProcessDO> processes = new ArrayList<>(bindings.size());
         for (RouteProcessReportBinding binding : bindings) {
-            processes.add(createProjectProcess(binding.processName(), route.getName()));
+            processes.add(createProjectProcess(binding.processName(), route.getName(), route.getId()));
         }
 
         MesProRouteFlowConfigDO flowConfig = MesProRouteFlowConfigDO.builder()
@@ -1062,7 +1063,7 @@ public class MesProBatchRecordRouteGenerationServiceImpl implements MesProBatchR
             int occurrence = candidateOccurrenceByProcessName.merge(binding.processName(), 1, Integer::sum);
             ActiveRouteProcessSnapshot activeRouteProcess = activeSource.findByName(binding.processName(), occurrence);
             MesProProcessDO processDefinition = activeRouteProcess == null
-                    ? createProjectProcess(binding.processName(), route.getName())
+                    ? createProjectProcess(binding.processName(), route.getName(), route.getId())
                     : MesProProcessDO.builder().id(activeRouteProcess.processId()).name(binding.processName()).build();
             Map<String, Object> process = activeRouteProcess == null
                     ? new LinkedHashMap<>()
@@ -1815,8 +1816,8 @@ public class MesProBatchRecordRouteGenerationServiceImpl implements MesProBatchR
         return bindings;
     }
 
-    private String generateRouteCode() {
-        String routeCode = StrUtil.trim(autoCodeRecordService.generateAutoCode(MesMdAutoCodeRuleCodeEnum.PRO_ROUTE_CODE.getCode()));
+    private String generateRouteCode(Long projectId) {
+        String routeCode = StrUtil.trim(autoCodeRecordService.generateProjectCode(MesMdAutoCodeRuleCodeEnum.PRO_ROUTE_CODE.getCode(), projectId));
         if (StrUtil.isBlank(routeCode)) {
             throw exception(PRO_BATCH_RECORD_REPORT_ROUTE_GENERATION_FAILED, "路线编码生成结果为空");
         }
@@ -1827,14 +1828,14 @@ public class MesProBatchRecordRouteGenerationServiceImpl implements MesProBatchR
         return routeCode;
     }
 
-    private MesProProcessDO createProjectProcess(String processName, String productName) {
+    private MesProProcessDO createProjectProcess(String processName, String productName, Long routeId) {
         MesProProcessDO process = MesProProcessDO.builder()
                 .productName(productName)
                 .name(processName)
                 .status(CommonStatusEnum.ENABLE.getStatus())
                 .remark("eDHR Word导入为当前项目独立创建")
                 .build();
-        processCreationService.create(process);
+        processCreationService.create(process, projectCodeResolver.requireEnabledByRoute(routeId).dccProjectCodeId());
         return process;
     }
 

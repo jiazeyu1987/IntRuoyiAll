@@ -121,24 +121,25 @@ public class MesQaInspectionRegulationWordImportService {
 
     /** Reuse the common Word import mapping without creating a draft or a formal version. */
     @Transactional(readOnly = true)
-    public MesQaInspectionRegulationSaveReqVO previewCommonWord(MultipartFile file, Long dccProjectCodeId) {
-        requireEnabledDccProject(dccProjectCodeId);
+    public MesQaInspectionRegulationSaveReqVO previewCommonWord(MultipartFile file) {
         String fileName = validateFile(file);
         var parsed = parser.parse(readContent(file), fileName);
-        var regulation = regulationMapper.selectByDccProjectCodeId(dccProjectCodeId,
-                MesQaInspectionRegulationDO.OWNER_MODULE_MES_QA_COMMON);
+        var regulation = regulationMapper.selectCommonByCode(StrUtil.trim(parsed.regulationCode()));
         MesQaInspectionRegulationPublishedVersionRespVO baseline = null;
         Set<String> versions = new LinkedHashSet<>();
         if (regulation != null) {
             if (!versionMapper.selectListDraftByRegulationId(regulation.getId()).isEmpty()) {
                 throw exception(QA_INSPECTION_REGULATION_VERSION_CONFLICT, "请先处理该通用规程的未发布草稿");
             }
-            baseline = regulationService.getLockedCommonVersionForOrder(
-                    regulation.getId(), regulation.getCurrentVersionId());
+            if (regulation.getCurrentVersionId() != null) {
+                baseline = regulationService.getLockedCommonVersionForOrder(
+                        regulation.getId(), regulation.getCurrentVersionId());
+            }
             versionMapper.selectListByRegulationId(regulation.getId())
                     .forEach(version -> versions.add(version.getVersionNo()));
+            versions.addAll(versionMapper.selectUsedVersionNos(regulation.getId()));
         }
-        var request = buildSaveRequest(dccProjectCodeId,
+        var request = buildSaveRequest(null,
                 MesQaInspectionRegulationDO.OWNER_MODULE_MES_QA_COMMON, regulation, parsed, baseline).request();
         request.setExpectedDraftRevision(0L);
         // Suggest the next unused version, while leaving it editable before confirmation.

@@ -18,7 +18,7 @@ function load(source, imports = {}, globals = {}) {
 }
 const editing = load(read('parser/useParserEditing.ts'), { vue })
 const pqc = load(read('parser/simplePqc.ts'))
-const commonValidation = load(read('simple-common-parser/draft.ts'))
+const commonValidation = load(read('simple-common-parser/draft.ts'), { '../parser/simplePqc': pqc })
 const production = load(read('parser/simpleRecognition.ts'), { pizzip: require('pizzip') })
 const fixture = () => pqc.makeDraft({ regulationName: '检验规程', regulationCode: 'PQC-1', versionNo: 'A/1',
   processes: [1, 2].map(n => ({ processCode: `P${n}`, processName: `工序${n}`, sort: n,
@@ -63,8 +63,10 @@ function page(kind) {
   return { component, descriptor, script, imports, globals, saved, confirms, errors }
 }
 function initialize(state, kind) {
-  state.projectId.value = 42
-  state.projects.value = [{ id: 42, projectCode: 'P42', projectName: '项目' }]
+  if (kind !== 'common') {
+    state.projectId.value = 42
+    state.projects.value = [{ id: 42, projectCode: 'P42', projectName: '项目', productMasterId: 8 }]
+  }
   if (kind === 'production') {
     state.recognition.value = { schemaVersion: 3, product: {}, processes: [] }
     state.routeName.value = '工艺流程'
@@ -72,7 +74,10 @@ function initialize(state, kind) {
     state.selectedId.value = 'P1'
   } else {
     const draft = fixture()
-    if (kind === 'common') draft.ownerModule = 'MES_QA_COMMON'
+    if (kind === 'common') {
+      draft.ownerModule = 'MES_QA_COMMON'
+      delete draft.dccProjectCodeId
+    }
     state.draft.value = draft
   }
   state.resetEditing(true, '2026-11-02 10:00:00')
@@ -193,7 +198,7 @@ for (const kind of ['production', 'pqc', 'common']) test(`${kind}: actual trial 
   const trialFile = `parser/components/${kind === 'production' ? 'SimpleTrialPreview' : 'SimplePqcTrialPreview'}.vue`
   const trialDescriptor = parse(read(trialFile), { filename: trialFile }).descriptor
   const trial = load(compileScript(trialDescriptor, { id: `${kind}-trial` }).content, {
-    vue, '../simpleRecognition': production,
+    vue, '../simpleRecognition': production, '../simplePqc': pqc,
     '@/store/modules/user': { useUserStore: () => ({ getUser: {} }) }
   }).default
   const setupTrial = trial.setup
@@ -253,24 +258,24 @@ function mountState(ctx, t) {
 for (const kind of ['pqc', 'common']) test(`${kind}: reimporting a published Word creates an unused version without losing inspection content`, async t => {
   const ctx = page(kind)
   const snapshot = fixture()
-  if (kind === 'common') snapshot.ownerModule = 'MES_QA_COMMON'
+  if (kind === 'common') { snapshot.ownerModule = 'MES_QA_COMMON'; delete snapshot.dccProjectCodeId }
   snapshot.expectedDraftRevision = 7
   const content = JSON.stringify(snapshot.processes)
   ctx.imports['../parser/simplePqcWord'].readPqcWord = () => ({ draft: snapshot, confirmedUnbound: [] })
   const api = ctx.imports['@/api/mes/qc/template'].QcTemplateApi
   api.listQaRegulationVersions = async () => [{ versionNo: 'A/1' }, { versionNo: 'A/2' }]
-  api.listCommonRegulationPublishedVersions = async () => [
-    { commonDccProjectCodeId: 42, versionNo: 'A/1' },
-    { commonDccProjectCodeId: 42, versionNo: 'A/2' },
-    { commonDccProjectCodeId: 99, versionNo: 'A/3' }
+  api.listCommonRegulationReleasedVersions = async () => [
+    { commonRegulationCode: snapshot.regulationCode, versionNo: 'A/1' },
+    { commonRegulationCode: snapshot.regulationCode, versionNo: 'A/2' },
+    { commonRegulationCode: 'OTHER-CODE', versionNo: 'A/3' }
   ]
   const state = mountState(ctx, t)
-  state.projectId.value = 42
-  await state.importWord({ raw: { arrayBuffer: async () => new ArrayBuffer(0) } })
+  if (kind !== 'common') state.projectId.value = 42
+  await state.importWord({ raw: { name: '导出规程.docx', arrayBuffer: async () => new ArrayBuffer(0) } })
   assert.equal(ctx.errors.length, 0)
   assert.equal(state.draft.value.versionNo, 'A/3')
   assert.equal(state.draft.value.expectedDraftRevision, 0)
-  assert.equal(state.draft.value.dccProjectCodeId, 42)
+  assert.equal(state.draft.value.dccProjectCodeId, kind === 'common' ? undefined : 42)
   assert.equal(JSON.stringify(state.draft.value.processes), content)
   assert.equal(state.published.value, false)
   assert.equal(state.dirty.value, true)
@@ -286,7 +291,10 @@ for (const kind of ['production', 'pqc', 'common']) test(`${kind}: publication l
   else ctx.imports['@/api/mes/qc/template/simpleCommonParser'].SimpleCommonParserApi = { publish }
   const state = mountState(ctx, t)
   initialize(state, kind)
-  if (kind !== 'production') state.draft.value.finalInspectionNotApplicableReason = '本规程无需末检'
+  if (kind !== 'production') {
+    state.draft.value.finalInspectionNotApplicableReason = '本规程无需末检'
+    state.draft.value.processes.forEach(p => p.items.forEach(i => { i.equipmentUnboundReason = '目测无需设备' }))
+  }
   await vue.nextTick()
   const visible = kind === 'production' ? state.publishVisible : state.previewVisible
   visible.value = true

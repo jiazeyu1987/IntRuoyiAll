@@ -54,6 +54,26 @@ public final class MesPqcInspectionItemPlan {
         return JsonUtils.toJsonString(plan);
     }
 
+    /** Actual sampling may be stricter; the frozen QA plan remains the minimum for each item. */
+    public static boolean matchesActualQuantities(MesPqcInspectionTaskDO task,
+                                                  Map<String, Integer> actual, Integer taskQuantity) {
+        Map<String, Integer> plan = require(task);
+        return actual != null && plan.keySet().equals(actual.keySet())
+                && plan.entrySet().stream().allMatch(entry -> actual.get(entry.getKey()) != null
+                && actual.get(entry.getKey()) >= entry.getValue())
+                && java.util.Objects.equals(taskQuantity, actual.values().stream()
+                .filter(java.util.Objects::nonNull).mapToInt(Integer::intValue).max().orElse(0));
+    }
+
+    public static boolean completeSamples(MesPqcInspectionTaskDO task, String itemCode,
+                                          java.util.List<Integer> sampleNumbers) {
+        Integer minimum = require(task).get(itemCode);
+        return minimum != null && sampleNumbers != null && sampleNumbers.size() >= minimum
+                && sampleNumbers.stream().allMatch(java.util.Objects::nonNull)
+                && sampleNumbers.stream().sorted().toList().equals(java.util.stream.IntStream
+                .rangeClosed(1, sampleNumbers.size()).boxed().toList());
+    }
+
     private static void validate(Map<String, Integer> plan) {
         if (plan == null || plan.isEmpty() || plan.entrySet().stream().anyMatch(entry ->
                 entry.getKey() == null || entry.getKey().isBlank()

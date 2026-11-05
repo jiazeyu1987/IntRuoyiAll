@@ -30,7 +30,7 @@ public final class MesPqcInspectionRulePlan {
             throw new IllegalArgumentException("QA规程检验类型规则无效", ex);
         }
         if (input == null || input.size() != KEYS.size()) {
-            throw new IllegalArgumentException("QA规程检验类型规则无效");
+            throw new IllegalArgumentException("QA规程必须配置首检、巡检、末检三项规则（FIRST、PATROL、FINAL），请修订并重新发布规程");
         }
         Map<String, Stage> stages = new java.util.LinkedHashMap<>();
         for (int i = 0; i < input.size(); i++) {

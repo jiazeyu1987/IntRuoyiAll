@@ -2,6 +2,7 @@ import request from '@/config/axios'
 
 // MES 编码规则 VO
 export interface AutoCodeRuleVO {
+  projectId?: number
   id: number // 规则编号
   code: string // 规则编码
   name: string // 规则名称

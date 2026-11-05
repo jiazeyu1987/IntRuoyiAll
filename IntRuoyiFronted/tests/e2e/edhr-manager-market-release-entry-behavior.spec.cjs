@@ -244,13 +244,10 @@ test('missing exact formal batch context and missing password cannot submit an a
   assert.equal(noPassword.writes.length, 0)
 })
 
-test('missing preview or opinion blocks signing and a malformed receipt never claims success', async () => {
+test('missing preview blocks signing and a malformed receipt never claims success', async () => {
   const h = releaseHarness([formalContext()])
   await h.openReleaseDialog(ownedBatch())
   h.context.releaseForm.password = 'test-only-password'
-  await h.submitRelease()
-  assert.match(h.context.releaseError.value, /放行意见/)
-  h.context.releaseForm.reason = '同意放行'
   h.context.releasePreview.value = undefined
   await h.submitRelease()
   assert.match(h.context.releaseError.value, /完整放行资料/)
@@ -265,3 +262,17 @@ test('missing preview or opinion blocks signing and a malformed receipt never cl
   assert.equal(h.invalidations.length, 0)
   assert.match(h.context.releaseError.value, /回执未确认成功/)
 })
+
+for (const reason of ['', '   ']) {
+  test(`formal market release accepts an optional opinion: ${JSON.stringify(reason)}`, async () => {
+    const h = releaseHarness([formalContext()])
+    await h.openReleaseDialog(ownedBatch())
+    h.context.releaseForm.password = 'test-only-password'
+    h.context.releaseForm.reason = reason
+    await h.submitRelease()
+    assert.equal(h.writes.length, 1)
+    assert.equal(h.writes[0].reason, '')
+    assert.equal(h.writes[0].prepareId, 'prepared-2735')
+    assert.equal(h.navigation.length, 1)
+  })
+}

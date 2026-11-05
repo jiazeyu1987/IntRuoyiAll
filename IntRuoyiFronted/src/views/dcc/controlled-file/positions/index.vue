@@ -65,9 +65,9 @@
           新增审批角色
         </el-button>
       </template>
-      <template #table="{ resolveRows, rows: standardRows }">
+      <template #table="{ rows: standardRows }">
 
-        <el-table stripe border v-loading="loading" :data="resolveRows(standardRows)">
+        <el-table stripe border v-loading="loading" :data="standardRows">
           <el-table-column label="审批角色编码" min-width="150" prop="code" show-overflow-tooltip />
           <el-table-column label="审批角色名称" min-width="180" prop="name" show-overflow-tooltip />
           <el-table-column label="审批角色摘要" min-width="240">

@@ -612,8 +612,16 @@ async function selectFrontlinePqcProcess(page, processKey) {
 }
 
 async function fillPqcQuantity(page, quantity) {
-  await page.locator('[data-pqc-inspection-quantity]').fill(String(quantity))
+  assert.equal(Number(await page.locator('[data-pqc-inspection-quantity]').inputValue()), Number(quantity),
+    '任务数量应由各项目实际抽样数量的最大值计算')
   await page.locator('[data-pqc-scrap-quantity]').fill('0')
+}
+
+async function selectPqcTaskScope(page, task) {
+  await page.locator(`[data-pqc-inspection-rule-tab="${cssAttributeValue(task.ruleKey)}"]`).click()
+  if (task.ruleKey === 'PATROL') {
+    await page.locator(`[data-pqc-patrol-round="${Number(task.roundNo)}"]`).click()
+  }
 }
 
 async function selectFirstPqcEquipmentWhenAvailable(page) {
@@ -673,9 +681,14 @@ async function fillPqcInspectionItems(page, step) {
       await tab.click()
       const ruleTab = page.locator(`[data-pqc-inspection-rule-tab="${cssAttributeValue(task.ruleKey)}"]`)
       await ruleTab.waitFor({ state: 'visible' })
-      await ruleTab.click()
+      await selectPqcTaskScope(page, task)
       await fillPqcQuantity(page, task.quantity)
       await page.locator('[data-pqc-active-inspection-panel]').waitFor({ state: 'visible' })
+      const itemQuantity = Number(item.plannedInspectionQuantity)
+      assert.ok(Number.isInteger(itemQuantity) && itemQuantity > 0, '项目缺少冻结应检数量')
+      const actualQuantity = page.locator('[data-pqc-item-actual-quantity]')
+      await actualQuantity.fill(String(itemQuantity))
+      await actualQuantity.press('Tab')
       const numeric = ['NUMBER', 'NUMERIC'].includes(String(item.resultType).toUpperCase())
       let value
       if (numeric) {
@@ -686,7 +699,7 @@ async function fillPqcInspectionItems(page, step) {
         assert.ok(upper === null || value <= upper, `检验上下限矛盾: ${item.itemCode}`)
       }
       const filled = await fillActivePqcInspectionItem(page, value)
-      if (numeric) assert.equal(filled.sampleCount, Number(task.quantity), '逐件输入数量必须等于冻结应检数量')
+      if (numeric) assert.equal(filled.sampleCount, itemQuantity, '逐件输入数量必须等于本项目实际抽样数量')
       items.push({ pqcTaskId: task.pqcTaskId, itemCode: item.itemCode, ...filled })
     }
   }
@@ -904,7 +917,25 @@ async function freezeActiveOrderExecutionBaseline(page, order) {
       outputMaterials: outputMaterials.map(text => text.trim()), quantityMode })
   }
   } finally { page.off('response', captureRuntime) }
-  const processes = await readPqcProcessesFromPage(page, order)
+  let processes = await readPqcProcessesFromPage(page, order)
+  // Freeze the test baseline only after creating real dynamic rounds through the UI.
+  if (processes.some(process => process.patrolInspectionApplicable) &&
+      !processes.some(process => process.pqcTaskOptions.some(task => task.inspectionType === 'PATROL'))) {
+    await page.locator('[data-pqc-inspection-rule-tab="PATROL"]').click()
+    const created = page.waitForResponse(response => response.request().method() === 'POST' &&
+      response.url().includes('/pqc/patrol-round'))
+    await page.locator('[data-pqc-create-patrol]').click()
+    await readPageResponse(await created, '新建真实巡检轮次')
+    processes = await readPqcProcessesFromPage(page, order)
+  }
+  if (processes.some(process => process.finalInspectionApplicable) &&
+      !processes.some(process => process.pqcTaskOptions.some(task => task.inspectionType === 'FINAL'))) {
+    const created = page.waitForResponse(response => response.request().method() === 'POST' &&
+      response.url().includes('/pqc/final-inspection'))
+    await page.locator('[data-pqc-inspection-rule-tab="FINAL"]').click()
+    await readPageResponse(await created, '新建适用工序的末检')
+    processes = await readPqcProcessesFromPage(page, order)
+  }
   const pqcProcesses = []
   for (const process of processes) {
     const processKey = `QA-${process.regulationVersionId}-${process.qaProcessId}`
@@ -947,7 +978,7 @@ async function submitOnePqcInspectionForProcess(page, manifestOrder, step) {
   // Rule selection controls which processes are visible in the real picker.
   const ruleTab = page.locator(`[data-pqc-inspection-rule-tab="${cssAttributeValue(step.ruleKey)}"]`)
   await ruleTab.waitFor({ state: 'visible', timeout: 30000 })
-  await ruleTab.click()
+  await selectPqcTaskScope(page, step.tasks[0])
   await page.locator(`[data-pqc-inspection-rule-tab="${cssAttributeValue(step.ruleKey)}"][aria-pressed="true"]`).waitFor({ state: 'visible', timeout: 30000 })
   const processLabel = await selectFrontlinePqcProcess(page, step.processKey)
   const submissions = await submitOnePqcInspectionRound(page, manifestOrder, { ...step, processLabel })
@@ -976,7 +1007,7 @@ function assertFreshPqcTaskGroup(processes, order, step) {
   for (const task of step.tasks) {
     for (const item of task.inspectionItems) {
       const active = process.pqcTaskOptions.find(candidate => candidate.taskStatus === 'PENDING' &&
-        candidate.inspectionRuleKey === step.ruleKey && includesItem(candidate, item.itemCode))
+        candidate.inspectionRuleKey === step.ruleKey && scope(candidate) === expectedScope && includesItem(candidate, item.itemCode))
       assert.ok(active, 'fresh PQC项目规则缺少pending任务')
       assert.equal(String(active.pqcTaskId), task.pqcTaskId, 'fresh PQC页面将选中不同pending任务，禁止跨业务轮次提交')
     }

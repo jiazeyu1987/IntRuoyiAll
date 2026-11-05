@@ -136,6 +136,7 @@ for (const common of [false, true])
     const vue = require('vue')
     const filename = `src/views/form-center/${common ? 'simple-common-parser' : 'simple-pqc-parser'}/index.vue`
     const expectedDraft = { ...draft, ownerModule: common ? 'MES_QA_COMMON' : 'MES_QA' }
+    if (common) delete expectedDraft.dccProjectCodeId
     const exportedBytes = createPqcWord(expectedDraft, '7', common ? [] : ['I3'])
     const descriptor = parse(fs.readFileSync(filename, 'utf8'), { filename }).descriptor
     const imports = {
@@ -163,7 +164,7 @@ for (const common of [false, true])
           },
           getCurrentQaRegulation: async () => null,
           listQaRegulationVersions: async () => [],
-          listCommonRegulationPublishedVersions: async () => []
+          listCommonRegulationReleasedVersions: async () => []
         }
       },
       '@/api/mes/dv/machinery': {
@@ -195,7 +196,7 @@ for (const common of [false, true])
       pageContext
     )
     const state = pageContext.exports.default.setup({}, { expose() {} })
-    state.projectId.value = 129
+    if (!common) state.projectId.value = 129
     state.draft.value = { processes: [] }
     await state.importWord({ raw: { name: '导出规程.docx', arrayBuffer: async () => exportedBytes } })
     assert.deepEqual(errors, [])
@@ -210,7 +211,7 @@ for (const common of [false, true])
     } }
     const parseDoc = async (file, projectId) => {
       assert.equal(file, docFile)
-      if (common) assert.equal(projectId, 129)
+      if (common) assert.equal(projectId, undefined)
       recognized++
       return { ...expectedDraft, regulationName: 'DOC 识别规程' }
     }
@@ -231,18 +232,20 @@ for (const common of [false, true])
 test('common Word uses the correct page and preserves the entire common draft', () => {
   const commonDraft = {
     ...draft,
+    dccProjectCodeId: undefined,
     ownerModule: 'MES_QA_COMMON',
     regulationId: 123,
     expectedDraftRevision: 4
   }
   const commonBytes = createPqcWord(commonDraft, '7', [])
   assert.equal(
-    JSON.stringify(readPqcWord(commonBytes, '7', 129, 'MES_QA_COMMON').draft),
+    JSON.stringify(readPqcWord(commonBytes, '7', undefined, 'MES_QA_COMMON').draft),
     JSON.stringify(commonDraft)
   )
   assert.throws(() => readPqcWord(commonBytes, '7', 129), /规程类型不一致/)
   assert.throws(() => readPqcWord(bytes, '7', 129, 'MES_QA_COMMON'), /规程类型不一致/)
-  assert.throws(() => readPqcWord(commonBytes, '7', 130, 'MES_QA_COMMON'), /所属项目/)
+  const legacy = createPqcWord({ ...commonDraft, dccProjectCodeId: 129 }, '7', [])
+  assert.equal(readPqcWord(legacy, '7', undefined, 'MES_QA_COMMON').draft.dccProjectCodeId, undefined)
   assert.throws(() => readPqcWord(commonBytes, '8', 129, 'MES_QA_COMMON'), /其他租户/)
   assert.match(new PizZip(commonBytes).file('word/document.xml').asText(), /简易通用解析/)
 })

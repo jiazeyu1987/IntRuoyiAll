@@ -97,8 +97,7 @@ public class MesMdItemServiceImpl implements MesMdItemService {
     private void validateItemSaveData(MesMdItemSaveReqVO reqVO) {
         // 校验物料编码的唯一性
         validateItemCodeUnique(reqVO.getId(), reqVO.getCode());
-        // 校验物料名称的唯一性
-        validateItemNameUnique(reqVO.getId(), reqVO.getName());
+        // 产品编码标识物料；同名产品可以有不同规格或业务用途。
         // 校验物料分类存在
         validateItemTypeExists(reqVO.getItemTypeId());
         // 校验计量单位存在
@@ -172,16 +171,6 @@ public class MesMdItemServiceImpl implements MesMdItemService {
         }
         if (ObjUtil.notEqual(item.getId(), id)) {
             throw exception(MD_ITEM_CODE_DUPLICATE);
-        }
-    }
-
-    private void validateItemNameUnique(Long id, String name) {
-        MesMdItemDO item = itemMapper.selectByName(name);
-        if (item == null) {
-            return;
-        }
-        if (ObjUtil.notEqual(item.getId(), id)) {
-            throw exception(MD_ITEM_NAME_DUPLICATE);
         }
     }
 
@@ -339,12 +328,6 @@ public class MesMdItemServiceImpl implements MesMdItemService {
             MesMdItemDO existItem = itemMapper.selectByCode(importItem.getCode());
             if (existItem == null) {
                 // 2.3.1 创建
-                try {
-                    validateItemNameUnique(null, importItem.getName());
-                } catch (ServiceException ex) {
-                    respVO.getFailureCodes().put(key, ex.getMessage());
-                    return;
-                }
                 MesMdItemDO item = BeanUtils.toBean(importItem, MesMdItemDO.class);
                 item.setUnitMeasureId(unitMeasure.getId());
                 item.setProductMasterId(productMasterId);
@@ -357,12 +340,6 @@ public class MesMdItemServiceImpl implements MesMdItemService {
                 respVO.getCreateCodes().add(importItem.getCode());
             } else if (updateSupport) {
                 // 2.3.2 更新
-                try {
-                    validateItemNameUnique(existItem.getId(), importItem.getName());
-                } catch (ServiceException ex) {
-                    respVO.getFailureCodes().put(key, ex.getMessage());
-                    return;
-                }
                 MesMdItemDO updateObj = BeanUtils.toBean(importItem, MesMdItemDO.class);
                 updateObj.setId(existItem.getId());
                 updateObj.setUnitMeasureId(unitMeasure.getId());

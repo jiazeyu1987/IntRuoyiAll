@@ -11,6 +11,7 @@ public class SimpleParserPublishReqVO {
     @NotBlank @Pattern(regexp="[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}")
     private String requestId;
     @NotNull @Positive private Long projectId;
+    @NotNull(message="请选择工作站所属车间") @Positive private Long workshopId;
     @NotBlank @Size(max=128) private String routeName;
     @NotNull private Map<String, Object> recognitionJson;
     @Valid @Size(max=200) private List<ProcessSelection> processSelections = List.of();

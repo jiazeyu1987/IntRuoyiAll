@@ -131,10 +131,28 @@ class MesActiveOrderHandoffOwnerResolverTest {
   switch(defect){case "missingFormal"->formal.setSystemUserId(343L);case "collision"->{temporary.setId(342L);temp.setEmployeeUserId(342L);}case "foreignTemp"->temporary.setTenantId(2L);case "disabledTemp"->temporary.setEnabled(false);case "wrongLeader"->temporary.setLeaderUserId(349L);case "mixed"->{}default->throw new IllegalArgumentException(defect);}
   when(scopes.selectActiveScopesByLeader(341L,"PRODUCTION")).thenReturn(List.of(f,temp));
   when(profiles.selectList(any(com.baomidou.mybatisplus.core.conditions.Wrapper.class))).thenReturn(List.of(formal,temporary));
-  allowUser(342L,"mes:pro-feedback:create");
-  if("mixed".equals(defect)){assertEquals("342",service.productionEmployees(order));verify(users,never()).selectById(71L);}
+  var employee=AdminUserDO.builder().id(342L).status(0).build();employee.setTenantId(1L);
+  when(users.selectById(342L)).thenReturn(employee);
+  if("mixed".equals(defect)){assertEquals("342",service.productionEmployees(order));verify(users,never()).selectById(71L);verifyNoInteractions(permissions);}
   else assertThrows(RuntimeException.class,()->service.productionEmployees(order));
  }
+
+  @org.junit.jupiter.params.ParameterizedTest
+  @org.junit.jupiter.params.provider.ValueSource(strings={"missing","disabled","foreign"})
+  void productionHandoffWithoutCreatePermissionStillRejectsInvalidSystemIdentity(String defect) {
+   var profiles=mock(cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolTeamEmployeeProfileMapper.class);
+   ReflectionTestUtils.setField(service,"profiles",profiles);
+   var order=MesProcessPoolActiveOrderDO.builder().id(413L).leaderUserId(341L).build();order.setTenantId(1L);
+   var profile=MesProcessPoolTeamEmployeeProfileDO.builder().id(70L).leaderUserId(341L).employeeType("FORMAL").systemUserId(342L).enabled(true).build();profile.setTenantId(1L);
+   var scope=new MesProcessPoolTeamLeaderScopeDO().setLeaderUserId(341L).setLeaderType("PRODUCTION").setScopeType("EMPLOYEE").setEmployeeUserId(342L).setEnabled(true);scope.setTenantId(1L);
+   when(scopes.selectActiveScopesByLeader(341L,"PRODUCTION")).thenReturn(List.of(scope));
+   when(profiles.selectList(any(com.baomidou.mybatisplus.core.conditions.Wrapper.class))).thenReturn(List.of(profile));
+   if(!"missing".equals(defect)) {
+    var employee=AdminUserDO.builder().id(342L).status("disabled".equals(defect)?1:0).build();employee.setTenantId("foreign".equals(defect)?2L:1L);
+    when(users.selectById(342L)).thenReturn(employee);
+   }
+   assertThrows(RuntimeException.class,()->service.productionEmployees(order));verifyNoInteractions(permissions);
+  }
 
   @Test void frozenHandlersAndCorrectorSurviveRemovedInspectorScopesWithoutGrantingSelfReview(){
    var task=frozenResponsibilityFixture();allowUser(343L,"mes:pro-process-pool-team-leader:review");allowUser(343L,"mes:pro-process-pool:event-revision:update");
@@ -203,12 +221,12 @@ class MesActiveOrderHandoffOwnerResolverTest {
 
   @org.junit.jupiter.params.ParameterizedTest
   @org.junit.jupiter.params.provider.ValueSource(strings={"create","pqc_permission","pqc_leader_permission","none","disabled","foreign"})
-  void pqcSubmitterUsesExistingControllerPermissionOrGeneralRoleWithStrictIdentity(String grant){
+  void pqcSubmitterRequiresPqcRoleAndStrictIdentityWithoutCreatePermission(String grant){
    var user=AdminUserDO.builder().id(344L).status(0).build();user.setTenantId(1L);when(users.selectById(344L)).thenReturn(user);
    if("create".equals(grant))when(permissions.hasAnyPermissions(344L,"mes:pro-feedback:create")).thenReturn(true);
    if(Set.of("pqc_permission","pqc_leader_permission").contains(grant))when(permissions.hasAnyRoles(344L,"pqc_permission","pqc_leader_permission")).thenReturn(true);
    if("disabled".equals(grant))user.setStatus(1);if("foreign".equals(grant))user.setTenantId(2L);
-   if(Set.of("create","pqc_permission","pqc_leader_permission").contains(grant))assertDoesNotThrow(()->service.qualifiedPqcSubmitter(344L));
+   if(Set.of("pqc_permission","pqc_leader_permission").contains(grant))assertDoesNotThrow(()->service.qualifiedPqcSubmitter(344L));
    else assertThrows(RuntimeException.class,()->service.qualifiedPqcSubmitter(344L));verifyNoInteractions(scopes);
   }
 

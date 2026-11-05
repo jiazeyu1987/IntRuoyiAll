@@ -43,8 +43,7 @@ public class Sheet1RouteExcelImportServiceImpl implements Sheet1RouteExcelImport
     @Resource
     private MesProProcessCreationService processCreationService;
 
-    private static final String ROUTE_CODE_PREFIX = "ROUTE-XLSX-";
-    private static final Pattern FIVE_DIGIT_SUFFIX_PATTERN = Pattern.compile("\\d{5}");
+    @Resource private cn.iocoder.yudao.module.mes.service.md.autocode.MesMdAutoCodeRecordService codeService;
 
     private final Sheet1RouteExcelParser parser;
     private final MesProRouteMapper routeMapper;
@@ -77,8 +76,7 @@ public class Sheet1RouteExcelImportServiceImpl implements Sheet1RouteExcelImport
                 "本格式每次只能为一个项目导入一条工艺流程，请拆分文件");
         projectGuard.requireAvailable(dccProjectCodeId, null);
 
-        AtomicInteger nextRouteSequence = new AtomicInteger(
-                maxSuffix(routeMapper.selectListByCodePrefix(ROUTE_CODE_PREFIX), ROUTE_CODE_PREFIX) + 1);
+
 
         LinkedHashSet<String> uniqueProcessNames = collectProcessNames(parseResult.routes());
         Map<String, Long> processIdByName = new LinkedHashMap<>();
@@ -94,7 +92,7 @@ public class Sheet1RouteExcelImportServiceImpl implements Sheet1RouteExcelImport
             MesProProcessDO process = new MesProProcessDO();
             process.setName(processName);
             process.setStatus(processStatus);
-            processCreationService.create(process);
+            processCreationService.create(process, dccProjectCodeId);
             processIdByName.put(processName, process.getId());
             processCreatedCount++;
         }
@@ -104,7 +102,7 @@ public class Sheet1RouteExcelImportServiceImpl implements Sheet1RouteExcelImport
         String sourceFileName = StrUtil.blankToDefault(file.getOriginalFilename(), "uploaded.xlsx");
         for (Sheet1RouteExcelParser.Route parsedRoute : parseResult.routes()) {
             MesProRouteDO route = new MesProRouteDO();
-            route.setCode(formatCode(ROUTE_CODE_PREFIX, nextRouteSequence.getAndIncrement()));
+            route.setCode(codeService.generateProjectCode("PRO_ROUTE_CODE", dccProjectCodeId));
             route.setName(parsedRoute.routeName());
             route.setDescription("来源文件: " + sourceFileName + " / Sheet1");
             route.setRemark(String.join("\n", parsedRoute.materialCodes()));
@@ -191,23 +189,4 @@ public class Sheet1RouteExcelImportServiceImpl implements Sheet1RouteExcelImport
         }
     }
 
-    private int maxSuffix(List<MesProRouteDO> items, String prefix) {
-        int max = 0;
-        for (MesProRouteDO item : items) {
-            String code = item.getCode();
-            if (code == null || !code.startsWith(prefix)) {
-                continue;
-            }
-            String suffix = code.substring(prefix.length());
-            if (!FIVE_DIGIT_SUFFIX_PATTERN.matcher(suffix).matches()) {
-                continue;
-            }
-            max = Math.max(max, Integer.parseInt(suffix));
-        }
-        return max;
-    }
-
-    private String formatCode(String prefix, int sequence) {
-        return prefix + String.format("%05d", sequence);
-    }
 }

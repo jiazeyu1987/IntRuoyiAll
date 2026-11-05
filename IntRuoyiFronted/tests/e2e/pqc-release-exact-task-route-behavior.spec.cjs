@@ -33,6 +33,7 @@ function pageHarness(overrides = {}, query = { applicationId: '224', workTaskId:
   const mounted = [], unmounted = [], reads = [], authorityReads = [], detailReads = [], writes = []
   const route = vue.reactive({ query, get fullPath() { return '/mes/production-release/pqc?' + new URLSearchParams(this.query).toString() } })
   const context = {
+    releaseRequestOwner: { pqcReleaseRequests: { keys: new Map(), states: new Map(), requests: new Map() } },
     route, ...vue, approvalInvalidation: { syncSession: () => ({ key: 'test-tenant-session' }) },
     userStore: { permissions: new Set(['mes:pro-production-release:query', 'mes:pro-production-release:pqc-approve']) },
     getPqcProductionRelease: async applicationId => { authorityReads.push(applicationId); return { applicationId, pqcReleaseWorkTaskId: route.query.workTaskId, status: 'PQC_RELEASE_PENDING' } },
@@ -96,7 +97,7 @@ test('PQC query does not select other applications, wrong tasks, duplicate or mi
 })
 
 test('PQC automatic entry retains permission and explicit approval blocker guards', async () => {
-  for (const row of [formalRow({ underReview: true }), formalRow({ approvalReady: false }), formalRow({ viewStatus: 'RELEASED', applicationStatus: 'REPORT_UPLOAD_PENDING' })]) {
+  for (const row of [formalRow({ underReview: true }), formalRow({ viewStatus: 'RELEASED', applicationStatus: 'REPORT_UPLOAD_PENDING' })]) {
     const h = pageHarness({ getPqcProductionReleasePage: async () => ({ list: [row], total: 1 }) })
     await h.mount()
     assert.equal(h.page.releaseDialogVisible.value, false)
@@ -267,6 +268,61 @@ test('official DONE detail with explicitly MISSING time remains readable without
   assert.equal(h.writes.length, 0)
 })
 
+test('official V2 DONE detail opens with formal audit or explicitly disabled development audit', async () => {
+  for (const auditBindingStatus of ['CONSISTENT', 'DEVELOPMENT_DISABLED']) {
+    const verification = formalVerification({ evidenceFormatVersion: 'V2', keyVersion: 'digest-format-v2',
+      storedContentHash: 'c'.repeat(64), calculatedContentHash: 'c'.repeat(64),
+      storedEvidenceHash: 'e'.repeat(64), calculatedEvidenceHash: 'e'.repeat(64), auditBindingStatus,
+      reasonCodes: auditBindingStatus === 'DEVELOPMENT_DISABLED' ? ['GXP_AUDIT_DEVELOPMENT_DISABLED'] : [] })
+    const h = doneHarness({ getPqcProductionReleaseOrderDetail: async () => formalDetail({
+      pqcProductionRelease: { status: 'MANAGER_RELEASE_PENDING', signature: formalSignature({ verification }) }
+    }) })
+    await h.mount()
+    assert.equal(h.page.detailError.value, '')
+    assert.equal(h.page.detailVisible.value, true)
+    assert.equal(h.page.detailReadOnly.value, true)
+    assert.equal(h.page.orderDetail.value.detail.pqcProductionRelease.signature.verification.auditBindingStatus, auditBindingStatus)
+    assert.equal(h.writes.length, 0)
+  }
+})
+
+test('V2 detail rejects unknown versions, unbound development status, altered hashes and false valid results', async () => {
+  for (const invalid of [
+    { evidenceFormatVersion: 'V3' },
+    { auditBindingStatus: 'DEVELOPMENT_DISABLED', reasonCodes: [] },
+    { auditBindingStatus: 'UNKNOWN', reasonCodes: ['GXP_AUDIT_DEVELOPMENT_DISABLED'] },
+    { digestStatus: 'DEVELOPMENT_DISABLED', reasonCodes: ['GXP_AUDIT_DEVELOPMENT_DISABLED'] },
+    { calculatedEvidenceHash: 'altered' },
+    { calculatedContentHash: 'altered' },
+    { auditBindingStatus: 'MISSING' },
+    { auditBindingStatus: 'MISMATCH' },
+    { timeConsistencyStatus: 'MISSING' },
+    { reasonCodes: null }
+  ]) {
+    const verification = formalVerification({ evidenceFormatVersion: 'V2', keyVersion: 'digest-format-v2', ...invalid })
+    const h = doneHarness({ getPqcProductionReleaseOrderDetail: async () => formalDetail({
+      pqcProductionRelease: { status: 'MANAGER_RELEASE_PENDING', signature: formalSignature({ verification }) }
+    }) })
+    await h.mount()
+    assert.match(h.page.detailError.value, /签名.*(不一致|核验)/, JSON.stringify(invalid))
+    assert.equal(h.page.orderDetail.value, undefined)
+    assert.equal(h.writes.length, 0)
+  }
+})
+
+test('V2 missing evidence remains readable as mismatch with an unverified name', async () => {
+  const verification = formalVerification({ evidenceFormatVersion: 'V2', keyVersion: 'digest-format-v2',
+    auditBindingStatus: 'MISSING', verificationStatus: 'MISMATCH', reasonCodes: ['AUDIT_LINK_MISSING'] })
+  const h = doneHarness({ getPqcProductionReleaseOrderDetail: async () => formalDetail({
+    pqcProductionRelease: { status: 'MANAGER_RELEASE_PENDING', signature: formalSignature({ verification,
+      signerNameStatus: 'UNVERIFIED_SNAPSHOT', signerName: '签时姓名未核验' }) }
+  }) })
+  await h.mount()
+  assert.equal(h.page.detailError.value, '')
+  assert.equal(h.page.orderDetail.value.detail.pqcProductionRelease.signature.verification.verificationStatus, 'MISMATCH')
+  assert.equal(h.writes.length, 0)
+})
+
 test('official DONE detail rejects foreign identity and illegal CONSISTENT time with null signedAt', async () => {
   const valid = formalDetail().detail.pqcProductionRelease
   for (const detail of [
@@ -282,7 +338,7 @@ test('official DONE detail rejects foreign identity and illegal CONSISTENT time 
     assert.equal(h.page.detailVisible.value, true)
     assert.equal(h.page.detailReadOnly.value, true)
     assert.equal(h.page.orderDetail.value, undefined)
-    assert.match(h.page.detailError.value, /签名关联|核验状态/)
+    assert.match(h.page.detailError.value, /签名.*(不一致|核验)/)
     assert.equal(h.reads.length, 0)
     assert.equal(h.writes.length, 0)
   }
@@ -414,4 +470,17 @@ test('late normal detail cannot overwrite a newer DONE route result', async () =
   assert.equal(h.page.orderDetail.value.detail.activeOrderId, '1009200409')
   assert.equal(h.page.detailReadOnly.value, true)
   assert.equal(h.page.detailLoading.value, false)
+})
+
+
+test('missing management representative keeps the pending row visible without opening an approval dialog', async () => {
+  const row = formalRow({ approvalReady: false, approvalBlockerReason: '未配置管理者代表，无法完成生产放行' })
+  const h = pageHarness({ getPqcProductionReleasePage: async () => ({ list: [row], total: 1 }) })
+  await h.mount()
+  assert.equal(h.page.list.value.length, 1)
+  assert.equal(h.page.list.value[0].approvalBlockerReason, row.approvalBlockerReason)
+  assert.equal(h.page.total.value, 1)
+  assert.equal(h.page.loadError.value, '')
+  assert.equal(h.page.releaseDialogVisible.value, false)
+  assert.equal(h.writes.length, 0)
 })

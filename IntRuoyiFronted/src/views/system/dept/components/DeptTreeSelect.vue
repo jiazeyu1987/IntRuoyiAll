@@ -3,7 +3,7 @@
 
   功能：搜索输入框 + 部门树，支持点击同一节点取消选中
   Props:
-    filterPlaceholder — 搜索输入框占位文字（默认 '请输入部门名称'）
+    filterPlaceholder — 搜索输入框占位文字（显示主管时支持按主管姓名搜索）
   Events:
     node-click(deptId: number | undefined) — 点击节点后触发，取消选中时传 undefined
   Expose:
@@ -12,7 +12,12 @@
 <template>
   <div class="h-full" :class="{ 'with-supervisors': showSupervisor }">
     <div class="flex items-center gap-8px p-[15px]">
-      <el-input v-model="filterText" class="flex-1" clearable :placeholder="filterPlaceholder">
+      <el-input
+        v-model="filterText"
+        class="flex-1"
+        clearable
+        :placeholder="filterPlaceholder ?? (showSupervisor ? '请输入部门或主管姓名' : '请输入部门名称')"
+      >
         <template #prefix>
           <Icon icon="ep:search" />
         </template>
@@ -34,7 +39,10 @@
         <template #default="{ data }">
           <span class="dept-tree-node">
             <span>{{ data.name }}</span>
-            <DeptSupervisorLabel v-if="showSupervisor" :supervisor="data.supervisor" />
+            <DeptSupervisorLabel
+              v-if="showSupervisor && data.supervisor?.status === 'DIRECT'"
+              :supervisor="data.supervisor"
+            />
           </span>
         </template>
       </el-tree>
@@ -52,23 +60,19 @@ import { setElementTreeExpandState } from '@/utils/treeExpand'
 
 defineOptions({ name: 'DeptTreeSelect' })
 
-const props = withDefaults(
-  defineProps<{
-    filterPlaceholder?: string // 搜索输入框占位文字
-    departments?: DeptApi.DeptVO[]
-    showSupervisor?: boolean
-  }>(),
-  {
-    filterPlaceholder: '请输入部门名称'
-  }
-)
+const props = defineProps<{
+  filterPlaceholder?: string // 搜索输入框占位文字
+  departments?: DeptApi.DeptVO[]
+  showSupervisor?: boolean
+}>()
 
 const emit = defineEmits<{
   'node-click': [deptId: number | undefined]
 }>()
 
 const filterText = ref('') // 过滤关键字
-const deptList = ref<Tree[]>([]) // 部门树数据
+type DeptTreeNode = DeptApi.DeptVO & { children?: DeptTreeNode[] }
+const deptList = ref<DeptTreeNode[]>([]) // 部门树数据
 const treeRef = ref<InstanceType<typeof ElTree>>() // 树 Ref
 let currentNodeId: number | null = null // 当前选中的节点 ID
 
@@ -82,10 +86,13 @@ watch(() => props.departments, (value) => {
   if (value !== undefined) deptList.value = handleTree(value)
 })
 
-/** 基于名字过滤 */
-const filterNode = (name: string, data: Tree) => {
-  if (!name) return true
-  return data.name.includes(name)
+/** 按部门名称及当前显示的主管姓名过滤 */
+const filterNode = (name: string, data: DeptTreeNode) => {
+  const keyword = name.trim()
+  if (!keyword) return true
+  if (data.name.includes(keyword)) return true
+  return Boolean(props.showSupervisor && data.supervisor?.status === 'DIRECT' &&
+    data.supervisor.userName?.includes(keyword))
 }
 
 /** 监听过滤关键字 */

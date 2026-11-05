@@ -111,7 +111,7 @@ class MesHandoffApprovalCenterPrefixTest {
                 "PRODUCTION_REVIEW", "PQC_REVIEW", "QA_REVIEW", "QA_DECISION_HANDOFF")) {
             var row = target(type);
             var required = type.endsWith("_HANDOFF") && !type.startsWith("QA_")
-                    ? List.of("mes:pro-feedback:query", "mes:pro-feedback:create")
+                    ? List.of("mes:pro-feedback:query")
                     : type.endsWith("_RETURN") ? List.of("mes:pro-feedback:query")
                     : type.equals("QA_REVIEW") ? List.of("mes:pro-edhr-nonconformance-review:query", "mes:pro-edhr-nonconformance-review:dispose")
                     : List.of("mes:pro-process-pool-team-leader:query");

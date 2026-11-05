@@ -7,6 +7,31 @@ import java.math.BigDecimal;
 import java.util.Map;
 import static org.junit.jupiter.api.Assertions.*;
 class MesQcSamplingFrozenPlanTest {
+    @Test void stricterActualSamplingPreservesPerItemMinimaAndFrozenMatrix() {
+        var task = new MesPqcInspectionTaskDO().setInspectionType("PATROL")
+                .setPlannedInspectionQuantity(50)
+                .setInspectionItemPlanJson(MesPqcInspectionItemPlan.encode(Map.of("I", 50, "S3", 13)))
+                .setInspectionSamplingPlanJson(JsonUtils.toJsonString(Map.of(
+                        "I", MesQcSamplingPlan.calculate(new BigDecimal("3000"), "I"),
+                        "S3", MesQcSamplingPlan.calculate(new BigDecimal("3000"), "S3"))));
+        String frozen = task.getInspectionSamplingPlanJson();
+        assertTrue(MesPqcInspectionItemPlan.matchesActualQuantities(task, Map.of("I", 60, "S3", 20), 60));
+        assertTrue(MesPqcInspectionItemPlan.matchesActualQuantities(task, Map.of("I", 50, "S3", 13), 50));
+        assertFalse(MesPqcInspectionItemPlan.matchesActualQuantities(task, Map.of("I", 49, "S3", 20), 49));
+        assertFalse(MesPqcInspectionItemPlan.matchesActualQuantities(task, Map.of("I", 60, "S3", 12), 60));
+        assertFalse(MesPqcInspectionItemPlan.matchesActualQuantities(task, Map.of("I", 60, "S3", 20), 50));
+        assertFalse(MesPqcInspectionItemPlan.matchesActualQuantities(task, Map.of("I", 60), 60));
+        assertTrue(MesPqcInspectionItemPlan.completeSamples(task, "S3",
+                java.util.stream.IntStream.rangeClosed(1, 20).boxed().toList()));
+        var duplicate = new java.util.ArrayList<>(java.util.stream.IntStream.rangeClosed(1, 20).boxed().toList());
+        duplicate.set(19, 19);
+        assertFalse(MesPqcInspectionItemPlan.completeSamples(task, "S3", duplicate));
+        duplicate.set(19, 21);
+        assertFalse(MesPqcInspectionItemPlan.completeSamples(task, "S3", duplicate));
+        assertFalse(MesPqcInspectionItemPlan.completeSamples(task, "I", java.util.List.of(1, 2)));
+        assertEquals(Map.of("I", 50, "S3", 13), MesPqcInspectionItemPlan.require(task));
+        assertEquals(frozen, task.getInspectionSamplingPlanJson());
+    }
     @Test void rejectsChangedPlanOrMissingEvidence() {
         var task = new MesPqcInspectionTaskDO();
         task.setInspectionType("PATROL");

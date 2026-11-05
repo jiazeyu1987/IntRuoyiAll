@@ -232,8 +232,7 @@ class MesRouteDccProjectBindingServiceTest {
     @Test
     void productionProductIdentityCheck_stillRejectsRouteWithoutProducts() {
         ServiceException ex = assertThrows(ServiceException.class,
-                () -> MesRouteDccProductMasterInvariant.requireMatching(100L, List.of(), Map.of(),
-                        dccProjectCode(200L, DccProjectCodeStatusConstants.ENABLE)));
+                () -> MesRouteProjectProductInvariant.requireProducts(100L, List.of(), Map.of()));
 
         assertEquals(1_040_501_502, ex.getCode());
     }

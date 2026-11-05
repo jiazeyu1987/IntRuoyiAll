@@ -481,6 +481,22 @@ class MesTeamLeaderActiveOrderReleaseProcessInspectionWriterTest {
     }
 
     @Test
+    void showroomMasterChangeDoesNotChangeProductionInspectionEvidence() {
+        var command = command();
+        var source = source();
+        source.getDccProject().setProductMasterId(null);
+        stubFormalPlan(command, source);
+        var first = writer.plan(command);
+        assertTrue(first.getBlockers().isEmpty());
+        source.getDccProject().setProductMasterId(987654L);
+        var second = writer.plan(command);
+        assertTrue(second.getBlockers().isEmpty());
+        assertEquals(first.getSourceValueHashes(), second.getSourceValueHashes());
+        assertEquals(first.getPreparedInspections().get(0).getEvidenceHash(),
+                second.getPreparedInspections().get(0).getEvidenceHash());
+    }
+
+    @Test
     void commonQaTaskPlansAlongsideDedicatedQaTaskByItsFrozenTaskVersion() {
         MesTeamLeaderActiveOrderReleaseProcessInspectionPlanCommand command = command();
         MesTeamLeaderActiveOrderReleaseProcessInspectionReader.InspectionSource dedicatedSource = source();
@@ -630,11 +646,16 @@ class MesTeamLeaderActiveOrderReleaseProcessInspectionWriterTest {
                 long index = sources.size() + 1;
                 String type = stage.equals("FIRST") ? "FIRST" : "PATROL";
                 source.getTask().setId(6000L + index).setQaProcessId(8000L + process)
-                        .setSubmittedEventId(7000L + index).setInspectionRuleKey(stage).setInspectionType(type);
+                        .setSubmittedEventId(7000L + index).setInspectionRuleKey(type).setInspectionType(type)
+                        .setShiftCode(type).setRoundNo("PATROL_PM".equals(stage) ? 2 : 1);
+                if ("PATROL".equals(type)) {
+                    source.getTask().setInspectionSamplingPlanJson(JsonUtils.toJsonString(java.util.Map.of("PRESSURE",
+                            cn.iocoder.yudao.module.mes.service.qc.sampling.MesQcSamplingPlan.calculate(BigDecimal.ONE, "I"))));
+                }
                 source.getRegulationItems().get(0).setQaProcessId(8000L + process).setInspectionType(type);
                 source.getAggregateDetails().get(0).setId(9000L + index).setPqcTaskId(6000L + index)
                         .setEventId(7000L + index).setReviewId(10000L + index).setInspectionType(type)
-                        .setSourcePqcRecordId(11000L + index);
+                        .setSourcePqcRecordId(11000L + index).setShiftCode(type).setRoundNo("PATROL_PM".equals(stage) ? 2 : 1);
                 source.getEvent().setId(7000L + index).setFeedbackSourceId(6000L + index).setSignatureId(12000L + index);
                 source.getPqcRecord().setId(11000L + index).setEventId(7000L + index)
                         .setProcessInspectionReviewId(10000L + index).setSignatureId(12000L + index);
@@ -667,7 +688,7 @@ class MesTeamLeaderActiveOrderReleaseProcessInspectionWriterTest {
                 .map(field -> String.valueOf(field.getValue())).findFirst().orElseThrow();
         for (long process = 1; process <= 7; process++) {
             for (String stage : List.of("FIRST", "PATROL_AM", "PATROL_PM")) {
-                assertTrue(results.contains("qaProcessId=" + (8000L + process) + "|stage=" + stage), results);
+                assertTrue(results.contains("qaProcessId=" + (8000L + process) + "|stage=" + (stage.equals("FIRST") ? "FIRST" : "PATROL") + "|round=" + (stage.equals("PATROL_PM") ? 2 : 1) + "|date=2026-08-09"), results);
             }
         }
     }

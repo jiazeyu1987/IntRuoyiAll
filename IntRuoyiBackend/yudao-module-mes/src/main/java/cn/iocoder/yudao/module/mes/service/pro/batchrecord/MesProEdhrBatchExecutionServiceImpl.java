@@ -815,10 +815,15 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                 .setBlockedCount(0)
                 .setRemark(reqVO.getRemark());
         List<MesProRouteProcessDO> routeProcesses = routeProcessMapper.selectListByRouteId(routeId);
-        List<BatchTaskConfig> taskConfigs = buildBatchTaskConfigs(route, routeProcesses, activeRouteVersion);
+        List<BatchTaskConfig> taskConfigs = MesProEdhrBatchTraceFormalSourceResolver
+                .isActiveOrderEntryType(provisionCommand.getEntryType())
+                ? List.of()
+                : buildBatchTaskConfigs(route, routeProcesses, activeRouteVersion);
         batch.setTaskTotal(taskConfigs.size());
         batchExecutionMapper.insert(batch);
-        createDefaultDossierItems(batch);
+        if (!MesProEdhrBatchTraceFormalSourceResolver.isActiveOrderEntryType(provisionCommand.getEntryType())) {
+            createDefaultDossierItems(batch);
+        }
 
         List<MesProEdhrBatchExecutionTaskDO> insertedTasks = new ArrayList<>();
         for (BatchTaskConfig taskConfig : taskConfigs) {
@@ -834,7 +839,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
         MesProEdhrBatchExecutionDO latest = batchExecutionMapper.selectById(batch.getId());
         workTaskService.createInitialFillTask(latest);
         MesProEdhrBatchProvisioningRecordDO provisioningRecord = createProvisioningRecord(latest, provisionCommand);
-        String openMetadata = materializeProvisionedCompletionSources(latest, insertedTasks, provisionCommand,
+        String openMetadata = completionRecordAuditMetadata(latest, provisionCommand,
                 provisioningRecord.getId());
         EdhrBatchExecutionRespVO result = toResp(latest);
         recordOperationAudit("BATCH_EXECUTION", String.valueOf(latest.getId()), "OPEN",
@@ -845,42 +850,23 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
         return result;
     }
 
-    private String materializeProvisionedCompletionSources(MesProEdhrBatchExecutionDO batch,
-            List<MesProEdhrBatchExecutionTaskDO> tasks, MesBatchExecutionProvisionCommand command, Long provisioningId) {
-        if (command == null || !("ACTIVE_ORDER_COMPLETION".equals(command.getEntryType())
-                || "ACTIVE_ORDER_PQC".equals(command.getEntryType()))) {
+    /** 活跃工单明细是正式生产记录；下游批次引用完工证据，不再复制到逐工序模板。 */
+    private String completionRecordAuditMetadata(MesProEdhrBatchExecutionDO batch,
+            MesBatchExecutionProvisionCommand command, Long provisioningId) {
+        if (command == null || !MesProEdhrBatchTraceFormalSourceResolver
+                .isActiveOrderEntryType(command.getEntryType())) {
             return entryAuditMetadata(command, provisioningId);
         }
-        List<MesProEdhrBatchExecutionTaskDO> lockedTasks = new ArrayList<>();
-        for (MesProEdhrBatchExecutionTaskDO task : MesProEdhrCompletionSourceBackfillService
-                .selectProvisionedQuantityTasks(batch, tasks)) {
-            MesProEdhrBatchExecutionTaskDO locked = batchTaskMapper.selectByIdForUpdate(task.getId());
-            if (locked == null || !Objects.equals(task.getId(), locked.getId())) {
-                throw exception(cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_ACTIVE_ORDER_RELEASE_SOURCE_REQUIRED,
-                        "正式数量任务锁定身份不一致，taskId=" + task.getId());
-            }
-            lockedTasks.add(locked);
-        }
-        completionSourceBackfillService.validateProvisionedQuantityTasks(batch, lockedTasks, command);
-        List<Map<String, Object>> sources = new ArrayList<>();
-        for (MesProEdhrBatchExecutionTaskDO task : lockedTasks) {
-            var source = completionSourceBackfillService.materializeProvisioned(batch, task, command);
-            if (source == null || !("APPLIED".equals(source.status()) && source.executionId() != null
-                    && source.appliedFieldCount() != null && source.appliedFieldCount() > 0
-                    || "SKIPPED_NO_SOURCE_RULES".equals(source.status()) && source.executionId() == null
-                    && Integer.valueOf(0).equals(source.appliedFieldCount()))) {
-                throw exception(cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_ACTIVE_ORDER_RELEASE_SOURCE_REQUIRED,
-                        "完工来源物化未形成明确审计或无数量规则结论，taskId=" + task.getId());
-            }
-            Map<String, Object> sourceEvidence = new LinkedHashMap<>();
-            sourceEvidence.put("taskId", source.taskId());
-            sourceEvidence.put("status", source.status());
-            sourceEvidence.put("executionId", source.executionId());
-            sourceEvidence.put("appliedFieldCount", source.appliedFieldCount());
-            sources.add(sourceEvidence);
+        if (command.getActiveOrderId() == null || command.getActiveOrderId() <= 0
+                || StrUtil.isBlank(command.getCompletionBackfillReceiptId())
+                || StrUtil.isBlank(command.getCompletionBackfillReceiptHash())
+                || !Objects.equals(batch.getWorkOrderId(), command.getWorkOrderId())
+                || !Objects.equals(batch.getRouteVersionId(), command.getRouteVersionId())) {
+            throw exception(PRO_EDHR_BATCH_EXECUTION_TASK_CONTEXT_REQUIRED);
         }
         JSONObject metadata = JSON.parseObject(entryAuditMetadata(command, provisioningId));
-        metadata.put("completionSourceMaterializations", sources);
+        metadata.put("officialRecordSource", "ACTIVE_ORDER_DETAIL");
+        metadata.put("officialRecordActiveOrderId", command.getActiveOrderId());
         return metadata.toJSONString();
     }
 
@@ -1141,10 +1127,10 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                 .setBlockedCount(0)
                 .setRemark(command.getRemark());
         List<MesProRouteProcessDO> routeProcesses = routeProcessMapper.selectListByRouteId(route.getId());
-        List<BatchTaskConfig> taskConfigs = buildBatchTaskConfigs(route, routeProcesses, frozenRouteVersion);
+        // 正式记录和资料均由活跃工单链路承载，批次仅保存下游证据身份。
+        List<BatchTaskConfig> taskConfigs = List.of();
         batch.setTaskTotal(taskConfigs.size());
         batchExecutionMapper.insert(batch);
-        createDefaultDossierItems(batch);
 
         List<MesProEdhrBatchExecutionTaskDO> insertedTasks = new ArrayList<>();
         for (BatchTaskConfig taskConfig : taskConfigs) {
@@ -1160,7 +1146,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
         MesProEdhrBatchExecutionDO latest = batchExecutionMapper.selectById(batch.getId());
         workTaskService.createInitialFillTask(latest);
         MesProEdhrBatchProvisioningRecordDO provisioningRecord = createProvisioningRecord(latest, provisionCommand);
-        String openMetadata = materializeProvisionedCompletionSources(latest, insertedTasks, provisionCommand,
+        String openMetadata = completionRecordAuditMetadata(latest, provisionCommand,
                 provisioningRecord.getId());
         recordOperationAudit("PRODUCTION_RELEASE_APPLICATION", String.valueOf(command.getApplicationId()),
                 "BATCH_EXECUTION_CREATED_FROM_RELEASE", "PQC 批准后创建申请唯一批次", latest.getId(),
@@ -1279,7 +1265,9 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                 .setBlockedCount(0)
                 .setRemark(StrUtil.blankToDefault(StrUtil.trim(reqVO.getRemark()), null));
         List<MesProRouteProcessDO> routeProcesses = routeProcessMapper.selectListByRouteId(route.getId());
-        List<BatchTaskConfig> taskConfigs = buildBatchTaskConfigs(route, routeProcesses, activeRouteVersion);
+        List<BatchTaskConfig> taskConfigs = isActiveOrderDetailBatch(source)
+                ? List.of()
+                : buildBatchTaskConfigs(route, routeProcesses, activeRouteVersion);
         newAttempt.setTaskTotal(taskConfigs.size());
         batchExecutionMapper.insert(newAttempt);
         List<MesProEdhrBatchExecutionOriginDO> sourceOrigins =
@@ -1313,7 +1301,9 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                     .capturedAt(sourceOrigin.getCapturedAt())
                     .build());
         }
-        createDefaultDossierItems(newAttempt);
+        if (!isActiveOrderDetailBatch(source)) {
+            createDefaultDossierItems(newAttempt);
+        }
 
         List<MesProEdhrBatchExecutionTaskDO> insertedTasks = new ArrayList<>();
         for (BatchTaskConfig taskConfig : taskConfigs) {
@@ -1421,8 +1411,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
         if (provisionCommand != null) {
             requireExistingProvisioning(existing, provisionCommand);
         }
-        String sourceMetadata = materializeProvisionedCompletionSources(existing,
-                batchTaskMapper.selectListByBatchExecutionId(existing.getId()), provisionCommand, null);
+        String sourceMetadata = completionRecordAuditMetadata(existing, provisionCommand, null);
         syncIfActive(existing);
         existing = batchExecutionMapper.selectById(existing.getId());
         EdhrBatchExecutionRespVO result = toResp(existing);
@@ -7070,8 +7059,20 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
         ensureRouteFormTasksPresent(batch, existingTasks);
     }
 
+    private boolean isActiveOrderDetailBatch(MesProEdhrBatchExecutionDO batch) {
+        // 使用同事务保存的建批凭证，不能依赖提交后才生成的追溯关联。
+        MesProEdhrBatchProvisioningRecordDO record = provisioningRecordMapper.selectByBatchExecutionId(
+                TenantContextHolder.getRequiredTenantId(), batch.getId());
+        return record != null
+                && MesProEdhrBatchTraceFormalSourceResolver.isActiveOrderEntryType(record.getEntryType());
+    }
+
     private void ensureRouteFormTasksPresent(MesProEdhrBatchExecutionDO batch,
                                              List<MesProEdhrBatchExecutionTaskDO> existingTasks) {
+        // 活跃工单来源明确时，读取、重开和同步均不得反向补建模板任务。
+        if (isActiveOrderDetailBatch(batch)) {
+            return;
+        }
         if (existingTasks.stream().anyMatch(this::isRouteForm)) {
             List<MesProEdhrBatchExecutionTaskDO> insertedTasks =
                     insertMissingProductInfoMemberTasks(batch, existingTasks);

@@ -94,6 +94,7 @@ class MesPqcReleaseBatchExecutionServiceTest {
     @Mock private cn.iocoder.yudao.module.mes.service.pro.productionrelease.MesReleaseAffectedStateCollector affectedStates;
 
     @Mock private cn.iocoder.yudao.module.mes.service.pro.productionrelease.notification.MesReleaseOutcomeNotificationService outcomeNotifications;
+    @Mock private cn.iocoder.yudao.module.mes.service.pro.productionrelease.role.MesProductionReleaseRequiredCandidateResolver candidateResolver;
     private MesPqcProductionReleaseService service;
     private TimeZone originalTimeZone;
 
@@ -108,6 +109,7 @@ class MesPqcReleaseBatchExecutionServiceTest {
                 nonconformanceReviewService, nonconformanceReviewMapper,
                 Clock.fixed(Instant.parse("2026-08-15T12:00:00Z"), ZoneOffset.UTC));
         ReflectionTestUtils.setField(service, "lifecycleGuard", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesEdhrBatchLifecycleGuard.class));
+        ReflectionTestUtils.setField(service, "candidateResolver", candidateResolver);
         configureAuthenticationBoundary();
         ReflectionTestUtils.setField(service, "gxpAuditService", gxpAuditService);
         ReflectionTestUtils.setField(service, "outcomeNotifications", outcomeNotifications);
@@ -293,6 +295,7 @@ class MesPqcReleaseBatchExecutionServiceTest {
                 nonconformanceReviewService, nonconformanceReviewMapper,
                 Clock.fixed(Instant.parse("2026-08-15T12:00:00Z"), ZoneOffset.UTC));
         ReflectionTestUtils.setField(service, "lifecycleGuard", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesEdhrBatchLifecycleGuard.class));
+        ReflectionTestUtils.setField(service, "candidateResolver", candidateResolver);
         configureAuthenticationBoundary();
         ReflectionTestUtils.setField(service, "gxpAuditService", gxpAuditService);
         ReflectionTestUtils.setField(service, "outcomeNotifications", outcomeNotifications);
@@ -555,9 +558,49 @@ class MesPqcReleaseBatchExecutionServiceTest {
                         .setPageNo(1).setPageSize(1).setViewStatus("PENDING"));
 
         assertEquals(2L, page.getTotal());
-        assertEquals(null, page.getList().get(0).getApprovalReady());
+        assertEquals(true, page.getList().get(0).getApprovalReady());
         assertEquals(null, page.getList().get(0).getApprovalBlockerReason());
         verify(dossierPort, never()).readiness(any(), any());
+    }
+
+    @Test
+    void missingManagementRepresentativeIsVisibleBeforeApproval() {
+        stubPage("PENDING", List.of(application()));
+        when(candidateResolver.resolveRequiredCandidates(TENANT_ID, "MES_MANAGEMENT_REPRESENTATIVE"))
+                .thenThrow(new cn.iocoder.yudao.module.mes.service.pro.productionrelease.role.MesProductionReleaseRoleResolutionException(
+                        TENANT_ID, "MES_MANAGEMENT_REPRESENTATIVE",
+                        cn.iocoder.yudao.module.mes.service.pro.productionrelease.role.MesProductionReleaseRoleResolutionReason.CANDIDATE_EMPTY));
+        var row = page("PENDING").getList().get(0);
+        assertEquals(false, row.getApprovalReady());
+        assertEquals("未配置管理者代表，无法完成生产放行", row.getApprovalBlockerReason());
+        assertTrue(row.getApprovalBlockerSuggestion().contains("分配启用账号"));
+    }
+
+    @Test
+    void managementRoleFailureReturnsRequestBoundRejectionOnlyAfterRollback() {
+        when(applicationMapper.approveFromPending(eq(APPLICATION_ID), eq(VERSION), eq(BATCH_EXECUTION_ID),
+                eq(PQC_USER_ID), any(), any(String.class), any())).thenReturn(1);
+        when(workTaskMapper.completePqcApprovedTask(eq(PQC_WORK_TASK_ID), eq(BATCH_EXECUTION_ID), any())).thenReturn(1);
+        when(managerStageInitializer.initializeManagerReleaseStage(any()))
+                .thenThrow(new cn.iocoder.yudao.module.mes.service.pro.productionrelease.role.MesProductionReleaseRoleResolutionException(
+                        TENANT_ID, "MES_MANAGEMENT_REPRESENTATIVE",
+                        cn.iocoder.yudao.module.mes.service.pro.productionrelease.role.MesProductionReleaseRoleResolutionReason.CANDIDATE_EMPTY));
+        var failure = assertThrows(MesReleaseFlowBlockerException.class,
+                () -> service.approve(PQC_USER_ID, approveCommand("missing-manager")));
+        assertEquals("未配置管理者代表，无法完成生产放行", failure.getMessage());
+        var receipt = failure.getFailure().getRejectedDecision();
+        assertEquals("ROLLED_BACK", receipt.getOutcome());
+        assertEquals(String.valueOf(APPLICATION_ID), receipt.getApplicationId());
+        assertEquals(String.valueOf(PQC_WORK_TASK_ID), receipt.getWorkTaskId());
+        assertEquals(String.valueOf(PQC_USER_ID), receipt.getActorId());
+        assertEquals(VERSION, receipt.getExpectedVersion());
+        assertEquals("missing-manager", receipt.getIdempotencyKey());
+        assertTrue(receipt.getPayloadHash().matches("[a-f0-9]{64}"));
+        var transactions = (org.springframework.transaction.PlatformTransactionManager)
+                ReflectionTestUtils.getField(service, "transactionManager");
+        verify(transactions).rollback(any());
+        verify(transactions, never()).commit(any());
+        verify(batchExecutionPort, never()).markReadyForMarketRelease(any(), any());
     }
 
     @Test

@@ -37,7 +37,7 @@ public class MesProBatchRecordTotalRecognitionExtractor {
         if (tables == null || tables.isEmpty()) {
             throw new IllegalArgumentException("parsed Word tables are required");
         }
-        Product product = new Product(extractProductName(tables), extractProductCode(sourceFileName));
+        Product product = new Product(extractProductName(tables), extractProductCode(sourceFileName, tables));
         Map<String, MesProBatchRecordProcessMaterialExtractor.ProcessMaterialMapping> materialMappings =
                 new LinkedHashMap<>();
         for (MesProBatchRecordProcessMaterialExtractor.ProcessMaterialMapping mapping
@@ -89,12 +89,37 @@ public class MesProBatchRecordTotalRecognitionExtractor {
         return "";
     }
 
-    private String extractProductCode(String sourceFileName) {
-        Matcher matcher = PRODUCT_CODE_PATTERN.matcher(sourceFileName.toUpperCase(Locale.ROOT));
-        if (!matcher.find()) {
-            throw new IllegalStateException("product code was not found in source file name: " + sourceFileName);
+    private String extractProductCode(String sourceFileName, List<MesProBatchRecordParsedTable> tables) {
+        // 文件名和文档内容都是编码证据；不按优先级覆盖，存在冲突时拒绝解析。
+        Set<String> codes = new LinkedHashSet<>();
+        collectProductCodes(sourceFileName, codes);
+        for (MesProBatchRecordParsedTable table : tables) {
+            collectProductCodes(safeRows(table), codes);
+            MesProBatchRecordDocumentFrame frame = table.getDocumentFrame();
+            if (frame != null) {
+                collectProductCodes(frame.getHeaderRows(), codes);
+                collectProductCodes(frame.getFooterRows(), codes);
+            }
         }
-        return matcher.group(1);
+        if (codes.isEmpty()) {
+            throw new IllegalStateException("未找到产品编码，请在文档或文件名中提供记录编号（如 RE-PP-IDI-01）");
+        }
+        if (codes.size() != 1) {
+            throw new IllegalStateException("文档与文件名中的产品编码不一致：" + String.join("、", codes));
+        }
+        return codes.iterator().next();
+    }
+
+    private void collectProductCodes(List<List<MesProBatchRecordParsedCell>> rows, Set<String> codes) {
+        if (rows == null) return;
+        for (List<MesProBatchRecordParsedCell> row : rows) {
+            collectProductCodes(rowText(row), codes);
+        }
+    }
+
+    private void collectProductCodes(String text, Set<String> codes) {
+        Matcher matcher = PRODUCT_CODE_PATTERN.matcher(normalized(text).toUpperCase(Locale.ROOT));
+        while (matcher.find()) codes.add(matcher.group(1));
     }
 
     private List<Material> convertMaterials(

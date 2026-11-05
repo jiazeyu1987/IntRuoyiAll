@@ -77,6 +77,8 @@ public class RoleConfigPackageServiceImpl implements RoleConfigPackageService {
             throw exception0(CONFIG_PACKAGE_CONTENT_INVALID.getCode(), "所选角色分类不存在");
         }
         Map<Long, String> menuKeyById = buildMenuKeyById();
+        Map<String, Set<Long>> menuIdByKey = buildMenuIdByKey(menuKeyById);
+        Set<Long> tenantMenuIds = getTenantMenuIds();
         RoleConfigPackage payload = new RoleConfigPackage();
         payload.setPackageVersion(PACKAGE_VERSION);
         payload.setCategories(categories.stream()
@@ -85,7 +87,7 @@ public class RoleConfigPackageServiceImpl implements RoleConfigPackageService {
         payload.setRoles(roleMapper.selectList().stream()
                 .filter(role -> categoryIds.contains(role.getCategoryId()))
                 .sorted(Comparator.comparing(RoleDO::getSort).thenComparing(RoleDO::getId))
-                .map(role -> toItem(role, menuKeyById))
+                .map(role -> toItem(role, menuKeyById, menuIdByKey, tenantMenuIds))
                 .toList());
         return JsonUtils.toJsonByte(payload);
     }
@@ -102,19 +104,11 @@ public class RoleConfigPackageServiceImpl implements RoleConfigPackageService {
         var authority = approvalAuthority.lockTenantApprovalAuthority(
                 cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId());
         Map<String, Set<Long>> menuIdByKey = buildMenuIdByKey();
-        AtomicReference<Set<Long>> tenantMenuIds = new AtomicReference<>();
-        tenantService.handleTenantMenu(ids -> tenantMenuIds.set(Set.copyOf(ids)));
-        if (tenantMenuIds.get() == null) {
-            throw exception(CONFIG_PACKAGE_CONTENT_INVALID, "当前租户套餐菜单未提供，不能确认授权边界");
-        }
+        Set<Long> tenantMenuIds = getTenantMenuIds();
         // Validate every role before creating categories or updating any role.
         List<Set<Long>> menuIdsByRole = new ArrayList<>();
         for (RoleConfigItem item : payload.getRoles()) {
-            Set<Long> menuIds = resolveMenuIds(item, menuIdByKey);
-            if (!tenantMenuIds.get().containsAll(menuIds)) {
-                throw exception(CONFIG_PACKAGE_CONTENT_INVALID,
-                        "角色【" + item.getCode() + "】包含当前租户套餐外菜单，不能导入");
-            }
+            Set<Long> menuIds = resolveMenuIds(item, menuIdByKey, tenantMenuIds);
             menuIdsByRole.add(menuIds);
         }
         approvalAuthority.incrementLockedAuthorityRevision(authority.tenantId(), authority.revision());
@@ -179,7 +173,17 @@ public class RoleConfigPackageServiceImpl implements RoleConfigPackageService {
         }
     }
 
-    private RoleConfigItem toItem(RoleDO role, Map<Long, String> menuKeyById) {
+    private Set<Long> getTenantMenuIds() {
+        AtomicReference<Set<Long>> tenantMenuIds = new AtomicReference<>();
+        tenantService.handleTenantMenu(ids -> tenantMenuIds.set(Set.copyOf(ids)));
+        if (tenantMenuIds.get() == null) {
+            throw exception(CONFIG_PACKAGE_CONTENT_INVALID, "当前租户套餐菜单未提供，不能确认授权边界");
+        }
+        return tenantMenuIds.get();
+    }
+
+    private RoleConfigItem toItem(RoleDO role, Map<Long, String> menuKeyById,
+                                  Map<String, Set<Long>> menuIdByKey, Set<Long> tenantMenuIds) {
         RoleConfigItem item = new RoleConfigItem();
         item.setCode(role.getCode());
         item.setName(role.getName());
@@ -190,7 +194,12 @@ public class RoleConfigPackageServiceImpl implements RoleConfigPackageService {
         item.setCategoryCode(resolveCategoryCode(role));
         item.setDataScope(role.getDataScope());
         item.setDataScopeDeptIds(role.getDataScopeDeptIds());
-        item.setMenuKeys(buildMenuKeys(permissionService.getRoleMenuListByRoleId(role.getId()), menuKeyById));
+        // Runtime administrator grants can include global menus. Only package-authorized
+        // menus are transferable, using exactly the same key resolution as import.
+        Set<Long> menuIds = new LinkedHashSet<>(permissionService.getRoleMenuListByRoleId(role.getId()));
+        menuIds.retainAll(tenantMenuIds);
+        item.setMenuKeys(buildMenuKeys(menuIds, menuKeyById));
+        resolveMenuIds(item, menuIdByKey, tenantMenuIds);
         return item;
     }
 
@@ -308,6 +317,7 @@ public class RoleConfigPackageServiceImpl implements RoleConfigPackageService {
         return menuIds.stream()
                 .map(menuKeyById::get)
                 .filter(Objects::nonNull)
+                .distinct()
                 .sorted()
                 .toList();
     }
@@ -323,8 +333,11 @@ public class RoleConfigPackageServiceImpl implements RoleConfigPackageService {
     }
 
     private Map<String, Set<Long>> buildMenuIdByKey() {
+        return buildMenuIdByKey(buildMenuKeyById());
+    }
+
+    private Map<String, Set<Long>> buildMenuIdByKey(Map<Long, String> menuKeyById) {
         Map<String, Set<Long>> result = new HashMap<>();
-        Map<Long, String> menuKeyById = buildMenuKeyById();
         for (Map.Entry<Long, String> entry : menuKeyById.entrySet()) {
             Set<Long> menuIds = result.computeIfAbsent(entry.getValue(), key -> new LinkedHashSet<>());
             // A permission key represents an authority shared by its page and buttons.
@@ -340,7 +353,8 @@ public class RoleConfigPackageServiceImpl implements RoleConfigPackageService {
         return result;
     }
 
-    private Set<Long> resolveMenuIds(RoleConfigItem item, Map<String, Set<Long>> menuIdByKey) {
+    private Set<Long> resolveMenuIds(RoleConfigItem item, Map<String, Set<Long>> menuIdByKey,
+                                     Set<Long> tenantMenuIds) {
         LinkedHashSet<Long> result = new LinkedHashSet<>();
         List<String> missingMenuKeys = new ArrayList<>();
         for (String menuKey : item.getMenuKeys()) {
@@ -349,7 +363,15 @@ public class RoleConfigPackageServiceImpl implements RoleConfigPackageService {
                 missingMenuKeys.add(menuKey);
                 continue;
             }
-            result.addAll(menuIds);
+            // A permission key may belong to several pages/buttons. Resolve its authority
+            // inside the tenant package; a key with no authorized menu must still fail.
+            Set<Long> authorizedIds = new LinkedHashSet<>(menuIds);
+            authorizedIds.retainAll(tenantMenuIds);
+            if (authorizedIds.isEmpty()) {
+                throw exception(CONFIG_PACKAGE_CONTENT_INVALID,
+                        "角色【" + item.getCode() + "】包含当前租户套餐外菜单【" + menuKey + "】，不能导入");
+            }
+            result.addAll(authorizedIds);
         }
         if (!missingMenuKeys.isEmpty()) {
             throw exception0(CONFIG_PACKAGE_REFERENCE_MISSING.getCode(),

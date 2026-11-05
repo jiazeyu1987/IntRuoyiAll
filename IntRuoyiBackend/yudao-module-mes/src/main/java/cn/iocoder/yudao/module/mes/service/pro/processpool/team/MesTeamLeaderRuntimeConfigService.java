@@ -23,6 +23,8 @@ public interface MesTeamLeaderRuntimeConfigService {
 
     void updateEmployeeEnabled(MesTeamEmployeeStatusUpdateReqBO reqBO);
 
+    void deleteEmployee(Long leaderUserId, Long employeeProfileId);
+
     void resetTemporaryEmployeeSignaturePassword(MesTeamTempSignaturePasswordResetReqBO reqBO);
 
     List<MesProcessPoolTeamMaintenanceAuditDO> listEmployeeAuditRecords(Long leaderUserId, Long employeeProfileId);

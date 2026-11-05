@@ -302,8 +302,34 @@
       <ParserIssueList
         v-if="!published"
         :issues="issues"
+        :issue-key="equipmentIssueKey"
+        :disabled="busy"
         @locate="(index) => editIssue(issues[index])"
-      />
+      >
+        <template #action="{ issue }">
+          <el-select
+            v-if="issue.field === 'equipment'"
+            :model-value="issueEquipment(issue).equipmentOptions.map((e) => e.equipmentId)"
+            class="issue-equipment-select"
+            multiple
+            filterable
+            :disabled="busy || published"
+            :aria-label="`${issue.message}：选择设备编号`"
+            placeholder="选择设备编号"
+            @change="(ids) => selectIssueEquipment(issue, ids)"
+          >
+            <el-option
+              v-for="m in machinery"
+              :key="m.id"
+              :label="`${m.code} / ${m.name}`"
+              :value="m.id"
+            />
+          </el-select>
+          <el-button v-else link type="primary" :disabled="busy" @click="editIssue(issue)">
+            定位修改
+          </el-button>
+        </template>
+      </ParserIssueList>
     </template>
     <el-dialog
       v-model="previewVisible"
@@ -389,9 +415,34 @@
         >
         <ParserIssueList
           :issues="issues"
+          :issue-key="equipmentIssueKey"
           :disabled="busy"
           @locate="(index) => editIssue(issues[index])"
-        />
+        >
+          <template #action="{ issue }">
+            <el-select
+              v-if="issue.field === 'equipment'"
+              :model-value="issueEquipment(issue).equipmentOptions.map((e) => e.equipmentId)"
+              class="issue-equipment-select"
+              multiple
+              filterable
+              :disabled="busy || published"
+              :aria-label="`${issue.message}：选择设备编号`"
+              placeholder="选择设备编号"
+              @change="(ids) => selectIssueEquipment(issue, ids)"
+            >
+              <el-option
+                v-for="m in machinery"
+                :key="m.id"
+                :label="`${m.code} / ${m.name}`"
+                :value="m.id"
+              />
+            </el-select>
+            <el-button v-else link type="primary" :disabled="busy || published" @click="editIssue(issue)">
+              定位修改
+            </el-button>
+          </template>
+        </ParserIssueList>
       </template>
       <template #footer
         ><el-button :disabled="busy" @click="previewVisible = false">返回修改</el-button
@@ -751,8 +802,20 @@ function transferItem(pi: number) {
   itemIndex.value = draft.value!.processes[pi].items.length - 1
   normalize()
 }
-function selectEquipment(ids: number[]) {
-  item.value!.equipmentOptions = ids.map((id, index) => {
+function equipmentIssueKey(issue: DraftIssue) {
+  return `${issue.field}:${issue.processIndex}:${issue.itemIndex}:${issue.message}`
+}
+function issueEquipment(issue: DraftIssue) {
+  const target = draft.value?.processes[issue.processIndex!]?.items[issue.itemIndex!]
+  if (issue.field !== 'equipment' || !target) throw new Error('设备问题对应的检验项目不存在')
+  return target
+}
+function selectIssueEquipment(issue: DraftIssue, ids: number[]) {
+  if (busy.value || published.value) return
+  selectEquipment(ids, issueEquipment(issue))
+}
+function selectEquipment(ids: number[], target = item.value!) {
+  target.equipmentOptions = ids.map((id, index) => {
     const m = machinery.value.find((m) => m.id === id)
     if (!m?.code) throw new Error('设备编号不存在，请刷新设备目录')
     return {
@@ -764,8 +827,8 @@ function selectEquipment(ids: number[]) {
       sort: index + 1
     }
   })
-  if (ids.length) item.value!.equipmentUnboundReason = undefined
-  confirmedUnbound.value = confirmedUnbound.value.filter((code) => code !== item.value!.itemCode)
+  if (ids.length) target.equipmentUnboundReason = undefined
+  confirmedUnbound.value = confirmedUnbound.value.filter((code) => code !== target.itemCode)
 }
 async function applyEquipment() {
   if (!item.value!.equipmentOptions.length) throw new Error('请先选择设备，未绑定原因需逐项确认')
@@ -965,6 +1028,11 @@ void searchProjects()
 </script>
 
 <style scoped>
+.issue-equipment-select {
+  width: 320px;
+  max-width: 100%;
+  flex-shrink: 0;
+}
 .metadata {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1005,6 +1073,10 @@ article {
   margin-top: 8px;
 }
 @media (max-width: 900px) {
+  .issue-equipment-select {
+    width: 220px;
+    flex-shrink: 1;
+  }
   .workspace,
   .metadata {
     grid-template-columns: 1fr;

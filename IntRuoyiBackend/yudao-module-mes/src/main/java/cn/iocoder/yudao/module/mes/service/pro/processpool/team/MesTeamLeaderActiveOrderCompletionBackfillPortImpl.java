@@ -486,7 +486,6 @@ public class MesTeamLeaderActiveOrderCompletionBackfillPortImpl
                     || !Objects.equals(order.getRouteVersionId(), task.getRouteVersionId())
                     || !MesPqcInspectionTaskDO.TASK_STATUS_CONFIRMED.equals(task.getTaskStatus())
                     || task.getActualInspectionQuantity() == null || task.getActualInspectionQuantity() <= 0
-                    || !Objects.equals(task.getPlannedInspectionQuantity(), task.getActualInspectionQuantity())
                     || task.getSubmittedEventId() == null) {
                 throw sourceMissing(order, "PROCESS_INSPECTION");
             }
@@ -496,6 +495,13 @@ public class MesTeamLeaderActiveOrderCompletionBackfillPortImpl
                     .toList();
             if (!detailMatches.stream().map(MesPqcProcessInspectionAggregateDetailDO::getItemCode)
                     .collect(java.util.stream.Collectors.toSet()).equals(itemPlan.keySet())) {
+                throw sourceMissing(order, "PROCESS_INSPECTION");
+            }
+            var actualQuantities = detailMatches.stream().collect(java.util.stream.Collectors.groupingBy(
+                    MesPqcProcessInspectionAggregateDetailDO::getItemCode,
+                    java.util.stream.Collectors.summingInt(ignored -> 1)));
+            if (!MesPqcInspectionItemPlan.matchesActualQuantities(task, actualQuantities,
+                    task.getActualInspectionQuantity())) {
                 throw sourceMissing(order, "PROCESS_INSPECTION");
             }
             for (MesPqcProcessInspectionAggregateDetailDO detail : detailMatches) {
@@ -521,8 +527,8 @@ public class MesTeamLeaderActiveOrderCompletionBackfillPortImpl
             for (var item : itemPlan.entrySet()) {
                 List<Integer> sampleNos = detailMatches.stream()
                         .filter(detail -> Objects.equals(item.getKey(), detail.getItemCode()))
-                        .map(MesPqcProcessInspectionAggregateDetailDO::getSampleNo).sorted().toList();
-                if (!sampleNos.equals(java.util.stream.IntStream.rangeClosed(1, item.getValue()).boxed().toList())) {
+                        .map(MesPqcProcessInspectionAggregateDetailDO::getSampleNo).toList();
+                if (!MesPqcInspectionItemPlan.completeSamples(task, item.getKey(), sampleNos)) {
                     throw sourceMissing(order, "PROCESS_INSPECTION");
                 }
             }

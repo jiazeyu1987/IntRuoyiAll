@@ -31,7 +31,7 @@ class ApprovalCenterReceiptBindingTest {
         assertTrue(ApprovalContentJson.parse(identityJson).get("processInstanceId").isNull());
         var command=new ApprovalTaskReviewCommand().setModuleCode(ApprovalModuleCode.EDHR)
                 .setSourceTaskType("EDHR_WORK_TASK").setSourceTaskId("2").setResult(ApprovalTaskReviewResult.APPROVE)
-                .setReason("reviewed").setIdempotencyKey(UUID.randomUUID().toString())
+                .setReason("").setIdempotencyKey(UUID.randomUUID().toString())
                 .setPrepareId(UUID.randomUUID().toString()).setExpectedSubjectVersion("EDHR1:version")
                 .setExpectedContentHash("a".repeat(64)).setContentPolicyVersion("approval-content-v1");
         var old=new BpmApprovalReviewReceiptDO();old.setIdentityJson(identityJson);
@@ -45,6 +45,27 @@ class ApprovalCenterReceiptBindingTest {
         var facade=new ApprovalCenterReviewFacade(prepares,receipts,auth,executor);
         assertSame(response,facade.review(4L,command));
         verifyNoInteractions(prepares,auth,executor);
+    }
+
+    @Test void blankOpinionCannotBeUsedForOtherSubjectsOrRejection() {
+        for (var subject : List.of("EDHR_RELEASE", "EDHR_FORM")) {
+            for (var result : ApprovalTaskReviewResult.values()) {
+                if ("EDHR_RELEASE".equals(subject) && result == ApprovalTaskReviewResult.APPROVE) continue;
+                var identity = new ApprovalIdentity(1L, "EDHR", "EDHR_WORK_TASK", "2", null, subject, "3");
+                var old = new BpmApprovalReviewReceiptDO(); old.setIdentityJson(ApprovalCenterReviewFacade.identityJson(identity));
+                var receipts = mock(ApprovalCenterReceiptService.class);
+                when(receipts.findVerified(eq(4L), anyString())).thenReturn(old);
+                var auth = mock(ElectronicSignatureAuthenticationFacade.class);
+                var executor = mock(ApprovalCenterReviewExecutor.class);
+                var facade = new ApprovalCenterReviewFacade(mock(ApprovalReviewPrepareService.class), receipts, auth, executor);
+                var command = new ApprovalTaskReviewCommand().setModuleCode(ApprovalModuleCode.EDHR)
+                        .setSourceTaskType("EDHR_WORK_TASK").setSourceTaskId("2").setResult(result)
+                        .setReason(" ").setIdempotencyKey(UUID.randomUUID().toString());
+                var error = assertThrows(IllegalArgumentException.class, () -> facade.review(4L, command));
+                assertEquals("APPROVAL_REVIEW_REASON_INVALID", error.getMessage());
+                verifyNoInteractions(auth, executor);
+            }
+        }
     }
 
     @Test void receiptRejectsValidSignatureFromWrongDomainSubjectOrStablePrepareContext() {

@@ -10,13 +10,16 @@ import lombok.Data;
 
 import java.math.BigDecimal;
 
-@Schema(description = "管理后台 - 新增生产工序；编码由系统按租户统一分配，忽略传入编码")
+@Schema(description = "管理后台 - 新增生产工序；编码由系统按所属项目分配，忽略传入编码")
 @Data
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class MesProProcessCreateReqVO {
 
     @Schema(description = "产品名称")
     private String productName;
+
+    @NotNull(message = "请选择所属项目")
+    private Long projectId;
 
     @Schema(description = "工序名称", requiredMode = Schema.RequiredMode.REQUIRED)
     @NotBlank(message = "工序名称不能为空")

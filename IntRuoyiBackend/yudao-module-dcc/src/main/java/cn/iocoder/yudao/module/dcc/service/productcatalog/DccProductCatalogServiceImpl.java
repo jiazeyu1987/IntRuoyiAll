@@ -13,9 +13,11 @@ import cn.iocoder.yudao.module.dcc.controller.admin.productcatalog.vo.DccProduct
 import cn.iocoder.yudao.module.dcc.controller.admin.productcatalog.vo.DccProductCatalogUpdateReqVO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.productcatalog.DccProductCatalogDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectCodeDO;
+import cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectProductRelationDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.relation.DccDataRelationDO;
 import cn.iocoder.yudao.module.dcc.dal.mysql.productcatalog.DccProductCatalogMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectCodeMapper;
+import cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectProductRelationMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.relation.DccDataRelationMapper;
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
@@ -30,12 +32,14 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.DCC_PRODUCT_CATALOG_DATA_SOURCE_INVALID;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.DCC_DATA_RELATION_CONFLICT;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.DCC_PRODUCT_CATALOG_DIRECT_CREATE_NOT_ALLOWED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.DCC_PRODUCT_CATALOG_ROW_KEY_INVALID;
 
@@ -65,6 +69,9 @@ public class DccProductCatalogServiceImpl implements DccProductCatalogService {
 
     @Resource
     private DccDataRelationMapper relationMapper;
+
+    @Resource
+    private DccProjectProductRelationMapper projectProductRelationMapper;
 
     @Resource
     private DccRegistrationExpiryExternalPageClient externalPageClient;
@@ -218,6 +225,23 @@ public class DccProductCatalogServiceImpl implements DccProductCatalogService {
             }
             row.setProjectCodeId(relation.getProjectCodeId());
             row.setRegistrationCertificateId(relation.getRegistrationCertificateId());
+        }
+        // 联合新增审批建立的项目产品关系独立于注册证绑定，尚未绑定注册证也能打开正式项目。
+        Map<Long, Long> approvedProjectIds = new HashMap<>();
+        for (DccProjectProductRelationDO relation :
+                projectProductRelationMapper.selectActiveByProductCatalogIds(productCatalogIds)) {
+            if (approvedProjectIds.putIfAbsent(relation.getProductCatalogId(), relation.getProjectCodeId()) != null) {
+                throw exception(DCC_DATA_RELATION_CONFLICT);
+            }
+        }
+        for (DccProductCatalogRespVO row : rows) {
+            Long approvedProjectId = approvedProjectIds.get(row.getId());
+            if (approvedProjectId != null) {
+                if (row.getProjectCodeId() != null && !Objects.equals(row.getProjectCodeId(), approvedProjectId)) {
+                    throw exception(DCC_DATA_RELATION_CONFLICT);
+                }
+                row.setProjectCodeId(approvedProjectId);
+            }
         }
     }
 

@@ -157,6 +157,7 @@ tmp/
 .codex_patch_test*.tmp
 outputs/
 migration-packages/
+/ruoyi_test/report
 
 # Local historical task audit records (keep out of new worktrees)
 **/doc/tasks/**/*audit*.html

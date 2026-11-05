@@ -134,7 +134,7 @@
                 projectReferences.busy ||
                 projectReferences.savedReadFailure
               "
-              @click="projectReferences.openSelector()"
+              @click="requireProjectReferences().openSelector()"
             >
               引用
             </el-button>
@@ -148,14 +148,14 @@
                 projectReferences.savedReadFailure ||
                 !projectReferences.selectedReference
               "
-              @click="projectReferences.cancelSelectedReference()"
+              @click="requireProjectReferences().cancelSelectedReference()"
             >
               取消引用
             </el-button>
             <el-button
               data-testid="dcc-folder-refresh-references"
               :disabled="!projectReferences || projectReferences.loading || projectReferences.busy"
-              @click="projectReferences.refresh()"
+              @click="requireProjectReferences().refresh()"
             >
               刷新引用列表
             </el-button>
@@ -316,6 +316,11 @@ const versionViewGroups = [
   options: PROJECT_BROWSER_VERSION_VIEWS.filter((option) => option.group === name)
 }))
 const projectReferences = ref<InstanceType<typeof DccProjectReferences>>()
+const requireProjectReferences = () => {
+  const references = projectReferences.value
+  if (!references) throw new Error('引用列表尚未就绪，请等待加载完成')
+  return references
+}
 const operationVisible = ref(false)
 const folderEditor = ref<InstanceType<typeof ProjectFolderEditor>>()
 const openFolderMaintenance = async (mode: 'create' | 'update' | 'delete') => {

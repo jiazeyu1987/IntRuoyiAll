@@ -31,10 +31,19 @@ public class MesMdAutoCodePartServiceImpl implements MesMdAutoCodePartService {
     @Resource
     private MesMdAutoCodeRuleService ruleService;
 
+    @Resource private cn.iocoder.yudao.module.dcc.service.projectcode.access.DccProjectAccessService projectAccess;
+
+    private void requireEditor(Long ruleId) {
+        ruleService.validateAutoCodeRuleExists(ruleId);
+        var rule = ruleService.getAutoCodeRule(ruleId);
+        if (rule.getProjectId() != null) projectAccess.assertProjectEditorOrOwner(
+                cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils.getLoginUserId(), rule.getProjectId());
+    }
+
     @Override
     public Long createAutoCodePart(MesMdAutoCodePartSaveReqVO createReqVO) {
         // 校验规则存在
-        ruleService.validateAutoCodeRuleExists(createReqVO.getRuleId());
+        requireEditor(createReqVO.getRuleId());
         // 校验流水号分段唯一性
         validateSerialNumberPartUnique(null, createReqVO.getRuleId(), createReqVO.getType());
 
@@ -49,7 +58,10 @@ public class MesMdAutoCodePartServiceImpl implements MesMdAutoCodePartService {
         // 校验存在
         validatePartExists(updateReqVO.getId());
         // 校验规则存在
-        ruleService.validateAutoCodeRuleExists(updateReqVO.getRuleId());
+        requireEditor(partMapper.selectById(updateReqVO.getId()).getRuleId());
+        if (!java.util.Objects.equals(partMapper.selectById(updateReqVO.getId()).getRuleId(), updateReqVO.getRuleId()))
+            throw new IllegalArgumentException("不能移动规则组成到其他编码规则");
+        requireEditor(updateReqVO.getRuleId());
         // 校验流水号分段唯一性
         validateSerialNumberPartUnique(updateReqVO.getId(), updateReqVO.getRuleId(), updateReqVO.getType());
 
@@ -64,16 +76,20 @@ public class MesMdAutoCodePartServiceImpl implements MesMdAutoCodePartService {
         validatePartExists(id);
 
         // 删除
+        requireEditor(partMapper.selectById(id).getRuleId());
         partMapper.deleteById(id);
     }
 
     @Override
     public MesMdAutoCodePartDO getAutoCodePart(Long id) {
-        return partMapper.selectById(id);
+        var part = partMapper.selectById(id);
+        if (part != null) ruleService.getAutoCodeRule(part.getRuleId());
+        return part;
     }
 
     @Override
     public List<MesMdAutoCodePartDO> getAutoCodePartListByRuleId(Long ruleId) {
+        ruleService.getAutoCodeRule(ruleId);
         return partMapper.selectListByRuleId(ruleId);
     }
 

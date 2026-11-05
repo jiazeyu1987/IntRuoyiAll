@@ -59,7 +59,6 @@ import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesCompletionBackfill
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionService;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderCompletionCommand;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderCompletionService;
-import cn.iocoder.yudao.module.mes.service.pro.simulation.stage4.MesStage4DossierUploadSimulationContractValidator;
 import cn.iocoder.yudao.module.mes.service.pro.workorder.MesProWorkOrderService;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
@@ -232,9 +231,9 @@ public class MesStage2_5BackfillBatchExecutionSimulationServiceImpl
         if (batch == null || batch.getId() == null) {
             throw new IllegalStateException("BATCH_EXECUTION_CREATE_OR_OPEN_FAILED");
         }
+        // 活跃订单使用正式完工明细；批次不创建旧式资料任务，不能套用 Stage4 上传契约。
         Map<String, Object> snapshot = buildSnapshot(validated, activeOrder, workOrder, bindings,
                 bindingItems, receipt, batch, backfillReceipt);
-        MesStage4DossierUploadSimulationContractValidator.validateInput(snapshot);
         return new MesStage2_5BackfillBatchExecutionSimulationResult()
                 .setSimulationRunId(validated.getSimulationRunId())
                 .setCleanedSimulationRunId(cleanedRunId)
@@ -322,7 +321,7 @@ public class MesStage2_5BackfillBatchExecutionSimulationServiceImpl
             throw new IllegalStateException("BATCH_EXECUTION_CREATE_OR_OPEN_FAILED");
         }
         Map<String, Object> snapshot = new LinkedHashMap<>();
-        snapshot.put("schemaVersion", MesStage4DossierUploadSimulationContractValidator.SCHEMA_VERSION);
+        snapshot.put("schemaVersion", "1.0");
         snapshot.put("simulationRunId", command.getSimulationRunId());
         snapshot.put("sourceInputContract", "existingBatchExecution.v1");
         snapshot.put("batchExecutionId", String.valueOf(existingBatch.getId()));
@@ -865,12 +864,10 @@ public class MesStage2_5BackfillBatchExecutionSimulationServiceImpl
             MesProcessPoolActiveOrderCompletionReceiptDO receipt,
             EdhrBatchExecutionRespVO batch,
             MesCompletionBackfillReceipt backfillReceipt) {
-        List<MesProEdhrBatchExecutionTaskDO> tasks = batchTaskMapper
-                .selectListByBatchExecutionId(batch.getId());
         Map<String, Object> snapshot = new LinkedHashMap<>();
-        snapshot.put("schemaVersion", MesStage4DossierUploadSimulationContractValidator.SCHEMA_VERSION);
+        snapshot.put("schemaVersion", "1.0");
         snapshot.put("simulationRunId", command.getSimulationRunId());
-        snapshot.put("sourceInputContract", "backfillResultSnapshot.v1");
+        snapshot.put("sourceInputContract", "activeOrderCompletionBackfill.v1");
         snapshot.put("batchExecutionId", String.valueOf(batch.getId()));
         snapshot.put("batchExecutionCode", batch.getBatchExecutionCode());
         snapshot.put("batchCode", batch.getBatchCode());
@@ -915,18 +912,16 @@ public class MesStage2_5BackfillBatchExecutionSimulationServiceImpl
                 ? linkList(List.of(requiredEvidenceId(backfillReceipt.getLossRecordId(), "lossRecordId")),
                 receipt, "FORMAL_LOSS_SOURCE", "LOSS_REPORT")
                 : List.of());
-        snapshot.put("specialNodeUploadStatus", specialNodeStatus(tasks));
         Map<String, Object> hashes = new LinkedHashMap<>();
-        hashes.put("stage3BatchExecutionSnapshot", hash(snapshotWithoutHash(snapshot)));
+        hashes.put("activeOrderCompletionSnapshot", hash(snapshotWithoutHash(snapshot)));
         hashes.put("backfillResultSnapshot", receipt.getSourceSnapshotHash());
         hashes.put("materialIssueSource", hash(materialIssueSource));
         hashes.put("batchRecordLinks", hash(snapshot.get("batchRecordLinks")));
         hashes.put("processInspectionLinks", hash(snapshot.get("processInspectionLinks")));
         hashes.put("optionalLossReportLinks", hasLoss
                 ? hash(snapshot.get("optionalLossReportLinks")) : "not-required:no-loss");
-        hashes.put("specialNodeUploadStatus", hash(snapshot.get("specialNodeUploadStatus")));
         snapshot.put("sourceHash", hashes);
-        snapshot.put("status", "DOSSIER_UPLOAD_PENDING");
+        snapshot.put("status", "BACKFILL_COMPLETED");
         snapshot.put("blockers", List.of());
         return snapshot;
     }
@@ -936,30 +931,6 @@ public class MesStage2_5BackfillBatchExecutionSimulationServiceImpl
             throw new IllegalStateException("COMPLETION_RECEIPT_EVIDENCE_MISSING:" + field);
         }
         return id;
-    }
-
-    private Map<String, Object> specialNodeStatus(List<MesProEdhrBatchExecutionTaskDO> tasks) {
-        List<String> nodeTypes = List.of(
-                "INCOMING_INSPECTION_REPORT", "STERILIZATION_REPORT",
-                "FINISHED_PRODUCT_INSPECTION_REPORT", "FINISHED_PRODUCT_INSPECTION_RECORD");
-        Map<String, Object> result = new LinkedHashMap<>();
-        result.put("overallStatus", "PENDING_UPLOAD");
-        List<Map<String, Object>> requiredNodes = new ArrayList<>();
-        for (String nodeType : nodeTypes) {
-            MesProEdhrBatchExecutionTaskDO task = tasks.stream()
-                    .filter(item -> Objects.equals(nodeType, item.getNodeType()))
-                    .findFirst()
-                    .orElseThrow(() -> new IllegalStateException("BATCH_EXECUTION_DOSSIER_VISIBILITY_MISSING"));
-            Map<String, Object> node = new LinkedHashMap<>();
-            node.put("nodeType", nodeType);
-            node.put("nodeName", task.getProcessName());
-            node.put("batchExecutionTaskId", String.valueOf(task.getId()));
-            node.put("status", "PENDING_UPLOAD");
-            node.put("savedAttachmentCount", 0);
-            requiredNodes.add(node);
-        }
-        result.put("requiredNodes", requiredNodes);
-        return result;
     }
 
     private List<Map<String, Object>> linkList(List<Long> ids,

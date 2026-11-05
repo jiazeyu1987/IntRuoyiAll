@@ -11,7 +11,6 @@ export interface DraftIssue {
 
 export function validateCommonDraft(draft: SimpleCommonDraft): DraftIssue[] {
   const errors: DraftIssue[] = []
-  if (!draft.dccProjectCodeId) errors.push({ message: '请选择规程所属项目', field: 'metadata' })
   for (const [key, label] of [
     ['regulationName', '规程名称'],
     ['regulationCode', '文件编号']

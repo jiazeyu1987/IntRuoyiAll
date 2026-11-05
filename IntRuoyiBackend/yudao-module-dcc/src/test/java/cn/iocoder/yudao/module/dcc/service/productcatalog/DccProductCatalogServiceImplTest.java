@@ -10,9 +10,11 @@ import cn.iocoder.yudao.module.dcc.controller.admin.productcatalog.vo.DccProduct
 import cn.iocoder.yudao.module.dcc.controller.admin.productcatalog.vo.DccProductCatalogUpdateReqVO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.productcatalog.DccProductCatalogDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectCodeDO;
+import cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectProductRelationDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.relation.DccDataRelationDO;
 import cn.iocoder.yudao.module.dcc.dal.mysql.productcatalog.DccProductCatalogMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectCodeMapper;
+import cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectProductRelationMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.relation.DccDataRelationMapper;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -23,6 +25,8 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.DCC_DATA_RELATION_CONFLICT;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.DCC_PRODUCT_CATALOG_DIRECT_CREATE_NOT_ALLOWED;
 import static org.mockito.ArgumentMatchers.any;
@@ -42,6 +46,9 @@ class DccProductCatalogServiceImplTest extends BaseMockitoUnitTest {
 
     @Mock
     private DccDataRelationMapper relationMapper;
+
+    @Mock
+    private DccProjectProductRelationMapper projectProductRelationMapper;
 
     @Test
     void getProductCatalogPageShouldReadDatabasePage() {
@@ -103,6 +110,90 @@ class DccProductCatalogServiceImplTest extends BaseMockitoUnitTest {
         assertEquals(22L, result.getList().get(0).getProjectCodeId());
         assertEquals(33L, result.getList().get(0).getRegistrationCertificateId());
         verify(relationMapper).selectByProductCatalogIds(List.of(10L));
+    }
+
+    @Test
+    void approvedProductWithoutCertificateExposesFormalProjectIdAndDoesNotInferOtherRowsFromCode() {
+        var reqVO = new DccProductCatalogPageReqVO();
+        when(productCatalogMapper.selectPage(reqVO)).thenReturn(new PageResult<>(List.of(
+                row(10L, "瑛泰产品", 4, "批准产品"), row(11L, "瑛泰产品", 5, "无关系产品")), 2L));
+        when(projectProductRelationMapper.selectActiveByProductCatalogIds(List.of(10L, 11L)))
+                .thenReturn(List.of(DccProjectProductRelationDO.builder().productCatalogId(10L)
+                        .projectCodeId(990820083L).relationStatus("ACTIVE").build()));
+
+        var rows = service.getProductCatalogPage(reqVO).getList();
+
+        assertEquals(990820083L, rows.get(0).getProjectCodeId());
+        assertNull(rows.get(0).getRegistrationCertificateId());
+        assertNull(rows.get(1).getProjectCodeId(), "相同代码文字不能替代正式关系");
+        verify(projectProductRelationMapper).selectActiveByProductCatalogIds(List.of(10L, 11L));
+    }
+
+    @Test
+    void approvedProjectRelationRetainsIndependentCertificateBinding() {
+        var reqVO = new DccProductCatalogPageReqVO();
+        when(productCatalogMapper.selectPage(reqVO)).thenReturn(
+                new PageResult<>(List.of(row(10L, "瑛泰产品", 4, "批准产品")), 1L));
+        var registrationBinding = new DccDataRelationDO();
+        registrationBinding.setProductCatalogId(10L);
+        registrationBinding.setProjectCodeId(22L);
+        registrationBinding.setRegistrationCertificateId(33L);
+        when(relationMapper.selectByProductCatalogIds(List.of(10L))).thenReturn(List.of(registrationBinding));
+        when(projectProductRelationMapper.selectActiveByProductCatalogIds(List.of(10L)))
+                .thenReturn(List.of(DccProjectProductRelationDO.builder().productCatalogId(10L)
+                        .projectCodeId(22L).relationStatus("ACTIVE").build()));
+
+        var row = service.getProductCatalogPage(reqVO).getList().get(0);
+
+        assertEquals(22L, row.getProjectCodeId());
+        assertEquals(33L, row.getRegistrationCertificateId());
+    }
+
+    @Test
+    void conflictingFormalAndRegistrationProjectsFailInsteadOfProducingMixedLinks() {
+        var reqVO = new DccProductCatalogPageReqVO();
+        when(productCatalogMapper.selectPage(reqVO)).thenReturn(
+                new PageResult<>(List.of(row(10L, "瑛泰产品", 4, "批准产品")), 1L));
+        var registrationBinding = new DccDataRelationDO();
+        registrationBinding.setProductCatalogId(10L);
+        registrationBinding.setProjectCodeId(22L);
+        registrationBinding.setRegistrationCertificateId(33L);
+        when(relationMapper.selectByProductCatalogIds(List.of(10L))).thenReturn(List.of(registrationBinding));
+        when(projectProductRelationMapper.selectActiveByProductCatalogIds(List.of(10L)))
+                .thenReturn(List.of(DccProjectProductRelationDO.builder().productCatalogId(10L)
+                        .projectCodeId(44L).relationStatus("ACTIVE").build()));
+
+        var error = assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,
+                () -> service.getProductCatalogPage(reqVO));
+
+        assertEquals(DCC_DATA_RELATION_CONFLICT.getCode(), error.getCode());
+    }
+
+    @Test
+    void duplicateActiveFormalRelationsFailInsteadOfChoosingArbitraryProject() {
+        var reqVO = new DccProductCatalogPageReqVO();
+        when(productCatalogMapper.selectPage(reqVO)).thenReturn(
+                new PageResult<>(List.of(row(10L, "瑛泰产品", 4, "批准产品")), 1L));
+        when(projectProductRelationMapper.selectActiveByProductCatalogIds(List.of(10L)))
+                .thenReturn(List.of(DccProjectProductRelationDO.builder().productCatalogId(10L)
+                                .projectCodeId(22L).relationStatus("ACTIVE").build(),
+                        DccProjectProductRelationDO.builder().productCatalogId(10L)
+                                .projectCodeId(44L).relationStatus("ACTIVE").build()));
+
+        var error = assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,
+                () -> service.getProductCatalogPage(reqVO));
+
+        assertEquals(DCC_DATA_RELATION_CONFLICT.getCode(), error.getCode());
+    }
+
+    @Test
+    void emptyPageDoesNotQueryAnyRelations() {
+        var reqVO = new DccProductCatalogPageReqVO();
+        when(productCatalogMapper.selectPage(reqVO)).thenReturn(PageResult.empty());
+
+        assertEquals(0, service.getProductCatalogPage(reqVO).getList().size());
+
+        verifyNoInteractions(projectProductRelationMapper, relationMapper, projectCodeMapper);
     }
 
     @Test

@@ -83,7 +83,7 @@ public class MesFrontlineDeviceAccountController {
     }
     @PostMapping("/employee-profile/signature-password/change")
     @Operation(summary="员工校验原签名密码并设置个人签名密码")
-    @PreAuthorize("@ss.hasPermission('mes:pro-feedback:create')")
+    @PreAuthorize("isAuthenticated()")
     public CommonResult<Boolean> changeEmployeeSignaturePassword(@Valid @RequestBody cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesEmployeeSignaturePasswordChangeReqVO request) {
         employeeSignatureCredentials.change(request);
         return success(Boolean.TRUE);
@@ -178,7 +178,7 @@ public class MesFrontlineDeviceAccountController {
 
     @PostMapping("/switch-employee")
     @Operation(summary = "切换当前工序实际填写员工")
-    @PreAuthorize("@ss.hasPermission('mes:pro-feedback:create')")
+    @PreAuthorize("isAuthenticated()")
     public CommonResult<MesFrontlineSwitchEmployeeRespVO> switchActualEmployee(
             @Valid @RequestBody MesFrontlineSwitchEmployeeReqVO reqVO) {
         MesFrontlineEmployeeSwitchResult result = employeeSwitchService.switchActualEmployee(
@@ -264,7 +264,7 @@ public class MesFrontlineDeviceAccountController {
 
     @PostMapping("/pqc/switch-employee")
     @Operation(summary = "PQC 切换实际填写员工")
-    @PreAuthorize("@ss.hasPermission('mes:pro-feedback:create') and @ss.hasAnyRoles('pqc_permission', 'pqc_leader_permission')")
+    @PreAuthorize("isAuthenticated() and @ss.hasAnyRoles('pqc_permission', 'pqc_leader_permission')")
     public CommonResult<MesFrontlinePqcSwitchEmployeeRespVO> switchPqcActualEmployee(
             @Valid @RequestBody MesFrontlinePqcSwitchEmployeeReqVO reqVO) {
         MesFrontlinePqcEmployeeSwitchResult result = pqcContextService.switchPqcActualEmployee(getLoginUserId(),
@@ -285,7 +285,7 @@ public class MesFrontlineDeviceAccountController {
 
     @PostMapping("/pqc/submit")
     @Operation(summary = "PQC 检验提交到工序池")
-    @PreAuthorize("@ss.hasPermission('mes:pro-feedback:create') and @ss.hasAnyRoles('pqc_permission', 'pqc_leader_permission')")
+    @PreAuthorize("isAuthenticated() and @ss.hasAnyRoles('pqc_permission', 'pqc_leader_permission')")
     public CommonResult<MesFrontlinePqcSubmitRespVO> submitPqcInspection(
             @Valid @RequestBody MesFrontlinePqcSubmitReqVO reqVO) {
         Long loginUserId = getLoginUserId();

@@ -7,6 +7,9 @@ import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Select;
 import org.apache.ibatis.annotations.Param;
 
+import java.util.Collection;
+import java.util.List;
+
 @Mapper
 public interface DccProjectProductRelationMapper extends BaseMapperX<DccProjectProductRelationDO> {
 
@@ -18,6 +21,15 @@ public interface DccProjectProductRelationMapper extends BaseMapperX<DccProjectP
             """)
     DccProjectProductRelationDO selectByPairForUpdate(@Param("projectCodeId") Long projectCodeId,
                                                        @Param("productCatalogId") Long productCatalogId);
+
+    default List<DccProjectProductRelationDO> selectActiveByProductCatalogIds(Collection<Long> productCatalogIds) {
+        if (productCatalogIds.isEmpty()) {
+            return List.of();
+        }
+        return selectList(new LambdaQueryWrapperX<DccProjectProductRelationDO>()
+                .in(DccProjectProductRelationDO::getProductCatalogId, productCatalogIds)
+                .eq(DccProjectProductRelationDO::getRelationStatus, "ACTIVE"));
+    }
 
     default DccProjectProductRelationDO selectByProjectCodeId(Long projectCodeId) {
         return selectOne(new LambdaQueryWrapperX<DccProjectProductRelationDO>()

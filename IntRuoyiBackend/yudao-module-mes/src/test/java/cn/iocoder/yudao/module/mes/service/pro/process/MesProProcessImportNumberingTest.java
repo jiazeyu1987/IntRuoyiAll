@@ -34,11 +34,14 @@ class MesProProcessImportNumberingTest {
     @AfterEach void clear() { TenantContextHolder.clear(); }
 
     @Test void wordAndExcelCreateUseTheSameSequenceAndReuseExistingProcesses() throws Exception {
-        when(codes.generateAutoCode("PRO_PROCESS_GX_CODE", null)).thenReturn("GX-0001", "GX-0002");
+        when(codes.generateProjectCode("PRO_PROCESS_GX_CODE", 10L)).thenReturn("GX-0001", "GX-0002");
         var word = new MesProBatchRecordRouteGenerationServiceImpl();
         ReflectionTestUtils.setField(word, "processMapper", mapper);
         ReflectionTestUtils.setField(word, "processCreationService", creator);
-        MesProProcessDO first = ReflectionTestUtils.invokeMethod(word, "resolveProcess", "Word process");
+        var resolver=mock(cn.iocoder.yudao.module.mes.service.pro.frontline.DccProjectResolver.class);
+        ReflectionTestUtils.setField(word,"projectCodeResolver",resolver);
+        when(resolver.requireEnabledByRoute(9L)).thenReturn(new cn.iocoder.yudao.module.mes.service.pro.frontline.DccProjectResolver.ResolvedProject(10L,"P10","产品"));
+        MesProProcessDO first = ReflectionTestUtils.invokeMethod(word, "createProjectProcess", "Word process", "产品", 9L);
         assertEquals("GX-0001", first.getCode());
 
         var parser = mock(Sheet1RouteExcelParser.class);
@@ -53,6 +56,8 @@ class MesProProcessImportNumberingTest {
                 mock(MesProRouteOwnerPermissionService.class));
         ReflectionTestUtils.setField(excel, "processCreationService", creator);
         ReflectionTestUtils.setField(excel, "projectGuard", mock(cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteProjectGuard.class));
+        ReflectionTestUtils.setField(excel,"codeService",codes);
+        when(codes.generateProjectCode("PRO_ROUTE_CODE",10L)).thenReturn("P10-GYLC-0001");
         var result = excel.importExcel(new MockMultipartFile("file", "routes.xlsx",
                 "application/octet-stream", new byte[]{1}), 0, 10L);
         assertEquals(1, result.getProcessCreatedCount());
@@ -60,7 +65,7 @@ class MesProProcessImportNumberingTest {
         ArgumentCaptor<MesProProcessDO> inserted = ArgumentCaptor.forClass(MesProProcessDO.class);
         verify(mapper, times(2)).insert(inserted.capture());
         assertEquals(List.of("GX-0001", "GX-0002"), inserted.getAllValues().stream().map(MesProProcessDO::getCode).toList());
-        verify(codes, times(2)).generateAutoCode("PRO_PROCESS_GX_CODE", null);
+        verify(codes, times(2)).generateProjectCode("PRO_PROCESS_GX_CODE", 10L);
     }
 
     @Test void createRequestIgnoresIncomingCodeWhileUpdateKeepsIt() throws Exception {

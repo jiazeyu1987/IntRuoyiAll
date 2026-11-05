@@ -66,7 +66,7 @@ export interface ProRouteBatchRecordAttachmentOwnerInitVO {
 }
 
 export interface ProRouteStartProductionLeaderVO {
-  productionLineId: number
+  productionLineId: MesRouteId
   productionLineCode?: string | null
   productionLineName?: string | null
   candidateSourceType: EdhrProcessFormCandidateSourceType
@@ -77,7 +77,7 @@ export interface ProRouteStartProductionLeaderVO {
 }
 
 export interface ProRouteStartProductionLeaderItemSaveVO {
-  productionLineId: number
+  productionLineId: MesRouteId
   candidateSourceType: EdhrProcessFormCandidateSourceType
   candidateSourceIds: number[]
   candidateSourceNames?: string[]
@@ -91,10 +91,10 @@ export interface ProRouteStartProductionLeaderSaveVO {
 }
 
 export interface ProRouteStartProductionLeaderProductionLineVO {
-  productionLineId: number
+  productionLineId: MesRouteId
   productionLineCode?: string | null
   productionLineName?: string | null
-  routeProcessIds?: number[]
+  routeProcessIds?: MesRouteId[]
   processNames?: string[]
 }
 
@@ -185,8 +185,8 @@ export interface ProRouteFlowProcessConfigVO {
   keyFlag?: boolean | null
   executionMode?: ProRouteFlowExecutionMode | null
   productionQuantityFactor?: number | null
-  inputMaterialIds?: number[]
-  outputMaterialIds?: number[]
+  inputMaterialIds?: Array<number | string>
+  outputMaterialIds?: Array<number | string>
   batchRecordReports?: ProRouteFlowBatchRecordVO[]
   formBindings?: ProRouteFlowFormBindingVO[]
   routeScheduleConfigId?: number | null
@@ -208,8 +208,8 @@ export interface ProRouteFlowProcessConfigSaveVO {
   enabled: boolean
   executionMode?: ProRouteFlowExecutionMode | null
   productionQuantityFactor?: number | null
-  inputMaterialIds?: number[]
-  outputMaterialIds?: number[]
+  inputMaterialIds?: Array<number | string>
+  outputMaterialIds?: Array<number | string>
   batchRecordReports?: ProRouteFlowBatchRecordVO[]
   formBindings?: ProRouteFlowFormBindingSaveVO[]
   remark?: string | null

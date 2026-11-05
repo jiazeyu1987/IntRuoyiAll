@@ -12,6 +12,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import com.baomidou.mybatisplus.core.toolkit.IdWorker;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -25,11 +27,123 @@ import static cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesFixedT
 /** Imports only the fixed order's definitions and actual material sources, in the reset transaction. */
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class MesFixedTestOrderInitializer {
     static final String WORK_ORDER_CODE = "SIM-COPY-CODX-PQC-20260807-SP-WO-05-OPYAO451788352161891";
+    // Business identity of the fixed test fixture; route IDs and published versions belong to each tenant.
+    private static final String TEST_PROJECT_CODE = "IDI";
     private final JdbcTemplate jdbc;
     private final MesProRouteSnapshotCanonicalizer canonicalizer;
     private final MesProRouteControlledContentAdapter controlledContentAdapter;
+
+    /** Creates only missing order data inside the reset transaction. */
+    @Transactional(propagation = Propagation.MANDATORY, rollbackFor = Exception.class)
+    public void createWorkOrderIfMissing(Long actor) {
+        Long tenant = TenantContextHolder.getTenantId();
+        if (tenant == null || tenant <= 0 || actor == null || actor <= 0 || TenantContextHolder.isIgnore())
+            throw blocked("固定测试工单创建需要明确的当前租户和操作人");
+        // Serialize first creation even when no work-order row exists yet.
+        if (jdbc.queryForList("SELECT id FROM system_tenant WHERE id=? AND deleted=0 FOR UPDATE", Long.class, tenant).size() != 1)
+            throw blocked("当前租户不存在，不能创建测试工单");
+        List<Map<String, Object>> existing = jdbc.queryForList(
+                "SELECT id FROM mes_pro_work_order WHERE tenant_id=? AND deleted=0 AND code=? FOR UPDATE", tenant, WORK_ORDER_CODE);
+        if (existing.size() > 1) throw blocked("当前租户指定测试工单不唯一");
+        if (!existing.isEmpty()) return;
+
+        MesFixedTestOrderReferenceGraph graph = new MesFixedTestOrderReferenceGraph(jdbc, tenant, actor);
+        Map<String, Object> source = one(graph.sourceRows("mes_pro_work_order", "code=?", WORK_ORDER_CODE), "固定测试工单");
+        Map<String, Object> overrides = new LinkedHashMap<>();
+        for (var reference : Map.of("product_id", "mes_md_item", "client_id", "mes_md_client", "vendor_id", "mes_md_vendor").entrySet())
+            overrides.put(reference.getKey(), orderReference(graph, tenant, reference.getValue(), source.get(reference.getKey())));
+        overrides.put("status", MesProWorkOrderStatusEnum.CONFIRMED.getStatus());
+        overrides.put("quantity_produced", java.math.BigDecimal.ZERO);
+        overrides.put("quantity_scheduled", java.math.BigDecimal.ZERO);
+        overrides.put("temporary_frozen", false);
+        Entry order = graph.plan("mes_pro_work_order", source.get("id"), source, overrides);
+        requireEmpty(order, "parent_id");
+        Object orderId = graph.id("mes_pro_work_order", source.get("id"));
+        for (Map<String, Object> bom : graph.sourceRows("mes_pro_work_order_bom", "work_order_id=?", source.get("id"))) {
+            Map<String, Object> bomReferences = new LinkedHashMap<>();
+            bomReferences.put("work_order_id", orderId);
+            bomReferences.put("item_id", orderReference(graph, tenant, "mes_md_item", bom.get("item_id")));
+            graph.plan("mes_pro_work_order_bom", bom.get("id"), bom, bomReferences);
+        }
+        graph.insertAll();
+    }
+
+    /** Test-reset only: restore a missing product binding to the tenant's unique IDI project route. */
+    @Transactional(propagation = Propagation.MANDATORY, rollbackFor = Exception.class)
+    public void ensureTestRouteProductBinding(Long actor) {
+        Long tenant = TenantContextHolder.getTenantId();
+        if (tenant == null || tenant <= 0 || actor == null || actor <= 0 || TenantContextHolder.isIgnore())
+            throw testBindingBlocked("测试产品自动关联需要明确的当前租户和操作人");
+        Map<String, Object> order = uniqueTestBindingContext(jdbc.queryForList(
+                "SELECT id,product_id FROM mes_pro_work_order WHERE tenant_id=? AND deleted=0 AND code=? FOR UPDATE",
+                tenant, WORK_ORDER_CODE), "当前租户指定测试工单");
+        Object itemId = order.get("product_id");
+        uniqueTestBindingContext(jdbc.queryForList("SELECT id FROM mes_md_item WHERE tenant_id=? AND deleted=0 AND id=? FOR UPDATE",
+                tenant, itemId), "当前租户测试工单产品");
+        List<Map<String, Object>> existing = jdbc.queryForList(
+                "SELECT id FROM mes_pro_route_product WHERE tenant_id=? AND deleted=0 AND item_id=? FOR UPDATE",
+                tenant, itemId);
+        if (existing.size() > 1) throw testBindingBlocked("当前租户测试产品工艺路线绑定不唯一，请先核对");
+        // An existing binding remains authoritative, including its validation by the normal activation path.
+        if (!existing.isEmpty()) return;
+
+        Map<String, Object> project = uniqueTestBindingContext(jdbc.queryForList(
+                "SELECT id FROM dcc_project_code WHERE tenant_id=? AND deleted=0 AND project_code=? AND status=0 FOR UPDATE",
+                tenant, TEST_PROJECT_CODE), "当前租户已启用 IDI 项目代码，无法自动关联测试产品");
+        List<Map<String, Object>> routes = jdbc.queryForList(
+                "SELECT r.id FROM mes_pro_route r WHERE r.tenant_id=? AND r.deleted=0 AND EXISTS "
+                        + "(SELECT 1 FROM mes_pro_route_dcc_project_binding b WHERE b.route_id=r.id "
+                        + "AND b.tenant_id=r.tenant_id AND b.deleted=0 AND b.dcc_project_code_id=?) FOR UPDATE",
+                tenant, project.get("id"));
+        Map<String, Object> route = uniqueTestBindingContext(routes, "当前租户 IDI 项目工艺路线，无法自动关联测试产品");
+        Map<String, Object> version = uniqueTestBindingContext(jdbc.queryForList(
+                "SELECT id FROM mes_pro_route_version WHERE tenant_id=? AND deleted=0 AND route_id=? "
+                        + "AND active=1 AND lifecycle_status='ACTIVE' FOR UPDATE",
+                tenant, route.get("id")), "当前租户 IDI 路线生效版本，无法自动关联测试产品");
+        // Same initial production values as the product-side UI binding, scoped to this fixed test order.
+        jdbc.update("INSERT INTO mes_pro_route_product "
+                        + "(id,tenant_id,route_id,item_id,quantity,production_time,time_unit_type,remark,creator,updater,deleted) "
+                        + "VALUES(?,?,?,?,1,1,'MINUTE',?,?,?,0)",
+                IdWorker.getId(), tenant, route.get("id"), itemId, "固定测试订单重置自动关联：IDI 项目",
+                String.valueOf(actor), String.valueOf(actor));
+        log.info("Fixed test reset staged product-route binding: tenantId={}, workOrderId={}, itemId={}, routeId={}, activeVersionId={}, actor={}",
+                tenant, order.get("id"), itemId, route.get("id"), version.get("id"), actor);
+    }
+
+    private static Map<String, Object> uniqueTestBindingContext(List<Map<String, Object>> rows, String name) {
+        if (rows.size() != 1) throw testBindingBlocked(name + (rows.isEmpty() ? "不存在" : "不唯一"));
+        return rows.get(0);
+    }
+
+    private static RuntimeException testBindingBlocked(String detail) {
+        return cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception(
+                cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_REQUIRED,
+                "测试产品自动关联失败：" + detail);
+    }
+
+    /** Reuse tenant-owned masters by business code without changing their status or configuration. */
+    Object orderReference(MesFixedTestOrderReferenceGraph graph, long tenant, String table, Object sourceId) {
+        if (sourceId == null || number(sourceId) <= 0) return sourceId;
+        Map<String, Object> source = one(graph.sourceRows(table, "id=?", sourceId), "测试工单关联：" + table);
+        List<Map<String, Object>> matches = jdbc.queryForList(
+                "SELECT * FROM " + table + " WHERE tenant_id=? AND deleted=0 AND code=? FOR UPDATE", tenant, source.get("code"));
+        if (matches.size() > 1) throw blocked("当前租户工单关联编码不唯一：" + table + "/" + source.get("code"));
+        if (matches.isEmpty()) {
+            if (table.equals("mes_md_item")) {
+                Map<String, Object> itemOverrides = new LinkedHashMap<>();
+                itemOverrides.put("product_master_id", null);
+                graph.plan(table, sourceId, source, itemOverrides);
+            } else {
+                graph.include(table, sourceId);
+            }
+            return graph.id(table, sourceId);
+        }
+        Map<String, Object> target = matches.get(0);
+        return target.get("id");
+    }
 
     @Transactional(propagation = Propagation.MANDATORY, rollbackFor = Exception.class)
     public void initialize(Long actor) {
@@ -51,6 +165,7 @@ public class MesFixedTestOrderInitializer {
         graph.children("mes_pro_work_order_bom", "work_order_id", order.key.id());
 
         Map<String, Object> routeProduct = one(graph.sourceRows("mes_pro_route_product", "item_id=?", sourceOrder.get("product_id")), "产品正式路线");
+        if (initializeWithTenantRoute(graph, sourceOrder, order, routeProduct, tenant, actor)) return;
         Entry product = graph.include("mes_pro_route_product", routeProduct.get("id"));
         Object routeId = routeProduct.get("route_id");
         Map<String, Object> routeVersion = one(graph.sourceRows("mes_pro_route_version", "route_id=? AND active=1 AND lifecycle_status='ACTIVE'", routeId), "已发布路线版本");
@@ -143,6 +258,90 @@ public class MesFixedTestOrderInitializer {
                 "固定测试订单初始化登记正式工艺版本");
     }
 
+    /** An independently maintained tenant route is authoritative for its exclusively bound project. */
+    private boolean initializeWithTenantRoute(MesFixedTestOrderReferenceGraph graph, Map<String, Object> sourceOrder,
+                                             Entry order, Map<String, Object> routeProduct, long tenant, long actor) {
+        Map<String, Object> sourceBinding = one(graph.sourceRows("mes_pro_route_dcc_project_binding", "route_id=?", routeProduct.get("route_id")), "路线DCC绑定");
+        Entry dcc = graph.include("dcc_project_code", sourceBinding.get("dcc_project_code_id"));
+        Object project = graph.id("dcc_project_code", dcc.key.id());
+        List<Map<String, Object>> bindings = jdbc.queryForList("SELECT * FROM mes_pro_route_dcc_project_binding WHERE tenant_id=? AND deleted=0 AND dcc_project_code_id=? FOR UPDATE", tenant, project);
+        if (bindings.isEmpty()) return false;
+        Map<String, Object> binding = one(bindings, "当前租户项目正式路线绑定");
+        Map<String, Object> route = targetDefinition("mes_pro_route", tenant, binding.get("route_id"));
+        Object item = graph.id("mes_md_item", sourceOrder.get("product_id"));
+        Entry itemDefinition = graph.include("mes_md_item", sourceOrder.get("product_id"));
+        Object product = itemDefinition.source.get("product_master_id");
+        if (!equalValue(product, dcc.source.get("product_master_id"))) throw blocked("参考产品与DCC产品身份不一致");
+        one(jdbc.queryForList("SELECT id FROM mes_pro_route_product WHERE tenant_id=? AND deleted=0 AND route_id=? AND item_id=? FOR UPDATE", tenant, route.get("id"), item), "当前租户正式路线产品");
+        // Legacy reference products lack these fields; a product created in the UI owns its completed metadata.
+        for (String field : List.of("unit_measure_id", "item_type_id")) {
+            if (itemDefinition.source.get(field) == null && itemDefinition.existing.get(field) != null)
+                itemDefinition.overrides.put(field, itemDefinition.existing.get(field));
+        }
+        if (equalValue(itemDefinition.source.get("safe_stock_flag"), false)) {
+            for (String field : List.of("min_stock", "max_stock"))
+                if (itemDefinition.source.get(field) == null && equalValue(itemDefinition.existing.get(field), java.math.BigDecimal.ZERO))
+                    itemDefinition.overrides.put(field, java.math.BigDecimal.ZERO);
+        }
+        Map<String, Object> version = one(jdbc.queryForList("SELECT * FROM mes_pro_route_version WHERE tenant_id=? AND deleted=0 AND route_id=? AND active=1 AND lifecycle_status='ACTIVE' FOR UPDATE", tenant, route.get("id")), "当前租户已发布路线版本");
+        Object raw = version.get("route_snapshot_json");
+        if (!(raw instanceof String json) || !canonicalizer.validate(number(route.get("id")), json).ready()
+                || !canonicalizer.sha256(json).equals(version.get("route_snapshot_sha256")))
+            throw blocked("当前租户正式路线快照校验失败，保留原路线");
+        int productMatches = 0;
+        for (JsonNode candidate : graph.parse(json).path("configSnapshots").path("products"))
+            if (candidate.path("itemId").asLong() == number(item)) productMatches++;
+        if (productMatches != 1) throw blocked("当前租户生效路线版本未包含唯一测试产品，请先发布产品关联");
+        List<Map<String, Object>> targetQas = jdbc.queryForList("SELECT * FROM mes_qa_inspection_regulation WHERE tenant_id=? AND deleted=0 AND owner_module='MES_QA' AND dcc_project_code_id=? FOR UPDATE", tenant, project);
+        if (targetQas.isEmpty()) {
+            Map<String, Object> sourceQa = one(graph.sourceRows("mes_qa_inspection_regulation", "dcc_project_code_id=? AND owner_module='MES_QA' AND lifecycle_status='PUBLISHED'", dcc.key.id()), "产品QA规程");
+            if (List.of("route_id", "route_version_id", "route_process_id", "process_id").stream().anyMatch(f -> sourceQa.get(f) != null))
+                throw blocked("参考产品QA限定了其他路线范围，不能用于当前租户正式路线");
+            graph.include("mes_qa_inspection_regulation", sourceQa.get("id"));
+        } else {
+            Map<String, Object> qa = one(targetQas, "当前租户产品QA规程");
+            if (!"PUBLISHED".equals(qa.get("lifecycle_status"))
+                    || qa.get("product_id") != null && !equalValue(qa.get("product_id"), graph.id("mdm_product", product))
+                    || qa.get("route_id") != null && !equalValue(qa.get("route_id"), route.get("id"))
+                    || qa.get("route_version_id") != null && !equalValue(qa.get("route_version_id"), version.get("id")))
+                throw blocked("当前租户产品QA未发布或不适用于正式路线，保留原规程");
+            if (qa.get("route_process_id") != null) {
+                Map<String, Object> process = targetDefinition("mes_pro_route_process", tenant, qa.get("route_process_id"));
+                if (!equalValue(process.get("route_id"), route.get("id"))
+                        || qa.get("process_id") != null && !equalValue(qa.get("process_id"), process.get("process_id")))
+                    throw blocked("当前租户产品QA工序不属于正式路线");
+            }
+            validateTargetQaVersion(graph, tenant, qa.get("id"), qa.get("current_version_id"), "MES_QA", true);
+        }
+        prepareCommonQaBinding(graph, product, dcc.key.id(), tenant);
+        prepareQaAndReports(graph);
+        prepareMaterials(graph, order.key.id());
+        MesFixedTestOrderSnapshotMapper mapper = new MesFixedTestOrderSnapshotMapper(graph, jdbc, tenant);
+        Map<Entry, JsonNode> snapshots = new LinkedHashMap<>();
+        for (Entry qa : graph.entries("mes_qa_inspection_regulation_version")) {
+            JsonNode snapshot = graph.parse((String) qa.source.get("snapshot_json"));
+            mapper.collect(snapshot); snapshots.put(qa, snapshot);
+        }
+        Map<String, JsonNode> dccJson = new LinkedHashMap<>();
+        for (String field : List.of("default_attributes_json", "batch_record_total_recognition_json")) {
+            Object value = dcc.source.get(field);
+            if (value instanceof String text && !text.isBlank()) {
+                JsonNode snapshot = graph.parse(text); mapper.collect(snapshot); dccJson.put(field, snapshot);
+            }
+        }
+        for (Entry common : graph.entries("mes_qa_common_regulation_product_binding"))
+            common.overrides.put("active_binding_key", String.valueOf(graph.mappedField(common, "product_id")));
+        graph.resolveAll();
+        snapshots.forEach((qa, snapshot) -> { mapper.remap(snapshot); qa.overrides.put("snapshot_json", canonicalizer.canonicalize(snapshot.toString())); });
+        dccJson.forEach((field, snapshot) -> { mapper.remap(snapshot); dcc.overrides.put(field, canonicalizer.canonicalize(snapshot.toString())); });
+        graph.insertAll();
+        controlledContentAdapter.recordActiveRegisteredIfMissing(MesProRouteVersionDO.builder()
+                .id(number(version.get("id"))).routeId(number(route.get("id")))
+                .versionNo(String.valueOf(version.get("version_no"))).active(true).lifecycleStatus("ACTIVE").build(),
+                actor, "固定测试订单使用当前租户正式工艺版本");
+        return true;
+    }
+
     private void prepareProductQa(MesFixedTestOrderReferenceGraph graph, Map<String, Object> reference,
                                   Object product, Object dcc, long tenant) {
         List<Map<String, Object>> targets = jdbc.queryForList("SELECT * FROM mes_qa_inspection_regulation WHERE tenant_id=? AND deleted=0 AND dcc_project_code_id=? AND owner_module='MES_QA' AND lifecycle_status='PUBLISHED' FOR UPDATE", tenant, graph.id("dcc_project_code", dcc));
@@ -172,7 +371,7 @@ public class MesFixedTestOrderInitializer {
         Object targetProduct = graph.id("mdm_product", product);
         List<Map<String, Object>> targets = jdbc.queryForList("SELECT * FROM mes_qa_common_regulation_product_binding WHERE tenant_id=? AND deleted=0 AND product_id=? AND binding_status='ENABLED' FOR UPDATE", tenant, targetProduct);
         if (targets.isEmpty()) {
-            graph.include("mes_qa_common_regulation_product_binding", reference.get("id"));
+            prepareNewCommonQaBinding(graph, reference, tenant);
             return;
         }
         Map<String, Object> target = one(targets, "当前产品启用的通用QA绑定");
@@ -210,6 +409,85 @@ public class MesFixedTestOrderInitializer {
         }
     }
 
+    private record CommonQa(Object regulationId, Object versionId) { }
+
+    /** A new test binding uses this tenant's published catalog, never the reference tenant's version number. */
+    private CommonQa prepareCommonQa(MesFixedTestOrderReferenceGraph graph, Object sourceId, long tenant) {
+        Map<String, Object> source = one(graph.sourceRows("mes_qa_inspection_regulation", "id=?", sourceId), "参考通用QA规程");
+        if (!"MES_QA_COMMON".equals(source.get("owner_module"))) throw blocked("参考通用QA规程类型不符");
+        List<Map<String, Object>> targets = jdbc.queryForList("SELECT * FROM mes_qa_inspection_regulation WHERE tenant_id=? AND deleted=0 AND owner_module='MES_QA_COMMON' AND regulation_code=? FOR UPDATE", tenant, source.get("regulation_code"));
+        if (!targets.isEmpty()) {
+            Map<String, Object> target = one(targets, "当前租户通用QA规程：" + source.get("regulation_code"));
+            if (!"PUBLISHED".equals(target.get("lifecycle_status")))
+                throw blocked("当前租户通用QA规程未发布：" + source.get("regulation_code"));
+            validateTargetQaVersion(graph, tenant, target.get("id"), target.get("current_version_id"), "MES_QA_COMMON", true);
+            return new CommonQa(target.get("id"), target.get("current_version_id"));
+        }
+        // A genuinely missing definition is initialized as before; existing definitions are never overwritten.
+        graph.include("mes_qa_inspection_regulation", sourceId);
+        return new CommonQa(graph.id("mes_qa_inspection_regulation", sourceId),
+                graph.id("mes_qa_inspection_regulation_version", source.get("current_version_id")));
+    }
+
+    private void prepareNewCommonQaBinding(MesFixedTestOrderReferenceGraph graph, Map<String, Object> reference, long tenant) {
+        Map<String, Object> overrides = new LinkedHashMap<>();
+        Object sourceSetId = reference.get("common_regulation_set_id");
+        Object sourceSetVersionId = reference.get("common_regulation_set_version_id");
+        if ((sourceSetId == null) != (sourceSetVersionId == null)) throw blocked("参考通用QA缺少完整规程套关联");
+        CommonQa primary;
+        if (sourceSetId == null) {
+            primary = prepareCommonQa(graph, reference.get("regulation_id"), tenant);
+        } else {
+            Map<String, Object> sourceSet = one(graph.sourceRows("mes_qa_common_regulation_set", "id=?", sourceSetId), "参考通用QA规程套");
+            Map<String, Object> sourceVersion = one(graph.sourceRows("mes_qa_common_regulation_set_version", "id=?", sourceSetVersionId), "参考通用QA规程套版本");
+            List<Map<String, Object>> sourceMembers = graph.sourceRows("mes_qa_common_regulation_set_version_member", "set_version_id=?", sourceSetVersionId);
+            if (!equalValue(sourceVersion.get("set_id"), sourceSetId) || sourceMembers.isEmpty())
+                throw blocked("参考通用QA规程套版本归属不符或成员为空");
+            List<Map<String, Object>> targetSets = jdbc.queryForList("SELECT * FROM mes_qa_common_regulation_set WHERE tenant_id=? AND deleted=0 AND set_code=? FOR UPDATE", tenant, sourceSet.get("set_code"));
+            if (!targetSets.isEmpty()) {
+                Map<String, Object> set = one(targetSets, "当前租户通用QA规程套");
+                Map<String, Object> version = targetDefinition("mes_qa_common_regulation_set_version", tenant, set.get("current_version_id"));
+                if (!"ENABLED".equals(set.get("set_status")) || !"PUBLISHED".equals(version.get("lifecycle_status"))
+                        || !equalValue(version.get("set_id"), set.get("id")))
+                    throw blocked("当前租户通用QA规程套未启用、未发布或版本归属不符");
+                List<Map<String, Object>> members = jdbc.queryForList("SELECT m.*,q.regulation_code FROM mes_qa_common_regulation_set_version_member m JOIN mes_qa_inspection_regulation q ON q.id=m.regulation_id AND q.tenant_id=m.tenant_id AND q.deleted=0 WHERE m.tenant_id=? AND m.deleted=0 AND m.set_version_id=? FOR UPDATE", tenant, version.get("id"));
+                for (var member : members) validateTargetQaVersion(graph, tenant, member.get("regulation_id"), member.get("regulation_version_id"), "MES_QA_COMMON", false);
+                Set<Object> roles = new HashSet<>(); members.forEach(m -> roles.add(m.get("member_role")));
+                if (sourceMembers.stream().anyMatch(m -> !roles.contains(m.get("member_role"))))
+                    throw blocked("当前产品通用QA规程套缺少所需适用环节");
+                String primaryCode = String.valueOf(one(graph.sourceRows("mes_qa_inspection_regulation", "id=?", reference.get("regulation_id")), "参考通用QA主规程").get("regulation_code"));
+                List<CommonQa> primaries = members.stream().filter(m -> primaryCode.equals(m.get("regulation_code")))
+                        .map(m -> new CommonQa(m.get("regulation_id"), m.get("regulation_version_id"))).distinct().toList();
+                if (primaries.size() != 1) throw blocked("当前通用QA规程套缺少唯一主规程版本：" + primaryCode);
+                primary = primaries.get(0);
+                overrides.put("common_regulation_set_id", set.get("id"));
+                overrides.put("common_regulation_set_version_id", version.get("id"));
+            } else {
+                if (!"ENABLED".equals(sourceSet.get("set_status")) || !"PUBLISHED".equals(sourceVersion.get("lifecycle_status")))
+                    throw blocked("参考通用QA规程套未启用或版本未发布，不能初始化新规程套");
+                Entry set = graph.plan("mes_qa_common_regulation_set", sourceSetId, sourceSet, Collections.singletonMap("current_version_id", null));
+                Map<String, Object> versionOverrides = new LinkedHashMap<>();
+                versionOverrides.put("published_at", null); versionOverrides.put("retired_at", null);
+                graph.plan("mes_qa_common_regulation_set_version", sourceSetVersionId, sourceVersion, versionOverrides);
+                Map<Object, CommonQa> selected = new HashMap<>();
+                for (var member : sourceMembers) {
+                    Object regulation = member.get("regulation_id");
+                    CommonQa qa = selected.computeIfAbsent(regulation, id -> prepareCommonQa(graph, id, tenant));
+                    graph.plan("mes_qa_common_regulation_set_version_member", member.get("id"), member,
+                            Map.of("regulation_id", qa.regulationId(), "regulation_version_id", qa.versionId()));
+                }
+                primary = selected.get(reference.get("regulation_id"));
+                if (primary == null) throw blocked("参考通用QA主规程不属于绑定的规程套");
+                Object versionId = graph.id("mes_qa_common_regulation_set_version", sourceSetVersionId);
+                set.overrides.put("current_version_id", versionId);
+                overrides.put("common_regulation_set_id", graph.id("mes_qa_common_regulation_set", sourceSetId));
+                overrides.put("common_regulation_set_version_id", versionId);
+            }
+        }
+        overrides.put("regulation_id", primary.regulationId()); overrides.put("regulation_version_id", primary.versionId());
+        graph.plan("mes_qa_common_regulation_product_binding", reference.get("id"), reference, overrides);
+    }
+
     private void validateTargetQaVersion(MesFixedTestOrderReferenceGraph graph, long tenant, Object regulationId, Object versionId,
                                          String owner, boolean currentPublished) {
         Map<String, Object> regulation = targetDefinition("mes_qa_inspection_regulation", tenant, regulationId);
@@ -226,8 +504,10 @@ public class MesFixedTestOrderInitializer {
         // SaveReqVO.regulationId is optional when a regulation is first created; the version FK owns identity.
         if (snapshot.hasNonNull("regulationId") && !equalValue(value(snapshot.get("regulationId")), regulationId)
                 || !owner.equals(snapshot.path("ownerModule").asText())
-                || !equalValue(value(snapshot.get("dccProjectCodeId")), regulation.get("dcc_project_code_id")))
-            throw blocked("当前产品QA正式快照与规程身份不一致，保留原绑定");
+                // Common regulations are an independent catalog; legacy parent DCC metadata is not their identity.
+                || "MES_QA".equals(owner) && !equalValue(value(snapshot.get("dccProjectCodeId")), regulation.get("dcc_project_code_id")))
+            throw blocked("当前租户QA正式快照与规程身份不一致，保留原绑定：规程ID=" + regulationId
+                    + "，版本ID=" + versionId + "，快照规程ID=" + snapshot.path("regulationId").asText("未填写"));
     }
 
     private Map<String, Object> targetDefinition(String table, long tenant, Object id) {

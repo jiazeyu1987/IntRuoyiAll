@@ -7,7 +7,7 @@
 先确认当前同步任务已结束，再按当前任务授权停止原后端。使用现有构建流程生成启动包，保留原环境变量和工作目录，然后运行：
 
 ```powershell
-./scripts/dev/start-debug-backend.ps1 -JavaHome 'C:/Program Files/Eclipse Adoptium/jdk-21.0.10.7-hotspot' -Jar '<现有构建流程生成的绝对路径.jar>' -Port 48081
+./scripts/dev/start-debug-backend.ps1 -JavaHome $env:JAVA_HOME -Jar '<现有构建流程生成的绝对路径.jar>' -Port 48081
 ```
 
 48081 仅供主工作区现有后端使用；附加 worktree 必须先预约槽位，并传入该槽位端口及独立 DebugPort。调试默认 5005，仅绑定 127.0.0.1。端口被占用立即失败，不杀进程。
@@ -19,7 +19,7 @@
 3. 从模块 target/classes 指定准确的类名、class 文件运行：
 
 ```powershell
-./scripts/dev/hotswap.ps1 -JavaHome 'C:/Program Files/Eclipse Adoptium/jdk-21.0.10.7-hotspot' -ClassNames '完整包名.类名' -ClassFiles '<对应 target/classes 下的绝对路径.class>'
+./scripts/dev/hotswap.ps1 -JavaHome $env:JAVA_HOME -ClassNames '完整包名.类名' -ClassFiles '<对应 target/classes 下的绝对路径.class>'
 ```
 
 多个类用等长 ClassNames/ClassFiles 数组一次提交。成功输出每个 REDEFINED 类名；未加载类、多个类加载器匹配、结构不支持、调试连接失败均明确报错。不会自动重启或降级。日志用现有日志框架；不打印认证信息。

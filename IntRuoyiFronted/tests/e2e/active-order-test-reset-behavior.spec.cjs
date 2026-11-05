@@ -14,6 +14,47 @@ const extract = name => {
   return page.slice(start, end)
 }
 const receipt = { workOrderCode: 'FIXED-TEST-01', activeOrderId: '9007199254741001', workOrderId: 42 }
+const createDataHarness = (api) => {
+  const successes = [], errors = []
+  const context = {
+    activeOrderTestResetBlocked: ref(false), activeOrderTestResetSubmitting: ref(false),
+    activeOrderTestDataSubmitting: ref(false), activeOrderTestDataReceipt: ref(undefined),
+    prepareFixedTestOrderData: api,
+    ElMessage: { success: value => successes.push(value), error: value => errors.push(value) },
+    resolveErrorMessage: error => error.message
+  }
+  context.activeOrderTestResetBlocked = { get value() { return context.activeOrderTestResetSubmitting.value } }
+  vm.createContext(context)
+  vm.runInContext(ts.transpileModule(extract('handlePrepareFixedTestOrderData') + '\nglobalThis.run = handlePrepareFixedTestOrderData', { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText, context)
+  return { context, successes, errors, run: context.run }
+}
+
+test('data preparation displays actual created/skipped counts and sends one request while busy', async () => {
+  let resolve, calls = 0
+  const h = createDataHarness(() => { calls++; return new Promise(done => { resolve = done }) })
+  const first = h.run()
+  await h.run()
+  assert.equal(h.context.activeOrderTestDataSubmitting.value, true)
+  assert.equal(calls, 1)
+  resolve({ workOrderCode: 'FIXED', documents: ['生产订单', '领料单明细', '补料单明细', '生产用料清单明细'].map(name => ({ name, createdCount: 0, skippedCount: 2 })) })
+  await first
+  assert.equal(h.context.activeOrderTestDataReceipt.value.success, true)
+  assert.match(h.context.activeOrderTestDataReceipt.value.message, /补料单明细新增0条、跳过2条/)
+  assert.equal(h.context.activeOrderTestResetSubmitting.value, false)
+})
+
+test('data preparation failures and invalid receipts never report success and release the mutation lock', async () => {
+  for (const api of [async () => { throw new Error('单据缺失') }, async () => ({ workOrderCode: 'FIXED', documents: [] })]) {
+    const h = createDataHarness(api)
+    await h.run()
+    assert.equal(h.successes.length, 0)
+    assert.equal(h.errors.length, 1)
+    assert.equal(h.context.activeOrderTestDataReceipt.value.success, false)
+    assert.equal(h.context.activeOrderTestResetSubmitting.value, false)
+    assert.equal(h.context.activeOrderTestDataSubmitting.value, false)
+  }
+})
+
 const createHarness = (overrides = {}) => {
   const calls = [], successes = [], errors = [], warnings = []
   const context = {
@@ -93,6 +134,21 @@ test('request failure remains visible, preserves current filter and unlocks rese
   assert.match(h.errors[0], /reset refused/)
   assert.equal(h.context.activeOrderWorkOrderKeyword.value, 'OLD-ORDER')
   assert.equal(h.context.activeOrderTestResetSubmitting.value, false)
+  assert.equal(h.context.activeOrderTestResetReceipt.value.state, 'unknown')
+})
+
+test('missing tenant orders, project QA and route prerequisites and cleanup rejections report a definite rollback', async () => {
+  for (const code of [1040760394, 1040502000, '1040502000', 1040506111, 1040760324, '1040760324']) {
+    const h = createHarness({ resetFixedSimulationActiveOrder: async () => {
+      throw Object.assign(new Error('production order missing or cleanup refused'), { code })
+    } })
+    await h.run()
+    assert.equal(h.successes.length, 0)
+    assert.equal(h.context.activeOrderTestResetReceipt.value.state, 'rejected')
+    assert.match(h.errors[0], /重置已拒绝.*本次未完成重置/)
+    assert.equal(h.context.activeOrderWorkOrderKeyword.value, 'OLD-ORDER')
+    assert.equal(h.context.activeOrderTestResetSubmitting.value, false)
+  }
 })
 
 test('refresh failure reports that reset already succeeded and does not repeat the write', async () => {
@@ -122,7 +178,7 @@ test('visible reset and mutation controls prevent concurrent work and retain ori
   const resetButton = page.match(/<el-button\s[^>]*data-team-leader-reset-fixed-active-order[\s\S]*?<\/el-button>/)?.[0]
   assert.ok(resetButton)
   assert.match(resetButton, /:disabled="activeOrderTestResetBlocked"/)
-  assert.match(resetButton, /重置指定测试订单/)
+  assert.match(resetButton, /\n\s+重置\s*\n/)
   assert.match(resetButton, /清理.*本轮.*测试/)
   for (const marker of ['data-team-leader-simulate-active-order-stage1-p1', 'data-team-leader-active-order-release-apply', 'data-team-leader-data-cleanup']) {
     const index = page.indexOf(marker)

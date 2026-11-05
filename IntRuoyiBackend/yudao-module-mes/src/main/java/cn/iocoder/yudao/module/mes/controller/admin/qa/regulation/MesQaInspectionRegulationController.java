@@ -177,6 +177,46 @@ public class MesQaInspectionRegulationController {
         return success(regulationService.listCommonRegulationPublishedVersions());
     }
 
+    @GetMapping("/common-regulations/released-versions")
+    @Operation(summary = "获得全部已发布通用检验规程及历史版本")
+    @PreAuthorize("@ss.hasPermission('mes:qc-template:query')")
+    public CommonResult<List<MesQaCommonRegulationVersionOptionRespVO>> listCommonRegulationReleasedVersions() {
+        return success(regulationService.listCommonRegulationReleasedVersions());
+    }
+
+    @GetMapping("/common-regulations/published-version")
+    @Operation(summary = "查看通用检验规程已发布版本内容")
+    @PreAuthorize("@ss.hasPermission('mes:qc-template:query')")
+    public CommonResult<MesQaInspectionRegulationPublishedVersionRespVO> getCommonRegulationPublishedVersion(
+            @RequestParam("versionId") Long versionId) {
+        return success(regulationService.getCommonRegulationPublishedVersion(versionId));
+    }
+
+    @DeleteMapping("/common-regulations/version")
+    @Operation(summary = "删除未被引用的误导入通用规程版本")
+    @PreAuthorize("@ss.hasPermission('mes:qc-template:update')")
+    public CommonResult<Boolean> deleteCommonRegulationVersion(@RequestParam("versionId") Long versionId) {
+        regulationService.deleteCommonRegulationVersion(versionId);
+        return success(true);
+    }
+
+    @GetMapping("/common-regulations/versions")
+    @Operation(summary = "获得单份通用检验规程的全部版本")
+    @PreAuthorize("@ss.hasPermission('mes:qc-template:query')")
+    public CommonResult<List<MesQaInspectionRegulationVersionOptionRespVO>> listCommonRegulationVersions(
+            @RequestParam("regulationId") Long regulationId) {
+        return success(regulationService.listCommonRegulationVersions(regulationId));
+    }
+
+    @GetMapping("/common-regulations/editor-version")
+    @Operation(summary = "获得通用规程编辑内容；未指定版本时优先恢复草稿")
+    @PreAuthorize("@ss.hasPermission('mes:qc-template:query')")
+    public CommonResult<MesQaInspectionRegulationPublishedVersionRespVO> getCommonRegulationEditorVersion(
+            @RequestParam("regulationId") Long regulationId,
+            @RequestParam(value = "versionId", required = false) Long versionId) {
+        return success(regulationService.getCommonRegulationEditorVersion(regulationId, versionId));
+    }
+
     @GetMapping("/common-sets")
     @Operation(summary = "获得通用检验规程套列表")
     @PreAuthorize("@ss.hasPermission('mes:qc-template:query')")

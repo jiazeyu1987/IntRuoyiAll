@@ -387,7 +387,6 @@
 import { shallowRef, toRaw } from 'vue'
 import type { ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
 
-import { loadAllListPages } from '@/hooks/web/useListColumnFilter'
 
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 defineOptions({ name: 'ProductListTable' })
@@ -1508,12 +1507,7 @@ const normalizeProductRows = (products: unknown[]): ProductListRow[] => {
 
 const normalizedRows = computed(() => normalizeProductRows(props.products))
 
-const totalPages = computed(() => {
-  if (props.pageTotal <= 0) {
-    return 0
-  }
-  return Math.ceil(props.pageTotal / props.pageSize)
-})
+
 
 const emitSearch = () => {
   emit('search', {

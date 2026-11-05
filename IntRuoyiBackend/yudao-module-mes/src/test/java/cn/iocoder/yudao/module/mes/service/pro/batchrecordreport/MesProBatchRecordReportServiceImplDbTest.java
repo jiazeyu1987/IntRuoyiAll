@@ -135,7 +135,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
-@Import({MesProBatchRecordReportServiceImpl.class, MesProBatchRecordRouteGenerationServiceImpl.class,
+@Import({cn.iocoder.yudao.module.mes.service.pro.frontline.DccProjectResolver.class, MesProBatchRecordReportServiceImpl.class, MesProBatchRecordRouteGenerationServiceImpl.class,
         cn.iocoder.yudao.module.mes.service.pro.process.MesProProcessCreationService.class,
         MesProBatchRecordVersionBusinessApprovalEffectExecutor.class,
         MesProRouteOwnerPermissionServiceImpl.class,
@@ -209,7 +209,7 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
     void setUp() {
         TenantContextHolder.setTenantId(1L);
         AtomicInteger gxCodeCounter = new AtomicInteger();
-        when(autoCodeRecordService.generateAutoCode("PRO_PROCESS_GX_CODE", null))
+        when(autoCodeRecordService.generateProjectCode(eq("PRO_PROCESS_GX_CODE"), any()))
                 .thenAnswer(invocation -> "GX-" + String.format("%04d", gxCodeCounter.incrementAndGet()));
         jdbcTemplate().execute("DELETE FROM mes_pro_route_dcc_project_binding");
         jdbcTemplate().execute("DELETE FROM mes_pro_route_process_flow_boundary_edge");
@@ -232,7 +232,7 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
         reportMapper.delete(new QueryWrapper<>());
         when(routeRecognizer.routeKey()).thenReturn(MesProBatchRecordRecognitionRouteKeys.B);
         AtomicInteger routeCodeCounter = new AtomicInteger();
-        when(autoCodeRecordService.generateAutoCode(eq(MesMdAutoCodeRuleCodeEnum.PRO_ROUTE_CODE.getCode())))
+        when(autoCodeRecordService.generateProjectCode(eq(MesMdAutoCodeRuleCodeEnum.PRO_ROUTE_CODE.getCode()), any()))
                 .thenAnswer(invocation -> "ROUTE-IMPORT-" + routeCodeCounter.incrementAndGet());
         AtomicInteger permissionScopeCounter = new AtomicInteger(700000);
         when(permissionScopeService.saveRules(any(MesProEdhrPermissionScopeSaveCommand.class)))

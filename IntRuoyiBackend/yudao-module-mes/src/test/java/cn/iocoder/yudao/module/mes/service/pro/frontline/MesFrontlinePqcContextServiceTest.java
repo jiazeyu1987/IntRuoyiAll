@@ -195,6 +195,9 @@ class MesFrontlinePqcContextServiceTest {
         when(permissions.hasAnyPermissions(anyLong(),anyString())).thenReturn(true);
         var personnel=new cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesPqcLeaderPersonnelServiceImpl(
                 scopeMapper,adminUserApi,permissions,mock(cn.iocoder.yudao.module.system.api.permission.RoleApi.class));
+        var authority=mock(cn.iocoder.yudao.module.system.api.permission.ApprovalAuthorityApi.class);
+        when(authority.lockTenantApprovalAuthority(1L)).thenReturn(new cn.iocoder.yudao.module.system.api.permission.dto.ApprovalAuthorityRevisionDTO(1L, 1L));
+        org.springframework.test.util.ReflectionTestUtils.setField(personnel,"qualificationAuthority",authority);
         var owners=new cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffOwnerResolver();
         var users=mock(cn.iocoder.yudao.module.system.dal.mysql.user.AdminUserMapper.class);
         when(users.selectById(anyLong())).thenAnswer(call -> {
@@ -276,7 +279,7 @@ class MesFrontlinePqcContextServiceTest {
     }
 
     @Test
-    void listActiveOrdersReturnsOnlyOrdersWithPendingPqcTasks() {
+    void listActiveOrdersIncludesActiveOrdersNeedingNewPatrolRounds() {
         List<MesProcessPoolActiveOrderDO> activeOrders = List.of(
                 activeOrder(5001L, 1001L, LocalDateTime.of(2026, 8, 12, 8, 0)),
                 activeOrder(5002L, 1001L, LocalDateTime.of(2026, 8, 12, 8, 1)),
@@ -291,12 +294,12 @@ class MesFrontlinePqcContextServiceTest {
 
         List<MesFrontlineActiveOrderCandidate> result = service.listActiveOrders();
 
-        assertEquals(2, result.size());
-        assertEquals(List.of(5003L, 5001L),
+        assertEquals(3, result.size());
+        assertEquals(List.of(5003L, 5002L, 5001L),
                 result.stream().map(MesFrontlineActiveOrderCandidate::activeOrderId).toList());
-        assertEquals(List.of(1001L, 1001L),
+        assertEquals(List.of(1001L, 1001L, 1001L),
                 result.stream().map(MesFrontlineActiveOrderCandidate::workOrderId).toList());
-        assertEquals(List.of(ROUTE_VERSION_ID, ROUTE_VERSION_ID),
+        assertEquals(List.of(ROUTE_VERSION_ID, ROUTE_VERSION_ID, ROUTE_VERSION_ID),
                 result.stream().map(MesFrontlineActiveOrderCandidate::routeVersionId).toList());
         verify(pqcTaskMapper).selectActiveOrderIdsByTaskStatus(Set.of(5001L, 5002L, 5003L), "PENDING");
     }
@@ -338,6 +341,7 @@ class MesFrontlinePqcContextServiceTest {
         long commonQaProcessId = 9002L;
         MesProcessPoolActiveOrderDO activeOrder = activeOrder(ACTIVE_ORDER_ID, WORK_ORDER_ID,
                 LocalDateTime.of(2026, 8, 12, 8, 0));
+        activeOrder.setPqcQaSourceVersionIdsJson("[8001,8002]");
         when(activeOrderMapper.selectById(ACTIVE_ORDER_ID)).thenReturn(activeOrder);
         when(workOrderMapper.selectById(WORK_ORDER_ID)).thenReturn(workOrder(WORK_ORDER_ID));
         when(routeMapper.selectByIdIgnoreDeleted(ROUTE_ID)).thenReturn(route());
@@ -369,7 +373,7 @@ class MesFrontlinePqcContextServiceTest {
         assertEquals(2, result.size());
         assertEquals(List.of("PRODUCT_QA", "COMMON_PACKAGING"), result.stream()
                 .map(MesFrontlinePqcProcessRespVO::getRegulationSourceType).toList());
-        assertEquals(DCC_PROJECT_ID, result.get(1).getDccProjectCodeId());
+        assertEquals(commonDccProjectId, result.get(1).getDccProjectCodeId());
         assertEquals(commonVersionId, result.get(1).getRegulationVersionId());
         verify(regulationService).getLockedCommonVersionForOrder(commonRegulationId, commonVersionId);
         verify(pqcItemEquipmentConfigService).listEnabledEquipmentOptionsByProjectVersionAndItemCodes(
@@ -388,6 +392,7 @@ class MesFrontlinePqcContextServiceTest {
         long secondCommonQaProcessId = 1003L;
         MesProcessPoolActiveOrderDO activeOrder = activeOrder(ACTIVE_ORDER_ID, WORK_ORDER_ID,
                 LocalDateTime.of(2026, 9, 16, 8, 0));
+        activeOrder.setPqcQaSourceVersionIdsJson("[8001,8002,8003]");
         when(activeOrderMapper.selectById(ACTIVE_ORDER_ID)).thenReturn(activeOrder);
         when(workOrderMapper.selectById(WORK_ORDER_ID)).thenReturn(workOrder(WORK_ORDER_ID));
         when(routeMapper.selectByIdIgnoreDeleted(ROUTE_ID)).thenReturn(route());
@@ -555,9 +560,9 @@ class MesFrontlinePqcContextServiceTest {
         when(pqcTaskMapper.selectListByActiveOrderId(ACTIVE_ORDER_ID)).thenReturn(List.of(
                 MesPqcInspectionTaskDO.builder().id(9101L).activeOrderId(ACTIVE_ORDER_ID)
                         .workOrderId(WORK_ORDER_ID).routeId(ROUTE_ID).routeVersionId(ROUTE_VERSION_ID)
-                        .routeProcessId(30001L).processId(40001L)
+                        .routeProcessId(null).processId(null)
                         .regulationVersionId(REGULATION_VERSION_ID).qaProcessId(QA_PROCESS_ID)
-                        .qaItemCode("ID-001")
+                        .qaItemCode(null).inspectionItemPlanJson("{\"ID-001\":5}")
                         .inspectionRuleKey("FIRST").inspectionType("FIRST")
                         .businessDate(LocalDate.of(2026, 8, 20)).shiftCode("FIRST").roundNo(1)
                         .plannedInspectionQuantity(5).taskStatus("PENDING").build()));
@@ -628,7 +633,7 @@ class MesFrontlinePqcContextServiceTest {
                 .id(QA_PROCESS_ID).regulationVersionId(REGULATION_VERSION_ID).build());
         when(versionMapper.selectById(REGULATION_VERSION_ID)).thenReturn(MesQaInspectionRegulationVersionDO.builder()
                 .id(REGULATION_VERSION_ID).regulationId(REGULATION_ID).lifecycleStatus("PUBLISHED")
-                .snapshotJson(lockedSnapshotOverride != null ? lockedSnapshotOverride : explicitUnboundEquipment && !missingLockedSnapshot ? "{\"processes\":[{\"items\":[{\"itemCode\":\"ID-001\",\"itemName\":\"牢固度\",\"equipmentUnboundReason\":\"检测专用泵筒待补齐真实台账\"}]}]}" : null).build());
+                .snapshotJson(missingLockedSnapshot ? null : lockedSnapshotOverride != null ? lockedSnapshotOverride : explicitUnboundEquipment && !missingLockedSnapshot ? "{\"processes\":[{\"items\":[{\"itemCode\":\"ID-001\",\"itemName\":\"牢固度\",\"equipmentUnboundReason\":\"检测专用泵筒待补齐真实台账\"}]}]}" : "{\"processes\":[{\"items\":[{\"itemCode\":\"ID-001\",\"itemName\":\"外观\"}]}]}").build());
         if (currentEquipmentConfigured) {
             when(pqcItemEquipmentConfigService.listEnabledEquipmentOptionsByProjectVersionAndItemCodes(anyLong(), anyLong(), any()))
                     .thenReturn(Map.of("ID-001", List.of(new MesPqcItemEquipmentOption(
@@ -839,7 +844,7 @@ class MesFrontlinePqcContextServiceTest {
                         .regulationVersionId(REGULATION_VERSION_ID).build());
         when(versionMapper.selectById(REGULATION_VERSION_ID)).thenReturn(
                 MesQaInspectionRegulationVersionDO.builder().id(REGULATION_VERSION_ID)
-                        .regulationId(REGULATION_ID).lifecycleStatus("PUBLISHED").build());
+                        .regulationId(REGULATION_ID).lifecycleStatus("PUBLISHED").snapshotJson("{\"processes\":[{\"items\":[{\"itemCode\":\"ID-001\",\"itemName\":\"外观\"}]}]}").build());
         when(regulationMapper.selectById(REGULATION_ID)).thenReturn(
                 MesQaInspectionRegulationDO.builder().id(REGULATION_ID).dccProjectCodeId(DCC_PROJECT_ID).build());
         when(dccProjectCodeMapper.selectById(DCC_PROJECT_ID)).thenReturn(
@@ -940,9 +945,9 @@ class MesFrontlinePqcContextServiceTest {
                         .taskStatus("CANCELLED").build(),
                 MesPqcInspectionTaskDO.builder().id(9101L).activeOrderId(ACTIVE_ORDER_ID)
                         .workOrderId(WORK_ORDER_ID).routeId(ROUTE_ID).routeVersionId(ROUTE_VERSION_ID)
-                        .routeProcessId(30001L).processId(40001L)
+                        .routeProcessId(null).processId(null)
                         .regulationVersionId(REGULATION_VERSION_ID).qaProcessId(QA_PROCESS_ID)
-                        .qaItemCode("ID-001")
+                        .qaItemCode(null).inspectionItemPlanJson("{\"ID-001\":5}")
                         .inspectionRuleKey("FIRST").inspectionType("FIRST")
                         .businessDate(LocalDate.of(2026, 8, 12)).shiftCode("FIRST").roundNo(1)
                         .plannedInspectionQuantity(5).taskStatus("PENDING").build()));
@@ -956,13 +961,13 @@ class MesFrontlinePqcContextServiceTest {
         assertEquals(1, result.size());
         assertEquals(List.of(9101L), result.get(0).getPqcTaskOptions().stream()
                 .map(MesFrontlinePqcProcessRespVO.PqcTaskOption::getPqcTaskId).toList());
-        assertEquals("ID-001", result.get(0).getPqcTaskOptions().get(0).getQaItemCode());
+        assertNull(result.get(0).getPqcTaskOptions().get(0).getQaItemCode());
         assertEquals(1, result.get(0).getTaskSummary().getTotalCount());
         assertEquals(0, result.get(0).getTaskSummary().getCancelledCount());
     }
 
     @Test
-    void listProcessesPreservesProductionIdentityForPartialMethodsAcrossSameInspectionRound() {
+    void listProcessesRejectsLegacyTasksBoundToProductionProcesses() {
         MesProcessPoolActiveOrderDO order = activeOrder(ACTIVE_ORDER_ID, WORK_ORDER_ID,
                 LocalDateTime.of(2026, 8, 12, 8, 0));
         order.setDccProjectCodeId(DCC_PROJECT_ID);
@@ -986,27 +991,8 @@ class MesFrontlinePqcContextServiceTest {
                 processSnapshot(30003L, 40003L).setProcessNameSnapshot("后续生产工序"),
                 processSnapshot(30001L, 40001L).setProcessNameSnapshot("当前生产工序")));
 
-        List<MesFrontlinePqcProcessRespVO.PqcTaskOption> projected =
-                service.listProcessesByActiveOrder(ACTIVE_ORDER_ID).get(0).getPqcTaskOptions();
-
-        assertEquals(List.of(9101L, 9102L, 9103L, 9104L), projected.stream()
-                .map(MesFrontlinePqcProcessRespVO.PqcTaskOption::getPqcTaskId).toList());
-        assertEquals(List.of(30001L, 30003L, 30001L, 30003L), projected.stream()
-                .map(MesFrontlinePqcProcessRespVO.PqcTaskOption::getRouteProcessId).toList());
-        assertEquals(List.of(40001L, 40003L, 40001L, 40003L), projected.stream()
-                .map(MesFrontlinePqcProcessRespVO.PqcTaskOption::getProcessId).toList());
-        assertEquals(List.of("当前生产工序", "后续生产工序", "当前生产工序", "后续生产工序"), projected.stream()
-                .map(MesFrontlinePqcProcessRespVO.PqcTaskOption::getProductionProcessName).toList());
-        assertEquals(List.of("SUBMITTED", "PENDING", "PENDING", "PENDING"), projected.stream()
-                .map(MesFrontlinePqcProcessRespVO.PqcTaskOption::getTaskStatus).toList());
-        assertTrue(projected.stream().allMatch(option -> "FIRST".equals(option.getInspectionRuleKey())
-                && LocalDate.of(2026, 8, 12).equals(option.getBusinessDate())
-                && "FIRST".equals(option.getShiftCode()) && option.getRoundNo() == 1));
-        assertEquals(List.of(9103L), projected.stream()
-                .filter(option -> option.getRouteProcessId().equals(30001L)
-                        && option.getProcessId().equals(40001L) && "PENDING".equals(option.getTaskStatus()))
-                .map(MesFrontlinePqcProcessRespVO.PqcTaskOption::getPqcTaskId).toList());
-        verify(processSnapshotMapper).selectListByActiveOrderId(ACTIVE_ORDER_ID);
+        var error = assertThrows(ServiceException.class, () -> service.listProcessesByActiveOrder(ACTIVE_ORDER_ID));
+        assertEquals(PRO_FRONTLINE_PQC_TASK_IDENTITY_MISMATCH.getCode(), error.getCode());
     }
 
     private static MesPqcInspectionTaskDO partialMethodTask(
@@ -1040,36 +1026,36 @@ class MesFrontlinePqcContextServiceTest {
         when(pqcTaskMapper.selectListByActiveOrderId(ACTIVE_ORDER_ID)).thenReturn(List.of(
                 MesPqcInspectionTaskDO.builder().id(9101L).activeOrderId(ACTIVE_ORDER_ID)
                         .workOrderId(WORK_ORDER_ID).routeId(ROUTE_ID).routeVersionId(ROUTE_VERSION_ID)
-                        .routeProcessId(30001L).processId(40001L)
+                        .routeProcessId(null).processId(null)
                         .regulationVersionId(REGULATION_VERSION_ID).qaProcessId(QA_PROCESS_ID)
-                        .qaItemCode("ID-001")
-                        .inspectionRuleKey("PATROL_PM").inspectionType("PATROL")
-                        .businessDate(LocalDate.of(2026, 8, 12)).shiftCode("PM").roundNo(1)
-                        .plannedInspectionQuantity(5).taskStatus("CONFIRMED").build(),
+                        .qaItemCode(null).inspectionItemPlanJson("{\"ID-001\":5}")
+                        .inspectionRuleKey("PATROL").inspectionType("PATROL")
+                        .businessDate(LocalDate.of(2026, 8, 12)).shiftCode("PATROL").roundNo(2)
+                        .inspectionSamplingPlanJson(JsonUtils.toJsonString(Map.of("ID-001", cn.iocoder.yudao.module.mes.service.qc.sampling.MesQcSamplingPlan.calculate(new BigDecimal("50"), "I")))).plannedInspectionQuantity(5).taskStatus("CONFIRMED").build(),
                 MesPqcInspectionTaskDO.builder().id(9102L).activeOrderId(ACTIVE_ORDER_ID)
                         .workOrderId(WORK_ORDER_ID).routeId(ROUTE_ID).routeVersionId(ROUTE_VERSION_ID)
-                        .routeProcessId(30001L).processId(40001L)
+                        .routeProcessId(null).processId(null)
                         .regulationVersionId(REGULATION_VERSION_ID).qaProcessId(QA_PROCESS_ID)
-                        .qaItemCode("ID-001")
+                        .qaItemCode(null).inspectionItemPlanJson("{\"ID-001\":5}")
                         .inspectionRuleKey("FIRST").inspectionType("FIRST")
                         .businessDate(LocalDate.of(2026, 8, 12)).shiftCode("FIRST").roundNo(1)
                         .plannedInspectionQuantity(5).taskStatus("PENDING").build(),
                 MesPqcInspectionTaskDO.builder().id(9103L).activeOrderId(ACTIVE_ORDER_ID)
                         .workOrderId(WORK_ORDER_ID).routeId(ROUTE_ID).routeVersionId(ROUTE_VERSION_ID)
-                        .routeProcessId(30001L).processId(40001L)
+                        .routeProcessId(null).processId(null)
                         .regulationVersionId(REGULATION_VERSION_ID).qaProcessId(QA_PROCESS_ID)
-                        .qaItemCode("ID-001")
-                        .inspectionRuleKey("PATROL_AM").inspectionType("PATROL")
-                        .businessDate(LocalDate.of(2026, 8, 12)).shiftCode("AM").roundNo(1)
-                        .plannedInspectionQuantity(5).taskStatus("SUBMITTED").build(),
+                        .qaItemCode(null).inspectionItemPlanJson("{\"ID-001\":5}")
+                        .inspectionRuleKey("PATROL").inspectionType("PATROL")
+                        .businessDate(LocalDate.of(2026, 8, 12)).shiftCode("PATROL").roundNo(1)
+                        .inspectionSamplingPlanJson(JsonUtils.toJsonString(Map.of("ID-001", cn.iocoder.yudao.module.mes.service.qc.sampling.MesQcSamplingPlan.calculate(new BigDecimal("50"), "I")))).plannedInspectionQuantity(5).taskStatus("SUBMITTED").build(),
                 MesPqcInspectionTaskDO.builder().id(9104L).activeOrderId(ACTIVE_ORDER_ID)
                         .workOrderId(WORK_ORDER_ID).routeId(ROUTE_ID).routeVersionId(ROUTE_VERSION_ID)
-                        .routeProcessId(30003L).processId(40003L)
+                        .routeProcessId(null).processId(null)
                         .regulationVersionId(REGULATION_VERSION_ID).qaProcessId(QA_PROCESS_ID)
-                        .qaItemCode("ID-001")
+                        .qaItemCode(null).inspectionItemPlanJson("{\"ID-001\":5}")
                         .inspectionRuleKey("FINAL").inspectionType("FINAL")
                         .businessDate(LocalDate.of(2026, 8, 12)).shiftCode("FINAL").roundNo(1)
-                        .plannedInspectionQuantity(3).taskStatus("CANCELLED").build()));
+                        .inspectionItemPlanJson("{\"ID-001\":3}").plannedInspectionQuantity(3).taskStatus("CANCELLED").build()));
         when(processSnapshotMapper.selectListByActiveOrderId(ACTIVE_ORDER_ID)).thenReturn(List.of(
                 processSnapshot(30001L, 40001L),
                 processSnapshot(30003L, 40003L)));
@@ -1086,12 +1072,12 @@ class MesFrontlinePqcContextServiceTest {
                 result.stream().map(MesFrontlinePqcProcessRespVO::getQaProcessName).toList());
         assertEquals(ACTIVE_ORDER_ID, result.get(0).getActiveOrderId());
         assertEquals(REGULATION_VERSION_ID, result.get(0).getRegulationVersionId());
-        assertEquals(List.of("FIRST", "PATROL_AM", "PATROL_PM", "FINAL"),
+        assertEquals(List.of("FIRST", "PATROL", "FINAL"),
                 result.get(0).getInspectionTypeRules().stream()
                         .map(MesFrontlinePqcProcessRespVO.QaInspectionTypeRule::getKey).toList());
-        assertEquals("上午巡检", result.get(0).getInspectionTypeRules().get(1).getLabel());
-        assertEquals("上午第1轮", result.get(0).getInspectionTypeRules().get(1).getRoundLabel());
-        assertEquals("BY_SHIFT", result.get(0).getInspectionTypeRules().get(1).getTaskRule());
+        assertEquals("巡检", result.get(0).getInspectionTypeRules().get(1).getLabel());
+        assertEquals("巡检轮次", result.get(0).getInspectionTypeRules().get(1).getRoundLabel());
+        assertEquals("MANUAL_ROUND", result.get(0).getInspectionTypeRules().get(1).getTaskRule());
         assertEquals("REQUIRED", result.get(0).getInspectionTypeRules().get(1).getReleaseGate());
         MesFrontlinePqcProcessRespVO.PqcInspectionItem item = result.get(0).getInspectionItems().get(0);
         assertEquals(1, item.getItemSort());
@@ -1121,17 +1107,17 @@ class MesFrontlinePqcContextServiceTest {
         assertEquals(1, result.get(0).getTaskSummary().getSubmittedCount());
         assertEquals(1, result.get(0).getTaskSummary().getConfirmedCount());
         assertEquals(1, result.get(0).getTaskSummary().getCancelledCount());
-        assertEquals(List.of("FIRST", "PATROL_AM", "PATROL_PM", "FINAL"),
+        assertEquals(List.of("FIRST", "PATROL", "PATROL", "FINAL"),
                 result.get(0).getPqcTaskOptions().stream()
                         .map(MesFrontlinePqcProcessRespVO.PqcTaskOption::getInspectionRuleKey).toList());
         assertEquals(List.of("PENDING", "SUBMITTED", "CONFIRMED", "CANCELLED"),
                 result.get(0).getPqcTaskOptions().stream()
                         .map(MesFrontlinePqcProcessRespVO.PqcTaskOption::getTaskStatus).toList());
-        assertEquals(List.of(10, 20, 30, 40), result.get(0).getPqcTaskOptions().stream()
+        assertEquals(List.of(10, 20, 20, 40), result.get(0).getPqcTaskOptions().stream()
                 .map(MesFrontlinePqcProcessRespVO.PqcTaskOption::getRuleSort).toList());
-        assertEquals("PATROL_AM",
+        assertEquals("PATROL",
                 result.get(0).getPqcTaskOptions().get(1).getInspectionTypeRule().getKey());
-        assertEquals("上午巡检",
+        assertEquals("巡检",
                 result.get(0).getPqcTaskOptions().get(1).getInspectionTypeRule().getLabel());
         assertEquals(List.of("FIRST", "PATROL", "FINAL"), result.get(0).getPqcTaskOptions().get(1)
                 .getInspectionItems().get(0).getApplicableInspectionTypes());
@@ -1142,16 +1128,10 @@ class MesFrontlinePqcContextServiceTest {
         assertEquals(0, result.get(1).getTaskSummary().getConfirmedCount());
         assertEquals(0, result.get(1).getTaskSummary().getCancelledCount());
         assertEquals(List.of(), result.get(1).getPqcTaskOptions());
-        assertEquals(List.of(9203L, 9201L), result.get(0).getProductionSubmitCandidates().stream()
-                .map(MesFrontlinePqcProcessRespVO.ProductionSubmitCandidate::getEventId).toList());
-        assertEquals(ACTIVE_ORDER_ID, result.get(0).getProductionSubmitCandidates().get(0).getActiveOrderId());
-        assertEquals(30003L, result.get(0).getProductionSubmitCandidates().get(0).getRouteProcessId());
-        assertEquals(40003L, result.get(0).getProductionSubmitCandidates().get(0).getProcessId());
-        assertEquals(30001L, result.get(0).getProductionSubmitCandidates().get(1).getRouteProcessId());
-        assertEquals(40001L, result.get(0).getProductionSubmitCandidates().get(1).getProcessId());
-        assertEquals(result.get(0).getProductionSubmitCandidates(), result.get(1).getProductionSubmitCandidates());
-        verify(processSnapshotMapper).selectListByActiveOrderId(ACTIVE_ORDER_ID);
-        verify(processPoolEventMapper).selectProductionSubmitsByWorkOrderAndRoute(WORK_ORDER_ID, ROUTE_ID);
+        assertEquals(List.of(), result.get(0).getProductionSubmitCandidates());
+        assertEquals(List.of(), result.get(1).getProductionSubmitCandidates());
+        verify(processSnapshotMapper, never()).selectListByActiveOrderId(ACTIVE_ORDER_ID);
+        verify(processPoolEventMapper, never()).selectProductionSubmitsByWorkOrderAndRoute(WORK_ORDER_ID, ROUTE_ID);
         verify(regulationService).getLockedVersionForOrder(DCC_PROJECT_ID, REGULATION_ID, REGULATION_VERSION_ID);
         verify(regulationMapper, never()).selectById(REGULATION_ID);
         verify(versionMapper, never()).selectById(REGULATION_VERSION_ID);
@@ -1218,6 +1198,7 @@ class MesFrontlinePqcContextServiceTest {
                 .routeVersionId(ROUTE_VERSION_ID).activeStatus("ACTIVE").businessStatus("ACTIVE")
                 .dccProjectCodeId(DCC_PROJECT_ID).qaRegulationId(REGULATION_ID)
                 .qaRegulationVersionId(REGULATION_VERSION_ID)
+                .pqcQaSourceVersionIdsJson("[" + REGULATION_VERSION_ID + "]")
                 .joinedAt(joinedAt).build();
     }
 
@@ -1263,8 +1244,7 @@ class MesFrontlinePqcContextServiceTest {
                 .finalInspectionApplicable(true)
                 .inspectionTypeRules(List.of(
                         qaInspectionTypeRule("FIRST", "FIRST", "首检", "首检第1轮", 10),
-                        qaInspectionTypeRule("PATROL_AM", "PATROL", "上午巡检", "上午第1轮", 20),
-                        qaInspectionTypeRule("PATROL_PM", "PATROL", "下午巡检", "下午第1轮", 30),
+                        qaInspectionTypeRule("PATROL", "PATROL", "巡检", "巡检轮次", 20),
                         qaInspectionTypeRule("FINAL", "FINAL", "末检", "末检第1轮", 40)))
                 .processes(List.of(processes))
                 .build();
@@ -1279,19 +1259,24 @@ class MesFrontlinePqcContextServiceTest {
                 .workOrderId(WORK_ORDER_ID)
                 .routeId(ROUTE_ID)
                 .routeVersionId(ROUTE_VERSION_ID)
-                .routeProcessId(30001L)
-                .processId(40001L)
+                .routeProcessId(null)
+                .processId(null)
                 .regulationVersionId(regulationVersionId)
                 .qaProcessId(qaProcessId)
-                .qaItemCode(qaItemCode)
-                .inspectionRuleKey(inspectionRuleKey)
+                .qaItemCode(null)
+                .inspectionRuleKey(inspectionType)
                 .inspectionType(inspectionType)
                 .businessDate(LocalDate.of(2026, 8, 12))
-                .shiftCode(shiftCode)
-                .roundNo(1)
+                .shiftCode(inspectionType)
+                .roundNo("PM".equals(shiftCode) ? 2 : 1)
                 .plannedInspectionQuantity(5)
                 .taskStatus("PENDING")
                 .build();
+        row.setInspectionItemPlanJson(cn.iocoder.yudao.module.mes.service.pro.processpool.pqc.MesPqcInspectionItemPlan.encode(Map.of(qaItemCode, 5)));
+        if ("PATROL".equals(inspectionType)) {
+            row.setInspectionSamplingPlanJson(JsonUtils.toJsonString(Map.of(qaItemCode,
+                    cn.iocoder.yudao.module.mes.service.qc.sampling.MesQcSamplingPlan.calculate(new BigDecimal("50"), "I"))));
+        }
         row.setTenantId(1L); return row;
     }
 
@@ -1304,7 +1289,7 @@ class MesFrontlinePqcContextServiceTest {
                 .roundLabel(roundLabel)
                 .required(true)
                 .fixedQuantity(fixedQuantity)
-                .taskRule("PATROL".equals(inspectionType) ? "BY_SHIFT" : "ONCE")
+                .taskRule("PATROL".equals(inspectionType) ? "MANUAL_ROUND" : "ONCE")
                 .releaseGate("REQUIRED")
                 .build();
     }
@@ -1353,8 +1338,7 @@ class MesFrontlinePqcContextServiceTest {
         return """
                 [
                   {"key":"FIRST","inspectionType":"FIRST","label":"首检","roundLabel":"首检第1轮","required":true,"fixedQuantity":5,"taskRule":"ON_START","releaseGate":"REQUIRED"},
-                  {"key":"PATROL_AM","inspectionType":"PATROL","label":"上午巡检","roundLabel":"上午第1轮","required":true,"taskRule":"BY_SHIFT","releaseGate":"REQUIRED"},
-                  {"key":"PATROL_PM","inspectionType":"PATROL","label":"下午巡检","roundLabel":"下午第1轮","required":true,"taskRule":"BY_SHIFT","releaseGate":"REQUIRED"},
+                  {"key":"PATROL","inspectionType":"PATROL","label":"巡检","roundLabel":"巡检轮次","required":true,"taskRule":"MANUAL_ROUND","releaseGate":"REQUIRED"},
                   {"key":"FINAL","inspectionType":"FINAL","label":"末检","roundLabel":"末检第1轮","required":true,"fixedQuantity":3,"taskRule":"ON_COMPLETE","releaseGate":"REQUIRED"}
                 ]
                 """;
@@ -1374,19 +1358,24 @@ class MesFrontlinePqcContextServiceTest {
                 .workOrderId(WORK_ORDER_ID)
                 .routeId(ROUTE_ID)
                 .routeVersionId(ROUTE_VERSION_ID)
-                .routeProcessId(30001L)
-                .processId(40001L)
+                .routeProcessId(null)
+                .processId(null)
                 .qaProcessId(QA_PROCESS_ID)
-                .qaItemCode("ID-001")
+                .qaItemCode(null)
                 .regulationVersionId(REGULATION_VERSION_ID)
                 .inspectionType(inspectionType)
-                .inspectionRuleKey(inspectionRuleKey)
+                .inspectionRuleKey(inspectionType)
                 .businessDate(LocalDate.of(2026, 8, 19))
-                .shiftCode(shiftCode)
-                .roundNo(1)
+                .shiftCode(inspectionType)
+                .roundNo("PM".equals(shiftCode) ? 2 : 1)
                 .plannedInspectionQuantity(1)
                 .taskStatus("PENDING")
                 .build();
+        task.setInspectionItemPlanJson("{\"ID-001\":1}");
+        if ("PATROL".equals(inspectionType)) {
+            task.setInspectionSamplingPlanJson(JsonUtils.toJsonString(Map.of("ID-001",
+                    cn.iocoder.yudao.module.mes.service.qc.sampling.MesQcSamplingPlan.calculate(BigDecimal.ONE, "I"))));
+        }
         task.setTenantId(1L);
         return task;
     }

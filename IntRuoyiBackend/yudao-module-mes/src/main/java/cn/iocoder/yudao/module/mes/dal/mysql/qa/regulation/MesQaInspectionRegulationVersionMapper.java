@@ -4,12 +4,24 @@ import cn.iocoder.yudao.framework.mybatis.core.mapper.BaseMapperX;
 import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
 import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationVersionDO;
 import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Select;
 
 import java.util.List;
 
 @Mapper
 public interface MesQaInspectionRegulationVersionMapper
         extends BaseMapperX<MesQaInspectionRegulationVersionDO> {
+
+    default MesQaInspectionRegulationVersionDO selectByIdForUpdate(Long id) {
+        return selectOne(new LambdaQueryWrapperX<MesQaInspectionRegulationVersionDO>()
+                .eq(MesQaInspectionRegulationVersionDO::getId, id).last("FOR UPDATE"));
+    }
+
+    // Deleted version numbers stay reserved so repeated imports cannot collide with
+    // the version table's (tenant, regulation, version_no, deleted) unique key.
+    @Select("SELECT version_no FROM mes_qa_inspection_regulation_version WHERE regulation_id = #{regulationId}")
+    List<String> selectUsedVersionNos(@Param("regulationId") Long regulationId);
 
     default MesQaInspectionRegulationVersionDO selectByRegulationIdAndVersionNoForUpdate(Long regulationId, String versionNo) {
         return selectOne(new LambdaQueryWrapperX<MesQaInspectionRegulationVersionDO>()

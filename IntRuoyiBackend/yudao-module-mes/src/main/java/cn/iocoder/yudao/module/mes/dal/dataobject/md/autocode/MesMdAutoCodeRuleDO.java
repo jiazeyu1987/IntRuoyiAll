@@ -27,6 +27,8 @@ public class MesMdAutoCodeRuleDO extends BaseDO {
      */
     @TableId
     private Long id;
+    /** 产品项目；空值表示尚未项目化的租户规则或历史记录。 */
+    private Long projectId;
     /**
      * 规则编码
      */

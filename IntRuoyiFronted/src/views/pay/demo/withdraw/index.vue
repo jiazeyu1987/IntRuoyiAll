@@ -1,21 +1,8 @@
 <template>
   <ContentWrap>
-    <!-- 搜索工作栏 -->
-    <el-form
-      class="-mb-15px"
-      :model="queryParams"
-      ref="queryFormRef"
-      :inline="true"
-      label-width="68px"
-    >
-      <el-form-item>
-        <el-button @click="handleQuery"><Icon icon="ep:search" class="mr-5px" /> 搜索</el-button>
-        <el-button @click="resetQuery"><Icon icon="ep:refresh" class="mr-5px" /> 重置</el-button>
-        <el-button type="primary" plain @click="openForm('create')">
-          <Icon icon="ep:plus" />创建示例提现单
-        </el-button>
-      </el-form-item>
-    </el-form>
+    <el-button type="primary" plain @click="openForm('create')">
+      <Icon icon="ep:plus" />创建示例提现单
+    </el-button>
   </ContentWrap>
 
   <!-- 列表 -->
@@ -103,7 +90,6 @@
 </template>
 
 <script setup lang="ts">
-import { isSearchFormInputEmpty } from '@/utils/search'
 import { dateFormatter } from '@/utils/formatTime'
 import * as DemoWithdrawApi from '@/api/pay/demo/withdraw'
 import DemoWithdrawForm from './DemoWithdrawForm.vue'
@@ -118,7 +104,6 @@ const queryParams = reactive({
   pageNo: 1,
   pageSize: 10
 })
-const queryFormRef = ref() // 搜索的表单
 
 /** 查询列表 */
 const getList = async () => {
@@ -130,22 +115,6 @@ const getList = async () => {
   } finally {
     loading.value = false
   }
-}
-
-/** 搜索按钮操作 */
-const handleQuery = (skipEmptyReset = false) => {
-  if (skipEmptyReset !== true && isSearchFormInputEmpty(queryFormRef, queryParams)) {
-    resetQuery()
-    return
-  }
-  queryParams.pageNo = 1
-  getList()
-}
-
-/** 重置按钮操作 */
-const resetQuery = () => {
-  queryFormRef.value.resetFields()
-  handleQuery(true)
 }
 
 /** 创建示例提现单操作 */

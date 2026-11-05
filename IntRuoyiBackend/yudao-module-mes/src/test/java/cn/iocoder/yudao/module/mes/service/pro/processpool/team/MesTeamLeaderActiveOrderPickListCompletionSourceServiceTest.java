@@ -39,7 +39,8 @@ class MesTeamLeaderActiveOrderPickListCompletionSourceServiceTest {
     @BeforeEach
     void setUp() {
         service = new MesTeamLeaderActiveOrderPickListCompletionSourceService(
-                new MesFormalProductionPickListSourceResolver(workOrderMapper, pickListMapper, pickListItemMapper),
+                new MesFormalProductionPickListSourceResolver(workOrderMapper, pickListMapper, pickListItemMapper,
+                        org.mockito.Mockito.mock(MesLocalTestRunSourceGuard.class)),
                 bindingMapper, bindingItemMapper);
         org.mockito.Mockito.lenient().when(workOrderMapper.selectById(30L)).thenReturn(
                 cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesProWorkOrderDO.builder()

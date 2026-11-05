@@ -700,15 +700,14 @@ public class MesProcessPoolPqcInspectionCorrectionService {
         if (!existingByItem.keySet().equals(requestedByItem.keySet())) {
             throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "itemResults.itemCode");
         }
-        if (!MesPqcInspectionItemPlan.require(task).keySet().equals(existingByItem.keySet())
-                || !Objects.equals(command.getActualInspectionQuantity(), task.getPlannedInspectionQuantity())) {
+        if (!MesPqcInspectionItemPlan.require(task).keySet().equals(existingByItem.keySet())) {
             throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "frozenInspectionItemPlan");
         }
         List<MesPqcInspectionPieceDetailDO> updated = new ArrayList<>();
         for (Map.Entry<String, List<MesPqcInspectionPieceDetailDO>> entry : existingByItem.entrySet()) {
             MesProcessPoolPqcInspectionCorrectionCommand.ItemResultCommand requested = requestedByItem.get(entry.getKey());
             List<String> values = requested.getSampleValues();
-            if (values == null || values.size() != MesPqcInspectionItemPlan.require(task).get(entry.getKey())) {
+            if (values == null || values.size() < MesPqcInspectionItemPlan.require(task).get(entry.getKey())) {
                 throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "itemResults.sampleValues");
             }
             MesPqcInspectionPieceDetailDO template = entry.getValue().get(0);
@@ -725,6 +724,11 @@ public class MesProcessPoolPqcInspectionCorrectionService {
                 detail.setJudgement(resolvePieceJudgement(detail, measuredValue));
                 updated.add(detail);
             }
+        }
+        Map<String, Integer> actualQuantities = updated.stream().collect(Collectors.groupingBy(
+                MesPqcInspectionPieceDetailDO::getItemCode, Collectors.summingInt(detail -> 1)));
+        if (!MesPqcInspectionItemPlan.matchesActualQuantities(task, actualQuantities, command.getActualInspectionQuantity())) {
+            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "actualInspectionQuantity");
         }
         return updated;
     }
@@ -765,6 +769,8 @@ public class MesProcessPoolPqcInspectionCorrectionService {
         payload.put("activeOrderId", task.getActiveOrderId());
         payload.put("pqcTaskId", task.getId());
         payload.put("actualInspectionQuantity", command.getActualInspectionQuantity());
+        payload.set("inspectionItemPlan", JsonUtils.getObjectMapper().valueToTree(MesPqcInspectionItemPlan.require(task)));
+        payload.set("inspectionSamplingPlan", JsonUtils.getObjectMapper().valueToTree(MesPqcInspectionItemPlan.requireSampling(task)));
         payload.put("inspectionQuantity", command.getActualInspectionQuantity());
         payload.put("scrapQuantity", command.getScrapQuantity());
         payload.put("inspectionResult", inspectionResult);

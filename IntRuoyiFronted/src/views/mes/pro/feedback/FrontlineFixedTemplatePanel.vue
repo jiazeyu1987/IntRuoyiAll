@@ -341,6 +341,15 @@
 
               </div>
 
+              <div class="frontline-pqc-number-field">
+                <label for="frontlinePqcItemQuantity">本项目实际抽样</label>
+                <input id="frontlinePqcItemQuantity" type="number" inputmode="numeric"
+                  aria-label="本项目实际抽样数量" data-pqc-item-actual-quantity
+                  :min="getPqcPlannedQuantityForItem(activePqcTaskOption!, activePqcTabItem.key)"
+                  :value="getPqcItemQuantity(activePqcTabItem.key)"
+                  @change="updatePqcItemQuantity(activePqcTabItem.key, $event)" />
+                <span>件（规程至少 {{ getPqcPlannedQuantityForItem(activePqcTaskOption!, activePqcTabItem.key) }} 件）</span>
+              </div>
               <h3 class="frontline-pqc-section-title">检验操作</h3>
               <div
                 class="frontline-pqc-choice-actions"
@@ -1511,8 +1520,6 @@ v-model="pqcRoundOperation.sourceTaskId" aria-label="更正源工序" :disabled=
 </template>
 
 <script setup lang="ts">
-import { ElMessageBox } from 'element-plus'
-import { getEmployeeSignatureQualification } from '@/api/mes/pro/employeeSignatureCredential'
 import { useApprovalCenterInvalidationStore } from '@/store/modules/approvalCenterInvalidation'
 import { createFormalActionGuard, createFormalWriteReceiptState } from '@/store/modules/approvalCenterInvalidationState'
 import { cloneDeep } from 'lodash-es'
@@ -1775,6 +1782,7 @@ type PqcTaskDraftKey = string
 interface PqcTaskDraftState {
   inspectionQuantity?: number
   scrapQuantity?: number
+  itemQuantities?: Record<string, number>
 }
 
 type PqcTaskOptionSnapshot = FrontlinePqcTaskOptionVO & {
@@ -3749,6 +3757,7 @@ const persistCurrentPqcTaskDraft = () => {
     return
   }
   pqcTaskDrafts[key] = {
+    itemQuantities: pqcTaskDrafts[key]?.itemQuantities,
     inspectionQuantity: pqcDraft.inspectionQuantity ?? taskOption.plannedInspectionQuantity,
     scrapQuantity: pqcDraft.scrapQuantity
   }
@@ -3774,12 +3783,35 @@ const clearAllPqcTaskDrafts = () => {
 const getPqcInspectionQuantityForTask = (taskOption: PqcTaskOptionSnapshot) =>
   normalizePqcQuantity(getPqcTaskDraft(taskOption).inspectionQuantity ?? taskOption.plannedInspectionQuantity)
 
-const getPqcInspectionQuantityForItem = (taskOption: PqcTaskOptionSnapshot, itemKey: PqcInspectionItemKey) => {
+const getPqcPlannedQuantityForItem = (taskOption: PqcTaskOptionSnapshot, itemKey: PqcInspectionItemKey) => {
   const quantity = taskOption.inspectionItems.find(item => item.itemCode === itemKey)?.plannedInspectionQuantity
   if (!Number.isSafeInteger(quantity) || Number(quantity) <= 0) {
     throw new Error(`PQC检验项目${itemKey}缺少冻结抽样数量。`)
   }
   return Number(quantity)
+}
+
+const getPqcInspectionQuantityForItem = (taskOption: PqcTaskOptionSnapshot, itemKey: PqcInspectionItemKey) =>
+  getPqcTaskDraft(taskOption).itemQuantities?.[itemKey] ?? getPqcPlannedQuantityForItem(taskOption, itemKey)
+
+const updatePqcItemQuantity = (itemKey: PqcInspectionItemKey, event: Event) => {
+  const option = activePqcTaskOption.value
+  if (!option) return
+  const input = event.target as HTMLInputElement
+  const quantity = Number(input.value)
+  const minimum = getPqcPlannedQuantityForItem(option, itemKey)
+  if (!Number.isSafeInteger(quantity) || quantity < minimum) {
+    input.value = String(getPqcInspectionQuantityForItem(option, itemKey))
+    message.error(`本项目实际抽样数量不能少于规程要求的${minimum}件`)
+    return
+  }
+  markPqcTaskTouched()
+  const draft = getPqcTaskDraft(option)
+  draft.itemQuantities = { ...draft.itemQuantities, [itemKey]: quantity }
+  draft.inspectionQuantity = Math.max(...option.inspectionItems.map(item =>
+    getPqcInspectionQuantityForItem(option, item.itemCode)))
+  pqcDraft.inspectionQuantity = draft.inspectionQuantity
+  resizePqcPieceValuesForCurrentTask(option)
 }
 
 const activePqcItemQuantity = computed(() => activePqcTaskOption.value && activePqcInspectionKey.value

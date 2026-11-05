@@ -56,6 +56,8 @@ public class MesTeamLeaderActiveOrderCompletionServiceImpl implements MesTeamLea
     @Resource
     private MesReleaseAffectedStateCollector affectedStateCollector;
     @Resource
+    private MesFixedTestOrderCompletionSourceInitializer fixedTestCompletionSourceInitializer;
+    @Resource
     private cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffService handoffService;
 
     public MesTeamLeaderActiveOrderCompletionServiceImpl(
@@ -171,6 +173,7 @@ public class MesTeamLeaderActiveOrderCompletionServiceImpl implements MesTeamLea
         String affectedRowsBefore = JsonUtils.toJsonString(affectedStateCollector.captureCompletion(
                 activeOrder.getId(), activeOrder.getWorkOrderId()));
         processInspectionAggregationService.aggregateApprovedPqcSubmissionsForActiveOrder(activeOrder.getId());
+        fixedTestCompletionSourceInitializer.prepare(activeOrder.getWorkOrderId(), leaderUserId);
         MesTeamLeaderActiveOrderCompletionBackfillDraft draft = backfillPort.prepare(leaderUserId, activeOrder, command);
         if (draft == null || draft.getSourceSnapshotHash() == null || draft.getSourceSnapshotHash().isBlank()) {
             throw exception(PRO_PROCESS_POOL_ACTIVE_ORDER_COMPLETION_SOURCE_MISSING, activeOrder.getId(), "SOURCE_SNAPSHOT_HASH");

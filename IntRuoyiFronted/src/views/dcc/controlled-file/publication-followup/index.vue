@@ -109,11 +109,11 @@
                       :show-column-settings="false"
                       :column-filter-definitions="[...listColumnFilterDefinitions1, ...allColumnDisplayFilters1]"
                     >
-                      <template #table="{ resolveRows, rows: detailRows }">
+                      <template #table="{ rows: detailRows }">
                         <el-table
                           stripe
                           border
-                          :data="resolveRows(detailRows)"
+                          :data="detailRows"
                           size="small"
                           empty-text="无通知收件人"
                         >
@@ -165,8 +165,8 @@
                       :show-column-settings="false"
                       :column-filter-definitions="[...listColumnFilterDefinitions2, ...allColumnDisplayFilters2]"
                     >
-                      <template #table="{ resolveRows, rows: detailRows }">
-                        <el-table stripe border :data="resolveRows(detailRows)" size="small" empty-text="无需评估">
+                      <template #table="{ rows: detailRows }">
+                        <el-table stripe border :data="detailRows" size="small" empty-text="无需评估">
                           <el-table-column label="相关文件" min-width="180" prop="relatedFileName" />
                           <el-table-column label="方向" width="140">
                             <template #default="scope">

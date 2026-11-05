@@ -76,7 +76,7 @@ function freezeExecutionBaseline(order, productionProcesses, pqcProcesses) {
       pqcTaskCount: tasks.length,
       pqcSubmissionCount: groups.reduce((sum, group) => sum + group.tasks.length, 0),
       pqcReviewCount: groups.length,
-      pqcUiSubmissionCount: groups.length, pqcPieceResultCount: tasks.reduce((sum, t) => sum + Number(t.quantity) * t.inspectionItems.length, 0),
+      pqcUiSubmissionCount: groups.length, pqcPieceResultCount: tasks.reduce((sum, t) => sum + t.inspectionItems.reduce((itemSum, item) => itemSum + positive(item.plannedInspectionQuantity, 'PQC item plannedInspectionQuantity'), 0), 0),
       productionProgressPercent: 100, inspectionProgressPercent: 100 } }
   return deepFreeze(JSON.parse(JSON.stringify(baseline)))
 }

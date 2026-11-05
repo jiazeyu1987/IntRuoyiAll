@@ -1,5 +1,5 @@
 <template>
-  <Dialog v-model="visible" :title="title" width="min(1100px, 94vw)" append-to-body>
+  <Dialog v-model="visible" :title="title" :align-center="alignCenter" width="min(1100px, 94vw)" append-to-body>
     <el-alert v-if="error || candidateError" :title="error || candidateError" type="error" :closable="false" show-icon class="mb-12px" />
     <el-tabs v-if="allowRelationships" v-model="activeTab">
       <el-tab-pane label="人员" name="users" />
@@ -102,9 +102,17 @@
         ></el-form-item>
       </el-form>
       </template>
-      <template #actions><el-button
+      <template #actions>
+        <el-button
+          v-if="allowUnassign && assignedRoleId != null"
+          type="danger"
+          plain
+          :disabled="assignmentSaving || loading || candidateLoading || !!error || !!candidateError || !selectedAssignedUsers.length"
+          @click="requestUnassign(selectedAssignedUsers)"
+        >解除已选权限</el-button>
+        <el-button
           v-if="multiple && queryParams.deptIds.length"
-          :disabled="loading || candidateLoading || !!candidateError || !!error"
+          :disabled="assignmentSaving || loading || candidateLoading || !!candidateError || !!error"
           @click="selectAllFiltered">选择筛选结果全部人员</el-button
         ><el-button
           v-if="error"
@@ -121,10 +129,11 @@
       <template #table="{ resolveRows }">
         <div class="mb-12px flex flex-wrap gap-8px">
           <span>已选 {{ selected.length }} 人</span>
-          <el-tag v-for="row in selected" :key="String(row.id)" closable @close="remove(row.id)">{{
+          <span v-if="assignedRoleId != null" class="text-[var(--el-color-success)]">绿色为已分配人员</span>
+          <el-tag v-for="row in selected" :key="String(row.id)" :closable="!assignmentSaving" @close="remove(row.id)">{{
             row.nickname || row.username || row.id
           }}</el-tag>
-          <el-button v-if="selected.length" link @click="selected = []">清空已选</el-button>
+          <el-button v-if="selected.length" link :disabled="assignmentSaving" @click="selected = []">清空已选</el-button>
         </div>
         <el-table
           data-user-table-column-explicit
@@ -132,6 +141,7 @@
           @header-dragend="handleUserSelectHeaderDragend"
           v-loading="loading || candidateLoading"
           :data="resolveRows(list)"
+          :row-class-name="assignedRowClassName"
           height="390"
           border
           @row-click="toggle"
@@ -201,6 +211,17 @@
               row.status === 1 ? '停用' : row.status === 0 ? '启用' : '—'
             }}</template></el-table-column
           >
+          <el-table-column v-if="allowUnassign && assignedRoleId != null" label="权限操作" width="110" fixed="right" align="center">
+            <template #default="{ row }">
+              <el-button
+                v-if="assignedUserIds.has(String(row.id))"
+                type="danger"
+                link
+                :disabled="assignmentSaving || loading || candidateLoading || !!error || !!candidateError"
+                @click.stop="requestUnassign([row])"
+              >解除</el-button>
+            </template>
+          </el-table-column>
           <template #empty>{{
             error || candidateError ? '候选人员加载失败' : '当前范围内无可选人员'
           }}</template>
@@ -210,9 +231,9 @@
     <template #footer
       ><el-button
         type="primary"
-        :disabled="loading || candidateLoading || !!error || !!candidateError"
+        :disabled="assignmentSaving || loading || candidateLoading || !!error || !!candidateError"
         @click="confirm"
-        >确定</el-button
+        >{{ allowUnassign ? '分配所选' : '确定' }}</el-button
       ><el-button @click="visible = false">取消</el-button></template>
   </Dialog>
 </template>
@@ -242,13 +263,20 @@ import {
 } from './userPicker'
 import { USER_RELATIONSHIPS, type UserRelationship } from './userPicker'
 defineOptions({ name: 'UserSelectDialogV2', inheritAttrs: false })
-const props = withDefaults(defineProps<UserPickerProps & { title?: string }>(), {
+const props = withDefaults(defineProps<UserPickerProps & {
+  title?: string
+  alignCenter?: boolean
+  assignedRoleId?: number
+  allowUnassign?: boolean
+  assignmentSaving?: boolean
+}>(), {
   title: '人员选择',
   multiple: true,
   min: 0
 })
 const emit = defineEmits<{
   selected: [rows: any[], activityId?: any, relationships?: UserRelationship[]]
+  unassign: [rows: UserOption[]]
   'visible-change': [visible: boolean]
 }>()
 const message = useMessage()
@@ -258,6 +286,24 @@ const error = ref('')
 const candidates = ref<UserOption[]>([])
 const list = ref<UserOption[]>([])
 const selected = ref<UserOption[]>([])
+const assignedUserIds = ref(new Set<string>())
+const assignedRowClassName = ({ row }: { row: UserOption }) =>
+  assignedUserIds.value.has(String(row.id)) ? 'user-picker-assigned-row' : ''
+const selectedAssignedUsers = computed(() => selected.value.filter(row => assignedUserIds.value.has(String(row.id))))
+const requestUnassign = (rows: UserOption[]) => {
+  if (!props.allowUnassign || props.assignedRoleId == null || props.assignmentSaving || loading.value || props.candidateLoading || error.value || props.candidateError) return
+  const assigned = rows.filter(row => assignedUserIds.value.has(String(row.id)))
+  if (assigned.length) emit('unassign', assigned)
+}
+const markRoleAssignment = (id: UserId, assigned: boolean) => {
+  const ids = new Set(assignedUserIds.value)
+  if (assigned) ids.add(String(id))
+  else {
+    ids.delete(String(id))
+    selected.value = selected.value.filter(row => String(row.id) !== String(id))
+  }
+  assignedUserIds.value = ids
+}
 const activeTab = ref('users')
 const chosenRelationships = ref<UserRelationship[]>([])
 const total = ref(0)
@@ -322,11 +368,13 @@ const isSelected = (id: UserId) => selected.value.some((row) => String(row.id) =
 const blocked = (row: UserOption) =>
   row.disabled || (row.status === 1 && !props.allowInactive) || disabled.value.some((id) => String(id) === String(row.id))
 const canSelect = (row: UserOption) =>
-  !blocked(row) && (!props.multiple || isSelected(row.id) || selected.value.length + chosenRelationships.value.length < limit.value)
+  !props.assignmentSaving && !blocked(row) && (!props.multiple || isSelected(row.id) || selected.value.length + chosenRelationships.value.length < limit.value)
 const remove = (id: UserId) => {
+  if (props.assignmentSaving) return
   selected.value = selected.value.filter((row) => String(row.id) !== String(id))
 }
 const toggle = (row: UserOption) => {
+  if (props.assignmentSaving) return
   if (isSelected(row.id) && props.multiple) {
     remove(row.id)
     return
@@ -391,7 +439,7 @@ const getList = async () => {
   }
 }
 const selectAllFiltered = async () => {
-  if (loading.value || props.candidateLoading || props.candidateError || error.value) return
+  if (props.assignmentSaving || loading.value || props.candidateLoading || props.candidateError || error.value) return
   const token = ++requestId
   loading.value = true
   const union = new Map(selected.value.map(row => [String(row.id), row]))
@@ -455,6 +503,7 @@ const open = async (
   error.value = ''
   list.value = []
   selected.value = []
+  assignedUserIds.value = new Set()
   activeTab.value = 'users'
   chosenRelationships.value = props.allowRelationships ? [...(props.relationships || [])] : []
   activityId.value = context
@@ -478,12 +527,17 @@ const open = async (
       const metadata = await Promise.all([
         DeptApi.getSimpleDeptList(),
         RoleApi.getSimpleRoleList(),
-        PostApi.getSimplePostList()
+        PostApi.getSimplePostList(),
+        // 独立读取当前角色的正式成员，不随候选列表的筛选和翻页丢失标记。
+        props.assignedRoleId == null ? Promise.resolve([]) : loadAllListPages<UserOption>(
+          pagination => UserApi.getSelectionPage({ ...pagination, roleId: props.assignedRoleId })
+        )
       ])
       if (token !== requestId) return
       departments.value = metadata[0]
       roles.value = metadata[1]
       posts.value = metadata[2] as UserFilterOption[]
+      assignedUserIds.value = new Set(metadata[3].map(row => String(row.id)))
     }
     if (token !== requestId) return
     let known = [...candidates.value, ...seed, ...(props.selectedUsers || [])]
@@ -501,7 +555,7 @@ const open = async (
   }
 }
 const confirm = () => {
-  if (loading.value || props.candidateLoading || error.value || props.candidateError) return
+  if (props.assignmentSaving || loading.value || props.candidateLoading || error.value || props.candidateError) return
   const configError = validateSelectionLimits(props.min, props.max, props.multiple)
   if (configError) { message.warning(configError); return }
   const relationCount = props.allowRelationships ? chosenRelationships.value.length : 0
@@ -569,7 +623,7 @@ watch(visible, (value) => {
   if (!value) ++requestId
   emit('visible-change', value)
 })
-defineExpose({ open })
+defineExpose({ open, markRoleAssignment })
 
 const loadColumnFilterRows0 = async () => {
   if (businessMode.value) return filteredBusinessCandidates()
@@ -588,3 +642,11 @@ const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() =
   }
 ])
 </script>
+
+<style scoped>
+:deep(.el-table .user-picker-assigned-row) {
+  --el-table-tr-bg-color: var(--el-color-success-light-9);
+  --el-table-row-hover-bg-color: var(--el-color-success-light-8);
+  color: var(--el-color-success);
+}
+</style>

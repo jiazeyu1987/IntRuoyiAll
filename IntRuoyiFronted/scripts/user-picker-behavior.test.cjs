@@ -26,6 +26,7 @@ function evaluate(source, dependencies) {
   return module.exports
 }
 const core = evaluate(fs.readFileSync(path.join(dir, 'userPicker.ts'), 'utf8'), {})
+const columnFilters = evaluate(fs.readFileSync(path.join(root, 'src/hooks/web/useListColumnFilter.ts'), 'utf8'), { vue })
 const warnings = []
 let globalCalls = 0
 const api = {
@@ -48,6 +49,10 @@ const component = evaluate(compiled.content, {
   vue,
   './userPicker': core,
   '@/api/system/user': api,
+  '@/api/system/dept': { getSimpleDeptList: async () => [] },
+  '@/api/system/role': { getSimpleRoleList: async () => [] },
+  '@/api/system/post': { getSimplePostList: async () => [] },
+  '@/hooks/web/useListColumnFilter': columnFilters,
   '@/utils/tree': { handleTree: (rows) => rows },
   '@/directives/permission/hasPermi': { hasPermission: () => false },
   '@/hooks/web/useUserTableColumns': { useUserTableColumns: () => ({}) },
@@ -127,6 +132,70 @@ function create(extra = {}) {
   fail.state.confirm()
   assert.equal(fail.events.filter((e) => e[0] === 'selected').length, 0)
   assert.equal(globalCalls, 0, 'business empty/error never requests global candidates')
+  const assignedCalls = []
+  let membershipError = false
+  const ordinaryPage = api.getSelectionPage
+  api.getSelectionPage = async query => {
+    assignedCalls.push({ ...query })
+    if (query.roleId === 99) {
+      if (membershipError) throw new Error('已分配人员读取失败')
+      return query.pageNo === 1
+        ? { list: [{ id: 1 }], total: 2 }
+        : { list: [{ id: '15' }], total: 2 }
+    }
+    if (query.roleId === 100) return { list: [{ id: 2 }], total: 1 }
+    return { list: rows.slice((query.pageNo - 1) * query.pageSize, query.pageNo * query.pageSize), total: rows.length }
+  }
+  const assigned = create({ userOptions: undefined, assignedRoleId: 99 })
+  assigned.state.queryParams.pageSize = 10
+  await assigned.state.open()
+  assert.equal(assigned.state.error.value, '')
+  assert.equal(assignedCalls.filter(query => query.roleId === 99).length, 2, 'all membership pages are loaded')
+  assert.equal(assigned.state.assignedRowClassName({ row: { id: 1 } }), 'user-picker-assigned-row')
+  assert.equal(assigned.state.assignedRowClassName({ row: { id: 2 } }), '', 'unassigned users are not green')
+  assigned.state.queryParams.pageNo = 2
+  await assigned.state.getList()
+  assert.ok(assigned.state.list.value.some(row => row.id === 15))
+  assert.equal(assigned.state.assignedRowClassName({ row: { id: 15 } }), 'user-picker-assigned-row', 'off-page assigned IDs are green after pagination')
+  await assigned.state.resetQuery()
+  assert.equal(assigned.state.assignedRowClassName({ row: { id: '15' } }), 'user-picker-assigned-row', 'reset preserves membership marks')
+  assigned.state.selected.value = [rows[0], rows[14], rows[1]]
+  assigned.state.requestUnassign(assigned.state.selected.value)
+  assert.equal(assigned.events.filter(event => event[0] === 'unassign').length, 0, 'highlighting alone never enables removal')
+  assigned.props.allowUnassign = true
+  assigned.state.requestUnassign(assigned.state.selected.value)
+  const removalEvent = assigned.events.find(event => event[0] === 'unassign')
+  assert.deepEqual(Array.from(removalEvent[1], row => row.id), [1, 15], 'bulk removal includes only currently assigned selected users')
+  assert.equal(assigned.state.visible.value, true, 'removal keeps the selector open')
+  assigned.props.assignmentSaving = true
+  assigned.state.requestUnassign([rows[0]])
+  assigned.state.toggle(rows[1])
+  assigned.state.remove(1)
+  assigned.state.confirm()
+  assert.equal(assigned.events.filter(event => event[0] === 'unassign').length, 1, 'busy commands block duplicate removals')
+  assert.equal(assigned.state.selected.value.length, 3, 'busy commands lock selection')
+  assert.equal(assigned.events.filter(event => event[0] === 'selected').length, 0, 'busy removals block assignment')
+  assigned.state.markRoleAssignment(1, false)
+  assert.equal(assigned.state.assignedRowClassName({ row: { id: 1 } }), '', 'successful removal immediately clears green mark')
+  assert.equal(assigned.state.isSelected(1), false, 'removed user is not left selected for accidental reassignment')
+  assert.equal(assigned.state.isSelected(2), true, 'unrelated selections are preserved')
+  assigned.state.markRoleAssignment(1, true)
+  assert.equal(assigned.state.assignedRowClassName({ row: { id: 1 } }), 'user-picker-assigned-row', 'successful reassignment restores green mark')
+  assigned.props.assignmentSaving = false
+  assigned.props.assignedRoleId = 100
+  await assigned.state.open()
+  assert.equal(assigned.state.assignedRowClassName({ row: { id: 1 } }), '', 'another role clears old marks')
+  assert.equal(assigned.state.assignedRowClassName({ row: { id: 2 } }), 'user-picker-assigned-row')
+  assigned.props.assignedRoleId = 99
+  membershipError = true
+  await assigned.state.open()
+  assert.equal(assigned.state.error.value, '已分配人员读取失败')
+  assigned.state.confirm()
+  assert.equal(assigned.events.filter(event => event[0] === 'selected').length, 0, 'membership load errors cannot appear as an unassigned list')
+  api.getSelectionPage = ordinaryPage
+  const pickerSource = fs.readFileSync(filename, 'utf8')
+  assert.match(pickerSource, /:align-center="alignCenter"/)
+  assert.match(pickerSource, /:row-class-name="assignedRowClassName"/)
   const relationshipOnly = create({ allowRelationships: true, relationships: ['DIRECT_SUPERVISOR'], min: 1 })
   await relationshipOnly.state.open()
   relationshipOnly.state.confirm()

@@ -14,6 +14,11 @@ import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.version.MesProR
 import cn.iocoder.yudao.module.mes.dal.dataobject.md.item.MesMdItemDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.dv.machinery.MesDvMachineryDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.dv.machinery.MesDvMachineryMapper;
+import cn.iocoder.yudao.module.mes.controller.admin.dv.machinery.vo.MesDvMachinerySaveReqVO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.dv.machinery.MesDvMachineryTypeDO;
+import cn.iocoder.yudao.module.mes.dal.mysql.dv.machinery.MesDvMachineryTypeMapper;
+import cn.iocoder.yudao.module.mes.enums.dv.MesDvMachineryStatusEnum;
+import cn.iocoder.yudao.module.mes.service.dv.machinery.MesDvMachineryService;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.process.MesProProcessDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.craft.MesProCraftDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamDeviceDO;
@@ -24,11 +29,15 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.craft.MesProCraftMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolTeamDeviceMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.*;
 import cn.iocoder.yudao.module.mes.service.pro.process.MesProProcessService;
+import cn.iocoder.yudao.module.mes.service.md.autocode.MesMdAutoCodeRuleService;
+import cn.iocoder.yudao.module.mes.service.md.autocode.MesMdAutoCodePartService;
+import cn.iocoder.yudao.module.mes.enums.md.autocode.MesMdAutoCodeRuleCodeEnum;
 import cn.iocoder.yudao.module.mes.service.pro.craft.*;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.*;
 import cn.iocoder.yudao.module.mes.service.pro.route.*;
 import com.alibaba.fastjson.*;
 import jakarta.annotation.Resource;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -39,7 +48,9 @@ import static cn.iocoder.yudao.module.mes.service.pro.craft.MesProCraftParameter
 
 /** 单次预览、单次事务确认；只创建新路线，不通过名称复用工序或覆盖现有路线。 */
 @Service
+@Slf4j
 public class MesSimpleParserPublishService {
+    private static final String DEFAULT_MACHINERY_TYPE_CODE = "DEFAULT-MACHINERY-TYPE";
     @jakarta.annotation.Resource
     private cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteProjectGuard projectGuard;
 
@@ -47,6 +58,7 @@ public class MesSimpleParserPublishService {
     @Resource private MesProCraftService craftService;
     @Resource private MesTeamLeaderRuntimeConfigService deviceService;
     @Resource private MesProRouteService routeService;
+    @Resource private MesProRouteWorkstationService routeWorkstationService;
     @Resource private DccProjectCodeMapper projectMapper;
     @Resource private MesProRouteVersionWorkflowService workflow;
     @Resource private MesProRouteCandidateConfigService candidateConfig;
@@ -54,6 +66,8 @@ public class MesSimpleParserPublishService {
     @Resource private MesProCraftMapper craftMapper;
     @Resource private MesProcessPoolTeamDeviceMapper deviceMapper;
     @Resource private MesDvMachineryMapper machineryMapper;
+    @Resource private MesDvMachineryTypeMapper machineryTypeMapper;
+    @Resource private MesDvMachineryService machineryService;
     @Resource private MesMdItemMapper itemMapper;
     @Resource private MesProRouteMapper routeMapper;
     @Resource private MesProRouteVersionMapper versionMapper;
@@ -85,7 +99,7 @@ public class MesSimpleParserPublishService {
         return new ArrayList<>(catalog.values());
     }
 
-    @Transactional(readOnly = true)
+    @Transactional(rollbackFor = Exception.class)
     public JSONObject preview(SimpleParserPublishReqVO request) {
         identity();
         String requestId = uuid(request.getRequestId());
@@ -127,14 +141,30 @@ public class MesSimpleParserPublishService {
         if (!plan.blockers.isEmpty()) throw invalid(String.join("；", plan.blockers));
 
         Map<String,Long> deviceIds = new LinkedHashMap<>();
+        Map<String,Long> machineryIds = new LinkedHashMap<>();
         for (Object raw : plan.result.getJSONArray("deviceRows")) {
             JSONObject row = (JSONObject) raw;
-            // 路线保存执行设备 ID；台账已有但尚无执行记录时仅建立该记录，不新建台账。
+            // 缺台账时按用户确认规则使用当前租户既有默认类型，随整个发布事务提交。
+            Long machineryId = row.getLong("machineryId");
+            if (machineryId == null) {
+                MesDvMachinerySaveReqVO create = new MesDvMachinerySaveReqVO();
+                create.setCode(row.getString("code")); create.setName(row.getString("name"));
+                create.setMachineryTypeId(row.getLong("machineryTypeId"));
+                create.setWorkshopId(request.getWorkshopId());
+                create.setStatus(MesDvMachineryStatusEnum.STOP.getStatus());
+                create.setRemark("简易解析发布时补建，所属车间与工序工作站一致");
+                machineryId = machineryService.createMachinery(create);
+                row.put("machineryId", machineryId);
+                log.info("简易解析补建设备台账，随发布事务提交：tenantId={}, code={}, workshopId={}, machineryTypeId={}",
+                        tenant, create.getCode(), create.getWorkshopId(), create.getMachineryTypeId());
+            }
+            // 路线保存执行设备 ID，工作站资源保存设备台账 ID。
             Long id = row.getLong("id");
             if (id == null) id = deviceService.createDevice(MesTeamDeviceSaveReqBO.builder()
                     .leaderUserId(user).deviceCode(row.getString("code")).deviceName(row.getString("name"))
                     .deviceStatus("ENABLED").build());
             deviceIds.put(row.getString("code"), id); row.put("id", id);
+            machineryIds.put(row.getString("code"), machineryId);
         }
         List<Long> processIds = new ArrayList<>();
         for (int i=0; i<plan.processes.size(); i++) {
@@ -143,7 +173,7 @@ public class MesSimpleParserPublishService {
             if (id == null) {
                 MesProProcessCreateReqVO create = new MesProProcessCreateReqVO();
                 create.setName(row.getString("name")); create.setStatus(CommonStatusEnum.ENABLE.getStatus());
-                create.setProductName(plan.productName);
+                create.setProductName(plan.productName); create.setProjectId(request.getProjectId());
                 id = processService.createProcess(create);
             }
             MesProProcessDO process = processMapper.selectById(id);
@@ -151,6 +181,7 @@ public class MesSimpleParserPublishService {
         }
         MesProRouteCreateReqVO routeRequest = new MesProRouteCreateReqVO();
         routeRequest.setDccProjectCodeId(request.getProjectId());
+        routeRequest.setWorkshopId(request.getWorkshopId());
         routeRequest.setName(request.getRouteName().trim()); routeRequest.setProcessIds(processIds);
         routeRequest.setRemark("简易解析确认创建，需完成路线治理配置后启用");
         Long routeId = routeService.createRouteWithProcesses(routeRequest);
@@ -176,10 +207,15 @@ public class MesSimpleParserPublishService {
             config.put("processName",source.getString("name")); config.put("sort",i+1);
             config.put("overagePercent",BigDecimal.ZERO); config.put("lossReasons",new JSONArray());
             JSONArray groups = new JSONArray();
+            Set<Long> workstationMachineryIds = new LinkedHashSet<>();
             List<MesProCraftParameters.Binding> bindings = new ArrayList<>();
             JSONArray sourceGroups = array(source,"equipmentGroups");
             for (int g=0; g<sourceGroups.size(); g++) {
                 JSONObject sourceGroup=sourceGroups.getJSONObject(g);
+                for (JSONObject equipment : array(sourceGroup,"equipmentOptions").toJavaList(JSONObject.class)) {
+                    String code = text(equipment,"code",64);
+                    workstationMachineryIds.add(machineryIds.get(code));
+                }
                 List<Long> ids=array(sourceGroup,"equipmentOptions").toJavaList(JSONObject.class).stream()
                         .map(d -> deviceIds.get(text(d,"code",64))).toList();
                 JSONObject group=new JSONObject(true);
@@ -199,6 +235,7 @@ public class MesSimpleParserPublishService {
                 craftRow.put("id",craft.getId()); craftRow.put("code",craft.getCode());
                 bindings.add(new MesProCraftParameters.Binding(craft.getId(),craft.getCode(),parameters,ids));
             }
+            routeWorkstationService.bindMachinery(node.getLong("routeProcessWorkstationId"), workstationMachineryIds);
             config.put("deviceSelectionGroups",groups); config.put("parameterRules",new JSONArray());
             if (!bindings.isEmpty()) MesProCraftParameters.bindAll(config,bindings);
             productions.add(config);
@@ -230,6 +267,7 @@ public class MesSimpleParserPublishService {
 
     private Plan plan(SimpleParserPublishReqVO request, boolean lock) {
         uuid(request.getRequestId());
+        var workshop = routeWorkstationService.requireWorkshop(request.getWorkshopId());
         if (request.getProjectId() == null || request.getProjectId() <= 0) throw invalid("请选择工艺流程所属项目");
         DccProjectCodeDO project = projectMapper.selectById(request.getProjectId());
         if (project == null || !DccProjectCodeStatusConstants.ENABLE.equals(project.getStatus()))
@@ -244,6 +282,7 @@ public class MesSimpleParserPublishService {
         String productName=text(object(root.get("product")),"name",128);
         Plan plan=new Plan(processes,productName);
         JSONArray processRows=new JSONArray(),deviceRows=new JSONArray(),craftRows=new JSONArray(),materialRows=new JSONArray(),unmatchedMaterials=new JSONArray(),warnings=new JSONArray(),state=new JSONArray();
+        state.add(workshop);
         List<MesProRouteDO> routes=routeMapper.selectList(new LambdaQueryWrapperX<MesProRouteDO>()
                 .apply("TRIM(name) = {0}",routeName).last(lock?"FOR UPDATE":""));
         if (!routes.isEmpty()) plan.blockers.add("路线名称已存在，请填写新的路线名称");
@@ -351,8 +390,15 @@ public class MesSimpleParserPublishService {
                         warnings.add("工序 "+(i+1)+" 设备 "+code+"：识别名称“"+(deviceName==null?"未识别":deviceName)+"”按目录显示为“"+resolvedName+"”");
                     equipmentOption.put("name",resolvedName);
                     JSONObject deviceRow=row(resolvedName,device==null?null:device.getId()); deviceRow.put("code",code);
+                    deviceRow.put("machineryAction", machinery == null ? "CREATE" : "REUSE");
                     if(machinery!=null) {
                         deviceRow.put("machineryId",machinery.getId()); deviceRow.put("action","REUSE"); state.add(machinery);
+                    } else {
+                        MesDvMachineryTypeDO type = defaultMachineryType(plan, lock, state);
+                        if (type != null) {
+                            deviceRow.put("machineryTypeId", type.getId());
+                            deviceRow.put("machineryTypeName", type.getName());
+                        }
                     }
                     devices.put(code,deviceRow); deviceRows.add(deviceRow); state.add(deviceRow); if(device!=null) state.add(device);
                 }
@@ -379,15 +425,40 @@ public class MesSimpleParserPublishService {
                 craftRow.put("processIndex",i); craftRow.put("groupIndex",g); craftRow.put("parameterCount",parameters.size()); craftRows.add(craftRow);
             }
         }
+        checkCodeRule(MesMdAutoCodeRuleCodeEnum.PRO_ROUTE_CODE.name(), "工艺流程", plan, request.getProjectId());
+        if (processRows.stream().map(value -> (JSONObject) value).anyMatch(row -> row.getLong("id") == null)) {
+            checkCodeRule(MesMdAutoCodeRuleCodeEnum.PRO_PROCESS_GX_CODE.name(), "工序", plan, request.getProjectId());
+        }
         JSONObject result=plan.result;
         result.put("requestId",uuid(request.getRequestId())); result.put("routeName",routeName); result.put("processCount",processes.size());
         result.put("projectId",project.getId()); result.put("projectCode",project.getProjectCode()); result.put("projectName",project.getProjectName());
+        result.put("workshopId",workshop.getId()); result.put("workshopName",workshop.getName());
         result.put("processRows",processRows); result.put("deviceRows",deviceRows); result.put("craftRows",craftRows);
         result.put("materialRows",materialRows); result.put("unmatchedMaterials",unmatchedMaterials); result.put("warnings",warnings);
         result.put("route",Map.of("name",routeName,"action","CREATE")); result.put("blockers",plan.blockers);
         result.put("previewToken",canonical.sha256(JSON.toJSONString(Map.of("requestHash",requestHash(request),"records",state,
                 "tenant",TenantContextHolder.getRequiredTenantId(),"user",getLoginUserId()))));
         return plan;
+    }
+
+    @Resource private cn.iocoder.yudao.module.mes.service.md.autocode.MesProjectAutoCodeService projectCodes;
+
+    private MesDvMachineryTypeDO defaultMachineryType(Plan plan, boolean lock, JSONArray state) {
+        if (plan.defaultMachineryTypeChecked) return plan.defaultMachineryType;
+        plan.defaultMachineryTypeChecked = true;
+        List<MesDvMachineryTypeDO> types = machineryTypeMapper.selectList(new LambdaQueryWrapperX<MesDvMachineryTypeDO>()
+                .eq(MesDvMachineryTypeDO::getCode, DEFAULT_MACHINERY_TYPE_CODE).last(lock ? "FOR UPDATE" : ""));
+        state.add(types);
+        if (types.size() != 1 || !CommonStatusEnum.ENABLE.getStatus().equals(types.get(0).getStatus())) {
+            plan.blockers.add("当前租户的默认设备类型不存在、未启用或不唯一，无法自动补建设备台账，请先维护设备类型");
+            return null;
+        }
+        plan.defaultMachineryType = types.get(0);
+        return plan.defaultMachineryType;
+    }
+
+    private void checkCodeRule(String code, String name, Plan plan, Long projectId) {
+        projectCodes.ensure(projectId, code);
     }
 
     static JSONArray parameters(JSONArray source) {
@@ -470,6 +541,8 @@ public class MesSimpleParserPublishService {
     private static class Plan {
         final JSONObject result=new JSONObject(true);final JSONArray processes;final String productName;
         final List<String> blockers=new ArrayList<>();final Map<String,JSONArray> parameters=new HashMap<>();final Map<String,List<Long>> materialIds=new HashMap<>();
+        boolean defaultMachineryTypeChecked;
+        MesDvMachineryTypeDO defaultMachineryType;
         Plan(JSONArray processes,String productName){this.processes=processes;this.productName=productName;}
     }
 }

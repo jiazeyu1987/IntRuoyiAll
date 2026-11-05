@@ -93,7 +93,7 @@ class MesTeamLeaderActiveOrderCompletionBackfillPortImplTest {
         org.mockito.Mockito.lenient().when(completionMapper.updateById(
                 org.mockito.ArgumentMatchers.any(MesProcessPoolOrderProcessCompletionDO.class)))
                 .thenReturn(1);
-        when(taskMapper.selectListByActiveOrderIdForUpdate(10L)).thenReturn(List.of(task()));
+        when(taskMapper.selectEffectiveListByActiveOrderIdForUpdate(10L)).thenReturn(List.of(task()));
         when(detailMapper.selectListByActiveOrderIdForUpdate(10L)).thenReturn(List.of(detail()));
         org.mockito.Mockito.lenient().when(workOrderMapper.selectByIdForUpdate(30L)).thenReturn(workOrder());
         org.mockito.Mockito.lenient().when(productIssueMapper.selectListByWorkOrderIdForUpdate(30L))
@@ -143,6 +143,7 @@ class MesTeamLeaderActiveOrderCompletionBackfillPortImplTest {
             auditCommands.add(command); auditBindings.add(binding); return binding;
         });
         org.springframework.test.util.ReflectionTestUtils.setField(service, "gxpAuditService", audits);
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "fixedTestCompletionSourceInitializer", org.mockito.Mockito.mock(MesFixedTestOrderCompletionSourceInitializer.class));
         var affected = org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.productionrelease.MesReleaseAffectedStateCollector.class);
         org.springframework.test.util.ReflectionTestUtils.setField(service, "affectedStateCollector", affected);
         var activeOrder = order().setVersion(2).setActiveStatus("ACTIVE");
@@ -421,7 +422,7 @@ class MesTeamLeaderActiveOrderCompletionBackfillPortImplTest {
                 .thenReturn(List.of(allocation(201L, 101L), allocation(202L, 102L)));
         when(completionMapper.selectListByWorkOrderIdsForUpdate(List.of(30L)))
                 .thenReturn(List.of(completion(301L, 101L, 201L), completion(302L, 102L, 202L)));
-        when(taskMapper.selectListByActiveOrderIdForUpdate(10L)).thenReturn(List.of(task()));
+        when(taskMapper.selectEffectiveListByActiveOrderIdForUpdate(10L)).thenReturn(List.of(task()));
         when(detailMapper.selectListByActiveOrderIdForUpdate(10L)).thenReturn(List.of(detail()));
         when(lossSourceReader.read(any())).thenReturn(lossSources(BigDecimal.ZERO,
                 List.of(snapshot(101L, 1L), secondSnapshot)));
@@ -448,7 +449,7 @@ class MesTeamLeaderActiveOrderCompletionBackfillPortImplTest {
     void multipleInspectionDetailsForOneConfirmedTaskMustBeAccepted() {
         when(detailMapper.selectListByActiveOrderIdForUpdate(10L))
                 .thenReturn(List.of(detail(801L, 701L, 1, 2), detail(802L, 701L, 2, 2)));
-        when(taskMapper.selectListByActiveOrderIdForUpdate(10L)).thenReturn(List.of(task(701L, 2)));
+        when(taskMapper.selectEffectiveListByActiveOrderIdForUpdate(10L)).thenReturn(List.of(task(701L, 2)));
         when(lossSourceReader.read(any())).thenReturn(lossSources(BigDecimal.ZERO));
 
         MesTeamLeaderActiveOrderCompletionBackfillDraft draft = port.prepare(20L, order(), command());
@@ -472,7 +473,7 @@ class MesTeamLeaderActiveOrderCompletionBackfillPortImplTest {
 
     @Test
     void mixedItemSamplingUsesFrozenItemQuantitiesInsteadOfTotalDetailCount() {
-        when(taskMapper.selectListByActiveOrderIdForUpdate(10L)).thenReturn(List.of(task(701L, 2)
+        when(taskMapper.selectEffectiveListByActiveOrderIdForUpdate(10L)).thenReturn(List.of(task(701L, 2)
                 .setInspectionItemPlanJson("{\"I1\":2,\"I2\":1}")));
         when(detailMapper.selectListByActiveOrderIdForUpdate(10L)).thenReturn(List.of(
                 detail(801L, 701L, 1, 2), detail(802L, 701L, 2, 2),
@@ -486,6 +487,21 @@ class MesTeamLeaderActiveOrderCompletionBackfillPortImplTest {
     }
 
     @Test
+    void stricterActualSamplingIsPreservedWithoutChangingFrozenPlan() {
+        var task = task(701L, 3).setInspectionItemPlanJson("{\"I1\":2,\"I2\":1}").setPlannedInspectionQuantity(2);
+        when(taskMapper.selectEffectiveListByActiveOrderIdForUpdate(10L)).thenReturn(List.of(task));
+        when(detailMapper.selectListByActiveOrderIdForUpdate(10L)).thenReturn(List.of(
+                detail(801L, 701L, 1, 3), detail(802L, 701L, 2, 3), detail(803L, 701L, 3, 3),
+                detail(804L, 701L, 1, 3).setItemCode("I2"), detail(805L, 701L, 2, 3).setItemCode("I2")));
+        when(lossSourceReader.read(any())).thenReturn(lossSources(BigDecimal.ZERO));
+        var draft = port.prepare(20L, order(), command());
+        assertEquals(List.of(701L, 801L, 802L, 803L, 804L, 805L),
+                JsonUtils.parseArray(draft.getProcessInspectionSourceIdsJson(), Long.class));
+        assertEquals("{\"I1\":2,\"I2\":1}", task.getInspectionItemPlanJson());
+        assertEquals(3, task.getActualInspectionQuantity());
+    }
+
+    @Test
     void sevenQaProcessesAcrossThreeStagesProduceTwentyOneBackfillTasks() {
         List<MesPqcInspectionTaskDO> tasks = new ArrayList<>();
         List<MesPqcProcessInspectionAggregateDetailDO> details = new ArrayList<>();
@@ -496,7 +512,7 @@ class MesTeamLeaderActiveOrderCompletionBackfillPortImplTest {
                 details.add(detail(801L + index, 701L + index, 1, 1));
             }
         }
-        when(taskMapper.selectListByActiveOrderIdForUpdate(10L)).thenReturn(tasks);
+        when(taskMapper.selectEffectiveListByActiveOrderIdForUpdate(10L)).thenReturn(tasks);
         when(detailMapper.selectListByActiveOrderIdForUpdate(10L)).thenReturn(details);
         when(lossSourceReader.read(any())).thenReturn(lossSources(BigDecimal.ZERO));
 
@@ -507,7 +523,7 @@ class MesTeamLeaderActiveOrderCompletionBackfillPortImplTest {
 
     @Test
     void productionBoundQaTaskCannotBeUsedAsWholeOrderInspectionEvidence() {
-        when(taskMapper.selectListByActiveOrderIdForUpdate(10L))
+        when(taskMapper.selectEffectiveListByActiveOrderIdForUpdate(10L))
                 .thenReturn(List.of(task().setRouteProcessId(101L).setProcessId(1L)));
 
         assertMissingInspectionSource();
@@ -515,7 +531,7 @@ class MesTeamLeaderActiveOrderCompletionBackfillPortImplTest {
 
     @Test
     void missingInspectionItemCannotBeHiddenByAnotherItemsSampleCount() {
-        when(taskMapper.selectListByActiveOrderIdForUpdate(10L)).thenReturn(List.of(task(701L, 2)
+        when(taskMapper.selectEffectiveListByActiveOrderIdForUpdate(10L)).thenReturn(List.of(task(701L, 2)
                 .setInspectionItemPlanJson("{\"I1\":2,\"I2\":1}")));
         when(detailMapper.selectListByActiveOrderIdForUpdate(10L)).thenReturn(List.of(
                 detail(801L, 701L, 1, 2), detail(802L, 701L, 2, 2)));
@@ -525,7 +541,7 @@ class MesTeamLeaderActiveOrderCompletionBackfillPortImplTest {
 
     @Test
     void duplicateSampleNumberCannotSatisfyFrozenItemSamplingPlan() {
-        when(taskMapper.selectListByActiveOrderIdForUpdate(10L)).thenReturn(List.of(task(701L, 2)));
+        when(taskMapper.selectEffectiveListByActiveOrderIdForUpdate(10L)).thenReturn(List.of(task(701L, 2)));
         when(detailMapper.selectListByActiveOrderIdForUpdate(10L)).thenReturn(List.of(
                 detail(801L, 701L, 1, 2), detail(802L, 701L, 1, 2)));
 

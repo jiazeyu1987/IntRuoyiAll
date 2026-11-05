@@ -7,7 +7,8 @@ import java.util.Set;
 
 @Mapper
 public interface MesProEdhrTraceIdentityMapper {
-    @Select("SELECT id FROM mes_pro_process_pool_team_employee_profile WHERE tenant_id=#{tenantId} AND deleted=0 "
+    // Historical trace must still resolve personnel removed from the current team list.
+    @Select("SELECT id FROM mes_pro_process_pool_team_employee_profile WHERE tenant_id=#{tenantId} "
             + "AND (LOCATE(#{keyword},employee_code)>0 OR LOCATE(#{keyword},employee_name)>0 OR LOCATE(#{keyword},display_name)>0)")
     Set<Long> employeeIds(@Param("tenantId") Long tenantId, @Param("keyword") String keyword);
 

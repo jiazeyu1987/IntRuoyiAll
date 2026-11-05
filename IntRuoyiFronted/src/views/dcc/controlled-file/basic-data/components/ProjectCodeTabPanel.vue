@@ -537,6 +537,8 @@
               v-model="formData.productMasterId"
               class="flex-1"
               filterable
+              clearable
+              :value-on-clear="null"
               :loading="bindingProductsLoading"
               :disabled="!canQueryBindingProducts || bindingProductsLoading || bindingProductsFailed"
               placeholder="请选择与当前项目对应的产品"
@@ -576,7 +578,7 @@
             产品列表加载失败，请点击刷新重试。
           </div>
           <div v-else class="text-12px text-secondary mt-4px">
-            QA检验规程需要此关联。未找到产品时，请先到产品主数据新增或导入并启用，再刷新选择。
+            此关联用于展厅产品展示，可选填。生产与 QA 检验规程按项目代码关联。
           </div>
         </div>
       </el-form-item>
@@ -1418,7 +1420,6 @@ import {
   type TableQuickFilterDefinition
 } from '@/hooks/web/useTableQuickFilter'
 import {
-  createControlledFileBatchRecognitionTask,
   exportControlledFileRecognitionRecordExcel,
   getControlledFileBatchRecognitionTask,
   getLatestControlledFileBatchRecognitionTask,
@@ -1454,7 +1455,6 @@ import {
   DCC_PROJECT_CODE_STATUS_DISABLE,
   DCC_PROJECT_CODE_STATUS_ENABLE,
   deleteProjectCode,
-  exportProjectCodeExcel,
   getProjectCodeAssociatedFileAiCategoryCandidates,
   getProjectCodeAccessRules,
   getProjectCode,
@@ -1542,7 +1542,7 @@ type ProjectAccessRuleFormRow = Omit<DccProjectAccessRuleSaveReqVO, 'subjectId'>
 type ProductOnboardingFormData = DccProductOnboardingCreateReqVO
 
 const DCC_PROJECT_CODE_ASSOCIATED_NAVIGATION_PAGE_SIZE = 200
-const DCC_PROJECT_CODE_LIST_AUTO_CLASSIFY_PAGE_SIZE = 100
+
 const DCC_PROJECT_CODE_UNCLASSIFIED_TYPE = '未分类文件类型'
 const DCC_REGISTRATION_CERTIFICATE_SOURCE_TYPE = 'DCC_REGISTRATION_CERTIFICATE'
 const BATCH_AI_CATEGORY_POLL_INTERVAL_MS = 1000
@@ -1686,7 +1686,7 @@ const openProjectRequestEntry = (mode: 'create' | 'records') => router.push({
   path: '/mdm/product-catalog', query: { requestOpen: mode, from: 'project-code' }
 })
 const loading = ref(false)
-const exportLoading = ref(false)
+
 const previewLoading = ref(false)
 const confirmLoading = ref(false)
 const detailLoading = ref(false)
@@ -1940,10 +1940,8 @@ const canRunAiCategory = computed(
     checkPermi(['dcc:controlled-file:update'])
 )
 const canRunAssociatedNameAutoClassify = computed(() => checkPermi(['dcc:controlled-file:update']))
-const canRunProjectCodeListNameAutoClassify = computed(
-  () => canRunAssociatedNameAutoClassify.value
-)
-const canCreateProductOnboardingRequest = computed(() => checkPermi(['dcc:project-code:create']))
+
+
 const canRunBatchAiCategory = computed(
   () => canRunAiCategory.value && checkRole(['doc_control'])
 )
@@ -2657,23 +2655,7 @@ const getList = async () => {
   }
 }
 
-const fetchAllFilteredProjectCodes = async () => {
-  const fetchProjectCodePage = (pageNo: number) =>
-    getProjectCodePage({
-      ...queryParams,
-      pageNo,
-      pageSize: DCC_PROJECT_CODE_LIST_AUTO_CLASSIFY_PAGE_SIZE
-    })
-  const firstPage = await fetchProjectCodePage(1)
-  const projectCodes = [...firstPage.list]
-  const total = firstPage.total
-  const pageCount = Math.ceil(total / DCC_PROJECT_CODE_LIST_AUTO_CLASSIFY_PAGE_SIZE)
-  for (let pageNo = 2; pageNo <= pageCount; pageNo += 1) {
-    const data = await fetchProjectCodePage(pageNo)
-    projectCodes.push(...data.list)
-  }
-  return { projectCodes, total, pageCount }
-}
+
 
 const projectCodeQuickFilter = useTableQuickFilter(
   'dcc.projectCode.main',
@@ -2832,60 +2814,15 @@ const submitForm = async () => {
   }
 }
 
-const resetProductOnboardingFormData = () => {
-  Object.assign(productOnboardingFormData, {
-    productMasterId: undefined,
-    productCode: '',
-    dccProductCode: '',
-    productNameCn: '',
-    productNameEn: '',
-    modelSpecification: '',
-    productCategory: '',
-    docControlNo: '',
-    projectName: '',
-    projectCode: '',
-    category: '',
-    commissionedProduction: '',
-    projectLeader: '',
-    projectEngineer: '',
-    storageLocation: '',
-    priority: ''
-  })
-  productOnboardingCreatedRequestId.value = null
-  productOnboardingPendingRequests.value = []
-  productOnboardingFormRef.value?.resetFields()
-}
 
-const loadProductOnboardingProducts = async () => {
-  productOnboardingProductLoading.value = true
-  try {
-    productOnboardingProducts.value = await getProductSimpleList({
-      status: MDM_PRODUCT_STATUS_ENABLE,
-      requireDccProductCode: true
-    })
-  } finally {
-    productOnboardingProductLoading.value = false
-  }
-}
+
+
 
 const loadPendingProductOnboardingRequests = async () => {
   productOnboardingPendingRequests.value = await getPendingProductOnboardingRequests()
 }
 
-const openProductOnboardingDialog = async () => {
-  productOnboardingVisible.value = true
-  productOnboardingLoading.value = true
-  resetProductOnboardingFormData()
-  try {
-    const loaders = [loadPendingProductOnboardingRequests()]
-    if (canCreateProductOnboardingRequest.value) {
-      loaders.push(loadProductOnboardingProducts())
-    }
-    await Promise.all(loaders)
-  } finally {
-    productOnboardingLoading.value = false
-  }
-}
+
 
 const applyPendingProductOnboardingRequest = (request: DccProductOnboardingRespVO) => {
   productOnboardingCreatedRequestId.value = request.id
@@ -2966,12 +2903,7 @@ const approveProductOnboardingCreatedRequest = async () => {
   }
 }
 
-const openImportDialog = () => {
-  importVisible.value = true
-  importFileList.value = []
-  importFile.value = null
-  previewResult.value = null
-}
+
 
 const handleImportFileChange = (uploadFile: any) => {
   importFile.value = uploadFile.raw || null
@@ -3015,15 +2947,7 @@ const handleImportConfirm = async () => {
   }
 }
 
-const handleExport = async () => {
-  exportLoading.value = true
-  try {
-    const data = await exportProjectCodeExcel(queryParams)
-    download.excel(data, '项目代码.xlsx')
-  } finally {
-    exportLoading.value = false
-  }
-}
+
 
 const handleDelete = async (row: DccProjectCodeRespVO) => {
   try {
@@ -3140,24 +3064,7 @@ const getAssociatedFiles = async (
   }
 }
 
-const fetchProjectCodeAssociatedFiles = async (projectCodeId: number | string) => {
-  const associatedFiles: ControlledFileVO[] = []
-  const fetchAssociatedPage = (pageNo: number) =>
-    getProjectCodeControlledFilesPage(projectCodeId, {
-      pageNo,
-      pageSize: DCC_PROJECT_CODE_ASSOCIATED_NAVIGATION_PAGE_SIZE,
-      keyword: undefined,
-      status: undefined
-    })
-  const firstPage = await fetchAssociatedPage(1)
-  associatedFiles.push(...firstPage.list)
-  const pageCount = Math.ceil(firstPage.total / DCC_PROJECT_CODE_ASSOCIATED_NAVIGATION_PAGE_SIZE)
-  for (let pageNo = 2; pageNo <= pageCount; pageNo += 1) {
-    const data = await fetchAssociatedPage(pageNo)
-    associatedFiles.push(...data.list)
-  }
-  return associatedFiles
-}
+
 
 const loadAssociatedFilesForDetail = async (projectCodeId: number | string, requestToken: number) => {
   await getAssociatedFiles(projectCodeId, requestToken)
@@ -3453,32 +3360,7 @@ const restoreLatestBatchAiCategoryTask = async () => {
   }
 }
 
-const handleBatchAiCategoryProjectCodes = async () => {
-  if (
-    !canRunBatchAiCategory.value ||
-    batchAiCategoryRunning.value ||
-    aiCategoryRunning.value ||
-    listUnclassifiedAutoClassifyRunning.value
-  ) {
-    return
-  }
-  const task = await createControlledFileBatchRecognitionTask({
-    recognitionType: 'FILE_CATEGORY',
-    scope: 'GLOBAL',
-    overwriteExisting: false,
-    existingRecordPolicy: 'RETRY_FAILED',
-    syncFileNameTitle: false,
-    workerCount: 5
-  })
-  batchAiCategoryTask.value = task
-  batchAiCategoryDismissedTaskId.value = null
-  batchAiCategoryTerminalHandledTaskId = null
-  if (isBatchAiCategoryTaskActive(task)) {
-    startBatchAiCategoryPolling(task.taskId)
-    return
-  }
-  await handleBatchAiCategoryTaskTerminal(task, true)
-}
+
 
 const handleAiCategoryAssociatedFiles = async () => {
   const projectCodeId = selectedProjectCode.value?.id
@@ -3533,101 +3415,11 @@ const handleAiCategoryAssociatedFiles = async () => {
   }
 }
 
-const autoClassifyUnclassifiedFilesForProjectCode = async (
-  projectCode: DccProjectCodeRespVO,
-  targetOptions: DccFileTypeTaxonomyStageTypeOption[]
-) => {
-  const associatedFiles = await fetchProjectCodeAssociatedFiles(projectCode.id)
-  const filesToClassify = associatedFiles.filter(isAssociatedFileUnclassified)
-  let processedFileCount = 0
-  for (const file of filesToClassify) {
-    const target = resolveBestAssociatedAutoClassifyTarget(file, targetOptions)
-    if (!target) {
-      throw new Error('没有可用于归类的正式文件类型，请先维护 DCC 文件分类树')
-    }
-    const payload = buildDccAssociatedFileAutoClassifyPayload(file, target, projectCode)
-    await updateControlledFileMetadata(file.id, payload)
-    processedFileCount += 1
-  }
-  if (processedFileCount > 0) {
-    const refreshedFiles = await fetchProjectCodeAssociatedFiles(projectCode.id)
-    const remainingCount = refreshedFiles.filter(isAssociatedFileUnclassified).length
-    if (remainingCount > 0) {
-      throw new Error(
-        `项目代码 ${projectCode.projectCode || projectCode.id} 自动归类后仍有 ${remainingCount} 份文件停留在未分类`
-      )
-    }
-  }
-  return processedFileCount
-}
 
-const resetListUnclassifiedAutoClassifyProgress = () => {
-  listUnclassifiedAutoClassifyTotalProjects.value = 0
-  listUnclassifiedAutoClassifyProcessedProjects.value = 0
-  listUnclassifiedAutoClassifyProcessedFiles.value = 0
-}
 
-const handleListAutoClassifyUnclassifiedProjectCodes = async () => {
-  if (
-    !canRunProjectCodeListNameAutoClassify.value ||
-    listUnclassifiedAutoClassifyRunning.value ||
-    aiCategoryRunning.value ||
-    batchAiCategoryRunning.value ||
-    unclassifiedAutoClassifyRunning.value
-  ) {
-    return
-  }
-  resetListUnclassifiedAutoClassifyProgress()
-  listUnclassifiedAutoClassifyRunning.value = true
-  try {
-    await loadFileTypeTaxonomies()
-    const targetOptions = associatedAutoClassifyTargetOptions.value
-    if (targetOptions.length === 0) {
-      message.error('没有可用于归类的正式文件类型，请先维护 DCC 文件分类树')
-      return
-    }
-    const { projectCodes, total } = await fetchAllFilteredProjectCodes()
-    listUnclassifiedAutoClassifyTotalProjects.value = total
-    if (projectCodes.length === 0) {
-      message.info('当前筛选条件下没有项目代码')
-      return
-    }
-    try {
-      await message.confirm(
-        `将按当前筛选条件处理 ${total} 个全部项目代码，包括未加载分页；系统会按文件名相似度归类每个项目代码下的未分类文件，不会只处理当前页。是否继续？`,
-        '按文件名归类未分类'
-      )
-    } catch (error) {
-      if (isCancelError(error)) {
-        return
-      }
-      throw error
-    }
 
-    for (const projectCode of projectCodes) {
-      const classifiedFileCount = await autoClassifyUnclassifiedFilesForProjectCode(
-        projectCode,
-        targetOptions
-      )
-      listUnclassifiedAutoClassifyProcessedFiles.value += classifiedFileCount
-      listUnclassifiedAutoClassifyProcessedProjects.value += 1
-    }
-    await getList()
-    if (detailDrawerVisible.value && selectedProjectCode.value?.id) {
-      await getAssociatedFiles()
-    }
-    message.success(
-      `已按当前筛选条件处理 ${listUnclassifiedAutoClassifyProcessedProjects.value} 个项目代码，归类 ${listUnclassifiedAutoClassifyProcessedFiles.value} 份未分类文件`
-    )
-  } catch (error) {
-    message.error(
-      `列表批量按文件名归类失败：已处理项目 ${listUnclassifiedAutoClassifyProcessedProjects.value}/${listUnclassifiedAutoClassifyTotalProjects.value}，已归类文件 ${listUnclassifiedAutoClassifyProcessedFiles.value} 份，后端错误：${resolveAiCategoryErrorMessage(error)}`
-    )
-    throw error
-  } finally {
-    listUnclassifiedAutoClassifyRunning.value = false
-  }
-}
+
+
 
 const handleAutoClassifyUnclassifiedAssociatedFiles = async () => {
   const projectCodeId = selectedProjectCode.value?.id

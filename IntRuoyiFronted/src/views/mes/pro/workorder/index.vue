@@ -31,6 +31,15 @@
       :column-filter-definitions="listColumnFilterDefinitions0"
     >
       <template #actions>
+        <el-button
+          v-if="testModeEnabled"
+          class="app-test-button"
+          type="primary"
+          plain
+          data-local-test-data-open
+          v-hasPermi="['mes:pro-work-order:create']"
+          @click="openLocalTestData"
+        >准备本轮虚拟数据</el-button>
         <SyncByCodeButton sync-type="PRODUCTION_ORDER" code-label="工单编号" :on-synced="handleCodeSynced" />
         <el-button v-if="queryParams.syncCode" plain @click="clearCodeSyncFilter">显示全部</el-button>
         <RecentFullSyncButton sync-type="PRODUCTION_ORDER" />
@@ -90,6 +99,7 @@
                   @click="openForm('detail', scope.row.id)"
                   >{{ scope.row.code }}</el-button
                 >
+                <el-tag v-if="scope.row.orderSourceCode?.startsWith('LOCAL_TEST_RUN:')" type="warning" size="small">本地虚拟来源</el-tag>
               </div></template
             ></el-table-column
           >
@@ -342,6 +352,59 @@
 
   <WorkOrderForm ref="formRef" @success="getList" />
 
+  <el-dialog v-if="testModeEnabled" v-model="localTestDialog.visible" title="准备本轮虚拟数据" width="900px" :close-on-click-modal="false">
+    <el-alert title="本地虚拟来源，不计入 ERP 同步。只准备本轮输入，不自动提交、审批或办理生产业务。相同 RUN 与槽位复用原 ID、保留原状态；新 RUN 独立。" type="warning" :closable="false" class="mb-16px" />
+    <el-form label-width="120px" :disabled="localTestDialog.busy">
+      <el-form-item label="本轮 RUN" required>
+        <el-input v-model="localTestDialog.runId" data-local-test-run placeholder="输入本轮唯一 RUN，复用时填写原 RUN" />
+      </el-form-item>
+      <el-form-item label="正式申请" required>
+        <el-select v-model="localTestDialog.requestId" filterable :loading="localTestDialog.loadingProducts" placeholder="选择已完成的正式申请精确 ID" style="width: 100%" data-local-test-request>
+          <el-option v-for="product in localTestProducts" :key="product.requestId" :value="product.requestId" :label="`申请 ${product.requestId} · ${product.projectCode} · ${product.productCode} · ${product.productName}`" />
+        </el-select>
+        <span v-if="!localTestDialog.loadingProducts && !localTestDialog.error && !localTestProducts.length" class="text-red-500">暂无已完成申请，请先完成项目产品申请。</span>
+        <el-button link type="primary" @click="router.push('/mdm/product-catalog')">处理正式项目产品申请</el-button>
+      </el-form-item>
+      <el-descriptions v-if="localTestProduct" :column="2" border class="mb-16px">
+        <el-descriptions-item label="申请 ID">{{ localTestProduct.requestId }}</el-descriptions-item>
+        <el-descriptions-item label="项目 ID">{{ localTestProduct.projectId }}</el-descriptions-item>
+        <el-descriptions-item label="产品目录 ID">{{ localTestProduct.catalogId }}</el-descriptions-item>
+        <el-descriptions-item label="关系 ID">{{ localTestProduct.relationId }}</el-descriptions-item>
+        <el-descriptions-item label="MES 产品 ID">{{ localTestProduct.mesProductId ?? '缺失，预检后处理' }}</el-descriptions-item>
+        <el-descriptions-item label="产品">{{ localTestProduct.productCode }} · {{ localTestProduct.productName }}</el-descriptions-item>
+      </el-descriptions>
+      <el-form-item label="本轮槽位"><span data-local-test-slot>A、B 两槽，共用所选正式申请及产品关系</span></el-form-item>
+      <el-table :data="localTestInputOrders" border>
+        <el-table-column prop="slot" label="槽位" width="70" />
+        <el-table-column label="数量" width="180"><template #default="{ row }"><el-input-number v-model="row.quantity" :min="0.01" :precision="2" :max="999999999999.99" :disabled="localTestDialog.busy" /></template></el-table-column>
+        <el-table-column label="生产批号"><template #default="{ row }"><el-input v-model="row.batchCode" :maxlength="64" :disabled="localTestDialog.busy" /></template></el-table-column>
+        <el-table-column label="包含补料" width="110"><template #default="{ row }"><el-switch v-model="row.includeReplenishment" :disabled="localTestDialog.busy" /></template></el-table-column>
+      </el-table>
+    </el-form>
+    <el-alert v-if="localTestDialog.error" :title="localTestDialog.error" type="error" :closable="false" class="mt-12px" />
+    <template v-if="localTestPreflight">
+      <el-alert :title="localTestPreflight.ready ? '预检可用，可以准备本轮输入。' : '预检发现缺口，完成处理后重新预检。'" :type="localTestPreflight.ready ? 'success' : 'error'" :closable="false" class="mt-12px" />
+      <el-table :data="localTestPreflight.checks" border class="mt-12px" empty-text="未返回依赖检查项">
+        <el-table-column prop="code" label="检查项" /><el-table-column label="可用状态" width="100"><template #default="{ row }"><el-tag :type="row.ready ? 'success' : 'danger'">{{ row.ready ? '可用' : '缺失' }}</el-tag></template></el-table-column><el-table-column prop="message" label="检查说明" />
+        <el-table-column label="处理入口"><template #default="{ row }"><el-button v-if="row.path" link type="primary" @click="router.push(row.path)">前往处理</el-button><span v-else>请联系配置维护人员</span></template></el-table-column>
+      </el-table>
+    </template>
+    <template v-if="localTestPreflight || localTestResult">
+      <p>本地虚拟来源：LOCAL_TEST_RUN · RUN：{{ localTestResult?.runId || localTestDialog.runId }} · 源键：RUN + 槽位</p>
+      <el-table :data="localTestResult?.orders || localTestPreflight?.orders || []" border>
+        <el-table-column prop="slot" label="槽位" width="70" /><el-table-column prop="workOrderId" label="工单 ID" />
+        <el-table-column prop="manifestId" label="来源 ID" />
+        <el-table-column prop="workOrderCode" label="工单编号" /><el-table-column prop="status" label="当前状态" />
+        <el-table-column label="处理结果"><template #default="{ row }">{{ row.reused ? '复用原记录，状态不变' : localTestResult ? '本轮新建' : '待准备' }}</template></el-table-column>
+      </el-table>
+    </template>
+    <template #footer>
+      <el-button :disabled="localTestDialog.busy" @click="localTestDialog.visible = false">关闭</el-button>
+      <el-button :loading="localTestDialog.busy" @click="preflightLocalTestData" data-local-test-preflight>预检</el-button>
+      <el-button type="primary" :loading="localTestDialog.busy" :disabled="!localTestCanPrepare" @click="prepareLocalTestData" data-local-test-prepare>确认准备本轮输入</el-button>
+    </template>
+  </el-dialog>
+
   <el-dialog
     v-if="testModeEnabled"
     v-model="aiE2eDialog.visible"
@@ -418,12 +481,14 @@ import download from '@/utils/download'
 import { handleTree } from '@/utils/tree'
 import {
   ProWorkOrderApi,
-  type ProWorkOrderVO
+  type ProWorkOrderVO,
+  type LocalTestApprovedProductVO, type LocalTestDataRequest, type LocalTestOrderInput,
+  type LocalTestPreflightVO, type LocalTestDataResultVO
 } from '@/api/mes/pro/workorder'
 import { MdItemApi, type MdItemVO } from '@/api/mes/md/item'
 import WorkOrderForm from './WorkOrderForm.vue'
 import { useTreeTableExpand } from '@/utils/treeExpand'
-import { checkRole } from '@/utils/permission'
+import { checkRole, checkPermi } from '@/utils/permission'
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import { useUserTableColumns, type UserTableColumnDefinition } from '@/hooks/web/useUserTableColumns'
 import {
@@ -438,6 +503,114 @@ defineOptions({ name: 'MesProWorkOrder' })
 const message = useMessage()
 const route = useRoute()
 const router = useRouter()
+const localTestProducts = ref<LocalTestApprovedProductVO[]>([])
+const localTestPreflight = ref<LocalTestPreflightVO>()
+const localTestResult = ref<LocalTestDataResultVO>()
+const localTestCheckedPayload = ref('')
+const localTestDialog = reactive({
+  visible: false, busy: false, loadingProducts: false, runId: '', requestId: '',
+  error: '',
+  orders: [
+    { slot: 'A', quantity: 100, batchCode: '', includeReplenishment: false },
+    { slot: 'B', quantity: 100, batchCode: '', includeReplenishment: false }
+  ] as LocalTestOrderInput[]
+})
+const localTestProduct = computed(() => localTestProducts.value.find(row => row.requestId === localTestDialog.requestId))
+const localTestInputOrders = computed(() => localTestDialog.orders)
+const buildLocalTestPayload = (): LocalTestDataRequest => {
+  const product = localTestProduct.value
+  if (!product) throw new Error('请选择已完成的正式申请精确 ID')
+  const runId = localTestDialog.runId.trim()
+  if (!runId) throw new Error('请输入本轮 RUN')
+  const orders = localTestInputOrders.value.map(row => ({ ...row, batchCode: row.batchCode.trim() }))
+  if (orders.some(row => !row.batchCode || !Number.isFinite(row.quantity) || row.quantity <= 0)) {
+    throw new Error('每个槽位必须填写有效数量和生产批号')
+  }
+  return {
+    source: 'LOCAL_TEST_RUN', runId, requestId: product.requestId, projectId: product.projectId,
+    catalogId: product.catalogId, relationId: product.relationId, mesProductId: product.mesProductId, orders
+  }
+}
+const localTestCanPrepare = computed(() => Boolean(localTestPreflight.value?.ready)
+  && !localTestPreflight.value?.missing.length && !localTestDialog.busy && !localTestResult.value)
+const assertLocalTestAccess = () => {
+  if (!testModeEnabled.value || !checkPermi(['mes:pro-work-order:create'])) {
+    throw new Error('仅测试模式且具备生产工单创建权限时可准备虚拟数据')
+  }
+}
+const localTestError = (error: unknown) => error instanceof Error ? error.message : String(error)
+const openLocalTestData = async () => {
+  assertLocalTestAccess()
+  localTestDialog.visible = true
+  localTestDialog.error = ''
+  localTestPreflight.value = undefined
+  localTestResult.value = undefined
+  localTestCheckedPayload.value = ''
+  localTestProducts.value = []
+  localTestDialog.requestId = ''
+  localTestDialog.loadingProducts = true
+  try {
+    localTestProducts.value = await ProWorkOrderApi.getLocalTestApprovedProducts()
+  } catch (error) {
+    localTestDialog.error = localTestError(error)
+    throw error
+  } finally {
+    localTestDialog.loadingProducts = false
+  }
+}
+const preflightLocalTestData = async () => {
+  localTestDialog.error = ''
+  localTestPreflight.value = undefined
+  localTestResult.value = undefined
+  localTestCheckedPayload.value = ''
+  try {
+    assertLocalTestAccess()
+    const payload = buildLocalTestPayload()
+    const fingerprint = JSON.stringify(payload)
+    localTestDialog.busy = true
+    const result = await ProWorkOrderApi.preflightLocalTestData(payload)
+    if (JSON.stringify(buildLocalTestPayload()) !== fingerprint) throw new Error('输入已变化，请重新预检')
+    localTestPreflight.value = result
+    localTestCheckedPayload.value = fingerprint
+  } catch (error) {
+    localTestDialog.error = localTestError(error)
+    throw error
+  } finally {
+    localTestDialog.busy = false
+  }
+}
+const prepareLocalTestData = async () => {
+  localTestDialog.error = ''
+  try {
+    assertLocalTestAccess()
+    const payload = buildLocalTestPayload()
+    const fingerprint = JSON.stringify(payload)
+    if (!localTestCanPrepare.value || fingerprint !== localTestCheckedPayload.value) {
+      throw new Error('必须先对当前输入完成可用预检，缺失项禁止创建')
+    }
+    localTestDialog.busy = true
+    const confirmed = await message.confirm(`确认准备本地虚拟输入？来源 LOCAL_TEST_RUN，RUN ${payload.runId}，正式申请 ${payload.requestId}，槽位 ${payload.orders.map(row => row.slot).join('、')}。不计 ERP 同步，不自动办理业务。相同参数复用原 ID/原状态；相同 RUN 参数不同将报冲突。`).then(() => true, (reason: unknown) => {
+      if (reason === 'cancel' || reason === 'close') return false
+      throw reason
+    })
+    if (!confirmed) return
+    if (JSON.stringify(buildLocalTestPayload()) !== fingerprint || !testModeEnabled.value) throw new Error('输入或测试模式已变化，请重新预检')
+    assertLocalTestAccess()
+    localTestResult.value = await ProWorkOrderApi.prepareLocalTestData(payload)
+    message.success('本轮虚拟输入已准备，当前状态见结果表')
+    await getList()
+  } catch (error) {
+    localTestDialog.error = localTestError(error)
+    throw error
+  } finally {
+    localTestDialog.busy = false
+  }
+}
+watch(() => [localTestDialog.runId, localTestDialog.requestId, JSON.stringify(localTestDialog.orders)], () => {
+  localTestPreflight.value = undefined
+  localTestResult.value = undefined
+  localTestCheckedPayload.value = ''
+}, { flush: 'sync' })
 const workOrderDefaultColumns: UserTableColumnDefinition[] = [
   { key: 'code', label: '工单编号', width: 340 },
   { key: 'productCode', label: '产品编码', width: 260 },

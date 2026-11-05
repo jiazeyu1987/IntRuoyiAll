@@ -69,8 +69,8 @@
             :show-column-settings="false"
             :column-filter-definitions="[...listColumnFilterDefinitions0, ...allColumnDisplayFilters0]"
           >
-            <template #table="{ resolveRows, rows: standardRows }">
-              <el-table stripe border :data="resolveRows(standardRows)" row-key="revisionId" empty-text="暂无历史版本">
+            <template #table="{ rows: standardRows }">
+              <el-table stripe border :data="standardRows" row-key="revisionId" empty-text="暂无历史版本">
                 <el-table-column label="版本" width="110">
                   <template #default="{ row }">
                     <strong>V{{ row.revisionNo }}</strong>

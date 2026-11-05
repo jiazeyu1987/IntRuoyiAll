@@ -21,8 +21,7 @@ public class MesQaInspectionRegulationSaveReqVO {
     @jakarta.validation.constraints.Min(0)
     private Long expectedDraftRevision;
 
-    @Schema(description = "DCC 项目代码 ID", requiredMode = Schema.RequiredMode.REQUIRED)
-    @NotNull(message = "DCC 项目代码不能为空")
+    @Schema(description = "DCC 项目代码 ID；产品 QA 必填，通用规程不使用")
     private Long dccProjectCodeId;
 
     @Schema(description = "规程归属模块：MES_QA=产品 QA；MES_QA_COMMON=通用检验规程")

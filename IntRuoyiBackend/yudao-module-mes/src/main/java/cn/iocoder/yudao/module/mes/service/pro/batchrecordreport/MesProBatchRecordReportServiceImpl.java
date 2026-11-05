@@ -1071,7 +1071,7 @@ public class MesProBatchRecordReportServiceImpl implements MesProBatchRecordRepo
                     new MesProBatchRecordTotalRecognitionExtractor().extract(sourceFileName, parsedTables));
             validateTotalRecognitionJsonIntegrity(json);
             return json;
-        } catch (JsonProcessingException ex) {
+        } catch (JsonProcessingException | IllegalStateException ex) {
             throw exception(MesProBatchRecordReportErrorCodeConstants.PRO_BATCH_RECORD_REPORT_PARSE_FAILED,
                     ex.getMessage());
         }

@@ -86,6 +86,7 @@ import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.DCC_PROJECT_C
 @Service
 @Validated
 public class DccProjectCodeServiceImpl implements DccProjectCodeService {
+    @jakarta.annotation.Resource private org.springframework.context.ApplicationEventPublisher projectEvents;
 
     private static final List<String> EXPECTED_HEADERS = List.of(
             "文控", "项目名称", "项目代码", "类别", "委托生产",
@@ -1095,7 +1096,8 @@ public class DccProjectCodeServiceImpl implements DccProjectCodeService {
 
     private void applyImportRow(Long batchId, DccProjectCodeImportRowDO row) {
         switch (row.getImportAction()) {
-            case DccProjectCodeImportActionConstants.CREATE -> projectCodeMapper.insert(DccProjectCodeDO.builder()
+            case DccProjectCodeImportActionConstants.CREATE -> {
+                DccProjectCodeDO created = DccProjectCodeDO.builder()
                     .docControlNo(row.getDocControlNo())
                     .projectName(row.getProjectName())
                     .projectCode(row.getProjectCode())
@@ -1107,7 +1109,10 @@ public class DccProjectCodeServiceImpl implements DccProjectCodeService {
                     .priority(row.getPriority())
                     .status(DccProjectCodeStatusConstants.ENABLE)
                     .lastImportBatchId(batchId)
-                    .build());
+                    .build();
+                projectCodeMapper.insert(created);
+                projectEvents.publishEvent(new cn.iocoder.yudao.module.dcc.api.projectcode.DccProjectCreatedEvent(created.getId()));
+            }
             case DccProjectCodeImportActionConstants.UPDATE -> {
                 DccProjectCodeDO existing = requireProjectCode(row.getProjectName(), row.getProjectCode());
                 updateProjectCodeFields(existing.getId(), buildImportSaveReqVO(row, DccProjectCodeStatusConstants.ENABLE),

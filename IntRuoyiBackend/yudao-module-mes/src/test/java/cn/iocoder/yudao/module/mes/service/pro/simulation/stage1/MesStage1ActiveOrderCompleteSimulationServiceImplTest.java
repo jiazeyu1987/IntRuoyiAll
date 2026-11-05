@@ -74,6 +74,8 @@ import cn.iocoder.yudao.module.mes.service.pro.workorder.MesProWorkOrderService;
 import cn.hutool.crypto.digest.DigestUtil;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
@@ -190,6 +192,9 @@ class MesStage1ActiveOrderCompleteSimulationServiceImplTest {
     @Mock
     private MesProEdhrBatchExecutionOriginMapper batchExecutionOriginMapper;
 
+    @Mock
+    private cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesFixedTestOrderPickListInitializer fixedTestPickListInitializer;
+
     @InjectMocks
     private MesStage1ActiveOrderCompleteSimulationServiceImpl service;
 
@@ -228,11 +233,14 @@ class MesStage1ActiveOrderCompleteSimulationServiceImplTest {
         TenantContextHolder.clear();
     }
 
-    @Test
-    void publicStage1AllowsExistingFormalMaterialSourcesWithoutMaterializingP2() {
-        TenantContextHolder.setTenantId(1L);
+    @ParameterizedTest
+    @ValueSource(longs = {1L, 165L, 170L, 271L})
+    void publicStage1AllowsExistingFormalMaterialSourcesWithoutMaterializingP2(long tenant) {
+        TenantContextHolder.setTenantId(tenant);
         MesProcessPoolActiveOrderDO activeOrder = activeOrder(328L);
+        activeOrder.setTenantId(tenant);
         MesProWorkOrderDO workOrder = workOrder();
+        workOrder.setCode("SIM-COPY-CODX-PQC-20260807-SP-WO-05-OPYAO451788352161891");
         MesProcessPoolActiveOrderProcessSnapshotDO snapshot = processSnapshot();
         MesPqcInspectionTaskDO confirmedTask = confirmedPqcTask();
         MesProcessPoolReportAllocationDO allocation = MesProcessPoolReportAllocationDO.builder()
@@ -268,6 +276,9 @@ class MesStage1ActiveOrderCompleteSimulationServiceImplTest {
 
         MesStage1ActiveOrderCompleteSimulationResult result = service.simulate(command(328L));
 
+        var calls = org.mockito.Mockito.inOrder(fixedTestPickListInitializer, activeOrderSimulationService);
+        calls.verify(fixedTestPickListInitializer).prepare(workOrder.getCode(), 3001L);
+        calls.verify(activeOrderSimulationService).simulateActiveOrderCompletion(3001L, 328L, "STAGE1", "STAGE1-unit");
         assertEquals(0, BigDecimal.valueOf(100).compareTo(result.getProductionProgressPercent()));
         assertEquals(0, BigDecimal.valueOf(100).compareTo(result.getInspectionProgressPercent()));
         assertEquals(List.of(), result.getPickListIds());

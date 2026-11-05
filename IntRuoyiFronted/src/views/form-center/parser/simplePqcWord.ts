@@ -74,7 +74,7 @@ export function createPqcWord(
     paragraph(`生效日期：${draft.effectiveDate ?? ''}`),
     paragraph(
       common
-        ? '本文件包含完整编辑数据，可在简易通用解析中选择原项目，通过“解析通用规程”还原。'
+        ? '本文件包含完整编辑数据，可在简易通用解析中通过“导入 Word”还原，无需选择项目代码。'
         : '本文件包含完整编辑数据，可在简易PQC解析中选择原产品，通过“导入检验规程”还原。'
     ),
     paragraph(
@@ -128,7 +128,7 @@ export function createPqcWord(
 export function readPqcWord(
   bytes: ArrayBuffer | Uint8Array,
   tenantId: string,
-  projectId: number,
+  projectId: number | undefined,
   ownerModule: 'MES_QA' | 'MES_QA_COMMON' = 'MES_QA'
 ): PqcWordSnapshot | null {
   const zip = new PizZip(bytes)
@@ -172,12 +172,8 @@ export function readPqcWord(
     throw new Error('规程类型不一致，请在对应的简易PQC解析或简易通用解析页面导入')
   if (snapshot.tenantId !== tenantId)
     throw new Error('此 Word 属于其他租户，不能还原设备及产品绑定')
-  if (snapshot.draft?.dccProjectCodeId !== projectId)
-    throw new Error(
-      ownerModule === 'MES_QA_COMMON'
-        ? '请选择导出时的规程所属项目后再导入'
-        : '请选择导出时的所属产品后再导入'
-    )
+  if (ownerModule === 'MES_QA' && snapshot.draft?.dccProjectCodeId !== projectId)
+    throw new Error('请选择导出时的所属产品后再导入')
   const draft = snapshot.draft
   if (
     !Array.isArray(draft.processes) ||
@@ -199,6 +195,7 @@ export function readPqcWord(
     )
   )
     throw new Error('Word 导出数据结构无效')
+  if (ownerModule === 'MES_QA_COMMON') delete draft.dccProjectCodeId
   return snapshot
 }
 

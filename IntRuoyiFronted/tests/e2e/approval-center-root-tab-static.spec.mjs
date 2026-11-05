@@ -59,7 +59,7 @@ for (const [routePath, activePath, routeTitle, componentName, shouldHide] of [
     'manager/business-approval-policy',
     '业务审批策略',
     'ApprovalCenterBpmBusinessApprovalPolicy',
-    true
+    false
   ],
   ['user-group', 'manager/user-group', '用户分组', 'ApprovalCenterBpmUserGroup', true],
   ['process-expression', 'manager/process-expression', '流程表达式', 'ApprovalCenterBpmProcessExpression', true]

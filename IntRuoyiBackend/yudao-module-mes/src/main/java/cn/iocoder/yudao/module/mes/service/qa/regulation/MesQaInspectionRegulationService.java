@@ -37,6 +37,16 @@ public interface MesQaInspectionRegulationService {
 
     List<MesQaCommonRegulationVersionOptionRespVO> listCommonRegulationPublishedVersions();
 
+    List<MesQaCommonRegulationVersionOptionRespVO> listCommonRegulationReleasedVersions();
+
+    MesQaInspectionRegulationPublishedVersionRespVO getCommonRegulationPublishedVersion(Long versionId);
+
+    List<MesQaInspectionRegulationVersionOptionRespVO> listCommonRegulationVersions(Long regulationId);
+
+    MesQaInspectionRegulationPublishedVersionRespVO getCommonRegulationEditorVersion(Long regulationId, Long versionId);
+
+    void deleteCommonRegulationVersion(Long versionId);
+
     List<MesQaCommonRegulationSetRespVO> listCommonRegulationSets();
 
     MesQaCommonRegulationSetRespVO getCommonRegulationSet(Long setId);

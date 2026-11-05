@@ -79,6 +79,7 @@ import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_P
 @Service
 @Validated
 public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderActiveOrderDetailService {
+    @jakarta.annotation.Resource private MesLocalTestRunSourceGuard localSources;
     @jakarta.annotation.Resource private cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesMarketReleaseAccess marketReleaseAccess;
 
     @jakarta.annotation.Resource private cn.iocoder.yudao.module.signature.service.ElectronicSignatureVerifiedFactService verifiedSignatureFacts;
@@ -245,7 +246,7 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
         }
         FormalInputSourceSnapshot inputSourceSnapshot = resolveInputSourceSnapshot(activeOrder, activeOrderId);
         attachInputMaterials(activeOrder, activeOrderId, accumulators, inputSourceSnapshot, archivedFormalSource);
-        attachSupplementMaterials(first.getWorkOrderCode(), activeOrderId, accumulators);
+        attachSupplementMaterials(first.getWorkOrderCode(), activeOrder.getWorkOrderId(), activeOrderId, accumulators);
         var pqcSubmissions = readPqcSubmissions(activeOrder, activeOrderId, signatureId, revisionEventId);
         MesProcessPoolActiveOrderReleaseApplicationDO application =
                 releaseApplicationMapper.selectLatestByActiveOrderId(activeOrderId);
@@ -525,6 +526,9 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
 
     private MesTeamLeaderActiveOrderDetail.OperationFact toOperationFact(
             MesProEdhrOperationAuditEventDO event, Long activeOrderId) {
+        if (event != null && "ACTIVE_ORDER_DOSSIER".equals(event.getObjectType())) {
+            return toDossierOperationFact(event, activeOrderId);
+        }
         if (event == null || event.getId() == null || event.getOccurredAt() == null
                 || event.getActorUserId() == null || event.getResultStatus() == null
                 || event.getAfterSummaryHash() == null || event.getAfterSummaryHash().isBlank()
@@ -593,6 +597,37 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
                 .setResultStatus(event.getResultStatus())
                 .setOccurredAt(event.getOccurredAt())
                 .setSourceSnapshotHash(event.getAfterSummaryHash());
+    }
+
+    private MesTeamLeaderActiveOrderDetail.OperationFact toDossierOperationFact(
+            MesProEdhrOperationAuditEventDO event, Long activeOrderId) {
+        // Responsibility events carry task/category metadata and an audit-chain hash, not
+        // a production-state snapshot or a signed display-name snapshot. Keep that contract
+        // explicit; do not invent either snapshot from today's order or user directory.
+        JSONObject metadata = JSON.parseObject(event.getMetadataJson());
+        if (event.getId() == null || event.getOccurredAt() == null || event.getActorUserId() == null
+                || event.getActorUserId() <= 0 || !"SUCCESS".equals(event.getResultStatus())
+                || !String.valueOf(activeOrderId).equals(event.getObjectId())
+                || event.getWorkTaskId() == null || event.getWorkTaskId() <= 0
+                || event.getAuditHash() == null || !event.getAuditHash().matches("[a-f0-9]{64}")
+                || !List.of("DOSSIER_ASSIGN", "DOSSIER_REASSIGN", "DOSSIER_COMPLETE").contains(event.getOperationType())
+                || metadata == null || !Objects.equals(activeOrderId, metadata.getLong("activeOrderId"))
+                || metadata.getLong("assigneeUserId") == null || metadata.getLong("assigneeUserId") <= 0
+                || !List.of("INCOMING_INSPECTION_FILE", "STERILIZATION_FILE", "FINISHED_PRODUCT_FILE", "OTHER_FILE")
+                        .contains(metadata.getString("categoryKey"))) {
+            throw new IllegalStateException("ACTIVE_ORDER_DOSSIER_OPERATION_FACT_INCOMPLETE");
+        }
+        if ("DOSSIER_COMPLETE".equals(event.getOperationType())
+                && (metadata.getLong("attachmentId") == null || metadata.getLong("attachmentId") <= 0
+                || !Objects.equals(event.getActorUserId(), metadata.getLong("assigneeUserId")))) {
+            throw new IllegalStateException("ACTIVE_ORDER_DOSSIER_COMPLETION_FACT_INCOMPLETE");
+        }
+        return new MesTeamLeaderActiveOrderDetail.OperationFact().setId(event.getId())
+                .setOperationType(event.getOperationType())
+                .setOperationName(requireTextValue(event.getActionName(), activeOrderId))
+                .setSourceType(event.getObjectType()).setSourceId(event.getObjectId())
+                .setActorUserId(event.getActorUserId()).setActorName("用户ID：" + event.getActorUserId())
+                .setResultStatus(event.getResultStatus()).setOccurredAt(event.getOccurredAt());
     }
 
     private Long reviewMaterialFileIdOf(JSONObject metadata) {
@@ -852,14 +887,14 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
         return exception(cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_ACTIVE_ORDER_COMPLETION_SOURCE_MISSING, reason);
     }
 
-    private void attachSupplementMaterials(String workOrderCode, Long activeOrderId,
+    private void attachSupplementMaterials(String workOrderCode, Long workOrderId, Long activeOrderId,
                                            Map<ProcessIdentity, ProcessAccumulator> accumulators) {
         List<ErpKingdeeProductionReplenishmentListItemDO> items = replenishmentListItemMapper
                 .selectListByProductionOrderNo(workOrderCode);
         if (items == null || items.isEmpty()) {
             return;
         }
-        Map<Long, ErpKingdeeProductionReplenishmentListDO> headersById = loadReplenishmentHeaders(activeOrderId, items);
+        Map<Long, ErpKingdeeProductionReplenishmentListDO> headersById = loadReplenishmentHeaders(workOrderId, activeOrderId, items);
         Map<String, MesMdItemDO> materialByCode = loadMaterialByCode(activeOrderId, items);
         Map<String, List<MesTeamLeaderActiveOrderDetail.SupplementMaterialDetail>> supplementsByMaterialCode =
                 groupSupplementMaterials(activeOrderId, items, headersById, materialByCode);
@@ -881,7 +916,8 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
     }
 
     private Map<Long, ErpKingdeeProductionReplenishmentListDO> loadReplenishmentHeaders(
-            Long activeOrderId, List<ErpKingdeeProductionReplenishmentListItemDO> items) {
+            Long workOrderId, Long activeOrderId, List<ErpKingdeeProductionReplenishmentListItemDO> items) {
+        boolean localTest = localSources.validateOrderId(workOrderId, false);
         List<Long> headerIds = items.stream()
                 .map(ErpKingdeeProductionReplenishmentListItemDO::getProductionReplenishmentListId)
                 .filter(Objects::nonNull)
@@ -898,7 +934,10 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
         }
         for (ErpKingdeeProductionReplenishmentListDO header : headersById.values()) {
             requireText(header.getSourceBillNo(), activeOrderId);
-            if (!"C".equals(header.getDocumentStatus())) {
+            if (!(localTest ? MesLocalTestRunSourceGuard.STATUS.equals(header.getDocumentStatus())
+                    && MesLocalTestRunSourceGuard.SOURCE.equals(header.getSourceFormId())
+                    : "C".equals(header.getDocumentStatus())
+                    && !MesLocalTestRunSourceGuard.SOURCE.equals(header.getSourceFormId()))) {
                 throw exception(PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_REQUIRED, activeOrderId);
             }
         }

@@ -43,8 +43,6 @@ public class MesQaCommonRegulationSetItemsUpgradeReqVO {
         private Long commonRegulationId;
         @NotNull(message = "来源通用检验规程版本不能为空")
         private Long sourceCommonRegulationVersionId;
-        @NotNull(message = "通用 DCC 项目代码不能为空")
-        private Long commonDccProjectCodeId;
         @NotBlank(message = "通用检验规程编码不能为空")
         private String commonRegulationCode;
         @NotBlank(message = "通用检验规程名称不能为空")

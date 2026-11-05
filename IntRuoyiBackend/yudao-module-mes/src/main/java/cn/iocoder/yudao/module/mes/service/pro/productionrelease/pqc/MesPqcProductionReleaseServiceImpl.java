@@ -31,6 +31,9 @@ import cn.iocoder.yudao.module.mes.service.pro.productionrelease.manager.MesProd
 import cn.iocoder.yudao.module.mes.service.pro.productionrelease.report.MesProductionReleaseManagerStageInitializationCommand;
 import cn.iocoder.yudao.module.mes.service.pro.productionrelease.report.MesProductionReleaseManagerStageInitializationResult;
 import cn.iocoder.yudao.module.mes.service.pro.productionrelease.report.MesProductionReleaseManagerStageInitializer;
+import cn.iocoder.yudao.module.mes.service.pro.productionrelease.role.MesProductionReleaseRequiredCandidateResolver;
+import cn.iocoder.yudao.module.mes.service.pro.productionrelease.role.MesProductionReleaseRoleCodes;
+import cn.iocoder.yudao.module.mes.service.pro.productionrelease.role.MesProductionReleaseRoleResolutionException;
 import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditCommand;
 import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditEvidence;
 import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditRelation;
@@ -83,6 +86,8 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
 
     @Resource
     private GxpAuditService gxpAuditService;
+    @Resource
+    private MesProductionReleaseRequiredCandidateResolver candidateResolver;
     @Resource
     private cn.iocoder.yudao.module.mes.service.pro.productionrelease.MesReleaseAffectedStateCollector affectedStates;
 
@@ -147,8 +152,37 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
         var outcome = signatureAuthentication.authenticate(new cn.iocoder.yudao.module.system.api.signature.dto.SignatureAuthenticationRequest(
                 tenant, "SYSTEM_USER", actorUserId, actorUserId, java.util.UUID.randomUUID().toString(), command.getSignaturePassword()));
         if (outcome.signer() == null) throw cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.invalidParamException("签名认证失败：" + outcome.rejectionCode());
-        return new org.springframework.transaction.support.TransactionTemplate(transactionManager).execute(status ->
-                approveAuthenticated(actorUserId, command, outcome.signer()));
+        var roleFailure = new java.util.concurrent.atomic.AtomicReference<MesProductionReleaseRoleResolutionException>();
+        try {
+            return new org.springframework.transaction.support.TransactionTemplate(transactionManager).execute(status -> {
+                try {
+                    return approveAuthenticated(actorUserId, command, outcome.signer());
+                } catch (MesProductionReleaseRoleResolutionException exception) {
+                    roleFailure.set(exception);
+                    throw exception;
+                }
+            });
+        } catch (MesProductionReleaseRoleResolutionException exception) {
+            // Only a failure from inside the decision callback is a rollback rejection.
+            // Exceptions during commit/after-commit must retain uncertain outcome handling.
+            if (exception != roleFailure.get()
+                    || !MesProductionReleaseRoleCodes.MANAGEMENT_REPRESENTATIVE.equals(exception.getRoleCode())) {
+                throw exception;
+            }
+        }
+        // Only reached after TransactionTemplate successfully rolls back. Rollback failures propagate unchanged.
+        var failure = blocker(MesReleaseFlowBlockerType.MANAGEMENT_REPRESENTATIVE_ROLE_REQUIRED,
+                null, "SYSTEM_ROLE", roleFailure.get().getRoleCode(), managementRoleBlockerReason(roleFailure.get()),
+                "请在权限管理中为当前租户的管理者代表角色分配启用账号，再重新放行");
+        failure.getFailure().setRejectedDecision(new MesReleaseFlowFailureRespVO.RejectedDecision()
+                .setOutcome("ROLLED_BACK").setApplicationId(String.valueOf(command.getApplicationId()))
+                .setWorkTaskId(String.valueOf(command.getPqcReleaseWorkTaskId()))
+                .setActorId(String.valueOf(actorUserId)).setExpectedVersion(command.getExpectedVersion())
+                .setIdempotencyKey(command.getIdempotencyKey())
+                .setPayloadHash(decisionPayloadHash("APPROVE", command.getApplicationId(),
+                        command.getPqcReleaseWorkTaskId(), command.getExpectedVersion(), actorUserId,
+                        StrUtil.trim(command.getApprovalOpinion()), StrUtil.trim(command.getUdiControlDocumentNo()))));
+        throw failure;
     }
 
     private MesPqcProductionReleaseDecisionResult approveAuthenticated(Long actorUserId,
@@ -432,9 +466,31 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
             MesProEdhrNonconformanceReviewDO review = reviewsByApplicationId.get(application.getId());
             String viewStatus = VIEW_STATUS_COMPLETED.equals(query.getViewStatus())
                     ? resolveCompletedViewStatus(application, review) : query.getViewStatus();
-            pageRows.add(toPageItem(application, review, viewStatus));
+            MesPqcProductionReleasePageItem item = toPageItem(application, review, viewStatus);
+            if (VIEW_STATUS_PENDING.equals(viewStatus)) {
+                try {
+                    candidateResolver.resolveRequiredCandidates(TenantContextHolder.getRequiredTenantId(),
+                            MesProductionReleaseRoleCodes.MANAGEMENT_REPRESENTATIVE);
+                    item.setApprovalReady(true);
+                } catch (MesProductionReleaseRoleResolutionException exception) {
+                    item.setApprovalReady(false).setApprovalBlockerReason(managementRoleBlockerReason(exception))
+                            .setApprovalBlockerSuggestion("请为当前租户的管理者代表角色分配启用账号后刷新列表");
+                }
+            }
+            pageRows.add(item);
         }
         return new PageResult<>(pageRows, applicationPage.getTotal());
+    }
+
+    private String managementRoleBlockerReason(MesProductionReleaseRoleResolutionException exception) {
+        return switch (exception.getReason()) {
+            case ROLE_NOT_FOUND, CANDIDATE_EMPTY -> "未配置管理者代表，无法完成生产放行";
+            case ROLE_DISABLED -> "管理者代表角色已停用，无法完成生产放行";
+            case CANDIDATE_USER_DISABLED -> "管理者代表账号已停用，请调整角色人员";
+            case CANDIDATE_USER_NOT_IN_TENANT -> "管理者代表人员不属于当前租户，请调整角色人员";
+            case ROLE_NOT_UNIQUE, ROLE_DATA_INCONSISTENT -> "管理者代表角色配置不唯一或数据异常，请检查角色配置";
+            case TENANT_CONTEXT_MISMATCH -> "管理者代表角色的租户上下文不一致，无法完成生产放行";
+        };
     }
 
     private void requireApproveCommand(Long actorUserId, MesPqcProductionReleaseApproveCommand command) {

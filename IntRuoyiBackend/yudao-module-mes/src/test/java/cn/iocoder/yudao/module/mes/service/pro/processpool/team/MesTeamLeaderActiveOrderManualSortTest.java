@@ -145,6 +145,7 @@ class MesTeamLeaderActiveOrderManualSortTest {
                 batchExecutionMapper, productIssueMapper, workOrderAbnormalMapper,
                 routeStartAuthorizationService, nonconformanceReviewService);
         org.springframework.test.util.ReflectionTestUtils.setField(service, "gxpAuditService", gxpAuditService);
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "localTestRunSourceGuard", org.mockito.Mockito.mock(MesLocalTestRunSourceGuard.class));
     }
 
     @Test

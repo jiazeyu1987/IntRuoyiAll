@@ -175,6 +175,8 @@ public class MesStage1ActiveOrderCompleteSimulationServiceImpl
     private final MesWmProductIssueDetailMapper productIssueDetailMapper;
     private final MesTeamLeaderActiveOrderSimulationService activeOrderSimulationService;
 
+    private final cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesFixedTestOrderPickListInitializer fixedTestPickListInitializer;
+
     public MesStage1ActiveOrderCompleteSimulationServiceImpl(
             MesProcessPoolActiveOrderMapper activeOrderMapper,
             MesProWorkOrderMapper workOrderMapper,
@@ -218,7 +220,9 @@ public class MesStage1ActiveOrderCompleteSimulationServiceImpl
             MesWmProductIssueMapper productIssueMapper,
             MesWmProductIssueLineMapper productIssueLineMapper,
             MesWmProductIssueDetailMapper productIssueDetailMapper,
-            MesTeamLeaderActiveOrderSimulationService activeOrderSimulationService) {
+            MesTeamLeaderActiveOrderSimulationService activeOrderSimulationService,
+            cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesFixedTestOrderPickListInitializer fixedTestPickListInitializer) {
+        this.fixedTestPickListInitializer = fixedTestPickListInitializer;
         this.activeOrderMapper = activeOrderMapper;
         this.workOrderMapper = workOrderMapper;
         this.workOrderService = workOrderService;
@@ -278,6 +282,8 @@ public class MesStage1ActiveOrderCompleteSimulationServiceImpl
                 .selectByIdForUpdate(validated.getActiveOrderId());
         requireTemplate(templateActiveOrder, validated.getActorUserId());
         MesProWorkOrderDO templateWorkOrder = requireWorkOrder(templateActiveOrder.getWorkOrderId());
+
+        fixedTestPickListInitializer.prepare(templateWorkOrder.getCode(), validated.getActorUserId());
 
         MesTeamLeaderActiveOrderSimulationResult simulation = activeOrderSimulationService
                 .simulateActiveOrderCompletion(validated.getActorUserId(), templateActiveOrder.getId(), STAGE,

@@ -26,7 +26,9 @@ public class MesMdAutoCodeRecordController {
     @Operation(summary = "生成编码")
     @PreAuthorize("@ss.hasPermission('mes:auto-code-rule:query')")
     public CommonResult<String> generateAutoCode(@Valid @RequestBody MesMdAutoCodeGenerateReqVO generateReqVO) {
-        String code = autoCodeRecordService.generateAutoCode(generateReqVO.getRuleCode(), generateReqVO.getInputChar());
+        String code = generateReqVO.getProjectId() == null
+                ? autoCodeRecordService.generateAutoCode(generateReqVO.getRuleCode(), generateReqVO.getInputChar())
+                : autoCodeRecordService.generateProjectCode(generateReqVO.getRuleCode(), generateReqVO.getProjectId());
         return success(code);
     }
 

@@ -17,13 +17,18 @@ public class ApprovalCenterReviewFacade {
     @Transactional(propagation=Propagation.NOT_SUPPORTED)
     public ApprovalDecisionReceipt review(Long actor,ApprovalTaskReviewCommand command) {
         if(actor==null || actor<=0 || command.getIdempotencyKey()==null || !command.getIdempotencyKey().matches("[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}")) throw new IllegalArgumentException("APPROVAL_IDEMPOTENCY_KEY_INVALID");
-        String reason=command.getReason()==null?null:command.getReason().replaceAll("^[\\p{javaWhitespace}\\p{javaSpaceChar}\\x00-\\x20\\uFEFF]+|[\\p{javaWhitespace}\\p{javaSpaceChar}\\x00-\\x20\\uFEFF]+$", "");
-        if(reason==null || reason.isEmpty() || reason.length()>4000) throw new IllegalArgumentException("APPROVAL_REVIEW_REASON_INVALID");command.setReason(reason);
+        String reason=command.getReason()==null?"":command.getReason().replaceAll("^[\\p{javaWhitespace}\\p{javaSpaceChar}\\x00-\\x20\\uFEFF]+|[\\p{javaWhitespace}\\p{javaSpaceChar}\\x00-\\x20\\uFEFF]+$", "");
+        if(reason.length()>4000) throw new IllegalArgumentException("APPROVAL_REVIEW_REASON_INVALID");command.setReason(reason);
         var old=receipts.findVerified(actor,command.getIdempotencyKey());
         ApprovalIdentity identity;
         if(old!=null) { var raw=ApprovalContentJson.parse(old.getIdentityJson());identity=new ApprovalIdentity(Long.valueOf(raw.path("tenantId").textValue()),raw.path("ownerCode").textValue(),raw.path("sourceTaskType").textValue(),raw.path("sourceTaskId").textValue(),raw.get("processInstanceId").isNull()?null:raw.get("processInstanceId").textValue(),raw.path("domainSubjectType").textValue(),raw.path("domainSubjectId").textValue()); }
         else {var p=prepares.require(actor,command.getPrepareId(),true);identity=new ApprovalIdentity(p.getTenantId(),p.getOwnerCode(),p.getSourceTaskType(),p.getSourceTaskId(),p.getProcessInstanceId(),p.getSubjectType(),p.getSubjectId());}
         if(command.getModuleCode()==null || !Objects.equals(command.getModuleCode().name(),identity.ownerCode()) || !Objects.equals(command.getSourceTaskType(),identity.sourceTaskType()) || !Objects.equals(command.getSourceTaskId(),identity.sourceTaskId()) || !Objects.equals(command.getProcessInstanceId(),identity.processInstanceId())) throw new IllegalArgumentException("APPROVAL_REQUEST_IDENTITY_MISMATCH");
+        // Only the authenticated formal market-release approval may omit an opinion.
+        boolean optionalOpinion = "EDHR".equals(identity.ownerCode()) && "EDHR_WORK_TASK".equals(identity.sourceTaskType())
+                && "EDHR_RELEASE".equals(identity.domainSubjectType())
+                && command.getResult() == cn.iocoder.yudao.module.bpm.approval.core.ApprovalTaskReviewResult.APPROVE;
+        if (reason.isEmpty() && !optionalOpinion) throw new IllegalArgumentException("APPROVAL_REVIEW_REASON_INVALID");
         String hash=requestHash(actor,identity,command);
         if(old!=null) {if(!hash.equals(old.getRequestHash())) throw new IllegalArgumentException("APPROVAL_IDEMPOTENCY_CONFLICT");return receipts.response(old);}
         var signer=authentication.authenticate(new SignatureAuthenticationRequest(TenantContextHolder.getRequiredTenantId(),"SYSTEM_USER",actor,actor,command.getIdempotencyKey(),command.getSignaturePassword()));

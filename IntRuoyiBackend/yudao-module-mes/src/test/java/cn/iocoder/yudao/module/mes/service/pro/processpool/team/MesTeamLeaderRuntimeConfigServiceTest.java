@@ -132,6 +132,133 @@ class MesTeamLeaderRuntimeConfigServiceTest {
         verify(auditMapper).insert(any(MesProcessPoolTeamMaintenanceAuditDO.class));
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"FORMAL", "TEMPORARY"})
+    void deletesPersonnelAndDisablesOnlyTheirResponsibility(String employeeType) {
+        var profile = MesProcessPoolTeamEmployeeProfileDO.builder().id(8801L).leaderUserId(3001L)
+                .systemUserId("FORMAL".equals(employeeType) ? 964L : null)
+                .employeeType(employeeType).employeeCode("USER-964").displayName("张三").enabled(true).build();
+        profile.setTenantId(1L);
+        when(employeeProfileMapper.selectById(8801L)).thenReturn(profile);
+        long employeeUserId = "FORMAL".equals(employeeType) ? 964L : 8801L;
+        when(scopeMapper.selectProductionEmployeeScope(3001L, employeeUserId)).thenReturn(
+                MesProcessPoolTeamLeaderScopeDO.builder().id(44L).enabled(true).build());
+        when(employeeProfileMapper.deleteById(8801L)).thenReturn(1);
+
+        service.deleteEmployee(3001L, 8801L);
+
+        var ordered = org.mockito.Mockito.inOrder(employeeProfileMapper, scopeMapper, auditMapper);
+        ordered.verify(employeeProfileMapper).updateById(org.mockito.ArgumentMatchers.argThat(
+                (MesProcessPoolTeamEmployeeProfileDO row) -> row.getId().equals(8801L)
+                        && Boolean.FALSE.equals(row.getEnabled()) && row.getDisabledAt() != null
+                        && "DELETED-8801".equals(row.getEmployeeCode())));
+        ordered.verify(scopeMapper).updateById(org.mockito.ArgumentMatchers.argThat(
+                (MesProcessPoolTeamLeaderScopeDO row) -> row.getId().equals(44L)
+                        && Boolean.FALSE.equals(row.getEnabled())));
+        ordered.verify(employeeProfileMapper).deleteById(8801L);
+        ordered.verify(auditMapper).insert(org.mockito.ArgumentMatchers.argThat(
+                (MesProcessPoolTeamMaintenanceAuditDO row) -> "DELETE_EMPLOYEE".equals(row.getActionType())
+                        && row.getTargetId().equals(8801L)));
+        org.mockito.Mockito.verifyNoInteractions(adminUserApi);
+    }
+
+    @Test
+    void deletesDisabledPersonnelWithoutRequiringActiveScope() {
+        var profile = MesProcessPoolTeamEmployeeProfileDO.builder().id(8801L).leaderUserId(3001L)
+                .employeeType("TEMPORARY").enabled(false).build();
+        when(employeeProfileMapper.selectById(8801L)).thenReturn(profile);
+        when(employeeProfileMapper.deleteById(8801L)).thenReturn(1);
+
+        service.deleteEmployee(3001L, 8801L);
+
+        verify(employeeProfileMapper).deleteById(8801L);
+        verify(scopeMapper, never()).insert(any(MesProcessPoolTeamLeaderScopeDO.class));
+    }
+
+    @Test
+    void rejectsDeletingAnotherLeadersPersonnelBeforeAnyWrite() {
+        when(employeeProfileMapper.selectById(8801L)).thenReturn(
+                MesProcessPoolTeamEmployeeProfileDO.builder().id(8801L).leaderUserId(3002L).build());
+
+        assertThrows(ServiceException.class, () -> service.deleteEmployee(3001L, 8801L));
+
+        verify(employeeProfileMapper, never()).updateById(any(MesProcessPoolTeamEmployeeProfileDO.class));
+        verify(employeeProfileMapper, never()).deleteById(any(Long.class));
+        verify(scopeMapper, never()).updateById(any(MesProcessPoolTeamLeaderScopeDO.class));
+    }
+
+    @Test
+    void rejectsMissingPersonnelBeforeAnyWrite() {
+        assertThrows(ServiceException.class, () -> service.deleteEmployee(3001L, 8801L));
+        verify(employeeProfileMapper, never()).deleteById(any(Long.class));
+    }
+
+    @Test
+    void rejectsAnotherTenantsPersonnelBeforeAnyWrite() {
+        var profile = MesProcessPoolTeamEmployeeProfileDO.builder().id(8801L).leaderUserId(3001L).build();
+        profile.setTenantId(2L);
+        org.mockito.Mockito.doReturn(profile).when(employeeProfileMapper).selectSignatureIdentityForUpdate(1L, 8801L);
+
+        assertThrows(ServiceException.class, () -> service.deleteEmployee(3001L, 8801L));
+
+        verify(employeeProfileMapper, never()).updateById(any(MesProcessPoolTeamEmployeeProfileDO.class));
+        verify(employeeProfileMapper, never()).deleteById(any(Long.class));
+    }
+
+    @Test
+    void scopeFailurePreventsDeletionAndSuccessAudit() {
+        when(employeeProfileMapper.selectById(8801L)).thenReturn(
+                MesProcessPoolTeamEmployeeProfileDO.builder().id(8801L).leaderUserId(3001L)
+                        .employeeType("TEMPORARY").enabled(true).build());
+        when(scopeMapper.selectProductionEmployeeScope(3001L, 8801L)).thenReturn(
+                MesProcessPoolTeamLeaderScopeDO.builder().id(44L).enabled(true).build());
+        when(scopeMapper.updateById(any(MesProcessPoolTeamLeaderScopeDO.class))).thenReturn(0);
+
+        assertThrows(ServiceException.class, () -> service.deleteEmployee(3001L, 8801L));
+
+        verify(employeeProfileMapper, never()).deleteById(any(Long.class));
+        verify(auditMapper, never()).insert(any(MesProcessPoolTeamMaintenanceAuditDO.class));
+    }
+
+    @Test
+    void deletionFailureDoesNotWriteSuccessAudit() {
+        when(employeeProfileMapper.selectById(8801L)).thenReturn(
+                MesProcessPoolTeamEmployeeProfileDO.builder().id(8801L).leaderUserId(3001L)
+                        .employeeType("TEMPORARY").enabled(false).build());
+        when(employeeProfileMapper.deleteById(8801L)).thenReturn(0);
+
+        assertThrows(IllegalStateException.class, () -> service.deleteEmployee(3001L, 8801L));
+
+        verify(auditMapper, never()).insert(any(MesProcessPoolTeamMaintenanceAuditDO.class));
+    }
+
+    @Test
+    void historicalTraceFindsDeletedPersonnelWithinCurrentTenantOnly() throws Exception {
+        var mapper = cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrTraceIdentityMapper.class;
+        String sql = mapper.getMethod("employeeIds", Long.class, String.class)
+                .getAnnotation(org.apache.ibatis.annotations.Select.class).value()[0]
+                .replace("#{tenantId}", "?").replace("#{keyword}", "?");
+        try (var connection = java.sql.DriverManager.getConnection("jdbc:h2:mem:deleted_personnel_trace;MODE=MySQL")) {
+            try (var statement = connection.createStatement()) {
+                statement.execute("CREATE TABLE mes_pro_process_pool_team_employee_profile "
+                        + "(id BIGINT, tenant_id BIGINT, employee_code VARCHAR(64), employee_name VARCHAR(128), "
+                        + "display_name VARCHAR(128), deleted BOOLEAN)");
+                statement.execute("INSERT INTO mes_pro_process_pool_team_employee_profile VALUES "
+                        + "(11,1,'TMP-11','张三','张三',FALSE),(12,1,'DELETED-12','张三','张三',TRUE),"
+                        + "(13,2,'DELETED-13','张三','张三',TRUE)");
+            }
+            try (var query = connection.prepareStatement(sql)) {
+                query.setLong(1, 1L);
+                for (int index = 2; index <= 4; index++) query.setString(index, "张三");
+                try (var rows = query.executeQuery()) {
+                    var ids = new java.util.HashSet<Long>();
+                    while (rows.next()) ids.add(rows.getLong(1));
+                    assertEquals(java.util.Set.of(11L, 12L), ids);
+                }
+            }
+        }
+    }
+
     @Test
     void rejectsScopeWithEnabledBindingBeforeWrites() {
         TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new Configuration(), ""), MesProcessPoolTeamLeaderScopeDO.class);
