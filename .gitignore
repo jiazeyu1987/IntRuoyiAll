@@ -157,3 +157,26 @@ tmp/
 .codex_patch_test*.tmp
 outputs/
 migration-packages/
+
+# Local historical task audit records (keep out of new worktrees)
+**/doc/tasks/**/*audit*.html
+**/doc/tasks/**/*audit*.json
+**/doc/tasks/**/*audit*.md
+**/doc/tasks/**/*evidence*.json
+**/doc/tasks/**/*evidence*.md
+**/doc/tasks/**/*evidence*.png
+**/doc/tasks/**/*report*.json
+**/doc/tasks/**/*report*.md
+**/doc/tasks/**/*report*.png
+**/doc/tasks/**/*result*.json
+**/doc/tasks/**/*result*.md
+**/doc/tasks/**/*result*.png
+**/doc/tasks/**/*result*.tsv
+**/doc/tasks/**/*snapshot*.json
+**/doc/tasks/**/*trace*.csv
+**/doc/tasks/**/*trace*.json
+**/doc/tasks/**/*trace*.md
+**/doc/tasks/**/execution-log.md
+**/doc/tasks/**/task-state.json
+**/doc/tasks/**/task.md
+/e2e_*.txt
