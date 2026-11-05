@@ -8,6 +8,9 @@ public interface ElectronicSignatureService {
 
     ElectronicSignatureResult sign(ElectronicSignatureCommand command);
 
+    /** Server-selected action policy; never substitutes password authentication for other actions. */
+    ElectronicSignatureResult confirmSession(ElectronicSignatureCommand command);
+
     /** Called only after the business service authorizes the selected signer for this submission.
      * Profile credentials are authenticated by their owning module in the same transaction. */
     ElectronicSignatureResult signAuthorized(ElectronicSignatureCommand command,

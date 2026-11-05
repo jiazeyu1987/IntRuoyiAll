@@ -58,7 +58,7 @@ public class ElectronicSignatureServiceImpl implements ElectronicSignatureServic
     @Transactional(rollbackFor = Exception.class)
     @GxpWriteOperation(operationId = "signature.record.create")
     public ElectronicSignatureResult sign(ElectronicSignatureCommand command) {
-        return signInternal(command, null, null);
+        return signInternal(command, null, null, false);
     }
 
     @Override
@@ -68,15 +68,25 @@ public class ElectronicSignatureServiceImpl implements ElectronicSignatureServic
                                                      AuthorizedSignatureIdentity identity,
                                                      Runnable authenticateProfile) {
         if (identity == null) throw exception(ESIGN_COMMAND_INVALID, "签名身份不能为空");
-        return signInternal(command, identity, authenticateProfile);
+        return signInternal(command, identity, authenticateProfile, false);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    @GxpWriteOperation(operationId = "signature.record.create")
+    public ElectronicSignatureResult confirmSession(ElectronicSignatureCommand command) {
+        return signInternal(command, null, null, true);
     }
 
     private ElectronicSignatureResult signInternal(ElectronicSignatureCommand command,
                                                      AuthorizedSignatureIdentity identity,
-                                                     Runnable authenticateProfile) {
+                                                     Runnable authenticateProfile, boolean sessionConfirmation) {
         gxpAuditService.acquireLedgerLock();
-        validateCommand(command);
+        validateCommand(command, sessionConfirmation);
         RegisteredAction registered = findAction(command);
+        if (sessionConfirmation && !registered.adapter().allowsSessionConfirmation(command.actionCode(), command.subjectType())) {
+            throw exception(ESIGN_COMMAND_INVALID, "当前动作不支持按钮确认");
+        }
         boolean reasonRequired = registered.adapter().isReasonRequired(command.actionCode(), command.subjectType());
         if (reasonRequired && StrUtil.isBlank(command.reason())) {
             throw exception(ESIGN_COMMAND_INVALID, "当前正式签名动作要求填写原因");
@@ -93,7 +103,7 @@ public class ElectronicSignatureServiceImpl implements ElectronicSignatureServic
         }
         Long operatorId = actorId;
         if (identity != null) actorId = identity.signerId();
-        String authenticationMethod = identity == null ? AUTHENTICATION_METHOD
+        String authenticationMethod = sessionConfirmation ? "SESSION_CONFIRMATION" : identity == null ? AUTHENTICATION_METHOD
                 : AuthorizedSignatureIdentity.EMPLOYEE_PROFILE.equals(identity.domain())
                     ? "SESSION_PLUS_EMPLOYEE_PROFILE_PASSWORD" : "SESSION_PLUS_SELECTED_USER_PASSWORD";
         String identityJson = identity == null ? null : JsonUtils.toJsonString(Map.of(
@@ -104,13 +114,20 @@ public class ElectronicSignatureServiceImpl implements ElectronicSignatureServic
                 + (identityJson == null ? "" : "|" + identityJson));
         ElectronicSignatureRecordDO existingRecord = selectExisting(command.idempotencyKey());
         if (existingRecord != null) {
-            if (!Objects.equals(existingRecord.getCommandHash(), commandHash)) {
+            if (!Objects.equals(existingRecord.getCommandHash(), commandHash)
+                    || !Objects.equals(existingRecord.getAuthenticationMethod(), authenticationMethod)) {
                 throw exception(ESIGN_DUPLICATE_IDEMPOTENCY_KEY);
             }
             return toResult(existingRecord);
         }
 
-        if (identity != null && AuthorizedSignatureIdentity.EMPLOYEE_PROFILE.equals(identity.domain())) {
+        if (sessionConfirmation) {
+            var user = adminUserApi.getUser(actorId);
+            if (user == null || !Objects.equals(user.getStatus(), cn.iocoder.yudao.framework.common.enums.CommonStatusEnum.ENABLE.getStatus())
+                    || !Objects.equals(user.getTenantId(), TenantContextHolder.getRequiredTenantId())) {
+                throw exception(ESIGN_COMMAND_INVALID, "当前登录账号不可执行确认");
+            }
+        } else if (identity != null && AuthorizedSignatureIdentity.EMPLOYEE_PROFILE.equals(identity.domain())) {
             if (authenticateProfile == null) throw exception(ESIGN_COMMAND_INVALID, "员工档案凭据验证器不能为空");
             authenticateProfile.run();
         } else {
@@ -199,12 +216,14 @@ public class ElectronicSignatureServiceImpl implements ElectronicSignatureServic
         return toResult(record);
     }
 
-    private void validateCommand(ElectronicSignatureCommand command) {
+    private void validateCommand(ElectronicSignatureCommand command, boolean sessionConfirmation) {
         if (command == null) {
             throw exception(ESIGN_COMMAND_INVALID, "命令不能为空");
         }
         if (StrUtil.hasBlank(command.moduleCode(), command.actionCode(), command.subjectType(), command.subjectId(),
-                command.expectedSubjectVersion(), command.credential(), command.idempotencyKey())) {
+                command.expectedSubjectVersion(), command.idempotencyKey())
+                || (!sessionConfirmation && StrUtil.isBlank(command.credential()))
+                || (sessionConfirmation && StrUtil.isNotBlank(command.credential()))) {
             throw exception(ESIGN_COMMAND_INVALID, "模块、动作、对象、版本、凭据和幂等键均不能为空");
         }
         if (command.businessOccurredAt() != null && StrUtil.isBlank(command.businessTimeZone())) {

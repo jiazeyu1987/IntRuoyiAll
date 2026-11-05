@@ -35,6 +35,7 @@ public class MesBatchRecordSignatureSubjectAdapter implements ElectronicSignatur
                 action(MesProBatchRecordExecutionSignatureService.ACTION_REJECT, "批记录审批驳回"),
                 action(MesProBatchRecordExecutionSignatureService.ACTION_ARCHIVE_SEAL, "批记录归档密封"),
                 action(MesProBatchRecordExecutionSignatureService.ACTION_FIELD_CHANGE, "批记录字段变更"),
+                action(MesProBatchRecordExecutionSignatureService.ACTION_PQC_PATROL_ROUND_CORRECTION, "巡检轮次更正确认"),
                 action(MesProBatchRecordExecutionSignatureService.ACTION_FORM_REVIEW, "批记录表单复核"),
                 action(MesProBatchRecordExecutionSignatureService.ACTION_PRODUCTION_SUBMIT, "生产提交"),
                 action(MesProBatchRecordExecutionSignatureService.ACTION_PQC_SUBMIT, "PQC提交"),
@@ -62,6 +63,12 @@ public class MesBatchRecordSignatureSubjectAdapter implements ElectronicSignatur
                 action(MesProBatchRecordExecutionSignatureService.ACTION_DEVIATION_HANDLING_QUALITY, "偏差质量负责人批准"),
                 action(MesProBatchRecordExecutionSignatureService.ACTION_DEVIATION_HANDLING_MANAGEMENT, "关键偏差管理者代表批准")
         );
+    }
+
+    @Override
+    public boolean allowsSessionConfirmation(String actionCode, String subjectType) {
+        return MesProBatchRecordExecutionSignatureService.ACTION_PQC_PATROL_ROUND_CORRECTION.equals(actionCode)
+                && SUBJECT_TYPE.equals(subjectType);
     }
 
     @Override

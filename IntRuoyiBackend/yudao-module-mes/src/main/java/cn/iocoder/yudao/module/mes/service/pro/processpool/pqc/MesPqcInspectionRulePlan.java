@@ -11,11 +11,11 @@ import java.util.Objects;
 
 /** Task generation and release coverage use the same frozen QA stage rules. */
 public final class MesPqcInspectionRulePlan {
-    private static final List<String> KEYS = List.of("FIRST", "PATROL_AM", "PATROL_PM", "FINAL");
+    private static final List<String> KEYS = List.of("FIRST", "PATROL", "FINAL");
     private static final Map<String, String> TYPES = Map.of(
-            "FIRST", "FIRST", "PATROL_AM", "PATROL", "PATROL_PM", "PATROL", "FINAL", "FINAL");
+            "FIRST", "FIRST", "PATROL", "PATROL", "FINAL", "FINAL");
     private static final Map<String, String> SHIFTS = Map.of(
-            "FIRST", "FIRST", "PATROL_AM", "AM", "PATROL_PM", "PM", "FINAL", "FINAL");
+            "FIRST", "FIRST", "PATROL", "PATROL", "FINAL", "FINAL");
     private MesPqcInspectionRulePlan() {}
 
     public static List<Stage> require(MesQaInspectionRegulationVersionDO version) {

@@ -76,6 +76,8 @@ public class MesProcessPoolPqcInspectionCorrectionService {
     private final MesProEdhrNonconformanceReviewService nonconformanceReviewService;
 
     @Resource
+    private cn.iocoder.yudao.module.system.api.permission.PermissionApi permissionApi;
+    @Resource
     private MesProcessPoolSubmissionReviewMapper reviewMapper;
     @Resource
     private MesProcessPoolActiveOrderMapper activeOrderMapper;
@@ -265,6 +267,122 @@ public class MesProcessPoolPqcInspectionCorrectionService {
         return revisionId;
     }
 
+    /** Change only the task association; original event, inspection time and signed revision remain traceable. */
+    @Transactional(rollbackFor = Exception.class)
+    public Long correctPatrolRound(Long actor,
+            cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.vo.frontline.MesFrontlinePqcCorrectRoundReqVO req) {
+        gxpAuditService.acquireLedgerLock();
+        var sourceRead = pqcTaskMapper.selectById(req.getSourceTaskId());
+        if (sourceRead == null) throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "源巡检任务不存在");
+        var order = activeOrderMapper.selectByIdForUpdate(sourceRead.getActiveOrderId());
+        if (order == null || !"ACTIVE".equals(order.getActiveStatus()) || !"ACTIVE".equals(order.getBusinessStatus())
+                || order.getReleaseDecisionId() != null) {
+            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "只能更正当前未放行订单的巡检轮次");
+        }
+        nonconformanceReviewService.ensurePqcSubmissionNotFrozen(order.getId(), order.getWorkOrderId(), "更正巡检轮次");
+        if (releaseStateService.findReleasedActiveOrderIdsForUpdate(List.of(order.getId())).contains(order.getId())
+                || releaseStateService.isReleaseApplicationLockedForUpdate(order.getId())) {
+            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "放行申请已锁定，禁止更正轮次");
+        }
+        var event = eventMapper.selectByIdForUpdate(req.getExpectedSubmittedEventId());
+        if (event == null) throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "原提交已变化，请刷新");
+        validatePqcEvent(event);
+        var lockedTasks = pqcTaskMapper.selectListByActiveOrderIdForUpdate(order.getId());
+        var source = lockedTasks.stream().filter(t -> req.getSourceTaskId().equals(t.getId())).findFirst().orElse(null);
+        var target = lockedTasks.stream().filter(t -> req.getTargetTaskId().equals(t.getId())).findFirst().orElse(null);
+        validateTask(event, source);
+        if (!Objects.equals(source.getSubmittedContentHash(), req.getExpectedContentHash())
+                || !"PATROL".equals(source.getInspectionType()) || target == null
+                || !"PATROL".equals(target.getInspectionType()) || !"PENDING".equals(target.getTaskStatus())
+                || target.getSubmittedEventId() != null || StrUtil.isNotBlank(target.getSubmittedContentHash())
+                || Objects.equals(source.getRoundNo(), target.getRoundNo())
+                || !Objects.equals(source.getRegulationVersionId(), target.getRegulationVersionId())
+                || !Objects.equals(source.getQaProcessId(), target.getQaProcessId())
+                || !Objects.equals(source.getWorkOrderId(), target.getWorkOrderId())
+                || !MesPqcInspectionItemPlan.require(source).equals(MesPqcInspectionItemPlan.require(target))
+                || CollUtil.isNotEmpty(pieceDetailMapper.selectListByTaskIdForUpdate(target.getId()))) {
+            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "目标必须是同一工序、同一检验项目及抽样数量的空白待检轮次，请刷新");
+        }
+        var previousReview = reviewMapper.selectLatestByEventIdForUpdate(event.getId());
+        // Existing reviewed evidence keeps the established leader correction authority.
+        if (previousReview != null || !Objects.equals(actor, event.getActualEmployeeId())) {
+            if (!permissionApi.hasAnyRolesOrSuperAdmin(actor, "pqc_leader_permission")) {
+                throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "已复核或他人的巡检记录须由PQC组长更正");
+            }
+            scopeService.assertCanAccessEmployee(actor, MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PQC, event.getActualEmployeeId());
+        }
+        var record = pqcRecordMapper.selectByEventIdForUpdate(event.getId());
+        var pieces = pieceDetailMapper.selectListByTaskIdForUpdate(source.getId());
+        validateExistingDetails(source, pieces);
+        if (record == null) throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "原巡检正式记录缺失");
+        boolean aggregated = MesProProcessPoolPqcRecordDO.PROCESS_INSPECTION_AGGREGATION_STATUS_AGGREGATED
+                .equals(record.getProcessInspectionAggregationStatus());
+        if (aggregated && (previousReview == null || !"APPROVED".equals(previousReview.getReviewStatus())
+                || !Objects.equals(previousReview.getId(), record.getProcessInspectionReviewId())
+                || !"CONFIRMED".equals(source.getTaskStatus()))) {
+            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "原巡检复核及汇集状态不一致");
+        }
+        String reason = "确认将第 " + source.getRoundNo() + " 轮巡检工序移至第 " + target.getRoundNo() + " 轮";
+        var command = new MesProcessPoolPqcInspectionCorrectionCommand().setActorUserId(actor).setChangeReason(reason);
+        var before = correctionAuditState(event, source, record, pieces, previousReview);
+        var afterPayload = requireObject(event.getRawPayload(), "rawPayload").deepCopy();
+        afterPayload.put("pqcTaskId", target.getId());
+        afterPayload.put("pqcSubmissionIdempotencyKey", "pqc-task-" + target.getId());
+        afterPayload.put("roundNo", target.getRoundNo());
+        afterPayload.put("round", target.getRoundNo());
+        afterPayload.put("businessDate", target.getBusinessDate().toString());
+        if (afterPayload.get("pqcDraft") instanceof ObjectNode draft) draft.put("patrolRound", target.getRoundNo());
+        afterPayload.remove("supersededReviewId");
+        if (previousReview != null) afterPayload.put("supersededReviewId", previousReview.getId());
+        String afterJson = JsonUtils.toJsonString(afterPayload);
+        String challenge = MesCorrectionBaselineGuard.challenge(event.getId(), event.getRawPayload(), afterJson, reason);
+        var signature = signatureService.recordPqcPatrolRoundConfirmation(reason, challenge);
+        String signatureHash = verifyCorrectionSignature(command, event, afterJson, signature, MesProBatchRecordExecutionSignatureService.ACTION_PQC_PATROL_ROUND_CORRECTION);
+        List<MesProcessPoolEventRevisionFieldChangeBO> changes = new ArrayList<>();
+        addChange(changes, "PQC.PATROL_ROUND", "巡检轮次（工序）", source.getRoundNo().toString(), target.getRoundNo().toString());
+        addChange(changes, "PQC.TASK_ID", "巡检任务归属", source.getId().toString(), target.getId().toString());
+        Long revisionId = revisionService.updatePqcInspectionRecord(MesProcessPoolEventRevisionUpdateReqBO.builder()
+                .eventId(event.getId()).afterPayload(afterJson).changeReason(reason.trim())
+                .revisionSignatureId(signature.getSignatureId()).revisionSignatureUserId(signature.getActorId())
+                .revisionSignatureSnapshot(JsonUtils.toJsonString(signature)).modifiedByUserId(actor).changedFields(changes).build());
+        if (eventMapper.updateById(new MesProProcessPoolEventDO().setId(event.getId())
+                .setFeedbackSourceId(target.getId()).setRecordbookSourceId(target.getId())
+                .setEventIdempotencyKey("pqc-task-" + target.getId())) != 1
+                || pqcRecordMapper.updateById(new MesProProcessPoolPqcRecordDO().setId(record.getId()).setRawPayload(afterJson)) != 1) {
+            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "巡检归属更正写入失败");
+        }
+        for (var piece : pieces) {
+            if (pieceDetailMapper.updateById(new MesPqcInspectionPieceDetailDO().setId(piece.getId()).setTaskId(target.getId())) != 1)
+                throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "巡检逐件记录迁移失败");
+        }
+        if (pqcTaskMapper.updateById(new MesPqcInspectionTaskDO().setId(target.getId())
+                .setTaskStatus(source.getTaskStatus()).setActualInspectionQuantity(source.getActualInspectionQuantity())
+                .setSubmittedEventId(event.getId()).setSubmittedContentHash(
+                        MesProBatchRecordExecutionFieldAuditHasher.hashCellValues(afterJson))) != 1
+                || pqcTaskMapper.update(null, new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<MesPqcInspectionTaskDO>()
+                .eq(MesPqcInspectionTaskDO::getId, source.getId()).set(MesPqcInspectionTaskDO::getTaskStatus, "PENDING")
+                .set(MesPqcInspectionTaskDO::getActualInspectionQuantity, 0).set(MesPqcInspectionTaskDO::getSubmittedEventId, null)
+                .set(MesPqcInspectionTaskDO::getSubmittedContentHash, null)) != 1) {
+            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "巡检任务更正失败");
+        }
+        if (aggregated) {
+            Long reviewId = createCorrectionReview(event, previousReview, signature, revisionId, reason, afterJson);
+            aggregationService.refreshCorrectedPqcSubmission(event.getId(), previousReview.getId(), reviewId);
+        }
+        var finalEvent = eventMapper.selectByIdForUpdate(event.getId());
+        var finalTask = pqcTaskMapper.selectByIdForUpdate(target.getId());
+        var finalRecord = pqcRecordMapper.selectByEventIdForUpdate(event.getId());
+        var finalReview = reviewMapper.selectLatestByEventIdForUpdate(event.getId());
+        var after = correctionAuditState(finalEvent, finalTask, finalRecord,
+                pieceDetailMapper.selectListByTaskIdForUpdate(target.getId()), finalReview);
+        appendCorrectionAudit(command, finalEvent, finalTask, revisionId, signature, previousReview, finalReview,
+                before, after, afterJson, signatureHash, challenge);
+        if (previousReview != null && "REJECTED".equals(previousReview.getReviewStatus())) {
+            handoffService.completeLeaderPqcCorrectionAndScheduleReview(event.getId(), previousReview.getId(), revisionId, actor);
+        }
+        return revisionId;
+    }
+
     private void appendCorrectionAudit(MesProcessPoolPqcInspectionCorrectionCommand command,
                                        MesProProcessPoolEventDO event, MesPqcInspectionTaskDO task,
                                        Long revisionId, MesProBatchRecordExecutionFieldAuditSignatureResult signature,
@@ -310,6 +428,16 @@ public class MesProcessPoolPqcInspectionCorrectionService {
     private String verifyCorrectionSignature(MesProcessPoolPqcInspectionCorrectionCommand command,
                                             MesProProcessPoolEventDO event, String payload,
                                             MesProBatchRecordExecutionFieldAuditSignatureResult signature) {
+        return verifyCorrectionSignature(command, event, payload, signature, MesProBatchRecordExecutionSignatureService.ACTION_FIELD_CHANGE);
+    }
+
+    private String verifyCorrectionSignature(MesProcessPoolPqcInspectionCorrectionCommand command,
+                                            MesProProcessPoolEventDO event, String payload,
+                                            MesProBatchRecordExecutionFieldAuditSignatureResult signature, String action) {
+        if (signature == null || signature.getSignatureId() == null || signature.getSignedAt() == null
+                || !Objects.equals(command.getActorUserId(), signature.getActorId())) {
+            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "correctionSignature.actor");
+        }
         if (!Objects.equals(event.getTenantId(),
                 cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId())) {
             throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "correctionSignature.tenant");
@@ -317,11 +445,11 @@ public class MesProcessPoolPqcInspectionCorrectionService {
         var evidence = electronicSignatureQueryService.getById(signature.getSignatureId());
         String challenge = MesCorrectionBaselineGuard.challenge(event.getId(), event.getRawPayload(), payload, command.getChangeReason());
         String subject = cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesBatchRecordSignatureSubjectAdapter
-                .encodeSubjectId(0L, MesProBatchRecordExecutionSignatureService.ACTION_FIELD_CHANGE,
+                .encodeSubjectId(0L, action,
                         null, null, null, null, null, null, null, null, null, null, null, null, null, null, challenge);
         if (evidence == null || !Objects.equals(signature.getSignatureId(), evidence.id())
                 || !Objects.equals(command.getActorUserId(), evidence.actorId())
-                || !"MES".equals(evidence.moduleCode()) || !"FIELD_CHANGE".equals(evidence.actionCode())
+                || !"MES".equals(evidence.moduleCode()) || !action.equals(evidence.actionCode())
                 || !"MES_BATCH_RECORD".equals(evidence.subjectType()) || !subject.equals(evidence.subjectId())
                 || !MesProBatchRecordExecutionFieldAuditHasher.sha256(subject).equals(evidence.subjectVersion())
                 || !command.getChangeReason().trim().equals(evidence.reason())
@@ -331,7 +459,7 @@ public class MesProcessPoolPqcInspectionCorrectionService {
         var verified = electronicSignatureQueryService.verifyEvidence(signature.getSignatureId());
         var expected = new cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesBatchRecordSignatureSubjectAdapter()
                 .loadAndAuthorize(new cn.iocoder.yudao.module.signature.api.dto.SignatureSubjectCommand(
-                        command.getActorUserId(), "MES", "FIELD_CHANGE", "MES_BATCH_RECORD", subject,
+                        command.getActorUserId(), "MES", action, "MES_BATCH_RECORD", subject,
                         evidence.subjectVersion(), command.getChangeReason().trim()));
         if (verified == null || !Objects.equals(signature.getSignatureId(), verified.signatureId())
                 || !"VALID".equals(verified.verificationStatus())

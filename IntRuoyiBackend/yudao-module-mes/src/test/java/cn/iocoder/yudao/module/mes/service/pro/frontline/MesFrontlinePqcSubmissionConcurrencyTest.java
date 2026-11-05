@@ -285,7 +285,9 @@ class MesFrontlinePqcSubmissionConcurrencyTest {
                             .regulationVersionId(REGULATION_VERSION_ID).build());
             when(versionMapper.selectById(REGULATION_VERSION_ID)).thenReturn(
                     MesQaInspectionRegulationVersionDO.builder().id(REGULATION_VERSION_ID)
-                            .regulationId(REGULATION_ID).lifecycleStatus("PUBLISHED").build());
+                            .regulationId(REGULATION_ID).lifecycleStatus("PUBLISHED")
+                            .snapshotJson(cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(Map.of("processes", List.of(Map.of("items", List.of(
+                                    Map.of("itemCode", "QA-001", "itemName", "外观"))))))).build());
             when(regulationMapper.selectById(REGULATION_ID)).thenReturn(
                     MesQaInspectionRegulationDO.builder().id(REGULATION_ID)
                             .dccProjectCodeId(DCC_PROJECT_ID).build());
@@ -407,9 +409,8 @@ class MesFrontlinePqcSubmissionConcurrencyTest {
                             "FROM pqc_task WHERE id = ? FOR UPDATE",
                     (rs, rowNum) -> MesPqcInspectionTaskDO.builder().id(TASK_ID)
                             .activeOrderId(ACTIVE_ORDER_ID).workOrderId(WORK_ORDER_ID).routeId(ROUTE_ID)
-                            .routeVersionId(ROUTE_VERSION_ID).routeProcessId(ROUTE_PROCESS_ID)
-                            .processId(PROCESS_ID).qaProcessId(QA_PROCESS_ID)
-                            .qaItemCode("QA-001")
+                            .routeVersionId(ROUTE_VERSION_ID).qaProcessId(QA_PROCESS_ID)
+                            .qaItemCode("").inspectionItemPlanJson("{\"QA-001\":1}")
                             .regulationVersionId(REGULATION_VERSION_ID).inspectionType("FIRST")
                             .inspectionRuleKey("FIRST").businessDate(BUSINESS_DATE).shiftCode("FIRST").roundNo(1)
                             .plannedInspectionQuantity(1).actualInspectionQuantity((Integer) rs.getObject(2))

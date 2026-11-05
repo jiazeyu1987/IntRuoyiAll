@@ -159,7 +159,10 @@ public final class MesSignatureContentProtocol {
     private static VerifiedSignatureIdentity readIdentity(JsonNode identity, ContentFacts fact,
             Long expectedTenantId) {
         if (identity == null || identity.isNull()) {
-            if ("SESSION_PLUS_PASSWORD".equals(fact.authenticationMethod()) && positive(fact.actorId())) return null;
+            if (("SESSION_PLUS_PASSWORD".equals(fact.authenticationMethod())
+                    || "SESSION_CONFIRMATION".equals(fact.authenticationMethod())
+                    && MesProBatchRecordExecutionSignatureService.ACTION_PQC_PATROL_ROUND_CORRECTION.equals(fact.actionCode()))
+                    && positive(fact.actorId())) return null;
             throw invalid("MES_SIGNATURE_IDENTITY_CONFLICT");
         }
         if (!identity.isObject()) throw invalid("MES_SIGNATURE_IDENTITY_CONFLICT");

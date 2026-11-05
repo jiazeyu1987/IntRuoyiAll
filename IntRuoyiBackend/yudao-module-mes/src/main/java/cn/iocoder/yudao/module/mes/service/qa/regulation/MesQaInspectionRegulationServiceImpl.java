@@ -86,10 +86,10 @@ public class MesQaInspectionRegulationServiceImpl implements MesQaInspectionRegu
     private static final String STATUS_PUBLISHED = "PUBLISHED";
     private static final String STATUS_RETIRED = "RETIRED";
     private static final Set<String> ALLOWED_INSPECTION_TYPES = Set.of(
-            "FIRST", "PATROL", "PATROL_AM", "PATROL_PM", "FINAL");
+            "FIRST", "PATROL", "FINAL");
     private static final Set<String> ALLOWED_RESULT_TYPES = Set.of("BOOLEAN", "NUMERIC", "TEXT");
     private static final Map<String, Integer> INSPECTION_TYPE_ORDER = Map.of(
-            "FIRST", 1, "PATROL", 2, "PATROL_AM", 2, "PATROL_PM", 3, "FINAL", 4);
+            "FIRST", 1, "PATROL", 2, "FINAL", 3);
 
     private final DccProjectCodeMapper dccProjectCodeMapper;
     private final MesQaInspectionRegulationMapper regulationMapper;
@@ -276,9 +276,10 @@ public class MesQaInspectionRegulationServiceImpl implements MesQaInspectionRegu
     }
 
     @Override
-    public List<MesQaInspectionRegulationVersionOptionRespVO> listVersions(Long dccProjectCodeId) {
+    public List<MesQaInspectionRegulationVersionOptionRespVO> listVersions(Long dccProjectCodeId, String ownerModule) {
         requireEnabledDccProjectCode(dccProjectCodeId);
-        MesQaInspectionRegulationDO regulation = regulationMapper.selectByDccProjectCodeId(dccProjectCodeId);
+        MesQaInspectionRegulationDO regulation = regulationMapper.selectByDccProjectCodeId(
+                dccProjectCodeId, resolveOwnerModule(ownerModule));
         if (regulation == null) {
             return List.of();
         }
@@ -887,7 +888,6 @@ public class MesQaInspectionRegulationServiceImpl implements MesQaInspectionRegu
             processMapper.deletePhysicallyByVersionId(version.getId());
         }
 
-        int finalInspectionQuantity = resolveFinalInspectionQuantity(reqVO);
         for (MesQaInspectionRegulationSaveReqVO.InspectionProcess processReq : reqVO.getProcesses()) {
             MesQaInspectionRegulationProcessDO process = MesQaInspectionRegulationProcessDO.builder()
                     .regulationVersionId(version.getId())
@@ -899,7 +899,7 @@ public class MesQaInspectionRegulationServiceImpl implements MesQaInspectionRegu
             for (MesQaInspectionRegulationSaveReqVO.InspectionItem itemReq : processReq.getItems()) {
                 for (String inspectionType : normalizedInspectionTypes(itemReq.getApplicableInspectionTypes())) {
                     itemMapper.insert(toItemDO(version.getId(), process.getId(), itemReq,
-                            inspectionType, finalInspectionQuantity));
+                            inspectionType));
                 }
             }
         }
@@ -1091,6 +1091,8 @@ public class MesQaInspectionRegulationServiceImpl implements MesQaInspectionRegu
                 .resultType(source.getResultType())
                 .applicableInspectionTypes(applicableTypes)
                 .firstInspectionQuantity(firstQuantity)
+                .finalInspectionQuantity(rows.stream().filter(item -> "FINAL".equals(item.getInspectionType()))
+                        .map(MesQaInspectionRegulationItemDO::getFirstInspectionQuantity).filter(Objects::nonNull).findFirst().orElse(null))
                 .patrolInspectionRatio(patrolRatio)
                 .critical(source.getCritical())
                 .failureRule(source.getFailureRule())
@@ -1437,6 +1439,22 @@ public class MesQaInspectionRegulationServiceImpl implements MesQaInspectionRegu
         if (reqVO.getFinalInspectionApplicable() == null) {
             throw exception(QA_INSPECTION_REGULATION_FINAL_APPLICABILITY_INVALID, "末检适用性未显式配置");
         }
+        for (var process : CollUtil.emptyIfNull(reqVO.getProcesses())) {
+            if (process == null || CollUtil.isEmpty(process.getItems())) continue;
+            long finalCount = process.getItems().stream().filter(item -> item != null
+                    && CollUtil.emptyIfNull(item.getApplicableInspectionTypes()).contains("FINAL")).count();
+            if (finalCount > 0 && process.getItems().stream().anyMatch(item -> item.getFinalInspectionQuantity() == null
+                    || item.getFinalInspectionQuantity() <= 0)) {
+                throw exception(QA_INSPECTION_REGULATION_FINAL_APPLICABILITY_INVALID, process.getProcessName() + "缺少有效末检数量");
+            }
+            if (finalCount > 0 && process.getItems().stream().map(item -> item.getFinalInspectionQuantity()).distinct().count() != 1) {
+                throw exception(QA_INSPECTION_REGULATION_FINAL_APPLICABILITY_INVALID, process.getProcessName() + "末检数量必须按工序统一设置");
+            }
+            if (finalCount > 0 && finalCount != process.getItems().size()) {
+                throw exception(QA_INSPECTION_REGULATION_FINAL_APPLICABILITY_INVALID,
+                        process.getProcessName() + "的末检必须按工序统一开启或关闭");
+            }
+        }
         Set<String> actualTypes = actualInspectionTypes(reqVO);
         String requiredType = CollUtil.emptyIfNull(reqVO.getInspectionTypeRules()).stream()
                 .filter(Objects::nonNull)
@@ -1486,13 +1504,14 @@ public class MesQaInspectionRegulationServiceImpl implements MesQaInspectionRegu
 
     private static void validateInspectionTypeRules(
             List<MesQaInspectionRegulationSaveReqVO.InspectionTypeRule> rules) {
-        if (CollUtil.isEmpty(rules)) {
+        if (CollUtil.isEmpty(rules) || rules.size() != ALLOWED_INSPECTION_TYPES.size()) {
             throw exception(QA_INSPECTION_REGULATION_ITEM_INVALID, "inspectionTypeRules");
         }
         Set<String> keys = new LinkedHashSet<>();
         for (MesQaInspectionRegulationSaveReqVO.InspectionTypeRule rule : rules) {
             if (rule == null || StrUtil.isBlank(rule.getKey()) || StrUtil.isBlank(rule.getInspectionType())
-                    || !ALLOWED_INSPECTION_TYPES.contains(normalizeInspectionType(rule.getInspectionType()))
+                    || !ALLOWED_INSPECTION_TYPES.contains(rule.getKey())
+                    || !rule.getKey().equals(rule.getInspectionType()) || rule.getRequired() == null
                     || !keys.add(StrUtil.trim(rule.getKey()))) {
                 throw exception(QA_INSPECTION_REGULATION_ITEM_INVALID, "inspectionTypeRules");
             }
@@ -1579,24 +1598,6 @@ public class MesQaInspectionRegulationServiceImpl implements MesQaInspectionRegu
         }
     }
 
-    private static int resolveFinalInspectionQuantity(MesQaInspectionRegulationSaveReqVO reqVO) {
-        if (!Boolean.TRUE.equals(reqVO.getFinalInspectionApplicable())) {
-            return 0;
-        }
-        boolean hasFinalItem = reqVO.getProcesses().stream()
-                .flatMap(process -> process.getItems().stream())
-                .anyMatch(item -> normalizedInspectionTypes(item.getApplicableInspectionTypes()).contains("FINAL"));
-        if (!hasFinalItem) {
-            return 0;
-        }
-        return reqVO.getInspectionTypeRules().stream()
-                .filter(rule -> Objects.equals(normalizeInspectionType(rule.getInspectionType()), "FINAL"))
-                .map(MesQaInspectionRegulationSaveReqVO.InspectionTypeRule::getFixedQuantity)
-                .filter(quantity -> quantity != null && quantity > 0)
-                .findFirst()
-                .orElseThrow(() -> exception(QA_INSPECTION_REGULATION_ITEM_INVALID, "FINAL.fixedQuantity"));
-    }
-
     private static Set<String> normalizedInspectionTypes(List<String> inspectionTypes) {
         if (CollUtil.isEmpty(inspectionTypes)) {
             return Set.of();
@@ -1615,17 +1616,15 @@ public class MesQaInspectionRegulationServiceImpl implements MesQaInspectionRegu
     }
 
     private static boolean isPatrolInspectionType(String inspectionType) {
-        return Objects.equals(inspectionType, "PATROL")
-                || Objects.equals(inspectionType, "PATROL_AM")
-                || Objects.equals(inspectionType, "PATROL_PM");
+        return Objects.equals(inspectionType, "PATROL");
     }
 
     private static MesQaInspectionRegulationItemDO toItemDO(
             Long versionId, Long qaProcessId, MesQaInspectionRegulationSaveReqVO.InspectionItem item,
-            String inspectionType, int finalInspectionQuantity) {
+            String inspectionType) {
         Integer fixedQuantity = Objects.equals(inspectionType, "FIRST")
                 ? item.getFirstInspectionQuantity()
-                : Objects.equals(inspectionType, "FINAL") ? finalInspectionQuantity : null;
+                : Objects.equals(inspectionType, "FINAL") ? item.getFinalInspectionQuantity() : null;
         return MesQaInspectionRegulationItemDO.builder()
                 .regulationVersionId(versionId)
                 .qaProcessId(qaProcessId)

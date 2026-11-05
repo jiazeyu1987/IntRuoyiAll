@@ -4029,8 +4029,7 @@ const replenishmentMaterials = computed<ActiveOrderDetailReplenishmentMaterialRo
 })
 
 const resolvePqcInspectionTypeText = (pqcSubmission: TeamLeaderActiveOrderPqcSubmissionDetailRespVO) => {
-  if (pqcSubmission.inspectionRuleKey === 'PATROL_AM') return '上午巡检'
-  if (pqcSubmission.inspectionRuleKey === 'PATROL_PM') return '下午巡检'
+  if (pqcSubmission.inspectionRuleKey === 'PATROL') return `巡检 · 第 ${pqcSubmission.roundNo} 轮`
   const inspectionType = pqcSubmission.inspectionType
   if (inspectionType === 'FIRST') return '首检'
   if (inspectionType === 'FINAL') return '末检'
@@ -4039,21 +4038,18 @@ const resolvePqcInspectionTypeText = (pqcSubmission: TeamLeaderActiveOrderPqcSub
   return inspectionType || '检验'
 }
 
-const pqcInspectionTabLabels = ['首检', '上午巡检', '下午巡检', '末检'] as const
-
-const buildPqcInspectionTabs = (submissions: TeamLeaderActiveOrderPqcSubmissionDetailRespVO[]) =>
-  pqcInspectionTabLabels
-    .map(label => ({
-      label,
-      submissions: submissions.filter(submission => resolvePqcInspectionTypeText(submission) === label)
-    }))
-    .filter(tab => tab.submissions.length > 0)
+const buildPqcInspectionTabs = (submissions: TeamLeaderActiveOrderPqcSubmissionDetailRespVO[]) => {
+  const labels = [...new Set(submissions.map(resolvePqcInspectionTypeText))]
+  const rank = (label: string) => label === '首检' ? 0 : label.startsWith('巡检') ? 1 : label === '末检' ? 2 : 3
+  return labels.sort((a, b) => rank(a) - rank(b) || a.localeCompare(b, 'zh-CN', { numeric: true }))
+    .map(label => ({ label, submissions: submissions.filter(submission => resolvePqcInspectionTypeText(submission) === label) }))
+}
 
 const resolvePqcInspectionActiveTab = (process: ActiveOrderDetailPqcProcessGroup) =>
   buildPqcInspectionTabs(process.submissions)[0]?.label || ''
 
 const hasUnclassifiedPqcSubmissions = (submissions: TeamLeaderActiveOrderPqcSubmissionDetailRespVO[]) =>
-  submissions.some(submission => !pqcInspectionTabLabels.some(label => label === resolvePqcInspectionTypeText(submission)))
+  submissions.some(submission => !['FIRST', 'PATROL', 'FINAL'].includes(submission.inspectionType || ''))
 
 const buildDossierFileTabName = (categoryKey: string) => `dossierFile:${categoryKey}`
 

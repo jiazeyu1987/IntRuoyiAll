@@ -40,8 +40,7 @@ public class MesPqcLeaderActiveTaskServiceImpl implements MesPqcLeaderActiveTask
     private static final Set<String> LOCKED_QA_VERSION_STATUSES = Set.of("PUBLISHED", "RETIRED");
     private static final Map<String, Integer> RULE_SORTS = Map.of(
             "FIRST", 1,
-            "PATROL_AM", 2,
-            "PATROL_PM", 3,
+            "PATROL", 2,
             "FINAL", 4);
 
     private final MesProcessPoolActiveOrderMapper activeOrderMapper;

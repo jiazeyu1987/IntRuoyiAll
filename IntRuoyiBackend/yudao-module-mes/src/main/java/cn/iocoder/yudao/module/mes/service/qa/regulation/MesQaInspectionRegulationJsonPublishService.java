@@ -215,8 +215,7 @@ public class MesQaInspectionRegulationJsonPublishService {
     private static List<MesQaInspectionRegulationSaveReqVO.InspectionTypeRule> defaultInspectionTypeRules() {
         List<MesQaInspectionRegulationSaveReqVO.InspectionTypeRule> rules = new ArrayList<>();
         rules.add(rule("FIRST", "FIRST", "首检", "每个适用订单开始前", true));
-        rules.add(rule("PATROL_AM", "PATROL", "上午巡检", "上午班次独立轮次", true));
-        rules.add(rule("PATROL_PM", "PATROL", "下午巡检", "下午班次独立轮次", true));
+        rules.add(rule("PATROL", "PATROL", "巡检", "按实际创建次数编号", true));
         rules.add(rule("FINAL", "FINAL", "末检", "订单结束前", false));
         return rules;
     }

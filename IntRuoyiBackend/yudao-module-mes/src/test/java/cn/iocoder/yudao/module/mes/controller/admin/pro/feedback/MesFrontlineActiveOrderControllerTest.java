@@ -51,7 +51,7 @@ class MesFrontlineActiveOrderControllerTest {
         when(pqcContextService.listActiveOrders()).thenReturn(List.of(new MesFrontlineActiveOrderCandidate(
                 5001L, 1001L, "WO-PQC-001", "PQC 活跃订单", 3001L, "ITEM-PQC", "PQC 产品",
                 "PQC-BATCH-001", new BigDecimal("125.500"), 2001L, 2101L, "ROUTE-PQC", "PQC 产品路线",
-                LocalDateTime.of(2026, 8, 1, 9, 0))));
+                LocalDateTime.of(2026, 8, 1, 9, 0), false, null)));
 
         CommonResult<List<MesFrontlineActiveOrderRespVO>> response = controller.getPqcActiveOrders();
 
@@ -61,6 +61,20 @@ class MesFrontlineActiveOrderControllerTest {
         assertEquals("PQC-BATCH-001", activeOrder.getBatchCode());
         assertEquals(new BigDecimal("125.500"), activeOrder.getQuantity());
         assertEquals(2101L, activeOrder.getRouteVersionId());
+        assertEquals(false, activeOrder.getReadBlocked());
+        assertNull(activeOrder.getReadBlockReason());
+    }
+
+    @Test
+    void getPqcActiveOrders_preservesBlockedOrderIdentityAndReason() {
+        when(pqcContextService.listActiveOrders()).thenReturn(List.of(new MesFrontlineActiveOrderCandidate(
+                5001L, 1001L, "WO-PQC-001", "PQC 活跃订单", 3001L, "ITEM-PQC", "PQC 产品",
+                "PQC-BATCH-001", new BigDecimal("125.500"), 2001L, 2101L, "ROUTE-PQC", "PQC 产品路线",
+                LocalDateTime.of(2026, 8, 1, 9, 0), true, "订单缺少检验规程来源快照")));
+        MesFrontlineActiveOrderRespVO order = controller.getPqcActiveOrders().getData().get(0);
+        assertEquals(5001L, order.getActiveOrderId());
+        assertEquals(true, order.getReadBlocked());
+        assertEquals("订单缺少检验规程来源快照", order.getReadBlockReason());
     }
 
     @Test

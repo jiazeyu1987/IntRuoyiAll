@@ -18,10 +18,10 @@ const code = ts.transpileModule(ast.statements.filter((s) => ts.isVariableStatem
 function harness({ missingEmployee = false, currentTask = 1, available = true,
   boundEmployee = true, targetProcess } = {}) {
   const calls = [], errors = []
-  const option = { pqcTaskId: 2, regulationVersionId: 202, qaProcessId: 303, inspectionRuleKey: 'PATROL_AM' }
+  const option = { pqcTaskId: 2, regulationVersionId: 202, qaProcessId: 303, inspectionRuleKey: 'PATROL', roundNo: 1 }
   const previousOption = { pqcTaskId: 1, inspectionRuleKey: 'FIRST' }
   const selectedTaskId = ref(currentTask)
-  const selectedRuleKey = ref(currentTask === 2 ? 'PATROL_AM' : 'FIRST')
+  const selectedRuleKey = ref(currentTask === 2 ? 'PATROL' : 'FIRST')
   const employee = { id: 77 }
   const deviceState = reactive({ selectedProcess: { id: 10 }, selectedEmployee: boundEmployee ? { id: 66 } : undefined,
     template: {}, loadingTemplate: false, loadingEmployees: false })
@@ -33,12 +33,12 @@ function harness({ missingEmployee = false, currentTask = 1, available = true,
     selectedPqcProductionProcess: ref({ routeProcessId: 1, processId: 2 }),
     pqcProductionProcessSelection: ref({ options: [], error: '' }),
     computed, deviceState, context: { actualEmployeeId: 66 }, employeeTemplateCode: ref('old'),
-    payloadPreview: ref({}), payloadLoading: ref(false), pqcSubmitResultUncertain: ref(false),
+    payloadPreview: ref({}), payloadLoading: ref(false), pqcSubmitResultUncertain: ref(false), pqcPatrolRoundCreating: ref(false),
     isPqcMode: ref(true), activePqcTaskOptionId: selectedTaskId,
     activePqcTabKey: ref('item-A'), selectedPqcInspectionKey: ref('item-A'),
-    selectedPqcInspectionRuleKey: selectedRuleKey, pqcDraft: { inspectionType: 'FIRST' },
+    selectedPqcInspectionRuleKey: selectedRuleKey, selectedPqcPatrolRound: ref(1), pqcDraft: { inspectionType: 'FIRST' },
     allSwitchablePqcProcessOptions: ref(targetProcess ? [targetProcess] : []),
-    PQC_INSPECTION_RULE_LABELS: { PATROL_AM: '上午巡检' },
+    PQC_INSPECTION_RULE_LABELS: { PATROL: '巡检' },
     isFrontlinePqcProcess: (p) => Boolean(p), showFrontlineError: (e) => errors.push(e),
     persistCurrentPqcTaskDraft: () => calls.push('persist'),
     applyPqcTaskOptionToDraft: (value) => {
@@ -69,7 +69,7 @@ function harness({ missingEmployee = false, currentTask = 1, available = true,
   return { ...dependencies, calls, errors, option, employee, finishEmployee, finishProcess,
     ...new Function(...Object.keys(dependencies), code)(...Object.values(dependencies)) }
 }
-for (const [handler, value] of [['selectPqcInspectionRule', 'PATROL_AM'],
+for (const [handler, value] of [['selectPqcInspectionRule', 'PATROL'],
   ['selectPqcInspectionTab', 'item-B']]) {
   test(`${handler} clears old identity, rebinds current employee to new task and waits`, async () => {
     const h = harness()
@@ -94,7 +94,7 @@ for (const [handler, value] of [['selectPqcInspectionRule', 'PATROL_AM'],
   })
 }
 
-for (const [handler, value] of [['selectPqcInspectionRule', 'PATROL_AM'],
+for (const [handler, value] of [['selectPqcInspectionRule', 'PATROL'],
   ['selectPqcInspectionTab', 'item-B']]) {
   test(`${handler} rebinds an unbound employee even when the formal task is unchanged`, async () => {
     const h = harness({ currentTask: 2, boundEmployee: false })
@@ -115,7 +115,7 @@ test('formal submit is blocked when the selected employee is missing', () => {
 
 test('a computed task inferred from another rule cannot authorize an unbound formal task ID', () => {
   const h = harness()
-  h.selectedPqcInspectionRuleKey.value = 'PATROL_AM'
+  h.selectedPqcInspectionRuleKey.value = 'PATROL'
   assert.equal(h.activePqcTaskOption.value.pqcTaskId, 2)
   assert.equal(h.activePqcTaskOptionId.value, 1)
   assert.equal(h.isPqcSubmitBlocked.value, true)
@@ -129,10 +129,10 @@ test('missing executable task remains blocked even with a previous employee bind
 })
 
 test('the ordinary scoped task initializer assigns the formal ID before employee binding', () => {
-  const option = { pqcTaskId: 616, inspectionRuleKey: 'PATROL_PM', inspectionType: 'PATROL',
+  const option = { pqcTaskId: 616, inspectionRuleKey: 'PATROL', inspectionType: 'PATROL',
     roundNo: 2, plannedInspectionQuantity: 1, inspectionItems: [{ itemCode: 'I005' }] }
   const dependencies = {
-    activePqcTaskOptionId: ref(undefined), selectedPqcInspectionRuleKey: ref('PATROL_PM'),
+    activePqcTaskOptionId: ref(undefined), selectedPqcInspectionRuleKey: ref('PATROL'), selectedPqcPatrolRound: ref(undefined),
     selectedPqcInspectionKey: ref('I005'), pqcDraft: {}, pqcSignatureDialogVisible: ref(true),
     pqcSignaturePassword: ref('previous'), pqcSubmitResultUncertain: ref(false),
     getPqcTaskDraft: () => ({}), isFrontlinePqcProcess: () => true,
@@ -150,13 +150,13 @@ test('the ordinary scoped task initializer assigns the formal ID before employee
   { compilerOptions: { target: ts.ScriptTarget.ES2020 } }).outputText
   new Function(...Object.keys(dependencies), initializerCode)(...Object.values(dependencies))({ qaProcessId: 4 })
   assert.equal(dependencies.activePqcTaskOptionId.value, 616)
-  assert.equal(dependencies.selectedPqcInspectionRuleKey.value, 'PATROL_PM')
+  assert.equal(dependencies.selectedPqcInspectionRuleKey.value, 'PATROL')
   assert.equal(dependencies.pqcDraft.inspectionQuantity, 1)
   assert.equal(dependencies.pqcSignatureDialogVisible.value, false)
   assert.equal(dependencies.pqcSignaturePassword.value, '')
 })
 test('missing current login employee is explicit and never substitutes old employee', async () => {
-  const h = harness({ missingEmployee: true }); await h.selectPqcInspectionRule('PATROL_AM')
+  const h = harness({ missingEmployee: true }); await h.selectPqcInspectionRule('PATROL')
   assert.equal(h.deviceState.selectedEmployee, undefined)
   assert.equal(h.isPqcSubmitBlocked.value, true)
   assert.equal(h.calls.some((call) => Array.isArray(call) && call[0] === 'employee'), false)
@@ -166,15 +166,15 @@ test('rule absent on current process delegates to formal target process and awai
   const process = { id: 20 }
   const h = harness({ available: false, targetProcess: process })
   let completed = false
-  const pending = h.selectPqcInspectionRule('PATROL_AM').then(() => { completed = true })
+  const pending = h.selectPqcInspectionRule('PATROL').then(() => { completed = true })
   assert.deepEqual(h.calls.filter(Array.isArray), [['process', process]])
   await Promise.resolve(); assert.equal(completed, false)
   h.finishProcess(); await pending
   assert.deepEqual(h.errors, [])
 })
 test('no executable rule clears task and reports absence', async () => {
-  const h = harness({ available: false }); await h.selectPqcInspectionRule('PATROL_AM')
+  const h = harness({ available: false }); await h.selectPqcInspectionRule('PATROL')
   assert.equal(h.activePqcTaskOption.value, undefined)
-  assert.match(h.errors[0], /没有可执行的上午巡检工序/)
+  assert.match(h.errors[0], /没有可执行的巡检工序/)
   assert.deepEqual(h.calls.filter(Array.isArray), [])
 })

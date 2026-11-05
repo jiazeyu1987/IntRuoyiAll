@@ -72,12 +72,12 @@ const typeTabsBlock = blockBetween(
 )
 assert.match(
   typeTabsBlock,
-  /v-for="tab in pqcInspectionTypeTabs"/,
+  /:tabs="pqcInspectionTypeTabs"/,
   'PQC type tabs must be rendered from available formal task rules.'
 )
 assert.match(
   typeTabsBlock,
-  /:key="tab\.ruleKey"[\s\S]*:data-pqc-inspection-rule-tab="tab\.ruleKey"[\s\S]*@click="selectPqcInspectionRule\(tab\.ruleKey\)"/,
+  /:selected-rule-key="selectedPqcInspectionRuleKey"[\s\S]*:current-task="activePqcTaskOption"[\s\S]*@select-rule="selectPqcInspectionRule"/,
   'PQC task tabs must use rule identity and select the independent formal rule.'
 )
 assert.doesNotMatch(

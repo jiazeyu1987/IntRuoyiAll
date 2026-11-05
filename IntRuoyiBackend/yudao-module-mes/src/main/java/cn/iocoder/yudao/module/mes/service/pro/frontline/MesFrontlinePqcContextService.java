@@ -9,6 +9,14 @@ public interface MesFrontlinePqcContextService {
 
     List<MesFrontlineActiveOrderCandidate> listActiveOrders();
 
+    void cancelPatrolRound(Long loginUserId, Long activeOrderId, Integer roundNo);
+
+    void restorePatrolRound(Long loginUserId, Long activeOrderId, Integer roundNo);
+
+    void createFinalInspection(Long loginUserId, Long activeOrderId);
+
+    Integer createPatrolRound(Long loginUserId, Long activeOrderId, Integer expectedPreviousRoundNo);
+
     List<MesFrontlinePqcProcessRespVO> listProcessesByActiveOrder(Long activeOrderId);
 
     List<MesFrontlinePqcProcessRespVO> listProcessesByActiveOrder(Long activeOrderId,

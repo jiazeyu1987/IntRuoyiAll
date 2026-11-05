@@ -188,7 +188,10 @@ public class ElectronicSignatureVerifiedFactService {
     private static Long operator(FrozenFact record, JsonNode content, List<String> reasons) {
         JsonNode identity = content == null ? null : content.get("signatureIdentity");
         if (identity == null || identity.isNull()) {
-            if ("SESSION_PLUS_PASSWORD".equals(record.authenticationMethod()) && positive(record.actorId())) return record.actorId();
+            if (("SESSION_PLUS_PASSWORD".equals(record.authenticationMethod())
+                    || "SESSION_CONFIRMATION".equals(record.authenticationMethod()) && "MES".equals(record.moduleCode())
+                    && "MES_BATCH_RECORD".equals(record.subjectType()) && "PQC_PATROL_ROUND_CORRECTION".equals(record.actionCode()))
+                    && positive(record.actorId())) return record.actorId();
         } else if (identity.isObject()) {
             String domain = text(identity, "domain");
             Long signer = strictId(identity.get("signerId")), tenant = strictId(identity.get("tenantId")), operator = strictId(identity.get("operatorId"));

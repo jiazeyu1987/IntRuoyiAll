@@ -114,7 +114,7 @@ public class MesOrderReleaseCompletenessServiceImpl implements MesOrderReleaseCo
             return activeOrderMissing(MesProEdhrReleaseServiceImpl.CHECK_INSPECTION_RESULT,
                     "检验结果检查", "INSPECTION", MODULE_QMS, batch);
         }
-        List<MesPqcInspectionTaskDO> tasks = pqcInspectionTaskMapper.selectListByActiveOrderId(activeOrder.getId());
+        List<MesPqcInspectionTaskDO> tasks = pqcInspectionTaskMapper.selectEffectiveListByActiveOrderId(activeOrder.getId());
         if (CollUtil.isEmpty(tasks)) {
             return blocker(MesProEdhrReleaseServiceImpl.CHECK_INSPECTION_RESULT, "检验结果检查",
                     "INSPECTION", MODULE_QMS, "PQC_INSPECTION_TASK", String.valueOf(activeOrder.getId()),
@@ -136,7 +136,7 @@ public class MesOrderReleaseCompletenessServiceImpl implements MesOrderReleaseCo
             return blocker(MesProEdhrReleaseServiceImpl.CHECK_INSPECTION_RESULT, "检验结果检查",
                     "INSPECTION", MODULE_QMS, "PQC_INSPECTION_TASK", String.valueOf(activeOrder.getId()),
                     String.valueOf(activeOrder.getId()), summarizeText("缺少预期 PQC 检验任务身份", missingTaskIdentities),
-                    "按发布 QA 规程重新生成 FIRST、PATROL AM、PATROL PM、FINAL 任务后重新预检");
+                    "按发布 QA 规程重新生成 首检、有效巡检轮次及已开启工序的末检 任务后重新预检");
         }
         List<String> missingResultEvidence = missingFormalPqcInspectionResultEvidence(tasks);
         if (!missingResultEvidence.isEmpty()) {
@@ -317,16 +317,16 @@ public class MesOrderReleaseCompletenessServiceImpl implements MesOrderReleaseCo
                 batch.getRouteVersionId());
     }
 
-    private List<String> missingExpectedPqcTaskIdentities(MesProcessPoolActiveOrderDO activeOrder,
+    @Override
+    public List<String> missingExpectedPqcTaskIdentities(MesProcessPoolActiveOrderDO activeOrder,
                                                           List<MesPqcInspectionTaskDO> tasks) {
         List<String> missing = new ArrayList<>(invalidOrDuplicatePqcTaskIdentities(tasks));
         if (!missing.isEmpty()) return missing;
         if (activeOrder.getQaRegulationVersionId() == null) {
             return List.of("活跃订单缺少冻结QA规程版本");
         }
-        Set<Long> versions = new LinkedHashSet<>();
-        versions.add(activeOrder.getQaRegulationVersionId());
-        tasks.forEach(task -> versions.add(task.getRegulationVersionId()));
+        Set<Long> versions = new LinkedHashSet<>(
+                cn.iocoder.yudao.module.mes.service.pro.processpool.pqc.MesPqcQaSources.requireVersionIds(activeOrder));
         Set<String> expected = new LinkedHashSet<>();
         for (Long versionId : versions) {
             var version = regulationVersionMapper.selectById(versionId);
@@ -358,18 +358,31 @@ public class MesOrderReleaseCompletenessServiceImpl implements MesOrderReleaseCo
                             && Objects.equals(stage.ruleKey(), task.getInspectionRuleKey())
                             && Objects.equals(stage.inspectionType(), task.getInspectionType())
                             && Objects.equals(stage.shiftCode(), task.getShiftCode())
-                            && Objects.equals(PQC_DEFAULT_ROUND_NO, task.getRoundNo())
+                            && (Objects.equals("PATROL", stage.inspectionType())
+                                ? task.getRoundNo() != null && task.getRoundNo() > 0
+                                : Objects.equals(PQC_DEFAULT_ROUND_NO, task.getRoundNo()))
                             && Objects.equals(activeOrder.getId(), task.getActiveOrderId())
                             && Objects.equals(activeOrder.getWorkOrderId(), task.getWorkOrderId())).toList();
-                    if (matches.size() != 1) missing.add(identity + " 未找到唯一整单QA阶段任务");
-                    else {
+                    if (matches.isEmpty() || (!Objects.equals("PATROL", stage.inspectionType()) && matches.size() != 1)) {
+                        missing.add(identity + " 缺少整单QA阶段任务");
+                    } else {
                         Set<String> expectedItems = items.stream().filter(item ->
                                 Objects.equals(process.getId(), item.getQaProcessId())
                                 && Objects.equals(stage.inspectionType(),
                                 cn.iocoder.yudao.module.mes.service.pro.processpool.pqc.MesPqcInspectionRulePlan.normalizeType(item.getInspectionType())))
                                 .map(item -> item.getItemCode().trim()).collect(Collectors.toSet());
-                        if (!cn.iocoder.yudao.module.mes.service.pro.processpool.pqc.MesPqcInspectionItemPlan.require(matches.get(0))
-                                .keySet().equals(expectedItems)) missing.add(identity + " 冻结检验项目集合不完整");
+                        for (var match : matches) {
+                            if (!cn.iocoder.yudao.module.mes.service.pro.processpool.pqc.MesPqcInspectionItemPlan.require(match)
+                                    .keySet().equals(expectedItems)) missing.add(identity + " 冻结检验项目集合不完整");
+                        }
+                        if (Objects.equals("PATROL", stage.inspectionType())) {
+                            Set<Integer> actualRounds = matches.stream().map(MesPqcInspectionTaskDO::getRoundNo).collect(Collectors.toSet());
+                            Set<Integer> orderRounds = tasks.stream().filter(task -> "PATROL".equals(task.getInspectionType()))
+                                    .map(MesPqcInspectionTaskDO::getRoundNo).collect(Collectors.toSet());
+                            if (matches.size() != actualRounds.size() || !actualRounds.equals(orderRounds)) {
+                                missing.add(identity + " 巡检轮次工序覆盖不完整或重复");
+                            }
+                        }
                     }
                 }
             }

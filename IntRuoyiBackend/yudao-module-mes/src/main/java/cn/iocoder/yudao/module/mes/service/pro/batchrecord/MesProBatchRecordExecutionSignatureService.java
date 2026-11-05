@@ -61,6 +61,7 @@ public class MesProBatchRecordExecutionSignatureService {
     public static final String ACTION_REJECT = "REJECT";
     public static final String ACTION_ARCHIVE_SEAL = "ARCHIVE_SEAL";
     public static final String ACTION_FIELD_CHANGE = "FIELD_CHANGE";
+    public static final String ACTION_PQC_PATROL_ROUND_CORRECTION = "PQC_PATROL_ROUND_CORRECTION";
     public static final String ACTION_FORM_REVIEW = "FORM_REVIEW";
     public static final String ACTION_PRODUCTION_SUBMIT = "PRODUCTION_SUBMIT";
     public static final String ACTION_PQC_SUBMIT = "PQC_SUBMIT";
@@ -135,8 +136,11 @@ public class MesProBatchRecordExecutionSignatureService {
         if (user == null || !authorizationService.isElectronicSignatureEnabled(actorId)) {
             throw exception(PRO_BATCH_RECORD_EXECUTION_SIGNATURE_NOT_AUTHORIZED);
         }
+        // A corrected task can be filled again. Submission retries are deduplicated under the task lock
+        // before signing; every new signing action must have its own evidence identity.
+        String submissionSignatureKey = "PQC_SUBMISSION:" + java.util.UUID.randomUUID();
         return recordSignatureForSystemUser(actorId, user, 0L, password, comment, ACTION_PQC_SUBMIT,
-                null, null, null, null, null, null, null,
+                null, null, null, null, submissionSignatureKey, null, null,
                 REVIEW_SOURCE_TYPE_PQC_TASK, pqcTaskId, "PQC检验任务", ACTION_PQC_SUBMIT, comment,
                 null, null, null, null);
     }
@@ -503,6 +507,29 @@ public class MesProBatchRecordExecutionSignatureService {
         if (updated <= 0) {
             throw exception(PRO_BATCH_RECORD_EXECUTION_SIGNATURE_PERSIST_FAILED);
         }
+    }
+
+    /** Patrol association changes retain evidence under the current operator's explicit confirmation. */
+    @Transactional(rollbackFor = Exception.class)
+    public MesProBatchRecordExecutionFieldAuditSignatureResult recordPqcPatrolRoundConfirmation(String reason, String challenge) {
+        Long actor = SecurityFrameworkUtils.getLoginUserId();
+        if (actor == null || !authorizationService.isElectronicSignatureEnabled(actor)) {
+            throw exception(PRO_BATCH_RECORD_EXECUTION_SIGNATURE_NOT_AUTHORIZED);
+        }
+        AdminUserDO user = adminUserService.getUser(actor);
+        if (user == null || StrUtil.isBlank(user.getNickname()) || StrUtil.isBlank(reason)
+                || challenge == null || !challenge.matches("[0-9a-f]{64}")) {
+            throw exception(PRO_BATCH_RECORD_EXECUTION_SIGNATURE_NOT_AUTHORIZED);
+        }
+        String subject = MesBatchRecordSignatureSubjectAdapter.encodeSubjectId(0L, ACTION_PQC_PATROL_ROUND_CORRECTION,
+                null, null, null, null, null, null, null, null, null, null, null, null, null, null, challenge);
+        var result = electronicSignatureService.confirmSession(new ElectronicSignatureCommand(
+                "MES", ACTION_PQC_PATROL_ROUND_CORRECTION, MesBatchRecordSignatureSubjectAdapter.SUBJECT_TYPE,
+                subject, MesBatchRecordSignatureSubjectAdapter.subjectVersion(subject), null, reason,
+                "MES_CONFIRM|" + actor + "|" + ACTION_PQC_PATROL_ROUND_CORRECTION + "|" + DigestUtil.sha256Hex(subject), null, null));
+        return new MesProBatchRecordExecutionFieldAuditSignatureResult().setSignatureId(result.signatureId())
+                .setActorId(actor).setActorName(user.getNickname()).setSignatureMode("SESSION_CONFIRMATION")
+                .setPasswordVerified(Boolean.FALSE).setSignedAt(result.signedAt()).setSignatureDisplayAt(result.signedAt());
     }
 
     @Transactional(rollbackFor = Exception.class)

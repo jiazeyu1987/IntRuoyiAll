@@ -42,7 +42,7 @@ public class MesFrontlinePqcProcessRespVO {
     private Long activeOrderId;
     @Schema(description = "发布态 QA 规程是否启用末检")
     private Boolean finalInspectionApplicable;
-    @Schema(description = "锁定 QA 发布版本的四类检验规则")
+    @Schema(description = "锁定 QA 发布版本的首检、巡检、末检规则")
     private List<QaInspectionTypeRule> inspectionTypeRules;
     @Schema(description = "当前任务的 QA 检验项目")
     private List<PqcInspectionItem> inspectionItems;
@@ -64,6 +64,9 @@ public class MesFrontlinePqcProcessRespVO {
         private String qaItemCode;
         private String inspectionRuleKey;
         private String taskStatus;
+        private String cancelReason;
+        private Long submittedEventId;
+        private String submittedContentHash;
         private Integer ruleSort;
         private QaInspectionTypeRule inspectionTypeRule;
         private Boolean finalInspectionApplicable;
@@ -71,6 +74,8 @@ public class MesFrontlinePqcProcessRespVO {
         private LocalDate businessDate;
         private String shiftCode;
         private Integer roundNo;
+        @Schema(description = "任务实际创建时间")
+        private LocalDateTime createTime;
         private Integer plannedInspectionQuantity;
         private List<PqcInspectionItem> inspectionItems;
     }
@@ -118,6 +123,7 @@ public class MesFrontlinePqcProcessRespVO {
         private String resultType;
         private List<String> applicableInspectionTypes;
         private Integer firstInspectionQuantity;
+        private Integer finalInspectionQuantity;
         private BigDecimal patrolInspectionRatio;
         private Boolean critical;
         private String failureRule;

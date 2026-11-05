@@ -57,7 +57,7 @@ assert.doesNotMatch(
 )
 assert.match(
   viewSource,
-  /@click="selectPqcInspectionRule\(tab\.ruleKey\)"/,
+  /@select-rule="selectPqcInspectionRule"/,
   'Selecting a configured inspection button must pass the formal rule key.'
 )
 const selectRuleBlock = extractConstFunctionBlock(viewSource, 'selectPqcInspectionRule')

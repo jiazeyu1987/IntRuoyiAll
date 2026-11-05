@@ -49,6 +49,9 @@ import java.util.Set;
 
 @Service
 public class MesTeamLeaderActiveOrderReleaseGenerationService {
+    @jakarta.annotation.Resource
+    private cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesOrderReleaseCompletenessService pqcCoverageService;
+
 
     private static final String STATUS_ACTIVE = "ACTIVE";
     private static final int MAX_APPLY_REMARK_LENGTH = 500;
@@ -393,12 +396,18 @@ public class MesTeamLeaderActiveOrderReleaseGenerationService {
     }
 
     private InspectionEvidence requireFormalInspectionCompletions(MesProcessPoolActiveOrderDO activeOrder) {
-        List<MesPqcInspectionTaskDO> tasks = list(pqcTaskMapper.selectListByActiveOrderId(activeOrder.getId()));
+        List<MesPqcInspectionTaskDO> tasks = list(pqcTaskMapper.selectEffectiveListByActiveOrderId(activeOrder.getId()));
         List<MesPqcProcessInspectionAggregateDetailDO> details = list(aggregateDetailMapper.selectListByActiveOrderId(activeOrder.getId()));
         if (tasks.isEmpty()) {
             throw blocker(MesReleaseFlowBlockerType.INSPECTION_PROGRESS_NOT_COMPLETED, null,
                     "ACTIVE_ORDER", String.valueOf(activeOrder.getId()), null,
                     "整单QA检验任务缺失", "完成整单QA检验与PQC组长复核");
+        }
+        var missingPqcCoverage = pqcCoverageService.missingExpectedPqcTaskIdentities(activeOrder, tasks);
+        if (!missingPqcCoverage.isEmpty()) {
+            throw blocker(MesReleaseFlowBlockerType.INSPECTION_PROGRESS_NOT_COMPLETED, null,
+                    "PQC_INSPECTION_TASK", String.valueOf(activeOrder.getId()), null,
+                    String.join("；", missingPqcCoverage), "创建并完成所有适用的首检、巡检和末检工序");
         }
         for (var task : tasks) {
             if (task == null || task.getId() == null || task.getQaProcessId() == null || task.getRegulationVersionId() == null

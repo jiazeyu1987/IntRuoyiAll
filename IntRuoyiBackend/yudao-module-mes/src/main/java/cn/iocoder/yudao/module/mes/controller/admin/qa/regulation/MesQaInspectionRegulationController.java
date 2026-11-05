@@ -139,8 +139,9 @@ public class MesQaInspectionRegulationController {
     @Parameter(name = "dccProjectCodeId", description = "DCC 项目代码 ID")
     @PreAuthorize("@ss.hasPermission('mes:qc-template:query')")
     public CommonResult<List<MesQaInspectionRegulationVersionOptionRespVO>> listVersions(
-            @RequestParam("dccProjectCodeId") Long dccProjectCodeId) {
-        return success(regulationService.listVersions(dccProjectCodeId));
+            @RequestParam("dccProjectCodeId") Long dccProjectCodeId,
+            @RequestParam(value = "ownerModule", defaultValue = "MES_QA") String ownerModule) {
+        return success(regulationService.listVersions(dccProjectCodeId, ownerModule));
     }
 
     @GetMapping("/current")

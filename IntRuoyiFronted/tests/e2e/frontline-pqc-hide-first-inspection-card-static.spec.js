@@ -3,10 +3,7 @@ const fs = require('node:fs')
 const path = require('node:path')
 
 const root = process.cwd()
-const viewPath = path.join(
-  root,
-  'src/views/mes/pro/feedback/FrontlineFixedTemplatePanel.vue'
-)
+const viewPath = path.join(root, 'src/views/mes/pro/feedback/FrontlineFixedTemplatePanel.vue')
 const source = fs.readFileSync(viewPath, 'utf8').replace(/\r\n/g, '\n')
 
 const ruleSelectorMarker = source.indexOf('data-pqc-inspection-rule-selector')
@@ -18,41 +15,50 @@ assert.ok(
 )
 
 const typeTabsBlock = source.slice(typeTabsStart, typeTabsEnd)
+const selectorSource = fs.readFileSync(
+  path.join(root, 'src/views/mes/pro/feedback/FrontlinePqcInspectionTypeSelector.vue'),
+  'utf8'
+)
 
 assert.match(
   typeTabsBlock,
-  /v-for="tab in pqcInspectionTypeTabs"/,
+  /:tabs="pqcInspectionTypeTabs"/,
   'PQC inspection type cards must be rendered only from formal task options in the current order.'
 )
 assert.match(
-  typeTabsBlock,
+  selectorSource,
   /:key="tab\.ruleKey"/,
   'PQC inspection type cards must use the formal inspection rule as their stable key.'
 )
 assert.match(
-  typeTabsBlock,
+  selectorSource,
   /:data-pqc-inspection-rule-tab="tab\.ruleKey"/,
   'PQC inspection type cards must expose a stable per-rule DOM anchor.'
 )
 assert.match(
-  typeTabsBlock,
+  selectorSource,
   /:data-pqc-inspection-type-tab="tab\.type"/,
   'PQC inspection type cards must expose a stable per-type DOM anchor.'
 )
 assert.match(
-  typeTabsBlock,
-  /:class="\{ active: selectedPqcInspectionRuleKey === tab\.ruleKey \}"/,
+  selectorSource,
+  /:class="\{ active: selectedRuleKey === tab\.ruleKey \}"/,
   'PQC inspection type active state must follow the independent selected formal task rule.'
 )
 assert.match(
   typeTabsBlock,
-  /@click="selectPqcInspectionRule\(tab\.ruleKey\)"/,
+  /@select-rule="selectPqcInspectionRule"/,
   'PQC inspection type card clicks must select the formal rule before resolving a process task snapshot.'
 )
 assert.match(
-  typeTabsBlock,
+  selectorSource,
   /\{\{\s*tab\.label\s*\}\}/,
   'PQC inspection type cards must display the label resolved from the formal task type.'
+)
+assert.match(
+  selectorSource,
+  /v-for="tab in tabs"/,
+  'A type without formal tasks must remain hidden.'
 )
 assert.doesNotMatch(
   typeTabsBlock,

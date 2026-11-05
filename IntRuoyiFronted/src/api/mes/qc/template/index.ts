@@ -10,7 +10,7 @@ export interface QcTemplateVO {
   remark: string // 备注
 }
 
-export type QaInspectionRegulationInspectionRuleKey = 'FIRST' | 'PATROL_AM' | 'PATROL_PM' | 'FINAL'
+export type QaInspectionRegulationInspectionRuleKey = 'FIRST' | 'PATROL' | 'FINAL'
 export type QaInspectionRegulationResultType = 'BOOLEAN' | 'NUMERIC' | 'TEXT'
 export type QaInspectionRegulationOwnerModule = 'MES_QA' | 'MES_QA_COMMON'
 
@@ -25,6 +25,7 @@ export interface QaInspectionRegulationParsedItemVO {
   resultType: QaInspectionRegulationResultType
   applicableInspectionTypes: Array<'FIRST' | 'PATROL'>
   firstInspectionQuantity?: number
+  finalInspectionQuantity?: number
   patrolInspectionRatio?: number
 }
 
@@ -103,6 +104,7 @@ export interface QaInspectionRegulationItemVO {
   resultType: QaInspectionRegulationResultType
   applicableInspectionTypes: Array<'FIRST' | 'PATROL' | 'FINAL'>
   firstInspectionQuantity?: number
+  finalInspectionQuantity?: number
   patrolInspectionRatio?: number
   critical?: boolean
   failureRule?: string
@@ -523,11 +525,12 @@ export const QcTemplateApi = {
 
   // 查询 DCC 项目全部 QA 检验规程版本
   listQaRegulationVersions: async (
-    dccProjectCodeId: number
+    dccProjectCodeId: number,
+    ownerModule: QaInspectionRegulationOwnerModule = 'MES_QA'
   ): Promise<QaInspectionRegulationVersionOptionVO[]> => {
     return await request.get({
       url: `/mes/qa/inspection-regulation/versions`,
-      params: { dccProjectCodeId }
+      params: { dccProjectCodeId, ownerModule }
     })
   },
 

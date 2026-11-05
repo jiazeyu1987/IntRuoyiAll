@@ -576,6 +576,10 @@ public interface ErrorCodeConstants {
             "PQC 检验任务已以其它内容提交，taskId={}");
     ErrorCode PRO_FRONTLINE_PQC_RESULT_CONTRACT_INVALID = new ErrorCode(1_040_506_114,
             "PQC 检验结果不符合正式合同：{}");
+    ErrorCode PRO_PQC_QA_SOURCE_SNAPSHOT_REQUIRED = new ErrorCode(1_040_506_115,
+            "此活跃订单缺少检验规程来源快照，请选择本次更新后新建的活跃订单。");
+    ErrorCode PRO_PQC_QA_SOURCE_SNAPSHOT_INVALID = new ErrorCode(1_040_506_116,
+            "此活跃订单的检验规程来源快照无效，请联系组长核对订单。");
 
     // ========== MES 生产管理-生产流转卡（1-040-507-000） ==========
     ErrorCode PRO_CARD_NOT_EXISTS = new ErrorCode(1_040_507_000, "生产流转卡不存在");

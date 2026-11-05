@@ -29,7 +29,7 @@ public interface MesQaInspectionRegulationService {
 
     MesQaInspectionRegulationPublishedVersionRespVO getPublishedVersion(Long dccProjectCodeId, Long versionId);
 
-    List<MesQaInspectionRegulationVersionOptionRespVO> listVersions(Long dccProjectCodeId);
+    List<MesQaInspectionRegulationVersionOptionRespVO> listVersions(Long dccProjectCodeId, String ownerModule);
 
     MesQaInspectionRegulationPublishedVersionRespVO getCurrent(Long dccProjectCodeId);
 

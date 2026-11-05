@@ -40,7 +40,7 @@ public class MesQaInspectionRegulationWordImportService {
     private static final String STATUS_DRAFT = "DRAFT";
     private static final String STATUS_PUBLISHED = "PUBLISHED";
     private static final String STATUS_RETIRED = "RETIRED";
-    private static final String FINAL_NOT_APPLICABLE_REASON = "原文未规定末检";
+    private static final String FINAL_NOT_APPLICABLE_REASON = "导入后按检验工序设置末检，当前均未开启";
     private static final int MAX_BUSINESS_CODE_LENGTH = 64;
 
     private final DccProjectCodeMapper dccProjectCodeMapper;
@@ -226,14 +226,6 @@ public class MesQaInspectionRegulationWordImportService {
             MesQaInspectionRegulationWordParser.ParsedRegulation parsed,
             MesQaInspectionRegulationPublishedVersionRespVO baseline) {
         BaselineIndex baselineIndex = createBaselineIndex(baseline);
-        boolean finalInspectionApplicable = baseline != null
-                && Boolean.TRUE.equals(baseline.getFinalInspectionApplicable());
-        String finalNotApplicableReason = finalInspectionApplicable
-                ? null
-                : baseline == null
-                        ? FINAL_NOT_APPLICABLE_REASON
-                        : requireText(baseline.getFinalInspectionNotApplicableReason(), "既有末检不适用依据");
-
         Map<String, ProcessGroup> processGroups = new LinkedHashMap<>();
         int globalItemIndex = 0;
         int inheritedItemCount = 0;
@@ -274,7 +266,7 @@ public class MesQaInspectionRegulationWordImportService {
                 inheritedItemCount++;
             }
             processGroup.items().add(buildItem(parsedItem, existing, itemCode,
-                    processGroup.items().size() + 1, finalInspectionApplicable, parsed.fileName(), parsed.ruleSourceText()));
+                    processGroup.items().size() + 1, parsed.fileName(), parsed.ruleSourceText()));
         }
 
         List<MesQaInspectionRegulationSaveReqVO.InspectionProcess> processes = new ArrayList<>();
@@ -307,11 +299,9 @@ public class MesQaInspectionRegulationWordImportService {
         request.setRegulationName(parsed.regulationName());
         request.setVersionNo(parsed.versionNo());
         request.setEffectiveDate(parsed.effectiveDate());
-        request.setFinalInspectionApplicable(finalInspectionApplicable);
-        request.setFinalInspectionNotApplicableReason(finalNotApplicableReason);
-        request.setInspectionTypeRules(baseline == null
-                ? defaultInspectionTypeRules()
-                : copyInspectionTypeRules(baseline.getInspectionTypeRules()));
+        request.setFinalInspectionApplicable(false);
+        request.setFinalInspectionNotApplicableReason(FINAL_NOT_APPLICABLE_REASON);
+        request.setInspectionTypeRules(defaultInspectionTypeRules());
         request.setProcesses(processes);
         return new BuildResult(request, inheritedItemCount);
     }
@@ -321,7 +311,6 @@ public class MesQaInspectionRegulationWordImportService {
             ExistingItem existing,
             String itemCode,
             int itemSort,
-            boolean finalInspectionApplicable,
             String fileName,
             String ruleSourceText) {
         MesQaInspectionRegulationPublishedVersionRespVO.InspectionItem inherited =
@@ -346,9 +335,6 @@ public class MesQaInspectionRegulationWordImportService {
         }
         if (parsed.patrolApplicable()) {
             applicableTypes.add("PATROL");
-        }
-        if (finalInspectionApplicable) {
-            applicableTypes.add("FINAL");
         }
         item.setApplicableInspectionTypes(applicableTypes);
         item.setFirstInspectionQuantity(parsed.firstInspectionQuantity());
@@ -401,35 +387,12 @@ public class MesQaInspectionRegulationWordImportService {
         return new BaselineIndex(processCodeByName, itemByName, ambiguousItemKeys);
     }
 
-    private static List<MesQaInspectionRegulationSaveReqVO.InspectionTypeRule> copyInspectionTypeRules(
-            List<MesQaInspectionRegulationPublishedVersionRespVO.InspectionTypeRule> source) {
-        if (CollUtil.isEmpty(source)) {
-            throw exception(QA_INSPECTION_REGULATION_SNAPSHOT_INVALID, "inspectionTypeRules");
-        }
-        return source.stream().map(rule -> {
-            MesQaInspectionRegulationSaveReqVO.InspectionTypeRule target =
-                    new MesQaInspectionRegulationSaveReqVO.InspectionTypeRule();
-            target.setKey(rule.getKey());
-            target.setInspectionType(rule.getInspectionType());
-            target.setLabel(rule.getLabel());
-            target.setRoundLabel(rule.getRoundLabel());
-            target.setRequired(rule.getRequired());
-            target.setFixedQuantity(rule.getFixedQuantity());
-            target.setNotApplicableReason(rule.getNotApplicableReason());
-            target.setTaskRule(rule.getTaskRule());
-            target.setReleaseGate(rule.getReleaseGate());
-            return target;
-        }).toList();
-    }
-
     private static List<MesQaInspectionRegulationSaveReqVO.InspectionTypeRule>
     defaultInspectionTypeRules() {
         return List.of(
                 rule("FIRST", "FIRST", "首检", "每个适用订单开始前", true,
                         "按发布规程固定数量生成首检任务", "缺少适用检验项目时不能发布", null),
-                rule("PATROL_AM", "PATROL", "上午巡检", "上午班次独立轮次", true,
-                        "按订单数量与项目抽样比例生成任务", "缺少适用检验项目时不能发布", null),
-                rule("PATROL_PM", "PATROL", "下午巡检", "下午班次独立轮次", true,
+                rule("PATROL", "PATROL", "巡检", "按实际创建次数编号", true,
                         "按订单数量与项目抽样比例生成任务", "缺少适用检验项目时不能发布", null),
                 rule("FINAL", "FINAL", "末检", "订单结束前", false,
                         "启用末检时生成末检任务", "末检适用性必须明确", FINAL_NOT_APPLICABLE_REASON));
@@ -541,14 +504,6 @@ public class MesQaInspectionRegulationWordImportService {
 
     private static String normalizedName(String value) {
         return MesQaInspectionRegulationWordParser.normalizeText(value);
-    }
-
-    private static String requireText(String value, String label) {
-        String normalized = MesQaInspectionRegulationWordParser.normalizeText(value);
-        if (normalized.isEmpty()) {
-            throw exception(QA_INSPECTION_REGULATION_SNAPSHOT_INVALID, label);
-        }
-        return normalized;
     }
 
     private record ProcessGroup(String processName,

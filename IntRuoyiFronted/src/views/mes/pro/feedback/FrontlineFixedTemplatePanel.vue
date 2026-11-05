@@ -39,6 +39,10 @@
               {{ selectedProductionOrderQuantityLabel }} 件
             </div>
           </div>
+          <FrontlinePqcCompletionSummary
+            v-if="isFrontlinePqcProcess(deviceState.selectedProcess)"
+            :tasks="deviceState.selectedProcess.pqcTaskOptions"
+          />
         </button>
         <div
           class="frontline-top-card frontline-production-process-nav-card frontline-pqc-process-nav-card"
@@ -464,26 +468,29 @@
           data-pqc-inspection-rule-selector
           :data-pqc-process-filter-rule="selectedPqcInspectionRuleKey || ''"
         >
-          <div class="frontline-pqc-type-tabs">
-            <button
-              v-for="tab in pqcInspectionTypeTabs"
-              :key="tab.ruleKey"
-              type="button"
-              :data-pqc-inspection-rule-tab="tab.ruleKey"
-              :data-pqc-inspection-type-tab="tab.type"
-              :class="{ active: selectedPqcInspectionRuleKey === tab.ruleKey }"
-              :aria-pressed="selectedPqcInspectionRuleKey === tab.ruleKey"
-              @click="selectPqcInspectionRule(tab.ruleKey)"
-            >
-              {{ tab.label }}
-            </button>
-          </div>
+          <FrontlinePqcInspectionTypeSelector
+            :tabs="pqcInspectionTypeTabs"
+            :selected-rule-key="selectedPqcInspectionRuleKey"
+            :current-task="activePqcTaskOption"
+            :patrol-rounds="pqcPatrolRounds"
+            :final-created="pqcFinalCreated"
+            :selected-patrol-round="selectedPqcPatrolRound"
+            :disabled="isPqcProcessNavigationBlocked"
+            @select-rule="selectPqcInspectionRule"
+            @select-round="selectPqcPatrolRound"
+            @create-patrol="createPqcPatrolRound"
+            @create-final="createPqcFinalInspection"
+            @cancel-round="openPqcCancelRound"
+            @restore-round="openPqcRestoreRound"
+            @correct-round="openPqcSubmittedRoundCorrection"
+            @move-draft="openPqcDraftRoundMove"
+          />
         </section>
         <footer class="frontline-pqc-submit-bar">
           <button
             class="frontline-pqc-reset-button"
             type="button"
-            :disabled="payloadLoading || pqcSubmitResultUncertain"
+            :disabled="payloadLoading || pqcSubmitResultUncertain || pqcPatrolRoundCreating"
             @click="handleResetPqc"
           >
             重填
@@ -1433,7 +1440,7 @@
               v-if="activePicker === 'order' && option.activeOrder"
               class="frontline-order-picker-option"
             >
-              <span v-if="option.activeOrder.readBlocked" role="status">数据异常：{{ option.activeOrder.readBlockReason }}</span>
+              <span v-if="option.activeOrder.readBlocked" class="frontline-order-picker-option__blocked-reason" role="status">数据异常：{{ option.activeOrder.readBlockReason }}</span>
               <span class="frontline-order-picker-option__row" data-pqc-order-option-code>
                 <span>编码</span>
                 <strong class="frontline-order-picker-option__value is-code">
@@ -1462,6 +1469,35 @@
       </section>
     </div>
   </section>
+  <dialog
+ref="pqcRoundOperationDialog" class="pqc-round-operation-dialog" aria-labelledby="pqc-round-operation-title"
+    @cancel="pqcPatrolRoundCreating && $event.preventDefault()">
+    <h2 id="pqc-round-operation-title">{{ pqcRoundOperation.mode === 'CANCEL' ? `撤销第 ${pqcRoundOperation.roundNo} 轮` : pqcRoundOperation.mode === 'RESTORE' ? `恢复第 ${pqcRoundOperation.roundNo} 轮` : pqcRoundOperation.mode === 'DRAFT' ? '移动当前工序草稿' : '更正已提交轮次' }}</h2>
+    <p v-if="pqcRoundOperation.mode === 'CANCEL'">仅可撤销整轮均未提交的巡检。撤销后可恢复，当前页面草稿保留，后续轮次不改号。</p>
+    <p v-else-if="pqcRoundOperation.mode === 'RESTORE'">恢复后可继续填写本轮工序，保留原轮号和创建时间，其他轮次不变。</p>
+    <template v-else>
+      <label v-if="pqcRoundOperation.mode === 'SUBMITTED'">源工序（第 {{ pqcRoundOperation.roundNo }} 轮）
+        <select
+v-model="pqcRoundOperation.sourceTaskId" aria-label="更正源工序" :disabled="pqcPatrolRoundCreating"
+          @change="pqcRoundOperation.targetTaskId = undefined">
+          <option :value="undefined">请选择工序</option>
+          <option v-for="{ task, process } in pqcRoundCorrectionSources" :key="task.pqcTaskId" :value="task.pqcTaskId">{{ process.qaProcessName }} · {{ task.taskStatus === 'CONFIRMED' ? '已确认' : '已提交' }}</option>
+        </select>
+      </label>
+      <p v-if="pqcRoundOperationSource">{{ pqcRoundOperationSource.process.qaProcessName }} · 第 {{ pqcRoundOperationSource.task.roundNo }} 轮</p>
+      <label>目标轮次
+        <select v-model="pqcRoundOperation.targetTaskId" aria-label="目标巡检轮次" :disabled="pqcPatrolRoundCreating">
+          <option :value="undefined">请选择空白待检轮次</option>
+          <option v-for="{ task } in pqcRoundOperationTargets" :key="task.pqcTaskId" :value="task.pqcTaskId">第 {{ task.roundNo }} 轮{{ pqcTouchedTaskIds.has(task.pqcTaskId) ? '（已有草稿，不能覆盖）' : '' }}</option>
+        </select>
+      </label>
+      <p>仅调整这道工序，其他工序保持原轮次。目标已有内容时禁止覆盖。</p>
+      <p v-if="pqcRoundOperation.mode === 'SUBMITTED'">保留原检测内容和提交时间，并记录本次更正。已经组长复核的记录需由有权限的 PQC 组长确认更正。</p>
+    </template>
+    <p v-if="pqcRoundOperation.error" role="alert" class="pqc-round-operation-error">{{ pqcRoundOperation.error }}</p>
+    <footer><button type="button" :disabled="pqcPatrolRoundCreating" @click="pqcRoundOperationDialog?.close()">取消</button>
+      <button type="button" :disabled="pqcPatrolRoundCreating" @click="executePqcRoundOperation">{{ pqcPatrolRoundCreating ? '处理中…' : '确认调整' }}</button></footer>
+  </dialog>
 </template>
 
 <script setup lang="ts">
@@ -1473,6 +1509,9 @@ import { cloneDeep } from 'lodash-es'
 const approvalInvalidation = useApprovalCenterInvalidationStore()
 import FrontlineReturnCorrectionPanel from './FrontlineReturnCorrectionPanel.vue'
 import EmployeeSignaturePasswordDialog from './EmployeeSignaturePasswordDialog.vue'
+import FrontlinePqcInspectionTypeSelector from './FrontlinePqcInspectionTypeSelector.vue'
+import FrontlinePqcCompletionSummary from './FrontlinePqcCompletionSummary.vue'
+import { toDateTimeValue } from '@/utils/formatTime'
 const returnCorrectionPanel = ref<InstanceType<typeof FrontlineReturnCorrectionPanel>>()
 import axios, { isAxiosError } from 'axios'
 import {
@@ -1586,22 +1625,19 @@ const PQC_INSPECTION_TYPE_LABELS: Record<InspectionType, string> = {
 
 const PQC_INSPECTION_RULE_ORDER: readonly FrontlinePqcInspectionRuleKey[] = [
   'FIRST',
-  'PATROL_AM',
-  'PATROL_PM',
+  'PATROL',
   'FINAL'
 ]
 
 const PQC_INSPECTION_RULE_TYPES: Record<FrontlinePqcInspectionRuleKey, InspectionType> = {
   FIRST: 'FIRST',
-  PATROL_AM: 'PATROL',
-  PATROL_PM: 'PATROL',
+  PATROL: 'PATROL',
   FINAL: 'FINAL'
 }
 
 const PQC_INSPECTION_RULE_LABELS: Record<FrontlinePqcInspectionRuleKey, string> = {
   FIRST: PQC_INSPECTION_TYPE_LABELS.FIRST,
-  PATROL_AM: '上午巡检',
-  PATROL_PM: '下午巡检',
+  PATROL: '巡检',
   FINAL: PQC_INSPECTION_TYPE_LABELS.FINAL
 }
 
@@ -1927,6 +1963,15 @@ const activePqcInspectionKey = ref<PqcInspectionItemKey>()
 const activePqcFactsKey = ref<PqcInspectionItemKey>()
 const selectedPqcInspectionKey = ref<PqcInspectionItemKey>()
 const selectedPqcInspectionRuleKey = ref<FrontlinePqcInspectionRuleKey>()
+const selectedPqcPatrolRound = ref<number>()
+const pqcPatrolRoundCreating = ref(false)
+const pqcTouchedTaskIds = reactive(new Set<number>())
+const pqcRoundOperationDialog = ref<HTMLDialogElement>()
+const pqcRoundOperation = reactive({ mode: 'DRAFT' as 'DRAFT' | 'SUBMITTED' | 'CANCEL' | 'RESTORE',
+  roundNo: 0, sourceTaskId: undefined as number | undefined, targetTaskId: undefined as number | undefined,
+  error: '' })
+const markPqcTaskTouched = () => { if (activePqcTaskOptionId.value) pqcTouchedTaskIds.add(activePqcTaskOptionId.value) }
+
 const activePqcTaskOptionId = ref<number>()
 const pqcPieceDraftValues = ref<string[]>([])
 const pqcPieceValues = reactive<Record<string, string[]>>({})
@@ -2270,7 +2315,9 @@ const getPqcTaskOptionsByRule = (
   ruleKey: FrontlinePqcInspectionRuleKey,
   itemKey?: PqcInspectionItemKey
 ) => getPqcTaskOptionsForInspectionItem(process, itemKey)
-  .filter((option) => option.inspectionRuleKey === ruleKey)
+  .filter((option) => option.inspectionRuleKey === ruleKey &&
+    (ruleKey !== 'PATROL' || selectedPqcPatrolRound.value === undefined ||
+      option.roundNo === selectedPqcPatrolRound.value))
 
 const getPqcTaskOptionForRule = (
   process: FrontlinePqcProcessVO,
@@ -2282,7 +2329,7 @@ const getPqcTaskOptionForRule = (
 const hasExecutablePqcTaskForRule = (
   process: FrontlinePqcProcessVO,
   ruleKey: FrontlinePqcInspectionRuleKey
-) => getPqcTaskOptions(process).some((option) => option.inspectionRuleKey === ruleKey)
+) => getPqcTaskOptionsByRule(process, ruleKey).length > 0
 
 const findFirstPqcInspectionRuleKey = (processes: FrontlinePqcProcessVO[]) =>
   PQC_INSPECTION_RULE_ORDER.find((ruleKey) =>
@@ -2345,6 +2392,8 @@ const getSelectedPqcTaskOption = (process: FrontlinePqcProcessVO) => {
     ? getPqcTaskOptions(process).find((option) =>
       option.pqcTaskId === selectedTaskId &&
       (!selectedRuleKey || option.inspectionRuleKey === selectedRuleKey) &&
+      (selectedRuleKey !== 'PATROL' || selectedPqcPatrolRound.value === undefined ||
+        option.roundNo === selectedPqcPatrolRound.value) &&
       pqcTaskOptionIncludesItem(option, selectedItemKey)
     )
     : undefined
@@ -2362,13 +2411,43 @@ const pqcInspectionTypeTabs = computed<{
   label: string
 }[]>(() => {
   return PQC_INSPECTION_RULE_ORDER
-    .filter((ruleKey) => allSwitchablePqcProcessOptions.value
-      .some((process) => hasExecutablePqcTaskForRule(process, ruleKey)))
+    .filter((ruleKey) => allSwitchablePqcProcessOptions.value.some((process) =>
+      ruleKey === 'PATROL' || ruleKey === 'FINAL'
+        ? process.inspectionTypeRules.some((rule) => rule.key === ruleKey && rule.required) &&
+          process.inspectionItems.some((item) => item.applicableInspectionTypes.includes(ruleKey))
+        : hasExecutablePqcTaskForRule(process, ruleKey)))
     .map((ruleKey) => ({
       ruleKey,
       type: PQC_INSPECTION_RULE_TYPES[ruleKey],
-      label: PQC_INSPECTION_RULE_LABELS[ruleKey]
+      label: ruleKey === 'FINAL' && !pqcFinalCreated.value ? '新建末检' : PQC_INSPECTION_RULE_LABELS[ruleKey]
     }))
+})
+
+const pqcFinalCreated = computed(() => allSwitchablePqcProcessOptions.value.some(process =>
+  process.pqcTaskOptions.some(task => task.inspectionType === 'FINAL')))
+
+const pqcPatrolRounds = computed(() => {
+  const rounds = new Map<number, {
+    roundNo: number; pendingCount: number; totalCount: number; createTime?: number; cancelled: boolean; cancelReason?: string
+  }>()
+  for (const process of allSwitchablePqcProcessOptions.value) {
+    for (const task of process.pqcTaskOptions) {
+      if (task.inspectionType !== 'PATROL') continue
+      const round = rounds.get(task.roundNo) || {
+        roundNo: task.roundNo, pendingCount: 0, totalCount: 0, createTime: undefined, cancelled: true, cancelReason: undefined as string | undefined
+      }
+      const createTime = toDateTimeValue(task.createTime)?.getTime()
+      if (createTime !== undefined && (round.createTime === undefined || createTime < round.createTime)) {
+        round.createTime = createTime
+      }
+      round.totalCount++
+      round.cancelled = round.cancelled && task.taskStatus === 'CANCELLED'
+      if (task.cancelReason) round.cancelReason = task.cancelReason
+      if (task.taskStatus === 'PENDING') round.pendingCount++
+      rounds.set(task.roundNo, round)
+    }
+  }
+  return [...rounds.values()].sort((a, b) => a.roundNo - b.roundNo)
 })
 
 const activePqcTaskOption = computed<PqcTaskOptionSnapshot | undefined>(() => {
@@ -2377,6 +2456,16 @@ const activePqcTaskOption = computed<PqcTaskOptionSnapshot | undefined>(() => {
     return undefined
   }
   return getSelectedPqcTaskOption(process)
+})
+
+const pqcSelectedStageSubmitted = computed(() => {
+  const process = deviceState.selectedProcess
+  if (!isFrontlinePqcProcess(process) || !selectedPqcInspectionRuleKey.value) return false
+  const tasks = process.pqcTaskOptions.filter((task) =>
+    task.inspectionRuleKey === selectedPqcInspectionRuleKey.value &&
+    (task.inspectionType !== 'PATROL' || task.roundNo === selectedPqcPatrolRound.value))
+  return tasks.length > 0 && tasks.every((task) =>
+    task.taskStatus === 'SUBMITTED' || task.taskStatus === 'CONFIRMED')
 })
 
 const pqcTaskAvailabilityIssue = computed(() =>
@@ -2535,6 +2624,7 @@ const isSubmitBlocked = computed(() =>
 
 const isPqcSubmitBlocked = computed(() =>
   payloadLoading.value ||
+  pqcPatrolRoundCreating.value ||
   hasReturnNotification.value ||
   isInitialHandoffBlocked.value ||
   pqcSubmitResultUncertain.value ||
@@ -2556,6 +2646,9 @@ const statusText = computed(() => {
   }
   if (!deviceState.selectedProcess) {
     return '请选择工序'
+  }
+  if (isPqcMode.value && pqcSelectedStageSubmitted.value) {
+    return '当前工序本次检验已提交，请选择其他待检工序。'
   }
   if (isPqcMode.value && !hasPqcTaskSnapshot(deviceState.selectedProcess)) {
     return '当前工序缺少PQC任务或QA规程快照'
@@ -2584,6 +2677,9 @@ const pqcInspectionEmptyText = computed(() => {
   }
   if (!deviceState.selectedProcess) {
     return '请先选择PQC工序'
+  }
+  if (pqcSelectedStageSubmitted.value) {
+    return '当前工序本次检验已提交，请选择其他待检工序。'
   }
   if (pqcTaskAvailabilityIssue.value?.message) {
     return pqcTaskAvailabilityIssue.value.message
@@ -3647,6 +3743,7 @@ const persistCurrentPqcTaskDraft = () => {
 }
 
 const clearPqcTaskDraftsByTaskIds = (pqcTaskIds: number[]) => {
+  pqcTaskIds.forEach(id => pqcTouchedTaskIds.delete(id))
   const submittedTaskIds = new Set(pqcTaskIds.map(String))
   for (const key of Object.keys(pqcTaskDrafts)) {
     if (submittedTaskIds.has(key.split(':')[1])) {
@@ -3656,6 +3753,7 @@ const clearPqcTaskDraftsByTaskIds = (pqcTaskIds: number[]) => {
 }
 
 const clearAllPqcTaskDrafts = () => {
+  pqcTouchedTaskIds.clear()
   for (const key of Object.keys(pqcTaskDrafts)) {
     delete pqcTaskDrafts[key]
   }
@@ -3701,13 +3799,16 @@ const resolvePqcInspectionType = (inspectionType?: string): InspectionType => {
 }
 
 const formatPqcTaskOptionLabel = (option: PqcTaskOptionSnapshot) =>
-  PQC_INSPECTION_RULE_LABELS[option.inspectionRuleKey]
+  option.inspectionType === 'PATROL'
+    ? `巡检 · 第 ${option.roundNo} 轮`
+    : PQC_INSPECTION_RULE_LABELS[option.inspectionRuleKey]
 
 const applyPqcTaskOptionToDraft = (option: PqcTaskOptionSnapshot) => {
   const storedDraft = getPqcTaskDraft(option)
   activePqcTaskOptionId.value = option.pqcTaskId
   selectedPqcInspectionRuleKey.value = option.inspectionRuleKey
   pqcDraft.inspectionType = option.inspectionType
+  if (option.inspectionType === 'PATROL') selectedPqcPatrolRound.value = option.roundNo
   pqcDraft.patrolRound = option.roundNo
   pqcDraft.inspectionQuantity = storedDraft.inspectionQuantity ?? option.plannedInspectionQuantity
   pqcDraft.scrapQuantity = storedDraft.scrapQuantity
@@ -3887,6 +3988,7 @@ const hasCompletedPqcEquipmentSelection = (item: PqcInspectionItem) => {
 }
 
 const updatePqcItemSelectedEquipment = (itemKey: PqcInspectionItemKey, event: Event) => {
+  markPqcTaskTouched()
   const value = (event.target as HTMLSelectElement).value
   const selection = getPqcItemSelection(itemKey)
   if (value === FRONTLINE_OTHER_OPTION_VALUE) {
@@ -3905,6 +4007,7 @@ const updatePqcItemSelectedEquipment = (itemKey: PqcInspectionItemKey, event: Ev
 }
 
 const updatePqcCustomEquipmentText = (itemKey: PqcInspectionItemKey, event: Event) => {
+  markPqcTaskTouched()
   const value = (event.target as HTMLInputElement).value
   const selection = getPqcItemSelection(itemKey)
   selection.selectedEquipmentId = undefined
@@ -3912,6 +4015,7 @@ const updatePqcCustomEquipmentText = (itemKey: PqcInspectionItemKey, event: Even
 }
 
 const returnToPqcEquipmentOptions = (itemKey: PqcInspectionItemKey) => {
+  markPqcTaskTouched()
   const selection = getPqcItemSelection(itemKey)
   selection.selectedEquipmentId = undefined
   selection.selectedEquipmentNumber = undefined
@@ -4075,11 +4179,10 @@ const selectPqcInspectionTab = async (itemKey: PqcInspectionItemKey) => {
   if (!isFrontlinePqcProcess(process)) {
     return
   }
-  const option = preferPqcTaskOption(
-    getPqcTaskOptionsForInspectionItem(process, itemKey),
-    pqcDraft.inspectionType,
-    selectedPqcInspectionRuleKey.value || activePqcTaskOption.value?.inspectionRuleKey
-  )
+  const ruleKey = selectedPqcInspectionRuleKey.value || activePqcTaskOption.value?.inspectionRuleKey
+  const option = ruleKey
+    ? getPqcTaskOptionForRule(process, ruleKey, itemKey)
+    : preferPqcTaskOption(getPqcTaskOptionsForInspectionItem(process, itemKey), pqcDraft.inspectionType)
   if (!option) {
     showFrontlineError('当前检验方法暂无待执行PQC任务。')
     return
@@ -4370,6 +4473,7 @@ const closePqcPieceInspection = (saveChanges: boolean) => {
       showFrontlineError('当前工序上下文已失效，无法保存逐件检验。')
       return
     }
+    markPqcTaskTouched()
     pqcPieceValues[stateKey] = pqcPieceDraftValues.value.slice()
   }
   activePqcInspectionKey.value = undefined
@@ -4386,6 +4490,7 @@ const applyPqcBulkChoice = (
     showFrontlineError(error)
     return
   }
+  markPqcTaskTouched()
   const values = getPqcStoredPieceValues(itemKey)
   for (let index = 0; index < getPqcItemQuantity(itemKey); index += 1) {
     values[index] = result
@@ -4421,8 +4526,9 @@ const updatePqcPieceDraftValue = (index: number, event: Event) => {
   pqcPieceDraftValues.value[index] = (event.target as HTMLInputElement).value
 }
 
-const selectPqcInspectionRule = async (ruleKey: FrontlinePqcInspectionRuleKey) => {
+const selectPqcInspectionRule = async (ruleKey: FrontlinePqcInspectionRuleKey, patrolRound?: number) => {
   persistCurrentPqcTaskDraft()
+  if (ruleKey === 'PATROL' && patrolRound !== undefined) selectedPqcPatrolRound.value = patrolRound
   selectedPqcInspectionRuleKey.value = ruleKey
   const currentProcess = isFrontlinePqcProcess(deviceState.selectedProcess)
     ? deviceState.selectedProcess
@@ -4450,7 +4556,197 @@ const selectPqcInspectionRule = async (ruleKey: FrontlinePqcInspectionRuleKey) =
   await handleSelectProcess(targetProcess)
 }
 
+const selectPqcPatrolRound = async (roundNo: number) => {
+  if (isPqcProcessNavigationBlocked.value) return
+  await selectPqcInspectionRule('PATROL', roundNo)
+}
+
+const createPqcPatrolRound = async () => {
+  const activeOrder = deviceState.selectedActiveOrder
+  if (!activeOrder || isPqcProcessNavigationBlocked.value) return
+  persistCurrentPqcTaskDraft()
+  pqcPatrolRoundCreating.value = true
+  let createdRound: number | undefined
+  try {
+    const previousRound = Math.max(0, ...pqcPatrolRounds.value.map((round) => round.roundNo))
+    const roundNo = await ProFeedbackApi.createFrontlinePqcPatrolRound({
+      activeOrderId: activeOrder.activeOrderId,
+      expectedPreviousRoundNo: previousRound
+    })
+    createdRound = roundNo
+    invalidateFrontlinePqcProcessCacheForActiveOrder(deviceState, activeOrder.activeOrderId)
+    const processes = await ProFeedbackApi.getPqcProcesses(activeOrder.activeOrderId, currentLoginUserId.value)
+    deviceState.processOptions = processes
+    if (!processes.some((process) => process.pqcTaskOptions.some((task) =>
+      task.inspectionType === 'PATROL' && task.roundNo === roundNo && task.taskStatus === 'PENDING'))) {
+      throw new Error('未读取到可执行任务')
+    }
+    const currentProcess = deviceState.selectedProcess
+    if (isFrontlinePqcProcess(currentProcess)) {
+      const refreshed = processes.find((process) =>
+        process.regulationVersionId === currentProcess.regulationVersionId &&
+        process.qaProcessId === currentProcess.qaProcessId)
+      if (refreshed) deviceState.selectedProcess = refreshed
+    }
+    await selectPqcInspectionRule('PATROL', roundNo)
+  } catch (error) {
+    showFrontlineError(createdRound === undefined ? error :
+      `巡检第 ${createdRound} 轮已创建，但任务切换失败，请刷新订单：${resolveErrorMessage(error)}`)
+  } finally {
+    pqcPatrolRoundCreating.value = false
+  }
+}
+
+const pqcRoundOperationTasks = computed(() => allSwitchablePqcProcessOptions.value.flatMap(process =>
+  process.pqcTaskOptions.filter(task => task.inspectionType === 'PATROL').map(task => ({ task, process }))))
+const pqcRoundCorrectionSources = computed(() => pqcRoundOperationTasks.value.filter(({ task }) =>
+  task.roundNo === pqcRoundOperation.roundNo && ['SUBMITTED', 'CONFIRMED'].includes(task.taskStatus)))
+const pqcRoundOperationSource = computed(() => pqcRoundOperationTasks.value.find(({ task }) =>
+  task.pqcTaskId === pqcRoundOperation.sourceTaskId))
+const pqcRoundOperationTargets = computed(() => {
+  const source = pqcRoundOperationSource.value
+  if (!source) return []
+  return pqcRoundOperationTasks.value.filter(({ task }) => task.taskStatus === 'PENDING' &&
+    task.regulationVersionId === source.task.regulationVersionId && task.qaProcessId === source.task.qaProcessId &&
+    task.roundNo !== source.task.roundNo)
+})
+const openPqcRoundOperation = (mode: 'DRAFT' | 'SUBMITTED' | 'CANCEL' | 'RESTORE', roundNo: number, sourceTaskId?: number) => {
+  if (isPqcProcessNavigationBlocked.value) return
+  persistCurrentPqcTaskDraft()
+  Object.assign(pqcRoundOperation, { mode, roundNo, sourceTaskId, targetTaskId: undefined, error: '' })
+  pqcRoundOperationDialog.value?.showModal()
+}
+const openPqcCancelRound = (roundNo: number) => openPqcRoundOperation('CANCEL', roundNo)
+const openPqcRestoreRound = (roundNo: number) => openPqcRoundOperation('RESTORE', roundNo)
+const openPqcSubmittedRoundCorrection = async (roundNo: number) => {
+  if (isPqcProcessNavigationBlocked.value || !deviceState.selectedActiveOrder) return
+  persistCurrentPqcTaskDraft()
+  pqcPatrolRoundCreating.value = true
+  try {
+    const orderId = deviceState.selectedActiveOrder.activeOrderId
+    invalidateFrontlinePqcProcessCacheForActiveOrder(deviceState, orderId)
+    deviceState.processOptions = await ProFeedbackApi.getPqcProcesses(orderId, currentLoginUserId.value)
+    pqcPatrolRoundCreating.value = false
+    openPqcRoundOperation('SUBMITTED', roundNo)
+  } catch (error) { showFrontlineError(error) }
+  finally { pqcPatrolRoundCreating.value = false }
+}
+const openPqcDraftRoundMove = () => {
+  const task = activePqcTaskOption.value
+  if (task?.inspectionType === 'PATROL') openPqcRoundOperation('DRAFT', task.roundNo, task.pqcTaskId)
+}
+const clearPqcLocalTaskData = (taskIds: number[]) => {
+  const ids = new Set(taskIds.map(String))
+  clearPqcTaskDraftsByTaskIds(taskIds)
+  for (const key of Object.keys(pqcPieceValues)) if (ids.has(key.split(':')[1])) delete pqcPieceValues[key]
+  for (const key of Object.keys(pqcItemSelections)) if (ids.has(key.split(':')[0])) delete pqcItemSelections[key]
+  taskIds.forEach(id => pqcTouchedTaskIds.delete(id))
+}
+const refreshPqcRoundProcesses = async (preferredRound?: number, ruleKey: FrontlinePqcInspectionRuleKey = 'PATROL') => {
+  const order = deviceState.selectedActiveOrder
+  if (!order) throw new Error('请先选择订单')
+  invalidateFrontlinePqcProcessCacheForActiveOrder(deviceState, order.activeOrderId)
+  const processes = await ProFeedbackApi.getPqcProcesses(order.activeOrderId, currentLoginUserId.value)
+  deviceState.processOptions = processes
+  const current = deviceState.selectedProcess
+  if (isFrontlinePqcProcess(current)) deviceState.selectedProcess = processes.find(process =>
+    process.regulationVersionId === current.regulationVersionId && process.qaProcessId === current.qaProcessId)
+  selectedPqcPatrolRound.value = preferredRound
+  const available = processes.some(process => getPqcTaskOptions(process).some(task =>
+    task.inspectionRuleKey === ruleKey && (preferredRound === undefined || task.roundNo === preferredRound)))
+  if (available) await selectPqcInspectionRule(ruleKey, preferredRound)
+  else {
+    const process = processes.find(process => getPqcTaskOptions(process).length)
+    if (process) {
+      const option = getPqcTaskOptions(process)[0]
+      selectedPqcPatrolRound.value = option.inspectionType === 'PATROL' ? option.roundNo : undefined
+      selectedPqcInspectionRuleKey.value = option.inspectionRuleKey
+      await handleSelectProcess(process)
+    } else {
+      activePqcTaskOptionId.value = undefined
+      deviceState.selectedProcess = undefined
+      deviceState.selectedEmployee = undefined
+    }
+  }
+}
+const createPqcFinalInspection = async () => {
+  const order = deviceState.selectedActiveOrder
+  if (!order || isPqcProcessNavigationBlocked.value) return
+  persistCurrentPqcTaskDraft()
+  pqcPatrolRoundCreating.value = true
+  let created = false
+  try {
+    await ProFeedbackApi.createFrontlinePqcFinalInspection(order.activeOrderId)
+    created = true
+    await refreshPqcRoundProcesses(undefined, 'FINAL')
+  } catch (error) {
+    showFrontlineError(created ? `末检已创建，请刷新订单：${resolveErrorMessage(error)}` : error)
+  } finally { pqcPatrolRoundCreating.value = false }
+}
+const executePqcRoundOperation = async () => {
+  if (pqcPatrolRoundCreating.value) return
+  pqcRoundOperation.error = ''
+  let committed = false
+  try {
+    const order = deviceState.selectedActiveOrder
+    if (!order) throw new Error('请先选择订单')
+    if (pqcRoundOperation.mode === 'CANCEL') {
+      pqcPatrolRoundCreating.value = true
+      await ProFeedbackApi.cancelFrontlinePqcPatrolRound({ activeOrderId: order.activeOrderId,
+        roundNo: pqcRoundOperation.roundNo })
+      committed = true
+      await refreshPqcRoundProcesses()
+    } else if (pqcRoundOperation.mode === 'RESTORE') {
+      pqcPatrolRoundCreating.value = true
+      await ProFeedbackApi.restoreFrontlinePqcPatrolRound({ activeOrderId: order.activeOrderId,
+        roundNo: pqcRoundOperation.roundNo })
+      committed = true
+      await refreshPqcRoundProcesses(pqcRoundOperation.roundNo)
+    } else {
+      const source = pqcRoundOperationSource.value?.task
+      const target = pqcRoundOperationTargets.value.find(({ task }) => task.pqcTaskId === pqcRoundOperation.targetTaskId)?.task
+      if (!source || !target) throw new Error('请选择源工序及目标轮次')
+      if (pqcTouchedTaskIds.has(target.pqcTaskId)) throw new Error('目标工序已有未提交填写内容，禁止覆盖，请先处理目标草稿')
+      if (pqcRoundOperation.mode === 'DRAFT') {
+        const current = activePqcTaskOption.value
+        if (!current || current.pqcTaskId !== source.pqcTaskId || !hasPqcTaskOptionSnapshot(target)) throw new Error('当前草稿已变化，请重新打开')
+        if (JSON.stringify(source.inspectionItems.map(item => [item.itemCode, item.plannedInspectionQuantity]).sort()) !==
+            JSON.stringify(target.inspectionItems.map(item => [item.itemCode, item.plannedInspectionQuantity]).sort())) throw new Error('两轮工序的检验项目或抽样数量不一致，不能移动')
+        const fromKey = getPqcTaskDraftKey(current)
+        const toKey = getPqcTaskDraftKey(target)
+        if (!fromKey || !toKey) throw new Error('缺少草稿上下文')
+        const draft = pqcTaskDrafts[fromKey]
+        const pieces = current.inspectionItems.map(item => ({ itemCode: item.itemCode,
+          values: pqcPieceValues[getPqcPieceStateKeyForTask(item.itemCode, current)!]?.slice(),
+          selection: pqcItemSelections[getPqcItemSelectionKey(current, item.itemCode)] }))
+        clearPqcLocalTaskData([source.pqcTaskId, target.pqcTaskId])
+        pqcTaskDrafts[toKey] = { ...draft }
+        for (const piece of pieces) {
+          if (piece.values) pqcPieceValues[getPqcPieceStateKeyForTask(piece.itemCode, target)!] = piece.values
+          if (piece.selection) pqcItemSelections[getPqcItemSelectionKey(target, piece.itemCode)] = { ...piece.selection }
+        }
+        pqcTouchedTaskIds.add(target.pqcTaskId)
+        activePqcTaskOptionId.value = undefined
+        await selectPqcInspectionRule('PATROL', target.roundNo)
+      } else {
+        if (!source.submittedEventId || !source.submittedContentHash) throw new Error('缺少原提交版本，请刷新订单')
+        pqcPatrolRoundCreating.value = true
+        await ProFeedbackApi.correctFrontlinePqcPatrolRound({ sourceTaskId: source.pqcTaskId, targetTaskId: target.pqcTaskId,
+          expectedSubmittedEventId: source.submittedEventId, expectedContentHash: source.submittedContentHash })
+        committed = true
+        clearPqcLocalTaskData([source.pqcTaskId, target.pqcTaskId])
+        await refreshPqcRoundProcesses(source.roundNo)
+      }
+    }
+    pqcRoundOperationDialog.value?.close()
+    message.success('轮次调整已完成')
+  } catch (error) {
+    pqcRoundOperation.error = committed ? `调整已保存，请刷新订单后继续：${resolveErrorMessage(error)}` : resolveErrorMessage(error)
+  } finally { pqcPatrolRoundCreating.value = false }
+}
+
 const updatePqcQuantity = (field: PqcQuantityField, event: Event) => {
+  markPqcTaskTouched()
   const inputValue = (event.target as HTMLInputElement).value
   pqcDraft[field] = inputValue === '' ? undefined : normalizePqcQuantity(Number(inputValue))
   persistCurrentPqcTaskDraft()
@@ -4460,6 +4756,7 @@ const updatePqcQuantity = (field: PqcQuantityField, event: Event) => {
 }
 
 const adjustPqcQuantity = (field: PqcQuantityField, delta: number) => {
+  markPqcTaskTouched()
   pqcDraft[field] = Math.max(0, normalizePqcQuantity(pqcDraft[field]) + delta)
   persistCurrentPqcTaskDraft()
   if (field === 'inspectionQuantity' && activePqcTaskOption.value) {
@@ -4879,10 +5176,12 @@ const handleSelectActiveOrder = async (
     }
     return
   }
+  clearFrontlineError()
   pqcSubmitResultUncertain.value = false
   pqcSignatureDialogVisible.value = false
   pqcSignaturePassword.value = ''
   selectedPqcInspectionRuleKey.value = undefined
+  selectedPqcPatrolRound.value = undefined
   clearPqcExecutionSelection()
   const selectionRequestId = ++activeOrderSelectionRequestId
   let processes: FrontlinePqcProcessVO[]
@@ -5317,6 +5616,9 @@ const switchPqcCurrentLoginEmployeeForActiveTask = async () => {
 }
 
 const assertPqcFormalSubmissionReady = () => {
+  if (pqcPatrolRoundCreating.value) {
+    throw new Error('巡检正在创建，请稍后再提交。')
+  }
   if (deviceState.loadingEmployees || deviceState.loadingTemplate) {
     throw new Error('PQC人员和任务正在切换，请稍后再提交。')
   }
@@ -6500,6 +6802,7 @@ const nextPqcProcess = computed(() => {
 const isPqcProcessNavigationBlocked = computed(() =>
   !isPqcMode.value ||
   frontlineInitializing.value ||
+  pqcPatrolRoundCreating.value ||
   payloadLoading.value ||
   pqcSignatureDialogVisible.value ||
   pqcSubmitResultUncertain.value ||
@@ -6595,9 +6898,11 @@ const refreshPqcActiveOrdersAndEnsureSelection = async () => {
     if (hasInitialHandoffQuery.value) { await initializeInitialHandoffSelection(); return }
     const activeOrders = await loadFrontlinePqcActiveOrders(deviceState)
     if (!deviceState.selectedActiveOrder) {
-      const initialActiveOrder = activeOrders[0]
+      const initialActiveOrder = activeOrders.find((order) => !order.readBlocked)
       if (initialActiveOrder) {
         await handleSelectActiveOrder(initialActiveOrder)
+      } else if (activeOrders.length) {
+        deviceState.lastError = activeOrders[0].readBlockReason
       }
     }
   })()
@@ -6789,4 +7094,17 @@ onUnmounted(() => {
 
 <style scoped lang="scss">
 @use "./frontlineFixedTemplate.scss";
+</style>
+
+<style scoped>
+.pqc-round-operation-dialog { margin: auto; width: min(560px, calc(100% - 32px)); max-height: calc(100% - 40px); overflow-y: auto; box-sizing: border-box; border: 2px solid #ccd7d0; border-radius: 20px; padding: 24px; color: #20352b; font: inherit; background: white; }
+.pqc-round-operation-dialog::backdrop { background: #14251db3; }
+.pqc-round-operation-dialog h2 { margin: 0 0 20px; font-size: 25px; }
+.pqc-round-operation-dialog p { font-size: 16px; line-height: 1.6; }
+.pqc-round-operation-dialog label { display: block; font-size: 17px; margin: 16px 0; }
+.pqc-round-operation-dialog select, .pqc-round-operation-dialog input, .pqc-round-operation-dialog textarea { display: block; box-sizing: border-box; width: 100%; padding: 12px; margin-top: 8px; border: 1px solid #a9bcb1; border-radius: 8px; font: inherit; }
+.pqc-round-operation-dialog footer { display: flex; justify-content: flex-end; gap: 16px; margin-top: 24px; }
+.pqc-round-operation-dialog button { padding: 12px 20px; border: 1px solid #a9bcb1; border-radius: 12px; font: inherit; cursor: pointer; }
+.pqc-round-operation-dialog button:last-child { background: #22382d; color: white; }
+.pqc-round-operation-error { color: #b42318; }
 </style>

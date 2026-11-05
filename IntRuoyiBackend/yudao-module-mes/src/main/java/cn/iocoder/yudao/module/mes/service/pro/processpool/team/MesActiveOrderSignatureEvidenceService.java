@@ -194,7 +194,7 @@ public class MesActiveOrderSignatureEvidenceService {
         }
         String correctionSignerName = null;
         for (Binding binding : related) {
-            if (binding.pqcReviewer() && "FIELD_CHANGE".equals(evidence.actionCode())) {
+            if (binding.pqcReviewer() && Set.of("FIELD_CHANGE", "PQC_PATROL_ROUND_CORRECTION").contains(evidence.actionCode())) {
                 correctionSignerName = requirePqcCorrection(binding, evidence, subject, detail.getActiveOrderId());
                 continue;
             }
@@ -213,7 +213,7 @@ public class MesActiveOrderSignatureEvidenceService {
         String signerName;
         if (Set.of("PRODUCTION_SUBMIT", "PQC_SUBMIT").contains(evidence.actionCode())) {
             signerName = MesSubmissionSignatureIdentityReader.frozenName(evidence);
-        } else if ("FIELD_CHANGE".equals(evidence.actionCode())) {
+        } else if (Set.of("FIELD_CHANGE", "PQC_PATROL_ROUND_CORRECTION").contains(evidence.actionCode())) {
             // The correction reader has verified the persisted revision/review signature snapshot and audit association.
             signerName = correctionSignerName;
             if (signerName == null || signerName.isBlank()) throw exception(EVIDENCE_INVALID);
@@ -566,7 +566,8 @@ public class MesActiveOrderSignatureEvidenceService {
                 || !positive(event.getWorkOrderId()) || !Objects.equals(revision.getWorkOrderId(), event.getWorkOrderId())
                 || !positive(event.getRouteId()) || !Objects.equals(revision.getRouteId(), event.getRouteId())
                 || !positive(event.getQaProcessId())
-                || !positive(revision.getRouteProcessId()) || !positive(revision.getProcessId())
+                || event.getRouteProcessId() != null || event.getProcessId() != null
+                || revision.getRouteProcessId() != null || revision.getProcessId() != null
                 || !MesProProcessPoolEventRevisionDO.STATUS_EFFECTIVE.equals(revision.getRevisionStatus())
                 || !Objects.equals(revision.getRevisionSignatureId(), evidence.id())
                 || !Objects.equals(revision.getRevisionSignatureUserId(), evidence.actorId())
@@ -599,10 +600,10 @@ public class MesActiveOrderSignatureEvidenceService {
         if (!Objects.equals(payloadHash, snapshot.getString("payloadHash")) || subject[16].isBlank()) {
             throw exception(EVIDENCE_INVALID);
         }
-        String expectedSubject = MesBatchRecordSignatureSubjectAdapter.encodeSubjectId(0L, "FIELD_CHANGE", null, null,
+        String expectedSubject = MesBatchRecordSignatureSubjectAdapter.encodeSubjectId(0L, evidence.actionCode(), null, null,
                 null, null, null, null, null, null, null, null, null, null, null, null, subject[16]);
         var expected = new MesBatchRecordSignatureSubjectAdapter().loadAndAuthorize(new SignatureSubjectCommand(
-                evidence.actorId(), "MES", "FIELD_CHANGE", "MES_BATCH_RECORD", expectedSubject,
+                evidence.actorId(), "MES", evidence.actionCode(), "MES_BATCH_RECORD", expectedSubject,
                 evidence.subjectVersion(), evidence.reason()));
         if (!Objects.equals(expectedSubject, evidence.subjectId())
                 || !Objects.equals(MesProBatchRecordExecutionFieldAuditHasher.sha256(expectedSubject), evidence.subjectVersion())

@@ -124,7 +124,7 @@ public class MesTeamLeaderActiveOrderCompletionBackfillPortImpl
         List<MesProcessPoolReportAllocationDO> allocations = lockedAllocations(activeOrder);
         List<MesProcessPoolOrderProcessCompletionDO> completions = completionMapper
                 .selectListByWorkOrderIdsForUpdate(List.of(activeOrder.getWorkOrderId()));
-        List<MesPqcInspectionTaskDO> tasks = pqcTaskMapper.selectListByActiveOrderIdForUpdate(activeOrder.getId());
+        List<MesPqcInspectionTaskDO> tasks = pqcTaskMapper.selectEffectiveListByActiveOrderIdForUpdate(activeOrder.getId());
         List<MesPqcProcessInspectionAggregateDetailDO> details = aggregateDetailMapper
                 .selectListByActiveOrderIdForUpdate(activeOrder.getId());
         if (completions == null || completions.isEmpty() || tasks == null || tasks.isEmpty()

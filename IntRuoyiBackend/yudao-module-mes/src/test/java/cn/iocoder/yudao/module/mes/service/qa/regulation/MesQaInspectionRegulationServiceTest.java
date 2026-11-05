@@ -628,12 +628,12 @@ class MesQaInspectionRegulationServiceTest {
                 .setLifecycleStatus("DRAFT")
                 .setPublishedAt(null);
         when(dccProjectCodeMapper.selectById(DCC_PROJECT_ID)).thenReturn(enabledDccProject());
-        when(regulationMapper.selectByDccProjectCodeId(DCC_PROJECT_ID)).thenReturn(
+        when(regulationMapper.selectByDccProjectCodeId(DCC_PROJECT_ID, "MES_QA")).thenReturn(
                 publishedRegulation().setCurrentVersionId(61L));
         when(versionMapper.selectListByRegulationId(REGULATION_ID)).thenReturn(
                 List.of(retired, published, draft));
 
-        List<MesQaInspectionRegulationVersionOptionRespVO> result = service.listVersions(DCC_PROJECT_ID);
+        List<MesQaInspectionRegulationVersionOptionRespVO> result = service.listVersions(DCC_PROJECT_ID, "MES_QA");
 
         assertEquals(List.of("B/0", "B/1", "B/2"),
                 result.stream().map(MesQaInspectionRegulationVersionOptionRespVO::getVersionNo).toList());

@@ -17,6 +17,16 @@ import java.util.Set;
 @Mapper
 public interface MesPqcInspectionTaskMapper extends BaseMapperX<MesPqcInspectionTaskDO> {
 
+    default List<MesPqcInspectionTaskDO> selectEffectiveListByActiveOrderId(Long activeOrderId) {
+        return selectListByActiveOrderId(activeOrderId).stream()
+                .filter(task -> !"CANCELLED".equals(task.getTaskStatus())).toList();
+    }
+
+    default List<MesPqcInspectionTaskDO> selectEffectiveListByActiveOrderIdForUpdate(Long activeOrderId) {
+        return selectListByActiveOrderIdForUpdate(activeOrderId).stream()
+                .filter(task -> !"CANCELLED".equals(task.getTaskStatus())).toList();
+    }
+
     default MesPqcInspectionTaskDO selectByIdForUpdate(Long id) {
         if (id == null) {
             return null;

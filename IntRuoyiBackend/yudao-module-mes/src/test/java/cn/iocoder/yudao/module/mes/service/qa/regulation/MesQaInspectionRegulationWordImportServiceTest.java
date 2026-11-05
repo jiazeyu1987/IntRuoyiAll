@@ -26,6 +26,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -78,7 +79,7 @@ class MesQaInspectionRegulationWordImportServiceTest {
         assertEquals(1, response.getItemCount());
         assertEquals(0, response.getInheritedItemCount());
         assertFalse(request.getFinalInspectionApplicable());
-        assertEquals("原文未规定末检", request.getFinalInspectionNotApplicableReason());
+        assertEquals("导入后按检验工序设置末检，当前均未开启", request.getFinalInspectionNotApplicableReason());
         assertEquals(List.of("FIRST", "PATROL"),
                 request.getProcesses().get(0).getItems().get(0).getApplicableInspectionTypes());
         assertEquals(new BigDecimal("0.4"),
@@ -211,7 +212,13 @@ class MesQaInspectionRegulationWordImportServiceTest {
         assertEquals("备注：每班两次；不合格隔离后双倍检验\n原失败规则", item.getFailureRule());
         assertEquals("表面清洁，无异物", item.getStandardText());
         assertEquals("目视检查", item.getInspectionMethod());
-        assertEquals(List.of("FIRST", "PATROL", "FINAL"), item.getApplicableInspectionTypes());
+        assertEquals(List.of("FIRST", "PATROL"), item.getApplicableInspectionTypes());
+        assertFalse(request.getFinalInspectionApplicable());
+        assertNull(item.getFinalInspectionQuantity());
+        assertEquals(List.of("FIRST", "PATROL", "FINAL"), request.getInspectionTypeRules().stream()
+                .map(MesQaInspectionRegulationSaveReqVO.InspectionTypeRule::getKey).toList());
+        assertFalse(request.getInspectionTypeRules().get(2).getRequired());
+        assertNull(request.getInspectionTypeRules().get(2).getFixedQuantity());
     }
 
     @Test

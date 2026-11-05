@@ -18,6 +18,11 @@ public interface ElectronicSignatureSubjectAdapter {
         return true;
     }
 
+    /** Only explicit business actions may use the logged-in operator's confirmation. */
+    default boolean allowsSessionConfirmation(String actionCode, String subjectType) {
+        return false;
+    }
+
     SignatureSubjectSnapshot loadAndAuthorize(SignatureSubjectCommand command);
 
     /** Registered server adapter policy after an authorized snapshot, never a client-selected timestamp. */

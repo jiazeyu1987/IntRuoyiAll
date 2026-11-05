@@ -28,7 +28,7 @@ const task = (id, rule) => ({
   plannedInspectionQuantity: 5, inspectionItems: [item('A', 2), item('B', 5)]
 })
 function harness() {
-  const tasks = [task(1, 'FIRST'), task(2, 'PATROL_AM'), task(3, 'PATROL_PM')]
+  const tasks = [task(1, 'FIRST'), task(2, 'PATROL'), { ...task(3, 'PATROL'), roundNo: 2 }]
   const process = { activeOrderId: 425, qaProcessId: 170, regulationVersionId: 70,
     pqcTaskOptions: tasks, inspectionItems: tasks[0].inspectionItems, productionSubmitCandidates: [] }
   const dependencies = {

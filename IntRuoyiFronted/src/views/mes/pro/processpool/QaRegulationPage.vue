@@ -755,37 +755,6 @@
                       </span>
                     </div>
                     <div class="qa-regulation-page__card-actions">
-                      <div
-                        class="qa-regulation-page__final-inspection-switch"
-                        data-qa-common-final-inspection-switch
-                      >
-                        <span class="qa-regulation-page__final-inspection-label">
-                          是否需要末检
-                        </span>
-                        <el-switch
-                          v-model="commonFinalInspectionRequired"
-                          active-text="需要"
-                          inactive-text="不需要"
-                        />
-                        <el-tag
-                          v-if="
-                            !commonFinalInspectionEdited &&
-                            ['MIXED', 'EMPTY'].includes(commonFinalInspectionSnapshot.state)
-                          "
-                          type="warning"
-                          effect="plain"
-                        >
-                          {{ commonFinalInspectionStatusText }}
-                        </el-tag>
-                        <el-input
-                          v-if="commonFinalInspectionReasonVisible"
-                          data-qa-common-final-not-applicable-reason
-                          v-model="commonFinalInspectionNotApplicableReason"
-                          placeholder="填写末检不适用的正式依据"
-                          clearable
-                          class="qa-regulation-page__final-inspection-reason"
-                        />
-                      </div>
                       <UserTableColumnSettings
                         :columns="qaItemsColumns"
                         :saving="qaItemsColumnSaving"
@@ -897,6 +866,14 @@
                             class="qa-regulation-page__process-name"
                             :disabled="commonRegulationItemsSaving"
                           />
+                          <el-switch
+:model-value="row.finalInspectionEnabled" active-text="末检"
+                            :aria-label="`${row.processName}需要末检`" :disabled="commonRegulationItemsSaving"
+                            @change="setProcessFinalInspection(row, Boolean($event), true)" />
+                          <el-input-number
+v-if="row.finalInspectionEnabled" :model-value="row.finalInspectionQuantity"
+                            :aria-label="`${row.processName}末检数量`" :min="1" :precision="0" placeholder="末检数量"
+                            :disabled="commonRegulationItemsSaving" @change="setProcessFinalQuantity(row, $event, true)" />
                         </template>
                       </el-table-column>
                       <el-table-column
@@ -1529,25 +1506,6 @@
             <div class="qa-regulation-page__card-head">
               <span>工序检验方法与抽样方案</span>
               <div class="qa-regulation-page__card-actions">
-                <div
-                  class="qa-regulation-page__final-inspection-switch"
-                  data-qa-regulation-final-inspection-switch
-                >
-                  <span class="qa-regulation-page__final-inspection-label">是否需要末检</span>
-                  <el-switch
-                    v-model="finalInspectionRequired"
-                    active-text="需要"
-                    inactive-text="不需要"
-                  />
-                  <el-input
-                    data-qa-regulation-final-not-applicable-reason
-                    v-if="!finalInspectionRequired"
-                    v-model="finalInspectionNotApplicableReason"
-                    placeholder="填写末检不适用的正式依据"
-                    clearable
-                    class="qa-regulation-page__final-inspection-reason"
-                  />
-                </div>
                 <UserTableColumnSettings
                   :columns="qaItemsColumns"
                   :saving="qaItemsColumnSaving"
@@ -1613,6 +1571,14 @@
                       class="qa-regulation-page__process-name"
                       placeholder="请输入 QA 工序名称"
                     />
+                    <el-switch
+:model-value="row.finalInspectionEnabled" active-text="末检"
+                      :aria-label="`${row.processName}需要末检`"
+                      @change="setProcessFinalInspection(row, Boolean($event))" />
+                    <el-input-number
+v-if="row.finalInspectionEnabled" :model-value="row.finalInspectionQuantity"
+                      :aria-label="`${row.processName}末检数量`" :min="1" :precision="0" placeholder="末检数量"
+                      @change="setProcessFinalQuantity(row, $event)" />
                   </template>
                 </el-table-column>
                 <el-table-column
@@ -2364,9 +2330,6 @@ const commonRegulationVersionOptionsLoadError = ref('')
 const commonRegulationBindingLoading = ref(false)
 const commonRegulationSetSaving = ref(false)
 const commonRegulationItemsSaving = ref(false)
-const commonFinalInspectionEdited = ref(false)
-const commonFinalInspectionDraftRequired = ref(false)
-const commonFinalInspectionDraftReason = ref('')
 const commonRegulationBindingLoadError = ref('')
 const commonRegulationSetDialogVisible = ref(false)
 const commonRegulationSetVersionDialogVisible = ref(false)
@@ -2459,19 +2422,10 @@ const createEmptyQaInspectionTypeRules = (): QaInspectionTypeRule[] => [
     releaseGate: '缺少适用检验项目时不能发布'
   },
   {
-    key: 'PATROL_AM',
+    key: 'PATROL',
     inspectionType: 'PATROL',
-    label: '上午巡检',
-    roundLabel: '上午班次独立轮次',
-    required: true,
-    taskRule: '按订单数量与项目抽样比例生成任务',
-    releaseGate: '缺少适用检验项目时不能发布'
-  },
-  {
-    key: 'PATROL_PM',
-    inspectionType: 'PATROL',
-    label: '下午巡检',
-    roundLabel: '下午班次独立轮次',
+    label: '巡检',
+    roundLabel: '按实际创建次数编号',
     required: true,
     taskRule: '按订单数量与项目抽样比例生成任务',
     releaseGate: '缺少适用检验项目时不能发布'
@@ -2536,8 +2490,7 @@ const isCommonRegulationSetWideViewport = useMediaQuery('(min-width: 900px)')
 
 const QA_INSPECTION_TYPE_LABELS: Record<QaInspectionTypeValue, string> = {
   FIRST: '首检',
-  PATROL_AM: '上午巡检',
-  PATROL_PM: '下午巡检',
+  PATROL: '巡检',
   FINAL: '末检'
 }
 
@@ -2552,32 +2505,28 @@ const qaWordImportConfirmText = computed(() =>
   qaWordImportOwnerModule.value === 'MES_QA_COMMON' ? '导入并发布' : '确定'
 )
 
-const finalInspectionRule = computed(() =>
-  qaInspectionTypeRules.find((rule) => rule.key === 'FINAL')
-)
-
-const finalInspectionRequired = computed<boolean>({
-  get: () => Boolean(finalInspectionRule.value?.required),
-  set: (required: boolean) => {
-    if (!finalInspectionRule.value) {
-      throw new Error('缺少末检规则配置')
-    }
-    finalInspectionRule.value.required = required
-  }
-})
-
-const finalInspectionNotApplicableReason = computed<string>({
-  get: () => finalInspectionRule.value?.notApplicableReason ?? '',
-  set: (reason: string) => {
-    if (!finalInspectionRule.value) {
-      throw new Error('缺少末检规则配置')
-    }
-    finalInspectionRule.value.notApplicableReason = reason
-  }
-})
-
 const resolveQaItemApplicableTypes = (item: QaRegulationItem) =>
-  resolveQaItemDisplayInspectionTypes(item, finalInspectionRequired.value)
+  resolveQaItemDisplayInspectionTypes(item, item.finalInspectionEnabled)
+
+const setProcessFinalInspection = (row: QaRegulationItem, enabled: boolean, common = false) => {
+  const rows = common ? commonRegulationItems.value : qaRegulationItems.value
+  for (const item of rows) {
+    if (item.processCode === row.processCode && (!common ||
+      (item as CommonRegulationItem).commonRegulationVersionId === (row as CommonRegulationItem).commonRegulationVersionId)) {
+      item.finalInspectionEnabled = enabled
+    }
+  }
+}
+
+const setProcessFinalQuantity = (row: QaRegulationItem, quantity: number | undefined, common = false) => {
+  const rows = common ? commonRegulationItems.value : qaRegulationItems.value
+  for (const item of rows) {
+    if (item.processCode === row.processCode && (!common ||
+      (item as CommonRegulationItem).commonRegulationVersionId === (row as CommonRegulationItem).commonRegulationVersionId)) {
+      item.finalInspectionQuantity = quantity
+    }
+  }
+}
 
 const pagedQaRegulationItems = computed(() => paginateQaRows(qaRegulationItems.value, qaItemsQuery))
 
@@ -2717,7 +2666,7 @@ const resolveCommonMemberInspectionRules = (
   if (!Array.isArray(member.inspectionTypeRules)) {
     throw new Error(`${member.commonRegulationName || '通用规程成员'}缺少正式检验类型规则`)
   }
-  const rules = member.inspectionTypeRules.map((rule) => ({ ...rule }))
+  const rules = buildQaInspectionTypeRules(member.inspectionTypeRules)
   if (finalInspectionApplicable === undefined) {
     return rules
   }
@@ -2736,115 +2685,12 @@ const selectedCommonRegulationSetVersionMembers = computed(() =>
   sortCommonRegulationSetMembers(selectedCommonRegulationSetVersionPreview.value?.members || [])
 )
 
-const commonFinalInspectionSnapshot = computed<{
-  state: CommonFinalInspectionState
-  required: boolean
-  reason: string
-}>(() => {
-  const members = selectedCommonRegulationSetVersionMembers.value
-  if (members.length === 0) {
-    return { state: 'EMPTY', required: false, reason: '该套版本暂无成员规程' }
-  }
-  const memberStates = members.map(requireCommonMemberFinalInspectionApplicable)
-  const uniqueStates = new Set(memberStates)
-  if (uniqueStates.size > 1) {
-    return {
-      state: 'MIXED',
-      required: false,
-      reason: '成员规程的末检适用性不一致，请按来源规程查看'
-    }
-  }
-  const required = memberStates[0] === true
-  if (required) {
-    return { state: 'REQUIRED', required: true, reason: '' }
-  }
-  const reasons = Array.from(
-    new Set(
-      members
-        .map((member) => member.finalInspectionNotApplicableReason?.trim())
-        .filter((reason): reason is string => Boolean(reason))
-    )
-  )
-  return {
-    state: 'NOT_REQUIRED',
-    required: false,
-    reason: reasons.length > 0 ? reasons.join('；') : '未记录末检不适用依据'
-  }
-})
-
-const commonFinalInspectionRequired = computed<boolean>({
-  get: () => commonFinalInspectionDraftRequired.value,
-  set: (required: boolean) => applyCommonFinalInspectionRequired(required)
-})
-
-const commonFinalInspectionStatusText = computed(() => {
-  const snapshot = commonFinalInspectionSnapshot.value
-  if (snapshot.state === 'MIXED') {
-    return '成员配置不一致'
-  }
-  if (snapshot.state === 'EMPTY') {
-    return '未配置'
-  }
-  return snapshot.required ? '需要末检' : '不需要末检'
-})
-
-const commonFinalInspectionReasonVisible = computed(() => !commonFinalInspectionRequired.value)
-
-const commonFinalInspectionNotApplicableReason = computed<string>({
-  get: () => commonFinalInspectionDraftReason.value,
-  set: (reason: string) => applyCommonFinalInspectionReason(reason)
-})
-
-const resetCommonFinalInspectionDraft = () => {
-  const snapshot = commonFinalInspectionSnapshot.value
-  commonFinalInspectionEdited.value = false
-  commonFinalInspectionDraftRequired.value = snapshot.required
-  commonFinalInspectionDraftReason.value = snapshot.required ? '' : snapshot.reason
-}
-
-const syncCommonFinalInspectionToRows = (required: boolean, reason: string) => {
-  const nextReason = required ? '' : reason
-  commonRegulationItems.value.forEach((row) => {
-    row.memberFinalInspectionApplicable = required
-    row.memberFinalInspectionNotApplicableReason = nextReason
-    row.memberInspectionTypeRules = row.memberInspectionTypeRules.map((rule) => {
-      if (rule.key !== 'FINAL') {
-        return rule
-      }
-      return {
-        ...rule,
-        required,
-        notApplicableReason: required ? undefined : nextReason || undefined
-      }
-    })
-  })
-}
-
-const applyCommonFinalInspectionRequired = (required: boolean) => {
-  commonFinalInspectionEdited.value = true
-  commonFinalInspectionDraftRequired.value = required
-  if (required) {
-    commonFinalInspectionDraftReason.value = ''
-  }
-  syncCommonFinalInspectionToRows(required, commonFinalInspectionDraftReason.value)
-}
-
-const applyCommonFinalInspectionReason = (reason: string) => {
-  commonFinalInspectionEdited.value = true
-  commonFinalInspectionDraftReason.value = reason
-  syncCommonFinalInspectionToRows(false, reason)
-}
-
 const createCommonRegulationItemSourceNote = (
   document: CommonRegulationSetDocumentView,
   item: QaInspectionRegulationItemVO
 ) =>
-  [
-    item.sourceNote?.trim(),
-    `来源：${formatCommonRegulationSetDocumentTitle(document)} / ${formatCommonRegulationSetDocumentSource(document)}`
-  ]
-    .filter(Boolean)
-    .join('；')
+  [item.sourceNote?.trim(), `来源：${formatCommonRegulationSetDocumentTitle(document)} / ${formatCommonRegulationSetDocumentSource(document)}`]
+    .filter(Boolean).join('；')
 
 const buildCommonRegulationItemsFromDocuments = (): CommonRegulationItem[] =>
   selectedCommonRegulationSetVersionDocuments.value.flatMap((document) =>
@@ -2906,7 +2752,7 @@ const buildCommonRegulationItemsFromDocuments = (): CommonRegulationItem[] =>
 const commonRegulationItems = ref<CommonRegulationItem[]>([])
 
 const resolveCommonItemApplicableTypes = (item: CommonRegulationItem) =>
-  resolveQaItemDisplayInspectionTypes(item, item.memberFinalInspectionApplicable)
+  resolveQaItemDisplayInspectionTypes(item, item.finalInspectionEnabled)
 
 const commonRegulationItemsSummaryText = computed(() => {
   const version = selectedCommonRegulationSetVersionPreview.value
@@ -3171,17 +3017,22 @@ const resolveCommonSetNextVersionNo = () => {
   )
 }
 
-const resolveCommonMemberNextVersionNo = (member: QaCommonRegulationSetMemberVO) =>
-  incrementVersionNo(
+const resolveCommonMemberNextVersionNo = async (member: QaCommonRegulationSetMemberVO) => {
+  const versions = await QcTemplateApi.listQaRegulationVersions(
+    member.commonDccProjectCodeId, 'MES_QA_COMMON'
+  )
+  const memberVersions = versions.filter(
+    (version) => Number(version.regulationId) === Number(member.commonRegulationId)
+  )
+  if (!memberVersions.length) {
+    throw new Error(`${member.commonRegulationName}缺少正式版本记录，无法生成新版本号`)
+  }
+  return incrementVersionNo(
     member.versionNo,
-    new Set(
-      commonRegulationVersionOptions.value
-        .filter((option) => Number(option.commonRegulationId) === Number(member.commonRegulationId))
-        .map((option) => option.versionNo.trim())
-        .filter(Boolean)
-    ),
+    new Set(memberVersions.map((version) => version.versionNo.trim()).filter(Boolean)),
     member.commonRegulationName || '通用检验规程'
   )
+}
 
 const shouldLoadQaEquipmentBindingsForSelectedVersion = (
   configuration: QaInspectionRegulationPublishedVersionVO
@@ -3208,13 +3059,24 @@ const resolveRequiredText = (value: unknown, label: string) => {
   return text
 }
 
-const replaceQaInspectionTypeRules = (rules: QaInspectionRegulationInspectionTypeRuleVO[]) => {
-  const normalized = rules.map((rule) => ({
+const buildQaInspectionTypeRules = (
+  rules: QaInspectionRegulationInspectionTypeRuleVO[]
+): QaInspectionTypeRule[] => {
+  const finalRule = rules.find((rule) => rule.key === 'FINAL')
+  if (!finalRule || typeof finalRule.required !== 'boolean') {
+    throw new Error('检验规程缺少明确的末检适用性配置')
+  }
+  return createEmptyQaInspectionTypeRules().map((rule) => ({
     ...rule,
-    key: rule.key as QaInspectionTypeValue,
-    required: rule.key === 'FINAL' ? Boolean(rule.required) : true
+    fixedQuantity: rules.find((source) => source.key === rule.key)?.fixedQuantity,
+    ...(rule.key === 'FINAL'
+      ? { required: finalRule.required, notApplicableReason: finalRule.notApplicableReason }
+      : {})
   }))
-  qaInspectionTypeRules.splice(0, qaInspectionTypeRules.length, ...normalized)
+}
+
+const replaceQaInspectionTypeRules = (rules: QaInspectionRegulationInspectionTypeRuleVO[]) => {
+  qaInspectionTypeRules.splice(0, qaInspectionTypeRules.length, ...buildQaInspectionTypeRules(rules))
 }
 
 const flattenQaRegulationProcesses = (
@@ -3969,15 +3831,9 @@ const saveCommonRegulationSetVersion = async () => {
 }
 
 const saveCommonRegulationItemsVersion = async () => {
-  let payload: QaCommonRegulationSetItemsUpgradeReqVO
-  try {
-    payload = buildCommonRegulationItemsUpgradePayload()
-  } catch (error) {
-    ElMessage.warning(resolveDccProjectCodeErrorMessage(error))
-    return
-  }
   commonRegulationItemsSaving.value = true
   try {
+    const payload = await buildCommonRegulationItemsUpgradePayload()
     const saved = await QcTemplateApi.upgradeCommonRegulationSetItems(payload)
     await loadCommonRegulationVersionOptions()
     selectedCommonRegulationSetId.value = saved.setId
@@ -4470,6 +4326,7 @@ const addQaRegulationItem = () => {
     inspectionMethod: '',
     inspectionTool: '',
     samplingPlanText: '',
+    finalInspectionEnabled: false,
     firstInspectionEnabled: false,
     firstInspectionQuantity: undefined,
     patrolInspectionEnabled: false,
@@ -4507,7 +4364,7 @@ const buildQaRegulationSaveItem = (
   const itemName = resolveRequiredText(item.itemName, '检验项目名称')
   const inspectionConfiguration = resolveQaItemInspectionPayload(
     item,
-    finalInspectionRequired.value,
+    item.finalInspectionEnabled,
     itemName
   )
   return {
@@ -4526,6 +4383,7 @@ const buildQaRegulationSaveItem = (
     resultType: item.resultType,
     applicableInspectionTypes: inspectionConfiguration.applicableInspectionTypes,
     firstInspectionQuantity: inspectionConfiguration.firstInspectionQuantity,
+    finalInspectionQuantity: inspectionConfiguration.finalInspectionQuantity,
     patrolInspectionRatio: inspectionConfiguration.patrolInspectionRatio,
     critical: item.critical,
     failureRule: item.failureRule.trim() || undefined,
@@ -4587,7 +4445,7 @@ const buildCommonRegulationItemEquipmentOptions = (
 const buildCommonRegulationSaveItem = (
   item: CommonRegulationItem,
   itemSort: number,
-  finalInspectionApplicable = item.memberFinalInspectionApplicable
+  finalInspectionApplicable = item.finalInspectionEnabled
 ): QaCommonRegulationSetItemsUpgradeItemReqVO => {
   const itemName = resolveRequiredText(item.itemName, '检验项目名称')
   const inspectionConfiguration = resolveQaItemInspectionPayload(
@@ -4611,6 +4469,7 @@ const buildCommonRegulationSaveItem = (
     resultType: item.resultType,
     applicableInspectionTypes: inspectionConfiguration.applicableInspectionTypes,
     firstInspectionQuantity: inspectionConfiguration.firstInspectionQuantity,
+    finalInspectionQuantity: inspectionConfiguration.finalInspectionQuantity,
     patrolInspectionRatio: inspectionConfiguration.patrolInspectionRatio,
     critical: item.critical,
     failureRule: item.failureRule.trim() || undefined,
@@ -4666,12 +4525,12 @@ const buildCommonRegulationSaveProcesses = (
       processName: group.name,
       sort: processIndex + 1,
       items: group.items.map((item, itemIndex) =>
-        buildCommonRegulationSaveItem(item, itemIndex + 1, finalInspectionApplicable)
+        buildCommonRegulationSaveItem(item, itemIndex + 1, item.finalInspectionEnabled)
       )
     }))
 }
 
-const buildCommonRegulationItemsUpgradePayload = (): QaCommonRegulationSetItemsUpgradeReqVO => {
+const buildCommonRegulationItemsUpgradePayload = async (): Promise<QaCommonRegulationSetItemsUpgradeReqVO> => {
   const set = selectedCommonRegulationSet.value
   const sourceVersion = selectedCommonRegulationSetVersionPreview.value
   if (!set?.id || !sourceVersion?.id) {
@@ -4694,20 +4553,14 @@ const buildCommonRegulationItemsUpgradePayload = (): QaCommonRegulationSetItemsU
     versionNo: resolveCommonSetNextVersionNo(),
     effectiveDate: sourceVersion.effectiveDate || undefined,
     remark: `检验项目编辑升版自 ${sourceVersion.versionNo}`,
-    members: selectedCommonRegulationSetVersionMembers.value.map((member, index) => {
+    members: await Promise.all(selectedCommonRegulationSetVersionMembers.value.map(async (member, index) => {
       const memberVersionId = resolvePositiveId(
         member.commonRegulationVersionId,
         `${member.commonRegulationName}版本`
       )
       const memberRows = rowsByMemberVersionId.get(memberVersionId) || []
-      const finalInspectionApplicable = commonFinalInspectionEdited.value
-        ? commonFinalInspectionRequired.value
-        : requireCommonMemberFinalInspectionApplicable(member)
-      const finalInspectionNotApplicableReason = finalInspectionApplicable
-        ? undefined
-        : commonFinalInspectionEdited.value
-          ? resolveRequiredText(commonFinalInspectionNotApplicableReason.value, '末检不适用依据')
-          : resolveRequiredText(member.finalInspectionNotApplicableReason, '末检不适用依据')
+      const finalInspectionApplicable = memberRows.some((item) => item.finalInspectionEnabled)
+      const finalInspectionNotApplicableReason = finalInspectionApplicable ? undefined : '各检验工序均未开启末检'
       return {
         commonRegulationId: resolvePositiveId(member.commonRegulationId, '通用检验规程 ID'),
         sourceCommonRegulationVersionId: memberVersionId,
@@ -4717,7 +4570,7 @@ const buildCommonRegulationItemsUpgradePayload = (): QaCommonRegulationSetItemsU
         ),
         commonRegulationCode: resolveRequiredText(member.commonRegulationCode, '通用规程编号'),
         commonRegulationName: resolveRequiredText(member.commonRegulationName, '通用规程名称'),
-        versionNo: resolveCommonMemberNextVersionNo(member),
+        versionNo: await resolveCommonMemberNextVersionNo(member),
         sort: member.sort ?? (index + 1) * 10,
         memberRole: member.memberRole || undefined,
         remark: member.remark || undefined,
@@ -4725,21 +4578,20 @@ const buildCommonRegulationItemsUpgradePayload = (): QaCommonRegulationSetItemsU
         finalInspectionNotApplicableReason,
         inspectionTypeRules: resolveCommonMemberInspectionRules(
           member,
-          commonFinalInspectionEdited.value ? finalInspectionApplicable : undefined,
+          finalInspectionApplicable,
           finalInspectionNotApplicableReason
         ),
         processes: buildCommonRegulationSaveProcesses(member, memberRows, finalInspectionApplicable)
       }
-    })
+    }))
   }
 }
 
 const buildQaRegulationSavePayload = (): QaInspectionRegulationSaveReqVO => {
-  const finalRule = qaInspectionTypeRules.find((rule) => rule.key === 'FINAL')
-  const finalInspectionApplicable = Boolean(finalRule?.required)
+  const finalInspectionApplicable = qaRegulationItems.value.some((item) => item.finalInspectionEnabled)
   const finalInspectionNotApplicableReason = finalInspectionApplicable
     ? undefined
-    : resolveRequiredText(finalRule?.notApplicableReason, '末检不适用依据')
+    : '各检验工序均未开启末检'
   return {
     regulationId: qaRegulationDraft.regulationId,
     dccProjectCodeId: resolvePositiveId(qaRegulationDraft.dccProjectCodeId, 'DCC 项目代码 ID'),
@@ -4755,7 +4607,9 @@ const buildQaRegulationSavePayload = (): QaInspectionRegulationSaveReqVO => {
     effectiveDate: qaRegulationDraft.effectiveDate || undefined,
     finalInspectionApplicable,
     finalInspectionNotApplicableReason,
-    inspectionTypeRules: qaInspectionTypeRules.map((rule) => ({ ...rule })),
+    inspectionTypeRules: qaInspectionTypeRules.map((rule) => rule.key === 'FINAL'
+      ? { ...rule, required: finalInspectionApplicable, notApplicableReason: finalInspectionNotApplicableReason }
+      : { ...rule }),
     processes: buildQaRegulationProcesses()
   }
 }
@@ -4794,7 +4648,7 @@ const qaRegulationPublishChecks = computed(() => [
     passed:
       qaRegulationItems.value.length > 0 &&
       qaRegulationItems.value.every((item) =>
-        isQaItemInspectionConfigurationComplete(item, finalInspectionRequired.value)
+        isQaItemInspectionConfigurationComplete(item, item.finalInspectionEnabled)
       ),
     detail: '每个检验项目至少启用一种检验类型；启用首检或巡检时必须填写该项目自己的数量或比例'
   },
@@ -4819,7 +4673,6 @@ watch(
   selectedCommonRegulationSetVersionDocuments,
   () => {
     commonRegulationItems.value = buildCommonRegulationItemsFromDocuments()
-    resetCommonFinalInspectionDraft()
     commonRegulationItemsQuery.pageNo = 1
   },
   { immediate: true }

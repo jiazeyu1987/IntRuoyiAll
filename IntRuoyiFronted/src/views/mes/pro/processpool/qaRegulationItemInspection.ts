@@ -1,15 +1,18 @@
-export type QaItemDisplayInspectionType = 'FIRST' | 'PATROL_AM' | 'PATROL_PM' | 'FINAL'
+export type QaItemDisplayInspectionType = 'FIRST' | 'PATROL' | 'FINAL'
 export type QaItemPersistedInspectionType = 'FIRST' | 'PATROL' | 'FINAL'
 
 export interface QaItemInspectionSource {
   applicableInspectionTypes: readonly string[]
   firstInspectionQuantity?: number
+  finalInspectionQuantity?: number
   patrolInspectionRatio?: number
 }
 
 export interface QaItemInspectionState {
+  finalInspectionEnabled: boolean
   firstInspectionEnabled: boolean
   firstInspectionQuantity?: number
+  finalInspectionQuantity?: number
   patrolInspectionEnabled: boolean
   patrolInspectionRatio?: number
 }
@@ -17,17 +20,20 @@ export interface QaItemInspectionState {
 export interface QaItemInspectionPayload {
   applicableInspectionTypes: QaItemPersistedInspectionType[]
   firstInspectionQuantity?: number
+  finalInspectionQuantity?: number
   patrolInspectionRatio?: number
 }
 
 const isPatrolInspectionType = (inspectionType: string) =>
-  inspectionType === 'PATROL' || inspectionType === 'PATROL_AM' || inspectionType === 'PATROL_PM'
+  inspectionType === 'PATROL'
 
 export const createQaItemInspectionState = (
   source: QaItemInspectionSource
 ): QaItemInspectionState => {
   const applicableInspectionTypes = new Set(source.applicableInspectionTypes)
   return {
+    finalInspectionEnabled: applicableInspectionTypes.has('FINAL'),
+    finalInspectionQuantity: source.finalInspectionQuantity,
     firstInspectionEnabled: applicableInspectionTypes.has('FIRST'),
     firstInspectionQuantity: source.firstInspectionQuantity,
     patrolInspectionEnabled: [...applicableInspectionTypes].some(isPatrolInspectionType),
@@ -35,9 +41,9 @@ export const createQaItemInspectionState = (
   }
 }
 
-const requireFirstInspectionQuantity = (value: number | undefined, itemName: string) => {
+const requireInspectionQuantity = (value: number | undefined, itemName: string, label: string) => {
   if (!Number.isSafeInteger(Number(value)) || Number(value) <= 0) {
-    throw new Error(`${itemName}的首检数量必须是大于 0 的整数`)
+    throw new Error(`${itemName}的${label}数量必须是大于 0 的整数`)
   }
   return Number(value)
 }
@@ -56,7 +62,7 @@ export const resolveQaItemInspectionPayload = (
 ): QaItemInspectionPayload => {
   const applicableInspectionTypes: QaItemPersistedInspectionType[] = []
   const firstInspectionQuantity = item.firstInspectionEnabled
-    ? requireFirstInspectionQuantity(item.firstInspectionQuantity, itemName)
+    ? requireInspectionQuantity(item.firstInspectionQuantity, itemName, '首检')
     : undefined
   const patrolInspectionRatio = item.patrolInspectionEnabled
     ? requirePatrolInspectionRatio(item.patrolInspectionRatio, itemName)
@@ -78,6 +84,7 @@ export const resolveQaItemInspectionPayload = (
   return {
     applicableInspectionTypes,
     firstInspectionQuantity,
+    finalInspectionQuantity: finalInspectionApplicable ? requireInspectionQuantity(item.finalInspectionQuantity, itemName, '末检') : undefined,
     patrolInspectionRatio
   }
 }
@@ -93,6 +100,7 @@ export const isQaItemInspectionConfigurationComplete = (
     (Number.isFinite(Number(item.patrolInspectionRatio)) &&
       Number(item.patrolInspectionRatio) > 0 &&
       Number(item.patrolInspectionRatio) <= 100)) &&
+  (!finalInspectionApplicable || (Number.isSafeInteger(item.finalInspectionQuantity) && Number(item.finalInspectionQuantity) > 0)) &&
   (item.firstInspectionEnabled || item.patrolInspectionEnabled || finalInspectionApplicable)
 
 export const resolveQaItemDisplayInspectionTypes = (
@@ -104,7 +112,7 @@ export const resolveQaItemDisplayInspectionTypes = (
     inspectionTypes.push('FIRST')
   }
   if (item.patrolInspectionEnabled) {
-    inspectionTypes.push('PATROL_AM', 'PATROL_PM')
+    inspectionTypes.push('PATROL')
   }
   if (finalInspectionApplicable) {
     inspectionTypes.push('FINAL')

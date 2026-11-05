@@ -51,7 +51,7 @@ export function makeDraft(parsed: QaInspectionRegulationParseVO, projectId: numb
     versionNo: parsed.versionNo,
     effectiveDate: parsed.effectiveDate,
     finalInspectionApplicable: false,
-    finalInspectionNotApplicableReason: '',
+    finalInspectionNotApplicableReason: '导入后按检验工序设置末检，当前均未开启',
     inspectionTypeRules: [
       {
         key: 'FIRST',
@@ -63,18 +63,9 @@ export function makeDraft(parsed: QaInspectionRegulationParseVO, projectId: numb
         releaseGate: ''
       },
       {
-        key: 'PATROL_AM',
+        key: 'PATROL',
         inspectionType: 'PATROL',
-        label: '上午巡检',
-        required: true,
-        roundLabel: '',
-        taskRule: '',
-        releaseGate: ''
-      },
-      {
-        key: 'PATROL_PM',
-        inspectionType: 'PATROL',
-        label: '下午巡检',
+        label: '巡检',
         required: true,
         roundLabel: '',
         taskRule: '',
@@ -215,8 +206,6 @@ export function validateDraft(draft: Draft, confirmedUnbound: string[] = []): Dr
   ] as const)
     if (!draft[key].trim())
       errors.push({ message: `请填写${label}`, field: 'metadata', target: key })
-  if (!draft.finalInspectionApplicable && !draft.finalInspectionNotApplicableReason?.trim())
-    errors.push({ message: '请确认是否无需末检', field: 'final' })
   if (!draft.processes.length)
     errors.push({ message: '请添加工序和检验项目', field: 'process', target: 'addProcess' })
   draft.processes.forEach((p, pi) => {

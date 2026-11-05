@@ -215,6 +215,53 @@ public class MesFrontlineDeviceAccountController {
                 .toList());
     }
 
+    @PostMapping("/pqc/patrol-round")
+    @Operation(summary = "新建一次巡检，按订单连续编号")
+    @PreAuthorize("@ss.hasPermission('mes:pro-feedback:create') and @ss.hasAnyRoles('pqc_permission', 'pqc_leader_permission')")
+    public CommonResult<Integer> createPatrolRound(
+            @Valid @RequestBody cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.vo.frontline.MesFrontlinePqcCreatePatrolReqVO reqVO) {
+        return success(pqcContextService.createPatrolRound(getLoginUserId(), reqVO.getActiveOrderId(),
+                reqVO.getExpectedPreviousRoundNo()));
+    }
+
+    @jakarta.annotation.Resource
+    private cn.iocoder.yudao.module.mes.service.pro.processpool.MesProcessPoolPqcInspectionCorrectionService pqcCorrectionService;
+
+    @PostMapping("/pqc/patrol-round/cancel")
+    @Operation(summary = "撤销整轮未提交巡检")
+    @PreAuthorize("@ss.hasPermission('mes:pro-feedback:create') and @ss.hasAnyRoles('pqc_permission', 'pqc_leader_permission')")
+    public CommonResult<Boolean> cancelPatrolRound(@Valid @RequestBody
+            cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.vo.frontline.MesFrontlinePqcCancelPatrolReqVO req) {
+        pqcContextService.cancelPatrolRound(getLoginUserId(), req.getActiveOrderId(), req.getRoundNo());
+        return success(true);
+    }
+
+    @PostMapping("/pqc/patrol-round/restore")
+    @Operation(summary = "恢复已撤销巡检轮次")
+    @PreAuthorize("@ss.hasPermission('mes:pro-feedback:create') and @ss.hasAnyRoles('pqc_permission', 'pqc_leader_permission')")
+    public CommonResult<Boolean> restorePatrolRound(@Valid @RequestBody
+            cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.vo.frontline.MesFrontlinePqcRestorePatrolReqVO req) {
+        pqcContextService.restorePatrolRound(getLoginUserId(), req.getActiveOrderId(), req.getRoundNo());
+        return success(true);
+    }
+
+    @PostMapping("/pqc/final-inspection")
+    @Operation(summary = "为开启末检的工序新建末检")
+    @PreAuthorize("@ss.hasPermission('mes:pro-feedback:create') and @ss.hasAnyRoles('pqc_permission', 'pqc_leader_permission')")
+    public CommonResult<Boolean> createFinalInspection(@RequestParam("activeOrderId") @NotNull Long activeOrderId) {
+        pqcContextService.createFinalInspection(getLoginUserId(), activeOrderId);
+        return success(true);
+    }
+
+    @PostMapping("/pqc/patrol-round/correct")
+    @Operation(summary = "签名更正已提交巡检的所属轮次")
+    @PreAuthorize("@ss.hasPermission('mes:pro-feedback:create') and @ss.hasAnyRoles('pqc_permission', 'pqc_leader_permission')")
+    public CommonResult<Long> correctPatrolRound(@Valid @RequestBody
+            cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.vo.frontline.MesFrontlinePqcCorrectRoundReqVO req) {
+        pqcContextService.requirePqcEmployee(getLoginUserId(), getLoginUserId());
+        return success(pqcCorrectionService.correctPatrolRound(getLoginUserId(), req));
+    }
+
     @PostMapping("/pqc/switch-employee")
     @Operation(summary = "PQC 切换实际填写员工")
     @PreAuthorize("@ss.hasPermission('mes:pro-feedback:create') and @ss.hasAnyRoles('pqc_permission', 'pqc_leader_permission')")
@@ -270,6 +317,8 @@ public class MesFrontlineDeviceAccountController {
 
     private static MesFrontlineActiveOrderRespVO toActiveOrderRespVO(MesFrontlineActiveOrderCandidate candidate) {
         MesFrontlineActiveOrderRespVO respVO = new MesFrontlineActiveOrderRespVO();
+        respVO.setReadBlocked(candidate.readBlocked());
+        respVO.setReadBlockReason(candidate.readBlockReason());
         respVO.setActiveOrderId(candidate.activeOrderId());
         respVO.setWorkOrderId(candidate.workOrderId());
         respVO.setWorkOrderCode(candidate.workOrderCode());

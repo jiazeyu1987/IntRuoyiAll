@@ -140,6 +140,8 @@ import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionU
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.MD_ITEM_NOT_EXISTS;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PQC_INSPECTION_TASK_GENERATION_BLOCKED;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PQC_INSPECTION_TASK_IDENTITY_CONFLICT;
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PQC_QA_SOURCE_SNAPSHOT_REQUIRED;
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PQC_QA_SOURCE_SNAPSHOT_INVALID;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_ACTIVE_ORDER_MOVE_INVALID;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_ACTIVE_ORDER_NOT_EXISTS;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_ACTIVE_ORDER_REBUILD_CONFIRM_REQUIRED;
@@ -201,12 +203,10 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
     private static final String INSPECTION_TYPE_PATROL = "PATROL";
     private static final String INSPECTION_TYPE_FINAL = "FINAL";
     private static final String RULE_KEY_FIRST = "FIRST";
-    private static final String RULE_KEY_PATROL_AM = "PATROL_AM";
-    private static final String RULE_KEY_PATROL_PM = "PATROL_PM";
+    private static final String RULE_KEY_PATROL = "PATROL";
     private static final String RULE_KEY_FINAL = "FINAL";
     private static final String SHIFT_FIRST = "FIRST";
-    private static final String SHIFT_PATROL_AM = "AM";
-    private static final String SHIFT_PATROL_PM = "PM";
+    private static final String SHIFT_PATROL = "PATROL";
     private static final String SHIFT_FINAL = "FINAL";
     private static final int DEFAULT_ROUND_NO = 1;
     private static final int ACTIVE_ORDER_CANDIDATE_LIMIT = 20;
@@ -253,6 +253,8 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
     private final MesQaCommonRegulationProductBindingMapper commonRegulationProductBindingMapper;
     private final MesQaCommonRegulationSetVersionMemberMapper commonRegulationSetVersionMemberMapper;
     private final MesPqcInspectionTaskMapper pqcInspectionTaskMapper;
+    @Resource
+    private cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesOrderReleaseCompletenessService pqcCoverageService;
     private final MesWorkOrderAbnormalStateService abnormalStateService;
     private final MesProcessPoolActiveOrderReleaseApplicationMapper releaseApplicationMapper;
     private final DccProjectCodeMapper dccProjectCodeMapper;
@@ -3377,7 +3379,9 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
     }
 
     private static boolean isKnownActiveOrderReadError(ServiceException ex) {
-        return Objects.equals(ex.getCode(), PRO_ROUTE_NOT_EXISTS.getCode())
+        return Objects.equals(ex.getCode(), PRO_PQC_QA_SOURCE_SNAPSHOT_REQUIRED.getCode())
+                || Objects.equals(ex.getCode(), PRO_PQC_QA_SOURCE_SNAPSHOT_INVALID.getCode())
+                || Objects.equals(ex.getCode(), PRO_ROUTE_NOT_EXISTS.getCode())
                 || Objects.equals(ex.getCode(), PRO_ROUTE_VERSION_NOT_EXISTS.getCode())
                 || Objects.equals(ex.getCode(), PRO_WORK_ORDER_NOT_EXISTS.getCode())
                 || Objects.equals(ex.getCode(), MD_ITEM_NOT_EXISTS.getCode())
@@ -3508,6 +3512,7 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
                 .forEach(this::requireAllocationQuantity);
         Map<Long, List<MesPqcInspectionTaskDO>> pqcTasksByActiveOrderId =
                 pqcInspectionTaskMapper.selectListByActiveOrderIds(activeOrderIds).stream()
+                        .filter(task -> !"CANCELLED".equals(task.getTaskStatus()))
                         .filter(task -> task.getActiveOrderId() != null)
                         .collect(Collectors.groupingBy(MesPqcInspectionTaskDO::getActiveOrderId,
                                 LinkedHashMap::new, Collectors.toList()));
@@ -3554,7 +3559,7 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
                         List.of());
                 progressByActiveOrderId.put(activeOrder.getId(), new ActiveOrderProgress(
                         toProgressPercent(completedProcessCount, totalProcessCount),
-                        calculateInspectionProgressPercent(pqcTasks),
+                        calculateInspectionProgressPercent(pqcTasks, pqcCoverageService.missingExpectedPqcTaskIdentities(activeOrder, pqcTasks).size()),
                         processRemainingQuantities,
                         quantityConflictProcessCount > 0,
                         quantityConflictProcessCount,
@@ -3743,14 +3748,14 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
         return MesPqcInspectionTaskDO.TASK_STATUS_CONFIRMED.equals(task.getTaskStatus());
     }
 
-    private static BigDecimal calculateInspectionProgressPercent(List<MesPqcInspectionTaskDO> pqcTasks) {
+    private static BigDecimal calculateInspectionProgressPercent(List<MesPqcInspectionTaskDO> pqcTasks, int missingCount) {
         if (pqcTasks == null || pqcTasks.isEmpty()) {
             return BigDecimal.ZERO.setScale(PROGRESS_PERCENT_SCALE, RoundingMode.UNNECESSARY);
         }
         long confirmedTaskCount = pqcTasks.stream()
                 .filter(MesTeamLeaderActiveOrderServiceImpl::isInspectionProgressCompleted)
                 .count();
-        return toProgressPercent(confirmedTaskCount, pqcTasks.size());
+        return toProgressPercent(confirmedTaskCount, pqcTasks.size() + missingCount);
     }
 
     private static BigDecimal toProgressPercent(long completedProcessCount, int totalProcessCount) {
@@ -4238,9 +4243,17 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
                                           ActiveOrderQaSource qaSource,
                                           List<PlannedPqcTask> plans,
                                           List<MesProScheduleOrderProcessDO> routeProcesses) {
+        String sourceVersionIds = JSON.toJSONString(qaSource.sources().stream()
+                .map(source -> source.version().getId()).toList());
+        activeOrder.setPqcQaSourceVersionIdsJson(sourceVersionIds);
+        int frozen = activeOrderMapper.update(null, new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<MesProcessPoolActiveOrderDO>()
+                .set(MesProcessPoolActiveOrderDO::getPqcQaSourceVersionIdsJson, sourceVersionIds)
+                .eq(MesProcessPoolActiveOrderDO::getId, activeOrder.getId()));
+        if (frozen != 1) throw new IllegalStateException("活跃订单PQC规程来源冻结失败");
         LocalDate businessDate = resolvePqcBusinessDate(activeOrder);
         int insertedCount = 0;
         for (PlannedPqcTask plan : plans) {
+            if (!Objects.equals("FIRST", plan.rule().inspectionType())) continue;
             MesPqcInspectionTaskDO task = buildPqcTask(activeOrder, plan.qaProcess(), plan.regulation(),
                     plan.version(), plan.qaItemCode(), plan.rule().inspectionType(), plan.rule().ruleKey(),
                     businessDate, plan.rule().shiftCode(), plan.plannedQuantity());
@@ -4492,7 +4505,7 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
         if (Objects.equals(RULE_KEY_FIRST, ruleKey)) {
             return INSPECTION_TYPE_FIRST;
         }
-        if (Objects.equals(RULE_KEY_PATROL_AM, ruleKey) || Objects.equals(RULE_KEY_PATROL_PM, ruleKey)) {
+        if (Objects.equals(RULE_KEY_PATROL, ruleKey)) {
             return INSPECTION_TYPE_PATROL;
         }
         if (Objects.equals(RULE_KEY_FINAL, ruleKey)) {
@@ -4505,11 +4518,8 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
         if (Objects.equals(RULE_KEY_FIRST, ruleKey)) {
             return SHIFT_FIRST;
         }
-        if (Objects.equals(RULE_KEY_PATROL_AM, ruleKey)) {
-            return SHIFT_PATROL_AM;
-        }
-        if (Objects.equals(RULE_KEY_PATROL_PM, ruleKey)) {
-            return SHIFT_PATROL_PM;
+        if (Objects.equals(RULE_KEY_PATROL, ruleKey)) {
+            return SHIFT_PATROL;
         }
         if (Objects.equals(RULE_KEY_FINAL, ruleKey)) {
             return SHIFT_FINAL;
@@ -4521,11 +4531,8 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
         if (Objects.equals(RULE_KEY_FIRST, ruleKey)) {
             return 1;
         }
-        if (Objects.equals(RULE_KEY_PATROL_AM, ruleKey)) {
+        if (Objects.equals(RULE_KEY_PATROL, ruleKey)) {
             return 2;
-        }
-        if (Objects.equals(RULE_KEY_PATROL_PM, ruleKey)) {
-            return 3;
         }
         if (Objects.equals(RULE_KEY_FINAL, ruleKey)) {
             return 4;

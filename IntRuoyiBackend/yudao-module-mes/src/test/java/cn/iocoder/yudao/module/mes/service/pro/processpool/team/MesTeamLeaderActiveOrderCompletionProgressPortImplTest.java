@@ -41,6 +41,18 @@ class MesTeamLeaderActiveOrderCompletionProgressPortImplTest {
     void setUp() {
         port = new MesTeamLeaderActiveOrderCompletionProgressPortImpl(snapshotMapper, allocationMapper, taskMapper,
                 eventMapper);
+        org.springframework.test.util.ReflectionTestUtils.setField(port, "pqcCoverageService",
+                org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesOrderReleaseCompletenessService.class));
+    }
+
+    @Test
+    void missingRequiredFinalKeepsInspectionProgressBelowHundred() {
+        readsLockedFormalSourcesAndReturnsDualHundred();
+        var coverage = org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesOrderReleaseCompletenessService.class);
+        org.mockito.Mockito.when(coverage.missingExpectedPqcTaskIdentities(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyList()))
+            .thenReturn(List.of("末检未创建"));
+        org.springframework.test.util.ReflectionTestUtils.setField(port, "pqcCoverageService", coverage);
+        assertEquals(new BigDecimal("50.000000"), port.read(20L, order()).getInspectionProgressPercent());
     }
 
     @Test
@@ -51,7 +63,7 @@ class MesTeamLeaderActiveOrderCompletionProgressPortImplTest {
         when(allocationMapper.selectListByActiveOrderIdForUpdate(10L)).thenReturn(List.of(
                 MesProcessPoolReportAllocationDO.builder().id(201L).activeOrderId(10L).workOrderId(30L)
                         .routeProcessId(101L).processId(1L).eventId(401L).allocatedQuantity(BigDecimal.TEN).build()));
-        when(taskMapper.selectListByActiveOrderIdForUpdate(10L)).thenReturn(List.of(
+        when(taskMapper.selectEffectiveListByActiveOrderIdForUpdate(10L)).thenReturn(List.of(
                 MesPqcInspectionTaskDO.builder().id(301L).activeOrderId(10L).workOrderId(30L)
                         .routeId(40L).routeVersionId(41L).qaProcessId(901L).regulationVersionId(9902L)
                         .taskStatus(MesPqcInspectionTaskDO.TASK_STATUS_CONFIRMED).build()));
@@ -64,7 +76,7 @@ class MesTeamLeaderActiveOrderCompletionProgressPortImplTest {
         assertEquals(BigDecimal.valueOf(100).setScale(6), progress.getInspectionProgressPercent());
         org.mockito.Mockito.verify(snapshotMapper).selectListByActiveOrderIdForUpdate(10L);
         org.mockito.Mockito.verify(allocationMapper).selectListByActiveOrderIdForUpdate(10L);
-        org.mockito.Mockito.verify(taskMapper).selectListByActiveOrderIdForUpdate(10L);
+        org.mockito.Mockito.verify(taskMapper).selectEffectiveListByActiveOrderIdForUpdate(10L);
     }
 
     @Test
@@ -75,7 +87,7 @@ class MesTeamLeaderActiveOrderCompletionProgressPortImplTest {
         when(allocationMapper.selectListByActiveOrderIdForUpdate(10L)).thenReturn(List.of(
                 MesProcessPoolReportAllocationDO.builder().id(201L).activeOrderId(10L).workOrderId(30L)
                         .routeProcessId(101L).processId(1L).eventId(401L).allocatedQuantity(BigDecimal.ONE).build()));
-        when(taskMapper.selectListByActiveOrderIdForUpdate(10L)).thenReturn(List.of(
+        when(taskMapper.selectEffectiveListByActiveOrderIdForUpdate(10L)).thenReturn(List.of(
                 MesPqcInspectionTaskDO.builder().id(301L).activeOrderId(10L).workOrderId(30L)
                         .routeId(40L).routeVersionId(41L).qaProcessId(901L).regulationVersionId(9902L)
                         .taskStatus(MesPqcInspectionTaskDO.TASK_STATUS_CONFIRMED).build()));
@@ -97,7 +109,7 @@ class MesTeamLeaderActiveOrderCompletionProgressPortImplTest {
                 MesProcessPoolReportAllocationDO.builder().id(202L).activeOrderId(10L).workOrderId(30L)
                         .routeProcessId(101L).processId(1L).eventId(402L)
                         .allocatedQuantity(BigDecimal.valueOf(50)).build()));
-        when(taskMapper.selectListByActiveOrderIdForUpdate(10L)).thenReturn(List.of(task(301L, 101L)));
+        when(taskMapper.selectEffectiveListByActiveOrderIdForUpdate(10L)).thenReturn(List.of(task(301L, 101L)));
         when(eventMapper.selectProductionSubmitsByIdsForUpdate(org.mockito.ArgumentMatchers.anyList())).thenReturn(List.of(
                 productionSubmit(401L, 101L, "{\"materialDetails\":[{\"materialId\":501,\"outputQuantity\":50}]}"),
                 productionSubmit(402L, 101L, "{\"materialDetails\":[{\"materialId\":502,\"outputQuantity\":50}]}")));
@@ -126,7 +138,7 @@ class MesTeamLeaderActiveOrderCompletionProgressPortImplTest {
                 MesProcessPoolReportAllocationDO.builder().id(204L).activeOrderId(10L).workOrderId(30L)
                         .routeProcessId(101L).processId(1L).eventId(404L)
                         .allocatedQuantity(BigDecimal.valueOf(100)).build()));
-        when(taskMapper.selectListByActiveOrderIdForUpdate(10L)).thenReturn(List.of(task(301L, 101L)));
+        when(taskMapper.selectEffectiveListByActiveOrderIdForUpdate(10L)).thenReturn(List.of(task(301L, 101L)));
         when(eventMapper.selectProductionSubmitsByIdsForUpdate(org.mockito.ArgumentMatchers.anyList())).thenReturn(List.of(
                 productionSubmit(401L, 101L, "{\"materialDetails\":[{\"materialId\":501,\"outputQuantity\":60}]}"),
                 productionSubmit(402L, 101L, "{\"materialDetails\":[{\"materialId\":502,\"outputQuantity\":100}]}")));
@@ -150,7 +162,7 @@ class MesTeamLeaderActiveOrderCompletionProgressPortImplTest {
                         .routeProcessId(101L).processId(1L).eventId(401L).allocatedQuantity(BigDecimal.TEN).build(),
                 MesProcessPoolReportAllocationDO.builder().id(202L).activeOrderId(10L).workOrderId(30L)
                         .routeProcessId(102L).processId(1L).eventId(402L).allocatedQuantity(BigDecimal.TEN).build()));
-        when(taskMapper.selectListByActiveOrderIdForUpdate(10L)).thenReturn(List.of(
+        when(taskMapper.selectEffectiveListByActiveOrderIdForUpdate(10L)).thenReturn(List.of(
                 task(301L, 101L), task(302L, 999L).setQaProcessId(null)));
         when(eventMapper.selectProductionSubmitsByIdsForUpdate(org.mockito.ArgumentMatchers.anyList())).thenReturn(List.of(
                 productionSubmit(401L, 101L, "{\"materialDetails\":[{\"materialId\":501,\"outputQuantity\":10}]}"),
@@ -167,7 +179,7 @@ class MesTeamLeaderActiveOrderCompletionProgressPortImplTest {
                 MesProcessPoolReportAllocationDO.builder().id(201L).activeOrderId(10L).workOrderId(30L)
                         .routeProcessId(101L).processId(1L).eventId(401L)
                         .allocatedQuantity(BigDecimal.valueOf(60)).build()));
-        when(taskMapper.selectListByActiveOrderIdForUpdate(10L)).thenReturn(List.of(task(301L, 101L)));
+        when(taskMapper.selectEffectiveListByActiveOrderIdForUpdate(10L)).thenReturn(List.of(task(301L, 101L)));
         var source = productionSubmit(401L, 101L,
                 "{\"materialDetails\":[{\"materialId\":501,\"outputQuantity\":100}]}").setWorkOrderId(29L);
         org.mockito.Mockito.lenient().when(eventMapper.selectProductionSubmitsByIdsForUpdate(List.of(401L)))
@@ -191,7 +203,7 @@ class MesTeamLeaderActiveOrderCompletionProgressPortImplTest {
         when(allocationMapper.selectListByActiveOrderIdForUpdate(10L)).thenReturn(List.of());
         var tasks = java.util.stream.IntStream.range(0, 21)
                 .mapToObj(i -> task(300L + i, 900L + i / 3)).toList();
-        when(taskMapper.selectListByActiveOrderIdForUpdate(10L)).thenReturn(tasks);
+        when(taskMapper.selectEffectiveListByActiveOrderIdForUpdate(10L)).thenReturn(tasks);
         tasks.get(20).setTaskStatus("SUBMITTED");
         var incomplete = port.read(20L, order());
         org.junit.jupiter.api.Assertions.assertTrue(incomplete.getInspectionProgressPercent().compareTo(BigDecimal.valueOf(100)) < 0);

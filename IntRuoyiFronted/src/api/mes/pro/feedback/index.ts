@@ -98,7 +98,7 @@ export interface ProFrontlineSelectedDeviceReqVO {
 }
 
 export type ProFrontlineParameterStatus = 'NORMAL' | 'BELOW_LOWER' | 'ABOVE_UPPER'
-export type FrontlinePqcInspectionRuleKey = 'FIRST' | 'PATROL_AM' | 'PATROL_PM' | 'FINAL'
+export type FrontlinePqcInspectionRuleKey = 'FIRST' | 'PATROL' | 'FINAL'
 export type FrontlinePqcResultType = 'BOOLEAN' | 'NUMERIC' | 'TEXT'
 export type FrontlinePqcTaskStatus = 'PENDING' | 'SUBMITTED' | 'CONFIRMED' | 'CANCELLED'
 export type FrontlinePqcTaskSummaryState =
@@ -313,11 +313,15 @@ export interface FrontlinePqcTaskOptionVO {
   qaItemCode?: string | null
   inspectionRuleKey: FrontlinePqcInspectionRuleKey
   taskStatus: FrontlinePqcTaskStatus
+  cancelReason?: string
+  submittedEventId?: number
+  submittedContentHash?: string
   finalInspectionApplicable?: boolean
   inspectionType: FrontlinePqcInspectionType
   businessDate: string
   shiftCode: string
   roundNo: number
+  createTime: string | number
   plannedInspectionQuantity: number
   ruleSort: number
   inspectionTypeRule: FrontlinePqcInspectionTypeRuleVO
@@ -374,6 +378,7 @@ export interface FrontlinePqcInspectionItemVO {
   equipmentOptions?: FrontlinePqcEquipmentOptionVO[]
   applicableInspectionTypes: FrontlinePqcInspectionType[]
   firstInspectionQuantity?: number
+  finalInspectionQuantity?: number
   patrolInspectionRatio?: number | string
   critical: boolean
   failureRule?: string
@@ -1307,6 +1312,23 @@ export const ProFeedbackApi = {
       ignoreErrorMessage: true
     })
   },
+  createFrontlinePqcPatrolRound: async (data: { activeOrderId: number; expectedPreviousRoundNo: number }) => {
+    return await request.post<number>({
+      url: '/mes/pro/feedback/frontline/device-account/pqc/patrol-round',
+      data,
+      ignoreErrorMessage: true
+    })
+  },
+  cancelFrontlinePqcPatrolRound: async (data: { activeOrderId: number; roundNo: number }) =>
+    request.post<boolean>({ url: '/mes/pro/feedback/frontline/device-account/pqc/patrol-round/cancel', data, ignoreErrorMessage: true }),
+  restoreFrontlinePqcPatrolRound: async (data: { activeOrderId: number; roundNo: number }) =>
+    request.post<boolean>({ url: '/mes/pro/feedback/frontline/device-account/pqc/patrol-round/restore', data, ignoreErrorMessage: true }),
+  createFrontlinePqcFinalInspection: async (activeOrderId: number) =>
+    request.post<boolean>({ url: '/mes/pro/feedback/frontline/device-account/pqc/final-inspection', params: { activeOrderId }, ignoreErrorMessage: true }),
+  correctFrontlinePqcPatrolRound: async (data: {
+    sourceTaskId: number; targetTaskId: number; expectedSubmittedEventId: number;
+    expectedContentHash: string
+  }) => request.post<number>({ url: '/mes/pro/feedback/frontline/device-account/pqc/patrol-round/correct', data, ignoreErrorMessage: true }),
   // 获取 PQC 活跃订单对应 QA 规程工序
   getPqcProcesses: async (activeOrderId: number, actualEmployeeId?: number) => {
     const processes = await request.get<FrontlinePqcProcessResponseVO[]>({

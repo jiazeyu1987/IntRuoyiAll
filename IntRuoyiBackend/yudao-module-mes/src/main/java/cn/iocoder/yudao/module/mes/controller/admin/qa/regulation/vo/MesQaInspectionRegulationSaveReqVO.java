@@ -102,6 +102,7 @@ public class MesQaInspectionRegulationSaveReqVO {
         private String resultType;
         private List<String> applicableInspectionTypes;
         private Integer firstInspectionQuantity;
+        private Integer finalInspectionQuantity;
         private BigDecimal patrolInspectionRatio;
         private Boolean critical;
         private String failureRule;

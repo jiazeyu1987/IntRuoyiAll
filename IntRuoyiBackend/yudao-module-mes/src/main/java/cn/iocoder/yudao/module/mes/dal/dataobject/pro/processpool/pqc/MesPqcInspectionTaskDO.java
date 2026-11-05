@@ -56,6 +56,9 @@ public class MesPqcInspectionTaskDO extends TenantBaseDO {
     private String inspectionItemPlanJson;
     private Integer actualInspectionQuantity;
     private String taskStatus;
+    private String cancelReason;
+    private Long cancelledBy;
+    private java.time.LocalDateTime cancelledAt;
     private String submittedContentHash;
     private Long submittedEventId;
     private Boolean simulated;

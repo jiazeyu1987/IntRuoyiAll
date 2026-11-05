@@ -29,6 +29,8 @@ import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import org.apache.ibatis.builder.MapperBuilderAssistant;
 import org.apache.ibatis.session.Configuration;
 import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.mockito.ArgumentMatchers.isNull;
 import org.mockito.ArgumentCaptor;
 import org.springframework.test.util.ReflectionTestUtils;
 
@@ -49,6 +51,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -411,6 +414,8 @@ class MesProcessPoolPqcInspectionCorrectionServiceTest {
                 new cn.iocoder.yudao.module.signature.service.ElectronicSignatureQueryServiceImpl();
         cn.iocoder.yudao.module.signature.dal.dataobject.ElectronicSignatureRecordDO record;
         final String defect;
+        String requestedAction = "FIELD_CHANGE";
+        String authenticationMethod = "SESSION_PLUS_PASSWORD";
         final cn.iocoder.yudao.module.signature.dal.mysql.ElectronicSignatureRecordMapper mapper =
                 mock(cn.iocoder.yudao.module.signature.dal.mysql.ElectronicSignatureRecordMapper.class);
         final cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesBatchRecordSignatureSubjectAdapter adapter =
@@ -435,6 +440,13 @@ class MesProcessPoolPqcInspectionCorrectionServiceTest {
             ReflectionTestUtils.setField(query, "signatureCreationVerificationService", creation);
             when(mapper.selectById(any(java.io.Serializable.class))).thenAnswer(call ->
                     record != null && java.util.Objects.equals(record.getId(), call.getArgument(0)) ? record : null);
+            org.mockito.Mockito.doAnswer(call -> {
+                requestedAction = "PQC_PATROL_ROUND_CORRECTION";
+                authenticationMethod = "SESSION_CONFIRMATION";
+                return prepare(new cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionFieldAuditSignatureCommand()
+                    .setReasonText(call.getArgument(0)).setSignatureChallengeHash(call.getArgument(1)),
+                    Fixture.signature().setSignatureMode("SESSION_CONFIRMATION").setPasswordVerified(false));
+            }).when(fixture.signatureService).recordPqcPatrolRoundConfirmation(anyString(), anyString());
             org.mockito.Mockito.doAnswer(call -> prepare(call.getArgument(0), Fixture.signature()))
                     .when(fixture.signatureService).recordFieldChangeSignature(any());
         }
@@ -442,7 +454,7 @@ class MesProcessPoolPqcInspectionCorrectionServiceTest {
         MesProBatchRecordExecutionFieldAuditSignatureResult prepare(
                 cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionFieldAuditSignatureCommand input,
                 MesProBatchRecordExecutionFieldAuditSignatureResult result) {
-                String action = "action".equals(defect) ? "APPROVE" : "FIELD_CHANGE";
+                String action = "action".equals(defect) ? "APPROVE" : requestedAction;
                 String challenge = "source".equals(defect) ? "f".repeat(64) : input.getSignatureChallengeHash();
                 String subject = cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesBatchRecordSignatureSubjectAdapter
                         .encodeSubjectId(0L, action, null, null, null, null, null, null, null,
@@ -457,7 +469,7 @@ class MesProcessPoolPqcInspectionCorrectionServiceTest {
                         .id(result.getSignatureId()).moduleCode("MES").actionCode(action).subjectType("MES_BATCH_RECORD")
                         .subjectId(subject).subjectVersion(version).actorId(actor).meaningCode(definition.meaningCode())
                         .meaningLabel(definition.meaningLabel()).reason(input.getReasonText()).signedAt(result.getSignedAt())
-                        .timeEvidenceId("SERVER_CLOCK:" + result.getSignedAt()).authenticationMethod("SESSION_PLUS_PASSWORD")
+                        .timeEvidenceId("SERVER_CLOCK:" + result.getSignedAt()).authenticationMethod(authenticationMethod)
                         .canonicalContentJson(canonical).contentHash(cn.hutool.crypto.digest.DigestUtil.sha256Hex(canonical))
                         .algorithm("SHA-256").keyVersion("system-local-v1").policyVersion(definition.policyVersion())
                         .verificationStatus("VALID").idempotencyKey("pqc-correction-fixture:" + result.getSignatureId()).build();
@@ -465,7 +477,7 @@ class MesProcessPoolPqcInspectionCorrectionServiceTest {
                 record.setEvidenceHash(cn.hutool.crypto.digest.DigestUtil.sha256Hex(String.join("|",
                         "1", String.valueOf(actor), "MES", action, "MES_BATCH_RECORD", subject, version,
                         record.getMeaningCode(), record.getMeaningLabel(), record.getReason(), result.getSignedAt().toString(),
-                        record.getTimeEvidenceId(), "SESSION_PLUS_PASSWORD", record.getContentHash(),
+                        record.getTimeEvidenceId(), authenticationMethod, record.getContentHash(),
                         "", "", "", "", "", "SHA-256", "system-local-v1", record.getPolicyVersion(), "VALID")));
                 assertEquals("VALID", query.verifyEvidence(result.getSignatureId()).verificationStatus());
                 if ("tenant".equals(defect)) record.setTenantId(2L);
@@ -715,6 +727,7 @@ class MesProcessPoolPqcInspectionCorrectionServiceTest {
             Fixture fixture, cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService audit,
             FormalSignatureFixture signatures) {
         var context = new org.springframework.context.annotation.AnnotationConfigApplicationContext();
+        context.registerBean("permissionApi", cn.iocoder.yudao.module.system.api.permission.PermissionApi.class, () -> mock(cn.iocoder.yudao.module.system.api.permission.PermissionApi.class));
         context.registerBean("baselineGuard", MesCorrectionBaselineGuard.class, () -> mock(MesCorrectionBaselineGuard.class));
         context.registerBean("gxpAuditService",
                 cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService.class, () -> audit);
@@ -1353,6 +1366,80 @@ class MesProcessPoolPqcInspectionCorrectionServiceTest {
 
     private static BigDecimal decimal(String value) {
         return new BigDecimal(value);
+    }
+
+    @Test
+    void movesSubmittedRoundWithButtonConfirmationAndRetainsOriginalEvidence() {
+        Fixture f = new Fixture("BOOLEAN", null, null, null);
+        var target = preparePatrolTarget(f);
+        var original = f.eventMapper.selectById(Fixture.EVENT_ID);
+        var submittedAt = LocalDateTime.of(2026, 11, 4, 9, 30);
+        original.setCreateTime(submittedAt);
+        when(f.eventMapper.updateById(any(MesProProcessPoolEventDO.class))).thenReturn(1);
+        when(f.pieceDetailMapper.updateById(any(MesPqcInspectionPieceDetailDO.class))).thenReturn(1);
+        when(f.taskMapper.update(isNull(), any(com.baomidou.mybatisplus.core.conditions.Wrapper.class))).thenReturn(1);
+        assertEquals(701L, f.service.correctPatrolRound(Fixture.ACTOR_ID, patrolRequest()));
+        ArgumentCaptor<MesProcessPoolEventRevisionUpdateReqBO> revision = ArgumentCaptor.forClass(MesProcessPoolEventRevisionUpdateReqBO.class);
+        verify(f.revisionService).updatePqcInspectionRecord(revision.capture());
+        var payload = JsonUtils.parseTree(revision.getValue().getAfterPayload());
+        assertEquals(4, payload.path("roundNo").asInt());
+        assertEquals(5102L, payload.path("pqcTaskId").asLong());
+        assertEquals("确认将第 3 轮巡检工序移至第 4 轮", revision.getValue().getChangeReason());
+        assertEquals(9102L, revision.getValue().getRevisionSignatureId());
+        ArgumentCaptor<MesProProcessPoolEventDO> event = ArgumentCaptor.forClass(MesProProcessPoolEventDO.class);
+        verify(f.eventMapper).updateById(event.capture());
+        assertEquals("pqc-task-5102", event.getValue().getEventIdempotencyKey());
+        assertNull(event.getValue().getCreateTime());
+        assertEquals(submittedAt, original.getCreateTime());
+        ArgumentCaptor<MesPqcInspectionPieceDetailDO> detail = ArgumentCaptor.forClass(MesPqcInspectionPieceDetailDO.class);
+        verify(f.pieceDetailMapper).updateById(detail.capture());
+        assertEquals(7101L, detail.getValue().getId());
+        assertEquals(target.getId(), detail.getValue().getTaskId());
+        assertNull(detail.getValue().getMeasuredValue());
+        verify(f.pieceDetailMapper, never()).deleteByTaskId(any());
+        verify(f.signatureService).recordPqcPatrolRoundConfirmation(anyString(), anyString());
+    }
+
+    @Test
+    void roundCorrectionRejectsOccupiedTargetAndStaleSourceBeforeSigning() {
+        Fixture f = new Fixture("BOOLEAN", null, null, null);
+        var target = preparePatrolTarget(f);
+        target.setTaskStatus("SUBMITTED");
+        assertThrows(ServiceException.class, () -> f.service.correctPatrolRound(Fixture.ACTOR_ID, patrolRequest()));
+        target.setTaskStatus("PENDING");
+        f.taskMapper.selectById(Fixture.TASK_ID).setSubmittedContentHash("newer-version");
+        assertThrows(ServiceException.class, () -> f.service.correctPatrolRound(Fixture.ACTOR_ID, patrolRequest()));
+        verify(f.signatureService, never()).recordPqcPatrolRoundConfirmation(anyString(), anyString());
+    }
+
+    @Test
+    void reviewedRoundRequiresLeaderEvenForOriginalSubmitter() {
+        Fixture f = new Fixture("BOOLEAN", null, null, null);
+        preparePatrolTarget(f); f.setupConfirmedReview();
+        ReflectionTestUtils.setField(f.service, "permissionApi", mock(cn.iocoder.yudao.module.system.api.permission.PermissionApi.class));
+        assertThrows(ServiceException.class, () -> f.service.correctPatrolRound(Fixture.ACTOR_ID, patrolRequest()));
+        verify(f.signatureService, never()).recordPqcPatrolRoundConfirmation(anyString(), anyString());
+    }
+
+    private static MesPqcInspectionTaskDO preparePatrolTarget(Fixture f) {
+        TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new com.baomidou.mybatisplus.core.MybatisConfiguration(), "patrol-correction-test"), MesPqcInspectionTaskDO.class);
+        var source = f.taskMapper.selectById(Fixture.TASK_ID);
+        source.setInspectionType("PATROL").setRoundNo(3).setRegulationVersionId(100L).setSubmittedContentHash("original-hash");
+        f.eventMapper.selectById(Fixture.EVENT_ID).setActualEmployeeId(Fixture.ACTOR_ID);
+        var target = MesPqcInspectionTaskDO.builder().id(5102L).activeOrderId(5001L).workOrderId(1001L)
+            .qaProcessId(6001L).regulationVersionId(100L).inspectionType("PATROL").roundNo(4).taskStatus("PENDING")
+            .businessDate(java.time.LocalDate.of(2026,11,4)).inspectionItemPlanJson("{\"QA-001\":1}").plannedInspectionQuantity(1).build();
+        target.setTenantId(1L);
+        when(f.taskMapper.selectListByActiveOrderIdForUpdate(5001L)).thenReturn(List.of(source,target));
+        when(f.taskMapper.selectByIdForUpdate(5102L)).thenReturn(target);
+        return target;
+    }
+
+    private static cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.vo.frontline.MesFrontlinePqcCorrectRoundReqVO patrolRequest() {
+        var req = new cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.vo.frontline.MesFrontlinePqcCorrectRoundReqVO();
+        req.setSourceTaskId(Fixture.TASK_ID); req.setTargetTaskId(5102L); req.setExpectedSubmittedEventId(Fixture.EVENT_ID);
+        req.setExpectedContentHash("original-hash");
+        return req;
     }
 
     private static final class Fixture {
