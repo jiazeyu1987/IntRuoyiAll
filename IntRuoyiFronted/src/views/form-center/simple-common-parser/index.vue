@@ -248,20 +248,15 @@
                 /></el-form-item>
                 <el-form-item
                   v-if="item.applicableInspectionTypes.includes('PATROL')"
-                  label="系统巡检抽样比例（%）"
-                  ><el-input-number
-                    v-model="item.patrolInspectionRatio"
-                    data-issue-field="patrolInspectionRatio"
-                    :min="0.0001"
-                    :max="100"
-                /></el-form-item>
+                  label="巡检检验水平 / AQL"
+                  ><SamplingRuleEditor v-model:inspection-level="item.inspectionLevel" v-model:aql="item.aql" /></el-form-item>
               </div>
               <p
                 v-if="
                   item.applicableInspectionTypes.includes('PATROL') &&
                   /AQL/i.test(item.samplingPlanText)
                 "
-                >{{ AQL_PATROL_RATIO_RULE }}</p
+                >{{ MATRIX_SAMPLING_RULE }}</p
               >
               <el-form-item label="检验器具及设备要求"
                 ><el-input v-model="item.inspectionTool" data-issue-field="inspectionTool"
@@ -377,12 +372,12 @@
               ><p v-if="i.failureRule">不合格处理：{{ i.failureRule }}</p
               ><p
                 >抽样：{{ i.samplingPlanText }}；首检
-                {{ i.firstInspectionQuantity ?? '不适用' }} 件；巡检 {{ formatPatrolRatio(i) }}</p
+                {{ i.firstInspectionQuantity ?? '不适用' }} 件；巡检 {{ formatInspectionLevel(i) }}</p
               ><p
                 v-if="
                   i.applicableInspectionTypes.includes('PATROL') && /AQL/i.test(i.samplingPlanText)
                 "
-                >{{ AQL_PATROL_RATIO_RULE }}</p
+                >{{ MATRIX_SAMPLING_RULE }}</p
               ><p
                 >设备：{{
                   i.equipmentOptions
@@ -416,6 +411,7 @@
 </template>
 
 <script setup lang="ts">
+import SamplingRuleEditor from '@/views/mes/qc/template/SamplingRuleEditor.vue'
 import { computed, nextTick, ref } from 'vue'
 import Draggable from 'vuedraggable'
 import { useParserEditing } from '../parser/useParserEditing'
@@ -428,7 +424,7 @@ import ParserRegulationResult from '../parser/components/ParserRegulationResult.
 import type { UploadFile } from 'element-plus'
 import { SimpleCommonParserApi } from '@/api/mes/qc/template/simpleCommonParser'
 import { QcTemplateApi, type QaInspectionRegulationPublishedVersionVO } from '@/api/mes/qc/template'
-import { AQL_PATROL_RATIO_RULE, nextVersion, formatPatrolRatio } from '../parser/simplePqc'
+import { MATRIX_SAMPLING_RULE, nextVersion, formatInspectionLevel } from '../parser/simplePqc'
 import {
   getProjectCodePage,
   type DccProjectCodeRespVO

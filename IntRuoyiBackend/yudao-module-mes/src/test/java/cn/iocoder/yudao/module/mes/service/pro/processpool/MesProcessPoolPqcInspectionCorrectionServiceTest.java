@@ -39,6 +39,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.atomic.AtomicLong;
@@ -1429,6 +1430,10 @@ class MesProcessPoolPqcInspectionCorrectionServiceTest {
         var target = MesPqcInspectionTaskDO.builder().id(5102L).activeOrderId(5001L).workOrderId(1001L)
             .qaProcessId(6001L).regulationVersionId(100L).inspectionType("PATROL").roundNo(4).taskStatus("PENDING")
             .businessDate(java.time.LocalDate.of(2026,11,4)).inspectionItemPlanJson("{\"QA-001\":1}").plannedInspectionQuantity(1).build();
+        var sampling = JsonUtils.toJsonString(Map.of("QA-001",
+                cn.iocoder.yudao.module.mes.service.qc.sampling.MesQcSamplingPlan.calculate(BigDecimal.ONE, "I")));
+        source.setInspectionSamplingPlanJson(sampling);
+        target.setInspectionSamplingPlanJson(sampling);
         target.setTenantId(1L);
         when(f.taskMapper.selectListByActiveOrderIdForUpdate(5001L)).thenReturn(List.of(source,target));
         when(f.taskMapper.selectByIdForUpdate(5102L)).thenReturn(target);

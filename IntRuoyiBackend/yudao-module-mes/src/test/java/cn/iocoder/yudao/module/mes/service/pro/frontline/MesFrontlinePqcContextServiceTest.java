@@ -1098,7 +1098,7 @@ class MesFrontlinePqcContextServiceTest {
         assertEquals("ID-001", item.getItemCode());
         assertEquals(List.of("FIRST", "PATROL", "FINAL"), item.getApplicableInspectionTypes());
         assertEquals(5, item.getFirstInspectionQuantity());
-        assertEquals(new BigDecimal("25.00"), item.getPatrolInspectionRatio());
+        assertEquals(new BigDecimal("25.00"), item.getAql());
         assertEquals(true, item.getCritical());
         assertEquals("任一件不合格即失败", item.getFailureRule());
         assertEquals("QA 发布来源", item.getSourceNote());
@@ -1338,7 +1338,7 @@ class MesFrontlinePqcContextServiceTest {
                 .resultType("BOOLEAN")
                 .applicableInspectionTypes(applicableInspectionTypes)
                 .firstInspectionQuantity(applicableInspectionTypes.contains("FIRST") ? 5 : null)
-                .patrolInspectionRatio(applicableInspectionTypes.contains("PATROL") ? new BigDecimal("25.00") : null)
+                .inspectionLevel("I").aql(applicableInspectionTypes.contains("PATROL") ? new BigDecimal("25.00") : null)
                 .critical(true)
                 .failureRule("任一件不合格即失败")
                 .sourceNote("QA 发布来源")

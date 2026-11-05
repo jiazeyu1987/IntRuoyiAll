@@ -62,7 +62,7 @@ const draft = {
           resultType: 'NUMERIC',
           applicableInspectionTypes: ['FIRST', 'PATROL', 'FINAL'],
           firstInspectionQuantity: 2,
-          patrolInspectionRatio: 12.5,
+          inspectionLevel: 'S3', aql: 0.4,
           standardLowerLimit: 0,
           standardUpperLimit: 10,
           standardUnit: 'MPa',
@@ -110,7 +110,7 @@ test('exported DOCX restores all edited fields, order, provenance and equipment 
   const xml = zip.file('word/document.xml').asText()
   assert.match(xml, /清洗 &amp; 压力 &lt;检验&gt; 😀/)
   assert.match(xml, /42号 \/ 压力计/)
-  assert.match(xml, /系统巡检抽样比例（%）：12.5/)
+  assert.match(xml, /巡检检验水平：S3/)
   assert.match(xml, /器具未绑定原因：秒表台账未登记，执行前补齐绑定/)
   assert.match(xml, /<w:br\/>/)
   assert.ok(zip.file('[Content_Types].xml'))
@@ -183,6 +183,7 @@ for (const common of [false, true])
       exports: {},
       require: (name) => {
         if (name in imports) return imports[name]
+        if (name === '@/views/mes/qc/template/SamplingRuleEditor.vue') return {}
         throw new Error(name)
       },
       useMessage: () => ({ confirm: async () => {}, error: (message) => errors.push(message) })

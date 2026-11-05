@@ -186,7 +186,7 @@ class MesQaInspectionRegulationServiceTest {
                 result.getProcesses().get(0).getItems().get(0);
         assertEquals(List.of("FIRST", "PATROL_AM", "PATROL_PM", "FINAL"),
                 businessItem.getApplicableInspectionTypes());
-        assertEquals(new BigDecimal("0.400000"), businessItem.getPatrolInspectionRatio());
+        assertEquals(new BigDecimal("0.400000"), businessItem.getAql());
         assertEquals("BOOLEAN", businessItem.getResultType());
     }
 
@@ -1321,7 +1321,7 @@ class MesQaInspectionRegulationServiceTest {
                 .standardText("表面清洁")
                 .resultType("BOOLEAN")
                 .firstInspectionQuantity(quantity)
-                .patrolInspectionRatio(patrolRatio)
+                .inspectionLevel("I").aql(patrolRatio)
                 .critical(false)
                 .build();
     }
@@ -1352,7 +1352,8 @@ class MesQaInspectionRegulationServiceTest {
         item.setResultType("BOOLEAN");
         item.setApplicableInspectionTypes(List.of("FIRST", "PATROL", "FINAL"));
         item.setFirstInspectionQuantity(5);
-        item.setPatrolInspectionRatio(new BigDecimal("0.400000"));
+        item.setAql(new BigDecimal("0.400000"));
+        item.setInspectionLevel("I");
         item.setCritical(false);
 
         MesQaInspectionRegulationSaveReqVO.InspectionProcess process =

@@ -66,12 +66,25 @@ class MesFrontlinePqcPatrolRoundTest {
         for (var task : tasks) {
             assertEquals("PATROL", task.getInspectionRuleKey()); assertEquals("PATROL", task.getShiftCode());
             assertEquals("PENDING", task.getTaskStatus());
-            assertEquals(Map.of("ratio", 11, "fixed", 5), MesPqcInspectionItemPlan.require(task));
+            assertEquals(Map.of("ratio", 8, "fixed", 5), MesPqcInspectionItemPlan.require(task));
+            assertEquals("D", MesPqcInspectionItemPlan.requireSampling(task).get("ratio").sampleCode());
+            assertEquals("C", MesPqcInspectionItemPlan.requireSampling(task).get("fixed").sampleCode());
             assertNull(task.getRouteProcessId()); assertNull(task.getProcessId());
         }
         var inOrder = inOrder(dependency(MesProcessPoolActiveOrderMapper.class), dependency(MesPqcInspectionTaskMapper.class));
         inOrder.verify(dependency(MesProcessPoolActiveOrderMapper.class)).selectByIdForUpdate(1L);
         inOrder.verify(dependency(MesPqcInspectionTaskMapper.class)).selectListByActiveOrderIdForUpdate(1L);
+    }
+
+    @Test
+    void missingMatrixLevelCannotUseFirstInspectionQuantity() {
+        var process = process(100L, 101L);
+        process.getInspectionItems().get(0).setInspectionLevel(null);
+        process.getInspectionItems().get(0).setFirstInspectionQuantity(12);
+        doReturn(List.of(process)).when(service).buildProcesses(eq(order), anyList());
+        var error = assertThrows(ServiceException.class, () -> service.createPatrolRound(10L, 1L, 0));
+        assertTrue(error.getMessage().contains("检验水平"));
+        assertTrue(tasks.isEmpty());
     }
 
     @Test
@@ -376,9 +389,9 @@ class MesFrontlinePqcPatrolRoundTest {
         var rule = new MesFrontlinePqcProcessRespVO.QaInspectionTypeRule();
         rule.setKey("PATROL"); rule.setRequired(true);
         var ratio = new MesFrontlinePqcProcessRespVO.PqcInspectionItem();
-        ratio.setItemCode("ratio"); ratio.setApplicableInspectionTypes(List.of("PATROL")); ratio.setPatrolInspectionRatio(new BigDecimal("10"));
+        ratio.setItemCode("ratio"); ratio.setApplicableInspectionTypes(List.of("PATROL")); ratio.setInspectionLevel("I");
         var fixed = new MesFrontlinePqcProcessRespVO.PqcInspectionItem();
-        fixed.setItemCode("fixed"); fixed.setApplicableInspectionTypes(List.of("PATROL")); fixed.setFirstInspectionQuantity(5);
+        fixed.setItemCode("fixed"); fixed.setApplicableInspectionTypes(List.of("PATROL")); fixed.setInspectionLevel("S3");
         var process = new MesFrontlinePqcProcessRespVO();
         process.setRegulationVersionId(versionId); process.setQaProcessId(processId); process.setRegulationId(versionId + 1);
         process.setDccProjectCodeId(9L); process.setInspectionTypeRules(List.of(rule)); process.setInspectionItems(List.of(ratio, fixed));

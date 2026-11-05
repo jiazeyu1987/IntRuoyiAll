@@ -424,7 +424,7 @@ class MesTeamLeaderActiveOrderErpPlannedStartTest {
                 .inspectionType(inspectionType)
                 .itemCode(itemCode)
                 .firstInspectionQuantity(fixedQuantity)
-                .patrolInspectionRatio(patrolRatio)
+                .inspectionLevel("I").aql(patrolRatio)
                 .build();
     }
 

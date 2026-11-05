@@ -83,7 +83,7 @@ class MesQaInspectionRegulationWordImportServiceTest {
         assertEquals(List.of("FIRST", "PATROL"),
                 request.getProcesses().get(0).getItems().get(0).getApplicableInspectionTypes());
         assertEquals(new BigDecimal("0.4"),
-                request.getProcesses().get(0).getItems().get(0).getPatrolInspectionRatio());
+                request.getProcesses().get(0).getItems().get(0).getAql());
         assertEquals("首件：5件；GB/T 2828.1，I，AQL=0.4",
                 request.getProcesses().get(0).getItems().get(0).getSamplingPlanText());
         assertTrue(request.getProcesses().get(0).getProcessCode().startsWith("PQC-TEST-001-P"));
@@ -100,7 +100,7 @@ class MesQaInspectionRegulationWordImportServiceTest {
         assertEquals("表面清洁，无异物", request.getProcesses().get(0).getItems().get(0).getStandardText());
         assertEquals(List.of(), request.getProcesses().get(0).getItems().get(0).getEquipmentOptions());
         assertEquals("备注：每班两次；不合格隔离后双倍检验", request.getProcesses().get(0).getItems().get(0).getFailureRule());
-        assertEquals(new BigDecimal("0.4"), request.getProcesses().get(0).getItems().get(0).getPatrolInspectionRatio());
+        assertEquals(new BigDecimal("0.4"), request.getProcesses().get(0).getItems().get(0).getAql());
         assertEquals("首件：5件；GB/T 2828.1，I，AQL=0.4",
                 request.getProcesses().get(0).getItems().get(0).getSamplingPlanText());
         verify(regulationService, never()).saveDraft(any());
@@ -481,7 +481,7 @@ class MesQaInspectionRegulationWordImportServiceTest {
                 LocalDate.of(2026, 8, 17), List.of(
                 new MesQaInspectionRegulationWordParser.ParsedItem(
                         "清洗", "外观", "表面清洁，无异物", "目视检查", "目测",
-                        "首件：5件；GB/T 2828.1，I，AQL=0.4", 5, new BigDecimal("0.4"))),
+                        "首件：5件；GB/T 2828.1，I，AQL=0.4", 5, "I", new BigDecimal("0.4"))),
                 "测试QA模板.docx", "备注：每班两次；不合格隔离后双倍检验");
     }
 
@@ -492,7 +492,7 @@ class MesQaInspectionRegulationWordImportServiceTest {
                 LocalDate.of(2026, 8, 17), List.of(
                 new MesQaInspectionRegulationWordParser.ParsedItem(
                         processName, itemName, "新标准", "目视检查", "目测",
-                        "首件：5件；GB/T 2828.1，I，AQL=0.4", 5, new BigDecimal("0.4"))),
+                        "首件：5件；GB/T 2828.1，I，AQL=0.4", 5, "I", new BigDecimal("0.4"))),
                 "测试QA模板.docx", "");
     }
 
@@ -525,7 +525,7 @@ class MesQaInspectionRegulationWordImportServiceTest {
                         .resultType("NUMERIC")
                         .applicableInspectionTypes(List.of("FIRST", "PATROL", "FINAL"))
                         .firstInspectionQuantity(3)
-                        .patrolInspectionRatio(new BigDecimal("1.0"))
+                        .inspectionLevel("I").aql(new BigDecimal("1.0"))
                         .critical(true)
                         .failureRule("原失败规则")
                         .build();
@@ -637,7 +637,7 @@ class MesQaInspectionRegulationWordImportServiceTest {
                 .resultType("NUMERIC")
                 .applicableInspectionTypes(List.of("FIRST", "PATROL"))
                 .firstInspectionQuantity(3)
-                .patrolInspectionRatio(new BigDecimal("1.0"))
+                .inspectionLevel("I").aql(new BigDecimal("1.0"))
                 .critical(true)
                 .failureRule("原失败规则")
                 .sourceOriginalItem(sourceOriginalItem)

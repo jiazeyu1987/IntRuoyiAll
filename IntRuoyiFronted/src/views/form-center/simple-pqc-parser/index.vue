@@ -231,20 +231,15 @@
                 /></el-form-item>
                 <el-form-item
                   v-if="item.applicableInspectionTypes.includes('PATROL')"
-                  label="系统巡检抽样比例（%）"
-                  ><el-input-number
-                    v-model="item.patrolInspectionRatio"
-                    data-issue-field="patrolInspectionRatio"
-                    :min="0.0001"
-                    :max="100"
-                /></el-form-item>
+                  label="巡检检验水平 / AQL"
+                  ><SamplingRuleEditor v-model:inspection-level="item.inspectionLevel" v-model:aql="item.aql" /></el-form-item>
               </div>
               <p
                 v-if="
                   item.applicableInspectionTypes.includes('PATROL') &&
                   /AQL/i.test(item.samplingPlanText)
                 "
-                >{{ AQL_PATROL_RATIO_RULE }}</p
+                >{{ MATRIX_SAMPLING_RULE }}</p
               >
               <el-form-item label="检验器具及设备要求"
                 ><el-input v-model="item.inspectionTool" data-issue-field="inspectionTool"
@@ -374,12 +369,12 @@
               ><p v-if="i.failureRule">不合格处理：{{ i.failureRule }}</p
               ><p
                 >抽样：{{ i.samplingPlanText }}；首检
-                {{ i.firstInspectionQuantity ?? '不适用' }} 件；巡检 {{ formatPatrolRatio(i) }}</p
+                {{ i.firstInspectionQuantity ?? '不适用' }} 件；巡检 {{ formatInspectionLevel(i) }}</p
               ><p
                 v-if="
                   i.applicableInspectionTypes.includes('PATROL') && /AQL/i.test(i.samplingPlanText)
                 "
-                >{{ AQL_PATROL_RATIO_RULE }}</p
+                >{{ MATRIX_SAMPLING_RULE }}</p
               ><p
                 >设备：{{
                   i.equipmentOptions
@@ -413,6 +408,7 @@
 </template>
 
 <script setup lang="ts">
+import SamplingRuleEditor from '@/views/mes/qc/template/SamplingRuleEditor.vue'
 import { computed, nextTick, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import Draggable from 'vuedraggable'
@@ -438,14 +434,14 @@ import { getTenantId } from '@/utils/auth'
 import { useUserStore } from '@/store/modules/user'
 import { createPqcWord, readPqcWord, pqcWordFilename, pqcWordMime } from '../parser/simplePqcWord'
 import {
-  AQL_PATROL_RATIO_RULE,
+  MATRIX_SAMPLING_RULE,
   EQUIPMENT_UNBOUND_NOTICE,
   isNonSensoryTool,
   makeDraft,
   nextVersion,
   validateDraft,
   differences,
-  formatPatrolRatio,
+  formatInspectionLevel,
   type Draft,
   type DraftIssue
 } from '../parser/simplePqc'
@@ -949,7 +945,7 @@ function translateDifference(text: string) {
     resultType: '结果填写方式',
     applicableInspectionTypes: '适用检验类型',
     firstInspectionQuantity: '首检数量',
-    patrolInspectionRatio: '巡检抽样比例',
+    inspectionLevel: '巡检检验水平',
     standardLowerLimit: '下限',
     standardUpperLimit: '上限',
     standardUnit: '单位',

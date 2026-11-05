@@ -1458,7 +1458,43 @@ class MesTeamLeaderActiveOrderServiceTest {
     }
 
     @Test
-    void shouldRoundPatrolRatioUpForAmAndPmTasks() {
+    void matrixSamplingFreezesMixedLevelsForBothPatrolRounds() {
+        stubWorkOrderExists(confirmedWorkOrder(new BigDecimal("3000")));
+        stubFormalRouteQaContext(1001L, 448L, activeRouteSnapshotJson(2),
+                publishedRegulation(9902L, null, null));
+        when(inspectionRegulationVersionMapper.selectLatestPublishedByRegulationId(9901L))
+                .thenReturn(publishedRegulationVersion(false, "项目不适用末检"));
+        when(inspectionRegulationProcessMapper.selectListByVersionIds(List.of(9902L))).thenReturn(List.of(
+                qaProcess(9902L, 19902L, "QA-P1", "装配", 1)));
+        when(inspectionRegulationItemMapper.selectListByVersionId(9902L)).thenReturn(List.of(
+                pqcItem(9902L, 19902L, "FIRST", 13, null).setItemCode("FIRST-A"),
+                pqcItem(9902L, 19902L, "FIRST", 5, null).setItemCode("FIRST-B"),
+                pqcItem(9902L, 19902L, "PATROL", null, new BigDecimal("0.4"))
+                        .setItemCode("PATROL-I").setInspectionLevel("I"),
+                pqcItem(9902L, 19902L, "PATROL", null, new BigDecimal("0.4"))
+                        .setItemCode("PATROL-S3").setInspectionLevel("S3")));
+        stubSuccessfulActiveOrderInsert();
+        service.addActiveOrder(activeOrderReq());
+        ArgumentCaptor<MesPqcInspectionTaskDO> captor = ArgumentCaptor.forClass(MesPqcInspectionTaskDO.class);
+        verify(pqcInspectionTaskMapper, times(3)).insert(captor.capture());
+        for (var task : captor.getAllValues()) {
+            var plan = cn.iocoder.yudao.module.mes.service.pro.processpool.pqc.MesPqcInspectionItemPlan.require(task);
+            if ("FIRST".equals(task.getInspectionType())) {
+                assertEquals(Map.of("FIRST-A", 13, "FIRST-B", 5), plan);
+            } else {
+                assertEquals(Map.of("PATROL-I", 50, "PATROL-S3", 13), plan);
+                assertEquals(50, task.getPlannedInspectionQuantity());
+                var evidence = cn.iocoder.yudao.module.mes.service.pro.processpool.pqc.MesPqcInspectionItemPlan.requireSampling(task);
+                assertEquals("H", evidence.get("PATROL-I").sampleCode());
+                assertEquals("E", evidence.get("PATROL-S3").sampleCode());
+                assertEquals(3000L, evidence.get("PATROL-I").totalQuantity());
+                assertTrue(Set.of("PATROL_AM", "PATROL_PM").contains(task.getInspectionRuleKey()));
+            }
+        }
+    }
+
+    @Test
+    void shouldUseMatrixForAmAndPmTasks() {
         stubWorkOrderExists(confirmedWorkOrder(new BigDecimal("301")));
         stubFormalRouteQaContext(1001L, 448L, activeRouteSnapshotJson(2),
                 publishedRegulation(9902L, null, null));
@@ -1468,13 +1504,22 @@ class MesTeamLeaderActiveOrderServiceTest {
 
         ArgumentCaptor<MesPqcInspectionTaskDO> taskCaptor =
                 ArgumentCaptor.forClass(MesPqcInspectionTaskDO.class);
-        verify(pqcInspectionTaskMapper, times(8)).insert(taskCaptor.capture());
+        verify(pqcInspectionTaskMapper, times(4)).insert(taskCaptor.capture());
         List<MesPqcInspectionTaskDO> tasks = taskCaptor.getAllValues();
         LocalDate expectedBusinessDate = LocalDate.now();
-        assertPqcTask(pqcTaskByIdentity(tasks, 928601L, "PATROL_AM"), 928601L, 6001L, "PATROL", "PATROL_AM", "AM", 16, expectedBusinessDate);
-        assertPqcTask(pqcTaskByIdentity(tasks, 928601L, "PATROL_PM"), 928601L, 6001L, "PATROL", "PATROL_PM", "PM", 16, expectedBusinessDate);
-        assertPqcTask(pqcTaskByIdentity(tasks, 928602L, "PATROL_AM"), 928602L, 6002L, "PATROL", "PATROL_AM", "AM", 16, expectedBusinessDate);
-        assertPqcTask(pqcTaskByIdentity(tasks, 928602L, "PATROL_PM"), 928602L, 6002L, "PATROL", "PATROL_PM", "PM", 16, expectedBusinessDate);
+        List<MesPqcInspectionTaskDO> patrolTasks = tasks.stream()
+                .filter(task -> "PATROL".equals(task.getInspectionType())).toList();
+        assertEquals(2, patrolTasks.size());
+        assertEquals(Set.of("PATROL_AM", "PATROL_PM"), patrolTasks.stream()
+                .map(MesPqcInspectionTaskDO::getInspectionRuleKey).collect(java.util.stream.Collectors.toSet()));
+        for (var task : patrolTasks) {
+            assertNull(task.getRouteProcessId());
+            assertNull(task.getProcessId());
+            assertEquals(expectedBusinessDate, task.getBusinessDate());
+            assertEquals(20, task.getPlannedInspectionQuantity());
+            assertEquals(Map.of("PATROL-001", 20),
+                    cn.iocoder.yudao.module.mes.service.pro.processpool.pqc.MesPqcInspectionItemPlan.require(task));
+        }
     }
 
     @Test
@@ -1511,7 +1556,7 @@ class MesTeamLeaderActiveOrderServiceTest {
                 assertEquals(Map.of("FIRST-A", 2, "FIRST-B", 5), plan);
                 assertEquals(5, task.getPlannedInspectionQuantity());
             } else {
-                assertEquals(Map.of("PATROL-001", 10), plan);
+                assertEquals(Map.of("PATROL-001", 13), plan);
             }
         }
     }
@@ -1542,9 +1587,9 @@ class MesTeamLeaderActiveOrderServiceTest {
                 .collect(java.util.stream.Collectors.groupingBy(MesPqcInspectionTaskDO::getQaProcessId,
                         java.util.stream.Collectors.toMap(MesPqcInspectionTaskDO::getInspectionRuleKey,
                                 MesPqcInspectionTaskDO::getPlannedInspectionQuantity)));
-        assertEquals(Map.of("FIRST", 2, "PATROL_AM", 10, "PATROL_PM", 10),
+        assertEquals(Map.of("FIRST", 2, "PATROL_AM", 13, "PATROL_PM", 13),
                 quantitiesByProcess.get(19902L));
-        assertEquals(Map.of("FIRST", 7, "PATROL_AM", 25, "PATROL_PM", 25),
+        assertEquals(Map.of("FIRST", 7, "PATROL_AM", 13, "PATROL_PM", 13),
                 quantitiesByProcess.get(19903L));
         assertTrue(taskCaptor.getAllValues().stream()
                 .noneMatch(task -> "FINAL".equals(task.getInspectionRuleKey())));
@@ -3855,7 +3900,7 @@ class MesTeamLeaderActiveOrderServiceTest {
                 .standardText("符合规程")
                 .resultType("BOOLEAN")
                 .firstInspectionQuantity(fixedQuantity)
-                .patrolInspectionRatio(patrolRatio)
+                .inspectionLevel("PATROL".equals(inspectionType) ? "I" : null).aql(patrolRatio)
                 .build();
     }
 

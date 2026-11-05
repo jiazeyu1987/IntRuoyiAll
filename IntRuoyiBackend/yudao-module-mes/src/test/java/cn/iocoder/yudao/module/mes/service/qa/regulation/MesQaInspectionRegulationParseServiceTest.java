@@ -59,7 +59,7 @@ class MesQaInspectionRegulationParseServiceTest {
         assertEquals("目测", appearance.getInspectionTool());
         assertTrue(appearance.getStandardText().contains("表面应清洁"));
         assertTrue(appearance.getInspectionMethod().contains("300~700lx"));
-        assertEquals(new BigDecimal("0.4"), appearance.getPatrolInspectionRatio());
+        assertEquals(new BigDecimal("0.4"), appearance.getAql());
         assertTrue(appearance.getSamplingPlanText().contains("AQL=0.4"));
         assertTrue(appearance.getApplicableInspectionTypes().contains("PATROL"));
     }
@@ -86,7 +86,7 @@ class MesQaInspectionRegulationParseServiceTest {
                 .sum();
         assertEquals(22, itemCount);
         assertTrue(result.getProcesses().stream().flatMap(p -> p.getItems().stream())
-                .allMatch(item -> new BigDecimal("0.4").equals(item.getPatrolInspectionRatio())
+                .allMatch(item -> new BigDecimal("0.4").equals(item.getAql())
                         && item.getSamplingPlanText().contains("AQL=0.4")
                         && item.getApplicableInspectionTypes().contains("PATROL")));
         assertTrue(result.getRuleSourceText().contains("每一个检验项目均应合格"));

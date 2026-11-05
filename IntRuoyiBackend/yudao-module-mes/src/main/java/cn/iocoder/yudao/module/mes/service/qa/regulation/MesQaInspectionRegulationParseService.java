@@ -71,7 +71,8 @@ public class MesQaInspectionRegulationParseService {
                     .resultType("BOOLEAN")
                     .applicableInspectionTypes(List.copyOf(applicableInspectionTypes))
                     .firstInspectionQuantity(parsedItem.firstInspectionQuantity())
-                    .patrolInspectionRatio(parsedItem.patrolInspectionRatio())
+                    .inspectionLevel(parsedItem.inspectionLevel())
+                    .aql(parsedItem.aql())
                     .build());
         }
 

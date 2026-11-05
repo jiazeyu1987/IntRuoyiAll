@@ -222,6 +222,13 @@
             <article class="frontline-pqc-fact-dialog__detail" data-pqc-sampling-plan-text>
               <span>抽样方案</span>
               <p>{{ activePqcFactsItem.samplingPlanText }}</p>
+              <p v-if="activePqcFactsItem.samplingEvidence">
+                批量 {{ activePqcFactsItem.samplingEvidence.totalQuantity }}；
+                检验水平 {{ activePqcFactsItem.samplingEvidence.inspectionLevel }}；
+                字码 {{ activePqcFactsItem.samplingEvidence.sampleCode ?? '不适用（1件全检）' }}；
+                应检 {{ activePqcFactsItem.samplingEvidence.inspectionQuantity }} 件
+                {{ activePqcFactsItem.samplingEvidence.fullInspection ? '（全检）' : '' }}
+              </p>
             </article>
             <article class="frontline-pqc-fact-dialog__detail is-equipment" data-pqc-method-equipment-text>
               <span>检验器具及设备</span>
@@ -390,12 +397,14 @@
               <button
                 type="button"
                 aria-label="检验减少"
+                disabled
                 @click="adjustPqcQuantity('inspectionQuantity', -1)"
               >
                 -
               </button>
               <input
                 id="frontlinePqcInspectionQuantity"
+                readonly
                 :value="pqcDraft.inspectionQuantity ?? ''"
                 type="number"
                 min="0"
@@ -407,6 +416,7 @@
               <button
                 type="button"
                 aria-label="检验增加"
+                disabled
                 @click="adjustPqcQuantity('inspectionQuantity', 1)"
               >
                 +
@@ -1734,6 +1744,7 @@ interface PqcInspectionItem {
   standardText: string
   inspectionTool: string | null
   samplingPlanText: string | null
+  samplingEvidence?: FrontlinePqcInspectionItemVO['samplingEvidence']
   resultType: FrontlinePqcResultType
   standardLowerLimit?: number | string
   standardUpperLimit?: number | string
@@ -2261,6 +2272,7 @@ const mapPqcInspectionItem = (item: FrontlinePqcInspectionItemVO): PqcInspection
     standardText: item.standardText || '',
     inspectionTool: item.inspectionTool,
     samplingPlanText: item.samplingPlanText,
+    samplingEvidence: item.samplingEvidence,
     resultType: item.resultType,
     standardLowerLimit: item.standardLowerLimit,
     standardUpperLimit: item.standardUpperLimit,

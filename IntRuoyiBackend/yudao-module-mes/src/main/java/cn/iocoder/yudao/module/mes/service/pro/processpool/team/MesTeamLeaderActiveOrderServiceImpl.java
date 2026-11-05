@@ -1,5 +1,6 @@
 package cn.iocoder.yudao.module.mes.service.pro.processpool.team;
 
+import cn.iocoder.yudao.module.mes.service.qc.sampling.MesQcSamplingPlan;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_ACTIVE_ORDER_COMPLETION_EVIDENCE_LOCKED;
 
 import cn.hutool.core.util.IdUtil;
@@ -877,46 +878,14 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
 
     private String validatePatrolInspectionQuantity(BigDecimal plannedQuantity,
                                                      List<MesQaInspectionRegulationItemDO> items) {
-        BigDecimal ratio = null;
-        Integer fixedQuantity = null;
-        for (MesQaInspectionRegulationItemDO item : items) {
-            if (!Objects.equals(INSPECTION_TYPE_PATROL, normalizeInspectionType(item.getInspectionType()))) {
-                continue;
+        try {
+            for (var item : items) {
+                MesQcSamplingPlan.calculate(plannedQuantity, item.getInspectionLevel());
             }
-            if (positive(item.getPatrolInspectionRatio())) {
-                if (fixedQuantity != null) {
-                    return "巡检规则同时存在固定数量和比例";
-                }
-                if (ratio != null && ratio.compareTo(item.getPatrolInspectionRatio()) != 0) {
-                    return "同一巡检规则存在不同比例";
-                }
-                ratio = item.getPatrolInspectionRatio();
-                continue;
-            }
-            Integer itemQuantity = item.getFirstInspectionQuantity();
-            if (itemQuantity == null || itemQuantity <= 0) {
-                return "巡检数量规则无效";
-            }
-            if (ratio != null) {
-                return "巡检规则同时存在固定数量和比例";
-            }
-            if (fixedQuantity != null && !Objects.equals(fixedQuantity, itemQuantity)) {
-                return "同一巡检规则存在不同固定数量";
-            }
-            fixedQuantity = itemQuantity;
+            return items.isEmpty() ? "缺少巡检规则" : null;
+        } catch (IllegalArgumentException ex) {
+            return ex.getMessage();
         }
-        if (ratio != null) {
-            if (plannedQuantity == null || plannedQuantity.compareTo(BigDecimal.ZERO) < 0) {
-                return "订单计划数量无效";
-            }
-            try {
-                calculatePatrolInspectionQuantity(plannedQuantity, ratio);
-            } catch (ArithmeticException ex) {
-                return "巡检计划数量超出整数范围";
-            }
-            return null;
-        }
-        return fixedQuantity == null ? "缺少巡检规则" : null;
     }
 
     private CandidateEligibility blockedCandidate(String reason) {
@@ -4193,11 +4162,16 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
                         continue;
                     }
                     Map<String, Integer> itemQuantities = new LinkedHashMap<>();
+                    Map<String, MesQcSamplingPlan.Evidence> samplingEvidence = new LinkedHashMap<>();
                     for (MesQaInspectionRegulationItemDO item : processItems) {
                         if (!Objects.equals(rule.inspectionType(), normalizeInspectionType(item.getInspectionType()))) {
                             continue;
                         }
                         String itemCode = requireQaItemCode(activeOrder, qaProcess, item);
+                        if (Objects.equals(INSPECTION_TYPE_PATROL, rule.inspectionType())) {
+                            samplingEvidence.put(itemCode, MesQcSamplingPlan.calculate(
+                                    activeOrder.getErpFixedQuantitySnapshot(), item.getInspectionLevel()));
+                        }
                         if (itemQuantities.putIfAbsent(itemCode,
                                 resolveInspectionQuantity(activeOrder, List.of(item), rule.inspectionType())) != null) {
                             throw exception(PRO_PQC_INSPECTION_TASK_GENERATION_BLOCKED,
@@ -4208,7 +4182,8 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
                             .mapToInt(Integer::intValue).max().orElseThrow();
                     addPlannedPqcTask(activeOrder, plans,
                             new PlannedPqcTask(source.regulation(), source.version(), qaProcess, "", rule,
-                                    plannedQuantity, MesPqcInspectionItemPlan.encode(itemQuantities)));
+                                    plannedQuantity, MesPqcInspectionItemPlan.encode(itemQuantities),
+                                    JsonUtils.toJsonString(samplingEvidence)));
                 }
             }
         }
@@ -4258,6 +4233,7 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
                     plan.version(), plan.qaItemCode(), plan.rule().inspectionType(), plan.rule().ruleKey(),
                     businessDate, plan.rule().shiftCode(), plan.plannedQuantity());
             task.setInspectionItemPlanJson(plan.inspectionItemPlanJson());
+            task.setInspectionSamplingPlanJson(plan.inspectionSamplingPlanJson());
             insertPqcInspectionTask(task);
             insertedCount++;
         }
@@ -4393,66 +4369,13 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
     private Integer resolvePatrolInspectionQuantity(BigDecimal plannedQuantity,
                                                     List<MesQaInspectionRegulationItemDO> items,
                                                     Long activeOrderId) {
-        BigDecimal ratio = null;
-        Integer fixedQuantity = null;
-        for (MesQaInspectionRegulationItemDO item : items) {
-            if (!Objects.equals(INSPECTION_TYPE_PATROL, normalizeInspectionType(item.getInspectionType()))) {
-                continue;
-            }
-            if (positive(item.getPatrolInspectionRatio())) {
-                if (fixedQuantity != null) {
-                    throw exception(PRO_PQC_INSPECTION_TASK_GENERATION_BLOCKED,
-                            "巡检规则同时存在固定数量和比例，activeOrderId=" + activeOrderId);
-                }
-                if (ratio != null && ratio.compareTo(item.getPatrolInspectionRatio()) != 0) {
-                    throw exception(PRO_PQC_INSPECTION_TASK_GENERATION_BLOCKED,
-                            "同一巡检规则存在不同比例，activeOrderId=" + activeOrderId);
-                }
-                ratio = item.getPatrolInspectionRatio();
-                continue;
-            }
-            Integer itemQuantity = item.getFirstInspectionQuantity();
-            if (itemQuantity == null || itemQuantity <= 0) {
-                throw exception(PRO_PQC_INSPECTION_TASK_GENERATION_BLOCKED,
-                        "巡检数量规则无效，activeOrderId=" + activeOrderId);
-            }
-            if (ratio != null) {
-                throw exception(PRO_PQC_INSPECTION_TASK_GENERATION_BLOCKED,
-                        "巡检规则同时存在固定数量和比例，activeOrderId=" + activeOrderId);
-            }
-            if (fixedQuantity != null && !Objects.equals(fixedQuantity, itemQuantity)) {
-                throw exception(PRO_PQC_INSPECTION_TASK_GENERATION_BLOCKED,
-                        "同一巡检规则存在不同固定数量，activeOrderId=" + activeOrderId);
-            }
-            fixedQuantity = itemQuantity;
-        }
-        if (ratio != null) {
-            return ceilPatrolInspectionQuantity(plannedQuantity, ratio, activeOrderId);
-        }
-        if (fixedQuantity != null) {
-            return fixedQuantity;
-        }
-        throw exception(PRO_PQC_INSPECTION_TASK_GENERATION_BLOCKED,
-                "缺少巡检规则，activeOrderId=" + activeOrderId);
-    }
-
-    private Integer ceilPatrolInspectionQuantity(BigDecimal plannedQuantity, BigDecimal ratio, Long activeOrderId) {
-        if (plannedQuantity == null || plannedQuantity.compareTo(BigDecimal.ZERO) < 0) {
-            throw exception(PRO_PQC_INSPECTION_TASK_GENERATION_BLOCKED,
-                    "排产工序计划数量无效，activeOrderId=" + activeOrderId);
-        }
+        if (items.size() != 1) throw exception(PRO_PQC_INSPECTION_TASK_GENERATION_BLOCKED,
+                "巡检必须按项目独立计算，activeOrderId=" + activeOrderId);
         try {
-            return calculatePatrolInspectionQuantity(plannedQuantity, ratio);
-        } catch (ArithmeticException ex) {
-            throw exception(PRO_PQC_INSPECTION_TASK_GENERATION_BLOCKED,
-                    "巡检计划数量超出整数范围，activeOrderId=" + activeOrderId);
+            return MesQcSamplingPlan.calculate(plannedQuantity, items.get(0).getInspectionLevel()).inspectionQuantity();
+        } catch (IllegalArgumentException ex) {
+            throw exception(PRO_PQC_INSPECTION_TASK_GENERATION_BLOCKED, ex.getMessage());
         }
-    }
-
-    private static Integer calculatePatrolInspectionQuantity(BigDecimal plannedQuantity, BigDecimal ratio) {
-        return plannedQuantity.multiply(ratio)
-                .divide(BigDecimal.valueOf(100), 0, RoundingMode.CEILING)
-                .intValueExact();
     }
 
     private static boolean positive(BigDecimal value) {
@@ -4822,7 +4745,7 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
                                   MesQaInspectionRegulationProcessDO qaProcess,
                                   String qaItemCode,
                                   PqcInspectionRule rule,
-                                  Integer plannedQuantity, String inspectionItemPlanJson) {
+                                  Integer plannedQuantity, String inspectionItemPlanJson, String inspectionSamplingPlanJson) {
     }
 
     private record PlannedPqcTaskIdentity(Long regulationVersionId,

@@ -999,18 +999,9 @@ v-if="row.finalInspectionEnabled" :model-value="row.finalInspectionQuantity"
                               v-if="row.patrolInspectionEnabled"
                               class="qa-regulation-page__inspection-value"
                             >
-                              <span>AQL</span>
-                              <el-input-number
-                                v-model="row.patrolInspectionRatio"
-                                aria-label="巡检比例"
-                                :min="0.01"
-                                :max="100"
-                                :step="0.1"
-                                :precision="2"
-                                controls-position="right"
-                                :disabled="commonRegulationItemsSaving"
-                              />
-                              <span>%</span>
+
+                              <SamplingRuleEditor v-model:inspection-level="row.inspectionLevel" v-model:aql="row.aql" :disabled="commonRegulationItemsSaving" />
+
                             </div>
                           </div>
                         </template>
@@ -1692,17 +1683,9 @@ v-if="row.finalInspectionEnabled" :model-value="row.finalInspectionQuantity"
                         v-if="row.patrolInspectionEnabled"
                         class="qa-regulation-page__inspection-value"
                       >
-                        <span>AQL</span>
-                        <el-input-number
-                          v-model="row.patrolInspectionRatio"
-                          aria-label="巡检比例"
-                          :min="0.01"
-                          :max="100"
-                          :step="0.1"
-                          :precision="2"
-                          controls-position="right"
-                        />
-                        <span>%</span>
+
+                        <SamplingRuleEditor v-model:inspection-level="row.inspectionLevel" v-model:aql="row.aql" />
+
                       </div>
                     </div>
                   </template>
@@ -2137,6 +2120,7 @@ v-if="row.finalInspectionEnabled" :model-value="row.finalInspectionQuantity"
 </template>
 
 <script setup lang="ts">
+import SamplingRuleEditor from '@/views/mes/qc/template/SamplingRuleEditor.vue'
 import { hasPermission } from '@/directives/permission/hasPermi'
 import { type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
 
@@ -2427,7 +2411,7 @@ const createEmptyQaInspectionTypeRules = (): QaInspectionTypeRule[] => [
     label: '巡检',
     roundLabel: '按实际创建次数编号',
     required: true,
-    taskRule: '按订单数量与项目抽样比例生成任务',
+    taskRule: '按订单批量与项目检验水平查询抽样矩阵生成任务',
     releaseGate: '缺少适用检验项目时不能发布'
   },
   {
@@ -4310,7 +4294,7 @@ const handleQaFirstInspectionEnabledChange = (item: QaRegulationItem) => {
 
 const handleQaPatrolInspectionEnabledChange = (item: QaRegulationItem) => {
   if (!item.patrolInspectionEnabled) {
-    item.patrolInspectionRatio = undefined
+    item.inspectionLevel = undefined
   }
 }
 
@@ -4330,7 +4314,7 @@ const addQaRegulationItem = () => {
     firstInspectionEnabled: false,
     firstInspectionQuantity: undefined,
     patrolInspectionEnabled: false,
-    patrolInspectionRatio: undefined,
+    inspectionLevel: undefined,
     resultType: 'BOOLEAN',
     standardText: '',
     critical: false,
@@ -4384,7 +4368,8 @@ const buildQaRegulationSaveItem = (
     applicableInspectionTypes: inspectionConfiguration.applicableInspectionTypes,
     firstInspectionQuantity: inspectionConfiguration.firstInspectionQuantity,
     finalInspectionQuantity: inspectionConfiguration.finalInspectionQuantity,
-    patrolInspectionRatio: inspectionConfiguration.patrolInspectionRatio,
+    inspectionLevel: inspectionConfiguration.inspectionLevel,
+    aql: inspectionConfiguration.aql,
     critical: item.critical,
     failureRule: item.failureRule.trim() || undefined,
     sourceNote: item.sourceNote.trim() || undefined,
@@ -4470,7 +4455,8 @@ const buildCommonRegulationSaveItem = (
     applicableInspectionTypes: inspectionConfiguration.applicableInspectionTypes,
     firstInspectionQuantity: inspectionConfiguration.firstInspectionQuantity,
     finalInspectionQuantity: inspectionConfiguration.finalInspectionQuantity,
-    patrolInspectionRatio: inspectionConfiguration.patrolInspectionRatio,
+    inspectionLevel: inspectionConfiguration.inspectionLevel,
+    aql: inspectionConfiguration.aql,
     critical: item.critical,
     failureRule: item.failureRule.trim() || undefined,
     sourceNote: item.sourceNoteRaw.trim() || undefined,
@@ -4650,7 +4636,7 @@ const qaRegulationPublishChecks = computed(() => [
       qaRegulationItems.value.every((item) =>
         isQaItemInspectionConfigurationComplete(item, item.finalInspectionEnabled)
       ),
-    detail: '每个检验项目至少启用一种检验类型；启用首检或巡检时必须填写该项目自己的数量或比例'
+    detail: '每个检验项目至少启用一种检验类型；首检需填写固定数量，巡检需选择该项目的检验水平'
   },
   {
     label: '抽样方案原文',

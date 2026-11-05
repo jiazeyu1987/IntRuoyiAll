@@ -1,5 +1,6 @@
 package cn.iocoder.yudao.module.mes.service.qa.regulation;
 
+import cn.iocoder.yudao.module.mes.service.qc.sampling.MesQcSamplingPlan;
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectCodeDO;
@@ -1070,9 +1071,9 @@ public class MesQaInspectionRegulationServiceImpl implements MesQaInspectionRegu
                 .map(MesQaInspectionRegulationItemDO::getFirstInspectionQuantity)
                 .filter(Objects::nonNull)
                 .findFirst().orElse(null);
-        BigDecimal patrolRatio = rows.stream()
+        String inspectionLevel = rows.stream()
                 .filter(item -> isPatrolInspectionType(item.getInspectionType()))
-                .map(MesQaInspectionRegulationItemDO::getPatrolInspectionRatio)
+                .map(MesQaInspectionRegulationItemDO::getInspectionLevel)
                 .filter(Objects::nonNull)
                 .findFirst().orElse(null);
         return MesQaInspectionRegulationPublishedVersionRespVO.InspectionItem.builder()
@@ -1093,7 +1094,9 @@ public class MesQaInspectionRegulationServiceImpl implements MesQaInspectionRegu
                 .firstInspectionQuantity(firstQuantity)
                 .finalInspectionQuantity(rows.stream().filter(item -> "FINAL".equals(item.getInspectionType()))
                         .map(MesQaInspectionRegulationItemDO::getFirstInspectionQuantity).filter(Objects::nonNull).findFirst().orElse(null))
-                .patrolInspectionRatio(patrolRatio)
+                .inspectionLevel(inspectionLevel)
+                .aql(rows.stream().map(MesQaInspectionRegulationItemDO::getAql)
+                        .filter(Objects::nonNull).findFirst().orElse(null))
                 .critical(source.getCritical())
                 .failureRule(source.getFailureRule())
                 .sourceNote(source.getSourceNote())
@@ -1562,9 +1565,15 @@ public class MesQaInspectionRegulationServiceImpl implements MesQaInspectionRegu
                 && (item.getFirstInspectionQuantity() == null || item.getFirstInspectionQuantity() <= 0)) {
             throw exception(QA_INSPECTION_REGULATION_ITEM_INVALID, item.getItemCode() + ".firstInspectionQuantity");
         }
-        if (applicableTypes.stream().anyMatch(MesQaInspectionRegulationServiceImpl::isPatrolInspectionType)
-                && !positive(item.getPatrolInspectionRatio())) {
-            throw exception(QA_INSPECTION_REGULATION_ITEM_INVALID, item.getItemCode() + ".patrolInspectionRatio");
+        if (applicableTypes.stream().anyMatch(MesQaInspectionRegulationServiceImpl::isPatrolInspectionType)) {
+            try {
+                MesQcSamplingPlan.requireLevel(item.getInspectionLevel());
+            } catch (IllegalArgumentException ex) {
+                throw exception(QA_INSPECTION_REGULATION_ITEM_INVALID, item.getItemCode() + ".inspectionLevel");
+            }
+        }
+        if (item.getAql() != null && item.getAql().signum() <= 0) {
+            throw exception(QA_INSPECTION_REGULATION_ITEM_INVALID, item.getItemCode() + ".aql");
         }
         if (Objects.equals(resultType, "NUMERIC")
                 && (item.getStandardLowerLimit() == null || item.getStandardUpperLimit() == null)) {
@@ -1643,8 +1652,9 @@ public class MesQaInspectionRegulationServiceImpl implements MesQaInspectionRegu
                 .equipmentRequired(false)
                 .resultType(StrUtil.trim(item.getResultType()))
                 .firstInspectionQuantity(fixedQuantity)
-                .patrolInspectionRatio(isPatrolInspectionType(inspectionType)
-                        ? item.getPatrolInspectionRatio() : null)
+                .inspectionLevel(isPatrolInspectionType(inspectionType)
+                        ? item.getInspectionLevel() : null)
+                .aql(item.getAql())
                 .critical(item.getCritical())
                 .failureRule(StrUtil.trim(item.getFailureRule()))
                 .sourceNote(StrUtil.trim(item.getSourceNote()))

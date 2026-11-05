@@ -102,7 +102,8 @@ export function createPqcWord(
         ['小数位数', item.standardPrecision],
         ['抽样要求', item.samplingPlanText],
         ['首检数量（件）', item.firstInspectionQuantity],
-        ['系统巡检抽样比例（%）', item.patrolInspectionRatio],
+        ['巡检检验水平', item.inspectionLevel],
+        ['AQL', item.aql],
         ['检验器具及设备要求', item.inspectionTool],
         ['器具未绑定原因', item.equipmentUnboundReason],
         [

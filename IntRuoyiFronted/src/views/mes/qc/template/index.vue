@@ -3,6 +3,7 @@
 
 
   <ContentWrap>
+    <el-button @click="samplingTableRef?.open()">抽样对照表</el-button>
     <UnifiedListTemplate
       @query="handleQuery"
       @reset="resetQuery"
@@ -163,9 +164,12 @@
 
   <!-- 表单弹窗：添加/修改（编辑时含检测指标项和产品关联子表） -->
   <TemplateForm ref="formRef" @success="getList" />
+  <SamplingTableDialog ref="samplingTableRef" />
 </template>
 
 <script setup lang="ts">
+import SamplingTableDialog from './SamplingTableDialog.vue'
+const samplingTableRef = ref<InstanceType<typeof SamplingTableDialog>>()
 import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
 import { getDictOptions as listColumnDictOptions } from '@/utils/dict'
 

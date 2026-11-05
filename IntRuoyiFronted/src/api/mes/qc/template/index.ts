@@ -26,7 +26,8 @@ export interface QaInspectionRegulationParsedItemVO {
   applicableInspectionTypes: Array<'FIRST' | 'PATROL'>
   firstInspectionQuantity?: number
   finalInspectionQuantity?: number
-  patrolInspectionRatio?: number
+  inspectionLevel?: string
+  aql?: number
 }
 
 export interface QaInspectionRegulationParsedProcessVO {
@@ -105,7 +106,8 @@ export interface QaInspectionRegulationItemVO {
   applicableInspectionTypes: Array<'FIRST' | 'PATROL' | 'FINAL'>
   firstInspectionQuantity?: number
   finalInspectionQuantity?: number
-  patrolInspectionRatio?: number
+  inspectionLevel?: string
+  aql?: number
   critical?: boolean
   failureRule?: string
   sourceNote?: string

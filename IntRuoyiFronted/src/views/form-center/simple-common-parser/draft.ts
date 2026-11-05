@@ -1,5 +1,5 @@
 import type { SimpleCommonDraft } from '@/api/mes/qc/template/simpleCommonParser'
-import { patrolRatioIssue } from '../parser/simplePqc'
+import { inspectionLevelIssue } from '../parser/simplePqc'
 
 export interface DraftIssue {
   message: string
@@ -59,8 +59,8 @@ export function validateCommonDraft(draft: SimpleCommonDraft): DraftIssue[] {
         add('请选择检验类型', 'item', 'applicableInspectionTypes')
       if (i.applicableInspectionTypes.includes('FIRST') && !(Number(i.firstInspectionQuantity) > 0))
         add('首检数量必须大于0', 'item', 'firstInspectionQuantity')
-      const samplingIssue = patrolRatioIssue(i)
-      if (samplingIssue) add(samplingIssue, 'item', 'patrolInspectionRatio')
+      const samplingIssue = inspectionLevelIssue(i)
+      if (samplingIssue) add(samplingIssue, 'item', 'inspectionLevel')
       if (
         i.resultType === 'NUMERIC' &&
         (i.standardLowerLimit == null ||

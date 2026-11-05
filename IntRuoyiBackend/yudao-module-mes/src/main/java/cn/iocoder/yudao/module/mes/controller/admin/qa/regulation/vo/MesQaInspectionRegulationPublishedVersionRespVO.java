@@ -87,7 +87,8 @@ public class MesQaInspectionRegulationPublishedVersionRespVO {
         private List<String> applicableInspectionTypes;
         private Integer firstInspectionQuantity;
         private Integer finalInspectionQuantity;
-        private BigDecimal patrolInspectionRatio;
+        private String inspectionLevel;
+        private BigDecimal aql;
         private Boolean critical;
         private String failureRule;
         private String sourceNote;

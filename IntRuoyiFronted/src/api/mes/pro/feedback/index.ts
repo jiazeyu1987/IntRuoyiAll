@@ -361,6 +361,8 @@ export interface FrontlinePqcDeviceParameterVO {
 }
 
 export interface FrontlinePqcInspectionItemVO {
+  samplingEvidence?: { standard: string; totalQuantity: number; inspectionLevel: string;
+    sampleCode?: string; nominalSampleSize?: number; inspectionQuantity: number; fullInspection: boolean }
   plannedInspectionQuantity?: number
   itemSort: number
   itemCode: string
@@ -379,7 +381,8 @@ export interface FrontlinePqcInspectionItemVO {
   applicableInspectionTypes: FrontlinePqcInspectionType[]
   firstInspectionQuantity?: number
   finalInspectionQuantity?: number
-  patrolInspectionRatio?: number | string
+  inspectionLevel?: string
+  aql?: number | string
   critical: boolean
   failureRule?: string
   sourceNote?: string

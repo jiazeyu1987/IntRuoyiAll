@@ -27,6 +27,7 @@ const ctx = {
   require: (name) =>
     name === '@/store/modules/user'
       ? { useUserStore: () => ({ getUser: { nickname: '测试用户' } }) }
+      : name === '@/api/mes/qc/sampling' ? { getSamplingTable: async () => [] }
       : name === '../simplePqc'
         ? samplingCtx.exports
         : require(name)
@@ -75,7 +76,7 @@ test('PQC trial isolates results by item/type and leaves the publication draft u
             resultType: 'BOOLEAN',
             applicableInspectionTypes: ['FIRST', 'PATROL', 'FINAL'],
             firstInspectionQuantity: 5,
-            patrolInspectionRatio: 2,
+            inspectionLevel: 'I', aql: 0.4,
             equipmentOptions: []
           },
           {
@@ -98,10 +99,11 @@ test('PQC trial isolates results by item/type and leaves the publication draft u
   assert.equal(state.quantity.value, 5)
   state.bulk('合格')
   assert.match(state.resultSummary.value, /合格 5 件/)
+  state.samplingRows.value = [{ minQuantity: 91, maxQuantity: 150, samples: { I: { sampleCode: 'E', nominalSampleSize: 13 } } }]
   state.selectRule('PATROL_AM')
   await nextTick()
-  assert.equal(state.quantity.value, 2)
-  assert.match(state.resultSummary.value, /未填写 2 件/)
+  assert.equal(state.quantity.value, 13)
+  assert.match(state.resultSummary.value, /未填写 13 件/)
   state.bulk('不合格')
   state.selectRule('FIRST')
   await nextTick()
@@ -129,7 +131,7 @@ test('PQC trial isolates results by item/type and leaves the publication draft u
   assert.equal(JSON.stringify(draft), before)
 })
 
-test('missing patrol percentage still blocks trial quantity and submission', async () => {
+test('missing inspection level still blocks trial quantity and submission', async () => {
   const draft = reactive({
     finalInspectionApplicable: false,
     inspectionTypeRules: [{ key: 'PATROL_AM', inspectionType: 'PATROL', label: '上午巡检' }],
@@ -142,7 +144,7 @@ test('missing patrol percentage still blocks trial quantity and submission', asy
             itemName: '气密性',
             resultType: 'BOOLEAN',
             applicableInspectionTypes: ['PATROL'],
-            patrolInspectionRatio: null,
+            inspectionLevel: null,
             samplingPlanText: '巡检：正常检验一次抽样方案Ⅱ，AQL=0.4',
             equipmentOptions: []
           }
@@ -157,54 +159,54 @@ test('missing patrol percentage still blocks trial quantity and submission', asy
   })
   await nextTick()
   assert.equal(state.quantity.value, undefined)
-  assert.match(state.resultSummary.value, /请确认实际巡检抽样比例/)
+  assert.match(state.resultSummary.value, /请选择有效的巡检检验水平/)
   assert.equal(state.state.value.values.length, 0)
   state.stepQuantity(1)
   state.setQuantity({ target: { value: '10' } })
   assert.equal(state.quantity.value, undefined)
   state.bulk('合格')
   state.submitTrial()
-  assert.match(state.trialMessage.value, /请确认实际巡检抽样比例/)
+  assert.match(state.trialMessage.value, /请选择有效的巡检检验水平/)
   assert.doesNotMatch(state.trialMessage.value, /检查完成/)
   assert.equal(JSON.stringify(draft), original)
 })
 
-test('AQL trial applies returned internal percentages to the batch with upward rounding', async () => {
-  for (const ratio of [0.25, 0.4, 2.5]) {
-    const draft = reactive({
-      finalInspectionApplicable: false,
-      inspectionTypeRules: [{ key: 'PATROL_AM', inspectionType: 'PATROL', label: '上午巡检' }],
-      processes: [
-        {
-          processCode: 'P1',
-          items: [
-            {
-              itemCode: 'I1',
-              itemName: '外观',
-              resultType: 'BOOLEAN',
-              applicableInspectionTypes: ['PATROL'],
-              patrolInspectionRatio: ratio,
-              samplingPlanText: `GB/T 2828.1，AQL=${ratio}`,
-              equipmentOptions: []
-            }
-          ]
-        }
-      ]
-    })
-    const original = JSON.stringify(draft)
-    const state = ctx.exports.default.setup(reactive({ draft, processIndex: 0 }), {
-      expose() {},
-      emit() {}
-    })
-    for (const batch of [1, 100, 1001]) {
-      state.batchQuantity.value = batch
+test('matrix trial uses the returned level independently of AQL and freezes patrol quantity', async () => {
+  for (const aql of [0.25, 0.4, 2.5]) {
+    for (const [level, expected] of [['I', 50], ['S3', 13]]) {
+      const draft = reactive({ finalInspectionApplicable: false,
+        inspectionTypeRules: [{ key: 'PATROL_AM', inspectionType: 'PATROL', label: '上午巡检' }],
+        processes: [{ processCode: 'P1', items: [{ itemCode: 'I1', itemName: '外观', resultType: 'BOOLEAN',
+          applicableInspectionTypes: ['PATROL'], inspectionLevel: level, aql,
+          samplingPlanText: `GB/T 2828.1，${level}，AQL=${aql}`, equipmentOptions: [] }] }] })
+      const original = JSON.stringify(draft)
+      const state = ctx.exports.default.setup(reactive({ draft, processIndex: 0 }), { expose() {}, emit() {} })
+      state.samplingRows.value = [{ minQuantity: 1201, maxQuantity: 3200,
+        samples: { I: { sampleCode: 'H', nominalSampleSize: 50 }, S3: { sampleCode: 'E', nominalSampleSize: 13 } } }]
+      state.batchQuantity.value = 3000
       await nextTick()
-      assert.equal(state.quantity.value, Math.ceil((batch * ratio) / 100))
-      assert.equal(state.samplingIssue.value, undefined)
+      assert.equal(state.quantity.value, expected)
+      state.setQuantity({ target: { value: '12' } })
+      assert.equal(state.quantity.value, expected)
       state.bulk('合格')
       state.submitTrial()
       assert.match(state.trialMessage.value, /检查完成/)
+      state.batchQuantity.value = 1
+      await nextTick()
+      assert.equal(state.quantity.value, 1)
+      assert.equal(JSON.stringify(draft), original)
     }
-    assert.equal(JSON.stringify(draft), original)
   }
+})
+test('missing or failed matrix blocks preview without percentage substitute', async () => {
+  const draft = reactive({ inspectionTypeRules: [{ key: 'PATROL_AM', inspectionType: 'PATROL' }],
+    processes: [{ processCode: 'P1', items: [{ itemCode: 'I1', resultType: 'BOOLEAN', applicableInspectionTypes: ['PATROL'],
+      inspectionLevel: 'I', aql: 0.4, equipmentOptions: [] }] }] })
+  const state = ctx.exports.default.setup(reactive({ draft, processIndex: 0 }), { expose() {}, emit() {} })
+  await nextTick()
+  assert.equal(state.quantity.value, undefined)
+  assert.match(state.samplingIssue.value, /加载中/)
+  state.samplingLoadError.value = '矩阵服务不可用'
+  assert.match(state.samplingIssue.value, /不可用/)
+  assert.equal(state.quantity.value, undefined)
 })

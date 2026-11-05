@@ -338,7 +338,8 @@ public class MesQaInspectionRegulationWordImportService {
         }
         item.setApplicableInspectionTypes(applicableTypes);
         item.setFirstInspectionQuantity(parsed.firstInspectionQuantity());
-        item.setPatrolInspectionRatio(parsed.patrolInspectionRatio());
+        item.setInspectionLevel(parsed.inspectionLevel());
+        item.setAql(parsed.aql());
         item.setCritical(inherited != null && Boolean.TRUE.equals(inherited.getCritical()));
         Set<String> rules = new LinkedHashSet<>();
         if (StrUtil.isNotBlank(ruleSourceText)) rules.add(ruleSourceText);
@@ -393,7 +394,7 @@ public class MesQaInspectionRegulationWordImportService {
                 rule("FIRST", "FIRST", "首检", "每个适用订单开始前", true,
                         "按发布规程固定数量生成首检任务", "缺少适用检验项目时不能发布", null),
                 rule("PATROL", "PATROL", "巡检", "按实际创建次数编号", true,
-                        "按订单数量与项目抽样比例生成任务", "缺少适用检验项目时不能发布", null),
+                        "按订单批量与项目检验水平查询抽样矩阵生成任务", "缺少适用检验项目时不能发布", null),
                 rule("FINAL", "FINAL", "末检", "订单结束前", false,
                         "启用末检时生成末检任务", "末检适用性必须明确", FINAL_NOT_APPLICABLE_REASON));
     }

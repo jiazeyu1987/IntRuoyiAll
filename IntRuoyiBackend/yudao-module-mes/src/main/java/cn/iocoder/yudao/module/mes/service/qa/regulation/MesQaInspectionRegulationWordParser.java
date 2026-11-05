@@ -1,5 +1,6 @@
 package cn.iocoder.yudao.module.mes.service.qa.regulation;
 
+import cn.iocoder.yudao.module.mes.service.qc.sampling.MesQcSamplingPlan;
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import org.apache.poi.hwpf.HWPFDocument;
 import org.apache.poi.hwpf.usermodel.HeaderStories;
@@ -44,8 +45,8 @@ public class MesQaInspectionRegulationWordParser {
             "(?:首件|首检)\\s*[：:]?\\s*(\\d+)\\s*件");
     private static final Pattern AQL_PATTERN = Pattern.compile(
             "(?i)AQL\\s*[=＝:：]\\s*([+-]?\\d+(?:\\.\\d+)?)");
-    private static final Pattern PATROL_RATIO_PATTERN = Pattern.compile(
-            "巡检(?:抽样)?(?:比例|比率)\\s*[：:=＝]?\\s*([+-]?\\d+(?:\\.\\d+)?)\\s*[%％]");
+    private static final Pattern INSPECTION_LEVEL_PATTERN = Pattern.compile(
+            "(?i)(?<![A-Z0-9])(?:S[\\s\\-－—]*[1-4]|III|II|I|Ⅰ|Ⅱ|Ⅲ)(?![A-Z0-9])");
     private static final Pattern SERIAL_PATTERN = Pattern.compile("\\d+");
     private static final Pattern PROCESS_NAME_SEPARATOR_PATTERN = Pattern.compile("[/／]+|\\s+");
     private static final Pattern ADJACENT_ROMAN_NUMBERED_PROCESS_PATTERN = Pattern.compile(
@@ -369,7 +370,7 @@ public class MesQaInspectionRegulationWordParser {
             for (String resolvedProcessName : processNames) {
                 items.add(new ParsedItem(resolvedProcessName, itemName, standardText, inspectionMethod,
                         inspectionTool, samplingPlanText, samplingRule.firstInspectionQuantity(),
-                        samplingRule.patrolInspectionRatio()));
+                        samplingRule.inspectionLevel(), samplingRule.aql()));
             }
         }
         if (items.isEmpty()) {
@@ -406,7 +407,7 @@ public class MesQaInspectionRegulationWordParser {
                         source.processName(), source.itemName() + " / " + childName,
                         source.standardText(), source.inspectionMethod(), source.inspectionTool(),
                         source.samplingPlanText(), source.firstInspectionQuantity(),
-                        source.patrolInspectionRatio()));
+                        source.inspectionLevel(), source.aql()));
             }
         }
         return List.copyOf(resolvedItems);
@@ -507,32 +508,24 @@ public class MesQaInspectionRegulationWordParser {
         }
 
         Set<BigDecimal> aqlValues = collectDecimals(AQL_PATTERN, samplingPlanText);
-        if (aqlValues.size() > 1) {
-            throw invalid("检验项目序号 " + serial + " 的 AQL 数值不唯一");
+        if (aqlValues.size() > 1) throw invalid("检验项目序号 " + serial + " 的 AQL 数值不唯一");
+        BigDecimal aql = aqlValues.stream().findFirst().orElse(null);
+        if (aql != null && aql.signum() <= 0) throw invalid("检验项目序号 " + serial + " 的 AQL 必须大于0");
+        Set<String> levels = new LinkedHashSet<>();
+        Matcher matcher = INSPECTION_LEVEL_PATTERN.matcher(samplingPlanText);
+        while (matcher.find()) {
+            String level = matcher.group().toUpperCase(Locale.ROOT).replaceAll("[\\s\\-－—]", "")
+                    .replace("Ⅰ", "I").replace("Ⅱ", "II").replace("Ⅲ", "III");
+            levels.add(level);
         }
-        BigDecimal aqlRatio = aqlValues.stream().findFirst().orElse(null);
-        if (aqlRatio != null && (aqlRatio.signum() <= 0 || aqlRatio.compareTo(BigDecimal.valueOf(100)) > 0)) {
-            throw invalid("检验项目序号 " + serial + " 的 AQL 数值作为巡检百分比必须大于 0 且不超过 100%");
-        }
-        Set<BigDecimal> patrolRatios = collectDecimals(PATROL_RATIO_PATTERN, samplingPlanText);
-        if (patrolRatios.size() > 1) {
-            throw invalid("检验项目序号 " + serial + " 的巡检抽样比例不唯一");
-        }
-        BigDecimal patrolRatio = patrolRatios.stream().findFirst().orElse(null);
-        if (patrolRatio != null && (patrolRatio.signum() <= 0 || patrolRatio.compareTo(BigDecimal.valueOf(100)) > 0)) {
-            throw invalid("检验项目序号 " + serial + " 的巡检抽样比例必须大于 0 且不超过 100%");
-        }
-        if (aqlRatio != null && patrolRatio != null && aqlRatio.compareTo(patrolRatio) != 0) {
-            throw invalid("检验项目序号 " + serial + " 的 AQL 数值与显式巡检抽样比例冲突");
-        }
-        // 内部规则：AQL数值作为巡检百分比，不执行GB/T抽样表
-        if (aqlRatio != null) {
-            patrolRatio = aqlRatio;
-        }
-        if (firstQuantity == null && patrolRatio == null && aqlValues.isEmpty()) {
-            throw invalid("检验项目序号 " + serial + " 必须包含首检数量、巡检抽样比例或 AQL 抽样方案");
-        }
-        return new SamplingRule(firstQuantity, patrolRatio);
+        if (levels.size() > 1) throw invalid("检验项目序号 " + serial + " 的检验水平不唯一");
+        String level = levels.stream().findFirst().orElse(null);
+        boolean patrol = aql != null || samplingPlanText.contains("巡检")
+                || samplingPlanText.contains("2828") || level != null;
+        if (patrol && level == null) throw invalid("检验项目序号 " + serial + " 的巡检检验水平缺失或不完整");
+        if (level != null) MesQcSamplingPlan.requireLevel(level);
+        if (firstQuantity == null && !patrol) throw invalid("检验项目序号 " + serial + " 缺少首检数量或检验水平");
+        return new SamplingRule(firstQuantity, level, aql);
     }
 
     private static Set<Integer> collectIntegers(Pattern pattern, String text) {
@@ -760,10 +753,9 @@ public class MesQaInspectionRegulationWordParser {
     public record ParsedItem(String processName, String itemName, String standardText,
                              String inspectionMethod, String inspectionTool,
                              String samplingPlanText, Integer firstInspectionQuantity,
-                             BigDecimal patrolInspectionRatio) {
+                             String inspectionLevel, BigDecimal aql) {
         public boolean patrolApplicable() {
-            return patrolInspectionRatio != null || AQL_PATTERN.matcher(samplingPlanText).find()
-                    || samplingPlanText.contains("巡检");
+            return inspectionLevel != null;
         }
     }
 
@@ -779,7 +771,7 @@ public class MesQaInspectionRegulationWordParser {
                                      int samplingColumn, boolean processNameFromRegulation) {
     }
 
-    private record SamplingRule(Integer firstInspectionQuantity, BigDecimal patrolInspectionRatio) {
+    private record SamplingRule(Integer firstInspectionQuantity, String inspectionLevel, BigDecimal aql) {
     }
 
     private enum VerticalMerge {

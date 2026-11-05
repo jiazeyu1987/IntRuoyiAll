@@ -161,7 +161,7 @@
           <p
             v-if="item && inspectionType === 'PATROL' && /AQL/i.test(item.samplingPlanText)"
             class="trial-note"
-            >{{ AQL_PATROL_RATIO_RULE }}</p
+            >{{ MATRIX_SAMPLING_RULE }}</p
           >
           <div class="frontline-pqc-form-area">
             <div class="frontline-pqc-number-field">
@@ -169,7 +169,7 @@
               <button
                 type="button"
                 aria-label="检验减少"
-                :disabled="!!samplingIssue"
+                :disabled="!!samplingIssue || inspectionType === 'PATROL'"
                 @click="stepQuantity(-1)"
               >
                 -
@@ -177,8 +177,8 @@
               <input
                 id="trialPqcInspectionQuantity"
                 :value="quantity ?? ''"
-                :disabled="!!samplingIssue"
-                :placeholder="samplingIssue ? '待确认抽样比例' : ''"
+                :disabled="!!samplingIssue || inspectionType === 'PATROL'"
+                :placeholder="samplingIssue ? '待确认抽样规则' : ''"
                 type="number"
                 min="0"
                 inputmode="numeric"
@@ -189,7 +189,7 @@
               <button
                 type="button"
                 aria-label="检验增加"
-                :disabled="!!samplingIssue"
+                :disabled="!!samplingIssue || inspectionType === 'PATROL'"
                 @click="stepQuantity(1)"
               >
                 +
@@ -356,10 +356,17 @@
   </section>
 </template>
 <script setup lang="ts">
-import { computed, reactive, ref, watch } from 'vue'
+import { computed, reactive, ref, watch, onMounted } from 'vue'
+import { getSamplingTable, type SamplingRow, type InspectionLevel } from '@/api/mes/qc/sampling'
 import { useUserStore } from '@/store/modules/user'
 import type { Draft } from '../simplePqc'
-import { AQL_PATROL_RATIO_RULE, EQUIPMENT_UNBOUND_NOTICE, patrolRatioIssue } from '../simplePqc'
+import { MATRIX_SAMPLING_RULE, EQUIPMENT_UNBOUND_NOTICE, inspectionLevelIssue } from '../simplePqc'
+const samplingRows = ref<SamplingRow[]>([])
+const samplingLoadError = ref('')
+onMounted(async () => {
+  try { samplingRows.value = await getSamplingTable() }
+  catch (error) { samplingLoadError.value = error instanceof Error ? error.message : '抽样矩阵加载失败' }
+})
 const props = defineProps<{ draft: Draft; processIndex: number }>()
 const emit = defineEmits<{ 'select-process': [index: number] }>()
 type InspectionType = 'FIRST' | 'PATROL' | 'FINAL'
@@ -402,17 +409,24 @@ const item = computed(
 )
 const quantity = computed(() => quantityFor(item.value))
 const samplingIssue = computed(() =>
-  inspectionType.value === 'PATROL' && item.value ? patrolRatioIssue(item.value) : undefined
+  inspectionType.value === 'PATROL' && item.value
+    ? inspectionLevelIssue(item.value) || samplingLoadError.value || (!samplingRows.value.length ? '抽样矩阵加载中' : undefined) : undefined
 )
 function quantityFor(currentItem: (typeof items.value)[number] | undefined) {
-  if (!currentItem || (inspectionType.value === 'PATROL' && patrolRatioIssue(currentItem)))
+  if (!currentItem || (inspectionType.value === 'PATROL' && inspectionLevelIssue(currentItem)))
     return undefined
+  if (inspectionType.value === 'PATROL') {
+    if (!Number.isSafeInteger(batchQuantity.value) || batchQuantity.value <= 0) return undefined
+    if (batchQuantity.value === 1) return 1
+    const row = samplingRows.value.find(r => batchQuantity.value >= r.minQuantity &&
+      (r.maxQuantity == null || batchQuantity.value <= r.maxQuantity))
+    const sample = row?.samples[currentItem.inspectionLevel as InspectionLevel]
+    return sample ? Math.min(batchQuantity.value, sample.nominalSampleSize) : undefined
+  }
   const override = quantityOverrides[`${process.value?.processCode}/${selectedRuleKey.value}`]
   if (override != null) return override > 0 ? override : undefined
   let count: number | undefined
   if (inspectionType.value === 'FIRST') count = currentItem.firstInspectionQuantity
-  else if (inspectionType.value === 'PATROL' && currentItem.patrolInspectionRatio != null)
-    count = Math.ceil((batchQuantity.value * currentItem.patrolInspectionRatio) / 100)
   else if (inspectionType.value === 'FINAL')
     count = props.draft.inspectionTypeRules.find((r) => r.key === 'FINAL')?.fixedQuantity
   return count != null && count > 0 ? Math.min(batchQuantity.value, count) : undefined
@@ -550,7 +564,7 @@ function stepPiece(index: number, delta: number) {
 function submitTrial() {
   trialMessage.value = ''
   for (const currentItem of items.value) {
-    const samplingIssue = inspectionType.value === 'PATROL' && patrolRatioIssue(currentItem)
+    const samplingIssue = inspectionType.value === 'PATROL' && inspectionLevelIssue(currentItem)
     if (samplingIssue) {
       trialMessage.value = `“${currentItem.itemName}”：${samplingIssue}`
       return
@@ -596,5 +610,10 @@ function submitTrial() {
   position: fixed;
   inset: 0;
   z-index: 2000;
+}
+@media (max-width: 1280px) {
+  .pqc-trial .frontline-operator-screen.is-pqc {
+    grid-template-rows: auto auto;
+  }
 }
 </style>

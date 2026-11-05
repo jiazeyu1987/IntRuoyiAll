@@ -1190,7 +1190,7 @@ public class MesTeamLeaderActiveOrderReleaseProcessInspectionWriterImpl
                 task.getWorkOrderId(), task.getRouteId(), task.getRouteVersionId(), task.getRouteProcessId(),
                 task.getProcessId(), task.getRegulationVersionId(), task.getInspectionType(), task.getBusinessDate(),
                 task.getShiftCode(), task.getRoundNo(), task.getPlannedInspectionQuantity(),
-                task.getInspectionItemPlanJson(),
+                task.getInspectionItemPlanJson(), task.getInspectionSamplingPlanJson(),
                 task.getActualInspectionQuantity()));
     }
 
@@ -1249,7 +1249,7 @@ public class MesTeamLeaderActiveOrderReleaseProcessInspectionWriterImpl
                 item.getInspectionType(), item.getItemCode(), item.getItemName(), item.getInspectionMethod(),
                 item.getStandardText(), item.getStandardLowerLimit(), item.getStandardUpperLimit(),
                 item.getStandardUnit(), item.getStandardPrecision(), item.getEquipmentRequired(),
-                item.getResultType(), item.getFirstInspectionQuantity(), item.getPatrolInspectionRatio()));
+                item.getResultType(), item.getFirstInspectionQuantity(), item.getInspectionLevel(), item.getAql()));
     }
 
     private String hashBinding(MesProRouteFlowProcessBatchRecordDO binding) {

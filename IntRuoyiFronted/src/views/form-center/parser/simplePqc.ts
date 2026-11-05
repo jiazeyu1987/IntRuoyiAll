@@ -16,11 +16,11 @@ export type Draft = Omit<QaInspectionRegulationSaveReqVO, 'processes'> & {
 
 type PatrolSampling = Pick<
   QaInspectionRegulationItemVO,
-  'applicableInspectionTypes' | 'patrolInspectionRatio' | 'samplingPlanText'
+  'applicableInspectionTypes' | 'inspectionLevel' | 'samplingPlanText'
 >
 
-export const AQL_PATROL_RATIO_RULE =
-  '内部抽样规则：按原文AQL数值作为巡检抽样比例（%），按批量计算并向上取整。'
+export const MATRIX_SAMPLING_RULE =
+  '巡检按批量与检验水平查询GB/T 2828.1正常一次名义样本量；达到批量时全检。AQL单独记录。'
 
 export const EQUIPMENT_UNBOUND_NOTICE = '保留原文器具要求，发布后执行前需补齐绑定'
 
@@ -28,17 +28,17 @@ export function isNonSensoryTool(inspectionTool: string): boolean {
   return !['目测', '手感', '目测、手感', '/', '无'].includes(inspectionTool.trim())
 }
 
-export function patrolRatioIssue(item: PatrolSampling): string | undefined {
+export function inspectionLevelIssue(item: PatrolSampling): string | undefined {
   if (
     item.applicableInspectionTypes.includes('PATROL') &&
-    !(Number(item.patrolInspectionRatio) > 0)
+    !['I', 'II', 'III', 'S1', 'S2', 'S3', 'S4'].includes(item.inspectionLevel ?? '')
   )
-    return '请确认实际巡检抽样比例'
+    return '请选择有效的巡检检验水平'
 }
 
-export function formatPatrolRatio(item: PatrolSampling): string {
+export function formatInspectionLevel(item: PatrolSampling): string {
   if (!item.applicableInspectionTypes.includes('PATROL')) return '不适用'
-  return patrolRatioIssue(item) ? '待确认实际巡检抽样比例' : `${item.patrolInspectionRatio}%`
+  return inspectionLevelIssue(item) ? '待确认检验水平' : item.inspectionLevel!.replace(/^S/, 'S-')
 }
 
 export function makeDraft(parsed: QaInspectionRegulationParseVO, projectId: number): Draft {
@@ -128,7 +128,8 @@ export function differences(
     'resultType',
     'applicableInspectionTypes',
     'firstInspectionQuantity',
-    'patrolInspectionRatio',
+    'inspectionLevel',
+    'aql',
     'standardLowerLimit',
     'standardUpperLimit',
     'standardUnit',
@@ -245,8 +246,8 @@ export function validateDraft(draft: Draft, confirmedUnbound: string[] = []): Dr
         add('请选择检验类型', 'item', 'applicableInspectionTypes')
       if (i.applicableInspectionTypes.includes('FIRST') && !(Number(i.firstInspectionQuantity) > 0))
         add('首检数量必须大于0', 'item', 'firstInspectionQuantity')
-      const samplingIssue = patrolRatioIssue(i)
-      if (samplingIssue) add(samplingIssue, 'item', 'patrolInspectionRatio')
+      const samplingIssue = inspectionLevelIssue(i)
+      if (samplingIssue) add(samplingIssue, 'item', 'inspectionLevel')
       if (
         i.resultType === 'NUMERIC' &&
         (i.standardLowerLimit == null ||

@@ -195,8 +195,8 @@
                 <dd>{{ formatOptionalNumber(qaCurrentItem.firstInspectionQuantity, '件') }}</dd>
               </div>
               <div>
-                <dt>巡检比例</dt>
-                <dd>{{ formatPatrolRatio(qaCurrentItem) }}</dd>
+                <dt>巡检检验水平</dt>
+                <dd>{{ formatInspectionLevel(qaCurrentItem) }}</dd>
               </div>
               <div>
                 <dt>结果类型</dt>
@@ -261,7 +261,7 @@
 
 <script setup lang="ts">
 import download from '@/utils/download'
-import { formatPatrolRatio, patrolRatioIssue } from '../simplePqc'
+import { formatInspectionLevel, inspectionLevelIssue } from '../simplePqc'
 import {
   QcTemplateApi,
   type QaInspectionRegulationParseVO,
@@ -298,7 +298,7 @@ const qaCurrentProcess = computed(() => qaPreviewJson.value?.processes[qaCurrent
 const qaCurrentItem = computed(() => qaCurrentProcess.value?.items[qaCurrentItemIndex.value])
 const qaSamplingIssue = computed(() =>
   qaSelectedInspectionType.value === 'PATROL' && qaCurrentItem.value
-    ? patrolRatioIssue(qaCurrentItem.value)
+    ? inspectionLevelIssue(qaCurrentItem.value)
     : undefined
 )
 
@@ -578,7 +578,11 @@ const validateQaItem = (value: unknown, processIndex: number, itemIndex: number)
     throw new Error(`QA 检验规程 JSON ${path}.applicableInspectionTypes 无效`)
   }
   validateQaOptionalNumber(value.firstInspectionQuantity, `${path}.firstInspectionQuantity`)
-  validateQaOptionalNumber(value.patrolInspectionRatio, `${path}.patrolInspectionRatio`)
+  if (value.applicableInspectionTypes.includes('PATROL') &&
+    !['I', 'II', 'III', 'S1', 'S2', 'S3', 'S4'].includes(String(value.inspectionLevel))) {
+    throw new Error(`QA 检验规程 JSON ${path}.inspectionLevel 无效`)
+  }
+  validateQaOptionalNumber(value.aql, `${path}.aql`)
 }
 
 const requireQaText = (value: unknown, path: string) => {

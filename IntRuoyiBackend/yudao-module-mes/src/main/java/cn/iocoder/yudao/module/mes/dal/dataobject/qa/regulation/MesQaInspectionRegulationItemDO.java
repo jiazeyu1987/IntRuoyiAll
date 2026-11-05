@@ -45,7 +45,8 @@ public class MesQaInspectionRegulationItemDO extends TenantBaseDO {
     private Boolean equipmentRequired;
     private String resultType;
     private Integer firstInspectionQuantity;
-    private BigDecimal patrolInspectionRatio;
+    private String inspectionLevel;
+    private BigDecimal aql;
     private Boolean critical;
     private String failureRule;
     private String sourceNote;

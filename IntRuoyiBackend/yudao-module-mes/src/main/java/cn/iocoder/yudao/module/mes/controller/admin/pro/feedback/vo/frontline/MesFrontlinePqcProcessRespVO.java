@@ -1,5 +1,6 @@
 package cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.vo.frontline;
 
+import cn.iocoder.yudao.module.mes.service.qc.sampling.MesQcSamplingPlan;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 
@@ -106,6 +107,7 @@ public class MesFrontlinePqcProcessRespVO {
     @Data
     public static class PqcInspectionItem {
         private Integer plannedInspectionQuantity;
+        private MesQcSamplingPlan.Evidence samplingEvidence;
         private Integer itemSort;
         private String itemCode;
         private String itemName;
@@ -124,7 +126,8 @@ public class MesFrontlinePqcProcessRespVO {
         private List<String> applicableInspectionTypes;
         private Integer firstInspectionQuantity;
         private Integer finalInspectionQuantity;
-        private BigDecimal patrolInspectionRatio;
+        private String inspectionLevel;
+        private BigDecimal aql;
         private Boolean critical;
         private String failureRule;
         private String sourceNote;

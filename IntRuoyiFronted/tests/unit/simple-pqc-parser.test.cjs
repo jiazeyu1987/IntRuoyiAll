@@ -10,7 +10,7 @@ vm.runInNewContext(
   }).outputText,
   ctx
 )
-const { makeDraft, nextVersion, validateDraft, differences, patrolRatioIssue, formatPatrolRatio } =
+const { makeDraft, nextVersion, validateDraft, differences, inspectionLevelIssue, formatInspectionLevel } =
   ctx.exports
 const commonCtx = { exports: {}, require: () => ctx.exports }
 vm.runInNewContext(
@@ -52,7 +52,7 @@ const parsed = {
 test('Word content remains authoritative and missing decisions block publication', () => {
   const d = makeDraft(parsed, 129)
   assert.equal(d.processes[0].items[0].standardText, '无异物')
-  assert.ok(validateDraft(d).some((x) => x.message.includes('末检')))
+  assert.equal(validateDraft(d).some((x) => x.message.includes('末检')), false)
   d.finalInspectionNotApplicableReason = '规程未要求'
   assert.equal(validateDraft(d).length, 0)
   d.processes[0].items[0].inspectionTool = '量具'
@@ -118,41 +118,42 @@ test('publication issues locate duplicate item names without guessing the target
   other.items[0].inspectionTool = '量具'
   d.processes.push(other)
   const issues = validateDraft(d)
-  assert.equal(issues.find((i) => i.field === 'final').message, '请确认是否无需末检')
+  assert.equal(issues.some((i) => i.field === 'final'), false)
   const equipment = issues.find((i) => i.field === 'equipment')
   assert.equal(equipment.processIndex, 1)
   assert.equal(equipment.itemIndex, 0)
   assert.match(equipment.message, /设备编号/)
-  assert.equal(d.finalInspectionNotApplicableReason, '')
+  assert.equal(d.finalInspectionApplicable, false)
 })
 
-test('AQL internal percentage uses the returned ratio and still blocks genuinely missing ratios', () => {
+test('inspection level is required independently of AQL', () => {
   const d = makeDraft(parsed, 255)
   d.finalInspectionNotApplicableReason = '规程未要求'
   const item = d.processes[0].items[0]
   item.applicableInspectionTypes = ['FIRST', 'PATROL']
   item.samplingPlanText = '首件5件；巡检：按正常检验一次抽样方案Ⅱ，AQL=0.4'
   const original = item.samplingPlanText
-  for (const ratio of [undefined, null, 0]) {
-    item.patrolInspectionRatio = ratio
-    assert.equal(patrolRatioIssue(item), '请确认实际巡检抽样比例')
-    assert.equal(formatPatrolRatio(item), '待确认实际巡检抽样比例')
+  for (const ratio of [undefined, null, 0, "S-", 0.4]) {
+    item.inspectionLevel = ratio
+    assert.equal(inspectionLevelIssue(item), '请选择有效的巡检检验水平')
+    assert.equal(formatInspectionLevel(item), '待确认检验水平')
     for (const validate of [validateDraft, commonCtx.exports.validateCommonDraft]) {
-      const issue = validate(d).find((i) => i.message.includes('请确认实际巡检抽样比例'))
+      const issue = validate(d).find((i) => i.message.includes('请选择有效的巡检检验水平'))
       assert.ok(issue)
       assert.equal(issue.processIndex, 0)
       assert.equal(issue.itemIndex, 0)
     }
   }
-  item.patrolInspectionRatio = 0.4
-  assert.equal(formatPatrolRatio(item), '0.4%')
+  item.inspectionLevel = 'S3'
+  item.aql = 0.4
+  assert.equal(formatInspectionLevel(item), 'S-3')
   assert.equal(validateDraft(d).length, 0)
   assert.equal(commonCtx.exports.validateCommonDraft(d).length, 0)
   assert.equal(item.samplingPlanText, original)
   item.applicableInspectionTypes = ['FIRST']
-  item.patrolInspectionRatio = null
-  assert.equal(formatPatrolRatio(item), '不适用')
-  assert.equal(patrolRatioIssue(item), undefined)
+  item.inspectionLevel = null
+  assert.equal(formatInspectionLevel(item), '不适用')
+  assert.equal(inspectionLevelIssue(item), undefined)
 })
 
 test('new PQC drafts retain the complete parsed failure rule without rewriting its meaning', () => {
@@ -167,17 +168,19 @@ test('new PQC drafts retain the complete parsed failure rule without rewriting i
   )
 })
 
-test('parsed AQL percentage is preserved by draft mapping without deriving a second ratio', () => {
+test('parsed level and AQL are preserved independently by draft mapping', () => {
   for (const ratio of [0.25, 0.4, 2.5]) {
     const source = JSON.parse(JSON.stringify(parsed))
     Object.assign(source.processes[0].items[0], {
       applicableInspectionTypes: ['PATROL'],
       samplingPlanText: `GB/T 2828.1，AQL=${ratio}`,
-      patrolInspectionRatio: ratio
+      inspectionLevel: 'I',
+      aql: ratio
     })
     const item = makeDraft(source, 255).processes[0].items[0]
-    assert.equal(item.patrolInspectionRatio, ratio)
-    assert.equal(formatPatrolRatio(item), `${ratio}%`)
-    assert.equal(patrolRatioIssue(item), undefined)
+    assert.equal(item.inspectionLevel, 'I')
+    assert.equal(item.aql, ratio)
+    assert.equal(formatInspectionLevel(item), 'I')
+    assert.equal(inspectionLevelIssue(item), undefined)
   }
 })

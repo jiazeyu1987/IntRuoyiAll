@@ -56,14 +56,15 @@ class MesQaInspectionRegulationWordParserTest {
         assertEquals("目视检查", first.inspectionMethod());
         assertEquals("目测", first.inspectionTool());
         assertEquals(5, first.firstInspectionQuantity());
-        assertEquals(new BigDecimal("0.4"), first.patrolInspectionRatio());
+        assertEquals(new BigDecimal("0.4"), first.aql());
+        assertEquals("I", first.inspectionLevel());
         assertTrue(first.patrolApplicable());
 
         MesQaInspectionRegulationWordParser.ParsedItem second = parsed.items().get(1);
         assertEquals("清洗", second.processName());
         assertEquals("旋转接头 / 牢固度", second.itemName());
         assertNull(second.firstInspectionQuantity());
-        assertEquals(new BigDecimal("0.65"), second.patrolInspectionRatio());
+        assertEquals(new BigDecimal("0.65"), second.aql());
         assertTrue(second.patrolApplicable());
         assertTrue(parsed.items().stream().noneMatch(item -> item.itemName().contains("备注")));
     }
@@ -77,9 +78,9 @@ class MesQaInspectionRegulationWordParserTest {
         assertEquals(4, parsed.items().size());
         assertTrue(parsed.items().get(0).samplingPlanText().contains("AQL=0.25"));
         assertEquals(3, parsed.items().stream().filter(item -> item.patrolApplicable()).count());
-        assertEquals(new BigDecimal("0.25"), parsed.items().get(0).patrolInspectionRatio());
+        assertEquals(new BigDecimal("0.25"), parsed.items().get(0).aql());
         assertTrue(parsed.items().stream().filter(item -> item.patrolApplicable())
-                .allMatch(item -> item.patrolInspectionRatio() != null));
+                .allMatch(item -> item.aql() != null));
         assertTrue(parsed.ruleSourceText().contains("模具更换"));
         assertTrue(parsed.ruleSourceText().contains("双倍检验"));
         assertTrue(parsed.ruleSourceText().contains("每一个检验项目均应合格"));
@@ -87,52 +88,38 @@ class MesQaInspectionRegulationWordParserTest {
     }
 
     @Test
-    void parse_readsExplicitPatrolPercentWithoutAql() throws Exception {
-        var item = parseFirstSampling("首件：5件；巡检抽样比例：2%");
-        assertEquals(new BigDecimal("2"), item.patrolInspectionRatio());
-        assertEquals("首件：5件；巡检抽样比例：2%", item.samplingPlanText());
-    }
-
-    @Test
-    void parse_acceptsEquivalentAqlAndExplicitPercentAndPreservesSource() throws Exception {
-        String sampling = "首件：5件；GB/T 2828.1，I，AQL=0.4；AQL＝0.40；巡检抽样比例：0.40%";
-        var item = parseFirstSampling(sampling);
-        assertEquals(new BigDecimal("0.4"), item.patrolInspectionRatio());
-        assertEquals(sampling, item.samplingPlanText());
-    }
-
-    @Test
-    void parse_acceptsAqlPercentageUpperBoundary() throws Exception {
-        assertEquals(0, new BigDecimal("100").compareTo(
-                parseFirstSampling("首件：5件；AQL=100").patrolInspectionRatio()));
-    }
-
-    @Test
-    void parse_rejectsNonPositiveAndOverOneHundredAqlEvenWithFirstQuantity() {
-        for (String aql : List.of("0", "-0.4", "100.01")) {
-            var exception = assertThrows(RuntimeException.class,
-                    () -> parseFirstSampling("首件：5件；AQL=" + aql));
-            assertTrue(exception.getMessage().contains("大于 0 且不超过 100%"), exception.getMessage());
+    void parse_extractsLevelAndKeepsAqlIndependent() throws Exception {
+        for (String level : List.of("I", "II", "III", "S-1", "S2", "S-3", "S4", "Ⅰ", "Ⅱ", "Ⅲ")) {
+            var item = parseFirstSampling("首件：5件；GB/T 2828.1，" + level + "，AQL=0.4");
+            assertEquals(level.replace("-", "").replace("Ⅰ", "I").replace("Ⅱ", "II").replace("Ⅲ", "III"), item.inspectionLevel());
+            assertEquals(new BigDecimal("0.4"), item.aql());
+            assertEquals(5, item.firstInspectionQuantity());
         }
     }
 
     @Test
-    void parse_rejectsDifferentAqlValuesAndConflictingExplicitPercent() {
-        var multiple = assertThrows(RuntimeException.class,
-                () -> parseFirstSampling("首件：5件；AQL=0.4；AQL=0.65"));
-        assertTrue(multiple.getMessage().contains("AQL 数值不唯一"), multiple.getMessage());
-        var conflict = assertThrows(RuntimeException.class,
-                () -> parseFirstSampling("首件：5件；AQL=0.4；巡检抽样比例：2%"));
-        assertTrue(conflict.getMessage().contains("AQL 数值与显式巡检抽样比例冲突"), conflict.getMessage());
+    void parse_rejectsPercentOnlyAndMissingOrIncompleteLevel() {
+        for (String sampling : List.of("首件：5件；巡检抽样比例：2%", "首件：5件；AQL=0.4",
+                "首件：5件；GB/T 2828.1，S-，AQL=1.0", "GB/T 2828.1，S-5，AQL=0.4")) {
+            var error = assertThrows(RuntimeException.class, () -> parseFirstSampling(sampling));
+            assertTrue(error.getMessage().contains("检验水平"), error.getMessage());
+        }
     }
 
     @Test
-    void parse_rejectsInvalidOrDifferentExplicitPercentValues() {
-        for (String sampling : List.of("首件：5件；巡检抽样比例：0%", "首件：5件；巡检抽样比例：-2%",
-                "首件：5件；巡检抽样比例：101%", "巡检抽样比例：1%；巡检抽样比例：2%")) {
-            var exception = assertThrows(RuntimeException.class, () -> parseFirstSampling(sampling));
-            assertTrue(exception.getMessage().contains("巡检抽样比例"), exception.getMessage());
+    void parse_rejectsAmbiguousLevelOrAql() {
+        for (String sampling : List.of("GB/T 2828.1，I，S-3，AQL=0.4",
+                "GB/T 2828.1，I，AQL=0.4；AQL=0.65")) {
+            assertThrows(RuntimeException.class, () -> parseFirstSampling(sampling));
         }
+    }
+
+    @Test
+    void parse_preservesFirstOnlyRule() throws Exception {
+        var item = parseFirstSampling("首件：5件");
+        assertEquals(5, item.firstInspectionQuantity());
+        assertNull(item.inspectionLevel());
+        assertTrue(!item.patrolApplicable());
     }
 
     private MesQaInspectionRegulationWordParser.ParsedItem parseFirstSampling(String sampling) throws Exception {

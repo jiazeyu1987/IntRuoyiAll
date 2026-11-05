@@ -1,5 +1,6 @@
 package cn.iocoder.yudao.module.mes.service.pro.frontline;
 
+import cn.iocoder.yudao.module.mes.service.qc.sampling.MesQcSamplingPlan;
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.iocoder.yudao.framework.common.enums.CommonStatusEnum;
@@ -305,21 +306,22 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
                     "PATROL".equals(rule.getKey()) && Boolean.TRUE.equals(rule.getRequired()));
             if (!enabled) continue;
             Map<String, Integer> quantities = new LinkedHashMap<>();
+            Map<String, MesQcSamplingPlan.Evidence> samplingEvidence = new LinkedHashMap<>();
             for (MesFrontlinePqcProcessRespVO.PqcInspectionItem item : process.getInspectionItems()) {
                 if (!item.getApplicableInspectionTypes().contains("PATROL")) continue;
-                int quantity;
-                if (item.getPatrolInspectionRatio() != null && item.getPatrolInspectionRatio().signum() > 0) {
-                    quantity = lockedOrder.getErpFixedQuantitySnapshot().multiply(item.getPatrolInspectionRatio())
-                            .divide(BigDecimal.valueOf(100), 0, java.math.RoundingMode.CEILING).intValueExact();
-                } else if (item.getFirstInspectionQuantity() != null && item.getFirstInspectionQuantity() > 0) {
-                    quantity = item.getFirstInspectionQuantity();
-                } else {
-                    throw exception(PRO_FRONTLINE_PQC_REGULATION_REQUIRED, activeOrderId,
-                            process.getRegulationVersionId(), process.getQaProcessId());
+                MesQcSamplingPlan.Evidence evidence;
+                try {
+                    evidence = MesQcSamplingPlan.calculate(lockedOrder.getErpFixedQuantitySnapshot(),
+                            item.getInspectionLevel());
+                } catch (IllegalArgumentException ex) {
+                    throw exception(PRO_FRONTLINE_DEVICE_ACCOUNT_CONTEXT_INVALID,
+                            "巡检项目 " + item.getItemCode() + "：" + ex.getMessage());
                 }
+                int quantity = evidence.inspectionQuantity();
                 if (quantity <= 0 || quantities.putIfAbsent(item.getItemCode(), quantity) != null) {
                     throw exception(PRO_FRONTLINE_PQC_TASK_IDENTITY_MISMATCH, "巡检项目数量或编码无效");
                 }
+                samplingEvidence.put(item.getItemCode(), evidence);
             }
             if (quantities.isEmpty()) continue;
             MesPqcInspectionTaskDO task = MesPqcInspectionTaskDO.builder()
@@ -330,6 +332,7 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
                     .qaItemCode("").inspectionRuleKey("PATROL").inspectionType("PATROL").shiftCode("PATROL")
                     .businessDate(LocalDate.now(java.time.ZoneId.of("Asia/Shanghai"))).roundNo(round)
                     .plannedInspectionQuantity(quantities.values().stream().mapToInt(Integer::intValue).max().orElseThrow())
+                    .inspectionSamplingPlanJson(JsonUtils.toJsonString(samplingEvidence))
                     .inspectionItemPlanJson(MesPqcInspectionItemPlan.encode(quantities)).actualInspectionQuantity(0)
                     .taskStatus(PQC_TASK_STATUS_PENDING).simulated(lockedOrder.getSimulated())
                     .simulationStage(lockedOrder.getSimulationStage()).simulationRunId(lockedOrder.getSimulationRunId())
@@ -758,7 +761,12 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
         }
         List<MesFrontlinePqcProcessRespVO.PqcInspectionItem> copies = copyInspectionItemsWithDeviceParameters(
                 taskInspectionItems, new PqcRouteDeviceContext(null, Set.of(), Map.of()));
-        copies.forEach(item -> item.setPlannedInspectionQuantity(itemPlan.get(item.getItemCode())));
+        Map<String, MesQcSamplingPlan.Evidence> evidence =
+                MesPqcInspectionItemPlan.requireSampling(task);
+        copies.forEach(item -> {
+            item.setPlannedInspectionQuantity(itemPlan.get(item.getItemCode()));
+            item.setSamplingEvidence(evidence.get(item.getItemCode()));
+        });
         option.setInspectionItems(copies);
         if (option.getInspectionItems().isEmpty()) {
             throw exception(PRO_FRONTLINE_PQC_REGULATION_REQUIRED,
@@ -867,7 +875,8 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
         item.setApplicableInspectionTypes(source.getApplicableInspectionTypes());
         item.setFirstInspectionQuantity(source.getFirstInspectionQuantity());
         item.setFinalInspectionQuantity(source.getFinalInspectionQuantity());
-        item.setPatrolInspectionRatio(source.getPatrolInspectionRatio());
+        item.setInspectionLevel(source.getInspectionLevel());
+        item.setAql(source.getAql());
         item.setCritical(source.getCritical());
         item.setFailureRule(source.getFailureRule());
         item.setSourceNote(source.getSourceNote());
@@ -927,7 +936,8 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
             target.setApplicableInspectionTypes(source.getApplicableInspectionTypes());
             target.setFirstInspectionQuantity(source.getFirstInspectionQuantity());
             target.setFinalInspectionQuantity(source.getFinalInspectionQuantity());
-            target.setPatrolInspectionRatio(source.getPatrolInspectionRatio());
+            target.setInspectionLevel(source.getInspectionLevel());
+            target.setAql(source.getAql());
             target.setCritical(source.getCritical());
             target.setFailureRule(source.getFailureRule());
             target.setSourceNote(source.getSourceNote());
@@ -1522,6 +1532,7 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
         taskSnapshot.put("shift", task.getShiftCode());
         taskSnapshot.put("round", task.getRoundNo());
         taskSnapshot.put("inspectionItemPlan", MesPqcInspectionItemPlan.require(task));
+        taskSnapshot.put("inspectionSamplingPlan", MesPqcInspectionItemPlan.requireSampling(task));
         taskSnapshot.put("actualInspectionQuantity", task.getActualInspectionQuantity());
         taskSnapshot.put("taskStatus", task.getTaskStatus());
         taskSnapshot.put("submittedContentHash", task.getSubmittedContentHash());
