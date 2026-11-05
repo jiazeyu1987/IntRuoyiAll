@@ -1,5 +1,6 @@
 export type ApplicationType = 'UPLOAD' | 'REVISION' | 'OBSOLETE'
 export interface ProjectAttributes {
+  libraryScope?: 'QMS' | 'GENERAL'
   targetMarkets: string[]
   otherMarket?: string
   licenseHolder?: string
@@ -26,6 +27,12 @@ export interface AttributeState {
 const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value))
 export const emptyAttributes = (): ProjectAttributes => ({ targetMarkets: [] })
 export const validateAttributes = (value: ProjectAttributes): ProjectAttributes => {
+  if (value?.libraryScope != null) {
+    if (!['QMS', 'GENERAL'].includes(value.libraryScope) || ['targetMarkets', 'otherMarket', 'licenseHolder', 'actualManufacturer', 'documentTransfer', 'transferTo'].some(field => value[field as keyof ProjectAttributes] != null)) {
+      throw new Error('独立文件库不接受项目属性')
+    }
+    return value
+  }
   const markets = ['NMPA', 'CE', 'FDA', 'MADSAP', 'OTHER', 'NA']
   if (!value || !Array.isArray(value.targetMarkets) || !value.targetMarkets.length ||
     value.targetMarkets.some(item => !markets.includes(item)) ||

@@ -11,7 +11,7 @@ import { normalizeDccBodyReadContext, buildDccBodyReadQuery, buildDccBodyReadHea
 import { validateAttributes, type ProjectAttributes } from '@/views/dcc/controlled-file/project-attributes/state'
 
 export type ControlledFileChangeType = 'NEW' | 'REVISION' | 'OBSOLETE'
-export type DccEffectiveMode = 'AFTER_STANDARDIZATION_SIGNATURE' | 'DELAYED' | 'PRESET_DATE'
+export type DccEffectiveMode = 'AFTER_STANDARDIZATION_SIGNATURE' | 'DELAYED' | 'PRESET_DATE' | 'CONTROLLED_IMPORT'
 
 export interface ApplicationCustomMatrix { approverUserId: string | null; documentControlUserId: string | null }
 export interface ApprovalMatrixConfirmationSelection {
@@ -145,6 +145,7 @@ export interface DccControlledFileActionProjectionVO {
   canWithdraw: boolean
   pendingRequestId?: number | null
   pendingVersionNo?: string | null
+  activeObsoleteAction?: FormInstanceVO | null
 }
 
 export interface ControlledFileSubmitReqVO extends Omit<ApprovalMatrixConfirmationSelection, 'selectedSignoffDepartmentIds'> {
@@ -152,12 +153,13 @@ export interface ControlledFileSubmitReqVO extends Omit<ApprovalMatrixConfirmati
   directoryId?: number | string | null
   sessionId: string
   idempotencyKey: string
-  readOnlyUploadTicket: string
+  readOnlyUploadTicket?: string
   editableUploadTicket?: string
-  originalUploadTicket?: string
+  originalUploadTicket: string
   sourceUploadTicket?: string
   sourceFileName?: string
   drawingPdfUploadTicket?: string
+  drawingPdfSessionId?: string
   attachmentUploadTickets?: ControlledFileAttachmentUploadTicketVO[]
   fileName: string
   fileNumber: string
@@ -580,6 +582,8 @@ export interface ControlledFileOwnerFacts {
   fileOwnerSelectedTime?: number | string | null
 }
 export interface ControlledFileVersionHistoryVO extends ControlledFileOwnerFacts {
+  importSource?: 'CONTROLLED_IMPORT' | null
+  revisionSourceControlledFileId?: number | string | null
   changeType?: ControlledFileChangeType | null
   controlledTime?: string | null
   id: number
@@ -629,6 +633,7 @@ export interface ControlledFileVersionHistoryVO extends ControlledFileOwnerFacts
   obsoletedTime?: number
   supersededByFileId?: number | string | null
   remark?: string
+  canEditFile?: boolean
   canPreview?: boolean
   previewUnavailableReason?: string
   canDownload?: boolean
@@ -852,6 +857,9 @@ export interface ControlledFileCreateSignTaskReqVO {
 }
 
 export interface ControlledFileVO extends ControlledFileOwnerFacts {
+  importSource?: 'CONTROLLED_IMPORT' | null
+  importedBy?: number | string | null
+  importedTime?: string | null
   changeType?: ControlledFileChangeType | null
   canReadTrainingApplicationProgress?: boolean
   id: number
@@ -943,6 +951,9 @@ export interface ControlledFileVO extends ControlledFileOwnerFacts {
   canDownloadEditable?: boolean
   canPrint?: boolean
   accessExplanation?: ControlledFileAccessExplanationVO
+  canEditFile?: boolean
+  canPrintApprovalHistory?: boolean
+  canExportApprovalHistory?: boolean
   canObsolete?: boolean
   canPublish?: boolean
   canManualRelease?: boolean
@@ -1964,16 +1975,13 @@ const assertControlledFileSubmitRequest = (
     throw new DccControlledFileContractError(`${context} request uses obsolete field: uploadTicket`)
   }
   assertRequiredString(payload, 'sessionId', context)
-  if (payload.processType === 'EXTERNAL_REVIEW') {
-    assertRequiredString(payload, 'originalUploadTicket', context)
-  } else {
-    assertRequiredString(payload, 'readOnlyUploadTicket', context)
-  }
+  assertRequiredString(payload, 'originalUploadTicket', context)
   if (payload.sourceUploadTicket !== undefined && payload.sourceUploadTicket !== null) {
     assertRequiredString(payload, 'sourceUploadTicket', context)
   }
   if (payload.drawingPdfUploadTicket !== undefined && payload.drawingPdfUploadTicket !== null) {
     assertRequiredString(payload, 'drawingPdfUploadTicket', context)
+    assertRequiredString(payload, 'drawingPdfSessionId', context)
   }
   assertRequiredString(payload, 'changeType', context)
   const normalControlledProcess = payload.processType == null || payload.processType === 'CONTROLLED_FILE'
@@ -2142,7 +2150,11 @@ const toDccTaskActionError = (error: unknown) => {
   return new DccTaskActionError('DCC 审批任务操作失败')
 }
 
-const postControlledFileTaskAction = async <T>(url: string, data: unknown): Promise<T> => {
+const postControlledFileTaskAction = async <T>(
+  url: string,
+  data: unknown,
+  timeout = axiosConfig.request_timeout
+): Promise<T> => {
   try {
     const response = await axios.post<{
       code?: number
@@ -2151,7 +2163,7 @@ const postControlledFileTaskAction = async <T>(url: string, data: unknown): Prom
       data?: T
     }>(`${axiosConfig.base_url}${url}`, data, {
       headers: buildControlledFileTaskActionHeaders(),
-      timeout: axiosConfig.request_timeout
+      timeout
     })
     const code = response.data?.code ?? axiosConfig.result_code
     if (code === 0 || code === 200) {
@@ -2180,7 +2192,7 @@ export const createWorkingControlledFile = async (data: ControlledFileSubmitReqV
 
 export const submitControlledFile = async (data: ControlledFileSubmitReqVO): Promise<number> => {
   assertControlledFileSubmitRequest(data, 'DCC controlled file submit')
-  return await request.post({ url: '/dcc/controlled-files/submit', data })
+  return await request.post({ url: '/dcc/controlled-files/submit', data, timeout: 120000 })
 }
 
 export const submitControlledFileWorkingIteration = async (
@@ -2321,6 +2333,12 @@ export const getControlledFileBrowserPage = async (
   params: ControlledFilePageReqVO
 ): Promise<PageResult<ControlledFileVO[]>> => {
   return await request.get({ url: '/dcc/controlled-files/browser-page', params })
+}
+
+export const getControlledFileWorkingBrowserPage = async (
+  params: ControlledFilePageReqVO
+): Promise<PageResult<ControlledFileVO[]>> => {
+  return await request.get({ url: '/dcc/controlled-files/working-browser-page', params })
 }
 
 export const checkoutControlledFile = async (
@@ -2506,6 +2524,25 @@ export const resubmitWithdrawnControlledFile = async (id: number | string): Prom
   return await request.post({ url: `/dcc/controlled-files/${id}/resubmit` })
 }
 
+export interface ControlledFileApplicationRestartContext {
+  controlledFileId: string
+  applicationType: 'UPLOAD' | 'REVISION' | 'OBSOLETE'
+  processInstanceId: string
+  revisionIntent?: 'INITIAL' | 'PARTIAL' | 'REPLACEMENT'
+  reworkSourceFormInstanceId?: string
+  reworkSourceFormInstanceCode?: string
+  reworkSourceBpmProcessInstanceId?: string
+  reworkSourceAttributeRound?: number
+}
+
+export const getControlledFileApplicationRestartContext = async (processInstanceId: string): Promise<ControlledFileApplicationRestartContext | null> => {
+  return await request.get({ url: '/dcc/controlled-files/application-restart-context', params: { processInstanceId } })
+}
+
+export const prepareControlledFileApplicationRestart = async (id: string | number): Promise<string> => {
+  return await request.post({ url: `/dcc/controlled-files/${id}/restart-application` })
+}
+
 export const uploadControlledFileTrainingRecord = async (
   id: number | string,
   data: ControlledFileTrainingRecordReqVO
@@ -2533,7 +2570,8 @@ export const approveControlledFileTask = async (
   )
   const response = await postControlledFileTaskAction<unknown>(
     `/dcc/controlled-files/${id}/approve-task`,
-    data
+    data,
+    120000
   )
   return parseDccSignatureActionResp(response, 'APPROVED')
 }
@@ -2672,7 +2710,7 @@ export const decodePreviewWatermark = (rawHeader: unknown): ControlledPreviewWat
 const buildControlledFileDownloadEndpoint = (id: number | string) =>
   `${axiosConfig.base_url}/dcc/controlled-files/${id}/download`
 
-const buildControlledFileVariantDownloadEndpoint = (id: number | string, variant: 'read-only' | 'editable') =>
+const buildControlledFileVariantDownloadEndpoint = (id: number | string, variant: 'read-only' | 'editable' | 'archive') =>
   `${axiosConfig.base_url}/dcc/controlled-files/${id}/download/${variant}`
 
 const decodeContentDispositionFileName = (rawHeader: unknown): string | null => {
@@ -2857,7 +2895,7 @@ export const downloadControlledFileWithName = async (
 
 export const downloadControlledFileVariantWithName = async (
   id: number | string,
-  variant: 'read-only' | 'editable'
+  variant: 'read-only' | 'editable' | 'archive'
 ): Promise<ControlledFileDownloadResult> => {
   const downloadRequestId = createControlledFileDownloadRequestId()
   const response = await axios.get<Blob>(buildControlledFileVariantDownloadEndpoint(id, variant), {

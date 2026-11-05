@@ -11,12 +11,11 @@ import java.util.List;
 @Mapper
 public interface DccDataRelationMapper extends BaseMapperX<DccDataRelationDO> {
 
-    default DccDataRelationDO selectIdentity(Long productCatalogId, Long projectCodeId,
-                                               Long registrationCertificateId) {
+    default DccDataRelationDO selectCatalogProjectForUpdate(Long productCatalogId, Long projectCodeId) {
         return selectOne(new LambdaQueryWrapperX<DccDataRelationDO>()
                 .eq(DccDataRelationDO::getProductCatalogId, productCatalogId)
                 .eq(DccDataRelationDO::getProjectCodeId, projectCodeId)
-                .eq(DccDataRelationDO::getRegistrationCertificateId, registrationCertificateId));
+                .last("FOR UPDATE"));
     }
 
     default List<DccDataRelationDO> selectByProductCatalogId(Long productCatalogId) {

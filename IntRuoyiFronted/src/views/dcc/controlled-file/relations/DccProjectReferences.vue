@@ -1,14 +1,19 @@
 <template>
-  <div>
+  <div class="dcc-project-references">
     <el-alert v-if="error" :title="error" type="error" :closable="false" show-icon />
+    <div class="dcc-project-references__toolbar">
     <el-button v-if="isProjectLeader" :disabled="busy || loading || savedReadFailure" @click="openSelector">引用</el-button>
-    <el-button v-if="isProjectLeader" data-testid="dcc-folder-cancel-reference"
+    <el-button
+      v-if="isProjectLeader" data-testid="dcc-folder-cancel-reference"
       :disabled="busy || loading || savedReadFailure || !selectedReference" @click="selectedReference && prepareCancel(selectedReference)">取消引用</el-button>
     <el-button data-testid="dcc-folder-refresh-references" :disabled="busy || loading" @click="refresh">刷新引用列表</el-button>
+      <span class="dcc-project-references__column-controls" data-dcc-reference-column-controls></span>
+    </div>
     <DccFileSelector v-model="selectorVisible" :source="selectorSource" purpose="reference" :directories="directories" :selected="[]" :load-page="loadPage" :open-preview="openPreview" :persist="createSelected" @confirmed="referencesCreated">
       <template #confirmation-fields><el-input v-model="referenceReason" :disabled="busy" placeholder="引用原因（必填）" type="textarea" /></template>
     </DccFileSelector>
-    <slot :rows="rows" :loading="loading" :busy="busy" :reading-reference-id="readingReferenceId"
+    <slot
+      :rows="rows" :loading="loading" :busy="busy" :reading-reference-id="readingReferenceId"
       :selected-reference="selectedReference" :select-reference="selectReference" :read-reference="readSavedReference">
     <el-table :data="rows" v-loading="loading" highlight-current-row @current-change="selectReference">
       <el-table-column label="文件">
@@ -18,6 +23,7 @@
       </el-table-column>
       <el-table-column prop="selectedVersion.versionNo" label="所选受控版本"><template #default="{ row }">{{ getDccVersionDisplayText(row.selectedVersion.versionNo) }}</template></el-table-column>
       <el-table-column prop="selectedVersion.folderName" label="源文件夹" />
+      <el-table-column label="作废提示"><template #default="{ row }"><ArchiveDownloadEntry :file-id="row.selectedVersion.controlledFileId" :version-no="row.selectedVersion.versionNo" :file-name="row.selectedVersion.fileName" :file-number="row.selectedVersion.fileNumber" :status="row.selectedVersion.status" :reference-project-id="row.reference.projectId" :reference-folder-id="row.reference.folderId" /></template></el-table-column>
       <el-table-column label="引用"><template #default="{ row }"><DccReferenceBadge :is-reference="true" :project-count="row.referenceProjectCount" :source-project-name="row.sourceProjectName" :obsolete="row.selectedVersion.status === 'OBSOLETE'" :pending-effect="row.selectedVersion.pendingEffect" /><el-button link data-testid="dcc-saved-reference-usage" :disabled="busy || loading" @click="emit('show-usage', row)">使用明细</el-button></template></el-table-column>
       <el-table-column v-if="openReferencePreview || openReferenceTrace" label="只读查看">
         <template #default="{ row }">
@@ -47,6 +53,7 @@
   </div>
 </template>
 <script setup lang="ts">
+import ArchiveDownloadEntry from '../shared/ArchiveDownloadEntry.vue'
 import { onBeforeUnmount, ref, watch } from 'vue'
 import { getDccVersionDisplayText } from '../shared/version-display'
 import DccReferenceBadge from './DccReferenceBadge.vue'
@@ -147,5 +154,8 @@ watch(() => props.selectionContextKey, () => {
 onBeforeUnmount(() => { generation++; readSequence++; readingReferenceId.value = ''; rows.value = [] })
 </script>
 <style scoped>
+.dcc-project-references__toolbar { display: flex; align-items: center; gap: 8px; }
+.dcc-project-references__toolbar > .el-button { margin-left: 0; }
+.dcc-project-references__column-controls { display: flex; margin-left: auto; }
 .reference-file-name.is-reference { color: #b85a00; }
 </style>

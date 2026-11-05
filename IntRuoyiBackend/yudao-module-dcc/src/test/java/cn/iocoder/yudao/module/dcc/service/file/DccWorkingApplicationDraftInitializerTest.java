@@ -59,7 +59,7 @@ class DccWorkingApplicationDraftInitializerTest extends BaseDbUnitTest {
         jdbc.update("INSERT INTO dcc_project_code(id,tenant_id,project_name,project_code,status,default_attributes_json,deleted) VALUES(5,1,'H08','H08','ENABLE',?,0)",attributes.encode(nmpa));
         jdbc.update("INSERT INTO dcc_controlled_file_master(id,tenant_id,category_id,directory_id,file_name,file_number,dcc_project_code_id,status,deleted) VALUES(10,1,2,3,'SOP','N-1',5,'ACTIVE_CHAIN',0)");
         files.insert(working(20L,null,"A/1"));
-        when(categoryPermission.hasCategoryPermission(any(),any(),any())).thenReturn(true);
+        when(categoryPermission.hasFilePermission(any(),any(),any())).thenReturn(true);
     }
     @AfterEach void clear(){jdbc.update("DELETE FROM dcc_application_round_link");TenantContextHolder.clear();}
     private DccControlledFileDO working(Long id,Long predecessor,String version){return DccControlledFileDO.builder()
@@ -70,6 +70,15 @@ class DccWorkingApplicationDraftInitializerTest extends BaseDbUnitTest {
     private DccProjectApplicationAttributesDO init(Long from,Long target,DccProjectAttributes actual){return tx().execute(s->initializer.initialize(99L,from,target,actual));}
     private TransactionTemplate tx(){return new TransactionTemplate(manager);}
     private void prepareSource(){init(null,20L,ce);}
+    @Test void anotherEditorCheckinInheritsSavedSourceOnlyWhileHoldingItsCheckout() {
+        prepareSource(); target();
+        jdbc.update("UPDATE dcc_controlled_file SET requester_id=77,checked_out_by=99 WHERE id=20");
+        var inherited=init(20L,30L,null);
+        assertEquals(20L,inherited.getSourceApplicationId());
+        assertEquals(ce,attributes.readValue(inherited.getActualAttributesJson()));
+        assertEquals(77L,files.selectById(20L).getRequesterId());
+        assertEquals(99L,files.selectById(30L).getRequesterId());
+    }
     private void target(){files.insert(working(30L,20L,"A/1-1"));}
     private int count(String table){return jdbc.queryForObject("SELECT COUNT(*) FROM "+table,Integer.class);}
 
@@ -122,6 +131,49 @@ class DccWorkingApplicationDraftInitializerTest extends BaseDbUnitTest {
         jdbc.update("UPDATE dcc_project_code SET default_attributes_json=? WHERE id=5",attributes.encode(fda));target();
         var fork=init(20L,30L,null);assertEquals(nmpa,attributes.readValue(fork.getDefaultSourceJson()));assertEquals(ce,attributes.readValue(fork.getActualAttributesJson()));
         assertEquals(source.getApplicationRound(),fork.getSourceApplicationRound());assertEquals(20L,fork.getSourceApplicationId());
+    }
+    private void replacementSource(Long sourceRequester) {
+        var original=init(null,20L,ce);
+        tx().executeWithoutResult(s->bridge.submitReservedDraft(99L,5L,"UPLOAD",20L,original.getApplicationRound(),"old-upload",ce));
+        jdbc.update("UPDATE dcc_controlled_file SET status='ACTIVE',controlled_time=CURRENT_TIMESTAMP,process_instance_id='old-upload' WHERE id=20");
+        jdbc.update("UPDATE dcc_controlled_file_master SET latest_controlled_file_id=20,current_active_controlled_file_id=20 WHERE id=10");
+        var source=working(30L,20L,"A/1-1");source.setChangeType("REVISION");source.setRevisionBaseActiveControlledFileId(20L);files.insert(source);
+        init(20L,30L,ce);
+        jdbc.update("UPDATE dcc_controlled_file SET requester_id=? WHERE id=30",sourceRequester);
+        var target=working(40L,30L,"B/1");target.setChangeType("REVISION");target.setRevisionChangeType("REPLACEMENT");
+        target.setSelectedIterationControlledFileId(30L);target.setSelectedIterationVersionNo("A/1-1");
+        target.setRevisionBaseActiveControlledFileId(20L);target.setRevisionSourceControlledFileId(20L);files.insert(target);
+    }
+    @ParameterizedTest @org.junit.jupiter.params.provider.CsvSource({"99,PARTIAL","77,PARTIAL","99,REPLACEMENT","77,REPLACEMENT"})
+    void revisionEditorCanInheritOwnOrAnotherAuthorsBodyWithoutOwnerPrivilege(Long sourceRequester,String intent){
+        replacementSource(sourceRequester);
+        jdbc.update("UPDATE dcc_controlled_file SET revision_change_type=?,version_no=? WHERE id=40",intent,"PARTIAL".equals(intent)?"A/2":"B/1");
+        var source=bridge.readReservedDraft(99L,5L,"REVISION",30L);
+        var originalFile=files.selectById(30L);
+        doThrow(new IllegalStateException("not OWNER")).when(projectAccess).assertProjectOwner(99L,5L);
+        var saved=init(30L,40L,fda);
+        assertEquals(30L,saved.getSourceApplicationId());assertEquals(source.getApplicationRound(),saved.getSourceApplicationRound());
+        assertEquals(fda,attributes.readValue(saved.getActualAttributesJson()));
+        assertEquals(source,bridge.readReservedDraft(99L,5L,"REVISION",30L));assertEquals(originalFile,files.selectById(30L));
+        verify(projectAccess,never()).assertProjectOwner(anyLong(),anyLong());
+        verify(projectAccess,atLeastOnce()).assertProjectEditorOrOwner(99L,5L);
+    }
+    @ParameterizedTest @org.junit.jupiter.params.provider.ValueSource(strings={"PARTIAL","REPLACEMENT"})
+    void anotherAuthorSourceRequiresItsActualEditGrantBeforeAttributeInheritance(String intent){
+        replacementSource(77L);
+        jdbc.update("UPDATE dcc_controlled_file SET revision_change_type=?,version_no=? WHERE id=40",intent,"PARTIAL".equals(intent)?"A/2":"B/1");
+        when(categoryPermission.hasFilePermission(org.mockito.ArgumentMatchers.argThat(file->file!=null&&Long.valueOf(30L).equals(file.getId())),
+                org.mockito.ArgumentMatchers.eq(99L),org.mockito.ArgumentMatchers.eq(cn.iocoder.yudao.module.dcc.enums.DccFileCategoryPermissionActionEnum.EDIT))).thenReturn(false);
+        assertThrows(RuntimeException.class,()->init(30L,40L,fda));
+        assertNull(jdbc.queryForObject("SELECT MAX(application_id) FROM dcc_project_application_attributes WHERE application_id=40",Long.class));
+        assertEquals(77L,files.selectById(30L).getRequesterId());
+    }
+    @Test void replacementWithoutProjectEditAccessCannotCreateTargetAttributes(){
+        replacementSource(77L);
+        int mappings=count("dcc_application_round_link"),records=count("dcc_project_application_attributes");
+        doThrow(new IllegalStateException("not EDIT")).when(projectAccess).assertProjectEditorOrOwner(99L,5L);
+        assertEquals("not EDIT",assertThrows(IllegalStateException.class,()->init(30L,40L,fda)).getMessage());
+        assertEquals(mappings,count("dcc_application_round_link"));assertEquals(records,count("dcc_project_application_attributes"));
     }
     @ParameterizedTest @ValueSource(strings={"SOURCE_TENANT","TARGET_TENANT","PROJECT","MASTER","ACTION","SOURCE_APPLICANT","TARGET_APPLICANT",
             "DIRECT_PREDECESSOR","MISSING_SOURCE","MISSING_ATTRIBUTES","SOURCE_BODY","CANDIDATE_BODY","TARGET_CONTROLLED","SOURCE_BPM","OMITTED_SOURCE"})

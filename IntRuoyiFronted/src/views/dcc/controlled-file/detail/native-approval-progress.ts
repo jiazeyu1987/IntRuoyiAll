@@ -1,5 +1,6 @@
 import type { ControlledFileApplicationRound, ControlledFileRoundFlowContract, DccApplicationType } from '@/api/dcc/controlledFile/applicationRead'
 import type { DccTaskStageProgress } from '../shared/approval'
+import type { DccEffectiveMode } from '@/api/dcc/controlledFile/workflow'
 
 export interface ApprovalProgressScope {
   fileId: string
@@ -60,20 +61,23 @@ export const getNativeApprovalProcessText = (scope?: ApprovalProgressScope): str
   const reason = getNativeApprovalFlowUnavailableReason(scope)
   if (reason) return reason
   const flow = scope!.flowContract!
-  if (scope!.applicationType === 'OBSOLETE') return '直属主管审核 → 部门负责人指派及会签 → 批准，批准后作废并结束流程。'
+  if (scope!.applicationType === 'OBSOLETE') return '直属主管审核 → 部门负责人签名指派 → 实际会签人会签 → 批准，批准后作废并结束流程。'
   if (flow.flowRule === 'LEGACY_V4_TRAINING_BEFORE_DOCUMENT_CONTROL')
-    return '会签 → 批准 → 培训（如需） → 文控审核 → 受控 → 文控下发（本轮原流程）。'
+    return '部门负责人签名指派 → 实际会签人会签 → 批准 → 培训（如需） → 文控审核 → 受控 → 文控下发（本轮原流程）。'
   if (flow.flowRule === 'PUBLIC_V6_DELAYED_EFFECTIVE_CONFIRM')
-    return '直属主管审核 → 部门负责人指派及会签 → 批准 → 文控审核 → 培训（如需） → 延迟方式由原编制人确认生效时间并签名 → 受控 → 生效后自动下发。'
-  return '直属主管审核 → 部门负责人指派及会签 → 批准 → 文控标准化审核 → 培训（如需） → 受控 → 生效后自动下发。'
+    return '直属主管审核 → 部门负责人签名指派 → 实际会签人会签 → 批准 → 文控审核 → 培训（如需） → 延迟方式由原编制人确认生效时间并签名 → 受控 → 生效后自动下发。'
+  return '直属主管审核 → 部门负责人签名指派 → 实际会签人会签 → 批准 → 文控标准化审核 → 培训（如需） → 受控 → 生效后自动下发。'
 }
 
 export const buildNativeApprovalProgress = (scope: ApprovalProgressScope, facts: {
   fileId: string; fileBpmRound?: string; needTraining?: boolean; status?: string; controlledTime?: string | null
   activatedTime?: string | null; distributedTime?: string | null; trainingRecordAvailable?: boolean
-  effectiveMode?: 'AFTER_STANDARDIZATION_SIGNATURE' | 'DELAYED' | 'PRESET_DATE' | null
+  effectiveMode?: DccEffectiveMode | null
+  signoffAssignment?: { taskId: string; assigned: boolean }
 }, tasks: ApprovalProgressTask[]): ApprovalProgressStage[] => {
   if (scope.applicationType === 'LEGACY' || scope.fileId !== facts.fileId) throw new Error('原生审批进度上下文无效')
+  if (facts.effectiveMode === 'CONTROLLED_IMPORT' && scope.applicationType !== 'OBSOLETE')
+    throw new Error('受控导入不是上传或变更申请的生效方式')
   const unavailable = getNativeApprovalFlowUnavailableReason(scope)
   if (unavailable) throw new Error(unavailable)
   const flow = scope.flowContract!
@@ -89,7 +93,9 @@ export const buildNativeApprovalProgress = (scope: ApprovalProgressScope, facts:
     throw new Error('延迟确认任务与本次精确执行合同或生效方式不一致')
   if(confirmationFlow && currentFacts && facts.status==='PENDING_DELAYED_EFFECTIVE_CONFIRM' && confirmationTasks.length!==1)
     throw new Error('延迟确认状态缺少本次原编制人的真实确认任务')
-  const stages: Array<[string, string]> = [['MATRIX_REVIEW', '会签'], ['MATRIX_APPROVAL', '批准']]
+  const stages: Array<[string, string]> = [
+    ['MATRIX_REVIEW_ASSIGN', '部门负责人签名指派'], ['MATRIX_REVIEW', '实际会签人会签'], ['MATRIX_APPROVAL', '批准']
+  ]
   if (publicFlow) stages.unshift(['SUPERVISOR_REVIEW', '直属主管审核'])
   if (scope.applicationType !== 'OBSOLETE') {
     if (publicFlow) stages.push(['DOC_CONTROL_REVIEW', '文控标准化审核'])
@@ -100,7 +106,22 @@ export const buildNativeApprovalProgress = (scope: ApprovalProgressScope, facts:
     stages.push(['CONTROLLED', '受控'], ['DISTRIBUTED', publicFlow ? '生效后自动下发' : '文控下发'])
   }
   return stages.map(([stageCode, stageName], index) => {
-    const rows = actualTasks.filter(task => task.taskDefinitionKey === stageCode)
+    const assignmentNode = stageCode === 'MATRIX_REVIEW_ASSIGN'
+    const rows = actualTasks.filter(task => task.taskDefinitionKey === (assignmentNode ? 'MATRIX_REVIEW' : stageCode))
+    const exactAssignmentTask = assignmentNode && facts.signoffAssignment
+      ? rows.find(task => task.id === facts.signoffAssignment!.taskId)
+      : undefined
+    const knownAssignedCount = assignmentNode
+      ? rows.filter(task => task.status === 2).length + Number(Boolean(exactAssignmentTask && facts.signoffAssignment?.assigned
+        && exactAssignmentTask.status !== 2))
+      : 0
+    const awaitingAssignmentCount = assignmentNode && exactAssignmentTask && facts.signoffAssignment?.assigned === false
+      && (exactAssignmentTask.status === 1 || exactAssignmentTask.status === 7) ? 1 : 0
+    const waitingForAssignment = !assignmentNode && facts.signoffAssignment?.assigned === false
+      && rows.some(task => task.id === facts.signoffAssignment?.taskId)
+    const activeRows = rows.filter(task => task.status === 1 || task.status === 7)
+    const activeSignoffRows = waitingForAssignment
+      ? activeRows.filter(task => task.id !== facts.signoffAssignment?.taskId) : activeRows
     const trainingNode = stageCode === 'APPLICANT_TRAINING_RECORD'
     const trainingCompleted = currentFacts && trainingNode && facts.trainingRecordAvailable === true
       && ((!publicFlow && facts.status === 'PENDING_DOC_CONTROL_REVIEW')
@@ -110,9 +131,9 @@ export const buildNativeApprovalProgress = (scope: ApprovalProgressScope, facts:
       : stageCode === 'DISTRIBUTED' ? Boolean(facts.distributedTime) : trainingCompleted)
     const factNode = trainingNode || stageCode === 'CONTROLLED' || stageCode === 'DISTRIBUTED'
     const totalCount = factNode ? 1 : rows.length
-    const approvedCount = factNode ? Number(completedFact) : rows.filter(task => task.status === 2).length
-    const rejectedCount = rows.filter(task => task.status === 3).length
-    const runningCount = rows.filter(task => task.status === 1 || task.status === 7).length
+    const approvedCount = assignmentNode ? knownAssignedCount : factNode ? Number(completedFact) : rows.filter(task => task.status === 2).length
+    const rejectedCount = assignmentNode ? 0 : rows.filter(task => task.status === 3).length
+    const runningCount = assignmentNode ? awaitingAssignmentCount : activeSignoffRows.length
     const isCompleted = totalCount > 0 && approvedCount === totalCount
     const isCurrent = runningCount > 0 || (currentFacts && (
       (trainingNode && facts.status === 'PENDING_APPLICANT_TRAINING_RECORD')
@@ -121,7 +142,9 @@ export const buildNativeApprovalProgress = (scope: ApprovalProgressScope, facts:
         && (!publicFlow || (facts.status === 'ACTIVE' && Boolean(facts.activatedTime))))))
     return { stageCode, stageName, stageOrder: index + 1, totalCount, approvedCount, rejectedCount, runningCount,
       waitingCount: Math.max(totalCount - approvedCount - rejectedCount - runningCount, 0), completionText: `${approvedCount}/${totalCount}`,
-      sameLayerHint: factNode && !currentFacts ? '本轮阶段证据未记录'
+      sameLayerHint: assignmentNode && approvedCount < totalCount
+        ? awaitingAssignmentCount > 0 ? '当前任务等待负责人完成签名指派' : '其余指派状态未由当前任务上下文核验'
+        : factNode && !currentFacts ? '本轮阶段证据未记录'
         : isCompleted ? '本阶段已完成' : isCurrent ? '当前阶段待处理' : '待进入本阶段',
       isCurrent, isCompleted, isPending: !isCurrent && !isCompleted }
   })

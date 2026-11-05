@@ -15,6 +15,7 @@ public class DccControlledFileVersionHistoryRespVO {
     private String changeType;
     @com.fasterxml.jackson.annotation.JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime controlledTime;
+    private String importSource;
     private String processInstanceId;
     @com.fasterxml.jackson.annotation.JsonFormat(shape=com.fasterxml.jackson.annotation.JsonFormat.Shape.STRING)
     private Long fileOwnerUserId;
@@ -69,6 +70,7 @@ public class DccControlledFileVersionHistoryRespVO {
     private Long supersededByFileId;
     private String remark;
     private Boolean canPreview;
+    private Boolean canEditFile;
     private String previewUnavailableReason;
     private Boolean canDownload;
     private Boolean canDownloadReadOnly;

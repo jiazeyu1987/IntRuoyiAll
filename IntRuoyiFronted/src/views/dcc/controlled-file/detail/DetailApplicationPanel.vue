@@ -1,9 +1,14 @@
 <template>
   <ContentWrap>
-    <el-button v-if="!opened" type="primary" plain @click="open">{{
-      file.status === 'WORKING' ? '准备本次申请' : '发起局部 / 换版变更'
-    }}</el-button>
+    <template v-if="!opened">
+      <el-button v-if="file.status === 'WORKING'" type="primary" plain @click="open()">准备本次申请</el-button>
+      <template v-else>
+        <el-button type="primary" plain @click="open('PARTIAL')">发起局部变更</el-button>
+        <el-button type="primary" plain @click="open('REPLACEMENT')">发起换版变更</el-button>
+      </template>
+    </template>
     <section v-else v-loading="loading" aria-label="本次文件申请">
+      <h3 v-if="selectedIntent">{{ selectedIntent === 'PARTIAL' ? '局部变更申请' : '换版变更申请' }}</h3>
       <el-alert v-if="error" :title="error" type="error" :closable="false" />
       <CustomApplicationMatrixEditor v-if="snapshot?.approvalSourceMode === 'APPLICATION_CUSTOM'"
         v-model="applicationCustomMatrix" v-model:selected-signoff-department-ids="selectedDepartments"
@@ -14,7 +19,7 @@
       <template v-if="snapshot">
         <el-button v-if="canChangeWorkingType" data-testid="dcc-working-type-change-open" :disabled="busy || submitted || loading" @click="beginTypeChange">主动变更文件类型</el-button>
         <el-button v-if="newActionPreparationEligible && !preparedNewActionBaseline" :disabled="busy || submitted" @click="prepareNewActionBaseline">为本次升版准备审批配置</el-button>
-        <el-alert v-if="preparedNewActionBaseline" title="本次新升版配置仅已预览，尚未保存；请明确保存本次申请草稿。" type="info" :closable="false" />
+        <el-alert v-if="preparedNewActionBaseline" :title="selectedIntent === 'REPLACEMENT' ? '本次换版审批配置已确认，将在提交正式变更时核验并保存。' : '本次新升版配置仅已预览，尚未保存；请明确保存本次申请草稿。'" type="info" :closable="false" />
         <p
           >{{ file.sourceOriginalFileName || file.fileName || file.title }} ·
           {{ getDccVersionDisplayText(file.versionNo) }}</p
@@ -110,14 +115,18 @@
           :replacement-target="revisionOptions.replacementTarget"
           :idempotency-key="idempotencyKey"
           :application-facts="applicationFacts"
-          :application-ready="Boolean(applicationFacts && !selectionLoading && canSubmit && !submitted && selectedIterationId)"
+          :application-ready="revisionApplicationReady"
+          :application-unavailable-reason="revisionApplicationBlocker"
           :initial-selected-iteration-id="selectedIterationId"
+          :initial-intent="selectedIntent"
+          :initial-description="description"
           @selected-iteration-changed="selectIteration"
           @intent-changed="selectIntent"
           :facts="file"
           :iterations="revisionOptions.iterations"
-          :can-partial="canPartial"
-          :can-replacement="canReplacement"
+          :can-partial="selectedIntent !== 'REPLACEMENT' && canPartial"
+          :can-replacement="selectedIntent !== 'PARTIAL' && canReplacement"
+          @prepare-body="(targetVersion, intent) => emit('prepareBody', targetVersion, intent)"
           :checked-out-by="revisionOptions.checkedOutBy ?? undefined"
           :checked-out-by-name="revisionOptions.checkedOutByName ?? undefined"
           :checked-out-time="checkoutTime"
@@ -172,7 +181,7 @@
   </ContentWrap>
 </template>
 <script setup lang="ts">
-import { computed, ref, watch, onBeforeUnmount, markRaw } from 'vue'
+import { computed, ref, watch, onBeforeUnmount, onMounted, markRaw } from 'vue'
 import { ElMessageBox } from 'element-plus'
 import { generateUUID } from '@/utils'
 import { getSimpleDeptList } from '@/api/system/dept'
@@ -181,6 +190,7 @@ import { checkControlledFileRouteReadiness } from '@/api/dcc/controlledFile/work
 import { previewWorkingApplicationTypeChange, confirmWorkingApplicationTypeChange, type WorkingApplicationTypeChangePreview, type WorkingApplicationTypeChangeCommand, type ApprovalMatrixBaselineVO } from '@/api/dcc/controlledFile/workflow'
 import { getFileTypeTaxonomyUploadOptions, type DccFileTypeTaxonomyUploadOption } from '@/api/dcc/controlledFile/fileTypeTaxonomies'
 import { getProjectDefaults } from '@/api/dcc/controlledFile/projectAttributes'
+import { listCurrentRelations, listHistoricalRelations } from '@/api/dcc/controlledFile/relations'
 import {
   getWorkingApplicationAttributes,
   getControlledFileReplacementAttributes,
@@ -195,7 +205,6 @@ import {
   getControlledFile,
   type ControlledFileVO
 } from '@/api/dcc/controlledFile/workflow'
-import type { DccEffectiveMode } from '@/api/dcc/controlledFile/workflow'
 import { getTenantId, getVisitTenantId } from '@/utils/auth'
 import { UploadApprovalMatrixState, isNewActionBaselinePreparationAllowed, isApprovalMatrixStaleError, matrixRuntimeBlockerMessage, refreshApprovalMatrixRejection } from '../upload/approval-matrix'
 import type { ApprovalMatrixScope } from '../upload/approval-matrix'
@@ -215,14 +224,14 @@ import {
   type ProjectAttributes
 } from '../project-attributes/state'
 import DccRevisionPanel from '../revision/DccRevisionPanel.vue'
-import { buildInitialCommand, type RevisionCommand, type RevisionIntent } from '../revision/revision-model'
+import { buildInitialCommand, sameApplicationProjectAttributes, type RevisionCommand, type RevisionIntent } from '../revision/revision-model'
 import { isWorkflowId } from '../workflow/workflow-actions'
 import ProtectedPdfViewer from '../view/index.vue'
 import { buildDccControlledFilePreviewSource, type OnlineFilePreviewSource } from '@/api/common/filePreview'
 import { formatControlledFileDateTime } from './presentation'
 
-const props = defineProps<{ file: ControlledFileVO }>()
-const emit = defineEmits<{ submitted: [fileId: string] }>()
+const props = defineProps<{ file: ControlledFileVO; initialIntent?: RevisionIntent; initialIterationId?: string; initialOpen?: boolean }>()
+const emit = defineEmits<{ submitted: [fileId: string]; prepareBody: [targetVersion?: string, intent?: RevisionIntent] }>()
 const message = useMessage()
 const opened = ref(false),
   loading = ref(false),
@@ -234,7 +243,7 @@ const snapshot = ref<PanelSnapshot>(),
   selectedApplicationFile = ref<ControlledFileVO>(),
   revisionOptions = ref<ControlledFileRevisionOptions>()
 const preparationBlockers = ref<string[]>([])
-const effectiveMode = ref<DccEffectiveMode | null>(null), effectiveDate = ref<string | null>(null),
+const effectiveMode = ref<WorkingApplicationSelection['effectiveMode']>(null), effectiveDate = ref<string | null>(null),
   needTraining = ref<boolean | undefined>(false),
   selectedDepartments = ref<string[] | null>(null),
   selectedDistributionDepartments = ref<string[] | null>(null),
@@ -252,6 +261,7 @@ const departments = ref<Array<{ id: string; name: string }>>([]),
   approvalRule = ref(''),
   canSubmit = ref(false)
 const approvalGroups = ref<UploadApprovalGroup[]>([]), approvalCapabilityLimitations = ref<string[]>([])
+const revisionSubmitKey = ref(''), revisionSubmitPayload = ref('')
 const idempotencyKey = ref(''),
   previewSource = ref<OnlineFilePreviewSource>()
 const selectedIterationId = ref(''), selectionLoading = ref(false)
@@ -313,6 +323,20 @@ const applicationProjection = computed(() => {
 })
 const applicationFacts = computed(() => applicationProjection.value.facts)
 const applicationSelectionError = computed(() => applicationProjection.value.error)
+// canSubmit reflects the saved draft; revision requests validate the choices currently entered.
+const revisionApplicationBlocker = computed(() => {
+  if (selectionLoading.value) return '正在读取所选工作正文，请稍候'
+  if (!selectedIterationId.value) return '请选择本次送审的工作正文'
+  if (submitted.value) return '本次变更已提交'
+  if (revisionOptions.value?.checkedOutBy != null || revisionOptions.value?.lockedReason) return '文件已检出或已有变更办理中，请先处理后再提交'
+  const body = revisionOptions.value?.iterations.find(row => String(row.id) === selectedIterationId.value)
+  if (!body || !(selectedIntent.value === 'PARTIAL' ? body.canPartial : selectedIntent.value === 'REPLACEMENT' && body.canReplacement))
+    return '当前工作正文无所选变更操作权限'
+  if (newActionPreparationEligible.value && !(selectedIntent.value === 'REPLACEMENT' && preparedNewActionBaseline.value))
+    return selectedIntent.value === 'REPLACEMENT' ? '请先准备并确认本次换版审批配置' : '请先准备本次升版审批配置并保存申请草稿'
+  return applicationSelectionError.value
+})
+const revisionApplicationReady = computed(() => !revisionApplicationBlocker.value && Boolean(applicationFacts.value))
 const typeChangeVisible = ref(false), typeChangeBusy = ref(false), typeChangeError = ref(''), typeChangeTarget = ref(''), typeChangeReason = ref('')
 const typeChangeConfirming = ref(false)
 const typeChangeOptions = ref<Array<{ id: string; label: string }>>([]), typeChangePreview = ref<WorkingApplicationTypeChangePreview>()
@@ -528,7 +552,9 @@ const prepareNewActionBaseline = async () => {
     if ([...previewSignoff, ...previewDistribution].some(id => !departments.value.some(row => row.id === id)))
       throw new Error('本次升版准备返回的部门不在正式启用目录中，请核对配置')
     await ElMessageBox.confirm([
-      '这是为本次新升版选择的审批配置，并非恢复原上传申请基线；确认这里只保留预览状态，仍须明确保存工作稿。',
+      selectedIntent.value === 'REPLACEMENT'
+        ? '请核对本次换版审批配置；确认后将在提交正式变更时核验并保存。'
+        : '这是为本次新升版选择的审批配置，并非恢复原上传申请基线；确认这里只保留预览状态，仍须明确保存工作稿。',
       ...matrix.summary().map(row => `${row.label}：${row.value}`),
       ...approvers.groups.map(group => `原批准组 ${group.sourceNodeId}：${group.summary}`),
       `本次会签部门：${previewSignoff.map(id => departments.value.find(row => row.id === id)!.name).join('、') || '未填写'}`,
@@ -549,17 +575,33 @@ const prepareNewActionBaseline = async () => {
   } finally { if (token === generation) busy.value = false }
 }
 
-const open = async () => {
+const open = async (intent?: RevisionIntent) => {
+  if (props.file.canEditFile !== true) { error.value = '当前账号未获本文件编辑授权，不能准备申请'; return }
   if (busy.value || submitted.value) return
   const token = ++generation,
     file = props.file
+  revisionSubmitKey.value = ''
   opened.value = true
   loading.value = true
   error.value = ''
   preparationBlockers.value = []
   canSubmit.value = false
+  selectedIntent.value = intent ?? props.initialIntent
   try {
     if (!file.dccProjectCodeId) throw new Error('文件未绑定正式项目，无法准备申请')
+    if (!working.value) {
+      const options = await getControlledFileRevisionOptions(file.id)
+      if (token !== generation) return
+      if (String(options.masterId) !== String(file.masterId)) throw new Error('升版准备与当前逻辑文件不一致')
+      revisionOptions.value = options
+      idempotencyKey.value = generateUUID()
+      if (options.lockedReason) return
+      const [deptRows, users] = await Promise.all([getSimpleDeptList(), getSimpleUserList()])
+      if (token !== generation) return
+      departments.value = signoffDepartmentOptions(deptRows)
+      approvalAccounts.value = approvalUserOptions(users)
+      return
+    }
     const saved = working.value ? await getWorkingApplicationAttributes(file.id) : undefined
     if (token !== generation) return
     const action = saved?.applicationType || 'REVISION'
@@ -627,7 +669,8 @@ const open = async () => {
     if (action === 'REVISION') {
       const baselineId = working.value ? file.revisionBaseActiveControlledFileId : file.id
       if (!baselineId) throw new Error('草稿缺少正式受控基线身份')
-      const options = await getControlledFileRevisionOptions(baselineId)
+      const options = !working.value && revisionOptions.value
+        ? revisionOptions.value : await getControlledFileRevisionOptions(baselineId)
       if (token !== generation) return
       if (String(options.masterId) !== String(file.masterId))
         throw new Error('升版准备与当前逻辑文件不一致')
@@ -644,6 +687,7 @@ const open = async () => {
 }
 const selectIntent = async (intent: RevisionIntent | undefined) => {
   if (busy.value || submitted.value) return
+  if (selectedIntent.value !== intent) revisionSubmitKey.value = ''
   selectedIntent.value = intent
   if (selectedIterationId.value) await selectIteration(selectedIterationId.value)
 }
@@ -651,6 +695,7 @@ const selectIteration = async (id: string) => {
   if (busy.value || submitted.value) return
   const token = ++selectionGeneration, context = generation
   const intent = selectedIntent.value === 'REPLACEMENT' ? 'REPLACEMENT' : 'PARTIAL'
+  if (selectedIterationId.value !== id) revisionSubmitKey.value = ''
   selectedIterationId.value = id
   newActionPreparationEligible.value = false; preparedNewActionBaseline.value = false; newActionPreparationFacts.value = undefined
   snapshot.value = undefined; selectedApplicationFile.value = undefined; canSubmit.value = false; error.value = ''; selectionLoading.value = true; previewSource.value = undefined
@@ -836,7 +881,7 @@ const readRevisionTargetVersion = (intent: RevisionIntent): string => {
 }
 const confirmation = async (intent: string, body: string, details: string,
   revisionVersions?: { baselineVersionNo: string; targetVersionNo: string }) => {
-  if (!snapshot.value || !canSubmit.value) throw new Error('当前申请条件未就绪')
+  if (!snapshot.value || (!revisionVersions && !canSubmit.value)) throw new Error('当前申请条件未就绪')
   validateAttributes(snapshot.value.actual)
   const signoff = normalizeSignoffDepartments(selectedDepartments.value)!
   const distribution = normalizeDistributionDepartments(selectedDistributionDepartments.value)
@@ -849,6 +894,20 @@ const confirmation = async (intent: string, body: string, details: string,
   const attributes = snapshot.value.actual
   const file = selectedApplicationFile.value || props.file
   readApplicationOrdinaryAttachmentExpectation(file)
+  const relationContext = () => JSON.stringify([generation, selectionGeneration, getVisitTenantId() ?? getTenantId(),
+    props.file.id, selectedApplicationFile.value?.id, selectedIterationId.value, revisionOptions.value?.controlledBaselineId])
+  const expectedRelationContext = relationContext()
+  // Initial submissions inherit the selected draft; revisions freeze the controlled baseline's current relations.
+  const relationSourceId = signoffIdentity(revisionVersions ? revisionOptions.value?.controlledBaselineId : file.id)
+  const relationResponse = revisionVersions
+    ? await listCurrentRelations(relationSourceId) : await listHistoricalRelations(relationSourceId)
+  if (relationContext() !== expectedRelationContext) throw new Error('关联文件读取期间申请或正文上下文已变化，请重新确认')
+  if (revisionVersions && signoffIdentity(relationResponse?.sourceControlledFileId) !== relationSourceId)
+    throw new Error('关联文件来源版本不一致，请重新读取')
+  const relatedFiles: Array<{ fileName: string; versionNo: string }> = revisionVersions ? relationResponse?.files : relationResponse
+  if (!Array.isArray(relatedFiles) || relatedFiles.some(row => !row || typeof row.fileName !== 'string'
+    || !row.fileName.trim() || typeof row.versionNo !== 'string' || !row.versionNo.trim()))
+    throw new Error('本次送审关联文件未完整读取，请重新核对')
   const choiceNames: Record<string, string> = { Y: '是', N: '否', NA: '不适用' }
   const rows = [
     `文件名称：${file.sourceOriginalFileName || file.fileName || file.title}；编号：${file.fileNumber || '未记录'}；版本：${getDccVersionDisplayText(file.versionNo)}`,
@@ -862,8 +921,8 @@ const confirmation = async (intent: string, body: string, details: string,
     `本次已保存附件：${file.attachments!.length ? file.attachments!.map(row => `${row.fileName}（${row.attachmentPurpose === 'ATTACHMENT' ? '普通附件' : '培训记录'}）`).join('；') : '无附件'}`,
     ...approvalGroups.value.map(group => `原批准组 ${group.sourceNodeId}：${group.summary}`),
     ...approvalCapabilityLimitations.value.map(limitation => `运行能力说明：${limitation}`),
-    `目标市场：${attributes.targetMarkets.join('、')}${attributes.otherMarket ? `（${attributes.otherMarket}）` : ''}；注册人：${choiceNames[attributes.licenseHolder!] || '未记录'}；生产方：${choiceNames[attributes.actualManufacturer!] || '未记录'}；文件转移：${choiceNames[attributes.documentTransfer!] || '未记录'}${attributes.transferTo ? `；转移至：${attributes.transferTo}` : ''}`,
-    `已保存关联：${file.relatedFiles?.length ? file.relatedFiles.map(related => `${related.fileName} · ${related.versionNo}`).join('；') : '未记录关联'}；申请说明：${details}`,
+    attributes.libraryScope ? `${attributes.libraryScope === 'QMS' ? 'QMS 文件库' : '通用文件库'}：项目属性不适用` : `目标市场：${attributes.targetMarkets.join('、')}${attributes.otherMarket ? `（${attributes.otherMarket}）` : ''}；注册人：${choiceNames[attributes.licenseHolder!] || '未记录'}；生产方：${choiceNames[attributes.actualManufacturer!] || '未记录'}；文件转移：${choiceNames[attributes.documentTransfer!] || '未记录'}${attributes.transferTo ? `；转移至：${attributes.transferTo}` : ''}`,
+    `已保存关联：${relatedFiles.length ? relatedFiles.map(related => `${related.fileName} · ${related.versionNo}`).join('；') : '无关联文件'}；申请说明：${details}`,
     '生效与受控分别记录；新版受控且已生效时才启用并作废旧版。取消保留已填写内容。'
   ]
   await ElMessageBox.confirm(
@@ -881,12 +940,17 @@ const submitRevision = async (command: RevisionCommand) => {
   )
   if (!body || String(revisionOptions.value?.controlledBaselineId) !== command.controlledBaselineId)
     throw new Error('所选正文或受控基线已变更')
+  if (!(command.revisionChangeType === 'PARTIAL' ? body.canPartial : body.canReplacement))
+    throw new Error('当前工作正文无所选变更操作权限')
+  if (revisionOptions.value?.checkedOutBy != null || revisionOptions.value?.lockedReason)
+    throw new Error('文件已检出或已有变更办理中，请先处理后再提交')
   const targetVersionNo = readRevisionTargetVersion(command.revisionChangeType)
   const baselineVersionNo = revisionOptions.value?.baselineVersionNo
   if (!baselineVersionNo || !/^[A-Z]+\/[1-9]\d*$/.test(baselineVersionNo))
     throw new Error('来源受控版本未记录，无法确认本次升版')
   if (selectedIterationId.value !== command.selectedIterationId || selectionLoading.value ||
-      command.revisionChangeType !== snapshotIntent.value || JSON.stringify(command.projectAttributes) !== JSON.stringify(snapshot.value?.actual))
+      command.revisionChangeType !== snapshotIntent.value || !snapshot.value
+      || !sameApplicationProjectAttributes(command.projectAttributes, snapshot.value.actual))
     throw new Error('请先读取并核对所选正文的已保存申请属性')
   const facts = applicationFacts.value
   if (!facts || command.effectiveMode !== facts.effectiveMode || command.effectiveDate !== facts.effectiveDate
@@ -931,6 +995,13 @@ const submitRevision = async (command: RevisionCommand) => {
     const payload = { ...business, ...confirmedExecutionSelection,
       expectedOrdinaryAttachmentIds: confirmedAttachments.expectedOrdinaryAttachmentIds,
       expectedOrdinaryAttachmentManifestHash: confirmedAttachments.expectedOrdinaryAttachmentManifestHash }
+    // 矩阵上下文随草稿保存；提交命令独立，同载荷重试沿用，修改后重新申请。
+    const submitFingerprint = JSON.stringify([selectedIterationId, { ...payload, idempotencyKey: undefined }])
+    if (!revisionSubmitKey.value || revisionSubmitPayload.value !== submitFingerprint) {
+      revisionSubmitKey.value = generateUUID()
+      revisionSubmitPayload.value = submitFingerprint
+    }
+    payload.idempotencyKey = revisionSubmitKey.value
     const result = await submitControlledFileWorkingIteration(selectedIterationId, payload)
     if (!isWorkflowId(result)) throw new Error('申请提交未返回正式文件身份，请刷新核对提交结果')
     if (token === generation) {
@@ -1001,4 +1072,10 @@ const submitInitial = async () => {
     if (token === generation) busy.value = false
   }
 }
+onMounted(async () => {
+  if (!props.initialIntent && !props.initialOpen) return
+  await open()
+  await selectIntent(props.initialIntent)
+  if (props.initialIterationId && revisionOptions.value) await selectIteration(props.initialIterationId)
+})
 </script>

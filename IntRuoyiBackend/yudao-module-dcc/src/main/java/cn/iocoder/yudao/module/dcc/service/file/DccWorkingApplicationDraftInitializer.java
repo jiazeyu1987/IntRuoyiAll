@@ -97,7 +97,7 @@ public class DccWorkingApplicationDraftInitializer {
         String type = typeOf(target);
         if (!Objects.equals(target.getPredecessorControlledFileId(), sourceFileId)) throw invalid();
         projectAccess.assertProjectEditorOrOwner(actorId, project.getId());
-        if (!categoryPermission.hasCategoryPermission(target.getCategoryId(), actorId, DccFileCategoryPermissionActionEnum.UPLOAD))
+        if (!categoryPermission.hasFilePermission(target, actorId, DccFileCategoryPermissionActionEnum.UPLOAD))
             throw new IllegalArgumentException("申请人不具备工作稿属性初始化权限");
 
         Integer sourceRound = null;
@@ -120,12 +120,17 @@ public class DccWorkingApplicationDraftInitializer {
                     || !Objects.equals(source.getVersionNo(), target.getSelectedIterationVersionNo())
                     || !Objects.equals(source.getSourceSha256(), target.getSourceSha256()))) throw invalid();
             if ("WORKING".equals(source.getStatus()) && source.getProcessInstanceId() == null) {
-                boolean ownerReplacement="REPLACEMENT".equals(target.getRevisionChangeType())
+                boolean formalRevision=("PARTIAL".equals(target.getRevisionChangeType())||"REPLACEMENT".equals(target.getRevisionChangeType()))
                         && "REVISION".equals(type) && Objects.equals(sourceFileId,target.getSelectedIterationControlledFileId())
+                        && source.getRevisionChangeType()==null && source.getControlledTime()==null && source.getCheckedOutBy()==null
+                        && DccControlledFileVersionPolicy.defaultPolicy().requireStored(source).isWorkingIteration()
                         && Objects.equals(master.getLatestControlledFileId(),target.getRevisionSourceControlledFileId())
                         && Objects.equals(source.getRevisionBaseActiveControlledFileId(),target.getRevisionSourceControlledFileId());
-                if(ownerReplacement)projectAccess.assertProjectOwner(actorId,project.getId());
-                if (!(Objects.equals(actorId,source.getRequesterId()) || ownerReplacement) || !type.equals(typeOf(source))) throw invalid();
+                boolean checkedInWorking=target.getSelectedIterationControlledFileId()==null
+                        && source.getRevisionChangeType()==null && source.getControlledTime()==null
+                        && Objects.equals(actorId,source.getCheckedOutBy());
+                if (!(Objects.equals(actorId,source.getRequesterId()) || (formalRevision || checkedInWorking)
+                        && categoryPermission.hasFilePermission(source,actorId,DccFileCategoryPermissionActionEnum.EDIT)) || !type.equals(typeOf(source))) throw invalid();
                 sourceRound = rounds.requireDraft(type, sourceFileId);
                 snapshots.readReservedDraft(actorId, project.getId(), type, sourceFileId); // Missing saved source fails before reserving target.
                 inherit = true;

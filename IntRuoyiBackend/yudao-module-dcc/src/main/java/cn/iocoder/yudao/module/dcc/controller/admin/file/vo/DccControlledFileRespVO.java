@@ -129,6 +129,10 @@ public class DccControlledFileRespVO {
     private String changeType;
     @com.fasterxml.jackson.annotation.JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime controlledTime;
+    /** Original controlled import provenance, independent of historical control/effect dates. */
+    private String importSource;
+    private Long importedBy;
+    private LocalDateTime importedTime;
     @com.fasterxml.jackson.annotation.JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime activatedTime;
     @com.fasterxml.jackson.annotation.JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
@@ -152,6 +156,9 @@ public class DccControlledFileRespVO {
     private Boolean canDownloadReadOnly;
     private Boolean canDownloadEditable;
     private Boolean canPrint;
+    private Boolean canEditFile = Boolean.FALSE;
+    private Boolean canExportApprovalHistory = Boolean.FALSE;
+    private Boolean canPrintApprovalHistory = Boolean.FALSE;
     private DccControlledFileAccessExplanationRespVO accessExplanation;
     private Boolean systemRecordDownloadOpen;
     private Boolean modifying;

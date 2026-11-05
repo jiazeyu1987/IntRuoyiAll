@@ -627,4 +627,6 @@ public interface ErrorCodeConstants {
             "本次审批配置发生变化，需要确认后重新提交");
 
     ErrorCode DIRECT_SUPERVISOR_SOURCE_UNAVAILABLE = new ErrorCode(1_080_000_365, "{}");
+    ErrorCode DCC_PROJECT_ACCESS_SUBJECT_DUPLICATE = new ErrorCode(1_080_000_366,
+            "同一授权主体只能保留一条启用的正式权限规则，请选择一个权限级别；OWNER 已包含编辑和浏览，EDIT 已包含浏览");
 }

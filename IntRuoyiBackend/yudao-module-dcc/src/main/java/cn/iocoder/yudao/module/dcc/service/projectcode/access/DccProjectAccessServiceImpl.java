@@ -1,6 +1,8 @@
 package cn.iocoder.yudao.module.dcc.service.projectcode.access;
 
 import cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectAccessRuleDO;
+import cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectCodeDO;
+import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
 import cn.iocoder.yudao.module.dcc.controller.admin.projectcode.vo.access.DccProjectAccessRuleSaveReqVO;
 import cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectAccessRuleMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectCodeMapper;
@@ -25,6 +27,7 @@ import java.util.Set;
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.DCC_PROJECT_ACCESS_DENIED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.DCC_PROJECT_ACCESS_RULE_INVALID;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.DCC_PROJECT_ACCESS_SUBJECT_DUPLICATE;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.PROJECT_CODE_NOT_EXISTS;
 
 @Service
@@ -55,6 +58,7 @@ public class DccProjectAccessServiceImpl implements DccProjectAccessService {
     @Transactional(propagation = org.springframework.transaction.annotation.Propagation.MANDATORY,
             rollbackFor = Exception.class)
     public void initializeApprovedProjectLeaderOwner(Long projectCodeId, Long selectedLeaderUserId, String reason) {
+        String normalizedReason = cn.iocoder.yudao.module.bpm.approval.core.ApprovalReviewReason.normalize(reason);
         Long tenant = cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId();
         var project = projectCodeId == null ? null : projectCodeMapper.selectByIdForUpdate(projectCodeId);
         AdminUserRespDTO leader = selectedLeaderUserId == null ? null : adminUserApi.getUser(selectedLeaderUserId);
@@ -63,7 +67,7 @@ public class DccProjectAccessServiceImpl implements DccProjectAccessService {
                 || !java.util.Objects.equals(project.getProjectLeaderUserId(), selectedLeaderUserId)
                 || leader == null || !java.util.Objects.equals(leader.getId(), selectedLeaderUserId)
                 || !java.util.Objects.equals(leader.getTenantId(), tenant) || !Integer.valueOf(0).equals(leader.getStatus())
-                || reason == null || reason.isBlank() || reason.length() > 500) {
+                || normalizedReason.isEmpty() || normalizedReason.length() > 500) {
             throw exception(DCC_PROJECT_ACCESS_RULE_INVALID);
         }
         if (!accessRuleMapper.selectListByProjectCodeId(projectCodeId).isEmpty()) {
@@ -76,7 +80,7 @@ public class DccProjectAccessServiceImpl implements DccProjectAccessService {
         rule.setSubjectId(selectedLeaderUserId);
         rule.setAccessLevel("OWNER");
         rule.setActive(true);
-        rule.setChangeReason(reason.trim());
+        rule.setChangeReason(normalizedReason);
         if (accessRuleMapper.insert(rule) != 1 || rule.getId() == null) {
             throw new IllegalStateException("approved project initial owner rule persistence incomplete");
         }
@@ -85,6 +89,9 @@ public class DccProjectAccessServiceImpl implements DccProjectAccessService {
     @Override
     public List<DccProjectAccessRuleDO> getProjectAccessRules(Long projectCodeId) {
         validateProjectCodeExists(projectCodeId);
+        if (projectCodeMapper.selectById(projectCodeId).isLibrary()
+                && !isProjectAdministrator(cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils.getLoginUserId()))
+            throw exception(DCC_PROJECT_ACCESS_DENIED);
         return accessRuleMapper.selectListByProjectCodeId(projectCodeId);
     }
 
@@ -93,6 +100,8 @@ public class DccProjectAccessServiceImpl implements DccProjectAccessService {
     public List<DccProjectAccessRuleDO> replaceProjectAccessRules(Long projectCodeId,
                                                                   List<DccProjectAccessRuleSaveReqVO> rules) {
         validateProjectCodeExists(projectCodeId);
+        if (projectCodeMapper.selectById(projectCodeId).isLibrary())
+            throw new cn.iocoder.yudao.framework.common.exception.ServiceException(400, "QMS和通用文件夹请通过系统管理的权限角色授权");
         List<DccProjectAccessRuleDO> normalizedRules = normalizeRules(projectCodeId, rules);
         if (normalizedRules.stream().noneMatch(this::isCurrentlyActiveOwner)) {
             throw exception(DCC_PROJECT_ACCESS_RULE_INVALID);
@@ -130,7 +139,7 @@ public class DccProjectAccessServiceImpl implements DccProjectAccessService {
                 || !"ENABLE".equals(project.getStatus())
                 || !hasProjectAccess(userId, projectCodeId, Set.of("VIEW", "EDIT", "OWNER"), tenant)
                 || (!isProjectAdministrator(userId)
-                    && !withinAssignedProjectScope(userId, projectCodeId, tenant))) {
+                    && !project.isLibrary() && !withinAssignedProjectScope(userId, projectCodeId, tenant))) {
             throw exception(DCC_PROJECT_ACCESS_DENIED);
         }
     }
@@ -141,7 +150,7 @@ public class DccProjectAccessServiceImpl implements DccProjectAccessService {
         AdminUserRespDTO user = userId == null ? null : adminUserApi.getUser(userId);
         if (!DccAccessUserIdentity.isEnabledTenantUser(userId, user)) throw exception(DCC_PROJECT_ACCESS_DENIED);
         if (isProjectAdministrator(userId)) {
-            return projectCodeMapper.selectEnabledList().stream()
+            return projectCodeMapper.selectList().stream()
                     .filter(project -> java.util.Objects.equals(project.getTenantId(), tenant)
                             && "ENABLE".equals(project.getStatus()))
                     .map(cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectCodeDO::getId)
@@ -156,7 +165,16 @@ public class DccProjectAccessServiceImpl implements DccProjectAccessService {
                 .filter(java.util.Objects::nonNull)
                 .collect(java.util.stream.Collectors.toCollection(java.util.LinkedHashSet::new));
         List<Long> hardScope = assignedProjectScope(userId, tenant);
-        if (hardScope != null) allowed.retainAll(hardScope);
+        var libraries = projectCodeMapper.selectList(new LambdaQueryWrapperX<DccProjectCodeDO>()
+                .eq(DccProjectCodeDO::getTenantId, tenant)
+                .in(DccProjectCodeDO::getLibraryScope, List.of("QMS", "GENERAL")));
+        // Retired library ACLs must never keep access after a role is revoked.
+        libraries.stream().map(DccProjectCodeDO::getId).forEach(allowed::remove);
+        if (hardScope != null) allowed.removeIf(id -> !hardScope.contains(id));
+        libraries.stream().filter(project -> java.util.Objects.equals(project.getTenantId(), tenant)
+                        && "ENABLE".equals(project.getStatus())
+                        && hasLibraryPermission(userId, project, Set.of("VIEW", "EDIT")))
+                .map(DccProjectCodeDO::getId).forEach(allowed::add);
         return List.copyOf(allowed);
     }
 
@@ -196,6 +214,12 @@ public class DccProjectAccessServiceImpl implements DccProjectAccessService {
             var project = projectCodeMapper.selectById(projectCodeId);
             return project != null && java.util.Objects.equals(project.getTenantId(), requiredTenant);
         }
+        var project = projectCodeMapper.selectById(projectCodeId);
+        if (project != null && project.isLibrary()) {
+            return java.util.Objects.equals(project.getTenantId(), requiredTenant)
+                    && "ENABLE".equals(project.getStatus())
+                    && hasLibraryPermission(userId, project, allowedAccessLevels);
+        }
         LocalDateTime now = LocalDateTime.now();
         Set<Long> roleIds = permissionApi.getUserRoleIdListByUserId(userId);
         Set<Long> deptIds = collectDeptIds(user.getDeptId());
@@ -204,6 +228,17 @@ public class DccProjectAccessServiceImpl implements DccProjectAccessService {
                 .filter(rule -> rule.getAccessLevel() != null
                         && allowedAccessLevels.stream().anyMatch(level -> level.equalsIgnoreCase(rule.getAccessLevel())))
                 .anyMatch(rule -> matches(rule, userId, user, roleIds, deptIds));
+    }
+
+    private boolean hasLibraryPermission(Long userId, DccProjectCodeDO project, Set<String> levels) {
+        String view, edit;
+        switch (project.getLibraryScope()) {
+            case "QMS" -> { view = "dcc:library:qms:view"; edit = "dcc:library:qms:edit"; }
+            case "GENERAL" -> { view = "dcc:library:general:view"; edit = "dcc:library:general:edit"; }
+            default -> { return false; }
+        }
+        if (levels.contains("VIEW")) return permissionApi.hasAnyPermissions(userId, view, edit);
+        return levels.contains("EDIT") && permissionApi.hasAnyPermissions(userId, edit);
     }
 
     /** Super administrators own all projects in their tenant, including newly created projects. */
@@ -241,12 +276,18 @@ public class DccProjectAccessServiceImpl implements DccProjectAccessService {
 
     private List<DccProjectAccessRuleDO> normalizeRules(Long projectCodeId,
                                                         List<DccProjectAccessRuleSaveReqVO> rules) {
-        if (rules == null || rules.isEmpty()) {
+        if (rules == null || (rules.isEmpty() && !projectCodeMapper.selectById(projectCodeId).isLibrary())) {
             throw exception(DCC_PROJECT_ACCESS_RULE_INVALID);
         }
         List<DccProjectAccessRuleDO> normalizedRules = new ArrayList<>(rules.size());
+        Set<List<Object>> activeSubjects = new HashSet<>();
         for (DccProjectAccessRuleSaveReqVO rule : rules) {
-            normalizedRules.add(normalizeRule(projectCodeId, rule));
+            DccProjectAccessRuleDO normalized = normalizeRule(projectCodeId, rule);
+            if (Boolean.TRUE.equals(normalized.getActive())
+                    && !activeSubjects.add(List.of(normalized.getSubjectType(), normalized.getSubjectId()))) {
+                throw exception(DCC_PROJECT_ACCESS_SUBJECT_DUPLICATE);
+            }
+            normalizedRules.add(normalized);
         }
         return normalizedRules;
     }

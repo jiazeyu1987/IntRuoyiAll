@@ -82,8 +82,7 @@ public class DccWorkflowSignoffAssignmentService {
     @Transactional(rollbackFor = Exception.class)
     public void assign(Long actorId, Long fileId, DccSignoffAssignmentReqVO request) {
         if (request == null || request.getTaskId() == null || request.getAssigneeUserId() == null
-                || request.getPassword() == null || request.getPassword().isBlank()
-                || request.getReason() == null || request.getReason().isBlank()) denied();
+                || request.getPassword() == null || request.getPassword().isBlank()) denied();
         Long tenantId = TenantContextHolder.getRequiredTenantId();
         var identity = fileMapper.selectById(fileId);
         if (identity == null || !Objects.equals(tenantId, identity.getTenantId())) denied();
@@ -138,12 +137,13 @@ public class DccWorkflowSignoffAssignmentService {
                 || row.getDepartmentId()==null || !Objects.equals(row.getDepartmentId(),candidate.getDeptId())) denied();
         if(candidate.getPostIds()==null || candidate.getPostIds().isEmpty())
             throw exception(cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_APPROVER_POST_REQUIRED);
-        readinessService.requireReadyParticipants("MATRIX_REVIEW", java.util.List.of(candidate.getId()));
+        if (nativeProcess) readinessService.requireReadyParticipants("MATRIX_REVIEW", java.util.List.of(candidate.getId()));
+        else readinessService.requireReadyObsoleteParticipants("MATRIX_REVIEW", java.util.List.of(candidate.getId()));
         var prepared=prepareRelationStage(actorId,fileId,file.getProcessInstanceId(),task.getProcessInstanceId(),task.getId(),
                 row.getObligationId(),task.getExecutionId(),row.getDepartmentId(),supplemental,arrangements,request.getReason());
         String payloadHash=assignmentCommandHash(tenantId,actorId,fileId,request,arrangements,supplemental,row,
                 prepared==null?null:prepared.payloadHash());
-        String signedReason=request.getReason().trim()+"；会签指派事实：部门="+row.getDepartmentId()
+        String signedReason=assignmentOpinion(request)+"；会签指派事实：部门="+row.getDepartmentId()
                 +"，会签人="+candidate.getId()+"，指派载荷="+payloadHash
                 +"，会签人实际部门="+candidate.getDeptId();
         if(prepared!=null) signedReason+="；"+prepared.signedReasonMarker();
@@ -162,7 +162,8 @@ public class DccWorkflowSignoffAssignmentService {
                 .assignedTime(signature.getSignedAt()).build()) != 1)
             throw new IllegalStateException("会签指派证据保存失败");
         if (revisionAssignment) {
-            remediationService.saveArrangements(actorId,fileId,task.getProcessInstanceId(),arrangements,request.getReason().trim());
+            remediationService.saveArrangements(actorId,fileId,task.getProcessInstanceId(),arrangements,
+                    assignmentOpinion(request).isEmpty() ? signedReason : assignmentOpinion(request));
         }
         taskService.setAssignee(task.getId(),String.valueOf(candidate.getId()));
         taskService.setVariableLocal(task.getId(),"dccAssignmentSignatureId",signature.getSignatureId());
@@ -183,9 +184,7 @@ public class DccWorkflowSignoffAssignmentService {
     }
 
     public boolean isObsoleteProcessForFile(Task task, Long fileId) {
-        if (task.getProcessDefinitionId() == null
-                || !task.getProcessDefinitionId().startsWith("dcc-controlled-file-obsolete:")) return false;
-        requireTaskTenant(task);
+        if (!DccControlledFileProcessDefinitionKeys.OBSOLETE.equals(requireCurrentProcessDefinitionKey(task))) return false;
         var variables = runtimeService.getVariables(task.getProcessInstanceId());
         return variables != null && "DCC".equals(variables.get("systemCode"))
                 && "CONTROLLED_FILE".equals(variables.get("objectType"))
@@ -223,15 +222,24 @@ public class DccWorkflowSignoffAssignmentService {
         if(isObsoleteProcessForFile(task,fileId)&&!Objects.equals(row.getNodeInstanceId(),task.getExecutionId()))denied();
     }
 
+    public void requireReviewActor(Long userId, Long fileId, Task task, String action) {
+        var row = obligation(fileId, task);
+        // 未指派时部门负责人可签名驳回；通过仍必须由已指派的实际会签人完成。
+        if ("REJECT".equals(action) && row.getAssignmentSignatureId() == null
+                && row.getAssignedTime() == null && Objects.equals(row.getLeaderUserId(), userId)
+                && Objects.equals(task.getAssignee(), String.valueOf(userId))) return;
+        requireAssigned(userId, fileId, task);
+    }
+
     public void requireObsoleteReviewReady(Long userId, Long fileId, String taskId) {
         var file = fileMapper.selectById(fileId);
         Task task = bpmTaskService.validateTask(userId, taskId);
-        requireObsoleteReview(userId, fileId, file, taskId, task);
+        requireObsoleteReview(userId, fileId, file, taskId, task, "APPROVE");
     }
 
-    private void requireObsoleteReview(Long userId, Long fileId,
+    private DccObsoleteFormRuntimeStore.RuntimeEvidence requireObsoleteReview(Long userId, Long fileId,
             cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileDO file,
-            String taskId, Task task) {
+            String taskId, Task task, String action) {
         if (file == null || !Objects.equals(fileId, file.getId())
                 || !Objects.equals(TenantContextHolder.getRequiredTenantId(), file.getTenantId())
                 || file.getPublishedFileId() == null || task == null || !Objects.equals(taskId, task.getId())
@@ -243,8 +251,9 @@ public class DccWorkflowSignoffAssignmentService {
             if(!Objects.equals(String.valueOf(userId),task.getAssignee())||task.getExecutionId()==null||task.getExecutionId().isBlank())denied();
             if(!"MATRIX_REVIEW".equals(task.getTaskDefinitionKey())&&!cn.iocoder.yudao.framework.common.util.json.JsonUtils.parseArray(member.frozenUserIdsJson(),Long.class).contains(userId))denied();
         }else if("SUPERVISOR_REVIEW".equals(task.getTaskDefinitionKey()))denied();
-        readinessService.requireReadyParticipants(task.getTaskDefinitionKey(), java.util.List.of(userId));
-        if ("MATRIX_REVIEW".equals(task.getTaskDefinitionKey())) requireAssigned(userId, fileId, task);
+        readinessService.requireReadyObsoleteParticipants(task.getTaskDefinitionKey(), java.util.List.of(userId));
+        if ("MATRIX_REVIEW".equals(task.getTaskDefinitionKey())) requireReviewActor(userId, fileId, task, action);
+        return evidence;
     }
     private DccObsoleteFormRuntimeStore.RuntimeEvidence requireObsoleteRuntime(Task task,Long fileId){
         var found=formInstances.selectList(new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<cn.iocoder.yudao.module.bpm.dal.dataobject.formcenter.FormActionInstanceDO>()
@@ -277,15 +286,13 @@ public class DccWorkflowSignoffAssignmentService {
         if(master==null || !Objects.equals(master.getTenantId(),TenantContextHolder.getRequiredTenantId())) denied();
         var file = fileMapper.selectByIdAndTenantForUpdate(TenantContextHolder.getRequiredTenantId(),fileId);
         Task task = bpmTaskService.validateTask(userId,taskId);
-        requireObsoleteReview(userId, fileId, file, taskId, task);
+        var evidence = requireObsoleteReview(userId, fileId, file, taskId, task, approve ? "APPROVE" : "REJECT");
+        var next = approve ? obsoleteApprovalAssignees(evidence, task) : null;
         var signature = signatureService.verifyPasswordAndCreateWorkflowSignature(userId,fileId,taskId,
                 task.getProcessInstanceId(),task.getTaskDefinitionKey(),approve ? "APPROVE" : "REJECT",password,reason);
         bindObsoleteSignatureCopy(file,task,userId);
         authorizeSignedAction(taskId,userId,approve ? "APPROVE" : "REJECT",signature);
         if (approve) {
-            @SuppressWarnings("unchecked")
-            var next = (java.util.Map<String,java.util.List<Long>>) runtimeService.getVariable(task.getProcessInstanceId(),
-                    BpmnVariableConstants.PROCESS_INSTANCE_VARIABLE_APPROVE_USER_SELECT_ASSIGNEES);
             bpmTaskService.approveTask(userId,new cn.iocoder.yudao.module.bpm.controller.admin.task.vo.task.BpmTaskApproveReqVO()
                     .setId(taskId).setReason(reason).setNextAssignees(next));
         } else {
@@ -293,6 +300,31 @@ public class DccWorkflowSignoffAssignmentService {
                     .setId(taskId).setReason(reason));
         }
         return signature;
+    }
+
+    @SuppressWarnings("unchecked")
+    private java.util.Map<String,java.util.List<Long>> obsoleteApprovalAssignees(
+            DccObsoleteFormRuntimeStore.RuntimeEvidence evidence, Task task) {
+        if (evidence == null) return (java.util.Map<String,java.util.List<Long>>) runtimeService.getVariable(
+                task.getProcessInstanceId(), BpmnVariableConstants.PROCESS_INSTANCE_VARIABLE_APPROVE_USER_SELECT_ASSIGNEES);
+        var preparation = cn.iocoder.yudao.framework.common.util.json.JsonUtils.parseObject(evidence.head().canonicalPreparationJson(), java.util.Map.class);
+        var route = cn.iocoder.yudao.framework.common.util.json.JsonUtils.parseObject((String) preparation.get("runtimeApprovalNodesJson"), java.util.Map.class);
+        var nodes = cn.iocoder.yudao.framework.common.util.json.JsonUtils.parseArray(
+                cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(route.get("nodes")), DccControlledFileApprovalRouteAssigneeResolver.ResolvedRouteNode.class);
+        var result = new java.util.LinkedHashMap<String,java.util.List<Long>>();
+        for (var node : nodes) {
+            var members = evidence.obligations().stream().filter(row -> node.stageCode().equals(row.stageCode())).toList();
+            var users = new java.util.ArrayList<Long>();
+            // Multi-instance task identities follow the frozen route's department order, including repeated leaders.
+            var departments = "MATRIX_REVIEW".equals(node.stageCode()) ? node.candidateSourceIds() : java.util.Collections.<Long>singletonList(null);
+            for (var department : departments) {
+                var matches = members.stream().filter(row -> Objects.equals(department, row.departmentId())).toList();
+                if (matches.size() != 1) denied();
+                users.addAll(cn.iocoder.yudao.framework.common.util.json.JsonUtils.parseArray(matches.get(0).frozenUserIdsJson(), Long.class));
+            }
+            result.put(node.stageCode(), java.util.List.copyOf(users));
+        }
+        return java.util.Collections.unmodifiableMap(result);
     }
 
     public void authorizeSignedAction(String taskId, Long userId, String action, DccUnifiedSignatureResult signature) {
@@ -336,7 +368,11 @@ public class DccWorkflowSignoffAssignmentService {
         return cn.hutool.crypto.digest.DigestUtil.sha256Hex(cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(
                 java.util.Arrays.asList("IC07_ASSIGN_REQUEST_V1",tenantId,actorId,fileId,request.getTaskId(),
                         obligation.getObligationId(),obligation.getDepartmentId(),obligation.getLeaderUserId(),
-                        request.getAssigneeUserId(),request.getReason().trim(),arrangements,supplemental,relationPayloadHash)));
+                        request.getAssigneeUserId(),assignmentOpinion(request),arrangements,supplemental,relationPayloadHash)));
+    }
+
+    private String assignmentOpinion(DccSignoffAssignmentReqVO request) {
+        return request.getReason() == null ? "" : request.getReason().trim();
     }
 
     private cn.iocoder.yudao.module.dcc.service.file.relations.DccRelationStageContracts.Prepared prepareRelationStage(
@@ -368,7 +404,8 @@ public class DccWorkflowSignoffAssignmentService {
                 applicationType,attributeRound,formId);
         String key="dcc-signoff-stage:"+cn.hutool.crypto.digest.DigestUtil.sha256Hex(
                 cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(java.util.Arrays.asList(fileId,identity)));
-        return Objects.requireNonNull(relationStageService.prepare(actorId,fileId,identity,supplements,arrangements,key,null,reason.trim()),
+        String auditReason=reason==null || reason.isBlank() ? "会签指派：部门="+departmentId : reason.trim();
+        return Objects.requireNonNull(relationStageService.prepare(actorId,fileId,identity,supplements,arrangements,key,null,auditReason),
                 "正式指派关系准备事实缺失");
     }
 

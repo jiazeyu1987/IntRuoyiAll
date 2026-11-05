@@ -46,6 +46,18 @@ public class DccProductCatalogRegistrationSyncService {
 
     @Transactional(rollbackFor = Exception.class)
     public void syncRelation(DccDataRelationDO relation) {
+        if (relation.getRegistrationCertificateId() == null) {
+            DccProductCatalogDO catalog = productCatalogMapper.selectById(relation.getProductCatalogId());
+            DccProjectCodeDO projectCode = projectCodeMapper.selectById(relation.getProjectCodeId());
+            if (catalog == null || projectCode == null) {
+                throw exception(DCC_DATA_RELATION_TARGET_INVALID);
+            }
+            productCatalogMapper.update(null, new LambdaUpdateWrapper<DccProductCatalogDO>()
+                    .eq(DccProductCatalogDO::getId, catalog.getId())
+                    .set(DccProductCatalogDO::getProjectName, projectCode.getProjectName())
+                    .set(DccProductCatalogDO::getProjectCode, projectCode.getProjectCode()));
+            return;
+        }
         RegistrationProjection projection = loadProjection(relation.getRegistrationCertificateId());
         syncRelation(relation, projection);
     }

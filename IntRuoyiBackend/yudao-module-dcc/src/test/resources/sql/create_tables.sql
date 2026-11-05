@@ -1776,6 +1776,7 @@ CREATE TABLE IF NOT EXISTS `dcc_nas_acl_restore_log` (
 );
 
 CREATE TABLE IF NOT EXISTS `dcc_project_code` (
+  `library_scope` varchar(16) NOT NULL DEFAULT 'PROJECT',
   `id` BIGINT NOT NULL AUTO_INCREMENT,
   `product_master_id` BIGINT NULL,
   `doc_control_no` VARCHAR(64) NULL,

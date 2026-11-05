@@ -959,6 +959,92 @@
       "kind": "permission",
       "value": "bpm:model:update",
       "reason": "无管理员模型的显式认领服务复用既有 bpm:model:update 权限，仍校验模型状态及操作人；未新增权限标识、菜单或角色/套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/category/DccFileTypeTaxonomyController.java",
+      "kind": "permission",
+      "value": "dcc:controlled-file:edit",
+      "reason": "文档14普通文件编辑读取既有类型分类列表、上传候选及启用category解析，复用已由20261102_dcc_controlled_import_edit_permissions.sql登记的独立edit权限；仅三个GET允许edit与原只读资格并列，create/update/delete仍要求category:manage；未新增权限、页面、菜单、角色或租户套餐授权，无新增迁移。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/file/DccControlledFileController.java",
+      "kind": "permission",
+      "value": "dcc:controlled-file:archive:query",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261104_dcc_independent_libraries.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/file/DccControlledFileController.java",
+      "kind": "permission",
+      "value": "dcc:controlled-file:edit",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261102_dcc_controlled_import_edit_permissions.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccArchiveAccessService.java",
+      "kind": "permission",
+      "value": "dcc:controlled-file:archive:query",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261104_dcc_independent_libraries.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileCategoryPermissionSupport.java",
+      "kind": "permission",
+      "value": "dcc:controlled-file:edit",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261102_dcc_controlled_import_edit_permissions.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/projectcode/access/DccProjectAccessServiceImpl.java",
+      "kind": "permission",
+      "value": "dcc:library:general:edit",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261105_dcc_library_role_permissions.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/projectcode/access/DccProjectAccessServiceImpl.java",
+      "kind": "permission",
+      "value": "dcc:library:general:view",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261105_dcc_library_role_permissions.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/projectcode/access/DccProjectAccessServiceImpl.java",
+      "kind": "permission",
+      "value": "dcc:library:qms:edit",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261105_dcc_library_role_permissions.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/projectcode/access/DccProjectAccessServiceImpl.java",
+      "kind": "permission",
+      "value": "dcc:library:qms:view",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261105_dcc_library_role_permissions.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/dcc/controlled-file/browser/index.vue",
+      "kind": "permission",
+      "value": "dcc:controlled-file:archive:query",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261104_dcc_independent_libraries.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/dcc/controlled-file/browser/index.vue",
+      "kind": "permission",
+      "value": "dcc:controlled-file:edit",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261102_dcc_controlled_import_edit_permissions.sql"
+      ]
     }
   ]
 }

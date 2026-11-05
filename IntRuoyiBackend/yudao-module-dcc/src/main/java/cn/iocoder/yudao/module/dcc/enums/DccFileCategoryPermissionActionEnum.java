@@ -10,7 +10,8 @@ import java.util.Arrays;
 @AllArgsConstructor
 public enum DccFileCategoryPermissionActionEnum implements ArrayValuable<String> {
 
-    VIEW("VIEW", "View"),
+    VIEW("VIEW", "浏览"),
+    EDIT("EDIT", "编辑"),
     UPLOAD("UPLOAD", "Upload"),
     DOWNLOAD("DOWNLOAD", "Download"),
     PRINT("PRINT", "Print"),

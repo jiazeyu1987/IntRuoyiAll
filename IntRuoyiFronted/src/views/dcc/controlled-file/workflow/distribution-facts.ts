@@ -1,7 +1,8 @@
 import type { LifecycleFacts, WorkflowId } from './workflow-actions'
+import type { DccEffectiveMode } from '@/api/dcc/controlledFile/workflow'
 
 export type DistributionLifecycleFacts = Omit<LifecycleFacts, 'effectiveDate'> & {
-  effectiveMode?: 'AFTER_STANDARDIZATION_SIGNATURE' | 'DELAYED' | 'PRESET_DATE' | null
+  effectiveMode?: DccEffectiveMode | null
   effectiveDate?: string | null
   effectiveTime?: string | null
 }

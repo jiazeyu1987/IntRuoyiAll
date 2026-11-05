@@ -1534,11 +1534,12 @@ public class DccControlledFileFinalizationServiceImpl implements DccControlledFi
         if (previousActive == null) {
             throw new IllegalStateException("Previous active revision is missing for supersession");
         }
-        controlledFileMapper.updateById(DccControlledFileDO.builder()
+        if (controlledFileMapper.updateById(DccControlledFileDO.builder()
                 .id(previousActiveId)
                 .status(DccControlledFileStatusEnum.SUPERSEDED.getStatus())
+                .obsoletedTime(LocalDateTime.now()).obsoleteReason("新版生效自动作废")
                 .supersededByFileId(newActiveFileId)
-                .build());
+                .build()) != 1) throw new IllegalStateException("旧版自动作废归档保存失败");
     }
 
     private void supersedeStaleWorkingIterations(DccControlledFileMasterDO master,
@@ -1565,6 +1566,7 @@ public class DccControlledFileFinalizationServiceImpl implements DccControlledFi
             if (controlledFileMapper.updateById(DccControlledFileDO.builder()
                     .id(iteration.getId())
                     .status(DccControlledFileStatusEnum.SUPERSEDED.getStatus())
+                    .obsoletedTime(LocalDateTime.now()).obsoleteReason("新版生效自动作废")
                     .supersededByFileId(newActiveFile.getId())
                     .build()) != 1) {
                 throw new IllegalStateException("Stale working iteration supersession failed: " + iteration.getId());

@@ -19,8 +19,10 @@ import org.springframework.validation.annotation.Validated;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Objects;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
+import static cn.iocoder.yudao.module.dcc.enums.DccProjectCodeStatusConstants.ENABLE;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.DCC_DATA_RELATION_CONFLICT;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.DCC_DATA_RELATION_TARGET_INVALID;
 
@@ -47,19 +49,26 @@ public class DccDataRelationServiceImpl implements DccDataRelationService {
     public DccDataRelationDO createRelation(Long userId, DccDataRelationCreateReqVO reqVO) {
         DccProductCatalogDO catalog = productCatalogMapper.selectById(reqVO.getProductCatalogId());
         DccProjectCodeDO projectCode = projectCodeMapper.selectById(reqVO.getProjectCodeId());
-        DccRegistrationCertificateDO certificate = registrationCertificateMapper
-                .selectById(reqVO.getRegistrationCertificateId());
-        if (catalog == null || projectCode == null || certificate == null) {
+        if (catalog == null || projectCode == null
+                || projectCode.isLibrary() || !ENABLE.equals(projectCode.getStatus())
+                || !Objects.equals(catalog.getTenantId(), projectCode.getTenantId())) {
             throw exception(DCC_DATA_RELATION_TARGET_INVALID);
         }
         String catalogProjectCode = StrUtil.trimToNull(catalog.getProjectCode());
         if (catalogProjectCode != null && !StrUtil.equals(catalogProjectCode, StrUtil.trim(projectCode.getProjectCode()))) {
             throw exception(DCC_DATA_RELATION_TARGET_INVALID);
         }
-        if (!projectCode.getId().equals(certificate.getProjectCodeId())) {
-            throw exception(DCC_DATA_RELATION_TARGET_INVALID);
+        if (reqVO.getRegistrationCertificateId() != null) {
+            DccRegistrationCertificateDO certificate = registrationCertificateMapper
+                    .selectById(reqVO.getRegistrationCertificateId());
+            if (certificate == null || !projectCode.getId().equals(certificate.getProjectCodeId())
+                    || !Objects.equals(projectCode.getTenantId(), certificate.getTenantId())) {
+                throw exception(DCC_DATA_RELATION_TARGET_INVALID);
+            }
         }
-        if (relationMapper.selectIdentity(catalog.getId(), projectCode.getId(), certificate.getId()) != null) {
+        DccDataRelationDO existing = relationMapper.selectCatalogProjectForUpdate(catalog.getId(), projectCode.getId());
+        if (existing != null && (existing.getRegistrationCertificateId() != null
+                || reqVO.getRegistrationCertificateId() == null)) {
             throw exception(DCC_DATA_RELATION_CONFLICT);
         }
         DccDataRelationDO relation = BeanUtils.toBean(reqVO, DccDataRelationDO.class);
@@ -67,7 +76,12 @@ public class DccDataRelationServiceImpl implements DccDataRelationService {
         relation.setRelationSource(SOURCE_MANUAL);
         relation.setConfirmedBy(userId);
         relation.setConfirmedTime(LocalDateTime.now());
-        relationMapper.insert(relation);
+        if (existing == null) {
+            relationMapper.insert(relation);
+        } else {
+            relation.setId(existing.getId());
+            relationMapper.updateById(relation);
+        }
         productCatalogRegistrationSyncService.syncRelation(relation);
         return relation;
     }

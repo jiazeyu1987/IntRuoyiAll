@@ -22,6 +22,10 @@ final class DccSourceUploadSession {
         return "dcc-checkin:" + versionId + ":";
     }
 
+    static String auxiliaryPrefix(Long projectId, Long taxonomyId) {
+        return "dcc-aux:" + DigestUtil.sha256Hex(JsonUtils.toJsonString(Arrays.asList(projectId, taxonomyId))) + ":";
+    }
+
     static String externalPrefix() {
         return "dcc-external:";
     }

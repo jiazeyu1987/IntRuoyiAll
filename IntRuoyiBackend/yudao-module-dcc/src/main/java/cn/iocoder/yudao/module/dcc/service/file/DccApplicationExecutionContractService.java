@@ -335,7 +335,9 @@ public class DccApplicationExecutionContractService {
             }
             requireSameFamily(target,source);
             var facts=readInheritedDraftFactsFromVerifiedTarget(actor,cursor,source.getId(),saved.getSourceApplicationRound());
-            if(!facts.sameApplicationType()||facts.newActionBaselineRequired())throw sourceInvalid();
+            if(!facts.sameApplicationType())throw sourceInvalid();
+            // Verified checkin ancestry belongs to a new revision, not a rejected execution.
+            if(facts.newActionBaselineRequired())return null;
             draftMatrices.add(cursor.getDraftApprovalMatrixJson());
             if("WORKING".equals(source.getStatus())&&source.getProcessInstanceId()==null){
                 cursor=source;round=saved.getSourceApplicationRound();continue;
@@ -428,8 +430,9 @@ public class DccApplicationExecutionContractService {
         if(!org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive())
             throw new IllegalStateException("EXECUTION_CONTRACT_REPLAY_OUTER_TRANSACTION_REQUIRED");
         var target=files.selectById(existingTargetId);
-        if(target==null||actor==null||!Objects.equals(target.getId(),existingTargetId)||!Objects.equals(target.getRequesterId(),actor)
+        if(target==null||actor==null||!Objects.equals(target.getId(),existingTargetId)
                 ||!Objects.equals(target.getTenantId(),TenantContextHolder.getRequiredTenantId())||Boolean.TRUE.equals(target.getDeleted()))throw sourceInvalid();
+        if(!Objects.equals(target.getRequesterId(),actor))requireDraft(actor,target);
         var prepared=resolveInheritedPrepared(actor,target,sourceFileId,sourceAttributeRound,true);
         requirePrepared(target,prepared.executionContract(),prepared.processDefinitionId(),prepared.definitionDigest(),prepared.processKey());
         return prepared;
@@ -440,7 +443,10 @@ public class DccApplicationExecutionContractService {
                 ||sourceAttributeRound<=0||Objects.equals(targetFileId,sourceFileId)
                 ||!Objects.equals(target.getPredecessorControlledFileId(),sourceFileId))throw sourceInvalid();
         projectAccess.assertProjectEditorOrOwner(actor,target.getDccProjectCodeId());
-        if(!categoryPermissions.hasCategoryPermission(target.getCategoryId(),actor,cn.iocoder.yudao.module.dcc.enums.DccFileCategoryPermissionActionEnum.UPLOAD))
+        var action=isEditableDraftBody(target)
+                ?cn.iocoder.yudao.module.dcc.enums.DccFileCategoryPermissionActionEnum.EDIT
+                :cn.iocoder.yudao.module.dcc.enums.DccFileCategoryPermissionActionEnum.UPLOAD;
+        if(!categoryPermissions.hasFilePermission(target, actor, action))
             throw new IllegalArgumentException("EXECUTION_CONTRACT_INHERIT_PERMISSION_DENIED");
         var source=readSource(tenant,sourceFileId,readOnly);requireSameFamily(target,source);
         if(target.getSelectedIterationControlledFileId()==null
@@ -621,9 +627,25 @@ public class DccApplicationExecutionContractService {
         if(expectedDigest!=null&&!expectedDigest.equals(digest))throw new IllegalStateException("EXECUTION_CONTRACT_UNREGISTERED_DEFINITION");
         return new Prepared(contract,id,digest,key);
     }
-    private void requireDraft(Long actor,DccControlledFileDO file){if(file==null||actor==null||!Objects.equals(file.getRequesterId(),actor)
+    private boolean isEditableDraftBody(DccControlledFileDO file){
+        if(file==null||Boolean.TRUE.equals(file.getDeleted())||!"WORKING".equals(file.getStatus())
+                ||file.getProcessInstanceId()!=null||file.getControlledTime()!=null||file.getSelectedIterationControlledFileId()!=null
+                ||file.getRevisionChangeType()!=null&&!"INITIAL".equals(file.getRevisionChangeType()))return false;
+        var version=DccControlledFileVersionPolicy.defaultPolicy().parseStored(file);
+        return version!=null&&("NEW".equals(file.getChangeType())||"REVISION".equals(file.getChangeType())
+                &&file.getRevisionChangeType()==null&&file.getRevisionBaseActiveControlledFileId()!=null&&version.isWorkingIteration());
+    }
+    void requireDraft(Long actor,DccControlledFileDO file){if(file==null||actor==null||Boolean.TRUE.equals(file.getDeleted())
             ||!Objects.equals(file.getTenantId(),TenantContextHolder.getRequiredTenantId())||!"WORKING".equals(file.getStatus())||file.getProcessInstanceId()!=null)
-        throw new IllegalArgumentException("EXECUTION_CONTRACT_DRAFT_IDENTITY_INVALID");}
+        throw new IllegalArgumentException("EXECUTION_CONTRACT_DRAFT_IDENTITY_INVALID");
+        if(!Objects.equals(file.getRequesterId(),actor)){
+            if(!isEditableDraftBody(file))
+                throw new IllegalArgumentException("EXECUTION_CONTRACT_DRAFT_IDENTITY_INVALID");
+            projectAccess.assertProjectEditorOrOwner(actor,file.getDccProjectCodeId());
+            if(!categoryPermissions.hasFilePermission(file,actor,cn.iocoder.yudao.module.dcc.enums.DccFileCategoryPermissionActionEnum.EDIT))
+                throw new IllegalArgumentException("EXECUTION_CONTRACT_INHERIT_PERMISSION_DENIED");
+        }
+    }
     private void requireSame(DccControlledFileDO file,Prepared prepared){if(!Objects.equals(file.getPreparedWorkflowContract(),prepared.executionContract())
             ||!Objects.equals(file.getPreparedProcessDefinitionId(),prepared.processDefinitionId())||!Objects.equals(file.getPreparedDefinitionDigest(),prepared.definitionDigest()))
         throw new IllegalStateException("EXECUTION_CONTRACT_PREPARED_IDENTITY_CONFLICT");}

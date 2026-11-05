@@ -80,6 +80,19 @@ const requireRevisionDate = (value: string): string => {
   return value
 }
 
+export const applicationProjectAttributes = (attributes: ProjectAttributes): ProjectAttributes => {
+  const actual = validateAttributes(attributes)
+  if (actual.libraryScope) return { libraryScope: actual.libraryScope } as ProjectAttributes
+  return {
+    targetMarkets: [...actual.targetMarkets], otherMarket: actual.otherMarket ?? undefined,
+    licenseHolder: actual.licenseHolder ?? undefined, actualManufacturer: actual.actualManufacturer ?? undefined,
+    documentTransfer: actual.documentTransfer ?? undefined, transferTo: actual.transferTo ?? undefined
+  }
+}
+
+export const sameApplicationProjectAttributes = (left: ProjectAttributes, right: ProjectAttributes): boolean =>
+  JSON.stringify(applicationProjectAttributes(left)) === JSON.stringify(applicationProjectAttributes(right))
+
 const buildApplicationFields = (changeDescription: string, idempotencyKey: string,
   application: RevisionApplicationFacts) => {
   if (!changeDescription.trim() || !idempotencyKey.trim()) throw new Error('变更说明和提交标识不能为空')
@@ -105,11 +118,7 @@ const buildApplicationFields = (changeDescription: string, idempotencyKey: strin
   if (new Set(distributionDepartments).size !== distributionDepartments.length) throw new Error('下发部门不能重复')
   return {
     changeDescription: changeDescription.trim(), idempotencyKey: idempotencyKey.trim(),
-    projectAttributes: {
-      targetMarkets: [...actual.targetMarkets], otherMarket: actual.otherMarket,
-      licenseHolder: actual.licenseHolder, actualManufacturer: actual.actualManufacturer,
-      documentTransfer: actual.documentTransfer, transferTo: actual.transferTo
-    },
+    projectAttributes: applicationProjectAttributes(actual),
     selectedSignoffDepartmentIds: departments,
     selectedDistributionDepartmentIds: distributionDepartments,
     needTraining: application.needTraining,

@@ -96,6 +96,11 @@ public class DccControlledFileRouteReadinessService {
 
     private RouteReadinessEvaluation evaluateResolvedRoute(
             DccControlledFileApprovalRouteAssigneeResolver.ResolvedRoute resolvedRoute) {
+        return evaluateResolvedRoute(resolvedRoute, true);
+    }
+
+    private RouteReadinessEvaluation evaluateResolvedRoute(
+            DccControlledFileApprovalRouteAssigneeResolver.ResolvedRoute resolvedRoute, boolean requireStagePermission) {
         LinkedHashSet<Long> userIds = resolvedRoute.nodes().stream()
                 .flatMap(node -> node.resolvedUserIds().stream())
                 .collect(Collectors.toCollection(LinkedHashSet::new));
@@ -119,7 +124,7 @@ public class DccControlledFileRouteReadinessService {
                 if (user == null || CollUtil.isEmpty(user.getPostIds())) {
                     blockers.add(blocker(BLOCKER_POST, "审批人未配置系统岗位", node, userId, userName));
                 }
-                if (!permissionApi.hasAnyPermissions(userId, requiredPermission)) {
+                if (requireStagePermission && !permissionApi.hasAnyPermissions(userId, requiredPermission)) {
                     blockers.add(blocker(BLOCKER_PERMISSION, "审批人缺少当前阶段文控权限", node, userId, userName));
                 }
                 if (!Boolean.TRUE.equals(authorizationMap.get(userId))) {
@@ -145,6 +150,27 @@ public class DccControlledFileRouteReadinessService {
     public void requireReadyResolvedRoute(DccControlledFileApprovalRouteAssigneeResolver.ResolvedRoute route) {
         evaluateResolvedRoute(Objects.requireNonNull(route,"formal resolved approval route")).requireReady();
     }
+    /** Obsolete participants are authorized by the resolved route and exact BPM task, not DCC menu permissions. */
+    public void requireReadyObsoleteRoute(DccControlledFileApprovalRouteAssigneeResolver.ResolvedRoute route) {
+        Objects.requireNonNull(route, "obsolete approval route");
+        if (!route.nodes().stream().map(DccControlledFileApprovalRouteAssigneeResolver.ResolvedRouteNode::stageCode)
+                .toList().equals(List.of("SUPERVISOR_REVIEW", "MATRIX_REVIEW", "MATRIX_APPROVAL"))) {
+            throw exception(CONTROLLED_FILE_ROUTE_NOT_CONFIGURED);
+        }
+        evaluateResolvedRoute(route, false).requireReady();
+    }
+
+    public void requireReadyObsoleteParticipants(String stageCode, List<Long> userIds) {
+        if (!List.of("SUPERVISOR_REVIEW", "MATRIX_REVIEW", "MATRIX_APPROVAL").contains(stageCode)
+                || userIds == null || userIds.isEmpty() || userIds.stream().anyMatch(id -> id == null || id <= 0)) {
+            throw exception(CONTROLLED_FILE_ROUTE_NOT_CONFIGURED);
+        }
+        var node = new DccControlledFileApprovalRouteAssigneeResolver.ResolvedRouteNode(
+                1, stageCode, stageCode, 1, "USER", userIds.get(0), userIds, "ALL", 100, true, userIds);
+        evaluateResolvedRoute(new DccControlledFileApprovalRouteAssigneeResolver.ResolvedRoute(null, List.of(node)), false)
+                .requireReady();
+    }
+
     public RouteReadinessEvaluation evaluateFrozenRoute(DccControlledFileApprovalRouteAssigneeResolver.ResolvedRoute route){
         return evaluateResolvedRoute(Objects.requireNonNull(route,"formal resolved approval route"));
     }

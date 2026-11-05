@@ -79,6 +79,15 @@ public class DccApprovalMatrixTokenService {
         if(digest==null||!digest.matches("[a-f0-9]{64}")||!Objects.equals(digest,nativeDigest(payload))
                 ||!Objects.equals(payload.get("evidence"),evidenceValue(evidence)))throw customInvalid();
     }
+    /** Replay identity only; expiry is still enforced by the normal first-submission verification. */
+    Map<String,Object> customSupervisorIdempotencyIdentity(String digest,String token){
+        var envelope=verify(token);
+        if(!(envelope.get("phase") instanceof String phase)||!Set.of("PREVIEW","RESERVED").contains(phase)
+                ||!(envelope.get("canonical") instanceof String canonical)||!(envelope.get("canonicalDigest") instanceof String canonicalDigest))throw customInvalid();
+        var payload=requireCustomToken(CUSTOM_SUPERVISOR,phase,new DccApplicationCustomMatrixService.CanonicalSelection(canonical,canonicalDigest),token,false);
+        if(digest==null||!digest.matches("[a-f0-9]{64}")||!Objects.equals(digest,nativeDigest(payload)))throw customInvalid();
+        var identity=new TreeMap<>(payload);identity.remove("issuedAt");identity.remove("expiresAt");return identity;
+    }
     private Map<String,Object> requireCustomToken(String purpose,String phase,DccApplicationCustomMatrixService.CanonicalSelection selection,String token){
         return requireCustomToken(purpose,phase,selection,token,true);
     }

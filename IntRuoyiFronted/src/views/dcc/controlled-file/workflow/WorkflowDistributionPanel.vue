@@ -109,6 +109,7 @@ const retryDistribution = async () => {
   } finally { if (mounted && generation === retryGeneration) retryBusy.value = false }
 }
 const effectiveChoice = computed(() => {
+  if (props.facts.effectiveMode === 'CONTROLLED_IMPORT') return '受控导入'
   if (props.facts.effectiveMode === 'AFTER_STANDARDIZATION_SIGNATURE') return '文控标准化签名后生效，无预设日期'
   if (props.facts.effectiveMode === 'PRESET_DATE') return props.facts.effectiveDate?.trim()
     ? '预设生效日期：' + props.facts.effectiveDate : '预设生效日期尚未记录'
