@@ -472,7 +472,9 @@
       <el-table-column prop="projectCode" label="项目代码" min-width="120" />
       <el-table-column prop="productCode" label="产品编码" min-width="120" />
       <el-table-column prop="productName" label="产品名称" min-width="150" />
-      <el-table-column prop="status" label="状态" width="120" />
+      <el-table-column prop="status" label="状态" width="120">
+        <template #default="{ row }">{{ projectRequestStatusLabel(row.status) }}</template>
+      </el-table-column>
       <el-table-column label="操作" fixed="right" width="180">
         <template #default="{ row }">
           <el-button v-if="canResubmitProjectProductRequest(row, userStore.getUser.id)" v-hasPermi="['dcc:project-code:create']" link type="primary" @click="editRejectedProjectProduct(row)">
@@ -642,7 +644,7 @@ import { canResubmitProjectProductRequest, restoreRejectedProjectProductForm } f
 import ProjectAttributesFields from '../../project-attributes/ProjectAttributesFields.vue'
 import FolderTemplateLibraryEditor from './FolderTemplateLibraryEditor.vue'
 import { requireProjectReviewerRole } from './project-product-role'
-import { canHandleProjectRequest } from './project-reviewer';
+import { canHandleProjectRequest, projectRequestStatusLabel } from './project-reviewer';
 import { emptyAttributes, validateAttributes, type ProjectAttributes } from '../../project-attributes/state'
 import { getFolderTemplates, type FolderTemplate, type FolderNode } from '@/api/dcc/controlledFile/projectAttributes'
 import { getSimpleUserList, type UserVO } from '@/api/system/user'

@@ -1686,6 +1686,14 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
                 firstMixingRouteProcess.getId(), mixingProcess.getId(),
                 secondMixingRouteProcess.getId(), mixingProcess.getId(),
                 packingRouteProcess.getId(), packingProcess.getId());
+        JSONObject activeRoot = JSONObject.parseObject(activeSnapshotJson);
+        JSONObject activeConfigs = activeRoot.getJSONObject("configSnapshots");
+        activeConfigs.put("productionProcessConfigSchemaVersion", 1);
+        var productionConfigs = buildTestProductionConfigs(activeConfigs.getJSONObject("flowGraph").getJSONArray("nodes"));
+        productionConfigs.getJSONObject(0).put("overagePercent", new java.math.BigDecimal("7.5"));
+        productionConfigs.getJSONObject(1).put("overagePercent", new java.math.BigDecimal("3.5"));
+        activeConfigs.put("productionProcessConfigs", productionConfigs);
+        activeSnapshotJson = activeRoot.toJSONString();
         MesProRouteVersionDO activeVersion = MesProRouteVersionDO.builder()
                 .routeId(route.getId())
                 .versionNo("V1")
@@ -1757,6 +1765,13 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
         assertEquals(activeVersion.getId(), candidate.getSourceRouteVersionId());
         JSONObject candidateSnapshot = JSONObject.parseObject(candidate.getRouteSnapshotJson());
         JSONObject configSnapshots = candidateSnapshot.getJSONObject("configSnapshots");
+        assertEquals(1, configSnapshots.getInteger("productionProcessConfigSchemaVersion"));
+        var candidateProductionConfigs = configSnapshots.getJSONArray("productionProcessConfigs");
+        assertEquals(2, result.batchRecordRouteBindingCount(),
+                "结果只统计候选中的正式批记录绑定，不能把3道工序或3个表单槽位当作3个绑定");
+        assertEquals(List.of("7.5", "0", "3.5"), IntStream.range(0, candidateProductionConfigs.size())
+                .mapToObj(index -> candidateProductionConfigs.getJSONObject(index)
+                        .getBigDecimal("overagePercent").toPlainString()).toList());
         com.alibaba.fastjson.JSONArray nodes = configSnapshots.getJSONObject("flowGraph").getJSONArray("nodes");
         assertEquals(List.of("混合工序", "包装工序", "混合工序"), IntStream.range(0, nodes.size())
                 .mapToObj(index -> nodes.getJSONObject(index).getString("processName"))
@@ -6922,6 +6937,8 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
         JSONObject configSnapshots = new JSONObject(true);
         configSnapshots.put("flowGraph", flowGraph);
         configSnapshots.put("batchUseConfigs", new com.alibaba.fastjson.JSONArray());
+        configSnapshots.put("productionProcessConfigSchemaVersion", 1);
+        configSnapshots.put("productionProcessConfigs", buildTestProductionConfigs(nodes));
         JSONObject snapshot = new JSONObject(true);
         snapshot.put("routeId", route.getId());
         snapshot.put("routeCode", route.getCode());
@@ -6929,6 +6946,19 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
         snapshot.put("status", route.getStatus());
         snapshot.put("configSnapshots", configSnapshots);
         return snapshot.toJSONString();
+    }
+
+    private com.alibaba.fastjson.JSONArray buildTestProductionConfigs(com.alibaba.fastjson.JSONArray nodes) {
+        var configs = new com.alibaba.fastjson.JSONArray();
+        for (int index = 0; index < nodes.size(); index++) {
+            JSONObject config = new JSONObject(nodes.getJSONObject(index));
+            config.put("overagePercent", java.math.BigDecimal.ZERO);
+            config.put("lossReasons", new com.alibaba.fastjson.JSONArray());
+            config.put("deviceSelectionGroups", new com.alibaba.fastjson.JSONArray());
+            config.put("parameterRules", new com.alibaba.fastjson.JSONArray());
+            configs.add(config);
+        }
+        return configs;
     }
 
     private void bindRouteToDccProject(Long routeId, Long dccProjectCodeId) {

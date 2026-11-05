@@ -621,7 +621,7 @@ public class MesProBatchRecordRouteGenerationServiceImpl implements MesProBatchR
                     .routeVersionId(candidateRouteVersion.getId())
                     .routeVersionNo(candidateRouteVersion.getVersionNo())
                     .routeProcessCount(bindings.size())
-                    .batchRecordRouteBindingCount(bindBatchRecordReports ? bindings.size() : 0)
+                    .batchRecordRouteBindingCount(countCandidateBatchRecordBindings(candidateRouteVersion))
                     .boundProductNameCount(productBindingResult.boundProductNameCount())
                     .boundProductCodeCount(productBindingResult.boundProductCodeCount())
                     .skippedProductNames(productBindingResult.skippedProductNames())
@@ -1100,6 +1100,7 @@ public class MesProBatchRecordRouteGenerationServiceImpl implements MesProBatchR
         configSnapshots.put("scheduleConfigs", List.of());
         configSnapshots.put("scheduleUseConfigs", List.of());
         configSnapshots.put("batchUseConfigs", batchUseConfigSnapshots);
+        addProductionProcessSnapshots(configSnapshots, processSnapshots, activeSource.configSnapshots());
         copyStartConfiguration(activeSource.configSnapshots(), configSnapshots,
                 ROUTE_START_PRODUCTION_LEADERS_KEY, sourceVersion.getId());
         copyStartConfiguration(activeSource.configSnapshots(), configSnapshots,
@@ -1146,6 +1147,16 @@ public class MesProBatchRecordRouteGenerationServiceImpl implements MesProBatchR
                 "Word导入登记工艺路线正式版本");
         routeControlledContentAdapter.recordDraftCandidateRegisteredIfMissing(active, candidate, actorId,
                 "Word导入登记工艺路线候选版本");
+    }
+
+    private int countCandidateBatchRecordBindings(MesProRouteVersionDO candidate) {
+        JSONArray configs = JSON.parseObject(candidate.getRouteSnapshotJson())
+                .getJSONObject(SNAPSHOT_CONFIGS_KEY).getJSONArray(BATCH_USE_CONFIGS_KEY);
+        int count = 0;
+        for (Object value : configs) {
+            count += ((JSONObject) value).getJSONArray(BATCH_RECORD_REPORTS_KEY).size();
+        }
+        return count;
     }
 
     private ActiveRouteCandidateSource loadActiveRouteCandidateSource(MesProRouteDO route,
@@ -1366,6 +1377,57 @@ public class MesProBatchRecordRouteGenerationServiceImpl implements MesProBatchR
         candidateConfigSnapshots.put(configKey, JSON.parseArray(array.toJSONString()));
     }
 
+    private void addProductionProcessSnapshots(JSONObject configs, List<Map<String, Object>> processes,
+                                                JSONObject sourceConfigs) {
+        Map<Long, JSONObject> existing = new LinkedHashMap<>();
+        if (sourceConfigs != null) {
+            JSONArray productionConfigs = sourceConfigs.getJSONArray("productionProcessConfigs");
+            if (!Objects.equals(1, sourceConfigs.getInteger("productionProcessConfigSchemaVersion"))
+                    || productionConfigs == null) {
+                throw exception(PRO_BATCH_RECORD_REPORT_ROUTE_GENERATION_FAILED,
+                        "ACTIVE 工艺路线缺少完整生产工序配置，不能生成 Word 候选");
+            }
+            for (Object value : productionConfigs) {
+                if (!(value instanceof JSONObject config) || config.getLong("routeProcessId") == null
+                        || existing.putIfAbsent(config.getLong("routeProcessId"), config) != null) {
+                    throw exception(PRO_BATCH_RECORD_REPORT_ROUTE_GENERATION_FAILED,
+                            "ACTIVE 生产工序配置身份缺失或重复");
+                }
+            }
+        }
+        JSONArray productionConfigs = new JSONArray();
+        for (Map<String, Object> process : processes) {
+            Long routeProcessId = (Long) process.get("routeProcessId");
+            JSONObject previous = existing.get(routeProcessId);
+            if (sourceConfigs != null && routeProcessId != null && previous == null) {
+                throw exception(PRO_BATCH_RECORD_REPORT_ROUTE_GENERATION_FAILED,
+                        "ACTIVE 工序缺少生产配置：routeProcessId=" + routeProcessId);
+            }
+            JSONObject config;
+            if (previous != null) {
+                if (!Objects.equals(previous.getLong("processId"), process.get("processId"))) {
+                    throw exception(PRO_BATCH_RECORD_REPORT_ROUTE_GENERATION_FAILED,
+                            "ACTIVE 生产工序配置身份不一致：routeProcessId=" + routeProcessId);
+                }
+                config = JSON.parseObject(previous.toJSONString());
+            } else {
+                // 与新建路线保持相同的显式初始配置；不替代任何既有工序配置。
+                config = new JSONObject(true);
+                config.put("overagePercent", java.math.BigDecimal.ZERO);
+                config.put("lossReasons", new JSONArray());
+                config.put("deviceSelectionGroups", new JSONArray());
+                config.put("parameterRules", new JSONArray());
+            }
+            config.put("routeProcessId", routeProcessId == null ? process.get("clientRouteProcessId") : routeProcessId);
+            config.put("processId", process.get("processId"));
+            config.put("processName", process.get("processName"));
+            config.put("sort", process.get("sort"));
+            productionConfigs.add(config);
+        }
+        configs.put("productionProcessConfigSchemaVersion", 1);
+        configs.put("productionProcessConfigs", productionConfigs);
+    }
+
     private Map<String, Object> buildCandidateFlowGraphSnapshot(List<Map<String, Object>> processSnapshots) {
         List<Map<String, Object>> edges = new ArrayList<>();
         for (int index = 1; index < processSnapshots.size(); index++) {
@@ -1472,6 +1534,7 @@ public class MesProBatchRecordRouteGenerationServiceImpl implements MesProBatchR
         configSnapshots.put("scheduleConfigs", List.of());
         configSnapshots.put("scheduleUseConfigs", List.of());
         configSnapshots.put("batchUseConfigs", batchUseConfigSnapshots);
+        addProductionProcessSnapshots(configSnapshots, processSnapshots, null);
         snapshot.put("configSnapshots", configSnapshots);
         return snapshot;
     }

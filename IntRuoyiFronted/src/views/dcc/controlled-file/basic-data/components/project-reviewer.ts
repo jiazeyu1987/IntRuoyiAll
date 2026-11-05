@@ -1,5 +1,20 @@
 import type { DccProjectReviewerConfiguration, DccProjectProductCreateRespVO } from '@/api/dcc/controlledFile/projectProductRequests'
 
+export const projectRequestStatusLabel = (status: string | null | undefined): string => {
+  switch (status) {
+    case 'PENDING_REVIEW': return '待审核'
+    case 'PENDING_APPROVAL': return '待批准'
+    case 'REJECTED': return '已驳回'
+    case 'WRITING': return '写入中'
+    case 'COMPLETED': return '已完成'
+    case 'WRITE_FAILED': return '写入失败'
+    case null:
+    case undefined:
+    case '': return '--'
+    default: return '未配置中文状态'
+  }
+}
+
 const validIdentity = (value: unknown): value is string | number => {
   if (typeof value !== 'string' && typeof value !== 'number') return false
   if (typeof value === 'number' && !Number.isSafeInteger(value)) return false
