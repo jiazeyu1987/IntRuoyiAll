@@ -3208,7 +3208,7 @@ public class MesProBatchRecordReportServiceImpl implements MesProBatchRecordRepo
     private Long resolveReportDccProjectCodeId(MesProBatchRecordReportView report,
                                                MesProBatchRecordVersionDO version,
                                                Map<Long, Long> dccProjectCodeIdByRouteId) {
-        Long boundDccProjectCodeId = version == null
+        Long boundDccProjectCodeId = version == null || version.getRouteId() == null
                 ? null : dccProjectCodeIdByRouteId.get(version.getRouteId());
         return boundDccProjectCodeId == null ? report.dccProjectCodeId() : boundDccProjectCodeId;
     }

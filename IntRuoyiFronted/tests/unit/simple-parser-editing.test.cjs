@@ -46,6 +46,8 @@ function page(kind) {
     '@/api/mes/pro/route': { getRouteProjectOptions: async () => [] },
     '@/api/mes/qc/template': { QcTemplateApi: { getCurrentQaRegulation: async () => null, listQaRegulationVersions: async () => [] } },
     '@/api/mes/qc/template/simpleCommonParser': {},
+    '@/views/mes/md/workstation/components/MdWorkshopSelect.vue': {},
+    '@/views/mes/qc/template/SamplingRuleEditor.vue': {},
     '@/api/mes/dv/machinery': { DvMachineryApi: { getMachineryPage: async () => ({ list: [], total: 0 }) } },
     '@/api/dcc/controlledFile/projectCodes': { getProjectCodePage: async () => ({ list: [] }),
       getProjectCode: async id => ({ id, projectCode: 'P42', projectName: '项目', status: 'ENABLE' }) },
@@ -68,6 +70,7 @@ function initialize(state, kind) {
     state.projects.value = [{ id: 42, projectCode: 'P42', projectName: '项目', productMasterId: 8 }]
   }
   if (kind === 'production') {
+    state.workshopId.value = 6
     state.recognition.value = { schemaVersion: 3, product: {}, processes: [] }
     state.routeName.value = '工艺流程'
     state.processes.value = [1, 2].map(n => ({ id: `P${n}`, value: { name: `工序${n}`, equipmentGroups: [] } }))
@@ -199,6 +202,7 @@ for (const kind of ['production', 'pqc', 'common']) test(`${kind}: actual trial 
   const trialDescriptor = parse(read(trialFile), { filename: trialFile }).descriptor
   const trial = load(compileScript(trialDescriptor, { id: `${kind}-trial` }).content, {
     vue, '../simpleRecognition': production, '../simplePqc': pqc,
+    '@/api/mes/qc/sampling': { getSamplingTable: async () => [] },
     '@/store/modules/user': { useUserStore: () => ({ getUser: {} }) }
   }).default
   const setupTrial = trial.setup

@@ -48,7 +48,7 @@ test('missing final applicability cannot silently produce a publishable draft', 
 })
 
 test('common regulation numbering excludes retired and draft versions as well as the published version', async () => {
-  const versionNames = ['incrementVersionNo', 'resolveCommonMemberNextVersionNo']
+  const versionNames = ['incrementVersionNo', 'resolveCommonMemberNextVersionNo', 'resolvePositiveId']
   const versionStatements = ast.statements.filter(s => ts.isVariableStatement(s) &&
     s.declarationList.declarations.every(d => versionNames.includes(d.name.getText(ast))))
   const versionCode = ts.transpileModule(versionStatements.map(s => s.getText(ast)).join('\n') +
@@ -56,8 +56,8 @@ test('common regulation numbering excludes retired and draft versions as well as
     { compilerOptions: { target: ts.ScriptTarget.ES2020 } }).outputText
   const calls = []
   const nextVersion = new Function('QcTemplateApi', versionCode)({
-    listQaRegulationVersions: async (id, ownerModule) => {
-      calls.push([id, ownerModule])
+    listCommonRegulationVersions: async id => {
+      calls.push(id)
       return [
         { regulationId: 65, versionNo: 'A/7', lifecycleStatus: 'RETIRED' },
         { regulationId: 65, versionNo: 'A/8', lifecycleStatus: 'RETIRED' },
@@ -68,7 +68,7 @@ test('common regulation numbering excludes retired and draft versions as well as
   })
   assert.equal(await nextVersion({ commonDccProjectCodeId: 44, commonRegulationId: 65,
     versionNo: 'A/7', commonRegulationName: '初包装' }), 'A/11')
-  assert.deepEqual(calls, [[44, 'MES_QA_COMMON']])
+  assert.deepEqual(calls, [65])
   await assert.rejects(() => nextVersion({ commonDccProjectCodeId: 44, commonRegulationId: 66,
     versionNo: 'A/1', commonRegulationName: '大中包装' }), /缺少正式版本记录/)
 })

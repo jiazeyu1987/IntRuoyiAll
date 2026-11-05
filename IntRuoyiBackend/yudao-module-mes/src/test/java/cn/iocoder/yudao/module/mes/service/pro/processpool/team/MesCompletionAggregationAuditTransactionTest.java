@@ -148,9 +148,16 @@ class MesCompletionAggregationAuditTransactionTest {
         var actor = new LoginUser();
         actor.setId(20L);
         actor.setTenantId(1L);
+        actor.setUserType(cn.iocoder.yudao.framework.common.enums.UserTypeEnum.ADMIN.getValue());
         actor.setInfo(Map.of("username", "completion-audit-test", LoginUser.INFO_KEY_NICKNAME, "completion-audit-test"));
-        SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(actor, null));
+        SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(actor, null, List.of()));
         var writer = new GxpAuditServiceImpl();
+        var directory = mock(cn.iocoder.yudao.module.system.dal.mysql.user.AdminUserMapper.class);
+        var currentActor = new cn.iocoder.yudao.module.system.dal.dataobject.user.AdminUserDO()
+                .setId(20L).setStatus(0).setUsername("completion-audit-test").setNickname("completion-audit-test");
+        currentActor.setTenantId(1L);
+        when(directory.selectGxpAuditActor(1L, 20L)).thenReturn(currentActor);
+        inject(writer, "adminUserMapper", directory);
         inject(writer, "auditEventMapper", sessions.getMapper(GxpAuditEventMapper.class));
         inject(writer, "eventRelationMapper", sessions.getMapper(GxpAuditEventRelationMapper.class));
         inject(writer, "ledgerSequenceMapper", sessions.getMapper(GxpAuditLedgerSequenceMapper.class));

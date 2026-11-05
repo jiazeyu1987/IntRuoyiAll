@@ -257,7 +257,8 @@ public class MesProDccProjectGovernanceServiceImpl implements MesProDccProjectGo
         Map<Long, MesProBatchRecordVersionDO> versionById = selectBatchRecordVersionsById(versionIds);
         Set<String> versionNos = new LinkedHashSet<>();
         for (MesProBatchRecordReportDO report : reports) {
-            MesProBatchRecordVersionDO version = versionById.get(report.getBatchRecordVersionId());
+            MesProBatchRecordVersionDO version = report.getBatchRecordVersionId() == null
+                    ? null : versionById.get(report.getBatchRecordVersionId());
             if (version != null && StrUtil.isNotBlank(version.getVersionNo())) {
                 versionNos.add(StrUtil.trim(version.getVersionNo()));
             }

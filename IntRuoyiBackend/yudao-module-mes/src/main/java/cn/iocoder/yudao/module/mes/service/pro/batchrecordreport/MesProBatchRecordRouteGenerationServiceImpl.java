@@ -1184,8 +1184,10 @@ public class MesProBatchRecordRouteGenerationServiceImpl implements MesProBatchR
         Map<Long, List<ActiveRouteProcessSnapshot>> processesByProcessId = new LinkedHashMap<>();
         Map<Long, ActiveRouteProcessSnapshot> processByRouteProcessId = new LinkedHashMap<>();
         List<JSONObject> activeNodes = sortCandidateObjects(nodes, "ACTIVE flowGraph.nodes");
-        Map<Long, MesProProcessDO> processDefinitions = processMapper.selectBatchIds(activeNodes.stream()
-                        .map(node -> node.getLong("processId")).filter(Objects::nonNull).distinct().toList()).stream()
+        List<Long> processIds = activeNodes.stream()
+                .map(node -> node.getLong("processId")).filter(Objects::nonNull).distinct().toList();
+        Map<Long, MesProProcessDO> processDefinitions = (processIds.isEmpty()
+                ? List.<MesProProcessDO>of() : processMapper.selectBatchIds(processIds)).stream()
                 .collect(Collectors.toMap(MesProProcessDO::getId, process -> process));
         for (JSONObject node : activeNodes) {
             Long routeProcessId = node.getLong("routeProcessId");
@@ -1450,30 +1452,17 @@ public class MesProBatchRecordRouteGenerationServiceImpl implements MesProBatchR
             batchUseConfig.put("useType", USE_TYPE_BATCH);
             batchUseConfig.put("enabled", true);
             batchUseConfig.put("executionMode", EXECUTION_MODE_SEQUENTIAL);
-            batchUseConfig.put("batchRecordReportId", binding.report().reportId());
-            batchUseConfig.put("reportId", binding.report().reportId());
-            batchUseConfig.put("reportCode", binding.report().reportCode());
-            batchUseConfig.put("reportName", binding.report().reportName());
-            batchUseConfig.put("batchRecordDefinitionId", binding.report().batchRecordDefinitionId());
-            batchUseConfig.put("batchRecordVersionId", binding.report().batchRecordVersionId());
-            batchUseConfig.put("formSlotType", binding.report().formSlotType());
-            batchUseConfig.put("recordCategory", RECORD_CATEGORY_BATCH_RECORD);
-            batchUseConfig.put("validationProfile", VALIDATION_PROFILE_CONTROLLED_BATCH);
             Long permissionScopeId = batchRecordPermissionScopeIds.get(routeProcess.getId());
             if (permissionScopeId == null) {
                 throw exception(PRO_BATCH_RECORD_REPORT_ROUTE_GENERATION_FAILED,
                         "批记录绑定权限范围缺失：" + routeProcess.getId());
             }
-            batchUseConfig.put("permissionScopeId", permissionScopeId);
-            batchUseConfig.put("recordCategorySnapshotHash", buildSnapshotHash(route.getId(),
-                    routeProcess.getId(), binding.report().reportId()));
-            batchUseConfig.put("requiredPolicy", REQUIRED_POLICY_REQUIRED);
-            batchUseConfig.put("ownerRoleKey", OWNER_ROLE_PRODUCTION);
-            batchUseConfig.put("archiveVisibility", ARCHIVE_VISIBILITY_FINAL_DHR);
-            batchUseConfig.put("slotConfigSnapshotHash", buildSnapshotHash(route.getId(),
-                    routeProcess.getId(), binding.report().reportId()));
-            batchUseConfig.put("reportSort", 1);
-            batchUseConfig.put("remark", "eDHR Word导入自动绑定批记录报表");
+            JSONObject reportSnapshot = buildFormalBatchRecordReportSnapshot(route.getId(), routeProcess.getId(),
+                    binding.report(), binding.report().batchRecordDefinitionId(), binding.report().batchRecordVersionId());
+            reportSnapshot.put("permissionScopeId", permissionScopeId);
+            batchUseConfig.put("batchRecordBindingSnapshotExplicit", true);
+            batchUseConfig.put(BATCH_RECORD_REPORTS_KEY, List.of(reportSnapshot));
+            batchUseConfig.put(FORM_BINDINGS_KEY, List.of());
             batchUseConfigSnapshots.add(batchUseConfig);
         }
 

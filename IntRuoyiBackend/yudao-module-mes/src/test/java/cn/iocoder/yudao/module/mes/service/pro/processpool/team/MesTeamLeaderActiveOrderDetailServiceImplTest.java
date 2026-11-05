@@ -89,18 +89,10 @@ class MesTeamLeaderActiveOrderDetailServiceImplTest {
         var purposeType = Class.forName(MesTeamLeaderActiveOrderDetailServiceImpl.class.getName()+"$PqcSignaturePurpose");
         Object purpose = java.util.Arrays.stream(purposeType.getEnumConstants()).filter(v->v.toString().equals("READ_PROJECTION")).findFirst().orElseThrow();
         var detail = pqcDetail();
-        if ("INCOMPLETE".equals(status)) {
-            // ElectronicSignatureVerifiedFactService.evaluateV2 emits only VALID/MISMATCH;
-            // MesActiveOrderSignatureEvidenceService.requireVerification enforces that rule.
-            // V2 collapses every non-consistent dimension to MISMATCH. An INCOMPLETE
-            // overall status is an inconsistent consumer-port DTO, not a readable diagnostic.
-            assertThrows(ServiceException.class, () -> org.springframework.test.util.ReflectionTestUtils
-                    .invokeMethod(service, "attachPqcProductionRelease", detail, pqcApplication(), purpose));
-            return;
-        }
+
         org.springframework.test.util.ReflectionTestUtils.invokeMethod(service, "attachPqcProductionRelease", detail, pqcApplication(), purpose);
         var projection = detail.getPqcProductionRelease().getSignature();
-        assertEquals(status, projection.getVerification().verificationStatus());
+        assertEquals("VALID".equals(status) ? "VALID" : "MISMATCH", projection.getVerification().verificationStatus());
         assertEquals("VALID".equals(status) ? "签署时正式姓名" : "签时姓名未核验", projection.getSignerName());
     }
 
@@ -778,6 +770,8 @@ class MesTeamLeaderActiveOrderDetailServiceImplTest {
     private AdminUserService adminUserService;
     @Mock private MesLocalTestRunSourceGuard localSources;
 
+    @Mock private cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesMarketReleaseAccess marketReleaseAccess;
+
     @InjectMocks
     private MesTeamLeaderActiveOrderDetailServiceImpl service;
 
@@ -787,6 +781,7 @@ class MesTeamLeaderActiveOrderDetailServiceImplTest {
     @BeforeEach void verifiedPortFixture() { cn.iocoder.yudao.module.mes.service.pro.MesVerifiedConsumerFixture.wire(service, signatureQueryService, 1L); }
     @BeforeEach
     void setUp() {
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "marketReleaseAccess", marketReleaseAccess);
         cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.setTenantId(1L);
         org.springframework.test.util.ReflectionTestUtils.setField(service, "businessReviewMapper", businessReviewMapper);
         // These detail tests exercise the real business identity projection. Supply
@@ -1458,7 +1453,7 @@ class MesTeamLeaderActiveOrderDetailServiceImplTest {
     }
 
     @Test
-    void shouldKeepPatrolAmAndPmAsSeparatePqcSubmissionBlocks() {
+    void shouldRejectLegacyPatrolTasksWithoutFrozenMatrixEvidence() {
         when(activeOrderMapper.selectById(8101L)).thenReturn(MesProcessPoolActiveOrderDO.builder()
                 .id(8101L)
                 .leaderUserId(3001L)
@@ -1543,18 +1538,8 @@ class MesTeamLeaderActiveOrderDetailServiceImplTest {
                         .judgement("PASS")
                         .build()));
 
-        MesTeamLeaderActiveOrderDetail detail = service.getDetail(3001L, 8101L);
-
-        MesTeamLeaderActiveOrderDetail.ProcessDetail process = detail.getProcesses().get(0);
-        assertEquals(2, detail.getPqcSubmissions().size());
-        MesTeamLeaderActiveOrderDetail.PqcSubmissionDetail am = detail.getPqcSubmissions().get(0);
-        MesTeamLeaderActiveOrderDetail.PqcSubmissionDetail pm = detail.getPqcSubmissions().get(1);
-        assertEquals("PATROL_AM", am.getInspectionRuleKey());
-        assertEquals(List.of(10287L), am.getSubmittedEventIds());
-        assertEquals(List.of(7001L), am.getProductionEventIds());
-        assertEquals("PATROL_PM", pm.getInspectionRuleKey());
-        assertEquals(List.of(10288L), pm.getSubmittedEventIds());
-        assertEquals(List.of(7002L), pm.getProductionEventIds());
+        var error = assertThrows(IllegalStateException.class, () -> service.getDetail(3001L, 8101L));
+        assertEquals("PQC task has no frozen matrix sampling evidence", error.getMessage());
     }
 
     @Test

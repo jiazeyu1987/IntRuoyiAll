@@ -825,6 +825,23 @@
                   </div>
                 </div>
 
+                <el-form label-position="top">
+                  <el-form-item
+                    v-for="member in commonRegulationMembersWithoutFinal"
+                    :key="member.commonRegulationVersionId"
+                    :label="`${member.commonRegulationName}末检不适用依据`"
+                    required
+                  >
+                    <el-input
+                      v-model="commonMemberFinalInspectionReasons[member.commonRegulationVersionId]"
+                      type="textarea"
+                      :rows="2"
+                      :disabled="commonRegulationItemsSaving"
+                      placeholder="请填写原规程未设置末检的依据"
+                    />
+                  </el-form-item>
+                </el-form>
+
                 <UnifiedListTemplate
                   single-line-toolbar
                   table-key="mes.qa.common-regulation.items.processMethods.v1"
@@ -1467,6 +1484,19 @@ v-if="row.finalInspectionEnabled" :model-value="row.finalInspectionQuantity"
                   class="qa-regulation-page__basic-field qa-regulation-page__basic-field--full"
                 >
                   <el-input :model-value="selectedDccProjectCodeLabel" disabled />
+                </el-form-item>
+                <el-form-item
+                  v-if="!qaRegulationItems.some((item) => item.finalInspectionEnabled)"
+                  label="末检不适用依据"
+                  required
+                  class="qa-regulation-page__basic-field qa-regulation-page__basic-field--full"
+                >
+                  <el-input
+                    v-model="qaRegulationDraft.finalInspectionNotApplicableReason"
+                    type="textarea"
+                    :rows="2"
+                    placeholder="请填写原规程中末检不适用的依据"
+                  />
                 </el-form-item>
               </div>
             </el-form>
@@ -2232,6 +2262,7 @@ interface QaRegulationDraft {
   versionNo: string
   effectiveDate: string
   lifecycleStatus: string
+  finalInspectionNotApplicableReason: string
 }
 
 interface QaLocalListQuery {
@@ -2376,7 +2407,8 @@ const createEmptyQaRegulationDraft = (): QaRegulationDraft => ({
   regulationName: '',
   versionNo: '',
   effectiveDate: '',
-  lifecycleStatus: 'DRAFT'
+  lifecycleStatus: 'DRAFT',
+  finalInspectionNotApplicableReason: ''
 })
 
 const createEmptyQaInspectionTypeRules = (): QaInspectionTypeRule[] => [
@@ -2686,6 +2718,14 @@ const buildCommonRegulationItemsFromDocuments = (): CommonRegulationItem[] =>
   )
 
 const commonRegulationItems = ref<CommonRegulationItem[]>([])
+const commonMemberFinalInspectionReasons = ref<Record<number, string>>({})
+const commonRegulationMembersWithoutFinal = computed(() =>
+  selectedCommonRegulationSetVersionMembers.value.filter((member) =>
+    !commonRegulationItems.value.some((item) =>
+      item.commonRegulationVersionId === member.commonRegulationVersionId && item.finalInspectionEnabled
+    )
+  )
+)
 
 const resolveCommonItemApplicableTypes = (item: CommonRegulationItem) =>
   resolveQaItemDisplayInspectionTypes(item, item.finalInspectionEnabled)
@@ -3082,7 +3122,8 @@ const applyQaRegulationConfiguration = (
     regulationName: configuration.regulationName,
     versionNo: configuration.versionNo,
     effectiveDate: configuration.effectiveDate || '',
-    lifecycleStatus: configuration.lifecycleStatus
+    lifecycleStatus: configuration.lifecycleStatus,
+    finalInspectionNotApplicableReason: configuration.finalInspectionNotApplicableReason ?? ''
   })
   if (configuration.commonRegulationVersions != null) {
     commonRegulationBindingRows.value = configuration.commonRegulationVersions.map((member) => ({
@@ -4504,7 +4545,8 @@ const buildCommonRegulationItemsUpgradePayload = async (): Promise<QaCommonRegul
       )
       const memberRows = rowsByMemberVersionId.get(memberVersionId) || []
       const finalInspectionApplicable = memberRows.some((item) => item.finalInspectionEnabled)
-      const finalInspectionNotApplicableReason = finalInspectionApplicable ? undefined : '各检验工序均未开启末检'
+      const finalInspectionNotApplicableReason = finalInspectionApplicable ? undefined
+        : resolveRequiredText(commonMemberFinalInspectionReasons.value[memberVersionId], `${member.commonRegulationName}末检不适用依据`)
       return {
         commonRegulationId: resolvePositiveId(member.commonRegulationId, '通用检验规程 ID'),
         sourceCommonRegulationVersionId: memberVersionId,
@@ -4531,7 +4573,7 @@ const buildQaRegulationSavePayload = (): ProductQaRegulationSaveReqVO => {
   const finalInspectionApplicable = qaRegulationItems.value.some((item) => item.finalInspectionEnabled)
   const finalInspectionNotApplicableReason = finalInspectionApplicable
     ? undefined
-    : '各检验工序均未开启末检'
+    : resolveRequiredText(qaRegulationDraft.finalInspectionNotApplicableReason, '末检不适用依据')
   return {
     regulationId: qaRegulationDraft.regulationId,
     dccProjectCodeId: resolvePositiveId(qaRegulationDraft.dccProjectCodeId, 'DCC 项目代码 ID'),
@@ -4613,6 +4655,11 @@ watch(
   selectedCommonRegulationSetVersionDocuments,
   () => {
     commonRegulationItems.value = buildCommonRegulationItemsFromDocuments()
+    commonMemberFinalInspectionReasons.value = Object.fromEntries(
+      selectedCommonRegulationSetVersionMembers.value.map((member) => [
+        member.commonRegulationVersionId, member.finalInspectionNotApplicableReason ?? ''
+      ])
+    )
     commonRegulationItemsQuery.pageNo = 1
   },
   { immediate: true }

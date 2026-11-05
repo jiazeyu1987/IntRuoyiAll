@@ -258,7 +258,7 @@ test('closing detail discards an in-flight response', async () => {
   assert.equal(h.detailLoading.value, false)
 })
 
-test('published library is the default page and parser has a permanent navigation entry', () => {
+test('published library is the default page and parser opens the standalone regulation page', () => {
   const page = fs.readFileSync(
     path.resolve(__dirname, '../../src/views/mes/pro/processpool/QaRegulationPage.vue'),
     'utf8'
@@ -270,5 +270,15 @@ test('published library is the default page and parser has a permanent navigatio
   assert.match(page, /ref<CommonRegulationTabName>\('published'\)/)
   assert.match(page, /<el-tab-pane label="已发布规程" name="published"/)
   assert.match(parser, /查看已发布规程/)
-  assert.match(parser, /query: \{ view: 'published' \}/)
+  const click = parser.match(/@click="\s*(router\.push\([\s\S]*?\))\s*"/)
+  assert.ok(click, 'published-regulation button must navigate through the router')
+  const navigate = new Function('router', 'publishedResult', click[1])
+  const destinations = []
+  const router = { push: destination => destinations.push(destination) }
+  navigate(router, undefined)
+  navigate(router, { regulationId: 79 })
+  assert.deepEqual(destinations, [
+    { path: '/mes/pro/process-pool/common-regulation', query: {} },
+    { path: '/mes/pro/process-pool/common-regulation', query: { regulationId: 79 } }
+  ])
 })
