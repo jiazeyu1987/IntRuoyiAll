@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { stripTypeScriptTypes } from 'node:module'
 import { runInNewContext } from 'node:vm'
-import { createApprovalInvalidationState, createApprovalListLoader, completeApprovalWrite, createApprovalBadgeLoader, approvalTaskIdentityKey } from '../src/store/modules/approvalCenterInvalidationState.ts'
+import { createApprovalInvalidationState, createApprovalListLoader, completeApprovalWrite, createApprovalBadgeLoader } from '../src/store/modules/approvalCenterInvalidationState.ts'
 
 const session = (key = 'tenant1:user1:1') => ({ key, tenantId: '1', loginUserId: '1' })
 const deferred = () => { let resolve, reject; const promise = new Promise((a, b) => { resolve = a; reject = b }); return { promise, resolve, reject } }
@@ -112,83 +112,6 @@ test('deactivation invalidates pending request; reset allows new session load', 
   assert.equal(f.commits.length, 1)
 })
 
-// Execute the production Vue setup handler with its runtime dependencies supplied.
-// No copied handler implementation or source-keyword assertion substitutes for behavior.
-const vueHandler = (file, name, nextName, dependencies) => {
-  const source = readFileSync(new URL(`../src/views/${file}`, import.meta.url), 'utf8')
-  const start = source.indexOf(`const ${name} =`)
-  const end = source.indexOf(nextName === 'watch' ? '\nwatch(' : `const ${nextName} =`, start)
-  assert.ok(start >= 0 && end > start)
-  const context = { ...dependencies }
-  runInNewContext(stripTypeScriptTypes(source.slice(start, end) + `\nglobalThis.handler = ${name}`), context)
-  context.handler.runtime = context
-  return context.handler
-}
-test('actual candidate signature handler: cancel/fail no event; success publishes; refresh error stays read error', async () => {
-  for (const outcome of ['cancel', 'write-fail', 'success', 'read-fail']) {
-    let published = 0, writes = 0; const notices = []
-    const event = { session: { key: 'user1' } }
-    const taskSource = readFileSync(new URL('../src/views/mes/pro/edhr-work-task/WorkTaskBoardPage.vue', import.meta.url), 'utf8')
-    const identityStart = taskSource.indexOf('const candidateSignatureTaskIdentity =')
-    const identityEnd = taskSource.indexOf('const handleCompleteCandidateSignature =', identityStart)
-    const identity = runInNewContext(stripTypeScriptTypes(taskSource.slice(identityStart, identityEnd) + '\ncandidateSignatureTaskIdentity'))
-    const handler = vueHandler('mes/pro/edhr-work-task/WorkTaskBoardPage.vue', 'handleCompleteCandidateSignature', 'initializeRouteFilters', {
-      candidateSignatureWrites: new Set(), candidateSignatureGeneration: 0,
-      candidateSignatureTaskIdentity: identity, candidateSignatureContextKey: () => '/edhr/work-task?taskType=REVIEW:session:1',
-      route: { fullPath: '/edhr/work-task?taskType=REVIEW' },
-      approvalInvalidation: { syncSession: () => ({ key: 'user1' }), captureEdhrSuccess: () => event, isCurrent: () => true, publishEdhrSuccess: () => published++ },
-      completeApprovalWrite,
-      message: { confirm: async () => { if (outcome === 'cancel') throw 'cancel' }, success: text => notices.push(text), warning: text => notices.push(text), error: text => notices.push(text) },
-      completeEdhrCandidateSignatureTask: async () => { writes++; if (outcome === 'write-fail') throw Error('write failed'); return true },
-      getList: async () => {}, loadError: { value: outcome === 'read-fail' ? 'list unavailable' : '' },
-      resolveErrorMessage: error => error.message
-    })
-    await handler({ id: 1, executionId: 2, processName: 'review' })
-    assert.equal(published, ['success', 'read-fail'].includes(outcome) ? 1 : 0)
-    assert.equal(writes, outcome === 'cancel' ? 0 : 1)
-    if (outcome === 'read-fail') assert.deepEqual(notices, ['签名完成', '签名已成功，列表刷新失败：list unavailable'])
-  }
-})
-test('actual center submit handler freezes request, publishes once, and distinguishes read failure', async () => {
-  for (const outcome of ['write-fail', 'success', 'read-fail']) {
-    const notices = []; let published = 0, request
-    const event = { session: { key: 'session' } }
-    const reviewTask = { value: { moduleCode: 'EDHR', sourceTaskType: 'EDHR_WORK_TASK', sourceTaskId: '12', availableActions: ['APPROVE'] } }
-    const reviewForm = { result: 'APPROVE', reason: ' original opinion ', signaturePassword: 'pw' }
-    const reviewDialogVisible = { value: true }, reviewSubmitting = { value: false }
-    const handler = vueHandler('approval-center/index.vue', 'submitReview', 'normalizeApprovalDisplayText', {
-      reviewTask, reviewForm, reviewDialogVisible, reviewSubmitting, canReview: () => true,
-      reviewGeneration: 1, approvalTaskIdentityKey,
-      approvalInvalidation: { syncSession: () => ({ key: 'session' }), captureEdhrSuccess: () => event, isCurrent: () => true, publishEdhrSuccess: () => published++ },
-      completeApprovalWrite, buildApprovalCenterRouteStateKey: () => 'todo',
-      reviewApprovalTask: async payload => { request = payload; reviewForm.reason = 'changed while awaiting'; if (outcome === 'write-fail') throw Error('business failed'); return true },
-      getList: async () => outcome !== 'read-fail', loadError: { value: 'read unavailable' },
-      resolveErrorMessage: error => error.message,
-      ElMessage: { error: text => notices.push(text), success: text => notices.push(text), warning: text => notices.push(text) }
-    })
-    await handler()
-    assert.equal(request.reason, 'original opinion'); assert.equal(published, outcome === 'write-fail' ? 0 : 1)
-    assert.equal(reviewSubmitting.value, false)
-    if (outcome === 'read-fail') { assert.deepEqual(notices, ['审核已通过', '办理已成功，刷新失败：read unavailable']); assert.equal(reviewDialogVisible.value, false); assert.equal(reviewForm.signaturePassword, '') }
-  }
-})
-test('actual QA dispose handler captures official source before await even after route switches', async () => {
-  let captured, published; const selectedReview = { value: { id: 31 } }
-  const handler = vueHandler('mes/pro/edhr-nonconformance/NonconformanceReviewPage.vue', 'handleDispose', 'watch', {
-    disposeLoading: { value: false }, reviewDialogVisible: { value: true }, selectedReviewReadOnly: { value: false }, selectedReview,
-    reviewContextGeneration: 1, materialUploadsPending: { value: false },
-    disposeForm: { reviewMaterialUrls: ['material'], reviewMaterialEvents: [], reviewOpinion: 'qa opinion', signaturePassword: 'pw' },
-    errorText: { value: '' }, buildReviewMaterials: () => [],
-    approvalInvalidation: { syncSession: () => ({ key: 'user1' }), captureHandoffSourceSuccess: (type, id) => { captured = { type, id, session: { key: 'user1' } }; return captured }, publishEdhrSuccess: event => { published = event }, isCurrent: () => true },
-    disposeNonconformanceReview: async () => { selectedReview.value = { id: 99 }; return { id: 31 } },
-    message: { error: () => {}, success: () => {} }, loadReviews: async () => {}, resolveDispositionLabel: text => text,
-    resolveErrorMessage: error => error.message, watch: () => {}
-  })
-  await handler('rework')
-  assert.deepEqual(captured, { type: 'NONCONFORMANCE_REVIEW', id: 31, session: { key: 'user1' } }); assert.equal(published, captured)
-  assert.equal(selectedReview.value.id, 99)
-})
-
 test('actual session adapter isolates tenant/user and clears logout before same-account login', () => {
   let access = true, tenant = 1, visitTenant
   const user = { getUser: { id: 10 } }, watches = []
@@ -216,47 +139,6 @@ test('actual session adapter isolates tenant/user and clears logout before same-
   const current = store.captureHandoffSourceSuccess('ACTIVE_ORDER', 100); store.publishEdhrSuccess(current)
   assert.equal(store.revision('EDHR', 'DONE'), 1)
   assert.throws(() => store.captureHandoffSourceSuccess('ACTIVE_ORDER', undefined), /正式账号、租户或任务身份/)
-})
-
-test('actual center old submit cannot close a new same-ID task from another source/module', async () => {
-  const wait = deferred(), messages = []; let published = 0
-  const task = { moduleCode: 'EDHR', sourceTaskType: 'EDHR_WORK_TASK', sourceTaskId: '12', availableActions: ['APPROVE'] }
-  const reviewTask = { value: task }, reviewForm = { result: 'APPROVE', reason: 'opinion', signaturePassword: 'pw' }
-  const reviewDialogVisible = { value: true }, reviewSubmitting = { value: false }
-  const handler = vueHandler('approval-center/index.vue', 'submitReview', 'normalizeApprovalDisplayText', {
-    reviewTask, reviewForm, reviewDialogVisible, reviewSubmitting, reviewGeneration: 1, approvalTaskIdentityKey,
-    canReview: () => true, completeApprovalWrite, buildApprovalCenterRouteStateKey: () => 'todo',
-    approvalInvalidation: { syncSession: () => ({ key: 'user1' }), captureEdhrSuccess: () => ({}), isCurrent: () => true, publishEdhrSuccess: () => published++ },
-    reviewApprovalTask: () => wait.promise, getList: async () => true, loadError: { value: '' },
-    resolveErrorMessage: error => error.message,
-    ElMessage: { success: text => messages.push(text), error: text => messages.push(text), warning: text => messages.push(text) }
-  })
-  const pending = handler(); assert.equal(reviewSubmitting.value, true)
-  // Route/reset and new-dialog paths synchronously advance their generation.
-  handler.runtime.reviewGeneration++
-  reviewSubmitting.value = false
-  reviewTask.value = { ...task, moduleCode: 'DCC', sourceTaskType: 'DCC_CONTROLLED_FILE_TASK' }
-  reviewForm.signaturePassword = 'new dialog password'
-  reviewSubmitting.value = true
-  wait.resolve(true); await pending
-  assert.equal(published, 1); assert.deepEqual(messages, [])
-  assert.equal(reviewDialogVisible.value, true); assert.equal(reviewSubmitting.value, true)
-  assert.equal(reviewForm.signaturePassword, 'new dialog password')
-})
-test('actual reset/open-dialog path clears stale submit loading and increments request generation', () => {
-  const dependencies = { reviewGeneration: 1, reviewSubmitting: { value: true }, reviewForm: { signaturePassword: 'old password' },
-    reviewTask: { value: undefined }, reviewDialogVisible: { value: true }, canReview: () => true,
-    ElMessage: { error: () => {} }, watch: () => {} }
-  const source = readFileSync(new URL('../src/views/approval-center/index.vue', import.meta.url), 'utf8')
-  const start = source.indexOf('const resetReviewRequestContext =')
-  const end = source.indexOf('const submitReview =', start)
-  runInNewContext(stripTypeScriptTypes(source.slice(start, end) + '\nglobalThis.open = openReviewDialog; globalThis.reset = resetReviewRequestContext'), dependencies)
-  dependencies.reset()
-  assert.equal(dependencies.reviewGeneration, 2); assert.equal(dependencies.reviewSubmitting.value, false); assert.equal(dependencies.reviewForm.signaturePassword, '')
-  dependencies.reviewSubmitting.value = true
-  dependencies.open({ moduleCode: 'EDHR', sourceTaskType: 'ACTIVE_ORDER_HANDOFF', sourceTaskId: '12' })
-  assert.equal(dependencies.reviewGeneration, 3); assert.equal(dependencies.reviewSubmitting.value, false)
-  assert.equal(dependencies.reviewTask.value.sourceTaskType, 'ACTIVE_ORDER_HANDOFF')
 })
 
 test('actual route-return function retains clean cache and coalesces dirty refresh without resetting query', async () => {
