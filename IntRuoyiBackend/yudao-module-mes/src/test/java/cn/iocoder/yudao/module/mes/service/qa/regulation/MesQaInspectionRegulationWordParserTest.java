@@ -136,6 +136,41 @@ class MesQaInspectionRegulationWordParserTest {
     }
 
     @Test
+    void parse_appliesExplicitRemarkFirstQuantityWithoutOverwritingItemRule() throws Exception {
+        var parsed = parseWithRemark("设备初次开机需要首件检验；首检数量为3件；过程巡检每班两次。");
+        assertEquals(5, parsed.items().get(0).firstInspectionQuantity());
+        assertEquals(3, parsed.items().get(1).firstInspectionQuantity());
+        assertEquals("GB/T 2828.1，I，AQL=0.65", parsed.items().get(1).samplingPlanText());
+        assertTrue(parsed.items().get(1).patrolApplicable());
+        assertTrue(parsed.ruleSourceText().contains("首检数量为3件"));
+    }
+
+    @Test
+    void parse_doesNotInventFirstQuantityFromRemarkWithoutNumber() throws Exception {
+        var parsed = parseWithRemark("设备初次开机需要按照表中抽样规则进行首件检验。");
+        assertNull(parsed.items().get(1).firstInspectionQuantity());
+    }
+
+    @Test
+    void parse_rejectsAmbiguousOrZeroRemarkFirstQuantity() {
+        for (String remark : List.of("首检数量为3件；首件数量：5件", "首检数量为0件")) {
+            var failure = assertThrows(RuntimeException.class, () -> parseWithRemark(remark));
+            assertTrue(failure.getMessage().contains("备注中的首检数量"), failure.getMessage());
+        }
+    }
+
+    private MesQaInspectionRegulationWordParser.ParsedRegulation parseWithRemark(String text) throws Exception {
+        try (XWPFDocument document = new XWPFDocument(new java.io.ByteArrayInputStream(buildQaTemplate(true)));
+             ByteArrayOutputStream output = new ByteArrayOutputStream()) {
+            var cell = document.getTables().get(1).getRow(3).getCell(0);
+            while (!cell.getParagraphs().isEmpty()) cell.removeParagraph(0);
+            cell.addParagraph().createRun().setText("备注：" + text);
+            document.write(output);
+            return parser.parse(output.toByteArray(), "备注首检.docx");
+        }
+    }
+
+    @Test
     void parse_splitsCompoundProcessNamesAndDuplicatesTheSameInspectionItem() throws Exception {
         MesQaInspectionRegulationWordParser.ParsedRegulation parsed = parser.parse(
                 buildQaTemplateWithCompoundProcesses(), "复合工序QA模板.docx");

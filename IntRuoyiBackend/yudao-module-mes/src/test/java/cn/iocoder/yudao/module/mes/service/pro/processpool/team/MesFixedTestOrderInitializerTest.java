@@ -198,6 +198,27 @@ class MesFixedTestOrderInitializerTest {
         jdbc.update("INSERT INTO mes_pro_route(id,tenant_id,deleted,code) VALUES(920,165,0,'REBUILT-ROUTE')");
         jdbc.update("INSERT INTO mes_pro_route_dcc_project_binding(id,tenant_id,deleted,route_id,dcc_project_code_id) VALUES(932,165,0,920,931),(942,1,0,20,941)");
         jdbc.update("INSERT INTO mes_pro_route_version(id,tenant_id,deleted,route_id,version_no,active,lifecycle_status) VALUES(960,165,0,920,'V27',true,'ACTIVE')");
+        jdbc.update("UPDATE mes_pro_route_version SET route_snapshot_json=? WHERE id=960",
+                "{\"configSnapshots\":{\"products\":[{\"itemId\":910}]}}");
+    }
+
+    @Test
+    void testResetRejectsProductMissingFromPublishedVersionForNewAndExistingBindings() {
+        testBindingFixture();
+        TenantContextHolder.setTenantId(165L);
+        try {
+            var initializer = new MesFixedTestOrderInitializer(jdbc, canonicalizer, controlledContentAdapter);
+            jdbc.update("UPDATE mes_pro_route_version SET route_snapshot_json=? WHERE id=960",
+                    "{\"configSnapshots\":{\"products\":[{\"itemId\":999}]}}");
+            var error = assertThrows(RuntimeException.class, () ->
+                    tx.executeWithoutResult(s -> initializer.ensureTestRouteProductBinding(77L)));
+            assertTrue(error.getMessage().contains("发布新版本"));
+            assertEquals(0, jdbc.queryForObject("SELECT COUNT(*) FROM mes_pro_route_product WHERE tenant_id=165", Integer.class));
+            jdbc.update("INSERT INTO mes_pro_route_product(id,tenant_id,deleted,route_id,item_id) VALUES(970,165,0,920,910)");
+            assertThrows(RuntimeException.class, () ->
+                    tx.executeWithoutResult(s -> initializer.ensureTestRouteProductBinding(77L)));
+            assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM mes_pro_route_product WHERE tenant_id=165", Integer.class));
+        } finally { TenantContextHolder.clear(); }
     }
 
     @Test
@@ -1384,19 +1405,26 @@ class MesFixedTestOrderInitializerTest {
     }
 
     @Test
-    void explicitDataRebuildReplacesEditedDocumentsAndRetainsOrderProgress() {
+    void explicitDataPreparationSkipsExistingDocumentsAndRetainsOrderProgress() {
         var service = dataReference();
         TenantContextHolder.setTenantId(165L);
         try {
             var first = tx.execute(s -> service.prepare(77L));
             assertEquals(List.of(1, 1, 1, 2), first.documents().stream().map(MesFixedTestOrderDataService.DocumentResult::createdCount).toList());
             jdbc.update("UPDATE erp_kingdee_production_pick_list_item SET actual_quantity=99 WHERE tenant_id=165");
+            jdbc.update("UPDATE erp_kingdee_production_pick_list SET description='Keep local header' WHERE tenant_id=165");
+            jdbc.update("UPDATE mes_kingdee_production_material_list SET required_quantity='99' WHERE tenant_id=165");
+            var documentTables = List.of("erp_kingdee_production_pick_list", "erp_kingdee_production_pick_list_item",
+                    "erp_kingdee_production_replenishment_list", "erp_kingdee_production_replenishment_list_item", "mes_kingdee_production_material_list");
+            var documentsBefore = documentTables.stream().map(table -> jdbc.queryForList("SELECT * FROM " + table + " WHERE tenant_id=165 ORDER BY id")).toList();
             Object orderId = jdbc.queryForObject("SELECT id FROM mes_pro_work_order WHERE tenant_id=165", Long.class);
             jdbc.update("UPDATE mes_pro_work_order SET quantity_produced=9,status='2' WHERE tenant_id=165");
             var second = tx.execute(s -> service.prepare(77L));
-            assertEquals(List.of(0, 1, 1, 2), second.documents().stream().map(MesFixedTestOrderDataService.DocumentResult::createdCount).toList());
-            assertEquals(List.of(0, 1, 1, 2), second.documents().stream().map(MesFixedTestOrderDataService.DocumentResult::deletedCount).toList());
-            assertEquals(1, jdbc.queryForObject("SELECT actual_quantity FROM erp_kingdee_production_pick_list_item WHERE tenant_id=165", Integer.class));
+            assertEquals(List.of(0, 0, 0, 0), second.documents().stream().map(MesFixedTestOrderDataService.DocumentResult::createdCount).toList());
+            assertEquals(List.of(0, 0, 0, 0), second.documents().stream().map(MesFixedTestOrderDataService.DocumentResult::deletedCount).toList());
+            assertEquals(List.of(1, 1, 1, 2), second.documents().stream().map(MesFixedTestOrderDataService.DocumentResult::skippedCount).toList());
+            for (int i = 0; i < documentTables.size(); i++)
+                assertEquals(documentsBefore.get(i), jdbc.queryForList("SELECT * FROM " + documentTables.get(i) + " WHERE tenant_id=165 ORDER BY id"));
             assertEquals(9, jdbc.queryForObject("SELECT quantity_produced FROM mes_pro_work_order WHERE tenant_id=165", Integer.class));
             assertEquals(2, jdbc.queryForObject("SELECT COUNT(*) FROM mes_kingdee_production_material_list WHERE tenant_id=165 AND work_order_id=?", Integer.class, orderId));
             assertEquals(0, jdbc.queryForObject("SELECT COUNT(*) FROM mes_kingdee_production_material_list WHERE tenant_id=165 AND (product_id=10 OR child_material_id=11)", Integer.class));
@@ -1414,7 +1442,9 @@ class MesFixedTestOrderInitializerTest {
             jdbc.update("DELETE FROM mes_kingdee_production_material_list WHERE tenant_id=165 AND source_entry_id='ENTRY-2'");
             jdbc.update("DELETE FROM erp_kingdee_production_pick_list_item WHERE tenant_id=165");
             var result = tx.execute(s -> service.prepare(77L));
-            assertEquals(List.of(0, 1, 1, 2), result.documents().stream().map(MesFixedTestOrderDataService.DocumentResult::createdCount).toList());
+            assertEquals(List.of(0, 1, 0, 1), result.documents().stream().map(MesFixedTestOrderDataService.DocumentResult::createdCount).toList());
+            assertEquals(List.of(0, 0, 0, 0), result.documents().stream().map(MesFixedTestOrderDataService.DocumentResult::deletedCount).toList());
+            assertEquals(List.of(1, 0, 1, 1), result.documents().stream().map(MesFixedTestOrderDataService.DocumentResult::skippedCount).toList());
             assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM erp_kingdee_production_pick_list WHERE tenant_id=165", Integer.class));
             assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM erp_kingdee_production_pick_list_item WHERE tenant_id=1 AND production_order_no=?", Integer.class, MesFixedTestOrderInitializer.WORK_ORDER_CODE));
             assertEquals(0, jdbc.queryForObject("SELECT COUNT(*) FROM erp_kingdee_production_pick_list_item i JOIN erp_kingdee_production_pick_list h ON h.id=i.production_pick_list_id WHERE i.tenant_id=165 AND h.tenant_id<>165", Integer.class));
@@ -1434,7 +1464,7 @@ class MesFixedTestOrderInitializerTest {
     }
 
     @Test
-    void allThreeEntryPointsRebuildIdenticalSourceFieldsAndRemoveExtraRows() {
+    void initialDataAndResetEntryPointsCopyCompleteSourceFieldsAndResetRemovesExtraRows() {
         var service = dataReference();
         var initializer = new MesFixedTestOrderPickListInitializer(service);
         jdbc.update("UPDATE erp_kingdee_production_pick_list SET raw_payload='pick header payload' WHERE tenant_id=1");
@@ -1493,7 +1523,7 @@ class MesFixedTestOrderInitializerTest {
                     "mes_kingdee_production_material_list");
             var before = tables.stream().map(table -> jdbc.queryForList("SELECT * FROM " + table + " WHERE tenant_id=165 ORDER BY id")).toList();
             jdbc.update("UPDATE mes_kingdee_production_material_list SET child_material_id=999999 WHERE tenant_id=1");
-            assertThrows(RuntimeException.class, () -> tx.executeWithoutResult(status -> service.prepare(88L)));
+            assertThrows(RuntimeException.class, () -> tx.executeWithoutResult(status -> service.rebuildForReset(88L)));
             for (int i = 0; i < tables.size(); i++)
                 assertEquals(before.get(i), jdbc.queryForList("SELECT * FROM " + tables.get(i) + " WHERE tenant_id=165 ORDER BY id"));
         } finally { TenantContextHolder.clear(); }
@@ -1510,7 +1540,7 @@ class MesFixedTestOrderInitializerTest {
             jdbc.update("INSERT INTO erp_kingdee_production_pick_list(id,tenant_id,deleted,source_form_id,source_fid) VALUES(9901,165,0,'PICK','OBSOLETE')");
             jdbc.update("INSERT INTO erp_kingdee_production_pick_list_item(id,tenant_id,deleted,production_pick_list_id,source_line_key,production_order_no) VALUES(9902,165,0,9901,'OBSOLETE-LINE',?)", MesFixedTestOrderInitializer.WORK_ORDER_CODE);
             var otherLine = jdbc.queryForMap("SELECT * FROM erp_kingdee_production_pick_list_item WHERE id=9900");
-            tx.executeWithoutResult(status -> service.prepare(88L));
+            tx.executeWithoutResult(status -> service.rebuildForReset(88L));
             assertEquals(otherLine, jdbc.queryForMap("SELECT * FROM erp_kingdee_production_pick_list_item WHERE id=9900"));
             assertEquals(0, jdbc.queryForObject("SELECT COUNT(*) FROM erp_kingdee_production_pick_list WHERE id=9901", Integer.class));
             assertEquals(0, jdbc.queryForObject("SELECT COUNT(*) FROM erp_kingdee_production_pick_list_item WHERE id=9902", Integer.class));

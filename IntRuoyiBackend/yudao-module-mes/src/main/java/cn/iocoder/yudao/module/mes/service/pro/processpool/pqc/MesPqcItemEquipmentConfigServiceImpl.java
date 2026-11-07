@@ -302,7 +302,8 @@ public class MesPqcItemEquipmentConfigServiceImpl implements MesPqcItemEquipment
     @Override
     public Map<String, List<MesPqcItemEquipmentOption>> listEnabledEquipmentOptionsByProjectVersionAndItemCodes(
             Long dccProjectCodeId, Long regulationVersionId, Collection<String> itemCodes) {
-        if (dccProjectCodeId == null || dccProjectCodeId <= 0) {
+        if (dccProjectCodeId == null && regulationVersionId == null
+                || dccProjectCodeId != null && dccProjectCodeId <= 0) {
             throw exception(PRO_FRONTLINE_PQC_RESULT_CONTRACT_INVALID,
                     "itemEquipmentConfig.dccProjectCodeId");
         }
@@ -410,7 +411,9 @@ public class MesPqcItemEquipmentConfigServiceImpl implements MesPqcItemEquipment
                     "itemEquipmentConfig.regulationVersionId=" + regulationVersionId);
         }
         MesQaInspectionRegulationDO regulation = regulationMapper.selectById(version.getRegulationId());
-        if (regulation == null || !Objects.equals(regulation.getDccProjectCodeId(), dccProjectCodeId)) {
+        if (regulation == null || !Objects.equals(regulation.getDccProjectCodeId(), dccProjectCodeId)
+                || dccProjectCodeId == null
+                && !MesQaInspectionRegulationDO.OWNER_MODULE_MES_QA_COMMON.equals(regulation.getOwnerModule())) {
             throw exception(PRO_FRONTLINE_PQC_RESULT_CONTRACT_INVALID,
                     "itemEquipmentConfig.dccProjectCodeId=" + dccProjectCodeId);
         }
@@ -464,6 +467,9 @@ public class MesPqcItemEquipmentConfigServiceImpl implements MesPqcItemEquipment
                 .map(MesQaInspectionRegulationDO::getDccProjectCodeId)
                 .filter(Objects::nonNull)
                 .collect(Collectors.toCollection(LinkedHashSet::new));
+        if (projectIds.isEmpty()) {
+            return Map.of();
+        }
         return dccProjectCodeMapper.selectList(DccProjectCodeDO::getId, projectIds).stream()
                 .collect(Collectors.toMap(DccProjectCodeDO::getId, Function.identity(),
                         (left, right) -> left, LinkedHashMap::new));
@@ -484,12 +490,19 @@ public class MesPqcItemEquipmentConfigServiceImpl implements MesPqcItemEquipment
             throw exception(PRO_FRONTLINE_PQC_RESULT_CONTRACT_INVALID,
                     "itemEquipmentConfig.regulationId=" + version.getRegulationId());
         }
+        String itemCode = row.getItemCode().trim();
+        if (regulation.getDccProjectCodeId() == null
+                && MesQaInspectionRegulationDO.OWNER_MODULE_MES_QA_COMMON.equals(regulation.getOwnerModule())) {
+            return new ConfigurableItem(null, itemCode,
+                    requireDisplayName(regulation.getRegulationName(), "itemEquipmentConfig.regulationName=" + itemCode),
+                    requireDisplayName(row.getItemName(), "itemEquipmentConfig.itemName=" + itemCode),
+                    row.getInspectionMethod(), row.getStandardText(), row.getSamplingPlanText());
+        }
         DccProjectCodeDO project = projectById.get(regulation.getDccProjectCodeId());
         if (project == null) {
             throw exception(PRO_FRONTLINE_PQC_RESULT_CONTRACT_INVALID,
                     "itemEquipmentConfig.dccProjectCodeId=" + regulation.getDccProjectCodeId());
         }
-        String itemCode = row.getItemCode().trim();
         return new ConfigurableItem(regulation.getDccProjectCodeId(), itemCode,
                 requireDisplayName(project.getProjectName(), "itemEquipmentConfig.projectName=" + itemCode),
                 requireDisplayName(row.getItemName(), "itemEquipmentConfig.itemName=" + itemCode),

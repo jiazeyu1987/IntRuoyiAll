@@ -37,7 +37,7 @@ public class MesProjectionExport implements WorkbenchProjectionExport {
     @Override public List<Authorization> exportAuthorizations(long tenant,Watermark watermark) {
         List<Task> tasks=exportTasks(tenant,watermark);List<Authorization> values=new ArrayList<>();
         for(SourceDescriptor d:List.of(edhr)) {
-            Set<String> permissions=Set.of("mes:pro-edhr-work-task:query","mes:pro-edhr-batch-execution:query","mes:pro-process-pool-team-leader:query","mes:pro-edhr-nonconformance-review:query");
+            Set<String> permissions=Set.of("mes:pro-feedback:query","mes:pro-edhr-work-task:query","mes:pro-edhr-batch-execution:query","mes:pro-process-pool-team-leader:query","mes:pro-edhr-nonconformance-review:query");
             values.addAll(authorizations(tenant,watermark,d,tasks.stream().filter(t->t.sourceId().equals(d.sourceId())).toList(),authority.exportGrants(tenant,new WorkbenchAuthorityExport.Requirement(WorkbenchAuthorityExport.Mode.ANY_PERMISSION,permissions))));
         }
         return List.copyOf(values);

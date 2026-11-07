@@ -28,6 +28,8 @@ export interface DeviationCreateReqVO {
   levelBasis: string
   discoveryLocation?: string
   emergencyAction?: string
+  receiverId?: number | string
+  receiverName?: string
   idempotencyKey: string
   signaturePassword: string
 }
@@ -77,16 +79,16 @@ export interface DeviationHandlingRespVO {
   effectiveSignatureIds?: Record<string, number | string>
   correctiveOwnerId?: number | string
   nonconformanceReviewCode?: string
-  investigationStartedAt?: string
-  plannedCompletedAt?: string
-  completedAt?: string
+  investigationStartedAt?: string | number
+  plannedCompletedAt?: string | number
+  completedAt?: string | number
   investigationMembersJson?: string
   rootCauseAnalysis?: string
   impactScope?: string
   riskAssessment?: string
   productDisposition?: string
   correctiveOwnerName?: string
-  correctiveDueAt?: string
+  correctiveDueAt?: string | number
   capaRequired?: boolean
   capaCode?: string
   capaAttachmentsJson?: string
@@ -99,7 +101,7 @@ export interface DeviationHandlingRespVO {
     actorId?: number
     actorDisplayName?: string
     meaningLabel?: string
-    signedAt?: string
+    signedAt?: string | number
     timeZone?: string
     timeEvidenceId?: string
     verificationStatus?: string
@@ -115,7 +117,7 @@ export interface DeviationHandlingRespVO {
     actorId?: number
     actorDisplayName?: string
     meaningLabel?: string
-    signedAt?: string
+    signedAt?: string | number
     timeZone?: string
     timeEvidenceId?: string
     verificationStatus?: string
@@ -133,7 +135,7 @@ export interface DeviationHandlingRespVO {
     afterContent?: string
     actorUserId?: number
     actorUsername?: string
-    occurredAt?: string
+    occurredAt?: string | number
     beforeSummaryHash?: string
     afterSummaryHash?: string
     previousAuditHash?: string

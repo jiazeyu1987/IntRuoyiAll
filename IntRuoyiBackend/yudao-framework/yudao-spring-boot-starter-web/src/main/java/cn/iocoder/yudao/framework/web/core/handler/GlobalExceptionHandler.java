@@ -476,6 +476,7 @@ public class GlobalExceptionHandler {
     private String protectedStackTrace(Throwable exception) {
         StringBuilder stack = new StringBuilder();
         java.util.Set<Throwable> seen = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
+        StackTraceElement[] enclosingTrace = new StackTraceElement[0];
         for (Throwable current = exception; current != null && seen.add(current) && seen.size() <= 16; current = current.getCause()) {
             stack.append("\n").append(current.getClass().getName()).append(": ").append(REQUEST_PARAMETERS_PROTECTED);
             if (current instanceof java.sql.SQLException sql) {
@@ -484,7 +485,17 @@ public class GlobalExceptionHandler {
                 if (state != null && state.matches("[A-Z0-9]{5}")) stack.append(" sqlState=").append(state);
             }
             if (current instanceof ServiceException service) stack.append(" code=").append(service.getCode());
-            for (StackTraceElement element : current.getStackTrace()) stack.append("\n\tat ").append(element);
+            StackTraceElement[] trace = current.getStackTrace();
+            int uniqueFrames = trace.length;
+            int enclosingIndex = enclosingTrace.length - 1;
+            while (uniqueFrames > 0 && enclosingIndex >= 0
+                    && trace[uniqueFrames - 1].equals(enclosingTrace[enclosingIndex])) {
+                uniqueFrames--;
+                enclosingIndex--;
+            }
+            for (int i = 0; i < uniqueFrames; i++) stack.append("\n\tat ").append(trace[i]);
+            if (uniqueFrames < trace.length) stack.append("\n\t... ").append(trace.length - uniqueFrames).append(" more");
+            enclosingTrace = trace;
         }
         return stack.toString();
     }

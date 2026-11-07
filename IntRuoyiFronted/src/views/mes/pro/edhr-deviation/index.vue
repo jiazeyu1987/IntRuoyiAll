@@ -41,7 +41,7 @@
         </el-table>
       </template>
     </UnifiedListTemplate>
-    <el-drawer v-model="detailVisible" title="偏差详情" size="560px"><DeviationDetail v-if="detailId" :id="detailId" /></el-drawer>
+    <el-drawer v-model="detailVisible" title="偏差详情" size="560px"><DeviationDetail v-if="detailId" :id="detailId" @closed="load" /></el-drawer>
     <el-dialog v-model="createVisible" title="发起偏差" width="680px" destroy-on-close>
       <el-alert v-if="createError" :title="createError" type="error" :closable="false" show-icon class="mb-12px" />
       <el-form ref="createFormRef" :model="createForm" :rules="createRules" label-width="110px">
@@ -52,6 +52,7 @@
         <el-form-item label="等级依据" prop="levelBasis"><el-input v-model="createForm.levelBasis" type="textarea" :rows="2" maxlength="4000" show-word-limit /></el-form-item>
         <el-form-item label="发现位置"><el-input v-model="createForm.discoveryLocation" maxlength="255" /></el-form-item>
         <el-form-item label="紧急措施"><el-input v-model="createForm.emergencyAction" type="textarea" :rows="2" maxlength="4000" /></el-form-item>
+        <el-form-item label="接收调查人员" prop="receiverId"><UserSelectV2 v-model="createForm.receiverId" placeholder="请选择负责接收并调查偏差的人员" @change="value => createForm.receiverName = value?.nickname || ''" /></el-form-item>
         <el-form-item label="签名密码" prop="signaturePassword"><el-input v-model="createForm.signaturePassword" type="password" show-password autocomplete="new-password" /></el-form-item>
       </el-form>
       <template #footer><el-button @click="createVisible = false">取消</el-button><el-button type="primary" :loading="createLoading" @click="submitCreate">签名并发起</el-button></template>
@@ -147,6 +148,7 @@ const createRules: FormRules = {
   level: [{ required: true, message: '请选择偏差等级', trigger: 'change' }],
   categoryCodes: [{ type: 'array', min: 1, required: true, message: '至少选择一个分类', trigger: 'change' }],
   description: [{ required: true, message: '请填写偏差描述', trigger: 'blur' }],
+  receiverId: [{ required: true, message: '请选择负责接收并调查偏差的人员', trigger: 'change' }],
   levelBasis: [{ required: true, message: '请填写等级依据', trigger: 'blur' }],
   signaturePassword: [{ required: true, message: '请输入签名密码', trigger: 'blur' }]
 }
@@ -238,6 +240,8 @@ const openCreate = async () => {
   createForm.idempotencyKey = `EDHR_DEVIATION_${Date.now()}_${Math.random().toString(36).slice(2)}`
   createForm.signaturePassword = ''
   createForm.categoryCodes = []
+  createForm.receiverId = undefined
+  createForm.receiverName = ''
   createVisible.value = true
   await loadBatchOptions()
 }
@@ -250,7 +254,7 @@ const submitCreate = async () => {
     message.success('偏差已签名发起')
     createVisible.value = false
     await load()
-  } catch (error: any) { createError.value = error?.response?.data?.msg || '偏差发起失败，请重试' } finally { createLoading.value = false }
+  } catch (error: any) { createError.value = error?.response?.data?.msg || error?.message || '偏差发起失败，请重试' } finally { createLoading.value = false }
 }
 const applyHistoryEntry = () => {
   if (route.path !== '/mes/pro/feedback/edhr-deviation') return

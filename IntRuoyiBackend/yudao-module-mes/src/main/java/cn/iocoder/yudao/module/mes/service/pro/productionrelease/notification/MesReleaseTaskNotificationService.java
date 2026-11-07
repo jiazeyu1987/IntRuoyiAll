@@ -124,6 +124,15 @@ public class MesReleaseTaskNotificationService {
                 && MesReleaseTaskNotificationContract.candidates(task.getCandidateUserSnapshot()).contains(actor);
     }
 
+    public List<MesReleaseTaskNotifyDeliveryDO> listOwnPendingOutcomes(Long tenantId, Long actorId) {
+        MesReleaseTaskNotificationContract.tenant(tenantId);
+        if (actorId == null || actorId <= 0
+                || !permissionApi.hasAnyPermissions(actorId, MesReleaseTaskNotificationContract.QUERY_PERMISSION)) {
+            throw new cn.iocoder.yudao.framework.common.exception.ServiceException(403, "没有本人放行结果通知查询权限");
+        }
+        return deliveryMapper.selectOwnPendingOutcomes(tenantId, actorId);
+    }
+
     public List<MesReleaseTaskNotifyDeliveryDO> listForTask(Long tenantId, Long actorId, Long workTaskId) {
         MesReleaseTaskNotificationContract.tenant(tenantId);
         var deliveries = deliveryMapper.selectTaskDeliveries(tenantId, workTaskId);

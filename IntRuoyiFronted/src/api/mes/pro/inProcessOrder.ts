@@ -14,6 +14,7 @@ export interface InProcessOrder {
   inspectionProgressPercent: number | null
   joinedAt: string
   businessStatus: string
+  releaseApplicationStatus?: string
   abnormal: boolean
   abnormalReason?: string
   readBlocked: boolean

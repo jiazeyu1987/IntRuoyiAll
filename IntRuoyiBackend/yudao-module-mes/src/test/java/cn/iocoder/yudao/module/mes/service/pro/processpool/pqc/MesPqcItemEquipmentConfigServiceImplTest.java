@@ -24,6 +24,9 @@ import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
@@ -96,6 +99,34 @@ class MesPqcItemEquipmentConfigServiceImplTest {
                         List.of("PQC-IDI-001-I017"));
 
         assertThat(result).isEmpty();
+    }
+
+    @Test
+    void projectlessCommonItemsAreScopedToTheirLockedVersion() {
+        when(regulationVersionMapper.selectById(10L)).thenReturn(MesQaInspectionRegulationVersionDO.builder()
+                .id(10L).regulationId(1L).lifecycleStatus("PUBLISHED").build());
+        when(regulationMapper.selectById(1L)).thenReturn(MesQaInspectionRegulationDO.builder()
+                .id(1L).ownerModule(MesQaInspectionRegulationDO.OWNER_MODULE_MES_QA_COMMON)
+                .regulationName("初包装通用规程").build());
+        when(regulationItemMapper.selectListByVersionId(10L)).thenReturn(List.of(item(10L, "COMMON-001", "外观")));
+
+        assertThat(service.listEnabledEquipmentOptionsByProjectVersionAndItemCodes(
+                null, 10L, List.of("COMMON-001"))).isEmpty();
+        assertThatThrownBy(() -> service.listEnabledEquipmentOptionsByProjectVersionAndItemCodes(
+                null, 10L, List.of("OTHER-VERSION-ITEM")))
+                .hasMessageContaining("projectMismatch");
+        verify(dccProjectCodeMapper, never()).selectList(any(SFunction.class), any(Collection.class));
+    }
+
+    @Test
+    void projectlessProductRegulationIsRejected() {
+        when(regulationVersionMapper.selectById(10L)).thenReturn(MesQaInspectionRegulationVersionDO.builder()
+                .id(10L).regulationId(1L).build());
+        when(regulationMapper.selectById(1L)).thenReturn(MesQaInspectionRegulationDO.builder()
+                .id(1L).ownerModule(MesQaInspectionRegulationDO.OWNER_MODULE_MES_QA).build());
+        assertThatThrownBy(() -> service.listEnabledEquipmentOptionsByProjectVersionAndItemCodes(
+                null, 10L, List.of("PRODUCT-001"))).hasMessageContaining("dccProjectCodeId");
+        verify(regulationItemMapper, never()).selectListByVersionId(any());
     }
 
     private static MesQaInspectionRegulationItemDO item(Long versionId, String code, String name) {

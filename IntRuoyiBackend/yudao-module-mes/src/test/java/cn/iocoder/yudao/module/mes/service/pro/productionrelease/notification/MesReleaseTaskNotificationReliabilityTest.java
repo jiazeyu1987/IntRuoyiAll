@@ -120,6 +120,24 @@ class MesReleaseTaskNotificationReliabilityTest {
     }
 
     @Test
+    void ownFailedOutcomesAreDiscoverableAfterTaskRemovalWithoutExposingOtherUsersOrTenants() throws Exception {
+        Fixture f = new Fixture();
+        var app = new cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationDO()
+                .setId(224L).setAppliedBy(341L).setPqcReleaseWorkTaskId(900L);
+        f.business.executeWithoutResult(tx -> invoke(f.outcomes, "schedulePqc", app, f.task, 346L, true, "通过"));
+        Long id = f.jdbc.queryForObject("SELECT id FROM mes_pro_edhr_release_task_notify_delivery", Long.class);
+        when(f.taskMapper.selectById(900L)).thenReturn(null);
+        assertEquals(1, ((List<?>) invoke(f.service, "listOwnPendingOutcomes", 1L, 341L)).size());
+        assertEquals(0, ((List<?>) invoke(f.service, "listOwnPendingOutcomes", 1L, 346L)).size());
+        f.jdbc.update("UPDATE mes_pro_edhr_release_task_notify_delivery SET tenant_id=2 WHERE id=?", id);
+        assertEquals(0, ((List<?>) invoke(f.service, "listOwnPendingOutcomes", 1L, 341L)).size());
+        f.jdbc.update("UPDATE mes_pro_edhr_release_task_notify_delivery SET tenant_id=1,status='SENT' WHERE id=?", id);
+        assertEquals(0, ((List<?>) invoke(f.service, "listOwnPendingOutcomes", 1L, 341L)).size());
+        when(f.permissions.hasAnyPermissions(eq(341L), any(String[].class))).thenReturn(false);
+        assertThrows(RuntimeException.class, () -> invoke(f.service, "listOwnPendingOutcomes", 1L, 341L));
+    }
+
+    @Test
     void allFrozenRecipientsPersistBeforeCommitAndMessagesStartAfterCommit() throws Exception {
         Fixture f = new Fixture();
         f.business.executeWithoutResult(tx -> {

@@ -28,3 +28,15 @@ export const retryReleaseTaskNotification = (data: {
   url: '/mes/pro/production-release-task-notification/retry',
   data
 })
+
+export interface ReleaseOutcomeRecovery {
+  id: string
+  workTaskId: string
+  workOrderCode: string
+  batchCode: string
+  eventType: 'PQC_APPROVED' | 'PQC_REJECTED' | 'MARKET_APPROVED' | 'MARKET_REJECTED' | 'MARKET_WITHDRAWN'
+}
+
+export const listOwnPendingReleaseOutcomes = () => request.get<ReleaseOutcomeRecovery[]>({
+  url: '/mes/pro/production-release-task-notification/my-pending-outcomes'
+})

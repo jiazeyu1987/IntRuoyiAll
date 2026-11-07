@@ -19,6 +19,7 @@ public class MesInProcessOrderRespVO {
     private BigDecimal inspectionProgressPercent;
     private LocalDateTime joinedAt;
     private String businessStatus;
+    private String releaseApplicationStatus;
     private Boolean abnormal;
     private String abnormalReason;
     private Boolean readBlocked;

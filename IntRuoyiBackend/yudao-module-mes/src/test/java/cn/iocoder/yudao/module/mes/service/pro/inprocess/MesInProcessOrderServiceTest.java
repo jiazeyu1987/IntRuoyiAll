@@ -71,6 +71,24 @@ class MesInProcessOrderServiceTest {
         assertEquals(0L,service.page(request).getTotal());
         verifyNoInteractions(activeOrders,users,allocations,events,devices,inspections);
     }
+
+    @Test void crossLeaderReadRetainsTheOriginalCyclesReleaseStage() {
+        var request = new MesInProcessOrderPageReqVO();
+        var order = order(1,10);
+        when(mapper.selectCandidates(1L,request)).thenReturn(List.of(order));
+        var leader = new AdminUserRespDTO(); leader.setId(10L); leader.setNickname("原生产组长");
+        when(users.getUserMap(List.of(10L))).thenReturn(Map.of(10L,leader));
+        for (String status : List.of("PQC_RELEASE_PENDING", "REPORT_UPLOAD_PENDING",
+                "MANAGER_RELEASE_PENDING", "NONCONFORMANCE_VOID", "NONCONFORMANCE_REWORK")) {
+            when(activeOrders.projectActiveOrders(List.of(order))).thenReturn(List.of(
+                    new MesTeamLeaderActiveOrderRow().setId(1L).setLeaderUserId(10L)
+                            .setBusinessStatus("COMPLETED").setReleaseApplicationStatus(status)));
+            var result = service.page(request);
+            assertEquals(status, result.getList().get(0).getReleaseApplicationStatus());
+            assertEquals("COMPLETED", result.getList().get(0).getBusinessStatus());
+            assertEquals("原生产组长", result.getList().get(0).getLeaderName());
+        }
+    }
     private <T extends cn.iocoder.yudao.framework.tenant.core.db.TenantBaseDO> T tenant(T value) {
         value.setTenantId(1L); return value;
     }

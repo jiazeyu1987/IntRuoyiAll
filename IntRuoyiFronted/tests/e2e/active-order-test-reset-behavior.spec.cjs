@@ -36,15 +36,16 @@ test('data preparation displays actual created/skipped counts and sends one requ
   await h.run()
   assert.equal(h.context.activeOrderTestDataSubmitting.value, true)
   assert.equal(calls, 1)
-  resolve({ workOrderCode: 'FIXED', documents: ['生产订单', '领料单明细', '补料单明细', '生产用料清单明细'].map(name => ({ name, createdCount: 0, skippedCount: 2 })) })
+  resolve({ workOrderCode: 'FIXED', documents: ['生产订单', '领料单明细', '补料单明细', '生产用料清单明细'].map(name => ({ name, createdCount: 0, deletedCount: 0, skippedCount: 2 })) })
   await first
   assert.equal(h.context.activeOrderTestDataReceipt.value.success, true)
-  assert.match(h.context.activeOrderTestDataReceipt.value.message, /补料单明细新增0条、跳过2条/)
+  assert.match(h.context.activeOrderTestDataReceipt.value.message, /补料单明细新增0条、跳过已有2条/)
   assert.equal(h.context.activeOrderTestResetSubmitting.value, false)
 })
 
 test('data preparation failures and invalid receipts never report success and release the mutation lock', async () => {
-  for (const api of [async () => { throw new Error('单据缺失') }, async () => ({ workOrderCode: 'FIXED', documents: [] })]) {
+  for (const api of [async () => { throw new Error('单据缺失') }, async () => ({ workOrderCode: 'FIXED', documents: [] }),
+    async () => ({ workOrderCode: 'FIXED', documents: Array.from({ length: 4 }, () => ({ name: '领料单', createdCount: 1, deletedCount: 1, skippedCount: 0 })) })]) {
     const h = createDataHarness(api)
     await h.run()
     assert.equal(h.successes.length, 0)

@@ -14,7 +14,7 @@ public class MesFixedTestOrderPickListInitializer {
     @Transactional(propagation = Propagation.MANDATORY, rollbackFor = Exception.class)
     public void prepare(String workOrderCode, Long actor) {
         if (!MesFixedTestOrderInitializer.WORK_ORDER_CODE.equals(workOrderCode)) return;
-        dataService.prepare(actor);
+        dataService.rebuildForReset(actor);
     }
 
     @Transactional(propagation = Propagation.MANDATORY, rollbackFor = Exception.class)

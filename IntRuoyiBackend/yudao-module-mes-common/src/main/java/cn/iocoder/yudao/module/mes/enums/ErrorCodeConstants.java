@@ -1231,6 +1231,10 @@ public interface ErrorCodeConstants {
             "P6 只读核验存在多条复核记录，eventId={}，workOrderId={}，routeProcessId={}，processId={}");
     ErrorCode PRO_PROCESS_POOL_REPORT_ALLOCATION_TRACE_AMBIGUOUS = new ErrorCode(1_040_760_345,
             "P6 只读核验存在多条报工分配记录，eventId={}，workOrderId={}，routeProcessId={}，processId={}");
+    ErrorCode PRO_PROCESS_POOL_SUPPLEMENT_MATERIAL_REQUIRED = new ErrorCode(1_040_760_413,
+            "活跃订单 {} 的补料物料主数据缺失或不完整，物料编码：{}；请先在物料列表同步该物料");
+    ErrorCode PRO_PROCESS_POOL_FIXED_TEST_ORDER_SETUP_REQUIRED = new ErrorCode(1_040_760_414,
+            "指定测试订单配置未就绪：{}");
     ErrorCode PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_REQUIRED = new ErrorCode(1_040_760_324,
             "活跃订单缺少当前工序生产系数和目标数量快照：{}");
     ErrorCode PRO_PROCESS_POOL_REPORT_ALLOCATION_ROOT_EVENT_REQUIRED = new ErrorCode(1_040_760_325,

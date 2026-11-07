@@ -29,6 +29,8 @@ class ProjectionS4ExportSqlTest {
         String sql=sql("mes","MesProjectionExportMapper","exportEdhr");
         assertTrue(sql.contains("status IN ('TODO','OVERDUE')"));assertTrue(sql.contains("mes_pro_edhr_batch_execution"));
         assertTrue(sql.contains("candidate_user_snapshot"));assertTrue(sql.contains("assignee_user_id AS owner_user_id"));
+        assertTrue(sql.contains("'DEVIATION_RECEIVE','DEVIATION_CORRECT','DEVIATION_SIGN','DEVIATION_APPROVE','DEVIATION_CLOSE'"));
+        assertTrue(sql.contains("TRIM(mes_pro_edhr_work_task.reason)"), "projected deviation tasks must retain their exact responsibility description");
         assertFalse(sql.contains("FIND_IN_SET"));assertFalse(sql.contains("assignee_user_id = ?"));
     }
     @Test void dccFullExportsKeepFormalRecipientAndTrainingRoots() throws Exception {
@@ -44,7 +46,8 @@ class ProjectionS4ExportSqlTest {
         String sql=sql("mes","MesProjectionExportMapper","exportHandoff");
         assertTrue(sql.contains("h.candidate_user_snapshot"));assertFalse(sql.contains("FIND_IN_SET"));
         assertTrue(sql.contains("h.status='TODO' AND h.notification_only=0"));
-        assertTrue(sql.contains("h.task_type IN ('QA_DECISION_HANDOFF','QA_REVIEW')"));assertTrue(sql.contains("ao.active_status='ACTIVE'"));
+        for(String type:java.util.List.of("PRODUCTION_HANDOFF","PRODUCTION_REVIEW","PRODUCTION_RETURN","PQC_HANDOFF","PQC_REVIEW","PQC_RETURN","QA_DECISION_HANDOFF","QA_REVIEW"))assertTrue(sql.contains("'"+type+"'"),type);
+        assertTrue(sql.contains("ao.active_status='ACTIVE'"));
         assertTrue(sql.contains("ao.tenant_id=h.tenant_id"));assertTrue(sql.contains("CONCAT('EDHR_WORK_TASK:handoff:',h.id)"));
     }
 
@@ -56,7 +59,10 @@ class ProjectionS4ExportSqlTest {
                 st.execute("CREATE TABLE mes_pro_process_pool_active_order(id BIGINT,tenant_id BIGINT,deleted INT,active_status VARCHAR(20))");
                 st.execute("INSERT INTO mes_pro_process_pool_active_order VALUES(90,2,0,'ACTIVE')");
                 st.execute("INSERT INTO mes_active_order_handoff_task VALUES(77,2,0,'QA_DECISION_HANDOFF','TODO',0,90,'rework：处理',CURRENT_TIMESTAMP,'/formal','3,4')");
-                assertEquals(1,handoffRows(db,sql));
+                for(String type:java.util.List.of("PRODUCTION_HANDOFF","PRODUCTION_REVIEW","PRODUCTION_RETURN","PQC_HANDOFF","PQC_REVIEW","PQC_RETURN","QA_DECISION_HANDOFF","QA_REVIEW")) {
+                    st.execute("UPDATE mes_active_order_handoff_task SET task_type='"+type+"'");
+                    assertEquals(1,handoffRows(db,sql),type);
+                }
                 st.execute("UPDATE mes_active_order_handoff_task SET status='DONE'");assertEquals(0,handoffRows(db,sql));
                 st.execute("UPDATE mes_active_order_handoff_task SET status='TODO',notification_only=1");assertEquals(0,handoffRows(db,sql));
                 st.execute("UPDATE mes_active_order_handoff_task SET notification_only=0");
@@ -65,6 +71,9 @@ class ProjectionS4ExportSqlTest {
         }
     }
     private int handoffRows(java.sql.Connection db,String sql) throws Exception {
-        try(var query=db.prepareStatement(sql)) {query.setLong(1,2);try(var rows=query.executeQuery()) {int count=0;while(rows.next()){assertEquals("handoff:77",rows.getString("business_id"));assertEquals("3,4",rows.getString("candidate_user_snapshot"));count++;}return count;}}
+        // H2 cannot execute MySQL's display-only CONVERT(... USING utf8mb4).
+        // Execute the unchanged production FROM/WHERE to verify visibility and audience facts.
+        String visibilitySql="SELECT CONCAT('handoff:',h.id) AS business_id,h.candidate_user_snapshot "+sql.substring(sql.indexOf("FROM mes_active_order_handoff_task h"));
+        try(var query=db.prepareStatement(visibilitySql)) {query.setLong(1,2);try(var rows=query.executeQuery()) {int count=0;while(rows.next()){assertEquals("handoff:77",rows.getString("business_id"));assertEquals("3,4",rows.getString("candidate_user_snapshot"));count++;}return count;}}
     }
 }

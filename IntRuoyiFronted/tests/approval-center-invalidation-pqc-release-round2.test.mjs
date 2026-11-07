@@ -259,6 +259,26 @@ test('confirmed rollback displays missing management representative and allows a
   h.runtime.approvePqcProductionRelease=approve;h.runtime.releaseForm.signaturePassword='retry'
   await h.runtime.submitRelease();assert.equal(h.counts().writes,2);assert.equal(h.events.length,1)
 })
+test('confirmed UDI rollback permits correcting the value and signing again without a false success',async()=>{
+  const h=harness(),approve=h.runtime.approvePqcProductionRelease
+  h.runtime.approvePqcProductionRelease=async payload=>{
+    await approve(payload)
+    const error=roleRejectionError(payload)
+    error.details.blockers=[{blockerType:'UNSUPPORTED_RELEASE_ACTION',reason:'活跃订单已有不同的UDI编号，不能覆盖'}]
+    throw error
+  }
+  await h.runtime.submitRelease()
+  assert.match(h.runtime.releaseError.value,/UDI.*本次放行已回滚/)
+  assert.equal(h.runtime.releaseOutcomeUncertain.value,false)
+  assert.equal(h.runtime.releaseForm.signaturePassword,'')
+  assert.equal(h.events.length,0)
+  h.runtime.approvePqcProductionRelease=approve
+  h.runtime.releaseForm.udiControlDocumentNo='original-udi'
+  h.runtime.releaseForm.signaturePassword='new-signature'
+  await h.runtime.submitRelease()
+  assert.equal(h.counts().writes,2)
+  assert.equal(h.events.length,1)
+})
 for (const field of ['outcome','applicationId','workTaskId','actorId','expectedVersion','idempotencyKey','payloadHash']) {
   test(`management role error with mismatched ${field} remains uncertain`,async()=>{
     const h=harness(),approve=h.runtime.approvePqcProductionRelease

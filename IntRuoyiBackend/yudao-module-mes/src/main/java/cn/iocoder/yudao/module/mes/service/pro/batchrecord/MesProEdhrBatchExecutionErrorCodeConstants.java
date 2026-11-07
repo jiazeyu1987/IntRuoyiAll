@@ -62,6 +62,8 @@ public interface MesProEdhrBatchExecutionErrorCodeConstants {
             new ErrorCode(1_040_750_423, "作废申请待处理，只能撤回作废申请");
     ErrorCode PRO_EDHR_BATCH_EXECUTION_PRODUCT_ROUTE_BINDING_REQUIRED =
             new ErrorCode(1_040_750_424, "当前工单产品未绑定启用的工艺路线，请先完成产品与工艺路线绑定");
+    ErrorCode PRO_EDHR_BATCH_EXECUTION_PRODUCT_IDENTITY_REQUIRED =
+            new ErrorCode(1_040_750_429, "工单 {} 的产品主数据缺失或编码、名称为空，无法创建批次：productId={}");
     ErrorCode PRO_EDHR_BATCH_ENTRY_TYPE_REQUIRED =
             new ErrorCode(1_040_750_470, "批次入口缺少 entryType");
     ErrorCode PRO_EDHR_BATCH_ENTRY_BUSINESS_ID_REQUIRED =

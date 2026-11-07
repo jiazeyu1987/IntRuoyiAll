@@ -60,17 +60,11 @@
                 <span v-else>{{ row[column.key] }}%</span>
               </template>
               <template v-else-if="column.key === 'status'">
-                <el-tag v-if="row.readBlocked" type="danger" :title="row.readBlockReason"
-                  >数据异常</el-tag
+                <el-tag
+                  :type="resolveInProcessOrderStatus(row).type"
+                  :title="resolveInProcessOrderStatus(row).reason"
+                  >{{ resolveInProcessOrderStatus(row).label }}</el-tag
                 >
-                <el-tag v-else-if="row.businessStatus === 'VERSION_UPGRADE_PENDING'" type="warning"
-                  >升版审批中</el-tag
-                >
-                <el-tag v-else-if="row.abnormal" type="warning" :title="row.abnormalReason"
-                  >异常处理中</el-tag
-                >
-                <el-tag v-else-if="row.businessStatus === 'COMPLETED'" type="info">已完工待放行</el-tag>
-                <el-tag v-else type="success">在制</el-tag>
               </template>
               <span v-else-if="column.key === 'joinedAt'">{{ formatDate(row.joinedAt) }}</span>
               <span v-else>{{ row[column.key] }}</span>
@@ -100,6 +94,7 @@ import {
   type UserTableColumnDefinition
 } from '@/hooks/web/useUserTableColumns'
 import { getInProcessOrderPage, type InProcessOrder } from '@/api/mes/pro/inProcessOrder'
+import { resolveInProcessOrderStatus } from './inProcessOrderStatus'
 import { formatDate } from '@/utils/formatTime'
 
 defineOptions({ name: 'MesInProcessOrder' })
@@ -215,16 +210,7 @@ const statusColumnFilter: ListColumnFilterDefinition[] = [
     key: 'status',
     label: '状态',
     type: 'text',
-    getValue: (row) =>
-      row.readBlocked
-        ? '数据异常'
-        : row.businessStatus === 'VERSION_UPGRADE_PENDING'
-          ? '升版审批中'
-          : row.abnormal
-            ? '异常处理中'
-            : row.businessStatus === 'COMPLETED'
-              ? '已完工待放行'
-              : '在制'
+    getValue: (row) => resolveInProcessOrderStatus(row).label
   }
 ]
 </script>

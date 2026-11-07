@@ -180,6 +180,20 @@ class MesSignatureContentProtocolTest {
         }
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"NONCONFORMANCE_REVIEW_CREATE", "QA_DISPOSITION"})
+    void nonconformanceLifecycleActionsReachWriterAndProduceVerifiedEvidence(String action) {
+        String reason = "核对偏差、评审资料及批次风险后本人签署";
+        var fact = sign(realSubject(action, "不合格评审"), action, reason, "ordinary");
+        var content = parse(fact, 1L);
+        assertEquals(action, insertedRecord.getActionCode());
+        assertEquals(action, insertedRecord.getMeaningCode());
+        assertEquals("NONCONFORMANCE_REVIEW_CREATE".equals(action)
+                ? "eDHR不合格评审创建" : "QA不合格评审处置", insertedRecord.getMeaningLabel());
+        assertBusiness(content.businessContentJson(), expectedFull(action, "不合格评审", reason, null), false);
+        assertOriginal(fact);
+    }
+
     @Test
     void realProductionZeroAndEmptySlotsKeepOriginalFactsAndIndependentBody() {
         String subject = MesBatchRecordSignatureSubjectAdapter.encodeSubjectId(

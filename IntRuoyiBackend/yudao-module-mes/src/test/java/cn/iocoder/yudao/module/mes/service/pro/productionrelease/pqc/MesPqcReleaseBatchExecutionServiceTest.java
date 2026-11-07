@@ -614,6 +614,41 @@ class MesPqcReleaseBatchExecutionServiceTest {
     }
 
     @Test
+    void conflictingUdiHasRequestBoundRejectionAfterRollback() {
+        var command = approveCommand("udi-conflict").setUdiControlDocumentNo("DIFFERENT-UDI");
+        var failure = assertThrows(MesReleaseFlowBlockerException.class,
+                () -> service.approve(PQC_USER_ID, command));
+        var receipt = failure.getFailure().getRejectedDecision();
+        assertEquals("ROLLED_BACK", receipt.getOutcome());
+        assertEquals(String.valueOf(APPLICATION_ID), receipt.getApplicationId());
+        assertEquals(String.valueOf(PQC_WORK_TASK_ID), receipt.getWorkTaskId());
+        assertEquals(String.valueOf(PQC_USER_ID), receipt.getActorId());
+        assertEquals(VERSION, receipt.getExpectedVersion());
+        assertEquals("udi-conflict", receipt.getIdempotencyKey());
+        assertTrue(receipt.getPayloadHash().matches("[a-f0-9]{64}"));
+        assertTrue(failure.getMessage().contains("UDI"));
+        var transactions = (org.springframework.transaction.PlatformTransactionManager)
+                ReflectionTestUtils.getField(service, "transactionManager");
+        verify(transactions).rollback(any());
+        verify(transactions, never()).commit(any());
+        org.mockito.Mockito.verifyNoInteractions(signatureService, managerStageInitializer);
+    }
+
+    @Test
+    void failedRollbackDoesNotProduceCorrectableRejectionReceipt() {
+        var transactions = (org.springframework.transaction.PlatformTransactionManager)
+                ReflectionTestUtils.getField(service, "transactionManager");
+        var rollbackFailure = new org.springframework.transaction.TransactionSystemException("rollback failed");
+        org.mockito.Mockito.doThrow(rollbackFailure).when(transactions).rollback(any());
+        var observed = assertThrows(org.springframework.transaction.TransactionSystemException.class,
+                () -> service.approve(PQC_USER_ID,
+                        approveCommand("udi-rollback-failed").setUdiControlDocumentNo("DIFFERENT-UDI")));
+        org.junit.jupiter.api.Assertions.assertSame(rollbackFailure, observed);
+        var original = (MesReleaseFlowBlockerException) observed.getApplicationException();
+        org.junit.jupiter.api.Assertions.assertNull(original.getFailure().getRejectedDecision());
+    }
+
+    @Test
     void frozenPqcCandidateCanRejectAfterRoleMembershipChanges() {
         when(applicationMapper.rejectFromPending(eq(APPLICATION_ID), eq(VERSION), eq(PQC_USER_ID),
                 any(), eq("角色调整后按冻结候选处理"), any())).thenReturn(1);

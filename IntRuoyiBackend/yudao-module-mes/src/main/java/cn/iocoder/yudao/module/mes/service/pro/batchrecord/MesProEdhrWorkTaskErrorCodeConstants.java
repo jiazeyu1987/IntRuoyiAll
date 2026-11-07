@@ -36,4 +36,6 @@ public interface MesProEdhrWorkTaskErrorCodeConstants {
             new ErrorCode(1_040_751_414, "eDHR 工作任务责任范围快照无效：{}");
     ErrorCode PRO_EDHR_WORK_TASK_ACTIVE_NOT_UNIQUE =
             new ErrorCode(1_040_751_415, "eDHR 当前活跃工作任务不唯一");
+    ErrorCode PRO_EDHR_DEVIATION_TASK_ASSIGNEE_PERMISSION_MISSING =
+            new ErrorCode(1_040_751_416, "所选偏差调查或纠正责任人缺少必要权限：{}");
 }

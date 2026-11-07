@@ -89,19 +89,28 @@ class MesTeamLeaderActiveOrderDetailServiceImplTest {
         var purposeType = Class.forName(MesTeamLeaderActiveOrderDetailServiceImpl.class.getName()+"$PqcSignaturePurpose");
         Object purpose = java.util.Arrays.stream(purposeType.getEnumConstants()).filter(v->v.toString().equals("READ_PROJECTION")).findFirst().orElseThrow();
         var detail = pqcDetail();
-        if ("INCOMPLETE".equals(status)) {
-            // ElectronicSignatureVerifiedFactService.evaluateV2 emits only VALID/MISMATCH;
-            // MesActiveOrderSignatureEvidenceService.requireVerification enforces that rule.
-            // V2 collapses every non-consistent dimension to MISMATCH. An INCOMPLETE
-            // overall status is an inconsistent consumer-port DTO, not a readable diagnostic.
-            assertThrows(ServiceException.class, () -> org.springframework.test.util.ReflectionTestUtils
-                    .invokeMethod(service, "attachPqcProductionRelease", detail, pqcApplication(), purpose));
-            return;
-        }
         org.springframework.test.util.ReflectionTestUtils.invokeMethod(service, "attachPqcProductionRelease", detail, pqcApplication(), purpose);
         var projection = detail.getPqcProductionRelease().getSignature();
-        assertEquals(status, projection.getVerification().verificationStatus());
+        // V2 reports a missing verification dimension as MISMATCH as well.
+        assertEquals("VALID".equals(status) ? "VALID" : "MISMATCH", projection.getVerification().verificationStatus());
         assertEquals("VALID".equals(status) ? "签署时正式姓名" : "签时姓名未核验", projection.getSignerName());
+    }
+
+    @Test
+    void v2PqcSummaryRejectsInconsistentOverallVerificationStatus() throws Exception {
+        var evidence = MesActiveOrderSignatureEvidenceServiceTest.v2PqcEvidence(pqcEvidence("正式放行意见", false));
+        stubPqc(evidence);
+        var diagnostic = MesActiveOrderSignatureEvidenceServiceTest.v2PqcVerification(evidence, "INCOMPLETE");
+        var json = (com.fasterxml.jackson.databind.node.ObjectNode) cn.iocoder.yudao.framework.common.util.json.JsonUtils.parseTree(
+                cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(diagnostic));
+        json.put("verificationStatus", "INCOMPLETE");
+        when(signatureQueryService.verifyEvidence(7701L)).thenReturn(
+                cn.iocoder.yudao.framework.common.util.json.JsonUtils.parseObject(json.toString(), ElectronicSignatureVerificationDTO.class));
+        var purposeType = Class.forName(MesTeamLeaderActiveOrderDetailServiceImpl.class.getName() + "$PqcSignaturePurpose");
+        Object purpose = java.util.Arrays.stream(purposeType.getEnumConstants())
+                .filter(v -> v.toString().equals("READ_PROJECTION")).findFirst().orElseThrow();
+        assertThrows(ServiceException.class, () -> org.springframework.test.util.ReflectionTestUtils
+                .invokeMethod(service, "attachPqcProductionRelease", pqcDetail(), pqcApplication(), purpose));
     }
 
     @ParameterizedTest @NullSource
@@ -777,17 +786,69 @@ class MesTeamLeaderActiveOrderDetailServiceImplTest {
     @Mock
     private AdminUserService adminUserService;
     @Mock private MesLocalTestRunSourceGuard localSources;
+    @Mock private cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesMarketReleaseAccess marketReleaseAccess;
 
     @InjectMocks
     private MesTeamLeaderActiveOrderDetailServiceImpl service;
 
+    @Test
+    void missingSupplementMaterialReportsItsCodeInsteadOfProcessSnapshot() {
+        var supplement = new cn.iocoder.yudao.module.erp.dal.dataobject.production.kingdee.ErpKingdeeProductionReplenishmentListItemDO();
+        supplement.setMaterialNumber("A002.09.001.113017");
+        ServiceException error = assertThrows(ServiceException.class, () ->
+                org.springframework.test.util.ReflectionTestUtils.invokeMethod(service,
+                        "loadMaterialByCode", 8101L, List.of(supplement)));
+        assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_SUPPLEMENT_MATERIAL_REQUIRED.getCode(), error.getCode());
+        org.junit.jupiter.api.Assertions.assertTrue(error.getMessage().contains("8101"));
+        org.junit.jupiter.api.Assertions.assertTrue(error.getMessage().contains("A002.09.001.113017"));
+        org.junit.jupiter.api.Assertions.assertTrue(error.getMessage().contains("物料列表同步"));
+    }
+
     @Mock private MesSubmissionSignatureIdentityReader submissionSignatureIdentityReader;
+
+    @Test
+    void supplementQuantitiesCountEachSourceRowOnceAndKeepBillsSeparate() {
+        var first = cn.iocoder.yudao.module.erp.dal.dataobject.production.kingdee.ErpKingdeeProductionReplenishmentListItemDO.builder()
+                .id(1L).productionReplenishmentListId(11L).materialNumber("LABEL").materialName("小标签")
+                .lotNumber("LOT-A").requestedQuantity(new BigDecimal("379"))
+                .actualQuantity(new BigDecimal("300")).baseActualQuantity(new BigDecimal("600")).build();
+        var second = cn.iocoder.yudao.module.erp.dal.dataobject.production.kingdee.ErpKingdeeProductionReplenishmentListItemDO.builder()
+                .id(2L).productionReplenishmentListId(11L).materialNumber("LABEL").materialName("小标签")
+                .lotNumber("LOT-B").requestedQuantity(new BigDecimal("21"))
+                .actualQuantity(new BigDecimal("10")).baseActualQuantity(new BigDecimal("20")).build();
+        var otherBill = cn.iocoder.yudao.module.erp.dal.dataobject.production.kingdee.ErpKingdeeProductionReplenishmentListItemDO.builder()
+                .id(3L).productionReplenishmentListId(12L).materialNumber("LABEL").materialName("小标签")
+                .lotNumber("LOT-A").requestedQuantity(new BigDecimal("5"))
+                .actualQuantity(new BigDecimal("4")).baseActualQuantity(new BigDecimal("8")).build();
+        var firstHeader = cn.iocoder.yudao.module.erp.dal.dataobject.production.kingdee.ErpKingdeeProductionReplenishmentListDO.builder()
+                .id(11L).sourceBillNo("BL-11").build();
+        var secondHeader = cn.iocoder.yudao.module.erp.dal.dataobject.production.kingdee.ErpKingdeeProductionReplenishmentListDO.builder()
+                .id(12L).sourceBillNo("BL-12").build();
+        java.util.Map<String, List<MesTeamLeaderActiveOrderDetail.SupplementMaterialDetail>> grouped =
+                org.springframework.test.util.ReflectionTestUtils.invokeMethod(service, "groupSupplementMaterials", 8101L,
+                        List.of(first, second, otherBill), java.util.Map.of(11L, firstHeader, 12L, secondHeader),
+                        java.util.Map.of("LABEL", new MesMdItemDO().setId(7L).setCode("LABEL")));
+        var details = grouped.get("LABEL");
+        assertEquals(2, details.size());
+        assertEquals(new BigDecimal("400"), details.get(0).getRequestedQuantity());
+        assertEquals(new BigDecimal("310"), details.get(0).getActualQuantity());
+        assertEquals(new BigDecimal("620"), details.get(0).getBaseActualQuantity());
+        assertEquals(List.of(1L, 2L), details.get(0).getSourceReplenishmentListItemIds());
+        assertEquals(List.of("LOT-A", "LOT-B"), details.get(0).getBatchCodes());
+        assertEquals(List.of("BL-11"), details.get(0).getSourceReplenishmentListNos());
+        assertEquals(new BigDecimal("5"), details.get(1).getRequestedQuantity());
+        assertEquals(new BigDecimal("4"), details.get(1).getActualQuantity());
+        assertEquals(new BigDecimal("8"), details.get(1).getBaseActualQuantity());
+        assertEquals(List.of(3L), details.get(1).getSourceReplenishmentListItemIds());
+        assertEquals(List.of("BL-12"), details.get(1).getSourceReplenishmentListNos());
+    }
     @Mock private cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolSubmissionReviewMapper businessReviewMapper;
 
     @BeforeEach void verifiedPortFixture() { cn.iocoder.yudao.module.mes.service.pro.MesVerifiedConsumerFixture.wire(service, signatureQueryService, 1L); }
     @BeforeEach
     void setUp() {
         cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.setTenantId(1L);
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "marketReleaseAccess", marketReleaseAccess);
         org.springframework.test.util.ReflectionTestUtils.setField(service, "businessReviewMapper", businessReviewMapper);
         // These detail tests exercise the real business identity projection. Supply
         // its independently read event/review records as well as the existing row DTOs.
@@ -1459,6 +1520,8 @@ class MesTeamLeaderActiveOrderDetailServiceImplTest {
 
     @Test
     void shouldKeepPatrolAmAndPmAsSeparatePqcSubmissionBlocks() {
+        String frozenSampling = cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(java.util.Map.of(
+                "APPEARANCE", cn.iocoder.yudao.module.mes.service.qc.sampling.MesQcSamplingPlan.calculate(BigDecimal.ONE, "I")));
         when(activeOrderMapper.selectById(8101L)).thenReturn(MesProcessPoolActiveOrderDO.builder()
                 .id(8101L)
                 .leaderUserId(3001L)
@@ -1468,7 +1531,7 @@ class MesTeamLeaderActiveOrderDetailServiceImplTest {
                 .activeStatus("ACTIVE")
                 .build());
         when(detailReadMapper.selectByActiveOrderId(8101L)).thenReturn(List.of(
-                row(9101L, 5001L, 6001L, "清洗", "100.000000", 7001L, "100", "张三", "生产组长甲",
+                row(9101L, 5001L, 6001L, "清洗", "1.000000", 7001L, "1", "张三", "生产组长甲",
                         "2026-08-13T08:10:00")));
         when(processMaterialService.listFrozenMaterials(8101L, 9201L, 5001L, 6001L)).thenReturn(List.of());
         when(pqcTaskMapper.selectListByActiveOrderId(8101L)).thenReturn(List.of(
@@ -1477,6 +1540,7 @@ class MesTeamLeaderActiveOrderDetailServiceImplTest {
                         .activeOrderId(8101L)
                         .inspectionType("PATROL")
                         .qaItemCode("").inspectionItemPlanJson("{\"APPEARANCE\":1}").plannedInspectionQuantity(1)
+                        .inspectionSamplingPlanJson(frozenSampling)
                         .inspectionRuleKey("PATROL_AM")
                         .shiftCode("AM")
                         .roundNo(1)
@@ -1491,6 +1555,7 @@ class MesTeamLeaderActiveOrderDetailServiceImplTest {
                         .activeOrderId(8101L)
                         .inspectionType("PATROL")
                         .qaItemCode("").inspectionItemPlanJson("{\"APPEARANCE\":1}").plannedInspectionQuantity(1)
+                        .inspectionSamplingPlanJson(frozenSampling)
                         .inspectionRuleKey("PATROL_PM")
                         .shiftCode("PM")
                         .roundNo(1)

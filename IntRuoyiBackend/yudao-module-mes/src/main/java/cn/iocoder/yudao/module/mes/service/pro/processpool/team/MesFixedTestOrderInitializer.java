@@ -84,11 +84,13 @@ public class MesFixedTestOrderInitializer {
         uniqueTestBindingContext(jdbc.queryForList("SELECT id FROM mes_md_item WHERE tenant_id=? AND deleted=0 AND id=? FOR UPDATE",
                 tenant, itemId), "当前租户测试工单产品");
         List<Map<String, Object>> existing = jdbc.queryForList(
-                "SELECT id FROM mes_pro_route_product WHERE tenant_id=? AND deleted=0 AND item_id=? FOR UPDATE",
+                "SELECT id,route_id FROM mes_pro_route_product WHERE tenant_id=? AND deleted=0 AND item_id=? FOR UPDATE",
                 tenant, itemId);
         if (existing.size() > 1) throw testBindingBlocked("当前租户测试产品工艺路线绑定不唯一，请先核对");
-        // An existing binding remains authoritative, including its validation by the normal activation path.
-        if (!existing.isEmpty()) return;
+        if (!existing.isEmpty()) {
+            requirePublishedTestProduct(tenant, existing.get(0).get("route_id"), itemId);
+            return;
+        }
 
         Map<String, Object> project = uniqueTestBindingContext(jdbc.queryForList(
                 "SELECT id FROM dcc_project_code WHERE tenant_id=? AND deleted=0 AND project_code=? AND status=0 FOR UPDATE",
@@ -99,10 +101,7 @@ public class MesFixedTestOrderInitializer {
                         + "AND b.tenant_id=r.tenant_id AND b.deleted=0 AND b.dcc_project_code_id=?) FOR UPDATE",
                 tenant, project.get("id"));
         Map<String, Object> route = uniqueTestBindingContext(routes, "当前租户 IDI 项目工艺路线，无法自动关联测试产品");
-        Map<String, Object> version = uniqueTestBindingContext(jdbc.queryForList(
-                "SELECT id FROM mes_pro_route_version WHERE tenant_id=? AND deleted=0 AND route_id=? "
-                        + "AND active=1 AND lifecycle_status='ACTIVE' FOR UPDATE",
-                tenant, route.get("id")), "当前租户 IDI 路线生效版本，无法自动关联测试产品");
+        Map<String, Object> version = requirePublishedTestProduct(tenant, route.get("id"), itemId);
         // Same initial production values as the product-side UI binding, scoped to this fixed test order.
         jdbc.update("INSERT INTO mes_pro_route_product "
                         + "(id,tenant_id,route_id,item_id,quantity,production_time,time_unit_type,remark,creator,updater,deleted) "
@@ -113,6 +112,25 @@ public class MesFixedTestOrderInitializer {
                 tenant, order.get("id"), itemId, route.get("id"), version.get("id"), actor);
     }
 
+    private Map<String, Object> requirePublishedTestProduct(Long tenant, Object routeId, Object itemId) {
+        Map<String, Object> version = uniqueTestBindingContext(jdbc.queryForList(
+                "SELECT id,route_snapshot_json FROM mes_pro_route_version WHERE tenant_id=? AND deleted=0 AND route_id=? "
+                        + "AND active=1 AND lifecycle_status='ACTIVE' FOR UPDATE", tenant, routeId),
+                "当前租户测试产品路线生效版本");
+        Object raw = version.get("route_snapshot_json");
+        JsonNode snapshot = raw instanceof String json
+                ? cn.iocoder.yudao.framework.common.util.json.JsonUtils.parseTree(json) : null;
+        JsonNode products = snapshot == null ? null : snapshot.path("configSnapshots").path("products");
+        int matches = 0;
+        if (products != null && (products.isArray() || products.isObject())) {
+            for (JsonNode product : products) {
+                if (product.path("itemId").asLong() == number(itemId)) matches++;
+            }
+        }
+        if (matches != 1) throw testBindingBlocked("生效路线版本未包含唯一测试产品，请先在页面关联产品并发布新版本，再重置");
+        return version;
+    }
+
     private static Map<String, Object> uniqueTestBindingContext(List<Map<String, Object>> rows, String name) {
         if (rows.size() != 1) throw testBindingBlocked(name + (rows.isEmpty() ? "不存在" : "不唯一"));
         return rows.get(0);
@@ -120,8 +138,8 @@ public class MesFixedTestOrderInitializer {
 
     private static RuntimeException testBindingBlocked(String detail) {
         return cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception(
-                cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_REQUIRED,
-                "测试产品自动关联失败：" + detail);
+                cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_FIXED_TEST_ORDER_SETUP_REQUIRED,
+                detail);
     }
 
     /** Reuse tenant-owned masters by business code without changing their status or configuration. */

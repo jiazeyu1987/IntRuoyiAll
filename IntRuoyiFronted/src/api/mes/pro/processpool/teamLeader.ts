@@ -1356,7 +1356,7 @@ export const pushGeneratedTeamLeaderActiveOrderRelease = async (
 
 export interface TeamLeaderTestDataRespVO {
   workOrderCode: string
-  documents: Array<{ name: string; createdCount: number; deletedCount: number }>
+  documents: Array<{ name: string; createdCount: number; deletedCount: number; skippedCount: number }>
 }
 
 export const prepareFixedTestOrderData = async () => {

@@ -1651,7 +1651,7 @@
           type="warning"
           :loading="activeOrderTestDataSubmitting"
           :disabled="activeOrderTestResetBlocked"
-          title="按芋道源码重建固定测试订单的领料单、补料单和生产用料清单，已有记录先删除再创建"
+          title="补齐固定测试订单的生产订单、领料单、补料单和生产用料清单，已有数据跳过"
           data-team-leader-prepare-fixed-test-data
           @click="handlePrepareFixedTestOrderData"
         >
@@ -1773,10 +1773,10 @@
               <el-button
                 link
                 type="warning"
-                :disabled="row.abnormal || row.readBlocked || activeOrderTestResetSubmitting || activeOrderSimulationSubmittingId !== undefined"
+                :disabled="isActiveOrderNcrClosed(row) || row.abnormal || row.readBlocked || activeOrderTestResetSubmitting || activeOrderSimulationSubmittingId !== undefined"
                 :loading="abnormalSubmitting && abnormalForm.activeOrderId === row.id"
                 :title="
-                  row.abnormal ? row.abnormalReason || '该订单已报异常' : '针对该活跃订单报异常'
+                  isActiveOrderNcrClosed(row) ? '该生产周期已由QA处置结束，仅可查看' : row.abnormal ? row.abnormalReason || '该订单已报异常' : '针对该活跃订单报异常'
                 "
                 data-team-leader-report-active-order-abnormal
                 @click="openAbnormalDialog(row)"
@@ -1805,7 +1805,7 @@
                   link
                   type="primary"
                   :loading="activeOrderSimulationSubmittingId === row.id || releaseApplicationSubmittingId === row.id"
-                  :disabled="maintenanceSubmitting || activeOrderRebuildSubmittingId !== undefined || activeOrderTestResetSubmitting || activeOrderSimulationSubmittingId !== undefined"
+                  :disabled="isActiveOrderNcrClosed(row) || maintenanceSubmitting || activeOrderRebuildSubmittingId !== undefined || activeOrderTestResetSubmitting || activeOrderSimulationSubmittingId !== undefined"
                   aria-label="更多操作"
                   title="更多操作"
                   data-team-leader-active-order-test-menu
@@ -5838,6 +5838,8 @@ const assertStage1SimulationDouble100 = (result: Stage1ActiveOrderCompleteSimula
 }
 
 const formatActiveOrderReleaseStatus = (status?: string) => {
+  if (status === 'NONCONFORMANCE_VOID') return 'QA已作废'
+  if (status === 'NONCONFORMANCE_REWORK') return '已结束并转入返工'
   if (status === 'PQC_RELEASE_PENDING') return '待PQC放行'
   if (status === 'PQC_RELEASE_REJECTED') return 'PQC已拒绝'
   if (status === 'REPORT_UPLOAD_PENDING') return '待上传放行报告'
@@ -5847,6 +5849,8 @@ const formatActiveOrderReleaseStatus = (status?: string) => {
 }
 
 const formatActiveOrderReleaseStatusTag = (status?: string) => {
+  if (status === 'NONCONFORMANCE_VOID') return 'danger'
+  if (status === 'NONCONFORMANCE_REWORK') return 'warning'
   if (status === 'PQC_RELEASE_PENDING') return 'warning'
   if (status === 'PQC_RELEASE_REJECTED') return 'danger'
   if (status === 'REPORT_UPLOAD_PENDING') return 'primary'
@@ -5854,6 +5858,10 @@ const formatActiveOrderReleaseStatusTag = (status?: string) => {
   if (status === 'RELEASED') return 'success'
   return 'info'
 }
+
+const isActiveOrderNcrClosed = (row: TeamLeaderActiveOrderRespVO) =>
+  row.releaseApplicationStatus === 'NONCONFORMANCE_VOID' ||
+  row.releaseApplicationStatus === 'NONCONFORMANCE_REWORK'
 
 const resolveActiveOrderReleaseBlockerLocator = (
   blocker: TeamLeaderActiveOrderReleaseBlockerRespVO
@@ -8907,6 +8915,11 @@ const resetSubmissionMultiFilter = async () => {
   await getSubmissionList()
 }
 
+watch(() => route.query.workbenchTab, (tab) => {
+  if (props.leaderType !== 'PRODUCTION' || route.query.handoffTaskId !== undefined) return
+  if (tab === 'activeOrder' || tab === 'report') activeProductionModuleTab.value = tab
+})
+
 watch(activePqcModuleTab, async (tab) => {
   if ((tab === 'management' || tab === 'history') && activeLeaderTab.value === 'PQC') {
     queryParams.leaderType = 'PQC'
@@ -9628,6 +9641,10 @@ const resetAbnormalForm = () => {
 
 const openAbnormalDialog = (row: TeamLeaderActiveOrderRespVO) => {
   if (activeOrderTestResetSubmitting.value) return
+  if (isActiveOrderNcrClosed(row)) {
+    ElMessage.warning('该生产周期已由QA处置结束，仅可查看')
+    return
+  }
   if (row.abnormal) {
     ElMessage.warning(row.abnormalReason || '该订单已报异常')
     return
@@ -9653,6 +9670,9 @@ const submitAbnormal = async () => {
     }
     if (currentActiveOrder.readBlocked) {
       throw new Error(currentActiveOrder.readBlockReason || '当前活跃订单数据异常，请刷新后重试')
+    }
+    if (isActiveOrderNcrClosed(currentActiveOrder)) {
+      throw new Error('该生产周期已由QA处置结束，仅可查看，不能上报异常')
     }
     await markAndReportWorkOrderAbnormal({
       activeOrderId,
@@ -10536,15 +10556,15 @@ const handlePrepareFixedTestOrderData = async () => {
     const result = await prepareFixedTestOrderData()
     if (!result?.workOrderCode?.trim() || result.documents?.length !== 4 ||
       result.documents.some(row => !row.name || !Number.isInteger(row.createdCount) || row.createdCount < 0 ||
-        !Number.isInteger(row.deletedCount) || row.deletedCount < 0)) {
+        row.deletedCount !== 0 || !Number.isInteger(row.skippedCount) || row.skippedCount < 0)) {
       throw new Error('数据回执不完整，请核对单据后再操作')
     }
-    const message = '数据重建完成：' + result.documents
-      .map(row => `${row.name}创建${row.createdCount}条、删除${row.deletedCount}条`).join('；')
+    const message = '数据补齐完成：' + result.documents
+      .map(row => `${row.name}新增${row.createdCount}条、跳过已有${row.skippedCount}条`).join('；')
     activeOrderTestDataReceipt.value = { success: true, message }
-    ElMessage.success('数据重建完成，三类单据已按芋道源码重新创建')
+    ElMessage.success('数据补齐完成，已有数据已跳过')
   } catch (error) {
-    const message = resolveErrorMessage(error, '数据重建失败，请核对单据')
+    const message = resolveErrorMessage(error, '数据补齐失败，请核对单据')
     activeOrderTestDataReceipt.value = { success: false, message }
     ElMessage.error(message)
   } finally {
@@ -10818,9 +10838,12 @@ const requireProductionHandoffDetail = (
   if (!originalAllocations.length && !awaitingReallocation && !completedRejection) throw new Error('原周期正式生产分配不存在')
 }
 
+const leaderHandoffRoutePath = route.path
 let handoffNavigationEpoch = 0
 const navigateToLeaderHandoff = async () => {
   const epoch = ++handoffNavigationEpoch
+  // Cached workbenches still observe the global route when another role's page is active.
+  if (route.path !== leaderHandoffRoutePath) return
   handoffActiveOrderAnchor.value = undefined
   if (route.query.handoffTaskId === undefined) return
   detailVisible.value = false; detail.value = undefined
@@ -10828,7 +10851,7 @@ const navigateToLeaderHandoff = async () => {
     const id = route.query.handoffTaskId
     if (typeof id !== 'string' || !/^[1-9][0-9]*$/.test(id)) throw new Error('交接任务编号无效')
     const context = await handoffNavigationContext(id)
-    if (epoch !== handoffNavigationEpoch) return
+    if (epoch !== handoffNavigationEpoch || route.path !== leaderHandoffRoutePath) return
     const target = resolveActiveOrderHandoffTarget({ actionUrl: context.task.actionUrl, handoffTaskId: context.task.id, handoffType: context.task.taskType, activeOrderId: context.task.activeOrderId })
     if (!target || Object.entries(target.query).some(([key, value]) => route.query[key] !== value)
       || Object.keys(route.query).some(key => !(key in target.query) && key !== 'handoffReadOnly')) throw new Error('页面参数与原交接任务不一致')
@@ -10841,7 +10864,7 @@ const navigateToLeaderHandoff = async () => {
     if (context.task.taskType === 'QA_DECISION_HANDOFF') {
       if (!isProductionLeader.value) throw new Error('该交接仅供原生产组长接手')
       await loadActiveOrders()
-      if (epoch !== handoffNavigationEpoch) return
+      if (epoch !== handoffNavigationEpoch || route.path !== leaderHandoffRoutePath) return
       if (!activeOrderOptions.value.some(order => String(order.id) === String(context.task.activeOrderId))) throw new Error('原周期活跃订单不可办理')
       handoffActiveOrderAnchor.value = String(context.task.activeOrderId); activeOrderQuery.pageNo = 1
       activeProductionModuleTab.value = 'activeOrder'
@@ -10860,7 +10883,7 @@ const navigateToLeaderHandoff = async () => {
       String(context.task.roundId) !== target.query.roundId) throw new Error('交接任务与原提交事件、原轮次不一致')
     const eventId = parseProductionEventQuery(target.query.eventId)!
     const selected = await getTeamLeaderSubmissionDetail(eventId, leader)
-    if (epoch !== handoffNavigationEpoch) return
+    if (epoch !== handoffNavigationEpoch || route.path !== leaderHandoffRoutePath) return
     if (String(selected.id) !== target.query.eventId) throw new Error('正式提交详情与原事件不一致')
     if (signedReview && context.processable && selected.submissionReviewStatus !== 'PENDING') {
       throw new Error('签名补正交接不是当前待复核轮次')
@@ -10878,9 +10901,9 @@ const navigateToLeaderHandoff = async () => {
       detailVisible.value = true
       if (correctingProfile) await openCorrection(selected)
     }
-  } catch (error) { if (epoch === handoffNavigationEpoch) { loadError.value = resolveErrorMessage(error, '原周期交接加载失败'); ElMessage.error(loadError.value) } }
+  } catch (error) { if (epoch === handoffNavigationEpoch && route.path === leaderHandoffRoutePath) { loadError.value = resolveErrorMessage(error, '原周期交接加载失败'); ElMessage.error(loadError.value) } }
 }
-watch(() => [route.query.handoffTaskId, route.query.activeOrderId, route.query.eventId, route.query.roundId, route.query.handoffType, route.query.handoffReadOnly], () => { void navigateToLeaderHandoff() }, { immediate: true })
+watch(() => [route.path, route.query.handoffTaskId, route.query.activeOrderId, route.query.eventId, route.query.roundId, route.query.handoffType, route.query.handoffReadOnly], () => { void navigateToLeaderHandoff() }, { immediate: true })
 watch(
   () => route.query.eventId,
   (value) => { if (route.query.handoffTaskId === undefined) void navigateToProductionEvent(value) },
@@ -10888,6 +10911,9 @@ watch(
 )
 
 onMounted(() => {
+  if (props.leaderType === 'PRODUCTION' && route.query.handoffTaskId === undefined && route.query.workbenchTab === 'activeOrder') {
+    activeProductionModuleTab.value = 'activeOrder'
+  }
   if (isProductionLeader.value) {
     if (!showProductionModuleTabs.value) {
       loadLegacyProductionWorkbenchData()

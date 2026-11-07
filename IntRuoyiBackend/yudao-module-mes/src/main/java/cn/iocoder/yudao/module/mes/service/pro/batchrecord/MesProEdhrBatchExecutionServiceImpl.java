@@ -81,6 +81,8 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteFlowProce
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteProductDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteVersionDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesProWorkOrderDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.md.item.MesMdItemDO;
+import cn.iocoder.yudao.module.mes.dal.mysql.md.item.MesMdItemMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProBatchRecordExecutionMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProBatchRecordExecutionAttachmentMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProBatchRecordExecutionFieldAuditBatchMapper;
@@ -194,6 +196,7 @@ import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatc
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_BATCH_EXECUTION_PENDING_VOID_ACTION_LOCKED;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_BATCH_EXECUTION_OWNER_INVALID;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_BATCH_EXECUTION_PRODUCT_ROUTE_BINDING_REQUIRED;
+import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_BATCH_EXECUTION_PRODUCT_IDENTITY_REQUIRED;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_BATCH_EXECUTION_PRODUCT_ROUTE_DUPLICATE;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_BATCH_EXECUTION_ROUTE_NOT_EXISTS;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_BATCH_EXECUTION_ROUTE_MISMATCH;
@@ -373,6 +376,8 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
     private MesProEdhrBatchDossierItemMapper dossierItemMapper;
     @Resource
     private MesProWorkOrderMapper workOrderMapper;
+    @Resource
+    private MesMdItemMapper itemMapper;
     @Resource
     private MesProRouteMapper routeMapper;
     @Resource
@@ -792,6 +797,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                 && !Objects.equals(requestedRouteVersionId, activeRouteVersion.getId()))) {
             throw exception(PRO_EDHR_BATCH_EXECUTION_TASK_CONTEXT_REQUIRED);
         }
+        MesMdItemDO product = requireBatchProduct(workOrder);
         MesProEdhrBatchExecutionDO batch = new MesProEdhrBatchExecutionDO()
                 .setBatchExecutionCode("EDHRB-" + System.currentTimeMillis())
                 .setWorkOrderId(workOrder.getId())
@@ -801,8 +807,8 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                         : buildActiveContextKey(workOrder.getId(), batchCode, route.getId()))
                 .setAttemptNo(1)
                 .setProductId(workOrder.getProductId())
-                .setProductCode(String.valueOf(workOrder.getProductId()))
-                .setProductName(workOrder.getName())
+                .setProductCode(product.getCode())
+                .setProductName(product.getName())
                 .setRouteId(route.getId())
                 .setRouteVersionId(activeRouteVersion.getId())
                 .setRouteVersionNo(activeRouteVersion.getVersionNo())
@@ -1105,6 +1111,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
         FrozenRouteIdentity frozenRouteIdentity = requireFrozenRouteIdentity(frozenRouteVersion, command.getRouteId());
 
         String batchCode = StrUtil.trim(command.getBatchCode());
+        MesMdItemDO product = requireBatchProduct(workOrder);
         MesProEdhrBatchExecutionDO batch = new MesProEdhrBatchExecutionDO()
                 .setBatchExecutionCode("EDHRB-" + System.currentTimeMillis())
                 .setWorkOrderId(workOrder.getId())
@@ -1113,8 +1120,8 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                 .setActiveContextKey(command.getActiveContextKey())
                 .setAttemptNo(1)
                 .setProductId(workOrder.getProductId())
-                .setProductCode(String.valueOf(workOrder.getProductId()))
-                .setProductName(workOrder.getName())
+                .setProductCode(product.getCode())
+                .setProductName(product.getName())
                 .setRouteId(frozenRouteIdentity.routeId())
                 .setRouteVersionId(frozenRouteIdentity.routeVersionId())
                 .setRouteVersionNo(frozenRouteIdentity.routeVersionNo())
@@ -1155,6 +1162,14 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                 null, null, openMetadata, true);
         publishBatchProvisioned(latest, provisionCommand, provisioningRecord.getId());
         return latest.getId();
+    }
+
+    private MesMdItemDO requireBatchProduct(MesProWorkOrderDO workOrder) {
+        MesMdItemDO product = workOrder.getProductId() == null ? null : itemMapper.selectById(workOrder.getProductId());
+        if (product == null || StrUtil.isBlank(product.getCode()) || StrUtil.isBlank(product.getName())) {
+            throw exception(PRO_EDHR_BATCH_EXECUTION_PRODUCT_IDENTITY_REQUIRED, workOrder.getCode(), workOrder.getProductId());
+        }
+        return product;
     }
 
     private FrozenRouteIdentity requireFrozenRouteIdentity(MesProRouteVersionDO routeVersion, Long expectedRouteId) {
@@ -1216,6 +1231,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                         TenantContextHolder.getRequiredTenantId()));
         applyAuthoritativeContext(reqVO, reexecuteProvisionCommand);
         requireEntryType(reqVO.getEntryType(), "MANUAL_CONTROLLED_RETRY");
+        MesMdItemDO product = requireBatchProduct(workOrder);
         int attemptNo = nextAttemptNo(source);
         LocalDateTime now = LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS);
         String reason = StrUtil.trim(reqVO.getReason());
@@ -1251,8 +1267,8 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                 .setSourceRejectedBatchExecutionId(source.getId())
                 .setReexecutedByChangeEventId(event.getId())
                 .setProductId(workOrder.getProductId())
-                .setProductCode(String.valueOf(workOrder.getProductId()))
-                .setProductName(workOrder.getName())
+                .setProductCode(product.getCode())
+                .setProductName(product.getName())
                 .setRouteId(route.getId())
                 .setRouteVersionId(activeRouteVersion.getId())
                 .setRouteVersionNo(activeRouteVersion.getVersionNo())

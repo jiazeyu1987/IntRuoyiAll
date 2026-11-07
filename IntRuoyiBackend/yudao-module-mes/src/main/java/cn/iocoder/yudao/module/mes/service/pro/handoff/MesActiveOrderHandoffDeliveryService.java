@@ -22,6 +22,7 @@ public class MesActiveOrderHandoffDeliveryService {
     @Resource private MesActiveOrderHandoffDeliveryTransactionService transactions;
     @Resource private MesReleaseTaskNotificationPlatformSender platformSender;
     @Resource private MesActiveOrderHandoffAudit audit;
+    @Resource(name = "applicationTaskExecutor") private org.springframework.core.task.TaskExecutor notificationExecutor;
 
     @Transactional(propagation=Propagation.MANDATORY,rollbackFor=Exception.class)
     public void schedule(MesActiveOrderHandoffTaskDO task) {
@@ -47,10 +48,19 @@ public class MesActiveOrderHandoffDeliveryService {
         }
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
             @Override public void afterCommit() {
-                Long previous=TenantContextHolder.getTenantId();
-                try { TenantContextHolder.setTenantId(currentTenant); dispatchPending(task.getId()); }
-                catch(RuntimeException failure) { log.error("Committed handoff notification incomplete: tenant={},task={},failure={}",currentTenant,task.getId(),errorSummary(failure)); }
-                finally { if(previous==null)TenantContextHolder.clear();else TenantContextHolder.setTenantId(previous); }
+                // The committed intent is the recovery boundary. Fan-out must not hold the
+                // business response open while every recipient's message and audit commit.
+                Runnable delivery = new org.springframework.security.concurrent.DelegatingSecurityContextRunnable(() -> {
+                    Long previous=TenantContextHolder.getTenantId();
+                    try { TenantContextHolder.setTenantId(currentTenant); dispatchPending(task.getId()); }
+                    catch(RuntimeException failure) { log.error("Committed handoff notification incomplete: tenant={},task={},failure={}",currentTenant,task.getId(),errorSummary(failure)); }
+                    finally { if(previous==null)TenantContextHolder.clear();else TenantContextHolder.setTenantId(previous); }
+                });
+                try { notificationExecutor.execute(delivery); }
+                catch(RuntimeException failure) {
+                    // Queue rejection retains PENDING receipts for the original recipient's retry.
+                    log.error("Committed handoff notification enqueue failed: tenant={},task={},failure={}",currentTenant,task.getId(),errorSummary(failure));
+                }
             }
         });
     }
@@ -67,6 +77,9 @@ public class MesActiveOrderHandoffDeliveryService {
         dispatch(row,reason.trim());
     }
     private void dispatchPending(Long taskId) {
+        var task = tasks.selectById(taskId);
+        require(task != null, "交接通知原任务不存在");
+        if ("CANCELED".equals(task.getStatus())) return;
         for(var row:mapper.forTask(tenant(),taskId)) {
             if(!"PENDING".equals(row.getStatus()))continue;
             try { dispatch(row,"正式业务提交后自动投递交接通知"); }

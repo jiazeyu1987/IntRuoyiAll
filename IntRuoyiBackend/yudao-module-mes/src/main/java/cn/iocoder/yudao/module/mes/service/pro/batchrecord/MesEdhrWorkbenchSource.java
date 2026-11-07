@@ -13,7 +13,7 @@ public class MesEdhrWorkbenchSource implements SourceAdapter {
  @Override public SourceDescriptor descriptor() { return new SourceDescriptor("EDHR_WORK_TASK","mes",1,2,"eDHR工作任务","批记录","mes.edhr.policy","mes.edhr.open",1); }
  @Override public RowOrderContract rowOrderContract() { return RowOrderContract.UTF8_BINARY_DESC; }
  @Override public SourceIdentityContract identityContract() { return SourceIdentityContract.SQL_BINARY_UNIQUE_TASK_KEY; }
- @Override public boolean isAuthorized(long userId,long tenantId) { return permissionApi.hasAnyPermissions(userId, "mes:pro-edhr-work-task:query", "mes:pro-edhr-batch-execution:query","mes:pro-process-pool-team-leader:query","mes:pro-edhr-nonconformance-review:query"); }
+ @Override public boolean isAuthorized(long userId,long tenantId) { return permissionApi.hasAnyPermissions(userId, "mes:pro-feedback:query","mes:pro-edhr-work-task:query", "mes:pro-edhr-batch-execution:query","mes:pro-process-pool-team-leader:query","mes:pro-edhr-nonconformance-review:query"); }
  @Override public long count(QueryContext query) {
   query.validate();
 

@@ -339,10 +339,11 @@ public class RoleConfigPackageServiceImpl implements RoleConfigPackageService {
     private Map<String, Set<Long>> buildMenuIdByKey(Map<Long, String> menuKeyById) {
         Map<String, Set<Long>> result = new HashMap<>();
         for (Map.Entry<Long, String> entry : menuKeyById.entrySet()) {
-            Set<Long> menuIds = result.computeIfAbsent(entry.getValue(), key -> new LinkedHashSet<>());
+            String identityKey = menuIdentityKey(entry.getValue());
+            Set<Long> menuIds = result.computeIfAbsent(identityKey, key -> new LinkedHashSet<>());
             // A permission key represents an authority shared by its page and buttons.
             // Route keys identify individual menus and must remain unambiguous.
-            if (!entry.getValue().startsWith(MENU_KEY_PERMISSION_PREFIX)
+            if (!identityKey.startsWith(MENU_KEY_PERMISSION_PREFIX)
                     && !menuIds.isEmpty() && !menuIds.contains(entry.getKey())) {
                 throw exception(CONFIG_PACKAGE_REFERENCE_MISSING,
                         "目标环境存在重复菜单标识【" + entry.getValue() + "】，菜单编号【"
@@ -358,7 +359,7 @@ public class RoleConfigPackageServiceImpl implements RoleConfigPackageService {
         LinkedHashSet<Long> result = new LinkedHashSet<>();
         List<String> missingMenuKeys = new ArrayList<>();
         for (String menuKey : item.getMenuKeys()) {
-            Set<Long> menuIds = menuIdByKey.get(menuKey);
+            Set<Long> menuIds = menuIdByKey.get(menuIdentityKey(menuKey));
             if (menuIds == null) {
                 missingMenuKeys.add(menuKey);
                 continue;
@@ -379,6 +380,26 @@ public class RoleConfigPackageServiceImpl implements RoleConfigPackageService {
                     "角色【" + item.getCode() + "】引用的菜单标识【" + String.join("，", missingMenuKeys) + "】在目标环境不存在");
         }
         return result;
+    }
+
+    private String menuIdentityKey(String menuKey) {
+        if (!menuKey.startsWith(MENU_KEY_ROUTE_PREFIX)) {
+            return menuKey;
+        }
+        // The final five separators delimit this node's type, path, component,
+        // component name and display label. Labels (including ancestor labels)
+        // may change without changing the route or its permission boundary.
+        int labelSeparator = menuKey.lastIndexOf(MENU_KEY_SEPARATOR);
+        int parentSeparator = labelSeparator;
+        for (int index = 0; index < 4 && parentSeparator >= 0; index++) {
+            parentSeparator = menuKey.lastIndexOf(MENU_KEY_SEPARATOR, parentSeparator - 1);
+        }
+        if (parentSeparator < MENU_KEY_ROUTE_PREFIX.length()) {
+            throw exception(CONFIG_PACKAGE_CONTENT_INVALID, "菜单路由标识格式非法：" + menuKey);
+        }
+        String parentKey = menuKey.substring(MENU_KEY_ROUTE_PREFIX.length(), parentSeparator);
+        return MENU_KEY_ROUTE_PREFIX + menuIdentityKey(parentKey)
+                + menuKey.substring(parentSeparator, labelSeparator + 1);
     }
 
     private String buildMenuKey(MenuDO menu, Map<Long, MenuDO> menuById, Map<Long, String> keyById) {

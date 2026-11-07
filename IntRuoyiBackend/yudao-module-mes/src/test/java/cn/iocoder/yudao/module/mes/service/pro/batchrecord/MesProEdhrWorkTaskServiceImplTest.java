@@ -65,6 +65,7 @@ import java.time.LocalDateTime;
 
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_ROUTE_NOT_EXISTS;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrWorkTaskErrorCodeConstants.PRO_EDHR_WORK_TASK_ASSIGNEE_INVALID;
+import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrWorkTaskErrorCodeConstants.PRO_EDHR_DEVIATION_TASK_ASSIGNEE_PERMISSION_MISSING;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrWorkTaskErrorCodeConstants.PRO_EDHR_WORK_TASK_ASSIGNEE_MISMATCH;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrWorkTaskErrorCodeConstants.PRO_EDHR_WORK_TASK_ADVANCE_PREREQUISITE_MISSING;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrWorkTaskErrorCodeConstants.PRO_EDHR_WORK_TASK_ACTIVE_NOT_UNIQUE;
@@ -236,6 +237,38 @@ class MesProEdhrWorkTaskServiceImplTest extends BaseDbUnitTest {
     @Test
     void recordChangeWithoutCompletedFillerFailsWithoutInventingOwner() {
         assertThrows(IllegalStateException.class, () -> workTaskService.createRecordChangeRework(700L, 999999L, 999999L, "批准重开"));
+        assertTrue(workTaskMapper.selectList().isEmpty());
+    }
+
+    @Test
+    void deviationAssignmentReportsEachMissingPermissionWithoutCreatingTask() {
+        when(adminUserApi.getUser(2101L)).thenReturn(new AdminUserRespDTO().setId(2101L).setStatus(0));
+        Map<String, String> permissions = Map.of(
+                "mes:pro-edhr-deviation:query", "偏差查询",
+                "mes:pro-edhr-deviation:handle", "偏差处理",
+                "mes:pro-edhr-work-task:query", "工作任务查询");
+        MesProEdhrDeviationDO deviation = new MesProEdhrDeviationDO().setId(9901L);
+        for (Map.Entry<String, String> missing : permissions.entrySet()) {
+            permissions.keySet().forEach(permission ->
+                    when(permissionApi.hasAnyPermissions(2101L, permission))
+                            .thenReturn(!permission.equals(missing.getKey())));
+            ServiceException error = assertThrows(ServiceException.class,
+                    () -> workTaskService.assignDeviationTask(deviation,
+                            MesProEdhrWorkTaskService.TASK_TYPE_DEVIATION_RECEIVE, 2101L, "接收偏差"));
+            assertEquals(PRO_EDHR_DEVIATION_TASK_ASSIGNEE_PERMISSION_MISSING.getCode(), error.getCode());
+            assertTrue(error.getMessage().contains(missing.getValue()));
+            assertFalse(error.getMessage().contains("不存在或已禁用"));
+            assertTrue(workTaskMapper.selectList().isEmpty());
+        }
+    }
+
+    @Test
+    void disabledDeviationAssigneeStillReportsInvalidUserWithoutCreatingTask() {
+        when(adminUserApi.getUser(2101L)).thenReturn(new AdminUserRespDTO().setId(2101L).setStatus(1));
+        ServiceException error = assertThrows(ServiceException.class,
+                () -> workTaskService.assignDeviationTask(new MesProEdhrDeviationDO().setId(9901L),
+                        MesProEdhrWorkTaskService.TASK_TYPE_DEVIATION_RECEIVE, 2101L, "接收偏差"));
+        assertEquals(PRO_EDHR_WORK_TASK_ASSIGNEE_INVALID.getCode(), error.getCode());
         assertTrue(workTaskMapper.selectList().isEmpty());
     }
 

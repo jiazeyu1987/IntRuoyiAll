@@ -276,15 +276,15 @@
             <dl class="edhr-detail-fields">
               <div>
                 <dt>调查开始</dt>
-                <dd>{{ handling.investigationStartedAt || "—" }}</dd>
+                <dd>{{ formatHandlingDateTime(handling.investigationStartedAt) }}</dd>
               </div>
               <div>
                 <dt>计划完成</dt>
-                <dd>{{ handling.plannedCompletedAt || "—" }}</dd>
+                <dd>{{ formatHandlingDateTime(handling.plannedCompletedAt) }}</dd>
               </div>
               <div>
                 <dt>实际完成</dt>
-                <dd>{{ handling.completedAt || "—" }}</dd>
+                <dd>{{ formatHandlingDateTime(handling.completedAt) }}</dd>
               </div>
               <div>
                 <dt>调查成员</dt>
@@ -314,7 +314,7 @@
               </div>
               <div>
                 <dt>整改期限</dt>
-                <dd>{{ handling.correctiveDueAt || "—" }}</dd>
+                <dd>{{ formatHandlingDateTime(handling.correctiveDueAt) }}</dd>
               </div>
               <div>
                 <dt>CAPA</dt>
@@ -371,7 +371,7 @@
               <template #default="scope"><span data-deviation-signature-actor-name>{{ scope.row.actorDisplayName || '—' }}</span>（用户 #<span data-deviation-signature-actor-id>{{ scope.row.actorId || '—' }}</span>）</template>
             </el-table-column>
             <el-table-column prop="meaningLabel" label="签名含义" min-width="140" />
-            <el-table-column label="服务器签名时间" min-width="220"><template #default="scope">{{ scope.row.signedAt || '—' }} {{ scope.row.timeZone ? `(${scope.row.timeZone})` : '' }}</template></el-table-column>
+            <el-table-column label="服务器签名时间" min-width="220"><template #default="scope">{{ formatTime(scope.row.signedAt) }} {{ scope.row.timeZone ? `(${scope.row.timeZone})` : '' }}</template></el-table-column>
             <el-table-column prop="timeEvidenceId" label="时间证据" min-width="220" show-overflow-tooltip />
             <el-table-column prop="verificationStatus" label="验证状态" width="120" />
             <el-table-column prop="policyVersion" label="策略版本" min-width="180" />
@@ -385,7 +385,7 @@
             <el-table-column label="签名人" min-width="150"><template #default="scope">{{ scope.row.actorDisplayName || `用户 #${scope.row.actorId || '—'}` }}</template></el-table-column>
             <el-table-column prop="validityStatus" label="有效性" width="150" />
             <el-table-column prop="meaningLabel" label="签名含义" min-width="140" />
-            <el-table-column label="签署时间" min-width="220"><template #default="scope">{{ scope.row.signedAt || '—' }} {{ scope.row.timeZone ? `(${scope.row.timeZone})` : '' }}</template></el-table-column>
+            <el-table-column label="签署时间" min-width="220"><template #default="scope">{{ formatTime(scope.row.signedAt) }} {{ scope.row.timeZone ? `(${scope.row.timeZone})` : '' }}</template></el-table-column>
             <el-table-column prop="timeEvidenceId" label="时间证据" min-width="220" show-overflow-tooltip />
             <el-table-column prop="verificationStatus" label="验证状态" width="120" />
             <el-table-column prop="policyVersion" label="策略版本" min-width="180" />
@@ -395,7 +395,7 @@
         <div v-if="handling.revisionHistory?.length" class="revision-history">
           <div class="signature-evidence__title">处理修订历史</div>
           <el-timeline>
-            <el-timeline-item v-for="revision in handling.revisionHistory" :key="revision.auditId" :timestamp="revision.occurredAt">
+            <el-timeline-item v-for="revision in handling.revisionHistory" :key="revision.auditId" :timestamp="formatTime(revision.occurredAt)">
               <div>修订原因：{{ revision.revisionReason || '—' }}</div>
               <div>版本：{{ revision.beforeContentVersion || '—' }} → {{ revision.afterContentVersion || '—' }}</div>
               <div>操作人：{{ revision.actorUsername || revision.actorUserId || '—' }}</div>
@@ -453,6 +453,7 @@ const message = useMessage()
 const approvalInvalidation = useApprovalCenterInvalidationStore()
 const signatureUser = computed(() => useUserStore().getUser)
 const props = withDefaults(defineProps<{ id: number; readonly?: boolean }>(), { readonly: false })
+const emit = defineEmits<{ (event: 'closed'): void }>()
 const loading = ref(false)
 const detail = ref<DeviationRespVO>()
 const handling = ref<DeviationHandlingRespVO>()
@@ -662,15 +663,23 @@ const submitNcrCreate = async () => {
     if (isCurrent()) ncrCreateLoading.value = false
   }
 }
+const toHandlingDateTime = (value: string | number | null | undefined): string => {
+  if (value === null || value === undefined || value === '') return ''
+  const parsed = dayjs(value)
+  if (!parsed.isValid()) throw new Error('偏差处理时间格式无效，请核对原始记录')
+  return parsed.format('YYYY-MM-DDTHH:mm:ss')
+}
+const formatHandlingDateTime = (value: string | number | null | undefined) =>
+  toHandlingDateTime(value).replace('T', ' ') || '—'
 const applyHandling = (record?: DeviationHandlingRespVO) => {
   resetHandling()
   handling.value = record
   if (record) {
   Object.assign(handlingForm, {
         expectedContentVersion: record.contentVersion || 0,
-        investigationStartedAt: record.investigationStartedAt || '',
-        plannedCompletedAt: record.plannedCompletedAt || '',
-        completedAt: record.completedAt || '',
+        investigationStartedAt: toHandlingDateTime(record.investigationStartedAt),
+        plannedCompletedAt: toHandlingDateTime(record.plannedCompletedAt),
+        completedAt: toHandlingDateTime(record.completedAt),
         investigationMembersJson: record.investigationMembersJson || '',
         rootCauseAnalysis: record.rootCauseAnalysis || '',
         impactScope: record.impactScope || '',
@@ -680,7 +689,7 @@ const applyHandling = (record?: DeviationHandlingRespVO) => {
         correctiveOwnerId: record.correctiveOwnerId,
         correctiveOwnerName: record.correctiveOwnerName || '',
         reviewerAssignments: { ...(record.reviewerAssignments || {}) },
-        correctiveDueAt: record.correctiveDueAt || '',
+        correctiveDueAt: toHandlingDateTime(record.correctiveDueAt),
         capaRequired: record.capaRequired || false,
         capaCode: record.capaCode || '',
         capaAttachmentsJson: record.capaAttachmentsJson || '',
@@ -780,7 +789,7 @@ const saveHandling = async () => {
     applyHandling(record)
     ElMessage.success('处理记录已保存')
   } catch (error: any) {
-    if (id === props.id && sequence === loadSequence) ElMessage.error(error?.response?.data?.msg || '处理记录保存失败，请重试')
+    if (id === props.id && sequence === loadSequence) ElMessage.error(error?.response?.data?.msg || error?.message || '处理记录保存失败，请重试')
   } finally {
     if (id === props.id && sequence === loadSequence) handlingSaving.value = false
   }
@@ -818,7 +827,7 @@ const normalizeOptionalJson = (value: string) => {
     return JSON.stringify(trimmed)
   }
 }
-const normalizeOptionalDateTime = (value: string | null | undefined) => value?.trim() ? value : null
+const normalizeOptionalDateTime = (value: string | number | null | undefined) => toHandlingDateTime(value) || null
 const signHandling = async () => {
   if (props.readonly || !canSignSavedHandling()) return
   if (!mySignNodes.value.includes(signForm.node)) {
@@ -836,7 +845,7 @@ const signHandling = async () => {
     await loadHandling()
     ElMessage.success('电子签名已记录')
   } catch (error: any) {
-    if (id === props.id && sequence === loadSequence) ElMessage.error(error?.response?.data?.msg || '电子签名失败，请重试')
+    if (id === props.id && sequence === loadSequence) ElMessage.error(error?.response?.data?.msg || error?.message || '电子签名失败，请重试')
   } finally {
     if (id === props.id && sequence === loadSequence) signing.value = false
   }
@@ -858,10 +867,11 @@ const closeHandling = async () => {
   try {
     await closeDeviationHandling(id, reviewedVersion, reviewedHash)
     if (id !== props.id || sequence !== loadSequence) return
+    emit('closed')
     await load()
     ElMessage.success('偏差已关闭')
   } catch (error: any) {
-    if (id === props.id && sequence === loadSequence) ElMessage.error(error?.response?.data?.msg || '偏差关闭失败，请重试')
+    if (id === props.id && sequence === loadSequence) ElMessage.error(error?.response?.data?.msg || error?.message || '偏差关闭失败，请重试')
   } finally {
     if (id === props.id && sequence === loadSequence) closing.value = false
   }

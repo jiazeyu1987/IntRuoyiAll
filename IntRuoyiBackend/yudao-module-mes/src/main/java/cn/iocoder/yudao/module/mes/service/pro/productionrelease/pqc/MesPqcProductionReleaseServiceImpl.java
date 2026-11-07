@@ -153,6 +153,7 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
                 tenant, "SYSTEM_USER", actorUserId, actorUserId, java.util.UUID.randomUUID().toString(), command.getSignaturePassword()));
         if (outcome.signer() == null) throw cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.invalidParamException("签名认证失败：" + outcome.rejectionCode());
         var roleFailure = new java.util.concurrent.atomic.AtomicReference<MesProductionReleaseRoleResolutionException>();
+        var decisionFailure = new java.util.concurrent.atomic.AtomicReference<MesReleaseFlowBlockerException>();
         try {
             return new org.springframework.transaction.support.TransactionTemplate(transactionManager).execute(status -> {
                 try {
@@ -160,8 +161,17 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
                 } catch (MesProductionReleaseRoleResolutionException exception) {
                     roleFailure.set(exception);
                     throw exception;
+                } catch (MesReleaseFlowBlockerException exception) {
+                    decisionFailure.set(exception);
+                    throw exception;
                 }
             });
+        } catch (MesReleaseFlowBlockerException exception) {
+            // A matching callback failure reaches this point only after rollback completed.
+            // Never label commit/after-commit failures as safe to correct and resubmit.
+            if (exception != decisionFailure.get()) throw exception;
+            attachRejectedDecision(exception, actorUserId, command);
+            throw exception;
         } catch (MesProductionReleaseRoleResolutionException exception) {
             // Only a failure from inside the decision callback is a rollback rejection.
             // Exceptions during commit/after-commit must retain uncertain outcome handling.
@@ -174,6 +184,12 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
         var failure = blocker(MesReleaseFlowBlockerType.MANAGEMENT_REPRESENTATIVE_ROLE_REQUIRED,
                 null, "SYSTEM_ROLE", roleFailure.get().getRoleCode(), managementRoleBlockerReason(roleFailure.get()),
                 "请在权限管理中为当前租户的管理者代表角色分配启用账号，再重新放行");
+        attachRejectedDecision(failure, actorUserId, command);
+        throw failure;
+    }
+
+    private void attachRejectedDecision(MesReleaseFlowBlockerException failure, Long actorUserId,
+                                       MesPqcProductionReleaseApproveCommand command) {
         failure.getFailure().setRejectedDecision(new MesReleaseFlowFailureRespVO.RejectedDecision()
                 .setOutcome("ROLLED_BACK").setApplicationId(String.valueOf(command.getApplicationId()))
                 .setWorkTaskId(String.valueOf(command.getPqcReleaseWorkTaskId()))
@@ -182,7 +198,6 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
                 .setPayloadHash(decisionPayloadHash("APPROVE", command.getApplicationId(),
                         command.getPqcReleaseWorkTaskId(), command.getExpectedVersion(), actorUserId,
                         StrUtil.trim(command.getApprovalOpinion()), StrUtil.trim(command.getUdiControlDocumentNo()))));
-        throw failure;
     }
 
     private MesPqcProductionReleaseDecisionResult approveAuthenticated(Long actorUserId,

@@ -38,6 +38,7 @@
             :active="activeName === 'notifyMessage'"
             @read-status-change="handleUnreadNotifyMessageRefresh"
           />
+          <ReleaseOutcomeRecovery :active="activeName === 'notifyMessage'" />
         </el-tab-pane>
         <el-tab-pane :label="t('profile.info.basicInfo')" name="basicInfo">
           <BasicInfo />
@@ -67,6 +68,7 @@ import BusinessConfigMigrationNotice from '@/views/system/config-migration/Busin
 import MyNotifyMessageList from '@/views/system/notify/my/components/MyNotifyMessageList.vue'
 import { BasicInfo, ProfileWorkbench, ResetPwd, UserSocial } from './components'
 import PqcReleaseCorrection from './components/PqcReleaseCorrection.vue'
+import ReleaseOutcomeRecovery from '@/views/mes/pro/production-release/components/ReleaseOutcomeRecovery.vue'
 
 const { t } = useI18n()
 const route = useRoute()

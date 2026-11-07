@@ -121,6 +121,7 @@ const importWorkbook = async () => {
     }>({
       url: '/dcc/product-catalog/workbook/import',
       data,
+      timeout: 300000,
       headersType: 'multipart/form-data'
     })
     message.success(

@@ -181,6 +181,16 @@ class MesFrontlinePqcContextServiceTest {
     private String lockedSnapshotOverride;
     private boolean legacyUnboundEquipment;
     private boolean foreignPersonnelScope;
+    private boolean projectlessCommonSubmission;
+
+    @Test
+    void projectlessLockedCommonTaskCanBeSubmittedWithItsOwnItemsAndSignature() {
+        projectlessCommonSubmission = true;
+        submitPqcInspectionPermitsAdjustedActualQuantityForEveryInspectionType("FIRST", "FIRST", "FIRST", "confirmed");
+        verify(pqcItemEquipmentConfigService).listEnabledEquipmentOptionsByProjectVersionAndItemCodes(
+                eq(null), eq(REGULATION_VERSION_ID), eq(Set.of("ID-001")));
+        verify(dccProjectCodeMapper, never()).selectById(anyLong());
+    }
 
     @Test
     void rejectedOldPersonnelEnableKeepsActualUniqueOwnerAndAllowsBSubmissionAndAssignment() throws Exception {
@@ -333,9 +343,10 @@ class MesFrontlinePqcContextServiceTest {
         verify(dccProjectCodeMapper, never()).selectEnabledList();
     }
 
-    @Test
-    void lockedCommonQaProjectionAllowsTheCommonRegulationsOwnDccProject() {
-        long commonDccProjectId = 6002L;
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.NullSource
+    @org.junit.jupiter.params.provider.ValueSource(longs = 6002L)
+    void lockedCommonQaProjectionUsesTheCommonRegulationsIdentity(Long commonDccProjectId) {
         long commonRegulationId = 7002L;
         long commonVersionId = 8002L;
         long commonQaProcessId = 9002L;
@@ -640,7 +651,9 @@ class MesFrontlinePqcContextServiceTest {
                             "ID-001", 1101L, "REAL-001", "检测专用泵筒", "REAL-001", true, 1))));
         }
         when(regulationMapper.selectById(REGULATION_ID)).thenReturn(MesQaInspectionRegulationDO.builder()
-                .id(REGULATION_ID).dccProjectCodeId(DCC_PROJECT_ID).build());
+                .id(REGULATION_ID).dccProjectCodeId(projectlessCommonSubmission ? null : DCC_PROJECT_ID)
+                .ownerModule(projectlessCommonSubmission ? MesQaInspectionRegulationDO.OWNER_MODULE_MES_QA_COMMON
+                        : MesQaInspectionRegulationDO.OWNER_MODULE_MES_QA).build());
         when(dccProjectCodeMapper.selectById(DCC_PROJECT_ID)).thenReturn(DccProjectCodeDO.builder()
                 .id(DCC_PROJECT_ID).build());
         when(regulationItemMapper.selectListByVersionId(REGULATION_VERSION_ID))
@@ -1232,7 +1245,7 @@ class MesFrontlinePqcContextServiceTest {
     }
 
     private static MesQaInspectionRegulationPublishedVersionRespVO lockedQaAggregate(
-            long dccProjectCodeId, long regulationId, long regulationVersionId,
+            Long dccProjectCodeId, long regulationId, long regulationVersionId,
             String lifecycleStatus,
             MesQaInspectionRegulationPublishedVersionRespVO.InspectionProcess... processes) {
         return MesQaInspectionRegulationPublishedVersionRespVO.builder()

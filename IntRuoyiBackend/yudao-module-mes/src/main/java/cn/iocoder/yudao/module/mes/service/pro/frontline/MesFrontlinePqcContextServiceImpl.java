@@ -1015,7 +1015,10 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
             Long expectedRegulationId,
             Long expectedRegulationVersionId) {
         requirePositive(activeOrder.getDccProjectCodeId(), "activeOrder.dccProjectCodeId");
-        requirePositive(expectedDccProjectCodeId, "expectedDccProjectCodeId");
+        // 产品规程的项目来自已校验的订单；通用规程以锁定规程/版本标识，允许无产品项目。
+        if (expectedDccProjectCodeId != null) {
+            requirePositive(expectedDccProjectCodeId, "expectedDccProjectCodeId");
+        }
         requirePositive(expectedRegulationId, "expectedRegulationId");
         requirePositive(expectedRegulationVersionId, "expectedRegulationVersionId");
         if (qaSource == null
@@ -1761,8 +1764,7 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
         if (qaProcess == null || version == null || regulation == null
                 || !Objects.equals(version.getId(), qaProcess.getRegulationVersionId())
                 || !Objects.equals(regulation.getId(), version.getRegulationId())
-                || regulation.getDccProjectCodeId() == null
-                || dccProjectCodeMapper.selectById(regulation.getDccProjectCodeId()) == null
+                || !regulationProjectIdentityValid(regulation)
                 || !(Objects.equals("PUBLISHED", version.getLifecycleStatus())
                 || Objects.equals("RETIRED", version.getLifecycleStatus()))) {
             throw exception(PRO_FRONTLINE_PQC_TASK_IDENTITY_MISMATCH, pqcTaskIdentityText(task));
@@ -1776,13 +1778,23 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
         return regulation.getDccProjectCodeId();
     }
 
+    private boolean regulationProjectIdentityValid(MesQaInspectionRegulationDO regulation) {
+        if (regulation.getDccProjectCodeId() == null) {
+            return MesQaInspectionRegulationDO.OWNER_MODULE_MES_QA_COMMON.equals(regulation.getOwnerModule());
+        }
+        return regulation.getDccProjectCodeId() > 0
+                && dccProjectCodeMapper.selectById(regulation.getDccProjectCodeId()) != null;
+    }
+
     private List<MesFrontlinePqcInspectionItem> resolveSubmittedInspectionItems(
             MesPqcInspectionTaskDO task, MesFrontlinePqcSubmitCommand command,
             Long regulationDccProjectCodeId) {
         if (task == null || task.getRegulationVersionId() == null || CollUtil.isEmpty(command.getItemResults())) {
             throw exception(PRO_FRONTLINE_PQC_RESULT_CONTRACT_INVALID, "itemResults");
         }
-        requirePositive(regulationDccProjectCodeId, "regulationDccProjectCodeId");
+        if (regulationDccProjectCodeId != null) {
+            requirePositive(regulationDccProjectCodeId, "regulationDccProjectCodeId");
+        }
         List<MesQaInspectionRegulationItemDO> publishedItems = regulationItemMapper
                 .selectListByVersionId(task.getRegulationVersionId()).stream()
                 .filter(Objects::nonNull)

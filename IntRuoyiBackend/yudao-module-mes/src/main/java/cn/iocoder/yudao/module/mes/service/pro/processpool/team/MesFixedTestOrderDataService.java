@@ -13,7 +13,7 @@ import java.util.*;
 import static cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesFixedTestOrderInitializer.WORK_ORDER_CODE;
 import static cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesFixedTestOrderReferenceGraph.*;
 
-/** Rebuild the fixed order's three material document types from tenant 1 in one transaction. */
+/** Fill missing fixed-order documents; reset separately restores the reference documents. */
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -25,11 +25,20 @@ public class MesFixedTestOrderDataService {
     private final MesFixedTestOrderModeGuard modeGuard;
     private final MesFixedTestOrderInitializer orderInitializer;
 
-    public record DocumentResult(String name, int createdCount, int deletedCount) { }
+    public record DocumentResult(String name, int createdCount, int deletedCount, int skippedCount) { }
     public record Result(String workOrderCode, List<DocumentResult> documents) { }
 
     @Transactional(rollbackFor = Exception.class)
     public Result prepare(Long actor) {
+        return prepare(actor, false);
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public Result rebuildForReset(Long actor) {
+        return prepare(actor, true);
+    }
+
+    private Result prepare(Long actor, boolean rebuild) {
         modeGuard.requireEnabled(actor);
         long tenant = TenantContextHolder.getTenantId();
         if (jdbc.queryForList("SELECT id FROM system_tenant WHERE id=? AND deleted=0 FOR UPDATE", Long.class, tenant).size() != 1)
@@ -39,24 +48,26 @@ public class MesFixedTestOrderDataService {
         var order = existing("mes_pro_work_order", tenant, Map.of("code", WORK_ORDER_CODE));
         if (order == null) throw blocked("测试生产订单创建后不存在");
         List<DocumentResult> results = new ArrayList<>();
-        results.add(new DocumentResult("生产订单", existingOrder == null ? 1 : 0, 0));
-        results.add(prepareIssues("pick", "领料单明细", tenant, actor));
-        results.add(prepareIssues("replenishment", "补料单明细", tenant, actor));
-        results.add(prepareMaterials(order, tenant, actor));
+        results.add(new DocumentResult("生产订单", existingOrder == null ? 1 : 0, 0, existingOrder == null ? 0 : 1));
+        results.add(prepareIssues("pick", "领料单明细", tenant, actor, rebuild));
+        results.add(prepareIssues("replenishment", "补料单明细", tenant, actor, rebuild));
+        results.add(prepareMaterials(order, tenant, actor, rebuild));
         log.info("Fixed test documents prepared: tenant={}, actor={}, order={}, result={}", tenant, actor, WORK_ORDER_CODE, results);
         return new Result(WORK_ORDER_CODE, List.copyOf(results));
     }
 
-    private DocumentResult prepareIssues(String kind, String name, long tenant, long actor) {
+    private DocumentResult prepareIssues(String kind, String name, long tenant, long actor, boolean rebuild) {
         String headerTable = "erp_kingdee_production_" + kind + "_list";
         String itemTable = headerTable + "_item";
         String fk = "production_" + kind + "_list_id";
         List<Map<String, Object>> items = source(itemTable, "production_order_no", WORK_ORDER_CODE);
         if (items.isEmpty()) throw blocked("参考租户缺少固定测试订单的" + name);
-        // Capture the complete source before deleting anything, including when tenant 1 runs this action.
+        // Validate the complete source before writing; existing documents stay untouched in fill mode.
         Map<Object, Map<String, Object>> headers = new LinkedHashMap<>();
         Map<Object, Object> headerIds = new LinkedHashMap<>();
         Map<Object, Object> itemIds = new LinkedHashMap<>();
+        Set<Object> existingHeaderIds = new HashSet<>();
+        Set<Object> existingItemIds = new HashSet<>();
         for (var item : items) {
             var header = single(source(headerTable, "id", required(item, fk)), name + "表头");
             if (!"C".equals(header.get("document_status"))
@@ -67,18 +78,21 @@ public class MesFixedTestOrderDataService {
             var localHeader = existing(headerTable, tenant, Map.of("source_form_id", required(header, "source_form_id"),
                     "source_fid", required(header, "source_fid")));
             headerIds.put(header.get("id"), localHeader == null ? IdUtil.getSnowflakeNextId() : localHeader.get("id"));
+            if (localHeader != null) existingHeaderIds.add(localHeader.get("id"));
             var localItem = existing(itemTable, tenant, Map.of("source_line_key", required(item, "source_line_key")));
             if (localItem != null && !WORK_ORDER_CODE.equals(localItem.get("production_order_no")))
                 throw blocked(name + "身份已用于其他订单");
             itemIds.put(item.get("id"), localItem == null ? IdUtil.getSnowflakeNextId() : localItem.get("id"));
+            if (localItem != null) existingItemIds.add(localItem.get("id"));
         }
-        var oldHeaderIds = jdbc.queryForList("SELECT DISTINCT " + fk + " FROM " + itemTable
-                + " WHERE tenant_id=? AND production_order_no=?", Long.class, tenant, WORK_ORDER_CODE);
-        int deleted = jdbc.update("DELETE FROM " + itemTable + " WHERE tenant_id=? AND production_order_no=?", tenant, WORK_ORDER_CODE);
+        var oldHeaderIds = rebuild ? jdbc.queryForList("SELECT DISTINCT " + fk + " FROM " + itemTable
+                + " WHERE tenant_id=? AND production_order_no=?", Long.class, tenant, WORK_ORDER_CODE) : List.of();
+        int deleted = rebuild ? jdbc.update("DELETE FROM " + itemTable + " WHERE tenant_id=? AND production_order_no=?", tenant, WORK_ORDER_CODE) : 0;
         // Reuse local identities so existing formal references remain attached to the rebuilt rows.
         for (var entry : headers.entrySet()) {
             Object localId = headerIds.get(entry.getKey());
-            jdbc.update("DELETE FROM " + headerTable + " WHERE tenant_id=? AND id=?", tenant, localId);
+            if (!rebuild && existingHeaderIds.contains(localId)) continue;
+            if (rebuild) jdbc.update("DELETE FROM " + headerTable + " WHERE tenant_id=? AND id=?", tenant, localId);
             insert(headerTable, HEADER_COLUMNS, entry.getValue(), Map.of(), localId, tenant, actor);
         }
         for (Object oldId : oldHeaderIds) {
@@ -87,29 +101,41 @@ public class MesFixedTestOrderDataService {
                     + itemTable + " WHERE tenant_id=? AND " + fk + "=?)", tenant, oldId, tenant, oldId);
         }
         int created = 0;
+        int skipped = 0;
         for (var item : items) {
+            if (!rebuild && existingItemIds.contains(itemIds.get(item.get("id")))) {
+                skipped++;
+                continue;
+            }
             insert(itemTable, fk + "," + ITEM_COLUMNS, item, Map.of(fk, headerIds.get(item.get(fk))),
                     itemIds.get(item.get("id")), tenant, actor);
             created++;
         }
-        return new DocumentResult(name, created, deleted);
+        return new DocumentResult(name, created, deleted, skipped);
     }
 
-    private DocumentResult prepareMaterials(Map<String, Object> order, long tenant, long actor) {
+    private DocumentResult prepareMaterials(Map<String, Object> order, long tenant, long actor, boolean rebuild) {
         String table = "mes_kingdee_production_material_list";
         var rows = source(table, "production_order_no", WORK_ORDER_CODE);
         if (rows.isEmpty()) throw blocked("参考租户缺少固定测试订单的生产用料清单");
         Map<Object, Object> rowIds = new LinkedHashMap<>();
+        Set<Object> existingIds = new HashSet<>();
         for (var row : rows) {
             var present = existing(table, tenant, Map.of("source_form_id", required(row, "source_form_id"),
                     "source_bill_no", required(row, "source_bill_no"), "source_entry_id", required(row, "source_entry_id")));
             if (present != null && !WORK_ORDER_CODE.equals(present.get("production_order_no")))
                 throw blocked("生产用料清单身份已用于其他订单");
             rowIds.put(row.get("id"), present == null ? IdUtil.getSnowflakeNextId() : present.get("id"));
+            if (present != null) existingIds.add(present.get("id"));
         }
-        int deleted = jdbc.update("DELETE FROM " + table + " WHERE tenant_id=? AND production_order_no=?", tenant, WORK_ORDER_CODE);
+        int deleted = rebuild ? jdbc.update("DELETE FROM " + table + " WHERE tenant_id=? AND production_order_no=?", tenant, WORK_ORDER_CODE) : 0;
         int created = 0;
+        int skipped = 0;
         for (var row : rows) {
+            if (!rebuild && existingIds.contains(rowIds.get(row.get("id")))) {
+                skipped++;
+                continue;
+            }
             var graph = new MesFixedTestOrderReferenceGraph(jdbc, tenant, actor);
             Map<String, Object> overrides = new LinkedHashMap<>();
             overrides.put("work_order_id", order.get("id"));
@@ -132,7 +158,7 @@ public class MesFixedTestOrderDataService {
             insert(table, MATERIAL_COLUMNS, row, overrides, rowIds.get(row.get("id")), tenant, actor);
             created++;
         }
-        return new DocumentResult("生产用料清单明细", created, deleted);
+        return new DocumentResult("生产用料清单明细", created, deleted, skipped);
     }
 
     private void insert(String table, String columns, Map<String, Object> source, Map<String, Object> overrides,

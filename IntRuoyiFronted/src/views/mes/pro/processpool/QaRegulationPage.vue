@@ -5469,7 +5469,7 @@ const allColumnDisplayFilters0: ListColumnFilterDefinition[] = [
 
 .qa-regulation-page__equipment-binding {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: 6px;
 }
@@ -5488,13 +5488,16 @@ const allColumnDisplayFilters0: ListColumnFilterDefinition[] = [
 }
 
 .qa-regulation-page__equipment-select {
+  grid-column: 1 / -1;
   min-width: 0;
 }
 
 .qa-regulation-page__equipment-number {
+  min-width: 0;
   color: #667085;
   font-size: 12px;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
+  white-space: normal;
 }
 
 .qa-regulation-page__equipment-error {

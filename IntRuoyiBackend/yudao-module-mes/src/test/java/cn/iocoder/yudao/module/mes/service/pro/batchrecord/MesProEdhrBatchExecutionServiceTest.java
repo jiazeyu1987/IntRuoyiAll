@@ -1928,6 +1928,44 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     }
 
     @Test
+    void productionReleaseBatchFreezesProductCodeAndNameInsteadOfDatabaseIdAndWorkOrderTitle() {
+        Fixture fixture = insertRouteFixture(true, true);
+        MesMdItemDO product = itemMapper.selectById(fixture.productId());
+        MesProWorkOrderDO workOrder = workOrderMapper.selectById(fixture.workOrderId());
+
+        Long batchId = batchExecutionService.openOrCreateFromProductionRelease(productIdentityCommand(fixture));
+
+        MesProEdhrBatchExecutionDO batch = batchExecutionMapper.selectById(batchId);
+        assertEquals(product.getId(), batch.getProductId());
+        assertEquals(product.getCode(), batch.getProductCode());
+        assertEquals(product.getName(), batch.getProductName());
+        assertNotEquals(String.valueOf(product.getId()), batch.getProductCode());
+        assertNotEquals(workOrder.getName(), batch.getProductName());
+        itemMapper.updateById(MesMdItemDO.builder().id(product.getId()).name("后续产品名称").build());
+        assertEquals(product.getName(), batchExecutionMapper.selectById(batchId).getProductName());
+    }
+
+    @Test
+    void productionReleaseBatchRejectsMissingProductIdentityBeforePersistence() {
+        Fixture fixture = insertRouteFixture(true, true);
+        itemMapper.deleteById(fixture.productId());
+
+        assertServiceException(() -> batchExecutionService.openOrCreateFromProductionRelease(productIdentityCommand(fixture)),
+                MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_BATCH_EXECUTION_PRODUCT_IDENTITY_REQUIRED,
+                workOrderMapper.selectById(fixture.workOrderId()).getCode(), fixture.productId());
+        assertTrue(batchExecutionMapper.selectListByWorkOrderIdAndBatchCode(fixture.workOrderId(), "BATCH-PRODUCT-IDENTITY").isEmpty());
+    }
+
+    private MesProEdhrProductionReleaseBatchCommand productIdentityCommand(Fixture fixture) {
+        return new MesProEdhrProductionReleaseBatchCommand()
+                .setApplicationId(912013L).setWorkOrderId(fixture.workOrderId())
+                .setBatchCode("BATCH-PRODUCT-IDENTITY").setRouteId(fixture.routeId())
+                .setRouteVersionId(fixture.routeVersionId()).setActiveContextKey("PQC_RELEASE:PRODUCT-IDENTITY")
+                .setActiveOrderId(8289L).setCompletionBackfillReceiptId("289").setCompletionBackfillReceiptHash("receipt-289")
+                .setEntryType("ACTIVE_ORDER_PQC").setEntryBusinessId("912013");
+    }
+
+    @Test
     void openOrCreateFromProductionRelease_usesFrozenRouteSnapshotIdentityAfterRouteRenameBeforeBatchCreation() {
         Fixture fixture = insertRouteFixture(true, true);
         MesProRouteDO routeAtOrderFreeze = routeMapper.selectById(fixture.routeId());

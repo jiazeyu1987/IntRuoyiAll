@@ -22,7 +22,7 @@ class WorkbenchModuleSqlContractTest {
  @Test void allFiveCountsRejectBinaryDuplicateBaseBeforeFiltersAndChunksShareFixedOrder(){
   var count=List.of(DCC+"countDistribution",DCC+"countTraining",MES+"countEdhr",SHOW+"countAssignment");
   var chunk=List.of(DCC+"chunkDistribution",DCC+"chunkTraining",MES+"chunkEdhr",SHOW+"chunkAssignment");
-  for(int i=0;i<5;i++){
+  for(int i=0;i<count.size();i++){
    var q=query();String c=sql(count.get(i),Map.of("q",q));assertTrue(c.contains("COUNT(DISTINCT CAST(CONVERT(u.task_key USING utf8mb4) AS BINARY))"));assertTrue(c.contains("THEN COUNT(*) ELSE NULL END"));assertTrue(c.indexOf("COUNT(DISTINCT")<c.indexOf("system_profile_workbench_task_visibility"));assertFalse(c.contains(" IN (?)"));
    String all=sql(count.get(i),Map.of("q",q.partition(null)));
    assertTrue(all.contains("COUNT(DISTINCT CAST(CONVERT(r.task_key USING utf8mb4) AS BINARY))"));assertTrue(all.contains("THEN COUNT(*) ELSE NULL END"));
@@ -56,7 +56,8 @@ class WorkbenchModuleSqlContractTest {
   for(String statement:List.of("countEdhr","chunkEdhr")) {
    String value=sql(MES+statement,args);
    assertTrue(value.contains("UNION ALL"));assertTrue(value.contains("CONCAT('EDHR_WORK_TASK:handoff:',h.id)"));
-   assertTrue(value.contains("h.task_type IN ('QA_DECISION_HANDOFF','QA_REVIEW')"));assertTrue(value.contains("h.status='TODO' AND h.notification_only=0"));
+   for(String type:List.of("PRODUCTION_HANDOFF","PRODUCTION_REVIEW","PRODUCTION_RETURN","PQC_HANDOFF","PQC_REVIEW","PQC_RETURN","QA_DECISION_HANDOFF","QA_REVIEW"))assertTrue(value.contains("'"+type+"'"),type);
+   assertTrue(value.contains("h.status='TODO' AND h.notification_only=0"));
    assertTrue(value.contains("FIND_IN_SET(?,h.candidate_user_snapshot)>0"));assertTrue(value.contains("ao.active_status='ACTIVE'"));
    assertTrue(value.contains("frozen.status=15"));assertTrue(value.contains("('FILL','REVIEW','APPROVE','REWORK','ARCHIVE','CLOSE')"));
    assertTrue(value.contains("THEN '批次冻结，暂不可处理'"));
@@ -72,6 +73,8 @@ class WorkbenchModuleSqlContractTest {
    assertTrue(statement.contains("UNION ALL"));
    assertTrue(statement.contains("'QA_DECISION_HANDOFF','QA_REVIEW'"));
    assertTrue(statement.contains("mes_pro_edhr_work_task.task_type"));
+   assertTrue(statement.contains("'DEVIATION_RECEIVE','DEVIATION_CORRECT','DEVIATION_SIGN','DEVIATION_APPROVE','DEVIATION_CLOSE'"));
+   assertTrue(statement.contains("TRIM(mes_pro_edhr_work_task.reason)"), "deviation tasks must expose the assigned duty, deviation code and content version");
    String ordinaryWhere=statement.substring(statement.indexOf("WHERE mes_pro_edhr_work_task.tenant_id"),
     statement.indexOf("UNION ALL"));
    assertFalse(java.util.regex.Pattern.compile("(?i)AND\\s+mes_pro_edhr_work_task\\.task_type\\s+IN\\s*\\(").matcher(ordinaryWhere).find(),

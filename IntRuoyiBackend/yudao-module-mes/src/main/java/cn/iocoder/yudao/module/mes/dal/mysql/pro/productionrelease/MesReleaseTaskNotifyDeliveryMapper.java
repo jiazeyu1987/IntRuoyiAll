@@ -18,6 +18,16 @@ public interface MesReleaseTaskNotifyDeliveryMapper extends BaseMapperX<MesRelea
     @Select("SELECT * FROM mes_pro_edhr_release_task_notify_delivery WHERE tenant_id=#{tenantId} AND work_task_id=#{taskId} AND deleted=FALSE ORDER BY id")
     List<MesReleaseTaskNotifyDeliveryDO> selectTaskDeliveries(@Param("tenantId") Long tenantId, @Param("taskId") Long taskId);
 
+    @Select("""
+            SELECT * FROM mes_pro_edhr_release_task_notify_delivery
+            WHERE tenant_id=#{tenantId} AND user_id=#{userId} AND deleted=FALSE
+              AND status IN ('PENDING','FAILED')
+              AND event_type IN ('PQC_APPROVED','PQC_REJECTED','MARKET_APPROVED','MARKET_REJECTED','MARKET_WITHDRAWN')
+            ORDER BY id DESC
+            """)
+    List<MesReleaseTaskNotifyDeliveryDO> selectOwnPendingOutcomes(@Param("tenantId") Long tenantId,
+                                                               @Param("userId") Long userId);
+
     @Update("""
             UPDATE mes_pro_edhr_release_task_notify_delivery
                SET attempt_count=attempt_count+1, row_version=row_version+1, last_attempt_at=#{at},

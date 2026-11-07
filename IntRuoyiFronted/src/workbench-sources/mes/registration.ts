@@ -11,12 +11,12 @@ const registration: ModuleRegistration = {
         label: 'eDHR工作任务', taskType: '批记录', policyId: 'mes.edhr.policy', actionKind: 'mes.edhr.open', payloadVersion: 1 },
       open: async (router, payload, isCurrent) => {
         if (payload.blockedReason) throw new Error(payload.blockedReason)
-        if (payload.taskType === 'QA_DECISION_HANDOFF' || payload.taskType === 'QA_REVIEW') {
+        if (['PRODUCTION_HANDOFF', 'PRODUCTION_REVIEW', 'PRODUCTION_RETURN', 'PQC_HANDOFF', 'PQC_REVIEW', 'PQC_RETURN', 'QA_DECISION_HANDOFF', 'QA_REVIEW'].includes(payload.taskType)) {
           const id = payload.id?.match(/^handoff:([1-9][0-9]*)$/)?.[1]
           requireIdentity(id, '交接任务编号')
           const target = resolveActiveOrderHandoffTarget({ handoffTaskId: id, handoffType: payload.taskType,
             activeOrderId: payload.businessScopeId, actionUrl: payload.actionUrl })
-          if (!target) throw new Error('QA任务缺少正式交接入口。')
+          if (!target) throw new Error('任务缺少正式交接入口。')
           if (isCurrent && !isCurrent()) throw new Error('工作台导航上下文已变化。')
           return navigateToActiveOrderHandoff(router, target, isCurrent)
         }

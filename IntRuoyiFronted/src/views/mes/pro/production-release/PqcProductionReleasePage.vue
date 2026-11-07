@@ -735,7 +735,7 @@ const freezeReleaseRequest = (row: MesPqcProductionReleasePageItemRespVO) => {
 
 type FrozenPqcReleaseRequest = ReturnType<typeof freezeReleaseRequest> & { payloadHash: string }
 
-const managementRoleRejection = (error: unknown, request: FrozenPqcReleaseRequest): string | undefined => {
+const confirmedReleaseRejection = (error: unknown, request: FrozenPqcReleaseRequest): string | undefined => {
   const failure = (error as any)?.details
   const receipt = failure?.rejectedDecision
   const blockers = failure?.blockers
@@ -743,9 +743,11 @@ const managementRoleRejection = (error: unknown, request: FrozenPqcReleaseReques
     receipt.workTaskId !== request.pqcReleaseWorkTaskId || receipt.actorId !== request.actorId ||
     receipt.expectedVersion !== request.expectedVersion || receipt.idempotencyKey !== request.idempotencyKey ||
     receipt.payloadHash !== request.payloadHash || !Array.isArray(blockers) || blockers.length !== 1 ||
-    blockers[0]?.blockerType !== 'MANAGEMENT_REPRESENTATIVE_ROLE_REQUIRED' ||
+    typeof blockers[0]?.blockerType !== 'string' || !blockers[0].blockerType.trim() ||
     typeof blockers[0]?.reason !== 'string' || !blockers[0].reason.trim()) return
-  return blockers[0].reason
+  return blockers[0].blockerType === 'MANAGEMENT_REPRESENTATIVE_ROLE_REQUIRED'
+    ? `${blockers[0].reason}。请为管理者代表角色分配启用账号后重新放行。`
+    : `${blockers[0].reason}。本次放行已回滚，请更正后重新签名提交。`
 }
 
 const assertReleasedReceipt = (result: MesPqcProductionReleaseDecisionRespVO, request: FrozenPqcReleaseRequest) => {
@@ -867,15 +869,15 @@ const submitRelease = async () => {
     }, { ignoreErrorMessage: true, isRequestContextCurrent: isCurrent , isSuccessReceiptContextCurrent: (() => { const receiptSessionKey = approvalInvalidation.syncSession().key; return () => approvalInvalidation.isCurrent(receiptSessionKey) })()})
     confirmReleasedReceipt(result, request)
   } catch (error) {
-    const roleRejection = managementRoleRejection(error, request)
-    if (roleRejection) {
+    const rejection = confirmedReleaseRejection(error, request)
+    if (rejection) {
       releaseRequestStates.delete(request.scopeKey)
       releaseIdempotencyKeys.delete(request.scopeKey)
       releaseRequestOwner.pqcReleaseRequests!.requests.delete(request.scopeKey)
       if (!isCurrent()) return
       releaseForm.signaturePassword = ''
       releaseOutcomeUncertain.value = false
-      releaseError.value = `${roleRejection}。请为管理者代表角色分配启用账号后重新放行。`
+      releaseError.value = rejection
       releaseSubmitting.value = false
       return
     } else if (isReleaseTransportTimeout(error)) {

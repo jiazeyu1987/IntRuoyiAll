@@ -78,6 +78,7 @@ import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrWork
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrWorkTaskErrorCodeConstants.PRO_EDHR_WORK_TASK_ACTIVE_NOT_UNIQUE;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrWorkTaskErrorCodeConstants.PRO_EDHR_WORK_TASK_ASSIGNMENT_RULE_MISSING;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrWorkTaskErrorCodeConstants.PRO_EDHR_WORK_TASK_ASSIGNEE_INVALID;
+import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrWorkTaskErrorCodeConstants.PRO_EDHR_DEVIATION_TASK_ASSIGNEE_PERMISSION_MISSING;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrWorkTaskErrorCodeConstants.PRO_EDHR_WORK_TASK_ASSIGNEE_MISMATCH;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrWorkTaskErrorCodeConstants.PRO_EDHR_WORK_TASK_CANDIDATE_POOL_EMPTY;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrWorkTaskErrorCodeConstants.PRO_EDHR_WORK_TASK_CANDIDATE_SOURCE_INVALID;
@@ -887,10 +888,19 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
         }
         if (assigneeUserId != null) {
             validateAssignee(assigneeUserId);
-            if (!permissionApi.hasAnyPermissions(assigneeUserId, "mes:pro-edhr-deviation:query")
-                    || !permissionApi.hasAnyPermissions(assigneeUserId, "mes:pro-edhr-deviation:handle")
-                    || !permissionApi.hasAnyPermissions(assigneeUserId, "mes:pro-edhr-work-task:query")) {
-                throw exception(PRO_EDHR_WORK_TASK_ASSIGNEE_INVALID);
+            List<String> missingPermissions = new ArrayList<>();
+            if (!permissionApi.hasAnyPermissions(assigneeUserId, "mes:pro-edhr-deviation:query")) {
+                missingPermissions.add("偏差查询");
+            }
+            if (!permissionApi.hasAnyPermissions(assigneeUserId, "mes:pro-edhr-deviation:handle")) {
+                missingPermissions.add("偏差处理");
+            }
+            if (!permissionApi.hasAnyPermissions(assigneeUserId, "mes:pro-edhr-work-task:query")) {
+                missingPermissions.add("工作任务查询");
+            }
+            if (!missingPermissions.isEmpty()) {
+                throw exception(PRO_EDHR_DEVIATION_TASK_ASSIGNEE_PERMISSION_MISSING,
+                        String.join("、", missingPermissions));
             }
         }
         String scopeType = "EDHR_DEVIATION";

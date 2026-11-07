@@ -1,5 +1,7 @@
 {
   "changes": [
+    {"source":"IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/productionrelease/MesReleaseTaskNotificationController.java","kind":"permission","value":"mes:pro-edhr-work-task:query","reason":"个人站内信仅发现当前租户本人未送达的放行结果通知，补发复用既有通知回执及权限校验；原任务结束后仍以冻结收件人身份恢复，不新增菜单、路由、权限标识、角色或套餐授权。"},
+    {"source":"IntRuoyiFronted/src/views/mes/pro/production-release/components/ReleaseOutcomeRecovery.vue","kind":"permission","value":"mes:pro-edhr-work-task:query","reason":"个人站内信内部恢复组件复用既有放行工作任务查询权限和补发组件，不新增页面路由、菜单、权限标识、角色或租户套餐授权。"},
     {"source":"IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/testdata/MesLocalTestRunDataController.java","kind":"permission","value":"mes:pro-work-order:create","reason":"生产工单菜单内的本轮本地虚拟输入候选、预检和准备接口复用现有工单创建权限，并组合校验项目查询权限、测试模式与当前租户；不新增菜单、路由、权限标识、角色或租户套餐授权。"},
     {"source":"IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/testdata/MesLocalTestRunDataController.java","kind":"permission","value":"dcc:project-code:query","reason":"本轮虚拟输入只选择已完成正式项目产品申请，复用既有项目查询权限并限定当前用户项目可读范围，与既有工单创建权限组合校验；不新增菜单、路由、权限标识、角色或租户套餐授权。"},
     {"source":"IntRuoyiFronted/src/views/mes/pro/workorder/index.vue","kind":"permission","value":"mes:pro-work-order:create","reason":"生产工单既有菜单内新增本轮本地虚拟输入准备弹窗，复用现有生产工单创建权限并受测试模式限制；不新增菜单、路由、权限、角色或租户套餐授权。后端另校验正式申请读取权限及项目范围。"},
@@ -1961,6 +1963,13 @@
     {"source": "IntRuoyiFronted/src/views/form-center/parser/simplePqcWord.ts", "kind": "permission", "value": "urn:intruoyi:simple-pqc:1", "reason": "该字符串是 Word 自定义 XML 数据命名空间，不是权限标识；不新增菜单、角色或租户套餐授权，保留格式标识以支持原文件导入。"},
     {"source": "IntRuoyiFronted/src/views/form-center/parser/simpleWord.ts", "kind": "permission", "value": "urn:intruoyi:simple-parser:word:v1", "reason": "该字符串是 Word 自定义 XML 快照命名空间，不是权限标识；不新增菜单、角色或租户套餐授权，保留格式标识以支持原文件导入。"},
     {"source": "IntRuoyiFronted/src/views/system/role/EdhrPermissionTransfer.vue", "kind": "permission", "value": "system:role:update", "reason": "账号角色 Excel 迁移对已有角色的更新复用既有角色修改权限，与创建权限共同控制入口；不新增菜单、权限标识、角色或租户套餐授权。"},
-    {"source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/qc/sampling/MesQcSamplingController.java", "kind": "permission", "value": "form:parser:query", "reason": "规程解析试运行读取相同抽样矩阵，复用现有表单解析查询权限；无新增菜单或权限标识。"}
+    {"source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/qc/sampling/MesQcSamplingController.java", "kind": "permission", "value": "form:parser:query", "reason": "规程解析试运行读取相同抽样矩阵，复用现有表单解析查询权限；无新增菜单或权限标识。"},
+    {"source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesEdhrWorkbenchSource.java", "kind": "permission", "value": "mes:pro-feedback:query", "reason": "个人工作台复用既有一线生产/PQC查询、组长查询权限，接入本人正式交接待办和岗位操作入口；原页面继续校验责任人、权限和状态。不新增菜单、页面路由、权限标识、角色或租户套餐授权。"},
+    {"source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/workbench/MesProjectionExport.java", "kind": "permission", "value": "mes:pro-feedback:query", "reason": "个人工作台复用既有一线生产/PQC查询、组长查询权限，接入本人正式交接待办和岗位操作入口；原页面继续校验责任人、权限和状态。不新增菜单、页面路由、权限标识、角色或租户套餐授权。"},
+    {"source": "IntRuoyiFronted/src/views/Profile/components/ProfileWorkbench.vue", "kind": "permission", "value": "mes:pro-feedback:query", "reason": "个人工作台复用既有一线生产/PQC查询、组长查询权限，接入本人正式交接待办和岗位操作入口；原页面继续校验责任人、权限和状态。不新增菜单、页面路由、权限标识、角色或租户套餐授权。"},
+    {"source": "IntRuoyiFronted/src/views/Profile/components/ProfileWorkbench.vue", "kind": "permission", "value": "mes:pro-process-pool-pqc-leader:query", "reason": "个人工作台复用既有一线生产/PQC查询、组长查询权限，接入本人正式交接待办和岗位操作入口；原页面继续校验责任人、权限和状态。不新增菜单、页面路由、权限标识、角色或租户套餐授权。"},
+    {"source": "IntRuoyiFronted/src/views/Profile/components/ProfileWorkbench.vue", "kind": "permission", "value": "mes:pro-process-pool-team-leader:query", "reason": "个人工作台复用既有一线生产/PQC查询、组长查询权限，接入本人正式交接待办和岗位操作入口；原页面继续校验责任人、权限和状态。不新增菜单、页面路由、权限标识、角色或租户套餐授权。"},
+    {"source": "IntRuoyiFronted/src/views/Profile/components/ProfileWorkbench.vue", "kind": "permission", "value": "mes:pro-edhr-deviation:query", "reason": "个人工作台增加偏差发起入口，复用现有偏差查询和创建权限，跳转既有偏差页面；不新增菜单、权限标识或套餐授权，正式接口继续校验租户、批次、权限和电子签名。"},
+    {"source": "IntRuoyiFronted/src/views/Profile/components/ProfileWorkbench.vue", "kind": "permission", "value": "mes:pro-edhr-deviation:create", "reason": "个人工作台增加偏差发起入口，复用现有偏差查询和创建权限，跳转既有偏差页面；不新增菜单、权限标识或套餐授权，正式接口继续校验租户、批次、权限和电子签名。"}
   ]
 }

@@ -42,7 +42,7 @@ public class MesQaInspectionRegulationWordParser {
     private static final Pattern DATE_PATTERN = Pattern.compile(
             "(20\\d{2})\\s*[./年-]\\s*(\\d{1,2})\\s*[./月-]\\s*(\\d{1,2})\\s*日?");
     private static final Pattern FIRST_QUANTITY_PATTERN = Pattern.compile(
-            "(?:首件|首检)\\s*[：:]?\\s*(\\d+)\\s*件");
+            "(?:首件|首检)\\s*(?:数量\\s*)?[：:]?\\s*(?:为\\s*)?(\\d+)\\s*件");
     private static final Pattern AQL_PATTERN = Pattern.compile(
             "(?i)AQL\\s*[=＝:：]\\s*([+-]?\\d+(?:\\.\\d+)?)");
     private static final Pattern INSPECTION_LEVEL_PATTERN = Pattern.compile(
@@ -329,6 +329,14 @@ public class MesQaInspectionRegulationWordParser {
         }
 
         InspectionTable inspectionTable = matches.get(0);
+        Set<Integer> globalFirstQuantities = collectIntegers(FIRST_QUANTITY_PATTERN, readRuleSource(document));
+        if (globalFirstQuantities.size() > 1) {
+            throw invalid("规程备注中的首检数量不唯一：" + globalFirstQuantities);
+        }
+        Integer globalFirstQuantity = globalFirstQuantities.stream().findFirst().orElse(null);
+        if (globalFirstQuantity != null && globalFirstQuantity <= 0) {
+            throw invalid("规程备注中的首检数量必须大于 0");
+        }
         List<ParsedItem> items = new ArrayList<>();
         for (int rowIndex = inspectionTable.headerRowIndex() + 1;
              rowIndex < inspectionTable.grid().size(); rowIndex++) {
@@ -366,7 +374,7 @@ public class MesQaInspectionRegulationWordParser {
                     || inspectionMethod.isEmpty() || inspectionTool.isEmpty() || samplingPlanText.isEmpty()) {
                 throw invalid("检验内容表第 " + (rowIndex + 1) + " 行字段不完整");
             }
-            SamplingRule samplingRule = parseSamplingRule(samplingPlanText, rowIdentity);
+            SamplingRule samplingRule = parseSamplingRule(samplingPlanText, rowIdentity, globalFirstQuantity);
             for (String resolvedProcessName : processNames) {
                 items.add(new ParsedItem(resolvedProcessName, itemName, standardText, inspectionMethod,
                         inspectionTool, samplingPlanText, samplingRule.firstInspectionQuantity(),
@@ -497,12 +505,12 @@ public class MesQaInspectionRegulationWordParser {
         return value.isEmpty() ? inherited : value;
     }
 
-    private static SamplingRule parseSamplingRule(String samplingPlanText, String serial) {
+    private static SamplingRule parseSamplingRule(String samplingPlanText, String serial, Integer globalFirstQuantity) {
         Set<Integer> firstQuantities = collectIntegers(FIRST_QUANTITY_PATTERN, samplingPlanText);
         if (firstQuantities.size() > 1) {
             throw invalid("检验项目序号 " + serial + " 的首检数量不唯一：" + firstQuantities);
         }
-        Integer firstQuantity = firstQuantities.stream().findFirst().orElse(null);
+        Integer firstQuantity = firstQuantities.stream().findFirst().orElse(globalFirstQuantity);
         if (firstQuantity != null && firstQuantity <= 0) {
             throw invalid("检验项目序号 " + serial + " 的首检数量必须大于 0");
         }

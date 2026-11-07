@@ -10,7 +10,7 @@ const root = path.resolve(__dirname, '../..')
 const filename = path.join(root, 'src/views/mes/pro/processpool/TeamLeaderWorkbenchPage.vue')
 const descriptor = parse(fs.readFileSync(filename, 'utf8')).descriptor
 const ast = ts.createSourceFile('leader.ts', descriptor.scriptSetup.content, ts.ScriptTarget.Latest, true)
-const names = new Set(['parseProductionEventQuery', 'requireProductionHandoffDetail', 'handoffNavigationEpoch', 'navigateToLeaderHandoff',
+const names = new Set(['parseProductionEventQuery', 'requireProductionHandoffDetail', 'leaderHandoffRoutePath', 'handoffNavigationEpoch', 'navigateToLeaderHandoff',
   'canReviewSubmission', 'canCorrectSubmission', 'canAllocateSubmission', 'canRejectProductionSubmission'])
 const statements = ast.statements.filter(statement => ts.isVariableStatement(statement)
   && statement.declarationList.declarations.some(declaration => names.has(declaration.name.getText(ast))))
@@ -55,7 +55,7 @@ function production(options = {}) {
 }
 const query = value => Object.fromEntries(new URL(value.actionUrl, 'http://localhost:8081').searchParams)
 function harness(leader = 'PRODUCTION', original = task(leader), selected = production()) {
-  const route = vue.reactive({ query: query(original) })
+  const route = vue.reactive({ path: `/mes/pro/process-pool/${leader === 'PRODUCTION' ? 'production' : 'pqc'}-leader`, query: query(original) })
   const detail = vue.ref({ id: 999 }), detailVisible = vue.ref(true), errors = [], calls = []
   let context = { task: original, current: true, processable: true }
   let response = selected
@@ -252,4 +252,44 @@ test('正式详情读取失败可见，不自动打开泛用工单或沿用旧�
   const h = harness(); h.setResponse(() => { throw new Error('正式详情读取失败') })
   await h.page.navigateToLeaderHandoff(); rejected(h); assert.equal(h.errors[0], '正式详情读取失败')
   assert.equal(h.calls.filter(call => call[0] === 'orders').length, 0)
+})
+
+test('缓存组长页面不读取或拒绝其他岗位的QA交接', async () => {
+  for (const leader of ['PRODUCTION', 'PQC']) {
+    const h = harness(leader)
+    h.route.path = '/mes/pro/feedback/edhr-nonconformance-review'
+    h.route.query = { activeOrderId: '1009200528', reviewId: '101', handoffTaskId: '2118951579466928128', roundId: '101', handoffType: 'QA_REVIEW' }
+    await h.page.navigateToLeaderHandoff()
+    assert.deepEqual(h.calls, [])
+    assert.deepEqual(h.errors, [])
+    assert.equal(h.detail.value.id, 999)
+    assert.equal(h.detailVisible.value, true)
+  }
+})
+
+test('离开组长页面后迟到的成功或失败均不污染当前页面', async () => {
+  for (const fails of [false, true]) {
+    const h = harness()
+    let resolve, reject
+    h.setContext(() => new Promise((yes, no) => { resolve = yes; reject = no }))
+    const pending = h.page.navigateToLeaderHandoff()
+    h.route.path = '/mes/pro/feedback/edhr-nonconformance-review'
+    if (fails) reject(new Error('迟到的原页面错误'))
+    else resolve({ task: task(), current: true, processable: true })
+    await pending
+    assert.deepEqual(h.errors, [])
+    assert.equal(h.calls.filter(call => call[0] === 'detail').length, 0)
+  }
+})
+
+test('返回组长原入口后仍严格读取并校验本岗位交接', async () => {
+  const h = harness()
+  const ownerPath = h.route.path
+  h.route.path = '/user/profile'
+  await h.page.navigateToLeaderHandoff()
+  h.route.path = ownerPath
+  await h.page.navigateToLeaderHandoff()
+  assert.deepEqual(h.errors, [])
+  assert.equal(h.detail.value.id, 288016)
+  assert.equal(h.calls.filter(call => call[0] === 'context').length, 1)
 })

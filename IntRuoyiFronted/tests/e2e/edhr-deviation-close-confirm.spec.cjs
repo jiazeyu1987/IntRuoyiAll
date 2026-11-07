@@ -8,14 +8,15 @@ const root = path.resolve(__dirname, '../..')
 const source = fs.readFileSync(path.join(root, 'src/views/mes/pro/edhr-deviation/DeviationDetail.vue'), 'utf8')
 const method = source.match(/const closeHandling = (async \(\) => \{[\s\S]*?)\nconst load =/)[1]
 
-function setup({ reject, changed, readonly = false, saved = true } = {}) {
+function setup({ reject, changed, closeError, readonly = false, saved = true } = {}) {
   const calls = []
   const context = {
     props: { id: 42, readonly }, loadSequence: 7, closing: { value: false },
-    canSignSavedHandling: () => saved,
+    canSignSavedHandling: () => saved, handling: { value: { contentVersion: 3, contentHash: 'reviewed-hash' } },
     message: { confirm: async (text, title) => { calls.push(['confirm', text, title]); if (changed) context.props.id = 43; if (reject) throw reject } },
     ElMessageBox: { confirm: async () => { throw new Error('unlayered confirmation blocks the drawer') } },
-    closeDeviationHandling: async id => calls.push(['close', id]),
+    closeDeviationHandling: async (id, version, hash) => { calls.push(['close', id, version, hash]); if (closeError) throw closeError },
+    emit: event => calls.push(['emit', event]),
     load: async () => calls.push(['reload']),
     ElMessage: { success: text => calls.push(['success', text]), error: text => calls.push(['error', text]) }
   }
@@ -27,8 +28,11 @@ function setup({ reject, changed, readonly = false, saved = true } = {}) {
 test('drawer confirmation uses unified overlay before closing and reloads after success', async () => {
   const { close, calls, context } = setup()
   await close()
-  assert.deepEqual(calls.map(x => x[0]), ['confirm', 'close', 'reload', 'success'])
-  assert.equal(calls[1][1], 42)
+  assert.deepEqual(calls.map(x => x[0]), ['confirm', 'close', 'emit', 'reload', 'success'])
+  assert.deepEqual(calls[2], ['emit', 'closed'])
+  const parent = fs.readFileSync(path.join(root, 'src/views/mes/pro/edhr-deviation/index.vue'), 'utf8')
+  assert.match(parent, /<DeviationDetail\b[^>]*@closed="load"/)
+  assert.deepEqual(calls[1], ['close', 42, 3, 'reviewed-hash'])
   assert.equal(context.closing.value, false)
   assert.match(source, /const message = useMessage\(\)/)
 })
@@ -56,6 +60,13 @@ test('unexpected confirmation failure remains observable', async () => {
   const { close, calls } = setup({ reject: problem })
   await assert.rejects(close, error => error === problem)
   assert.deepEqual(calls.map(x => x[0]), ['confirm'])
+})
+
+test('failed close retains the list state and reports the server reason', async () => {
+  const { close, calls } = setup({ closeError: new Error('The deviation still has unsigned nodes') })
+  await close()
+  assert.deepEqual(calls.map(x => x[0]), ['confirm', 'close', 'error'])
+  assert.equal(calls[2][1], 'The deviation still has unsigned nodes')
 })
 
 test('actual shared confirm hook applies the registered overlay class', async () => {

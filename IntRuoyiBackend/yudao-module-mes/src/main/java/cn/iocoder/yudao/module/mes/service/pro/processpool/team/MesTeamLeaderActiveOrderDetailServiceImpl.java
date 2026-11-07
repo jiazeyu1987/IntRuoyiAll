@@ -958,7 +958,8 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
         for (String materialCode : materialCodes) {
             MesMdItemDO item = itemMapper.selectByCode(materialCode);
             if (item == null || item.getId() == null || trimToNull(item.getCode()) == null) {
-                throw exception(PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_REQUIRED, activeOrderId);
+                throw exception(cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_SUPPLEMENT_MATERIAL_REQUIRED,
+                        activeOrderId, materialCode);
             }
             result.put(materialCode, item);
         }
@@ -984,7 +985,7 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
                 throw exception(PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_REQUIRED, activeOrderId);
             }
             String key = item.getProductionReplenishmentListId() + "|" + materialCode;
-            byMaterialAndSource.computeIfAbsent(key, ignored -> new SupplementAccumulator(material, item, header))
+            byMaterialAndSource.computeIfAbsent(key, ignored -> new SupplementAccumulator(material, item))
                     .add(item, header);
         }
         Map<String, List<MesTeamLeaderActiveOrderDetail.SupplementMaterialDetail>> byMaterialCode =
@@ -1492,12 +1493,10 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
         private BigDecimal actualQuantity = BigDecimal.ZERO;
         private BigDecimal baseActualQuantity = BigDecimal.ZERO;
 
-        private SupplementAccumulator(MesMdItemDO material, ErpKingdeeProductionReplenishmentListItemDO firstItem,
-                                      ErpKingdeeProductionReplenishmentListDO firstHeader) {
+        private SupplementAccumulator(MesMdItemDO material, ErpKingdeeProductionReplenishmentListItemDO firstItem) {
             this.material = material;
             this.materialName = trimToNull(firstItem.getMaterialName());
             this.materialSpecification = trimToNull(firstItem.getMaterialSpecification());
-            add(firstItem, firstHeader);
         }
 
         private void add(ErpKingdeeProductionReplenishmentListItemDO item,

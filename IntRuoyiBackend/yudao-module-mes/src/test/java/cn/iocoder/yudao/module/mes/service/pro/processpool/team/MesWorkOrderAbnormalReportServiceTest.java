@@ -4,11 +4,15 @@ import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolWorkOrderAbnormalDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationMapper;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolWorkOrderAbnormalMapper;
 import cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -20,6 +24,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.verifyNoInteractions;
 
 @ExtendWith(MockitoExtension.class)
 class MesWorkOrderAbnormalReportServiceTest {
@@ -30,12 +35,14 @@ class MesWorkOrderAbnormalReportServiceTest {
     private MesProcessPoolActiveOrderMapper activeOrderMapper;
     @Mock
     private MesWorkOrderAbnormalStateService abnormalStateService;
+    @Mock
+    private MesProcessPoolActiveOrderReleaseApplicationMapper applicationMapper;
 
     private MesWorkOrderAbnormalReportService service;
 
     @BeforeEach
     void setUp() {
-        service = new MesWorkOrderAbnormalReportServiceImpl(abnormalMapper, activeOrderMapper, abnormalStateService);
+        service = new MesWorkOrderAbnormalReportServiceImpl(abnormalMapper, activeOrderMapper, abnormalStateService, applicationMapper);
     }
 
     @Test
@@ -99,6 +106,35 @@ class MesWorkOrderAbnormalReportServiceTest {
 
         assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_ACTIVE_ORDER_NOT_EXISTS.getCode(), ex.getCode());
         assertEquals("班组活跃订单不存在：7001", ex.getMessage());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"NONCONFORMANCE_VOID", "NONCONFORMANCE_REWORK"})
+    void shouldRejectQaClosedOriginalCycleBeforeAnyAbnormalWrite(String status) {
+        when(activeOrderMapper.selectByIdForUpdate(7001L)).thenReturn(
+                MesProcessPoolActiveOrderDO.builder().id(7001L).leaderUserId(3001L).workOrderId(5001L)
+                        .activeStatus("ACTIVE").build());
+        when(applicationMapper.selectLatestByActiveOrderId(7001L)).thenReturn(
+                MesProcessPoolActiveOrderReleaseApplicationDO.builder().id(9001L).activeOrderId(7001L)
+                        .applicationStatus(status).build());
+
+        ServiceException ex = assertThrows(ServiceException.class, () -> service.markAndReport(
+                MesWorkOrderAbnormalReportReqBO.builder().activeOrderId(7001L).markerUserId(3001L)
+                        .abnormalDescription("不得向QA已关闭原周期写入").build()));
+
+        assertEquals(409, ex.getCode());
+        verifyNoInteractions(abnormalMapper, abnormalStateService);
+    }
+
+    @Test
+    void shouldAllowNewReworkCycleWithNoOwnReleaseApplication() {
+        whenInsertId(8102L);
+        when(activeOrderMapper.selectByIdForUpdate(7002L)).thenReturn(
+                MesProcessPoolActiveOrderDO.builder().id(7002L).leaderUserId(3001L).workOrderId(5001L)
+                        .activeStatus("ACTIVE").build());
+        assertEquals(8102L, service.markAndReport(MesWorkOrderAbnormalReportReqBO.builder()
+                .activeOrderId(7002L).markerUserId(3001L).abnormalDescription("新返工周期实际异常").build()));
+        verify(applicationMapper).selectLatestByActiveOrderId(7002L);
     }
 
     private void whenInsertId(Long id) {

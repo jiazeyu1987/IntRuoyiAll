@@ -42,6 +42,7 @@ class MesActiveOrderHandoffDeliveryReliabilityTest {
  var platformTarget=new MesReleaseTaskNotificationPlatformSender();ReflectionTestUtils.setField(platformTarget,"notifyMessageSendApi",sender);var platformSender=(MesReleaseTaskNotificationPlatformSender)tx(platformTarget);
  var kernel=new MesActiveOrderHandoffDeliveryTransactionService();ReflectionTestUtils.setField(kernel,"mapper",mapper);ReflectionTestUtils.setField(kernel,"audit",audit);attempts=(MesActiveOrderHandoffDeliveryTransactionService)tx(kernel);
  var target=new MesActiveOrderHandoffDeliveryService();ReflectionTestUtils.setField(target,"mapper",mapper);ReflectionTestUtils.setField(target,"tasks",tasks);ReflectionTestUtils.setField(target,"transactions",attempts);ReflectionTestUtils.setField(target,"platformSender",platformSender);ReflectionTestUtils.setField(target,"audit",audit);service=(MesActiveOrderHandoffDeliveryService)tx(target);
+ ReflectionTestUtils.setField(target,"notificationExecutor",(org.springframework.core.task.TaskExecutor)Runnable::run);
  TenantContextHolder.setTenantId(1L);task=MesActiveOrderHandoffContractTest.review();when(tasks.selectById(task.getId())).thenAnswer(i->task);
  }
  Object tx(Object target){var p=new ProxyFactory(target);p.setProxyTargetClass(true);p.addAdvice(new TransactionInterceptor(manager,new AnnotationTransactionAttributeSource()));return p.getProxy();}
@@ -67,5 +68,36 @@ class MesActiveOrderHandoffDeliveryReliabilityTest {
   var failed=row();task.setTaskType("PQC_HANDOFF");clearInvocations(sender);
   assertThrows(RuntimeException.class,()->service.retry(failed.getId(),failed.getRowVersion(),343L,"重试旧通知"));
   assertEquals(failed.getAttemptCount(),row().getAttemptCount());verifyNoInteractions(sender);
+ }
+ @Test void committedIntentReturnsBeforeQueuedDeliveryAndRestoresTenantAndActor() {
+  var queued=new ArrayList<Runnable>();
+  ReflectionTestUtils.setField(service,"notificationExecutor",(org.springframework.core.task.TaskExecutor)queued::add);
+  var origin=org.springframework.security.authentication.UsernamePasswordAuthenticationToken.authenticated("origin",null,List.of());
+  var worker=org.springframework.security.authentication.UsernamePasswordAuthenticationToken.authenticated("worker",null,List.of());
+  org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(origin);
+  try {
+   commit();assertEquals("PENDING",row().getStatus());verifyNoInteractions(sender);assertEquals(1,queued.size());
+   org.springframework.security.core.context.SecurityContextHolder.clearContext();
+   org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(worker);
+   TenantContextHolder.setTenantId(2L);
+   doAnswer(i->{assertEquals(1L,TenantContextHolder.getTenantId());assertSame(origin,org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication());return i.callRealMethod();}).when(sender).sendSingleMessageIdempotentlyToAdmin(any());
+   queued.get(0).run();
+   assertEquals(2L,TenantContextHolder.getTenantId());assertSame(worker,org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication());
+   TenantContextHolder.setTenantId(1L);assertEquals("SENT",row().getStatus());
+  } finally {org.springframework.security.core.context.SecurityContextHolder.clearContext();}
+ }
+ @Test void enqueueFailureKeepsCommittedPendingIntentForOwnRetry() {
+  ReflectionTestUtils.setField(service,"notificationExecutor",(org.springframework.core.task.TaskExecutor)r->{throw new java.util.concurrent.RejectedExecutionException("queue full");});
+  commit();var pending=row();assertEquals("PENDING",pending.getStatus());assertEquals(0,pending.getAttemptCount());verifyNoInteractions(sender);
+  service.retry(pending.getId(),pending.getRowVersion(),343L,"原收件人补发排队失败的通知");assertEquals("SENT",row().getStatus());
+ }
+ @Test void rolledBackBusinessNeverQueuesDelivery() {
+  var queued=new ArrayList<Runnable>();ReflectionTestUtils.setField(service,"notificationExecutor",(org.springframework.core.task.TaskExecutor)queued::add);
+  assertThrows(IllegalStateException.class,()->new TransactionTemplate(manager).executeWithoutResult(s->{service.schedule(task);throw new IllegalStateException("rollback");}));
+  assertTrue(queued.isEmpty());assertTrue(mapper.forTask(1L,task.getId()).isEmpty());verifyNoInteractions(sender);
+ }
+ @Test void cycleCanceledBeforeWorkerRunsCannotDeliverStaleAction() {
+  var queued=new ArrayList<Runnable>();ReflectionTestUtils.setField(service,"notificationExecutor",(org.springframework.core.task.TaskExecutor)queued::add);
+  commit();task.setStatus("CANCELED");queued.get(0).run();verifyNoInteractions(sender);assertEquals("PENDING",row().getStatus());
  }
 }
