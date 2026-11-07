@@ -133,6 +133,7 @@ public class MesTeamLeaderActiveOrderReleaseApplicationServiceImpl
         var generated = generationService.generateCorrection(leaderUserId, command, rejectedApplicationId);
         var bound = bindBatchExecution(generated, batchExecutionId);
         appendReleaseApplyGxpAudit(command.getActiveOrderId(), bound, null, "applyCorrection", affectedBefore);
+        handoffService.productionLeaderContinued(command.getActiveOrderId(), leaderUserId, bound.getApplicationId());
         return bound;
     }
 

@@ -35,7 +35,6 @@ import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegula
 import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationProcessMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationVersionMapper;
 import cn.iocoder.yudao.module.mes.service.md.item.MesMdItemService;
-import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesBatchRecordSignatureSubjectAdapter;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionSignatureService;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrNonconformanceReviewService;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.MesProcessPoolEventService;
@@ -47,7 +46,6 @@ import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesDeviceSelecti
 import cn.iocoder.yudao.module.mes.service.qa.regulation.MesQaInspectionRegulationService;
 import cn.iocoder.yudao.module.signature.dal.mysql.ElectronicSignatureRecordMapper;
 import cn.iocoder.yudao.module.signature.service.ElectronicSignatureQueryServiceImpl;
-import cn.iocoder.yudao.module.signature.service.ElectronicSignatureServiceImpl;
 import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
 import cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO;
 import cn.iocoder.yudao.module.system.dal.dataobject.user.AdminUserDO;
@@ -80,6 +78,7 @@ class MesFrontlinePqcSignatureContractTest extends BaseDbUnitTest {
     @Resource private MesProProcessPoolMapper persistedPools;
     @Resource private MesProProcessPoolQuantityFragmentMapper persistedFragments;
     @Resource private ElectronicSignatureRecordMapper signatureRecords;
+    @Resource private org.springframework.transaction.PlatformTransactionManager transactionManager;
     private ElectronicSignatureQueryServiceImpl actualQuery;
     private static final long WORK_ORDER_ID = 1001L;
     private static final long ROUTE_ID = 2001L;
@@ -181,7 +180,11 @@ class MesFrontlinePqcSignatureContractTest extends BaseDbUnitTest {
         when(regulationProcessMapper.selectById(QA_PROCESS_ID)).thenReturn(MesQaInspectionRegulationProcessDO.builder()
                 .id(QA_PROCESS_ID).regulationVersionId(REGULATION_VERSION_ID).build());
         when(versionMapper.selectById(REGULATION_VERSION_ID)).thenReturn(MesQaInspectionRegulationVersionDO.builder()
-                .id(REGULATION_VERSION_ID).regulationId(REGULATION_ID).lifecycleStatus("PUBLISHED").build());
+                .id(REGULATION_VERSION_ID).regulationId(REGULATION_ID).lifecycleStatus("PUBLISHED")
+                .snapshotJson(cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(
+                        Map.of("processes", List.of(Map.of("items", List.of(
+                                Map.of("itemCode", "ID-001", "itemName", "外观")))))))
+                .build());
         when(regulationMapper.selectById(REGULATION_ID)).thenReturn(MesQaInspectionRegulationDO.builder()
                 .id(REGULATION_ID).dccProjectCodeId(DCC_PROJECT_ID).build());
         when(dccProjectCodeMapper.selectById(DCC_PROJECT_ID)).thenReturn(DccProjectCodeDO.builder()
@@ -203,7 +206,8 @@ class MesFrontlinePqcSignatureContractTest extends BaseDbUnitTest {
         var login = new LoginUser().setId(loginUserId).setTenantId(1L).setUserType(2);
         SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(login, null, List.of()));
         try {
-            var resp = controller.submitPqcInspection(req).getData();
+            var resp = new org.springframework.transaction.support.TransactionTemplate(transactionManager)
+                    .execute(status -> controller.submitPqcInspection(req).getData());
             var event = persistedEvents.selectById(resp.getPqcEventId());
             assertEquals(loginUserId, event.getDeviceAccountId());
             assertNull(event.getDeviceId());
@@ -218,12 +222,12 @@ class MesFrontlinePqcSignatureContractTest extends BaseDbUnitTest {
             assertEquals("VALID", actualQuery.verifyEvidence(record.getId()).verificationStatus());
             var detailService = mock(cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchActiveOrderDetailService.class);
             var reader = new MesActiveOrderSignatureEvidenceService(null, null, detailService, actualQuery, persistedEvents, null, null, null, null, null, null, null, null, null);
-            var detail = new MesTeamLeaderActiveOrderDetail().setActiveOrderId(ACTIVE_ORDER_ID).setProcesses(List.of(
-                    new MesTeamLeaderActiveOrderDetail.ProcessDetail().setPqcSubmissions(List.of(
-                            new MesTeamLeaderActiveOrderDetail.PqcSubmissionDetail().setPqcTaskIds(List.of(pqcTaskId))
-                                    .setSubmittedEventIds(List.of(event.getId())).setSubmitterSignatures(List.of(
-                                            new MesTeamLeaderActiveOrderDetail.SignatureDetail().setSignatureId(record.getId()).setSignerName("PQC")))))));
-            when(detailService.getDetail(800L)).thenReturn(detail);
+            var detail = new MesTeamLeaderActiveOrderDetail().setActiveOrderId(ACTIVE_ORDER_ID)
+                    .setPqcSubmissions(List.of(new MesTeamLeaderActiveOrderDetail.PqcSubmissionDetail()
+                            .setPqcTaskIds(List.of(pqcTaskId)).setSubmittedEventIds(List.of(event.getId()))
+                            .setSubmitterSignatures(List.of(new MesTeamLeaderActiveOrderDetail.SignatureDetail()
+                                    .setSignatureId(record.getId()).setSignerName("PQC")))));
+            when(detailService.getSignatureDetail(800L, record.getId())).thenReturn(detail);
             assertEquals("VALID", reader.getBatch(800L, null, record.getId()).verification().verificationStatus());
             persistedEvents.updateById(new MesProProcessPoolEventDO().setId(event.getId()).setDeviceAccountId(3999L));
             var mismatch = assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,
@@ -247,15 +251,18 @@ class MesFrontlinePqcSignatureContractTest extends BaseDbUnitTest {
     }
 
     private MesProBatchRecordExecutionSignatureService actualSignatureService() {
-        var adapter = new MesBatchRecordSignatureSubjectAdapter();
-        var writer = new ElectronicSignatureServiceImpl();
-        actualQuery = new ElectronicSignatureQueryServiceImpl();
-        for (Object target : List.of(writer, actualQuery)) {
-            ReflectionTestUtils.setField(target, "signatureRecordMapper", signatureRecords);
-            ReflectionTestUtils.setField(target, "adminUserApi", adminUserApi);
-            ReflectionTestUtils.setField(target, "subjectAdapters", List.of(adapter));
-        }
-        ReflectionTestUtils.setField(writer, "gxpAuditService", gxpAuditService);
+        var fixture = new MesSignaturePersistenceFixture(signatureRecords, adminUserApi, transactionManager);
+        var writer = fixture.writer;
+        actualQuery = fixture.query;
+        var auditUsers = mock(cn.iocoder.yudao.module.system.dal.mysql.user.AdminUserMapper.class);
+        when(auditUsers.selectGxpAuditActor(eq(1L), anyLong())).thenAnswer(inv -> {
+            var actor = new AdminUserDO().setId(inv.getArgument(1))
+                    .setUsername("user-" + inv.getArgument(1)).setNickname("员工" + inv.getArgument(1)).setStatus(0);
+            actor.setTenantId(1L);
+            return actor;
+        });
+        ReflectionTestUtils.setField(ReflectionTestUtils.getField(writer, "gxpAuditService"),
+                "adminUserMapper", auditUsers);
         var directory = mock(AdminUserService.class);
         when(directory.getUser(anyLong())).thenAnswer(inv -> new AdminUserDO().setId(inv.getArgument(0))
                 .setUsername("user-"+inv.getArgument(0)).setNickname("员工"+inv.getArgument(0)).setStatus(0));
@@ -274,6 +281,7 @@ class MesFrontlinePqcSignatureContractTest extends BaseDbUnitTest {
                 .routeVersionId(ROUTE_VERSION_ID).activeStatus("ACTIVE").businessStatus("ACTIVE")
                 .dccProjectCodeId(DCC_PROJECT_ID).qaRegulationId(REGULATION_ID)
                 .qaRegulationVersionId(REGULATION_VERSION_ID)
+                .pqcQaSourceVersionIdsJson("[" + REGULATION_VERSION_ID + "]")
                 .joinedAt(joinedAt).build();
     }
 
@@ -290,7 +298,8 @@ class MesFrontlinePqcSignatureContractTest extends BaseDbUnitTest {
                 .routeProcessId(30001L)
                 .processId(40001L)
                 .qaProcessId(QA_PROCESS_ID)
-                .qaItemCode("ID-001")
+                .qaItemCode("")
+                .inspectionItemPlanJson("{\"ID-001\":1}")
                 .regulationVersionId(REGULATION_VERSION_ID)
                 .inspectionType(inspectionType)
                 .inspectionRuleKey(inspectionRuleKey)
@@ -315,6 +324,7 @@ class MesFrontlinePqcSignatureContractTest extends BaseDbUnitTest {
                 .inspectionTool("目测")
                 .standardText("应合格")
                 .samplingPlanText("全检")
+                .equipmentRequired(false)
                 .resultType("BOOLEAN")
                 .firstInspectionQuantity(1)
                 .build();

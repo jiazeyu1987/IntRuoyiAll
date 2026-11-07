@@ -26,6 +26,7 @@ public interface MesPqcItemEquipmentConfigService {
     Map<String, List<MesPqcItemEquipmentOption>> listEnabledEquipmentOptionsByProjectAndItemCodes(
             Long dccProjectCodeId, Collection<String> itemCodes);
 
+    /** 产品规程校验项目归属；无项目的通用规程必须提供其准确版本，项目参数为 null。 */
     Map<String, List<MesPqcItemEquipmentOption>> listEnabledEquipmentOptionsByProjectVersionAndItemCodes(
             Long dccProjectCodeId, Long regulationVersionId, Collection<String> itemCodes);
 }

@@ -181,7 +181,7 @@ test('formal QA and common read-save mappings retain reasons and selected bindin
   assert.equal(common.equipmentUnboundReason, undefined)
 })
 
-test('PQC preflight reports missing MDM binding, retains selected metadata and refreshes stale project data', async () => {
+test('PQC preflight uses the DCC project without requiring MDM binding and refreshes project data', async () => {
   const { computed, ref: reactiveRef } = require('vue')
   let current = { id: 255, projectName: '测试项目', productMasterId: null }
   const context = {
@@ -194,18 +194,21 @@ test('PQC preflight reports missing MDM binding, retains selected metadata and r
   }
   const actions = functionsFrom('src/views/form-center/simple-pqc-parser/index.vue',
     ['projectIssue', 'searchProjects', 'loadResources'], context)
-  assert.match(actions.projectIssue.value.message, /尚未绑定MDM产品/)
-  assert.equal(actions.projectIssue.value.target, 'project')
+  assert.equal(actions.projectIssue.value, undefined, 'QA belongs to the DCC project even without an MDM product')
   await actions.searchProjects('其他候选')
   assert.equal(context.projects.value[0].id, 255)
-  assert.match(actions.projectIssue.value.message, /尚未绑定MDM产品/)
+  assert.equal(actions.projectIssue.value, undefined)
   current = { ...current, productMasterId: 9 }
   await actions.loadResources()
-  assert.equal(actions.projectIssue.value, undefined, 'fresh server project data replaces stale null metadata')
+  assert.equal(actions.projectIssue.value, undefined)
   context.projects.value = [{ ...current, productMasterId: undefined }]
+  assert.equal(actions.projectIssue.value, undefined, 'MDM metadata is not a prerequisite for QA')
+  context.projects.value = []
   assert.match(actions.projectIssue.value.message, /信息未载入/)
-  assert.doesNotMatch(actions.projectIssue.value.message, /尚未绑定/)
+  assert.equal(actions.projectIssue.value.target, 'project')
   current = { ...current, productMasterId: null }
   await actions.loadResources()
-  assert.match(actions.projectIssue.value.message, /尚未绑定MDM产品/, 'fresh unbinding cannot reuse a cached product ID')
+  assert.equal(actions.projectIssue.value, undefined)
+  current = { ...current, id: 256 }
+  await assert.rejects(actions.loadResources(), /详情返回不一致/)
 })

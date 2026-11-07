@@ -174,6 +174,7 @@ class MesFrontlinePqcContextServiceTest {
     private GxpAuditService gxpAuditService;
     private MesFrontlinePqcContextService service;
     private boolean actualPersonnelScopes;
+    private boolean commonSubmission;
     private boolean selfSubmission;
     private boolean explicitUnboundEquipment;
     private boolean currentEquipmentConfigured;
@@ -305,6 +306,51 @@ class MesFrontlinePqcContextServiceTest {
     }
 
     @Test
+    void listActiveOrdersUsesFrozenExecutionIdentityWithoutPublishedProductMembership() {
+        prepareActiveOrderList(routeVersion(PRODUCT_ID + 1));
+
+        assertEquals(ACTIVE_ORDER_ID, service.listActiveOrders().get(0).activeOrderId());
+
+        // An eDHR order can use a route published without any scheduling product list.
+        when(routeVersionMapper.selectById(ROUTE_VERSION_ID)).thenReturn(
+                routeVersion().setRouteSnapshotJson("{\"configSnapshots\":{}}"));
+        assertEquals(ROUTE_VERSION_ID, service.listActiveOrders().get(0).routeVersionId());
+    }
+
+    @Test
+    void listActiveOrdersRetainsPublishedVersionAndRouteOwnershipChecks() {
+        for (MesProRouteVersionDO invalid : List.of(
+                routeVersion().setRouteId(ROUTE_ID + 1),
+                routeVersion().setActive(false).setLifecycleStatus("DRAFT"),
+                routeVersion().setActive(false).setLifecycleStatus("ACTIVE"))) {
+            prepareActiveOrderList(invalid);
+            assertThrows(ServiceException.class, service::listActiveOrders);
+        }
+        when(routeVersionMapper.selectById(ROUTE_VERSION_ID)).thenReturn(null);
+        assertThrows(ServiceException.class, service::listActiveOrders);
+    }
+
+    @Test
+    void listActiveOrdersKeepsSupersededFrozenVersionAndBlocksMissingQaSources() {
+        prepareActiveOrderList(routeVersion().setActive(false).setLifecycleStatus("SUPERSEDED"));
+        assertEquals(ROUTE_VERSION_ID, service.listActiveOrders().get(0).routeVersionId());
+
+        MesProcessPoolActiveOrderDO order = activeOrder(ACTIVE_ORDER_ID, WORK_ORDER_ID,
+                LocalDateTime.of(2026, 8, 12, 8, 0)).setPqcQaSourceVersionIdsJson(null);
+        when(activeOrderMapper.selectActiveList()).thenReturn(List.of(order));
+        assertTrue(service.listActiveOrders().get(0).readBlocked());
+    }
+
+    private void prepareActiveOrderList(MesProRouteVersionDO version) {
+        when(activeOrderMapper.selectActiveList()).thenReturn(List.of(activeOrder(
+                ACTIVE_ORDER_ID, WORK_ORDER_ID, LocalDateTime.of(2026, 8, 12, 8, 0))));
+        when(workOrderMapper.selectListByIds(any())).thenReturn(List.of(workOrder(WORK_ORDER_ID)));
+        when(routeMapper.selectListByIdsIgnoreDeleted(any())).thenReturn(List.of(route()));
+        when(routeVersionMapper.selectById(ROUTE_VERSION_ID)).thenReturn(version);
+        when(itemService.getItemMap(Set.of(PRODUCT_ID))).thenReturn(Map.of(PRODUCT_ID, productItem()));
+    }
+
+    @Test
     void lockedQaProjectionRejectsTaskFromUnknownQaProcess() {
         MesProcessPoolActiveOrderDO activeOrder = activeOrder(ACTIVE_ORDER_ID, WORK_ORDER_ID,
                 LocalDateTime.of(2026, 8, 12, 8, 0));
@@ -333,9 +379,9 @@ class MesFrontlinePqcContextServiceTest {
         verify(dccProjectCodeMapper, never()).selectEnabledList();
     }
 
-    @Test
-    void lockedCommonQaProjectionAllowsTheCommonRegulationsOwnDccProject() {
-        long commonDccProjectId = 6002L;
+    @ParameterizedTest
+    @MethodSource("commonProjectIdentities")
+    void lockedCommonQaProjectionAllowsTheCommonRegulationsOwnDccProject(Long commonDccProjectId) {
         long commonRegulationId = 7002L;
         long commonVersionId = 8002L;
         long commonQaProcessId = 9002L;
@@ -378,6 +424,10 @@ class MesFrontlinePqcContextServiceTest {
         verify(regulationService).getLockedCommonVersionForOrder(commonRegulationId, commonVersionId);
         verify(pqcItemEquipmentConfigService).listEnabledEquipmentOptionsByProjectVersionAndItemCodes(
                 eq(commonDccProjectId), eq(commonVersionId), eq(List.of("COMMON-001")));
+    }
+
+    private static Stream<Arguments> commonProjectIdentities() {
+        return Stream.of(Arguments.of(6002L), Arguments.of((Long) null));
     }
 
     @Test
@@ -496,6 +546,14 @@ class MesFrontlinePqcContextServiceTest {
     void directSubmitCannotBypassUnboundEquipmentGuard() {
         explicitUnboundEquipment = true;
         submitPqcInspectionPermitsAdjustedActualQuantityForEveryInspectionType("FIRST", "FIRST", "FIRST", "confirmed");
+    }
+
+    @Test
+    void commonTaskCanSubmitWithLockedCommonVersionAndNoProductProject() {
+        commonSubmission = true;
+        submitPqcInspectionPermitsAdjustedActualQuantityForEveryInspectionType("FIRST", "FIRST", "FIRST", "confirmed");
+        verify(pqcItemEquipmentConfigService).listEnabledEquipmentOptionsByProjectVersionAndItemCodes(
+                org.mockito.ArgumentMatchers.isNull(), eq(REGULATION_VERSION_ID), eq(Set.of("ID-001")));
     }
 
     @Test
@@ -640,7 +698,8 @@ class MesFrontlinePqcContextServiceTest {
                             "ID-001", 1101L, "REAL-001", "检测专用泵筒", "REAL-001", true, 1))));
         }
         when(regulationMapper.selectById(REGULATION_ID)).thenReturn(MesQaInspectionRegulationDO.builder()
-                .id(REGULATION_ID).dccProjectCodeId(DCC_PROJECT_ID).build());
+                .id(REGULATION_ID).dccProjectCodeId(commonSubmission ? null : DCC_PROJECT_ID)
+                .ownerModule(commonSubmission ? MesQaInspectionRegulationDO.OWNER_MODULE_MES_QA_COMMON : "MES_QA").build());
         when(dccProjectCodeMapper.selectById(DCC_PROJECT_ID)).thenReturn(DccProjectCodeDO.builder()
                 .id(DCC_PROJECT_ID).build());
         when(regulationItemMapper.selectListByVersionId(REGULATION_VERSION_ID))
@@ -728,6 +787,10 @@ class MesFrontlinePqcContextServiceTest {
         MesFrontlinePqcSubmitResult result = service.submitPqcInspection(loginUserId, command);
 
         assertEquals(pqcEventId, result.pqcEventId());
+        var lockOrder = org.mockito.Mockito.inOrder(activeOrderMapper, pqcTaskMapper, workOrderMapper);
+        lockOrder.verify(activeOrderMapper).selectByIdForUpdate(ACTIVE_ORDER_ID);
+        lockOrder.verify(pqcTaskMapper).selectByIdForUpdate(pqcTaskId);
+        lockOrder.verify(workOrderMapper).selectByIdForUpdate(WORK_ORDER_ID);
         verify(nonconformanceReviewService).ensurePqcSubmissionNotFrozen(ACTIVE_ORDER_ID, WORK_ORDER_ID,
                 "PQC提交");
         verify(pqcTaskMapper).updateSubmittedIfPending(eq(pqcTaskId), eq(2), anyString(), anyString(), anyString());
@@ -1232,7 +1295,7 @@ class MesFrontlinePqcContextServiceTest {
     }
 
     private static MesQaInspectionRegulationPublishedVersionRespVO lockedQaAggregate(
-            long dccProjectCodeId, long regulationId, long regulationVersionId,
+            Long dccProjectCodeId, long regulationId, long regulationVersionId,
             String lifecycleStatus,
             MesQaInspectionRegulationPublishedVersionRespVO.InspectionProcess... processes) {
         return MesQaInspectionRegulationPublishedVersionRespVO.builder()

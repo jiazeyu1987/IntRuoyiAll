@@ -140,7 +140,7 @@ const formData = ref({
   id: undefined,
   code: undefined,
   name: undefined,
-  warehouseId: undefined as number | undefined,
+  warehouseId: undefined as number | string | undefined,
   area: undefined,
   frozen: false,
   remark: undefined
@@ -169,7 +169,7 @@ const generateCode = async () => {
 }
 
 /** 打开弹窗 */
-const open = async (type: string, id?: number, defaultWarehouseId?: number) => {
+const open = async (type: string, id?: number, defaultWarehouseId?: number | string) => {
   dialogVisible.value = true
   formType.value = type
   resetForm()
@@ -221,7 +221,7 @@ const resetForm = () => {
     id: undefined,
     code: undefined,
     name: undefined,
-    warehouseId: undefined as number | undefined,
+    warehouseId: undefined as number | string | undefined,
     area: undefined,
     frozen: false,
     remark: undefined

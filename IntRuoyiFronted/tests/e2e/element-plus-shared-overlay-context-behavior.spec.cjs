@@ -31,7 +31,10 @@ test('official component resolvers use the same runtime entry and retain styles'
 test('installed Vue/ElementPlus share monotonically increasing dialog and programmatic service layers', () => {
   const { setupElementPlus } = load('src/plugins/elementPlus/index.ts', elementPlus, ['setupElementPlus'])
   const increments = [], counter = {}
-  const component = label => vue.defineComponent({ setup() { const z = elementPlus.useZIndex(); increments.push([label, z.nextZIndex()]); return () => null } })
+  const config = fs.readFileSync(path.join(root, 'src/components/ConfigGlobal/src/ConfigGlobal.vue'), 'utf8')
+  const base = Number(config.match(/:z-index="(\d+)"/)?.[1])
+  assert.equal(base, 4000)
+  const component = label => vue.defineComponent({ setup() { const z = elementPlus.useZIndex(vue.ref(base)); for (let i = 0; i < (label === 'dialog' ? 150 : 1); i++) increments.push([label, z.nextZIndex()]); return () => null } })
   const app = renderer.createApp(vue.defineComponent({ setup: () => () => vue.h('div', Array.from({ length: 14 }, () => vue.h(component('dialog')))) }))
   setupElementPlus(app)
   app.mount(counter)
@@ -40,9 +43,10 @@ test('installed Vue/ElementPlus share monotonically increasing dialog and progra
     const vnode = vue.createVNode(component(name)); vnode.appContext = elementPlus[name]._context
     renderer.render(vnode, {})
   }
-  assert.equal(increments.length, 17)
+  assert.equal(increments.length, 2103)
+  assert(increments[0][1] > 4000)
   for (let i = 1; i < increments.length; i++) assert(increments[i][1] > increments[i - 1][1])
-  assert.equal(app._context.provides[elementPlus.ZINDEX_INJECTION_KEY].current, 17)
+  assert.equal(app._context.provides[elementPlus.ZINDEX_INJECTION_KEY].current, 2103)
   app.unmount()
 })
 test('both build plugin paths use the canonical resolver and optimization has no duplicate runtime entry', () => {

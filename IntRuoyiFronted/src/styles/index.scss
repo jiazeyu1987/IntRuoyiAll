@@ -50,10 +50,7 @@ body .w-e-text-container [data-slate-editor] kbd {
   font-weight: var(--app-fixed-tab-font-weight);
 }
 
-// 确认框可能从业务弹窗中触发，必须高于普通 Dialog，避免按钮被下层表单拦截。
-.app-confirm-message-box-overlay {
-  z-index: 4000 !important;
-}
+// 弹窗层级由 Element Plus 共享计数器递增；不得用固定值覆盖确认框的动态层级。
 
 /* nprogress 适配 element-plus 的主题色 */
 #nprogress {

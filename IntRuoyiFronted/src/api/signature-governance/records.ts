@@ -4,6 +4,7 @@ import { downloadByData } from '@/utils/filt'
 export type SignatureGovernanceRecordSourceCode =
   | 'FILE'
   | 'BATCH_RECORD'
+  | 'MES'
   | 'SHOWROOM'
   | 'BPM'
   | 'MES_FEEDBACK'

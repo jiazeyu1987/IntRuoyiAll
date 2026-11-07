@@ -55,7 +55,36 @@ test('冻结通知拒绝办理状态、伪造通知属性及非法路径和参�
   await assert.rejects(()=>n.navigateToActiveOrderHandoff({push:async()=>pushed++},n.resolveActiveOrderHandoffTarget(params(invalid))),/正式只读/);assert.equal(pushed,0)
  }
 })
-function panel(api, route={query:{}}){const nav=navigation(null), unmount=[];const values=script('src/views/mes/pro/handoff/ActiveOrderHandoffPanel.vue',{defineExpose:()=>{},defineProps:()=>({}),withDefaults:(props,defaults)=>({...defaults,...props}),nextTick:vue.nextTick,ref:vue.ref,computed:vue.computed,watch:()=>{},onMounted:()=>{},onBeforeUnmount:fn=>unmount.push(fn),api,useRouter:()=>({push:async()=>{}}),useRoute:()=>route,resolveActiveOrderHandoffTarget:nav.resolveActiveOrderHandoffTarget,navigateToActiveOrderHandoff:nav.navigateToActiveOrderHandoff,isClosedHandoffCompletion:nav.isClosedHandoffCompletion},['tasks','page','PAGE_SIZE','pagedTasks','changePage','loading','error','load','showReceipts','receipts','receiptError','retryReason','retryable','retry','resultOpen','result','openVoidResult','completedResultOpen','completedResult','completedResultError','completedResultLoading','completionSnapshot','loadHandoffResult','closeCompletedResult','completedResultVisibilityChanged']);return{...values,unmount:()=>unmount.forEach(fn=>fn())}}
+function panel(api, route={query:{}}, navigationContext=null){const nav=navigation(navigationContext), unmount=[];const values=script('src/views/mes/pro/handoff/ActiveOrderHandoffPanel.vue',{defineExpose:()=>{},defineProps:()=>({}),withDefaults:(props,defaults)=>({...defaults,...props}),nextTick:vue.nextTick,ref:vue.ref,computed:vue.computed,watch:()=>{},onMounted:()=>{},onBeforeUnmount:fn=>unmount.push(fn),api,useRouter:()=>({push:async()=>{}}),useRoute:()=>route,resolveActiveOrderHandoffTarget:nav.resolveActiveOrderHandoffTarget,navigateToActiveOrderHandoff:nav.navigateToActiveOrderHandoff,isClosedHandoffCompletion:nav.isClosedHandoffCompletion},['openTask','tasks','page','PAGE_SIZE','pagedTasks','changePage','loading','error','load','showReceipts','receipts','receiptError','retryReason','retryable','retry','resultOpen','result','openVoidResult','completedResultOpen','completedResult','completedResultError','completedResultLoading','completionSnapshot','loadHandoffResult','closeCompletedResult','completedResultVisibilityChanged']);return{...values,unmount:()=>unmount.forEach(fn=>fn())}}
+
+const dispositionNotice = () => ({ ...freezeTask(), taskType: 'NCR_DISPOSITION_NOTICE', completionSourceId: '229',
+  reason: 'NCR NCR-001 QA处置结果：让步放行；让步不代替PQC生产放行或上市批准。处置意见：材料已核实',
+  actionUrl: freezeTask().actionUrl.replace('NCR_FREEZE_NOTICE', 'NCR_DISPOSITION_NOTICE') })
+test('QA结果告知在原周期当前或关闭后均打开同一正式只读结果', async () => {
+ for (const current of [true, false]) {
+  const task=dispositionNotice(),context={task,current,processable:false},nav=navigation(context);let pushed
+  await nav.navigateToActiveOrderHandoff({push:async value=>pushed=value},nav.resolveActiveOrderHandoffTarget(params(task)))
+  assert.equal(pushed.path,'/user/profile');assert.equal(pushed.query.reviewId,'229');assert.equal(pushed.query.handoffReadOnly,'1')
+  const p=panel({handoffNavigationContext:async()=>context},{query:pushed.query});await p.openVoidResult()
+  assert.equal(p.resultOpen.value,true);assert.equal(p.result.value.taskType,'NCR_DISPOSITION_NOTICE')
+  const described=presentation.describeHandoffMessage(task.taskType,task.reason)
+  assert.equal(described.title,'QA处置结果通知');assert.match(described.body,/让步不代替PQC生产放行或上市批准/)
+ }
+})
+test('QA结果告知拒绝执行待办、伪造身份与业务办理路径', async () => {
+ const task=dispositionNotice(),nav=navigation(null)
+ for(const actionUrl of [task.actionUrl.replace('/user/profile','/mes/pro/process-pool/production-leader'),task.actionUrl.replace('reviewId=229','eventId=229'),task.actionUrl+'&reviewId=229'])
+  assert.throws(()=>nav.resolveActiveOrderHandoffTarget({...params(task),actionUrl}))
+ for(const change of [{status:'TODO'},{notificationOnly:false},{completionSourceId:undefined}]){
+  const invalid={...task,...change},n=navigation({task:invalid,current:false,processable:false});let pushes=0
+  await assert.rejects(()=>n.navigateToActiveOrderHandoff({push:async()=>pushes++},n.resolveActiveOrderHandoffTarget(params(invalid))),/正式只读/)
+  assert.equal(pushes,0)
+ }
+ const context={task,current:true,processable:false}
+ const query={...nav.resolveActiveOrderHandoffTarget(params(task)).query,handoffReadOnly:'1',reviewId:'230'}
+ const p=panel({handoffNavigationContext:async()=>context},{query});await p.openVoidResult()
+ assert.equal(p.resultOpen.value,false);assert.match(p.error.value,/入口与原任务/)
+})
 const handoffRows = count => Array.from({length:count},(_,index)=>({
  id:(2100000000000000000n+BigInt(index)).toString(),activeOrderId:index<76?'422':'418',
  taskType:'PQC_HANDOFF',status:index<76?'TODO':index%2?'DONE':'CANCELED',
@@ -208,4 +237,15 @@ test('实际通知过滤保留独立精确交接，非法交接不会降级普�
  const nav=notifyNavigation(),formal=params(returnTask()),ordinary={notifyTargetType:'PRODUCT',notifyTargetId:72,detailUrl:'/bpm/process-instance/detail?id=74',followupUrl:'/dcc/controlled-file/detail/71?viewer=1&from=notification'}
  assert.deepEqual(nav.getNotifyMessageTargets({templateParams:{...ordinary,...formal}}),[navigation(null).resolveActiveOrderHandoffTarget(formal)])
  for(const change of [{handoffType:undefined},{activeOrderId:'414'},{actionUrl:formal.actionUrl+'&roundId=700'},{actionUrl:'https://outside.example'+formal.actionUrl}])assert.throws(()=>nav.getNotifyMessageTargets({templateParams:{...ordinary,...formal,...change}}))
+})
+
+for (const outcome of ['返工', '作废']) test('同一路由关闭后仍可再次打开QA'+outcome+'只读通知', async () => {
+ const task={...dispositionNotice(),reason:'QA处置结果：'+outcome+'；原周期不得继续生产'},context={task,current:false,processable:false}
+ const nav=navigation(context),target=nav.resolveActiveOrderHandoffTarget(params(task))
+ const query={...target.query,handoffReadOnly:'1'},route={path:'/user/profile',fullPath:'/user/profile?'+new URLSearchParams(query),query}
+ const p=panel({handoffNavigationContext:async()=>context},route,context)
+ await p.openTask(task);assert.equal(p.error.value,'');assert.equal(p.resultOpen.value,true);assert.equal(p.result.value.id,task.id)
+ p.resultOpen.value=false
+ await p.openTask(task);assert.equal(p.error.value,'');assert.equal(p.resultOpen.value,true);assert.equal(p.result.value.reason,task.reason)
+ assert.equal(route.fullPath,'/user/profile?'+new URLSearchParams(query))
 })

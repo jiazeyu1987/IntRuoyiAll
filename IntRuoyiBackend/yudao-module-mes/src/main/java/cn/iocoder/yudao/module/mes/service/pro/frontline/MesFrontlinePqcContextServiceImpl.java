@@ -62,7 +62,6 @@ import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditEvidence;
 import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditRelation;
 import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService;
 import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditStateEnvelope;
-import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -92,7 +91,6 @@ import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_FRONTLINE
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PQC_QA_SOURCE_SNAPSHOT_REQUIRED;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PQC_QA_SOURCE_SNAPSHOT_INVALID;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_FRONTLINE_PQC_ACTIVE_ORDER_REQUIRED;
-import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_FRONTLINE_PQC_ACTIVE_ORDER_ROUTE_REQUIRED;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_FRONTLINE_PQC_EMPLOYEE_NOT_BOUND;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_FRONTLINE_PQC_REGULATION_REQUIRED;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_FRONTLINE_PQC_RESULT_CONTRACT_INVALID;
@@ -244,16 +242,18 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
                 .filter(Objects::nonNull)
                 .collect(Collectors.toCollection(LinkedHashSet::new));
         Map<Long, MesMdItemDO> itemMap = productIds.isEmpty() ? Map.of() : itemService.getItemMap(productIds);
-        Map<Long, Set<Long>> productIdsByRouteVersionId = new LinkedHashMap<>();
+        Map<Long, MesProRouteVersionDO> routeVersions = new LinkedHashMap<>();
 
         List<MesFrontlineActiveOrderCandidate> candidates = new ArrayList<>();
         for (LatestActiveOrderContext context : activeOrderContexts) {
             MesProcessPoolActiveOrderDO activeOrder = context.activeOrder();
             MesProWorkOrderDO workOrder = requireWorkOrder(workOrderMap, activeOrder.getWorkOrderId());
             MesProRouteDO route = requireRoute(routeMap, activeOrder.getRouteId());
-            Set<Long> routeVersionProductIds = productIdsByRouteVersionId.computeIfAbsent(
-                    activeOrder.getRouteVersionId(), ignored -> resolveRouteVersionProductIds(activeOrder));
-            requireProductRoute(workOrder, activeOrder, routeVersionProductIds);
+            requireActiveOrderIdentity(activeOrder);
+            requirePositive(activeOrder.getRouteVersionId(), "activeOrder.routeVersionId");
+            MesProRouteVersionDO routeVersion = routeVersions.computeIfAbsent(
+                    activeOrder.getRouteVersionId(), routeVersionMapper::selectById);
+            requirePublishedRouteVersion(activeOrder, routeVersion);
             MesMdItemDO item = requireProduct(itemMap, workOrder.getProductId());
             validateActiveOrderSummary(workOrder, item);
             String readBlockReason = null;
@@ -1015,7 +1015,9 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
             Long expectedRegulationId,
             Long expectedRegulationVersionId) {
         requirePositive(activeOrder.getDccProjectCodeId(), "activeOrder.dccProjectCodeId");
-        requirePositive(expectedDccProjectCodeId, "expectedDccProjectCodeId");
+        if (expectedDccProjectCodeId != null) {
+            requirePositive(expectedDccProjectCodeId, "expectedDccProjectCodeId");
+        }
         requirePositive(expectedRegulationId, "expectedRegulationId");
         requirePositive(expectedRegulationVersionId, "expectedRegulationVersionId");
         if (qaSource == null
@@ -1187,20 +1189,17 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
                 .toList();
     }
 
-    private Set<Long> resolveRouteVersionProductIds(MesProcessPoolActiveOrderDO activeOrder) {
-        requireActiveOrderIdentity(activeOrder);
-        Long routeVersionId = activeOrder.getRouteVersionId();
-        requirePositive(routeVersionId, "activeOrder.routeVersionId");
-        MesProRouteVersionDO routeVersion = routeVersionMapper.selectById(routeVersionId);
+    private static void requirePublishedRouteVersion(MesProcessPoolActiveOrderDO activeOrder,
+                                                     MesProRouteVersionDO routeVersion) {
+        // The active order already owns its frozen route and QA sources. Product bindings
+        // can be added after publication and must not invalidate that execution identity.
         if (!isPublishedRouteVersion(activeOrder, routeVersion)) {
             throw exception(PRO_FRONTLINE_DEVICE_ACCOUNT_CONTEXT_INVALID,
-                    "routeVersionProducts activeOrderId=" + activeOrder.getId()
+                    "activeOrder.routeVersion activeOrderId=" + activeOrder.getId()
                             + "，routeId=" + activeOrder.getRouteId()
-                            + "，routeVersionId=" + routeVersionId);
+                            + "，routeVersionId=" + activeOrder.getRouteVersionId());
         }
-        return parseRouteVersionProductIds(routeVersion);
     }
-
     private static boolean isPublishedRouteVersion(MesProcessPoolActiveOrderDO activeOrder,
                                                    MesProRouteVersionDO routeVersion) {
         if (routeVersion == null || !Objects.equals(activeOrder.getRouteId(), routeVersion.getRouteId())) {
@@ -1210,43 +1209,6 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
                 && "ACTIVE".equals(routeVersion.getLifecycleStatus()))
                 || (Boolean.FALSE.equals(routeVersion.getActive())
                 && "SUPERSEDED".equals(routeVersion.getLifecycleStatus()));
-    }
-
-    private static Set<Long> parseRouteVersionProductIds(MesProRouteVersionDO routeVersion) {
-        try {
-            JSONObject routeSnapshot = JSONObject.parseObject(routeVersion.getRouteSnapshotJson());
-            JSONObject configSnapshots = routeSnapshot == null ? null
-                    : routeSnapshot.getJSONObject("configSnapshots");
-            Object productsSnapshot = configSnapshots == null ? null : configSnapshots.get("products");
-            Collection<?> products;
-            if (productsSnapshot instanceof JSONObject productsByKey) {
-                products = productsByKey.values();
-            } else if (productsSnapshot instanceof JSONArray productsArray) {
-                products = productsArray;
-            } else {
-                throw new IllegalArgumentException("configSnapshots.products is required");
-            }
-            Set<Long> productIds = new LinkedHashSet<>();
-            for (Object value : products) {
-                if (!(value instanceof JSONObject productSnapshot)) {
-                    throw new IllegalArgumentException("route product itemId is required");
-                }
-                Long itemId = productSnapshot.getLong("itemId");
-                if (itemId == null || itemId <= 0) {
-                    throw new IllegalArgumentException("route product itemId is required");
-                }
-                productIds.add(itemId);
-            }
-            if (productIds.isEmpty()) {
-                throw new IllegalArgumentException("route products are required");
-            }
-            return productIds;
-        } catch (RuntimeException ex) {
-            throw exception(PRO_FRONTLINE_DEVICE_ACCOUNT_CONTEXT_INVALID,
-                    "routeVersionProducts routeId=" + routeVersion.getRouteId()
-                            + "，routeVersionId=" + routeVersion.getId()
-                            + "，reason=" + ex.getMessage());
-        }
     }
 
     @Override
@@ -1353,6 +1315,8 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
         requireValue(loginUserId, "loginUserId");
         requirePqcSubmitCommand(command);
         gxpAuditService.acquireLedgerLock();
+        // 与生产分配及下游进度回写保持同序：先锁活跃订单，再锁任务和工单。
+        activeOrderMapper.selectByIdForUpdate(command.getActiveOrderId());
         MesPqcInspectionTaskDO task = pqcTaskMapper.selectByIdForUpdate(command.getPqcTaskId());
         Long regulationDccProjectCodeId = applyPqcTaskContext(command, task, loginUserId);
         nonconformanceReviewService.ensurePqcSubmissionNotFrozen(task.getActiveOrderId(), task.getWorkOrderId(),
@@ -1761,10 +1725,18 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
         if (qaProcess == null || version == null || regulation == null
                 || !Objects.equals(version.getId(), qaProcess.getRegulationVersionId())
                 || !Objects.equals(regulation.getId(), version.getRegulationId())
-                || regulation.getDccProjectCodeId() == null
-                || dccProjectCodeMapper.selectById(regulation.getDccProjectCodeId()) == null
                 || !(Objects.equals("PUBLISHED", version.getLifecycleStatus())
                 || Objects.equals("RETIRED", version.getLifecycleStatus()))) {
+            throw exception(PRO_FRONTLINE_PQC_TASK_IDENTITY_MISMATCH, pqcTaskIdentityText(task));
+        }
+        boolean commonSource = MesQaInspectionRegulationDO.OWNER_MODULE_MES_QA_COMMON
+                .equals(regulation.getOwnerModule());
+        if (!MesPqcQaSources.requireVersionIds(activeOrder).contains(version.getId())
+                || (!commonSource && (!Objects.equals(activeOrder.getDccProjectCodeId(),
+                regulation.getDccProjectCodeId()) || !Objects.equals(activeOrder.getQaRegulationId(), regulation.getId())))
+                || (regulation.getDccProjectCodeId() == null && !commonSource)
+                || (regulation.getDccProjectCodeId() != null
+                && dccProjectCodeMapper.selectById(regulation.getDccProjectCodeId()) == null)) {
             throw exception(PRO_FRONTLINE_PQC_TASK_IDENTITY_MISMATCH, pqcTaskIdentityText(task));
         }
         boolean hasTaskItems = regulationItemMapper.selectListByVersionId(version.getId()).stream()
@@ -1782,7 +1754,9 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
         if (task == null || task.getRegulationVersionId() == null || CollUtil.isEmpty(command.getItemResults())) {
             throw exception(PRO_FRONTLINE_PQC_RESULT_CONTRACT_INVALID, "itemResults");
         }
-        requirePositive(regulationDccProjectCodeId, "regulationDccProjectCodeId");
+        if (regulationDccProjectCodeId != null) {
+            requirePositive(regulationDccProjectCodeId, "regulationDccProjectCodeId");
+        }
         List<MesQaInspectionRegulationItemDO> publishedItems = regulationItemMapper
                 .selectListByVersionId(task.getRegulationVersionId()).stream()
                 .filter(Objects::nonNull)
@@ -2196,15 +2170,6 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
             throw exception(PRO_FRONTLINE_DEVICE_ACCOUNT_CONTEXT_INVALID, "routeId=" + routeId);
         }
         return route;
-    }
-
-    private static void requireProductRoute(MesProWorkOrderDO workOrder,
-                                            MesProcessPoolActiveOrderDO activeOrder,
-                                            Set<Long> routeVersionProductIds) {
-        if (workOrder.getProductId() == null || !routeVersionProductIds.contains(workOrder.getProductId())) {
-            throw exception(PRO_FRONTLINE_PQC_ACTIVE_ORDER_ROUTE_REQUIRED,
-                    workOrder.getId(), workOrder.getProductId(), activeOrder.getRouteId());
-        }
     }
 
     private static MesMdItemDO requireProduct(Map<Long, MesMdItemDO> itemMap, Long productId) {

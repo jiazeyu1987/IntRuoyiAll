@@ -125,6 +125,59 @@ class MesProRouteVersionPublishProjectionServiceImplTest {
         assertEquals(Set.of(2011L, 2012L), result.projectedRouteProcessIds());
     }
 
+    @Test
+    void projectCandidate_shouldPreserveExactBrowserStringReferencesWhenPublishing() {
+        MesProRouteVersionDO candidate = MesProRouteVersionDO.builder()
+                .id(9202L).routeId(9002L).versionNo("V2")
+                .routeSnapshotJson("""
+                        {"routeId":9002,"routeCode":"RT-STRING-ID","routeName":"长编号发布验证","configSnapshots":{
+                          "flowGraph":{"nodes":[
+                            {"routeProcessId":2117828464226939151,"processId":2117828464390516842,"sort":1},
+                            {"routeProcessId":2117828464226939152,"processId":2117828464390516843,"sort":2}
+                          ],"edges":[],"boundaryEdges":[],"layouts":[]},
+                          "products":[],"productBoms":[],"scheduleConfigs":{},
+                          "batchUseConfigs":[],"scheduleUseConfigs":[],
+                          "productionConfigs":[
+                            {"routeProcessId":"2117828464226939151","processId":"2117828464390516842","parameterRules":[
+                              {"routeProcessId":"2117828464226939152","processId":"2117828464390516843","defaultValue":25}
+                            ]}
+                          ]
+                        }}
+                        """).build();
+        doAnswer(invocation -> {
+            MesProRouteProcessDO process = invocation.getArgument(0);
+            process.setId(process.getSort() == 1 ? 2011L : 2012L);
+            return 1;
+        }).when(routeProcessMapper).insert(any(MesProRouteProcessDO.class));
+
+        var result = service.projectCandidate(candidate);
+
+        JSONObject config = JSON.parseObject(result.rewrittenSnapshotJson())
+                .getJSONObject("configSnapshots").getJSONArray("productionConfigs").getJSONObject(0);
+        assertEquals(2011L, config.getLongValue("routeProcessId"));
+        assertEquals(2117828464390516842L, config.get("processId"));
+        JSONObject rule = config.getJSONArray("parameterRules").getJSONObject(0);
+        assertEquals(2012L, rule.getLongValue("routeProcessId"));
+        assertEquals(2117828464390516843L, rule.get("processId"));
+        assertEquals(25, rule.getIntValue("defaultValue"));
+        assertEquals(Set.of(2011L, 2012L), result.projectedRouteProcessIds());
+        var validation = new MesProRouteSnapshotCanonicalizer().validate(9002L, result.rewrittenSnapshotJson());
+        assertTrue(validation.ready(), () -> validation.blockers().toString());
+    }
+
+    @Test
+    void rewriteProjectedRouteProcessIds_shouldRejectInvalidAndUnmappedReferences() {
+        var projected = MesProRouteProcessDO.builder().id(2011L).build();
+        var mapping = java.util.Map.of(2117828464226939151L, projected);
+        for (Object invalid : List.of("2117828464226939152", "abc", "1.5", "9223372036854775808", 1.5)) {
+            JSONObject config = new JSONObject();
+            config.put("routeProcessId", invalid);
+            assertThrows(IllegalArgumentException.class, () ->
+                    org.springframework.test.util.ReflectionTestUtils.invokeMethod(service,
+                            "rewriteProjectedRouteProcessIds", config, mapping));
+        }
+    }
+
     @InjectMocks
     private MesProRouteVersionPublishProjectionServiceImpl service;
 

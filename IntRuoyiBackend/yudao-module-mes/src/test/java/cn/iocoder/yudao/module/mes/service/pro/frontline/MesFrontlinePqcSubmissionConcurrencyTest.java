@@ -62,9 +62,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_FRONTLINE_PQC_SUBMISSION_CONTENT_CONFLICT;
@@ -95,6 +97,39 @@ class MesFrontlinePqcSubmissionConcurrencyTest {
     private static final long REGULATION_VERSION_ID = 8001L;
     private static final long QA_PROCESS_ID = 9001L;
     private static final String IDEMPOTENCY_KEY = "pqc-task-" + TASK_ID;
+
+    @Test
+    void productionAllocationAndPqcSubmissionCompleteWithoutOppositeRowLocks() throws Exception {
+        Fixture fixture = new Fixture();
+        CountDownLatch allocationLockedActiveOrder = new CountDownLatch(1);
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+        try {
+            Future<?> allocation = executor.submit(() -> fixture.transactionTemplate.executeWithoutResult(status -> {
+                fixture.lockRow("active_order", ACTIVE_ORDER_ID);
+                allocationLockedActiveOrder.countDown();
+                try {
+                    assertTrue(fixture.firstPqcLockAttempt.await(5, TimeUnit.SECONDS));
+                } catch (InterruptedException ex) {
+                    Thread.currentThread().interrupt();
+                    throw new IllegalStateException(ex);
+                }
+                fixture.lockRow("work_order", WORK_ORDER_ID);
+                fixture.jdbc.update("UPDATE work_order SET allocation_revision = allocation_revision + 1 WHERE id = ?",
+                        WORK_ORDER_ID);
+            }));
+            assertTrue(allocationLockedActiveOrder.await(5, TimeUnit.SECONDS));
+            Future<Outcome> pqc = executor.submit(() ->
+                    fixture.submitSequential(fixture.command(EMPLOYEE_A, "合格")));
+
+            allocation.get(20, TimeUnit.SECONDS);
+            assertNull(pqc.get(20, TimeUnit.SECONDS).error());
+            assertEquals(1, fixture.jdbc.queryForObject(
+                    "SELECT allocation_revision FROM work_order WHERE id = ?", Integer.class, WORK_ORDER_ID));
+            fixture.assertExactlyOneFormalWriteSet();
+        } finally {
+            executor.shutdownNow();
+        }
+    }
 
     @Test
     void sameContentReplayReturnsPersistedSourceRevisionAndPayloadHash() {
@@ -196,6 +231,7 @@ class MesFrontlinePqcSubmissionConcurrencyTest {
         private final JdbcTemplate jdbc;
         private final TransactionTemplate transactionTemplate;
         private final AtomicInteger casSuccessCount = new AtomicInteger();
+        private final CountDownLatch firstPqcLockAttempt = new CountDownLatch(1);
         private final MesFrontlinePqcContextService service;
         private final GxpAuditService gxpAuditService = mock(GxpAuditService.class);
         private final AdminUserRespDTO employeeA = user(EMPLOYEE_A);
@@ -274,6 +310,11 @@ class MesFrontlinePqcSubmissionConcurrencyTest {
                     selectRecord(invocation.getArgument(0)));
 
             when(activeOrderMapper.selectById(ACTIVE_ORDER_ID)).thenReturn(activeOrder());
+            when(activeOrderMapper.selectByIdForUpdate(ACTIVE_ORDER_ID)).thenAnswer(ignored -> {
+                firstPqcLockAttempt.countDown();
+                lockRow("active_order", ACTIVE_ORDER_ID);
+                return activeOrder();
+            });
             when(processSnapshotMapper.selectByActiveOrderAndProcess(ACTIVE_ORDER_ID, ROUTE_PROCESS_ID,
                     PROCESS_ID)).thenReturn(processSnapshot());
             when(scopeMapper.selectActiveScopesByLeaderType(MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PQC))
@@ -301,7 +342,12 @@ class MesFrontlinePqcSubmissionConcurrencyTest {
                     anyLong(), anyLong(), any())).thenReturn(Map.of());
 
             var workOrders = mock(MesProWorkOrderMapper.class);
-            when(workOrders.selectByIdForUpdate(WORK_ORDER_ID)).thenReturn(cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesProWorkOrderDO.builder().id(WORK_ORDER_ID).status(1).build());
+            when(workOrders.selectByIdForUpdate(WORK_ORDER_ID)).thenAnswer(ignored -> {
+                firstPqcLockAttempt.countDown();
+                lockRow("work_order", WORK_ORDER_ID);
+                return cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesProWorkOrderDO.builder()
+                        .id(WORK_ORDER_ID).status(1).build();
+            });
             service = new MesFrontlinePqcContextServiceImpl(activeOrderMapper, eventMapper,
                     processSnapshotMapper,
                     mock(MesProcessPoolTeamDeviceMapper.class),
@@ -313,7 +359,12 @@ class MesFrontlinePqcSubmissionConcurrencyTest {
                      eventService, recordMapper, signatureService,
                      mock(MesProEdhrNonconformanceReviewService.class),
                      gxpAuditService);
-            { org.springframework.test.util.ReflectionTestUtils.setField(service, "handoffService", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffService.class)); }
+            var handoff = mock(cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffService.class);
+            org.mockito.Mockito.doAnswer(ignored -> {
+                lockRow("active_order", ACTIVE_ORDER_ID);
+                return null;
+            }).when(handoff).pqcSubmitted(anyLong(), anyLong(), anyLong());
+            org.springframework.test.util.ReflectionTestUtils.setField(service, "handoffService", handoff);
         }
 
         private Pair submitConcurrently(MesFrontlinePqcSubmitCommand firstCommand,
@@ -385,6 +436,10 @@ class MesFrontlinePqcSubmissionConcurrencyTest {
         }
 
         private void createSchema() {
+            jdbc.execute("CREATE TABLE active_order (id BIGINT PRIMARY KEY)");
+            jdbc.execute("CREATE TABLE work_order (id BIGINT PRIMARY KEY, allocation_revision INT NOT NULL)");
+            jdbc.update("INSERT INTO active_order(id) VALUES (?)", ACTIVE_ORDER_ID);
+            jdbc.update("INSERT INTO work_order(id, allocation_revision) VALUES (?, 0)", WORK_ORDER_ID);
             jdbc.execute("CREATE TABLE pqc_task (id BIGINT PRIMARY KEY, status VARCHAR(32) NOT NULL, " +
                     "actual_quantity INT, submitted_content_hash CHAR(64), submitted_event_id BIGINT)");
             jdbc.execute("CREATE TABLE pqc_signature (id BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY, " +
@@ -402,6 +457,10 @@ class MesFrontlinePqcSubmissionConcurrencyTest {
 
         private void insertPendingTask() {
             jdbc.update("INSERT INTO pqc_task(id, status) VALUES (?, 'PENDING')", TASK_ID);
+        }
+
+        private void lockRow(String table, long id) {
+            jdbc.queryForObject("SELECT id FROM " + table + " WHERE id = ? FOR UPDATE", Long.class, id);
         }
 
         private MesPqcInspectionTaskDO selectTaskForUpdate() {
@@ -493,6 +552,8 @@ class MesFrontlinePqcSubmissionConcurrencyTest {
         private static MesProcessPoolActiveOrderDO activeOrder() {
             return MesProcessPoolActiveOrderDO.builder().id(ACTIVE_ORDER_ID).workOrderId(WORK_ORDER_ID)
                     .routeId(ROUTE_ID).routeVersionId(ROUTE_VERSION_ID).dccProjectCodeId(DCC_PROJECT_ID)
+                    .qaRegulationId(REGULATION_ID).qaRegulationVersionId(REGULATION_VERSION_ID)
+                    .pqcQaSourceVersionIdsJson("[" + REGULATION_VERSION_ID + "]")
                     .activeStatus("ACTIVE").build();
         }
 

@@ -364,7 +364,7 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
                     || !Objects.equals(review.getQaReviewerUserId(), command.getQaReviewerUserId())
                     || !"ACTIVE_ORDER".equals(review.getSourceType())
                     || !Objects.equals(review.getSourceId(), request.getActiveOrderId())
-                    || !"PENDING_REVIEW".equals(review.getReviewStatus()))
+                    || !MesProEdhrNonconformanceReviewService.STATUS_PENDING_REVIEW.equals(review.getReviewStatus()))
                 throw new IllegalStateException("上市拒绝未取得同一正式订单及批次的QA处置交接回执");
         } else {
             Long correctionTask = marketCorrectionService.create(prepared.getApplication(), command.getActorUserId(), command.getDecisionReason());
@@ -447,7 +447,7 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
     }
 
     private MesProEdhrReleaseRespVO finalizeWithdraw(MesReleaseFinalizationCommand command) {
-        requireWithdrawalTransaction(command);
+        MesProEdhrReleaseTransactionDO observed = requireWithdrawalTransaction(command);
         requireNegativePermission(command, "mes:pro-edhr-release:withdraw");
         String idempotencyKey = requireIdempotencyKey(command.getIdempotencyKey());
         String reason = requireReason(command.getDecisionReason());
@@ -462,6 +462,8 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
             return toResp(requireBatchExecution(replay.getBatchExecutionId()), replay);
         }
 
+        // Preserve same-key replay above, but reject a stale page before preparing a new decision.
+        requirePendingApproval(observed);
         MesProductionReleaseManagerApprovalResult negative = prepareManagedNegative(command);
         reportManagementSummaryService.lockProductionEventsByReleaseTransactionId(
                 command.getReleaseTransactionId());

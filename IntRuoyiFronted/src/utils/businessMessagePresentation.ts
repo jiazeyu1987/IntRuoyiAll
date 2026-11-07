@@ -13,6 +13,7 @@ export const HANDOFF_TASK_LABELS: Record<string, string> = {
   PQC_RETURN: 'PQC记录退回更正',
   QA_REVIEW: 'QA不合格评审',
   NCR_FREEZE_NOTICE: '工单/批次冻结通知',
+  NCR_DISPOSITION_NOTICE: 'QA处置结果通知',
   QA_DECISION_HANDOFF: 'QA处置结果交接'
 }
 

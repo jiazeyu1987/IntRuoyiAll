@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { readFileSync, existsSync } from 'node:fs'
+import { readFileSync, existsSync, statSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -52,13 +52,23 @@ function environment(overrides = {}) {
     '@/api/mes/pro/edhr/reverseTrace': api,
     '@/utils/auth': { getTenantId: () => identity.tenantId, getVisitTenantId: () => identity.visitTenantId },
     '@/store/modules/user': { useUserStore: () => user },
+    '@/directives/permission/hasPermi': {
+      hasPermission: (permissions) => identity.permissions.has('*:*:*') || permissions.some(p => identity.permissions.has(p))
+    },
+    '@/api/system/userTableColumnConfig': {
+      getUserTableColumnConfig: async () => undefined
+    },
+    '@/api/mes/pro/edhr/marketReleaseHandover': {
+      getMarketReleaseAccess: async () => ({ writable: false })
+    },
     '@/api/mes/pro/edhr/deviation': { getDeviationBatchOptionsByActiveOrder: async () => [] },
     '@/api/mes/pro/edhr/batchExecution': {
+      getEdhrBatchActiveOrderProductionMaterialLists: async () => [],
       getEdhrBatchActiveOrderDetail: async (params) => {
         calls.detail.push(copy(params))
         return (overrides.detail || (async (request) => ({ id: request.batchExecutionId || request.activeOrderId, processes: [{}] })))(params)
       },
-      getEdhrBatchExecutionPage: overrides.history || (async () => ({ list: [], total: 0 }))
+      getEdhrBatchHistoryPage: overrides.history || (async () => ({ list: [], total: 0 }))
     }
   }
   function load(filename) {
@@ -69,14 +79,20 @@ function environment(overrides = {}) {
     const js = ts.transpileModule(code, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText
     const localRequire = (name) => {
       if (dependencies[name]) return dependencies[name]
+      // Styles have no executable setup behavior in this non-DOM renderer.
+      if (name.endsWith('.css')) return {}
       if (name.endsWith('.vue')) return { default: { render: () => null } }
       if (name.startsWith('.') || name.startsWith('@/')) {
         const base = name.startsWith('@/') ? path.join(root, 'src', name.slice(2)) : path.resolve(path.dirname(filename), name)
-        return load(existsSync(base) ? base : base + '.ts')
+        const resolved = [base, base + '.ts', path.join(base, 'index.ts')]
+          .find(candidate => existsSync(candidate) && statSync(candidate).isFile())
+        if (!resolved) throw new Error(`Test dependency not found: ${name} from ${filename}`)
+        return load(resolved)
       }
       return require(name)
     }
-    new Function('require', 'module', 'exports', 'window', js)(localRequire, module, module.exports, { scrollY: 0, scrollTo() {} })
+    new Function('require', 'module', 'exports', 'window', 'document', js)(localRequire, module, module.exports,
+      { scrollY: 0, scrollTo() {} }, { hidden: false })
     return module.exports
   }
   const nodes = []
@@ -519,15 +535,18 @@ test('compiled drawer template captures actual parent body scroll events', async
 test('history form inputs and list page survive detail return without relying on route filters', async () => {
   const requests = []
   const e = environment({ history: async (request) => { requests.push(copy(request)); return { list: [], total: 0 } } })
-  const history = e.mount(feature + 'BatchRecordHistoryPage.vue', {}, true); await flush()
-  for (const [marker, value] of [['work-order', 'WO-7'], ['product-name', '产品甲'], ['batch-code', 'LOT-9'], ['release-time', ['2026-01-01', '2026-02-01']]]) {
-    const input = history.nodes.find((n) => `data-edhr-history-${marker}-filter` in n.attrs)
-    input.attrs['onUpdate:modelValue'](value)
-  }
-  const pagination = history.nodes.find((n) => n.attrs['onUpdate:page'])
-  pagination.attrs['onUpdate:page'](3); pagination.attrs['onUpdate:limit'](50)
+  const history = e.mount(feature + 'BatchRecordHistoryPage.vue'); await flush()
+  const conditions = [
+    { id: 'wo', key: 'workOrderCode', operator: 'contains', value: 'WO-7' },
+    { id: 'product', key: 'productName', operator: 'contains', value: '产品甲' },
+    { id: 'batch', key: 'batchCode', operator: 'contains', value: 'LOT-9' },
+    { id: 'date', key: 'releaseApprovedTime', operator: 'between', value: ['2026-01-01', '2026-02-01'] }
+  ]
+  await history.state.updateQuickFilterState({ conditions, activeConditionId: 'wo' })
+  await history.state.quickFilter.applyQuickFilter()
+  history.state.queryParams.pageNo = 3; history.state.queryParams.pageSize = 50
   await flush()
-  history.state.openReverseTrace({ id: '100' })
+  history.state.openReverseTrace({ id: '100', batchExecutionId: '100' })
   const p = e.mount(panelFile, { visible: true, anchorBatchExecutionId: history.state.reverseTraceBatchExecutionId.value, historyListState: history.state.queryParams }); await flush()
   await p.state.runQuery(); await p.state.openTargetDetail('200'); p.unmount(); history.unmount()
   const target = e.mount(detailFile); await flush(); await target.state.goBack(); target.unmount()
@@ -535,7 +554,10 @@ test('history form inputs and list page survive detail return without relying on
   assert.equal(restored.state.queryParams.workOrderCode, 'WO-7'); assert.equal(restored.state.queryParams.productName, '产品甲')
   assert.equal(restored.state.queryParams.batchCode, 'LOT-9'); assert.equal(restored.state.queryParams.pageNo, 3); assert.equal(restored.state.queryParams.pageSize, 50)
   assert.deepEqual([...restored.state.queryParams.releaseApprovedTime], ['2026-01-01', '2026-02-01'])
-  assert.deepEqual(requests.at(-1), { pageNo: 3, pageSize: 50, workOrderCode: 'WO-7', productName: '产品甲', batchCode: 'LOT-9', releasedOnly: true, releaseApprovedTime: ['2026-01-01', '2026-02-01'] })
+  assert.deepEqual(requests.at(-1), { pageNo: 3, pageSize: 50, workOrderCode: 'WO-7', productName: '产品甲', batchCode: 'LOT-9', completedTraceOnly: true, excludeStatuses: [50], releasedOnly: true, releaseApprovedTime: ['2026-01-01 00:00:00', '2026-02-01 23:59:59'] })
+  assert.deepEqual(restored.state.quickFilter.state.conditions.map(c => [c.key, c.operator, c.value]),
+    conditions.map(c => [c.key, c.operator, c.value]))
+  assert.deepEqual(copy(restored.state.quickFilter.state.appliedConditions), copy(restored.state.quickFilter.state.conditions))
   restored.unmount()
 })
 test('expired target Return navigates to history with a requery notice and no target anchor', async () => {
@@ -552,12 +574,12 @@ for (const outcome of ['success', 'failure']) test(`old history ${outcome} canno
   const m = e.mount(feature + 'BatchRecordHistoryPage.vue'); await flush()
   Object.assign(m.state.queryParams, { workOrderCode: 'WO-NEW', pageNo: 3 })
   const running = m.state.getBatchList(); assert.equal(m.state.loading.value, true)
-  latest.resolve({ list: [{ id: '300' }], total: 21 }); await running
+  latest.resolve({ list: [{ id: '300', status: 40 }], total: 21 }); await running
   assert.equal(requests[1].pageNo, 3); assert.equal(requests[1].workOrderCode, 'WO-NEW')
-  if (outcome === 'success') old.resolve({ list: [{ id: '100' }], total: 1 })
+  if (outcome === 'success') old.resolve({ list: [{ id: '100', status: 40 }], total: 1 })
   else old.reject(new Error('旧列表请求失败'))
   await flush()
-  assert.deepEqual(copy(m.state.batchList.value), [{ id: '300' }]); assert.equal(m.state.total.value, 21)
+  assert.deepEqual(copy(m.state.batchList.value), [{ id: '300', status: 40, key: 'history:300', batchExecutionId: '300', statusLabel: '已放行' }]); assert.equal(m.state.total.value, 21)
   assert.equal(m.state.loadError.value, ''); assert.equal(m.state.loading.value, false); m.unmount()
 })
 test('old history completion cannot end the loading state owned by a pending new page', async () => {
@@ -565,9 +587,9 @@ test('old history completion cannot end the loading state owned by a pending new
   const e = environment({ history: () => ++count === 1 ? old.promise : latest.promise })
   const m = e.mount(feature + 'BatchRecordHistoryPage.vue'); await flush()
   m.state.queryParams.pageNo = 2; const running = m.state.getBatchList()
-  old.resolve({ list: [{ id: '100' }], total: 1 }); await flush()
+  old.resolve({ list: [{ id: '100', status: 40 }], total: 1 }); await flush()
   assert.equal(m.state.loading.value, true); assert.deepEqual(copy(m.state.batchList.value), [])
-  latest.resolve({ list: [{ id: '200' }], total: 20 }); await running
+  latest.resolve({ list: [{ id: '200', status: 40 }], total: 20 }); await running
   assert.equal(m.state.loading.value, false); assert.equal(m.state.batchList.value[0].id, '200'); m.unmount()
 })
 

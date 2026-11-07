@@ -196,7 +196,13 @@ public class MesPqcReleaseCorrectionService {
         require(tasks.updateById(new MesProEdhrWorkTaskDO().setId(task.getId()).setActionUrl(task.getActionUrl())) == 1,
                 "补正任务入口绑定失败");
         var notice = new NotifySendSingleToUserIdempotentReqDTO();
-        notice.setUserId(task.getAssigneeUserId()); notice.setTemplateCode("MES_EDHR_PQC_CORRECTION_ASSIGNED");
+        notice.setUserId(task.getAssigneeUserId());
+        notice.setTemplateCode(switch (app.getApplicationStatus()) {
+            case "PQC_RELEASE_REJECTED" -> "MES_EDHR_PQC_CORRECTION_ASSIGNED";
+            case "MARKET_RELEASE_WITHDRAWN" -> "MES_EDHR_MARKET_WITHDRAW_CORRECTION_ASSIGNED";
+            case "MARKET_RELEASE_REJECTED" -> "MES_EDHR_MARKET_REJECT_CORRECTION_ASSIGNED";
+            default -> throw new IllegalStateException("正式补正申请状态不支持通知派发");
+        });
         notice.setBusinessKey("MES_PQC_CORRECTION:" + task.getId() + ":USER:" + task.getAssigneeUserId());
         notice.setTemplateParams(java.util.Map.of("workOrderCode", task.getWorkOrderCode(), "batchCode", task.getBatchCode(),
                 "reason", reason, "actionUrl", task.getActionUrl(), "workTaskId", task.getId().toString()));

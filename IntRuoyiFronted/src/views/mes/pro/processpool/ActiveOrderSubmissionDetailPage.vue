@@ -2,6 +2,11 @@
   <ContentWrap>
     <ActiveOrderDetailLayout data-team-leader-active-order-detail-page>
       <el-button data-team-leader-active-order-detail-back @click="goBack">返回</el-button>
+      <ReplenishmentProcessBinding
+        v-if="detail"
+        :active-order-id="requireActiveOrderId()"
+        @saved="loadDetail"
+      />
       <ActiveOrderSubmissionDetailPanel
         :detail="detail"
         :source-work-order="sourceWorkOrder"
@@ -23,6 +28,7 @@ import { ElMessage } from 'element-plus'
 import { parsePositiveRouteQueryId } from '@/utils/routeQueryId'
 import ActiveOrderSubmissionDetailPanel from './components/ActiveOrderSubmissionDetailPanel.vue'
 import ActiveOrderDetailLayout from './components/ActiveOrderDetailLayout.vue'
+import ReplenishmentProcessBinding from './components/ReplenishmentProcessBinding.vue'
 import {
   getTeamLeaderActiveOrderDetail,
   getTeamLeaderActiveOrderProductionMaterialLists,

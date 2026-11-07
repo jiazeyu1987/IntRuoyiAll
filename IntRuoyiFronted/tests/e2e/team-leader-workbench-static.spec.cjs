@@ -178,7 +178,7 @@ requireApiEndpoint(
 )
 assert.match(
   api,
-  /interface TeamLeaderActiveOrderAddReqVO\s*\{\s*workOrderId:\s*number\s*\}/,
+  /interface TeamLeaderActiveOrderAddReqVO\s*\{\s*workOrderId:\s*number\s*\|\s*string\s*\}/,
   'active order add API payload must only include the selected workOrderId.'
 )
 assert.match(
@@ -208,7 +208,7 @@ assert.match(
 )
 assert.match(
   page,
-  /const\s+resolveActiveOrderCandidateByKeyword\s*=\s*async\s*\(\)\s*=>[\s\S]*activeOrderCandidateKeyword\.value[\s\S]*searchTeamLeaderActiveOrderCandidates\(keyword\)[\s\S]*return findActiveOrderCandidateByCode\(keyword\)[\s\S]*const\s+requireSelectedActiveOrderCandidateWorkOrderId\s*=\s*async\s*\(\)\s*=>[\s\S]*await resolveActiveOrderCandidateByKeyword\(\)[\s\S]*throw new Error\('请选择订单号\/产品候选'\)[\s\S]*!selectedCandidate\.eligible[\s\S]*selectedCandidate\.ineligibleReason[\s\S]*return requirePositiveNumber\(selectedCandidate\.workOrderId,\s*'请选择订单号\/产品候选'\)/,
+  /const\s+resolveActiveOrderCandidateByKeyword\s*=\s*async\s*\(\)\s*=>[\s\S]*activeOrderCandidateKeyword\.value[\s\S]*searchTeamLeaderActiveOrderCandidates\(keyword\)[\s\S]*return findActiveOrderCandidateByCode\(keyword\)[\s\S]*const\s+requireSelectedActiveOrderCandidateWorkOrderId\s*=\s*async\s*\(\)\s*=>[\s\S]*await resolveActiveOrderCandidateByKeyword\(\)[\s\S]*throw new Error\('请选择订单号\/产品候选'\)[\s\S]*!selectedCandidate\.eligible[\s\S]*selectedCandidate\.ineligibleReason[\s\S]*const selectedId = parsePositiveRouteQueryId\(selectedCandidate\.workOrderId\)[\s\S]*if \(!selectedId\) throw new Error\('请选择订单号\/产品候选'\)[\s\S]*return selectedId/,
   'active order submit guard must resolve an exact candidate and prevent blocked candidates from reaching add.'
 )
 assert.match(

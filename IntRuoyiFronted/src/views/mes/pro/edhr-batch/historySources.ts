@@ -48,7 +48,11 @@ export function buildHistorySources(
           workOrderCode: filters.workOrderCode?.trim() || undefined,
           productName: filters.productName?.trim() || undefined,
           batchCode: filters.batchCode?.trim() || undefined,
-          releaseApprovedTime: filters.releaseApprovedTime,
+          releaseApprovedTime: filters.releaseApprovedTime?.map((value, index) =>
+            /^\d{4}-\d{2}-\d{2}$/.test(value)
+              ? `${value} ${index === 0 ? '00:00:00' : '23:59:59'}`
+              : value
+          ),
           tracePerson: filters.tracePerson?.trim() || undefined,
           traceEquipment: filters.traceEquipment?.trim() || undefined,
           traceMaterial: filters.traceMaterial?.trim() || undefined,

@@ -2634,7 +2634,7 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
                 new cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrNonconformanceReviewRespVO()
                         .setId(9671L).setActiveOrderId(application.getActiveOrderId()).setBatchExecutionId(batch.getId())
                         .setWorkOrderId(batch.getWorkOrderId()).setQaReviewerUserId(10002L).setSourceType("ACTIVE_ORDER")
-                        .setSourceId(application.getActiveOrderId()).setReviewStatus("PENDING_REVIEW"));
+                        .setSourceId(application.getActiveOrderId()).setReviewStatus("pending_review"));
         if (failHandoff) {
             if (withdraw) doThrow(new IllegalStateException("正式补正交接失败")).when(marketCorrectionService).create(any(), any(), any());
             else doThrow(new IllegalStateException("正式QA交接失败")).when(nonconformanceReviewService).create(any());
@@ -2652,7 +2652,21 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
                         .setQaReviewerUserId(10002L).setPassword("fixture-only").setRejectReason("质量证据不充分"));
             };
             if (failHandoff) assertThrows(IllegalStateException.class, action::run);
-            else { action.run(); action.run(); }
+            else {
+                action.run();
+                action.run();
+                var terminal = releaseTransactionMapper.selectById(transaction.getId());
+                var stale = assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,
+                        () -> releaseService.withdraw(new MesProEdhrReleaseWithdrawReqVO()
+                                .setReleaseTransactionId(transaction.getId()).setWorkTaskId(task.getId())
+                                .setExpectedVersion(transaction.getVersion()).setIdempotencyKey("stale-page-new-withdrawal")
+                                .setWithdrawReason("旧页面再次撤回")));
+                assertEquals(MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_RELEASE_STATUS_INVALID.getCode(), stale.getCode());
+                var unchanged = releaseTransactionMapper.selectById(transaction.getId());
+                assertEquals(terminal.getReleaseStatus(), unchanged.getReleaseStatus());
+                assertEquals(terminal.getVersion(), unchanged.getVersion());
+                assertEquals(terminal.getReleaseDecisionId(), unchanged.getReleaseDecisionId());
+            }
         }
         if (failHandoff) {
             assertEquals("PENDING_APPROVAL", releaseTransactionMapper.selectById(transaction.getId()).getReleaseStatus());

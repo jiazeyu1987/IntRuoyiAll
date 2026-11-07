@@ -36,6 +36,8 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class MesTeamLeaderActiveOrderReleaseLossSourceReaderTest {
 
+    @Mock private MesActiveOrderReplenishmentBindingService replenishmentBindings;
+
     private static final Long ACTIVE_ORDER_ID = 8101L;
     private static final Long WORK_ORDER_ID = 9001L;
     private static final Long ROUTE_ID = 7001L;
@@ -67,6 +69,7 @@ class MesTeamLeaderActiveOrderReleaseLossSourceReaderTest {
                 workOrderMapper, materialService, replenishmentItemMapper, replenishmentMapper,
                 org.mockito.Mockito.mock(MesLocalTestRunSourceGuard.class));
         org.springframework.test.util.ReflectionTestUtils.setField(reader, "productionSignatureEvidenceService", signatureEvidenceService);
+        org.springframework.test.util.ReflectionTestUtils.setField(reader, "replenishmentBindings", replenishmentBindings);
         org.mockito.Mockito.lenient().when(signatureEvidenceService.isValidForEvent(org.mockito.ArgumentMatchers.any())).thenReturn(true);
         when(workOrderMapper.selectByIdForUpdate(WORK_ORDER_ID))
                 .thenReturn(MesProWorkOrderDO.builder().id(WORK_ORDER_ID).code("MO-9001").build());
@@ -181,6 +184,30 @@ class MesTeamLeaderActiveOrderReleaseLossSourceReaderTest {
                 .thenReturn(List.of());
         var result = reader.read(command().setConfirmNoReplenishmentInfo(true));
         assertTrue(result.getBlockers().stream().anyMatch(b -> "LOSS_REPLENISHMENT_MATERIAL_UNBOUND".equals(b.getBlockerType())));
+    }
+
+    @Test
+    void signedSupplementAssociationFreezesItsEvidenceWithoutChangingRouteInputs() {
+        stubReplenishment("C", BigDecimal.ONE);
+        when(materialService.listFrozenMaterials(ACTIVE_ORDER_ID, ROUTE_ID, ROUTE_PROCESS_ID, PROCESS_ID)).thenReturn(List.of());
+        when(replenishmentBindings.read(ACTIVE_ORDER_ID)).thenReturn(java.util.Map.of(9101L,
+                new MesActiveOrderReplenishmentBindingService.Binding(9901L, ROUTE_PROCESS_ID, 9902L, "signed-challenge")));
+        var result = reader.read(command());
+        assertTrue(result.getBlockers().isEmpty());
+        var line = result.getProcessSources().get(0).getReplenishmentSources().get(0);
+        assertEquals(9901L, line.getBindingEventId());
+        assertEquals(9902L, line.getBindingSignatureId());
+        assertEquals("signed-challenge", line.getBindingChallengeHash());
+        assertEquals(BigDecimal.ONE, line.getActualQuantity());
+    }
+
+    @Test
+    void explicitAssociationCannotOverrideFrozenInputs() {
+        stubReplenishment("C", BigDecimal.ONE);
+        when(replenishmentBindings.read(ACTIVE_ORDER_ID)).thenReturn(java.util.Map.of(9101L,
+                new MesActiveOrderReplenishmentBindingService.Binding(9901L, ROUTE_PROCESS_ID, 9902L, "signed-challenge")));
+        var result = reader.read(command());
+        assertTrue(result.getBlockers().stream().anyMatch(b -> "LOSS_REPLENISHMENT_BINDING_CONFLICT".equals(b.getBlockerType())));
     }
 
     @Test

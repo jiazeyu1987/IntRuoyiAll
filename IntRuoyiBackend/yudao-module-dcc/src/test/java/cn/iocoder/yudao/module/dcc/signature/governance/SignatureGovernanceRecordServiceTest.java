@@ -11,6 +11,19 @@ import cn.iocoder.yudao.module.dcc.service.file.DccElectronicSignatureImageServi
 import cn.iocoder.yudao.module.dcc.service.file.DccElectronicSignatureImageSnapshot;
 import cn.iocoder.yudao.module.dcc.signature.service.records.SignatureGovernanceRecordPdfArtifact;
 import cn.iocoder.yudao.module.dcc.signature.service.records.SignatureGovernanceRecordServiceImpl;
+import cn.iocoder.yudao.module.signature.api.ElectronicSignatureQueryService;
+import cn.iocoder.yudao.module.signature.api.dto.ElectronicSignatureVerificationDTO;
+import cn.iocoder.yudao.module.signature.dal.dataobject.ElectronicSignatureRecordDO;
+import cn.iocoder.yudao.module.bpm.dal.dataobject.signature.BpmApprovalSignatureRecordDO;
+import com.baomidou.mybatisplus.core.MybatisConfiguration;
+import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
+import org.apache.ibatis.builder.MapperBuilderAssistant;
+import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
+import cn.iocoder.yudao.framework.tenant.core.db.TenantDatabaseInterceptor;
+import cn.iocoder.yudao.framework.tenant.config.TenantProperties;
+import com.baomidou.mybatisplus.extension.plugins.inner.TenantLineInnerInterceptor;
+import org.apache.ibatis.builder.xml.XMLMapperBuilder;
+import org.apache.ibatis.session.Configuration;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import org.apache.pdfbox.cos.COSName;
@@ -34,10 +47,12 @@ import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.same;
 import static org.mockito.Mockito.verify;
@@ -52,6 +67,101 @@ class SignatureGovernanceRecordServiceTest extends BaseMockitoUnitTest {
     private DccElectronicSignatureImageService signatureImageService;
     @Mock
     private DccControlledFileSignatureMapper dccSignatureMapper;
+    @Mock
+    private ElectronicSignatureQueryService signatureQueryService;
+
+    @Test
+    void centralSignatureQueriesParseAndScopeRegisteredSourcesToCurrentTenant() throws Exception {
+        for (Class<?> type : List.of(DccControlledFileSignatureDO.class, BpmApprovalSignatureRecordDO.class,
+                ElectronicSignatureRecordDO.class)) {
+            TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), type);
+        }
+        Configuration configuration = new Configuration();
+        String resource = "mapper/signature/governance/SignatureGovernanceRecordMapper.xml";
+        try (var input = getClass().getClassLoader().getResourceAsStream(resource)) {
+            new XMLMapperBuilder(input, configuration, resource, configuration.getSqlFragments()).parse();
+        }
+        SignatureGovernanceRecordPageReqVO request = new SignatureGovernanceRecordPageReqVO();
+        request.setSignatureId("62283");
+        request.setSignerUserId(101L);
+        request.setSignedAt(new LocalDateTime[]{LocalDateTime.now().minusDays(1), LocalDateTime.now()});
+        var interceptor = new TenantLineInnerInterceptor(new TenantDatabaseInterceptor(new TenantProperties()));
+        TenantContextHolder.setTenantId(183L);
+        try {
+            for (String method : List.of("selectSignatureRecordPage", "selectSignatureRecordByGlobalId")) {
+                String sql = configuration.getMappedStatement(SignatureGovernanceRecordMapper.class.getName() + "." + method)
+                        .getBoundSql(Map.of("reqVO", request, "globalId", "UNIFIED-62283")).getSql();
+                String scoped = interceptor.parserSingle(sql, null);
+                assertTrue(scoped.contains("system_electronic_signature sig"));
+                assertEquals(3, scoped.split("sig.tenant_id = 183", -1).length - 1);
+                assertTrue(scoped.contains("FROM system_electronic_signature sig WHERE sig.deleted = B'0' AND sig.tenant_id = 183"));
+                assertFalse(scoped.contains("merged.source_code = 'BATCH_RECORD'"));
+            }
+        } finally {
+            TenantContextHolder.clear();
+        }
+    }
+
+    @Test
+    void centralPdfVerifiesEvidenceAndUsesOnlyFrozenImage() throws Exception {
+        SignatureGovernanceRecordRespVO row = centralRecord();
+        row.setSignatureImageId(701L);
+        row.setSignatureImageFileId(702L);
+        row.setSignatureImageVersionNo(3);
+        row.setSignatureImageSha256("original-image-hash");
+        when(signatureQueryService.verifyEvidence(62283L)).thenReturn(verification("VALID"));
+        when(signatureImageService.verifySignatureSnapshot(any(DccElectronicSignatureImageSnapshot.class)))
+                .thenReturn(DccElectronicSignatureImageSnapshot.builder().imageId(701L).fileId(702L)
+                        .versionNo(3).sha256("original-image-hash").verifiedStatus("VALID").content(tinyPng()).build());
+        var artifact = newService().exportRecordPdf("UNIFIED-62283");
+        String text = extractPdfText(artifact.content());
+        assertTrue(text.contains("统一电子签名记录"));
+        assertTrue(text.contains("完整签署意见"));
+        assertTrue(text.replaceAll("\\s+", "").contains("DEVELOPMENT_DISABLED"));
+        assertPdfContainsImage(artifact.content());
+        ArgumentCaptor<DccElectronicSignatureImageSnapshot> image = ArgumentCaptor.forClass(DccElectronicSignatureImageSnapshot.class);
+        verify(signatureImageService).verifySignatureSnapshot(image.capture());
+        assertEquals(702L, image.getValue().getFileId());
+        assertEquals(3, image.getValue().getVersionNo());
+        verify(signatureImageService, never()).requireActiveSnapshot(any());
+    }
+
+    @Test
+    void centralPdfRejectsMissingFrozenImageAndInvalidEvidence() {
+        centralRecord();
+        when(signatureQueryService.verifyEvidence(62283L)).thenReturn(verification("VALID"));
+        var missing = assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,
+                () -> newService().exportRecordPdf("UNIFIED-62283"));
+        assertTrue(missing.getMessage().contains("未保存签署时的图片快照"));
+        when(signatureQueryService.verifyEvidence(62283L)).thenReturn(verification("INVALID"));
+        var invalid = assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,
+                () -> newService().exportRecordPdf("UNIFIED-62283"));
+        assertTrue(invalid.getMessage().contains("证据校验失败"));
+        verify(signatureImageService, never()).requireActiveSnapshot(any());
+        verify(signatureImageService, never()).verifySignatureSnapshot(any(DccElectronicSignatureImageSnapshot.class));
+    }
+
+    private SignatureGovernanceRecordRespVO centralRecord() {
+        SignatureGovernanceRecordRespVO row = new SignatureGovernanceRecordRespVO();
+        row.setGlobalId("UNIFIED-62283");
+        row.setSourceTable("system_electronic_signature");
+        row.setSourceCode("BPM");
+        row.setSourceLabel("审批");
+        row.setSourceRecordId(62283L);
+        row.setSignerUserId(101L);
+        row.setSignerName("郑华");
+        row.setActionLabel("审批确认");
+        row.setComment("已审查当前订单生产、PQC及四类测试资料，同意本测试批次上市放行。");
+        when(recordMapper.selectSignatureRecordByGlobalId("UNIFIED-62283")).thenReturn(row);
+        return row;
+    }
+
+    private ElectronicSignatureVerificationDTO verification(String status) {
+        return new ElectronicSignatureVerificationDTO(62283L, status, "hash", "hash", "hash", "hash",
+                "SHA-256", "digest-format-v2", "LOCAL_DIGEST_TIME_AND_CREATION_AUDIT", "CONSISTENT",
+                "CONSISTENT", "SERVER_CLOCK", "NOT_BOUND", "DEVELOPMENT_DISABLED", List.of("GXP_AUDIT_DEVELOPMENT_DISABLED"),
+                LocalDateTime.now(), "V2");
+    }
 
     @Test
     void pageDelegatesToUnionMapperAndKeepsGlobalPaginationMetadata() {
@@ -364,7 +474,7 @@ class SignatureGovernanceRecordServiceTest extends BaseMockitoUnitTest {
     }
 
     private SignatureGovernanceRecordServiceImpl newService() {
-        return new SignatureGovernanceRecordServiceImpl(recordMapper, signatureImageService, dccSignatureMapper);
+        return new SignatureGovernanceRecordServiceImpl(recordMapper, signatureImageService, dccSignatureMapper, signatureQueryService);
     }
 
     private static void assertPdfContainsImage(byte[] pdf) throws Exception {
