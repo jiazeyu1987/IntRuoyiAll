@@ -531,10 +531,8 @@ const selectedProject = computed(
 const projectIssue = computed<DraftIssue | undefined>(() => {
   if (!projectId.value) return undefined
   const project = projects.value.find((p) => p.id === projectId.value)
-  if (!project || project.productMasterId === undefined)
-    return { message: '所属项目的产品绑定信息未载入，请重新预览以核实当前项目', field: 'metadata', target: 'project' }
-  if (!(Number.isFinite(project.productMasterId) && Number(project.productMasterId) > 0))
-    return { message: '所属项目尚未绑定MDM产品，无法发布PQC规程。请在项目代码中完成真实产品绑定后重新预览', field: 'metadata', target: 'project' }
+  if (!project)
+    return { message: '所属项目信息未载入，请重新预览以核实当前项目', field: 'metadata', target: 'project' }
   return undefined
 })
 const changes = computed(() => (draft.value ? differences(draft.value, baseline.value) : []))

@@ -192,14 +192,22 @@ public class MesWmItemReceiptServiceImpl implements MesWmItemReceiptService {
 
     private void createTransactionList(MesWmItemReceiptDO receipt) {
         List<MesWmItemReceiptDetailDO> details = itemReceiptDetailService.getItemReceiptDetailListByReceiptId(receipt.getId());
-        wmTransactionService.createTransactionList(convertList(details, detail -> new MesWmTransactionSaveReqDTO()
+        wmTransactionService.createTransactionList(convertList(details, detail -> {
+            MesWmItemReceiptLineDO line = itemReceiptLineService.getItemReceiptLine(detail.getLineId());
+            if (line == null || ObjUtil.notEqual(line.getReceiptId(), receipt.getId())
+                    || ObjUtil.notEqual(line.getItemId(), detail.getItemId())) {
+                throw exception(WM_ITEM_RECEIPT_LINE_NOT_EXISTS);
+            }
+            // 批次由采购行生成；上架只拆分库位和数量，库存事务统一使用采购行的批次。
+            return new MesWmTransactionSaveReqDTO()
                 .setType(MesWmTransactionTypeEnum.IN.getType()).setItemId(detail.getItemId())
                 .setQuantity(detail.getQuantity()) // 入库数量为正数
-                .setBatchId(detail.getBatchId())
+                .setBatchId(line.getBatchId())
                 .setWarehouseId(detail.getWarehouseId()).setLocationId(detail.getLocationId()).setAreaId(detail.getAreaId())
                 .setVendorId(receipt.getVendorId()).setReceiptTime(receipt.getReceiptDate())
                 .setBizType(MesBizTypeConstants.WM_ITEM_RECEIPT_IN).setBizId(receipt.getId())
-                .setBizCode(receipt.getCode()).setBizLineId(detail.getLineId())));
+                .setBizCode(receipt.getCode()).setBizLineId(detail.getLineId());
+        }));
     }
 
     @Override

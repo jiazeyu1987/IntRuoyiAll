@@ -75,6 +75,35 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 // Verification DTOs are consumer-port fixtures, not evidence of the creation-audit algorithm.
 class MesTeamLeaderActiveOrderDetailServiceImplTest {
+    @Test
+    void replenishmentGroupingCountsEachSourceLineOnce() {
+        var material = new MesMdItemDO().setId(100L).setCode("TEST-MATERIAL");
+        var header = cn.iocoder.yudao.module.erp.dal.dataobject.production.kingdee.ErpKingdeeProductionReplenishmentListDO
+                .builder().id(200L).sourceBillNo("TEST-REPLENISHMENT").build();
+        var first = cn.iocoder.yudao.module.erp.dal.dataobject.production.kingdee.ErpKingdeeProductionReplenishmentListItemDO
+                .builder().id(301L).productionReplenishmentListId(200L)
+                .materialNumber("TEST-MATERIAL").materialName("测试物料").lotNumber("LOT-A")
+                .requestedQuantity(BigDecimal.ONE).actualQuantity(BigDecimal.ONE)
+                .baseActualQuantity(BigDecimal.ONE).build();
+        var second = cn.iocoder.yudao.module.erp.dal.dataobject.production.kingdee.ErpKingdeeProductionReplenishmentListItemDO
+                .builder().id(302L).productionReplenishmentListId(200L)
+                .materialNumber("TEST-MATERIAL").materialName("测试物料").lotNumber("LOT-B")
+                .requestedQuantity(new BigDecimal("3")).actualQuantity(new BigDecimal("2"))
+                .baseActualQuantity(new BigDecimal("4")).build();
+        for (var items : List.of(List.of(first), List.of(first, second))) {
+            java.util.Map<String, List<MesTeamLeaderActiveOrderDetail.SupplementMaterialDetail>> grouped =
+                    org.springframework.test.util.ReflectionTestUtils.invokeMethod(service,
+                            "groupSupplementMaterials", 8101L, items, java.util.Map.of(200L, header),
+                            java.util.Map.of("TEST-MATERIAL", material));
+            var result = grouped.get("TEST-MATERIAL").get(0);
+            assertEquals(items.size() == 1 ? BigDecimal.ONE : new BigDecimal("4"), result.getRequestedQuantity());
+            assertEquals(items.size() == 1 ? BigDecimal.ONE : new BigDecimal("3"), result.getActualQuantity());
+            assertEquals(items.size() == 1 ? BigDecimal.ONE : new BigDecimal("5"), result.getBaseActualQuantity());
+            assertEquals(items.stream().map(item -> item.getId()).toList(), result.getSourceReplenishmentListItemIds());
+            assertEquals(items.stream().map(item -> item.getLotNumber()).toList(), result.getBatchCodes());
+        }
+    }
+
     @Mock private cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrWorkTaskMapper workTaskMapper;
     @Mock private cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionMapper batchExecutionMapper;
     @org.junit.jupiter.api.AfterEach void clearPqcTenant() {
@@ -768,6 +797,7 @@ class MesTeamLeaderActiveOrderDetailServiceImplTest {
     private ElectronicSignatureQueryService signatureQueryService;
     @Mock
     private AdminUserService adminUserService;
+    @Mock private MesActiveOrderReplenishmentBindingService replenishmentBindings;
     @Mock private MesLocalTestRunSourceGuard localSources;
 
     @Mock private cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesMarketReleaseAccess marketReleaseAccess;

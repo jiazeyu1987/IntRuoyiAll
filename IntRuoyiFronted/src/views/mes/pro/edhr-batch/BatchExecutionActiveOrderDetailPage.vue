@@ -21,7 +21,7 @@
             @click="reverseTraceVisible = true"
           >反查关联批次</el-button>
         </div>
-        <fieldset class="market-release-readonly" :disabled="marketReleaseReadOnly">
+        <div class="market-release-readonly">
         <ActiveOrderSubmissionDetailPanel
           hide-correction-history
           :detail="detail"
@@ -30,13 +30,14 @@
           :production-material-list-error="productionMaterialListError"
           :loading="loading"
           :error="error"
+          :read-only="marketReleaseReadOnly"
           :initial-active-tab="initialActiveTab"
           audit-scope-type="BATCH"
           :audit-scope-id="auditDetailQuery"
           record-scope="FORMAL_BATCH_SOURCE_DETAIL"
           @retry="loadDetail"
         />
-        </fieldset>
+        </div>
         <BatchReverseTracePanel
           v-model:visible="reverseTraceVisible"
           :anchor-batch-execution-id="batchExecutionId"
@@ -270,5 +271,4 @@ watch(
 
 <style scoped>
 .market-release-readonly { border: 0; margin: 0; padding: 0; min-width: 0; }
-.market-release-readonly:disabled { opacity: 0.65; }
 </style>

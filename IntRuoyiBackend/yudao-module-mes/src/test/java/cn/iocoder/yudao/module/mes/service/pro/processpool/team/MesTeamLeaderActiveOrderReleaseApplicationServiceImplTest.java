@@ -44,13 +44,15 @@ class MesTeamLeaderActiveOrderReleaseApplicationServiceImplTest {
     private cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionOriginMapper originMapper;
 
     private MesTeamLeaderActiveOrderReleaseApplicationServiceImpl service;
+    @Mock
+    private cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffService handoffService;
 
     @BeforeEach
     void setUp() {
         service = new MesTeamLeaderActiveOrderReleaseApplicationServiceImpl(
                 generationService, completionService, receiptMapper, batchMapper, applicationMapper,
                 completionBatchExecutionService, originMapper);
-        { org.springframework.test.util.ReflectionTestUtils.setField(service, "handoffService", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffService.class)); }
+        ReflectionTestUtils.setField(service, "handoffService", handoffService);
         ReflectionTestUtils.setField(service, "gxpAuditService", gxpAuditService);
         ReflectionTestUtils.setField(service, "affectedStates", affectedStates);
     }
@@ -244,6 +246,55 @@ class MesTeamLeaderActiveOrderReleaseApplicationServiceImplTest {
 
         verify(generationService, never()).generate(20L, command);
     }
+    @Test
+    void correctionCompletesQaHandoffOnlyAfterNewApplicationAndAuditSucceed() {
+        var command = stubCorrection();
+        var result = new MesTeamLeaderActiveOrderReleaseApplicationResult()
+                .setApplicationId(101L).setBatchExecutionId(93L).setVersion(2);
+        when(generationService.generateCorrection(20L, command, 99L)).thenReturn(result);
+        assertSame(result, service.applyCorrection(20L, command, 99L, 93L));
+        var order = inOrder(generationService, gxpAuditService, handoffService);
+        order.verify(generationService).generateCorrection(20L, command, 99L);
+        order.verify(gxpAuditService).append(any(GxpAuditCommand.class));
+        order.verify(handoffService).productionLeaderContinued(10L, 20L, 101L);
+    }
+
+    @Test
+    void correctionGenerationFailureDoesNotCompleteQaHandoff() {
+        var command = stubCorrection();
+        when(generationService.generateCorrection(20L, command, 99L))
+                .thenThrow(new IllegalStateException("generation failed"));
+        assertThrows(IllegalStateException.class, () -> service.applyCorrection(20L, command, 99L, 93L));
+        org.mockito.Mockito.verifyNoInteractions(handoffService);
+    }
+
+    @Test
+    void correctionHandoffFailurePropagatesToTransactionalCaller() {
+        var command = stubCorrection();
+        when(generationService.generateCorrection(20L, command, 99L)).thenReturn(
+                new MesTeamLeaderActiveOrderReleaseApplicationResult()
+                        .setApplicationId(101L).setBatchExecutionId(93L).setVersion(2));
+        doThrow(new IllegalStateException("handoff failed"))
+                .when(handoffService).productionLeaderContinued(10L, 20L, 101L);
+        assertThrows(IllegalStateException.class, () -> service.applyCorrection(20L, command, 99L, 93L));
+    }
+
+    private MesTeamLeaderActiveOrderReleaseApplyCommand stubCorrection() {
+        var command = new MesTeamLeaderActiveOrderReleaseApplyCommand()
+                .setActiveOrderId(10L).setIdempotencyKey("correction-99");
+        when(receiptMapper.selectByActiveOrderIdForUpdate(10L)).thenReturn(
+                cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderCompletionReceiptDO.builder()
+                        .id(88L).activeOrderId(10L).leaderUserId(20L).workOrderId(90L).batchCode("B90").routeId(30L)
+                        .receiptStatus("BACKFILL_SUCCEEDED").batchRecordStatus("SUCCESS").processInspectionStatus("SUCCESS")
+                        .batchRecordId(91L).processInspectionId(92L).routeVersionId(31L).build());
+        stubPersistedOrigin();
+        when(applicationMapper.selectByIdForUpdate(99L)).thenReturn(
+                new cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationDO()
+                        .setId(99L).setAppliedBy(20L).setActiveOrderId(10L).setBatchExecutionId(93L)
+                        .setApplicationStatus("MARKET_RELEASE_REJECTED").setPqcDecision("APPROVE"));
+        return command;
+    }
+
     private void stubPersistedOrigin() {
         when(originMapper.selectListByTraceFilter(10L, 90L, null, "ACTIVE_ORDER_COMPLETION"))
                 .thenReturn(java.util.List.of(new cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionOriginDO()

@@ -144,13 +144,13 @@ export interface TeamDeviceParameterRuleSaveReqVO {
 }
 
 export interface TeamLeaderActiveOrderAddReqVO {
-  workOrderId: number
+  workOrderId: number | string
 }
 
 export type TeamLeaderActiveOrderCandidateState = 'ADDABLE' | 'REUSABLE' | 'RECOVERABLE' | 'BLOCKED'
 
 export interface TeamLeaderActiveOrderCandidateRespVO {
-  workOrderId: number
+  workOrderId: number | string
   workOrderCode: string
   candidateState: TeamLeaderActiveOrderCandidateState
   eligible: boolean

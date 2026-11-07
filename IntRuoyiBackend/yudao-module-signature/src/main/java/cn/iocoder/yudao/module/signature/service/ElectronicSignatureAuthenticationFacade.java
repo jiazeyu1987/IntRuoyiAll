@@ -7,6 +7,9 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 
+import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
+import static cn.iocoder.yudao.module.system.enums.ErrorCodeConstants.ESIGN_IDENTITY_BAD_CREDENTIALS;
+
 /** Authentication completes outside the domain transaction; rejection events remain committed. */
 @Service
 public class ElectronicSignatureAuthenticationFacade {
@@ -18,7 +21,10 @@ public class ElectronicSignatureAuthenticationFacade {
         if (candidates.size() != 1) throw new IllegalStateException("SIGNATURE_IDENTITY_PROVIDER_NOT_UNIQUE: " + request.domain());
         var outcome = candidates.get(0).authenticate(request);
         if (outcome == null) throw new IllegalStateException("SIGNATURE_AUTHENTICATION_OUTCOME_MISSING");
-        if (!outcome.succeeded()) throw new IllegalArgumentException(outcome.rejectionCode());
+        if (!outcome.succeeded()) {
+            if ("BAD_CREDENTIALS".equals(outcome.rejectionCode())) throw exception(ESIGN_IDENTITY_BAD_CREDENTIALS);
+            throw new IllegalArgumentException(outcome.rejectionCode());
+        }
         return outcome.signer();
     }
 }

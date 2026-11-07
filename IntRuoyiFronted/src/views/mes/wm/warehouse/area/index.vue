@@ -151,6 +151,7 @@
 
 <script setup lang="ts">
 import { isSearchFormInputEmpty } from '@/utils/search'
+import { parsePositiveRouteQueryId } from '@/utils/routeQueryId'
 import { dateFormatter } from '@/utils/formatTime'
 import { DICT_TYPE } from '@/utils/dict'
 import { WmWarehouseLocationApi } from '@/api/mes/wm/warehouse/location'
@@ -169,12 +170,12 @@ const loading = ref(true) // 列表的加载中
 const list = ref<WmWarehouseAreaVO[]>([]) // 列表的数据
 const total = ref(0) // 列表的总页数
 const currentLocation = ref<{
-  id: number
+  id: string
   name: string
-  warehouseId: number
+  warehouseId: number | string
   warehouseName: string
 }>({
-  id: 0,
+  id: '',
   name: '',
   warehouseId: 0,
   warehouseName: ''
@@ -184,7 +185,7 @@ const queryParams = reactive({
   pageSize: 10,
   code: undefined,
   name: undefined,
-  locationId: undefined as number | undefined,
+  locationId: undefined as string | undefined,
   positionX: undefined,
   positionY: undefined,
   positionZ: undefined
@@ -193,20 +194,16 @@ const queryFormRef = ref() // 查询表单 Ref
 
 /** 加载库区上下文（从 URL query 参数获取 locationId，并加载库区和仓库名称） */
 const loadLocationContext = async () => {
-  const locationId = Number(route.query.locationId)
-  if (!Number.isInteger(locationId) || locationId <= 0) {
+  const locationId = parsePositiveRouteQueryId(route.query.locationId)
+  if (!locationId) {
     return
   }
   currentLocation.value.id = locationId
   queryParams.locationId = locationId
-  try {
-    const location = await WmWarehouseLocationApi.getWarehouseLocation(locationId)
-    currentLocation.value.name = location.name
-    currentLocation.value.warehouseId = location.warehouseId
-    currentLocation.value.warehouseName = location.warehouseName
-  } catch {
-    // 忽略上级名称加载异常，不影响列表查询
-  }
+  const location = await WmWarehouseLocationApi.getWarehouseLocation(locationId)
+  currentLocation.value.name = location.name
+  currentLocation.value.warehouseId = location.warehouseId
+  currentLocation.value.warehouseName = location.warehouseName
 }
 
 /** 查询列表 */

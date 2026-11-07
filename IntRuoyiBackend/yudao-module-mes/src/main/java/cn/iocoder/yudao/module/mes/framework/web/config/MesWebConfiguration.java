@@ -13,6 +13,18 @@ import org.springframework.context.annotation.Configuration;
 @Configuration(proxyBeanMethods = false)
 public class MesWebConfiguration {
 
+    @Bean
+    public org.springframework.boot.web.servlet.FilterRegistrationBean<cn.iocoder.yudao.module.mes.framework.web.core.filter.EdhrDecisionRequestLogMetadataFilter> edhrDecisionRequestLogMetadataFilter(
+            cn.iocoder.yudao.framework.web.config.WebProperties properties,
+            org.springframework.beans.factory.ObjectProvider<cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.MesProEdhrReleaseController> releases,
+            org.springframework.beans.factory.ObjectProvider<cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.MesProEdhrNonconformanceReviewController> reviews) {
+        var registration = new org.springframework.boot.web.servlet.FilterRegistrationBean<>(
+                new cn.iocoder.yudao.module.mes.framework.web.core.filter.EdhrDecisionRequestLogMetadataFilter(properties, releases, reviews));
+        registration.setOrder(cn.iocoder.yudao.framework.common.enums.WebFilterOrderEnum.API_ACCESS_LOG_FILTER - 2);
+        return registration;
+    }
+
+
     /**
      * mes 模块的 API 分组
      */

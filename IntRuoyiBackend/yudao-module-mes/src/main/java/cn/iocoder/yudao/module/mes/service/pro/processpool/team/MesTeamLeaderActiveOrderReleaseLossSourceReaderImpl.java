@@ -41,6 +41,9 @@ public class MesTeamLeaderActiveOrderReleaseLossSourceReaderImpl
     @Resource
     private MesProductionSignatureEvidenceService productionSignatureEvidenceService;
 
+    @Resource
+    private MesActiveOrderReplenishmentBindingService replenishmentBindings;
+
     private final MesLocalTestRunSourceGuard localSources;
     private final MesProProcessPoolEventMapper eventMapper;
     private final MesProFeedbackMapper feedbackMapper;
@@ -298,6 +301,7 @@ public class MesTeamLeaderActiveOrderReleaseLossSourceReaderImpl
             }
             return result;
         }
+        var explicitBindings = replenishmentBindings.read(command.getActiveOrderId());
         var headerIds = items.stream().map(item -> item.getProductionReplenishmentListId())
                 .filter(Objects::nonNull).distinct().sorted().toList();
         Map<Long, ErpKingdeeProductionReplenishmentListDO> headers = new LinkedHashMap<>();
@@ -330,6 +334,15 @@ public class MesTeamLeaderActiveOrderReleaseLossSourceReaderImpl
             }
             var owners = snapshots.stream().filter(snapshot -> inputCodes.get(snapshot.getRouteProcessId())
                     .contains(item.getMaterialNumber().trim())).toList();
+            var explicit = explicitBindings.get(item.getId());
+            if (explicit != null) {
+                if (!owners.isEmpty()) {
+                    blockers.add(blocker("LOSS_REPLENISHMENT_BINDING_CONFLICT", null, "REPLENISHMENT_ITEM", item.getId(),
+                            null, "补料签名关联与冻结输入配置冲突", "请核对正式补料关联证据"));
+                    continue;
+                }
+                owners = snapshots.stream().filter(snapshot -> Objects.equals(snapshot.getRouteProcessId(), explicit.routeProcessId())).toList();
+            }
             if (owners.size() != 1) {
                 blockers.add(blocker(owners.isEmpty() ? "LOSS_REPLENISHMENT_MATERIAL_UNBOUND"
                                 : "LOSS_REPLENISHMENT_MATERIAL_AMBIGUOUS", null, "REPLENISHMENT_ITEM", item.getId(),
@@ -341,7 +354,10 @@ public class MesTeamLeaderActiveOrderReleaseLossSourceReaderImpl
                     .add(new MesTeamLeaderActiveOrderReleaseLossSourceReadResult.ReplenishmentSource()
                             .setHeaderId(header.getId()).setItemId(item.getId()).setSourceBillNo(header.getSourceBillNo())
                             .setMaterialCode(item.getMaterialNumber()).setMaterialName(item.getMaterialName())
-                            .setLotNumber(item.getLotNumber()).setActualQuantity(item.getActualQuantity()));
+                            .setLotNumber(item.getLotNumber()).setActualQuantity(item.getActualQuantity())
+                            .setBindingEventId(explicit == null ? null : explicit.eventId())
+                            .setBindingSignatureId(explicit == null ? null : explicit.signatureId())
+                            .setBindingChallengeHash(explicit == null ? null : explicit.challengeHash()));
         }
         result.values().forEach(lines -> lines.sort(Comparator.comparing(
                 MesTeamLeaderActiveOrderReleaseLossSourceReadResult.ReplenishmentSource::getItemId)));

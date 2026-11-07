@@ -10,6 +10,8 @@ import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileSignatureMapp
 import cn.iocoder.yudao.module.dcc.dal.mysql.signature.governance.SignatureGovernanceRecordMapper;
 import cn.iocoder.yudao.module.dcc.service.file.DccElectronicSignatureImageService;
 import cn.iocoder.yudao.module.dcc.service.file.DccElectronicSignatureImageSnapshot;
+import cn.iocoder.yudao.module.signature.api.ElectronicSignatureQueryService;
+import cn.iocoder.yudao.module.signature.api.dto.ElectronicSignatureVerificationDTO;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import lombok.extern.slf4j.Slf4j;
@@ -53,17 +55,21 @@ public class SignatureGovernanceRecordServiceImpl implements SignatureGovernance
     private static final float PDF_TITLE_FONT_SIZE = 18F;
     private static final float PDF_LINE_GAP = 6F;
     private static final String DCC_SIGNATURE_SOURCE_TABLE = "dcc_controlled_file_signature";
+    private static final String UNIFIED_SIGNATURE_SOURCE_TABLE = "system_electronic_signature";
 
     private final SignatureGovernanceRecordMapper recordMapper;
     private final DccElectronicSignatureImageService signatureImageService;
     private final DccControlledFileSignatureMapper dccSignatureMapper;
+    private final ElectronicSignatureQueryService signatureQueryService;
 
     public SignatureGovernanceRecordServiceImpl(SignatureGovernanceRecordMapper recordMapper,
                                                 DccElectronicSignatureImageService signatureImageService,
-                                                DccControlledFileSignatureMapper dccSignatureMapper) {
+                                                DccControlledFileSignatureMapper dccSignatureMapper,
+                                                ElectronicSignatureQueryService signatureQueryService) {
         this.recordMapper = recordMapper;
         this.signatureImageService = signatureImageService;
         this.dccSignatureMapper = dccSignatureMapper;
+        this.signatureQueryService = signatureQueryService;
     }
 
     @Override
@@ -84,6 +90,17 @@ public class SignatureGovernanceRecordServiceImpl implements SignatureGovernance
         if (record == null) {
             throw exception(SIGNATURE_GOVERNANCE_RECORD_NOT_EXISTS, normalizedGlobalId);
         }
+        if (UNIFIED_SIGNATURE_SOURCE_TABLE.equals(record.getSourceTable())) {
+            ElectronicSignatureVerificationDTO verification = signatureQueryService.verifyEvidence(record.getSourceRecordId());
+            if (!"VALID".equals(verification.verificationStatus())) {
+                throw exception(SIGNATURE_GOVERNANCE_RECORD_PDF_EXPORT_FAILED,
+                        "原始电子签名证据校验失败，禁止导出：" + verification.reasonCodes());
+            }
+            record.setVerificationSummary("摘要校验：" + verification.digestStatus()
+                    + "；时间一致性：" + verification.timeConsistencyStatus()
+                    + "；可信时间：" + verification.timeTrustStatus()
+                    + "；创建审计：" + verification.auditBindingStatus());
+        }
         DccElectronicSignatureImageSnapshot signatureImage = resolveSignatureImage(record);
         return new SignatureGovernanceRecordPdfArtifact(
                 "electronic-signature-" + sanitizeFileNameSegment(normalizedGlobalId) + ".pdf",
@@ -102,6 +119,7 @@ public class SignatureGovernanceRecordServiceImpl implements SignatureGovernance
             PDFont font = PDType0Font.load(document, fontFile);
             PDPage page = new PDPage(PDRectangle.A4);
             document.addPage(page);
+            float auditY;
             try (PDPageContentStream contentStream = new PDPageContentStream(document, page)) {
                 float y = PDRectangle.A4.getHeight() - PDF_MARGIN;
                 y = writeColoredLine(contentStream, font, 26F, PDF_MARGIN, y, "电子签名",
@@ -111,10 +129,29 @@ public class SignatureGovernanceRecordServiceImpl implements SignatureGovernance
                 y = writeReferenceSignatureBlock(document, contentStream, font, y - 8F, record, signatureImage);
                 y = writeColoredLine(contentStream, font, 12F, PDF_MARGIN, y - 2F,
                         "签名审计信息", new Color(74, 78, 84));
+                auditY = y;
+            }
+            // Audit fields may span multiple pages, including long frozen opinions and hashes.
+            PDPage auditPage = page;
+            PDPageContentStream auditStream = new PDPageContentStream(document, auditPage,
+                    PDPageContentStream.AppendMode.APPEND, true);
+            try {
                 for (PdfField field : buildPdfFields(record, signatureImage)) {
-                    y = writeWrappedLine(contentStream, font, PDF_BODY_FONT_SIZE, PDF_MARGIN, y,
-                            field.label() + "：" + field.value());
+                    for (String line : wrapText(field.label() + "：" + field.value(), font,
+                            PDF_BODY_FONT_SIZE, PDRectangle.A4.getWidth() - PDF_MARGIN * 2)) {
+                        if (auditY < PDF_MARGIN + PDF_BODY_FONT_SIZE) {
+                            auditStream.close();
+                            auditPage = new PDPage(PDRectangle.A4);
+                            document.addPage(auditPage);
+                            auditStream = new PDPageContentStream(document, auditPage);
+                            auditY = PDRectangle.A4.getHeight() - PDF_MARGIN;
+                        }
+                        auditY = writeLine(auditStream, font, PDF_BODY_FONT_SIZE, PDF_MARGIN, auditY, line);
+                    }
+                    auditY -= 2F;
                 }
+            } finally {
+                auditStream.close();
             }
             document.save(outputStream);
             return outputStream.toByteArray();
@@ -147,12 +184,16 @@ public class SignatureGovernanceRecordServiceImpl implements SignatureGovernance
                     .verifiedStatus(record.getSignatureImageVerifiedStatus())
                     .build());
         }
+        if (UNIFIED_SIGNATURE_SOURCE_TABLE.equals(record.getSourceTable())) {
+            throw exception(SIGNATURE_GOVERNANCE_RECORD_PDF_EXPORT_FAILED,
+                    "该历史签名未保存签署时的图片快照，不能使用当前签名图片代替");
+        }
         return signatureImageService.requireActiveSnapshot(record.getSignerUserId());
     }
 
     private List<PdfField> buildPdfFields(SignatureGovernanceRecordRespVO record,
                                           DccElectronicSignatureImageSnapshot signatureImage) {
-        return List.of(
+        List<PdfField> fields = new ArrayList<>(List.of(
                 field("来源", displaySource(record)),
                 field("来源表", displaySourceTable(record.getSourceTable())),
                 field("来源记录编号", record.getSourceRecordId()),
@@ -167,7 +208,12 @@ public class SignatureGovernanceRecordServiceImpl implements SignatureGovernance
                 field("证据哈希", record.getEvidenceHash()),
                 field("详情路径", displayDetailPath(record.getDetailPath())),
                 field("文件生成时间", LocalDateTime.now().format(DISPLAY_TIME_FORMATTER))
-        );
+        ));
+        if (StrUtil.isNotBlank(record.getVerificationSummary())) {
+            fields.add(field("本次证据核验范围", record.getVerificationSummary()));
+            fields.add(field("完整签署意见", record.getComment()));
+        }
+        return fields;
     }
 
     private float writeReferenceSignatureBlock(PDDocument document, PDPageContentStream contentStream, PDFont font,
@@ -395,6 +441,7 @@ public class SignatureGovernanceRecordServiceImpl implements SignatureGovernance
             case "mes_pro_batch_record_execution_signature" -> "批记录执行签名记录";
             case "showroom_change_request_signature" -> "展厅变更签名记录";
             case "bpm_approval_signature_record" -> "审批签名记录";
+            case UNIFIED_SIGNATURE_SOURCE_TABLE -> "统一电子签名记录";
             default -> "未识别来源表";
         };
     }
@@ -412,6 +459,9 @@ public class SignatureGovernanceRecordServiceImpl implements SignatureGovernance
     private static String displaySignatureReason(SignatureGovernanceRecordRespVO record) {
         String comment = displayKnownValue(record.getComment());
         String action = displayChinesePreferred(record.getActionLabel(), record.getActionCode());
+        if (UNIFIED_SIGNATURE_SOURCE_TABLE.equals(record.getSourceTable())) {
+            return action;
+        }
         if ("-".equals(comment)) {
             return action;
         }

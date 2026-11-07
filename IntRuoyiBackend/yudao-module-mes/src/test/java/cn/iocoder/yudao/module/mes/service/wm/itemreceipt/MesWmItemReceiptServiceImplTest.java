@@ -3,6 +3,7 @@ package cn.iocoder.yudao.module.mes.service.wm.itemreceipt;
 import cn.iocoder.yudao.framework.test.core.ut.BaseDbUnitTest;
 import cn.iocoder.yudao.module.mes.dal.dataobject.wm.itemreceipt.MesWmItemReceiptDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.wm.itemreceipt.MesWmItemReceiptDetailDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.wm.itemreceipt.MesWmItemReceiptLineDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.wm.itemreceipt.MesWmItemReceiptMapper;
 import cn.iocoder.yudao.module.mes.enums.wm.MesWmItemReceiptStatusEnum;
 import cn.iocoder.yudao.module.mes.service.md.vendor.MesMdVendorService;
@@ -79,6 +80,11 @@ public class MesWmItemReceiptServiceImplTest extends BaseDbUnitTest {
         });
         when(itemReceiptDetailService.getItemReceiptDetailListByReceiptId(eq(receiptId)))
                 .thenReturn(Arrays.asList(detail1, detail2));
+        for (MesWmItemReceiptDetailDO detail : Arrays.asList(detail1, detail2)) {
+            when(itemReceiptLineService.getItemReceiptLine(detail.getLineId())).thenReturn(
+                    MesWmItemReceiptLineDO.builder().receiptId(receiptId)
+                            .itemId(detail.getItemId()).batchId(detail.getBatchId()).build());
+        }
 
         // 调用
         itemReceiptService.finishItemReceipt(receiptId);

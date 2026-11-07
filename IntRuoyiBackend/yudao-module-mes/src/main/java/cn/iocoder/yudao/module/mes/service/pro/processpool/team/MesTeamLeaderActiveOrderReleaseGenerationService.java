@@ -50,6 +50,8 @@ import java.util.Set;
 @Service
 public class MesTeamLeaderActiveOrderReleaseGenerationService {
     @jakarta.annotation.Resource
+    private cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventMapper productionEventMapper;
+    @jakarta.annotation.Resource
     private cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesOrderReleaseCompletenessService pqcCoverageService;
 
 
@@ -347,9 +349,8 @@ public class MesTeamLeaderActiveOrderReleaseGenerationService {
                     snapshot.getPlannedQuantitySnapshot());
         }
 
-        Map<ProcessIdentity, BigDecimal> allocatedQuantityByProcess = new LinkedHashMap<>();
-        for (MesProcessPoolReportAllocationDO allocation
-                : list(allocationMapper.selectListByActiveOrderIds(List.of(activeOrder.getId())))) {
+        var allocations = list(allocationMapper.selectListByActiveOrderIds(List.of(activeOrder.getId())));
+        for (MesProcessPoolReportAllocationDO allocation : allocations) {
             if (allocation == null || !Objects.equals(activeOrder.getId(), allocation.getActiveOrderId())
                     || !Objects.equals(activeOrder.getWorkOrderId(), allocation.getWorkOrderId())) {
                 throw blocker(MesReleaseFlowBlockerType.PRODUCTION_QUANTITY_CONFLICT, null,
@@ -372,18 +373,26 @@ public class MesTeamLeaderActiveOrderReleaseGenerationService {
                         null, "formal production allocation points to an unknown frozen process",
                         "由组长纠正该工单工序的报工分配后重新申请放行");
             }
-            allocatedQuantityByProcess.merge(identity, allocation.getAllocatedQuantity(), BigDecimal::add);
         }
+
+        var eventIds = allocations.stream().map(MesProcessPoolReportAllocationDO::getEventId)
+                .filter(Objects::nonNull).distinct().toList();
+        var productionEvents = eventIds.isEmpty()
+                ? List.<cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventDO>of()
+                : productionEventMapper.selectProductionSubmitsByIdsForUpdate(eventIds);
 
         for (MesProcessPoolActiveOrderProcessSnapshotDO snapshot : snapshots) {
             ProcessIdentity identity = new ProcessIdentity(snapshot.getRouteProcessId(), snapshot.getProcessId());
             BigDecimal targetQuantity = targetQuantityByProcess.get(identity);
-            BigDecimal allocatedQuantity = allocatedQuantityByProcess.getOrDefault(identity, BigDecimal.ZERO);
             if (!positive(targetQuantity)) {
                 throw progressBlocker(MesReleaseFlowBlockerType.PRODUCTION_PROGRESS_NOT_COMPLETED,
                         activeOrder, snapshot, "formal production target is missing",
                         "补齐该冻结工序的正式生产目标后重新申请放行");
             }
+            // Split material submissions measure the same process. Check the highest material
+            // total for overproduction, matching the existing allocation and progress rules.
+            BigDecimal allocatedQuantity = MesOutputMaterialProgressCalculator.calculateMaximumProcessQuantity(
+                    activeOrder, snapshot, productionEvents, allocations);
             if (allocatedQuantity.compareTo(targetQuantity) > 0) {
                 BigDecimal overageQuantity = allocatedQuantity.subtract(targetQuantity);
                 throw progressBlocker(MesReleaseFlowBlockerType.PRODUCTION_QUANTITY_CONFLICT,

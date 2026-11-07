@@ -4,6 +4,7 @@ import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.bpm.approval.core.ApprovalTaskReviewResult;
+import cn.iocoder.yudao.module.bpm.approval.content.ApprovalCenterReceiptService;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.*;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.handoff.MesActiveOrderHandoffTaskDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationDO;
@@ -12,6 +13,8 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPool
 import cn.iocoder.yudao.module.mes.service.pro.productionrelease.manager.MesProductionReleaseSignoffService;
 import cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffContract;
 import cn.iocoder.yudao.module.signature.api.ElectronicSignatureQueryService;
+import cn.iocoder.yudao.module.signature.service.ElectronicSignatureVerifiedFactService;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesSignatureContentProtocol;
 import org.springframework.stereotype.Component;
 import java.util.Objects;
 
@@ -30,6 +33,8 @@ public class MesEdhrApprovalOutcomeReader {
     private final ElectronicSignatureQueryService signatures;
     private final MesProductionReleaseSignoffService signoff;
     private final MesEdhrExecutionFinalOutcomeReader executionFinal;
+    @jakarta.annotation.Resource private ApprovalCenterReceiptService centerReceipts;
+    @jakarta.annotation.Resource private ElectronicSignatureVerifiedFactService verifiedSignatureFacts;
     @jakarta.annotation.Resource private MesEdhrRecordChangeOutcomeReader recordChange;
     @jakarta.annotation.Resource
     private MesEdhrDeviationApprovalOutcomeReader deviationOutcomeReader;
@@ -123,6 +128,7 @@ public class MesEdhrApprovalOutcomeReader {
                 && Objects.equals(app.getBatchExecutionId(), task.getBatchExecutionId())
                 && Objects.equals(app.getWorkOrderId(), task.getWorkOrderId()), "manager application task conflict");
         require(Objects.equals(tx.getReleaseStatus(), decision.getDecisionStatus()), "market decision state conflict");
+        if ("REJECTED".equals(decision.getDecisionStatus())) return marketRejected(task, tx, decision, app, tenant);
         if (!"RELEASED".equals(decision.getDecisionStatus())) {
             if (decision.getDecisionStatus() != null && !decision.getDecisionStatus().isBlank()
                     && !"REJECTED".equals(decision.getDecisionStatus()) && !"WITHDRAWN".equals(decision.getDecisionStatus())) {
@@ -141,13 +147,92 @@ public class MesEdhrApprovalOutcomeReader {
         if (signature == null) return unproven(task, tx.getReleaseStatus());
         require(Objects.equals(signature.id(), tx.getApprovalSignatureId())
                 && Objects.equals(signature.reason(), decision.getApprovalOpinion()), "market signature opinion conflict");
-        require(signoff.findVerifiedSignatureId(task.getId(), actor, signature.subjectId(),
-                tx.getApprovalSignoffEvidenceHash(), decision.getApprovalOpinion())
-                .filter(tx.getApprovalSignatureId()::equals).isPresent(), "market signature not bound to decision");
+        if (Objects.equals(signature.subjectId(), "EDHR_RELEASE:" + tx.getId())) {
+            requireCenterReceipt(task, tx, decision, actor, tenant);
+        } else {
+            require(signoff.findVerifiedSignatureId(task.getId(), actor, signature.subjectId(),
+                    tx.getApprovalSignoffEvidenceHash(), decision.getApprovalOpinion())
+                    .filter(tx.getApprovalSignatureId()::equals).isPresent(), "market signature not bound to decision");
+        }
         return new MesEdhrApprovalOutcome("COMPLETED", ApprovalTaskReviewResult.APPROVE,
                 tx.getReleaseStatus(), task.getStatus(), "APPROVE", decision.getDecisionStatus(),
                 decision.getApprovalOpinion(), task.getReason(), null,
                 actor, decision.getDecidedAt(), "EXISTING_MARKET_RELEASE_DECISION", decision.getId().toString(), actor);
+    }
+
+    private MesEdhrApprovalOutcome marketRejected(MesProEdhrWorkTaskDO task, MesProEdhrReleaseTransactionDO tx,
+            MesProEdhrReleaseDecisionDO decision, MesProcessPoolActiveOrderReleaseApplicationDO app, Long tenant) {
+        var snapshot = JsonUtils.parseTree(decision.getAuditSnapshotJson());
+        if (snapshot == null || !snapshot.hasNonNull("signatureId")) return unproven(task, tx.getReleaseStatus());
+        Long signatureId = snapshot.path("signatureId").asLong();
+        Long actor = decision.getActorUserId();
+        String reason = decision.getDecisionReason();
+        String hash = decision.getPayloadHash();
+        require(positive(signatureId) && positive(actor) && task.getCompletedAt() != null
+                && Objects.equals(actor, tx.getRejectedBy()) && decision.getDecidedAt() != null
+                && Objects.equals(decision.getDecidedAt(), tx.getRejectedAt())
+                && reason != null && !reason.isBlank() && Objects.equals(reason, tx.getRejectReason())
+                && Objects.equals(decision.getActiveOrderId(), app.getActiveOrderId())
+                && hash != null && !hash.isBlank() && Objects.equals(hash, tx.getFinalizationPayloadHash())
+                && Objects.equals(hash, decision.getSignoffEvidenceHash()), "market rejection action conflict");
+        require(tx.getId().toString().equals(snapshot.path("releaseTransactionId").asText())
+                && app.getId().toString().equals(snapshot.path("releaseApplicationId").asText())
+                && app.getActiveOrderId().toString().equals(snapshot.path("activeOrderId").asText())
+                && task.getBatchExecutionId().toString().equals(snapshot.path("batchExecutionId").asText())
+                && task.getWorkOrderId().toString().equals(snapshot.path("workOrderId").asText())
+                && actor.toString().equals(snapshot.path("actorUserId").asText())
+                && "REJECTED".equals(snapshot.path("decisionStatus").asText())
+                && hash.equals(snapshot.path("payloadHash").asText())
+                && hash.equals(snapshot.path("signoffEvidenceHash").asText()), "market rejection snapshot conflict");
+        final MesSignatureContentProtocol.VerifiedMesSignatureContent verified;
+        try {
+            verified = MesSignatureContentProtocol.parseVerifiedContent(
+                    verifiedSignatureFacts.requireVerifiedFact(signatureId), tenant);
+        } catch (IllegalArgumentException invalidContent) {
+            throw new IllegalStateException("EDHR_APPROVAL_OUTCOME_INVALID: market rejection signature content", invalidContent);
+        }
+        var fact = verified.signatureFact();
+        var subject = verified.subject();
+        require(Objects.equals(signatureId, fact.id()) && Objects.equals(actor, fact.actorId())
+                && Objects.equals(reason, fact.reason()) && "MARKET_RELEASE_REJECT".equals(fact.actionCode())
+                && task.getBatchExecutionId().toString().equals(subject.executionId())
+                && "EDHR_BATCH".equals(subject.reviewSourceType())
+                && task.getBatchExecutionId().toString().equals(subject.reviewSourceId())
+                && "MARKET_RELEASE_REJECT".equals(subject.approvalResult())
+                && hash.equals(subject.cellValuesHash()), "market rejection signature binding conflict");
+        return new MesEdhrApprovalOutcome("COMPLETED", ApprovalTaskReviewResult.REJECT,
+                tx.getReleaseStatus(), task.getStatus(), "REJECT", decision.getDecisionStatus(),
+                reason, task.getReason(), null, actor, decision.getDecidedAt(),
+                "EXISTING_MARKET_RELEASE_DECISION", decision.getId().toString(), actor);
+    }
+
+    private void requireCenterReceipt(MesProEdhrWorkTaskDO task, MesProEdhrReleaseTransactionDO tx,
+            MesProEdhrReleaseDecisionDO decision, Long actor, Long tenant) {
+        require(tx.getApprovalIdempotencyKey() != null && !tx.getApprovalIdempotencyKey().isBlank(),
+                "market center receipt key missing");
+        // Verify the persisted receipt, signature and creation evidence before binding its exact domain result.
+        var receipt = centerReceipts.findVerified(actor, tx.getApprovalIdempotencyKey());
+        require(receipt != null && Objects.equals(receipt.getTenantId(), tenant)
+                && Objects.equals(receipt.getActorId(), actor)
+                && Objects.equals(receipt.getIdempotencyKey(), tx.getApprovalIdempotencyKey())
+                && Objects.equals(receipt.getCenterSignatureId(), tx.getApprovalSignatureId())
+                && Objects.equals(receipt.getCenterEvidenceHash(), tx.getApprovalSignoffEvidenceHash())
+                && Objects.equals(receipt.getReason(), decision.getApprovalOpinion())
+                && "APPROVE".equals(receipt.getActionCode()) && "APPROVE".equals(receipt.getResultCode())
+                && Objects.equals(receipt.getResultingStatus(), decision.getDecisionStatus()),
+                "market center receipt decision conflict");
+        var identity = JsonUtils.parseTree(receipt.getIdentityJson());
+        var links = JsonUtils.parseTree(receipt.getDomainLinksJson());
+        require(identity != null && links != null
+                && tenant.toString().equals(identity.path("tenantId").asText())
+                && "EDHR".equals(identity.path("ownerCode").asText())
+                && "EDHR_WORK_TASK".equals(identity.path("sourceTaskType").asText())
+                && task.getId().toString().equals(identity.path("sourceTaskId").asText())
+                && "EDHR_RELEASE".equals(identity.path("domainSubjectType").asText())
+                && tx.getId().toString().equals(identity.path("domainSubjectId").asText())
+                && tx.getId().toString().equals(links.path("releaseId").asText())
+                && decision.getId().toString().equals(links.path("decisionId").asText()),
+                "market center receipt task binding conflict");
     }
 
     private MesEdhrApprovalOutcome pqc(MesProEdhrWorkTaskDO task, Long tenant) {

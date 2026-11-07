@@ -234,6 +234,10 @@ class MesPqcReleaseCorrectionServiceTest {
         assertEquals("MARKET_WITHDRAWAL", task.getReviewSourceType());
         assertEquals(90L, task.getReviewSourceId());
         assertEquals("上市放行补正", task.getProcessName());
+        verify(notifyApi).sendSingleMessageIdempotentlyToAdmin(argThat(notice ->
+                notice.getTemplateCode().equals("MES_EDHR_MARKET_WITHDRAW_CORRECTION_ASSIGNED")
+                        && notice.getUserId().equals(10L)
+                        && notice.getTemplateParams().get("reason").equals("补齐成品检文件")));
         assertEquals("APPROVE", applications.selectById(50L).getPqcDecision());
         assertEquals(70L, applications.selectById(50L).getPqcReleaseWorkTaskId());
         assertTrue(service.get(10L, id).writable());
@@ -282,6 +286,10 @@ class MesPqcReleaseCorrectionServiceTest {
         db.mapper(MesProEdhrNonconformanceReviewMapper.class).insert(review);
         Long id = db.transaction.execute(status -> service.receive(10L, 50L));
         assertEquals("MARKET_REJECTION", tasks.selectById(id).getReviewSourceType());
+        verify(notifyApi).sendSingleMessageIdempotentlyToAdmin(argThat(notice ->
+                notice.getTemplateCode().equals("MES_EDHR_MARKET_REJECT_CORRECTION_ASSIGNED")
+                        && notice.getUserId().equals(10L)
+                        && notice.getTemplateParams().get("reason").equals("补齐成品检文件")));
         upload();
         var result = db.transaction.execute(status -> service.resubmit(10L, command(id)));
         assertEquals(51L, result.applicationId());

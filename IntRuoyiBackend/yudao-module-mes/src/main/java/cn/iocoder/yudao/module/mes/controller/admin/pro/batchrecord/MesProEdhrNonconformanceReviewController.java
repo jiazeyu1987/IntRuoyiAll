@@ -83,6 +83,7 @@ public class MesProEdhrNonconformanceReviewController {
     }
 
     @PostMapping("/dispose")
+    @cn.iocoder.yudao.framework.apilog.core.annotation.ApiAccessLog(requestEnable = false)
     @Operation(summary = "QA 处置 eDHR 不合格评审单")
     @PreAuthorize("@ss.hasPermission('mes:pro-edhr-nonconformance-review:dispose')")
     public CommonResult<MesProEdhrNonconformanceReviewRespVO> dispose(

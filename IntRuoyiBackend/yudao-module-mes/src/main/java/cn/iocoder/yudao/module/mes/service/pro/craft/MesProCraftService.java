@@ -558,7 +558,7 @@ public class MesProCraftService {
                 "lowerLimit","upperLimit","defaultValue","optionValuesJson","defaultText","decimalScale","sort"))
             definition.put(key, rule.get(key));
         result.putAll((JSONObject) normalize(new JSONArray(List.of(definition))).get(0));
-        for (String key : List.of("deviceId","routeProcessId","processId")) result.put(key, rule.get(key));
+        for (String key : List.of("deviceId","routeProcessId","processId")) result.put(key, rule.getLong(key));
         return result;
     }
     private List<JSONObject> configs(JSONObject root) {

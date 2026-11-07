@@ -982,7 +982,7 @@ const loadRouteQuery = async () => {
     if (!isCurrent()) return
     await syncApprovalQuickFilterStateFromQuery()
     if (!isCurrent()) return
-    await getList()
+    await getList(true)
   } catch (error) {
     if (!isCurrent()) return
     const message = resolveErrorMessage(error)
@@ -1389,10 +1389,10 @@ const submitReview = async () => {
   } catch (error) {
     if (isCurrent()) {
       const message = resolveErrorMessage(error)
-      if (/STALE_CONTENT|APPROVAL_PREPARE_EXPIRED/.test(message)) {
-        reviewForm.signaturePassword = ''
+      reviewForm.signaturePassword = ''
+      if (/审批资料已变化|审批预览已过期/.test(message)) {
         reviewPreview.value = undefined
-        reviewPreviewError.value = '审批内容已变化，请重新预览并确认'
+        reviewPreviewError.value = message
       }
       ElMessage.error(message)
     }
@@ -1710,6 +1710,8 @@ onActivated(() => { void applyRouteQueryAndLoad() })
 onDeactivated(() => {
   listUiGeneration++
   approvalListLoader.invalidate()
+  // Other login windows can finish tasks without publishing into this session.
+  approvalLastLoadedRouteStateKey = undefined
   timelineGeneration++
   timelineLoading.value = false
   reviewDialogVisible.value = false

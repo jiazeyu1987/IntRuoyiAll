@@ -38,6 +38,9 @@ public class MesTeamLeaderActiveOrderReleaseLossSourceReadResult {
     @Data
     @Accessors(chain = true)
     public static class ReplenishmentSource {
+        private Long bindingEventId;
+        private Long bindingSignatureId;
+        private String bindingChallengeHash;
         private Long headerId;
         private Long itemId;
         private String sourceBillNo;

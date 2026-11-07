@@ -63,6 +63,20 @@ class ApprovalCenterReviewExecutorTest {
         }
     }
 
+    @Test void stalePreviewRejectsBeforeSignatureOrDomainEffects() throws Exception {
+        var f = new Fixture(null);
+        try {
+            TenantContextHolder.setTenantId(1L);
+            f.command.setExpectedContentHash("b".repeat(64));
+            var error = assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,
+                    () -> f.tx.execute(s -> f.executor.execute(4L, f.command, f.signer, "c".repeat(64))));
+            assertEquals(400, error.getCode());
+            assertEquals("审批资料已变化，请重新预览并签名。", error.getMessage());
+            assertEquals(0, f.jdbc.queryForObject("SELECT COUNT(*) FROM committed_effect", Integer.class));
+            assertNull(f.mapper.selectExact(1L, f.command.getIdempotencyKey()));
+        } finally { TenantContextHolder.clear(); }
+    }
+
     private static final class Fixture {
         final JdbcTemplate jdbc;
         final TransactionTemplate tx;

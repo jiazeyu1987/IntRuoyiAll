@@ -62,6 +62,7 @@ test('new success during request remains dirty; request only consumes its captur
   assert.equal(f.loader.isDirty(), true)
   f.request(async () => ({ list: [], total: 35 })); await f.activate(); assert.equal(f.loader.isDirty(), false)
 })
+
 test('route and account switches discard old responses and errors', async () => {
   for (const switchContext of [f => f.route('done'), f => f.switchSession('tenant2:user2:1')]) {
     const f = fixture(); f.publish(); const wait = deferred(); f.request(() => wait.promise)
@@ -141,31 +142,44 @@ test('actual session adapter isolates tenant/user and clears logout before same-
   assert.throws(() => store.captureHandoffSourceSuccess('ACTIVE_ORDER', undefined), /正式账号、租户或任务身份/)
 })
 
-test('actual route-return function retains clean cache and coalesces dirty refresh without resetting query', async () => {
+test('actual activation deduplicates reads; returning from another page revalidates list and badge without resetting query', async () => {
   const source = readFileSync(new URL('../src/views/approval-center/index.vue', import.meta.url), 'utf8')
   const keepStart = source.indexOf('const shouldKeepApprovalCenterLoadedStateOnRouteReturn =')
   const keepEnd = source.indexOf('const isApprovalTaskViewType =', keepStart)
   const loadStart = source.indexOf('const loadRouteQuery =')
   const loadEnd = source.indexOf('const handleQuery =', loadStart)
+  const deactivateStart = source.indexOf('onDeactivated(() => {')
+  const deactivateEnd = source.indexOf('onBeforeUnmount(', deactivateStart)
   let dirty = false, reads = 0
+  const badgeRefreshes = []
   const wait = deferred()
   const context = {
     approvalModulesLoaded: true, approvalLastLoadedRouteStateKey: 'todo', loading: { value: false }, loadError: { value: '' },
-    approvalListLoader: { isDirty: () => dirty }, buildApprovalCenterRouteStateKey: () => 'todo',
+    approvalListLoader: { isDirty: () => dirty, invalidate: () => {} }, buildApprovalCenterRouteStateKey: () => 'todo',
     approvalInvalidation: { syncSession: () => ({ key: 'user1' }), isCurrent: () => true },
     queryParams: { viewType: 'TODO', pageNo: 3, pageSize: 10, moduleCode: 'EDHR', keyword: 'batch' },
     applyRouteQuery: () => {}, syncRouteToCanonicalPath: () => {}, syncApprovalQuickFilterStateFromQuery: async () => {},
-    getList: async () => { reads++; await wait.promise; dirty = false }, loadModules: async () => {},
+    getList: async refreshBadge => { reads++; badgeRefreshes.push(refreshBadge); await wait.promise; dirty = false; context.approvalLastLoadedRouteStateKey = 'todo' }, loadModules: async () => {},
     list: { value: [] }, total: { value: 0 }, resolveErrorMessage: error => error.message, ElMessage: { error: () => {} },
-    routeLoadPromise: undefined, routeLoadKey: undefined
+    routeLoadPromise: undefined, routeLoadKey: undefined,
+    listUiGeneration: 0, timelineGeneration: 0, timelineLoading: { value: false },
+    reviewDialogVisible: { value: false }, resetReviewRequestContext: () => {},
+    onDeactivated: callback => { context.deactivate = callback }
   }
-  runInNewContext(stripTypeScriptTypes(source.slice(keepStart, keepEnd) + '\n' + source.slice(loadStart, loadEnd) + '\nglobalThis.activate = applyRouteQueryAndLoad'), context)
+  runInNewContext(stripTypeScriptTypes(source.slice(keepStart, keepEnd) + '\n' + source.slice(loadStart, loadEnd) + '\n' + source.slice(deactivateStart, deactivateEnd) + '\nglobalThis.activate = applyRouteQueryAndLoad'), context)
   await context.activate(); assert.equal(reads, 0)
   dirty = true
   const first = context.activate(), second = context.activate(); assert.equal(first, second)
   await new Promise(setImmediate); assert.equal(reads, 1)
   wait.resolve(); await first; await context.activate(); assert.equal(reads, 1)
   assert.equal(context.queryParams.pageNo, 3); assert.equal(context.queryParams.keyword, 'batch')
+  context.deactivate()
+  assert.equal(context.approvalLastLoadedRouteStateKey, undefined)
+  await context.activate()
+  assert.equal(reads, 2)
+  assert.deepEqual(badgeRefreshes, [true, true])
+  assert.equal(context.queryParams.pageNo, 3); assert.equal(context.queryParams.keyword, 'batch')
+  await context.activate(); assert.equal(reads, 2)
 })
 
 test('actual badge synchronous request throw preserves original error, clears pending and permits read retry', async () => {

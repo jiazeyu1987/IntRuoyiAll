@@ -53,7 +53,9 @@ class EdhrReleaseContentResolverTest {
         f.release.setPrecheckSnapshotJson(raw.toString());
         assertThrows(IllegalArgumentException.class, () -> reader.read(f.release, false));
     }
-    @Test void activeOrderFactsBindDossierFilesRevisionAndHashWithoutMaterialGate() throws Exception {
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings={"95","94"})
+    void activeOrderFactsBindDossierFilesRevisionAndHashWithoutMaterialGate(String uploadApplicationId) throws Exception {
         var f=new Fixture(true,true);
         var old=f.releases.readForApproval(10L,2L,false);
         f.checks.removeIf(row -> row.getCheckCode().startsWith("DOSSIER_"));
@@ -71,7 +73,7 @@ class EdhrReleaseContentResolverTest {
         var graph=new MesEdhrApprovalFinalizationGraph(old.tenantId(),old.task(),old.transaction(),old.batch(),true,
                 old.origin(),old.sourceContext(),null,old.sourceCreationEvidence(),95L,1L,fact);
         when(f.releases.readForApproval(10L,2L,false)).thenReturn(graph);
-        var manifest=o("tenantId","1","activeOrderId","60","applicationId","95","batchExecutionId","30","revision","0","files",a(o("attachmentId","501","activeOrderId","60","applicationId","95",
+        var manifest=o("tenantId","1","activeOrderId","60","applicationId","95","batchExecutionId","30","revision","0","files",a(o("attachmentId","501","activeOrderId","60","applicationId",uploadApplicationId,
                 "categoryKey","STERILIZATION_FILE","fileId","601","fileName","灭菌报告.pdf","fileSize","12","contentType","application/pdf","sha256",H)));
         manifest.put("manifestHash",ApprovalContentJson.hash(manifest));
         var dossiers=mock(EdhrActiveOrderDossierManifest.class);
@@ -83,6 +85,13 @@ class EdhrReleaseContentResolverTest {
         assertEquals(1,prepared.attachments().size());
         var content=ApprovalContentJson.parse(prepared.canonicalBusinessContentJson());
         assertTrue(content.at("/finalization/materialManifest/files").isArray());
+        assertEquals(uploadApplicationId,content.at("/finalization/materialManifest/files/0/applicationId").asText());
+        assertEquals("95",content.at("/finalization/applicationId").asText());
+        var foreign=content.deepCopy();
+        ((ObjectNode)foreign.at("/finalization/materialManifest/files/0")).put("activeOrderId","61");
+        var foreignManifest=(ObjectNode)foreign.at("/finalization/materialManifest");
+        foreignManifest.remove("manifestHash");foreignManifest.put("manifestHash",ApprovalContentJson.hash(foreignManifest));
+        assertThrows(IllegalArgumentException.class,()->f.semantic.validate(foreign));
         assertEquals(6,content.at("/release/precheckSnapshot/items").size());
         var developmentContent = content.deepCopy();
         var developmentFacts = (ObjectNode) developmentContent.at("/finalization/activeOrderFormalFacts");

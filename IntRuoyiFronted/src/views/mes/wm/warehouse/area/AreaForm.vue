@@ -194,7 +194,7 @@ const dialogTitle = computed(() => {
 const formLoading = ref(false) // 表单的加载中
 const formType = ref('') // 表单的类型：create - 新增；update - 修改；detail - 详情
 const isDetail = computed(() => formType.value === 'detail') // 是否为详情模式
-const selectedWarehouseId = ref<number | undefined>(undefined) // 当前选中的仓库 ID
+const selectedWarehouseId = ref<number | string | undefined>(undefined) // 当前选中的仓库 ID
 const warehouseList = ref<WmWarehouseVO[]>([]) // 仓库列表
 const locationList = ref<WmWarehouseLocationVO[]>([]) // 库区列表
 
@@ -207,7 +207,7 @@ const formData = ref({
   id: undefined,
   code: undefined,
   name: undefined,
-  locationId: undefined as number | undefined,
+  locationId: undefined as number | string | undefined,
   area: undefined,
   maxLoad: undefined,
   positionX: undefined,
@@ -239,7 +239,7 @@ const handleBarcode = () => {
 }
 
 /** 加载库区列表 */
-const loadLocationList = async (warehouseId?: number) => {
+const loadLocationList = async (warehouseId?: number | string) => {
   if (!warehouseId) {
     locationList.value = []
     return
@@ -248,7 +248,7 @@ const loadLocationList = async (warehouseId?: number) => {
 }
 
 /** 仓库改变时，重置库区 */
-const handleWarehouseChange = async (warehouseId?: number) => {
+const handleWarehouseChange = async (warehouseId?: number | string) => {
   formData.value.locationId = undefined
   await loadLocationList(warehouseId)
 }
@@ -257,8 +257,8 @@ const handleWarehouseChange = async (warehouseId?: number) => {
 const open = async (
   type: string,
   id?: number,
-  defaultLocationId?: number,
-  defaultWarehouseId?: number
+  defaultLocationId?: number | string,
+  defaultWarehouseId?: number | string
 ) => {
   dialogVisible.value = true
   formType.value = type
@@ -325,7 +325,7 @@ const resetForm = () => {
     id: undefined,
     code: undefined,
     name: undefined,
-    locationId: undefined as number | undefined,
+    locationId: undefined as number | string | undefined,
     area: undefined,
     maxLoad: undefined,
     positionX: undefined,

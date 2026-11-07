@@ -199,7 +199,7 @@ public class MesActiveOrderDossierCompletionService {
         if (task == null || !TASK_TYPE.equals(task.getTaskType()) || !SCOPE_TYPE.equals(task.getBusinessScopeType())
                 || !Objects.equals(task.getAssigneeUserId(), actor)
                 || !permissionApi.hasAnyPermissions(actor, "mes:pro-edhr-work-task:query"))
-            throw new IllegalStateException("当前用户无权查看该资料责任待办");
+            throw new cn.iocoder.yudao.framework.common.exception.ServiceException(403, "当前用户无权查看该资料责任待办");
         var order = activeOrderMapper.selectById(task.getBusinessScopeId());
         if (order == null || !Objects.equals(order.getTenantId(), TenantContextHolder.getRequiredTenantId())
                 || !Objects.equals(order.getWorkOrderId(), task.getWorkOrderId()))

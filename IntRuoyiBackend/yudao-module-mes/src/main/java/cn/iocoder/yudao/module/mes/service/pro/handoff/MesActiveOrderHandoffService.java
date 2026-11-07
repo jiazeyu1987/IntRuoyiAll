@@ -342,9 +342,33 @@ public class MesActiveOrderHandoffService {
         var target=order(successorId==null?oldActiveOrderId:successorId,false);
         boolean voided="void".equals(review.getDisposition());
         if(successorId!=null||voided)retireCycle(oldActiveOrderId,actor,review.getId());
+        Long nextLeader=owners.productionLeader(target);
         createDefaultRound(target,"QA_DECISION_HANDOFF","NONCONFORMANCE_REVIEW",review.getId(),review.getId(),
-                owners.productionLeader(target).toString(),actor,voided,review.getDisposition()+"："+review.getReviewOpinion(),null,voided);
+                nextLeader.toString(),actor,voided,review.getDisposition()+"："+review.getReviewOpinion(),null,voided);
+        notifyFrozenRecipientsOfQaDisposition(review,oldActiveOrderId,nextLeader,actor);
         if(successorId!=null)productionReady(successorId,actor);
+    }
+    private void notifyFrozenRecipientsOfQaDisposition(MesProEdhrNonconformanceReviewDO review,Long oldActiveOrderId,
+            Long nextLeader,Long actor) {
+        var frozen=tasks.byIdentity(oldActiveOrderId,"NCR_FREEZE_NOTICE","NONCONFORMANCE_REVIEW",review.getId(),review.getId());
+        // ncrFrozen deliberately creates no separate notice when QA is the only affected person.
+        if(frozen==null)return;
+        validate(frozen);
+        require(Objects.equals(tenant(),frozen.getTenantId())&&Objects.equals(review.getWorkOrderId(),frozen.getWorkOrderId())
+                &&Objects.equals(oldActiveOrderId,frozen.getActiveOrderId())&&Objects.equals(review.getId(),frozen.getSourceId())
+                &&Objects.equals(review.getId(),frozen.getRoundId()),"QA结果告知与原冻结责任不一致");
+        var recipients=new TreeSet<>(candidates(frozen.getCandidateUserSnapshot()));
+        recipients.remove(nextLeader); // The actual next leader already receives the formal result handoff.
+        if(recipients.isEmpty())return;
+        String outcome=switch(review.getDisposition()) {
+            case "concession_release" -> "让步放行；请按正式业务要求继续，让步不代替PQC生产放行或上市批准";
+            case "rework" -> "返工；请按新返工周期及任务办理，原周期不得继续正常生产";
+            case "void" -> "作废；工单/批次停止正常推进";
+            default -> throw failure("QA结果告知缺少有效正式处置结论");
+        };
+        createDefaultRound(order(oldActiveOrderId,false),"NCR_DISPOSITION_NOTICE","NONCONFORMANCE_REVIEW",review.getId(),review.getId(),
+                MesActiveOrderHandoffOwnerResolver.snapshot(recipients),actor,true,
+                "NCR "+review.getReviewCode()+" QA处置结果："+outcome+"。处置意见："+review.getReviewOpinion(),null,true);
     }
     public void retireCycle(Long activeOrderId,Long actor,Long source) {
         audit.lock(); for(var task:tasks.selectList(new LambdaQueryWrapperX<MesActiveOrderHandoffTaskDO>()
@@ -433,6 +457,7 @@ public class MesActiveOrderHandoffService {
             case "PRODUCTION_RETURN","PQC_RETURN" -> "组长已退回，待签名更正";
             case "QA_REVIEW" -> "不合格评审已创建，待QA处置";
             case "NCR_FREEZE_NOTICE" -> "工单/批次已冻结，受影响业务暂停，等待QA处置";
+            case "NCR_DISPOSITION_NOTICE" -> "QA处置已完成，结果仅供查看";
             case "QA_DECISION_HANDOFF" -> completed?"QA已正式作废，结果只读":"QA已正式处置，待原生产组长接手";
             default -> throw failure("未知交接业务状态");
         };
@@ -458,14 +483,14 @@ public class MesActiveOrderHandoffService {
             case "PRODUCTION_HANDOFF","PRODUCTION_RETURN" -> "/mes/pro/feedback/edhr-batch-production-fill";
             case "PQC_HANDOFF","PQC_RETURN" -> "/mes/pro/feedback/edhr-batch-pqc-fill";
             case "PQC_REVIEW" -> "/mes/pro/process-pool/pqc-leader";
-            case "NCR_FREEZE_NOTICE" -> "/user/profile";
+            case "NCR_FREEZE_NOTICE","NCR_DISPOSITION_NOTICE" -> "/user/profile";
             case "QA_REVIEW" -> "/mes/pro/feedback/edhr-nonconformance-review";
             case "QA_DECISION_HANDOFF" -> "DONE".equals(task.getStatus())?"/user/profile":"/mes/pro/process-pool/production-leader";
             default -> "/mes/pro/process-pool/production-leader";
         };
         String sourceKey=switch(task.getSourceType()) {case "PROCESS_POOL_EVENT",EVENT_SIGNED_REVISION,EVENT_REJECTED_REVIEW->"eventId";case "PQC_INSPECTION_TASK"->"pqcTaskId";case "NONCONFORMANCE_REVIEW"->"reviewId";case "ACTIVE_ORDER"->"cycleId";default->throw failure("交接来源类型无效");};
         String url=path+"?activeOrderId="+task.getActiveOrderId()+"&"+sourceKey+"="+task.getSourceId()+"&handoffTaskId="+task.getId()+"&roundId="+task.getRoundId()+"&handoffType="+task.getTaskType();
-        if(Set.of("QA_DECISION_HANDOFF","NCR_FREEZE_NOTICE").contains(task.getTaskType())&&"DONE".equals(task.getStatus()))url+="&tab=notifyMessage";
+        if(Set.of("QA_DECISION_HANDOFF","NCR_FREEZE_NOTICE","NCR_DISPOSITION_NOTICE").contains(task.getTaskType())&&"DONE".equals(task.getStatus()))url+="&tab=notifyMessage";
         if(task.getTaskType().endsWith("_RETURN"))url+="&returnTaskId="+task.getId()+"&rejectedReviewId="+task.getRoundId();
         return url;
     }

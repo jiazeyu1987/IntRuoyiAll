@@ -1869,6 +1869,39 @@ class MesProEdhrNonconformanceReviewApplicationScopeTest {
         }
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"rework", "void"})
+    void marketRejectedDispositionKeepsCompletedManagerDecisionAndTask(String disposition) {
+        var application = stubDispositionAuditClosure(disposition);
+        application.setApplicationStatus(MesReleaseFlowStatus.MARKET_RELEASE_REJECTED);
+        var transactions = (cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrReleaseTransactionMapper)
+                ReflectionTestUtils.getField(service, "releaseTransactionMapper");
+        var transaction = transactions.selectByIdForUpdate(9301L);
+        transaction.setReleaseStatus(MesProEdhrReleaseServiceImpl.STATUS_REJECTED)
+                .setReleaseDecisionId(9401L).setRejectReason("正式不予上市");
+        var manager = workTaskMapper.selectByIdForUpdate(8002L);
+        manager.setStatus(MesProEdhrWorkTaskStatus.DONE).setReason("REJECT");
+        var tasks = (MesProEdhrWorkTaskService) ReflectionTestUtils.getField(service, "workTaskService");
+        org.mockito.Mockito.lenient().doThrow(new ServiceException(1040751400, "eDHR 工作任务不存在"))
+                .when(tasks).cancelReleaseApprovalTask(eq(9301L), any());
+
+        service.dispose(disposeRequest(disposition));
+
+        verify(tasks).cancelReleaseApprovalTaskById(eq(8002L), any());
+        verify(tasks, never()).cancelReleaseApprovalTask(any(), any());
+        assertEquals(MesProEdhrWorkTaskStatus.DONE, manager.getStatus());
+        assertEquals("REJECT", manager.getReason());
+        assertEquals(MesProEdhrReleaseServiceImpl.STATUS_REJECTED, transaction.getReleaseStatus());
+        assertEquals(9401L, transaction.getReleaseDecisionId());
+        assertEquals(4, transaction.getVersion());
+        assertEquals("正式不予上市", transaction.getRejectReason());
+        var after = auditClosureAffectedState(captureAuditClosureCommand().getAfterState());
+        assertEquals(MesProEdhrWorkTaskStatus.DONE, after.getJSONObject("managerReleaseTask").getString("status"));
+        assertEquals("NONCONFORMANCE_" + disposition.toUpperCase(java.util.Locale.ROOT),
+                after.getJSONObject("releaseApplication").getString("applicationStatus"));
+        assertEquals("rework".equals(disposition), after.getJSONObject("reworkActiveOrder") != null);
+    }
+
     @Test
     void ncr05ReworkRecordsRetiredSourceAndEveryPersistedCycleChild() {
         stubDispositionAuditClosure("rework");
