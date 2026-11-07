@@ -40,7 +40,7 @@
             </template>
           </el-table-column>
           <el-table-column label="状态" width="95">
-            <template #default="{ row }">{{ row.taskType === 'NCR_FREEZE_NOTICE' && row.status === 'DONE' ? '仅告知' : states[row.status] }}</template>
+            <template #default="{ row }">{{ isNcrNotice(row.taskType) && row.status === 'DONE' ? '仅告知' : states[row.status] }}</template>
           </el-table-column>
           <el-table-column label="操作" width="225">
             <template #default="{ row }">
@@ -50,7 +50,7 @@
                 :disabled="row.status === 'CANCELED'"
                 @click="openTask(row)"
               >
-                {{ row.taskType === 'NCR_FREEZE_NOTICE' ? '查看通知' : row.status === 'TODO' ? '处理原轮次' : '查看原轮次' }}
+                {{ isNcrNotice(row.taskType) ? '查看通知' : row.status === 'TODO' ? '处理原轮次' : '查看原轮次' }}
               </el-button>
               <el-button link type="primary" @click="showReceipts(row)">通知回执</el-button>
             </template>
@@ -59,15 +59,15 @@
       </template>
     </UnifiedListTemplate>
 
-    <el-dialog v-model="resultOpen" :title="result?.taskType === 'NCR_FREEZE_NOTICE' ? '工单/批次冻结通知' : '原周期作废交接结果'" width="680px">
+    <el-dialog v-model="resultOpen" :title="result && isNcrNotice(result.taskType) ? labels[result.taskType] : '原周期作废交接结果'" width="680px">
       <el-descriptions v-if="result" :column="1" border>
         <el-descriptions-item label="活跃周期">{{ result.activeOrderId }}</el-descriptions-item>
         <el-descriptions-item label="原评审 / 轮次">{{ result.sourceId }} / {{ result.roundId }}</el-descriptions-item>
         <el-descriptions-item label="交接说明"><BusinessMessageContent :description="describeHandoffMessage(result.taskType, result.reason)" /></el-descriptions-item>
-        <el-descriptions-item v-if="result.taskType !== 'NCR_FREEZE_NOTICE'" label="完成者">{{ result.completedBy }}</el-descriptions-item>
-        <el-descriptions-item :label="result.taskType === 'NCR_FREEZE_NOTICE' ? '通知时间' : '完成时间'">{{ formatDateTimeValue(result.completedAt) }}</el-descriptions-item>
+        <el-descriptions-item v-if="result.taskType !== 'NCR_FREEZE_NOTICE'" :label="result.taskType === 'NCR_DISPOSITION_NOTICE' ? 'QA处置人' : '完成者'">{{ result.completedBy }}</el-descriptions-item>
+        <el-descriptions-item :label="isNcrNotice(result.taskType) ? '通知时间' : '完成时间'">{{ formatDateTimeValue(result.completedAt) }}</el-descriptions-item>
       </el-descriptions>
-      <el-alert :title="result?.taskType === 'NCR_FREEZE_NOTICE' ? '这是交接发生时的冻结通知，仅供查看；当前冻结状态以正式业务页面为准。' : '这是原周期已正式完成的作废结果，只能查看。'" type="info" :closable="false" class="mt-4" />
+      <el-alert :title="result?.taskType === 'NCR_FREEZE_NOTICE' ? '这是交接发生时的冻结通知，仅供查看；当前冻结状态以正式业务页面为准。' : result?.taskType === 'NCR_DISPOSITION_NOTICE' ? '这是原不合格评审的QA处置结果，仅供查看；后续操作以正式业务任务为准，处置结果不替代上市批准。' : '这是原周期已正式完成的作废结果，只能查看。'" type="info" :closable="false" class="mt-4" />
     </el-dialog>
     <el-dialog v-model="completedResultOpen" title="原周期交接完成记录" width="760px" @update:model-value="completedResultVisibilityChanged">
       <section data-active-order-handoff-completed-result>
@@ -159,6 +159,7 @@ const receiptResponsibility = computed(() => {
 const receiptOpen = ref(false), receiptLoading = ref(false), receiptError = ref(''), retryReason = ref(''), retrying = ref(false)
 let listEpoch = 0, receiptEpoch = 0
 const labels = HANDOFF_TASK_LABELS
+const isNcrNotice = (type: string) => ['NCR_FREEZE_NOTICE', 'NCR_DISPOSITION_NOTICE'].includes(type)
 const states: Record<string, string> = { TODO: '待处理', DONE: '已完成', CANCELED: '周期已关闭' }
 const deliveryStates = { PENDING: '待投递', FAILED: '投递失败', SENT: '已发送' }
 const failure = (e: unknown) => e instanceof Error ? e.message : String(e)
@@ -172,7 +173,10 @@ const openTask = async (task: api.HandoffTask) => {
   try {
     const target = resolveActiveOrderHandoffTarget({ actionUrl: task.actionUrl, handoffTaskId: task.id, handoffType: task.taskType, activeOrderId: task.activeOrderId })
     if (!target) throw new Error('该交接缺少真实页面入口')
+    const previousPath = route.fullPath
     await navigateToActiveOrderHandoff(router, target)
+    // 同一路由不会触发监听，重复查看时需要重新打开原通知。
+    if (route.fullPath === previousPath && route.path === '/user/profile') await loadHandoffResult()
   } catch (e) { error.value = failure(e) }
 }
 const closeReceipt = () => { ++receiptEpoch; selected.value = undefined; receipts.value = []; receiptLoading.value = false; retrying.value = false }
@@ -206,7 +210,7 @@ const openVoidResult = async () => {
     if (epoch !== resultEpoch) return
     const task = context.task
     const target = resolveActiveOrderHandoffTarget({ actionUrl: task.actionUrl, handoffTaskId: task.id, handoffType: task.taskType, activeOrderId: task.activeOrderId })
-    const readOnlyResult = task.taskType === 'NCR_FREEZE_NOTICE'
+    const readOnlyResult = isNcrNotice(task.taskType)
       ? task.notificationOnly === true && (context.current || isClosedHandoffCompletion(context))
       : task.taskType === 'QA_DECISION_HANDOFF' && task.reason.startsWith('void：')
     if (!target || target.path !== '/user/profile' || !readOnlyResult || task.status !== 'DONE'
@@ -276,7 +280,7 @@ const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() =
     type: 'text',
     getValue: (row) =>
       [
-        row.taskType === 'NCR_FREEZE_NOTICE' && row.status === 'DONE'
+        isNcrNotice(row.taskType) && row.status === 'DONE'
           ? '仅告知'
           : states[row.status]
       ].join(' ')
@@ -324,7 +328,7 @@ const allColumnDisplayFilters0: ListColumnFilterDefinition[] = [
     type: 'text',
     getValue: (row) =>
       [
-        row.taskType === 'NCR_FREEZE_NOTICE' && row.status === 'DONE'
+        isNcrNotice(row.taskType) && row.status === 'DONE'
           ? '仅告知'
           : states[row.status]
       ].join(' ')

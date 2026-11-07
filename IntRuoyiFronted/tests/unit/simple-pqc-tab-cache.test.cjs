@@ -51,6 +51,7 @@ test('unsaved PQC state survives tab switches and is released when the tab close
   const filename = 'src/views/form-center/simple-pqc-parser/index.vue'
   const descriptor = parse(read(filename), { filename }).descriptor
   const component = load(compileScript(descriptor, { id: 'pqc-cache' }).content, {
+    '@/views/mes/qc/template/SamplingRuleEditor.vue': {},
     '../parser/components/SimpleParserHeader.vue': {},
     vue, 'vue-router': { useRouter: () => ({}) }, vuedraggable: {},
       '../parser/components/ParserProcessToolbar.vue': {}, '../parser/components/ParserTrialNavigation.vue': {}, '../parser/components/ParserIssueList.vue': {},

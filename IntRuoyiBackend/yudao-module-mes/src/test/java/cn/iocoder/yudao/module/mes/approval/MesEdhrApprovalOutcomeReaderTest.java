@@ -39,6 +39,8 @@ class MesEdhrApprovalOutcomeReaderTest {
     @Mock MesManagerReleaseCompletedActorResolver actors;
     @Mock ElectronicSignatureQueryService signatures;
     @Mock MesProductionReleaseSignoffService signoff;
+    @Mock cn.iocoder.yudao.module.signature.service.ElectronicSignatureVerifiedFactService verifiedSignatureFacts;
+    @Mock cn.iocoder.yudao.module.bpm.approval.content.ApprovalCenterReceiptService centerReceipts;
     @Mock AdminUserMapper users;
     @Mock MesEdhrExecutionFinalOutcomeReader executionFinal;
     MesEdhrApprovalOutcomeReader reader;
@@ -48,6 +50,8 @@ class MesEdhrApprovalOutcomeReaderTest {
     @BeforeEach void init() {
         TenantContextHolder.setTenantId(1L);
         reader = new MesEdhrApprovalOutcomeReader(tasks, transactions, decisions, applications, actors, signatures, signoff, executionFinal);
+        ReflectionTestUtils.setField(reader, "centerReceipts", centerReceipts);
+        ReflectionTestUtils.setField(reader, "verifiedSignatureFacts", verifiedSignatureFacts);
         ReflectionTestUtils.setField(reader, "deviationOutcomeReader", org.mockito.Mockito.mock(MesEdhrDeviationApprovalOutcomeReader.class));
     }
     @AfterEach void cleanup() { TenantContextHolder.clear(); }
@@ -270,6 +274,8 @@ class MesEdhrApprovalOutcomeReaderTest {
     }
 
     @Test void pqcRejectedReceiptAndTenantActorAreValidatedByActualResolver() {
+        com.baomidou.mybatisplus.core.metadata.TableInfoHelper.initTableInfo(new org.apache.ibatis.builder.MapperBuilderAssistant(
+                new com.baomidou.mybatisplus.core.MybatisConfiguration(), "ac06-user"), AdminUserDO.class);
         var task = task("PQC_PRODUCTION_RELEASE").setBusinessScopeType("RELEASE_APPLICATION")
                 .setBusinessScopeId(95L).setReason("REJECT");
         var app = application().setActiveOrderId(180L).setPqcReleaseWorkTaskId(177L).setPqcDecision("REJECT")
@@ -395,6 +401,164 @@ class MesEdhrApprovalOutcomeReaderTest {
                         + "?activeOrderId=180&cycleId=180&handoffTaskId=177&roundId=182&handoffType=PRODUCTION_HANDOFF");
         task.setTenantId(1L);
         return task;
+    }
+
+    @Test void centerApprovalReadsVerifiedReceiptBoundToOriginalTaskAndDecision() {
+        var task = centerMarketFacts();
+        when(centerReceipts.findVerified(188L, "center-key")).thenReturn(centerReceipt());
+        var result = reader.readAuthorizedTask(task);
+        assertEquals(ApprovalTaskReviewResult.APPROVE, result.approvalResult());
+        assertEquals(OPINION, result.approvalRemark());
+        assertEquals(188L, result.actorUserId());
+        assertEquals("94", result.evidenceId());
+        verifyNoInteractions(signoff);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"tenant", "actor", "signature", "hash", "key", "reason", "action", "result",
+            "status", "task", "transaction", "decision", "identityTenant"})
+    void centerReceiptMismatchCannotUseLegacySignoff(String mismatch) {
+        var task = centerMarketFacts();
+        var receipt = centerReceipt();
+        switch (mismatch) {
+            case "tenant" -> receipt.setTenantId(2L);
+            case "actor" -> receipt.setActorId(189L);
+            case "signature" -> receipt.setCenterSignatureId(89L);
+            case "hash" -> receipt.setCenterEvidenceHash("another hash");
+            case "key" -> receipt.setIdempotencyKey("another key");
+            case "reason" -> receipt.setReason("another opinion");
+            case "action" -> receipt.setActionCode("REJECT");
+            case "result" -> receipt.setResultCode("REJECT");
+            case "status" -> receipt.setResultingStatus("REJECTED");
+            case "task" -> receipt.setIdentityJson(receipt.getIdentityJson().replace("177", "178"));
+            case "transaction" -> receipt.setDomainLinksJson("{\"releaseId\":\"90\",\"decisionId\":\"94\"}");
+            case "decision" -> receipt.setDomainLinksJson("{\"releaseId\":\"91\",\"decisionId\":\"95\"}");
+            case "identityTenant" -> receipt.setIdentityJson(receipt.getIdentityJson().replace("\"tenantId\":\"1\"", "\"tenantId\":\"2\""));
+            default -> throw new AssertionError(mismatch);
+        }
+        when(centerReceipts.findVerified(188L, "center-key")).thenReturn(receipt);
+        assertThrows(IllegalStateException.class, () -> reader.readAuthorizedTask(task));
+        verifyNoInteractions(signoff);
+    }
+
+    @Test void centerReceiptMissingOrInvalidFailsWithoutLegacyFallback() {
+        var task = centerMarketFacts();
+        assertThrows(IllegalStateException.class, () -> reader.readAuthorizedTask(task));
+        when(centerReceipts.findVerified(188L, "center-key"))
+                .thenThrow(new IllegalStateException("APPROVAL_RECEIPT_INTEGRITY_FAILED"));
+        assertEquals("APPROVAL_RECEIPT_INTEGRITY_FAILED",
+                assertThrows(IllegalStateException.class, () -> reader.readAuthorizedTask(task)).getMessage());
+        verifyNoInteractions(signoff);
+    }
+
+    private MesProEdhrWorkTaskDO centerMarketFacts() {
+        var task = marketFacts();
+        when(transactions.selectOne(any())).thenReturn(transaction().setApprovalIdempotencyKey("center-key"));
+        when(actors.resolve(177L, "RELEASE_TRANSACTION", 91L, 92L, 93L)).thenReturn(188L);
+        var signature = mock(ElectronicSignatureEvidenceDTO.class);
+        when(signature.id()).thenReturn(88L);
+        when(signature.reason()).thenReturn(OPINION);
+        when(signature.subjectId()).thenReturn("EDHR_RELEASE:91");
+        when(signatures.getById(88L)).thenReturn(signature);
+        return task;
+    }
+
+    private cn.iocoder.yudao.module.bpm.dal.dataobject.approval.BpmApprovalReviewReceiptDO centerReceipt() {
+        var receipt = new cn.iocoder.yudao.module.bpm.dal.dataobject.approval.BpmApprovalReviewReceiptDO();
+        receipt.setTenantId(1L); receipt.setActorId(188L); receipt.setIdempotencyKey("center-key");
+        receipt.setCenterSignatureId(88L); receipt.setCenterEvidenceHash("evidence"); receipt.setReason(OPINION);
+        receipt.setActionCode("APPROVE"); receipt.setResultCode("APPROVE"); receipt.setResultingStatus("RELEASED");
+        receipt.setIdentityJson("{\"tenantId\":\"1\",\"ownerCode\":\"EDHR\",\"sourceTaskType\":\"EDHR_WORK_TASK\","
+                + "\"sourceTaskId\":\"177\",\"domainSubjectType\":\"EDHR_RELEASE\",\"domainSubjectId\":\"91\"}");
+        receipt.setDomainLinksJson("{\"releaseId\":\"91\",\"decisionId\":\"94\"}");
+        return receipt;
+    }
+
+    @Test void rejectedMarketReadsOriginalSignedDecisionEvenAfterCorrection() {
+        var task = rejectedMarketFacts();
+        rejectionSignature(92L, 188L, "payload", OPINION);
+        var outcome = reader.readAuthorizedTask(task);
+        assertEquals(ApprovalTaskReviewResult.REJECT, outcome.approvalResult());
+        assertEquals("REJECT", outcome.decisionState());
+        assertEquals(OPINION, outcome.approvalRemark());
+        assertEquals(188L, outcome.actorUserId());
+        assertEquals(AT, outcome.actedAt());
+        assertEquals("94", outcome.evidenceId());
+        verifyNoInteractions(actors, signoff);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"batch", "actor", "hash", "reason", "tenant"})
+    void rejectedMarketDoesNotAcceptAnotherSignatureFact(String conflict) {
+        var task = rejectedMarketFacts();
+        rejectionSignature("batch".equals(conflict) ? 192L : 92L,
+                "actor".equals(conflict) ? 189L : 188L,
+                "hash".equals(conflict) ? "another-round" : "payload",
+                "reason".equals(conflict) ? "another reason" : OPINION);
+        if ("tenant".equals(conflict)) TenantContextHolder.setTenantId(2L);
+        assertThrows(IllegalStateException.class, () -> reader.readAuthorizedTask(task));
+    }
+
+    @Test void rejectedMarketWithoutOriginalSignatureDoesNotInventResult() {
+        var task = rejectedMarketFacts();
+        when(decisions.selectOne(any())).thenReturn(rejectedDecision().setAuditSnapshotJson("{}"));
+        assertEquals("UNKNOWN", reader.readAuthorizedTask(task).decisionState());
+        verifyNoInteractions(verifiedSignatureFacts);
+    }
+
+    @Test void rejectedMarketRejectsCrossRoundSnapshotBeforeSignatureRead() {
+        var task = rejectedMarketFacts();
+        var decision = rejectedDecision();
+        decision.setAuditSnapshotJson(decision.getAuditSnapshotJson().replace("\"releaseApplicationId\":95", "\"releaseApplicationId\":96"));
+        when(decisions.selectOne(any())).thenReturn(decision);
+        assertThrows(IllegalStateException.class, () -> reader.readAuthorizedTask(task));
+        verifyNoInteractions(verifiedSignatureFacts);
+    }
+
+    @Test void rejectedMarketPropagatesSignatureVerificationFailure() {
+        var task = rejectedMarketFacts();
+        when(verifiedSignatureFacts.requireVerifiedFact(89L)).thenThrow(new IllegalStateException("invalid creation evidence"));
+        assertThrows(IllegalStateException.class, () -> reader.readAuthorizedTask(task));
+    }
+
+    private MesProEdhrWorkTaskDO rejectedMarketFacts() {
+        var task = marketFacts().setReason("REJECT:" + OPINION);
+        when(transactions.selectOne(any())).thenReturn(transaction().setReleaseStatus("REJECTED")
+                .setRejectedBy(188L).setRejectedAt(AT).setRejectReason(OPINION).setFinalizationPayloadHash("payload"));
+        when(decisions.selectOne(any())).thenReturn(rejectedDecision());
+        return task;
+    }
+
+    private MesProEdhrReleaseDecisionDO rejectedDecision() {
+        return decision().setDecisionStatus("REJECTED").setActiveOrderId(180L).setDecisionReason(OPINION)
+                .setPayloadHash("payload").setSignoffEvidenceHash("payload")
+                .setAuditSnapshotJson("{\"signatureId\":89,\"releaseTransactionId\":91,\"releaseApplicationId\":95,"
+                        + "\"activeOrderId\":180,\"batchExecutionId\":92,\"workOrderId\":93,\"actorUserId\":188,"
+                        + "\"decisionStatus\":\"REJECTED\",\"payloadHash\":\"payload\",\"signoffEvidenceHash\":\"payload\"}");
+    }
+
+    private void rejectionSignature(Long batch, Long actor, String hash, String reason) {
+        var fact = mock(cn.iocoder.yudao.module.signature.service.ElectronicSignatureVerifiedFactService.VerifiedSignatureFact.class);
+        String subject = cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesBatchRecordSignatureSubjectAdapter.encodeSubjectId(
+                batch, "MARKET_RELEASE_REJECT", null, null, null, null, null, null, null,
+                "EDHR_BATCH", batch, "不予上市放行", "MARKET_RELEASE_REJECT", null, null, hash, null);
+        // A server-issued verified fact is the unit boundary; parse the real frozen MES content below.
+        lenient().when(fact.id()).thenReturn(89L);
+        lenient().when(fact.tenantId()).thenReturn(1L);
+        lenient().when(fact.actorId()).thenReturn(actor);
+        lenient().when(fact.moduleCode()).thenReturn("MES");
+        lenient().when(fact.subjectType()).thenReturn("MES_BATCH_RECORD");
+        lenient().when(fact.subjectId()).thenReturn(subject);
+        lenient().when(fact.subjectVersion()).thenReturn(cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesBatchRecordSignatureSubjectAdapter.subjectVersion(subject));
+        lenient().when(fact.actionCode()).thenReturn("MARKET_RELEASE_REJECT");
+        lenient().when(fact.reason()).thenReturn(reason);
+        lenient().when(fact.authenticationMethod()).thenReturn("SESSION_PLUS_PASSWORD");
+        lenient().when(fact.canonicalContentJson()).thenReturn(cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesBatchRecordSignatureSubjectAdapter.canonicalBusinessContent(subject, "MARKET_RELEASE_REJECT", reason));
+        lenient().when(fact.verification()).thenReturn(new ElectronicSignatureVerificationDTO(
+                89L, "VALID", "content", "content", "evidence", "evidence", "SHA-256", "v1",
+                "LOCAL_DIGEST_TIME_AND_CREATION_AUDIT", "CONSISTENT", "CONSISTENT", "SERVER_CLOCK",
+                "NOT_BOUND", "CONSISTENT", java.util.List.of(), AT, "V1"));
+        lenient().when(verifiedSignatureFacts.requireVerifiedFact(89L)).thenReturn(fact);
     }
 
     private MesProEdhrWorkTaskDO marketFacts() {

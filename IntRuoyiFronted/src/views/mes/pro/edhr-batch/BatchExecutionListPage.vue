@@ -380,6 +380,11 @@
       <template #footer>
         <el-button @click="releaseDialogVisible = false">取 消</el-button>
         <el-button
+          v-if="!releasePreview && releaseContext?.releaseTransactionId && !releaseCompletedReadOnly"
+          :disabled="releaseContextLoading || releaseLoading"
+          @click="refreshReleasePreview"
+        >重新预览</el-button>
+        <el-button
           v-if="releaseCompletedReadOnly"
           type="primary"
           data-edhr-batch-action="completed-release-history"
@@ -1780,6 +1785,20 @@ const openReleaseDialog = async (
   }
 }
 
+const refreshReleasePreview = async () => {
+  const batch = selectedReleaseBatch.value
+  const context = releaseContext.value
+  if (!batch?.id || !context?.releaseTransactionId || !context.releaseApprovalWorkTaskId) {
+    releaseError.value = '缺少原上市放行事务或任务，无法重新预览。'
+    return
+  }
+  await openReleaseDialog(batch, {
+    batchExecutionId: String(batch.id),
+    releaseTransactionId: String(context.releaseTransactionId),
+    workTaskId: String(context.releaseApprovalWorkTaskId)
+  })
+}
+
 const openCompletedReleaseHistory = async () => {
   const batch = selectedReleaseBatch.value
   const context = releaseContext.value
@@ -1889,6 +1908,10 @@ const submitRelease = async () => {
       } else writeState.status = 'UNCERTAIN'
     }
     if (!isCurrent()) return
+    releaseForm.password = ''
+    if (/审批资料已变化|审批预览已过期/.test(resolveErrorMessage(error, ''))) {
+      releasePreview.value = undefined
+    }
     releaseError.value = writeSucceeded
       ? `上市放行已成功，页面刷新失败：${resolveErrorMessage(error, '请刷新查看历史批记录。')}`
       : isDefinitiveMarketReleaseFailure(error)

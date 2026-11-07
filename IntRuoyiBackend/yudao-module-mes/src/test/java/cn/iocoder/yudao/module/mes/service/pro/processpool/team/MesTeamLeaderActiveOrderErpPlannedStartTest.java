@@ -187,6 +187,9 @@ class MesTeamLeaderActiveOrderErpPlannedStartTest {
 
     @BeforeEach
     void setUp() {
+        lenient().when(activeOrderMapper.update(org.mockito.ArgumentMatchers.isNull(),
+                org.mockito.ArgumentMatchers.<com.baomidou.mybatisplus.core.conditions.Wrapper<MesProcessPoolActiveOrderDO>>any())).thenReturn(1);
+        lenient().when(routeMapper.selectByIdForUpdate(org.mockito.ArgumentMatchers.anyLong())).thenReturn(MesProRouteDO.builder().id(922119L).status(0).build());
         service = new MesTeamLeaderActiveOrderServiceImpl(activeOrderMapper, workOrderService, workOrderMapper,
                 itemMapper, auditMapper, scheduleOrderMapper, scheduleOrderProcessMapper, routeProductMapper, routeMapper,
                 routeVersionMapper, routeDccProjectBindingMapper, processSnapshotMapper, parameterRuleMapper,
@@ -319,13 +322,13 @@ class MesTeamLeaderActiveOrderErpPlannedStartTest {
         verify(activeOrderMapper).insert(activeOrderCaptor.capture());
         LocalDate joinedDate = activeOrderCaptor.getValue().getJoinedAt().toLocalDate();
         ArgumentCaptor<MesPqcInspectionTaskDO> taskCaptor = ArgumentCaptor.forClass(MesPqcInspectionTaskDO.class);
-        verify(pqcInspectionTaskMapper, times(4)).insert(taskCaptor.capture());
+        verify(pqcInspectionTaskMapper, times(1)).insert(taskCaptor.capture());
         assertTrue(taskCaptor.getAllValues().stream()
                 .allMatch(task -> joinedDate.equals(task.getBusinessDate())));
     }
 
     @Test
-    void shouldGeneratePqcTasksByQaProcessItemAndRuleKeyWhenSameProcessHasMultipleFinalItems() {
+    void shouldCreateOnlyFirstTaskAtJoinWhenFinalItemsHaveDifferentQuantities() {
         List<MesQaInspectionRegulationItemDO> items = List.of(
                 pqcItem("FIRST", "FIRST-APPEARANCE", 5, null),
                 pqcItem("PATROL", "PATROL-SEAL", 10, null),
@@ -347,13 +350,12 @@ class MesTeamLeaderActiveOrderErpPlannedStartTest {
 
         assertEquals(8101L, result.getActiveOrderId());
         ArgumentCaptor<MesPqcInspectionTaskDO> taskCaptor = ArgumentCaptor.forClass(MesPqcInspectionTaskDO.class);
-        verify(pqcInspectionTaskMapper, times(5)).insert(taskCaptor.capture());
-        assertEquals(List.of("FIRST-APPEARANCE", "PATROL-SEAL", "PATROL-SEAL",
-                        "FINAL-APPEARANCE", "FINAL-PRESSURE"),
+        verify(pqcInspectionTaskMapper, times(1)).insert(taskCaptor.capture());
+        assertEquals(List.of(""),
                 taskCaptor.getAllValues().stream().map(MesPqcInspectionTaskDO::getQaItemCode).toList());
-        assertEquals(List.of("FIRST", "PATROL_AM", "PATROL_PM", "FINAL", "FINAL"),
+        assertEquals(List.of("FIRST"),
                 taskCaptor.getAllValues().stream().map(MesPqcInspectionTaskDO::getInspectionRuleKey).toList());
-        assertEquals(List.of(5, 10, 10, 3, 4),
+        assertEquals(List.of(5),
                 taskCaptor.getAllValues().stream().map(MesPqcInspectionTaskDO::getPlannedInspectionQuantity).toList());
     }
 
@@ -391,8 +393,7 @@ class MesTeamLeaderActiveOrderErpPlannedStartTest {
                 .inspectionTypeRulesJson("""
                         [
                           {"key":"FIRST","inspectionType":"FIRST","label":"首检","required":true,"fixedQuantity":5},
-                          {"key":"PATROL_AM","inspectionType":"PATROL","label":"上午巡检","required":true},
-                          {"key":"PATROL_PM","inspectionType":"PATROL","label":"下午巡检","required":true},
+                          {"key":"PATROL","inspectionType":"PATROL","label":"巡检","required":true},
                           {"key":"FINAL","inspectionType":"FINAL","label":"末检","required":true,"fixedQuantity":3}
                         ]
                         """)

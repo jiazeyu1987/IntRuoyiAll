@@ -126,6 +126,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.times;
@@ -135,7 +136,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
-@Import({cn.iocoder.yudao.module.mes.service.pro.frontline.DccProjectResolver.class, MesProBatchRecordReportServiceImpl.class, MesProBatchRecordRouteGenerationServiceImpl.class,
+@Import({cn.iocoder.yudao.module.mes.support.TenantMapperTestConfiguration.class,cn.iocoder.yudao.module.mes.service.pro.frontline.DccProjectResolver.class, MesProBatchRecordReportServiceImpl.class, MesProBatchRecordRouteGenerationServiceImpl.class,
         cn.iocoder.yudao.module.mes.service.pro.process.MesProProcessCreationService.class,
         MesProBatchRecordVersionBusinessApprovalEffectExecutor.class,
         MesProRouteOwnerPermissionServiceImpl.class,
@@ -182,6 +183,12 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
     private long productWorkOrderIdSequence = 890000L;
 
     @MockitoBean
+    private cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteProjectGuard projectGuard;
+    @MockitoBean
+    private MesProBatchRecordRecognitionDeviceSyncService recognitionDeviceSyncService;
+    @MockitoBean
+    private cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteVersionWorkflowService routeVersionWorkflowService;
+    @MockitoBean
     private MesProBatchRecordDocParser parser;
     @MockitoBean
     private MesProBatchRecordImageParser imageParser;
@@ -200,14 +207,33 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
     @MockitoBean
     private MesProRouteControlledContentAdapter routeControlledContentAdapter;
 
+    private org.mockito.MockedConstruction<MesProBatchRecordTotalRecognitionExtractor> totalRecognition;
+    private static MesProBatchRecordTotalRecognitionExtractor.RecognitionResult recognitionFixture;
+
+    @org.junit.jupiter.api.BeforeAll
+    static void loadRecognitionFixture() throws Exception {
+        try (var input = MesProBatchRecordReportServiceImplDbTest.class.getResourceAsStream("/fixtures/idi-001-production-record.docx")) {
+            assertNotNull(input, "Missing original production record fixture");
+            var tables = new MesProBatchRecordDocParser().parseWord(input.readAllBytes(), "RE-PP-IDI-01.docx");
+            recognitionFixture = new MesProBatchRecordTotalRecognitionExtractor().extract("RE-PP-IDI-01.docx", tables);
+        }
+    }
+
     @AfterEach
     void tearDown() {
+        if (totalRecognition != null) totalRecognition.close();
         TenantContextHolder.clear();
     }
 
     @BeforeEach
     void setUp() {
+        // These DB tests exercise import/version persistence with a parsed-document port.
+        // The real filename/header/extractor integration is covered by GenericFilenameTest.
+        totalRecognition = org.mockito.Mockito.mockConstruction(MesProBatchRecordTotalRecognitionExtractor.class,
+                (extractor, context) -> when(extractor.extract(anyString(), any())).thenReturn(recognitionFixture));
         TenantContextHolder.setTenantId(1L);
+        when(routeService.buildCurrentRouteSnapshotJson(anyLong(), anyLong())).thenAnswer(invocation ->
+                buildCandidateSourceSnapshot(routeMapper.selectById((Long) invocation.getArgument(0))));
         AtomicInteger gxCodeCounter = new AtomicInteger();
         when(autoCodeRecordService.generateProjectCode(eq("PRO_PROCESS_GX_CODE"), any()))
                 .thenAnswer(invocation -> "GX-" + String.format("%04d", gxCodeCounter.incrementAndGet()));
@@ -532,7 +558,7 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
     @Test
     void uploadExtraFormSlot_whenPlainFormRealDocxSelected_savesUnifiedFormUsingEnteredName() throws Exception {
         TenantContextHolder.setTenantId(1L);
-        Path sample = Path.of("E:\\IntRuoyi\\resource\\按压式球囊扩充压力泵IDI-001\\过程检验记录.docx");
+        Path sample = Path.of("src/test/resources/fixtures/idi-001-process-inspection.docx");
         assertTrue(Files.exists(sample), "specified process inspection docx fixture is required");
         byte[] fileBytes = Files.readAllBytes(sample);
         List<MesProBatchRecordParsedTable> realTables =
@@ -732,11 +758,13 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
     }
 
     @Test
-    void recognizeFixedRoute_usesConfiguredWorkspaceSamplePath() {
+    void recognizeFixedRoute_usesConfiguredWorkspaceSamplePath() throws Exception {
+        try (var sample = fixedSampleFileFixture()) {
         List<MesProBatchRecordParsedTable> parsedTables = IntStream.rangeClosed(1, 15)
                 .mapToObj(index -> TestBatchRecordFixtures.parsedTable(index, "Route B Table " + index))
                 .toList();
         when(parser.parseWord(any(), anyString())).thenReturn(parsedTables);
+        when(parser.parse(any())).thenReturn(parsedTables);
         when(routeRecognizer.recognize(any(), any(), any())).thenReturn(parsedTables);
         when(jimuReportGateway.ensureElectronicBatchRecordCategoryId()).thenReturn("category-ebrr");
         AtomicInteger counter = new AtomicInteger();
@@ -761,16 +789,19 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
         assertEquals(15L, reportMapper.selectCount());
         assertEquals("批记录模板.doc", result.reports().get(0).sourceFileName());
         assertEquals(MesProBatchRecordRecognitionRouteKeys.B, result.reports().get(0).routeKey());
+        }
     }
 
     @Test
-    void recognizeFixedRoute_withTenantContext_usesTenantScopedReportCodes() {
+    void recognizeFixedRoute_withTenantContext_usesTenantScopedReportCodes() throws Exception {
+        try (var sample = fixedSampleFileFixture()) {
         TenantContextHolder.setTenantId(122L);
         when(routeRecognizer.routeKey()).thenReturn(MesProBatchRecordRecognitionRouteKeys.A);
         List<MesProBatchRecordParsedTable> parsedTables = IntStream.rangeClosed(1, 15)
                 .mapToObj(index -> TestBatchRecordFixtures.parsedTable(index, "Route A Table " + index))
                 .toList();
         when(parser.parseWord(any(), anyString())).thenReturn(parsedTables);
+        when(parser.parse(any())).thenReturn(parsedTables);
         when(routeRecognizer.recognize(any(), any(), any())).thenReturn(parsedTables);
         when(jimuReportGateway.ensureElectronicBatchRecordCategoryId()).thenReturn("category-ebrr");
         AtomicInteger counter = new AtomicInteger();
@@ -792,6 +823,7 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
         assertTrue(saveRequests.get(0).reportCode().matches("EBR_TN122_A_DOC_[0-9a-f]{8}_T01"));
         assertTrue(saveRequests.get(14).reportCode().matches("EBR_TN122_A_DOC_[0-9a-f]{8}_T15"));
         assertEquals("FIXED_DOC_TN122", reportMapper.selectList().get(0).getSampleKey());
+        }
     }
 
     @Test
@@ -814,8 +846,22 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
         seedWorkOrderProduct("球囊扩张压力泵", "BRP-001");
         seedDccProjectCode("球囊扩张压力泵", "BRP-001");
 
-        MesProBatchRecordImportResult result = reportService.recognizeUploadedRoute(
-                file, MesProBatchRecordRecognitionRouteKeys.B, "球囊扩张压力泵", false, List.of("球囊扩张压力泵"));
+        MesProBatchRecordImportResult result = reportService.recognizeUploadedRoute(file,
+                MesProBatchRecordRecognitionRouteKeys.B,
+                "球囊扩张压力泵",
+                "REBUILD_V1",
+                null,
+                null,
+                List.of("球囊扩张压力泵"),
+                true,
+                List.of(),
+                List.of(),
+                false,
+                null,
+                null,
+                null,
+                prepareSelectedDccProjectFixture("球囊扩张压力泵"),
+                null);
 
         ArgumentCaptor<byte[]> bytesCaptor = ArgumentCaptor.forClass(byte[].class);
         ArgumentCaptor<String> fileNameCaptor = ArgumentCaptor.forClass(String.class);
@@ -861,8 +907,22 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
         seedWorkOrderProduct("球囊扩张压力泵", "BRP-001");
         seedDccProjectCode("球囊扩张压力泵", "BRP-001");
 
-        MesProBatchRecordImportResult result = reportService.recognizeUploadedRoute(
-                file, MesProBatchRecordRecognitionRouteKeys.B, "球囊扩张压力泵", false, List.of("球囊扩张压力泵"));
+        MesProBatchRecordImportResult result = reportService.recognizeUploadedRoute(file,
+                MesProBatchRecordRecognitionRouteKeys.B,
+                "球囊扩张压力泵",
+                "REBUILD_V1",
+                null,
+                null,
+                List.of("球囊扩张压力泵"),
+                true,
+                List.of(),
+                List.of(),
+                false,
+                null,
+                null,
+                null,
+                prepareSelectedDccProjectFixture("球囊扩张压力泵"),
+                null);
 
         assertEquals(16, result.importedCount());
         assertEquals(16, result.createdCount());
@@ -897,7 +957,7 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
                 "uploaded-word-route-bytes".getBytes(StandardCharsets.UTF_8));
         Long firstItemId = seedWorkOrderProduct("球囊扩张压力泵", "BRP-001");
         Long secondItemId = seedWorkOrderProduct("球囊扩张压力泵", "BRP-002");
-        seedDccProjectCode("球囊扩张压力泵", "BRP-001");
+        Long selectedDccId = seedDccProjectCode("球囊扩张压力泵", "BRP-001");
         seedDccProjectCode("球囊扩张压力泵", "BRP-002");
 
         Long creatorUserId = 703L;
@@ -905,9 +965,22 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
         try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
             security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(creatorUserId);
             security.when(SecurityFrameworkUtils::getLoginUserNickname).thenReturn("word-importer");
-            result = reportService.recognizeUploadedRoute(
-                    file, MesProBatchRecordRecognitionRouteKeys.B, "球囊扩张压力泵", false,
-                    List.of("球囊扩张压力泵"));
+            result = reportService.recognizeUploadedRoute(file,
+                MesProBatchRecordRecognitionRouteKeys.B,
+                "球囊扩张压力泵",
+                "REBUILD_V1",
+                null,
+                null,
+                List.of("球囊扩张压力泵"),
+                true,
+                List.of(),
+                List.of("球囊扩张压力泵"),
+                false,
+                null,
+                null,
+                null,
+                selectedDccId,
+                null);
         }
 
         assertEquals(3, result.importedCount());
@@ -919,14 +992,14 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
         assertEquals(2, result.routeProcessCount());
         assertEquals(2, result.batchRecordRouteBindingCount());
         assertEquals(1, result.boundProductNameCount());
-        assertEquals(2, result.boundProductCodeCount());
+        assertEquals(1, result.boundProductCodeCount());
         assertEquals(List.of(), result.skippedProductNames());
         assertEquals(1, rawCount("SELECT COUNT(*) FROM mes_pro_route WHERE id = ? AND code = ? AND name = ? AND status = ?",
                 result.routeId(), result.routeCode(), "球囊扩张压力泵", CommonStatusEnum.ENABLE.getStatus()));
-        assertEquals(2, rawCount("SELECT COUNT(*) FROM mes_pro_route_product WHERE route_id = ?", result.routeId()));
+        assertEquals(1, rawCount("SELECT COUNT(*) FROM mes_pro_route_product WHERE route_id = ?", result.routeId()));
         assertEquals(1, rawCount("SELECT COUNT(*) FROM mes_pro_route_product WHERE route_id = ? AND item_id = ?",
                 result.routeId(), firstItemId));
-        assertEquals(1, rawCount("SELECT COUNT(*) FROM mes_pro_route_product WHERE route_id = ? AND item_id = ?",
+        assertEquals(0, rawCount("SELECT COUNT(*) FROM mes_pro_route_product WHERE route_id = ? AND item_id = ?",
                 result.routeId(), secondItemId));
         assertEquals("V1", result.routeVersionNo());
         assertEquals(1, rawCount("SELECT COUNT(*) FROM mes_pro_route_version WHERE route_id = ? AND version_no = ? AND active = TRUE",
@@ -937,7 +1010,9 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
         assertNotNull(activeConfigSnapshots.getJSONArray("scheduleUseConfigs"));
         assertEquals(2, activeConfigSnapshots.getJSONObject("flowGraph").getJSONArray("nodes").size());
         assertEquals(2, activeConfigSnapshots.getJSONArray("batchUseConfigs").size());
-        JSONObject firstActiveBatchUseConfig = activeConfigSnapshots.getJSONArray("batchUseConfigs").getJSONObject(0);
+        JSONObject firstActiveProcessConfig = activeConfigSnapshots.getJSONArray("batchUseConfigs").getJSONObject(0);
+        assertTrue(firstActiveProcessConfig.getJSONArray("formBindings").isEmpty());
+        JSONObject firstActiveBatchUseConfig = firstActiveProcessConfig.getJSONArray("batchRecordReports").getJSONObject(0);
         assertEquals("BATCH_RECORD", firstActiveBatchUseConfig.getString("recordCategory"));
         assertEquals("CONTROLLED_BATCH", firstActiveBatchUseConfig.getString("validationProfile"));
         assertNotNull(firstActiveBatchUseConfig.getLong("permissionScopeId"));
@@ -1017,6 +1092,20 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
             assertEquals(List.of("VIEW", "FILL"),
                     command.getRules().stream().map(MesProEdhrPermissionRuleCommand::getAbility).toList());
         });
+        when(routeService.buildCurrentRouteSnapshotJson(result.routeId(), result.routeVersionId()))
+                .thenReturn(activeSnapshot.toJSONString());
+        MesProBatchRecordRouteGenerationResult next = routeGenerationService.generateForUploadedWord(
+                "球囊扩张压力泵", parsedTables, result.reports(), List.of("球囊扩张压力泵"),
+                result.batchRecordDefinitionId(), result.batchRecordVersionId(), result.routeId(), result.routeVersionId(),
+                true, null, true, selectedDccId);
+        JSONObject nextConfigs = JSONObject.parseObject(routeVersionMapper.selectById(next.routeVersionId())
+                .getRouteSnapshotJson()).getJSONObject("configSnapshots");
+        assertEquals(2, nextConfigs.getJSONArray("batchUseConfigs").size());
+        assertTrue(nextConfigs.getJSONArray("batchUseConfigs").stream().map(JSONObject.class::cast)
+                .allMatch(config -> config.getJSONArray("batchRecordReports").size() == 1
+                        && config.getJSONArray("formBindings").isEmpty()));
+        assertEquals(2, rawCount("SELECT COUNT(*) FROM mes_pro_route_process WHERE route_id = ?", result.routeId()));
+
     }
 
     @Test
@@ -1031,9 +1120,22 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
                 "file", "route-only.doc", "application/msword",
                 "route-only-word-bytes".getBytes(StandardCharsets.UTF_8));
 
-        MesProBatchRecordImportResult result = reportService.recognizeUploadedRoute(
-                file, MesProBatchRecordRecognitionRouteKeys.B, "球囊扩张压力泵", "REBUILD_V1", null,
-                List.of("球囊扩张压力泵"), false, List.of(), List.of("球囊扩张压力泵"));
+        MesProBatchRecordImportResult result = reportService.recognizeUploadedRoute(file,
+                MesProBatchRecordRecognitionRouteKeys.B,
+                "球囊扩张压力泵",
+                "REBUILD_V1",
+                null,
+                null,
+                List.of("球囊扩张压力泵"),
+                false,
+                List.of(),
+                List.of("球囊扩张压力泵"),
+                false,
+                null,
+                null,
+                null,
+                prepareSelectedDccProjectFixture("球囊扩张压力泵"),
+                null);
 
         assertEquals(0, result.importedCount());
         assertEquals(0, result.createdCount());
@@ -1100,11 +1202,22 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
                 "file", "route-only-existing.doc", "application/msword",
                 "route-only-existing-word-bytes".getBytes(StandardCharsets.UTF_8));
 
-        MesProBatchRecordImportResult result = reportService.recognizeUploadedRoute(
-                file, MesProBatchRecordRecognitionRouteKeys.B, "球囊扩张压力泵", "REBUILD_V1",
-                null, null, List.of("球囊扩张压力泵"), false,
-                List.of(routeProduct.getId()), List.of("球囊扩张压力泵"),
-                true, route.getId(), routeVersion.getId(), null);
+        MesProBatchRecordImportResult result = reportService.recognizeUploadedRoute(file,
+                MesProBatchRecordRecognitionRouteKeys.B,
+                "球囊扩张压力泵",
+                "REBUILD_V1",
+                null,
+                null,
+                List.of("球囊扩张压力泵"),
+                false,
+                List.of(routeProduct.getId()),
+                List.of("球囊扩张压力泵"),
+                true,
+                route.getId(),
+                routeVersion.getId(),
+                null,
+                prepareSelectedDccProjectFixture("球囊扩张压力泵"),
+                null);
 
         assertEquals(route.getId(), result.routeId());
         assertEquals("ROUTE-ONLY-EXISTING", result.routeCode());
@@ -1573,6 +1686,14 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
                 firstMixingRouteProcess.getId(), mixingProcess.getId(),
                 secondMixingRouteProcess.getId(), mixingProcess.getId(),
                 packingRouteProcess.getId(), packingProcess.getId());
+        JSONObject activeRoot = JSONObject.parseObject(activeSnapshotJson);
+        JSONObject activeConfigs = activeRoot.getJSONObject("configSnapshots");
+        activeConfigs.put("productionProcessConfigSchemaVersion", 1);
+        var productionConfigs = buildTestProductionConfigs(activeConfigs.getJSONObject("flowGraph").getJSONArray("nodes"));
+        productionConfigs.getJSONObject(0).put("overagePercent", new java.math.BigDecimal("7.5"));
+        productionConfigs.getJSONObject(1).put("overagePercent", new java.math.BigDecimal("3.5"));
+        activeConfigs.put("productionProcessConfigs", productionConfigs);
+        activeSnapshotJson = activeRoot.toJSONString();
         MesProRouteVersionDO activeVersion = MesProRouteVersionDO.builder()
                 .routeId(route.getId())
                 .versionNo("V1")
@@ -1644,6 +1765,13 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
         assertEquals(activeVersion.getId(), candidate.getSourceRouteVersionId());
         JSONObject candidateSnapshot = JSONObject.parseObject(candidate.getRouteSnapshotJson());
         JSONObject configSnapshots = candidateSnapshot.getJSONObject("configSnapshots");
+        assertEquals(1, configSnapshots.getInteger("productionProcessConfigSchemaVersion"));
+        var candidateProductionConfigs = configSnapshots.getJSONArray("productionProcessConfigs");
+        assertEquals(2, result.batchRecordRouteBindingCount(),
+                "结果只统计候选中的正式批记录绑定，不能把3道工序或3个表单槽位当作3个绑定");
+        assertEquals(List.of("7.5", "0", "3.5"), IntStream.range(0, candidateProductionConfigs.size())
+                .mapToObj(index -> candidateProductionConfigs.getJSONObject(index)
+                        .getBigDecimal("overagePercent").toPlainString()).toList());
         com.alibaba.fastjson.JSONArray nodes = configSnapshots.getJSONObject("flowGraph").getJSONArray("nodes");
         assertEquals(List.of("混合工序", "包装工序", "混合工序"), IntStream.range(0, nodes.size())
                 .mapToObj(index -> nodes.getJSONObject(index).getString("processName"))
@@ -2265,11 +2393,22 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
                 "file", "current-route-scope.doc", "application/msword",
                 "current-route-scope-word-bytes".getBytes(StandardCharsets.UTF_8));
 
-        MesProBatchRecordImportResult result = reportService.recognizeUploadedRoute(
-                file, MesProBatchRecordRecognitionRouteKeys.B, "球囊扩张压力泵", "UPGRADE",
-                currentVersion.getId(), null, List.of("球囊扩张压力泵"), false,
-                List.of(currentRouteProduct.getId()), List.of(), true,
-                currentRoute.getId(), currentRouteVersion.getId(), null);
+        MesProBatchRecordImportResult result = reportService.recognizeUploadedRoute(file,
+                MesProBatchRecordRecognitionRouteKeys.B,
+                "球囊扩张压力泵",
+                "UPGRADE",
+                currentVersion.getId(),
+                null,
+                List.of("球囊扩张压力泵"),
+                false,
+                List.of(currentRouteProduct.getId()),
+                List.of(),
+                true,
+                currentRoute.getId(),
+                currentRouteVersion.getId(),
+                null,
+                prepareSelectedDccProjectFixture("球囊扩张压力泵"),
+                null);
 
         assertEquals(currentRoute.getId(), result.routeId());
         assertEquals("ROUTE-CURRENT-PREFLIGHT", result.routeCode());
@@ -2281,7 +2420,8 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
         JSONObject candidateConfigSnapshots = candidateSnapshot.getJSONObject("configSnapshots");
         assertNotNull(candidateConfigSnapshots.getJSONArray("scheduleUseConfigs"));
         assertEquals(2, candidateConfigSnapshots.getJSONArray("batchUseConfigs").size());
-        JSONObject firstBatchUseConfig = candidateConfigSnapshots.getJSONArray("batchUseConfigs").getJSONObject(0);
+        JSONObject firstBatchUseConfig = candidateConfigSnapshots.getJSONArray("batchUseConfigs").getJSONObject(0)
+                .getJSONArray("batchRecordReports").getJSONObject(0);
         assertEquals("BATCH_RECORD", firstBatchUseConfig.getString("recordCategory"));
         assertEquals("CONTROLLED_BATCH", firstBatchUseConfig.getString("validationProfile"));
         assertNotNull(firstBatchUseConfig.getLong("permissionScopeId"));
@@ -2398,11 +2538,22 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
                 "file", "route-upgrade-link.doc", "application/msword",
                 "route-upgrade-link-word-bytes".getBytes(StandardCharsets.UTF_8));
 
-        MesProBatchRecordImportResult result = reportService.recognizeUploadedRoute(
-                file, MesProBatchRecordRecognitionRouteKeys.B, "连接信息保留批记录", "UPGRADE",
-                currentVersion.getId(), null, List.of("连接信息保留批记录"), true,
-                List.of(currentRouteProduct.getId()), List.of(), true,
-                currentRoute.getId(), currentRouteVersion.getId(), null);
+        MesProBatchRecordImportResult result = reportService.recognizeUploadedRoute(file,
+                MesProBatchRecordRecognitionRouteKeys.B,
+                "连接信息保留批记录",
+                "UPGRADE",
+                currentVersion.getId(),
+                null,
+                List.of("连接信息保留批记录"),
+                true,
+                List.of(currentRouteProduct.getId()),
+                List.of(),
+                true,
+                currentRoute.getId(),
+                currentRouteVersion.getId(),
+                null,
+                prepareSelectedDccProjectFixture("连接信息保留批记录"),
+                null);
 
         assertEquals(currentRoute.getId(), result.routeId());
         assertNotEquals(currentRouteVersion.getId(), result.routeVersionId());
@@ -2492,11 +2643,22 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
                 "file", "current-item-scope.doc", "application/msword",
                 "current-item-scope-word-bytes".getBytes(StandardCharsets.UTF_8));
 
-        MesProBatchRecordImportResult result = reportService.recognizeUploadedRoute(
-                file, MesProBatchRecordRecognitionRouteKeys.B, "球囊扩张压力泵", "UPGRADE",
-                currentVersion.getId(), null, List.of("球囊扩张压力泵"), false,
-                List.of(currentItemId), List.of(), true,
-                currentRoute.getId(), currentRouteVersion.getId(), null);
+        MesProBatchRecordImportResult result = reportService.recognizeUploadedRoute(file,
+                MesProBatchRecordRecognitionRouteKeys.B,
+                "球囊扩张压力泵",
+                "UPGRADE",
+                currentVersion.getId(),
+                null,
+                List.of("球囊扩张压力泵"),
+                false,
+                List.of(currentItemId),
+                List.of(),
+                true,
+                currentRoute.getId(),
+                currentRouteVersion.getId(),
+                null,
+                prepareSelectedDccProjectFixture("球囊扩张压力泵"),
+                null);
 
         assertEquals(currentRoute.getId(), result.routeId());
         assertEquals("ROUTE-CURRENT-ITEM", result.routeCode());
@@ -2517,12 +2679,12 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
         jdbcTemplate().update("""
                 INSERT INTO mes_md_item
                 (id, code, name, specification, unit_measure_id, item_type_id, status, safe_stock_flag,
-                 min_stock, max_stock, high_value, batch_flag, remark, creator, updater, deleted)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 min_stock, max_stock, high_value, batch_flag, remark, creator, updater, deleted, tenant_id)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 selectedProductItemId, "BRP-COLLISION-922198", "球囊扩张压力泵", "测试规格", null, null,
                 CommonStatusEnum.ENABLE.getStatus(), false, null, null, false, true,
-                "批记录表单测试产品", "tester", "tester", false);
+                "批记录表单测试产品", "tester", "tester", false, TenantContextHolder.getRequiredTenantId());
         Long unrelatedItemId = seedProductItem("其它产品", "BRP-COLLISION-OTHER");
         MesProRouteDO otherRoute = MesProRouteDO.builder()
                 .code("ROUTE-OTHER-COLLISION")
@@ -2583,11 +2745,22 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
                 "file", "current-collision.doc", "application/msword",
                 "current-collision-word-bytes".getBytes(StandardCharsets.UTF_8));
 
-        MesProBatchRecordImportResult result = reportService.recognizeUploadedRoute(
-                file, MesProBatchRecordRecognitionRouteKeys.B, "球囊扩张压力泵", "UPGRADE",
-                currentVersion.getId(), null, List.of("球囊扩张压力泵"), false,
-                List.of(selectedProductItemId), List.of(), true,
-                currentRoute.getId(), currentRouteVersion.getId(), null);
+        MesProBatchRecordImportResult result = reportService.recognizeUploadedRoute(file,
+                MesProBatchRecordRecognitionRouteKeys.B,
+                "球囊扩张压力泵",
+                "UPGRADE",
+                currentVersion.getId(),
+                null,
+                List.of("球囊扩张压力泵"),
+                false,
+                List.of(selectedProductItemId),
+                List.of(),
+                true,
+                currentRoute.getId(),
+                currentRouteVersion.getId(),
+                null,
+                prepareSelectedDccProjectFixture("球囊扩张压力泵"),
+                null);
 
         assertEquals(currentRoute.getId(), result.routeId());
         assertEquals("ROUTE-CURRENT-COLLISION", result.routeCode());
@@ -2598,7 +2771,8 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
 
     @Test
     void recognizeUploadedRoute_whenSelectedProductIdNotBoundToPreflightRoute_stillFailsFast() {
-        seedDccProjectCode("球囊扩张压力泵", "BRP-CURRENT-STRICT");
+        Long dccId = seedDccProjectCode("球囊扩张压力泵", "BRP-CURRENT-STRICT");
+        Long boundItemId = seedProductItem("球囊扩张压力泵", "BRP-CURRENT-STRICT");
         Long unrelatedItemId = seedProductItem("其它产品", "BRP-OTHER-STRICT");
         MesProRouteDO currentRoute = MesProRouteDO.builder()
                 .code("ROUTE-CURRENT-STRICT")
@@ -2606,6 +2780,9 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
                 .status(CommonStatusEnum.ENABLE.getStatus())
                 .build();
         routeMapper.insert(currentRoute);
+        bindRouteToDccProject(currentRoute.getId(), dccId);
+        routeProductMapper.insert(MesProRouteProductDO.builder().routeId(currentRoute.getId())
+                .itemId(boundItemId).quantity(1).build());
         MesProRouteVersionDO currentRouteVersion = MesProRouteVersionDO.builder()
                 .routeId(currentRoute.getId())
                 .versionNo("V1")
@@ -2619,11 +2796,22 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
                 "current-strict-word-bytes".getBytes(StandardCharsets.UTF_8));
 
         ServiceException exception = assertThrows(ServiceException.class,
-                () -> reportService.recognizeUploadedRoute(
-                        file, MesProBatchRecordRecognitionRouteKeys.B, "球囊扩张压力泵", "REBUILD_V1",
-                        null, null, List.of("球囊扩张压力泵"), false,
-                        List.of(unrelatedItemId), List.of(), true,
-                        currentRoute.getId(), currentRouteVersion.getId(), null));
+                () -> reportService.recognizeUploadedRoute(file,
+                MesProBatchRecordRecognitionRouteKeys.B,
+                "球囊扩张压力泵",
+                "REBUILD_V1",
+                null,
+                null,
+                List.of("球囊扩张压力泵"),
+                false,
+                List.of(unrelatedItemId),
+                List.of(),
+                true,
+                currentRoute.getId(),
+                currentRouteVersion.getId(),
+                null,
+                prepareSelectedDccProjectFixture("球囊扩张压力泵"),
+                null));
 
         assertEquals(PRO_BATCH_RECORD_REPORT_ROUTE_PRODUCT_SCOPE_INVALID.getCode(), exception.getCode());
         assertTrue(exception.getMessage().contains(String.valueOf(unrelatedItemId)));
@@ -2775,6 +2963,7 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
                 .status(CommonStatusEnum.ENABLE.getStatus())
                 .build();
         routeMapper.insert(otherRoute);
+        bindRouteToDccProject(otherRoute.getId(), seedDccProjectCode("其它项目", "OTHER-DCC"));
         routeProductMapper.insert(MesProRouteProductDO.builder()
                 .routeId(otherRoute.getId())
                 .itemId(itemId)
@@ -2785,12 +2974,25 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
                 "route-product-conflict-bytes".getBytes(StandardCharsets.UTF_8));
 
         ServiceException exception = assertThrows(ServiceException.class,
-                () -> reportService.recognizeUploadedRoute(
-                        file, MesProBatchRecordRecognitionRouteKeys.B, "球囊扩张压力泵", false,
-                        List.of("球囊扩张压力泵")));
+                () -> reportService.recognizeUploadedRoute(file,
+                MesProBatchRecordRecognitionRouteKeys.B,
+                "球囊扩张压力泵",
+                "REBUILD_V1",
+                null,
+                null,
+                List.of("球囊扩张压力泵"),
+                true,
+                List.of(),
+                List.of("球囊扩张压力泵"),
+                false,
+                null,
+                null,
+                null,
+                prepareSelectedDccProjectFixture("球囊扩张压力泵"),
+                null));
 
         assertEquals(PRO_BATCH_RECORD_REPORT_ROUTE_PRODUCT_BIND_FAILED.getCode(), exception.getCode());
-        assertTrue(exception.getMessage().contains("产品已绑定其他工艺路线"));
+        assertTrue(exception.getMessage().contains("产品绑定路线已正式属于其他DCC项目"));
         assertEquals(1, rawCount("SELECT COUNT(*) FROM mes_pro_route WHERE id = ?", otherRoute.getId()));
         assertEquals(1, rawCount("SELECT COUNT(*) FROM mes_pro_route_product WHERE route_id = ? AND item_id = ?",
                 otherRoute.getId(), itemId));
@@ -2818,10 +3020,24 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
                 "missing-dcc-project-bytes".getBytes(StandardCharsets.UTF_8));
 
         ServiceException exception = assertThrows(ServiceException.class,
-                () -> reportService.recognizeUploadedRoute(file, MesProBatchRecordRecognitionRouteKeys.B,
-                        "仅MES工单产品", false, List.of("仅MES工单产品")));
+                () -> reportService.recognizeUploadedRoute(file,
+                MesProBatchRecordRecognitionRouteKeys.B,
+                "仅MES工单产品",
+                "REBUILD_V1",
+                null,
+                null,
+                List.of("仅MES工单产品"),
+                true,
+                List.of(),
+                List.of(),
+                false,
+                null,
+                null,
+                null,
+                null,
+                null));
 
-        assertEquals(PRO_BATCH_RECORD_REPORT_ROUTE_PRODUCT_EMPTY.getCode(), exception.getCode());
+        assertEquals(MesProBatchRecordReportErrorCodeConstants.PRO_BATCH_RECORD_REPORT_DCC_PROJECT_CODE_REQUIRED.getCode(), exception.getCode());
         assertEquals(0L, reportMapper.selectCount());
         assertNoGeneratedRouteData();
     }
@@ -2990,19 +3206,26 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
     @Test
     void dccProjectGovernanceStatus_aggregatesRouteMainRecordAndAuxiliarySlotUniquenessByProjectName() {
         String projectName = "治理状态项目";
-        seedDccProjectCode(projectName, "GOV-001");
+        Long governedDccId = seedDccProjectCode(projectName, "GOV-001");
+        Long governedItemId = seedProductItem(projectName, "GOV-001");
         MesProRouteDO firstRoute = MesProRouteDO.builder()
                 .code("RT-GOV-001")
                 .name(projectName)
                 .status(CommonStatusEnum.ENABLE.getStatus())
                 .build();
         routeMapper.insert(firstRoute);
+        bindRouteToDccProject(firstRoute.getId(), governedDccId);
+        routeProductMapper.insert(MesProRouteProductDO.builder()
+                .routeId(firstRoute.getId()).itemId(governedItemId).quantity(1).build());
         MesProRouteDO secondRoute = MesProRouteDO.builder()
                 .code("RT-GOV-002")
                 .name(projectName)
                 .status(CommonStatusEnum.ENABLE.getStatus())
                 .build();
         routeMapper.insert(secondRoute);
+        bindRouteToDccProject(secondRoute.getId(), governedDccId);
+        routeProductMapper.insert(MesProRouteProductDO.builder()
+                .routeId(secondRoute.getId()).itemId(governedItemId).quantity(1).build());
         insertVersionedDefinition(projectName);
         insertDefinition(projectName, MesProBatchRecordRecognitionRouteKeys.E);
         insertAuxiliarySlotReport(projectName, MesProBatchRecordFormSlotType.LOSS_REPORT, "LOSS-GOV-001");
@@ -3031,18 +3254,21 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
     @Test
     void dccProjectGovernanceStatus_exposesCurrentVersionNosForLinkedObjects() {
         String projectName = "治理版本项目";
-        seedDccProjectCode(projectName, "GOV-VERSION-001");
+        Long governedDccId = seedDccProjectCode(projectName, "GOV-VERSION-001");
+        Long governedItemId = seedProductItem(projectName, "GOV-VERSION-001");
         MesProRouteDO route = MesProRouteDO.builder()
                 .code("RT-GOV-VERSION-001")
                 .name(projectName)
                 .status(CommonStatusEnum.ENABLE.getStatus())
                 .build();
         routeMapper.insert(route);
+        bindRouteToDccProject(route.getId(), governedDccId);
+        routeProductMapper.insert(MesProRouteProductDO.builder()
+                .routeId(route.getId()).itemId(governedItemId).quantity(1).build());
         routeVersionMapper.insert(MesProRouteVersionDO.builder()
                 .routeId(route.getId())
                 .versionNo("V3")
                 .active(Boolean.TRUE)
-                .activeUniqueFlag(1)
                 .lifecycleStatus(MesProRouteVersionMapper.STATUS_ACTIVE)
                 .build());
         MesProBatchRecordDefinitionDO definition = insertVersionedDefinition(projectName);
@@ -3071,10 +3297,10 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
     @Test
     void preflightUploadedRoute_whenBatchRecordNameDiffersFromDccProjectName_rejectsBeforeLookup() {
         ServiceException exception = assertThrows(ServiceException.class,
-                () -> reportService.preflightUploadedRoute(
-                        MesProBatchRecordRecognitionRouteKeys.B,
-                        "错误批记录名",
-                        List.of("球囊扩张压力泵")));
+                () -> reportService.preflightUploadedRoute(MesProBatchRecordRecognitionRouteKeys.B,
+                "错误批记录名",
+                List.of("球囊扩张压力泵"),
+                prepareSelectedDccProjectFixture("错误批记录名")));
 
         assertEquals(PRO_BATCH_RECORD_REPORT_DCC_PROJECT_NAME_REQUIRED.getCode(), exception.getCode());
         assertTrue(exception.getMessage().contains("一次只能导入一个 DCC 项目"));
@@ -3087,9 +3313,22 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
                 "dcc-project-bytes".getBytes(StandardCharsets.UTF_8));
 
         ServiceException exception = assertThrows(ServiceException.class,
-                () -> reportService.recognizeUploadedRoute(
-                        file, MesProBatchRecordRecognitionRouteKeys.B, "错误批记录名", "REBUILD_V1",
-                        null, List.of("球囊扩张压力泵"), false, List.of(), List.of("球囊扩张压力泵")));
+                () -> reportService.recognizeUploadedRoute(file,
+                MesProBatchRecordRecognitionRouteKeys.B,
+                "错误批记录名",
+                "REBUILD_V1",
+                null,
+                null,
+                List.of("球囊扩张压力泵"),
+                false,
+                List.of(),
+                List.of("球囊扩张压力泵"),
+                false,
+                null,
+                null,
+                null,
+                prepareSelectedDccProjectFixture("错误批记录名"),
+                null));
 
         assertEquals(PRO_BATCH_RECORD_REPORT_DCC_PROJECT_NAME_REQUIRED.getCode(), exception.getCode());
         assertNoGeneratedRouteData();
@@ -3132,8 +3371,10 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
                 .thenReturn(TestBatchRecordFixtures.reportInfo(
                         "latest-current-report-1", "EBR_LATEST_T01", "当前表1", LocalDateTime.now()));
 
-        MesProBatchRecordImportPreflightResult result = reportService.preflightUploadedRoute(
-                MesProBatchRecordRecognitionRouteKeys.B, "球囊扩张压力泵", List.of("球囊扩张压力泵"));
+        MesProBatchRecordImportPreflightResult result = reportService.preflightUploadedRoute(MesProBatchRecordRecognitionRouteKeys.B,
+                "球囊扩张压力泵",
+                List.of("球囊扩张压力泵"),
+                prepareSelectedDccProjectFixture("球囊扩张压力泵"));
 
         assertEquals(currentVersion.getId(), result.currentBatchRecordVersionId());
         assertEquals("V1.0", result.currentBatchRecordVersionNo());
@@ -3173,8 +3414,10 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
         definition.setCurrentVersionId(version.getId());
         definitionMapper.updateById(definition);
 
-        MesProBatchRecordImportPreflightResult result = reportService.preflightUploadedRoute(
-                MesProBatchRecordRecognitionRouteKeys.B, "无表单无产线批记录", List.of("无表单无产线批记录"));
+        MesProBatchRecordImportPreflightResult result = reportService.preflightUploadedRoute(MesProBatchRecordRecognitionRouteKeys.B,
+                "无表单无产线批记录",
+                List.of("无表单无产线批记录"),
+                prepareSelectedDccProjectFixture("无表单无产线批记录"));
 
         assertEquals(definition.getId(), result.batchRecordDefinitionId());
         assertNull(result.currentBatchRecordVersionId());
@@ -3201,8 +3444,10 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
         definitionMapper.updateById(definition);
         insertBatchRecordExecution(definition.getId(), version.getId(), "EXEC-STALE-PREFLIGHT");
 
-        MesProBatchRecordImportPreflightResult result = reportService.preflightUploadedRoute(
-                MesProBatchRecordRecognitionRouteKeys.B, "无表单有执行批记录", List.of("无表单有执行批记录"));
+        MesProBatchRecordImportPreflightResult result = reportService.preflightUploadedRoute(MesProBatchRecordRecognitionRouteKeys.B,
+                "无表单有执行批记录",
+                List.of("无表单有执行批记录"),
+                prepareSelectedDccProjectFixture("无表单有执行批记录"));
 
         assertEquals(definition.getId(), result.batchRecordDefinitionId());
         assertEquals(version.getId(), result.currentBatchRecordVersionId());
@@ -3228,15 +3473,28 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
                 "file", "empty-scope.doc", "application/msword",
                 "empty-scope-bytes".getBytes(StandardCharsets.UTF_8));
 
-        assertServiceException(() -> reportService.recognizeUploadedRoute(
-                        file, MesProBatchRecordRecognitionRouteKeys.B, "空范围批记录", false,
-                        List.of("空范围批记录"), false, List.of(), List.of()),
+        assertServiceException(() -> reportService.recognizeUploadedRoute(file,
+                MesProBatchRecordRecognitionRouteKeys.B,
+                "空范围批记录",
+                "REBUILD_V1",
+                null,
+                null,
+                List.of("空范围批记录"),
+                false,
+                List.of(),
+                List.of(),
+                false,
+                null,
+                null,
+                null,
+                prepareSelectedDccProjectFixture("空范围批记录"),
+                null),
                 PRO_BATCH_RECORD_REPORT_IMPORT_SCOPE_EMPTY);
         verifyNoInteractions(jimuReportGateway);
     }
 
     @Test
-    void recognizeUploadedRoute_whenProcessNameAlreadyExists_reusesExistingProcessWithoutCreatingDuplicate() {
+    void recognizeUploadedRoute_whenLegacyProcessNameAlreadyExists_createsIndependentProjectProcess() {
         jdbcTemplate().update("""
                 INSERT INTO mes_pro_process
                 (id, code, name, product_name, status, remark, creator, updater, deleted)
@@ -3265,14 +3523,30 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
         seedWorkOrderProduct("球囊扩张压力泵", "BRP-001");
         seedDccProjectCode("球囊扩张压力泵", "BRP-001");
 
-        MesProBatchRecordImportResult result = reportService.recognizeUploadedRoute(
-                file, MesProBatchRecordRecognitionRouteKeys.B, "球囊扩张压力泵", false, List.of("球囊扩张压力泵"));
+        MesProBatchRecordImportResult result = reportService.recognizeUploadedRoute(file,
+                MesProBatchRecordRecognitionRouteKeys.B,
+                "球囊扩张压力泵",
+                "REBUILD_V1",
+                null,
+                null,
+                List.of("球囊扩张压力泵"),
+                true,
+                List.of(),
+                List.of("球囊扩张压力泵"),
+                false,
+                null,
+                null,
+                null,
+                prepareSelectedDccProjectFixture("球囊扩张压力泵"),
+                null);
 
         assertEquals(2, result.routeProcessCount());
-        assertEquals(1, rawCount("SELECT COUNT(*) FROM mes_pro_process WHERE name = ?", "粗洗工序"));
+        assertEquals(1, rawCount("SELECT COUNT(*) FROM mes_pro_process WHERE name = ? AND product_name = ? AND code LIKE 'GX-%'",
+                "粗洗工序", "球囊扩张压力泵"));
+        assertEquals(2, rawCount("SELECT COUNT(*) FROM mes_pro_process WHERE name = ?", "粗洗工序"));
         assertEquals(0, rawCount("SELECT COUNT(*) FROM mes_pro_process WHERE name = ?", "粗洗工序生产记录"));
         assertEquals(1, rawCount("SELECT COUNT(*) FROM mes_pro_process WHERE name = ?", "精洗工序"));
-        assertEquals(1, rawCount("""
+        assertEquals(0, rawCount("""
                 SELECT COUNT(*) FROM mes_pro_route_process
                 WHERE route_id = ? AND process_id = ?
                 """, result.routeId(), 910001L));
@@ -3297,7 +3571,22 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
                 "missing-product-info-bytes".getBytes(StandardCharsets.UTF_8));
 
         ServiceException exception = assertThrows(ServiceException.class,
-                () -> reportService.recognizeUploadedRoute(file, MesProBatchRecordRecognitionRouteKeys.B, "球囊扩张压力泵", false, List.of("球囊扩张压力泵")));
+                () -> reportService.recognizeUploadedRoute(file,
+                MesProBatchRecordRecognitionRouteKeys.B,
+                "球囊扩张压力泵",
+                "REBUILD_V1",
+                null,
+                null,
+                List.of("球囊扩张压力泵"),
+                true,
+                List.of(),
+                List.of(),
+                false,
+                null,
+                null,
+                null,
+                prepareSelectedDccProjectFixture("球囊扩张压力泵"),
+                null));
 
         assertEquals(PRO_BATCH_RECORD_REPORT_PRODUCT_INFO_MISSING.getCode(), exception.getCode());
         assertTrue(exception.getMessage().contains("已中止导入并回滚"));
@@ -3318,7 +3607,22 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
                 "product-info-not-first-bytes".getBytes(StandardCharsets.UTF_8));
 
         ServiceException exception = assertThrows(ServiceException.class,
-                () -> reportService.recognizeUploadedRoute(file, MesProBatchRecordRecognitionRouteKeys.B, "球囊扩张压力泵", false, List.of("球囊扩张压力泵")));
+                () -> reportService.recognizeUploadedRoute(file,
+                MesProBatchRecordRecognitionRouteKeys.B,
+                "球囊扩张压力泵",
+                "REBUILD_V1",
+                null,
+                null,
+                List.of("球囊扩张压力泵"),
+                true,
+                List.of(),
+                List.of(),
+                false,
+                null,
+                null,
+                null,
+                prepareSelectedDccProjectFixture("球囊扩张压力泵"),
+                null));
 
         assertEquals(PRO_BATCH_RECORD_REPORT_PRODUCT_INFO_NOT_FIRST.getCode(), exception.getCode());
         assertTrue(exception.getMessage().contains("已中止导入并回滚"));
@@ -3337,7 +3641,22 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
                 "only-product-info-bytes".getBytes(StandardCharsets.UTF_8));
 
         ServiceException exception = assertThrows(ServiceException.class,
-                () -> reportService.recognizeUploadedRoute(file, MesProBatchRecordRecognitionRouteKeys.B, "球囊扩张压力泵", false, List.of("球囊扩张压力泵")));
+                () -> reportService.recognizeUploadedRoute(file,
+                MesProBatchRecordRecognitionRouteKeys.B,
+                "球囊扩张压力泵",
+                "REBUILD_V1",
+                null,
+                null,
+                List.of("球囊扩张压力泵"),
+                true,
+                List.of(),
+                List.of(),
+                false,
+                null,
+                null,
+                null,
+                prepareSelectedDccProjectFixture("球囊扩张压力泵"),
+                null));
 
         assertEquals(PRO_BATCH_RECORD_REPORT_PROCESS_EMPTY.getCode(), exception.getCode());
         assertTrue(exception.getMessage().contains("已中止导入并回滚"));
@@ -3357,8 +3676,22 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
                 "file", "user-selected.doc", "application/msword",
                 "uploaded-word-bytes".getBytes(StandardCharsets.UTF_8));
 
-        assertServiceException(() -> reportService.recognizeUploadedRoute(
-                        file, MesProBatchRecordRecognitionRouteKeys.B, "球囊扩张压力泵", false, List.of("球囊扩张压力泵")),
+        assertServiceException(() -> reportService.recognizeUploadedRoute(file,
+                MesProBatchRecordRecognitionRouteKeys.B,
+                "球囊扩张压力泵",
+                "REBUILD_V1",
+                null,
+                null,
+                List.of("球囊扩张压力泵"),
+                true,
+                List.of(),
+                List.of(),
+                false,
+                null,
+                null,
+                null,
+                prepareSelectedDccProjectFixture("球囊扩张压力泵"),
+                null),
                 PRO_BATCH_RECORD_REPORT_BATCH_NAME_EXISTS, "球囊扩张压力泵");
 
         assertEquals(1L, reportMapper.selectCount());
@@ -3386,11 +3719,23 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
                         "existing-missing-source-report-1", "EBR_B_T01", "既有表1", LocalDateTime.now()));
 
         ServiceException exception = assertThrows(ServiceException.class,
-                () -> reportService.recognizeUploadedRoute(
-                        new MockMultipartFile("file", "missing-source.doc", "application/msword",
+                () -> reportService.recognizeUploadedRoute(new MockMultipartFile("file", "missing-source.doc", "application/msword",
                                 "missing-source".getBytes(StandardCharsets.UTF_8)),
-                        MesProBatchRecordRecognitionRouteKeys.B, "升版缺少预检源版本", "UPGRADE", null,
-                        List.of("升版缺少预检源版本"), true, List.of(), List.of()));
+                MesProBatchRecordRecognitionRouteKeys.B,
+                "升版缺少预检源版本",
+                "UPGRADE",
+                null,
+                null,
+                List.of("升版缺少预检源版本"),
+                true,
+                List.of(),
+                List.of(),
+                false,
+                null,
+                null,
+                null,
+                prepareSelectedDccProjectFixture("升版缺少预检源版本"),
+                null));
 
         assertEquals(PRO_BATCH_RECORD_REPORT_VERSION_UPGRADE_SOURCE_REQUIRED.getCode(), exception.getCode());
         assertEquals(1L, reportMapper.selectCount());
@@ -3420,11 +3765,23 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
                         "current-changed-report-1", "EBR_B_T01", "既有表1", LocalDateTime.now()));
 
         ServiceException exception = assertThrows(ServiceException.class,
-                () -> reportService.recognizeUploadedRoute(
-                        new MockMultipartFile("file", "stale-source.doc", "application/msword",
+                () -> reportService.recognizeUploadedRoute(new MockMultipartFile("file", "stale-source.doc", "application/msword",
                                 "stale-source".getBytes(StandardCharsets.UTF_8)),
-                        MesProBatchRecordRecognitionRouteKeys.B, "升版当前版本变化", "UPGRADE",
-                        preflightVersion.getId(), List.of("升版当前版本变化"), true, List.of(), List.of()));
+                MesProBatchRecordRecognitionRouteKeys.B,
+                "升版当前版本变化",
+                "UPGRADE",
+                preflightVersion.getId(),
+                null,
+                List.of("升版当前版本变化"),
+                true,
+                List.of(),
+                List.of(),
+                false,
+                null,
+                null,
+                null,
+                prepareSelectedDccProjectFixture("升版当前版本变化"),
+                null));
 
         assertEquals(PRO_BATCH_RECORD_REPORT_VERSION_CURRENT_CHANGED.getCode(), exception.getCode());
         assertEquals(1L, reportMapper.selectCount());
@@ -3452,11 +3809,23 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
                         "existing-action-report-1", "EBR_B_T01", "既有表1", LocalDateTime.now()));
 
         ServiceException exception = assertThrows(ServiceException.class,
-                () -> reportService.recognizeUploadedRoute(
-                        new MockMultipartFile("file", "illegal-rebuild.doc", "application/msword",
+                () -> reportService.recognizeUploadedRoute(new MockMultipartFile("file", "illegal-rebuild.doc", "application/msword",
                                 "illegal-rebuild".getBytes(StandardCharsets.UTF_8)),
-                        MesProBatchRecordRecognitionRouteKeys.B, "禁止重建动作批记录", "REBUILD_V1", null,
-                        List.of("禁止重建动作批记录"), false, List.of(), List.of("禁止重建动作批记录")));
+                MesProBatchRecordRecognitionRouteKeys.B,
+                "禁止重建动作批记录",
+                "REBUILD_V1",
+                null,
+                null,
+                List.of("禁止重建动作批记录"),
+                false,
+                List.of(),
+                List.of("禁止重建动作批记录"),
+                false,
+                null,
+                null,
+                null,
+                prepareSelectedDccProjectFixture("禁止重建动作批记录"),
+                null));
 
         assertEquals(PRO_BATCH_RECORD_REPORT_IMPORT_ACTION_NOT_ALLOWED.getCode(), exception.getCode());
         assertEquals(1L, reportMapper.selectCount());
@@ -3521,9 +3890,22 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
         seedWorkOrderProduct("球囊扩张压力泵", "BRP-001");
         seedDccProjectCode("球囊扩张压力泵", "BRP-001");
 
-        MesProBatchRecordImportResult result = reportService.recognizeUploadedRoute(
-                file, MesProBatchRecordRecognitionRouteKeys.B, "球囊扩张压力泵", "UPGRADE",
-                currentVersion.getId(), List.of("球囊扩张压力泵"), true, List.of(), List.of("球囊扩张压力泵"));
+        MesProBatchRecordImportResult result = reportService.recognizeUploadedRoute(file,
+                MesProBatchRecordRecognitionRouteKeys.B,
+                "球囊扩张压力泵",
+                "UPGRADE",
+                currentVersion.getId(),
+                null,
+                List.of("球囊扩张压力泵"),
+                true,
+                List.of(),
+                List.of("球囊扩张压力泵"),
+                false,
+                null,
+                null,
+                null,
+                prepareSelectedDccProjectFixture("球囊扩张压力泵"),
+                null);
 
         assertEquals(0, result.updatedCount());
         assertEquals(15, result.createdCount());
@@ -3626,9 +4008,22 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
 
         MockMultipartFile uploaded = new MockMultipartFile("file", "phase2-diff.doc",
                 "application/msword", "phase-two-target".getBytes(StandardCharsets.UTF_8));
-        MesProBatchRecordImportResult result = reportService.recognizeUploadedRoute(
-                uploaded, MesProBatchRecordRecognitionRouteKeys.B, definition.getBatchRecordName(), "UPGRADE",
-                approvedVersion.getId(), List.of("阶段二结构化迁移批记录"), true, List.of(), List.of("阶段二结构化迁移批记录"));
+        MesProBatchRecordImportResult result = reportService.recognizeUploadedRoute(uploaded,
+                MesProBatchRecordRecognitionRouteKeys.B,
+                definition.getBatchRecordName(),
+                "UPGRADE",
+                approvedVersion.getId(),
+                null,
+                List.of("阶段二结构化迁移批记录"),
+                true,
+                List.of(),
+                List.of("阶段二结构化迁移批记录"),
+                false,
+                null,
+                null,
+                null,
+                prepareSelectedDccProjectFixture(definition.getBatchRecordName()),
+                null);
         assertEquals("PRECHECK_FAILED", result.versionStatus(),
                 "存在 CONFIRM_REQUIRED 迁移项时新版本必须保持预检失败，防止绕过授权确认");
 
@@ -3713,9 +4108,22 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
         seedWorkOrderProduct("同 hash 升版批记录", "BRP-001");
         seedDccProjectCode("同 hash 升版批记录", "BRP-001");
 
-        MesProBatchRecordImportResult result = reportService.recognizeUploadedRoute(
-                file, MesProBatchRecordRecognitionRouteKeys.B, "同 hash 升版批记录", "UPGRADE",
-                currentVersion.getId(), List.of("同 hash 升版批记录"), true, List.of(), List.of("同 hash 升版批记录"));
+        MesProBatchRecordImportResult result = reportService.recognizeUploadedRoute(file,
+                MesProBatchRecordRecognitionRouteKeys.B,
+                "同 hash 升版批记录",
+                "UPGRADE",
+                currentVersion.getId(),
+                null,
+                List.of("同 hash 升版批记录"),
+                true,
+                List.of(),
+                List.of("同 hash 升版批记录"),
+                false,
+                null,
+                null,
+                null,
+                prepareSelectedDccProjectFixture("同 hash 升版批记录"),
+                null);
 
         MesProBatchRecordVersionDO pendingVersion = versionMapper.selectById(result.batchRecordVersionId());
         assertEquals(pendingVersion.getId(), pendingVersionIdSeenByGateway.get());
@@ -3773,9 +4181,22 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
         MockMultipartFile file = new MockMultipartFile(
                 "file", "same-hash.doc", "application/msword", uploadedBytes);
 
-        MesProBatchRecordImportResult imported = reportService.recognizeUploadedRoute(
-                file, MesProBatchRecordRecognitionRouteKeys.B, "同 hash 已审批再升版批记录", "UPGRADE",
-                currentVersion.getId(), List.of("同 hash 已审批再升版批记录"), true, List.of(), List.of("同 hash 已审批再升版批记录"));
+        MesProBatchRecordImportResult imported = reportService.recognizeUploadedRoute(file,
+                MesProBatchRecordRecognitionRouteKeys.B,
+                "同 hash 已审批再升版批记录",
+                "UPGRADE",
+                currentVersion.getId(),
+                null,
+                List.of("同 hash 已审批再升版批记录"),
+                true,
+                List.of(),
+                List.of("同 hash 已审批再升版批记录"),
+                false,
+                null,
+                null,
+                null,
+                prepareSelectedDccProjectFixture("同 hash 已审批再升版批记录"),
+                null);
         MesProBatchRecordVersionDO pendingVersion = versionMapper.selectById(imported.batchRecordVersionId());
         assertTrue(!currentVersion.getId().equals(pendingVersion.getId()));
         assertEquals("V2.0", pendingVersion.getVersionNo());
@@ -3848,10 +4269,22 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
         MockMultipartFile file = new MockMultipartFile(
                 "file", "same-hash.doc", "application/msword", uploadedBytes);
 
-        MesProBatchRecordImportResult result = reportService.recognizeUploadedRoute(
-                file, MesProBatchRecordRecognitionRouteKeys.B, "同 hash 旧预检替换批记录", "UPGRADE",
-                currentVersion.getId(), "V3.0", List.of("同 hash 旧预检替换批记录"), true, List.of(),
-                List.of("同 hash 旧预检替换批记录"), 101L);
+        MesProBatchRecordImportResult result = reportService.recognizeUploadedRoute(file,
+                MesProBatchRecordRecognitionRouteKeys.B,
+                "同 hash 旧预检替换批记录",
+                "UPGRADE",
+                currentVersion.getId(),
+                "V3.0",
+                List.of("同 hash 旧预检替换批记录"),
+                true,
+                List.of(),
+                List.of("同 hash 旧预检替换批记录"),
+                false,
+                null,
+                null,
+                null,
+                prepareSelectedDccProjectFixture("同 hash 旧预检替换批记录"),
+                101L);
 
         MesProBatchRecordVersionDO replacedOldPrecheck = versionMapper.selectById(oldPrecheck.getId());
         MesProBatchRecordVersionDO submittedV3 = versionMapper.selectById(result.batchRecordVersionId());
@@ -3913,10 +4346,22 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
         MockMultipartFile file = new MockMultipartFile(
                 "file", "immediate-approval.doc", "application/msword", uploadedBytes);
 
-        MesProBatchRecordImportResult imported = reportService.recognizeUploadedRoute(
-                file, MesProBatchRecordRecognitionRouteKeys.B, "球囊扩张压力泵", "UPGRADE",
-                currentVersion.getId(), null, List.of("球囊扩张压力泵"), true, List.of(),
-                List.of("球囊扩张压力泵"), 101L);
+        MesProBatchRecordImportResult imported = reportService.recognizeUploadedRoute(file,
+                MesProBatchRecordRecognitionRouteKeys.B,
+                "球囊扩张压力泵",
+                "UPGRADE",
+                currentVersion.getId(),
+                null,
+                List.of("球囊扩张压力泵"),
+                true,
+                List.of(),
+                List.of("球囊扩张压力泵"),
+                false,
+                null,
+                null,
+                null,
+                prepareSelectedDccProjectFixture("球囊扩张压力泵"),
+                101L);
 
         MesProBatchRecordVersionDO submittedVersion = versionMapper.selectById(imported.batchRecordVersionId());
         assertEquals("V3.0", imported.versionNo());
@@ -4234,8 +4679,22 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
         seedWorkOrderProduct("新批记录", "BRP-001");
         seedDccProjectCode("新批记录", "BRP-001");
 
-        MesProBatchRecordImportResult result = reportService.recognizeUploadedRoute(
-                file, MesProBatchRecordRecognitionRouteKeys.B, "新批记录", false, List.of("新批记录"));
+        MesProBatchRecordImportResult result = reportService.recognizeUploadedRoute(file,
+                MesProBatchRecordRecognitionRouteKeys.B,
+                "新批记录",
+                "REBUILD_V1",
+                null,
+                null,
+                List.of("新批记录"),
+                true,
+                List.of(),
+                List.of(),
+                false,
+                null,
+                null,
+                null,
+                prepareSelectedDccProjectFixture("新批记录"),
+                null);
 
         assertEquals(2, result.createdCount());
         assertEquals(0, result.updatedCount());
@@ -4329,8 +4788,8 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
         String persistedJson = jdbcTemplate().queryForObject(
                 "SELECT batch_record_total_recognition_json FROM dcc_project_code WHERE id = ?",
                 String.class, dccProjectCodeId);
-        assertNotNull(persistedJson);
-        assertEquals(second.totalRecognitionJson(), persistedJson);
+        assertNull(persistedJson, "Word import must not publish total recognition JSON into the DCC project");
+        assertNull(second.totalRecognitionJson(), "Idempotent reuse returns existing reports without reparsing Word");
         verify(jimuReportGateway, times(2)).saveOrUpdateReport(any());
     }
 
@@ -4340,11 +4799,39 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
                 "file", "user-selected.doc", "application/msword",
                 "uploaded-word-bytes".getBytes(StandardCharsets.UTF_8));
 
-        assertServiceException(() -> reportService.recognizeUploadedRoute(
-                        file, MesProBatchRecordRecognitionRouteKeys.B, " ", false, List.of("球囊扩张压力泵")),
+        assertServiceException(() -> reportService.recognizeUploadedRoute(file,
+                MesProBatchRecordRecognitionRouteKeys.B,
+                " ",
+                "REBUILD_V1",
+                null,
+                null,
+                List.of("球囊扩张压力泵"),
+                true,
+                List.of(),
+                List.of(),
+                false,
+                null,
+                null,
+                null,
+                prepareSelectedDccProjectFixture(" "),
+                null),
                 PRO_BATCH_RECORD_REPORT_BATCH_NAME_EMPTY);
-        assertServiceException(() -> reportService.recognizeUploadedRoute(
-                        file, MesProBatchRecordRecognitionRouteKeys.B, "批".repeat(101), false, List.of("球囊扩张压力泵")),
+        assertServiceException(() -> reportService.recognizeUploadedRoute(file,
+                MesProBatchRecordRecognitionRouteKeys.B,
+                "批".repeat(101),
+                "REBUILD_V1",
+                null,
+                null,
+                List.of("球囊扩张压力泵"),
+                true,
+                List.of(),
+                List.of(),
+                false,
+                null,
+                null,
+                null,
+                prepareSelectedDccProjectFixture("批".repeat(101)),
+                null),
                 PRO_BATCH_RECORD_REPORT_BATCH_NAME_TOO_LONG);
         assertEquals(0L, reportMapper.selectCount());
         verifyNoInteractions(jimuReportGateway);
@@ -4357,7 +4844,22 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
                 "uploaded-word-bytes".getBytes(StandardCharsets.UTF_8));
 
         ServiceException exception = assertThrows(ServiceException.class,
-                () -> reportService.recognizeUploadedRoute(file, "Z", "测试批记录", false, List.of("球囊扩张压力泵")));
+                () -> reportService.recognizeUploadedRoute(file,
+                "Z",
+                "测试批记录",
+                "REBUILD_V1",
+                null,
+                null,
+                List.of("球囊扩张压力泵"),
+                true,
+                List.of(),
+                List.of(),
+                false,
+                null,
+                null,
+                null,
+                prepareSelectedDccProjectFixture("测试批记录"),
+                null));
         assertEquals(PRO_BATCH_RECORD_REPORT_ROUTE_INVALID.getCode(), exception.getCode());
         assertEquals("电子批记录识别路线无效：Z", exception.getMessage());
         assertEquals(0L, reportMapper.selectCount());
@@ -4369,8 +4871,22 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
                 "file", "user-selected.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 "uploaded-word-bytes".getBytes(StandardCharsets.UTF_8));
 
-        assertServiceException(() -> reportService.recognizeUploadedRoute(
-                        file, MesProBatchRecordRecognitionRouteKeys.B, "测试批记录", false, List.of("测试批记录")),
+        assertServiceException(() -> reportService.recognizeUploadedRoute(file,
+                MesProBatchRecordRecognitionRouteKeys.B,
+                "测试批记录",
+                "REBUILD_V1",
+                null,
+                null,
+                List.of("测试批记录"),
+                true,
+                List.of(),
+                List.of(),
+                false,
+                null,
+                null,
+                null,
+                prepareSelectedDccProjectFixture("测试批记录"),
+                null),
                 PRO_BATCH_RECORD_REPORT_FILE_EXTENSION_INVALID);
         assertEquals(0L, reportMapper.selectCount());
     }
@@ -4381,8 +4897,22 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
                 "file", "route-source.doc", "application/msword",
                 "uploaded-word-route-bytes".getBytes(StandardCharsets.UTF_8));
 
-        assertServiceException(() -> reportService.recognizeUploadedRoute(
-                        file, MesProBatchRecordRecognitionRouteKeys.B, "测试批记录", false, List.of(" ", "")),
+        assertServiceException(() -> reportService.recognizeUploadedRoute(file,
+                MesProBatchRecordRecognitionRouteKeys.B,
+                "测试批记录",
+                "REBUILD_V1",
+                null,
+                null,
+                List.of(" ", ""),
+                true,
+                List.of(),
+                List.of(),
+                false,
+                null,
+                null,
+                null,
+                prepareSelectedDccProjectFixture("测试批记录"),
+                null),
                 PRO_BATCH_RECORD_REPORT_ROUTE_PRODUCT_NAME_REQUIRED);
 
         assertEquals(0L, reportMapper.selectCount());
@@ -4391,7 +4921,7 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
     }
 
     @Test
-    void recognizeUploadedRoute_whenAllSelectedProductNamesHaveNoCode_rollsBackAllGeneratedContent() {
+    void recognizeUploadedRoute_whenSelectedDccProjectDoesNotExist_rollsBackAllGeneratedContent() {
         List<MesProBatchRecordParsedTable> parsedTables = List.of(
                 TestBatchRecordFixtures.parsedTable(1, "产品信息"),
                 TestBatchRecordFixtures.parsedTable(2, "粗洗工序"));
@@ -4409,10 +4939,24 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
                 "uploaded-word-route-bytes".getBytes(StandardCharsets.UTF_8));
 
         ServiceException exception = assertThrows(ServiceException.class,
-                () -> reportService.recognizeUploadedRoute(file, MesProBatchRecordRecognitionRouteKeys.B,
-                        "测试批记录", false, List.of("测试批记录")));
+                () -> reportService.recognizeUploadedRoute(file,
+                MesProBatchRecordRecognitionRouteKeys.B,
+                "测试批记录",
+                "REBUILD_V1",
+                null,
+                null,
+                List.of("测试批记录"),
+                true,
+                List.of(),
+                List.of(),
+                false,
+                null,
+                null,
+                null,
+                999999999L,
+                null));
 
-        assertEquals(PRO_BATCH_RECORD_REPORT_ROUTE_PRODUCT_EMPTY.getCode(), exception.getCode());
+        assertEquals(MesProBatchRecordReportErrorCodeConstants.PRO_BATCH_RECORD_REPORT_DCC_PROJECT_CODE_REQUIRED.getCode(), exception.getCode());
         assertEquals(0L, reportMapper.selectCount());
         assertNoGeneratedRouteData();
     }
@@ -4684,7 +5228,7 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
     }
 
     @Test
-    void deleteGeneratedReport_whenLastMainReportDeleted_cleansDefinitionVersions() {
+    void deleteGeneratedReport_whenMainReportIsControlled_rejectsPhysicalDeletion() {
         MesProBatchRecordDefinitionDO definition = insertVersionedDefinition("删除后重置批记录");
         MesProBatchRecordVersionDO version = insertVersion(definition.getId(), "V1.0", "APPROVED",
                 null, PILOT_FILE_NAME, "delete-reset-sha", null, null);
@@ -4700,16 +5244,18 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
         report.setFormSlotType(MesProBatchRecordFormSlotType.MAIN.getType());
         reportMapper.insert(report);
 
-        reportService.deleteGeneratedReport("delete-reset-report-1");
+        ServiceException blocked = assertThrows(ServiceException.class,
+                () -> reportService.deleteGeneratedReport("delete-reset-report-1"));
+        assertTrue(blocked.getMessage().contains("受控批记录版本"));
 
-        assertEquals(0, rawCount("SELECT COUNT(*) FROM mes_pro_batch_record_report WHERE report_id = ?", "delete-reset-report-1"));
-        assertEquals(0, rawCount("SELECT COUNT(*) FROM mes_pro_batch_record_version WHERE definition_id = ?", definition.getId()));
-        assertEquals(0, rawCount("SELECT COUNT(*) FROM mes_pro_batch_record_definition WHERE id = ?", definition.getId()));
-        verify(jimuReportGateway).deleteReport("delete-reset-report-1");
+        assertEquals(1, rawCount("SELECT COUNT(*) FROM mes_pro_batch_record_report WHERE report_id = ?", "delete-reset-report-1"));
+        assertEquals(1, rawCount("SELECT COUNT(*) FROM mes_pro_batch_record_version WHERE definition_id = ?", definition.getId()));
+        assertEquals(1, rawCount("SELECT COUNT(*) FROM mes_pro_batch_record_definition WHERE id = ?", definition.getId()));
+        verify(jimuReportGateway, never()).deleteReport("delete-reset-report-1");
     }
 
     @Test
-    void recognizeUploadedRoute_whenDeletedBatchRecordReimported_startsFromV1Again() {
+    void deleteGeneratedReportsByBatchRecordName_retainsControlledVersionAndReports() {
         byte[] firstBytes = "delete-reset-first".getBytes(StandardCharsets.UTF_8);
         byte[] secondBytes = "delete-reset-second".getBytes(StandardCharsets.UTF_8);
         List<MesProBatchRecordParsedTable> parsedTables = List.of(
@@ -4727,30 +5273,33 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
         seedWorkOrderProduct("删除重导批记录", "BRP-RESET");
         seedDccProjectCode("删除重导批记录", "BRP-RESET");
 
-        MesProBatchRecordImportResult first = reportService.recognizeUploadedRoute(
-                new MockMultipartFile("file", "delete-reset-first.doc", "application/msword", firstBytes),
-                MesProBatchRecordRecognitionRouteKeys.B, "删除重导批记录", false, List.of("删除重导批记录"));
+        MesProBatchRecordImportResult first = reportService.recognizeUploadedRoute(new MockMultipartFile("file", "delete-reset-first.doc", "application/msword", firstBytes),
+                MesProBatchRecordRecognitionRouteKeys.B,
+                "删除重导批记录",
+                "REBUILD_V1",
+                null,
+                null,
+                List.of("删除重导批记录"),
+                true,
+                List.of(),
+                List.of(),
+                false,
+                null,
+                null,
+                null,
+                prepareSelectedDccProjectFixture("删除重导批记录"),
+                null);
         BatchRecordReportDeleteAllRespVO deleteResult =
                 reportService.deleteGeneratedReportsByBatchRecordName("删除重导批记录", true);
-        assertFalse(reportService.existsBatchRecordName(MesProBatchRecordRecognitionRouteKeys.B, "删除重导批记录"));
-        MesProBatchRecordImportResult second = reportService.recognizeUploadedRoute(
-                new MockMultipartFile("file", "delete-reset-second.doc", "application/msword", secondBytes),
-                MesProBatchRecordRecognitionRouteKeys.B, "删除重导批记录", "REBUILD_V1", null, null,
-                List.of("删除重导批记录"), true, List.of(), List.of("删除重导批记录"),
-                true, first.routeId(), first.routeVersionId(), null);
-
+        assertTrue(reportService.existsBatchRecordName(MesProBatchRecordRecognitionRouteKeys.B, "删除重导批记录"));
         assertEquals("V1.0", first.versionNo());
-        assertEquals("APPROVED", first.versionStatus());
-        assertEquals(2, deleteResult.getDeletedMetadataCount());
-        assertEquals(0, rawCount("SELECT COUNT(*) FROM mes_pro_batch_record_definition WHERE id = ?",
+        assertEquals(0, deleteResult.getDeletedMetadataCount());
+        assertEquals(2, deleteResult.getSkippedControlledReportCount());
+        assertEquals(1, rawCount("SELECT COUNT(*) FROM mes_pro_batch_record_definition WHERE id = ?",
                 first.batchRecordDefinitionId()));
-        assertEquals("V1.0", second.versionNo());
-        assertEquals("APPROVED", second.versionStatus());
-        assertEquals(1, rawCount("SELECT COUNT(*) FROM mes_pro_batch_record_definition"));
         assertEquals(1, rawCount("SELECT COUNT(*) FROM mes_pro_batch_record_version"));
         assertEquals(2, rawCount("SELECT COUNT(*) FROM mes_pro_batch_record_report"));
-        verify(jimuReportGateway).deleteReport("reimport-reset-report-1");
-        verify(jimuReportGateway).deleteReport("reimport-reset-report-2");
+        verify(jimuReportGateway, never()).deleteReport(anyString());
     }
 
     @Test
@@ -4775,10 +5324,23 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
         seedWorkOrderProduct("历史孤儿批记录", "BRP-ORPHAN");
         seedDccProjectCode("历史孤儿批记录", "BRP-ORPHAN");
 
-        MesProBatchRecordImportResult result = reportService.recognizeUploadedRoute(
-                new MockMultipartFile("file", "orphan-reset.doc", "application/msword",
+        MesProBatchRecordImportResult result = reportService.recognizeUploadedRoute(new MockMultipartFile("file", "orphan-reset.doc", "application/msword",
                         "orphan-reset".getBytes(StandardCharsets.UTF_8)),
-                MesProBatchRecordRecognitionRouteKeys.B, "历史孤儿批记录", false, List.of("历史孤儿批记录"));
+                MesProBatchRecordRecognitionRouteKeys.B,
+                "历史孤儿批记录",
+                "REBUILD_V1",
+                null,
+                null,
+                List.of("历史孤儿批记录"),
+                true,
+                List.of(),
+                List.of(),
+                false,
+                null,
+                null,
+                null,
+                prepareSelectedDccProjectFixture("历史孤儿批记录"),
+                null);
 
         assertEquals(0, rawCount("SELECT COUNT(*) FROM mes_pro_batch_record_definition WHERE id = ?",
                 orphanDefinition.getId()));
@@ -4811,10 +5373,23 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
                 "CONTROLLED_BATCH", 1, "tester", "tester", false, 1L);
 
         ServiceException exception = assertThrows(ServiceException.class,
-                () -> reportService.recognizeUploadedRoute(
-                        new MockMultipartFile("file", "blocked-orphan.doc", "application/msword",
+                () -> reportService.recognizeUploadedRoute(new MockMultipartFile("file", "blocked-orphan.doc", "application/msword",
                                 "blocked-orphan".getBytes(StandardCharsets.UTF_8)),
-                        MesProBatchRecordRecognitionRouteKeys.B, "引用残留批记录", false, List.of("引用残留批记录")));
+                MesProBatchRecordRecognitionRouteKeys.B,
+                "引用残留批记录",
+                "REBUILD_V1",
+                null,
+                null,
+                List.of("引用残留批记录"),
+                true,
+                List.of(),
+                List.of(),
+                false,
+                null,
+                null,
+                null,
+                prepareSelectedDccProjectFixture("引用残留批记录"),
+                null));
 
         assertEquals(PRO_BATCH_RECORD_REPORT_VERSION_RESET_BLOCKED.getCode(), exception.getCode());
         assertEquals(1, rawCount("SELECT COUNT(*) FROM mes_pro_batch_record_definition WHERE id = ?",
@@ -4834,11 +5409,23 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
         insertBatchRecordExecution(definition.getId(), version.getId(), "EXEC-STALE-NO-UPGRADE");
 
         ServiceException exception = assertThrows(ServiceException.class,
-                () -> reportService.recognizeUploadedRoute(
-                        new MockMultipartFile("file", "stale-no-upgrade.doc", "application/msword",
+                () -> reportService.recognizeUploadedRoute(new MockMultipartFile("file", "stale-no-upgrade.doc", "application/msword",
                                 "stale-no-upgrade".getBytes(StandardCharsets.UTF_8)),
-                        MesProBatchRecordRecognitionRouteKeys.B, "无表单有执行未升版批记录", false,
-                        List.of("无表单有执行未升版批记录")));
+                MesProBatchRecordRecognitionRouteKeys.B,
+                "无表单有执行未升版批记录",
+                "REBUILD_V1",
+                null,
+                null,
+                List.of("无表单有执行未升版批记录"),
+                true,
+                List.of(),
+                List.of(),
+                false,
+                null,
+                null,
+                null,
+                prepareSelectedDccProjectFixture("无表单有执行未升版批记录"),
+                null));
 
         assertEquals(PRO_BATCH_RECORD_REPORT_VERSION_RESET_BLOCKED.getCode(), exception.getCode());
         assertEquals(1, rawCount("SELECT COUNT(*) FROM mes_pro_batch_record_definition WHERE id = ?",
@@ -4858,11 +5445,23 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
         insertBatchRecordExecution(definition.getId(), currentVersion.getId(), "EXEC-STALE-UPGRADE");
 
         ServiceException exception = assertThrows(ServiceException.class,
-                () -> reportService.recognizeUploadedRoute(
-                        new MockMultipartFile("file", "stale-execution-upgrade.doc", "application/msword",
+                () -> reportService.recognizeUploadedRoute(new MockMultipartFile("file", "stale-execution-upgrade.doc", "application/msword",
                                 "stale-execution-upgrade".getBytes(StandardCharsets.UTF_8)),
-                        MesProBatchRecordRecognitionRouteKeys.B, "无表单有执行升版批记录", false,
-                        List.of("无表单有执行升版批记录")));
+                MesProBatchRecordRecognitionRouteKeys.B,
+                "无表单有执行升版批记录",
+                "REBUILD_V1",
+                null,
+                null,
+                List.of("无表单有执行升版批记录"),
+                true,
+                List.of(),
+                List.of(),
+                false,
+                null,
+                null,
+                null,
+                prepareSelectedDccProjectFixture("无表单有执行升版批记录"),
+                null));
 
         assertEquals(PRO_BATCH_RECORD_REPORT_VERSION_RESET_BLOCKED.getCode(), exception.getCode());
         assertEquals(1, rawCount("SELECT COUNT(*) FROM mes_pro_batch_record_definition WHERE id = ?",
@@ -4889,11 +5488,23 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
         insertRouteFlowProcessBatchRecord(definition.getId(), version.getId(), "multi-ref-report");
 
         ServiceException exception = assertThrows(ServiceException.class,
-                () -> reportService.recognizeUploadedRoute(
-                        new MockMultipartFile("file", "multi-ref.doc", "application/msword",
+                () -> reportService.recognizeUploadedRoute(new MockMultipartFile("file", "multi-ref.doc", "application/msword",
                                 "multi-ref".getBytes(StandardCharsets.UTF_8)),
-                        MesProBatchRecordRecognitionRouteKeys.B, "多引用残留批记录", false,
-                        List.of("多引用残留批记录")));
+                MesProBatchRecordRecognitionRouteKeys.B,
+                "多引用残留批记录",
+                "REBUILD_V1",
+                null,
+                null,
+                List.of("多引用残留批记录"),
+                true,
+                List.of(),
+                List.of(),
+                false,
+                null,
+                null,
+                null,
+                prepareSelectedDccProjectFixture("多引用残留批记录"),
+                null));
 
         assertEquals(PRO_BATCH_RECORD_REPORT_VERSION_RESET_BLOCKED.getCode(), exception.getCode());
         assertTrue(exception.getMessage().contains("V1.0"));
@@ -4926,10 +5537,22 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
                 currentVersion.getId(), "batch-only-retry.doc", uploadedSha256, 39001L, 39001L);
 
         ServiceException exception = assertThrows(ServiceException.class,
-                () -> reportService.recognizeUploadedRoute(
-                        new MockMultipartFile("file", "batch-only-retry.doc", "application/msword", uploadedBytes),
-                        MesProBatchRecordRecognitionRouteKeys.B, "仅重建批记录重试", "REBUILD_V1", null,
-                        List.of("仅重建批记录重试"), true, List.of(), List.of()));
+                () -> reportService.recognizeUploadedRoute(new MockMultipartFile("file", "batch-only-retry.doc", "application/msword", uploadedBytes),
+                MesProBatchRecordRecognitionRouteKeys.B,
+                "仅重建批记录重试",
+                "REBUILD_V1",
+                null,
+                null,
+                List.of("仅重建批记录重试"),
+                true,
+                List.of(),
+                List.of(),
+                false,
+                null,
+                null,
+                null,
+                prepareSelectedDccProjectFixture("仅重建批记录重试"),
+                null));
 
         assertEquals(PRO_BATCH_RECORD_REPORT_VERSION_RESET_BLOCKED.getCode(), exception.getCode());
         assertEquals(0, rawCount("""
@@ -4971,11 +5594,22 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
                         "pending-lock-current-report-1", "EBR_PENDING_LOCK_T01", "当前表1", LocalDateTime.now()));
 
         ServiceException exception = assertThrows(ServiceException.class,
-                () -> reportService.recognizeUploadedRoute(
-                        new MockMultipartFile("file", "pending-lock-new.doc", "application/msword", uploadedBytes),
-                        MesProBatchRecordRecognitionRouteKeys.B, "审批中锁定批记录", "UPGRADE",
-                        currentVersion.getId(), "V3.0", List.of("审批中锁定批记录"), true, List.of(),
-                        List.of(), 9901L));
+                () -> reportService.recognizeUploadedRoute(new MockMultipartFile("file", "pending-lock-new.doc", "application/msword", uploadedBytes),
+                MesProBatchRecordRecognitionRouteKeys.B,
+                "审批中锁定批记录",
+                "UPGRADE",
+                currentVersion.getId(),
+                "V3.0",
+                List.of("审批中锁定批记录"),
+                true,
+                List.of(),
+                List.of(),
+                false,
+                null,
+                null,
+                null,
+                prepareSelectedDccProjectFixture("审批中锁定批记录"),
+                9901L));
 
         assertEquals(PRO_BATCH_RECORD_REPORT_VERSION_PENDING_APPROVAL_EXISTS.getCode(), exception.getCode());
         assertEquals(1, rawCount("""
@@ -5021,10 +5655,22 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
                         "reusable-current-report-1", "EBR_CURRENT_T01", "当前表1", LocalDateTime.now()));
 
         ServiceException exception = assertThrows(ServiceException.class,
-                () -> reportService.recognizeUploadedRoute(
-                        new MockMultipartFile("file", "reusable.doc", "application/msword", uploadedBytes),
-                        MesProBatchRecordRecognitionRouteKeys.B, "复用待检产品名", "UPGRADE",
-                        currentVersion.getId(), List.of("复用待检产品名"), true, List.of(), List.of()));
+                () -> reportService.recognizeUploadedRoute(new MockMultipartFile("file", "reusable.doc", "application/msword", uploadedBytes),
+                MesProBatchRecordRecognitionRouteKeys.B,
+                "复用待检产品名",
+                "UPGRADE",
+                currentVersion.getId(),
+                null,
+                List.of("复用待检产品名"),
+                true,
+                List.of(),
+                List.of(),
+                false,
+                null,
+                null,
+                null,
+                prepareSelectedDccProjectFixture("复用待检产品名"),
+                null));
 
         assertEquals(PRO_BATCH_RECORD_REPORT_FORM_SLOT_EXISTS.getCode(), exception.getCode());
         assertNull(reportMapper.selectById(report.getId()).getProductName());
@@ -6205,11 +6851,11 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
         jdbcTemplate().update("""
                 INSERT INTO mes_md_item
                 (id, code, name, specification, unit_measure_id, item_type_id, status, safe_stock_flag,
-                 min_stock, max_stock, high_value, batch_flag, remark, creator, updater, deleted)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 min_stock, max_stock, high_value, batch_flag, remark, creator, updater, deleted, tenant_id)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 itemId, productCode, productName, "测试规格", null, null, CommonStatusEnum.ENABLE.getStatus(),
-                false, null, null, false, true, "测试产品", "tester", "tester", false);
+                false, null, null, false, true, "测试产品", "tester", "tester", false, TenantContextHolder.getRequiredTenantId());
         jdbcTemplate().update("""
                 INSERT INTO mes_pro_work_order
                 (id, code, name, type, order_source_type, order_source_code, product_id, quantity,
@@ -6229,12 +6875,30 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
         jdbcTemplate().update("""
                 INSERT INTO mes_md_item
                 (id, code, name, specification, unit_measure_id, item_type_id, status, safe_stock_flag,
-                 min_stock, max_stock, high_value, batch_flag, remark, creator, updater, deleted)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 min_stock, max_stock, high_value, batch_flag, remark, creator, updater, deleted, tenant_id)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 itemId, productCode, productName, "测试规格", null, null, CommonStatusEnum.ENABLE.getStatus(),
-                false, null, null, false, true, "批记录表单测试产品", "tester", "tester", false);
+                false, null, null, false, true, "批记录表单测试产品", "tester", "tester", false, TenantContextHolder.getRequiredTenantId());
         return itemId;
+    }
+
+    private org.mockito.MockedStatic<Files> fixedSampleFileFixture() throws Exception {
+        var fileSystem = org.mockito.Mockito.mockStatic(Files.class, org.mockito.Mockito.CALLS_REAL_METHODS);
+        Path path = Path.of(MesProBatchRecordReportConstants.FIXED_SAMPLE_PATH);
+        fileSystem.when(() -> Files.exists(path)).thenReturn(true);
+        fileSystem.when(() -> Files.isRegularFile(path)).thenReturn(true);
+        fileSystem.when(() -> Files.readAllBytes(path)).thenReturn(new byte[] { 1, 2, 3 });
+        return fileSystem;
+    }
+
+    private Long prepareSelectedDccProjectFixture(String projectName) {
+        List<Long> ids = jdbcTemplate().queryForList(
+                "SELECT id FROM dcc_project_code WHERE project_name = ? AND tenant_id = ? AND deleted = false",
+                Long.class, projectName, TenantContextHolder.getRequiredTenantId());
+        if (ids.isEmpty()) return seedDccProjectCode(projectName, "BRP-FIXTURE");
+        assertEquals(1, ids.size(), "Specify a DCC project ID when the fixture contains duplicate names");
+        return ids.get(0);
     }
 
     private Long seedDccProjectCode(String projectName, String projectCode) {
@@ -6247,7 +6911,7 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
                 (product_master_id, project_name, project_code, status, creator, updater, deleted, tenant_id)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 """,
-                productMasterId, projectName, projectCode, "ENABLE", "tester", "tester", false, 1L);
+                productMasterId, projectName, projectCode, "ENABLE", "tester", "tester", false, TenantContextHolder.getRequiredTenantId());
         return dccProjectCodeMapper.selectByProjectNameAndProjectCode(projectName, projectCode).getId();
     }
 
@@ -6273,6 +6937,8 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
         JSONObject configSnapshots = new JSONObject(true);
         configSnapshots.put("flowGraph", flowGraph);
         configSnapshots.put("batchUseConfigs", new com.alibaba.fastjson.JSONArray());
+        configSnapshots.put("productionProcessConfigSchemaVersion", 1);
+        configSnapshots.put("productionProcessConfigs", buildTestProductionConfigs(nodes));
         JSONObject snapshot = new JSONObject(true);
         snapshot.put("routeId", route.getId());
         snapshot.put("routeCode", route.getCode());
@@ -6280,6 +6946,19 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
         snapshot.put("status", route.getStatus());
         snapshot.put("configSnapshots", configSnapshots);
         return snapshot.toJSONString();
+    }
+
+    private com.alibaba.fastjson.JSONArray buildTestProductionConfigs(com.alibaba.fastjson.JSONArray nodes) {
+        var configs = new com.alibaba.fastjson.JSONArray();
+        for (int index = 0; index < nodes.size(); index++) {
+            JSONObject config = new JSONObject(nodes.getJSONObject(index));
+            config.put("overagePercent", java.math.BigDecimal.ZERO);
+            config.put("lossReasons", new com.alibaba.fastjson.JSONArray());
+            config.put("deviceSelectionGroups", new com.alibaba.fastjson.JSONArray());
+            config.put("parameterRules", new com.alibaba.fastjson.JSONArray());
+            configs.add(config);
+        }
+        return configs;
     }
 
     private void bindRouteToDccProject(Long routeId, Long dccProjectCodeId) {
@@ -6327,7 +7006,7 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
     private void insertAuxiliarySlotReport(String batchRecordName, MesProBatchRecordFormSlotType slotType,
                                            String reportCode) {
         MesProBatchRecordReportDO report = TestBatchRecordFixtures.metadataReport(
-                null, "GOV-" + reportCode, 1, "governance-" + reportCode,
+                null, "GOV-" + reportCode, 1, "gov-" + reportCode,
                 reportCode, reportCode, "governance.doc");
         report.setBatchRecordName(batchRecordName);
         report.setRouteKey(MesProBatchRecordRecognitionRouteKeys.B);
@@ -6338,7 +7017,7 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
     private void insertVersionedGovernanceReport(String batchRecordName, MesProBatchRecordFormSlotType slotType,
                                                 String reportCode, Long definitionId, Long versionId) {
         MesProBatchRecordReportDO report = TestBatchRecordFixtures.metadataReport(
-                null, "GOV-" + reportCode, 1, "governance-" + reportCode,
+                null, "GOV-" + reportCode, 1, "gov-" + reportCode,
                 reportCode, reportCode, "governance-version.doc");
         report.setBatchRecordName(batchRecordName);
         report.setRouteKey(MesProBatchRecordRecognitionRouteKeys.B);

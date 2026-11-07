@@ -1080,7 +1080,7 @@
                   {{ formatTraceQuantity(material.actualQuantity) }}
                 </template>
               </el-table-column>
-              <el-table-column label="对应工序" min-width="160">
+              <el-table-column label="关联范围" min-width="160">
                 <template #default="{ row: material }">
                   {{ material.sourceProcessNames.join('、') || '-' }}
                 </template>
@@ -2333,7 +2333,7 @@ const activeOrderStatusTagType = computed(() => {
   return 'info'
 })
 const activeOrderDossierMutationLockReason = computed(() => {
-  if (props.readOnly) return '已办任务详情仅可查看，不能修改资料文件'
+  if (props.readOnly) return '当前详情仅可查看，不能修改资料文件'
   const status = props.detail?.activeOrderStatus?.status
   if (auditScopeTypeValue.value === 'BATCH' && status === 'NOT_APPLIED')
     return '尚未申请放行，资料暂不可查询'
@@ -2657,10 +2657,18 @@ const parseProductionMaterialListQuantity = (value: number | string | undefined 
   return Number.isFinite(parsed) ? parsed : undefined
 }
 
+const inputMaterialSources = computed(() => [
+  { scopeName: '订单级领料', materials: props.detail?.inputMaterialUsages ?? [] },
+  ...(props.detail?.processes ?? []).map((process) => ({
+    scopeName: process.processName,
+    materials: process.inputMaterials ?? []
+  }))
+])
+
 const productionMaterialListActualUsageByCode = computed(() => {
   const usageByCode = new Map<string, number>()
-  for (const process of props.detail?.processes ?? []) {
-    for (const material of process.inputMaterials ?? []) {
+  for (const source of inputMaterialSources.value) {
+    for (const material of source.materials) {
       const materialCode = normalizeProductionMaterialCode(material.materialCode)
       const actualQuantity = parseProductionMaterialListQuantity(material.actualQuantity)
       if (!materialCode || actualQuantity === undefined) continue
@@ -3704,11 +3712,9 @@ const buildActiveOrderSummaryPairs = <T,>(
 }
 
 const pickListMaterials = computed<ActiveOrderDetailPickListMaterialRow[]>(() => {
-  const detailResult = props.detail
-  if (!detailResult?.processes?.length) return []
   const rowsByKey = new Map<string, ActiveOrderDetailPickListMaterialRow>()
-  for (const process of detailResult.processes) {
-    for (const material of process.inputMaterials ?? []) {
+  for (const source of inputMaterialSources.value) {
+    for (const material of source.materials) {
       const sourcePickListNos = (material.sourcePickListNos ?? [])
         .map((sourceNo) => String(sourceNo).trim())
         .filter(Boolean)
@@ -3726,8 +3732,8 @@ const pickListMaterials = computed<ActiveOrderDetailPickListMaterialRow[]>(() =>
       ].join('::')
       const existed = rowsByKey.get(rowKey)
       if (existed) {
-        if (!existed.sourceProcessNames.includes(process.processName)) {
-          existed.sourceProcessNames.push(process.processName)
+        if (!existed.sourceProcessNames.includes(source.scopeName)) {
+          existed.sourceProcessNames.push(source.scopeName)
         }
         continue
       }
@@ -3735,7 +3741,7 @@ const pickListMaterials = computed<ActiveOrderDetailPickListMaterialRow[]>(() =>
         ...material,
         sourcePickListNos,
         batchCodes,
-        sourceProcessNames: [process.processName]
+        sourceProcessNames: [source.scopeName]
       })
     }
   }

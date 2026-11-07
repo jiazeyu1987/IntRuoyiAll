@@ -333,8 +333,9 @@ public class AdminUserPostRetentionTransactionTest extends UserPostRetentionTest
     @Test
     void userUpdateCountMismatchRejectsWithoutAssociationWrites() {
         AdminUserDO user = boundUser(Set.of(10L));
-        doReturn(0).when(userMapper).updateById(any(AdminUserDO.class));
+        doReturn(0).when(userMapper).update(any(AdminUserDO.class), any(com.baomidou.mybatisplus.core.conditions.Wrapper.class));
         assertRejectedUnchanged(user, Set.of(10L, 30L), USER_POST_WRITE_FAILED);
+        verify(userMapper).update(any(AdminUserDO.class), any(com.baomidou.mybatisplus.core.conditions.Wrapper.class));
         verify(userPostMapper, never()).insertBatch(anyCollection());
         verify(userPostMapper, never()).deleteByUserIdAndPostId(anyLong(), anyCollection());
     }

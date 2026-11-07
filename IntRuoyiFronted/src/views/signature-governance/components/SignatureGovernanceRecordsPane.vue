@@ -29,11 +29,6 @@
       @quick-filter-query="recordQuickFilter.applyQuickFilter"
       @column-change="saveRecordColumnConfig"
       @pagination="loadRecordPage"
-      :load-filter-rows="loadColumnFilterRows0"
-      @filtered-rows="recordList = $event"
-      :list-rows="recordList"
-      @column-filter-reset="loadRecordPage"
-      :column-filter-definitions="listColumnFilterDefinitions0"
     >
 
       <template #table="{ resolveRows, sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
@@ -257,7 +252,7 @@
 
 <script lang="ts" setup>
 import { recordRoles, signatureCommentSummary } from './signatureRecordDisplay'
-import { loadAllListPages, type ListColumnFilterDefinition } from '@/hooks/web/useListColumnFilter'
+import { buildSignatureRecordQuery, type SignatureRecordFilters } from './signatureRecordQuery'
 
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import {
@@ -287,6 +282,7 @@ const route = useRoute()
 const sourceOptions = [
   { label: '文件', value: 'FILE' },
   { label: '批记录', value: 'BATCH_RECORD' },
+  { label: '生产签名', value: 'MES' },
   { label: '展厅', value: 'SHOWROOM' },
   { label: '审批', value: 'BPM' },
   { label: '报工审批', value: 'MES_FEEDBACK' },
@@ -298,10 +294,13 @@ const sourceTableLabels: Record<string, string> = {
   dcc_controlled_file_signature: '受控文件签名记录',
   mes_pro_batch_record_execution_signature: '批记录执行签名记录',
   showroom_change_request_signature: '展厅变更签名记录',
-  bpm_approval_signature_record: '审批签名记录'
+  bpm_approval_signature_record: '审批签名记录',
+  system_electronic_signature: '统一电子签名记录'
 }
 
 const signatureActionLabels: Record<string, string> = {
+  PRODUCTION_SUBMIT: '生产提交',
+  PQC_RELEASE: 'PQC放行',
   TEAM_LEADER_REVIEW: '班组长复核',
   APPROVE: '审批通过',
   APPROVED: '审批通过',
@@ -398,7 +397,7 @@ const {
   saveConfig: saveRecordColumnConfig
 } = useUserTableColumns(tableKey, recordDefaultColumns)
 
-const queryParams = reactive<SignatureGovernanceRecordPageReqVO & {
+const queryParams = reactive<SignatureGovernanceRecordPageReqVO & SignatureRecordFilters & {
   pageNo: number
   pageSize: number
   quickFilter?: TableQuickFilterValue
@@ -423,19 +422,14 @@ const signatureRecordPdfPreviewDialog = reactive({
 })
 
 const recordQuickFilterDefinitions: TableQuickFilterDefinition[] = [
-  { key: 'recordScope', label: '记录范围', type: 'select', options: recordScopeOptions },
-  { key: 'source', label: '来源', type: 'select', options: sourceOptions },
-  { key: 'signatureId', label: '签名记录 ID', type: 'text', placeholder: '签名记录 ID' },
-  { key: 'keyword', label: '关键字', type: 'text', placeholder: '业务编号/名称' },
-  { key: 'signer', label: '签名人', type: 'text', placeholder: '签名人/账号' },
-  { key: 'action', label: '动作', type: 'text', placeholder: '动作编码' },
-  { key: 'signedAt', label: '签名时间', type: 'dateRange' }
+  { key: 'recordScope', queryParamKey: 'recordScope', label: '记录范围', type: 'select', options: recordScopeOptions },
+  { key: 'source', queryParamKey: 'source', label: '来源', type: 'select', options: sourceOptions },
+  { key: 'signatureId', operators: ['eq'], queryParamKey: 'signatureId', label: '签名记录 ID', type: 'text', placeholder: '签名记录 ID' },
+  { key: 'keyword', operators: ['contains'], queryParamKey: 'keyword', label: '关键字', type: 'text', placeholder: '业务编号/名称' },
+  { key: 'signer', operators: ['contains'], queryParamKey: 'signerKeyword', label: '签名人', type: 'text', placeholder: '签名人/账号' },
+  { key: 'action', operators: ['eq'], queryParamKey: 'actionCode', label: '动作', type: 'text', placeholder: '动作编码' },
+  { key: 'signedAt', queryParamKey: 'signedAt', label: '签名时间', type: 'dateRange' }
 ]
-
-const normalizeText = (value: unknown) => {
-  const text = String(value ?? '').trim()
-  return text || undefined
-}
 
 const hasChineseText = (value: string) => /[\u4e00-\u9fa5]/.test(value)
 
@@ -454,40 +448,12 @@ const formatMappedText = (
   return isUpperCaseCode(text) ? unknownLabel : text
 }
 
-const buildPageParams = (): SignatureGovernanceRecordPageReqVO => {
-  const params: SignatureGovernanceRecordPageReqVO = {
-    pageNo: queryParams.pageNo,
-    pageSize: queryParams.pageSize
-  }
-  const quickFilter = queryParams.quickFilter
-  if (!quickFilter) return params
-  if (quickFilter.fieldKey === 'recordScope') {
-    return params
-  }
-  if (quickFilter.fieldKey === 'signatureId') {
-    params.sourceCodes = ['BATCH_RECORD']
-    params.signatureId = normalizeText(quickFilter.value)
-  } else if (quickFilter.fieldKey === 'source') {
-    params.sourceCodes = [quickFilter.value as SignatureGovernanceRecordSourceCode]
-  } else if (quickFilter.fieldKey === 'keyword') {
-    params.keyword = normalizeText(quickFilter.value)
-  } else if (quickFilter.fieldKey === 'signer') {
-    params.signerKeyword = normalizeText(quickFilter.value)
-  } else if (quickFilter.fieldKey === 'action') {
-    params.actionCode = normalizeText(quickFilter.value)
-  } else if (quickFilter.fieldKey === 'signedAt' && quickFilter.value && quickFilter.valueEnd) {
-    params.signedAt = [String(quickFilter.value), String(quickFilter.valueEnd)]
-  }
-  return params
-}
+const buildPageParams = () => buildSignatureRecordQuery(queryParams).params
 
-const resolveRecordPageLoader = () => {
-  const quickFilter = queryParams.quickFilter
-  if (quickFilter?.fieldKey === 'recordScope' && quickFilter.value === 'MY_SIGNATURES') {
-    return getMySignatureGovernanceRecordPage
-  }
-  return getSignatureGovernanceRecordPage
-}
+const resolveRecordPageLoader = () =>
+  buildSignatureRecordQuery(queryParams).mine
+    ? getMySignatureGovernanceRecordPage
+    : getSignatureGovernanceRecordPage
 
 const recordQuickFilter = useTableQuickFilter(
   tableKey,
@@ -502,11 +468,15 @@ const applyRouteQuickFilter = async () => {
   if (!quickFilterField || !quickFilterValue) return false
   const matchedDefinition = recordQuickFilterDefinitions.find((item) => item.key === quickFilterField)
   if (!matchedDefinition) return false
-  queryParams.quickFilter = {
-    fieldKey: quickFilterField,
-    operator: 'contains',
-    value: quickFilterValue
-  }
+  recordQuickFilter.updateState({
+    conditions: [{
+      id: 'signature-route-filter',
+      key: quickFilterField,
+      operator: matchedDefinition.operators?.[0] || (matchedDefinition.type === 'select' ? 'eq' : 'contains'),
+      value: quickFilterValue
+    }],
+    activeConditionId: 'signature-route-filter'
+  })
   await recordQuickFilter.applyQuickFilter()
   return true
 }
@@ -738,60 +708,6 @@ onBeforeUnmount(() => {
   revokeRecordPdfPreviewUrl()
 })
 
-const loadColumnFilterRows0 = async () => {
-  const params = buildPageParams()
-  const rows = await loadAllListPages<any>((pagination) =>
-    resolveRecordPageLoader()({ ...params, ...pagination })
-  )
-  return rows
-}
-
-const listColumnFilterDefinitions0 = computed<ListColumnFilterDefinition[]>(() => [
-  {
-    key: 'sourceLabel',
-    label: '来源',
-    type: 'text',
-    getValue: (row) => [formatSourceLabel(row)].join(' ')
-  },
-  {
-    key: 'businessRecordCode',
-    label: '业务记录',
-    type: 'text',
-    getValue: (row) =>
-      [row.businessRecordCode || row.globalId, formatBusinessRecordName(row)].join(' ')
-  },
-  {
-    key: 'actorDeptPost',
-    label: '部门/岗位',
-    type: 'text',
-    getValue: (row) =>
-      [formatValue(row.actorDeptNameSnapshot), formatValue(row.actorPostNamesSnapshot)].join(' ')
-  },
-  {
-    key: 'actorRoleNamesSnapshot',
-    label: '角色',
-    type: 'text',
-    getValue: (row) => [formatValue(row.actorRoleNamesSnapshot)].join(' ')
-  },
-  {
-    key: 'signatureSummary',
-    label: '签名摘要',
-    type: 'text',
-    getValue: (row) =>
-      [
-        formatSignatureMeaningText(row),
-        formatSignatureSummaryText(row),
-        formatSourceTableLabel(row.sourceTable)
-      ].join(' ')
-  },
-  {
-    key: 'evidenceSummary',
-    label: '证据摘要',
-    type: 'text',
-    getValue: (row) =>
-      [formatEvidenceStatusText(row.evidenceStatus), formatHash(row.evidenceHash)].join(' ')
-  }
-])
 </script>
 
 <style scoped>

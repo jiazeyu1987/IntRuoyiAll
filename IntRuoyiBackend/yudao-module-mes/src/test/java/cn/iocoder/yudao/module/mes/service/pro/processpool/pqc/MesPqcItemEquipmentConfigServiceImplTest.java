@@ -135,4 +135,30 @@ class MesPqcItemEquipmentConfigServiceImplTest {
                 .inspectionMethod("检验").standardText("合格").samplingPlanText("1")
                 .build();
     }
+
+    @Test
+    void commonVersionEquipmentUsesItsOwnVersionWithoutInventingAProject() {
+        when(regulationVersionMapper.selectById(10L)).thenReturn(MesQaInspectionRegulationVersionDO.builder()
+                .id(10L).regulationId(1L).lifecycleStatus("PUBLISHED").build());
+        when(regulationMapper.selectById(1L)).thenReturn(MesQaInspectionRegulationDO.builder()
+                .id(1L).ownerModule(MesQaInspectionRegulationDO.OWNER_MODULE_MES_QA_COMMON)
+                .regulationName("初包装").build());
+        when(regulationItemMapper.selectListByVersionId(10L)).thenReturn(List.of(item(10L, "COMMON-001", "外观")));
+
+        assertThat(service.listEnabledEquipmentOptionsByProjectVersionAndItemCodes(null, 10L,
+                List.of("COMMON-001"))).isEmpty();
+        assertThatThrownBy(() -> service.listEnabledEquipmentOptionsByProjectVersionAndItemCodes(null, 10L,
+                List.of("FOREIGN-001"))).isInstanceOf(cn.iocoder.yudao.framework.common.exception.ServiceException.class);
+    }
+
+    @Test
+    void productVersionCannotOmitItsProjectIdentity() {
+        when(regulationVersionMapper.selectById(10L)).thenReturn(MesQaInspectionRegulationVersionDO.builder()
+                .id(10L).regulationId(1L).build());
+        when(regulationMapper.selectById(1L)).thenReturn(MesQaInspectionRegulationDO.builder()
+                .id(1L).dccProjectCodeId(129L).build());
+        assertThatThrownBy(() -> service.listEnabledEquipmentOptionsByProjectVersionAndItemCodes(null, 10L,
+                List.of("PQC-IDI-001-I017")))
+                .isInstanceOf(cn.iocoder.yudao.framework.common.exception.ServiceException.class);
+    }
 }

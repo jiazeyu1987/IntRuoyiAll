@@ -1887,6 +1887,8 @@ CREATE TABLE IF NOT EXISTS "dcc_project_code" (
     "category" varchar(128) DEFAULT NULL,
     "commissioned_production" varchar(128) DEFAULT NULL,
     "project_leader" varchar(128) DEFAULT NULL,
+    "project_leader_user_id" bigint DEFAULT NULL,
+    "default_attributes_json" varchar(10000) DEFAULT NULL,
     "project_engineer" varchar(128) DEFAULT NULL,
     "storage_location" varchar(128) DEFAULT NULL,
     "priority" varchar(64) DEFAULT NULL,

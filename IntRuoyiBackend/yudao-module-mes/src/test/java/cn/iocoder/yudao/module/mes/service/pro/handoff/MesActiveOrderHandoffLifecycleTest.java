@@ -93,6 +93,71 @@ class MesActiveOrderHandoffLifecycleTest {
   var captured=ArgumentCaptor.forClass(MesActiveOrderHandoffTaskDO.class);verify(tasks).insert(captured.capture());
   assertEquals("DONE",captured.getValue().getStatus());assertTrue(captured.getValue().getNotificationOnly());verify(delivery).schedule(captured.getValue());
  }
+ @org.junit.jupiter.params.ParameterizedTest
+ @org.junit.jupiter.params.provider.ValueSource(strings={"concession_release","rework","void"})
+ void qaOutcomeNotifiesOriginalFrozenPeopleWithoutAssigningThemLeaderDuties(String disposition) {
+  var review=disposedReview(disposition);var frozen=frozenNotice();
+  Long successor=null;
+  if("rework".equals(disposition)) {
+   successor=414L;var next=MesProcessPoolActiveOrderDO.builder().id(414L).workOrderId(274L).routeId(98L)
+     .leaderUserId(349L).activeStatus("ACTIVE").build();next.setTenantId(1L);
+   when(orders.selectByIdForUpdate(414L)).thenReturn(next);when(owners.productionLeader(next)).thenReturn(349L);
+   when(owners.productionEmployees(next)).thenReturn("348");order.setActiveStatus("REWORK");
+  }else if("void".equals(disposition))order.setActiveStatus("VOID");
+  service.qaDisposed(review,413L,successor,345L);
+  var capture=ArgumentCaptor.forClass(MesActiveOrderHandoffTaskDO.class);verify(tasks,atLeastOnce()).insert(capture.capture());
+  var created=capture.getAllValues();var result=created.stream().filter(t->"NCR_DISPOSITION_NOTICE".equals(t.getTaskType())).findFirst().orElseThrow();
+  assertEquals("rework".equals(disposition)?"341,342,344":"342,344",result.getCandidateUserSnapshot());
+  assertEquals(413L,result.getActiveOrderId());assertEquals(91L,result.getSourceId());assertEquals(91L,result.getRoundId());
+  assertTrue(result.getNotificationOnly());assertEquals("DONE",result.getStatus());assertNull(result.getDueTime());
+  assertEquals(345L,result.getCompletedBy());assertEquals(91L,result.getCompletionSourceId());assertNotNull(result.getCompletedAt());
+  assertEquals("/user/profile",java.net.URI.create(result.getActionUrl()).getPath());
+  assertEquals("notifyMessage",MesActiveOrderHandoffContract.actionQuery(result).get("tab"));
+  assertTrue(result.getReason().contains("NCR-91"));assertTrue(result.getReason().contains(review.getReviewOpinion()));
+  assertTrue(result.getReason().contains(switch(disposition){case "concession_release"->"让步不代替PQC生产放行或上市批准";case "rework"->"原周期不得继续正常生产";default->"停止正常推进";}));
+  assertEquals(1,created.stream().filter(t->"QA_DECISION_HANDOFF".equals(t.getTaskType())).count());
+  assertEquals("341,342,344",frozen.getCandidateUserSnapshot());verify(delivery).schedule(result);
+  verify(owners,never()).productionEmployees(order); // Never recalculate the original frozen recipients.
+  when(tasks.selectById(result.getId())).thenReturn(result);
+  var context=service.navigationContext(result.getId(),342L);assertFalse(context.processable());
+  assertThrows(RuntimeException.class,()->service.navigationContext(result.getId(),348L));
+  assertThrows(RuntimeException.class,()->MesActiveOrderHandoffContract.validate(result.setStatus("TODO")));
+ }
+ @Test void qaResultReplayKeepsOriginalRecipientsAndDoesNotResend() {
+  var review=disposedReview("concession_release");frozenNotice();service.qaDisposed(review,413L,null,345L);
+  var capture=ArgumentCaptor.forClass(MesActiveOrderHandoffTaskDO.class);verify(tasks,times(2)).insert(capture.capture());
+  for(var t:capture.getAllValues())when(tasks.byIdentity(413L,t.getTaskType(),"NONCONFORMANCE_REVIEW",91L,91L)).thenReturn(t);
+  service.qaDisposed(review,413L,null,345L);
+  verify(tasks,times(2)).insert(any(MesActiveOrderHandoffTaskDO.class));verify(delivery,times(2)).schedule(any());
+ }
+ @Test void resultDeliveryFailurePropagatesToFormalDispositionTransaction() {
+  var review=disposedReview("concession_release");frozenNotice();
+  doAnswer(i->{if("NCR_DISPOSITION_NOTICE".equals(i.<MesActiveOrderHandoffTaskDO>getArgument(0).getTaskType()))throw new IllegalStateException("result outbox failed");return null;}).when(delivery).schedule(any());
+  assertThrows(IllegalStateException.class,()->service.qaDisposed(review,413L,null,345L));
+ }
+ @Test void resultRejectsForeignFreezeSnapshotAndDoesNotAddDuplicateLeaderNotice() {
+  var review=disposedReview("concession_release");var frozen=frozenNotice();frozen.setTenantId(2L);
+  assertThrows(RuntimeException.class,()->service.qaDisposed(review,413L,null,345L));
+  verify(tasks,times(1)).insert(any(MesActiveOrderHandoffTaskDO.class));
+  frozen.setTenantId(1L);frozen.setCandidateUserSnapshot("341");
+  var handoff=ArgumentCaptor.forClass(MesActiveOrderHandoffTaskDO.class);verify(tasks).insert(handoff.capture());
+  when(tasks.byIdentity(413L,"QA_DECISION_HANDOFF","NONCONFORMANCE_REVIEW",91L,91L)).thenReturn(handoff.getValue());
+  service.qaDisposed(review,413L,null,345L);verify(tasks,times(1)).insert(any(MesActiveOrderHandoffTaskDO.class));
+ }
+ private cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrNonconformanceReviewDO disposedReview(String disposition) {
+  var review=new cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrNonconformanceReviewDO()
+    .setId(91L).setActiveOrderId(413L).setWorkOrderId(274L).setReviewCode("NCR-91").setReviewStatus("closed").setQaUserId(345L)
+    .setClosedAt(LocalDateTime.now()).setDisposition(disposition).setReviewOpinion("QA正式处置意见");review.setTenantId(1L);
+  var qa=qaTask(91L);when(tasks.byIdentity(413L,"QA_REVIEW","NONCONFORMANCE_REVIEW",91L,91L)).thenReturn(qa);stubClose(qa,345L,91L);
+  return review;
+ }
+ private MesActiveOrderHandoffTaskDO frozenNotice() {
+  var frozen=new MesActiveOrderHandoffTaskDO().setId(1900000000000000002L).setActiveOrderId(413L).setWorkOrderId(274L)
+    .setTaskType("NCR_FREEZE_NOTICE").setSourceType("NONCONFORMANCE_REVIEW").setSourceId(91L).setRoundId(91L)
+    .setCandidateUserSnapshot("341,342,344").setNotificationOnly(true).setStatus("DONE")
+    .setActionUrl("/user/profile?activeOrderId=413&reviewId=91&handoffTaskId=1900000000000000002&roundId=91&handoffType=NCR_FREEZE_NOTICE&tab=notifyMessage");
+  frozen.setTenantId(1L);when(tasks.byIdentity(413L,"NCR_FREEZE_NOTICE","NONCONFORMANCE_REVIEW",91L,91L)).thenReturn(frozen);return frozen;
+ }
  private MesActiveOrderHandoffTaskDO qaTask(Long reviewId) {
   return MesActiveOrderHandoffContractTest.review().setTaskType("QA_REVIEW").setSourceType("NONCONFORMANCE_REVIEW")
     .setSourceId(reviewId).setRoundId(reviewId).setCandidateUserSnapshot("345");

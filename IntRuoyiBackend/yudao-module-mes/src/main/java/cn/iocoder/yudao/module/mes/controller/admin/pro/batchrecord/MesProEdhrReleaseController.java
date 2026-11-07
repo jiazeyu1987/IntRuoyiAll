@@ -83,6 +83,7 @@ public class MesProEdhrReleaseController {
     }
 
     @PostMapping("/reject")
+    @cn.iocoder.yudao.framework.apilog.core.annotation.ApiAccessLog(requestEnable = false)
     @Operation(summary = "驳回 eDHR 放行")
     @PreAuthorize("@ss.hasPermission('mes:pro-edhr-release:reject')")
     public CommonResult<MesProEdhrReleaseRespVO> reject(@Valid @RequestBody MesProEdhrReleaseRejectReqVO reqVO) {

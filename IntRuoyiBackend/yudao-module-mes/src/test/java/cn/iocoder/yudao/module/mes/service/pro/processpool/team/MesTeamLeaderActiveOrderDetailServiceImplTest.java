@@ -75,6 +75,35 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 // Verification DTOs are consumer-port fixtures, not evidence of the creation-audit algorithm.
 class MesTeamLeaderActiveOrderDetailServiceImplTest {
+    @Test
+    void replenishmentGroupingCountsEachSourceLineOnce() {
+        var material = new MesMdItemDO().setId(100L).setCode("TEST-MATERIAL");
+        var header = cn.iocoder.yudao.module.erp.dal.dataobject.production.kingdee.ErpKingdeeProductionReplenishmentListDO
+                .builder().id(200L).sourceBillNo("TEST-REPLENISHMENT").build();
+        var first = cn.iocoder.yudao.module.erp.dal.dataobject.production.kingdee.ErpKingdeeProductionReplenishmentListItemDO
+                .builder().id(301L).productionReplenishmentListId(200L)
+                .materialNumber("TEST-MATERIAL").materialName("测试物料").lotNumber("LOT-A")
+                .requestedQuantity(BigDecimal.ONE).actualQuantity(BigDecimal.ONE)
+                .baseActualQuantity(BigDecimal.ONE).build();
+        var second = cn.iocoder.yudao.module.erp.dal.dataobject.production.kingdee.ErpKingdeeProductionReplenishmentListItemDO
+                .builder().id(302L).productionReplenishmentListId(200L)
+                .materialNumber("TEST-MATERIAL").materialName("测试物料").lotNumber("LOT-B")
+                .requestedQuantity(new BigDecimal("3")).actualQuantity(new BigDecimal("2"))
+                .baseActualQuantity(new BigDecimal("4")).build();
+        for (var items : List.of(List.of(first), List.of(first, second))) {
+            java.util.Map<String, List<MesTeamLeaderActiveOrderDetail.SupplementMaterialDetail>> grouped =
+                    org.springframework.test.util.ReflectionTestUtils.invokeMethod(service,
+                            "groupSupplementMaterials", 8101L, items, java.util.Map.of(200L, header),
+                            java.util.Map.of("TEST-MATERIAL", material));
+            var result = grouped.get("TEST-MATERIAL").get(0);
+            assertEquals(items.size() == 1 ? BigDecimal.ONE : new BigDecimal("4"), result.getRequestedQuantity());
+            assertEquals(items.size() == 1 ? BigDecimal.ONE : new BigDecimal("3"), result.getActualQuantity());
+            assertEquals(items.size() == 1 ? BigDecimal.ONE : new BigDecimal("5"), result.getBaseActualQuantity());
+            assertEquals(items.stream().map(item -> item.getId()).toList(), result.getSourceReplenishmentListItemIds());
+            assertEquals(items.stream().map(item -> item.getLotNumber()).toList(), result.getBatchCodes());
+        }
+    }
+
     @Mock private cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrWorkTaskMapper workTaskMapper;
     @Mock private cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionMapper batchExecutionMapper;
     @org.junit.jupiter.api.AfterEach void clearPqcTenant() {
@@ -785,6 +814,7 @@ class MesTeamLeaderActiveOrderDetailServiceImplTest {
     private ElectronicSignatureQueryService signatureQueryService;
     @Mock
     private AdminUserService adminUserService;
+    @Mock private MesActiveOrderReplenishmentBindingService replenishmentBindings;
     @Mock private MesLocalTestRunSourceGuard localSources;
     @Mock private cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesMarketReleaseAccess marketReleaseAccess;
 
@@ -847,8 +877,8 @@ class MesTeamLeaderActiveOrderDetailServiceImplTest {
     @BeforeEach void verifiedPortFixture() { cn.iocoder.yudao.module.mes.service.pro.MesVerifiedConsumerFixture.wire(service, signatureQueryService, 1L); }
     @BeforeEach
     void setUp() {
-        cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.setTenantId(1L);
         org.springframework.test.util.ReflectionTestUtils.setField(service, "marketReleaseAccess", marketReleaseAccess);
+        cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.setTenantId(1L);
         org.springframework.test.util.ReflectionTestUtils.setField(service, "businessReviewMapper", businessReviewMapper);
         // These detail tests exercise the real business identity projection. Supply
         // its independently read event/review records as well as the existing row DTOs.
@@ -1620,6 +1650,96 @@ class MesTeamLeaderActiveOrderDetailServiceImplTest {
         assertEquals("PATROL_PM", pm.getInspectionRuleKey());
         assertEquals(List.of(10288L), pm.getSubmittedEventIds());
         assertEquals(List.of(7002L), pm.getProductionEventIds());
+    }
+
+    @Test
+    void shouldRejectLegacyPatrolTasksWithoutFrozenMatrixEvidence() {
+        when(activeOrderMapper.selectById(8101L)).thenReturn(MesProcessPoolActiveOrderDO.builder()
+                .id(8101L)
+                .leaderUserId(3001L)
+                .workOrderId(9001L)
+                .routeId(9201L)
+                .qaRegulationVersionId(5201L)
+                .activeStatus("ACTIVE")
+                .build());
+        when(detailReadMapper.selectByActiveOrderId(8101L)).thenReturn(List.of(
+                row(9101L, 5001L, 6001L, "清洗", "100.000000", 7001L, "100", "张三", "生产组长甲",
+                        "2026-08-13T08:10:00")));
+        when(processMaterialService.listFrozenMaterials(8101L, 9201L, 5001L, 6001L)).thenReturn(List.of());
+        when(pqcTaskMapper.selectListByActiveOrderId(8101L)).thenReturn(List.of(
+                MesPqcInspectionTaskDO.builder()
+                        .id(4101L)
+                        .activeOrderId(8101L)
+                        .inspectionType("PATROL")
+                        .qaItemCode("").inspectionItemPlanJson("{\"APPEARANCE\":1}").plannedInspectionQuantity(1)
+                        .inspectionRuleKey("PATROL_AM")
+                        .shiftCode("AM")
+                        .roundNo(1)
+                        .taskStatus(MesPqcInspectionTaskDO.TASK_STATUS_CONFIRMED)
+                        .actualInspectionQuantity(1)
+                        .qaProcessId(5101L)
+                        .regulationVersionId(5201L)
+                        .submittedEventId(10287L)
+                        .build(),
+                MesPqcInspectionTaskDO.builder()
+                        .id(4102L)
+                        .activeOrderId(8101L)
+                        .inspectionType("PATROL")
+                        .qaItemCode("").inspectionItemPlanJson("{\"APPEARANCE\":1}").plannedInspectionQuantity(1)
+                        .inspectionRuleKey("PATROL_PM")
+                        .shiftCode("PM")
+                        .roundNo(1)
+                        .taskStatus(MesPqcInspectionTaskDO.TASK_STATUS_CONFIRMED)
+                        .actualInspectionQuantity(1)
+                        .qaProcessId(5101L)
+                        .regulationVersionId(5201L)
+                        .submittedEventId(10288L)
+                        .build()));
+        when(qaProcessMapper.selectBatchIds(List.of(5101L))).thenReturn(List.of(
+                MesQaInspectionRegulationProcessDO.builder()
+                        .id(5101L)
+                        .regulationVersionId(5201L)
+                        .processCode("PQC-清洗")
+                        .processName("清洗")
+                        .sort(1)
+                        .build()));
+        when(detailReadMapper.selectEventPartiesByEventIds(List.of(10287L, 10288L))).thenReturn(List.of(
+                new MesTeamLeaderActiveOrderEventPartyReadDO()
+                        .setEventId(10287L)
+                        .setProductionEventId(7001L)
+                        .setSubmitterName("PQC管理员")
+                        .setReviewerName("PQC管理员"),
+                new MesTeamLeaderActiveOrderEventPartyReadDO()
+                        .setEventId(10288L)
+                        .setProductionEventId(7002L)
+                        .setSubmitterName("PQC管理员")
+                        .setReviewerName("PQC管理员")));
+        when(pqcAggregateDetailMapper.selectListByActiveOrderId(8101L)).thenReturn(List.of(
+                MesPqcProcessInspectionAggregateDetailDO.builder()
+                        .id(4201L)
+                        .pqcTaskId(4101L)
+                        .activeOrderId(8101L)
+                        .routeProcessId(5001L)
+                        .processId(6001L)
+                        .sampleNo(1)
+                        .itemCode("APPEARANCE")
+                        .itemName("外观")
+                        .judgement("PASS")
+                        .build(),
+                MesPqcProcessInspectionAggregateDetailDO.builder()
+                        .id(4202L)
+                        .pqcTaskId(4102L)
+                        .activeOrderId(8101L)
+                        .routeProcessId(5001L)
+                        .processId(6001L)
+                        .sampleNo(1)
+                        .itemCode("APPEARANCE")
+                        .itemName("外观")
+                        .judgement("PASS")
+                        .build()));
+
+        var error = assertThrows(IllegalStateException.class, () -> service.getDetail(3001L, 8101L));
+        assertEquals("PQC task has no frozen matrix sampling evidence", error.getMessage());
     }
 
     @Test

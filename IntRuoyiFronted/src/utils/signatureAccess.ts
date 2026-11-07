@@ -8,7 +8,7 @@ const governanceTabs = new Set([
   'policy'
 ])
 
-// Navigation and page rendering must enforce the same role and permission boundary.
+// Navigation and page rendering share the backend's record-query permission boundary.
 export const canAccessSignaturePath = (
   path: string,
   roles: string[],
@@ -20,6 +20,9 @@ export const canAccessSignaturePath = (
   if (!governanceTabs.has(tab)) return true
   const hasPermission = (permission: string) =>
     permissions.has('*:*:*') || permissions.has(permission)
+  if (tab === 'signature-records') {
+    return hasPermission('signature-governance:policy:query')
+  }
   if (tab === 'authorizations') {
     return (
       (roles.includes('electronic_signature_admin') || roles.includes('tenant_admin')) &&
@@ -28,10 +31,7 @@ export const canAccessSignaturePath = (
   }
   const hasGovernanceRole =
     permissions.has('*:*:*') || governanceRoles.some((role) => roles.includes(role))
-  return (
-    hasGovernanceRole &&
-    (tab !== 'signature-records' || hasPermission('signature-governance:policy:query'))
-  )
+  return hasGovernanceRole
 }
 
 export const filterSignatureMenus = (

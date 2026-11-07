@@ -302,8 +302,7 @@ public class MesPqcItemEquipmentConfigServiceImpl implements MesPqcItemEquipment
     @Override
     public Map<String, List<MesPqcItemEquipmentOption>> listEnabledEquipmentOptionsByProjectVersionAndItemCodes(
             Long dccProjectCodeId, Long regulationVersionId, Collection<String> itemCodes) {
-        if (dccProjectCodeId == null && regulationVersionId == null
-                || dccProjectCodeId != null && dccProjectCodeId <= 0) {
+        if (dccProjectCodeId == null ? regulationVersionId == null : dccProjectCodeId <= 0) {
             throw exception(PRO_FRONTLINE_PQC_RESULT_CONTRACT_INVALID,
                     "itemEquipmentConfig.dccProjectCodeId");
         }
@@ -412,8 +411,8 @@ public class MesPqcItemEquipmentConfigServiceImpl implements MesPqcItemEquipment
         }
         MesQaInspectionRegulationDO regulation = regulationMapper.selectById(version.getRegulationId());
         if (regulation == null || !Objects.equals(regulation.getDccProjectCodeId(), dccProjectCodeId)
-                || dccProjectCodeId == null
-                && !MesQaInspectionRegulationDO.OWNER_MODULE_MES_QA_COMMON.equals(regulation.getOwnerModule())) {
+                || (dccProjectCodeId == null && !MesQaInspectionRegulationDO.OWNER_MODULE_MES_QA_COMMON
+                .equals(regulation.getOwnerModule()))) {
             throw exception(PRO_FRONTLINE_PQC_RESULT_CONTRACT_INVALID,
                     "itemEquipmentConfig.dccProjectCodeId=" + dccProjectCodeId);
         }
@@ -491,20 +490,16 @@ public class MesPqcItemEquipmentConfigServiceImpl implements MesPqcItemEquipment
                     "itemEquipmentConfig.regulationId=" + version.getRegulationId());
         }
         String itemCode = row.getItemCode().trim();
-        if (regulation.getDccProjectCodeId() == null
-                && MesQaInspectionRegulationDO.OWNER_MODULE_MES_QA_COMMON.equals(regulation.getOwnerModule())) {
-            return new ConfigurableItem(null, itemCode,
-                    requireDisplayName(regulation.getRegulationName(), "itemEquipmentConfig.regulationName=" + itemCode),
-                    requireDisplayName(row.getItemName(), "itemEquipmentConfig.itemName=" + itemCode),
-                    row.getInspectionMethod(), row.getStandardText(), row.getSamplingPlanText());
-        }
-        DccProjectCodeDO project = projectById.get(regulation.getDccProjectCodeId());
-        if (project == null) {
+        boolean commonSource = MesQaInspectionRegulationDO.OWNER_MODULE_MES_QA_COMMON
+                .equals(regulation.getOwnerModule()) && regulation.getDccProjectCodeId() == null;
+        DccProjectCodeDO project = commonSource ? null : projectById.get(regulation.getDccProjectCodeId());
+        if (!commonSource && project == null) {
             throw exception(PRO_FRONTLINE_PQC_RESULT_CONTRACT_INVALID,
                     "itemEquipmentConfig.dccProjectCodeId=" + regulation.getDccProjectCodeId());
         }
         return new ConfigurableItem(regulation.getDccProjectCodeId(), itemCode,
-                requireDisplayName(project.getProjectName(), "itemEquipmentConfig.projectName=" + itemCode),
+                requireDisplayName(commonSource ? regulation.getRegulationName() : project.getProjectName(),
+                        "itemEquipmentConfig.projectName=" + itemCode),
                 requireDisplayName(row.getItemName(), "itemEquipmentConfig.itemName=" + itemCode),
                 row.getInspectionMethod(), row.getStandardText(), row.getSamplingPlanText());
     }

@@ -79,6 +79,7 @@ import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_P
 @Service
 @Validated
 public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderActiveOrderDetailService {
+    @jakarta.annotation.Resource private MesActiveOrderReplenishmentBindingService replenishmentBindings;
     @jakarta.annotation.Resource private MesLocalTestRunSourceGuard localSources;
     @jakarta.annotation.Resource private cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesMarketReleaseAccess marketReleaseAccess;
 
@@ -896,21 +897,21 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
         }
         Map<Long, ErpKingdeeProductionReplenishmentListDO> headersById = loadReplenishmentHeaders(workOrderId, activeOrderId, items);
         Map<String, MesMdItemDO> materialByCode = loadMaterialByCode(activeOrderId, items);
-        Map<String, List<MesTeamLeaderActiveOrderDetail.SupplementMaterialDetail>> supplementsByMaterialCode =
-                groupSupplementMaterials(activeOrderId, items, headersById, materialByCode);
+        var explicitBindings = replenishmentBindings.read(activeOrderId);
         for (ProcessAccumulator accumulator : accumulators.values()) {
             Set<String> inputMaterialCodes = accumulator.inputMaterials.stream()
                     .map(MesTeamLeaderActiveOrderDetail.InputMaterialDetail::getMaterialCode)
                     .map(MesTeamLeaderActiveOrderDetailServiceImpl::trimToNull)
                     .filter(Objects::nonNull)
                     .collect(Collectors.toCollection(LinkedHashSet::new));
-            if (inputMaterialCodes.isEmpty()) {
-                accumulator.setSupplementMaterials(List.of());
-                continue;
-            }
-            List<MesTeamLeaderActiveOrderDetail.SupplementMaterialDetail> matched = inputMaterialCodes.stream()
-                    .flatMap(code -> supplementsByMaterialCode.getOrDefault(code, List.of()).stream())
-                    .toList();
+            var matchedItems = items.stream().filter(item -> {
+                var binding = explicitBindings.get(item.getId());
+                return binding != null
+                        ? Objects.equals(binding.routeProcessId(), accumulator.process.getRouteProcessId())
+                        : inputMaterialCodes.contains(trimToNull(item.getMaterialNumber()));
+            }).toList();
+            List<MesTeamLeaderActiveOrderDetail.SupplementMaterialDetail> matched = groupSupplementMaterials(
+                    activeOrderId, matchedItems, headersById, materialByCode).values().stream().flatMap(List::stream).toList();
             accumulator.setSupplementMaterials(matched);
         }
     }

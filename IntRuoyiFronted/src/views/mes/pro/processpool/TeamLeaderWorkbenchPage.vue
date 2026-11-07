@@ -5643,7 +5643,7 @@ const abnormalForm = reactive({
 })
 
 const activeOrderForm = reactive({
-  workOrderId: undefined as number | undefined
+  workOrderId: undefined as number | string | undefined
 })
 
 const formalEmployeeForm = reactive({
@@ -9706,9 +9706,9 @@ const openActiveOrderDialog = () => {
   activeOrderAddDialogVisible.value = true
 }
 
-const findActiveOrderCandidateById = (workOrderId: number) =>
+const findActiveOrderCandidateById = (workOrderId: number | string) =>
   activeOrderCandidateOptions.value.find(
-    (candidate) => Number(candidate.workOrderId) === Number(workOrderId)
+    (candidate) => parsePositiveRouteQueryId(candidate.workOrderId) === parsePositiveRouteQueryId(workOrderId)
   )
 
 const findActiveOrderCandidateByCode = (workOrderCode: string) =>
@@ -9730,7 +9730,7 @@ const handleActiveOrderCandidateClear = () => {
 }
 
 const handleActiveOrderCandidateChange = (value?: number | string) => {
-  const workOrderId = normalizePositiveNumber(value)
+  const workOrderId = parsePositiveRouteQueryId(value)
   if (!workOrderId) {
     handleActiveOrderCandidateClear()
     return
@@ -9773,7 +9773,7 @@ const searchActiveOrderCandidates = async (keyword: string) => {
     const candidates = await searchTeamLeaderActiveOrderCandidates(searchText)
     if (requestId !== activeOrderCandidateRequest) return
     activeOrderCandidateOptions.value = candidates
-    const workOrderId = normalizePositiveNumber(activeOrderForm.workOrderId)
+    const workOrderId = parsePositiveRouteQueryId(activeOrderForm.workOrderId)
     if (workOrderId && !findActiveOrderCandidateById(workOrderId)) {
       activeOrderForm.workOrderId = undefined
       activeOrderSelectedCandidate.value = undefined
@@ -9852,12 +9852,12 @@ const resolveActiveOrderCandidateByKeyword = async () => {
 }
 
 const requireSelectedActiveOrderCandidateWorkOrderId = async () => {
-  const workOrderId = normalizePositiveNumber(activeOrderForm.workOrderId)
+  const workOrderId = parsePositiveRouteQueryId(activeOrderForm.workOrderId)
   let selectedCandidate = activeOrderSelectedCandidate.value
   if (
     workOrderId &&
     selectedCandidate &&
-    Number(selectedCandidate.workOrderId) === Number(workOrderId) &&
+    parsePositiveRouteQueryId(selectedCandidate.workOrderId) === workOrderId &&
     findActiveOrderCandidateById(workOrderId)
   ) {
     if (!selectedCandidate.eligible) {
@@ -9876,7 +9876,9 @@ const requireSelectedActiveOrderCandidateWorkOrderId = async () => {
   activeOrderSelectedCandidate.value = selectedCandidate
   activeOrderCandidateKeyword.value = selectedCandidate.workOrderCode
   activeOrderCandidateError.value = ''
-  return requirePositiveNumber(selectedCandidate.workOrderId, '请选择订单号/产品候选')
+  const selectedId = parsePositiveRouteQueryId(selectedCandidate.workOrderId)
+  if (!selectedId) throw new Error('请选择订单号/产品候选')
+  return selectedId
 }
 
 const activeOrderCommitSuccessMessage = (action: TeamLeaderActiveOrderCommitAction) => {

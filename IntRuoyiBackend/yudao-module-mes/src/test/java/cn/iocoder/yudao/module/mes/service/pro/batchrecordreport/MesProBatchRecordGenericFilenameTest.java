@@ -5,17 +5,16 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockMultipartFile;
 
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 class MesProBatchRecordGenericFilenameTest {
     private byte[] document() throws Exception {
-        Path fixture = Path.of(System.getProperty("productionRecordFixture",
-                "../../resource/按压式球囊扩充压力泵IDI-001/RE-PP-IDI-01（A 1） 按压式球囊扩充压力泵生产记录--2026.02.02生效.docx"));
-        return Files.readAllBytes(fixture);
+        try (var input = getClass().getResourceAsStream("/fixtures/idi-001-production-record.docx")) {
+            assertNotNull(input, "Missing original IDI-001 production record fixture");
+            return input.readAllBytes();
+        }
     }
 
     @Test

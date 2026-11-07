@@ -101,7 +101,7 @@ class MesFrontlinePqcSubmitReceiptControllerTest {
                     }
                 }
             }
-            assertEquals(10, protectedMethods);
+            assertEquals(15, protectedMethods);
             // The shared return endpoints remain available to production for their own production returns.
             var returnFactory = new org.springframework.aop.framework.ProxyFactory(targets.get(1));
             returnFactory.setProxyTargetClass(true);

@@ -99,6 +99,8 @@ public class MesActiveOrderReworkCycleTransactionTest {
         events = session.getMapper(MesProProcessPoolEventMapper.class);
         receipts = session.getMapper(MesProcessPoolActiveOrderCompletionReceiptMapper.class);
         progress = new MesTeamLeaderActiveOrderCompletionProgressPortImpl(snapshots, allocations, tasks, events);
+        org.springframework.test.util.ReflectionTestUtils.setField(progress, "pqcCoverageService",
+                org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesOrderReleaseCompletenessService.class));
         var backfill = mock(MesTeamLeaderActiveOrderCompletionBackfillPort.class);
         when(backfill.prepare(anyLong(), any(), any())).thenAnswer(invocation ->
                 completionDraft(invocation.getArgument(1)));
@@ -107,6 +109,8 @@ public class MesActiveOrderReworkCycleTransactionTest {
                 mock(MesTeamLeaderActiveOrderPickListCompletionSourceService.class),
                 mock(MesActiveOrderTransferTraceService.class), mock(MesPqcProcessInspectionAggregationService.class));
         { org.springframework.test.util.ReflectionTestUtils.setField(completion, "handoffService", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffService.class)); }
+        org.springframework.test.util.ReflectionTestUtils.setField(completion, "fixedTestCompletionSourceInitializer",
+                mock(MesFixedTestOrderCompletionSourceInitializer.class));
         // This fixture tests rework/completion transactions. The dedicated audit transaction
         // test uses the real GxP writer; here its boundary must return distinct event bindings.
         var audit = mock(cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService.class);
@@ -116,6 +120,15 @@ public class MesActiveOrderReworkCycleTransactionTest {
             return new cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditAppendResult(
                     sequence, sequence, "fixture-audit-hash-" + sequence, false);
         });
+        var verifier = mock(cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesEdhrSourceCreationVerificationService.class);
+        when(verifier.requireCompletionCreation(anyLong(), anyLong())).thenAnswer(invocation -> {
+            long eventId = auditSequence.get();
+            return new cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesEdhrSourceCreationEvidence(
+                    "ACTIVE_ORDER_COMPLETION", invocation.getArgument(1), "fixture-receipt", "1", "fixture-source",
+                    eventId, "fixture-audit-hash-" + eventId);
+        });
+        when(verifier.requireCompletionTransactionId(anyLong(), anyLong())).thenReturn("fixture-completion-transaction");
+        org.springframework.test.util.ReflectionTestUtils.setField(completion, "creationVerifier", verifier);
         org.springframework.test.util.ReflectionTestUtils.setField(completion, "gxpAuditService", audit);
         org.springframework.test.util.ReflectionTestUtils.setField(completion, "affectedStateCollector",
                 new MesReleaseAffectedStateCollector(source));
@@ -234,7 +247,7 @@ public class MesActiveOrderReworkCycleTransactionTest {
         snapshot.setDeleted(false);
         snapshots.insert(snapshot);
         var task = new MesPqcInspectionTaskDO().setId(20L).setActiveOrderId(1L).setWorkOrderId(workOrderId)
-                .setRouteId(routeId).setRouteVersionId(routeVersionId).setRouteProcessId(12L).setProcessId(13L)
+                .setRouteId(routeId).setRouteVersionId(routeVersionId).setQaProcessId(60L)
                 .setRegulationVersionId(6L).setTaskStatus("CONFIRMED").setPlannedInspectionQuantity(2)
                 .setBusinessDate(LocalDate.of(2026, 9, 27))
                 .setActualInspectionQuantity(2).setSubmittedEventId(30L).setSubmittedContentHash("previous-hash");

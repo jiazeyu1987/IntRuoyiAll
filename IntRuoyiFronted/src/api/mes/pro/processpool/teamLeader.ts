@@ -144,13 +144,13 @@ export interface TeamDeviceParameterRuleSaveReqVO {
 }
 
 export interface TeamLeaderActiveOrderAddReqVO {
-  workOrderId: number
+  workOrderId: number | string
 }
 
 export type TeamLeaderActiveOrderCandidateState = 'ADDABLE' | 'REUSABLE' | 'RECOVERABLE' | 'BLOCKED'
 
 export interface TeamLeaderActiveOrderCandidateRespVO {
-  workOrderId: number
+  workOrderId: number | string
   workOrderCode: string
   candidateState: TeamLeaderActiveOrderCandidateState
   eligible: boolean
@@ -498,6 +498,8 @@ export type TeamLeaderActiveOrderReleaseApplicationStatus =
   | 'REPORT_UPLOAD_PENDING'
   | 'MANAGER_RELEASE_PENDING'
   | 'RELEASED'
+  | 'NONCONFORMANCE_VOID'
+  | 'NONCONFORMANCE_REWORK'
 
 export interface TeamLeaderActiveOrderProcessRemainingQuantity {
   routeProcessId?: number

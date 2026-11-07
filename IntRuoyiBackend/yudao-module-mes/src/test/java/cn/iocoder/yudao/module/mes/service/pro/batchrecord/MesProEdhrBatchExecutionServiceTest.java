@@ -227,10 +227,14 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.mock;
 
-@Import({
+// H2 must preserve MySQL CAST(... AS BINARY) variable-length identity semantics.
+@org.springframework.test.context.TestPropertySource(properties =
+        "spring.datasource.url=jdbc:h2:mem:testdb;MODE=MYSQL;DATABASE_TO_UPPER=false;NON_KEYWORDS=value,day;VARIABLE_BINARY=TRUE")
+@Import({cn.iocoder.yudao.module.mes.support.TenantMapperTestConfiguration.class,
         MesProEdhrBatchExecutionServiceImpl.class,
         MesProEdhrBatchTaskVisibilityService.class,
         MesProEdhrBatchExecutionVisibilityService.class,
+        MesProEdhrBatchVisibilityQueryService.class,
         MesProEdhrCandidateResolver.class,
         MesProEdhrPreReleaseEditabilityService.class,
         MesProEdhrBatchWorkbenchServiceImpl.class,
@@ -324,7 +328,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     private MesProEdhrBatchLookupService batchLookupService;
     @MockitoBean
     private MesProEdhrBatchSummaryReader batchSummaryReader;
-    @MockitoBean
+    @Resource
     private MesProEdhrBatchVisibilityQueryService batchVisibilityQueryService;
     @MockitoBean
     private MesProEdhrTraceSearchScopeService traceSearchScopeService;
@@ -383,7 +387,15 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     @BeforeEach
     void setTenant() throws Exception {
         TenantContextHolder.setTenantId(1L);
+        // Visibility SQL references this relation even when the active-order service is mocked.
+        new JdbcTemplate(testDataSource).execute("CREATE TABLE IF NOT EXISTS mes_pro_process_pool_active_order ("
+                + "id BIGINT PRIMARY KEY,leader_user_id BIGINT NOT NULL,work_order_id BIGINT NOT NULL,"
+                + "route_id BIGINT NOT NULL,route_version_id BIGINT NOT NULL,active_status VARCHAR(32) NOT NULL,"
+                + "business_status VARCHAR(32) NOT NULL,version INT NOT NULL,tenant_id BIGINT NOT NULL,"
+                + "deleted BOOLEAN NOT NULL DEFAULT FALSE)");
+        new JdbcTemplate(testDataSource).update("DELETE FROM mes_pro_process_pool_active_order");
         provisioningRecords.clear();
+        when(traceSearchScopeService.prepare(any())).thenReturn(MesProEdhrTraceSearchScope.empty());
         when(marketReleaseAccess.get(any(), any())).thenAnswer(invocation ->
                 MesMarketReleaseAccess.resolve(List.of(), invocation.getArgument(1)));
         when(completionSourceBackfillService.materializeProvisioned(any(), any(), any())).thenAnswer(invocation ->
@@ -480,18 +492,41 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                 .thenReturn(9201L);
     }
 
+    private int insertBatchFixture(MesProEdhrBatchExecutionDO batch) {
+        if (batch.getTenantId() == null) batch.setTenantId(1L);
+        return batchExecutionMapper.insert(batch);
+    }
+
+    /**
+     * Arrange a scheduled batch for task-lifecycle tests. Entry-contract tests use explicit
+     * commands and the public entry; completion batches intentionally have no process tasks.
+     * Keep the core validation, persistence and audit inside a real fixture transaction.
+     */
+    private EdhrBatchExecutionRespVO openBatchFixture(EdhrBatchExecutionOpenOrCreateReqVO request) {
+        if (StrUtil.isNotBlank(request.getEntryType()) && !"SCHEDULED".equals(request.getEntryType())) {
+            return batchExecutionService.openOrCreate(request);
+        }
+        Object target = org.springframework.test.util.AopTestUtils.getUltimateTargetObject(batchExecutionService);
+        MesBatchExecutionProvisionCommand requested = ReflectionTestUtils.invokeMethod(target, "toProvisionCommand", request);
+        MesBatchExecutionProvisionCommand command = testAuthoritativeContext(requested).getProvisionCommand();
+        ReflectionTestUtils.invokeMethod(target, "applyAuthoritativeContext", request, command);
+        return new org.springframework.transaction.support.TransactionTemplate(
+                new org.springframework.jdbc.datasource.DataSourceTransactionManager(testDataSource))
+                .execute(status -> ReflectionTestUtils.invokeMethod(target, "openOrCreateInternal", request, command, true));
+    }
+
     private MesBatchExecutionAuthoritativeContext testAuthoritativeContext(
             MesBatchExecutionProvisionCommand request) {
-        boolean defaultCompletionFixture = StrUtil.isBlank(request.getEntryType());
-        String entryType = defaultCompletionFixture ? "ACTIVE_ORDER_COMPLETION" : request.getEntryType();
+        boolean scheduledTaskFixture = StrUtil.isBlank(request.getEntryType());
+        String entryType = scheduledTaskFixture ? "SCHEDULED" : request.getEntryType();
         String fixtureContext = request.getWorkOrderId() + "|" + request.getBatchCode();
-        String receiptId = defaultCompletionFixture
-                ? "TEST-COMPLETION:" + fixtureContext : request.getCompletionBackfillReceiptId();
-        String receiptHash = defaultCompletionFixture
+        String receiptId = scheduledTaskFixture
+                ? "TEST-SCHEDULE:" + fixtureContext : request.getCompletionBackfillReceiptId();
+        String receiptHash = scheduledTaskFixture
                 ? DigestUtil.sha256Hex(receiptId) : request.getCompletionBackfillReceiptHash();
         String entryBusinessId = StrUtil.blankToDefault(request.getEntryBusinessId(),
                 "TEST-ENTRY:" + request.getBatchCode());
-        String sourceCredentialId = defaultCompletionFixture ? receiptId
+        String sourceCredentialId = scheduledTaskFixture ? receiptId
                 : StrUtil.blankToDefault(request.getSourceCredentialId(), "TEST-CREDENTIAL");
         String sourceContextHash = StrUtil.blankToDefault(request.getSourceContextHash(), "TEST-CONTEXT");
         String sourceSnapshotHash = StrUtil.blankToDefault(request.getSourceSnapshotHash(), "TEST-SNAPSHOT");
@@ -500,10 +535,10 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
         MesBatchExecutionProvisionCommand canonical = new MesBatchExecutionProvisionCommand()
                 .setEntryType(entryType).setEntryBusinessId(entryBusinessId)
                 .setSourceCredentialType(StrUtil.blankToDefault(request.getSourceCredentialType(),
-                        defaultCompletionFixture ? "CompletionBackfillReceipt" : "IndependentBatchPrerequisiteReceipt"))
+                        "IndependentBatchPrerequisiteReceipt"))
                 .setSourceCredentialId(sourceCredentialId).setSourceRelationId(request.getSourceRelationId())
                 .setSourceContextHash(sourceContextHash).setTenantId(1L)
-                .setActiveOrderId(defaultCompletionFixture ? request.getWorkOrderId() : request.getActiveOrderId())
+                .setActiveOrderId(scheduledTaskFixture ? request.getWorkOrderId() : request.getActiveOrderId())
                 .setWorkOrderId(request.getWorkOrderId())
                 .setWorkOrderCode(StrUtil.blankToDefault(request.getWorkOrderCode(),
                         "TEST-WO:" + request.getWorkOrderId()))
@@ -530,12 +565,12 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     void p2ThenFormalCompletionReusesOneReceiptBatchWithoutNewTasks() {
         Fixture fixture = insertRouteFixture(true, true);
         CompletionEntryRequests requests = completionEntryRequests(fixture, 8287L, 287L);
-        Long batchId = batchExecutionService.openOrCreate(requests.p2()).getId();
+        Long batchId = openBatchFixture(requests.p2()).getId();
         int taskCount = batchTaskMapper.selectListByBatchExecutionId(batchId).size();
         assertEquals(0, taskCount);
 
-        assertEquals(batchId, batchExecutionService.openOrCreate(requests.formal()).getId());
-        assertEquals(batchId, batchExecutionService.openOrCreate(requests.p2()).getId());
+        assertEquals(batchId, openBatchFixture(requests.formal()).getId());
+        assertEquals(batchId, openBatchFixture(requests.p2()).getId());
         assertEquals(taskCount, batchTaskMapper.selectListByBatchExecutionId(batchId).size());
         assertEquals(1, batchExecutionMapper.selectListByWorkOrderIdAndBatchCode(
                 fixture.workOrderId(), requests.p2().getBatchCode()).size());
@@ -550,10 +585,10 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     void formalCompletionThenP2ReusesTheSameReceiptBatch() {
         Fixture fixture = insertRouteFixture(true, true);
         CompletionEntryRequests requests = completionEntryRequests(fixture, 8287L, 287L);
-        Long batchId = batchExecutionService.openOrCreate(requests.formal()).getId();
+        Long batchId = openBatchFixture(requests.formal()).getId();
         int taskCount = batchTaskMapper.selectListByBatchExecutionId(batchId).size();
 
-        assertEquals(batchId, batchExecutionService.openOrCreate(requests.p2()).getId());
+        assertEquals(batchId, openBatchFixture(requests.p2()).getId());
         assertEquals(taskCount, batchTaskMapper.selectListByBatchExecutionId(batchId).size());
         assertEquals(1, provisioningRecords.size());
         assertEquals(1, batchExecutionMapper.selectListByWorkOrderIdAndBatchCode(
@@ -564,7 +599,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     void p2BatchReplayRejectsDifferentCycleAndReceiptSource() {
         Fixture fixture = insertRouteFixture(true, true);
         CompletionEntryRequests requests = completionEntryRequests(fixture, 8287L, 287L);
-        Long batchId = batchExecutionService.openOrCreate(requests.p2()).getId();
+        Long batchId = openBatchFixture(requests.p2()).getId();
         int taskCount = batchTaskMapper.selectListByBatchExecutionId(batchId).size();
 
         for (var mismatch : List.<java.util.function.Consumer<EdhrBatchExecutionOpenOrCreateReqVO>>of(
@@ -575,7 +610,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
             EdhrBatchExecutionOpenOrCreateReqVO invalid = JSON.parseObject(
                     JSON.toJSONString(requests.formal()), EdhrBatchExecutionOpenOrCreateReqVO.class);
             mismatch.accept(invalid);
-            assertServiceException(() -> batchExecutionService.openOrCreate(invalid),
+            assertServiceException(() -> openBatchFixture(invalid),
                     MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_BATCH_ENTRY_RECEIPT_INVALID);
         }
         assertEquals(taskCount, batchTaskMapper.selectListByBatchExecutionId(batchId).size());
@@ -588,12 +623,12 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     void p2AndFormalCompletionKeepNewReceiptCyclesSeparate() {
         Fixture fixture = insertRouteFixture(true, true);
         CompletionEntryRequests first = completionEntryRequests(fixture, 8287L, 287L);
-        Long firstBatch = batchExecutionService.openOrCreate(first.p2()).getId();
-        assertEquals(firstBatch, batchExecutionService.openOrCreate(first.formal()).getId());
+        Long firstBatch = openBatchFixture(first.p2()).getId();
+        assertEquals(firstBatch, openBatchFixture(first.formal()).getId());
 
         CompletionEntryRequests second = completionEntryRequests(fixture, 8288L, 288L);
-        Long secondBatch = batchExecutionService.openOrCreate(second.p2()).getId();
-        assertEquals(secondBatch, batchExecutionService.openOrCreate(second.formal()).getId());
+        Long secondBatch = openBatchFixture(second.p2()).getId();
+        assertEquals(secondBatch, openBatchFixture(second.formal()).getId());
         assertNotEquals(firstBatch, secondBatch);
         assertEquals(2, provisioningRecords.size());
         assertEquals(2, batchExecutionMapper.selectListByWorkOrderIdAndBatchCode(
@@ -611,11 +646,11 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
         routeVersionMapper.updateById(new MesProRouteVersionDO().setId(fixture.routeVersionId())
                 .setRouteSnapshotJson(frozen.toJSONString()));
         var requests = completionEntryRequests(fixture, 8287L, 287L);
-        var opened = batchExecutionService.openOrCreate(requests.formal());
+        var opened = openBatchFixture(requests.formal());
         var tasks = batchTaskMapper.selectListByBatchExecutionId(opened.getId());
         assertEquals(0, tasks.size());
         assertTrue(tasks.stream().allMatch(task -> task.getBatchRecordReportId() == null));
-        assertEquals(opened.getId(), batchExecutionService.openOrCreate(requests.p2()).getId());
+        assertEquals(opened.getId(), openBatchFixture(requests.p2()).getId());
         verify(completionSourceBackfillService, never()).materializeProvisioned(any(), any(), any());
         verify(operationAuditService, atLeastOnce()).recordInCallerTransaction(argThat(command -> {
             if (!"OPEN".equals(command.getOperationType())) return false;
@@ -630,7 +665,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     void configuredTemplatesDoNotReplaceTheOfficialActiveOrderDetailRecord() {
         Fixture fixture = insertRouteFixture(true, true);
         var requests = completionEntryRequests(fixture, 8287L, 287L);
-        var opened = batchExecutionService.openOrCreate(requests.formal());
+        var opened = openBatchFixture(requests.formal());
         assertEquals(0, batchTaskMapper.selectListByBatchExecutionId(opened.getId()).size());
         verify(completionSourceBackfillService, never()).materializeProvisioned(any(), any(), any());
     }
@@ -639,7 +674,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     void readingActiveOrderBatchDoesNotCreateRouteTemplateTasks() {
         Fixture fixture = insertRouteFixture(true, true);
         var requests = completionEntryRequests(fixture, 8287L, 287L);
-        var opened = batchExecutionService.openOrCreate(requests.formal());
+        var opened = openBatchFixture(requests.formal());
         // 追溯关联尚未异步生成时，同事务建批凭证也应足以识别正式记录来源。
         batchExecutionService.get(opened.getId());
         assertEquals(0, batchTaskMapper.selectListByBatchExecutionId(opened.getId()).size());
@@ -651,7 +686,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
         var requests = completionEntryRequests(fixture, 8287L, 287L);
         doThrow(new IllegalStateException("GxP operation audit failed"))
                 .when(operationAuditService).recordInCallerTransaction(argThat(command -> "OPEN".equals(command.getOperationType())));
-        assertThrows(IllegalStateException.class, () -> batchExecutionService.openOrCreate(requests.formal()));
+        assertThrows(IllegalStateException.class, () -> openBatchFixture(requests.formal()));
         assertTrue(batchExecutionMapper.selectListByWorkOrderIdAndBatchCode(
                 fixture.workOrderId(), requests.formal().getBatchCode()).isEmpty());
         assertTrue(batchTaskMapper.selectList().isEmpty());
@@ -739,12 +774,6 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
         Fixture fixture = insertRouteFixture(true, true);
         CompletionEntryRequests requests = completionEntryRequests(fixture, 8288L, 288L);
         JdbcTemplate jdbc = new JdbcTemplate(testDataSource);
-        // Private H2 boundary fixture for these three tests; no production schema or data is touched.
-        jdbc.execute("CREATE TABLE IF NOT EXISTS mes_pro_process_pool_active_order ("
-                + "id BIGINT PRIMARY KEY,leader_user_id BIGINT NOT NULL,work_order_id BIGINT NOT NULL,"
-                + "route_id BIGINT NOT NULL,route_version_id BIGINT NOT NULL,active_status VARCHAR(32) NOT NULL,"
-                + "business_status VARCHAR(32) NOT NULL,version INT NOT NULL,tenant_id BIGINT NOT NULL,"
-                + "deleted BOOLEAN NOT NULL DEFAULT FALSE)");
         assertEquals(0, jdbc.queryForObject("SELECT COUNT(*) FROM mes_pro_process_pool_active_order WHERE id=8288", Integer.class));
         DataSourceTransactionManager transactions = new DataSourceTransactionManager(testDataSource);
         java.sql.Connection[] outerConnection = new java.sql.Connection[1];
@@ -778,7 +807,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
         try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
             security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(9908090341L);
             security.when(SecurityFrameworkUtils::getLoginUserNickname).thenReturn("edhrTestProdLeader");
-            Long batchId = batchExecutionService.openOrCreate(requests.p2()).getId();
+            Long batchId = openBatchFixture(requests.p2()).getId();
             int taskCount = batchTaskMapper.selectListByBatchExecutionId(batchId).size();
             int batchStatus = batchExecutionMapper.selectById(batchId).getStatus();
             List<MesProEdhrOperationAuditEventDO> originalAudits = realOperationAuditMapper
@@ -796,7 +825,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
             });
             var batchEntry = mock(MesTeamLeaderActiveOrderCompletionBatchExecutionService.class);
             when(batchEntry.openOrCreate(eq(9908090341L), eq(8288L), eq(288L), any())).thenAnswer(invocation ->
-                    batchExecutionService.openOrCreate(requests.formal()).getId());
+                    openBatchFixture(requests.formal()).getId());
             // Retain the real tenant-scoped FOR UPDATE reader for the exact audit slice that caused the lock.
             var collector = new MesReleaseAffectedStateCollector(testDataSource);
             var affected = mock(MesReleaseAffectedStateCollector.class);
@@ -907,8 +936,8 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                     .setCompletionBackfillReceiptId(receiptId).setCompletionBackfillReceiptHash("receipt-" + cycle)
                     .setIdempotencyKey("completion-batch-" + cycle);
 
-            EdhrBatchExecutionRespVO created = batchExecutionService.openOrCreate(request);
-            assertEquals(created.getId(), batchExecutionService.openOrCreate(request).getId());
+            EdhrBatchExecutionRespVO created = openBatchFixture(request);
+            assertEquals(created.getId(), openBatchFixture(request).getId());
             assertFalse(batchIds.contains(created.getId()), "A new completion receipt must not reuse an old cycle batch");
             batchIds.add(created.getId());
         }
@@ -931,11 +960,11 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                 .setExpectedActiveOrderVersion(0L).setCompletionVersion(1L)
                 .setCompletionBackfillReceiptId("8851").setCompletionBackfillReceiptHash("receipt-existing")
                 .setIdempotencyKey("completion-batch-existing");
-        Long batchId = batchExecutionService.openOrCreate(request).getId();
+        Long batchId = openBatchFixture(request).getId();
         batchExecutionMapper.updateById(new MesProEdhrBatchExecutionDO().setId(batchId)
                 .setActiveContextKey(fixture.workOrderId() + ":BATCH-EXISTING-RECEIPT:" + fixture.routeId()));
 
-        assertEquals(batchId, batchExecutionService.openOrCreate(request).getId());
+        assertEquals(batchId, openBatchFixture(request).getId());
         assertEquals(1, batchExecutionMapper.selectListByWorkOrderIdAndBatchCode(
                 fixture.workOrderId(), "BATCH-EXISTING-RECEIPT").size());
     }
@@ -970,8 +999,8 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                     .setCompletionVersion(receipt.getCompletedVersion().longValue())
                     .setCompletionBackfillReceiptId(receiptId).setCompletionBackfillReceiptHash(receipt.getReceiptHash())
                     .setIdempotencyKey("completion-batch:" + receiptId);
-            Long batchId = batchExecutionService.openOrCreate(request).getId();
-            assertEquals(batchId, batchExecutionService.openOrCreate(request).getId());
+            Long batchId = openBatchFixture(request).getId();
+            assertEquals(batchId, openBatchFixture(request).getId());
             assertFalse(batches.contains(batchId));
             batches.add(batchId);
             // Tx-C is a separate after-commit boundary; its formal relation is the P3 input.
@@ -1013,8 +1042,8 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                 .setBatchCode("BATCH-EDHR-001")
                 .setRouteId(fixture.routeId());
 
-        EdhrBatchExecutionRespVO created = batchExecutionService.openOrCreate(reqVO);
-        EdhrBatchExecutionRespVO reopened = batchExecutionService.openOrCreate(reqVO);
+        EdhrBatchExecutionRespVO created = openBatchFixture(reqVO);
+        EdhrBatchExecutionRespVO reopened = openBatchFixture(reqVO);
 
         assertEquals(created.getId(), reopened.getId());
         assertEquals("BATCH-EDHR-001", created.getBatchCode());
@@ -1062,7 +1091,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                 .setCompletionBackfillReceiptId("8801").setCompletionBackfillReceiptHash("receipt-frozen")
                 .setIdempotencyKey("completion-batch-frozen");
 
-        EdhrBatchExecutionRespVO created = batchExecutionService.openOrCreate(request);
+        EdhrBatchExecutionRespVO created = openBatchFixture(request);
 
         assertEquals(frozen.getId(), created.getRouteVersionId());
         assertEquals(frozen.getRouteSnapshotJson(),
@@ -1115,7 +1144,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     @Test
     void batchOperationAuditShouldCarryActiveOrderSourceFromFormalOrigin() {
         Fixture fixture = insertRouteFixture(true, true);
-        EdhrBatchExecutionRespVO created = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO created = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode("BATCH-ACTIVE-ORDER-AUDIT")
                 .setRouteId(fixture.routeId()));
@@ -1173,7 +1202,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                 .setBlockedCount(0);
         batch.setCreateTime(createdAt);
         batch.setUpdateTime(createdAt);
-        batchExecutionMapper.insert(batch);
+        insertBatchFixture(batch);
         EdhrBatchExecutionPageReqVO pageReqVO = new EdhrBatchExecutionPageReqVO();
         pageReqVO.setBatchExecutionCode("EDHRB-TIME-CONTRACT");
 
@@ -1255,7 +1284,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                 .blockedCount(0)
                 .provisioningStatus("BATCH_PROVISIONING")
                 .build();
-        batchExecutionMapper.insert(legacyBatch);
+        insertBatchFixture(legacyBatch);
         String receiptId = "TEST-COMPLETION:" + workOrder.getId()
                 + "|BATCH-LEGACY-MISSING-PROCESS";
         provisioningRecords.put(legacyBatch.getId(), new MesProEdhrBatchProvisioningRecordDO()
@@ -1280,13 +1309,12 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                 .setIdempotencyKey("TEST-IDEMPOTENCY:TEST-ENTRY:BATCH-LEGACY-MISSING-PROCESS")
                 .setStatus("BATCH_PROVISIONING").setAttemptCount(1));
 
-        ServiceException missingCompletionTask = assertThrows(ServiceException.class,
-                () -> batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        IllegalStateException conflictingEntry = assertThrows(IllegalStateException.class,
+                () -> openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(workOrder.getId())
                 .setBatchCode("BATCH-LEGACY-MISSING-PROCESS")
                 .setRouteId(route.getId())));
-        assertEquals(cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants
-                .PRO_PROCESS_POOL_ACTIVE_ORDER_RELEASE_SOURCE_REQUIRED.getCode(), missingCompletionTask.getCode());
+        assertTrue(conflictingEntry.getMessage().contains("BATCH_PROVISIONING_IDEMPOTENCY_CONFLICT"));
         assertEquals(4, batchTaskMapper.selectListByBatchExecutionId(legacyBatch.getId()).size());
         verify(workTaskService, never()).createInitialFillTask(any());
         verify(completionSourceBackfillService, never()).materializeProvisioned(any(), any(), any());
@@ -1343,7 +1371,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                 .taskApprovedCount(0)
                 .blockedCount(0)
                 .build();
-        batchExecutionMapper.insert(legacyBatch);
+        insertBatchFixture(legacyBatch);
         insertLegacySpecialOnlyTasks(legacyBatch.getId());
 
         EdhrBatchExecutionRespVO detail = batchExecutionService.get(legacyBatch.getId());
@@ -1396,7 +1424,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                 .taskApprovedCount(0)
                 .blockedCount(0)
                 .build();
-        batchExecutionMapper.insert(legacyBatch);
+        insertBatchFixture(legacyBatch);
         insertLegacySpecialOnlyTasks(legacyBatch.getId());
         batchTaskMapper.insert(MesProEdhrBatchExecutionTaskDO.builder()
                 .batchExecutionId(legacyBatch.getId())
@@ -1485,7 +1513,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                 .taskApprovedCount(0)
                 .blockedCount(0)
                 .build();
-        batchExecutionMapper.insert(legacyBatch);
+        insertBatchFixture(legacyBatch);
         insertLegacySpecialOnlyTasks(legacyBatch.getId());
 
         PageResult<EdhrBatchExecutionRespVO> page = batchExecutionService.getPage(
@@ -1537,7 +1565,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                 .taskApprovedCount(0)
                 .blockedCount(0)
                 .build();
-        batchExecutionMapper.insert(legacyBatch);
+        insertBatchFixture(legacyBatch);
         insertLegacySpecialOnlyTasks(legacyBatch.getId());
 
         PageResult<EdhrBatchExecutionRespVO> page = batchExecutionService.getPage(
@@ -1583,7 +1611,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                 .taskApprovedCount(0)
                 .blockedCount(0)
                 .build();
-        batchExecutionMapper.insert(legacyBatch);
+        insertBatchFixture(legacyBatch);
         insertLegacySpecialOnlyTasks(legacyBatch.getId());
 
         PageResult<EdhrBatchExecutionRespVO> page = batchExecutionService.getPage(
@@ -1624,7 +1652,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                 .taskApprovedCount(0)
                 .blockedCount(0)
                 .build();
-        batchExecutionMapper.insert(legacyBatch);
+        insertBatchFixture(legacyBatch);
         insertLegacySpecialOnlyTasks(legacyBatch.getId());
 
         EdhrBatchExecutionRespVO detail = batchExecutionService.get(legacyBatch.getId());
@@ -1671,7 +1699,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                 .taskApprovedCount(0)
                 .blockedCount(0)
                 .build();
-        batchExecutionMapper.insert(legacyBatch);
+        insertBatchFixture(legacyBatch);
         insertLegacySpecialOnlyTasks(legacyBatch.getId());
 
         assertServiceException(() -> batchExecutionService.getReviewTimeline(legacyBatch.getId()),
@@ -1717,7 +1745,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                 .taskApprovedCount(0)
                 .blockedCount(0)
                 .build();
-        batchExecutionMapper.insert(legacyBatch);
+        insertBatchFixture(legacyBatch);
         insertLegacySpecialOnlyTasks(legacyBatch.getId());
         batchTaskMapper.insert(MesProEdhrBatchExecutionTaskDO.builder()
                 .batchExecutionId(legacyBatch.getId())
@@ -1789,7 +1817,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                 .taskApprovedCount(0)
                 .blockedCount(0)
                 .build();
-        batchExecutionMapper.insert(legacyBatch);
+        insertBatchFixture(legacyBatch);
         insertLegacySpecialOnlyTasks(legacyBatch.getId());
 
         PageResult<EdhrBatchExecutionRespVO> page = batchExecutionService.getPage(
@@ -1847,7 +1875,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                 .taskApprovedCount(0)
                 .blockedCount(0)
                 .build();
-        batchExecutionMapper.insert(legacyBatch);
+        insertBatchFixture(legacyBatch);
         insertLegacySpecialOnlyTasks(legacyBatch.getId());
 
         EdhrBatchExecutionRespVO detail = batchExecutionService.get(legacyBatch.getId());
@@ -1868,7 +1896,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     }
 
     @Test
-    void getDetail_shouldRecoverMissingRouteProcessTasksFromHistoricalDeletedRoute() {
+    void getDetail_shouldNotMutateTasksWhenHistoricalRouteIsDeleted() {
         Fixture fixture = insertRouteFixture(true, true);
         MesProWorkOrderDO workOrder = workOrderMapper.selectById(fixture.workOrderId());
         MesProRouteDO route = routeMapper.selectById(fixture.routeId());
@@ -1892,28 +1920,26 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                 .taskApprovedCount(0)
                 .blockedCount(0)
                 .build();
-        batchExecutionMapper.insert(legacyBatch);
+        insertBatchFixture(legacyBatch);
         insertLegacySpecialOnlyTasks(legacyBatch.getId());
         routeProcessMapper.deleteByRouteId(route.getId());
         routeMapper.deleteById(route.getId());
 
         EdhrBatchExecutionRespVO detail = batchExecutionService.get(legacyBatch.getId());
 
-        assertEquals(6, detail.getTaskTotal());
-        assertEquals(2, routeTasks(detail).size());
-        assertEquals("第一工序", routeTask(detail, 0).getProcessName());
-        assertEquals("第二工序", routeTask(detail, 1).getProcessName());
+        assertEquals(4, detail.getTaskTotal());
+        assertTrue(routeTasks(detail).isEmpty());
         List<MesProEdhrBatchExecutionTaskDO> persistedTasks =
                 batchTaskMapper.selectListByBatchExecutionId(legacyBatch.getId());
-        assertEquals(6, persistedTasks.size());
-        verify(workTaskService).createInitialFillTask(argThat(batch -> Objects.equals(batch.getId(), legacyBatch.getId())));
+        assertEquals(4, persistedTasks.size());
+        verify(workTaskService, never()).createInitialFillTask(any());
     }
 
     @Test
     void openOrCreate_freezesActiveRouteVersionOnBatchExecution() {
         Fixture fixture = insertRouteFixture(true, true);
 
-        EdhrBatchExecutionRespVO created = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO created = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode("BATCH-EDHR-ROUTE-VERSION")
                 .setRouteId(fixture.routeId()));
@@ -1985,6 +2011,9 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                         .setRouteId(fixture.routeId())
                         .setRouteVersionId(fixture.routeVersionId())
                         .setActiveContextKey("PQC_RELEASE:STATIC-012-REOPENED")
+                        .setActiveOrderId(8101L)
+                        .setCompletionBackfillReceiptId("TEST-PQC-RECEIPT")
+                        .setCompletionBackfillReceiptHash(DigestUtil.sha256Hex("TEST-PQC-RECEIPT"))
                         .setEntryType("ACTIVE_ORDER_PQC")
                         .setEntryBusinessId("912012"));
 
@@ -1995,9 +2024,8 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
         assertEquals(frozenRouteCode, persisted.getRouteCode());
         assertEquals(frozenRouteName, persisted.getRouteName());
         assertFalse(persisted.getRouteName().contains("V2"));
-        verify(completionSourceBackfillService, atLeastOnce()).materializeProvisioned(
-                argThat(batch -> Objects.equals(batchExecutionId, batch.getId())), any(),
-                argThat(source -> "ACTIVE_ORDER_PQC".equals(source.getEntryType())));
+        assertEquals("ACTIVE_ORDER_PQC", provisioningRecords.get(batchExecutionId).getEntryType());
+        verify(completionSourceBackfillService, never()).materializeProvisioned(any(), any(), any());
 
         batchExecutionMapper.updateById(new MesProEdhrBatchExecutionDO()
                 .setId(batchExecutionId)
@@ -2046,7 +2074,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
         assertTrue(routeFlowProcessConfigMapper.selectListByRouteIdAndUseType(route.getId(), "BATCH").isEmpty());
         assertNull(routeFlowConfigMapper.selectByRouteIdAndUseType(route.getId(), "BATCH"));
 
-        EdhrBatchExecutionRespVO created = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO created = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode("BATCH-EDHR-ACTIVE-SNAPSHOT")
                 .setRouteId(fixture.routeId()));
@@ -2124,7 +2152,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
             routeFlowConfigMapper.deleteById(liveFlowConfig.getId());
         }
 
-        EdhrBatchExecutionRespVO created = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO created = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode("BATCH-EDHR-LEGACY-FLAT-SNAPSHOT")
                 .setRouteId(fixture.routeId()));
@@ -2154,7 +2182,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                 .forEach(config -> routeFlowProcessConfigMapper.deleteById(config.getId()));
         assertTrue(routeFlowProcessConfigMapper.selectListByRouteIdAndUseType(route.getId(), "BATCH").isEmpty());
 
-        EdhrBatchExecutionRespVO created = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO created = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode("BATCH-EDHR-STALE-LIVE-CONFIG")
                 .setRouteId(fixture.routeId()));
@@ -2177,7 +2205,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                 .quantity(1)
                 .build());
 
-        EdhrBatchExecutionRespVO created = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO created = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode("BATCH-ROUTE-PRODUCT-001"));
 
@@ -2193,7 +2221,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
         route.setName("球囊扩张压力泵方案");
         routeMapper.updateById(route);
 
-        EdhrBatchExecutionRespVO created = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO created = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode("BATCH-ROUTE-NAME-DIFFERS-FROM-PRODUCT"));
 
@@ -2221,9 +2249,9 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                 .setTaskTotal(0)
                 .setTaskApprovedCount(0)
                 .setBlockedCount(0);
-        batchExecutionMapper.insert(voidedBatch);
+        insertBatchFixture(voidedBatch);
 
-        EdhrBatchExecutionRespVO recreated = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO recreated = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode(batchCode));
 
@@ -2238,7 +2266,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     void reexecuteRejectedBatch_createsNewAttemptAndKeepsOriginalRejected() {
         Fixture fixture = insertRouteFixture(true, true);
         String batchCode = "BATCH-REJECTED-REEXECUTE";
-        EdhrBatchExecutionRespVO original = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO original = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode(batchCode)
                 .setRouteId(fixture.routeId())
@@ -2330,7 +2358,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
         disabledFlowConfig.setEnabled(Boolean.FALSE);
         routeFlowConfigMapper.updateById(disabledFlowConfig);
 
-        EdhrBatchExecutionRespVO created = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO created = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode("BATCH-FLOW-ROUTE-001"));
 
@@ -2345,7 +2373,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
         MesProRouteDO otherRoute = insertExecutableRoute("其它项目路线", "RPT-OTHER");
 
         ServiceException exception = assertThrows(ServiceException.class,
-                () -> batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+                () -> openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                         .setWorkOrderId(fixture.workOrderId())
                         .setBatchCode("BATCH-EXPLICIT-OTHER-PROJECT-ROUTE")
                         .setRouteId(otherRoute.getId())));
@@ -2363,7 +2391,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
         disabledFlowConfig.setEnabled(Boolean.FALSE);
         routeFlowConfigMapper.updateById(disabledFlowConfig);
 
-        EdhrBatchExecutionRespVO created = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO created = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setRouteId(fixture.routeId())
                 .setBatchCode("BATCH-EXPLICIT-DISABLED-FLOW"));
@@ -2382,7 +2410,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                 .itemId(workOrder.getProductId())
                 .quantity(1)
                 .build());
-        EdhrBatchExecutionRespVO created = batchExecutionService.openOrCreate(
+        EdhrBatchExecutionRespVO created = openBatchFixture(
                 new EdhrBatchExecutionOpenOrCreateReqVO()
                         .setWorkOrderId(fixture.workOrderId())
                         .setRouteId(fixture.routeId())
@@ -2392,7 +2420,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
         disabledFlowConfig.setEnabled(Boolean.FALSE);
         routeFlowConfigMapper.updateById(disabledFlowConfig);
 
-        EdhrBatchExecutionRespVO reopened = batchExecutionService.openOrCreate(
+        EdhrBatchExecutionRespVO reopened = openBatchFixture(
                 new EdhrBatchExecutionOpenOrCreateReqVO()
                         .setWorkOrderId(fixture.workOrderId())
                         .setBatchCode("BATCH-EXISTING-DISABLED-FLOW"));
@@ -2406,7 +2434,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
         Fixture fixture = insertRouteFixture(true, false);
         replaceEnabledProcessConfigWithoutMovingBinding(fixture.routeId());
 
-        EdhrBatchExecutionRespVO created = batchExecutionService.openOrCreate(
+        EdhrBatchExecutionRespVO created = openBatchFixture(
                 new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setRouteId(fixture.routeId())
@@ -2426,7 +2454,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                 .build());
         replaceEnabledProcessConfigWithoutMovingBinding(fixture.routeId());
 
-        EdhrBatchExecutionRespVO created = batchExecutionService.openOrCreate(
+        EdhrBatchExecutionRespVO created = openBatchFixture(
                 new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode("BATCH-IMPLICIT-STALE-BINDING"));
@@ -2441,7 +2469,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
         route.setStatus(CommonStatusEnum.DISABLE.getStatus());
         routeMapper.updateById(route);
 
-        assertServiceException(() -> batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        assertServiceException(() -> openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setRouteId(fixture.routeId())
                 .setBatchCode("BATCH-EXPLICIT-DISABLED-ROUTE")),
@@ -2469,7 +2497,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                 .quantity(1)
                 .build());
 
-        EdhrBatchExecutionRespVO created = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO created = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode("BATCH-ENABLED-PRODUCT-ROUTE"));
 
@@ -2481,7 +2509,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     @Test
     void getPage_includesCurrentExecutableProcessNameWithoutUsingBatchCode() {
         Fixture fixture = insertRouteFixture(true, true);
-        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO batch = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode("BATCH-CURRENT-PROCESS")
                 .setRouteId(fixture.routeId()));
@@ -2523,7 +2551,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     @Test
     void getPage_doesNotSynchronizeTaskStatusOrMutateBatchData() {
         Fixture fixture = insertRouteFixture(true, true);
-        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO batch = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode("BATCH-READ-ONLY")
                 .setRouteId(fixture.routeId()));
@@ -2564,7 +2592,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     @Test
     void getPage_includesCurrentProcessProductionEquipmentQualityFillers() {
         Fixture fixture = insertRouteFixture(true, true);
-        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO batch = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode("BATCH-CURRENT-FILLERS")
                 .setRouteId(fixture.routeId()));
@@ -2767,7 +2795,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                 149L, adminUser(149L, "黎敏", CommonStatusEnum.ENABLE.getStatus()),
                 10001L, adminUser(10001L, "附件负责人", CommonStatusEnum.ENABLE.getStatus())));
 
-        EdhrBatchExecutionRespVO created = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO created = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode("BATCH-LATEST-APPROVED-FILLER")
                 .setRouteId(fixture.routeId()));
@@ -2842,7 +2870,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                 .taskApprovedCount(0)
                 .blockedCount(0)
                 .build();
-        batchExecutionMapper.insert(legacyBatch);
+        insertBatchFixture(legacyBatch);
         insertLegacySpecialOnlyTasks(legacyBatch.getId());
 
         EdhrBatchExecutionRespVO detail = batchExecutionService.get(legacyBatch.getId());
@@ -2914,7 +2942,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                 .taskApprovedCount(0)
                 .blockedCount(0)
                 .build();
-        batchExecutionMapper.insert(legacyBatch);
+        insertBatchFixture(legacyBatch);
         insertLegacySpecialOnlyTasks(legacyBatch.getId());
         batchTaskMapper.insert(MesProEdhrBatchExecutionTaskDO.builder()
                 .batchExecutionId(legacyBatch.getId())
@@ -2964,7 +2992,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     void openOrCreate_mustGenerateSpecialNoTemplateNodesAroundRouteForms() {
         Fixture fixture = insertRouteFixture(true, true);
 
-        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO batch = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode("BATCH-SPECIAL-NODES")
                 .setRouteId(fixture.routeId()));
@@ -3159,7 +3187,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     @Test
     void requiredRouteForm_skipMustStillFailFast() {
         Fixture fixture = insertRouteFixture(true, false);
-        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO batch = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode("BATCH-REQUIRED-ROUTE-SKIP")
                 .setRouteId(fixture.routeId()));
@@ -3182,7 +3210,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     @Test
     void productionReleaseReportNodesRejectLegacySkipCompleteDeleteAndSavePendingActions() {
         Fixture fixture = insertRouteFixture(true, true);
-        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(
+        EdhrBatchExecutionRespVO batch = openBatchFixture(
                 new EdhrBatchExecutionOpenOrCreateReqVO()
                         .setWorkOrderId(fixture.workOrderId())
                         .setBatchCode("BATCH-RELEASE-REPORT-LOCKED")
@@ -3227,7 +3255,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     @Test
     void productionReleaseReportPrepareUploadReplaysSameKeyAndRejectsChangedPayload() {
         Fixture fixture = insertRouteFixture(true, true);
-        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(
+        EdhrBatchExecutionRespVO batch = openBatchFixture(
                 new EdhrBatchExecutionOpenOrCreateReqVO()
                         .setWorkOrderId(fixture.workOrderId())
                         .setBatchCode("BATCH-RELEASE-REPORT-PREPARE")
@@ -3297,7 +3325,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     @Test
     void productionReleaseReportPrepareRejectsFrozenBatchBeforeFileStorage() {
         Fixture fixture = insertRouteFixture(true, true);
-        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(
+        EdhrBatchExecutionRespVO batch = openBatchFixture(
                 new EdhrBatchExecutionOpenOrCreateReqVO()
                         .setWorkOrderId(fixture.workOrderId())
                         .setBatchCode("BATCH-RELEASE-REPORT-FROZEN")
@@ -3344,7 +3372,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     @Test
     void productionReleaseReportCompletionRejectsFrozenBatchBeforeFileMetadataReadEvenForGoldenFinger() {
         Fixture fixture = insertRouteFixture(true, true);
-        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(
+        EdhrBatchExecutionRespVO batch = openBatchFixture(
                 new EdhrBatchExecutionOpenOrCreateReqVO()
                         .setWorkOrderId(fixture.workOrderId())
                         .setBatchCode("BATCH-RELEASE-REPORT-FROZEN-COMPLETE")
@@ -3399,7 +3427,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     @Test
     void savePendingSpecialNodeAttachmentsRejectsFrozenBatchBeforeBookingPendingFiles() {
         Fixture fixture = insertRouteFixture(true, true);
-        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO batch = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode("BATCH-SPECIAL-SAVE-FROZEN")
                 .setRouteId(fixture.routeId()));
@@ -3468,7 +3496,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     @Test
     void specialNodeSkip_requiresReasonAndPasswordAndRecordsSignature() {
         Fixture fixture = insertRouteFixture(true, true);
-        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO batch = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode("BATCH-SPECIAL-SKIP-AUDIT")
                 .setRouteId(fixture.routeId()));
@@ -3522,7 +3550,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     @Test
     void specialNodeWriteApis_requireConfiguredAttachmentOwnerInsteadOfCloseOwner() {
         Fixture fixture = insertRouteFixture(true, true);
-        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO batch = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode("BATCH-SPECIAL-ATTACHMENT-OWNER")
                 .setRouteId(fixture.routeId()));
@@ -3610,7 +3638,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     @Test
     void prepareSpecialNodeAttachmentUpload_returnsTaskScopedMetadata() {
         Fixture fixture = insertRouteFixture(true, true);
-        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO batch = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode("BATCH-SPECIAL-UPLOAD")
                 .setRouteId(fixture.routeId()));
@@ -3657,7 +3685,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     @Test
     void prepareSpecialNodeAttachmentUpload_persistsPendingAttachmentForReload() {
         Fixture fixture = insertRouteFixture(true, true);
-        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO batch = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode("BATCH-SPECIAL-UPLOAD-RELOAD")
                 .setRouteId(fixture.routeId()));
@@ -3706,7 +3734,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     @Test
     void prepareSpecialNodeAttachmentUpload_allowsApprovedSpecialNodeBeforeRelease() {
         Fixture fixture = insertRouteFixture(true, true);
-        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO batch = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode("BATCH-SPECIAL-UPLOAD-APPROVED")
                 .setRouteId(fixture.routeId()));
@@ -3750,7 +3778,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     @Test
     void prepareSpecialNodeAttachmentUpload_allowsClosedBatchBeforeRelease() {
         Fixture fixture = insertRouteFixture(true, true);
-        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO batch = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode("BATCH-SPECIAL-UPLOAD-CLOSED-BEFORE-RELEASE")
                 .setRouteId(fixture.routeId()));
@@ -3797,7 +3825,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     @Test
     void savePendingSpecialNodeAttachments_booksAllPendingAttachmentsBeforeRelease() {
         Fixture fixture = insertRouteFixture(true, true);
-        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO batch = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode("BATCH-SPECIAL-UPLOAD-SAVE-PENDING")
                 .setRouteId(fixture.routeId()));
@@ -3884,7 +3912,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     @Test
     void completeSpecialNode_persistsAttachmentsAndArchiveManifestContainsSpecialEvidence() {
         Fixture fixture = insertRouteFixture(true, true);
-        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO batch = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode("BATCH-SPECIAL-ARCHIVE")
                 .setRouteId(fixture.routeId()));
@@ -3962,7 +3990,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     void openOrCreate_skipsUnconfiguredRouteProcess() {
         Fixture fixture = insertRouteFixture(true, false);
 
-        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO batch = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode("BATCH-OPTIONAL")
                 .setRouteId(fixture.routeId()));
@@ -3984,7 +4012,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                 .orElseThrow();
         insertBatchUseConfig(fixture.routeId(), secondRouteProcess.getId(), "SEQUENTIAL");
 
-        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO batch = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode("BATCH-ENABLED-WITHOUT-REPORT")
                 .setRouteId(fixture.routeId()));
@@ -3997,7 +4025,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     @Test
     void openTask_rejectsTaskIdThatWasNotGeneratedForUnconfiguredRouteProcess() {
         Fixture fixture = insertRouteFixture(true, false);
-        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO batch = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode("BATCH-OPTIONAL-OPEN")
                 .setRouteId(fixture.routeId()));
@@ -4012,7 +4040,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     @Test
     void openTask_rollsBackNewExecutionAndTaskBindingWhenFormalSourceBackfillFails() {
         Fixture fixture = insertRouteFixture(true, true);
-        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO batch = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId()).setBatchCode("BATCH-SOURCE-ROLLBACK")
                 .setRouteId(fixture.routeId()));
         skipAllSpecialNodes(batch);
@@ -4048,7 +4076,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     @Test
     void openTask_bindsExistingSingleExecutionContext() {
         Fixture fixture = insertRouteFixture(true, true);
-        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO batch = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode("BATCH-OPEN-TASK")
                 .setRouteId(fixture.routeId()));
@@ -4101,7 +4129,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     @Test
     void openTask_exposesOnlyCurrentUsersAssistRowsFromFrozenResponsibilityScope() {
         Fixture fixture = insertRouteFixture(true, true);
-        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO batch = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode("BATCH-OPEN-ASSIST-ROWS")
                 .setRouteId(fixture.routeId()));
@@ -4182,7 +4210,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     @Test
     void openTask_exposesAssistRowsWhenAllRangeScopeCoversSnapshotSourceTable() {
         Fixture fixture = insertRouteFixture(true, true);
-        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO batch = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode("BATCH-OPEN-ALL-RANGE-ASSIST-ROWS")
                 .setRouteId(fixture.routeId()));
@@ -4257,7 +4285,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
         routeFlowProcessBatchRecordMapper.updateById(binding);
         refreshActiveRouteVersionSnapshot(fixture.routeId());
 
-        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO batch = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode("BATCH-RECORDBOOK-DISABLED")
                 .setRouteId(fixture.routeId()));
@@ -4288,7 +4316,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     @Test
     void openTask_pendingVoidRequest_rejectsNormalFillAction() {
         Fixture fixture = insertRouteFixture(true, true);
-        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO batch = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode("BATCH-OPEN-PENDING-VOID")
                 .setRouteId(fixture.routeId()));
@@ -4336,7 +4364,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                 null);
         secondBinding.setSlotConfigSnapshotHash(null);
         routeFlowProcessBatchRecordMapper.updateById(secondBinding);
-        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO batch = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode("BATCH-OPEN-LEGACY-BINDING")
                 .setRouteId(fixture.routeId()));
@@ -4389,7 +4417,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                 .taskApprovedCount(0)
                 .blockedCount(0)
                 .build();
-        batchExecutionMapper.insert(legacyBatch);
+        insertBatchFixture(legacyBatch);
         Long executionId = 9032L;
         MesProEdhrBatchExecutionTaskDO legacyTask = MesProEdhrBatchExecutionTaskDO.builder()
                 .batchExecutionId(legacyBatch.getId())
@@ -4470,7 +4498,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     @Test
     void openTask_routeFormFillTaskDoesNotRequirePreviousSpecialNodeCompletion() {
         Fixture fixture = insertRouteFixture(true, true);
-        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO batch = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode("BATCH-OPEN-SPECIAL-NODE-STILL-PENDING")
                 .setRouteId(fixture.routeId()));
@@ -4506,7 +4534,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     @Test
     void openTask_rejectsUnrelatedUserWhenActiveFillWorkTaskExists() {
         Fixture fixture = insertRouteFixture(true, true);
-        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO batch = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode("BATCH-OPEN-FILLER-ONLY")
                 .setRouteId(fixture.routeId()));
@@ -4528,7 +4556,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     @Test
     void openTask_rejectsMismatchedWorkTaskContextForActiveFillTask() {
         Fixture fixture = insertRouteFixture(true, true);
-        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO batch = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode("BATCH-OPEN-WORK-TASK-MISMATCH")
                 .setRouteId(fixture.routeId()));
@@ -4550,7 +4578,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     @Test
     void openTask_allowsCandidateUserWhenActiveFillWorkTaskExists() {
         Fixture fixture = insertRouteFixture(true, true);
-        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO batch = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode("BATCH-OPEN-FILL-CANDIDATE")
                 .setRouteId(fixture.routeId()));
@@ -4598,7 +4626,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
         when(adminUserApi.getUserMap(any())).thenReturn(Map.of(
                 0L, adminUser(0L, "特殊节点负责人", CommonStatusEnum.ENABLE.getStatus()),
                 10001L, mainFiller));
-        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO batch = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode("BATCH-OPEN-ASSIST-EXTRA")
                 .setRouteId(fixture.routeId()));
@@ -4650,7 +4678,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
         when(adminUserApi.getUserMap(any())).thenReturn(Map.of(
                 0L, adminUser(0L, "特殊节点负责人", CommonStatusEnum.ENABLE.getStatus()),
                 10001L, mainFiller));
-        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO batch = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode("BATCH-VIEW-ASSIST-EXTRA")
                 .setRouteId(fixture.routeId()));
@@ -4700,7 +4728,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                 batchSlot(mainReport, "MAIN", null, null, null, 1),
                 batchSlot(lossReport, "LOSS_REPORT", "INTERNAL_RECORD", 5011L, "PRODUCTION", 2)
         ));
-        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO batch = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode("BATCH-OPEN-ASSIST-NO-ANCHOR")
                 .setRouteId(fixture.routeId()));
@@ -4723,7 +4751,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     @Test
     void openTask_existingExecution_rebindsOverdueFillTask() {
         Fixture fixture = insertRouteFixture(true, true);
-        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO batch = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode("BATCH-OPEN-OVERDUE-REBIND")
                 .setRouteId(fixture.routeId()));
@@ -4750,7 +4778,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     @Test
     void openTask_rejectsAlreadyApprovedRouteTask() {
         Fixture fixture = insertRouteFixture(true, true);
-        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO batch = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode("BATCH-OPEN-APPROVED-REJECT")
                 .setRouteId(fixture.routeId()));
@@ -4770,7 +4798,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     @Test
     void openTask_allowsApprovedOrdinaryFillCompletedBeforeReleaseForHistoricalFiller() {
         Fixture fixture = insertRouteFixture(true, true);
-        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO batch = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode("BATCH-OPEN-APPROVED-PRE-RELEASE")
                 .setRouteId(fixture.routeId()));
@@ -4817,7 +4845,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
         stubFormCenterInstanceIds(84001L);
         insertBatchProcessFormCenterBinding(fixture.routeId(), routeProcess.getId(), templateVersion,
                 "FB_APPROVED_DYNAMIC_LOSS");
-        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO batch = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode("BATCH-OPEN-APPROVED-DYNAMIC")
                 .setRouteId(fixture.routeId()));
@@ -4855,7 +4883,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
         stubFormCenterInstanceIds(85001L);
         insertBatchProcessFormCenterBinding(fixture.routeId(), routeProcess.getId(), templateVersion,
                 "FB_DYNAMIC_LOSS_PREFILL");
-        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO batch = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode("BATCH-DYNAMIC-OPEN-PREFILL")
                 .setRouteId(fixture.routeId()));
@@ -4902,7 +4930,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
         insertBatchFormCenterBinding(fixture.routeId(), routeProcess.getId(), templateVersion,
                 "FB_DYNAMIC_LOSS_ASSIST", "PROCESS", null,
                 "{\"cells\":[{\"sourceTableIndex\":0,\"rowIndex\":3,\"columnIndex\":1}]}");
-        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO batch = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode("BATCH-DYNAMIC-LOSS-ASSIST")
                 .setRouteId(fixture.routeId()));
@@ -4951,7 +4979,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
         stubFormCenterInstanceIds(85001L);
         insertBatchProcessFormCenterBinding(fixture.routeId(), routeProcess.getId(), templateVersion,
                 "FB_DYNAMIC_PREVIEW");
-        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO batch = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode("BATCH-DYNAMIC-PREVIEW")
                 .setRouteId(fixture.routeId()));
@@ -4999,7 +5027,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
         stubFormCenterInstanceIds(85003L);
         insertBatchProcessFormCenterBinding(fixture.routeId(), routeProcess.getId(), templateVersion,
                 "FB_DYNAMIC_SIGNATURE_RULE_ONLY");
-        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO batch = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode("BATCH-DYNAMIC-SIGNATURE-RULE-ONLY")
                 .setRouteId(fixture.routeId()));
@@ -5029,7 +5057,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     @Test
     void ordinaryAttachmentOwnerCanCompleteWhileManagerReleaseIsPending() {
         Fixture fixture = insertRouteFixture(true, true);
-        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO batch = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId()).setBatchCode("FLOW17-MANAGER-PENDING")
                 .setRouteId(fixture.routeId()));
         EdhrBatchExecutionTaskRespVO node = batch.getTasks().stream()
@@ -5057,7 +5085,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     @org.junit.jupiter.params.provider.ValueSource(ints = {15, 30, 40, 50, 60})
     void ordinaryAttachmentCompletionStillRejectsFrozenOrTerminalBatch(int batchStatus) {
         Fixture fixture = insertRouteFixture(true, true);
-        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO batch = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId()).setBatchCode("FLOW17-TERMINAL")
                 .setRouteId(fixture.routeId()));
         EdhrBatchExecutionTaskRespVO node = batch.getTasks().stream()
@@ -5077,7 +5105,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     @Test
     void ordinaryAttachmentCompletionStillRejectsPendingVoidDuringReleaseApproval() {
         Fixture fixture = insertRouteFixture(true, true);
-        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO batch = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId()).setBatchCode("FLOW17-PENDING-VOID")
                 .setRouteId(fixture.routeId()));
         EdhrBatchExecutionTaskRespVO node = batch.getTasks().stream()
@@ -5136,7 +5164,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
         stubFormCenterInstanceIds(85002L);
         insertBatchProcessFormCenterBinding(fixture.routeId(), routeProcess.getId(), templateVersion,
                 "FB_DYNAMIC_RECOGNIZED_PREVIEW");
-        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO batch = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode("BATCH-DYNAMIC-RECOGNIZED-PREVIEW")
                 .setRouteId(fixture.routeId()));
@@ -5246,7 +5274,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
 
     private PreviewDraftFixture insertPreviewDraftFixture(int status) {
         Fixture fixture = insertRouteFixture(true, false);
-        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO batch = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId()).setBatchCode("BATCH-DRAFT-API-PREVIEW")
                 .setRouteId(fixture.routeId()));
         EdhrBatchExecutionTaskRespVO task = routeTasks(batch).get(0);
@@ -5270,7 +5298,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     @Test
     void previewTask_exposesConfigurationMissingAsReadonlyEvidenceWithoutCreatingExecution() {
         Fixture fixture = insertRouteFixture(true, false);
-        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO batch = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId()).setBatchCode("BATCH-SOURCE-PREVIEW")
                 .setRouteId(fixture.routeId()));
         EdhrBatchExecutionTaskRespVO batchTask = routeTasks(batch).get(0);
@@ -5293,7 +5321,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     @Test
     void previewTask_returnsUnopenedBatchRecordWithExecutionSnapshotAssistRows() {
         Fixture fixture = insertRouteFixture(true, false);
-        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO batch = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode("BATCH-PREVIEW-ASSIST")
                 .setRouteId(fixture.routeId()));
@@ -5336,7 +5364,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     @Test
     void openTask_pendingReleaseAllowsApprovedOrdinaryFillCompletedBeforeClose() {
         Fixture fixture = insertRouteFixture(true, true);
-        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO batch = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode("BATCH-OPEN-APPROVED-RELEASE-LOCK")
                 .setRouteId(fixture.routeId()));
@@ -5378,7 +5406,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     @Test
     void openTask_goldenFingerBypassesPendingReleaseLockForSubmittedOrdinaryForm() {
         Fixture fixture = insertRouteFixture(true, true);
-        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO batch = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode("BATCH-OPEN-GF-RELEASE-LOCK")
                 .setRouteId(fixture.routeId()));
@@ -5415,7 +5443,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     @Test
     void openTask_rejectsClosedBatch() {
         Fixture fixture = insertRouteFixture(true, true);
-        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO batch = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode("BATCH-OPEN-CLOSED-REJECT")
                 .setRouteId(fixture.routeId()));
@@ -5433,7 +5461,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     @Test
     void openTask_withoutProductionTaskContext_stillOpensBatchRecordWithoutScheduleReference() {
         Fixture fixture = insertRouteFixture(true, true);
-        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO batch = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode("BATCH-NO-TASK-CONTEXT")
                 .setRouteId(fixture.routeId()));
@@ -5459,7 +5487,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     @Test
     void openTask_ignoresSingleWorkOrderProductionTaskWhenOpeningBatchRecord() {
         Fixture fixture = insertRouteFixture(true, true);
-        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO batch = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode("BATCH-SINGLE-TASK-CONTEXT")
                 .setRouteId(fixture.routeId()));
@@ -5492,7 +5520,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
         String reportB = insertReport("RPT-10-B", "表1-B");
         insertBatchUseConfig(fixture.routeId(), routeProcess.getId(), "SEQUENTIAL", reportA, reportB);
 
-        EdhrBatchExecutionRespVO created = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO created = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode("BATCH-MULTI-REPORT")
                 .setRouteId(fixture.routeId()));
@@ -5567,7 +5595,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                 .build());
         refreshActiveRouteVersionSnapshot(fixture.routeId());
 
-        EdhrBatchExecutionRespVO created = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO created = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode("BATCH-DYNAMIC-FORM")
                 .setRouteId(fixture.routeId()));
@@ -5631,7 +5659,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
         when(singleExecutionService.openOrCreateByContext(any()))
                 .thenReturn(new MesProBatchRecordExecutionOpenOrCreateByContextRespVO().setId(9511L).setStatus(0));
 
-        EdhrBatchExecutionRespVO created = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO created = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode("BATCH-FROZEN-FORM-BINDINGS")
                 .setRouteId(fixture.routeId()));
@@ -5678,7 +5706,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
         routeFlowProcessBatchRecordMapper.updateById(binding);
         refreshActiveRouteVersionSnapshot(fixture.routeId());
 
-        EdhrBatchExecutionRespVO created = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO created = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode("BATCH-VERSIONED-TASK")
                 .setRouteId(fixture.routeId()));
@@ -5720,7 +5748,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                 .set(MesProRouteFlowProcessBatchRecordDO::getLastPublishedTemplateVersionNo, null));
         refreshActiveRouteVersionSnapshot(fixture.routeId());
 
-        EdhrBatchExecutionRespVO created = batchExecutionService.openOrCreate(
+        EdhrBatchExecutionRespVO created = openBatchFixture(
                 new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode("BATCH-NULL-BINDING-IDENTITY")
@@ -5743,7 +5771,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                 "BATCH_RECORD", "CONTROLLED_BATCH", 5001L,
                 "3333333333333333333333333333333333333333333333333333333333333333");
 
-        assertServiceException(() -> batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        assertServiceException(() -> openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                         .setWorkOrderId(fixture.workOrderId())
                         .setBatchCode("BATCH-LEGACY-NO-STABLE")
                         .setRouteId(fixture.routeId())),
@@ -5760,7 +5788,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                 "INTERNAL_RECORD", "INTERNAL_TRACE", 5001L,
                 "1111111111111111111111111111111111111111111111111111111111111111");
 
-        EdhrBatchExecutionRespVO created = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO created = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode("BATCH-INTERNAL-TRACE")
                 .setRouteId(fixture.routeId()));
@@ -5840,7 +5868,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                 "BATCH_RECORD", "CONTROLLED_BATCH", 5001L,
                 "2222222222222222222222222222222222222222222222222222222222222222");
 
-        assertServiceException(() -> batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        assertServiceException(() -> openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                         .setWorkOrderId(fixture.workOrderId())
                         .setBatchCode("BATCH-INVALID-ROUTE-BINDING")
                         .setRouteId(fixture.routeId())),
@@ -5866,7 +5894,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
         secondBinding.setSlotConfigSnapshotHash(null);
         routeFlowProcessBatchRecordMapper.updateById(secondBinding);
 
-        EdhrBatchExecutionRespVO created = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO created = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode("BATCH-LEGACY-BINDING")
                 .setRouteId(fixture.routeId()));
@@ -5929,7 +5957,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                 insertReport("RPT-MULTI-MERGE", "汇合表单"));
         refreshRouteVersionSnapshot(fixture.routeVersionId(), routeMapper.selectById(fixture.routeId()));
 
-        EdhrBatchExecutionRespVO created = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO created = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode("BATCH-MULTI-START-MERGE")
                 .setRouteId(fixture.routeId()));
@@ -6012,7 +6040,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                 .routeSnapshotJson(staleRouteSnapshotJson)
                 .build());
 
-        EdhrBatchExecutionRespVO created = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO created = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode("BATCH-CURRENT-GRAPH-MULTI-START")
                 .setRouteId(fixture.routeId()));
@@ -6055,7 +6083,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
         insertBatchUseConfig(fixture.routeId(), firstProcess.getId(), "SEQUENTIAL", reportA, reportB);
         insertBatchUseConfig(fixture.routeId(), secondProcess.getId(), "PARALLEL", reportC);
 
-        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO batch = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode("BATCH-GATE")
                 .setRouteId(fixture.routeId()));
@@ -6118,7 +6146,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                 batchSlot(nextReport, "MAIN", null, null, null, 1)
         ));
 
-        EdhrBatchExecutionRespVO created = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO created = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode("BATCH-COMPANION-GATE")
                 .setRouteId(fixture.routeId()));
@@ -6187,7 +6215,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                 batchSlot(processReport, "MAIN", null, null, null, 1)
         ));
 
-        EdhrBatchExecutionRespVO created = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO created = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode("BATCH-PRODUCT-INFO-MEMBER")
                 .setRouteId(fixture.routeId()));
@@ -6238,7 +6266,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                 batchSlot(nextReport, "MAIN", null, null, null, 1)
         ));
 
-        EdhrBatchExecutionRespVO created = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO created = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode("BATCH-COMPANION-PARALLEL")
                 .setRouteId(fixture.routeId()));
@@ -6264,7 +6292,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                         "PROCESS", null, null)
         ));
 
-        assertServiceException(() -> batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        assertServiceException(() -> openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                         .setWorkOrderId(fixture.workOrderId())
                         .setBatchCode("BATCH-COMPANION-BAD-CONFIG")
                         .setRouteId(fixture.routeId())),
@@ -6282,7 +6310,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                 sharedBatchSlot(sharedInspection, "PROCESS_INSPECTION", "IPQC_MISSING_SCOPE", " ", 2)
         ));
 
-        assertServiceException(() -> batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        assertServiceException(() -> openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                         .setWorkOrderId(fixture.workOrderId())
                         .setBatchCode("BATCH-SHARED-MISSING-SCOPE")
                         .setRouteId(fixture.routeId())),
@@ -6304,7 +6332,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
         insertBatchSharedFormCenterBinding(fixture.routeId(), secondProcess.getId(), sharedTemplate,
                 "FB_SHARED_MAIN_B", "MAIN_SHARED_TEMPLATE", "{\"ranges\":[{\"sourceTableIndex\":0,\"startRow\":2,\"endRow\":3}]}");
 
-        EdhrBatchExecutionRespVO created = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO created = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode("BATCH-SHARED-FORM-CENTER-BINDINGS")
                 .setRouteId(fixture.routeId()));
@@ -6340,7 +6368,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
         insertBatchProcessFormCenterBinding(fixture.routeId(), firstProcess.getId(), template, "FB_PROCESS_A");
         insertBatchProcessFormCenterBinding(fixture.routeId(), secondProcess.getId(), template, "FB_PROCESS_B");
 
-        EdhrBatchExecutionRespVO created = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO created = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode("BATCH-PROCESS-FORM-CENTER-BINDINGS")
                 .setRouteId(fixture.routeId()));
@@ -6378,7 +6406,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
         when(singleExecutionService.openOrCreateByContext(any()))
                 .thenReturn(new MesProBatchRecordExecutionOpenOrCreateByContextRespVO().setId(9311L).setStatus(0));
 
-        EdhrBatchExecutionRespVO created = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO created = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode("BATCH-SHARED-IPQC")
                 .setRouteId(fixture.routeId()));
@@ -6407,7 +6435,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     void openOrCreate_withoutBatchSharedSlotsCreatesNoSharedTasks() {
         Fixture fixture = insertRouteFixture(true, true);
 
-        EdhrBatchExecutionRespVO created = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO created = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode("BATCH-NO-SHARED-FORMS")
                 .setRouteId(fixture.routeId()));
@@ -6444,7 +6472,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
         when(singleExecutionService.openOrCreateByContext(any()))
                 .thenReturn(new MesProBatchRecordExecutionOpenOrCreateByContextRespVO().setId(9411L).setStatus(0));
 
-        EdhrBatchExecutionRespVO created = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO created = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode("BATCH-OPTIONAL-SHARED-COUNT")
                 .setRouteId(fixture.routeId()));
@@ -6475,7 +6503,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
         when(singleExecutionService.openOrCreateByContext(any()))
                 .thenReturn(new MesProBatchRecordExecutionOpenOrCreateByContextRespVO().setId(9431L).setStatus(0));
 
-        EdhrBatchExecutionRespVO created = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO created = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode("BATCH-HISTORICAL-DEFAULTS")
                 .setRouteId(fixture.routeId()));
@@ -6504,7 +6532,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
         ));
         when(singleExecutionService.openOrCreateByContext(any()))
                 .thenReturn(new MesProBatchRecordExecutionOpenOrCreateByContextRespVO().setId(9421L).setStatus(0));
-        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO batch = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode("BATCH-OPTIONAL-SHARED-SKIP")
                 .setRouteId(fixture.routeId()));
@@ -6584,7 +6612,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                         .setBatchRecordDefinitionId(932101L)
                         .setBatchRecordVersionId(932102L)
                         .setStatus(0));
-        EdhrBatchExecutionRespVO created = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO created = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode("BATCH-SHARED-LOSS-LAZY")
                 .setRouteId(fixture.routeId()));
@@ -6637,7 +6665,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                 "FB_EFFECTIVE_SHARED_B", "EFFECTIVE_LOSS_SHARED",
                 "{\"ranges\":[{\"sourceTableIndex\":0,\"startRow\":2,\"endRow\":3}]}");
 
-        EdhrBatchExecutionRespVO created = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO created = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode("BATCH-SHARED-EFFECTIVE-OPEN")
                 .setRouteId(fixture.routeId()));
@@ -6684,7 +6712,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     @Test
     void get_returnsRoleSpecificActionsForActiveWorkTasks() {
         Fixture fixture = insertRouteFixture(true, true);
-        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO batch = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode("BATCH-ROLE-ACTIONS")
                 .setRouteId(fixture.routeId()));
@@ -6742,7 +6770,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     @Test
     void get_returnsAttachmentOwnerActionsForPendingSpecialNodes() {
         Fixture fixture = insertRouteFixture(true, true);
-        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO batch = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode("BATCH-SPECIAL-ATTACHMENT-OWNER-ACTIONS")
                 .setRouteId(fixture.routeId()));
@@ -6788,7 +6816,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     @Test
     void get_pendingVoidChange_locksNormalTaskActionsAndOnlyAllowsWithdraw() {
         Fixture fixture = insertRouteFixture(true, false);
-        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO batch = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode("BATCH-PENDING-VOID-LOCK")
                 .setRouteId(fixture.routeId()));
@@ -6830,7 +6858,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     @Test
     void get_releasePendingApproval_locksNormalTaskActions() {
         Fixture fixture = insertRouteFixture(true, false);
-        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO batch = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode("BATCH-PENDING-RELEASE-LOCK")
                 .setRouteId(fixture.routeId()));
@@ -6864,7 +6892,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     @Test
     void releasePendingApproval_blocksArchiveAndQualityReject() {
         Fixture fixture = insertRouteFixture(true, true);
-        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO batch = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode("BATCH-PENDING-RELEASE-ACTION-LOCK")
                 .setRouteId(fixture.routeId()));
@@ -6907,7 +6935,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     @Test
     void pendingVoidRequest_blocksArchiveAndQualityReject() {
         Fixture fixture = insertRouteFixture(true, true);
-        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO batch = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode("BATCH-PENDING-VOID-ACTION-LOCK")
                 .setRouteId(fixture.routeId()));
@@ -6954,7 +6982,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     @Test
     void get_voidedBatchExecutionTerminalStateClearsNormalTaskActions() {
         Fixture fixture = insertRouteFixture(true, false);
-        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO batch = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode("BATCH-VOIDED-TERMINAL-LOCK")
                 .setRouteId(fixture.routeId()));
@@ -6985,7 +7013,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     @Test
     void qualityReject_beforeReleasePrecheckStage_rejected() {
         Fixture fixture = insertRouteFixture(true, true);
-        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO batch = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode("BATCH-QUALITY-REJECT-BEFORE-PRECHECK")
                 .setRouteId(fixture.routeId()));
@@ -7000,7 +7028,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     @Test
     void qualityReject_unarchivedBatch_marksRejectedSignsAndCancelsActiveTasks() {
         Fixture fixture = insertRouteFixture(true, true);
-        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO batch = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode("BATCH-QUALITY-REJECT")
                 .setRouteId(fixture.routeId()));
@@ -7040,7 +7068,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     @Test
     void qualityReject_archivedBatch_rejected() {
         Fixture fixture = insertRouteFixture(true, true);
-        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO batch = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode("BATCH-QUALITY-ARCHIVED")
                 .setRouteId(fixture.routeId()));
@@ -7058,7 +7086,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     @Test
     void syncStatus_revisionDraftFromRejectedExecutionKeepsBatchInReworkRequired() {
         Fixture fixture = insertRouteFixture(true, true);
-        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO batch = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode("BATCH-REWORK-REVISION")
                 .setRouteId(fixture.routeId()));
@@ -7126,7 +7154,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     @Test
     void syncStatus_reconcilesResolvedSpecialNodeAdvance() {
         Fixture fixture = insertRouteFixture(true, true);
-        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO batch = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode("BATCH-SYNC-SPECIAL-ADVANCE")
                 .setRouteId(fixture.routeId()));
@@ -7154,7 +7182,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     @Test
     void generateArchive_requiresClosedBatch() throws Exception {
         Fixture fixture = insertRouteFixture(true, true);
-        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO batch = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode("BATCH-ARCHIVE")
                 .setRouteId(fixture.routeId()));
@@ -7223,7 +7251,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     @Test
     void generateArchive_usesFrozenBatchRouteIdentityAfterCurrentRouteRenameAndDelete() {
         Fixture fixture = insertRouteFixture(true, true);
-        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO batch = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode("BATCH-ARCHIVE-HISTORICAL-ROUTE")
                 .setRouteId(fixture.routeId()));
@@ -7279,7 +7307,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     @Test
     void generateArchive_requiresFrozenRouteIdentityAndSnapshot() {
         Fixture fixture = insertRouteFixture(true, true);
-        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO batch = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode("BATCH-ARCHIVE-FROZEN-SNAPSHOT")
                 .setRouteId(fixture.routeId()));
@@ -7310,7 +7338,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     @Test
     void generateArchive_pdfAValidationFailure_keepsBatchClosedAndTaskPending() {
         Fixture fixture = insertRouteFixture(true, true);
-        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO batch = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode("BATCH-PDFA-INVALID")
                 .setRouteId(fixture.routeId()));
@@ -7340,7 +7368,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     @Test
     void generateArchive_incompleteStorageEvidence_keepsBatchClosedAndTaskPending() {
         Fixture fixture = insertRouteFixture(true, true);
-        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO batch = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode("BATCH-STORAGE-INVALID")
                 .setRouteId(fixture.routeId()));
@@ -7370,7 +7398,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     @Test
     void generateArchive_storageFailure_keepsBatchClosedAndTaskPending() throws Exception {
         Fixture fixture = insertRouteFixture(true, true);
-        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO batch = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode("BATCH-STORAGE-FAILED")
                 .setRouteId(fixture.routeId()));
@@ -7401,7 +7429,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     @Test
     void downloadArchive_checksumMismatch_rejectsStoredContent() {
         Fixture fixture = insertRouteFixture(true, true);
-        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO batch = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode("BATCH-CHECKSUM-MISMATCH")
                 .setRouteId(fixture.routeId()));
@@ -7427,7 +7455,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     @Test
     void downloadArchive_storageEvidenceMismatch_rejectsStoredContent() {
         Fixture fixture = insertRouteFixture(true, true);
-        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO batch = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode("BATCH-EVIDENCE-MISMATCH")
                 .setRouteId(fixture.routeId()));
@@ -7453,7 +7481,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     @Test
     void generateArchive_manifestUsesPrintableSnapshotSchema() {
         Fixture fixture = insertRouteFixture(true, true);
-        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO batch = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode("BATCH-PRINTABLE-SCHEMA")
                 .setRouteId(fixture.routeId()));
@@ -7495,7 +7523,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     @Test
     void generateArchive_manifestIncludesEdhrRecordChangeEvents() {
         Fixture fixture = insertRouteFixture(true, true);
-        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO batch = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode("BATCH-ARCHIVE-CHANGE")
                 .setRouteId(fixture.routeId()));
@@ -7541,7 +7569,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     @Test
     void generateArchive_manifestIncludesAttachmentManifest() {
         Fixture fixture = insertRouteFixture(true, true);
-        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO batch = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode("BATCH-ATTACH-MANIFEST")
                 .setRouteId(fixture.routeId()));
@@ -7579,7 +7607,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     @Test
     void generateArchive_downloadPdfContainsQaReadableBatchSections() throws Exception {
         Fixture fixture = insertRouteFixture(true, true);
-        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO batch = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode("BATCH-QA-PDF")
                 .setRouteId(fixture.routeId()));
@@ -7659,7 +7687,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     @Test
     void downloadArchive_legacyManifestFailsFast() {
         Fixture fixture = insertRouteFixture(true, true);
-        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO batch = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode("BATCH-LEGACY-ARCHIVE")
                 .setRouteId(fixture.routeId()));
@@ -7690,7 +7718,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     @Test
     void qualityReject_wrongSignaturePassword_rejectsWithoutSignatureOrStatusChange() {
         Fixture fixture = insertRouteFixture(true, true);
-        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO batch = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode("BATCH-QUALITY-WRONG-PASSWORD")
                 .setRouteId(fixture.routeId()));
@@ -7724,7 +7752,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     @Test
     void generateArchive_manifestIncludesAttachmentRuleSummariesFromExecutionSnapshot() {
         Fixture fixture = insertRouteFixture(true, true);
-        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO batch = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode("BATCH-ATTACH-RULE-MANIFEST")
                 .setRouteId(fixture.routeId()));
@@ -7769,7 +7797,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     @Test
     void getReviewTimeline_returnsBatchTasksSignaturesAndArchives() {
         Fixture fixture = insertRouteFixture(true, true);
-        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO batch = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode("BATCH-REVIEW")
                 .setRouteId(fixture.routeId()));
@@ -7848,7 +7876,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     @Test
     void getReviewTimeline_returnsPersistedHistoryWhenArchivedRouteGateConfigMissing() {
         Fixture fixture = insertRouteFixture(true, true);
-        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO batch = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode("BATCH-REVIEW-MISSING-CONFIG")
                 .setRouteId(fixture.routeId()));
@@ -7887,7 +7915,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     @Test
     void getReviewTimeline_includesExecutionAttachmentSummaries() {
         Fixture fixture = insertRouteFixture(true, true);
-        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO batch = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode("BATCH-ATTACH-HISTORY")
                 .setRouteId(fixture.routeId()));
@@ -7977,13 +8005,13 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                 .quantity(1)
                 .build());
 
-        assertServiceException(() -> batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        assertServiceException(() -> openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(workOrder.getId())
                 .setBatchCode(" ")
                 .setRouteId(route.getId())),
                 BAD_REQUEST);
 
-        assertServiceException(() -> batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        assertServiceException(() -> openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(workOrder.getId())
                 .setBatchCode("BATCH-EMPTY")
                 .setRouteId(route.getId())),
@@ -7994,7 +8022,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     void create_requiresAtLeastOneRouteProcessWithDefaultReport() {
         Fixture fixture = insertRouteFixture(false, false);
 
-        assertServiceException(() -> batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        assertServiceException(() -> openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode("BATCH-NO-REPORT")
                 .setRouteId(fixture.routeId())),
@@ -8011,7 +8039,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                 .setBatchRecordReportId(legacyRouteProcessReportId));
 
         ServiceException exception = assertThrows(ServiceException.class,
-                () -> batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+                () -> openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                         .setWorkOrderId(fixture.workOrderId())
                         .setBatchCode("BATCH-MISSING-BATCH-USE")
                         .setRouteId(fixture.routeId())));
@@ -8028,7 +8056,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                 .setId(fixture.workOrderId())
                 .setStatus(MesProWorkOrderStatusEnum.PREPARE.getStatus()));
 
-        EdhrBatchExecutionRespVO result = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO result = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode("BATCH-PREPARE")
                 .setRouteId(fixture.routeId()));
@@ -8043,7 +8071,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                 .setId(fixture.workOrderId())
                 .setStatus(MesProWorkOrderStatusEnum.CANCELED.getStatus()));
 
-        assertServiceException(() -> batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        assertServiceException(() -> openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode("BATCH-CANCELED")
                 .setRouteId(fixture.routeId())),
@@ -8057,7 +8085,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                 .setId(fixture.workOrderId())
                 .setTemporaryFrozen(true));
 
-        assertServiceException(() -> batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        assertServiceException(() -> openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode("BATCH-FROZEN")
                 .setRouteId(fixture.routeId())),
@@ -8081,7 +8109,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
         routeMapper.insert(taskRoute);
         insertProductionTask(fixture.workOrderId(), taskRoute.getId(), randomLongId(), randomLongId());
 
-        EdhrBatchExecutionRespVO result = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO result = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode("BATCH-AUTO-ROUTE"));
 
@@ -8096,7 +8124,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
         routeProductMapper.deleteByRouteId(fixture.routeId());
 
         ServiceException exception = assertThrows(ServiceException.class,
-                () -> batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+                () -> openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                         .setWorkOrderId(fixture.workOrderId())
                         .setBatchCode("BATCH-NO-AUTO-ROUTE")));
 
@@ -8118,7 +8146,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                 .build());
 
         ServiceException exception = assertThrows(ServiceException.class,
-                () -> batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+                () -> openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                         .setWorkOrderId(fixture.workOrderId())
                         .setBatchCode("BATCH-MULTI-AUTO-ROUTE")));
 
@@ -8133,11 +8161,11 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
         MesProWorkOrderDO workOrder = workOrderMapper.selectById(fixture.workOrderId());
         MesProEdhrBatchExecutionDO first = existingBatch(fixture, workOrder, "EDHRB-DUP-1");
         MesProEdhrBatchExecutionDO second = existingBatch(fixture, workOrder, "EDHRB-DUP-2");
-        batchExecutionMapper.insert(first);
-        batchExecutionMapper.insert(second);
+        insertBatchFixture(first);
+        insertBatchFixture(second);
 
         ServiceException exception = assertThrows(ServiceException.class,
-                () -> batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+                () -> openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                         .setWorkOrderId(fixture.workOrderId())
                         .setBatchCode(first.getBatchCode())));
 
@@ -8148,7 +8176,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     void workbench_prefersReleaseStageWhenReleaseTransactionExists() {
         Fixture fixture = insertRouteFixture(true, true);
         insertInitialFillAssignmentRule(fixture.routeId());
-        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO batch = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode("BATCH-WORKBENCH-STAGE")
                 .setRouteId(fixture.routeId()));
@@ -8174,7 +8202,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
         insertInitialFillAssignmentRule(fixture.routeId());
         insertRouteReleaseAssignmentRule(fixture.routeId(), "USER", 10002L);
         when(adminUserApi.getUser(10002L)).thenReturn(user(10002L, "王放行"));
-        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO batch = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode("BATCH-WORKBENCH-RELEASE-USER")
                 .setRouteId(fixture.routeId()));
@@ -8195,7 +8223,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
         when(adminUserApi.getUserList(Set.of(10003L, 10004L)))
                 .thenReturn(List.of(user(10003L, "放行一"), user(10004L, "放行二")));
         when(roleApi.getRoleList(Set.of(8801L))).thenReturn(List.of(role(8801L, "质量放行组", "qa_release")));
-        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO batch = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode("BATCH-WORKBENCH-RELEASE-ROLE")
                 .setRouteId(fixture.routeId()));
@@ -8211,7 +8239,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     void workbench_marksReleaseOwnerMissingWhenRouteReleaseRuleAbsent() {
         Fixture fixture = insertRouteFixture(true, true);
         insertInitialFillAssignmentRule(fixture.routeId());
-        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO batch = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode("BATCH-WORKBENCH-RELEASE-MISSING")
                 .setRouteId(fixture.routeId()));
@@ -8230,7 +8258,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                 .id(fixture.routeVersionId())
                 .routeSnapshotJson(frozenRouteSnapshotJson(route, routeProcessMapper.selectListByRouteId(route.getId())))
                 .build());
-        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO batch = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode("BATCH-FILLABLE-USERS")
                 .setRouteId(fixture.routeId()));
@@ -8281,7 +8309,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                 .id(fixture.routeVersionId())
                 .routeSnapshotJson(frozenRouteSnapshotJson(route, routeProcessMapper.selectListByRouteId(route.getId())))
                 .build());
-        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO batch = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode("BATCH-MULTI-ASSIST-FILLERS")
                 .setRouteId(fixture.routeId()));
@@ -8347,7 +8375,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                 ids != null && ids.contains(10001L)))).thenReturn(Map.of(
                 10001L, user(10001L, "首工序填写员")));
 
-        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO batch = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode("BATCH-FILLABLE-RULE")
                 .setRouteId(fixture.routeId()));
@@ -8395,7 +8423,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                 ids != null && ids.contains(152L)))).thenReturn(Map.of(
                 152L, user(152L, "张可莹（zhangkeying）")));
 
-        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO batch = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode("BATCH-ROUTE-FORM-FILLER")
                 .setRouteId(fixture.routeId()));
@@ -8440,7 +8468,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
         when(adminUserApi.getUserMap(argThat(ids -> ids != null && ids.contains(152L)))).thenReturn(Map.of(
                 152L, user(152L, "张可莹"),
                 10001L, user(10001L, "主表填写人")));
-        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO batch = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode("BATCH-COMPANION-BACKFILL")
                 .setRouteId(fixture.routeId()));
@@ -8488,7 +8516,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                         401L, user(401L, "成检记录甲"),
                         402L, user(402L, "成检记录乙")));
 
-        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO batch = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode("BATCH-SPECIAL-FILLABLE-USERS")
                 .setRouteId(fixture.routeId()));
@@ -8897,7 +8925,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
         if (reportId2 != null) {
             insertBatchUseConfig(route.getId(), routeProcess2.getId(), "SEQUENTIAL", reportId2);
         }
-        // BaseDbUnitTest has no tenant insert interceptor; explicit projection SQL still filters tenant 1.
+        // Preserve tenant identity for the explicit SQL fixture updates below.
         org.springframework.jdbc.core.JdbcTemplate jdbc = new org.springframework.jdbc.core.JdbcTemplate(testDataSource);
         jdbc.update("UPDATE mes_pro_route_flow_process_config SET tenant_id = ? WHERE route_id = ?",
                 TenantContextHolder.getRequiredTenantId(), route.getId());
@@ -9665,7 +9693,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
 
     private VisibleBatchFixture openBatchWithSecondProcessCurrentFillers(String batchCode, Long currentFillerUserId) {
         Fixture fixture = insertRouteFixture(true, true);
-        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO batch = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode(batchCode)
                 .setRouteId(fixture.routeId()));
@@ -9756,7 +9784,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     }
 
     private EdhrBatchExecutionRespVO prepareClosableBatch(Fixture fixture, String batchCode, Long ownerUserId) {
-        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO batch = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode(batchCode)
                 .setRouteId(fixture.routeId()));

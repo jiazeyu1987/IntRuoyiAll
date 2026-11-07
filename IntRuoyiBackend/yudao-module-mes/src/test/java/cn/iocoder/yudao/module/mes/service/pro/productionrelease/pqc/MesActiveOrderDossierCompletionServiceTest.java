@@ -168,6 +168,15 @@ class MesActiveOrderDossierCompletionServiceTest {
     private static MesProEdhrWorkTaskDO task(Long owner) { return new MesProEdhrWorkTaskDO().setId(30L).setTaskType("DOSSIER_COMPLETE")
             .setBusinessScopeType("ACTIVE_ORDER_DOSSIER").setBusinessScopeId(10L).setWorkOrderId(20L)
             .setReviewSourceType("OTHER_FILE").setAssigneeUserId(owner).setStatus("TODO"); }
+    @Test void anotherAssigneeCannotReadTaskAndReceivesExplicitForbiddenError() {
+        when(tasks.selectById(30L)).thenReturn(task(8L));
+        var error = assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,
+                () -> service.get(7L, 30L));
+        assertEquals(403, error.getCode());
+        assertEquals("当前用户无权查看该资料责任待办", error.getMessage());
+        verifyNoInteractions(files, applications);
+        verify(tasks, never()).updateById(any(MesProEdhrWorkTaskDO.class));
+    }
     private static void login(Long actor, Long tenant) {
         TenantContextHolder.setTenantId(tenant);
         var user = new LoginUser().setId(actor).setTenantId(tenant).setUserType(2);

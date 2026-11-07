@@ -451,28 +451,25 @@ class MesQaInspectionRegulationServiceTest {
     }
 
     @Test
-    void getCurrent_preservesPatrolAmPmRuleKeysAndAggregatesBusinessItemFields() {
+    void getCurrent_preservesThreeStageRuleKeysAndAggregatesBusinessItemFields() {
         when(dccProjectCodeMapper.selectById(DCC_PROJECT_ID)).thenReturn(enabledDccProject());
         when(regulationMapper.selectByDccProjectCodeId(DCC_PROJECT_ID)).thenReturn(publishedRegulation());
         when(versionMapper.selectLatestPublishedByRegulationId(REGULATION_ID)).thenReturn(publishedVersion()
-                .setInspectionTypeRulesJson("[{\"key\":\"FIRST\",\"inspectionType\":\"FIRST\"," +
-                        "\"label\":\"首检\",\"required\":true},{\"key\":\"PATROL_AM\"," +
-                        "\"inspectionType\":\"PATROL_AM\",\"label\":\"上午巡检\",\"required\":true}," +
-                        "{\"key\":\"PATROL_PM\",\"inspectionType\":\"PATROL_PM\"," +
-                        "\"label\":\"下午巡检\",\"required\":true},{\"key\":\"FINAL\"," +
-                        "\"inspectionType\":\"FINAL\",\"label\":\"末检\",\"required\":true," +
-                        "\"fixedQuantity\":3}]"));
+                .setInspectionTypeRulesJson("""
+                        [{"key":"FIRST","inspectionType":"FIRST","label":"首检","required":true},
+                         {"key":"PATROL","inspectionType":"PATROL","label":"巡检","required":true},
+                         {"key":"FINAL","inspectionType":"FINAL","label":"末检","required":true,"fixedQuantity":3}]
+                        """));
         when(processMapper.selectListByVersionId(VERSION_ID)).thenReturn(List.of(qaProcess()));
         when(itemMapper.selectListByVersionId(VERSION_ID)).thenReturn(List.of(
                 item("FIRST", 5, null),
-                item("PATROL_AM", null, new BigDecimal("0.400000")),
-                item("PATROL_PM", null, new BigDecimal("0.400000")),
+                item("PATROL", null, new BigDecimal("0.400000")),
                 item("FINAL", 3, null)));
         MesQaInspectionRegulationPublishedVersionRespVO result = service.getCurrent(DCC_PROJECT_ID);
 
         MesQaInspectionRegulationPublishedVersionRespVO.InspectionItem businessItem =
                 result.getProcesses().get(0).getItems().get(0);
-        assertEquals(List.of("FIRST", "PATROL_AM", "PATROL_PM", "FINAL"),
+        assertEquals(List.of("FIRST", "PATROL", "FINAL"),
                 businessItem.getApplicableInspectionTypes());
         assertEquals(new BigDecimal("0.400000"), businessItem.getAql());
         assertEquals("BOOLEAN", businessItem.getResultType());
@@ -1644,14 +1641,15 @@ class MesQaInspectionRegulationServiceTest {
     }
 
     @Test
-    void publishRejectsUnsplitPatrolRulesBeforePersisting() {
+    void publishRejectsObsoleteSplitPatrolRulesBeforePersisting() {
         when(dccProjectCodeMapper.selectById(DCC_PROJECT_ID)).thenReturn(enabledDccProject());
         var request = validRequest();
         request.setInspectionTypeRules(List.of(inspectionTypeRule("FIRST", "FIRST", null),
-                inspectionTypeRule("PATROL", "PATROL", null), inspectionTypeRule("FINAL", "FINAL", 3)));
+                inspectionTypeRule("PATROL_AM", "PATROL", null), inspectionTypeRule("PATROL_PM", "PATROL", null),
+                inspectionTypeRule("FINAL", "FINAL", 3)));
         var error = assertThrows(ServiceException.class, () -> service.publish(request));
         assertEquals(QA_INSPECTION_REGULATION_ITEM_INVALID.getCode(), error.getCode());
-        assertTrue(error.getMessage().contains("上午巡检"));
+        assertTrue(error.getMessage().contains("FIRST、PATROL、FINAL"));
         verify(regulationMapper, never()).insert(any(MesQaInspectionRegulationDO.class));
         verify(versionMapper, never()).insert(any(MesQaInspectionRegulationVersionDO.class));
     }
@@ -1667,8 +1665,7 @@ class MesQaInspectionRegulationServiceTest {
         reqVO.setFinalInspectionApplicable(true);
         reqVO.setInspectionTypeRules(List.of(
                 inspectionTypeRule("FIRST", "FIRST", null),
-                inspectionTypeRule("PATROL_AM", "PATROL", null),
-                inspectionTypeRule("PATROL_PM", "PATROL", null),
+                inspectionTypeRule("PATROL", "PATROL", null),
                 inspectionTypeRule("FINAL", "FINAL", 3)));
 
         MesQaInspectionRegulationSaveReqVO.InspectionItem item =
@@ -1683,6 +1680,7 @@ class MesQaInspectionRegulationServiceTest {
         item.setResultType("BOOLEAN");
         item.setApplicableInspectionTypes(List.of("FIRST", "PATROL", "FINAL"));
         item.setFirstInspectionQuantity(5);
+        item.setFinalInspectionQuantity(3);
         item.setAql(new BigDecimal("0.400000"));
         item.setInspectionLevel("I");
         item.setCritical(false);

@@ -9,8 +9,11 @@ import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteControlledConten
 import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteService;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.util.ReflectionTestUtils;
+import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.JSONObject;
 
 import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -33,6 +36,7 @@ class MesProBatchRecordRouteRegistrationTest {
         ReflectionTestUtils.setField(service, "routeService", routes);
         when(routes.buildCurrentRouteSnapshotJson(42L, 100L)).thenReturn("""
                 {"configSnapshots":{"flowGraph":{"nodes":[]},"batchUseConfigs":[],
+                "productionProcessConfigSchemaVersion":1,"productionProcessConfigs":[],
                 "routeStartProductionLeaders":[],"batchRecordAttachmentOwners":[]}}
                 """);
         when(versions.selectActiveByRouteIdForUpdate(42L)).thenReturn(active);
@@ -80,6 +84,56 @@ class MesProBatchRecordRouteRegistrationTest {
         IllegalStateException error = assertThrows(IllegalStateException.class, () -> createCandidate(null));
         assertEquals("registration failed", error.getMessage());
         verify(adapter, never()).recordDraftCandidateRegisteredIfMissing(any(), any(), any(), anyString());
+    }
+
+    @Test
+    void wordCandidateKeepsProductionSettingsWithoutChangingTheActiveSnapshot() {
+        JSONObject source = JSON.parseObject("""
+                {"productionProcessConfigSchemaVersion":1,"productionProcessConfigs":[{
+                "routeProcessId":11,"processId":22,"sort":1,"overagePercent":7.5,
+                "lossReasons":[{"reasonCode":"LOSS"}],
+                "deviceSelectionGroups":[{"deviceIds":[55]}],
+                "parameterRules":[{"deviceId":55,"standardText":"original"}]}]}
+                """);
+        String before = source.toJSONString();
+        JSONObject target = new JSONObject();
+        ReflectionTestUtils.invokeMethod(service, "addProductionProcessSnapshots", target,
+                List.of(Map.of("routeProcessId", 11L, "processId", 22L,
+                        "sort", 2, "processName", "清洗")), source);
+        JSONObject config = target.getJSONArray("productionProcessConfigs").getJSONObject(0);
+        assertEquals(1, target.getInteger("productionProcessConfigSchemaVersion"));
+        assertEquals(2, config.getInteger("sort"));
+        assertEquals("7.5", config.getBigDecimal("overagePercent").toPlainString());
+        for (String key : List.of("lossReasons", "deviceSelectionGroups", "parameterRules")) {
+            assertEquals(source.getJSONArray("productionProcessConfigs").getJSONObject(0).get(key), config.get(key));
+        }
+        config.getJSONArray("parameterRules").getJSONObject(0).put("standardText", "changed");
+        assertEquals(before, source.toJSONString());
+    }
+
+    @Test
+    void wordCandidateRejectsMissingExistingProductionSettings() {
+        JSONObject source = JSON.parseObject("""
+                {"productionProcessConfigSchemaVersion":1,"productionProcessConfigs":[]}
+                """);
+        assertThrows(RuntimeException.class, () -> ReflectionTestUtils.invokeMethod(service,
+                "addProductionProcessSnapshots", new JSONObject(),
+                List.of(Map.of("routeProcessId", 11L, "processId", 22L)), source));
+    }
+
+    @Test
+    void firstWordRouteHasExplicitInitialProductionSettings() {
+        JSONObject target = new JSONObject();
+        ReflectionTestUtils.invokeMethod(service, "addProductionProcessSnapshots", target,
+                List.of(Map.of("routeProcessId", 11L, "processId", 22L,
+                        "sort", 1, "processName", "清洗")), null);
+        JSONObject config = target.getJSONArray("productionProcessConfigs").getJSONObject(0);
+        assertEquals(1, target.getInteger("productionProcessConfigSchemaVersion"));
+        assertEquals(11L, config.getLong("routeProcessId"));
+        assertEquals(java.math.BigDecimal.ZERO, config.getBigDecimal("overagePercent"));
+        for (String key : List.of("lossReasons", "deviceSelectionGroups", "parameterRules")) {
+            assertTrue(config.getJSONArray(key).isEmpty());
+        }
     }
 
     private MesProRouteVersionDO createCandidate(Long expectedCandidateId) {

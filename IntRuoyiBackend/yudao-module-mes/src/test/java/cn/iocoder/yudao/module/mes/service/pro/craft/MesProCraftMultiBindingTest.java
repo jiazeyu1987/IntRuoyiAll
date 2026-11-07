@@ -133,6 +133,29 @@ class MesProCraftMultiBindingTest {
         saved.getJSONArray("parameterRules").getJSONObject(0).put("defaultValue",99);
         assertThrows(ServiceException.class,()->service.validateBindings(JSON.parseObject(JSON.toJSONString(Map.of("productionProcessConfigs",List.of(saved))))));
     }
+    @Test void browserStringIdentifiersPreserveExactCraftRulesAndStillRejectChangedIdentity() {
+        original.put("routeProcessId", 2117828464226939151L);
+        bindAll(original, List.of(
+                new Binding(1L, "GY-0001", parameters("DEVICE_31", 2), List.of(31L)),
+                new Binding(2L, "GY-0002", parameters("DEVICE_32", 3), List.of(32L))));
+        JSONObject browserConfig = JSON.parseObject(original.toJSONString());
+        browserConfig.put("routeProcessId", "2117828464226939151");
+        browserConfig.put("processId", "22");
+        for (Object raw : browserConfig.getJSONArray("parameterRules")) {
+            JSONObject rule = (JSONObject) raw;
+            for (String key : List.of("deviceId", "routeProcessId", "processId"))
+                rule.put(key, rule.getString(key));
+        }
+        JSONObject snapshots = new JSONObject();
+        snapshots.put("productionProcessConfigs", new JSONArray(List.of(browserConfig)));
+        assertDoesNotThrow(() -> service.validateBindings(snapshots));
+        var rule = browserConfig.getJSONArray("parameterRules").getJSONObject(0);
+        rule.put("routeProcessId", "2117828464226939152");
+        assertThrows(ServiceException.class, () -> service.validateBindings(snapshots));
+        rule.put("routeProcessId", "2117828464226939151");
+        rule.put("defaultValue", 99);
+        assertThrows(ServiceException.class, () -> service.validateBindings(snapshots));
+    }
     @Test void repeatedDevicesCannotOverwriteAnotherScheme() {
         String before=original.toJSONString();
         assertThrows(ServiceException.class,()->bindAll(original,List.of(

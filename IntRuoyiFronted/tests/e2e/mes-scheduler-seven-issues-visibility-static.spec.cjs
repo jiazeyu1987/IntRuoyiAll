@@ -98,11 +98,11 @@ assert.match(scheduleOrder, /计算日期从 00:00 开始/)
 assert.match(scheduleOrder, /下一可用班次/)
 assert.match(scheduleOrder, /schedule-order-replan-start-date-dialog/)
 const replanDialogZIndex = Number(scheduleOrder.match(/:z-index="(\d+)"/)?.[1])
-const confirmOverlayZIndex = Number(
-  globalStyles.match(/\.app-confirm-message-box-overlay\s*\{[\s\S]*?z-index:\s*(\d+)\s*!important/)?.[1]
-)
+const globalConfig = fs.readFileSync(path.join(repoRoot, 'src/components/ConfigGlobal/src/ConfigGlobal.vue'), 'utf8')
+const confirmOverlayZIndex = Number(globalConfig.match(/:z-index="(\d+)"/)?.[1])
 assert.ok(Number.isFinite(replanDialogZIndex), '开始重排日期确认窗口必须声明明确层级。')
-assert.ok(Number.isFinite(confirmOverlayZIndex), '全局二次确认框必须声明明确层级。')
+assert.ok(Number.isFinite(confirmOverlayZIndex), '全局弹窗必须声明共享起始层级。')
+assert.doesNotMatch(globalStyles, /\.app-confirm-message-box-overlay\s*\{[^}]*z-index:/)
 assert.ok(
   replanDialogZIndex < confirmOverlayZIndex,
   'ERP 来源二次确认框必须高于开始重排日期窗口，确保用户可以取消或确认。'

@@ -826,14 +826,25 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
             if (transactionId == null) {
                 managerTaskId = application.getReleaseApprovalWorkTaskId();
             } else {
-                requireAuditRow(releaseTransactionMapper.selectByIdForUpdate(transactionId));
-                // The cancellation service selects by transaction scope, not by application task id.
-                MesProEdhrWorkTaskDO task = workTaskMapper.selectOne(new QueryWrapper<MesProEdhrWorkTaskDO>()
+                var transaction = requireAuditRow(releaseTransactionMapper.selectByIdForUpdate(transactionId));
+                MesProEdhrWorkTaskDO task;
+                if (MesProEdhrReleaseServiceImpl.STATUS_REJECTED.equals(transaction.getReleaseStatus())
+                        || MesProEdhrReleaseServiceImpl.STATUS_WITHDRAWN.equals(transaction.getReleaseStatus())) {
+                    task = application.getReleaseApprovalWorkTaskId() == null ? null
+                            : workTaskMapper.selectByIdForUpdate(application.getReleaseApprovalWorkTaskId());
+                    if (task == null || !"RELEASE_APPROVE".equals(task.getTaskType())
+                            || !"RELEASE_TRANSACTION".equals(task.getBusinessScopeType())
+                            || !Objects.equals(transactionId, task.getBusinessScopeId())) {
+                        throw exception(PRO_EDHR_BATCH_EXECUTION_STATUS_INVALID);
+                    }
+                } else {
+                    task = workTaskMapper.selectOne(new QueryWrapper<MesProEdhrWorkTaskDO>()
                         .eq("business_scope_type", "RELEASE_TRANSACTION").eq("business_scope_id", transactionId)
                         .eq("task_type", "RELEASE_APPROVE")
                         .in("status", MesProEdhrWorkTaskStatus.TODO, MesProEdhrWorkTaskStatus.DOING,
                                 MesProEdhrWorkTaskStatus.OVERDUE)
                         .orderByDesc("id").last("FOR UPDATE"));
+                }
                 managerTaskId = task == null ? null : task.getId();
             }
         }
@@ -1127,7 +1138,12 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
         }
         if (MesProEdhrReleaseServiceImpl.STATUS_REJECTED.equals(transaction.getReleaseStatus())
                 || MesProEdhrReleaseServiceImpl.STATUS_WITHDRAWN.equals(transaction.getReleaseStatus())) {
-            workTaskService.cancelReleaseApprovalTask(transaction.getId(), decision);
+            // The negative market decision has already completed its task; resolve its formal ID,
+            // rather than searching only active tasks and treating the completed task as missing.
+            if (application.getReleaseApprovalWorkTaskId() == null) {
+                throw exception(PRO_EDHR_BATCH_EXECUTION_STATUS_INVALID);
+            }
+            workTaskService.cancelReleaseApprovalTaskById(application.getReleaseApprovalWorkTaskId(), decision);
             return;
         }
         throw exception(PRO_EDHR_BATCH_EXECUTION_STATUS_INVALID);

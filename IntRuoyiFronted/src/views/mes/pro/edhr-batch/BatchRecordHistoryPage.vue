@@ -23,10 +23,6 @@
         @quick-filter-query="quickFilter.applyQuickFilter"
         @column-change="saveColumnConfig"
         @pagination="getBatchList"
-        :load-filter-rows="loadColumnFilterRows0"
-        @filtered-rows="batchList = $event"
-        :list-rows="batchList"
-        @column-filter-reset="getBatchList"
       >
         <template #actions><BatchIntegrityCheck /></template>
         <template #table="{ resolveRows }">
@@ -106,8 +102,6 @@
 </template>
 
 <script setup lang="ts">
-import { loadAllListPages } from '@/hooks/web/useListColumnFilter'
-
 import '@/views/mes/pro/edhr-batch/record-viewport.css'
 import dayjs from 'dayjs'
 import { ElMessage } from 'element-plus'
@@ -279,6 +273,23 @@ const quickFilter = useTableQuickFilter(
   queryParams,
   getBatchList
 )
+const restoreHistoryFilterState = () => {
+  const conditions = filterDefinitions.flatMap((definition) => {
+    const value = queryParams[definition.key as keyof HistoryFilters]
+    if (value === undefined || value === '' || (Array.isArray(value) && !value.length)) return []
+    return [{
+      id: `history-${definition.key}`,
+      key: definition.key,
+      operator: definition.type === 'dateRange' ? 'between' as const : 'contains' as const,
+      value: Array.isArray(value) ? [...value] : value
+    }]
+  })
+  quickFilter.updateState({
+    conditions,
+    appliedConditions: conditions,
+    activeConditionId: conditions[0]?.id
+  })
+}
 const updateQuickFilterState = async (next: Partial<TableQuickFilterState>) => {
   const previousCount = quickFilter.state.conditions?.length ?? 0
   quickFilter.updateState(next)
@@ -320,6 +331,7 @@ watch(
     const saved = readReverseTraceState(key)
     if (saved?.historyListState) {
       Object.assign(queryParams, saved.historyListState)
+      restoreHistoryFilterState()
       if (historyMounted) void getBatchList()
     }
     const anchor = saved?.anchorBatchExecutionId || route.query.reverseTraceAnchor
@@ -338,15 +350,10 @@ onMounted(() => {
   if (!readReverseTraceState(route.query.reverseTraceRestore)?.historyListState) {
     queryParams.workOrderCode = String(route.query.workOrderCode || '').trim()
     queryParams.batchCode = String(route.query.batchCode || '').trim()
+    restoreHistoryFilterState()
   }
   historyMounted = true
   void getBatchList()
 })
 
-const loadColumnFilterRows0 = async () => {
-  const sources = buildHistorySources({ ...queryParams }, hasPermission)
-  return loadAllListPages((pagination) =>
-    loadHistoryPage(sources, pagination.pageNo, pagination.pageSize)
-  )
-}
 </script>
