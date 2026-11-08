@@ -14,6 +14,11 @@ public interface MesInProcessOrderMapper {
         LEFT JOIN mes_md_item p ON p.id=w.product_id AND p.tenant_id=a.tenant_id AND p.deleted=0
         WHERE a.tenant_id=#{tenantId} AND a.deleted=0
           AND a.active_status='ACTIVE' AND a.business_status IN ('ACTIVE','COMPLETED','VERSION_UPGRADE_PENDING')
+          AND NOT EXISTS (
+            SELECT 1 FROM mes_pro_edhr_nonconformance_review n
+            WHERE n.tenant_id=a.tenant_id AND n.active_order_id=a.id AND n.work_order_id=a.work_order_id
+              AND n.deleted=0 AND n.review_status='closed' AND n.disposition='void'
+          )
         <if test="q.workOrderCode != null and q.workOrderCode.trim() != ''">
           AND LOCATE(TRIM(#{q.workOrderCode}),w.code)>0
         </if>

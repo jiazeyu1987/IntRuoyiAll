@@ -1473,7 +1473,7 @@
           </el-descriptions-item>
           <el-descriptions-item v-if="detail.pqcResult || detail.pqcSummary" label="PQC检验内容">
             <el-tag :type="resolvePqcTagType(detail.pqcResult)" effect="plain">
-              {{ detail.pqcSummary || detail.pqcResult }}
+              {{ formatPqcJudgement(detail.pqcSummary || detail.pqcResult) }}
             </el-tag>
           </el-descriptions-item>
         </el-descriptions>
@@ -1532,7 +1532,7 @@
                 </el-table-column>
                 <el-table-column label="判定" min-width="100">
                   <template #default="{ row }">{{
-                    row.judgement || row.itemResult || '--'
+                    formatPqcJudgement(row.judgement || row.itemResult)
                   }}</template>
                 </el-table-column>
               </el-table>
@@ -2774,11 +2774,11 @@
           {{ detail.workOrderCode || '--' }}
         </el-descriptions-item>
         <el-descriptions-item label="提交摘要">
-          {{ detail.submittedSummary || '--' }}
+          {{ formatSubmittedSummary(detail.submittedSummary) }}
         </el-descriptions-item>
         <el-descriptions-item v-if="detail.pqcResult || detail.pqcSummary" label="PQC检验内容">
           <el-tag :type="resolvePqcTagType(detail.pqcResult)" effect="plain">
-            {{ detail.pqcSummary || detail.pqcResult }}
+            {{ formatPqcJudgement(detail.pqcSummary || detail.pqcResult) }}
           </el-tag>
         </el-descriptions-item>
         <el-descriptions-item v-if="detail && isPqcSubmissionRow(detail)" label="PQC项目明细">
@@ -2817,7 +2817,7 @@
               </template>
             </el-table-column>
             <el-table-column label="判定" min-width="100">
-              <template #default="{ row }">{{ row.judgement || row.itemResult || '--' }}</template>
+              <template #default="{ row }">{{ formatPqcJudgement(row.judgement || row.itemResult) }}</template>
             </el-table-column>
           </el-table>
         </el-descriptions-item>
@@ -5838,25 +5838,31 @@ const assertStage1SimulationDouble100 = (result: Stage1ActiveOrderCompleteSimula
 }
 
 const formatActiveOrderReleaseStatus = (status?: string) => {
+  if (!status) return '未申请'
   if (status === 'NONCONFORMANCE_VOID') return 'QA已作废'
   if (status === 'NONCONFORMANCE_REWORK') return '已结束并转入返工'
   if (status === 'PQC_RELEASE_PENDING') return '待PQC放行'
   if (status === 'PQC_RELEASE_REJECTED') return 'PQC已拒绝'
   if (status === 'REPORT_UPLOAD_PENDING') return '待上传放行报告'
   if (status === 'MANAGER_RELEASE_PENDING') return '待管理者代表放行'
+  if (status === 'MARKET_RELEASE_WITHDRAWN') return '上市放行已撤回'
+  if (status === 'MARKET_RELEASE_REJECTED') return '上市放行已驳回'
   if (status === 'RELEASED') return '已放行'
-  return '未申请'
+  return `未知放行状态：${status}`
 }
 
 const formatActiveOrderReleaseStatusTag = (status?: string) => {
+  if (!status) return 'info'
   if (status === 'NONCONFORMANCE_VOID') return 'danger'
   if (status === 'NONCONFORMANCE_REWORK') return 'warning'
   if (status === 'PQC_RELEASE_PENDING') return 'warning'
   if (status === 'PQC_RELEASE_REJECTED') return 'danger'
   if (status === 'REPORT_UPLOAD_PENDING') return 'primary'
   if (status === 'MANAGER_RELEASE_PENDING') return 'primary'
+  if (status === 'MARKET_RELEASE_WITHDRAWN') return 'warning'
+  if (status === 'MARKET_RELEASE_REJECTED') return 'danger'
   if (status === 'RELEASED') return 'success'
-  return 'info'
+  return 'danger'
 }
 
 const isActiveOrderNcrClosed = (row: TeamLeaderActiveOrderRespVO) =>
@@ -10725,6 +10731,26 @@ const submitProcessDefectReason = async () => {
 
 const formatDateTime = (value?: string | number | Date) => formatDateTimeValue(value, '--')
 
+const formatSubmittedSummary = (value?: string) => {
+  if (!value) return '尚无提交摘要'
+  const labels: Record<string, string> = {
+    PRODUCTION_SUBMIT: '生产记录提交', PRODUCTION_SIMPLIFIED: '生产简化表单',
+    PQC_SUBMIT: 'PQC检验提交', PQC_SIMPLIFIED: 'PQC检验表单'
+  }
+  return value.split(' / ').map(part => labels[part] ||
+    (/^[A-Z_]+$/.test(part) ? '提交类型未识别，请核对记录' : part)).join(' · ')
+}
+
+const formatPqcJudgement = (value?: string) => {
+  if (!value) return '尚无判定'
+  const labels: Record<string, string> = {
+    SUCCESS: '合格', PASS: '合格', DETECTION_SUCCESS: '合格',
+    FAILURE: '不合格', FAIL: '不合格', DETECTION_FAILURE: '不合格',
+    PENDING: '待判定'
+  }
+  return labels[value] || (/^[A-Z_]+$/.test(value) ? '判定未识别，请核对记录' : value)
+}
+
 const resolvePqcTagType = (pqcResult?: string) => {
   if (pqcResult === 'SUCCESS' || pqcResult === 'PASS') return 'success'
   if (pqcResult === 'FAILURE' || pqcResult === 'FAIL') return 'danger'
@@ -10896,7 +10922,10 @@ const navigateToLeaderHandoff = async () => {
     if (leader === 'PRODUCTION') requireProductionHandoffDetail(selected, context)
     else if (String(selected.activeOrderId) !== target.query.activeOrderId) throw new Error('正式提交详情与原周期、原事件不一致')
     detail.value = selected; pqcDetailQuery.pageNo = 1
-    if (leader === 'PQC') activePqcModuleTab.value = 'detail'
+    if (leader === 'PQC') {
+      activePqcModuleTab.value = 'detail'
+      if (context.processable) await openReview(selected)
+    }
     else {
       const correctingProfile = context.profileLeaderCorrection && context.processable && route.query.handoffReadOnly !== '1'
       activeProductionModuleTab.value = correctingProfile ? 'report' : ['APPROVED', 'REJECTED'].includes(selected.submissionReviewStatus || '') ? 'reportHistory' : 'report'

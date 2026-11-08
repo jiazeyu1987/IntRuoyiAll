@@ -115,7 +115,7 @@
               <div class="profile-workbench__detail">
                 <div class="profile-workbench__detail-title">{{ row.detail.split('\n')[0] }}</div>
                 <div v-if="row.detail.includes('\n')" class="profile-workbench__detail-meta">
-                  {{ row.detail.slice(row.detail.indexOf('\n') + 1) }}
+                  {{ formatTodoDetail(row).slice(row.detail.indexOf('\n') + 1) }}
                 </div>
               </div>
             </template>
@@ -468,6 +468,21 @@ const getTaskTypeTagType = (taskType: TodoTaskType) => {
   if (taskType === '排产') return 'primary'
   if (taskType === '展厅') return 'info'
   return ''
+}
+
+const formatTodoDetail = (row: ProfileWorkbenchTodoRow) => {
+  if (row.sourceId !== 'EDHR_WORK_TASK' || row.action.payload.taskType !== 'QA_DECISION_HANDOFF') {
+    return row.detail
+  }
+  const dispositions: Record<string, string> = {
+    concession_release: '让步放行',
+    rework: '返工',
+    void: '作废'
+  }
+  return row.detail.replace(
+    /办理要求：(concession_release|rework|void)：/,
+    (_, disposition: string) => `办理要求：${dispositions[disposition]}：`
+  )
 }
 
 const getTodoActionLabel = (row: ProfileWorkbenchTodoRow) => {

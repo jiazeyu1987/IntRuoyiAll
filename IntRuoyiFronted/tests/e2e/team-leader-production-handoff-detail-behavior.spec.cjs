@@ -65,6 +65,7 @@ function harness(leader = 'PRODUCTION', original = task(leader), selected = prod
     isClosedHandoffCompletion: navigation.exports.isClosedHandoffCompletion,
     isProductionReportHistoryTab: vue.ref(false), isPqcFormHistoryTab: vue.ref(false),
     requiresOwnProductionReturnCorrection: () => false,
+    openReview: async selected => { calls.push(['review', selected.id]) },
     resolveCurrentLeaderType: () => leader,
     getTeamLeaderSubmissionDetail: async (id, type) => { calls.push(['detail', id, type]); return typeof response === 'function' ? response(id, type) : response },
     pqcDetailQuery: { pageNo: 5 }, activePqcModuleTab: vue.ref(), activeProductionModuleTab: vue.ref(),
@@ -185,6 +186,7 @@ test('PQC保持顶层周期严格合同，生产payload和分配不能补齐NULL
   }
   const h = harness('PQC', task('PQC'), { id: 288016, activeOrderId: 1009200414 })
   await h.page.navigateToLeaderHandoff(); assert.deepEqual(h.errors, []); assert.equal(h.activePqcModuleTab.value, 'detail')
+  assert.deepEqual(h.calls.filter(call => call[0] === 'review'), [['review', 288016]])
 })
 test('已完成任务没有严格readonly参数不能继续办理', async () => {
   const original = task('PRODUCTION', { status: 'DONE' }), h = harness('PRODUCTION', original)
@@ -202,6 +204,7 @@ test('当前DONE及正式closedDone旧周期准确详情可达，全部办理资
       h.route.query.handoffReadOnly = '1'; h.setContext({ task: original, current, processable: false })
       await h.page.navigateToLeaderHandoff(); assert.deepEqual(h.errors, [])
       assert.equal(h.detail.value.id, 288016)
+      assert.deepEqual(h.calls.filter(call => call[0] === 'review'), [])
       const otherwiseWritable = { id: 288016, submissionReviewStatus: 'PENDING' }
       for (const eligibility of ['canReviewSubmission', 'canCorrectSubmission', 'canAllocateSubmission', 'canRejectProductionSubmission']) {
         assert.equal(h.page[eligibility](otherwiseWritable), false, eligibility)

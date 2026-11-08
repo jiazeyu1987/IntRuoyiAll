@@ -19,6 +19,7 @@ class MesInProcessOrderMapperTest {
             statement.execute("CREATE TABLE mes_pro_process_pool_active_order(id BIGINT,tenant_id BIGINT,work_order_id BIGINT,leader_user_id BIGINT,active_status VARCHAR,business_status VARCHAR,deleted INT,joined_at TIMESTAMP)");
             statement.execute("CREATE TABLE mes_pro_work_order(id BIGINT,tenant_id BIGINT,product_id BIGINT,code VARCHAR,name VARCHAR,batch_code VARCHAR,deleted INT)");
             statement.execute("CREATE TABLE mes_md_item(id BIGINT,tenant_id BIGINT,name VARCHAR,deleted INT)");
+            statement.execute("CREATE TABLE mes_pro_edhr_nonconformance_review(tenant_id BIGINT,active_order_id BIGINT,work_order_id BIGINT,review_status VARCHAR,disposition VARCHAR,deleted INT)");
             statement.execute("INSERT INTO mes_md_item VALUES(1,1,'导管',0),(2,2,'导管',0)");
             statement.execute("INSERT INTO mes_pro_work_order VALUES(1,1,1,'WO-1','一号工单','LOT-A',0),(2,1,1,'WO-2','二号工单','LOT-B',0),(3,2,2,'WO-3','其他租户','LOT-A',0)");
             statement.execute("INSERT INTO mes_pro_process_pool_active_order VALUES(1,1,1,10,'ACTIVE','ACTIVE',0,'2026-10-27 10:00:00'),(2,1,2,20,'ACTIVE','ACTIVE',0,'2026-10-27 11:00:00'),(3,1,1,10,'ACTIVE','COMPLETED',0,'2026-10-27 12:00:00'),(4,1,1,10,'REMOVED','VERSION_UPGRADED',0,'2026-10-27 12:00:00'),(5,2,3,30,'ACTIVE','ACTIVE',0,'2026-10-27 12:00:00'),(6,1,1,10,'ACTIVE','ACTIVE',1,'2026-10-27 12:00:00')");
@@ -32,6 +33,13 @@ class MesInProcessOrderMapperTest {
             query.setWorkOrderCode(null); query.setBatchCode(null); query.setProductName("二号");
             assertEquals(List.of(2L), query(connection, query));
             query.setProductName("' OR 1=1 --"); assertTrue(query(connection, query).isEmpty());
+            query.setProductName(null);
+            // A pending review or a concession remains in process; only the same cycle's formal void ends it.
+            statement.execute("INSERT INTO mes_pro_edhr_nonconformance_review VALUES(1,1,1,'pending_review',NULL,0),(1,2,2,'closed','concession_release',0)");
+            statement.execute("INSERT INTO mes_pro_edhr_nonconformance_review VALUES(2,3,1,'closed','void',0),(1,3,1,'closed','void',1),(1,7,99,'closed','void',0)");
+            assertEquals(List.of(3L,2L,1L,7L), query(connection, query));
+            statement.execute("INSERT INTO mes_pro_edhr_nonconformance_review VALUES(1,1,1,'closed','void',0)");
+            assertEquals(List.of(3L,2L,7L), query(connection, query));
         }
     }
     private List<Long> query(Connection connection, MesInProcessOrderPageReqVO request) throws Exception {

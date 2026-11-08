@@ -36,7 +36,7 @@
             filterable
             :placeholder="t('login.tenantNamePlaceholder')"
             :loading="tenantListLoading"
-            @change="handleTenantNameChange"
+            @change="handleTenantSelection"
             @visible-change="handleTenantDropdownVisibleChange"
           >
             <template #prefix>
@@ -247,6 +247,7 @@ const passwordChangeRules = {
 }
 const tenantOptions = ref<{ id: number; name: string }[]>([])
 const tenantListLoading = ref(false)
+let tenantSelectedByUser = false
 const loginData = reactive({
   isShowPassword: false,
   tenantEnable: import.meta.env.VITE_APP_TENANT_ENABLE,
@@ -304,6 +305,11 @@ const handleTenantNameChange = (tenantName: string) => {
   }
 }
 
+const handleTenantSelection = (tenantName: string) => {
+  tenantSelectedByUser = true
+  handleTenantNameChange(tenantName)
+}
+
 const handleTenantDropdownVisibleChange = (visible: boolean) => {
   if (!visible) {
     handleTenantNameChange(loginData.loginForm.tenantName)
@@ -318,7 +324,7 @@ const getTenantByWebsite = async () => {
   if (loginData.tenantEnable === 'true') {
     const website = location.host
     const res = await LoginApi.getTenantByWebsite(website)
-    if (res) {
+    if (res && !tenantSelectedByUser && !loginLoading.value && !passwordChangeRequired.value) {
       loginData.loginForm.tenantName = res.name
       handleTenantNameChange(res.name)
       authUtil.setTenantId(res.id)

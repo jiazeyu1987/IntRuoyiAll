@@ -88,7 +88,7 @@ public class MesActiveOrderHandoffService {
         // The original rejected review owns this round; current responsibility edits cannot redirect it.
         owners.user(previous.getLeaderUserId(),"mes:pro-process-pool-team-leader:review");
         create(order,type,EVENT_SIGNED_REVISION,eventId,revisionId,previous.getLeaderUserId().toString(),actorUserId,
-                "PRODUCTION_REVIEW".equals(type),revision.getChangeReason(),routeProcessId,false,"OWN_RETURN_CORRECTION");
+                false,revision.getChangeReason(),routeProcessId,false,"OWN_RETURN_CORRECTION");
     }
 
     /** Existing formal leader correction has its own frozen origin; it never impersonates an own return. */
@@ -137,7 +137,7 @@ public class MesActiveOrderHandoffService {
             }
         }
         Long operator=identity.isSystemUser()?actor:identity.operatorId();
-        createDefaultRound(order,"PRODUCTION_REVIEW","PROCESS_POOL_EVENT",eventId,eventId,owners.productionLeader(order).toString(),operator,true,
+        createDefaultRound(order,"PRODUCTION_REVIEW","PROCESS_POOL_EVENT",eventId,eventId,owners.productionLeader(order).toString(),operator,false,
                 "本人生产提交已完成，请组长签名复核",event.getRouteProcessId(),false);
     }
     public void pqcSubmitted(Long pqcTaskId,Long eventId,Long actor) {
@@ -260,7 +260,7 @@ public class MesActiveOrderHandoffService {
         require("LEADER_PROFILE_RETURN".equals(JsonUtils.parseTree(returned.getResponsibilitySnapshotJson()).path("correctionOrigin").asText()),
                 "临时人员组长补正缺少原正式退回来源");
         close(returned,actor,revisionId,"DONE");
-        create(order,"PRODUCTION_REVIEW",EVENT_SIGNED_REVISION,eventId,revisionId,actor.toString(),actor,true,
+        create(order,"PRODUCTION_REVIEW",EVENT_SIGNED_REVISION,eventId,revisionId,actor.toString(),actor,false,
                 "临时人员报工已由责任组长签名更正，请对新版本独立复核",event.getRouteProcessId(),false,"LEADER_PROFILE_CORRECTION");
     }
 
@@ -462,8 +462,8 @@ public class MesActiveOrderHandoffService {
             default -> throw failure("未知交接业务状态");
         };
         responsibility.put("handoffBusinessState",businessState);
-        String frozenReason=reason+"\n【工单："+workOrder.getCode()+"；工序："+processLabel+"；发起人："+initiatorIdentity.get("name")
-                +"（"+initiatorIdentity.get("domain")+"）；状态："+businessState+"】";
+        String frozenReason=reason+"\n【工序："+processLabel+"；发起人："+initiatorIdentity.get("name")
+                +"；状态："+businessState+"】";
         var task=new MesActiveOrderHandoffTaskDO().setId(IdUtil.getSnowflakeNextId()).setActiveOrderId(order.getId())
                 .setWorkOrderId(order.getWorkOrderId()).setRouteProcessId(routeProcessId).setTaskType(type)
                 .setSourceType(source).setSourceId(sourceId).setRoundId(round).setCandidateUserSnapshot(receivers)

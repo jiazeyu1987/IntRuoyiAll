@@ -38,6 +38,11 @@ public interface MesProcessPoolActiveOrderMapper extends BaseMapperX<MesProcessP
         return selectList(new LambdaQueryWrapperX<MesProcessPoolActiveOrderDO>()
                 .eq(MesProcessPoolActiveOrderDO::getLeaderUserId, leaderUserId)
                 .eq(MesProcessPoolActiveOrderDO::getActiveStatus, "ACTIVE")
+                .notExists("SELECT 1 FROM mes_pro_edhr_nonconformance_review n "
+                        + "WHERE n.tenant_id=mes_pro_process_pool_active_order.tenant_id "
+                        + "AND n.active_order_id=mes_pro_process_pool_active_order.id "
+                        + "AND n.work_order_id=mes_pro_process_pool_active_order.work_order_id "
+                        + "AND n.deleted=0 AND n.review_status='closed' AND n.disposition='void'")
                 .orderByAsc(MesProcessPoolActiveOrderDO::getSortOrder)
                 .orderByAsc(MesProcessPoolActiveOrderDO::getJoinedAt)
                 .orderByAsc(MesProcessPoolActiveOrderDO::getId));

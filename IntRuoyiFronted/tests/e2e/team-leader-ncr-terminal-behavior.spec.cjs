@@ -36,6 +36,19 @@ const templateAst = descriptor.template.ast
 test('真实组长模板可编译', () => assert.deepEqual(template.errors, []))
 
 for (const [status, label, tag] of [
+  [undefined, '未申请', 'info'],
+  ['MARKET_RELEASE_WITHDRAWN', '上市放行已撤回', 'warning'],
+  ['MARKET_RELEASE_REJECTED', '上市放行已驳回', 'danger'],
+  ['UNRECOGNIZED', '未知放行状态：UNRECOGNIZED', 'danger']
+]) {
+  test(`放行申请${status ?? '无申请'}保留真实状态而非误报未申请`, () => {
+    const h = harness({})
+    assert.equal(h.formatActiveOrderReleaseStatus(status), label)
+    assert.equal(h.formatActiveOrderReleaseStatusTag(status), tag)
+  })
+}
+
+for (const [status, label, tag] of [
   ['NONCONFORMANCE_VOID', 'QA已作废', 'danger'],
   ['NONCONFORMANCE_REWORK', '已结束并转入返工', 'warning']
 ]) {

@@ -330,7 +330,7 @@ class MesActiveOrderHandoffLifecycleTest {
   when(tasks.close(eq(1L),eq(returned.getId()),eq(0),eq("DONE"),eq(341L),eq(800L),any())).thenAnswer(i->{returned.setStatus("DONE").setRowVersion(1).setCompletionSourceId(800L);return 1;});
   service.completeProfileLeaderCorrection(176L,700L,800L,341L);verify(corrections).verifyProfileLeaderRevision(event,previous,revision,341L);
   var rounds=ArgumentCaptor.forClass(MesActiveOrderHandoffTaskDO.class);verify(tasks,times(2)).insert(rounds.capture());var pending=rounds.getAllValues().get(1);
-  assertEquals(800L,pending.getRoundId());assertEquals("341",pending.getCandidateUserSnapshot());assertTrue(pending.getNotificationOnly());assertTrue(pending.getResponsibilitySnapshotJson().contains("LEADER_PROFILE_CORRECTION"));
+  assertEquals(800L,pending.getRoundId());assertEquals("341",pending.getCandidateUserSnapshot());assertFalse(pending.getNotificationOnly());assertTrue(pending.getResponsibilitySnapshotJson().contains("LEADER_PROFILE_CORRECTION"));
   when(tasks.selectById(pending.getId())).thenReturn(pending);when(corrections.find(event,previous)).thenReturn(revision);
   var context=service.navigationContext(pending.getId(),341L);assertTrue(context.processable());assertFalse(context.profileLeaderCorrection());
   when(corrections.find(event,previous)).thenReturn(null);assertThrows(RuntimeException.class,()->service.navigationContext(pending.getId(),341L));
@@ -404,6 +404,11 @@ class MesActiveOrderHandoffLifecycleTest {
   event.setWorkOrderId(274L);when(owners.submissionIdentity(event)).thenReturn(new MesActiveOrderHandoffOwnerResolver.SubmissionIdentity("MES_EMPLOYEE_PROFILE",342L,1L));when(owners.profileProductionLeader(event)).thenReturn(341L);
   service.productionSubmitted(413L,176L,342L);service.productionSubmitted(413L,176L,342L);
   assertEquals(1,jdbc.queryForObject("SELECT COUNT(*) FROM mes_active_order_handoff_task",Integer.class));
+  var initialTask=realTasks.byIdentity(413L,"PRODUCTION_REVIEW","PROCESS_POOL_EVENT",176L,176L);
+  assertFalse(initialTask.getNotificationOnly());
+  assertTrue(initialTask.getReason().contains("实际发起人"));
+  assertFalse(initialTask.getReason().contains("SYSTEM_USER"));
+  assertFalse(initialTask.getReason().contains("EDHR-413"));
   var rejected=review(176L).setLeaderType("PRODUCTION");when(reviews.selectById(176L)).thenReturn(rejected);when(reviews.selectLatestByEventIdForUpdate(176L)).thenReturn(rejected);
   service.reviewed(176L,176L);service.reviewed(176L,176L);
   var returned=realTasks.byIdentity(413L,"PRODUCTION_REVIEW",MesActiveOrderHandoffContract.EVENT_REJECTED_REVIEW,176L,176L);
