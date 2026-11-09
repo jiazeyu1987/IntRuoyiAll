@@ -26,6 +26,7 @@ import static cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHand
 @Service
 @Transactional(propagation=Propagation.MANDATORY,rollbackFor=Exception.class)
 public class MesActiveOrderHandoffService {
+    @jakarta.annotation.Resource private cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesPackagingLeaderAccess packagingAccess;
     @Resource private MesActiveOrderHandoffTaskMapper tasks;
     @Resource private MesProcessPoolActiveOrderMapper orders;
     @Resource private MesProProcessPoolEventMapper events;
@@ -123,9 +124,11 @@ public class MesActiveOrderHandoffService {
         audit.lock(); var order=order(activeOrderId,true); var event=event(eventId);
         require("PRODUCTION_SUBMIT".equals(event.getEventType())&&Objects.equals(activeOrderId,active(event)),"生产提交与活跃周期不一致");
         var identity=owners.submissionIdentity(event); require(Objects.equals(identity.signerId(),actor),"生产提交接手人与原签名人不一致");
-        if(identity.isSystemUser()) closeMatching(activeOrderId,"PRODUCTION_HANDOFF","ACTIVE_ORDER",activeOrderId,actor,eventId);
-        else {
-            require(Objects.equals(owners.profileProductionLeader(event),order.getLeaderUserId()),"临时提交不属于原周期正式生产责任");
+        Long reviewLeader = owners.submissionProductionLeader(event, order);
+        // Cross-team work does not consume the original team's production notification.
+        if(identity.isSystemUser() && Objects.equals(reviewLeader, order.getLeaderUserId()))
+            closeMatching(activeOrderId,"PRODUCTION_HANDOFF","ACTIVE_ORDER",activeOrderId,actor,eventId);
+        else if (!identity.isSystemUser() && Objects.equals(reviewLeader, order.getLeaderUserId())) {
             // This is automatic closure from verified business submission, attributed to its actual operator.
             // A profile signer never becomes an inbox candidate or a system-user signer.
             for(var task:tasks.selectList(new LambdaQueryWrapperX<MesActiveOrderHandoffTaskDO>()
@@ -137,7 +140,7 @@ public class MesActiveOrderHandoffService {
             }
         }
         Long operator=identity.isSystemUser()?actor:identity.operatorId();
-        createDefaultRound(order,"PRODUCTION_REVIEW","PROCESS_POOL_EVENT",eventId,eventId,owners.productionLeader(order).toString(),operator,false,
+        createDefaultRound(order,"PRODUCTION_REVIEW","PROCESS_POOL_EVENT",eventId,eventId,reviewLeader.toString(),operator,false,
                 "本人生产提交已完成，请组长签名复核",event.getRouteProcessId(),false);
     }
     public void pqcSubmitted(Long pqcTaskId,Long eventId,Long actor) {
@@ -377,13 +380,23 @@ public class MesActiveOrderHandoffService {
     }
     public void productionLeaderContinued(Long activeOrderId,Long actor,Long businessSourceId) {
         audit.lock();require(businessSourceId!=null&&businessSourceId>0,"组长接手完成必须来自正式业务成功记录");
-        var order=order(activeOrderId,true);require(Objects.equals(owners.productionLeader(order),actor),"仅当轮原生产组长可完成QA结果接手");
+        var order=order(activeOrderId,true);require(Objects.equals(order.getLeaderUserId(),actor)
+                || packagingAccess.canAccess(actor,order),"当前组长无权完成该订单接手");
+        owners.user(actor,"mes:pro-process-pool-team-leader:review");
         closeDecisionHandoff(activeOrderId,actor,businessSourceId);
     }
     private void closeDecisionHandoff(Long activeOrderId,Long actor,Long source) {
         for(var task:tasks.selectList(new LambdaQueryWrapperX<MesActiveOrderHandoffTaskDO>()
                 .eq(MesActiveOrderHandoffTaskDO::getActiveOrderId,activeOrderId).eq(MesActiveOrderHandoffTaskDO::getTaskType,"QA_DECISION_HANDOFF")
-                .eq(MesActiveOrderHandoffTaskDO::getStatus,"TODO"))) { access(task,actor);close(task,actor,source,"DONE"); }
+                .eq(MesActiveOrderHandoffTaskDO::getStatus,"TODO"))) {
+            var activeOrder = order(activeOrderId, false);
+            if (packagingAccess.canAccess(actor, activeOrder)) {
+                validate(task);
+                require(candidates(task.getCandidateUserSnapshot()).contains(activeOrder.getLeaderUserId()),
+                        "QA结果接手责任与原工单不一致");
+            } else access(task,actor);
+            close(task,actor,source,"DONE");
+        }
     }
     private void closeMatching(Long activeId,String type,String sourceType,Long sourceId,Long actor,Long completionSource) {
         var rows=tasks.selectList(new LambdaQueryWrapperX<MesActiveOrderHandoffTaskDO>()

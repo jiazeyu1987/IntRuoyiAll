@@ -59,6 +59,7 @@ class MesTeamLeaderActiveOrderCompletionServiceTest {
         service = new MesTeamLeaderActiveOrderCompletionServiceImpl(activeOrderMapper, receiptMapper,
                 progressPort, backfillPort, pickListCompletionSourceService, activeOrderTransferTraceService,
                 processInspectionAggregationService);
+        { org.springframework.test.util.ReflectionTestUtils.setField(service, "packagingAccess", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesPackagingLeaderAccess.class)); }
         { org.springframework.test.util.ReflectionTestUtils.setField(service, "handoffService", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffService.class)); }
         ReflectionTestUtils.setField(service, "gxpAuditService", gxpAuditService);
         ReflectionTestUtils.setField(service, "fixedTestCompletionSourceInitializer", fixedTestCompletionSourceInitializer);
@@ -117,9 +118,15 @@ class MesTeamLeaderActiveOrderCompletionServiceTest {
         verify(receiptMapper, never()).insert(any(MesProcessPoolActiveOrderCompletionReceiptDO.class));
     }
 
-    @Test
-    void successfulCompletionWritesReceiptAndOnlyReturnsFlow6Handoff() {
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    void successfulCompletionWritesReceiptAndOnlyReturnsFlow6Handoff(boolean crossTeam) {
         MesProcessPoolActiveOrderDO order = order();
+        if (crossTeam) {
+            order.setLeaderUserId(21L);
+            var access = (MesPackagingLeaderAccess) ReflectionTestUtils.getField(service, "packagingAccess");
+            when(access.canAccess(20L, order)).thenReturn(true);
+        }
         when(activeOrderMapper.selectByIdForUpdate(10L)).thenReturn(order);
         when(receiptMapper.selectByActiveOrderIdForUpdate(10L)).thenReturn(null);
         when(receiptMapper.selectByIdempotencyKeyForUpdate("key-1")).thenReturn(null);
@@ -136,6 +143,7 @@ class MesTeamLeaderActiveOrderCompletionServiceTest {
 
         MesTeamLeaderActiveOrderCompletionResult result = service.complete(20L, command());
 
+        assertEquals(crossTeam ? 21L : 20L, order.getLeaderUserId());
         assertEquals(99L, result.getCompletionReceiptId());
         assertEquals("PENDING_FLOW6", result.getProvisionHandoff());
         verify(backfillPort).write(any(), anyLong());
@@ -143,6 +151,7 @@ class MesTeamLeaderActiveOrderCompletionServiceTest {
         org.mockito.ArgumentCaptor<MesProcessPoolActiveOrderCompletionReceiptDO> receiptCaptor =
                 org.mockito.ArgumentCaptor.forClass(MesProcessPoolActiveOrderCompletionReceiptDO.class);
         verify(receiptMapper).insert(receiptCaptor.capture());
+        assertEquals(20L, receiptCaptor.getValue().getLeaderUserId());
         assertEquals(1L, receiptCaptor.getValue().getTenantId());
         assertEquals(101L, receiptCaptor.getValue().getBatchRecordId());
         assertEquals(102L, receiptCaptor.getValue().getProcessInspectionId());
@@ -354,9 +363,15 @@ class MesTeamLeaderActiveOrderCompletionServiceTest {
         verify(backfillPort, never()).prepare(anyLong(), any(), any());
     }
 
-    @Test
-    void incompleteProgressMustFailBeforeAnyBackfillWrite() {
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    void incompleteProgressMustFailBeforeAnyBackfillWrite(boolean crossTeam) {
         MesProcessPoolActiveOrderDO order = order();
+        if (crossTeam) {
+            order.setLeaderUserId(21L);
+            var access = (MesPackagingLeaderAccess) ReflectionTestUtils.getField(service, "packagingAccess");
+            when(access.canAccess(20L, order)).thenReturn(true);
+        }
         when(activeOrderMapper.selectByIdForUpdate(10L)).thenReturn(order);
         when(receiptMapper.selectByActiveOrderIdForUpdate(10L)).thenReturn(null);
         when(receiptMapper.selectByIdempotencyKeyForUpdate("key-1")).thenReturn(null);

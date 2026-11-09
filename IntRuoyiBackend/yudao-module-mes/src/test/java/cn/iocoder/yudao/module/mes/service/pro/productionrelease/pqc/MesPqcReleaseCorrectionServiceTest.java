@@ -67,6 +67,7 @@ class MesPqcReleaseCorrectionServiceTest {
         when(workOrders.selectByIdForUpdate(30L)).thenReturn(new MesProWorkOrderDO().setId(30L));
         service = new MesPqcReleaseCorrectionService(tasks, applications, activeOrders, files, batches, workOrders, permissions,
                 mock(MesEdhrBatchLifecycleGuard.class), mock(MesProEdhrNonconformanceReviewService.class), release, audit);
+        { org.springframework.test.util.ReflectionTestUtils.setField(service, "packagingAccess", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesPackagingLeaderAccess.class)); }
         org.springframework.test.util.ReflectionTestUtils.setField(service, "deadlineService", mock(MesEdhrTaskDeadlineService.class));
         org.springframework.test.util.ReflectionTestUtils.setField(service, "releaseTransactions", db.mapper(MesProEdhrReleaseTransactionMapper.class));
         var formalWorkOrder = new MesProWorkOrderDO().setId(30L); formalWorkOrder.setTenantId(1L);

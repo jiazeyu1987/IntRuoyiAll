@@ -30,6 +30,8 @@ import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_P
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class MesActiveOrderDossierReadScopeService {
+    @jakarta.annotation.Resource private cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesPackagingLeaderAccess packagingAccess;
+
     private static final String BATCH_QUERY = "mes:pro-edhr-batch-execution:query";
     private static final String PQC_QUERY = "mes:pro-production-release:query";
     private final MesProcessPoolActiveOrderReleaseApplicationMapper applicationMapper;
@@ -82,7 +84,7 @@ public class MesActiveOrderDossierReadScopeService {
         if (app != null) requireApplication(app, active, tenant);
         require(requestedApplicationId == null || app != null && Objects.equals(requestedApplicationId, app.getId()),
                 "上传申请与正式活跃订单关联不一致。");
-        if (Objects.equals(active.getLeaderUserId(), actor)
+        if ((Objects.equals(active.getLeaderUserId(), actor) || packagingAccess.canAccess(actor, active))
                 && permissionApi.hasAnyPermissions(actor, "mes:pro-process-pool-team-leader:maintain")) {
             return new Context(active, app);
         }
@@ -129,7 +131,7 @@ public class MesActiveOrderDossierReadScopeService {
             requireApplication(app, active, tenant);
             require(Objects.equals(row.getApplicationId(), app.getId()), "资料文件与申请身份不一致。");
         }
-        if (Objects.equals(active.getLeaderUserId(), actor)) {
+        if ((Objects.equals(active.getLeaderUserId(), actor) || packagingAccess.canAccess(actor, active))) {
             return;
         }
         if (permissionApi.hasAnyPermissions(actor, "mes:pro-edhr-batch-execution:upload")

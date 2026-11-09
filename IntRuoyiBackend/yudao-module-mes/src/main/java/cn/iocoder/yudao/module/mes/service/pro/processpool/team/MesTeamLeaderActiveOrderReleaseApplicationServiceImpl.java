@@ -25,6 +25,9 @@ import org.springframework.validation.annotation.Validated;
 @Validated
 public class MesTeamLeaderActiveOrderReleaseApplicationServiceImpl
         implements MesTeamLeaderActiveOrderReleaseApplicationService {
+    @Resource private MesPackagingLeaderAccess packagingAccess;
+    @Resource private cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper activeOrderMapper;
+
 
     private final MesTeamLeaderActiveOrderReleaseGenerationService generationService;
     private final MesTeamLeaderActiveOrderCompletionService completionService;
@@ -81,8 +84,13 @@ public class MesTeamLeaderActiveOrderReleaseApplicationServiceImpl
 
     private Long requirePersistedP2BatchExecutionId(
             Long leaderUserId, MesTeamLeaderActiveOrderReleaseApplyCommand command) {
+        var order = activeOrderMapper.selectByIdForUpdate(command.getActiveOrderId());
+        if (order == null || !(Objects.equals(order.getLeaderUserId(), leaderUserId)
+                || packagingAccess.canAccess(leaderUserId, order))) {
+            throw exception(PRO_PROCESS_POOL_ACTIVE_ORDER_COMPLETION_SOURCE_MISSING, command.getActiveOrderId(), "当前用户无权申请该订单放行");
+        }
         var receipt = receiptMapper.selectByActiveOrderIdForUpdate(command.getActiveOrderId());
-        if (receipt == null || !Objects.equals(receipt.getLeaderUserId(), leaderUserId)
+        if (receipt == null
                 || !Objects.equals(receipt.getActiveOrderId(), command.getActiveOrderId())
                 || !"BACKFILL_SUCCEEDED".equals(receipt.getReceiptStatus())
                 || !"SUCCESS".equals(receipt.getBatchRecordStatus())

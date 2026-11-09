@@ -79,6 +79,8 @@ import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_P
 @Service
 @Validated
 public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderActiveOrderDetailService {
+    @jakarta.annotation.Resource private MesPackagingLeaderAccess packagingAccess;
+
     @jakarta.annotation.Resource private MesActiveOrderReplenishmentBindingService replenishmentBindings;
     @jakarta.annotation.Resource private MesLocalTestRunSourceGuard localSources;
     @jakarta.annotation.Resource private cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesMarketReleaseAccess marketReleaseAccess;
@@ -170,7 +172,7 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
     public MesTeamLeaderActiveOrderDetail getDetail(Long leaderUserId, Long activeOrderId) {
         MesProcessPoolActiveOrderDO activeOrder = activeOrderMapper.selectById(activeOrderId);
         if (activeOrder == null
-                || !Objects.equals(activeOrder.getLeaderUserId(), leaderUserId)
+                || !(Objects.equals(activeOrder.getLeaderUserId(), leaderUserId) || packagingAccess.canAccess(leaderUserId, activeOrder))
                 || !MesTeamLeaderActiveOrderServiceImpl.STATUS_ACTIVE.equals(activeOrder.getActiveStatus())) {
             throw exception(PRO_PROCESS_POOL_ACTIVE_ORDER_NOT_EXISTS, activeOrderId);
         }

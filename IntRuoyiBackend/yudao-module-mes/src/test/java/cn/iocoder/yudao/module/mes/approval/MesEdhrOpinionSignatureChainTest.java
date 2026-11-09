@@ -446,6 +446,7 @@ class MesEdhrOpinionSignatureChainTest {
         var summary = new MesTeamLeaderActiveOrderDetailServiceImpl(null, null, null, null, null, null,
                 null, null, null, null, null, null, null, null, applications, null, null, transactions, null,
                 queries, null, directory);
+        { org.springframework.test.util.ReflectionTestUtils.setField(summary, "packagingAccess", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesPackagingLeaderAccess.class)); }
         org.springframework.test.util.ReflectionTestUtils.setField(summary, "localSources", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesLocalTestRunSourceGuard.class));
         ReflectionTestUtils.setField(summary, "workTaskMapper", tasks);
         ReflectionTestUtils.setField(summary, "verifiedSignatureFacts", verifiedFacts);
@@ -515,6 +516,7 @@ class MesEdhrOpinionSignatureChainTest {
         var summary = new MesTeamLeaderActiveOrderDetailServiceImpl(null, null, null, null, null, null,
                 null, null, null, null, null, null, null, null, applications, null, null, transactions, null,
                 queries, null, directory);
+        { org.springframework.test.util.ReflectionTestUtils.setField(summary, "packagingAccess", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesPackagingLeaderAccess.class)); }
         org.springframework.test.util.ReflectionTestUtils.setField(summary, "localSources", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesLocalTestRunSourceGuard.class));
         ReflectionTestUtils.setField(summary, "workTaskMapper", tasks);
         ReflectionTestUtils.setField(summary, "verifiedSignatureFacts", verifiedFacts);
@@ -714,6 +716,7 @@ class MesEdhrOpinionSignatureChainTest {
                 mock(cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventRevisionMapper.class),
                 applications, mock(MesProEdhrNonconformanceReviewMapper.class), mock(MesProEdhrOperationAuditEventMapper.class),
                 transactions, mock(MesProcessPoolTeamMaintenanceAuditMapper.class), queries, mock(MesSubmissionSignatureIdentityReader.class), directory);
+        { org.springframework.test.util.ReflectionTestUtils.setField(team, "packagingAccess", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesPackagingLeaderAccess.class)); }
         org.springframework.test.util.ReflectionTestUtils.setField(team, "localSources", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesLocalTestRunSourceGuard.class));
         ReflectionTestUtils.setField(team, "workTaskMapper", tasks);
         ReflectionTestUtils.setField(team, "marketReleaseAccess", mock(MesMarketReleaseAccess.class));

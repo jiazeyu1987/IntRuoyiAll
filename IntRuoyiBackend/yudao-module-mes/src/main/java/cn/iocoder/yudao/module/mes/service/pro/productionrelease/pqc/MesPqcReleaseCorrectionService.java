@@ -46,6 +46,8 @@ import java.util.Set;
 @Service
 @RequiredArgsConstructor
 public class MesPqcReleaseCorrectionService {
+    @jakarta.annotation.Resource private cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesPackagingLeaderAccess packagingAccess;
+
     public static final String TYPE = "PQC_RELEASE_CORRECTION";
     private static final String SCOPE = "RELEASE_APPLICATION";
     private static final Set<String> OPEN = Set.of("TODO", "DOING", "OVERDUE");
@@ -130,7 +132,7 @@ public class MesPqcReleaseCorrectionService {
         var app = applications.selectByIdForUpdate(applicationId);
         require(app != null && Objects.equals(app.getAppliedBy(), actor) && Objects.equals(app.getTenantId(), TenantContextHolder.getRequiredTenantId())
                 && isCorrectable(app)
-                && active != null && Objects.equals(active.getLeaderUserId(), actor) && "ACTIVE".equals(active.getActiveStatus())
+                && active != null && (Objects.equals(active.getLeaderUserId(), actor) || packagingAccess.canAccess(actor, active)) && "ACTIVE".equals(active.getActiveStatus())
                 && workOrder != null && Objects.equals(active.getWorkOrderId(), app.getWorkOrderId())
                 && Objects.equals(batch.getId(), app.getBatchExecutionId()), "当前账号不是该正式驳回申请的有效补正责任人");
         var latest = applications.selectLatestByActiveOrderId(app.getActiveOrderId());
@@ -232,7 +234,7 @@ public class MesPqcReleaseCorrectionService {
     private boolean correctionWritable(Long actor, MesProEdhrWorkTaskDO task,
             MesProcessPoolActiveOrderReleaseApplicationDO app,
             MesProcessPoolActiveOrderDO active) {
-        if (!OPEN.contains(task.getStatus()) || !Objects.equals(active.getLeaderUserId(), actor)
+        if (!OPEN.contains(task.getStatus()) || !(Objects.equals(active.getLeaderUserId(), actor) || packagingAccess.canAccess(actor, active))
                 || !Objects.equals(active.getTenantId(), app.getTenantId())
                 || !Objects.equals(active.getWorkOrderId(), app.getWorkOrderId())
                 || !Objects.equals(task.getWorkOrderId(), app.getWorkOrderId())
@@ -295,7 +297,7 @@ public class MesPqcReleaseCorrectionService {
                 "补正任务或申请版本已变化，请刷新");
         var latest = applications.selectLatestByActiveOrderId(app.getActiveOrderId());
         require(latest != null && Objects.equals(latest.getId(), app.getId()), "已有更新的放行轮次，不能重提历史申请");
-        require(active != null && "ACTIVE".equals(active.getActiveStatus()) && Objects.equals(active.getLeaderUserId(), actor)
+        require(active != null && "ACTIVE".equals(active.getActiveStatus()) && (Objects.equals(active.getLeaderUserId(), actor) || packagingAccess.canAccess(actor, active))
                 && permissions.hasAnyPermissions(actor, "mes:pro-process-pool-team-leader:maintain"),
                 "补正责任人已不具备当前活跃订单申请资格，请先明确正式责任人");
         Long baseline = frozen.getLong("dossierRevision");

@@ -47,6 +47,7 @@ class MesActiveOrderDossierCompletionServiceTest {
     private final MesActiveOrderDossierCompletionService service = new MesActiveOrderDossierCompletionService(orders, files, tasks,
             permissions, notices, auxiliary, users, workOrders, applications, mock(MesProEdhrNonconformanceReviewService.class),
             mock(MesEdhrBatchLifecycleGuard.class), audit, ledger, reviews);
+        { org.springframework.test.util.ReflectionTestUtils.setField(service, "packagingAccess", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesPackagingLeaderAccess.class)); }
     private MesProcessPoolActiveOrderDO order;
 
     @BeforeEach void setup() {

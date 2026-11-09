@@ -55,6 +55,8 @@ import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_P
 @Service
 public class MesTeamLeaderActiveOrderCompletionBackfillPortImpl
         implements MesTeamLeaderActiveOrderCompletionBackfillPort {
+    @jakarta.annotation.Resource private MesPackagingLeaderAccess packagingAccess;
+
 
     private final MesProcessPoolActiveOrderProcessSnapshotMapper snapshotMapper;
     private final MesProcessPoolReportAllocationMapper allocationMapper;
@@ -117,7 +119,7 @@ public class MesTeamLeaderActiveOrderCompletionBackfillPortImpl
         if (!TransactionSynchronizationManager.isActualTransactionActive()) {
             throw new IllegalStateException("Formal production freeze requires the existing Tx-A transaction");
         }
-        if (activeOrder == null || !Objects.equals(activeOrder.getLeaderUserId(), leaderUserId)) {
+        if (activeOrder == null || !(Objects.equals(activeOrder.getLeaderUserId(), leaderUserId) || packagingAccess.canAccess(leaderUserId, activeOrder))) {
             throw sourceMissing(activeOrder, "ACTIVE_ORDER_OWNER");
         }
         List<MesProcessPoolActiveOrderProcessSnapshotDO> snapshots = lockedSnapshots(activeOrder);

@@ -35,8 +35,12 @@ public interface MesProcessPoolActiveOrderMapper extends BaseMapperX<MesProcessP
                                  @Param("simulationRunId") String simulationRunId);
 
     default List<MesProcessPoolActiveOrderDO> selectActiveListByLeader(Long leaderUserId) {
+        return selectActiveListByLeader(leaderUserId, false);
+    }
+
+    default List<MesProcessPoolActiveOrderDO> selectActiveListByLeader(Long leaderUserId, boolean allLeaders) {
         return selectList(new LambdaQueryWrapperX<MesProcessPoolActiveOrderDO>()
-                .eq(MesProcessPoolActiveOrderDO::getLeaderUserId, leaderUserId)
+                .eq(!allLeaders, MesProcessPoolActiveOrderDO::getLeaderUserId, leaderUserId)
                 .eq(MesProcessPoolActiveOrderDO::getActiveStatus, "ACTIVE")
                 .notExists("SELECT 1 FROM mes_pro_edhr_nonconformance_review n "
                         + "WHERE n.tenant_id=mes_pro_process_pool_active_order.tenant_id "
@@ -58,8 +62,12 @@ public interface MesProcessPoolActiveOrderMapper extends BaseMapperX<MesProcessP
     }
 
     default List<MesProcessPoolActiveOrderDO> selectActiveListByLeaderForUpdate(Long leaderUserId) {
+        return selectActiveListByLeaderForUpdate(leaderUserId, false);
+    }
+
+    default List<MesProcessPoolActiveOrderDO> selectActiveListByLeaderForUpdate(Long leaderUserId, boolean allLeaders) {
         return selectList(new LambdaQueryWrapperX<MesProcessPoolActiveOrderDO>()
-                .eq(MesProcessPoolActiveOrderDO::getLeaderUserId, leaderUserId)
+                .eq(!allLeaders, MesProcessPoolActiveOrderDO::getLeaderUserId, leaderUserId)
                 .eq(MesProcessPoolActiveOrderDO::getActiveStatus, "ACTIVE")
                 .orderByAsc(MesProcessPoolActiveOrderDO::getSortOrder)
                 .orderByAsc(MesProcessPoolActiveOrderDO::getJoinedAt)

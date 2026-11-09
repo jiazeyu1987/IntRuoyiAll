@@ -41,6 +41,7 @@ class MesTeamLeaderActiveOrderCompletionProgressPortImplTest {
     void setUp() {
         port = new MesTeamLeaderActiveOrderCompletionProgressPortImpl(snapshotMapper, allocationMapper, taskMapper,
                 eventMapper);
+        { org.springframework.test.util.ReflectionTestUtils.setField(port, "packagingAccess", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesPackagingLeaderAccess.class)); }
         org.springframework.test.util.ReflectionTestUtils.setField(port, "pqcCoverageService",
                 org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesOrderReleaseCompletenessService.class));
     }

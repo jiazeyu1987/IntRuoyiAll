@@ -49,6 +49,8 @@ import java.util.Set;
 
 @Service
 public class MesTeamLeaderActiveOrderReleaseGenerationService {
+    @jakarta.annotation.Resource private MesPackagingLeaderAccess packagingAccess;
+
     @jakarta.annotation.Resource
     private cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventMapper productionEventMapper;
     @jakarta.annotation.Resource
@@ -207,7 +209,7 @@ public class MesTeamLeaderActiveOrderReleaseGenerationService {
         if (activeOrder == null) {
             throw forbidden(activeOrderId);
         }
-        if (!Objects.equals(userId, activeOrder.getLeaderUserId())) {
+        if (!(Objects.equals(userId, activeOrder.getLeaderUserId()) || packagingAccess.canAccess(userId, activeOrder))) {
             MesProEdhrWorkTaskDO task = application.getPqcReleaseWorkTaskId() == null
                     ? null : workTaskMapper.selectById(application.getPqcReleaseWorkTaskId());
             if (!isFrozenPqcCandidate(task, application, userId)) {
@@ -243,7 +245,7 @@ public class MesTeamLeaderActiveOrderReleaseGenerationService {
 
     private MesProcessPoolActiveOrderDO requireActiveOrder(Long activeOrderId, Long leaderUserId) {
         MesProcessPoolActiveOrderDO activeOrder = activeOrderMapper.selectByIdForUpdate(activeOrderId);
-        if (activeOrder == null || !Objects.equals(leaderUserId, activeOrder.getLeaderUserId())) {
+        if (activeOrder == null || !(Objects.equals(leaderUserId, activeOrder.getLeaderUserId()) || packagingAccess.canAccess(leaderUserId, activeOrder))) {
             throw forbidden(activeOrderId);
         }
         if (!STATUS_ACTIVE.equals(activeOrder.getActiveStatus()) || activeOrder.getWorkOrderId() == null

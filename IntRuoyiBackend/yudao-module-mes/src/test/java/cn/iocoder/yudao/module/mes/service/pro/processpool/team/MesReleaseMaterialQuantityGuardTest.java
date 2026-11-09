@@ -22,6 +22,7 @@ class MesReleaseMaterialQuantityGuardTest {
         var eventMapper = mock(MesProProcessPoolEventMapper.class);
         var service = new MesTeamLeaderActiveOrderReleaseGenerationService(null,null,null,null,null,null,
                 allocationMapper,null,null,null,null,null,null,null);
+        { org.springframework.test.util.ReflectionTestUtils.setField(service, "packagingAccess", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesPackagingLeaderAccess.class)); }
         ReflectionTestUtils.setField(service,"productionEventMapper",eventMapper);
         var order = MesProcessPoolActiveOrderDO.builder().id(1L).workOrderId(2L).routeId(3L).build();
         var process = MesProcessPoolActiveOrderProcessSnapshotDO.builder().routeProcessId(4L).processId(5L)

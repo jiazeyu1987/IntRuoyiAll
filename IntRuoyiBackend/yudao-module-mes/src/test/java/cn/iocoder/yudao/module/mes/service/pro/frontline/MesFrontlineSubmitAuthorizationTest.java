@@ -61,6 +61,7 @@ class MesFrontlineSubmitAuthorizationTest {
     void setUp() {
         submitAuthorizationService = new MesFrontlineSubmitAuthorizationServiceImpl(
                 contextService, activeOrderMapper, processSnapshotMapper, sessionSnapshotService, releaseStateService);
+        { org.springframework.test.util.ReflectionTestUtils.setField(submitAuthorizationService, "packagingAccess", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesPackagingLeaderAccess.class)); }
         org.springframework.test.util.ReflectionTestUtils.setField(submitAuthorizationService, "workOrderMapper", workOrderMapper);
         org.springframework.test.util.ReflectionTestUtils.setField(submitAuthorizationService, "sequenceGuard", sequenceGuard);
         org.mockito.Mockito.lenient().when(workOrderMapper.selectByIdForUpdate(41L)).thenReturn(

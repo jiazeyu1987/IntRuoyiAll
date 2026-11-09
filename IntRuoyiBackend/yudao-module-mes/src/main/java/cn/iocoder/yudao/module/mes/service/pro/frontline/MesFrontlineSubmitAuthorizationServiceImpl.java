@@ -20,6 +20,8 @@ import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_FRONTLINE
 
 @Service
 public class MesFrontlineSubmitAuthorizationServiceImpl implements MesFrontlineSubmitAuthorizationService {
+    @jakarta.annotation.Resource private cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesPackagingLeaderAccess packagingAccess;
+
 
     private final MesFrontlineDeviceAccountContextService contextService;
     private final MesProcessPoolActiveOrderMapper activeOrderMapper;
@@ -64,7 +66,7 @@ public class MesFrontlineSubmitAuthorizationServiceImpl implements MesFrontlineS
         Long leaderUserId = contextService.resolveResponsibleLeaderUserId(loginUserId);
         MesProcessPoolActiveOrderDO activeOrder = activeOrderMapper.selectByIdForUpdate(activeOrderId);
         if (activeOrder == null || !"ACTIVE".equals(activeOrder.getActiveStatus())
-                || !Objects.equals(leaderUserId, activeOrder.getLeaderUserId())
+                || !(Objects.equals(leaderUserId, activeOrder.getLeaderUserId()) || packagingAccess.canAccess(leaderUserId, activeOrder))
                 || !Objects.equals(workOrderId, activeOrder.getWorkOrderId())
                 || !Objects.equals(routeId, activeOrder.getRouteId())) {
             throw exception(PRO_FRONTLINE_SUBMIT_CONTEXT_REQUIRED, "activeOrder");

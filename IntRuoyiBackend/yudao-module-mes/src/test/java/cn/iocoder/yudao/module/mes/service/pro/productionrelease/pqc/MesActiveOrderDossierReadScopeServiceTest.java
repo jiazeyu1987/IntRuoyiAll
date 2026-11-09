@@ -496,6 +496,7 @@ class MesActiveOrderDossierReadScopeServiceTest {
                     MesMarketReleaseAccess.class)
                     .newInstance(f.apps, f.orders, f.batches, f.visibility, f.origins, f.pqcReader, f.tasks, f.permissions,
                             f.marketReleaseAccess);
+            ReflectionTestUtils.setField(service, "packagingAccess", mock(cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesPackagingLeaderAccess.class));
             ReflectionTestUtils.setField(service, "dossierCompletionService", mock(MesActiveOrderDossierCompletionService.class));
             return service;
         } catch (ReflectiveOperationException missingContract) {

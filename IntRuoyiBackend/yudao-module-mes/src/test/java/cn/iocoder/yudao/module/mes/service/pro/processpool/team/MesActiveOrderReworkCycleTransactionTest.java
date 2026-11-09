@@ -99,6 +99,7 @@ public class MesActiveOrderReworkCycleTransactionTest {
         events = session.getMapper(MesProProcessPoolEventMapper.class);
         receipts = session.getMapper(MesProcessPoolActiveOrderCompletionReceiptMapper.class);
         progress = new MesTeamLeaderActiveOrderCompletionProgressPortImpl(snapshots, allocations, tasks, events);
+        { org.springframework.test.util.ReflectionTestUtils.setField(progress, "packagingAccess", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesPackagingLeaderAccess.class)); }
         org.springframework.test.util.ReflectionTestUtils.setField(progress, "pqcCoverageService",
                 org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesOrderReleaseCompletenessService.class));
         var backfill = mock(MesTeamLeaderActiveOrderCompletionBackfillPort.class);
@@ -108,6 +109,7 @@ public class MesActiveOrderReworkCycleTransactionTest {
         completion = new MesTeamLeaderActiveOrderCompletionServiceImpl(orders, receipts, progress, backfill,
                 mock(MesTeamLeaderActiveOrderPickListCompletionSourceService.class),
                 mock(MesActiveOrderTransferTraceService.class), mock(MesPqcProcessInspectionAggregationService.class));
+        { org.springframework.test.util.ReflectionTestUtils.setField(completion, "packagingAccess", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesPackagingLeaderAccess.class)); }
         { org.springframework.test.util.ReflectionTestUtils.setField(completion, "handoffService", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffService.class)); }
         org.springframework.test.util.ReflectionTestUtils.setField(completion, "fixedTestCompletionSourceInitializer",
                 mock(MesFixedTestOrderCompletionSourceInitializer.class));

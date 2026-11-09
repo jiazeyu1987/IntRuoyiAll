@@ -34,6 +34,8 @@ import java.util.Objects;
 @Service
 @RequiredArgsConstructor
 public class MesActiveOrderDossierCompletionService {
+    @jakarta.annotation.Resource private cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesPackagingLeaderAccess packagingAccess;
+
     public static final String TASK_TYPE = "DOSSIER_COMPLETE";
     public static final String SCOPE_TYPE = "ACTIVE_ORDER_DOSSIER";
     private static final List<String> CATEGORIES = List.of("INCOMING_INSPECTION_FILE", "STERILIZATION_FILE", "FINISHED_PRODUCT_FILE", "OTHER_FILE");
@@ -145,7 +147,7 @@ public class MesActiveOrderDossierCompletionService {
         requireActor(actor);
         gxpAuditService.acquireLedgerLock();
         var order = activeOrderMapper.selectByIdForUpdate(orderId);
-        if (order == null || !Objects.equals(order.getLeaderUserId(), actor)
+        if (order == null || !(Objects.equals(order.getLeaderUserId(), actor) || packagingAccess.canAccess(actor, order))
                 || !Objects.equals(order.getTenantId(), TenantContextHolder.getRequiredTenantId())
                 || !permissionApi.hasAnyPermissions(actor, "mes:pro-process-pool-team-leader:maintain"))
             throw new IllegalStateException("仅当前活跃订单生产组长可指派资料责任人");
@@ -176,7 +178,7 @@ public class MesActiveOrderDossierCompletionService {
         requireActor(actor);
         var order = activeOrderMapper.selectById(orderId);
         if (order == null || !Objects.equals(order.getTenantId(), TenantContextHolder.getRequiredTenantId())
-                || !Objects.equals(order.getLeaderUserId(), actor)
+                || !(Objects.equals(order.getLeaderUserId(), actor) || packagingAccess.canAccess(actor, order))
                 || !permissionApi.hasAnyPermissions(actor, "mes:pro-process-pool-team-leader:maintain"))
             throw new IllegalStateException("仅当前订单生产组长可查看资料指派");
         var rows = taskMapper.selectList(new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<MesProEdhrWorkTaskDO>()

@@ -52,6 +52,12 @@ class MesTeamLeaderActiveOrderReleaseApplicationServiceImplTest {
         service = new MesTeamLeaderActiveOrderReleaseApplicationServiceImpl(
                 generationService, completionService, receiptMapper, batchMapper, applicationMapper,
                 completionBatchExecutionService, originMapper);
+        var orders = org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper.class);
+        ReflectionTestUtils.setField(service, "activeOrderMapper", orders);
+        ReflectionTestUtils.setField(service, "packagingAccess", org.mockito.Mockito.mock(MesPackagingLeaderAccess.class));
+        org.mockito.Mockito.lenient().when(orders.selectByIdForUpdate(org.mockito.ArgumentMatchers.anyLong()))
+            .thenAnswer(i -> cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO.builder()
+                .id(i.getArgument(0)).leaderUserId(20L).build());
         ReflectionTestUtils.setField(service, "handoffService", handoffService);
         ReflectionTestUtils.setField(service, "gxpAuditService", gxpAuditService);
         ReflectionTestUtils.setField(service, "affectedStates", affectedStates);

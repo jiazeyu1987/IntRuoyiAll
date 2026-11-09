@@ -64,6 +64,8 @@ import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_P
 
 @Service
 public class MesReportAllocationCommandService {
+    @jakarta.annotation.Resource private MesPackagingLeaderAccess packagingAccess;
+
     @Resource
     private cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventRevisionMapper revisionMapper;
 
@@ -147,7 +149,7 @@ public class MesReportAllocationCommandService {
         assertScope(event, leaderUserId, leaderType);
         BigDecimal pool = poolQuantityService.requirePoolQuantity(event);
         List<MesProcessPoolReportAllocationDO> current = allocationMapper.selectListByEventId(eventId);
-        List<MesProcessPoolActiveOrderDO> activeOrders = activeOrderMapper.selectActiveListByLeader(leaderUserId)
+        List<MesProcessPoolActiveOrderDO> activeOrders = (packagingAccess.isPackagingLeader(leaderUserId) ? activeOrderMapper.selectActiveListByLeader(leaderUserId, true) : activeOrderMapper.selectActiveListByLeader(leaderUserId))
                 .stream().filter(order -> "ACTIVE".equals(order.getActiveStatus())).toList();
         Set<Long> releaseCandidates = activeOrders.stream().map(MesProcessPoolActiveOrderDO::getId)
                 .collect(Collectors.toCollection(LinkedHashSet::new));
@@ -314,6 +316,7 @@ public class MesReportAllocationCommandService {
         validateCommand(command);
         gxpAuditService.acquireLedgerLock();
         MesProProcessPoolEventDO event = requireEvent(command.getEventId(), true);
+        scopeService.assertCanAccessEmployee(command.getLeaderUserId(), command.getLeaderType(), event.getActualEmployeeId());
         assertScope(event, command.getLeaderUserId(), command.getLeaderType());
         assertSubmissionNotRejected(event.getId());
         BigDecimal pool = poolQuantityService.requirePoolQuantity(event);
@@ -337,8 +340,9 @@ public class MesReportAllocationCommandService {
         }
 
         validateDisplayedProductionContext(event, state, command.getExpectedReview());
-        List<MesProcessPoolActiveOrderDO> activeOrders = activeOrderMapper
-                .selectActiveListByLeaderForUpdate(command.getLeaderUserId()).stream()
+        List<MesProcessPoolActiveOrderDO> activeOrders = (packagingAccess.isPackagingLeader(command.getLeaderUserId())
+                ? activeOrderMapper.selectActiveListByLeaderForUpdate(command.getLeaderUserId(), true)
+                : activeOrderMapper.selectActiveListByLeaderForUpdate(command.getLeaderUserId())).stream()
                 .filter(order -> "ACTIVE".equals(order.getActiveStatus())).toList();
         Map<Long, MesProcessPoolActiveOrderDO> activeById = activeOrders.stream().collect(Collectors.toMap(
                 MesProcessPoolActiveOrderDO::getId, Function.identity(), (a, b) -> a, LinkedHashMap::new));
@@ -545,6 +549,7 @@ public class MesReportAllocationCommandService {
         if (!MesProProcessPoolEventDO.EVENT_TYPE_PRODUCTION_SUBMIT.equals(event.getEventType())) {
             throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "productionSubmitEvent");
         }
+        scopeService.assertCanAccessEmployee(leaderUserId, MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PRODUCTION, event.getActualEmployeeId());
         assertScope(event, leaderUserId, MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PRODUCTION);
         MesProcessPoolReportAllocationStateDO state = readStateForReview(event);
         List<MesProcessPoolReportAllocationDO> current = allocationMapper.selectListByEventIdForUpdate(eventId);

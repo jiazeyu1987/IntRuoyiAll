@@ -98,6 +98,7 @@ class MesFrontlineEmployeeSwitchServiceTest {
                 routeVersionMapper, processService, workstationWorkerService, adminUserApi, permissionApi, routeService,
                 workstationService, workstationMachineService, machineryService, employeeProfileMapper,
                 activeOrderProcessService);
+        { org.springframework.test.util.ReflectionTestUtils.setField(contextService, "packagingAccess", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesPackagingLeaderAccess.class)); }
         MesFrontlineTemplateResolverImpl templateResolver = new MesFrontlineTemplateResolverImpl(templateBindingSourceProvider);
         employeeSwitchService = new MesFrontlineEmployeeSwitchServiceImpl(templateResolver, runtimeConfigService);
     }

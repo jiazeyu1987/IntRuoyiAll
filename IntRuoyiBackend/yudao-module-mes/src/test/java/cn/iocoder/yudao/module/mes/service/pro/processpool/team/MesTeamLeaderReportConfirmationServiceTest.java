@@ -108,34 +108,46 @@ class MesTeamLeaderReportConfirmationServiceTest {
         MesTeamLeaderFifoAllocationService fifoAllocationService =
                 new MesTeamLeaderFifoAllocationService(activeOrderMapper, workOrderMapper, allocationMapper,
                         orderProcessTargetService, abnormalStateService, eventMapper, snapshotMapper);
+        { org.springframework.test.util.ReflectionTestUtils.setField(fifoAllocationService, "packagingAccess", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesPackagingLeaderAccess.class)); }
         service = new MesTeamLeaderReportConfirmationServiceImpl(scopeService, eventMapper, activeOrderMapper,
                 workOrderMapper, reviewMapper, allocationMapper, quantityFragmentMapper, pqcRecordMapper,
                 fifoAllocationService, processPoolFifoAllocationService, pqcTaskMapper, pqcPieceDetailMapper,
                 orderProcessTargetService, orderProcessCompletionService, abnormalStateService,
                 reportManagementSummaryService);
+        { org.springframework.test.util.ReflectionTestUtils.setField(service, "packagingAccess", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesPackagingLeaderAccess.class)); }
         ReflectionTestUtils.setField(service, "signatureService", signatureService);
         ReflectionTestUtils.setField(service, "snapshotMapper", snapshotMapper);
         lenient().when(signatureService.recordTeamLeaderReviewSignature(any(), any(), any(), any(), any(), any())).thenReturn(9101L);
         lenient().when(abnormalStateService.findOpenWorkOrderIds(anyCollection())).thenReturn(Set.of());
     }
 
-    @Test
-    void shouldConfirmSubmissionWithManualAllocationsToActiveOrders() {
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    void shouldConfirmSubmissionWithManualAllocationsToActiveOrders(boolean packaging) {
         when(eventMapper.selectByIdForUpdate(1001L)).thenReturn(event("{\"outputQuantity\":80,\"pressure\":15}"));
         org.mockito.Mockito.lenient().when(eventMapper.selectById(1001L)).thenReturn(event("{\"outputQuantity\":80,\"pressure\":15}"));
         when(allocationMapper.selectListByEventIdForUpdate(1001L)).thenReturn(List.of());
         givenSuccessPqcBinding(80);
-        when(activeOrderMapper.selectActiveListByLeader(3001L)).thenReturn(List.of(
+        var orders = List.of(
                 activeOrder(8101L, 9001L, "2026-07-31T08:00:00"),
-                activeOrder(8102L, 9002L, "2026-07-31T09:00:00")));
+                activeOrder(8102L, 9002L, "2026-07-31T09:00:00"));
+        if (packaging) {
+            orders.forEach(order -> order.setLeaderUserId(4001L));
+            var access = org.mockito.Mockito.mock(MesPackagingLeaderAccess.class);
+            when(access.isPackagingLeader(3001L)).thenReturn(true);
+            ReflectionTestUtils.setField(service, "packagingAccess", access);
+            when(activeOrderMapper.selectActiveListByLeader(3001L, true)).thenReturn(orders);
+        } else {
+            when(activeOrderMapper.selectActiveListByLeader(3001L)).thenReturn(orders);
+        }
         when(workOrderMapper.selectListByIdsForUpdate(List.of(9001L, 9002L))).thenReturn(List.of(
                 workOrder(9001L, "WO-9001", "200"),
                 workOrder(9002L, "WO-9002", "200")));
         when(allocationMapper.selectListByWorkOrderIdsAndProcessForUpdate(List.of(9001L, 9002L), 5001L, 6001L))
                 .thenReturn(List.of(allocation(9001L, "160"), allocation(9002L, "160")));
-        when(orderProcessTargetService.requireTarget(activeOrder(8101L, 9001L, "2026-07-31T08:00:00"),
+        when(orderProcessTargetService.requireTarget(orders.get(0),
                 5001L, 6001L)).thenReturn(target("600"));
-        when(orderProcessTargetService.requireTarget(activeOrder(8102L, 9002L, "2026-07-31T09:00:00"),
+        when(orderProcessTargetService.requireTarget(orders.get(1),
                 5001L, 6001L)).thenReturn(target("600"));
         when(reviewMapper.insert(any(MesProcessPoolSubmissionReviewDO.class))).thenAnswer(invocation -> {
             invocation.getArgument(0, MesProcessPoolSubmissionReviewDO.class).setId(7001L);
@@ -157,6 +169,7 @@ class MesTeamLeaderReportConfirmationServiceTest {
                 .build());
 
         assertEquals(7001L, reviewId);
+        assertEquals(packaging ? 4001L : 3001L, orders.get(0).getLeaderUserId());
         verify(scopeService).assertCanAccessEmployee(3001L,
                 MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PRODUCTION, 2001L);
 

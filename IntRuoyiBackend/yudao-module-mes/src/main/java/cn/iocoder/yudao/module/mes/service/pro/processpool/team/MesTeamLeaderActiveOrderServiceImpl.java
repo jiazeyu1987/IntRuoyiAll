@@ -175,6 +175,8 @@ import static cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLe
 @Service
 @Validated
 public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveOrderService {
+    @jakarta.annotation.Resource private MesPackagingLeaderAccess packagingAccess;
+
     @jakarta.annotation.Resource private cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrNonconformanceReviewMapper correctionReviewMapper;
 
 
@@ -2988,7 +2990,7 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
         if (leaderUserId == null) {
             throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "activeOrderList");
         }
-        return projectActiveOrders(activeOrderMapper.selectActiveListByLeader(leaderUserId));
+        return projectActiveOrders((packagingAccess.isPackagingLeader(leaderUserId) ? activeOrderMapper.selectActiveListByLeader(leaderUserId, true) : activeOrderMapper.selectActiveListByLeader(leaderUserId)));
     }
 
     @Override
@@ -3819,7 +3821,8 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
                         && (!"MARKET_RELEASE_REJECTED".equals(releaseApplication.getApplicationStatus())
                             || cn.iocoder.yudao.module.mes.service.pro.productionrelease.pqc.MesPqcReleaseCorrectionService.isConcessionFor(releaseApplication,
                                 correctionReviewMapper.selectLatestBySource("ACTIVE_ORDER", activeOrder.getId())))
-                        && Objects.equals(activeOrder.getLeaderUserId(), releaseApplication.getAppliedBy()))
+                        && (Objects.equals(activeOrder.getLeaderUserId(), releaseApplication.getAppliedBy())
+                            || packagingAccess.canAccess(releaseApplication.getAppliedBy(), activeOrder)))
                 .setQuantityConflict(progress.hasQuantityConflict())
                 .setHasQuantityConflict(progress.hasQuantityConflict())
                 .setQuantityConflictProcessCount(progress.quantityConflictProcessCount())

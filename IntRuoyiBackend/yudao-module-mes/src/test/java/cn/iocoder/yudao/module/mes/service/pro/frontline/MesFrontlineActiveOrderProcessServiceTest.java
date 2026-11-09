@@ -54,6 +54,7 @@ class MesFrontlineActiveOrderProcessServiceTest {
     void setUp() {
         service = new MesFrontlineActiveOrderProcessServiceImpl(activeOrderMapper, processSnapshotMapper,
                 routeVersionMapper, reportAllocationMapper, processPoolEventMapper);
+        { org.springframework.test.util.ReflectionTestUtils.setField(service, "packagingAccess", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesPackagingLeaderAccess.class)); }
     }
 
     @Test

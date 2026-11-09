@@ -68,6 +68,7 @@ class MesTeamLeaderActiveOrderCompletionBackfillPortImplTest {
                 completionMapper, taskMapper, detailMapper, workOrderMapper, lossSourceReader, backfillMapper,
                 productIssueMapper, productIssueDetailMapper, pickListBindingMapper, pickListBindingItemMapper,
                 eventMapper, reviewMapper);
+        { org.springframework.test.util.ReflectionTestUtils.setField(port, "packagingAccess", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesPackagingLeaderAccess.class)); }
         var event = new MesProProcessPoolEventDO().setId(401L).setWorkOrderId(30L).setRouteId(40L)
                 .setRouteProcessId(101L).setProcessId(1L).setEventType("PRODUCTION_SUBMIT").setRawPayload("{}")
                 .setDeviceAccountId(341L).setActualEmployeeId(342L).setSignatureUserId(342L);
@@ -130,6 +131,7 @@ class MesTeamLeaderActiveOrderCompletionBackfillPortImplTest {
         var aggregation = org.mockito.Mockito.mock(MesPqcProcessInspectionAggregationService.class);
         var service = new MesTeamLeaderActiveOrderCompletionServiceImpl(activeOrders, receipts, progress,
                 port, pickLists, trace, aggregation);
+        { org.springframework.test.util.ReflectionTestUtils.setField(service, "packagingAccess", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesPackagingLeaderAccess.class)); }
         { org.springframework.test.util.ReflectionTestUtils.setField(service, "handoffService", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffService.class)); }
         var audits = org.mockito.Mockito.mock(cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService.class);
         List<cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditCommand> auditCommands = new ArrayList<>();

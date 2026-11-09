@@ -36,6 +36,8 @@ import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_P
 
 @Service
 public class MesTeamLeaderActiveOrderCompletionServiceImpl implements MesTeamLeaderActiveOrderCompletionService {
+    @jakarta.annotation.Resource private MesPackagingLeaderAccess packagingAccess;
+
 
     private static final String RELEASE_COMPLETION_KEY_PREFIX = "PQC_RELEASE_COMPLETION:";
 
@@ -85,7 +87,7 @@ public class MesTeamLeaderActiveOrderCompletionServiceImpl implements MesTeamLea
         if (activeOrder == null) {
             throw exception(PRO_PROCESS_POOL_ACTIVE_ORDER_NOT_EXISTS, activeOrderId);
         }
-        if (!java.util.Objects.equals(activeOrder.getLeaderUserId(), leaderUserId)) {
+        if (!(java.util.Objects.equals(activeOrder.getLeaderUserId(), leaderUserId) || packagingAccess.canAccess(leaderUserId, activeOrder))) {
             throw exception(PRO_PROCESS_POOL_ACTIVE_ORDER_COMPLETION_NOT_OWNED, activeOrder.getId());
         }
         MesProcessPoolActiveOrderCompletionReceiptDO existing =
@@ -131,7 +133,7 @@ public class MesTeamLeaderActiveOrderCompletionServiceImpl implements MesTeamLea
         if (activeOrder == null) {
             throw exception(PRO_PROCESS_POOL_ACTIVE_ORDER_NOT_EXISTS, command.getActiveOrderId());
         }
-        if (!java.util.Objects.equals(activeOrder.getLeaderUserId(), leaderUserId)) {
+        if (!(java.util.Objects.equals(activeOrder.getLeaderUserId(), leaderUserId) || packagingAccess.canAccess(leaderUserId, activeOrder))) {
             throw exception(PRO_PROCESS_POOL_ACTIVE_ORDER_COMPLETION_NOT_OWNED, activeOrder.getId());
         }
         pickListCompletionSourceService.freezeAll(activeOrder, leaderUserId, command.getIdempotencyKey());

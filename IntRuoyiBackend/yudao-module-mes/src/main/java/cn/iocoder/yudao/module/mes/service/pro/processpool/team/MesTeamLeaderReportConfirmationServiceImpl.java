@@ -66,6 +66,8 @@ import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_P
 @Service
 @Validated
 public class MesTeamLeaderReportConfirmationServiceImpl implements MesTeamLeaderReportConfirmationService {
+    @jakarta.annotation.Resource private MesPackagingLeaderAccess packagingAccess;
+
 
     private final MesTeamLeaderScopeService scopeService;
     private final MesProProcessPoolEventMapper eventMapper;
@@ -242,8 +244,9 @@ public class MesTeamLeaderReportConfirmationServiceImpl implements MesTeamLeader
         if (CollUtil.isEmpty(lines)) {
             throw exception(PRO_PROCESS_POOL_REPORT_ALLOCATION_ACTIVE_ORDER_REQUIRED, event.getId());
         }
-        Map<Long, MesProcessPoolActiveOrderDO> activeOrderMap = activeOrderMapper
-                .selectActiveListByLeader(reqBO.getLeaderUserId())
+        Map<Long, MesProcessPoolActiveOrderDO> activeOrderMap = (packagingAccess.isPackagingLeader(reqBO.getLeaderUserId())
+                ? activeOrderMapper.selectActiveListByLeader(reqBO.getLeaderUserId(), true)
+                : activeOrderMapper.selectActiveListByLeader(reqBO.getLeaderUserId()))
                 .stream()
                 .filter(activeOrder -> "ACTIVE".equals(activeOrder.getActiveStatus()))
                 .collect(Collectors.toMap(MesProcessPoolActiveOrderDO::getId, Function.identity(), (a, b) -> a,

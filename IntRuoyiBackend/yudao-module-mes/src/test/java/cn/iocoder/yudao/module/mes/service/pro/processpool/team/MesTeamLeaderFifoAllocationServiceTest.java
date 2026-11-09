@@ -63,6 +63,7 @@ class MesTeamLeaderFifoAllocationServiceTest {
                         .productionConfigSnapshotJson("{\"outputMaterialIds\":[]}").build());
         service = new MesTeamLeaderFifoAllocationService(activeOrderMapper, workOrderMapper, allocationMapper,
                 orderProcessTargetService, abnormalStateService, eventMapper, snapshotMapper);
+        { org.springframework.test.util.ReflectionTestUtils.setField(service, "packagingAccess", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesPackagingLeaderAccess.class)); }
     }
 
     @Test

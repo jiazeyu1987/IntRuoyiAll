@@ -29,6 +29,8 @@ import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_P
 @Service
 @RequiredArgsConstructor
 public class MesActiveOrderReplenishmentBindingService {
+    @jakarta.annotation.Resource private MesPackagingLeaderAccess packagingAccess;
+
     private static final String OBJECT = "ACTIVE_ORDER_REPLENISHMENT";
     private static final String OPERATION = "REPLENISHMENT_PROCESS_BIND";
     private final MesProcessPoolActiveOrderMapper orders;
@@ -62,7 +64,7 @@ public class MesActiveOrderReplenishmentBindingService {
     @Transactional(readOnly = true)
     public Page get(Long actorId, Long orderId) {
         var order = requireOrder(orderId, false);
-        require(orderId, Objects.equals(order.getLeaderUserId(), actorId), "仅当前订单生产组长可维护补料工序关联");
+        require(orderId, (Objects.equals(order.getLeaderUserId(), actorId) || packagingAccess.canAccess(actorId, order)), "仅当前订单生产组长可维护补料工序关联");
         var workOrder = workOrders.selectById(order.getWorkOrderId());
         require(orderId, workOrder != null && workOrder.getCode() != null, "生产工单不存在");
         boolean local = localSources.validate(workOrder, false);
@@ -94,7 +96,7 @@ public class MesActiveOrderReplenishmentBindingService {
         Long orderId = request.activeOrderId();
         gxpAudit.acquireLedgerLock();
         var order = requireOrder(orderId, true);
-        require(orderId, Objects.equals(actorId, order.getLeaderUserId()), "仅当前订单生产组长可签名关联补料工序");
+        require(orderId, (Objects.equals(actorId, order.getLeaderUserId()) || packagingAccess.canAccess(actorId, order)), "仅当前订单生产组长可签名关联补料工序");
         require(orderId, "ACTIVE".equals(order.getActiveStatus()) && receipts.selectByActiveOrderId(orderId) == null
                 && order.getReleaseDecisionId() == null, "订单已完工或已放行，不能修改补料关联");
         require(orderId, Objects.equals(order.getVersion(), request.expectedVersion()), "订单版本已变更，请刷新后重试");

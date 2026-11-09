@@ -25,6 +25,8 @@ import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_P
 @Service
 public class MesTeamLeaderActiveOrderCompletionProgressPortImpl
         implements MesTeamLeaderActiveOrderCompletionProgressPort {
+    @jakarta.annotation.Resource private MesPackagingLeaderAccess packagingAccess;
+
     @jakarta.annotation.Resource
     private cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesOrderReleaseCompletenessService pqcCoverageService;
 
@@ -48,7 +50,7 @@ public class MesTeamLeaderActiveOrderCompletionProgressPortImpl
     @Override
     public MesTeamLeaderActiveOrderCompletionProgress read(Long leaderUserId,
                                                             MesProcessPoolActiveOrderDO activeOrder) {
-        if (activeOrder == null || !Objects.equals(activeOrder.getLeaderUserId(), leaderUserId)) {
+        if (activeOrder == null || !(Objects.equals(activeOrder.getLeaderUserId(), leaderUserId) || packagingAccess.canAccess(leaderUserId, activeOrder))) {
             throw sourceMissing(activeOrder, "ACTIVE_ORDER_OWNER");
         }
         List<MesProcessPoolActiveOrderProcessSnapshotDO> snapshots =

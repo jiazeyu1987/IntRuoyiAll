@@ -79,6 +79,7 @@ class MesReportAllocationCommandServiceTest {
                 allocationMapper, stateMapper, auditMapper, reviewMapper, poolQuantityService, releaseStateService,
                 targetService, fifoService, routeStartAuthorizationService, quantityFragmentService,
                 completionService, reportManagementSummaryService, activeOrderProcessSnapshotMapper);
+        { org.springframework.test.util.ReflectionTestUtils.setField(service, "packagingAccess", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesPackagingLeaderAccess.class)); }
         org.springframework.test.util.ReflectionTestUtils.setField(service, "nonconformanceReviewService", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrNonconformanceReviewService.class));
         org.springframework.test.util.ReflectionTestUtils.setField(service, "completionReceiptMapper", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderCompletionReceiptMapper.class));
         { org.springframework.test.util.ReflectionTestUtils.setField(service, "handoffService", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffService.class)); }
@@ -121,6 +122,15 @@ class MesReportAllocationCommandServiceTest {
                 .overagePercentSnapshot(new BigDecimal("1000"))
                 .productionConfigSnapshotJson("{\"outputMaterialIds\":[]}")
                 .build();
+    }
+
+    @Test
+    void crossTeamOrderAccessDoesNotPermitReviewOfAnotherLeadersEmployee() {
+        var event=event();when(eventMapper.selectByIdForUpdate(1001L)).thenReturn(event);
+        org.mockito.Mockito.doThrow(new IllegalStateException("员工不属于当前组长"))
+            .when(scopeService).assertCanAccessEmployee(3001L,"PRODUCTION",4001L);
+        assertThrows(IllegalStateException.class,()->service.save(saveCommand(0,List.of())));
+        org.mockito.Mockito.verifyNoInteractions(signatureService, allocationMapper, reviewMapper);
     }
 
     @Test

@@ -35,6 +35,8 @@ import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_P
 
 @Service
 public class MesFrontlineActiveOrderProcessServiceImpl implements MesFrontlineActiveOrderProcessService {
+    @jakarta.annotation.Resource private cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesPackagingLeaderAccess packagingAccess;
+
 
     private static final String STATUS_ACTIVE = "ACTIVE";
 
@@ -111,7 +113,7 @@ public class MesFrontlineActiveOrderProcessServiceImpl implements MesFrontlineAc
 
     private MesProcessPoolActiveOrderDO requireActiveOrder(Long leaderUserId, Long activeOrderId) {
         MesProcessPoolActiveOrderDO activeOrder = activeOrderMapper.selectById(activeOrderId);
-        if (activeOrder == null || !Objects.equals(activeOrder.getLeaderUserId(), leaderUserId)
+        if (activeOrder == null || !(Objects.equals(activeOrder.getLeaderUserId(), leaderUserId) || packagingAccess.canAccess(leaderUserId, activeOrder))
                 || !STATUS_ACTIVE.equals(activeOrder.getActiveStatus())
                 || !STATUS_ACTIVE.equals(activeOrder.getBusinessStatus())) {
             throw exception(PRO_PROCESS_POOL_ACTIVE_ORDER_NOT_EXISTS, activeOrderId);

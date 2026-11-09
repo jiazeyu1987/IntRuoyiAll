@@ -258,6 +258,9 @@ class MesTeamLeaderActiveOrderServiceTest {
 
     @BeforeEach
     void setUp() {
+        com.baomidou.mybatisplus.core.metadata.TableInfoHelper.initTableInfo(
+            new org.apache.ibatis.builder.MapperBuilderAssistant(new org.apache.ibatis.session.Configuration(), "packaging-active-order-test"),
+            MesProcessPoolActiveOrderDO.class);
         lenient().when(activeOrderMapper.update(org.mockito.ArgumentMatchers.isNull(),
                 org.mockito.ArgumentMatchers.<com.baomidou.mybatisplus.core.conditions.Wrapper<MesProcessPoolActiveOrderDO>>any())).thenReturn(1);
         org.mockito.Mockito.lenient().when(routeMapper.selectByIdForUpdate(org.mockito.ArgumentMatchers.anyLong()))
@@ -280,6 +283,7 @@ class MesTeamLeaderActiveOrderServiceTest {
                 pickListBindingMapper, pickListBindingItemMapper,
                 workOrderBomMapper, batchExecutionMapper, productIssueMapper, workOrderAbnormalMapper,
                 routeStartAuthorizationService, nonconformanceReviewService);
+        { org.springframework.test.util.ReflectionTestUtils.setField(service, "packagingAccess", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesPackagingLeaderAccess.class)); }
         org.springframework.test.util.ReflectionTestUtils.setField(service, "pqcCoverageService", pqcCoverageService);
         org.springframework.test.util.ReflectionTestUtils.setField(service, "dataCleanupMapper", dataCleanupMapper);
         org.springframework.test.util.ReflectionTestUtils.setField(service, "localTestRunSourceGuard", localTestRunSourceGuard);
@@ -344,6 +348,16 @@ class MesTeamLeaderActiveOrderServiceTest {
         lenient().when(abnormalStateService.findLatestOpenByWorkOrderIds(any())).thenReturn(Map.of());
         lenient().when(releaseApplicationMapper.selectLatestByActiveOrderIds(any())).thenReturn(List.of());
         lenient().when(reportAllocationMapper.selectListByActiveOrderIds(any())).thenReturn(List.of());
+    }
+
+    @Test
+    void packagingLeaderListsAllTenantOrdersThroughExplicitScope() {
+        var access=(MesPackagingLeaderAccess)org.springframework.test.util.ReflectionTestUtils.getField(service,"packagingAccess");
+        when(access.isPackagingLeader(3001L)).thenReturn(true);
+        when(activeOrderMapper.selectActiveListByLeader(3001L,true)).thenReturn(java.util.List.of());
+        org.junit.jupiter.api.Assertions.assertTrue(service.listActiveOrders(3001L).isEmpty());
+        verify(activeOrderMapper).selectActiveListByLeader(3001L,true);
+        verify(activeOrderMapper,org.mockito.Mockito.never()).selectActiveListByLeader(3001L);
     }
 
     @Test

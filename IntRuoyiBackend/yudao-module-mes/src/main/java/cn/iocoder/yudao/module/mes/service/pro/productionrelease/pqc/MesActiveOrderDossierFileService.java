@@ -46,6 +46,8 @@ import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_P
 @Service
 @RequiredArgsConstructor
 public class MesActiveOrderDossierFileService {
+    @jakarta.annotation.Resource private cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesPackagingLeaderAccess packagingAccess;
+
     @jakarta.annotation.Resource private MesPqcReleaseCorrectionService correctionService;
 
 
@@ -269,7 +271,7 @@ public class MesActiveOrderDossierFileService {
         if (activeOrder == null) {
             throw dossierFileBlocked("活跃订单不存在：" + activeOrderId);
         }
-        if (applicationId == null && !Objects.equals(activeOrder.getLeaderUserId(), actorUserId)
+        if (applicationId == null && !(Objects.equals(activeOrder.getLeaderUserId(), actorUserId) || packagingAccess.canAccess(actorUserId, activeOrder))
                 && !dossierCompletionService.hasAssignment(actorUserId, activeOrderId)) {
             throw dossierFileBlocked("当前用户不是该活跃订单生产组长，不能读取资料文件。");
         }

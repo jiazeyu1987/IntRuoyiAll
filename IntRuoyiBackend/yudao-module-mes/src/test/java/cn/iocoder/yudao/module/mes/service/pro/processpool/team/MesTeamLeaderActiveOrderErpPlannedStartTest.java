@@ -209,6 +209,7 @@ class MesTeamLeaderActiveOrderErpPlannedStartTest {
                 pickListBindingMapper, pickListBindingItemMapper, workOrderBomMapper,
                 batchExecutionMapper, productIssueMapper, workOrderAbnormalMapper,
                 routeStartAuthorizationService, nonconformanceReviewService);
+        { org.springframework.test.util.ReflectionTestUtils.setField(service, "packagingAccess", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesPackagingLeaderAccess.class)); }
         org.springframework.test.util.ReflectionTestUtils.setField(service, "gxpAuditService", gxpAuditService);
         org.springframework.test.util.ReflectionTestUtils.setField(service, "localTestRunSourceGuard", org.mockito.Mockito.mock(MesLocalTestRunSourceGuard.class));
         org.springframework.test.util.ReflectionTestUtils.setField(service, "handoffService",

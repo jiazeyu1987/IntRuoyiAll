@@ -175,6 +175,7 @@ class MesCompletionAggregationAuditTransactionTest {
         var actualBackfill = new MesTeamLeaderActiveOrderCompletionBackfillPortImpl(null, null,
                 sessions.getMapper(MesProcessPoolOrderProcessCompletionMapper.class), null, null, null, null,
                 sessions.getMapper(MesProcessPoolActiveOrderCompletionBackfillMapper.class), null, null, null, null, null, null);
+        { org.springframework.test.util.ReflectionTestUtils.setField(actualBackfill, "packagingAccess", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesPackagingLeaderAccess.class)); }
         var sourceBoundary = mock(MesTeamLeaderActiveOrderCompletionBackfillPort.class);
         when(sourceBoundary.prepare(anyLong(), any(), any())).thenAnswer(invocation -> draft());
         when(sourceBoundary.matchesReceiptSources(anyLong(), any(), any(), any())).thenReturn(true);
@@ -190,6 +191,7 @@ class MesCompletionAggregationAuditTransactionTest {
                 sessions.getMapper(MesProcessPoolActiveOrderCompletionReceiptMapper.class), progress, sourceBoundary,
                 mock(MesTeamLeaderActiveOrderPickListCompletionSourceService.class),
                 mock(MesActiveOrderTransferTraceService.class), aggregation);
+        { org.springframework.test.util.ReflectionTestUtils.setField(completion, "packagingAccess", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesPackagingLeaderAccess.class)); }
         { org.springframework.test.util.ReflectionTestUtils.setField(completion, "handoffService", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffService.class)); }
         inject(completion, "gxpAuditService", audit);
         inject(completion, "fixedTestCompletionSourceInitializer", mock(MesFixedTestOrderCompletionSourceInitializer.class));

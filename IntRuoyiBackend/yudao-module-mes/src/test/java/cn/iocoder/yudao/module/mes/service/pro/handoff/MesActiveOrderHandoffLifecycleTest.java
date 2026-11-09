@@ -19,7 +19,8 @@ import static org.mockito.Mockito.*;
 class MesActiveOrderHandoffLifecycleTest {
  MesActiveOrderHandoffService service;MesActiveOrderHandoffTaskMapper tasks;MesProcessPoolActiveOrderMapper orders;MesProProcessPoolEventMapper events;MesProcessPoolSubmissionReviewMapper reviews;MesActiveOrderHandoffOwnerResolver owners;MesActiveOrderHandoffDeliveryService delivery;MesProProcessPoolEventRevisionMapper revisions;MesSignedReturnCorrectionResolver corrections;
  MesProcessPoolActiveOrderDO order;MesProProcessPoolEventDO event;
- @BeforeEach void fixture(){TenantContextHolder.setTenantId(1L);service=new MesActiveOrderHandoffService();tasks=mock(MesActiveOrderHandoffTaskMapper.class);orders=mock(MesProcessPoolActiveOrderMapper.class);events=mock(MesProProcessPoolEventMapper.class);reviews=mock(MesProcessPoolSubmissionReviewMapper.class);owners=mock(MesActiveOrderHandoffOwnerResolver.class);delivery=mock(MesActiveOrderHandoffDeliveryService.class);revisions=mock(MesProProcessPoolEventRevisionMapper.class);corrections=mock(MesSignedReturnCorrectionResolver.class);
+ @BeforeEach void fixture(){TenantContextHolder.setTenantId(1L);service=new MesActiveOrderHandoffService();
+        { org.springframework.test.util.ReflectionTestUtils.setField(service, "packagingAccess", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesPackagingLeaderAccess.class));tasks=mock(MesActiveOrderHandoffTaskMapper.class);orders=mock(MesProcessPoolActiveOrderMapper.class);events=mock(MesProProcessPoolEventMapper.class);reviews=mock(MesProcessPoolSubmissionReviewMapper.class);owners=mock(MesActiveOrderHandoffOwnerResolver.class);delivery=mock(MesActiveOrderHandoffDeliveryService.class);revisions=mock(MesProProcessPoolEventRevisionMapper.class);corrections=mock(MesSignedReturnCorrectionResolver.class); }
  for(var entry:Map.of("tasks",tasks,"orders",orders,"events",events,"reviews",reviews,"owners",owners,"delivery",delivery,"revisions",revisions,"correctionResolver",corrections).entrySet())ReflectionTestUtils.setField(service,entry.getKey(),entry.getValue());ReflectionTestUtils.setField(service,"audit",mock(MesActiveOrderHandoffAudit.class));ReflectionTestUtils.setField(service,"pqcTasks",mock(MesPqcInspectionTaskMapper.class));
  var workOrders=mock(cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesProWorkOrderMapper.class);var routeProcesses=mock(cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteProcessMapper.class);var processes=mock(cn.iocoder.yudao.module.mes.dal.mysql.pro.process.MesProProcessMapper.class);
  ReflectionTestUtils.setField(service,"workOrders",workOrders);ReflectionTestUtils.setField(service,"routeProcesses",routeProcesses);ReflectionTestUtils.setField(service,"processes",processes);
@@ -29,10 +30,20 @@ class MesActiveOrderHandoffLifecycleTest {
  when(owners.initiatorSnapshot(anyLong(),any())).thenAnswer(i->Map.<String,Object>of("domain","SYSTEM_USER","id",i.<Long>getArgument(0),"name","实际发起人"));
  order=MesProcessPoolActiveOrderDO.builder().id(413L).workOrderId(274L).routeId(98L).leaderUserId(341L).activeStatus("ACTIVE").build();order.setTenantId(1L);when(orders.selectByIdForUpdate(413L)).thenReturn(order);when(orders.selectById(413L)).thenReturn(order);
  event=MesProProcessPoolEventDO.builder().id(176L).eventType("PRODUCTION_SUBMIT").actualEmployeeId(342L).signatureUserId(342L).signatureId(901L).deviceAccountId(1L).routeProcessId(91L).rawPayload("{\"activeOrderId\":413}").build();event.setTenantId(1L);when(events.selectById(176L)).thenReturn(event);
- when(tasks.insert(any(MesActiveOrderHandoffTaskDO.class))).thenReturn(1);when(owners.productionLeader(order)).thenReturn(341L);
+ when(tasks.insert(any(MesActiveOrderHandoffTaskDO.class))).thenReturn(1);when(owners.productionLeader(order)).thenReturn(341L);when(owners.submissionProductionLeader(event,order)).thenReturn(341L);
   ReflectionTestUtils.setField(service,"deadlineService",mock(cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesEdhrTaskDeadlineService.class));
   ReflectionTestUtils.setField(owners,"handoffTasks",tasks);ReflectionTestUtils.setField(owners,"orders",orders);
   when(owners.frozenPqcReviewers(any(),any())).thenCallRealMethod();
+ }
+ @Test void crossTeamSubmissionAssignsOnlyItsOwnLeaderWithoutConsumingOriginalTeamHandoff() {
+  when(owners.submissionIdentity(event)).thenReturn(new MesActiveOrderHandoffOwnerResolver.SubmissionIdentity("SYSTEM_USER",342L,342L));
+  when(owners.submissionProductionLeader(event,order)).thenReturn(350L);
+  service.productionSubmitted(413L,176L,342L);
+  var captured=ArgumentCaptor.forClass(MesActiveOrderHandoffTaskDO.class);verify(tasks).insert(captured.capture());
+  assertEquals("PRODUCTION_REVIEW",captured.getValue().getTaskType());
+  assertEquals("350",captured.getValue().getCandidateUserSnapshot());
+  assertEquals(341L,order.getLeaderUserId());
+  verify(tasks,never()).close(anyLong(),anyLong(),anyInt(),anyString(),anyLong(),anyLong(),any());
  }
  @Test void productionReadyOnlyNotifiesProductionWithoutRouteAssignments() {
   when(owners.productionEmployees(order)).thenReturn("342");

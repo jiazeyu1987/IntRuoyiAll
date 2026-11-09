@@ -24,6 +24,7 @@ import static cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHand
 /** Resolves system identities only from formal tenant-scoped responsibility records. */
 @Service
 public class MesActiveOrderHandoffOwnerResolver {
+    @Resource private cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesPackagingLeaderAccess packagingAccess;
     @jakarta.annotation.Resource private cn.iocoder.yudao.module.signature.service.ElectronicSignatureVerifiedFactService verifiedSignatureFacts;
     private cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesSignatureContentProtocol.VerifiedMesSignatureContent verifiedContent(Long id) {
         return cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesSignatureContentProtocol.parseVerifiedContent(verifiedSignatureFacts.requireVerifiedFact(id), cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId());
@@ -129,8 +130,32 @@ public class MesActiveOrderHandoffOwnerResolver {
                 && "TEMPORARY".equals(profile.getEmployeeType()) && profile.getSystemUserId() == null
                 && order != null && Objects.equals(tenant(), order.getTenantId())
                 && Objects.equals(order.getWorkOrderId(), event.getWorkOrderId())
-                && Objects.equals(order.getLeaderUserId(), profile.getLeaderUserId()), "临时签名人与原周期正式生产组长责任不一致");
-        return productionLeader(order);
+                && (Objects.equals(order.getLeaderUserId(), profile.getLeaderUserId())
+                    || packagingAccess.canAccess(profile.getLeaderUserId(), order)), "临时签名人与生产组长责任不一致");
+        user(profile.getLeaderUserId(), "mes:pro-process-pool-team-leader:review");
+        return profile.getLeaderUserId();
+    }
+
+    /** Review follows the signer's formal team, independently of order ownership. */
+    public Long submissionProductionLeader(MesProProcessPoolEventDO event, MesProcessPoolActiveOrderDO order) {
+        var identity = submissionIdentity(event);
+        if (!identity.isSystemUser()) return profileProductionLeader(event);
+        var bindings = profiles.selectList(new LambdaQueryWrapperX<MesProcessPoolTeamEmployeeProfileDO>()
+                .eq(MesProcessPoolTeamEmployeeProfileDO::getSystemUserId, identity.signerId())
+                .eq(MesProcessPoolTeamEmployeeProfileDO::getEnabled, true));
+        var leaders = bindings.stream().filter(p -> Objects.equals(tenant(), p.getTenantId())
+                && Objects.equals(identity.signerId(), p.getSystemUserId())
+                && Boolean.TRUE.equals(p.getEnabled()) && "FORMAL".equals(p.getEmployeeType()))
+                .map(MesProcessPoolTeamEmployeeProfileDO::getLeaderUserId).distinct().toList();
+        require(leaders.size() == 1 && leaders.get(0) != null, "生产签名人缺少唯一启用的所属组长");
+        Long leader = leaders.get(0);
+        require(order != null && Objects.equals(order.getTenantId(), tenant())
+                && Objects.equals(event.getWorkOrderId(), order.getWorkOrderId())
+                && (Objects.equals(order.getLeaderUserId(), leader) || packagingAccess.canAccess(leader, order)),
+                "员工所属组长无权操作该活跃订单");
+        leaderScopes.assertCanAccessEmployee(leader, "PRODUCTION", identity.signerId());
+        user(leader, "mes:pro-process-pool-team-leader:review");
+        return leader;
     }
 
     public void assertPqcLeaderCorrector(MesProProcessPoolEventDO event,Long actor) {

@@ -28,6 +28,7 @@ import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_P
 @Service
 public class MesRouteStartProductionLeaderAuthorizationServiceImpl
         implements MesRouteStartProductionLeaderAuthorizationService {
+    @jakarta.annotation.Resource private MesPackagingLeaderAccess packagingAccess;
 
     private static final String CANDIDATE_SOURCE_TYPE_USER = "USER";
     private static final String CANDIDATE_SOURCE_TYPE_USERS = "USERS";
@@ -54,7 +55,8 @@ public class MesRouteStartProductionLeaderAuthorizationServiceImpl
         if (leaderUserId == null) {
             throw exception(PRO_PROCESS_POOL_TEAM_SCOPE_REQUIRED, "leaderUserId");
         }
-        Set<Long> routeIds = resolveConfiguredRouteIds(leaderUserId, listActiveRouteVersions());
+        Set<Long> routeIds = new LinkedHashSet<>(resolveConfiguredRouteIds(leaderUserId, listActiveRouteVersions()));
+        routeIds.addAll(packagingAccess.activeRouteIds(leaderUserId));
         if (routeIds.isEmpty()) {
             return List.of();
         }
@@ -89,7 +91,8 @@ public class MesRouteStartProductionLeaderAuthorizationServiceImpl
             throw exception(PRO_PROCESS_POOL_TEAM_SCOPE_REQUIRED, "leaderUserId");
         }
         List<MesProRouteVersionDO> activeVersions = listActiveRouteVersions();
-        Set<Long> routeIds = resolveAuthorizedRouteIds(leaderUserId, activeVersions);
+        Set<Long> routeIds = new LinkedHashSet<>(resolveAuthorizedRouteIds(leaderUserId, activeVersions));
+        routeIds.addAll(packagingAccess.activeRouteIds(leaderUserId));
         if (routeIds.isEmpty()) {
             return List.of();
         }

@@ -461,6 +461,7 @@ class MesPqcReleaseOrderDetailServiceTest {
                     mock(MesProEdhrOperationAuditEventMapper.class), mock(MesProEdhrReleaseTransactionMapper.class),
                     mock(MesProcessPoolTeamMaintenanceAuditMapper.class), signatures,
                     mock(MesSubmissionSignatureIdentityReader.class), users);
+        { org.springframework.test.util.ReflectionTestUtils.setField(detail, "packagingAccess", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesPackagingLeaderAccess.class)); }
         org.springframework.test.util.ReflectionTestUtils.setField(detail, "marketReleaseAccess", mock(cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesMarketReleaseAccess.class));
         org.springframework.test.util.ReflectionTestUtils.setField(detail, "localSources", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesLocalTestRunSourceGuard.class));
             when(materials.getPage(any())).thenReturn(new PageResult<>(List.of(), 0L));
