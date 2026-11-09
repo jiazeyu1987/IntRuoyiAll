@@ -109,3 +109,20 @@ test('browser version mapping keeps explicit edit authorization scoped to the ex
  assert.equal(c.hydrate(row,{id:'56'}).canEditFile,undefined)
  assert.equal(c.hydrate(row,{id:'56',canEditFile:false}).canEditFile,false)
 })
+
+test('checkin selects the refreshed exact draft without overwriting its edit grant with the mutation response', () => {
+  for (const granted of [true, false]) {
+    const baseline = { id: '900', status: 'ACTIVE' }
+    const draft = Object.freeze({ id: '902', status: 'WORKING', canEditFile: granted,
+      revisionBaseActiveControlledFileId: '900', checkedOut: false })
+    const row = { id: '902', versionHistory: [draft, baseline] }
+    const c = { list: ref([row]), browserMode: ref('working') }
+    vm.runInNewContext(transpile(declarations(['mergeCheckinResult', 'buildCurrentVersionOption', 'hasRevisionBaseline', 'canStartRevision'])
+      + '\nthis.merge=mergeCheckinResult;this.allowed=canStartRevision'), c)
+    c.merge({ ...draft, canEditFile: !granted }, '900')
+    assert.equal(row.selectedVersionId, '902')
+    assert.equal(row.versionHistory.length, 2)
+    assert.equal(row.versionHistory[0], draft)
+    for (const intent of ['PARTIAL', 'REPLACEMENT']) assert.equal(c.allowed(draft, intent), granted)
+  }
+})

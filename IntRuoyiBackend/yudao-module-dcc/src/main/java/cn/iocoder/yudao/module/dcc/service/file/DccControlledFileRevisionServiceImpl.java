@@ -430,9 +430,11 @@ public class DccControlledFileRevisionServiceImpl implements DccControlledFileRe
         var attributes = request.getProjectAttributes();
         if (attributes != null) {
             attributes.validated();
-            attributes = new cn.iocoder.yudao.module.dcc.service.projectcode.attributes.DccProjectAttributes(
-                    attributes.targetMarkets().stream().sorted().toList(), attributes.otherMarket(),
-                    attributes.licenseHolder(), attributes.actualManufacturer(), attributes.documentTransfer(), attributes.transferTo());
+            if (attributes.libraryScope() == null) {
+                attributes = new cn.iocoder.yudao.module.dcc.service.projectcode.attributes.DccProjectAttributes(
+                        attributes.targetMarkets().stream().sorted().toList(), attributes.otherMarket(),
+                        attributes.licenseHolder(), attributes.actualManufacturer(), attributes.documentTransfer(), attributes.transferTo());
+            }
         }
         var departments = request.getSelectedSignoffDepartmentIds();
         if (departments != null) {

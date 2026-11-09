@@ -55,7 +55,7 @@ function mount(options = {}) {
     '../project-attributes/ProjectAttributesFields.vue': { default: { props: ['modelValue','readonly'], setup(p,ctx) { attributes.push(p);editors.push({props:p,edit:value=>ctx.emit('update:modelValue',value)}); return () => vue.h('div') } } }
   }
   const compiled = compileScript(parse(fs.readFileSync(path, 'utf8')).descriptor, { id: 'formal-obsolete-dialog', inlineTemplate: true })
-  const c = { exports: {}, Error, require: name => { if (deps[name]) return deps[name]; throw new Error('Unexpected import: ' + name) } }
+  const c = { exports: {}, Error, useRoute: () => ({ query: {} }), require: name => { if (deps[name]) return deps[name]; throw new Error('Unexpected import: ' + name) } }
   vm.runInNewContext(ts.transpileModule(compiled.content,
     { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText, c)
   const renderer = vue.createRenderer({ createElement: type => ({ type, children: [], props: {} }),
@@ -209,3 +209,27 @@ test('prepared confirmation displays complete actual attributes then sends only 
     assert.deepEqual(Array.from(writes[0][2].projectAttributes.targetMarkets), ['CE'])
   } finally { state.app.unmount() }
 })
+
+for (const libraryScope of ['QMS', 'GENERAL']) {
+  test(`${libraryScope} prepared confirmation preserves not-applicable attributes and submits exactly once`, async () => {
+    const libraryAttrs = { targetMarkets: null, otherMarket: null, licenseHolder: null,
+      actualManufacturer: null, documentTransfer: null, transferTo: null, libraryScope }
+    const state = mount({ draft: { ...draft, defaultSource: libraryAttrs, actualAttributes: libraryAttrs,
+      preparationReady: true, unavailableReason: null } })
+    try {
+      await state.flush()
+      const submit = button(state, 'dcc-obsolete-submit')
+      assert.equal(submit.props.disabled, false)
+      await submit.props.onClick(); await state.flush()
+      const confirmations = state.calls.filter(call => call[0] === 'confirm')
+      assert.equal(confirmations.length, 1)
+      assert.ok(confirmations[0][1].includes(`${libraryScope} 文件库：项目属性不适用`))
+      assert.doesNotMatch(confirmations[0][1], /目标市场：|是否为注册人：/)
+      const writes = state.calls.filter(call => call[0] === 'write')
+      assert.equal(writes.length, 1)
+      assert.equal(writes[0][2].phase, 'SUBMIT')
+      assert.equal(writes[0][2].projectAttributes.libraryScope, libraryScope)
+      assert.equal(writes[0][2].projectAttributes.targetMarkets, null)
+    } finally { state.app.unmount() }
+  })
+}

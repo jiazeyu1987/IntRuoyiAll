@@ -1916,6 +1916,14 @@
       destroy-on-close
     >
       <el-alert
+        v-if="applicantTrainingRecordDialog.submitting"
+        :closable="false"
+        class="mb-16px"
+        show-icon
+        type="info"
+        title="正在提交培训记录并完成受控文件处理，请等待结果，勿重复提交。"
+      />
+      <el-alert
         v-if="applicantTrainingRecordDialog.inlineError"
         :closable="false"
         class="mb-16px"

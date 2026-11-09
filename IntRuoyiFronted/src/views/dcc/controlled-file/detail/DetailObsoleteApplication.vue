@@ -305,7 +305,9 @@ const submit = async () => {
       if (value === 'NA') return '不适用'
       throw new Error('本次实际属性包含无效选项，请重新核对')
     }
-    const attributeSummary = `目标市场：${actual.targetMarkets.join('、')}${actual.otherMarket ? `（其他市场说明：${actual.otherMarket}）` : ''}；是否为注册人：${choice(actual.licenseHolder)}；是否为生产方：${choice(actual.actualManufacturer)}；文件转移：${choice(actual.documentTransfer)}${actual.transferTo ? `，转移至：${actual.transferTo}` : ''}`
+    const attributeSummary = actual.libraryScope
+      ? `${actual.libraryScope} 文件库：项目属性不适用`
+      : `目标市场：${actual.targetMarkets.join('、')}${actual.otherMarket ? `（其他市场说明：${actual.otherMarket}）` : ''}；是否为注册人：${choice(actual.licenseHolder)}；是否为生产方：${choice(actual.actualManufacturer)}；文件转移：${choice(actual.documentTransfer)}${actual.transferTo ? `，转移至：${actual.transferTo}` : ''}`
     await ElMessageBox.confirm(`确认提交作废申请：${props.file.fileNumber} / ${props.file.versionNo}；原因：${reason.value}；会签部门：${selectedDepartments.value.map(id => departments.value.find(row => String(row.id) === id)?.name || id).join('、')}；${attributeSummary}。请核对以上关联文件、引用及受影响项目，确认后提交。直属主管、会签及批准完成后作废。`,
       '确认提交作废申请', { type: 'warning' })
     if (key !== scopeKey() || original !== fingerprint()) throw new Error('申请内容已改变，请重新保存并确认')

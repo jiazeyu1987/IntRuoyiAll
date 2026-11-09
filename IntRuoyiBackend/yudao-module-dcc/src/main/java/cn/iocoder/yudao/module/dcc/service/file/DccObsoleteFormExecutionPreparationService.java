@@ -126,7 +126,7 @@ public class DccObsoleteFormExecutionPreparationService {
         var project=projects.selectById(file.getDccProjectCodeId());var master=masters.selectById(file.getMasterId());
         if(project==null||master==null||!Objects.equals(project.getTenantId(),file.getTenantId())||!Objects.equals(master.getTenantId(),file.getTenantId())||Boolean.TRUE.equals(project.getDeleted())||Boolean.TRUE.equals(master.getDeleted())||currentEligibility&&(!"ENABLE".equals(project.getStatus())||!Objects.equals(master.getLatestControlledFileId(),file.getId()))
                 ||!Objects.equals(master.getDccProjectCodeId(),file.getDccProjectCodeId())||!Objects.equals(master.getCategoryId(),file.getCategoryId())||!Objects.equals(master.getFileTypeTaxonomyLeafId(),file.getFileTypeTaxonomyId())||!Objects.equals(master.getNormalizedFileNumber(),file.getFileNumber()))throw invalid("REWORK_SOURCE_FAMILY_INVALID");
-        projectAccess.assertProjectEditorOrOwner(actor,file.getDccProjectCodeId());if(!categoryPermissions.hasCategoryPermission(file.getCategoryId(),actor,cn.iocoder.yudao.module.dcc.enums.DccFileCategoryPermissionActionEnum.OBSOLETE))throw invalid("OBSOLETE_PERMISSION_DENIED");
+        projectAccess.assertProjectEditorOrOwner(actor,file.getDccProjectCodeId());if(!categoryPermissions.hasFilePermission(file,actor,cn.iocoder.yudao.module.dcc.enums.DccFileCategoryPermissionActionEnum.OBSOLETE))throw invalid("OBSOLETE_PERMISSION_DENIED");
     }
     @Transactional(propagation=Propagation.MANDATORY,rollbackFor=Exception.class)
     public void onPendingApprovalStarted(FormActionInstance instance){
@@ -315,7 +315,7 @@ public class DccObsoleteFormExecutionPreparationService {
                 ||!Objects.equals(master.getCategoryId(),file.getCategoryId())||!Objects.equals(master.getFileTypeTaxonomyLeafId(),file.getFileTypeTaxonomyId())||!Objects.equals(master.getNormalizedFileNumber(),file.getFileNumber())
                 ||Boolean.TRUE.equals(master.getDeleted())||Boolean.TRUE.equals(project.getDeleted())||file.getControlledTime()==null||!Set.of("ACTIVE","CONTROLLED_PENDING_EFFECTIVE").contains(file.getStatus())
                 ||!Objects.equals(file.getVersionNo(),ctx.getObjectVersion())||!Objects.equals(file.getStatus(),ctx.getObjectState())||!Objects.equals(master.getLatestControlledFileId(),file.getId()))throw invalid("CONTROLLED_SOURCE_IDENTITY_INVALID");
-        projectAccess.assertProjectEditorOrOwner(actor,file.getDccProjectCodeId());if(!categoryPermissions.hasCategoryPermission(file.getCategoryId(),actor,cn.iocoder.yudao.module.dcc.enums.DccFileCategoryPermissionActionEnum.OBSOLETE))throw invalid("OBSOLETE_PERMISSION_DENIED");
+        projectAccess.assertProjectEditorOrOwner(actor,file.getDccProjectCodeId());if(!categoryPermissions.hasFilePermission(file,actor,cn.iocoder.yudao.module.dcc.enums.DccFileCategoryPermissionActionEnum.OBSOLETE))throw invalid("OBSOLETE_PERMISSION_DENIED");
         var applicant=users.getUser(actor);if(applicant==null||!Objects.equals(applicant.getId(),actor)||!Objects.equals(applicant.getTenantId(),tenant)||!Integer.valueOf(0).equals(applicant.getStatus()))throw invalid("APPLICANT_INVALID");return file;
     }
     private DccDirectSupervisorSource.Evidence requireSupervisor(DccControlledFileDO file,Long actor){

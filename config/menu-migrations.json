@@ -816,7 +816,7 @@
       "source": "IntRuoyiFronted/src/views/dcc/controlled-file/browser/ProjectBrowserPanel.vue",
       "kind": "permission",
       "value": "dcc:project-code:update",
-      "reason": "复用主干既有 dcc:project-code:update 权限（菜单定义依据：IntRuoyiBackend/sql/mysql/20260513_dcc_base_schema.sql）；当前文件仅增加内部使用或校验，不新增权限标识、独立菜单或角色/套餐授权。"
+      "reason": "内部浏览组件继续复用既有 dcc:project-code:update 维护项目文件夹；QMS、通用文件库的管理入口复用后端按现有两库编辑授权返回的 library.canEdit 和文件 canEditFile，不新增权限标识、独立菜单、路由或角色/套餐授权。管理操作沿用既有受控文件详情与审批流程。"
     },
     {
       "source": "IntRuoyiFronted/src/views/dcc/controlled-file/browser/index.vue",

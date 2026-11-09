@@ -2258,7 +2258,12 @@ const mergeCheckinResult = (updatedFile: ControlledFileVO, baseId: number | stri
     throw new Error('检入成功但刷新后未找到原逻辑文件，页面无法确认新版本。')
   }
   const existingHistory = targetRow.versionHistory || []
-  const history = existingHistory.filter((version) => String(version.id) !== String(updatedFile.id))
+  // A refreshed exact version already includes authoritative permissions and metadata.
+  if (existingHistory.some((version) => String(version.id) === String(updatedFile.id))) {
+    targetRow.selectedVersionId = updatedFile.id
+    return
+  }
+  const history = [...existingHistory]
   history.push({
     ...updatedFile,
     ...buildCurrentVersionOption(updatedFile),

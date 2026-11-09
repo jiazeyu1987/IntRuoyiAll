@@ -4593,6 +4593,7 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
         respVO.setCanDownloadEditable(decideDownloadBinary(userId, file, resolveDownloadFileId(file, true),
                 hasDirectoryManagementPermission).allowed());
         respVO.setCanPrint(canPrintControlledFile(userId, file));
+        respVO.setCanEditFile(permissionSupport.hasFilePermission(file, userId, DccFileCategoryPermissionActionEnum.EDIT));
         respVO.setAccessExplanation(buildAccessExplanation(userId, file, hasDirectoryManagementPermission,
                 respVO.getCanPreview(), downloadDecision, currentViewMatrixAccessByCategory));
         respVO.setSystemRecordDownloadOpen(Boolean.FALSE);

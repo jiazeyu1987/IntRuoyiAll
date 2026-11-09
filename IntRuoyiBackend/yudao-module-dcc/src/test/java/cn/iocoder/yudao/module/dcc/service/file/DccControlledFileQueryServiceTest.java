@@ -2261,8 +2261,10 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
         when(sourceOwnershipService.createVerifiedCopy(700L)).thenReturn(new DccControlledFilePreparedSource(701L,700L,"old-pdf-sha",true));
 
         a21StubExactCheckoutResult(request, 901L, 102L, cn.hutool.crypto.digest.DigestUtil.sha256Hex("old-sha"));
+        stubFilePermission(10L, 99L, DccFileCategoryPermissionActionEnum.EDIT, true, 901L);
         var response=queryService.checkinControlledFile(99L,900L,request);
         assertEquals("A/1-2",response.getVersionNo()); assertNull(response.getRevisionChangeType());
+        assertTrue(response.getCanEditFile());
         verify(controlledFileMasterMapper,never()).updateById(any(DccControlledFileMasterDO.class));
     }
     @Test void checkinWorkingCopyNeverInheritsControlledActivatedOrDistributedFacts() {
@@ -3160,9 +3162,33 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
 
         assertEquals(editable, result.getCanEditFile());
         assertEquals(editable, result.getVersionHistory().get(0).getCanEditFile());
+        DccControlledFileRespVO browser = ReflectionTestUtils.invokeMethod(queryService, "toBrowserRespVO", 99L, file, false);
+        assertEquals(editable, browser.getCanEditFile());
+        assertEquals(editable, browser.getVersionHistory().get(0).getCanEditFile());
         assertEquals("PENDING_MATRIX_APPROVAL", result.getStatus());
         assertFalse(result.getActionProjection().getAllowedActions().contains("MAJOR_REVISION"));
         verify(permissionSupport, atLeastOnce()).hasFilePermission(file, 99L, DccFileCategoryPermissionActionEnum.EDIT);
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans={false,true})
+    void browserWorkingIterationRetainsItsOwnEditGrantForBothRevisionEntries(boolean editable) {
+        var baseline = lifecycleFile(900L, "A/1", "ACTIVE");
+        var working = lifecycleFile(901L, "A/1-1", "WORKING");
+        working.setChangeType("REVISION");
+        working.setRevisionBaseActiveControlledFileId(900L);
+        working.setControlledTime(null);
+        when(controlledFileMapper.selectListByMasterId(700L)).thenReturn(List.of(working, baseline));
+        when(directoryMapper.selectEnabledList()).thenReturn(List.of());
+        stubFilePermission(10L, 99L, DccFileCategoryPermissionActionEnum.EDIT, editable, 901L);
+        stubFilePermission(10L, 99L, DccFileCategoryPermissionActionEnum.EDIT, !editable, 900L);
+
+        DccControlledFileRespVO browser = ReflectionTestUtils.invokeMethod(queryService, "toBrowserRespVO", 99L, working, false);
+
+        assertEquals(editable, browser.getCanEditFile());
+        assertEquals(900L, browser.getRevisionBaseActiveControlledFileId());
+        assertEquals(editable, browser.getVersionHistory().stream().filter(v -> v.getId().equals(901L)).findFirst().orElseThrow().getCanEditFile());
+        assertEquals(!editable, browser.getVersionHistory().stream().filter(v -> v.getId().equals(900L)).findFirst().orElseThrow().getCanEditFile());
     }
 
     @Test void futureControlledLegacyCategoryViewCannotReplaceContentPermission() throws Exception {

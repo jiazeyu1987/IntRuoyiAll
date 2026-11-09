@@ -4,6 +4,7 @@ export interface FileCandidate {
   projectName: string; folderName: string; projectFolderId?: string | null
   fileNumber: string; fileName: string; versionNo: string; status: string
   controlled: boolean; pendingEffect: boolean; executable: boolean; canPreview: boolean
+  canEditFile?: boolean
 }
 export interface SelectorContext { contextKey: string; tenantId: string; masterId?: string; relationProjectId?: string; selectionMode?: 'multiple' | 'single'; forbidSelfRelation?: boolean; allowEmptySelection?: boolean }
 export interface SelectorQuery { projectId?: string; folderId?: string; keyword: string; pageNo: number; pageSize: number }

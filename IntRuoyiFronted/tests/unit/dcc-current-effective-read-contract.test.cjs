@@ -42,6 +42,12 @@ test('default project browser selects current independently from latest', async 
   assert.equal(result.list[0].controlledFileId, current)
   assert.equal(result.list[0].executable, true)
 })
+test('project and library browser preserve only the selected version edit grant', async () => {
+  for (const grant of [true, false, undefined]) {
+    const result = await load([{ ...active, canEditFile: grant }]).api.loadDccProjectBrowserPage('1', query)
+    assert.equal(result.list[0].canEditFile, grant)
+  }
+})
 test('daily selector and browser reject missing, foreign or non-executable current facts', async () => {
   const invalidRows = [
     { ...active, currentActiveControlledFileId: undefined },

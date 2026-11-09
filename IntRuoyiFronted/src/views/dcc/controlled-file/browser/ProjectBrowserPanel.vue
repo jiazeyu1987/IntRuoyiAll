@@ -43,7 +43,7 @@
         </template>
       </DccProjectReferences>
       <ProjectFolderFileTable v-else :files="state.rows" :references="[]" :usage="state.usage" :keyword="state.appliedKeyword" :version-view="state.versionView"
-        :loading="state.loading" :can-reference="false" :read-only="Boolean(libraryScope)" :can-download="Boolean(libraryScope) && libraryCanEdit" @download="downloadLibraryFile" @preview="previewRow" @relations="openRelationsRow" @operation="openOperationRow" @usage="openUsage" />
+        :loading="state.loading" :can-reference="false" :read-only="Boolean(libraryScope)" :can-manage="libraryScope ? canManageLibraryFile : undefined" :can-download="Boolean(libraryScope) && libraryCanEdit" @download="downloadLibraryFile" @preview="previewRow" @relations="openRelationsRow" @operation="openOperationRow" @usage="openUsage" />
       <p v-if="!libraryScope && state.scope === 'directory' && state.folder">当前文件夹引用与文件同表显示；引用固定所选受控版本。分页仅统计本项目文件。</p>
       <el-pagination v-model:current-page="state.pageNo" :page-size="state.pageSize" :total="state.total" layout="total, prev, pager, next" @current-change="state.loadFiles()" />
     </main>
@@ -148,8 +148,11 @@ const preview = async (row: FileCandidate, bodyReadContext?: string) => {
 }
 const openOperation = async (rows: FileCandidate[]) => {
   if (rows.length !== 1) throw new Error('请选择一个文件')
+  if (props.libraryScope && !canManageLibraryFile(rows[0])) throw new Error('当前账号或文件状态不允许变更，请刷新后核对权限')
   await router.push({ path: `/dcc/controlled-file/detail/${referenceIdentity(rows[0].controlledFileId)}`, query: { management: '1', from: 'project-browser', returnTo: route.fullPath } })
 }
+const canManageLibraryFile = (file: FileCandidate) => libraryCanEdit.value && file.canEditFile === true
+  && ['WORKING', 'ACTIVE', 'CONTROLLED_PENDING_EFFECTIVE'].includes(file.status)
 const previewRow = async (row: FileCandidate) => {
   try {
     const bodyReadContext = row.status === 'SUPERSEDED' || row.status === 'OBSOLETE'

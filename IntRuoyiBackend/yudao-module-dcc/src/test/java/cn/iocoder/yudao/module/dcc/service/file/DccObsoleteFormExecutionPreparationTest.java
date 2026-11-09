@@ -88,6 +88,39 @@ class DccObsoleteFormExecutionPreparationTest extends DccNewActionBaselinePrepar
         assertEquals(List.of(99L),result.startUserSelectAssignees().get("SUPERVISOR_REVIEW"));assertEquals(List.of(99L),result.startUserSelectAssignees().get("MATRIX_REVIEW"));assertEquals(List.of(99L),result.approveUserSelectAssignees().get("MATRIX_APPROVAL"));
         assertFalse(result.startUserSelectAssignees().containsKey("DOC_CONTROL_REVIEW"));assertFalse(result.approveUserSelectAssignees().containsKey("TRAINING"));assertEquals(before,original(20L));assertEquals(0,engine.getRuntimeService().createProcessInstanceQuery().count());
     }
+    @ParameterizedTest @ValueSource(strings={"QMS","GENERAL"})
+    void libraryEditorPreparesWithoutCategoryGrantButViewOnlyCannotPrepareOrSubmit(String libraryScope){
+        jdbc.update("UPDATE dcc_project_code SET library_scope=? WHERE id=5",libraryScope);
+        var exactPermissions=new DccControlledFileCategoryPermissionSupport();
+        var globalPermissions=mock(cn.iocoder.yudao.module.system.api.permission.PermissionApi.class);
+        var categoryRules=mock(cn.iocoder.yudao.module.dcc.dal.mysql.category.DccFileCategoryPermissionRuleMapper.class);
+        wire(exactPermissions,"projectMapper",projects,"projectAccessService",access,"permissionApi",globalPermissions,"permissionRuleMapper",categoryRules);
+        wire(source,"categoryPermissions",exactPermissions);
+        when(access.hasProjectEditorOrOwner(99L,5L)).thenReturn(true);
+        assertFalse(exactPermissions.hasCategoryPermission(2L,99L,cn.iocoder.yudao.module.dcc.enums.DccFileCategoryPermissionActionEnum.OBSOLETE));
+        var before=original(20L);String saved=prepare();draftJson=saved;request.setFormData(JsonUtils.parseObject(saved,Map.class));
+        assertEquals(obsoleteId,tx().execute(s->source.verifyExactSubmission(persisted(),request,99L)).processDefinitionId());
+        when(access.hasProjectEditorOrOwner(99L,5L)).thenReturn(false);
+        when(access.listReadableProjectIds(99L)).thenReturn(List.of(5L));
+        assertTrue(exactPermissions.hasFilePermission(files.selectById(20L),99L,cn.iocoder.yudao.module.dcc.enums.DccFileCategoryPermissionActionEnum.VIEW));
+        assertEquals("DCC_OBSOLETE_OBSOLETE_PERMISSION_DENIED",assertThrows(IllegalArgumentException.class,this::prepare).getMessage());
+        assertThrows(IllegalArgumentException.class,()->tx().execute(s->source.verifyExactSubmission(persisted(),request,99L)));
+        verifyNoInteractions(categoryRules);assertEquals(before,original(20L));assertEquals(0,engine.getRuntimeService().createProcessInstanceQuery().count());
+    }
+    @Test void projectCategoryDenialStillRejectsObsoletePreparationDespiteProjectEdit(){
+        var exactPermissions=new DccControlledFileCategoryPermissionSupport();
+        var globalPermissions=mock(cn.iocoder.yudao.module.system.api.permission.PermissionApi.class);
+        when(globalPermissions.hasAnyPermissions(eq(99L),any(String[].class))).thenReturn(true);
+        var accounts=mock(cn.iocoder.yudao.module.system.api.user.AdminUserApi.class);
+        when(accounts.getUser(99L)).thenReturn(new cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO().setId(99L).setTenantId(1L).setStatus(0));
+        var categoryRules=mock(cn.iocoder.yudao.module.dcc.dal.mysql.category.DccFileCategoryPermissionRuleMapper.class);
+        wire(exactPermissions,"projectMapper",projects,"projectAccessService",access,"permissionApi",globalPermissions,"adminUserApi",accounts,"permissionRuleMapper",categoryRules);
+        wire(source,"categoryPermissions",exactPermissions);
+        when(access.hasProjectEditorOrOwner(99L,5L)).thenReturn(true);
+        var before=original(20L);
+        assertEquals("DCC_OBSOLETE_OBSOLETE_PERMISSION_DENIED",assertThrows(IllegalArgumentException.class,this::prepare).getMessage());
+        assertEquals(before,original(20L));assertEquals(0,engine.getRuntimeService().createProcessInstanceQuery().count());
+    }
     @Test void registeredRetiredKeyReadsRecordedObsoleteProofButCannotSubmitItAsNew(){
         String saved=prepare();draftJson=saved;request.setFormData(JsonUtils.parseObject(saved,Map.class));
         var preparation=(Map<String,Object>)request.getFormData().get("dccExecutionPreparation");
@@ -133,7 +166,7 @@ class DccObsoleteFormExecutionPreparationTest extends DccNewActionBaselinePrepar
             case "ACTOR"->actor=88L;case "TENANT"->persisted=new FormExactBpmSubmissionAdapter.PersistedDraft(2L,501L,"ACTUAL-FORM-CODE",99L,"DRAFT",null,saved);
             case "FORM_CODE"->persisted=new FormExactBpmSubmissionAdapter.PersistedDraft(1L,501L,"DIFFERENT",99L,"DRAFT",null,saved);
             case "INACTIVE_SOURCE"->jdbc.update("UPDATE dcc_controlled_file SET status='OBSOLETE' WHERE id=20");
-            case "PERMISSION"->when(permissions.hasCategoryPermission(any(),any(),any())).thenReturn(false);
+            case "PERMISSION"->when(permissions.hasFilePermission(any(),any(),any())).thenReturn(false);
             case "AUTHENTICATED_ACTOR"->authenticate(88L);case "MASTER_PROJECT"->jdbc.update("UPDATE dcc_controlled_file_master SET dcc_project_code_id=6 WHERE id=10");case "MASTER_TAXONOMY"->jdbc.update("UPDATE dcc_controlled_file_master SET file_type_taxonomy_leaf_id=7 WHERE id=10");
             case "NO_PROVIDER"->{var provider=(org.springframework.beans.factory.ObjectProvider<DccDirectSupervisorSource>)org.springframework.test.util.ReflectionTestUtils.getField(source,"supervisors");when(provider.getIfAvailable()).thenReturn(null);}
             default->{var data=JsonUtils.parseObject(saved,Map.class);var preparation=(Map<String,Object>)data.get("dccExecutionPreparation");

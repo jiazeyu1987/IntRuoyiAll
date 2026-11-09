@@ -871,6 +871,7 @@ export const getControlledFileRelationPermissions = async (
 }
 
 interface ProjectBrowserRow extends Omit<SelectorRow, 'latestControlledFileId' | 'currentActiveControlledFileId'> {
+  canEditFile?: boolean
   latestControlledFileId?: Identity | null
   currentActiveControlledFileId?: Identity | null
   fileName: string
@@ -946,7 +947,7 @@ export const loadDccProjectBrowserPage = async (
       folderName: row.projectFolderName || '未记录',
       fileName: row.fileName, fileNumber: row.fileNumber, versionNo: row.versionNo,
       status: row.status, controlled: row.controlled, pendingEffect: row.pendingEffect,
-      executable: row.executable, canPreview: row.canPreview
+      executable: row.executable, canPreview: row.canPreview, canEditFile: row.canEditFile
     }
   })
   return { list, total: response.total }

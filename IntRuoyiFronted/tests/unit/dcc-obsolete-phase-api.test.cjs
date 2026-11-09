@@ -14,7 +14,11 @@ const saved = { applicationEntryMode: 'DRAFT', id: '901', instanceCode: 'FORM-90
   context: { objectId: '20', objectVersion: 'A/1', systemCode: 'DCC', objectType: 'CONTROLLED_FILE', actionCode: 'OBSOLETE' } }
 function load(response, failure) {
   const calls = []
+  const bodyReadContext = { exports: {}, URLSearchParams }
+  vm.runInNewContext(ts.transpileModule(fs.readFileSync('src/api/dcc/controlledFile/bodyReadContext.ts', 'utf8'),
+    { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText, bodyReadContext)
   const c = { exports: {}, require: name => {
+    if (name === './bodyReadContext') return bodyReadContext.exports
     if (name === '@/config/axios') return { default: {
       get: async args => { calls.push(args); if (failure) throw failure; return response },
       post: async args => { calls.push(args); if (failure) throw failure; return response } } }

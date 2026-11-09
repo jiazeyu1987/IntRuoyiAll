@@ -99,7 +99,7 @@
             @click="emit('relations', row.file)"
             >关联</el-button
           >
-          <el-button v-if="!readOnly" link :disabled="loading" @click="emit('operation', row.file)"
+          <el-button v-if="canManage ? canManage(row.file) : !readOnly" link :disabled="loading" @click="emit('operation', row.file)"
             >操作面板</el-button
           >
         </template>
@@ -119,6 +119,7 @@ import { getDccControlledFileStatusLabel, type DccControlledFileStatus } from '.
 const props = defineProps<{
   canDownload?: boolean
   readOnly?: boolean
+  canManage?: (file: FileCandidate) => boolean
   files: FileCandidate[]
   references: ReferenceRow[]
   usage: Record<string, { referenceProjectCount: number; referenced: boolean }>

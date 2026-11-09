@@ -2557,7 +2557,8 @@ export const uploadControlledFileTrainingRecord = async (
     'trainingRecordUploadTicket',
     'DCC training record upload'
   )
-  return await request.post({ url: `/dcc/controlled-files/${id}/training-record`, data })
+  // 培训完成会同步生成受控 PDF；覆盖转换、下载各 300 秒及事务收尾，避免提前超时后重复提交。
+  return await request.post({ url: `/dcc/controlled-files/${id}/training-record`, data, timeout: 660000 })
 }
 
 export const approveControlledFileTask = async (
