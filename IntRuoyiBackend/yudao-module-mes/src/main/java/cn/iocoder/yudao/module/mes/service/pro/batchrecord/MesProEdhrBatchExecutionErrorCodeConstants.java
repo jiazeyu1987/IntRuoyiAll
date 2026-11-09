@@ -250,4 +250,8 @@ public interface MesProEdhrBatchExecutionErrorCodeConstants {
             new ErrorCode(1_040_750_511, "当前批次的正式活跃订单来源无效，请核查来源关联");
     ErrorCode PRO_EDHR_BATCH_FORMAL_ACTIVE_SOURCE_REQUIRED =
             new ErrorCode(1_040_750_512, "批次只能通过活跃订单正式流程生成，不支持独立或手动创建");
+    ErrorCode PRO_EDHR_BATCH_PRINT_RELEASE_REQUIRED =
+            new ErrorCode(1_040_750_513, "只有已正式上市放行的活跃订单批次才能生成打印版 PDF");
+    ErrorCode PRO_EDHR_BATCH_PRINT_SOURCE_INVALID =
+            new ErrorCode(1_040_750_514, "打印版 PDF 的正式来源校验失败：{}");
 }

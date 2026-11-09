@@ -17,7 +17,7 @@ class ApprovalOwnedTaskWindowPersistenceTest {
                 +";MODE=MySQL;DATABASE_TO_UPPER=false","sa","");
         var jdbc=new JdbcTemplate(source);
         try(var fixtureConnection=source.getConnection()) {
-        jdbc.execute("CREATE TABLE ACT_RU_TASK(ID_ VARCHAR(128),PROC_INST_ID_ VARCHAR(128),PROC_DEF_ID_ VARCHAR(128),TENANT_ID_ VARCHAR(32),NAME_ VARCHAR(128),ASSIGNEE_ VARCHAR(32),SUSPENSION_STATE_ INT,CREATE_TIME_ TIMESTAMP)");
+        jdbc.execute("CREATE TABLE ACT_RU_TASK(ID_ VARCHAR(128),PROC_INST_ID_ VARCHAR(128),PROC_DEF_ID_ VARCHAR(128),TENANT_ID_ VARCHAR(32),NAME_ VARCHAR(128),ASSIGNEE_ VARCHAR(32),SUSPENSION_STATE_ INT,CREATE_TIME_ TIMESTAMP,TASK_DEF_KEY_ VARCHAR(128))");
         jdbc.execute("CREATE TABLE ACT_HI_PROCINST(PROC_INST_ID_ VARCHAR(128),TENANT_ID_ VARCHAR(32),BUSINESS_KEY_ VARCHAR(255))");
         jdbc.execute("CREATE TABLE ACT_RE_PROCDEF(ID_ VARCHAR(128),KEY_ VARCHAR(128),TENANT_ID_ VARCHAR(32))");
         jdbc.execute("CREATE TABLE bpm_approval_process_ownership(id BIGINT,tenant_id BIGINT,process_instance_id VARCHAR(128),process_definition_id VARCHAR(128),process_definition_key VARCHAR(128),business_key VARCHAR(255),projection_code VARCHAR(64),authority_type VARCHAR(64),authority_id VARCHAR(64),authority_version VARCHAR(64),created_at TIMESTAMP,writer_code VARCHAR(64),evidence_digest VARCHAR(64))");
@@ -29,10 +29,11 @@ class ApprovalOwnedTaskWindowPersistenceTest {
         jdbc.execute("CREATE TABLE dcc_registration_certificate(tenant_id BIGINT,id BIGINT,current_version_id BIGINT,current_snapshot_id BIGINT,deleted INT)");
         jdbc.execute("CREATE TABLE dcc_registration_certificate_version(tenant_id BIGINT,id BIGINT,certificate_id BIGINT,certificate_no VARCHAR(128),deleted INT)");
         jdbc.execute("CREATE TABLE dcc_registration_certificate_snapshot(tenant_id BIGINT,id BIGINT,version_id BIGINT,product_name VARCHAR(128),deleted INT)");
+        jdbc.execute("CREATE TABLE dcc_controlled_file(tenant_id BIGINT,id BIGINT,title VARCHAR(128),file_number VARCHAR(128),status VARCHAR(32))");
         jdbc.update("INSERT INTO ACT_RE_PROCDEF VALUES('definition','native',122)");
         for(int i=0;i<1207;i++) {
             String id=String.format("task-%04d",i),process="process-"+i;
-            jdbc.update("INSERT INTO ACT_RU_TASK VALUES(?,?, 'definition','122','needle','7',1,?)",id,process,LocalDateTime.of(2026,10,10,12,0).minusSeconds(i));
+            jdbc.update("INSERT INTO ACT_RU_TASK VALUES(?,?, 'definition','122','needle','7',1,?,'REVIEW')",id,process,LocalDateTime.of(2026,10,10,12,0).minusSeconds(i));
             jdbc.update("INSERT INTO ACT_HI_PROCINST VALUES(?,'122',?)",process,"business-"+i);
             fact(jdbc,i+1,process,i==203 || i==1001);
         }

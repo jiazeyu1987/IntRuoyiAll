@@ -109,6 +109,7 @@ const OPERATION_AUDIT_OPERATION_TYPE_LABELS: Record<string, string> = {
   QUALITY_REJECT: '质量拒收',
   ARCHIVE: '归档',
   DOWNLOAD: '下载',
+  PRINT_PDF: '生成打印或导出PDF',
   FIELD_CHANGE: '字段变更',
   VERIFY: '校验',
   EXPORT: '导出',

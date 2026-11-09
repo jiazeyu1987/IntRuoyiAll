@@ -1,5 +1,7 @@
 {
   "changes": [
+    {"source":"IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/batchrecord/MesProEdhrBatchExecutionArchiveController.java","kind":"permission","value":"mes:pro-edhr-batch-execution-archive:download","reason":"已放行活跃订单在现有追溯页直接打印、导出正式PDF，复用既有下载权限；校验本租户正式来源、签名、内容、PDF/A并记录操作审计，不创建归档、不改变放行或归档状态。正式归档继续保留S3留存要求，无新增菜单、权限或套餐。"},
+    {"source":"IntRuoyiFronted/src/views/mes/pro/edhr/form-trace/FormTraceReleaseTab.vue","kind":"permission","value":"mes:pro-edhr-batch-execution-archive:download","reason":"现有放行追溯内部组件直接打印、导出正式PDF，复用既有下载权限及后端来源、签名、内容、PDF/A校验和操作审计，无新增菜单、路由、权限标识或套餐授权。"},
     {"source":"IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/productionrelease/MesReleaseTaskNotificationController.java","kind":"permission","value":"mes:pro-edhr-work-task:query","reason":"个人站内信仅发现当前租户本人未送达的放行结果通知，补发复用既有通知回执及权限校验；原任务结束后仍以冻结收件人身份恢复，不新增菜单、路由、权限标识、角色或套餐授权。"},
     {"source":"IntRuoyiFronted/src/views/mes/pro/production-release/components/ReleaseOutcomeRecovery.vue","kind":"permission","value":"mes:pro-edhr-work-task:query","reason":"个人站内信内部恢复组件复用既有放行工作任务查询权限和补发组件，不新增页面路由、菜单、权限标识、角色或租户套餐授权。"},
     {"source":"IntRuoyiFronted/src/views/mes/pro/edhr-batch/historySources.ts","kind":"permission","value":"00:00:00","reason":"历史追溯日期起点时刻常量，不是权限标识，不新增菜单或授权。"},
@@ -1979,6 +1981,8 @@
     {"source": "IntRuoyiFronted/src/views/Profile/components/ProfileWorkbench.vue", "kind": "permission", "value": "mes:pro-process-pool-pqc-leader:query", "reason": "个人工作台复用既有一线生产/PQC查询、组长查询权限，接入本人正式交接待办和岗位操作入口；原页面继续校验责任人、权限和状态。不新增菜单、页面路由、权限标识、角色或租户套餐授权。"},
     {"source": "IntRuoyiFronted/src/views/Profile/components/ProfileWorkbench.vue", "kind": "permission", "value": "mes:pro-process-pool-team-leader:query", "reason": "个人工作台复用既有一线生产/PQC查询、组长查询权限，接入本人正式交接待办和岗位操作入口；原页面继续校验责任人、权限和状态。不新增菜单、页面路由、权限标识、角色或租户套餐授权。"},
     {"source": "IntRuoyiFronted/src/views/Profile/components/ProfileWorkbench.vue", "kind": "permission", "value": "mes:pro-edhr-deviation:query", "reason": "个人工作台增加偏差发起入口，复用现有偏差查询和创建权限，跳转既有偏差页面；不新增菜单、权限标识或套餐授权，正式接口继续校验租户、批次、权限和电子签名。"},
-    {"source": "IntRuoyiFronted/src/views/Profile/components/ProfileWorkbench.vue", "kind": "permission", "value": "mes:pro-edhr-deviation:create", "reason": "个人工作台增加偏差发起入口，复用现有偏差查询和创建权限，跳转既有偏差页面；不新增菜单、权限标识或套餐授权，正式接口继续校验租户、批次、权限和电子签名。"}
+    {"source": "IntRuoyiFronted/src/views/Profile/components/ProfileWorkbench.vue", "kind": "permission", "value": "mes:pro-edhr-deviation:create", "reason": "个人工作台增加偏差发起入口，复用现有偏差查询和创建权限，跳转既有偏差页面；不新增菜单、权限标识或套餐授权，正式接口继续校验租户、批次、权限和电子签名。"},
+    {"source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProEdhrActiveOrderAuditAccess.java", "kind": "permission", "value": "mes:pro-edhr-operation-audit:query", "reason": "活跃订单正式批次无独立表单任务时，操作审计复用现有审计查询和批次查询权限，并执行既有批次可见性及交接撤权校验；不新增菜单、权限标识、角色或租户套餐授权。"},
+    {"source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProEdhrActiveOrderAuditAccess.java", "kind": "permission", "value": "mes:pro-edhr-batch-execution:query", "reason": "活跃订单正式批次无独立表单任务时，操作审计复用现有审计查询和批次查询权限，并执行既有批次可见性及交接撤权校验；不新增菜单、权限标识、角色或租户套餐授权。"}
   ]
 }

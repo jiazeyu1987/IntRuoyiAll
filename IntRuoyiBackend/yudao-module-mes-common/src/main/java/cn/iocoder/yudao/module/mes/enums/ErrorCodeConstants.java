@@ -1315,6 +1315,8 @@ public interface ErrorCodeConstants {
             "生产订单工序允许超量比例无效：{}，合法范围为 0-100");
     ErrorCode PRO_PROCESS_POOL_ACTIVE_ORDER_HISTORY_AMBIGUOUS = new ErrorCode(1_040_760_359,
             "生产工单存在多条历史记录，无法确定应复用的冻结订单：workOrderId={}，activeOrderIds={}");
+    ErrorCode PRO_PROCESS_POOL_ACTIVE_ORDER_CLOSED_ADMISSION_FORBIDDEN = new ErrorCode(1_040_760_415,
+            "生产工单已关闭或已放行，禁止重新加入活跃订单：activeOrderId={}");
     ErrorCode PRO_PROCESS_POOL_ACTIVE_ORDER_VERSION_UPGRADE_CONFIRM_REQUIRED = new ErrorCode(1_040_760_384,
             "活跃订单版本升级重启必须确认审批通过后整单从头执行：activeOrderId={}");
     ErrorCode PRO_PROCESS_POOL_ACTIVE_ORDER_VERSION_UPGRADE_TARGET_REQUIRED = new ErrorCode(1_040_760_385,

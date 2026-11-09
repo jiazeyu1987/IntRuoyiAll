@@ -226,8 +226,12 @@
             <el-table-column prop="actualValue" label="实际值" min-width="120" />
             <el-table-column prop="recordedStandard" label="当时标准" min-width="150" show-overflow-tooltip />
             <el-table-column prop="recordStatus" label="记录状态" width="100" />
-            <el-table-column prop="occurredAt" label="发生时间" width="170" />
-            <el-table-column prop="recordedAt" label="记录时间" width="170" />
+            <el-table-column prop="occurredAt" label="发生时间" width="170">
+              <template #default="{ row }">{{ formatDateTimeValue(row.occurredAt) }}</template>
+            </el-table-column>
+            <el-table-column prop="recordedAt" label="记录时间" width="170">
+              <template #default="{ row }">{{ formatDateTimeValue(row.recordedAt) }}</template>
+            </el-table-column>
           </el-table>
           <el-empty v-else description="没有可展示的命中凭证" :image-size="60" />
           <el-pagination
@@ -249,9 +253,10 @@ import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { useWindowSize } from '@vueuse/core'
 import { ElMessage } from 'element-plus'
 import { useRoute, useRouter } from 'vue-router'
+import { formatDateTimeValue } from '@/utils/formatTime'
 import type { EdhrBatchExecutionPageReqVO } from '@/api/mes/pro/edhr/batchExecution'
 import {
-  canReverseTrace, reverseTraceIdentity, copyReverseTraceState, revokeReverseTraceSnapshot,
+  canReverseTrace, reverseTraceIdentity, copyReverseTraceState, revokeReverseTraceSnapshot, revokeReverseTraceStates,
   readReverseTraceState, saveReverseTraceState, reverseTraceHistoryPath, reverseTraceDetailPath,
   type ReverseTraceConditionRow as ConditionRow, type ReverseTraceSavedState
 } from '../reverseTraceState'
@@ -278,7 +283,8 @@ const props = defineProps<{
 const emit = defineEmits<{ (event: 'update:visible', visible: boolean): void }>()
 const router = useRouter()
 const route = useRoute()
-const authorized = computed(canReverseTrace)
+const permissionDenied = ref(false)
+const authorized = computed(() => !permissionDenied.value && canReverseTrace())
 const { width: viewportWidth } = useWindowSize()
 const drawerWidth = computed(() => Math.min(viewportWidth.value, 960))
 
@@ -446,8 +452,26 @@ const invalidate = () => {
 }
 const current = (sequence: number, owner: string) => sequence === requestSequence.value && !!owner && owner === reverseTraceIdentity()
 
+const rejectRevokedPermission = (error: unknown) => {
+  if (!(error instanceof Error) || (error as Error & { code?: number }).code !== 403) return false
+  revokeReverseTraceStates()
+  rememberedKey = undefined
+  permissionDenied.value = true
+  invalidate()
+  settingConditions = true
+  conditions.value = []
+  settingConditions = false
+  categoryCatalogs.value = {}
+  categoryErrors.value = {}
+  catalogVersion.value = ''
+  catalogError.value = '当前反查权限已失效，请重新登录后再查询。'
+  blockedReason.value = catalogError.value
+  dirty.value = true
+  return true
+}
+
 const saveState = () => {
-  if (!reverseTraceIdentity()) return undefined
+  if (!authorized.value || !reverseTraceIdentity()) return undefined
   return saveReverseTraceState({
     anchorBatchExecutionId: props.anchorBatchExecutionId,
     catalogVersion: catalog.value?.catalogVersion || '',
@@ -534,6 +558,7 @@ const revalidateConditions = () => {
 }
 
 const loadCategory = (category: ReverseTraceCategory): Promise<boolean> => {
+  if (!authorized.value) return Promise.resolve(false)
   if (categoryRequests.has(category)) return categoryRequests.get(category)!
   if (categoryCatalogs.value[category]) return Promise.resolve(true)
   const generation = catalogGeneration
@@ -597,6 +622,7 @@ const loadCategory = (category: ReverseTraceCategory): Promise<boolean> => {
       }
     } catch (errorValue) {
       if (!isCurrent()) return false
+      if (rejectRevokedPermission(errorValue)) return false
       delete categoryCatalogs.value[category]
       categoryErrors.value[category] = errorValue instanceof Error ? errorValue.message : '反查目录加载失败，请检查接口和权限。'
       if (needed() || catalogError.value) invalidateResults()
@@ -610,7 +636,7 @@ const loadCategory = (category: ReverseTraceCategory): Promise<boolean> => {
 }
 
 const loadCatalog = async (saved?: ReverseTraceSavedState, preserve = true) => {
-  if (!props.anchorBatchExecutionId) return
+  if (!props.anchorBatchExecutionId || permissionDenied.value) return
   invalidate()
   const generation = catalogGeneration
   settingConditions = true
@@ -650,6 +676,7 @@ const loadCatalog = async (saved?: ReverseTraceSavedState, preserve = true) => {
 }
 
 const addConditionFromItem = (item: ReverseTraceCatalogItem) => {
+  if (!authorized.value) return
   if (conditions.value.length >= 10) { ElMessage.warning('最多添加10条查询条件。'); return }
   if (!item.allowedOperators?.length) { ElMessage.warning('该记录缺少正式比较方式，请重新加载目录。'); return }
   if (conditions.value.some((condition) => condition.item.evidenceKey === item.evidenceKey
@@ -692,7 +719,7 @@ const resetConditions = () => {
 }
 
 const runQuery = async (page = 1, reuse = false) => {
-  if (catalogError.value || !catalog.value?.catalogVersion || !conditions.value.length || !reverseTraceIdentity()) return
+  if (!authorized.value || catalogError.value || !catalog.value?.catalogVersion || !conditions.value.length || !reverseTraceIdentity()) return
   if (!validateConditions()) return
   const snapshot = successfulQuery.value
   const previousHash = queryResponse.value?.queryHash
@@ -738,7 +765,8 @@ const runQuery = async (page = 1, reuse = false) => {
     dirty.value = false
     if (queryResponse.value.reason) blockedReason.value = queryResponse.value.reason
   } catch (errorValue) {
-    if (!current(sequence, owner) || task !== querySequence) return
+    if (!current(sequence, owner)) return
+    if (rejectRevokedPermission(errorValue) || task !== querySequence) return
     clearResults()
     blockedReason.value = errorValue instanceof Error ? errorValue.message : '反查查询失败，请重试。'
   } finally {
@@ -750,7 +778,7 @@ const changeResultPage = (page: number) => runQuery(page, true)
 const changeResultPageSize = (size: number) => { resultPageSize.value = size; return runQuery(1, true) }
 
 const loadEvidence = async (targetBatchExecutionId: string, page = 1) => {
-  if (!queryResponse.value?.queryHash || !successfulQuery.value || dirty.value || querying.value || !reverseTraceIdentity()) return
+  if (!authorized.value || !queryResponse.value?.queryHash || !successfulQuery.value || dirty.value || querying.value || !reverseTraceIdentity()) return
   const sequence = requestSequence.value
   const task = ++evidenceSequence
   const owner = reverseTraceIdentity()
@@ -782,7 +810,8 @@ const loadEvidence = async (targetBatchExecutionId: string, page = 1) => {
     evidenceResponse.value = copyReverseTraceState(response)
     evidencePage.value = page
   } catch (errorValue) {
-    if (!current(sequence, owner) || task !== evidenceSequence) return
+    if (!current(sequence, owner)) return
+    if (rejectRevokedPermission(errorValue) || task !== evidenceSequence) return
     evidenceResponse.value = undefined
     blockedReason.value = errorValue instanceof Error ? errorValue.message : '命中记录加载失败，请重试。'
   } finally {
@@ -823,6 +852,7 @@ watch(conditions, () => {
 }, { deep: true, flush: 'sync' })
 
 watch(() => [props.visible, props.anchorBatchExecutionId, props.restoreKey, reverseTraceIdentity()], (values, previous) => {
+  if (previous && values[3] !== previous[3]) permissionDenied.value = false
   if (previous && (values[1] !== previous[1] || values[2] !== previous[2] || values[3] !== previous[3])) rememberedKey = undefined
   invalidate()
   if (!props.visible) return

@@ -469,6 +469,51 @@ test('permission loss while open clears saved conditions as well as results', as
   assert.equal(e.state.conditions.value.length, 0); assert.equal(e.state.catalog.value, undefined); assert.equal(e.state.queryResponse.value, undefined)
   assert.match(e.state.blockedReason.value, /权限/); e.unmount()
 })
+
+for (const source of ['catalog', 'query', 'evidence']) test(`server 403 from ${source} clears permission-owned data despite stale client permissions`, async () => {
+  const e = await ready(environment({ catalog: () => catalog([item(1), item(2)]) }))
+  const s = e.state
+  s.addConditionFromItem(item(2)); s.conditions.value[0].value = '42'
+  await s.runQuery(); await s.loadEvidence('200')
+  const keys = [s.saveState(), s.saveState()]
+  const denied = Object.assign(new Error('没有该操作权限'), { code: 403 })
+  let deniedCalls = 0
+  const reject = async () => { deniedCalls++; throw denied }
+  if (source === 'catalog') { e.api.getReverseTraceCatalog = reject; await s.loadCategory('EQUIPMENT') }
+  if (source === 'query') { e.api.queryReverseTrace = reject; await s.runQuery() }
+  if (source === 'evidence') { e.api.getReverseTraceEvidence = reject; await s.loadEvidence('200') }
+  assert.equal(s.authorized.value, false)
+  assert.equal(s.catalog.value, undefined); assert.equal(s.conditions.value.length, 0)
+  assert.equal(s.queryResponse.value, undefined); assert.equal(s.evidenceResponse.value, undefined)
+  assert.equal(s.successfulQuery.value, undefined); assert.equal(s.saveState(), undefined)
+  assert.match(s.blockedReason.value, /权限.*重新登录/)
+  await s.runQuery(); await s.loadEvidence('200'); await s.loadCategory('MATERIAL'); await s.loadCatalog()
+  assert.equal(deniedCalls, 1, 'known permission denial blocks subsequent requests')
+  s.close(); e.props.visible = false; await flush(); e.props.visible = true; await flush()
+  assert.equal(s.conditions.value.length, 0); assert.equal(s.authorized.value, false)
+  e.unmount()
+  e.api.getReverseTraceCatalog = async () => catalog([item(1), item(2)])
+  for (const key of keys) {
+    const back = e.mount(panelFile, { visible: true, restoreKey: key }); await flush()
+    assert.equal(back.state.queryResponse.value, undefined)
+    assert.equal(back.state.evidenceResponse.value, undefined)
+    assert.equal(back.state.conditions.value.length, 1, 'old two-condition drafts were revoked')
+    assert.equal(back.state.conditions.value[0].value, '10')
+    back.unmount()
+  }
+})
+
+test('late server 403 from an obsolete query cannot revoke a newer authorized query', async () => {
+  const e = await ready(); const pending = deferred()
+  e.api.queryReverseTrace = () => pending.promise
+  const old = e.state.runQuery()
+  e.api.queryReverseTrace = result
+  await e.state.runQuery()
+  pending.reject(Object.assign(new Error('没有该操作权限'), { code: 403 })); await old
+  assert.equal(e.state.authorized.value, true)
+  assert.equal(e.state.queryResponse.value.queryStatus, 'MATCHED')
+  e.unmount()
+})
 test('missing backend operators cannot become an invented EQ condition', async () => {
   const e = await ready(); e.state.removeCondition(0); e.state.addConditionFromItem({ ...item(9), allowedOperators: [] })
   assert.equal(e.state.conditions.value.length, 0); assert.ok(e.calls.messages.some((v) => /比较方式/.test(v))); e.unmount()

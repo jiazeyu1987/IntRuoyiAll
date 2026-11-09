@@ -98,9 +98,14 @@ final class MesProEdhrBatchArchivePrintablePdfRenderer {
             PDType0Font symbolFont = PDType0Font.load(document, symbolFontFile);
             configurePdfA1b(document, manifest);
             PdfCanvas canvas = new PdfCanvas(document, font, symbolFont);
-            canvas.writeTitle("打印版 eDHR 已填表单归档");
+            canvas.writeTitle(manifest.getJSONObject("activeOrderSource") == null
+                    ? "打印版 eDHR 已填表单归档" : "eDHR 生产与检验记录打印版");
             writeBatchSummary(canvas, manifest);
-            writeBodyForms(canvas, jsonArrayObjects(manifest, "bodyForms"));
+            writeActiveOrderRecords(canvas, manifest.getJSONObject("activeOrderSource"));
+            if (manifest.getJSONObject("activeOrderSource") == null
+                    || !jsonArrayObjects(manifest, "bodyForms").isEmpty()) {
+                writeBodyForms(canvas, jsonArrayObjects(manifest, "bodyForms"));
+            }
             writeSpecialNodes(canvas, jsonArrayObjects(manifest, "appendixSpecialNodes"));
             writeEvidenceAppendix(canvas, manifest);
             canvas.close();
@@ -113,8 +118,9 @@ final class MesProEdhrBatchArchivePrintablePdfRenderer {
 
     private static void configurePdfA1b(PDDocument document, JSONObject manifest) throws IOException {
         String batchCode = StrUtil.blankToDefault(manifest.getString("batchCode"), "UNKNOWN");
-        String title = "eDHR 批次最终归档 - " + batchCode;
-        String subject = "电子批记录长期归档";
+        boolean print = manifest.getJSONObject("activeOrderSource") != null;
+        String title = (print ? "eDHR 正式记录打印版 - " : "eDHR 批次最终归档 - ") + batchCode;
+        String subject = print ? "已放行批次生产、检验与签署正式记录" : "电子批记录长期归档";
         String keywords = "eDHR,PDF/A-1b," + batchCode;
         Calendar generatedAt = resolveGeneratedAt(manifest.getString("generatedAt"));
 
@@ -191,9 +197,9 @@ final class MesProEdhrBatchArchivePrintablePdfRenderer {
         canvas.writeKeyValue("批次", manifest.getString("batchCode"));
         canvas.writeKeyValue("路线", joinNonBlank(manifest.getString("routeName"), manifest.getString("routeCode")));
         canvas.writeKeyValue("打印快照版本", manifest.getString("schemaVersion"));
-        canvas.writeKeyValue("manifest 快照版本", manifest.getString("schemaVersion"));
         canvas.writeKeyValue("生成时间", formatDateTime(manifest.getString("generatedAt")));
-        canvas.writeKeyValue("归档哈希", manifest.getString("aggregateHash"));
+        canvas.writeKeyValue(manifest.getJSONObject("activeOrderSource") == null ? "归档哈希" : "批次记录校验哈希",
+                manifest.getString("aggregateHash"));
         canvas.writeBlankLine();
     }
 
@@ -226,6 +232,82 @@ final class MesProEdhrBatchArchivePrintablePdfRenderer {
                 canvas.writeKeyValue("备注", remark);
             }
         }
+    }
+
+    private static void writeActiveOrderRecords(PdfCanvas canvas, JSONObject source) throws IOException {
+        if (source == null) return;
+        JSONObject frozen = source.getJSONObject("formalSourceSnapshot");
+        if (frozen == null) throw new IllegalStateException("Active-order archive frozen source is missing");
+        Map<Long, String> processNames = new HashMap<>();
+        for (JSONObject process : jsonArrayObjects(frozen, "snapshots")) {
+            processNames.put(process.getLong("routeProcessId"), process.getString("processNameSnapshot"));
+        }
+        canvas.writeSectionTitle("活跃订单生产记录");
+        canvas.writeKeyValue("完工回执", source.getString("completionReceiptId"));
+        canvas.writeKeyValue("回执校验哈希", source.getString("completionReceiptHash"));
+        canvas.writeKeyValue("冻结来源哈希", source.getString("sourceSnapshotHash"));
+        JSONObject production = frozen.getJSONObject("productionFacts");
+        for (JSONObject event : jsonArrayObjects(production, "events")) {
+            canvas.writeSubTitle(joinNonBlank(processNames.get(event.getLong("routeProcessId")),
+                    "生产记录 " + event.getString("id")));
+            canvas.writeKeyValue("提交时间", formatDateTime(event.getString("serverSubmitTime")));
+            canvas.writeKeyValue("填报人", event.getString("actualEmployeeId"));
+            canvas.writeKeyValue("电子签名", event.getString("signatureId"));
+            JSONObject payload = JSON.parseObject(event.getString("rawPayload"));
+            canvas.writeKeyValue("完成数量", payload.getString("outputQuantity"));
+            canvas.writeKeyValue("损耗数量", payload.getString("lossQuantity"));
+            for (JSONObject material : jsonArrayObjects(payload, "inputMaterialDetails")) {
+                canvas.writeParagraph("投入物料：" + joinNonBlank(material.getString("materialCode"), material.getString("materialName"))
+                        + " | 提交时批号=" + value(material.get("batchCodes"))
+                        + " | 批号证据状态=" + value(material.get("batchEvidenceStatus")));
+            }
+            for (JSONObject confirmation : jsonArrayObjects(payload, "clearanceConfirmations")) {
+                canvas.writeParagraph(value(confirmation.get("label")) + "确认：" + value(confirmation.get("confirmed")));
+            }
+            for (JSONObject material : jsonArrayObjects(payload, "materialDetails")) {
+                canvas.writeParagraph("物料：" + joinNonBlank(material.getString("materialCode"), material.getString("materialName"))
+                        + " | 完成数量=" + value(material.get("outputQuantity"))
+                        + " | 损耗数量=" + value(material.get("lossQuantity")));
+            }
+            for (JSONObject device : jsonArrayObjects(payload, "selectedDevices")) {
+                canvas.writeParagraph("使用设备：" + joinNonBlank(device.getString("deviceCode"), device.getString("deviceName")));
+            }
+            for (JSONObject reading : jsonArrayObjects(payload, "deviceParameterReadings")) {
+                canvas.writeParagraph("参数：" + joinNonBlank(reading.getString("deviceCode"), reading.getString("parameterName"))
+                        + " | " + value(firstNonBlank(reading.get("value"), reading.get("textValue")))
+                        + " " + value(reading.get("unit")) + " | " + value(reading.get("parameterStatus")));
+            }
+        }
+        canvas.writeSubTitle("生产组长审核");
+        for (JSONObject review : jsonArrayObjects(production, "reviews")) {
+            canvas.writeParagraph("生产记录=" + value(review.get("eventId"))
+                    + " | 审核人=" + value(review.get("leaderUserId"))
+                    + " | 结果=" + value(review.get("reviewStatus"))
+                    + " | 签名=" + value(review.get("reviewSignatureId"))
+                    + " | 时间=" + formatDateTime(review.getString("reviewedAt")));
+        }
+        canvas.newPage();
+        canvas.writeSectionTitle("PQC检验记录");
+        for (JSONObject task : jsonArrayObjects(frozen, "pqcTasks")) {
+            canvas.writeParagraph(joinNonBlank(processNames.get(task.getLong("routeProcessId")), task.getString("inspectionType"))
+                    + " | 任务=" + value(task.get("id")) + " | 巡检轮次=" + value(task.get("roundNo"))
+                    + " | 实检数量=" + value(task.get("actualInspectionQuantity"))
+                    + " | 状态=" + value(task.get("taskStatus")));
+            canvas.writeKeyValue("提交记录", task.getString("submittedEventId"));
+            canvas.writeKeyValue("提交内容校验哈希", task.getString("submittedContentHash"));
+        }
+        for (JSONObject detail : jsonArrayObjects(frozen, "pqcDetails")) {
+            canvas.writeSubTitle(joinNonBlank(processNames.get(detail.getLong("routeProcessId")), detail.getString("itemName")));
+            canvas.writeParagraph("检验类型=" + value(detail.get("inspectionType"))
+                    + " | 轮次=" + value(detail.get("roundNo")) + " | 样本=" + value(detail.get("sampleNo")));
+            canvas.writeKeyValue("检验方法", detail.getString("inspectionMethod"));
+            canvas.writeKeyValue("标准", detail.getString("standardText"));
+            canvas.writeKeyValue("实测值", joinNonBlank(detail.getString("measuredValue"), detail.getString("standardUnit")));
+            canvas.writeKeyValue("检验结果", joinNonBlank(detail.getString("itemResult"), detail.getString("judgement")));
+            canvas.writeKeyValue("检验器具", joinNonBlank(detail.getString("selectedEquipmentCode"),
+                    detail.getString("selectedEquipmentName"), detail.getString("selectedEquipmentNumber")));
+        }
+        canvas.writeBlankLine();
     }
 
     private static void writeSignatureSummary(PdfCanvas canvas, JSONObject form) throws IOException {
@@ -1063,6 +1145,9 @@ final class MesProEdhrBatchArchivePrintablePdfRenderer {
     private static LocalDateTime parseDateTime(String raw) {
         if (StrUtil.isBlank(raw)) {
             return null;
+        }
+        if (raw.matches("-?\\d{13}")) {
+            return LocalDateTime.ofInstant(java.time.Instant.ofEpochMilli(Long.parseLong(raw)), ARCHIVE_ZONE);
         }
         try {
             return LocalDateTime.parse(raw);

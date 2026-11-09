@@ -118,6 +118,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -133,6 +134,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.doThrow;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_NONCONFORMANCE_REVIEW_FROZEN_ACTION_LOCKED;
@@ -2280,6 +2282,45 @@ class MesTeamLeaderActiveOrderServiceTest {
         verify(activeOrderMapper, never()).insert(any(MesProcessPoolActiveOrderDO.class));
         verify(processSnapshotMapper, never()).insertBatch(any());
         verify(gxpAuditService, never()).append(any(GxpAuditCommand.class));
+    }
+
+    @Test
+    void releasedHistoryCannotBeOfferedOrInsertedAsANewActiveOrder() {
+        var order = confirmedWorkOrder();
+        var released = existingActiveOrder(8101L, "CLOSED", 2);
+        released.setBusinessStatus("RELEASED");
+        when(workOrderMapper.selectCandidatesByKeyword(eq("WO-9"), any())).thenReturn(List.of(order));
+        when(activeOrderMapper.selectHistoryByWorkOrderIds(List.of(9001L))).thenReturn(List.of(released));
+        var candidates = service.searchActiveOrderCandidates("WO-9");
+        assertEquals(1, candidates.size());
+        assertFalse(candidates.get(0).isEligible());
+        assertTrue(candidates.get(0).getIneligibleReason().contains("已关闭或已放行"));
+
+        stubWorkOrderExists(order);
+        when(activeOrderMapper.selectHistoryByWorkOrderIdForUpdate(9001L)).thenReturn(List.of(released));
+        var failure = assertThrows(ServiceException.class, () -> service.addActiveOrder(activeOrderReq()));
+        assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_ACTIVE_ORDER_CLOSED_ADMISSION_FORBIDDEN.getCode(), failure.getCode());
+        verify(activeOrderMapper, never()).insert(any(MesProcessPoolActiveOrderDO.class));
+        verifyNoInteractions(handoffService);
+    }
+
+    @Test
+    void frozenOrVoidedWorkOrderCannotReuseAnExistingActiveOrder() {
+        var order = confirmedWorkOrder();
+        order.setTemporaryFrozen(true);
+        when(workOrderMapper.selectCandidatesByKeyword(eq("WO-9"), any())).thenReturn(List.of(order));
+        when(activeOrderMapper.selectHistoryByWorkOrderIds(List.of(9001L)))
+                .thenReturn(List.of(existingActiveOrder(8101L, "ACTIVE", 0)));
+        var candidates = service.searchActiveOrderCandidates("WO-9");
+        assertFalse(candidates.get(0).isEligible());
+        assertTrue(candidates.get(0).getIneligibleReason().contains("冻结或作废"));
+        stubWorkOrderExists(order);
+        var blocked = new ServiceException(1040760393, "作废处置禁止加入");
+        doThrow(blocked).when(nonconformanceReviewService).ensureWorkOrderNotFrozen(9001L, "加入活跃订单");
+        assertSame(blocked, assertThrows(ServiceException.class, () -> service.addActiveOrder(activeOrderReq())));
+        verify(activeOrderMapper, never()).selectHistoryByWorkOrderIdForUpdate(anyLong());
+        verify(activeOrderMapper, never()).insert(any(MesProcessPoolActiveOrderDO.class));
+        verifyNoInteractions(handoffService);
     }
 
     @Test

@@ -179,7 +179,16 @@
                   v-hasPermi="['mes:pro-edhr-batch-execution-archive:download']"
                   link
                   type="primary"
-                  :disabled="row.releaseStatus !== 'RELEASED' || printLoadingBatchExecutionId === row.batchExecutionId"
+                  :disabled="row.releaseStatus !== 'RELEASED' || isArchiveActionBusy(row.batchExecutionId)"
+                  @click="handleExportArchive(row)"
+                >
+                  {{ exportLoadingBatchExecutionId === row.batchExecutionId ? '导出中...' : '导出PDF' }}
+                </el-button>
+                <el-button
+                  v-hasPermi="['mes:pro-edhr-batch-execution-archive:download']"
+                  link
+                  type="primary"
+                  :disabled="row.releaseStatus !== 'RELEASED' || isArchiveActionBusy(row.batchExecutionId)"
                   @click="handlePrintArchive(row)"
                 >
                   {{ printLoadingBatchExecutionId === row.batchExecutionId ? '打印中...' : '打印' }}
@@ -308,8 +317,8 @@ import {
   EDHR_BATCH_STATUS_REJECTED,
   EDHR_BATCH_STATUS_REWORK_REQUIRED,
   EDHR_BATCH_STATUS_VOIDED,
-  getLatestEdhrBatchArchive,
-  printEdhrBatchArchive
+  downloadEdhrBatchPrintPdf,
+  printEdhrBatchPrintPdf
 } from '@/api/mes/pro/edhr/batchExecution'
 import { useTableQuickFilter, type TableQuickFilterDefinition } from '@/hooks/web/useTableQuickFilter'
 import { useUserTableColumns, type UserTableColumnDefinition } from '@/hooks/web/useUserTableColumns'
@@ -349,6 +358,9 @@ const loading = ref(false)
 const checkItemLoading = ref(false)
 const eventLoading = ref(false)
 const printLoadingBatchExecutionId = ref<string>()
+const exportLoadingBatchExecutionId = ref<string>()
+const isArchiveActionBusy = (id: string) =>
+  [printLoadingBatchExecutionId.value, exportLoadingBatchExecutionId.value].includes(id)
 const loadError = ref('')
 const actionError = ref('')
 const list = ref<EdhrReleaseRowVO[]>([])
@@ -498,20 +510,31 @@ const resetQuery = async () => {
   await releaseQuickFilter.resetQuickFilter()
 }
 
+const handleExportArchive = async (row: EdhrReleaseRowVO) => {
+  if (row.releaseStatus !== 'RELEASED' || isArchiveActionBusy(row.batchExecutionId)) return
+  exportLoadingBatchExecutionId.value = row.batchExecutionId
+  actionError.value = ''
+  try {
+    await downloadEdhrBatchPrintPdf(row.batchExecutionId, `${row.batchCode || row.batchExecutionCode}-edhr-print.pdf`)
+  } catch (error) {
+    actionError.value = resolveErrorMessage(error, '打印版PDF导出失败。')
+    message.error(actionError.value)
+  } finally {
+    exportLoadingBatchExecutionId.value = undefined
+  }
+}
+
 const handlePrintArchive = async (row: EdhrReleaseRowVO) => {
+  if (isArchiveActionBusy(row.batchExecutionId)) return
   if (row.releaseStatus !== 'RELEASED') {
-    actionError.value = '当前记录尚未正式放行，不能打印最终归档。'
+    actionError.value = '当前记录尚未正式放行，不能打印正式记录PDF。'
     message.error(actionError.value)
     return
   }
   printLoadingBatchExecutionId.value = row.batchExecutionId
   actionError.value = ''
   try {
-    const archive = await getLatestEdhrBatchArchive(row.batchExecutionId)
-    if (!archive?.id) {
-      throw new Error('当前批次没有可打印的打印版 PDF。')
-    }
-    await printEdhrBatchArchive(archive.id, archive.fileName)
+    await printEdhrBatchPrintPdf(row.batchExecutionId)
     message.info('打印版 PDF 窗口已打开')
   } catch (error) {
     actionError.value = resolveErrorMessage(error, '打印版 PDF 打印入口打开失败。')

@@ -363,6 +363,8 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
     @Resource
     private MesProEdhrBatchExecutionOriginMapper batchExecutionOriginMapper;
     @Resource
+    private MesProEdhrActiveOrderPrintSource activeOrderPrintSource;
+    @Resource
     private MesProEdhrBatchExecutionVisibilityService batchExecutionVisibilityService;
     @Resource
     private MesProEdhrBatchExecutionTaskMapper batchTaskMapper;
@@ -4935,7 +4937,42 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
     }
 
     @Override
+    @Transactional(isolation = org.springframework.transaction.annotation.Isolation.REPEATABLE_READ,
+            rollbackFor = Exception.class)
+    public EdhrBatchExecutionArchiveDownloadRespVO renderPrintPdf(Long batchExecutionId) {
+        MesProEdhrBatchExecutionDO batch = validateBatchExists(batchExecutionId);
+        MesProEdhrReleaseTransactionDO release = releaseTransactionMapper.selectByBatchExecutionId(batch.getId());
+        JSONObject source = activeOrderPrintSource.requireSource(batch, release);
+        if (selectPendingBatchVoidChange(batch.getId()) != null) {
+            throw exception(PRO_EDHR_BATCH_EXECUTION_PENDING_VOID_ACTION_LOCKED);
+        }
+        nonconformanceReviewService.ensureBatchNotFrozen(batch.getId(), "打印或导出正式记录PDF");
+        LocalDateTime generatedAt = LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS);
+        JSONObject manifest = JSON.parseObject(buildArchiveManifest(batch, generatedAt));
+        manifest.put("activeOrderSource", source);
+        byte[] content = buildPdfBytes(manifest.toJSONString());
+        requirePdfA1b(content);
+        String contentHash = DigestUtil.sha256Hex(content);
+        JSONObject metadata = new JSONObject()
+                .fluentPut("completionReceiptId", source.getLong("completionReceiptId"))
+                .fluentPut("completionReceiptHash", source.getString("completionReceiptHash"))
+                .fluentPut("sourceSnapshotHash", source.getString("sourceSnapshotHash"))
+                .fluentPut("pdfaProfile", MesProEdhrPdfAValidator.PROFILE)
+                .fluentPut("generatedAt", generatedAt.toString());
+        recordOperationAudit("BATCH_EXECUTION", String.valueOf(batch.getId()), "PRINT_PDF",
+                "生成正式记录打印版PDF", batch.getId(), null, null, batch.getRouteId(), null,
+                null, null, "mes:pro-edhr-batch-execution-archive:download", "ALLOW",
+                "SUCCESS", null, contentHash, metadata.toJSONString(), true);
+        return new EdhrBatchExecutionArchiveDownloadRespVO()
+                .setFileName(batch.getBatchCode() + "-edhr-print.pdf")
+                .setContentType(BATCH_ARCHIVE_CONTENT_TYPE)
+                .setFileSize((long) content.length)
+                .setContent(content);
+    }
+
+    @Override
     public EdhrBatchExecutionArchiveRespVO getLatestArchive(Long batchExecutionId) {
+        marketReleaseAccess.requireReadable(batchExecutionId);
         List<MesProEdhrBatchExecutionArchiveDO> archives = batchArchiveMapper.selectListByBatchExecutionId(batchExecutionId);
         if (archives.isEmpty()) {
             throw exception(PRO_EDHR_BATCH_EXECUTION_ARCHIVE_NOT_EXISTS);
@@ -4950,6 +4987,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                 || !ARCHIVE_STATUS_SEALED.equals(archive.getArchiveStatus())) {
             throw exception(PRO_EDHR_BATCH_EXECUTION_ARCHIVE_NOT_EXISTS);
         }
+        marketReleaseAccess.requireReadable(archive.getBatchExecutionId());
         requireStoredPdfAArchive(archive);
         BatchArchiveStorageMetadata metadata = parseBatchArchiveStorageMetadata(archive);
         StorageRetentionPolicy storagePolicy = toStorageRetentionPolicy(metadata);

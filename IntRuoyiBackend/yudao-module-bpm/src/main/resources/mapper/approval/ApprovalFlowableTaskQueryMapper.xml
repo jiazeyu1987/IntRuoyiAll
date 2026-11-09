@@ -6,6 +6,8 @@
     LEFT JOIN ACT_HI_PROCINST p ON p.PROC_INST_ID_=t.PROC_INST_ID_ AND p.TENANT_ID_=t.TENANT_ID_
     LEFT JOIN ACT_RE_PROCDEF d ON d.ID_=t.PROC_DEF_ID_
     LEFT JOIN bpm_approval_process_ownership o ON o.tenant_id=#{tenant} AND CAST(o.process_instance_id AS BINARY)=CAST(t.PROC_INST_ID_ AS BINARY)
+    <!-- The fixed void definition cannot be a certificate workflow. Keep its query independent of certificate tables. -->
+    <if test="edhrVoidOnly == null or !edhrVoidOnly">
     LEFT JOIN dcc_registration_certificate_bpm_binding rb ON rb.tenant_id=#{tenant}
       AND CAST(rb.bpm_process_instance_id AS BINARY)=CAST(t.PROC_INST_ID_ AS BINARY) AND rb.deleted=0
     LEFT JOIN dcc_registration_certificate_access_request rr ON rr.tenant_id=#{tenant}
@@ -13,6 +15,7 @@
     LEFT JOIN dcc_registration_certificate c ON c.tenant_id=#{tenant} AND c.id=rr.certificate_id AND c.deleted=0
     LEFT JOIN dcc_registration_certificate_version cv ON cv.tenant_id=#{tenant} AND cv.id=c.current_version_id AND cv.certificate_id=c.id AND cv.deleted=0
     LEFT JOIN dcc_registration_certificate_snapshot cs ON cs.tenant_id=#{tenant} AND cs.id=c.current_snapshot_id AND cs.version_id=cv.id AND cs.deleted=0
+    </if>
   </sql>
   <sql id="registrationCandidate">
     rr.id IS NOT NULL AND CAST(rb.business_key AS BINARY)=CAST(p.BUSINESS_KEY_ AS BINARY) AND rb.status='RUNNING' AND rr.status='BPM_BOUND'
@@ -48,11 +51,13 @@
           </when><otherwise>
             AND (il.USER_ID_=#{userText} OR il.GROUP_ID_ IN (SELECT m.GROUP_ID_ FROM ACT_ID_MEMBERSHIP m WHERE m.USER_ID_=#{userText}))
           </otherwise></choose>
-        )) OR (<include refid="cn.iocoder.yudao.module.bpm.dal.mysql.approval.ApprovalFlowableTaskQueryMapper.registrationCandidate"/>))
+        ))
+        <if test="edhrVoidOnly == null or !edhrVoidOnly">OR (<include refid="cn.iocoder.yudao.module.bpm.dal.mysql.approval.ApprovalFlowableTaskQueryMapper.registrationCandidate"/>)</if>)
       </if>
     </otherwise></choose>
     <if test="keyword != null">
       AND (LOWER(t.NAME_) LIKE #{keyword} ESCAPE '!' OR LOWER(t.PROC_INST_ID_) LIKE #{keyword} ESCAPE '!'
+        <if test="edhrVoidOnly == null or !edhrVoidOnly">
         OR LOWER(CAST(rr.id AS CHAR)) LIKE #{keyword} ESCAPE '!'
         OR LOWER(CAST(rr.certificate_id AS CHAR)) LIKE #{keyword} ESCAPE '!'
         OR LOWER(rr.request_key) LIKE #{keyword} ESCAPE '!'
@@ -61,7 +66,8 @@
           SELECT 1 FROM dcc_controlled_file searched WHERE searched.tenant_id=#{tenant}
             AND CAST(CAST(searched.id AS CHAR) AS BINARY)=CAST(o.authority_id AS BINARY)
             AND (LOWER(searched.title) LIKE #{keyword} ESCAPE '!'
-              OR LOWER(searched.file_number) LIKE #{keyword} ESCAPE '!'))))
+              OR LOWER(searched.file_number) LIKE #{keyword} ESCAPE '!')))
+        </if>)
     </if>
   </sql>
   <sql id="partition">
@@ -83,10 +89,16 @@
       OR CAST(o.process_definition_id AS BINARY) != CAST(t.PROC_DEF_ID_ AS BINARY)
       OR CAST(o.process_definition_key AS BINARY) != CAST(d.KEY_ AS BINARY)
       OR NOT (CAST(o.business_key AS BINARY) &lt;=&gt; CAST(p.BUSINESS_KEY_ AS BINARY)) OR d.TENANT_ID_ != #{tenantText}
+      <if test="edhrVoidOnly != null and edhrVoidOnly">
+        OR o.authority_type IS NULL OR o.authority_type != 'BUSINESS_REQUEST'
+      </if>
+      <if test="edhrVoidOnly == null or !edhrVoidOnly">
       OR (o.authority_type='REGISTRATION_REQUEST' AND (rr.id IS NULL OR CAST(o.authority_id AS BINARY) != CAST(CAST(rr.id AS CHAR) AS BINARY)))
+      </if>
       OR (o.authority_type='BUSINESS_REQUEST' AND NOT EXISTS (SELECT 1 FROM bpm_business_approval_request br
         WHERE br.tenant_id=#{tenant} AND CAST(br.process_instance_id AS BINARY)=CAST(t.PROC_INST_ID_ AS BINARY) AND CAST(CAST(br.id AS CHAR) AS BINARY)=CAST(o.authority_id AS BINARY)
           AND CAST(br.process_definition_key AS BINARY)=CAST(d.KEY_ AS BINARY) AND CAST(br.object_version AS BINARY)=CAST(o.authority_version AS BINARY)))
+      <if test="edhrVoidOnly == null or !edhrVoidOnly">
       OR (o.authority_type='FORM_ACTION' AND NOT EXISTS (SELECT 1 FROM bpm_form_action_instance f
         WHERE f.tenant_id=#{tenant} AND CAST(f.bpm_process_instance_id AS BINARY)=CAST(t.PROC_INST_ID_ AS BINARY) AND CAST(CAST(f.id AS CHAR) AS BINARY)=CAST(o.authority_id AS BINARY)
           AND CAST(f.object_version AS BINARY)=CAST(o.authority_version AS BINARY)))
@@ -100,6 +112,7 @@
         AND CAST(CAST(f.id AS CHAR) AS BINARY)=CAST(o.authority_id AS BINARY) <if test="!done">AND CAST(f.process_instance_id AS BINARY)=CAST(t.PROC_INST_ID_ AS BINARY)</if>))
       OR (o.authority_type='CRM_RECEIVABLE' AND NOT EXISTS (SELECT 1 FROM crm_receivable f WHERE f.tenant_id=#{tenant}
         AND CAST(CAST(f.id AS CHAR) AS BINARY)=CAST(o.authority_id AS BINARY) <if test="!done">AND CAST(f.process_instance_id AS BINARY)=CAST(t.PROC_INST_ID_ AS BINARY)</if>))
+      </if>
       OR (SELECT COUNT(*) FROM dcc_registration_certificate_bpm_binding x WHERE x.tenant_id=#{tenant}
         AND CAST(x.bpm_process_instance_id AS BINARY)=CAST(t.PROC_INST_ID_ AS BINARY) AND x.deleted=0)>1
       OR (SELECT COUNT(*) FROM bpm_business_approval_request x WHERE x.tenant_id=#{tenant}

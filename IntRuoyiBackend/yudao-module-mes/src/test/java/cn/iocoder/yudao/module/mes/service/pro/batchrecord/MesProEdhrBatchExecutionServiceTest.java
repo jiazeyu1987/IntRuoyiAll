@@ -224,6 +224,7 @@ import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.mock;
 
@@ -356,6 +357,8 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     private MesEdhrArchiveProtectedStorage protectedStorage;
     @MockitoBean
     private MesProEdhrPdfAValidator pdfAValidator;
+    @MockitoBean
+    private MesProEdhrActiveOrderPrintSource activeOrderPrintSource;
     @MockitoBean
     private AdminUserApi adminUserApi;
     @MockitoBean
@@ -7246,6 +7249,71 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                 any(StorageRetentionPolicy.class));
         verify(fileService).getFileContentWithStorageRetention(eq(storedArchive.getFileId()),
                 any(StorageRetentionPolicy.class));
+    }
+
+    @Test
+    void renderPrintPdf_repeatedPrintsNeedNoStorageAndDoNotCreateArchivesOrWorkTasks() {
+        Fixture fixture = insertRouteFixture(true, true);
+        EdhrBatchExecutionRespVO batch = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
+                .setWorkOrderId(fixture.workOrderId()).setBatchCode("BATCH-AUTO-PRINT").setRouteId(fixture.routeId()));
+        batchExecutionMapper.updateById(new MesProEdhrBatchExecutionDO().setId(batch.getId())
+                .setStatus(MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_ARCHIVED));
+        when(activeOrderPrintSource.requireSource(any(), any())).thenReturn(new JSONObject()
+                .fluentPut("completionReceiptHash", "receipt-hash")
+                .fluentPut("formalSourceSnapshot", new JSONObject().fluentPut("productionFacts", new JSONObject())));
+        clearInvocations(fileService, protectedStorage, operationAuditService, workTaskService);
+
+        EdhrBatchExecutionArchiveDownloadRespVO first = batchExecutionService.renderPrintPdf(batch.getId());
+        EdhrBatchExecutionArchiveDownloadRespVO second = batchExecutionService.renderPrintPdf(batch.getId());
+
+        assertEquals("BATCH-AUTO-PRINT-edhr-print.pdf", first.getFileName());
+        assertEquals("application/pdf", first.getContentType());
+        assertEquals("%PDF-1.4", new String(first.getContent(), 0, 8, StandardCharsets.UTF_8));
+        assertEquals(second.getContent().length, second.getFileSize());
+        assertTrue(batchArchiveMapper.selectListByBatchExecutionId(batch.getId()).isEmpty());
+        assertEquals(MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_ARCHIVED,
+                batchExecutionMapper.selectById(batch.getId()).getStatus());
+        verifyNoInteractions(fileService, protectedStorage);
+        verify(workTaskService, never()).validateArchiveTask(any(), any());
+        verify(workTaskService, never()).completeArchiveTask(any(), any());
+        verify(operationAuditService, times(2)).recordInCallerTransaction(argThat(command ->
+                "BATCH_EXECUTION".equals(command.getObjectType()) && "PRINT_PDF".equals(command.getOperationType())
+                && command.getBatchExecutionId().equals(batch.getId())
+                && "mes:pro-edhr-batch-execution-archive:download".equals(command.getPermissionCode())
+                && command.getAfterSummaryHash().length() == 64
+                && command.getMetadataJson().contains("receipt-hash")));
+    }
+
+    @Test
+    void renderPrintPdf_invalidPdfDoesNotCreateArchiveOrSuccessAudit() {
+        Fixture fixture = insertRouteFixture(true, true);
+        EdhrBatchExecutionRespVO batch = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
+                .setWorkOrderId(fixture.workOrderId()).setBatchCode("BATCH-AUTO-PRINT-FAIL").setRouteId(fixture.routeId()));
+        batchExecutionMapper.updateById(new MesProEdhrBatchExecutionDO().setId(batch.getId())
+                .setStatus(MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_ARCHIVED));
+        when(activeOrderPrintSource.requireSource(any(), any())).thenReturn(new JSONObject()
+                .fluentPut("formalSourceSnapshot", new JSONObject().fluentPut("productionFacts", new JSONObject())));
+        doThrow(new IllegalStateException("invalid PDF/A")).when(pdfAValidator).validateOrThrow(any(byte[].class));
+        clearInvocations(fileService, protectedStorage, operationAuditService);
+
+        assertServiceException(() -> batchExecutionService.renderPrintPdf(batch.getId()),
+                PRO_EDHR_BATCH_EXECUTION_ARCHIVE_PDFA_INVALID, "invalid PDF/A");
+        assertTrue(batchArchiveMapper.selectListByBatchExecutionId(batch.getId()).isEmpty());
+        verifyNoInteractions(fileService, protectedStorage, operationAuditService);
+        verify(workTaskService, never()).completeArchiveTask(any(), any());
+    }
+
+    @Test
+    void renderPrintPdf_missingFormalSourceDoesNotRenderOrAuditSuccess() {
+        Fixture fixture = insertRouteFixture(true, true);
+        EdhrBatchExecutionRespVO batch = openBatchFixture(new EdhrBatchExecutionOpenOrCreateReqVO()
+                .setWorkOrderId(fixture.workOrderId()).setBatchCode("BATCH-PRINT-NO-SOURCE").setRouteId(fixture.routeId()));
+        when(activeOrderPrintSource.requireSource(any(), any())).thenThrow(
+                new IllegalStateException("formal source unavailable"));
+        clearInvocations(fileService, protectedStorage, operationAuditService, pdfAValidator);
+        assertThrows(IllegalStateException.class, () -> batchExecutionService.renderPrintPdf(batch.getId()));
+        assertTrue(batchArchiveMapper.selectListByBatchExecutionId(batch.getId()).isEmpty());
+        verifyNoInteractions(fileService, protectedStorage, operationAuditService, pdfAValidator);
     }
 
     @Test

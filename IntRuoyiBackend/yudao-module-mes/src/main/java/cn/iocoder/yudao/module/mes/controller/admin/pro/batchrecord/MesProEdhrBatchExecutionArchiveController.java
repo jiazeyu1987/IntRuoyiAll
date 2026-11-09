@@ -4,6 +4,7 @@ import cn.iocoder.yudao.framework.common.pojo.CommonResult;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionArchiveDownloadRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionArchiveGenerateReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionArchiveRespVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionPrintGenerateReqVO;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionService;
 import jakarta.annotation.Resource;
 import jakarta.validation.Valid;
@@ -43,6 +44,19 @@ public class MesProEdhrBatchExecutionArchiveController {
     @PreAuthorize("@ss.hasPermission('mes:pro-edhr-batch-execution-archive:query')")
     public CommonResult<EdhrBatchExecutionArchiveRespVO> latest(@RequestParam("batchExecutionId") Long batchExecutionId) {
         return success(batchExecutionService.getLatestArchive(batchExecutionId));
+    }
+
+    @PostMapping("/print-pdf")
+    @PreAuthorize("@ss.hasPermission('mes:pro-edhr-batch-execution-archive:download')")
+    public ResponseEntity<byte[]> printPdf(@Valid @RequestBody EdhrBatchExecutionPrintGenerateReqVO reqVO) {
+        EdhrBatchExecutionArchiveDownloadRespVO file = batchExecutionService.renderPrintPdf(reqVO.getBatchExecutionId());
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentDisposition(ContentDisposition.attachment()
+                .filename(file.getFileName(), StandardCharsets.UTF_8).build());
+        headers.setContentType(MediaType.APPLICATION_PDF);
+        headers.setContentLength(file.getFileSize());
+        headers.set("X-Content-SHA256", cn.hutool.crypto.digest.DigestUtil.sha256Hex(file.getContent()));
+        return ResponseEntity.ok().headers(headers).body(file.getContent());
     }
 
     @GetMapping("/download")

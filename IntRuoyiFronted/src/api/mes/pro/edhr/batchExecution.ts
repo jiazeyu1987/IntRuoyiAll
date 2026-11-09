@@ -1137,6 +1137,44 @@ export const generateEdhrBatchArchive = async (data: EdhrBatchExecutionArchiveGe
   })
 }
 
+const renderEdhrBatchPrintPdf = async (batchExecutionId: EdhrRouteId) => {
+  return await request.download<Blob>({
+    method: 'POST',
+    url: `${BATCH_ARCHIVE_BASE_URL}/print-pdf`,
+    // A cold render validates the frozen records, signatures and PDF/A before returning the file.
+    timeout: 120000,
+    data: { batchExecutionId }
+  })
+}
+
+export const downloadEdhrBatchPrintPdf = async (batchExecutionId: EdhrRouteId, fileName: string) => {
+  const blob = await renderEdhrBatchPrintPdf(batchExecutionId)
+  downloadByData(blob, fileName, 'application/pdf')
+}
+
+export const printEdhrBatchPrintPdf = async (batchExecutionId: EdhrRouteId) => {
+  const printWindow = window.open('', '_blank')
+  if (!printWindow) {
+    throw new Error('正式记录PDF打印窗口打开失败。')
+  }
+  let objectUrl: string | undefined
+  try {
+    const blob = await renderEdhrBatchPrintPdf(batchExecutionId)
+    objectUrl = URL.createObjectURL(blob)
+    const pdfUrl = objectUrl
+    printWindow.addEventListener('load', () => {
+      printWindow.focus()
+      printWindow.print()
+      URL.revokeObjectURL(pdfUrl)
+    }, { once: true })
+    printWindow.location.href = objectUrl
+  } catch (error) {
+    printWindow.close()
+    if (objectUrl) URL.revokeObjectURL(objectUrl)
+    throw error
+  }
+}
+
 export const getLatestEdhrBatchArchive = async (batchExecutionId: EdhrRouteId, options?: { ignoreErrorMessage?: boolean; isRequestContextCurrent?: () => boolean; isSuccessReceiptContextCurrent?: () => boolean }) => {
   return await request.get<EdhrBatchExecutionArchiveRespVO>({
     ignoreErrorMessage: options?.ignoreErrorMessage,

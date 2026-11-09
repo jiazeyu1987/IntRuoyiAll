@@ -627,6 +627,12 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
         if (workOrder == null || workOrder.getId() == null) {
             return blockedCandidate("缺少生产工单");
         }
+        if (isCancelledWorkOrder(workOrder)) {
+            return blockedCandidate("生产工单已取消");
+        }
+        if (Boolean.TRUE.equals(workOrder.getTemporaryFrozen())) {
+            return blockedCandidate("生产工单已冻结或作废，不能加入活跃订单");
+        }
         List<MesProcessPoolActiveOrderDO> history = historyByWorkOrderId
                 .getOrDefault(workOrder.getId(), Collections.emptyList());
         if (!history.isEmpty()) {
@@ -643,6 +649,9 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
     private CandidateEligibility evaluateCandidateHistory(MesProWorkOrderDO workOrder,
                                                            CandidateEligibilityContext context,
                                                            List<MesProcessPoolActiveOrderDO> history) {
+        if (history.stream().anyMatch(order -> "CLOSED".equals(order.getActiveStatus()))) {
+            return blockedCandidate("生产工单已关闭或已放行，不能重新加入活跃订单");
+        }
         if (history.size() > 1) {
             return blockedCandidate(exception(PRO_PROCESS_POOL_ACTIVE_ORDER_HISTORY_AMBIGUOUS, workOrder.getId(),
                     history.stream().map(MesProcessPoolActiveOrderDO::getId).toList()).getMessage());
@@ -917,6 +926,7 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
         }
         MesProWorkOrderDO workOrder = workOrderService.validateWorkOrderExists(reqBO.getWorkOrderId());
         localTestRunSourceGuard.requireProductionAdmission(workOrder);
+        nonconformanceReviewService.ensureWorkOrderNotFrozen(workOrder.getId(), "加入活跃订单");
         MesProcessPoolActiveOrderPickListBindingDO pickList = null;
         if (!Boolean.TRUE.equals(reqBO.getForceNewVersionUpgradeOrder())) {
             MesTeamLeaderActiveOrderAddResult historicalResult = resolveActiveOrderHistory(reqBO, pickList);
@@ -2733,6 +2743,12 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
         }
         if (history == null || history.isEmpty()) {
             return null;
+        }
+        for (MesProcessPoolActiveOrderDO order : history) {
+            if ("CLOSED".equals(order.getActiveStatus())) {
+                throw exception(cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants
+                        .PRO_PROCESS_POOL_ACTIVE_ORDER_CLOSED_ADMISSION_FORBIDDEN, order.getId());
+            }
         }
         if (history.size() > 1) {
             throw exception(PRO_PROCESS_POOL_ACTIVE_ORDER_HISTORY_AMBIGUOUS, reqBO.getWorkOrderId(),

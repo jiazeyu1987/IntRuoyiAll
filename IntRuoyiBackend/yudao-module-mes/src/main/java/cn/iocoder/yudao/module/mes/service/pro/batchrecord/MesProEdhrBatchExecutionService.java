@@ -78,6 +78,8 @@ public interface MesProEdhrBatchExecutionService {
 
     EdhrBatchExecutionArchiveRespVO generateArchive(EdhrBatchExecutionArchiveGenerateReqVO reqVO);
 
+    EdhrBatchExecutionArchiveDownloadRespVO renderPrintPdf(Long batchExecutionId);
+
     EdhrBatchExecutionArchiveRespVO getLatestArchive(Long batchExecutionId);
 
     EdhrBatchExecutionArchiveDownloadRespVO downloadArchive(Long id);
