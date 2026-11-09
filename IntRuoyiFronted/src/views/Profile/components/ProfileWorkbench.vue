@@ -232,7 +232,7 @@ const operationEntries = computed(() => {
     entries.push({ key: 'production', title: '一线生产填写', action: '去填写生产',
       description: '选择本人负责的活跃订单及工序，填写生产数量、用料和记录，使用本人签名提交后形成初始分配与生产进度；生产组长仍须签名复核，完工前须具备正式复核记录。',
       path: '/mes/pro/feedback/edhr-batch-production-fill' })
-    if (userStore.permissions.has('*:*:*') || userStore.roles.some(role => ['pqc_permission', 'pqc_leader_permission'].includes(role))) {
+    if (userStore.permissions.has('*:*:*') || userStore.roles.some(role => ['pqc_permission', 'pqc_leader_permission', 'pqc_packaging_leader_permission'].includes(role))) {
       entries.push({ key: 'pqc', title: '一线PQC首检与巡检', action: '去检验',
         description: '选择本人负责的活跃订单，按规程完成首检；需要巡检时先创建巡检轮次，再逐项填写并签名提交，待PQC组长复核。',
         path: '/mes/pro/feedback/edhr-batch-pqc-fill' })

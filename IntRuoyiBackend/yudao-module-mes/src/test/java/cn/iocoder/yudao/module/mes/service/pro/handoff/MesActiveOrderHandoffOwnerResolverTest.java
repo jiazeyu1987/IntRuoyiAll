@@ -220,13 +220,13 @@ class MesActiveOrderHandoffOwnerResolverTest {
   }
 
   @org.junit.jupiter.params.ParameterizedTest
-  @org.junit.jupiter.params.provider.ValueSource(strings={"create","pqc_permission","pqc_leader_permission","none","disabled","foreign"})
+  @org.junit.jupiter.params.provider.ValueSource(strings={"create","pqc_permission","pqc_leader_permission","pqc_packaging_leader_permission","none","disabled","foreign"})
   void pqcSubmitterRequiresPqcRoleAndStrictIdentityWithoutCreatePermission(String grant){
    var user=AdminUserDO.builder().id(344L).status(0).build();user.setTenantId(1L);when(users.selectById(344L)).thenReturn(user);
    if("create".equals(grant))when(permissions.hasAnyPermissions(344L,"mes:pro-feedback:create")).thenReturn(true);
-   if(Set.of("pqc_permission","pqc_leader_permission").contains(grant))when(permissions.hasAnyRoles(344L,"pqc_permission","pqc_leader_permission")).thenReturn(true);
+   if(Set.of("pqc_permission","pqc_leader_permission","pqc_packaging_leader_permission").contains(grant))when(permissions.hasAnyRoles(344L,"pqc_permission","pqc_leader_permission","pqc_packaging_leader_permission")).thenReturn(true);
    if("disabled".equals(grant))user.setStatus(1);if("foreign".equals(grant))user.setTenantId(2L);
-   if(Set.of("pqc_permission","pqc_leader_permission").contains(grant))assertDoesNotThrow(()->service.qualifiedPqcSubmitter(344L));
+   if(Set.of("pqc_permission","pqc_leader_permission","pqc_packaging_leader_permission").contains(grant))assertDoesNotThrow(()->service.qualifiedPqcSubmitter(344L));
    else assertThrows(RuntimeException.class,()->service.qualifiedPqcSubmitter(344L));verifyNoInteractions(scopes);
   }
 

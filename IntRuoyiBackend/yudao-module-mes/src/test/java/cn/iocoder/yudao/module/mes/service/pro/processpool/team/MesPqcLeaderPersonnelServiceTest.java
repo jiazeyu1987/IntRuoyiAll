@@ -11,6 +11,7 @@ import cn.iocoder.yudao.module.system.api.permission.dto.RoleRespDTO;
 import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
 import cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -46,6 +47,16 @@ class MesPqcLeaderPersonnelServiceTest {
     @BeforeEach
     void setUp() {
         service = new MesPqcLeaderPersonnelServiceImpl(scopeMapper, adminUserApi, permissionApi, roleApi);
+        cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.setTenantId(1L);
+        var authority = org.mockito.Mockito.mock(cn.iocoder.yudao.module.system.api.permission.ApprovalAuthorityApi.class);
+        org.mockito.Mockito.lenient().when(authority.lockTenantApprovalAuthority(1L)).thenReturn(
+                new cn.iocoder.yudao.module.system.api.permission.dto.ApprovalAuthorityRevisionDTO(1L, 1L));
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "qualificationAuthority", authority);
+    }
+
+    @AfterEach
+    void clearTenant() {
+        cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.clear();
     }
 
     @Test
@@ -256,6 +267,7 @@ class MesPqcLeaderPersonnelServiceTest {
                 .enabled(Boolean.TRUE)
                 .build();
         when(scopeMapper.selectById(9001L)).thenReturn(scope);
+        when(scopeMapper.updateById(any(MesProcessPoolTeamLeaderScopeDO.class))).thenReturn(1);
 
         service.updatePersonnelStatus(MesPqcLeaderPersonnelStatusUpdateReqBO.builder()
                 .leaderUserId(3001L)

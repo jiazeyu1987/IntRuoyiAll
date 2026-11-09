@@ -306,7 +306,7 @@ public class MesProcessPoolPqcInspectionCorrectionService {
         var previousReview = reviewMapper.selectLatestByEventIdForUpdate(event.getId());
         // Existing reviewed evidence keeps the established leader correction authority.
         if (previousReview != null || !Objects.equals(actor, event.getActualEmployeeId())) {
-            if (!permissionApi.hasAnyRolesOrSuperAdmin(actor, "pqc_leader_permission")) {
+            if (!permissionApi.hasAnyRolesOrSuperAdmin(actor, "pqc_leader_permission", "pqc_packaging_leader_permission")) {
                 throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "已复核或他人的巡检记录须由PQC组长更正");
             }
             scopeService.assertCanAccessEmployee(actor, MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PQC, event.getActualEmployeeId());

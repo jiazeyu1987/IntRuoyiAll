@@ -49,7 +49,7 @@ public class MesActiveOrderHandoffOwnerResolver {
 
     public void qualifiedPqcSubmitter(Long id) {
         identityUser(id);
-        require(permissions.hasAnyRoles(id,"pqc_permission","pqc_leader_permission"),"PQC本人提交缺少正式岗位办理权限");
+        require(permissions.hasAnyRoles(id,"pqc_permission","pqc_leader_permission","pqc_packaging_leader_permission"),"PQC本人提交缺少正式岗位办理权限");
     }
 
     private void identityUser(Long id) {
