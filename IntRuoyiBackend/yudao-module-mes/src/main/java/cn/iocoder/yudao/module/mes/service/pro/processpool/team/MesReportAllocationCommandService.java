@@ -57,6 +57,7 @@ import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_P
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_REPORT_ALLOCATION_VERSION_CONFLICT;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_REPORT_CONFIRMATION_PRODUCTION_LEADER_REQUIRED;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_REVISION_EVENT_NOT_EXISTS;
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_SUBMISSION_REVIEW_CONTEXT_CHANGED;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_SUBMISSION_REVIEW_REJECT_REMARK_REQUIRED;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_SUBMISSION_REVIEW_SIGNATURE_REQUIRED;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_SUBMISSION_REVIEW_TERMINAL_EXISTS;
@@ -1406,7 +1407,7 @@ public class MesReportAllocationCommandService {
                 || !Objects.equals(review == null ? 0 : review.getReviewRound(), expected.getReviewRound())
                 || !Objects.equals(review == null ? "PENDING" : review.getReviewStatus(), expected.getReviewStatus())
                 || !Objects.equals(state.getCurrentVersion(), expected.getAllocationVersion())) {
-            throw new IllegalStateException("生产正文、修订或复核轮次已变化，请刷新后重新复核");
+            throw exception(PRO_PROCESS_POOL_SUBMISSION_REVIEW_CONTEXT_CHANGED, "生产");
         }
     }
 

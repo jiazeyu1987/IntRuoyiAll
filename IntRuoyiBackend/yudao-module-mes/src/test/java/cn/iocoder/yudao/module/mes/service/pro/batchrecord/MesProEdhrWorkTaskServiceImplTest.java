@@ -1968,10 +1968,14 @@ class MesProEdhrWorkTaskServiceImplTest extends BaseDbUnitTest {
         for (long id : new long[] {99}) when(adminUserApi.getUser(id))
                 .thenReturn(new AdminUserRespDTO().setId(id).setTenantId(122L).setStatus(0));
         MesProEdhrWorkTaskDO dueTodo = insertFillTask(601L, 2601L, "601")
+                .setReason("补交来料检验资料，保留原件编号")
+                .setRemark("原始指派备注")
                 .setDueTime(now.minusMinutes(1));
         workTaskMapper.updateById(dueTodo);
         MesProEdhrWorkTaskDO dueDoing = insertFillTask(602L, 2602L, "602")
                 .setStatus(MesProEdhrWorkTaskStatus.DOING)
+                .setReason("补齐灭菌检验报告")
+                .setRemark("责任人已开始处理")
                 .setDueTime(now.minusMinutes(5));
         workTaskMapper.updateById(dueDoing);
         MesProEdhrWorkTaskDO futureTodo = insertFillTask(603L, 2603L, "603")
@@ -1990,11 +1994,15 @@ class MesProEdhrWorkTaskServiceImplTest extends BaseDbUnitTest {
         assertEquals(now, overdueTodo.getOverdueAt());
         assertNull(overdueTodo.getCompletedAt());
         assertTrue(overdueTodo.getOverdueReason().contains("逾期自动处理"));
-        assertTrue(overdueTodo.getReason().contains("逾期自动处理"));
+        assertEquals(dueTodo.getReason(), overdueTodo.getReason());
+        assertEquals(dueTodo.getRemark(), overdueTodo.getRemark());
         MesProEdhrWorkTaskDO overdueDoing = workTaskMapper.selectById(dueDoing.getId());
         assertEquals(MesProEdhrWorkTaskStatus.OVERDUE, overdueDoing.getStatus());
         assertEquals(now, overdueDoing.getOverdueAt());
         assertNull(overdueDoing.getCompletedAt());
+        assertEquals(dueDoing.getReason(), overdueDoing.getReason());
+        assertEquals(dueDoing.getRemark(), overdueDoing.getRemark());
+        assertTrue(overdueDoing.getOverdueReason().contains("逾期自动处理"));
         assertEquals(MesProEdhrWorkTaskStatus.TODO, workTaskMapper.selectById(futureTodo.getId()).getStatus());
         assertEquals(MesProEdhrWorkTaskStatus.DONE, workTaskMapper.selectById(doneTask.getId()).getStatus());
         verify(notifyMessageSendApi, org.mockito.Mockito.times(2)).sendSingleMessageToAdmin(any(NotifySendSingleToUserReqDTO.class));

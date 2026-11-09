@@ -19,13 +19,14 @@
     </el-form>
     <template #footer>
       <el-button @click="visible = false">关闭</el-button>
-      <el-button type="primary" :loading="saving" :disabled="loading || failed || !routeId || !taskType || !minutes || !reason.trim()" @click="save">保存</el-button>
+      <el-button v-if="checkPermi(['mes:pro-edhr-work-task-rule:update'])" type="primary" :loading="saving" :disabled="loading || failed || !routeId || !taskType || !minutes || !reason.trim()" @click="save">保存</el-button>
     </template>
   </Dialog>
 </template>
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import request from '@/config/axios'
+import { checkPermi } from '@/utils/permission'
 import { ProRouteApi, type ProRouteVO } from '@/api/mes/pro/route'
 import { useApprovalCenterInvalidationStore } from '@/store/modules/approvalCenterInvalidation'
 const message = useMessage()

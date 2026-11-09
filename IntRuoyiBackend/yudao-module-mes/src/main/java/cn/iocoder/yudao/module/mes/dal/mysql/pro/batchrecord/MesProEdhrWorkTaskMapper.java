@@ -220,9 +220,7 @@ public interface MesProEdhrWorkTaskMapper extends BaseMapperX<MesProEdhrWorkTask
         return update(new MesProEdhrWorkTaskDO()
                         .setStatus(MesProEdhrWorkTaskStatus.OVERDUE)
                         .setOverdueAt(now)
-                        .setOverdueReason(reason)
-                        .setReason(reason)
-                        .setRemark(reason),
+                        .setOverdueReason(reason),
                 new LambdaUpdateWrapper<MesProEdhrWorkTaskDO>()
                         .apply("tenant_id = {0}", cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId())
                         .eq(MesProEdhrWorkTaskDO::getId, id)

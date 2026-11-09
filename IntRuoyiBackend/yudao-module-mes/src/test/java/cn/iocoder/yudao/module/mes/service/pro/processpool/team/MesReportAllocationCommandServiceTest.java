@@ -1353,8 +1353,14 @@ class MesReportAllocationCommandServiceTest {
             case "allocation"->state.setCurrentVersion(2);
         }
         var command=saveCommand(null,List.of());command.setExpectedReview(displayed);
-        assertThrows(RuntimeException.class,()->service.save(command));
-        assertThrows(RuntimeException.class,()->service.rejectProductionSubmission(1001L,3001L,"old dialog","password",displayed));
+        var confirmFailure = assertThrows(ServiceException.class,()->service.save(command));
+        var returnFailure = assertThrows(ServiceException.class,()->service.rejectProductionSubmission(1001L,3001L,"old dialog","password",displayed));
+        assertEquals(cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_SUBMISSION_REVIEW_CONTEXT_CHANGED.getCode(), confirmFailure.getCode());
+        assertEquals(("status".equals(changed)
+                ? cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_SUBMISSION_REVIEW_TERMINAL_EXISTS
+                : cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_SUBMISSION_REVIEW_CONTEXT_CHANGED).getCode(), returnFailure.getCode());
+        assertTrue(confirmFailure.getMessage().contains("刷新"));
+        assertTrue(returnFailure.getMessage().contains("status".equals(changed) ? "禁止重复" : "刷新"));
         verify(signatureService,never()).recordTeamLeaderReviewSignature(any(),any(),any(),any(),any(),any());
         verify(reviewMapper,never()).insert(any(MesProcessPoolSubmissionReviewDO.class));
         verify(allocationMapper,never()).supersedeCurrentRows(anyCollection(),any());

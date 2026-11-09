@@ -886,8 +886,8 @@ class MesProEdhrReverseTraceServiceTest {
                         .setProcessInspectionStatus(MesProcessPoolActiveOrderCompletionReceiptDO.BACKFILL_STATUS_SUCCESS)
                         .setFormalSourceSnapshotJson(snapshot).setLossConditionFactsJson("[]");
         receipt.setTenantId(tenantId());
-        receipt.setSourceSnapshotHash(cn.hutool.crypto.digest.DigestUtil.sha256Hex(
-                cn.hutool.crypto.digest.DigestUtil.sha256Hex(snapshot) + "|[]"));
+        receipt.setSourceSnapshotHash(cn.iocoder.yudao.module.mes.service.pro.processpool.team
+                .MesTeamLeaderActiveOrderCompletionSourceSnapshotCanonicalizer.sourceSnapshotHash(snapshot, "[]"));
         receipt.setReceiptHash(cn.iocoder.yudao.module.mes.service.pro.processpool.team
                 .MesTeamLeaderActiveOrderCompletionReceiptHash.compute(receipt));
         when(originMapper.selectListByBatchExecutionId(batchId)).thenReturn(List.of(

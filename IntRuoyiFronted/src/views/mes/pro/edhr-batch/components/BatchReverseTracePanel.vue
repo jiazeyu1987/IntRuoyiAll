@@ -884,8 +884,10 @@ onBeforeUnmount(invalidate)
 .batch-reverse-trace-panel__section-title { color: #1f2d3d; font-weight: 600; }
 .batch-reverse-trace-panel__category { min-height: 120px; }
 .batch-reverse-trace-panel__items { display: grid; gap: 6px; }
-.batch-reverse-trace-panel__catalog-item { display: flex; justify-content: space-between; width: 100%; padding: 8px 10px; border: 1px solid #e5e7eb; border-radius: 6px; }
-.batch-reverse-trace-panel__catalog-value { color: #64748b; }
+.batch-reverse-trace-panel__catalog-item { display: flex; justify-content: space-between; width: 100%; height: auto; min-height: 32px; padding: 8px 10px; border: 1px solid #e5e7eb; border-radius: 6px; white-space: normal; text-align: left; }
+.batch-reverse-trace-panel__catalog-item :deep(> span) { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; width: 100%; min-width: 0; }
+.batch-reverse-trace-panel__catalog-item :deep(> span > span:first-child) { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.batch-reverse-trace-panel__catalog-value { flex-shrink: 0; color: #64748b; white-space: nowrap; }
 .batch-reverse-trace-panel__condition { display: flex; align-items: center; gap: 8px; padding: 10px; border: 1px solid #e5e7eb; border-radius: 6px; }
 .batch-reverse-trace-panel__condition-main { display: flex; flex: 1; align-items: center; gap: 8px; min-width: 0; }
 .batch-reverse-trace-panel__condition-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

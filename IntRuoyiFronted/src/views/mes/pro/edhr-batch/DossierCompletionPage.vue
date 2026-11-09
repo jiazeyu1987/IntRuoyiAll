@@ -6,7 +6,7 @@
         <el-descriptions-item label="工单">{{ task.workOrderCode }}</el-descriptions-item>
         <el-descriptions-item label="资料类别">{{ task.categoryLabel }}</el-descriptions-item>
         <el-descriptions-item label="补件要求">{{ task.reason }}</el-descriptions-item>
-        <el-descriptions-item label="状态">{{ task.status === 'DONE' ? '已补齐' : task.status === 'CANCELED' ? '已撤销' : '待补件' }}</el-descriptions-item>
+        <el-descriptions-item label="状态">{{ taskStatusLabels[task.status] ?? task.status }}</el-descriptions-item>
       </el-descriptions>
       <el-upload v-if="task?.writable" class="mt-16px" :show-file-list="false" :disabled="uploading" :http-request="upload" data-dossier-completion-upload>
         <el-button type="primary" :loading="uploading">上传补件资料</el-button>
@@ -23,6 +23,13 @@ import type { UploadRequestOptions } from 'element-plus'
 import { getDossierCompletionTask, type DossierCompletionTask } from '@/api/mes/pro/edhr/dossierCompletion'
 import { uploadActiveOrderDossierFile } from '@/api/mes/pro/processpool/teamLeader'
 const route = useRoute()
+const taskStatusLabels: Record<string, string> = {
+  TODO: '待补件',
+  DOING: '补件中',
+  OVERDUE: '已超期',
+  DONE: '已补齐',
+  CANCELED: '已撤销'
+}
 const task = ref<DossierCompletionTask>()
 const loading = ref(false)
 const uploading = ref(false)

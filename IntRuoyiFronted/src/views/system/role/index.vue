@@ -412,15 +412,20 @@ const selectedCategory = computed(() =>
 )
 
 /** 查询角色列表 */
+let listRequestId = 0
 const getList = async () => {
+  const requestId = ++listRequestId
   clearRoleSelection()
+  list.value = []
+  total.value = 0
   loading.value = true
   try {
-    const data = await RoleApi.getRolePage(queryParams)
+    const data = await RoleApi.getRolePage({ ...queryParams })
+    if (requestId !== listRequestId) return
     list.value = data.list
     total.value = data.total
   } finally {
-    loading.value = false
+    if (requestId === listRequestId) loading.value = false
   }
 }
 

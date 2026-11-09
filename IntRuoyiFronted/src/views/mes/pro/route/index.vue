@@ -34,7 +34,7 @@
     >
       <template #actions>
         <el-dropdown
-          v-if="checkPermi(['mes:pro-route:create', 'mes:pro-route:export'])"
+          v-if="checkPermi(['mes:pro-route:create', 'mes:pro-route:export', 'mes:pro-edhr-work-task-rule:query'])"
           trigger="click"
         >
           <el-button type="primary" plain :loading="exportLoading">
@@ -60,6 +60,12 @@
                 @click="handleExport"
               >
                 <Icon icon="ep:download" class="mr-5px" /> 导出
+              </el-dropdown-item>
+              <el-dropdown-item
+                v-if="checkPermi(['mes:pro-edhr-work-task-rule:query'])"
+                @click="taskDeadlinesRef?.open()"
+              >
+                <Icon icon="ep:timer" class="mr-5px" /> 业务处理时限
               </el-dropdown-item>
             </el-dropdown-menu>
           </template>
@@ -282,6 +288,7 @@
   />
   <!-- 多 Sheet 路线 Excel 导入对话框 -->
   <RouteWorkbookExcelImportForm ref="routeWorkbookExcelImportFormRef" @success="getList" />
+  <RouteTaskDeadlinesDialog ref="taskDeadlinesRef" />
   <Dialog v-model="copyDialogVisible" title="复制工艺路线" width="520px">
     <el-form label-width="96px">
       <el-form-item label="源路线">
@@ -449,6 +456,8 @@ import {
 defineOptions({ name: 'MesProRoute' })
 
 const RouteForm = defineAsyncComponent(() => import('./RouteForm.vue'))
+const RouteTaskDeadlinesDialog = defineAsyncComponent(() => import('./RouteTaskDeadlinesDialog.vue'))
+const taskDeadlinesRef = ref<InstanceType<typeof RouteTaskDeadlinesDialog>>()
 const RouteWorkbookExcelImportForm = defineAsyncComponent(
   () => import('./RouteWorkbookExcelImportForm.vue')
 )

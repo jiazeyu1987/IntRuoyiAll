@@ -2150,9 +2150,7 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
             if (updated > 0) {
                 task.setStatus(MesProEdhrWorkTaskStatus.OVERDUE)
                         .setOverdueAt(now)
-                        .setOverdueReason(reason)
-                        .setReason(reason)
-                        .setRemark(reason);
+                        .setOverdueReason(reason);
                 sendOverdueNotify(task);
                 processed++;
             }

@@ -115,4 +115,42 @@ class MesProEdhrBatchExecutionMapperTest extends BaseDbUnitTest {
         batchExecutionMapper.insert(batch);
         return batch;
     }
+
+    @Test
+    void releasedHistoryUsesReleaseTimeAndCurrentTenantTransactionForEveryCandidate() {
+        var start = java.time.LocalDateTime.of(2026, 9, 1, 0, 0);
+        var end = start.plusDays(1);
+        var atStart = insertBatchExecution("HISTORY-START", 40);
+        var atEnd = insertBatchExecution("HISTORY-END", 40);
+        var before = insertBatchExecution("HISTORY-BEFORE", 40);
+        var after = insertBatchExecution("HISTORY-AFTER", 40);
+        var pending = insertBatchExecution("HISTORY-PENDING", 30);
+        var voided = insertBatchExecution("HISTORY-VOID", 60);
+        var foreignRelease = insertBatchExecution("HISTORY-FOREIGN-RELEASE", 40);
+        var times = java.util.Map.of(atStart, start, atEnd, end, before, start.minusSeconds(1),
+                after, end.plusSeconds(1), pending, start, voided, start, foreignRelease, start);
+        var jdbc = new JdbcTemplate(dataSource);
+        assertEquals("H2", jdbc.execute((org.springframework.jdbc.core.ConnectionCallback<String>)
+                connection -> connection.getMetaData().getDatabaseProductName()));
+        for (var entry : times.entrySet()) {
+            var batch = entry.getKey();
+            jdbc.update("UPDATE mes_pro_edhr_batch_execution SET tenant_id=1 WHERE id=?", batch.getId());
+            releaseTransactionMapper.insert(new MesProEdhrReleaseTransactionDO()
+                    .setReleaseCode("REL-" + batch.getBatchExecutionCode()).setBatchExecutionId(batch.getId())
+                    .setBatchExecutionCode(batch.getBatchExecutionCode()).setBatchCode(batch.getBatchCode())
+                    .setReleaseStatus(batch == pending ? "PENDING" : "RELEASED")
+                    .setApprovedAt(entry.getValue()));
+            jdbc.update("UPDATE mes_pro_edhr_release_transaction SET tenant_id=? WHERE batch_execution_id=?",
+                    batch == foreignRelease ? 2L : 1L, batch.getId());
+        }
+        var request = new EdhrBatchExecutionPageReqVO();
+        request.setReleasedOnly(true);
+        request.setReleaseApprovedTime(new java.time.LocalDateTime[]{start, end});
+        request.setPageNo(1);
+        request.setPageSize(10);
+        var result = batchExecutionMapper.selectPage(request);
+        assertEquals(2L, result.getTotal());
+        assertEquals(java.util.List.of(atEnd.getId(), atStart.getId()),
+                result.getList().stream().map(MesProEdhrBatchExecutionDO::getId).toList());
+    }
 }
